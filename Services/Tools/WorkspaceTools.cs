@@ -71,6 +71,22 @@ public class WorkspaceTools
         return $"File updated: {relativePath}";
     }
 
+    public void RenameFolder(string oldRelativePath, string newRelativePath)
+    {
+        EnsureWorkspace();
+
+        var oldFullPath = GetSafeFullPath(oldRelativePath);
+        var newFullPath = GetSafeFullPath(newRelativePath);
+
+        if (!Directory.Exists(oldFullPath))
+            throw new InvalidOperationException($"Folder not found: {oldRelativePath}");
+
+        if (Directory.Exists(newFullPath))
+            throw new InvalidOperationException($"Target folder already exists: {newRelativePath}");
+
+        Directory.Move(oldFullPath, newFullPath);
+    }
+
     private string GetSafeFullPath(string relativePath)
     {
         var fullPath = Path.GetFullPath(Path.Combine(CurrentWorkspacePath, relativePath));

@@ -36,16 +36,16 @@
 
         @if (documents.Any())
         {
-            var index = documents.Count;
+            var versions = Model.Documents.GroupBy(x => x.VersionName)
+       .OrderByDescending(g => g.Key == "draft" ? int.MaxValue : int.TryParse(g.Key.Replace("V", ""), out var n) ? n : 0)
+       .ToList();
 
-            foreach (var doc in documents)
+            foreach (var version in versions)
             {
-                <div class="history @(doc.Id == latestDocument?.Id ? "active" : "")">
-                    <span>📄 Requirement V@index</span>
+                <div class="history @(version.Key == "draft" ? "active" : "")">
+                    <span>📄 Requirement @version.Key</span>
                     <button type="button">View</button>
                 </div>
-
-                index--;
             }
         }
         else
@@ -53,9 +53,13 @@
             <p class="muted">No requirement history yet.</p>
         }
 
-        <button class="btn outline full bottom" type="button">
-            ＋ New Chat
-        </button>
+        <form asp-action="NewChat" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="projectId" value="@Model.Id" />
+            <button class="btn outline full bottom" type="submit">
+                ＋ New Chat
+            </button>
+        </form>
     </aside>
 
     <section class="card chat">
@@ -105,9 +109,13 @@
 
         <pre>@(latestDocument?.Content ?? "## 1. Tổng quan\nChưa có tài liệu.")</pre>
 
-        <button class="btn approve full" type="button">
-            I approve this requirement
-        </button>
+        <form asp-action="Approve" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="projectId" value="@Model.Id" />
+            <button class="btn approve full" type="submit">
+                I approve this requirement
+            </button>
+        </form>
 
         <p>BA sẽ chuyển tài liệu này cho team để bắt đầu triển khai.</p>
     </aside>
