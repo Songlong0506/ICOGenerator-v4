@@ -10,6 +10,15 @@
     var conversations = Model.Conversations
         .OrderBy(x => x.CreatedAt)
         .ToList();
+
+    var draftDocs = Model.Documents
+   .Where(x => x.VersionName == "draft")
+   .OrderBy(x => x.FileName)
+   .ToList();
+
+    var brd = draftDocs.FirstOrDefault(x => x.FileName == "BRD.md");
+    var srs = draftDocs.FirstOrDefault(x => x.FileName == "SRS.md");
+    var userStories = draftDocs.FirstOrDefault(x => x.FileName == "UserStories.md");
 }
 
 <div class="breadcrumb">
@@ -105,18 +114,45 @@
     </section>
 
     <aside class="card requirement">
-        <h3>Requirement (BA Draft)</h3>
+        <h3>Requirement Draft</h3>
 
-        <pre>@(latestDocument?.Content ?? "## 1. Tổng quan\nChưa có tài liệu.")</pre>
+        <div class="requirement-tabs">
+            <button type="button" onclick="showReqTab('brd')">BRD</button>
+            <button type="button" onclick="showReqTab('srs')">SRS</button>
+            <button type="button" onclick="showReqTab('stories')">User Stories</button>
+        </div>
+
+        <div id="req-brd" class="req-doc">
+            <h4>BRD.md</h4>
+            <pre>@(brd?.Content ?? "Chưa có BRD.")</pre>
+        </div>
+
+        <div id="req-srs" class="req-doc hidden">
+            <h4>SRS.md</h4>
+            <pre>@(srs?.Content ?? "Chưa có SRS.")</pre>
+        </div>
+
+        <div id="req-stories" class="req-doc hidden">
+            <h4>UserStories.md</h4>
+            <pre>@(userStories?.Content ?? "Chưa có User Stories.")</pre>
+        </div>
 
         <form asp-action="Approve" method="post">
             @Html.AntiForgeryToken()
             <input type="hidden" name="projectId" value="@Model.Id" />
+
             <button class="btn approve full" type="submit">
                 I approve this requirement
             </button>
         </form>
 
-        <p>BA sẽ chuyển tài liệu này cho team để bắt đầu triển khai.</p>
+        <p>BA chỉ chuyển requirement cho Developer sau khi bạn approve.</p>
     </aside>
+
+    <script>
+            function showReqTab(name) {
+                document.querySelectorAll('.req-doc').forEach(x => x.classList.add('hidden'));
+                document.getElementById('req-' + name).classList.remove('hidden');
+            }
+    </script>
 </div>

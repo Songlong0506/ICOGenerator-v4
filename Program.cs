@@ -20,6 +20,7 @@ builder.Services.AddScoped<DynamicToolInvoker>();
 builder.Services.AddScoped<LocalLlmClient>();
 builder.Services.AddScoped<AgentPromptBuilder>();
 builder.Services.AddScoped<AgentRunService>();
+builder.Services.AddScoped<BARequirementService>();
 
 var app = builder.Build();
 

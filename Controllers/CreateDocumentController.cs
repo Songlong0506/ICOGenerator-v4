@@ -3,20 +3,24 @@ using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+
 namespace ICOGenerator.Controllers;
 
 public class CreateDocumentController : Controller
 {
     private readonly AppDbContext _db;
+    private readonly BARequirementService _baRequirementService;
     private readonly AgentRunService _agentRunService;
     private readonly IConfiguration _configuration;
 
     public CreateDocumentController(
         AppDbContext db,
+        BARequirementService baRequirementService,
         AgentRunService agentRunService,
         IConfiguration configuration)
     {
         _db = db;
+        _baRequirementService = baRequirementService;
         _agentRunService = agentRunService;
         _configuration = configuration;
     }
@@ -24,7 +28,7 @@ public class CreateDocumentController : Controller
     public async Task<IActionResult> Index(Guid projectId)
     {
         var project = await _db.Projects
-            .Include(x => x.Documents.OrderByDescending(d => d.CreatedAt))
+            .Include(x => x.Documents)
             .Include(x => x.Conversations.OrderBy(c => c.CreatedAt))
                 .ThenInclude(x => x.Agent)
             .FirstOrDefaultAsync(x => x.Id == projectId);
@@ -39,40 +43,8 @@ public class CreateDocumentController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Chat(Guid projectId, string message)
     {
-        if (string.IsNullOrWhiteSpace(message))
-            return RedirectToAction(nameof(Index), new { projectId });
-
-        var ba = await _db.Agents.FirstAsync(x => x.Name == "BA");
-
-        _db.AgentConversations.Add(new AgentConversation
-        {
-            ProjectId = projectId,
-            AgentId = ba.Id,
-            Role = "user",
-            Message = message,
-            TokenUsed = EstimateTokens(message)
-        });
-
-        await _db.SaveChangesAsync();
-
-        var result = await _agentRunService.RunAsync(projectId, ba.Id, message);
-
-        var documentCount = await _db.ProjectDocuments
-            .CountAsync(x => x.ProjectId == projectId && x.Folder == "01_Requirement");
-
-        _db.ProjectDocuments.Add(new ProjectDocument
-        {
-            ProjectId = projectId,
-            AgentId = ba.Id,
-            Folder = "docs/draft",
-            VersionName = "draft",
-            IsApproved = false,
-            FileName = $"Requirement_{DateTime.Now:yyyyMMdd_HHmmss}.md",
-            Content = result,
-            TokenUsed = EstimateTokens(result)
-        });
-
-        await _db.SaveChangesAsync();
+        if (!string.IsNullOrWhiteSpace(message))
+            await _baRequirementService.GenerateOrUpdateDraftAsync(projectId, message);
 
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -92,17 +64,13 @@ public class CreateDocumentController : Controller
         if (!draftDocs.Any())
             return RedirectToAction(nameof(Index), new { projectId });
 
-        var nextVersionNumber = project.Documents
+        var nextVersion = project.Documents
             .Where(x => x.IsApproved && x.VersionName.StartsWith("V"))
-            .Select(x =>
-            {
-                var numberText = x.VersionName.Replace("V", "");
-                return int.TryParse(numberText, out var n) ? n : 0;
-            })
+            .Select(x => int.TryParse(x.VersionName.Replace("V", ""), out var n) ? n : 0)
             .DefaultIfEmpty(0)
             .Max() + 1;
 
-        var versionName = $"V{nextVersionNumber}";
+        var versionName = $"V{nextVersion}";
 
         foreach (var doc in draftDocs)
         {
@@ -111,56 +79,62 @@ public class CreateDocumentController : Controller
             doc.IsApproved = true;
         }
 
-        var workspaceRoot = GetProjectWorkspacePath(project.Name);
-
-        var draftPath = Path.Combine(workspaceRoot, "docs", "draft");
-        var versionPath = Path.Combine(workspaceRoot, "docs", versionName);
-
-        if (Directory.Exists(draftPath))
-        {
-            if (Directory.Exists(versionPath))
-                Directory.Delete(versionPath, true);
-
-            Directory.Move(draftPath, versionPath);
-        }
+        RenameDraftFolder(project.Name, versionName);
 
         await _db.SaveChangesAsync();
 
-        return RedirectToAction(nameof(Index), new { projectId });
+        var dev = await _db.Agents.FirstOrDefaultAsync(x => x.Name == "Developer");
+
+        if (dev != null)
+        {
+            var requirement = string.Join("\n\n---\n\n", draftDocs.Select(x =>
+                $"# {x.FileName}\n\n{x.Content}"));
+
+            await _agentRunService.RunAsync(
+                projectId,
+                dev.Id,
+                $"""
+Requirement đã được user approve.
+
+Version: {versionName}
+
+Nhiệm vụ của bạn:
+- Đọc requirement bên dưới
+- Sinh code theo requirement
+- Build/test nếu có thể
+- Không sửa requirement
+
+{requirement}
+""");
+        }
+
+        return RedirectToAction("Index", "ManageAgent", new { projectId });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> NewChat(Guid projectId)
+    public IActionResult NewChat(Guid projectId)
     {
-        var project = await _db.Projects.FirstAsync(x => x.Id == projectId);
-
-        var workspaceRoot = GetProjectWorkspacePath(project.Name);
-        var draftPath = Path.Combine(workspaceRoot, "docs", "draft");
-
-        if (Directory.Exists(draftPath))
-            Directory.Delete(draftPath, true);
-
-        Directory.CreateDirectory(draftPath);
-
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
-    private static int EstimateTokens(string text)
+    private void RenameDraftFolder(string projectName, string versionName)
     {
-        return Math.Max(1, text.Length / 4);
-    }
+        var root = _configuration["AgentWorkspace:RootPath"]
+            ?? throw new InvalidOperationException("AgentWorkspace:RootPath is missing.");
 
-    private string GetProjectWorkspacePath(string projectName)
-    {
-        var rootPath = _configuration["AgentWorkspace:RootPath"];
+        var projectFolder = MakeSafeFolderName(projectName);
 
-        if (string.IsNullOrWhiteSpace(rootPath))
-            throw new InvalidOperationException("AgentWorkspace:RootPath is missing.");
+        var draftPath = Path.Combine(root, projectFolder, "docs", "draft");
+        var versionPath = Path.Combine(root, projectFolder, "docs", versionName);
 
-        var safeProjectName = MakeSafeFolderName(projectName);
+        if (!Directory.Exists(draftPath))
+            return;
 
-        return Path.GetFullPath(Path.Combine(rootPath, safeProjectName));
+        if (Directory.Exists(versionPath))
+            Directory.Delete(versionPath, true);
+
+        Directory.Move(draftPath, versionPath);
     }
 
     private static string MakeSafeFolderName(string name)
