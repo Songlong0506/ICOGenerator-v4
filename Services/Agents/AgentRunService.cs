@@ -67,9 +67,17 @@ public class AgentRunService
         return "Stopped because max steps reached.";
     }
 
-    private async Task SaveConversation(Guid projectId, Guid agentId, string message)
+    private async Task SaveConversation(Guid projectId, Guid agentId, string message, string role = "assistant")
     {
-        _db.AgentConversations.Add(new AgentConversation { ProjectId = projectId, AgentId = agentId, Message = message, TokenUsed = Math.Max(1, message.Length / 4) });
+        _db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = projectId,
+            AgentId = agentId,
+            Role = role,
+            Message = message,
+            TokenUsed = Math.Max(1, message.Length / 4)
+        });
+
         await _db.SaveChangesAsync();
     }
 }
