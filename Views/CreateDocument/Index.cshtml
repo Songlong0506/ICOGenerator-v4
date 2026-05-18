@@ -1,24 +1,22 @@
 @model Project
 
 @{
-    var documents = Model.Documents
-        .OrderByDescending(x => x.CreatedAt)
-        .ToList();
-
+    var documents = Model.Documents.OrderByDescending(x => x.CreatedAt).ToList();
     var latestDocument = documents.FirstOrDefault();
+    var conversations = Model.Conversations.OrderBy(x => x.CreatedAt).ToList();
+    var draftDocs = Model.Documents.Where(x => x.VersionName == "draft").OrderBy(x => x.FileName).ToList();
+    var selectedVersion = ViewBag.SelectedVersion as string ?? "draft";
+    var selectedDocs = Model.Documents.Where(x => x.VersionName == selectedVersion)
+    .OrderBy(x => x.FileName)
+    .ToList();
 
-    var conversations = Model.Conversations
-        .OrderBy(x => x.CreatedAt)
-        .ToList();
-
-    var draftDocs = Model.Documents
-   .Where(x => x.VersionName == "draft")
-   .OrderBy(x => x.FileName)
-   .ToList();
-
-    var brd = draftDocs.FirstOrDefault(x => x.FileName == "BRD.md");
-    var srs = draftDocs.FirstOrDefault(x => x.FileName == "SRS.md");
-    var userStories = draftDocs.FirstOrDefault(x => x.FileName == "UserStories.md");
+    var brd = selectedDocs.FirstOrDefault(x => x.FileName == "BRD.md");
+    var srs = selectedDocs.FirstOrDefault(x => x.FileName == "SRS.md");
+    var userStories = selectedDocs.FirstOrDefault(x => x.FileName == "UserStories.md");
+    var versions = Model.Documents.GroupBy(x => x.VersionName)
+    .OrderByDescending(g => g.Key == "draft" ? int.MaxValue :
+        int.TryParse(g.Key.Replace("V", ""), out var n) ? n : 0)
+    .ToList();
 }
 
 <div class="breadcrumb">
@@ -43,17 +41,19 @@
 
         <input class="search full" placeholder="Search in history" />
 
-        @if (documents.Any())
+        @if (versions.Any())
         {
-            var versions = Model.Documents.GroupBy(x => x.VersionName)
-       .OrderByDescending(g => g.Key == "draft" ? int.MaxValue : int.TryParse(g.Key.Replace("V", ""), out var n) ? n : 0)
-       .ToList();
-
             foreach (var version in versions)
             {
-                <div class="history @(version.Key == "draft" ? "active" : "")">
+                <div class="history @(version.Key == selectedVersion ? "active" : "")">
                     <span>📄 Requirement @version.Key</span>
-                    <button type="button">View</button>
+
+                    <a class="btn small"
+                           asp-action="Index"
+                           asp-route-projectId="@Model.Id"
+                           asp-route-version="@version.Key">
+                        View
+                    </a>
                 </div>
             }
         }
@@ -114,7 +114,7 @@
     </section>
 
     <aside class="card requirement">
-        <h3>Requirement Draft</h3>
+        <h3>Requirement @selectedVersion</h3>
 
         <div class="requirement-tabs">
             <button type="button" onclick="showReqTab('brd')">BRD</button>
@@ -137,16 +137,23 @@
             <pre>@(userStories?.Content ?? "Chưa có User Stories.")</pre>
         </div>
 
-        <form asp-action="Approve" method="post">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="projectId" value="@Model.Id" />
+        @if (selectedVersion == "draft")
+        {
+            <form asp-action="Approve" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="projectId" value="@Model.Id" />
 
-            <button class="btn approve full" type="submit">
-                I approve this requirement
-            </button>
-        </form>
+                <button class="btn approve full" type="submit">
+                    I approve this requirement
+                </button>
+            </form>
 
-        <p>BA chỉ chuyển requirement cho Developer sau khi bạn approve.</p>
+            <p>BA chỉ chuyển requirement cho Developer sau khi bạn approve.</p>
+        }
+        else
+        {
+            <p class="muted">Version này đã được approve, chỉ dùng để xem lại.</p>
+        }
     </aside>
 
     <script>

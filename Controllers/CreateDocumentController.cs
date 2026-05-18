@@ -25,7 +25,7 @@ public class CreateDocumentController : Controller
         _configuration = configuration;
     }
 
-    public async Task<IActionResult> Index(Guid projectId)
+    public async Task<IActionResult> Index(Guid projectId, string? version = null)
     {
         var project = await _db.Projects
             .Include(x => x.Documents)
@@ -35,6 +35,23 @@ public class CreateDocumentController : Controller
 
         if (project == null)
             return RedirectToAction("Index", "Projects");
+
+        var selectedVersion = version;
+
+        if (string.IsNullOrWhiteSpace(selectedVersion))
+        {
+            selectedVersion = project.Documents
+                .Any(x => x.VersionName == "draft")
+                    ? "draft"
+                    : project.Documents
+                        .Where(x => x.VersionName.StartsWith("V"))
+                        .OrderByDescending(x =>
+                            int.TryParse(x.VersionName.Replace("V", ""), out var n) ? n : 0)
+                        .Select(x => x.VersionName)
+                        .FirstOrDefault();
+        }
+
+        ViewBag.SelectedVersion = selectedVersion ?? "draft";
 
         return View(project);
     }
