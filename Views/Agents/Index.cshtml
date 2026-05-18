@@ -1,0 +1,166 @@
+@model List<Agent>
+@{
+    var selected = ViewBag.Selected as Agent ?? Model.FirstOrDefault();
+    var tools = ViewBag.Tools as List<ToolDefinition> ?? new();
+    var models = ViewBag.Models as List<AiModel> ?? new();
+}
+
+<div class="page-head">
+    <div>
+        <h1>Agents</h1>
+        <p>Manage and configure your AI agents</p>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert success">@TempData["Success"]</div>
+}
+
+<div class="grid agents-grid">
+    <section>
+        <div class="card">
+            <h3>All Agents (@Model.Count)</h3>
+            <input class="search full" placeholder="Search agents..." />
+
+            @foreach (var a in Model)
+            {
+                <a class="agent-item @(selected?.Id == a.Id ? "active" : "")" asp-action="Index" asp-route-id="@a.Id">
+                    <span class="circle" style="background:@a.Color"></span>
+                    <div>
+                        <b>@a.Name</b><br />
+                        <small>@a.RoleTitle</small>
+                    </div>
+                    <span class="badge @(a.Status == AgentStatus.Active ? "green" : "gray")">@a.Status</span>
+                </a>
+            }
+        </div>
+
+        <div class="card stats">
+            <h3>Agent Overview</h3>
+            <div>
+                <b>@Model.Count</b>
+                <span>Total Agents</span>
+            </div>
+            <div>
+                <b>@Model.Count(x => x.Status == AgentStatus.Active)</b>
+                <span>Active Agents</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="card detail">
+        @if (selected != null)
+        {
+            var enabledToolIds = selected.AgentTools.Select(x => x.ToolDefinitionId).ToHashSet();
+
+            <form asp-action="Update" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Id" value="@selected.Id" />
+
+                <div class="agent-header">
+                    <span class="big-circle" style="background:@selected.Color"></span>
+                    <div>
+                        <h2>@selected.Name</h2>
+                        <p>@selected.Description</p>
+                    </div>
+                    <button type="submit" class="btn primary">Save Changes</button>
+                </div>
+
+                <div class="tabs">
+                    <b>General</b>
+                    <b>Instruction</b>
+                    <b>Tools</b>
+                    <b>Model</b>
+                </div>
+
+                <div class="form-grid two">
+                    <div>
+                        <label>Name</label>
+                        <input name="Name" value="@selected.Name" required />
+                    </div>
+                    <div>
+                        <label>Role / Title</label>
+                        <input name="RoleTitle" value="@selected.RoleTitle" />
+                    </div>
+                </div>
+
+                <label>Description</label>
+                <textarea name="Description" rows="3">@selected.Description</textarea>
+
+                <div class="form-grid three">
+                    <div>
+                        <label>Status</label>
+                        <select name="Status">
+                            @foreach (var status in Enum.GetValues<AgentStatus>())
+                            {
+                                <option value="@status" selected="@(selected.Status == status)">@status</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label>Color</label>
+                        <input type="color" name="Color" value="@selected.Color" />
+                    </div>
+                    <div>
+                        <label>Temperature</label>
+                        <input type="number" step="0.1" min="0" max="2" name="Temperature" value="@selected.Temperature" />
+                    </div>
+                </div>
+
+                <h3>Instruction</h3>
+                <textarea name="Instruction" rows="8">@selected.Instruction</textarea>
+
+                <h3>Tools</h3>
+                <p class="muted">Tick tools that this agent can use. Untick to remove permission.</p>
+
+                <div class="tool-grid">
+                    @foreach (var t in tools)
+                    {
+                        var enabled = enabledToolIds.Contains(t.Id);
+                        <label class="tool-card selectable @(enabled ? "enabled" : "")">
+                            <input class="tool-checkbox" type="checkbox" name="ToolDefinitionIds" value="@t.Id" checked="@enabled" />
+                            <div class="tool-title">
+                                <b>@t.DisplayName</b>
+                                <span class="badge @(enabled ? "green" : "gray")">@(enabled ? "Enabled" : "Disabled")</span>
+                            </div>
+                            <p>@t.Description</p>
+                            <small>@t.ServiceType.@t.MethodName</small>
+                        </label>
+                    }
+                </div>
+
+                <h3>Model</h3>
+                <select name="AiModelId">
+                    <option value="">-- No model --</option>
+                    @foreach (var m in models)
+                    {
+                        <option value="@m.Id" selected="@(selected.AiModelId == m.Id)">@m.Name (@m.ModelId)</option>
+                    }
+                </select>
+            </form>
+        }
+    </section>
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.tool-checkbox').forEach(function (checkbox) {
+            checkbox.addEventListener('change', function () {
+                const card = checkbox.closest('.tool-card');
+                const badge = card.querySelector('.badge');
+                if (checkbox.checked) {
+                    card.classList.add('enabled');
+                    badge.classList.remove('gray');
+                    badge.classList.add('green');
+                    badge.textContent = 'Enabled';
+                } else {
+                    card.classList.remove('enabled');
+                    badge.classList.remove('green');
+                    badge.classList.add('gray');
+                    badge.textContent = 'Disabled';
+                }
+            });
+        });
+    </script>
+}

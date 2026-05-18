@@ -1,0 +1,16 @@
+@model Project
+<div class="breadcrumb">Projects › @Model.Name › <b>Create Document</b></div>
+<div class="page-head"><div><h1>Create Document</h1><p>Chat with BA to define and capture requirements</p></div><div class="card status"><span>Requirement Status</span><b>Draft</b></div></div>
+<div class="grid doc-grid">
+    <aside class="card">
+        <h3>History</h3><input class="search full" placeholder="Search in history" />
+        <div class="history active">📄 Requirement V3 <button>View</button></div><div class="history">📄 Requirement V2 <button>View</button></div>
+        <div class="history">📄 Requirement V1 <button>View</button></div><button class="btn outline full bottom">＋ New Chat</button>
+    </aside>
+    <section class="card chat">
+        <div class="msg ba"><b>BA</b><p>Xin chào! Tôi là Business Analyst. Bạn có thể mô tả ngắn gọn ý tưởng dự án không?</p></div><div class="msg you"><p>Tôi muốn xây dựng một website thương mại điện tử bán đồ công nghệ.</p></div>@if(TempData["AgentResult"] != null){
+        <div class="msg ba"><b>BA</b><pre>@TempData["AgentResult"]</pre></div>
+    }
+    <form asp-action="Chat" method="post" class="chatbox"><input type="hidden" name="projectId" value="@Model.Id" /><input name="message" placeholder="Type your message..." /><button class="btn primary">➤</button></form>
+</section><aside class="card requirement"><h3>Requirement (BA Draft)</h3><pre>@(Model.Documents.FirstOrDefault()?.Content ?? "## 1. Tổng quan\nChưa có tài liệu.")</pre><button class="btn approve full">I approve this requirement</button><p>BA sẽ chuyển tài liệu này cho team để bắt đầu triển khai.</p></aside>
+</div>

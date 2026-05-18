@@ -1,0 +1,31 @@
+@model List<Project>
+@{
+    string Badge(ProjectStatus s) => s switch { ProjectStatus.Completed => "badge green", ProjectStatus.InProgress => "badge blue", _ => "badge orange" };
+}
+<div class="page-head"><div><h1>Projects</h1><p>Create and manage your projects</p></div><button class="btn primary" onclick="openModal('newProject')">＋ New Project</button></div>
+<div class="card table-card">
+<table>
+<thead><tr><th>Project Name</th><th>Description</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>
+@foreach (var p in Model)
+{
+<tr>
+<td><b>@p.Name</b></td><td>@p.Description</td><td>@p.CreatedAt.ToString("MMM dd, yyyy")</td><td><span class="@Badge(p.Status)">@p.Status</span></td>
+<td class="actions"><a class="btn outline" asp-controller="CreateDocument" asp-action="Index" asp-route-projectId="@p.Id">Create Document</a><a class="btn" asp-controller="ManageAgent" asp-action="Index" asp-route-projectId="@p.Id">Manage Agent</a>⋮</td>
+</tr>
+}
+</tbody>
+</table>
+<div class="pager">Showing 1 to @Model.Count of @Model.Count projects</div>
+</div>
+<div id="newProject" class="modal-backdrop hidden">
+<form class="modal" asp-action="Create" method="post">
+<button type="button" class="x" onclick="closeModal('newProject')">×</button><h2>New Project</h2><p>Create a new project to get started</p>
+<label>Name *</label><input name="Name" placeholder="e.g E-commerce Web App" required />
+<label>Description</label><input name="Description" placeholder="Short description" />
+<label>Generation Mode *</label><div class="choice"><input type="radio" name="GenerationMode" value="BoschTemplate" checked/> <b>Use Bosch Template</b><br/><span>Use Bosch template as the base structure</span></div><div class="choice"><input type="radio" name="GenerationMode" value="TechLeadDefine"/> <b>Let TechLead Define</b><br/><span>Let TechLead define architecture and structure</span></div>
+<label>Backend Git *</label><input name="BackendGitUrl" placeholder="https://github.com/your-org/backend-repo.git" required />
+<label>Frontend Git *</label><input name="FrontendGitUrl" placeholder="https://github.com/your-org/frontend-repo.git" required />
+<div class="modal-actions"><button type="button" class="btn" onclick="closeModal('newProject')">Cancel</button><button class="btn primary">Create Project</button></div>
+</form>
+</div>

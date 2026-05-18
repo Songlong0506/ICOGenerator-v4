@@ -1,0 +1,80 @@
+using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Registry;
+using Microsoft.EntityFrameworkCore;
+
+namespace ICOGenerator.Data;
+
+public static class DbInitializer
+{
+    public static async Task InitializeAsync(IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.EnsureCreatedAsync();
+
+        var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
+        await discovery.SyncToolDefinitionsAsync();
+
+        if (!await db.AiModels.AnyAsync())
+        {
+            db.AiModels.AddRange(
+                new AiModel { Name = "Qwen3.6 27B Q3_K_S", Provider = "LM Studio", ModelId = "qwen3.6-27b@q3_k_s", Endpoint = "http://127.0.0.1:1234/v1", ApiKey = "lm-studio", IsDefault = true, ContextWindow = 128000 },
+                new AiModel { Name = "GPT-4o", Provider = "OpenAI", ModelId = "gpt-4o", Endpoint = "https://api.openai.com/v1", ApiKey = "sk-...", ContextWindow = 128000 }
+            );
+            await db.SaveChangesAsync();
+        }
+
+        if (!await db.Agents.AnyAsync())
+        {
+            var modelId = await db.AiModels.Where(x => x.IsDefault).Select(x => x.Id).FirstAsync();
+            var agents = new[]
+            {
+                new Agent { Name="BA", RoleTitle="Business Analyst", Color="#8B5CF6", AiModelId=modelId, Description="Thu thập và phân tích yêu cầu, viết tài liệu đặc tả nghiệp vụ.", Instruction="Bạn là BA. Hãy hỏi rõ yêu cầu, tạo BRD, SRS, user stories, acceptance criteria." },
+                new Agent { Name="Tech Lead", RoleTitle="Technical Lead", Color="#3B82F6", AiModelId=modelId, Description="Thiết kế kiến trúc và review kỹ thuật.", Instruction="Bạn là Tech Lead. Hãy đề xuất kiến trúc, phân tích technical risks và review solution." },
+                new Agent { Name="Developer", RoleTitle="Developer", Color="#10B981", AiModelId=modelId, Description="Sinh source code, build và sửa lỗi.", Instruction="Bạn là Developer. Hãy viết code trong workspace, chạy build/test, sửa lỗi đến khi thành công." },
+                new Agent { Name="Tester", RoleTitle="QA Engineer", Color="#2563EB", AiModelId=modelId, Description="Viết test cases và kiểm thử.", Instruction="Bạn là Tester. Hãy tạo test cases, kiểm tra acceptance criteria và report bugs." },
+                new Agent { Name="UI/UX", RoleTitle="Designer", Color="#F97316", AiModelId=modelId, Description="Thiết kế flow và wireframe.", Instruction="Bạn là UI/UX designer. Hãy tạo user flow, wireframe notes và UI guideline." },
+                new Agent { Name="System", RoleTitle="System Agent", Color="#64748B", AiModelId=modelId, Status=AgentStatus.Inactive, Description="System orchestration agent.", Instruction="System orchestration agent." }
+            };
+            db.Agents.AddRange(agents);
+            await db.SaveChangesAsync();
+
+            await AssignDefaultToolsAsync(db);
+        }
+
+        if (!await db.Projects.AnyAsync())
+        {
+            var p = new Project { Name="E-commerce Web App", Description="Online store with product management, cart, payment...", Status=ProjectStatus.InProgress, CreatedAt=new DateTime(2024,5,20) };
+            db.Projects.AddRange(p,
+                new Project { Name="Task Management App", Description="Project management tool for teams", Status=ProjectStatus.Planning, CreatedAt=new DateTime(2024,5,18) },
+                new Project { Name="AI Chat Platform", Description="Chat platform with AI assistant", Status=ProjectStatus.InProgress, CreatedAt=new DateTime(2024,5,15) },
+                new Project { Name="Fitness Tracking App", Description="Mobile app for tracking workouts and health", Status=ProjectStatus.Completed, CreatedAt=new DateTime(2024,5,10) },
+                new Project { Name="Hotel Booking System", Description="Booking system for hotels and accommodations", Status=ProjectStatus.Planning, CreatedAt=new DateTime(2024,5,5) });
+            await db.SaveChangesAsync();
+
+            var ba = await db.Agents.FirstAsync(x => x.Name == "BA");
+            db.ProjectDocuments.Add(new ProjectDocument { ProjectId=p.Id, AgentId=ba.Id, Folder="01_Requirement", FileName="01_Project_Overview.md", TokenUsed=4250, Content="# Tổng quan dự án\nDự án E-commerce Web App là nền tảng thương mại điện tử cho phép người dùng xem sản phẩm, thêm vào giỏ hàng, thanh toán và quản lý đơn hàng.\n\n## Mục tiêu\n- Cung cấp trải nghiệm mua sắm trực tuyến mượt mà\n- Quản lý sản phẩm, đơn hàng, người dùng hiệu quả\n- Hỗ trợ thanh toán đa dạng" });
+            db.AgentConversations.Add(new AgentConversation { ProjectId=p.Id, AgentId=ba.Id, Message="Đã phân tích yêu cầu và tạo tài liệu tổng quan dự án.", TokenUsed=4250 });
+            await db.SaveChangesAsync();
+        }
+    }
+
+    private static async Task AssignDefaultToolsAsync(AppDbContext db)
+    {
+        var all = await db.ToolDefinitions.ToListAsync();
+        async Task Assign(string agentName, params string[] toolNames)
+        {
+            var agent = await db.Agents.FirstAsync(x => x.Name == agentName);
+            foreach (var tool in all.Where(x => toolNames.Contains(x.Name)))
+                db.AgentTools.Add(new AgentTool { AgentId = agent.Id, ToolDefinitionId = tool.Id });
+        }
+
+        await Assign("BA", "ListFiles", "ReadFile", "WriteFile", "SearchFiles");
+        await Assign("Tech Lead", "ListFiles", "ReadFile", "WriteFile", "GitDiff", "GitStatus");
+        await Assign("Developer", "ListFiles", "ReadFile", "WriteFile", "ReplaceInFile", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch");
+        await Assign("Tester", "ListFiles", "ReadFile", "WriteFile", "RunCommand");
+        await Assign("UI/UX", "WriteFile", "ReadFile", "ListFiles");
+        await db.SaveChangesAsync();
+    }
+}
