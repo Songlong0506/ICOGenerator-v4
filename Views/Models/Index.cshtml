@@ -1,7 +1,250 @@
+@using System.Text.Encodings.Web
 @model List<AiModel>
-<div class="page-head"><div><h1>AI Models</h1><p>Manage and configure AI models used in your agents.</p></div><button class="btn primary" onclick="openModal('addModel')">＋ Add Model</button></div>
+
+<style>
+    .inline-form {
+        display: inline;
+    }
+
+    .link-btn {
+        background: transparent;
+        border: 0;
+        color: #6d28d9;
+        cursor: pointer;
+        font-weight: 700;
+    }
+
+    .icon-btn {
+        border: 1px solid #dbe2ea;
+        background: white;
+        border-radius: 8px;
+        padding: 8px 11px;
+        cursor: pointer;
+    }
+
+        .icon-btn.danger {
+            color: #dc2626;
+        }
+
+    .checkbox-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+        .checkbox-line input {
+            width: auto;
+        }
+
+    .alert.error {
+        color: #b91c1c;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+    }
+</style>
+
+<div class="page-head">
+    <div>
+        <h1>AI Models</h1>
+        <p>Manage and configure AI models used in your agents.</p>
+    </div>
+
+    <button class="btn primary" onclick="openModal('addModel')" type="button">
+        ＋ Add Model
+    </button>
+</div>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert error">@TempData["Error"]</div>
+}
+
 <input class="search" placeholder="Search models..." />
-<div class="card table-card"><table><thead><tr><th>Model Name</th><th>Provider</th><th>Model ID</th><th>Context Window</th><th>Status</th><th>Default</th><th>Actions</th></tr></thead><tbody>
-@foreach(var m in Model){<tr><td><b>@m.Name</b></td><td>@m.Provider</td><td>@m.ModelId</td><td>@m.ContextWindow.ToString("N0")</td><td><span class="badge green">@(m.IsActive ? "Active" : "Inactive")</span></td><td>@(m.IsDefault ? "★" : "-")</td><td>✎ ⋯</td></tr>}
-</tbody></table></div>
-<div id="addModel" class="modal-backdrop hidden"><form class="modal" asp-action="Create" method="post"><button type="button" class="x" onclick="closeModal('addModel')">×</button><h2>Add Model</h2><label>Model *</label><input name="Name" required placeholder="Qwen3.6 27B"/><label>Provider *</label><input name="Provider" value="LM Studio"/><label>Model ID *</label><input name="ModelId" required placeholder="qwen3.6-27b@q3_k_s"/><label>Endpoint *</label><input name="Endpoint" required value="http://127.0.0.1:1234/v1"/><label>ApiKey *</label><input name="ApiKey" value="lm-studio"/><label>Context Window</label><input name="ContextWindow" type="number" value="128000"/><label><input name="IsDefault" type="checkbox" value="true"/> Set as default</label><div class="modal-actions"><button type="button" class="btn" onclick="closeModal('addModel')">Cancel</button><button class="btn primary">Add Model</button></div></form></div>
+
+<div class="card table-card">
+    <table>
+        <thead>
+            <tr>
+                <th>Model Name</th>
+                <th>Provider</th>
+                <th>Model ID</th>
+                <th>Context Window</th>
+                <th>Status</th>
+                <th>Default</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @foreach (var m in Model)
+            {
+                <tr>
+                    <td><b>@m.Name</b></td>
+                    <td>@m.Provider</td>
+                    <td>@m.ModelId</td>
+                    <td>@m.ContextWindow.ToString("N0")</td>
+                    <td>
+                        <span class="badge @(m.IsActive ? "green" : "gray")">
+                            @(m.IsActive ? "Active" : "Inactive")
+                        </span>
+                    </td>
+                    <td>
+                        @if (m.IsDefault)
+                        {
+                            <span>★</span>
+                        }
+                        else
+                        {
+                            <form asp-action="SetDefault" method="post" class="inline-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@m.Id" />
+                                <button class="link-btn" type="submit">Set default</button>
+                            </form>
+                        }
+                    </td>
+                    <td class="actions">
+                        <button class="icon-btn"
+                                type="button"
+                                onclick="openEditModel(
+                                        '@m.Id',
+                                        '@JavaScriptEncoder.Default.Encode(m.Name)',
+                                        '@JavaScriptEncoder.Default.Encode(m.Provider)',
+                                        '@JavaScriptEncoder.Default.Encode(m.ModelId)',
+                                        '@JavaScriptEncoder.Default.Encode(m.Endpoint)',
+                                        '@JavaScriptEncoder.Default.Encode(m.ApiKey)',
+                                        '@m.ContextWindow',
+                                        '@m.IsActive.ToString().ToLower()',
+                                        '@m.IsDefault.ToString().ToLower()'
+                                    )">
+                            ✎
+                        </button>
+
+                        <form asp-action="Delete" method="post" class="inline-form"
+                              onsubmit="return confirm('Delete this model?');">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@m.Id" />
+                            <button class="icon-btn danger" type="submit">🗑</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<div id="addModel" class="modal-backdrop hidden">
+    <form class="modal" asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+
+        <button type="button" class="x" onclick="closeModal('addModel')">×</button>
+
+        <h2>Add Model</h2>
+
+        <label>Model *</label>
+        <input name="Name" required placeholder="Qwen3.6 27B" />
+
+        <label>Provider *</label>
+        <input name="Provider" value="LM Studio" required />
+
+        <label>Model ID *</label>
+        <input name="ModelId" required placeholder="qwen3.6-27b@q3_k_s" />
+
+        <label>Endpoint *</label>
+        <input name="Endpoint" required value="http://127.0.0.1:1234/v1" />
+
+        <label>ApiKey *</label>
+        <input name="ApiKey" value="lm-studio" required />
+
+        <label>Context Window</label>
+        <input name="ContextWindow" type="number" value="128000" />
+
+        <label class="checkbox-line">
+            <input name="IsActive" type="checkbox" value="true" checked />
+            Active
+        </label>
+
+        <label class="checkbox-line">
+            <input name="IsDefault" type="checkbox" value="true" />
+            Set as default
+        </label>
+
+        <div class="modal-actions">
+            <button type="button" class="btn" onclick="closeModal('addModel')">Cancel</button>
+            <button class="btn primary">Add Model</button>
+        </div>
+    </form>
+</div>
+
+<div id="editModel" class="modal-backdrop hidden">
+    <form class="modal" asp-action="Update" method="post">
+        @Html.AntiForgeryToken()
+
+        <button type="button" class="x" onclick="closeModal('editModel')">×</button>
+
+        <h2>Edit Model</h2>
+
+        <input type="hidden" id="edit-id" name="Id" />
+
+        <label>Model *</label>
+        <input id="edit-name" name="Name" required />
+
+        <label>Provider *</label>
+        <input id="edit-provider" name="Provider" required />
+
+        <label>Model ID *</label>
+        <input id="edit-model-id" name="ModelId" required />
+
+        <label>Endpoint *</label>
+        <input id="edit-endpoint" name="Endpoint" required />
+
+        <label>ApiKey *</label>
+        <input id="edit-api-key" name="ApiKey" required />
+
+        <label>Context Window</label>
+        <input id="edit-context-window" name="ContextWindow" type="number" />
+
+        <label class="checkbox-line">
+            <input id="edit-is-active" name="IsActive" type="checkbox" value="true" />
+            Active
+        </label>
+
+        <label class="checkbox-line">
+            <input id="edit-is-default" name="IsDefault" type="checkbox" value="true" />
+            Set as default
+        </label>
+
+        <div class="modal-actions">
+            <button type="button" class="btn" onclick="closeModal('editModel')">Cancel</button>
+            <button class="btn primary">Save Changes</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        function openEditModel(
+            id,
+            name,
+            provider,
+            modelId,
+            endpoint,
+            apiKey,
+            contextWindow,
+            isActive,
+            isDefault
+        ) {
+            document.getElementById('edit-id').value = id;
+            document.getElementById('edit-name').value = name;
+            document.getElementById('edit-provider').value = provider;
+            document.getElementById('edit-model-id').value = modelId;
+            document.getElementById('edit-endpoint').value = endpoint;
+            document.getElementById('edit-api-key').value = apiKey;
+            document.getElementById('edit-context-window').value = contextWindow;
+
+            document.getElementById('edit-is-active').checked = isActive === 'true';
+            document.getElementById('edit-is-default').checked = isDefault === 'true';
+
+            openModal('editModel');
+        }
+    </script>
+}
