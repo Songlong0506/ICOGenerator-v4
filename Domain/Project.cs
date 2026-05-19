@@ -12,4 +12,5 @@ public class Project
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ProjectDocument> Documents { get; set; } = new List<ProjectDocument>();
     public ICollection<AgentConversation> Conversations { get; set; } = new List<AgentConversation>();
+    public ICollection<AgentModelCallLog> ModelCallLogs { get; set; } = new List<AgentModelCallLog>();
 }

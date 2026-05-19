@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<ProjectDocument> ProjectDocuments => Set<ProjectDocument>();
     public DbSet<AgentConversation> AgentConversations => Set<AgentConversation>();
     public DbSet<AgentJob> AgentJobs => Set<AgentJob>();
+    public DbSet<AgentModelCallLog> AgentModelCallLogs => Set<AgentModelCallLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -26,5 +27,9 @@ public class AppDbContext : DbContext
 
         builder.Entity<AiModel>().HasIndex(x => x.ModelId);
         builder.Entity<ToolDefinition>().HasIndex(x => new { x.ServiceType, x.MethodName }).IsUnique();
+
+        builder.Entity<AgentModelCallLog>().HasOne(x => x.Project).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.ProjectId);
+        builder.Entity<AgentModelCallLog>().HasOne(x => x.Agent).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.AgentId);
+        builder.Entity<AgentModelCallLog>().HasIndex(x => new { x.ProjectId, x.AgentId, x.CreatedAt });
     }
 }

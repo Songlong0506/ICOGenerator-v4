@@ -11,7 +11,7 @@ public static class DbInitializer
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await db.Database.EnsureCreatedAsync();
+        await db.Database.MigrateAsync();
 
         var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
         await discovery.SyncToolDefinitionsAsync();

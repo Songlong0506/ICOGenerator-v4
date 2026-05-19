@@ -52,14 +52,12 @@ public class BARequirementService
 
         var prompt = BuildBAPrompt(project, userMessage, currentBrd, currentSrs, currentStories);
 
-        var response = await _llm.ChatAsync(
-            model,
-            new List<ChatMessageDto>
+        var messages = new List<ChatMessageDto>
+        {
+            new()
             {
-                new()
-                {
-                    Role = "system",
-                    Content = """
+                Role = "system",
+                Content = """
 Bạn là BA Agent.
 Bạn chỉ được làm các việc:
 1. Trao đổi với user để làm rõ requirement.
@@ -76,14 +74,17 @@ Luôn trả về JSON duy nhất theo format:
   "userStories": "...markdown..."
 }
 """
-                },
-                new()
-                {
-                    Role = "user",
-                    Content = prompt
-                }
             },
-            ba.Temperature);
+            new()
+            {
+                Role = "user",
+                Content = prompt
+            }
+        };
+
+        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature);
+        await SaveModelCallLog(projectId, ba, callResult, "BARequirementDraft");
+        var response = callResult.Content;
 
         var result = ParseBAResponse(response, userMessage);
 
@@ -103,6 +104,33 @@ Luôn trả về JSON duy nhất theo format:
         await _db.SaveChangesAsync();
 
         WriteDraftFiles(project.Name, result);
+    }
+
+    private async Task SaveModelCallLog(Guid projectId, Agent agent, LocalLlmCallResult callResult, string purpose)
+    {
+        _db.AgentModelCallLogs.Add(new AgentModelCallLog
+        {
+            ProjectId = projectId,
+            AgentId = agent.Id,
+            AgentName = agent.Name,
+            ModelName = callResult.ModelName,
+            ModelId = callResult.ModelId,
+            Endpoint = callResult.Endpoint,
+            RequestJson = callResult.RequestJson,
+            ResponseText = callResult.ResponseText,
+            ExtractedContent = callResult.ExtractedContent,
+            ErrorMessage = callResult.ErrorMessage,
+            PromptTokens = callResult.PromptTokens,
+            CompletionTokens = callResult.CompletionTokens,
+            TotalTokens = callResult.TotalTokens,
+            DurationMs = callResult.DurationMs,
+            HttpStatusCode = callResult.HttpStatusCode,
+            IsSuccess = callResult.IsSuccess,
+            Step = 1,
+            Purpose = purpose
+        });
+
+        await _db.SaveChangesAsync();
     }
 
     private static string GetDoc(Project project, string fileName)

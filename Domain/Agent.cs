@@ -13,5 +13,6 @@ public class Agent
     public Guid? AiModelId { get; set; }
     public AiModel? AiModel { get; set; }
     public ICollection<AgentTool> AgentTools { get; set; } = new List<AgentTool>();
+    public ICollection<AgentModelCallLog> ModelCallLogs { get; set; } = new List<AgentModelCallLog>();
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

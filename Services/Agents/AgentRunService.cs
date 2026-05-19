@@ -35,7 +35,9 @@ public class AgentRunService
 
         for (var step = 1; step <= maxSteps; step++)
         {
-            var response = await _llm.ChatAsync(agent.AiModel, messages, agent.Temperature);
+            var callResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature);
+            await SaveModelCallLog(projectId, agent, callResult, step, "AgentRun");
+            var response = callResult.Content;
             AgentActionDto? action;
             try
             {
@@ -65,6 +67,33 @@ public class AgentRunService
             }
         }
         return "Stopped because max steps reached.";
+    }
+
+    private async Task SaveModelCallLog(Guid projectId, Agent agent, LocalLlmCallResult callResult, int step, string purpose)
+    {
+        _db.AgentModelCallLogs.Add(new AgentModelCallLog
+        {
+            ProjectId = projectId,
+            AgentId = agent.Id,
+            AgentName = agent.Name,
+            ModelName = callResult.ModelName,
+            ModelId = callResult.ModelId,
+            Endpoint = callResult.Endpoint,
+            RequestJson = callResult.RequestJson,
+            ResponseText = callResult.ResponseText,
+            ExtractedContent = callResult.ExtractedContent,
+            ErrorMessage = callResult.ErrorMessage,
+            PromptTokens = callResult.PromptTokens,
+            CompletionTokens = callResult.CompletionTokens,
+            TotalTokens = callResult.TotalTokens,
+            DurationMs = callResult.DurationMs,
+            HttpStatusCode = callResult.HttpStatusCode,
+            IsSuccess = callResult.IsSuccess,
+            Step = step,
+            Purpose = purpose
+        });
+
+        await _db.SaveChangesAsync();
     }
 
     private async Task SaveConversation(Guid projectId, Guid agentId, string message, string role = "assistant")

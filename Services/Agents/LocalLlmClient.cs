@@ -1,5 +1,6 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Models;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -11,6 +12,20 @@ public class LocalLlmClient
 {
     public async Task<string> ChatAsync(AiModel model, List<ChatMessageDto> messages, double temperature)
     {
+        var result = await ChatWithLogAsync(model, messages, temperature);
+        return result.Content;
+    }
+
+    public async Task<LocalLlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = new LocalLlmCallResult
+        {
+            Endpoint = model.Endpoint,
+            ModelId = model.ModelId,
+            ModelName = model.Name
+        };
+
         var handler = new HttpClientHandler();
 
         if (model.Endpoint.Contains("localhost") || model.Endpoint.Contains("127.0.0.1"))
@@ -26,13 +41,13 @@ public class LocalLlmClient
         using var http = new HttpClient(handler);
 
         http.BaseAddress = new Uri(model.Endpoint.TrimEnd('/') + "/");
-
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", string.IsNullOrWhiteSpace(model.ApiKey) ? "lm-studio" : model.ApiKey);
-        var request = new ChatCompletionRequestDto 
-        { 
-            Model = model.ModelId, 
-            Messages = messages, 
-            Temperature = temperature, 
+
+        var request = new ChatCompletionRequestDto
+        {
+            Model = model.ModelId,
+            Messages = messages,
+            Temperature = temperature,
             MaxTokens = 100000,
             Stream = true,
             Thinking = new ThinkingDto
@@ -40,78 +55,117 @@ public class LocalLlmClient
                 Type = "disabled"
             }
         };
-        var json = JsonSerializer.Serialize(request);
+
+        result.RequestJson = JsonSerializer.Serialize(request, new JsonSerializerOptions { WriteIndented = true });
+        result.PromptTokens = EstimateTokens(string.Join("\n", messages.Select(x => x.Content)));
+
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "chat/completions");
+        httpRequest.Content = new StringContent(result.RequestJson, Encoding.UTF8, "application/json");
 
-        httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        using var response = await http.SendAsync(httpRequest,HttpCompletionOption.ResponseHeadersRead);
-
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            var errorText = await SafeReadErrorAsync(response);
-            return $"""
+            using var response = await http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
+            result.HttpStatusCode = (int)response.StatusCode;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorText = await SafeReadErrorAsync(response);
+                stopwatch.Stop();
+
+                result.DurationMs = stopwatch.ElapsedMilliseconds;
+                result.IsSuccess = false;
+                result.ResponseText = errorText;
+                result.ErrorMessage = $"API error: {(int)response.StatusCode} {response.StatusCode}";
+                result.Content = $"""
 API error: {(int)response.StatusCode} {response.StatusCode}
 
 {errorText}
 """;
-        }
+                result.CompletionTokens = EstimateTokens(result.Content);
+                result.TotalTokens = result.PromptTokens + result.CompletionTokens;
+                return result;
+            }
 
-        await using var stream = await response.Content.ReadAsStreamAsync();
-        using var reader = new StreamReader(stream);
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
 
-        var result = new StringBuilder();
+            var contentBuilder = new StringBuilder();
+            var rawBuilder = new StringBuilder();
 
-        while (!reader.EndOfStream)
-        {
-            var line = await reader.ReadLineAsync();
-
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
-
-            if (line.StartsWith(":"))
-                continue; // DeepSeek keep-alive comment
-
-            if (!line.StartsWith("data:"))
-                continue;
-
-            var data = line.Substring("data:".Length).Trim();
-
-            if (data == "[DONE]")
-                break;
-
-            try
+            while (!reader.EndOfStream)
             {
-                using var doc = JsonDocument.Parse(data);
+                var line = await reader.ReadLineAsync();
 
-                var root = doc.RootElement;
-
-                if (!root.TryGetProperty("choices", out var choices))
+                if (string.IsNullOrWhiteSpace(line))
                     continue;
 
-                if (choices.GetArrayLength() == 0)
+                rawBuilder.AppendLine(line);
+
+                if (line.StartsWith(":"))
                     continue;
 
-                var choice = choices[0];
-
-                if (!choice.TryGetProperty("delta", out var delta))
+                if (!line.StartsWith("data:"))
                     continue;
 
-                if (delta.TryGetProperty("content", out var contentElement))
+                var data = line.Substring("data:".Length).Trim();
+
+                if (data == "[DONE]")
+                    break;
+
+                try
                 {
-                    var content = contentElement.GetString();
+                    using var doc = JsonDocument.Parse(data);
+                    var root = doc.RootElement;
 
-                    if (!string.IsNullOrEmpty(content))
-                        result.Append(content);
+                    if (!root.TryGetProperty("choices", out var choices))
+                        continue;
+
+                    if (choices.GetArrayLength() == 0)
+                        continue;
+
+                    var choice = choices[0];
+
+                    if (!choice.TryGetProperty("delta", out var delta))
+                        continue;
+
+                    if (delta.TryGetProperty("content", out var contentElement))
+                    {
+                        var content = contentElement.GetString();
+
+                        if (!string.IsNullOrEmpty(content))
+                            contentBuilder.Append(content);
+                    }
+                }
+                catch
+                {
+                    // Ignore broken SSE chunk
                 }
             }
-            catch
-            {
-                // Ignore broken SSE chunk
-            }
-        }
 
-        return result.ToString();
+            stopwatch.Stop();
+
+            result.Content = contentBuilder.ToString();
+            result.ExtractedContent = result.Content;
+            result.ResponseText = rawBuilder.Length > 0 ? rawBuilder.ToString() : result.Content;
+            result.DurationMs = stopwatch.ElapsedMilliseconds;
+            result.IsSuccess = true;
+            result.CompletionTokens = EstimateTokens(result.Content);
+            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+
+            result.DurationMs = stopwatch.ElapsedMilliseconds;
+            result.IsSuccess = false;
+            result.ErrorMessage = ex.ToString();
+            result.Content = ex.Message;
+            result.ResponseText = ex.ToString();
+            result.CompletionTokens = EstimateTokens(result.Content);
+            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
+            return result;
+        }
     }
 
     private static async Task<string> SafeReadErrorAsync(HttpResponseMessage response)
@@ -125,4 +179,25 @@ API error: {(int)response.StatusCode} {response.StatusCode}
             return $"Cannot read error body: {ex.Message}";
         }
     }
+
+    private static int EstimateTokens(string? text)
+        => string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 4);
+}
+
+public class LocalLlmCallResult
+{
+    public string Content { get; set; } = string.Empty;
+    public string RequestJson { get; set; } = string.Empty;
+    public string ResponseText { get; set; } = string.Empty;
+    public string? ExtractedContent { get; set; }
+    public string? ErrorMessage { get; set; }
+    public string Endpoint { get; set; } = string.Empty;
+    public string ModelId { get; set; } = string.Empty;
+    public string ModelName { get; set; } = string.Empty;
+    public int PromptTokens { get; set; }
+    public int CompletionTokens { get; set; }
+    public int TotalTokens { get; set; }
+    public long DurationMs { get; set; }
+    public int? HttpStatusCode { get; set; }
+    public bool IsSuccess { get; set; }
 }
