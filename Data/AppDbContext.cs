@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<AgentTool> AgentTools => Set<AgentTool>();
     public DbSet<ProjectDocument> ProjectDocuments => Set<ProjectDocument>();
     public DbSet<AgentConversation> AgentConversations => Set<AgentConversation>();
+    public DbSet<AgentJob> AgentJobs => Set<AgentJob>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

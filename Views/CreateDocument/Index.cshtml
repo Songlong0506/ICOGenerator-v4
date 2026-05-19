@@ -19,6 +19,35 @@
     .ToList();
 }
 
+<style>
+    #chatMessages {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 8px;
+    }
+
+    .chat {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .agent-status {
+        margin-top: 12px;
+        padding: 12px 16px;
+        border: 1px solid #c4b5fd;
+        background: #f5f3ff;
+        color: #4c1d95;
+        border-radius: 10px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+
+        .agent-status.hidden {
+            display: none;
+        }
+</style>
+
 <div class="breadcrumb">
     Projects › @Model.Name › <b>Create Document</b>
 </div>
@@ -72,45 +101,53 @@
     </aside>
 
     <section class="card chat">
-        @if (!conversations.Any())
-        {
-            <div class="msg ba">
-                <b>BA</b>
-                <p>Xin chào! Tôi là Business Analyst. Bạn có thể mô tả ngắn gọn ý tưởng dự án không?</p>
-            </div>
-        }
-        else
-        {
-            foreach (var item in conversations)
+        <div id="chatMessages">
+            @if (!conversations.Any())
             {
-                if (item.Role == "user")
+                <div class="msg ba">
+                    <b>BA</b>
+                    <p>Xin chào! Tôi là Business Analyst. Bạn có thể mô tả ngắn gọn ý tưởng dự án không?</p>
+                </div>
+            }
+            else
+            {
+                foreach (var item in conversations)
                 {
-                    <div class="msg you">
-                        <p>@item.Message</p>
-                    </div>
-                }
-                else
-                {
-                    <div class="msg ba">
-                        <b>@item.Agent.Name</b>
-                        <pre>@item.Message</pre>
-                    </div>
+                    if (item.Role == "user")
+                    {
+                        <div class="msg you">
+                            <p>@item.Message</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="msg ba">
+                            <b>@item.Agent.Name</b>
+                            <pre>@item.Message</pre>
+                        </div>
+                    }
                 }
             }
-        }
+        </div>
 
-        <form asp-action="Chat" method="post" class="chatbox">
+        <form id="chatForm" class="chatbox">
             @Html.AntiForgeryToken()
 
-            <input type="hidden" name="projectId" value="@Model.Id" />
+            <input type="hidden" id="projectId" value="@Model.Id" />
 
-            <input name="message"
+            <input id="messageInput"
+                   name="message"
                    placeholder="Type your message..."
                    autocomplete="off"
                    required />
 
-            <button class="btn primary" type="submit">➤</button>
+            <button id="sendBtn" class="btn primary" type="submit">➤</button>
         </form>
+
+        <div id="agentStatus" class="agent-status hidden">
+            <b>BA Agent</b>
+            <span id="agentStatusText">Waiting...</span>
+        </div>
     </section>
 
     <aside class="card requirement">
@@ -157,6 +194,132 @@
     </aside>
 
     <script>
+                        const form = document.getElementById('chatForm');
+            const sendBtn = document.getElementById('sendBtn');
+            const statusBox = document.getElementById('agentStatus');
+            const statusText = document.getElementById('agentStatusText');
+            const messageInput = document.getElementById('messageInput');
+            const chatMessages = document.getElementById('chatMessages');
+
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+
+                const projectId = document.getElementById('projectId').value;
+                const message = messageInput.value.trim();
+                const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+                if (!message) return;
+
+                appendUserMessage(message);
+
+                messageInput.value = '';
+                sendBtn.disabled = true;
+                messageInput.disabled = true;
+
+                statusBox.classList.remove('hidden');
+                statusText.innerText = 'Sending message to BA...';
+
+                const formData = new FormData();
+                formData.append('projectId', projectId);
+                formData.append('message', message);
+                formData.append('__RequestVerificationToken', token);
+
+                try {
+                    const startResponse = await fetch('/CreateDocument/StartChat', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!startResponse.ok) {
+                        throw new Error('Cannot start agent job.');
+                    }
+
+                    const startData = await startResponse.json();
+
+                    appendAgentThinking();
+
+                    pollJob(startData.jobId, projectId);
+                }
+                catch (err) {
+                    statusText.innerText = 'Failed: ' + err.message;
+                    sendBtn.disabled = false;
+                    messageInput.disabled = false;
+                }
+            });
+
+            function appendUserMessage(message) {
+                const div = document.createElement('div');
+                div.className = 'msg you';
+
+                const p = document.createElement('p');
+                p.innerText = message;
+
+                div.appendChild(p);
+                chatMessages.appendChild(div);
+
+                scrollChatToBottom();
+            }
+
+            function appendAgentThinking() {
+                const div = document.createElement('div');
+                div.className = 'msg ba';
+                div.id = 'agentThinkingMessage';
+
+                const b = document.createElement('b');
+                b.innerText = 'BA';
+
+                const p = document.createElement('p');
+                p.innerText = 'BA is thinking...';
+
+                div.appendChild(b);
+                div.appendChild(p);
+
+                chatMessages.appendChild(div);
+                scrollChatToBottom();
+            }
+
+            function updateAgentThinking(text) {
+                const div = document.getElementById('agentThinkingMessage');
+
+                if (!div) return;
+
+                const p = div.querySelector('p');
+                p.innerText = text;
+            }
+
+            async function pollJob(jobId, projectId) {
+                const timer = setInterval(async function () {
+                    const response = await fetch(`/CreateDocument/JobStatus?jobId=${jobId}`);
+                    const data = await response.json();
+
+                    statusText.innerText = data.currentStep;
+                    updateAgentThinking(data.currentStep);
+
+                    if (data.status === 'Completed') {
+                        clearInterval(timer);
+
+                        statusText.innerText = 'Done. Reloading requirement draft...';
+                        updateAgentThinking('Requirement draft updated.');
+
+                        window.location.href = `/CreateDocument?projectId=${projectId}`;
+                    }
+
+                    if (data.status === 'Failed') {
+                        clearInterval(timer);
+
+                        statusText.innerText = 'Failed: ' + data.error;
+                        updateAgentThinking('Failed: ' + data.error);
+
+                        sendBtn.disabled = false;
+                        messageInput.disabled = false;
+                    }
+                }, 1000);
+            }
+
+            function scrollChatToBottom() {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
             function showReqTab(name) {
                 document.querySelectorAll('.req-doc').forEach(x => x.classList.add('hidden'));
                 document.getElementById('req-' + name).classList.remove('hidden');

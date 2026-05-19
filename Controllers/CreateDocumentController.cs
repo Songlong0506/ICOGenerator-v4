@@ -11,17 +11,20 @@ public class CreateDocumentController : Controller
     private readonly AppDbContext _db;
     private readonly BARequirementService _baRequirementService;
     private readonly AgentRunService _agentRunService;
+    private readonly AgentJobRunner _agentJobRunner;
     private readonly IConfiguration _configuration;
 
     public CreateDocumentController(
-        AppDbContext db,
-        BARequirementService baRequirementService,
-        AgentRunService agentRunService,
-        IConfiguration configuration)
+       AppDbContext db,
+       BARequirementService baRequirementService,
+       AgentRunService agentRunService,
+       AgentJobRunner agentJobRunner,
+       IConfiguration configuration)
     {
         _db = db;
         _baRequirementService = baRequirementService;
         _agentRunService = agentRunService;
+        _agentJobRunner = agentJobRunner;
         _configuration = configuration;
     }
 
@@ -133,6 +136,52 @@ Nhiệm vụ của bạn:
     public IActionResult NewChat(Guid projectId)
     {
         return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> StartChat(Guid projectId, string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return BadRequest();
+
+        var ba = await _db.Agents.FirstAsync(x => x.Name == "BA");
+
+        var job = new AgentJob
+        {
+            ProjectId = projectId,
+            AgentId = ba.Id,
+            UserMessage = message,
+            Status = "Queued",
+            CurrentStep = "Queued..."
+        };
+
+        _db.AgentJobs.Add(job);
+        await _db.SaveChangesAsync();
+
+        _agentJobRunner.RunBARequirementJob(job.Id);
+
+        return Json(new
+        {
+            jobId = job.Id
+        });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> JobStatus(Guid jobId)
+    {
+        var job = await _db.AgentJobs.FirstOrDefaultAsync(x => x.Id == jobId);
+
+        if (job == null)
+            return NotFound();
+
+        return Json(new
+        {
+            job.Id,
+            job.Status,
+            job.CurrentStep,
+            job.Error
+        });
     }
 
     private void RenameDraftFolder(string projectName, string versionName)

@@ -21,6 +21,7 @@ builder.Services.AddScoped<LocalLlmClient>();
 builder.Services.AddScoped<AgentPromptBuilder>();
 builder.Services.AddScoped<AgentRunService>();
 builder.Services.AddScoped<BARequirementService>();
+builder.Services.AddScoped<AgentJobRunner>();
 
 var app = builder.Build();
 
