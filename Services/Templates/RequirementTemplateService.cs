@@ -1,0 +1,76 @@
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
+
+namespace ICOGenerator.Services.Templates;
+
+public class RequirementTemplateService
+{
+    private readonly IWebHostEnvironment _env;
+
+    public RequirementTemplateService(IWebHostEnvironment env)
+    {
+        _env = env;
+    }
+
+    public string GetBrdTemplate()
+    {
+        return ReadDocx(Path.Combine(_env.ContentRootPath, "Templates", "BRD_Template.docx"));
+    }
+
+    public string GetSrsTemplate()
+    {
+        return ReadDocx(Path.Combine(_env.ContentRootPath, "Templates", "SRS_Template.docx"));
+    }
+
+    public string GetUserStoriesTemplate()
+    {
+        return """
+# User Stories
+
+## 1. Overview
+[Mô tả tổng quan user stories]
+
+## 2. Actors
+- [Actor 1]
+- [Actor 2]
+
+## 3. User Stories
+
+### US-001: [Tên user story]
+As a [role],
+I want [goal],
+so that [benefit].
+
+Acceptance Criteria:
+- Given ...
+- When ...
+- Then ...
+
+Priority: Must Have
+Notes: ...
+
+## 4. Open Questions
+- [Câu hỏi cần làm rõ]
+""";
+    }
+
+    private static string ReadDocx(string path)
+    {
+        if (!File.Exists(path))
+            return "";
+
+        using var doc = WordprocessingDocument.Open(path, false);
+
+        var body = doc.MainDocumentPart?.Document.Body;
+
+        if (body == null)
+            return "";
+
+        return string.Join(
+            Environment.NewLine,
+            body.Descendants<Paragraph>()
+                .Select(p => p.InnerText)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+        );
+    }
+}
