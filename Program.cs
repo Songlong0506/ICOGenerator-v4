@@ -22,6 +22,8 @@ builder.Services.AddScoped<AgentPromptBuilder>();
 builder.Services.AddScoped<AgentRunService>();
 builder.Services.AddScoped<BARequirementService>();
 builder.Services.AddScoped<AgentJobRunner>();
+builder.Services.AddScoped<RequirementTemplateService>();
+builder.Services.AddScoped<DocxTemplateWriter>();
 
 var app = builder.Build();
 
