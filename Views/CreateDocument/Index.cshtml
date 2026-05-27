@@ -10,9 +10,9 @@
     .OrderBy(x => x.FileName)
     .ToList();
 
-    var brd = selectedDocs.FirstOrDefault(x => x.FileName == "BRD.md");
-    var srs = selectedDocs.FirstOrDefault(x => x.FileName == "SRS.md");
-    var userStories = selectedDocs.FirstOrDefault(x => x.FileName == "UserStories.md");
+    var brd = selectedDocs.FirstOrDefault(x => x.FileName == "BRD.docx");
+    var srs = selectedDocs.FirstOrDefault(x => x.FileName == "SRS.docx");
+    var userStories = selectedDocs.FirstOrDefault(x => x.FileName == "UserStories.docx");
     var versions = Model.Documents.GroupBy(x => x.VersionName)
     .OrderByDescending(g => g.Key == "draft" ? int.MaxValue :
         int.TryParse(g.Key.Replace("V", ""), out var n) ? n : 0)
