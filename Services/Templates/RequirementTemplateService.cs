@@ -14,12 +14,34 @@ public class RequirementTemplateService
 
     public string GetBrdTemplate()
     {
-        return ReadDocx(Path.Combine(_env.ContentRootPath, "Templates", "BRD_Template.docx"));
+        return ReadDocx(EnsureTemplateDocx("BRD_Template.docx"));
     }
 
     public string GetSrsTemplate()
     {
-        return ReadDocx(Path.Combine(_env.ContentRootPath, "Templates", "SRS_Template.docx"));
+        return ReadDocx(EnsureTemplateDocx("SRS_Template.docx"));
+    }
+
+    public string GetFsdTemplate()
+    {
+        return ReadDocx(EnsureTemplateDocx("FSD_Template.docx"));
+    }
+
+    public string EnsureTemplateDocx(string fileName)
+    {
+        var templatePath = Path.Combine(_env.ContentRootPath, "Templates", fileName);
+
+        if (File.Exists(templatePath))
+            return templatePath;
+
+        var base64Path = templatePath + ".base64";
+        if (!File.Exists(base64Path))
+            throw new FileNotFoundException($"Template file not found: {templatePath}. Also missing base64 fallback: {base64Path}");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(templatePath)!);
+        var base64 = File.ReadAllText(base64Path).Trim();
+        File.WriteAllBytes(templatePath, Convert.FromBase64String(base64));
+        return templatePath;
     }
 
     public string GetUserStoriesTemplate()
