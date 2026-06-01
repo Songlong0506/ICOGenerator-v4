@@ -1,52 +1,44 @@
 @model Project
+@using System.IO
 
 @{
-    var documents = Model.Documents.OrderByDescending(x => x.CreatedAt).ToList();
-    var latestDocument = documents.FirstOrDefault();
-    var conversations = Model.Conversations.OrderBy(x => x.CreatedAt).ToList();
-    var draftDocs = Model.Documents.Where(x => x.VersionName == "draft").OrderBy(x => x.FileName).ToList();
-    var selectedVersion = ViewBag.SelectedVersion as string ?? "draft";
-    var selectedDocs = Model.Documents.Where(x => x.VersionName == selectedVersion)
+    ViewData["Title"] = "Create Document";
+    var allDocuments = Model.Documents
     .OrderBy(x => x.FileName)
     .ToList();
+    var draftDocuments = Model.Documents
+        .Where(x => x.VersionName == "draft")
+        .OrderBy(x => x.FileName)
+        .ToList();
 
-    var brd = selectedDocs.FirstOrDefault(x => x.FileName == "BRD.docx");
-    var srs = selectedDocs.FirstOrDefault(x => x.FileName == "SRS.docx");
-    var userStories = selectedDocs.FirstOrDefault(x => x.FileName == "UserStories.docx");
-    var versions = Model.Documents.GroupBy(x => x.VersionName)
-    .OrderByDescending(g => g.Key == "draft" ? int.MaxValue :
-        int.TryParse(g.Key.Replace("V", ""), out var n) ? n : 0)
-    .ToList();
-}
+    var versions = Model.Documents
+        .GroupBy(x => x.VersionName)
+        .OrderByDescending(g => g.Key == "draft" ? int.MaxValue :
+            int.TryParse(g.Key.Replace("V", ""), out var n) ? n : 0)
+        .ToList();
+    var selectedVersion = ViewBag.SelectedVersion?.ToString() ?? "draft";
+    var conversations = Model.Conversations
+        .OrderBy(x => x.CreatedAt)
+        .ToList();
 
-<style>
-    #chatMessages {
-        flex: 1;
-        overflow-y: auto;
-        padding-right: 8px;
-    }
-
-    .chat {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .agent-status {
-        margin-top: 12px;
-        padding: 12px 16px;
-        border: 1px solid #c4b5fd;
-        background: #f5f3ff;
-        color: #4c1d95;
-        border-radius: 10px;
-        display: flex;
-        gap: 12px;
-        align-items: center;
-    }
-
-        .agent-status.hidden {
-            display: none;
+    string GetPreviewContent(string path)
+    {
+        try
+        {
+            if (System.IO.File.Exists(path))
+            {
+                return System.IO.File.ReadAllText(path)
+                    .Replace("\r", "")
+                    .Split('\n')
+                    .Take(30)
+                    .Aggregate("", (a, b) => a + b + "\n");
+            }
         }
-</style>
+        catch { }
+
+        return "No preview available.";
+    }
+}
 
 <div class="breadcrumb">
     Projects › @Model.Name › <b>Create Document</b>
@@ -60,269 +52,493 @@
 
     <div class="card status">
         <span>Requirement Status</span>
-        <b>Draft</b>
+        <b>@(draftDocuments.Any() ? "Draft" : "Empty")</b>
     </div>
 </div>
 
 <div class="grid doc-grid">
-    <aside class="card">
+
+    <!-- HISTORY -->
+    <aside class="card history-panel">
+
         <h3>History</h3>
 
-        <input class="search full" placeholder="Search in history" />
+        <input class="search full"
+               placeholder="Search in history" />
 
         @if (versions.Any())
         {
             foreach (var version in versions)
             {
-                <div class="history @(version.Key == selectedVersion ? "active" : "")">
-                    <span>📄 Requirement @version.Key</span>
+                <div class="history-item">
 
-                    <a class="btn small"
-                           asp-action="Index"
-                           asp-route-projectId="@Model.Id"
-                           asp-route-version="@version.Key">
+                    <div class="history-left">
+                        <div class="history-icon">📄</div>
+
+                        <div>
+                            <div class="history-title">
+                                Requirement @version.Key
+                            </div>
+
+                            <div class="history-sub">
+                                @version.Count() documents
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button"
+                            class="btn outline small"
+                            onclick="openRequirementModal('@version.Key')">
                         View
-                    </a>
+                    </button>
                 </div>
             }
         }
         else
         {
-            <p class="muted">No requirement history yet.</p>
+            <div class="empty-history">
+                No requirement history yet.
+            </div>
         }
 
-        <form asp-action="NewChat" method="post">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="projectId" value="@Model.Id" />
-            <button class="btn outline full bottom" type="submit">
+        <form asp-action="NewChat"
+              method="post"
+              class="new-chat-form">
+
+            <input type="hidden"
+                   name="projectId"
+                   value="@Model.Id" />
+
+            <button class="btn outline full bottom">
                 ＋ New Chat
             </button>
         </form>
+
     </aside>
 
-    <section class="card chat">
-        <div id="chatMessages">
+    <!-- CHAT -->
+    <section class="card chat-panel">
+
+        <div id="chatMessages"
+             class="chat-messages">
+
             @if (!conversations.Any())
             {
                 <div class="msg ba">
                     <b>BA</b>
-                    <p>Xin chào! Tôi là Business Analyst. Bạn có thể mô tả ngắn gọn ý tưởng dự án không?</p>
+
+                    <p>
+                        Xin chào! Tôi là Business Analyst.
+                        Bạn có thể mô tả ngắn gọn ý tưởng dự án không?
+                    </p>
                 </div>
             }
-            else
+
+            @foreach (var item in conversations)
             {
-                foreach (var item in conversations)
+                if (item.Role == "user")
                 {
-                    if (item.Role == "user")
-                    {
-                        <div class="msg you">
-                            <p>@item.Message</p>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="msg ba">
-                            <b>@item.Agent.Name</b>
-                            <pre>@item.Message</pre>
-                        </div>
-                    }
+                    <div class="msg you">
+                        <p>@item.Message</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="msg ba">
+                        <b>BA</b>
+
+                        <p style="white-space: pre-wrap;">
+                            @item.Message
+                        </p>
+                    </div>
                 }
             }
+
+            <!-- THINKING -->
+            <div id="thinkingBox"
+                 class="msg ba thinking"
+                 style="display:none;">
+
+                <b>BA</b>
+
+                <div class="thinking-content">
+
+                    <div class="spinner"></div>
+
+                    <span id="thinkingText">
+                        BA is analyzing requirements...
+                    </span>
+
+                </div>
+            </div>
+
         </div>
 
-        <form id="chatForm" class="chatbox">
+        <!-- CHAT INPUT -->
+        <form id="chatForm"
+              asp-action="Chat"
+              method="post"
+              class="chatbox">
+
             @Html.AntiForgeryToken()
 
-            <input type="hidden" id="projectId" value="@Model.Id" />
+            <input type="hidden"
+                   name="projectId"
+                   value="@Model.Id" />
+
+            <input type="hidden"
+                   id="hiddenMessage"
+                   name="message" />
 
             <input id="messageInput"
-                   name="message"
                    placeholder="Type your message..."
-                   autocomplete="off"
-                   required />
+                   autocomplete="off" />
 
-            <button id="sendBtn" class="btn primary" type="submit">➤</button>
+            <button class="btn primary"
+                    type="submit">
+                ➤
+            </button>
         </form>
 
-        <div id="agentStatus" class="agent-status hidden">
-            <b>BA Agent</b>
-            <span id="agentStatusText">Waiting...</span>
-        </div>
     </section>
 
-    <aside class="card requirement">
-        <h3>Requirement @selectedVersion</h3>
+</div>
+
+<!-- REQUIREMENT MODAL -->
+<div id="requirementModal" class="modal-overlay">
+    <div class="modal requirement-modal">
+
+        <div class="modal-header">
+            <div>
+                <h2 id="modalTitle">Requirement</h2>
+                <p>Preview generated requirement documents</p>
+            </div>
+
+            <button class="modal-close" onclick="closeRequirementModal()">
+                ✕
+            </button>
+        </div>
 
         <div class="requirement-tabs">
-            <button type="button" onclick="showReqTab('brd')">BRD</button>
-            <button type="button" onclick="showReqTab('srs')">SRS</button>
-            <button type="button" onclick="showReqTab('stories')">User Stories</button>
-        </div>
-
-        <div id="req-brd" class="req-doc">
-            <h4>BRD.md</h4>
-            <pre>@(brd?.Content ?? "Chưa có BRD.")</pre>
-        </div>
-
-        <div id="req-srs" class="req-doc hidden">
-            <h4>SRS.md</h4>
-            <pre>@(srs?.Content ?? "Chưa có SRS.")</pre>
-        </div>
-
-        <div id="req-stories" class="req-doc hidden">
-            <h4>UserStories.md</h4>
-            <pre>@(userStories?.Content ?? "Chưa có User Stories.")</pre>
-        </div>
-
-        @if (selectedVersion == "draft")
-        {
-            <form asp-action="Approve" method="post">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="projectId" value="@Model.Id" />
-
-                <button class="btn approve full" type="submit">
-                    I approve this requirement
+            @foreach (var doc in allDocuments)
+            {
+                <button class="doc-tab"
+                        data-version="@doc.VersionName"
+                        onclick="showDocument('@doc.Id')"
+                        style="display:none;">
+                    @System.IO.Path.GetFileNameWithoutExtension(doc.FileName)
                 </button>
-            </form>
-
-            <p>BA chỉ chuyển requirement cho Developer sau khi bạn approve.</p>
-        }
-        else
-        {
-            <p class="muted">Version này đã được approve, chỉ dùng để xem lại.</p>
-        }
-    </aside>
-
-    <script>
-                        const form = document.getElementById('chatForm');
-            const sendBtn = document.getElementById('sendBtn');
-            const statusBox = document.getElementById('agentStatus');
-            const statusText = document.getElementById('agentStatusText');
-            const messageInput = document.getElementById('messageInput');
-            const chatMessages = document.getElementById('chatMessages');
-
-            form.addEventListener('submit', async function (e) {
-                e.preventDefault();
-
-                const projectId = document.getElementById('projectId').value;
-                const message = messageInput.value.trim();
-                const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
-
-                if (!message) return;
-
-                appendUserMessage(message);
-
-                messageInput.value = '';
-                sendBtn.disabled = true;
-                messageInput.disabled = true;
-
-                statusBox.classList.remove('hidden');
-                statusText.innerText = 'Sending message to BA...';
-
-                const formData = new FormData();
-                formData.append('projectId', projectId);
-                formData.append('message', message);
-                formData.append('__RequestVerificationToken', token);
-
-                try {
-                    const startResponse = await fetch('/CreateDocument/StartChat', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    if (!startResponse.ok) {
-                        throw new Error('Cannot start agent job.');
-                    }
-
-                    const startData = await startResponse.json();
-
-                    appendAgentThinking();
-
-                    pollJob(startData.jobId, projectId);
-                }
-                catch (err) {
-                    statusText.innerText = 'Failed: ' + err.message;
-                    sendBtn.disabled = false;
-                    messageInput.disabled = false;
-                }
-            });
-
-            function appendUserMessage(message) {
-                const div = document.createElement('div');
-                div.className = 'msg you';
-
-                const p = document.createElement('p');
-                p.innerText = message;
-
-                div.appendChild(p);
-                chatMessages.appendChild(div);
-
-                scrollChatToBottom();
             }
+        </div>
 
-            function appendAgentThinking() {
-                const div = document.createElement('div');
-                div.className = 'msg ba';
-                div.id = 'agentThinkingMessage';
+        <div class="requirement-content">
+            @foreach (var doc in allDocuments)
+            {
+                <div class="doc-preview"
+                     id="doc-@doc.Id"
+                     data-version="@doc.VersionName"
+                     style="display:none;">
 
-                const b = document.createElement('b');
-                b.innerText = 'BA';
+                    <h3>@doc.FileName</h3>
 
-                const p = document.createElement('p');
-                p.innerText = 'BA is thinking...';
+                    <pre>@(string.IsNullOrWhiteSpace(doc.Content) ? "No preview available." : doc.Content)</pre>
 
-                div.appendChild(b);
-                div.appendChild(p);
+                    <div class="doc-actions">
+                       @*  <a class="btn outline"
+                           target="_blank"
+                           href="/CreateDocument/DownloadDocument/@doc.Id">
+                            Download
+                        </a> *@
 
-                chatMessages.appendChild(div);
-                scrollChatToBottom();
+                        <a class="btn outline"
+                           asp-controller="CreateDocument"
+                           asp-action="DownloadDocument"
+                           asp-route-id="@doc.Id">
+                            Download
+                        </a>
+                    </div>
+                </div>
             }
+        </div>
 
-            function updateAgentThinking(text) {
-                const div = document.getElementById('agentThinkingMessage');
+        <div class="modal-footer">
+            @if (selectedVersion == "draft")
+            {
+                <form asp-action="Approve" method="post">
+                    <input type="hidden"
+                           name="projectId"
+                           value="@Model.Id" />
 
-                if (!div) return;
-
-                const p = div.querySelector('p');
-                p.innerText = text;
+                    <button class="btn approve">
+                        I approve this requirement
+                    </button>
+                </form>
             }
+        </div>
 
-            async function pollJob(jobId, projectId) {
-                const timer = setInterval(async function () {
-                    const response = await fetch(`/CreateDocument/JobStatus?jobId=${jobId}`);
-                    const data = await response.json();
-
-                    statusText.innerText = data.currentStep;
-                    updateAgentThinking(data.currentStep);
-
-                    if (data.status === 'Completed') {
-                        clearInterval(timer);
-
-                        statusText.innerText = 'Done. Reloading requirement draft...';
-                        updateAgentThinking('Requirement draft updated.');
-
-                        window.location.href = `/CreateDocument?projectId=${projectId}`;
-                    }
-
-                    if (data.status === 'Failed') {
-                        clearInterval(timer);
-
-                        statusText.innerText = 'Failed: ' + data.error;
-                        updateAgentThinking('Failed: ' + data.error);
-
-                        sendBtn.disabled = false;
-                        messageInput.disabled = false;
-                    }
-                }, 1000);
-            }
-
-            function scrollChatToBottom() {
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-
-            function showReqTab(name) {
-                document.querySelectorAll('.req-doc').forEach(x => x.classList.add('hidden'));
-                document.getElementById('req-' + name).classList.remove('hidden');
-            }
-    </script>
+    </div>
 </div>
+<style>
+
+    .doc-grid {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 20px;
+        height: calc(100vh - 180px);
+    }
+
+    .history-panel {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat-panel {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+
+    .history-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid #eee;
+        border-radius: 12px;
+        padding: 14px;
+        margin-top: 12px;
+        background: #faf7ff;
+    }
+
+    .history-left {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .history-title {
+        font-weight: 600;
+    }
+
+    .history-sub {
+        font-size: 12px;
+        color: #777;
+    }
+
+    .history-icon {
+        font-size: 20px;
+    }
+
+    .empty-history {
+        margin-top: 20px;
+        color: #999;
+    }
+
+    .msg {
+        padding: 18px;
+        border-radius: 16px;
+        margin-bottom: 16px;
+        max-width: 75%;
+    }
+
+        .msg.you {
+            margin-left: auto;
+            background: #efe7ff;
+        }
+
+        .msg.ba {
+            background: #f8f8f8;
+        }
+
+    .chatbox {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+        .chatbox input {
+            flex: 1;
+        }
+
+    .thinking {
+        border: 1px dashed #8b5cf6;
+    }
+
+    .thinking-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 10px;
+    }
+
+    .spinner {
+        width: 18px;
+        height: 18px;
+        border: 3px solid #ddd;
+        border-top: 3px solid #8b5cf6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.5);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .modal {
+        background: white;
+        border-radius: 20px;
+        width: 1100px;
+        max-width: 95%;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        padding: 24px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-close {
+        border: none;
+        background: none;
+        font-size: 22px;
+        cursor: pointer;
+    }
+
+    .requirement-tabs {
+        display: flex;
+        gap: 10px;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .doc-tab {
+        border: 1px solid #8b5cf6;
+        background: white;
+        color: #8b5cf6;
+        border-radius: 8px;
+        padding: 8px 14px;
+        cursor: pointer;
+    }
+
+    .requirement-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+    }
+
+    .doc-preview pre {
+        white-space: pre-wrap;
+        line-height: 1.6;
+        background: #fafafa;
+        padding: 20px;
+        border-radius: 12px;
+    }
+
+    .doc-actions {
+        margin-top: 20px;
+    }
+
+    .modal-footer {
+        padding: 20px 24px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+</style>
+
+<script>
+
+    const chatForm = document.getElementById("chatForm");
+    const messageInput = document.getElementById("messageInput");
+    const chatMessages = document.getElementById("chatMessages");
+    const thinkingBox = document.getElementById("thinkingBox");
+
+     chatForm.addEventListener("submit", function (e) {
+        const text = messageInput.value.trim();
+
+        if (!text) {
+            e.preventDefault();
+            return;
+        }
+
+        document.getElementById("hiddenMessage").value = text;
+
+        const html = `
+            <div class="msg you">
+                <p>${text}</p>
+            </div>
+        `;
+
+        chatMessages.insertAdjacentHTML("beforeend", html);
+
+        messageInput.value = "";
+        thinkingBox.style.display = "block";
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+
+     function openRequirementModal(version) {
+        document.getElementById("modalTitle").innerText =
+            "Requirement " + version;
+
+        document.getElementById("requirementModal").style.display = "flex";
+
+        document.querySelectorAll(".doc-tab")
+            .forEach(x => x.style.display = "none");
+
+        document.querySelectorAll(".doc-preview")
+            .forEach(x => x.style.display = "none");
+
+        const tabs = document.querySelectorAll(`.doc-tab[data-version="${version}"]`);
+        const docs = document.querySelectorAll(`.doc-preview[data-version="${version}"]`);
+
+        tabs.forEach(x => x.style.display = "inline-block");
+
+        if (docs.length > 0) {
+            docs[0].style.display = "block";
+        }
+    }
+
+    function closeRequirementModal() {
+        document.getElementById("requirementModal").style.display = "none";
+    }
+
+    function showDocument(id) {
+
+        document.querySelectorAll(".doc-preview")
+            .forEach(x => x.style.display = "none");
+
+        const target = document.getElementById("doc-" + id);
+
+        if (target)
+            target.style.display = "block";
+    }
+
+</script>
