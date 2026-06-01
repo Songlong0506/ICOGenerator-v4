@@ -4,6 +4,23 @@
     var totalTokens = Model.Documents.Sum(x => x.TokenUsed) + Model.Conversations.Sum(x => x.TokenUsed) + Model.ModelCallLogs.Sum(x => x.TotalTokens);
 }
 
+<style>
+    .large-modal {
+        width: min(1400px,96vw);
+    }
+
+    #logs-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15,23,42,.45);
+        z-index: 9998;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
+</style>
+
 <div class="breadcrumb">Projects › @Model.Name › <b>Manage Agent</b></div>
 <div class="page-head">
     <div>
@@ -17,7 +34,7 @@
 </div>
 
 <div class="agent-cards">
-    @foreach (var a in agents.Take(5))
+    @foreach (var a in agents.Take(6))
     {
         var agentTokens = Model.Conversations.Where(x => x.AgentId == a.Id).Sum(x => x.TokenUsed)
             + Model.ModelCallLogs.Where(x => x.AgentId == a.Id).Sum(x => x.TotalTokens);
@@ -61,30 +78,40 @@
     </div>
 </div>
 
-<div class="card logs-panel" id="logs-panel">
-    <div class="logs-header">
-        <div>
-            <h3>AI Call Logs</h3>
-            <p id="logs-subtitle">Click an agent card to view model invocation history.</p>
-        </div>
-        <button class="btn" onclick="closeLogsPanel()">Close</button>
-    </div>
+<div class="modal-backdrop" id="logs-modal">
+    <div class="modal-card large-modal">
 
-    <div style="overflow-x:auto;">
-        <table class="logs-table">
-            <thead>
-                <tr>
-                    <th>Time</th>
-                    <th>Purpose</th>
-                    <th>Model</th>
-                    <th>Tokens</th>
-                    <th>Duration</th>
-                    <th>Status</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody id="logs-tbody"></tbody>
-        </table>
+        <div class="logs-header">
+            <div>
+                <h3>AI Call Logs</h3>
+                <p id="logs-subtitle">
+                    Click an agent card to view model invocation history.
+                </p>
+            </div>
+
+            <button class="btn" onclick="closeLogsModal()">
+                Close
+            </button>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table class="logs-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Purpose</th>
+                        <th>Model</th>
+                        <th>Tokens</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+
+                <tbody id="logs-tbody"></tbody>
+            </table>
+        </div>
+
     </div>
 </div>
 
@@ -139,33 +166,78 @@
 <script>
     const projectId = '@Model.Id';
 
-    async function loadAgentLogs(agentId, agentName) {
-        document.getElementById('logs-panel').style.display = 'block';
-        document.getElementById('logs-subtitle').textContent = `Agent: ${agentName}`;
+        async function loadAgentLogs(agentId, agentName) {
+
+        document.getElementById('logs-modal').style.display = 'flex';
+
+        document.getElementById('logs-subtitle').textContent =
+            `Agent: ${agentName}`;
 
         const tbody = document.getElementById('logs-tbody');
-        tbody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
 
-        const url = `/ManageAgent/AgentCallLogs?projectId=${projectId}&agentId=${agentId}`;
+        tbody.innerHTML =
+            '<tr><td colspan="7">Loading...</td></tr>';
+
+        const url =
+            `/ManageAgent/AgentCallLogs?projectId=${projectId}&agentId=${agentId}`;
+
         const response = await fetch(url);
+
         const logs = await response.json();
 
         if (!logs.length) {
-            tbody.innerHTML = '<tr><td colspan="7">No AI call logs found for this agent.</td></tr>';
+
+            tbody.innerHTML =
+                '<tr><td colspan="7">No AI call logs found for this agent.</td></tr>';
+
             return;
         }
 
         tbody.innerHTML = logs.map(x => `
             <tr>
                 <td>${formatDateTime(x.createdAt)}</td>
-                <td>${escapeHtml(x.purpose || '-')}<br><small>Step ${x.step || 1}</small></td>
-                <td>${escapeHtml(x.modelName || x.modelId || '-')}<br><small>${escapeHtml(x.endpoint || '')}</small></td>
-                <td>${Number(x.totalTokens || 0).toLocaleString()}<br><small>P:${x.promptTokens || 0} C:${x.completionTokens || 0}</small></td>
+
+                <td>
+                    ${escapeHtml(x.purpose || '-')}
+                    <br>
+                    <small>Step ${x.step || 1}</small>
+                </td>
+
+                <td>
+                    ${escapeHtml(x.modelName || x.modelId || '-')}
+                    <br>
+                    <small>${escapeHtml(x.endpoint || '')}</small>
+                </td>
+
+                <td>
+                    ${Number(x.totalTokens || 0).toLocaleString()}
+                    <br>
+                    <small>
+                        P:${x.promptTokens || 0}
+                        C:${x.completionTokens || 0}
+                    </small>
+                </td>
+
                 <td>${x.durationMs || 0} ms</td>
-                <td><span class="badge ${x.isSuccess ? 'badge-success' : 'badge-error'}">${x.isSuccess ? 'Success' : 'Error'}</span></td>
-                <td><button class="btn btn-primary" onclick="viewLogDetail('${x.id}')">View</button></td>
+
+                <td>
+                    <span class="badge ${x.isSuccess ? 'badge-success' : 'badge-error'}">
+                        ${x.isSuccess ? 'Success' : 'Error'}
+                    </span>
+                </td>
+
+                <td>
+                    <button class="btn btn-primary"
+                            onclick="viewLogDetail('${x.id}')">
+                        View
+                    </button>
+                </td>
             </tr>
         `).join('');
+    }
+
+        function closeLogsModal() {
+        document.getElementById('logs-modal').style.display = 'none';
     }
 
     async function viewLogDetail(id) {
@@ -215,4 +287,12 @@
             .replaceAll('"', '&quot;')
             .replaceAll("'", '&#039;');
     }
+
+    document.getElementById('logs-modal')
+    .addEventListener('click', function (e) {
+
+        if (e.target.id === 'logs-modal') {
+            closeLogsModal();
+        }
+    });
 </script>
