@@ -20,7 +20,7 @@ public class AgentRunService
     public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, DynamicToolInvoker invoker, LocalLlmClient llm, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools)
     { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _llm = llm; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; }
 
-    public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 20)
+    public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 2)
     {
         var project = await _db.Projects.FindAsync(projectId) ?? throw new InvalidOperationException("Project not found.");
         var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId);
@@ -43,7 +43,7 @@ public class AgentRunService
             {
                 action = JsonSerializer.Deserialize<AgentActionDto>(JsonExtractor.Extract(response), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             }
-            catch
+            catch(Exception ex)
             {
                 return response;
             }
@@ -55,16 +55,48 @@ public class AgentRunService
             }
             if (action.Type.Equals("tool", StringComparison.OrdinalIgnoreCase))
             {
-                var tool = tools.FirstOrDefault(x => x.Definition.Name.Equals(action.Tool, StringComparison.OrdinalIgnoreCase));
-                var observation = tool == null ? $"Tool not found: {action.Tool}" : await _invoker.InvokeAsync(tool, action.Args);
+                var tool = tools.FirstOrDefault(x =>
+                    x.Definition.Name.Equals(action.Tool, StringComparison.OrdinalIgnoreCase));
+
+                var observation = tool == null
+                    ? $"Tool not found: {action.Tool}"
+                    : await _invoker.InvokeAsync(tool, action.Args);
+
+                // Stop immediately for POC Developer flow
+                if (agent.Name.Equals("Developer", StringComparison.OrdinalIgnoreCase)
+                    && action.Tool?.Equals("WriteFile", StringComparison.OrdinalIgnoreCase) == true
+                    && observation.Contains("poc-demo.html", StringComparison.OrdinalIgnoreCase)
+                    && observation.Contains("File written", StringComparison.OrdinalIgnoreCase))
+                {
+                    var finalMessage = "POC demo created successfully: poc-demo.html";
+
+                    await SaveConversation(projectId, agentId, finalMessage);
+
+                    return finalMessage;
+                }
+
                 messages.Add(new() { Role = "assistant", Content = response });
                 messages.Add(new() { Role = "user", Content = "OBSERVATION:\n" + observation });
-                if (observation.Contains("Build succeeded", StringComparison.OrdinalIgnoreCase) && observation.Contains("0 Error", StringComparison.OrdinalIgnoreCase))
+
+                if (observation.Contains("Build succeeded", StringComparison.OrdinalIgnoreCase)
+                    && observation.Contains("0 Error", StringComparison.OrdinalIgnoreCase))
                 {
                     await SaveConversation(projectId, agentId, "Build succeeded.");
                     return "Build succeeded.";
                 }
             }
+            //if (action.Type.Equals("tool", StringComparison.OrdinalIgnoreCase))
+            //{
+            //    var tool = tools.FirstOrDefault(x => x.Definition.Name.Equals(action.Tool, StringComparison.OrdinalIgnoreCase));
+            //    var observation = tool == null ? $"Tool not found: {action.Tool}" : await _invoker.InvokeAsync(tool, action.Args);
+            //    messages.Add(new() { Role = "assistant", Content = response });
+            //    messages.Add(new() { Role = "user", Content = "OBSERVATION:\n" + observation });
+            //    if (observation.Contains("Build succeeded", StringComparison.OrdinalIgnoreCase) && observation.Contains("0 Error", StringComparison.OrdinalIgnoreCase))
+            //    {
+            //        await SaveConversation(projectId, agentId, "Build succeeded.");
+            //        return "Build succeeded.";
+            //    }
+            //}
         }
         return "Stopped because max steps reached.";
     }
