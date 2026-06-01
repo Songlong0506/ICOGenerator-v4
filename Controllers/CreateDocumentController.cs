@@ -97,6 +97,19 @@ public class CreateDocumentController : Controller
             doc.VersionName = versionName;
             doc.Folder = $"docs/{versionName}";
             doc.IsApproved = true;
+
+            if (!string.IsNullOrWhiteSpace(doc.FilePath))
+            {
+                var fileName = Path.GetFileName(doc.FilePath);
+
+                var docsFolder = Path.GetDirectoryName(
+                    Path.GetDirectoryName(doc.FilePath)
+                );
+
+                var newFilePath = Path.Combine(docsFolder, versionName, fileName);
+
+                doc.FilePath = newFilePath;
+            }
         }
 
         RenameDraftFolder(project.Name, versionName);
@@ -107,24 +120,29 @@ public class CreateDocumentController : Controller
 
         if (dev != null)
         {
-            var requirement = string.Join("\n\n---\n\n", draftDocs.Select(x =>
-                $"# {x.FileName}\n\n{x.Content}"));
+            var aiDesignSpec = draftDocs
+    .FirstOrDefault(x => x.FileName == "AIDesignSpec.docx");
+
+            if (aiDesignSpec == null)
+            {
+                TempData["Error"] = "AI Design Spec chưa được tạo. Vui lòng chat với BA trước khi approve.";
+                return RedirectToAction(nameof(Index), new { projectId });
+            }
+
 
             await _agentRunService.RunAsync(
                 projectId,
                 dev.Id,
                 $"""
-Requirement đã được user approve.
+User đã approve requirement.
 
-Version: {versionName}
+Chỉ sử dụng AI Design Spec bên dưới để generate code.
+Không đọc BRD/SRS/FSD/UserStories.
+Không sửa requirement document.
 
-Nhiệm vụ của bạn:
-- Đọc requirement bên dưới
-- Sinh code theo requirement
-- Build/test nếu có thể
-- Không sửa requirement
+# AI Design Spec
 
-{requirement}
+{aiDesignSpec.Content}
 """);
         }
 
@@ -136,6 +154,29 @@ Nhiệm vụ của bạn:
     public IActionResult NewChat(Guid projectId)
     {
         return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DownloadDocument(Guid id)
+    {
+        var doc = await _db.ProjectDocuments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (doc == null)
+            return NotFound("Document not found.");
+
+        if (string.IsNullOrWhiteSpace(doc.FilePath))
+            return NotFound("Document FilePath is empty.");
+
+        var filePath = doc.FilePath;
+
+        if (!System.IO.File.Exists(filePath))
+            return NotFound($"File not found: {filePath}");
+
+        var contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+        return PhysicalFile(filePath, contentType, doc.FileName);
     }
 
     [HttpPost]
