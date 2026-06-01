@@ -1,3 +1,5 @@
+using ICOGenerator.Services.Agents;
+
 namespace ICOGenerator.Services.Models
 {
     public class BARequirementDocxResult
@@ -5,6 +7,8 @@ namespace ICOGenerator.Services.Models
         public string AssistantMessage { get; set; } = "";
         public BrdDto Brd { get; set; } = new();
         public SrsDto Srs { get; set; } = new();
+        public FsdDto Fsd { get; set; } = new();
         public UserStoriesDto UserStories { get; set; } = new();
+        public AiDesignSpecDto AiDesignSpec { get; set; } = new();
     }
 }
