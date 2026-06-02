@@ -1,46 +1,28 @@
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Registry;
+using ICOGenerator.Services.Tools.Abstractions;
 
 namespace ICOGenerator.Services.Agents;
 
 public class AgentPromptBuilder
 {
+    private readonly PromptTemplateService _promptTemplateService;
+
+    public AgentPromptBuilder(PromptTemplateService promptTemplateService)
+    {
+        _promptTemplateService = promptTemplateService;
+    }
+
     public string Build(Agent agent, IReadOnlyList<ToolRuntimeDescriptor> tools)
     {
-        var toolText = string.Join("\n", tools.Select(t => $"- {t.Definition.Name}: {t.Definition.Description}. Args: {string.Join(", ", t.Method.GetParameters().Select(p => p.Name + ":" + p.ParameterType.Name))}"));
-        return $$"""
-You are {{agent.Name}} - {{agent.RoleTitle}}.
+        var toolText = string.Join("\n", tools.Select(t =>
+            $"- {t.Definition.Name}: {t.Definition.Description}. InputSchema: {ToolSchemaBuilder.BuildInputSchema(t.Method)}"));
 
-Instruction:
-{{agent.Instruction}}
-
-You can use dynamic tools. Return EXACTLY ONE JSON object only.
-
-Available response formats:
-1. Call tool:
-{
-  "type": "tool",
-  "tool": "ToolName",
-  "args": {
-    "paramName": "value"
-  }
-}
-
-2. Final answer:
-{
-  "type": "final",
-  "content": "your final answer"
-}
-
-Available tools:
-{{toolText}}
-
-Rules:
-- No markdown fence.
-- No reasoning text.
-- One JSON object only.
-- Use tools step by step.
-- If you create or modify code, build/test and fix errors before final.
-""";
+        return _promptTemplateService.Get("Agents/tool-agent.v1.md")
+            .Replace("{{agentName}}", agent.Name)
+            .Replace("{{roleTitle}}", agent.RoleTitle)
+            .Replace("{{instruction}}", agent.Instruction)
+            .Replace("{{tools}}", toolText);
     }
 }

@@ -1,5 +1,6 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Models;
+using ICOGenerator.Services.Llm;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
@@ -8,7 +9,7 @@ using System.Text.Json;
 
 namespace ICOGenerator.Services.Agents;
 
-public class LocalLlmClient
+public class LocalLlmClient : ILlmClient
 {
     public async Task<string> ChatAsync(AiModel model, List<ChatMessageDto> messages, double temperature)
     {

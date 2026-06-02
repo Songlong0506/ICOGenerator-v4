@@ -1,3 +1,5 @@
+using ICOGenerator.Domain.Enums;
+
 namespace ICOGenerator.Domain;
 
 public class AgentTask
@@ -9,8 +11,8 @@ public class AgentTask
     public Project Project { get; set; } = default!;
     public Guid? AgentId { get; set; }
     public Agent? Agent { get; set; }
-    public string Type { get; set; } = "General";
-    public string Status { get; set; } = "Queued";
+    public AgentTaskType Type { get; set; } = AgentTaskType.General;
+    public AgentTaskStatus Status { get; set; } = AgentTaskStatus.Queued;
     public string Title { get; set; } = string.Empty;
     public string Input { get; set; } = string.Empty;
     public string? Output { get; set; }

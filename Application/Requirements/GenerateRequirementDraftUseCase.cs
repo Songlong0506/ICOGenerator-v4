@@ -1,0 +1,16 @@
+using ICOGenerator.Services.Agents;
+
+namespace ICOGenerator.Application.Requirements;
+
+public class GenerateRequirementDraftUseCase
+{
+    private readonly BARequirementService _baRequirementService;
+
+    public GenerateRequirementDraftUseCase(BARequirementService baRequirementService)
+    {
+        _baRequirementService = baRequirementService;
+    }
+
+    public Task ExecuteAsync(Guid projectId, string message) =>
+        _baRequirementService.GenerateOrUpdateDraftAsync(projectId, message);
+}
