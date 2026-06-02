@@ -16,7 +16,7 @@ public class StartRequirementChatUseCase
 
     public async Task<Guid> ExecuteAsync(Guid projectId, string message)
     {
-        var ba = await _db.Agents.FirstAsync(x => x.Name == "BA");
+        var ba = await _db.Agents.FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
         var job = new AgentJob
         {
             ProjectId = projectId,

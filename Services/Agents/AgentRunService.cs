@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Models;
@@ -17,11 +16,12 @@ public class AgentRunService
     private readonly DynamicToolInvoker _invoker;
     private readonly ILlmClient _llm;
     private readonly AgentPromptBuilder _promptBuilder;
+    private readonly AgentActionParser _actionParser;
     private readonly WorkspaceTools _workspaceTools;
     private readonly IModelCallLogger _modelCallLogger;
 
-    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, DynamicToolInvoker invoker, ILlmClient llm, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger)
-    { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _llm = llm; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; }
+    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, DynamicToolInvoker invoker, ILlmClient llm, AgentPromptBuilder promptBuilder, AgentActionParser actionParser, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger)
+    { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _llm = llm; _promptBuilder = promptBuilder; _actionParser = actionParser; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; }
 
     public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 6)
     {
@@ -41,16 +41,8 @@ public class AgentRunService
             var callResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature);
             await _modelCallLogger.LogAsync(projectId, agent, callResult, step, "AgentRun");
             var response = callResult.Content;
-            AgentActionDto? action;
-            try
-            {
-                action = JsonSerializer.Deserialize<AgentActionDto>(JsonExtractor.Extract(response), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            }
-            catch (Exception)
-            {
+            if (!_actionParser.TryParse(response, out var action) || action == null)
                 return response;
-            }
-            if (action == null) return response;
             if (action.Type.Equals("final", StringComparison.OrdinalIgnoreCase))
             {
                 await SaveConversation(projectId, agentId, action.Content ?? response);
