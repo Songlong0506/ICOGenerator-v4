@@ -1,3 +1,5 @@
+using ICOGenerator.Domain.Enums;
+
 namespace ICOGenerator.Domain;
 
 public class WorkflowRun
@@ -6,8 +8,8 @@ public class WorkflowRun
     public Guid ProjectId { get; set; }
     public Project Project { get; set; } = default!;
     public string Name { get; set; } = "Default Delivery Workflow";
-    public string Status { get; set; } = "Queued";
-    public string CurrentStage { get; set; } = "RequirementApproved";
+    public WorkflowRunStatus Status { get; set; } = WorkflowRunStatus.Queued;
+    public WorkflowStageKey CurrentStage { get; set; } = WorkflowStageKey.RequirementApproved;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? StartedAt { get; set; }
     public DateTime? FinishedAt { get; set; }

@@ -1,4 +1,5 @@
 using ICOGenerator.Data;
+using ICOGenerator.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Agents;
@@ -43,7 +44,7 @@ public class AgentJobRunner : BackgroundService
         var baService = scope.ServiceProvider.GetRequiredService<BARequirementService>();
 
         var job = await db.AgentJobs
-            .Where(x => x.Status == "Queued")
+            .Where(x => x.Status == AgentJobStatus.Queued)
             .OrderBy(x => x.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -52,7 +53,7 @@ public class AgentJobRunner : BackgroundService
 
         try
         {
-            job.Status = "Running";
+            job.Status = AgentJobStatus.Running;
             job.CurrentStep = "BA is thinking...";
             await db.SaveChangesAsync(cancellationToken);
 
@@ -61,7 +62,7 @@ public class AgentJobRunner : BackgroundService
 
             await baService.GenerateOrUpdateDraftAsync(job.ProjectId, job.UserMessage);
 
-            job.Status = "Completed";
+            job.Status = AgentJobStatus.Completed;
             job.CurrentStep = "Requirement draft updated.";
             job.Result = "Done";
             job.FinishedAt = DateTime.UtcNow;
@@ -70,7 +71,7 @@ public class AgentJobRunner : BackgroundService
         }
         catch (Exception ex)
         {
-            job.Status = "Failed";
+            job.Status = AgentJobStatus.Failed;
             job.CurrentStep = "Failed";
             job.Error = ex.Message;
             job.FinishedAt = DateTime.UtcNow;

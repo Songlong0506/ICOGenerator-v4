@@ -1,4 +1,5 @@
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Data;
@@ -33,6 +34,14 @@ public class AppDbContext : DbContext
         builder.Entity<AgentModelCallLog>().HasOne(x => x.Project).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.ProjectId);
         builder.Entity<AgentModelCallLog>().HasOne(x => x.Agent).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.AgentId);
         builder.Entity<AgentModelCallLog>().HasIndex(x => new { x.ProjectId, x.AgentId, x.CreatedAt });
+
+        builder.Entity<WorkflowRun>().Property(x => x.Status).HasConversion<string>();
+        builder.Entity<WorkflowRun>().Property(x => x.CurrentStage).HasConversion<string>();
+
+        builder.Entity<AgentTask>().Property(x => x.Type).HasConversion<string>();
+        builder.Entity<AgentTask>().Property(x => x.Status).HasConversion<string>();
+
+        builder.Entity<AgentJob>().Property(x => x.Status).HasConversion<string>();
 
         builder.Entity<WorkflowRun>().HasOne(x => x.Project).WithMany(x => x.WorkflowRuns).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         builder.Entity<WorkflowRun>().HasIndex(x => new { x.ProjectId, x.Status, x.CreatedAt });

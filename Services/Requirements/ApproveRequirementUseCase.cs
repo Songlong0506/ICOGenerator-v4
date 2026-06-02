@@ -1,7 +1,8 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Agents;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Workspace;
+using ICOGenerator.Services.Artifacts;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Requirements;
@@ -9,17 +10,14 @@ namespace ICOGenerator.Services.Requirements;
 public class ApproveRequirementUseCase
 {
     private readonly AppDbContext _db;
-    private readonly AgentRunService _agentRunService;
     private readonly WorkspacePathResolver _workspacePathResolver;
+    private readonly IProjectArtifactCatalog _artifactCatalog;
 
-    public ApproveRequirementUseCase(
-        AppDbContext db,
-        AgentRunService agentRunService,
-        WorkspacePathResolver workspacePathResolver)
+    public ApproveRequirementUseCase(AppDbContext db, WorkspacePathResolver workspacePathResolver, IProjectArtifactCatalog artifactCatalog)
     {
         _db = db;
-        _agentRunService = agentRunService;
         _workspacePathResolver = workspacePathResolver;
+        _artifactCatalog = artifactCatalog;
     }
 
     public async Task<ApproveRequirementResult> ExecuteAsync(Guid projectId)
@@ -35,8 +33,7 @@ public class ApproveRequirementUseCase
         if (!draftDocs.Any())
             return ApproveRequirementResult.NoDraftDocuments;
 
-        var aiDesignSpec = draftDocs.FirstOrDefault(x => x.FileName == "AIDesignSpec.docx");
-
+        var aiDesignSpec = draftDocs.FirstOrDefault(x => x.FileName == _artifactCatalog.AiDesignSpec.FileName);
         if (aiDesignSpec == null)
             return ApproveRequirementResult.MissingAiDesignSpec;
 
@@ -66,17 +63,15 @@ public class ApproveRequirementUseCase
 
         RenameDraftFolder(project.Name, versionName);
 
-        await _db.SaveChangesAsync();
-
         var dev = await _db.Agents.FirstOrDefaultAsync(x => x.Name == "Developer");
 
         var workflowRun = new WorkflowRun
         {
             ProjectId = projectId,
             Name = $"Delivery Workflow {versionName}",
-            Status = "Running",
-            CurrentStage = "Implementation",
-            StartedAt = DateTime.UtcNow
+            Status = WorkflowRunStatus.Queued,
+            CurrentStage = WorkflowStageKey.Implementation,
+            StartedAt = null
         };
 
         var implementationTask = new AgentTask
@@ -84,43 +79,15 @@ public class ApproveRequirementUseCase
             WorkflowRunId = workflowRun.Id,
             ProjectId = projectId,
             AgentId = dev?.Id,
-            Type = "Implementation",
-            Status = dev == null ? "Queued" : "Running",
+            Type = AgentTaskType.Implementation,
+            Status = AgentTaskStatus.Queued,
             Title = "Generate POC from approved AI Design Spec",
-            Input = aiDesignSpec.Content,
-            StartedAt = dev == null ? null : DateTime.UtcNow
+            Input = aiDesignSpec.Content
         };
 
         _db.WorkflowRuns.Add(workflowRun);
         _db.AgentTasks.Add(implementationTask);
-
         await _db.SaveChangesAsync();
-
-        if (dev != null)
-        {
-            var output = await _agentRunService.RunAsync(
-                projectId,
-                dev.Id,
-                $"""
-User đã approve requirement.
-
-Chỉ sử dụng AI Design Spec bên dưới để generate code.
-Không đọc BRD/SRS/FSD/UserStories.
-Không sửa requirement document.
-
-# AI Design Spec
-
-{aiDesignSpec.Content}
-""");
-
-            implementationTask.Status = "Completed";
-            implementationTask.Output = output;
-            implementationTask.FinishedAt = DateTime.UtcNow;
-            workflowRun.Status = "Completed";
-            workflowRun.CurrentStage = "Completed";
-            workflowRun.FinishedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
-        }
 
         return ApproveRequirementResult.Approved;
     }

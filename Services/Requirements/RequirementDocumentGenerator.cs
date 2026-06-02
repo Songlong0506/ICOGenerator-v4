@@ -6,6 +6,7 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Templates;
 using ICOGenerator.Services.Workspace;
+using ICOGenerator.Services.Artifacts;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Requirements;
@@ -16,17 +17,23 @@ public class RequirementDocumentGenerator
     private readonly RequirementTemplateService _templateService;
     private readonly DocxTemplateWriter _docxWriter;
     private readonly WorkspacePathResolver _workspacePathResolver;
+    private readonly IProjectArtifactCatalog _artifactCatalog;
+    private readonly IArtifactStorage _artifactStorage;
 
     public RequirementDocumentGenerator(
         AppDbContext db,
         RequirementTemplateService templateService,
         DocxTemplateWriter docxWriter,
-        WorkspacePathResolver workspacePathResolver)
+        WorkspacePathResolver workspacePathResolver,
+        IProjectArtifactCatalog artifactCatalog,
+        IArtifactStorage artifactStorage)
     {
         _db = db;
         _templateService = templateService;
         _docxWriter = docxWriter;
         _workspacePathResolver = workspacePathResolver;
+        _artifactCatalog = artifactCatalog;
+        _artifactStorage = artifactStorage;
     }
     public async Task GenerateDraftDocxFiles(Project project, Guid baId, BARequirementDocxResult result)
     {
@@ -38,11 +45,11 @@ public class RequirementDocumentGenerator
         var srsTemplate = _templateService.EnsureTemplateDocx("SRS_Template.docx");
         var fsdTemplate = _templateService.EnsureTemplateDocx("FSD_Template.docx");
 
-        var brdOutput = Path.Combine(draftPath, "BRD.docx");
-        var srsOutput = Path.Combine(draftPath, "SRS.docx");
-        var fsdOutput = Path.Combine(draftPath, "FSD.docx");
-        var storiesOutput = Path.Combine(draftPath, "UserStories.docx");
-        var aiDesignSpecOutput = Path.Combine(draftPath, "AIDesignSpec.docx");
+        var brdOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("BRD"));
+        var srsOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("SRS"));
+        var fsdOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("FSD"));
+        var storiesOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("UserStories"));
+        var aiDesignSpecOutput = _artifactStorage.GetDraftPath(project.Name, _artifactCatalog.AiDesignSpec);
 
         _docxWriter.CreateFromTemplate(brdTemplate, brdOutput, BuildBrdReplacements(project, result.Brd));
         _docxWriter.CreateFromTemplate(srsTemplate, srsOutput, BuildSrsReplacements(project, result.Srs));
@@ -50,12 +57,15 @@ public class RequirementDocumentGenerator
         CreateSimpleDocumentDocx(storiesOutput, "User Stories", result.UserStories.Content);
         CreateSimpleDocumentDocx(aiDesignSpecOutput, "AI Design Spec", result.AiDesignSpec.Content);
 
-        await UpsertDraftDocument(project.Id, baId, "BRD.docx", brdOutput, _docxWriter.ExtractText(brdOutput));
-        await UpsertDraftDocument(project.Id, baId, "SRS.docx", srsOutput, _docxWriter.ExtractText(srsOutput));
-        await UpsertDraftDocument(project.Id, baId, "FSD.docx", fsdOutput, _docxWriter.ExtractText(fsdOutput));
-        await UpsertDraftDocument(project.Id, baId, "UserStories.docx", storiesOutput, result.UserStories.Content);
-        await UpsertDraftDocument(project.Id, baId, "AIDesignSpec.docx", aiDesignSpecOutput, result.AiDesignSpec.Content);
+        await UpsertDraftDocument(project.Id, baId, GetArtifact("BRD").FileName, brdOutput, _docxWriter.ExtractText(brdOutput));
+        await UpsertDraftDocument(project.Id, baId, GetArtifact("SRS").FileName, srsOutput, _docxWriter.ExtractText(srsOutput));
+        await UpsertDraftDocument(project.Id, baId, GetArtifact("FSD").FileName, fsdOutput, _docxWriter.ExtractText(fsdOutput));
+        await UpsertDraftDocument(project.Id, baId, GetArtifact("UserStories").FileName, storiesOutput, result.UserStories.Content);
+        await UpsertDraftDocument(project.Id, baId, _artifactCatalog.AiDesignSpec.FileName, aiDesignSpecOutput, result.AiDesignSpec.Content);
     }
+
+    private ProjectArtifactDescriptor GetArtifact(string key) =>
+        _artifactCatalog.RequirementDocuments.First(x => x.Key == key);
 
     private static void CreateSimpleDocumentDocx(string outputPath, string title, string content)
     {
