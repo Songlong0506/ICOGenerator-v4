@@ -67,6 +67,92 @@ namespace ICOGenerator.Migrations
                     b.ToTable("Agents");
                 });
 
+            modelBuilder.Entity("ICOGenerator.Domain.AgentTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AgentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Attempt")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("FinishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Input")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Output")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("WorkflowRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("ProjectId", "Status", "CreatedAt");
+
+                    b.HasIndex("WorkflowRunId");
+
+                    b.ToTable("AgentTasks");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.AgentTask", b =>
+                {
+                    b.HasOne("ICOGenerator.Domain.Agent", "Agent")
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ICOGenerator.Domain.Project", "Project")
+                        .WithMany("AgentTasks")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ICOGenerator.Domain.WorkflowRun", "WorkflowRun")
+                        .WithMany("AgentTasks")
+                        .HasForeignKey("WorkflowRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Project");
+
+                    b.Navigation("WorkflowRun");
+                });
+
             modelBuilder.Entity("ICOGenerator.Domain.AgentConversation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -368,6 +454,43 @@ namespace ICOGenerator.Migrations
                     b.ToTable("ProjectDocuments");
                 });
 
+            modelBuilder.Entity("ICOGenerator.Domain.WorkflowRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CurrentStage")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("FinishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "Status", "CreatedAt");
+
+                    b.ToTable("WorkflowRuns");
+                });
+
             modelBuilder.Entity("ICOGenerator.Domain.ToolDefinition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -488,6 +611,17 @@ namespace ICOGenerator.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("ICOGenerator.Domain.WorkflowRun", b =>
+                {
+                    b.HasOne("ICOGenerator.Domain.Project", "Project")
+                        .WithMany("WorkflowRuns")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("ICOGenerator.Domain.Agent", b =>
                 {
                     b.Navigation("AgentTools");
@@ -497,11 +631,20 @@ namespace ICOGenerator.Migrations
 
             modelBuilder.Entity("ICOGenerator.Domain.Project", b =>
                 {
+                    b.Navigation("AgentTasks");
+
                     b.Navigation("Conversations");
 
                     b.Navigation("Documents");
 
                     b.Navigation("ModelCallLogs");
+
+                    b.Navigation("WorkflowRuns");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.WorkflowRun", b =>
+                {
+                    b.Navigation("AgentTasks");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.ToolDefinition", b =>

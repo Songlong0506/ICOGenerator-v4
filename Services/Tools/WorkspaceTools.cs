@@ -1,18 +1,23 @@
 using System.ComponentModel;
+using ICOGenerator.Services.Workspace;
 
 namespace ICOGenerator.Services.Tools;
 
 public class WorkspaceTools
 {
     private readonly IConfiguration _configuration;
-    public WorkspaceTools(IConfiguration configuration) { _configuration = configuration; }
+    private readonly WorkspacePathResolver _workspacePathResolver;
+
+    public WorkspaceTools(IConfiguration configuration, WorkspacePathResolver workspacePathResolver)
+    {
+        _configuration = configuration;
+        _workspacePathResolver = workspacePathResolver;
+    }
     public string CurrentWorkspacePath { get; private set; } = string.Empty;
 
     public void SetWorkspace(string projectName)
     {
-        var rootPath = _configuration["AgentWorkspace:RootPath"];
-        if (string.IsNullOrWhiteSpace(rootPath)) throw new InvalidOperationException("AgentWorkspace:RootPath is missing.");
-        CurrentWorkspacePath = Path.GetFullPath(Path.Combine(rootPath, MakeSafeFolderName(projectName)));
+        CurrentWorkspacePath = _workspacePathResolver.GetProjectWorkspacePath(projectName);
         Directory.CreateDirectory(CurrentWorkspacePath);
     }
 
@@ -89,9 +94,7 @@ public class WorkspaceTools
 
     private string GetSafeFullPath(string relativePath)
     {
-        var fullPath = Path.GetFullPath(Path.Combine(CurrentWorkspacePath, relativePath));
-        if (!fullPath.StartsWith(CurrentWorkspacePath, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Invalid file path.");
-        return fullPath;
+        return _workspacePathResolver.GetSafeFullPath(CurrentWorkspacePath, relativePath);
     }
     private void ValidateExtension(string fullPath)
     {
@@ -104,10 +107,5 @@ public class WorkspaceTools
     private void EnsureWorkspace()
     {
         if (string.IsNullOrWhiteSpace(CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
-    }
-    private static string MakeSafeFolderName(string name)
-    {
-        foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '-');
-        return name.Replace(" ", "-").ToLowerInvariant();
     }
 }
