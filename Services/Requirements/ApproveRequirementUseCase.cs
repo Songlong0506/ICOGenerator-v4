@@ -1,8 +1,7 @@
 using ICOGenerator.Data;
-using ICOGenerator.Domain;
-using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Workspace;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Requirements;
@@ -12,12 +11,14 @@ public class ApproveRequirementUseCase
     private readonly AppDbContext _db;
     private readonly WorkspacePathResolver _workspacePathResolver;
     private readonly IProjectArtifactCatalog _artifactCatalog;
+    private readonly IWorkflowOrchestrator _workflowOrchestrator;
 
-    public ApproveRequirementUseCase(AppDbContext db, WorkspacePathResolver workspacePathResolver, IProjectArtifactCatalog artifactCatalog)
+    public ApproveRequirementUseCase(AppDbContext db, WorkspacePathResolver workspacePathResolver, IProjectArtifactCatalog artifactCatalog, IWorkflowOrchestrator workflowOrchestrator)
     {
         _db = db;
         _workspacePathResolver = workspacePathResolver;
         _artifactCatalog = artifactCatalog;
+        _workflowOrchestrator = workflowOrchestrator;
     }
 
     public async Task<ApproveRequirementResult> ExecuteAsync(Guid projectId)
@@ -63,31 +64,9 @@ public class ApproveRequirementUseCase
 
         RenameDraftFolder(project.Name, versionName);
 
-        var dev = await _db.Agents.FirstOrDefaultAsync(x => x.Name == "Developer");
-
-        var workflowRun = new WorkflowRun
-        {
-            ProjectId = projectId,
-            Name = $"Delivery Workflow {versionName}",
-            Status = WorkflowRunStatus.Queued,
-            CurrentStage = WorkflowStageKey.Implementation,
-            StartedAt = null
-        };
-
-        var implementationTask = new AgentTask
-        {
-            WorkflowRunId = workflowRun.Id,
-            ProjectId = projectId,
-            AgentId = dev?.Id,
-            Type = AgentTaskType.Implementation,
-            Status = AgentTaskStatus.Queued,
-            Title = "Generate POC from approved AI Design Spec",
-            Input = aiDesignSpec.Content
-        };
-
-        _db.WorkflowRuns.Add(workflowRun);
-        _db.AgentTasks.Add(implementationTask);
         await _db.SaveChangesAsync();
+
+        await _workflowOrchestrator.StartDeliveryWorkflowAsync(projectId, versionName, aiDesignSpec.Content);
 
         return ApproveRequirementResult.Approved;
     }

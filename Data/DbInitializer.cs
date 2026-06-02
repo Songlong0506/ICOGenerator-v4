@@ -30,18 +30,20 @@ public static class DbInitializer
             var modelId = await db.AiModels.Where(x => x.IsDefault).Select(x => x.Id).FirstAsync();
             var agents = new[]
             {
-                new Agent { Name="BA", RoleTitle="Business Analyst", Color="#8B5CF6", AiModelId=modelId, Description="Thu thập và phân tích yêu cầu, viết tài liệu đặc tả nghiệp vụ.", Instruction="Bạn là BA. Hãy hỏi rõ yêu cầu, tạo BRD, SRS, user stories, acceptance criteria." },
-                new Agent { Name="Tech Lead", RoleTitle="Technical Lead", Color="#3B82F6", AiModelId=modelId, Description="Thiết kế kiến trúc và review kỹ thuật.", Instruction="Bạn là Tech Lead. Hãy đề xuất kiến trúc, phân tích technical risks và review solution." },
-                new Agent { Name="Developer", RoleTitle="Developer", Color="#10B981", AiModelId=modelId, Description="Sinh source code, build và sửa lỗi.", Instruction="Bạn là Developer. Hãy viết code trong workspace, chạy build/test, sửa lỗi đến khi thành công." },
-                new Agent { Name="Tester", RoleTitle="QA Engineer", Color="#2563EB", AiModelId=modelId, Description="Viết test cases và kiểm thử.", Instruction="Bạn là Tester. Hãy tạo test cases, kiểm tra acceptance criteria và report bugs." },
-                new Agent { Name="UI/UX", RoleTitle="Designer", Color="#F97316", AiModelId=modelId, Description="Thiết kế flow và wireframe.", Instruction="Bạn là UI/UX designer. Hãy tạo user flow, wireframe notes và UI guideline." },
-                new Agent { Name="System", RoleTitle="System Agent", Color="#64748B", AiModelId=modelId, Status=AgentStatus.Inactive, Description="System orchestration agent.", Instruction="System orchestration agent." }
+                new Agent { Name="BA", RoleTitle="Business Analyst", RoleKey=AgentRoleKey.BusinessAnalyst, Color="#8B5CF6", AiModelId=modelId, Description="Thu thập và phân tích yêu cầu, viết tài liệu đặc tả nghiệp vụ.", Instruction="Bạn là BA. Hãy hỏi rõ yêu cầu, tạo BRD, SRS, user stories, acceptance criteria." },
+                new Agent { Name="Tech Lead", RoleTitle="Technical Lead", RoleKey=AgentRoleKey.TechLead, Color="#3B82F6", AiModelId=modelId, Description="Thiết kế kiến trúc và review kỹ thuật.", Instruction="Bạn là Tech Lead. Hãy đề xuất kiến trúc, phân tích technical risks và review solution." },
+                new Agent { Name="Developer", RoleTitle="Developer", RoleKey=AgentRoleKey.Developer, Color="#10B981", AiModelId=modelId, Description="Sinh source code, build và sửa lỗi.", Instruction="Bạn là Developer. Hãy viết code trong workspace, chạy build/test, sửa lỗi đến khi thành công." },
+                new Agent { Name="Tester", RoleTitle="QA Engineer", RoleKey=AgentRoleKey.Tester, Color="#2563EB", AiModelId=modelId, Description="Viết test cases và kiểm thử.", Instruction="Bạn là Tester. Hãy tạo test cases, kiểm tra acceptance criteria và report bugs." },
+                new Agent { Name="UI/UX", RoleTitle="Designer", RoleKey=AgentRoleKey.UiUx, Color="#F97316", AiModelId=modelId, Description="Thiết kế flow và wireframe.", Instruction="Bạn là UI/UX designer. Hãy tạo user flow, wireframe notes và UI guideline." },
+                new Agent { Name="System", RoleTitle="System Agent", RoleKey=AgentRoleKey.System, Color="#64748B", AiModelId=modelId, Status=AgentStatus.Inactive, Description="System orchestration agent.", Instruction="System orchestration agent." }
             };
             db.Agents.AddRange(agents);
             await db.SaveChangesAsync();
 
             await AssignDefaultToolsAsync(db);
         }
+
+        await EnsureAgentRoleKeysAsync(db);
 
         if (!await db.Projects.AnyAsync())
         {
@@ -53,28 +55,55 @@ public static class DbInitializer
                 new Project { Name="Hotel Booking System", Description="Booking system for hotels and accommodations", Status=ProjectStatus.Planning, CreatedAt=new DateTime(2024,5,5) });
             await db.SaveChangesAsync();
 
-            var ba = await db.Agents.FirstAsync(x => x.Name == "BA");
+            var ba = await db.Agents.FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
             db.ProjectDocuments.Add(new ProjectDocument { ProjectId=p.Id, AgentId=ba.Id, Folder="01_Requirement", FileName="01_Project_Overview.md", TokenUsed=4250, Content="# Tổng quan dự án\nDự án E-commerce Web App là nền tảng thương mại điện tử cho phép người dùng xem sản phẩm, thêm vào giỏ hàng, thanh toán và quản lý đơn hàng.\n\n## Mục tiêu\n- Cung cấp trải nghiệm mua sắm trực tuyến mượt mà\n- Quản lý sản phẩm, đơn hàng, người dùng hiệu quả\n- Hỗ trợ thanh toán đa dạng" });
             db.AgentConversations.Add(new AgentConversation { ProjectId=p.Id, AgentId=ba.Id, Message="Đã phân tích yêu cầu và tạo tài liệu tổng quan dự án.", TokenUsed=4250 });
             await db.SaveChangesAsync();
         }
     }
 
+    private static async Task EnsureAgentRoleKeysAsync(AppDbContext db)
+    {
+        var roleByName = new Dictionary<string, AgentRoleKey>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["BA"] = AgentRoleKey.BusinessAnalyst,
+            ["Tech Lead"] = AgentRoleKey.TechLead,
+            ["Developer"] = AgentRoleKey.Developer,
+            ["Tester"] = AgentRoleKey.Tester,
+            ["UI/UX"] = AgentRoleKey.UiUx,
+            ["System"] = AgentRoleKey.System
+        };
+
+        var agents = await db.Agents.ToListAsync();
+        var changed = false;
+        foreach (var agent in agents)
+        {
+            if (!roleByName.TryGetValue(agent.Name, out var roleKey) || agent.RoleKey == roleKey)
+                continue;
+
+            agent.RoleKey = roleKey;
+            changed = true;
+        }
+
+        if (changed)
+            await db.SaveChangesAsync();
+    }
+
     private static async Task AssignDefaultToolsAsync(AppDbContext db)
     {
         var all = await db.ToolDefinitions.ToListAsync();
-        async Task Assign(string agentName, params string[] toolNames)
+        async Task Assign(AgentRoleKey roleKey, params string[] toolNames)
         {
-            var agent = await db.Agents.FirstAsync(x => x.Name == agentName);
+            var agent = await db.Agents.FirstAsync(x => x.RoleKey == roleKey);
             foreach (var tool in all.Where(x => toolNames.Contains(x.Name)))
                 db.AgentTools.Add(new AgentTool { AgentId = agent.Id, ToolDefinitionId = tool.Id });
         }
 
-        await Assign("BA", "ListFiles", "ReadFile", "WriteFile", "SearchFiles");
-        await Assign("Tech Lead", "ListFiles", "ReadFile", "WriteFile", "GitDiff", "GitStatus");
-        await Assign("Developer", "ListFiles", "ReadFile", "WriteFile", "ReplaceInFile", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch");
-        await Assign("Tester", "ListFiles", "ReadFile", "WriteFile", "RunCommand");
-        await Assign("UI/UX", "WriteFile", "ReadFile", "ListFiles");
+        await Assign(AgentRoleKey.BusinessAnalyst, "ListFiles", "ReadFile", "WriteFile", "SearchFiles");
+        await Assign(AgentRoleKey.TechLead, "ListFiles", "ReadFile", "WriteFile", "GitDiff", "GitStatus");
+        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "ReplaceInFile", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch");
+        await Assign(AgentRoleKey.Tester, "ListFiles", "ReadFile", "WriteFile", "RunCommand");
+        await Assign(AgentRoleKey.UiUx, "WriteFile", "ReadFile", "ListFiles");
         await db.SaveChangesAsync();
     }
 }

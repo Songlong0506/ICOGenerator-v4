@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Models;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Logging;
@@ -55,7 +56,7 @@ public class BARequirementService
 
         var ba = await _db.Agents
             .Include(x => x.AiModel)
-            .FirstAsync(x => x.Name == "BA");
+            .FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
 
         var model = ba.AiModel ?? await _db.AiModels.FirstAsync(x => x.IsDefault);
 
