@@ -1,6 +1,8 @@
 using ICOGenerator.Data;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Registry;
+using ICOGenerator.Services.Requirements;
+using ICOGenerator.Services.Workspace;
 using ICOGenerator.Services.Tools;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +12,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddScoped<WorkspacePathResolver>();
 builder.Services.AddScoped<WorkspaceTools>();
 builder.Services.AddScoped<CommandTools>();
 builder.Services.AddScoped<GitTools>();
@@ -21,7 +24,11 @@ builder.Services.AddScoped<LocalLlmClient>();
 builder.Services.AddScoped<AgentPromptBuilder>();
 builder.Services.AddScoped<AgentRunService>();
 builder.Services.AddScoped<BARequirementService>();
-builder.Services.AddScoped<AgentJobRunner>();
+builder.Services.AddScoped<RequirementPromptBuilder>();
+builder.Services.AddScoped<RequirementResponseParser>();
+builder.Services.AddScoped<RequirementDocumentGenerator>();
+builder.Services.AddScoped<ApproveRequirementUseCase>();
+builder.Services.AddHostedService<AgentJobRunner>();
 builder.Services.AddScoped<RequirementTemplateService>();
 builder.Services.AddScoped<DocxTemplateWriter>();
 
