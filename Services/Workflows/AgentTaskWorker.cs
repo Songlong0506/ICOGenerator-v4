@@ -1,6 +1,8 @@
 using ICOGenerator.Data;
+using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Agents;
+using ICOGenerator.Services.Workflows.Engine;
+using ICOGenerator.Services.Workflows.Steps;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Workflows;
@@ -41,7 +43,7 @@ public class AgentTaskWorker : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var agentRunService = scope.ServiceProvider.GetRequiredService<AgentRunService>();
+        var dispatcher = scope.ServiceProvider.GetRequiredService<WorkflowTaskDispatcher>();
 
         var task = await db.AgentTasks
             .Include(x => x.WorkflowRun)
@@ -52,18 +54,6 @@ public class AgentTaskWorker : BackgroundService
         if (task == null)
             return;
 
-        if (task.AgentId == null)
-        {
-            task.Status = AgentTaskStatus.Failed;
-            task.Error = "No agent is assigned to this task.";
-            task.FinishedAt = DateTime.UtcNow;
-            task.WorkflowRun.Status = WorkflowRunStatus.Failed;
-            task.WorkflowRun.CurrentStage = WorkflowStageKey.Failed;
-            task.WorkflowRun.FinishedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync(cancellationToken);
-            return;
-        }
-
         try
         {
             task.Status = AgentTaskStatus.Running;
@@ -73,27 +63,8 @@ public class AgentTaskWorker : BackgroundService
             task.WorkflowRun.StartedAt ??= DateTime.UtcNow;
             await db.SaveChangesAsync(cancellationToken);
 
-            var output = await agentRunService.RunAsync(
-                task.ProjectId,
-                task.AgentId.Value,
-                $"""
-User đã approve requirement.
-
-Chỉ sử dụng AI Design Spec bên dưới để generate code.
-Không đọc BRD/SRS/FSD/UserStories.
-Không sửa requirement document.
-
-# AI Design Spec
-
-{task.Input}
-""");
-
-            task.Status = AgentTaskStatus.Completed;
-            task.Output = output;
-            task.FinishedAt = DateTime.UtcNow;
-            task.WorkflowRun.Status = WorkflowRunStatus.Completed;
-            task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
-            task.WorkflowRun.FinishedAt = DateTime.UtcNow;
+            var result = await dispatcher.DispatchAsync(task, cancellationToken);
+            ApplyResult(task, result);
             await db.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex)
@@ -106,5 +77,18 @@ Không sửa requirement document.
             task.WorkflowRun.FinishedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(CancellationToken.None);
         }
+    }
+
+    private static void ApplyResult(AgentTask task, WorkflowStepResult result)
+    {
+        task.Status = result.TaskStatus;
+        task.Output = result.Output;
+        task.Error = result.Error;
+        task.FinishedAt = result.FinishedAt ?? DateTime.UtcNow;
+        task.WorkflowRun.Status = result.WorkflowStatus;
+        task.WorkflowRun.CurrentStage = result.WorkflowStage;
+        task.WorkflowRun.FinishedAt = task.WorkflowRun.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Failed
+            ? task.FinishedAt
+            : null;
     }
 }
