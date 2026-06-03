@@ -11,12 +11,6 @@ namespace ICOGenerator.Services.Agents;
 
 public class LocalLlmClient : ILlmClient
 {
-    public async Task<string> ChatAsync(AiModel model, List<ChatMessageDto> messages, double temperature)
-    {
-        var result = await ChatWithLogAsync(model, messages, temperature);
-        return result.Content;
-    }
-
     public async Task<LocalLlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature)
     {
         var stopwatch = Stopwatch.StartNew();
