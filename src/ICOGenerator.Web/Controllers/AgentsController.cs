@@ -1,0 +1,47 @@
+using ICOGenerator.Application.Agents;
+using ICOGenerator.Web.ViewModels;
+using Microsoft.AspNetCore.Mvc;
+
+namespace ICOGenerator.Controllers;
+
+public class AgentsController : Controller
+{
+    private readonly GetAgentManagementPageQuery _getAgentManagementPageQuery;
+    private readonly UpdateAgentUseCase _updateAgentUseCase;
+
+    public AgentsController(GetAgentManagementPageQuery getAgentManagementPageQuery, UpdateAgentUseCase updateAgentUseCase)
+    {
+        _getAgentManagementPageQuery = getAgentManagementPageQuery;
+        _updateAgentUseCase = updateAgentUseCase;
+    }
+
+    public async Task<IActionResult> Index(Guid? id)
+    {
+        var page = await _getAgentManagementPageQuery.ExecuteAsync(id);
+        ViewBag.Selected = page.SelectedAgent;
+        ViewBag.Models = page.Models;
+        ViewBag.Tools = page.Tools;
+        return View(page.Agents);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Update(AgentEditVm vm)
+    {
+        if (!await _updateAgentUseCase.ExecuteAsync(new UpdateAgentCommand(
+                vm.Id,
+                vm.Name,
+                vm.RoleTitle,
+                vm.Description,
+                vm.Instruction,
+                vm.Color,
+                vm.Status,
+                vm.Temperature,
+                vm.AiModelId,
+                vm.ToolDefinitionIds)))
+            return NotFound();
+
+        TempData["Success"] = "Agent updated successfully.";
+        return RedirectToAction(nameof(Index), new { id = vm.Id });
+    }
+}
