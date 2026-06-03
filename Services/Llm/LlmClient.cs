@@ -1,20 +1,19 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Models;
-using ICOGenerator.Services.Llm;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-namespace ICOGenerator.Services.Agents;
+namespace ICOGenerator.Services.Llm;
 
-public class LocalLlmClient : ILlmClient
+public class LlmClient : ILlmClient
 {
-    public async Task<LocalLlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature)
+    public async Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature)
     {
         var stopwatch = Stopwatch.StartNew();
-        var result = new LocalLlmCallResult
+        var result = new LlmCallResult
         {
             Endpoint = model.Endpoint,
             ModelId = model.ModelId,
@@ -179,7 +178,7 @@ API error: {(int)response.StatusCode} {response.StatusCode}
         => string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 4);
 }
 
-public class LocalLlmCallResult
+public class LlmCallResult
 {
     public string Content { get; set; } = string.Empty;
     public string RequestJson { get; set; } = string.Empty;

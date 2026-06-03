@@ -93,8 +93,7 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddLlmServices(this IServiceCollection services)
     {
         services.AddScoped<IModelCallLogger, ModelCallLogger>();
-        services.AddScoped<ILlmClient, LocalLlmClient>();
-        services.AddScoped<LocalLlmClient>();
+        services.AddScoped<ILlmClient, LlmClient>();
         return services;
     }
 

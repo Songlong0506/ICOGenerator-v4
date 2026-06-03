@@ -1,6 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Agents;
+using ICOGenerator.Services.Llm;
 
 namespace ICOGenerator.Services.Logging;
 
@@ -13,7 +13,7 @@ public class ModelCallLogger : IModelCallLogger
         _db = db;
     }
 
-    public async Task LogAsync(Guid projectId, Agent agent, LocalLlmCallResult callResult, int step, string purpose)
+    public async Task LogAsync(Guid projectId, Agent agent, LlmCallResult callResult, int step, string purpose)
     {
         _db.AgentModelCallLogs.Add(new AgentModelCallLog
         {
