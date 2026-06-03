@@ -1,5 +1,5 @@
 using ICOGenerator.Application.Agents;
-using ICOGenerator.ViewModels;
+using ICOGenerator.Web.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
@@ -28,7 +28,17 @@ public class AgentsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Update(AgentEditVm vm)
     {
-        if (!await _updateAgentUseCase.ExecuteAsync(vm))
+        if (!await _updateAgentUseCase.ExecuteAsync(new UpdateAgentCommand(
+                vm.Id,
+                vm.Name,
+                vm.RoleTitle,
+                vm.Description,
+                vm.Instruction,
+                vm.Color,
+                vm.Status,
+                vm.Temperature,
+                vm.AiModelId,
+                vm.ToolDefinitionIds)))
             return NotFound();
 
         TempData["Success"] = "Agent updated successfully.";

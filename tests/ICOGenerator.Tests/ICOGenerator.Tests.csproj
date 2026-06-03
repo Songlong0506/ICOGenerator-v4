@@ -18,7 +18,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ICOGenerator.Web\ICOGenerator.Web.csproj" />
     <ProjectReference Include="..\..\src\ICOGenerator.Application\ICOGenerator.Application.csproj" />
-    <ProjectReference Include="..\..\src\ICOGenerator.Contracts\ICOGenerator.Contracts.csproj" />
     <ProjectReference Include="..\..\src\ICOGenerator.Domain\ICOGenerator.Domain.csproj" />
     <ProjectReference Include="..\..\src\ICOGenerator.Infrastructure\ICOGenerator.Infrastructure.csproj" />
   </ItemGroup>

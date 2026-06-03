@@ -11,8 +11,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ICOGenerator.Domain", "src\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ICOGenerator.Infrastructure", "src\ICOGenerator.Infrastructure\ICOGenerator.Infrastructure.csproj", "{DC5EFA4A-FA60-41DE-88C9-3A0D8803D88F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ICOGenerator.Contracts", "src\ICOGenerator.Contracts\ICOGenerator.Contracts.csproj", "{7D615C6D-7EC2-43F8-B01D-67E648BF530B}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ICOGenerator.Tests", "tests\ICOGenerator.Tests\ICOGenerator.Tests.csproj", "{D2F7177C-1A7B-4E7E-8C31-4388B1E9DF65}"
 EndProject
 Global
@@ -37,10 +35,6 @@ Global
 		{DC5EFA4A-FA60-41DE-88C9-3A0D8803D88F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DC5EFA4A-FA60-41DE-88C9-3A0D8803D88F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DC5EFA4A-FA60-41DE-88C9-3A0D8803D88F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{7D615C6D-7EC2-43F8-B01D-67E648BF530B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7D615C6D-7EC2-43F8-B01D-67E648BF530B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7D615C6D-7EC2-43F8-B01D-67E648BF530B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7D615C6D-7EC2-43F8-B01D-67E648BF530B}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D2F7177C-1A7B-4E7E-8C31-4388B1E9DF65}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D2F7177C-1A7B-4E7E-8C31-4388B1E9DF65}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D2F7177C-1A7B-4E7E-8C31-4388B1E9DF65}.Release|Any CPU.ActiveCfg = Release|Any CPU

@@ -1,6 +1,6 @@
 using ICOGenerator.Domain.Enums;
 
-namespace ICOGenerator.ViewModels;
+namespace ICOGenerator.Web.ViewModels;
 
 public class AgentEditVm
 {

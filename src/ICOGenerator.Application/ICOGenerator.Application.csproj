@@ -9,7 +9,6 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ICOGenerator.Contracts\ICOGenerator.Contracts.csproj" />
     <ProjectReference Include="..\ICOGenerator.Domain\ICOGenerator.Domain.csproj" />
   </ItemGroup>
 </Project>

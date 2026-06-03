@@ -1,7 +1,6 @@
 using ICOGenerator.Application.Abstractions;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.ViewModels;
 
 namespace ICOGenerator.Application.Projects;
 
@@ -14,15 +13,15 @@ public class CreateProjectUseCase
         _db = db;
     }
 
-    public async Task<Guid> ExecuteAsync(ProjectCreateVm vm)
+    public async Task<Guid> ExecuteAsync(CreateProjectCommand command)
     {
         var project = new Project
         {
-            Name = vm.Name,
-            Description = vm.Description,
-            GenerationMode = vm.GenerationMode,
-            BackendGitUrl = vm.BackendGitUrl,
-            FrontendGitUrl = vm.FrontendGitUrl,
+            Name = command.Name,
+            Description = command.Description,
+            GenerationMode = command.GenerationMode,
+            BackendGitUrl = command.BackendGitUrl,
+            FrontendGitUrl = command.FrontendGitUrl,
             Status = ProjectStatus.Planning
         };
 

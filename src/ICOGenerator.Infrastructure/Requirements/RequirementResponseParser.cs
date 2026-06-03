@@ -1,5 +1,5 @@
 using System.Text.Json;
-using ICOGenerator.Contracts.Requirements;
+using ICOGenerator.Services.Requirements.Models;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 

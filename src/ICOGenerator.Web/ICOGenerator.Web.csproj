@@ -6,7 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ICOGenerator.Application\ICOGenerator.Application.csproj" />
-    <ProjectReference Include="..\ICOGenerator.Contracts\ICOGenerator.Contracts.csproj" />
     <ProjectReference Include="..\ICOGenerator.Domain\ICOGenerator.Domain.csproj" />
     <ProjectReference Include="..\ICOGenerator.Infrastructure\ICOGenerator.Infrastructure.csproj" />
   </ItemGroup>

@@ -1,5 +1,5 @@
 using ICOGenerator.Application.Projects;
-using ICOGenerator.ViewModels;
+using ICOGenerator.Web.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
@@ -34,7 +34,12 @@ public class ProjectsController : Controller
         if (!ModelState.IsValid)
             return RedirectToAction(nameof(Index));
 
-        await _createProjectUseCase.ExecuteAsync(vm);
+        await _createProjectUseCase.ExecuteAsync(new CreateProjectCommand(
+            vm.Name,
+            vm.Description,
+            vm.GenerationMode,
+            vm.BackendGitUrl,
+            vm.FrontendGitUrl));
         return RedirectToAction(nameof(Index));
     }
 

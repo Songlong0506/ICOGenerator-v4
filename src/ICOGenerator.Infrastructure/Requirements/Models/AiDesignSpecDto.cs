@@ -1,4 +1,4 @@
-namespace ICOGenerator.Contracts.Requirements;
+namespace ICOGenerator.Services.Requirements.Models;
 
 public class AiDesignSpecDto
 {

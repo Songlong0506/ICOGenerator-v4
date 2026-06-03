@@ -1,6 +1,5 @@
 using ICOGenerator.Application.Abstractions;
 using ICOGenerator.Domain;
-using ICOGenerator.ViewModels;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Agents;
@@ -37,22 +36,22 @@ public class UpdateAgentUseCase
     private readonly IAppDbContext _db;
     public UpdateAgentUseCase(IAppDbContext db) => _db = db;
 
-    public async Task<bool> ExecuteAsync(AgentEditVm vm)
+    public async Task<bool> ExecuteAsync(UpdateAgentCommand command)
     {
-        var agent = await _db.Agents.Include(x => x.AgentTools).FirstOrDefaultAsync(x => x.Id == vm.Id);
+        var agent = await _db.Agents.Include(x => x.AgentTools).FirstOrDefaultAsync(x => x.Id == command.Id);
         if (agent == null)
             return false;
 
-        agent.Name = vm.Name?.Trim() ?? string.Empty;
-        agent.RoleTitle = vm.RoleTitle?.Trim() ?? string.Empty;
-        agent.Description = vm.Description?.Trim() ?? string.Empty;
-        agent.Instruction = vm.Instruction ?? string.Empty;
-        agent.Color = string.IsNullOrWhiteSpace(vm.Color) ? "#8B5CF6" : vm.Color.Trim();
-        agent.Status = vm.Status;
-        agent.Temperature = vm.Temperature;
-        agent.AiModelId = vm.AiModelId;
+        agent.Name = command.Name?.Trim() ?? string.Empty;
+        agent.RoleTitle = command.RoleTitle?.Trim() ?? string.Empty;
+        agent.Description = command.Description?.Trim() ?? string.Empty;
+        agent.Instruction = command.Instruction ?? string.Empty;
+        agent.Color = string.IsNullOrWhiteSpace(command.Color) ? "#8B5CF6" : command.Color.Trim();
+        agent.Status = command.Status;
+        agent.Temperature = command.Temperature;
+        agent.AiModelId = command.AiModelId;
 
-        var selectedToolIds = vm.ToolDefinitionIds.Distinct().ToHashSet();
+        var selectedToolIds = command.ToolDefinitionIds.Distinct().ToHashSet();
         var removed = agent.AgentTools.Where(x => !selectedToolIds.Contains(x.ToolDefinitionId)).ToList();
         _db.AgentTools.RemoveRange(removed);
 
