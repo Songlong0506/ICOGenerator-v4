@@ -1,7 +1,7 @@
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Agents;
+using ICOGenerator.Services.Llm;
 
 namespace ICOGenerator.Services.Requirements;
 

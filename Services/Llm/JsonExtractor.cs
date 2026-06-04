@@ -1,4 +1,5 @@
-namespace ICOGenerator.Services.Agents;
+namespace ICOGenerator.Services.Llm;
+
 public static class JsonExtractor
 {
     public static string Extract(string text)

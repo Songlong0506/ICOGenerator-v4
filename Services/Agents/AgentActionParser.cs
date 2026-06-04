@@ -1,5 +1,5 @@
 using System.Text.Json;
-using ICOGenerator.Services.Models;
+using ICOGenerator.Services.Llm;
 
 namespace ICOGenerator.Services.Agents;
 

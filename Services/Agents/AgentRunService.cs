@@ -1,9 +1,8 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Models;
+using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Registry;
 using ICOGenerator.Services.Tools;
-using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Logging;
 using Microsoft.EntityFrameworkCore;
 

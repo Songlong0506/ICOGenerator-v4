@@ -4,7 +4,7 @@ using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
 
-namespace ICOGenerator.Services.Requirements;
+namespace ICOGenerator.Application.Requirements;
 
 public class ApproveRequirementUseCase
 {

@@ -1,5 +1,4 @@
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Models;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;

@@ -1,4 +1,4 @@
-using ICOGenerator.Services.Agents;
+using ICOGenerator.Services.Requirements;
 
 namespace ICOGenerator.Application.Requirements;
 

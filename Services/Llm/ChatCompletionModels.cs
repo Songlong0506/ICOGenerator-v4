@@ -1,24 +1,30 @@
 using System.Text.Json.Serialization;
 
-namespace ICOGenerator.Services.Models;
+namespace ICOGenerator.Services.Llm;
 
 public class ChatMessageDto
 {
-    [JsonPropertyName("role")] 
+    [JsonPropertyName("role")]
     public string Role { get; set; } = "user";
-    [JsonPropertyName("content")] 
+
+    [JsonPropertyName("content")]
     public string Content { get; set; } = string.Empty;
 }
+
 public class ChatCompletionRequestDto
 {
-    [JsonPropertyName("model")] 
+    [JsonPropertyName("model")]
     public string Model { get; set; } = string.Empty;
-    [JsonPropertyName("messages")] 
+
+    [JsonPropertyName("messages")]
     public List<ChatMessageDto> Messages { get; set; } = [];
-    [JsonPropertyName("temperature")] 
+
+    [JsonPropertyName("temperature")]
     public double Temperature { get; set; }
-    [JsonPropertyName("max_tokens")] 
+
+    [JsonPropertyName("max_tokens")]
     public int MaxTokens { get; set; } = 23000;
+
     [JsonPropertyName("stream")]
     public bool Stream { get; set; } = false;
 
@@ -34,18 +40,12 @@ public class ThinkingDto
 
 public class ChatCompletionResponseDto
 {
-    [JsonPropertyName("choices")] 
+    [JsonPropertyName("choices")]
     public List<ChatChoiceDto> Choices { get; set; } = [];
 }
+
 public class ChatChoiceDto
 {
-    [JsonPropertyName("message")] 
+    [JsonPropertyName("message")]
     public ChatMessageDto Message { get; set; } = new();
-}
-public class AgentActionDto
-{
-    public string Type { get; set; } = string.Empty;
-    public string? Tool { get; set; }
-    public Dictionary<string, System.Text.Json.JsonElement> Args { get; set; } = [];
-    public string? Content { get; set; }
 }
