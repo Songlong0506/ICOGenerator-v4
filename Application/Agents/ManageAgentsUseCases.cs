@@ -1,6 +1,5 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.ViewModels;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Agents;

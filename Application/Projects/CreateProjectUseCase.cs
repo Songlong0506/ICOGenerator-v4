@@ -1,7 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.ViewModels;
 
 namespace ICOGenerator.Application.Projects;
 

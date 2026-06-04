@@ -5,7 +5,7 @@ using ICOGenerator.Domain;
 using ICOGenerator.Services.Tools;
 using Microsoft.EntityFrameworkCore;
 
-namespace ICOGenerator.Services.Registry;
+namespace ICOGenerator.Services.Tools.Registry;
 
 public class ToolDiscoveryService
 {

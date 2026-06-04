@@ -8,7 +8,7 @@ using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Logging;
 using ICOGenerator.Services.Prompts;
-using ICOGenerator.Services.Registry;
+using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Templates;
 using ICOGenerator.Services.Tools;
