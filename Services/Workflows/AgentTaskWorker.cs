@@ -1,6 +1,5 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Agents;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Workflows;
@@ -41,10 +40,12 @@ public class AgentTaskWorker : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var agentRunService = scope.ServiceProvider.GetRequiredService<AgentRunService>();
+        var dispatcher = scope.ServiceProvider.GetRequiredService<WorkflowStepDispatcher>();
+        var stateApplier = scope.ServiceProvider.GetRequiredService<WorkflowStateApplier>();
 
         var task = await db.AgentTasks
             .Include(x => x.WorkflowRun)
+            .Include(x => x.Project)
             .Where(x => x.Status == AgentTaskStatus.Queued)
             .OrderBy(x => x.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
@@ -54,13 +55,28 @@ public class AgentTaskWorker : BackgroundService
 
         if (task.AgentId == null)
         {
-            task.Status = AgentTaskStatus.Failed;
-            task.Error = "No agent is assigned to this task.";
-            task.FinishedAt = DateTime.UtcNow;
-            task.WorkflowRun.Status = WorkflowRunStatus.Failed;
-            task.WorkflowRun.CurrentStage = WorkflowStageKey.Failed;
-            task.WorkflowRun.FinishedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync(cancellationToken);
+            await stateApplier.FailAsync(task, "No agent is assigned to this task.", cancellationToken);
+            return;
+        }
+
+        var previousTasks = await db.AgentTasks
+            .AsNoTracking()
+            .Where(x => x.WorkflowRunId == task.WorkflowRunId && x.Id != task.Id)
+            .OrderBy(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var context = new WorkflowExecutionContext
+        {
+            WorkflowRun = task.WorkflowRun,
+            CurrentTask = task,
+            Project = task.Project,
+            PreviousTasks = previousTasks
+        };
+
+        var handler = dispatcher.Resolve(context);
+        if (handler == null)
+        {
+            await stateApplier.FailAsync(task, $"No workflow step handler can process task type '{task.Type}'.", cancellationToken);
             return;
         }
 
@@ -73,38 +89,12 @@ public class AgentTaskWorker : BackgroundService
             task.WorkflowRun.StartedAt ??= DateTime.UtcNow;
             await db.SaveChangesAsync(cancellationToken);
 
-            var output = await agentRunService.RunAsync(
-                task.ProjectId,
-                task.AgentId.Value,
-                $"""
-User đã approve requirement.
-
-Chỉ sử dụng AI Design Spec bên dưới để generate code.
-Không đọc BRD/SRS/FSD/UserStories.
-Không sửa requirement document.
-
-# AI Design Spec
-
-{task.Input}
-""");
-
-            task.Status = AgentTaskStatus.Completed;
-            task.Output = output;
-            task.FinishedAt = DateTime.UtcNow;
-            task.WorkflowRun.Status = WorkflowRunStatus.Completed;
-            task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
-            task.WorkflowRun.FinishedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync(cancellationToken);
+            var result = await handler.ExecuteAsync(context, cancellationToken);
+            await stateApplier.ApplyAsync(context, result, cancellationToken);
         }
         catch (Exception ex)
         {
-            task.Status = AgentTaskStatus.Failed;
-            task.Error = ex.Message;
-            task.FinishedAt = DateTime.UtcNow;
-            task.WorkflowRun.Status = WorkflowRunStatus.Failed;
-            task.WorkflowRun.CurrentStage = WorkflowStageKey.Failed;
-            task.WorkflowRun.FinishedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync(CancellationToken.None);
+            await stateApplier.FailAsync(task, ex.Message, CancellationToken.None);
         }
     }
 }

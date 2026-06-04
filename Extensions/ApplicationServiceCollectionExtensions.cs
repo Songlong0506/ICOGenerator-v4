@@ -14,6 +14,7 @@ using ICOGenerator.Services.Templates;
 using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Workflows;
+using ICOGenerator.Services.Workflows.Steps;
 using ICOGenerator.Services.Workspace;
 using Microsoft.EntityFrameworkCore;
 
@@ -132,6 +133,12 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddWorkflowServices(this IServiceCollection services)
     {
         services.AddScoped<IWorkflowOrchestrator, WorkflowOrchestrator>();
+        services.AddScoped<WorkflowStepDispatcher>();
+        services.AddScoped<WorkflowStateApplier>();
+        services.AddScoped<IWorkflowStepHandler, TechLeadDesignStepHandler>();
+        services.AddScoped<IWorkflowStepHandler, DeveloperImplementationStepHandler>();
+        services.AddScoped<IWorkflowStepHandler, TesterValidationStepHandler>();
+        services.AddScoped<IWorkflowStepHandler, DeveloperBugFixStepHandler>();
         services.AddHostedService<AgentTaskWorker>();
         return services;
     }
