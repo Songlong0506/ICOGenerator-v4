@@ -1,6 +1,6 @@
 @model Project
 @{
-    ViewData["Title"] = "Create Document";
+    ViewData["Title"] = "Requirements";
     var allDocuments = Model.Documents
     .OrderBy(x => x.FileName)
     .ToList();
@@ -22,12 +22,12 @@
 }
 
 <div class="breadcrumb">
-    Projects › @Model.Name › <b>Create Document</b>
+    Projects › @Model.Name › <b>Requirements</b>
 </div>
 
 <div class="page-head">
     <div>
-        <h1>Create Document</h1>
+        <h1>Requirements</h1>
         <p>Chat with BA to define and capture requirements</p>
     </div>
 
@@ -227,12 +227,12 @@
                     <div class="doc-actions">
                        @*  <a class="btn outline"
                            target="_blank"
-                           href="/CreateDocument/DownloadDocument/@doc.Id">
+                           href="/Requirements/DownloadDocument/@doc.Id">
                             Download
                         </a> *@
 
                         <a class="btn outline"
-                           asp-controller="CreateDocument"
+                           asp-controller="Requirements"
                            asp-action="DownloadDocument"
                            asp-route-id="@doc.Id">
                             Download
@@ -261,9 +261,9 @@
 </div>
 
 @section Styles {
-    <link rel="stylesheet" href="~/css/create-document.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/requirements.css" asp-append-version="true" />
 }
 
 @section Scripts {
-    <script src="~/js/create-document.js" asp-append-version="true"></script>
+    <script src="~/js/requirements.js" asp-append-version="true"></script>
 }

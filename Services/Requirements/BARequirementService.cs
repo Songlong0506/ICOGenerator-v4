@@ -4,7 +4,7 @@ using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Logging;
 using ICOGenerator.Services.Prompts;
-using ICOGenerator.Services.Templates;
+using ICOGenerator.Services.Requirements.Templates;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Requirements;

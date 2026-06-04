@@ -1,5 +1,4 @@
 using ICOGenerator.Data;
-using ICOGenerator.Services.Workspace;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
