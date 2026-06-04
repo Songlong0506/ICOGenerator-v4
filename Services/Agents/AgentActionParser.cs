@@ -1,15 +1,9 @@
-using System.Text.Json;
 using ICOGenerator.Services.Llm;
 
 namespace ICOGenerator.Services.Agents;
 
 public class AgentActionParser
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
     public bool TryParse(string response, out AgentActionDto? action)
     {
         action = null;
@@ -19,8 +13,7 @@ public class AgentActionParser
 
         try
         {
-            var json = JsonExtractor.Extract(response);
-            action = JsonSerializer.Deserialize<AgentActionDto>(json, JsonOptions);
+            action = JsonExtractor.ExtractAndDeserialize<AgentActionDto>(response);
             return action != null && !string.IsNullOrWhiteSpace(action.Type);
         }
         catch

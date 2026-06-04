@@ -1,7 +1,20 @@
+using System.Text.Json;
+
 namespace ICOGenerator.Services.Llm;
 
 public static class JsonExtractor
 {
+    private static readonly JsonSerializerOptions CaseInsensitiveOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    public static T? ExtractAndDeserialize<T>(string text) where T : class
+    {
+        var json = Extract(text);
+        return JsonSerializer.Deserialize<T>(json, CaseInsensitiveOptions);
+    }
+
     public static string Extract(string text)
     {
         text = text.Trim();

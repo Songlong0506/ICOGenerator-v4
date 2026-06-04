@@ -38,18 +38,5 @@ public class DocxTemplateWriter
     }
 
     public string ExtractText(string docxPath)
-    {
-        using var doc = WordprocessingDocument.Open(docxPath, false);
-
-        var body = doc.MainDocumentPart?.Document.Body;
-
-        if (body == null)
-            return "";
-
-        return string.Join(
-            Environment.NewLine,
-            body.Descendants<Paragraph>()
-                .Select(p => p.InnerText)
-                .Where(x => !string.IsNullOrWhiteSpace(x)));
-    }
+        => DocxTextExtractor.Extract(docxPath);
 }

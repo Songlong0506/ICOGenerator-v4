@@ -1,6 +1,3 @@
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
-
 namespace ICOGenerator.Services.Templates;
 
 public class RequirementTemplateService
@@ -14,17 +11,17 @@ public class RequirementTemplateService
 
     public string GetBrdTemplate()
     {
-        return ReadDocx(EnsureTemplateDocx("BRD_Template.docx"));
+        return DocxTextExtractor.Extract(EnsureTemplateDocx("BRD_Template.docx"));
     }
 
     public string GetSrsTemplate()
     {
-        return ReadDocx(EnsureTemplateDocx("SRS_Template.docx"));
+        return DocxTextExtractor.Extract(EnsureTemplateDocx("SRS_Template.docx"));
     }
 
     public string GetFsdTemplate()
     {
-        return ReadDocx(EnsureTemplateDocx("FSD_Template.docx"));
+        return DocxTextExtractor.Extract(EnsureTemplateDocx("FSD_Template.docx"));
     }
 
     public string EnsureTemplateDocx(string fileName)
@@ -76,23 +73,4 @@ Notes: ...
 """;
     }
 
-    private static string ReadDocx(string path)
-    {
-        if (!File.Exists(path))
-            return "";
-
-        using var doc = WordprocessingDocument.Open(path, false);
-
-        var body = doc.MainDocumentPart?.Document.Body;
-
-        if (body == null)
-            return "";
-
-        return string.Join(
-            Environment.NewLine,
-            body.Descendants<Paragraph>()
-                .Select(p => p.InnerText)
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-        );
-    }
 }

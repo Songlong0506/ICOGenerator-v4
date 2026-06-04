@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Common;
 using ICOGenerator.Services.Templates;
 using ICOGenerator.Services.Workspace;
 using ICOGenerator.Services.Artifacts;
@@ -112,14 +113,14 @@ public class RequirementDocumentGenerator
                 FileName = fileName,
                 FilePath = filePath,
                 Content = previewContent,
-                TokenUsed = EstimateTokens(previewContent)
+                TokenUsed = TokenEstimator.Estimate(previewContent)
             });
         }
         else
         {
             doc.Content = previewContent;
             doc.FilePath = filePath;
-            doc.TokenUsed = EstimateTokens(previewContent);
+            doc.TokenUsed = TokenEstimator.Estimate(previewContent);
             doc.CreatedAt = DateTime.UtcNow;
         }
     }
@@ -215,6 +216,4 @@ public class RequirementDocumentGenerator
     }
 
 
-    private static int EstimateTokens(string? text)
-        => string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 4);
 }

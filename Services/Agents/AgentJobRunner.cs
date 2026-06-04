@@ -1,11 +1,12 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Common;
 using ICOGenerator.Services.Requirements;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Agents;
 
-public class AgentJobRunner : BackgroundService
+public class AgentJobRunner : PollingBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AgentJobRunner> _logger;
@@ -16,28 +17,10 @@ public class AgentJobRunner : BackgroundService
         _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                await ProcessNextQueuedJobAsync(stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                // Normal shutdown.
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed while processing queued agent jobs.");
-            }
+    protected override ILogger Logger => _logger;
+    protected override string LoopErrorMessage => "Failed while processing queued agent jobs.";
 
-            await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
-        }
-    }
-
-    private async Task ProcessNextQueuedJobAsync(CancellationToken cancellationToken)
+    protected override async Task ProcessNextAsync(CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
 

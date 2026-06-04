@@ -3,7 +3,6 @@ using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Tools;
-using ICOGenerator.Services.Logging;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Agents;

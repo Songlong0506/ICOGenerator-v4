@@ -1,4 +1,5 @@
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Common;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
@@ -50,7 +51,7 @@ public class LlmClient : ILlmClient
         };
 
         result.RequestJson = JsonSerializer.Serialize(request, new JsonSerializerOptions { WriteIndented = true });
-        result.PromptTokens = EstimateTokens(string.Join("\n", messages.Select(x => x.Content)));
+        result.PromptTokens = TokenEstimator.Estimate(string.Join("\n", messages.Select(x => x.Content)));
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "chat/completions");
         httpRequest.Content = new StringContent(result.RequestJson, Encoding.UTF8, "application/json");
@@ -74,7 +75,7 @@ API error: {(int)response.StatusCode} {response.StatusCode}
 
 {errorText}
 """;
-                result.CompletionTokens = EstimateTokens(result.Content);
+                result.CompletionTokens = TokenEstimator.Estimate(result.Content);
                 result.TotalTokens = result.PromptTokens + result.CompletionTokens;
                 return result;
             }
@@ -142,7 +143,7 @@ API error: {(int)response.StatusCode} {response.StatusCode}
             result.ResponseText = rawBuilder.Length > 0 ? rawBuilder.ToString() : result.Content;
             result.DurationMs = stopwatch.ElapsedMilliseconds;
             result.IsSuccess = true;
-            result.CompletionTokens = EstimateTokens(result.Content);
+            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
             result.TotalTokens = result.PromptTokens + result.CompletionTokens;
             return result;
         }
@@ -155,7 +156,7 @@ API error: {(int)response.StatusCode} {response.StatusCode}
             result.ErrorMessage = ex.ToString();
             result.Content = ex.Message;
             result.ResponseText = ex.ToString();
-            result.CompletionTokens = EstimateTokens(result.Content);
+            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
             result.TotalTokens = result.PromptTokens + result.CompletionTokens;
             return result;
         }
@@ -173,8 +174,6 @@ API error: {(int)response.StatusCode} {response.StatusCode}
         }
     }
 
-    private static int EstimateTokens(string? text)
-        => string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 4);
 }
 
 public class LlmCallResult

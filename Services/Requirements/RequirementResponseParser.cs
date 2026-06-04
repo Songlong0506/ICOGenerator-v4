@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
@@ -11,10 +10,7 @@ public class RequirementResponseParser
     {
         try
         {
-            var json = JsonExtractor.Extract(response);
-            var result = JsonSerializer.Deserialize<BARequirementDocxResult>(
-                json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var result = JsonExtractor.ExtractAndDeserialize<BARequirementDocxResult>(response);
 
             if (result != null)
                 return result;

@@ -1,8 +1,8 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Common;
 using ICOGenerator.Services.Llm;
-using ICOGenerator.Services.Logging;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Templates;
 using Microsoft.EntityFrameworkCore;
@@ -64,7 +64,7 @@ public class BARequirementService
             AgentId = ba.Id,
             Role = "user",
             Message = userMessage,
-            TokenUsed = EstimateTokens(userMessage)
+            TokenUsed = TokenEstimator.Estimate(userMessage)
         });
 
         await _db.SaveChangesAsync();
@@ -108,7 +108,7 @@ public class BARequirementService
             AgentId = ba.Id,
             Role = "assistant",
             Message = result.AssistantMessage,
-            TokenUsed = EstimateTokens(result.AssistantMessage)
+            TokenUsed = TokenEstimator.Estimate(result.AssistantMessage)
         });
 
         await _db.SaveChangesAsync();
@@ -123,6 +123,4 @@ public class BARequirementService
             .FirstOrDefault() ?? "";
     }
 
-    private static int EstimateTokens(string? text)
-        => string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 4);
 }
