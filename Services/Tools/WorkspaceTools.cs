@@ -1,5 +1,5 @@
 using System.ComponentModel;
-using ICOGenerator.Services.Workspace;
+using ICOGenerator.Services.Artifacts;
 
 namespace ICOGenerator.Services.Tools;
 

@@ -1,4 +1,3 @@
-using ICOGenerator.Services.Workspace;
 
 namespace ICOGenerator.Services.Artifacts;
 

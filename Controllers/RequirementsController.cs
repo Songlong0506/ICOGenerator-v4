@@ -1,10 +1,9 @@
 using ICOGenerator.Application.Requirements;
-using ICOGenerator.Services.Requirements;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
 
-public class CreateDocumentController : Controller
+public class RequirementsController : Controller
 {
     private readonly GetRequirementWorkspaceQuery _getRequirementWorkspaceQuery;
     private readonly GenerateRequirementDraftUseCase _generateRequirementDraftUseCase;
@@ -13,7 +12,7 @@ public class CreateDocumentController : Controller
     private readonly GetRequirementJobStatusQuery _getRequirementJobStatusQuery;
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
 
-    public CreateDocumentController(
+    public RequirementsController(
        GetRequirementWorkspaceQuery getRequirementWorkspaceQuery,
        GenerateRequirementDraftUseCase generateRequirementDraftUseCase,
        ApproveRequirementUseCase approveRequirementUseCase,

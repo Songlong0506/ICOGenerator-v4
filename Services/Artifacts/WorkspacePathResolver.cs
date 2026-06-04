@@ -1,4 +1,4 @@
-namespace ICOGenerator.Services.Workspace;
+namespace ICOGenerator.Services.Artifacts;
 
 public class WorkspacePathResolver
 {

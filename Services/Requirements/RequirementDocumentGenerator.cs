@@ -4,8 +4,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Templates;
-using ICOGenerator.Services.Workspace;
+using ICOGenerator.Services.Requirements.Templates;
 using ICOGenerator.Services.Artifacts;
 using Microsoft.EntityFrameworkCore;
 

@@ -1,7 +1,7 @@
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 
-namespace ICOGenerator.Services.Templates;
+namespace ICOGenerator.Services.Requirements.Templates;
 
 public class DocxTemplateWriter
 {

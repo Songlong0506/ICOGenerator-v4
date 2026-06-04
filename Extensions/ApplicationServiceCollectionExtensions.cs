@@ -10,11 +10,10 @@ using ICOGenerator.Services.Logging;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Requirements;
-using ICOGenerator.Services.Templates;
+using ICOGenerator.Services.Requirements.Templates;
 using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Workflows;
-using ICOGenerator.Services.Workspace;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Extensions;
