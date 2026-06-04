@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
-namespace ICOGenerator.ViewModels;
+
+namespace ICOGenerator.Application.Projects;
+
 public class ProjectCreateVm
 {
     [Required] public string Name { get; set; } = string.Empty;

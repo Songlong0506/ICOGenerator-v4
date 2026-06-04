@@ -1,5 +1,4 @@
 using ICOGenerator.Application.Projects;
-using ICOGenerator.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;

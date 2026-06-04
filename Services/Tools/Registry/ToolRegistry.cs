@@ -2,7 +2,7 @@ using System.Reflection;
 using ICOGenerator.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace ICOGenerator.Services.Registry;
+namespace ICOGenerator.Services.Tools.Registry;
 
 public class ToolRegistry : IToolRegistry
 {

@@ -1,5 +1,5 @@
 using System.Text.Json;
-using ICOGenerator.Services.Registry;
+using ICOGenerator.Services.Tools.Registry;
 
 namespace ICOGenerator.Services.Tools.Abstractions;
 

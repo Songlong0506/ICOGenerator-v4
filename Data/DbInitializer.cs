@@ -1,6 +1,6 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Registry;
+using ICOGenerator.Services.Tools.Registry;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Data;

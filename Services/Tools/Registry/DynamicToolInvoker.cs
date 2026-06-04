@@ -1,7 +1,7 @@
 using System.Text.Json;
 using ICOGenerator.Services.Tools.Abstractions;
 
-namespace ICOGenerator.Services.Registry;
+namespace ICOGenerator.Services.Tools.Registry;
 
 public class DynamicToolInvoker
 {
