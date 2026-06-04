@@ -1,15 +1,13 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Models;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Logging;
 using ICOGenerator.Services.Prompts;
-using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Templates;
 using Microsoft.EntityFrameworkCore;
 
-namespace ICOGenerator.Services.Agents;
+namespace ICOGenerator.Services.Requirements;
 
 public class BARequirementService
 {

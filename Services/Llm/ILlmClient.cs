@@ -1,5 +1,4 @@
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Models;
 
 namespace ICOGenerator.Services.Llm;
 
