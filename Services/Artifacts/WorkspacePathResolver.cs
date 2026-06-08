@@ -31,6 +31,9 @@ public class WorkspacePathResolver
     public string GetMockupPath(string projectName) =>
         Path.Combine(GetProjectWorkspacePath(projectName), "poc-demo.html");
 
+    public string GetPhasePath(string projectName, string phase) =>
+        Path.Combine(GetProjectWorkspacePath(projectName), phase);
+
     public string GetSafeFullPath(string workspacePath, string relativePath)
     {
         var root = Path.GetFullPath(workspacePath);

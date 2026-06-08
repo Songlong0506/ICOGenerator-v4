@@ -1,10 +1,11 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Artifacts;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Agents;
 
-public record AgentDashboardResult(Project Project, IReadOnlyList<Agent> Agents);
+public record AgentDashboardResult(Project Project, IReadOnlyList<Agent> Agents, IReadOnlyList<string> Phases);
 
 public class GetAgentDashboardQuery
 {
@@ -53,6 +54,6 @@ public class GetAgentDashboardQuery
             .ThenInclude(x => x.ToolDefinition)
             .ToListAsync();
 
-        return new AgentDashboardResult(project, agents);
+        return new AgentDashboardResult(project, agents, ProjectWorkspaceLayout.Phases);
     }
 }

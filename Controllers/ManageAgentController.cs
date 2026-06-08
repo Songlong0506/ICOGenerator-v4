@@ -26,6 +26,7 @@ public class ManageAgentController : Controller
             return RedirectToAction("Index", "Projects");
 
         ViewBag.Agents = result.Agents;
+        ViewBag.Phases = result.Phases;
         return View(result.Project);
     }
 
