@@ -13,6 +13,7 @@ using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Requirements.Templates;
 using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Tools.Abstractions;
+using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,6 +35,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddLlmServices();
         services.AddArtifactServices();
         services.AddToolServices();
+        services.AddRequirementServices();
         services.AddAgentRuntime();
         services.AddWorkflowServices();
         services.AddTemplateServices();
@@ -51,14 +53,12 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddRequirementUseCases(this IServiceCollection services)
     {
+        // Application layer: use cases & queries driven by RequirementsController.
         services.AddScoped<GetRequirementWorkspaceQuery>();
         services.AddScoped<StartRequirementChatUseCase>();
         services.AddScoped<GetRequirementJobStatusQuery>();
         services.AddScoped<GetDocumentDownloadQuery>();
         services.AddScoped<GenerateRequirementDraftUseCase>();
-        services.AddScoped<RequirementPromptBuilder>();
-        services.AddScoped<RequirementResponseParser>();
-        services.AddScoped<RequirementDocumentGenerator>();
         services.AddScoped<ApproveRequirementUseCase>();
         return services;
     }
@@ -120,11 +120,21 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddAgentRuntime(this IServiceCollection services)
     {
+        // Services/Agents: the autonomous tool-using agent loop + its background job runner.
         services.AddScoped<AgentPromptBuilder>();
         services.AddScoped<AgentActionParser>();
         services.AddScoped<AgentRunService>();
-        services.AddScoped<BARequirementService>();
         services.AddHostedService<AgentJobRunner>();
+        return services;
+    }
+
+    private static IServiceCollection AddRequirementServices(this IServiceCollection services)
+    {
+        // Services/Requirements: domain services that turn a BA conversation into requirement documents.
+        services.AddScoped<BARequirementService>();
+        services.AddScoped<RequirementPromptBuilder>();
+        services.AddScoped<RequirementResponseParser>();
+        services.AddScoped<RequirementDocumentGenerator>();
         return services;
     }
 

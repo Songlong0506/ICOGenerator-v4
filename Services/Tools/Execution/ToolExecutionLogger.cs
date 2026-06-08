@@ -1,6 +1,7 @@
+using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Registry;
 
-namespace ICOGenerator.Services.Tools.Abstractions;
+namespace ICOGenerator.Services.Tools.Execution;
 
 public class ToolExecutionLogger : IToolExecutionLogger
 {

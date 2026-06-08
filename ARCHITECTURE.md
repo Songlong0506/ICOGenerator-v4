@@ -1,0 +1,195 @@
+# Kiến trúc ICOGenerator
+
+Tài liệu này mô tả cấu trúc thư mục, các pattern được dùng và quy ước để mở rộng dự án.
+Mục tiêu: bất kỳ ai (kể cả "tương lai của chính bạn") nhìn vào cũng biết **một file nên nằm ở đâu** và **tại sao**.
+
+---
+
+## 1. Tổng quan
+
+- **Loại ứng dụng:** ASP.NET Core MVC (.NET 8), EF Core (SqlServer/Sqlite).
+- **Bài toán:** một hệ thống AI agent — nhận yêu cầu (requirement) từ người dùng, để các "agent"
+  dùng LLM + công cụ (tool) tạo ra tài liệu/đặc tả và chạy các workflow nền.
+- **Kiểu kiến trúc:** **Layered Architecture (kiến trúc phân lớp) thực dụng**, kết hợp pattern
+  **Use Case / Command–Query mỗi thao tác một class** ở tầng Application.
+
+> Đây *không* phải Clean Architecture "sách giáo khoa" (tầng Application ở đây phụ thuộc trực tiếp
+> vào `Data`/EF Core và các service cụ thể, thay vì chỉ phụ thuộc abstraction). Cách làm hiện tại
+> đơn giản và đủ dùng cho quy mô này — tài liệu mô tả đúng cái đang có, không tô vẽ.
+
+---
+
+## 2. Sơ đồ thư mục
+
+```
+Domain/            # Trái tim: entity nghiệp vụ + enum. KHÔNG phụ thuộc layer nào khác.
+  Enums/
+Contracts/         # DTO "hợp đồng" dữ liệu (vd: BrdDto, FsdDto...). Thuần POCO, không logic.
+  Requirements/
+Data/              # EF Core: AppDbContext + DbInitializer (seed).
+Application/       # Tầng điều phối use case. Mỗi file = 1 thao tác người dùng.
+  Agents/          #   - Query (đọc)  : GetXxxQuery
+  Models/          #   - UseCase (ghi): XxxUseCase
+  Projects/        #   - ViewModel    : XxxVm
+  Requirements/
+Services/          # Hạ tầng & service nghiệp vụ tái dùng (gọi LLM, tool, file, prompt...).
+  Agents/          #   Vòng lặp agent tự động dùng tool + background runner
+  Artifacts/       #   Lưu/đọc file sản phẩm trong workspace
+  Llm/             #   Client gọi LLM + model request/response
+  Logging/         #   Ghi log lời gọi model
+  Prompts/         #   Nạp & render template prompt (file .md trong /Prompts)
+  Requirements/    #   Biến hội thoại BA -> tài liệu requirement
+    Templates/     #     Sinh file .docx
+  Tools/           #   Hệ thống công cụ cho agent (xem mục 5.3)
+    Abstractions/  #     CHỈ chứa interface + record hợp đồng
+    Execution/     #     Class hiện thực: policy, logger, schema builder, adapter
+    Registry/      #     Khám phá & gọi tool động (reflection)
+  Workflows/       #   Orchestrator điều phối nhiều bước + background worker
+Controllers/       # MVC controller. Mỏng: chỉ nhận request -> gọi Application -> trả View/Json.
+Views/             # Razor view (.cshtml)
+Extensions/        # ApplicationServiceCollectionExtensions: nơi DUY NHẤT đăng ký DI.
+Prompts/           # Template prompt dạng .md (copy ra output khi build).
+Migrations/        # EF Core migrations (tự sinh — không sửa tay).
+wwwroot/           # Tài nguyên tĩnh (css/js).
+tests/             # Unit test (xUnit).
+```
+
+**Quy ước vàng:** `namespace` luôn khớp với đường dẫn thư mục
+(`Services/Tools/Execution/Foo.cs` → `namespace ICOGenerator.Services.Tools.Execution`).
+Nhờ đó, nhìn namespace là biết file ở đâu và ngược lại.
+
+---
+
+## 3. Chiều phụ thuộc (dependency rule)
+
+Mũi tên = "được phép phụ thuộc vào". Phụ thuộc chỉ đi **một chiều, từ trên xuống**:
+
+```
+Controllers ─► Application ─► Services ─► Data ─► Domain
+                   │              │                  ▲
+                   └──────────────┴──────────────────┘
+                         (đều có thể dùng Domain & Contracts)
+```
+
+Luật bất di bất dịch:
+- **Domain** không phụ thuộc gì (chỉ tự tham chiếu `Domain.Enums`). Đây là tầng ổn định nhất.
+- **Contracts** thuần POCO, không phụ thuộc layer khác.
+- **Services** *không bao giờ* `using` ngược lên `Application` hay `Controllers`.
+- **Application** điều phối: được phép gọi `Data`, `Domain`, `Services`.
+- **Controllers** chỉ gọi `Application` (không gọi thẳng `Services`/`Data`).
+
+> Đã kiểm chứng: hiện không có vi phạm chiều nào ở trên.
+
+---
+
+## 4. Luồng xử lý một request (ví dụ: tạo bản nháp requirement)
+
+```
+Browser
+  └► RequirementsController.Chat(projectId, message)        [Controllers] - mỏng
+       └► GenerateRequirementDraftUseCase.ExecuteAsync(...)  [Application] - điều phối
+            ├► BARequirementService                          [Services/Requirements]
+            │     ├► RequirementPromptBuilder  (dựng prompt)
+            │     ├► ILlmClient                 (gọi LLM)      [Services/Llm]
+            │     ├► RequirementResponseParser  (parse JSON)
+            │     └► RequirementDocumentGenerator -> Templates/DocxTemplateWriter
+            └► AppDbContext.SaveChanges                        [Data]
+```
+
+Controller không chứa logic; nó chỉ map HTTP ⇄ use case. Toàn bộ "việc thật" nằm ở
+Application (điều phối) và Services (chi tiết kỹ thuật).
+
+---
+
+## 5. Các pattern chính
+
+### 5.1. Use Case / Command–Query mỗi thao tác một class (tầng Application)
+Mỗi hành động người dùng = **một class, một file**, có đúng một method công khai `ExecuteAsync`.
+
+- Class **đọc** đặt tên `...Query`   → `GetProjectListQuery`, `ListAiModelsQuery`.
+- Class **ghi/đổi trạng thái** đặt tên `...UseCase` → `CreateProjectUseCase`, `UpdateAgentUseCase`.
+- ViewModel của form đặt tên `...Vm` → `ProjectCreateVm`, `AgentEditVm`.
+
+Lợi ích: dễ tìm, dễ test, dễ thêm mới mà không đụng class cũ (Open/Closed).
+
+### 5.2. Thin Controller
+Controller chỉ: nhận tham số → gọi 1 use case → trả `View`/`Json`/`Redirect`.
+Không truy vấn DB, không gọi LLM trực tiếp.
+
+### 5.3. Tool system cho agent (Strategy + Registry + Reflection Adapter)
+- `Tools/Abstractions`  — **hợp đồng**: `IAgentTool<,>`, `IToolExecutionLogger`,
+  `ToolMetadata`, `ToolResult`, `ToolExecutionContext`.
+- `Tools/Execution`     — **hiện thực**: `ToolPolicyService` (kiểm tra hợp lệ),
+  `ToolExecutionLogger`, `ToolSchemaBuilder` (sinh JSON schema từ method), và
+  `ReflectionAgentToolAdapter` (bọc một method C# bất kỳ thành một tool gọi được).
+- `Tools/Registry`      — `ToolDiscoveryService` quét/đăng ký tool, `DynamicToolInvoker`
+  gọi tool động qua reflection, `ToolRegistry` lưu danh mục runtime.
+- Các nhóm tool nghiệp vụ: `WorkspaceTools`, `CommandTools`, `GitTools`, `DiffTools`.
+
+Muốn thêm tool mới cho agent: viết method trong một `*Tools` class, hệ thống registry/reflection
+tự sinh schema và cho agent gọi — không phải sửa vòng lặp agent.
+
+### 5.4. Background processing (Hosted Service + Orchestrator)
+- `AgentJobRunner`, `AgentTaskWorker` là `BackgroundService` chạy nền.
+- `WorkflowOrchestrator` (ẩn sau `IWorkflowOrchestrator`) điều phối các bước workflow.
+
+### 5.5. Prompt as template
+Prompt nằm ở file `.md` trong `/Prompts` (được copy ra output khi build) và nạp/render qua
+`PromptTemplateService`. Đổi nội dung prompt không cần build lại logic.
+
+### 5.6. Đăng ký DI tập trung
+Mọi đăng ký dịch vụ nằm ở `Extensions/ApplicationServiceCollectionExtensions.cs`, chia thành các
+method nhỏ `AddXxx()` — **mỗi nhóm tương ứng một thư mục/layer**. `Program.cs` chỉ gọi
+`AddIcoGeneratorApplication(...)`.
+
+---
+
+## 6. Công thức thêm một tính năng mới
+
+Ví dụ: thêm màn hình "xuất báo cáo tổng hợp project".
+
+1. **Domain/Contracts:** nếu cần kiểu dữ liệu mới → thêm entity vào `Domain/` hoặc DTO vào `Contracts/`.
+2. **Application:** tạo `Application/Projects/ExportProjectReportUseCase.cs` (một class, một `ExecuteAsync`).
+3. **Services (nếu cần):** nếu có logic kỹ thuật tái dùng (sinh file, gọi LLM...) → đặt ở `Services/...`.
+4. **Controller:** thêm action mỏng trong `ProjectsController` gọi use case.
+5. **View:** thêm `.cshtml` nếu trả UI.
+6. **DI:** đăng ký use case trong nhóm `AddProjectUseCases()` ở file Extensions.
+7. **Test:** thêm test ở `tests/`.
+
+Nếu một class không rơi gọn vào bước nào ở trên thì nhiều khả năng nó đang gánh quá nhiều việc — tách ra.
+
+---
+
+## 7. Những gì đã được dọn trong lần refactor này
+
+| Vấn đề trước đây | Đã xử lý |
+|---|---|
+| `ManageAgentsUseCases.cs` / `ManageAiModelsUseCases.cs` gộp nhiều class trong một file (lệch với phần còn lại) | Tách thành một-class-một-file (`GetAgentManagementPageQuery`, `UpdateAgentUseCase`, `ListAiModelsQuery`, `CreateAiModelUseCase`, ...) |
+| Thư mục `Tools/Abstractions` chứa lẫn cả class hiện thực (`ToolPolicyService`, `ToolExecutionLogger`, `ToolSchemaBuilder`, `ReflectionAgentToolAdapter`) | Tách contract (interface/record) ở `Abstractions`, chuyển hiện thực sang `Tools/Execution` |
+| Đăng ký DI để lẫn layer (service của `Services/Requirements` đăng ký trong nhóm "Application use case"; `BARequirementService` nằm trong nhóm "Agent runtime") | Gom đúng nhóm: thêm `AddRequirementServices()`; mỗi nhóm `AddXxx` khớp một thư mục |
+
+Không thay đổi hành vi runtime: số lượng và nội dung đăng ký DI giữ nguyên (48 đăng ký), chỉ
+sắp xếp lại; namespace luôn khớp đường dẫn.
+
+---
+
+## 8. Quy ước nên giữ về sau
+
+- **Một file = một kiểu công khai** (class/record/enum/interface). Trừ DTO nhóm nhỏ liên quan chặt.
+- **Đặt tên theo vai trò:** `...Query` (đọc), `...UseCase` (ghi), `...Vm` (view model),
+  `I...` (interface), `...Service` (service nghiệp vụ).
+- **namespace = đường dẫn thư mục.**
+- **Controller luôn mỏng**, không chứa logic nghiệp vụ.
+- **Đăng ký DI** chỉ ở file Extensions, đúng nhóm theo layer.
+- **Đừng để Services `using` ngược** lên Application/Controllers.
+
+---
+
+## 9. Quan sát còn lại (chưa xử lý, để bạn cân nhắc)
+
+- `ReflectionAgentToolAdapter` hiện không được khởi tạo trực tiếp bằng tên ở đâu trong code
+  (chỉ định nghĩa). Có thể nó đang được tạo qua reflection/registry, hoặc là code chưa dùng tới.
+  Nên xác nhận lại đường đi để biết nó có còn cần không (đây là tình trạng có sẵn từ trước, không
+  phát sinh do lần refactor này).
+- `Services/Logging` chỉ có logger cho lời gọi model, đặt cạnh `Services/Llm`. Nếu sau này log
+  nhiều loại hơn thì giữ nguyên là hợp lý; nếu không, có thể gộp vào `Llm`.

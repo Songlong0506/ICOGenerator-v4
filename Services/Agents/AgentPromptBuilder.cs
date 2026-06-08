@@ -2,6 +2,7 @@ using ICOGenerator.Domain;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Tools.Abstractions;
+using ICOGenerator.Services.Tools.Execution;
 
 namespace ICOGenerator.Services.Agents;
 

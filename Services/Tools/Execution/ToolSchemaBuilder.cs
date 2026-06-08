@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 
-namespace ICOGenerator.Services.Tools.Abstractions;
+namespace ICOGenerator.Services.Tools.Execution;
 
 public static class ToolSchemaBuilder
 {

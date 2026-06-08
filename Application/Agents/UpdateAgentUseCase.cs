@@ -4,33 +4,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Agents;
 
-public record AgentManagementPage(IReadOnlyList<Agent> Agents, Agent? SelectedAgent, IReadOnlyList<AiModel> Models, IReadOnlyList<ToolDefinition> Tools);
-
-public class GetAgentManagementPageQuery
-{
-    private readonly AppDbContext _db;
-    public GetAgentManagementPageQuery(AppDbContext db) => _db = db;
-
-    public async Task<AgentManagementPage> ExecuteAsync(Guid? id)
-    {
-        var agents = await _db.Agents
-            .Include(x => x.AiModel)
-            .Include(x => x.AgentTools)
-            .ThenInclude(x => x.ToolDefinition)
-            .OrderBy(x => x.Name)
-            .ToListAsync();
-
-        var models = await _db.AiModels.Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync();
-        var tools = await _db.ToolDefinitions.Where(x => x.IsActive).OrderBy(x => x.DisplayName).ToListAsync();
-
-        return new AgentManagementPage(
-            agents,
-            id.HasValue ? agents.FirstOrDefault(x => x.Id == id) : agents.FirstOrDefault(),
-            models,
-            tools);
-    }
-}
-
 public class UpdateAgentUseCase
 {
     private readonly AppDbContext _db;
