@@ -21,6 +21,7 @@ public class GetRequirementWorkspaceQuery
             .Include(x => x.Documents)
             .Include(x => x.Conversations.OrderBy(c => c.CreatedAt))
                 .ThenInclude(x => x.Agent)
+            .Include(x => x.WorkflowRuns.OrderBy(w => w.CreatedAt))
             .FirstOrDefaultAsync(x => x.Id == projectId);
 
         if (project == null)

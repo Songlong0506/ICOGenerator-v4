@@ -18,6 +18,18 @@
     var conversations = Model.Conversations
         .OrderBy(x => x.CreatedAt)
         .ToList();
+    var workflowRuns = Model.WorkflowRuns
+        .OrderBy(x => x.CreatedAt)
+        .ToList();
+    var workflowStarted = TempData["WorkflowStarted"] != null;
+    var autoScrollWorkflowRunId = workflowStarted
+        ? workflowRuns.OrderByDescending(x => x.CreatedAt).Select(x => (Guid?)x.Id).FirstOrDefault()
+        : null;
+    var timelineItems = conversations
+        .Select(x => new { Kind = "conversation", CreatedAt = x.CreatedAt, Conversation = x, WorkflowRun = (WorkflowRun?)null })
+        .Concat(workflowRuns.Select(x => new { Kind = "workflow", CreatedAt = x.CreatedAt, Conversation = (AgentConversation?)null, WorkflowRun = x }))
+        .OrderBy(x => x.CreatedAt)
+        .ToList();
 
 }
 
@@ -36,10 +48,6 @@
         <b>@(draftDocuments.Any() ? "Draft" : "Empty")</b>
     </div>
 </div>
-
-@{
-    var workflowStarted = TempData["WorkflowStarted"] != null;
-}
 
 <div class="grid doc-grid">
 
@@ -119,42 +127,44 @@
                 </div>
             }
 
-            @foreach (var item in conversations)
+            @foreach (var item in timelineItems)
             {
-                if (item.Role == "user")
+                if (item.Kind == "workflow" && item.WorkflowRun != null)
                 {
-                    <div class="msg you">
-                        <p>@item.Message</p>
+                    var run = item.WorkflowRun;
+                    var autoScroll = autoScrollWorkflowRunId == run.Id ? "true" : "false";
+
+                    <div id="wf-panel-@run.Id"
+                         class="msg ba workflow-progress"
+                         data-run-id="@run.Id"
+                         data-autoscroll="@autoScroll">
+                        <div class="workflow-progress-head">
+                            <b>BA</b>
+                            <span class="workflow-progress-title">Delivery Progress</span>
+                        </div>
+                        <small id="wf-sub-@run.Id" class="muted wf-sub"></small>
+                        <div id="wf-body-@run.Id" class="workflow-progress-body wf-body">
+                            <div class="wf-banner wf-run">⏳ Đang tải tiến độ delivery…</div>
+                        </div>
                     </div>
                 }
-                else
+                else if (item.Conversation?.Role == "user")
+                {
+                    <div class="msg you">
+                        <p>@item.Conversation.Message</p>
+                    </div>
+                }
+                else if (item.Conversation != null)
                 {
                     <div class="msg ba">
                         <b>BA</b>
 
                         <p style="white-space: pre-wrap;">
-                            @item.Message
+                            @item.Conversation.Message
                         </p>
                     </div>
                 }
             }
-
-            <!-- WORKFLOW PROGRESS -->
-            <div id="wf-panel"
-                 class="msg ba workflow-progress"
-                 style="@(workflowStarted ? "" : "display:none;")">
-                <div class="workflow-progress-head">
-                    <b>BA</b>
-                    <span class="workflow-progress-title">Delivery Progress</span>
-                </div>
-                <small id="wf-sub" class="muted"></small>
-                <div id="wf-body" class="workflow-progress-body">
-                    @if (workflowStarted)
-                    {
-                        <div class="wf-banner wf-run">⏳ Đã gửi requirement cho agent Developer. Đang khởi động… tiến độ sẽ cập nhật trực tiếp tại đây.</div>
-                    }
-                </div>
-            </div>
 
             <!-- THINKING -->
             <div id="thinkingBox"
@@ -291,12 +301,9 @@
     <script>
         (function () {
             const PID = '@Model.Id';
-            const panel = document.getElementById('wf-panel');
-            const sub = document.getElementById('wf-sub');
-            const bodyEl = document.getElementById('wf-body');
-            const chatMessages = document.getElementById('chatMessages');
+            const panels = Array.from(document.querySelectorAll('.workflow-progress[data-run-id]'));
 
-            if (!panel) return;
+            if (!panels.length) return;
 
             const COLOR = {
                 Queued: '#64748B',
@@ -321,16 +328,24 @@
                 return div.innerHTML;
             }
 
-            function scrollProgressIntoView() {
-                if (!chatMessages) return;
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+            function maybeScrollPanel(panel, data) {
+                if (panel.dataset.autoscroll !== 'true') return;
+
+                panel.scrollIntoView({ block: 'nearest' });
+
+                if (data.isTerminal) {
+                    panel.dataset.autoscroll = 'false';
+                }
             }
 
-            async function load() {
+            async function load(panel) {
+                const runId = panel.dataset.runId;
+                const sub = panel.querySelector('.wf-sub');
+                const bodyEl = panel.querySelector('.wf-body');
                 let data;
 
                 try {
-                    const response = await fetch(`/Requirements/WorkflowStatus?projectId=${PID}`);
+                    const response = await fetch(`/Requirements/WorkflowStatus?projectId=${PID}&runId=${runId}`);
                     data = await response.json();
                 } catch (e) {
                     return;
@@ -338,7 +353,6 @@
 
                 if (!data.hasWorkflow) return;
 
-                panel.style.display = '';
                 sub.innerHTML = `${esc(data.runName)} · ${badge(data.runStatus)} · stage: ${esc(data.stage)}`
                     + (data.startedAt ? ` · bắt đầu ${data.startedAt}` : '')
                     + (data.finishedAt ? ` · xong ${data.finishedAt}` : '');
@@ -367,12 +381,12 @@
                 }
 
                 bodyEl.innerHTML = banner + rows;
-                scrollProgressIntoView();
+                maybeScrollPanel(panel, data);
 
-                if (!data.isTerminal) setTimeout(load, 3000);
+                if (!data.isTerminal) setTimeout(() => load(panel), 3000);
             }
 
-            load();
+            panels.forEach(load);
         })();
     </script>
 }
