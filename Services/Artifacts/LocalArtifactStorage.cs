@@ -18,8 +18,8 @@ public class LocalArtifactStorage : IArtifactStorage
     }
 
     public string GetDraftPath(string projectName, ProjectArtifactDescriptor artifact) =>
-        Path.Combine(_workspacePathResolver.GetDraftDocsPath(projectName), artifact.FileName);
+        Path.Combine(_workspacePathResolver.GetPhaseDraftPath(projectName, artifact.Phase), artifact.FileName);
 
     public string GetVersionPath(string projectName, string versionName, ProjectArtifactDescriptor artifact) =>
-        Path.Combine(_workspacePathResolver.GetVersionDocsPath(projectName, versionName), artifact.FileName);
+        Path.Combine(_workspacePathResolver.GetPhaseVersionPath(projectName, artifact.Phase, versionName), artifact.FileName);
 }
