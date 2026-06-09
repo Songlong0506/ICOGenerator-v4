@@ -10,7 +10,7 @@ public class ProjectDocument
     public Guid? AgentId { get; set; }
     public Agent? Agent { get; set; }
 
-    public string Folder { get; set; } = "docs/draft";
+    public string Folder { get; set; } = "01_Requirement";
 
     public string VersionName { get; set; } = "draft";
 
