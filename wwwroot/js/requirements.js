@@ -13,6 +13,27 @@ function escapeHtml(value) {
 }
 
 if (chatForm && messageInput && chatMessages && thinkingBox) {
+    const maxInputHeight = 180;
+
+    function resizeMessageInput() {
+        messageInput.style.height = "auto";
+
+        const nextHeight = Math.min(messageInput.scrollHeight, maxInputHeight);
+        messageInput.style.height = `${nextHeight}px`;
+        messageInput.classList.toggle("is-scrollable", messageInput.scrollHeight > maxInputHeight);
+    }
+
+    resizeMessageInput();
+
+    messageInput.addEventListener("input", resizeMessageInput);
+
+    messageInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+            e.preventDefault();
+            chatForm.requestSubmit();
+        }
+    });
+
     chatForm.addEventListener("submit", function (e) {
         const text = messageInput.value.trim();
 
@@ -32,6 +53,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         thinkingBox.insertAdjacentHTML("beforebegin", html);
 
         messageInput.value = "";
+        resizeMessageInput();
         thinkingBox.style.display = "block";
         chatMessages.scrollTop = chatMessages.scrollHeight;
     });
