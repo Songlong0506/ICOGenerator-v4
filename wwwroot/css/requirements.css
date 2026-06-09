@@ -189,3 +189,98 @@
         display: flex;
         justify-content: flex-end;
     }
+
+    .workflow-progress {
+        border: 1px solid #bfdbfe;
+        background: #f8fbff;
+        max-width: 88%;
+    }
+
+    .workflow-progress-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+    }
+
+    .workflow-progress-title {
+        color: #2563eb;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .workflow-progress-body {
+        margin-top: 10px;
+    }
+
+    #wf-panel .wf-badge {
+        font-size: 12px;
+        padding: 1px 8px;
+        border-radius: 10px;
+        margin-left: 6px;
+        white-space: nowrap;
+    }
+
+    #wf-panel .muted {
+        color: #64748B;
+    }
+
+    .wf-task {
+        border: 1px solid #E2E8F0;
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-top: 8px;
+        background: #fff;
+    }
+
+    .wf-task-head {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+
+    .wf-meta {
+        font-size: 12px;
+        margin-top: 2px;
+    }
+
+    .wf-err {
+        color: #DC2626;
+        font-size: 13px;
+        margin-top: 6px;
+        white-space: pre-wrap;
+    }
+
+    .wf-out {
+        color: #475569;
+        font-size: 12px;
+        margin-top: 6px;
+        white-space: pre-wrap;
+        max-height: 140px;
+        overflow: auto;
+        background: #F8FAFC;
+        padding: 6px 8px;
+        border-radius: 6px;
+    }
+
+    .wf-banner {
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+
+    .wf-run {
+        background: #EFF6FF;
+        color: #1D4ED8;
+    }
+
+    .wf-ok {
+        background: #ECFDF5;
+        color: #047857;
+    }
+
+    .wf-fail {
+        background: #FEF2F2;
+        color: #B91C1C;
+    }

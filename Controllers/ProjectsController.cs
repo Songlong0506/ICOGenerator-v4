@@ -22,9 +22,7 @@ public class ProjectsController : Controller
     public async Task<IActionResult> Index()
     {
         var items = await _getProjectListQuery.ExecuteAsync();
-        var projects = items.Select(x => x.Project).ToList();
-        ViewBag.MockupMap = items.ToDictionary(x => x.Project.Id, x => x.HasMockup);
-        return View(projects);
+        return View(items);
     }
 
     [HttpPost]

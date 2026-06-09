@@ -1,6 +1,5 @@
-@model List<Project>
+@model IReadOnlyList<ICOGenerator.Application.Projects.ProjectListItem>
 @{
-    var mockupMap = ViewBag.MockupMap as Dictionary<Guid, bool> ?? new();
     string Badge(ProjectStatus s) => s switch { ProjectStatus.Completed => "badge green", ProjectStatus.InProgress => "badge blue", _ => "badge orange" };
 }
 
@@ -15,6 +14,41 @@
         color: #10b981;
         background: #ecfdf5;
     }
+
+    .project-name-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .task-running-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+        border: 1px solid #93c5fd;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 5px 10px;
+    }
+
+    .task-running-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #2563eb;
+        box-shadow: 0 0 0 rgba(37, 99, 235, .5);
+        animation: projectTaskPulse 1.5s infinite;
+    }
+
+    @@keyframes projectTaskPulse {
+        0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, .5); }
+        70% { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+    }
 </style>
 
 <div class="page-head"><div><h1>Projects</h1><p>Create and manage your projects</p></div><button class="btn primary" onclick="openModal('newProject')">＋ New Project</button></div>
@@ -22,10 +56,22 @@
     <table>
         <thead><tr><th>Project Name</th><th>Description</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
-            @foreach (var p in Model)
+            @foreach (var item in Model)
             {
+                var p = item.Project;
                 <tr>
-                    <td><b>@p.Name</b></td>
+                    <td>
+                        <div class="project-name-cell">
+                            <b>@p.Name</b>
+                            @if (item.HasRunningWorkflow)
+                            {
+                                <span class="task-running-indicator" title="Workflow @item.LatestWorkflowStatus - @item.LatestWorkflowStage">
+                                    <span class="task-running-dot"></span>
+                                    Task đang chạy
+                                </span>
+                            }
+                        </div>
+                    </td>
                     <td>@p.Description</td>
                     <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>
                     <td><span class="@Badge(p.Status)">@p.Status</span></td>
@@ -44,7 +90,7 @@
                             Manage Agent
                         </a>
 
-                        @if (mockupMap.TryGetValue(p.Id, out var hasMockup) && hasMockup)
+                        @if (item.HasMockup)
                         {
                             <a class="btn success"
                                asp-controller="Projects"
