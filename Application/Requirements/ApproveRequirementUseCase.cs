@@ -48,20 +48,19 @@ public class ApproveRequirementUseCase
         foreach (var doc in draftDocs)
         {
             doc.VersionName = versionName;
-            doc.Folder = $"docs/{versionName}";
             doc.IsApproved = true;
 
             if (!string.IsNullOrWhiteSpace(doc.FilePath))
             {
                 var fileName = Path.GetFileName(doc.FilePath);
-                var docsFolder = Path.GetDirectoryName(Path.GetDirectoryName(doc.FilePath));
+                var phaseFolder = Path.GetDirectoryName(Path.GetDirectoryName(doc.FilePath)); // <root>/<phase>
 
-                if (!string.IsNullOrWhiteSpace(docsFolder))
-                    doc.FilePath = Path.Combine(docsFolder, versionName, fileName);
+                if (!string.IsNullOrWhiteSpace(phaseFolder))
+                    doc.FilePath = Path.Combine(phaseFolder, versionName, fileName);
             }
         }
 
-        RenameDraftFolder(project.Name, versionName);
+        PromoteDraftFolders(project.Name, draftDocs.Select(x => x.Folder).Distinct(), versionName);
 
         await _db.SaveChangesAsync();
 
@@ -70,18 +69,21 @@ public class ApproveRequirementUseCase
         return ApproveRequirementResult.Approved;
     }
 
-    private void RenameDraftFolder(string projectName, string versionName)
+    private void PromoteDraftFolders(string projectName, IEnumerable<string> phases, string versionName)
     {
-        var draftPath = _workspacePathResolver.GetDraftDocsPath(projectName);
-        var versionPath = _workspacePathResolver.GetVersionDocsPath(projectName, versionName);
+        foreach (var phase in phases)
+        {
+            var draftPath = _workspacePathResolver.GetPhaseDraftPath(projectName, phase);
+            var versionPath = _workspacePathResolver.GetPhaseVersionPath(projectName, phase, versionName);
 
-        if (!Directory.Exists(draftPath))
-            return;
+            if (!Directory.Exists(draftPath))
+                continue;
 
-        if (Directory.Exists(versionPath))
-            Directory.Delete(versionPath, true);
+            if (Directory.Exists(versionPath))
+                Directory.Delete(versionPath, true);
 
-        Directory.Move(draftPath, versionPath);
+            Directory.Move(draftPath, versionPath);
+        }
     }
 }
 
