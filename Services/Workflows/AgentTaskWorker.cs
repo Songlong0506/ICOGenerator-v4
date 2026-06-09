@@ -82,6 +82,7 @@ User đã approve requirement.
 Chỉ sử dụng AI Design Spec bên dưới để generate code.
 Không đọc BRD/SRS/FSD/UserStories.
 Không sửa requirement document.
+Ghi file demo HTML vào đúng đường dẫn (relative): 03_Implementation/poc-demo.html
 
 # AI Design Spec
 
