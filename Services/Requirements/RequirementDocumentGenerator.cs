@@ -36,10 +36,6 @@ public class RequirementDocumentGenerator
     }
     public async Task GenerateDraftDocxFiles(Project project, Guid baId, BARequirementDocxResult result)
     {
-        var draftPath = _workspacePathResolver.GetDraftDocsPath(project.Name);
-
-        Directory.CreateDirectory(draftPath);
-
         var brdTemplate = _templateService.EnsureTemplateDocx("BRD_Template.docx");
         var srsTemplate = _templateService.EnsureTemplateDocx("SRS_Template.docx");
         var fsdTemplate = _templateService.EnsureTemplateDocx("FSD_Template.docx");
@@ -56,11 +52,11 @@ public class RequirementDocumentGenerator
         CreateSimpleDocumentDocx(storiesOutput, "User Stories", result.UserStories.Content);
         CreateSimpleDocumentDocx(aiDesignSpecOutput, "AI Design Spec", result.AiDesignSpec.Content);
 
-        await UpsertDraftDocument(project.Id, baId, GetArtifact("BRD").FileName, brdOutput, _docxWriter.ExtractText(brdOutput));
-        await UpsertDraftDocument(project.Id, baId, GetArtifact("SRS").FileName, srsOutput, _docxWriter.ExtractText(srsOutput));
-        await UpsertDraftDocument(project.Id, baId, GetArtifact("FSD").FileName, fsdOutput, _docxWriter.ExtractText(fsdOutput));
-        await UpsertDraftDocument(project.Id, baId, GetArtifact("UserStories").FileName, storiesOutput, result.UserStories.Content);
-        await UpsertDraftDocument(project.Id, baId, _artifactCatalog.AiDesignSpec.FileName, aiDesignSpecOutput, result.AiDesignSpec.Content);
+        await UpsertDraftDocument(project.Id, baId, GetArtifact("BRD"), brdOutput, _docxWriter.ExtractText(brdOutput));
+        await UpsertDraftDocument(project.Id, baId, GetArtifact("SRS"), srsOutput, _docxWriter.ExtractText(srsOutput));
+        await UpsertDraftDocument(project.Id, baId, GetArtifact("FSD"), fsdOutput, _docxWriter.ExtractText(fsdOutput));
+        await UpsertDraftDocument(project.Id, baId, GetArtifact("UserStories"), storiesOutput, result.UserStories.Content);
+        await UpsertDraftDocument(project.Id, baId, _artifactCatalog.AiDesignSpec, aiDesignSpecOutput, result.AiDesignSpec.Content);
     }
 
     private ProjectArtifactDescriptor GetArtifact(string key) =>
@@ -91,8 +87,9 @@ public class RequirementDocumentGenerator
         mainPart.Document.Save();
     }
 
-    private async Task UpsertDraftDocument(Guid projectId, Guid agentId, string fileName, string filePath, string previewContent)
+    private async Task UpsertDraftDocument(Guid projectId, Guid agentId, ProjectArtifactDescriptor artifact, string filePath, string previewContent)
     {
+        var fileName = artifact.FileName;
         var doc = await _db.ProjectDocuments
             .FirstOrDefaultAsync(x =>
                 x.ProjectId == projectId &&
@@ -105,7 +102,7 @@ public class RequirementDocumentGenerator
             {
                 ProjectId = projectId,
                 AgentId = agentId,
-                Folder = "docs/draft",
+                Folder = artifact.Phase,
                 VersionName = "draft",
                 IsApproved = false,
                 FileName = fileName,
@@ -116,6 +113,7 @@ public class RequirementDocumentGenerator
         }
         else
         {
+            doc.Folder = artifact.Phase;
             doc.Content = previewContent;
             doc.FilePath = filePath;
             doc.TokenUsed = EstimateTokens(previewContent);
