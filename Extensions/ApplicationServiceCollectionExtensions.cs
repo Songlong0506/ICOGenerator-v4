@@ -66,6 +66,7 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddAgentUseCases(this IServiceCollection services)
     {
         services.AddScoped<GetAgentDashboardQuery>();
+        services.AddScoped<GetWorkflowStatusQuery>();
         services.AddScoped<GetAgentCallLogsQuery>();
         services.AddScoped<GetCallLogDetailQuery>();
         services.AddScoped<GetAgentManagementPageQuery>();

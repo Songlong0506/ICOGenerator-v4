@@ -6,15 +6,18 @@ namespace ICOGenerator.Controllers;
 public class ManageAgentController : Controller
 {
     private readonly GetAgentDashboardQuery _getAgentDashboardQuery;
+    private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
     private readonly GetAgentCallLogsQuery _getAgentCallLogsQuery;
     private readonly GetCallLogDetailQuery _getCallLogDetailQuery;
 
     public ManageAgentController(
         GetAgentDashboardQuery getAgentDashboardQuery,
+        GetWorkflowStatusQuery getWorkflowStatusQuery,
         GetAgentCallLogsQuery getAgentCallLogsQuery,
         GetCallLogDetailQuery getCallLogDetailQuery)
     {
         _getAgentDashboardQuery = getAgentDashboardQuery;
+        _getWorkflowStatusQuery = getWorkflowStatusQuery;
         _getAgentCallLogsQuery = getAgentCallLogsQuery;
         _getCallLogDetailQuery = getCallLogDetailQuery;
     }
@@ -28,6 +31,12 @@ public class ManageAgentController : Controller
         ViewBag.Agents = result.Agents;
         ViewBag.Phases = result.Phases;
         return View(result.Project);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> WorkflowStatus(Guid projectId)
+    {
+        return Json(await _getWorkflowStatusQuery.ExecuteAsync(projectId));
     }
 
     [HttpGet]

@@ -1,3 +1,4 @@
+using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Requirements;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,6 +12,7 @@ public class RequirementsController : Controller
     private readonly StartRequirementChatUseCase _startRequirementChatUseCase;
     private readonly GetRequirementJobStatusQuery _getRequirementJobStatusQuery;
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
+    private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
 
     public RequirementsController(
        GetRequirementWorkspaceQuery getRequirementWorkspaceQuery,
@@ -18,7 +20,8 @@ public class RequirementsController : Controller
        ApproveRequirementUseCase approveRequirementUseCase,
        StartRequirementChatUseCase startRequirementChatUseCase,
        GetRequirementJobStatusQuery getRequirementJobStatusQuery,
-       GetDocumentDownloadQuery getDocumentDownloadQuery)
+       GetDocumentDownloadQuery getDocumentDownloadQuery,
+       GetWorkflowStatusQuery getWorkflowStatusQuery)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
@@ -26,6 +29,7 @@ public class RequirementsController : Controller
         _startRequirementChatUseCase = startRequirementChatUseCase;
         _getRequirementJobStatusQuery = getRequirementJobStatusQuery;
         _getDocumentDownloadQuery = getDocumentDownloadQuery;
+        _getWorkflowStatusQuery = getWorkflowStatusQuery;
     }
 
     public async Task<IActionResult> Index(Guid projectId, string? version = null)
@@ -63,7 +67,14 @@ public class RequirementsController : Controller
         if (result == ApproveRequirementResult.NoDraftDocuments)
             return RedirectToAction(nameof(Index), new { projectId });
 
-        return RedirectToAction("Index", "ManageAgent", new { projectId });
+        TempData["WorkflowStarted"] = true;
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> WorkflowStatus(Guid projectId)
+    {
+        return Json(await _getWorkflowStatusQuery.ExecuteAsync(projectId));
     }
 
     [HttpPost]
