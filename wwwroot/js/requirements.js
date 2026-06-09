@@ -29,7 +29,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </div>
         `;
 
-        chatMessages.insertAdjacentHTML("beforeend", html);
+        thinkingBox.insertAdjacentHTML("beforebegin", html);
 
         messageInput.value = "";
         thinkingBox.style.display = "block";
