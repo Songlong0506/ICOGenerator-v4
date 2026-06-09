@@ -18,11 +18,16 @@ public class GetWorkflowStatusQuery
     private readonly AppDbContext _db;
     public GetWorkflowStatusQuery(AppDbContext db) => _db = db;
 
-    public async Task<WorkflowStatusVm> ExecuteAsync(Guid projectId)
+    public async Task<WorkflowStatusVm> ExecuteAsync(Guid projectId, Guid? runId = null)
     {
-        var run = await _db.WorkflowRuns
+        var query = _db.WorkflowRuns
             .AsNoTracking()
-            .Where(x => x.ProjectId == projectId)
+            .Where(x => x.ProjectId == projectId);
+
+        if (runId.HasValue)
+            query = query.Where(x => x.Id == runId.Value);
+
+        var run = await query
             .OrderByDescending(x => x.CreatedAt)
             .Select(x => new
             {
