@@ -4,4 +4,5 @@ public record ProjectArtifactDescriptor(
     string Key,
     string FileName,
     string DisplayName,
-    bool RequiredForApproval);
+    bool RequiredForApproval,
+    string Phase);
