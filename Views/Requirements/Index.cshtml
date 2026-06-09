@@ -40,91 +40,6 @@
 @{
     var workflowStarted = TempData["WorkflowStarted"] != null;
 }
-<style>
-    #wf-panel .wf-badge {
-        font-size: 12px;
-        padding: 1px 8px;
-        border-radius: 10px;
-        margin-left: 6px;
-        white-space: nowrap;
-    }
-
-    #wf-panel .muted {
-        color: #64748B;
-    }
-
-    .wf-task {
-        border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 8px 10px;
-        margin-top: 8px;
-    }
-
-    .wf-task-head {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        flex-wrap: wrap;
-    }
-
-    .wf-meta {
-        font-size: 12px;
-        margin-top: 2px;
-    }
-
-    .wf-err {
-        color: #DC2626;
-        font-size: 13px;
-        margin-top: 6px;
-        white-space: pre-wrap;
-    }
-
-    .wf-out {
-        color: #475569;
-        font-size: 12px;
-        margin-top: 6px;
-        white-space: pre-wrap;
-        max-height: 140px;
-        overflow: auto;
-        background: #F8FAFC;
-        padding: 6px 8px;
-        border-radius: 6px;
-    }
-
-    .wf-banner {
-        padding: 8px 10px;
-        border-radius: 8px;
-        font-size: 14px;
-    }
-
-    .wf-run {
-        background: #EFF6FF;
-        color: #1D4ED8;
-    }
-
-    .wf-ok {
-        background: #ECFDF5;
-        color: #047857;
-    }
-
-    .wf-fail {
-        background: #FEF2F2;
-        color: #B91C1C;
-    }
-</style>
-
-<div class="card" id="wf-panel" style="margin-bottom:16px;@(workflowStarted ? "" : "display:none;")">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-        <h3 style="margin:0;">Delivery Progress</h3>
-        <small id="wf-sub" class="muted"></small>
-    </div>
-    <div id="wf-body">
-        @if (workflowStarted)
-        {
-            <div class="wf-banner wf-run">⏳ Đã gửi requirement cho agent Developer. Đang khởi động… trang sẽ tự cập nhật.</div>
-        }
-    </div>
-</div>
 
 <div class="grid doc-grid">
 
@@ -223,6 +138,23 @@
                     </div>
                 }
             }
+
+            <!-- WORKFLOW PROGRESS -->
+            <div id="wf-panel"
+                 class="msg ba workflow-progress"
+                 style="@(workflowStarted ? "" : "display:none;")">
+                <div class="workflow-progress-head">
+                    <b>BA</b>
+                    <span class="workflow-progress-title">Delivery Progress</span>
+                </div>
+                <small id="wf-sub" class="muted"></small>
+                <div id="wf-body" class="workflow-progress-body">
+                    @if (workflowStarted)
+                    {
+                        <div class="wf-banner wf-run">⏳ Đã gửi requirement cho agent Developer. Đang khởi động… tiến độ sẽ cập nhật trực tiếp tại đây.</div>
+                    }
+                </div>
+            </div>
 
             <!-- THINKING -->
             <div id="thinkingBox"
@@ -357,40 +289,89 @@
     <script src="~/js/requirements.js" asp-append-version="true"></script>
     <script>
         (function () {
-        const PID = '@Model.Id';
-        const panel = document.getElementById('wf-panel');
-        const sub = document.getElementById('wf-sub');
-        const bodyEl = document.getElementById('wf-body');
-        if (!panel) return;
-        const COLOR = { Queued: '#64748B', Running: '#2563EB', Completed: '#16A34A', Failed: '#DC2626',
-        Canceled: '#64748B', WaitingForHuman: '#D97706', Blocked: '#D97706', NeedsReview: '#D97706', Retrying: '#2563EB' };
-        function badge(s) { const c = COLOR[s] || '#64748B'; return `<span class="wf-badge" style="background:${c}1A;color:${c};border:1px solid ${c}55;">${s}</span>`; }
-        function esc(t) { const d = document.createElement('div'); d.textContent = (t == null ? '' : t); return d.innerHTML; }
-        async function load() {
-        let data;
-        try { const r = await fetch(`/Requirements/WorkflowStatus?projectId=${PID}`); data = await r.json(); }
-        catch (e) { return; }
-        if (!data.hasWorkflow) return; // no workflow yet -> keep panel hidden
-        panel.style.display = '';
-        sub.innerHTML = `${esc(data.runName)} · ${badge(data.runStatus)} · stage: ${esc(data.stage)}`
-        + (data.startedAt ? ` · bắt đầu ${data.startedAt}` : '') + (data.finishedAt ? ` · xong ${data.finishedAt}` : '');
-        let rows = (data.tasks || []).map(t => {
-        const detail = t.error ? `<div class="wf-err">⚠ ${esc(t.error)}</div>` : (t.output ? `<div class="wf-out">${esc(t.output)}</div>` : '');
-        const meta = [t.agentName ? ('agent: ' + esc(t.agentName)) : '', t.attempt ? ('lần ' + t.attempt) : '',
-        t.startedAt ? ('bắt đầu ' + t.startedAt) : '', t.finishedAt ? ('xong ' + t.finishedAt) : ''].filter(Boolean).join(' · ');
-        return `<div class="wf-task"><div class="wf-task-head"><b>${esc(t.title)}</b> ${badge(t.status)}</div><div class="muted wf-meta">${meta}</div>${detail}</div>`;
-        }).join('') || '<p class="muted">Workflow chưa có task nào.</p>';
-        let banner = '';
-        if (data.runStatus === 'Running' || data.runStatus === 'Queued')
-        banner = '<div class="wf-banner wf-run">⏳ Agent đang xử lý… trang sẽ tự cập nhật.</div>';
-        else if (data.isCompleted)
-        banner = `<div class="wf-banner wf-ok">✓ Hoàn tất. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
-        else if (data.runStatus === 'Failed')
-        banner = '<div class="wf-banner wf-fail">✗ Workflow thất bại — xem chi tiết lỗi ở task bên dưới.</div>';
-        bodyEl.innerHTML = banner + rows;
-        if (!data.isTerminal) setTimeout(load, 3000);
-        }
-        load();
+            const PID = '@Model.Id';
+            const panel = document.getElementById('wf-panel');
+            const sub = document.getElementById('wf-sub');
+            const bodyEl = document.getElementById('wf-body');
+            const chatMessages = document.getElementById('chatMessages');
+
+            if (!panel) return;
+
+            const COLOR = {
+                Queued: '#64748B',
+                Running: '#2563EB',
+                Completed: '#16A34A',
+                Failed: '#DC2626',
+                Canceled: '#64748B',
+                WaitingForHuman: '#D97706',
+                Blocked: '#D97706',
+                NeedsReview: '#D97706',
+                Retrying: '#2563EB'
+            };
+
+            function badge(status) {
+                const color = COLOR[status] || '#64748B';
+                return `<span class="wf-badge" style="background:${color}1A;color:${color};border:1px solid ${color}55;">${status}</span>`;
+            }
+
+            function esc(text) {
+                const div = document.createElement('div');
+                div.textContent = text == null ? '' : text;
+                return div.innerHTML;
+            }
+
+            function scrollProgressIntoView() {
+                if (!chatMessages) return;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            async function load() {
+                let data;
+
+                try {
+                    const response = await fetch(`/Requirements/WorkflowStatus?projectId=${PID}`);
+                    data = await response.json();
+                } catch (e) {
+                    return;
+                }
+
+                if (!data.hasWorkflow) return;
+
+                panel.style.display = '';
+                sub.innerHTML = `${esc(data.runName)} · ${badge(data.runStatus)} · stage: ${esc(data.stage)}`
+                    + (data.startedAt ? ` · bắt đầu ${data.startedAt}` : '')
+                    + (data.finishedAt ? ` · xong ${data.finishedAt}` : '');
+
+                const rows = (data.tasks || []).map(t => {
+                    const detail = t.error
+                        ? `<div class="wf-err">⚠ ${esc(t.error)}</div>`
+                        : (t.output ? `<div class="wf-out">${esc(t.output)}</div>` : '');
+                    const meta = [
+                        t.agentName ? ('agent: ' + esc(t.agentName)) : '',
+                        t.attempt ? ('lần ' + t.attempt) : '',
+                        t.startedAt ? ('bắt đầu ' + t.startedAt) : '',
+                        t.finishedAt ? ('xong ' + t.finishedAt) : ''
+                    ].filter(Boolean).join(' · ');
+
+                    return `<div class="wf-task"><div class="wf-task-head"><b>${esc(t.title)}</b> ${badge(t.status)}</div><div class="muted wf-meta">${meta}</div>${detail}</div>`;
+                }).join('') || '<p class="muted">Workflow chưa có task nào.</p>';
+
+                let banner = '';
+                if (data.runStatus === 'Running' || data.runStatus === 'Queued') {
+                    banner = '<div class="wf-banner wf-run">⏳ Agent đang xử lý… tiến độ sẽ tự cập nhật trong khung chat này.</div>';
+                } else if (data.isCompleted) {
+                    banner = `<div class="wf-banner wf-ok">✓ Hoàn tất. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
+                } else if (data.runStatus === 'Failed') {
+                    banner = '<div class="wf-banner wf-fail">✗ Workflow thất bại — xem chi tiết lỗi ở task bên dưới.</div>';
+                }
+
+                bodyEl.innerHTML = banner + rows;
+                scrollProgressIntoView();
+
+                if (!data.isTerminal) setTimeout(load, 3000);
+            }
+
+            load();
         })();
     </script>
 }
