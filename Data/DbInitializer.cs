@@ -20,8 +20,7 @@ public static class DbInitializer
         {
             db.AiModels.AddRange(
                 new AiModel { Name = "Qwen3.6 27B Q3_K_S", Provider = "LM Studio", ModelId = "qwen3.6-27b@q3_k_s", Endpoint = "http://127.0.0.1:1234/v1", ApiKey = "lm-studio", IsDefault = true, ContextWindow = 128000 },
-                new AiModel { Name = "DeepSeek V4 Flash", Provider = "DeepSeek", ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "sk-90ac1cc986b142f4bef042580d651be7", ContextWindow = 1000000 },
-                new AiModel { Name = "DeepSeek V4 Pro", Provider = "DeepSeek", ModelId = "deepseek-v4-pro", Endpoint = "https://api.deepseek.com", ApiKey = "sk-90ac1cc986b142f4bef042580d651be7", ContextWindow = 1000000 }
+                new AiModel { Name = "DeepSeek V4 Flash", Provider = "DeepSeek", ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "sk-90ac1cc986b142f4bef042580d651be7", ContextWindow = 1000000 }
             );
             await db.SaveChangesAsync();
         }
