@@ -1,0 +1,463 @@
+﻿<!DOCTYPE html>
+<!--
+  poc-template.html — MANDATORY self-contained base shell for generated POCs.
+  Distilled from the Web Core Demo (Bosch) template so every POC shares the same
+  look WITHOUT Angular / Angular Material, and renders standalone (CSS is inlined,
+  so it works when opened directly or served via /Projects/Mockup).
+
+  Developer agent rules:
+    1. Keep <head> incl. the entire <style> block, and the .app-header /
+       .supergraphic / .sidenav markup exactly as-is.
+    2. Replace ONLY what is between POC_CONTENT_START and POC_CONTENT_END with the
+       feature UI from the AI Design Spec, reusing the documented classes.
+    3. You may rename the app title / menu items / breadcrumb to fit the feature.
+    4. Save as poc-demo.html. Do NOT add any external CSS/JS framework.
+
+  Class reference:
+    Layout : app-shell app-header supergraphic app-body sidenav page
+    Brand  : brand brand-logo header-title header-spacer
+    Nav    : nav-section nav-item(.active)
+    Page   : breadcrumb page-title page-sub
+    Blocks : card-grid card card-title card-body / tile tile-value tile-label
+    Inputs : btn btn-outline btn-ghost / field label input select textarea
+    Data   : table / badge badge-green badge-gray
+    Utils  : muted row stack gap mt mb
+-->
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>POC</title>
+    <style>
+        :root {
+            --bosch-blue: #007bc0;
+            --bosch-blue-dark: #005587;
+            --bosch-blue-hover: #00629a;
+            --bosch-blue-active: #004975;
+            --bosch-green: #00884a;
+            --ink: #1a1a1a;
+            --muted: #5a6066;
+            --line: #d4d8db;
+            --bg: #eff1f2;
+            --surface: #fff;
+            --sidenav-bg: #2e3033;
+            --sidenav-ink: #c9cdd2;
+            --sidenav-ink-strong: #fff;
+            --header-h: 56px;
+            --supergraphic-h: 6px;
+            --shadow: 0 1px 3px rgba(0,0,0,.12);
+            --font: "Bosch-Sans",Arial,Helvetica,sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--ink);
+            background: var(--bg);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        h1, h2, h3, h4, h5 {
+            font-family: var(--font);
+            font-weight: 700;
+            color: var(--ink);
+            margin: 0 0 .4em;
+        }
+
+        a {
+            color: var(--bosch-blue);
+            text-decoration: none;
+        }
+
+            a:hover {
+                color: var(--bosch-blue-hover);
+                text-decoration: underline;
+            }
+
+        .app-shell {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-header {
+            height: var(--header-h);
+            background: var(--surface);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 20px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .supergraphic {
+            height: var(--supergraphic-h);
+            background: linear-gradient(90deg, #e2001a 0 12.5%,#b90276 12.5% 25%,#50237f 25% 37.5%,#005691 37.5% 50%, #008ecf 50% 62.5%,#00a8b0 62.5% 75%,#78be20 75% 87.5%,#006249 87.5% 100%);
+        }
+
+        .app-body {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            min-height: 0;
+        }
+
+        .sidenav {
+            background: var(--sidenav-bg);
+            color: var(--sidenav-ink);
+            padding: 10px 0;
+            overflow: auto;
+        }
+
+        .page {
+            background: var(--bg);
+            padding: 24px 28px;
+            overflow: auto;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-logo {
+            width: 34px;
+            height: 34px;
+            border-radius: 4px;
+            background: var(--bosch-blue);
+            color: #fff;
+            font-weight: 700;
+            font-size: 15px;
+            display: grid;
+            place-items: center;
+        }
+
+        .header-title {
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .header-spacer {
+            flex: 1;
+        }
+
+        .nav-section {
+            padding: 14px 20px 6px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: #8b9097;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            color: var(--sidenav-ink);
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            user-select: none;
+        }
+
+            .nav-item:hover {
+                background: rgba(255,255,255,.06);
+                color: var(--sidenav-ink-strong);
+            }
+
+            .nav-item.active {
+                background: rgba(0,123,192,.18);
+                color: var(--sidenav-ink-strong);
+                border-left-color: var(--bosch-blue);
+            }
+
+        .breadcrumb {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+            .breadcrumb a {
+                color: var(--muted);
+            }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0 0 4px;
+        }
+
+        .page-sub {
+            color: var(--muted);
+            margin: 0 0 22px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill,minmax(260px,1fr));
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow);
+        }
+
+        .card-title {
+            font-weight: 700;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .card-body {
+            padding: 16px;
+        }
+
+        .tile {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow);
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .tile-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--bosch-blue-dark);
+        }
+
+        .tile-label {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .btn {
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 700;
+            padding: 9px 18px;
+            border: 1px solid var(--bosch-blue);
+            background: var(--bosch-blue);
+            color: #fff;
+            cursor: pointer;
+        }
+
+            .btn:hover {
+                background: var(--bosch-blue-hover);
+                border-color: var(--bosch-blue-hover);
+            }
+
+            .btn:active {
+                background: var(--bosch-blue-active);
+                border-color: var(--bosch-blue-active);
+            }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--bosch-blue);
+        }
+
+            .btn-outline:hover {
+                background: rgba(0,123,192,.08);
+                color: var(--bosch-blue-hover);
+            }
+
+        .btn-ghost {
+            background: transparent;
+            border-color: transparent;
+            color: var(--bosch-blue);
+        }
+
+            .btn-ghost:hover {
+                background: rgba(0,123,192,.08);
+            }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+
+            .field label {
+                font-size: 13px;
+                color: var(--muted);
+                font-weight: 700;
+            }
+
+        .input, .select, .textarea {
+            font-family: inherit;
+            font-size: 14px;
+            padding: 9px 12px;
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--ink);
+            width: 100%;
+        }
+
+            .input:focus, .select:focus, .textarea:focus {
+                outline: none;
+                border-color: var(--bosch-blue);
+                box-shadow: 0 0 0 2px rgba(0,123,192,.18);
+            }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+        }
+
+            .table th {
+                text-align: left;
+                font-weight: 700;
+                padding: 12px 14px;
+                border-bottom: 2px solid var(--line);
+                background: #f7f8f9;
+            }
+
+            .table td {
+                padding: 12px 14px;
+                border-bottom: 1px solid var(--line);
+            }
+
+            .table tr:hover td {
+                background: #f3f6f9;
+            }
+
+        .badge {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 2px 10px;
+            border-radius: 10px;
+            background: rgba(0,123,192,.12);
+            color: var(--bosch-blue-dark);
+        }
+
+        .badge-green {
+            background: rgba(0,136,74,.14);
+            color: #006f3c;
+        }
+
+        .badge-gray {
+            background: #e7eaec;
+            color: #5a6066;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .gap {
+            gap: 16px;
+        }
+
+        .mt {
+            margin-top: 16px;
+        }
+
+        .mb {
+            margin-bottom: 16px;
+        }
+
+        @media (max-width:900px) {
+            .app-body {
+                grid-template-columns: 1fr;
+            }
+
+            .sidenav {
+                display: none;
+            }
+
+            .page {
+                padding: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-logo">A</div>
+                <span class="header-title">App Name</span>
+            </div>
+            <div class="header-spacer"></div>
+            <button class="btn btn-ghost">Help</button>
+            <button class="btn btn-outline">Sign in</button>
+        </header>
+        <div class="supergraphic"></div>
+
+        <div class="app-body">
+
+            <aside class="sidenav">
+                <div class="nav-section">Menu</div>
+                <div class="nav-item active">Dashboard</div>
+                <div class="nav-item">Items</div>
+                <div class="nav-item">Orders</div>
+                <div class="nav-item">Customers</div>
+                <div class="nav-section">Settings</div>
+                <div class="nav-item">Preferences</div>
+                <div class="nav-item">Users</div>
+            </aside>
+
+            <main class="page">
+                <div class="breadcrumb"><a href="#">Home</a> &rsaquo; <span>Dashboard</span></div>
+                <h1 class="page-title">Page Title</h1>
+                <p class="page-sub">Short description of the page.</p>
+
+                <!-- POC_CONTENT_START : replace everything below with the feature UI -->
+                <div class="card-grid mb">
+                    <div class="tile"><span class="tile-label">Metric A</span><span class="tile-value">128</span></div>
+                    <div class="tile"><span class="tile-label">Metric B</span><span class="tile-value">42</span></div>
+                    <div class="tile"><span class="tile-label">Metric C</span><span class="tile-value">7</span></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Section title</div>
+                    <div class="card-body">
+                        <table class="table">
+                            <thead><tr><th>Name</th><th>Status</th><th></th></tr></thead>
+                            <tbody>
+                                <tr><td>Example row</td><td><span class="badge badge-green">Active</span></td><td><button class="btn btn-outline">Open</button></td></tr>
+                                <tr><td>Example row</td><td><span class="badge badge-gray">Draft</span></td><td><button class="btn btn-outline">Open</button></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- POC_CONTENT_END -->
+
+            </main>
+        </div>
+    </div>
+</body>
+</html>
