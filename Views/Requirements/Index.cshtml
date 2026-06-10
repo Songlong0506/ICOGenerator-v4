@@ -350,34 +350,18 @@
 
                 if (!data.hasWorkflow) return;
 
-                sub.innerHTML = `${esc(data.runName)} · ${badge(data.runStatus)} · stage: ${esc(data.stage)}`
-                    + (data.startedAt ? ` · bắt đầu ${data.startedAt}` : '')
-                    + (data.finishedAt ? ` · xong ${data.finishedAt}` : '');
-
-                const rows = (data.tasks || []).map(t => {
-                    const detail = t.error
-                        ? `<div class="wf-err">⚠ ${esc(t.error)}</div>`
-                        : (t.output ? `<div class="wf-out">${esc(t.output)}</div>` : '');
-                    const meta = [
-                        t.agentName ? ('agent: ' + esc(t.agentName)) : '',
-                        t.attempt ? ('lần ' + t.attempt) : '',
-                        t.startedAt ? ('bắt đầu ' + t.startedAt) : '',
-                        t.finishedAt ? ('xong ' + t.finishedAt) : ''
-                    ].filter(Boolean).join(' · ');
-
-                    return `<div class="wf-task"><div class="wf-task-head"><b>${esc(t.title)}</b> ${badge(t.status)}</div><div class="muted wf-meta">${meta}</div>${detail}</div>`;
-                }).join('') || '<p class="muted">Workflow chưa có task nào.</p>';
+                sub.innerHTML = `${esc(data.runName)} · ${badge(data.runStatus)}`;
 
                 let banner = '';
                 if (data.runStatus === 'Running' || data.runStatus === 'Queued') {
-                    banner = '<div class="wf-banner wf-run">⏳ Agent đang xử lý… tiến độ sẽ tự cập nhật trong khung chat này.</div>';
+                    banner = '<div class="wf-banner wf-run">⏳ Agent đang xử lý…</div>';
                 } else if (data.isCompleted) {
                     banner = `<div class="wf-banner wf-ok">✓ Hoàn tất. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
                 } else if (data.runStatus === 'Failed') {
                     banner = '<div class="wf-banner wf-fail">✗ Workflow thất bại — xem chi tiết lỗi ở task bên dưới.</div>';
                 }
 
-                bodyEl.innerHTML = banner + rows;
+                bodyEl.innerHTML = banner;
                 maybeScrollPanel(panel, data);
 
                 if (!data.isTerminal) setTimeout(() => load(panel), 3000);
