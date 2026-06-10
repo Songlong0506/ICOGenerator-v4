@@ -1,27 +1,23 @@
 ﻿<!DOCTYPE html>
 <!--
-  poc-template.html — MANDATORY self-contained base shell for generated POCs.
-  Distilled from the Web Core Demo (Bosch) template so every POC shares the same
-  look WITHOUT Angular / Angular Material, and renders standalone (CSS is inlined,
-  so it works when opened directly or served via /Projects/Mockup).
+  poc-template.html — MANDATORY self-contained shell for generated POCs.
+  Layout (matches the reference app): a top supergraphic bar, a collapsible dark
+  sidebar (App Name on top, expandable nav groups, User + Imprint pinned at the
+  bottom), and a fixed top bar with breadcrumb (left) + Bosch logo (right).
+  CSS + JS are inlined, so the POC renders standalone (also via /Projects/Mockup).
 
   Developer agent rules:
-    1. Keep <head> incl. the entire <style> block, and the .app-header /
-       .supergraphic / .sidenav markup exactly as-is.
+    1. Keep the whole <head> (incl. <style>), the <script> at the bottom, and the
+       shell markup (.supergraphic, .sidebar, .topbar) exactly as-is.
     2. Replace ONLY what is between POC_CONTENT_START and POC_CONTENT_END with the
        feature UI from the AI Design Spec, reusing the documented classes.
-    3. You may rename the app title / menu items / breadcrumb to fit the feature.
+    3. You MAY rename the App Name, the breadcrumb text and the nav items/groups to
+       fit the feature, but do NOT change the shell structure, the <style> or the <script>.
     4. Save as poc-demo.html. Do NOT add any external CSS/JS framework.
 
-  Class reference:
-    Layout : app-shell app-header supergraphic app-body sidenav page
-    Brand  : brand brand-logo header-title header-spacer
-    Nav    : nav-section nav-item(.active)
-    Page   : breadcrumb page-title page-sub
-    Blocks : card-grid card card-title card-body / tile tile-value tile-label
-    Inputs : btn btn-outline btn-ghost / field label input select textarea
-    Data   : table / badge badge-green badge-gray
-    Utils  : muted row stack gap mt mb
+  Content classes: card-grid card card-title card-body / tile tile-value tile-label /
+    btn btn-outline btn-ghost / field label input select textarea / table /
+    badge badge-green badge-gray / muted row stack gap mt mb
 -->
 <html lang="en">
 <head>
@@ -34,17 +30,21 @@
             --bosch-blue-dark: #005587;
             --bosch-blue-hover: #00629a;
             --bosch-blue-active: #004975;
+            --bosch-red: #e20015;
             --bosch-green: #00884a;
             --ink: #1a1a1a;
             --muted: #5a6066;
             --line: #d4d8db;
             --bg: #eff1f2;
             --surface: #fff;
-            --sidenav-bg: #2e3033;
-            --sidenav-ink: #c9cdd2;
-            --sidenav-ink-strong: #fff;
-            --header-h: 56px;
+            --sidebar-bg: #1f2226;
+            --sidebar-bg-2: #2a2e33;
+            --sidebar-ink: #c9cdd2;
+            --sidebar-ink-strong: #fff;
+            --topbar-h: 56px;
             --supergraphic-h: 6px;
+            --sidebar-w: 280px;
+            --sidebar-w-collapsed: 60px;
             --shadow: 0 1px 3px rgba(0,0,0,.12);
             --font: "Bosch-Sans",Arial,Helvetica,sans-serif;
         }
@@ -56,6 +56,7 @@
         html, body {
             margin: 0;
             padding: 0;
+            height: 100%;
         }
 
         body {
@@ -83,126 +84,242 @@
                 text-decoration: underline;
             }
 
-        .app-shell {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+        .ico {
+            width: 20px;
+            height: 20px;
+            flex: 0 0 auto;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
-        .app-header {
-            height: var(--header-h);
-            background: var(--surface);
+        /* ---------- Shell ---------- */
+        .app-shell {
             display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 0 20px;
-            border-bottom: 1px solid var(--line);
+            flex-direction: column;
+            height: 100vh;
         }
 
         .supergraphic {
             height: var(--supergraphic-h);
+            flex: 0 0 auto;
             background: linear-gradient(90deg, #e2001a 0 12.5%,#b90276 12.5% 25%,#50237f 25% 37.5%,#005691 37.5% 50%, #008ecf 50% 62.5%,#00a8b0 62.5% 75%,#78be20 75% 87.5%,#006249 87.5% 100%);
         }
 
         .app-body {
             flex: 1;
-            display: grid;
-            grid-template-columns: 280px 1fr;
+            display: flex;
             min-height: 0;
         }
 
-        .sidenav {
-            background: var(--sidenav-bg);
-            color: var(--sidenav-ink);
-            padding: 10px 0;
-            overflow: auto;
+        /* ---------- Sidebar ---------- */
+        .sidebar {
+            width: var(--sidebar-w);
+            flex: 0 0 auto;
+            background: var(--sidebar-bg);
+            color: var(--sidebar-ink);
+            display: flex;
+            flex-direction: column;
+            transition: width .18s ease;
+            overflow: hidden;
         }
 
-        .page {
-            background: var(--bg);
-            padding: 24px 28px;
-            overflow: auto;
+        .app-shell.collapsed .sidebar {
+            width: var(--sidebar-w-collapsed);
         }
 
-        .brand {
+        .sidebar-head {
             display: flex;
             align-items: center;
             gap: 10px;
+            min-height: var(--topbar-h);
+            padding: 0 12px 0 18px;
+            background: var(--sidebar-bg);
+            border-bottom: 1px solid rgba(255,255,255,.06);
         }
 
-        .brand-logo {
-            width: 34px;
-            height: 34px;
-            border-radius: 4px;
-            background: var(--bosch-blue);
-            color: #fff;
-            font-weight: 700;
-            font-size: 15px;
-            display: grid;
-            place-items: center;
-        }
-
-        .header-title {
+        .app-name {
+            flex: 1;
             font-weight: 700;
             font-size: 16px;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .header-spacer {
+        .sb-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border: 0;
+            background: transparent;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+            .sb-toggle:hover {
+                background: rgba(255,255,255,.08);
+            }
+
+            .sb-toggle .ico-close {
+                display: block;
+            }
+
+            .sb-toggle .ico-menu {
+                display: none;
+            }
+
+        .app-shell.collapsed .app-name {
+            display: none;
+        }
+
+        .app-shell.collapsed .sidebar-head {
+            justify-content: center;
+            padding: 0;
+        }
+
+        .app-shell.collapsed .sb-toggle .ico-close {
+            display: none;
+        }
+
+        .app-shell.collapsed .sb-toggle .ico-menu {
+            display: block;
+        }
+
+        .sidebar-nav {
             flex: 1;
+            overflow: auto;
+            padding: 6px 0;
         }
 
-        .nav-section {
-            padding: 14px 20px 6px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: .06em;
-            color: #8b9097;
+        .sidebar-foot {
+            flex: 0 0 auto;
+            border-top: 1px solid rgba(255,255,255,.08);
+            padding: 6px 0;
         }
 
         .nav-item {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 20px;
-            color: var(--sidenav-ink);
+            gap: 12px;
+            padding: 11px 18px;
+            color: var(--sidebar-ink);
             cursor: pointer;
             border-left: 3px solid transparent;
+            white-space: nowrap;
             user-select: none;
         }
 
             .nav-item:hover {
                 background: rgba(255,255,255,.06);
-                color: var(--sidenav-ink-strong);
+                color: var(--sidebar-ink-strong);
             }
 
             .nav-item.active {
-                background: rgba(0,123,192,.18);
-                color: var(--sidenav-ink-strong);
+                background: rgba(0,123,192,.20);
+                color: #fff;
                 border-left-color: var(--bosch-blue);
             }
 
+        .nav-label {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .nav-chevron {
+            transition: transform .15s ease;
+        }
+
+        .nav-group.open > .nav-item > .nav-chevron {
+            transform: rotate(180deg);
+        }
+
+        .nav-sub {
+            display: none;
+            background: rgba(0,0,0,.18);
+        }
+
+        .nav-group.open > .nav-sub {
+            display: block;
+        }
+
+        .nav-sub .nav-item {
+            padding-left: 50px;
+            font-size: 13.5px;
+        }
+
+        /* collapsed: icons only */
+        .app-shell.collapsed .nav-label,
+        .app-shell.collapsed .nav-chevron,
+        .app-shell.collapsed .nav-sub {
+            display: none;
+        }
+
+        .app-shell.collapsed .nav-item {
+            justify-content: center;
+            padding: 12px 0;
+            border-left-width: 0;
+        }
+
+        /* ---------- Main column ---------- */
+        .main-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .topbar {
+            height: var(--topbar-h);
+            flex: 0 0 auto;
+            background: var(--surface);
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 22px;
+        }
+
         .breadcrumb {
             color: var(--muted);
-            font-size: 13px;
-            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ink);
         }
 
-            .breadcrumb a {
+            .breadcrumb .sep {
                 color: var(--muted);
+                font-weight: 400;
+                margin: 0 6px;
             }
 
-        .page-title {
-            font-size: 28px;
+        .topbar-spacer {
+            flex: 1;
+        }
+        /* Bosch logo placeholder — replace with the official asset if you have rights. */
+        .bosch-logo {
+            font-family: Arial,Helvetica,sans-serif;
             font-weight: 700;
-            margin: 0 0 4px;
+            font-size: 22px;
+            letter-spacing: .5px;
+            color: var(--bosch-red);
         }
 
-        .page-sub {
-            color: var(--muted);
-            margin: 0 0 22px;
+        .page {
+            flex: 1;
+            overflow: auto;
+            padding: 24px 28px;
+            background: var(--bg);
         }
 
+        /* ---------- Content components ---------- */
         .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill,minmax(260px,1fr));
@@ -388,76 +505,320 @@
             margin-bottom: 16px;
         }
 
-        @media (max-width:900px) {
-            .app-body {
+        /* ---------- Modals ---------- */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.45);
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            z-index: 60;
+        }
+
+            .modal-overlay.open {
+                display: flex;
+            }
+
+        .modal {
+            background: #fff;
+            margin-top: 9vh;
+            width: min(360px,92vw);
+            box-shadow: 0 12px 40px rgba(0,0,0,.3);
+        }
+
+            .modal.lg {
+                width: min(820px,94vw);
+            }
+
+        .modal-head {
+            display: flex;
+            align-items: center;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--line);
+        }
+
+            .modal-head h3 {
+                margin: 0;
+                font-size: 16px;
+                flex: 1;
+            }
+
+        .modal-close {
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            color: var(--muted);
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+            .modal-close:hover {
+                color: var(--ink);
+            }
+
+        .modal-body {
+            padding: 18px;
+        }
+
+        .imprint-bar {
+            height: 5px;
+            background: linear-gradient(90deg,#e2001a,#b90276,#50237f,#005691,#008ecf,#00a8b0,#78be20,#006249);
+        }
+
+        .imprint-logo {
+            font-family: Arial,Helvetica,sans-serif;
+            font-weight: 700;
+            font-size: 26px;
+            color: var(--bosch-red);
+            line-height: 1;
+        }
+
+            .imprint-logo small {
+                display: block;
+                color: var(--ink);
+                font-size: 12px;
+                font-weight: 400;
+                letter-spacing: .3px;
+                margin-top: 2px;
+            }
+
+        .imprint-grid {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 10px 24px;
+            margin-top: 20px;
+        }
+
+            .imprint-grid dt {
+                color: var(--muted);
+                font-weight: 700;
+            }
+
+            .imprint-grid dd {
+                margin: 0;
+            }
+
+        @media (max-width:760px) {
+            .sidebar {
+                position: absolute;
+                z-index: 40;
+                height: calc(100vh - var(--supergraphic-h));
+            }
+
+            .imprint-grid {
                 grid-template-columns: 1fr;
+                gap: 4px 0;
             }
 
-            .sidenav {
-                display: none;
-            }
-
-            .page {
-                padding: 18px;
-            }
+                .imprint-grid dd {
+                    margin-bottom: 10px;
+                }
         }
     </style>
 </head>
 <body>
-    <div class="app-shell">
+    <div class="app-shell" id="appShell">
 
-        <header class="app-header">
-            <div class="brand">
-                <div class="brand-logo">A</div>
-                <span class="header-title">App Name</span>
-            </div>
-            <div class="header-spacer"></div>
-            <button class="btn btn-ghost">Help</button>
-            <button class="btn btn-outline">Sign in</button>
-        </header>
         <div class="supergraphic"></div>
 
         <div class="app-body">
 
-            <aside class="sidenav">
-                <div class="nav-section">Menu</div>
-                <div class="nav-item active">Dashboard</div>
-                <div class="nav-item">Items</div>
-                <div class="nav-item">Orders</div>
-                <div class="nav-item">Customers</div>
-                <div class="nav-section">Settings</div>
-                <div class="nav-item">Preferences</div>
-                <div class="nav-item">Users</div>
-            </aside>
-
-            <main class="page">
-                <div class="breadcrumb"><a href="#">Home</a> &rsaquo; <span>Dashboard</span></div>
-                <h1 class="page-title">Page Title</h1>
-                <p class="page-sub">Short description of the page.</p>
-
-                <!-- POC_CONTENT_START : replace everything below with the feature UI -->
-                <div class="card-grid mb">
-                    <div class="tile"><span class="tile-label">Metric A</span><span class="tile-value">128</span></div>
-                    <div class="tile"><span class="tile-label">Metric B</span><span class="tile-value">42</span></div>
-                    <div class="tile"><span class="tile-label">Metric C</span><span class="tile-value">7</span></div>
+            <!-- ===== Sidebar ===== -->
+            <aside class="sidebar">
+                <div class="sidebar-head">
+                    <span class="app-name">App Name</span>
+                    <button class="sb-toggle" id="sbToggle" title="Toggle menu" aria-label="Toggle menu">
+                        <svg class="ico ico-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                        <svg class="ico ico-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+                    </button>
                 </div>
 
-                <div class="card">
-                    <div class="card-title">Section title</div>
-                    <div class="card-body">
-                        <table class="table">
-                            <thead><tr><th>Name</th><th>Status</th><th></th></tr></thead>
-                            <tbody>
-                                <tr><td>Example row</td><td><span class="badge badge-green">Active</span></td><td><button class="btn btn-outline">Open</button></td></tr>
-                                <tr><td>Example row</td><td><span class="badge badge-gray">Draft</span></td><td><button class="btn btn-outline">Open</button></td></tr>
-                            </tbody>
-                        </table>
+                <nav class="sidebar-nav">
+                    <!-- Leaf item -->
+                    <div class="nav-item active" title="Overview">
+                        <svg class="ico" viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v8h-8zM13 13h8v8h-8zM3 13h8v8H3z" /></svg>
+                        <span class="nav-label">Overview</span>
+                    </div>
+
+                    <!-- Expandable group (accordion) -->
+                    <div class="nav-group open">
+                        <div class="nav-item" title="Module A">
+                            <svg class="ico" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2M6 14h12v7H6z" /></svg>
+                            <span class="nav-label">Module A</span>
+                            <svg class="ico nav-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+                        </div>
+                        <div class="nav-sub">
+                            <div class="nav-item">
+                                <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg>
+                                <span class="nav-label">Sub item 1</span>
+                            </div>
+                            <div class="nav-item">
+                                <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg>
+                                <span class="nav-label">Sub item 2</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Another expandable group -->
+                    <div class="nav-group">
+                        <div class="nav-item" title="Module B">
+                            <svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" /></svg>
+                            <span class="nav-label">Module B</span>
+                            <svg class="ico nav-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+                        </div>
+                        <div class="nav-sub">
+                            <div class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg><span class="nav-label">Sub item 1</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Settings group -->
+                    <div class="nav-group">
+                        <div class="nav-item" title="Settings">
+                            <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1" /></svg>
+                            <span class="nav-label">Settings</span>
+                            <svg class="ico nav-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+                        </div>
+                        <div class="nav-sub">
+                            <div class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg><span class="nav-label">Preferences</span></div>
+                        </div>
+                    </div>
+                </nav>
+
+                <!-- ===== Bottom: User + Imprint (fixed defaults) ===== -->
+                <div class="sidebar-foot">
+                    <div class="nav-item" id="navUser" title="User">
+                        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+                        <span class="nav-label">EXTERNAL User Name</span>
+                    </div>
+                    <div class="nav-item" id="navImprint" title="Imprint">
+                        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+                        <span class="nav-label">Imprint</span>
                     </div>
                 </div>
-                <!-- POC_CONTENT_END -->
+            </aside>
 
-            </main>
+            <!-- ===== Main column ===== -->
+            <div class="main-col">
+
+                <!-- Fixed top bar: breadcrumb (left) + Bosch logo (right) -->
+                <header class="topbar">
+                    <div class="breadcrumb">Home <span class="sep">&rsaquo;</span> Page Title</div>
+                    <div class="topbar-spacer"></div>
+                    <div class="bosch-logo">BOSCH</div>
+                </header>
+
+                <main class="page">
+
+                    <!-- POC_CONTENT_START : replace everything below with the feature UI -->
+                    <h1 class="page-title" style="font-size:26px;margin:0 0 4px;">Page Title</h1>
+                    <p class="muted mb">Short description of the page.</p>
+
+                    <div class="card-grid mb">
+                        <div class="tile"><span class="tile-label">Metric A</span><span class="tile-value">128</span></div>
+                        <div class="tile"><span class="tile-label">Metric B</span><span class="tile-value">42</span></div>
+                        <div class="tile"><span class="tile-label">Metric C</span><span class="tile-value">7</span></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Section title</div>
+                        <div class="card-body">
+                            <table class="table">
+                                <thead><tr><th>Name</th><th>Status</th><th></th></tr></thead>
+                                <tbody>
+                                    <tr><td>Example row</td><td><span class="badge badge-green">Active</span></td><td><button class="btn btn-outline">Open</button></td></tr>
+                                    <tr><td>Example row</td><td><span class="badge badge-gray">Draft</span></td><td><button class="btn btn-outline">Open</button></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- POC_CONTENT_END -->
+
+                </main>
+            </div>
         </div>
     </div>
+
+    <!-- ===== User popup ===== -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal">
+            <div class="modal-head">
+                <h3>Account</h3>
+                <button class="modal-close" data-close="userModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="field">
+                    <label>Default Language</label>
+                    <select class="select"><option>English</option><option>Tiếng Việt</option><option>Deutsch</option></select>
+                </div>
+                <p>Do you want to logout?</p>
+                <button class="btn">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Imprint popup ===== -->
+    <div class="modal-overlay" id="imprintModal">
+        <div class="modal lg">
+            <div class="imprint-bar"></div>
+            <div class="modal-head">
+                <div class="imprint-logo" style="font-size:20px;">BOSCH <small>Invented for life</small></div>
+                <div style="flex:1"></div>
+                <button class="modal-close" data-close="imprintModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+            </div>
+            <div class="modal-body">
+                <dl class="imprint-grid">
+                    <dt>Purpose</dt>
+                    <dd>Describe what this application is used for.</dd>
+                    <dt>Security class of the IT System (cf. CD 02900)</dt>
+                    <dd>C_SC1</dd>
+                    <dt>Requirements towards the IT Owner of the consuming IT System</dt>
+                    <dd>Login by SSO or Group account</dd>
+                    <dt>Approved deviations from requirements towards the IT System from central RB regulations</dt>
+                    <dd>N/A</dd>
+                    <dt>Name</dt>
+                    <dd>ICO Template</dd>
+                    <dt>Version</dt>
+                    <dd>0.1</dd>
+                    <dt>Contact</dt>
+                    <dd><b>Application Owner</b><br /><b>Technical Support</b></dd>
+                    <dt>Designed and developed by</dt>
+                    <dd>HcP/ICO</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+      var shell = document.getElementById('appShell');
+
+      // Collapse / expand the whole sidebar
+      var toggle = document.getElementById('sbToggle');
+      if (toggle) toggle.addEventListener('click', function () { shell.classList.toggle('collapsed'); });
+
+      // Expand / collapse nav groups (accordion)
+      document.querySelectorAll('.nav-group > .nav-item').forEach(function (head) {
+        head.addEventListener('click', function () {
+          if (shell.classList.contains('collapsed')) { shell.classList.remove('collapsed'); return; }
+          head.parentElement.classList.toggle('open');
+        });
+      });
+
+      // Popups
+      function open(id) { var m = document.getElementById(id); if (m) m.classList.add('open'); }
+      var u = document.getElementById('navUser'); if (u) u.addEventListener('click', function () { open('userModal'); });
+      var i = document.getElementById('navImprint'); if (i) i.addEventListener('click', function () { open('imprintModal'); });
+      document.querySelectorAll('[data-close]').forEach(function (b) {
+        b.addEventListener('click', function () { var m = document.getElementById(b.getAttribute('data-close')); if (m) m.classList.remove('open'); });
+      });
+      document.querySelectorAll('.modal-overlay').forEach(function (o) {
+        o.addEventListener('click', function (e) { if (e.target === o) o.classList.remove('open'); });
+      });
+    })();
+    </script>
 </body>
 </html>
