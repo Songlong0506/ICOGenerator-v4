@@ -9,6 +9,19 @@
     var orderedFolders = phases.ToList();
     if (docsByPhase.ContainsKey("Other")) { orderedFolders.Add("Other"); }
 
+    static int VersionOrder(string versionName)
+    {
+        if (string.Equals(versionName, "draft", StringComparison.OrdinalIgnoreCase))
+            return 0;
+
+        if (versionName.Length > 1
+            && versionName.StartsWith("V", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(versionName[1..], out var versionNumber))
+            return versionNumber;
+
+        return int.MaxValue;
+    }
+
     var docMap = Model.Documents.ToDictionary(
         d => d.Id.ToString(),
         d => (object)new { name = d.FileName, content = d.Content, agentId = d.AgentId?.ToString() ?? "" });
@@ -70,16 +83,37 @@
         <ul class="tree" id="ws-tree">
             @foreach (var folder in orderedFolders)
             {
-                var docs = docsByPhase.TryGetValue(folder, out var list) ? list : new List<ICOGenerator.Domain.ProjectDocument>();
-                <li class="folder">📁 @folder</li>
-                foreach (var d in docs)
-                {
-                    <li class="file" data-doc-id="@d.Id" data-agent-id="@(d.AgentId?.ToString() ?? "")" onclick="showDoc('@d.Id')">📄 @d.FileName <span class="ver">· @d.VersionName</span></li>
-                }
-                if (!docs.Any())
-                {
-                    <li class="empty">— empty —</li>
-                }
+                var docs = docsByPhase.TryGetValue(folder, out var list)
+                    ? list.OrderBy(d => VersionOrder(d.VersionName)).ThenBy(d => d.VersionName).ThenBy(d => d.FileName).ToList()
+                    : new List<ICOGenerator.Domain.ProjectDocument>();
+
+                <li class="folder phase-folder">
+                    <div class="tree-row">📁 @folder</div>
+                    <ul>
+                        @if (docs.Any())
+                        {
+                            foreach (var versionGroup in docs
+                                .GroupBy(d => d.VersionName)
+                                .OrderBy(g => VersionOrder(g.Key))
+                                .ThenBy(g => g.Key))
+                            {
+                                <li class="folder version-folder">
+                                    <div class="tree-row">📁 @versionGroup.Key</div>
+                                    <ul>
+                                        @foreach (var d in versionGroup.OrderBy(d => d.FileName))
+                                        {
+                                            <li class="file" data-doc-id="@d.Id" data-agent-id="@(d.AgentId?.ToString() ?? "")" onclick="showDoc('@d.Id')">📄 @d.FileName</li>
+                                        }
+                                    </ul>
+                                </li>
+                            }
+                        }
+                        else
+                        {
+                            <li class="empty">— empty —</li>
+                        }
+                    </ul>
+                </li>
             }
         </ul>
     </div>
@@ -102,12 +136,14 @@
 <style>
     .ws-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
     .ws-head h3 { margin: 0; }
+    .tree, .tree ul { list-style: none; margin: 0; padding-left: 0; }
+    .tree ul { padding-left: 18px; }
     .tree .folder { font-weight: 600; margin-top: 6px; }
-    .tree .file { cursor: pointer; padding-left: 18px; }
+    .tree .version-folder { font-weight: 400; }
+    .tree .file { cursor: pointer; padding: 2px 0; }
     .tree .file:hover { color: #2563eb; }
     .tree .file.selected { color: #2563eb; font-weight: 600; }
-    .tree .file .ver { color: #94a3b8; font-size: 12px; }
-    .tree .empty { color: #94a3b8; padding-left: 18px; font-style: italic; }
+    .tree .empty { color: #94a3b8; padding: 2px 0; font-style: italic; }
     .agent-card.active { outline: 2px solid #6366f1; outline-offset: 2px; }
     .log-link { cursor: pointer; text-decoration: underline; }
     .ws-clear { padding: 4px 10px; font-size: 12px; }
@@ -124,6 +160,7 @@
         document.querySelectorAll('#ws-tree .file').forEach(f => {
             f.style.display = (f.dataset.agentId === agentId) ? '' : 'none';
         });
+        updateWorkspaceTreeVisibility();
         const label = document.getElementById('ws-filter-label');
         if (label) label.textContent = 'Filtered by: ' + name;
         const clear = document.getElementById('ws-clear');
@@ -134,10 +171,26 @@
         activeAgentFilter = null;
         document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('#ws-tree .file').forEach(f => f.style.display = '');
+        updateWorkspaceTreeVisibility();
         const label = document.getElementById('ws-filter-label');
         if (label) label.textContent = '';
         const clear = document.getElementById('ws-clear');
         if (clear) clear.classList.add('hidden');
+    }
+
+    function updateWorkspaceTreeVisibility() {
+        document.querySelectorAll('#ws-tree .version-folder').forEach(versionNode => {
+            const hasVisibleFile = Array.from(versionNode.querySelectorAll('.file'))
+                .some(file => file.style.display !== 'none');
+            versionNode.style.display = hasVisibleFile ? '' : 'none';
+        });
+
+        document.querySelectorAll('#ws-tree .phase-folder').forEach(phaseNode => {
+            const hasVisibleFile = Array.from(phaseNode.querySelectorAll('.file'))
+                .some(file => file.style.display !== 'none');
+            const hasStaticEmpty = phaseNode.querySelector(':scope > ul > .empty') !== null;
+            phaseNode.style.display = (hasVisibleFile || hasStaticEmpty || !activeAgentFilter) ? '' : 'none';
+        });
     }
 
     function showDoc(id) {
