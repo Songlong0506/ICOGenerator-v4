@@ -88,8 +88,12 @@
                     : new List<ICOGenerator.Domain.ProjectDocument>();
 
                 <li class="folder phase-folder">
-                    <div class="tree-row">📁 @folder</div>
-                    <ul>
+                    <button type="button" class="tree-row folder-toggle" aria-expanded="true" onclick="toggleFolder(this)">
+                        <span class="folder-caret" aria-hidden="true">▾</span>
+                        <span aria-hidden="true">📁</span>
+                        <span>@folder</span>
+                    </button>
+                    <ul class="tree-children">
                         @if (docs.Any())
                         {
                             foreach (var versionGroup in docs
@@ -98,8 +102,12 @@
                                 .ThenBy(g => g.Key))
                             {
                                 <li class="folder version-folder">
-                                    <div class="tree-row">📁 @versionGroup.Key</div>
-                                    <ul>
+                                    <button type="button" class="tree-row folder-toggle" aria-expanded="true" onclick="toggleFolder(this)">
+                                        <span class="folder-caret" aria-hidden="true">▾</span>
+                                        <span aria-hidden="true">📁</span>
+                                        <span>@versionGroup.Key</span>
+                                    </button>
+                                    <ul class="tree-children">
                                         @foreach (var d in versionGroup.OrderBy(d => d.FileName))
                                         {
                                             <li class="file" data-doc-id="@d.Id" data-agent-id="@(d.AgentId?.ToString() ?? "")" onclick="showDoc('@d.Id')">📄 @d.FileName</li>
@@ -139,6 +147,11 @@
     .tree, .tree ul { list-style: none; margin: 0; padding-left: 0; }
     .tree ul { padding-left: 18px; }
     .tree .folder { font-weight: 600; margin-top: 6px; }
+    .tree-row { display: inline-flex; align-items: center; gap: 4px; width: 100%; border: 0; background: transparent; padding: 2px 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+    .tree-row:hover { color: #2563eb; }
+    .folder-caret { display: inline-block; width: 14px; color: #64748b; transition: transform .15s ease; }
+    .tree .folder.collapsed > .tree-children { display: none; }
+    .tree .folder.collapsed > .tree-row .folder-caret { transform: rotate(-90deg); }
     .tree .version-folder { font-weight: 400; }
     .tree .file { cursor: pointer; padding: 2px 0; }
     .tree .file:hover { color: #2563eb; }
@@ -176,6 +189,14 @@
         if (label) label.textContent = '';
         const clear = document.getElementById('ws-clear');
         if (clear) clear.classList.add('hidden');
+    }
+
+    function toggleFolder(button) {
+        const folderNode = button.closest('.folder');
+        if (!folderNode) return;
+
+        const isCollapsed = folderNode.classList.toggle('collapsed');
+        button.setAttribute('aria-expanded', String(!isCollapsed));
     }
 
     function updateWorkspaceTreeVisibility() {
