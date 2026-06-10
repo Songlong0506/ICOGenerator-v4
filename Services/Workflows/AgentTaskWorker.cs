@@ -1,6 +1,7 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Agents;
+using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Workflows;
@@ -42,6 +43,7 @@ public class AgentTaskWorker : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var agentRunService = scope.ServiceProvider.GetRequiredService<AgentRunService>();
+        var promptTemplateService = scope.ServiceProvider.GetRequiredService<PromptTemplateService>();
 
         var task = await db.AgentTasks
             .Include(x => x.WorkflowRun)
@@ -73,6 +75,8 @@ public class AgentTaskWorker : BackgroundService
             task.WorkflowRun.StartedAt ??= DateTime.UtcNow;
             await db.SaveChangesAsync(cancellationToken);
 
+            var pocStyleGuide = promptTemplateService.Get("Agents/poc-html-style.v1.md");
+
             var output = await agentRunService.RunAsync(
                 task.ProjectId,
                 task.AgentId.Value,
@@ -83,6 +87,11 @@ Chỉ sử dụng AI Design Spec bên dưới để generate code.
 Không đọc BRD/SRS/FSD/UserStories.
 Không sửa requirement document.
 Ghi file demo HTML vào đúng đường dẫn (relative): 03_Implementation/poc-demo.html
+Bắt buộc tuân thủ Fixed POC HTML Style Guide. Nếu AI Design Spec không nói rõ layout/style, style guide là nguồn quyết định.
+
+# Fixed POC HTML Style Guide
+
+{pocStyleGuide}
 
 # AI Design Spec
 
