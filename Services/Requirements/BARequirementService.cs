@@ -40,7 +40,65 @@ public class BARequirementService
         _promptTemplateService = promptTemplateService;
     }
 
-    public async Task GenerateOrUpdateDraftAsync(Guid projectId, string userMessage)
+    public async Task ChatAsync(Guid projectId, string userMessage)
+    {
+        var ba = await _db.Agents
+            .Include(x => x.AiModel)
+            .FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
+
+        var model = ba.AiModel ?? await _db.AiModels.FirstAsync(x => x.IsDefault);
+
+        _db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = projectId,
+            AgentId = ba.Id,
+            Role = "user",
+            Message = userMessage,
+            TokenUsed = EstimateTokens(userMessage)
+        });
+        await _db.SaveChangesAsync();
+
+        // Lấy tối đa 20 lượt gần nhất để giữ ngữ cảnh mà vẫn nhẹ token.
+        var recent = await _db.AgentConversations
+            .Where(c => c.ProjectId == projectId)
+            .OrderByDescending(c => c.CreatedAt)
+            .Take(20)
+            .ToListAsync();
+        recent.Reverse();
+
+        var messages = new List<ChatMessageDto>
+        {
+            new()
+            {
+                Role = "system",
+                Content = _promptTemplateService.Get("BA/requirement-chat.v1.md")
+            }
+        };
+        messages.AddRange(recent.Select(c => new ChatMessageDto
+        {
+            Role = c.Role == "assistant" ? "assistant" : "user",
+            Content = c.Message
+        }));
+
+        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature);
+        await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BAChat");
+
+        var reply = (callResult.Content ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(reply))
+            reply = "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu.";
+
+        _db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = projectId,
+            AgentId = ba.Id,
+            Role = "assistant",
+            Message = reply,
+            TokenUsed = EstimateTokens(reply)
+        });
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task GenerateOrUpdateDraftAsync(Guid projectId)
     {
         var brdTemplate = _templateService.GetBrdTemplate();
         var srsTemplate = _templateService.GetSrsTemplate();
@@ -58,20 +116,12 @@ public class BARequirementService
 
         var model = ba.AiModel ?? await _db.AiModels.FirstAsync(x => x.IsDefault);
 
-        _db.AgentConversations.Add(new AgentConversation
-        {
-            ProjectId = projectId,
-            AgentId = ba.Id,
-            Role = "user",
-            Message = userMessage,
-            TokenUsed = EstimateTokens(userMessage)
-        });
-
-        await _db.SaveChangesAsync();
+        // Gộp toàn bộ yêu cầu user đã nói trong hội thoại thành brief đầu vào.
+        var requirementBrief = BuildRequirementBrief(project.Conversations);
 
         var prompt = _promptBuilder.Build(
             project,
-            userMessage,
+            requirementBrief,
             GetDoc(project, "BRD.docx"),
             GetDoc(project, "SRS.docx"),
             GetDoc(project, "FSD.docx"),
@@ -99,19 +149,37 @@ public class BARequirementService
         var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature);
         await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BARequirementDraft");
 
-        var result = _responseParser.Parse(callResult.Content, project, userMessage);
+        var result = _responseParser.Parse(callResult.Content, project, requirementBrief);
         await _documentGenerator.GenerateDraftDocxFiles(project, ba.Id, result);
+
+        var assistantMessage = string.IsNullOrWhiteSpace(result.AssistantMessage)
+            ? "Đã tạo/cập nhật 5 tài liệu: BRD, SRS, FSD, User Stories, AI Design Spec."
+            : result.AssistantMessage;
 
         _db.AgentConversations.Add(new AgentConversation
         {
             ProjectId = projectId,
             AgentId = ba.Id,
             Role = "assistant",
-            Message = result.AssistantMessage,
-            TokenUsed = EstimateTokens(result.AssistantMessage)
+            Message = assistantMessage,
+            TokenUsed = EstimateTokens(assistantMessage)
         });
 
         await _db.SaveChangesAsync();
+    }
+
+    private static string BuildRequirementBrief(IEnumerable<AgentConversation> conversations)
+    {
+        var userTurns = conversations
+            .OrderBy(c => c.CreatedAt)
+            .Where(c => c.Role != "assistant")
+            .Select(c => (c.Message ?? string.Empty).Trim())
+            .Where(m => m.Length > 0)
+            .ToList();
+
+        return userTurns.Count == 0
+            ? "(Chưa có yêu cầu nào được ghi nhận.)"
+            : string.Join("\n", userTurns.Select(m => "- " + m));
     }
 
     private static string GetDoc(Project project, string fileName)
