@@ -183,6 +183,20 @@
 
         </div>
 
+        <!-- WRITE REQUIREMENT (generate the 5 docs on demand) -->
+        <form asp-action="WriteRequirement"
+              method="post"
+              class="write-req"
+              style="margin:0 12px 8px;"
+              onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="projectId" value="@Model.Id" />
+            <button class="btn primary full" type="submit"
+                    title="Sinh/cập nhật BRD, SRS, FSD, User Stories, AI Design Spec từ hội thoại">
+                📝 Write Requirement
+            </button>
+        </form>
+
         <!-- CHAT INPUT -->
         <form id="chatForm"
               asp-action="Chat"
@@ -199,7 +213,7 @@
                    id="hiddenMessage"
                    name="message" />
 
-            <textarea id="messageInput"
+          <textarea id="messageInput"
                       rows="1"
                       placeholder="Type your message..."
                       autocomplete="off"></textarea>
