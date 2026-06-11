@@ -58,13 +58,10 @@ public class AgentJobRunner : BackgroundService
             job.CurrentStep = "BA is thinking...";
             await db.SaveChangesAsync(cancellationToken);
 
-            job.CurrentStep = "BA is analyzing your requirement...";
-            await db.SaveChangesAsync(cancellationToken);
-
-            await baService.GenerateOrUpdateDraftAsync(job.ProjectId, job.UserMessage);
+            await baService.ChatAsync(job.ProjectId, job.UserMessage);
 
             job.Status = AgentJobStatus.Completed;
-            job.CurrentStep = "Requirement draft updated.";
+            job.CurrentStep = "Done.";
             job.Result = "Done";
             job.FinishedAt = DateTime.UtcNow;
 
