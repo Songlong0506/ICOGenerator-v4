@@ -8,6 +8,7 @@ public class RequirementsController : Controller
 {
     private readonly GetRequirementWorkspaceQuery _getRequirementWorkspaceQuery;
     private readonly GenerateRequirementDraftUseCase _generateRequirementDraftUseCase;
+    private readonly ChatWithBAUseCase _chatWithBAUseCase;
     private readonly ApproveRequirementUseCase _approveRequirementUseCase;
     private readonly StartRequirementChatUseCase _startRequirementChatUseCase;
     private readonly GetRequirementJobStatusQuery _getRequirementJobStatusQuery;
@@ -17,6 +18,7 @@ public class RequirementsController : Controller
     public RequirementsController(
        GetRequirementWorkspaceQuery getRequirementWorkspaceQuery,
        GenerateRequirementDraftUseCase generateRequirementDraftUseCase,
+       ChatWithBAUseCase chatWithBAUseCase,
        ApproveRequirementUseCase approveRequirementUseCase,
        StartRequirementChatUseCase startRequirementChatUseCase,
        GetRequirementJobStatusQuery getRequirementJobStatusQuery,
@@ -25,6 +27,7 @@ public class RequirementsController : Controller
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
+        _chatWithBAUseCase = chatWithBAUseCase;
         _approveRequirementUseCase = approveRequirementUseCase;
         _startRequirementChatUseCase = startRequirementChatUseCase;
         _getRequirementJobStatusQuery = getRequirementJobStatusQuery;
@@ -47,8 +50,16 @@ public class RequirementsController : Controller
     public async Task<IActionResult> Chat(Guid projectId, string message)
     {
         if (!string.IsNullOrWhiteSpace(message))
-            await _generateRequirementDraftUseCase.ExecuteAsync(projectId, message);
+            await _chatWithBAUseCase.ExecuteAsync(projectId, message);
 
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> WriteRequirement(Guid projectId)
+    {
+        await _generateRequirementDraftUseCase.ExecuteAsync(projectId);
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
