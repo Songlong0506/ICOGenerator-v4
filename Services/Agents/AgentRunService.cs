@@ -22,7 +22,8 @@ public class AgentRunService
     public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, DynamicToolInvoker invoker, ILlmClient llm, AgentPromptBuilder promptBuilder, AgentActionParser actionParser, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger)
     { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _llm = llm; _promptBuilder = promptBuilder; _actionParser = actionParser; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; }
 
-    public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 6)
+    public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 6,
+        Action<string, string, string?>? onProgress = null)
     {
         var project = await _db.Projects.FindAsync(projectId) ?? throw new InvalidOperationException("Project not found.");
         var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId);
@@ -37,13 +38,18 @@ public class AgentRunService
 
         for (var step = 1; step <= maxSteps; step++)
         {
+            onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {step}/{maxSteps})", null);
             var callResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature);
             await _modelCallLogger.LogAsync(projectId, agent, callResult, step, "AgentRun");
             var response = callResult.Content;
             if (!_actionParser.TryParse(response, out var action) || action == null)
+            {
+                onProgress?.Invoke("final", "Agent đã trả lời.", response);
                 return response;
+            }
             if (action.Type.Equals("final", StringComparison.OrdinalIgnoreCase))
             {
+                onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", action.Content ?? response);
                 await SaveConversation(projectId, agentId, action.Content ?? response);
                 return action.Content ?? response;
             }
@@ -52,9 +58,13 @@ public class AgentRunService
                 var tool = tools.FirstOrDefault(x =>
                     x.Definition.Name.Equals(action.Tool, StringComparison.OrdinalIgnoreCase));
 
+                onProgress?.Invoke("tool", $"Đang dùng tool: {action.Tool}", DescribeToolArgs(action.Args));
+
                 var observation = tool == null
                     ? $"Tool not found: {action.Tool}"
                     : await _invoker.InvokeAsync(tool, action.Args);
+
+                onProgress?.Invoke("observation", $"Đã nhận kết quả từ {action.Tool}", observation);
 
                 messages.Add(new() { Role = "assistant", Content = response });
                 messages.Add(new() { Role = "user", Content = "OBSERVATION:\n" + observation });
@@ -62,12 +72,29 @@ public class AgentRunService
                 if (observation.Contains("Build succeeded", StringComparison.OrdinalIgnoreCase)
                     && observation.Contains("0 Error", StringComparison.OrdinalIgnoreCase))
                 {
+                    onProgress?.Invoke("final", "Build succeeded.", null);
                     await SaveConversation(projectId, agentId, "Build succeeded.");
                     return "Build succeeded.";
                 }
             }
         }
+        onProgress?.Invoke("final", "Dừng do đạt giới hạn số bước xử lý.", null);
         return "Stopped because max steps reached.";
+    }
+
+    private static string? DescribeToolArgs(Dictionary<string, System.Text.Json.JsonElement> args)
+    {
+        if (args.Count == 0)
+            return null;
+
+        var parts = args.Select(kv =>
+        {
+            var value = kv.Value.ToString();
+            if (value.Length > 80) value = value[..80] + "…";
+            return $"{kv.Key}: {value}";
+        });
+
+        return string.Join("\n", parts);
     }
 
     private async Task SaveConversation(Guid projectId, Guid agentId, string message, string role = "assistant")

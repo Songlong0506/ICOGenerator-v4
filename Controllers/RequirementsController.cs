@@ -83,9 +83,9 @@ public class RequirementsController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> WorkflowStatus(Guid projectId, Guid? runId = null)
+    public async Task<IActionResult> WorkflowStatus(Guid projectId, Guid? runId = null, long afterSeq = 0)
     {
-        return Json(await _getWorkflowStatusQuery.ExecuteAsync(projectId, runId));
+        return Json(await _getWorkflowStatusQuery.ExecuteAsync(projectId, runId, afterSeq));
     }
 
     [HttpPost]

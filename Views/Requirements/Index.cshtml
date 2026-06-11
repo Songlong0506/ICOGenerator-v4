@@ -339,6 +339,17 @@
                 return div.innerHTML;
             }
 
+            const EVENT_ICON = {
+                start: '🚀',
+                setup: '⚙️',
+                thinking: '🤔',
+                tool: '🔧',
+                observation: '📥',
+                final: '✅',
+                completed: '🎉',
+                error: '❌'
+            };
+
             function maybeScrollPanel(panel, data) {
                 if (panel.dataset.autoscroll !== 'true') return;
 
@@ -349,16 +360,89 @@
                 }
             }
 
+            function ensureSkeleton(panel) {
+                const bodyEl = panel.querySelector('.wf-body');
+                if (bodyEl.querySelector('.wf-feed')) return;
+
+                bodyEl.innerHTML =
+                    '<div class="wf-feed"></div>' +
+                    '<div class="wf-activity" style="display:none;">' +
+                        '<span class="wf-typing"><span></span><span></span><span></span></span>' +
+                        '<span class="wf-activity-text"></span>' +
+                    '</div>' +
+                    '<div class="wf-banner-slot"></div>';
+            }
+
+            function appendEvents(panel, events) {
+                if (!events.length) return;
+
+                const feed = panel.querySelector('.wf-feed');
+
+                for (const ev of events) {
+                    const icon = EVENT_ICON[ev.kind] || '•';
+                    const time = new Date(ev.at).toLocaleTimeString();
+                    const item = document.createElement('div');
+                    item.className = `wf-event wf-event-${esc(ev.kind)}`;
+
+                    let html =
+                        `<span class="wf-event-icon">${icon}</span>` +
+                        `<div class="wf-event-main">` +
+                            `<div class="wf-event-msg">${esc(ev.message)}` +
+                                `<span class="wf-event-time">${esc(time)}</span></div>`;
+
+                    if (ev.detail) {
+                        html += `<details class="wf-event-detail"><summary>chi tiết</summary><pre>${esc(ev.detail)}</pre></details>`;
+                    }
+
+                    html += '</div>';
+                    item.innerHTML = html;
+                    feed.appendChild(item);
+                }
+
+                feed.scrollTop = feed.scrollHeight;
+            }
+
+            function updateActivity(panel, data) {
+                const activity = panel.querySelector('.wf-activity');
+                const textEl = panel.querySelector('.wf-activity-text');
+                const running = data.runStatus === 'Running' || data.runStatus === 'Queued';
+
+                if (!running) {
+                    activity.style.display = 'none';
+                    return;
+                }
+
+                const lastMsg = panel.dataset.lastMsg ||
+                    (data.runStatus === 'Queued' ? 'Đang chờ agent nhận task…' : 'Agent đang xử lý…');
+
+                textEl.textContent = lastMsg;
+                activity.style.display = 'flex';
+            }
+
+            function updateBanner(panel, data) {
+                const slot = panel.querySelector('.wf-banner-slot');
+
+                if (data.isCompleted) {
+                    slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
+                } else if (data.runStatus === 'Failed') {
+                    const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
+                    slot.innerHTML = `<div class="wf-banner wf-fail">✗ Workflow thất bại.${err ? `<pre class="wf-err">${esc(err)}</pre>` : ''}</div>`;
+                } else {
+                    slot.innerHTML = '';
+                }
+            }
+
             async function load(panel) {
                 const runId = panel.dataset.runId;
+                const afterSeq = panel.dataset.afterSeq || '0';
                 const sub = panel.querySelector('.wf-sub');
-                const bodyEl = panel.querySelector('.wf-body');
                 let data;
 
                 try {
-                    const response = await fetch(`/Requirements/WorkflowStatus?projectId=${PID}&runId=${runId}`);
+                    const response = await fetch(`/Requirements/WorkflowStatus?projectId=${PID}&runId=${runId}&afterSeq=${afterSeq}`);
                     data = await response.json();
                 } catch (e) {
+                    setTimeout(() => load(panel), 3000);
                     return;
                 }
 
@@ -366,19 +450,21 @@
 
                 sub.innerHTML = `${esc(data.runName)} · ${badge(data.runStatus)}`;
 
-                let banner = '';
-                if (data.runStatus === 'Running' || data.runStatus === 'Queued') {
-                    banner = '<div class="wf-banner wf-run">⏳ Agent đang xử lý…</div>';
-                } else if (data.isCompleted) {
-                    banner = `<div class="wf-banner wf-ok">✓ Hoàn tất. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
-                } else if (data.runStatus === 'Failed') {
-                    banner = '<div class="wf-banner wf-fail">✗ Workflow thất bại — xem chi tiết lỗi ở task bên dưới.</div>';
+                ensureSkeleton(panel);
+
+                const events = data.events || [];
+                appendEvents(panel, events);
+
+                if (events.length) {
+                    panel.dataset.afterSeq = String(data.lastEventSeq);
+                    panel.dataset.lastMsg = events[events.length - 1].message;
                 }
 
-                bodyEl.innerHTML = banner;
+                updateActivity(panel, data);
+                updateBanner(panel, data);
                 maybeScrollPanel(panel, data);
 
-                if (!data.isTerminal) setTimeout(() => load(panel), 3000);
+                if (!data.isTerminal) setTimeout(() => load(panel), 1500);
             }
 
             panels.forEach(load);
