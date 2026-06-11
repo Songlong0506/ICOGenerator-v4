@@ -30,6 +30,7 @@ public class ManageAgentController : Controller
 
         ViewBag.Agents = result.Agents;
         ViewBag.Phases = result.Phases;
+        ViewBag.WorkspaceDocuments = result.WorkspaceDocuments;
         return View(result.Project);
     }
 
