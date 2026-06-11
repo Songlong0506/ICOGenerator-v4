@@ -3,9 +3,10 @@
     var agents = ViewBag.Agents as List<Agent> ?? new();
     var phases = ViewBag.Phases as IReadOnlyList<string> ?? new List<string> { "01_Requirement", "02_Design", "03_Implementation", "04_Test" };
     var totalTokens = Model.Documents.Sum(x => x.TokenUsed) + Model.Conversations.Sum(x => x.TokenUsed) + Model.ModelCallLogs.Sum(x => x.TotalTokens);
+    var workspaceDocuments = ViewBag.WorkspaceDocuments as IReadOnlyList<ICOGenerator.Domain.ProjectDocument> ?? Model.Documents.ToList();
 
     Func<string, string> phaseOf = folder => phases.FirstOrDefault(p => string.Equals(p, folder, StringComparison.OrdinalIgnoreCase)) ?? "Other";
-    var docsByPhase = Model.Documents.GroupBy(d => phaseOf(d.Folder)).ToDictionary(g => g.Key, g => g.ToList());
+    var docsByPhase = workspaceDocuments.GroupBy(d => phaseOf(d.Folder)).ToDictionary(g => g.Key, g => g.ToList());
     var orderedFolders = phases.ToList();
     if (docsByPhase.ContainsKey("Other")) { orderedFolders.Add("Other"); }
 
@@ -22,11 +23,11 @@
         return int.MaxValue;
     }
 
-    var docMap = Model.Documents.ToDictionary(
+    var docMap = workspaceDocuments.ToDictionary(
         d => d.Id.ToString(),
         d => (object)new { name = d.FileName, content = d.Content, agentId = d.AgentId?.ToString() ?? "" });
     var docsJson = System.Text.Json.JsonSerializer.Serialize(docMap);
-    var firstDoc = Model.Documents.FirstOrDefault();
+    var firstDoc = workspaceDocuments.FirstOrDefault();
 }
 
 <style>
@@ -87,6 +88,14 @@
                     ? list.OrderBy(d => VersionOrder(d.VersionName)).ThenBy(d => d.VersionName).ThenBy(d => d.FileName).ToList()
                     : new List<ICOGenerator.Domain.ProjectDocument>();
 
+                var rootDocs = docs.Where(d => string.IsNullOrWhiteSpace(d.VersionName)).OrderBy(d => d.FileName).ToList();
+                var versionGroups = docs
+                    .Where(d => !string.IsNullOrWhiteSpace(d.VersionName))
+                    .GroupBy(d => d.VersionName)
+                    .OrderBy(g => VersionOrder(g.Key))
+                    .ThenBy(g => g.Key)
+                    .ToList();
+
                 <li class="folder phase-folder">
                     <button type="button" class="tree-row folder-toggle" aria-expanded="true" onclick="toggleFolder(this)">
                         <span class="folder-caret" aria-hidden="true">▾</span>
@@ -94,12 +103,14 @@
                         <span>@folder</span>
                     </button>
                     <ul class="tree-children">
-                        @if (docs.Any())
+                        @if (rootDocs.Any() || versionGroups.Any())
                         {
-                            foreach (var versionGroup in docs
-                                .GroupBy(d => d.VersionName)
-                                .OrderBy(g => VersionOrder(g.Key))
-                                .ThenBy(g => g.Key))
+                            foreach (var d in rootDocs)
+                            {
+                                <li class="file" data-doc-id="@d.Id" data-agent-id="@(d.AgentId?.ToString() ?? "")" onclick="showDoc('@d.Id')">📄 @d.FileName</li>
+                            }
+
+                            foreach (var versionGroup in versionGroups)
                             {
                                 <li class="folder version-folder">
                                     <button type="button" class="tree-row folder-toggle" aria-expanded="true" onclick="toggleFolder(this)">
