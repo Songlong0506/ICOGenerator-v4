@@ -11,6 +11,6 @@ public class GenerateRequirementDraftUseCase
         _baRequirementService = baRequirementService;
     }
 
-    public Task ExecuteAsync(Guid projectId, string message) =>
-        _baRequirementService.GenerateOrUpdateDraftAsync(projectId, message);
+    public Task ExecuteAsync(Guid projectId) =>
+        _baRequirementService.GenerateOrUpdateDraftAsync(projectId);
 }
