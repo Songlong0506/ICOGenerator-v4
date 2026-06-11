@@ -59,6 +59,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetRequirementJobStatusQuery>();
         services.AddScoped<GetDocumentDownloadQuery>();
         services.AddScoped<GenerateRequirementDraftUseCase>();
+        services.AddScoped<ChatWithBAUseCase>();
         services.AddScoped<ApproveRequirementUseCase>();
         return services;
     }
