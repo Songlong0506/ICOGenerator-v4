@@ -2,6 +2,7 @@ using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Requirements;
+using ICOGenerator.Application.Usage;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
@@ -31,6 +32,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddRequirementUseCases();
         services.AddAgentUseCases();
         services.AddModelUseCases();
+        services.AddUsageUseCases();
         services.AddPromptServices();
         services.AddLlmServices();
         services.AddArtifactServices();
@@ -82,6 +84,12 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UpdateAiModelUseCase>();
         services.AddScoped<SetDefaultAiModelUseCase>();
         services.AddScoped<DeleteAiModelUseCase>();
+        return services;
+    }
+
+    private static IServiceCollection AddUsageUseCases(this IServiceCollection services)
+    {
+        services.AddScoped<GetUsageOverviewQuery>();
         return services;
     }
 

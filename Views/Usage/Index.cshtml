@@ -1,0 +1,255 @@
+@using System.Globalization
+@using ICOGenerator.Application.Usage
+@model UsageOverviewVm
+
+@functions {
+    private static string Compact(long value) => value switch
+    {
+        >= 1_000_000_000 => (value / 1_000_000_000d).ToString("0.##", CultureInfo.InvariantCulture) + "B",
+        >= 1_000_000 => (value / 1_000_000d).ToString("0.##", CultureInfo.InvariantCulture) + "M",
+        >= 1_000 => (value / 1_000d).ToString("0.#", CultureInfo.InvariantCulture) + "K",
+        _ => value.ToString("N0")
+    };
+
+    private static string MonthLabel(int year, int month) =>
+        new DateTime(year, month, 1).ToString("MM/yyyy");
+
+    private static double Percent(long part, long total) =>
+        total == 0 ? 0 : Math.Round(part * 100d / total, 1);
+}
+
+<style>
+    .usage-cards {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+        .usage-cards .card b {
+            font-size: 30px;
+            display: block;
+            margin-top: 6px;
+        }
+
+        .usage-cards .card span {
+            color: var(--muted);
+            font-weight: 700;
+        }
+
+        .usage-cards .card small {
+            display: block;
+            color: var(--muted);
+            margin-top: 8px;
+        }
+
+    .chart-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 18px;
+    }
+
+        .chart-head h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+    .legend {
+        display: flex;
+        gap: 18px;
+        color: var(--muted);
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+        .legend i {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            margin-right: 6px;
+        }
+
+    .swatch-prompt { background: #6d28d9; }
+    .swatch-completion { background: #c4b5fd; }
+
+    .month-chart {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 14px;
+        align-items: end;
+        height: 240px;
+        padding-top: 10px;
+    }
+
+    .month-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        height: 100%;
+        justify-content: end;
+    }
+
+    .month-value {
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--muted);
+    }
+
+    .month-bar {
+        width: 100%;
+        max-width: 48px;
+        display: flex;
+        flex-direction: column;
+        justify-content: end;
+        border-radius: 6px 6px 0 0;
+        overflow: hidden;
+        background: #f1f5f9;
+        flex: 1;
+    }
+
+        .month-bar .seg-completion { background: #c4b5fd; }
+        .month-bar .seg-prompt { background: #6d28d9; }
+
+    .month-label {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .usage-section {
+        margin-bottom: 24px;
+    }
+
+    .project-bar-track {
+        background: #f1f5f9;
+        border-radius: 6px;
+        height: 12px;
+        min-width: 160px;
+        overflow: hidden;
+    }
+
+    .project-bar-fill {
+        height: 100%;
+        border-radius: 6px;
+        background: linear-gradient(90deg, #6d28d9, #8b5cf6);
+    }
+
+    .empty-state {
+        padding: 48px;
+        text-align: center;
+        color: var(--muted);
+        font-weight: 700;
+    }
+</style>
+
+<div class="page-head">
+    <div>
+        <h1>Usage / Tokens</h1>
+        <p>Token usage overview across all projects.</p>
+    </div>
+</div>
+
+<div class="usage-cards">
+    <div class="card">
+        <span>Total tokens</span>
+        <b title="@Model.TotalTokens.ToString("N0")">@Compact(Model.TotalTokens)</b>
+        <small>All projects, all time</small>
+    </div>
+    <div class="card">
+        <span>This month</span>
+        <b title="@Model.CurrentMonthTokens.ToString("N0")">@Compact(Model.CurrentMonthTokens)</b>
+        <small>@DateTime.UtcNow.ToString("MM/yyyy")</small>
+    </div>
+    <div class="card">
+        <span>Prompt / Completion</span>
+        <b>@Compact(Model.TotalPromptTokens) / @Compact(Model.TotalCompletionTokens)</b>
+        <small>Input vs output tokens</small>
+    </div>
+    <div class="card">
+        <span>Model calls</span>
+        <b>@Model.TotalCalls.ToString("N0")</b>
+        <small>Across @Model.ProjectUsage.Count project(s)</small>
+    </div>
+</div>
+
+<div class="card usage-section">
+    <div class="chart-head">
+        <h2>Tokens per month</h2>
+        <div class="legend">
+            <span><i class="swatch-prompt"></i>Prompt</span>
+            <span><i class="swatch-completion"></i>Completion</span>
+        </div>
+    </div>
+
+    @{
+        var maxMonthTokens = Math.Max(Model.MonthlyUsage.Max(x => x.TotalTokens), 1);
+    }
+    <div class="month-chart">
+        @foreach (var m in Model.MonthlyUsage)
+        {
+            var promptHeight = m.PromptTokens * 100d / maxMonthTokens;
+            var completionHeight = m.CompletionTokens * 100d / maxMonthTokens;
+            <div class="month-col"
+                 title="@MonthLabel(m.Year, m.Month): @m.TotalTokens.ToString("N0") tokens (@m.CallCount calls)">
+                <div class="month-value">@(m.TotalTokens > 0 ? Compact(m.TotalTokens) : "–")</div>
+                <div class="month-bar">
+                    <div class="seg-completion" style="height:@completionHeight.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
+                    <div class="seg-prompt" style="height:@promptHeight.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
+                </div>
+                <div class="month-label">@MonthLabel(m.Year, m.Month)</div>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card table-card usage-section">
+    <div class="chart-head" style="padding:22px 28px 0">
+        <h2>Usage by project</h2>
+    </div>
+
+    @if (Model.ProjectUsage.Count == 0)
+    {
+        <div class="empty-state">No token usage recorded yet.</div>
+    }
+    else
+    {
+        var maxProjectTokens = Math.Max(Model.ProjectUsage.Max(x => x.TotalTokens), 1);
+        <table>
+            <thead>
+                <tr>
+                    <th>Project</th>
+                    <th style="width:30%">Share</th>
+                    <th>Total Tokens</th>
+                    <th>Prompt</th>
+                    <th>Completion</th>
+                    <th>Calls</th>
+                    <th>Last Activity</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in Model.ProjectUsage)
+                {
+                    var width = p.TotalTokens * 100d / maxProjectTokens;
+                    <tr>
+                        <td><b>@p.ProjectName</b></td>
+                        <td>
+                            <div class="project-bar-track" title="@Percent(p.TotalTokens, Model.TotalTokens)% of all tokens">
+                                <div class="project-bar-fill" style="width:@width.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
+                            </div>
+                            <small class="muted">@Percent(p.TotalTokens, Model.TotalTokens)%</small>
+                        </td>
+                        <td><b>@p.TotalTokens.ToString("N0")</b></td>
+                        <td>@p.PromptTokens.ToString("N0")</td>
+                        <td>@p.CompletionTokens.ToString("N0")</td>
+                        <td>@p.CallCount.ToString("N0")</td>
+                        <td class="muted">@(p.LastCallAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "–")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
