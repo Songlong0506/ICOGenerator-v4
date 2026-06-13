@@ -68,18 +68,36 @@ public class GetUsageOverviewQuery
             })
             .ToList();
 
-        var projects = await _db.AgentModelCallLogs
-            .GroupBy(x => new { x.ProjectId, ProjectName = x.Project!.Name })
-            .Select(g => new ProjectUsageItem(
+        var projectRaw = await _db.AgentModelCallLogs
+            .AsNoTracking()
+            .GroupBy(x => new
+            {
+                x.ProjectId,
+                ProjectName = x.Project!.Name
+            })
+            .Select(g => new
+            {
                 g.Key.ProjectId,
                 g.Key.ProjectName,
-                g.Sum(x => (long)x.PromptTokens),
-                g.Sum(x => (long)x.CompletionTokens),
-                g.Sum(x => (long)x.TotalTokens),
-                g.Count(),
-                g.Max(x => (DateTime?)x.CreatedAt)))
+                PromptTokens = g.Sum(x => (long)x.PromptTokens),
+                CompletionTokens = g.Sum(x => (long)x.CompletionTokens),
+                TotalTokens = g.Sum(x => (long)x.TotalTokens),
+                CallCount = g.Count(),
+                LastCalledAt = g.Max(x => (DateTime?)x.CreatedAt)
+            })
             .OrderByDescending(x => x.TotalTokens)
             .ToListAsync();
+
+        var projects = projectRaw
+            .Select(x => new ProjectUsageItem(
+                x.ProjectId,
+                x.ProjectName,
+                x.PromptTokens,
+                x.CompletionTokens,
+                x.TotalTokens,
+                x.CallCount,
+                x.LastCalledAt))
+            .ToList();
 
         return new UsageOverviewVm(
             totals?.TotalTokens ?? 0,

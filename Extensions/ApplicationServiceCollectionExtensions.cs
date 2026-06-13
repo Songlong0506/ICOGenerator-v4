@@ -93,6 +93,9 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddUsageUseCases(this IServiceCollection services)
     {
         services.AddScoped<GetUsageOverviewQuery>();
+        return services;
+    }
+
     private static IServiceCollection AddSettingsUseCases(this IServiceCollection services)
     {
         services.AddSingleton<AppSettingsFileStore>();
