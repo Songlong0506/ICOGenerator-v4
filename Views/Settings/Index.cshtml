@@ -1,0 +1,95 @@
+@using ICOGenerator.Application.Settings
+@model AppSettingsVm
+
+<style>
+    .settings-form {
+        max-width: 860px;
+    }
+
+    .settings-card {
+        margin-bottom: 22px;
+    }
+
+        .settings-card h2 {
+            margin: 0 0 4px;
+            font-size: 20px;
+        }
+
+        .settings-card .hint {
+            color: var(--muted);
+            margin: 0 0 6px;
+        }
+
+    .save-bar {
+        display: flex;
+        justify-content: end;
+    }
+</style>
+
+<div class="page-head">
+    <div>
+        <h1>Settings</h1>
+        <p>Configure environment variables and application settings.</p>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert success">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert error" style="color:#b91c1c;background:#fef2f2;border:1px solid #fecaca">@TempData["Error"]</div>
+}
+
+<form class="settings-form" asp-action="Update" method="post">
+    @Html.AntiForgeryToken()
+
+    <div class="card settings-card">
+        <h2>Database</h2>
+        <p class="hint">SQL Server connection used by the application. Changing this requires an app restart.</p>
+
+        <label>Connection String *</label>
+        <textarea name="ConnectionString" rows="3" required>@Model.ConnectionString</textarea>
+    </div>
+
+    <div class="card settings-card">
+        <h2>Agent Workspace</h2>
+        <p class="hint">Root folder where project workspaces, documents and generated artifacts are stored.</p>
+
+        <label>Workspace Root Path *</label>
+        <input name="WorkspaceRootPath" value="@Model.WorkspaceRootPath" required placeholder="C:\Study App\ICOGeneratorWorkspaces" />
+    </div>
+
+    <div class="card settings-card">
+        <h2>Tool Policy</h2>
+        <p class="hint">Security limits for what agents are allowed to do inside a workspace.</p>
+
+        <label>Allowed Commands</label>
+        <p class="hint">One command (or command prefix) per line, e.g. <code>dotnet</code>, <code>git status</code>.</p>
+        <textarea name="AllowedCommands" rows="8">@Model.AllowedCommands</textarea>
+
+        <label>Allowed File Extensions</label>
+        <p class="hint">One extension per line, e.g. <code>.cs</code>. Agents can only read/write these file types.</p>
+        <textarea name="AllowedFileExtensions" rows="8">@Model.AllowedFileExtensions</textarea>
+    </div>
+
+    <div class="card settings-card">
+        <h2>Git / Pull Request</h2>
+
+        <label>Remote Name</label>
+        <input name="PullRequestRemoteName" value="@Model.PullRequestRemoteName" placeholder="origin" />
+    </div>
+
+    <div class="card settings-card">
+        <h2>Hosting</h2>
+
+        <label>Allowed Hosts</label>
+        <p class="hint">Semicolon-separated host names, or <code>*</code> to allow all.</p>
+        <input name="AllowedHosts" value="@Model.AllowedHosts" placeholder="*" />
+    </div>
+
+    <div class="save-bar">
+        <button class="btn primary" type="submit">Save Settings</button>
+    </div>
+</form>
