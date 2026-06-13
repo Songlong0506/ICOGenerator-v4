@@ -5,7 +5,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Agents;
 
-public record AgentDashboardResult(Project Project, IReadOnlyList<Agent> Agents, IReadOnlyList<string> Phases, IReadOnlyList<ProjectDocument> WorkspaceDocuments);
+public record AgentDashboardResult(
+    Project Project,
+    IReadOnlyList<Agent> Agents,
+    IReadOnlyList<string> Phases,
+    IReadOnlyList<ProjectDocument> WorkspaceDocuments,
+    long TotalTokens,
+    IReadOnlyDictionary<Guid, long> TokensByAgent);
 
 public class GetAgentDashboardQuery
 {
@@ -37,29 +43,27 @@ public class GetAgentDashboardQuery
             .Take(50)
             .ToListAsync();
 
-        project.ModelCallLogs = await _db.AgentModelCallLogs.AsNoTracking()
-            .Where(x => x.ProjectId == projectId)
-            .OrderByDescending(x => x.CreatedAt)
-            .Take(100)
-            .Select(x => new AgentModelCallLog
-            {
-                Id = x.Id,
-                AgentId = x.AgentId,
-                ModelName = x.ModelName,
-                TotalTokens = x.TotalTokens,
-                DurationMs = x.DurationMs,
-                CreatedAt = x.CreatedAt
-            })
-            .ToListAsync();
-
         var agents = await _db.Agents.AsNoTracking()
             .Include(x => x.AgentTools)
             .ThenInclude(x => x.ToolDefinition)
             .ToListAsync();
 
+        // AgentModelCallLog is the single source of truth for token consumption:
+        // every AI model call is logged here against an agent. Aggregate across ALL of
+        // the project's call logs (not the Take(100) display subset) so the totals are
+        // accurate and reconcile exactly with the per-agent breakdown.
+        var tokenByAgent = await _db.AgentModelCallLogs.AsNoTracking()
+            .Where(x => x.ProjectId == projectId)
+            .GroupBy(x => x.AgentId)
+            .Select(g => new { AgentId = g.Key, Total = g.Sum(x => (long)x.TotalTokens) })
+            .ToListAsync();
+
+        var tokensByAgent = tokenByAgent.ToDictionary(x => x.AgentId, x => x.Total);
+        var totalTokens = tokenByAgent.Sum(x => x.Total);
+
         var workspaceDocuments = LoadWorkspaceDocuments(project, project.Documents);
 
-        return new AgentDashboardResult(project, agents, ProjectWorkspaceLayout.Phases, workspaceDocuments);
+        return new AgentDashboardResult(project, agents, ProjectWorkspaceLayout.Phases, workspaceDocuments, totalTokens, tokensByAgent);
     }
 
     private IReadOnlyList<ProjectDocument> LoadWorkspaceDocuments(Project project, IEnumerable<ProjectDocument> databaseDocuments)
