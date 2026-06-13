@@ -16,14 +16,24 @@ public class GetProjectListQuery
         _workspacePathResolver = workspacePathResolver;
     }
 
-    public async Task<IReadOnlyList<ProjectListItem>> ExecuteAsync()
+    public const int DefaultPageSize = 10;
+
+    public async Task<ProjectListPage> ExecuteAsync(int page = 1, int pageSize = DefaultPageSize)
     {
-        var projects = await _db.Projects
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = DefaultPageSize;
+
+        var baseQuery = _db.Projects.OrderByDescending(x => x.CreatedAt);
+
+        var totalCount = await baseQuery.CountAsync();
+
+        var projects = await baseQuery
             .Include(x => x.WorkflowRuns)
-            .OrderByDescending(x => x.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
-        return projects
+        var items = projects
             .Select(project =>
             {
                 var latestWorkflow = project.WorkflowRuns
@@ -42,5 +52,7 @@ public class GetProjectListQuery
                     hasRunningWorkflow);
             })
             .ToList();
+
+        return new ProjectListPage(items, page, pageSize, totalCount);
     }
 }
