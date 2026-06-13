@@ -2,6 +2,7 @@ using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Requirements;
+using ICOGenerator.Application.Settings;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
@@ -10,6 +11,7 @@ using ICOGenerator.Services.Logging;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Requirements;
+using ICOGenerator.Services.Settings;
 using ICOGenerator.Services.Requirements.Templates;
 using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Tools.Abstractions;
@@ -31,6 +33,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddRequirementUseCases();
         services.AddAgentUseCases();
         services.AddModelUseCases();
+        services.AddSettingsUseCases();
         services.AddPromptServices();
         services.AddLlmServices();
         services.AddArtifactServices();
@@ -82,6 +85,14 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UpdateAiModelUseCase>();
         services.AddScoped<SetDefaultAiModelUseCase>();
         services.AddScoped<DeleteAiModelUseCase>();
+        return services;
+    }
+
+    private static IServiceCollection AddSettingsUseCases(this IServiceCollection services)
+    {
+        services.AddSingleton<AppSettingsFileStore>();
+        services.AddScoped<GetAppSettingsQuery>();
+        services.AddScoped<UpdateAppSettingsUseCase>();
         return services;
     }
 
