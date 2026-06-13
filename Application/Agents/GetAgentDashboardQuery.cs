@@ -44,6 +44,7 @@ public class GetAgentDashboardQuery
             .Select(x => new AgentModelCallLog
             {
                 Id = x.Id,
+                AgentId = x.AgentId,
                 ModelName = x.ModelName,
                 TotalTokens = x.TotalTokens,
                 DurationMs = x.DurationMs,
