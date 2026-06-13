@@ -60,9 +60,10 @@
 </div>
 
 <div class="agent-cards">
-    @foreach (var a in agents.Take(6))
+    @foreach (var a in agents)
     {
-        var agentTokens = Model.Conversations.Where(x => x.AgentId == a.Id).Sum(x => x.TokenUsed)
+        var agentTokens = Model.Documents.Where(x => x.AgentId == a.Id).Sum(x => x.TokenUsed)
+            + Model.Conversations.Where(x => x.AgentId == a.Id).Sum(x => x.TokenUsed)
             + Model.ModelCallLogs.Where(x => x.AgentId == a.Id).Sum(x => x.TotalTokens);
         <div class="card mini agent-card" data-agent-id="@a.Id" data-agent-name="@a.Name" onclick="filterByAgent('@a.Id', '@a.Name')">
             <span class="circle" style="background:@a.Color"></span>
