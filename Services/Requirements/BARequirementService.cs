@@ -54,7 +54,7 @@ public class BARequirementService
             AgentId = ba.Id,
             Role = "user",
             Message = userMessage,
-            TokenUsed = EstimateTokens(userMessage)
+            TokenUsed = TokenEstimator.Estimate(userMessage)
         });
         await _db.SaveChangesAsync();
 
@@ -93,7 +93,7 @@ public class BARequirementService
             AgentId = ba.Id,
             Role = "assistant",
             Message = reply,
-            TokenUsed = EstimateTokens(reply)
+            TokenUsed = TokenEstimator.Estimate(reply)
         });
         await _db.SaveChangesAsync();
     }
@@ -178,7 +178,7 @@ public class BARequirementService
             AgentId = ba.Id,
             Role = "assistant",
             Message = assistantMessage,
-            TokenUsed = EstimateTokens(assistantMessage)
+            TokenUsed = TokenEstimator.Estimate(assistantMessage)
         });
 
         await _db.SaveChangesAsync();
@@ -208,7 +208,4 @@ public class BARequirementService
             .Select(x => x.Content)
             .FirstOrDefault() ?? "";
     }
-
-    private static int EstimateTokens(string? text)
-        => string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 4);
 }

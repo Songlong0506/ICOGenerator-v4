@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Requirements.Templates;
 using ICOGenerator.Services.Artifacts;
 using Microsoft.EntityFrameworkCore;
@@ -108,7 +109,7 @@ public class RequirementDocumentGenerator
                 FileName = fileName,
                 FilePath = filePath,
                 Content = previewContent,
-                TokenUsed = EstimateTokens(previewContent)
+                TokenUsed = TokenEstimator.Estimate(previewContent)
             });
         }
         else
@@ -116,7 +117,7 @@ public class RequirementDocumentGenerator
             doc.Folder = artifact.Phase;
             doc.Content = previewContent;
             doc.FilePath = filePath;
-            doc.TokenUsed = EstimateTokens(previewContent);
+            doc.TokenUsed = TokenEstimator.Estimate(previewContent);
             doc.CreatedAt = DateTime.UtcNow;
         }
     }
@@ -210,8 +211,4 @@ public class RequirementDocumentGenerator
             ["[Khi nào luồng này xảy ra?]"] = fsd.AlternativeFlows
         };
     }
-
-
-    private static int EstimateTokens(string? text)
-        => string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 4);
 }

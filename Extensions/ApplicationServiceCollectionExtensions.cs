@@ -19,6 +19,7 @@ using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 
 namespace ICOGenerator.Extensions;
 
@@ -113,6 +114,23 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddLlmServices(this IServiceCollection services)
     {
+        // Two pooled clients so LlmClient never news up a handler per call:
+        // one direct (localhost models) and one routed through the local proxy.
+        services.AddHttpClient(LlmClient.DirectClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                UseProxy = false,
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+            });
+
+        services.AddHttpClient(LlmClient.ProxiedClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                UseProxy = true,
+                Proxy = new WebProxy("http://127.0.0.1:3128"),
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+            });
+
         services.AddScoped<IModelCallLogger, ModelCallLogger>();
         services.AddScoped<ILlmClient, LlmClient>();
         return services;
