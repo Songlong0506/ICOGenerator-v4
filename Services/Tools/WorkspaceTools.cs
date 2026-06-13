@@ -33,12 +33,20 @@ public class WorkspaceTools
         return $"File written: {relativePath}";
     }
 
-    [Description("Read a file from the current workspace. Large files are paginated; use offset (line number) to read subsequent chunks. The response shows line numbers and ends with '[truncated: use offset=N]' when there is more content.")]
+    private const int MaxFullReadBytes = 200 * 1024;
+
+    [Description("Read a file from the current workspace. Files under 200 KB are returned in full. Only larger files are paginated: pass offset (a line number) to read the next chunk, and the response will end with '[truncated: use offset=N to continue reading]' telling you the exact next line.")]
     public async Task<string> ReadFile(string relativePath, int offset = 0)
     {
         EnsureWorkspace();
         var fullPath = GetSafeFullPath(relativePath);
         if (!File.Exists(fullPath)) return $"File not found: {relativePath}";
+
+        var fileSize = new FileInfo(fullPath).Length;
+        if (fileSize <= MaxFullReadBytes)
+            return await File.ReadAllTextAsync(fullPath);
+
+        // Only genuinely large files are paginated by line offset.
         var lines = await File.ReadAllLinesAsync(fullPath);
         if (offset < 0) offset = 0;
         if (offset >= lines.Length) return $"Offset {offset} exceeds file length ({lines.Length} lines).";
