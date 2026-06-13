@@ -13,7 +13,8 @@ public record WorkflowProgressEventVm(long Seq, string At, string Kind, string M
 
 public record WorkflowStatusVm(
     bool HasWorkflow, string? RunName, string? RunStatus, bool IsTerminal, bool IsCompleted,
-    IReadOnlyList<WorkflowTaskStatusVm> Tasks, IReadOnlyList<WorkflowProgressEventVm> Events, long LastEventSeq);
+    IReadOnlyList<WorkflowTaskStatusVm> Tasks, IReadOnlyList<WorkflowProgressEventVm> Events, long LastEventSeq,
+    string RunKind);
 
 public class GetWorkflowStatusQuery
 {
@@ -47,7 +48,7 @@ public class GetWorkflowStatusQuery
 
         if (run == null)
             return new WorkflowStatusVm(false, null, null, true, false,
-                Array.Empty<WorkflowTaskStatusVm>(), Array.Empty<WorkflowProgressEventVm>(), afterSeq);
+                Array.Empty<WorkflowTaskStatusVm>(), Array.Empty<WorkflowProgressEventVm>(), afterSeq, "Delivery");
 
         var isTerminal = run.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Failed or WorkflowRunStatus.Canceled;
 
@@ -73,9 +74,13 @@ public class GetWorkflowStatusQuery
 
         var lastSeq = events.Count > 0 ? events[^1].Seq : afterSeq;
 
+        var runKind = tasks.Any(t => t.Type == nameof(AgentTaskType.RequirementAnalysis))
+            ? "Requirement"
+            : "Delivery";
+
         return new WorkflowStatusVm(
             true, run.Name, run.Status.ToString(),
             isTerminal, run.Status == WorkflowRunStatus.Completed,
-            tasks, events, lastSeq);
+            tasks, events, lastSeq, runKind);
     }
 }

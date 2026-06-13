@@ -46,4 +46,36 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
 
         return workflowRun.Id;
     }
+
+    public async Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId)
+    {
+        var ba = await _db.Agents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
+
+        var workflowRun = new WorkflowRun
+        {
+            ProjectId = projectId,
+            Name = "Write Requirement",
+            Status = WorkflowRunStatus.Queued,
+            CurrentStage = WorkflowStageKey.RequirementApproved,
+            StartedAt = null
+        };
+
+        var draftTask = new AgentTask
+        {
+            WorkflowRunId = workflowRun.Id,
+            ProjectId = projectId,
+            AgentId = ba?.Id,
+            Type = AgentTaskType.RequirementAnalysis,
+            Status = AgentTaskStatus.Queued,
+            Title = "Generate/update requirement documents from conversation"
+        };
+
+        _db.WorkflowRuns.Add(workflowRun);
+        _db.AgentTasks.Add(draftTask);
+        await _db.SaveChangesAsync();
+
+        return workflowRun.Id;
+    }
 }

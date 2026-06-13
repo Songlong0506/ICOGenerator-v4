@@ -98,8 +98,15 @@ public class BARequirementService
         await _db.SaveChangesAsync();
     }
 
-    public async Task GenerateOrUpdateDraftAsync(Guid projectId)
+    /// <param name="onProgress">
+    /// Callback (kind, message, detail) để báo tiến độ live cho UI. Có thể null khi gọi đồng bộ.
+    /// </param>
+    public async Task GenerateOrUpdateDraftAsync(Guid projectId, Action<string, string, string?>? onProgress = null)
     {
+        void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
+
+        Report("setup", "Đang đọc hội thoại và template tài liệu…");
+
         var brdTemplate = _templateService.GetBrdTemplate();
         var srsTemplate = _templateService.GetSrsTemplate();
         var fsdTemplate = _templateService.GetFsdTemplate();
@@ -118,6 +125,8 @@ public class BARequirementService
 
         // Gộp toàn bộ yêu cầu user đã nói trong hội thoại thành brief đầu vào.
         var requirementBrief = BuildRequirementBrief(project.Conversations);
+
+        Report("thinking", "Đang tổng hợp yêu cầu từ hội thoại…", requirementBrief);
 
         var prompt = _promptBuilder.Build(
             project,
@@ -146,10 +155,17 @@ public class BARequirementService
             }
         };
 
+        Report("tool", "Đang gọi AI để soạn BRD, SRS, FSD, User Stories, AI Design Spec…");
+
         var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature);
         await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BARequirementDraft");
 
+        Report("observation", "AI đã trả về nội dung, đang phân tích kết quả…");
+
         var result = _responseParser.Parse(callResult.Content, project, requirementBrief);
+
+        Report("tool", "Đang tạo/cập nhật file tài liệu (.docx)…");
+
         await _documentGenerator.GenerateDraftDocxFiles(project, ba.Id, result);
 
         var assistantMessage = string.IsNullOrWhiteSpace(result.AssistantMessage)
@@ -166,6 +182,8 @@ public class BARequirementService
         });
 
         await _db.SaveChangesAsync();
+
+        Report("final", "Đã tạo/cập nhật tài liệu.", assistantMessage);
     }
 
     private static string BuildRequirementBrief(IEnumerable<AgentConversation> conversations)

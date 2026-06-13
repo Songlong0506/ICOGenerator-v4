@@ -60,6 +60,7 @@ public class RequirementsController : Controller
     public async Task<IActionResult> WriteRequirement(Guid projectId)
     {
         await _generateRequirementDraftUseCase.ExecuteAsync(projectId);
+        TempData["WorkflowStarted"] = true;
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
