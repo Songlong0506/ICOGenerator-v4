@@ -9,10 +9,12 @@ namespace ICOGenerator.Services.Agents;
 public class AgentPromptBuilder
 {
     private readonly PromptTemplateService _promptTemplateService;
+    private readonly AgentInstructionProvider _instructionProvider;
 
-    public AgentPromptBuilder(PromptTemplateService promptTemplateService)
+    public AgentPromptBuilder(PromptTemplateService promptTemplateService, AgentInstructionProvider instructionProvider)
     {
         _promptTemplateService = promptTemplateService;
+        _instructionProvider = instructionProvider;
     }
 
     public string Build(Agent agent, IReadOnlyList<ToolRuntimeDescriptor> tools)
@@ -23,7 +25,7 @@ public class AgentPromptBuilder
         return _promptTemplateService.Get("Agents/tool-agent.v1.md")
             .Replace("{{agentName}}", agent.Name)
             .Replace("{{roleTitle}}", agent.RoleTitle)
-            .Replace("{{instruction}}", agent.Instruction)
+            .Replace("{{instruction}}", _instructionProvider.GetInstruction(agent))
             .Replace("{{tools}}", toolText);
     }
 }

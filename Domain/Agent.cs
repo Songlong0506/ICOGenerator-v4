@@ -7,7 +7,6 @@ public class Agent
     public string RoleTitle { get; set; } = string.Empty;
     public AgentRoleKey RoleKey { get; set; } = AgentRoleKey.General;
     public string Description { get; set; } = string.Empty;
-    public string Instruction { get; set; } = string.Empty;
     public string Color { get; set; } = "#8B5CF6";
     public AgentStatus Status { get; set; } = AgentStatus.Active;
     public double Temperature { get; set; } = 0.3;
