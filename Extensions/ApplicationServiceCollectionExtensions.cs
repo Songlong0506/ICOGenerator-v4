@@ -164,6 +164,7 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddWorkflowServices(this IServiceCollection services)
     {
         services.AddScoped<IWorkflowOrchestrator, WorkflowOrchestrator>();
+        services.AddScoped<WorkflowTaskPromptBuilder>();
         services.AddSingleton<IWorkflowProgressReporter, WorkflowProgressReporter>();
         services.AddHostedService<AgentTaskWorker>();
         return services;
