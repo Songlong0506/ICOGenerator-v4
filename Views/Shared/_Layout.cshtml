@@ -8,14 +8,19 @@
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
+    @{
+        var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+        string NavActive(string controller) =>
+            string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+    }
     <aside class="sidebar">
         <div class="brand"><div class="logo">⬡</div><div>ICO<br/>Generator</div></div>
         <nav>
-            <a asp-controller="Projects" asp-action="Index">▣ Projects</a>
-            <a asp-controller="Agents" asp-action="Index">♧ Agents</a>
-            <a asp-controller="Usage" asp-action="Index">◴ Usage / Tokens</a>
-            <a asp-controller="Models" asp-action="Index">◈ Models</a>
-            <a asp-controller="Settings" asp-action="Index">⚙ Settings</a>
+            <a class="@NavActive("Projects")" asp-controller="Projects" asp-action="Index">▣ Projects</a>
+            <a class="@NavActive("Agents")" asp-controller="Agents" asp-action="Index">♧ Agents</a>
+            <a class="@NavActive("Usage")" asp-controller="Usage" asp-action="Index">◴ Usage / Tokens</a>
+            <a class="@NavActive("Models")" asp-controller="Models" asp-action="Index">◈ Models</a>
+            <a class="@NavActive("Settings")" asp-controller="Settings" asp-action="Index">⚙ Settings</a>
         </nav>
         <div class="user"><div class="avatar">TU</div><div><b>Tran User</b><br/><span>Owner</span></div></div>
     </aside>
