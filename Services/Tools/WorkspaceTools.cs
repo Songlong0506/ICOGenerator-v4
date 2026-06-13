@@ -33,14 +33,31 @@ public class WorkspaceTools
         return $"File written: {relativePath}";
     }
 
-    [Description("Read a file from the current workspace.")]
-    public async Task<string> ReadFile(string relativePath)
+    [Description("Read a file from the current workspace. Large files are paginated; use offset (line number) to read subsequent chunks. The response shows line numbers and ends with '[truncated: use offset=N]' when there is more content.")]
+    public async Task<string> ReadFile(string relativePath, int offset = 0)
     {
         EnsureWorkspace();
         var fullPath = GetSafeFullPath(relativePath);
         if (!File.Exists(fullPath)) return $"File not found: {relativePath}";
-        var content = await File.ReadAllTextAsync(fullPath);
-        return content.Length > 12000 ? content[..12000] + "\n...[truncated]" : content;
+        var lines = await File.ReadAllLinesAsync(fullPath);
+        if (offset < 0) offset = 0;
+        if (offset >= lines.Length) return $"Offset {offset} exceeds file length ({lines.Length} lines).";
+
+        const int maxChars = 16000;
+        var sb = new System.Text.StringBuilder();
+        var i = offset;
+        while (i < lines.Length)
+        {
+            var line = $"{i + 1}: {lines[i]}\n";
+            if (sb.Length + line.Length > maxChars) break;
+            sb.Append(line);
+            i++;
+        }
+
+        if (i < lines.Length)
+            sb.Append($"\n...[truncated: use offset={i} to continue reading]");
+
+        return sb.ToString();
     }
 
     [Description("List all files in the current workspace.")]
