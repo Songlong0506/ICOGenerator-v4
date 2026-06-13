@@ -1,4 +1,4 @@
-@model IReadOnlyList<ICOGenerator.Application.Projects.ProjectListItem>
+@model ICOGenerator.Application.Projects.ProjectListPage
 @{
     string Badge(ProjectStatus s) => s switch { ProjectStatus.Completed => "badge green", ProjectStatus.InProgress => "badge blue", _ => "badge orange" };
 }
@@ -7,6 +7,26 @@
     .btn.disabled {
         opacity: 0.45;
         cursor: not-allowed;
+    }
+
+    .pager {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .pager-controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .pager-controls .btn {
+        padding: 8px 12px;
+        min-width: 40px;
     }
 
     .btn.success {
@@ -56,7 +76,7 @@
     <table>
         <thead><tr><th>Project Name</th><th>Description</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
-            @foreach (var item in Model)
+            @foreach (var item in Model.Items)
             {
                 var p = item.Project;
                 <tr>
@@ -113,7 +133,43 @@
             }
         </tbody>
     </table>
-    <div class="pager">Showing 1 to @Model.Count of @Model.Count projects</div>
+    <div class="pager">
+        <span>Showing @Model.FirstItemIndex to @Model.LastItemIndex of @Model.TotalCount projects</span>
+        @if (Model.TotalPages > 1)
+        {
+            <div class="pager-controls">
+                @if (Model.HasPrevious)
+                {
+                    <a class="btn outline" asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">‹ Prev</a>
+                }
+                else
+                {
+                    <span class="btn outline disabled">‹ Prev</span>
+                }
+
+                @for (var i = 1; i <= Model.TotalPages; i++)
+                {
+                    if (i == Model.Page)
+                    {
+                        <span class="btn primary">@i</span>
+                    }
+                    else
+                    {
+                        <a class="btn" asp-action="Index" asp-route-page="@i" asp-route-pageSize="@Model.PageSize">@i</a>
+                    }
+                }
+
+                @if (Model.HasNext)
+                {
+                    <a class="btn outline" asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">Next ›</a>
+                }
+                else
+                {
+                    <span class="btn outline disabled">Next ›</span>
+                }
+            </div>
+        }
+    </div>
 </div>
 <div id="newProject" class="modal-backdrop hidden">
     <form class="modal" asp-action="Create" method="post">

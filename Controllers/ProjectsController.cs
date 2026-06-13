@@ -19,10 +19,10 @@ public class ProjectsController : Controller
         _getMockupFileQuery = getMockupFileQuery;
     }
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(int page = 1, int pageSize = GetProjectListQuery.DefaultPageSize)
     {
-        var items = await _getProjectListQuery.ExecuteAsync();
-        return View(items);
+        var result = await _getProjectListQuery.ExecuteAsync(page, pageSize);
+        return View(result);
     }
 
     [HttpPost]
