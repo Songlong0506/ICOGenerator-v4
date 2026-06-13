@@ -70,7 +70,7 @@
         <div class="card mini agent-card" data-agent-id="@a.Id" data-agent-name="@a.Name" onclick="filterByAgent('@a.Id', '@a.Name')">
             <span class="circle" style="background:@a.Color"></span>
             <b>@a.Name</b>
-            <small>@a.RoleTitle</small>
+            <small>@a.RoleKey.GetTitle()</small>
             <p>@agentTokens.ToString("N0") tokens</p>
             <small class="muted log-link" onclick="event.stopPropagation(); loadAgentLogs('@a.Id', '@a.Name')">Click to view AI Call Logs</small>
         </div>
