@@ -104,23 +104,69 @@
                 <h3>Instruction</h3>
                 <textarea name="Instruction" rows="8">@selected.Instruction</textarea>
 
-                <h3>Tools</h3>
+                <div class="tools-head">
+                    <h3>Tools</h3>
+                    <span class="tools-counter"><b id="toolsSelectedCount">@enabledToolIds.Count</b> of @tools.Count selected</span>
+                </div>
                 <p class="muted">Tick tools that this agent can use. Untick to remove permission.</p>
 
-                <div class="tool-grid">
-                    @foreach (var t in tools)
+                <div class="tools-toolbar">
+                    <div class="tools-search-wrap">
+                        <input id="toolSearch" class="tools-search" type="text" placeholder="Search tools by name, description or method..." autocomplete="off" />
+                    </div>
+                    <div class="tool-filter-chips" role="tablist">
+                        <button type="button" class="chip active" data-filter="all">All</button>
+                        <button type="button" class="chip" data-filter="enabled">Enabled</button>
+                        <button type="button" class="chip" data-filter="disabled">Disabled</button>
+                    </div>
+                </div>
+
+                <div class="tools-bulk">
+                    <button type="button" class="link-btn" data-bulk="expand">Expand all</button>
+                    <span class="sep">·</span>
+                    <button type="button" class="link-btn" data-bulk="collapse">Collapse all</button>
+                    <span class="sep">·</span>
+                    <button type="button" class="link-btn" data-bulk="clear">Clear selection</button>
+                </div>
+
+                <div class="tools-scroll" id="toolsScroll">
+                    @foreach (var group in tools.GroupBy(x => string.IsNullOrWhiteSpace(x.ServiceType) ? "Other" : x.ServiceType).OrderBy(g => g.Key))
                     {
-                        var enabled = enabledToolIds.Contains(t.Id);
-                        <label class="tool-card selectable @(enabled ? "enabled" : "")">
-                            <input class="tool-checkbox" type="checkbox" name="ToolDefinitionIds" value="@t.Id" checked="@enabled" />
-                            <div class="tool-title">
-                                <b>@t.DisplayName</b>
-                                <span class="badge @(enabled ? "green" : "gray")">@(enabled ? "Enabled" : "Disabled")</span>
+                        var groupTools = group.ToList();
+                        var groupEnabled = groupTools.Count(x => enabledToolIds.Contains(x.Id));
+                        <section class="tool-group" data-group="@group.Key">
+                            <header class="tool-group-head">
+                                <button type="button" class="tool-group-toggle" aria-expanded="true">
+                                    <span class="chevron">▾</span>
+                                    <b>@group.Key</b>
+                                    <span class="tool-group-count"><span class="grp-enabled">@groupEnabled</span>/<span class="grp-total">@groupTools.Count</span></span>
+                                </button>
+                                <label class="group-select-all">
+                                    <input type="checkbox" class="group-check" />
+                                    <span>Select all</span>
+                                </label>
+                            </header>
+                            <div class="tool-group-body">
+                                @foreach (var t in groupTools)
+                                {
+                                    var enabled = enabledToolIds.Contains(t.Id);
+                                    var search = $"{t.DisplayName} {t.Description} {t.ServiceType} {t.MethodName}".ToLowerInvariant();
+                                    <label class="tool-card selectable @(enabled ? "enabled" : "")" data-search="@search" data-enabled="@enabled.ToString().ToLowerInvariant()">
+                                        <input class="tool-checkbox" type="checkbox" name="ToolDefinitionIds" value="@t.Id" checked="@enabled" />
+                                        <div class="tool-body">
+                                            <div class="tool-title">
+                                                <b>@t.DisplayName</b>
+                                                <span class="badge @(enabled ? "green" : "gray")">@(enabled ? "Enabled" : "Disabled")</span>
+                                            </div>
+                                            <p>@t.Description</p>
+                                            <small>@t.ServiceType.@t.MethodName</small>
+                                        </div>
+                                    </label>
+                                }
                             </div>
-                            <p>@t.Description</p>
-                            <small>@t.ServiceType.@t.MethodName</small>
-                        </label>
+                        </section>
                     }
+                    <div class="tools-empty" id="toolsEmpty" hidden>No tools match your search.</div>
                 </div>
 
                 <h3>Model</h3>
@@ -138,10 +184,23 @@
 
 @section Scripts {
     <script>
-        document.querySelectorAll('.tool-checkbox').forEach(function (checkbox) {
-            checkbox.addEventListener('change', function () {
+        (function () {
+            const scroll = document.getElementById('toolsScroll');
+            if (!scroll) return;
+
+            const searchInput = document.getElementById('toolSearch');
+            const selectedCount = document.getElementById('toolsSelectedCount');
+            const emptyMsg = document.getElementById('toolsEmpty');
+            const chips = Array.from(document.querySelectorAll('.tool-filter-chips .chip'));
+            const groups = Array.from(scroll.querySelectorAll('.tool-group'));
+            const checkboxes = Array.from(scroll.querySelectorAll('.tool-checkbox'));
+
+            let activeFilter = 'all';
+
+            function reflectCard(checkbox) {
                 const card = checkbox.closest('.tool-card');
                 const badge = card.querySelector('.badge');
+                card.dataset.enabled = checkbox.checked ? 'true' : 'false';
                 if (checkbox.checked) {
                     card.classList.add('enabled');
                     badge.classList.remove('gray');
@@ -153,7 +212,132 @@
                     badge.classList.add('gray');
                     badge.textContent = 'Disabled';
                 }
+            }
+
+            function updateSelectedCount() {
+                selectedCount.textContent = checkboxes.filter(c => c.checked).length;
+            }
+
+            function matchesFilter(card) {
+                if (activeFilter === 'enabled') return card.dataset.enabled === 'true';
+                if (activeFilter === 'disabled') return card.dataset.enabled !== 'true';
+                return true;
+            }
+
+            function applyFilters() {
+                const term = searchInput.value.trim().toLowerCase();
+                let anyVisible = false;
+
+                groups.forEach(function (group) {
+                    const cards = Array.from(group.querySelectorAll('.tool-card'));
+                    let visibleInGroup = 0;
+                    cards.forEach(function (card) {
+                        const hit = (!term || card.dataset.search.indexOf(term) !== -1) && matchesFilter(card);
+                        card.hidden = !hit;
+                        if (hit) visibleInGroup++;
+                    });
+                    group.hidden = visibleInGroup === 0;
+                    if (visibleInGroup > 0) anyVisible = true;
+                    syncGroupCheckbox(group);
+                });
+
+                emptyMsg.hidden = anyVisible;
+            }
+
+            function syncGroupCheckbox(group) {
+                const groupCheck = group.querySelector('.group-check');
+                const visibleCards = Array.from(group.querySelectorAll('.tool-card')).filter(c => !c.hidden);
+                const visibleBoxes = visibleCards.map(c => c.querySelector('.tool-checkbox'));
+                const checked = visibleBoxes.filter(b => b.checked).length;
+
+                // group enabled/total counters reflect ALL tools in the group, not just filtered
+                const allBoxes = Array.from(group.querySelectorAll('.tool-checkbox'));
+                group.querySelector('.grp-enabled').textContent = allBoxes.filter(b => b.checked).length;
+
+                if (visibleBoxes.length === 0) {
+                    groupCheck.checked = false;
+                    groupCheck.indeterminate = false;
+                } else if (checked === 0) {
+                    groupCheck.checked = false;
+                    groupCheck.indeterminate = false;
+                } else if (checked === visibleBoxes.length) {
+                    groupCheck.checked = true;
+                    groupCheck.indeterminate = false;
+                } else {
+                    groupCheck.checked = false;
+                    groupCheck.indeterminate = true;
+                }
+            }
+
+            // Individual tool toggles
+            checkboxes.forEach(function (checkbox) {
+                checkbox.addEventListener('change', function () {
+                    reflectCard(checkbox);
+                    updateSelectedCount();
+                    syncGroupCheckbox(checkbox.closest('.tool-group'));
+                    if (activeFilter !== 'all') applyFilters();
+                });
             });
-        });
+
+            // Group "select all" (applies to currently visible cards in the group)
+            groups.forEach(function (group) {
+                const groupCheck = group.querySelector('.group-check');
+                groupCheck.addEventListener('change', function () {
+                    const visibleBoxes = Array.from(group.querySelectorAll('.tool-card'))
+                        .filter(c => !c.hidden)
+                        .map(c => c.querySelector('.tool-checkbox'));
+                    visibleBoxes.forEach(function (b) {
+                        b.checked = groupCheck.checked;
+                        reflectCard(b);
+                    });
+                    updateSelectedCount();
+                    if (activeFilter !== 'all') applyFilters(); else syncGroupCheckbox(group);
+                });
+
+                // Collapse / expand
+                const toggle = group.querySelector('.tool-group-toggle');
+                toggle.addEventListener('click', function () {
+                    const collapsed = group.classList.toggle('collapsed');
+                    toggle.setAttribute('aria-expanded', String(!collapsed));
+                });
+            });
+
+            // Search
+            let searchTimer;
+            searchInput.addEventListener('input', function () {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(applyFilters, 120);
+            });
+
+            // Status filter chips
+            chips.forEach(function (chip) {
+                chip.addEventListener('click', function () {
+                    chips.forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    activeFilter = chip.dataset.filter;
+                    applyFilters();
+                });
+            });
+
+            // Bulk actions
+            document.querySelectorAll('.tools-bulk .link-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const action = btn.dataset.bulk;
+                    if (action === 'expand') {
+                        groups.forEach(g => { g.classList.remove('collapsed'); g.querySelector('.tool-group-toggle').setAttribute('aria-expanded', 'true'); });
+                    } else if (action === 'collapse') {
+                        groups.forEach(g => { g.classList.add('collapsed'); g.querySelector('.tool-group-toggle').setAttribute('aria-expanded', 'false'); });
+                    } else if (action === 'clear') {
+                        checkboxes.forEach(function (b) { if (b.checked) { b.checked = false; reflectCard(b); } });
+                        updateSelectedCount();
+                        applyFilters();
+                    }
+                });
+            });
+
+            // Init
+            groups.forEach(syncGroupCheckbox);
+            updateSelectedCount();
+        })();
     </script>
 }
