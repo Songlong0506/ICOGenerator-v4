@@ -25,7 +25,7 @@
 
     var docMap = workspaceDocuments.ToDictionary(
         d => d.Id.ToString(),
-        d => (object)new { name = d.FileName, content = d.Content, agentId = d.AgentId?.ToString() ?? "" });
+        d => (object)new { name = d.FileName, agentId = d.AgentId?.ToString() ?? "" });
     var docsJson = System.Text.Json.JsonSerializer.Serialize(docMap);
     var firstDoc = workspaceDocuments.FirstOrDefault();
 }
@@ -139,7 +139,7 @@
 
     <div class="card">
         <h3 id="doc-title">@(firstDoc?.FileName ?? "No document")</h3>
-        <div class="preview"><pre id="doc-content">@(firstDoc?.Content ?? "No document yet")</pre></div>
+        <div class="preview"><div id="doc-content" class="doc-render"><p class="doc-empty">No document yet</p></div></div>
         <h3>Agent Conversation</h3>
         @foreach (var c in Model.Conversations.OrderByDescending(x => x.CreatedAt))
         {
@@ -171,10 +171,24 @@
     .agent-card.active { outline: 2px solid #6366f1; outline-offset: 2px; }
     .log-link { cursor: pointer; text-decoration: underline; }
     .ws-clear { padding: 4px 10px; font-size: 12px; }
+
+    .preview { max-height: 70vh; overflow: auto; }
+    .doc-render { line-height: 1.65; color: #1e293b; font-size: 14px; }
+    .doc-render > :first-child { margin-top: 0; }
+    .doc-render h1 { font-size: 24px; margin: 20px 0 12px; font-weight: 700; }
+    .doc-render h2 { font-size: 20px; margin: 18px 0 10px; font-weight: 700; }
+    .doc-render h3 { font-size: 17px; margin: 16px 0 8px; font-weight: 700; }
+    .doc-render h4, .doc-render h5, .doc-render h6 { font-size: 15px; margin: 14px 0 6px; font-weight: 700; }
+    .doc-render p { margin: 8px 0; }
+    .doc-render table.doc-table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13px; }
+    .doc-render table.doc-table td { border: 1px solid #cbd5e1; padding: 8px 12px; vertical-align: top; text-align: left; }
+    .doc-render table.doc-table tr:first-child td { background: #f1f5f9; font-weight: 600; }
+    .doc-empty, .doc-loading { color: #94a3b8; font-style: italic; }
 </style>
 
 <script>
     const DOCS = @Html.Raw(docsJson);
+    const FIRST_DOC_ID = '@(firstDoc?.Id.ToString() ?? "")';
     let activeAgentFilter = null;
 
     function filterByAgent(agentId, name) {
@@ -225,15 +239,35 @@
         });
     }
 
-    function showDoc(id) {
-        const doc = DOCS[id];
-        if (!doc) return;
-        document.getElementById('doc-title').textContent = doc.name;
-        document.getElementById('doc-content').textContent = doc.content || 'No document yet';
+    async function showDoc(id) {
+        if (!id) return;
+
+        const meta = DOCS[id];
+        const titleEl = document.getElementById('doc-title');
+        const contentEl = document.getElementById('doc-content');
+
+        if (meta) titleEl.textContent = meta.name;
+
         document.querySelectorAll('#ws-tree .file').forEach(f => f.classList.remove('selected'));
         const node = document.querySelector('#ws-tree .file[data-doc-id="' + id + '"]');
         if (node) node.classList.add('selected');
+
+        contentEl.innerHTML = '<p class="doc-loading">Loading…</p>';
+
+        try {
+            const response = await fetch('/ManageAgent/DocumentPreview?id=' + encodeURIComponent(id));
+            if (!response.ok) throw new Error('Preview request failed');
+            const data = await response.json();
+            titleEl.textContent = data.name;
+            contentEl.innerHTML = data.html;
+        } catch {
+            contentEl.innerHTML = '<p class="doc-empty">Unable to load preview.</p>';
+        }
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        if (FIRST_DOC_ID) showDoc(FIRST_DOC_ID);
+    });
 </script>
 
 <div class="modal-backdrop" id="logs-modal">

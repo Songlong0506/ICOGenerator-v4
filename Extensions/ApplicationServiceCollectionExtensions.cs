@@ -75,6 +75,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetWorkflowStatusQuery>();
         services.AddScoped<GetAgentCallLogsQuery>();
         services.AddScoped<GetCallLogDetailQuery>();
+        services.AddScoped<GetDocumentPreviewQuery>();
         services.AddScoped<GetAgentManagementPageQuery>();
         services.AddScoped<UpdateAgentUseCase>();
         return services;
