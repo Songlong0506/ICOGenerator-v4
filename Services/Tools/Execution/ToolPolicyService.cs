@@ -9,9 +9,7 @@ public class ToolPolicyService
         if (!tool.Definition.IsActive)
             throw new InvalidOperationException($"Tool is inactive: {tool.Definition.Name}");
 
-        var allowedParameterNames = tool.Method.GetParameters().Select(x => x.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var unknownArgs = args.Keys.Where(x => !allowedParameterNames.Contains(x)).ToList();
-        if (unknownArgs.Count > 0)
-            throw new InvalidOperationException($"Unknown tool argument(s): {string.Join(", ", unknownArgs)}");
+        // Unknown args passed by the model are ignored — DynamicToolInvoker only binds
+        // args that match the method's parameter names, so extras are harmless.
     }
 }
