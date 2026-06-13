@@ -301,3 +301,171 @@
         background: #FEF2F2;
         color: #B91C1C;
     }
+
+    /* ===== Live progress feed (Claude/ChatGPT style) ===== */
+
+    .wf-feed {
+        max-height: 280px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding-right: 4px;
+    }
+
+    .wf-event {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: #fff;
+        border: 1px solid #E2E8F0;
+        font-size: 13px;
+        animation: wf-fade-in .25s ease-out;
+    }
+
+    @keyframes wf-fade-in {
+        from {
+            opacity: 0;
+            transform: translateY(4px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .wf-event-icon {
+        flex: 0 0 auto;
+        line-height: 1.4;
+    }
+
+    .wf-event-main {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .wf-event-msg {
+        color: #334155;
+    }
+
+    .wf-event-time {
+        color: #94A3B8;
+        font-size: 11px;
+        margin-left: 8px;
+        white-space: nowrap;
+    }
+
+    .wf-event-thinking {
+        background: #F8FAFC;
+        border-style: dashed;
+    }
+
+    .wf-event-error {
+        border-color: #FECACA;
+        background: #FEF2F2;
+    }
+
+    .wf-event-error .wf-event-msg {
+        color: #B91C1C;
+    }
+
+    .wf-event-final,
+    .wf-event-completed {
+        border-color: #BBF7D0;
+        background: #F0FDF4;
+    }
+
+    .wf-event-detail {
+        margin-top: 4px;
+    }
+
+    .wf-event-detail summary {
+        cursor: pointer;
+        color: #64748B;
+        font-size: 11px;
+        user-select: none;
+    }
+
+    .wf-event-detail pre {
+        margin: 4px 0 0;
+        padding: 6px 8px;
+        background: #F8FAFC;
+        border-radius: 6px;
+        font-size: 11px;
+        color: #475569;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 120px;
+        overflow: auto;
+    }
+
+    .wf-activity {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #EFF6FF;
+        color: #1D4ED8;
+        font-size: 13px;
+    }
+
+    .wf-activity-text {
+        animation: wf-pulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes wf-pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: .55;
+        }
+    }
+
+    .wf-typing {
+        display: inline-flex;
+        gap: 3px;
+        align-items: center;
+    }
+
+    .wf-typing span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #2563EB;
+        animation: wf-bounce 1.2s infinite;
+    }
+
+    .wf-typing span:nth-child(2) {
+        animation-delay: .15s;
+    }
+
+    .wf-typing span:nth-child(3) {
+        animation-delay: .3s;
+    }
+
+    @keyframes wf-bounce {
+        0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: .4;
+        }
+
+        30% {
+            transform: translateY(-4px);
+            opacity: 1;
+        }
+    }
+
+    .wf-banner-slot {
+        margin-top: 8px;
+    }
+
+    .wf-banner-slot:empty {
+        margin-top: 0;
+    }

@@ -10,11 +10,13 @@ public class AgentTaskWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AgentTaskWorker> _logger;
+    private readonly IWorkflowProgressReporter _progress;
 
-    public AgentTaskWorker(IServiceScopeFactory scopeFactory, ILogger<AgentTaskWorker> logger)
+    public AgentTaskWorker(IServiceScopeFactory scopeFactory, ILogger<AgentTaskWorker> logger, IWorkflowProgressReporter progress)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _progress = progress;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -55,6 +57,7 @@ public class AgentTaskWorker : BackgroundService
 
         if (task.AgentId == null)
         {
+            _progress.Report(task.WorkflowRunId, "error", "Không có agent nào được gán cho task này.");
             task.Status = AgentTaskStatus.Failed;
             task.Error = "No agent is assigned to this task.";
             task.FinishedAt = DateTime.UtcNow;
@@ -73,6 +76,9 @@ public class AgentTaskWorker : BackgroundService
             task.WorkflowRun.Status = WorkflowRunStatus.Running;
             task.WorkflowRun.StartedAt ??= DateTime.UtcNow;
             await db.SaveChangesAsync(cancellationToken);
+
+            _progress.Report(task.WorkflowRunId, "start", $"Bắt đầu task: {task.Title}" + (task.Attempt > 1 ? $" (lần thử {task.Attempt})" : ""));
+            _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
 
             await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
 
@@ -98,7 +104,10 @@ Ghi kết quả vào (relative): 03_Implementation/poc-demo.html
 # AI Design Spec
 
 {task.Input}
-""");
+""",
+                onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail));
+
+            _progress.Report(task.WorkflowRunId, "completed", "Task hoàn tất — POC đã được tạo.");
 
             task.Status = AgentTaskStatus.Completed;
             task.Output = output;
@@ -110,6 +119,7 @@ Ghi kết quả vào (relative): 03_Implementation/poc-demo.html
         }
         catch (Exception ex)
         {
+            _progress.Report(task.WorkflowRunId, "error", "Task thất bại.", ex.Message);
             task.Status = AgentTaskStatus.Failed;
             task.Error = ex.Message;
             task.FinishedAt = DateTime.UtcNow;
