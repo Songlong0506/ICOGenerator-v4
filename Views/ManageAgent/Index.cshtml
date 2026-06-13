@@ -2,7 +2,11 @@
 @{
     var agents = ViewBag.Agents as List<Agent> ?? new();
     var phases = ViewBag.Phases as IReadOnlyList<string> ?? new List<string> { "01_Requirement", "02_Design", "03_Implementation", "04_Test" };
-    var totalTokens = Model.Documents.Sum(x => x.TokenUsed) + Model.Conversations.Sum(x => x.TokenUsed) + Model.ModelCallLogs.Sum(x => x.TotalTokens);
+    // Token totals come from AgentModelCallLog (the single source of truth for AI token
+    // usage), aggregated across all of the project's call logs in the query. Per-agent
+    // values sum to the grand total because every call log is attributed to an agent.
+    var totalTokens = (long)(ViewBag.TotalTokens ?? 0L);
+    var tokensByAgent = ViewBag.TokensByAgent as IReadOnlyDictionary<Guid, long> ?? new Dictionary<Guid, long>();
     var workspaceDocuments = ViewBag.WorkspaceDocuments as IReadOnlyList<ICOGenerator.Domain.ProjectDocument> ?? Model.Documents.ToList();
 
     Func<string, string> phaseOf = folder => phases.FirstOrDefault(p => string.Equals(p, folder, StringComparison.OrdinalIgnoreCase)) ?? "Other";
@@ -62,9 +66,7 @@
 <div class="agent-cards">
     @foreach (var a in agents)
     {
-        var agentTokens = Model.Documents.Where(x => x.AgentId == a.Id).Sum(x => x.TokenUsed)
-            + Model.Conversations.Where(x => x.AgentId == a.Id).Sum(x => x.TokenUsed)
-            + Model.ModelCallLogs.Where(x => x.AgentId == a.Id).Sum(x => x.TotalTokens);
+        var agentTokens = tokensByAgent.TryGetValue(a.Id, out var t) ? t : 0L;
         <div class="card mini agent-card" data-agent-id="@a.Id" data-agent-name="@a.Name" onclick="filterByAgent('@a.Id', '@a.Name')">
             <span class="circle" style="background:@a.Color"></span>
             <b>@a.Name</b>
