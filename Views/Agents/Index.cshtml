@@ -67,7 +67,7 @@
                     <button type="submit" class="btn primary">Save Changes</button>
                 </div>
 
-                <div class="form-grid two">
+                <div class="form-grid three">
                     <div>
                         <label>Name</label>
                         <input name="Name" value="@selected.Name" required />
@@ -75,6 +75,16 @@
                     <div>
                         <label>Role / Title</label>
                         <input name="RoleTitle" value="@selected.RoleTitle" />
+                    </div>
+                    <div>
+                        <label>Model</label>
+                        <select name="AiModelId">
+                            <option value="">-- No model --</option>
+                            @foreach (var m in models)
+                            {
+                                <option value="@m.Id" selected="@(selected.AiModelId == m.Id)">@m.Name (@m.ModelId)</option>
+                            }
+                        </select>
                     </div>
                 </div>
 
@@ -168,15 +178,6 @@
                     }
                     <div class="tools-empty" id="toolsEmpty" hidden>No tools match your search.</div>
                 </div>
-
-                <h3>Model</h3>
-                <select name="AiModelId">
-                    <option value="">-- No model --</option>
-                    @foreach (var m in models)
-                    {
-                        <option value="@m.Id" selected="@(selected.AiModelId == m.Id)">@m.Name (@m.ModelId)</option>
-                    }
-                </select>
             </form>
         }
     </section>
