@@ -2,6 +2,7 @@ using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Requirements;
+using ICOGenerator.Application.Usage;
 using ICOGenerator.Application.Settings;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Agents;
@@ -33,6 +34,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddRequirementUseCases();
         services.AddAgentUseCases();
         services.AddModelUseCases();
+        services.AddUsageUseCases();
         services.AddSettingsUseCases();
         services.AddPromptServices();
         services.AddLlmServices();
@@ -88,6 +90,9 @@ public static class ApplicationServiceCollectionExtensions
         return services;
     }
 
+    private static IServiceCollection AddUsageUseCases(this IServiceCollection services)
+    {
+        services.AddScoped<GetUsageOverviewQuery>();
     private static IServiceCollection AddSettingsUseCases(this IServiceCollection services)
     {
         services.AddSingleton<AppSettingsFileStore>();
