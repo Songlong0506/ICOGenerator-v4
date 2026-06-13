@@ -9,17 +9,20 @@ public class ManageAgentController : Controller
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
     private readonly GetAgentCallLogsQuery _getAgentCallLogsQuery;
     private readonly GetCallLogDetailQuery _getCallLogDetailQuery;
+    private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
 
     public ManageAgentController(
         GetAgentDashboardQuery getAgentDashboardQuery,
         GetWorkflowStatusQuery getWorkflowStatusQuery,
         GetAgentCallLogsQuery getAgentCallLogsQuery,
-        GetCallLogDetailQuery getCallLogDetailQuery)
+        GetCallLogDetailQuery getCallLogDetailQuery,
+        GetDocumentPreviewQuery getDocumentPreviewQuery)
     {
         _getAgentDashboardQuery = getAgentDashboardQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
         _getAgentCallLogsQuery = getAgentCallLogsQuery;
         _getCallLogDetailQuery = getCallLogDetailQuery;
+        _getDocumentPreviewQuery = getDocumentPreviewQuery;
     }
 
     public async Task<IActionResult> Index(Guid projectId)
@@ -50,6 +53,13 @@ public class ManageAgentController : Controller
     public async Task<IActionResult> CallLogDetail(Guid id)
     {
         var result = await _getCallLogDetailQuery.ExecuteAsync(id);
+        return result == null ? NotFound() : Json(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DocumentPreview(Guid id)
+    {
+        var result = await _getDocumentPreviewQuery.ExecuteAsync(id);
         return result == null ? NotFound() : Json(result);
     }
 }
