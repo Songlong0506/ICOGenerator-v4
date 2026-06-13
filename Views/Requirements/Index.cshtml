@@ -137,7 +137,7 @@
                          data-autoscroll="@autoScroll">
                         <div class="workflow-progress-head">
                             <b>BA</b>
-                            <span class="workflow-progress-title">Delivery Progress</span>
+                            <span class="workflow-progress-title">@(run.Name != null && run.Name.Contains("Requirement") ? "Requirement Progress" : "Delivery Progress")</span>
                         </div>
                         <small id="wf-sub-@run.Id" class="muted wf-sub"></small>
                         <div id="wf-body-@run.Id" class="workflow-progress-body wf-body">
@@ -423,7 +423,18 @@
                 const slot = panel.querySelector('.wf-banner-slot');
 
                 if (data.isCompleted) {
-                    slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
+                    if (data.runKind === 'Requirement') {
+                        slot.innerHTML = `<div class="wf-banner wf-ok">✓ Đã tạo/cập nhật tài liệu requirement.</div>`;
+
+                        // Reload đúng 1 lần để hiển thị tài liệu draft + tin nhắn BA mới.
+                        const reloadKey = 'wf-reloaded-' + panel.dataset.runId;
+                        if (!sessionStorage.getItem(reloadKey)) {
+                            sessionStorage.setItem(reloadKey, '1');
+                            setTimeout(() => location.reload(), 1200);
+                        }
+                    } else {
+                        slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
+                    }
                 } else if (data.runStatus === 'Failed') {
                     const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
                     slot.innerHTML = `<div class="wf-banner wf-fail">✗ Workflow thất bại.${err ? `<pre class="wf-err">${esc(err)}</pre>` : ''}</div>`;

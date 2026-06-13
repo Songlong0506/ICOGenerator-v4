@@ -1,16 +1,18 @@
-using ICOGenerator.Services.Requirements;
+using ICOGenerator.Services.Workflows;
 
 namespace ICOGenerator.Application.Requirements;
 
 public class GenerateRequirementDraftUseCase
 {
-    private readonly BARequirementService _baRequirementService;
+    private readonly IWorkflowOrchestrator _workflowOrchestrator;
 
-    public GenerateRequirementDraftUseCase(BARequirementService baRequirementService)
+    public GenerateRequirementDraftUseCase(IWorkflowOrchestrator workflowOrchestrator)
     {
-        _baRequirementService = baRequirementService;
+        _workflowOrchestrator = workflowOrchestrator;
     }
 
+    // Khởi tạo workflow chạy nền để soạn tài liệu requirement; tiến độ được
+    // report live qua IWorkflowProgressReporter để UI poll giống luồng Approve.
     public Task ExecuteAsync(Guid projectId) =>
-        _baRequirementService.GenerateOrUpdateDraftAsync(projectId);
+        _workflowOrchestrator.StartRequirementDraftWorkflowAsync(projectId);
 }

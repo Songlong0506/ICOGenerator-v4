@@ -1,7 +1,9 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Requirements;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Workflows;
@@ -78,6 +80,21 @@ public class AgentTaskWorker : BackgroundService
             await db.SaveChangesAsync(cancellationToken);
 
             _progress.Report(task.WorkflowRunId, "start", $"Bắt đầu task: {task.Title}" + (task.Attempt > 1 ? $" (lần thử {task.Attempt})" : ""));
+
+            if (task.Type == AgentTaskType.RequirementAnalysis)
+            {
+                await RunRequirementDraftAsync(scope, task);
+
+                task.Status = AgentTaskStatus.Completed;
+                task.Output = "Requirement documents generated/updated.";
+                task.FinishedAt = DateTime.UtcNow;
+                task.WorkflowRun.Status = WorkflowRunStatus.Completed;
+                task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
+                task.WorkflowRun.FinishedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(cancellationToken);
+                return;
+            }
+
             _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
 
             await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
@@ -128,6 +145,17 @@ Ghi kết quả vào (relative): 03_Implementation/poc-demo.html
             task.WorkflowRun.FinishedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(CancellationToken.None);
         }
+    }
+
+    private async Task RunRequirementDraftAsync(IServiceScope scope, AgentTask task)
+    {
+        var baService = scope.ServiceProvider.GetRequiredService<BARequirementService>();
+
+        await baService.GenerateOrUpdateDraftAsync(
+            task.ProjectId,
+            onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail));
+
+        _progress.Report(task.WorkflowRunId, "completed", "Đã tạo/cập nhật tài liệu requirement.");
     }
 
     private async Task EnsureDesignAssetsAsync(IServiceScope scope, AppDbContext db, Guid projectId)
