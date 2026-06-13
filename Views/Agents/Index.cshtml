@@ -110,7 +110,8 @@
                 </div>
 
                 <h3>Instruction</h3>
-                <textarea name="Instruction" rows="8">@selected.Instruction</textarea>
+                <p class="muted">Instruction được quản lý trong file <code>@(ViewBag.InstructionFile as string)</code> (versioned trong git), không chỉnh sửa trực tiếp tại đây.</p>
+                <textarea rows="8" readonly>@(ViewBag.Instruction as string)</textarea>
 
                 <div class="tools-head">
                     <h3>Tools</h3>

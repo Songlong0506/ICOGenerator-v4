@@ -57,7 +57,7 @@ Chi tiết đầy đủ: `ARCHITECTURE.md`.
 | Khái niệm | Ý nghĩa | File |
 |---|---|---|
 | `Project` | Một dự án phần mềm đang được team agent xây. Là gốc nối tới tài liệu, hội thoại, workflow. | `Domain/Project.cs` |
-| `Agent` | Một "nhân sự AI". Mang `RoleKey` (vai trò), `Instruction` (system prompt), model, và tập tool được phép dùng. | `Domain/Agent.cs` |
+| `Agent` | Một "nhân sự AI". Mang `RoleKey` (vai trò), model, và tập tool được phép dùng. Instruction (system prompt) được nạp từ file `Prompts/Agents/Instructions/{RoleKey}.md` theo `RoleKey`, không còn lưu trong DB. | `Domain/Agent.cs`, `Services/Agents/AgentInstructionProvider.cs` |
 | `AgentRoleKey` | Vai trò của agent: `BusinessAnalyst`, `TechLead`, `Developer`, `Tester`, `UiUx`, `System`. **Đã định nghĩa đủ cho cả team.** | `Domain/Enums/AgentRoleKey.cs` |
 | `ProjectDocument` | Tài liệu sinh ra trong dự án (BRD/SRS/FSD, design spec…), có `Folder`, `VersionName`, `IsApproved`. | `Domain/ProjectDocument.cs` |
 | `AgentConversation` | Một dòng hội thoại user ↔ agent trong một project. | `Domain/AgentConversation.cs` |

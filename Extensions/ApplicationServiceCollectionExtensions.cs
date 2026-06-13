@@ -143,6 +143,7 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddAgentRuntime(this IServiceCollection services)
     {
         // Services/Agents: the autonomous tool-using agent loop + its background job runner.
+        services.AddScoped<AgentInstructionProvider>();
         services.AddScoped<AgentPromptBuilder>();
         services.AddScoped<AgentActionParser>();
         services.AddScoped<AgentRunService>();
