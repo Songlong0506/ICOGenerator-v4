@@ -36,22 +36,11 @@ public class GetAgentDashboardQuery
             .ThenBy(x => x.FileName)
             .ToListAsync();
 
-        project.Conversations = await _db.AgentConversations.AsNoTracking()
-            .Where(x => x.ProjectId == projectId)
-            .Include(x => x.Agent)
-            .OrderByDescending(x => x.CreatedAt)
-            .Take(50)
-            .ToListAsync();
-
         var agents = await _db.Agents.AsNoTracking()
             .Include(x => x.AgentTools)
             .ThenInclude(x => x.ToolDefinition)
             .ToListAsync();
 
-        // AgentModelCallLog is the single source of truth for token consumption:
-        // every AI model call is logged here against an agent. Aggregate across ALL of
-        // the project's call logs (not the Take(100) display subset) so the totals are
-        // accurate and reconcile exactly with the per-agent breakdown.
         var tokenByAgent = await _db.AgentModelCallLogs.AsNoTracking()
             .Where(x => x.ProjectId == projectId)
             .GroupBy(x => x.AgentId)

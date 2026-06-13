@@ -143,15 +143,6 @@
     <div class="card">
         <h3 id="doc-title">@(firstDoc?.FileName ?? "No document")</h3>
         <div class="preview"><div id="doc-content" class="doc-render"><p class="doc-empty">No document yet</p></div></div>
-        <h3>Agent Conversation</h3>
-        @foreach (var c in Model.Conversations.OrderByDescending(x => x.CreatedAt))
-        {
-            <div class="conversation">
-                <b>@c.Agent.Name</b>
-                <span>@c.Message</span>
-                <small>@c.TokenUsed.ToString("N0") tokens</small>
-            </div>
-        }
     </div>
 </div>
 
