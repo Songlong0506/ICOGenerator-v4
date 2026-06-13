@@ -1,5 +1,6 @@
 @using System.Text.Encodings.Web
-@model List<AiModel>
+@using ICOGenerator.Application.Models
+@model AiModelListPage
 
 <style>
     .inline-form {
@@ -76,7 +77,7 @@
         </thead>
 
         <tbody>
-            @foreach (var m in Model)
+            @foreach (var m in Model.Items)
             {
                 <tr>
                     <td><b>@m.Name</b></td>
@@ -130,6 +131,43 @@
             }
         </tbody>
     </table>
+    <div class="pager">
+        <span>Showing @Model.FirstItemIndex to @Model.LastItemIndex of @Model.TotalCount models</span>
+        @if (Model.TotalPages > 1)
+        {
+            <div class="pager-controls">
+                @if (Model.HasPrevious)
+                {
+                    <a class="btn outline" asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">‹ Prev</a>
+                }
+                else
+                {
+                    <span class="btn outline disabled">‹ Prev</span>
+                }
+
+                @for (var i = 1; i <= Model.TotalPages; i++)
+                {
+                    if (i == Model.Page)
+                    {
+                        <span class="btn primary">@i</span>
+                    }
+                    else
+                    {
+                        <a class="btn" asp-action="Index" asp-route-page="@i" asp-route-pageSize="@Model.PageSize">@i</a>
+                    }
+                }
+
+                @if (Model.HasNext)
+                {
+                    <a class="btn outline" asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">Next ›</a>
+                }
+                else
+                {
+                    <span class="btn outline disabled">Next ›</span>
+                }
+            </div>
+        }
+    </div>
 </div>
 
 <div id="addModel" class="modal-backdrop hidden">

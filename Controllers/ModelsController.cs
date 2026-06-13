@@ -26,9 +26,9 @@ public class ModelsController : Controller
         _deleteAiModelUseCase = deleteAiModelUseCase;
     }
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(int page = 1, int pageSize = ListAiModelsQuery.DefaultPageSize)
     {
-        return View(await _listAiModelsQuery.ExecuteAsync());
+        return View(await _listAiModelsQuery.ExecuteAsync(page, pageSize));
     }
 
     [HttpPost]
