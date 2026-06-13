@@ -6,7 +6,6 @@ public class AgentEditVm
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
-    public string RoleTitle { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Color { get; set; } = "#8B5CF6";
     public AgentStatus Status { get; set; } = AgentStatus.Active;

@@ -30,12 +30,12 @@ public static class DbInitializer
             var modelId = await db.AiModels.Where(x => x.IsDefault).Select(x => x.Id).FirstAsync();
             var agents = new[]
             {
-                new Agent { Name="BA", RoleTitle="Business Analyst", RoleKey=AgentRoleKey.BusinessAnalyst, Color="#8B5CF6", AiModelId=modelId, Description="Thu thập và phân tích yêu cầu, viết tài liệu đặc tả nghiệp vụ." },
-                new Agent { Name="Tech Lead", RoleTitle="Technical Lead", RoleKey=AgentRoleKey.TechLead, Color="#3B82F6", AiModelId=modelId, Description="Thiết kế kiến trúc và review kỹ thuật." },
-                new Agent { Name="Developer", RoleTitle="Developer", RoleKey=AgentRoleKey.Developer, Color="#10B981", AiModelId=modelId, Description="Sinh source code, build và sửa lỗi." },
-                new Agent { Name="Tester", RoleTitle="QA Engineer", RoleKey=AgentRoleKey.Tester, Color="#2563EB", AiModelId=modelId, Description="Viết test cases và kiểm thử." },
-                new Agent { Name="UI/UX", RoleTitle="Designer", RoleKey=AgentRoleKey.UiUx, Color="#F97316", AiModelId=modelId, Description="Thiết kế flow và wireframe." },
-                new Agent { Name="System", RoleTitle="System Agent", RoleKey=AgentRoleKey.System, Color="#64748B", AiModelId=modelId, Status=AgentStatus.Inactive, Description="System orchestration agent." }
+                new Agent { Name="BA", RoleKey=AgentRoleKey.BusinessAnalyst, Color="#8B5CF6", AiModelId=modelId, Description="Thu thập và phân tích yêu cầu, viết tài liệu đặc tả nghiệp vụ." },
+                new Agent { Name="Tech Lead", RoleKey=AgentRoleKey.TechLead, Color="#3B82F6", AiModelId=modelId, Description="Thiết kế kiến trúc và review kỹ thuật." },
+                new Agent { Name="Developer", RoleKey=AgentRoleKey.Developer, Color="#10B981", AiModelId=modelId, Description="Sinh source code, build và sửa lỗi." },
+                new Agent { Name="Tester", RoleKey=AgentRoleKey.Tester, Color="#2563EB", AiModelId=modelId, Description="Viết test cases và kiểm thử." },
+                new Agent { Name="UI/UX", RoleKey=AgentRoleKey.UiUx, Color="#F97316", AiModelId=modelId, Description="Thiết kế flow và wireframe." },
+                new Agent { Name="System", RoleKey=AgentRoleKey.System, Color="#64748B", AiModelId=modelId, Status=AgentStatus.Inactive, Description="System orchestration agent." }
             };
             db.Agents.AddRange(agents);
             await db.SaveChangesAsync();

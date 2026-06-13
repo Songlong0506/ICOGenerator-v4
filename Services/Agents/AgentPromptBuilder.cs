@@ -1,4 +1,5 @@
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Tools.Abstractions;
@@ -24,7 +25,7 @@ public class AgentPromptBuilder
 
         return _promptTemplateService.Get("Agents/tool-agent.v1.md")
             .Replace("{{agentName}}", agent.Name)
-            .Replace("{{roleTitle}}", agent.RoleTitle)
+            .Replace("{{roleTitle}}", agent.RoleKey.GetTitle())
             .Replace("{{instruction}}", _instructionProvider.GetInstruction(agent))
             .Replace("{{tools}}", toolText);
     }
