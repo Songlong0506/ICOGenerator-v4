@@ -27,11 +27,10 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border: 1px solid #eee;
-        border-radius: 12px;
+        border: 1px solid var(--line);
         padding: 14px;
         margin-top: 12px;
-        background: #faf7ff;
+        background: #f7f8f9;
     }
 
     .history-left {
@@ -60,18 +59,19 @@
 
     .msg {
         padding: 18px;
-        border-radius: 16px;
         margin-bottom: 16px;
         max-width: 75%;
+        border: 1px solid transparent;
     }
 
         .msg.you {
             margin-left: auto;
-            background: #efe7ff;
+            background: var(--bosch-blue-tint);
         }
 
         .msg.ba {
-            background: #f8f8f8;
+            background: #f7f8f9;
+            border-color: var(--line);
         }
 
     .chatbox {
@@ -101,7 +101,7 @@
         }
 
     .thinking {
-        border: 1px dashed #8b5cf6;
+        border: 1px dashed var(--bosch-blue);
     }
 
     .thinking-content {
@@ -115,7 +115,7 @@
         width: 18px;
         height: 18px;
         border: 3px solid #ddd;
-        border-top: 3px solid #8b5cf6;
+        border-top: 3px solid var(--bosch-blue);
         border-radius: 50%;
         animation: spin 1s linear infinite;
     }
@@ -142,7 +142,6 @@
 
     .modal {
         background: white;
-        border-radius: 20px;
         width: 1100px;
         max-width: 95%;
         max-height: 90vh;
@@ -174,12 +173,15 @@
     }
 
     .doc-tab {
-        border: 1px solid #8b5cf6;
+        border: 1px solid var(--bosch-blue);
         background: white;
-        color: #8b5cf6;
-        border-radius: 8px;
+        color: var(--bosch-blue);
         padding: 8px 14px;
         cursor: pointer;
+    }
+
+    .doc-tab:hover {
+        background: var(--bosch-blue-tint);
     }
 
     .requirement-content {
