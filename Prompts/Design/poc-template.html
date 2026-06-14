@@ -11,8 +11,10 @@
        shell markup (.supergraphic, .sidebar, .topbar) exactly as-is.
     2. Replace ONLY what is between POC_CONTENT_START and POC_CONTENT_END with the
        feature UI from the AI Design Spec, reusing the documented classes.
-    3. You MAY rename the App Name, the breadcrumb text and the nav items/groups to
-       fit the feature, but do NOT change the shell structure, the <style> or the <script>.
+    3. To fit the feature, also replace the marked regions in the shell: the App Name
+       between POC_APPNAME_START/END, the breadcrumb between POC_BREADCRUMB_START/END,
+       and the nav items/groups between POC_NAV_START/END. Do NOT change the shell
+       structure outside those markers, the <style> or the <script>.
     4. Save as poc-demo.html. Do NOT add any external CSS/JS framework.
 
   Content classes: card-grid card card-title card-body / tile tile-value tile-label /
@@ -718,7 +720,7 @@
             <!-- ===== Sidebar ===== -->
             <aside class="sidebar">
                 <div class="sidebar-head">
-                    <span class="app-name">App Name</span>
+                    <span class="app-name"><!-- POC_APPNAME_START -->App Name<!-- POC_APPNAME_END --></span>
                     <button class="sb-toggle" id="sbToggle" title="Toggle menu" aria-label="Toggle menu">
                         <svg class="ico ico-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
                         <svg class="ico ico-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
@@ -726,6 +728,7 @@
                 </div>
 
                 <nav class="sidebar-nav">
+                    <!-- POC_NAV_START : replace the nav items/groups below to match the feature -->
                     <!-- Leaf item -->
                     <div class="nav-item active" title="Overview">
                         <svg class="ico" viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v8h-8zM13 13h8v8h-8zM3 13h8v8H3z" /></svg>
@@ -774,6 +777,7 @@
                             <div class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg><span class="nav-label">Preferences</span></div>
                         </div>
                     </div>
+                    <!-- POC_NAV_END -->
                 </nav>
 
                 <!-- ===== Bottom: User + Imprint (fixed defaults) ===== -->
@@ -794,7 +798,7 @@
 
                 <!-- Fixed top bar: breadcrumb (left) + Bosch logo (right) -->
                 <header class="topbar">
-                    <div class="breadcrumb">Home <span class="sep">&rsaquo;</span> Page Title</div>
+                    <div class="breadcrumb"><!-- POC_BREADCRUMB_START -->Home <span class="sep">&rsaquo;</span> Page Title<!-- POC_BREADCRUMB_END --></div>
                     <div class="topbar-spacer"></div>
                     <div class="bosch-logo">BOSCH</div>
                 </header>

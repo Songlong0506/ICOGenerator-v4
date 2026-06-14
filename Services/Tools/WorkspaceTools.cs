@@ -101,8 +101,8 @@ public class WorkspaceTools
         return $"File updated: {relativePath}";
     }
 
-    [Description("Set the POC feature UI for the generated demo. Pass only the inner HTML for the content region; it is placed between the existing POC_CONTENT markers in 03_Implementation/poc-demo.html, keeping the page shell (head/style/script, sidebar, topbar) untouched. Use this instead of ReplaceInFile for the POC content.")]
-    public async Task<string> SetPocContent(string content)
+    [Description("Set the POC feature UI for the generated demo. 'content' is the inner HTML for the content region, placed between the POC_CONTENT markers in 03_Implementation/poc-demo.html, keeping the page shell (head/style/script, sidebar, topbar) untouched. Also rebrand the shell so it matches the feature: pass 'appName' to rename the sidebar App Name, 'nav' to replace the sidebar navigation items/groups (reuse the nav-item/nav-group/nav-sub markup from the template), and 'breadcrumb' for the top-bar breadcrumb. Use this instead of ReplaceInFile for the POC.")]
+    public async Task<string> SetPocContent(string content, string? appName = null, string? nav = null, string? breadcrumb = null)
     {
         EnsureWorkspace();
         var fullPath = GetSafeFullPath(PocTemplate.MockupRelativePath);
@@ -112,6 +112,13 @@ public class WorkspaceTools
         var updated = PocTemplate.ReplaceContent(current, content ?? string.Empty);
         if (updated == null)
             return $"POC content markers not found in file: {PocTemplate.MockupRelativePath}";
+
+        if (!string.IsNullOrWhiteSpace(appName))
+            updated = PocTemplate.ReplaceAppName(updated, appName) ?? updated;
+        if (!string.IsNullOrWhiteSpace(nav))
+            updated = PocTemplate.ReplaceNav(updated, nav) ?? updated;
+        if (!string.IsNullOrWhiteSpace(breadcrumb))
+            updated = PocTemplate.ReplaceBreadcrumb(updated, breadcrumb) ?? updated;
 
         await File.WriteAllTextAsync(fullPath, updated);
         return $"POC content updated: {PocTemplate.MockupRelativePath}";

@@ -117,12 +117,20 @@ Không sửa requirement document.
 
 YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template có sẵn):
 - File '03_Implementation/poc-demo.html' ĐÃ TỒN TẠI sẵn (là bản sao của shell template: <head> + <style>, <script>, sidebar/topbar, 2 popup User/Imprint đều đã hoàn chỉnh). KHÔNG cần đọc lại file và KHÔNG ghi đè cả file bằng WriteFile.
-- Dùng tool SetPocContent ĐÚNG MỘT LẦN. Tham số 'content' = HTML giao diện của tính năng theo AI Design Spec (chỉ phần nội dung bên trong, KHÔNG kèm <html>/<head>/<body>/sidebar/topbar). Hệ thống sẽ tự đặt nội dung này vào đúng vùng giữa 2 marker và giữ nguyên toàn bộ shell.
+- Dùng tool SetPocContent ĐÚNG MỘT LẦN với các tham số:
+  • 'content' = HTML giao diện của tính năng theo AI Design Spec (chỉ phần nội dung bên trong, KHÔNG kèm <html>/<head>/<body>/sidebar/topbar).
+  • 'appName' = TÊN ỨNG DỤNG/tính năng (thay cho 'App Name' mặc định của template — BẮT BUỘC đặt theo AI Design Spec, KHÔNG để nguyên 'App Name').
+  • 'nav' = HTML các mục menu trái khớp với tính năng, thay cho 'Overview/Module A/Module B/Settings' mặc định. Dùng đúng markup nav-item/nav-group/nav-sub như template (xem ví dụ bên dưới), KHÔNG để nguyên menu mẫu.
+  • 'breadcrumb' = breadcrumb trên top bar cho khớp tính năng (vd 'Home › <Tên trang>').
+  Hệ thống tự đặt content vào vùng giữa 2 marker POC_CONTENT, appName/nav/breadcrumb vào đúng vùng marker tương ứng, và giữ nguyên toàn bộ phần shell còn lại.
+- Mẫu markup cho 'nav' (lặp lại cho từng mục, đổi text/icon cho khớp tính năng):
+    <div class="nav-item active" title="..."><svg class="ico" viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v8h-8zM13 13h8v8h-8zM3 13h8v8H3z" /></svg><span class="nav-label">...</span></div>
+    <div class="nav-group open"><div class="nav-item" title="..."><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg><span class="nav-label">...</span><svg class="ico nav-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg></div><div class="nav-sub"><div class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg><span class="nav-label">...</span></div></div></div>
 - Dùng đúng các class có sẵn: card, card-grid, card-title, card-body, tile, tile-value, tile-label, btn, btn-outline, btn-ghost, table, field, input, select, textarea, badge, badge-green, badge-gray, row, stack, muted.
 - Nội dung phải TỰ CHỨA: KHÔNG link/nhúng CSS hay JS framework bên ngoài (không Angular/Material/Bootstrap...). Chỉ dùng CSS/JS đã có sẵn trong file.
 - KHÔNG dùng ReplaceInFile/WriteFile/RunCommand/grep cho việc này. Sau khi SetPocContent trả "POC content updated", trả final result NGAY, KHÔNG đọc lại file.
 
-Kết quả: nội dung tính năng được đặt vào file 03_Implementation/poc-demo.html (chỉ vùng giữa 2 marker).
+Kết quả: nội dung + tên app + menu trái + breadcrumb được đặt vào file 03_Implementation/poc-demo.html theo đúng các vùng marker.
 
 # AI Design Spec
 
