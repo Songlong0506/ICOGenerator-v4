@@ -922,6 +922,10 @@
                         }
                     </style>
 
+                    <div class="row mb">
+                        <button class="btn" id="openAddress">Add New Address</button>
+                    </div>
+
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -1017,6 +1021,87 @@
         </div>
     </div>
 
+    <!-- ===== Add New Address popup ===== -->
+    <style>
+        .modal.addr {
+            width: min(640px,94vw);
+        }
+
+        .addr-head {
+            display: flex;
+            align-items: flex-start;
+            padding: 22px 26px 0;
+        }
+
+            .addr-head h3 {
+                flex: 1;
+                margin: 0;
+                font-size: 22px;
+                font-weight: 700;
+                color: var(--ink);
+            }
+
+        .addr-note {
+            margin: 0;
+            padding: 14px 26px 4px;
+            color: var(--ink);
+            font-size: 15px;
+        }
+
+        .addr-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 14px 26px 0;
+        }
+
+        .addr-input {
+            font-family: inherit;
+            font-size: 15px;
+            padding: 14px 16px;
+            width: 100%;
+            color: var(--ink);
+            background: #e7eaec;
+            border: 0;
+            border-bottom: 1px solid transparent;
+        }
+
+            .addr-input::placeholder {
+                color: var(--muted);
+            }
+
+            .addr-input:focus {
+                outline: none;
+                background: #dfe3e6;
+                border-bottom-color: var(--bosch-blue);
+            }
+
+        .addr-foot {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 26px;
+        }
+    </style>
+    <div class="modal-overlay" id="addressModal">
+        <div class="modal addr">
+            <div class="addr-head">
+                <h3>Add New Address</h3>
+                <button class="modal-close" data-close="addressModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+            </div>
+            <p class="addr-note"><b>(*)</b> Mandatory field. Enter address information below.</p>
+            <div class="addr-body">
+                <input class="addr-input" type="text" placeholder="Street" value="DemoStrada" />
+                <input class="addr-input" type="text" placeholder="ZIP code" value="70469" />
+                <input class="addr-input" type="text" placeholder="City" value="Stuttgart" />
+            </div>
+            <div class="addr-foot">
+                <button class="btn">Save</button>
+                <button class="btn btn-outline" data-close="addressModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
     (function () {
       var shell = document.getElementById('appShell');
@@ -1037,6 +1122,7 @@
       function open(id) { var m = document.getElementById(id); if (m) m.classList.add('open'); }
       var u = document.getElementById('navUser'); if (u) u.addEventListener('click', function () { open('userModal'); });
       var i = document.getElementById('navImprint'); if (i) i.addEventListener('click', function () { open('imprintModal'); });
+      var a = document.getElementById('openAddress'); if (a) a.addEventListener('click', function () { open('addressModal'); });
       document.querySelectorAll('[data-close]').forEach(function (b) {
         b.addEventListener('click', function () { var m = document.getElementById(b.getAttribute('data-close')); if (m) m.classList.remove('open'); });
       });
