@@ -89,10 +89,14 @@
 
     .write-req {
         margin: 0;
+        display: flex;
     }
 
+    /* Compact button sized to its label instead of a full-width bar so it
+       reads as an action button rather than a separator. */
     .write-req-btn {
-        display: flex;
+        display: inline-flex;
+        width: auto;
         align-items: center;
         justify-content: center;
         gap: 6px;
