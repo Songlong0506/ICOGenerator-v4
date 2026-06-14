@@ -51,7 +51,10 @@
     }
 </style>
 
-<div class="breadcrumb">Projects › @Model.Name › <b>Manage Agent</b></div>
+@section Breadcrumb {
+    Projects <span class="sep">&rsaquo;</span> @Model.Name <span class="sep">&rsaquo;</span> <b>Manage Agent</b>
+}
+
 <div class="page-head">
     <div>
         <h1>Manage Agent</h1>
