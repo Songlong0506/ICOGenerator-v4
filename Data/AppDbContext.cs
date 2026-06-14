@@ -1,12 +1,16 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Data;
 
 public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    private readonly IApiKeyProtector _apiKeyProtector;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, IApiKeyProtector apiKeyProtector) : base(options)
+        => _apiKeyProtector = apiKeyProtector;
 
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Agent> Agents => Set<Agent>();
@@ -29,6 +33,12 @@ public class AppDbContext : DbContext
         builder.Entity<AgentTool>().HasOne(x => x.ToolDefinition).WithMany(x => x.AgentTools).HasForeignKey(x => x.ToolDefinitionId);
 
         builder.Entity<AiModel>().HasIndex(x => x.ModelId);
+
+        // ApiKey được mã hóa khi ghi và giải mã khi đọc nên không bao giờ nằm dạng plaintext trong DB.
+        // Đổi giá trị so sánh change-tracking vẫn dựa trên plaintext (CLR side) nên không phát sinh update thừa.
+        builder.Entity<AiModel>().Property(x => x.ApiKey).HasConversion(
+            plain => _apiKeyProtector.Protect(plain),
+            stored => _apiKeyProtector.Unprotect(stored));
         builder.Entity<Agent>().Property(x => x.RoleKey).HasConversion<string>().HasMaxLength(100);
         builder.Entity<Agent>().HasIndex(x => x.RoleKey);
         builder.Entity<ToolDefinition>().HasIndex(x => new { x.ServiceType, x.MethodName }).IsUnique();

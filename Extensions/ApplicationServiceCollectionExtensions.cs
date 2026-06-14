@@ -14,6 +14,7 @@ using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Settings;
 using ICOGenerator.Services.Requirements.Templates;
+using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Execution;
@@ -28,6 +29,7 @@ public static class ApplicationServiceCollectionExtensions
     public static IServiceCollection AddIcoGeneratorApplication(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddControllersWithViews();
+        services.AddSingleton<IApiKeyProtector, AesApiKeyProtector>();
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 

@@ -1,5 +1,6 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Tools.Registry;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +13,9 @@ public static class DbInitializer
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.MigrateAsync();
+
+        var apiKeyProtector = scope.ServiceProvider.GetRequiredService<IApiKeyProtector>();
+        await EncryptLegacyApiKeysAsync(db, apiKeyProtector);
 
         var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
         await discovery.SyncToolDefinitionsAsync();
@@ -59,6 +63,59 @@ public static class DbInitializer
             db.ProjectDocuments.Add(new ProjectDocument { ProjectId=p.Id, AgentId=ba.Id, Folder="01_Requirement", FileName="01_Project_Overview.md", TokenUsed=4250, Content="# Tổng quan dự án\nDự án E-commerce Web App là nền tảng thương mại điện tử cho phép người dùng xem sản phẩm, thêm vào giỏ hàng, thanh toán và quản lý đơn hàng.\n\n## Mục tiêu\n- Cung cấp trải nghiệm mua sắm trực tuyến mượt mà\n- Quản lý sản phẩm, đơn hàng, người dùng hiệu quả\n- Hỗ trợ thanh toán đa dạng" });
             db.AgentConversations.Add(new AgentConversation { ProjectId=p.Id, AgentId=ba.Id, Message="Đã phân tích yêu cầu và tạo tài liệu tổng quan dự án.", TokenUsed=4250 });
             await db.SaveChangesAsync();
+        }
+    }
+
+    // Mã hóa một lần các ApiKey còn ở dạng plaintext trong DB (các bản cài đặt cũ trước khi bật mã hóa).
+    // Đọc trực tiếp giá trị thô bằng ADO.NET để bỏ qua value converter (vốn sẽ tự giải mã/đi qua).
+    private static async Task EncryptLegacyApiKeysAsync(AppDbContext db, IApiKeyProtector protector)
+    {
+        var connection = db.Database.GetDbConnection();
+        var openedHere = connection.State != System.Data.ConnectionState.Open;
+        if (openedHere)
+            await connection.OpenAsync();
+
+        try
+        {
+            var legacy = new List<(Guid Id, string ApiKey)>();
+
+            await using (var read = connection.CreateCommand())
+            {
+                read.CommandText = "SELECT Id, ApiKey FROM AiModels";
+                await using var reader = await read.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    if (reader.IsDBNull(1))
+                        continue;
+
+                    var apiKey = reader.GetString(1);
+                    if (!protector.IsProtected(apiKey))
+                        legacy.Add((reader.GetGuid(0), apiKey));
+                }
+            }
+
+            foreach (var (id, apiKey) in legacy)
+            {
+                await using var update = connection.CreateCommand();
+                update.CommandText = "UPDATE AiModels SET ApiKey = @key WHERE Id = @id";
+
+                var keyParam = update.CreateParameter();
+                keyParam.ParameterName = "@key";
+                keyParam.Value = protector.Protect(apiKey);
+                update.Parameters.Add(keyParam);
+
+                var idParam = update.CreateParameter();
+                idParam.ParameterName = "@id";
+                idParam.Value = id;
+                update.Parameters.Add(idParam);
+
+                await update.ExecuteNonQueryAsync();
+            }
+        }
+        finally
+        {
+            if (openedHere)
+                await connection.CloseAsync();
         }
     }
 
