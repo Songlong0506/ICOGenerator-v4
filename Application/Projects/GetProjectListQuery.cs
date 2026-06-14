@@ -23,30 +23,38 @@ public class GetProjectListQuery
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = DefaultPageSize;
 
-        var baseQuery = _db.Projects.OrderByDescending(x => x.CreatedAt);
+        var baseQuery = _db.Projects.AsNoTracking().OrderByDescending(x => x.CreatedAt);
 
         var totalCount = await baseQuery.CountAsync();
 
-        var projects = await baseQuery
-            .Include(x => x.WorkflowRuns)
+        // Chỉ lấy status/stage của workflow run MỚI NHẤT ngay ở DB (subquery) thay vì
+        // Include toàn bộ WorkflowRuns về RAM rồi sắp xếp — tránh kéo dữ liệu thừa với
+        // project chạy nhiều lần.
+        var rows = await baseQuery
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .Select(project => new
+            {
+                Project = project,
+                LatestWorkflow = project.WorkflowRuns
+                    .OrderByDescending(w => w.CreatedAt)
+                    .Select(w => new { w.Status, w.CurrentStage })
+                    .FirstOrDefault()
+            })
             .ToListAsync();
 
-        var items = projects
-            .Select(project =>
+        var items = rows
+            .Select(row =>
             {
-                var latestWorkflow = project.WorkflowRuns
-                    .OrderByDescending(x => x.CreatedAt)
-                    .FirstOrDefault();
+                var latestWorkflow = row.LatestWorkflow;
                 var hasRunningWorkflow = latestWorkflow is not null
                     && latestWorkflow.Status is not WorkflowRunStatus.Completed
                         and not WorkflowRunStatus.Failed
                         and not WorkflowRunStatus.Canceled;
 
                 return new ProjectListItem(
-                    project,
-                    File.Exists(_workspacePathResolver.GetMockupPath(project.Name)),
+                    row.Project,
+                    File.Exists(_workspacePathResolver.GetMockupPath(row.Project.Name)),
                     latestWorkflow?.Status.ToString(),
                     latestWorkflow?.CurrentStage.ToString(),
                     hasRunningWorkflow);

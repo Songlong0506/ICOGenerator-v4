@@ -85,10 +85,9 @@ API error: {(int)response.StatusCode} {response.StatusCode}
             var contentBuilder = new StringBuilder();
             var rawBuilder = new StringBuilder();
 
-            while (!reader.EndOfStream)
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
             {
-                var line = await reader.ReadLineAsync();
-
                 if (string.IsNullOrWhiteSpace(line))
                     continue;
 

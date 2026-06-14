@@ -7,7 +7,9 @@ public static class ToolSchemaBuilder
 {
     public static string BuildInputSchema(MethodInfo method)
     {
-        var properties = method.GetParameters().ToDictionary(
+        var methodParameters = method.GetParameters();
+
+        var properties = methodParameters.ToDictionary(
             parameter => parameter.Name ?? string.Empty,
             parameter => new
             {
@@ -15,7 +17,7 @@ public static class ToolSchemaBuilder
                 description = parameter.Name ?? string.Empty
             });
 
-        var required = method.GetParameters()
+        var required = methodParameters
             .Where(parameter => !parameter.HasDefaultValue && Nullable.GetUnderlyingType(parameter.ParameterType) == null)
             .Select(parameter => parameter.Name)
             .Where(name => !string.IsNullOrWhiteSpace(name))

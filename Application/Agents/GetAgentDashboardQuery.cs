@@ -112,15 +112,16 @@ public class GetAgentDashboardQuery
     private static string GetDocumentKey(string folder, string versionName, string fileName) =>
         $"{folder}/{versionName}/{fileName}";
 
+    private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".cs", ".css", ".csv", ".html", ".htm", ".js", ".json", ".md", ".sql", ".txt", ".xml", ".yml", ".yaml"
+    };
+
     private static string ReadPreviewContent(string filePath)
     {
         var extension = Path.GetExtension(filePath);
-        var textExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".cs", ".css", ".csv", ".html", ".htm", ".js", ".json", ".md", ".sql", ".txt", ".xml", ".yml", ".yaml"
-        };
 
-        if (!textExtensions.Contains(extension))
+        if (!TextExtensions.Contains(extension))
             return $"Preview is not available for binary file: {Path.GetFileName(filePath)}";
 
         var content = File.ReadAllText(filePath);
