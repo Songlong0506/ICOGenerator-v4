@@ -11,6 +11,14 @@ namespace ICOGenerator.Services.Workflows;
 
 public class AgentTaskWorker : BackgroundService
 {
+    // Markers and placeholder shared between the workspace seeding and the agent
+    // prompt so the two can never drift apart (drift was the original cause of the
+    // "poc-demo.html identical to template" bug). The start marker text MUST match
+    // the literal line in Prompts/Design/poc-template.html.
+    private const string PocContentStartMarker = "<!-- POC_CONTENT_START : replace everything below with the feature UI -->";
+    private const string PocContentEndMarker = "<!-- POC_CONTENT_END -->";
+    private const string PocContentPlaceholder = "<!-- POC_CONTENT_PLACEHOLDER: ReplaceInFile this exact line with the feature UI -->";
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AgentTaskWorker> _logger;
     private readonly IWorkflowProgressReporter _progress;
@@ -173,13 +181,43 @@ public class AgentTaskWorker : BackgroundService
             // is the bulk of the boilerplate and removing the round-trip saves a large
             // amount of tokens per POC run. Overwriting resets a clean baseline, matching
             // the previous behaviour where the agent recreated the file each run.
+            //
+            // The region between the markers is collapsed to a SINGLE short placeholder
+            // line so the agent can swap it in with one deterministic ReplaceInFile call,
+            // rather than having to reproduce the whole ~160-line block verbatim (which
+            // always failed with "Old text not found" and left the file unchanged).
             var templateSrc = Path.Combine(sourceDir, "poc-template.html");
             if (File.Exists(templateSrc))
-                File.Copy(templateSrc, resolver.GetMockupPath(project.Name), overwrite: true);
+                await SeedPocDemoAsync(templateSrc, resolver.GetMockupPath(project.Name));
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not copy POC design assets into the workspace.");
         }
+    }
+
+    // Copies the template into poc-demo.html, replacing everything between the two
+    // POC_CONTENT markers with a single placeholder line. The markers themselves are
+    // preserved so the generated POC keeps a stable, editable content region.
+    private static async Task SeedPocDemoAsync(string templateSrc, string demoPath)
+    {
+        var template = await File.ReadAllTextAsync(templateSrc);
+
+        var startIdx = template.IndexOf(PocContentStartMarker, StringComparison.Ordinal);
+        var endIdx = template.IndexOf(PocContentEndMarker, StringComparison.Ordinal);
+
+        if (startIdx < 0 || endIdx <= startIdx)
+        {
+            // Markers missing/malformed: fall back to a raw copy so we never lose the file.
+            File.Copy(templateSrc, demoPath, overwrite: true);
+            return;
+        }
+
+        var afterStart = startIdx + PocContentStartMarker.Length;
+        var seeded = template[..afterStart]
+            + "\n                    " + PocContentPlaceholder + "\n                    "
+            + template[endIdx..];
+
+        await File.WriteAllTextAsync(demoPath, seeded);
     }
 }
