@@ -23,18 +23,6 @@ public class UpdateAiModelUseCase
         model.ContextWindow = input.ContextWindow;
         model.IsActive = input.IsActive;
 
-        if (input.IsDefault)
-        {
-            var defaults = await _db.AiModels.Where(x => x.Id != input.Id && x.IsDefault).ToListAsync();
-            foreach (var item in defaults)
-                item.IsDefault = false;
-            model.IsDefault = true;
-        }
-        else
-        {
-            model.IsDefault = false;
-        }
-
         await _db.SaveChangesAsync();
         return true;
     }

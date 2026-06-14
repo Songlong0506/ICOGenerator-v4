@@ -89,7 +89,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ListAiModelsQuery>();
         services.AddScoped<CreateAiModelUseCase>();
         services.AddScoped<UpdateAiModelUseCase>();
-        services.AddScoped<SetDefaultAiModelUseCase>();
         services.AddScoped<DeleteAiModelUseCase>();
         return services;
     }

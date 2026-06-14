@@ -9,18 +9,23 @@ public class UpdateAgentUseCase
     private readonly AppDbContext _db;
     public UpdateAgentUseCase(AppDbContext db) => _db = db;
 
-    public async Task<bool> ExecuteAsync(AgentEditVm vm)
+    public async Task<UpdateAgentResult> ExecuteAsync(AgentEditVm vm)
     {
         var agent = await _db.Agents.Include(x => x.AgentTools).FirstOrDefaultAsync(x => x.Id == vm.Id);
         if (agent == null)
-            return false;
+            return UpdateAgentResult.NotFound;
+
+        // Mỗi agent bắt buộc phải gán một AI model còn tồn tại — set thủ công để
+        // tránh chạy nhầm model ngoài ý muốn.
+        if (vm.AiModelId is not { } modelId || !await _db.AiModels.AnyAsync(x => x.Id == modelId))
+            return UpdateAgentResult.ModelRequired;
 
         agent.Name = vm.Name?.Trim() ?? string.Empty;
         agent.Description = vm.Description?.Trim() ?? string.Empty;
         agent.Color = string.IsNullOrWhiteSpace(vm.Color) ? "#8B5CF6" : vm.Color.Trim();
         agent.Status = vm.Status;
         agent.Temperature = vm.Temperature;
-        agent.AiModelId = vm.AiModelId;
+        agent.AiModelId = modelId;
 
         var selectedToolIds = vm.ToolDefinitionIds.Distinct().ToHashSet();
         var removed = agent.AgentTools.Where(x => !selectedToolIds.Contains(x.ToolDefinitionId)).ToList();
@@ -38,6 +43,6 @@ public class UpdateAgentUseCase
         }
 
         await _db.SaveChangesAsync();
-        return true;
+        return UpdateAgentResult.Success;
     }
 }

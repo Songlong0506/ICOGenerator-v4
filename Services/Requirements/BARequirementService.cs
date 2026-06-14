@@ -46,7 +46,7 @@ public class BARequirementService
             .Include(x => x.AiModel)
             .FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
 
-        var model = ba.AiModel ?? await _db.AiModels.FirstAsync(x => x.IsDefault);
+        var model = ba.AiModel ?? throw new InvalidOperationException("BA agent model is not configured.");
 
         _db.AgentConversations.Add(new AgentConversation
         {
@@ -121,7 +121,7 @@ public class BARequirementService
             .Include(x => x.AiModel)
             .FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
 
-        var model = ba.AiModel ?? await _db.AiModels.FirstAsync(x => x.IsDefault);
+        var model = ba.AiModel ?? throw new InvalidOperationException("BA agent model is not configured.");
 
         // Gộp toàn bộ yêu cầu user đã nói trong hội thoại thành brief đầu vào.
         var requirementBrief = BuildRequirementBrief(project.Conversations);
