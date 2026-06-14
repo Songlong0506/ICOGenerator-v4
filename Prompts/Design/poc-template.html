@@ -35,8 +35,11 @@
             --ink: #1a1a1a;
             --muted: #5a6066;
             --line: #d4d8db;
-            --bg: #eff1f2;
+            --bg: #fff;
             --surface: #fff;
+            --disabled-bg: #c1c7cc;
+            --disabled-ink: #8a9097;
+            --disabled-line: #c1c7cc;
             --sidebar-bg: #1f2226;
             --sidebar-bg-2: #2a2e33;
             --sidebar-ink: #c9cdd2;
@@ -363,6 +366,7 @@
             font-size: 13px;
         }
 
+        /* Primary button (filled blue) */
         .btn {
             font-family: inherit;
             font-size: 14px;
@@ -384,6 +388,15 @@
                 border-color: var(--bosch-blue-active);
             }
 
+            .btn:disabled,
+            .btn[disabled] {
+                background: var(--disabled-bg);
+                border-color: var(--disabled-bg);
+                color: #fff;
+                cursor: not-allowed;
+            }
+
+        /* Secondary button (outline) */
         .btn-outline {
             background: transparent;
             color: var(--bosch-blue);
@@ -394,6 +407,15 @@
                 color: var(--bosch-blue-hover);
             }
 
+            .btn-outline:disabled,
+            .btn-outline[disabled] {
+                background: transparent;
+                border-color: var(--disabled-line);
+                color: var(--disabled-ink);
+                cursor: not-allowed;
+            }
+
+        /* Tertiary button (text only) */
         .btn-ghost {
             background: transparent;
             border-color: transparent;
@@ -402,6 +424,14 @@
 
             .btn-ghost:hover {
                 background: rgba(0,123,192,.08);
+            }
+
+            .btn-ghost:disabled,
+            .btn-ghost[disabled] {
+                background: transparent;
+                border-color: transparent;
+                color: var(--disabled-ink);
+                cursor: not-allowed;
             }
 
         .field {
