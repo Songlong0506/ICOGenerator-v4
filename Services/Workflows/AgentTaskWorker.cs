@@ -3,6 +3,7 @@ using ICOGenerator.Domain.Enums;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Tools;
 using Microsoft.EntityFrameworkCore;
@@ -99,6 +100,10 @@ public class AgentTaskWorker : BackgroundService
             _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
 
             await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
+
+            var pocPrompt = scope.ServiceProvider.GetRequiredService<PromptTemplateService>()
+                .Get("Developer/poc.v1.md")
+                .Replace("{{aiDesignSpec}}", task.Input);
 
             var output = await agentRunService.RunAsync(
                 task.ProjectId,
