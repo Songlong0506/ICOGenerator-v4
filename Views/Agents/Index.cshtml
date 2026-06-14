@@ -86,9 +86,6 @@
                     </div>
                 </div>
 
-                <label>Description</label>
-                <textarea name="Description" rows="3">@selected.Description</textarea>
-
                 <div class="form-grid three">
                     <div>
                         <label>Status</label>
@@ -109,15 +106,16 @@
                     </div>
                 </div>
 
-                <h3>Instruction</h3>
-                <p class="muted">Instruction được quản lý trong file <code>@(ViewBag.InstructionFile as string)</code> (versioned trong git), không chỉnh sửa trực tiếp tại đây.</p>
+                <label>Description</label>
+                <textarea name="Description" rows="3">@selected.Description</textarea>
+
+                <label>Instruction(<code>@(ViewBag.InstructionFile as string)</code>)</label>
                 <textarea rows="8" readonly>@(ViewBag.Instruction as string)</textarea>
 
                 <div class="tools-head">
                     <h3>Tools</h3>
                     <span class="tools-counter"><b id="toolsSelectedCount">@enabledToolIds.Count</b> of @tools.Count selected</span>
                 </div>
-                <p class="muted">Tick tools that this agent can use. Untick to remove permission.</p>
 
                 <div class="tools-toolbar">
                     <div class="tools-search-wrap">
