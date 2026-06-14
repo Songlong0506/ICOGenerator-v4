@@ -7,14 +7,14 @@ namespace ICOGenerator.Services.Requirements;
 
 public class RequirementResponseParser
 {
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
     public BARequirementDocxResult Parse(string response, Project project, string userMessage)
     {
         try
         {
             var json = JsonExtractor.Extract(response);
-            var result = JsonSerializer.Deserialize<BARequirementDocxResult>(
-                json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var result = JsonSerializer.Deserialize<BARequirementDocxResult>(json, JsonOptions);
 
             if (result != null)
                 return result;

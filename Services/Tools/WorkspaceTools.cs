@@ -72,7 +72,7 @@ public class WorkspaceTools
     public string ListFiles()
     {
         EnsureWorkspace();
-        var files = Directory.GetFiles(CurrentWorkspacePath, "*.*", SearchOption.AllDirectories)
+        var files = Directory.EnumerateFiles(CurrentWorkspacePath, "*.*", SearchOption.AllDirectories)
             .Where(x => !x.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}"))
             .Select(x => Path.GetRelativePath(CurrentWorkspacePath, x)).Take(500).ToList();
         return files.Count == 0 ? "No files found." : string.Join(Environment.NewLine, files);
@@ -82,7 +82,7 @@ public class WorkspaceTools
     public string SearchFiles(string keyword)
     {
         EnsureWorkspace();
-        var files = Directory.GetFiles(CurrentWorkspacePath, "*.*", SearchOption.AllDirectories)
+        var files = Directory.EnumerateFiles(CurrentWorkspacePath, "*.*", SearchOption.AllDirectories)
             .Where(x => !x.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}"))
             .Select(x => Path.GetRelativePath(CurrentWorkspacePath, x))
             .Where(x => x.Contains(keyword, StringComparison.OrdinalIgnoreCase)).Take(100).ToList();

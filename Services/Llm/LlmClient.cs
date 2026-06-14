@@ -1,6 +1,5 @@
 using ICOGenerator.Domain;
 using System.Diagnostics;
-using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -9,6 +8,18 @@ namespace ICOGenerator.Services.Llm;
 
 public class LlmClient : ILlmClient
 {
+    // Named clients registered in DI; the factory pools the underlying handlers so
+    // we no longer allocate a fresh HttpClientHandler/HttpClient per call (which
+    // risks socket exhaustion). Proxy choice is baked into the handler per name.
+    public const string DirectClientName = "llm-direct";
+    public const string ProxiedClientName = "llm-proxied";
+
+    private static readonly JsonSerializerOptions SerializeOptions = new() { WriteIndented = true };
+
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public LlmClient(IHttpClientFactory httpClientFactory) => _httpClientFactory = httpClientFactory;
+
     public async Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -19,19 +30,8 @@ public class LlmClient : ILlmClient
             ModelName = model.Name
         };
 
-        var handler = new HttpClientHandler();
-
-        if (model.Endpoint.Contains("localhost") || model.Endpoint.Contains("127.0.0.1"))
-        {
-            handler.UseProxy = false;
-        }
-        else
-        {
-            handler.UseProxy = true;
-            handler.Proxy = new WebProxy("http://127.0.0.1:3128");
-        }
-
-        using var http = new HttpClient(handler);
+        var isLocal = model.Endpoint.Contains("localhost") || model.Endpoint.Contains("127.0.0.1");
+        var http = _httpClientFactory.CreateClient(isLocal ? DirectClientName : ProxiedClientName);
 
         http.BaseAddress = new Uri(model.Endpoint.TrimEnd('/') + "/");
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", string.IsNullOrWhiteSpace(model.ApiKey) ? "lm-studio" : model.ApiKey);
@@ -49,8 +49,8 @@ public class LlmClient : ILlmClient
             }
         };
 
-        result.RequestJson = JsonSerializer.Serialize(request, new JsonSerializerOptions { WriteIndented = true });
-        result.PromptTokens = EstimateTokens(string.Join("\n", messages.Select(x => x.Content)));
+        result.RequestJson = JsonSerializer.Serialize(request, SerializeOptions);
+        result.PromptTokens = TokenEstimator.Estimate(string.Join("\n", messages.Select(x => x.Content)));
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "chat/completions");
         httpRequest.Content = new StringContent(result.RequestJson, Encoding.UTF8, "application/json");
@@ -74,7 +74,7 @@ API error: {(int)response.StatusCode} {response.StatusCode}
 
 {errorText}
 """;
-                result.CompletionTokens = EstimateTokens(result.Content);
+                result.CompletionTokens = TokenEstimator.Estimate(result.Content);
                 result.TotalTokens = result.PromptTokens + result.CompletionTokens;
                 return result;
             }
@@ -142,7 +142,7 @@ API error: {(int)response.StatusCode} {response.StatusCode}
             result.ResponseText = rawBuilder.Length > 0 ? rawBuilder.ToString() : result.Content;
             result.DurationMs = stopwatch.ElapsedMilliseconds;
             result.IsSuccess = true;
-            result.CompletionTokens = EstimateTokens(result.Content);
+            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
             result.TotalTokens = result.PromptTokens + result.CompletionTokens;
             return result;
         }
@@ -155,7 +155,7 @@ API error: {(int)response.StatusCode} {response.StatusCode}
             result.ErrorMessage = ex.ToString();
             result.Content = ex.Message;
             result.ResponseText = ex.ToString();
-            result.CompletionTokens = EstimateTokens(result.Content);
+            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
             result.TotalTokens = result.PromptTokens + result.CompletionTokens;
             return result;
         }
@@ -172,9 +172,6 @@ API error: {(int)response.StatusCode} {response.StatusCode}
             return $"Cannot read error body: {ex.Message}";
         }
     }
-
-    private static int EstimateTokens(string? text)
-        => string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 4);
 }
 
 public class LlmCallResult
