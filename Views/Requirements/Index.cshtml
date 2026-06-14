@@ -178,46 +178,51 @@
 
         </div>
 
-        <!-- WRITE REQUIREMENT (generate the 5 docs on demand) -->
-        <form asp-action="WriteRequirement"
-              method="post"
-              class="write-req"
-              style="margin:0 12px 8px;"
-              onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="projectId" value="@Model.Id" />
-            <button class="btn primary full" type="submit"
-                    title="Sinh/cập nhật BRD, SRS, FSD, User Stories, AI Design Spec từ hội thoại">
-                📝 Write Requirement
-            </button>
-        </form>
+        <!-- COMPOSER: write-requirement action + chat input, anchored to bottom -->
+        <div class="chat-composer">
 
-        <!-- CHAT INPUT -->
-        <form id="chatForm"
-              asp-action="Chat"
-              method="post"
-              class="chatbox">
+            <!-- WRITE REQUIREMENT (generate the 5 docs on demand) -->
+            <form asp-action="WriteRequirement"
+                  method="post"
+                  class="write-req"
+                  onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="projectId" value="@Model.Id" />
+                <button class="btn outline full write-req-btn" type="submit"
+                        title="Sinh/cập nhật BRD, SRS, FSD, User Stories, AI Design Spec từ hội thoại">
+                    📝 Write Requirement
+                </button>
+            </form>
 
-            @Html.AntiForgeryToken()
+            <!-- CHAT INPUT -->
+            <form id="chatForm"
+                  asp-action="Chat"
+                  method="post"
+                  class="chatbox">
 
-            <input type="hidden"
-                   name="projectId"
-                   value="@Model.Id" />
+                @Html.AntiForgeryToken()
 
-            <input type="hidden"
-                   id="hiddenMessage"
-                   name="message" />
+                <input type="hidden"
+                       name="projectId"
+                       value="@Model.Id" />
 
-          <textarea id="messageInput"
-                      rows="1"
-                      placeholder="Type your message..."
-                      autocomplete="off"></textarea>
+                <input type="hidden"
+                       id="hiddenMessage"
+                       name="message" />
 
-            <button class="btn primary"
-                    type="submit">
-                ➤
-            </button>
-        </form>
+              <textarea id="messageInput"
+                          rows="1"
+                          placeholder="Type your message..."
+                          autocomplete="off"></textarea>
+
+                <button class="btn primary"
+                        type="submit"
+                        aria-label="Send message">
+                    ➤
+                </button>
+            </form>
+
+        </div>
 
     </section>
 

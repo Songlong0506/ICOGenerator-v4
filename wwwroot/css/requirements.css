@@ -74,11 +74,36 @@
             border-color: var(--line);
         }
 
+    /* Bottom composer groups the write-requirement action and the chat input
+       into one block, anchored to the panel bottom with a separator so it no
+       longer looks like a button floating in the empty chat area. */
+    .chat-composer {
+        flex: 0 0 auto;
+        margin-top: 12px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .write-req {
+        margin: 0;
+    }
+
+    .write-req-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-weight: 600;
+    }
+
     .chatbox {
         display: flex;
         align-items: flex-end;
         gap: 12px;
-        margin-top: 20px;
+        margin-top: 0;
     }
 
         .chatbox textarea {
@@ -470,4 +495,27 @@
 
     .wf-banner-slot:empty {
         margin-top: 0;
+    }
+
+    /* ===== Responsive ===== */
+
+    @media (max-width: 900px) {
+        .doc-grid {
+            grid-template-columns: 1fr;
+            height: auto;
+        }
+
+        .history-panel {
+            order: 2;
+        }
+
+        .chat-panel {
+            order: 1;
+            height: calc(100vh - 220px);
+            min-height: 420px;
+        }
+
+        .msg {
+            max-width: 90%;
+        }
     }
