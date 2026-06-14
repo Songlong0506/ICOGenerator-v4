@@ -38,7 +38,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddUsageUseCases();
         services.AddSettingsUseCases();
         services.AddPromptServices();
-        services.AddLlmServices();
+        services.AddLlmServices(configuration);
         services.AddArtifactServices();
         services.AddToolServices();
         services.AddRequirementServices();
@@ -112,8 +112,15 @@ public static class ApplicationServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddLlmServices(this IServiceCollection services)
+    private static IServiceCollection AddLlmServices(this IServiceCollection services, IConfiguration configuration)
     {
+        // Proxy is config-driven so the same build works behind the office proxy
+        // and at home where it doesn't exist. Toggle via appsettings.json or the
+        // environment variables Llm__Proxy__Enabled / Llm__Proxy__Address.
+        // Defaults preserve the previous office behaviour (proxy on, port 3128).
+        var proxyEnabled = configuration.GetValue("Llm:Proxy:Enabled", true);
+        var proxyAddress = configuration.GetValue("Llm:Proxy:Address", "http://127.0.0.1:3128");
+
         // Two pooled clients so LlmClient never news up a handler per call:
         // one direct (localhost models) and one routed through the local proxy.
         services.AddHttpClient(LlmClient.DirectClientName)
@@ -126,8 +133,10 @@ public static class ApplicationServiceCollectionExtensions
         services.AddHttpClient(LlmClient.ProxiedClientName)
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
-                UseProxy = true,
-                Proxy = new WebProxy("http://127.0.0.1:3128"),
+                // When the proxy is disabled (e.g. at home) the "proxied" client
+                // falls back to a direct connection instead of failing.
+                UseProxy = proxyEnabled,
+                Proxy = proxyEnabled ? new WebProxy(proxyAddress) : null,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5)
             });
 
