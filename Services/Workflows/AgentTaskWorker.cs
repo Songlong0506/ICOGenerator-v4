@@ -3,6 +3,7 @@ using ICOGenerator.Domain.Enums;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
 using Microsoft.EntityFrameworkCore;
 
@@ -107,35 +108,14 @@ public class AgentTaskWorker : BackgroundService
 
             await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
 
+            var pocPrompt = scope.ServiceProvider.GetRequiredService<PromptTemplateService>()
+                .Get("Developer/poc.v1.md")
+                .Replace("{{aiDesignSpec}}", task.Input);
+
             var output = await agentRunService.RunAsync(
                 task.ProjectId,
                 task.AgentId.Value,
-                $"""
-User đã approve requirement.
-
-Chỉ sử dụng AI Design Spec bên dưới để generate code.
-Không đọc BRD/SRS/FSD/UserStories.
-Không sửa requirement document.
-
-YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template có sẵn):
-- File '03_Implementation/poc-demo.html' ĐÃ TỒN TẠI sẵn (là bản sao của shell template: <head> + <style>, <script>, sidebar/topbar, 2 popup User/Imprint đều đã hoàn chỉnh). KHÔNG cần đọc lại file và KHÔNG ghi đè cả file bằng WriteFile.
-- Vùng nội dung tính năng trong file hiện chỉ là ĐÚNG MỘT dòng placeholder duy nhất:
-  {PocContentPlaceholder}
-- Dùng tool ReplaceInFile ĐÚNG MỘT LẦN trên '03_Implementation/poc-demo.html':
-    - oldText = chính xác chuỗi placeholder ở trên (copy nguyên văn).
-    - newText = HTML giao diện của tính năng theo AI Design Spec.
-  Hai marker "{PocContentStartMarker}" và "{PocContentEndMarker}" nằm NGOÀI placeholder nên sẽ tự được giữ nguyên.
-- Dùng đúng các class có sẵn: card, card-grid, card-title, card-body, tile, tile-value, tile-label, btn, btn-outline, btn-ghost, table, field, input, select, textarea, badge, badge-green, badge-gray, row, stack, muted.
-- File phải TỰ CHỨA (self-contained): KHÔNG link/nhúng CSS hay JS framework bên ngoài (không Angular/Material/Bootstrap...). Chỉ dùng CSS/JS đã có sẵn trong file.
-- TUYỆT ĐỐI KHÔNG sửa <head>/<style>, <script>, cấu trúc shell (.supergraphic, .sidebar, .topbar) hay 2 popup User/Imprint.
-- KHÔNG dùng RunCommand/grep. Sau khi ReplaceInFile trả "File updated", trả final result NGAY, KHÔNG đọc lại file.
-
-Kết quả: chỉnh sửa tại chỗ file 03_Implementation/poc-demo.html (chỉ vùng giữa 2 marker).
-
-# AI Design Spec
-
-{task.Input}
-""",
+                pocPrompt,
                 onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail));
 
             _progress.Report(task.WorkflowRunId, "completed", "Task hoàn tất — POC đã được tạo.");
