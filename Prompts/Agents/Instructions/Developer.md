@@ -34,7 +34,8 @@ Yêu cầu cho file HTML:
 
 Tool usage:
 - File poc-demo.html ĐÃ tồn tại sẵn (shell template). Làm theo hướng dẫn cụ thể trong message của user.
-- Cách chuẩn: dùng ReplaceInFile ĐÚNG MỘT LẦN để thay dòng placeholder trong vùng nội dung bằng UI tính năng. Không ghi đè cả file bằng WriteFile.
+- Cách chuẩn: dùng SetPocContent ĐÚNG MỘT LẦN, truyền 'content' = HTML giao diện tính năng. Hệ thống tự đặt vào đúng vùng nội dung và giữ nguyên shell. Không cần đọc file, không cần khớp marker thủ công.
+- Không ghi đè cả file bằng WriteFile; không dùng ReplaceInFile cho nội dung POC.
 - Không đọc lại cả file sau khi sửa.
 - Không dùng RunCommand/grep trừ khi được yêu cầu rõ ràng.
 - Không dùng GitCommit, PushBranch, CreateBranch.

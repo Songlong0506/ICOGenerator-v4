@@ -101,6 +101,22 @@ public class WorkspaceTools
         return $"File updated: {relativePath}";
     }
 
+    [Description("Set the POC feature UI for the generated demo. Pass only the inner HTML for the content region; it is placed between the existing POC_CONTENT markers in 03_Implementation/poc-demo.html, keeping the page shell (head/style/script, sidebar, topbar) untouched. Use this instead of ReplaceInFile for the POC content.")]
+    public async Task<string> SetPocContent(string content)
+    {
+        EnsureWorkspace();
+        var fullPath = GetSafeFullPath(PocTemplate.MockupRelativePath);
+        if (!File.Exists(fullPath)) return $"File not found: {PocTemplate.MockupRelativePath}";
+
+        var current = await File.ReadAllTextAsync(fullPath);
+        var updated = PocTemplate.ReplaceContent(current, content ?? string.Empty);
+        if (updated == null)
+            return $"POC content markers not found in file: {PocTemplate.MockupRelativePath}";
+
+        await File.WriteAllTextAsync(fullPath, updated);
+        return $"POC content updated: {PocTemplate.MockupRelativePath}";
+    }
+
     public void RenameFolder(string oldRelativePath, string newRelativePath)
     {
         EnsureWorkspace();
