@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 
@@ -7,25 +8,23 @@ public class RequirementTemplateService
 {
     private readonly IWebHostEnvironment _env;
 
+    // File template .docx là tĩnh và không đổi lúc chạy, nhưng parse OpenXML khá nặng và
+    // được gọi mỗi lần sinh draft (3 file/lần). Cache phần text đã trích theo tên file.
+    private static readonly ConcurrentDictionary<string, string> TemplateTextCache = new(StringComparer.OrdinalIgnoreCase);
+
     public RequirementTemplateService(IWebHostEnvironment env)
     {
         _env = env;
     }
 
-    public string GetBrdTemplate()
-    {
-        return ReadDocx(EnsureTemplateDocx("BRD_Template.docx"));
-    }
+    public string GetBrdTemplate() => GetTemplateText("BRD_Template.docx");
 
-    public string GetSrsTemplate()
-    {
-        return ReadDocx(EnsureTemplateDocx("SRS_Template.docx"));
-    }
+    public string GetSrsTemplate() => GetTemplateText("SRS_Template.docx");
 
-    public string GetFsdTemplate()
-    {
-        return ReadDocx(EnsureTemplateDocx("FSD_Template.docx"));
-    }
+    public string GetFsdTemplate() => GetTemplateText("FSD_Template.docx");
+
+    private string GetTemplateText(string fileName) =>
+        TemplateTextCache.GetOrAdd(fileName, name => ReadDocx(EnsureTemplateDocx(name)));
 
     public string EnsureTemplateDocx(string fileName)
     {
