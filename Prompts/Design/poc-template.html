@@ -772,25 +772,162 @@
                 <main class="page">
 
                     <!-- POC_CONTENT_START : replace everything below with the feature UI -->
-                    <h1 class="page-title" style="font-size:26px;margin:0 0 4px;">Page Title</h1>
-                    <p class="muted mb">Short description of the page.</p>
+                    <!-- Data-grid styles scoped to the POC content (head <style> stays untouched). -->
+                    <style>
+                        .data-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            background: var(--surface);
+                            font-size: 15px;
+                        }
 
-                    <div class="card-grid mb">
-                        <div class="tile"><span class="tile-label">Metric A</span><span class="tile-value">128</span></div>
-                        <div class="tile"><span class="tile-label">Metric B</span><span class="tile-value">42</span></div>
-                        <div class="tile"><span class="tile-label">Metric C</span><span class="tile-value">7</span></div>
-                    </div>
+                            .data-table th {
+                                text-align: left;
+                                font-weight: 700;
+                                color: var(--ink);
+                                padding: 16px 20px;
+                                background: var(--surface);
+                                border-bottom: 1px solid var(--line);
+                                white-space: nowrap;
+                            }
 
-                    <div class="card">
-                        <div class="card-title">Section title</div>
-                        <div class="card-body">
-                            <table class="table">
-                                <thead><tr><th>Name</th><th>Status</th><th></th></tr></thead>
-                                <tbody>
-                                    <tr><td>Example row</td><td><span class="badge badge-green">Active</span></td><td><button class="btn btn-outline">Open</button></td></tr>
-                                    <tr><td>Example row</td><td><span class="badge badge-gray">Draft</span></td><td><button class="btn btn-outline">Open</button></td></tr>
-                                </tbody>
-                            </table>
+                            .data-table td {
+                                padding: 16px 20px;
+                                color: var(--ink);
+                                border-bottom: 1px solid var(--line);
+                                vertical-align: top;
+                            }
+
+                            /* Zebra striping: odd rows tinted, even rows white. */
+                            .data-table tbody tr:nth-child(odd) td {
+                                background: #f2f4f5;
+                            }
+
+                            .data-table tbody tr:hover td {
+                                background: #e8eef3;
+                            }
+
+                            .data-table .cell-sub {
+                                display: block;
+                            }
+
+                        .table-pager {
+                            display: flex;
+                            align-items: center;
+                            margin-top: 22px;
+                        }
+
+                        .pager-perpage {
+                            position: relative;
+                            display: flex;
+                            flex-direction: column;
+                            gap: 2px;
+                            min-width: 170px;
+                            padding: 8px 40px 8px 16px;
+                            background: #f2f4f5;
+                            border: 1px solid var(--line);
+                            border-radius: 4px;
+                            cursor: pointer;
+                        }
+
+                            .pager-perpage .ppp-label {
+                                font-size: 12px;
+                                color: var(--muted);
+                            }
+
+                            .pager-perpage .ppp-value {
+                                font-size: 16px;
+                                color: var(--ink);
+                            }
+
+                            .pager-perpage .ppp-chevron {
+                                position: absolute;
+                                right: 12px;
+                                top: 50%;
+                                transform: translateY(-50%);
+                                color: var(--ink);
+                            }
+
+                        .pager-nav {
+                            margin-left: auto;
+                            display: flex;
+                            align-items: center;
+                            gap: 4px;
+                        }
+
+                        .pager-arrow, .pager-page {
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            min-width: 36px;
+                            height: 36px;
+                            border: 0;
+                            background: transparent;
+                            color: var(--muted);
+                            cursor: pointer;
+                            border-radius: 50%;
+                            font-family: inherit;
+                            font-size: 15px;
+                            font-weight: 700;
+                        }
+
+                            .pager-arrow:hover, .pager-page:hover {
+                                background: rgba(0,123,192,.08);
+                                color: var(--bosch-blue);
+                            }
+
+                        .pager-page {
+                            color: var(--ink);
+                        }
+
+                            .pager-page.active {
+                                background: var(--bosch-blue);
+                                color: #fff;
+                            }
+
+                        .pager-arrow:disabled {
+                            color: var(--line);
+                            cursor: default;
+                            background: transparent;
+                        }
+                    </style>
+
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>State</th>
+                                <th>No.</th>
+                                <th>Name</th>
+                                <th>Weight</th>
+                                <th>Severity</th>
+                                <th>Symbol</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>info</td><td>1</td><td>Hydrogen</td><td>1.0079</td><td>info</td><td>H</td></tr>
+                            <tr><td>neutral</td><td>2</td><td>Helium<span class="cell-sub">Extra line</span></td><td>&ndash;</td><td>neutral</td><td>He</td></tr>
+                            <tr><td>success</td><td>3</td><td>Lithium</td><td>6.941</td><td>success</td><td>Li</td></tr>
+                            <tr><td>warning</td><td>4</td><td>Beryllium</td><td>9.0122</td><td>warning</td><td>Be</td></tr>
+                            <tr><td>error</td><td>5</td><td>Boron</td><td>10.811</td><td>error</td><td>B</td></tr>
+                            <tr><td>info</td><td>6</td><td>Carbon</td><td>12.0107</td><td>info</td><td>C</td></tr>
+                            <tr><td>neutral</td><td>7</td><td>Nitrogen</td><td>14.0067</td><td>neutral</td><td>N</td></tr>
+                            <tr><td>success</td><td>8</td><td>Oxygen</td><td>15.9994</td><td>success</td><td>O</td></tr>
+                            <tr><td>warning</td><td>9</td><td>Fluorine</td><td>&ndash;</td><td>warning</td><td>F</td></tr>
+                            <tr><td>error</td><td>10</td><td>Neon</td><td>20.1797</td><td>error</td><td>Ne</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="table-pager">
+                        <div class="pager-perpage">
+                            <span class="ppp-label">Elements per page</span>
+                            <span class="ppp-value">10</span>
+                            <svg class="ico ppp-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+                        </div>
+                        <div class="pager-nav">
+                            <button class="pager-arrow" aria-label="Previous page"><svg class="ico" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg></button>
+                            <button class="pager-page active">1</button>
+                            <button class="pager-page">2</button>
+                            <button class="pager-arrow" aria-label="Next page"><svg class="ico" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg></button>
                         </div>
                     </div>
                     <!-- POC_CONTENT_END -->
