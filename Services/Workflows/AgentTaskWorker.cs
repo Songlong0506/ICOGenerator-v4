@@ -16,7 +16,9 @@ public class AgentTaskWorker : BackgroundService
     // the literal line in Prompts/Design/poc-template.html.
     private const string PocContentStartMarker = "<!-- POC_CONTENT_START : replace everything below with the feature UI -->";
     private const string PocContentEndMarker = "<!-- POC_CONTENT_END -->";
-    private const string PocContentPlaceholder = "<!-- POC_CONTENT_PLACEHOLDER: ReplaceInFile this exact line with the feature UI -->";
+    // Kept deliberately short so a weak model can reproduce it verbatim as ReplaceInFile's
+    // oldText. Must stay unique in the file (the template only uses *_START / *_END).
+    private const string PocContentPlaceholder = "<!-- POC_CONTENT -->";
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AgentTaskWorker> _logger;
@@ -136,7 +138,15 @@ Kết quả: chỉnh sửa tại chỗ file 03_Implementation/poc-demo.html (ch�
 
 {task.Input}
 """,
-                onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail));
+                maxSteps: 10,
+                onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
+                // The only required change is replacing the placeholder in poc-demo.html.
+                // Stop the moment that edit succeeds so the agent doesn't keep editing the
+                // shell and hit the step limit with the POC already done.
+                stopWhen: (toolName, observation) =>
+                    toolName.Equals("ReplaceInFile", StringComparison.OrdinalIgnoreCase)
+                    && observation.Contains("File updated", StringComparison.OrdinalIgnoreCase)
+                    && observation.Contains("poc-demo.html", StringComparison.OrdinalIgnoreCase));
 
             _progress.Report(task.WorkflowRunId, "completed", "Task hoàn tất — POC đã được tạo.");
 

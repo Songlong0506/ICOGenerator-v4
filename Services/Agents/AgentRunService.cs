@@ -23,7 +23,7 @@ public class AgentRunService
     { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _llm = llm; _promptBuilder = promptBuilder; _actionParser = actionParser; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; }
 
     public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 6,
-        Action<string, string, string?>? onProgress = null)
+        Action<string, string, string?>? onProgress = null, Func<string, string, bool>? stopWhen = null)
     {
         var project = await _db.Projects.FindAsync(projectId) ?? throw new InvalidOperationException("Project not found.");
         var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId);
@@ -65,6 +65,16 @@ public class AgentRunService
                     : await _invoker.InvokeAsync(tool, action.Args);
 
                 onProgress?.Invoke("observation", $"Đã nhận kết quả từ {action.Tool}", observation);
+
+                // Stop as soon as the caller's success condition is met (e.g. the POC
+                // content edit landed) so a weak model doesn't keep making spurious extra
+                // edits and burn through the step budget after the work is already done.
+                if (stopWhen != null && stopWhen(action.Tool ?? string.Empty, observation))
+                {
+                    onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", observation);
+                    await SaveConversation(projectId, agentId, observation);
+                    return observation;
+                }
 
                 messages.Add(new() { Role = "assistant", Content = response });
                 messages.Add(new() { Role = "user", Content = "OBSERVATION:\n" + observation });
