@@ -5,20 +5,13 @@ using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
+using ICOGenerator.Services.Tools;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Workflows;
 
 public class AgentTaskWorker : BackgroundService
 {
-    // Markers and placeholder shared between the workspace seeding and the agent
-    // prompt so the two can never drift apart (drift was the original cause of the
-    // "poc-demo.html identical to template" bug). The start marker text MUST match
-    // the literal line in Prompts/Design/poc-template.html.
-    private const string PocContentStartMarker = "<!-- POC_CONTENT_START : replace everything below with the feature UI -->";
-    private const string PocContentEndMarker = "<!-- POC_CONTENT_END -->";
-    private const string PocContentPlaceholder = "<!-- POC_CONTENT_PLACEHOLDER: ReplaceInFile this exact line with the feature UI -->";
-
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AgentTaskWorker> _logger;
     private readonly IWorkflowProgressReporter _progress;
@@ -115,8 +108,34 @@ public class AgentTaskWorker : BackgroundService
             var output = await agentRunService.RunAsync(
                 task.ProjectId,
                 task.AgentId.Value,
-                pocPrompt,
-                onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail));
+                $"""
+User đã approve requirement.
+
+Chỉ sử dụng AI Design Spec bên dưới để generate code.
+Không đọc BRD/SRS/FSD/UserStories.
+Không sửa requirement document.
+
+YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template có sẵn):
+- File '03_Implementation/poc-demo.html' ĐÃ TỒN TẠI sẵn (là bản sao của shell template: <head> + <style>, <script>, sidebar/topbar, 2 popup User/Imprint đều đã hoàn chỉnh). KHÔNG cần đọc lại file và KHÔNG ghi đè cả file bằng WriteFile.
+- Dùng tool SetPocContent ĐÚNG MỘT LẦN. Tham số 'content' = HTML giao diện của tính năng theo AI Design Spec (chỉ phần nội dung bên trong, KHÔNG kèm <html>/<head>/<body>/sidebar/topbar). Hệ thống sẽ tự đặt nội dung này vào đúng vùng giữa 2 marker và giữ nguyên toàn bộ shell.
+- Dùng đúng các class có sẵn: card, card-grid, card-title, card-body, tile, tile-value, tile-label, btn, btn-outline, btn-ghost, table, field, input, select, textarea, badge, badge-green, badge-gray, row, stack, muted.
+- Nội dung phải TỰ CHỨA: KHÔNG link/nhúng CSS hay JS framework bên ngoài (không Angular/Material/Bootstrap...). Chỉ dùng CSS/JS đã có sẵn trong file.
+- KHÔNG dùng ReplaceInFile/WriteFile/RunCommand/grep cho việc này. Sau khi SetPocContent trả "POC content updated", trả final result NGAY, KHÔNG đọc lại file.
+
+Kết quả: nội dung tính năng được đặt vào file 03_Implementation/poc-demo.html (chỉ vùng giữa 2 marker).
+
+# AI Design Spec
+
+{task.Input}
+""",
+                maxSteps: 10,
+                onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
+                // The only required action is one SetPocContent call. Stop the moment it
+                // succeeds so the agent doesn't keep poking the file and hit the step limit
+                // with the POC already done.
+                stopWhen: (toolName, observation) =>
+                    toolName.Equals(nameof(WorkspaceTools.SetPocContent), StringComparison.OrdinalIgnoreCase)
+                    && observation.Contains("POC content updated", StringComparison.OrdinalIgnoreCase));
 
             _progress.Report(task.WorkflowRunId, "completed", "Task hoàn tất — POC đã được tạo.");
 
@@ -202,21 +221,14 @@ public class AgentTaskWorker : BackgroundService
     private static async Task SeedPocDemoAsync(string templateSrc, string demoPath)
     {
         var template = await File.ReadAllTextAsync(templateSrc);
+        var seeded = PocTemplate.SeedFromTemplate(template);
 
-        var startIdx = template.IndexOf(PocContentStartMarker, StringComparison.Ordinal);
-        var endIdx = template.IndexOf(PocContentEndMarker, StringComparison.Ordinal);
-
-        if (startIdx < 0 || endIdx <= startIdx)
+        if (seeded == null)
         {
             // Markers missing/malformed: fall back to a raw copy so we never lose the file.
             File.Copy(templateSrc, demoPath, overwrite: true);
             return;
         }
-
-        var afterStart = startIdx + PocContentStartMarker.Length;
-        var seeded = template[..afterStart]
-            + "\n                    " + PocContentPlaceholder + "\n                    "
-            + template[endIdx..];
 
         await File.WriteAllTextAsync(demoPath, seeded);
     }

@@ -48,6 +48,7 @@ public static class DbInitializer
         }
 
         await EnsureAgentRoleKeysAsync(db);
+        await EnsureRoleToolAsync(db, AgentRoleKey.Developer, "SetPocContent");
 
         if (!await db.Projects.AnyAsync())
         {
@@ -158,9 +159,28 @@ public static class DbInitializer
 
         await Assign(AgentRoleKey.BusinessAnalyst, "ListFiles", "ReadFile", "WriteFile", "SearchFiles");
         await Assign(AgentRoleKey.TechLead, "ListFiles", "ReadFile", "WriteFile", "GitDiff", "GitStatus");
-        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "ReplaceInFile", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch");
+        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "ReplaceInFile", "SetPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch");
         await Assign(AgentRoleKey.Tester, "ListFiles", "ReadFile", "WriteFile", "RunCommand");
         await Assign(AgentRoleKey.UiUx, "WriteFile", "ReadFile", "ListFiles");
+        await db.SaveChangesAsync();
+    }
+
+    // Idempotently grants a tool to a role on existing databases (AssignDefaultToolsAsync
+    // only runs on a fresh seed, so new tools like SetPocContent would otherwise never
+    // reach already-seeded agents).
+    private static async Task EnsureRoleToolAsync(AppDbContext db, AgentRoleKey roleKey, string toolName)
+    {
+        var agent = await db.Agents.FirstOrDefaultAsync(x => x.RoleKey == roleKey);
+        var tool = await db.ToolDefinitions.FirstOrDefaultAsync(x => x.Name == toolName);
+        if (agent == null || tool == null)
+            return;
+
+        var alreadyAssigned = await db.AgentTools
+            .AnyAsync(x => x.AgentId == agent.Id && x.ToolDefinitionId == tool.Id);
+        if (alreadyAssigned)
+            return;
+
+        db.AgentTools.Add(new AgentTool { AgentId = agent.Id, ToolDefinitionId = tool.Id });
         await db.SaveChangesAsync();
     }
 }
