@@ -41,6 +41,13 @@ public class AppDbContext : DbContext
             stored => _apiKeyProtector.Unprotect(stored));
         builder.Entity<Agent>().Property(x => x.RoleKey).HasConversion<string>().HasMaxLength(100);
         builder.Entity<Agent>().HasIndex(x => x.RoleKey);
+        // Quan hệ bắt buộc: agent luôn phải có AiModel. Restrict để không thể xóa
+        // model đang được agent sử dụng (DeleteAiModelUseCase đã chặn ở tầng app).
+        builder.Entity<Agent>()
+            .HasOne(x => x.AiModel)
+            .WithMany()
+            .HasForeignKey(x => x.AiModelId)
+            .OnDelete(DeleteBehavior.Restrict);
         builder.Entity<ToolDefinition>().HasIndex(x => new { x.ServiceType, x.MethodName }).IsUnique();
 
         builder.Entity<AgentModelCallLog>().HasOne(x => x.Project).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.ProjectId);

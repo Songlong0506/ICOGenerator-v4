@@ -71,7 +71,6 @@
                 <th>Model ID</th>
                 <th>Context Window</th>
                 <th>Status</th>
-                <th>Default</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -89,20 +88,6 @@
                             @(m.IsActive ? "Active" : "Inactive")
                         </span>
                     </td>
-                    <td>
-                        @if (m.IsDefault)
-                        {
-                            <span>★</span>
-                        }
-                        else
-                        {
-                            <form asp-action="SetDefault" method="post" class="inline-form">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@m.Id" />
-                                <button class="link-btn" type="submit">Set default</button>
-                            </form>
-                        }
-                    </td>
                     <td class="actions">
                         <button class="icon-btn"
                                 type="button"
@@ -114,8 +99,7 @@
                                         '@JavaScriptEncoder.Default.Encode(m.Endpoint)',
                                         '@JavaScriptEncoder.Default.Encode(m.ApiKey)',
                                         '@m.ContextWindow',
-                                        '@m.IsActive.ToString().ToLower()',
-                                        '@m.IsDefault.ToString().ToLower()'
+                                        '@m.IsActive.ToString().ToLower()'
                                     )">
                             ✎
                         </button>
@@ -201,11 +185,6 @@
             Active
         </label>
 
-        <label class="checkbox-line">
-            <input name="IsDefault" type="checkbox" value="true" />
-            Set as default
-        </label>
-
         <div class="modal-actions">
             <button type="button" class="btn" onclick="closeModal('addModel')">Cancel</button>
             <button class="btn primary">Add Model</button>
@@ -246,11 +225,6 @@
             Active
         </label>
 
-        <label class="checkbox-line">
-            <input id="edit-is-default" name="IsDefault" type="checkbox" value="true" />
-            Set as default
-        </label>
-
         <div class="modal-actions">
             <button type="button" class="btn" onclick="closeModal('editModel')">Cancel</button>
             <button class="btn primary">Save Changes</button>
@@ -268,8 +242,7 @@
             endpoint,
             apiKey,
             contextWindow,
-            isActive,
-            isDefault
+            isActive
         ) {
             document.getElementById('edit-id').value = id;
             document.getElementById('edit-name').value = name;
@@ -280,7 +253,6 @@
             document.getElementById('edit-context-window').value = contextWindow;
 
             document.getElementById('edit-is-active').checked = isActive === 'true';
-            document.getElementById('edit-is-default').checked = isDefault === 'true';
 
             openModal('editModel');
         }

@@ -11,7 +11,6 @@ public class AiModel
     // Cho phép 1000 ký tự vì chuỗi ciphertext dài hơn plaintext.
     [MaxLength(1000)] public string ApiKey { get; set; } = "lm-studio";
     public int ContextWindow { get; set; } = 128000;
-    public bool IsDefault { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

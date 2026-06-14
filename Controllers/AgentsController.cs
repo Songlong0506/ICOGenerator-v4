@@ -35,10 +35,16 @@ public class AgentsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Update(AgentEditVm vm)
     {
-        if (!await _updateAgentUseCase.ExecuteAsync(vm))
-            return NotFound();
-
-        TempData["Success"] = "Agent updated successfully.";
-        return RedirectToAction(nameof(Index), new { id = vm.Id });
+        switch (await _updateAgentUseCase.ExecuteAsync(vm))
+        {
+            case UpdateAgentResult.NotFound:
+                return NotFound();
+            case UpdateAgentResult.ModelRequired:
+                TempData["Error"] = "Vui lòng chọn AI model cho agent.";
+                return RedirectToAction(nameof(Index), new { id = vm.Id });
+            default:
+                TempData["Success"] = "Agent updated successfully.";
+                return RedirectToAction(nameof(Index), new { id = vm.Id });
+        }
     }
 }

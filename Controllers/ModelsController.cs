@@ -9,20 +9,17 @@ public class ModelsController : Controller
     private readonly ListAiModelsQuery _listAiModelsQuery;
     private readonly CreateAiModelUseCase _createAiModelUseCase;
     private readonly UpdateAiModelUseCase _updateAiModelUseCase;
-    private readonly SetDefaultAiModelUseCase _setDefaultAiModelUseCase;
     private readonly DeleteAiModelUseCase _deleteAiModelUseCase;
 
     public ModelsController(
         ListAiModelsQuery listAiModelsQuery,
         CreateAiModelUseCase createAiModelUseCase,
         UpdateAiModelUseCase updateAiModelUseCase,
-        SetDefaultAiModelUseCase setDefaultAiModelUseCase,
         DeleteAiModelUseCase deleteAiModelUseCase)
     {
         _listAiModelsQuery = listAiModelsQuery;
         _createAiModelUseCase = createAiModelUseCase;
         _updateAiModelUseCase = updateAiModelUseCase;
-        _setDefaultAiModelUseCase = setDefaultAiModelUseCase;
         _deleteAiModelUseCase = deleteAiModelUseCase;
     }
 
@@ -46,14 +43,6 @@ public class ModelsController : Controller
         return await _updateAiModelUseCase.ExecuteAsync(input)
             ? RedirectToAction(nameof(Index))
             : NotFound();
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetDefault(Guid id)
-    {
-        await _setDefaultAiModelUseCase.ExecuteAsync(id);
-        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]

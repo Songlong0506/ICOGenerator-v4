@@ -23,7 +23,7 @@ public static class DbInitializer
         if (!await db.AiModels.AnyAsync())
         {
             db.AiModels.AddRange(
-                new AiModel { Name = "Qwen3.6 27B Q3_K_S", Provider = "LM Studio", ModelId = "qwen3.6-27b@q3_k_s", Endpoint = "http://127.0.0.1:1234/v1", ApiKey = "lm-studio", IsDefault = true, ContextWindow = 128000 },
+                new AiModel { Name = "Qwen3.6 27B Q3_K_S", Provider = "LM Studio", ModelId = "qwen3.6-27b@q3_k_s", Endpoint = "http://127.0.0.1:1234/v1", ApiKey = "lm-studio", ContextWindow = 128000 },
                 new AiModel { Name = "DeepSeek V4 Flash", Provider = "DeepSeek", ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "sk-...", ContextWindow = 1000000 }
             );
             await db.SaveChangesAsync();
@@ -31,7 +31,13 @@ public static class DbInitializer
 
         if (!await db.Agents.AnyAsync())
         {
-            var modelId = await db.AiModels.Where(x => x.IsDefault).Select(x => x.Id).FirstAsync();
+            // Không còn model mặc định: gán thủ công model local (Qwen) cho các agent seed,
+            // fallback về model đầu tiên nếu seed bị thay đổi.
+            var modelId = await db.AiModels
+                .OrderByDescending(x => x.Name == "Qwen3.6 27B Q3_K_S")
+                .ThenBy(x => x.Name)
+                .Select(x => x.Id)
+                .FirstAsync();
             var agents = new[]
             {
                 new Agent { Name="BA", RoleKey=AgentRoleKey.BusinessAnalyst, Color="#8B5CF6", AiModelId=modelId, Description="Thu thập và phân tích yêu cầu, viết tài liệu đặc tả nghiệp vụ." },
