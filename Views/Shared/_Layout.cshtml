@@ -81,7 +81,16 @@
             <div class="main-col">
 
                 <header class="topbar">
-                    <div class="breadcrumb">Home <span class="sep">&rsaquo;</span> @PageTitle</div>
+                    <div class="breadcrumb">
+                        @if (IsSectionDefined("Breadcrumb"))
+                        {
+                            @RenderSection("Breadcrumb", required: false)
+                        }
+                        else
+                        {
+                            <text>Home <span class="sep">&rsaquo;</span> @PageTitle</text>
+                        }
+                    </div>
                     <div class="topbar-spacer"></div>
                     <div class="bosch-logo">BOSCH</div>
                 </header>
