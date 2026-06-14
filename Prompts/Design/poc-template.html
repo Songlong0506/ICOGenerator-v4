@@ -564,6 +564,64 @@
             padding: 18px;
         }
 
+        /* ---------- User popover (anchored to user item, bottom-left) ---------- */
+        .user-overlay {
+            background: transparent;
+            align-items: flex-end;
+            justify-content: flex-start;
+        }
+
+        .user-popover {
+            position: relative;
+            background: #fff;
+            width: 300px;
+            margin: 0 0 14px var(--sidebar-w);
+            padding: 16px 18px 18px;
+            box-shadow: 0 10px 36px rgba(0,0,0,.28);
+            border: 1px solid var(--line);
+        }
+
+        .app-shell.collapsed ~ .user-overlay .user-popover {
+            margin-left: var(--sidebar-w-collapsed);
+        }
+
+            /* caret pointing left toward the user item */
+            .user-popover::before {
+                content: "";
+                position: absolute;
+                left: -9px;
+                bottom: 52px;
+                border: 9px solid transparent;
+                border-right-color: var(--line);
+            }
+
+            .user-popover::after {
+                content: "";
+                position: absolute;
+                left: -8px;
+                bottom: 53px;
+                border: 8px solid transparent;
+                border-right-color: #fff;
+            }
+
+        .user-popover-top {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+            .user-popover-top .user-lang {
+                flex: 1;
+                margin: 0;
+            }
+
+        .user-logout-q {
+            margin: 0 0 12px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
         .imprint-bar {
             height: 5px;
             background: linear-gradient(90deg,#e2001a,#b90276,#50237f,#005691,#008ecf,#00a8b0,#78be20,#006249);
@@ -743,20 +801,17 @@
     </div>
 
     <!-- ===== User popup ===== -->
-    <div class="modal-overlay" id="userModal">
-        <div class="modal">
-            <div class="modal-head">
-                <h3>Account</h3>
-                <button class="modal-close" data-close="userModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
-            </div>
-            <div class="modal-body">
-                <div class="field">
+    <div class="modal-overlay user-overlay" id="userModal">
+        <div class="user-popover">
+            <div class="user-popover-top">
+                <div class="field user-lang">
                     <label>Default Language</label>
                     <select class="select"><option>English</option><option>Tiếng Việt</option><option>Deutsch</option></select>
                 </div>
-                <p>Do you want to logout?</p>
-                <button class="btn">Logout</button>
+                <button class="modal-close" data-close="userModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
             </div>
+            <p class="user-logout-q">Do you want to logout?</p>
+            <button class="btn">Logout</button>
         </div>
     </div>
 
