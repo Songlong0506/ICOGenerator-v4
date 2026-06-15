@@ -16,11 +16,22 @@ public class LlmClient : ILlmClient
 
     private static readonly JsonSerializerOptions SerializeOptions = new() { WriteIndented = true };
 
+    // Overall ceiling for a single LLM call. Because we stream with
+    // ResponseHeadersRead, HttpClient.Timeout only bounds time-to-headers, not the
+    // body read loop — without this a model that stalls mid-stream would hang the
+    // single background worker forever. Configurable via Llm:RequestTimeoutSeconds.
+    private const int DefaultRequestTimeoutSeconds = 600;
+
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly int _requestTimeoutSeconds;
 
-    public LlmClient(IHttpClientFactory httpClientFactory) => _httpClientFactory = httpClientFactory;
+    public LlmClient(IHttpClientFactory httpClientFactory, IConfiguration configuration)
+    {
+        _httpClientFactory = httpClientFactory;
+        _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
+    }
 
-    public async Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature)
+    public async Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature, CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
         var result = new LlmCallResult
@@ -55,14 +66,20 @@ public class LlmClient : ILlmClient
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "chat/completions");
         httpRequest.Content = new StringContent(result.RequestJson, Encoding.UTF8, "application/json");
 
+        // Link the caller's token (e.g. app shutdown) with an overall request deadline
+        // so both an external cancel and a stalled stream unwind the call.
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_requestTimeoutSeconds));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+        var token = linkedCts.Token;
+
         try
         {
-            using var response = await http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
+            using var response = await http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, token);
             result.HttpStatusCode = (int)response.StatusCode;
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorText = await SafeReadErrorAsync(response);
+                var errorText = await SafeReadErrorAsync(response, token);
                 stopwatch.Stop();
 
                 result.DurationMs = stopwatch.ElapsedMilliseconds;
@@ -79,14 +96,14 @@ API error: {(int)response.StatusCode} {response.StatusCode}
                 return result;
             }
 
-            await using var stream = await response.Content.ReadAsStreamAsync();
+            await using var stream = await response.Content.ReadAsStreamAsync(token);
             using var reader = new StreamReader(stream);
 
             var contentBuilder = new StringBuilder();
             var rawBuilder = new StringBuilder();
 
             string? line;
-            while ((line = await reader.ReadLineAsync()) != null)
+            while ((line = await reader.ReadLineAsync(token)) != null)
             {
                 if (string.IsNullOrWhiteSpace(line))
                     continue;
@@ -145,6 +162,27 @@ API error: {(int)response.StatusCode} {response.StatusCode}
             result.TotalTokens = result.PromptTokens + result.CompletionTokens;
             return result;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The caller (e.g. app shutdown) cancelled — let it propagate so the
+            // background worker treats it as a clean stop rather than a failed call.
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            // Our own deadline fired: a stalled/too-slow stream. Surface it as a
+            // normal failed result so callers can report it instead of hanging.
+            stopwatch.Stop();
+
+            result.DurationMs = stopwatch.ElapsedMilliseconds;
+            result.IsSuccess = false;
+            result.ErrorMessage = $"LLM request timed out after {_requestTimeoutSeconds}s.";
+            result.Content = result.ErrorMessage;
+            result.ResponseText = result.ErrorMessage;
+            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
+            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
+            return result;
+        }
         catch (Exception ex)
         {
             stopwatch.Stop();
@@ -160,11 +198,11 @@ API error: {(int)response.StatusCode} {response.StatusCode}
         }
     }
 
-    private static async Task<string> SafeReadErrorAsync(HttpResponseMessage response)
+    private static async Task<string> SafeReadErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         try
         {
-            return await response.Content.ReadAsStringAsync();
+            return await response.Content.ReadAsStringAsync(cancellationToken);
         }
         catch (Exception ex)
         {
