@@ -4,5 +4,5 @@ namespace ICOGenerator.Services.Llm;
 
 public interface ILlmClient
 {
-    Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature);
+    Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature, CancellationToken cancellationToken = default);
 }

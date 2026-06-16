@@ -23,10 +23,11 @@ public class AgentRunService
     { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _llm = llm; _promptBuilder = promptBuilder; _actionParser = actionParser; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; }
 
     public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 6,
-        Action<string, string, string?>? onProgress = null, Func<string, string, bool>? stopWhen = null)
+        Action<string, string, string?>? onProgress = null, Func<string, string, bool>? stopWhen = null,
+        CancellationToken cancellationToken = default)
     {
-        var project = await _db.Projects.FindAsync(projectId) ?? throw new InvalidOperationException("Project not found.");
-        var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId);
+        var project = await _db.Projects.FindAsync([projectId], cancellationToken) ?? throw new InvalidOperationException("Project not found.");
+        var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId, cancellationToken);
         if (agent.AiModel == null) throw new InvalidOperationException("Agent model is not configured.");
         _workspaceTools.SetWorkspace(project.Name);
         var tools = await _toolRegistry.GetToolsForAgentAsync(agentId);
@@ -39,8 +40,18 @@ public class AgentRunService
         for (var step = 1; step <= maxSteps; step++)
         {
             onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {step}/{maxSteps})", null);
-            var callResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature);
+            var callResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature, cancellationToken);
             await _modelCallLogger.LogAsync(projectId, agent, callResult, step, "AgentRun");
+
+            // A failed LLM call (HTTP error / timeout) must not be treated as the agent's
+            // final answer — surface it so the task is marked Failed instead of "done".
+            if (!callResult.IsSuccess)
+            {
+                var detail = callResult.ErrorMessage ?? callResult.Content;
+                onProgress?.Invoke("error", "Lời gọi LLM thất bại.", detail);
+                throw new InvalidOperationException($"LLM call failed: {detail}");
+            }
+
             var response = callResult.Content;
             if (!_actionParser.TryParse(response, out var action) || action == null)
             {
@@ -50,7 +61,7 @@ public class AgentRunService
             if (action.Type.Equals("final", StringComparison.OrdinalIgnoreCase))
             {
                 onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", action.Content ?? response);
-                await SaveConversation(projectId, agentId, action.Content ?? response);
+                await SaveConversation(projectId, agentId, action.Content ?? response, cancellationToken: cancellationToken);
                 return action.Content ?? response;
             }
             if (action.Type.Equals("tool", StringComparison.OrdinalIgnoreCase))
@@ -72,7 +83,7 @@ public class AgentRunService
                 if (stopWhen != null && stopWhen(action.Tool ?? string.Empty, observation))
                 {
                     onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", observation);
-                    await SaveConversation(projectId, agentId, observation);
+                    await SaveConversation(projectId, agentId, observation, cancellationToken: cancellationToken);
                     return observation;
                 }
 
@@ -83,7 +94,7 @@ public class AgentRunService
                     && observation.Contains("0 Error", StringComparison.OrdinalIgnoreCase))
                 {
                     onProgress?.Invoke("final", "Build succeeded.", null);
-                    await SaveConversation(projectId, agentId, "Build succeeded.");
+                    await SaveConversation(projectId, agentId, "Build succeeded.", cancellationToken: cancellationToken);
                     return "Build succeeded.";
                 }
             }
@@ -107,7 +118,7 @@ public class AgentRunService
         return string.Join("\n", parts);
     }
 
-    private async Task SaveConversation(Guid projectId, Guid agentId, string message, string role = "assistant")
+    private async Task SaveConversation(Guid projectId, Guid agentId, string message, string role = "assistant", CancellationToken cancellationToken = default)
     {
         _db.AgentConversations.Add(new AgentConversation
         {
@@ -115,9 +126,9 @@ public class AgentRunService
             AgentId = agentId,
             Role = role,
             Message = message,
-            TokenUsed = Math.Max(1, message.Length / 4)
+            TokenUsed = TokenEstimator.Estimate(message)
         });
 
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }

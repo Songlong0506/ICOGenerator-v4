@@ -85,7 +85,7 @@ public class AgentTaskWorker : BackgroundService
 
             if (task.Type == AgentTaskType.RequirementAnalysis)
             {
-                await RunRequirementDraftAsync(scope, task);
+                await RunRequirementDraftAsync(scope, task, cancellationToken);
 
                 task.Status = AgentTaskStatus.Completed;
                 task.Output = "Requirement documents generated/updated.";
@@ -135,7 +135,8 @@ Kết quả: nội dung tính năng được đặt vào file 03_Implementation/
                 // with the POC already done.
                 stopWhen: (toolName, observation) =>
                     toolName.Equals(nameof(WorkspaceTools.SetPocContent), StringComparison.OrdinalIgnoreCase)
-                    && observation.Contains("POC content updated", StringComparison.OrdinalIgnoreCase));
+                    && observation.Contains("POC content updated", StringComparison.OrdinalIgnoreCase),
+                cancellationToken: cancellationToken);
 
             _progress.Report(task.WorkflowRunId, "completed", "Task hoàn tất — POC đã được tạo.");
 
@@ -160,13 +161,14 @@ Kết quả: nội dung tính năng được đặt vào file 03_Implementation/
         }
     }
 
-    private async Task RunRequirementDraftAsync(IServiceScope scope, AgentTask task)
+    private async Task RunRequirementDraftAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
     {
         var baService = scope.ServiceProvider.GetRequiredService<BARequirementService>();
 
         await baService.GenerateOrUpdateDraftAsync(
             task.ProjectId,
-            onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail));
+            onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
+            cancellationToken: cancellationToken);
 
         _progress.Report(task.WorkflowRunId, "completed", "Đã tạo/cập nhật tài liệu requirement.");
     }

@@ -30,8 +30,13 @@ public class CommandTools
         if (process == null) return "Cannot start process.";
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();
-        var completed = await Task.WhenAny(process.WaitForExitAsync(), Task.Delay(TimeSpan.FromMinutes(2)));
-        if (completed != process.WaitForExitAsync()) { try { process.Kill(true); } catch { } return "Command timeout."; }
+        // Keep a single reference to the wait task: calling WaitForExitAsync() again
+        // returns a *different* Task instance, so comparing the WhenAny winner against a
+        // fresh call would always be unequal and force every command into the timeout
+        // branch (killing the process and discarding its real output).
+        var waitTask = process.WaitForExitAsync();
+        var completed = await Task.WhenAny(waitTask, Task.Delay(TimeSpan.FromMinutes(2)));
+        if (completed != waitTask) { try { process.Kill(true); } catch { } return "Command timeout."; }
         return $"""
 Command: {command}
 ExitCode: {process.ExitCode}

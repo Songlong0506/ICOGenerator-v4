@@ -58,7 +58,7 @@ public class AgentJobRunner : BackgroundService
             job.CurrentStep = "BA is thinking...";
             await db.SaveChangesAsync(cancellationToken);
 
-            await baService.ChatAsync(job.ProjectId, job.UserMessage);
+            await baService.ChatAsync(job.ProjectId, job.UserMessage, cancellationToken);
 
             job.Status = AgentJobStatus.Completed;
             job.CurrentStep = "Done.";

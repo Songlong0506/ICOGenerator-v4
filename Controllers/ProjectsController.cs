@@ -26,6 +26,7 @@ public class ProjectsController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(ProjectCreateVm vm)
     {
         if (!ModelState.IsValid)

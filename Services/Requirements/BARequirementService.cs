@@ -40,11 +40,11 @@ public class BARequirementService
         _promptTemplateService = promptTemplateService;
     }
 
-    public async Task ChatAsync(Guid projectId, string userMessage)
+    public async Task ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
     {
         var ba = await _db.Agents
             .Include(x => x.AiModel)
-            .FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
+            .FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst, cancellationToken);
 
         var model = ba.AiModel ?? throw new InvalidOperationException("BA agent model is not configured.");
 
@@ -56,14 +56,14 @@ public class BARequirementService
             Message = userMessage,
             TokenUsed = TokenEstimator.Estimate(userMessage)
         });
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
 
         // Lấy tối đa 20 lượt gần nhất để giữ ngữ cảnh mà vẫn nhẹ token.
         var recent = await _db.AgentConversations
             .Where(c => c.ProjectId == projectId)
             .OrderByDescending(c => c.CreatedAt)
             .Take(20)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
         recent.Reverse();
 
         var messages = new List<ChatMessageDto>
@@ -80,12 +80,23 @@ public class BARequirementService
             Content = c.Message
         }));
 
-        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature);
+        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, cancellationToken);
         await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BAChat");
 
-        var reply = (callResult.Content ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(reply))
-            reply = "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu.";
+        // This runs synchronously in the Chat request (no /Home/Error page exists), so
+        // surface a failure as a clearly-labelled assistant turn instead of throwing a
+        // 500 — but never present an API error as if it were a normal BA answer.
+        string reply;
+        if (!callResult.IsSuccess)
+        {
+            reply = $"⚠️ Lời gọi AI thất bại, chưa thể trả lời. Chi tiết: {callResult.ErrorMessage ?? callResult.Content}";
+        }
+        else
+        {
+            reply = (callResult.Content ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(reply))
+                reply = "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu.";
+        }
 
         _db.AgentConversations.Add(new AgentConversation
         {
@@ -95,13 +106,13 @@ public class BARequirementService
             Message = reply,
             TokenUsed = TokenEstimator.Estimate(reply)
         });
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     /// <param name="onProgress">
     /// Callback (kind, message, detail) để báo tiến độ live cho UI. Có thể null khi gọi đồng bộ.
     /// </param>
-    public async Task GenerateOrUpdateDraftAsync(Guid projectId, Action<string, string, string?>? onProgress = null)
+    public async Task GenerateOrUpdateDraftAsync(Guid projectId, Action<string, string, string?>? onProgress = null, CancellationToken cancellationToken = default)
     {
         void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
 
@@ -115,11 +126,11 @@ public class BARequirementService
         var project = await _db.Projects
             .Include(x => x.Documents)
             .Include(x => x.Conversations)
-            .FirstAsync(x => x.Id == projectId);
+            .FirstAsync(x => x.Id == projectId, cancellationToken);
 
         var ba = await _db.Agents
             .Include(x => x.AiModel)
-            .FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
+            .FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst, cancellationToken);
 
         var model = ba.AiModel ?? throw new InvalidOperationException("BA agent model is not configured.");
 
@@ -157,8 +168,18 @@ public class BARequirementService
 
         Report("tool", "Đang gọi AI để soạn BRD, SRS, FSD, User Stories, AI Design Spec…");
 
-        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature);
+        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, cancellationToken);
         await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BARequirementDraft");
+
+        // On a failed call, do NOT fall through to the conservative template fallback —
+        // that would fabricate documents from the raw user message and report success,
+        // hiding the real failure. Fail the workflow task instead.
+        if (!callResult.IsSuccess)
+        {
+            var detail = callResult.ErrorMessage ?? callResult.Content;
+            Report("error", "Lời gọi LLM thất bại.", detail);
+            throw new InvalidOperationException($"LLM call failed: {detail}");
+        }
 
         Report("observation", "AI đã trả về nội dung, đang phân tích kết quả…");
 
@@ -181,7 +202,7 @@ public class BARequirementService
             TokenUsed = TokenEstimator.Estimate(assistantMessage)
         });
 
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
 
         Report("final", "Đã tạo/cập nhật tài liệu.", assistantMessage);
     }
