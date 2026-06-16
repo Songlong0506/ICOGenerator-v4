@@ -14,6 +14,11 @@ public class CommandTools
     public async Task<string> RunCommand(string command)
     {
         if (string.IsNullOrWhiteSpace(_workspaceTools.CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
+        // The allowlist below only matches the command PREFIX, and the command is run through
+        // a shell. Without this guard, "git status && <anything>" or "git status; curl…|bash"
+        // would pass the prefix check yet let the shell run arbitrary chained commands. Reject
+        // any shell control/redirection/substitution operators so the allowlist actually holds.
+        if (ContainsShellOperators(command)) return $"Command blocked for security reason (shell operators are not allowed): {command}";
         if (!IsAllowed(command)) return $"Command blocked for security reason: {command}";
         var isWindows = OperatingSystem.IsWindows();
         var psi = new ProcessStartInfo
@@ -54,4 +59,12 @@ Error:
         var allowed = _configuration.GetSection("AllowedCommands").Get<string[]>() ?? [];
         return allowed.Any(x => command.StartsWith(x, StringComparison.OrdinalIgnoreCase));
     }
+
+    // Operators a shell would interpret to chain, redirect, or substitute commands:
+    // & | ; ` $ < > and newlines. None of the allowed commands need these, so blocking
+    // them keeps execution to a single allowlisted command.
+    private static readonly char[] ShellOperators = { '&', '|', ';', '`', '$', '<', '>', '\n', '\r' };
+
+    private static bool ContainsShellOperators(string command) =>
+        command.IndexOfAny(ShellOperators) >= 0;
 }

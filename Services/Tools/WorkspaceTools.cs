@@ -15,9 +15,9 @@ public class WorkspaceTools
     }
     public string CurrentWorkspacePath { get; private set; } = string.Empty;
 
-    public void SetWorkspace(string projectName)
+    public void SetWorkspace(string projectKey)
     {
-        CurrentWorkspacePath = _workspacePathResolver.GetProjectWorkspacePath(projectName);
+        CurrentWorkspacePath = _workspacePathResolver.GetProjectWorkspacePath(projectKey);
         Directory.CreateDirectory(CurrentWorkspacePath);
     }
 

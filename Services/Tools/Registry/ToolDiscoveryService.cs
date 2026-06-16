@@ -47,7 +47,9 @@ public class ToolDiscoveryService
                 {
                     exists.DisplayName = SplitPascalCase(method.Name);
                     exists.Description = desc;
-                    exists.IsActive = true;
+                    // Do NOT force IsActive back to true here: an admin may have intentionally
+                    // disabled a tool, and that choice must survive application restarts. Only
+                    // brand-new tools default to active (in the Add branch above).
                 }
             }
         }

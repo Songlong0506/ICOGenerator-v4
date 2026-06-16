@@ -41,11 +41,12 @@ public class RequirementDocumentGenerator
         var srsTemplate = _templateService.EnsureTemplateDocx("SRS_Template.docx");
         var fsdTemplate = _templateService.EnsureTemplateDocx("FSD_Template.docx");
 
-        var brdOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("BRD"));
-        var srsOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("SRS"));
-        var fsdOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("FSD"));
-        var storiesOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("UserStories"));
-        var aiDesignSpecOutput = _artifactStorage.GetDraftPath(project.Name, _artifactCatalog.AiDesignSpec);
+        var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
+        var brdOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("BRD"));
+        var srsOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("SRS"));
+        var fsdOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("FSD"));
+        var storiesOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("UserStories"));
+        var aiDesignSpecOutput = _artifactStorage.GetDraftPath(projectKey, _artifactCatalog.AiDesignSpec);
 
         _docxWriter.CreateFromTemplate(brdTemplate, brdOutput, BuildBrdReplacements(project, result.Brd));
         _docxWriter.CreateFromTemplate(srsTemplate, srsOutput, BuildSrsReplacements(project, result.Srs));

@@ -60,7 +60,7 @@ public class ApproveRequirementUseCase
             }
         }
 
-        PromoteDraftFolders(project.Name, draftDocs.Select(x => x.Folder).Distinct(), versionName);
+        PromoteDraftFolders(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name), draftDocs.Select(x => x.Folder).Distinct(), versionName);
 
         await _db.SaveChangesAsync();
 
@@ -69,12 +69,12 @@ public class ApproveRequirementUseCase
         return ApproveRequirementResult.Approved;
     }
 
-    private void PromoteDraftFolders(string projectName, IEnumerable<string> phases, string versionName)
+    private void PromoteDraftFolders(string projectKey, IEnumerable<string> phases, string versionName)
     {
         foreach (var phase in phases)
         {
-            var draftPath = _workspacePathResolver.GetPhaseDraftPath(projectName, phase);
-            var versionPath = _workspacePathResolver.GetPhaseVersionPath(projectName, phase, versionName);
+            var draftPath = _workspacePathResolver.GetPhaseDraftPath(projectKey, phase);
+            var versionPath = _workspacePathResolver.GetPhaseVersionPath(projectKey, phase, versionName);
 
             if (!Directory.Exists(draftPath))
                 continue;

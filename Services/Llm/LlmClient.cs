@@ -22,6 +22,11 @@ public class LlmClient : ILlmClient
     // single background worker forever. Configurable via Llm:RequestTimeoutSeconds.
     private const int DefaultRequestTimeoutSeconds = 600;
 
+    // Upper bound for completion tokens, and the headroom reserved for the prompt so a
+    // model with a small context window isn't asked for more output than it can fit.
+    private const int MaxCompletionTokens = 100000;
+    private const int ContextSafetyMargin = 1024;
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly int _requestTimeoutSeconds;
 
@@ -47,12 +52,14 @@ public class LlmClient : ILlmClient
         http.BaseAddress = new Uri(model.Endpoint.TrimEnd('/') + "/");
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", string.IsNullOrWhiteSpace(model.ApiKey) ? "lm-studio" : model.ApiKey);
 
+        result.PromptTokens = TokenEstimator.Estimate(string.Join("\n", messages.Select(x => x.Content)));
+
         var request = new ChatCompletionRequestDto
         {
             Model = model.ModelId,
             Messages = messages,
             Temperature = temperature,
-            MaxTokens = 100000,
+            MaxTokens = ResolveMaxTokens(model, result.PromptTokens),
             Stream = true,
             Thinking = new ThinkingDto
             {
@@ -61,7 +68,6 @@ public class LlmClient : ILlmClient
         };
 
         result.RequestJson = JsonSerializer.Serialize(request, SerializeOptions);
-        result.PromptTokens = TokenEstimator.Estimate(string.Join("\n", messages.Select(x => x.Content)));
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "chat/completions");
         httpRequest.Content = new StringContent(result.RequestJson, Encoding.UTF8, "application/json");
@@ -196,6 +202,18 @@ API error: {(int)response.StatusCode} {response.StatusCode}
             result.TotalTokens = result.PromptTokens + result.CompletionTokens;
             return result;
         }
+    }
+
+    // Cap completion tokens to what remains in the model's context window after the
+    // (estimated) prompt instead of a fixed 100k, which overflows small-context models
+    // and gets rejected by the API. Falls back to the cap when the window is unknown.
+    private static int ResolveMaxTokens(AiModel model, int promptTokens)
+    {
+        if (model.ContextWindow <= 0)
+            return MaxCompletionTokens;
+
+        var available = model.ContextWindow - promptTokens - ContextSafetyMargin;
+        return Math.Clamp(available, 256, MaxCompletionTokens);
     }
 
     private static async Task<string> SafeReadErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)

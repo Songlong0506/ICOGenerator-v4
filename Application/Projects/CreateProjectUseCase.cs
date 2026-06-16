@@ -40,7 +40,7 @@ public class CreateProjectUseCase
         // cấu hình đúng trên máy này thì vẫn không chặn việc tạo project.
         try
         {
-            _artifactStorage.InitializeProjectWorkspace(project.Name);
+            _artifactStorage.InitializeProjectWorkspace(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
         }
         catch (Exception ex)
         {

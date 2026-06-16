@@ -58,7 +58,7 @@ public class GetAgentDashboardQuery
     private IReadOnlyList<ProjectDocument> LoadWorkspaceDocuments(Project project, IEnumerable<ProjectDocument> databaseDocuments)
     {
         var documents = databaseDocuments.ToList();
-        var workspacePath = _workspacePathResolver.GetProjectWorkspacePath(project.Name);
+        var workspacePath = _workspacePathResolver.GetProjectWorkspacePath(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
 
         if (!Directory.Exists(workspacePath))
             return documents;

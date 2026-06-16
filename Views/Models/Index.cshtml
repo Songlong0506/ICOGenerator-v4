@@ -97,7 +97,6 @@
                                         '@JavaScriptEncoder.Default.Encode(m.Provider)',
                                         '@JavaScriptEncoder.Default.Encode(m.ModelId)',
                                         '@JavaScriptEncoder.Default.Encode(m.Endpoint)',
-                                        '@JavaScriptEncoder.Default.Encode(m.ApiKey)',
                                         '@m.ContextWindow',
                                         '@m.IsActive.ToString().ToLower()'
                                     )">
@@ -214,8 +213,8 @@
         <label>Endpoint *</label>
         <input id="edit-endpoint" name="Endpoint" required />
 
-        <label>ApiKey *</label>
-        <input id="edit-api-key" name="ApiKey" required />
+        <label>ApiKey</label>
+        <input id="edit-api-key" name="ApiKey" placeholder="Để trống để giữ key hiện tại" autocomplete="off" />
 
         <label>Context Window</label>
         <input id="edit-context-window" name="ContextWindow" type="number" />
@@ -240,7 +239,6 @@
             provider,
             modelId,
             endpoint,
-            apiKey,
             contextWindow,
             isActive
         ) {
@@ -249,7 +247,9 @@
             document.getElementById('edit-provider').value = provider;
             document.getElementById('edit-model-id').value = modelId;
             document.getElementById('edit-endpoint').value = endpoint;
-            document.getElementById('edit-api-key').value = apiKey;
+            // The API key is never sent to the browser. Leave it blank on open; an empty
+            // field means "keep the existing key" (see UpdateAiModelUseCase).
+            document.getElementById('edit-api-key').value = '';
             document.getElementById('edit-context-window').value = contextWindow;
 
             document.getElementById('edit-is-active').checked = isActive === 'true';

@@ -9,36 +9,39 @@ public class WorkspacePathResolver
         _configuration = configuration;
     }
 
-    public string GetProjectWorkspacePath(string projectName)
+    // All methods below take the project's unique workspace folder key (see
+    // GetWorkspaceFolder), NOT the raw display name, so two projects whose names
+    // normalise to the same folder never share a workspace.
+    public string GetProjectWorkspacePath(string projectKey)
     {
         var rootPath = _configuration["AgentWorkspace:RootPath"];
 
         if (string.IsNullOrWhiteSpace(rootPath))
             throw new InvalidOperationException("AgentWorkspace:RootPath is missing.");
 
-        return Path.GetFullPath(Path.Combine(rootPath, MakeSafeFolderName(projectName)));
+        return Path.GetFullPath(Path.Combine(rootPath, MakeSafeFolderName(projectKey)));
     }
 
-    public string GetProjectDocsPath(string projectName) =>
-        Path.Combine(GetProjectWorkspacePath(projectName), "docs");
+    public string GetProjectDocsPath(string projectKey) =>
+        Path.Combine(GetProjectWorkspacePath(projectKey), "docs");
 
-    public string GetDraftDocsPath(string projectName) =>
-        Path.Combine(GetProjectDocsPath(projectName), "draft");
+    public string GetDraftDocsPath(string projectKey) =>
+        Path.Combine(GetProjectDocsPath(projectKey), "draft");
 
-    public string GetVersionDocsPath(string projectName, string versionName) =>
-        Path.Combine(GetProjectDocsPath(projectName), versionName);
+    public string GetVersionDocsPath(string projectKey, string versionName) =>
+        Path.Combine(GetProjectDocsPath(projectKey), versionName);
 
-    public string GetMockupPath(string projectName) =>
-        Path.Combine(GetProjectWorkspacePath(projectName), "03_Implementation", "poc-demo.html");
+    public string GetMockupPath(string projectKey) =>
+        Path.Combine(GetProjectWorkspacePath(projectKey), "03_Implementation", "poc-demo.html");
 
-    public string GetPhasePath(string projectName, string phase) =>
-        Path.Combine(GetProjectWorkspacePath(projectName), phase);
+    public string GetPhasePath(string projectKey, string phase) =>
+        Path.Combine(GetProjectWorkspacePath(projectKey), phase);
 
-    public string GetPhaseDraftPath(string projectName, string phase) =>
-        Path.Combine(GetProjectWorkspacePath(projectName), phase, "draft");
+    public string GetPhaseDraftPath(string projectKey, string phase) =>
+        Path.Combine(GetProjectWorkspacePath(projectKey), phase, "draft");
 
-    public string GetPhaseVersionPath(string projectName, string phase, string versionName) =>
-        Path.Combine(GetProjectWorkspacePath(projectName), phase, versionName);
+    public string GetPhaseVersionPath(string projectKey, string phase, string versionName) =>
+        Path.Combine(GetProjectWorkspacePath(projectKey), phase, versionName);
 
     public string GetSafeFullPath(string workspacePath, string relativePath)
     {
@@ -53,6 +56,15 @@ public class WorkspacePathResolver
 
         return fullPath;
     }
+
+    /// <summary>
+    /// Stable, unique folder name for a project's workspace. Derived from the project
+    /// <paramref name="projectId"/> (not just the name) so two projects whose display
+    /// names normalise to the same folder — e.g. "Task App" and "task-app" — no longer
+    /// collide and overwrite each other's generated artifacts.
+    /// </summary>
+    public static string GetWorkspaceFolder(Guid projectId, string projectName) =>
+        $"{MakeSafeFolderName(projectName)}-{projectId.ToString("N")[..8]}";
 
     public static string MakeSafeFolderName(string name)
     {

@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Tools;
@@ -29,7 +30,7 @@ public class AgentRunService
         var project = await _db.Projects.FindAsync([projectId], cancellationToken) ?? throw new InvalidOperationException("Project not found.");
         var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId, cancellationToken);
         if (agent.AiModel == null) throw new InvalidOperationException("Agent model is not configured.");
-        _workspaceTools.SetWorkspace(project.Name);
+        _workspaceTools.SetWorkspace(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
         var tools = await _toolRegistry.GetToolsForAgentAsync(agentId);
         var messages = new List<ChatMessageDto>
         {
@@ -71,9 +72,31 @@ public class AgentRunService
 
                 onProgress?.Invoke("tool", $"Đang dùng tool: {action.Tool}", DescribeToolArgs(action.Args));
 
-                var observation = tool == null
-                    ? $"Tool not found: {action.Tool}"
-                    : await _invoker.InvokeAsync(tool, action.Args);
+                string observation;
+                if (tool == null)
+                {
+                    observation = $"Tool not found: {action.Tool}";
+                }
+                else
+                {
+                    try
+                    {
+                        observation = await _invoker.InvokeAsync(tool, action.Args);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        // A recoverable tool failure (bad args, disallowed file extension,
+                        // missing file…) must be fed back to the model as an observation so
+                        // it can correct itself, instead of aborting the whole run and marking
+                        // the task Failed. Unwrap the reflection wrapper for a useful message.
+                        var real = ex is System.Reflection.TargetInvocationException { InnerException: { } inner } ? inner : ex;
+                        observation = $"ERROR: {real.Message}";
+                    }
+                }
 
                 onProgress?.Invoke("observation", $"Đã nhận kết quả từ {action.Tool}", observation);
 
