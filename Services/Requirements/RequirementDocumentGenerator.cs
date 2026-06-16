@@ -119,7 +119,9 @@ public class RequirementDocumentGenerator
             doc.Content = previewContent;
             doc.FilePath = filePath;
             doc.TokenUsed = TokenEstimator.Estimate(previewContent);
-            doc.CreatedAt = DateTime.UtcNow;
+            // Giữ nguyên CreatedAt: đây là mốc thời gian TẠO bản nháp. Ghi đè bằng
+            // DateTime.UtcNow mỗi lần cập nhật sẽ làm mất thời điểm tạo gốc (và làm
+            // sai thứ tự sắp xếp theo CreatedAt ở GetDoc/dashboard).
         }
     }
 

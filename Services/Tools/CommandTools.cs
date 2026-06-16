@@ -57,7 +57,13 @@ Error:
     private bool IsAllowed(string command)
     {
         var allowed = _configuration.GetSection("AllowedCommands").Get<string[]>() ?? [];
-        return allowed.Any(x => command.StartsWith(x, StringComparison.OrdinalIgnoreCase));
+        // Khớp theo ranh giới "từ": lệnh phải bằng đúng entry hoặc là entry + khoảng trắng + tham số.
+        // Nếu chỉ dùng StartsWith trần, entry "npm" sẽ cho qua cả "npmEVIL" (một executable khác
+        // trùng tiền tố), làm rò rỉ allowlist. Cách này vẫn chấp nhận mọi cách dùng hợp lệ
+        // ("git status -s", "dotnet build", "npm install"...).
+        return allowed.Any(x =>
+            command.Equals(x, StringComparison.OrdinalIgnoreCase)
+            || command.StartsWith(x + " ", StringComparison.OrdinalIgnoreCase));
     }
 
     // Operators a shell would interpret to chain, redirect, or substitute commands:
