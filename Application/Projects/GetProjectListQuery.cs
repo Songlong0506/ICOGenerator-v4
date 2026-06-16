@@ -54,7 +54,7 @@ public class GetProjectListQuery
 
                 return new ProjectListItem(
                     row.Project,
-                    File.Exists(_workspacePathResolver.GetMockupPath(row.Project.Name)),
+                    File.Exists(_workspacePathResolver.GetMockupPath(WorkspacePathResolver.GetWorkspaceFolder(row.Project.Id, row.Project.Name))),
                     latestWorkflow?.Status.ToString(),
                     latestWorkflow?.CurrentStage.ToString(),
                     hasRunningWorkflow);

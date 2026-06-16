@@ -19,7 +19,10 @@ public class UpdateAiModelUseCase
         model.Provider = input.Provider;
         model.ModelId = input.ModelId;
         model.Endpoint = input.Endpoint;
-        model.ApiKey = input.ApiKey;
+        // The edit form no longer round-trips the (decrypted) key to the browser. A blank
+        // field means "keep the current key"; only overwrite when a new value was entered.
+        if (!string.IsNullOrWhiteSpace(input.ApiKey))
+            model.ApiKey = input.ApiKey;
         model.ContextWindow = input.ContextWindow;
         model.IsActive = input.IsActive;
 

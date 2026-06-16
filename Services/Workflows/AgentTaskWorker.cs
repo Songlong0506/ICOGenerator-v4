@@ -182,7 +182,8 @@ Kết quả: nội dung tính năng được đặt vào file 03_Implementation/
                 return;
 
             var resolver = scope.ServiceProvider.GetRequiredService<WorkspacePathResolver>();
-            var implDir = Path.GetDirectoryName(resolver.GetMockupPath(project.Name));
+            var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
+            var implDir = Path.GetDirectoryName(resolver.GetMockupPath(projectKey));
             if (string.IsNullOrWhiteSpace(implDir))
                 return;
 
@@ -209,7 +210,7 @@ Kết quả: nội dung tính năng được đặt vào file 03_Implementation/
             // always failed with "Old text not found" and left the file unchanged).
             var templateSrc = Path.Combine(sourceDir, "poc-template.html");
             if (File.Exists(templateSrc))
-                await SeedPocDemoAsync(templateSrc, resolver.GetMockupPath(project.Name));
+                await SeedPocDemoAsync(templateSrc, resolver.GetMockupPath(projectKey));
         }
         catch (Exception ex)
         {
