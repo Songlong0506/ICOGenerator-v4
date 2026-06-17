@@ -26,6 +26,7 @@ public class GetUsageOverviewQuery
     public async Task<UsageOverviewVm> ExecuteAsync()
     {
         var totals = await _db.AgentModelCallLogs
+            .AsNoTracking()
             .GroupBy(_ => 1)
             .Select(g => new
             {
@@ -40,6 +41,7 @@ public class GetUsageOverviewQuery
         var firstMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-(MonthsToShow - 1));
 
         var monthlyRaw = await _db.AgentModelCallLogs
+            .AsNoTracking()
             .Where(x => x.CreatedAt >= firstMonth)
             .GroupBy(x => new { x.CreatedAt.Year, x.CreatedAt.Month })
             .Select(g => new

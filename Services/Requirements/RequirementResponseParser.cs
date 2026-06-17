@@ -17,7 +17,20 @@ public class RequirementResponseParser
             var result = JsonSerializer.Deserialize<BARequirementDocxResult>(json, JsonOptions);
 
             if (result != null)
+            {
+                // The model can return valid JSON that sets a whole section (or a Content
+                // field) to null. Downstream document generation dereferences each one, so
+                // guarantee non-null parts here instead of letting a null slip through to a
+                // NullReferenceException thrown OUTSIDE this method's try/catch.
+                result.Brd ??= new();
+                result.Srs ??= new();
+                result.Fsd ??= new();
+                result.UserStories ??= new();
+                result.AiDesignSpec ??= new();
+                result.UserStories.Content ??= "";
+                result.AiDesignSpec.Content ??= "";
                 return result;
+            }
         }
         catch
         {

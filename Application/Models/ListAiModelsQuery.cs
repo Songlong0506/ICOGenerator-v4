@@ -16,6 +16,7 @@ public class ListAiModelsQuery
         if (pageSize < 1) pageSize = DefaultPageSize;
 
         var baseQuery = _db.AiModels
+            .AsNoTracking()
             .OrderBy(x => x.Name);
 
         var totalCount = await baseQuery.CountAsync();

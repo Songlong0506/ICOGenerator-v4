@@ -370,9 +370,16 @@
         const url =
             `/ManageAgent/AgentCallLogs?projectId=${projectId}&agentId=${agentId}`;
 
-        const response = await fetch(url);
-
-        const logs = await response.json();
+        let logs;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            logs = await response.json();
+        } catch (err) {
+            tbody.innerHTML =
+                '<tr><td colspan="7">Failed to load logs. Please try again.</td></tr>';
+            return;
+        }
 
         if (!logs.length) {
 
@@ -430,8 +437,15 @@
     }
 
     async function viewLogDetail(id) {
-        const response = await fetch(`/ManageAgent/CallLogDetail?id=${id}`);
-        const log = await response.json();
+        let log;
+        try {
+            const response = await fetch(`/ManageAgent/CallLogDetail?id=${id}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            log = await response.json();
+        } catch (err) {
+            alert('Failed to load log detail. Please try again.');
+            return;
+        }
 
         document.getElementById('log-detail-meta').textContent = `${log.agentName} · ${log.modelName || log.modelId} · ${formatDateTime(log.createdAt)} · ${log.totalTokens || 0} tokens · ${log.durationMs || 0} ms`;
         document.getElementById('log-request').textContent = prettyJson(log.requestJson);

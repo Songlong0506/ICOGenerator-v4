@@ -44,7 +44,9 @@ public class BARequirementService
     {
         var ba = await _db.Agents
             .Include(x => x.AiModel)
-            .FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst, cancellationToken);
+            .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst, cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Chưa cấu hình BA agent (RoleKey = BusinessAnalyst). Hãy tạo hoặc khôi phục agent BA trong màn hình Manage Agent.");
 
         var model = ba.AiModel ?? throw new InvalidOperationException("BA agent model is not configured.");
 
@@ -126,11 +128,14 @@ public class BARequirementService
         var project = await _db.Projects
             .Include(x => x.Documents)
             .Include(x => x.Conversations)
-            .FirstAsync(x => x.Id == projectId, cancellationToken);
+            .FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken)
+            ?? throw new InvalidOperationException($"Project not found: {projectId}.");
 
         var ba = await _db.Agents
             .Include(x => x.AiModel)
-            .FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst, cancellationToken);
+            .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst, cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Chưa cấu hình BA agent (RoleKey = BusinessAnalyst). Hãy tạo hoặc khôi phục agent BA trong màn hình Manage Agent.");
 
         var model = ba.AiModel ?? throw new InvalidOperationException("BA agent model is not configured.");
 

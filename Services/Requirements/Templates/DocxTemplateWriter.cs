@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Xml;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -24,20 +25,56 @@ public class DocxTemplateWriter
             .Descendants<Text>()
             .ToList();
 
-        foreach (var text in texts)
+        // Replace longest keys first so a short marker (e.g. "[Tên]") can't clobber part of a
+        // longer one that shares its prefix (e.g. "[Tên Dự Án]"), and sanitize each value
+        // once: model output can contain characters illegal in XML that would otherwise make
+        // Document.Save() below throw and corrupt the whole file.
+        foreach (var item in replacements.OrderByDescending(r => r.Key.Length))
         {
-            foreach (var item in replacements)
+            var value = SanitizeXmlText(item.Value);
+
+            foreach (var text in texts)
             {
                 if (text.Text.Contains(item.Key))
-                {
-                    text.Text = text.Text.Replace(item.Key, item.Value ?? "");
-                }
+                    text.Text = text.Text.Replace(item.Key, value);
             }
         }
 
         doc.MainDocumentPart.Document.Save();
 
         return outputPath;
+    }
+
+    /// <summary>
+    /// Removes characters that are illegal in XML 1.0 (most control characters, lone
+    /// surrogates). OpenXML serializes run text to XML, so a stray control byte in
+    /// model-generated content would otherwise make <c>Document.Save()</c> throw and
+    /// corrupt the document. Valid surrogate pairs (emoji, CJK extensions) are preserved.
+    /// </summary>
+    public static string SanitizeXmlText(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        var sb = new StringBuilder(value.Length);
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+
+            if (char.IsHighSurrogate(c) && i + 1 < value.Length && char.IsLowSurrogate(value[i + 1]))
+            {
+                sb.Append(c);
+                sb.Append(value[i + 1]);
+                i++;
+            }
+            else if (XmlConvert.IsXmlChar(c))
+            {
+                sb.Append(c);
+            }
+        }
+
+        return sb.ToString();
     }
 
     public string ExtractText(string docxPath)

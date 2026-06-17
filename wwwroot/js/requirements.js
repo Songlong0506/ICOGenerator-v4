@@ -4,7 +4,7 @@ const chatMessages = document.getElementById("chatMessages");
 const thinkingBox = document.getElementById("thinkingBox");
 
 function escapeHtml(value) {
-    return value
+    return String(value ?? "")
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")

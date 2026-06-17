@@ -15,6 +15,7 @@ public class GetAgentCallLogsQuery
     public async Task<object> ExecuteAsync(Guid projectId, Guid agentId)
     {
         return await _db.AgentModelCallLogs
+            .AsNoTracking()
             .Where(x => x.ProjectId == projectId && x.AgentId == agentId)
             .OrderByDescending(x => x.CreatedAt)
             .Select(x => new
