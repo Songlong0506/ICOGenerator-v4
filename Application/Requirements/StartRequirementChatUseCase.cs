@@ -14,11 +14,14 @@ public class StartRequirementChatUseCase
         _db = db;
     }
 
-    public async Task<Guid> ExecuteAsync(Guid projectId, string message)
+    // Returns null when no BA agent is configured, so the (JSON) caller can report a
+    // clean error instead of letting an exception bubble into the HTML error page.
+    public async Task<Guid?> ExecuteAsync(Guid projectId, string message)
     {
-        var ba = await _db.Agents.FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst)
-            ?? throw new InvalidOperationException(
-                "Chưa cấu hình BA agent (RoleKey = BusinessAnalyst). Hãy tạo hoặc khôi phục agent BA trong màn hình Manage Agent.");
+        var ba = await _db.Agents.FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
+        if (ba == null)
+            return null;
+
         var job = new AgentJob
         {
             ProjectId = projectId,
