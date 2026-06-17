@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using ICOGenerator.Services.Artifacts;
 
 namespace ICOGenerator.Services.Tools;
@@ -101,8 +102,13 @@ public class WorkspaceTools
         return $"File updated: {relativePath}";
     }
 
-    [Description("Set the POC feature UI for the generated demo. Pass only the inner HTML for the content region; it is placed between the existing POC_CONTENT markers in 03_Implementation/poc-demo.html, keeping the page shell (head/style/script, sidebar, topbar) untouched. Use this instead of ReplaceInFile for the POC content.")]
-    public async Task<string> SetPocContent(string content)
+    [Description("Set the POC feature UI AND customise the page shell for the generated demo, in ONE call. " +
+        "'content' (required): only the inner HTML for the content region (no <html>/<head>/<body>/sidebar/topbar); it is placed between the POC_CONTENT markers in 03_Implementation/poc-demo.html. " +
+        "'appName': the application/product name, shown in the sidebar header and the browser tab — never leave it as the template default \"App Name\". " +
+        "'breadcrumb': the top-bar breadcrumb text, e.g. \"Home > Orders\". " +
+        "'navItems': the left sidebar menu — an array of objects { \"label\": string, \"children\": string[] } where 'children' is optional and turns the entry into an expandable group; set these to the real screens, not the template's Overview/Module A/Module B/Settings. " +
+        "The rest of the shell (style/script, topbar, popups) is kept untouched. Use this instead of ReplaceInFile for the POC.")]
+    public async Task<string> SetPocContent(string content, string? appName = null, string? breadcrumb = null, JsonElement? navItems = null)
     {
         EnsureWorkspace();
         var fullPath = GetSafeFullPath(PocTemplate.MockupRelativePath);
@@ -112,6 +118,22 @@ public class WorkspaceTools
         var updated = PocTemplate.ReplaceContent(current, content ?? string.Empty);
         if (updated == null)
             return $"POC content markers not found in file: {PocTemplate.MockupRelativePath}";
+
+        // Customise the shell bits that live OUTSIDE the content markers (App Name, browser
+        // title, breadcrumb, left menu) so the POC reflects the real feature instead of the
+        // template defaults. Each step independently no-ops when its argument is empty/malformed,
+        // so a slip in one (e.g. a badly shaped navItems) never blocks the others or the content —
+        // the worst case is the previous "shell left as template" behaviour, never a failure.
+        if (!string.IsNullOrWhiteSpace(appName))
+            updated = PocTemplate.ReplaceAppName(updated, appName);
+        if (!string.IsNullOrWhiteSpace(breadcrumb))
+            updated = PocTemplate.ReplaceBreadcrumb(updated, breadcrumb);
+        if (navItems is { } navJson)
+        {
+            var items = PocNavItem.ParseList(navJson);
+            if (items.Count > 0)
+                updated = PocTemplate.ReplaceNav(updated, items);
+        }
 
         await File.WriteAllTextAsync(fullPath, updated);
         return $"POC content updated: {PocTemplate.MockupRelativePath}";
