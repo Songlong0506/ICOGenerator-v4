@@ -49,7 +49,9 @@ public class LlmClient : ILlmClient
             ModelName = model.Name
         };
 
-        var isLocal = model.Endpoint.Contains("localhost") || model.Endpoint.Contains("127.0.0.1");
+        var isLocal = model.Endpoint.Contains("localhost")
+            || model.Endpoint.Contains("127.0.0.1")
+            || model.Endpoint.Contains("::1"); // IPv6 loopback, incl. the [::1] URL form
         var http = _httpClientFactory.CreateClient(isLocal ? DirectClientName : ProxiedClientName);
 
         http.BaseAddress = new Uri(model.Endpoint.TrimEnd('/') + "/");

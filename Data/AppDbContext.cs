@@ -19,11 +19,6 @@ public class AppDbContext : DbContext
     public DbSet<AgentTool> AgentTools => Set<AgentTool>();
     public DbSet<ProjectDocument> ProjectDocuments => Set<ProjectDocument>();
     public DbSet<AgentConversation> AgentConversations => Set<AgentConversation>();
-    // Currently UNUSED: the async requirement-chat job flow (AgentJobRunner + Start/JobStatus
-    // endpoints) was removed because the UI used the synchronous BA chat path instead. The
-    // entity/table are kept to avoid a schema migration; drop them with an EF migration when
-    // convenient (dotnet ef migrations add RemoveAgentJob).
-    public DbSet<AgentJob> AgentJobs => Set<AgentJob>();
     public DbSet<AgentModelCallLog> AgentModelCallLogs => Set<AgentModelCallLog>();
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
     public DbSet<AgentTask> AgentTasks => Set<AgentTask>();
@@ -63,8 +58,6 @@ public class AppDbContext : DbContext
 
         builder.Entity<AgentTask>().Property(x => x.Type).HasConversion<string>();
         builder.Entity<AgentTask>().Property(x => x.Status).HasConversion<string>();
-
-        builder.Entity<AgentJob>().Property(x => x.Status).HasConversion<string>();
 
         builder.Entity<WorkflowRun>().HasOne(x => x.Project).WithMany(x => x.WorkflowRuns).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         builder.Entity<WorkflowRun>().HasIndex(x => new { x.ProjectId, x.Status, x.CreatedAt });

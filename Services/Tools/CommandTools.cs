@@ -7,20 +7,29 @@ public class CommandTools
 {
     private readonly IConfiguration _configuration;
     private readonly WorkspaceTools _workspaceTools;
+    private readonly int _timeoutSeconds;
+
     public CommandTools(IConfiguration configuration, WorkspaceTools workspaceTools)
-    { _configuration = configuration; _workspaceTools = workspaceTools; }
+    {
+        _configuration = configuration;
+        _workspaceTools = workspaceTools;
+        // Hard ceiling for any single command. Configurable (Commands:TimeoutSeconds) so a slow
+        // `dotnet build` / `npm install` of a larger POC isn't cut off at a fixed 2 minutes,
+        // mirroring how the LLM request timeout is already configurable.
+        _timeoutSeconds = configuration.GetValue("Commands:TimeoutSeconds", 120);
+    }
 
     [Description("Run a safe shell command inside the current workspace.")]
-    public async Task<string> RunCommand(string command)
+    public Task<string> RunCommand(string command)
     {
         if (string.IsNullOrWhiteSpace(_workspaceTools.CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
         // The allowlist below only matches the command PREFIX, and the command is run through
         // a shell. Without this guard, "git status && <anything>" or "git status; curl…|bash"
         // would pass the prefix check yet let the shell run arbitrary chained commands. Reject
         // any shell control/redirection/substitution operators so the allowlist actually holds.
-        if (ContainsShellOperators(command)) return $"Command blocked for security reason (shell operators are not allowed): {command}";
-        if (ContainsInlineCodeEval(command)) return $"Command blocked for security reason (inline code execution is not allowed): {command}";
-        if (!IsAllowed(command)) return $"Command blocked for security reason: {command}";
+        if (ContainsShellOperators(command)) return Task.FromResult($"Command blocked for security reason (shell operators are not allowed): {command}");
+        if (ContainsInlineCodeEval(command)) return Task.FromResult($"Command blocked for security reason (inline code execution is not allowed): {command}");
+        if (!IsAllowed(command)) return Task.FromResult($"Command blocked for security reason: {command}");
         var isWindows = OperatingSystem.IsWindows();
         var psi = new ProcessStartInfo
         {
@@ -32,6 +41,42 @@ public class CommandTools
             UseShellExecute = false,
             CreateNoWindow = true
         };
+        return ExecuteAsync(psi, command);
+    }
+
+    // Run an allowlisted command with its arguments passed LITERALLY (no shell). Because no
+    // shell parses the arguments, operators such as & | ; $ ` < > inside an argument are inert
+    // data — so a git commit message or branch name containing them is no longer rejected by
+    // the shell-operator guard (which only the shell-based RunCommand needs). The allowlist and
+    // inline-eval guards still apply, enforced against the executable + flags prefix; an
+    // argument can only EXTEND that prefix, never widen which executable runs.
+    public Task<string> RunArgs(IReadOnlyList<string> args)
+    {
+        if (string.IsNullOrWhiteSpace(_workspaceTools.CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
+        if (args == null || args.Count == 0 || string.IsNullOrWhiteSpace(args[0]))
+            return Task.FromResult("Command blocked for security reason: empty command.");
+
+        var commandLine = string.Join(' ', args);
+        if (ContainsInlineCodeEval(commandLine)) return Task.FromResult($"Command blocked for security reason (inline code execution is not allowed): {commandLine}");
+        if (!IsAllowed(commandLine)) return Task.FromResult($"Command blocked for security reason: {commandLine}");
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = args[0],
+            WorkingDirectory = _workspaceTools.CurrentWorkspacePath,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        for (var i = 1; i < args.Count; i++)
+            psi.ArgumentList.Add(args[i]);
+
+        return ExecuteAsync(psi, commandLine);
+    }
+
+    private async Task<string> ExecuteAsync(ProcessStartInfo psi, string displayCommand)
+    {
         using var process = Process.Start(psi);
         if (process == null) return "Cannot start process.";
         var outputTask = process.StandardOutput.ReadToEndAsync();
@@ -41,10 +86,10 @@ public class CommandTools
         // fresh call would always be unequal and force every command into the timeout
         // branch (killing the process and discarding its real output).
         var waitTask = process.WaitForExitAsync();
-        var completed = await Task.WhenAny(waitTask, Task.Delay(TimeSpan.FromMinutes(2)));
+        var completed = await Task.WhenAny(waitTask, Task.Delay(TimeSpan.FromSeconds(_timeoutSeconds)));
         if (completed != waitTask) { try { process.Kill(true); } catch { } return "Command timeout."; }
         return $"""
-Command: {command}
+Command: {displayCommand}
 ExitCode: {process.ExitCode}
 
 Output:
