@@ -117,6 +117,9 @@ public class RequirementsController : Controller
             return BadRequest();
 
         var jobId = await _startRequirementChatUseCase.ExecuteAsync(projectId, message);
+        if (jobId == null)
+            return BadRequest(new { error = "Chưa cấu hình BA agent (RoleKey = BusinessAnalyst). Hãy tạo hoặc khôi phục agent BA trong màn hình Manage Agent." });
+
         return Json(new { jobId });
     }
 

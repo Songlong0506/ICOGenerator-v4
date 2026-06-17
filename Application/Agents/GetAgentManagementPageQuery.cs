@@ -1,4 +1,5 @@
 using ICOGenerator.Data;
+using ICOGenerator.Services.Agents;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Agents;
@@ -6,7 +7,13 @@ namespace ICOGenerator.Application.Agents;
 public class GetAgentManagementPageQuery
 {
     private readonly AppDbContext _db;
-    public GetAgentManagementPageQuery(AppDbContext db) => _db = db;
+    private readonly AgentInstructionProvider _instructionProvider;
+
+    public GetAgentManagementPageQuery(AppDbContext db, AgentInstructionProvider instructionProvider)
+    {
+        _db = db;
+        _instructionProvider = instructionProvider;
+    }
 
     public async Task<AgentManagementPage> ExecuteAsync(Guid? id)
     {
@@ -21,10 +28,15 @@ public class GetAgentManagementPageQuery
         var models = await _db.AiModels.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync();
         var tools = await _db.ToolDefinitions.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.DisplayName).ToListAsync();
 
-        return new AgentManagementPage(
-            agents,
-            id.HasValue ? agents.FirstOrDefault(x => x.Id == id) : agents.FirstOrDefault(),
-            models,
-            tools);
+        var selected = id.HasValue ? agents.FirstOrDefault(x => x.Id == id) : agents.FirstOrDefault();
+
+        // Resolving the agent's instruction is a Service call; keep it in the use case so the
+        // controller stays thin (it must not depend on Services directly — see ARCHITECTURE §3).
+        var instruction = selected != null ? _instructionProvider.GetInstruction(selected) : string.Empty;
+        var instructionFile = selected != null
+            ? $"Prompts/{AgentInstructionProvider.RelativePath(selected.RoleKey)}"
+            : string.Empty;
+
+        return new AgentManagementPage(agents, selected, models, tools, instruction, instructionFile);
     }
 }

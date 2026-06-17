@@ -16,10 +16,11 @@ public class LlmClient : ILlmClient
 
     private static readonly JsonSerializerOptions SerializeOptions = new() { WriteIndented = true };
 
-    // Overall ceiling for a single LLM call. Because we stream with
-    // ResponseHeadersRead, HttpClient.Timeout only bounds time-to-headers, not the
-    // body read loop — without this a model that stalls mid-stream would hang the
-    // single background worker forever. Configurable via Llm:RequestTimeoutSeconds.
+    // Overall ceiling for a single LLM call, enforced via a CancellationToken (see
+    // ChatWithLogAsync). HttpClient's own Timeout is disabled there: with
+    // ResponseHeadersRead it would only bound time-to-headers (default 100s) and would
+    // silently cap this deadline, so the linked CTS is the single source of truth for
+    // both the header wait and the streamed body read. Configurable via Llm:RequestTimeoutSeconds.
     private const int DefaultRequestTimeoutSeconds = 600;
 
     // Upper bound for completion tokens, and the headroom reserved for the prompt so a
@@ -52,6 +53,11 @@ public class LlmClient : ILlmClient
         var http = _httpClientFactory.CreateClient(isLocal ? DirectClientName : ProxiedClientName);
 
         http.BaseAddress = new Uri(model.Endpoint.TrimEnd('/') + "/");
+        // Disable HttpClient's 100s default timeout: with ResponseHeadersRead it would cap
+        // time-to-first-headers at 100s, silently overriding the configurable
+        // Llm:RequestTimeoutSeconds deadline (and misreporting a 100s cut-off as that value).
+        // The linked timeoutCts below is the single source of truth for the request deadline.
+        http.Timeout = Timeout.InfiniteTimeSpan;
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", string.IsNullOrWhiteSpace(model.ApiKey) ? "lm-studio" : model.ApiKey);
 
         result.PromptTokens = TokenEstimator.Estimate(string.Join("\n", messages.Select(x => x.Content)));

@@ -16,33 +16,65 @@ public class DocxTemplateWriter
     {
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
-        File.Copy(templatePath, outputPath, overwrite: true);
-
-        using var doc = WordprocessingDocument.Open(outputPath, true);
-
-        var texts = doc.MainDocumentPart!
-            .Document
-            .Descendants<Text>()
-            .ToList();
-
-        // Replace longest keys first so a short marker (e.g. "[Tên]") can't clobber part of a
-        // longer one that shares its prefix (e.g. "[Tên Dự Án]"), and sanitize each value
-        // once: model output can contain characters illegal in XML that would otherwise make
-        // Document.Save() below throw and corrupt the whole file.
-        foreach (var item in replacements.OrderByDescending(r => r.Key.Length))
+        // Build into a temp file first and move it into place only after Save() succeeds.
+        // A failure mid-way (corrupt template, an illegal XML char that slips past the
+        // sanitizer, an I/O error) must not leave a half-written or unsubstituted .docx at
+        // outputPath that downstream code (preview, DB Content upsert) would treat as a
+        // valid generated document.
+        var tempPath = outputPath + ".tmp";
+        try
         {
-            var value = SanitizeXmlText(item.Value);
+            File.Copy(templatePath, tempPath, overwrite: true);
 
-            foreach (var text in texts)
+            using (var doc = WordprocessingDocument.Open(tempPath, true))
             {
-                if (text.Text.Contains(item.Key))
-                    text.Text = text.Text.Replace(item.Key, value);
+                var texts = doc.MainDocumentPart!
+                    .Document
+                    .Descendants<Text>()
+                    .ToList();
+
+                // Replace longest keys first so a short marker (e.g. "[Tên]") can't clobber part
+                // of a longer one that shares its prefix (e.g. "[Tên Dự Án]"), and sanitize each
+                // value once: model output can contain characters illegal in XML that would
+                // otherwise make Document.Save() below throw and corrupt the whole file.
+                foreach (var item in replacements.OrderByDescending(r => r.Key.Length))
+                {
+                    var value = SanitizeXmlText(item.Value);
+
+                    foreach (var text in texts)
+                    {
+                        if (text.Text.Contains(item.Key))
+                            text.Text = text.Text.Replace(item.Key, value);
+                    }
+                }
+
+                doc.MainDocumentPart.Document.Save();
             }
+
+            // Atomic on the same volume: outputPath is only touched once the document is
+            // fully written and the package is closed.
+            File.Move(tempPath, outputPath, overwrite: true);
+        }
+        catch
+        {
+            TryDelete(tempPath);
+            throw;
         }
 
-        doc.MainDocumentPart.Document.Save();
-
         return outputPath;
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+            // Best-effort cleanup; the original failure is the one worth surfacing.
+        }
     }
 
     /// <summary>

@@ -124,7 +124,16 @@ public class GetAgentDashboardQuery
         if (!TextExtensions.Contains(extension))
             return $"Preview is not available for binary file: {Path.GetFileName(filePath)}";
 
-        var content = File.ReadAllText(filePath);
-        return content.Length > 12000 ? content[..12000] + "\n...[truncated]" : content;
+        // A locked/just-deleted/permission-denied file must not 500 the whole dashboard;
+        // degrade to an inline note for that one file and keep rendering the rest.
+        try
+        {
+            var content = File.ReadAllText(filePath);
+            return content.Length > 12000 ? content[..12000] + "\n...[truncated]" : content;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return $"Preview unavailable ({Path.GetFileName(filePath)}): {ex.Message}";
+        }
     }
 }

@@ -6,4 +6,6 @@ public record AgentManagementPage(
     IReadOnlyList<Agent> Agents,
     Agent? SelectedAgent,
     IReadOnlyList<AiModel> Models,
-    IReadOnlyList<ToolDefinition> Tools);
+    IReadOnlyList<ToolDefinition> Tools,
+    string Instruction,
+    string InstructionFile);

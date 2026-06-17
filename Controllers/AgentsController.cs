@@ -1,5 +1,4 @@
 using ICOGenerator.Application.Agents;
-using ICOGenerator.Services.Agents;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
@@ -8,13 +7,11 @@ public class AgentsController : Controller
 {
     private readonly GetAgentManagementPageQuery _getAgentManagementPageQuery;
     private readonly UpdateAgentUseCase _updateAgentUseCase;
-    private readonly AgentInstructionProvider _instructionProvider;
 
-    public AgentsController(GetAgentManagementPageQuery getAgentManagementPageQuery, UpdateAgentUseCase updateAgentUseCase, AgentInstructionProvider instructionProvider)
+    public AgentsController(GetAgentManagementPageQuery getAgentManagementPageQuery, UpdateAgentUseCase updateAgentUseCase)
     {
         _getAgentManagementPageQuery = getAgentManagementPageQuery;
         _updateAgentUseCase = updateAgentUseCase;
-        _instructionProvider = instructionProvider;
     }
 
     public async Task<IActionResult> Index(Guid? id)
@@ -23,11 +20,8 @@ public class AgentsController : Controller
         ViewBag.Selected = page.SelectedAgent;
         ViewBag.Models = page.Models;
         ViewBag.Tools = page.Tools;
-        if (page.SelectedAgent != null)
-        {
-            ViewBag.Instruction = _instructionProvider.GetInstruction(page.SelectedAgent);
-            ViewBag.InstructionFile = $"Prompts/{AgentInstructionProvider.RelativePath(page.SelectedAgent.RoleKey)}";
-        }
+        ViewBag.Instruction = page.Instruction;
+        ViewBag.InstructionFile = page.InstructionFile;
         return View(page.Agents);
     }
 
