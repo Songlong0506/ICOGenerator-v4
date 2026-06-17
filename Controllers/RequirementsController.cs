@@ -12,6 +12,7 @@ public class RequirementsController : Controller
     private readonly ApproveRequirementUseCase _approveRequirementUseCase;
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
+    private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
 
     public RequirementsController(
        GetRequirementWorkspaceQuery getRequirementWorkspaceQuery,
@@ -19,7 +20,8 @@ public class RequirementsController : Controller
        ChatWithBAUseCase chatWithBAUseCase,
        ApproveRequirementUseCase approveRequirementUseCase,
        GetDocumentDownloadQuery getDocumentDownloadQuery,
-       GetWorkflowStatusQuery getWorkflowStatusQuery)
+       GetWorkflowStatusQuery getWorkflowStatusQuery,
+       GetDocumentPreviewQuery getDocumentPreviewQuery)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
@@ -27,6 +29,7 @@ public class RequirementsController : Controller
         _approveRequirementUseCase = approveRequirementUseCase;
         _getDocumentDownloadQuery = getDocumentDownloadQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
+        _getDocumentPreviewQuery = getDocumentPreviewQuery;
     }
 
     public async Task<IActionResult> Index(Guid projectId, string? version = null)
@@ -97,6 +100,16 @@ public class RequirementsController : Controller
     public IActionResult NewChat(Guid projectId)
     {
         return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DocumentPreview(Guid id)
+    {
+        var result = await _getDocumentPreviewQuery.ExecuteAsync(id);
+        if (result == null)
+            return NotFound("Document not found.");
+
+        return Json(result);
     }
 
     [HttpGet]

@@ -265,7 +265,11 @@
 
                     <h3>@doc.FileName</h3>
 
-                    <pre>@(string.IsNullOrWhiteSpace(doc.Content) ? "No preview available." : doc.Content)</pre>
+                    <div class="doc-render"
+                         data-doc-id="@doc.Id"
+                         data-loaded="false">
+                        <p class="doc-loading">Loading…</p>
+                    </div>
 
                     <div class="doc-actions">
                         @*  <a class="btn outline"
