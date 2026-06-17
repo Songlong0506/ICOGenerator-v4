@@ -40,7 +40,16 @@ public class AgentTaskWorker : BackgroundService
                 _logger.LogError(ex, "Failed while processing queued workflow agent tasks.");
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+            // Catch the shutdown cancellation here instead of letting it escape
+            // ExecuteAsync (which the host treats as a crash); shutdown becomes a clean exit.
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
         }
     }
 
@@ -137,6 +146,13 @@ Kết quả: nội dung tính năng được đặt vào file 03_Implementation/
                     toolName.Equals(nameof(WorkspaceTools.SetPocContent), StringComparison.OrdinalIgnoreCase)
                     && observation.Contains("POC content updated", StringComparison.OrdinalIgnoreCase),
                 cancellationToken: cancellationToken);
+
+            // The agent ran out of steps without ever landing a successful SetPocContent
+            // (the stopWhen above never fired). The POC was NOT produced, so fail the task
+            // instead of recording it as Completed with a misleading output.
+            if (string.Equals(output, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    "Agent đạt giới hạn số bước mà chưa tạo được POC (chưa gọi SetPocContent thành công).");
 
             _progress.Report(task.WorkflowRunId, "completed", "Task hoàn tất — POC đã được tạo.");
 

@@ -11,14 +11,15 @@ public class GetAgentManagementPageQuery
     public async Task<AgentManagementPage> ExecuteAsync(Guid? id)
     {
         var agents = await _db.Agents
+            .AsNoTracking()
             .Include(x => x.AiModel)
             .Include(x => x.AgentTools)
             .ThenInclude(x => x.ToolDefinition)
             .OrderBy(x => x.Name)
             .ToListAsync();
 
-        var models = await _db.AiModels.Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync();
-        var tools = await _db.ToolDefinitions.Where(x => x.IsActive).OrderBy(x => x.DisplayName).ToListAsync();
+        var models = await _db.AiModels.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync();
+        var tools = await _db.ToolDefinitions.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.DisplayName).ToListAsync();
 
         return new AgentManagementPage(
             agents,

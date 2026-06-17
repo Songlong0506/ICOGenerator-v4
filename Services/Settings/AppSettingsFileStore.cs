@@ -11,6 +11,9 @@ public class AppSettingsFileStore
 {
     private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
 
+    // The store is a singleton, so this serializes every write process-wide.
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
+
     private readonly string _filePath;
 
     public AppSettingsFileStore(IHostEnvironment environment)
@@ -27,6 +30,23 @@ public class AppSettingsFileStore
         return await JsonNode.ParseAsync(stream) as JsonObject ?? new JsonObject();
     }
 
-    public Task WriteAsync(JsonObject root) =>
-        File.WriteAllTextAsync(_filePath, root.ToJsonString(WriteOptions));
+    public async Task WriteAsync(JsonObject root)
+    {
+        var json = root.ToJsonString(WriteOptions);
+
+        await _writeLock.WaitAsync();
+        try
+        {
+            // Write to a temp file then atomically replace, so a crash or a concurrent
+            // write can never leave appsettings.json half-written — which would break the
+            // next reloadOnChange reload or the next app start.
+            var tempPath = _filePath + ".tmp";
+            await File.WriteAllTextAsync(tempPath, json);
+            File.Move(tempPath, _filePath, overwrite: true);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
 }

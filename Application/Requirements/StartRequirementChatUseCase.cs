@@ -16,7 +16,9 @@ public class StartRequirementChatUseCase
 
     public async Task<Guid> ExecuteAsync(Guid projectId, string message)
     {
-        var ba = await _db.Agents.FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
+        var ba = await _db.Agents.FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst)
+            ?? throw new InvalidOperationException(
+                "Chưa cấu hình BA agent (RoleKey = BusinessAnalyst). Hãy tạo hoặc khôi phục agent BA trong màn hình Manage Agent.");
         var job = new AgentJob
         {
             ProjectId = projectId,

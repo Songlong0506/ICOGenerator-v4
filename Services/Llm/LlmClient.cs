@@ -28,11 +28,13 @@ public class LlmClient : ILlmClient
     private const int ContextSafetyMargin = 1024;
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<LlmClient> _logger;
     private readonly int _requestTimeoutSeconds;
 
-    public LlmClient(IHttpClientFactory httpClientFactory, IConfiguration configuration)
+    public LlmClient(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<LlmClient> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _logger = logger;
         _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
     }
 
@@ -107,6 +109,8 @@ API error: {(int)response.StatusCode} {response.StatusCode}
 
             var contentBuilder = new StringBuilder();
             var rawBuilder = new StringBuilder();
+            string? streamError = null;
+            string? finishReason = null;
 
             string? line;
             while ((line = await reader.ReadLineAsync(token)) != null)
@@ -132,6 +136,18 @@ API error: {(int)response.StatusCode} {response.StatusCode}
                     using var doc = JsonDocument.Parse(data);
                     var root = doc.RootElement;
 
+                    // Some OpenAI-compatible servers stream an error object with HTTP 200 and
+                    // then close the stream. Without this it gets swallowed below and reported
+                    // as a successful (empty) completion.
+                    if (root.TryGetProperty("error", out var errorElement))
+                    {
+                        streamError = errorElement.TryGetProperty("message", out var errorMessage)
+                            && errorMessage.ValueKind == JsonValueKind.String
+                                ? errorMessage.GetString()
+                                : errorElement.ToString();
+                        break;
+                    }
+
                     if (!root.TryGetProperty("choices", out var choices))
                         continue;
 
@@ -139,6 +155,12 @@ API error: {(int)response.StatusCode} {response.StatusCode}
                         continue;
 
                     var choice = choices[0];
+
+                    if (choice.TryGetProperty("finish_reason", out var finishElement)
+                        && finishElement.ValueKind == JsonValueKind.String)
+                    {
+                        finishReason = finishElement.GetString();
+                    }
 
                     if (!choice.TryGetProperty("delta", out var delta))
                         continue;
@@ -159,11 +181,30 @@ API error: {(int)response.StatusCode} {response.StatusCode}
 
             stopwatch.Stop();
 
+            // A mid-stream error frame means the call failed even though the HTTP headers
+            // were 200; report it as a failure instead of an empty success.
+            if (streamError != null)
+            {
+                result.DurationMs = stopwatch.ElapsedMilliseconds;
+                result.IsSuccess = false;
+                result.ErrorMessage = $"LLM stream error: {streamError}";
+                result.Content = result.ErrorMessage;
+                result.ResponseText = rawBuilder.Length > 0 ? rawBuilder.ToString() : result.ErrorMessage;
+                result.CompletionTokens = TokenEstimator.Estimate(result.Content);
+                result.TotalTokens = result.PromptTokens + result.CompletionTokens;
+                return result;
+            }
+
             result.Content = contentBuilder.ToString();
             result.ExtractedContent = result.Content;
             result.ResponseText = rawBuilder.Length > 0 ? rawBuilder.ToString() : result.Content;
             result.DurationMs = stopwatch.ElapsedMilliseconds;
             result.IsSuccess = true;
+            // finish_reason == "length" means the model hit its token cap mid-output, so the
+            // content (often truncated JSON) may be unreliable. Surface it as a diagnostic
+            // note so a cut-off answer is distinguishable from a clean one.
+            if (string.Equals(finishReason, "length", StringComparison.OrdinalIgnoreCase))
+                result.ErrorMessage = "Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).";
             result.CompletionTokens = TokenEstimator.Estimate(result.Content);
             result.TotalTokens = result.PromptTokens + result.CompletionTokens;
             return result;
@@ -193,11 +234,15 @@ API error: {(int)response.StatusCode} {response.StatusCode}
         {
             stopwatch.Stop();
 
+            // Log the full exception for diagnosis, but keep only the short message in the
+            // DB-persisted, UI-visible fields so internal stack/paths aren't leaked there.
+            _logger.LogError(ex, "LLM call to {Endpoint} ({ModelId}) failed.", model.Endpoint, model.ModelId);
+
             result.DurationMs = stopwatch.ElapsedMilliseconds;
             result.IsSuccess = false;
-            result.ErrorMessage = ex.ToString();
+            result.ErrorMessage = ex.Message;
             result.Content = ex.Message;
-            result.ResponseText = ex.ToString();
+            result.ResponseText = ex.Message;
             result.CompletionTokens = TokenEstimator.Estimate(result.Content);
             result.TotalTokens = result.PromptTokens + result.CompletionTokens;
             return result;

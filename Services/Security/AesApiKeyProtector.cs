@@ -15,9 +15,11 @@ public class AesApiKeyProtector : IApiKeyProtector
     private static readonly int TagSize = AesGcm.TagByteSizes.MaxSize;     // 16 bytes
 
     private readonly byte[] _key;
+    private readonly ILogger<AesApiKeyProtector> _logger;
 
-    public AesApiKeyProtector(IConfiguration configuration)
+    public AesApiKeyProtector(IConfiguration configuration, ILogger<AesApiKeyProtector> logger)
     {
+        _logger = logger;
         var secret = configuration["Encryption:ApiKeyKey"];
         if (string.IsNullOrWhiteSpace(secret))
         {
@@ -67,7 +69,10 @@ public class AesApiKeyProtector : IApiKeyProtector
         {
             var combined = Convert.FromBase64String(storedValue[Prefix.Length..]);
             if (combined.Length < NonceSize + TagSize)
-                return storedValue;
+            {
+                _logger.LogWarning("Encrypted ApiKey is malformed (too short); treating it as unconfigured.");
+                return string.Empty;
+            }
 
             var nonce = new byte[NonceSize];
             var tag = new byte[TagSize];
@@ -83,14 +88,20 @@ public class AesApiKeyProtector : IApiKeyProtector
 
             return Encoding.UTF8.GetString(plainBytes);
         }
-        catch (CryptographicException)
+        catch (CryptographicException ex)
         {
-            // Sai khóa hoặc dữ liệu hỏng — trả về nguyên trạng thay vì làm sập ứng dụng.
-            return storedValue;
+            // The prefix says this value IS encrypted but it won't decrypt — wrong
+            // Encryption:ApiKeyKey (e.g. after a key rotation) or tampered/corrupt data.
+            // Returning storedValue here would hand the caller the raw "enc:v1:…" ciphertext
+            // to use AS the API key; surface the failure and treat the key as unconfigured
+            // instead, so the misconfiguration is visible rather than silently wrong.
+            _logger.LogWarning(ex, "Failed to decrypt ApiKey (wrong Encryption:ApiKeyKey or corrupt data); treating it as unconfigured.");
+            return string.Empty;
         }
-        catch (FormatException)
+        catch (FormatException ex)
         {
-            return storedValue;
+            _logger.LogWarning(ex, "Encrypted ApiKey is not valid base64; treating it as unconfigured.");
+            return string.Empty;
         }
     }
 }

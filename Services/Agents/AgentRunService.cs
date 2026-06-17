@@ -11,6 +11,11 @@ namespace ICOGenerator.Services.Agents;
 
 public class AgentRunService
 {
+    // Returned when the loop exhausts its step budget without producing a final answer or
+    // hitting the caller's stop condition. Callers use this to tell an incomplete run apart
+    // from a successful one (the string is part of the contract — keep it in sync).
+    public const string MaxStepsReachedResult = "Stopped because max steps reached.";
+
     private readonly AppDbContext _db;
     private readonly IToolRegistry _toolRegistry;
     private readonly DynamicToolInvoker _invoker;
@@ -123,7 +128,7 @@ public class AgentRunService
             }
         }
         onProgress?.Invoke("final", "Dừng do đạt giới hạn số bước xử lý.", null);
-        return "Stopped because max steps reached.";
+        return MaxStepsReachedResult;
     }
 
     private static string? DescribeToolArgs(Dictionary<string, System.Text.Json.JsonElement> args)

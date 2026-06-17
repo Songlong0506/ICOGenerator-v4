@@ -70,6 +70,9 @@ public class RequirementsController : Controller
     {
         var result = await _approveRequirementUseCase.ExecuteAsync(projectId);
 
+        if (result == ApproveRequirementResult.ProjectNotFound)
+            return RedirectToAction("Index", "Projects");
+
         if (result == ApproveRequirementResult.MissingAiDesignSpec)
         {
             TempData["Error"] = "AI Design Spec chưa được tạo. Vui lòng chat với BA trước khi approve.";

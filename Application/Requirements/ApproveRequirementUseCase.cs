@@ -24,7 +24,10 @@ public class ApproveRequirementUseCase
     {
         var project = await _db.Projects
             .Include(x => x.Documents)
-            .FirstAsync(x => x.Id == projectId);
+            .FirstOrDefaultAsync(x => x.Id == projectId);
+
+        if (project == null)
+            return ApproveRequirementResult.ProjectNotFound;
 
         var draftDocs = project.Documents
             .Where(x => x.VersionName == "draft" && !x.IsApproved)
@@ -91,5 +94,6 @@ public enum ApproveRequirementResult
 {
     Approved,
     NoDraftDocuments,
-    MissingAiDesignSpec
+    MissingAiDesignSpec,
+    ProjectNotFound
 }

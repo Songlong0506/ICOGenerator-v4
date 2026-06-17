@@ -33,7 +33,17 @@ public class AgentJobRunner : BackgroundService
                 _logger.LogError(ex, "Failed while processing queued agent jobs.");
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+            // The delay is the one place stoppingToken legitimately fires; catching the
+            // cancellation here (instead of letting it escape ExecuteAsync, which the host
+            // treats as a crash) makes shutdown a clean loop exit.
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
         }
     }
 

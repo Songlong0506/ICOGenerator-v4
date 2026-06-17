@@ -78,12 +78,12 @@ public class RequirementDocumentGenerator
         var body = mainPart.Document.Body!;
 
         body.AppendChild(new Paragraph(
-            new Run(new Text(title))));
+            new Run(new Text(DocxTemplateWriter.SanitizeXmlText(title)))));
 
-        foreach (var line in content.Split('\n'))
+        foreach (var line in (content ?? "").Split('\n'))
         {
             body.AppendChild(new Paragraph(
-                new Run(new Text(line))));
+                new Run(new Text(DocxTemplateWriter.SanitizeXmlText(line)))));
         }
 
         mainPart.Document.Save();

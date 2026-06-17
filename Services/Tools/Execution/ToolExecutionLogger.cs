@@ -20,6 +20,8 @@ public class ToolExecutionLogger : IToolExecutionLogger
     public void LogResult(ToolRuntimeDescriptor tool, string result)
     {
         var preview = result.Length > 1000 ? result[..1000] + "...[truncated]" : result;
-        _logger.LogInformation("Agent tool {ToolName} completed. Result preview: {ResultPreview}", tool.Definition.Name, preview);
+        // Debug, not Information: tool results include raw command output that can contain
+        // secrets/tokens (git/npm/dotnet), so it shouldn't land in default-level logs.
+        _logger.LogDebug("Agent tool {ToolName} completed. Result preview: {ResultPreview}", tool.Definition.Name, preview);
     }
 }
