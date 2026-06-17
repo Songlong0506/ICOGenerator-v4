@@ -135,7 +135,7 @@ Muốn thêm tool mới cho agent: viết một method `public` có `[Descriptio
 và cho agent gọi — không phải sửa vòng lặp agent.
 
 ### 5.4. Background processing (Hosted Service + Orchestrator)
-- `AgentJobRunner`, `AgentTaskWorker` là `BackgroundService` chạy nền.
+- `AgentTaskWorker` là `BackgroundService` chạy nền (poll `AgentTask` ở trạng thái `Queued`).
 - `WorkflowOrchestrator` (ẩn sau `IWorkflowOrchestrator`) điều phối các bước workflow.
 
 ### 5.5. Prompt as template
@@ -192,12 +192,13 @@ sắp xếp lại; namespace luôn khớp đường dẫn.
 
 ## 9. Quan sát còn lại (chưa xử lý, để bạn cân nhắc)
 
-- **Luồng job bất đồng bộ đang "mồ côi":** `StartRequirementChatUseCase` (action `StartChat`),
-  `GetRequirementJobStatusQuery` (action `JobStatus`) và `BackgroundService` `AgentJobRunner`
-  tạo nên một hàng đợi `AgentJob`, nhưng UI không gọi `StartChat` ở đâu cả — chat BA thật đi qua
-  `Chat` → `ChatWithBAUseCase` (đồng bộ). Vì vậy `AgentJobRunner` đang poll một hàng đợi không
-  bao giờ được nạp. Nên quyết định: nối lại vào UI, hay gỡ bỏ cả cụm này cho gọn.
+- **Luồng job bất đồng bộ đã được gỡ:** trước đây `StartRequirementChatUseCase` (action
+  `StartChat`), `GetRequirementJobStatusQuery` (action `JobStatus`) và `BackgroundService`
+  `AgentJobRunner` tạo nên một hàng đợi `AgentJob` mà UI không bao giờ gọi tới — chat BA thật đi
+  qua `Chat` → `ChatWithBAUseCase` (đồng bộ). Cụm code chết này đã được xoá. **Bảng `AgentJobs`
+  vẫn còn trong DB** (entity + `DbSet` giữ lại để tránh migration); có thể drop bằng
+  `dotnet ef migrations add RemoveAgentJob` khi tiện.
 - `Services/Logging` chỉ có logger cho lời gọi model, đặt cạnh `Services/Llm`. Nếu sau này log
   nhiều loại hơn thì giữ nguyên là hợp lý; nếu không, có thể gộp vào `Llm`.
-- `ICOGenerator.csproj` vẫn tham chiếu `Microsoft.EntityFrameworkCore.Sqlite` nhưng `AppDbContext`
-  chỉ dùng `UseSqlServer`. Nếu không có kế hoạch chạy SQLite thì có thể gỡ package cho gọn.
+- Package `Microsoft.EntityFrameworkCore.Sqlite` (không dùng — `AppDbContext` chỉ `UseSqlServer`)
+  đã được gỡ khỏi `ICOGenerator.csproj`.

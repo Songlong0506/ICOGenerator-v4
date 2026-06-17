@@ -15,12 +15,14 @@ public class AgentTaskWorker : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AgentTaskWorker> _logger;
     private readonly IWorkflowProgressReporter _progress;
+    private readonly IWebHostEnvironment _environment;
 
-    public AgentTaskWorker(IServiceScopeFactory scopeFactory, ILogger<AgentTaskWorker> logger, IWorkflowProgressReporter progress)
+    public AgentTaskWorker(IServiceScopeFactory scopeFactory, ILogger<AgentTaskWorker> logger, IWorkflowProgressReporter progress, IWebHostEnvironment environment)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
         _progress = progress;
+        _environment = environment;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -205,7 +207,10 @@ Kết quả: nội dung tính năng được đặt vào file 03_Implementation/
 
             Directory.CreateDirectory(implDir);
 
-            var sourceDir = Path.Combine(AppContext.BaseDirectory, "Prompts", "Design");
+            // Resolve prompt assets from ContentRootPath so this worker and
+            // PromptTemplateService read from the same "Prompts" root (they previously
+            // diverged: BaseDirectory = bin output vs ContentRootPath = project root).
+            var sourceDir = Path.Combine(_environment.ContentRootPath, "Prompts", "Design");
             foreach (var name in new[] { "poc-template.html" })
             {
                 var src = Path.Combine(sourceDir, name);

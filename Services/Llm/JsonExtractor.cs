@@ -13,7 +13,11 @@ public static class JsonExtractor
                 text = text.Substring(firstNewLine + 1, lastFence - firstNewLine - 1).Trim();
         }
         var start = text.IndexOf('{');
-        if (start < 0) return text;
+        // No object at all (plain prose), or the braces never balance (a model response
+        // truncated mid-JSON, e.g. finish_reason=length). Return empty so the caller's
+        // JSON deserialize fails cleanly instead of receiving prose or a half object that
+        // could be mistaken for a valid extraction. Callers treat empty as "no JSON here".
+        if (start < 0) return string.Empty;
         int depth = 0; bool inString = false; bool escape = false;
         for (int i = start; i < text.Length; i++)
         {
@@ -26,6 +30,6 @@ public static class JsonExtractor
             if (c == '}') depth--;
             if (depth == 0) return text.Substring(start, i - start + 1);
         }
-        return text;
+        return string.Empty;
     }
 }

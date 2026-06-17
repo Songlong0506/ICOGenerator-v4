@@ -63,8 +63,6 @@ public static class ApplicationServiceCollectionExtensions
     {
         // Application layer: use cases & queries driven by RequirementsController.
         services.AddScoped<GetRequirementWorkspaceQuery>();
-        services.AddScoped<StartRequirementChatUseCase>();
-        services.AddScoped<GetRequirementJobStatusQuery>();
         services.AddScoped<GetDocumentDownloadQuery>();
         services.AddScoped<GenerateRequirementDraftUseCase>();
         services.AddScoped<ChatWithBAUseCase>();
@@ -170,12 +168,11 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddAgentRuntime(this IServiceCollection services)
     {
-        // Services/Agents: the autonomous tool-using agent loop + its background job runner.
+        // Services/Agents: the autonomous tool-using agent loop used by the workflow worker.
         services.AddScoped<AgentInstructionProvider>();
         services.AddScoped<AgentPromptBuilder>();
         services.AddScoped<AgentActionParser>();
         services.AddScoped<AgentRunService>();
-        services.AddHostedService<AgentJobRunner>();
         return services;
     }
 

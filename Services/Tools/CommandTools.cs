@@ -19,6 +19,7 @@ public class CommandTools
         // would pass the prefix check yet let the shell run arbitrary chained commands. Reject
         // any shell control/redirection/substitution operators so the allowlist actually holds.
         if (ContainsShellOperators(command)) return $"Command blocked for security reason (shell operators are not allowed): {command}";
+        if (ContainsInlineCodeEval(command)) return $"Command blocked for security reason (inline code execution is not allowed): {command}";
         if (!IsAllowed(command)) return $"Command blocked for security reason: {command}";
         var isWindows = OperatingSystem.IsWindows();
         var psi = new ProcessStartInfo
@@ -73,4 +74,30 @@ Error:
 
     private static bool ContainsShellOperators(string command) =>
         command.IndexOfAny(ShellOperators) >= 0;
+
+    // The allowlist contains general-purpose interpreters (node, dotnet) because the agent
+    // legitimately needs them to build/run a generated POC. But a few of their flags turn
+    // the interpreter into an arbitrary-code evaluator (e.g. `node -e "<any JS>"`,
+    // `dotnet fsi`) which contains no shell operator and would sail past every other guard,
+    // making the allowlist meaningless. Block those specific inline-eval forms while still
+    // permitting normal usage (dotnet build/run, node <script.js>, npm install).
+    private static bool ContainsInlineCodeEval(string command)
+    {
+        var tokens = command.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length == 0) return false;
+
+        var exe = Path.GetFileNameWithoutExtension(tokens[0]).ToLowerInvariant();
+
+        return exe switch
+        {
+            "node" or "nodejs" => tokens.Skip(1).Any(t =>
+                t is "-e" or "--eval" or "-p" or "--print"
+                || t.StartsWith("--eval=", StringComparison.Ordinal)
+                || t.StartsWith("--print=", StringComparison.Ordinal)),
+            "dotnet" => tokens.Length > 1
+                && (tokens[1].Equals("fsi", StringComparison.OrdinalIgnoreCase)
+                    || tokens[1].Equals("script", StringComparison.OrdinalIgnoreCase)),
+            _ => false
+        };
+    }
 }
