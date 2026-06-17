@@ -10,8 +10,6 @@ public class RequirementsController : Controller
     private readonly GenerateRequirementDraftUseCase _generateRequirementDraftUseCase;
     private readonly ChatWithBAUseCase _chatWithBAUseCase;
     private readonly ApproveRequirementUseCase _approveRequirementUseCase;
-    private readonly StartRequirementChatUseCase _startRequirementChatUseCase;
-    private readonly GetRequirementJobStatusQuery _getRequirementJobStatusQuery;
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
 
@@ -20,8 +18,6 @@ public class RequirementsController : Controller
        GenerateRequirementDraftUseCase generateRequirementDraftUseCase,
        ChatWithBAUseCase chatWithBAUseCase,
        ApproveRequirementUseCase approveRequirementUseCase,
-       StartRequirementChatUseCase startRequirementChatUseCase,
-       GetRequirementJobStatusQuery getRequirementJobStatusQuery,
        GetDocumentDownloadQuery getDocumentDownloadQuery,
        GetWorkflowStatusQuery getWorkflowStatusQuery)
     {
@@ -29,8 +25,6 @@ public class RequirementsController : Controller
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
         _chatWithBAUseCase = chatWithBAUseCase;
         _approveRequirementUseCase = approveRequirementUseCase;
-        _startRequirementChatUseCase = startRequirementChatUseCase;
-        _getRequirementJobStatusQuery = getRequirementJobStatusQuery;
         _getDocumentDownloadQuery = getDocumentDownloadQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
     }
@@ -82,6 +76,12 @@ public class RequirementsController : Controller
         if (result == ApproveRequirementResult.NoDraftDocuments)
             return RedirectToAction(nameof(Index), new { projectId });
 
+        if (result == ApproveRequirementResult.PromotionFailed)
+        {
+            TempData["Error"] = "Không thể chuyển tài liệu draft sang phiên bản đã duyệt (file có thể đang bị mở/khóa). Đóng file đang mở rồi thử lại.";
+            return RedirectToAction(nameof(Index), new { projectId });
+        }
+
         TempData["WorkflowStarted"] = true;
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -107,35 +107,5 @@ public class RequirementsController : Controller
             return NotFound("Document not found.");
 
         return PhysicalFile(result.FilePath, result.ContentType, result.FileName);
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StartChat(Guid projectId, string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return BadRequest();
-
-        var jobId = await _startRequirementChatUseCase.ExecuteAsync(projectId, message);
-        if (jobId == null)
-            return BadRequest(new { error = "Chưa cấu hình BA agent (RoleKey = BusinessAnalyst). Hãy tạo hoặc khôi phục agent BA trong màn hình Manage Agent." });
-
-        return Json(new { jobId });
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> JobStatus(Guid jobId)
-    {
-        var status = await _getRequirementJobStatusQuery.ExecuteAsync(jobId);
-        if (status == null)
-            return NotFound();
-
-        return Json(new
-        {
-            status.Id,
-            Status = status.Status.ToString(),
-            status.CurrentStep,
-            status.Error
-        });
     }
 }

@@ -63,7 +63,19 @@ public class ApproveRequirementUseCase
             }
         }
 
-        PromoteDraftFolders(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name), draftDocs.Select(x => x.Folder).Distinct(), versionName);
+        // Promote the draft folders on disk BEFORE persisting the approval. The doc-entity
+        // changes above are still only in the change tracker, so if the (destructive) folder
+        // move fails we return without SaveChangesAsync and the DB keeps pointing at the
+        // draft — no half-approved state, and the user can retry once the file is released.
+        // Previously an IOException here (e.g. an open .docx) escaped as an HTTP 500.
+        try
+        {
+            PromoteDraftFolders(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name), draftDocs.Select(x => x.Folder).Distinct(), versionName);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return ApproveRequirementResult.PromotionFailed;
+        }
 
         await _db.SaveChangesAsync();
 
@@ -88,12 +100,4 @@ public class ApproveRequirementUseCase
             Directory.Move(draftPath, versionPath);
         }
     }
-}
-
-public enum ApproveRequirementResult
-{
-    Approved,
-    NoDraftDocuments,
-    MissingAiDesignSpec,
-    ProjectNotFound
 }
