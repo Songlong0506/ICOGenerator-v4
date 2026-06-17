@@ -34,7 +34,13 @@ Yêu cầu cho file HTML:
 
 Tool usage:
 - File poc-demo.html ĐÃ tồn tại sẵn (shell template). Làm theo hướng dẫn cụ thể trong message của user.
-- Cách chuẩn: dùng SetPocContent ĐÚNG MỘT LẦN, truyền 'content' = HTML giao diện tính năng. Hệ thống tự đặt vào đúng vùng nội dung và giữ nguyên shell. Không cần đọc file, không cần khớp marker thủ công.
+- Cách chuẩn: dùng SetPocContent ĐÚNG MỘT LẦN với đủ các tham số: content, appName, breadcrumb, navItems. Hệ thống tự đặt content vào đúng vùng giữa 2 marker, đổi App Name + tiêu đề tab + breadcrumb và dựng lại menu sidebar từ navItems; phần còn lại của shell giữ nguyên. Không cần đọc file, không cần khớp marker thủ công.
+  - content: HTML phần nội dung tính năng (KHÔNG kèm html/head/body/sidebar/topbar).
+  - appName: tên ứng dụng — KHÔNG để mặc định "App Name".
+  - breadcrumb: breadcrumb màn hình chính, vd "Home > Orders".
+  - navItems: mảng menu trái; mỗi mục `{ "label": "...", "children": ["...", "..."] }`, "children" là tùy chọn (nhóm xổ xuống). Đặt theo màn hình thật, KHÔNG dùng "Overview/Module A/Module B/Settings".
+  - Ví dụ action:
+    `{"type":"tool","tool":"SetPocContent","args":{"content":"<div class=\"card-grid\">...</div>","appName":"Order Management","breadcrumb":"Home > Orders","navItems":[{"label":"Dashboard"},{"label":"Orders","children":["All Orders","Create Order"]},{"label":"Settings"}]}}`
 - Không ghi đè cả file bằng WriteFile; không dùng ReplaceInFile cho nội dung POC.
 - Không đọc lại cả file sau khi sửa.
 - Không dùng RunCommand/grep trừ khi được yêu cầu rõ ràng.
