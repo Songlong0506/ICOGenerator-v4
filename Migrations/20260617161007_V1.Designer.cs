@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ICOGenerator.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260608070116_v1")]
-    partial class v1
+    [Migration("20260617161007_V1")]
+    partial class V1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -31,7 +31,7 @@ namespace ICOGenerator.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("AiModelId")
+                    b.Property<Guid>("AiModelId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Color")
@@ -45,10 +45,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Instruction")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -57,10 +53,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("RoleTitle")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -110,47 +102,6 @@ namespace ICOGenerator.Migrations
                     b.HasIndex("ProjectId");
 
                     b.ToTable("AgentConversations");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.AgentJob", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AgentId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CurrentStep")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Error")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("FinishedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Result")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UserMessage")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("AgentJobs");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.AgentModelCallLog", b =>
@@ -315,8 +266,8 @@ namespace ICOGenerator.Migrations
 
                     b.Property<string>("ApiKey")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<int>("ContextWindow")
                         .HasColumnType("int");
@@ -330,9 +281,6 @@ namespace ICOGenerator.Migrations
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDefault")
                         .HasColumnType("bit");
 
                     b.Property<string>("ModelId")
@@ -519,7 +467,9 @@ namespace ICOGenerator.Migrations
                 {
                     b.HasOne("ICOGenerator.Domain.AiModel", "AiModel")
                         .WithMany()
-                        .HasForeignKey("AiModelId");
+                        .HasForeignKey("AiModelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("AiModel");
                 });
