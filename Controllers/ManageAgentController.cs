@@ -59,9 +59,9 @@ public class ManageAgentController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> DocumentPreview(Guid id)
+    public async Task<IActionResult> DocumentPreview(Guid id, Guid projectId, string? path)
     {
-        var result = await _getDocumentPreviewQuery.ExecuteAsync(id);
+        var result = await _getDocumentPreviewQuery.ExecuteAsync(id, projectId, path);
         return result == null ? NotFound() : Json(result);
     }
 }
