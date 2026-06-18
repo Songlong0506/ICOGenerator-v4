@@ -11,13 +11,15 @@ public class ApproveRequirementUseCase
     private readonly WorkspacePathResolver _workspacePathResolver;
     private readonly IProjectArtifactCatalog _artifactCatalog;
     private readonly IWorkflowOrchestrator _workflowOrchestrator;
+    private readonly ILogger<ApproveRequirementUseCase> _logger;
 
-    public ApproveRequirementUseCase(AppDbContext db, WorkspacePathResolver workspacePathResolver, IProjectArtifactCatalog artifactCatalog, IWorkflowOrchestrator workflowOrchestrator)
+    public ApproveRequirementUseCase(AppDbContext db, WorkspacePathResolver workspacePathResolver, IProjectArtifactCatalog artifactCatalog, IWorkflowOrchestrator workflowOrchestrator, ILogger<ApproveRequirementUseCase> logger)
     {
         _db = db;
         _workspacePathResolver = workspacePathResolver;
         _artifactCatalog = artifactCatalog;
         _workflowOrchestrator = workflowOrchestrator;
+        _logger = logger;
     }
 
     public async Task<ApproveRequirementResult> ExecuteAsync(Guid projectId)
@@ -79,7 +81,18 @@ public class ApproveRequirementUseCase
 
         await _db.SaveChangesAsync();
 
-        await _workflowOrchestrator.StartDeliveryWorkflowAsync(projectId, versionName, aiDesignSpec.Content);
+        // The approval is now committed (folders moved + DB saved). Starting the delivery
+        // workflow is a separate, retryable step — if it throws, don't surface a 500 that hides
+        // an already-successful approval. Report a distinct result the user can act on.
+        try
+        {
+            await _workflowOrchestrator.StartDeliveryWorkflowAsync(projectId, versionName, aiDesignSpec.Content);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Requirement {Version} approved for project {ProjectId} but starting the delivery workflow failed.", versionName, projectId);
+            return ApproveRequirementResult.WorkflowStartFailed;
+        }
 
         return ApproveRequirementResult.Approved;
     }

@@ -24,7 +24,10 @@ public static class DbInitializer
         {
             db.AiModels.AddRange(
                 new AiModel { Name = "Qwen3.6 27B Q3_K_S", Provider = "LM Studio", ModelId = "qwen3.6-27b@q3_k_s", Endpoint = "http://127.0.0.1:1234/v1", ApiKey = "lm-studio", ContextWindow = 128000 },
-                new AiModel { Name = "DeepSeek V4 Flash", Provider = "DeepSeek", ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "sk-...", ContextWindow = 1000000 }
+                // ApiKey để TRỐNG (không phải placeholder "sk-..."): model "đám mây" cần người dùng
+                // nhập key thật ở màn hình Models. Seed một chuỗi giả sẽ được value-converter mã hóa
+                // và lưu, khiến model trông như đã cấu hình nhưng mọi lời gọi đều 401.
+                new AiModel { Name = "DeepSeek V4 Flash", Provider = "DeepSeek", ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "", ContextWindow = 1000000 }
             );
             await db.SaveChangesAsync();
         }
@@ -66,10 +69,13 @@ public static class DbInitializer
                 new Project { Name="Hotel Booking System", Description="Booking system for hotels and accommodations", Status=ProjectStatus.Planning, CreatedAt=new DateTime(2024,5,5) });
             await db.SaveChangesAsync();
 
-            var ba = await db.Agents.FirstAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
-            db.ProjectDocuments.Add(new ProjectDocument { ProjectId=p.Id, AgentId=ba.Id, Folder="01_Requirement", FileName="01_Project_Overview.md", TokenUsed=4250, Content="# Tổng quan dự án\nDự án E-commerce Web App là nền tảng thương mại điện tử cho phép người dùng xem sản phẩm, thêm vào giỏ hàng, thanh toán và quản lý đơn hàng.\n\n## Mục tiêu\n- Cung cấp trải nghiệm mua sắm trực tuyến mượt mà\n- Quản lý sản phẩm, đơn hàng, người dùng hiệu quả\n- Hỗ trợ thanh toán đa dạng" });
-            db.AgentConversations.Add(new AgentConversation { ProjectId=p.Id, AgentId=ba.Id, Message="Đã phân tích yêu cầu và tạo tài liệu tổng quan dự án.", TokenUsed=4250 });
-            await db.SaveChangesAsync();
+            var ba = await db.Agents.FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
+            if (ba != null)
+            {
+                db.ProjectDocuments.Add(new ProjectDocument { ProjectId=p.Id, AgentId=ba.Id, Folder="01_Requirement", FileName="01_Project_Overview.md", TokenUsed=4250, Content="# Tổng quan dự án\nDự án E-commerce Web App là nền tảng thương mại điện tử cho phép người dùng xem sản phẩm, thêm vào giỏ hàng, thanh toán và quản lý đơn hàng.\n\n## Mục tiêu\n- Cung cấp trải nghiệm mua sắm trực tuyến mượt mà\n- Quản lý sản phẩm, đơn hàng, người dùng hiệu quả\n- Hỗ trợ thanh toán đa dạng" });
+                db.AgentConversations.Add(new AgentConversation { ProjectId=p.Id, AgentId=ba.Id, Message="Đã phân tích yêu cầu và tạo tài liệu tổng quan dự án.", TokenUsed=4250 });
+                await db.SaveChangesAsync();
+            }
         }
     }
 
@@ -158,7 +164,12 @@ public static class DbInitializer
         var all = await db.ToolDefinitions.ToListAsync();
         async Task Assign(AgentRoleKey roleKey, params string[] toolNames)
         {
-            var agent = await db.Agents.FirstAsync(x => x.RoleKey == roleKey);
+            // Bỏ qua thay vì FirstAsync (sẽ ném và làm crash toàn app lúc khởi động) nếu một role
+            // chưa có agent tương ứng — gán tool mặc định là việc "làm giàu" seed, không được phép
+            // làm hỏng MigrateAsync/startup.
+            var agent = await db.Agents.FirstOrDefaultAsync(x => x.RoleKey == roleKey);
+            if (agent == null)
+                return;
             foreach (var tool in all.Where(x => toolNames.Contains(x.Name)))
                 db.AgentTools.Add(new AgentTool { AgentId = agent.Id, ToolDefinitionId = tool.Id });
         }

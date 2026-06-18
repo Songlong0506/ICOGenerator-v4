@@ -11,6 +11,6 @@ public class ChatWithBAUseCase
         _baRequirementService = baRequirementService;
     }
 
-    public Task ExecuteAsync(Guid projectId, string message) =>
+    public Task<ChatWithBAResult> ExecuteAsync(Guid projectId, string message) =>
         _baRequirementService.ChatAsync(projectId, message);
 }

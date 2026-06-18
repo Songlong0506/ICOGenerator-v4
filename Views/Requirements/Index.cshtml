@@ -88,7 +88,8 @@
 
         <form asp-action="NewChat"
               method="post"
-              class="new-chat-form">
+              class="new-chat-form"
+              onsubmit="return confirm('Bắt đầu chat mới sẽ xóa toàn bộ lịch sử hội thoại của dự án này. Tiếp tục?');">
 
             <input type="hidden"
                    name="projectId"

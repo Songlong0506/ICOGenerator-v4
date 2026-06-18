@@ -32,6 +32,12 @@ public class ModelsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(AiModel model)
     {
+        if (!ModelState.IsValid)
+        {
+            TempData["Error"] = "Dữ liệu model không hợp lệ. Vui lòng kiểm tra lại.";
+            return RedirectToAction(nameof(Index));
+        }
+
         await _createAiModelUseCase.ExecuteAsync(model);
         return RedirectToAction(nameof(Index));
     }
@@ -40,9 +46,16 @@ public class ModelsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Update(AiModel input)
     {
-        return await _updateAiModelUseCase.ExecuteAsync(input)
-            ? RedirectToAction(nameof(Index))
-            : NotFound();
+        if (!ModelState.IsValid)
+        {
+            TempData["Error"] = "Dữ liệu model không hợp lệ. Vui lòng kiểm tra lại.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        if (!await _updateAiModelUseCase.ExecuteAsync(input))
+            TempData["Error"] = "Model không tồn tại.";
+
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]

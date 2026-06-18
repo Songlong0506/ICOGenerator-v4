@@ -1,5 +1,6 @@
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Requirements;
+using ICOGenerator.Services.Requirements;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
@@ -13,6 +14,7 @@ public class RequirementsController : Controller
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
+    private readonly StartNewChatUseCase _startNewChatUseCase;
 
     public RequirementsController(
        GetRequirementWorkspaceQuery getRequirementWorkspaceQuery,
@@ -21,7 +23,8 @@ public class RequirementsController : Controller
        ApproveRequirementUseCase approveRequirementUseCase,
        GetDocumentDownloadQuery getDocumentDownloadQuery,
        GetWorkflowStatusQuery getWorkflowStatusQuery,
-       GetDocumentPreviewQuery getDocumentPreviewQuery)
+       GetDocumentPreviewQuery getDocumentPreviewQuery,
+       StartNewChatUseCase startNewChatUseCase)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
@@ -30,6 +33,7 @@ public class RequirementsController : Controller
         _getDocumentDownloadQuery = getDocumentDownloadQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
         _getDocumentPreviewQuery = getDocumentPreviewQuery;
+        _startNewChatUseCase = startNewChatUseCase;
     }
 
     public async Task<IActionResult> Index(Guid projectId, string? version = null)
@@ -46,8 +50,16 @@ public class RequirementsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Chat(Guid projectId, string message)
     {
-        if (!string.IsNullOrWhiteSpace(message))
-            await _chatWithBAUseCase.ExecuteAsync(projectId, message);
+        if (string.IsNullOrWhiteSpace(message))
+            return RedirectToAction(nameof(Index), new { projectId });
+
+        var result = await _chatWithBAUseCase.ExecuteAsync(projectId, message);
+
+        if (result == ChatWithBAResult.ProjectNotFound)
+            return RedirectToAction("Index", "Projects");
+
+        if (result == ChatWithBAResult.BaNotConfigured)
+            TempData["Error"] = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent.";
 
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -85,6 +97,12 @@ public class RequirementsController : Controller
             return RedirectToAction(nameof(Index), new { projectId });
         }
 
+        if (result == ApproveRequirementResult.WorkflowStartFailed)
+        {
+            TempData["Error"] = "Tài liệu đã được duyệt nhưng không khởi động được workflow tạo POC. Vui lòng thử lại.";
+            return RedirectToAction(nameof(Index), new { projectId });
+        }
+
         TempData["WorkflowStarted"] = true;
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -97,8 +115,9 @@ public class RequirementsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult NewChat(Guid projectId)
+    public async Task<IActionResult> NewChat(Guid projectId)
     {
+        await _startNewChatUseCase.ExecuteAsync(projectId);
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
