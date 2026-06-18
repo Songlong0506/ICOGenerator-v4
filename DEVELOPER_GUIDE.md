@@ -22,11 +22,19 @@ Cấu hình ở `appsettings.json`:
 - `ConnectionStrings:DefaultConnection` — đổi `Server=...` sang SQL Server của bạn.
 - `AgentWorkspace:RootPath` — thư mục agent dùng làm workspace để đọc/ghi/đặt file sinh ra. **Đổi sang đường dẫn tồn tại trên máy bạn.**
 - `AllowedCommands` / `AllowedFileExtensions` — "rào chắn an toàn" giới hạn lệnh shell và loại file mà tool của agent được phép đụng tới. Mở rộng có cân nhắc.
+- `Auth:Username` / `Auth:Password` — đăng nhập (cookie) bảo vệ **toàn bộ** app. Username mặc định `admin`. **Mật khẩu KHÔNG commit vào file**: nạp qua biến môi trường `Auth__Password` hoặc user-secrets. Nếu để trống, mọi lần đăng nhập đều bị từ chối (an toàn mặc định).
+
+Bí mật cần đặt trước khi chạy (qua biến môi trường hoặc `dotnet user-secrets`, không commit):
+```
+Encryption__ApiKeyKey   # khóa mã hóa ApiKey trong DB (app fail-fast nếu thiếu)
+Auth__Password          # mật khẩu đăng nhập; thiếu thì không đăng nhập được
+```
 
 Chạy:
 ```
 dotnet run
 ```
+Mở app sẽ vào trang `/Account/Login`; đăng nhập bằng `Auth:Username` + `Auth:Password` rồi mới dùng được các màn hình.
 Khi khởi động, `DbInitializer.InitializeAsync` sẽ tự: chạy migration, đồng bộ danh mục tool (`ToolDiscoveryService`), và **seed sẵn 6 agent** (BA, Tech Lead, Developer, Tester, UI/UX, System) cùng AI model + vài project mẫu. App mặc định mở vào `ProjectsController`.
 
 ---

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,6 +18,9 @@ public class HomeController : Controller
         _logger = logger;
     }
 
+    // Reachable without a login so an error that happens before/around authentication still
+    // shows the error page instead of bouncing to /Account/Login.
+    [AllowAnonymous]
     public IActionResult Error()
     {
         var feature = HttpContext.Features.Get<IExceptionHandlerPathFeature>();
