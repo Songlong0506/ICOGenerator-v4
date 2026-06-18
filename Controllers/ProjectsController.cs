@@ -42,6 +42,11 @@ public class ProjectsController : Controller
         if (result == null)
             return NotFound("Mockup file not found.");
 
+        // This HTML is agent/LLM-generated and served from our own origin. Sandbox it so any injected
+        // <script> runs in an opaque origin — no access to the admin auth cookie and no authenticated
+        // same-origin POSTs (e.g. to Settings) — closing the prompt-injection escalation path.
+        // 'allow-scripts' keeps the demo interactive; 'allow-same-origin' is deliberately omitted.
+        Response.Headers["Content-Security-Policy"] = "sandbox allow-scripts;";
         return PhysicalFile(result.FilePath, "text/html", enableRangeProcessing: true);
     }
 }

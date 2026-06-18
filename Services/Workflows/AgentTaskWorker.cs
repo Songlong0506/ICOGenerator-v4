@@ -161,16 +161,46 @@ Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được
             task.WorkflowRun.FinishedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // App shutting down mid-task: leave it Running and let the startup reaper re-queue it on the
+            // next launch, instead of recording a misleading Failed for work that was merely interrupted.
+            throw;
+        }
         catch (Exception ex)
         {
             _progress.Report(task.WorkflowRunId, "error", "Task thất bại.", ex.Message);
+            // Mark Failed in a FRESH scope: the run's DbContext may already be faulted (e.g. the
+            // exception was a DbUpdateException), so reusing it to save the failure could itself throw
+            // and leave the task stuck non-terminal.
+            await MarkTaskFailedAsync(task.Id, ex.Message);
+        }
+    }
+
+    // Loads the task in its own scope/DbContext and marks it (and its run) Failed, independent of any
+    // faulted context from the failed run. Best-effort: a failure here is logged, not rethrown.
+    private async Task MarkTaskFailedAsync(Guid taskId, string error)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var task = await db.AgentTasks.Include(x => x.WorkflowRun).FirstOrDefaultAsync(x => x.Id == taskId);
+            if (task == null)
+                return;
+
+            var now = DateTime.UtcNow;
             task.Status = AgentTaskStatus.Failed;
-            task.Error = ex.Message;
-            task.FinishedAt = DateTime.UtcNow;
+            task.Error = error;
+            task.FinishedAt = now;
             task.WorkflowRun.Status = WorkflowRunStatus.Failed;
             task.WorkflowRun.CurrentStage = WorkflowStageKey.Failed;
-            task.WorkflowRun.FinishedAt = DateTime.UtcNow;
+            task.WorkflowRun.FinishedAt = now;
             await db.SaveChangesAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Could not mark agent task {TaskId} as failed.", taskId);
         }
     }
 

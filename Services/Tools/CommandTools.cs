@@ -86,17 +86,30 @@ public class CommandTools
         return ExecuteAsync(psi, commandLine);
     }
 
+    // Hard cap on how much of each stream we keep in memory, so a runaway command (build loop, huge
+    // tree listing) can't OOM the worker. We still drain the rest so the child never blocks on a full pipe.
+    private const int MaxOutputChars = 100_000;
+
     private async Task<string> ExecuteAsync(ProcessStartInfo psi, string displayCommand)
     {
         using var process = Process.Start(psi);
         if (process == null) return "Cannot start process.";
-        var outputTask = process.StandardOutput.ReadToEndAsync();
-        var errorTask = process.StandardError.ReadToEndAsync();
+        var outputTask = ReadCappedAsync(process.StandardOutput);
+        var errorTask = ReadCappedAsync(process.StandardError);
         // Keep one reference to the wait task: WaitForExitAsync() returns a *different* Task each
         // call, so a fresh call would never equal the WhenAny winner and force every command to time out.
+        // Task.Delay also observes the run token, so it completes on a cancel/shutdown, not only on timeout.
+        var runToken = _workspaceTools.RunCancellationToken;
         var waitTask = process.WaitForExitAsync();
-        var completed = await Task.WhenAny(waitTask, Task.Delay(TimeSpan.FromSeconds(_timeoutSeconds)));
-        if (completed != waitTask) { try { process.Kill(true); } catch { } return "Command timeout."; }
+        var completed = await Task.WhenAny(waitTask, Task.Delay(TimeSpan.FromSeconds(_timeoutSeconds), runToken));
+        if (completed != waitTask)
+        {
+            try { process.Kill(true); } catch { }
+            // Cancellation (workflow cancel / app shutdown) must propagate so the run is treated as
+            // interrupted, not as a plain command timeout that the agent could "retry".
+            if (runToken.IsCancellationRequested) throw new OperationCanceledException(runToken);
+            return "Command timeout.";
+        }
         return $"""
 Command: {displayCommand}
 ExitCode: {process.ExitCode}
@@ -107,6 +120,23 @@ Output:
 Error:
 {await errorTask}
 """;
+    }
+
+    private static async Task<string> ReadCappedAsync(StreamReader reader)
+    {
+        var buffer = new char[8192];
+        var sb = new System.Text.StringBuilder();
+        var truncated = false;
+        int read;
+        while ((read = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        {
+            if (sb.Length >= MaxOutputChars) { truncated = true; continue; } // keep draining, stop storing
+            var remaining = MaxOutputChars - sb.Length;
+            sb.Append(buffer, 0, Math.Min(read, remaining));
+            if (read > remaining) truncated = true;
+        }
+        if (truncated) sb.Append("\n…[output truncated]");
+        return sb.ToString();
     }
 
     private bool IsAllowed(string command)

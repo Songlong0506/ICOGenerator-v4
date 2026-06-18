@@ -34,6 +34,9 @@ public class AgentRunService
         var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId, cancellationToken);
         if (agent.AiModel == null) throw new InvalidOperationException("Agent model is not configured.");
         _workspaceTools.SetWorkspace(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
+        // Surface this run's token to tools (CommandTools resolves the same scoped WorkspaceTools) so a
+        // cancel/shutdown kills any spawned process instead of letting it run to the command timeout.
+        _workspaceTools.SetRunCancellation(cancellationToken);
         var tools = await _toolRegistry.GetToolsForAgentAsync(agentId);
         var messages = new List<ChatMessageDto>
         {

@@ -31,19 +31,43 @@ public class AppSettingsFileStore
 
     public async Task WriteAsync(JsonObject root)
     {
-        var json = root.ToJsonString(WriteOptions);
-
         await _writeLock.WaitAsync();
         try
         {
-            // Write to a temp file then atomically replace, so a crash or concurrent write can't leave appsettings.json half-written and break the next reloadOnChange reload or app start.
-            var tempPath = _filePath + ".tmp";
-            await File.WriteAllTextAsync(tempPath, json);
-            File.Move(tempPath, _filePath, overwrite: true);
+            await WriteUnlockedAsync(root);
         }
         finally
         {
             _writeLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Atomically read-modify-write under the lock so two concurrent saves can't each read the same
+    /// snapshot and have the later writer silently clobber the earlier one's changes (lost update).
+    /// </summary>
+    public async Task UpdateAsync(Action<JsonObject> mutate)
+    {
+        await _writeLock.WaitAsync();
+        try
+        {
+            // ReadAsync does not take the lock, so calling it here is safe (SemaphoreSlim is non-reentrant).
+            var root = await ReadAsync();
+            mutate(root);
+            await WriteUnlockedAsync(root);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    private async Task WriteUnlockedAsync(JsonObject root)
+    {
+        var json = root.ToJsonString(WriteOptions);
+        // Write to a temp file then atomically replace, so a crash or concurrent write can't leave appsettings.json half-written and break the next reloadOnChange reload or app start.
+        var tempPath = _filePath + ".tmp";
+        await File.WriteAllTextAsync(tempPath, json);
+        File.Move(tempPath, _filePath, overwrite: true);
     }
 }
