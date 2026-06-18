@@ -47,7 +47,6 @@ public class WorkspaceTools
         if (fileSize <= MaxFullReadBytes)
             return await File.ReadAllTextAsync(fullPath);
 
-        // Only genuinely large files are paginated by line offset.
         var lines = await File.ReadAllLinesAsync(fullPath);
         if (offset < 0) offset = 0;
         if (offset >= lines.Length) return $"Offset {offset} exceeds file length ({lines.Length} lines).";
@@ -119,11 +118,7 @@ public class WorkspaceTools
         if (updated == null)
             return $"POC content markers not found in file: {PocTemplate.MockupRelativePath}";
 
-        // Customise the shell bits that live OUTSIDE the content markers (App Name, browser
-        // title, breadcrumb, left menu) so the POC reflects the real feature instead of the
-        // template defaults. Each step independently no-ops when its argument is empty/malformed,
-        // so a slip in one (e.g. a badly shaped navItems) never blocks the others or the content —
-        // the worst case is the previous "shell left as template" behaviour, never a failure.
+        // Customise the shell bits outside the content markers (App Name, title, breadcrumb, menu). Each step no-ops on empty/malformed input, so a slip in one never blocks the others or the content — worst case the shell stays as the template, never a failure.
         if (!string.IsNullOrWhiteSpace(appName))
             updated = PocTemplate.ReplaceAppName(updated, appName);
         if (!string.IsNullOrWhiteSpace(breadcrumb))

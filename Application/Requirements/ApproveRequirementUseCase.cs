@@ -65,11 +65,10 @@ public class ApproveRequirementUseCase
             }
         }
 
-        // Promote the draft folders on disk BEFORE persisting the approval. The doc-entity
-        // changes above are still only in the change tracker, so if the (destructive) folder
-        // move fails we return without SaveChangesAsync and the DB keeps pointing at the
-        // draft — no half-approved state, and the user can retry once the file is released.
-        // Previously an IOException here (e.g. an open .docx) escaped as an HTTP 500.
+        // Promote draft folders on disk BEFORE persisting: the doc changes are still only in the
+        // change tracker, so if the destructive move fails we return without SaveChangesAsync and
+        // the DB stays on the draft — no half-approved state, retryable. Previously an IOException
+        // here (e.g. an open .docx) escaped as an HTTP 500.
         try
         {
             PromoteDraftFolders(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name), draftDocs.Select(x => x.Folder).Distinct(), versionName);
@@ -81,9 +80,8 @@ public class ApproveRequirementUseCase
 
         await _db.SaveChangesAsync();
 
-        // The approval is now committed (folders moved + DB saved). Starting the delivery
-        // workflow is a separate, retryable step — if it throws, don't surface a 500 that hides
-        // an already-successful approval. Report a distinct result the user can act on.
+        // Approval is now committed. Starting the delivery workflow is a separate, retryable step —
+        // if it throws, report a distinct result rather than a 500 that hides the successful approval.
         try
         {
             await _workflowOrchestrator.StartDeliveryWorkflowAsync(projectId, versionName, aiDesignSpec.Content);

@@ -3,8 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Requirements;
 
-// Backs the "＋ New Chat" button. It used to post to an action that only redirected (a no-op
-// button), so this clears the project's BA conversation history so the next chat starts fresh.
+// Backs the "＋ New Chat" button (previously a no-op redirect): clears the project's BA
+// conversation history so the next chat starts fresh.
 public class StartNewChatUseCase
 {
     private readonly AppDbContext _db;

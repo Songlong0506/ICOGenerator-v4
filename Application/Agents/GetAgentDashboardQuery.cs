@@ -124,8 +124,8 @@ public class GetAgentDashboardQuery
         if (!TextExtensions.Contains(extension))
             return $"Preview is not available for binary file: {Path.GetFileName(filePath)}";
 
-        // A locked/just-deleted/permission-denied file must not 500 the whole dashboard;
-        // degrade to an inline note for that one file and keep rendering the rest.
+        // A locked/deleted/permission-denied file must not 500 the whole dashboard; degrade to an
+        // inline note for that one file and keep rendering the rest.
         try
         {
             var content = File.ReadAllText(filePath);

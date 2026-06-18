@@ -13,9 +13,8 @@ public class CommandTools
     {
         _configuration = configuration;
         _workspaceTools = workspaceTools;
-        // Hard ceiling for any single command. Configurable (Commands:TimeoutSeconds) so a slow
-        // `dotnet build` / `npm install` of a larger POC isn't cut off at a fixed 2 minutes,
-        // mirroring how the LLM request timeout is already configurable.
+        // Hard per-command ceiling, configurable (Commands:TimeoutSeconds) so a slow build/install
+        // of a larger POC isn't cut off at a fixed 2 minutes.
         _timeoutSeconds = configuration.GetValue("Commands:TimeoutSeconds", 120);
     }
 
@@ -23,10 +22,9 @@ public class CommandTools
     public Task<string> RunCommand(string command)
     {
         if (string.IsNullOrWhiteSpace(_workspaceTools.CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
-        // The allowlist below only matches the command PREFIX, and the command is run through
-        // a shell. Without this guard, "git status && <anything>" or "git status; curl…|bash"
-        // would pass the prefix check yet let the shell run arbitrary chained commands. Reject
-        // any shell control/redirection/substitution operators so the allowlist actually holds.
+        // The allowlist only matches the command PREFIX and runs via a shell, so "git status && …"
+        // or "git status; curl…|bash" would pass the check yet chain arbitrary commands. Reject
+        // shell control/redirection/substitution operators so the allowlist actually holds.
         if (ContainsShellOperators(command)) return Task.FromResult($"Command blocked for security reason (shell operators are not allowed): {command}");
         if (ContainsInlineCodeEval(command)) return Task.FromResult($"Command blocked for security reason (inline code execution is not allowed): {command}");
         if (!IsAllowed(command)) return Task.FromResult($"Command blocked for security reason: {command}");
@@ -47,32 +45,25 @@ public class CommandTools
         }
         else
         {
-            // "-c" (NOT "-lc"): a login shell ("-l") sources the user's profile and enables
-            // history expansion ("!"), widening what an allowlisted command can trigger. Pass the
-            // command via ArgumentList so .NET does the quoting — the previous manual
-            // `command.Replace("\"","\\\"")` mishandled backslashes and could break out of quoting.
+            // "-c" (NOT "-lc"): a login shell sources the profile and enables history expansion ("!"),
+            // widening what a command can trigger. Pass via ArgumentList so .NET handles quoting safely.
             psi.ArgumentList.Add("-c");
             psi.ArgumentList.Add(command);
         }
         return ExecuteAsync(psi, command);
     }
 
-    // Run an allowlisted command with its arguments passed LITERALLY (no shell). Because no
-    // shell parses the arguments, operators such as & | ; $ ` < > inside an argument are inert
-    // data — so a git commit message or branch name containing them is no longer rejected by
-    // the shell-operator guard (which only the shell-based RunCommand needs). The allowlist and
-    // inline-eval guards still apply, enforced against the executable + flags prefix; an
-    // argument can only EXTEND that prefix, never widen which executable runs.
+    // Run an allowlisted command with arguments passed LITERALLY (no shell), so operators like
+    // & | ; $ ` < > inside an argument are inert data (e.g. a commit message can contain them).
+    // The allowlist and inline-eval guards still apply to the executable+flags prefix.
     public Task<string> RunArgs(IReadOnlyList<string> args)
     {
         if (string.IsNullOrWhiteSpace(_workspaceTools.CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
         if (args == null || args.Count == 0 || string.IsNullOrWhiteSpace(args[0]))
             return Task.FromResult("Command blocked for security reason: empty command.");
 
-        // The allowlist matches on the bare executable name (e.g. "git"), so a path-qualified
-        // first token ("/tmp/evil/git", "./node") must be rejected — otherwise it would either
-        // miss the allowlist or, worse, point FileName at an attacker-placed binary that merely
-        // shares a name with an allowed one.
+        // The allowlist matches the bare executable name, so reject a path-qualified first token
+        // ("/tmp/evil/git", "./node") that could point FileName at an attacker-placed binary.
         if (args[0].Contains('/') || args[0].Contains('\\'))
             return Task.FromResult($"Command blocked for security reason (executable must be a bare name, not a path): {args[0]}");
 
@@ -101,10 +92,8 @@ public class CommandTools
         if (process == null) return "Cannot start process.";
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();
-        // Keep a single reference to the wait task: calling WaitForExitAsync() again
-        // returns a *different* Task instance, so comparing the WhenAny winner against a
-        // fresh call would always be unequal and force every command into the timeout
-        // branch (killing the process and discarding its real output).
+        // Keep one reference to the wait task: WaitForExitAsync() returns a *different* Task each
+        // call, so a fresh call would never equal the WhenAny winner and force every command to time out.
         var waitTask = process.WaitForExitAsync();
         var completed = await Task.WhenAny(waitTask, Task.Delay(TimeSpan.FromSeconds(_timeoutSeconds)));
         if (completed != waitTask) { try { process.Kill(true); } catch { } return "Command timeout."; }
@@ -123,29 +112,23 @@ Error:
     private bool IsAllowed(string command)
     {
         var allowed = _configuration.GetSection("AllowedCommands").Get<string[]>() ?? [];
-        // Khớp theo ranh giới "từ": lệnh phải bằng đúng entry hoặc là entry + khoảng trắng + tham số.
-        // Nếu chỉ dùng StartsWith trần, entry "npm" sẽ cho qua cả "npmEVIL" (một executable khác
-        // trùng tiền tố), làm rò rỉ allowlist. Cách này vẫn chấp nhận mọi cách dùng hợp lệ
-        // ("git status -s", "dotnet build", "npm install"...).
+        // Khớp theo ranh giới "từ": lệnh phải bằng đúng entry hoặc entry + khoảng trắng + tham số.
+        // StartsWith trần sẽ cho qua cả "npmEVIL" cho entry "npm" (rò rỉ allowlist).
         return allowed.Any(x =>
             command.Equals(x, StringComparison.OrdinalIgnoreCase)
             || command.StartsWith(x + " ", StringComparison.OrdinalIgnoreCase));
     }
 
-    // Operators a shell would interpret to chain, redirect, or substitute commands:
-    // & | ; ` $ < > and newlines. None of the allowed commands need these, so blocking
-    // them keeps execution to a single allowlisted command.
+    // Shell operators that chain/redirect/substitute commands (& | ; ` $ < > and newlines).
+    // No allowed command needs these, so blocking them keeps execution to one allowlisted command.
     private static readonly char[] ShellOperators = { '&', '|', ';', '`', '$', '<', '>', '\n', '\r' };
 
     private static bool ContainsShellOperators(string command) =>
         command.IndexOfAny(ShellOperators) >= 0;
 
-    // The allowlist contains general-purpose interpreters (node, dotnet) because the agent
-    // legitimately needs them to build/run a generated POC. But a few of their flags turn
-    // the interpreter into an arbitrary-code evaluator (e.g. `node -e "<any JS>"`,
-    // `dotnet fsi`) which contains no shell operator and would sail past every other guard,
-    // making the allowlist meaningless. Block those specific inline-eval forms while still
-    // permitting normal usage (dotnet build/run, node <script.js>, npm install).
+    // Interpreters like node/dotnet are allowlisted (needed to build/run a POC), but a few flags
+    // turn them into arbitrary-code evaluators (`node -e`, `dotnet fsi`) with no shell operator,
+    // sailing past every other guard. Block those inline-eval forms while permitting normal usage.
     private static bool ContainsInlineCodeEval(string command)
     {
         var tokens = command.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);

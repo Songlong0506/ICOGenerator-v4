@@ -10,8 +10,8 @@ public class CreateAiModelUseCase
 
     public async Task ExecuteAsync(AiModel model)
     {
-        // Identity & audit fields are server-owned; overwrite whatever the form posted so a
-        // client can't over-post a chosen Id or a fake CreatedAt (mass assignment).
+        // Identity & audit fields are server-owned; overwrite whatever the form posted so a client
+        // can't over-post a chosen Id or fake CreatedAt (mass assignment).
         model.Id = Guid.NewGuid();
         model.CreatedAt = DateTime.UtcNow;
 

@@ -18,10 +18,7 @@ public class RequirementResponseParser
 
             if (result != null)
             {
-                // The model can return valid JSON that sets a whole section (or a Content
-                // field) to null. Downstream document generation dereferences each one, so
-                // guarantee non-null parts here instead of letting a null slip through to a
-                // NullReferenceException thrown OUTSIDE this method's try/catch.
+                // The model can return valid JSON with a null section/Content; guarantee non-null here, else downstream deref throws a NullReferenceException OUTSIDE this try/catch.
                 result.Brd ??= new();
                 result.Srs ??= new();
                 result.Fsd ??= new();

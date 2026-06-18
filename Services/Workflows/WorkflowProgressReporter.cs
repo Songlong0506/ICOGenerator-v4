@@ -3,8 +3,7 @@ namespace ICOGenerator.Services.Workflows;
 public record WorkflowProgressEvent(long Seq, DateTime At, string Kind, string Message, string? Detail);
 
 /// <summary>
-/// Thu thập các sự kiện tiến độ (suy nghĩ, gọi tool, kết quả…) của một workflow run
-/// để UI có thể poll và hiển thị live giống Claude/ChatGPT.
+/// Thu thập sự kiện tiến độ của một workflow run để UI poll và hiển thị live.
 /// </summary>
 public interface IWorkflowProgressReporter
 {

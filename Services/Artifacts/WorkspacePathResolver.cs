@@ -9,9 +9,8 @@ public class WorkspacePathResolver
         _configuration = configuration;
     }
 
-    // All methods below take the project's unique workspace folder key (see
-    // GetWorkspaceFolder), NOT the raw display name, so two projects whose names
-    // normalise to the same folder never share a workspace.
+    // Methods below take the unique workspace folder key (see GetWorkspaceFolder), NOT the raw
+    // display name, so two projects whose names normalise to the same folder never collide.
     public string GetProjectWorkspacePath(string projectKey)
     {
         var rootPath = _configuration["AgentWorkspace:RootPath"];
@@ -22,8 +21,7 @@ public class WorkspacePathResolver
         var root = Path.GetFullPath(rootPath);
         var full = Path.GetFullPath(Path.Combine(root, MakeSafeFolderName(projectKey)));
 
-        // Defence in depth: even after sanitising the folder name, assert the result stays
-        // directly under the configured root before any caller uses it for file IO.
+        // Defence in depth: assert the sanitised result stays under the configured root before any IO.
         if (!IsWithin(root, full))
             throw new InvalidOperationException("Invalid project workspace path.");
 
@@ -59,15 +57,10 @@ public class WorkspacePathResolver
         if (!IsWithin(root, fullPath))
             throw new InvalidOperationException("Invalid file path.");
 
-        // The string check above is necessary but not sufficient: a symlink/junction inside
-        // the workspace can point outside it, so a textually-valid path may resolve
-        // elsewhere (a classic TOCTOU escape). Resolve the real location of the deepest
-        // existing component (the target file may not exist yet) for BOTH root and target
-        // and re-check. Resolution problems are treated as "couldn't prove an escape" and
-        // allowed, so this never blocks legitimate writes — in normal use (no links) it is a
-        // no-op because ResolveLinkTarget returns null and the resolved paths equal the
-        // textual ones. NOTE: best-effort — it does not canonicalize every intermediate path
-        // component, only the deepest existing one.
+        // The string check isn't sufficient: a symlink/junction inside the workspace can point
+        // outside it (a TOCTOU escape). Resolve the deepest existing component of both root and
+        // target and re-check. Resolution failures are allowed (never block legitimate writes);
+        // best-effort — only the deepest existing component is canonicalized, not every level.
         try
         {
             var realRoot = ResolveExistingReal(root);
@@ -87,9 +80,8 @@ public class WorkspacePathResolver
         return fullPath;
     }
 
-    // Path containment honouring the filesystem's own case sensitivity. Windows/macOS are
-    // case-insensitive; Linux (the deploy target) is case-sensitive — the previous blanket
-    // OrdinalIgnoreCase could both over- and under-match real directories on Linux.
+    // Path containment honouring the OS case sensitivity (Windows/macOS insensitive, Linux
+    // sensitive); a blanket OrdinalIgnoreCase mis-matched real directories on Linux.
     private static bool IsWithin(string root, string candidate)
     {
         var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
@@ -100,9 +92,8 @@ public class WorkspacePathResolver
             || candidate.StartsWith(root + Path.DirectorySeparatorChar, comparison);
     }
 
-    // Canonical path of the deepest existing ancestor of <paramref name="path"/>, following
-    // a symlink/junction on that component, with any not-yet-created tail re-appended.
-    // Returns null when no ancestor exists.
+    // Canonical path of the deepest existing ancestor (following a symlink/junction there), with
+    // any not-yet-created tail re-appended. Returns null when no ancestor exists.
     private static string? ResolveExistingReal(string path)
     {
         var tail = new List<string>();
@@ -130,10 +121,8 @@ public class WorkspacePathResolver
     }
 
     /// <summary>
-    /// Stable, unique folder name for a project's workspace. Derived from the project
-    /// <paramref name="projectId"/> (not just the name) so two projects whose display
-    /// names normalise to the same folder — e.g. "Task App" and "task-app" — no longer
-    /// collide and overwrite each other's generated artifacts.
+    /// Stable, unique workspace folder name. Includes <paramref name="projectId"/> (not just the
+    /// name) so projects whose names normalise alike — e.g. "Task App" and "task-app" — don't collide.
     /// </summary>
     public static string GetWorkspaceFolder(Guid projectId, string projectName) =>
         $"{MakeSafeFolderName(projectName)}-{projectId.ToString("N")[..8]}";
@@ -145,9 +134,8 @@ public class WorkspacePathResolver
         foreach (var c in Path.GetInvalidFileNameChars())
             name = name.Replace(c, '-');
 
-        // Path.GetInvalidFileNameChars() is OS-specific: on Linux it only covers '\0' and
-        // '/', so path separators and parent-dir tokens survive and could climb out of the
-        // workspace root. Neutralise them explicitly on every OS.
+        // GetInvalidFileNameChars() is OS-specific (on Linux only '\0' and '/'), so separators and
+        // parent-dir tokens could survive and climb out of the root. Neutralise them on every OS.
         name = name.Replace('/', '-').Replace('\\', '-').Replace("..", "-");
         name = name.Replace(" ", "-").ToLowerInvariant();
 

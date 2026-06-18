@@ -1,8 +1,6 @@
 namespace ICOGenerator.Services.Requirements;
 
-// Outcome of a synchronous BA chat turn. Lives in the Services layer (not Application) because
-// BARequirementService returns it — keeping the dependency arrow pointing Application → Services,
-// never the reverse.
+// Outcome of a synchronous BA chat turn. Lives in Services (not Application) so the dependency arrow stays Application → Services.
 public enum ChatWithBAResult
 {
     Ok,

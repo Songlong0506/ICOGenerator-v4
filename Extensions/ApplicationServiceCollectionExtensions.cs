@@ -33,9 +33,8 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddControllersWithViews();
         services.AddAuthServices();
-        // MUST stay Singleton: AppDbContext.OnModelCreating captures this instance inside the
-        // ApiKey value-converter, and EF caches that model globally. Scoped/Transient (or
-        // AddDbContextPool) would bind decryption to a disposed/foreign instance. See AppDbContext.
+        // MUST stay Singleton: OnModelCreating captures this instance in the ApiKey value-converter
+        // and EF caches that model globally; Scoped/Transient would bind it to a disposed instance.
         services.AddSingleton<IApiKeyProtector, AesApiKeyProtector>();
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
@@ -72,14 +71,12 @@ public static class ApplicationServiceCollectionExtensions
                 options.SlidingExpiration = true;
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Lax;
-                // SameAsRequest so the auth cookie still works over plain HTTP in local dev,
-                // while staying Secure-only once the app is served over HTTPS.
+                // SameAsRequest: cookie works over plain HTTP in local dev, Secure-only over HTTPS.
                 options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
             });
 
-        // Secure by default: every endpoint requires an authenticated user unless it opts out
-        // with [AllowAnonymous] (the login page, the error page). This is what actually guards
-        // the command-running Settings page even if a future controller forgets [Authorize].
+        // Secure by default: every endpoint requires auth unless it opts out with [AllowAnonymous],
+        // so the command-running Settings page stays guarded even if a controller forgets [Authorize].
         services.AddAuthorization(options =>
         {
             options.FallbackPolicy = new AuthorizationPolicyBuilder()
@@ -100,7 +97,6 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddRequirementUseCases(this IServiceCollection services)
     {
-        // Application layer: use cases & queries driven by RequirementsController.
         services.AddScoped<GetRequirementWorkspaceQuery>();
         services.AddScoped<GetDocumentDownloadQuery>();
         services.AddScoped<GenerateRequirementDraftUseCase>();
@@ -153,15 +149,12 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddLlmServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Proxy is config-driven so the same build works behind the office proxy
-        // and at home where it doesn't exist. Toggle via appsettings.json or the
-        // environment variables Llm__Proxy__Enabled / Llm__Proxy__Address.
-        // Defaults preserve the previous office behaviour (proxy on, port 3128).
+        // Proxy is config-driven (Llm:Proxy:Enabled / :Address) so one build works both behind the
+        // office proxy and at home. Defaults preserve the office behaviour (proxy on, port 3128).
         var proxyEnabled = configuration.GetValue("Llm:Proxy:Enabled", true);
         var proxyAddress = configuration.GetValue("Llm:Proxy:Address", "http://127.0.0.1:3128");
 
-        // Two pooled clients so LlmClient never news up a handler per call:
-        // one direct (localhost models) and one routed through the local proxy.
+        // Two pooled clients (direct for localhost, proxied) so LlmClient never news up a handler per call.
         services.AddHttpClient(LlmClient.DirectClientName)
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
@@ -172,8 +165,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddHttpClient(LlmClient.ProxiedClientName)
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
-                // When the proxy is disabled (e.g. at home) the "proxied" client
-                // falls back to a direct connection instead of failing.
+                // When the proxy is disabled (e.g. at home) this client falls back to a direct connection.
                 UseProxy = proxyEnabled,
                 Proxy = proxyEnabled ? new WebProxy(proxyAddress) : null,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5)
@@ -208,7 +200,6 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddAgentRuntime(this IServiceCollection services)
     {
-        // Services/Agents: the autonomous tool-using agent loop used by the workflow worker.
         services.AddScoped<AgentInstructionProvider>();
         services.AddScoped<AgentPromptBuilder>();
         services.AddScoped<AgentActionParser>();
@@ -218,7 +209,6 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddRequirementServices(this IServiceCollection services)
     {
-        // Services/Requirements: domain services that turn a BA conversation into requirement documents.
         services.AddScoped<BARequirementService>();
         services.AddScoped<RequirementPromptBuilder>();
         services.AddScoped<RequirementResponseParser>();

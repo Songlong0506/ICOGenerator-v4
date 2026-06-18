@@ -3,10 +3,8 @@ using System.Text.Json;
 namespace ICOGenerator.Services.Artifacts;
 
 /// <summary>
-/// One entry in the generated POC's left sidebar menu. A leaf when <see cref="Children"/>
-/// is null/empty; otherwise an expandable group whose sub-items are the child labels.
-/// Populated by the Developer agent (via the SetPocContent tool) so the POC navigation
-/// reflects the real feature instead of the template's placeholder menu.
+/// One entry in the generated POC's left sidebar menu: a leaf when <see cref="Children"/> is null/empty, else an expandable group.
+/// Populated by the Developer agent (via SetPocContent) so the nav reflects the real feature, not the template's placeholder menu.
 /// </summary>
 public sealed class PocNavItem
 {
@@ -15,11 +13,7 @@ public sealed class PocNavItem
     public List<string>? Children { get; set; }
 
     /// <summary>
-    /// Tolerant parser for the agent-supplied 'navItems' argument. Accepts an array of
-    /// strings (leaves) and/or objects ({ label/title/name, children }); 'children' may be
-    /// strings or objects. Anything malformed is skipped rather than throwing, so a nav
-    /// formatting slip never blocks the rest of the POC update (App Name, breadcrumb, content).
-    /// Returns an empty list for non-arrays.
+    /// Tolerant parser for the agent-supplied 'navItems'. Malformed entries are skipped rather than thrown, so a nav slip never blocks the rest of the POC update. Returns an empty list for non-arrays.
     /// </summary>
     public static List<PocNavItem> ParseList(JsonElement element)
     {

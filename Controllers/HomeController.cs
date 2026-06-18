@@ -4,11 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
 
-// Hứng lỗi chưa được xử lý trong môi trường non-Development. Program.cs cấu hình
-// app.UseExceptionHandler("/Home/Error"), nhưng trước đây route này KHÔNG tồn tại
-// (không có HomeController) nên mọi exception ngoài Development trả về 404 thay vì
-// một trang lỗi tử tế — đó cũng là lý do một số chỗ (vd BARequirementService) phải
-// tự bắt lỗi inline. Action dưới đây render trang lỗi và ghi log chi tiết.
+// Hứng lỗi non-Development cho app.UseExceptionHandler("/Home/Error"): trước đây route này KHÔNG tồn tại
+// (không có HomeController) nên mọi exception ngoài Development trả 404 thay vì trang lỗi.
 public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
@@ -18,8 +15,7 @@ public class HomeController : Controller
         _logger = logger;
     }
 
-    // Reachable without a login so an error that happens before/around authentication still
-    // shows the error page instead of bouncing to /Account/Login.
+    // Reachable without login so an error around authentication shows the error page instead of bouncing to /Account/Login.
     [AllowAnonymous]
     public IActionResult Error()
     {

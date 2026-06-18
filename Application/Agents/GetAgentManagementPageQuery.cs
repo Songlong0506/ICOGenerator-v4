@@ -30,8 +30,8 @@ public class GetAgentManagementPageQuery
 
         var selected = id.HasValue ? agents.FirstOrDefault(x => x.Id == id) : agents.FirstOrDefault();
 
-        // Resolving the agent's instruction is a Service call; keep it in the use case so the
-        // controller stays thin (it must not depend on Services directly — see ARCHITECTURE §3).
+        // Instruction resolution is a Service call; keep it here so the controller need not depend
+        // on Services directly (see ARCHITECTURE §3).
         var instruction = selected != null ? _instructionProvider.GetInstruction(selected) : string.Empty;
         var instructionFile = selected != null
             ? $"Prompts/{AgentInstructionProvider.RelativePath(selected.RoleKey)}"

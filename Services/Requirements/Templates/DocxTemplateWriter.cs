@@ -16,11 +16,7 @@ public class DocxTemplateWriter
     {
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
-        // Build into a temp file first and move it into place only after Save() succeeds.
-        // A failure mid-way (corrupt template, an illegal XML char that slips past the
-        // sanitizer, an I/O error) must not leave a half-written or unsubstituted .docx at
-        // outputPath that downstream code (preview, DB Content upsert) would treat as a
-        // valid generated document.
+        // Build into a temp file and move into place only after Save() succeeds, so a mid-way failure can't leave a half-written .docx that downstream code treats as valid.
         var tempPath = outputPath + ".tmp";
         try
         {
@@ -33,10 +29,7 @@ public class DocxTemplateWriter
                     .Descendants<Text>()
                     .ToList();
 
-                // Replace longest keys first so a short marker (e.g. "[Tên]") can't clobber part
-                // of a longer one that shares its prefix (e.g. "[Tên Dự Án]"), and sanitize each
-                // value once: model output can contain characters illegal in XML that would
-                // otherwise make Document.Save() below throw and corrupt the whole file.
+                // Replace longest keys first so a short marker can't clobber part of a longer one sharing its prefix; sanitize each value because XML-illegal chars would make Save() throw and corrupt the file.
                 foreach (var item in replacements.OrderByDescending(r => r.Key.Length))
                 {
                     var value = SanitizeXmlText(item.Value);
@@ -78,10 +71,7 @@ public class DocxTemplateWriter
     }
 
     /// <summary>
-    /// Removes characters that are illegal in XML 1.0 (most control characters, lone
-    /// surrogates). OpenXML serializes run text to XML, so a stray control byte in
-    /// model-generated content would otherwise make <c>Document.Save()</c> throw and
-    /// corrupt the document. Valid surrogate pairs (emoji, CJK extensions) are preserved.
+    /// Removes XML 1.0-illegal chars (control chars, lone surrogates) that would otherwise make <c>Document.Save()</c> throw and corrupt the document; valid surrogate pairs are preserved.
     /// </summary>
     public static string SanitizeXmlText(string? value)
     {
@@ -126,9 +116,7 @@ public class DocxTemplateWriter
     }
 
     /// <summary>
-    /// Converts a .docx file into formatted HTML, preserving headings, tables
-    /// and basic run formatting (bold / italic) so the preview resembles the
-    /// document as opened in Word instead of a flat block of text.
+    /// Converts a .docx into HTML, preserving headings, tables and bold/italic so the preview resembles the Word document instead of a flat block of text.
     /// </summary>
     public string ExtractHtml(string docxPath)
     {

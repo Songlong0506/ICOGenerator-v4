@@ -17,7 +17,6 @@ public class AccountController : Controller
     [AllowAnonymous]
     public IActionResult Login(string? returnUrl = null)
     {
-        // Already signed in: skip the form.
         if (User.Identity?.IsAuthenticated == true)
             return RedirectToLocal(returnUrl);
 
@@ -52,9 +51,8 @@ public class AccountController : Controller
         return RedirectToLocal(returnUrl);
     }
 
-    // Logout is intentionally NOT [AllowAnonymous]: the global fallback policy already
-    // requires an authenticated user here, and [ValidateAntiForgeryToken] blocks CSRF
-    // forced-logout. Returns to the login page once the cookie is cleared.
+    // Intentionally NOT [AllowAnonymous]: the fallback policy already requires auth, and
+    // [ValidateAntiForgeryToken] blocks CSRF forced-logout.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
@@ -63,8 +61,7 @@ public class AccountController : Controller
         return RedirectToAction(nameof(Login));
     }
 
-    // Only ever redirect to a local path so a crafted ?returnUrl=https://evil.example can't
-    // turn the login into an open redirect.
+    // Only redirect to a local path so a crafted ?returnUrl can't become an open redirect.
     private IActionResult RedirectToLocal(string? returnUrl) =>
         Url.IsLocalUrl(returnUrl) ? Redirect(returnUrl!) : RedirectToAction("Index", "Projects");
 }

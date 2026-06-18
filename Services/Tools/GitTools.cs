@@ -10,16 +10,8 @@ public class GitTools
     public GitTools(CommandTools commandTools, IConfiguration configuration)
     { _commandTools = commandTools; _configuration = configuration; }
 
-    // All git operations go through CommandTools.RunArgs (no shell): branch names and commit
-    // messages are passed as literal arguments, so values containing spaces or characters the
-    // shell would treat as operators ($, &, ;, …) are no longer rejected by the shell-operator
-    // guard. The command allowlist still applies to the "git <subcommand>" prefix.
-    //
-    // Branch/remote names are LLM-controlled and become POSITIONAL git arguments. Even without a
-    // shell, git itself treats an argument starting with '-' as an OPTION (git "argument
-    // injection"), so a value like "--upload-pack=…" or "--output=…" could change what git does.
-    // ValidateRef rejects anything that isn't a plain ref token (must start alphanumeric, no
-    // leading dash, no spaces/shell-meta), closing that gap.
+    // All git operations go through CommandTools.RunArgs (no shell), so literal args may contain spaces/shell operators; the allowlist still applies to the "git <subcommand>" prefix.
+    // SECURITY: LLM-controlled branch/remote names become positional git args, and git treats a '-'-prefixed arg as an OPTION ("argument injection", e.g. --upload-pack=…). IsSafeRef rejects anything but a plain ref token (must start alphanumeric, no leading dash, no spaces/shell-meta), closing that gap.
     private static readonly Regex SafeRef = new(@"^[A-Za-z0-9][A-Za-z0-9._/-]*$", RegexOptions.Compiled);
 
     private static bool IsSafeRef(string value) =>
@@ -38,11 +30,7 @@ public class GitTools
         if (!IsSafeRef(branchName)) return Blocked("branch name", branchName);
 
         var fetchStatus = await _commandTools.RunArgs(["git", "status"]);
-        // Switch to the base branch WITHOUT "--": `git checkout -- <x>` makes git treat <x> as a
-        // PATHSPEC (a file to restore from the index), not a branch — so the base branch would
-        // never actually be checked out and the new branch below would fork from whatever HEAD
-        // already was, silently ignoring baseBranch. Flag-injection is already prevented by
-        // IsSafeRef (rejects a leading '-' and '..'), so the disambiguating "--" is unnecessary here.
+        // No "--": `git checkout -- <x>` treats <x> as a PATHSPEC not a branch, so baseBranch would be silently ignored. Flag-injection is already blocked by IsSafeRef, so "--" is unnecessary.
         var checkoutBase = await _commandTools.RunArgs(["git", "checkout", baseBranch]);
         var createBranch = await _commandTools.RunArgs(["git", "checkout", "-b", branchName]);
         return $"Git status:\n{fetchStatus}\n\nCheckout base:\n{checkoutBase}\n\nCreate branch:\n{createBranch}";
@@ -52,9 +40,7 @@ public class GitTools
     public async Task<string> GitCommit(string message)
     {
         var add = await _commandTools.RunArgs(["git", "add", "."]);
-        // The message is a literal argument passed after "-m" (no shell), so git consumes it as
-        // the message value, not an option — it needs no quote mangling and may safely contain
-        // spaces, $, &, ; etc. (these previously got the whole command blocked).
+        // Message is a literal arg after "-m" (no shell), so git takes it as the value, not an option — may safely contain spaces, $, &, ; (these previously got the command blocked).
         var commit = await _commandTools.RunArgs(["git", "commit", "-m", message]);
         return $"Git add:\n{add}\n\nGit commit:\n{commit}";
     }

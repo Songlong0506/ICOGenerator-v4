@@ -24,9 +24,8 @@ public static class DbInitializer
         {
             db.AiModels.AddRange(
                 new AiModel { Name = "Qwen3.6 27B Q3_K_S", Provider = "LM Studio", ModelId = "qwen3.6-27b@q3_k_s", Endpoint = "http://127.0.0.1:1234/v1", ApiKey = "lm-studio", ContextWindow = 128000 },
-                // ApiKey để TRỐNG (không phải placeholder "sk-..."): model "đám mây" cần người dùng
-                // nhập key thật ở màn hình Models. Seed một chuỗi giả sẽ được value-converter mã hóa
-                // và lưu, khiến model trông như đã cấu hình nhưng mọi lời gọi đều 401.
+                // ApiKey để TRỐNG (không placeholder): seed chuỗi giả sẽ bị value-converter mã hóa và lưu,
+                // khiến model "đám mây" trông như đã cấu hình nhưng mọi lời gọi đều 401.
                 new AiModel { Name = "DeepSeek V4 Flash", Provider = "DeepSeek", ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "", ContextWindow = 1000000 }
             );
             await db.SaveChangesAsync();
@@ -34,8 +33,7 @@ public static class DbInitializer
 
         if (!await db.Agents.AnyAsync())
         {
-            // Không còn model mặc định: gán thủ công model local (Qwen) cho các agent seed,
-            // fallback về model đầu tiên nếu seed bị thay đổi.
+            // Gán thủ công model local (Qwen) cho agent seed, fallback model đầu tiên nếu seed thay đổi.
             var modelId = await db.AiModels
                 .OrderByDescending(x => x.Name == "Qwen3.6 27B Q3_K_S")
                 .ThenBy(x => x.Name)
@@ -79,8 +77,7 @@ public static class DbInitializer
         }
     }
 
-    // Mã hóa một lần các ApiKey còn ở dạng plaintext trong DB (các bản cài đặt cũ trước khi bật mã hóa).
-    // Đọc trực tiếp giá trị thô bằng ADO.NET để bỏ qua value converter (vốn sẽ tự giải mã/đi qua).
+    // Mã hóa một lần ApiKey plaintext còn sót (bản cài cũ). Đọc thô bằng ADO.NET để bỏ qua value converter (vốn tự giải mã).
     private static async Task EncryptLegacyApiKeysAsync(AppDbContext db, IApiKeyProtector protector)
     {
         var connection = db.Database.GetDbConnection();
@@ -164,9 +161,7 @@ public static class DbInitializer
         var all = await db.ToolDefinitions.ToListAsync();
         async Task Assign(AgentRoleKey roleKey, params string[] toolNames)
         {
-            // Bỏ qua thay vì FirstAsync (sẽ ném và làm crash toàn app lúc khởi động) nếu một role
-            // chưa có agent tương ứng — gán tool mặc định là việc "làm giàu" seed, không được phép
-            // làm hỏng MigrateAsync/startup.
+            // FirstOrDefaultAsync (không FirstAsync) để role thiếu agent không ném và crash startup — gán tool seed không được làm hỏng MigrateAsync.
             var agent = await db.Agents.FirstOrDefaultAsync(x => x.RoleKey == roleKey);
             if (agent == null)
                 return;
@@ -182,9 +177,7 @@ public static class DbInitializer
         await db.SaveChangesAsync();
     }
 
-    // Idempotently grants a tool to a role on existing databases (AssignDefaultToolsAsync
-    // only runs on a fresh seed, so new tools like SetPocContent would otherwise never
-    // reach already-seeded agents).
+    // Idempotently grants a tool to a role on existing databases (AssignDefaultToolsAsync only runs on a fresh seed, so new tools would never reach already-seeded agents).
     private static async Task EnsureRoleToolAsync(AppDbContext db, AgentRoleKey roleKey, string toolName)
     {
         var agent = await db.Agents.FirstOrDefaultAsync(x => x.RoleKey == roleKey);

@@ -9,8 +9,7 @@ public class Agent
     public string Color { get; set; } = "#8B5CF6";
     public AgentStatus Status { get; set; } = AgentStatus.Active;
     public double Temperature { get; set; } = 0.3;
-    // Mỗi agent bắt buộc phải được gán một AI model (set thủ công) để tránh
-    // chạy nhầm model ngoài ý muốn — không còn cơ chế model mặc định tự động.
+    // Mỗi agent bắt buộc gán AI model thủ công để tránh chạy nhầm model — không còn cơ chế model mặc định tự động.
     public Guid AiModelId { get; set; }
     public AiModel AiModel { get; set; } = null!;
     public ICollection<AgentTool> AgentTools { get; set; } = new List<AgentTool>();

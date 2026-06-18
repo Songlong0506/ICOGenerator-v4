@@ -4,15 +4,14 @@ using System.Text;
 namespace ICOGenerator.Services.Security;
 
 /// <summary>
-/// Triển khai <see cref="IApiKeyProtector"/> bằng AES-GCM (mã hóa có xác thực).
-/// Khóa lấy từ cấu hình <c>Encryption:ApiKeyKey</c>; mọi chuỗi đều hợp lệ vì được
-/// băm SHA-256 thành khóa 256-bit. Định dạng lưu trữ: "enc:v1:" + base64(nonce|tag|ciphertext).
+/// <see cref="IApiKeyProtector"/> qua AES-GCM. Khóa = SHA-256 của cấu hình <c>Encryption:ApiKeyKey</c>.
+/// Định dạng lưu trữ: "enc:v1:" + base64(nonce|tag|ciphertext).
 /// </summary>
 public class AesApiKeyProtector : IApiKeyProtector
 {
     private const string Prefix = "enc:v1:";
-    private static readonly int NonceSize = AesGcm.NonceByteSizes.MaxSize; // 12 bytes
-    private static readonly int TagSize = AesGcm.TagByteSizes.MaxSize;     // 16 bytes
+    private static readonly int NonceSize = AesGcm.NonceByteSizes.MaxSize;
+    private static readonly int TagSize = AesGcm.TagByteSizes.MaxSize;
 
     private readonly byte[] _key;
     private readonly ILogger<AesApiKeyProtector> _logger;
@@ -90,11 +89,9 @@ public class AesApiKeyProtector : IApiKeyProtector
         }
         catch (CryptographicException ex)
         {
-            // The prefix says this value IS encrypted but it won't decrypt — wrong
-            // Encryption:ApiKeyKey (e.g. after a key rotation) or tampered/corrupt data.
-            // Returning storedValue here would hand the caller the raw "enc:v1:…" ciphertext
-            // to use AS the API key; surface the failure and treat the key as unconfigured
-            // instead, so the misconfiguration is visible rather than silently wrong.
+            // Won't decrypt despite the prefix: wrong Encryption:ApiKeyKey (e.g. after rotation)
+            // or corrupt data. Returning storedValue would leak the raw "enc:v1:…" ciphertext as
+            // the API key, so treat it as unconfigured instead.
             _logger.LogWarning(ex, "Failed to decrypt ApiKey (wrong Encryption:ApiKeyKey or corrupt data); treating it as unconfigured.");
             return string.Empty;
         }
