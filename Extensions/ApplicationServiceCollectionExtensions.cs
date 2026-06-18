@@ -1,3 +1,4 @@
+using ICOGenerator.Application.Account;
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Projects;
@@ -19,6 +20,8 @@ using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Workflows;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 
@@ -29,6 +32,7 @@ public static class ApplicationServiceCollectionExtensions
     public static IServiceCollection AddIcoGeneratorApplication(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddControllersWithViews();
+        services.AddAuthServices();
         services.AddSingleton<IApiKeyProtector, AesApiKeyProtector>();
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
@@ -47,6 +51,38 @@ public static class ApplicationServiceCollectionExtensions
         services.AddAgentRuntime();
         services.AddWorkflowServices();
         services.AddTemplateServices();
+
+        return services;
+    }
+
+    private static IServiceCollection AddAuthServices(this IServiceCollection services)
+    {
+        services.AddScoped<LoginUseCase>();
+
+        services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddCookie(options =>
+            {
+                options.LoginPath = "/Account/Login";
+                options.LogoutPath = "/Account/Logout";
+                options.AccessDeniedPath = "/Account/Login";
+                options.ExpireTimeSpan = TimeSpan.FromHours(8);
+                options.SlidingExpiration = true;
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                // SameAsRequest so the auth cookie still works over plain HTTP in local dev,
+                // while staying Secure-only once the app is served over HTTPS.
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            });
+
+        // Secure by default: every endpoint requires an authenticated user unless it opts out
+        // with [AllowAnonymous] (the login page, the error page). This is what actually guards
+        // the command-running Settings page even if a future controller forgets [Authorize].
+        services.AddAuthorization(options =>
+        {
+            options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build();
+        });
 
         return services;
     }

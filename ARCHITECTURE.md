@@ -147,6 +147,15 @@ Mọi đăng ký dịch vụ nằm ở `Extensions/ApplicationServiceCollectionE
 method nhỏ `AddXxx()` — **mỗi nhóm tương ứng một thư mục/layer**. `Program.cs` chỉ gọi
 `AddIcoGeneratorApplication(...)`.
 
+### 5.7. Xác thực (cookie auth, secure-by-default)
+Toàn app nằm sau một lớp đăng nhập cookie. Cấu hình tập trung ở `AddAuthServices()`:
+một **fallback authorization policy** bắt **mọi endpoint** phải đăng nhập, trừ nơi gắn
+`[AllowAnonymous]` (trang `Account/Login`, `Home/Error`). Nhờ vậy một controller mới quên
+`[Authorize]` vẫn được bảo vệ mặc định — quan trọng vì trang Settings sửa được `AllowedCommands`.
+Thông tin đăng nhập đọc từ cấu hình `Auth:Username`/`Auth:Password` (mật khẩu là secret, nạp qua
+`Auth__Password`/user-secrets — **không commit**), so khớp **fixed-time** trong `LoginUseCase`.
+`AccountController` mỏng: validate qua use case rồi `SignInAsync`/`SignOutAsync`.
+
 ---
 
 ## 6. Công thức thêm một tính năng mới
@@ -196,8 +205,9 @@ sắp xếp lại; namespace luôn khớp đường dẫn.
   `StartChat`), `GetRequirementJobStatusQuery` (action `JobStatus`) và `BackgroundService`
   `AgentJobRunner` tạo nên một hàng đợi `AgentJob` mà UI không bao giờ gọi tới — chat BA thật đi
   qua `Chat` → `ChatWithBAUseCase` (đồng bộ). Cụm code chết này đã được xoá. **Bảng `AgentJobs`
-  cũng đã được drop** (entity `AgentJob` + enum `AgentJobStatus` + `DbSet` đã xoá; migration
-  `20260617000000_RemoveAgentJob` drop bảng — `Down()` tạo lại để rollback được).
+  cũng đã được drop** (entity `AgentJob` + enum `AgentJobStatus` + `DbSet` đã xoá). Toàn bộ lịch
+  sử migration sau đó đã được gộp lại thành một baseline duy nhất `20260617161007_V1` (tạo 10
+  bảng, không còn `AgentJobs`); migration `RemoveAgentJob` riêng lẻ không còn tồn tại nữa.
 - `Services/Logging` chỉ có logger cho lời gọi model, đặt cạnh `Services/Llm`. Nếu sau này log
   nhiều loại hơn thì giữ nguyên là hợp lý; nếu không, có thể gộp vào `Llm`.
 - Package `Microsoft.EntityFrameworkCore.Sqlite` (không dùng — `AppDbContext` chỉ `UseSqlServer`)
