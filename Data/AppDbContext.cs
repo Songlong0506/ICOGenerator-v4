@@ -73,5 +73,47 @@ public class AppDbContext : DbContext
         builder.Entity<AgentTask>().HasOne(x => x.Project).WithMany(x => x.AgentTasks).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<AgentTask>().HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.SetNull);
         builder.Entity<AgentTask>().HasIndex(x => new { x.ProjectId, x.Status, x.CreatedAt });
+
+        // Bound short metadata columns so EF stops mapping them to nvarchar(max) (LOB columns can't be
+        // indexed and are slower). Genuinely large fields (Content, RequestJson, ResponseText, Message,
+        // Input, Output, Error) are intentionally left as nvarchar(max).
+        builder.Entity<Project>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(200);
+            b.Property(x => x.Description).HasMaxLength(2000);
+            b.Property(x => x.GenerationMode).HasMaxLength(100);
+            b.Property(x => x.BackendGitUrl).HasMaxLength(500);
+            b.Property(x => x.FrontendGitUrl).HasMaxLength(500);
+        });
+        builder.Entity<Agent>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(100);
+            b.Property(x => x.Description).HasMaxLength(1000);
+            b.Property(x => x.Color).HasMaxLength(50);
+        });
+        builder.Entity<ToolDefinition>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(200);
+            b.Property(x => x.DisplayName).HasMaxLength(200);
+            b.Property(x => x.Description).HasMaxLength(1000);
+            b.HasIndex(x => x.Name);
+        });
+        builder.Entity<WorkflowRun>().Property(x => x.Name).HasMaxLength(200);
+        builder.Entity<AgentTask>().Property(x => x.Title).HasMaxLength(300);
+        builder.Entity<ProjectDocument>(b =>
+        {
+            b.Property(x => x.Folder).HasMaxLength(200);
+            b.Property(x => x.VersionName).HasMaxLength(100);
+            b.Property(x => x.FileName).HasMaxLength(300);
+            b.Property(x => x.FilePath).HasMaxLength(1000);
+        });
+        builder.Entity<AgentModelCallLog>(b =>
+        {
+            b.Property(x => x.AgentName).HasMaxLength(200);
+            b.Property(x => x.ModelName).HasMaxLength(200);
+            b.Property(x => x.ModelId).HasMaxLength(200);
+            b.Property(x => x.Endpoint).HasMaxLength(500);
+            b.Property(x => x.Purpose).HasMaxLength(100);
+        });
     }
 }

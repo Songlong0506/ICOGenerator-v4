@@ -14,6 +14,8 @@ public static class DbInitializer
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.MigrateAsync();
 
+        await RecoverOrphanedTasksAsync(db);
+
         var apiKeyProtector = scope.ServiceProvider.GetRequiredService<IApiKeyProtector>();
         await EncryptLegacyApiKeysAsync(db, apiKeyProtector);
 
@@ -75,6 +77,46 @@ public static class DbInitializer
                 await db.SaveChangesAsync();
             }
         }
+    }
+
+    // Số lần một task được phép chạy lại sau khi bị gián đoạn bởi restart trước khi bị coi là Failed,
+    // để một task liên tục làm crash host không bị re-queue vô hạn.
+    private const int MaxTaskAttempts = 3;
+
+    // Sau crash/restart, task còn ở trạng thái Running là "mồ côi" (worker đơn lẻ chưa kịp xử lý lúc khởi động).
+    // Re-queue để chạy lại; vượt số lần thử thì đánh Failed. Đây cũng là chỗ khiến cột Attempt có ý nghĩa.
+    private static async Task RecoverOrphanedTasksAsync(AppDbContext db)
+    {
+        var orphaned = await db.AgentTasks
+            .Include(x => x.WorkflowRun)
+            .Where(x => x.Status == AgentTaskStatus.Running)
+            .ToListAsync();
+        if (orphaned.Count == 0)
+            return;
+
+        var now = DateTime.UtcNow;
+        foreach (var task in orphaned)
+        {
+            if (task.Attempt >= MaxTaskAttempts)
+            {
+                task.Status = AgentTaskStatus.Failed;
+                task.Error = "Task bị gián đoạn bởi việc khởi động lại ứng dụng và đã vượt quá số lần thử tối đa.";
+                task.FinishedAt = now;
+                task.WorkflowRun.Status = WorkflowRunStatus.Failed;
+                task.WorkflowRun.CurrentStage = WorkflowStageKey.Failed;
+                task.WorkflowRun.FinishedAt = now;
+            }
+            else
+            {
+                // Worker chỉ nhặt task Queued. Attempt đã được tăng khi task chạy lần trước.
+                task.Status = AgentTaskStatus.Queued;
+                task.StartedAt = null;
+                if (task.WorkflowRun.Status == WorkflowRunStatus.Running)
+                    task.WorkflowRun.Status = WorkflowRunStatus.Queued;
+            }
+        }
+
+        await db.SaveChangesAsync();
     }
 
     // Mã hóa một lần ApiKey plaintext còn sót (bản cài cũ). Đọc thô bằng ADO.NET để bỏ qua value converter (vốn tự giải mã).

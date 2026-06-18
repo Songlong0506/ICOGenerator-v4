@@ -16,11 +16,17 @@ public class WorkspaceTools
     }
     public string CurrentWorkspacePath { get; private set; } = string.Empty;
 
+    // Ambient cancellation for the current agent run, shared with long-running tools (e.g. CommandTools)
+    // so a workflow cancel / app shutdown actually stops a spawned process instead of waiting out the timeout.
+    public CancellationToken RunCancellationToken { get; private set; } = CancellationToken.None;
+
     public void SetWorkspace(string projectKey)
     {
         CurrentWorkspacePath = _workspacePathResolver.GetProjectWorkspacePath(projectKey);
         Directory.CreateDirectory(CurrentWorkspacePath);
     }
+
+    public void SetRunCancellation(CancellationToken cancellationToken) => RunCancellationToken = cancellationToken;
 
     [Description("Write a source code or documentation file into the current workspace.")]
     public async Task<string> WriteFile(string relativePath, string content)
@@ -158,9 +164,11 @@ public class WorkspaceTools
     {
         var allowed = _configuration.GetSection("AllowedFileExtensions").Get<string[]>() ?? [];
         if (allowed.Length == 0) return;
-        var fileName = Path.GetFileName(fullPath);
-        if (!allowed.Any(x => fileName.EndsWith(x, StringComparison.OrdinalIgnoreCase)))
-            throw new InvalidOperationException($"File extension is not allowed: {fileName}");
+        // Match the true file extension exactly (e.g. ".cs") and reject extensionless names, rather than
+        // a loose suffix check on the whole file name.
+        var ext = Path.GetExtension(fullPath);
+        if (string.IsNullOrEmpty(ext) || !allowed.Any(x => x.Equals(ext, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException($"File extension is not allowed: {Path.GetFileName(fullPath)}");
     }
     private void EnsureWorkspace()
     {

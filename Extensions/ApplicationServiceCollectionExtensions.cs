@@ -22,6 +22,7 @@ using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Workflows;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 
@@ -29,15 +30,22 @@ namespace ICOGenerator.Extensions;
 
 public static class ApplicationServiceCollectionExtensions
 {
-    public static IServiceCollection AddIcoGeneratorApplication(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddIcoGeneratorApplication(this IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment)
     {
-        services.AddControllersWithViews();
-        services.AddAuthServices();
+        // Validate the antiforgery token on every unsafe verb by default, so a new POST action is
+        // CSRF-protected even if it forgets [ValidateAntiForgeryToken]. [IgnoreAntiforgeryToken] opts out.
+        services.AddControllersWithViews(options =>
+            options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
+        services.AddAuthServices(environment);
         // MUST stay Singleton: OnModelCreating captures this instance in the ApiKey value-converter
         // and EF caches that model globally; Scoped/Transient would bind it to a disposed instance.
         services.AddSingleton<IApiKeyProtector, AesApiKeyProtector>();
         services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+            // Retry on transient SQL faults (connection blips, deadlocks) so a momentary glitch while
+            // saving a task's status doesn't surface as an unhandled exception and strand the task.
+            options.UseSqlServer(
+                configuration.GetConnectionString("DefaultConnection"),
+                sql => sql.EnableRetryOnFailure()));
 
         services.AddProjectUseCases();
         services.AddRequirementUseCases();
@@ -57,7 +65,7 @@ public static class ApplicationServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddAuthServices(this IServiceCollection services)
+    private static IServiceCollection AddAuthServices(this IServiceCollection services, IWebHostEnvironment environment)
     {
         services.AddScoped<LoginUseCase>();
 
@@ -71,8 +79,11 @@ public static class ApplicationServiceCollectionExtensions
                 options.SlidingExpiration = true;
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Lax;
-                // SameAsRequest: cookie works over plain HTTP in local dev, Secure-only over HTTPS.
-                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                // Always send the auth cookie over HTTPS only; relax to SameAsRequest in Development so
+                // the cookie still works over the plain-HTTP local profile (http://localhost:55357).
+                options.Cookie.SecurePolicy = environment.IsDevelopment()
+                    ? CookieSecurePolicy.SameAsRequest
+                    : CookieSecurePolicy.Always;
             });
 
         // Secure by default: every endpoint requires auth unless it opts out with [AllowAnonymous],

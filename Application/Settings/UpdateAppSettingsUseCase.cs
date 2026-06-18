@@ -17,21 +17,20 @@ public class UpdateAppSettingsUseCase
         if (string.IsNullOrWhiteSpace(input.WorkspaceRootPath))
             return "Workspace root path is required.";
 
-        var root = await _store.ReadAsync();
+        await _store.UpdateAsync(root =>
+        {
+            SetNested(root, "ConnectionStrings", "DefaultConnection", input.ConnectionString.Trim());
+            SetNested(root, "AgentWorkspace", "RootPath", input.WorkspaceRootPath.Trim());
+            SetNested(root, "PullRequest", "RemoteName",
+                string.IsNullOrWhiteSpace(input.PullRequestRemoteName) ? "origin" : input.PullRequestRemoteName.Trim());
 
-        SetNested(root, "ConnectionStrings", "DefaultConnection", input.ConnectionString.Trim());
-        SetNested(root, "AgentWorkspace", "RootPath", input.WorkspaceRootPath.Trim());
-        SetNested(root, "PullRequest", "RemoteName",
-            string.IsNullOrWhiteSpace(input.PullRequestRemoteName) ? "origin" : input.PullRequestRemoteName.Trim());
+            root["AllowedCommands"] = ToJsonArray(SplitLines(input.AllowedCommands));
+            root["AllowedFileExtensions"] = ToJsonArray(SplitLines(input.AllowedFileExtensions)
+                .Select(x => x.StartsWith('.') ? x : "." + x)
+                .Select(x => x.ToLowerInvariant()));
 
-        root["AllowedCommands"] = ToJsonArray(SplitLines(input.AllowedCommands));
-        root["AllowedFileExtensions"] = ToJsonArray(SplitLines(input.AllowedFileExtensions)
-            .Select(x => x.StartsWith('.') ? x : "." + x)
-            .Select(x => x.ToLowerInvariant()));
-
-        root["AllowedHosts"] = string.IsNullOrWhiteSpace(input.AllowedHosts) ? "*" : input.AllowedHosts.Trim();
-
-        await _store.WriteAsync(root);
+            root["AllowedHosts"] = string.IsNullOrWhiteSpace(input.AllowedHosts) ? "*" : input.AllowedHosts.Trim();
+        });
         return null;
     }
 
