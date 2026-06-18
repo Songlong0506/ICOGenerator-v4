@@ -308,6 +308,13 @@
     </div>
 </div>
 
+<!-- Hidden form submitted by the JS-rendered "Approve & continue" button on the delivery panel
+     (the panel is built client-side, so the antiforgery token lives in this server-rendered form). -->
+<form id="approveStageForm" asp-action="ApproveStage" method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="projectId" value="@Model.Id" />
+</form>
+
 @section Breadcrumb {
     Projects <span class="sep">&rsaquo;</span> @Model.Name <span class="sep">&rsaquo;</span> <b>Requirements</b>
 }
@@ -447,6 +454,17 @@
                 } else if (data.runStatus === 'Failed') {
                     const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
                     slot.innerHTML = `<div class="wf-banner wf-fail">✗ Workflow thất bại.${err ? `<pre class="wf-err">${esc(err)}</pre>` : ''}</div>`;
+                } else if (data.runStatus === 'WaitingForHuman') {
+                    // Already rendered — don't rebuild on every poll (would reset scroll inside the review pane).
+                    if (slot.querySelector('.wf-review')) return;
+
+                    const arch = data.approvalContent
+                        ? `<pre class="wf-approval" style="max-height:280px;overflow:auto;white-space:pre-wrap;">${esc(data.approvalContent)}</pre>`
+                        : '';
+                    slot.innerHTML =
+                        `<div class="wf-banner wf-review">⏸️ Chờ bạn duyệt kiến trúc trước khi Developer sinh code.${arch}` +
+                            `<button type="button" class="btn approve" onclick="document.getElementById('approveStageForm').submit()">Duyệt &amp; tiếp tục</button>` +
+                        `</div>`;
                 } else {
                     slot.innerHTML = '';
                 }

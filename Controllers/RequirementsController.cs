@@ -1,5 +1,6 @@
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Requirements;
+using ICOGenerator.Application.Workflows;
 using ICOGenerator.Services.Requirements;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,6 +12,7 @@ public class RequirementsController : Controller
     private readonly GenerateRequirementDraftUseCase _generateRequirementDraftUseCase;
     private readonly ChatWithBAUseCase _chatWithBAUseCase;
     private readonly ApproveRequirementUseCase _approveRequirementUseCase;
+    private readonly ApproveStageUseCase _approveStageUseCase;
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
@@ -21,6 +23,7 @@ public class RequirementsController : Controller
        GenerateRequirementDraftUseCase generateRequirementDraftUseCase,
        ChatWithBAUseCase chatWithBAUseCase,
        ApproveRequirementUseCase approveRequirementUseCase,
+       ApproveStageUseCase approveStageUseCase,
        GetDocumentDownloadQuery getDocumentDownloadQuery,
        GetWorkflowStatusQuery getWorkflowStatusQuery,
        GetDocumentPreviewQuery getDocumentPreviewQuery,
@@ -30,6 +33,7 @@ public class RequirementsController : Controller
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
         _chatWithBAUseCase = chatWithBAUseCase;
         _approveRequirementUseCase = approveRequirementUseCase;
+        _approveStageUseCase = approveStageUseCase;
         _getDocumentDownloadQuery = getDocumentDownloadQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
         _getDocumentPreviewQuery = getDocumentPreviewQuery;
@@ -111,6 +115,18 @@ public class RequirementsController : Controller
     public async Task<IActionResult> WorkflowStatus(Guid projectId, Guid? runId = null, long afterSeq = 0)
     {
         return Json(await _getWorkflowStatusQuery.ExecuteAsync(projectId, runId, afterSeq));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApproveStage(Guid projectId)
+    {
+        var result = await _approveStageUseCase.ExecuteAsync(projectId);
+
+        if (result == ApproveStageResult.NoPendingApproval)
+            TempData["Error"] = "Không có bước nào đang chờ duyệt.";
+
+        return RedirectToAction(nameof(Index), new { projectId });
     }
 
     [HttpPost]

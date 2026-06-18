@@ -70,7 +70,7 @@ Chi tiết đầy đủ: `ARCHITECTURE.md`.
 | `ProjectDocument` | Tài liệu sinh ra trong dự án (BRD/SRS/FSD, design spec…), có `Folder`, `VersionName`, `IsApproved`. | `Domain/ProjectDocument.cs` |
 | `AgentConversation` | Một dòng hội thoại user ↔ agent trong một project. | `Domain/AgentConversation.cs` |
 | `WorkflowRun` | Một lần chạy *quy trình giao hàng* cho project, có `CurrentStage` và tập `AgentTask`. Đây là "vé" theo dõi cả pipeline. | `Domain/WorkflowRun.cs` |
-| `WorkflowStageKey` | Giai đoạn hiện tại của workflow. **Hiện chỉ có** `RequirementApproved`, `Implementation`, `Completed`, `Failed`. Đây là chỗ cần mở rộng cho team. | `Domain/Enums/WorkflowStageKey.cs` |
+| `WorkflowStageKey` | Giai đoạn hiện tại của workflow: `RequirementApproved`, `ArchitectureDesign`, `Implementation`, `Testing`, `Completed`, `Failed`. Thứ tự chạy thật do `DeliveryPipeline` quyết định, không phải số của enum. | `Domain/Enums/WorkflowStageKey.cs` |
 | `AgentTask` | Một đầu việc giao cho một agent trong một `WorkflowRun`: có `Type`, `Status`, `Input`, `Output`, `Attempt`. | `Domain/AgentTask.cs` |
 | `AgentTaskType` | Loại việc: `RequirementAnalysis`, `ArchitectureDesign`, `Implementation`, `CodeReview`, `Testing`, `BugFix`… **Đã có đủ loại cho cả team.** | `Domain/Enums/AgentTaskType.cs` |
 | `ToolDefinition` + `AgentTool` | Danh mục tool (đọc/ghi file, chạy lệnh, git…) và bảng nối agent ↔ tool được phép dùng. | `Domain/ToolDefinition.cs` |
@@ -124,15 +124,22 @@ AgentTaskWorker  (BackgroundService, chạy nền mỗi ~2s)
 
 ## 7. Ví dụ chạy thật: mở rộng thành team BA → Tech Lead → Dev → Tester
 
-Đây là tính năng tiêu biểu nhất của roadmap. Mục này chỉ ra **đang ở đâu, thiếu gì, và sửa ở đâu**.
+Đây là tính năng tiêu biểu nhất của roadmap. **Đã được triển khai** (Pha 1) theo đúng tinh thần "pipeline là dữ liệu khai báo" mô tả ở dưới — mục này giờ là tài liệu của thiết kế đang chạy, không còn là việc cần làm.
 
-### 7.1. Hiện trạng
+### 7.1. Hiện trạng (đã triển khai)
 
-Sau khi requirement được duyệt, `WorkflowOrchestrator.StartDeliveryWorkflowAsync(...)` hiện làm đúng *một* việc:
+Sau khi requirement được duyệt, `WorkflowOrchestrator.StartDeliveryWorkflowAsync(...)` tạo một `WorkflowRun` bắt đầu ở bước **đầu tiên** của `DeliveryPipeline` và enqueue task cho đúng vai của bước đó. `AgentTaskWorker` chạy mỗi task xong thì **hand-off**: hỏi `DeliveryPipeline.Next(...)` để enqueue bước kế, hoặc dừng `WaitingForHuman` nếu bước kế có cổng duyệt, hoặc kết thúc `Completed` nếu hết bước.
 
-> tạo một `WorkflowRun` ở stage `Implementation`, kèm **một** `AgentTask` loại `Implementation` giao cho agent `Developer`.
+Pipeline đang chạy (`Services/Workflows/DeliveryPipeline.cs`):
+```
+ArchitectureDesign (Tech Lead) → [DUYỆT] → Implementation (Developer, UI POC) → Testing (Tester) → Completed
+```
 
-Rồi `AgentTaskWorker` chạy task đó xong là **đánh dấu cả workflow `Completed`** luôn. Tức pipeline hiện tại chỉ có một mắt xích: Dev.
+Hai quyết định thiết kế quan trọng:
+- **AI Design Spec đi kèm `task.Input` xuyên suốt** (worker carry-forward, *không* pipe output→input). Nhờ đó bước Dev nhận Input y hệt trước đây nên luồng UI POC giữ nguyên; các vai khác đọc thêm artifact (kiến trúc, POC) từ workspace bằng tool. Deliverable của mỗi vai nằm ở `task.Output` riêng của task đó.
+- **Cổng duyệt = `RequiresApproval` trên một `PipelineStep`** (đặt trước bước Implementation). Khi tới cổng, worker tạo task bước kế ở trạng thái `NeedsReview` và để run ở `WaitingForHuman`; `ApproveStageUseCase` (Application/Workflows) lật task về `Queued` khi người dùng bấm "Duyệt & tiếp tục" trên màn hình Requirements.
+
+Thêm/đổi vai = sửa một dòng trong `DeliveryPipeline.Steps`; worker và orchestrator giữ nguyên. Prompt giao việc cho vai generic (Tech Lead/Tester) nằm ở `Prompts/Agents/Tasks/{TaskType}.md` (chèn `{{DESIGN_SPEC}}`); riêng bước Dev giữ prompt POC chuyên biệt inline trong worker.
 
 ### 7.2. Cái thực sự còn thiếu: "hand-off" giữa các bước
 

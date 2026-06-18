@@ -14,7 +14,7 @@ public record WorkflowProgressEventVm(long Seq, string At, string Kind, string M
 public record WorkflowStatusVm(
     bool HasWorkflow, string? RunName, string? RunStatus, bool IsTerminal, bool IsCompleted,
     IReadOnlyList<WorkflowTaskStatusVm> Tasks, IReadOnlyList<WorkflowProgressEventVm> Events, long LastEventSeq,
-    string RunKind);
+    string RunKind, bool PendingApproval, string? ApprovalContent);
 
 public class GetWorkflowStatusQuery
 {
@@ -48,9 +48,23 @@ public class GetWorkflowStatusQuery
 
         if (run == null)
             return new WorkflowStatusVm(false, null, null, true, false,
-                Array.Empty<WorkflowTaskStatusVm>(), Array.Empty<WorkflowProgressEventVm>(), afterSeq, "Delivery");
+                Array.Empty<WorkflowTaskStatusVm>(), Array.Empty<WorkflowProgressEventVm>(), afterSeq, "Delivery", false, null);
 
         var isTerminal = run.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Failed or WorkflowRunStatus.Canceled;
+
+        // When paused at a human gate, surface the most recently completed task's output (e.g. the
+        // architecture proposal) so the UI can show it next to an Approve button.
+        var pendingApproval = run.Status == WorkflowRunStatus.WaitingForHuman;
+        string? approvalContent = null;
+        if (pendingApproval)
+        {
+            approvalContent = await _db.AgentTasks
+                .AsNoTracking()
+                .Where(x => x.WorkflowRunId == run.Id && x.Status == AgentTaskStatus.Completed)
+                .OrderByDescending(x => x.FinishedAt)
+                .Select(x => x.Output)
+                .FirstOrDefaultAsync();
+        }
 
         var tasks = await _db.AgentTasks
             .AsNoTracking()
@@ -81,6 +95,6 @@ public class GetWorkflowStatusQuery
         return new WorkflowStatusVm(
             true, run.Name, run.Status.ToString(),
             isTerminal, run.Status == WorkflowRunStatus.Completed,
-            tasks, events, lastSeq, runKind);
+            tasks, events, lastSeq, runKind, pendingApproval, approvalContent);
     }
 }

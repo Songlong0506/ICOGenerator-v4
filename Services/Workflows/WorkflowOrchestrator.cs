@@ -16,32 +16,38 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
 
     public async Task<Guid> StartDeliveryWorkflowAsync(Guid projectId, string requirementVersionName, string aiDesignSpecContent)
     {
-        var developer = await _db.Agents
+        // Start at the first declared pipeline step (Tech Lead) instead of hard-coding the developer;
+        // the worker drives the hand-off from here based on DeliveryPipeline.
+        var first = DeliveryPipeline.First;
+        var agent = await _db.Agents
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.Developer);
+            .FirstOrDefaultAsync(x => x.RoleKey == first.Role);
 
         var workflowRun = new WorkflowRun
         {
             ProjectId = projectId,
             Name = $"Delivery Workflow {requirementVersionName}",
             Status = WorkflowRunStatus.Queued,
-            CurrentStage = WorkflowStageKey.Implementation,
+            CurrentStage = first.Stage,
             StartedAt = null
         };
 
-        var implementationTask = new AgentTask
+        var firstTask = new AgentTask
         {
             WorkflowRunId = workflowRun.Id,
             ProjectId = projectId,
-            AgentId = developer?.Id,
-            Type = AgentTaskType.Implementation,
+            AgentId = agent?.Id,
+            Type = first.TaskType,
             Status = AgentTaskStatus.Queued,
-            Title = "Generate POC from approved AI Design Spec",
+            Title = first.Title,
+            // The AI Design Spec rides along as Input through every stage (the worker carries it
+            // forward unchanged), so the developer's POC step receives exactly what it does today
+            // while other roles read further artifacts (architecture, POC) from the workspace via tools.
             Input = aiDesignSpecContent
         };
 
         _db.WorkflowRuns.Add(workflowRun);
-        _db.AgentTasks.Add(implementationTask);
+        _db.AgentTasks.Add(firstTask);
         await _db.SaveChangesAsync();
 
         return workflowRun.Id;

@@ -5,6 +5,7 @@ using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Requirements;
 using ICOGenerator.Application.Usage;
 using ICOGenerator.Application.Settings;
+using ICOGenerator.Application.Workflows;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
@@ -229,6 +230,7 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddWorkflowServices(this IServiceCollection services)
     {
+        services.AddScoped<ApproveStageUseCase>();
         services.AddScoped<IWorkflowOrchestrator, WorkflowOrchestrator>();
         services.AddSingleton<IWorkflowProgressReporter, WorkflowProgressReporter>();
         services.AddHostedService<AgentTaskWorker>();

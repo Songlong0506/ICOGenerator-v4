@@ -3,6 +3,7 @@ using ICOGenerator.Domain.Enums;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Tools;
 using Microsoft.EntityFrameworkCore;
@@ -106,6 +107,15 @@ public class AgentTaskWorker : BackgroundService
                 return;
             }
 
+            // Non-Implementation delivery steps (Tech Lead / Tester) run a generic, template-driven
+            // role task and hand off. Only the developer's Implementation step uses the POC flow below.
+            if (task.Type != AgentTaskType.Implementation)
+            {
+                var roleOutput = await RunRoleTaskAsync(scope, agentRunService, task, cancellationToken);
+                await CompleteAndHandOffAsync(db, task, roleOutput, cancellationToken);
+                return;
+            }
+
             _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
 
             await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
@@ -153,13 +163,7 @@ Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được
 
             _progress.Report(task.WorkflowRunId, "completed", "Task hoàn tất — POC đã được tạo.");
 
-            task.Status = AgentTaskStatus.Completed;
-            task.Output = output;
-            task.FinishedAt = DateTime.UtcNow;
-            task.WorkflowRun.Status = WorkflowRunStatus.Completed;
-            task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
-            task.WorkflowRun.FinishedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync(cancellationToken);
+            await CompleteAndHandOffAsync(db, task, output, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -214,6 +218,101 @@ Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được
             cancellationToken: cancellationToken);
 
         _progress.Report(task.WorkflowRunId, "completed", "Đã tạo/cập nhật tài liệu requirement.");
+    }
+
+    // Generic runner for non-POC delivery steps (Tech Lead, Tester): the prompt comes from a
+    // per-task-type template so the worker carries no role-specific wording. The role reads the
+    // artifacts it needs (requirement docs, the generated POC) from the workspace via its tools.
+    private async Task<string> RunRoleTaskAsync(IServiceScope scope, AgentRunService agentRunService, AgentTask task, CancellationToken cancellationToken)
+    {
+        var prompt = BuildRoleTaskPrompt(scope, task);
+
+        var output = await agentRunService.RunAsync(
+            task.ProjectId,
+            task.AgentId!.Value,
+            prompt,
+            maxSteps: 12,
+            onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
+            cancellationToken: cancellationToken);
+
+        if (string.Equals(output, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal))
+            throw new InvalidOperationException($"Agent đạt giới hạn số bước mà chưa hoàn tất task '{task.Title}'.");
+
+        return output;
+    }
+
+    // Loads Prompts/Agents/Tasks/{TaskType}.md and injects the AI Design Spec (carried in Input).
+    // Falls back to a minimal instruction if a template is missing, so an unmapped type never crashes the worker.
+    private static string BuildRoleTaskPrompt(IServiceScope scope, AgentTask task)
+    {
+        var templates = scope.ServiceProvider.GetRequiredService<PromptTemplateService>();
+        try
+        {
+            return templates.Get($"Agents/Tasks/{task.Type}.md")
+                .Replace("{{DESIGN_SPEC}}", task.Input ?? string.Empty);
+        }
+        catch (FileNotFoundException)
+        {
+            return $"Thực hiện công việc: {task.Title}\n\n# AI Design Spec\n\n{task.Input}";
+        }
+    }
+
+    // Marks the current task Completed, then advances the pipeline: enqueue the next step's task
+    // (Queued, or NeedsReview when a human gate sits in front of it), or finish the run when there
+    // is no next step. The worker never names a specific stage — DeliveryPipeline decides the order.
+    private async Task CompleteAndHandOffAsync(AppDbContext db, AgentTask task, string output, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        task.Status = AgentTaskStatus.Completed;
+        task.Output = output;
+        task.FinishedAt = now;
+
+        var next = DeliveryPipeline.Next(task.WorkflowRun.CurrentStage);
+        if (next is null)
+        {
+            task.WorkflowRun.Status = WorkflowRunStatus.Completed;
+            task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
+            task.WorkflowRun.FinishedAt = now;
+            _progress.Report(task.WorkflowRunId, "completed", "Pipeline hoàn tất.");
+            await db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        var nextAgent = await db.Agents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.RoleKey == next.Role, cancellationToken);
+
+        task.WorkflowRun.CurrentStage = next.Stage;
+
+        var nextTask = new AgentTask
+        {
+            WorkflowRunId = task.WorkflowRunId,
+            ProjectId = task.ProjectId,
+            AgentId = nextAgent?.Id,
+            Type = next.TaskType,
+            Title = next.Title,
+            // Carry the AI Design Spec forward unchanged so the developer's POC step gets today's input
+            // exactly; the previous role's deliverable is preserved on its own task.Output for review.
+            Input = task.Input,
+            Status = next.RequiresApproval ? AgentTaskStatus.NeedsReview : AgentTaskStatus.Queued
+        };
+        db.AgentTasks.Add(nextTask);
+
+        if (next.RequiresApproval)
+        {
+            // Pause for a human: the worker only picks up Queued tasks, so a NeedsReview task waits
+            // until ApproveStageUseCase releases it. The just-finished output is what the user reviews.
+            task.WorkflowRun.Status = WorkflowRunStatus.WaitingForHuman;
+            _progress.Report(task.WorkflowRunId, "final", $"Chờ duyệt trước bước: {next.Title}", output);
+        }
+        else
+        {
+            // Back to Queued so the next poll picks up the new task (the worker flips it to Running).
+            task.WorkflowRun.Status = WorkflowRunStatus.Queued;
+            _progress.Report(task.WorkflowRunId, "completed", $"Hoàn tất bước. Chuyển sang: {next.Title}");
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task EnsureDesignAssetsAsync(IServiceScope scope, AppDbContext db, Guid projectId)
