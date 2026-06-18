@@ -19,8 +19,8 @@ public class UpdateAiModelUseCase
         model.Provider = input.Provider;
         model.ModelId = input.ModelId;
         model.Endpoint = input.Endpoint;
-        // The edit form no longer round-trips the (decrypted) key to the browser. A blank
-        // field means "keep the current key"; only overwrite when a new value was entered.
+        // The edit form no longer round-trips the decrypted key to the browser, so a blank field
+        // means "keep the current key"; only overwrite when a new value was entered.
         if (!string.IsNullOrWhiteSpace(input.ApiKey))
             model.ApiKey = input.ApiKey;
         model.ContextWindow = input.ContextWindow;

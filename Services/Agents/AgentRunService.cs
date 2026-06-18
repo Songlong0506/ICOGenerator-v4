@@ -11,9 +11,7 @@ namespace ICOGenerator.Services.Agents;
 
 public class AgentRunService
 {
-    // Returned when the loop exhausts its step budget without producing a final answer or
-    // hitting the caller's stop condition. Callers use this to tell an incomplete run apart
-    // from a successful one (the string is part of the contract — keep it in sync).
+    // Returned when the loop exhausts its step budget. Callers compare against this string to detect an incomplete run, so it is part of the contract — keep it in sync.
     public const string MaxStepsReachedResult = "Stopped because max steps reached.";
 
     private readonly AppDbContext _db;
@@ -94,10 +92,7 @@ public class AgentRunService
                     }
                     catch (Exception ex)
                     {
-                        // A recoverable tool failure (bad args, disallowed file extension,
-                        // missing file…) must be fed back to the model as an observation so
-                        // it can correct itself, instead of aborting the whole run and marking
-                        // the task Failed. Unwrap the reflection wrapper for a useful message.
+                        // Feed a recoverable tool failure back as an observation so the model can correct itself instead of aborting the run; unwrap the reflection wrapper for a useful message.
                         var real = ex is System.Reflection.TargetInvocationException { InnerException: { } inner } ? inner : ex;
                         observation = $"ERROR: {real.Message}";
                     }
@@ -105,9 +100,7 @@ public class AgentRunService
 
                 onProgress?.Invoke("observation", $"Đã nhận kết quả từ {action.Tool}", observation);
 
-                // Stop as soon as the caller's success condition is met (e.g. the POC
-                // content edit landed) so a weak model doesn't keep making spurious extra
-                // edits and burn through the step budget after the work is already done.
+                // Stop as soon as the caller's success condition is met so a weak model doesn't keep making spurious edits and burn the step budget after the work is done.
                 if (stopWhen != null && stopWhen(action.Tool ?? string.Empty, observation))
                 {
                     onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", observation);

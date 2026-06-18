@@ -4,11 +4,10 @@ using System.Text;
 namespace ICOGenerator.Application.Account;
 
 /// <summary>
-/// Validates the single shared app login against <c>Auth:Username</c> / <c>Auth:Password</c>
-/// from configuration. The username defaults to "admin" when unset; the password is a
-/// required secret — set it via the <c>Auth__Password</c> environment variable or
-/// user-secrets, never commit it (same stance as the ApiKey encryption key). Returns true
-/// only on an exact, fixed-time match.
+/// Validates the single shared app login against <c>Auth:Username</c> / <c>Auth:Password</c>.
+/// Username defaults to "admin" when unset; the password is a required secret — set via
+/// <c>Auth__Password</c> env var or user-secrets, never commit it (same stance as the ApiKey
+/// encryption key). Returns true only on an exact, fixed-time match.
 /// </summary>
 public class LoginUseCase
 {

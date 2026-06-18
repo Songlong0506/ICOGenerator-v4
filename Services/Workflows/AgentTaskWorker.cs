@@ -34,7 +34,6 @@ public class AgentTaskWorker : BackgroundService
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                // Normal shutdown.
             }
             catch (Exception ex)
             {
@@ -141,17 +140,13 @@ Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được
 """,
                 maxSteps: 10,
                 onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
-                // The only required action is one SetPocContent call. Stop the moment it
-                // succeeds so the agent doesn't keep poking the file and hit the step limit
-                // with the POC already done.
+                // Stop on the first successful SetPocContent so the agent doesn't keep poking the file and hit the step limit.
                 stopWhen: (toolName, observation) =>
                     toolName.Equals(nameof(WorkspaceTools.SetPocContent), StringComparison.OrdinalIgnoreCase)
                     && observation.Contains("POC content updated", StringComparison.OrdinalIgnoreCase),
                 cancellationToken: cancellationToken);
 
-            // The agent ran out of steps without ever landing a successful SetPocContent
-            // (the stopWhen above never fired). The POC was NOT produced, so fail the task
-            // instead of recording it as Completed with a misleading output.
+            // No successful SetPocContent (stopWhen never fired): the POC was NOT produced, so fail rather than record a misleading Completed.
             if (string.Equals(output, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal))
                 throw new InvalidOperationException(
                     "Agent đạt giới hạn số bước mà chưa tạo được POC (chưa gọi SetPocContent thành công).");
@@ -207,9 +202,7 @@ Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được
 
             Directory.CreateDirectory(implDir);
 
-            // Resolve prompt assets from ContentRootPath so this worker and
-            // PromptTemplateService read from the same "Prompts" root (they previously
-            // diverged: BaseDirectory = bin output vs ContentRootPath = project root).
+            // Resolve from ContentRootPath so this worker and PromptTemplateService share the same "Prompts" root (BaseDirectory = bin output diverged from project root).
             var sourceDir = Path.Combine(_environment.ContentRootPath, "Prompts", "Design");
             foreach (var name in new[] { "poc-template.html" })
             {
@@ -218,17 +211,8 @@ Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được
                     File.Copy(src, Path.Combine(implDir, name), overwrite: true);
             }
 
-            // Pre-seed poc-demo.html from the template so the dev agent only edits the
-            // content region (between the POC_CONTENT markers) instead of reading and
-            // re-emitting the whole shell (head <style>, script, sidebar/topbar) — this
-            // is the bulk of the boilerplate and removing the round-trip saves a large
-            // amount of tokens per POC run. Overwriting resets a clean baseline, matching
-            // the previous behaviour where the agent recreated the file each run.
-            //
-            // The region between the markers is collapsed to a SINGLE short placeholder
-            // line so the agent can swap it in with one deterministic ReplaceInFile call,
-            // rather than having to reproduce the whole ~160-line block verbatim (which
-            // always failed with "Old text not found" and left the file unchanged).
+            // Pre-seed poc-demo.html so the dev agent edits only the content region, not re-emitting the whole shell (saves tokens per run).
+            // The marker region is collapsed to a SINGLE placeholder so one deterministic ReplaceInFile works, vs reproducing the ~160-line block verbatim (always failed "Old text not found").
             var templateSrc = Path.Combine(sourceDir, "poc-template.html");
             if (File.Exists(templateSrc))
                 await SeedPocDemoAsync(templateSrc, resolver.GetMockupPath(projectKey));
@@ -239,9 +223,7 @@ Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được
         }
     }
 
-    // Copies the template into poc-demo.html, replacing everything between the two
-    // POC_CONTENT markers with a single placeholder line. The markers themselves are
-    // preserved so the generated POC keeps a stable, editable content region.
+    // Copies the template into poc-demo.html, replacing the POC_CONTENT region with a placeholder but keeping the markers as a stable editable region.
     private static async Task SeedPocDemoAsync(string templateSrc, string demoPath)
     {
         var template = await File.ReadAllTextAsync(templateSrc);

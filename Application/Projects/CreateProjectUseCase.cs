@@ -36,8 +36,8 @@ public class CreateProjectUseCase
         _db.Projects.Add(project);
         await _db.SaveChangesAsync();
 
-        // Tạo bộ khung thư mục giai đoạn trên đĩa. Best-effort: nếu RootPath chưa
-        // cấu hình đúng trên máy này thì vẫn không chặn việc tạo project.
+        // Tạo khung thư mục giai đoạn trên đĩa. Best-effort: RootPath cấu hình sai trên máy này
+        // vẫn không chặn việc tạo project.
         try
         {
             _artifactStorage.InitializeProjectWorkspace(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));

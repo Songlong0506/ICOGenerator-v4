@@ -27,9 +27,8 @@ public class GetProjectListQuery
 
         var totalCount = await baseQuery.CountAsync();
 
-        // Chỉ lấy status/stage của workflow run MỚI NHẤT ngay ở DB (subquery) thay vì
-        // Include toàn bộ WorkflowRuns về RAM rồi sắp xếp — tránh kéo dữ liệu thừa với
-        // project chạy nhiều lần.
+        // Lấy status/stage của workflow run MỚI NHẤT bằng subquery ở DB thay vì Include toàn bộ
+        // WorkflowRuns về RAM — tránh kéo dữ liệu thừa với project chạy nhiều lần.
         var rows = await baseQuery
             .Skip((page - 1) * pageSize)
             .Take(pageSize)

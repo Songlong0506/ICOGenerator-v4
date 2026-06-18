@@ -8,23 +8,19 @@ namespace ICOGenerator.Services.Llm;
 
 public class LlmClient : ILlmClient
 {
-    // Named clients registered in DI; the factory pools the underlying handlers so
-    // we no longer allocate a fresh HttpClientHandler/HttpClient per call (which
-    // risks socket exhaustion). Proxy choice is baked into the handler per name.
+    // DI-registered named clients; the factory pools handlers (avoiding per-call socket
+    // exhaustion) and bakes the proxy choice into each handler.
     public const string DirectClientName = "llm-direct";
     public const string ProxiedClientName = "llm-proxied";
 
     private static readonly JsonSerializerOptions SerializeOptions = new() { WriteIndented = true };
 
-    // Overall ceiling for a single LLM call, enforced via a CancellationToken (see
-    // ChatWithLogAsync). HttpClient's own Timeout is disabled there: with
-    // ResponseHeadersRead it would only bound time-to-headers (default 100s) and would
-    // silently cap this deadline, so the linked CTS is the single source of truth for
-    // both the header wait and the streamed body read. Configurable via Llm:RequestTimeoutSeconds.
+    // Overall per-call deadline, enforced via a linked CancellationToken in ChatWithLogAsync
+    // (HttpClient's own Timeout is disabled there). Configurable via Llm:RequestTimeoutSeconds.
     private const int DefaultRequestTimeoutSeconds = 600;
 
-    // Upper bound for completion tokens, and the headroom reserved for the prompt so a
-    // model with a small context window isn't asked for more output than it can fit.
+    // Upper bound for completion tokens, plus prompt headroom so small-context models aren't
+    // asked for more output than fits.
     private const int MaxCompletionTokens = 100000;
     private const int ContextSafetyMargin = 1024;
 
@@ -55,10 +51,8 @@ public class LlmClient : ILlmClient
         var http = _httpClientFactory.CreateClient(isLocal ? DirectClientName : ProxiedClientName);
 
         http.BaseAddress = new Uri(model.Endpoint.TrimEnd('/') + "/");
-        // Disable HttpClient's 100s default timeout: with ResponseHeadersRead it would cap
-        // time-to-first-headers at 100s, silently overriding the configurable
-        // Llm:RequestTimeoutSeconds deadline (and misreporting a 100s cut-off as that value).
-        // The linked timeoutCts below is the single source of truth for the request deadline.
+        // Disable HttpClient's 100s default; with ResponseHeadersRead it would cap time-to-headers
+        // and override Llm:RequestTimeoutSeconds. The linked timeoutCts below is the sole deadline.
         http.Timeout = Timeout.InfiniteTimeSpan;
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", string.IsNullOrWhiteSpace(model.ApiKey) ? "lm-studio" : model.ApiKey);
 
@@ -82,8 +76,7 @@ public class LlmClient : ILlmClient
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "chat/completions");
         httpRequest.Content = new StringContent(result.RequestJson, Encoding.UTF8, "application/json");
 
-        // Link the caller's token (e.g. app shutdown) with an overall request deadline
-        // so both an external cancel and a stalled stream unwind the call.
+        // Link the caller's token (e.g. app shutdown) with the request deadline so either can unwind the call.
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_requestTimeoutSeconds));
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
         var token = linkedCts.Token;
@@ -144,9 +137,8 @@ API error: {(int)response.StatusCode} {response.StatusCode}
                     using var doc = JsonDocument.Parse(data);
                     var root = doc.RootElement;
 
-                    // Some OpenAI-compatible servers stream an error object with HTTP 200 and
-                    // then close the stream. Without this it gets swallowed below and reported
-                    // as a successful (empty) completion.
+                    // Some OpenAI-compatible servers stream an error object with HTTP 200; without
+                    // this it would be reported as a successful (empty) completion.
                     if (root.TryGetProperty("error", out var errorElement))
                     {
                         streamError = errorElement.TryGetProperty("message", out var errorMessage)
@@ -189,8 +181,7 @@ API error: {(int)response.StatusCode} {response.StatusCode}
 
             stopwatch.Stop();
 
-            // A mid-stream error frame means the call failed even though the HTTP headers
-            // were 200; report it as a failure instead of an empty success.
+            // A mid-stream error frame means the call failed despite HTTP 200; report failure, not empty success.
             if (streamError != null)
             {
                 result.DurationMs = stopwatch.ElapsedMilliseconds;
@@ -208,9 +199,8 @@ API error: {(int)response.StatusCode} {response.StatusCode}
             result.ResponseText = rawBuilder.Length > 0 ? rawBuilder.ToString() : result.Content;
             result.DurationMs = stopwatch.ElapsedMilliseconds;
             result.IsSuccess = true;
-            // finish_reason == "length" means the model hit its token cap mid-output, so the
-            // content (often truncated JSON) may be unreliable. Surface it as a diagnostic
-            // note so a cut-off answer is distinguishable from a clean one.
+            // finish_reason == "length" means the model hit its token cap mid-output (often
+            // truncated JSON); flag it so a cut-off answer is distinguishable from a clean one.
             if (string.Equals(finishReason, "length", StringComparison.OrdinalIgnoreCase))
                 result.ErrorMessage = "Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).";
             result.CompletionTokens = TokenEstimator.Estimate(result.Content);
@@ -219,14 +209,12 @@ API error: {(int)response.StatusCode} {response.StatusCode}
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // The caller (e.g. app shutdown) cancelled — let it propagate so the
-            // background worker treats it as a clean stop rather than a failed call.
+            // The caller (e.g. app shutdown) cancelled — propagate so the worker treats it as a clean stop.
             throw;
         }
         catch (OperationCanceledException)
         {
-            // Our own deadline fired: a stalled/too-slow stream. Surface it as a
-            // normal failed result so callers can report it instead of hanging.
+            // Our own deadline fired (stalled/slow stream): return a failed result instead of hanging.
             stopwatch.Stop();
 
             result.DurationMs = stopwatch.ElapsedMilliseconds;
@@ -242,8 +230,8 @@ API error: {(int)response.StatusCode} {response.StatusCode}
         {
             stopwatch.Stop();
 
-            // Log the full exception for diagnosis, but keep only the short message in the
-            // DB-persisted, UI-visible fields so internal stack/paths aren't leaked there.
+            // Log the full exception, but keep only the short message in DB-persisted, UI-visible
+            // fields so internal stack/paths aren't leaked.
             _logger.LogError(ex, "LLM call to {Endpoint} ({ModelId}) failed.", model.Endpoint, model.ModelId);
 
             result.DurationMs = stopwatch.ElapsedMilliseconds;
@@ -257,9 +245,8 @@ API error: {(int)response.StatusCode} {response.StatusCode}
         }
     }
 
-    // Cap completion tokens to what remains in the model's context window after the
-    // (estimated) prompt instead of a fixed 100k, which overflows small-context models
-    // and gets rejected by the API. Falls back to the cap when the window is unknown.
+    // Cap completion tokens to what's left in the context window after the (estimated) prompt;
+    // a fixed 100k overflows small-context models. Falls back to the cap when the window is unknown.
     private static int ResolveMaxTokens(AiModel model, int promptTokens)
     {
         if (model.ContextWindow <= 0)

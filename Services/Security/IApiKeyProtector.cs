@@ -5,12 +5,10 @@ namespace ICOGenerator.Services.Security;
 /// </summary>
 public interface IApiKeyProtector
 {
-    /// <summary>Mã hóa plaintext thành chuỗi ciphertext có tiền tố để lưu trữ.</summary>
     string Protect(string? plainText);
 
     /// <summary>Giải mã giá trị đã lưu. Giá trị plaintext cũ (chưa mã hóa) được trả về nguyên trạng.</summary>
     string Unprotect(string? storedValue);
 
-    /// <summary>Kiểm tra một giá trị đã được mã hóa hay chưa (dùng cho backfill dữ liệu cũ).</summary>
     bool IsProtected(string? value);
 }

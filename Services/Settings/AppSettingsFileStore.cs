@@ -4,8 +4,7 @@ using System.Text.Json.Nodes;
 namespace ICOGenerator.Services.Settings;
 
 /// <summary>
-/// Reads and writes appsettings.json in the content root. The host loads the file
-/// with reloadOnChange, so most saved values take effect without a restart.
+/// Reads and writes appsettings.json in the content root. The host loads it with reloadOnChange, so most saved values take effect without a restart.
 /// </summary>
 public class AppSettingsFileStore
 {
@@ -37,9 +36,7 @@ public class AppSettingsFileStore
         await _writeLock.WaitAsync();
         try
         {
-            // Write to a temp file then atomically replace, so a crash or a concurrent
-            // write can never leave appsettings.json half-written — which would break the
-            // next reloadOnChange reload or the next app start.
+            // Write to a temp file then atomically replace, so a crash or concurrent write can't leave appsettings.json half-written and break the next reloadOnChange reload or app start.
             var tempPath = _filePath + ".tmp";
             await File.WriteAllTextAsync(tempPath, json);
             File.Move(tempPath, _filePath, overwrite: true);

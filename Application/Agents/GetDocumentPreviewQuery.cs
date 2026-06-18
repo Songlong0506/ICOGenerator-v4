@@ -25,13 +25,9 @@ public class GetDocumentPreviewQuery
         _logger = logger;
     }
 
-    // A document can be addressed two ways:
-    //  - By its DB row Id (real, tracked ProjectDocuments).
-    //  - By projectId + a workspace-relative path, for files that exist only on disk in the
-    //    project workspace (generated code, the POC HTML, copied design assets). The dashboard
-    //    surfaces those too, but they have no DB row — previously they were given a fresh random
-    //    Guid each request, so the Id lookup never matched and their preview was permanently
-    //    broken. The path branch fixes that.
+    // Addressed either by DB row Id, or by projectId + workspace-relative path for on-disk-only
+    // files (no DB row). Those previously got a fresh random Guid each request so the Id lookup
+    // never matched and preview was broken; the path branch fixes that.
     public async Task<object?> ExecuteAsync(Guid id, Guid projectId = default, string? path = null)
     {
         if (!string.IsNullOrWhiteSpace(path))
@@ -89,9 +85,8 @@ public class GetDocumentPreviewQuery
         ".cs", ".css", ".csv", ".html", ".htm", ".js", ".json", ".md", ".sql", ".txt", ".xml", ".yml", ".yaml"
     };
 
-    // Mirrors the dashboard's preview rules: .docx is rendered straight from the file by
-    // BuildHtml (so the returned content is unused there); text files are read and later
-    // HTML-encoded by RenderPlainText; anything else gets a short "no preview" note.
+    // Mirrors the dashboard's preview rules: .docx is rendered from the file by BuildHtml (so the
+    // returned content is unused); text files are read; anything else gets a "no preview" note.
     private string ReadWorkspaceContent(string fullPath)
     {
         var extension = Path.GetExtension(fullPath);
@@ -125,9 +120,8 @@ public class GetDocumentPreviewQuery
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or FormatException)
             {
-                // Fall back to the stored plain-text content if the file cannot be read/parsed.
-                // Narrowed (was a bare catch that hid every failure) and logged so a corrupt
-                // .docx is diagnosable instead of silently degrading.
+                // Fall back to stored plain-text if the file can't be read/parsed. Narrowed from a
+                // bare catch (which hid every failure) and logged so a corrupt .docx is diagnosable.
                 _logger.LogWarning(ex, "Could not extract HTML from document {FilePath}; falling back to stored content.", filePath);
             }
         }
