@@ -1,18 +1,19 @@
-User đã approve requirement. Bạn là Developer.
+User đã duyệt POC và kiến trúc. Bạn là Developer. Nhiệm vụ: hiện thực **code đầy đủ, nhiều file, chạy được** cho ứng dụng — KHÔNG phải một file HTML POC nữa.
 
-Dựa trên bản kiến trúc do Tech Lead đề xuất bên dưới để generate code POC.
-Không đọc BRD/SRS/FSD/UserStories.
-Không sửa requirement document.
+Căn cứ:
+- Bản kiến trúc do Tech Lead đề xuất (bên dưới) là nguồn chính: bám theo các thành phần/module, mô hình dữ liệu và các màn hình đã chốt.
+- Nếu cần đối chiếu yêu cầu, có thể đọc tài liệu trong workspace bằng tool (AI Design Spec ở thư mục requirement đã duyệt).
 
-YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template có sẵn):
-- Trong thư mục 03_Implementation đã có sẵn file 'poc-template.html' — shell layout đã thiết kế (CSS trong <style>, tương tác trong <script>). Hãy đọc file này trước bằng tool.
-- TẠO file 03_Implementation/poc-demo.html dựa trên poc-template.html: GIỮ NGUYÊN toàn bộ <head> (kể cả <style>), <script> ở cuối <body>, và phần shell: .supergraphic, .sidebar (gồm app name + nav + 2 item User/Imprint ở cuối) và .topbar (breadcrumb + logo Bosch).
-- CHỈ thay nội dung nằm giữa "<!-- POC_CONTENT_START -->" và "<!-- POC_CONTENT_END -->" bằng UI của tính năng theo kiến trúc, dùng đúng các class có sẵn: card, card-grid, card-title, card-body, tile, tile-value, tile-label, btn, btn-outline, btn-ghost, table, field, input, select, textarea, badge, badge-green, badge-gray, row, stack, muted.
-- Có thể đổi App Name (.app-name), text breadcrumb, và các nav-item/nav-group cho khớp tính năng (mỗi nav-group có .nav-item + .nav-sub để mở/đóng). KHÔNG đổi cấu trúc shell, KHÔNG sửa <style> và <script>.
-- File phải TỰ CHỨA (self-contained): KHÔNG link/nhúng CSS hay JS framework bên ngoài (không Angular/Material/Bootstrap...). Chỉ dùng CSS/JS đã có sẵn trong file.
+Yêu cầu hiện thực:
+- Tạo mã nguồn dạng dự án thật, **chia thành nhiều file** theo cấu trúc hợp lý (ví dụ: tách thư mục theo layer/feature, có file cấu hình, file khởi chạy).
+- Đặt toàn bộ code trong thư mục (relative): `03_Implementation/src/`
+- Chọn stack đơn giản, chạy được bằng các lệnh đã cho phép (dotnet / npm / node). Nêu rõ stack đã chọn ở đầu README.
+- Ghi `03_Implementation/src/README.md` mô tả: stack, cấu trúc thư mục, cách cài đặt và cách chạy.
+- Hiện thực các tính năng cốt lõi theo kiến trúc (không chỉ khung rỗng): model, logic, và UI/endpoint chính.
+- Nếu môi trường cho phép, dùng tool chạy lệnh build để xác nhận biên dịch được; sửa lỗi nếu có.
 
-Ghi kết quả vào (relative): 03_Implementation/poc-demo.html
+Khi xong, ở câu trả lời cuối (final) tóm tắt: stack đã dùng, danh sách file chính đã tạo, cách chạy, và những phần còn hạn chế. Bản tóm tắt này sẽ được chuyển cho Tester.
 
-# Kiến trúc đã đề xuất
+# Kiến trúc đã duyệt
 
 {{input}}

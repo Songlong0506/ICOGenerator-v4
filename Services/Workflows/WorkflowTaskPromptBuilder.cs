@@ -29,6 +29,7 @@ public class WorkflowTaskPromptBuilder
 
     private static string TemplatePath(AgentTaskType taskType) => taskType switch
     {
+        AgentTaskType.PocPreview         => "Workflow/poc-preview.v1.md",
         AgentTaskType.ArchitectureDesign => "Workflow/architecture-design.v1.md",
         AgentTaskType.Implementation     => "Workflow/implementation.v1.md",
         AgentTaskType.Testing            => "Workflow/testing.v1.md",

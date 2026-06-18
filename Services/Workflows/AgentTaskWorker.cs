@@ -95,8 +95,8 @@ public class AgentTaskWorker : BackgroundService
                 return;
             }
 
-            // POC template chỉ cần cho bước Implementation.
-            if (task.Type == AgentTaskType.Implementation)
+            // POC template chỉ cần cho bước POC preview.
+            if (task.Type == AgentTaskType.PocPreview)
             {
                 _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
                 await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
@@ -104,20 +104,22 @@ public class AgentTaskWorker : BackgroundService
 
             var promptBuilder = scope.ServiceProvider.GetRequiredService<WorkflowTaskPromptBuilder>();
             var prompt = promptBuilder.Build(task.Type, task.Input);
+            var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
 
             var output = await agentRunService.RunAsync(
                 task.ProjectId,
                 task.AgentId.Value,
                 prompt,
+                maxSteps,
                 onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail));
 
             task.Status = AgentTaskStatus.Completed;
             task.Output = output;
             task.FinishedAt = DateTime.UtcNow;
 
-            // HAND-OFF: hỏi pipeline "bước kế là gì?". Hết bước → kết thúc workflow;
-            // còn bước → enqueue task cho vai kế, lấy output làm input. Worker vẫn
-            // generic: không biết gì về Tech Lead/Dev/Tester, chỉ chạy task → hỏi bước kế.
+            // CỔNG DUYỆT: bước chạy xong thì DỪNG chờ người duyệt thay vì tự enqueue
+            // bước kế. Bước kế chỉ được tạo khi user bấm duyệt (ApproveStageUseCase).
+            // CurrentStage giữ nguyên ở bước vừa xong để biết đang chờ duyệt cái gì.
             var next = DeliveryPipeline.Next(task.WorkflowRun.CurrentStage);
             if (next is null)
             {
@@ -128,21 +130,8 @@ public class AgentTaskWorker : BackgroundService
             }
             else
             {
-                var nextAgent = await db.Agents
-                    .FirstOrDefaultAsync(a => a.RoleKey == next.Role, cancellationToken);
-
-                task.WorkflowRun.CurrentStage = next.Stage;
-                db.AgentTasks.Add(new AgentTask
-                {
-                    WorkflowRunId = task.WorkflowRunId,
-                    ProjectId = task.ProjectId,
-                    AgentId = nextAgent?.Id,
-                    Type = next.TaskType,
-                    Status = AgentTaskStatus.Queued,
-                    Title = next.Title,
-                    Input = output ?? string.Empty
-                });
-                _progress.Report(task.WorkflowRunId, "handoff", $"Bàn giao sang bước: {next.Title}");
+                _progress.Report(task.WorkflowRunId, "completed", $"Bước \"{task.Title}\" xong — chờ bạn duyệt để sang: {next.Title}.");
+                task.WorkflowRun.Status = WorkflowRunStatus.WaitingForHuman;
             }
 
             await db.SaveChangesAsync(cancellationToken);

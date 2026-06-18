@@ -312,6 +312,7 @@
     <script>
         (function () {
             const PID = '@Model.Id';
+            const TOKEN = (document.querySelector('input[name="__RequestVerificationToken"]') || {}).value || '';
             const panels = Array.from(document.querySelectorAll('.workflow-progress[data-run-id]'));
 
             if (!panels.length) return;
@@ -419,8 +420,20 @@
                 activity.style.display = 'flex';
             }
 
+            function gateForm(action, runId, label, cls) {
+                return `<form method="post" action="${action}" style="display:inline-block;margin-right:8px;">` +
+                    `<input type="hidden" name="__RequestVerificationToken" value="${TOKEN}">` +
+                    `<input type="hidden" name="projectId" value="${PID}">` +
+                    `<input type="hidden" name="runId" value="${esc(runId)}">` +
+                    `<button class="btn ${cls}" type="submit">${label}</button>` +
+                    `</form>`;
+            }
+
             function updateBanner(panel, data) {
                 const slot = panel.querySelector('.wf-banner-slot');
+
+                // Chỉ reset "gate" key khi KHÔNG còn ở trạng thái chờ duyệt.
+                if (data.runStatus !== 'WaitingForHuman') slot.dataset.gate = '';
 
                 if (data.isCompleted) {
                     if (data.runKind === 'Requirement') {
@@ -433,8 +446,26 @@
                             setTimeout(() => location.reload(), 1200);
                         }
                     } else {
-                        slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
+                        slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
                     }
+                } else if (data.runStatus === 'WaitingForHuman') {
+                    // Tránh dựng lại form mỗi nhịp poll (gây nháy / hủy click): chỉ render
+                    // lại khi sang cổng mới.
+                    if (slot.dataset.gate === data.currentStage) return;
+                    slot.dataset.gate = data.currentStage;
+
+                    const pocLink = data.pocReady
+                        ? ` <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem POC</a>`
+                        : '';
+                    const nextLabel = data.nextStageTitle ? `: ${esc(data.nextStageTitle)}` : '';
+                    const approve = gateForm('/Requirements/ApproveStage', data.runId, `✓ Duyệt &amp; tiếp tục${nextLabel}`, 'approve');
+                    const reject = gateForm('/Requirements/RejectStage', data.runId, '✗ Chưa đúng ý — sửa requirement', 'outline');
+
+                    slot.innerHTML =
+                        `<div class="wf-banner wf-wait">⏸️ Bước hiện tại đã xong — chờ bạn duyệt.${pocLink}` +
+                        `<div class="wf-gate-actions" style="margin-top:8px;">${approve}${reject}</div></div>`;
+                } else if (data.runStatus === 'Canceled') {
+                    slot.innerHTML = `<div class="wf-banner wf-fail">✗ Đã hủy. Hãy bổ sung requirement với BA, bấm “Write Requirement” rồi “Approve” để chạy lại.</div>`;
                 } else if (data.runStatus === 'Failed') {
                     const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
                     slot.innerHTML = `<div class="wf-banner wf-fail">✗ Workflow thất bại.${err ? `<pre class="wf-err">${esc(err)}</pre>` : ''}</div>`;

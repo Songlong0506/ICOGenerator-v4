@@ -66,6 +66,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GenerateRequirementDraftUseCase>();
         services.AddScoped<ChatWithBAUseCase>();
         services.AddScoped<ApproveRequirementUseCase>();
+        services.AddScoped<ApproveStageUseCase>();
+        services.AddScoped<RejectStageUseCase>();
         return services;
     }
 

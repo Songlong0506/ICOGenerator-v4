@@ -1,6 +1,6 @@
-User đã approve requirement. Bạn là Tech Lead.
+User đã duyệt POC. Bạn là Tech Lead.
 
-Nhiệm vụ: từ AI Design Spec bên dưới, đề xuất một bản **kiến trúc / thiết kế kỹ thuật** ngắn gọn nhưng đủ để Developer dựa vào mà code POC.
+Nhiệm vụ: từ AI Design Spec bên dưới, đề xuất một bản **kiến trúc / thiết kế kỹ thuật** đủ chi tiết để Developer dựa vào mà hiện thực **code đầy đủ** (nhiều file, chạy được) ở bước sau.
 
 Bản kiến trúc cần nêu:
 - Tổng quan giải pháp & các thành phần chính (component/module) và trách nhiệm từng phần.

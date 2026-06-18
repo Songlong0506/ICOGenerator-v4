@@ -10,6 +10,8 @@ public class RequirementsController : Controller
     private readonly GenerateRequirementDraftUseCase _generateRequirementDraftUseCase;
     private readonly ChatWithBAUseCase _chatWithBAUseCase;
     private readonly ApproveRequirementUseCase _approveRequirementUseCase;
+    private readonly ApproveStageUseCase _approveStageUseCase;
+    private readonly RejectStageUseCase _rejectStageUseCase;
     private readonly StartRequirementChatUseCase _startRequirementChatUseCase;
     private readonly GetRequirementJobStatusQuery _getRequirementJobStatusQuery;
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
@@ -20,6 +22,8 @@ public class RequirementsController : Controller
        GenerateRequirementDraftUseCase generateRequirementDraftUseCase,
        ChatWithBAUseCase chatWithBAUseCase,
        ApproveRequirementUseCase approveRequirementUseCase,
+       ApproveStageUseCase approveStageUseCase,
+       RejectStageUseCase rejectStageUseCase,
        StartRequirementChatUseCase startRequirementChatUseCase,
        GetRequirementJobStatusQuery getRequirementJobStatusQuery,
        GetDocumentDownloadQuery getDocumentDownloadQuery,
@@ -29,6 +33,8 @@ public class RequirementsController : Controller
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
         _chatWithBAUseCase = chatWithBAUseCase;
         _approveRequirementUseCase = approveRequirementUseCase;
+        _approveStageUseCase = approveStageUseCase;
+        _rejectStageUseCase = rejectStageUseCase;
         _startRequirementChatUseCase = startRequirementChatUseCase;
         _getRequirementJobStatusQuery = getRequirementJobStatusQuery;
         _getDocumentDownloadQuery = getDocumentDownloadQuery;
@@ -80,6 +86,26 @@ public class RequirementsController : Controller
             return RedirectToAction(nameof(Index), new { projectId });
 
         TempData["WorkflowStarted"] = true;
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApproveStage(Guid projectId, Guid? runId = null)
+    {
+        var result = await _approveStageUseCase.ExecuteAsync(projectId, runId);
+
+        if (result == ApproveStageResult.MissingAgent)
+            TempData["Error"] = "Không tìm thấy agent cho bước kế tiếp. Hãy kiểm tra cấu hình agent.";
+
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RejectStage(Guid projectId, Guid? runId = null)
+    {
+        await _rejectStageUseCase.ExecuteAsync(projectId, runId);
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
