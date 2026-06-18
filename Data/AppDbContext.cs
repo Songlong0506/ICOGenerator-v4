@@ -35,6 +35,12 @@ public class AppDbContext : DbContext
 
         // ApiKey được mã hóa khi ghi và giải mã khi đọc nên không bao giờ nằm dạng plaintext trong DB.
         // Đổi giá trị so sánh change-tracking vẫn dựa trên plaintext (CLR side) nên không phát sinh update thừa.
+        //
+        // ⚠️ Hai lambda dưới CAPTURE instance _apiKeyProtector của context ĐẦU TIÊN dựng model; EF
+        // cache model toàn cục theo kiểu context nên mọi context sau dùng lại converter gắn với
+        // instance đó. Hiện AN TOÀN chỉ vì IApiKeyProtector đăng ký SINGLETON (xem
+        // ApplicationServiceCollectionExtensions.AddIcoGeneratorApplication). ĐỪNG đổi nó sang
+        // Scoped/Transient hay bật AddDbContextPool — sẽ giải mã bằng instance đã dispose/sai.
         builder.Entity<AiModel>().Property(x => x.ApiKey).HasConversion(
             plain => _apiKeyProtector.Protect(plain),
             stored => _apiKeyProtector.Unprotect(stored));
@@ -49,14 +55,26 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
         builder.Entity<ToolDefinition>().HasIndex(x => new { x.ServiceType, x.MethodName }).IsUnique();
 
-        builder.Entity<AgentModelCallLog>().HasOne(x => x.Project).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.ProjectId);
-        builder.Entity<AgentModelCallLog>().HasOne(x => x.Agent).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.AgentId);
+        // Log/hội thoại là dữ liệu audit. Project xóa thì cuốn theo (Cascade) là hợp lý, nhưng
+        // KHÔNG để xóa một Agent là wipe sạch lịch sử gọi model/hội thoại của nó — đặt FK Agent
+        // là Restrict (chặn xóa agent còn log thay vì âm thầm xóa log).
+        builder.Entity<AgentModelCallLog>().HasOne(x => x.Project).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<AgentModelCallLog>().HasOne(x => x.Agent).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<AgentModelCallLog>().HasIndex(x => new { x.ProjectId, x.AgentId, x.CreatedAt });
 
-        builder.Entity<WorkflowRun>().Property(x => x.Status).HasConversion<string>();
-        builder.Entity<WorkflowRun>().Property(x => x.CurrentStage).HasConversion<string>();
+        // AgentConversation trước đây cấu hình hoàn toàn bằng convention → cả hai FK đều Cascade.
+        // Khai báo tường minh để Agent FK là Restrict (cùng lý do với AgentModelCallLog ở trên),
+        // giữ Project FK là Cascade.
+        builder.Entity<AgentConversation>().HasOne(x => x.Project).WithMany(x => x.Conversations).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<AgentConversation>().HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<AgentConversation>().Property(x => x.Role).HasMaxLength(50);
 
-        builder.Entity<AgentTask>().Property(x => x.Type).HasConversion<string>();
+        // Status đã là nvarchar(450) (nằm trong index) nên giữ nguyên; chỉ thu gọn hai cột enum
+        // đang là nvarchar(max) (CurrentStage, Type) xuống độ dài hợp lý để bớt lãng phí và index được.
+        builder.Entity<WorkflowRun>().Property(x => x.Status).HasConversion<string>();
+        builder.Entity<WorkflowRun>().Property(x => x.CurrentStage).HasConversion<string>().HasMaxLength(50);
+
+        builder.Entity<AgentTask>().Property(x => x.Type).HasConversion<string>().HasMaxLength(50);
         builder.Entity<AgentTask>().Property(x => x.Status).HasConversion<string>();
 
         builder.Entity<WorkflowRun>().HasOne(x => x.Project).WithMany(x => x.WorkflowRuns).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);

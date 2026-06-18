@@ -9,11 +9,13 @@ public class GetDocumentPreviewQuery
 {
     private readonly AppDbContext _db;
     private readonly DocxTemplateWriter _docxWriter;
+    private readonly ILogger<GetDocumentPreviewQuery> _logger;
 
-    public GetDocumentPreviewQuery(AppDbContext db, DocxTemplateWriter docxWriter)
+    public GetDocumentPreviewQuery(AppDbContext db, DocxTemplateWriter docxWriter, ILogger<GetDocumentPreviewQuery> logger)
     {
         _db = db;
         _docxWriter = docxWriter;
+        _logger = logger;
     }
 
     public async Task<object?> ExecuteAsync(Guid id)
@@ -43,9 +45,12 @@ public class GetDocumentPreviewQuery
             {
                 return _docxWriter.ExtractHtml(filePath);
             }
-            catch
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or FormatException)
             {
-                // Fall back to the stored plain-text content if the file cannot be parsed.
+                // Fall back to the stored plain-text content if the file cannot be read/parsed.
+                // Narrowed (was a bare catch that hid every failure) and logged so a corrupt
+                // .docx is diagnosable instead of silently degrading.
+                _logger.LogWarning(ex, "Could not extract HTML from document {FilePath}; falling back to stored content.", filePath);
             }
         }
 

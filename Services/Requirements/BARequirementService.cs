@@ -40,15 +40,24 @@ public class BARequirementService
         _promptTemplateService = promptTemplateService;
     }
 
-    public async Task ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
+    public async Task<ChatWithBAResult> ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
     {
+        // Validate the project up front: ChatAsync runs synchronously inside the Chat request
+        // (no /Home/Error page), and writing an AgentConversation for a non-existent project would
+        // throw an FK DbUpdateException → HTTP 500. Return a status the controller can surface.
+        if (!await _db.Projects.AnyAsync(x => x.Id == projectId, cancellationToken))
+            return ChatWithBAResult.ProjectNotFound;
+
         var ba = await _db.Agents
             .Include(x => x.AiModel)
-            .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst, cancellationToken)
-            ?? throw new InvalidOperationException(
-                "Chưa cấu hình BA agent (RoleKey = BusinessAnalyst). Hãy tạo hoặc khôi phục agent BA trong màn hình Manage Agent.");
+            .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst, cancellationToken);
 
-        var model = ba.AiModel ?? throw new InvalidOperationException("BA agent model is not configured.");
+        // A missing BA agent / model is a configuration problem, not an exceptional crash: report
+        // it as a result so Chat can show a friendly message instead of a 500.
+        if (ba?.AiModel == null)
+            return ChatWithBAResult.BaNotConfigured;
+
+        var model = ba.AiModel;
 
         _db.AgentConversations.Add(new AgentConversation
         {
@@ -109,6 +118,8 @@ public class BARequirementService
             TokenUsed = TokenEstimator.Estimate(reply)
         });
         await _db.SaveChangesAsync(cancellationToken);
+
+        return ChatWithBAResult.Ok;
     }
 
     /// <param name="onProgress">

@@ -34,13 +34,26 @@ public class CommandTools
         var psi = new ProcessStartInfo
         {
             FileName = isWindows ? "cmd.exe" : "/bin/bash",
-            Arguments = isWindows ? $"/c {command}" : $"-lc \"{command.Replace("\"", "\\\"")}\"",
             WorkingDirectory = _workspaceTools.CurrentWorkspacePath,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
+        if (isWindows)
+        {
+            psi.ArgumentList.Add("/c");
+            psi.ArgumentList.Add(command);
+        }
+        else
+        {
+            // "-c" (NOT "-lc"): a login shell ("-l") sources the user's profile and enables
+            // history expansion ("!"), widening what an allowlisted command can trigger. Pass the
+            // command via ArgumentList so .NET does the quoting — the previous manual
+            // `command.Replace("\"","\\\"")` mishandled backslashes and could break out of quoting.
+            psi.ArgumentList.Add("-c");
+            psi.ArgumentList.Add(command);
+        }
         return ExecuteAsync(psi, command);
     }
 
@@ -55,6 +68,13 @@ public class CommandTools
         if (string.IsNullOrWhiteSpace(_workspaceTools.CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
         if (args == null || args.Count == 0 || string.IsNullOrWhiteSpace(args[0]))
             return Task.FromResult("Command blocked for security reason: empty command.");
+
+        // The allowlist matches on the bare executable name (e.g. "git"), so a path-qualified
+        // first token ("/tmp/evil/git", "./node") must be rejected — otherwise it would either
+        // miss the allowlist or, worse, point FileName at an attacker-placed binary that merely
+        // shares a name with an allowed one.
+        if (args[0].Contains('/') || args[0].Contains('\\'))
+            return Task.FromResult($"Command blocked for security reason (executable must be a bare name, not a path): {args[0]}");
 
         var commandLine = string.Join(' ', args);
         if (ContainsInlineCodeEval(commandLine)) return Task.FromResult($"Command blocked for security reason (inline code execution is not allowed): {commandLine}");

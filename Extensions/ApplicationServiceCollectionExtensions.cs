@@ -33,6 +33,9 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddControllersWithViews();
         services.AddAuthServices();
+        // MUST stay Singleton: AppDbContext.OnModelCreating captures this instance inside the
+        // ApiKey value-converter, and EF caches that model globally. Scoped/Transient (or
+        // AddDbContextPool) would bind decryption to a disposed/foreign instance. See AppDbContext.
         services.AddSingleton<IApiKeyProtector, AesApiKeyProtector>();
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
@@ -103,6 +106,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GenerateRequirementDraftUseCase>();
         services.AddScoped<ChatWithBAUseCase>();
         services.AddScoped<ApproveRequirementUseCase>();
+        services.AddScoped<StartNewChatUseCase>();
         return services;
     }
 
