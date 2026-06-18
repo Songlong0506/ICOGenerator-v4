@@ -38,9 +38,12 @@ public class GitTools
         if (!IsSafeRef(branchName)) return Blocked("branch name", branchName);
 
         var fetchStatus = await _commandTools.RunArgs(["git", "status"]);
-        // "--" ends option parsing so the ref can never be mistaken for a flag, belt-and-braces
-        // on top of ValidateRef above.
-        var checkoutBase = await _commandTools.RunArgs(["git", "checkout", "--", baseBranch]);
+        // Switch to the base branch WITHOUT "--": `git checkout -- <x>` makes git treat <x> as a
+        // PATHSPEC (a file to restore from the index), not a branch — so the base branch would
+        // never actually be checked out and the new branch below would fork from whatever HEAD
+        // already was, silently ignoring baseBranch. Flag-injection is already prevented by
+        // IsSafeRef (rejects a leading '-' and '..'), so the disambiguating "--" is unnecessary here.
+        var checkoutBase = await _commandTools.RunArgs(["git", "checkout", baseBranch]);
         var createBranch = await _commandTools.RunArgs(["git", "checkout", "-b", branchName]);
         return $"Git status:\n{fetchStatus}\n\nCheckout base:\n{checkoutBase}\n\nCreate branch:\n{createBranch}";
     }

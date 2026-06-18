@@ -27,9 +27,18 @@
         return int.MaxValue;
     }
 
+    // DB-tracked documents are previewed by their real row Id; workspace files that exist only
+    // on disk (no DB row) carry a fresh random Id each request, so they must be previewed by
+    // their relative path instead. Mark the disk-only ones here so the client picks the right URL.
+    var dbDocIds = new HashSet<Guid>(Model.Documents.Select(d => d.Id));
     var docMap = workspaceDocuments.ToDictionary(
         d => d.Id.ToString(),
-        d => (object)new { name = d.FileName, agentId = d.AgentId?.ToString() ?? "" });
+        d => (object)new
+        {
+            name = d.FileName,
+            agentId = d.AgentId?.ToString() ?? "",
+            path = dbDocIds.Contains(d.Id) ? "" : (d.FilePath ?? "")
+        });
     var docsJson = System.Text.Json.JsonSerializer.Serialize(docMap);
     var firstDoc = workspaceDocuments.FirstOrDefault();
 }
@@ -186,6 +195,7 @@
 <script>
     const DOCS = @Html.Raw(docsJson);
     const FIRST_DOC_ID = '@(firstDoc?.Id.ToString() ?? "")';
+    const PROJECT_ID = '@Model.Id';
     let activeAgentFilter = null;
 
     function filterByAgent(agentId, name) {
@@ -252,7 +262,12 @@
         contentEl.innerHTML = '<p class="doc-loading">Loading…</p>';
 
         try {
-            const response = await fetch('/ManageAgent/DocumentPreview?id=' + encodeURIComponent(id));
+            // DB documents resolve by Id; disk-only files (meta.path set) resolve by
+            // projectId + relative path, since their Id is a throwaway per-request Guid.
+            const url = (meta && meta.path)
+                ? '/ManageAgent/DocumentPreview?projectId=' + encodeURIComponent(PROJECT_ID) + '&path=' + encodeURIComponent(meta.path)
+                : '/ManageAgent/DocumentPreview?id=' + encodeURIComponent(id);
+            const response = await fetch(url);
             if (!response.ok) throw new Error('Preview request failed');
             const data = await response.json();
             titleEl.textContent = data.name;
