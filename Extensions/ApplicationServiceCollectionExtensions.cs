@@ -225,6 +225,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<BARequirementService>();
         services.AddScoped<RequirementPromptBuilder>();
         services.AddScoped<RequirementResponseParser>();
+        services.AddScoped<BAChatReplyParser>();
         services.AddScoped<RequirementDocumentGenerator>();
         return services;
     }
