@@ -79,6 +79,20 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     }
 }
 
+// Sau khi gửi chat, server redirect và tải lại trang Index. Mặc định trình duyệt đặt
+// khung hội thoại ở đầu, khiến user phải tự cuộn xuống để đọc câu trả lời mới của BA.
+// Vì vậy luôn đưa khung chat xuống tin nhắn mới nhất ngay khi trang vừa tải.
+if (chatMessages) {
+    function scrollChatToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    scrollChatToBottom();
+    // Cuộn lại sau khi layout/asset (font, ảnh) ổn định để chắc chắn ở đáy.
+    requestAnimationFrame(scrollChatToBottom);
+    window.addEventListener("load", scrollChatToBottom);
+}
+
 async function loadDocPreview(previewEl) {
     if (!previewEl) return;
 
