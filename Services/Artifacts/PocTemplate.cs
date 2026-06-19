@@ -10,7 +10,7 @@ namespace ICOGenerator.Services.Artifacts;
 /// </summary>
 public static class PocTemplate
 {
-    public const string MockupRelativePath = "03_Implementation/poc-demo.html";
+    public const string MockupRelativePath = "04_Implementation/poc-demo.html";
 
     /// <summary>Must match the literal line in Prompts/Design/poc-template.html.</summary>
     public const string StartMarker = "<!-- POC_CONTENT_START : replace everything below with the feature UI -->";

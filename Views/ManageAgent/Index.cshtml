@@ -1,7 +1,7 @@
 @model Project
 @{
     var agents = ViewBag.Agents as List<Agent> ?? new();
-    var phases = ViewBag.Phases as IReadOnlyList<string> ?? new List<string> { "01_Requirement", "02_Design", "03_Implementation", "04_Test" };
+    var phases = ViewBag.Phases as IReadOnlyList<string> ?? new List<string> { "01_Requirement", "02_Design", "03_Architecture", "04_Implementation", "05_Test" };
     // Token totals come from AgentModelCallLog (the single source of truth for AI token
     // usage), aggregated across all of the project's call logs in the query. Per-agent
     // values sum to the grand total because every call log is attributed to an agent.

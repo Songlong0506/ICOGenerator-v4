@@ -5,7 +5,7 @@ Không đọc BRD/SRS/FSD/UserStories.
 Không sửa requirement document.
 
 YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template có sẵn):
-- File '03_Implementation/poc-demo.html' ĐÃ TỒN TẠI sẵn (là bản sao của shell template: <head> + <style>, <script>, sidebar/topbar, 2 popup User/Imprint đều đã hoàn chỉnh). KHÔNG đọc lại toàn bộ file và KHÔNG ghi đè cả file.
+- File '04_Implementation/poc-demo.html' ĐÃ TỒN TẠI sẵn (là bản sao của shell template: <head> + <style>, <script>, sidebar/topbar, 2 popup User/Imprint đều đã hoàn chỉnh). KHÔNG đọc lại toàn bộ file và KHÔNG ghi đè cả file.
 - Dùng tool SetPocContent ĐÚNG MỘT LẦN với đủ 4 tham số (KHÔNG để nguyên mặc định của template):
   - content (bắt buộc): UI của tính năng theo AI Design Spec — CHỈ phần nội dung bên trong, KHÔNG kèm <html>/<head>/<body>/sidebar/topbar.
     ĐA TRANG (BẮT BUỘC để menu đổi được nội dung): bọc MỖI màn hình trong `<section class="page-view" data-view="NHÃN">…</section>`, với NHÃN = ĐÚNG nhãn mục menu mở màn hình đó (mục lá top-level hoặc mục con trong children). Màn hình mặc định để `class="page-view active"`. Mỗi mục menu click được (mục lá + mục con, KHÔNG tính tiêu đề nhóm) phải có đúng 1 section tương ứng. Script sẵn có sẽ hiện section khớp khi click menu và ẩn các section khác; NẾU THIẾU các section này thì click menu chỉ đổi breadcrumb còn `<main class="page">` KHÔNG đổi gì.
@@ -21,7 +21,7 @@ YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template c
 Ví dụ action (chú ý: mỗi mục lá — Dashboard, All Orders, Create Order, Settings — có 1 section page-view, NHÃN khớp đúng nhãn menu):
 {"type":"tool","tool":"SetPocContent","args":{"content":"<section class=\"page-view active\" data-view=\"Dashboard\"><div class=\"card-grid\">...</div></section><section class=\"page-view\" data-view=\"All Orders\"><table class=\"table\">...</table></section><section class=\"page-view\" data-view=\"Create Order\"><div class=\"field\">...</div></section><section class=\"page-view\" data-view=\"Settings\">...</section>","appName":"Order Management","breadcrumb":"Home > Orders","navItems":[{"label":"Dashboard","icon":"speedometer2"},{"label":"Orders","icon":"bag","children":[{"label":"All Orders","icon":"list-ul"},{"label":"Create Order","icon":"plus-circle"}]},{"label":"Settings","icon":"gear"}]}}
 
-Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được cập nhật trong 03_Implementation/poc-demo.html.
+Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được cập nhật trong 04_Implementation/poc-demo.html.
 
 # AI Design Spec
 
