@@ -221,21 +221,44 @@
 
         </div>
 
-        <!-- COMPOSER: write-requirement action + chat input, anchored to bottom -->
+        <!-- COMPOSER: action buttons (write-requirement + approve-stage) + chat input, anchored to bottom -->
         <div class="chat-composer">
 
-            <!-- WRITE REQUIREMENT (generate the 5 docs on demand) -->
-            <form asp-action="WriteRequirement"
-                  method="post"
-                  class="write-req"
-                  onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="projectId" value="@Model.Id" />
-                <button class="btn outline write-req-btn" type="submit"
-                        title="Sinh/cập nhật BRD, SRS, FSD, User Stories, AI Design Spec từ hội thoại">
-                    📝 Write Requirement
-                </button>
-            </form>
+            <!-- ACTION BUTTONS: thao tác điều khiển workflow, tách khỏi luồng chat hội thoại -->
+            <div class="composer-actions">
+
+                <!-- WRITE REQUIREMENT (generate the 5 docs on demand) -->
+                <form asp-action="WriteRequirement"
+                      method="post"
+                      class="write-req"
+                      onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="projectId" value="@Model.Id" />
+                    <button class="btn outline write-req-btn" type="submit"
+                            title="Sinh/cập nhật BRD, SRS, FSD, User Stories, AI Design Spec từ hội thoại">
+                        📝 Write Requirement
+                    </button>
+                </form>
+
+                <!-- DUYỆT & TIẾP TỤC: cổng duyệt bước delivery. Ẩn cho tới khi có workflow
+                     đang chờ duyệt; script tiến độ bên dưới sẽ bật nút và gắn đúng runId.
+                     Về sau dành cho admin bấm (không phải user). -->
+                <form asp-action="ApproveStage"
+                      method="post"
+                      id="approveStageForm"
+                      class="approve-stage"
+                      style="display:none;"
+                      onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang xử lý…';">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="projectId" value="@Model.Id" />
+                    <input type="hidden" name="runId" id="approveStageRunId" value="" />
+                    <button class="btn approve" type="submit"
+                            title="Duyệt bước hiện tại và chạy bước kế tiếp của quy trình delivery">
+                        ✓ Duyệt &amp; tiếp tục
+                    </button>
+                </form>
+
+            </div>
 
             <!-- CHAT INPUT -->
             <form id="chatForm"
@@ -363,10 +386,14 @@
     <script>
         (function () {
             const PID = '@Model.Id';
-            const TOKEN = (document.querySelector('input[name="__RequestVerificationToken"]') || {}).value || '';
             const panels = Array.from(document.querySelectorAll('.workflow-progress[data-run-id]'));
 
             if (!panels.length) return;
+
+            // Nút "Duyệt & tiếp tục" nằm ở composer (cạnh "Write Requirement"), ẩn cho tới
+            // khi có workflow chờ duyệt. Giữ tham chiếu để bật/tắt theo trạng thái poll.
+            const approveForm = document.getElementById('approveStageForm');
+            const approveRunInput = document.getElementById('approveStageRunId');
 
             const COLOR = {
                 Queued: '#64748B',
@@ -471,13 +498,20 @@
                 activity.style.display = 'flex';
             }
 
-            function gateForm(action, runId, label, cls) {
-                return `<form method="post" action="${action}" style="display:inline-block;margin-right:8px;">` +
-                    `<input type="hidden" name="__RequestVerificationToken" value="${TOKEN}">` +
-                    `<input type="hidden" name="projectId" value="${PID}">` +
-                    `<input type="hidden" name="runId" value="${esc(runId)}">` +
-                    `<button class="btn ${cls}" type="submit">${label}</button>` +
-                    `</form>`;
+            function showComposerApprove(data) {
+                if (!approveForm) return;
+                approveRunInput.value = data.runId || '';
+                approveForm.dataset.runId = data.runId || '';
+                approveForm.style.display = '';
+            }
+
+            function hideComposerApprove(runId) {
+                if (!approveForm) return;
+                // Chỉ ẩn khi nút đang gắn với chính run này, tránh một run đã kết thúc
+                // che mất nút duyệt của run khác đang chờ.
+                if (approveForm.dataset.runId && approveForm.dataset.runId !== String(runId)) return;
+                approveForm.style.display = 'none';
+                approveForm.dataset.runId = '';
             }
 
             function updateBanner(panel, data) {
@@ -485,6 +519,11 @@
 
                 // Chỉ reset "gate" key khi KHÔNG còn ở trạng thái chờ duyệt.
                 if (data.runStatus !== 'WaitingForHuman') slot.dataset.gate = '';
+
+                // Cổng duyệt giờ là nút cố định ở composer (cạnh "Write Requirement"),
+                // chỉ bật khi bước hiện tại đã xong và đang chờ duyệt.
+                if (data.runStatus === 'WaitingForHuman') showComposerApprove(data);
+                else hideComposerApprove(data.runId);
 
                 if (data.isCompleted) {
                     if (data.runKind === 'Requirement') {
@@ -500,21 +539,19 @@
                         slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
                     }
                 } else if (data.runStatus === 'WaitingForHuman') {
-                    // Tránh dựng lại form mỗi nhịp poll (gây nháy / hủy click): chỉ render
-                    // lại khi sang cổng mới.
+                    // Tránh dựng lại banner mỗi nhịp poll: chỉ render lại khi sang cổng mới.
                     if (slot.dataset.gate === data.currentStage) return;
                     slot.dataset.gate = data.currentStage;
 
                     const pocLink = data.pocReady
                         ? ` <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem POC</a>`
                         : '';
-                    const nextLabel = data.nextStageTitle ? `: ${esc(data.nextStageTitle)}` : '';
-                    const approve = gateForm('/Requirements/ApproveStage', data.runId, `✓ Duyệt &amp; tiếp tục${nextLabel}`, 'approve');
-                    const reject = gateForm('/Requirements/RejectStage', data.runId, '✗ Chưa đúng ý — sửa requirement', 'outline');
+                    const nextHint = data.nextStageTitle
+                        ? ` Bước kế: <b>${esc(data.nextStageTitle)}</b>.`
+                        : '';
 
                     slot.innerHTML =
-                        `<div class="wf-banner wf-wait">⏸️ Bước hiện tại đã xong — chờ bạn duyệt.${pocLink}` +
-                        `<div class="wf-gate-actions" style="margin-top:8px;">${approve}${reject}</div></div>`;
+                        `<div class="wf-banner wf-wait">⏸️ Bước hiện tại đã xong — chờ duyệt.${nextHint}${pocLink}</div>`;
                 } else if (data.runStatus === 'Canceled') {
                     slot.innerHTML = `<div class="wf-banner wf-fail">✗ Đã hủy. Hãy bổ sung requirement với BA, bấm “Write Requirement” rồi “Approve” để chạy lại.</div>`;
                 } else if (data.runStatus === 'Failed') {

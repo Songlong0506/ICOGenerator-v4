@@ -125,7 +125,21 @@
         gap: 10px;
     }
 
+    /* Action row: nhóm "Write Requirement" và nút "Duyệt & tiếp tục" trên cùng một
+       hàng, tách khỏi ô chat hội thoại bên dưới. */
+    .composer-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+    }
+
     .write-req {
+        margin: 0;
+        display: flex;
+    }
+
+    .approve-stage {
         margin: 0;
         display: flex;
     }
@@ -439,12 +453,6 @@
     .wf-wait {
         background: #FFFBEB;
         color: #B45309;
-    }
-
-    .wf-gate-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
     }
 
     /* ===== Live progress feed (Claude/ChatGPT style) ===== */
