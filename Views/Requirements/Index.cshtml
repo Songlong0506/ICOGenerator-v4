@@ -31,6 +31,37 @@
         .OrderBy(x => x.CreatedAt)
         .ToList();
 
+    // Gợi ý chỉ hiển thị cho lượt HỎI mới nhất của BA (item cuối timeline). Các lượt cũ coi như đã trả lời.
+    var lastItem = timelineItems.LastOrDefault();
+    var lastBaSuggestions = (lastItem != null && lastItem.Kind == "conversation"
+            && lastItem.Conversation != null && lastItem.Conversation.Role == "assistant")
+        ? ParseSuggestions(lastItem.Conversation.Suggestions)
+        : new List<string>();
+
+    // Workspace trống: gợi sẵn vài loại dự án để người dùng bắt đầu nhanh (vẫn nhập tự do được).
+    var starterSuggestions = new List<string>
+    {
+        "Website bán hàng online",
+        "App quản lý công việc nhóm",
+        "Hệ thống đặt lịch hẹn",
+        "Ứng dụng quản lý kho hàng"
+    };
+
+    var displaySuggestions = timelineItems.Any() ? lastBaSuggestions : starterSuggestions;
+
+    static List<string> ParseSuggestions(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new List<string>();
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
 }
 
 <div class="page-head">
@@ -158,6 +189,22 @@
                     </div>
                 }
             }
+
+            <!-- SUGGESTION CHIPS: đáp án gợi ý cho lượt hỏi mới nhất của BA (giống plan mode).
+                 Người dùng bấm để trả lời nhanh, hoặc tự gõ vào ô bên dưới nếu không khớp. -->
+            <div id="suggestionChips"
+                 class="suggestion-chips"
+                 aria-label="Gợi ý trả lời"
+                 style="@(displaySuggestions.Any() ? "" : "display:none;")">
+                @foreach (var suggestion in displaySuggestions)
+                {
+                    <button type="button"
+                            class="suggestion-chip"
+                            data-suggestion="@suggestion">
+                        @suggestion
+                    </button>
+                }
+            </div>
 
             <!-- THINKING -->
             <div id="thinkingBox"

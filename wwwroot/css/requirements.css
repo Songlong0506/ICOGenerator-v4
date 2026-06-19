@@ -74,6 +74,44 @@
             border-color: var(--line);
         }
 
+    /* Suggestion chips: đáp án gợi ý "bấm-để-trả-lời" cho lượt hỏi mới nhất của BA (giống plan mode).
+       Nằm dưới tin nhắn BA, người dùng bấm để trả nhanh thay vì gõ tay từng chữ. */
+    .suggestion-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0 0 16px;
+        max-width: 75%;
+    }
+
+    .suggestion-chips:empty {
+        display: none;
+    }
+
+    .suggestion-chip {
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.3;
+        text-align: left;
+        padding: 8px 14px;
+        border: 1px solid var(--bosch-blue);
+        border-radius: 18px;
+        background: var(--surface);
+        color: var(--bosch-blue);
+        cursor: pointer;
+        transition: background .15s ease, color .15s ease;
+    }
+
+        .suggestion-chip:hover {
+            background: var(--bosch-blue-tint);
+            color: var(--bosch-blue-hover);
+        }
+
+        .suggestion-chip:active {
+            background: var(--bosch-blue-tint-strong);
+        }
+
     /* Bottom composer groups the write-requirement action and the chat input
        into one block, anchored to the panel bottom with a separator so it no
        longer looks like a button floating in the empty chat area. */
@@ -596,6 +634,10 @@
         }
 
         .msg {
+            max-width: 90%;
+        }
+
+        .suggestion-chips {
             max-width: 90%;
         }
     }

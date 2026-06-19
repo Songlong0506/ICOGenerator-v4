@@ -2,6 +2,7 @@ const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
 const chatMessages = document.getElementById("chatMessages");
 const thinkingBox = document.getElementById("thinkingBox");
+const suggestionChips = document.getElementById("suggestionChips");
 
 function escapeHtml(value) {
     return String(value ?? "")
@@ -54,9 +55,28 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         messageInput.value = "";
         resizeMessageInput();
+
+        // Lượt đã được trả lời → ẩn các gợi ý cũ ngay (trang sẽ reload với gợi ý mới nếu có).
+        if (suggestionChips) suggestionChips.style.display = "none";
+
         thinkingBox.style.display = "block";
         chatMessages.scrollTop = chatMessages.scrollHeight;
     });
+
+    // Bấm một "chip" gợi ý = điền sẵn câu trả lời rồi gửi qua đúng pipeline submit ở trên,
+    // để người dùng không phải gõ tay từng chữ. Vẫn có thể tự nhập nếu không gợi ý nào khớp.
+    if (suggestionChips) {
+        suggestionChips.addEventListener("click", function (e) {
+            const chip = e.target.closest(".suggestion-chip");
+            if (!chip) return;
+
+            const text = (chip.dataset.suggestion || "").trim();
+            if (!text) return;
+
+            messageInput.value = text;
+            chatForm.requestSubmit();
+        });
+    }
 }
 
 async function loadDocPreview(previewEl) {

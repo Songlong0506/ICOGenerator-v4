@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -16,6 +17,7 @@ public class BARequirementService
     private readonly RequirementTemplateService _templateService;
     private readonly RequirementPromptBuilder _promptBuilder;
     private readonly RequirementResponseParser _responseParser;
+    private readonly BAChatReplyParser _replyParser;
     private readonly RequirementDocumentGenerator _documentGenerator;
     private readonly IModelCallLogger _modelCallLogger;
     private readonly PromptTemplateService _promptTemplateService;
@@ -26,6 +28,7 @@ public class BARequirementService
         RequirementTemplateService templateService,
         RequirementPromptBuilder promptBuilder,
         RequirementResponseParser responseParser,
+        BAChatReplyParser replyParser,
         RequirementDocumentGenerator documentGenerator,
         IModelCallLogger modelCallLogger,
         PromptTemplateService promptTemplateService)
@@ -35,6 +38,7 @@ public class BARequirementService
         _templateService = templateService;
         _promptBuilder = promptBuilder;
         _responseParser = responseParser;
+        _replyParser = replyParser;
         _documentGenerator = documentGenerator;
         _modelCallLogger = modelCallLogger;
         _promptTemplateService = promptTemplateService;
@@ -94,15 +98,22 @@ public class BARequirementService
 
         // Surface a failure as a clearly-labelled assistant turn instead of a 500, but never present an API error as if it were a normal BA answer.
         string reply;
+        string? suggestionsJson = null;
         if (!callResult.IsSuccess)
         {
             reply = $"⚠️ Lời gọi AI thất bại, chưa thể trả lời. Chi tiết: {callResult.ErrorMessage ?? callResult.Content}";
         }
         else
         {
-            reply = (callResult.Content ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(reply))
-                reply = "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu.";
+            // BA được nhắc trả JSON {message, suggestions}; parser luôn fallback an toàn về text thuần.
+            var parsedReply = _replyParser.Parse(callResult.Content);
+            reply = string.IsNullOrWhiteSpace(parsedReply.Message)
+                ? "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu."
+                : parsedReply.Message;
+
+            // Lưu suggestions tách riêng (JSON) để UI render chip; chỉ set khi thực sự có gợi ý.
+            if (parsedReply.Suggestions.Count > 0)
+                suggestionsJson = JsonSerializer.Serialize(parsedReply.Suggestions);
         }
 
         _db.AgentConversations.Add(new AgentConversation
@@ -111,6 +122,7 @@ public class BARequirementService
             AgentId = ba.Id,
             Role = "assistant",
             Message = reply,
+            Suggestions = suggestionsJson,
             TokenUsed = TokenEstimator.Estimate(reply)
         });
         await _db.SaveChangesAsync(cancellationToken);
