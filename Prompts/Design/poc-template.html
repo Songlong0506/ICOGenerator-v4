@@ -1118,6 +1118,39 @@
         });
       });
 
+      // Navigate between sidebar pages. This POC has a single content region, so "navigation" means:
+      // clicking a leaf item (top-level or sub-item) marks it active and updates the breadcrumb to its
+      // path. Group headers above only expand/collapse; User/Imprint below open their own popups.
+      var crumbEl = document.querySelector('.breadcrumb');
+      var rootCrumb = 'Home';
+      if (crumbEl) {
+        var firstCrumb = crumbEl.textContent.split(/[›>»\/]/)[0].trim();
+        if (firstCrumb) rootCrumb = firstCrumb;
+      }
+      function escHtml(s) {
+        return s.replace(/[&<>"]/g, function (c) {
+          return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;';
+        });
+      }
+      function navLabel(item) { var el = item && item.querySelector('.nav-label'); return el ? el.textContent.trim() : ''; }
+      function setBreadcrumb(parts) {
+        if (!crumbEl) return;
+        crumbEl.innerHTML = parts.filter(Boolean).map(function (p, idx) {
+          return (idx ? ' <span class="sep">›</span> ' : '') + escHtml(p);
+        }).join('');
+      }
+      document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (item) {
+        if (item.parentElement && item.parentElement.classList.contains('nav-group')) return; // group header
+        item.addEventListener('click', function () {
+          if (shell.classList.contains('collapsed')) shell.classList.remove('collapsed');
+          document.querySelectorAll('.sidebar-nav .nav-item.active').forEach(function (n) { n.classList.remove('active'); });
+          item.classList.add('active');
+          var sub = item.closest('.nav-sub');
+          var header = sub ? sub.parentElement.querySelector('.nav-item') : null;
+          setBreadcrumb(sub ? [rootCrumb, navLabel(header), navLabel(item)] : [rootCrumb, navLabel(item)]);
+        });
+      });
+
       // Popups
       function open(id) { var m = document.getElementById(id); if (m) m.classList.add('open'); }
       var u = document.getElementById('navUser'); if (u) u.addEventListener('click', function () { open('userModal'); });
