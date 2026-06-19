@@ -19,12 +19,12 @@ Yêu cầu file HTML: single-page, inline CSS/JS, không internet/CDN, style ent
 
 Tool usage (POC):
 - File poc-demo.html ĐÃ tồn tại sẵn (shell template). Dùng SetPocContent ĐÚNG MỘT LẦN với đủ tham số: content, appName, breadcrumb, navItems. Hệ thống tự đặt content vào vùng giữa 2 marker, đổi App Name + tiêu đề tab + breadcrumb và dựng lại menu sidebar; phần còn lại của shell giữ nguyên.
-  - content: HTML phần nội dung tính năng (KHÔNG kèm html/head/body/sidebar/topbar).
+  - content: HTML phần nội dung tính năng (KHÔNG kèm html/head/body/sidebar/topbar). ĐA TRANG (bắt buộc để menu đổi được nội dung): bọc MỖI màn hình trong `<section class="page-view" data-view="NHÃN">…</section>` với NHÃN = đúng nhãn mục menu mở màn hình đó; màn hình mặc định để `class="page-view active"`; mỗi mục lá/mục con click được phải có đúng 1 section. Thiếu các section này thì click menu chỉ đổi breadcrumb, nội dung không đổi.
   - appName: tên ứng dụng — KHÔNG để mặc định "App Name".
   - breadcrumb: vd "Home > Orders".
   - navItems: mảng menu trái; mỗi mục `{ "label": "...", "children": ["...", "..."] }`, "children" tùy chọn. Đặt theo màn hình thật, KHÔNG dùng "Overview/Module A/Module B/Settings".
   - Ví dụ action:
-    `{"type":"tool","tool":"SetPocContent","args":{"content":"<div class=\"card-grid\">...</div>","appName":"Order Management","breadcrumb":"Home > Orders","navItems":[{"label":"Dashboard"},{"label":"Orders","children":["All Orders","Create Order"]},{"label":"Settings"}]}}`
+    `{"type":"tool","tool":"SetPocContent","args":{"content":"<section class=\"page-view active\" data-view=\"Dashboard\"><div class=\"card-grid\">...</div></section><section class=\"page-view\" data-view=\"All Orders\"><table class=\"table\">...</table></section><section class=\"page-view\" data-view=\"Create Order\">...</section><section class=\"page-view\" data-view=\"Settings\">...</section>","appName":"Order Management","breadcrumb":"Home > Orders","navItems":[{"label":"Dashboard"},{"label":"Orders","children":["All Orders","Create Order"]},{"label":"Settings"}]}}`
 - Không ghi đè cả file bằng WriteFile; không dùng ReplaceInFile cho nội dung POC; không đọc lại cả file sau khi sửa; không dùng RunCommand/grep/Git cho loại task này.
 - Nếu chỉnh sửa file thành công, trả: "POC demo created successfully: poc-demo.html"
 

@@ -8,6 +8,7 @@ YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template c
 - File '03_Implementation/poc-demo.html' ĐÃ TỒN TẠI sẵn (là bản sao của shell template: <head> + <style>, <script>, sidebar/topbar, 2 popup User/Imprint đều đã hoàn chỉnh). KHÔNG đọc lại toàn bộ file và KHÔNG ghi đè cả file.
 - Dùng tool SetPocContent ĐÚNG MỘT LẦN với đủ 4 tham số (KHÔNG để nguyên mặc định của template):
   - content (bắt buộc): UI của tính năng theo AI Design Spec — CHỈ phần nội dung bên trong, KHÔNG kèm <html>/<head>/<body>/sidebar/topbar.
+    ĐA TRANG (BẮT BUỘC để menu đổi được nội dung): bọc MỖI màn hình trong `<section class="page-view" data-view="NHÃN">…</section>`, với NHÃN = ĐÚNG nhãn mục menu mở màn hình đó (mục lá top-level hoặc mục con trong children). Màn hình mặc định để `class="page-view active"`. Mỗi mục menu click được (mục lá + mục con, KHÔNG tính tiêu đề nhóm) phải có đúng 1 section tương ứng. Script sẵn có sẽ hiện section khớp khi click menu và ẩn các section khác; NẾU THIẾU các section này thì click menu chỉ đổi breadcrumb còn `<main class="page">` KHÔNG đổi gì.
   - appName (bắt buộc): tên ứng dụng/sản phẩm — TUYỆT ĐỐI KHÔNG để "App Name".
   - breadcrumb (bắt buộc): breadcrumb màn hình chính, vd "Home > Orders".
   - navItems (bắt buộc): menu sidebar bên trái — mảng các mục `{ "label": "...", "children": ["...", "..."] }`, "children" là tùy chọn cho nhóm xổ xuống. Đặt theo màn hình thật; KHÔNG dùng "Overview/Module A/Module B/Settings".
@@ -16,8 +17,8 @@ YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template c
 - File phải TỰ CHỨA (self-contained): KHÔNG link/nhúng CSS hay JS framework bên ngoài (không Angular/Material/Bootstrap...). Chỉ dùng CSS/JS đã có sẵn trong file.
 - KHÔNG dùng ReplaceInFile/WriteFile/RunCommand/grep cho việc này. Sau khi SetPocContent trả "POC content updated", trả final result NGAY, KHÔNG đọc lại file.
 
-Ví dụ action:
-{"type":"tool","tool":"SetPocContent","args":{"content":"<div class=\"card-grid\">...</div>","appName":"Order Management","breadcrumb":"Home > Orders","navItems":[{"label":"Dashboard"},{"label":"Orders","children":["All Orders","Create Order"]},{"label":"Settings"}]}}
+Ví dụ action (chú ý: mỗi mục lá — Dashboard, All Orders, Create Order, Settings — có 1 section page-view, NHÃN khớp đúng nhãn menu):
+{"type":"tool","tool":"SetPocContent","args":{"content":"<section class=\"page-view active\" data-view=\"Dashboard\"><div class=\"card-grid\">...</div></section><section class=\"page-view\" data-view=\"All Orders\"><table class=\"table\">...</table></section><section class=\"page-view\" data-view=\"Create Order\"><div class=\"field\">...</div></section><section class=\"page-view\" data-view=\"Settings\">...</section>","appName":"Order Management","breadcrumb":"Home > Orders","navItems":[{"label":"Dashboard"},{"label":"Orders","children":["All Orders","Create Order"]},{"label":"Settings"}]}}
 
 Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được cập nhật trong 03_Implementation/poc-demo.html.
 
