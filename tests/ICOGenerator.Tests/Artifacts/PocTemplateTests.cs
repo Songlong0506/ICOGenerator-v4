@@ -156,23 +156,21 @@ public class PocTemplateTests
     }
 
     [Fact]
-    public void ReplaceNav_UsesBootstrapIcons_ExplicitThenKeywordThenFallback()
+    public void ReplaceNav_UsesAgentIconOnItemsAndChildren_ElseDefault()
     {
         var items = new List<PocNavItem>
         {
-            new() { Label = "Trang chủ" },                                                       // keyword -> house (diacritics)
-            new() { Label = "Sản phẩm", Children = new() { new() { Label = "Giỏ hàng" } } },     // keyword -> box-seam + cart3 child
-            new() { Label = "Reports", Icon = "graph-up-arrow" },                                 // explicit name wins
-            new() { Label = "Zzz" }                                                              // unknown -> default circle
+            new() { Label = "Products", Icon = "box-seam", Children = new() { new() { Label = "Cart", Icon = "cart3" } } },
+            new() { Label = "Reports", Icon = "graph-up-arrow" },
+            new() { Label = "Untagged" } // no icon -> default
         };
 
         var updated = PocTemplate.ReplaceNav(Shell(), items);
 
-        Assert.Contains("<i class=\"bi bi-house\" aria-hidden=\"true\"></i>", updated);          // keyword (top-level)
-        Assert.Contains("<i class=\"bi bi-box-seam\" aria-hidden=\"true\"></i>", updated);       // keyword (group header)
-        Assert.Contains("<i class=\"bi bi-cart3\" aria-hidden=\"true\"></i>", updated);          // keyword (child)
-        Assert.Contains("<i class=\"bi bi-graph-up-arrow\" aria-hidden=\"true\"></i>", updated); // explicit icon
-        Assert.Contains("<i class=\"bi bi-circle\" aria-hidden=\"true\"></i>", updated);         // fallback
+        Assert.Contains("<i class=\"bi bi-box-seam\" aria-hidden=\"true\"></i>", updated);        // explicit (group header)
+        Assert.Contains("<i class=\"bi bi-cart3\" aria-hidden=\"true\"></i>", updated);           // explicit (child)
+        Assert.Contains("<i class=\"bi bi-graph-up-arrow\" aria-hidden=\"true\"></i>", updated);  // explicit (leaf)
+        Assert.Contains("<i class=\"bi bi-dot\" aria-hidden=\"true\"></i>", updated);             // default fallback
 
         // The old inline placeholder square/circle for nav icons is gone.
         Assert.DoesNotContain("<svg class=\"ico\" viewBox=\"0 0 24 24\"><rect", updated);

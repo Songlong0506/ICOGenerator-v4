@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using System.Text;
 
@@ -128,46 +127,13 @@ public static class PocTemplate
     }
 
     // Sidebar icons come from Bootstrap Icons, which the shell loads once via a <link> in <head>, so
-    // the menu can use any of the ~2000 icons without us hand-defining SVGs. Each item renders an
-    // <i class="bi bi-NAME">: the agent may name the icon per navItem (PocNavItem.Icon); when it
-    // doesn't, we infer one from the label by keyword, falling back to a neutral dot. The chevron that
-    // marks an expandable group stays an inline SVG (its rotate animation is tied to .nav-chevron).
+    // the menu can use any of the ~2000 icons without hand-defining SVGs. Each item renders an
+    // <i class="bi bi-NAME"> where NAME is the agent-supplied PocNavItem.Icon, falling back to
+    // DefaultIcon when an item doesn't specify one. The chevron marking an expandable group stays an
+    // inline SVG (its rotate animation is tied to .nav-chevron).
     private const string Chevron = "<svg class=\"ico nav-chevron\" viewBox=\"0 0 24 24\"><path d=\"M6 9l6 6 6-6\" /></svg>";
 
-    private const string DefaultIcon = "circle";
-
-    // Keyword → Bootstrap Icons name, matched on the normalized label via Contains, so order from
-    // specific to generic: e.g. "Quản lý sản phẩm" hits "san pham" (box-seam) before "quan ly" (list).
-    // This is only a fallback for items whose icon the agent didn't specify.
-    private static readonly (string[] Keywords, string Icon)[] IconRules =
-    {
-        (new[] { "dang nhap", "login", "sign in", "log in", "signin" }, "box-arrow-in-right"),
-        (new[] { "dang ky", "dang ki", "register", "sign up", "signup", "tao tai khoan" }, "person-plus"),
-        (new[] { "dang xuat", "logout", "log out", "sign out", "thoat" }, "box-arrow-right"),
-        (new[] { "trang chu", "trang chinh", "home page", "home", "main" }, "house"),
-        (new[] { "gio hang", "cart", "basket" }, "cart3"),
-        (new[] { "thanh toan", "payment", "checkout", "credit card" }, "credit-card"),
-        (new[] { "chi tiet", "detail", "thong tin", "mo ta", "gioi thieu", "about" }, "file-earmark-text"),
-        (new[] { "don hang", "don dat", "order", "purchase", "mua hang" }, "bag"),
-        (new[] { "hoa don", "invoice", "bill", "receipt" }, "receipt"),
-        (new[] { "san pham", "product", "hang hoa", "mat hang", "ton kho", "inventory", "kho hang" }, "box-seam"),
-        (new[] { "danh muc", "category", "categories", "the loai", "phan loai", "thuong hieu", "nhan hieu", "brand" }, "tags"),
-        (new[] { "khuyen mai", "giam gia", "voucher", "coupon", "ma giam", "discount", "promotion", "uu dai" }, "percent"),
-        (new[] { "doanh thu", "doanh so", "revenue", "tai chinh", "finance", "thu chi", "cong no", "gia ban" }, "cash-coin"),
-        (new[] { "bao cao", "report", "thong ke", "statistic", "analytic", "bieu do", "chart", "phan tich" }, "bar-chart"),
-        (new[] { "nguoi dung", "tai khoan", "khach hang", "thanh vien", "user", "account", "customer", "member", "nhan vien", "staff", "employee" }, "people"),
-        (new[] { "ho so", "profile", "ca nhan", "my account" }, "person"),
-        (new[] { "dashboard", "tong quan", "overview", "bang dieu khien", "tong hop" }, "speedometer2"),
-        (new[] { "quan tri", "admin", "he thong", "system", "phan quyen", "vai tro", "role", "permission", "bao mat", "security" }, "shield-lock"),
-        (new[] { "cai dat", "setting", "cau hinh", "config", "tuy chon", "preference", "thiet lap" }, "gear"),
-        (new[] { "tim kiem", "search", "tra cuu", "loc ", "filter" }, "search"),
-        (new[] { "lich su", "history", "nhat ky", "hoat dong", "activity", "audit" }, "clock-history"),
-        (new[] { "lich", "calendar", "schedule", "dat lich", "appointment", "booking" }, "calendar3"),
-        (new[] { "thong bao", "notification", "bell", "alert", "canh bao" }, "bell"),
-        (new[] { "tin nhan", "message", "chat", "lien he", "contact", "ho tro", "support", "phan hoi", "feedback", "binh luan", "comment", "danh gia", "review" }, "chat-dots"),
-        (new[] { "yeu thich", "wishlist", "favorite", "favourite", "da luu", "saved", "bookmark" }, "heart"),
-        (new[] { "danh sach", "list", "quan ly", "manage", "management" }, "list-ul"),
-    };
+    private const string DefaultIcon = "dot";
 
     private static string RenderNav(IReadOnlyList<PocNavItem>? items)
     {
@@ -185,7 +151,7 @@ public static class PocTemplate
                 continue;
 
             var label = WebUtility.HtmlEncode(rawLabel);
-            var icon = PickIcon(rawLabel, item!.Icon);
+            var icon = IconMarkup(item!.Icon);
 
             var active = activeUsed ? string.Empty : " active";
             activeUsed = true;
@@ -216,7 +182,7 @@ public static class PocTemplate
             foreach (var child in children)
             {
                 var childLabel = child.Label.Trim();
-                sb.Append("                            <div class=\"nav-item\">").Append(PickIcon(childLabel, child.Icon))
+                sb.Append("                            <div class=\"nav-item\">").Append(IconMarkup(child.Icon))
                   .Append("<span class=\"nav-label\">").Append(WebUtility.HtmlEncode(childLabel)).Append("</span></div>\n");
             }
             sb.Append("                        </div>\n");
@@ -226,32 +192,14 @@ public static class PocTemplate
         return sb.ToString();
     }
 
-    // Renders the Bootstrap Icons element for an item: the explicit name wins, otherwise infer from
-    // the label by keyword, otherwise a neutral dot.
-    private static string PickIcon(string label, string? explicitIcon)
-    {
-        var name = SanitizeIconName(explicitIcon);
-        if (name != null)
-            return BiMarkup(name);
-
-        var key = Normalize(label);
-        if (key.Length > 0)
-        {
-            foreach (var (keywords, icon) in IconRules)
-                foreach (var keyword in keywords)
-                    if (key.Contains(keyword, StringComparison.Ordinal))
-                        return BiMarkup(icon);
-        }
-
-        return BiMarkup(DefaultIcon);
-    }
-
-    private static string BiMarkup(string name) =>
-        "<i class=\"bi bi-" + name + "\" aria-hidden=\"true\"></i>";
+    // Renders the Bootstrap Icons element for a nav item: the agent-supplied name (sanitized so it
+    // can't break out of the class attribute) or DefaultIcon when none/invalid is given.
+    private static string IconMarkup(string? icon) =>
+        "<i class=\"bi bi-" + (SanitizeIconName(icon) ?? DefaultIcon) + "\" aria-hidden=\"true\"></i>";
 
     // Bootstrap Icons names are [a-z0-9-]; lower-case, drop an optional leading "bi-"/"bi ", and keep
     // only that safe charset so an agent-supplied value can never break out of the class attribute.
-    // Returns null when nothing usable remains, so the caller falls back to a keyword/default icon.
+    // Returns null when nothing usable remains, so the caller falls back to DefaultIcon.
     private static string? SanitizeIconName(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
@@ -270,22 +218,5 @@ public static class PocTemplate
 
         var cleaned = sb.ToString().Trim('-');
         return cleaned.Length == 0 ? null : cleaned;
-    }
-
-    // Lowercases and strips diacritics so keyword matching works on labels like "Sản phẩm" → "san pham";
-    // đ/Đ collapse to d (FormD decomposition alone doesn't separate them).
-    private static string Normalize(string label)
-    {
-        var lowered = label.Trim().ToLowerInvariant().Replace('đ', 'd');
-        var decomposed = lowered.Normalize(NormalizationForm.FormD);
-
-        var sb = new StringBuilder(decomposed.Length);
-        foreach (var ch in decomposed)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
-                sb.Append(ch);
-        }
-
-        return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 }
