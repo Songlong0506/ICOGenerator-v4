@@ -10,7 +10,14 @@ public sealed class PocNavItem
 {
     public string Label { get; set; } = string.Empty;
 
-    public List<string>? Children { get; set; }
+    /// <summary>
+    /// Optional Bootstrap Icons name (e.g. "house", "cart3", "people"; the leading "bi-" is optional).
+    /// When omitted, the renderer infers an icon from the label; the agent can name any icon from the
+    /// bundled Bootstrap Icons set so the menu isn't limited to a hand-maintained list.
+    /// </summary>
+    public string? Icon { get; set; }
+
+    public List<PocNavItem>? Children { get; set; }
 
     /// <summary>
     /// Tolerant parser for the agent-supplied 'navItems'. Malformed entries are skipped rather than thrown, so a nav slip never blocks the rest of the POC update. Returns an empty list for non-arrays.
@@ -23,31 +30,23 @@ public sealed class PocNavItem
 
         foreach (var entry in element.EnumerateArray())
         {
-            if (entry.ValueKind == JsonValueKind.String)
+            var item = ParseEntry(entry);
+            if (item == null)
+                continue;
+
+            if (entry.ValueKind == JsonValueKind.Object
+                && TryGetProp(entry, "children", out var childrenEl)
+                && childrenEl.ValueKind == JsonValueKind.Array)
             {
-                var leaf = entry.GetString();
-                if (!string.IsNullOrWhiteSpace(leaf))
-                    result.Add(new PocNavItem { Label = leaf.Trim() });
-                continue;
-            }
-
-            if (entry.ValueKind != JsonValueKind.Object)
-                continue;
-
-            var label = GetLabel(entry);
-            if (string.IsNullOrWhiteSpace(label))
-                continue;
-
-            var item = new PocNavItem { Label = label.Trim() };
-
-            if (TryGetProp(entry, "children", out var childrenEl) && childrenEl.ValueKind == JsonValueKind.Array)
-            {
-                var children = new List<string>();
+                var children = new List<PocNavItem>();
                 foreach (var childEl in childrenEl.EnumerateArray())
                 {
-                    var child = childEl.ValueKind == JsonValueKind.String ? childEl.GetString() : GetLabel(childEl);
-                    if (!string.IsNullOrWhiteSpace(child))
-                        children.Add(child.Trim());
+                    var child = ParseEntry(childEl);
+                    if (child != null)
+                    {
+                        child.Children = null; // the sidebar supports a single nesting level
+                        children.Add(child);
+                    }
                 }
 
                 if (children.Count > 0)
@@ -58,6 +57,32 @@ public sealed class PocNavItem
         }
 
         return result;
+    }
+
+    // Parses a single entry (a bare label string, or an object with label + optional icon) into a
+    // leaf item. Returns null when there's no usable label, so blanks/non-objects are skipped.
+    private static PocNavItem? ParseEntry(JsonElement entry)
+    {
+        if (entry.ValueKind == JsonValueKind.String)
+        {
+            var leaf = entry.GetString();
+            return string.IsNullOrWhiteSpace(leaf) ? null : new PocNavItem { Label = leaf.Trim() };
+        }
+
+        if (entry.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var label = GetLabel(entry);
+        if (string.IsNullOrWhiteSpace(label))
+            return null;
+
+        var item = new PocNavItem { Label = label.Trim() };
+
+        var icon = GetStringProp(entry, "icon");
+        if (!string.IsNullOrWhiteSpace(icon))
+            item.Icon = icon.Trim();
+
+        return item;
     }
 
     // "label" is the documented key; "title"/"name" are tolerated aliases a model might emit.

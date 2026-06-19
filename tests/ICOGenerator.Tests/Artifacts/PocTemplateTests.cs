@@ -116,7 +116,7 @@ public class PocTemplateTests
         var items = new List<PocNavItem>
         {
             new() { Label = "Dashboard" },
-            new() { Label = "Orders", Children = new() { "All Orders", "Create Order" } },
+            new() { Label = "Orders", Children = new() { new() { Label = "All Orders" }, new() { Label = "Create Order" } } },
             new() { Label = "Settings" }
         };
 
@@ -146,13 +146,47 @@ public class PocTemplateTests
     [Fact]
     public void ReplaceNav_EncodesLabels()
     {
-        var items = new List<PocNavItem> { new() { Label = "R&D", Children = new() { "A<b>" } } };
+        var items = new List<PocNavItem> { new() { Label = "R&D", Children = new() { new() { Label = "A<b>" } } } };
 
         var updated = PocTemplate.ReplaceNav(Shell(), items);
 
         Assert.Contains("title=\"R&amp;D\"", updated);
         Assert.Contains("<span class=\"nav-label\">R&amp;D</span>", updated);
         Assert.Contains("<span class=\"nav-label\">A&lt;b&gt;</span>", updated);
+    }
+
+    [Fact]
+    public void ReplaceNav_UsesAgentIconOnItemsAndChildren_ElseDefault()
+    {
+        var items = new List<PocNavItem>
+        {
+            new() { Label = "Products", Icon = "box-seam", Children = new() { new() { Label = "Cart", Icon = "cart3" } } },
+            new() { Label = "Reports", Icon = "graph-up-arrow" },
+            new() { Label = "Untagged" } // no icon -> default
+        };
+
+        var updated = PocTemplate.ReplaceNav(Shell(), items);
+
+        Assert.Contains("<i class=\"bi bi-box-seam\" aria-hidden=\"true\"></i>", updated);        // explicit (group header)
+        Assert.Contains("<i class=\"bi bi-cart3\" aria-hidden=\"true\"></i>", updated);           // explicit (child)
+        Assert.Contains("<i class=\"bi bi-graph-up-arrow\" aria-hidden=\"true\"></i>", updated);  // explicit (leaf)
+        Assert.Contains("<i class=\"bi bi-dot\" aria-hidden=\"true\"></i>", updated);             // default fallback
+
+        // The old inline placeholder square/circle for nav icons is gone.
+        Assert.DoesNotContain("<svg class=\"ico\" viewBox=\"0 0 24 24\"><rect", updated);
+        Assert.DoesNotContain("<svg class=\"ico\" viewBox=\"0 0 24 24\"><circle", updated);
+    }
+
+    [Fact]
+    public void ReplaceNav_SanitizesAgentSuppliedIconName()
+    {
+        // Strips a leading "bi-" and rejects anything outside [a-z0-9-] so it can't break the class attribute.
+        var items = new List<PocNavItem> { new() { Label = "X", Icon = "bi-Cart3\" onload=\"x" } };
+
+        var updated = PocTemplate.ReplaceNav(Shell(), items);
+
+        Assert.Contains("<i class=\"bi bi-cart3onloadx\" aria-hidden=\"true\"></i>", updated);
+        Assert.DoesNotContain("onload=\"x", updated);
     }
 
     [Fact]

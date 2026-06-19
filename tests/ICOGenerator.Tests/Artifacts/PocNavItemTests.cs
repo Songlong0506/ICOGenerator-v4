@@ -21,7 +21,17 @@ public class PocNavItemTests
         Assert.Equal("Dashboard", items[0].Label);
         Assert.Null(items[0].Children);
         Assert.Equal("Orders", items[1].Label);
-        Assert.Equal(new[] { "All Orders", "Create Order" }, items[1].Children);
+        Assert.Equal(new[] { "All Orders", "Create Order" }, items[1].Children!.Select(c => c.Label));
+    }
+
+    [Fact]
+    public void ParseList_ReadsIconOnItemsAndChildren()
+    {
+        var items = Parse("""[{"label":"Cart","icon":"cart3"},{"label":"Admin","children":[{"label":"Users","icon":"people"}]}]""");
+
+        Assert.Equal("cart3", items[0].Icon);
+        Assert.Null(items[1].Icon);
+        Assert.Equal("people", items[1].Children!.Single().Icon);
     }
 
     [Fact]
@@ -39,7 +49,7 @@ public class PocNavItemTests
         var items = Parse("""[{"Label":"X","CHILDREN":["y"]},{"title":"T"},{"name":"N"}]""");
 
         Assert.Equal(new[] { "X", "T", "N" }, items.Select(x => x.Label));
-        Assert.Equal(new[] { "y" }, items[0].Children);
+        Assert.Equal(new[] { "y" }, items[0].Children!.Select(c => c.Label));
     }
 
     [Fact]
@@ -48,7 +58,7 @@ public class PocNavItemTests
         var items = Parse("""[{"label":"Group","children":[{"label":"c1"},{"title":"c2"}]}]""");
 
         Assert.Single(items);
-        Assert.Equal(new[] { "c1", "c2" }, items[0].Children);
+        Assert.Equal(new[] { "c1", "c2" }, items[0].Children!.Select(c => c.Label));
     }
 
     [Fact]
@@ -58,7 +68,7 @@ public class PocNavItemTests
 
         Assert.Single(items);
         Assert.Equal("Real", items[0].Label);
-        Assert.Equal(new[] { "Kid" }, items[0].Children);
+        Assert.Equal(new[] { "Kid" }, items[0].Children!.Select(c => c.Label));
     }
 
     [Fact]

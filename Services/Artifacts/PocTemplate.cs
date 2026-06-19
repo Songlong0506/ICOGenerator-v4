@@ -126,11 +126,14 @@ public static class PocTemplate
         return content[..innerStart] + newInner + content[closeIdx..];
     }
 
-    // Generic, deterministic icons so the menu renders without the agent supplying SVGs:
-    // square for top-level items, circle for sub-items, chevron for expandable groups.
-    private const string TopIcon = "<svg class=\"ico\" viewBox=\"0 0 24 24\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" /></svg>";
-    private const string SubIcon = "<svg class=\"ico\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"9\" /></svg>";
+    // Sidebar icons come from Bootstrap Icons, which the shell loads once via a <link> in <head>, so
+    // the menu can use any of the ~2000 icons without hand-defining SVGs. Each item renders an
+    // <i class="bi bi-NAME"> where NAME is the agent-supplied PocNavItem.Icon, falling back to
+    // DefaultIcon when an item doesn't specify one. The chevron marking an expandable group stays an
+    // inline SVG (its rotate animation is tied to .nav-chevron).
     private const string Chevron = "<svg class=\"ico nav-chevron\" viewBox=\"0 0 24 24\"><path d=\"M6 9l6 6 6-6\" /></svg>";
+
+    private const string DefaultIcon = "dot";
 
     private static string RenderNav(IReadOnlyList<PocNavItem>? items)
     {
@@ -143,22 +146,24 @@ public static class PocTemplate
 
         foreach (var item in items)
         {
-            var label = WebUtility.HtmlEncode((item?.Label ?? string.Empty).Trim());
-            if (label.Length == 0)
+            var rawLabel = (item?.Label ?? string.Empty).Trim();
+            if (rawLabel.Length == 0)
                 continue;
+
+            var label = WebUtility.HtmlEncode(rawLabel);
+            var icon = IconMarkup(item!.Icon);
 
             var active = activeUsed ? string.Empty : " active";
             activeUsed = true;
 
-            var children = item!.Children?
-                .Select(c => WebUtility.HtmlEncode((c ?? string.Empty).Trim()))
-                .Where(c => c.Length > 0)
-                .ToList() ?? new List<string>();
+            var children = item.Children?
+                .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Label))
+                .ToList() ?? new List<PocNavItem>();
 
             if (children.Count == 0)
             {
                 sb.Append("                    <div class=\"nav-item").Append(active).Append("\" title=\"").Append(label).Append("\">\n");
-                sb.Append("                        ").Append(TopIcon).Append('\n');
+                sb.Append("                        ").Append(icon).Append('\n');
                 sb.Append("                        <span class=\"nav-label\">").Append(label).Append("</span>\n");
                 sb.Append("                    </div>\n");
                 continue;
@@ -169,20 +174,49 @@ public static class PocTemplate
 
             sb.Append("                    <div class=\"nav-group").Append(open).Append("\">\n");
             sb.Append("                        <div class=\"nav-item").Append(active).Append("\" title=\"").Append(label).Append("\">\n");
-            sb.Append("                            ").Append(TopIcon).Append('\n');
+            sb.Append("                            ").Append(icon).Append('\n');
             sb.Append("                            <span class=\"nav-label\">").Append(label).Append("</span>\n");
             sb.Append("                            ").Append(Chevron).Append('\n');
             sb.Append("                        </div>\n");
             sb.Append("                        <div class=\"nav-sub\">\n");
             foreach (var child in children)
             {
-                sb.Append("                            <div class=\"nav-item\">").Append(SubIcon)
-                  .Append("<span class=\"nav-label\">").Append(child).Append("</span></div>\n");
+                var childLabel = child.Label.Trim();
+                sb.Append("                            <div class=\"nav-item\">").Append(IconMarkup(child.Icon))
+                  .Append("<span class=\"nav-label\">").Append(WebUtility.HtmlEncode(childLabel)).Append("</span></div>\n");
             }
             sb.Append("                        </div>\n");
             sb.Append("                    </div>\n");
         }
 
         return sb.ToString();
+    }
+
+    // Renders the Bootstrap Icons element for a nav item: the agent-supplied name (sanitized so it
+    // can't break out of the class attribute) or DefaultIcon when none/invalid is given.
+    private static string IconMarkup(string? icon) =>
+        "<i class=\"bi bi-" + (SanitizeIconName(icon) ?? DefaultIcon) + "\" aria-hidden=\"true\"></i>";
+
+    // Bootstrap Icons names are [a-z0-9-]; lower-case, drop an optional leading "bi-"/"bi ", and keep
+    // only that safe charset so an agent-supplied value can never break out of the class attribute.
+    // Returns null when nothing usable remains, so the caller falls back to DefaultIcon.
+    private static string? SanitizeIconName(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var s = raw.Trim().ToLowerInvariant();
+        if (s.StartsWith("bi-", StringComparison.Ordinal) || s.StartsWith("bi ", StringComparison.Ordinal))
+            s = s[3..];
+
+        var sb = new StringBuilder(s.Length);
+        foreach (var ch in s)
+        {
+            if (ch is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-')
+                sb.Append(ch);
+        }
+
+        var cleaned = sb.ToString().Trim('-');
+        return cleaned.Length == 0 ? null : cleaned;
     }
 }
