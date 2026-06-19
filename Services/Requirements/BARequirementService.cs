@@ -90,7 +90,10 @@ public class BARequirementService
         messages.AddRange(recent.Select(c => new ChatMessageDto
         {
             Role = c.Role == "assistant" ? "assistant" : "user",
-            Content = c.Message
+            // Lượt cũ của BA được "dựng lại" đúng JSON {message, suggestions}. Nếu chỉ đưa text thuần,
+            // model thấy phản hồi trước của mình là văn xuôi và bắt chước → bỏ JSON từ lượt 2 trở đi,
+            // mất luôn gợi ý. Đưa lại đúng format giúp model giữ JSON ở mọi lượt.
+            Content = c.Role == "assistant" ? BuildAssistantContext(c) : c.Message
         }));
 
         var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, cancellationToken);
@@ -224,6 +227,27 @@ public class BARequirementService
         await _db.SaveChangesAsync(cancellationToken);
 
         Report("final", "Đã tạo/cập nhật tài liệu.", assistantMessage);
+    }
+
+    // Dựng lại một lượt BA cũ theo đúng JSON shape mà model được yêu cầu xuất, để củng cố format ở
+    // mỗi lượt. Không có việc này, model nhìn các lượt trước là văn xuôi và sẽ bỏ JSON (kèm gợi ý) từ
+    // lượt thứ 2. Suggestions hỏng/cũ thì coi như mảng rỗng.
+    private static string BuildAssistantContext(AgentConversation c)
+    {
+        var suggestions = new List<string>();
+        if (!string.IsNullOrWhiteSpace(c.Suggestions))
+        {
+            try
+            {
+                suggestions = JsonSerializer.Deserialize<List<string>>(c.Suggestions) ?? new List<string>();
+            }
+            catch
+            {
+                // Dữ liệu cũ/không hợp lệ: bỏ qua, giữ mảng rỗng.
+            }
+        }
+
+        return JsonSerializer.Serialize(new { message = c.Message, suggestions });
     }
 
     private static string BuildRequirementBrief(IEnumerable<AgentConversation> conversations)
