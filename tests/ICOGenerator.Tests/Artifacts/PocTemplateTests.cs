@@ -156,6 +156,29 @@ public class PocTemplateTests
     }
 
     [Fact]
+    public void ReplaceNav_PicksMeaningfulIconsByLabel_WithDiacriticsAndDotFallback()
+    {
+        var items = new List<PocNavItem>
+        {
+            new() { Label = "Trang chủ" },                                  // home (Vietnamese diacritics)
+            new() { Label = "Sản phẩm", Children = new() { "Giỏ hàng" } },  // package + cart child
+            new() { Label = "Zzz" }                                          // unknown -> dot fallback
+        };
+
+        var updated = PocTemplate.ReplaceNav(Shell(), items);
+
+        // Real, label-specific glyphs instead of the old generic square/circle.
+        Assert.Contains("M3 9l9-7 9 7", updated);                                  // home roofline
+        Assert.Contains("M21 16V8a2 2 0 0 0-1-1.73", updated);                     // package box
+        Assert.Contains("<circle cx=\"9\" cy=\"21\" r=\"1\"/>", updated);          // cart wheel (child)
+        Assert.Contains("fill=\"currentColor\"", updated);                         // solid-dot fallback
+
+        // Every item still carries an .ico svg, and the old checkbox-style square is gone.
+        Assert.Contains("<svg class=\"ico\" viewBox=\"0 0 24 24\">", updated);
+        Assert.DoesNotContain("<rect x=\"3\" y=\"3\" width=\"18\" height=\"18\"", updated);
+    }
+
+    [Fact]
     public void ReplaceNav_NoOp_WhenNothingRenderableOrNavMissing()
     {
         var shell = Shell();
