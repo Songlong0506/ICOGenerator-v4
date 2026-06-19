@@ -134,12 +134,13 @@ public class AgentTaskWorker : BackgroundService
                 stopWhen: stopWhen,
                 cancellationToken: cancellationToken);
 
-            // Bước POC: nếu agent đạt giới hạn bước mà chưa tạo được POC (stopWhen chưa kích hoạt)
-            // thì coi là thất bại, tránh ghi nhận Completed sai lệch.
-            if (task.Type == AgentTaskType.PocPreview
-                && string.Equals(output, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal))
+            // Nếu agent đạt giới hạn số bước mà chưa hoàn tất (chưa gọi tool tạo deliverable),
+            // coi là thất bại để báo lỗi rõ thay vì ghi nhận Completed sai lệch.
+            if (string.Equals(output, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal))
                 throw new InvalidOperationException(
-                    "Agent đạt giới hạn số bước mà chưa tạo được POC (chưa gọi SetPocContent thành công).");
+                    task.Type == AgentTaskType.PocPreview
+                        ? "Agent đạt giới hạn số bước mà chưa tạo được POC (chưa gọi SetPocContent thành công)."
+                        : $"Agent đạt giới hạn số bước mà chưa hoàn tất bước '{task.Title}' (chưa gọi tool ghi kết quả).");
 
             task.Status = AgentTaskStatus.Completed;
             task.Output = output;
