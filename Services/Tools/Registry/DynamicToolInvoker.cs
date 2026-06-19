@@ -6,6 +6,8 @@ namespace ICOGenerator.Services.Tools.Registry;
 
 public class DynamicToolInvoker
 {
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
     private readonly ToolPolicyService _toolPolicyService;
     private readonly IToolExecutionLogger _toolExecutionLogger;
 
@@ -29,7 +31,7 @@ public class DynamicToolInvoker
                 values[i] = p.HasDefaultValue ? p.DefaultValue : GetDefault(p.ParameterType);
                 continue;
             }
-            values[i] = JsonSerializer.Deserialize(json.GetRawText(), p.ParameterType, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            values[i] = JsonSerializer.Deserialize(json.GetRawText(), p.ParameterType, JsonOptions);
         }
 
         var result = tool.Method.Invoke(tool.Instance, values);

@@ -33,14 +33,9 @@
 
 }
 
-<div class="breadcrumb">
-    Projects › @Model.Name › <b>Requirements</b>
-</div>
-
 <div class="page-head">
     <div>
         <h1>Requirements</h1>
-        <p>Chat with BA to define and capture requirements</p>
     </div>
 
     <div class="card status">
@@ -93,7 +88,8 @@
 
         <form asp-action="NewChat"
               method="post"
-              class="new-chat-form">
+              class="new-chat-form"
+              onsubmit="return confirm('Bắt đầu chat mới sẽ xóa toàn bộ lịch sử hội thoại của dự án này. Tiếp tục?');">
 
             <input type="hidden"
                    name="projectId"
@@ -183,46 +179,51 @@
 
         </div>
 
-        <!-- WRITE REQUIREMENT (generate the 5 docs on demand) -->
-        <form asp-action="WriteRequirement"
-              method="post"
-              class="write-req"
-              style="margin:0 12px 8px;"
-              onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="projectId" value="@Model.Id" />
-            <button class="btn primary full" type="submit"
-                    title="Sinh/cập nhật BRD, SRS, FSD, User Stories, AI Design Spec từ hội thoại">
-                📝 Write Requirement
-            </button>
-        </form>
+        <!-- COMPOSER: write-requirement action + chat input, anchored to bottom -->
+        <div class="chat-composer">
 
-        <!-- CHAT INPUT -->
-        <form id="chatForm"
-              asp-action="Chat"
-              method="post"
-              class="chatbox">
+            <!-- WRITE REQUIREMENT (generate the 5 docs on demand) -->
+            <form asp-action="WriteRequirement"
+                  method="post"
+                  class="write-req"
+                  onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="projectId" value="@Model.Id" />
+                <button class="btn outline write-req-btn" type="submit"
+                        title="Sinh/cập nhật BRD, SRS, FSD, User Stories, AI Design Spec từ hội thoại">
+                    📝 Write Requirement
+                </button>
+            </form>
 
-            @Html.AntiForgeryToken()
+            <!-- CHAT INPUT -->
+            <form id="chatForm"
+                  asp-action="Chat"
+                  method="post"
+                  class="chatbox">
 
-            <input type="hidden"
-                   name="projectId"
-                   value="@Model.Id" />
+                @Html.AntiForgeryToken()
 
-            <input type="hidden"
-                   id="hiddenMessage"
-                   name="message" />
+                <input type="hidden"
+                       name="projectId"
+                       value="@Model.Id" />
 
-          <textarea id="messageInput"
-                      rows="1"
-                      placeholder="Type your message..."
-                      autocomplete="off"></textarea>
+                <input type="hidden"
+                       id="hiddenMessage"
+                       name="message" />
 
-            <button class="btn primary"
-                    type="submit">
-                ➤
-            </button>
-        </form>
+              <textarea id="messageInput"
+                          rows="1"
+                          placeholder="Type your message..."
+                          autocomplete="off"></textarea>
+
+                <button class="btn primary"
+                        type="submit"
+                        aria-label="Send message">
+                    ➤
+                </button>
+            </form>
+
+        </div>
 
     </section>
 
@@ -265,7 +266,11 @@
 
                     <h3>@doc.FileName</h3>
 
-                    <pre>@(string.IsNullOrWhiteSpace(doc.Content) ? "No preview available." : doc.Content)</pre>
+                    <div class="doc-render"
+                         data-doc-id="@doc.Id"
+                         data-loaded="false">
+                        <p class="doc-loading">Loading…</p>
+                    </div>
 
                     <div class="doc-actions">
                         @*  <a class="btn outline"
@@ -294,7 +299,7 @@
                            value="@Model.Id" />
 
                     <button class="btn approve">
-                        I approve this requirement
+                        Approve this requirement
                     </button>
                 </form>
             }
@@ -302,6 +307,10 @@
 
     </div>
 </div>
+
+@section Breadcrumb {
+    Projects <span class="sep">&rsaquo;</span> @Model.Name <span class="sep">&rsaquo;</span> <b>Requirements</b>
+}
 
 @section Styles {
     <link rel="stylesheet" href="~/css/requirements.css" asp-append-version="true" />

@@ -74,11 +74,40 @@
             border-color: var(--line);
         }
 
+    /* Bottom composer groups the write-requirement action and the chat input
+       into one block, anchored to the panel bottom with a separator so it no
+       longer looks like a button floating in the empty chat area. */
+    .chat-composer {
+        flex: 0 0 auto;
+        margin-top: 12px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .write-req {
+        margin: 0;
+        display: flex;
+    }
+
+    /* Compact button sized to its label instead of a full-width bar so it
+       reads as an action button rather than a separator. */
+    .write-req-btn {
+        display: inline-flex;
+        width: auto;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-weight: 600;
+    }
+
     .chatbox {
         display: flex;
         align-items: flex-end;
         gap: 12px;
-        margin-top: 20px;
+        margin-top: 0;
     }
 
         .chatbox textarea {
@@ -196,6 +225,71 @@
         background: #fafafa;
         padding: 20px;
         border-radius: 12px;
+    }
+
+    .doc-render {
+        line-height: 1.65;
+        color: #1e293b;
+        font-size: 14px;
+    }
+
+    .doc-render > :first-child {
+        margin-top: 0;
+    }
+
+    .doc-render h1 {
+        font-size: 24px;
+        margin: 20px 0 12px;
+        font-weight: 700;
+    }
+
+    .doc-render h2 {
+        font-size: 20px;
+        margin: 18px 0 10px;
+        font-weight: 700;
+    }
+
+    .doc-render h3 {
+        font-size: 17px;
+        margin: 16px 0 8px;
+        font-weight: 700;
+    }
+
+    .doc-render h4,
+    .doc-render h5,
+    .doc-render h6 {
+        font-size: 15px;
+        margin: 14px 0 6px;
+        font-weight: 700;
+    }
+
+    .doc-render p {
+        margin: 8px 0;
+    }
+
+    .doc-render table.doc-table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 14px 0;
+        font-size: 13px;
+    }
+
+    .doc-render table.doc-table td {
+        border: 1px solid #cbd5e1;
+        padding: 8px 12px;
+        vertical-align: top;
+        text-align: left;
+    }
+
+    .doc-render table.doc-table tr:first-child td {
+        background: #f1f5f9;
+        font-weight: 600;
+    }
+
+    .doc-empty,
+    .doc-loading {
+        color: #94a3b8;
+        font-style: italic;
     }
 
     .doc-actions {
@@ -481,4 +575,27 @@
 
     .wf-banner-slot:empty {
         margin-top: 0;
+    }
+
+    /* ===== Responsive ===== */
+
+    @media (max-width: 900px) {
+        .doc-grid {
+            grid-template-columns: 1fr;
+            height: auto;
+        }
+
+        .history-panel {
+            order: 2;
+        }
+
+        .chat-panel {
+            order: 1;
+            height: calc(100vh - 220px);
+            min-height: 420px;
+        }
+
+        .msg {
+            max-width: 90%;
+        }
     }

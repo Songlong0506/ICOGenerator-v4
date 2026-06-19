@@ -1,0 +1,21 @@
+@{
+    // Layout = null để trang lỗi luôn render được, không phụ thuộc vào phần còn lại
+    // của ứng dụng (layout/menu) vốn có thể chính là thứ đang gây lỗi.
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Đã xảy ra lỗi - ICO Generator</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <main style="max-width:640px;margin:80px auto;padding:0 24px;font-family:system-ui,-apple-system,sans-serif;color:#1f2937;">
+        <h1 style="font-size:1.5rem;margin-bottom:.5rem;">Đã xảy ra lỗi</h1>
+        <p style="color:#4b5563;">Hệ thống gặp sự cố khi xử lý yêu cầu của bạn. Sự cố đã được ghi log; vui lòng thử lại sau.</p>
+        <p style="margin-top:1.5rem;"><a href="/" style="color:#6d28d9;">← Quay về trang chủ</a></p>
+    </main>
+</body>
+</html>

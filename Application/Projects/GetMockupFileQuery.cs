@@ -23,7 +23,7 @@ public class GetMockupFileQuery
         if (project == null)
             return null;
 
-        var filePath = _workspacePathResolver.GetMockupPath(project.Name);
+        var filePath = _workspacePathResolver.GetMockupPath(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
         return File.Exists(filePath) ? new MockupFileResult(filePath) : null;
     }
 }

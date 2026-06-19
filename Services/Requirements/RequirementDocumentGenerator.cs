@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Requirements.Templates;
 using ICOGenerator.Services.Artifacts;
 using Microsoft.EntityFrameworkCore;
@@ -40,11 +41,12 @@ public class RequirementDocumentGenerator
         var srsTemplate = _templateService.EnsureTemplateDocx("SRS_Template.docx");
         var fsdTemplate = _templateService.EnsureTemplateDocx("FSD_Template.docx");
 
-        var brdOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("BRD"));
-        var srsOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("SRS"));
-        var fsdOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("FSD"));
-        var storiesOutput = _artifactStorage.GetDraftPath(project.Name, GetArtifact("UserStories"));
-        var aiDesignSpecOutput = _artifactStorage.GetDraftPath(project.Name, _artifactCatalog.AiDesignSpec);
+        var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
+        var brdOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("BRD"));
+        var srsOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("SRS"));
+        var fsdOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("FSD"));
+        var storiesOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("UserStories"));
+        var aiDesignSpecOutput = _artifactStorage.GetDraftPath(projectKey, _artifactCatalog.AiDesignSpec);
 
         _docxWriter.CreateFromTemplate(brdTemplate, brdOutput, BuildBrdReplacements(project, result.Brd));
         _docxWriter.CreateFromTemplate(srsTemplate, srsOutput, BuildSrsReplacements(project, result.Srs));
@@ -76,12 +78,12 @@ public class RequirementDocumentGenerator
         var body = mainPart.Document.Body!;
 
         body.AppendChild(new Paragraph(
-            new Run(new Text(title))));
+            new Run(new Text(DocxTemplateWriter.SanitizeXmlText(title)))));
 
-        foreach (var line in content.Split('\n'))
+        foreach (var line in (content ?? "").Split('\n'))
         {
             body.AppendChild(new Paragraph(
-                new Run(new Text(line))));
+                new Run(new Text(DocxTemplateWriter.SanitizeXmlText(line)))));
         }
 
         mainPart.Document.Save();
@@ -108,7 +110,7 @@ public class RequirementDocumentGenerator
                 FileName = fileName,
                 FilePath = filePath,
                 Content = previewContent,
-                TokenUsed = EstimateTokens(previewContent)
+                TokenUsed = TokenEstimator.Estimate(previewContent)
             });
         }
         else
@@ -116,8 +118,8 @@ public class RequirementDocumentGenerator
             doc.Folder = artifact.Phase;
             doc.Content = previewContent;
             doc.FilePath = filePath;
-            doc.TokenUsed = EstimateTokens(previewContent);
-            doc.CreatedAt = DateTime.UtcNow;
+            doc.TokenUsed = TokenEstimator.Estimate(previewContent);
+            // Giữ nguyên CreatedAt: ghi đè bằng UtcNow mỗi lần cập nhật sẽ mất thời điểm tạo gốc và sai thứ tự sắp xếp theo CreatedAt (GetDoc/dashboard).
         }
     }
 
@@ -210,8 +212,4 @@ public class RequirementDocumentGenerator
             ["[Khi nào luồng này xảy ra?]"] = fsd.AlternativeFlows
         };
     }
-
-
-    private static int EstimateTokens(string? text)
-        => string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 4);
 }

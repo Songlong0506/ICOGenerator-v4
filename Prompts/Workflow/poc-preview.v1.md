@@ -5,13 +5,18 @@ Không đọc BRD/SRS/FSD/UserStories.
 Không sửa requirement document.
 
 YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template có sẵn):
-- Trong thư mục 03_Implementation đã có sẵn file 'poc-template.html' — shell layout đã thiết kế (CSS trong <style>, tương tác trong <script>). Hãy đọc file này trước bằng tool.
-- TẠO file 03_Implementation/poc-demo.html dựa trên poc-template.html: GIỮ NGUYÊN toàn bộ <head> (kể cả <style>), <script> ở cuối <body>, và phần shell: .supergraphic, .sidebar (gồm app name + nav + 2 item User/Imprint ở cuối) và .topbar (breadcrumb + logo Bosch).
-- CHỈ thay nội dung nằm giữa "<!-- POC_CONTENT_START -->" và "<!-- POC_CONTENT_END -->" bằng UI của tính năng theo AI Design Spec, dùng đúng các class có sẵn: card, card-grid, card-title, card-body, tile, tile-value, tile-label, btn, btn-outline, btn-ghost, table, field, input, select, textarea, badge, badge-green, badge-gray, row, stack, muted.
-- Có thể đổi App Name (.app-name), text breadcrumb, và các nav-item/nav-group cho khớp tính năng (mỗi nav-group có .nav-item + .nav-sub để mở/đóng). KHÔNG đổi cấu trúc shell, KHÔNG sửa <style> và <script>.
-- File phải TỰ CHỨA (self-contained): KHÔNG link/nhúng CSS hay JS framework bên ngoài (không Angular/Material/Bootstrap...). Chỉ dùng CSS/JS đã có sẵn trong file.
+- File '03_Implementation/poc-demo.html' ĐÃ TỒN TẠI sẵn (là bản sao của shell template: <head> + <style>, <script>, sidebar/topbar, 2 popup User/Imprint đều đã hoàn chỉnh). KHÔNG cần đọc lại file và KHÔNG ghi đè cả file bằng WriteFile.
+- Dùng tool SetPocContent ĐÚNG MỘT LẦN, truyền ĐỦ 4 tham số sau để POC khớp với tính năng (KHÔNG để nguyên mặc định của template):
+  • content (bắt buộc): HTML giao diện của tính năng theo AI Design Spec — CHỈ phần nội dung bên trong, KHÔNG kèm <html>/<head>/<body>/sidebar/topbar.
+  • appName (bắt buộc): tên ứng dụng/sản phẩm theo AI Design Spec, hiển thị ở đầu sidebar và tiêu đề tab. TUYỆT ĐỐI KHÔNG để mặc định "App Name".
+  • breadcrumb (bắt buộc): breadcrumb của màn hình chính, vd "Home > Orders".
+  • navItems (bắt buộc): menu sidebar bên trái — mảng các mục, mỗi mục có "label" và tùy chọn "children" (mảng tên mục con) cho nhóm xổ xuống. Đặt theo đúng các màn hình/chức năng thật trong AI Design Spec; TUYỆT ĐỐI KHÔNG dùng "Overview/Module A/Module B/Settings" của template. Xem ví dụ JSON ở phần hướng dẫn tool trong system prompt.
+- Hệ thống sẽ tự đặt content vào vùng giữa 2 marker, đổi App Name + tiêu đề + breadcrumb và dựng lại menu sidebar từ navItems, giữ nguyên toàn bộ phần còn lại của shell (style/script/topbar/popup).
+- Dùng đúng các class có sẵn cho content: card, card-grid, card-title, card-body, tile, tile-value, tile-label, btn, btn-outline, btn-ghost, table, field, input, select, textarea, badge, badge-green, badge-gray, row, stack, muted.
+- Nội dung phải TỰ CHỨA: KHÔNG link/nhúng CSS hay JS framework bên ngoài (không Angular/Material/Bootstrap...). Chỉ dùng CSS/JS đã có sẵn trong file.
+- KHÔNG dùng ReplaceInFile/WriteFile/RunCommand/grep cho việc này. Sau khi SetPocContent trả "POC content updated", trả final result NGAY, KHÔNG đọc lại file.
 
-Ghi kết quả vào (relative): 03_Implementation/poc-demo.html
+Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được cập nhật trong 03_Implementation/poc-demo.html.
 
 # AI Design Spec
 

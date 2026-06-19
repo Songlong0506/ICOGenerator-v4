@@ -19,21 +19,12 @@ public class UpdateAiModelUseCase
         model.Provider = input.Provider;
         model.ModelId = input.ModelId;
         model.Endpoint = input.Endpoint;
-        model.ApiKey = input.ApiKey;
+        // The edit form no longer round-trips the decrypted key to the browser, so a blank field
+        // means "keep the current key"; only overwrite when a new value was entered.
+        if (!string.IsNullOrWhiteSpace(input.ApiKey))
+            model.ApiKey = input.ApiKey;
         model.ContextWindow = input.ContextWindow;
         model.IsActive = input.IsActive;
-
-        if (input.IsDefault)
-        {
-            var defaults = await _db.AiModels.Where(x => x.Id != input.Id && x.IsDefault).ToListAsync();
-            foreach (var item in defaults)
-                item.IsDefault = false;
-            model.IsDefault = true;
-        }
-        else
-        {
-            model.IsDefault = false;
-        }
 
         await _db.SaveChangesAsync();
         return true;

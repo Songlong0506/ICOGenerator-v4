@@ -7,17 +7,27 @@ namespace ICOGenerator.Services.Requirements;
 
 public class RequirementResponseParser
 {
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
     public BARequirementDocxResult Parse(string response, Project project, string userMessage)
     {
         try
         {
             var json = JsonExtractor.Extract(response);
-            var result = JsonSerializer.Deserialize<BARequirementDocxResult>(
-                json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var result = JsonSerializer.Deserialize<BARequirementDocxResult>(json, JsonOptions);
 
             if (result != null)
+            {
+                // The model can return valid JSON with a null section/Content; guarantee non-null here, else downstream deref throws a NullReferenceException OUTSIDE this try/catch.
+                result.Brd ??= new();
+                result.Srs ??= new();
+                result.Fsd ??= new();
+                result.UserStories ??= new();
+                result.AiDesignSpec ??= new();
+                result.UserStories.Content ??= "";
+                result.AiDesignSpec.Content ??= "";
                 return result;
+            }
         }
         catch
         {

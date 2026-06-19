@@ -1,3 +1,4 @@
+using ICOGenerator.Application.Account;
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Projects;
@@ -14,21 +15,37 @@ using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Settings;
 using ICOGenerator.Services.Requirements.Templates;
+using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Workflows;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 
 namespace ICOGenerator.Extensions;
 
 public static class ApplicationServiceCollectionExtensions
 {
-    public static IServiceCollection AddIcoGeneratorApplication(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddIcoGeneratorApplication(this IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment)
     {
-        services.AddControllersWithViews();
+        // Validate the antiforgery token on every unsafe verb by default, so a new POST action is
+        // CSRF-protected even if it forgets [ValidateAntiForgeryToken]. [IgnoreAntiforgeryToken] opts out.
+        services.AddControllersWithViews(options =>
+            options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
+        services.AddAuthServices(environment);
+        // MUST stay Singleton: OnModelCreating captures this instance in the ApiKey value-converter
+        // and EF caches that model globally; Scoped/Transient would bind it to a disposed instance.
+        services.AddSingleton<IApiKeyProtector, AesApiKeyProtector>();
         services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+            // Retry on transient SQL faults (connection blips, deadlocks) so a momentary glitch while
+            // saving a task's status doesn't surface as an unhandled exception and strand the task.
+            options.UseSqlServer(
+                configuration.GetConnectionString("DefaultConnection"),
+                sql => sql.EnableRetryOnFailure()));
 
         services.AddProjectUseCases();
         services.AddRequirementUseCases();
@@ -37,13 +54,46 @@ public static class ApplicationServiceCollectionExtensions
         services.AddUsageUseCases();
         services.AddSettingsUseCases();
         services.AddPromptServices();
-        services.AddLlmServices();
+        services.AddLlmServices(configuration);
         services.AddArtifactServices();
         services.AddToolServices();
         services.AddRequirementServices();
         services.AddAgentRuntime();
         services.AddWorkflowServices();
         services.AddTemplateServices();
+
+        return services;
+    }
+
+    private static IServiceCollection AddAuthServices(this IServiceCollection services, IWebHostEnvironment environment)
+    {
+        services.AddScoped<LoginUseCase>();
+
+        services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddCookie(options =>
+            {
+                options.LoginPath = "/Account/Login";
+                options.LogoutPath = "/Account/Logout";
+                options.AccessDeniedPath = "/Account/Login";
+                options.ExpireTimeSpan = TimeSpan.FromHours(8);
+                options.SlidingExpiration = true;
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                // Always send the auth cookie over HTTPS only; relax to SameAsRequest in Development so
+                // the cookie still works over the plain-HTTP local profile (http://localhost:55357).
+                options.Cookie.SecurePolicy = environment.IsDevelopment()
+                    ? CookieSecurePolicy.SameAsRequest
+                    : CookieSecurePolicy.Always;
+            });
+
+        // Secure by default: every endpoint requires auth unless it opts out with [AllowAnonymous],
+        // so the command-running Settings page stays guarded even if a controller forgets [Authorize].
+        services.AddAuthorization(options =>
+        {
+            options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build();
+        });
 
         return services;
     }
@@ -58,16 +108,14 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddRequirementUseCases(this IServiceCollection services)
     {
-        // Application layer: use cases & queries driven by RequirementsController.
         services.AddScoped<GetRequirementWorkspaceQuery>();
-        services.AddScoped<StartRequirementChatUseCase>();
-        services.AddScoped<GetRequirementJobStatusQuery>();
         services.AddScoped<GetDocumentDownloadQuery>();
         services.AddScoped<GenerateRequirementDraftUseCase>();
         services.AddScoped<ChatWithBAUseCase>();
         services.AddScoped<ApproveRequirementUseCase>();
         services.AddScoped<ApproveStageUseCase>();
         services.AddScoped<RejectStageUseCase>();
+        services.AddScoped<StartNewChatUseCase>();
         return services;
     }
 
@@ -88,7 +136,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ListAiModelsQuery>();
         services.AddScoped<CreateAiModelUseCase>();
         services.AddScoped<UpdateAiModelUseCase>();
-        services.AddScoped<SetDefaultAiModelUseCase>();
         services.AddScoped<DeleteAiModelUseCase>();
         return services;
     }
@@ -113,8 +160,30 @@ public static class ApplicationServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddLlmServices(this IServiceCollection services)
+    private static IServiceCollection AddLlmServices(this IServiceCollection services, IConfiguration configuration)
     {
+        // Proxy is config-driven (Llm:Proxy:Enabled / :Address) so one build works both behind the
+        // office proxy and at home. Defaults preserve the office behaviour (proxy on, port 3128).
+        var proxyEnabled = configuration.GetValue("Llm:Proxy:Enabled", true);
+        var proxyAddress = configuration.GetValue("Llm:Proxy:Address", "http://127.0.0.1:3128");
+
+        // Two pooled clients (direct for localhost, proxied) so LlmClient never news up a handler per call.
+        services.AddHttpClient(LlmClient.DirectClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                UseProxy = false,
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+            });
+
+        services.AddHttpClient(LlmClient.ProxiedClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                // When the proxy is disabled (e.g. at home) this client falls back to a direct connection.
+                UseProxy = proxyEnabled,
+                Proxy = proxyEnabled ? new WebProxy(proxyAddress) : null,
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+            });
+
         services.AddScoped<IModelCallLogger, ModelCallLogger>();
         services.AddScoped<ILlmClient, LlmClient>();
         return services;
@@ -144,18 +213,15 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddAgentRuntime(this IServiceCollection services)
     {
-        // Services/Agents: the autonomous tool-using agent loop + its background job runner.
         services.AddScoped<AgentInstructionProvider>();
         services.AddScoped<AgentPromptBuilder>();
         services.AddScoped<AgentActionParser>();
         services.AddScoped<AgentRunService>();
-        services.AddHostedService<AgentJobRunner>();
         return services;
     }
 
     private static IServiceCollection AddRequirementServices(this IServiceCollection services)
     {
-        // Services/Requirements: domain services that turn a BA conversation into requirement documents.
         services.AddScoped<BARequirementService>();
         services.AddScoped<RequirementPromptBuilder>();
         services.AddScoped<RequirementResponseParser>();

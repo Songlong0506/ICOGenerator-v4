@@ -6,31 +6,11 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace ICOGenerator.Migrations
 {
     /// <inheritdoc />
-    public partial class v1 : Migration
+    public partial class V1 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "AgentJobs",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    CurrentStep = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    UserMessage = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Result = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Error = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    FinishedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AgentJobs", x => x.Id);
-                });
-
             migrationBuilder.CreateTable(
                 name: "AiModels",
                 columns: table => new
@@ -40,9 +20,8 @@ namespace ICOGenerator.Migrations
                     Provider = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     ModelId = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Endpoint = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
-                    ApiKey = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    ApiKey = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
                     ContextWindow = table.Column<int>(type: "int", nullable: false),
-                    IsDefault = table.Column<bool>(type: "bit", nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
@@ -92,14 +71,12 @@ namespace ICOGenerator.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    RoleTitle = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     RoleKey = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Instruction = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Color = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
                     Temperature = table.Column<double>(type: "float", nullable: false),
-                    AiModelId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    AiModelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -109,7 +86,8 @@ namespace ICOGenerator.Migrations
                         name: "FK_Agents_AiModels_AiModelId",
                         column: x => x.AiModelId,
                         principalTable: "AiModels",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -387,9 +365,6 @@ namespace ICOGenerator.Migrations
         {
             migrationBuilder.DropTable(
                 name: "AgentConversations");
-
-            migrationBuilder.DropTable(
-                name: "AgentJobs");
 
             migrationBuilder.DropTable(
                 name: "AgentModelCallLogs");

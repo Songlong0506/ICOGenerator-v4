@@ -37,15 +37,3 @@ public class ThinkingDto
     [JsonPropertyName("type")]
     public string Type { get; set; } = "disabled";
 }
-
-public class ChatCompletionResponseDto
-{
-    [JsonPropertyName("choices")]
-    public List<ChatChoiceDto> Choices { get; set; } = [];
-}
-
-public class ChatChoiceDto
-{
-    [JsonPropertyName("message")]
-    public ChatMessageDto Message { get; set; } = new();
-}

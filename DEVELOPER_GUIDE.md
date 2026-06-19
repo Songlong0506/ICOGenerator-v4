@@ -22,11 +22,19 @@ Cấu hình ở `appsettings.json`:
 - `ConnectionStrings:DefaultConnection` — đổi `Server=...` sang SQL Server của bạn.
 - `AgentWorkspace:RootPath` — thư mục agent dùng làm workspace để đọc/ghi/đặt file sinh ra. **Đổi sang đường dẫn tồn tại trên máy bạn.**
 - `AllowedCommands` / `AllowedFileExtensions` — "rào chắn an toàn" giới hạn lệnh shell và loại file mà tool của agent được phép đụng tới. Mở rộng có cân nhắc.
+- `Auth:Username` / `Auth:Password` — đăng nhập (cookie) bảo vệ **toàn bộ** app. Username mặc định `admin`. **Mật khẩu KHÔNG commit vào file**: nạp qua biến môi trường `Auth__Password` hoặc user-secrets. Nếu để trống, mọi lần đăng nhập đều bị từ chối (an toàn mặc định).
+
+Bí mật cần đặt trước khi chạy (qua biến môi trường hoặc `dotnet user-secrets`, không commit):
+```
+Encryption__ApiKeyKey   # khóa mã hóa ApiKey trong DB (app fail-fast nếu thiếu)
+Auth__Password          # mật khẩu đăng nhập; thiếu thì không đăng nhập được
+```
 
 Chạy:
 ```
 dotnet run
 ```
+Mở app sẽ vào trang `/Account/Login`; đăng nhập bằng `Auth:Username` + `Auth:Password` rồi mới dùng được các màn hình.
 Khi khởi động, `DbInitializer.InitializeAsync` sẽ tự: chạy migration, đồng bộ danh mục tool (`ToolDiscoveryService`), và **seed sẵn 6 agent** (BA, Tech Lead, Developer, Tester, UI/UX, System) cùng AI model + vài project mẫu. App mặc định mở vào `ProjectsController`.
 
 ---
@@ -61,7 +69,6 @@ Chi tiết đầy đủ: `ARCHITECTURE.md`.
 | `AgentRoleKey` | Vai trò của agent: `BusinessAnalyst`, `TechLead`, `Developer`, `Tester`, `UiUx`, `System`. **Đã định nghĩa đủ cho cả team.** | `Domain/Enums/AgentRoleKey.cs` |
 | `ProjectDocument` | Tài liệu sinh ra trong dự án (BRD/SRS/FSD, design spec…), có `Folder`, `VersionName`, `IsApproved`. | `Domain/ProjectDocument.cs` |
 | `AgentConversation` | Một dòng hội thoại user ↔ agent trong một project. | `Domain/AgentConversation.cs` |
-| `AgentJob` | Một lần chạy agent *tương tác* (theo yêu cầu người dùng), có trạng thái `Queued/Running/Completed/...`. Dùng cho luồng chat. | `Domain/AgentJob.cs` |
 | `WorkflowRun` | Một lần chạy *quy trình giao hàng* cho project, có `CurrentStage` và tập `AgentTask`. Đây là "vé" theo dõi cả pipeline. | `Domain/WorkflowRun.cs` |
 | `WorkflowStageKey` | Giai đoạn hiện tại của workflow. **Hiện chỉ có** `RequirementApproved`, `Implementation`, `Completed`, `Failed`. Đây là chỗ cần mở rộng cho team. | `Domain/Enums/WorkflowStageKey.cs` |
 | `AgentTask` | Một đầu việc giao cho một agent trong một `WorkflowRun`: có `Type`, `Status`, `Input`, `Output`, `Attempt`. | `Domain/AgentTask.cs` |
@@ -270,7 +277,7 @@ Lưu ý thiết kế:
 
 ## 8. Cạm bẫy & quy ước cần biết
 
-- **Phân biệt `AgentJob` và `WorkflowRun`/`AgentTask`.** `AgentJob` cho luồng chat tương tác; `WorkflowRun` + `AgentTask` cho pipeline nền. Đừng trộn hai cái.
+- **Chat BA chạy đồng bộ.** Người dùng gửi message → `RequirementsController.Chat` → `ChatWithBAUseCase` → `BARequirementService` (trong cùng request). Luồng job bất đồng bộ cũ (`AgentJob`/`AgentJobRunner`) đã được gỡ; đừng dựng lại trừ khi thực sự nối vào UI. Pipeline nền giao hàng vẫn dùng `WorkflowRun` + `AgentTask`.
 - **Rào an toàn của tool.** Tool chạy lệnh/đụng file bị giới hạn bởi `AllowedCommands` và `AllowedFileExtensions` trong `appsettings.json`, và `ToolPolicyService` kiểm tra tham số. Thêm tool mạnh thì cân nhắc kỹ.
 - **Thêm tool cho agent = viết một method** trong một class `*Tools` (`Services/Tools/...`); registry + reflection (`ToolDiscoveryService`, `DynamicToolInvoker`) tự sinh schema. Không phải sửa vòng lặp agent. Nhớ gán tool cho vai trong `DbInitializer.AssignDefaultToolsAsync`.
 - **namespace = đường dẫn thư mục.** Giữ đúng để nhìn là biết file ở đâu.
@@ -286,7 +293,7 @@ Lưu ý thiết kế:
 - `Extensions/ApplicationServiceCollectionExtensions.cs` — **nơi duy nhất** đăng ký DI (mỗi nhóm `AddXxx` = một thư mục).
 - `Data/DbInitializer.cs` — migrate + seed agent/model/tool/project mẫu.
 - `Application/` — use case theo khu vực (Projects, Requirements, Agents, Models).
-- `Services/Agents/` — vòng lặp agent (`AgentRunService`) + worker chạy job chat.
+- `Services/Agents/` — vòng lặp agent (`AgentRunService`) dùng bởi worker pipeline.
 - `Services/Workflows/` — orchestrator pipeline + `AgentTaskWorker` (nơi làm hand-off ở mục 7).
 - `Services/Requirements/` — biến hội thoại BA thành tài liệu.
 - `Services/Tools/` — `Abstractions` (hợp đồng), `Execution` (hiện thực), `Registry` (khám phá/gọi), và các nhóm tool nghiệp vụ.

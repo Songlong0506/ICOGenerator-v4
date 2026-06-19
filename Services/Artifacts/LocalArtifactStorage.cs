@@ -10,16 +10,16 @@ public class LocalArtifactStorage : IArtifactStorage
         _workspacePathResolver = workspacePathResolver;
     }
 
-    public void InitializeProjectWorkspace(string projectName)
+    public void InitializeProjectWorkspace(string projectKey)
     {
-        Directory.CreateDirectory(_workspacePathResolver.GetProjectWorkspacePath(projectName));
+        Directory.CreateDirectory(_workspacePathResolver.GetProjectWorkspacePath(projectKey));
         foreach (var phase in ProjectWorkspaceLayout.Phases)
-            Directory.CreateDirectory(_workspacePathResolver.GetPhasePath(projectName, phase));
+            Directory.CreateDirectory(_workspacePathResolver.GetPhasePath(projectKey, phase));
     }
 
-    public string GetDraftPath(string projectName, ProjectArtifactDescriptor artifact) =>
-        Path.Combine(_workspacePathResolver.GetPhaseDraftPath(projectName, artifact.Phase), artifact.FileName);
+    public string GetDraftPath(string projectKey, ProjectArtifactDescriptor artifact) =>
+        Path.Combine(_workspacePathResolver.GetPhaseDraftPath(projectKey, artifact.Phase), artifact.FileName);
 
-    public string GetVersionPath(string projectName, string versionName, ProjectArtifactDescriptor artifact) =>
-        Path.Combine(_workspacePathResolver.GetPhaseVersionPath(projectName, artifact.Phase, versionName), artifact.FileName);
+    public string GetVersionPath(string projectKey, string versionName, ProjectArtifactDescriptor artifact) =>
+        Path.Combine(_workspacePathResolver.GetPhaseVersionPath(projectKey, artifact.Phase, versionName), artifact.FileName);
 }

@@ -48,7 +48,6 @@
 <div class="page-head">
     <div>
         <h1>AI Models</h1>
-        <p>Manage and configure AI models used in your agents.</p>
     </div>
 
     <button class="btn primary" onclick="openModal('addModel')" type="button">
@@ -72,7 +71,6 @@
                 <th>Model ID</th>
                 <th>Context Window</th>
                 <th>Status</th>
-                <th>Default</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -90,20 +88,6 @@
                             @(m.IsActive ? "Active" : "Inactive")
                         </span>
                     </td>
-                    <td>
-                        @if (m.IsDefault)
-                        {
-                            <span>★</span>
-                        }
-                        else
-                        {
-                            <form asp-action="SetDefault" method="post" class="inline-form">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@m.Id" />
-                                <button class="link-btn" type="submit">Set default</button>
-                            </form>
-                        }
-                    </td>
                     <td class="actions">
                         <button class="icon-btn"
                                 type="button"
@@ -113,10 +97,8 @@
                                         '@JavaScriptEncoder.Default.Encode(m.Provider)',
                                         '@JavaScriptEncoder.Default.Encode(m.ModelId)',
                                         '@JavaScriptEncoder.Default.Encode(m.Endpoint)',
-                                        '@JavaScriptEncoder.Default.Encode(m.ApiKey)',
                                         '@m.ContextWindow',
-                                        '@m.IsActive.ToString().ToLower()',
-                                        '@m.IsDefault.ToString().ToLower()'
+                                        '@m.IsActive.ToString().ToLower()'
                                     )">
                             ✎
                         </button>
@@ -202,11 +184,6 @@
             Active
         </label>
 
-        <label class="checkbox-line">
-            <input name="IsDefault" type="checkbox" value="true" />
-            Set as default
-        </label>
-
         <div class="modal-actions">
             <button type="button" class="btn" onclick="closeModal('addModel')">Cancel</button>
             <button class="btn primary">Add Model</button>
@@ -236,8 +213,8 @@
         <label>Endpoint *</label>
         <input id="edit-endpoint" name="Endpoint" required />
 
-        <label>ApiKey *</label>
-        <input id="edit-api-key" name="ApiKey" required />
+        <label>ApiKey</label>
+        <input id="edit-api-key" name="ApiKey" placeholder="Để trống để giữ key hiện tại" autocomplete="off" />
 
         <label>Context Window</label>
         <input id="edit-context-window" name="ContextWindow" type="number" />
@@ -245,11 +222,6 @@
         <label class="checkbox-line">
             <input id="edit-is-active" name="IsActive" type="checkbox" value="true" />
             Active
-        </label>
-
-        <label class="checkbox-line">
-            <input id="edit-is-default" name="IsDefault" type="checkbox" value="true" />
-            Set as default
         </label>
 
         <div class="modal-actions">
@@ -267,21 +239,20 @@
             provider,
             modelId,
             endpoint,
-            apiKey,
             contextWindow,
-            isActive,
-            isDefault
+            isActive
         ) {
             document.getElementById('edit-id').value = id;
             document.getElementById('edit-name').value = name;
             document.getElementById('edit-provider').value = provider;
             document.getElementById('edit-model-id').value = modelId;
             document.getElementById('edit-endpoint').value = endpoint;
-            document.getElementById('edit-api-key').value = apiKey;
+            // The API key is never sent to the browser. Leave it blank on open; an empty
+            // field means "keep the existing key" (see UpdateAiModelUseCase).
+            document.getElementById('edit-api-key').value = '';
             document.getElementById('edit-context-window').value = contextWindow;
 
             document.getElementById('edit-is-active').checked = isActive === 'true';
-            document.getElementById('edit-is-default').checked = isDefault === 'true';
 
             openModal('editModel');
         }

@@ -4,7 +4,7 @@ const chatMessages = document.getElementById("chatMessages");
 const thinkingBox = document.getElementById("thinkingBox");
 
 function escapeHtml(value) {
-    return value
+    return String(value ?? "")
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
@@ -59,6 +59,28 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     });
 }
 
+async function loadDocPreview(previewEl) {
+    if (!previewEl) return;
+
+    const render = previewEl.querySelector(".doc-render");
+    if (!render || render.dataset.loaded === "true") return;
+
+    // Mark as loaded up-front so concurrent shows don't double-fetch.
+    render.dataset.loaded = "true";
+
+    const id = render.dataset.docId;
+
+    try {
+        const response = await fetch("/Requirements/DocumentPreview?id=" + encodeURIComponent(id));
+        if (!response.ok) throw new Error("Preview request failed");
+        const data = await response.json();
+        render.innerHTML = data.html;
+    } catch {
+        render.dataset.loaded = "false";
+        render.innerHTML = '<p class="doc-empty">Unable to load preview.</p>';
+    }
+}
+
 function openRequirementModal(version) {
     document.getElementById("modalTitle").innerText =
         "Requirement " + version;
@@ -78,6 +100,7 @@ function openRequirementModal(version) {
 
     if (docs.length > 0) {
         docs[0].style.display = "block";
+        loadDocPreview(docs[0]);
     }
 }
 
@@ -91,6 +114,8 @@ function showDocument(id) {
 
     const target = document.getElementById("doc-" + id);
 
-    if (target)
+    if (target) {
         target.style.display = "block";
+        loadDocPreview(target);
+    }
 }

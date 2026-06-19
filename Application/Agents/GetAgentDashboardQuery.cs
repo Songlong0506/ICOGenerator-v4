@@ -58,7 +58,7 @@ public class GetAgentDashboardQuery
     private IReadOnlyList<ProjectDocument> LoadWorkspaceDocuments(Project project, IEnumerable<ProjectDocument> databaseDocuments)
     {
         var documents = databaseDocuments.ToList();
-        var workspacePath = _workspacePathResolver.GetProjectWorkspacePath(project.Name);
+        var workspacePath = _workspacePathResolver.GetProjectWorkspacePath(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
 
         if (!Directory.Exists(workspacePath))
             return documents;
@@ -112,18 +112,28 @@ public class GetAgentDashboardQuery
     private static string GetDocumentKey(string folder, string versionName, string fileName) =>
         $"{folder}/{versionName}/{fileName}";
 
+    private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".cs", ".css", ".csv", ".html", ".htm", ".js", ".json", ".md", ".sql", ".txt", ".xml", ".yml", ".yaml"
+    };
+
     private static string ReadPreviewContent(string filePath)
     {
         var extension = Path.GetExtension(filePath);
-        var textExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".cs", ".css", ".csv", ".html", ".htm", ".js", ".json", ".md", ".sql", ".txt", ".xml", ".yml", ".yaml"
-        };
 
-        if (!textExtensions.Contains(extension))
+        if (!TextExtensions.Contains(extension))
             return $"Preview is not available for binary file: {Path.GetFileName(filePath)}";
 
-        var content = File.ReadAllText(filePath);
-        return content.Length > 12000 ? content[..12000] + "\n...[truncated]" : content;
+        // A locked/deleted/permission-denied file must not 500 the whole dashboard; degrade to an
+        // inline note for that one file and keep rendering the rest.
+        try
+        {
+            var content = File.ReadAllText(filePath);
+            return content.Length > 12000 ? content[..12000] + "\n...[truncated]" : content;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return $"Preview unavailable ({Path.GetFileName(filePath)}): {ex.Message}";
+        }
     }
 }

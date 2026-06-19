@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Xml;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -15,29 +16,87 @@ public class DocxTemplateWriter
     {
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
-        File.Copy(templatePath, outputPath, overwrite: true);
-
-        using var doc = WordprocessingDocument.Open(outputPath, true);
-
-        var texts = doc.MainDocumentPart!
-            .Document
-            .Descendants<Text>()
-            .ToList();
-
-        foreach (var text in texts)
+        // Build into a temp file and move into place only after Save() succeeds, so a mid-way failure can't leave a half-written .docx that downstream code treats as valid.
+        var tempPath = outputPath + ".tmp";
+        try
         {
-            foreach (var item in replacements)
+            File.Copy(templatePath, tempPath, overwrite: true);
+
+            using (var doc = WordprocessingDocument.Open(tempPath, true))
             {
-                if (text.Text.Contains(item.Key))
+                var texts = doc.MainDocumentPart!
+                    .Document
+                    .Descendants<Text>()
+                    .ToList();
+
+                // Replace longest keys first so a short marker can't clobber part of a longer one sharing its prefix; sanitize each value because XML-illegal chars would make Save() throw and corrupt the file.
+                foreach (var item in replacements.OrderByDescending(r => r.Key.Length))
                 {
-                    text.Text = text.Text.Replace(item.Key, item.Value ?? "");
+                    var value = SanitizeXmlText(item.Value);
+
+                    foreach (var text in texts)
+                    {
+                        if (text.Text.Contains(item.Key))
+                            text.Text = text.Text.Replace(item.Key, value);
+                    }
                 }
+
+                doc.MainDocumentPart.Document.Save();
+            }
+
+            // Atomic on the same volume: outputPath is only touched once the document is
+            // fully written and the package is closed.
+            File.Move(tempPath, outputPath, overwrite: true);
+        }
+        catch
+        {
+            TryDelete(tempPath);
+            throw;
+        }
+
+        return outputPath;
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+            // Best-effort cleanup; the original failure is the one worth surfacing.
+        }
+    }
+
+    /// <summary>
+    /// Removes XML 1.0-illegal chars (control chars, lone surrogates) that would otherwise make <c>Document.Save()</c> throw and corrupt the document; valid surrogate pairs are preserved.
+    /// </summary>
+    public static string SanitizeXmlText(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        var sb = new StringBuilder(value.Length);
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+
+            if (char.IsHighSurrogate(c) && i + 1 < value.Length && char.IsLowSurrogate(value[i + 1]))
+            {
+                sb.Append(c);
+                sb.Append(value[i + 1]);
+                i++;
+            }
+            else if (XmlConvert.IsXmlChar(c))
+            {
+                sb.Append(c);
             }
         }
 
-        doc.MainDocumentPart.Document.Save();
-
-        return outputPath;
+        return sb.ToString();
     }
 
     public string ExtractText(string docxPath)
@@ -57,9 +116,7 @@ public class DocxTemplateWriter
     }
 
     /// <summary>
-    /// Converts a .docx file into formatted HTML, preserving headings, tables
-    /// and basic run formatting (bold / italic) so the preview resembles the
-    /// document as opened in Word instead of a flat block of text.
+    /// Converts a .docx into HTML, preserving headings, tables and bold/italic so the preview resembles the Word document instead of a flat block of text.
     /// </summary>
     public string ExtractHtml(string docxPath)
     {

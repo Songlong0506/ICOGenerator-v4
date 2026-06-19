@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using ICOGenerator.Services.Artifacts;
 
 namespace ICOGenerator.Services.Tools;
@@ -15,11 +16,17 @@ public class WorkspaceTools
     }
     public string CurrentWorkspacePath { get; private set; } = string.Empty;
 
-    public void SetWorkspace(string projectName)
+    // Ambient cancellation for the current agent run, shared with long-running tools (e.g. CommandTools)
+    // so a workflow cancel / app shutdown actually stops a spawned process instead of waiting out the timeout.
+    public CancellationToken RunCancellationToken { get; private set; } = CancellationToken.None;
+
+    public void SetWorkspace(string projectKey)
     {
-        CurrentWorkspacePath = _workspacePathResolver.GetProjectWorkspacePath(projectName);
+        CurrentWorkspacePath = _workspacePathResolver.GetProjectWorkspacePath(projectKey);
         Directory.CreateDirectory(CurrentWorkspacePath);
     }
+
+    public void SetRunCancellation(CancellationToken cancellationToken) => RunCancellationToken = cancellationToken;
 
     [Description("Write a source code or documentation file into the current workspace.")]
     public async Task<string> WriteFile(string relativePath, string content)
@@ -46,7 +53,6 @@ public class WorkspaceTools
         if (fileSize <= MaxFullReadBytes)
             return await File.ReadAllTextAsync(fullPath);
 
-        // Only genuinely large files are paginated by line offset.
         var lines = await File.ReadAllLinesAsync(fullPath);
         if (offset < 0) offset = 0;
         if (offset >= lines.Length) return $"Offset {offset} exceeds file length ({lines.Length} lines).";
@@ -72,7 +78,7 @@ public class WorkspaceTools
     public string ListFiles()
     {
         EnsureWorkspace();
-        var files = Directory.GetFiles(CurrentWorkspacePath, "*.*", SearchOption.AllDirectories)
+        var files = Directory.EnumerateFiles(CurrentWorkspacePath, "*.*", SearchOption.AllDirectories)
             .Where(x => !x.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}"))
             .Select(x => Path.GetRelativePath(CurrentWorkspacePath, x)).Take(500).ToList();
         return files.Count == 0 ? "No files found." : string.Join(Environment.NewLine, files);
@@ -82,7 +88,7 @@ public class WorkspaceTools
     public string SearchFiles(string keyword)
     {
         EnsureWorkspace();
-        var files = Directory.GetFiles(CurrentWorkspacePath, "*.*", SearchOption.AllDirectories)
+        var files = Directory.EnumerateFiles(CurrentWorkspacePath, "*.*", SearchOption.AllDirectories)
             .Where(x => !x.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}"))
             .Select(x => Path.GetRelativePath(CurrentWorkspacePath, x))
             .Where(x => x.Contains(keyword, StringComparison.OrdinalIgnoreCase)).Take(100).ToList();
@@ -99,6 +105,39 @@ public class WorkspaceTools
         if (!content.Contains(oldText)) return $"Old text not found in file: {relativePath}";
         await File.WriteAllTextAsync(fullPath, content.Replace(oldText, newText));
         return $"File updated: {relativePath}";
+    }
+
+    [Description("Set the POC feature UI AND customise the page shell for the generated demo, in ONE call. " +
+        "'content' (required): only the inner HTML for the content region (no <html>/<head>/<body>/sidebar/topbar); it is placed between the POC_CONTENT markers in 03_Implementation/poc-demo.html. " +
+        "'appName': the application/product name, shown in the sidebar header and the browser tab — never leave it as the template default \"App Name\". " +
+        "'breadcrumb': the top-bar breadcrumb text, e.g. \"Home > Orders\". " +
+        "'navItems': the left sidebar menu — an array of objects { \"label\": string, \"children\": string[] } where 'children' is optional and turns the entry into an expandable group; set these to the real screens, not the template's Overview/Module A/Module B/Settings. " +
+        "The rest of the shell (style/script, topbar, popups) is kept untouched. Use this instead of ReplaceInFile for the POC.")]
+    public async Task<string> SetPocContent(string content, string? appName = null, string? breadcrumb = null, JsonElement? navItems = null)
+    {
+        EnsureWorkspace();
+        var fullPath = GetSafeFullPath(PocTemplate.MockupRelativePath);
+        if (!File.Exists(fullPath)) return $"File not found: {PocTemplate.MockupRelativePath}";
+
+        var current = await File.ReadAllTextAsync(fullPath);
+        var updated = PocTemplate.ReplaceContent(current, content ?? string.Empty);
+        if (updated == null)
+            return $"POC content markers not found in file: {PocTemplate.MockupRelativePath}";
+
+        // Customise the shell bits outside the content markers (App Name, title, breadcrumb, menu). Each step no-ops on empty/malformed input, so a slip in one never blocks the others or the content — worst case the shell stays as the template, never a failure.
+        if (!string.IsNullOrWhiteSpace(appName))
+            updated = PocTemplate.ReplaceAppName(updated, appName);
+        if (!string.IsNullOrWhiteSpace(breadcrumb))
+            updated = PocTemplate.ReplaceBreadcrumb(updated, breadcrumb);
+        if (navItems is { } navJson)
+        {
+            var items = PocNavItem.ParseList(navJson);
+            if (items.Count > 0)
+                updated = PocTemplate.ReplaceNav(updated, items);
+        }
+
+        await File.WriteAllTextAsync(fullPath, updated);
+        return $"POC content updated: {PocTemplate.MockupRelativePath}";
     }
 
     public void RenameFolder(string oldRelativePath, string newRelativePath)
@@ -125,9 +164,11 @@ public class WorkspaceTools
     {
         var allowed = _configuration.GetSection("AllowedFileExtensions").Get<string[]>() ?? [];
         if (allowed.Length == 0) return;
-        var fileName = Path.GetFileName(fullPath);
-        if (!allowed.Any(x => fileName.EndsWith(x, StringComparison.OrdinalIgnoreCase)))
-            throw new InvalidOperationException($"File extension is not allowed: {fileName}");
+        // Match the true file extension exactly (e.g. ".cs") and reject extensionless names, rather than
+        // a loose suffix check on the whole file name.
+        var ext = Path.GetExtension(fullPath);
+        if (string.IsNullOrEmpty(ext) || !allowed.Any(x => x.Equals(ext, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException($"File extension is not allowed: {Path.GetFileName(fullPath)}");
     }
     private void EnsureWorkspace()
     {

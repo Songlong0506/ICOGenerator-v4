@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Tools;
@@ -10,6 +11,9 @@ namespace ICOGenerator.Services.Agents;
 
 public class AgentRunService
 {
+    // Returned when the loop exhausts its step budget. Callers compare against this string to detect an incomplete run, so it is part of the contract — keep it in sync.
+    public const string MaxStepsReachedResult = "Stopped because max steps reached.";
+
     private readonly AppDbContext _db;
     private readonly IToolRegistry _toolRegistry;
     private readonly DynamicToolInvoker _invoker;
@@ -23,12 +27,16 @@ public class AgentRunService
     { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _llm = llm; _promptBuilder = promptBuilder; _actionParser = actionParser; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; }
 
     public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 6,
-        Action<string, string, string?>? onProgress = null)
+        Action<string, string, string?>? onProgress = null, Func<string, string, bool>? stopWhen = null,
+        CancellationToken cancellationToken = default)
     {
-        var project = await _db.Projects.FindAsync(projectId) ?? throw new InvalidOperationException("Project not found.");
-        var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId);
+        var project = await _db.Projects.FindAsync([projectId], cancellationToken) ?? throw new InvalidOperationException("Project not found.");
+        var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId, cancellationToken);
         if (agent.AiModel == null) throw new InvalidOperationException("Agent model is not configured.");
-        _workspaceTools.SetWorkspace(project.Name);
+        _workspaceTools.SetWorkspace(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
+        // Surface this run's token to tools (CommandTools resolves the same scoped WorkspaceTools) so a
+        // cancel/shutdown kills any spawned process instead of letting it run to the command timeout.
+        _workspaceTools.SetRunCancellation(cancellationToken);
         var tools = await _toolRegistry.GetToolsForAgentAsync(agentId);
         var messages = new List<ChatMessageDto>
         {
@@ -39,8 +47,18 @@ public class AgentRunService
         for (var step = 1; step <= maxSteps; step++)
         {
             onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {step}/{maxSteps})", null);
-            var callResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature);
+            var callResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature, cancellationToken);
             await _modelCallLogger.LogAsync(projectId, agent, callResult, step, "AgentRun");
+
+            // A failed LLM call (HTTP error / timeout) must not be treated as the agent's
+            // final answer — surface it so the task is marked Failed instead of "done".
+            if (!callResult.IsSuccess)
+            {
+                var detail = callResult.ErrorMessage ?? callResult.Content;
+                onProgress?.Invoke("error", "Lời gọi LLM thất bại.", detail);
+                throw new InvalidOperationException($"LLM call failed: {detail}");
+            }
+
             var response = callResult.Content;
             if (!_actionParser.TryParse(response, out var action) || action == null)
             {
@@ -50,7 +68,7 @@ public class AgentRunService
             if (action.Type.Equals("final", StringComparison.OrdinalIgnoreCase))
             {
                 onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", action.Content ?? response);
-                await SaveConversation(projectId, agentId, action.Content ?? response);
+                await SaveConversation(projectId, agentId, action.Content ?? response, cancellationToken: cancellationToken);
                 return action.Content ?? response;
             }
             if (action.Type.Equals("tool", StringComparison.OrdinalIgnoreCase))
@@ -60,11 +78,38 @@ public class AgentRunService
 
                 onProgress?.Invoke("tool", $"Đang dùng tool: {action.Tool}", DescribeToolArgs(action.Args));
 
-                var observation = tool == null
-                    ? $"Tool not found: {action.Tool}"
-                    : await _invoker.InvokeAsync(tool, action.Args);
+                string observation;
+                if (tool == null)
+                {
+                    observation = $"Tool not found: {action.Tool}";
+                }
+                else
+                {
+                    try
+                    {
+                        observation = await _invoker.InvokeAsync(tool, action.Args);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Feed a recoverable tool failure back as an observation so the model can correct itself instead of aborting the run; unwrap the reflection wrapper for a useful message.
+                        var real = ex is System.Reflection.TargetInvocationException { InnerException: { } inner } ? inner : ex;
+                        observation = $"ERROR: {real.Message}";
+                    }
+                }
 
                 onProgress?.Invoke("observation", $"Đã nhận kết quả từ {action.Tool}", observation);
+
+                // Stop as soon as the caller's success condition is met so a weak model doesn't keep making spurious edits and burn the step budget after the work is done.
+                if (stopWhen != null && stopWhen(action.Tool ?? string.Empty, observation))
+                {
+                    onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", observation);
+                    await SaveConversation(projectId, agentId, observation, cancellationToken: cancellationToken);
+                    return observation;
+                }
 
                 messages.Add(new() { Role = "assistant", Content = response });
                 messages.Add(new() { Role = "user", Content = "OBSERVATION:\n" + observation });
@@ -73,13 +118,13 @@ public class AgentRunService
                     && observation.Contains("0 Error", StringComparison.OrdinalIgnoreCase))
                 {
                     onProgress?.Invoke("final", "Build succeeded.", null);
-                    await SaveConversation(projectId, agentId, "Build succeeded.");
+                    await SaveConversation(projectId, agentId, "Build succeeded.", cancellationToken: cancellationToken);
                     return "Build succeeded.";
                 }
             }
         }
         onProgress?.Invoke("final", "Dừng do đạt giới hạn số bước xử lý.", null);
-        return "Stopped because max steps reached.";
+        return MaxStepsReachedResult;
     }
 
     private static string? DescribeToolArgs(Dictionary<string, System.Text.Json.JsonElement> args)
@@ -97,7 +142,7 @@ public class AgentRunService
         return string.Join("\n", parts);
     }
 
-    private async Task SaveConversation(Guid projectId, Guid agentId, string message, string role = "assistant")
+    private async Task SaveConversation(Guid projectId, Guid agentId, string message, string role = "assistant", CancellationToken cancellationToken = default)
     {
         _db.AgentConversations.Add(new AgentConversation
         {
@@ -105,9 +150,9 @@ public class AgentRunService
             AgentId = agentId,
             Role = role,
             Message = message,
-            TokenUsed = Math.Max(1, message.Length / 4)
+            TokenUsed = TokenEstimator.Estimate(message)
         });
 
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }

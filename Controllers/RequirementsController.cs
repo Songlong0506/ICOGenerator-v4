@@ -1,5 +1,6 @@
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Requirements;
+using ICOGenerator.Services.Requirements;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
@@ -12,10 +13,10 @@ public class RequirementsController : Controller
     private readonly ApproveRequirementUseCase _approveRequirementUseCase;
     private readonly ApproveStageUseCase _approveStageUseCase;
     private readonly RejectStageUseCase _rejectStageUseCase;
-    private readonly StartRequirementChatUseCase _startRequirementChatUseCase;
-    private readonly GetRequirementJobStatusQuery _getRequirementJobStatusQuery;
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
+    private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
+    private readonly StartNewChatUseCase _startNewChatUseCase;
 
     public RequirementsController(
        GetRequirementWorkspaceQuery getRequirementWorkspaceQuery,
@@ -24,10 +25,10 @@ public class RequirementsController : Controller
        ApproveRequirementUseCase approveRequirementUseCase,
        ApproveStageUseCase approveStageUseCase,
        RejectStageUseCase rejectStageUseCase,
-       StartRequirementChatUseCase startRequirementChatUseCase,
-       GetRequirementJobStatusQuery getRequirementJobStatusQuery,
        GetDocumentDownloadQuery getDocumentDownloadQuery,
-       GetWorkflowStatusQuery getWorkflowStatusQuery)
+       GetWorkflowStatusQuery getWorkflowStatusQuery,
+       GetDocumentPreviewQuery getDocumentPreviewQuery,
+       StartNewChatUseCase startNewChatUseCase)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
@@ -35,10 +36,10 @@ public class RequirementsController : Controller
         _approveRequirementUseCase = approveRequirementUseCase;
         _approveStageUseCase = approveStageUseCase;
         _rejectStageUseCase = rejectStageUseCase;
-        _startRequirementChatUseCase = startRequirementChatUseCase;
-        _getRequirementJobStatusQuery = getRequirementJobStatusQuery;
         _getDocumentDownloadQuery = getDocumentDownloadQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
+        _getDocumentPreviewQuery = getDocumentPreviewQuery;
+        _startNewChatUseCase = startNewChatUseCase;
     }
 
     public async Task<IActionResult> Index(Guid projectId, string? version = null)
@@ -55,8 +56,16 @@ public class RequirementsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Chat(Guid projectId, string message)
     {
-        if (!string.IsNullOrWhiteSpace(message))
-            await _chatWithBAUseCase.ExecuteAsync(projectId, message);
+        if (string.IsNullOrWhiteSpace(message))
+            return RedirectToAction(nameof(Index), new { projectId });
+
+        var result = await _chatWithBAUseCase.ExecuteAsync(projectId, message);
+
+        if (result == ChatWithBAResult.ProjectNotFound)
+            return RedirectToAction("Index", "Projects");
+
+        if (result == ChatWithBAResult.BaNotConfigured)
+            TempData["Error"] = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent.";
 
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -76,6 +85,9 @@ public class RequirementsController : Controller
     {
         var result = await _approveRequirementUseCase.ExecuteAsync(projectId);
 
+        if (result == ApproveRequirementResult.ProjectNotFound)
+            return RedirectToAction("Index", "Projects");
+
         if (result == ApproveRequirementResult.MissingAiDesignSpec)
         {
             TempData["Error"] = "AI Design Spec chưa được tạo. Vui lòng chat với BA trước khi approve.";
@@ -84,6 +96,18 @@ public class RequirementsController : Controller
 
         if (result == ApproveRequirementResult.NoDraftDocuments)
             return RedirectToAction(nameof(Index), new { projectId });
+
+        if (result == ApproveRequirementResult.PromotionFailed)
+        {
+            TempData["Error"] = "Không thể chuyển tài liệu draft sang phiên bản đã duyệt (file có thể đang bị mở/khóa). Đóng file đang mở rồi thử lại.";
+            return RedirectToAction(nameof(Index), new { projectId });
+        }
+
+        if (result == ApproveRequirementResult.WorkflowStartFailed)
+        {
+            TempData["Error"] = "Tài liệu đã được duyệt nhưng không khởi động được workflow tạo POC. Vui lòng thử lại.";
+            return RedirectToAction(nameof(Index), new { projectId });
+        }
 
         TempData["WorkflowStarted"] = true;
         return RedirectToAction(nameof(Index), new { projectId });
@@ -117,9 +141,20 @@ public class RequirementsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult NewChat(Guid projectId)
+    public async Task<IActionResult> NewChat(Guid projectId)
     {
+        await _startNewChatUseCase.ExecuteAsync(projectId);
         return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DocumentPreview(Guid id)
+    {
+        var result = await _getDocumentPreviewQuery.ExecuteAsync(id);
+        if (result == null)
+            return NotFound("Document not found.");
+
+        return Json(result);
     }
 
     [HttpGet]
@@ -130,32 +165,5 @@ public class RequirementsController : Controller
             return NotFound("Document not found.");
 
         return PhysicalFile(result.FilePath, result.ContentType, result.FileName);
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StartChat(Guid projectId, string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return BadRequest();
-
-        var jobId = await _startRequirementChatUseCase.ExecuteAsync(projectId, message);
-        return Json(new { jobId });
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> JobStatus(Guid jobId)
-    {
-        var status = await _getRequirementJobStatusQuery.ExecuteAsync(jobId);
-        if (status == null)
-            return NotFound();
-
-        return Json(new
-        {
-            status.Id,
-            Status = status.Status.ToString(),
-            status.CurrentStep,
-            status.Error
-        });
     }
 }

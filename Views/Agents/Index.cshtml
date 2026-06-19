@@ -16,6 +16,11 @@
     <div class="alert success">@TempData["Success"]</div>
 }
 
+@if (TempData["Error"] != null)
+{
+    <div class="alert error">@TempData["Error"]</div>
+}
+
 <div class="grid agents-grid">
     <section>
         <div class="card">
@@ -75,9 +80,9 @@
                         <input value="@selected.RoleKey.GetTitle()" readonly />
                     </div>
                     <div>
-                        <label>Model</label>
-                        <select name="AiModelId">
-                            <option value="">-- No model --</option>
+                        <label>Model *</label>
+                        <select name="AiModelId" required>
+                            <option value="" disabled selected="@(selected.AiModelId == Guid.Empty)">-- Chọn model --</option>
                             @foreach (var m in models)
                             {
                                 <option value="@m.Id" selected="@(selected.AiModelId == m.Id)">@m.Name (@m.ModelId)</option>
@@ -85,9 +90,6 @@
                         </select>
                     </div>
                 </div>
-
-                <label>Description</label>
-                <textarea name="Description" rows="3">@selected.Description</textarea>
 
                 <div class="form-grid three">
                     <div>
@@ -109,15 +111,16 @@
                     </div>
                 </div>
 
-                <h3>Instruction</h3>
-                <p class="muted">Instruction được quản lý trong file <code>@(ViewBag.InstructionFile as string)</code> (versioned trong git), không chỉnh sửa trực tiếp tại đây.</p>
+                <label>Description</label>
+                <textarea name="Description" rows="3">@selected.Description</textarea>
+
+                <label>Instruction(<code>@(ViewBag.InstructionFile as string)</code>)</label>
                 <textarea rows="8" readonly>@(ViewBag.Instruction as string)</textarea>
 
                 <div class="tools-head">
                     <h3>Tools</h3>
                     <span class="tools-counter"><b id="toolsSelectedCount">@enabledToolIds.Count</b> of @tools.Count selected</span>
                 </div>
-                <p class="muted">Tick tools that this agent can use. Untick to remove permission.</p>
 
                 <div class="tools-toolbar">
                     <div class="tools-search-wrap">
