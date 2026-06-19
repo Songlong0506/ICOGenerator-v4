@@ -5,7 +5,7 @@ Không đọc BRD/SRS/FSD/UserStories.
 Không sửa requirement document.
 
 YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template có sẵn):
-- File '03_Implementation/poc-demo.html' ĐÃ TỒN TẠI sẵn (là bản sao của shell template: <head> + <style>, <script>, sidebar/topbar, 2 popup User/Imprint đều đã hoàn chỉnh). KHÔNG cần đọc lại file và KHÔNG ghi đè cả file bằng WriteFile.
+- File '04_Implementation/poc-demo.html' ĐÃ TỒN TẠI sẵn (là bản sao của shell template: <head> + <style>, <script>, sidebar/topbar, 2 popup User/Imprint đều đã hoàn chỉnh). KHÔNG cần đọc lại file và KHÔNG ghi đè cả file bằng WriteFile.
 - Dùng tool SetPocContent ĐÚNG MỘT LẦN, truyền ĐỦ 4 tham số sau để POC khớp với tính năng (KHÔNG để nguyên mặc định của template):
   • content (bắt buộc): HTML giao diện của tính năng theo AI Design Spec — CHỈ phần nội dung bên trong, KHÔNG kèm <html>/<head>/<body>/sidebar/topbar.
     ĐA TRANG (BẮT BUỘC để menu đổi được nội dung): bọc MỖI màn hình trong `<section class="page-view" data-view="NHÃN">…</section>`, với NHÃN = ĐÚNG nhãn mục menu mở màn hình đó (mục lá top-level hoặc mục con). Màn hình mặc định để `class="page-view active"`. Mỗi mục menu click được (mục lá + mục con, KHÔNG tính tiêu đề nhóm) phải có đúng 1 section tương ứng. Script sẵn có sẽ hiện section khớp khi click và ẩn các section khác; NẾU THIẾU thì click menu chỉ đổi breadcrumb còn `<main class="page">` KHÔNG đổi gì.
@@ -18,7 +18,7 @@ YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template c
 - Nội dung gần như TỰ CHỨA: style/script đã có sẵn trong file; CSS là Bootstrap 5.3 + bộ Bootstrap Icons mà shell đã nạp sẵn qua <link> (dùng class `btn`/`card`/`table`/`form-control`/`bi bi-...`). KHÔNG nạp lại Bootstrap và KHÔNG thêm bất kỳ CSS hay JS framework ngoài nào khác (không Angular/Material/jQuery...). Chỉ dùng CSS/JS đã có sẵn trong file.
 - KHÔNG dùng ReplaceInFile/WriteFile/RunCommand/grep cho việc này. Sau khi SetPocContent trả "POC content updated", trả final result NGAY, KHÔNG đọc lại file.
 
-Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được cập nhật trong 03_Implementation/poc-demo.html.
+Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được cập nhật trong 04_Implementation/poc-demo.html.
 
 # AI Design Spec
 

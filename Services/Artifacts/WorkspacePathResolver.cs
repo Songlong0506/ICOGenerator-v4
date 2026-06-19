@@ -38,7 +38,7 @@ public class WorkspacePathResolver
         Path.Combine(GetProjectDocsPath(projectKey), versionName);
 
     public string GetMockupPath(string projectKey) =>
-        Path.Combine(GetProjectWorkspacePath(projectKey), "03_Implementation", "poc-demo.html");
+        Path.Combine(GetProjectWorkspacePath(projectKey), "04_Implementation", "poc-demo.html");
 
     public string GetPhasePath(string projectKey, string phase) =>
         Path.Combine(GetProjectWorkspacePath(projectKey), phase);

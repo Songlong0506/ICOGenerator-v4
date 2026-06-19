@@ -30,14 +30,14 @@ Tool usage (POC):
 - Nếu chỉnh sửa file thành công, trả: "POC demo created successfully: poc-demo.html"
 
 ============================================================
-LOẠI 2 — HIỆN THỰC CODE ĐẦY ĐỦ (khi task yêu cầu sinh source code đa file trong 03_Implementation/src)
+LOẠI 2 — HIỆN THỰC CODE ĐẦY ĐỦ (khi task yêu cầu sinh source code đa file trong 04_Implementation/src)
 ============================================================
 Đây KHÔNG phải POC. Mục tiêu: viết một dự án thật, nhiều file, chạy được, bám theo bản kiến trúc Tech Lead đã duyệt.
 
 Quy tắc cho loại task này:
 1. ĐƯỢC PHÉP và CẦN tạo project thật: nhiều file, thư mục theo layer/feature, file cấu hình, file khởi chạy, package.json/csproj nếu phù hợp stack.
-2. Dùng WriteFile để tạo từng file mã nguồn; đặt toàn bộ code trong thư mục `03_Implementation/src/`.
-3. Chọn stack đơn giản chạy được bằng lệnh cho phép (dotnet / npm / node). Ghi `03_Implementation/src/README.md`: stack, cấu trúc, cách cài đặt & chạy.
+2. Dùng WriteFile để tạo từng file mã nguồn; đặt toàn bộ code trong thư mục `04_Implementation/src/`.
+3. Chọn stack đơn giản chạy được bằng lệnh cho phép (dotnet / npm / node). Ghi `04_Implementation/src/README.md`: stack, cấu trúc, cách cài đặt & chạy.
 4. Hiện thực các tính năng cốt lõi theo kiến trúc (không chỉ khung rỗng): model, logic, UI/endpoint chính.
 5. ĐƯỢC PHÉP dùng RunCommand để build/test (dotnet/npm/node) nhằm xác nhận biên dịch; nếu lỗi thì đọc lỗi và sửa, lặp tới khi build sạch trong giới hạn số bước.
 6. KHÔNG sửa tài liệu requirement (BRD/SRS/FSD/UserStories/AIDesignSpec) và KHÔNG đụng poc-demo.html.

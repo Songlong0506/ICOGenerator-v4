@@ -259,7 +259,7 @@ Bản đồ file:
 |---|---|---|
 | Giai đoạn/loại việc mới | `Domain/Enums/WorkflowStageKey.cs`, `AgentTaskType.cs` | thêm `PocPreview` (và trước đó `ArchitectureDesign`, `Testing`). Enum lưu int → **không cần migration**. |
 | Khai báo pipeline | `Services/Workflows/DeliveryPipeline.cs` | `Steps` (POC → Architecture → Impl → Test), mỗi bước khai báo `InputSource` (DesignSpec/PreviousOutput) + `MaxSteps`. Thêm vai = thêm một dòng. |
-| Prompt theo bước | `Prompts/Workflow/{poc-preview,architecture-design,implementation,testing}.v1.md` | `{{input}}` = nội dung theo `InputSource`. `implementation` = sinh **code đa file** trong `03_Implementation/src/`. |
+| Prompt theo bước | `Prompts/Workflow/{poc-preview,architecture-design,implementation,testing}.v1.md` | `{{input}}` = nội dung theo `InputSource`. `implementation` = sinh **code đa file** trong `04_Implementation/src/`. |
 | Dựng prompt | `Services/Workflows/WorkflowTaskPromptBuilder.cs` | map `AgentTaskType` → template. |
 | Khởi tạo | `Services/Workflows/WorkflowOrchestrator.cs` | tạo `WorkflowRun` + task ở `DeliveryPipeline.First` (POC). |
 | Chạy + cổng | `Services/Workflows/AgentTaskWorker.cs` | chạy task xong: nếu còn bước kế → set `WaitingForHuman` (KHÔNG tự enqueue); hết bước → `Completed`. Dùng `MaxSteps` theo bước. |

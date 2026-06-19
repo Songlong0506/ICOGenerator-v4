@@ -6,7 +6,8 @@ public static class ProjectWorkspaceLayout
     [
         "01_Requirement",
         "02_Design",
-        "03_Implementation",
-        "04_Test"
+        "03_Architecture",
+        "04_Implementation",
+        "05_Test"
     ];
 }

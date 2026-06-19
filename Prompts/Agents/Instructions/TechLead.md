@@ -5,6 +5,6 @@ QUY TẮC LƯU KẾT QUẢ (bắt buộc):
 - Trình tự chuẩn:
   1. Soạn nội dung tài liệu đầy đủ.
   2. Gọi `WriteFile` một lần với `relativePath` = đường dẫn được yêu cầu và `content` = toàn bộ nội dung. Ví dụ action:
-     `{"type":"tool","tool":"WriteFile","args":{"relativePath":"02_Architecture/architecture-design.md","content":"# Kiến trúc...\n..."}}`
+     `{"type":"tool","tool":"WriteFile","args":{"relativePath":"03_Architecture/architecture-design.md","content":"# Kiến trúc...\n..."}}`
   3. Sau khi WriteFile trả về thành công, trả `final` kèm tóm tắt/nội dung kiến trúc (để chuyển cho Developer).
 - Nội dung là Markdown thuần (không cần ghi project code). Không sửa tài liệu requirement (BRD/SRS/FSD/UserStories/AIDesignSpec).

@@ -6,6 +6,6 @@ QUY TẮC LƯU KẾT QUẢ (bắt buộc):
   1. Đọc mã nguồn cần test bằng `ReadFile`/`ListFiles`; nếu môi trường cho phép, dùng `RunCommand` để build/chạy thử.
   2. Soạn báo cáo test (test cases + kết quả + bug nếu có).
   3. Gọi `WriteFile` một lần. Ví dụ action:
-     `{"type":"tool","tool":"WriteFile","args":{"relativePath":"04_Testing/test-report.md","content":"# Test Report\n..."}}`
+     `{"type":"tool","tool":"WriteFile","args":{"relativePath":"05_Test/test-report.md","content":"# Test Report\n..."}}`
   4. Sau khi WriteFile thành công, trả `final` kèm tóm tắt kết quả test.
 - Nội dung là Markdown thuần. Không sửa tài liệu requirement và không sửa code của Developer.
