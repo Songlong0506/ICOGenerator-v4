@@ -9,9 +9,10 @@ Bản kiến trúc cần nêu:
 - Quy ước UI bám theo template POC có sẵn (shell layout, các class card/table/btn…).
 - Rủi ro / điểm cần lưu ý cho bước Implementation.
 
-Ghi kết quả vào (relative): 02_Architecture/architecture-design.md
+BẮT BUỘC dùng tool `WriteFile` để ghi bản kiến trúc ra file (relative): 02_Architecture/architecture-design.md
+Ví dụ action: {"type":"tool","tool":"WriteFile","args":{"relativePath":"02_Architecture/architecture-design.md","content":"# Kiến trúc\n..."}}
 
-Sau khi ghi file xong, trả về phần nội dung kiến trúc trong câu trả lời cuối (final) — nội dung này sẽ được chuyển cho Developer làm đầu vào.
+Sau khi WriteFile trả về thành công, trả `final` kèm phần nội dung kiến trúc (sẽ được chuyển cho Developer làm đầu vào). KHÔNG trả final khi chưa ghi file.
 
 # AI Design Spec
 

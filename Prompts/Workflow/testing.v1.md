@@ -9,9 +9,10 @@ Các bước:
 - Nếu môi trường cho phép, dùng tool chạy lệnh để build/chạy thử và ghi nhận kết quả thực tế.
 - Ghi nhận lỗi/khác biệt (nếu có) so với yêu cầu, kèm mức độ nghiêm trọng và gợi ý sửa.
 
-Ghi kết quả vào (relative): 04_Testing/test-report.md
+BẮT BUỘC dùng tool `WriteFile` để ghi báo cáo ra file (relative): 04_Testing/test-report.md
+Ví dụ action: {"type":"tool","tool":"WriteFile","args":{"relativePath":"04_Testing/test-report.md","content":"# Test Report\n..."}}
 
-Sau khi ghi file xong, tóm tắt kết quả test trong câu trả lời cuối (final).
+Sau khi WriteFile trả về thành công, trả `final` kèm tóm tắt kết quả test. KHÔNG trả final khi chưa ghi file.
 
 # Bàn giao từ Developer
 
