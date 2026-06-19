@@ -11,9 +11,16 @@
        shell markup (.supergraphic, .sidebar, .topbar) exactly as-is.
     2. Replace ONLY what is between POC_CONTENT_START and POC_CONTENT_END with the
        feature UI from the AI Design Spec, reusing the documented classes.
-    3. You MAY rename the App Name, the breadcrumb text and the nav items/groups to
+    3. MULTI-PAGE (so the sidebar actually navigates): wrap EACH screen in its own
+       <section class="page-view" data-view="LABEL">…</section>, where LABEL is the
+       EXACT sidebar nav label that opens it (a top-level leaf or a sub-item). Give the
+       default screen class "page-view active". The inlined <script> shows the matching
+       section when its nav item is clicked and hides the rest; provide one section per
+       clickable leaf. Without these sections the menu only updates the breadcrumb and
+       the page body never changes.
+    4. You MAY rename the App Name, the breadcrumb text and the nav items/groups to
        fit the feature, but do NOT change the shell structure, the <style> or the <script>.
-    4. Save as poc-demo.html. Do NOT add any external CSS/JS framework.
+    5. Save as poc-demo.html. Do NOT add any external CSS/JS framework.
 
   Content classes: card-grid card card-title card-body / tile tile-value tile-label /
     btn btn-outline btn-ghost / field label input select textarea / table /
@@ -321,6 +328,17 @@
             padding: 24px 28px;
             background: var(--bg);
         }
+
+        /* Multi-page: only the active screen is shown; the <script> toggles .active on
+           nav clicks. If the content has no .page-view sections at all, nothing is
+           hidden and the page behaves as a single static screen (backwards compatible). */
+        .page-view {
+            display: none;
+        }
+
+            .page-view.active {
+                display: block;
+            }
 
         /* ---------- Content components ---------- */
         .card-grid {
@@ -732,34 +750,34 @@
                         <span class="nav-label">Overview</span>
                     </div>
 
-                    <!-- Expandable group (accordion) -->
+                    <!-- Expandable group (accordion). Each sub-item's label matches a data-view below. -->
                     <div class="nav-group open">
-                        <div class="nav-item" title="Module A">
+                        <div class="nav-item" title="Records">
                             <svg class="ico" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2M6 14h12v7H6z" /></svg>
-                            <span class="nav-label">Module A</span>
+                            <span class="nav-label">Records</span>
                             <svg class="ico nav-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
                         </div>
                         <div class="nav-sub">
                             <div class="nav-item">
                                 <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg>
-                                <span class="nav-label">Sub item 1</span>
+                                <span class="nav-label">All Records</span>
                             </div>
                             <div class="nav-item">
                                 <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg>
-                                <span class="nav-label">Sub item 2</span>
+                                <span class="nav-label">Add Record</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Another expandable group -->
                     <div class="nav-group">
-                        <div class="nav-item" title="Module B">
+                        <div class="nav-item" title="Reports">
                             <svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" /></svg>
-                            <span class="nav-label">Module B</span>
+                            <span class="nav-label">Reports</span>
                             <svg class="ico nav-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
                         </div>
                         <div class="nav-sub">
-                            <div class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg><span class="nav-label">Sub item 1</span></div>
+                            <div class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg><span class="nav-label">Monthly Summary</span></div>
                         </div>
                     </div>
 
@@ -794,7 +812,7 @@
 
                 <!-- Fixed top bar: breadcrumb (left) + Bosch logo (right) -->
                 <header class="topbar">
-                    <div class="breadcrumb">Home <span class="sep">&rsaquo;</span> Page Title</div>
+                    <div class="breadcrumb">Home <span class="sep">&rsaquo;</span> Overview</div>
                     <div class="topbar-spacer"></div>
                     <div class="bosch-logo">BOSCH</div>
                 </header>
@@ -922,6 +940,9 @@
                         }
                     </style>
 
+                    <!-- Each screen is a .page-view; only the .active one shows. Clicking its nav item
+                         (data-view === the nav label) reveals it and hides the others. -->
+                    <section class="page-view active" data-view="Overview">
                     <div class="row mb">
                         <button class="btn" id="openAddress">Add New Address</button>
                     </div>
@@ -964,6 +985,49 @@
                             <button class="pager-arrow" aria-label="Next page"><svg class="ico" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg></button>
                         </div>
                     </div>
+                    </section>
+
+                    <section class="page-view" data-view="All Records">
+                        <h2>All Records</h2>
+                        <p class="muted mb">Every record currently stored in the system.</p>
+                        <table class="table">
+                            <thead><tr><th>ID</th><th>Name</th><th>Status</th></tr></thead>
+                            <tbody>
+                                <tr><td>R-1001</td><td>Alpha entry</td><td><span class="badge badge-green">Active</span></td></tr>
+                                <tr><td>R-1002</td><td>Beta entry</td><td><span class="badge badge-gray">Archived</span></td></tr>
+                                <tr><td>R-1003</td><td>Gamma entry</td><td><span class="badge badge-green">Active</span></td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section class="page-view" data-view="Add Record">
+                        <h2>Add Record</h2>
+                        <p class="muted mb">Create a new record. Fields marked (*) are mandatory.</p>
+                        <div class="stack" style="max-width:420px">
+                            <div class="field"><label>Name (*)</label><input class="input" type="text" placeholder="Record name" /></div>
+                            <div class="field"><label>Category</label><select class="select"><option>General</option><option>Priority</option></select></div>
+                            <div class="field"><label>Notes</label><textarea class="textarea" rows="3"></textarea></div>
+                            <div class="row"><button class="btn">Save</button><button class="btn btn-outline">Cancel</button></div>
+                        </div>
+                    </section>
+
+                    <section class="page-view" data-view="Monthly Summary">
+                        <h2>Monthly Summary</h2>
+                        <div class="card-grid mt">
+                            <div class="tile"><span class="tile-value">128</span><span class="tile-label">Records created</span></div>
+                            <div class="tile"><span class="tile-value">94</span><span class="tile-label">Closed</span></div>
+                            <div class="tile"><span class="tile-value">34</span><span class="tile-label">Still open</span></div>
+                        </div>
+                    </section>
+
+                    <section class="page-view" data-view="Preferences">
+                        <h2>Preferences</h2>
+                        <div class="stack" style="max-width:420px">
+                            <div class="field"><label>Default view</label><select class="select"><option>Overview</option><option>All Records</option></select></div>
+                            <div class="field"><label>Items per page</label><select class="select"><option>10</option><option>25</option><option>50</option></select></div>
+                            <div class="row"><button class="btn">Save preferences</button></div>
+                        </div>
+                    </section>
                     <!-- POC_CONTENT_END -->
 
                 </main>
@@ -1118,9 +1182,11 @@
         });
       });
 
-      // Navigate between sidebar pages. This POC has a single content region, so "navigation" means:
-      // clicking a leaf item (top-level or sub-item) marks it active and updates the breadcrumb to its
-      // path. Group headers above only expand/collapse; User/Imprint below open their own popups.
+      // Navigate between sidebar "pages". The content region holds one .page-view per screen
+      // (its data-view === the nav label that opens it). Clicking a leaf item (top-level or sub-item)
+      // marks it active, updates the breadcrumb, and reveals the matching .page-view while hiding the
+      // rest. If the content has NO .page-view sections, navigation just updates the breadcrumb so
+      // legacy single-screen POCs keep working. Group headers only expand/collapse; User/Imprint open popups.
       var crumbEl = document.querySelector('.breadcrumb');
       var rootCrumb = 'Home';
       if (crumbEl) {
@@ -1139,6 +1205,21 @@
           return (idx ? ' <span class="sep">›</span> ' : '') + escHtml(p);
         }).join('');
       }
+
+      // View routing: reveal the .page-view whose data-view matches the clicked nav label.
+      var pageEl = document.querySelector('.page');
+      var views = pageEl ? pageEl.querySelectorAll('.page-view') : [];
+      function viewKey(s) { return (s || '').trim().toLowerCase(); }
+      function showView(label) {
+        if (!views.length) return false;                 // no per-screen sections: nothing to switch
+        var key = viewKey(label), target = null;
+        views.forEach(function (v) { if (viewKey(v.getAttribute('data-view')) === key) target = v; });
+        if (!target) return false;                        // unknown screen: keep the current view visible
+        views.forEach(function (v) { v.classList.toggle('active', v === target); });
+        if (pageEl) pageEl.scrollTop = 0;
+        return true;
+      }
+
       document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (item) {
         if (item.parentElement && item.parentElement.classList.contains('nav-group')) return; // group header
         item.addEventListener('click', function () {
@@ -1148,8 +1229,16 @@
           var sub = item.closest('.nav-sub');
           var header = sub ? sub.parentElement.querySelector('.nav-item') : null;
           setBreadcrumb(sub ? [rootCrumb, navLabel(header), navLabel(item)] : [rootCrumb, navLabel(item)]);
+          showView(navLabel(item));
         });
       });
+
+      // On load, reveal the active item's view; fall back to the first section so the page is never blank.
+      if (views.length) {
+        var activeItem = document.querySelector('.sidebar-nav .nav-item.active');
+        if (!showView(navLabel(activeItem)))
+          views.forEach(function (v, i) { v.classList.toggle('active', i === 0); });
+      }
 
       // Popups
       function open(id) { var m = document.getElementById(id); if (m) m.classList.add('open'); }
