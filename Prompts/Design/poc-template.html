@@ -20,7 +20,13 @@
        the page body never changes.
     4. You MAY rename the App Name, the breadcrumb text and the nav items/groups to
        fit the feature, but do NOT change the shell structure, the <style> or the <script>.
-    5. Save as poc-demo.html. Do NOT add any external CSS/JS framework.
+    5. BUTTONS STAY INTERACTIVE WITHOUT CUSTOM JS — the shell <script> already wires content
+       buttons, so NEVER add your own <script>. Every .btn shows a toast acknowledging the click,
+       so Add / Save / Edit / Delete never feel dead. To open a dialog instead, add
+       data-open="someId" to the trigger and author its <div class="modal-overlay" id="someId">
+       <div class="modal">…</div></div> AFTER the .page-view sections (a hidden page would otherwise
+       swallow a fixed dialog); data-close="someId", the × button or a backdrop click closes it.
+    6. Save as poc-demo.html. Do NOT add any external CSS/JS framework.
 
   Content classes: card-grid card card-title card-body / tile tile-value tile-label /
     btn btn-outline btn-ghost / field label input select textarea / table /
@@ -708,6 +714,39 @@
                 margin: 0;
             }
 
+        /* ---------- Toast (click feedback for POC action buttons) ---------- */
+        .toast-host {
+            position: fixed;
+            left: 50%;
+            bottom: 28px;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            z-index: 80;
+            pointer-events: none;
+        }
+
+        .toast {
+            max-width: 90vw;
+            padding: 11px 18px;
+            background: var(--ink);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            border-radius: 4px;
+            box-shadow: 0 6px 20px rgba(0,0,0,.28);
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity .18s ease, transform .18s ease;
+        }
+
+            .toast.show {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
         @media (max-width:760px) {
             .sidebar {
                 position: absolute;
@@ -944,7 +983,7 @@
                          (data-view === the nav label) reveals it and hides the others. -->
                     <section class="page-view active" data-view="Overview">
                     <div class="row mb">
-                        <button class="btn" id="openAddress">Add New Address</button>
+                        <button class="btn" data-open="addressModal">Add New Address</button>
                     </div>
 
                     <table class="data-table">
@@ -1166,6 +1205,9 @@
         </div>
     </div>
 
+    <!-- ===== Toast host: click feedback for POC action buttons (filled by the script) ===== -->
+    <div class="toast-host" id="toastHost" aria-live="polite"></div>
+
     <script>
     (function () {
       var shell = document.getElementById('appShell');
@@ -1240,16 +1282,52 @@
           views.forEach(function (v, i) { v.classList.toggle('active', i === 0); });
       }
 
-      // Popups
+      // Popups / dialogs. Open with data-open="modalId" (plus the pinned User/Imprint items);
+      // close with data-close="modalId", the × buttons, or a click on the backdrop.
       function open(id) { var m = document.getElementById(id); if (m) m.classList.add('open'); }
+      function closeModal(m) { if (m) m.classList.remove('open'); }
       var u = document.getElementById('navUser'); if (u) u.addEventListener('click', function () { open('userModal'); });
       var i = document.getElementById('navImprint'); if (i) i.addEventListener('click', function () { open('imprintModal'); });
-      var a = document.getElementById('openAddress'); if (a) a.addEventListener('click', function () { open('addressModal'); });
+      document.querySelectorAll('[data-open]').forEach(function (b) {
+        b.addEventListener('click', function () { open(b.getAttribute('data-open')); });
+      });
       document.querySelectorAll('[data-close]').forEach(function (b) {
-        b.addEventListener('click', function () { var m = document.getElementById(b.getAttribute('data-close')); if (m) m.classList.remove('open'); });
+        b.addEventListener('click', function () { closeModal(document.getElementById(b.getAttribute('data-close'))); });
       });
       document.querySelectorAll('.modal-overlay').forEach(function (o) {
-        o.addEventListener('click', function (e) { if (e.target === o) o.classList.remove('open'); });
+        o.addEventListener('click', function (e) { if (e.target === o) closeModal(o); });
+      });
+
+      // Action feedback. A POC has no backend, so controls that aren't wired to a dialog still
+      // acknowledge the click with a toast (and dismiss their dialog when inside one): every .btn,
+      // plus placeholder links (href "#" or empty) the way tables render inline "Edit" / "Delete".
+      // Real links (with a destination), the sidebar nav and dialog open/close triggers are left alone.
+      var toastHost = document.getElementById('toastHost');
+      function toast(msg) {
+        if (!toastHost) return;
+        var t = document.createElement('div');
+        t.className = 'toast';
+        t.textContent = msg;
+        toastHost.appendChild(t);
+        requestAnimationFrame(function () { t.classList.add('show'); });
+        setTimeout(function () { t.classList.remove('show'); setTimeout(function () { t.remove(); }, 200); }, 2200);
+      }
+      function actionLabel(el) {
+        return (el.textContent || '').trim() || el.getAttribute('aria-label') || el.getAttribute('title') || 'Action';
+      }
+      document.querySelectorAll('.btn, a').forEach(function (b) {
+        if (b.hasAttribute('data-open') || b.hasAttribute('data-close')) return;
+        var isLink = b.tagName === 'A' && !b.classList.contains('btn');
+        if (isLink) {
+          var href = b.getAttribute('href');
+          if (href && href !== '#' && href.lastIndexOf('javascript:', 0) !== 0) return; // real destination — leave it
+          if (b.closest('.sidebar')) return;                                            // sidebar nav handled above
+        }
+        b.addEventListener('click', function (e) {
+          if (isLink) e.preventDefault();
+          toast(actionLabel(b));
+          closeModal(b.closest('.modal-overlay'));
+        });
       });
     })();
     </script>
