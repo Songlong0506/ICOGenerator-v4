@@ -111,7 +111,7 @@ public class WorkspaceTools
         "'content' (required): only the inner HTML for the content region (no <html>/<head>/<body>/sidebar/topbar); it is placed between the POC_CONTENT markers in 03_Implementation/poc-demo.html. " +
         "'appName': the application/product name, shown in the sidebar header and the browser tab — never leave it as the template default \"App Name\". " +
         "'breadcrumb': the top-bar breadcrumb text, e.g. \"Home > Orders\". " +
-        "'navItems': the left sidebar menu — an array of objects { \"label\": string, \"children\": string[] } where 'children' is optional and turns the entry into an expandable group; set these to the real screens, not the template's Overview/Module A/Module B/Settings. " +
+        "'navItems': the left sidebar menu — an array of objects { \"label\": string, \"icon\"?: string, \"children\"?: (string | { \"label\": string, \"icon\"?: string })[] }. 'icon' is an optional Bootstrap Icons name shown before the label (e.g. \"house\", \"cart3\", \"people\", \"bag\", \"gear\"; full list at https://icons.getbootstrap.com — the leading \"bi-\" is optional); omit it to auto-pick from the label. 'children' is optional and turns the entry into an expandable group. Set these to the real screens, not the template's Overview/Module A/Module B/Settings. " +
         "The rest of the shell (style/script, topbar, popups) is kept untouched. Use this instead of ReplaceInFile for the POC.")]
     public async Task<string> SetPocContent(string content, string? appName = null, string? breadcrumb = null, JsonElement? navItems = null)
     {

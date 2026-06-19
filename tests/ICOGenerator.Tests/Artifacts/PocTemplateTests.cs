@@ -116,7 +116,7 @@ public class PocTemplateTests
         var items = new List<PocNavItem>
         {
             new() { Label = "Dashboard" },
-            new() { Label = "Orders", Children = new() { "All Orders", "Create Order" } },
+            new() { Label = "Orders", Children = new() { new() { Label = "All Orders" }, new() { Label = "Create Order" } } },
             new() { Label = "Settings" }
         };
 
@@ -146,7 +146,7 @@ public class PocTemplateTests
     [Fact]
     public void ReplaceNav_EncodesLabels()
     {
-        var items = new List<PocNavItem> { new() { Label = "R&D", Children = new() { "A<b>" } } };
+        var items = new List<PocNavItem> { new() { Label = "R&D", Children = new() { new() { Label = "A<b>" } } } };
 
         var updated = PocTemplate.ReplaceNav(Shell(), items);
 
@@ -156,26 +156,39 @@ public class PocTemplateTests
     }
 
     [Fact]
-    public void ReplaceNav_PicksMeaningfulIconsByLabel_WithDiacriticsAndDotFallback()
+    public void ReplaceNav_UsesBootstrapIcons_ExplicitThenKeywordThenFallback()
     {
         var items = new List<PocNavItem>
         {
-            new() { Label = "Trang chủ" },                                  // home (Vietnamese diacritics)
-            new() { Label = "Sản phẩm", Children = new() { "Giỏ hàng" } },  // package + cart child
-            new() { Label = "Zzz" }                                          // unknown -> dot fallback
+            new() { Label = "Trang chủ" },                                                       // keyword -> house (diacritics)
+            new() { Label = "Sản phẩm", Children = new() { new() { Label = "Giỏ hàng" } } },     // keyword -> box-seam + cart3 child
+            new() { Label = "Reports", Icon = "graph-up-arrow" },                                 // explicit name wins
+            new() { Label = "Zzz" }                                                              // unknown -> default circle
         };
 
         var updated = PocTemplate.ReplaceNav(Shell(), items);
 
-        // Real, label-specific glyphs instead of the old generic square/circle.
-        Assert.Contains("M3 9l9-7 9 7", updated);                                  // home roofline
-        Assert.Contains("M21 16V8a2 2 0 0 0-1-1.73", updated);                     // package box
-        Assert.Contains("<circle cx=\"9\" cy=\"21\" r=\"1\"/>", updated);          // cart wheel (child)
-        Assert.Contains("fill=\"currentColor\"", updated);                         // solid-dot fallback
+        Assert.Contains("<i class=\"bi bi-house\" aria-hidden=\"true\"></i>", updated);          // keyword (top-level)
+        Assert.Contains("<i class=\"bi bi-box-seam\" aria-hidden=\"true\"></i>", updated);       // keyword (group header)
+        Assert.Contains("<i class=\"bi bi-cart3\" aria-hidden=\"true\"></i>", updated);          // keyword (child)
+        Assert.Contains("<i class=\"bi bi-graph-up-arrow\" aria-hidden=\"true\"></i>", updated); // explicit icon
+        Assert.Contains("<i class=\"bi bi-circle\" aria-hidden=\"true\"></i>", updated);         // fallback
 
-        // Every item still carries an .ico svg, and the old checkbox-style square is gone.
-        Assert.Contains("<svg class=\"ico\" viewBox=\"0 0 24 24\">", updated);
-        Assert.DoesNotContain("<rect x=\"3\" y=\"3\" width=\"18\" height=\"18\"", updated);
+        // The old inline placeholder square/circle for nav icons is gone.
+        Assert.DoesNotContain("<svg class=\"ico\" viewBox=\"0 0 24 24\"><rect", updated);
+        Assert.DoesNotContain("<svg class=\"ico\" viewBox=\"0 0 24 24\"><circle", updated);
+    }
+
+    [Fact]
+    public void ReplaceNav_SanitizesAgentSuppliedIconName()
+    {
+        // Strips a leading "bi-" and rejects anything outside [a-z0-9-] so it can't break the class attribute.
+        var items = new List<PocNavItem> { new() { Label = "X", Icon = "bi-Cart3\" onload=\"x" } };
+
+        var updated = PocTemplate.ReplaceNav(Shell(), items);
+
+        Assert.Contains("<i class=\"bi bi-cart3onloadx\" aria-hidden=\"true\"></i>", updated);
+        Assert.DoesNotContain("onload=\"x", updated);
     }
 
     [Fact]

@@ -4,7 +4,8 @@
   Layout (matches the reference app): a top supergraphic bar, a collapsible dark
   sidebar (App Name on top, expandable nav groups, User + Imprint pinned at the
   bottom), and a fixed top bar with breadcrumb (left) + Bosch logo (right).
-  CSS + JS are inlined, so the POC renders standalone (also via /Projects/Mockup).
+  CSS + JS are inlined, so the POC renders standalone (also via /Projects/Mockup). The only external
+  asset is the Bootstrap Icons stylesheet (loaded from a CDN in <head>) used for the sidebar nav icons.
 
   Developer agent rules:
     1. Keep the whole <head> (incl. <style>), the <script> at the bottom, and the
@@ -37,6 +38,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>POC</title>
+    <!-- Bootstrap Icons (the ONLY external dependency): provides the sidebar nav glyphs as a font, so the
+         menu can use any icon without inlining SVGs. The page still renders without it (icons just hide). -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <style>
         :root {
             --bosch-blue: #007bc0;
@@ -109,6 +113,15 @@
             stroke-width: 2;
             stroke-linecap: round;
             stroke-linejoin: round;
+        }
+
+        /* Bootstrap Icons used by the generated sidebar nav items (loaded via the <link> in <head>). */
+        .nav-item > .bi {
+            font-size: 18px;
+            width: 20px;
+            flex: 0 0 auto;
+            text-align: center;
+            line-height: 1;
         }
 
         /* ---------- Shell ---------- */
