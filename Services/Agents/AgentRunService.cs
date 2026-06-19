@@ -44,6 +44,11 @@ public class AgentRunService
             new() { Role = "user", Content = userMessage }
         };
 
+        // Số lần tối đa nhắc model định dạng lại khi nó trả văn xuôi thay vì một JSON action,
+        // trước khi chấp nhận phản hồi đó là câu trả lời cuối (tránh nhắc vô hạn).
+        const int maxReformatNudges = 2;
+        var reformatNudges = 0;
+
         for (var step = 1; step <= maxSteps; step++)
         {
             onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {step}/{maxSteps})", null);
@@ -62,9 +67,29 @@ public class AgentRunService
             var response = callResult.Content;
             if (!_actionParser.TryParse(response, out var action) || action == null)
             {
+                // Model trả về văn xuôi thay vì một JSON action (hay gặp ở model yếu:
+                // "I'll create the file…" mà không gọi tool). Thay vì coi đó là "đã xong"
+                // và bỏ qua việc dùng tool, nhắc model định dạng lại rồi thử tiếp — chỉ chấp
+                // nhận phản hồi là câu trả lời cuối sau khi đã nhắc tối đa số lần cho phép.
+                if (reformatNudges < maxReformatNudges && step < maxSteps)
+                {
+                    reformatNudges++;
+                    onProgress?.Invoke("thinking", "Phản hồi chưa đúng định dạng — nhắc agent trả JSON action.", null);
+                    messages.Add(new() { Role = "assistant", Content = response });
+                    messages.Add(new() { Role = "user", Content =
+                        "Phản hồi vừa rồi KHÔNG hợp lệ: đó là văn xuôi, không phải một JSON action. "
+                        + "Hãy trả về DUY NHẤT một JSON object (không kèm chữ nào khác, không markdown) theo đúng MỘT trong hai dạng:\n"
+                        + "{\"type\":\"tool\",\"tool\":\"TenTool\",\"args\":{...}}\n"
+                        + "hoặc {\"type\":\"final\",\"content\":\"...\"}\n"
+                        + "Nếu task yêu cầu ghi/đọc file thì gọi tool tương ứng NGAY (vd WriteFile) thay vì mô tả ý định." });
+                    continue;
+                }
+
                 onProgress?.Invoke("final", "Agent đã trả lời.", response);
                 return response;
             }
+
+            reformatNudges = 0; // có action hợp lệ → reset bộ đếm nhắc
             if (action.Type.Equals("final", StringComparison.OrdinalIgnoreCase))
             {
                 onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", action.Content ?? response);

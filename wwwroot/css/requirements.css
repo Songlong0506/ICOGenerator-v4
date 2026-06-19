@@ -398,6 +398,17 @@
         color: #B91C1C;
     }
 
+    .wf-wait {
+        background: #FFFBEB;
+        color: #B45309;
+    }
+
+    .wf-gate-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
     /* ===== Live progress feed (Claude/ChatGPT style) ===== */
 
     .wf-feed {

@@ -14,7 +14,8 @@ public record WorkflowProgressEventVm(long Seq, string At, string Kind, string M
 public record WorkflowStatusVm(
     bool HasWorkflow, string? RunName, string? RunStatus, bool IsTerminal, bool IsCompleted,
     IReadOnlyList<WorkflowTaskStatusVm> Tasks, IReadOnlyList<WorkflowProgressEventVm> Events, long LastEventSeq,
-    string RunKind);
+    string RunKind,
+    Guid? RunId, string? CurrentStage, bool IsWaitingForHuman, string? NextStageTitle, bool PocReady);
 
 public class GetWorkflowStatusQuery
 {
@@ -42,13 +43,15 @@ public class GetWorkflowStatusQuery
             {
                 x.Id,
                 x.Name,
-                x.Status
+                x.Status,
+                x.CurrentStage
             })
             .FirstOrDefaultAsync();
 
         if (run == null)
             return new WorkflowStatusVm(false, null, null, true, false,
-                Array.Empty<WorkflowTaskStatusVm>(), Array.Empty<WorkflowProgressEventVm>(), afterSeq, "Delivery");
+                Array.Empty<WorkflowTaskStatusVm>(), Array.Empty<WorkflowProgressEventVm>(), afterSeq, "Delivery",
+                null, null, false, null, false);
 
         var isTerminal = run.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Failed or WorkflowRunStatus.Canceled;
 
@@ -78,9 +81,15 @@ public class GetWorkflowStatusQuery
             ? "Requirement"
             : "Delivery";
 
+        var isWaiting = run.Status == WorkflowRunStatus.WaitingForHuman;
+        var nextStep = DeliveryPipeline.Next(run.CurrentStage);
+        var pocReady = tasks.Any(t => t.Type == nameof(AgentTaskType.PocPreview)
+                                      && t.Status == nameof(AgentTaskStatus.Completed));
+
         return new WorkflowStatusVm(
             true, run.Name, run.Status.ToString(),
             isTerminal, run.Status == WorkflowRunStatus.Completed,
-            tasks, events, lastSeq, runKind);
+            tasks, events, lastSeq, runKind,
+            run.Id, run.CurrentStage.ToString(), isWaiting, nextStep?.Title, pocReady);
     }
 }

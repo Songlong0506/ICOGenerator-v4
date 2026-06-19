@@ -106,59 +106,63 @@ public class AgentTaskWorker : BackgroundService
                 return;
             }
 
-            _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
+            // POC template chỉ cần cho bước POC preview.
+            if (task.Type == AgentTaskType.PocPreview)
+            {
+                _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
+                await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
+            }
 
-            await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
+            var promptBuilder = scope.ServiceProvider.GetRequiredService<WorkflowTaskPromptBuilder>();
+            var prompt = promptBuilder.Build(task.Type, task.Input);
+            var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
+
+            // Riêng bước POC bắt buộc gọi SetPocContent đúng một lần; dừng NGAY khi thành công để
+            // agent khỏi loay hoay chạm giới hạn bước. Các bước khác kết thúc bằng "final" như thường.
+            Func<string, string, bool>? stopWhen = task.Type == AgentTaskType.PocPreview
+                ? (toolName, observation) =>
+                    toolName.Equals(nameof(WorkspaceTools.SetPocContent), StringComparison.OrdinalIgnoreCase)
+                    && observation.Contains("POC content updated", StringComparison.OrdinalIgnoreCase)
+                : null;
 
             var output = await agentRunService.RunAsync(
                 task.ProjectId,
                 task.AgentId.Value,
-                $"""
-User đã approve requirement.
-
-Chỉ sử dụng AI Design Spec bên dưới để generate code.
-Không đọc BRD/SRS/FSD/UserStories.
-Không sửa requirement document.
-
-YÊU CẦU GIAO DIỆN (bắt buộc — để POC đồng bộ với template có sẵn):
-- File '03_Implementation/poc-demo.html' ĐÃ TỒN TẠI sẵn (là bản sao của shell template: <head> + <style>, <script>, sidebar/topbar, 2 popup User/Imprint đều đã hoàn chỉnh). KHÔNG cần đọc lại file và KHÔNG ghi đè cả file bằng WriteFile.
-- Dùng tool SetPocContent ĐÚNG MỘT LẦN, truyền ĐỦ 4 tham số sau để POC khớp với tính năng (KHÔNG để nguyên mặc định của template):
-  • content (bắt buộc): HTML giao diện của tính năng theo AI Design Spec — CHỈ phần nội dung bên trong, KHÔNG kèm <html>/<head>/<body>/sidebar/topbar.
-  • appName (bắt buộc): tên ứng dụng/sản phẩm theo AI Design Spec, hiển thị ở đầu sidebar và tiêu đề tab. TUYỆT ĐỐI KHÔNG để mặc định "App Name".
-  • breadcrumb (bắt buộc): breadcrumb của màn hình chính, vd "Home > Orders".
-  • navItems (bắt buộc): menu sidebar bên trái — mảng các mục, mỗi mục có "label" và tùy chọn "children" (mảng tên mục con) cho nhóm xổ xuống. Đặt theo đúng các màn hình/chức năng thật trong AI Design Spec; TUYỆT ĐỐI KHÔNG dùng "Overview/Module A/Module B/Settings" của template. Xem ví dụ JSON ở phần hướng dẫn tool trong system prompt.
-- Hệ thống sẽ tự đặt content vào vùng giữa 2 marker, đổi App Name + tiêu đề + breadcrumb và dựng lại menu sidebar từ navItems, giữ nguyên toàn bộ phần còn lại của shell (style/script/topbar/popup).
-- Dùng đúng các class có sẵn cho content: card, card-grid, card-title, card-body, tile, tile-value, tile-label, btn, btn-outline, btn-ghost, table, field, input, select, textarea, badge, badge-green, badge-gray, row, stack, muted.
-- Nội dung phải TỰ CHỨA: KHÔNG link/nhúng CSS hay JS framework bên ngoài (không Angular/Material/Bootstrap...). Chỉ dùng CSS/JS đã có sẵn trong file.
-- KHÔNG dùng ReplaceInFile/WriteFile/RunCommand/grep cho việc này. Sau khi SetPocContent trả "POC content updated", trả final result NGAY, KHÔNG đọc lại file.
-
-Kết quả: content tính năng + App Name + breadcrumb + menu sidebar được cập nhật trong 03_Implementation/poc-demo.html.
-
-# AI Design Spec
-
-{task.Input}
-""",
-                maxSteps: 10,
+                prompt,
+                maxSteps,
                 onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
-                // Stop on the first successful SetPocContent so the agent doesn't keep poking the file and hit the step limit.
-                stopWhen: (toolName, observation) =>
-                    toolName.Equals(nameof(WorkspaceTools.SetPocContent), StringComparison.OrdinalIgnoreCase)
-                    && observation.Contains("POC content updated", StringComparison.OrdinalIgnoreCase),
+                stopWhen: stopWhen,
                 cancellationToken: cancellationToken);
 
-            // No successful SetPocContent (stopWhen never fired): the POC was NOT produced, so fail rather than record a misleading Completed.
+            // Nếu agent đạt giới hạn số bước mà chưa hoàn tất (chưa gọi tool tạo deliverable),
+            // coi là thất bại để báo lỗi rõ thay vì ghi nhận Completed sai lệch.
             if (string.Equals(output, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal))
                 throw new InvalidOperationException(
-                    "Agent đạt giới hạn số bước mà chưa tạo được POC (chưa gọi SetPocContent thành công).");
-
-            _progress.Report(task.WorkflowRunId, "completed", "Task hoàn tất — POC đã được tạo.");
+                    task.Type == AgentTaskType.PocPreview
+                        ? "Agent đạt giới hạn số bước mà chưa tạo được POC (chưa gọi SetPocContent thành công)."
+                        : $"Agent đạt giới hạn số bước mà chưa hoàn tất bước '{task.Title}' (chưa gọi tool ghi kết quả).");
 
             task.Status = AgentTaskStatus.Completed;
             task.Output = output;
             task.FinishedAt = DateTime.UtcNow;
-            task.WorkflowRun.Status = WorkflowRunStatus.Completed;
-            task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
-            task.WorkflowRun.FinishedAt = DateTime.UtcNow;
+
+            // CỔNG DUYỆT: bước chạy xong thì DỪNG chờ người duyệt thay vì tự enqueue
+            // bước kế. Bước kế chỉ được tạo khi user bấm duyệt (ApproveStageUseCase).
+            // CurrentStage giữ nguyên ở bước vừa xong để biết đang chờ duyệt cái gì.
+            var next = DeliveryPipeline.Next(task.WorkflowRun.CurrentStage);
+            if (next is null)
+            {
+                _progress.Report(task.WorkflowRunId, "completed", "Workflow hoàn tất — tất cả các bước đã xong.");
+                task.WorkflowRun.Status = WorkflowRunStatus.Completed;
+                task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
+                task.WorkflowRun.FinishedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _progress.Report(task.WorkflowRunId, "completed", $"Bước \"{task.Title}\" xong — chờ bạn duyệt để sang: {next.Title}.");
+                task.WorkflowRun.Status = WorkflowRunStatus.WaitingForHuman;
+            }
+
             await db.SaveChangesAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

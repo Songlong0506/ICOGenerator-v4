@@ -9,5 +9,6 @@ public enum AgentTaskType
     CodeReview = 5,
     Testing = 6,
     BugFix = 7,
-    DeploymentPlan = 8
+    DeploymentPlan = 8,
+    PocPreview = 9
 }

@@ -16,32 +16,36 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
 
     public async Task<Guid> StartDeliveryWorkflowAsync(Guid projectId, string requirementVersionName, string aiDesignSpecContent)
     {
-        var developer = await _db.Agents
+        // Bắt đầu pipeline ở bước đầu tiên (khai báo trong DeliveryPipeline) thay vì
+        // cứng nhắc giao thẳng cho Developer. Các bước sau do AgentTaskWorker hand-off.
+        var first = DeliveryPipeline.First;
+
+        var firstAgent = await _db.Agents
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.Developer);
+            .FirstOrDefaultAsync(x => x.RoleKey == first.Role);
 
         var workflowRun = new WorkflowRun
         {
             ProjectId = projectId,
             Name = $"Delivery Workflow {requirementVersionName}",
             Status = WorkflowRunStatus.Queued,
-            CurrentStage = WorkflowStageKey.Implementation,
+            CurrentStage = first.Stage,
             StartedAt = null
         };
 
-        var implementationTask = new AgentTask
+        var firstTask = new AgentTask
         {
             WorkflowRunId = workflowRun.Id,
             ProjectId = projectId,
-            AgentId = developer?.Id,
-            Type = AgentTaskType.Implementation,
+            AgentId = firstAgent?.Id,
+            Type = first.TaskType,
             Status = AgentTaskStatus.Queued,
-            Title = "Generate POC from approved AI Design Spec",
+            Title = first.Title,
             Input = aiDesignSpecContent
         };
 
         _db.WorkflowRuns.Add(workflowRun);
-        _db.AgentTasks.Add(implementationTask);
+        _db.AgentTasks.Add(firstTask);
         await _db.SaveChangesAsync();
 
         return workflowRun.Id;
