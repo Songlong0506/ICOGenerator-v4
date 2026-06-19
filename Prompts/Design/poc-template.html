@@ -1,17 +1,22 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <!--
   poc-template.html — MANDATORY self-contained shell for generated POCs.
   Layout (matches the reference app): a top supergraphic bar, a collapsible dark
   sidebar (App Name on top, expandable nav groups, User + Imprint pinned at the
   bottom), and a fixed top bar with breadcrumb (left) + Bosch logo (right).
-  CSS + JS are inlined, so the POC renders standalone (also via /Projects/Mockup). The only external
-  asset is the Bootstrap Icons stylesheet (loaded from a CDN in <head>) used for the sidebar nav icons.
+
+  STYLING = Bootstrap 5.3 (CSS, via CDN) + a thin Bosch theme layer in <style> that
+  recolours Bootstrap to the brand (Bosch blue primary, brand font, borders). The
+  feature UI is authored with standard Bootstrap classes, so the look is consistent
+  and the model writes classes it already knows. Bootstrap JS is intentionally NOT
+  loaded — the inlined <script> at the bottom drives the sidebar collapse, page
+  routing, dialogs and toasts. External assets (CDN): Bootstrap CSS + Bootstrap Icons.
 
   Developer agent rules:
-    1. Keep the whole <head> (incl. <style>), the <script> at the bottom, and the
-       shell markup (.supergraphic, .sidebar, .topbar) exactly as-is.
+    1. Keep the whole <head> (incl. the two <link> and the <style>), the <script> at
+       the bottom, and the shell markup (.supergraphic, .sidebar, .topbar) exactly as-is.
     2. Replace ONLY what is between POC_CONTENT_START and POC_CONTENT_END with the
-       feature UI from the AI Design Spec, reusing the documented classes.
+       feature UI from the AI Design Spec, using the Bootstrap classes listed below.
     3. MULTI-PAGE (so the sidebar actually navigates): wrap EACH screen in its own
        <section class="page-view" data-view="LABEL">…</section>, where LABEL is the
        EXACT sidebar nav label that opens it (a top-level leaf or a sub-item). Give the
@@ -22,24 +27,35 @@
     4. You MAY rename the App Name, the breadcrumb text and the nav items/groups to
        fit the feature, but do NOT change the shell structure, the <style> or the <script>.
     5. BUTTONS STAY INTERACTIVE WITHOUT CUSTOM JS — the shell <script> already wires content
-       buttons, so NEVER add your own <script>. Every .btn shows a toast acknowledging the click,
+       buttons, so NEVER add your own <script>. Every .btn shows a toast acknowledging the
+       click (use Bootstrap buttons: "btn btn-primary", "btn btn-outline-primary", "btn btn-link"),
        so Add / Save / Edit / Delete never feel dead. To open a dialog instead, add
        data-open="someId" to the trigger and author its <div class="modal-overlay" id="someId">
-       <div class="modal">…</div></div> AFTER the .page-view sections (a hidden page would otherwise
-       swallow a fixed dialog); data-close="someId", the × button or a backdrop click closes it.
-    6. Save as poc-demo.html. Do NOT add any external CSS/JS framework.
+       <div class="dialog">…</div></div> AFTER the .page-view sections (a hidden page would
+       otherwise swallow a fixed dialog); data-close="someId", the × button or a backdrop click
+       closes it. NOTE: dialogs use THIS shell's pattern (.modal-overlay/.dialog + data-open/
+       data-close), NOT Bootstrap's modal — there is no data-bs-toggle and no Bootstrap JS.
+    6. Save as poc-demo.html. Use the Bootstrap classes already loaded; do NOT re-link Bootstrap
+       and do NOT add any other CSS/JS framework (no Angular/Material/jQuery…).
 
-  Content classes: card-grid card card-title card-body / tile tile-value tile-label /
-    btn btn-outline btn-ghost / field label input select textarea / table /
-    badge badge-green badge-gray / muted row stack gap mt mb
+  Content classes (Bootstrap 5.3, already loaded):
+    buttons  btn btn-primary / btn btn-outline-primary / btn btn-link
+    cards    card / card-header / card-body / card-title / card-text
+    tables   table table-hover align-middle  (wrap in .table-responsive)
+    forms    mb-3 + form-label + form-control / form-select / form-check + form-check-input
+    badges   badge text-bg-primary / text-bg-success / text-bg-secondary / text-bg-warning / text-bg-danger
+    layout   row + col-*  ·  d-flex gap-2 align-items-center justify-content-between  ·  utilities m*/p*/text-muted/fw-bold/fs-*
+    grid     card-grid  ← the ONE Bosch helper on top of Bootstrap: a responsive auto-fill grid of cards/tiles
 -->
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>POC</title>
-    <!-- Bootstrap Icons (the ONLY external dependency): provides the sidebar nav glyphs as a font, so the
-         menu can use any icon without inlining SVGs. The page still renders without it (icons just hide). -->
+    <!-- Bootstrap 5.3 (CSS only) — themed to Bosch by the <style> below; Bootstrap JS is NOT loaded
+         (the shell <script> drives all interactivity). -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <!-- Bootstrap Icons: sidebar nav glyphs as a font (class `bi bi-…`); page still renders without it. -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <style>
         :root {
@@ -67,10 +83,18 @@
             --sidebar-w-collapsed: 60px;
             --shadow: 0 1px 3px rgba(0,0,0,.12);
             --font: "Bosch-Sans",Arial,Helvetica,sans-serif;
-        }
 
-        * {
-            box-sizing: border-box;
+            /* ---- Bosch theme variables consumed by Bootstrap (thin recolour layer) ---- */
+            --bs-body-font-family: var(--font);
+            --bs-body-color: var(--ink);
+            --bs-body-font-size: .9375rem;
+            --bs-primary: #007bc0;
+            --bs-primary-rgb: 0,123,192;
+            --bs-link-color-rgb: 0,123,192;
+            --bs-link-hover-color-rgb: 0,98,154;
+            --bs-success-rgb: 0,136,74;
+            --bs-secondary-rgb: 90,96,102;
+            --bs-border-color: #d4d8db;
         }
 
         html, body {
@@ -83,7 +107,6 @@
             font-family: var(--font);
             color: var(--ink);
             background: var(--bg);
-            font-size: 14px;
             line-height: 1.5;
         }
 
@@ -104,6 +127,65 @@
                 text-decoration: underline;
             }
 
+        /* ---------- Bosch theme over Bootstrap components ---------- */
+        .btn {
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            --bs-btn-bg: var(--bosch-blue);
+            --bs-btn-border-color: var(--bosch-blue);
+            --bs-btn-hover-bg: var(--bosch-blue-hover);
+            --bs-btn-hover-border-color: var(--bosch-blue-hover);
+            --bs-btn-active-bg: var(--bosch-blue-active);
+            --bs-btn-active-border-color: var(--bosch-blue-active);
+            --bs-btn-disabled-bg: var(--disabled-bg);
+            --bs-btn-disabled-border-color: var(--disabled-bg);
+        }
+
+        .btn-outline-primary {
+            --bs-btn-color: var(--bosch-blue);
+            --bs-btn-border-color: var(--bosch-blue);
+            --bs-btn-hover-bg: var(--bosch-blue);
+            --bs-btn-hover-border-color: var(--bosch-blue);
+            --bs-btn-active-bg: var(--bosch-blue-active);
+            --bs-btn-active-border-color: var(--bosch-blue-active);
+        }
+
+        .btn-link {
+            --bs-btn-color: var(--bosch-blue);
+            --bs-btn-hover-color: var(--bosch-blue-hover);
+            text-decoration: none;
+        }
+
+        .form-control:focus, .form-select:focus, .form-check-input:focus {
+            border-color: var(--bosch-blue);
+            box-shadow: 0 0 0 .2rem rgba(0,123,192,.18);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--bosch-blue);
+            border-color: var(--bosch-blue);
+        }
+
+        .card {
+            box-shadow: var(--shadow);
+        }
+
+        .table {
+            --bs-table-hover-bg: #f3f6f9;
+        }
+
+        .page-link {
+            color: var(--bosch-blue);
+        }
+
+        .page-item.active .page-link {
+            background-color: var(--bosch-blue);
+            border-color: var(--bosch-blue);
+        }
+
+        /* Sidebar nav icons (Bootstrap Icons font, loaded via the <link> in <head>). */
         .ico {
             width: 20px;
             height: 20px;
@@ -115,7 +197,6 @@
             stroke-linejoin: round;
         }
 
-        /* Bootstrap Icons used by the generated sidebar nav items (loaded via the <link> in <head>). */
         .nav-item > .bi {
             font-size: 18px;
             width: 20px;
@@ -317,10 +398,10 @@
         }
 
         .breadcrumb {
-            color: var(--muted);
+            margin: 0;
+            color: var(--ink);
             font-size: 14px;
             font-weight: 700;
-            color: var(--ink);
         }
 
             .breadcrumb .sep {
@@ -359,220 +440,18 @@
                 display: block;
             }
 
-        /* ---------- Content components ---------- */
+        /* The ONE Bosch helper on top of Bootstrap: responsive auto-fill grid of cards/tiles
+           (Bootstrap's grid needs fixed col breakpoints; this auto-fits). Use plain Bootstrap
+           .row/.col-* when you need precise column control. */
         .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill,minmax(260px,1fr));
             gap: 16px;
         }
 
-        .card {
-            background: var(--surface);
-            border: 1px solid var(--line);
-            box-shadow: var(--shadow);
-        }
-
-        .card-title {
-            font-weight: 700;
-            padding: 14px 16px;
-            border-bottom: 1px solid var(--line);
-        }
-
-        .card-body {
-            padding: 16px;
-        }
-
-        .tile {
-            background: var(--surface);
-            border: 1px solid var(--line);
-            box-shadow: var(--shadow);
-            padding: 18px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .tile-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--bosch-blue-dark);
-        }
-
-        .tile-label {
-            color: var(--muted);
-            font-size: 13px;
-        }
-
-        /* Primary button (filled blue) */
-        .btn {
-            font-family: inherit;
-            font-size: 14px;
-            font-weight: 700;
-            padding: 9px 18px;
-            border: 1px solid var(--bosch-blue);
-            background: var(--bosch-blue);
-            color: #fff;
-            cursor: pointer;
-        }
-
-            .btn:hover {
-                background: var(--bosch-blue-hover);
-                border-color: var(--bosch-blue-hover);
-            }
-
-            .btn:active {
-                background: var(--bosch-blue-active);
-                border-color: var(--bosch-blue-active);
-            }
-
-            .btn:disabled,
-            .btn[disabled] {
-                background: var(--disabled-bg);
-                border-color: var(--disabled-bg);
-                color: #fff;
-                cursor: not-allowed;
-            }
-
-        /* Secondary button (outline) */
-        .btn-outline {
-            background: transparent;
-            color: var(--bosch-blue);
-        }
-
-            .btn-outline:hover {
-                background: rgba(0,123,192,.08);
-                color: var(--bosch-blue-hover);
-            }
-
-            .btn-outline:disabled,
-            .btn-outline[disabled] {
-                background: transparent;
-                border-color: var(--disabled-line);
-                color: var(--disabled-ink);
-                cursor: not-allowed;
-            }
-
-        /* Tertiary button (text only) */
-        .btn-ghost {
-            background: transparent;
-            border-color: transparent;
-            color: var(--bosch-blue);
-        }
-
-            .btn-ghost:hover {
-                background: rgba(0,123,192,.08);
-            }
-
-            .btn-ghost:disabled,
-            .btn-ghost[disabled] {
-                background: transparent;
-                border-color: transparent;
-                color: var(--disabled-ink);
-                cursor: not-allowed;
-            }
-
-        .field {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-bottom: 14px;
-        }
-
-            .field label {
-                font-size: 13px;
-                color: var(--muted);
-                font-weight: 700;
-            }
-
-        .input, .select, .textarea {
-            font-family: inherit;
-            font-size: 14px;
-            padding: 9px 12px;
-            border: 1px solid var(--line);
-            background: #fff;
-            color: var(--ink);
-            width: 100%;
-        }
-
-            .input:focus, .select:focus, .textarea:focus {
-                outline: none;
-                border-color: var(--bosch-blue);
-                box-shadow: 0 0 0 2px rgba(0,123,192,.18);
-            }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            background: var(--surface);
-        }
-
-            .table th {
-                text-align: left;
-                font-weight: 700;
-                padding: 12px 14px;
-                border-bottom: 2px solid var(--line);
-                background: #f7f8f9;
-            }
-
-            .table td {
-                padding: 12px 14px;
-                border-bottom: 1px solid var(--line);
-            }
-
-            .table tr:hover td {
-                background: #f3f6f9;
-            }
-
-        .badge {
-            display: inline-block;
-            font-size: 12px;
-            font-weight: 700;
-            padding: 2px 10px;
-            border-radius: 10px;
-            background: rgba(0,123,192,.12);
-            color: var(--bosch-blue-dark);
-        }
-
-        .badge-green {
-            background: rgba(0,136,74,.14);
-            color: #006f3c;
-        }
-
-        .badge-gray {
-            background: #e7eaec;
-            color: #5a6066;
-        }
-
-        .muted {
-            color: var(--muted);
-        }
-
-        .row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .stack {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .gap {
-            gap: 16px;
-        }
-
-        .mt {
-            margin-top: 16px;
-        }
-
-        .mb {
-            margin-bottom: 16px;
-        }
-
-        /* ---------- Modals ---------- */
+        /* ---------- Dialogs (shell's own modal system; NOT Bootstrap's .modal) ----------
+           Named .dialog (not .modal) so the loaded Bootstrap CSS can't hide it. Open/close
+           is wired in the <script> via .modal-overlay + data-open/data-close. */
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -580,38 +459,38 @@
             display: none;
             align-items: flex-start;
             justify-content: center;
-            z-index: 60;
+            z-index: 1060;
         }
 
             .modal-overlay.open {
                 display: flex;
             }
 
-        .modal {
+        .dialog {
             background: #fff;
             margin-top: 9vh;
             width: min(360px,92vw);
             box-shadow: 0 12px 40px rgba(0,0,0,.3);
         }
 
-            .modal.lg {
+            .dialog.lg {
                 width: min(820px,94vw);
             }
 
-        .modal-head {
+        .dialog-head {
             display: flex;
             align-items: center;
             padding: 14px 18px;
             border-bottom: 1px solid var(--line);
         }
 
-            .modal-head h3 {
+            .dialog-head h3 {
                 margin: 0;
                 font-size: 16px;
                 flex: 1;
             }
 
-        .modal-close {
+        .dialog-close {
             border: 0;
             background: transparent;
             cursor: pointer;
@@ -623,11 +502,11 @@
             justify-content: center;
         }
 
-            .modal-close:hover {
+            .dialog-close:hover {
                 color: var(--ink);
             }
 
-        .modal-body {
+        .dialog-body {
             padding: 18px;
         }
 
@@ -680,14 +559,7 @@
 
             .user-popover-top .user-lang {
                 flex: 1;
-                margin: 0;
             }
-
-        .user-logout-q {
-            margin: 0 0 12px;
-            font-weight: 700;
-            color: var(--ink);
-        }
 
         .imprint-bar {
             height: 5px;
@@ -727,7 +599,8 @@
                 margin: 0;
             }
 
-        /* ---------- Toast (click feedback for POC action buttons) ---------- */
+        /* ---------- Toast (click feedback for POC action buttons) ----------
+           Named .poc-toast (not .toast) so the loaded Bootstrap CSS can't restyle it. */
         .toast-host {
             position: fixed;
             left: 50%;
@@ -737,11 +610,11 @@
             flex-direction: column;
             align-items: center;
             gap: 8px;
-            z-index: 80;
+            z-index: 1080;
             pointer-events: none;
         }
 
-        .toast {
+        .poc-toast {
             max-width: 90vw;
             padding: 11px 18px;
             background: var(--ink);
@@ -755,7 +628,7 @@
             transition: opacity .18s ease, transform .18s ease;
         }
 
-            .toast.show {
+            .poc-toast.show {
                 opacity: 1;
                 transform: translateY(0);
             }
@@ -798,24 +671,24 @@
                 <nav class="sidebar-nav">
                     <!-- Leaf item -->
                     <div class="nav-item active" title="Overview">
-                        <svg class="ico" viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v8h-8zM13 13h8v8h-8zM3 13h8v8H3z" /></svg>
+                        <i class="bi bi-grid" aria-hidden="true"></i>
                         <span class="nav-label">Overview</span>
                     </div>
 
                     <!-- Expandable group (accordion). Each sub-item's label matches a data-view below. -->
                     <div class="nav-group open">
                         <div class="nav-item" title="Records">
-                            <svg class="ico" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2M6 14h12v7H6z" /></svg>
+                            <i class="bi bi-folder2" aria-hidden="true"></i>
                             <span class="nav-label">Records</span>
                             <svg class="ico nav-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
                         </div>
                         <div class="nav-sub">
                             <div class="nav-item">
-                                <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg>
+                                <i class="bi bi-list-ul" aria-hidden="true"></i>
                                 <span class="nav-label">All Records</span>
                             </div>
                             <div class="nav-item">
-                                <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg>
+                                <i class="bi bi-plus-circle" aria-hidden="true"></i>
                                 <span class="nav-label">Add Record</span>
                             </div>
                         </div>
@@ -824,24 +697,24 @@
                     <!-- Another expandable group -->
                     <div class="nav-group">
                         <div class="nav-item" title="Reports">
-                            <svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" /></svg>
+                            <i class="bi bi-bar-chart" aria-hidden="true"></i>
                             <span class="nav-label">Reports</span>
                             <svg class="ico nav-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
                         </div>
                         <div class="nav-sub">
-                            <div class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg><span class="nav-label">Monthly Summary</span></div>
+                            <div class="nav-item"><i class="bi bi-calendar3" aria-hidden="true"></i><span class="nav-label">Monthly Summary</span></div>
                         </div>
                     </div>
 
                     <!-- Settings group -->
                     <div class="nav-group">
                         <div class="nav-item" title="Settings">
-                            <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1" /></svg>
+                            <i class="bi bi-gear" aria-hidden="true"></i>
                             <span class="nav-label">Settings</span>
                             <svg class="ico nav-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
                         </div>
                         <div class="nav-sub">
-                            <div class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg><span class="nav-label">Preferences</span></div>
+                            <div class="nav-item"><i class="bi bi-sliders" aria-hidden="true"></i><span class="nav-label">Preferences</span></div>
                         </div>
                     </div>
                 </nav>
@@ -849,11 +722,11 @@
                 <!-- ===== Bottom: User + Imprint (fixed defaults) ===== -->
                 <div class="sidebar-foot">
                     <div class="nav-item" id="navUser" title="User">
-                        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+                        <i class="bi bi-person-circle" aria-hidden="true"></i>
                         <span class="nav-label">EXTERNAL User Name</span>
                     </div>
                     <div class="nav-item" id="navImprint" title="Imprint">
-                        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+                        <i class="bi bi-info-circle" aria-hidden="true"></i>
                         <span class="nav-label">Imprint</span>
                     </div>
                 </div>
@@ -872,212 +745,92 @@
                 <main class="page">
 
                     <!-- POC_CONTENT_START : replace everything below with the feature UI -->
-                    <!-- Data-grid styles scoped to the POC content (head <style> stays untouched). -->
-                    <style>
-                        .data-table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            background: var(--surface);
-                            font-size: 15px;
-                        }
-
-                            .data-table th {
-                                text-align: left;
-                                font-weight: 700;
-                                color: var(--ink);
-                                padding: 16px 20px;
-                                background: var(--surface);
-                                border-bottom: 1px solid var(--line);
-                                white-space: nowrap;
-                            }
-
-                            .data-table td {
-                                padding: 16px 20px;
-                                color: var(--ink);
-                                border-bottom: 1px solid var(--line);
-                                vertical-align: top;
-                            }
-
-                            /* Zebra striping: odd rows tinted, even rows white. */
-                            .data-table tbody tr:nth-child(odd) td {
-                                background: #f2f4f5;
-                            }
-
-                            .data-table tbody tr:hover td {
-                                background: #e8eef3;
-                            }
-
-                            .data-table .cell-sub {
-                                display: block;
-                            }
-
-                        .table-pager {
-                            display: flex;
-                            align-items: center;
-                            margin-top: 22px;
-                        }
-
-                        .pager-perpage {
-                            position: relative;
-                            display: flex;
-                            flex-direction: column;
-                            gap: 2px;
-                            min-width: 170px;
-                            padding: 8px 40px 8px 16px;
-                            background: #f2f4f5;
-                            border: 1px solid var(--line);
-                            border-radius: 4px;
-                            cursor: pointer;
-                        }
-
-                            .pager-perpage .ppp-label {
-                                font-size: 12px;
-                                color: var(--muted);
-                            }
-
-                            .pager-perpage .ppp-value {
-                                font-size: 16px;
-                                color: var(--ink);
-                            }
-
-                            .pager-perpage .ppp-chevron {
-                                position: absolute;
-                                right: 12px;
-                                top: 50%;
-                                transform: translateY(-50%);
-                                color: var(--ink);
-                            }
-
-                        .pager-nav {
-                            margin-left: auto;
-                            display: flex;
-                            align-items: center;
-                            gap: 4px;
-                        }
-
-                        .pager-arrow, .pager-page {
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            min-width: 36px;
-                            height: 36px;
-                            border: 0;
-                            background: transparent;
-                            color: var(--muted);
-                            cursor: pointer;
-                            border-radius: 50%;
-                            font-family: inherit;
-                            font-size: 15px;
-                            font-weight: 700;
-                        }
-
-                            .pager-arrow:hover, .pager-page:hover {
-                                background: rgba(0,123,192,.08);
-                                color: var(--bosch-blue);
-                            }
-
-                        .pager-page {
-                            color: var(--ink);
-                        }
-
-                            .pager-page.active {
-                                background: var(--bosch-blue);
-                                color: #fff;
-                            }
-
-                        .pager-arrow:disabled {
-                            color: var(--line);
-                            cursor: default;
-                            background: transparent;
-                        }
-                    </style>
-
                     <!-- Each screen is a .page-view; only the .active one shows. Clicking its nav item
-                         (data-view === the nav label) reveals it and hides the others. -->
+                         (data-view === the nav label) reveals it and hides the others. Authored with
+                         Bootstrap classes (themed to Bosch by the <style> in <head>). -->
                     <section class="page-view active" data-view="Overview">
-                    <div class="row mb">
-                        <button class="btn" data-open="addressModal">Add New Address</button>
-                    </div>
-
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>State</th>
-                                <th>No.</th>
-                                <th>Name</th>
-                                <th>Weight</th>
-                                <th>Severity</th>
-                                <th>Symbol</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr><td>info</td><td>1</td><td>Hydrogen</td><td>1.0079</td><td>info</td><td>H</td></tr>
-                            <tr><td>neutral</td><td>2</td><td>Helium<span class="cell-sub">Extra line</span></td><td>&ndash;</td><td>neutral</td><td>He</td></tr>
-                            <tr><td>success</td><td>3</td><td>Lithium</td><td>6.941</td><td>success</td><td>Li</td></tr>
-                            <tr><td>warning</td><td>4</td><td>Beryllium</td><td>9.0122</td><td>warning</td><td>Be</td></tr>
-                            <tr><td>error</td><td>5</td><td>Boron</td><td>10.811</td><td>error</td><td>B</td></tr>
-                            <tr><td>info</td><td>6</td><td>Carbon</td><td>12.0107</td><td>info</td><td>C</td></tr>
-                            <tr><td>neutral</td><td>7</td><td>Nitrogen</td><td>14.0067</td><td>neutral</td><td>N</td></tr>
-                            <tr><td>success</td><td>8</td><td>Oxygen</td><td>15.9994</td><td>success</td><td>O</td></tr>
-                            <tr><td>warning</td><td>9</td><td>Fluorine</td><td>&ndash;</td><td>warning</td><td>F</td></tr>
-                            <tr><td>error</td><td>10</td><td>Neon</td><td>20.1797</td><td>error</td><td>Ne</td></tr>
-                        </tbody>
-                    </table>
-
-                    <div class="table-pager">
-                        <div class="pager-perpage">
-                            <span class="ppp-label">Elements per page</span>
-                            <span class="ppp-value">10</span>
-                            <svg class="ico ppp-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+                        <div class="d-flex align-items-center mb-3">
+                            <button class="btn btn-primary" data-open="addressModal"><i class="bi bi-plus-lg me-1"></i>Add New Address</button>
                         </div>
-                        <div class="pager-nav">
-                            <button class="pager-arrow" aria-label="Previous page"><svg class="ico" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg></button>
-                            <button class="pager-page active">1</button>
-                            <button class="pager-page">2</button>
-                            <button class="pager-arrow" aria-label="Next page"><svg class="ico" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg></button>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>State</th>
+                                        <th>No.</th>
+                                        <th>Name</th>
+                                        <th>Weight</th>
+                                        <th>Symbol</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td><span class="badge text-bg-primary">info</span></td><td>1</td><td>Hydrogen</td><td>1.0079</td><td>H</td></tr>
+                                    <tr><td><span class="badge text-bg-secondary">neutral</span></td><td>2</td><td>Helium</td><td>&ndash;</td><td>He</td></tr>
+                                    <tr><td><span class="badge text-bg-success">success</span></td><td>3</td><td>Lithium</td><td>6.941</td><td>Li</td></tr>
+                                    <tr><td><span class="badge text-bg-warning">warning</span></td><td>4</td><td>Beryllium</td><td>9.0122</td><td>Be</td></tr>
+                                    <tr><td><span class="badge text-bg-danger">error</span></td><td>5</td><td>Boron</td><td>10.811</td><td>B</td></tr>
+                                    <tr><td><span class="badge text-bg-primary">info</span></td><td>6</td><td>Carbon</td><td>12.0107</td><td>C</td></tr>
+                                    <tr><td><span class="badge text-bg-secondary">neutral</span></td><td>7</td><td>Nitrogen</td><td>14.0067</td><td>N</td></tr>
+                                    <tr><td><span class="badge text-bg-success">success</span></td><td>8</td><td>Oxygen</td><td>15.9994</td><td>O</td></tr>
+                                    <tr><td><span class="badge text-bg-warning">warning</span></td><td>9</td><td>Fluorine</td><td>&ndash;</td><td>F</td></tr>
+                                    <tr><td><span class="badge text-bg-danger">error</span></td><td>10</td><td>Neon</td><td>20.1797</td><td>Ne</td></tr>
+                                </tbody>
+                            </table>
                         </div>
-                    </div>
+
+                        <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Table pagination">
+                            <span class="text-muted small">Elements per page: 10</span>
+                            <ul class="pagination mb-0">
+                                <li class="page-item disabled"><a class="page-link" href="#" aria-label="Previous"><i class="bi bi-chevron-left"></i></a></li>
+                                <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                <li class="page-item"><a class="page-link" href="#">2</a></li>
+                                <li class="page-item"><a class="page-link" href="#" aria-label="Next"><i class="bi bi-chevron-right"></i></a></li>
+                            </ul>
+                        </nav>
                     </section>
 
                     <section class="page-view" data-view="All Records">
-                        <h2>All Records</h2>
-                        <p class="muted mb">Every record currently stored in the system.</p>
-                        <table class="table">
-                            <thead><tr><th>ID</th><th>Name</th><th>Status</th></tr></thead>
-                            <tbody>
-                                <tr><td>R-1001</td><td>Alpha entry</td><td><span class="badge badge-green">Active</span></td></tr>
-                                <tr><td>R-1002</td><td>Beta entry</td><td><span class="badge badge-gray">Archived</span></td></tr>
-                                <tr><td>R-1003</td><td>Gamma entry</td><td><span class="badge badge-green">Active</span></td></tr>
-                            </tbody>
-                        </table>
+                        <h2 class="h4">All Records</h2>
+                        <p class="text-muted mb-3">Every record currently stored in the system.</p>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead><tr><th>ID</th><th>Name</th><th>Status</th></tr></thead>
+                                <tbody>
+                                    <tr><td>R-1001</td><td>Alpha entry</td><td><span class="badge text-bg-success">Active</span></td></tr>
+                                    <tr><td>R-1002</td><td>Beta entry</td><td><span class="badge text-bg-secondary">Archived</span></td></tr>
+                                    <tr><td>R-1003</td><td>Gamma entry</td><td><span class="badge text-bg-success">Active</span></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </section>
 
                     <section class="page-view" data-view="Add Record">
-                        <h2>Add Record</h2>
-                        <p class="muted mb">Create a new record. Fields marked (*) are mandatory.</p>
-                        <div class="stack" style="max-width:420px">
-                            <div class="field"><label>Name (*)</label><input class="input" type="text" placeholder="Record name" /></div>
-                            <div class="field"><label>Category</label><select class="select"><option>General</option><option>Priority</option></select></div>
-                            <div class="field"><label>Notes</label><textarea class="textarea" rows="3"></textarea></div>
-                            <div class="row"><button class="btn">Save</button><button class="btn btn-outline">Cancel</button></div>
+                        <h2 class="h4">Add Record</h2>
+                        <p class="text-muted mb-3">Create a new record. Fields marked (*) are mandatory.</p>
+                        <div style="max-width:420px">
+                            <div class="mb-3"><label class="form-label">Name (*)</label><input class="form-control" type="text" placeholder="Record name" /></div>
+                            <div class="mb-3"><label class="form-label">Category</label><select class="form-select"><option>General</option><option>Priority</option></select></div>
+                            <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" rows="3"></textarea></div>
+                            <div class="d-flex gap-2"><button class="btn btn-primary">Save</button><button class="btn btn-outline-primary">Cancel</button></div>
                         </div>
                     </section>
 
                     <section class="page-view" data-view="Monthly Summary">
-                        <h2>Monthly Summary</h2>
-                        <div class="card-grid mt">
-                            <div class="tile"><span class="tile-value">128</span><span class="tile-label">Records created</span></div>
-                            <div class="tile"><span class="tile-value">94</span><span class="tile-label">Closed</span></div>
-                            <div class="tile"><span class="tile-value">34</span><span class="tile-label">Still open</span></div>
+                        <h2 class="h4 mb-3">Monthly Summary</h2>
+                        <div class="card-grid">
+                            <div class="card"><div class="card-body"><div class="fs-2 fw-bold text-primary">128</div><div class="text-muted small">Records created</div></div></div>
+                            <div class="card"><div class="card-body"><div class="fs-2 fw-bold text-primary">94</div><div class="text-muted small">Closed</div></div></div>
+                            <div class="card"><div class="card-body"><div class="fs-2 fw-bold text-primary">34</div><div class="text-muted small">Still open</div></div></div>
                         </div>
                     </section>
 
                     <section class="page-view" data-view="Preferences">
-                        <h2>Preferences</h2>
-                        <div class="stack" style="max-width:420px">
-                            <div class="field"><label>Default view</label><select class="select"><option>Overview</option><option>All Records</option></select></div>
-                            <div class="field"><label>Items per page</label><select class="select"><option>10</option><option>25</option><option>50</option></select></div>
-                            <div class="row"><button class="btn">Save preferences</button></div>
+                        <h2 class="h4">Preferences</h2>
+                        <div style="max-width:420px">
+                            <div class="mb-3"><label class="form-label">Default view</label><select class="form-select"><option>Overview</option><option>All Records</option></select></div>
+                            <div class="mb-3"><label class="form-label">Items per page</label><select class="form-select"><option>10</option><option>25</option><option>50</option></select></div>
+                            <button class="btn btn-primary">Save preferences</button>
                         </div>
                     </section>
                     <!-- POC_CONTENT_END -->
@@ -1091,30 +844,30 @@
     <div class="modal-overlay user-overlay" id="userModal">
         <div class="user-popover">
             <div class="user-popover-top">
-                <div class="field user-lang">
-                    <label>Default Language</label>
-                    <select class="select"><option>English</option><option>Tiếng Việt</option><option>Deutsch</option></select>
+                <div class="user-lang">
+                    <label class="form-label">Default Language</label>
+                    <select class="form-select"><option>English</option><option>Tiếng Việt</option><option>Deutsch</option></select>
                 </div>
-                <button class="modal-close" data-close="userModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+                <button class="dialog-close" data-close="userModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
             </div>
-            <p class="user-logout-q">Do you want to logout?</p>
-            <button class="btn">Logout</button>
+            <p class="fw-bold mb-2">Do you want to logout?</p>
+            <button class="btn btn-primary">Logout</button>
         </div>
     </div>
 
     <!-- ===== Imprint popup ===== -->
     <div class="modal-overlay" id="imprintModal">
-        <div class="modal lg">
+        <div class="dialog lg">
             <div class="imprint-bar"></div>
-            <div class="modal-head">
+            <div class="dialog-head">
                 <div class="imprint-logo" style="font-size:20px;">
                     BOSCH
                     <small>Invented for life</small>
                 </div>
                 <div style="flex:1"></div>
-                <button class="modal-close" data-close="imprintModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+                <button class="dialog-close" data-close="imprintModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
             </div>
-            <div class="modal-body">
+            <div class="dialog-body">
                 <dl class="imprint-grid">
                     <dt>Purpose</dt>
                     <dd>Describe what this application is used for.</dd>
@@ -1138,82 +891,21 @@
     </div>
 
     <!-- ===== Add New Address popup ===== -->
-    <style>
-        .modal.addr {
-            width: min(640px,94vw);
-        }
-
-        .addr-head {
-            display: flex;
-            align-items: flex-start;
-            padding: 22px 26px 0;
-        }
-
-            .addr-head h3 {
-                flex: 1;
-                margin: 0;
-                font-size: 22px;
-                font-weight: 700;
-                color: var(--ink);
-            }
-
-        .addr-note {
-            margin: 0;
-            padding: 14px 26px 4px;
-            color: var(--ink);
-            font-size: 15px;
-        }
-
-        .addr-body {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            padding: 14px 26px 0;
-        }
-
-        .addr-input {
-            font-family: inherit;
-            font-size: 15px;
-            padding: 14px 16px;
-            width: 100%;
-            color: var(--ink);
-            background: #e7eaec;
-            border: 0;
-            border-bottom: 1px solid transparent;
-        }
-
-            .addr-input::placeholder {
-                color: var(--muted);
-            }
-
-            .addr-input:focus {
-                outline: none;
-                background: #dfe3e6;
-                border-bottom-color: var(--bosch-blue);
-            }
-
-        .addr-foot {
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-            padding: 26px;
-        }
-    </style>
     <div class="modal-overlay" id="addressModal">
-        <div class="modal addr">
-            <div class="addr-head">
+        <div class="dialog" style="width:min(560px,94vw)">
+            <div class="dialog-head">
                 <h3>Add New Address</h3>
-                <button class="modal-close" data-close="addressModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+                <button class="dialog-close" data-close="addressModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
             </div>
-            <p class="addr-note"><b>(*)</b> Mandatory field. Enter address information below.</p>
-            <div class="addr-body">
-                <input class="addr-input" type="text" placeholder="Street" value="DemoStrada" />
-                <input class="addr-input" type="text" placeholder="ZIP code" value="70469" />
-                <input class="addr-input" type="text" placeholder="City" value="Stuttgart" />
-            </div>
-            <div class="addr-foot">
-                <button class="btn">Save</button>
-                <button class="btn btn-outline" data-close="addressModal">Cancel</button>
+            <div class="dialog-body">
+                <p class="mb-3"><b>(*)</b> Mandatory field. Enter address information below.</p>
+                <div class="mb-3"><label class="form-label">Street</label><input class="form-control" type="text" value="DemoStrada" /></div>
+                <div class="mb-3"><label class="form-label">ZIP code</label><input class="form-control" type="text" value="70469" /></div>
+                <div class="mb-3"><label class="form-label">City</label><input class="form-control" type="text" value="Stuttgart" /></div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button class="btn btn-primary">Save</button>
+                    <button class="btn btn-outline-primary" data-close="addressModal">Cancel</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1319,7 +1011,7 @@
       function toast(msg) {
         if (!toastHost) return;
         var t = document.createElement('div');
-        t.className = 'toast';
+        t.className = 'poc-toast';
         t.textContent = msg;
         toastHost.appendChild(t);
         requestAnimationFrame(function () { t.classList.add('show'); });
