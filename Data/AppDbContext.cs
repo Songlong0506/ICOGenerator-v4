@@ -23,6 +23,16 @@ public class AppDbContext : DbContext
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
     public DbSet<AgentTask> AgentTasks => Set<AgentTask>();
 
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+
+        // Chuẩn hoá mọi cột DateTime về Kind=Utc khi đọc (xem UtcDateTimeConverter) để JSON trả ra kèm hậu tố 'Z',
+        // tránh lệch -7h ở popup AI Call Logs và mọi chỗ hiển thị thời gian khác trên client.
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+        configurationBuilder.Properties<DateTime?>().HaveConversion<UtcDateTimeConverter>();
+    }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
