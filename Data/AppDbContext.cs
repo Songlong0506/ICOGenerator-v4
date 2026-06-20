@@ -97,7 +97,6 @@ public class AppDbContext : DbContext
         {
             b.Property(x => x.Name).HasMaxLength(200);
             b.Property(x => x.Description).HasMaxLength(2000);
-            b.Property(x => x.GenerationMode).HasMaxLength(100);
             b.Property(x => x.BackendGitUrl).HasMaxLength(500);
             b.Property(x => x.FrontendGitUrl).HasMaxLength(500);
         });

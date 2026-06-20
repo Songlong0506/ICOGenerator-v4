@@ -351,10 +351,8 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("GenerationMode")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                    b.Property<bool>("IsUseBoschTemplate")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()

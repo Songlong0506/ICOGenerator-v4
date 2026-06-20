@@ -27,7 +27,7 @@ public class CreateProjectUseCase
         {
             Name = vm.Name,
             Description = vm.Description,
-            GenerationMode = vm.GenerationMode,
+            IsUseBoschTemplate = vm.IsUseBoschTemplate,
             BackendGitUrl = vm.BackendGitUrl,
             FrontendGitUrl = vm.FrontendGitUrl,
             Status = ProjectStatus.Planning
