@@ -2,7 +2,7 @@ const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
 const chatMessages = document.getElementById("chatMessages");
 const thinkingBox = document.getElementById("thinkingBox");
-const suggestionChips = document.getElementById("suggestionChips");
+const suggestionList = document.getElementById("suggestionList");
 
 function escapeHtml(value) {
     return String(value ?? "")
@@ -57,24 +57,47 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         resizeMessageInput();
 
         // Lượt đã được trả lời → ẩn các gợi ý cũ ngay (trang sẽ reload với gợi ý mới nếu có).
-        if (suggestionChips) suggestionChips.style.display = "none";
+        if (suggestionList) suggestionList.style.display = "none";
 
         thinkingBox.style.display = "block";
         chatMessages.scrollTop = chatMessages.scrollHeight;
     });
 
-    // Bấm một "chip" gợi ý = điền sẵn câu trả lời rồi gửi qua đúng pipeline submit ở trên,
+    // Chọn một đáp án gợi ý = điền sẵn câu trả lời rồi gửi qua đúng pipeline submit ở trên,
     // để người dùng không phải gõ tay từng chữ. Vẫn có thể tự nhập nếu không gợi ý nào khớp.
-    if (suggestionChips) {
-        suggestionChips.addEventListener("click", function (e) {
-            const chip = e.target.closest(".suggestion-chip");
-            if (!chip) return;
+    function selectSuggestion(option) {
+        const text = (option?.dataset.suggestion || "").trim();
+        if (!text) return;
 
-            const text = (chip.dataset.suggestion || "").trim();
-            if (!text) return;
+        messageInput.value = text;
+        chatForm.requestSubmit();
+    }
 
-            messageInput.value = text;
-            chatForm.requestSubmit();
+    if (suggestionList) {
+        suggestionList.addEventListener("click", function (e) {
+            const option = e.target.closest(".suggestion-option");
+            if (!option) return;
+
+            selectSuggestion(option);
+        });
+
+        // Phím tắt số (1–9) chọn nhanh đáp án — giống option-select của Claude. Chỉ bắt khi
+        // danh sách đang hiện và con trỏ KHÔNG ở ô nhập, để không cướp phím số khi đang soạn tin.
+        document.addEventListener("keydown", function (e) {
+            if (!suggestionList || suggestionList.style.display === "none") return;
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+            const active = document.activeElement;
+            if (active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT")) return;
+
+            if (e.key < "1" || e.key > "9") return;
+
+            const options = suggestionList.querySelectorAll(".suggestion-option");
+            const index = Number(e.key) - 1;
+            if (index >= options.length) return;
+
+            e.preventDefault();
+            selectSuggestion(options[index]);
         });
     }
 }

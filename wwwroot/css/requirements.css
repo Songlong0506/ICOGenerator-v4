@@ -74,43 +74,73 @@
             border-color: var(--line);
         }
 
-    /* Suggestion chips: đáp án gợi ý "bấm-để-trả-lời" cho lượt hỏi mới nhất của BA (giống plan mode).
-       Nằm dưới tin nhắn BA, người dùng bấm để trả nhanh thay vì gõ tay từng chữ. */
-    .suggestion-chips {
+    /* Suggestion options: đáp án gợi ý "bấm-để-trả-lời" cho lượt hỏi mới nhất của BA, trình bày dạng
+       danh sách dọc có đánh số — giống option-select của Claude — thay cho "chip" ngang. Nằm dưới tin
+       nhắn BA; người dùng bấm (hoặc gõ phím số) để trả nhanh thay vì gõ tay từng chữ. */
+    .suggestion-list {
         display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
+        flex-direction: column;
+        gap: 6px;
         margin: 0 0 16px;
         max-width: 75%;
     }
 
-    .suggestion-chips:empty {
+    .suggestion-list:empty {
         display: none;
     }
 
-    .suggestion-chip {
+    .suggestion-option {
         font-family: inherit;
-        font-size: 13px;
-        font-weight: 600;
-        line-height: 1.3;
+        font-size: 14px;
+        line-height: 1.4;
         text-align: left;
-        padding: 8px 14px;
-        border: 1px solid var(--bosch-blue);
-        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
         background: var(--surface);
-        color: var(--bosch-blue);
+        color: var(--ink);
         cursor: pointer;
-        transition: background .15s ease, color .15s ease;
+        transition: background .15s ease, border-color .15s ease;
     }
 
-        .suggestion-chip:hover {
+        .suggestion-option:hover,
+        .suggestion-option:focus-visible {
             background: var(--bosch-blue-tint);
-            color: var(--bosch-blue-hover);
+            border-color: var(--bosch-blue);
+            outline: none;
         }
 
-        .suggestion-chip:active {
+        .suggestion-option:active {
             background: var(--bosch-blue-tint-strong);
         }
+
+    /* Nhãn đáp án chiếm phần còn lại, đẩy badge số sang phải (giống bố cục của Claude). */
+    .suggestion-option-text {
+        flex: 1;
+        min-width: 0;
+        font-weight: 600;
+    }
+
+    /* Badge số bên phải: vừa là chỉ dẫn thứ tự, vừa là phím tắt (bấm 1–9 để chọn nhanh). */
+    .suggestion-option-key {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 6px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #f7f8f9;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+    }
 
     /* Bottom composer groups the write-requirement action and the chat input
        into one block, anchored to the panel bottom with a separator so it no
@@ -645,7 +675,7 @@
             max-width: 90%;
         }
 
-        .suggestion-chips {
+        .suggestion-list {
             max-width: 90%;
         }
     }
