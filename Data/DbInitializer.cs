@@ -58,6 +58,7 @@ public static class DbInitializer
         await RemoveLegacySystemAgentAsync(db);
         await EnsureAgentRoleKeysAsync(db);
         await EnsureRoleToolAsync(db, AgentRoleKey.Developer, "SetPocContent");
+        await EnsureRoleToolAsync(db, AgentRoleKey.Developer, "WriteFiles");
 
         if (!await db.Projects.AnyAsync())
         {
@@ -228,7 +229,7 @@ public static class DbInitializer
 
         await Assign(AgentRoleKey.BusinessAnalyst, "ListFiles", "ReadFile", "WriteFile", "SearchFiles");
         await Assign(AgentRoleKey.TechLead, "ListFiles", "ReadFile", "WriteFile", "GitDiff", "GitStatus");
-        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "ReplaceInFile", "SetPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch");
+        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SetPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch");
         await Assign(AgentRoleKey.Tester, "ListFiles", "ReadFile", "WriteFile", "RunCommand");
         await Assign(AgentRoleKey.UiUx, "WriteFile", "ReadFile", "ListFiles");
         await db.SaveChangesAsync();

@@ -40,6 +40,48 @@ public class WorkspaceTools
         return $"File written: {relativePath}";
     }
 
+    [Description("Write MULTIPLE files into the current workspace in ONE call. " +
+        "'files' (required): an array of objects { \"path\": string (relative path), \"content\": string (the full file contents) }. " +
+        "STRONGLY PREFER this over many separate WriteFile calls when generating a multi-file project: each agent step is one tool call, so batching 10–20 files per call keeps a large project (dozens/hundreds of files) within the step budget. " +
+        "Each file is written independently; a failure on one (e.g. disallowed extension) is reported but does not block the rest. Returns a per-file summary of what was written and what failed.")]
+    public async Task<string> WriteFiles(FileWrite[] files)
+    {
+        EnsureWorkspace();
+        if (files == null || files.Length == 0) return "No files provided.";
+
+        var written = new List<string>();
+        var errors = new List<string>();
+        foreach (var file in files)
+        {
+            if (file == null || string.IsNullOrWhiteSpace(file.Path))
+            {
+                errors.Add("(missing path): a file entry has no 'path'.");
+                continue;
+            }
+            try
+            {
+                var fullPath = GetSafeFullPath(file.Path);
+                ValidateExtension(fullPath);
+                var directory = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+                await File.WriteAllTextAsync(fullPath, file.Content ?? string.Empty);
+                written.Add(file.Path);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{file.Path}: {ex.Message}");
+            }
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"Wrote {written.Count} file(s)");
+        if (written.Count > 0) sb.Append(": ").Append(string.Join(", ", written));
+        sb.Append('.');
+        if (errors.Count > 0)
+            sb.Append($" Failed {errors.Count}: ").Append(string.Join("; ", errors)).Append('.');
+        return sb.ToString();
+    }
+
     private const int MaxFullReadBytes = 200 * 1024;
 
     [Description("Read a file from the current workspace. Files under 200 KB are returned in full. Only larger files are paginated: pass offset (a line number) to read the next chunk, and the response will end with '[truncated: use offset=N to continue reading]' telling you the exact next line.")]
@@ -175,3 +217,6 @@ public class WorkspaceTools
         if (string.IsNullOrWhiteSpace(CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
     }
 }
+
+/// <summary>One file to write in a <see cref="WorkspaceTools.WriteFiles"/> batch: a relative path and its full contents.</summary>
+public record FileWrite(string Path, string Content);
