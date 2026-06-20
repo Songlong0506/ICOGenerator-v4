@@ -8,23 +8,17 @@ public class ProjectsController : Controller
     private readonly GetProjectListQuery _getProjectListQuery;
     private readonly CreateProjectUseCase _createProjectUseCase;
     private readonly GetMockupFileQuery _getMockupFileQuery;
-    private readonly GetProjectDeliverablesQuery _getProjectDeliverablesQuery;
-    private readonly GetDeliverableFileQuery _getDeliverableFileQuery;
     private readonly GetImplementationSourceQuery _getImplementationSourceQuery;
 
     public ProjectsController(
         GetProjectListQuery getProjectListQuery,
         CreateProjectUseCase createProjectUseCase,
         GetMockupFileQuery getMockupFileQuery,
-        GetProjectDeliverablesQuery getProjectDeliverablesQuery,
-        GetDeliverableFileQuery getDeliverableFileQuery,
         GetImplementationSourceQuery getImplementationSourceQuery)
     {
         _getProjectListQuery = getProjectListQuery;
         _createProjectUseCase = createProjectUseCase;
         _getMockupFileQuery = getMockupFileQuery;
-        _getProjectDeliverablesQuery = getProjectDeliverablesQuery;
-        _getDeliverableFileQuery = getDeliverableFileQuery;
         _getImplementationSourceQuery = getImplementationSourceQuery;
     }
 
@@ -57,35 +51,6 @@ public class ProjectsController : Controller
         // 'allow-scripts' keeps the demo interactive; 'allow-same-origin' is deliberately omitted.
         Response.Headers["Content-Security-Policy"] = "sandbox allow-scripts;";
         return PhysicalFile(result.FilePath, "text/html", enableRangeProcessing: true);
-    }
-
-    public async Task<IActionResult> Deliverables(Guid projectId)
-    {
-        var result = await _getProjectDeliverablesQuery.ExecuteAsync(projectId);
-        if (result == null)
-            return RedirectToAction(nameof(Index));
-
-        return View(result);
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> DeliverableFile(Guid projectId, string path, bool download = false)
-    {
-        var file = await _getDeliverableFileQuery.ExecuteAsync(projectId, path);
-        if (file == null)
-            return NotFound("Deliverable not found.");
-
-        // Nội dung do agent/LLM sinh ra, phục vụ từ chính origin của ta. Chặn thực thi/sniff:
-        // nosniff để trình duyệt không "đoán" thành HTML; sandbox CSP để kể cả khi bị coi là HTML
-        // thì script cũng không chạy (không allow-scripts). File văn bản xem trực tiếp dạng text/plain;
-        // mọi loại khác buộc tải về (attachment) thay vì render trong origin.
-        Response.Headers["X-Content-Type-Options"] = "nosniff";
-        Response.Headers["Content-Security-Policy"] = "sandbox;";
-
-        if (file.TextPreviewable && !download)
-            return PhysicalFile(file.FilePath, "text/plain; charset=utf-8");
-
-        return PhysicalFile(file.FilePath, "application/octet-stream", file.FileName);
     }
 
     // Packages the agent-generated multi-file app (04_Implementation/src) into a .zip the user can
