@@ -22,6 +22,8 @@ namespace ICOGenerator.Migrations
                     Endpoint = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     ApiKey = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
                     ContextWindow = table.Column<int>(type: "int", nullable: false),
+                    InputPricePerMillionTokens = table.Column<decimal>(type: "decimal(18,6)", precision: 18, scale: 6, nullable: false),
+                    OutputPricePerMillionTokens = table.Column<decimal>(type: "decimal(18,6)", precision: 18, scale: 6, nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
@@ -35,12 +37,12 @@ namespace ICOGenerator.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
-                    BackendGitUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    FrontendGitUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    GenerationMode = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    BackendGitUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    FrontendGitUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    GenerationMode = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -53,9 +55,9 @@ namespace ICOGenerator.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    DisplayName = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    DisplayName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
                     ServiceType = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     MethodName = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false)
@@ -70,10 +72,10 @@ namespace ICOGenerator.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     RoleKey = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Color = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    Color = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
                     Temperature = table.Column<double>(type: "float", nullable: false),
                     AiModelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -96,9 +98,9 @@ namespace ICOGenerator.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Status = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    CurrentStage = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CurrentStage = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     StartedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     FinishedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
@@ -121,8 +123,9 @@ namespace ICOGenerator.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Role = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Role = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Message = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Suggestions = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     TokenUsed = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
@@ -134,7 +137,7 @@ namespace ICOGenerator.Migrations
                         column: x => x.AgentId,
                         principalTable: "Agents",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_AgentConversations_Projects_ProjectId",
                         column: x => x.ProjectId,
@@ -150,10 +153,11 @@ namespace ICOGenerator.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    AgentName = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    ModelName = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    ModelId = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Endpoint = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    WorkflowRunId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    AgentName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    ModelName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    ModelId = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Endpoint = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     RequestJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ResponseText = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ExtractedContent = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -165,7 +169,7 @@ namespace ICOGenerator.Migrations
                     HttpStatusCode = table.Column<int>(type: "int", nullable: true),
                     IsSuccess = table.Column<bool>(type: "bit", nullable: false),
                     Step = table.Column<int>(type: "int", nullable: false),
-                    Purpose = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Purpose = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -176,7 +180,7 @@ namespace ICOGenerator.Migrations
                         column: x => x.AgentId,
                         principalTable: "Agents",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_AgentModelCallLogs_Projects_ProjectId",
                         column: x => x.ProjectId,
@@ -216,12 +220,12 @@ namespace ICOGenerator.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    Folder = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    VersionName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Folder = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    VersionName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     IsApproved = table.Column<bool>(type: "bit", nullable: false),
-                    FileName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    FileName = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
                     Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    FilePath = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    FilePath = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
                     TokenUsed = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
@@ -249,9 +253,9 @@ namespace ICOGenerator.Migrations
                     WorkflowRunId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    Type = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Type = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Status = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    Title = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
                     Input = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Output = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Error = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -304,6 +308,11 @@ namespace ICOGenerator.Migrations
                 columns: new[] { "ProjectId", "AgentId", "CreatedAt" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_AgentModelCallLogs_WorkflowRunId",
+                table: "AgentModelCallLogs",
+                column: "WorkflowRunId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Agents_AiModelId",
                 table: "Agents",
                 column: "AiModelId");
@@ -347,6 +356,11 @@ namespace ICOGenerator.Migrations
                 name: "IX_ProjectDocuments_ProjectId",
                 table: "ProjectDocuments",
                 column: "ProjectId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ToolDefinitions_Name",
+                table: "ToolDefinitions",
+                column: "Name");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ToolDefinitions_ServiceType_MethodName",
