@@ -49,6 +49,26 @@ public static class DeliveryPipeline
         new PipelineStep(WorkflowStageKey.Testing,            AgentRoleKey.Tester,    AgentTaskType.Testing,            "Viết & chạy test, báo lỗi",        PipelineInputSource.PreviousOutput, 8),
     };
 
+    /// <summary>
+    /// Số lần tự sửa lỗi tối đa cho một workflow run. Khi Tester báo FAIL, worker tự giao
+    /// Developer sửa rồi chạy lại Testing — lặp tới khi PASS hoặc chạm trần này (tránh đốt
+    /// token vô hạn nếu lỗi không hội tụ; hết trần thì dừng và để người xem lại báo cáo test).
+    /// </summary>
+    public const int MaxBugFixAttempts = 3;
+
+    /// <summary>
+    /// Bước sửa lỗi — KHÔNG nằm trong <see cref="Steps"/> vì nó là một CHU TRÌNH quanh Testing
+    /// (Testing↔BugFix), không phải hand-off tuyến tính. Worker dùng định nghĩa này khi Tester
+    /// báo FAIL; <see cref="Next"/> cố tình không trả về nó để pipeline tuyến tính vẫn đọc thẳng.
+    /// </summary>
+    public static readonly PipelineStep BugFixStep = new(
+        WorkflowStageKey.BugFix, AgentRoleKey.Developer, AgentTaskType.BugFix,
+        "Sửa lỗi theo báo cáo test", PipelineInputSource.PreviousOutput, 30);
+
+    /// <summary>Bước Testing (tra từ <see cref="Steps"/>) — dùng để enqueue lại sau khi sửa lỗi.</summary>
+    public static readonly PipelineStep TestingStep =
+        Steps.First(s => s.Stage == WorkflowStageKey.Testing);
+
     /// <summary>Bước đầu tiên của pipeline (POC preview).</summary>
     public static PipelineStep First => Steps[0];
 
@@ -67,9 +87,15 @@ public static class DeliveryPipeline
         return null;
     }
 
-    /// <summary>Tra cứu bước theo stage; <c>null</c> nếu stage không thuộc pipeline.</summary>
+    /// <summary>
+    /// Tra cứu bước theo stage (gồm cả bước sửa lỗi ngoài chuỗi tuyến tính); <c>null</c> nếu
+    /// stage không thuộc pipeline. Dùng cho việc tra MaxSteps theo stage hiện tại của run.
+    /// </summary>
     public static PipelineStep? Find(WorkflowStageKey stage)
     {
+        if (stage == WorkflowStageKey.BugFix)
+            return BugFixStep;
+
         foreach (var step in Steps)
             if (step.Stage == stage)
                 return step;
