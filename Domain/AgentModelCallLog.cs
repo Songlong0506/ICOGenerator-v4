@@ -10,6 +10,10 @@ public class AgentModelCallLog
     public Guid AgentId { get; set; }
     public Agent? Agent { get; set; }
 
+    // Gắn lời gọi với một WorkflowRun để tính chi phí "theo run" ở trang Usage. Nullable: chat BA tương tác
+    // và các log cũ (trước khi có cột này) không thuộc run nào nên để trống.
+    public Guid? WorkflowRunId { get; set; }
+
     public string AgentName { get; set; } = string.Empty;
     public string ModelName { get; set; } = string.Empty;
     public string ModelId { get; set; } = string.Empty;

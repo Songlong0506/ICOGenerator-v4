@@ -49,6 +49,9 @@ public class AppDbContext : DbContext
         builder.Entity<AiModel>().Property(x => x.ApiKey).HasConversion(
             plain => _apiKeyProtector.Protect(plain),
             stored => _apiKeyProtector.Unprotect(stored));
+        // decimal(18,6): đủ chỗ cho đơn giá lẻ kiểu $0.075/1M token mà không bị làm tròn về 2 chữ số như mặc định.
+        builder.Entity<AiModel>().Property(x => x.InputPricePerMillionTokens).HasPrecision(18, 6);
+        builder.Entity<AiModel>().Property(x => x.OutputPricePerMillionTokens).HasPrecision(18, 6);
         builder.Entity<Agent>().Property(x => x.RoleKey).HasConversion<string>().HasMaxLength(100);
         builder.Entity<Agent>().HasIndex(x => x.RoleKey);
         // Restrict: không thể xóa model đang được agent sử dụng (DeleteAiModelUseCase đã chặn ở tầng app).
@@ -63,6 +66,9 @@ public class AppDbContext : DbContext
         builder.Entity<AgentModelCallLog>().HasOne(x => x.Project).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         builder.Entity<AgentModelCallLog>().HasOne(x => x.Agent).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<AgentModelCallLog>().HasIndex(x => new { x.ProjectId, x.AgentId, x.CreatedAt });
+        // Cột WorkflowRunId là khóa nhóm cho báo cáo chi phí "theo run"; KHÔNG khai báo FK để tránh
+        // multiple-cascade-path (Project đã cascade cả CallLog lẫn WorkflowRun). Tên run lấy bằng join thủ công khi truy vấn.
+        builder.Entity<AgentModelCallLog>().HasIndex(x => x.WorkflowRunId);
 
         // Khai báo tường minh để Agent FK là Restrict (cùng lý do AgentModelCallLog), giữ Project FK Cascade.
         builder.Entity<AgentConversation>().HasOne(x => x.Project).WithMany(x => x.Conversations).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);

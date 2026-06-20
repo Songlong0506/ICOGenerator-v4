@@ -103,6 +103,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetProjectListQuery>();
         services.AddScoped<CreateProjectUseCase>();
         services.AddScoped<GetMockupFileQuery>();
+        services.AddScoped<GetImplementationSourceQuery>();
         return services;
     }
 
@@ -196,6 +197,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IProjectArtifactCatalog, ProjectArtifactCatalog>();
         services.AddScoped<IArtifactStorage, LocalArtifactStorage>();
         services.AddScoped<WorkspacePathResolver>();
+        services.AddScoped<ImplementationSourcePackager>();
         return services;
     }
 
