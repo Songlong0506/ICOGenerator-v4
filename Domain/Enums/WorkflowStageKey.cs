@@ -9,5 +9,6 @@ public enum WorkflowStageKey
     ArchitectureDesign = 5,
     Testing = 6,
     PocPreview = 7,
-    BugFix = 8
+    BugFix = 8,
+    CodeReview = 9
 }
