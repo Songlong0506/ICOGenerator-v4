@@ -148,6 +148,29 @@ public class AgentRunService
                 }
             }
         }
+        // Ngân sách bước đã cạn nhưng các file agent đã ghi vẫn nằm trên đĩa. Cho agent ĐÚNG MỘT lượt
+        // cuối (không được gọi tool) để chốt một final tóm tắt những gì đã làm — biến "fail trắng vứt cả
+        // phần đã làm" thành "hoàn tất một phần". Chỉ khi lượt này vẫn không ra final hợp lệ mới coi là
+        // chạm-giới-hạn thật (trả MaxStepsReachedResult để caller đánh Failed như cũ).
+        onProgress?.Invoke("thinking", "Đạt giới hạn bước — yêu cầu agent chốt lại kết quả đã hoàn thành.", null);
+        messages.Add(new() { Role = "user", Content =
+            "Đã đạt giới hạn số bước xử lý. KHÔNG gọi thêm bất kỳ tool nào nữa. "
+            + "Hãy trả về DUY NHẤT một JSON {\"type\":\"final\",\"content\":\"...\"} (không kèm chữ nào khác, không markdown) "
+            + "tóm tắt: stack đã chọn, các file/tính năng đã tạo được, cách cài đặt & chạy, và phần nào còn thiếu/chưa hoàn tất." });
+
+        var salvageCall = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature, onToken, cancellationToken);
+        await _modelCallLogger.LogAsync(projectId, agent, salvageCall, maxSteps + 1, "AgentRun", workflowRunId);
+        if (salvageCall.IsSuccess
+            && _actionParser.TryParse(salvageCall.Content, out var salvageAction)
+            && salvageAction != null
+            && salvageAction.Type.Equals("final", StringComparison.OrdinalIgnoreCase))
+        {
+            var content = salvageAction.Content ?? salvageCall.Content;
+            onProgress?.Invoke("final", "Agent đã chốt kết quả (một phần) khi đạt giới hạn bước.", content);
+            await SaveConversation(projectId, agentId, content, cancellationToken: cancellationToken);
+            return content;
+        }
+
         onProgress?.Invoke("final", "Dừng do đạt giới hạn số bước xử lý.", null);
         return MaxStepsReachedResult;
     }

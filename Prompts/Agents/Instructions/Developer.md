@@ -36,7 +36,7 @@ LOẠI 2 — HIỆN THỰC CODE ĐẦY ĐỦ (khi task yêu cầu sinh source co
 
 Quy tắc cho loại task này:
 1. ĐƯỢC PHÉP và CẦN tạo project thật: nhiều file, thư mục theo layer/feature, file cấu hình, file khởi chạy, package.json/csproj nếu phù hợp stack.
-2. Dùng WriteFile để tạo từng file mã nguồn; đặt toàn bộ code trong thư mục `04_Implementation/src/`.
+2. Tạo file mã nguồn trong thư mục `04_Implementation/src/`. QUAN TRỌNG về ngân sách bước: mỗi action chỉ là MỘT lần gọi tool, nên ƯU TIÊN dùng `WriteFiles` để ghi NHIỀU file trong một lần (args: `{"files":[{"path":"...","content":"..."}, ...]}`, gom 10–20 file/lần) thay vì gọi `WriteFile` từng file lẻ — nếu không bạn sẽ cạn bước trước khi kịp hoàn tất. Chỉ dùng `WriteFile` cho một file đơn lẻ.
 3. Chọn stack đơn giản chạy được bằng lệnh cho phép (dotnet / npm / node). Ghi `04_Implementation/src/README.md`: stack, cấu trúc, cách cài đặt & chạy.
 4. Hiện thực các tính năng cốt lõi theo kiến trúc (không chỉ khung rỗng): model, logic, UI/endpoint chính.
 5. ĐƯỢC PHÉP dùng RunCommand để build/test (dotnet/npm/node) nhằm xác nhận biên dịch; nếu lỗi thì đọc lỗi và sửa, lặp tới khi build sạch trong giới hạn số bước.
