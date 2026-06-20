@@ -35,7 +35,7 @@ public class LlmClient : ILlmClient
         _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
     }
 
-    public async Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature, CancellationToken cancellationToken = default)
+    public async Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature, Action<string>? onToken = null, CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
         var result = new LlmCallResult
@@ -170,7 +170,17 @@ API error: {(int)response.StatusCode} {response.StatusCode}
                         var content = contentElement.GetString();
 
                         if (!string.IsNullOrEmpty(content))
+                        {
                             contentBuilder.Append(content);
+
+                            // Surface the delta live. A misbehaving sink must never break the LLM call,
+                            // so swallow anything it throws (the buffered result is still returned).
+                            if (onToken != null)
+                            {
+                                try { onToken(content); }
+                                catch { /* ignore UI streaming failures */ }
+                            }
+                        }
                     }
                 }
                 catch

@@ -653,6 +653,41 @@
         margin-top: 0;
     }
 
+    /* Khu stream token "đang gõ" của agent — giống xem model viết trực tiếp. */
+    .wf-stream {
+        margin-top: 6px;
+        padding: 8px 10px;
+        max-height: 150px;
+        overflow: auto;
+        border-radius: 8px;
+        background: #0f172a;
+        color: #e2e8f0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border: 1px solid #1e293b;
+    }
+
+    /* Con trỏ nhấp nháy ở cuối dòng đang gõ. */
+    .wf-stream::after {
+        content: "▋";
+        margin-left: 1px;
+        color: #60a5fa;
+        animation: wf-caret 1.05s steps(1) infinite;
+    }
+
+    @keyframes wf-caret {
+        0%, 50% {
+            opacity: 1;
+        }
+
+        50.01%, 100% {
+            opacity: 0;
+        }
+    }
+
     /* ===== Responsive ===== */
 
     @media (max-width: 900px) {
