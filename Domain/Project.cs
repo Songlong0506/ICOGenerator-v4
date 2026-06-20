@@ -8,7 +8,7 @@ public class Project
     public ProjectStatus Status { get; set; } = ProjectStatus.Planning;
     public string? BackendGitUrl { get; set; }
     public string? FrontendGitUrl { get; set; }
-    public string GenerationMode { get; set; } = "BoschTemplate";
+    public bool IsUseBoschTemplate { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ProjectDocument> Documents { get; set; } = new List<ProjectDocument>();
     public ICollection<AgentConversation> Conversations { get; set; } = new List<AgentConversation>();
