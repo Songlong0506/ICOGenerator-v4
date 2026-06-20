@@ -15,6 +15,7 @@ public class RequirementsController : Controller
     private readonly ApproveRequirementUseCase _approveRequirementUseCase;
     private readonly ApproveStageUseCase _approveStageUseCase;
     private readonly RejectStageUseCase _rejectStageUseCase;
+    private readonly ReworkStageUseCase _reworkStageUseCase;
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
     private readonly StreamWorkflowProgressQuery _streamWorkflowProgressQuery;
@@ -31,6 +32,7 @@ public class RequirementsController : Controller
        ApproveRequirementUseCase approveRequirementUseCase,
        ApproveStageUseCase approveStageUseCase,
        RejectStageUseCase rejectStageUseCase,
+       ReworkStageUseCase reworkStageUseCase,
        GetDocumentDownloadQuery getDocumentDownloadQuery,
        GetWorkflowStatusQuery getWorkflowStatusQuery,
        StreamWorkflowProgressQuery streamWorkflowProgressQuery,
@@ -43,6 +45,7 @@ public class RequirementsController : Controller
         _approveRequirementUseCase = approveRequirementUseCase;
         _approveStageUseCase = approveStageUseCase;
         _rejectStageUseCase = rejectStageUseCase;
+        _reworkStageUseCase = reworkStageUseCase;
         _getDocumentDownloadQuery = getDocumentDownloadQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
         _streamWorkflowProgressQuery = streamWorkflowProgressQuery;
@@ -138,6 +141,20 @@ public class RequirementsController : Controller
     public async Task<IActionResult> RejectStage(Guid projectId, Guid? runId = null)
     {
         await _rejectStageUseCase.ExecuteAsync(projectId, runId);
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReworkStage(Guid projectId, Guid? runId = null)
+    {
+        var result = await _reworkStageUseCase.ExecuteAsync(projectId, runId);
+
+        if (result == ReworkStageResult.MissingAgent)
+            TempData["Error"] = "Không tìm thấy agent Developer để sửa lỗi. Hãy kiểm tra cấu hình agent.";
+        else if (result == ReworkStageResult.NotReworkable)
+            TempData["Error"] = "Bước hiện tại không hỗ trợ gửi lại sửa lỗi.";
+
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
