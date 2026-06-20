@@ -4,7 +4,7 @@ namespace ICOGenerator.Services.Tools.Execution;
 
 public class ToolPolicyService
 {
-    public void EnsureCanInvoke(ToolRuntimeDescriptor tool, IReadOnlyDictionary<string, System.Text.Json.JsonElement> args)
+    public void EnsureCanInvoke(ToolRuntimeDescriptor tool)
     {
         if (!tool.Definition.IsActive)
             throw new InvalidOperationException($"Tool is inactive: {tool.Definition.Name}");
