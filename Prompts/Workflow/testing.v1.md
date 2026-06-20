@@ -14,6 +14,11 @@ Ví dụ action: {"type":"tool","tool":"WriteFile","args":{"relativePath":"05_Te
 
 Sau khi WriteFile trả về thành công, trả `final` kèm tóm tắt kết quả test. KHÔNG trả final khi chưa ghi file.
 
+QUAN TRỌNG — chốt verdict máy đọc được: DÒNG CUỐI CÙNG của câu trả lời `final` phải là DUY NHẤT một trong hai:
+- `VERDICT: PASS` — khi build/chạy được và không còn lỗi chặn (blocker/critical), các luồng chính đạt.
+- `VERDICT: FAIL` — khi còn lỗi cần sửa (build fail, test fail, hoặc lệch yêu cầu nghiêm trọng).
+Hệ thống dựa vào dòng này để TỰ ĐỘNG giao Developer sửa lỗi rồi kiểm thử lại, nên bắt buộc phải có và đúng một trong hai giá trị trên.
+
 # Bàn giao từ Developer
 
 {{input}}

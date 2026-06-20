@@ -33,6 +33,7 @@ public class WorkflowTaskPromptBuilder
         AgentTaskType.ArchitectureDesign => "Workflow/architecture-design.v1.md",
         AgentTaskType.Implementation     => "Workflow/implementation.v1.md",
         AgentTaskType.Testing            => "Workflow/testing.v1.md",
+        AgentTaskType.BugFix             => "Workflow/bugfix.v1.md",
         _ => throw new InvalidOperationException($"Không có prompt template cho task type '{taskType}'.")
     };
 }
