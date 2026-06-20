@@ -134,7 +134,7 @@ public class BARequirementService
     }
 
     /// <param name="onProgress">Callback (kind, message, detail) báo tiến độ live cho UI; có thể null khi gọi đồng bộ.</param>
-    public async Task GenerateOrUpdateDraftAsync(Guid projectId, Action<string, string, string?>? onProgress = null, CancellationToken cancellationToken = default)
+    public async Task GenerateOrUpdateDraftAsync(Guid projectId, Action<string, string, string?>? onProgress = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default)
     {
         void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
 
@@ -193,7 +193,7 @@ public class BARequirementService
         Report("tool", "Đang gọi AI để soạn BRD, SRS, FSD, User Stories, AI Design Spec…");
 
         var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, cancellationToken);
-        await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BARequirementDraft");
+        await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BARequirementDraft", workflowRunId);
 
         // On a failed call, do NOT fall through to the template fallback: it would fabricate documents from the raw user message and report success, hiding the failure. Fail the task instead.
         if (!callResult.IsSuccess)

@@ -13,12 +13,13 @@ public class ModelCallLogger : IModelCallLogger
         _db = db;
     }
 
-    public async Task LogAsync(Guid projectId, Agent agent, LlmCallResult callResult, int step, string purpose)
+    public async Task LogAsync(Guid projectId, Agent agent, LlmCallResult callResult, int step, string purpose, Guid? workflowRunId = null)
     {
         _db.AgentModelCallLogs.Add(new AgentModelCallLog
         {
             ProjectId = projectId,
             AgentId = agent.Id,
+            WorkflowRunId = workflowRunId,
             AgentName = agent.Name,
             ModelName = callResult.ModelName,
             ModelId = callResult.ModelId,
