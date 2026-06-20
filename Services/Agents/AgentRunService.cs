@@ -14,6 +14,11 @@ public class AgentRunService
     // Returned when the loop exhausts its step budget. Callers compare against this string to detect an incomplete run, so it is part of the contract — keep it in sync.
     public const string MaxStepsReachedResult = "Stopped because max steps reached.";
 
+    // How many steps before the budget runs out we start reminding the agent to wrap up and return a
+    // `final` summary, so a long multi-file job (e.g. full code-gen) hands off in time instead of
+    // spending its last steps writing yet another file and stalling the run at the limit.
+    private const int FinalizeWarningWindow = 3;
+
     private readonly AppDbContext _db;
     private readonly IToolRegistry _toolRegistry;
     private readonly DynamicToolInvoker _invoker;
@@ -48,6 +53,15 @@ public class AgentRunService
         // trước khi chấp nhận phản hồi đó là câu trả lời cuối (tránh nhắc vô hạn).
         const int maxReformatNudges = 2;
         var reformatNudges = 0;
+
+        // When the budget runs out, an agent that finishes via a `final` summary (full code-gen,
+        // architecture, testing) should still hand off what it built rather than have the whole run
+        // discarded. POC is excluded: it gates completion on stopWhen (SetPocContent succeeding), so
+        // exhausting the budget there genuinely means the demo was never produced.
+        var canFinalizeOnExhaustion = stopWhen == null;
+        // Did the agent actually write anything to the workspace? Gates the finalize-on-exhaustion
+        // fallback so we never synthesise a "done" summary for a run that produced no deliverable.
+        var wroteFiles = false;
 
         for (var step = 1; step <= maxSteps; step++)
         {
@@ -128,6 +142,12 @@ public class AgentRunService
 
                 onProgress?.Invoke("observation", $"Đã nhận kết quả từ {action.Tool}", observation);
 
+                // Track real deliverables (matches WorkspaceTools' WriteFile/ReplaceInFile output) so the
+                // finalize-on-exhaustion fallback below only fires when the agent actually produced something.
+                if (observation.StartsWith("File written:", StringComparison.Ordinal)
+                    || observation.StartsWith("File updated:", StringComparison.Ordinal))
+                    wroteFiles = true;
+
                 // Stop as soon as the caller's success condition is met so a weak model doesn't keep making spurious edits and burn the step budget after the work is done.
                 if (stopWhen != null && stopWhen(action.Tool ?? string.Empty, observation))
                 {
@@ -146,8 +166,50 @@ public class AgentRunService
                     await SaveConversation(projectId, agentId, "Build succeeded.", cancellationToken: cancellationToken);
                     return "Build succeeded.";
                 }
+
+                // Approaching the budget: piggyback a wrap-up reminder onto this OBSERVATION so the agent
+                // returns a final summary while it still has a turn left, instead of writing one more file.
+                var stepsLeft = maxSteps - step;
+                if (canFinalizeOnExhaustion && stepsLeft is > 0 and <= FinalizeWarningWindow)
+                    messages[^1].Content +=
+                        $"\n\n[HỆ THỐNG] Chỉ còn {stepsLeft} bước. Hãy hoàn tất nốt phần cốt lõi rồi trả về NGAY một action "
+                        + "{\"type\":\"final\",\"content\":\"...\"} tóm tắt (stack, các file chính đã tạo, cách chạy, phần còn hạn chế). "
+                        + "Đừng để hết bước mà chưa trả final.";
             }
         }
+
+        // Budget exhausted without a `final`. If the agent finishes via a summary (not POC) and actually
+        // wrote files, give it ONE dedicated turn — no tools — to hand off what it built, so a finished-
+        // but-unsummarised codebase isn't discarded as a hard failure. One bounded call beyond the budget.
+        if (canFinalizeOnExhaustion && wroteFiles)
+        {
+            onProgress?.Invoke("thinking", "Đã đạt giới hạn số bước — yêu cầu agent tóm tắt kết quả.", null);
+            messages.Add(new() { Role = "user", Content =
+                "Bạn đã đạt giới hạn số bước và KHÔNG còn được gọi tool nữa. "
+                + "Hãy trả về DUY NHẤT một JSON action {\"type\":\"final\",\"content\":\"...\"} tóm tắt những gì đã hiện thực: "
+                + "stack đã dùng, danh sách các file chính đã tạo, cách chạy, và phần còn hạn chế. "
+                + "Bản tóm tắt này sẽ được chuyển cho bước kế tiếp." });
+
+            var finalizeResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature, onToken, cancellationToken);
+            await _modelCallLogger.LogAsync(projectId, agent, finalizeResult, maxSteps + 1, "AgentRun", workflowRunId);
+
+            if (finalizeResult.IsSuccess)
+            {
+                var summary = _actionParser.TryParse(finalizeResult.Content, out var finalAction)
+                    && finalAction != null
+                    && finalAction.Type.Equals("final", StringComparison.OrdinalIgnoreCase)
+                        ? finalAction.Content ?? finalizeResult.Content
+                        : finalizeResult.Content;
+
+                if (!string.IsNullOrWhiteSpace(summary))
+                {
+                    onProgress?.Invoke("final", "Agent đã chốt kết quả sau khi đạt giới hạn số bước.", summary);
+                    await SaveConversation(projectId, agentId, summary, cancellationToken: cancellationToken);
+                    return summary;
+                }
+            }
+        }
+
         onProgress?.Invoke("final", "Dừng do đạt giới hạn số bước xử lý.", null);
         return MaxStepsReachedResult;
     }
