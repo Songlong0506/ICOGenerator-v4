@@ -28,7 +28,7 @@ public class AgentRunService
 
     public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 6,
         Action<string, string, string?>? onProgress = null, Func<string, string, bool>? stopWhen = null,
-        Guid? workflowRunId = null, CancellationToken cancellationToken = default)
+        Action<string>? onToken = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default)
     {
         var project = await _db.Projects.FindAsync([projectId], cancellationToken) ?? throw new InvalidOperationException("Project not found.");
         var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId, cancellationToken);
@@ -52,7 +52,7 @@ public class AgentRunService
         for (var step = 1; step <= maxSteps; step++)
         {
             onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {step}/{maxSteps})", null);
-            var callResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature, cancellationToken);
+            var callResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature, onToken, cancellationToken);
             await _modelCallLogger.LogAsync(projectId, agent, callResult, step, "AgentRun", workflowRunId);
 
             // A failed LLM call (HTTP error / timeout) must not be treated as the agent's

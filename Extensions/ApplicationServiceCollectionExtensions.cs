@@ -124,6 +124,7 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddScoped<GetAgentDashboardQuery>();
         services.AddScoped<GetWorkflowStatusQuery>();
+        services.AddScoped<StreamWorkflowProgressQuery>();
         services.AddScoped<GetAgentActivityQuery>();
         services.AddScoped<GetAgentCallLogsQuery>();
         services.AddScoped<GetCallLogDetailQuery>();

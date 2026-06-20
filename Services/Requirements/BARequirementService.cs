@@ -96,7 +96,7 @@ public class BARequirementService
             Content = c.Role == "assistant" ? BuildAssistantContext(c) : c.Message
         }));
 
-        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, cancellationToken);
+        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, cancellationToken: cancellationToken);
         await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BAChat");
 
         // Surface a failure as a clearly-labelled assistant turn instead of a 500, but never present an API error as if it were a normal BA answer.
@@ -134,7 +134,9 @@ public class BARequirementService
     }
 
     /// <param name="onProgress">Callback (kind, message, detail) báo tiến độ live cho UI; có thể null khi gọi đồng bộ.</param>
-    public async Task GenerateOrUpdateDraftAsync(Guid projectId, Action<string, string, string?>? onProgress = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default)
+    /// <param name="onToken">Callback nhận từng token nội dung khi model soạn tài liệu, để stream "đang gõ" lên UI.</param>
+    /// <param name="workflowRunId">Run liên quan để gắn chi phí token vào đúng workflow run (null nếu gọi ngoài workflow).</param>
+    public async Task GenerateOrUpdateDraftAsync(Guid projectId, Action<string, string, string?>? onProgress = null, Action<string>? onToken = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default)
     {
         void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
 
@@ -192,7 +194,7 @@ public class BARequirementService
 
         Report("tool", "Đang gọi AI để soạn BRD, SRS, FSD, User Stories, AI Design Spec…");
 
-        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, cancellationToken);
+        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, onToken, cancellationToken);
         await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BARequirementDraft", workflowRunId);
 
         // On a failed call, do NOT fall through to the template fallback: it would fabricate documents from the raw user message and report success, hiding the failure. Fail the task instead.
