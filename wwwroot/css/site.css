@@ -360,7 +360,6 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 .full { width: 100%; max-width: none; }
 
 .form-grid { display: grid; gap: 16px; }
-.form-grid.two { grid-template-columns: 1fr 1fr; }
 .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
 
 /* ---------- Alerts ---------- */
@@ -524,8 +523,6 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 .stats span { color: var(--muted); }
 
 /* ---------- Manage Agent ---------- */
-.mini { display: flex; flex-direction: column; gap: 6px; }
-
 .token b, .status b { display: block; }
 .token b { font-size: 28px; margin-top: 6px; color: var(--bosch-blue-dark); }
 .status b { color: var(--bosch-blue-dark); }
@@ -576,7 +573,6 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 /* ============================================================
    Tools selector (Agents view)
    ============================================================ */
-.tool-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .tool-card { border: 1px solid var(--line); padding: 14px; }
 
 .tools-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; }
