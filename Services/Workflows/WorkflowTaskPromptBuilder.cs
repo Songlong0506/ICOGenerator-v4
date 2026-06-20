@@ -11,6 +11,10 @@ namespace ICOGenerator.Services.Workflows;
 ///
 /// Hành vi sâu theo vai (Tech Lead/Dev/Tester) đến từ system-prompt của agent
 /// (instruction theo RoleKey); template ở đây chỉ mô tả *việc cần làm* cho bước.
+///
+/// Khi project bật "Bosch template" (<c>useBoschTemplate</c>), hai bước
+/// thiết kế và hiện thực dùng biến thể "-bosch" để ép code theo khung chuẩn Bosch
+/// (.NET + Angular) đã được clone vào workspace; các bước còn lại dùng chung template.
 /// </summary>
 public class WorkflowTaskPromptBuilder
 {
@@ -21,17 +25,17 @@ public class WorkflowTaskPromptBuilder
         _promptTemplateService = promptTemplateService;
     }
 
-    public string Build(AgentTaskType taskType, string input)
+    public string Build(AgentTaskType taskType, string input, bool useBoschTemplate)
     {
-        return _promptTemplateService.Get(TemplatePath(taskType))
+        return _promptTemplateService.Get(TemplatePath(taskType, useBoschTemplate))
             .Replace("{{input}}", input ?? string.Empty);
     }
 
-    private static string TemplatePath(AgentTaskType taskType) => taskType switch
+    private static string TemplatePath(AgentTaskType taskType, bool useBoschTemplate) => taskType switch
     {
         AgentTaskType.PocPreview         => "Workflow/poc-preview.v1.md",
-        AgentTaskType.ArchitectureDesign => "Workflow/architecture-design.v1.md",
-        AgentTaskType.Implementation     => "Workflow/implementation.v1.md",
+        AgentTaskType.ArchitectureDesign => useBoschTemplate ? "Workflow/architecture-design-bosch.v1.md" : "Workflow/architecture-design.v1.md",
+        AgentTaskType.Implementation     => useBoschTemplate ? "Workflow/implementation-bosch.v1.md" : "Workflow/implementation.v1.md",
         AgentTaskType.CodeReview         => "Workflow/code-review.v1.md",
         AgentTaskType.Testing            => "Workflow/testing.v1.md",
         AgentTaskType.BugFix             => "Workflow/bugfix.v1.md",

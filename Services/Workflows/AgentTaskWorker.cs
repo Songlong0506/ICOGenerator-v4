@@ -113,8 +113,23 @@ public class AgentTaskWorker : BackgroundService
                 await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
             }
 
+            var project = await db.Projects.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken)
+                ?? throw new InvalidOperationException($"Không tìm thấy project {task.ProjectId} cho task này.");
+
+            // Bosch template: clone bộ khung chuẩn (.NET + Angular) vào workspace TRƯỚC khi Developer
+            // hiện thực, để bước Implementation code THÊM vào skeleton thay vì dựng khung từ đầu.
+            if (task.Type == AgentTaskType.Implementation && project.IsUseBoschTemplate)
+            {
+                _progress.Report(task.WorkflowRunId, "setup", "Bosch template: chuẩn bị skeleton (.NET + Angular)…");
+                var seeder = scope.ServiceProvider.GetRequiredService<BoschTemplateSeeder>();
+                var skeletonKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
+                var seedSummary = await seeder.SeedAsync(skeletonKey, cancellationToken);
+                _progress.Report(task.WorkflowRunId, "setup", $"Bosch skeleton: {seedSummary}");
+            }
+
             var promptBuilder = scope.ServiceProvider.GetRequiredService<WorkflowTaskPromptBuilder>();
-            var prompt = promptBuilder.Build(task.Type, task.Input);
+            var prompt = promptBuilder.Build(task.Type, task.Input, project.IsUseBoschTemplate);
             var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
 
             // Riêng bước POC bắt buộc gọi SetPocContent đúng một lần; dừng NGAY khi thành công để
