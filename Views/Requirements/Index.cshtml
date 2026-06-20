@@ -38,16 +38,9 @@
         ? ParseSuggestions(lastItem.Conversation.Suggestions)
         : new List<string>();
 
-    // Workspace trống: gợi sẵn vài loại dự án để người dùng bắt đầu nhanh (vẫn nhập tự do được).
-    var starterSuggestions = new List<string>
-    {
-        "Website bán hàng online",
-        "App quản lý công việc nhóm",
-        "Hệ thống đặt lịch hẹn",
-        "Ứng dụng quản lý kho hàng"
-    };
-
-    var displaySuggestions = timelineItems.Any() ? lastBaSuggestions : starterSuggestions;
+    // Lượt chào đầu tiên (workspace trống) KHÔNG gợi ý: để người dùng tự mô tả ý tưởng dự án.
+    // Chỉ khi đã có hội thoại thì mới hiển thị gợi ý cho lượt hỏi mới nhất của BA.
+    var displaySuggestions = lastBaSuggestions;
 
     static List<string> ParseSuggestions(string? json)
     {
