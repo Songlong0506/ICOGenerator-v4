@@ -44,8 +44,7 @@ public static class DbInitializer
                 new Agent { Name="Tech Lead", RoleKey=AgentRoleKey.TechLead, Color="#3B82F6", AiModelId=modelId, Description="Thiết kế kiến trúc và review kỹ thuật." },
                 new Agent { Name="Developer", RoleKey=AgentRoleKey.Developer, Color="#10B981", AiModelId=modelId, Description="Sinh source code, build và sửa lỗi." },
                 new Agent { Name="Tester", RoleKey=AgentRoleKey.Tester, Color="#2563EB", AiModelId=modelId, Description="Viết test cases và kiểm thử." },
-                new Agent { Name="UI/UX", RoleKey=AgentRoleKey.UiUx, Color="#F97316", AiModelId=modelId, Description="Thiết kế flow và wireframe." },
-                new Agent { Name="System", RoleKey=AgentRoleKey.System, Color="#64748B", AiModelId=modelId, Status=AgentStatus.Inactive, Description="System orchestration agent." }
+                new Agent { Name="UI/UX", RoleKey=AgentRoleKey.UiUx, Color="#F97316", AiModelId=modelId, Description="Thiết kế flow và wireframe." }
             };
             db.Agents.AddRange(agents);
             await db.SaveChangesAsync();
@@ -53,6 +52,7 @@ public static class DbInitializer
             await AssignDefaultToolsAsync(db);
         }
 
+        await RemoveLegacySystemAgentAsync(db);
         await EnsureAgentRoleKeysAsync(db);
         await EnsureRoleToolAsync(db, AgentRoleKey.Developer, "SetPocContent");
 
@@ -168,6 +168,22 @@ public static class DbInitializer
         }
     }
 
+    // Gỡ "System" agent — vai trò orchestration chưa từng được nối vào DeliveryPipeline/orchestrator, seed ở
+    // trạng thái Inactive và không được gán tool. Seed chỉ chạy khi bảng Agents rỗng nên các bản cài cũ đã có
+    // sẵn một dòng; phải xóa thủ công ở đây (trước EnsureAgentRoleKeysAsync — chỗ materialize toàn bộ agent).
+    // RoleKey lưu dạng string nên so theo literal "System"; FK AgentTools→Agents là CASCADE nên link tool (nếu
+    // có) tự xóa, chỉ bỏ qua khi agent lỡ có log/hội thoại (FK Restrict) để không vừa hỏng audit vừa crash startup.
+    private static async Task RemoveLegacySystemAgentAsync(AppDbContext db)
+    {
+        const string sql = """
+            DELETE FROM Agents
+            WHERE RoleKey = {0}
+              AND NOT EXISTS (SELECT 1 FROM AgentModelCallLogs c WHERE c.AgentId = Agents.Id)
+              AND NOT EXISTS (SELECT 1 FROM AgentConversations v WHERE v.AgentId = Agents.Id)
+            """;
+        await db.Database.ExecuteSqlRawAsync(sql, "System");
+    }
+
     private static async Task EnsureAgentRoleKeysAsync(AppDbContext db)
     {
         var roleByName = new Dictionary<string, AgentRoleKey>(StringComparer.OrdinalIgnoreCase)
@@ -176,8 +192,7 @@ public static class DbInitializer
             ["Tech Lead"] = AgentRoleKey.TechLead,
             ["Developer"] = AgentRoleKey.Developer,
             ["Tester"] = AgentRoleKey.Tester,
-            ["UI/UX"] = AgentRoleKey.UiUx,
-            ["System"] = AgentRoleKey.System
+            ["UI/UX"] = AgentRoleKey.UiUx
         };
 
         var agents = await db.Agents.ToListAsync();

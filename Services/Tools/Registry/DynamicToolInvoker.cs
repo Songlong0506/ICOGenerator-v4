@@ -19,7 +19,7 @@ public class DynamicToolInvoker
 
     public async Task<string> InvokeAsync(ToolRuntimeDescriptor tool, Dictionary<string, JsonElement> args)
     {
-        _toolPolicyService.EnsureCanInvoke(tool, args);
+        _toolPolicyService.EnsureCanInvoke(tool);
         _toolExecutionLogger.LogInvocation(tool);
         var parameters = tool.Method.GetParameters();
         var values = new object?[parameters.Length];
