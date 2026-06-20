@@ -115,7 +115,12 @@ public class AgentTaskWorker : BackgroundService
 
             var promptBuilder = scope.ServiceProvider.GetRequiredService<WorkflowTaskPromptBuilder>();
             var prompt = promptBuilder.Build(task.Type, task.Input);
-            var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
+            var currentStep = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage);
+            // BugFix là việc sửa code (đa file) chạy bên trong cổng của bước hiện tại (vd Testing); nó cần
+            // hạn mức bước của cấu hình rework, không phải MaxSteps (nhỏ) của bước kiểm thử.
+            var maxSteps = task.Type == AgentTaskType.BugFix
+                ? (currentStep?.Rework?.MaxSteps ?? 24)
+                : (currentStep?.MaxSteps ?? 6);
 
             // Riêng bước POC bắt buộc gọi SetPocContent đúng một lần; dừng NGAY khi thành công để
             // agent khỏi loay hoay chạm giới hạn bước. Các bước khác kết thúc bằng "final" như thường.
@@ -146,20 +151,21 @@ public class AgentTaskWorker : BackgroundService
             task.Output = output;
             task.FinishedAt = DateTime.UtcNow;
 
-            // CỔNG DUYỆT: bước chạy xong thì DỪNG chờ người duyệt thay vì tự enqueue
-            // bước kế. Bước kế chỉ được tạo khi user bấm duyệt (ApproveStageUseCase).
-            // CurrentStage giữ nguyên ở bước vừa xong để biết đang chờ duyệt cái gì.
-            var next = DeliveryPipeline.Next(task.WorkflowRun.CurrentStage);
-            if (next is null)
+            if (task.Type == AgentTaskType.BugFix)
             {
-                _progress.Report(task.WorkflowRunId, "completed", "Workflow hoàn tất — tất cả các bước đã xong.");
-                task.WorkflowRun.Status = WorkflowRunStatus.Completed;
-                task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
-                task.WorkflowRun.FinishedAt = DateTime.UtcNow;
+                // VÒNG LẶP CHẤT LƯỢNG: Developer vừa sửa lỗi xong → tự động chạy lại bước kiểm thử
+                // (re-verify) thay vì nhảy bước. CurrentStage giữ nguyên ở bước có rework (Testing).
+                await EnqueueRetestAsync(db, task, output, cancellationToken);
             }
             else
             {
-                _progress.Report(task.WorkflowRunId, "completed", $"Bước \"{task.Title}\" xong — chờ bạn duyệt để sang: {next.Title}.");
+                // CỔNG DUYỆT: bước chạy xong thì DỪNG chờ người duyệt thay vì tự enqueue bước kế
+                // (hoặc tự hoàn tất). Bước kế / việc hoàn tất chỉ xảy ra khi user bấm duyệt
+                // (ApproveStageUseCase). CurrentStage giữ nguyên ở bước vừa xong để biết đang chờ duyệt cái gì.
+                var next = DeliveryPipeline.Next(task.WorkflowRun.CurrentStage);
+                _progress.Report(task.WorkflowRunId, "completed", next is null
+                    ? $"Bước \"{task.Title}\" xong — chờ bạn duyệt để HOÀN TẤT workflow."
+                    : $"Bước \"{task.Title}\" xong — chờ bạn duyệt để sang: {next.Title}.");
                 task.WorkflowRun.Status = WorkflowRunStatus.WaitingForHuman;
             }
 
@@ -206,6 +212,37 @@ public class AgentTaskWorker : BackgroundService
         {
             _logger.LogError(ex, "Could not mark agent task {TaskId} as failed.", taskId);
         }
+    }
+
+    // Sau một lượt BugFix thành công: tạo lại task cho CHÍNH bước có rework (vd Tester/Testing) để
+    // xác minh bản sửa. Input = tóm tắt việc Dev vừa làm. CurrentStage không đổi, nên sau khi chạy lại
+    // xong workflow lại dừng đúng ở cổng duyệt của bước đó (user có thể duyệt hoàn tất hoặc gửi lại tiếp).
+    private async Task EnqueueRetestAsync(AppDbContext db, AgentTask bugfixTask, string output, CancellationToken cancellationToken)
+    {
+        var step = DeliveryPipeline.Find(bugfixTask.WorkflowRun.CurrentStage);
+        if (step is null)
+        {
+            // Phòng thủ: không xác định được bước để chạy lại → hoàn tất để không kẹt vô hạn.
+            bugfixTask.WorkflowRun.Status = WorkflowRunStatus.Completed;
+            bugfixTask.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
+            bugfixTask.WorkflowRun.FinishedAt = DateTime.UtcNow;
+            return;
+        }
+
+        var verifier = await db.Agents.FirstOrDefaultAsync(a => a.RoleKey == step.Role, cancellationToken);
+        db.AgentTasks.Add(new AgentTask
+        {
+            WorkflowRunId = bugfixTask.WorkflowRunId,
+            ProjectId = bugfixTask.ProjectId,
+            AgentId = verifier?.Id,
+            Type = step.TaskType,
+            Status = AgentTaskStatus.Queued,
+            Title = step.Title,
+            Input = output
+        });
+
+        bugfixTask.WorkflowRun.Status = WorkflowRunStatus.Queued; // worker sẽ chạy lại bước kiểm thử
+        _progress.Report(bugfixTask.WorkflowRunId, "completed", $"Đã sửa lỗi — chạy lại bước \"{step.Title}\" để kiểm chứng.");
     }
 
     private async Task RunRequirementDraftAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)

@@ -10,5 +10,6 @@ public enum AgentTaskType
     Testing = 6,
     BugFix = 7,
     DeploymentPlan = 8,
-    PocPreview = 9
+    PocPreview = 9,
+    UiUxDesign = 10
 }

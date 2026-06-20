@@ -8,5 +8,7 @@ public enum WorkflowStageKey
     Failed = 4,
     ArchitectureDesign = 5,
     Testing = 6,
-    PocPreview = 7
+    PocPreview = 7,
+    CodeReview = 8,
+    UiUxDesign = 9
 }

@@ -70,7 +70,7 @@ Chi tiết đầy đủ: `ARCHITECTURE.md`.
 | `ProjectDocument` | Tài liệu sinh ra trong dự án (BRD/SRS/FSD, design spec…), có `Folder`, `VersionName`, `IsApproved`. | `Domain/ProjectDocument.cs` |
 | `AgentConversation` | Một dòng hội thoại user ↔ agent trong một project. | `Domain/AgentConversation.cs` |
 | `WorkflowRun` | Một lần chạy *quy trình giao hàng* cho project, có `CurrentStage` và tập `AgentTask`. Đây là "vé" theo dõi cả pipeline. | `Domain/WorkflowRun.cs` |
-| `WorkflowStageKey` | Giai đoạn hiện tại của workflow. **Hiện chỉ có** `RequirementApproved`, `Implementation`, `Completed`, `Failed`. Đây là chỗ cần mở rộng cho team. | `Domain/Enums/WorkflowStageKey.cs` |
+| `WorkflowStageKey` | Giai đoạn hiện tại của workflow. Pipeline giao hàng đi qua `PocPreview` → `UiUxDesign` → `ArchitectureDesign` → `Implementation` → `CodeReview` → `Testing` (+ `RequirementApproved`, `Completed`, `Failed`). Mở rộng = thêm một dòng vào `DeliveryPipeline.Steps`. | `Domain/Enums/WorkflowStageKey.cs` |
 | `AgentTask` | Một đầu việc giao cho một agent trong một `WorkflowRun`: có `Type`, `Status`, `Input`, `Output`, `Attempt`. | `Domain/AgentTask.cs` |
 | `AgentTaskType` | Loại việc: `RequirementAnalysis`, `ArchitectureDesign`, `Implementation`, `CodeReview`, `Testing`, `BugFix`… **Đã có đủ loại cho cả team.** | `Domain/Enums/AgentTaskType.cs` |
 | `ToolDefinition` + `AgentTool` | Danh mục tool (đọc/ghi file, chạy lệnh, git…) và bảng nối agent ↔ tool được phép dùng. | `Domain/ToolDefinition.cs` |
@@ -246,30 +246,40 @@ Pipeline đã hiện thực **có cổng duyệt giữa mọi bước** (không 
 
 ```
 Approve requirement
-  → POC preview      (Dev,      từ AI Design Spec) ──┐ WaitingForHuman
-  → ArchitectureDesign (Tech Lead, từ AI Design Spec) ─┤ mỗi bước xong DỪNG chờ
-  → Implementation   (Dev,  code đa file, từ kiến trúc)┤ user bấm Duyệt mới sang bước kế;
-  → Testing          (Tester, từ output Dev)         ──┘ bấm "Sửa requirement" → hủy run
+  → POC preview        (Dev,       từ AI Design Spec) ──┐ WaitingForHuman
+  → UI/UX design       (UI/UX,     từ AI Design Spec)   │ mỗi bước xong DỪNG chờ
+  → ArchitectureDesign (Tech Lead, từ AI Design Spec)   ┤ user bấm Duyệt mới sang bước kế;
+  → Implementation     (Dev,  code đa file, từ kiến trúc)┤ bấm "Sửa requirement" → hủy run
+  → Code review        (Tech Lead, từ output Dev)       │
+  → Testing            (Tester,    từ output review)  ──┘ ← VÒNG LẶP CHẤT LƯỢNG (xem dưới)
   → Completed
 ```
+
+**Vòng lặp chất lượng ở cổng Testing.** Bước cuối (`Testing`) giờ cũng DỪNG ở `WaitingForHuman`
+thay vì tự `Completed`. Tại đây user có 3 lựa chọn: **Duyệt & hoàn tất** (Approve → `Completed`),
+**Hủy** (Reject), hoặc **Gửi lại Dev sửa lỗi** — `ReworkStageUseCase` enqueue một task
+`BugFix` (Developer, input = báo cáo test); sửa xong, `AgentTaskWorker` **tự chạy lại đúng bước
+Testing** để kiểm chứng rồi lại dừng ở cổng cũ. Lặp tới khi user duyệt hoàn tất; mỗi vòng đều
+human-gated nên không có loop vô hạn. Bước nào "gửi lại được" khai báo qua `ReworkSpec` trên
+`PipelineStep` (hiện chỉ Testing) — không rải if/else trong worker.
 
 Bản đồ file:
 
 | Thành phần | File | Vai trò |
 |---|---|---|
-| Giai đoạn/loại việc mới | `Domain/Enums/WorkflowStageKey.cs`, `AgentTaskType.cs` | thêm `PocPreview` (và trước đó `ArchitectureDesign`, `Testing`). Enum lưu int → **không cần migration**. |
-| Khai báo pipeline | `Services/Workflows/DeliveryPipeline.cs` | `Steps` (POC → Architecture → Impl → Test), mỗi bước khai báo `InputSource` (DesignSpec/PreviousOutput) + `MaxSteps`. Thêm vai = thêm một dòng. |
-| Prompt theo bước | `Prompts/Workflow/{poc-preview,architecture-design,implementation,testing}.v1.md` | `{{input}}` = nội dung theo `InputSource`. `implementation` = sinh **code đa file** trong `04_Implementation/src/`. |
-| Dựng prompt | `Services/Workflows/WorkflowTaskPromptBuilder.cs` | map `AgentTaskType` → template. |
+| Giai đoạn/loại việc mới | `Domain/Enums/WorkflowStageKey.cs`, `AgentTaskType.cs` | thêm `UiUxDesign`, `CodeReview` (stage) + `UiUxDesign` (task type). ⚠️ Enum này lưu **string** (`nvarchar(50)`, xem `AppDbContext`), không phải int — nhưng tên enum mới đều ngắn (<50 ký tự) nên **vẫn không cần migration**. |
+| Khai báo pipeline | `Services/Workflows/DeliveryPipeline.cs` | `Steps` (POC → UI/UX → Architecture → Impl → Code Review → Test), mỗi bước khai báo `InputSource` (DesignSpec/PreviousOutput) + `MaxSteps` + tùy chọn `Rework` (`ReworkSpec`). Thêm vai = thêm một dòng. |
+| Prompt theo bước | `Prompts/Workflow/{poc-preview,uiux-design,architecture-design,implementation,code-review,testing,bugfix}.v1.md` | `{{input}}` = nội dung theo `InputSource`. `implementation` = sinh **code đa file** trong `04_Implementation/src/`; `bugfix` = sửa code theo báo cáo test. |
+| Dựng prompt | `Services/Workflows/WorkflowTaskPromptBuilder.cs` | map `AgentTaskType` → template (gồm cả `UiUxDesign`/`CodeReview`/`BugFix`). |
 | Khởi tạo | `Services/Workflows/WorkflowOrchestrator.cs` | tạo `WorkflowRun` + task ở `DeliveryPipeline.First` (POC). |
-| Chạy + cổng | `Services/Workflows/AgentTaskWorker.cs` | chạy task xong: nếu còn bước kế → set `WaitingForHuman` (KHÔNG tự enqueue); hết bước → `Completed`. Dùng `MaxSteps` theo bước. |
-| Cổng duyệt | `Application/Requirements/ApproveStageUseCase.cs`, `RejectStageUseCase.cs` | Approve → resolve input theo `InputSource` + enqueue bước kế; Reject → `Canceled`. |
-| Controller/UI | `RequirementsController` (`ApproveStage`/`RejectStage`), `GetWorkflowStatusQuery`, `Views/Requirements/Index.cshtml` | banner `WaitingForHuman` hiện nút "Duyệt & tiếp tục" / "Sửa requirement" + link "Xem POC". |
+| Chạy + cổng | `Services/Workflows/AgentTaskWorker.cs` | chạy task xong → set `WaitingForHuman` (cả bước cuối — KHÔNG tự `Completed`). Task `BugFix` xong → tự enqueue lại bước có rework (`EnqueueRetestAsync`). `MaxSteps` theo bước (BugFix dùng `Rework.MaxSteps`). |
+| Cổng duyệt | `Application/Requirements/{ApproveStageUseCase,RejectStageUseCase,ReworkStageUseCase}.cs` | Approve → enqueue bước kế (hết bước → `Completed`); Reject → `Canceled`; Rework → enqueue `BugFix` cho Developer, giữ nguyên stage. |
+| Controller/UI | `RequirementsController` (`ApproveStage`/`RejectStage`/`ReworkStage`), `GetWorkflowStatusQuery` (`CanRework`), `Views/Requirements/Index.cshtml` | banner `WaitingForHuman` hiện "Duyệt & tiếp tục" + (khi `canRework`) "Gửi lại Dev sửa lỗi" + link "Xem POC". |
 
 Lưu ý thiết kế:
 - **Hành vi sâu theo vai** đến từ *system-prompt* của agent (`Prompts/Agents/Instructions/{RoleKey}.md`); template `Prompts/Workflow/` chỉ mô tả *việc của bước*.
 - **POC template** (`poc-template.html`) chỉ copy vào workspace ở bước `PocPreview`.
-- **Worker generic**: chỉ "chạy task → còn bước kế thì chờ duyệt, hết thì xong". Việc enqueue bước kế nằm ở `ApproveStageUseCase`.
+- **Worker generic**: chỉ "chạy task → chờ duyệt". Việc enqueue bước kế nằm ở `ApproveStageUseCase`; riêng vòng lặp chất lượng (BugFix → chạy lại bước kiểm thử) là một nhánh nhỏ keyed theo `task.Type == BugFix` trong worker, vẫn không biết gì về tên vai cụ thể.
 - **Vòng lặp về requirement**: Reject = hủy run; user bổ sung với BA → "Write Requirement" → "Approve" tạo run mới (phiên bản kế).
 - **Luồng requirement-draft** (`RequirementAnalysis`) vẫn là workflow một-bước riêng, không qua pipeline này.
 

@@ -263,6 +263,23 @@
                     </button>
                 </form>
 
+                <!-- GỬI LẠI DEV SỬA LỖI: vòng lặp chất lượng ở cổng Testing. Ẩn cho tới khi
+                     bước đang chờ duyệt có hỗ trợ rework (script poll bật theo data.canRework). -->
+                <form asp-action="ReworkStage"
+                      method="post"
+                      id="reworkStageForm"
+                      class="rework-stage"
+                      style="display:none;"
+                      onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang gửi lại…';">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="projectId" value="@Model.Id" />
+                    <input type="hidden" name="runId" id="reworkStageRunId" value="" />
+                    <button class="btn outline rework-stage-btn" type="submit"
+                            title="Giao báo cáo lỗi cho Developer sửa rồi tự chạy lại kiểm thử">
+                        ↩ Gửi lại Dev sửa lỗi
+                    </button>
+                </form>
+
             </div>
 
             <!-- CHAT INPUT -->
@@ -400,6 +417,10 @@
             const approveForm = document.getElementById('approveStageForm');
             const approveRunInput = document.getElementById('approveStageRunId');
 
+            // Nút "Gửi lại Dev sửa lỗi" (vòng lặp chất lượng) — chỉ bật khi cổng hiện tại hỗ trợ rework.
+            const reworkForm = document.getElementById('reworkStageForm');
+            const reworkRunInput = document.getElementById('reworkStageRunId');
+
             const COLOR = {
                 Queued: '#64748B',
                 Running: '#2563EB',
@@ -519,6 +540,20 @@
                 approveForm.dataset.runId = '';
             }
 
+            function showComposerRework(data) {
+                if (!reworkForm) return;
+                reworkRunInput.value = data.runId || '';
+                reworkForm.dataset.runId = data.runId || '';
+                reworkForm.style.display = '';
+            }
+
+            function hideComposerRework(runId) {
+                if (!reworkForm) return;
+                if (reworkForm.dataset.runId && reworkForm.dataset.runId !== String(runId)) return;
+                reworkForm.style.display = 'none';
+                reworkForm.dataset.runId = '';
+            }
+
             function updateBanner(panel, data) {
                 const slot = panel.querySelector('.wf-banner-slot');
 
@@ -529,6 +564,10 @@
                 // chỉ bật khi bước hiện tại đã xong và đang chờ duyệt.
                 if (data.runStatus === 'WaitingForHuman') showComposerApprove(data);
                 else hideComposerApprove(data.runId);
+
+                // Nút "Gửi lại Dev sửa lỗi" chỉ hiện ở cổng có hỗ trợ rework (vd Testing).
+                if (data.runStatus === 'WaitingForHuman' && data.canRework) showComposerRework(data);
+                else hideComposerRework(data.runId);
 
                 if (data.isCompleted) {
                     if (data.runKind === 'Requirement') {
@@ -553,10 +592,13 @@
                         : '';
                     const nextHint = data.nextStageTitle
                         ? ` Bước kế: <b>${esc(data.nextStageTitle)}</b>.`
+                        : ' Duyệt để <b>hoàn tất</b> workflow.';
+                    const reworkHint = data.canRework
+                        ? ' Hoặc <b>gửi lại Developer sửa lỗi</b> rồi tự chạy lại kiểm thử.'
                         : '';
 
                     slot.innerHTML =
-                        `<div class="wf-banner wf-wait">⏸️ Bước hiện tại đã xong — chờ duyệt.${nextHint}${pocLink}</div>`;
+                        `<div class="wf-banner wf-wait">⏸️ Bước hiện tại đã xong — chờ duyệt.${nextHint}${reworkHint}${pocLink}</div>`;
                 } else if (data.runStatus === 'Canceled') {
                     slot.innerHTML = `<div class="wf-banner wf-fail">✗ Đã hủy. Hãy bổ sung requirement với BA, bấm “Write Requirement” rồi “Approve” để chạy lại.</div>`;
                 } else if (data.runStatus === 'Failed') {

@@ -15,7 +15,7 @@ public record WorkflowStatusVm(
     bool HasWorkflow, string? RunName, string? RunStatus, bool IsTerminal, bool IsCompleted,
     IReadOnlyList<WorkflowTaskStatusVm> Tasks, IReadOnlyList<WorkflowProgressEventVm> Events, long LastEventSeq,
     string RunKind,
-    Guid? RunId, string? CurrentStage, bool IsWaitingForHuman, string? NextStageTitle, bool PocReady);
+    Guid? RunId, string? CurrentStage, bool IsWaitingForHuman, string? NextStageTitle, bool PocReady, bool CanRework);
 
 public class GetWorkflowStatusQuery
 {
@@ -51,7 +51,7 @@ public class GetWorkflowStatusQuery
         if (run == null)
             return new WorkflowStatusVm(false, null, null, true, false,
                 Array.Empty<WorkflowTaskStatusVm>(), Array.Empty<WorkflowProgressEventVm>(), afterSeq, "Delivery",
-                null, null, false, null, false);
+                null, null, false, null, false, false);
 
         var isTerminal = run.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Failed or WorkflowRunStatus.Canceled;
 
@@ -85,11 +85,13 @@ public class GetWorkflowStatusQuery
         var nextStep = DeliveryPipeline.Next(run.CurrentStage);
         var pocReady = tasks.Any(t => t.Type == nameof(AgentTaskType.PocPreview)
                                       && t.Status == nameof(AgentTaskStatus.Completed));
+        // Bước đang chờ duyệt có cấu hình rework (vd Testing) → cho phép "gửi lại Dev sửa lỗi".
+        var canRework = isWaiting && DeliveryPipeline.Find(run.CurrentStage)?.Rework != null;
 
         return new WorkflowStatusVm(
             true, run.Name, run.Status.ToString(),
             isTerminal, run.Status == WorkflowRunStatus.Completed,
             tasks, events, lastSeq, runKind,
-            run.Id, run.CurrentStage.ToString(), isWaiting, nextStep?.Title, pocReady);
+            run.Id, run.CurrentStage.ToString(), isWaiting, nextStep?.Title, pocReady, canRework);
     }
 }
