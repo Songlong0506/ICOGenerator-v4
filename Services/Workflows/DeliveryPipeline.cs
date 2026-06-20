@@ -46,6 +46,10 @@ public static class DeliveryPipeline
         // agent nên dùng WriteFiles (ghi nhiều file/lần) để khỏi tiêu hết bước cho từng file lẻ. Nếu vẫn cạn,
         // AgentRunService còn một lượt "chốt kết quả" cuối để giữ phần đã làm thay vì fail trắng.
         new PipelineStep(WorkflowStageKey.Implementation,     AgentRoleKey.Developer, AgentTaskType.Implementation,     "Sinh code đầy đủ từ kiến trúc",    PipelineInputSource.PreviousOutput, 40),
+        // Tech Lead soát code Developer vừa hiện thực TRƯỚC khi giao Tester — bắt sớm lệch kiến trúc/thiếu
+        // tính năng/lỗi rõ ở cổng rẻ này, thay vì để Tester tốn lượt phát hiện. Review chỉ đọc file + ghi 1
+        // báo cáo nên budget vừa phải; output (tóm tắt + phát hiện) thành input cho bước Testing.
+        new PipelineStep(WorkflowStageKey.CodeReview,         AgentRoleKey.TechLead,  AgentTaskType.CodeReview,         "Review code đã hiện thực",         PipelineInputSource.PreviousOutput, 12),
         new PipelineStep(WorkflowStageKey.Testing,            AgentRoleKey.Tester,    AgentTaskType.Testing,            "Viết & chạy test, báo lỗi",        PipelineInputSource.PreviousOutput, 8),
     };
 
