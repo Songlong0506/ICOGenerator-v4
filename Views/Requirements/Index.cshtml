@@ -541,7 +541,7 @@
                             setTimeout(() => location.reload(), 1200);
                         }
                     } else {
-                        slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
+                        slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a> · <a href="/Projects/DownloadSource?projectId=${PID}">⬇ Tải source code</a></div>`;
                     }
                 } else if (data.runStatus === 'WaitingForHuman') {
                     // Tránh dựng lại banner mỗi nhịp poll: chỉ render lại khi sang cổng mới.

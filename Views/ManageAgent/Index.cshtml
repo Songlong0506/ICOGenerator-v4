@@ -43,6 +43,13 @@
         });
     var docsJson = System.Text.Json.JsonSerializer.Serialize(docMap);
     var firstDoc = workspaceDocuments.FirstOrDefault();
+
+    // Developer-generated source lands under 04_Implementation/src; LoadWorkspaceDocuments maps those
+    // disk files to Folder="04_Implementation", VersionName="src". Presence of any such file means the
+    // packaged-source download is available.
+    var hasImplementationSource = workspaceDocuments.Any(d =>
+        string.Equals(d.Folder, "04_Implementation", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(d.VersionName, "src", StringComparison.OrdinalIgnoreCase));
 }
 
 <style>
@@ -141,6 +148,14 @@
             <h3>Workspace</h3>
             <small id="ws-filter-label" class="muted"></small>
             <button type="button" id="ws-clear" class="btn ws-clear hidden" onclick="clearAgentFilter()">Show all</button>
+            @if (hasImplementationSource)
+            {
+                <a class="btn ws-download"
+                   href="/Projects/DownloadSource?projectId=@Model.Id"
+                   title="Tải toàn bộ source code (04_Implementation/src) dạng .zip">
+                    ⬇ Tải source code
+                </a>
+            }
         </div>
         <ul class="tree" id="ws-tree">
             @foreach (var folder in orderedFolders)
@@ -207,6 +222,8 @@
 <style>
     .ws-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
     .ws-head h3 { margin: 0; }
+    .ws-download { margin-left: auto; text-decoration: none; border-color: #10b981; color: #047857; background: #ecfdf5; white-space: nowrap; }
+    .ws-download:hover { background: #d1fae5; }
     .tree, .tree ul { list-style: none; margin: 0; padding-left: 0; }
     .tree ul { padding-left: 18px; }
     .tree .folder { font-weight: 600; margin-top: 6px; }

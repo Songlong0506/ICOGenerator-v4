@@ -141,6 +141,26 @@
                                 Mockup
                             </button>
                         }
+
+                        @if (item.HasSource)
+                        {
+                            <a class="btn"
+                               asp-controller="Projects"
+                               asp-action="DownloadSource"
+                               asp-route-projectId="@p.Id"
+                               title="Tải source code (04_Implementation/src) dạng .zip">
+                                ⬇ Source
+                            </a>
+                        }
+                        else
+                        {
+                            <button class="btn disabled"
+                                    type="button"
+                                    title="Chưa có source code — chạy tới bước Implementation"
+                                    disabled>
+                                ⬇ Source
+                            </button>
+                        }
                     </td>
                 </tr>
             }

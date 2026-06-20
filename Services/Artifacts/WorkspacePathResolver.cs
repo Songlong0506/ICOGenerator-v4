@@ -40,6 +40,11 @@ public class WorkspacePathResolver
     public string GetMockupPath(string projectKey) =>
         Path.Combine(GetProjectWorkspacePath(projectKey), "04_Implementation", "poc-demo.html");
 
+    // Multi-file source the Developer agent generates lives under 04_Implementation/src (see
+    // Prompts/Workflow/implementation.v1.md). This is what the "download source" feature packages.
+    public string GetImplementationSourcePath(string projectKey) =>
+        Path.Combine(GetProjectWorkspacePath(projectKey), "04_Implementation", "src");
+
     public string GetPhasePath(string projectKey, string phase) =>
         Path.Combine(GetProjectWorkspacePath(projectKey), phase);
 
