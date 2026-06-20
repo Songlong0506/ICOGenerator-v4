@@ -580,7 +580,7 @@
                             setTimeout(() => location.reload(), 1200);
                         }
                     } else {
-                        slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a></div>`;
+                        slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a> · <a href="/Projects/Deliverables?projectId=${PID}">Xem deliverables</a></div>`;
                     }
                 } else if (data.runStatus === 'WaitingForHuman') {
                     // Tránh dựng lại banner mỗi nhịp poll: chỉ render lại khi sang cổng mới.
@@ -594,7 +594,7 @@
                         ? ` Bước kế: <b>${esc(data.nextStageTitle)}</b>.`
                         : ' Duyệt để <b>hoàn tất</b> workflow.';
                     const reworkHint = data.canRework
-                        ? ' Hoặc <b>gửi lại Developer sửa lỗi</b> rồi tự chạy lại kiểm thử.'
+                        ? ' Hoặc <b>gửi lại Developer sửa lỗi</b> rồi tự kiểm tra lại bước này.'
                         : '';
 
                     slot.innerHTML =

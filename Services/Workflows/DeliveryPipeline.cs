@@ -58,9 +58,10 @@ public static class DeliveryPipeline
         new PipelineStep(WorkflowStageKey.UiUxDesign,         AgentRoleKey.UiUx,      AgentTaskType.UiUxDesign,         "Thiết kế UI/UX (flow + wireframe)", PipelineInputSource.DesignSpec,    8),
         new PipelineStep(WorkflowStageKey.ArchitectureDesign, AgentRoleKey.TechLead,  AgentTaskType.ArchitectureDesign, "Đề xuất kiến trúc từ AI Design Spec", PipelineInputSource.DesignSpec,  8),
         new PipelineStep(WorkflowStageKey.Implementation,     AgentRoleKey.Developer, AgentTaskType.Implementation,     "Sinh code đầy đủ từ kiến trúc",    PipelineInputSource.PreviousOutput, 24),
-        new PipelineStep(WorkflowStageKey.CodeReview,         AgentRoleKey.TechLead,  AgentTaskType.CodeReview,         "Review code do Developer hiện thực", PipelineInputSource.PreviousOutput, 10),
-        // Bước cuối có CỔNG kèm vòng lặp chất lượng: nếu test còn lỗi, user "gửi lại Dev sửa lỗi"
-        // (BugFix) rồi hệ thống tự chạy lại Testing để xác minh — lặp tới khi user duyệt hoàn tất.
+        // Code review và Testing đều có VÒNG LẶP CHẤT LƯỢNG: nếu phát hiện vấn đề, user "gửi lại Dev
+        // sửa" (BugFix) rồi hệ thống tự chạy lại CHÍNH bước đó để kiểm chứng — lặp tới khi user duyệt.
+        new PipelineStep(WorkflowStageKey.CodeReview,         AgentRoleKey.TechLead,  AgentTaskType.CodeReview,         "Review code do Developer hiện thực", PipelineInputSource.PreviousOutput, 10,
+            Rework: new ReworkSpec(AgentRoleKey.Developer, AgentTaskType.BugFix, "Sửa code theo review của Tech Lead", 24)),
         new PipelineStep(WorkflowStageKey.Testing,            AgentRoleKey.Tester,    AgentTaskType.Testing,            "Viết & chạy test, báo lỗi",        PipelineInputSource.PreviousOutput, 8,
             Rework: new ReworkSpec(AgentRoleKey.Developer, AgentTaskType.BugFix, "Sửa lỗi theo báo cáo test", 24)),
     };

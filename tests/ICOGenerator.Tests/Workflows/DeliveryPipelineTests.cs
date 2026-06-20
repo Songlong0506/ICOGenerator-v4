@@ -52,25 +52,28 @@ public class DeliveryPipelineTests
         Assert.Null(DeliveryPipeline.Next(WorkflowStageKey.RequirementApproved));
     }
 
-    [Fact]
-    public void TestingStep_SupportsReworkToDeveloperBugFix()
+    [Theory]
+    [InlineData(WorkflowStageKey.CodeReview)]
+    [InlineData(WorkflowStageKey.Testing)]
+    public void QualityGate_SupportsReworkToDeveloperBugFix(WorkflowStageKey stage)
     {
-        var testing = DeliveryPipeline.Find(WorkflowStageKey.Testing);
+        var step = DeliveryPipeline.Find(stage);
 
-        Assert.NotNull(testing);
-        Assert.NotNull(testing!.Rework);
-        Assert.Equal(AgentRoleKey.Developer, testing.Rework!.Role);
-        Assert.Equal(AgentTaskType.BugFix, testing.Rework.TaskType);
-        Assert.True(testing.Rework.MaxSteps > 0);
+        Assert.NotNull(step);
+        Assert.NotNull(step!.Rework);
+        Assert.Equal(AgentRoleKey.Developer, step.Rework!.Role);
+        Assert.Equal(AgentTaskType.BugFix, step.Rework.TaskType);
+        Assert.True(step.Rework.MaxSteps > 0);
     }
 
     [Fact]
-    public void OnlyFinalStep_IsReworkable()
+    public void OnlyQualityGates_AreReworkable()
     {
-        // Vòng lặp chất lượng chỉ gắn ở bước cuối (Testing); các bước khác không có rework.
+        // Vòng lặp chất lượng gắn ở hai cổng kiểm soát chất lượng (Code Review + Testing);
+        // các bước còn lại không có rework.
         var reworkable = DeliveryPipeline.Steps.Where(s => s.Rework != null).Select(s => s.Stage).ToArray();
 
-        Assert.Equal(new[] { WorkflowStageKey.Testing }, reworkable);
+        Assert.Equal(new[] { WorkflowStageKey.CodeReview, WorkflowStageKey.Testing }, reworkable);
     }
 
     [Fact]

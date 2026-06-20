@@ -261,7 +261,12 @@ thay vì tự `Completed`. Tại đây user có 3 lựa chọn: **Duyệt & hoà
 `BugFix` (Developer, input = báo cáo test); sửa xong, `AgentTaskWorker` **tự chạy lại đúng bước
 Testing** để kiểm chứng rồi lại dừng ở cổng cũ. Lặp tới khi user duyệt hoàn tất; mỗi vòng đều
 human-gated nên không có loop vô hạn. Bước nào "gửi lại được" khai báo qua `ReworkSpec` trên
-`PipelineStep` (hiện chỉ Testing) — không rải if/else trong worker.
+`PipelineStep` (hiện ở **Code Review** và **Testing**) — không rải if/else trong worker.
+
+**Xem deliverables.** Mọi sản phẩm pipeline ghi ra workspace (UI/UX spec, kiến trúc, code đa file,
+biên bản review, test report, POC) liệt kê ở trang `Projects/Deliverables` (`GetProjectDeliverablesQuery`),
+tải/xem từng file qua `Projects/DeliverableFile` (`GetDeliverableFileQuery` — chống path-traversal bằng
+`WorkspacePathResolver.GetSafeFullPath`, phục vụ text dạng `text/plain`, loại khác buộc tải về).
 
 Bản đồ file:
 
