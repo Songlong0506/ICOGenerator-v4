@@ -24,6 +24,8 @@ public class UpdateAiModelUseCase
         if (!string.IsNullOrWhiteSpace(input.ApiKey))
             model.ApiKey = input.ApiKey;
         model.ContextWindow = input.ContextWindow;
+        model.InputPricePerMillionTokens = input.InputPricePerMillionTokens;
+        model.OutputPricePerMillionTokens = input.OutputPricePerMillionTokens;
         model.IsActive = input.IsActive;
 
         await _db.SaveChangesAsync();
