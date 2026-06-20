@@ -137,6 +137,8 @@ public class AgentTaskWorker : BackgroundService
                 maxSteps,
                 onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
                 stopWhen: stopWhen,
+                onToken: token => _progress.ReportToken(task.WorkflowRunId, token),
+                workflowRunId: task.WorkflowRunId,
                 cancellationToken: cancellationToken);
 
             // Nếu agent đạt giới hạn số bước mà chưa hoàn tất (chưa gọi tool tạo deliverable),
@@ -252,6 +254,8 @@ public class AgentTaskWorker : BackgroundService
         await baService.GenerateOrUpdateDraftAsync(
             task.ProjectId,
             onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
+            onToken: token => _progress.ReportToken(task.WorkflowRunId, token),
+            workflowRunId: task.WorkflowRunId,
             cancellationToken: cancellationToken);
 
         _progress.Report(task.WorkflowRunId, "completed", "Đã tạo/cập nhật tài liệu requirement.");

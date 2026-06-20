@@ -51,9 +51,12 @@ public class GetProjectListQuery
                         and not WorkflowRunStatus.Failed
                         and not WorkflowRunStatus.Canceled;
 
+                var projectKey = WorkspacePathResolver.GetWorkspaceFolder(row.Project.Id, row.Project.Name);
+
                 return new ProjectListItem(
                     row.Project,
-                    File.Exists(_workspacePathResolver.GetMockupPath(WorkspacePathResolver.GetWorkspaceFolder(row.Project.Id, row.Project.Name))),
+                    File.Exists(_workspacePathResolver.GetMockupPath(projectKey)),
+                    HasGeneratedSource(_workspacePathResolver.GetImplementationSourcePath(projectKey)),
                     latestWorkflow?.Status.ToString(),
                     latestWorkflow?.CurrentStage.ToString(),
                     hasRunningWorkflow);
@@ -61,5 +64,19 @@ public class GetProjectListQuery
             .ToList();
 
         return new ProjectListPage(items, page, pageSize, totalCount);
+    }
+
+    // Cheap gate for showing the "Source" download button: the folder exists and isn't empty.
+    // The download endpoint does the thorough check (skips node_modules/bin/obj, 404s if no real files).
+    private static bool HasGeneratedSource(string sourcePath)
+    {
+        try
+        {
+            return Directory.Exists(sourcePath) && Directory.EnumerateFileSystemEntries(sourcePath).Any();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 }

@@ -10,19 +10,22 @@ public class ProjectsController : Controller
     private readonly GetMockupFileQuery _getMockupFileQuery;
     private readonly GetProjectDeliverablesQuery _getProjectDeliverablesQuery;
     private readonly GetDeliverableFileQuery _getDeliverableFileQuery;
+    private readonly GetImplementationSourceQuery _getImplementationSourceQuery;
 
     public ProjectsController(
         GetProjectListQuery getProjectListQuery,
         CreateProjectUseCase createProjectUseCase,
         GetMockupFileQuery getMockupFileQuery,
         GetProjectDeliverablesQuery getProjectDeliverablesQuery,
-        GetDeliverableFileQuery getDeliverableFileQuery)
+        GetDeliverableFileQuery getDeliverableFileQuery,
+        GetImplementationSourceQuery getImplementationSourceQuery)
     {
         _getProjectListQuery = getProjectListQuery;
         _createProjectUseCase = createProjectUseCase;
         _getMockupFileQuery = getMockupFileQuery;
         _getProjectDeliverablesQuery = getProjectDeliverablesQuery;
         _getDeliverableFileQuery = getDeliverableFileQuery;
+        _getImplementationSourceQuery = getImplementationSourceQuery;
     }
 
     public async Task<IActionResult> Index(int page = 1, int pageSize = GetProjectListQuery.DefaultPageSize)
@@ -83,5 +86,26 @@ public class ProjectsController : Controller
             return PhysicalFile(file.FilePath, "text/plain; charset=utf-8");
 
         return PhysicalFile(file.FilePath, "application/octet-stream", file.FileName);
+    }
+
+    // Packages the agent-generated multi-file app (04_Implementation/src) into a .zip the user can
+    // download — the only way to actually get the produced source out of the workspace.
+    public async Task<IActionResult> DownloadSource(Guid projectId)
+    {
+        var result = await _getImplementationSourceQuery.ExecuteAsync(projectId);
+        if (result == null)
+            return NotFound("Chưa có source code để tải. Hãy chạy tới bước Implementation để agent sinh code trong 04_Implementation/src.");
+
+        // DeleteOnClose removes the temp zip once the response has streamed; FileStreamResult
+        // disposes the handle, which triggers that cleanup.
+        var stream = new FileStream(
+            result.ZipFilePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 64 * 1024,
+            FileOptions.DeleteOnClose | FileOptions.Asynchronous);
+
+        return File(stream, "application/zip", result.DownloadFileName);
     }
 }

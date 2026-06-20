@@ -105,6 +105,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetMockupFileQuery>();
         services.AddScoped<GetProjectDeliverablesQuery>();
         services.AddScoped<GetDeliverableFileQuery>();
+        services.AddScoped<GetImplementationSourceQuery>();
         return services;
     }
 
@@ -126,6 +127,7 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddScoped<GetAgentDashboardQuery>();
         services.AddScoped<GetWorkflowStatusQuery>();
+        services.AddScoped<StreamWorkflowProgressQuery>();
         services.AddScoped<GetAgentActivityQuery>();
         services.AddScoped<GetAgentCallLogsQuery>();
         services.AddScoped<GetCallLogDetailQuery>();
@@ -198,6 +200,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IProjectArtifactCatalog, ProjectArtifactCatalog>();
         services.AddScoped<IArtifactStorage, LocalArtifactStorage>();
         services.AddScoped<WorkspacePathResolver>();
+        services.AddScoped<ImplementationSourcePackager>();
         return services;
     }
 
