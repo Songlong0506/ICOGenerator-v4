@@ -1,6 +1,5 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Tools.Registry;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,9 +14,6 @@ public static class DbInitializer
         await db.Database.MigrateAsync();
 
         await RecoverOrphanedTasksAsync(db);
-
-        var apiKeyProtector = scope.ServiceProvider.GetRequiredService<IApiKeyProtector>();
-        await EncryptLegacyApiKeysAsync(db, apiKeyProtector);
 
         var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
         await discovery.SyncToolDefinitionsAsync();
@@ -51,11 +47,6 @@ public static class DbInitializer
 
             await AssignDefaultToolsAsync(db);
         }
-
-        await RemoveLegacySystemAgentAsync(db);
-        await EnsureAgentRoleKeysAsync(db);
-        await EnsureRoleToolAsync(db, AgentRoleKey.Developer, "SetPocContent");
-        await EnsureRoleToolAsync(db, AgentRoleKey.Developer, "WriteFiles");
 
         if (!await db.Projects.AnyAsync())
         {
@@ -117,100 +108,6 @@ public static class DbInitializer
         await db.SaveChangesAsync();
     }
 
-    // Mã hóa một lần ApiKey plaintext còn sót (bản cài cũ). Đọc thô bằng ADO.NET để bỏ qua value converter (vốn tự giải mã).
-    private static async Task EncryptLegacyApiKeysAsync(AppDbContext db, IApiKeyProtector protector)
-    {
-        var connection = db.Database.GetDbConnection();
-        var openedHere = connection.State != System.Data.ConnectionState.Open;
-        if (openedHere)
-            await connection.OpenAsync();
-
-        try
-        {
-            var legacy = new List<(Guid Id, string ApiKey)>();
-
-            await using (var read = connection.CreateCommand())
-            {
-                read.CommandText = "SELECT Id, ApiKey FROM AiModels";
-                await using var reader = await read.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
-                {
-                    if (reader.IsDBNull(1))
-                        continue;
-
-                    var apiKey = reader.GetString(1);
-                    if (!protector.IsProtected(apiKey))
-                        legacy.Add((reader.GetGuid(0), apiKey));
-                }
-            }
-
-            foreach (var (id, apiKey) in legacy)
-            {
-                await using var update = connection.CreateCommand();
-                update.CommandText = "UPDATE AiModels SET ApiKey = @key WHERE Id = @id";
-
-                var keyParam = update.CreateParameter();
-                keyParam.ParameterName = "@key";
-                keyParam.Value = protector.Protect(apiKey);
-                update.Parameters.Add(keyParam);
-
-                var idParam = update.CreateParameter();
-                idParam.ParameterName = "@id";
-                idParam.Value = id;
-                update.Parameters.Add(idParam);
-
-                await update.ExecuteNonQueryAsync();
-            }
-        }
-        finally
-        {
-            if (openedHere)
-                await connection.CloseAsync();
-        }
-    }
-
-    // Gỡ "System" agent — vai trò orchestration chưa từng được nối vào DeliveryPipeline/orchestrator, seed ở
-    // trạng thái Inactive và không được gán tool. Seed chỉ chạy khi bảng Agents rỗng nên các bản cài cũ đã có
-    // sẵn một dòng; phải xóa thủ công ở đây (trước EnsureAgentRoleKeysAsync — chỗ materialize toàn bộ agent).
-    // RoleKey lưu dạng string nên so theo literal "System"; FK AgentTools→Agents là CASCADE nên link tool (nếu
-    // có) tự xóa, chỉ bỏ qua khi agent lỡ có log/hội thoại (FK Restrict) để không vừa hỏng audit vừa crash startup.
-    private static async Task RemoveLegacySystemAgentAsync(AppDbContext db)
-    {
-        const string sql = """
-            DELETE FROM Agents
-            WHERE RoleKey = {0}
-              AND NOT EXISTS (SELECT 1 FROM AgentModelCallLogs c WHERE c.AgentId = Agents.Id)
-              AND NOT EXISTS (SELECT 1 FROM AgentConversations v WHERE v.AgentId = Agents.Id)
-            """;
-        await db.Database.ExecuteSqlRawAsync(sql, "System");
-    }
-
-    private static async Task EnsureAgentRoleKeysAsync(AppDbContext db)
-    {
-        var roleByName = new Dictionary<string, AgentRoleKey>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["BA"] = AgentRoleKey.BusinessAnalyst,
-            ["Tech Lead"] = AgentRoleKey.TechLead,
-            ["Developer"] = AgentRoleKey.Developer,
-            ["Tester"] = AgentRoleKey.Tester,
-            ["UI/UX"] = AgentRoleKey.UiUx
-        };
-
-        var agents = await db.Agents.ToListAsync();
-        var changed = false;
-        foreach (var agent in agents)
-        {
-            if (!roleByName.TryGetValue(agent.Name, out var roleKey) || agent.RoleKey == roleKey)
-                continue;
-
-            agent.RoleKey = roleKey;
-            changed = true;
-        }
-
-        if (changed)
-            await db.SaveChangesAsync();
-    }
-
     private static async Task AssignDefaultToolsAsync(AppDbContext db)
     {
         var all = await db.ToolDefinitions.ToListAsync();
@@ -228,23 +125,6 @@ public static class DbInitializer
         await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SetPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch");
         await Assign(AgentRoleKey.Tester, "ListFiles", "ReadFile", "WriteFile", "RunCommand");
         await Assign(AgentRoleKey.UiUx, "WriteFile", "ReadFile", "ListFiles");
-        await db.SaveChangesAsync();
-    }
-
-    // Idempotently grants a tool to a role on existing databases (AssignDefaultToolsAsync only runs on a fresh seed, so new tools would never reach already-seeded agents).
-    private static async Task EnsureRoleToolAsync(AppDbContext db, AgentRoleKey roleKey, string toolName)
-    {
-        var agent = await db.Agents.FirstOrDefaultAsync(x => x.RoleKey == roleKey);
-        var tool = await db.ToolDefinitions.FirstOrDefaultAsync(x => x.Name == toolName);
-        if (agent == null || tool == null)
-            return;
-
-        var alreadyAssigned = await db.AgentTools
-            .AnyAsync(x => x.AgentId == agent.Id && x.ToolDefinitionId == tool.Id);
-        if (alreadyAssigned)
-            return;
-
-        db.AgentTools.Add(new AgentTool { AgentId = agent.Id, ToolDefinitionId = tool.Id });
         await db.SaveChangesAsync();
     }
 }
