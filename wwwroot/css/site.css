@@ -524,13 +524,6 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 .stats span { color: var(--muted); }
 
 /* ---------- Manage Agent ---------- */
-.agent-cards {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 16px;
-    margin-bottom: 18px;
-}
-
 .mini { display: flex; flex-direction: column; gap: 6px; }
 
 .token b, .status b { display: block; }

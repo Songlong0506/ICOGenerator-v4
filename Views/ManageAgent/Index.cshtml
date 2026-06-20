@@ -7,6 +7,8 @@
     // values sum to the grand total because every call log is attributed to an agent.
     var totalTokens = (long)(ViewBag.TotalTokens ?? 0L);
     var tokensByAgent = ViewBag.TokensByAgent as IReadOnlyDictionary<Guid, long> ?? new Dictionary<Guid, long>();
+    var callsByAgent = ViewBag.CallsByAgent as IReadOnlyDictionary<Guid, int> ?? new Dictionary<Guid, int>();
+    var lastActivityByAgent = ViewBag.LastActivityByAgent as IReadOnlyDictionary<Guid, DateTime> ?? new Dictionary<Guid, DateTime>();
     var workspaceDocuments = ViewBag.WorkspaceDocuments as IReadOnlyList<ICOGenerator.Domain.ProjectDocument> ?? Model.Documents.ToList();
 
     Func<string, string> phaseOf = folder => phases.FirstOrDefault(p => string.Equals(p, folder, StringComparison.OrdinalIgnoreCase)) ?? "Other";
@@ -75,19 +77,62 @@
     </div>
 </div>
 
-<div class="agent-cards">
-    @foreach (var a in agents)
-    {
-        var agentTokens = tokensByAgent.TryGetValue(a.Id, out var t) ? t : 0L;
-        <div class="card mini agent-card" data-agent-id="@a.Id" data-agent-name="@a.Name" onclick="filterByAgent('@a.Id', '@a.Name')">
-            <span class="running-indicator" title="Agent đang chạy — bấm để xem hoạt động" onclick="event.stopPropagation(); openAgentActivity('@a.Id', '@a.Name')"><span class="pulse-dot"></span> Running</span>
-            <span class="circle" style="background:@a.Color"></span>
-            <b>@a.Name</b>
-            <small>@a.RoleKey.GetTitle()</small>
-            <p>@agentTokens.ToString("N0") tokens</p>
-            <small class="muted log-link" onclick="event.stopPropagation(); loadAgentLogs('@a.Id', '@a.Name')">Click to view AI Call Logs</small>
-        </div>
-    }
+<div class="agent-table-wrap">
+    <table class="agent-table">
+        <thead>
+            <tr>
+                <th>Agent</th>
+                <th class="share-col">Share</th>
+                <th class="num-col">Total Tokens</th>
+                <th class="num-col">Calls</th>
+                <th>Last Activity</th>
+                <th>Call Logs</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in agents)
+            {
+                var agentTokens = tokensByAgent.TryGetValue(a.Id, out var t) ? t : 0L;
+                var agentCalls = callsByAgent.TryGetValue(a.Id, out var c) ? c : 0;
+                var sharePct = totalTokens > 0 ? (double)agentTokens / totalTokens * 100 : 0d;
+                var shareWidth = sharePct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+                var shareLabel = sharePct.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+                var hasActivity = lastActivityByAgent.TryGetValue(a.Id, out var lastAt);
+                var lastAtIso = hasActivity ? DateTime.SpecifyKind(lastAt, DateTimeKind.Utc).ToString("o") : null;
+                <tr class="agent-row" data-agent-id="@a.Id" data-agent-name="@a.Name" onclick="filterByAgent('@a.Id', '@a.Name')">
+                    <td>
+                        <div class="agent-name-cell">
+                            <span class="circle" style="background:@a.Color"></span>
+                            <span class="agent-name-text">
+                                <b>@a.Name</b>
+                                <small class="muted">@a.RoleKey.GetTitle()</small>
+                            </span>
+                            <span class="running-indicator" title="Agent đang chạy — bấm để xem hoạt động" onclick="event.stopPropagation(); openAgentActivity('@a.Id', '@a.Name')"><span class="pulse-dot"></span> Running</span>
+                        </div>
+                    </td>
+                    <td class="share-col">
+                        <div class="share-bar"><span class="share-fill" style="width:@(shareWidth)%"></span></div>
+                        <small class="muted">@shareLabel%</small>
+                    </td>
+                    <td class="num-col">@agentTokens.ToString("N0")</td>
+                    <td class="num-col">@agentCalls.ToString("N0")</td>
+                    <td>
+                        @if (hasActivity)
+                        {
+                            <span class="last-activity" data-utc="@lastAtIso"></span>
+                        }
+                        else
+                        {
+                            <span class="muted">—</span>
+                        }
+                    </td>
+                    <td>
+                        <button type="button" class="btn" onclick="event.stopPropagation(); loadAgentLogs('@a.Id', '@a.Name')">View Logs</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
 </div>
 
 <div class="grid manage-grid">
@@ -175,23 +220,37 @@
     .tree .file:hover { color: #007bc0; }
     .tree .file.selected { color: #007bc0; font-weight: 600; }
     .tree .empty { color: #94a3b8; padding: 2px 0; font-style: italic; }
-    .agent-card.active { outline: 2px solid #007bc0; outline-offset: 2px; }
-    .log-link { cursor: pointer; text-decoration: underline; }
     .ws-clear { padding: 4px 10px; font-size: 12px; }
 
-    /* Live "running" indicator: hidden until the active-agents poll marks the card running. */
-    .agent-card { position: relative; }
-    .agent-card .running-indicator { display: none; }
-    .agent-card.running { outline: 2px solid #16a34a; outline-offset: 2px; }
-    .agent-card.running .running-indicator {
+    /* ---------- Agent table ---------- */
+    .agent-table-wrap { overflow-x: auto; margin-bottom: 18px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+    .agent-table { width: 100%; border-collapse: collapse; }
+    .agent-table th, .agent-table td { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }
+    .agent-table tbody tr:last-child td { border-bottom: 0; }
+    .agent-table th { background: #f8fafc; font-size: 13px; color: #475569; font-weight: 600; white-space: nowrap; }
+    .agent-table .num-col { text-align: right; white-space: nowrap; }
+    .agent-table .share-col { width: 220px; }
+    .agent-row { cursor: pointer; transition: background .12s ease; }
+    .agent-row:hover { background: #f8fafc; }
+    .agent-row.active { background: #e6f2fb; box-shadow: inset 3px 0 0 #007bc0; }
+    .agent-name-cell { display: flex; align-items: center; gap: 10px; }
+    .agent-name-text { display: flex; flex-direction: column; line-height: 1.3; }
+    .share-bar { height: 8px; border-radius: 999px; background: #eef2f7; overflow: hidden; }
+    .share-fill { display: block; height: 100%; background: #007bc0; border-radius: 999px; }
+    .share-col small { display: block; margin-top: 4px; }
+
+    /* Live "running" indicator: hidden until the active-agents poll marks the row running. */
+    .agent-row .running-indicator { display: none; }
+    .agent-row.running { background: #f0fdf4; box-shadow: inset 3px 0 0 #16a34a; }
+    .agent-row.running .running-indicator {
         display: inline-flex; align-items: center; gap: 6px;
-        position: absolute; top: 10px; right: 10px;
+        margin-left: 4px;
         padding: 3px 9px; border-radius: 999px;
         background: #dcfce7; color: #166534;
         font-size: 11px; font-weight: 700; cursor: pointer;
         border: 1px solid #16a34a55;
     }
-    .agent-card.running .running-indicator:hover { background: #bbf7d0; }
+    .agent-row.running .running-indicator:hover { background: #bbf7d0; }
     .pulse-dot {
         width: 8px; height: 8px; border-radius: 50%;
         background: #16a34a; box-shadow: 0 0 0 0 rgba(22,163,74,.6);
@@ -226,7 +285,7 @@
     function filterByAgent(agentId, name) {
         if (activeAgentFilter === agentId) { clearAgentFilter(); return; }
         activeAgentFilter = agentId;
-        document.querySelectorAll('.agent-card').forEach(c => c.classList.toggle('active', c.dataset.agentId === agentId));
+        document.querySelectorAll('.agent-row').forEach(c => c.classList.toggle('active', c.dataset.agentId === agentId));
         document.querySelectorAll('#ws-tree .file').forEach(f => {
             f.style.display = (f.dataset.agentId === agentId) ? '' : 'none';
         });
@@ -239,7 +298,7 @@
 
     function clearAgentFilter() {
         activeAgentFilter = null;
-        document.querySelectorAll('.agent-card').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.agent-row').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('#ws-tree .file').forEach(f => f.style.display = '');
         updateWorkspaceTreeVisibility();
         const label = document.getElementById('ws-filter-label');
@@ -304,6 +363,10 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         if (FIRST_DOC_ID) showDoc(FIRST_DOC_ID);
+        // Render UTC call-log timestamps in the viewer's local timezone (matches the logs modal).
+        document.querySelectorAll('.last-activity[data-utc]').forEach(function (el) {
+            el.textContent = formatDateTime(el.dataset.utc);
+        });
     });
 </script>
 
@@ -403,8 +466,6 @@
 </style>
 
 <style>
-    .agent-card { cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
-    .agent-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15, 23, 42, .08); }
     .muted { color: #64748b; }
     .logs-panel { display: none; margin-top: 24px; }
     .logs-header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 16px; }
@@ -591,7 +652,7 @@
         } catch { /* transient: keep last state, try again next tick */ }
 
         const byId = new Map(active.map(a => [a.agentId, a]));
-        document.querySelectorAll('.agent-card').forEach(card => {
+        document.querySelectorAll('.agent-row').forEach(card => {
             const info = byId.get(card.dataset.agentId);
             card.classList.toggle('running', !!info);
             const pill = card.querySelector('.running-indicator');
