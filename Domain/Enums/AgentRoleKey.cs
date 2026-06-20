@@ -15,7 +15,5 @@ public enum AgentRoleKey
     [Description("QA Engineer")]
     Tester = 4,
     [Description("Designer")]
-    UiUx = 5,
-    [Description("System Agent")]
-    System = 6
+    UiUx = 5
 }
