@@ -7,6 +7,7 @@ public class ManageAgentController : Controller
 {
     private readonly GetAgentDashboardQuery _getAgentDashboardQuery;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
+    private readonly GetAgentActivityQuery _getAgentActivityQuery;
     private readonly GetAgentCallLogsQuery _getAgentCallLogsQuery;
     private readonly GetCallLogDetailQuery _getCallLogDetailQuery;
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
@@ -14,12 +15,14 @@ public class ManageAgentController : Controller
     public ManageAgentController(
         GetAgentDashboardQuery getAgentDashboardQuery,
         GetWorkflowStatusQuery getWorkflowStatusQuery,
+        GetAgentActivityQuery getAgentActivityQuery,
         GetAgentCallLogsQuery getAgentCallLogsQuery,
         GetCallLogDetailQuery getCallLogDetailQuery,
         GetDocumentPreviewQuery getDocumentPreviewQuery)
     {
         _getAgentDashboardQuery = getAgentDashboardQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
+        _getAgentActivityQuery = getAgentActivityQuery;
         _getAgentCallLogsQuery = getAgentCallLogsQuery;
         _getCallLogDetailQuery = getCallLogDetailQuery;
         _getDocumentPreviewQuery = getDocumentPreviewQuery;
@@ -43,6 +46,20 @@ public class ManageAgentController : Controller
     public async Task<IActionResult> WorkflowStatus(Guid projectId)
     {
         return Json(await _getWorkflowStatusQuery.ExecuteAsync(projectId));
+    }
+
+    // Lightweight poll for the dashboard: which agents currently have work in flight.
+    [HttpGet]
+    public async Task<IActionResult> ActiveAgents(Guid projectId)
+    {
+        return Json(await _getAgentActivityQuery.GetActiveAgentsAsync(projectId));
+    }
+
+    // Live operation feed for one agent's running task — backs the debug popup.
+    [HttpGet]
+    public async Task<IActionResult> AgentActivity(Guid projectId, Guid agentId, long afterSeq = 0)
+    {
+        return Json(await _getAgentActivityQuery.GetAgentActivityAsync(projectId, agentId, afterSeq));
     }
 
     [HttpGet]

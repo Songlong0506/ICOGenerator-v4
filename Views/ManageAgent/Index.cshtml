@@ -80,6 +80,7 @@
     {
         var agentTokens = tokensByAgent.TryGetValue(a.Id, out var t) ? t : 0L;
         <div class="card mini agent-card" data-agent-id="@a.Id" data-agent-name="@a.Name" onclick="filterByAgent('@a.Id', '@a.Name')">
+            <span class="running-indicator" title="Agent đang chạy — bấm để xem hoạt động" onclick="event.stopPropagation(); openAgentActivity('@a.Id', '@a.Name')"><span class="pulse-dot"></span> Running</span>
             <span class="circle" style="background:@a.Color"></span>
             <b>@a.Name</b>
             <small>@a.RoleKey.GetTitle()</small>
@@ -177,6 +178,30 @@
     .agent-card.active { outline: 2px solid #007bc0; outline-offset: 2px; }
     .log-link { cursor: pointer; text-decoration: underline; }
     .ws-clear { padding: 4px 10px; font-size: 12px; }
+
+    /* Live "running" indicator: hidden until the active-agents poll marks the card running. */
+    .agent-card { position: relative; }
+    .agent-card .running-indicator { display: none; }
+    .agent-card.running { outline: 2px solid #16a34a; outline-offset: 2px; }
+    .agent-card.running .running-indicator {
+        display: inline-flex; align-items: center; gap: 6px;
+        position: absolute; top: 10px; right: 10px;
+        padding: 3px 9px; border-radius: 999px;
+        background: #dcfce7; color: #166534;
+        font-size: 11px; font-weight: 700; cursor: pointer;
+        border: 1px solid #16a34a55;
+    }
+    .agent-card.running .running-indicator:hover { background: #bbf7d0; }
+    .pulse-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #16a34a; box-shadow: 0 0 0 0 rgba(22,163,74,.6);
+        animation: pulse-ring 1.4s ease-out infinite;
+    }
+    @@keyframes pulse-ring {
+        0% { box-shadow: 0 0 0 0 rgba(22,163,74,.6); }
+        70% { box-shadow: 0 0 0 7px rgba(22,163,74,0); }
+        100% { box-shadow: 0 0 0 0 rgba(22,163,74,0); }
+    }
 
     .preview { max-height: 70vh; overflow: auto; }
     .doc-render { line-height: 1.65; color: #1e293b; font-size: 14px; }
@@ -342,6 +367,40 @@
         <pre class="log-json hidden" id="log-error"></pre>
     </div>
 </div>
+
+<div class="modal-backdrop" id="agent-activity-modal">
+    <div class="modal-card">
+        <div class="logs-header">
+            <div>
+                <h3>Agent Activity</h3>
+                <p id="activity-subtitle">Các thao tác agent đang thực hiện (real-time, để debug).</p>
+            </div>
+            <button class="btn" onclick="closeAgentActivity()">Close</button>
+        </div>
+
+        <div id="activity-meta" class="activity-meta"></div>
+        <div id="activity-feed" class="activity-feed">
+            <p class="activity-empty">Đang tải hoạt động…</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .activity-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 12px; font-size: 13px; color: #475569; }
+    .activity-meta b { color: #1e293b; }
+    .activity-feed { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; max-height: 60vh; overflow: auto; }
+    .activity-empty { color: #94a3b8; font-style: italic; margin: 4px; }
+    .act-event { display: flex; gap: 10px; padding: 8px 6px; border-bottom: 1px dashed #e2e8f0; }
+    .act-event:last-child { border-bottom: 0; }
+    .act-icon { flex: 0 0 auto; }
+    .act-main { flex: 1 1 auto; min-width: 0; }
+    .act-msg { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: #1e293b; }
+    .act-time { color: #94a3b8; font-size: 11px; white-space: nowrap; }
+    .act-detail { margin-top: 4px; }
+    .act-detail summary { cursor: pointer; color: #64748b; font-size: 12px; }
+    .act-detail pre { margin: 6px 0 0; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 10px; white-space: pre-wrap; overflow: auto; max-height: 240px; font-size: 12px; }
+    .activity-live { display: inline-flex; align-items: center; gap: 6px; color: #166534; font-weight: 700; }
+</style>
 
 <style>
     .agent-card { cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
@@ -513,4 +572,153 @@
             closeLogsModal();
         }
     });
+</script>
+
+<script>
+    // ===== Live agent indicator + activity (debug) popup =====
+    // PROJECT_ID, escapeHtml, formatDateTime are declared in the script blocks above.
+    const ACTIVITY_ICON = {
+        start: '🚀', setup: '⚙️', thinking: '🤔', tool: '🔧',
+        observation: '📥', final: '✅', completed: '🎉', error: '❌'
+    };
+
+    // -- Indicator: poll which agents are running and mark their cards. --
+    async function pollActiveAgents() {
+        let active = [];
+        try {
+            const response = await fetch(`/ManageAgent/ActiveAgents?projectId=${PROJECT_ID}`);
+            if (response.ok) active = await response.json();
+        } catch { /* transient: keep last state, try again next tick */ }
+
+        const byId = new Map(active.map(a => [a.agentId, a]));
+        document.querySelectorAll('.agent-card').forEach(card => {
+            const info = byId.get(card.dataset.agentId);
+            card.classList.toggle('running', !!info);
+            const pill = card.querySelector('.running-indicator');
+            if (pill) {
+                pill.title = info
+                    ? `Đang chạy: ${info.taskTitle || info.taskType} — bấm để xem hoạt động`
+                    : 'Agent đang chạy — bấm để xem hoạt động';
+            }
+        });
+
+        setTimeout(pollActiveAgents, 3000);
+    }
+
+    // -- Popup: live operation feed for one agent. --
+    let activityAgentId = null;
+    let activityAfterSeq = 0;
+    let activityTimer = null;
+
+    function openAgentActivity(agentId, name) {
+        activityAgentId = agentId;
+        activityAfterSeq = 0;
+        if (activityTimer) { clearTimeout(activityTimer); activityTimer = null; }
+
+        document.getElementById('agent-activity-modal').style.display = 'flex';
+        document.getElementById('activity-subtitle').textContent = `Agent: ${name}`;
+        document.getElementById('activity-meta').innerHTML = '';
+        document.getElementById('activity-feed').innerHTML = '<p class="activity-empty">Đang tải hoạt động…</p>';
+
+        loadAgentActivity();
+    }
+
+    function closeAgentActivity() {
+        activityAgentId = null;
+        if (activityTimer) { clearTimeout(activityTimer); activityTimer = null; }
+        document.getElementById('agent-activity-modal').style.display = 'none';
+    }
+
+    async function loadAgentActivity() {
+        const agentId = activityAgentId;
+        if (!agentId) return;
+
+        let data;
+        try {
+            const url = `/ManageAgent/AgentActivity?projectId=${PROJECT_ID}&agentId=${agentId}&afterSeq=${activityAfterSeq}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            data = await response.json();
+        } catch {
+            // Network blip — retry while the popup is still on this agent.
+            if (activityAgentId === agentId) activityTimer = setTimeout(loadAgentActivity, 2500);
+            return;
+        }
+
+        // User may have closed/switched agents while the request was in flight.
+        if (activityAgentId !== agentId) return;
+
+        renderActivityMeta(data);
+
+        const feed = document.getElementById('activity-feed');
+        const events = data.events || [];
+
+        if (activityAfterSeq === 0 && !events.length) {
+            feed.innerHTML = '<p class="activity-empty">'
+                + (data.hasActivity
+                    ? 'Chưa có thao tác nào được ghi nhận cho task này.'
+                    : 'Agent này hiện không có task nào.')
+                + '</p>';
+        } else {
+            appendActivityEvents(feed, events);
+        }
+
+        if (events.length) activityAfterSeq = data.lastEventSeq;
+
+        // Keep polling only while the task is still running and the popup is open.
+        if (data.isRunning) {
+            activityTimer = setTimeout(loadAgentActivity, 1500);
+        }
+    }
+
+    function renderActivityMeta(data) {
+        const meta = document.getElementById('activity-meta');
+        const status = data.taskStatus || (data.hasActivity ? '-' : 'Idle');
+        const statusHtml = data.isRunning
+            ? `<span class="activity-live"><span class="pulse-dot"></span>${escapeHtml(status)}</span>`
+            : `<b>${escapeHtml(status)}</b>`;
+
+        const parts = [`<span>Status: ${statusHtml}</span>`];
+        if (data.taskTitle) parts.push(`<span>Task: <b>${escapeHtml(data.taskTitle)}</b></span>`);
+        if (data.taskType) parts.push(`<span>Type: <b>${escapeHtml(data.taskType)}</b></span>`);
+        if (data.attempt) parts.push(`<span>Attempt: <b>${escapeHtml(String(data.attempt))}</b></span>`);
+        if (data.startedAt) parts.push(`<span>Started: <b>${formatDateTime(data.startedAt)}</b></span>`);
+        if (data.error) parts.push(`<span style="color:#991b1b;">Error: ${escapeHtml(data.error)}</span>`);
+
+        meta.innerHTML = parts.join('');
+    }
+
+    function appendActivityEvents(feed, events) {
+        if (!events.length) return;
+
+        // Clear the placeholder on the first batch.
+        const placeholder = feed.querySelector('.activity-empty');
+        if (placeholder) placeholder.remove();
+
+        for (const ev of events) {
+            const icon = ACTIVITY_ICON[ev.kind] || '•';
+            const row = document.createElement('div');
+            row.className = 'act-event';
+
+            let html = `<span class="act-icon">${icon}</span><div class="act-main">`
+                + `<div class="act-msg"><span>${escapeHtml(ev.message)}</span>`
+                + `<span class="act-time">${formatDateTime(ev.at)}</span></div>`;
+            if (ev.detail) {
+                html += `<details class="act-detail"><summary>chi tiết</summary><pre>${escapeHtml(ev.detail)}</pre></details>`;
+            }
+            html += '</div>';
+
+            row.innerHTML = html;
+            feed.appendChild(row);
+        }
+
+        feed.scrollTop = feed.scrollHeight;
+    }
+
+    document.getElementById('agent-activity-modal')
+        .addEventListener('click', function (e) {
+            if (e.target.id === 'agent-activity-modal') closeAgentActivity();
+        });
+
+    pollActiveAgents();
 </script>

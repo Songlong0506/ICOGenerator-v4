@@ -123,6 +123,7 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddScoped<GetAgentDashboardQuery>();
         services.AddScoped<GetWorkflowStatusQuery>();
+        services.AddScoped<GetAgentActivityQuery>();
         services.AddScoped<GetAgentCallLogsQuery>();
         services.AddScoped<GetCallLogDetailQuery>();
         services.AddScoped<GetDocumentPreviewQuery>();
