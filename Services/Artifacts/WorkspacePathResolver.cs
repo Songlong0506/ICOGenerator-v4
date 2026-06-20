@@ -28,9 +28,6 @@ public class WorkspacePathResolver
         return full;
     }
 
-    public string GetProjectDocsPath(string projectKey) =>
-        Path.Combine(GetProjectWorkspacePath(projectKey), "docs");
-
     public string GetMockupPath(string projectKey) =>
         Path.Combine(GetProjectWorkspacePath(projectKey), "04_Implementation", "poc-demo.html");
 
