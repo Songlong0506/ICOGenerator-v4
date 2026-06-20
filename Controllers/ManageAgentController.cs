@@ -39,6 +39,8 @@ public class ManageAgentController : Controller
         ViewBag.WorkspaceDocuments = result.WorkspaceDocuments;
         ViewBag.TotalTokens = result.TotalTokens;
         ViewBag.TokensByAgent = result.TokensByAgent;
+        ViewBag.CallsByAgent = result.CallsByAgent;
+        ViewBag.LastActivityByAgent = result.LastActivityByAgent;
         return View(result.Project);
     }
 
