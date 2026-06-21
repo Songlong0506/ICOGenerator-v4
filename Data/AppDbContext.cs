@@ -111,7 +111,7 @@ public class AppDbContext : DbContext
         {
             b.Property(x => x.Name).HasMaxLength(200);
             b.Property(x => x.DisplayName).HasMaxLength(200);
-            b.Property(x => x.Description).HasMaxLength(1000);
+            b.Property(x => x.Description).HasMaxLength(2000);
             b.HasIndex(x => x.Name);
         });
         builder.Entity<WorkflowRun>().Property(x => x.Name).HasMaxLength(200);

@@ -57,7 +57,7 @@ namespace ICOGenerator.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     DisplayName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
                     ServiceType = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     MethodName = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false)
