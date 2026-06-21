@@ -5,16 +5,18 @@
   sidebar (App Name on top, expandable nav groups, User + Imprint pinned at the
   bottom), and a fixed top bar with breadcrumb (left) + Bosch logo (right).
 
-  STYLING = Bootstrap 5.3 (CSS, via CDN) + a thin Bosch theme layer in <style> that
-  recolours Bootstrap to the brand (Bosch blue primary, brand font, borders). The
-  feature UI is authored with standard Bootstrap classes, so the look is consistent
-  and the model writes classes it already knows. Bootstrap JS is intentionally NOT
-  loaded — the inlined <script> at the bottom drives the sidebar collapse, page
-  routing, dialogs and toasts. External assets (CDN): Bootstrap CSS + Bootstrap Icons.
+  STYLING = Bootstrap 5.3 (CSS + JS bundle, via CDN) + a thin Bosch theme layer in <style>
+  that recolours Bootstrap to the brand (Bosch blue primary, brand font, borders). The feature
+  UI is authored with standard Bootstrap classes and components, so the look is consistent and
+  the model writes classes it already knows. Bootstrap's JS bundle IS loaded (near the end of
+  <body>), so native components — modals, dropdowns, collapse, tabs… — work out of the box. A
+  small inlined <script> after it additionally drives the sidebar collapse, page routing and
+  click toasts. External assets (CDN): Bootstrap CSS + Bootstrap JS bundle + Bootstrap Icons.
 
   Developer agent rules:
-    1. Keep the whole <head> (incl. the two <link> and the <style>), the <script> at
-       the bottom, and the shell markup (.supergraphic, .sidebar, .topbar) exactly as-is.
+    1. Keep the whole <head> (incl. the two <link> and the <style>), BOTH <script> tags at the
+       bottom (Bootstrap bundle + the shell script), and the shell markup (.supergraphic,
+       .sidebar, .topbar) exactly as-is.
     2. Replace ONLY what is between POC_CONTENT_START and POC_CONTENT_END with the
        feature UI from the AI Design Spec, using the Bootstrap classes listed below.
     3. MULTI-PAGE (so the sidebar actually navigates): wrap EACH screen in its own
@@ -29,14 +31,17 @@
     5. BUTTONS STAY INTERACTIVE WITHOUT CUSTOM JS — the shell <script> already wires content
        buttons, so NEVER add your own <script>. Every .btn shows a toast acknowledging the
        click (use Bootstrap buttons: "btn btn-primary", "btn btn-outline-primary", "btn btn-link"),
-       so Add / Save / Edit / Delete never feel dead. To open a dialog instead, add
-       data-open="someId" to the trigger and author its <div class="modal-overlay" id="someId">
-       <div class="dialog">…</div></div> AFTER the .page-view sections (a hidden page would
-       otherwise swallow a fixed dialog); data-close="someId", the × button or a backdrop click
-       closes it. NOTE: dialogs use THIS shell's pattern (.modal-overlay/.dialog + data-open/
-       data-close), NOT Bootstrap's modal — there is no data-bs-toggle and no Bootstrap JS.
-    6. Save as poc-demo.html. Use the Bootstrap classes already loaded; do NOT re-link Bootstrap
-       and do NOT add any other CSS/JS framework (no Angular/Material/jQuery…).
+       so Add / Save / Edit / Delete never feel dead. To open a dialog instead, use a STANDARD
+       BOOTSTRAP MODAL (the JS bundle is loaded): give the trigger
+       data-bs-toggle="modal" data-bs-target="#someId", and author the modal
+       <div class="modal fade" id="someId" tabindex="-1"><div class="modal-dialog modal-dialog-centered">
+       <div class="modal-content"> … </div></div></div> AFTER the .page-view sections (a hidden
+       page would otherwise swallow it). Use .modal-header / .modal-body / .modal-footer for the
+       padded structure, <button class="btn-close" data-bs-dismiss="modal"></button> to close, and
+       data-bs-dismiss="modal" on Cancel buttons. Do NOT hand-roll overlays — let Bootstrap handle
+       the backdrop, centering, padding and scroll.
+    6. Save as poc-demo.html. Use the Bootstrap classes/components already loaded; do NOT re-link
+       Bootstrap and do NOT add any other CSS/JS framework (no Angular/Material/jQuery…).
 
   Content classes (Bootstrap 5.3, already loaded):
     buttons  btn btn-primary / btn btn-outline-primary / btn btn-link
@@ -46,14 +51,16 @@
     badges   badge text-bg-primary / text-bg-success / text-bg-secondary / text-bg-warning / text-bg-danger
     layout   row + col-*  ·  d-flex gap-2 align-items-center justify-content-between  ·  utilities m*/p*/text-muted/fw-bold/fs-*
     grid     card-grid  ← the ONE Bosch helper on top of Bootstrap: a responsive auto-fill grid of cards/tiles
+    modals   modal fade + modal-dialog modal-dialog-centered + modal-content + modal-header/modal-body/modal-footer
+             open: data-bs-toggle="modal" data-bs-target="#id"  ·  close: btn-close / data-bs-dismiss="modal"
 -->
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>POC</title>
-    <!-- Bootstrap 5.3 (CSS only) — themed to Bosch by the <style> below; Bootstrap JS is NOT loaded
-         (the shell <script> drives all interactivity). -->
+    <!-- Bootstrap 5.3 CSS — themed to Bosch by the <style> below. The matching JS bundle is loaded
+         near the end of <body>, so native Bootstrap components (modals, dropdowns…) work. -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
     <!-- Bootstrap Icons: sidebar nav glyphs as a font (class `bi bi-…`); page still renders without it. -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
@@ -449,123 +456,19 @@
             gap: 16px;
         }
 
-        /* ---------- Dialogs (shell's own modal system; NOT Bootstrap's .modal) ----------
-           Named .dialog (not .modal) so the loaded Bootstrap CSS can't hide it. Open/close
-           is wired in the <script> via .modal-overlay + data-open/data-close. */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,.45);
-            display: none;
-            align-items: center;          /* centre the dialog vertically … */
-            justify-content: center;      /* … and horizontally */
-            padding: 5vh 16px;            /* breathing room; dialog never touches the edges */
-            overflow-y: auto;             /* tall dialogs scroll instead of being clipped */
-            z-index: 1060;
-        }
-
-            .modal-overlay.open {
-                display: flex;
-            }
-
-        .dialog {
-            background: #fff;
-            margin: auto;                 /* keeps the top reachable when the dialog is taller than the viewport */
-            width: min(360px,92vw);
+        /* ---------- Dialogs = native Bootstrap modals ----------
+           Bootstrap's JS bundle (loaded at the end of <body>) drives every .modal: open/close,
+           backdrop, centering, padding and scroll. Only a thin Bosch touch is layered on here. */
+        .modal-content {
+            border: 0;
             border-radius: 10px;
-            overflow: hidden;             /* clip the header/imprint bar to the rounded corners */
+            overflow: hidden;             /* clip the imprint bar to the rounded corners */
             box-shadow: 0 12px 40px rgba(0,0,0,.3);
         }
 
-            .dialog.lg {
-                width: min(820px,94vw);
-            }
-
-        .dialog-head {
-            display: flex;
-            align-items: center;
-            padding: 14px 18px;
-            border-bottom: 1px solid var(--line);
+        .modal-header, .modal-footer {
+            border-color: var(--line);
         }
-
-            .dialog-head h3 {
-                margin: 0;
-                font-size: 16px;
-                flex: 1;
-            }
-
-        .dialog-close {
-            border: 0;
-            background: transparent;
-            cursor: pointer;
-            color: var(--muted);
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-            .dialog-close:hover {
-                color: var(--ink);
-            }
-
-        .dialog-body {
-            padding: 18px;
-        }
-
-        /* ---------- User popover (anchored to user item, bottom-left) ---------- */
-        .user-overlay {
-            background: transparent;
-            align-items: flex-end;
-            justify-content: flex-start;
-            padding: 0;          /* anchored to the user item — ignore the centred-dialog padding */
-            overflow: visible;   /* let the caret poke out toward the sidebar */
-        }
-
-        .user-popover {
-            position: relative;
-            background: #fff;
-            width: 300px;
-            margin: 0 0 14px var(--sidebar-w);
-            padding: 16px 18px 18px;
-            box-shadow: 0 10px 36px rgba(0,0,0,.28);
-            border: 1px solid var(--line);
-        }
-
-        .app-shell.collapsed ~ .user-overlay .user-popover {
-            margin-left: var(--sidebar-w-collapsed);
-        }
-
-            /* caret pointing left toward the user item */
-            .user-popover::before {
-                content: "";
-                position: absolute;
-                left: -9px;
-                bottom: 52px;
-                border: 9px solid transparent;
-                border-right-color: var(--line);
-            }
-
-            .user-popover::after {
-                content: "";
-                position: absolute;
-                left: -8px;
-                bottom: 53px;
-                border: 8px solid transparent;
-                border-right-color: #fff;
-            }
-
-        .user-popover-top {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            margin-bottom: 14px;
-        }
-
-            .user-popover-top .user-lang {
-                flex: 1;
-            }
 
         .imprint-bar {
             height: 5px;
@@ -727,11 +630,11 @@
 
                 <!-- ===== Bottom: User + Imprint (fixed defaults) ===== -->
                 <div class="sidebar-foot">
-                    <div class="nav-item" id="navUser" title="User">
+                    <div class="nav-item" id="navUser" title="User" data-bs-toggle="modal" data-bs-target="#userModal">
                         <i class="bi bi-person-circle" aria-hidden="true"></i>
                         <span class="nav-label">EXTERNAL User Name</span>
                     </div>
-                    <div class="nav-item" id="navImprint" title="Imprint">
+                    <div class="nav-item" id="navImprint" title="Imprint" data-bs-toggle="modal" data-bs-target="#imprintModal">
                         <i class="bi bi-info-circle" aria-hidden="true"></i>
                         <span class="nav-label">Imprint</span>
                     </div>
@@ -756,7 +659,7 @@
                          Bootstrap classes (themed to Bosch by the <style> in <head>). -->
                     <section class="page-view active" data-view="Overview">
                         <div class="d-flex align-items-center mb-3">
-                            <button class="btn btn-primary" data-open="addressModal"><i class="bi bi-plus-lg me-1"></i>Add New Address</button>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addressModal"><i class="bi bi-plus-lg me-1"></i>Add New Address</button>
                         </div>
 
                         <div class="table-responsive">
@@ -846,71 +749,79 @@
         </div>
     </div>
 
-    <!-- ===== User popup ===== -->
-    <div class="modal-overlay user-overlay" id="userModal">
-        <div class="user-popover">
-            <div class="user-popover-top">
-                <div class="user-lang">
-                    <label class="form-label">Default Language</label>
-                    <select class="form-select"><option>English</option><option>Tiếng Việt</option><option>Deutsch</option></select>
+    <!-- ===== User popup (Bootstrap modal) ===== -->
+    <div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="h6 mb-0">User</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <button class="dialog-close" data-close="userModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
-            </div>
-            <p class="fw-bold mb-2">Do you want to logout?</p>
-            <button class="btn btn-primary">Logout</button>
-        </div>
-    </div>
-
-    <!-- ===== Imprint popup ===== -->
-    <div class="modal-overlay" id="imprintModal">
-        <div class="dialog lg">
-            <div class="imprint-bar"></div>
-            <div class="dialog-head">
-                <div class="imprint-logo" style="font-size:20px;">
-                    BOSCH
-                    <small>Invented for life</small>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Default Language</label>
+                        <select class="form-select"><option>English</option><option>Tiếng Việt</option><option>Deutsch</option></select>
+                    </div>
+                    <p class="fw-bold mb-2">Do you want to logout?</p>
+                    <button class="btn btn-primary">Logout</button>
                 </div>
-                <div style="flex:1"></div>
-                <button class="dialog-close" data-close="imprintModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
-            </div>
-            <div class="dialog-body">
-                <dl class="imprint-grid">
-                    <dt>Purpose</dt>
-                    <dd>Describe what this application is used for.</dd>
-                    <dt>Security class of the IT System (cf. CD 02900)</dt>
-                    <dd>C_SC1</dd>
-                    <dt>Requirements towards the IT Owner of the consuming IT System</dt>
-                    <dd>Login by SSO or Group account</dd>
-                    <dt>Approved deviations from requirements towards the IT System from central RB regulations</dt>
-                    <dd>N/A</dd>
-                    <dt>Name</dt>
-                    <dd>ICO Template</dd>
-                    <dt>Version</dt>
-                    <dd>0.1</dd>
-                    <dt>Contact</dt>
-                    <dd><b>Application Owner</b><br /><b>Technical Support</b></dd>
-                    <dt>Designed and developed by</dt>
-                    <dd>HcP/ICO</dd>
-                </dl>
             </div>
         </div>
     </div>
 
-    <!-- ===== Add New Address popup ===== -->
-    <div class="modal-overlay" id="addressModal">
-        <div class="dialog" style="width:min(560px,94vw)">
-            <div class="dialog-head">
-                <h3>Add New Address</h3>
-                <button class="dialog-close" data-close="addressModal" aria-label="Close"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+    <!-- ===== Imprint popup (Bootstrap modal) ===== -->
+    <div class="modal fade" id="imprintModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="imprint-bar"></div>
+                <div class="modal-header">
+                    <div class="imprint-logo" style="font-size:20px;">
+                        BOSCH
+                        <small>Invented for life</small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="imprint-grid">
+                        <dt>Purpose</dt>
+                        <dd>Describe what this application is used for.</dd>
+                        <dt>Security class of the IT System (cf. CD 02900)</dt>
+                        <dd>C_SC1</dd>
+                        <dt>Requirements towards the IT Owner of the consuming IT System</dt>
+                        <dd>Login by SSO or Group account</dd>
+                        <dt>Approved deviations from requirements towards the IT System from central RB regulations</dt>
+                        <dd>N/A</dd>
+                        <dt>Name</dt>
+                        <dd>ICO Template</dd>
+                        <dt>Version</dt>
+                        <dd>0.1</dd>
+                        <dt>Contact</dt>
+                        <dd><b>Application Owner</b><br /><b>Technical Support</b></dd>
+                        <dt>Designed and developed by</dt>
+                        <dd>HcP/ICO</dd>
+                    </dl>
+                </div>
             </div>
-            <div class="dialog-body">
-                <p class="mb-3"><b>(*)</b> Mandatory field. Enter address information below.</p>
-                <div class="mb-3"><label class="form-label">Street</label><input class="form-control" type="text" value="DemoStrada" /></div>
-                <div class="mb-3"><label class="form-label">ZIP code</label><input class="form-control" type="text" value="70469" /></div>
-                <div class="mb-3"><label class="form-label">City</label><input class="form-control" type="text" value="Stuttgart" /></div>
-                <div class="d-flex justify-content-end gap-2">
+        </div>
+    </div>
+
+    <!-- ===== Add New Address popup (Bootstrap modal) ===== -->
+    <div class="modal fade" id="addressModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="h5 mb-0">Add New Address</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3"><b>(*)</b> Mandatory field. Enter address information below.</p>
+                    <div class="mb-3"><label class="form-label">Street</label><input class="form-control" type="text" value="DemoStrada" /></div>
+                    <div class="mb-3"><label class="form-label">ZIP code</label><input class="form-control" type="text" value="70469" /></div>
+                    <div class="mb-3"><label class="form-label">City</label><input class="form-control" type="text" value="Stuttgart" /></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-primary" data-bs-dismiss="modal">Cancel</button>
                     <button class="btn btn-primary">Save</button>
-                    <button class="btn btn-outline-primary" data-close="addressModal">Cancel</button>
                 </div>
             </div>
         </div>
@@ -919,6 +830,8 @@
     <!-- ===== Toast host: click feedback for POC action buttons (filled by the script) ===== -->
     <div class="toast-host" id="toastHost" aria-live="polite"></div>
 
+    <!-- Bootstrap JS bundle (Popper + Bootstrap): drives modals, dropdowns, collapse, etc. -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     (function () {
       var shell = document.getElementById('appShell');
@@ -993,26 +906,15 @@
           views.forEach(function (v, i) { v.classList.toggle('active', i === 0); });
       }
 
-      // Popups / dialogs. Open with data-open="modalId" (plus the pinned User/Imprint items);
-      // close with data-close="modalId", the × buttons, or a click on the backdrop.
-      function open(id) { var m = document.getElementById(id); if (m) m.classList.add('open'); }
-      function closeModal(m) { if (m) m.classList.remove('open'); }
-      var u = document.getElementById('navUser'); if (u) u.addEventListener('click', function () { open('userModal'); });
-      var i = document.getElementById('navImprint'); if (i) i.addEventListener('click', function () { open('imprintModal'); });
-      document.querySelectorAll('[data-open]').forEach(function (b) {
-        b.addEventListener('click', function () { open(b.getAttribute('data-open')); });
-      });
-      document.querySelectorAll('[data-close]').forEach(function (b) {
-        b.addEventListener('click', function () { closeModal(document.getElementById(b.getAttribute('data-close'))); });
-      });
-      document.querySelectorAll('.modal-overlay').forEach(function (o) {
-        o.addEventListener('click', function (e) { if (e.target === o) closeModal(o); });
-      });
+      // Popups / dialogs are NATIVE BOOTSTRAP MODALS — opened via data-bs-toggle="modal"
+      // (incl. the pinned User/Imprint items) and closed via data-bs-dismiss / the × / a backdrop
+      // click. Bootstrap's JS bundle (loaded just above) handles all of that, so there is nothing
+      // to wire here.
 
-      // Action feedback. A POC has no backend, so controls that aren't wired to a dialog still
-      // acknowledge the click with a toast (and dismiss their dialog when inside one): every .btn,
-      // plus placeholder links (href "#" or empty) the way tables render inline "Edit" / "Delete".
-      // Real links (with a destination), the sidebar nav and dialog open/close triggers are left alone.
+      // Action feedback. A POC has no backend, so controls that aren't a Bootstrap modal trigger
+      // still acknowledge the click with a toast: every .btn, plus placeholder links (href "#" or
+      // empty) the way tables render inline "Edit" / "Delete". Real links (with a destination),
+      // the sidebar nav and Bootstrap modal open/close triggers are left alone.
       var toastHost = document.getElementById('toastHost');
       function toast(msg) {
         if (!toastHost) return;
@@ -1027,7 +929,7 @@
         return (el.textContent || '').trim() || el.getAttribute('aria-label') || el.getAttribute('title') || 'Action';
       }
       document.querySelectorAll('.btn, a').forEach(function (b) {
-        if (b.hasAttribute('data-open') || b.hasAttribute('data-close')) return;
+        if (b.hasAttribute('data-bs-toggle') || b.hasAttribute('data-bs-dismiss')) return; // Bootstrap handles these
         var isLink = b.tagName === 'A' && !b.classList.contains('btn');
         if (isLink) {
           var href = b.getAttribute('href');
@@ -1037,7 +939,6 @@
         b.addEventListener('click', function (e) {
           if (isLink) e.preventDefault();
           toast(actionLabel(b));
-          closeModal(b.closest('.modal-overlay'));
         });
       });
     })();
