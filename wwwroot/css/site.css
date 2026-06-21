@@ -234,6 +234,7 @@ th, td {
     padding: 14px 18px;
     border-bottom: 1px solid var(--line);
     text-align: left;
+    vertical-align: middle;
 }
 
 th {
