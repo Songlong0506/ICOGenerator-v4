@@ -39,9 +39,33 @@
        page would otherwise swallow it). Use .modal-header / .modal-body / .modal-footer for the
        padded structure, <button class="btn-close" data-bs-dismiss="modal"></button> to close, and
        data-bs-dismiss="modal" on Cancel buttons. Do NOT hand-roll overlays — let Bootstrap handle
-       the backdrop, centering, padding and scroll.
+       the backdrop, centering, padding and scroll. Modal ids MUST be unique and MUST NOT reuse the
+       shell's reserved ids (appShell, userModal, imprintModal, toastHost, sbToggle, navUser,
+       navImprint) — use a feature id like #userFormModal, or Add/Save go to the wrong dialog.
     6. Save as poc-demo.html. Use the Bootstrap classes/components already loaded; do NOT re-link
        Bootstrap and do NOT add any other CSS/JS framework (no Angular/Material/jQuery…).
+    7. LIVE CRUD WITHOUT CUSTOM JS — the shell <script> ships a small localStorage-backed engine, so
+       Add / Edit / Delete actually create, update and remove records that PERSIST across reloads. Opt
+       in with data-* attributes only (still NO custom <script>):
+         • list  <table data-crud-table="ENTITY" data-crud-modal="#formModalId"> whose <thead> has one
+                 <th data-field="FIELD"> per data column plus a final <th data-actions>. The <tr> rows
+                 you author in <tbody> are sample/seed data loaded once; the engine then renders rows
+                 from storage and appends an Edit + Delete button to every row.
+         • form  exactly ONE <form data-crud-form="ENTITY"> (usually inside the modal) with
+                 <input|select|textarea name="FIELD"> controls and a type="submit" Save button.
+                 Submitting creates a record, or updates the row currently being edited.
+         • add   a button with data-crud-add="ENTITY" (pair it with data-bs-toggle/-target so the modal
+                 opens) clears the form for a new record. For a ONE-CLICK add with no form (e.g. an
+                 "Add to cart"/"Buy" button on a card), add data-crud-values='{"field":"value",…}' and
+                 the engine inserts that record immediately.
+         • optional: data-crud-title="Noun" (→ "Add Noun"/"Edit Noun"), data-crud-count="ENTITY" (live
+                 record count), data-crud-reset="ENTITY" (re-seed the sample rows).
+       The name="…" on the form MUST match the data-field names on the table. Cells may hold rich HTML
+       (images, badges) — seed <td> markup is preserved across re-renders. Any other <form> on the page
+       is prevented from reloading on submit. With no data-crud-* attributes the page still works
+       (static rows + click toasts). PREFER wiring real CRUD: make EVERY data list a data-crud-table
+       (with an Add button) and EVERY create/upload/edit form a data-crud-form, so the main actions
+       actually work and persist — don't leave the primary buttons as toast-only stubs.
 
   Content classes (Bootstrap 5.3, already loaded):
     buttons  btn btn-primary / btn btn-outline-primary / btn btn-link
@@ -53,6 +77,9 @@
     grid     card-grid  ← the ONE Bosch helper on top of Bootstrap: a responsive auto-fill grid of cards/tiles
     modals   modal fade + modal-dialog modal-dialog-centered + modal-content + modal-header/modal-body/modal-footer
              open: data-bs-toggle="modal" data-bs-target="#id"  ·  close: btn-close / data-bs-dismiss="modal"
+    crud     table: data-crud-table="ENTITY" + data-field / data-actions on <th> + data-crud-modal="#id"
+             form:  data-crud-form="ENTITY" + name="FIELD" on inputs + a type="submit" Save button
+             extra: data-crud-add / data-crud-title / data-crud-count / data-crud-reset → localStorage, no JS
 -->
 <html lang="en">
 <head>
@@ -658,77 +685,84 @@
                          (data-view === the nav label) reveals it and hides the others. Authored with
                          Bootstrap classes (themed to Bosch by the <style> in <head>). -->
                     <section class="page-view active" data-view="Overview">
-                        <div class="d-flex align-items-center mb-3">
-                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addressModal"><i class="bi bi-plus-lg me-1"></i>Add New Address</button>
+                        <div class="row g-3 mb-4">
+                            <div class="col-sm-4">
+                                <div class="card"><div class="card-body">
+                                    <div class="fs-2 fw-bold text-primary" data-crud-count="record">0</div>
+                                    <div class="text-muted small">Records stored</div>
+                                </div></div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="card"><div class="card-body">
+                                    <div class="fs-2 fw-bold text-primary"><i class="bi bi-hdd-network"></i></div>
+                                    <div class="text-muted small">Saved in your browser (localStorage)</div>
+                                </div></div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="card"><div class="card-body">
+                                    <button class="btn btn-outline-primary btn-sm" data-crud-reset="record"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore sample data</button>
+                                    <div class="text-muted small mt-2">Reset the demo to its seed rows</div>
+                                </div></div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h4 mb-0">Records</h2>
+                            <button class="btn btn-primary" data-crud-add="record" data-bs-toggle="modal" data-bs-target="#recordModal"><i class="bi bi-plus-lg me-1"></i>Add Record</button>
                         </div>
 
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle">
+                            <table class="table table-hover align-middle" data-crud-table="record" data-crud-modal="#recordModal">
                                 <thead>
                                     <tr>
-                                        <th>State</th>
-                                        <th>No.</th>
-                                        <th>Name</th>
-                                        <th>Weight</th>
-                                        <th>Symbol</th>
+                                        <th data-field="name">Name</th>
+                                        <th data-field="category">Category</th>
+                                        <th data-field="status">Status</th>
+                                        <th data-actions>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr><td><span class="badge text-bg-primary">info</span></td><td>1</td><td>Hydrogen</td><td>1.0079</td><td>H</td></tr>
-                                    <tr><td><span class="badge text-bg-secondary">neutral</span></td><td>2</td><td>Helium</td><td>&ndash;</td><td>He</td></tr>
-                                    <tr><td><span class="badge text-bg-success">success</span></td><td>3</td><td>Lithium</td><td>6.941</td><td>Li</td></tr>
-                                    <tr><td><span class="badge text-bg-warning">warning</span></td><td>4</td><td>Beryllium</td><td>9.0122</td><td>Be</td></tr>
-                                    <tr><td><span class="badge text-bg-danger">error</span></td><td>5</td><td>Boron</td><td>10.811</td><td>B</td></tr>
-                                    <tr><td><span class="badge text-bg-primary">info</span></td><td>6</td><td>Carbon</td><td>12.0107</td><td>C</td></tr>
-                                    <tr><td><span class="badge text-bg-secondary">neutral</span></td><td>7</td><td>Nitrogen</td><td>14.0067</td><td>N</td></tr>
-                                    <tr><td><span class="badge text-bg-success">success</span></td><td>8</td><td>Oxygen</td><td>15.9994</td><td>O</td></tr>
-                                    <tr><td><span class="badge text-bg-warning">warning</span></td><td>9</td><td>Fluorine</td><td>&ndash;</td><td>F</td></tr>
-                                    <tr><td><span class="badge text-bg-danger">error</span></td><td>10</td><td>Neon</td><td>20.1797</td><td>Ne</td></tr>
+                                    <tr><td>Alpha entry</td><td>General</td><td>Active</td></tr>
+                                    <tr><td>Beta entry</td><td>Priority</td><td>Archived</td></tr>
+                                    <tr><td>Gamma entry</td><td>General</td><td>Active</td></tr>
                                 </tbody>
                             </table>
                         </div>
-
-                        <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="Table pagination">
-                            <span class="text-muted small">Elements per page: 10</span>
-                            <ul class="pagination mb-0">
-                                <li class="page-item disabled"><a class="page-link" href="#" aria-label="Previous"><i class="bi bi-chevron-left"></i></a></li>
-                                <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                                <li class="page-item"><a class="page-link" href="#">2</a></li>
-                                <li class="page-item"><a class="page-link" href="#" aria-label="Next"><i class="bi bi-chevron-right"></i></a></li>
-                            </ul>
-                        </nav>
                     </section>
 
                     <section class="page-view" data-view="All Records">
                         <h2 class="h4">All Records</h2>
-                        <p class="text-muted mb-3">Every record currently stored in the system.</p>
+                        <p class="text-muted mb-3">The same records as the Overview — add / edit / delete here is saved to localStorage and stays in sync across screens and reloads.</p>
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead><tr><th>ID</th><th>Name</th><th>Status</th></tr></thead>
-                                <tbody>
-                                    <tr><td>R-1001</td><td>Alpha entry</td><td><span class="badge text-bg-success">Active</span></td></tr>
-                                    <tr><td>R-1002</td><td>Beta entry</td><td><span class="badge text-bg-secondary">Archived</span></td></tr>
-                                    <tr><td>R-1003</td><td>Gamma entry</td><td><span class="badge text-bg-success">Active</span></td></tr>
-                                </tbody>
+                            <table class="table table-hover align-middle" data-crud-table="record" data-crud-modal="#recordModal">
+                                <thead>
+                                    <tr>
+                                        <th data-field="name">Name</th>
+                                        <th data-field="category">Category</th>
+                                        <th data-field="status">Status</th>
+                                        <th data-actions>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
                             </table>
                         </div>
                     </section>
 
                     <section class="page-view" data-view="Add Record">
                         <h2 class="h4">Add Record</h2>
-                        <p class="text-muted mb-3">Create a new record. Fields marked (*) are mandatory.</p>
-                        <div style="max-width:420px">
-                            <div class="mb-3"><label class="form-label">Name (*)</label><input class="form-control" type="text" placeholder="Record name" /></div>
-                            <div class="mb-3"><label class="form-label">Category</label><select class="form-select"><option>General</option><option>Priority</option></select></div>
-                            <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" rows="3"></textarea></div>
-                            <div class="d-flex gap-2"><button class="btn btn-primary">Save</button><button class="btn btn-outline-primary">Cancel</button></div>
-                        </div>
+                        <p class="text-muted mb-3">Inline form (no modal). Saving adds a record to localStorage. Fields marked (*) are mandatory.</p>
+                        <form data-crud-form="record" style="max-width:420px">
+                            <div class="mb-3"><label class="form-label">Name (*)</label><input class="form-control" type="text" name="name" required placeholder="Record name" /></div>
+                            <div class="mb-3"><label class="form-label">Category</label><select class="form-select" name="category"><option>General</option><option>Priority</option></select></div>
+                            <div class="mb-3"><label class="form-label">Status</label><select class="form-select" name="status"><option>Active</option><option>Archived</option></select></div>
+                            <div class="d-flex gap-2"><button type="submit" class="btn btn-primary">Save</button><button type="reset" class="btn btn-outline-primary">Clear</button></div>
+                        </form>
                     </section>
 
                     <section class="page-view" data-view="Monthly Summary">
                         <h2 class="h4 mb-3">Monthly Summary</h2>
                         <div class="card-grid">
-                            <div class="card"><div class="card-body"><div class="fs-2 fw-bold text-primary">128</div><div class="text-muted small">Records created</div></div></div>
+                            <div class="card"><div class="card-body"><div class="fs-2 fw-bold text-primary" data-crud-count="record">0</div><div class="text-muted small">Records stored</div></div></div>
                             <div class="card"><div class="card-body"><div class="fs-2 fw-bold text-primary">94</div><div class="text-muted small">Closed</div></div></div>
                             <div class="card"><div class="card-body"><div class="fs-2 fw-bold text-primary">34</div><div class="text-muted small">Still open</div></div></div>
                         </div>
@@ -736,12 +770,38 @@
 
                     <section class="page-view" data-view="Preferences">
                         <h2 class="h4">Preferences</h2>
+                        <p class="text-muted mb-3">A plain form (not wired to CRUD) — its Save button still shows a confirmation toast.</p>
                         <div style="max-width:420px">
                             <div class="mb-3"><label class="form-label">Default view</label><select class="form-select"><option>Overview</option><option>All Records</option></select></div>
                             <div class="mb-3"><label class="form-label">Items per page</label><select class="form-select"><option>10</option><option>25</option><option>50</option></select></div>
                             <button class="btn btn-primary">Save preferences</button>
                         </div>
                     </section>
+
+                    <!-- Add / Edit dialog for the "record" entity (native Bootstrap modal). Placed AFTER the
+                         .page-view sections so a hidden page can't swallow it. One form per entity drives
+                         both create and update; the engine fills it for Edit and clears it for Add. -->
+                    <div class="modal fade" id="recordModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h3 class="h5 mb-0" data-crud-title="Record">Add Record</h3>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <form data-crud-form="record">
+                                    <div class="modal-body">
+                                        <div class="mb-3"><label class="form-label">Name (*)</label><input class="form-control" type="text" name="name" required placeholder="Record name" /></div>
+                                        <div class="mb-3"><label class="form-label">Category</label><select class="form-select" name="category"><option>General</option><option>Priority</option></select></div>
+                                        <div class="mb-3"><label class="form-label">Status</label><select class="form-select" name="status"><option>Active</option><option>Archived</option></select></div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-outline-primary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-primary">Save</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                     <!-- POC_CONTENT_END -->
 
                 </main>
@@ -800,28 +860,6 @@
                         <dt>Designed and developed by</dt>
                         <dd>HcP/ICO</dd>
                     </dl>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===== Add New Address popup (Bootstrap modal) ===== -->
-    <div class="modal fade" id="addressModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="h5 mb-0">Add New Address</h3>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="mb-3"><b>(*)</b> Mandatory field. Enter address information below.</p>
-                    <div class="mb-3"><label class="form-label">Street</label><input class="form-control" type="text" value="DemoStrada" /></div>
-                    <div class="mb-3"><label class="form-label">ZIP code</label><input class="form-control" type="text" value="70469" /></div>
-                    <div class="mb-3"><label class="form-label">City</label><input class="form-control" type="text" value="Stuttgart" /></div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline-primary" data-bs-dismiss="modal">Cancel</button>
-                    <button class="btn btn-primary">Save</button>
                 </div>
             </div>
         </div>
@@ -930,6 +968,9 @@
       }
       document.querySelectorAll('.btn, a').forEach(function (b) {
         if (b.hasAttribute('data-bs-toggle') || b.hasAttribute('data-bs-dismiss')) return; // Bootstrap handles these
+        // CRUD controls (below) give their own meaningful feedback ("Record added" …) — don't double-toast them.
+        if (b.matches('[data-crud-add],[data-crud-save],[data-crud-edit],[data-crud-delete],[data-crud-reset]')) return;
+        if (b.type === 'submit') return; // a form submit gives its own feedback (CRUD save / "Saved" toast)
         var isLink = b.tagName === 'A' && !b.classList.contains('btn');
         if (isLink) {
           var href = b.getAttribute('href');
@@ -940,6 +981,286 @@
           if (isLink) e.preventDefault();
           toast(actionLabel(b));
         });
+      });
+
+      // =====================================================================
+      // Declarative CRUD engine (localStorage-backed)
+      // ---------------------------------------------------------------------
+      // Makes a POC's Add / Edit / Delete actually create, update and remove
+      // records that PERSIST across reloads — with NO custom JS in the content:
+      // the feature HTML only carries data-crud-* attributes.
+      //   table  <table data-crud-table="ENTITY" data-crud-modal="#formModalId">
+      //          <thead> = one <th data-field="FIELD"> per column + a final <th data-actions>.
+      //          Rows authored in <tbody> seed the entity on first load.
+      //   form   <form data-crud-form="ENTITY"> with <input|select|textarea name="FIELD">
+      //          and a type="submit" Save button (create, or update when editing).
+      //   add    a button with data-crud-add="ENTITY" (open the modal via data-bs-toggle).
+      //   title  <el data-crud-title="Noun"> inside the modal → "Add Noun" / "Edit Noun".
+      //   count  <el data-crud-count="ENTITY"> → live number of records.
+      //   reset  a button with data-crud-reset="ENTITY" → restore the seed rows.
+      // Edit/Delete buttons per row are generated by the engine. With no data-crud-*
+      // attributes anywhere, nothing here runs and the POC behaves exactly as before.
+      // =====================================================================
+      // Storage: localStorage when available, else an in-memory fallback so CRUD still works when
+      // localStorage is blocked (file:// in some browsers, private mode, full quota). It persists
+      // across reloads when localStorage works; otherwise it lives for the session — but Save never
+      // silently fails (which looked like "can't save").
+      var CRUD_PREFIX = 'poc:';
+      var crudMem = {};
+      var crudCanLS = (function () {
+        try { localStorage.setItem('__poc_probe__', '1'); localStorage.removeItem('__poc_probe__'); return true; }
+        catch (e) { return false; }
+      })();
+      function crudKey(entity) { return CRUD_PREFIX + entity; }
+      function crudRaw(entity) {
+        if (crudCanLS) { try { return localStorage.getItem(crudKey(entity)); } catch (e) { crudCanLS = false; } }
+        return (entity in crudMem) ? crudMem[entity] : null;
+      }
+      function crudLoad(entity) {
+        var raw = crudRaw(entity);
+        try { return raw ? (JSON.parse(raw) || []) : []; } catch (e) { return []; }
+      }
+      function crudStore(entity, records) {
+        var s = JSON.stringify(records);
+        if (crudCanLS) { try { localStorage.setItem(crudKey(entity), s); return; } catch (e) { crudCanLS = false; } }
+        crudMem[entity] = s; // localStorage unavailable: keep it in memory for this session
+      }
+      function crudId() { return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+      function crudByAttr(attr, value) {
+        return Array.prototype.filter.call(document.querySelectorAll('[' + attr + ']'), function (el) {
+          return el.getAttribute(attr) === value;
+        });
+      }
+      function crudTables(entity) { return crudByAttr('data-crud-table', entity); }
+      function crudForm(entity) { return crudByAttr('data-crud-form', entity)[0] || null; }
+      // The form that drives a modal's add/edit: prefer the one inside that modal, else the entity's form.
+      function crudFormFor(entity, modalEl) {
+        if (modalEl) {
+          var inModal = Array.prototype.filter.call(modalEl.querySelectorAll('[data-crud-form]'), function (f) {
+            return f.getAttribute('data-crud-form') === entity;
+          })[0];
+          if (inModal) return inModal;
+        }
+        return crudForm(entity);
+      }
+      function crudFields(table) {
+        return Array.prototype.map.call(table.querySelectorAll('thead th'), function (th) {
+          return th.getAttribute('data-field') || '';
+        });
+      }
+      // Snapshot the author-written rows (field map per row) so "reset" can restore them.
+      function crudCaptureSeed(table) {
+        var fields = crudFields(table);
+        return Array.prototype.map.call(table.querySelectorAll('tbody tr'), function (tr) {
+          var cells = tr.querySelectorAll('td'), rec = {};
+          // Keep innerHTML so rich cells (images, badges, links) survive re-rendering.
+          fields.forEach(function (f, i) { if (f) rec[f] = cells[i] ? cells[i].innerHTML.trim() : ''; });
+          return rec;
+        });
+      }
+      var crudSeeds = {};
+      function crudSeedRecords(entity) {
+        return (crudSeeds[entity] || []).map(function (m) {
+          var rec = { _id: crudId() };
+          for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) rec[k] = m[k];
+          return rec;
+        });
+      }
+
+      function crudEnsureActions(table) {
+        var headRow = table.querySelector('thead tr');
+        if (headRow && !headRow.querySelector('th[data-actions]')) {
+          var th = document.createElement('th');
+          th.setAttribute('data-actions', '');
+          th.textContent = 'Actions';
+          headRow.appendChild(th);
+        }
+      }
+      function crudRenderTable(table, records) {
+        crudEnsureActions(table);
+        var ths = table.querySelectorAll('thead th');
+        var tbody = table.querySelector('tbody');
+        if (!tbody) { tbody = document.createElement('tbody'); table.appendChild(tbody); }
+        tbody.innerHTML = '';
+        if (!records.length) {
+          var tr0 = document.createElement('tr'), td0 = document.createElement('td');
+          td0.colSpan = ths.length || 1;
+          td0.className = 'text-muted text-center py-4';
+          td0.textContent = 'No records yet.';
+          tr0.appendChild(td0); tbody.appendChild(tr0); return;
+        }
+        records.forEach(function (rec) {
+          var tr = document.createElement('tr');
+          tr.setAttribute('data-id', rec._id);
+          ths.forEach(function (th) {
+            var td = document.createElement('td');
+            if (th.hasAttribute('data-actions')) {
+              td.innerHTML = '<button type="button" class="btn btn-sm btn-link p-0 me-3" data-crud-edit><i class="bi bi-pencil me-1"></i>Edit</button>' +
+                             '<button type="button" class="btn btn-sm btn-link p-0 text-danger" data-crud-delete><i class="bi bi-trash me-1"></i>Delete</button>';
+            } else {
+              var f = th.getAttribute('data-field');
+              td.innerHTML = (f && rec[f] != null) ? rec[f] : '';   // value may be rich HTML (image/badge) from a seed row
+            }
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+      }
+      function crudRender(entity) {
+        var records = crudLoad(entity);
+        crudTables(entity).forEach(function (t) { crudRenderTable(t, records); });
+        crudByAttr('data-crud-count', entity).forEach(function (el) { el.textContent = records.length; });
+      }
+
+      // Stored values may be rich HTML (e.g. a seed badge/image); form inputs need plain text
+      // so a <select> matches an <option> and inputs aren't filled with markup.
+      function crudText(v) { var d = document.createElement('div'); d.innerHTML = (v == null ? '' : String(v)); return d.textContent.trim(); }
+      function crudFillForm(form, rec) {
+        if (!form) return;
+        form.querySelectorAll('[name]').forEach(function (input) {
+          var f = input.getAttribute('name');
+          input.value = (rec && rec[f] != null) ? crudText(rec[f]) : '';
+        });
+      }
+      function crudReadForm(form) {
+        var rec = {};
+        form.querySelectorAll('[name]').forEach(function (input) { rec[input.getAttribute('name')] = input.value; });
+        return rec;
+      }
+      function crudSetTitle(form, mode) {
+        var scope = form.closest('.modal') || form;
+        var el = scope.querySelector('[data-crud-title]');
+        if (el) el.textContent = (mode + ' ' + (el.getAttribute('data-crud-title') || '')).trim();
+      }
+      function crudShowModal(el) {
+        if (el && window.bootstrap && bootstrap.Modal) bootstrap.Modal.getOrCreateInstance(el).show();
+      }
+      function crudHideModal(el) {
+        if (el && window.bootstrap && bootstrap.Modal) { var m = bootstrap.Modal.getInstance(el); if (m) m.hide(); }
+      }
+      function crudModalFor(entity, table) {
+        var sel = table && table.getAttribute('data-crud-modal');
+        if (sel) { var bySel = document.querySelector(sel); if (bySel) return bySel; }
+        var form = crudForm(entity);
+        return form ? form.closest('.modal') : null;
+      }
+
+      function crudOnSubmit(e) {
+        var form = e.currentTarget;
+        if (e.preventDefault) e.preventDefault();
+        if (form.checkValidity && !form.checkValidity()) { if (form.reportValidity) form.reportValidity(); return; }
+        var entity = form.getAttribute('data-crud-form');
+        var records = crudLoad(entity), data = crudReadForm(form);
+        var editId = form.getAttribute('data-edit-id');
+        if (editId) {
+          records = records.map(function (r) {
+            if (r._id !== editId) return r;
+            var merged = {}; for (var k in r) merged[k] = r[k];
+            for (var j in data) merged[j] = data[j];
+            merged._id = editId; return merged;
+          });
+        } else {
+          data._id = crudId(); records.push(data);
+        }
+        crudStore(entity, records);
+        crudRender(entity);
+        form.reset();
+        form.removeAttribute('data-edit-id');
+        crudHideModal(form.closest('.modal'));
+        toast(editId ? 'Changes saved' : 'Record added');
+      }
+
+      function crudHandleAdd(btn) {
+        var entity = btn.getAttribute('data-crud-add');
+        // One-click add: a button carrying data-crud-values='{"field":"value",…}' inserts that record
+        // immediately (no form) — e.g. an "Add to cart" / "Buy" button in a gallery card.
+        var valsAttr = btn.getAttribute('data-crud-values');
+        if (valsAttr) {
+          var vals = null; try { vals = JSON.parse(valsAttr); } catch (e) { vals = null; }
+          if (vals) { vals._id = crudId(); var recs = crudLoad(entity); recs.push(vals); crudStore(entity, recs); crudRender(entity); toast('Added'); return; }
+        }
+        var modalEl = crudModalFor(entity, crudTables(entity)[0]);
+        var form = crudFormFor(entity, modalEl);
+        if (form) { form.reset(); form.removeAttribute('data-edit-id'); crudSetTitle(form, 'Add'); }
+        if (!btn.hasAttribute('data-bs-toggle')) crudShowModal(modalEl);   // open it ourselves if Bootstrap won't
+      }
+      function crudHandleEdit(btn) {
+        var table = btn.closest('[data-crud-table]'); if (!table) return;
+        var entity = table.getAttribute('data-crud-table');
+        var tr = btn.closest('tr'); if (!tr) return;
+        var id = tr.getAttribute('data-id');
+        var rec = crudLoad(entity).filter(function (r) { return r._id === id; })[0];
+        var modalEl = crudModalFor(entity, table);
+        var form = crudFormFor(entity, modalEl); if (!form) return;
+        form.reset(); crudFillForm(form, rec || {}); form.setAttribute('data-edit-id', id); crudSetTitle(form, 'Edit');
+        crudShowModal(modalEl);
+      }
+      function crudHandleDelete(btn) {
+        var table = btn.closest('[data-crud-table]'); if (!table) return;
+        var entity = table.getAttribute('data-crud-table');
+        var tr = btn.closest('tr'); if (!tr) return;
+        var id = tr.getAttribute('data-id');
+        if (!window.confirm('Delete this record?')) return;
+        crudStore(entity, crudLoad(entity).filter(function (r) { return r._id !== id; }));
+        crudRender(entity);
+        toast('Record deleted');
+      }
+      function crudHandleReset(btn) {
+        var entity = btn.getAttribute('data-crud-reset');
+        crudStore(entity, crudSeedRecords(entity));
+        crudRender(entity);
+        toast('Sample data restored');
+      }
+      function crudHandleSave(btn) {
+        var form = crudForm(btn.getAttribute('data-crud-save'));
+        if (form) { if (form.requestSubmit) form.requestSubmit(); else crudOnSubmit({ currentTarget: form }); }
+      }
+
+      // Safety net: if a feature modal reuses a shell id (e.g. the agent names its form modal
+      // "userModal", colliding with the shell's User popup), Bootstrap opens the wrong one and the
+      // save dialog misbehaves. Give such a CRUD modal a unique id and repoint its triggers.
+      (function () {
+        var counts = {};
+        document.querySelectorAll('[id]').forEach(function (el) { counts[el.id] = (counts[el.id] || 0) + 1; });
+        document.querySelectorAll('.modal').forEach(function (modal) {
+          if (!modal.id || counts[modal.id] <= 1 || !modal.querySelector('[data-crud-form]')) return;
+          var oldSel = '#' + modal.id, newId = modal.id + '-crud', n = 1;
+          while (document.getElementById(newId)) newId = modal.id + '-crud' + (n++);
+          document.querySelectorAll('[data-crud-modal="' + oldSel + '"]').forEach(function (t) { t.setAttribute('data-crud-modal', '#' + newId); });
+          document.querySelectorAll('[data-crud-add][data-bs-target="' + oldSel + '"]').forEach(function (t) { t.setAttribute('data-bs-target', '#' + newId); });
+          counts[modal.id]--; modal.id = newId; counts[newId] = 1;
+        });
+      })();
+
+      // Capture seeds (prefer a non-empty table), then seed storage on first load + render.
+      document.querySelectorAll('[data-crud-table]').forEach(function (table) {
+        var entity = table.getAttribute('data-crud-table');
+        if (!entity) return;
+        var seed = crudCaptureSeed(table);
+        if (!crudSeeds[entity] || (seed.length && !crudSeeds[entity].length)) crudSeeds[entity] = seed;
+      });
+      Object.keys(crudSeeds).forEach(function (entity) {
+        if (crudRaw(entity) == null) crudStore(entity, crudSeedRecords(entity)); // first load only (not re-seeded after user empties it)
+        crudRender(entity);
+      });
+
+      // Bind form saves (Enter/submit) + delegate row & toolbar actions (covers generated rows).
+      document.querySelectorAll('[data-crud-form]').forEach(function (form) { form.addEventListener('submit', crudOnSubmit); });
+      // A POC never navigates: stop ANY other <form> from reloading the page on submit, and acknowledge it.
+      document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!form || (form.hasAttribute && form.hasAttribute('data-crud-form'))) return; // CRUD forms handle themselves
+        if (e.preventDefault) e.preventDefault();
+        toast('Saved');
+      });
+      document.addEventListener('click', function (e) {
+        var t = e.target;
+        var add = t.closest('[data-crud-add]'); if (add) { crudHandleAdd(add); return; }
+        var edit = t.closest('[data-crud-edit]'); if (edit) { crudHandleEdit(edit); return; }
+        var del = t.closest('[data-crud-delete]'); if (del) { crudHandleDelete(del); return; }
+        var reset = t.closest('[data-crud-reset]'); if (reset) { e.preventDefault(); crudHandleReset(reset); return; }
+        var save = t.closest('[data-crud-save]'); if (save && !save.closest('[data-crud-form]')) { crudHandleSave(save); return; }
       });
     })();
     </script>
