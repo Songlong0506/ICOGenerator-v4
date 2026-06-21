@@ -447,6 +447,30 @@
         white-space: pre-wrap;
     }
 
+    /* Nút "Thử lại bước này" trong banner Workflow thất bại. */
+    .wf-fail-actions {
+        margin-top: 8px;
+    }
+
+    .retry-wf-btn {
+        background: #DC2626;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+    .retry-wf-btn:hover {
+        background: #B91C1C;
+    }
+
+    .retry-wf-btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+    }
+
     .wf-out {
         color: #475569;
         font-size: 12px;
