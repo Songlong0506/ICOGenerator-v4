@@ -224,6 +224,10 @@
     .ws-download { margin-left: auto; text-decoration: none; border-color: #10b981; color: #047857; background: #ecfdf5; white-space: nowrap; }
     .ws-download:hover { background: #d1fae5; }
     .tree, .tree ul { list-style: none; margin: 0; padding-left: 0; }
+    /* Keep a long directory tree inside its card: scroll vertically when it grows
+       tall, and scroll horizontally when deep nesting / long file paths exceed the
+       card width, instead of spilling out of the layout. */
+    #ws-tree { max-height: 70vh; overflow: auto; }
     .tree ul { padding-left: 18px; }
     .tree .folder { font-weight: 600; margin-top: 6px; }
     .tree-row { display: inline-flex; align-items: center; gap: 4px; width: 100%; border: 0; background: transparent; padding: 2px 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
