@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Domain;
@@ -94,10 +95,12 @@ public class AgentTaskWorker : BackgroundService
 
             if (task.Type == AgentTaskType.RequirementAnalysis)
             {
-                await RunRequirementDraftAsync(scope, task, cancellationToken);
+                var outcome = await RunRequirementDraftAsync(scope, task, cancellationToken);
 
                 task.Status = AgentTaskStatus.Completed;
-                task.Output = "Requirement documents generated/updated.";
+                task.Output = outcome == RequirementDraftOutcome.NeedsMoreInfo
+                    ? RequirementDraftMarkers.NeedsMoreInfo
+                    : "Requirement documents generated/updated.";
                 task.FinishedAt = DateTime.UtcNow;
                 task.WorkflowRun.Status = WorkflowRunStatus.Completed;
                 task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
@@ -312,18 +315,23 @@ public class AgentTaskWorker : BackgroundService
         }
     }
 
-    private async Task RunRequirementDraftAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
+    private async Task<RequirementDraftOutcome> RunRequirementDraftAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
     {
         var baService = scope.ServiceProvider.GetRequiredService<BARequirementService>();
 
-        await baService.GenerateOrUpdateDraftAsync(
+        var outcome = await baService.GenerateOrUpdateDraftAsync(
             task.ProjectId,
             onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
             onToken: token => _progress.ReportToken(task.WorkflowRunId, token),
             workflowRunId: task.WorkflowRunId,
             cancellationToken: cancellationToken);
 
-        _progress.Report(task.WorkflowRunId, "completed", "Đã tạo/cập nhật tài liệu requirement.");
+        _progress.Report(task.WorkflowRunId, "completed",
+            outcome == RequirementDraftOutcome.NeedsMoreInfo
+                ? "Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat."
+                : "Đã tạo/cập nhật tài liệu requirement.");
+
+        return outcome;
     }
 
     private async Task EnsureDesignAssetsAsync(IServiceScope scope, AppDbContext db, Guid projectId)

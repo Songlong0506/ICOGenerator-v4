@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -18,6 +19,7 @@ public class BARequirementService
     private readonly RequirementPromptBuilder _promptBuilder;
     private readonly RequirementResponseParser _responseParser;
     private readonly BAChatReplyParser _replyParser;
+    private readonly RequirementReadinessParser _readinessParser;
     private readonly RequirementDocumentGenerator _documentGenerator;
     private readonly IModelCallLogger _modelCallLogger;
     private readonly PromptTemplateService _promptTemplateService;
@@ -29,6 +31,7 @@ public class BARequirementService
         RequirementPromptBuilder promptBuilder,
         RequirementResponseParser responseParser,
         BAChatReplyParser replyParser,
+        RequirementReadinessParser readinessParser,
         RequirementDocumentGenerator documentGenerator,
         IModelCallLogger modelCallLogger,
         PromptTemplateService promptTemplateService)
@@ -39,6 +42,7 @@ public class BARequirementService
         _promptBuilder = promptBuilder;
         _responseParser = responseParser;
         _replyParser = replyParser;
+        _readinessParser = readinessParser;
         _documentGenerator = documentGenerator;
         _modelCallLogger = modelCallLogger;
         _promptTemplateService = promptTemplateService;
@@ -136,7 +140,7 @@ public class BARequirementService
     /// <param name="onProgress">Callback (kind, message, detail) báo tiến độ live cho UI; có thể null khi gọi đồng bộ.</param>
     /// <param name="onToken">Callback nhận từng token nội dung khi model soạn tài liệu, để stream "đang gõ" lên UI.</param>
     /// <param name="workflowRunId">Run liên quan để gắn chi phí token vào đúng workflow run (null nếu gọi ngoài workflow).</param>
-    public async Task GenerateOrUpdateDraftAsync(Guid projectId, Action<string, string, string?>? onProgress = null, Action<string>? onToken = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default)
+    public async Task<RequirementDraftOutcome> GenerateOrUpdateDraftAsync(Guid projectId, Action<string, string, string?>? onProgress = null, Action<string>? onToken = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default)
     {
         void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
 
@@ -162,6 +166,35 @@ public class BARequirementService
         var model = ba.AiModel ?? throw new InvalidOperationException("BA agent model is not configured.");
 
         var requirementBrief = BuildRequirementBrief(project.Conversations);
+
+        // Cổng kiểm tra: nếu còn thiếu thông tin CỐT LÕI thì hỏi lại NGAY (một lượt BA trong khung chat)
+        // và KHÔNG soạn 5 tài liệu — tránh sinh tài liệu rồi vứt đi/sinh lại (tốn token). Đây là một lời
+        // gọi LLM nhẹ (chỉ trả câu hỏi, không kèm nội dung tài liệu).
+        Report("thinking", "Đang kiểm tra mức độ đầy đủ của yêu cầu…", requirementBrief);
+        var readiness = await CheckReadinessAsync(projectId, ba, model, requirementBrief, cancellationToken);
+        if (!readiness.Ready)
+        {
+            var question = string.IsNullOrWhiteSpace(readiness.Message)
+                ? "Mình cần thêm vài thông tin cốt lõi trước khi viết tài liệu. Bạn bổ sung giúp nhé."
+                : readiness.Message;
+            var pendingSuggestions = readiness.Suggestions.Count > 0
+                ? JsonSerializer.Serialize(readiness.Suggestions)
+                : null;
+
+            _db.AgentConversations.Add(new AgentConversation
+            {
+                ProjectId = projectId,
+                AgentId = ba.Id,
+                Role = "assistant",
+                Message = question,
+                Suggestions = pendingSuggestions,
+                TokenUsed = TokenEstimator.Estimate(question)
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+
+            Report("final", "Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat.", question);
+            return RequirementDraftOutcome.NeedsMoreInfo;
+        }
 
         Report("thinking", "Đang tổng hợp yêu cầu từ hội thoại…", requirementBrief);
 
@@ -229,6 +262,34 @@ public class BARequirementService
         await _db.SaveChangesAsync(cancellationToken);
 
         Report("final", "Đã tạo/cập nhật tài liệu.", assistantMessage);
+        return RequirementDraftOutcome.Generated;
+    }
+
+    // Gọi một LLM nhẹ để quyết định đã đủ thông tin cốt lõi soạn tài liệu chưa. Fail-open: gate lỗi thì
+    // cứ cho qua để không chặn cứng việc sinh tài liệu.
+    private async Task<RequirementReadiness> CheckReadinessAsync(Guid projectId, Agent ba, AiModel model, string requirementBrief, CancellationToken cancellationToken)
+    {
+        var messages = new List<ChatMessageDto>
+        {
+            new()
+            {
+                Role = "system",
+                Content = _promptTemplateService.Get("BA/requirement-readiness.v1.md")
+            },
+            new()
+            {
+                Role = "user",
+                Content = requirementBrief
+            }
+        };
+
+        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, cancellationToken: cancellationToken);
+        await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BAReadinessCheck");
+
+        if (!callResult.IsSuccess)
+            return RequirementReadiness.ProceedDefault;
+
+        return _readinessParser.Parse(callResult.Content);
     }
 
     // Dựng lại một lượt BA cũ theo đúng JSON shape mà model được yêu cầu xuất, để củng cố format ở
