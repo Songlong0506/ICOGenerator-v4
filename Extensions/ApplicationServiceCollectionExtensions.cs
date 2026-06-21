@@ -198,6 +198,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IArtifactStorage, LocalArtifactStorage>();
         services.AddScoped<WorkspacePathResolver>();
         services.AddScoped<ImplementationSourcePackager>();
+        services.AddScoped<BoschTemplateSeeder>();
         return services;
     }
 
