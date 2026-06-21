@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Workflows;
@@ -15,7 +16,8 @@ public record WorkflowStatusVm(
     bool HasWorkflow, string? RunName, string? RunStatus, bool IsTerminal, bool IsCompleted,
     IReadOnlyList<WorkflowTaskStatusVm> Tasks, IReadOnlyList<WorkflowProgressEventVm> Events, long LastEventSeq,
     string RunKind,
-    Guid? RunId, string? CurrentStage, bool IsWaitingForHuman, string? NextStageTitle, bool PocReady);
+    Guid? RunId, string? CurrentStage, bool IsWaitingForHuman, string? NextStageTitle, bool PocReady,
+    bool NeedsMoreInfo);
 
 public class GetWorkflowStatusQuery
 {
@@ -51,7 +53,7 @@ public class GetWorkflowStatusQuery
         if (run == null)
             return new WorkflowStatusVm(false, null, null, true, false,
                 Array.Empty<WorkflowTaskStatusVm>(), Array.Empty<WorkflowProgressEventVm>(), afterSeq, "Delivery",
-                null, null, false, null, false);
+                null, null, false, null, false, false);
 
         var isTerminal = run.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Failed or WorkflowRunStatus.Canceled;
 
@@ -86,10 +88,18 @@ public class GetWorkflowStatusQuery
         var pocReady = tasks.Any(t => t.Type == nameof(AgentTaskType.PocPreview)
                                       && t.Status == nameof(AgentTaskStatus.Completed));
 
+        // Cổng kiểm tra đã bỏ qua việc sinh tài liệu (thiếu thông tin) → UI hiển thị banner "cần bổ sung"
+        // thay vì "đã tạo tài liệu". Output không nằm trong projection tasks (để rỗng), nên đọc riêng.
+        var needsMoreInfo = await _db.AgentTasks
+            .AsNoTracking()
+            .AnyAsync(x => x.WorkflowRunId == run.Id
+                          && x.Type == AgentTaskType.RequirementAnalysis
+                          && x.Output == RequirementDraftMarkers.NeedsMoreInfo);
+
         return new WorkflowStatusVm(
             true, run.Name, run.Status.ToString(),
             isTerminal, run.Status == WorkflowRunStatus.Completed,
             tasks, events, lastSeq, runKind,
-            run.Id, run.CurrentStage.ToString(), isWaiting, nextStep?.Title, pocReady);
+            run.Id, run.CurrentStage.ToString(), isWaiting, nextStep?.Title, pocReady, needsMoreInfo);
     }
 }

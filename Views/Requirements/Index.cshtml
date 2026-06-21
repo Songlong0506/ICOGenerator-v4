@@ -550,7 +550,9 @@
 
                 if (data.isCompleted) {
                     if (data.runKind === 'Requirement') {
-                        slot.innerHTML = `<div class="wf-banner wf-ok">✓ Đã tạo/cập nhật tài liệu requirement.</div>`;
+                        slot.innerHTML = data.needsMoreInfo
+                            ? `<div class="wf-banner wf-wait">❓ Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi BA trong khung chat.</div>`
+                            : `<div class="wf-banner wf-ok">✓ Đã tạo/cập nhật tài liệu requirement.</div>`;
 
                         // Reload đúng 1 lần để hiển thị tài liệu draft + tin nhắn BA mới.
                         const reloadKey = 'wf-reloaded-' + panel.dataset.runId;
