@@ -113,8 +113,23 @@ public class AgentTaskWorker : BackgroundService
                 await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
             }
 
+            var project = await db.Projects.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken)
+                ?? throw new InvalidOperationException($"Không tìm thấy project {task.ProjectId} cho task này.");
+
+            // Bosch template: clone bộ khung chuẩn (.NET + Angular) vào workspace TRƯỚC khi Developer
+            // hiện thực, để bước Implementation code THÊM vào skeleton thay vì dựng khung từ đầu.
+            if (task.Type == AgentTaskType.Implementation && project.IsUseBoschTemplate)
+            {
+                _progress.Report(task.WorkflowRunId, "setup", "Bosch template: chuẩn bị skeleton (.NET + Angular)…");
+                var seeder = scope.ServiceProvider.GetRequiredService<BoschTemplateSeeder>();
+                var skeletonKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
+                var seedSummary = await seeder.SeedAsync(skeletonKey, cancellationToken);
+                _progress.Report(task.WorkflowRunId, "setup", $"Bosch skeleton: {seedSummary}");
+            }
+
             var promptBuilder = scope.ServiceProvider.GetRequiredService<WorkflowTaskPromptBuilder>();
-            var prompt = promptBuilder.Build(task.Type, task.Input);
+            var prompt = promptBuilder.Build(task.Type, task.Input, project.IsUseBoschTemplate);
             var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
 
             // Riêng bước POC bắt buộc gọi SetPocContent đúng một lần; dừng NGAY khi thành công để
@@ -148,22 +163,10 @@ public class AgentTaskWorker : BackgroundService
             task.Output = output;
             task.FinishedAt = DateTime.UtcNow;
 
-            // CỔNG DUYỆT: bước chạy xong thì DỪNG chờ người duyệt thay vì tự enqueue
-            // bước kế. Bước kế chỉ được tạo khi user bấm duyệt (ApproveStageUseCase).
-            // CurrentStage giữ nguyên ở bước vừa xong để biết đang chờ duyệt cái gì.
-            var next = DeliveryPipeline.Next(task.WorkflowRun.CurrentStage);
-            if (next is null)
-            {
-                _progress.Report(task.WorkflowRunId, "completed", "Workflow hoàn tất — tất cả các bước đã xong.");
-                task.WorkflowRun.Status = WorkflowRunStatus.Completed;
-                task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
-                task.WorkflowRun.FinishedAt = DateTime.UtcNow;
-            }
-            else
-            {
-                _progress.Report(task.WorkflowRunId, "completed", $"Bước \"{task.Title}\" xong — chờ bạn duyệt để sang: {next.Title}.");
-                task.WorkflowRun.Status = WorkflowRunStatus.WaitingForHuman;
-            }
+            // Vòng tự sửa lỗi (Testing↔BugFix) là một CHU TRÌNH (không phải hand-off tuyến tính) nên
+            // được xử lý riêng. Nếu task này không thuộc chu trình đó thì rơi về cổng duyệt tuyến tính.
+            if (!await TryAdvanceTestFixCycleAsync(db, task, cancellationToken))
+                AdvanceLinearPipeline(task);
 
             await db.SaveChangesAsync(cancellationToken);
         }
@@ -181,6 +184,105 @@ public class AgentTaskWorker : BackgroundService
             // and leave the task stuck non-terminal.
             await MarkTaskFailedAsync(task.Id, ex.Message);
         }
+    }
+
+    // Cổng duyệt tuyến tính: bước chạy xong thì DỪNG chờ người duyệt thay vì tự enqueue bước kế.
+    // Bước kế chỉ được tạo khi user bấm duyệt (ApproveStageUseCase). CurrentStage giữ nguyên ở bước
+    // vừa xong để biết đang chờ duyệt cái gì.
+    private void AdvanceLinearPipeline(AgentTask task)
+    {
+        var next = DeliveryPipeline.Next(task.WorkflowRun.CurrentStage);
+        if (next is null)
+        {
+            _progress.Report(task.WorkflowRunId, "completed", "Workflow hoàn tất — tất cả các bước đã xong.");
+            CompleteRun(task.WorkflowRun);
+        }
+        else
+        {
+            _progress.Report(task.WorkflowRunId, "completed", $"Bước \"{task.Title}\" xong — chờ bạn duyệt để sang: {next.Title}.");
+            task.WorkflowRun.Status = WorkflowRunStatus.WaitingForHuman;
+        }
+    }
+
+    // Chu trình tự sửa lỗi quanh Testing — KHÔNG có cổng duyệt (đây là vòng tự động, set run về Queued
+    // để worker tự nhặt bước kế). Trả về true nếu đã xử lý hand-off cho chu trình này; false để
+    // AdvanceLinearPipeline lo (task không thuộc chu trình).
+    //   • Testing FAIL còn ngạch  → giao Developer (BugFix).
+    //   • Testing FAIL hết ngạch  → kết thúc run, báo còn lỗi để người xem lại.
+    //   • Testing PASS/không rõ    → trả false (pipeline tuyến tính kết thúc run như cũ).
+    //   • BugFix xong              → luôn chạy lại Testing để xác minh.
+    private async Task<bool> TryAdvanceTestFixCycleAsync(AppDbContext db, AgentTask task, CancellationToken cancellationToken)
+    {
+        if (task.Type == AgentTaskType.Testing)
+        {
+            if (TestVerdictParser.Parse(task.Output) != TestVerdict.Fail)
+                return false;
+
+            var fixAttempts = await db.AgentTasks.CountAsync(
+                t => t.WorkflowRunId == task.WorkflowRunId && t.Type == AgentTaskType.BugFix,
+                cancellationToken);
+
+            if (fixAttempts >= DeliveryPipeline.MaxBugFixAttempts)
+            {
+                _progress.Report(task.WorkflowRunId, "completed",
+                    $"Vẫn còn lỗi sau {DeliveryPipeline.MaxBugFixAttempts} lần tự sửa — dừng vòng lặp, cần người xem lại báo cáo test.");
+                CompleteRun(task.WorkflowRun);
+                return true;
+            }
+
+            _progress.Report(task.WorkflowRunId, "completed",
+                $"Test phát hiện lỗi — tự động giao Developer sửa (lần {fixAttempts + 1}/{DeliveryPipeline.MaxBugFixAttempts}).");
+            return await EnqueueFollowUpAsync(db, task, DeliveryPipeline.BugFixStep, task.Output ?? string.Empty, cancellationToken);
+        }
+
+        if (task.Type == AgentTaskType.BugFix)
+        {
+            _progress.Report(task.WorkflowRunId, "completed", "Đã sửa lỗi — chạy lại Test để xác minh.");
+            return await EnqueueFollowUpAsync(db, task, DeliveryPipeline.TestingStep, task.Output ?? string.Empty, cancellationToken);
+        }
+
+        return false;
+    }
+
+    // Enqueue task cho bước kế trong chu trình và đẩy run về Queued (worker tự nhặt — không cổng duyệt).
+    // Thiếu agent cho vai cần thiết thì đánh Failed có thông báo rõ. Luôn trả true: đã xử lý hand-off.
+    private async Task<bool> EnqueueFollowUpAsync(AppDbContext db, AgentTask previous, PipelineStep step, string input, CancellationToken cancellationToken)
+    {
+        var agentId = await db.Agents
+            .Where(a => a.RoleKey == step.Role)
+            .Select(a => (Guid?)a.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (agentId is null)
+        {
+            _progress.Report(previous.WorkflowRunId, "error", $"Không tìm thấy agent vai {step.Role} cho bước \"{step.Title}\".");
+            previous.WorkflowRun.Status = WorkflowRunStatus.Failed;
+            previous.WorkflowRun.CurrentStage = WorkflowStageKey.Failed;
+            previous.WorkflowRun.FinishedAt = DateTime.UtcNow;
+            return true;
+        }
+
+        db.AgentTasks.Add(new AgentTask
+        {
+            WorkflowRunId = previous.WorkflowRunId,
+            ProjectId = previous.ProjectId,
+            AgentId = agentId,
+            Type = step.TaskType,
+            Status = AgentTaskStatus.Queued,
+            Title = step.Title,
+            Input = input
+        });
+
+        previous.WorkflowRun.CurrentStage = step.Stage;
+        previous.WorkflowRun.Status = WorkflowRunStatus.Queued;
+        return true;
+    }
+
+    private static void CompleteRun(WorkflowRun run)
+    {
+        run.Status = WorkflowRunStatus.Completed;
+        run.CurrentStage = WorkflowStageKey.Completed;
+        run.FinishedAt = DateTime.UtcNow;
     }
 
     // Loads the task in its own scope/DbContext and marks it (and its run) Failed, independent of any

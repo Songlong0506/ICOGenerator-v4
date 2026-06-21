@@ -457,8 +457,10 @@
             inset: 0;
             background: rgba(0,0,0,.45);
             display: none;
-            align-items: flex-start;
-            justify-content: center;
+            align-items: center;          /* centre the dialog vertically … */
+            justify-content: center;      /* … and horizontally */
+            padding: 5vh 16px;            /* breathing room; dialog never touches the edges */
+            overflow-y: auto;             /* tall dialogs scroll instead of being clipped */
             z-index: 1060;
         }
 
@@ -468,8 +470,10 @@
 
         .dialog {
             background: #fff;
-            margin-top: 9vh;
+            margin: auto;                 /* keeps the top reachable when the dialog is taller than the viewport */
             width: min(360px,92vw);
+            border-radius: 10px;
+            overflow: hidden;             /* clip the header/imprint bar to the rounded corners */
             box-shadow: 0 12px 40px rgba(0,0,0,.3);
         }
 
@@ -515,6 +519,8 @@
             background: transparent;
             align-items: flex-end;
             justify-content: flex-start;
+            padding: 0;          /* anchored to the user item — ignore the centred-dialog padding */
+            overflow: visible;   /* let the caret poke out toward the sidebar */
         }
 
         .user-popover {

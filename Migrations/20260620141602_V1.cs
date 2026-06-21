@@ -42,7 +42,7 @@ namespace ICOGenerator.Migrations
                     Status = table.Column<int>(type: "int", nullable: false),
                     BackendGitUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     FrontendGitUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    GenerationMode = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    IsUseBoschTemplate = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>

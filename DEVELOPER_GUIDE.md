@@ -247,9 +247,10 @@ Pipeline đã hiện thực **có cổng duyệt giữa mọi bước** (không 
 ```
 Approve requirement
   → POC preview      (Dev,      từ AI Design Spec) ──┐ WaitingForHuman
-  → ArchitectureDesign (Tech Lead, từ AI Design Spec) ─┤ mỗi bước xong DỪNG chờ
+  → ArchitectureDesign (Tech Lead, từ AI Design Spec) ┤ mỗi bước xong DỪNG chờ
   → Implementation   (Dev,  code đa file, từ kiến trúc)┤ user bấm Duyệt mới sang bước kế;
-  → Testing          (Tester, từ output Dev)         ──┘ bấm "Sửa requirement" → hủy run
+  → CodeReview       (Tech Lead, soát code Dev)       ┤ bấm "Sửa requirement" → hủy run
+  → Testing          (Tester, từ output review)      ──┘
   → Completed
 ```
 
@@ -258,8 +259,8 @@ Bản đồ file:
 | Thành phần | File | Vai trò |
 |---|---|---|
 | Giai đoạn/loại việc mới | `Domain/Enums/WorkflowStageKey.cs`, `AgentTaskType.cs` | thêm `PocPreview` (và trước đó `ArchitectureDesign`, `Testing`). Enum lưu int → **không cần migration**. |
-| Khai báo pipeline | `Services/Workflows/DeliveryPipeline.cs` | `Steps` (POC → Architecture → Impl → Test), mỗi bước khai báo `InputSource` (DesignSpec/PreviousOutput) + `MaxSteps`. Thêm vai = thêm một dòng. |
-| Prompt theo bước | `Prompts/Workflow/{poc-preview,architecture-design,implementation,testing}.v1.md` | `{{input}}` = nội dung theo `InputSource`. `implementation` = sinh **code đa file** trong `04_Implementation/src/`. |
+| Khai báo pipeline | `Services/Workflows/DeliveryPipeline.cs` | `Steps` (POC → Architecture → Impl → CodeReview → Test), mỗi bước khai báo `InputSource` (DesignSpec/PreviousOutput) + `MaxSteps`. Thêm vai = thêm một dòng. |
+| Prompt theo bước | `Prompts/Workflow/{poc-preview,architecture-design,implementation,code-review,testing}.v1.md` | `{{input}}` = nội dung theo `InputSource`. `implementation` = sinh **code đa file** trong `04_Implementation/src/`; `code-review` = Tech Lead soát code đó, ghi `04_Implementation/code-review.md`. |
 | Dựng prompt | `Services/Workflows/WorkflowTaskPromptBuilder.cs` | map `AgentTaskType` → template. |
 | Khởi tạo | `Services/Workflows/WorkflowOrchestrator.cs` | tạo `WorkflowRun` + task ở `DeliveryPipeline.First` (POC). |
 | Chạy + cổng | `Services/Workflows/AgentTaskWorker.cs` | chạy task xong: nếu còn bước kế → set `WaitingForHuman` (KHÔNG tự enqueue); hết bước → `Completed`. Dùng `MaxSteps` theo bước. |
@@ -272,6 +273,26 @@ Lưu ý thiết kế:
 - **Worker generic**: chỉ "chạy task → còn bước kế thì chờ duyệt, hết thì xong". Việc enqueue bước kế nằm ở `ApproveStageUseCase`.
 - **Vòng lặp về requirement**: Reject = hủy run; user bổ sung với BA → "Write Requirement" → "Approve" tạo run mới (phiên bản kế).
 - **Luồng requirement-draft** (`RequirementAnalysis`) vẫn là workflow một-bước riêng, không qua pipeline này.
+
+### 7.7. Vòng tự sửa lỗi (Testing ↔ BugFix)
+
+Bước Testing không còn là ngõ cụt "báo lỗi rồi thôi". Tester bắt buộc chốt một dòng máy-đọc-được ở cuối báo cáo — `VERDICT: PASS` hoặc `VERDICT: FAIL` — và worker dựa vào đó để **tự sửa lỗi** mà KHÔNG cần cổng duyệt:
+
+```
+Testing ──FAIL──► BugFix (Developer sửa code) ──► Testing (kiểm thử lại) ──► …
+   │                                                                          ▲
+   └──PASS──► Completed        (lặp tối đa MaxBugFixAttempts lần rồi dừng) ────┘
+```
+
+Khác với chuỗi tuyến tính (POC → Architecture → Impl → CodeReview → Test, có cổng duyệt giữa mỗi bước), đây là một **chu trình**: `DeliveryPipeline.Next()` cố tình KHÔNG trả về `BugFix`, và worker xử lý nó riêng trong `TryAdvanceTestFixCycleAsync` (set run về `Queued` để tự chạy tiếp). Số lần sửa được đếm bằng số task `BugFix` trong run (không cần cột mới); hết `MaxBugFixAttempts` thì kết thúc run và báo còn lỗi để người xem lại.
+
+| Thành phần | File | Vai trò |
+|---|---|---|
+| Stage mới | `Domain/Enums/WorkflowStageKey.cs` | thêm `BugFix` (enum lưu int → **không cần migration**). |
+| Verdict | `Services/Workflows/TestVerdictParser.cs` | đọc dòng `VERDICT: PASS/FAIL` (khoan dung hoa/thường, `**bold**`, `:`/`=`); không rõ → coi như PASS (giữ hành vi cũ). |
+| Khai báo chu trình | `Services/Workflows/DeliveryPipeline.cs` | `BugFixStep` (ngoài `Steps`), `TestingStep`, `MaxBugFixAttempts`. |
+| Prompt | `Prompts/Workflow/{testing,bugfix}.v1.md` | testing yêu cầu chốt verdict; bugfix giao Developer sửa đúng chỗ theo báo cáo. |
+| Điều phối chu trình | `Services/Workflows/AgentTaskWorker.cs` | `TryAdvanceTestFixCycleAsync` (FAIL→BugFix; BugFix xong→Testing lại); ngoài chu trình → `AdvanceLinearPipeline`. |
 
 ---
 

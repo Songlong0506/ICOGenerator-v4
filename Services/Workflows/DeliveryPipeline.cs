@@ -42,9 +42,36 @@ public static class DeliveryPipeline
     {
         new PipelineStep(WorkflowStageKey.PocPreview,         AgentRoleKey.Developer, AgentTaskType.PocPreview,         "Tạo POC HTML để xem trước",        PipelineInputSource.DesignSpec,     10),
         new PipelineStep(WorkflowStageKey.ArchitectureDesign, AgentRoleKey.TechLead,  AgentTaskType.ArchitectureDesign, "Đề xuất kiến trúc từ AI Design Spec", PipelineInputSource.DesignSpec,  8),
-        new PipelineStep(WorkflowStageKey.Implementation,     AgentRoleKey.Developer, AgentTaskType.Implementation,     "Sinh code đầy đủ từ kiến trúc",    PipelineInputSource.PreviousOutput, 24),
+        // Implementation sinh dự án thật nhiều file. Mỗi bước = 1 lần gọi LLM = 1 action, nên budget phải đủ rộng;
+        // agent nên dùng WriteFiles (ghi nhiều file/lần) để khỏi tiêu hết bước cho từng file lẻ. Nếu vẫn cạn,
+        // AgentRunService còn một lượt "chốt kết quả" cuối để giữ phần đã làm thay vì fail trắng.
+        new PipelineStep(WorkflowStageKey.Implementation,     AgentRoleKey.Developer, AgentTaskType.Implementation,     "Sinh code đầy đủ từ kiến trúc",    PipelineInputSource.PreviousOutput, 40),
+        // Tech Lead soát code Developer vừa hiện thực TRƯỚC khi giao Tester — bắt sớm lệch kiến trúc/thiếu
+        // tính năng/lỗi rõ ở cổng rẻ này, thay vì để Tester tốn lượt phát hiện. Review chỉ đọc file + ghi 1
+        // báo cáo nên budget vừa phải; output (tóm tắt + phát hiện) thành input cho bước Testing.
+        new PipelineStep(WorkflowStageKey.CodeReview,         AgentRoleKey.TechLead,  AgentTaskType.CodeReview,         "Review code đã hiện thực",         PipelineInputSource.PreviousOutput, 12),
         new PipelineStep(WorkflowStageKey.Testing,            AgentRoleKey.Tester,    AgentTaskType.Testing,            "Viết & chạy test, báo lỗi",        PipelineInputSource.PreviousOutput, 8),
     };
+
+    /// <summary>
+    /// Số lần tự sửa lỗi tối đa cho một workflow run. Khi Tester báo FAIL, worker tự giao
+    /// Developer sửa rồi chạy lại Testing — lặp tới khi PASS hoặc chạm trần này (tránh đốt
+    /// token vô hạn nếu lỗi không hội tụ; hết trần thì dừng và để người xem lại báo cáo test).
+    /// </summary>
+    public const int MaxBugFixAttempts = 3;
+
+    /// <summary>
+    /// Bước sửa lỗi — KHÔNG nằm trong <see cref="Steps"/> vì nó là một CHU TRÌNH quanh Testing
+    /// (Testing↔BugFix), không phải hand-off tuyến tính. Worker dùng định nghĩa này khi Tester
+    /// báo FAIL; <see cref="Next"/> cố tình không trả về nó để pipeline tuyến tính vẫn đọc thẳng.
+    /// </summary>
+    public static readonly PipelineStep BugFixStep = new(
+        WorkflowStageKey.BugFix, AgentRoleKey.Developer, AgentTaskType.BugFix,
+        "Sửa lỗi theo báo cáo test", PipelineInputSource.PreviousOutput, 30);
+
+    /// <summary>Bước Testing (tra từ <see cref="Steps"/>) — dùng để enqueue lại sau khi sửa lỗi.</summary>
+    public static readonly PipelineStep TestingStep =
+        Steps.First(s => s.Stage == WorkflowStageKey.Testing);
 
     /// <summary>Bước đầu tiên của pipeline (POC preview).</summary>
     public static PipelineStep First => Steps[0];
@@ -64,9 +91,15 @@ public static class DeliveryPipeline
         return null;
     }
 
-    /// <summary>Tra cứu bước theo stage; <c>null</c> nếu stage không thuộc pipeline.</summary>
+    /// <summary>
+    /// Tra cứu bước theo stage (gồm cả bước sửa lỗi ngoài chuỗi tuyến tính); <c>null</c> nếu
+    /// stage không thuộc pipeline. Dùng cho việc tra MaxSteps theo stage hiện tại của run.
+    /// </summary>
     public static PipelineStep? Find(WorkflowStageKey stage)
     {
+        if (stage == WorkflowStageKey.BugFix)
+            return BugFixStep;
+
         foreach (var step in Steps)
             if (step.Stage == stage)
                 return step;
