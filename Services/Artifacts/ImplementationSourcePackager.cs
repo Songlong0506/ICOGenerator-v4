@@ -9,12 +9,6 @@ namespace ICOGenerator.Services.Artifacts;
 /// </summary>
 public class ImplementationSourcePackager
 {
-    // Matched per path segment, so nested copies (e.g. a sub-package's own node_modules) are skipped too.
-    private static readonly HashSet<string> ExcludedDirectories = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "node_modules", "bin", "obj", ".git", ".vs"
-    };
-
     /// <summary>
     /// Zips every packageable file under <paramref name="sourcePath"/> into a temp .zip and returns
     /// its path, or null when the directory is missing or contains no packageable files. The caller
@@ -26,7 +20,7 @@ public class ImplementationSourcePackager
             return null;
 
         var files = Directory.EnumerateFiles(sourcePath, "*", SearchOption.AllDirectories)
-            .Where(file => !IsInExcludedDirectory(sourcePath, file))
+            .Where(file => !WorkspaceFileFilter.IsInRegenerableDirectory(sourcePath, file))
             .ToList();
 
         if (files.Count == 0)
@@ -63,19 +57,6 @@ public class ImplementationSourcePackager
         }
 
         return zipPath;
-    }
-
-    internal static bool IsInExcludedDirectory(string sourceRoot, string filePath)
-    {
-        var relative = Path.GetRelativePath(sourceRoot, filePath);
-        var segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        // Skip the last segment: it's the file name, not a directory.
-        for (var i = 0; i < segments.Length - 1; i++)
-            if (ExcludedDirectories.Contains(segments[i]))
-                return true;
-
-        return false;
     }
 
     private static void TryDelete(string path)
