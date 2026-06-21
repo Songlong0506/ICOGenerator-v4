@@ -182,7 +182,7 @@
                         {
                             foreach (var d in rootDocs)
                             {
-                                <li class="file" data-doc-id="@d.Id" data-agent-id="@(d.AgentId?.ToString() ?? "")" onclick="showDoc('@d.Id')">📄 @d.FileName</li>
+                                <li class="file" data-doc-id="@d.Id" data-agent-id="@(d.AgentId?.ToString() ?? "")" onclick="showDoc('@d.Id')"><span class="file-icon" aria-hidden="true">📄</span><span class="file-name">@d.FileName</span></li>
                             }
 
                             foreach (var versionGroup in versionGroups)
@@ -196,7 +196,7 @@
                                     <ul class="tree-children">
                                         @foreach (var d in versionGroup.OrderBy(d => d.FileName))
                                         {
-                                            <li class="file" data-doc-id="@d.Id" data-agent-id="@(d.AgentId?.ToString() ?? "")" onclick="showDoc('@d.Id')">📄 @d.FileName</li>
+                                            <li class="file" data-doc-id="@d.Id" data-agent-id="@(d.AgentId?.ToString() ?? "")" onclick="showDoc('@d.Id')"><span class="file-icon" aria-hidden="true">📄</span><span class="file-name">@d.FileName</span></li>
                                         }
                                     </ul>
                                 </li>
@@ -236,7 +236,9 @@
     .tree .folder.collapsed > .tree-children { display: none; }
     .tree .folder.collapsed > .tree-row .folder-caret { transform: rotate(-90deg); }
     .tree .version-folder { font-weight: 400; }
-    .tree .file { cursor: pointer; padding: 2px 0; }
+    .tree .file { cursor: pointer; padding: 2px 0; display: flex; align-items: center; gap: 4px; }
+    .tree .file .file-icon { flex: none; }
+    .tree .file .file-name { white-space: nowrap; }
     .tree .file:hover { color: #007bc0; }
     .tree .file.selected { color: #007bc0; font-weight: 600; }
     .tree .empty { color: #94a3b8; padding: 2px 0; font-style: italic; }
