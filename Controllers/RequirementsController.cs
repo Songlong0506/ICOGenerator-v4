@@ -15,6 +15,7 @@ public class RequirementsController : Controller
     private readonly ApproveRequirementUseCase _approveRequirementUseCase;
     private readonly ApproveStageUseCase _approveStageUseCase;
     private readonly RejectStageUseCase _rejectStageUseCase;
+    private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
     private readonly StreamWorkflowProgressQuery _streamWorkflowProgressQuery;
@@ -31,6 +32,7 @@ public class RequirementsController : Controller
        ApproveRequirementUseCase approveRequirementUseCase,
        ApproveStageUseCase approveStageUseCase,
        RejectStageUseCase rejectStageUseCase,
+       RetryWorkflowUseCase retryWorkflowUseCase,
        GetDocumentDownloadQuery getDocumentDownloadQuery,
        GetWorkflowStatusQuery getWorkflowStatusQuery,
        StreamWorkflowProgressQuery streamWorkflowProgressQuery,
@@ -43,6 +45,7 @@ public class RequirementsController : Controller
         _approveRequirementUseCase = approveRequirementUseCase;
         _approveStageUseCase = approveStageUseCase;
         _rejectStageUseCase = rejectStageUseCase;
+        _retryWorkflowUseCase = retryWorkflowUseCase;
         _getDocumentDownloadQuery = getDocumentDownloadQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
         _streamWorkflowProgressQuery = streamWorkflowProgressQuery;
@@ -138,6 +141,20 @@ public class RequirementsController : Controller
     public async Task<IActionResult> RejectStage(Guid projectId, Guid? runId = null)
     {
         await _rejectStageUseCase.ExecuteAsync(projectId, runId);
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    // Chạy lại bước đã thất bại (vd POC) mà không Approve lại từ đầu — dùng khi lỗi tạm thời như
+    // LLM rớt kết nối. Re-queue đúng task đã hỏng, worker sẽ tiếp tục từ chỗ đó.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RetryWorkflow(Guid projectId, Guid? runId = null)
+    {
+        var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId);
+
+        if (result == RetryWorkflowResult.NoFailedRun || result == RetryWorkflowResult.NoRetryableTask)
+            TempData["Error"] = "Không tìm thấy bước thất bại nào để chạy lại.";
+
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
