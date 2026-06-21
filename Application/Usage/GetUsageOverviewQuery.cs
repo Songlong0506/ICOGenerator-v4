@@ -59,38 +59,63 @@ public class GetUsageOverviewQuery
         var now = DateTime.UtcNow;
         var firstMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-(MonthsToShow - 1));
 
-        // ----- Theo model (toàn thời gian); cũng là nguồn cộng ra tổng token + tổng chi phí -----
-        // Gom theo cả ModelId + ModelName (giống cách code cũ gom theo cột chuỗi) thay vì MAX(ModelName) trên
-        // cột nvarchar(max). ModelId ↔ ModelName gần như 1:1 nên bảng không bị tách dòng; tổng vẫn đúng.
-        var modelRaw = await _db.AgentModelCallLogs
+        // One pass over the whole call-log table, aggregated at the finest grain every section below
+        // needs — project + run + month + model. Each section re-aggregates this in memory: sums, counts
+        // and maxes all compose, and per-token cost is linear in (prompt, completion) for a fixed model,
+        // so summing CostFor over these rows equals computing it on the coarser groups. One table scan
+        // instead of four. ModelId/ModelName/ProjectName are bounded columns (≤ nvarchar(200)).
+        var logRaw = await _db.AgentModelCallLogs
             .AsNoTracking()
-            .GroupBy(x => new { x.ModelId, x.ModelName })
+            .GroupBy(x => new
+            {
+                x.ProjectId,
+                ProjectName = x.Project!.Name,
+                x.WorkflowRunId,
+                x.CreatedAt.Year,
+                x.CreatedAt.Month,
+                x.ModelId,
+                x.ModelName
+            })
             .Select(g => new
             {
+                g.Key.ProjectId,
+                g.Key.ProjectName,
+                g.Key.WorkflowRunId,
+                g.Key.Year,
+                g.Key.Month,
                 g.Key.ModelId,
                 g.Key.ModelName,
                 PromptTokens = g.Sum(x => (long)x.PromptTokens),
                 CompletionTokens = g.Sum(x => (long)x.CompletionTokens),
                 TotalTokens = g.Sum(x => (long)x.TotalTokens),
-                CallCount = g.Count()
+                CallCount = g.Count(),
+                LastCalledAt = g.Max(x => (DateTime?)x.CreatedAt)
             })
             .ToListAsync();
 
-        var models = modelRaw
-            .Select(x =>
+        // ----- Theo model (toàn thời gian); cũng là nguồn cộng ra tổng token + tổng chi phí -----
+        // Gom theo cả ModelId + ModelName (ModelId ↔ ModelName gần như 1:1 nên bảng không bị tách dòng).
+        var models = logRaw
+            .GroupBy(x => new { x.ModelId, x.ModelName })
+            .Select(g =>
             {
-                var price = priceByModelId.TryGetValue(x.ModelId ?? string.Empty, out var p) ? p : (Input: 0m, Output: 0m);
+                var modelId = g.Key.ModelId;
+                var promptTokens = g.Sum(x => x.PromptTokens);
+                var completionTokens = g.Sum(x => x.CompletionTokens);
+                var totalTokens = g.Sum(x => x.TotalTokens);
+                var callCount = g.Sum(x => x.CallCount);
+                var price = priceByModelId.TryGetValue(modelId ?? string.Empty, out var p) ? p : (Input: 0m, Output: 0m);
                 return new ModelUsageItem(
-                    x.ModelId ?? string.Empty,
-                    string.IsNullOrWhiteSpace(x.ModelName) ? (x.ModelId ?? "(unknown)") : x.ModelName,
-                    x.PromptTokens,
-                    x.CompletionTokens,
-                    x.TotalTokens,
-                    x.CallCount,
+                    modelId ?? string.Empty,
+                    string.IsNullOrWhiteSpace(g.Key.ModelName) ? (modelId ?? "(unknown)") : g.Key.ModelName,
+                    promptTokens,
+                    completionTokens,
+                    totalTokens,
+                    callCount,
                     price.Input,
                     price.Output,
-                    HasPrice(x.ModelId),
-                    CostFor(x.ModelId, x.PromptTokens, x.CompletionTokens));
+                    HasPrice(modelId),
+                    CostFor(modelId, promptTokens, completionTokens));
             })
             .OrderByDescending(x => x.Cost)
             .ThenByDescending(x => x.TotalTokens)
@@ -102,28 +127,12 @@ public class GetUsageOverviewQuery
         var totalCalls = models.Sum(x => x.CallCount);
         var totalCost = models.Sum(x => x.Cost);
 
-        // ----- Theo tháng (12 tháng gần nhất), tách theo ModelId để áp đơn giá rồi gộp lại theo tháng -----
-        var monthlyRaw = await _db.AgentModelCallLogs
-            .AsNoTracking()
-            .Where(x => x.CreatedAt >= firstMonth)
-            .GroupBy(x => new { x.CreatedAt.Year, x.CreatedAt.Month, x.ModelId })
-            .Select(g => new
-            {
-                g.Key.Year,
-                g.Key.Month,
-                g.Key.ModelId,
-                PromptTokens = g.Sum(x => (long)x.PromptTokens),
-                CompletionTokens = g.Sum(x => (long)x.CompletionTokens),
-                TotalTokens = g.Sum(x => (long)x.TotalTokens),
-                CallCount = g.Count()
-            })
-            .ToListAsync();
-
+        // ----- Theo tháng (12 tháng gần nhất); rows ngoài cửa sổ tự bị loại vì vòng lặp chỉ duyệt 12 tháng -----
         var monthly = Enumerable.Range(0, MonthsToShow)
             .Select(offset =>
             {
                 var month = firstMonth.AddMonths(offset);
-                var rows = monthlyRaw.Where(x => x.Year == month.Year && x.Month == month.Month).ToList();
+                var rows = logRaw.Where(x => x.Year == month.Year && x.Month == month.Month).ToList();
                 return new MonthlyUsageItem(
                     month.Year,
                     month.Month,
@@ -135,24 +144,8 @@ public class GetUsageOverviewQuery
             })
             .ToList();
 
-        // ----- Theo project, tách theo ModelId để tính chi phí rồi gộp lại theo project -----
-        var projectModelRaw = await _db.AgentModelCallLogs
-            .AsNoTracking()
-            .GroupBy(x => new { x.ProjectId, ProjectName = x.Project!.Name, x.ModelId })
-            .Select(g => new
-            {
-                g.Key.ProjectId,
-                g.Key.ProjectName,
-                g.Key.ModelId,
-                PromptTokens = g.Sum(x => (long)x.PromptTokens),
-                CompletionTokens = g.Sum(x => (long)x.CompletionTokens),
-                TotalTokens = g.Sum(x => (long)x.TotalTokens),
-                CallCount = g.Count(),
-                LastCalledAt = g.Max(x => (DateTime?)x.CreatedAt)
-            })
-            .ToListAsync();
-
-        var projects = projectModelRaw
+        // ----- Theo project (gộp lại từ logRaw) -----
+        var projects = logRaw
             .GroupBy(x => new { x.ProjectId, x.ProjectName })
             .Select(g => new ProjectUsageItem(
                 g.Key.ProjectId,
@@ -166,25 +159,11 @@ public class GetUsageOverviewQuery
             .OrderByDescending(x => x.TotalTokens)
             .ToList();
 
-        // ----- Theo run: chỉ các log có WorkflowRunId (agent task của workflow); tách theo ModelId để tính giá -----
-        var runModelRaw = await _db.AgentModelCallLogs
-            .AsNoTracking()
-            .Where(x => x.WorkflowRunId != null)
-            .GroupBy(x => new { x.WorkflowRunId, x.ModelId })
-            .Select(g => new
-            {
-                g.Key.WorkflowRunId,
-                g.Key.ModelId,
-                PromptTokens = g.Sum(x => (long)x.PromptTokens),
-                CompletionTokens = g.Sum(x => (long)x.CompletionTokens),
-                TotalTokens = g.Sum(x => (long)x.TotalTokens),
-                CallCount = g.Count(),
-                LastCalledAt = g.Max(x => (DateTime?)x.CreatedAt)
-            })
-            .ToListAsync();
+        // ----- Theo run: chỉ các log có WorkflowRunId (agent task của workflow) -----
+        var runRows = logRaw.Where(x => x.WorkflowRunId != null).ToList();
 
         // Lấy tên run + project cho các run xuất hiện trong log (WorkflowRunId không có FK nên join thủ công).
-        var runIds = runModelRaw.Select(x => x.WorkflowRunId!.Value).Distinct().ToList();
+        var runIds = runRows.Select(x => x.WorkflowRunId!.Value).Distinct().ToList();
         var runMetaById = (await _db.WorkflowRuns
                 .AsNoTracking()
                 .Where(r => runIds.Contains(r.Id))
@@ -192,7 +171,7 @@ public class GetUsageOverviewQuery
                 .ToListAsync())
             .ToDictionary(r => r.Id);
 
-        var runs = runModelRaw
+        var runs = runRows
             .GroupBy(x => x.WorkflowRunId!.Value)
             .Select(g =>
             {

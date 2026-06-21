@@ -22,6 +22,11 @@ public class ToolDiscoveryService
 
     public async Task SyncToolDefinitionsAsync()
     {
+        // Load every existing definition once and match in memory, rather than a DB round-trip per tool
+        // method (one query each). The set is tiny and the (ServiceType, MethodName) pair is unique.
+        var existingByKey = (await _db.ToolDefinitions.ToListAsync())
+            .ToDictionary(x => (x.ServiceType, x.MethodName));
+
         foreach (var type in ToolTypes)
         {
             var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public)
@@ -29,9 +34,8 @@ public class ToolDiscoveryService
 
             foreach (var method in methods)
             {
-                var exists = await _db.ToolDefinitions.FirstOrDefaultAsync(x => x.ServiceType == type.Name && x.MethodName == method.Name);
                 var desc = method.GetCustomAttribute<DescriptionAttribute>()!.Description;
-                if (exists == null)
+                if (!existingByKey.TryGetValue((type.Name, method.Name), out var existing))
                 {
                     _db.ToolDefinitions.Add(new ToolDefinition
                     {
@@ -45,8 +49,8 @@ public class ToolDiscoveryService
                 }
                 else
                 {
-                    exists.DisplayName = SplitPascalCase(method.Name);
-                    exists.Description = desc;
+                    existing.DisplayName = SplitPascalCase(method.Name);
+                    existing.Description = desc;
                     // Do NOT force IsActive back to true here: an admin's intentional disable must survive restarts. Only brand-new tools default to active (Add branch above).
                 }
             }

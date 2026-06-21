@@ -79,8 +79,11 @@ public class GetAgentDashboardQuery
             .Select(x => GetDocumentKey(x.Folder, x.VersionName, x.FileName))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        // Skip regenerable dirs (node_modules/bin/obj/.git/.vs): once a project has run npm install /
+        // dotnet build, those hold tens of thousands of files that would otherwise be enumerated AND
+        // read synchronously (up to 12 KB each) on every dashboard load — and rendered as document cards.
         foreach (var filePath in Directory.EnumerateFiles(workspacePath, "*.*", SearchOption.AllDirectories)
-                     .Where(x => !x.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}")))
+                     .Where(x => !WorkspaceFileFilter.IsInRegenerableDirectory(workspacePath, x)))
         {
             var relativePath = Path.GetRelativePath(workspacePath, filePath);
             var pathParts = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);

@@ -121,7 +121,7 @@ public class WorkspaceTools
     {
         EnsureWorkspace();
         var files = Directory.EnumerateFiles(CurrentWorkspacePath, "*.*", SearchOption.AllDirectories)
-            .Where(x => !x.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}"))
+            .Where(x => !WorkspaceFileFilter.IsInRegenerableDirectory(CurrentWorkspacePath, x))
             .Select(x => Path.GetRelativePath(CurrentWorkspacePath, x)).Take(500).ToList();
         return files.Count == 0 ? "No files found." : string.Join(Environment.NewLine, files);
     }
@@ -131,7 +131,7 @@ public class WorkspaceTools
     {
         EnsureWorkspace();
         var files = Directory.EnumerateFiles(CurrentWorkspacePath, "*.*", SearchOption.AllDirectories)
-            .Where(x => !x.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}"))
+            .Where(x => !WorkspaceFileFilter.IsInRegenerableDirectory(CurrentWorkspacePath, x))
             .Select(x => Path.GetRelativePath(CurrentWorkspacePath, x))
             .Where(x => x.Contains(keyword, StringComparison.OrdinalIgnoreCase)).Take(100).ToList();
         return files.Count == 0 ? "No matched files." : string.Join(Environment.NewLine, files);
