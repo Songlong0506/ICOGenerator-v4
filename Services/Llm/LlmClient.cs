@@ -1,6 +1,7 @@
 using ICOGenerator.Domain;
+using Microsoft.Extensions.AI;
+using System.ClientModel;
 using System.Diagnostics;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
@@ -8,15 +9,10 @@ namespace ICOGenerator.Services.Llm;
 
 public class LlmClient : ILlmClient
 {
-    // DI-registered named clients; the factory pools handlers (avoiding per-call socket
-    // exhaustion) and bakes the proxy choice into each handler.
-    public const string DirectClientName = "llm-direct";
-    public const string ProxiedClientName = "llm-proxied";
-
     private static readonly JsonSerializerOptions SerializeOptions = new() { WriteIndented = true };
 
-    // Overall per-call deadline, enforced via a linked CancellationToken in ChatWithLogAsync
-    // (HttpClient's own Timeout is disabled there). Configurable via Llm:RequestTimeoutSeconds.
+    // Overall per-call deadline, enforced via a linked CancellationToken below (the SDK's own network
+    // timeout is disabled in OpenAIChatClientFactory). Configurable via Llm:RequestTimeoutSeconds.
     private const int DefaultRequestTimeoutSeconds = 600;
 
     // Upper bound for completion tokens, plus prompt headroom so small-context models aren't
@@ -24,13 +20,13 @@ public class LlmClient : ILlmClient
     private const int MaxCompletionTokens = 100000;
     private const int ContextSafetyMargin = 1024;
 
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IChatClientFactory _chatClientFactory;
     private readonly ILogger<LlmClient> _logger;
     private readonly int _requestTimeoutSeconds;
 
-    public LlmClient(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<LlmClient> logger)
+    public LlmClient(IChatClientFactory chatClientFactory, IConfiguration configuration, ILogger<LlmClient> logger)
     {
-        _httpClientFactory = httpClientFactory;
+        _chatClientFactory = chatClientFactory;
         _logger = logger;
         _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
     }
@@ -42,176 +38,77 @@ public class LlmClient : ILlmClient
         {
             Endpoint = model.Endpoint,
             ModelId = model.ModelId,
-            ModelName = model.Name
+            ModelName = model.Name,
+            PromptTokens = TokenEstimator.Estimate(string.Join("\n", messages.Select(x => x.Content)))
         };
 
-        var isLocal = model.Endpoint.Contains("localhost")
-            || model.Endpoint.Contains("127.0.0.1")
-            || model.Endpoint.Contains("::1"); // IPv6 loopback, incl. the [::1] URL form
-        var http = _httpClientFactory.CreateClient(isLocal ? DirectClientName : ProxiedClientName);
+        var maxTokens = ResolveMaxTokens(model, result.PromptTokens);
 
-        http.BaseAddress = new Uri(model.Endpoint.TrimEnd('/') + "/");
-        // Disable HttpClient's 100s default; with ResponseHeadersRead it would cap time-to-headers
-        // and override Llm:RequestTimeoutSeconds. The linked timeoutCts below is the sole deadline.
-        http.Timeout = Timeout.InfiniteTimeSpan;
-        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", string.IsNullOrWhiteSpace(model.ApiKey) ? "lm-studio" : model.ApiKey);
-
-        result.PromptTokens = TokenEstimator.Estimate(string.Join("\n", messages.Select(x => x.Content)));
-
-        var request = new ChatCompletionRequestDto
+        // Log the request in the same shape as before so the call-log UI is unchanged. The actual wire
+        // request is now produced by the OpenAI SDK; the "thinking" field is injected by
+        // ThinkingDisabledHandler in the HttpClient pipeline (see OpenAIChatClientFactory).
+        result.RequestJson = JsonSerializer.Serialize(new ChatCompletionRequestDto
         {
             Model = model.ModelId,
             Messages = messages,
             Temperature = temperature,
-            MaxTokens = ResolveMaxTokens(model, result.PromptTokens),
+            MaxTokens = maxTokens,
             Stream = true,
-            Thinking = new ThinkingDto
-            {
-                Type = "disabled"
-            }
-        };
-
-        result.RequestJson = JsonSerializer.Serialize(request, SerializeOptions);
-
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "chat/completions");
-        httpRequest.Content = new StringContent(result.RequestJson, Encoding.UTF8, "application/json");
+            Thinking = new ThinkingDto { Type = "disabled" }
+        }, SerializeOptions);
 
         // Link the caller's token (e.g. app shutdown) with the request deadline so either can unwind the call.
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_requestTimeoutSeconds));
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
         var token = linkedCts.Token;
 
+        // The chat client wraps the pooled (IHttpClientFactory-owned) HttpClient, so it is intentionally
+        // NOT disposed here — disposing it could tear down the shared connection pool.
+        var chatClient = _chatClientFactory.Create(model);
+
+        var chatMessages = messages.Select(m => new ChatMessage(MapRole(m.Role), m.Content)).ToList();
+        var options = new ChatOptions
+        {
+            Temperature = (float)temperature,
+            MaxOutputTokens = maxTokens
+        };
+
         try
         {
-            using var response = await http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, token);
-            result.HttpStatusCode = (int)response.StatusCode;
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorText = await SafeReadErrorAsync(response, token);
-                stopwatch.Stop();
-
-                result.DurationMs = stopwatch.ElapsedMilliseconds;
-                result.IsSuccess = false;
-                result.ResponseText = errorText;
-                result.ErrorMessage = $"API error: {(int)response.StatusCode} {response.StatusCode}";
-                result.Content = $"""
-API error: {(int)response.StatusCode} {response.StatusCode}
-
-{errorText}
-""";
-                result.CompletionTokens = TokenEstimator.Estimate(result.Content);
-                result.TotalTokens = result.PromptTokens + result.CompletionTokens;
-                return result;
-            }
-
-            await using var stream = await response.Content.ReadAsStreamAsync(token);
-            using var reader = new StreamReader(stream);
-
             var contentBuilder = new StringBuilder();
-            var rawBuilder = new StringBuilder();
-            string? streamError = null;
-            string? finishReason = null;
+            ChatFinishReason? finishReason = null;
 
-            string? line;
-            while ((line = await reader.ReadLineAsync(token)) != null)
+            await foreach (var update in chatClient.GetStreamingResponseAsync(chatMessages, options, token))
             {
-                if (string.IsNullOrWhiteSpace(line))
-                    continue;
+                if (update.FinishReason is { } reason)
+                    finishReason = reason;
 
-                rawBuilder.AppendLine(line);
-
-                if (line.StartsWith(":"))
-                    continue;
-
-                if (!line.StartsWith("data:"))
-                    continue;
-
-                var data = line.Substring("data:".Length).Trim();
-
-                if (data == "[DONE]")
-                    break;
-
-                try
+                var text = update.Text;
+                if (!string.IsNullOrEmpty(text))
                 {
-                    using var doc = JsonDocument.Parse(data);
-                    var root = doc.RootElement;
+                    contentBuilder.Append(text);
 
-                    // Some OpenAI-compatible servers stream an error object with HTTP 200; without
-                    // this it would be reported as a successful (empty) completion.
-                    if (root.TryGetProperty("error", out var errorElement))
+                    // Surface the delta live. A misbehaving sink must never break the LLM call, so swallow
+                    // anything it throws (the buffered result is still returned).
+                    if (onToken != null)
                     {
-                        streamError = errorElement.TryGetProperty("message", out var errorMessage)
-                            && errorMessage.ValueKind == JsonValueKind.String
-                                ? errorMessage.GetString()
-                                : errorElement.ToString();
-                        break;
+                        try { onToken(text); }
+                        catch { /* ignore UI streaming failures */ }
                     }
-
-                    if (!root.TryGetProperty("choices", out var choices))
-                        continue;
-
-                    if (choices.GetArrayLength() == 0)
-                        continue;
-
-                    var choice = choices[0];
-
-                    if (choice.TryGetProperty("finish_reason", out var finishElement)
-                        && finishElement.ValueKind == JsonValueKind.String)
-                    {
-                        finishReason = finishElement.GetString();
-                    }
-
-                    if (!choice.TryGetProperty("delta", out var delta))
-                        continue;
-
-                    if (delta.TryGetProperty("content", out var contentElement))
-                    {
-                        var content = contentElement.GetString();
-
-                        if (!string.IsNullOrEmpty(content))
-                        {
-                            contentBuilder.Append(content);
-
-                            // Surface the delta live. A misbehaving sink must never break the LLM call,
-                            // so swallow anything it throws (the buffered result is still returned).
-                            if (onToken != null)
-                            {
-                                try { onToken(content); }
-                                catch { /* ignore UI streaming failures */ }
-                            }
-                        }
-                    }
-                }
-                catch
-                {
-                    // Ignore broken SSE chunk
                 }
             }
 
             stopwatch.Stop();
 
-            // A mid-stream error frame means the call failed despite HTTP 200; report failure, not empty success.
-            if (streamError != null)
-            {
-                result.DurationMs = stopwatch.ElapsedMilliseconds;
-                result.IsSuccess = false;
-                result.ErrorMessage = $"LLM stream error: {streamError}";
-                result.Content = result.ErrorMessage;
-                result.ResponseText = rawBuilder.Length > 0 ? rawBuilder.ToString() : result.ErrorMessage;
-                result.CompletionTokens = TokenEstimator.Estimate(result.Content);
-                result.TotalTokens = result.PromptTokens + result.CompletionTokens;
-                return result;
-            }
-
             result.Content = contentBuilder.ToString();
             result.ExtractedContent = result.Content;
-            result.ResponseText = rawBuilder.Length > 0 ? rawBuilder.ToString() : result.Content;
+            result.ResponseText = result.Content;
             result.DurationMs = stopwatch.ElapsedMilliseconds;
+            result.HttpStatusCode = 200;
             result.IsSuccess = true;
-            // finish_reason == "length" means the model hit its token cap mid-output (often
-            // truncated JSON); flag it so a cut-off answer is distinguishable from a clean one.
-            if (string.Equals(finishReason, "length", StringComparison.OrdinalIgnoreCase))
+            // finish_reason == "length" means the model hit its token cap mid-output (often truncated
+            // JSON); flag it so a cut-off answer is distinguishable from a clean one.
+            if (finishReason == ChatFinishReason.Length)
                 result.ErrorMessage = "Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).";
             result.CompletionTokens = TokenEstimator.Estimate(result.Content);
             result.TotalTokens = result.PromptTokens + result.CompletionTokens;
@@ -226,12 +123,27 @@ API error: {(int)response.StatusCode} {response.StatusCode}
         {
             // Our own deadline fired (stalled/slow stream): return a failed result instead of hanging.
             stopwatch.Stop();
-
             result.DurationMs = stopwatch.ElapsedMilliseconds;
             result.IsSuccess = false;
             result.ErrorMessage = $"LLM request timed out after {_requestTimeoutSeconds}s.";
             result.Content = result.ErrorMessage;
             result.ResponseText = result.ErrorMessage;
+            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
+            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
+            return result;
+        }
+        catch (ClientResultException ex)
+        {
+            // Non-2xx from the API (incl. OpenAI-compatible servers). Keep the short message in the
+            // DB-persisted, UI-visible fields; the full exception goes to the logger.
+            stopwatch.Stop();
+            _logger.LogError(ex, "LLM call to {Endpoint} ({ModelId}) failed.", model.Endpoint, model.ModelId);
+            result.HttpStatusCode = ex.Status;
+            result.DurationMs = stopwatch.ElapsedMilliseconds;
+            result.IsSuccess = false;
+            result.ErrorMessage = $"API error: {ex.Status}";
+            result.Content = $"API error: {ex.Status}\n\n{ex.Message}";
+            result.ResponseText = ex.Message;
             result.CompletionTokens = TokenEstimator.Estimate(result.Content);
             result.TotalTokens = result.PromptTokens + result.CompletionTokens;
             return result;
@@ -243,7 +155,6 @@ API error: {(int)response.StatusCode} {response.StatusCode}
             // Log the full exception, but keep only the short message in DB-persisted, UI-visible
             // fields so internal stack/paths aren't leaked.
             _logger.LogError(ex, "LLM call to {Endpoint} ({ModelId}) failed.", model.Endpoint, model.ModelId);
-
             result.DurationMs = stopwatch.ElapsedMilliseconds;
             result.IsSuccess = false;
             result.ErrorMessage = ex.Message;
@@ -255,6 +166,14 @@ API error: {(int)response.StatusCode} {response.StatusCode}
         }
     }
 
+    private static ChatRole MapRole(string role) => role?.ToLowerInvariant() switch
+    {
+        "system" => ChatRole.System,
+        "assistant" => ChatRole.Assistant,
+        "tool" => ChatRole.Tool,
+        _ => ChatRole.User
+    };
+
     // Cap completion tokens to what's left in the context window after the (estimated) prompt;
     // a fixed 100k overflows small-context models. Falls back to the cap when the window is unknown.
     private static int ResolveMaxTokens(AiModel model, int promptTokens)
@@ -264,18 +183,6 @@ API error: {(int)response.StatusCode} {response.StatusCode}
 
         var available = model.ContextWindow - promptTokens - ContextSafetyMargin;
         return Math.Clamp(available, 256, MaxCompletionTokens);
-    }
-
-    private static async Task<string> SafeReadErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await response.Content.ReadAsStringAsync(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            return $"Cannot read error body: {ex.Message}";
-        }
     }
 }
 

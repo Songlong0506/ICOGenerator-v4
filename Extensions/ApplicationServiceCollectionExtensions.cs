@@ -170,23 +170,34 @@ public static class ApplicationServiceCollectionExtensions
         var proxyEnabled = configuration.GetValue("Llm:Proxy:Enabled", true);
         var proxyAddress = configuration.GetValue("Llm:Proxy:Address", "http://127.0.0.1:3128");
 
-        // Two pooled clients (direct for localhost, proxied) so LlmClient never news up a handler per call.
-        services.AddHttpClient(LlmClient.DirectClientName)
+        // Re-injects the non-standard "thinking" field that the typed OpenAI SDK can't express.
+        services.AddTransient<ThinkingDisabledHandler>();
+
+        // Two pooled clients (direct for localhost, proxied). Timeout is infinite: the per-call deadline
+        // is enforced by LlmClient's linked CancellationToken, not by HttpClient/the SDK.
+        services.AddHttpClient(OpenAIChatClientFactory.DirectClientName)
+            .ConfigureHttpClient(c => c.Timeout = Timeout.InfiniteTimeSpan)
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
                 UseProxy = false,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5)
-            });
+            })
+            .AddHttpMessageHandler<ThinkingDisabledHandler>();
 
-        services.AddHttpClient(LlmClient.ProxiedClientName)
+        services.AddHttpClient(OpenAIChatClientFactory.ProxiedClientName)
+            .ConfigureHttpClient(c => c.Timeout = Timeout.InfiniteTimeSpan)
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
                 // When the proxy is disabled (e.g. at home) this client falls back to a direct connection.
                 UseProxy = proxyEnabled,
                 Proxy = proxyEnabled ? new WebProxy(proxyAddress) : null,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5)
-            });
+            })
+            .AddHttpMessageHandler<ThinkingDisabledHandler>();
 
+        // Builds a Microsoft.Extensions.AI IChatClient per AiModel; depends only on the singleton
+        // IHttpClientFactory, so it is safe to register as a singleton.
+        services.AddSingleton<IChatClientFactory, OpenAIChatClientFactory>();
         services.AddScoped<IModelCallLogger, ModelCallLogger>();
         services.AddScoped<ILlmClient, LlmClient>();
         return services;
