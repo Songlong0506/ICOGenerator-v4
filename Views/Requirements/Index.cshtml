@@ -2,7 +2,6 @@
 @{
     ViewData["Title"] = "Requirements";
     var allDocuments = Model.Documents
-    .OrderBy(x => x.FileName)
     .ToList();
     var draftDocuments = Model.Documents
         .Where(x => x.VersionName == "draft")
@@ -299,7 +298,6 @@
         <div class="modal-header">
             <div>
                 <h2 id="modalTitle">Requirement</h2>
-                <p>Preview generated requirement documents</p>
             </div>
 
             <button class="modal-close" onclick="closeRequirementModal()">

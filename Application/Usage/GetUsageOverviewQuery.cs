@@ -22,8 +22,7 @@ public record UsageOverviewVm(
     bool HasAnyPricing,
     IReadOnlyList<MonthlyUsageItem> MonthlyUsage,
     IReadOnlyList<ModelUsageItem> ModelUsage,
-    IReadOnlyList<ProjectUsageItem> ProjectUsage,
-    IReadOnlyList<RunUsageItem> RunUsage);
+    IReadOnlyList<ProjectUsageItem> ProjectUsage);
 
 public class GetUsageOverviewQuery
 {
@@ -159,38 +158,6 @@ public class GetUsageOverviewQuery
             .OrderByDescending(x => x.TotalTokens)
             .ToList();
 
-        // ----- Theo run: chỉ các log có WorkflowRunId (agent task của workflow) -----
-        var runRows = logRaw.Where(x => x.WorkflowRunId != null).ToList();
-
-        // Lấy tên run + project cho các run xuất hiện trong log (WorkflowRunId không có FK nên join thủ công).
-        var runIds = runRows.Select(x => x.WorkflowRunId!.Value).Distinct().ToList();
-        var runMetaById = (await _db.WorkflowRuns
-                .AsNoTracking()
-                .Where(r => runIds.Contains(r.Id))
-                .Select(r => new { r.Id, r.Name, ProjectName = r.Project.Name })
-                .ToListAsync())
-            .ToDictionary(r => r.Id);
-
-        var runs = runRows
-            .GroupBy(x => x.WorkflowRunId!.Value)
-            .Select(g =>
-            {
-                runMetaById.TryGetValue(g.Key, out var meta);
-                return new RunUsageItem(
-                    g.Key,
-                    meta?.Name ?? "(run đã xóa)",
-                    meta?.ProjectName ?? "–",
-                    g.Sum(x => x.PromptTokens),
-                    g.Sum(x => x.CompletionTokens),
-                    g.Sum(x => x.TotalTokens),
-                    g.Sum(x => x.CallCount),
-                    g.Max(x => x.LastCalledAt),
-                    g.Sum(x => CostFor(x.ModelId, x.PromptTokens, x.CompletionTokens)));
-            })
-            .OrderByDescending(x => x.LastCallAt)
-            .Take(MaxRunsToShow)
-            .ToList();
-
         var hasAnyPricing = priceByModelId.Values.Any(p => p.Input > 0 || p.Output > 0);
 
         return new UsageOverviewVm(
@@ -204,7 +171,6 @@ public class GetUsageOverviewQuery
             hasAnyPricing,
             monthly,
             models,
-            projects,
-            runs);
+            projects);
     }
 }
