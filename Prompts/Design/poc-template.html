@@ -53,11 +53,17 @@
                  <input|select|textarea name="FIELD"> controls and a type="submit" Save button.
                  Submitting creates a record, or updates the row currently being edited.
          • add   a button with data-crud-add="ENTITY" (pair it with data-bs-toggle/-target so the modal
-                 opens) clears the form for a new record.
+                 opens) clears the form for a new record. For a ONE-CLICK add with no form (e.g. an
+                 "Add to cart"/"Buy" button on a card), add data-crud-values='{"field":"value",…}' and
+                 the engine inserts that record immediately.
          • optional: data-crud-title="Noun" (→ "Add Noun"/"Edit Noun"), data-crud-count="ENTITY" (live
                  record count), data-crud-reset="ENTITY" (re-seed the sample rows).
-       The name="…" on the form MUST match the data-field names on the table. With no data-crud-*
-       attributes the page still works (static rows + click toasts) — CRUD is purely additive.
+       The name="…" on the form MUST match the data-field names on the table. Cells may hold rich HTML
+       (images, badges) — seed <td> markup is preserved across re-renders. Any other <form> on the page
+       is prevented from reloading on submit. With no data-crud-* attributes the page still works
+       (static rows + click toasts). PREFER wiring real CRUD: make EVERY data list a data-crud-table
+       (with an Add button) and EVERY create/upload/edit form a data-crud-form, so the main actions
+       actually work and persist — don't leave the primary buttons as toast-only stubs.
 
   Content classes (Bootstrap 5.3, already loaded):
     buttons  btn btn-primary / btn btn-outline-primary / btn btn-link
@@ -962,7 +968,7 @@
         if (b.hasAttribute('data-bs-toggle') || b.hasAttribute('data-bs-dismiss')) return; // Bootstrap handles these
         // CRUD controls (below) give their own meaningful feedback ("Record added" …) — don't double-toast them.
         if (b.matches('[data-crud-add],[data-crud-save],[data-crud-edit],[data-crud-delete],[data-crud-reset]')) return;
-        if (b.getAttribute('type') === 'submit' && b.closest('[data-crud-form]')) return;
+        if (b.type === 'submit') return; // a form submit gives its own feedback (CRUD save / "Saved" toast)
         var isLink = b.tagName === 'A' && !b.classList.contains('btn');
         if (isLink) {
           var href = b.getAttribute('href');
@@ -1031,7 +1037,8 @@
         var fields = crudFields(table);
         return Array.prototype.map.call(table.querySelectorAll('tbody tr'), function (tr) {
           var cells = tr.querySelectorAll('td'), rec = {};
-          fields.forEach(function (f, i) { if (f) rec[f] = cells[i] ? cells[i].textContent.trim() : ''; });
+          // Keep innerHTML so rich cells (images, badges, links) survive re-rendering.
+          fields.forEach(function (f, i) { if (f) rec[f] = cells[i] ? cells[i].innerHTML.trim() : ''; });
           return rec;
         });
       }
@@ -1076,7 +1083,7 @@
                              '<button type="button" class="btn btn-sm btn-link p-0 text-danger" data-crud-delete><i class="bi bi-trash me-1"></i>Delete</button>';
             } else {
               var f = th.getAttribute('data-field');
-              td.textContent = (f && rec[f] != null) ? rec[f] : '';
+              td.innerHTML = (f && rec[f] != null) ? rec[f] : '';   // value may be rich HTML (image/badge) from a seed row
             }
             tr.appendChild(td);
           });
@@ -1089,11 +1096,14 @@
         crudByAttr('data-crud-count', entity).forEach(function (el) { el.textContent = records.length; });
       }
 
+      // Stored values may be rich HTML (e.g. a seed badge/image); form inputs need plain text
+      // so a <select> matches an <option> and inputs aren't filled with markup.
+      function crudText(v) { var d = document.createElement('div'); d.innerHTML = (v == null ? '' : String(v)); return d.textContent.trim(); }
       function crudFillForm(form, rec) {
         if (!form) return;
         form.querySelectorAll('[name]').forEach(function (input) {
           var f = input.getAttribute('name');
-          input.value = (rec && rec[f] != null) ? rec[f] : '';
+          input.value = (rec && rec[f] != null) ? crudText(rec[f]) : '';
         });
       }
       function crudReadForm(form) {
@@ -1146,6 +1156,13 @@
 
       function crudHandleAdd(btn) {
         var entity = btn.getAttribute('data-crud-add');
+        // One-click add: a button carrying data-crud-values='{"field":"value",…}' inserts that record
+        // immediately (no form) — e.g. an "Add to cart" / "Buy" button in a gallery card.
+        var valsAttr = btn.getAttribute('data-crud-values');
+        if (valsAttr) {
+          var vals = null; try { vals = JSON.parse(valsAttr); } catch (e) { vals = null; }
+          if (vals) { vals._id = crudId(); var recs = crudLoad(entity); recs.push(vals); crudStore(entity, recs); crudRender(entity); toast('Added'); return; }
+        }
         var modalEl = crudModalFor(entity, crudTables(entity)[0]);
         var form = crudFormFor(entity, modalEl);
         if (form) { form.reset(); form.removeAttribute('data-edit-id'); crudSetTitle(form, 'Add'); }
@@ -1198,6 +1215,13 @@
 
       // Bind form saves (Enter/submit) + delegate row & toolbar actions (covers generated rows).
       document.querySelectorAll('[data-crud-form]').forEach(function (form) { form.addEventListener('submit', crudOnSubmit); });
+      // A POC never navigates: stop ANY other <form> from reloading the page on submit, and acknowledge it.
+      document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!form || (form.hasAttribute && form.hasAttribute('data-crud-form'))) return; // CRUD forms handle themselves
+        if (e.preventDefault) e.preventDefault();
+        toast('Saved');
+      });
       document.addEventListener('click', function (e) {
         var t = e.target;
         var add = t.closest('[data-crud-add]'); if (add) { crudHandleAdd(add); return; }
