@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Artifacts;
@@ -6,6 +7,7 @@ using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Logging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 
 namespace ICOGenerator.Services.Agents;
 
@@ -22,9 +24,10 @@ public class AgentRunService
     private readonly AgentActionParser _actionParser;
     private readonly WorkspaceTools _workspaceTools;
     private readonly IModelCallLogger _modelCallLogger;
+    private readonly NativeToolCallingPolicy _nativeToolPolicy;
 
-    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, DynamicToolInvoker invoker, ILlmClient llm, AgentPromptBuilder promptBuilder, AgentActionParser actionParser, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger)
-    { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _llm = llm; _promptBuilder = promptBuilder; _actionParser = actionParser; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; }
+    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, DynamicToolInvoker invoker, ILlmClient llm, AgentPromptBuilder promptBuilder, AgentActionParser actionParser, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, NativeToolCallingPolicy nativeToolPolicy)
+    { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _llm = llm; _promptBuilder = promptBuilder; _actionParser = actionParser; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _nativeToolPolicy = nativeToolPolicy; }
 
     public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 6,
         Action<string, string, string?>? onProgress = null, Func<string, string, bool>? stopWhen = null,
@@ -38,6 +41,144 @@ public class AgentRunService
         // cancel/shutdown kills any spawned process instead of letting it run to the command timeout.
         _workspaceTools.SetRunCancellation(cancellationToken);
         var tools = await _toolRegistry.GetToolsForAgentAsync(agentId);
+
+        // Default to the model's native tool-calling; only models explicitly configured as not supporting
+        // the OpenAI "tools" parameter fall back to the prompt-based JSON-action protocol.
+        return _nativeToolPolicy.UseNativeTools(agent.AiModel)
+            ? await RunWithNativeToolsAsync(projectId, agent, tools, userMessage, maxSteps, onProgress, stopWhen, workflowRunId, cancellationToken)
+            : await RunWithPromptProtocolAsync(projectId, agent, tools, userMessage, maxSteps, onProgress, stopWhen, onToken, workflowRunId, cancellationToken);
+    }
+
+    // ── Native function-calling path (default) ───────────────────────────────────────────────────────
+    // The tool set is advertised to the model via the API's "tools" parameter (schema built by
+    // AIFunctionFactory from each method signature). The model replies with structured tool calls — no
+    // JSON-action wrapper to parse and no format nudges. Tool invocation still goes through the existing
+    // DynamicToolInvoker (policy + logging + reflection), so this path only changes HOW tools are
+    // requested, not how they run. Note: token-level streaming (onToken) is not used here — the agent's
+    // progress is surfaced through onProgress events instead.
+    private async Task<string> RunWithNativeToolsAsync(Guid projectId, Agent agent, IReadOnlyList<ToolRuntimeDescriptor> tools,
+        string userMessage, int maxSteps, Action<string, string, string?>? onProgress, Func<string, string, bool>? stopWhen,
+        Guid? workflowRunId, CancellationToken cancellationToken)
+    {
+        var aiTools = new List<AITool>(tools.Count);
+        var descriptorsByName = new Dictionary<string, ToolRuntimeDescriptor>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tool in tools)
+        {
+            aiTools.Add(AIFunctionFactory.Create(tool.Method, tool.Instance));
+            descriptorsByName[tool.Definition.Name] = tool;
+        }
+
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, _promptBuilder.BuildNative(agent)),
+            new(ChatRole.User, userMessage)
+        };
+
+        for (var step = 1; step <= maxSteps; step++)
+        {
+            onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {step}/{maxSteps})", null);
+            var turn = await _llm.ChatWithToolsAsync(agent.AiModel, messages, aiTools, agent.Temperature, cancellationToken);
+            await _modelCallLogger.LogAsync(projectId, agent, turn.Call, step, "AgentRun", workflowRunId);
+
+            // A failed LLM call (HTTP error / timeout) must not be treated as the agent's final answer —
+            // surface it so the task is marked Failed instead of "done".
+            if (!turn.Call.IsSuccess)
+            {
+                var detail = turn.Call.ErrorMessage ?? turn.Call.Content;
+                onProgress?.Invoke("error", "Lời gọi LLM thất bại.", detail);
+                throw new InvalidOperationException($"LLM call failed: {detail}");
+            }
+
+            // No tool calls = the model produced its final answer. With native tool-calling a plain reply
+            // is a legitimate "done", so there is no JSON-format nudge loop here.
+            if (turn.FunctionCalls.Count == 0)
+            {
+                onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", turn.Text);
+                await SaveConversation(projectId, agent.Id, turn.Text, cancellationToken: cancellationToken);
+                return turn.Text;
+            }
+
+            // Append the assistant turn (which carries the tool calls) before sending results back, so the
+            // conversation stays valid for the next request.
+            messages.AddRange(turn.ResponseMessages);
+
+            foreach (var call in turn.FunctionCalls)
+            {
+                var args = ToJsonArgs(call.Arguments);
+                onProgress?.Invoke("tool", $"Đang dùng tool: {call.Name}", DescribeToolArgs(args));
+
+                string observation;
+                if (!descriptorsByName.TryGetValue(call.Name, out var descriptor))
+                {
+                    observation = $"Tool not found: {call.Name}";
+                }
+                else
+                {
+                    try
+                    {
+                        observation = await _invoker.InvokeAsync(descriptor, args);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Feed a recoverable tool failure back as an observation so the model can correct itself instead of aborting the run; unwrap the reflection wrapper for a useful message.
+                        var real = ex is System.Reflection.TargetInvocationException { InnerException: { } inner } ? inner : ex;
+                        observation = $"ERROR: {real.Message}";
+                    }
+                }
+
+                onProgress?.Invoke("observation", $"Đã nhận kết quả từ {call.Name}", observation);
+
+                // Every tool call must get a result message (matched by CallId) before the next request.
+                messages.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent(call.CallId, observation)]));
+
+                // Stop as soon as the caller's success condition is met so a weak model doesn't keep making spurious edits and burn the step budget after the work is done.
+                if (stopWhen != null && stopWhen(call.Name ?? string.Empty, observation))
+                {
+                    onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", observation);
+                    await SaveConversation(projectId, agent.Id, observation, cancellationToken: cancellationToken);
+                    return observation;
+                }
+
+                if (observation.Contains("Build succeeded", StringComparison.OrdinalIgnoreCase)
+                    && observation.Contains("0 Error", StringComparison.OrdinalIgnoreCase))
+                {
+                    onProgress?.Invoke("final", "Build succeeded.", null);
+                    await SaveConversation(projectId, agent.Id, "Build succeeded.", cancellationToken: cancellationToken);
+                    return "Build succeeded.";
+                }
+            }
+        }
+
+        // Ngân sách bước đã cạn nhưng các file agent đã ghi vẫn nằm trên đĩa. Cho agent ĐÚNG MỘT lượt cuối
+        // (KHÔNG có tool nào để gọi) để chốt một final tóm tắt — biến "fail trắng vứt cả phần đã làm" thành
+        // "hoàn tất một phần". Chỉ khi lượt này vẫn không ra nội dung mới coi là chạm-giới-hạn thật.
+        onProgress?.Invoke("thinking", "Đạt giới hạn bước — yêu cầu agent chốt lại kết quả đã hoàn thành.", null);
+        messages.Add(new ChatMessage(ChatRole.User,
+            "Đã đạt giới hạn số bước xử lý. KHÔNG gọi thêm bất kỳ tool nào nữa. "
+            + "Hãy tóm tắt: stack đã chọn, các file/tính năng đã tạo được, cách cài đặt & chạy, và phần nào còn thiếu/chưa hoàn tất."));
+
+        var salvage = await _llm.ChatWithToolsAsync(agent.AiModel, messages, Array.Empty<AITool>(), agent.Temperature, cancellationToken);
+        await _modelCallLogger.LogAsync(projectId, agent, salvage.Call, maxSteps + 1, "AgentRun", workflowRunId);
+        if (salvage.Call.IsSuccess && !string.IsNullOrWhiteSpace(salvage.Text))
+        {
+            onProgress?.Invoke("final", "Agent đã chốt kết quả (một phần) khi đạt giới hạn bước.", salvage.Text);
+            await SaveConversation(projectId, agent.Id, salvage.Text, cancellationToken: cancellationToken);
+            return salvage.Text;
+        }
+
+        onProgress?.Invoke("final", "Dừng do đạt giới hạn số bước xử lý.", null);
+        return MaxStepsReachedResult;
+    }
+
+    // ── Prompt-based JSON-action path (fallback for models without native tool-calling) ───────────────
+    private async Task<string> RunWithPromptProtocolAsync(Guid projectId, Agent agent, IReadOnlyList<ToolRuntimeDescriptor> tools,
+        string userMessage, int maxSteps, Action<string, string, string?>? onProgress, Func<string, string, bool>? stopWhen,
+        Action<string>? onToken, Guid? workflowRunId, CancellationToken cancellationToken)
+    {
         var messages = new List<ChatMessageDto>
         {
             new() { Role = "system", Content = _promptBuilder.Build(agent, tools) },
@@ -93,7 +234,7 @@ public class AgentRunService
             if (action.Type.Equals("final", StringComparison.OrdinalIgnoreCase))
             {
                 onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", action.Content ?? response);
-                await SaveConversation(projectId, agentId, action.Content ?? response, cancellationToken: cancellationToken);
+                await SaveConversation(projectId, agent.Id, action.Content ?? response, cancellationToken: cancellationToken);
                 return action.Content ?? response;
             }
             if (action.Type.Equals("tool", StringComparison.OrdinalIgnoreCase))
@@ -132,7 +273,7 @@ public class AgentRunService
                 if (stopWhen != null && stopWhen(action.Tool ?? string.Empty, observation))
                 {
                     onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", observation);
-                    await SaveConversation(projectId, agentId, observation, cancellationToken: cancellationToken);
+                    await SaveConversation(projectId, agent.Id, observation, cancellationToken: cancellationToken);
                     return observation;
                 }
 
@@ -143,7 +284,7 @@ public class AgentRunService
                     && observation.Contains("0 Error", StringComparison.OrdinalIgnoreCase))
                 {
                     onProgress?.Invoke("final", "Build succeeded.", null);
-                    await SaveConversation(projectId, agentId, "Build succeeded.", cancellationToken: cancellationToken);
+                    await SaveConversation(projectId, agent.Id, "Build succeeded.", cancellationToken: cancellationToken);
                     return "Build succeeded.";
                 }
             }
@@ -167,7 +308,7 @@ public class AgentRunService
         {
             var content = salvageAction.Content ?? salvageCall.Content;
             onProgress?.Invoke("final", "Agent đã chốt kết quả (một phần) khi đạt giới hạn bước.", content);
-            await SaveConversation(projectId, agentId, content, cancellationToken: cancellationToken);
+            await SaveConversation(projectId, agent.Id, content, cancellationToken: cancellationToken);
             return content;
         }
 
@@ -175,7 +316,22 @@ public class AgentRunService
         return MaxStepsReachedResult;
     }
 
-    private static string? DescribeToolArgs(Dictionary<string, System.Text.Json.JsonElement> args)
+    // Converts the model's native tool-call arguments (object? values, usually already JsonElement) into
+    // the JsonElement map DynamicToolInvoker binds to method parameters, so both agent paths share one
+    // invocation/logging/reflection code path.
+    private static Dictionary<string, JsonElement> ToJsonArgs(IDictionary<string, object?>? args)
+    {
+        var result = new Dictionary<string, JsonElement>();
+        if (args == null)
+            return result;
+
+        foreach (var (key, value) in args)
+            result[key] = value is JsonElement element ? element : JsonSerializer.SerializeToElement(value);
+
+        return result;
+    }
+
+    private static string? DescribeToolArgs(Dictionary<string, JsonElement> args)
     {
         if (args.Count == 0)
             return null;

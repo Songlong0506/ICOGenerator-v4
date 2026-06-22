@@ -166,6 +166,127 @@ public class LlmClient : ILlmClient
         }
     }
 
+    public async Task<LlmToolCallResult> ChatWithToolsAsync(AiModel model, IList<ChatMessage> messages, IList<AITool> tools, double temperature, CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = new LlmCallResult
+        {
+            Endpoint = model.Endpoint,
+            ModelId = model.ModelId,
+            ModelName = model.Name,
+            // ChatMessage.Text is empty for tool-result turns, so this slightly undercounts on tool-heavy
+            // conversations — acceptable for an estimate used only for the cost/usage display.
+            PromptTokens = TokenEstimator.Estimate(string.Join("\n", messages.Select(m => m.Text)))
+        };
+
+        var maxTokens = ResolveMaxTokens(model, result.PromptTokens);
+
+        // Logged in the same shape the call-log UI expects; tools are summarised by name (the full JSON
+        // schema is produced downstream by the OpenAI SDK from each AIFunction).
+        result.RequestJson = JsonSerializer.Serialize(new
+        {
+            model = model.ModelId,
+            messages = messages.Select(m => new { role = m.Role.Value, content = m.Text }),
+            temperature,
+            max_tokens = maxTokens,
+            tools = tools.Select(t => t.Name),
+            thinking = new { type = "disabled" }
+        }, SerializeOptions);
+
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_requestTimeoutSeconds));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+        var token = linkedCts.Token;
+
+        var chatClient = _chatClientFactory.Create(model);
+
+        var options = new ChatOptions
+        {
+            Temperature = (float)temperature,
+            MaxOutputTokens = maxTokens,
+            // Empty set => a plain completion (no tools advertised), used for the salvage summary turn.
+            Tools = tools.Count > 0 ? tools : null,
+            ToolMode = tools.Count > 0 ? ChatToolMode.Auto : null
+        };
+
+        try
+        {
+            // Buffered (not streamed): tool calls must arrive complete before we can run them.
+            var response = await chatClient.GetResponseAsync(messages, options, token);
+            stopwatch.Stop();
+
+            var text = response.Text ?? string.Empty;
+            var functionCalls = response.Messages
+                .SelectMany(m => m.Contents)
+                .OfType<FunctionCallContent>()
+                .ToList();
+
+            result.Content = text;
+            result.ExtractedContent = text;
+            result.ResponseText = text;
+            result.DurationMs = stopwatch.ElapsedMilliseconds;
+            result.HttpStatusCode = 200;
+            result.IsSuccess = true;
+            if (response.FinishReason == ChatFinishReason.Length)
+                result.ErrorMessage = "Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).";
+            result.CompletionTokens = TokenEstimator.Estimate(text);
+            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
+
+            return new LlmToolCallResult
+            {
+                Call = result,
+                // ChatResponse.Messages is IList<>, which doesn't implement IReadOnlyList<>; copy to a List
+                // (same ChatMessage refs) so the caller can append them to its running history.
+                ResponseMessages = response.Messages.ToList(),
+                FunctionCalls = functionCalls,
+                Text = text
+            };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Caller (e.g. app shutdown) cancelled — propagate so the worker treats it as a clean stop.
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            stopwatch.Stop();
+            result.DurationMs = stopwatch.ElapsedMilliseconds;
+            result.IsSuccess = false;
+            result.ErrorMessage = $"LLM request timed out after {_requestTimeoutSeconds}s.";
+            result.Content = result.ErrorMessage;
+            result.ResponseText = result.ErrorMessage;
+            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
+            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
+            return new LlmToolCallResult { Call = result };
+        }
+        catch (ClientResultException ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "LLM tool call to {Endpoint} ({ModelId}) failed.", model.Endpoint, model.ModelId);
+            result.HttpStatusCode = ex.Status;
+            result.DurationMs = stopwatch.ElapsedMilliseconds;
+            result.IsSuccess = false;
+            result.ErrorMessage = $"API error: {ex.Status}";
+            result.Content = $"API error: {ex.Status}\n\n{ex.Message}";
+            result.ResponseText = ex.Message;
+            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
+            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
+            return new LlmToolCallResult { Call = result };
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            _logger.LogError(ex, "LLM tool call to {Endpoint} ({ModelId}) failed.", model.Endpoint, model.ModelId);
+            result.DurationMs = stopwatch.ElapsedMilliseconds;
+            result.IsSuccess = false;
+            result.ErrorMessage = ex.Message;
+            result.Content = ex.Message;
+            result.ResponseText = ex.Message;
+            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
+            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
+            return new LlmToolCallResult { Call = result };
+        }
+    }
+
     private static ChatRole MapRole(string role) => role?.ToLowerInvariant() switch
     {
         "system" => ChatRole.System,
