@@ -1,6 +1,7 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Workflows;
+using ICOGenerator.Services.Workflows.Maf;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Requirements;
@@ -25,10 +26,12 @@ public enum RetryWorkflowResult
 public class RetryWorkflowUseCase
 {
     private readonly AppDbContext _db;
+    private readonly MafWorkflowPolicy _mafPolicy;
 
-    public RetryWorkflowUseCase(AppDbContext db)
+    public RetryWorkflowUseCase(AppDbContext db, MafWorkflowPolicy mafPolicy)
     {
         _db = db;
+        _mafPolicy = mafPolicy;
     }
 
     public async Task<RetryWorkflowResult> ExecuteAsync(Guid projectId, Guid? runId = null)
@@ -42,6 +45,17 @@ public class RetryWorkflowUseCase
         var run = await query.OrderByDescending(x => x.CreatedAt).FirstOrDefaultAsync();
         if (run == null)
             return RetryWorkflowResult.NoFailedRun;
+
+        // MAF engine: just re-queue the run (no approval marker). MafWorkflowEngine resumes from the latest
+        // checkpoint and re-runs the failed stage; CurrentStage is already the failing delivery stage.
+        if (_mafPolicy.UseMafEngine)
+        {
+            run.Status = WorkflowRunStatus.Queued;
+            run.PendingApprovalJson = null;
+            run.FinishedAt = null;
+            await _db.SaveChangesAsync();
+            return RetryWorkflowResult.Requeued;
+        }
 
         // Task thực sự đã hỏng (task Failed mới nhất của run). Đây là bước cần chạy lại.
         var failedTask = await _db.AgentTasks

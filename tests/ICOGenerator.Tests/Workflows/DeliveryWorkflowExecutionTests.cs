@@ -96,7 +96,7 @@ public class DeliveryWorkflowExecutionTests
                 case RequestInfoEvent:
                     return (false, string.Empty, run.LastCheckpoint);
                 case WorkflowOutputEvent output:
-                    return (true, output.As<PipelineMessage>().Content, run.LastCheckpoint);
+                    return (true, output.As<PipelineMessage>()?.Content ?? string.Empty, run.LastCheckpoint);
                 case ExecutorFailedEvent failed:
                     throw new Xunit.Sdk.XunitException("Executor failed: " + failed.Data);
             }

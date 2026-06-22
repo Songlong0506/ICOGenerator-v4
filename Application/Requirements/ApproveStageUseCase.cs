@@ -3,6 +3,7 @@ using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Workflows;
+using ICOGenerator.Services.Workflows.Maf;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Requirements;
@@ -24,11 +25,13 @@ public class ApproveStageUseCase
 {
     private readonly AppDbContext _db;
     private readonly IProjectArtifactCatalog _artifactCatalog;
+    private readonly MafWorkflowPolicy _mafPolicy;
 
-    public ApproveStageUseCase(AppDbContext db, IProjectArtifactCatalog artifactCatalog)
+    public ApproveStageUseCase(AppDbContext db, IProjectArtifactCatalog artifactCatalog, MafWorkflowPolicy mafPolicy)
     {
         _db = db;
         _artifactCatalog = artifactCatalog;
+        _mafPolicy = mafPolicy;
     }
 
     public async Task<ApproveStageResult> ExecuteAsync(Guid projectId, Guid? runId = null)
@@ -36,6 +39,17 @@ public class ApproveStageUseCase
         var run = await FindPendingRunAsync(projectId, runId);
         if (run == null)
             return ApproveStageResult.NoPendingStage;
+
+        // MAF engine: just mark the checkpointed run for resume — MafWorkflowEngine answers the pending
+        // gate and runs the next stage. No AgentTask to enqueue, no input to resolve (the workflow carries
+        // the hand-off message in its checkpoint).
+        if (_mafPolicy.UseMafEngine)
+        {
+            run.PendingApprovalJson = MafDeliveryEngine.ApprovedMarker;
+            run.Status = WorkflowRunStatus.Queued;
+            await _db.SaveChangesAsync();
+            return ApproveStageResult.Advanced;
+        }
 
         var next = DeliveryPipeline.Next(run.CurrentStage);
         if (next == null)

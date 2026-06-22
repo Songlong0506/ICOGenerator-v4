@@ -260,11 +260,15 @@ public static class ApplicationServiceCollectionExtensions
         services.AddHostedService<AgentTaskWorker>();
 
         // Opt-in Microsoft Agent Framework delivery-pipeline engine (Workflows:UseMafEngine). These are
-        // safe to register unconditionally — nothing drives the engine unless the flag is on. The runner,
-        // factory and checkpoint store are stateless/singletons that open their own DI scopes per call.
+        // safe to register unconditionally — MafWorkflowWorker stays idle and the use cases keep the legacy
+        // path unless the flag is on. The runner, factory, store and engine are singletons that open their
+        // own DI scopes per call.
+        services.AddSingleton<MafWorkflowPolicy>();
         services.AddSingleton<IPipelineStageRunner, PipelineStageRunner>();
         services.AddSingleton<DeliveryWorkflowFactory>();
         services.AddSingleton<EfWorkflowCheckpointStore>();
+        services.AddSingleton<MafDeliveryEngine>();
+        services.AddHostedService<MafWorkflowWorker>();
         return services;
     }
 

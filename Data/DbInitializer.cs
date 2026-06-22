@@ -1,6 +1,8 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Tools.Registry;
+using ICOGenerator.Services.Workflows;
+using ICOGenerator.Services.Workflows.Maf;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Data;
@@ -13,7 +15,8 @@ public static class DbInitializer
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.MigrateAsync();
 
-        await RecoverOrphanedTasksAsync(db);
+        var useMafEngine = scope.ServiceProvider.GetRequiredService<MafWorkflowPolicy>().UseMafEngine;
+        await RecoverOrphanedTasksAsync(db, useMafEngine);
 
         var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
         await discovery.SyncToolDefinitionsAsync();
@@ -74,18 +77,28 @@ public static class DbInitializer
 
     // Sau crash/restart, task còn ở trạng thái Running là "mồ côi" (worker đơn lẻ chưa kịp xử lý lúc khởi động).
     // Re-queue để chạy lại; vượt số lần thử thì đánh Failed. Đây cũng là chỗ khiến cột Attempt có ý nghĩa.
-    private static async Task RecoverOrphanedTasksAsync(AppDbContext db)
+    private static async Task RecoverOrphanedTasksAsync(AppDbContext db, bool useMafEngine)
     {
+        var now = DateTime.UtcNow;
+
         var orphaned = await db.AgentTasks
             .Include(x => x.WorkflowRun)
             .Where(x => x.Status == AgentTaskStatus.Running)
             .ToListAsync();
-        if (orphaned.Count == 0)
-            return;
 
-        var now = DateTime.UtcNow;
         foreach (var task in orphaned)
         {
+            // MAF engine: a Running delivery task was abandoned mid-pump by the restart. Mark it Failed; the
+            // RUN is re-queued below so the workflow engine resumes from its last checkpoint (re-running the
+            // stage with a fresh task) — do NOT re-queue the task to the legacy AgentTaskWorker.
+            if (useMafEngine && task.Type != AgentTaskType.RequirementAnalysis)
+            {
+                task.Status = AgentTaskStatus.Failed;
+                task.Error = "Bị gián đoạn bởi việc khởi động lại; workflow engine sẽ chạy lại bước này.";
+                task.FinishedAt = now;
+                continue;
+            }
+
             if (task.Attempt >= MaxTaskAttempts)
             {
                 task.Status = AgentTaskStatus.Failed;
@@ -103,6 +116,18 @@ public static class DbInitializer
                 if (task.WorkflowRun.Status == WorkflowRunStatus.Running)
                     task.WorkflowRun.Status = WorkflowRunStatus.Queued;
             }
+        }
+
+        // MAF engine: re-queue every Running delivery run so MafWorkflowWorker resumes it from its checkpoint
+        // (also covers a run interrupted between stages, where no Running task exists to key off above).
+        if (useMafEngine)
+        {
+            var runningDeliveryRuns = await db.WorkflowRuns
+                .Where(r => r.Status == WorkflowRunStatus.Running && DeliveryPipeline.DeliveryStages.Contains(r.CurrentStage))
+                .ToListAsync();
+
+            foreach (var run in runningDeliveryRuns)
+                run.Status = WorkflowRunStatus.Queued;
         }
 
         await db.SaveChangesAsync();

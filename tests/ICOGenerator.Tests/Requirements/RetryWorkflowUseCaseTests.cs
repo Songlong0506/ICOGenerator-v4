@@ -3,6 +3,7 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
+using ICOGenerator.Services.Workflows.Maf;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -61,7 +62,7 @@ public class RetryWorkflowUseCaseTests : IDisposable
 
         await using (var db = NewDb())
         {
-            var result = await new RetryWorkflowUseCase(db).ExecuteAsync(projectId, runId);
+            var result = await new RetryWorkflowUseCase(db, new MafWorkflowPolicy(false)).ExecuteAsync(projectId, runId);
             Assert.Equal(RetryWorkflowResult.Requeued, result);
         }
 
@@ -98,7 +99,7 @@ public class RetryWorkflowUseCaseTests : IDisposable
         }
 
         await using var readDb = NewDb();
-        var result = await new RetryWorkflowUseCase(readDb).ExecuteAsync(projectId);
+        var result = await new RetryWorkflowUseCase(readDb, new MafWorkflowPolicy(false)).ExecuteAsync(projectId);
 
         Assert.Equal(RetryWorkflowResult.NoFailedRun, result);
     }

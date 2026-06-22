@@ -77,6 +77,14 @@ public static class DeliveryPipeline
     public static PipelineStep First => Steps[0];
 
     /// <summary>
+    /// Mọi stage thuộc quy trình delivery (các bước tuyến tính + BugFix). Dùng để nhận diện một
+    /// <see cref="Domain.WorkflowRun"/> do MAF engine quản lý (tách khỏi luồng "Write Requirement").
+    /// Khai báo dạng mảng để EF dịch được <c>Contains</c> thành mệnh đề IN.
+    /// </summary>
+    public static readonly WorkflowStageKey[] DeliveryStages =
+        Steps.Select(s => s.Stage).Append(BugFixStep.Stage).ToArray();
+
+    /// <summary>
     /// Trả về bước kế tiếp sau <paramref name="current"/>, hoặc <c>null</c> nếu
     /// <paramref name="current"/> là bước cuối (đã hoàn tất pipeline).
     /// </summary>

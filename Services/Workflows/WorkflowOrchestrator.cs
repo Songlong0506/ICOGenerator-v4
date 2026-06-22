@@ -1,6 +1,7 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Workflows.Maf;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Workflows;
@@ -8,10 +9,12 @@ namespace ICOGenerator.Services.Workflows;
 public class WorkflowOrchestrator : IWorkflowOrchestrator
 {
     private readonly AppDbContext _db;
+    private readonly MafWorkflowPolicy _mafPolicy;
 
-    public WorkflowOrchestrator(AppDbContext db)
+    public WorkflowOrchestrator(AppDbContext db, MafWorkflowPolicy mafPolicy)
     {
         _db = db;
+        _mafPolicy = mafPolicy;
     }
 
     public async Task<Guid> StartDeliveryWorkflowAsync(Guid projectId, string requirementVersionName, string aiDesignSpecContent)
@@ -19,10 +22,6 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
         // Bắt đầu pipeline ở bước đầu tiên (khai báo trong DeliveryPipeline) thay vì
         // cứng nhắc giao thẳng cho Developer. Các bước sau do AgentTaskWorker hand-off.
         var first = DeliveryPipeline.First;
-
-        var firstAgent = await _db.Agents
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.RoleKey == first.Role);
 
         var workflowRun = new WorkflowRun
         {
@@ -32,20 +31,29 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
             CurrentStage = first.Stage,
             StartedAt = null
         };
-
-        var firstTask = new AgentTask
-        {
-            WorkflowRunId = workflowRun.Id,
-            ProjectId = projectId,
-            AgentId = firstAgent?.Id,
-            Type = first.TaskType,
-            Status = AgentTaskStatus.Queued,
-            Title = first.Title,
-            Input = aiDesignSpecContent
-        };
-
         _db.WorkflowRuns.Add(workflowRun);
-        _db.AgentTasks.Add(firstTask);
+
+        // MAF engine: start the run with NO seed AgentTask — MafWorkflowWorker picks up the Queued delivery
+        // run (the engine re-reads the approved AI Design Spec as its seed). Legacy path: enqueue the first
+        // AgentTask for AgentTaskWorker as before.
+        if (!_mafPolicy.UseMafEngine)
+        {
+            var firstAgent = await _db.Agents
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.RoleKey == first.Role);
+
+            _db.AgentTasks.Add(new AgentTask
+            {
+                WorkflowRunId = workflowRun.Id,
+                ProjectId = projectId,
+                AgentId = firstAgent?.Id,
+                Type = first.TaskType,
+                Status = AgentTaskStatus.Queued,
+                Title = first.Title,
+                Input = aiDesignSpecContent
+            });
+        }
+
         await _db.SaveChangesAsync();
 
         return workflowRun.Id;
