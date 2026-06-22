@@ -29,6 +29,13 @@ public sealed class PipelineStageExecutor : Executor<PipelineMessage>
         _runner = runner;
     }
 
+    // An executor must declare what it emits: every stage forwards a PipelineMessage to the next node,
+    // and the Testing stage additionally yields the final workflow output when it stops looping.
+    protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder) =>
+        base.ConfigureProtocol(protocolBuilder)
+            .SendsMessage<PipelineMessage>()
+            .YieldsOutput<PipelineMessage>();
+
     public override async ValueTask HandleAsync(PipelineMessage message, IWorkflowContext context, CancellationToken cancellationToken)
     {
         // POC/Architecture consume the design spec; later stages consume the previous stage's output.
