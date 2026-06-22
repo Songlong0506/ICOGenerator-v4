@@ -166,7 +166,7 @@ public class LlmClient : ILlmClient
         }
     }
 
-    public async Task<LlmToolCallResult> ChatWithToolsAsync(AiModel model, IList<ChatMessage> messages, IList<AITool> tools, double temperature, CancellationToken cancellationToken = default)
+    public async Task<LlmToolCallResult> ChatWithToolsAsync(AiModel model, IList<ChatMessage> messages, IList<AITool> tools, double temperature, Action<string>? onToken = null, CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
         var result = new LlmCallResult
@@ -210,9 +210,27 @@ public class LlmClient : ILlmClient
 
         try
         {
-            // Buffered (not streamed): tool calls must arrive complete before we can run them.
-            var response = await chatClient.GetResponseAsync(messages, options, token);
+            // Stream and coalesce. A non-streaming completion stays silent until the whole reply is ready,
+            // so a long generation lets the server/proxy drop the idle connection ("response ended
+            // prematurely"). Streaming keeps bytes flowing like the rest of the app; the collected updates
+            // are then reassembled by ToChatResponse() — which also merges any fragmented tool calls back
+            // into complete FunctionCallContent.
+            var updates = new List<ChatResponseUpdate>();
+            await foreach (var update in chatClient.GetStreamingResponseAsync(messages, options, token))
+            {
+                updates.Add(update);
+
+                // Surface text deltas live. A misbehaving sink must never break the call, so swallow throws.
+                var delta = update.Text;
+                if (!string.IsNullOrEmpty(delta) && onToken != null)
+                {
+                    try { onToken(delta); }
+                    catch { /* ignore UI streaming failures */ }
+                }
+            }
             stopwatch.Stop();
+
+            var response = updates.ToChatResponse();
 
             var text = response.Text ?? string.Empty;
             var functionCalls = response.Messages

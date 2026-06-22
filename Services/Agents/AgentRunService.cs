@@ -45,7 +45,7 @@ public class AgentRunService
         // Default to the model's native tool-calling; only models explicitly configured as not supporting
         // the OpenAI "tools" parameter fall back to the prompt-based JSON-action protocol.
         return _nativeToolPolicy.UseNativeTools(agent.AiModel)
-            ? await RunWithNativeToolsAsync(projectId, agent, tools, userMessage, maxSteps, onProgress, stopWhen, workflowRunId, cancellationToken)
+            ? await RunWithNativeToolsAsync(projectId, agent, tools, userMessage, maxSteps, onProgress, stopWhen, onToken, workflowRunId, cancellationToken)
             : await RunWithPromptProtocolAsync(projectId, agent, tools, userMessage, maxSteps, onProgress, stopWhen, onToken, workflowRunId, cancellationToken);
     }
 
@@ -54,11 +54,10 @@ public class AgentRunService
     // AIFunctionFactory from each method signature). The model replies with structured tool calls — no
     // JSON-action wrapper to parse and no format nudges. Tool invocation still goes through the existing
     // DynamicToolInvoker (policy + logging + reflection), so this path only changes HOW tools are
-    // requested, not how they run. Note: token-level streaming (onToken) is not used here — the agent's
-    // progress is surfaced through onProgress events instead.
+    // requested, not how they run.
     private async Task<string> RunWithNativeToolsAsync(Guid projectId, Agent agent, IReadOnlyList<ToolRuntimeDescriptor> tools,
         string userMessage, int maxSteps, Action<string, string, string?>? onProgress, Func<string, string, bool>? stopWhen,
-        Guid? workflowRunId, CancellationToken cancellationToken)
+        Action<string>? onToken, Guid? workflowRunId, CancellationToken cancellationToken)
     {
         var aiTools = new List<AITool>(tools.Count);
         var descriptorsByName = new Dictionary<string, ToolRuntimeDescriptor>(StringComparer.OrdinalIgnoreCase);
@@ -77,7 +76,7 @@ public class AgentRunService
         for (var step = 1; step <= maxSteps; step++)
         {
             onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {step}/{maxSteps})", null);
-            var turn = await _llm.ChatWithToolsAsync(agent.AiModel, messages, aiTools, agent.Temperature, cancellationToken);
+            var turn = await _llm.ChatWithToolsAsync(agent.AiModel, messages, aiTools, agent.Temperature, onToken, cancellationToken);
             await _modelCallLogger.LogAsync(projectId, agent, turn.Call, step, "AgentRun", workflowRunId);
 
             // A failed LLM call (HTTP error / timeout) must not be treated as the agent's final answer —
@@ -161,7 +160,7 @@ public class AgentRunService
             "Đã đạt giới hạn số bước xử lý. KHÔNG gọi thêm bất kỳ tool nào nữa. "
             + "Hãy tóm tắt: stack đã chọn, các file/tính năng đã tạo được, cách cài đặt & chạy, và phần nào còn thiếu/chưa hoàn tất."));
 
-        var salvage = await _llm.ChatWithToolsAsync(agent.AiModel, messages, Array.Empty<AITool>(), agent.Temperature, cancellationToken);
+        var salvage = await _llm.ChatWithToolsAsync(agent.AiModel, messages, Array.Empty<AITool>(), agent.Temperature, onToken, cancellationToken);
         await _modelCallLogger.LogAsync(projectId, agent, salvage.Call, maxSteps + 1, "AgentRun", workflowRunId);
         if (salvage.Call.IsSuccess && !string.IsNullOrWhiteSpace(salvage.Text))
         {
