@@ -15,14 +15,12 @@ public class AgentTaskWorker : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AgentTaskWorker> _logger;
     private readonly IWorkflowProgressReporter _progress;
-    private readonly IWebHostEnvironment _environment;
 
-    public AgentTaskWorker(IServiceScopeFactory scopeFactory, ILogger<AgentTaskWorker> logger, IWorkflowProgressReporter progress, IWebHostEnvironment environment)
+    public AgentTaskWorker(IServiceScopeFactory scopeFactory, ILogger<AgentTaskWorker> logger, IWorkflowProgressReporter progress)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
         _progress = progress;
-        _environment = environment;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -113,7 +111,9 @@ public class AgentTaskWorker : BackgroundService
             if (task.Type == AgentTaskType.PocPreview)
             {
                 _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
-                await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
+                var pocProject = await db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken);
+                if (pocProject != null)
+                    await scope.ServiceProvider.GetRequiredService<PocWorkspaceSeeder>().EnsureDesignAssetsAsync(pocProject);
             }
 
             var project = await db.Projects.AsNoTracking()
@@ -334,56 +334,4 @@ public class AgentTaskWorker : BackgroundService
         return outcome;
     }
 
-    private async Task EnsureDesignAssetsAsync(IServiceScope scope, AppDbContext db, Guid projectId)
-    {
-        try
-        {
-            var project = await db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == projectId);
-            if (project == null)
-                return;
-
-            var resolver = scope.ServiceProvider.GetRequiredService<WorkspacePathResolver>();
-            var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
-            var implDir = Path.GetDirectoryName(resolver.GetMockupPath(projectKey));
-            if (string.IsNullOrWhiteSpace(implDir))
-                return;
-
-            Directory.CreateDirectory(implDir);
-
-            // Resolve from ContentRootPath so this worker and PromptTemplateService share the same "Prompts" root (BaseDirectory = bin output diverged from project root).
-            var sourceDir = Path.Combine(_environment.ContentRootPath, "Prompts", "Design");
-            foreach (var name in new[] { "poc-template.html" })
-            {
-                var src = Path.Combine(sourceDir, name);
-                if (File.Exists(src))
-                    File.Copy(src, Path.Combine(implDir, name), overwrite: true);
-            }
-
-            // Pre-seed poc-demo.html so the dev agent edits only the content region, not re-emitting the whole shell (saves tokens per run).
-            // The marker region is collapsed to a SINGLE placeholder so one deterministic ReplaceInFile works, vs reproducing the ~160-line block verbatim (always failed "Old text not found").
-            var templateSrc = Path.Combine(sourceDir, "poc-template.html");
-            if (File.Exists(templateSrc))
-                await SeedPocDemoAsync(templateSrc, resolver.GetMockupPath(projectKey));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not copy POC design assets into the workspace.");
-        }
-    }
-
-    // Copies the template into poc-demo.html, replacing the POC_CONTENT region with a placeholder but keeping the markers as a stable editable region.
-    private static async Task SeedPocDemoAsync(string templateSrc, string demoPath)
-    {
-        var template = await File.ReadAllTextAsync(templateSrc);
-        var seeded = PocTemplate.SeedFromTemplate(template);
-
-        if (seeded == null)
-        {
-            // Markers missing/malformed: fall back to a raw copy so we never lose the file.
-            File.Copy(templateSrc, demoPath, overwrite: true);
-            return;
-        }
-
-        await File.WriteAllTextAsync(demoPath, seeded);
-    }
 }

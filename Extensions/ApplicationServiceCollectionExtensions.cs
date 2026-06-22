@@ -20,6 +20,7 @@ using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Workflows;
+using ICOGenerator.Services.Workflows.Maf;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -255,7 +256,15 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IWorkflowOrchestrator, WorkflowOrchestrator>();
         services.AddScoped<WorkflowTaskPromptBuilder>();
         services.AddSingleton<IWorkflowProgressReporter, WorkflowProgressReporter>();
+        services.AddScoped<PocWorkspaceSeeder>();
         services.AddHostedService<AgentTaskWorker>();
+
+        // Opt-in Microsoft Agent Framework delivery-pipeline engine (Workflows:UseMafEngine). These are
+        // safe to register unconditionally — nothing drives the engine unless the flag is on. The runner,
+        // factory and checkpoint store are stateless/singletons that open their own DI scopes per call.
+        services.AddSingleton<IPipelineStageRunner, PipelineStageRunner>();
+        services.AddSingleton<DeliveryWorkflowFactory>();
+        services.AddSingleton<EfWorkflowCheckpointStore>();
         return services;
     }
 
