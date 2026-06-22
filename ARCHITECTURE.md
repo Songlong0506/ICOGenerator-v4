@@ -156,6 +156,23 @@ Thông tin đăng nhập đọc từ cấu hình `Auth:Username`/`Auth:Password`
 `Auth__Password`/user-secrets — **không commit**), so khớp **fixed-time** trong `LoginUseCase`.
 `AccountController` mỏng: validate qua use case rồi `SignInAsync`/`SignOutAsync`.
 
+### 5.8. Hai đường thực thi agent (native tool-calling + fallback)
+`AgentRunService.RunAsync` chọn một trong hai vòng lặp tuỳ model:
+
+- **Native (mặc định):** tool được "quảng bá" cho model qua tham số `tools` của OpenAI. Schema sinh tự
+  động bằng `AIFunctionFactory` từ chữ ký method (không nhét schema vào prompt). Model trả về
+  `FunctionCallContent` có cấu trúc — **không** parse JSON action, **không** vòng "nhắc định dạng lại".
+  Đi qua `ILlmClient.ChatWithToolsAsync` (stream + gộp bằng `ToChatResponse()`; stream để tránh bị
+  rớt kết nối idle khi reply dài, đồng thời vẫn đẩy token live qua `onToken`).
+- **Fallback (prompt-based):** vòng lặp ReAct cũ — schema + hợp đồng JSON action nằm trong system prompt
+  (`tool-agent.v1.md`), `AgentActionParser` parse phản hồi, có vòng nudge cho model yếu. Đi qua
+  `ChatWithLogAsync` (có stream token).
+
+Việc **gọi tool** ở cả hai đường vẫn dùng chung `DynamicToolInvoker` (policy + log + reflection); chỉ
+khác ở **cách model yêu cầu** tool. Chọn đường theo cấu hình `Llm:NativeToolCalling` (xem `appsettings.json`):
+`Enabled=false` ép tất cả về fallback; `FallbackModelIds` liệt kê ModelId không hỗ trợ tool-calling.
+`NativeToolCallingPolicy` đóng gói quyết định này (thuần, test được).
+
 ---
 
 ## 6. Công thức thêm một tính năng mới
