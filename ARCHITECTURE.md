@@ -159,10 +159,13 @@ Thông tin đăng nhập đọc từ cấu hình `Auth:Username`/`Auth:Password`
 ### 5.8. Hai đường thực thi agent (native tool-calling + fallback)
 `AgentRunService.RunAsync` chọn một trong hai vòng lặp tuỳ model:
 
-- **Native (mặc định):** tool được "quảng bá" cho model qua tham số `tools` của OpenAI. Schema sinh tự
-  động bằng `AIFunctionFactory` từ chữ ký method (không nhét schema vào prompt). Model trả về
-  `FunctionCallContent` có cấu trúc — **không** parse JSON action, **không** vòng "nhắc định dạng lại".
-  Đi qua `ILlmClient.ChatWithToolsAsync` (buffered, không stream token).
+- **Native (mặc định):** vòng lặp do **Microsoft Agent Framework** (`ChatClientAgent`) sở hữu. Tool được
+  quảng bá qua tham số `tools`; schema sinh bằng `AIFunctionFactory`. Mọi quan tâm riêng của app được
+  gắn lên pipeline MAF thay vì tự viết loop: gọi tool qua `DynamicToolInvoker` (policy + log) bằng
+  `FunctionInvoker`; log mỗi lượt gọi model, sự kiện "thinking" và cap token mỗi lượt nằm trong
+  `AgentRunInstrumentationChatClient` (đặt dưới lớp function-invocation); `maxSteps` map sang
+  `MaximumIterationsPerRequest`; `stopWhen` và build-succeeded early-exit dùng
+  `FunctionInvocationContext.Terminate`; vẫn giữ lượt "chốt kết quả" khi cạn bước. Buffered, không stream token.
 - **Fallback (prompt-based):** vòng lặp ReAct cũ — schema + hợp đồng JSON action nằm trong system prompt
   (`tool-agent.v1.md`), `AgentActionParser` parse phản hồi, có vòng nudge cho model yếu. Đi qua
   `ChatWithLogAsync` (có stream token).
@@ -171,6 +174,26 @@ Việc **gọi tool** ở cả hai đường vẫn dùng chung `DynamicToolInvok
 khác ở **cách model yêu cầu** tool. Chọn đường theo cấu hình `Llm:NativeToolCalling` (xem `appsettings.json`):
 `Enabled=false` ép tất cả về fallback; `FallbackModelIds` liệt kê ModelId không hỗ trợ tool-calling.
 `NativeToolCallingPolicy` đóng gói quyết định này (thuần, test được).
+
+### 5.9. Hai engine chạy delivery pipeline (DB worker + MAF workflow)
+Quy trình delivery (POC → Architecture → Implementation → CodeReview → Testing, kèm vòng Testing↔BugFix)
+chạy được trên **một trong hai engine**, chọn bằng `Workflows:UseMafEngine` (mặc định `false`):
+
+- **DB-task worker (mặc định):** `AgentTaskWorker` (BackgroundService) poll `AgentTask` ở `Queued`, chạy
+  từng bước rồi hand-off bằng logic mệnh lệnh — cổng duyệt tuyến tính (`WaitingForHuman` →
+  `ApproveStageUseCase` enqueue bước kế) và chu trình tự sửa lỗi Testing↔BugFix. Trạng thái nằm hoàn toàn
+  trong bảng `WorkflowRun`/`AgentTask`.
+- **MAF workflow engine (opt-in):** đồ thị workflow của Microsoft Agent Framework (`Services/Workflows/Maf`).
+  `DeliveryWorkflowFactory` dựng graph (một executor mỗi bước + `RequestPort` làm cổng duyệt giữ-nguyên-nội-dung
+  + vòng Testing↔BugFix); `MafDeliveryEngine` start/resume/approve/retry và bơm sự kiện; checkpoint bền vững
+  qua `EfWorkflowCheckpointStore` (bảng `WorkflowCheckpoint`) nên run **sống sót qua restart** và resume từ
+  checkpoint sau cổng duyệt (resume tự phát lại đúng request đang chờ — không cần serialize). `MafWorkflowWorker`
+  lái các run delivery `Queued`.
+
+Cả hai engine **ghi cùng** bảng `WorkflowRun`/`AgentTask` nên UI/progress/status/usage **không đổi**.
+Bật/tắt cờ là thao tác an toàn, đảo ngược được: engine tắt thì `MafWorkflowWorker` nằm im và các use case
+giữ đúng đường DB-worker cũ. Mục đích tách cờ: thử pattern workflow/multi-agent của MAF mà không đập bỏ
+luồng bền vững + cổng duyệt vốn đã chạy tốt.
 
 ---
 
