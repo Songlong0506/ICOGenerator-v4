@@ -22,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<AgentModelCallLog> AgentModelCallLogs => Set<AgentModelCallLog>();
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
     public DbSet<AgentTask> AgentTasks => Set<AgentTask>();
+    public DbSet<WorkflowCheckpoint> WorkflowCheckpoints => Set<WorkflowCheckpoint>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -129,6 +130,17 @@ public class AppDbContext : DbContext
             b.Property(x => x.ModelId).HasMaxLength(200);
             b.Property(x => x.Endpoint).HasMaxLength(500);
             b.Property(x => x.Purpose).HasMaxLength(100);
+        });
+
+        // MAF workflow checkpoints (opt-in engine). Looked up by session (the WorkflowRun id) and by the
+        // (session, checkpoint) pair the store resolves; Data is the JSON payload, intentionally a LOB.
+        builder.Entity<WorkflowCheckpoint>(b =>
+        {
+            b.Property(x => x.SessionId).HasMaxLength(100);
+            b.Property(x => x.CheckpointId).HasMaxLength(100);
+            b.Property(x => x.ParentCheckpointId).HasMaxLength(100);
+            b.HasIndex(x => x.SessionId);
+            b.HasIndex(x => new { x.SessionId, x.CheckpointId }).IsUnique();
         });
     }
 }
