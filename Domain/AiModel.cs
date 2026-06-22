@@ -7,8 +7,8 @@ public class AiModel
     [MaxLength(100)] public string Name { get; set; } = string.Empty;
     [MaxLength(100)] public string Provider { get; set; } = "OpenAI-Compatible";
     [MaxLength(200)] public string ModelId { get; set; } = string.Empty;
-    [MaxLength(500)] public string Endpoint { get; set; } = "http://127.0.0.1:1234/v1";
-    [MaxLength(1000)] public string ApiKey { get; set; } = "lm-studio";
+    [MaxLength(500)] public string Endpoint { get; set; }
+    [MaxLength(1000)] public string ApiKey { get; set; }
     public int ContextWindow { get; set; } = 128000;
     public decimal InputPricePerMillionTokens { get; set; }
     public decimal OutputPricePerMillionTokens { get; set; }

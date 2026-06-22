@@ -41,8 +41,7 @@ public class OpenAIChatClientFactory : IChatClientFactory
             NetworkTimeout = Timeout.InfiniteTimeSpan,
         };
 
-        var apiKey = string.IsNullOrWhiteSpace(model.ApiKey) ? "lm-studio" : model.ApiKey;
-        var client = new OpenAIClient(new ApiKeyCredential(apiKey), options);
+        var client = new OpenAIClient(new ApiKeyCredential(model.ApiKey), options);
         return client.GetChatClient(model.ModelId).AsIChatClient();
     }
 }
