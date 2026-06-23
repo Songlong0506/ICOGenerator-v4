@@ -3,6 +3,8 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
+using ICOGenerator.Services.Tools.Abstractions;
+using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Logging;
@@ -28,7 +30,8 @@ public class AgentRunService
 
     private readonly AppDbContext _db;
     private readonly IToolRegistry _toolRegistry;
-    private readonly DynamicToolInvoker _invoker;
+    private readonly ToolPolicyService _toolPolicy;
+    private readonly IToolExecutionLogger _toolLogger;
     private readonly AgentPromptBuilder _promptBuilder;
     private readonly WorkspaceTools _workspaceTools;
     private readonly IModelCallLogger _modelCallLogger;
@@ -36,16 +39,16 @@ public class AgentRunService
     private readonly ILoggerFactory _loggerFactory;
     private readonly int _requestTimeoutSeconds;
 
-    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, DynamicToolInvoker invoker, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, IChatClientFactory chatClientFactory, ILoggerFactory loggerFactory, IConfiguration configuration)
-    { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _chatClientFactory = chatClientFactory; _loggerFactory = loggerFactory; _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds); }
+    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, ToolPolicyService toolPolicy, IToolExecutionLogger toolLogger, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, IChatClientFactory chatClientFactory, ILoggerFactory loggerFactory, IConfiguration configuration)
+    { _db = db; _toolRegistry = toolRegistry; _toolPolicy = toolPolicy; _toolLogger = toolLogger; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _chatClientFactory = chatClientFactory; _loggerFactory = loggerFactory; _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds); }
 
     // ── Native function-calling path ─────────────────────────────────────────────────────────────────
     // Built on Microsoft Agent Framework: a ChatClientAgent + AgentSession own the ReAct tool loop, so
     // there is no hand-written turn loop here. Cross-cutting concerns are middleware: per-model-call
     // logging/deadline/token-cap is the shared ModelCallLoggingChatClient; each tool is an
-    // InvokerBackedAIFunction that validates arguments and routes execution through the shared
-    // DynamicToolInvoker (policy + logging + reflection). This method only orchestrates the step budget
-    // around the agent run.
+    // InvokerBackedAIFunction that validates arguments and layers the per-agent policy + execution
+    // logging over the framework's own argument binding + invocation. This method only orchestrates the
+    // step budget around the agent run.
     //
     // Budget mirrors a step ceiling driven off the framework's per-request iteration cap, in three phases:
     // (1) run within the expected budget; (2) if it didn't converge, nudge it to finish, granting turns up
@@ -67,11 +70,12 @@ public class AgentRunService
         var hardCap = maxSteps * AutoContinueFactor;
         var model = agent.AiModel; // guaranteed non-null above.
 
-        // Tools: name + JSON schema from AIFunctionFactory (the method signature); invocation routed back
-        // through DynamicToolInvoker, with the truncated/missing-argument guard. (See InvokerBackedAIFunction.)
+        // Tools: name + JSON schema + argument binding + invocation all come from AIFunctionFactory (the
+        // method signature); InvokerBackedAIFunction adds the per-agent policy, execution logging and the
+        // truncated/missing-argument guard. (See InvokerBackedAIFunction.)
         var aiTools = tools
             .Select(t => (AITool)new InvokerBackedAIFunction(
-                AIFunctionFactory.Create(t.Method, t.Instance), t, _invoker, onProgress))
+                AIFunctionFactory.Create(t.Method, t.Instance), t, _toolPolicy, _toolLogger, onProgress))
             .ToList();
 
         // Pipeline: OpenAI client → per-call logging/deadline middleware → function-invocation loop.
