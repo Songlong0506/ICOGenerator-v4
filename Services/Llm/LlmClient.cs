@@ -256,7 +256,10 @@ public class LlmClient : ILlmClient
                 // (same ChatMessage refs) so the caller can append them to its running history.
                 ResponseMessages = response.Messages.ToList(),
                 FunctionCalls = functionCalls,
-                Text = text
+                Text = text,
+                // finish_reason=length on a tool-call turn means the arguments JSON was likely cut off,
+                // so a FunctionCall may carry incomplete/empty arguments; let the caller react.
+                Truncated = response.FinishReason == ChatFinishReason.Length
             };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

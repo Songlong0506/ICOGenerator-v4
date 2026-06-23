@@ -164,6 +164,11 @@ Thông tin đăng nhập đọc từ cấu hình `Auth:Username`/`Auth:Password`
   `FunctionCallContent` có cấu trúc — **không** parse JSON action, **không** vòng "nhắc định dạng lại".
   Đi qua `ILlmClient.ChatWithToolsAsync` (stream + gộp bằng `ToChatResponse()`; stream để tránh bị
   rớt kết nối idle khi reply dài, đồng thời vẫn đẩy token live qua `onToken`).
+  Stream có thể trả tool call **thiếu đối số** (mảnh `arguments` không được gộp, hoặc JSON bị cắt do
+  `finish_reason=length`); nếu cứ chạy thì tham số bắt buộc bị bind null và làm hỏng dữ liệu âm thầm
+  (vd `SetPocContent` không có `content` xoá sạch POC nhưng vẫn báo thành công). Vì vậy
+  `ChatWithToolsAsync` đánh dấu `Truncated`, còn vòng lặp dùng `ToolArgumentValidator` để bỏ qua call
+  thiếu đối số bắt buộc và trả observation yêu cầu model gọi lại — thay vì kết thúc run với kết quả rỗng.
 - **Fallback (prompt-based):** vòng lặp ReAct cũ — schema + hợp đồng JSON action nằm trong system prompt
   (`tool-agent.v1.md`), `AgentActionParser` parse phản hồi, có vòng nudge cho model yếu. Đi qua
   `ChatWithLogAsync` (có stream token).

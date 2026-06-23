@@ -26,4 +26,12 @@ public sealed class LlmToolCallResult
 
     /// <summary>The model's text this turn (the final answer when there are no tool calls).</summary>
     public string Text { get; init; } = string.Empty;
+
+    /// <summary>
+    /// True when the model stopped on finish_reason=length (hit the token cap). On a tool-call turn
+    /// this usually means the arguments JSON was cut off mid-stream, so a <see cref="FunctionCalls"/>
+    /// entry can arrive with missing/empty arguments — the caller should treat such a call as
+    /// incomplete rather than run it.
+    /// </summary>
+    public bool Truncated { get; init; }
 }
