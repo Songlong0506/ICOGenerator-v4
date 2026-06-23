@@ -66,7 +66,7 @@ public class AgentRunService
     // ── Native function-calling path (default) ───────────────────────────────────────────────────────
     // Built on Microsoft Agent Framework: a ChatClientAgent + AgentSession own the ReAct tool loop, so
     // there is no hand-written turn loop here. Cross-cutting concerns are middleware: per-model-call
-    // logging/deadline/token-cap is AgentModelCallChatClient; each tool is an InvokerBackedAIFunction that
+    // logging/deadline/token-cap is the shared ModelCallLoggingChatClient; each tool is an InvokerBackedAIFunction that
     // validates arguments and routes execution through the shared DynamicToolInvoker (policy + logging +
     // reflection). This method only orchestrates the step budget around the agent run.
     //
@@ -91,9 +91,13 @@ public class AgentRunService
             .ToList();
 
         // Pipeline: OpenAI client → per-call logging/deadline middleware → function-invocation loop.
-        var modelClient = new AgentModelCallChatClient(
-            _chatClientFactory.Create(model), model, agent, _modelCallLogger, projectId, workflowRunId,
-            _requestTimeoutSeconds, maxSteps, hardCap, onProgress);
+        // throwOnFailure: a failed model call ends the run (mirrors the old loop) rather than being treated
+        // as the agent's final answer.
+        var modelClient = new ModelCallLoggingChatClient(
+            _chatClientFactory.Create(model), model, _modelCallLogger,
+            new ModelCallLogContext(projectId, agent, "AgentRun", workflowRunId),
+            _requestTimeoutSeconds, throwOnFailure: true,
+            onProgress: onProgress, maxSteps: maxSteps, hardCap: hardCap);
         var functionInvoker = new FunctionInvokingChatClient(modelClient, _loggerFactory)
         {
             MaximumIterationsPerRequest = maxSteps
@@ -169,7 +173,7 @@ public class AgentRunService
     // the agent finished UNDER its iteration budget (the model answered without asking for more tools);
     // using the whole budget means it was cut off mid-work and a follow-up/salvage turn is needed.
     private static async Task<(bool converged, string text)> RunAgentPhaseAsync(
-        ChatClientAgent runtimeAgent, AgentSession session, string message, AgentModelCallChatClient modelClient,
+        ChatClientAgent runtimeAgent, AgentSession session, string message, ModelCallLoggingChatClient modelClient,
         int budget, Action<string>? onToken, ChatClientAgentRunOptions? runOptions, CancellationToken cancellationToken)
     {
         var startStep = modelClient.StepCount;
@@ -226,8 +230,9 @@ public class AgentRunService
                     + "rồi trả về JSON {\"type\":\"final\",\"content\":\"...\"} khi đã xong." });
             }
 
-            var callResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature, onToken, cancellationToken);
-            await _modelCallLogger.LogAsync(projectId, agent, callResult, step, "AgentRun", workflowRunId);
+            // Logging now lives in the shared middleware (inside ChatWithLogAsync); pass the step/purpose via context.
+            var callResult = await _llm.ChatWithLogAsync(agent.AiModel!, messages, agent.Temperature,
+                new ModelCallLogContext(projectId, agent, "AgentRun", workflowRunId, step), onToken, cancellationToken);
 
             // A failed LLM call (HTTP error / timeout) must not be treated as the agent's
             // final answer — surface it so the task is marked Failed instead of "done".
@@ -332,8 +337,8 @@ public class AgentRunService
             + "Hãy trả về DUY NHẤT một JSON {\"type\":\"final\",\"content\":\"...\"} (không kèm chữ nào khác, không markdown) "
             + "tóm tắt: stack đã chọn, các file/tính năng đã tạo được, cách cài đặt & chạy, và phần nào còn thiếu/chưa hoàn tất." });
 
-        var salvageCall = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature, onToken, cancellationToken);
-        await _modelCallLogger.LogAsync(projectId, agent, salvageCall, hardCap + 1, "AgentRun", workflowRunId);
+        var salvageCall = await _llm.ChatWithLogAsync(agent.AiModel!, messages, agent.Temperature,
+            new ModelCallLogContext(projectId, agent, "AgentRun", workflowRunId, hardCap + 1), onToken, cancellationToken);
         if (salvageCall.IsSuccess
             && _actionParser.TryParse(salvageCall.Content, out var salvageAction)
             && salvageAction != null

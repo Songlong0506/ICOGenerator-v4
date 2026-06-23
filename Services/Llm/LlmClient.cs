@@ -1,165 +1,110 @@
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Logging;
 using Microsoft.Extensions.AI;
-using System.ClientModel;
-using System.Diagnostics;
-using System.Text;
-using System.Text.Json;
 
 namespace ICOGenerator.Services.Llm;
 
 public class LlmClient : ILlmClient
 {
-    private static readonly JsonSerializerOptions SerializeOptions = new() { WriteIndented = true };
-
-    // Overall per-call deadline, enforced via a linked CancellationToken below (the SDK's own network
-    // timeout is disabled in OpenAIChatClientFactory). Configurable via Llm:RequestTimeoutSeconds.
+    // Overall per-call deadline, enforced inside ModelCallLoggingChatClient (the SDK's own network timeout
+    // is disabled in OpenAIChatClientFactory). Configurable via Llm:RequestTimeoutSeconds.
     private const int DefaultRequestTimeoutSeconds = 600;
 
     private readonly IChatClientFactory _chatClientFactory;
+    private readonly IModelCallLogger _modelCallLogger;
+    private readonly StructuredOutputPolicy _structuredOutputPolicy;
     private readonly ILogger<LlmClient> _logger;
     private readonly int _requestTimeoutSeconds;
 
-    public LlmClient(IChatClientFactory chatClientFactory, IConfiguration configuration, ILogger<LlmClient> logger)
+    public LlmClient(IChatClientFactory chatClientFactory, IModelCallLogger modelCallLogger, StructuredOutputPolicy structuredOutputPolicy, IConfiguration configuration, ILogger<LlmClient> logger)
     {
         _chatClientFactory = chatClientFactory;
+        _modelCallLogger = modelCallLogger;
+        _structuredOutputPolicy = structuredOutputPolicy;
         _logger = logger;
         _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
     }
 
-    public async Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+    public async Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
     {
-        var stopwatch = Stopwatch.StartNew();
-        var result = new LlmCallResult
-        {
-            Endpoint = model.Endpoint,
-            ModelId = model.ModelId,
-            ModelName = model.Name,
-            PromptTokens = TokenEstimator.Estimate(string.Join("\n", messages.Select(x => x.Content)))
-        };
-
-        var maxTokens = MaxOutputTokenResolver.Resolve(model, result.PromptTokens);
-
-        // Log the request in the same shape as before so the call-log UI is unchanged. The actual wire
-        // request is now produced by the OpenAI SDK; the "thinking" field is injected by
-        // ThinkingDisabledHandler in the HttpClient pipeline (see OpenAIChatClientFactory).
-        result.RequestJson = JsonSerializer.Serialize(new ChatCompletionRequestDto
-        {
-            Model = model.ModelId,
-            Messages = messages,
-            Temperature = temperature,
-            MaxTokens = maxTokens,
-            Stream = true,
-            Thinking = new ThinkingDto { Type = "disabled" }
-        }, SerializeOptions);
-
-        // Link the caller's token (e.g. app shutdown) with the request deadline so either can unwind the call.
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_requestTimeoutSeconds));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-        var token = linkedCts.Token;
-
-        // The chat client wraps the pooled (IHttpClientFactory-owned) HttpClient, so it is intentionally
-        // NOT disposed here — disposing it could tear down the shared connection pool.
-        var chatClient = _chatClientFactory.Create(model);
+        // Compose the shared middleware over the per-model OpenAI client: it owns the deadline, token cap,
+        // result-building, error mapping and DB logging that used to live inline here.
+        LlmCallResult? captured = null;
+        var client = BuildClient(model, logContext, r => captured = r);
 
         var chatMessages = messages.Select(m => new ChatMessage(MapRole(m.Role), m.Content)).ToList();
-        var options = new ChatOptions
+        var options = new ChatOptions { Temperature = (float)temperature };
+
+        await foreach (var update in client.GetStreamingResponseAsync(chatMessages, options, cancellationToken).ConfigureAwait(false))
         {
-            Temperature = (float)temperature,
-            MaxOutputTokens = maxTokens
-        };
+            var text = update.Text;
+            // Surface the delta live. A misbehaving sink must never break the LLM call, so swallow anything
+            // it throws (the buffered result is still returned).
+            if (!string.IsNullOrEmpty(text) && onToken != null)
+            {
+                try { onToken(text); }
+                catch { /* ignore UI streaming failures */ }
+            }
+        }
+
+        // The middleware reports the built result (success or swallowed failure) via the onCompleted callback.
+        return captured ?? throw new InvalidOperationException("Model call produced no result.");
+    }
+
+    public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessageDto> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+    {
+        // Models not opted into structured output keep the exact streaming + manual-parse behaviour
+        // (including live token streaming for the requirement draft).
+        if (!_structuredOutputPolicy.UseStructuredOutput(model))
+        {
+            var plain = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
+            return (plain, null);
+        }
+
+        LlmCallResult? captured = null;
+        var client = BuildClient(model, logContext, r => captured = r);
+
+        var chatMessages = messages.Select(m => new ChatMessage(MapRole(m.Role), m.Content)).ToList();
+        var options = new ChatOptions { Temperature = (float)temperature };
 
         try
         {
-            var contentBuilder = new StringBuilder();
-            ChatFinishReason? finishReason = null;
+            // GetResponseAsync<T> sets response_format to a JSON schema derived from T and deserializes the
+            // reply. It routes through our middleware's (non-streaming) GetResponseAsync, so the call is still
+            // deadline-bounded, token-capped and logged identically.
+            var response = await client.GetResponseAsync<T>(chatMessages, options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var result = captured ?? throw new InvalidOperationException("Model call produced no result.");
 
-            await foreach (var update in chatClient.GetStreamingResponseAsync(chatMessages, options, token))
-            {
-                if (update.FinishReason is { } reason)
-                    finishReason = reason;
-
-                var text = update.Text;
-                if (!string.IsNullOrEmpty(text))
-                {
-                    contentBuilder.Append(text);
-
-                    // Surface the delta live. A misbehaving sink must never break the LLM call, so swallow
-                    // anything it throws (the buffered result is still returned).
-                    if (onToken != null)
-                    {
-                        try { onToken(text); }
-                        catch { /* ignore UI streaming failures */ }
-                    }
-                }
-            }
-
-            stopwatch.Stop();
-
-            result.Content = contentBuilder.ToString();
-            result.ExtractedContent = result.Content;
-            result.ResponseText = result.Content;
-            result.DurationMs = stopwatch.ElapsedMilliseconds;
-            result.HttpStatusCode = 200;
-            result.IsSuccess = true;
-            // finish_reason == "length" means the model hit its token cap mid-output (often truncated
-            // JSON); flag it so a cut-off answer is distinguishable from a clean one.
-            if (finishReason == ChatFinishReason.Length)
-                result.ErrorMessage = "Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).";
-            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
-            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
-            return result;
+            // A 200 whose JSON doesn't fit T → null value → caller parses result.Content with its own parser.
+            return result.IsSuccess && response.TryGetResult(out var value) ? (result, value) : (result, null);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // The caller (e.g. app shutdown) cancelled — propagate so the worker treats it as a clean stop.
             throw;
-        }
-        catch (OperationCanceledException)
-        {
-            // Our own deadline fired (stalled/slow stream): return a failed result instead of hanging.
-            stopwatch.Stop();
-            result.DurationMs = stopwatch.ElapsedMilliseconds;
-            result.IsSuccess = false;
-            result.ErrorMessage = $"LLM request timed out after {_requestTimeoutSeconds}s.";
-            result.Content = result.ErrorMessage;
-            result.ResponseText = result.ErrorMessage;
-            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
-            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
-            return result;
-        }
-        catch (ClientResultException ex)
-        {
-            // Non-2xx from the API (incl. OpenAI-compatible servers). Keep the short message in the
-            // DB-persisted, UI-visible fields; the full exception goes to the logger.
-            stopwatch.Stop();
-            _logger.LogError(ex, "LLM call to {Endpoint} ({ModelId}) failed.", model.Endpoint, model.ModelId);
-            result.HttpStatusCode = ex.Status;
-            result.DurationMs = stopwatch.ElapsedMilliseconds;
-            result.IsSuccess = false;
-            result.ErrorMessage = $"API error: {ex.Status}";
-            result.Content = $"API error: {ex.Status}\n\n{ex.Message}";
-            result.ResponseText = ex.Message;
-            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
-            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
-            return result;
         }
         catch (Exception ex)
         {
-            stopwatch.Stop();
+            // Structured output failed (schema gen / deserialization / unsupported server). Keep the flow
+            // alive: reuse the captured result if the call reached the model, else do a plain call so the
+            // caller can still parse text.
+            _logger.LogWarning(ex, "Structured output for {ModelId} failed; falling back to manual parse.", model.ModelId);
+            if (captured != null)
+                return (captured, null);
 
-            // Log the full exception, but keep only the short message in DB-persisted, UI-visible
-            // fields so internal stack/paths aren't leaked.
-            _logger.LogError(ex, "LLM call to {Endpoint} ({ModelId}) failed.", model.Endpoint, model.ModelId);
-            result.DurationMs = stopwatch.ElapsedMilliseconds;
-            result.IsSuccess = false;
-            result.ErrorMessage = ex.Message;
-            result.Content = ex.Message;
-            result.ResponseText = ex.Message;
-            result.CompletionTokens = TokenEstimator.Estimate(result.Content);
-            result.TotalTokens = result.PromptTokens + result.CompletionTokens;
-            return result;
+            var plain = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
+            return (plain, null);
         }
     }
+
+    // The chat client wraps the pooled (IHttpClientFactory-owned) HttpClient, so the OpenAI client is
+    // intentionally lightweight/per-call; the shared middleware is layered on via ChatClientBuilder.
+    private IChatClient BuildClient(AiModel model, ModelCallLogContext logContext, Action<LlmCallResult> onCompleted) =>
+        _chatClientFactory.Create(model)
+            .AsBuilder()
+            .Use(inner => new ModelCallLoggingChatClient(
+                inner, model, _modelCallLogger, logContext, _requestTimeoutSeconds,
+                throwOnFailure: false, onCompleted: onCompleted))
+            .Build();
 
     private static ChatRole MapRole(string role) => role?.ToLowerInvariant() switch
     {
@@ -168,7 +113,6 @@ public class LlmClient : ILlmClient
         "tool" => ChatRole.Tool,
         _ => ChatRole.User
     };
-
 }
 
 public class LlmCallResult

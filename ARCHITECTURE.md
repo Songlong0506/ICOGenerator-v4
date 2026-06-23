@@ -163,10 +163,12 @@ Thông tin đăng nhập đọc từ cấu hình `Auth:Username`/`Auth:Password`
   + `AgentSession` **tự lo vòng lặp ReAct** (gọi model → gọi tool → lặp), nên `AgentRunService` **không
   còn vòng `for` tự viết**. Tool vẫn quảng bá qua tham số `tools` của OpenAI, schema sinh bằng
   `AIFunctionFactory` từ chữ ký method. Các mối quan tâm cắt ngang được tách thành **middleware**:
-  - `AgentModelCallChatClient` (`DelegatingChatClient`): mỗi lần gọi model → đặt deadline, tính trần
-    completion-token, log request/response vào DB (`IModelCallLogger`), đẩy progress "thinking" theo
-    bước, và biến một lời gọi lỗi thành lỗi kết thúc run. (Token live do orchestrator đẩy từ
-    `RunStreamingAsync` nên không emit ở đây để khỏi lặp.)
+  - `ModelCallLoggingChatClient` (`DelegatingChatClient`): mỗi lần gọi model → đặt deadline, tính trần
+    completion-token, **dựng `LlmCallResult` + map lỗi API/timeout**, log request/response vào DB
+    (`IModelCallLogger`), đẩy progress "thinking" theo bước, và (khi `throwOnFailure`) biến một lời gọi
+    lỗi thành lỗi kết thúc run. (Token live do orchestrator đẩy từ `RunStreamingAsync` nên không emit ở
+    đây để khỏi lặp.) **Đây là middleware DUY NHẤT dùng chung cho cả hai đường** — `LlmClient` cũng
+    compose nó qua `ChatClientBuilder`, nên deadline/token-cap/log/dựng-result không còn bị viết lặp hai nơi.
   - `InvokerBackedAIFunction` (`DelegatingAIFunction`): bọc mỗi tool — lấy schema/tên từ `AIFunctionFactory`
     nhưng **định tuyến thực thi qua `DynamicToolInvoker`** (giữ nguyên policy + log + reflection), kèm
     chốt chặn `ToolArgumentValidator`: call thiếu đối số bắt buộc (args bị cắt do `finish_reason=length`
@@ -183,12 +185,23 @@ Thông tin đăng nhập đọc từ cấu hình `Auth:Username`/`Auth:Password`
   hiện không dùng ở đường này; model vẫn tự dừng khi xong việc.
 - **Fallback (prompt-based):** vòng lặp ReAct cũ tự viết — schema + hợp đồng JSON action nằm trong system
   prompt (`tool-agent.v1.md`), `AgentActionParser` parse phản hồi, có vòng nudge cho model yếu. Đi qua
-  `ChatWithLogAsync` (có stream token). Đường này **không** dùng Agent Framework.
+  `ChatWithLogAsync` (có stream token). Đường này **không** dùng Agent Framework — nhưng vẫn đi qua chung
+  `ModelCallLoggingChatClient` (logging nay nằm bên trong `ChatWithLogAsync`, caller không log riêng nữa).
 
 Việc **gọi tool** ở cả hai đường vẫn dùng chung `DynamicToolInvoker` (policy + log + reflection); chỉ
 khác ở **cách model yêu cầu** tool. Chọn đường theo cấu hình `Llm:NativeToolCalling` (xem `appsettings.json`):
 `Enabled=false` ép tất cả về fallback; `FallbackModelIds` liệt kê ModelId không hỗ trợ tool-calling.
 `NativeToolCallingPolicy` đóng gói quyết định này (thuần, test được).
+
+### 5.9. Structured output cho các lời gọi BA (opt-in)
+Các lời gọi của BA trả JSON (soạn 5 tài liệu, cổng kiểm tra đầy đủ, gợi ý chat) có thể dùng **structured
+output** của MEAI (`response_format: json_schema` qua `IChatClient.GetResponseAsync<T>`) thay vì chỉ nhắc
+model trả JSON rồi parse văn xuôi. `ILlmClient.ChatStructuredAsync<T>` lo việc này; khi structured **không**
+bật/không khả dụng/JSON không khớp schema thì trả `value = null` để caller **fallback** về parser tay cũ
+(`RequirementResponseParser`/`BAChatReplyParser`/`RequirementReadinessParser`) — không bao giờ fail trắng.
+Quyết định bật theo `StructuredOutputPolicy` (cấu hình `Llm:StructuredOutput`): **opt-in**, mặc định TẮT vì
+nhiều server local từ chối `response_format`; chỉ liệt kê ModelId chắc chắn hỗ trợ vào `ModelIds`. Mặc định
+tắt ⇒ hành vi **giữ nguyên** đường text + parser cũ.
 
 ---
 

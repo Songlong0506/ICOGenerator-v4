@@ -2,6 +2,9 @@ using System.Text.Json.Serialization;
 
 namespace ICOGenerator.Services.Llm;
 
+// Input contract for a chat turn passed to ILlmClient. Mapped to Microsoft.Extensions.AI's ChatMessage
+// inside LlmClient; the wire request is produced by the OpenAI SDK, and the "thinking":{"type":"disabled"}
+// field is injected by ThinkingDisabledHandler in the HttpClient pipeline (see OpenAIChatClientFactory).
 public class ChatMessageDto
 {
     [JsonPropertyName("role")]
@@ -9,31 +12,4 @@ public class ChatMessageDto
 
     [JsonPropertyName("content")]
     public string Content { get; set; } = string.Empty;
-}
-
-public class ChatCompletionRequestDto
-{
-    [JsonPropertyName("model")]
-    public string Model { get; set; } = string.Empty;
-
-    [JsonPropertyName("messages")]
-    public List<ChatMessageDto> Messages { get; set; } = [];
-
-    [JsonPropertyName("temperature")]
-    public double Temperature { get; set; }
-
-    [JsonPropertyName("max_tokens")]
-    public int MaxTokens { get; set; } = 23000;
-
-    [JsonPropertyName("stream")]
-    public bool Stream { get; set; } = false;
-
-    [JsonPropertyName("thinking")]
-    public ThinkingDto? Thinking { get; set; }
-}
-
-public class ThinkingDto
-{
-    [JsonPropertyName("type")]
-    public string Type { get; set; } = "disabled";
 }
