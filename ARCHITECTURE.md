@@ -157,21 +157,33 @@ Thông tin đăng nhập đọc từ cấu hình `Auth:Username`/`Auth:Password`
 `AccountController` mỏng: validate qua use case rồi `SignInAsync`/`SignOutAsync`.
 
 ### 5.8. Hai đường thực thi agent (native tool-calling + fallback)
-`AgentRunService.RunAsync` chọn một trong hai vòng lặp tuỳ model:
+`AgentRunService.RunAsync` chọn một trong hai đường tuỳ model:
 
-- **Native (mặc định):** tool được "quảng bá" cho model qua tham số `tools` của OpenAI. Schema sinh tự
-  động bằng `AIFunctionFactory` từ chữ ký method (không nhét schema vào prompt). Model trả về
-  `FunctionCallContent` có cấu trúc — **không** parse JSON action, **không** vòng "nhắc định dạng lại".
-  Đi qua `ILlmClient.ChatWithToolsAsync` (stream + gộp bằng `ToChatResponse()`; stream để tránh bị
-  rớt kết nối idle khi reply dài, đồng thời vẫn đẩy token live qua `onToken`).
-  Stream có thể trả tool call **thiếu đối số** (mảnh `arguments` không được gộp, hoặc JSON bị cắt do
-  `finish_reason=length`); nếu cứ chạy thì tham số bắt buộc bị bind null và làm hỏng dữ liệu âm thầm
-  (vd `SetPocContent` không có `content` xoá sạch POC nhưng vẫn báo thành công). Vì vậy
-  `ChatWithToolsAsync` đánh dấu `Truncated`, còn vòng lặp dùng `ToolArgumentValidator` để bỏ qua call
-  thiếu đối số bắt buộc và trả observation yêu cầu model gọi lại — thay vì kết thúc run với kết quả rỗng.
-- **Fallback (prompt-based):** vòng lặp ReAct cũ — schema + hợp đồng JSON action nằm trong system prompt
-  (`tool-agent.v1.md`), `AgentActionParser` parse phản hồi, có vòng nudge cho model yếu. Đi qua
-  `ChatWithLogAsync` (có stream token).
+- **Native (mặc định) — dùng Microsoft Agent Framework (`Microsoft.Agents.AI`):** một `ChatClientAgent`
+  + `AgentSession` **tự lo vòng lặp ReAct** (gọi model → gọi tool → lặp), nên `AgentRunService` **không
+  còn vòng `for` tự viết**. Tool vẫn quảng bá qua tham số `tools` của OpenAI, schema sinh bằng
+  `AIFunctionFactory` từ chữ ký method. Các mối quan tâm cắt ngang được tách thành **middleware**:
+  - `AgentModelCallChatClient` (`DelegatingChatClient`): mỗi lần gọi model → đặt deadline, tính trần
+    completion-token, log request/response vào DB (`IModelCallLogger`), đẩy progress "thinking" theo
+    bước, và biến một lời gọi lỗi thành lỗi kết thúc run. (Token live do orchestrator đẩy từ
+    `RunStreamingAsync` nên không emit ở đây để khỏi lặp.)
+  - `InvokerBackedAIFunction` (`DelegatingAIFunction`): bọc mỗi tool — lấy schema/tên từ `AIFunctionFactory`
+    nhưng **định tuyến thực thi qua `DynamicToolInvoker`** (giữ nguyên policy + log + reflection), kèm
+    chốt chặn `ToolArgumentValidator`: call thiếu đối số bắt buộc (args bị cắt do `finish_reason=length`
+    hay không gộp được) bị **từ chối** và trả observation yêu cầu model gọi lại — thay vì bind null rồi
+    làm hỏng dữ liệu âm thầm (vd `SetPocContent` không có `content`).
+
+  Ngân sách bước được mô phỏng qua trần lặp `FunctionInvokingChatClient.MaximumIterationsPerRequest`
+  trong **ba pha** trên cùng một `AgentSession`: (1) chạy trong ngân sách kỳ vọng; (2) nếu chưa xong thì
+  nhắc "hoàn tất nốt" và cấp thêm tới trần cứng (`maxSteps * AutoContinueFactor`); (3) nếu vẫn chưa xong
+  thì một lượt **salvage** không-tool để chốt tóm tắt phần đã làm (file đã nằm trên đĩa) thay vì fail
+  trắng. Quy ước phát hiện "đã hội tụ": pha kết thúc khi dùng **ít hơn** ngân sách của nó (model trả lời
+  mà không xin thêm tool). *Lưu ý:* hai short-circuit cũ trong vòng lặp (`stopWhen`, thoát sớm khi
+  "Build succeeded") **không** được port — chúng xung đột với vòng lặp do framework sở hữu, và `stopWhen`
+  hiện không dùng ở đường này; model vẫn tự dừng khi xong việc.
+- **Fallback (prompt-based):** vòng lặp ReAct cũ tự viết — schema + hợp đồng JSON action nằm trong system
+  prompt (`tool-agent.v1.md`), `AgentActionParser` parse phản hồi, có vòng nudge cho model yếu. Đi qua
+  `ChatWithLogAsync` (có stream token). Đường này **không** dùng Agent Framework.
 
 Việc **gọi tool** ở cả hai đường vẫn dùng chung `DynamicToolInvoker` (policy + log + reflection); chỉ
 khác ở **cách model yêu cầu** tool. Chọn đường theo cấu hình `Llm:NativeToolCalling` (xem `appsettings.json`):
