@@ -1,4 +1,5 @@
 using ICOGenerator.Domain;
+using Microsoft.Extensions.AI;
 
 namespace ICOGenerator.Services.Llm;
 
@@ -14,7 +15,7 @@ public interface ILlmClient
     /// surface the model "typing" live (e.g. push to the browser via SSE). The full content is still
     /// returned in the result; passing null keeps the call buffered as before.
     /// </param>
-    Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default);
+    Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Like <see cref="ChatWithLogAsync"/> but asks the model for structured output (a JSON object matching
@@ -27,5 +28,5 @@ public interface ILlmClient
     /// used / not available / not parseable — in which case the caller parses <see cref="LlmCallResult.Content"/>
     /// with its existing parser.
     /// </returns>
-    Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessageDto> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class;
+    Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class;
 }

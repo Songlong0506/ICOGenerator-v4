@@ -5,11 +5,11 @@ namespace ICOGenerator.Services.Llm;
 /// <summary>
 /// Decides whether a given model uses MEAI structured output (the OpenAI <c>response_format: json_schema</c>
 /// parameter) for the BA's JSON-returning calls, or the legacy "ask for JSON in the prompt then parse the
-/// text" path. Mirrors <see cref="NativeToolCallingPolicy"/>: config-bound and testable in isolation.
+/// text" path. Config-bound and testable in isolation.
 ///
 ///   "Llm": { "StructuredOutput": { "Enabled": true, "ModelIds": [ "gpt-4o-mini" ] } }
 ///
-/// Unlike the tool-calling policy this is an OPT-IN allowlist — structured output is only requested for the
+/// This is an OPT-IN allowlist — structured output is only requested for the
 /// listed model ids, and only when <c>Enabled</c> is true. The default (disabled, empty list) leaves every
 /// call on the existing text + hand-written-parser path, because many weak / local OpenAI-compatible
 /// servers reject the <c>response_format</c> parameter. Even when on, callers keep their parser as a

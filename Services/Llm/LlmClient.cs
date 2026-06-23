@@ -25,17 +25,16 @@ public class LlmClient : ILlmClient
         _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
     }
 
-    public async Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessageDto> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+    public async Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
     {
         // Compose the shared middleware over the per-model OpenAI client: it owns the deadline, token cap,
         // result-building, error mapping and DB logging that used to live inline here.
         LlmCallResult? captured = null;
         var client = BuildClient(model, logContext, r => captured = r);
 
-        var chatMessages = messages.Select(m => new ChatMessage(MapRole(m.Role), m.Content)).ToList();
         var options = new ChatOptions { Temperature = (float)temperature };
 
-        await foreach (var update in client.GetStreamingResponseAsync(chatMessages, options, cancellationToken).ConfigureAwait(false))
+        await foreach (var update in client.GetStreamingResponseAsync(messages, options, cancellationToken).ConfigureAwait(false))
         {
             var text = update.Text;
             // Surface the delta live. A misbehaving sink must never break the LLM call, so swallow anything
@@ -51,7 +50,7 @@ public class LlmClient : ILlmClient
         return captured ?? throw new InvalidOperationException("Model call produced no result.");
     }
 
-    public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessageDto> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+    public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
     {
         // Models not opted into structured output keep the exact streaming + manual-parse behaviour
         // (including live token streaming for the requirement draft).
@@ -64,7 +63,6 @@ public class LlmClient : ILlmClient
         LlmCallResult? captured = null;
         var client = BuildClient(model, logContext, r => captured = r);
 
-        var chatMessages = messages.Select(m => new ChatMessage(MapRole(m.Role), m.Content)).ToList();
         var options = new ChatOptions { Temperature = (float)temperature };
 
         try
@@ -72,7 +70,7 @@ public class LlmClient : ILlmClient
             // GetResponseAsync<T> sets response_format to a JSON schema derived from T and deserializes the
             // reply. It routes through our middleware's (non-streaming) GetResponseAsync, so the call is still
             // deadline-bounded, token-capped and logged identically.
-            var response = await client.GetResponseAsync<T>(chatMessages, options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var response = await client.GetResponseAsync<T>(messages, options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
             var result = captured ?? throw new InvalidOperationException("Model call produced no result.");
 
             // A 200 whose JSON doesn't fit T → null value → caller parses result.Content with its own parser.
@@ -105,14 +103,6 @@ public class LlmClient : ILlmClient
                 inner, model, _modelCallLogger, logContext, _requestTimeoutSeconds,
                 throwOnFailure: false, onCompleted: onCompleted))
             .Build();
-
-    private static ChatRole MapRole(string role) => role?.ToLowerInvariant() switch
-    {
-        "system" => ChatRole.System,
-        "assistant" => ChatRole.Assistant,
-        "tool" => ChatRole.Tool,
-        _ => ChatRole.User
-    };
 }
 
 public class LlmCallResult

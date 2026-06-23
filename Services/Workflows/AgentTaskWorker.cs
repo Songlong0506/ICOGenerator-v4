@@ -134,19 +134,16 @@ public class AgentTaskWorker : BackgroundService
             var prompt = promptBuilder.Build(task.Type, task.Input, project.IsUseBoschTemplate);
             var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
 
-            // POC giờ được dựng qua NHIỀU call (SetPocContent cho màn hình đầu, rồi các AppendPocContent
-            // cho phần còn lại) để không call nào phải chứa cả trang và bị cắt do giới hạn token. Vì vậy
-            // KHÔNG dừng sớm sau SetPocContent nữa — để agent nối hết các phần rồi tự kết bằng "final".
-            // Mỗi call ghi thẳng ra đĩa nên phần đã dựng vẫn được giữ kể cả khi chạm giới hạn bước.
-            Func<string, string, bool>? stopWhen = null;
-
+            // POC được dựng qua NHIỀU call (SetPocContent cho màn hình đầu, rồi các AppendPocContent cho
+            // phần còn lại) để không call nào phải chứa cả trang và bị cắt do giới hạn token. Agent tự nối
+            // hết các phần rồi kết thúc; mỗi call ghi thẳng ra đĩa nên phần đã dựng vẫn được giữ kể cả khi
+            // chạm giới hạn bước.
             var output = await agentRunService.RunAsync(
                 task.ProjectId,
                 task.AgentId.Value,
                 prompt,
                 maxSteps,
                 onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
-                stopWhen: stopWhen,
                 onToken: token => _progress.ReportToken(task.WorkflowRunId, token),
                 workflowRunId: task.WorkflowRunId,
                 cancellationToken: cancellationToken);
