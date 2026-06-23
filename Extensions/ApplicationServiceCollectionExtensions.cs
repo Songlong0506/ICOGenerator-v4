@@ -235,7 +235,20 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<AgentInstructionProvider>();
         services.AddScoped<AgentPromptBuilder>();
         services.AddScoped<AgentActionParser>();
+        // Concrete vẫn đăng ký: giữ vai trò default, giữ hằng MaxStepsReachedResult, và là đường fallback
+        // (prompt-based) mà bản MAF delegate sang cho model không hỗ trợ native tool-calling.
         services.AddScoped<AgentRunService>();
+
+#if USE_MAF_SPIKE
+        // SPIKE feature-flag: chọn engine chạy agent. Chỉ biên dịch khi build -p:EnableMafSpike=true.
+        services.AddScoped<ChatClientAgentRunService>();
+        services.AddScoped<IAgentRunService>(sp =>
+            sp.GetRequiredService<IConfiguration>().GetValue("Llm:AgentRuntime:UseAgentFramework", false)
+                ? sp.GetRequiredService<ChatClientAgentRunService>()
+                : sp.GetRequiredService<AgentRunService>());
+#else
+        services.AddScoped<IAgentRunService>(sp => sp.GetRequiredService<AgentRunService>());
+#endif
         return services;
     }
 

@@ -19,6 +19,17 @@
 		</PackageReference>
 	</ItemGroup>
 
+	<!-- SPIKE (opt-in): Microsoft Agent Framework POC thay đường native tool-calling của AgentRunService.
+	     TẮT mặc định nên build thường KHÔNG cần kéo thêm package và hành vi giữ nguyên. Bật bằng:
+	       dotnet build -p:EnableMafSpike=true
+	     rồi đặt cấu hình Llm:AgentRuntime:UseAgentFramework = true. Xem SPIKE-maf-agent.md. -->
+	<PropertyGroup Condition="'$(EnableMafSpike)' == 'true'">
+		<DefineConstants>$(DefineConstants);USE_MAF_SPIKE</DefineConstants>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(EnableMafSpike)' == 'true'">
+		<PackageReference Include="Microsoft.Agents.AI" Version="1.0.0" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<None Update="Prompts/**/*.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<None Update="Prompts/**/*.css" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
