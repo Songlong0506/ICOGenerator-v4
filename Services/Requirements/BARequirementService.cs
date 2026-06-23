@@ -7,6 +7,7 @@ using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements.Templates;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -79,22 +80,16 @@ public class BARequirementService
             .ToListAsync(cancellationToken);
         recent.Reverse();
 
-        var messages = new List<ChatMessageDto>
+        var messages = new List<ChatMessage>
         {
-            new()
-            {
-                Role = "system",
-                Content = _promptTemplateService.Get("BA/requirement-chat.v1.md")
-            }
+            new(ChatRole.System, _promptTemplateService.Get("BA/requirement-chat.v1.md"))
         };
-        messages.AddRange(recent.Select(c => new ChatMessageDto
-        {
-            Role = c.Role == "assistant" ? "assistant" : "user",
+        messages.AddRange(recent.Select(c => new ChatMessage(
+            c.Role == "assistant" ? ChatRole.Assistant : ChatRole.User,
             // Lượt cũ của BA được "dựng lại" đúng JSON {message, suggestions}. Nếu chỉ đưa text thuần,
             // model thấy phản hồi trước của mình là văn xuôi và bắt chước → bỏ JSON từ lượt 2 trở đi,
             // mất luôn gợi ý. Đưa lại đúng format giúp model giữ JSON ở mọi lượt.
-            Content = c.Role == "assistant" ? BuildAssistantContext(c) : c.Message
-        }));
+            c.Role == "assistant" ? BuildAssistantContext(c) : c.Message)));
 
         // BA được nhắc trả JSON {message, suggestions}: dùng structured output khi model được bật, ngược lại
         // parser luôn fallback an toàn về text thuần.
@@ -208,18 +203,10 @@ public class BARequirementService
             fsdTemplate,
             userStoriesTemplate);
 
-        var messages = new List<ChatMessageDto>
+        var messages = new List<ChatMessage>
         {
-            new()
-            {
-                Role = "system",
-                Content = _promptTemplateService.Get("BA/requirement-draft.v1.md")
-            },
-            new()
-            {
-                Role = "user",
-                Content = prompt
-            }
+            new(ChatRole.System, _promptTemplateService.Get("BA/requirement-draft.v1.md")),
+            new(ChatRole.User, prompt)
         };
 
         Report("tool", "Đang gọi AI để soạn BRD, SRS, FSD, User Stories, AI Design Spec…");
@@ -270,18 +257,10 @@ public class BARequirementService
     // cứ cho qua để không chặn cứng việc sinh tài liệu.
     private async Task<RequirementReadiness> CheckReadinessAsync(Guid projectId, Agent ba, AiModel model, string requirementBrief, CancellationToken cancellationToken)
     {
-        var messages = new List<ChatMessageDto>
+        var messages = new List<ChatMessage>
         {
-            new()
-            {
-                Role = "system",
-                Content = _promptTemplateService.Get("BA/requirement-readiness.v1.md")
-            },
-            new()
-            {
-                Role = "user",
-                Content = requirementBrief
-            }
+            new(ChatRole.System, _promptTemplateService.Get("BA/requirement-readiness.v1.md")),
+            new(ChatRole.User, requirementBrief)
         };
 
         var (callResult, structuredReadiness) = await _llm.ChatStructuredAsync<RequirementReadiness>(

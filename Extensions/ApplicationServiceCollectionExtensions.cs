@@ -199,8 +199,6 @@ public static class ApplicationServiceCollectionExtensions
         // Builds a Microsoft.Extensions.AI IChatClient per AiModel; depends only on the singleton
         // IHttpClientFactory, so it is safe to register as a singleton.
         services.AddSingleton<IChatClientFactory, OpenAIChatClientFactory>();
-        // Config-bound, immutable choice of native tool-calling vs the prompt-based fallback per model.
-        services.AddSingleton<NativeToolCallingPolicy>();
         // Config-bound, opt-in choice of structured output (response_format: json_schema) per model.
         services.AddSingleton<StructuredOutputPolicy>();
         services.AddScoped<IModelCallLogger, ModelCallLogger>();
@@ -236,7 +234,6 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddScoped<AgentInstructionProvider>();
         services.AddScoped<AgentPromptBuilder>();
-        services.AddScoped<AgentActionParser>();
         services.AddScoped<AgentRunService>();
         return services;
     }
