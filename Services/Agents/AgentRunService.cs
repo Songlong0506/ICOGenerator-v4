@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
@@ -6,6 +7,7 @@ using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Logging;
+using Microsoft.Agents.AI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 
@@ -22,6 +24,9 @@ public class AgentRunService
     // cứng vẫn cần để không đốt token vô hạn nếu agent không hội tụ; chạm trần mới chạy lượt salvage.
     private const int AutoContinueFactor = 3;
 
+    // Per-call deadline for a model turn (mirrors LlmClient's default); configurable via Llm:RequestTimeoutSeconds.
+    private const int DefaultRequestTimeoutSeconds = 600;
+
     private readonly AppDbContext _db;
     private readonly IToolRegistry _toolRegistry;
     private readonly DynamicToolInvoker _invoker;
@@ -31,9 +36,12 @@ public class AgentRunService
     private readonly WorkspaceTools _workspaceTools;
     private readonly IModelCallLogger _modelCallLogger;
     private readonly NativeToolCallingPolicy _nativeToolPolicy;
+    private readonly IChatClientFactory _chatClientFactory;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly int _requestTimeoutSeconds;
 
-    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, DynamicToolInvoker invoker, ILlmClient llm, AgentPromptBuilder promptBuilder, AgentActionParser actionParser, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, NativeToolCallingPolicy nativeToolPolicy)
-    { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _llm = llm; _promptBuilder = promptBuilder; _actionParser = actionParser; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _nativeToolPolicy = nativeToolPolicy; }
+    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, DynamicToolInvoker invoker, ILlmClient llm, AgentPromptBuilder promptBuilder, AgentActionParser actionParser, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, NativeToolCallingPolicy nativeToolPolicy, IChatClientFactory chatClientFactory, ILoggerFactory loggerFactory, IConfiguration configuration)
+    { _db = db; _toolRegistry = toolRegistry; _invoker = invoker; _llm = llm; _promptBuilder = promptBuilder; _actionParser = actionParser; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _nativeToolPolicy = nativeToolPolicy; _chatClientFactory = chatClientFactory; _loggerFactory = loggerFactory; _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds); }
 
     public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 6,
         Action<string, string, string?>? onProgress = null, Func<string, string, bool>? stopWhen = null,
@@ -56,159 +64,133 @@ public class AgentRunService
     }
 
     // ── Native function-calling path (default) ───────────────────────────────────────────────────────
-    // The tool set is advertised to the model via the API's "tools" parameter (schema built by
-    // AIFunctionFactory from each method signature). The model replies with structured tool calls — no
-    // JSON-action wrapper to parse and no format nudges. Tool invocation still goes through the existing
-    // DynamicToolInvoker (policy + logging + reflection), so this path only changes HOW tools are
-    // requested, not how they run.
+    // Built on Microsoft Agent Framework: a ChatClientAgent + AgentSession own the ReAct tool loop, so
+    // there is no hand-written turn loop here. Cross-cutting concerns are middleware: per-model-call
+    // logging/deadline/token-cap is AgentModelCallChatClient; each tool is an InvokerBackedAIFunction that
+    // validates arguments and routes execution through the shared DynamicToolInvoker (policy + logging +
+    // reflection). This method only orchestrates the step budget around the agent run.
+    //
+    // Budget mirrors the previous loop in three phases driven off the framework's per-request iteration
+    // cap: (1) run within the expected budget; (2) if it didn't converge, nudge it to finish, granting
+    // turns up to the hard cap; (3) if still not done, one tool-free "salvage" turn so a partial result
+    // (files already on disk) is summarised instead of lost. Note: the old in-loop short-circuits
+    // (stopWhen, the "Build succeeded" early return) are not ported — they fought the framework-owned loop
+    // and stopWhen is unused on this path; the model still stops naturally once the work is done.
     private async Task<string> RunWithNativeToolsAsync(Guid projectId, Agent agent, IReadOnlyList<ToolRuntimeDescriptor> tools,
         string userMessage, int maxSteps, Action<string, string, string?>? onProgress, Func<string, string, bool>? stopWhen,
         Action<string>? onToken, Guid? workflowRunId, CancellationToken cancellationToken)
     {
-        var aiTools = new List<AITool>(tools.Count);
-        var descriptorsByName = new Dictionary<string, ToolRuntimeDescriptor>(StringComparer.OrdinalIgnoreCase);
-        foreach (var tool in tools)
-        {
-            aiTools.Add(AIFunctionFactory.Create(tool.Method, tool.Instance));
-            descriptorsByName[tool.Definition.Name] = tool;
-        }
+        var hardCap = maxSteps * AutoContinueFactor;
+        var model = agent.AiModel!; // RunAsync guarantees non-null before dispatching here.
 
-        var messages = new List<ChatMessage>
+        // Tools: name + JSON schema from AIFunctionFactory (the method signature); invocation routed back
+        // through DynamicToolInvoker, with the truncated/missing-argument guard. (See InvokerBackedAIFunction.)
+        var aiTools = tools
+            .Select(t => (AITool)new InvokerBackedAIFunction(
+                AIFunctionFactory.Create(t.Method, t.Instance), t, _invoker, onProgress))
+            .ToList();
+
+        // Pipeline: OpenAI client → per-call logging/deadline middleware → function-invocation loop.
+        var modelClient = new AgentModelCallChatClient(
+            _chatClientFactory.Create(model), model, agent, _modelCallLogger, projectId, workflowRunId,
+            _requestTimeoutSeconds, maxSteps, hardCap, onProgress);
+        var functionInvoker = new FunctionInvokingChatClient(modelClient, _loggerFactory)
         {
-            new(ChatRole.System, _promptBuilder.BuildNative(agent)),
-            new(ChatRole.User, userMessage)
+            MaximumIterationsPerRequest = maxSteps
         };
 
-        var hardCap = maxSteps * AutoContinueFactor;
-        var wrapUpNudged = false;
-        for (var step = 1; step <= hardCap; step++)
+        var runtimeAgent = new ChatClientAgent(functionInvoker, new ChatClientAgentOptions
         {
-            var budgetLabel = step <= maxSteps ? $"{step}/{maxSteps}" : $"{step}/{hardCap} (chạy thêm để hoàn tất)";
-            onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {budgetLabel})", null);
-
-            // Vượt ngân sách kỳ vọng lần đầu: nhắc agent tập trung HOÀN TẤT phần còn thiếu rồi kết thúc,
-            // thay vì làm thêm việc thừa và lại chạm trần cứng.
-            if (step == maxSteps + 1 && !wrapUpNudged)
+            Name = agent.Name,
+            ChatOptions = new ChatOptions
             {
-                wrapUpNudged = true;
-                messages.Add(new(ChatRole.User,
-                    "Bạn đã dùng hết ngân sách bước dự kiến nhưng công việc dường như CHƯA hoàn tất. "
-                    + "Hãy tiếp tục để HOÀN THÀNH ĐẦY ĐỦ phần còn thiếu (ví dụ append nốt các phần còn lại của POC), "
-                    + "tránh các bước thừa, rồi trả lời cuối (không gọi tool) khi đã xong."));
-            }
+                Instructions = _promptBuilder.BuildNative(agent),
+                Temperature = (float)agent.Temperature,
+                Tools = aiTools
+            },
+            // We already composed the function-invocation pipeline above; don't let the agent wrap it again.
+            UseProvidedChatClientAsIs = true
+        }, _loggerFactory);
 
-            var turn = await _llm.ChatWithToolsAsync(agent.AiModel, messages, aiTools, agent.Temperature, onToken, cancellationToken);
-            await _modelCallLogger.LogAsync(projectId, agent, turn.Call, step, "AgentRun", workflowRunId);
+        var session = await runtimeAgent.CreateSessionAsync(cancellationToken);
 
-            // A failed LLM call (HTTP error / timeout) must not be treated as the agent's final answer —
-            // surface it so the task is marked Failed instead of "done".
-            if (!turn.Call.IsSuccess)
-            {
-                var detail = turn.Call.ErrorMessage ?? turn.Call.Content;
-                onProgress?.Invoke("error", "Lời gọi LLM thất bại.", detail);
-                throw new InvalidOperationException($"LLM call failed: {detail}");
-            }
+        // Phase 1 — run within the expected step budget.
+        var (converged, text) = await RunAgentPhaseAsync(runtimeAgent, session, userMessage, modelClient, maxSteps, onToken, runOptions: null, cancellationToken);
 
-            // No tool calls = the model produced its final answer. With native tool-calling a plain reply
-            // is a legitimate "done", so there is no JSON-format nudge loop here.
-            if (turn.FunctionCalls.Count == 0)
-            {
-                onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", turn.Text);
-                await SaveConversation(projectId, agent.Id, turn.Text, cancellationToken: cancellationToken);
-                return turn.Text;
-            }
-
-            // Truncated tool-call turn: the arguments JSON was likely cut off mid-stream, so a call below
-            // may arrive with missing/empty arguments. Warn now; each affected call is caught individually.
-            if (turn.Truncated)
-                onProgress?.Invoke("error",
-                    "Phản hồi bị cắt do đạt giới hạn token (finish_reason=length) — tool call có thể thiếu đối số.",
-                    turn.Call.ErrorMessage);
-
-            // Append the assistant turn (which carries the tool calls) before sending results back, so the
-            // conversation stays valid for the next request.
-            messages.AddRange(turn.ResponseMessages);
-
-            foreach (var call in turn.FunctionCalls)
-            {
-                var args = ToJsonArgs(call.Arguments);
-                onProgress?.Invoke("tool", $"Đang dùng tool: {call.Name}", DescribeToolArgs(args));
-
-                string observation;
-                if (!descriptorsByName.TryGetValue(call.Name, out var descriptor))
-                {
-                    observation = $"Tool not found: {call.Name}";
-                }
-                // A tool call whose required arguments didn't arrive (streamed args not reassembled, or the
-                // arguments JSON cut off by finish_reason=length) must NOT be invoked: binding the missing
-                // params to null/default silently corrupts state — e.g. SetPocContent with no `content`
-                // wipes the POC body yet returns success, so stopWhen ends the run with an empty result.
-                // Feed the problem back instead so the model re-issues the call with complete arguments.
-                else if (ToolArgumentValidator.FindMissingRequiredArguments(descriptor.Method, args) is { Count: > 0 } missing)
-                {
-                    observation = DescribeMissingArguments(call.Name, missing, turn.Truncated);
-                    onProgress?.Invoke("error", $"Tool {call.Name} thiếu đối số bắt buộc — yêu cầu agent gọi lại.", observation);
-                }
-                else
-                {
-                    try
-                    {
-                        observation = await _invoker.InvokeAsync(descriptor, args);
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        // Feed a recoverable tool failure back as an observation so the model can correct itself instead of aborting the run; unwrap the reflection wrapper for a useful message.
-                        var real = ex is System.Reflection.TargetInvocationException { InnerException: { } inner } ? inner : ex;
-                        observation = $"ERROR: {real.Message}";
-                    }
-                }
-
-                onProgress?.Invoke("observation", $"Đã nhận kết quả từ {call.Name}", observation);
-
-                // Every tool call must get a result message (matched by CallId) before the next request.
-                messages.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent(call.CallId, observation)]));
-
-                // Stop as soon as the caller's success condition is met so a weak model doesn't keep making spurious edits and burn the step budget after the work is done.
-                if (stopWhen != null && stopWhen(call.Name ?? string.Empty, observation))
-                {
-                    onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", observation);
-                    await SaveConversation(projectId, agent.Id, observation, cancellationToken: cancellationToken);
-                    return observation;
-                }
-
-                if (observation.Contains("Build succeeded", StringComparison.OrdinalIgnoreCase)
-                    && observation.Contains("0 Error", StringComparison.OrdinalIgnoreCase))
-                {
-                    onProgress?.Invoke("final", "Build succeeded.", null);
-                    await SaveConversation(projectId, agent.Id, "Build succeeded.", cancellationToken: cancellationToken);
-                    return "Build succeeded.";
-                }
-            }
+        // Phase 2 — auto-continue: budget ran out before the model finished. Nudge it to COMPLETE the
+        // remaining work, granting turns up to the hard cap (state is already on disk) so it finishes what
+        // it started without burning tokens forever.
+        if (!converged)
+        {
+            functionInvoker.MaximumIterationsPerRequest = hardCap - maxSteps;
+            var (continued, continuedText) = await RunAgentPhaseAsync(runtimeAgent, session,
+                "Bạn đã dùng hết ngân sách bước dự kiến nhưng công việc dường như CHƯA hoàn tất. "
+                + "Hãy tiếp tục để HOÀN THÀNH ĐẦY ĐỦ phần còn thiếu (ví dụ append nốt các phần còn lại của POC), "
+                + "tránh các bước thừa, rồi trả lời cuối (không gọi tool) khi đã xong.",
+                modelClient, hardCap - maxSteps, onToken, runOptions: null, cancellationToken);
+            converged = continued;
+            text = continuedText;
         }
 
-        // Ngân sách bước đã cạn nhưng các file agent đã ghi vẫn nằm trên đĩa. Cho agent ĐÚNG MỘT lượt cuối
-        // (KHÔNG có tool nào để gọi) để chốt một final tóm tắt — biến "fail trắng vứt cả phần đã làm" thành
-        // "hoàn tất một phần". Chỉ khi lượt này vẫn không ra nội dung mới coi là chạm-giới-hạn thật.
-        onProgress?.Invoke("thinking", "Đạt giới hạn bước — yêu cầu agent chốt lại kết quả đã hoàn thành.", null);
-        messages.Add(new ChatMessage(ChatRole.User,
-            "Đã đạt giới hạn số bước xử lý. KHÔNG gọi thêm bất kỳ tool nào nữa. "
-            + "Hãy tóm tắt: stack đã chọn, các file/tính năng đã tạo được, cách cài đặt & chạy, và phần nào còn thiếu/chưa hoàn tất."));
-
-        var salvage = await _llm.ChatWithToolsAsync(agent.AiModel, messages, Array.Empty<AITool>(), agent.Temperature, onToken, cancellationToken);
-        await _modelCallLogger.LogAsync(projectId, agent, salvage.Call, hardCap + 1, "AgentRun", workflowRunId);
-        if (salvage.Call.IsSuccess && !string.IsNullOrWhiteSpace(salvage.Text))
+        if (converged)
         {
-            onProgress?.Invoke("final", "Agent đã chốt kết quả (một phần) khi đạt giới hạn bước.", salvage.Text);
-            await SaveConversation(projectId, agent.Id, salvage.Text, cancellationToken: cancellationToken);
-            return salvage.Text;
+            onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", text);
+            await SaveConversation(projectId, agent.Id, text, cancellationToken: cancellationToken);
+            return text;
+        }
+
+        // Phase 3 — salvage: the hard cap is exhausted but the files the agent wrote are on disk. Give it
+        // one tool-free turn (carrying the session history) to summarise what it built, turning a blank
+        // failure into a partial completion. Only if that turn produces nothing is the run a real timeout.
+        onProgress?.Invoke("thinking", "Đạt giới hạn bước — yêu cầu agent chốt lại kết quả đã hoàn thành.", null);
+        var salvageOptions = new ChatClientAgentRunOptions(new ChatOptions
+        {
+            Instructions = _promptBuilder.BuildNative(agent),
+            Temperature = (float)agent.Temperature,
+            Tools = [] // no tools advertised → a plain summary turn
+        });
+        var (_, salvageText) = await RunAgentPhaseAsync(runtimeAgent, session,
+            "Đã đạt giới hạn số bước xử lý. KHÔNG gọi thêm bất kỳ tool nào nữa. "
+            + "Hãy tóm tắt: stack đã chọn, các file/tính năng đã tạo được, cách cài đặt & chạy, và phần nào còn thiếu/chưa hoàn tất.",
+            modelClient, int.MaxValue, onToken, salvageOptions, cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(salvageText))
+        {
+            onProgress?.Invoke("final", "Agent đã chốt kết quả (một phần) khi đạt giới hạn bước.", salvageText);
+            await SaveConversation(projectId, agent.Id, salvageText, cancellationToken: cancellationToken);
+            return salvageText;
         }
 
         onProgress?.Invoke("final", "Dừng do đạt giới hạn số bước xử lý.", null);
         return MaxStepsReachedResult;
+    }
+
+    // Runs one agent invocation on the shared session, streaming text deltas to onToken. "Converged" means
+    // the agent finished UNDER its iteration budget (the model answered without asking for more tools);
+    // using the whole budget means it was cut off mid-work and a follow-up/salvage turn is needed.
+    private static async Task<(bool converged, string text)> RunAgentPhaseAsync(
+        ChatClientAgent runtimeAgent, AgentSession session, string message, AgentModelCallChatClient modelClient,
+        int budget, Action<string>? onToken, ChatClientAgentRunOptions? runOptions, CancellationToken cancellationToken)
+    {
+        var startStep = modelClient.StepCount;
+        var builder = new StringBuilder();
+        await foreach (var update in runtimeAgent.RunStreamingAsync(message, session, runOptions, cancellationToken))
+        {
+            var delta = update.Text;
+            if (string.IsNullOrEmpty(delta))
+                continue;
+
+            builder.Append(delta);
+            // A misbehaving sink must never break the run, so swallow anything it throws.
+            if (onToken != null)
+            {
+                try { onToken(delta); }
+                catch { /* ignore UI streaming failures */ }
+            }
+        }
+
+        var used = modelClient.StepCount - startStep;
+        return (used < budget, builder.ToString());
     }
 
     // ── Prompt-based JSON-action path (fallback for models without native tool-calling) ───────────────
@@ -365,35 +347,6 @@ public class AgentRunService
 
         onProgress?.Invoke("final", "Dừng do đạt giới hạn số bước xử lý.", null);
         return MaxStepsReachedResult;
-    }
-
-    // Converts the model's native tool-call arguments (object? values, usually already JsonElement) into
-    // the JsonElement map DynamicToolInvoker binds to method parameters, so both agent paths share one
-    // invocation/logging/reflection code path.
-    private static Dictionary<string, JsonElement> ToJsonArgs(IDictionary<string, object?>? args)
-    {
-        var result = new Dictionary<string, JsonElement>();
-        if (args == null)
-            return result;
-
-        foreach (var (key, value) in args)
-            result[key] = value is JsonElement element ? element : JsonSerializer.SerializeToElement(value);
-
-        return result;
-    }
-
-    // Observation fed back to the model when a tool call arrived without its required arguments, telling
-    // it whether the cause was truncation (resend more concisely) or dropped args (just resend), so the
-    // next step can recover instead of the run ending on an empty, destructive call.
-    private static string DescribeMissingArguments(string? toolName, IReadOnlyList<string> missing, bool truncated)
-    {
-        var names = string.Join(", ", missing);
-        return truncated
-            ? $"ERROR: the call to '{toolName}' was cut off before its arguments were complete "
-              + $"(finish_reason=length), so required argument(s) [{names}] did not arrive. The tool was NOT run. "
-              + "Re-issue the call with COMPLETE and more concise arguments so the whole call fits within the token limit."
-            : $"ERROR: the call to '{toolName}' is missing required argument(s) [{names}] "
-              + "(the streamed arguments were not received). The tool was NOT run. Re-issue the call with all required arguments.";
     }
 
     private static string? DescribeToolArgs(Dictionary<string, JsonElement> args)
