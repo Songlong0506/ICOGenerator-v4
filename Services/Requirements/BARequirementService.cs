@@ -4,7 +4,6 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Llm;
-using ICOGenerator.Services.Logging;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements.Templates;
 using Microsoft.EntityFrameworkCore;
@@ -21,7 +20,6 @@ public class BARequirementService
     private readonly BAChatReplyParser _replyParser;
     private readonly RequirementReadinessParser _readinessParser;
     private readonly RequirementDocumentGenerator _documentGenerator;
-    private readonly IModelCallLogger _modelCallLogger;
     private readonly PromptTemplateService _promptTemplateService;
 
     public BARequirementService(
@@ -33,7 +31,6 @@ public class BARequirementService
         BAChatReplyParser replyParser,
         RequirementReadinessParser readinessParser,
         RequirementDocumentGenerator documentGenerator,
-        IModelCallLogger modelCallLogger,
         PromptTemplateService promptTemplateService)
     {
         _db = db;
@@ -44,7 +41,6 @@ public class BARequirementService
         _replyParser = replyParser;
         _readinessParser = readinessParser;
         _documentGenerator = documentGenerator;
-        _modelCallLogger = modelCallLogger;
         _promptTemplateService = promptTemplateService;
     }
 
@@ -100,8 +96,10 @@ public class BARequirementService
             Content = c.Role == "assistant" ? BuildAssistantContext(c) : c.Message
         }));
 
-        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, cancellationToken: cancellationToken);
-        await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BAChat");
+        // BA được nhắc trả JSON {message, suggestions}: dùng structured output khi model được bật, ngược lại
+        // parser luôn fallback an toàn về text thuần.
+        var (callResult, structuredReply) = await _llm.ChatStructuredAsync<BAChatReply>(
+            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAChat"), cancellationToken: cancellationToken);
 
         // Surface a failure as a clearly-labelled assistant turn instead of a 500, but never present an API error as if it were a normal BA answer.
         string reply;
@@ -112,8 +110,7 @@ public class BARequirementService
         }
         else
         {
-            // BA được nhắc trả JSON {message, suggestions}; parser luôn fallback an toàn về text thuần.
-            var parsedReply = _replyParser.Parse(callResult.Content);
+            var parsedReply = structuredReply ?? _replyParser.Parse(callResult.Content);
             reply = string.IsNullOrWhiteSpace(parsedReply.Message)
                 ? "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu."
                 : parsedReply.Message;
@@ -227,8 +224,8 @@ public class BARequirementService
 
         Report("tool", "Đang gọi AI để soạn BRD, SRS, FSD, User Stories, AI Design Spec…");
 
-        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, onToken, cancellationToken);
-        await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BARequirementDraft", workflowRunId);
+        var (callResult, structuredDraft) = await _llm.ChatStructuredAsync<BARequirementDocxResult>(
+            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BARequirementDraft", workflowRunId), onToken, cancellationToken);
 
         // On a failed call, do NOT fall through to the template fallback: it would fabricate documents from the raw user message and report success, hiding the failure. Fail the task instead.
         if (!callResult.IsSuccess)
@@ -240,7 +237,11 @@ public class BARequirementService
 
         Report("observation", "AI đã trả về nội dung, đang phân tích kết quả…");
 
-        var result = _responseParser.Parse(callResult.Content, project, requirementBrief);
+        // Structured output (when enabled) yields a typed result; otherwise parse the text. Both go through
+        // the same normalization so downstream sees fully-populated sections.
+        var result = structuredDraft != null
+            ? _responseParser.Normalize(structuredDraft)
+            : _responseParser.Parse(callResult.Content, project, requirementBrief);
 
         Report("tool", "Đang tạo/cập nhật file tài liệu (.docx)…");
 
@@ -283,13 +284,13 @@ public class BARequirementService
             }
         };
 
-        var callResult = await _llm.ChatWithLogAsync(model, messages, ba.Temperature, cancellationToken: cancellationToken);
-        await _modelCallLogger.LogAsync(projectId, ba, callResult, 1, "BAReadinessCheck");
+        var (callResult, structuredReadiness) = await _llm.ChatStructuredAsync<RequirementReadiness>(
+            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAReadinessCheck"), cancellationToken: cancellationToken);
 
         if (!callResult.IsSuccess)
             return RequirementReadiness.ProceedDefault;
 
-        return _readinessParser.Parse(callResult.Content);
+        return structuredReadiness ?? _readinessParser.Parse(callResult.Content);
     }
 
     // Dựng lại một lượt BA cũ theo đúng JSON shape mà model được yêu cầu xuất, để củng cố format ở

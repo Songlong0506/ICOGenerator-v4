@@ -4,9 +4,9 @@ namespace ICOGenerator.Services.Llm;
 
 /// <summary>
 /// Resolves the completion-token cap for one model call. A fixed 100k overflows small-context models, so
-/// the cap is shrunk to what's left in the context window after the (estimated) prompt. Shared by the
-/// streaming chat path (<see cref="LlmClient"/>) and the agent's per-call middleware
-/// (<see cref="AgentModelCallChatClient"/>) so both size requests identically.
+/// the cap is shrunk to what's left in the context window after the (estimated) prompt. Used by the shared
+/// per-call middleware (<see cref="ModelCallLoggingChatClient"/>) for every path, so all requests are sized
+/// identically.
 /// </summary>
 public static class MaxOutputTokenResolver
 {
