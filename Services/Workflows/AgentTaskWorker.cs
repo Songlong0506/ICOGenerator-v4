@@ -5,7 +5,6 @@ using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Requirements;
-using ICOGenerator.Services.Tools;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Workflows;
@@ -135,13 +134,11 @@ public class AgentTaskWorker : BackgroundService
             var prompt = promptBuilder.Build(task.Type, task.Input, project.IsUseBoschTemplate);
             var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
 
-            // Riêng bước POC bắt buộc gọi SetPocContent đúng một lần; dừng NGAY khi thành công để
-            // agent khỏi loay hoay chạm giới hạn bước. Các bước khác kết thúc bằng "final" như thường.
-            Func<string, string, bool>? stopWhen = task.Type == AgentTaskType.PocPreview
-                ? (toolName, observation) =>
-                    toolName.Equals(nameof(WorkspaceTools.SetPocContent), StringComparison.OrdinalIgnoreCase)
-                    && observation.Contains("POC content updated", StringComparison.OrdinalIgnoreCase)
-                : null;
+            // POC giờ được dựng qua NHIỀU call (SetPocContent cho màn hình đầu, rồi các AppendPocContent
+            // cho phần còn lại) để không call nào phải chứa cả trang và bị cắt do giới hạn token. Vì vậy
+            // KHÔNG dừng sớm sau SetPocContent nữa — để agent nối hết các phần rồi tự kết bằng "final".
+            // Mỗi call ghi thẳng ra đĩa nên phần đã dựng vẫn được giữ kể cả khi chạm giới hạn bước.
+            Func<string, string, bool>? stopWhen = null;
 
             var output = await agentRunService.RunAsync(
                 task.ProjectId,

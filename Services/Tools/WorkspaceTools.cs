@@ -183,6 +183,27 @@ public class WorkspaceTools
         return $"POC content updated: {PocTemplate.MockupRelativePath}";
     }
 
+    [Description("Append MORE feature HTML to the END of the POC content region in 04_Implementation/poc-demo.html, after what's already there. " +
+        "Use this to build a large POC across SEVERAL small calls so no single call has to carry the whole page — a single big call is what gets cut off at the token limit (finish_reason=length) and fails. " +
+        "Flow: call SetPocContent ONCE first (it sets appName/breadcrumb/navItems and writes the FIRST screen, replacing the region), then call AppendPocContent once per REMAINING `<section class=\"page-view\" data-view=\"…\">` screen and once per modal. Do NOT call SetPocContent again — it would overwrite everything appended so far. " +
+        "'content' (required): the inner HTML to append — same rules as SetPocContent's content (no <html>/<head>/<body>/sidebar/topbar; wrap each screen in its own page-view section; place modals after the sections). Keep EACH call small so it fits in one response. " +
+        "When every screen and modal has been appended, return your final result — do not re-read the file.")]
+    public async Task<string> AppendPocContent(string content)
+    {
+        EnsureWorkspace();
+        var fullPath = GetSafeFullPath(PocTemplate.MockupRelativePath);
+        if (!File.Exists(fullPath)) return $"File not found: {PocTemplate.MockupRelativePath}";
+        if (string.IsNullOrWhiteSpace(content)) return "No content to append.";
+
+        var current = await File.ReadAllTextAsync(fullPath);
+        var updated = PocTemplate.AppendContent(current, content);
+        if (updated == null)
+            return $"POC content markers not found in file: {PocTemplate.MockupRelativePath}";
+
+        await File.WriteAllTextAsync(fullPath, updated);
+        return $"POC content appended: {PocTemplate.MockupRelativePath}";
+    }
+
     public void RenameFolder(string oldRelativePath, string newRelativePath)
     {
         EnsureWorkspace();

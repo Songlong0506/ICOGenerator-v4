@@ -48,6 +48,11 @@ public static class DbInitializer
             await AssignDefaultToolsAsync(db);
         }
 
+        // Backfill: AppendPocContent was added after the initial agent seed, so existing installs (DB not
+        // empty → AssignDefaultToolsAsync skipped) won't have it wired to the Developer. Attach it
+        // idempotently on every startup so the multi-call POC flow works without a manual DB reset.
+        await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.WorkspaceTools.AppendPocContent));
+
         if (!await db.Projects.AnyAsync())
         {
             var p = new Project { Name="E-commerce Web App", Description="Online store with product management, cart, payment...", Status=ProjectStatus.InProgress, CreatedAt=new DateTime(2024,5,20) };
@@ -122,9 +127,37 @@ public static class DbInitializer
 
         await Assign(AgentRoleKey.BusinessAnalyst, "ListFiles", "ReadFile", "WriteFile", "SearchFiles");
         await Assign(AgentRoleKey.TechLead, "ListFiles", "ReadFile", "WriteFile", "GitDiff", "GitStatus");
-        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SetPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch");
+        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SetPocContent", "AppendPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch");
         await Assign(AgentRoleKey.Tester, "ListFiles", "ReadFile", "WriteFile", "RunCommand");
         await Assign(AgentRoleKey.UiUx, "WriteFile", "ReadFile", "ListFiles");
+        await db.SaveChangesAsync();
+    }
+
+    // Idempotently wires a single tool (by its method name) to the Developer agent if not already
+    // assigned. Used to backfill tools added after the one-time AssignDefaultToolsAsync seed; safe to
+    // run on every startup (no-op once present, and no-op before the tool definition is discovered).
+    private static async Task EnsureDeveloperHasToolAsync(AppDbContext db, string toolName)
+    {
+        var developerId = await db.Agents
+            .Where(x => x.RoleKey == AgentRoleKey.Developer)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync();
+        if (developerId is null)
+            return;
+
+        var toolDefId = await db.ToolDefinitions
+            .Where(x => x.Name == toolName)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync();
+        if (toolDefId is null)
+            return;
+
+        var alreadyAssigned = await db.AgentTools
+            .AnyAsync(x => x.AgentId == developerId.Value && x.ToolDefinitionId == toolDefId.Value);
+        if (alreadyAssigned)
+            return;
+
+        db.AgentTools.Add(new AgentTool { AgentId = developerId.Value, ToolDefinitionId = toolDefId.Value });
         await db.SaveChangesAsync();
     }
 }
