@@ -97,6 +97,13 @@ public class AgentRunService
                 return turn.Text;
             }
 
+            // Truncated tool-call turn: the arguments JSON was likely cut off mid-stream, so a call below
+            // may arrive with missing/empty arguments. Warn now; each affected call is caught individually.
+            if (turn.Truncated)
+                onProgress?.Invoke("error",
+                    "Phản hồi bị cắt do đạt giới hạn token (finish_reason=length) — tool call có thể thiếu đối số.",
+                    turn.Call.ErrorMessage);
+
             // Append the assistant turn (which carries the tool calls) before sending results back, so the
             // conversation stays valid for the next request.
             messages.AddRange(turn.ResponseMessages);
@@ -110,6 +117,16 @@ public class AgentRunService
                 if (!descriptorsByName.TryGetValue(call.Name, out var descriptor))
                 {
                     observation = $"Tool not found: {call.Name}";
+                }
+                // A tool call whose required arguments didn't arrive (streamed args not reassembled, or the
+                // arguments JSON cut off by finish_reason=length) must NOT be invoked: binding the missing
+                // params to null/default silently corrupts state — e.g. SetPocContent with no `content`
+                // wipes the POC body yet returns success, so stopWhen ends the run with an empty result.
+                // Feed the problem back instead so the model re-issues the call with complete arguments.
+                else if (ToolArgumentValidator.FindMissingRequiredArguments(descriptor.Method, args) is { Count: > 0 } missing)
+                {
+                    observation = DescribeMissingArguments(call.Name, missing, turn.Truncated);
+                    onProgress?.Invoke("error", $"Tool {call.Name} thiếu đối số bắt buộc — yêu cầu agent gọi lại.", observation);
                 }
                 else
                 {
@@ -328,6 +345,20 @@ public class AgentRunService
             result[key] = value is JsonElement element ? element : JsonSerializer.SerializeToElement(value);
 
         return result;
+    }
+
+    // Observation fed back to the model when a tool call arrived without its required arguments, telling
+    // it whether the cause was truncation (resend more concisely) or dropped args (just resend), so the
+    // next step can recover instead of the run ending on an empty, destructive call.
+    private static string DescribeMissingArguments(string? toolName, IReadOnlyList<string> missing, bool truncated)
+    {
+        var names = string.Join(", ", missing);
+        return truncated
+            ? $"ERROR: the call to '{toolName}' was cut off before its arguments were complete "
+              + $"(finish_reason=length), so required argument(s) [{names}] did not arrive. The tool was NOT run. "
+              + "Re-issue the call with COMPLETE and more concise arguments so the whole call fits within the token limit."
+            : $"ERROR: the call to '{toolName}' is missing required argument(s) [{names}] "
+              + "(the streamed arguments were not received). The tool was NOT run. Re-issue the call with all required arguments.";
     }
 
     private static string? DescribeToolArgs(Dictionary<string, JsonElement> args)
