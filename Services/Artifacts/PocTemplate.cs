@@ -46,6 +46,32 @@ public static class PocTemplate
             + current[endIdx..];
     }
 
+    /// <summary>
+    /// Appends <paramref name="addition"/> to the END of the content region (just before the end
+    /// marker), keeping any content already there and the markers intact. This lets a large POC be
+    /// built across several tool calls so no single call has to carry the whole page — the call that
+    /// would be cut off by the token limit (finish_reason=length). The seed placeholder is dropped the
+    /// first time real content is appended. Returns the input unchanged when <paramref name="addition"/>
+    /// is blank, or null when the markers are missing/malformed.
+    /// </summary>
+    public static string? AppendContent(string current, string addition)
+    {
+        if (string.IsNullOrWhiteSpace(addition))
+            return current;
+        if (!TryLocateRegion(current, out var afterStart, out var endIdx))
+            return null;
+
+        // Content already between the markers; drop the seed placeholder so the first append replaces
+        // the invisible <!-- POC_CONTENT --> comment instead of stacking after it. TrimEnd collapses the
+        // trailing indentation so the new chunk lines up the same way ReplaceContent lays out the first one.
+        var existing = current[afterStart..endIdx].Replace(Placeholder, string.Empty).TrimEnd();
+
+        return current[..afterStart]
+            + existing
+            + "\n" + addition.Trim('\n') + "\n                    "
+            + current[endIdx..];
+    }
+
     private static bool TryLocateRegion(string content, out int afterStart, out int endIdx)
     {
         afterStart = 0;

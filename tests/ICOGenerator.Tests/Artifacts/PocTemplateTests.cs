@@ -50,6 +50,65 @@ public class PocTemplateTests
         Assert.Null(PocTemplate.ReplaceContent("<html>nothing</html>", "x"));
     }
 
+    [Fact]
+    public void AppendContent_OnSeededFile_DropsPlaceholder_AddsContent_KeepsMarkers()
+    {
+        var seeded = PocTemplate.SeedFromTemplate(TemplateWith("anything"))!;
+
+        var updated = PocTemplate.AppendContent(seeded, "<section>first</section>");
+
+        Assert.NotNull(updated);
+        Assert.Contains("<section>first</section>", updated);
+        Assert.DoesNotContain(PocTemplate.Placeholder, updated);
+        Assert.Contains(PocTemplate.StartMarker, updated);
+        Assert.Contains(PocTemplate.EndMarker, updated);
+    }
+
+    [Fact]
+    public void AppendContent_KeepsEarlierChunks_AndPreservesOrder()
+    {
+        var doc = PocTemplate.SeedFromTemplate(TemplateWith("anything"))!;
+
+        doc = PocTemplate.AppendContent(doc, "<section>one</section>")!;
+        doc = PocTemplate.AppendContent(doc, "<section>two</section>")!;
+        doc = PocTemplate.AppendContent(doc, "<div class=\"modal\">three</div>")!;
+
+        Assert.Contains("<section>one</section>", doc);
+        Assert.Contains("<section>two</section>", doc);
+        Assert.Contains("<div class=\"modal\">three</div>", doc);
+        // Appended in order, all inside the (still intact) content region.
+        Assert.True(doc.IndexOf("one", System.StringComparison.Ordinal) < doc.IndexOf("two", System.StringComparison.Ordinal));
+        Assert.True(doc.IndexOf("two", System.StringComparison.Ordinal) < doc.IndexOf("three", System.StringComparison.Ordinal));
+        Assert.True(doc.IndexOf("three", System.StringComparison.Ordinal) < doc.IndexOf(PocTemplate.EndMarker, System.StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AppendContent_AfterSetPocContent_AddsToExistingFirstScreen()
+    {
+        // SetPocContent writes the first screen via ReplaceContent; AppendPocContent adds the rest.
+        var doc = PocTemplate.ReplaceContent(PocTemplate.SeedFromTemplate(TemplateWith("x"))!, "<section>screen-1</section>")!;
+
+        doc = PocTemplate.AppendContent(doc, "<section>screen-2</section>")!;
+
+        Assert.Contains("<section>screen-1</section>", doc);
+        Assert.Contains("<section>screen-2</section>", doc);
+        Assert.True(doc.IndexOf("screen-1", System.StringComparison.Ordinal) < doc.IndexOf("screen-2", System.StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AppendContent_ReturnsNull_WhenMarkersMissing()
+    {
+        Assert.Null(PocTemplate.AppendContent("<html>nothing</html>", "x"));
+    }
+
+    [Fact]
+    public void AppendContent_NoOp_WhenAdditionBlank()
+    {
+        var seeded = PocTemplate.SeedFromTemplate(TemplateWith("anything"))!;
+
+        Assert.Equal(seeded, PocTemplate.AppendContent(seeded, "   "));
+    }
+
     // A trimmed shell that keeps the exact anchor markup SeedFromTemplate copies from
     // poc-template.html, so these tests fail if the template's title/app-name/breadcrumb/nav
     // markup ever drifts away from what PocTemplate looks for.
