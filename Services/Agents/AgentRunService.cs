@@ -16,6 +16,12 @@ public class AgentRunService
     // Returned when the loop exhausts its step budget. Callers compare against this string to detect an incomplete run, so it is part of the contract — keep it in sync.
     public const string MaxStepsReachedResult = "Stopped because max steps reached.";
 
+    // Auto-continue: maxSteps là ngân sách KỲ VỌNG cho một lần chạy. Nếu cạn mà agent vẫn CHƯA tự kết
+    // thúc (chưa trả final), ta KHÔNG cắt ngang để "chốt một phần" nữa mà cấp thêm lượt tới trần cứng
+    // = maxSteps * AutoContinueFactor, để agent hoàn tất nốt phần còn thiếu (state đã ghi ra đĩa). Trần
+    // cứng vẫn cần để không đốt token vô hạn nếu agent không hội tụ; chạm trần mới chạy lượt salvage.
+    private const int AutoContinueFactor = 3;
+
     private readonly AppDbContext _db;
     private readonly IToolRegistry _toolRegistry;
     private readonly DynamicToolInvoker _invoker;
@@ -73,9 +79,24 @@ public class AgentRunService
             new(ChatRole.User, userMessage)
         };
 
-        for (var step = 1; step <= maxSteps; step++)
+        var hardCap = maxSteps * AutoContinueFactor;
+        var wrapUpNudged = false;
+        for (var step = 1; step <= hardCap; step++)
         {
-            onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {step}/{maxSteps})", null);
+            var budgetLabel = step <= maxSteps ? $"{step}/{maxSteps}" : $"{step}/{hardCap} (chạy thêm để hoàn tất)";
+            onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {budgetLabel})", null);
+
+            // Vượt ngân sách kỳ vọng lần đầu: nhắc agent tập trung HOÀN TẤT phần còn thiếu rồi kết thúc,
+            // thay vì làm thêm việc thừa và lại chạm trần cứng.
+            if (step == maxSteps + 1 && !wrapUpNudged)
+            {
+                wrapUpNudged = true;
+                messages.Add(new(ChatRole.User,
+                    "Bạn đã dùng hết ngân sách bước dự kiến nhưng công việc dường như CHƯA hoàn tất. "
+                    + "Hãy tiếp tục để HOÀN THÀNH ĐẦY ĐỦ phần còn thiếu (ví dụ append nốt các phần còn lại của POC), "
+                    + "tránh các bước thừa, rồi trả lời cuối (không gọi tool) khi đã xong."));
+            }
+
             var turn = await _llm.ChatWithToolsAsync(agent.AiModel, messages, aiTools, agent.Temperature, onToken, cancellationToken);
             await _modelCallLogger.LogAsync(projectId, agent, turn.Call, step, "AgentRun", workflowRunId);
 
@@ -178,7 +199,7 @@ public class AgentRunService
             + "Hãy tóm tắt: stack đã chọn, các file/tính năng đã tạo được, cách cài đặt & chạy, và phần nào còn thiếu/chưa hoàn tất."));
 
         var salvage = await _llm.ChatWithToolsAsync(agent.AiModel, messages, Array.Empty<AITool>(), agent.Temperature, onToken, cancellationToken);
-        await _modelCallLogger.LogAsync(projectId, agent, salvage.Call, maxSteps + 1, "AgentRun", workflowRunId);
+        await _modelCallLogger.LogAsync(projectId, agent, salvage.Call, hardCap + 1, "AgentRun", workflowRunId);
         if (salvage.Call.IsSuccess && !string.IsNullOrWhiteSpace(salvage.Text))
         {
             onProgress?.Invoke("final", "Agent đã chốt kết quả (một phần) khi đạt giới hạn bước.", salvage.Text);
@@ -206,9 +227,23 @@ public class AgentRunService
         const int maxReformatNudges = 2;
         var reformatNudges = 0;
 
-        for (var step = 1; step <= maxSteps; step++)
+        var hardCap = maxSteps * AutoContinueFactor;
+        var wrapUpNudged = false;
+        for (var step = 1; step <= hardCap; step++)
         {
-            onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {step}/{maxSteps})", null);
+            var budgetLabel = step <= maxSteps ? $"{step}/{maxSteps}" : $"{step}/{hardCap} (chạy thêm để hoàn tất)";
+            onProgress?.Invoke("thinking", $"Agent {agent.Name} đang suy nghĩ… (bước {budgetLabel})", null);
+
+            // Vượt ngân sách kỳ vọng lần đầu: nhắc agent tập trung HOÀN TẤT phần còn thiếu rồi kết thúc.
+            if (step == maxSteps + 1 && !wrapUpNudged)
+            {
+                wrapUpNudged = true;
+                messages.Add(new() { Role = "user", Content =
+                    "Bạn đã dùng hết ngân sách bước dự kiến nhưng công việc dường như CHƯA hoàn tất. "
+                    + "Hãy tiếp tục để HOÀN THÀNH ĐẦY ĐỦ phần còn thiếu, tránh các bước thừa, "
+                    + "rồi trả về JSON {\"type\":\"final\",\"content\":\"...\"} khi đã xong." });
+            }
+
             var callResult = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature, onToken, cancellationToken);
             await _modelCallLogger.LogAsync(projectId, agent, callResult, step, "AgentRun", workflowRunId);
 
@@ -228,7 +263,7 @@ public class AgentRunService
                 // "I'll create the file…" mà không gọi tool). Thay vì coi đó là "đã xong"
                 // và bỏ qua việc dùng tool, nhắc model định dạng lại rồi thử tiếp — chỉ chấp
                 // nhận phản hồi là câu trả lời cuối sau khi đã nhắc tối đa số lần cho phép.
-                if (reformatNudges < maxReformatNudges && step < maxSteps)
+                if (reformatNudges < maxReformatNudges && step < hardCap)
                 {
                     reformatNudges++;
                     onProgress?.Invoke("thinking", "Phản hồi chưa đúng định dạng — nhắc agent trả JSON action.", null);
@@ -316,7 +351,7 @@ public class AgentRunService
             + "tóm tắt: stack đã chọn, các file/tính năng đã tạo được, cách cài đặt & chạy, và phần nào còn thiếu/chưa hoàn tất." });
 
         var salvageCall = await _llm.ChatWithLogAsync(agent.AiModel, messages, agent.Temperature, onToken, cancellationToken);
-        await _modelCallLogger.LogAsync(projectId, agent, salvageCall, maxSteps + 1, "AgentRun", workflowRunId);
+        await _modelCallLogger.LogAsync(projectId, agent, salvageCall, hardCap + 1, "AgentRun", workflowRunId);
         if (salvageCall.IsSuccess
             && _actionParser.TryParse(salvageCall.Content, out var salvageAction)
             && salvageAction != null
