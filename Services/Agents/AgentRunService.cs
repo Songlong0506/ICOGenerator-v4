@@ -11,7 +11,7 @@ using Microsoft.Extensions.AI;
 
 namespace ICOGenerator.Services.Agents;
 
-public class AgentRunService
+public class AgentRunService : IAgentRunService
 {
     // Returned when the loop exhausts its step budget. Callers compare against this string to detect an incomplete run, so it is part of the contract — keep it in sync.
     public const string MaxStepsReachedResult = "Stopped because max steps reached.";

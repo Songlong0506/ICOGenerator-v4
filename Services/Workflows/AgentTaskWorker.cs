@@ -57,7 +57,7 @@ public class AgentTaskWorker : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var agentRunService = scope.ServiceProvider.GetRequiredService<AgentRunService>();
+        var agentRunService = scope.ServiceProvider.GetRequiredService<IAgentRunService>();
 
         var task = await db.AgentTasks
             .Include(x => x.WorkflowRun)
