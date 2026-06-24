@@ -53,6 +53,10 @@ public static class DbInitializer
         // idempotently on every startup so the multi-call POC flow works without a manual DB reset.
         await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.WorkspaceTools.AppendPocContent));
 
+        // Backfill: OpenPullRequest (bước "Tạo Pull Request" cuối pipeline) được thêm sau lần seed agent
+        // ban đầu, nên các install cũ chưa có. Gắn idempotent cho Developer mỗi lần khởi động.
+        await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.GitTools.OpenPullRequest));
+
         if (!await db.Projects.AnyAsync())
         {
             var p = new Project { Name="E-commerce Web App", Description="Online store with product management, cart, payment...", Status=ProjectStatus.InProgress, CreatedAt=new DateTime(2024,5,20) };
@@ -127,7 +131,7 @@ public static class DbInitializer
 
         await Assign(AgentRoleKey.BusinessAnalyst, "ListFiles", "ReadFile", "WriteFile", "SearchFiles");
         await Assign(AgentRoleKey.TechLead, "ListFiles", "ReadFile", "WriteFile", "GitDiff", "GitStatus");
-        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SetPocContent", "AppendPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch");
+        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SetPocContent", "AppendPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch", "OpenPullRequest");
         await Assign(AgentRoleKey.Tester, "ListFiles", "ReadFile", "WriteFile", "RunCommand");
         await Assign(AgentRoleKey.UiUx, "WriteFile", "ReadFile", "ListFiles");
         await db.SaveChangesAsync();

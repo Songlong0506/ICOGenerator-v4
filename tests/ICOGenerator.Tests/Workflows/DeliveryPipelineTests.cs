@@ -19,11 +19,26 @@ public class DeliveryPipelineTests
     [Fact]
     public void Next_DoesNotIncludeBugFix_KeepingPipelineLinear()
     {
-        // BugFix là CHU TRÌNH quanh Testing, không phải hand-off tuyến tính: Testing là bước cuối
-        // của chuỗi tuyến tính (Next = null), và BugFix không nằm trong chuỗi đó.
-        Assert.Null(DeliveryPipeline.Next(WorkflowStageKey.Testing));
+        // BugFix là CHU TRÌNH quanh Testing, không phải hand-off tuyến tính: nó không nằm trong chuỗi
+        // tuyến tính nên Next(BugFix) = null. (Sau Testing là bước Tạo Pull Request — xem test riêng.)
         Assert.Null(DeliveryPipeline.Next(WorkflowStageKey.BugFix));
     }
+
+    [Fact]
+    public void Next_AfterTesting_IsPullRequestByDeveloper()
+    {
+        // Đóng vòng giao hàng: test PASS (qua cổng duyệt) thì sang bước Tạo Pull Request.
+        var step = DeliveryPipeline.Next(WorkflowStageKey.Testing);
+
+        Assert.NotNull(step);
+        Assert.Equal(WorkflowStageKey.PullRequest, step!.Stage);
+        Assert.Equal(AgentRoleKey.Developer, step.Role);
+        Assert.Equal(AgentTaskType.PullRequest, step.TaskType);
+    }
+
+    [Fact]
+    public void Next_AfterPullRequest_IsNull_BecauseItIsTheLastStep()
+        => Assert.Null(DeliveryPipeline.Next(WorkflowStageKey.PullRequest));
 
     [Fact]
     public void TestingStep_ResolvesToTesterStage()

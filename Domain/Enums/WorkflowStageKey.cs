@@ -10,5 +10,6 @@ public enum WorkflowStageKey
     Testing = 6,
     PocPreview = 7,
     BugFix = 8,
-    CodeReview = 9
+    CodeReview = 9,
+    PullRequest = 10
 }
