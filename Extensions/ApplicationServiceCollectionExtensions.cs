@@ -224,6 +224,17 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<CommandTools>();
         services.AddScoped<GitTools>();
         services.AddScoped<DiffTools>();
+
+        // PR publisher: typed HttpClient gọi GitHub REST API để TẠO PR thật khi PullRequest:GitHubToken
+        // được cấu hình và remote là github.com; nếu không, GitTools.OpenPullRequest fallback về link compare.
+        // GitHub API bắt buộc User-Agent; Accept/version theo khuyến nghị GitHub.
+        services.AddHttpClient<IPullRequestPublisher, GitHubPullRequestPublisher>(c =>
+        {
+            c.BaseAddress = new Uri("https://api.github.com/");
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("ICOGenerator");
+            c.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            c.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+        });
         services.AddScoped<ToolDiscoveryService>();
         services.AddScoped<IToolRegistry, ToolRegistry>();
         services.AddScoped<DynamicToolInvoker>();

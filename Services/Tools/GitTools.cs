@@ -7,8 +7,9 @@ public class GitTools
 {
     private readonly CommandTools _commandTools;
     private readonly IConfiguration _configuration;
-    public GitTools(CommandTools commandTools, IConfiguration configuration)
-    { _commandTools = commandTools; _configuration = configuration; }
+    private readonly IPullRequestPublisher _pullRequestPublisher;
+    public GitTools(CommandTools commandTools, IConfiguration configuration, IPullRequestPublisher pullRequestPublisher)
+    { _commandTools = commandTools; _configuration = configuration; _pullRequestPublisher = pullRequestPublisher; }
 
     // All git operations go through CommandTools.RunArgs (no shell), so literal args may contain spaces/shell operators; the allowlist still applies to the "git <subcommand>" prefix.
     // SECURITY: LLM-controlled branch/remote names become positional git args, and git treats a '-'-prefixed arg as an OPTION ("argument injection", e.g. --upload-pack=…). IsSafeRef rejects anything but a plain ref token (must start alphanumeric, no leading dash, no spaces/shell-meta), closing that gap.
@@ -56,7 +57,7 @@ public class GitTools
         return _commandTools.RunArgs(["git", "push", "-u", remoteName, branchName]);
     }
 
-    [Description("Push the committed feature branch to the remote and return a ready-to-open Pull/Merge Request link for the repo's host (GitHub, GitLab, Azure DevOps, Bitbucket). Call this AFTER committing the implemented code on a feature branch. Pass the feature branch name, a concise PR title, and a short description body.")]
+    [Description("Push the committed feature branch and open a Pull Request. When a GitHub token is configured and the remote is GitHub, this CREATES the PR via API and returns its URL; otherwise it returns a ready-to-open PR/Merge Request link for the repo's host (GitHub, GitLab, Azure DevOps, Bitbucket). Call this AFTER committing the implemented code on a feature branch. Pass the feature branch name, a concise PR title, and a short description body.")]
     public async Task<string> OpenPullRequest(string branchName, string title, string body)
     {
         if (!IsSafeRef(branchName)) return Blocked("branch name", branchName);
@@ -71,13 +72,25 @@ public class GitTools
 
         var push = await _commandTools.RunArgs(["git", "push", "-u", remoteName, branchName]);
 
-        // Suy ra link tạo PR từ remote URL thật của repo (nguồn chân lý, kể cả Bosch template đã clone).
+        // Remote URL thật của repo (nguồn chân lý, kể cả Bosch template đã clone) — dùng để gọi API
+        // GitHub tạo PR thật, hoặc suy ra link compare khi không tạo được.
         var remoteRaw = await _commandTools.RunArgs(["git", "remote", "get-url", remoteName]);
-        var prUrl = PullRequestUrlBuilder.Build(ExtractStdout(remoteRaw), baseBranch, branchName, title);
+        var remoteUrl = ExtractStdout(remoteRaw);
 
-        var linkLine = prUrl is null
-            ? "Không nhận diện được nhà cung cấp Git từ remote (hoặc chưa có remote) — push xong thì mở Pull Request thủ công trên trang repo."
-            : $"Mở Pull Request tại: {prUrl}";
+        // Ưu tiên TẠO PR THẬT (GitHub + có token); không được thì xuống cấp êm về link "mở PR thủ công".
+        var published = await _pullRequestPublisher.PublishAsync(remoteUrl, baseBranch, branchName, title, body);
+        string resultLine;
+        if (published.Created && published.Url is not null)
+        {
+            resultLine = $"✅ Đã tạo Pull Request: {published.Url}";
+        }
+        else
+        {
+            var prUrl = PullRequestUrlBuilder.Build(remoteUrl, baseBranch, branchName, title);
+            resultLine = prUrl is null
+                ? $"Chưa tạo được PR tự động ({published.Detail}) và không suy ra được link — hãy mở Pull Request thủ công trên trang repo."
+                : $"Chưa tạo PR tự động ({published.Detail}). Mở Pull Request tại: {prUrl}";
+        }
 
         return $"""
                 Push branch:
@@ -88,7 +101,7 @@ public class GitTools
                 {body}
 
                 Nhánh: {baseBranch} (base) ← {branchName} (head)
-                {linkLine}
+                {resultLine}
                 """;
     }
 

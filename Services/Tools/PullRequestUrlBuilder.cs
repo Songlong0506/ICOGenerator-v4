@@ -13,10 +13,7 @@ public static class PullRequestUrlBuilder
 {
     public static string? Build(string? remoteUrl, string baseBranch, string headBranch, string? title)
     {
-        if (string.IsNullOrWhiteSpace(remoteUrl))
-            return null;
-
-        if (!TryParse(remoteUrl.Trim(), out var host, out var path))
+        if (!GitRemoteUrl.TryParse(remoteUrl, out var host, out var path))
             return null;
 
         var lowerHost = host.ToLowerInvariant();
@@ -52,55 +49,5 @@ public static class PullRequestUrlBuilder
             return $"{baseRepo}/pullrequestcreate?sourceRef={head}&targetRef={@base}";
 
         return null;
-    }
-
-    // Tách remote URL thành (host, path) với path = "owner/repo" (hoặc "org/project/_git/repo" cho Azure),
-    // đã bỏ ".git" cuối. Hỗ trợ HTTPS (kèm userinfo@/port) và SSH dạng scp "git@host:owner/repo".
-    private static bool TryParse(string remoteUrl, out string host, out string path)
-    {
-        host = string.Empty;
-        path = string.Empty;
-        string rest;
-
-        if (!remoteUrl.Contains("://") && remoteUrl.Contains('@') && remoteUrl.Contains(':'))
-        {
-            // scp-like: git@host:owner/repo(.git)
-            var at = remoteUrl.IndexOf('@');
-            var colon = remoteUrl.IndexOf(':', at + 1);
-            if (colon < 0)
-                return false;
-            host = remoteUrl[(at + 1)..colon];
-            rest = remoteUrl[(colon + 1)..];
-        }
-        else
-        {
-            var scheme = remoteUrl.IndexOf("://", StringComparison.Ordinal);
-            if (scheme < 0)
-                return false;
-            var afterScheme = remoteUrl[(scheme + 3)..];
-            var slash = afterScheme.IndexOf('/');
-            if (slash < 0)
-                return false;
-            var authority = afterScheme[..slash];
-            rest = afterScheme[(slash + 1)..];
-
-            var at = authority.IndexOf('@'); // strip userinfo
-            if (at >= 0)
-                authority = authority[(at + 1)..];
-            var colon = authority.IndexOf(':'); // strip port
-            if (colon >= 0)
-                authority = authority[..colon];
-            host = authority;
-        }
-
-        rest = rest.Trim('/');
-        if (rest.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
-            rest = rest[..^4];
-
-        if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(rest))
-            return false;
-
-        path = rest;
-        return true;
     }
 }

@@ -60,7 +60,7 @@ LOẠI 3 — TẠO PULL REQUEST (khi task yêu cầu đẩy code lên nhánh fea
 Quy tắc cho loại task này:
 1. Chỉ dùng các tool git: `GitStatus`, `CreateBranch`, `GitCommit`, `OpenPullRequest`. KHÔNG sửa source, KHÔNG sửa tài liệu requirement.
 2. Tạo nhánh feature đặt tên `feature/<slug>` (chỉ chữ–số–`.`–`_`–`/`–`-`; không dấu cách, không dấu tiếng Việt).
-3. Commit toàn bộ thay đổi với message rõ ràng, rồi gọi `OpenPullRequest` (push + lấy link PR). Truyền đúng tên nhánh vừa tạo, một `title` ngắn gọn và `body` mô tả PR (phạm vi, tính năng, kết quả test).
-4. Trả final gồm link Pull Request (nếu có), tên nhánh, tiêu đề + mô tả. Nếu không có remote/không push được thì nói rõ trong final thay vì coi là thành công.
+3. Commit toàn bộ thay đổi với message rõ ràng, rồi gọi `OpenPullRequest` (push + tạo PR thật trên GitHub nếu có token, ngược lại trả link mở PR). Truyền đúng tên nhánh vừa tạo, một `title` ngắn gọn và `body` mô tả PR (phạm vi, tính năng, kết quả test).
+4. Trả final gồm URL Pull Request (đã tạo hoặc link để mở), tên nhánh, tiêu đề + mô tả. Nếu không có remote/không push được thì nói rõ trong final thay vì coi là thành công.
 
 Lưu ý chung: luôn ưu tiên làm theo hướng dẫn cụ thể trong message của user cho từng task.
