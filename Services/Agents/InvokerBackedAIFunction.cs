@@ -1,35 +1,40 @@
 using System.Reflection;
 using System.Text.Json;
+using ICOGenerator.Services.Tools.Abstractions;
+using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Tools.Registry;
 using Microsoft.Extensions.AI;
 
 namespace ICOGenerator.Services.Agents;
 
 /// <summary>
-/// Adapts a workspace tool to the agent framework's function-invocation loop. The name and JSON schema
-/// come from the wrapped <see cref="AIFunction"/> (built by <see cref="AIFunctionFactory"/> from the
-/// method signature), but the actual invocation is routed back through <see cref="DynamicToolInvoker"/>,
-/// so every tool keeps going through the one shared policy + logging + reflection path — unchanged from
-/// the hand-written loop.
+/// Wraps a workspace tool for the agent framework's function-invocation loop. Name, JSON schema, argument
+/// binding and the method invocation itself all come from the wrapped <see cref="AIFunction"/> (built by
+/// <see cref="AIFunctionFactory"/> from the method signature) — this type no longer re-binds arguments or
+/// invokes by reflection. It only layers the app's cross-cutting concerns over that single invocation:
+/// progress reporting, the per-agent <see cref="ToolPolicyService">policy</see> check,
+/// <see cref="IToolExecutionLogger">execution logging</see>, and the truncation guard below.
 ///
-/// It also carries the truncation guard from that old loop: a streamed tool call can arrive with its
-/// required arguments missing (fragments not reassembled, or the arguments JSON cut off by the token
-/// limit). Binding the absent parameters to null/default silently corrupts state — e.g. SetPocContent
-/// with no <c>content</c> wipes the POC body yet returns success. Such a call is refused (not run) and an
-/// error observation is returned so the model re-issues the call with complete arguments.
+/// Truncation guard: a streamed tool call can arrive with its required arguments missing (fragments not
+/// reassembled, or the arguments JSON cut off by the token limit). Letting the binder fill the absent
+/// parameters with null/default silently corrupts state — e.g. SetPocContent with no <c>content</c> wipes
+/// the POC body yet returns success. Such a call is refused (not run) and an error observation is returned
+/// so the model re-issues the call with complete arguments.
 /// </summary>
 public sealed class InvokerBackedAIFunction : DelegatingAIFunction
 {
     private readonly ToolRuntimeDescriptor _descriptor;
-    private readonly DynamicToolInvoker _invoker;
+    private readonly ToolPolicyService _policy;
+    private readonly IToolExecutionLogger _logger;
     private readonly Action<string, string, string?>? _onProgress;
 
     public InvokerBackedAIFunction(
-        AIFunction inner, ToolRuntimeDescriptor descriptor, DynamicToolInvoker invoker,
-        Action<string, string, string?>? onProgress) : base(inner)
+        AIFunction inner, ToolRuntimeDescriptor descriptor, ToolPolicyService policy,
+        IToolExecutionLogger logger, Action<string, string, string?>? onProgress) : base(inner)
     {
         _descriptor = descriptor;
-        _invoker = invoker;
+        _policy = policy;
+        _logger = logger;
         _onProgress = onProgress;
     }
 
@@ -51,7 +56,12 @@ public sealed class InvokerBackedAIFunction : DelegatingAIFunction
         string observation;
         try
         {
-            observation = await _invoker.InvokeAsync(_descriptor, args);
+            // Policy + logging are this wrapper's job; binding + invocation are the inner AIFunction's
+            // (it built the schema from the same signature, so the round-trip stays consistent).
+            _policy.EnsureCanInvoke(_descriptor);
+            _logger.LogInvocation(_descriptor);
+            observation = ToObservation(await base.InvokeCoreAsync(arguments, cancellationToken));
+            _logger.LogResult(_descriptor, observation);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -69,8 +79,18 @@ public sealed class InvokerBackedAIFunction : DelegatingAIFunction
         return observation;
     }
 
+    // The tool result the model sees is a plain string for every registered tool (each returns
+    // Task<string> or string). Mirror the old invoker's contract for the rare non-string return: a
+    // non-generic Task tool reported "Done"; anything else that comes back null → empty.
+    private string ToObservation(object? result)
+    {
+        if (result is string s) return s;
+        if (result is not null) return result.ToString() ?? string.Empty;
+        return _descriptor.Method.ReturnType == typeof(Task) ? "Done" : string.Empty;
+    }
+
     // Converts the framework's tool-call arguments (object? values, usually already JsonElement) into the
-    // JsonElement map DynamicToolInvoker binds to method parameters.
+    // JsonElement map the validator and progress display read.
     private static Dictionary<string, JsonElement> ToJsonArgs(AIFunctionArguments arguments)
     {
         var result = new Dictionary<string, JsonElement>();

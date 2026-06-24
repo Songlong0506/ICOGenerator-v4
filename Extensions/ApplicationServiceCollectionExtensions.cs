@@ -226,7 +226,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<DiffTools>();
         services.AddScoped<ToolDiscoveryService>();
         services.AddScoped<IToolRegistry, ToolRegistry>();
-        services.AddScoped<DynamicToolInvoker>();
         return services;
     }
 

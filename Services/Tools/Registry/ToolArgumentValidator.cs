@@ -8,7 +8,7 @@ namespace ICOGenerator.Services.Tools.Registry;
 ///
 /// On the streaming native tool-calling path a call can arrive with its arguments missing: the
 /// streamed argument fragments weren't reassembled, or the arguments JSON was cut off by the token
-/// limit (finish_reason=length). <see cref="DynamicToolInvoker"/> then binds the absent parameters to
+/// limit (finish_reason=length). The binder would otherwise fill the absent parameters with
 /// null/default, which silently corrupts state — e.g. SetPocContent invoked with no <c>content</c>
 /// wipes the POC body yet still returns "POC content updated", so the run reports success with an
 /// empty result. Detecting the missing arguments lets the caller refuse the call and ask the model to
