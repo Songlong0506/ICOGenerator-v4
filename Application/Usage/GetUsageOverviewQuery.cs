@@ -9,8 +9,6 @@ public record ProjectUsageItem(Guid ProjectId, string ProjectName, long PromptTo
 
 public record ModelUsageItem(string ModelId, string ModelName, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal InputPricePerMillionTokens, decimal OutputPricePerMillionTokens, bool HasPrice, decimal Cost);
 
-public record RunUsageItem(Guid RunId, string RunName, string ProjectName, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, DateTime? LastCallAt, decimal Cost);
-
 public record UsageOverviewVm(
     long TotalTokens,
     long TotalPromptTokens,
@@ -27,7 +25,6 @@ public record UsageOverviewVm(
 public class GetUsageOverviewQuery
 {
     private const int MonthsToShow = 12;
-    private const int MaxRunsToShow = 20;
 
     private readonly AppDbContext _db;
     public GetUsageOverviewQuery(AppDbContext db) => _db = db;
