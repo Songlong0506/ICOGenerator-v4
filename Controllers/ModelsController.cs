@@ -1,9 +1,12 @@
 using ICOGenerator.Application.Models;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
 
+[RequirePermission(AppPermission.ModelsView)]
 public class ModelsController : Controller
 {
     private readonly ListAiModelsQuery _listAiModelsQuery;
@@ -30,6 +33,7 @@ public class ModelsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.ModelsCreate)]
     public async Task<IActionResult> Create(AiModel model)
     {
         if (!ModelState.IsValid)
@@ -44,6 +48,7 @@ public class ModelsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.ModelsEdit)]
     public async Task<IActionResult> Update(AiModel input)
     {
         if (!ModelState.IsValid)
@@ -60,6 +65,7 @@ public class ModelsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.ModelsDelete)]
     public async Task<IActionResult> Delete(Guid id)
     {
         var result = await _deleteAiModelUseCase.ExecuteAsync(id);

@@ -1,4 +1,6 @@
 @using ICOGenerator
 @using ICOGenerator.Domain
 @using ICOGenerator.Domain.Enums
+@using ICOGenerator.Services.Security
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@inject ICOGenerator.Services.Security.IPermissionService Permissions

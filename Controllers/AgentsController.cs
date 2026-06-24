@@ -1,8 +1,11 @@
 using ICOGenerator.Application.Agents;
+using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
 
+[RequirePermission(AppPermission.AgentsView)]
 public class AgentsController : Controller
 {
     private readonly GetAgentManagementPageQuery _getAgentManagementPageQuery;
@@ -27,6 +30,7 @@ public class AgentsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.AgentsManage)]
     public async Task<IActionResult> Update(AgentEditVm vm)
     {
         switch (await _updateAgentUseCase.ExecuteAsync(vm))

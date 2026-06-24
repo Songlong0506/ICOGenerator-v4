@@ -1,8 +1,11 @@
 using ICOGenerator.Application.Settings;
+using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
 
+[RequirePermission(AppPermission.SettingsView)]
 public class SettingsController : Controller
 {
     private readonly GetAppSettingsQuery _getAppSettingsQuery;
@@ -23,6 +26,7 @@ public class SettingsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.SettingsManage)]
     public async Task<IActionResult> Update(AppSettingsVm input)
     {
         var error = await _updateAppSettingsUseCase.ExecuteAsync(input);

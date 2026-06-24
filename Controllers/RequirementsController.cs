@@ -1,12 +1,16 @@
 using System.Text.Json;
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Requirements;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Requirements;
+using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
 
+// Mặc định cả controller chỉ cần quyền xem; các action thay đổi dữ liệu/workflow yêu cầu RequirementsManage.
+[RequirePermission(AppPermission.RequirementsView)]
 public class RequirementsController : Controller
 {
     private readonly GetRequirementWorkspaceQuery _getRequirementWorkspaceQuery;
@@ -65,6 +69,7 @@ public class RequirementsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> Chat(Guid projectId, string message)
     {
         if (string.IsNullOrWhiteSpace(message))
@@ -83,6 +88,7 @@ public class RequirementsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> WriteRequirement(Guid projectId)
     {
         await _generateRequirementDraftUseCase.ExecuteAsync(projectId);
@@ -92,6 +98,7 @@ public class RequirementsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> Approve(Guid projectId)
     {
         var result = await _approveRequirementUseCase.ExecuteAsync(projectId);
@@ -126,6 +133,7 @@ public class RequirementsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> ApproveStage(Guid projectId, Guid? runId = null)
     {
         var result = await _approveStageUseCase.ExecuteAsync(projectId, runId);
@@ -138,6 +146,7 @@ public class RequirementsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> RejectStage(Guid projectId, Guid? runId = null)
     {
         await _rejectStageUseCase.ExecuteAsync(projectId, runId);
@@ -148,6 +157,7 @@ public class RequirementsController : Controller
     // LLM rớt kết nối. Re-queue đúng task đã hỏng, worker sẽ tiếp tục từ chỗ đó.
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> RetryWorkflow(Guid projectId, Guid? runId = null)
     {
         var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId);
@@ -203,6 +213,7 @@ public class RequirementsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> NewChat(Guid projectId)
     {
         await _startNewChatUseCase.ExecuteAsync(projectId);

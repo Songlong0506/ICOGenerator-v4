@@ -22,19 +22,21 @@ Cấu hình ở `appsettings.json`:
 - `ConnectionStrings:DefaultConnection` — đổi `Server=...` sang SQL Server của bạn.
 - `AgentWorkspace:RootPath` — thư mục agent dùng làm workspace để đọc/ghi/đặt file sinh ra. **Đổi sang đường dẫn tồn tại trên máy bạn.**
 - `AllowedCommands` / `AllowedFileExtensions` — "rào chắn an toàn" giới hạn lệnh shell và loại file mà tool của agent được phép đụng tới. Mở rộng có cân nhắc.
-- `Auth:Username` / `Auth:Password` — đăng nhập (cookie) bảo vệ **toàn bộ** app. Username mặc định `admin`. **Mật khẩu KHÔNG commit vào file**: nạp qua biến môi trường `Auth__Password` hoặc user-secrets. Nếu để trống, mọi lần đăng nhập đều bị từ chối (an toàn mặc định).
+- `Auth` — đăng nhập (cookie) bảo vệ **toàn bộ** app. App dùng **bảng `AppUser`** với 3 tài khoản seed sẵn (`admin`/`teamdev`/`user`), mỗi tài khoản gắn một `UserRole` (Admin / TeamDev / User). Mật khẩu seed nạp qua `Auth:SeedPasswords:Admin|TeamDev|User` (biến môi trường `Auth__SeedPasswords__Admin`...). **KHÔNG commit mật khẩu thật**: nếu để trống, `DbInitializer` dùng mật khẩu mặc định (`Admin@123`...) và ghi cảnh báo — đổi ngay trên môi trường thật. `Auth:Password` (cũ) nếu có sẽ dùng làm mật khẩu seed cho `admin` (tương thích ngược).
 
 Bí mật cần đặt trước khi chạy (qua biến môi trường hoặc `dotnet user-secrets`, không commit):
 ```
-Encryption__ApiKeyKey   # khóa mã hóa ApiKey trong DB (app fail-fast nếu thiếu)
-Auth__Password          # mật khẩu đăng nhập; thiếu thì không đăng nhập được
+Encryption__ApiKeyKey            # khóa mã hóa ApiKey trong DB (app fail-fast nếu thiếu)
+Auth__SeedPasswords__Admin       # mật khẩu seed cho admin (để trống ⇒ dùng mặc định, có cảnh báo)
+Auth__SeedPasswords__TeamDev
+Auth__SeedPasswords__User
 ```
 
 Chạy:
 ```
 dotnet run
 ```
-Mở app sẽ vào trang `/Account/Login`; đăng nhập bằng `Auth:Username` + `Auth:Password` rồi mới dùng được các màn hình.
+Mở app sẽ vào trang `/Account/Login`; đăng nhập bằng một trong các tài khoản seed rồi mới dùng được các màn hình. Mỗi role chỉ thấy/được thao tác trên các màn hình theo cấu hình quyền (xem §Phân quyền).
 Khi khởi động, `DbInitializer.InitializeAsync` sẽ tự: chạy migration, đồng bộ danh mục tool (`ToolDiscoveryService`), và **seed sẵn 5 agent** (BA, Tech Lead, Developer, Tester, UI/UX) cùng AI model + vài project mẫu. App mặc định mở vào `ProjectsController`.
 
 ---
@@ -305,6 +307,19 @@ Khác với chuỗi tuyến tính (POC → Architecture → Impl → CodeReview 
 - **`Tools/Abstractions` chỉ chứa interface/record**; class hiện thực nằm ở `Tools/Execution`. Đừng để lẫn.
 - **Đăng ký DI một chỗ.** Mọi service mới phải vào đúng nhóm `AddXxx()` ở file Extensions, nếu không sẽ lỗi "Unable to resolve service" lúc chạy.
 - **Migration.** Đổi `Domain` entity là phải tạo migration (`dotnet ef migrations add <Tên>`); `DbInitializer` tự `MigrateAsync` lúc khởi động.
+
+---
+
+## 8.1. Phân quyền (Role & Permission)
+
+- **3 role người dùng** (`Domain/Enums/UserRole.cs`): `Admin`, `TeamDev`, `User`. Khác hẳn `AgentRoleKey` (vai của AI agent). Người dùng nằm ở bảng `AppUser`, seed sẵn trong `DbInitializer` (chưa có UI tạo user).
+- **Quyền ở mức hành động** (`Domain/Enums/AppPermission.cs`), ví dụ `ProjectsView`, `ModelsDelete`, `SettingsManage`. `PermissionCatalog` (`Domain/Security`) gom quyền theo màn hình để render ma trận và lọc menu.
+- **Cấp quyền** lưu ở bảng `RolePermission` (cấu hình được). **Admin luôn có toàn quyền** (implicit-all trong `PermissionService`) nên không có dòng nào trong bảng và không tự khóa được. Mặc định: TeamDev = mọi thứ trừ Settings/Roles; User = chỉ xem Projects/Requirements.
+- **Kiểm tra quyền — một nguồn sự thật:** `IPermissionService` (`Services/Security`, có cache MemoryCache). Dùng bởi:
+  - Filter `[RequirePermission(AppPermission.X)]` đặt trên controller (mức xem) hoặc action (mức thao tác). Thiếu quyền ⇒ về `/Account/AccessDenied`.
+  - `_Layout.cshtml` (qua `@inject IPermissionService`) để ẩn/hiện menu sidebar.
+- **Cấu hình runtime:** màn hình **Roles & Permissions** (`RolesController`, chỉ Admin) tick ma trận và lưu; `UpdateRolePermissionsUseCase` gọi `InvalidateCache()` nên đổi quyền có hiệu lực **ngay, không cần đăng nhập lại**.
+- **Thêm màn hình/quyền mới:** thêm giá trị vào `AppPermission`, khai báo trong `PermissionCatalog.Screens`, gắn `[RequirePermission]` lên controller/action, và (nếu là menu) thêm nhánh `@if` trong `_Layout.cshtml`.
 
 ---
 
