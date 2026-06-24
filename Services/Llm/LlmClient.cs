@@ -1,5 +1,6 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Logging;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
 namespace ICOGenerator.Services.Llm;
@@ -27,14 +28,15 @@ public class LlmClient : ILlmClient
 
     public async Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
     {
-        // Compose the shared middleware over the per-model OpenAI client: it owns the deadline, token cap,
-        // result-building, error mapping and DB logging that used to live inline here.
+        // The BA runs on the SAME Microsoft Agent Framework abstraction as the worker roles — a
+        // ChatClientAgent over the per-model OpenAI client + shared logging middleware — it just advertises no
+        // tools, so this is a plain streamed turn. The deadline, token cap, result-building, error mapping and
+        // DB logging still come from the composed ModelCallLoggingChatClient (handed back via onCompleted).
         LlmCallResult? captured = null;
-        var client = BuildClient(model, logContext, r => captured = r);
+        var (agent, session) = await BuildAgentSessionAsync(model, logContext, r => captured = r, cancellationToken).ConfigureAwait(false);
+        var runOptions = new ChatClientAgentRunOptions(new ChatOptions { Temperature = (float)temperature });
 
-        var options = new ChatOptions { Temperature = (float)temperature };
-
-        await foreach (var update in client.GetStreamingResponseAsync(messages, options, cancellationToken).ConfigureAwait(false))
+        await foreach (var update in agent.RunStreamingAsync(messages, session, runOptions, cancellationToken).ConfigureAwait(false))
         {
             var text = update.Text;
             // Surface the delta live. A misbehaving sink must never break the LLM call, so swallow anything
@@ -61,20 +63,19 @@ public class LlmClient : ILlmClient
         }
 
         LlmCallResult? captured = null;
-        var client = BuildClient(model, logContext, r => captured = r);
-
-        var options = new ChatOptions { Temperature = (float)temperature };
+        var (agent, session) = await BuildAgentSessionAsync(model, logContext, r => captured = r, cancellationToken).ConfigureAwait(false);
+        var runOptions = new ChatClientAgentRunOptions(new ChatOptions { Temperature = (float)temperature });
 
         try
         {
-            // GetResponseAsync<T> sets response_format to a JSON schema derived from T and deserializes the
-            // reply. It routes through our middleware's (non-streaming) GetResponseAsync, so the call is still
-            // deadline-bounded, token-capped and logged identically.
-            var response = await client.GetResponseAsync<T>(messages, options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
+            // RunAsync<T> derives a json-schema response_format from T and deserializes the reply into
+            // AgentResponse<T>.Result. It routes through our middleware's (non-streaming) GetResponseAsync, so
+            // the call is still deadline-bounded, token-capped and logged identically.
+            var response = await agent.RunAsync<T>(messages, session, AIJsonUtilities.DefaultOptions, runOptions, cancellationToken).ConfigureAwait(false);
             var result = captured ?? throw new InvalidOperationException("Model call produced no result.");
 
             // A 200 whose JSON doesn't fit T → null value → caller parses result.Content with its own parser.
-            return result.IsSuccess && response.TryGetResult(out var value) ? (result, value) : (result, null);
+            return result.IsSuccess && response.Result is { } value ? (result, value) : (result, null);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -94,15 +95,29 @@ public class LlmClient : ILlmClient
         }
     }
 
-    // The chat client wraps the pooled (IHttpClientFactory-owned) HttpClient, so the OpenAI client is
-    // intentionally lightweight/per-call; the shared middleware is layered on via ChatClientBuilder.
-    private IChatClient BuildClient(AiModel model, ModelCallLogContext logContext, Action<LlmCallResult> onCompleted) =>
-        _chatClientFactory.Create(model)
+    // Builds the BA's ChatClientAgent over the per-model OpenAI client wrapped with the shared
+    // logging/deadline middleware, plus a fresh stateless session (history is owned by the caller's DB, not
+    // the session). UseProvidedChatClientAsIs keeps the composed pipeline intact so the agent doesn't wrap it
+    // again; the OpenAI client is intentionally lightweight/per-call (it wraps the pooled HttpClient).
+    private async Task<(ChatClientAgent Agent, AgentSession Session)> BuildAgentSessionAsync(
+        AiModel model, ModelCallLogContext logContext, Action<LlmCallResult> onCompleted, CancellationToken cancellationToken)
+    {
+        var client = _chatClientFactory.Create(model)
             .AsBuilder()
             .Use(inner => new ModelCallLoggingChatClient(
                 inner, model, _modelCallLogger, logContext, _requestTimeoutSeconds,
                 throwOnFailure: false, onCompleted: onCompleted))
             .Build();
+
+        var agent = new ChatClientAgent(client, new ChatClientAgentOptions
+        {
+            Name = logContext.Agent.Name,
+            UseProvidedChatClientAsIs = true
+        });
+
+        var session = await agent.CreateSessionAsync(cancellationToken).ConfigureAwait(false);
+        return (agent, session);
+    }
 }
 
 public class LlmCallResult
