@@ -80,8 +80,8 @@ public class GetAgentDashboardQuery
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         // Skip regenerable dirs (node_modules/bin/obj/.git/.vs): once a project has run npm install /
-        // dotnet build, those hold tens of thousands of files that would otherwise be enumerated AND
-        // read synchronously (up to 12 KB each) on every dashboard load — and rendered as document cards.
+        // dotnet build, those hold tens of thousands of files that would otherwise be enumerated on
+        // every dashboard load — and rendered as document cards.
         foreach (var filePath in Directory.EnumerateFiles(workspacePath, "*.*", SearchOption.AllDirectories)
                      .Where(x => !WorkspaceFileFilter.IsInRegenerableDirectory(workspacePath, x)))
         {
@@ -111,7 +111,9 @@ public class GetAgentDashboardQuery
                 Folder = phase,
                 VersionName = versionName,
                 FileName = fileName,
-                Content = ReadPreviewContent(filePath),
+                // Content is intentionally left empty: the dashboard only lists files, and previews are
+                // fetched on demand from GetDocumentPreviewQuery when a file is opened. Reading every
+                // workspace file here (up to 12 KB each, synchronously) was pure waste on every load.
                 FilePath = relativePath,
                 CreatedAt = File.GetLastWriteTimeUtc(filePath)
             });
@@ -126,29 +128,4 @@ public class GetAgentDashboardQuery
 
     private static string GetDocumentKey(string folder, string versionName, string fileName) =>
         $"{folder}/{versionName}/{fileName}";
-
-    private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".cs", ".css", ".csv", ".html", ".htm", ".js", ".json", ".md", ".sql", ".txt", ".xml", ".yml", ".yaml"
-    };
-
-    private static string ReadPreviewContent(string filePath)
-    {
-        var extension = Path.GetExtension(filePath);
-
-        if (!TextExtensions.Contains(extension))
-            return $"Preview is not available for binary file: {Path.GetFileName(filePath)}";
-
-        // A locked/deleted/permission-denied file must not 500 the whole dashboard; degrade to an
-        // inline note for that one file and keep rendering the rest.
-        try
-        {
-            var content = File.ReadAllText(filePath);
-            return content.Length > 12000 ? content[..12000] + "\n...[truncated]" : content;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return $"Preview unavailable ({Path.GetFileName(filePath)}): {ex.Message}";
-        }
-    }
 }
