@@ -1,0 +1,74 @@
+@using ICOGenerator.Application.Roles
+@using ICOGenerator.Domain.Security
+@model RolePermissionMatrixVm
+
+<style>
+    .roles-table { width: 100%; border-collapse: collapse; max-width: 860px; background: #fff; border-radius: 12px; overflow: hidden; }
+    .roles-table th, .roles-table td { padding: 10px 14px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 14px; }
+    .roles-table thead th { background: #f8fafc; font-weight: 700; color: #0f172a; }
+    .roles-table th.role-col, .roles-table td.role-col { text-align: center; width: 110px; }
+    .roles-table tr.screen-row td { background: #f1f5f9; font-weight: 700; color: #334155; }
+    .roles-table .perm-label { color: #334155; }
+    .save-bar { display: flex; justify-content: end; max-width: 860px; margin-top: 18px; }
+    .locked-mark { color: #16a34a; font-weight: 700; }
+</style>
+
+<div class="page-head">
+    <div>
+        <h1>Roles &amp; Permissions</h1>
+        <p style="color:var(--muted);margin:4px 0 0;">Tích chọn màn hình/thao tác mà mỗi role được phép. Admin luôn có toàn quyền.</p>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert success">@TempData["Success"]</div>
+}
+
+<form asp-action="Update" method="post">
+    @Html.AntiForgeryToken()
+
+    <table class="roles-table">
+        <thead>
+            <tr>
+                <th>Quyền</th>
+                @foreach (var col in Model.Columns)
+                {
+                    <th class="role-col">@col.Title</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var screen in Model.Screens)
+            {
+                <tr class="screen-row">
+                    <td colspan="@(Model.Columns.Count + 1)">@screen.Title</td>
+                </tr>
+                @foreach (var permission in screen.Permissions)
+                {
+                    <tr>
+                        <td class="perm-label">@permission.GetLabel()</td>
+                        @foreach (var col in Model.Columns)
+                        {
+                            <td class="role-col">
+                                @if (col.Locked)
+                                {
+                                    <span class="locked-mark" title="Admin luôn có toàn quyền">✓</span>
+                                }
+                                else
+                                {
+                                    <input type="checkbox" name="granted" value="@col.Role:@permission"
+                                           checked="@col.Has(permission)" />
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <div class="save-bar">
+        <button class="btn primary" type="submit">Lưu cấu hình</button>
+    </div>
+</form>

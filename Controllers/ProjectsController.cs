@@ -1,8 +1,12 @@
 using ICOGenerator.Application.Projects;
+using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
 
+// Xem dự án là quyền cơ bản nhất; mọi action GET trong controller đều yêu cầu ProjectsView.
+[RequirePermission(AppPermission.ProjectsView)]
 public class ProjectsController : Controller
 {
     private readonly GetProjectListQuery _getProjectListQuery;
@@ -30,6 +34,7 @@ public class ProjectsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.ProjectsCreate)]
     public async Task<IActionResult> Create(ProjectCreateVm vm)
     {
         if (!ModelState.IsValid)

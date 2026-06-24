@@ -3,9 +3,11 @@ using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Requirements;
+using ICOGenerator.Application.Roles;
 using ICOGenerator.Application.Usage;
 using ICOGenerator.Application.Settings;
 using ICOGenerator.Data;
+using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
@@ -22,6 +24,7 @@ using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Workflows;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
@@ -48,6 +51,7 @@ public static class ApplicationServiceCollectionExtensions
                 sql => sql.EnableRetryOnFailure()));
 
         services.AddProjectUseCases();
+        services.AddRoleUseCases();
         services.AddRequirementUseCases();
         services.AddAgentUseCases();
         services.AddModelUseCases();
@@ -69,12 +73,18 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddScoped<LoginUseCase>();
 
+        // Băm mật khẩu người dùng bằng PasswordHasher của ASP.NET (PBKDF2) — stateless nên đăng ký singleton.
+        services.AddSingleton<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
+        // Phân quyền: cache (singleton) chia sẻ giữa các request; PermissionService scoped vì phụ thuộc DbContext.
+        services.AddMemoryCache();
+        services.AddScoped<IPermissionService, PermissionService>();
+
         services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(options =>
             {
                 options.LoginPath = "/Account/Login";
                 options.LogoutPath = "/Account/Logout";
-                options.AccessDeniedPath = "/Account/Login";
+                options.AccessDeniedPath = "/Account/AccessDenied";
                 options.ExpireTimeSpan = TimeSpan.FromHours(8);
                 options.SlidingExpiration = true;
                 options.Cookie.HttpOnly = true;
@@ -104,6 +114,13 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<CreateProjectUseCase>();
         services.AddScoped<GetMockupFileQuery>();
         services.AddScoped<GetImplementationSourceQuery>();
+        return services;
+    }
+
+    private static IServiceCollection AddRoleUseCases(this IServiceCollection services)
+    {
+        services.AddScoped<GetRolePermissionMatrixQuery>();
+        services.AddScoped<UpdateRolePermissionsUseCase>();
         return services;
     }
 

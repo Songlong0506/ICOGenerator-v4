@@ -147,14 +147,19 @@ Mọi đăng ký dịch vụ nằm ở `Extensions/ApplicationServiceCollectionE
 method nhỏ `AddXxx()` — **mỗi nhóm tương ứng một thư mục/layer**. `Program.cs` chỉ gọi
 `AddIcoGeneratorApplication(...)`.
 
-### 5.7. Xác thực (cookie auth, secure-by-default)
+### 5.7. Xác thực & phân quyền (cookie auth, secure-by-default)
 Toàn app nằm sau một lớp đăng nhập cookie. Cấu hình tập trung ở `AddAuthServices()`:
 một **fallback authorization policy** bắt **mọi endpoint** phải đăng nhập, trừ nơi gắn
 `[AllowAnonymous]` (trang `Account/Login`, `Home/Error`). Nhờ vậy một controller mới quên
 `[Authorize]` vẫn được bảo vệ mặc định — quan trọng vì trang Settings sửa được `AllowedCommands`.
-Thông tin đăng nhập đọc từ cấu hình `Auth:Username`/`Auth:Password` (mật khẩu là secret, nạp qua
-`Auth__Password`/user-secrets — **không commit**), so khớp **fixed-time** trong `LoginUseCase`.
-`AccountController` mỏng: validate qua use case rồi `SignInAsync`/`SignOutAsync`.
+Người dùng nằm ở bảng **`AppUser`** (seed sẵn `admin`/`teamdev`/`user`); `LoginUseCase` đối chiếu
+mật khẩu băm bằng `PasswordHasher` rồi `AccountController` phát hành claim **Role**.
+
+Trên nền đó là **phân quyền theo role** (`UserRole`: Admin/TeamDev/User): quyền ở mức hành động
+(`AppPermission`) được cấp cho role qua bảng **`RolePermission`** (cấu hình runtime tại màn hình
+Roles & Permissions). `IPermissionService` (có cache, Admin implicit-all) là nguồn sự thật duy nhất,
+dùng bởi cả filter `[RequirePermission(...)]` trên controller/action lẫn `_Layout` để lọc menu.
+Thiếu quyền ⇒ `/Account/AccessDenied`. Chi tiết xem DEVELOPER_GUIDE §8.1.
 
 ### 5.8. Đường thực thi agent (native tool-calling, dùng Microsoft Agent Framework)
 `AgentRunService.RunAsync` chạy agent trên **Microsoft Agent Framework (`Microsoft.Agents.AI`)**: một

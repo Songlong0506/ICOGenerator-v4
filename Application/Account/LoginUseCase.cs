@@ -1,56 +1,38 @@
-using System.Security.Cryptography;
-using System.Text;
+using ICOGenerator.Data;
+using ICOGenerator.Domain;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Account;
 
 /// <summary>
-/// Validates the single shared app login against <c>Auth:Username</c> / <c>Auth:Password</c>.
-/// Username defaults to "admin" when unset; the password is a required secret — set via
-/// <c>Auth__Password</c> env var or user-secrets, never commit it (same stance as the ApiKey
-/// encryption key). Returns true only on an exact, fixed-time match.
+/// Xác thực người dùng theo bảng AppUser (thay cho credential dùng chung trong config trước đây):
+/// tìm user đang hoạt động theo username rồi kiểm tra mật khẩu băm bằng PasswordHasher. Trả về
+/// AppUser khi hợp lệ (để controller đọc Role và phát hành claim), hoặc null khi sai.
+/// Bộ user được seed trong DbInitializer; xem cấu hình mật khẩu seed ở Auth:SeedPasswords:*.
 /// </summary>
 public class LoginUseCase
 {
-    private const string DefaultUsername = "admin";
+    private readonly AppDbContext _db;
+    private readonly IPasswordHasher<AppUser> _passwordHasher;
 
-    private readonly IConfiguration _configuration;
-    private readonly ILogger<LoginUseCase> _logger;
-
-    public LoginUseCase(IConfiguration configuration, ILogger<LoginUseCase> logger)
+    public LoginUseCase(AppDbContext db, IPasswordHasher<AppUser> passwordHasher)
     {
-        _configuration = configuration;
-        _logger = logger;
+        _db = db;
+        _passwordHasher = passwordHasher;
     }
 
-    public bool Execute(string? username, string? password)
+    public async Task<AppUser?> ExecuteAsync(string? username, string? password, CancellationToken cancellationToken = default)
     {
-        var expectedUser = _configuration["Auth:Username"];
-        if (string.IsNullOrWhiteSpace(expectedUser))
-            expectedUser = DefaultUsername;
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
+            return null;
 
-        var expectedPassword = _configuration["Auth:Password"];
+        var user = await _db.AppUsers
+            .FirstOrDefaultAsync(x => x.Username == username && x.IsActive, cancellationToken);
+        if (user is null)
+            return null;
 
-        // No password configured => no valid credentials exist; reject every attempt rather
-        // than letting a blank value act as a wildcard that would leave the app wide open.
-        if (string.IsNullOrEmpty(expectedPassword))
-        {
-            _logger.LogWarning(
-                "Auth:Password is not configured; all logins are rejected. Set it via the " +
-                "environment variable Auth__Password or user-secrets.");
-            return false;
-        }
-
-        // Compare SHA-256 digests with a fixed-time equality so neither the username nor the
-        // password can be inferred from response timing or input length.
-        var userOk = FixedTimeEquals(username, expectedUser);
-        var passOk = FixedTimeEquals(password, expectedPassword);
-        return userOk && passOk;
-    }
-
-    private static bool FixedTimeEquals(string? actual, string? expected)
-    {
-        var actualHash = SHA256.HashData(Encoding.UTF8.GetBytes(actual ?? string.Empty));
-        var expectedHash = SHA256.HashData(Encoding.UTF8.GetBytes(expected ?? string.Empty));
-        return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
+        var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+        return result == PasswordVerificationResult.Failed ? null : user;
     }
 }

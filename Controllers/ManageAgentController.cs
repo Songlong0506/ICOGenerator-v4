@@ -1,8 +1,12 @@
 using ICOGenerator.Application.Agents;
+using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
 
+// Dashboard agent theo dự án (chỉ đọc) — đi vào từ màn hình Projects nên gắn cùng quyền xem Agents.
+[RequirePermission(AppPermission.AgentsView)]
 public class ManageAgentController : Controller
 {
     private readonly GetAgentDashboardQuery _getAgentDashboardQuery;

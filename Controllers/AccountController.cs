@@ -34,13 +34,20 @@ public class AccountController : Controller
         if (!ModelState.IsValid)
             return View(vm);
 
-        if (!_loginUseCase.Execute(vm.Username, vm.Password))
+        var user = await _loginUseCase.ExecuteAsync(vm.Username, vm.Password);
+        if (user is null)
         {
             ModelState.AddModelError(string.Empty, "Sai tên đăng nhập hoặc mật khẩu.");
             return View(vm);
         }
 
-        var claims = new List<Claim> { new(ClaimTypes.Name, vm.Username) };
+        // Claim Role lái toàn bộ phân quyền: authorization filter và menu sidebar đọc role này rồi
+        // tra quyền qua PermissionService.
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.Name, user.Username),
+            new(ClaimTypes.Role, user.Role.ToString())
+        };
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 
         await HttpContext.SignInAsync(
@@ -60,6 +67,11 @@ public class AccountController : Controller
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction(nameof(Login));
     }
+
+    // Trang báo "không đủ quyền" — đích của cookie AccessDeniedPath khi user đã đăng nhập nhưng
+    // RequirePermission từ chối. Vẫn yêu cầu đăng nhập (không [AllowAnonymous]).
+    [HttpGet]
+    public IActionResult AccessDenied() => View();
 
     // Only redirect to a local path so a crafted ?returnUrl can't become an open redirect.
     private IActionResult RedirectToLocal(string? returnUrl) =>

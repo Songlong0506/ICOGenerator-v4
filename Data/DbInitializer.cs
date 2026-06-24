@@ -1,6 +1,8 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Domain.Security;
 using ICOGenerator.Services.Tools.Registry;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Data;
@@ -14,6 +16,8 @@ public static class DbInitializer
         await db.Database.MigrateAsync();
 
         await RecoverOrphanedTasksAsync(db);
+        await SeedUsersAsync(db, scope.ServiceProvider);
+        await SeedRolePermissionsAsync(db);
 
         var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
         await discovery.SyncToolDefinitionsAsync();
@@ -75,6 +79,84 @@ public static class DbInitializer
                 await db.SaveChangesAsync();
             }
         }
+    }
+
+    // Mật khẩu mặc định khi chưa cấu hình Auth:SeedPasswords:* — chỉ dùng cho môi trường nội bộ/dev.
+    // ⚠️ Đổi ngay sau lần chạy đầu (qua config) trên môi trường thật; tài liệu trong DEVELOPER_GUIDE.
+    private static readonly (string Username, string DisplayName, UserRole Role, string ConfigKey, string Default)[] SeedUsers =
+    {
+        ("admin",   "Administrator",  UserRole.Admin,   "Auth:SeedPasswords:Admin",   "Admin@123"),
+        ("teamdev", "Team Developer", UserRole.TeamDev, "Auth:SeedPasswords:TeamDev", "TeamDev@123"),
+        ("user",    "User",           UserRole.User,    "Auth:SeedPasswords:User",    "User@123"),
+    };
+
+    // Seed bộ tài khoản cố định (admin/teamdev/user) nếu DB chưa có user nào. Mật khẩu được băm bằng
+    // PasswordHasher của ASP.NET. Lấy từ config trước; nếu thiếu thì dùng mặc định và ghi cảnh báo
+    // (cùng tinh thần "an toàn mặc định" như LoginUseCase). Admin tôn trọng Auth:Password cũ nếu có
+    // để giữ tương thích với cấu hình đăng nhập trước đây.
+    private static async Task SeedUsersAsync(AppDbContext db, IServiceProvider provider)
+    {
+        if (await db.AppUsers.AnyAsync())
+            return;
+
+        var configuration = provider.GetRequiredService<IConfiguration>();
+        var hasher = provider.GetRequiredService<IPasswordHasher<AppUser>>();
+        var logger = provider.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(DbInitializer));
+
+        foreach (var seed in SeedUsers)
+        {
+            var configured = configuration[seed.ConfigKey];
+            if (string.IsNullOrWhiteSpace(configured) && seed.Role == UserRole.Admin)
+                configured = configuration["Auth:Password"]; // tương thích ngược với credential dùng chung trước đây
+
+            var password = string.IsNullOrWhiteSpace(configured) ? seed.Default : configured;
+            if (string.IsNullOrWhiteSpace(configured))
+                logger.LogWarning(
+                    "Seed user '{Username}' dùng mật khẩu MẶC ĐỊNH. Hãy đặt {ConfigKey} (env {EnvKey}) và đổi mật khẩu trên môi trường thật.",
+                    seed.Username, seed.ConfigKey, seed.ConfigKey.Replace(':', '_'));
+
+            var user = new AppUser
+            {
+                Username = seed.Username,
+                DisplayName = seed.DisplayName,
+                Role = seed.Role,
+                IsActive = true
+            };
+            user.PasswordHash = hasher.HashPassword(user, password);
+            db.AppUsers.Add(user);
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    // Quyền mặc định khi bảng RolePermission còn trống. Admin KHÔNG cần dòng nào (implicit-all trong
+    // PermissionService). TeamDev: mọi thứ trừ quản trị (Settings + Roles). User: chỉ xem Projects/Requirements.
+    private static async Task SeedRolePermissionsAsync(AppDbContext db)
+    {
+        if (await db.RolePermissions.AnyAsync())
+            return;
+
+        var defaults = new (UserRole Role, AppPermission[] Permissions)[]
+        {
+            (UserRole.TeamDev, new[]
+            {
+                AppPermission.ProjectsView, AppPermission.ProjectsCreate,
+                AppPermission.RequirementsView, AppPermission.RequirementsManage,
+                AppPermission.AgentsView, AppPermission.AgentsManage,
+                AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete,
+                AppPermission.UsageView
+            }),
+            (UserRole.User, new[]
+            {
+                AppPermission.ProjectsView, AppPermission.RequirementsView
+            }),
+        };
+
+        foreach (var (role, permissions) in defaults)
+            foreach (var permission in permissions)
+                db.RolePermissions.Add(new RolePermission { Role = role, Permission = permission });
+
+        await db.SaveChangesAsync();
     }
 
     // Số lần một task được phép chạy lại sau khi bị gián đoạn bởi restart trước khi bị coi là Failed,

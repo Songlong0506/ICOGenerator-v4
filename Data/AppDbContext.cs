@@ -22,6 +22,8 @@ public class AppDbContext : DbContext
     public DbSet<AgentModelCallLog> AgentModelCallLogs => Set<AgentModelCallLog>();
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
     public DbSet<AgentTask> AgentTasks => Set<AgentTask>();
+    public DbSet<AppUser> AppUsers => Set<AppUser>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -129,6 +131,24 @@ public class AppDbContext : DbContext
             b.Property(x => x.ModelId).HasMaxLength(200);
             b.Property(x => x.Endpoint).HasMaxLength(500);
             b.Property(x => x.Purpose).HasMaxLength(100);
+        });
+
+        // Người dùng đăng nhập: Username là duy nhất, Role lưu dạng chuỗi (dễ đọc trong DB và bền với việc chèn enum mới).
+        builder.Entity<AppUser>(b =>
+        {
+            b.Property(x => x.Username).HasMaxLength(100);
+            b.Property(x => x.DisplayName).HasMaxLength(200);
+            b.Property(x => x.PasswordHash).HasMaxLength(500);
+            b.Property(x => x.Role).HasConversion<string>().HasMaxLength(50);
+            b.HasIndex(x => x.Username).IsUnique();
+        });
+
+        // Bảng cấp quyền: cặp (Role, Permission) là duy nhất; cả hai cột enum lưu dạng chuỗi.
+        builder.Entity<RolePermission>(b =>
+        {
+            b.Property(x => x.Role).HasConversion<string>().HasMaxLength(50);
+            b.Property(x => x.Permission).HasConversion<string>().HasMaxLength(100);
+            b.HasIndex(x => new { x.Role, x.Permission }).IsUnique();
         });
     }
 }
