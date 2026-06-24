@@ -55,4 +55,55 @@ public class GitTools
 
         return _commandTools.RunArgs(["git", "push", "-u", remoteName, branchName]);
     }
+
+    [Description("Push the committed feature branch to the remote and return a ready-to-open Pull/Merge Request link for the repo's host (GitHub, GitLab, Azure DevOps, Bitbucket). Call this AFTER committing the implemented code on a feature branch. Pass the feature branch name, a concise PR title, and a short description body.")]
+    public async Task<string> OpenPullRequest(string branchName, string title, string body)
+    {
+        if (!IsSafeRef(branchName)) return Blocked("branch name", branchName);
+
+        var remoteName = _configuration["PullRequest:RemoteName"] ?? "origin";
+        if (!IsSafeRef(remoteName)) return Blocked("remote name", remoteName);
+
+        // Nhánh đích của PR; cấu hình PullRequest:BaseBranch, mặc định "main".
+        var baseBranch = _configuration["PullRequest:BaseBranch"];
+        if (string.IsNullOrWhiteSpace(baseBranch)) baseBranch = "main";
+        if (!IsSafeRef(baseBranch)) return Blocked("base branch", baseBranch);
+
+        var push = await _commandTools.RunArgs(["git", "push", "-u", remoteName, branchName]);
+
+        // Suy ra link tạo PR từ remote URL thật của repo (nguồn chân lý, kể cả Bosch template đã clone).
+        var remoteRaw = await _commandTools.RunArgs(["git", "remote", "get-url", remoteName]);
+        var prUrl = PullRequestUrlBuilder.Build(ExtractStdout(remoteRaw), baseBranch, branchName, title);
+
+        var linkLine = prUrl is null
+            ? "Không nhận diện được nhà cung cấp Git từ remote (hoặc chưa có remote) — push xong thì mở Pull Request thủ công trên trang repo."
+            : $"Mở Pull Request tại: {prUrl}";
+
+        return $"""
+                Push branch:
+                {push}
+
+                PR title: {title}
+                PR body:
+                {body}
+
+                Nhánh: {baseBranch} (base) ← {branchName} (head)
+                {linkLine}
+                """;
+    }
+
+    // Lấy phần stdout từ chuỗi kết quả đã định dạng của CommandTools (format do ta tự kiểm soát:
+    // "Command/ExitCode/Output:/Error:"), để đọc ví dụ remote URL. Không khớp được thì trả rỗng →
+    // PullRequestUrlBuilder trả null → caller báo mở PR thủ công (xuống cấp êm, không ném lỗi).
+    private static string ExtractStdout(string decorated)
+    {
+        const string outMarker = "Output:\n";
+        const string errMarker = "\n\nError:";
+        var start = decorated.IndexOf(outMarker, StringComparison.Ordinal);
+        if (start < 0) return string.Empty;
+        start += outMarker.Length;
+        var end = decorated.IndexOf(errMarker, start, StringComparison.Ordinal);
+        if (end < 0) end = decorated.Length;
+        return decorated[start..end].Trim();
+    }
 }

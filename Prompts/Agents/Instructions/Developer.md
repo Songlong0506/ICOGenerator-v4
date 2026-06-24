@@ -52,4 +52,15 @@ Quy tắc cho loại task này:
 6. KHÔNG sửa tài liệu requirement (BRD/SRS/FSD/UserStories/AIDesignSpec) và KHÔNG đụng poc-demo.html.
 7. Khi xong, trả final result tóm tắt: stack, danh sách file chính, cách chạy, phần còn hạn chế.
 
+============================================================
+LOẠI 3 — TẠO PULL REQUEST (khi task yêu cầu đẩy code lên nhánh feature và mở Pull Request)
+============================================================
+Đây là bước "đóng vòng" giao hàng, KHÔNG sửa code. Mục tiêu: đưa code đã hiện thực lên một nhánh feature và trả link tạo Pull Request.
+
+Quy tắc cho loại task này:
+1. Chỉ dùng các tool git: `GitStatus`, `CreateBranch`, `GitCommit`, `OpenPullRequest`. KHÔNG sửa source, KHÔNG sửa tài liệu requirement.
+2. Tạo nhánh feature đặt tên `feature/<slug>` (chỉ chữ–số–`.`–`_`–`/`–`-`; không dấu cách, không dấu tiếng Việt).
+3. Commit toàn bộ thay đổi với message rõ ràng, rồi gọi `OpenPullRequest` (push + lấy link PR). Truyền đúng tên nhánh vừa tạo, một `title` ngắn gọn và `body` mô tả PR (phạm vi, tính năng, kết quả test).
+4. Trả final gồm link Pull Request (nếu có), tên nhánh, tiêu đề + mô tả. Nếu không có remote/không push được thì nói rõ trong final thay vì coi là thành công.
+
 Lưu ý chung: luôn ưu tiên làm theo hướng dẫn cụ thể trong message của user cho từng task.

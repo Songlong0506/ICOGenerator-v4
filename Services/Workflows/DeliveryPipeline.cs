@@ -51,6 +51,10 @@ public static class DeliveryPipeline
         // báo cáo nên budget vừa phải; output (tóm tắt + phát hiện) thành input cho bước Testing.
         new PipelineStep(WorkflowStageKey.CodeReview,         AgentRoleKey.TechLead,  AgentTaskType.CodeReview,         "Review code đã hiện thực",         PipelineInputSource.PreviousOutput, 12),
         new PipelineStep(WorkflowStageKey.Testing,            AgentRoleKey.Tester,    AgentTaskType.Testing,            "Viết & chạy test, báo lỗi",        PipelineInputSource.PreviousOutput, 8),
+        // Bước cuối — "đóng vòng" giao hàng: sau khi test PASS và người dùng duyệt, Developer đẩy code
+        // lên một nhánh feature và trả link tạo Pull Request (push + suy ra URL theo nhà cung cấp Git).
+        // Budget nhỏ: chỉ vài lệnh git (tạo nhánh, commit, push) + link.
+        new PipelineStep(WorkflowStageKey.PullRequest,        AgentRoleKey.Developer, AgentTaskType.PullRequest,        "Tạo Pull Request giao code",       PipelineInputSource.PreviousOutput, 6),
     };
 
     /// <summary>
