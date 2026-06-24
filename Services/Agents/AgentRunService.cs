@@ -2,6 +2,7 @@ using System.Text;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Execution;
@@ -37,10 +38,11 @@ public class AgentRunService
     private readonly IModelCallLogger _modelCallLogger;
     private readonly IChatClientFactory _chatClientFactory;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly IBudgetGuard _budgetGuard;
     private readonly int _requestTimeoutSeconds;
 
-    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, ToolPolicyService toolPolicy, IToolExecutionLogger toolLogger, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, IChatClientFactory chatClientFactory, ILoggerFactory loggerFactory, IConfiguration configuration)
-    { _db = db; _toolRegistry = toolRegistry; _toolPolicy = toolPolicy; _toolLogger = toolLogger; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _chatClientFactory = chatClientFactory; _loggerFactory = loggerFactory; _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds); }
+    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, ToolPolicyService toolPolicy, IToolExecutionLogger toolLogger, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, IChatClientFactory chatClientFactory, ILoggerFactory loggerFactory, IBudgetGuard budgetGuard, IConfiguration configuration)
+    { _db = db; _toolRegistry = toolRegistry; _toolPolicy = toolPolicy; _toolLogger = toolLogger; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _chatClientFactory = chatClientFactory; _loggerFactory = loggerFactory; _budgetGuard = budgetGuard; _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds); }
 
     // ── Native function-calling path ─────────────────────────────────────────────────────────────────
     // Built on Microsoft Agent Framework: a ChatClientAgent + AgentSession own the ReAct tool loop, so
@@ -85,7 +87,7 @@ public class AgentRunService
             _chatClientFactory.Create(model), model, _modelCallLogger,
             new ModelCallLogContext(projectId, agent, "AgentRun", workflowRunId),
             _requestTimeoutSeconds, throwOnFailure: true,
-            onProgress: onProgress, maxSteps: maxSteps, hardCap: hardCap);
+            onProgress: onProgress, maxSteps: maxSteps, hardCap: hardCap, budgetGuard: _budgetGuard);
         var functionInvoker = new FunctionInvokingChatClient(modelClient, _loggerFactory)
         {
             MaximumIterationsPerRequest = maxSteps

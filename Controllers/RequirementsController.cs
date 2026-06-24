@@ -2,6 +2,7 @@ using System.Text.Json;
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Requirements;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Http.Features;
@@ -75,13 +76,21 @@ public class RequirementsController : Controller
         if (string.IsNullOrWhiteSpace(message))
             return RedirectToAction(nameof(Index), new { projectId });
 
-        var result = await _chatWithBAUseCase.ExecuteAsync(projectId, message);
+        try
+        {
+            var result = await _chatWithBAUseCase.ExecuteAsync(projectId, message);
 
-        if (result == ChatWithBAResult.ProjectNotFound)
-            return RedirectToAction("Index", "Projects");
+            if (result == ChatWithBAResult.ProjectNotFound)
+                return RedirectToAction("Index", "Projects");
 
-        if (result == ChatWithBAResult.BaNotConfigured)
-            TempData["Error"] = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent.";
+            if (result == ChatWithBAResult.BaNotConfigured)
+                TempData["Error"] = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent.";
+        }
+        catch (BudgetExceededException ex)
+        {
+            // Đã chạm trần ngân sách: đừng để văng thành lỗi 500 — báo lý do để người dùng biết vì sao BA không trả lời.
+            TempData["Error"] = ex.Message;
+        }
 
         return RedirectToAction(nameof(Index), new { projectId });
     }

@@ -1,4 +1,5 @@
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Logging;
 using Microsoft.Extensions.AI;
 
@@ -13,14 +14,16 @@ public class LlmClient : ILlmClient
     private readonly IChatClientFactory _chatClientFactory;
     private readonly IModelCallLogger _modelCallLogger;
     private readonly StructuredOutputPolicy _structuredOutputPolicy;
+    private readonly IBudgetGuard _budgetGuard;
     private readonly ILogger<LlmClient> _logger;
     private readonly int _requestTimeoutSeconds;
 
-    public LlmClient(IChatClientFactory chatClientFactory, IModelCallLogger modelCallLogger, StructuredOutputPolicy structuredOutputPolicy, IConfiguration configuration, ILogger<LlmClient> logger)
+    public LlmClient(IChatClientFactory chatClientFactory, IModelCallLogger modelCallLogger, StructuredOutputPolicy structuredOutputPolicy, IBudgetGuard budgetGuard, IConfiguration configuration, ILogger<LlmClient> logger)
     {
         _chatClientFactory = chatClientFactory;
         _modelCallLogger = modelCallLogger;
         _structuredOutputPolicy = structuredOutputPolicy;
+        _budgetGuard = budgetGuard;
         _logger = logger;
         _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
     }
@@ -101,7 +104,7 @@ public class LlmClient : ILlmClient
             .AsBuilder()
             .Use(inner => new ModelCallLoggingChatClient(
                 inner, model, _modelCallLogger, logContext, _requestTimeoutSeconds,
-                throwOnFailure: false, onCompleted: onCompleted))
+                throwOnFailure: false, onCompleted: onCompleted, budgetGuard: _budgetGuard))
             .Build();
 }
 
