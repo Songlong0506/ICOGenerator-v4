@@ -364,3 +364,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# SQLite local database (Database:Provider=Sqlite fallback for envs without SQL Server)
+*.db
+*.db-shm
+*.db-wal
