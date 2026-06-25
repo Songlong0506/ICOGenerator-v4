@@ -8,7 +8,6 @@ using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Tools;
-using ICOGenerator.Services.Logging;
 using Microsoft.Agents.AI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;

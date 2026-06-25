@@ -2,7 +2,6 @@ using System.Runtime.CompilerServices;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Llm;
-using ICOGenerator.Services.Logging;
 using Microsoft.Extensions.AI;
 using Xunit;
 

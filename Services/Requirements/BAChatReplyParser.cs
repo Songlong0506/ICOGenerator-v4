@@ -10,8 +10,6 @@ namespace ICOGenerator.Services.Requirements;
 // (không chip) — đúng bằng hành vi cũ — thay vì ném lỗi.
 public class BAChatReplyParser
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     // Giữ số chip vừa phải để không tràn UI, và bỏ "gợi ý" quá dài (model lỡ nhét cả đoạn văn).
     private const int MaxSuggestions = 6;
     private const int MaxSuggestionLength = 200;
@@ -27,7 +25,7 @@ public class BAChatReplyParser
             var json = JsonExtractor.Extract(text);
             if (!string.IsNullOrEmpty(json))
             {
-                var parsed = JsonSerializer.Deserialize<RawReply>(json, JsonOptions);
+                var parsed = JsonSerializer.Deserialize<RawReply>(json, JsonDefaults.CaseInsensitive);
                 if (parsed != null)
                 {
                     var message = (parsed.Message ?? string.Empty).Trim();

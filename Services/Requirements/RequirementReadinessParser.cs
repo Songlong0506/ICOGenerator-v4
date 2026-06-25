@@ -9,8 +9,6 @@ namespace ICOGenerator.Services.Requirements;
 // tuân thủ, nên parser fail-open: không đọc được cờ thì coi như Ready=true để khỏi chặn cứng luồng.
 public class RequirementReadinessParser
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     // Tái dùng cho phần message + suggestions (đã làm sạch chip) để đồng nhất với lượt chat BA.
     private readonly BAChatReplyParser _replyParser;
 
@@ -31,7 +29,7 @@ public class RequirementReadinessParser
             var json = JsonExtractor.Extract(text);
             if (!string.IsNullOrEmpty(json))
             {
-                var parsed = JsonSerializer.Deserialize<RawReadiness>(json, JsonOptions);
+                var parsed = JsonSerializer.Deserialize<RawReadiness>(json, JsonDefaults.CaseInsensitive);
                 ready = parsed?.Ready;
             }
         }

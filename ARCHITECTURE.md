@@ -35,8 +35,7 @@ Application/       # Tầng điều phối use case. Mỗi file = 1 thao tác ng
 Services/          # Hạ tầng & service nghiệp vụ tái dùng (gọi LLM, tool, file, prompt...).
   Agents/          #   Vòng lặp agent tự động dùng tool + background runner
   Artifacts/       #   Lưu/đọc file sản phẩm trong workspace
-  Llm/             #   Client gọi LLM + model request/response
-  Logging/         #   Ghi log lời gọi model
+  Llm/             #   Client gọi LLM + model request/response + ghi log lời gọi model (IModelCallLogger)
   Prompts/         #   Nạp & render template prompt (file .md trong /Prompts)
   Requirements/    #   Biến hội thoại BA -> tài liệu requirement
     Templates/     #     Sinh file .docx
@@ -277,7 +276,8 @@ sắp xếp lại; namespace luôn khớp đường dẫn.
   cũng đã được drop** (entity `AgentJob` + enum `AgentJobStatus` + `DbSet` đã xoá). Toàn bộ lịch
   sử migration sau đó đã được gộp lại thành một baseline duy nhất `20260617161007_V1` (tạo 10
   bảng, không còn `AgentJobs`); migration `RemoveAgentJob` riêng lẻ không còn tồn tại nữa.
-- `Services/Logging` chỉ có logger cho lời gọi model, đặt cạnh `Services/Llm`. Nếu sau này log
-  nhiều loại hơn thì giữ nguyên là hợp lý; nếu không, có thể gộp vào `Llm`.
+- `IModelCallLogger`/`ModelCallLogger` (log lời gọi model) **đã được gộp vào `Services/Llm`** (trước
+  đây nằm riêng ở `Services/Logging`): nó chỉ phục vụ một loại log và phụ thuộc chặt `LlmCallResult`,
+  nên để cạnh client gọi LLM là hợp lý. Nếu sau này log nhiều loại khác thì tách lại thư mục riêng.
 - Package `Microsoft.EntityFrameworkCore.Sqlite` (không dùng — `AppDbContext` chỉ `UseSqlServer`)
   đã được gỡ khỏi `ICOGenerator.csproj`.

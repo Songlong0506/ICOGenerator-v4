@@ -25,8 +25,8 @@
         ? workflowRuns.OrderByDescending(x => x.CreatedAt).Select(x => (Guid?)x.Id).FirstOrDefault()
         : null;
     var timelineItems = conversations
-        .Select(x => new { Kind = "conversation", CreatedAt = x.CreatedAt, Conversation = x, WorkflowRun = (WorkflowRun?)null })
-        .Concat(workflowRuns.Select(x => new { Kind = "workflow", CreatedAt = x.CreatedAt, Conversation = (AgentConversation?)null, WorkflowRun = x }))
+        .Select(x => new { Kind = "conversation", CreatedAt = x.CreatedAt, Conversation = (AgentConversation?)x, WorkflowRun = (WorkflowRun?)null })
+        .Concat(workflowRuns.Select(x => new { Kind = "workflow", CreatedAt = x.CreatedAt, Conversation = (AgentConversation?)null, WorkflowRun = (WorkflowRun?)x }))
         .OrderBy(x => x.CreatedAt)
         .ToList();
 

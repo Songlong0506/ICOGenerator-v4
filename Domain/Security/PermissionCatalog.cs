@@ -1,5 +1,3 @@
-using System.ComponentModel;
-using System.Reflection;
 using ICOGenerator.Domain.Enums;
 
 namespace ICOGenerator.Domain.Security;
@@ -37,12 +35,4 @@ public static class PermissionCatalog
     /// <summary>Mọi quyền đang được khai báo trong catalog (phẳng, không trùng).</summary>
     public static IReadOnlyList<AppPermission> AllPermissions { get; } =
         Screens.SelectMany(s => s.Permissions).Distinct().ToArray();
-
-    /// <summary>Nhãn tiếng Việt của quyền lấy từ [Description], fallback về tên enum.</summary>
-    public static string GetLabel(this AppPermission permission)
-    {
-        var member = typeof(AppPermission).GetMember(permission.ToString()).FirstOrDefault();
-        var description = member?.GetCustomAttribute<DescriptionAttribute>()?.Description;
-        return string.IsNullOrWhiteSpace(description) ? permission.ToString() : description;
-    }
 }
