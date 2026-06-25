@@ -57,19 +57,19 @@
         color: #999;
     }
 
-    .msg {
+    .req-msg {
         padding: 18px;
         margin-bottom: 16px;
         max-width: 75%;
         border: 1px solid transparent;
     }
 
-        .msg.you {
+        .req-msg.you {
             margin-left: auto;
             background: var(--bosch-blue-tint);
         }
 
-        .msg.ba {
+        .req-msg.ba {
             background: #f7f8f9;
             border-color: var(--line);
         }
@@ -185,14 +185,14 @@
         font-weight: 600;
     }
 
-    .chatbox {
+    .req-chatbox {
         display: flex;
         align-items: flex-end;
         gap: 12px;
         margin-top: 0;
     }
 
-        .chatbox textarea {
+        .req-chatbox textarea {
             flex: 1;
             min-width: 0;
             min-height: 44px;
@@ -202,11 +202,11 @@
             line-height: 1.5;
         }
 
-            .chatbox textarea.is-scrollable {
+            .req-chatbox textarea.is-scrollable {
                 overflow-y: auto;
             }
 
-        .chatbox button {
+        .req-chatbox button {
             flex: 0 0 auto;
             min-height: 44px;
         }
@@ -241,7 +241,7 @@
         }
     }
 
-    .modal-overlay {
+    .req-modal-overlay {
         position: fixed;
         inset: 0;
         background: rgba(0,0,0,.5);
@@ -251,7 +251,7 @@
         z-index: 9999;
     }
 
-    .modal {
+    .requirement-modal {
         background: white;
         width: 1100px;
         max-width: 95%;
@@ -730,7 +730,7 @@
             min-height: 420px;
         }
 
-        .msg {
+        .req-msg {
             max-width: 90%;
         }
 

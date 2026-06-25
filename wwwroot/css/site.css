@@ -494,7 +494,6 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 .grid { display: grid; gap: 18px; }
 .agents-grid { grid-template-columns: 320px 1fr; }
 .manage-grid { grid-template-columns: 320px 1fr; }
-.doc-grid { grid-template-columns: 320px 1fr; }
 
 /* ---------- Agents list ---------- */
 .agent-item {
@@ -638,6 +637,6 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 
 @media (max-width: 760px) {
     .sidebar { position: absolute; z-index: 40; height: calc(100vh - var(--supergraphic-h)); }
-    .agents-grid, .manage-grid, .doc-grid { grid-template-columns: 1fr; }
+    .agents-grid, .manage-grid { grid-template-columns: 1fr; }
     .imprint-grid { grid-template-columns: 1fr; gap: 4px 0; }
 }

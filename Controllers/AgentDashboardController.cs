@@ -7,7 +7,7 @@ namespace ICOGenerator.Controllers;
 
 // Dashboard agent theo dự án (chỉ đọc) — đi vào từ màn hình Projects nên gắn cùng quyền xem Agents.
 [RequirePermission(AppPermission.AgentsView)]
-public class ManageAgentController : Controller
+public class AgentDashboardController : Controller
 {
     private readonly GetAgentDashboardQuery _getAgentDashboardQuery;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
@@ -16,7 +16,7 @@ public class ManageAgentController : Controller
     private readonly GetCallLogDetailQuery _getCallLogDetailQuery;
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
 
-    public ManageAgentController(
+    public AgentDashboardController(
         GetAgentDashboardQuery getAgentDashboardQuery,
         GetWorkflowStatusQuery getWorkflowStatusQuery,
         GetAgentActivityQuery getAgentActivityQuery,
