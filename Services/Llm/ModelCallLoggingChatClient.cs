@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Logging;
 using Microsoft.Extensions.AI;
 
@@ -16,6 +17,8 @@ namespace ICOGenerator.Services.Llm;
 /// cross-cutting concern that used to be duplicated between the hand-written <c>LlmClient</c> and the
 /// agent-only <c>AgentModelCallChatClient</c>:
 /// <list type="bullet">
+///   <item>the budget circuit breaker (<see cref="ICOGenerator.Services.Budget.IBudgetGuard"/>) consulted
+///         BEFORE each round-trip, so an over-budget run/chat is stopped before it spends more;</item>
 ///   <item>the single per-call deadline (the SDK's own network timeout is disabled in the factory);</item>
 ///   <item>the completion-token cap, recomputed per call from the current prompt size;</item>
 ///   <item>building the <see cref="LlmCallResult"/> + mapping API/timeout/other failures onto it;</item>
@@ -41,13 +44,15 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     private readonly Action<string, string, string?>? _onProgress;
     private readonly int _maxSteps;
     private readonly int _hardCap;
+    private readonly IBudgetGuard? _budgetGuard;
 
     private int _step;
 
     public ModelCallLoggingChatClient(
         IChatClient inner, AiModel model, IModelCallLogger logger, ModelCallLogContext context,
         int requestTimeoutSeconds, bool throwOnFailure, Action<LlmCallResult>? onCompleted = null,
-        Action<string, string, string?>? onProgress = null, int maxSteps = 0, int hardCap = 0) : base(inner)
+        Action<string, string, string?>? onProgress = null, int maxSteps = 0, int hardCap = 0,
+        IBudgetGuard? budgetGuard = null) : base(inner)
     {
         _model = model;
         _logger = logger;
@@ -58,6 +63,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         _onProgress = onProgress;
         _maxSteps = maxSteps;
         _hardCap = hardCap;
+        _budgetGuard = budgetGuard;
         _step = context.FirstStep - 1;
     }
 
@@ -72,6 +78,11 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     public override async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
     {
+        // Budget circuit breaker: refuse BEFORE the round-trip (and before any logging) if the configured USD
+        // cap is already reached, so an over-budget run/chat stops burning money. Throws BudgetExceededException,
+        // intentionally outside the failure mapping below so it isn't relabelled "LLM call failed".
+        await EnsureWithinBudgetAsync(cancellationToken).ConfigureAwait(false);
+
         var call = Begin(messages, options);
 
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_requestTimeoutSeconds));
@@ -80,7 +91,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         try
         {
             var response = await base.GetResponseAsync(call.Messages, call.Options, linkedCts.Token).ConfigureAwait(false);
-            FinalizeSuccess(call.Result, call.Stopwatch, response.Text ?? string.Empty, response.FinishReason);
+            FinalizeSuccess(call.Result, call.Stopwatch, response);
             await CompleteAsync(call.Result, call.Step).ConfigureAwait(false);
             return response;
         }
@@ -104,6 +115,10 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        // Budget circuit breaker (see GetResponseAsync). In an iterator the await runs on the first MoveNextAsync,
+        // so the consumer's await-foreach observes BudgetExceededException before any chunk or log is produced.
+        await EnsureWithinBudgetAsync(cancellationToken).ConfigureAwait(false);
+
         var call = Begin(messages, options);
 
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_requestTimeoutSeconds));
@@ -145,7 +160,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             yield break;
 
         var response = updates.ToChatResponse();
-        FinalizeSuccess(call.Result, call.Stopwatch, response.Text ?? string.Empty, response.FinishReason);
+        FinalizeSuccess(call.Result, call.Stopwatch, response);
         await CompleteAsync(call.Result, call.Step).ConfigureAwait(false);
     }
 
@@ -174,9 +189,10 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         return new CallState(step, messageList, callOptions, result, Stopwatch.StartNew());
     }
 
-    private void FinalizeSuccess(LlmCallResult result, Stopwatch stopwatch, string text, ChatFinishReason? finishReason)
+    private void FinalizeSuccess(LlmCallResult result, Stopwatch stopwatch, ChatResponse response)
     {
         stopwatch.Stop();
+        var text = response.Text ?? string.Empty;
         result.Content = text;
         result.ExtractedContent = text;
         result.ResponseText = text;
@@ -185,11 +201,27 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         result.IsSuccess = true;
         // finish_reason == "length" means the model hit its token cap mid-output (often truncated JSON);
         // flag it so a cut-off answer is distinguishable from a clean one.
-        if (finishReason == ChatFinishReason.Length)
+        if (response.FinishReason == ChatFinishReason.Length)
             result.ErrorMessage = "Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).";
-        result.CompletionTokens = TokenEstimator.Estimate(text);
-        result.TotalTokens = result.PromptTokens + result.CompletionTokens;
+        ApplyTokenCounts(result, response.Usage, text);
     }
+
+    // Prefer the provider's REAL token usage (UsageDetails on the response) over the ~4-chars/token estimate
+    // so cost and the budget guard reflect what's actually billed. Each field falls back INDEPENDENTLY to the
+    // estimate, because many OpenAI-compatible/local servers omit usage entirely and streaming usage is only
+    // present when the server emits it (OpenAI: stream_options.include_usage) — which we don't force, since some
+    // servers reject unknown params. result.PromptTokens already holds the prompt estimate computed in Begin().
+    private static void ApplyTokenCounts(LlmCallResult result, UsageDetails? usage, string text)
+    {
+        result.PromptTokens = (int?)usage?.InputTokenCount ?? result.PromptTokens;
+        result.CompletionTokens = (int?)usage?.OutputTokenCount ?? TokenEstimator.Estimate(text);
+        result.TotalTokens = (int?)usage?.TotalTokenCount ?? (result.PromptTokens + result.CompletionTokens);
+    }
+
+    // Single place the budget breaker is consulted (both overrides call this first). No-op when no guard is
+    // wired (e.g. unit tests construct the client without one) so behaviour is unchanged unless enabled.
+    private Task EnsureWithinBudgetAsync(CancellationToken cancellationToken) =>
+        _budgetGuard?.EnsureWithinBudgetAsync(_context.ProjectId, cancellationToken) ?? Task.CompletedTask;
 
     private async Task FailAsync(LlmCallResult result, Stopwatch stopwatch, int step, Exception ex)
     {

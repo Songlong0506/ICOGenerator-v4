@@ -10,6 +10,7 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Logging;
 using ICOGenerator.Services.Prompts;
@@ -58,6 +59,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddUsageUseCases();
         services.AddSettingsUseCases();
         services.AddPromptServices();
+        services.AddBudgetServices();
         services.AddLlmServices(configuration);
         services.AddArtifactServices();
         services.AddToolServices();
@@ -178,6 +180,15 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddPromptServices(this IServiceCollection services)
     {
         services.AddScoped<PromptTemplateService>();
+        return services;
+    }
+
+    private static IServiceCollection AddBudgetServices(this IServiceCollection services)
+    {
+        // Config-bound USD caps (singleton like StructuredOutputPolicy); the guard needs the scoped DbContext
+        // to sum spend, so it is scoped. Registered before LLM services since LlmClient/AgentRunService depend on it.
+        services.AddSingleton<BudgetPolicy>();
+        services.AddScoped<IBudgetGuard, BudgetGuard>();
         return services;
     }
 

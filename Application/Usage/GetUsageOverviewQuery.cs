@@ -1,4 +1,5 @@
 using ICOGenerator.Data;
+using ICOGenerator.Services.Llm;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Usage;
@@ -43,10 +44,11 @@ public class GetUsageOverviewQuery
                 g => (Input: g.First().InputPricePerMillionTokens, Output: g.First().OutputPricePerMillionTokens),
                 StringComparer.OrdinalIgnoreCase);
 
-        // Quy token ra USD theo đơn giá của model. Model không có giá (đã xóa / tự host để 0) → chi phí 0.
+        // Quy token ra USD theo đơn giá của model (cùng công thức LlmCost mà BudgetGuard dùng → trần khớp số
+        // hiển thị ở đây). Model không có giá (đã xóa / tự host để 0) → chi phí 0.
         decimal CostFor(string? modelId, long prompt, long completion)
             => modelId != null && priceByModelId.TryGetValue(modelId, out var p)
-                ? prompt / 1_000_000m * p.Input + completion / 1_000_000m * p.Output
+                ? LlmCost.Usd(prompt, completion, p.Input, p.Output)
                 : 0m;
 
         bool HasPrice(string? modelId)
