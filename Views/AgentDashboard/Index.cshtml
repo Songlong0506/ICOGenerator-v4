@@ -1,0 +1,296 @@
+@model Project
+@{
+    var agents = ViewBag.Agents as List<Agent> ?? new();
+    var phases = ViewBag.Phases as IReadOnlyList<string> ?? new List<string> { "01_Requirement", "02_Design", "03_Architecture", "04_Implementation", "05_Test" };
+    // Token totals come from AgentModelCallLog (the single source of truth for AI token
+    // usage), aggregated across all of the project's call logs in the query. Per-agent
+    // values sum to the grand total because every call log is attributed to an agent.
+    var totalTokens = (long)(ViewBag.TotalTokens ?? 0L);
+    var tokensByAgent = ViewBag.TokensByAgent as IReadOnlyDictionary<Guid, long> ?? new Dictionary<Guid, long>();
+    var callsByAgent = ViewBag.CallsByAgent as IReadOnlyDictionary<Guid, int> ?? new Dictionary<Guid, int>();
+    var lastActivityByAgent = ViewBag.LastActivityByAgent as IReadOnlyDictionary<Guid, DateTime> ?? new Dictionary<Guid, DateTime>();
+    var workspaceDocuments = ViewBag.WorkspaceDocuments as IReadOnlyList<ICOGenerator.Domain.ProjectDocument> ?? Model.Documents.ToList();
+
+    Func<string, string> phaseOf = folder => phases.FirstOrDefault(p => string.Equals(p, folder, StringComparison.OrdinalIgnoreCase)) ?? "Other";
+    var docsByPhase = workspaceDocuments.GroupBy(d => phaseOf(d.Folder)).ToDictionary(g => g.Key, g => g.ToList());
+    var orderedFolders = phases.ToList();
+    if (docsByPhase.ContainsKey("Other")) { orderedFolders.Add("Other"); }
+
+    static int VersionOrder(string versionName)
+    {
+        if (string.Equals(versionName, "draft", StringComparison.OrdinalIgnoreCase))
+            return 0;
+
+        if (versionName.Length > 1
+            && versionName.StartsWith("V", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(versionName[1..], out var versionNumber))
+            return versionNumber;
+
+        return int.MaxValue;
+    }
+
+    // DB-tracked documents are previewed by their real row Id; workspace files that exist only
+    // on disk (no DB row) carry a fresh random Id each request, so they must be previewed by
+    // their relative path instead. Mark the disk-only ones here so the client picks the right URL.
+    var dbDocIds = new HashSet<Guid>(Model.Documents.Select(d => d.Id));
+    var docMap = workspaceDocuments.ToDictionary(
+        d => d.Id.ToString(),
+        d => (object)new
+        {
+            name = d.FileName,
+            agentId = d.AgentId?.ToString() ?? "",
+            path = dbDocIds.Contains(d.Id) ? "" : (d.FilePath ?? "")
+        });
+    var docsJson = System.Text.Json.JsonSerializer.Serialize(docMap);
+    var firstDoc = workspaceDocuments.FirstOrDefault();
+
+    // Developer-generated source lands under 04_Implementation/src; LoadWorkspaceDocuments maps those
+    // disk files to Folder="04_Implementation", VersionName="src". Presence of any such file means the
+    // packaged-source download is available.
+    var hasImplementationSource = workspaceDocuments.Any(d =>
+        string.Equals(d.Folder, "04_Implementation", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(d.VersionName, "src", StringComparison.OrdinalIgnoreCase));
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/agent-dashboard.css" asp-append-version="true" />
+}
+
+
+@section Breadcrumb {
+    Projects <span class="sep">&rsaquo;</span> @Model.Name <span class="sep">&rsaquo;</span> <b>Agent Dashboard</b>
+}
+
+<div class="page-head">
+    <div>
+        <h1>Agent Dashboard</h1>
+    </div>
+    <div class="card token">
+        <span>Total Tokens Used</span>
+        <b>@totalTokens.ToString("N0")</b>
+    </div>
+</div>
+
+<div class="agent-table-wrap">
+    <table class="agent-table">
+        <thead>
+            <tr>
+                <th>Agent</th>
+                <th class="share-col">Share</th>
+                <th class="num-col">Total Tokens</th>
+                <th class="num-col">Calls</th>
+                <th>Last Activity</th>
+                <th>Call Logs</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in agents)
+            {
+                var agentTokens = tokensByAgent.TryGetValue(a.Id, out var t) ? t : 0L;
+                var agentCalls = callsByAgent.TryGetValue(a.Id, out var c) ? c : 0;
+                var sharePct = totalTokens > 0 ? (double)agentTokens / totalTokens * 100 : 0d;
+                var shareWidth = sharePct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+                var shareLabel = sharePct.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+                var hasActivity = lastActivityByAgent.TryGetValue(a.Id, out var lastAt);
+                var lastAtIso = hasActivity ? DateTime.SpecifyKind(lastAt, DateTimeKind.Utc).ToString("o") : null;
+                <tr class="agent-row" data-agent-id="@a.Id" data-agent-name="@a.Name" onclick="filterByAgent('@a.Id', '@a.Name')">
+                    <td>
+                        <div class="agent-name-cell">
+                            <span class="circle" style="background:@a.Color"></span>
+                            <span class="agent-name-text">
+                                <b>@a.Name</b>
+                                <small class="muted">@a.RoleKey.GetTitle()</small>
+                            </span>
+                            <span class="running-indicator" title="Agent đang chạy — bấm để xem hoạt động" onclick="event.stopPropagation(); openAgentActivity('@a.Id', '@a.Name')"><span class="pulse-dot"></span> Running</span>
+                        </div>
+                    </td>
+                    <td class="share-col">
+                        <div class="share-bar"><span class="share-fill" style="width:@(shareWidth)%"></span></div>
+                        <small class="muted">@shareLabel%</small>
+                    </td>
+                    <td class="num-col">@agentTokens.ToString("N0")</td>
+                    <td class="num-col">@agentCalls.ToString("N0")</td>
+                    <td>
+                        @if (hasActivity)
+                        {
+                            <span class="last-activity" data-utc="@lastAtIso"></span>
+                        }
+                        else
+                        {
+                            <span class="muted">—</span>
+                        }
+                    </td>
+                    <td>
+                        <button type="button" class="btn" onclick="event.stopPropagation(); loadAgentLogs('@a.Id', '@a.Name')">View Logs</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<div class="grid manage-grid">
+    <div class="card">
+        <div class="ws-head">
+            <h3>Workspace</h3>
+            <small id="ws-filter-label" class="muted"></small>
+            <button type="button" id="ws-clear" class="btn ws-clear hidden" onclick="clearAgentFilter()">Show all</button>
+            @if (hasImplementationSource)
+            {
+                <a class="btn ws-download"
+                   href="/Projects/DownloadSource?projectId=@Model.Id"
+                   title="Tải toàn bộ source code (04_Implementation/src) dạng .zip">
+                    ⬇ Download
+                </a>
+            }
+        </div>
+        <ul class="tree" id="ws-tree">
+            @foreach (var folder in orderedFolders)
+            {
+                var docs = docsByPhase.TryGetValue(folder, out var list)
+                    ? list.OrderBy(d => VersionOrder(d.VersionName)).ThenBy(d => d.VersionName).ThenBy(d => d.FileName).ToList()
+                    : new List<ICOGenerator.Domain.ProjectDocument>();
+
+                var rootDocs = docs.Where(d => string.IsNullOrWhiteSpace(d.VersionName)).OrderBy(d => d.FileName).ToList();
+                var versionGroups = docs
+                    .Where(d => !string.IsNullOrWhiteSpace(d.VersionName))
+                    .GroupBy(d => d.VersionName)
+                    .OrderBy(g => VersionOrder(g.Key))
+                    .ThenBy(g => g.Key)
+                    .ToList();
+
+                <li class="folder phase-folder">
+                    <button type="button" class="tree-row folder-toggle" aria-expanded="true" onclick="toggleFolder(this)">
+                        <span class="folder-caret" aria-hidden="true">▾</span>
+                        <span aria-hidden="true">📁</span>
+                        <span>@folder</span>
+                    </button>
+                    <ul class="tree-children">
+                        @if (rootDocs.Any() || versionGroups.Any())
+                        {
+                            foreach (var d in rootDocs)
+                            {
+                                <li class="file" data-doc-id="@d.Id" data-agent-id="@(d.AgentId?.ToString() ?? "")" onclick="showDoc('@d.Id')"><span class="file-icon" aria-hidden="true">📄</span><span class="file-name">@d.FileName</span></li>
+                            }
+
+                            foreach (var versionGroup in versionGroups)
+                            {
+                                <li class="folder version-folder">
+                                    <button type="button" class="tree-row folder-toggle" aria-expanded="true" onclick="toggleFolder(this)">
+                                        <span class="folder-caret" aria-hidden="true">▾</span>
+                                        <span aria-hidden="true">📁</span>
+                                        <span>@versionGroup.Key</span>
+                                    </button>
+                                    <ul class="tree-children">
+                                        @foreach (var d in versionGroup.OrderBy(d => d.FileName))
+                                        {
+                                            <li class="file" data-doc-id="@d.Id" data-agent-id="@(d.AgentId?.ToString() ?? "")" onclick="showDoc('@d.Id')"><span class="file-icon" aria-hidden="true">📄</span><span class="file-name">@d.FileName</span></li>
+                                        }
+                                    </ul>
+                                </li>
+                            }
+                        }
+                        else
+                        {
+                            <li class="empty">— empty —</li>
+                        }
+                    </ul>
+                </li>
+            }
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3 id="doc-title">@(firstDoc?.FileName ?? "No document")</h3>
+        <div class="preview"><div id="doc-content" class="doc-render"><p class="doc-empty">No document yet</p></div></div>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="logs-modal">
+    <div class="modal-card large-modal">
+
+        <div class="logs-header">
+            <div>
+                <h3>AI Call Logs</h3>
+                <p id="logs-subtitle">
+                    Click an agent card to view model invocation history.
+                </p>
+            </div>
+
+            <button class="btn" onclick="closeLogsModal()">
+                Close
+            </button>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table class="logs-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Purpose</th>
+                        <th>Model</th>
+                        <th>Tokens</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+
+                <tbody id="logs-tbody"></tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal-backdrop" id="log-modal">
+    <div class="modal-card">
+        <div class="logs-header">
+            <div>
+                <h3>Model Invocation Detail</h3>
+                <p id="log-detail-meta"></p>
+            </div>
+            <button class="btn" onclick="closeLogModal()">Close</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showLogTab('request', this)">Request</button>
+            <button class="tab" onclick="showLogTab('response', this)">Response</button>
+            <button class="tab" onclick="showLogTab('content', this)">Extracted Content</button>
+            <button class="tab" onclick="showLogTab('error', this)">Error</button>
+        </div>
+
+        <pre class="log-json" id="log-request"></pre>
+        <pre class="log-json hidden" id="log-response"></pre>
+        <pre class="log-json hidden" id="log-content"></pre>
+        <pre class="log-json hidden" id="log-error"></pre>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="agent-activity-modal">
+    <div class="modal-card">
+        <div class="logs-header">
+            <div>
+                <h3>Agent Activity</h3>
+                <p id="activity-subtitle">Các thao tác agent đang thực hiện (real-time, để debug).</p>
+            </div>
+            <button class="btn" onclick="closeAgentActivity()">Close</button>
+        </div>
+
+        <div id="activity-meta" class="activity-meta"></div>
+        <div id="activity-feed" class="activity-feed">
+            <p class="activity-empty">Đang tải hoạt động…</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        window.AGENT_DASHBOARD = {
+            docs: @Html.Raw(docsJson),
+            firstDocId: '@(firstDoc?.Id.ToString() ?? "")',
+            projectId: '@Model.Id'
+        };
+    </script>
+    <script src="~/js/agent-dashboard.js" asp-append-version="true"></script>
+}

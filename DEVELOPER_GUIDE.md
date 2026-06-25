@@ -115,12 +115,10 @@ AgentTaskWorker  (BackgroundService, chạy nền mỗi ~2s)
 
 ## 6. Công thức thêm một tính năng (tổng quát)
 
-1. Cần kiểu dữ liệu mới? → thêm entity ở `Domain/` (rồi `dotnet ef migrations add ...`) hoặc DTO ở `Contracts/`.
-2. Viết thao tác như **một class** ở `Application/<Khu vực>/` (`...Query` hoặc `...UseCase`, một `ExecuteAsync`).
-3. Logic kỹ thuật tái dùng (gọi LLM, tool, file) → đặt ở `Services/...`.
-4. Thêm action **mỏng** ở controller, gọi use case.
-5. Đăng ký use case/service trong nhóm `AddXxx()` tương ứng ở `Extensions/ApplicationServiceCollectionExtensions.cs`.
-6. View (nếu cần) + test ở `tests/`.
+Các bước chi tiết (Domain/Contracts → Application → Services → Controller → DI → View/Test) nằm ở
+**[`ARCHITECTURE.md` §6](ARCHITECTURE.md#6-công-thức-thêm-một-tính-năng-mới)** — để một bản duy nhất,
+tránh hai tài liệu trôi lệch nhau. Lưu ý riêng cho dev: nếu thêm/đổi entity ở `Domain/` thì nhớ tạo
+migration (`dotnet ef migrations add <Tên>`) rồi để `DbInitializer` tự áp khi khởi động.
 
 ---
 

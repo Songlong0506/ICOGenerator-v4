@@ -46,7 +46,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         document.getElementById("hiddenMessage").value = text;
 
         const html = `
-            <div class="msg you">
+            <div class="req-msg you">
                 <p>${escapeHtml(text)}</p>
             </div>
         `;

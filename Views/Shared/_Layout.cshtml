@@ -21,7 +21,7 @@
             "Models" => "AI Models",
             "Settings" => "Settings",
             "Requirements" => "Requirements",
-            "ManageAgent" => "Manage Agent",
+            "AgentDashboard" => "Agent Dashboard",
             "Roles" => "Roles & Permissions",
             _ => "Home"
         };
@@ -55,7 +55,7 @@
                 <nav class="sidebar-nav">
                     @if (canProjects)
                     {
-                        <a class="nav-item @NavActive("Projects", "Requirements", "ManageAgent")" asp-controller="Projects" asp-action="Index" title="Projects">
+                        <a class="nav-item @NavActive("Projects", "Requirements", "AgentDashboard")" asp-controller="Projects" asp-action="Index" title="Projects">
                             <svg class="ico" viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v8h-8zM13 13h8v8h-8zM3 13h8v8H3z" /></svg>
                             <span class="nav-label">Projects</span>
                         </a>
