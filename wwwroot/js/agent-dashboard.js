@@ -219,14 +219,7 @@ function formatDateTime(value) {
     return new Date(value).toLocaleString();
 }
 
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
-}
+// escapeHtml dùng chung ở site.js (nạp qua _Layout trước file này).
 
 document.getElementById('logs-modal')
     .addEventListener('click', function (e) {

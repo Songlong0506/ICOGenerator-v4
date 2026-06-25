@@ -74,9 +74,7 @@ public class AgentTaskWorker : BackgroundService
             task.Status = AgentTaskStatus.Failed;
             task.Error = "No agent is assigned to this task.";
             task.FinishedAt = DateTime.UtcNow;
-            task.WorkflowRun.Status = WorkflowRunStatus.Failed;
-            task.WorkflowRun.CurrentStage = WorkflowStageKey.Failed;
-            task.WorkflowRun.FinishedAt = DateTime.UtcNow;
+            FailRun(task.WorkflowRun);
             await db.SaveChangesAsync(cancellationToken);
             return;
         }
@@ -253,9 +251,7 @@ public class AgentTaskWorker : BackgroundService
         if (agentId is null)
         {
             _progress.Report(previous.WorkflowRunId, "error", $"Không tìm thấy agent vai {step.Role} cho bước \"{step.Title}\".");
-            previous.WorkflowRun.Status = WorkflowRunStatus.Failed;
-            previous.WorkflowRun.CurrentStage = WorkflowStageKey.Failed;
-            previous.WorkflowRun.FinishedAt = DateTime.UtcNow;
+            FailRun(previous.WorkflowRun);
             return true;
         }
 
@@ -282,6 +278,13 @@ public class AgentTaskWorker : BackgroundService
         run.FinishedAt = DateTime.UtcNow;
     }
 
+    private static void FailRun(WorkflowRun run)
+    {
+        run.Status = WorkflowRunStatus.Failed;
+        run.CurrentStage = WorkflowStageKey.Failed;
+        run.FinishedAt = DateTime.UtcNow;
+    }
+
     // Loads the task in its own scope/DbContext and marks it (and its run) Failed, independent of any
     // faulted context from the failed run. Best-effort: a failure here is logged, not rethrown.
     private async Task MarkTaskFailedAsync(Guid taskId, string error)
@@ -294,13 +297,10 @@ public class AgentTaskWorker : BackgroundService
             if (task == null)
                 return;
 
-            var now = DateTime.UtcNow;
             task.Status = AgentTaskStatus.Failed;
             task.Error = error;
-            task.FinishedAt = now;
-            task.WorkflowRun.Status = WorkflowRunStatus.Failed;
-            task.WorkflowRun.CurrentStage = WorkflowStageKey.Failed;
-            task.WorkflowRun.FinishedAt = now;
+            task.FinishedAt = DateTime.UtcNow;
+            FailRun(task.WorkflowRun);
             await db.SaveChangesAsync(CancellationToken.None);
         }
         catch (Exception ex)
@@ -346,18 +346,15 @@ public class AgentTaskWorker : BackgroundService
 
             // Resolve from ContentRootPath so this worker and PromptTemplateService share the same "Prompts" root (BaseDirectory = bin output diverged from project root).
             var sourceDir = Path.Combine(_environment.ContentRootPath, "Prompts", "Design");
-            foreach (var name in new[] { "poc-template.html" })
-            {
-                var src = Path.Combine(sourceDir, name);
-                if (File.Exists(src))
-                    File.Copy(src, Path.Combine(implDir, name), overwrite: true);
-            }
+            var templateSrc = Path.Combine(sourceDir, "poc-template.html");
+            if (!File.Exists(templateSrc))
+                return;
+
+            File.Copy(templateSrc, Path.Combine(implDir, "poc-template.html"), overwrite: true);
 
             // Pre-seed poc-demo.html so the dev agent edits only the content region, not re-emitting the whole shell (saves tokens per run).
             // The marker region is collapsed to a SINGLE placeholder so one deterministic ReplaceInFile works, vs reproducing the ~160-line block verbatim (always failed "Old text not found").
-            var templateSrc = Path.Combine(sourceDir, "poc-template.html");
-            if (File.Exists(templateSrc))
-                await SeedPocDemoAsync(templateSrc, resolver.GetMockupPath(projectKey));
+            await SeedPocDemoAsync(templateSrc, resolver.GetMockupPath(projectKey));
         }
         catch (Exception ex)
         {

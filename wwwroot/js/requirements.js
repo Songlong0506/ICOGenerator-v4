@@ -4,14 +4,7 @@ const chatMessages = document.getElementById("chatMessages");
 const thinkingBox = document.getElementById("thinkingBox");
 const suggestionList = document.getElementById("suggestionList");
 
-function escapeHtml(value) {
-    return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
+// escapeHtml dùng chung ở site.js (nạp qua _Layout trước file này).
 
 if (chatForm && messageInput && chatMessages && thinkingBox) {
     const maxInputHeight = 180;

@@ -30,11 +30,7 @@
         return `<span class="wf-badge" style="background:${color}1A;color:${color};border:1px solid ${color}55;">${status}</span>`;
     }
 
-    function esc(text) {
-        const div = document.createElement('div');
-        div.textContent = text == null ? '' : text;
-        return div.innerHTML;
-    }
+    // escapeHtml dùng chung ở site.js (nạp qua _Layout trước file này).
 
     const EVENT_ICON = {
         start: '🚀',
@@ -112,16 +108,16 @@
             const icon = EVENT_ICON[ev.kind] || '•';
             const time = new Date(ev.at).toLocaleTimeString();
             const item = document.createElement('div');
-            item.className = `wf-event wf-event-${esc(ev.kind)}`;
+            item.className = `wf-event wf-event-${escapeHtml(ev.kind)}`;
 
             let html =
                 `<span class="wf-event-icon">${icon}</span>` +
                 `<div class="wf-event-main">` +
-                    `<div class="wf-event-msg">${esc(ev.message)}` +
-                        `<span class="wf-event-time">${esc(time)}</span></div>`;
+                    `<div class="wf-event-msg">${escapeHtml(ev.message)}` +
+                        `<span class="wf-event-time">${escapeHtml(time)}</span></div>`;
 
             if (ev.detail) {
-                html += `<details class="wf-event-detail"><summary>chi tiết</summary><pre>${esc(ev.detail)}</pre></details>`;
+                html += `<details class="wf-event-detail"><summary>chi tiết</summary><pre>${escapeHtml(ev.detail)}</pre></details>`;
             }
 
             html += '</div>';
@@ -200,7 +196,7 @@
                 ? ` <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem POC</a>`
                 : '';
             const nextHint = data.nextStageTitle
-                ? ` Bước kế: <b>${esc(data.nextStageTitle)}</b>.`
+                ? ` Bước kế: <b>${escapeHtml(data.nextStageTitle)}</b>.`
                 : '';
 
             slot.innerHTML =
@@ -210,7 +206,7 @@
         } else if (data.runStatus === 'Failed') {
             const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
             slot.innerHTML =
-                `<div class="wf-banner wf-fail">✗ Workflow thất bại.${err ? `<pre class="wf-err">${esc(err)}</pre>` : ''}` +
+                `<div class="wf-banner wf-fail">✗ Workflow thất bại.${err ? `<pre class="wf-err">${escapeHtml(err)}</pre>` : ''}` +
                 `<div class="wf-fail-actions"><button type="button" class="btn retry-wf-btn">↻ Thử lại bước này</button></div></div>`;
 
             // Nút chạy lại: điền runId vào form ẩn rồi submit (reload trang, worker nhặt task đã re-queue).
@@ -244,7 +240,7 @@
 
         if (!data.hasWorkflow) return;
 
-        if (sub) sub.innerHTML = `${esc(data.runName)} · ${badge(data.runStatus)}`;
+        if (sub) sub.innerHTML = `${escapeHtml(data.runName)} · ${badge(data.runStatus)}`;
 
         ensureSkeleton(panel);
 
@@ -351,7 +347,7 @@
 
             if (!data.hasWorkflow) return;
 
-            if (sub) sub.innerHTML = `${esc(data.runName)} · ${badge(data.runStatus)}`;
+            if (sub) sub.innerHTML = `${escapeHtml(data.runName)} · ${badge(data.runStatus)}`;
 
             ensureSkeleton(panel);
 
