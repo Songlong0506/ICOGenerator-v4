@@ -28,6 +28,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using System.Net;
 
 namespace ICOGenerator.Extensions;
@@ -41,6 +46,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddControllersWithViews(options =>
             options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
         services.AddAuthServices(environment);
+        services.AddObservabilityServices(configuration, environment);
         // MUST stay Singleton: OnModelCreating captures this instance in the ApiKey value-converter
         // and EF caches that model globally; Scoped/Transient would bind it to a disposed instance.
         services.AddSingleton<IApiKeyProtector, AesApiKeyProtector>();
@@ -106,6 +112,46 @@ public static class ApplicationServiceCollectionExtensions
                 .RequireAuthenticatedUser()
                 .Build();
         });
+
+        return services;
+    }
+
+    // OpenTelemetry trace + metric — OPT-IN (Otel:Enabled, mặc định TẮT, cùng tinh thần opt-in như
+    // Llm:Proxy / StructuredOutput / Budget). Chưa có OTLP collector thì KHÔNG đăng ký gì: tránh sinh
+    // lỗi exporter vô nghĩa và không thêm overhead. Khi bật: instrument ASP.NET Core + HttpClient (nên
+    // các lời gọi LLM ra ngoài tự thành span — dựng lại được chuỗi agent → model → tool) và metric
+    // runtime/HTTP, rồi xuất qua OTLP tới collector (Otel Collector / Jaeger / Tempo / Grafana).
+    private static IServiceCollection AddObservabilityServices(this IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment)
+    {
+        if (!configuration.GetValue("Otel:Enabled", false))
+            return services;
+
+        var serviceName = configuration.GetValue("Otel:ServiceName", "ICOGenerator")!;
+        var otlpEndpoint = configuration.GetValue<string>("Otel:OtlpEndpoint");
+
+        // Endpoint trống ⇒ exporter dùng mặc định OTLP gRPC http://localhost:4317.
+        void ConfigureOtlp(OtlpExporterOptions options)
+        {
+            if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+                options.Endpoint = new Uri(otlpEndpoint);
+        }
+
+        services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource
+                .AddService(serviceName: serviceName, serviceInstanceId: Environment.MachineName)
+                .AddAttributes(new KeyValuePair<string, object>[]
+                {
+                    new("deployment.environment", environment.EnvironmentName)
+                }))
+            .WithTracing(tracing => tracing
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddOtlpExporter(ConfigureOtlp))
+            .WithMetrics(metrics => metrics
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddRuntimeInstrumentation()
+                .AddOtlpExporter(ConfigureOtlp));
 
         return services;
     }

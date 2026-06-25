@@ -91,6 +91,9 @@ StyleCopReport.xml
 *.tmp_proj
 *_wpftmp.csproj
 *.log
+
+# Serilog rolling file-sink output (Serilog:WriteTo File -> Logs/ico-*.log)
+/Logs/
 *.vspscc
 *.vssscc
 .builds
