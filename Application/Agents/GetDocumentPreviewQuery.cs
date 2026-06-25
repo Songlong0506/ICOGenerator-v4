@@ -6,6 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Agents;
 
+// Rendered preview of one document (file name + HTML body), serialized to camelCase JSON for the
+// preview pane.
+public record DocumentPreviewVm(string Name, string Html);
+
 public class GetDocumentPreviewQuery
 {
     private readonly AppDbContext _db;
@@ -28,7 +32,7 @@ public class GetDocumentPreviewQuery
     // Addressed either by DB row Id, or by projectId + workspace-relative path for on-disk-only
     // files (no DB row). Those previously got a fresh random Guid each request so the Id lookup
     // never matched and preview was broken; the path branch fixes that.
-    public async Task<object?> ExecuteAsync(Guid id, Guid projectId = default, string? path = null)
+    public async Task<DocumentPreviewVm?> ExecuteAsync(Guid id, Guid projectId = default, string? path = null)
     {
         if (!string.IsNullOrWhiteSpace(path))
             return await PreviewWorkspaceFileAsync(projectId, path);
@@ -45,10 +49,10 @@ public class GetDocumentPreviewQuery
         if (string.IsNullOrWhiteSpace(html))
             html = "<p class=\"doc-empty\">No document yet</p>";
 
-        return new { name = doc.FileName, html };
+        return new DocumentPreviewVm(doc.FileName, html);
     }
 
-    private async Task<object?> PreviewWorkspaceFileAsync(Guid projectId, string relativePath)
+    private async Task<DocumentPreviewVm?> PreviewWorkspaceFileAsync(Guid projectId, string relativePath)
     {
         var project = await _db.Projects.AsNoTracking().FirstOrDefaultAsync(x => x.Id == projectId);
         if (project == null)
@@ -77,7 +81,7 @@ public class GetDocumentPreviewQuery
         if (string.IsNullOrWhiteSpace(html))
             html = "<p class=\"doc-empty\">No document yet</p>";
 
-        return new { name = Path.GetFileName(fullPath), html };
+        return new DocumentPreviewVm(Path.GetFileName(fullPath), html);
     }
 
     private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)

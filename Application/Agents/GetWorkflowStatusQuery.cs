@@ -8,9 +8,16 @@ namespace ICOGenerator.Application.Agents;
 
 public record WorkflowTaskStatusVm(
     string Title, string Type, string Status, string? AgentName,
-    int Attempt, string? Error, string? Output, string? StartedAt, string? FinishedAt);
+    int Attempt, string? Error, string? StartedAt, string? FinishedAt);
 
-public record WorkflowProgressEventVm(long Seq, string At, string Kind, string Message, string? Detail);
+public record WorkflowProgressEventVm(long Seq, string At, string Kind, string Message, string? Detail)
+{
+    // Single mapper from the in-memory progress event to its wire VM, shared by every query that
+    // surfaces progress (GetWorkflowStatusQuery, GetAgentActivityQuery, StreamWorkflowProgressQuery)
+    // so the timestamp format lives in one place.
+    public static WorkflowProgressEventVm From(WorkflowProgressEvent ev) =>
+        new(ev.Seq, ev.At.ToString("o"), ev.Kind, ev.Message, ev.Detail);
+}
 
 public record WorkflowStatusVm(
     bool HasWorkflow, string? RunName, string? RunStatus, bool IsTerminal, bool IsCompleted,
@@ -68,13 +75,12 @@ public class GetWorkflowStatusQuery
                 x.Agent != null ? x.Agent.Name : null,
                 x.Attempt,
                 x.Error,
-                null,
                 x.StartedAt != null ? x.StartedAt.Value.ToString("o") : null,
                 x.FinishedAt != null ? x.FinishedAt.Value.ToString("o") : null))
             .ToListAsync();
 
         var events = _progress.GetEvents(run.Id, afterSeq)
-            .Select(x => new WorkflowProgressEventVm(x.Seq, x.At.ToString("o"), x.Kind, x.Message, x.Detail))
+            .Select(WorkflowProgressEventVm.From)
             .ToList();
 
         var lastSeq = events.Count > 0 ? events[^1].Seq : afterSeq;

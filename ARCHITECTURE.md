@@ -274,8 +274,10 @@ sắp xếp lại; namespace luôn khớp đường dẫn.
   `AgentJobRunner` tạo nên một hàng đợi `AgentJob` mà UI không bao giờ gọi tới — chat BA thật đi
   qua `Chat` → `ChatWithBAUseCase` (đồng bộ). Cụm code chết này đã được xoá. **Bảng `AgentJobs`
   cũng đã được drop** (entity `AgentJob` + enum `AgentJobStatus` + `DbSet` đã xoá). Toàn bộ lịch
-  sử migration sau đó đã được gộp lại thành một baseline duy nhất `20260617161007_V1` (tạo 10
-  bảng, không còn `AgentJobs`); migration `RemoveAgentJob` riêng lẻ không còn tồn tại nữa.
+  sử migration sau đó đã được gộp lại thành một baseline duy nhất `20260620141602_V1` (tạo 10
+  bảng, không còn `AgentJobs`); migration `RemoveAgentJob` riêng lẻ không còn tồn tại nữa. (Về sau
+  có thêm migration tiến `AddUsersAndRolePermissions` cho hệ thống user/role — migration tính năng
+  bình thường nằm trên baseline, không phải một phần của baseline.)
 - `IModelCallLogger`/`ModelCallLogger` (log lời gọi model) **đã được gộp vào `Services/Llm`** (trước
   đây nằm riêng ở `Services/Logging`): nó chỉ phục vụ một loại log và phụ thuộc chặt `LlmCallResult`,
   nên để cạnh client gọi LLM là hợp lý. Nếu sau này log nhiều loại khác thì tách lại thư mục riêng.

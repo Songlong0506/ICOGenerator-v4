@@ -24,6 +24,9 @@ public class GitTools
     [Description("Show git status.")]
     public Task<string> GitStatus() => _commandTools.RunArgs(["git", "status"]);
 
+    [Description("Show a git diff stat (summary of changed files) for the current workspace.")]
+    public Task<string> GitDiff() => _commandTools.RunArgs(["git", "diff", "--stat"]);
+
     [Description("Create and checkout a new git branch.")]
     public async Task<string> CreateBranch(string branchName, string baseBranch)
     {

@@ -16,8 +16,7 @@ public class ToolDiscoveryService
     [
         typeof(WorkspaceTools),
         typeof(CommandTools),
-        typeof(GitTools),
-        typeof(DiffTools)
+        typeof(GitTools)
     ];
 
     public async Task SyncToolDefinitionsAsync()

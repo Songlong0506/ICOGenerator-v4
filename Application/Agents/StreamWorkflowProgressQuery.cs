@@ -46,7 +46,7 @@ public class StreamWorkflowProgressQuery
         var lastSeq = afterSeq;
         foreach (var ev in _progress.GetEvents(runId, afterSeq))
         {
-            yield return Map(ev);
+            yield return WorkflowProgressEventVm.From(ev);
             lastSeq = ev.Seq;
         }
 
@@ -76,7 +76,7 @@ public class StreamWorkflowProgressQuery
                 lastSeq = ev.Seq;
             }
 
-            yield return Map(ev);
+            yield return WorkflowProgressEventVm.From(ev);
 
             // "completed"/"error" có thể là kết thúc hẳn hoặc chỉ là cổng chờ duyệt (sẽ chạy tiếp cùng
             // run). Soi lại trạng thái thật trong DB: chỉ đóng stream khi run đã thực sự terminal.
@@ -128,7 +128,4 @@ public class StreamWorkflowProgressQuery
 
     private static bool IsTerminal(WorkflowRunStatus status) =>
         status is WorkflowRunStatus.Completed or WorkflowRunStatus.Failed or WorkflowRunStatus.Canceled;
-
-    private static WorkflowProgressEventVm Map(WorkflowProgressEvent ev) =>
-        new(ev.Seq, ev.At.ToString("o"), ev.Kind, ev.Message, ev.Detail);
 }
