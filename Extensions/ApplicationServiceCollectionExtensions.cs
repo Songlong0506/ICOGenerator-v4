@@ -49,12 +49,33 @@ public static class ApplicationServiceCollectionExtensions
         // MUST stay Singleton: OnModelCreating captures this instance in the ApiKey value-converter
         // and EF caches that model globally; Scoped/Transient would bind it to a disposed instance.
         services.AddSingleton<IApiKeyProtector, AesApiKeyProtector>();
+        // Provider DB chọn được qua "Database:Provider" (mặc định SqlServer cho môi trường thật). Đặt
+        // "Sqlite" để chạy app end-to-end ở nơi KHÔNG có SQL Server (Claude Code web / CI / máy dev không
+        // cài SQL Server) — model đã provider-agnostic (test cũng chạy trên Sqlite). Sqlite tạo schema
+        // bằng EnsureCreated thay vì Migrate vì migration sinh ra là SQL-Server-specific (xem DbInitializer).
+        var dbProvider = configuration["Database:Provider"];
         services.AddDbContext<AppDbContext>(options =>
-            // Retry on transient SQL faults (connection blips, deadlocks) so a momentary glitch while
-            // saving a task's status doesn't surface as an unhandled exception and strand the task.
-            options.UseSqlServer(
-                configuration.GetConnectionString("DefaultConnection"),
-                sql => sql.EnableRetryOnFailure()));
+        {
+            if (string.Equals(dbProvider, "Sqlite", StringComparison.OrdinalIgnoreCase))
+            {
+                // Connection string mặc định cho Sqlite nếu chưa cấu hình (hoặc đang trỏ vào SQL Server).
+                var connectionString = configuration.GetConnectionString("DefaultConnection");
+                if (string.IsNullOrWhiteSpace(connectionString) ||
+                    connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase))
+                {
+                    connectionString = "Data Source=ICOGenerator.db";
+                }
+                options.UseSqlite(connectionString);
+            }
+            else
+            {
+                // Retry on transient SQL faults (connection blips, deadlocks) so a momentary glitch while
+                // saving a task's status doesn't surface as an unhandled exception and strand the task.
+                options.UseSqlServer(
+                    configuration.GetConnectionString("DefaultConnection"),
+                    sql => sql.EnableRetryOnFailure());
+            }
+        });
 
         services.AddProjectUseCases();
         services.AddRoleUseCases();
