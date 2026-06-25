@@ -82,7 +82,7 @@ Notes: ...
 
         using var doc = WordprocessingDocument.Open(path, false);
 
-        var body = doc.MainDocumentPart?.Document.Body;
+        var body = doc.MainDocumentPart?.Document?.Body;
 
         if (body == null)
             return "";

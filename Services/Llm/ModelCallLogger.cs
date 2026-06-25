@@ -1,8 +1,7 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Llm;
 
-namespace ICOGenerator.Services.Logging;
+namespace ICOGenerator.Services.Llm;
 
 public class ModelCallLogger : IModelCallLogger
 {

@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Budget;
-using ICOGenerator.Services.Logging;
 using Microsoft.Extensions.AI;
 
 namespace ICOGenerator.Services.Llm;

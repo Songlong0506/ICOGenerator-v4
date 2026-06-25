@@ -47,7 +47,7 @@
                 @foreach (var permission in screen.Permissions)
                 {
                     <tr>
-                        <td class="perm-label">@permission.GetLabel()</td>
+                        <td class="perm-label">@permission.GetTitle()</td>
                         @foreach (var col in Model.Columns)
                         {
                             <td class="role-col">

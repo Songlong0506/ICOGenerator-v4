@@ -7,8 +7,6 @@ namespace ICOGenerator.Services.Requirements;
 
 public class RequirementResponseParser
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     // The model can return valid JSON with a null section/Content; guarantee non-null here, else downstream
     // deref throws a NullReferenceException. Shared by the text-parse path (below) and the structured-output
     // path (BARequirementService), so both yield a fully-populated result.
@@ -29,7 +27,7 @@ public class RequirementResponseParser
         try
         {
             var json = JsonExtractor.Extract(response);
-            var result = JsonSerializer.Deserialize<BARequirementDocxResult>(json, JsonOptions);
+            var result = JsonSerializer.Deserialize<BARequirementDocxResult>(json, JsonDefaults.CaseInsensitive);
 
             if (result != null)
                 return Normalize(result);

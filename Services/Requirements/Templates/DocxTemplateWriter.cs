@@ -25,7 +25,7 @@ public class DocxTemplateWriter
             using (var doc = WordprocessingDocument.Open(tempPath, true))
             {
                 var texts = doc.MainDocumentPart!
-                    .Document
+                    .Document!
                     .Descendants<Text>()
                     .ToList();
 
@@ -103,7 +103,7 @@ public class DocxTemplateWriter
     {
         using var doc = WordprocessingDocument.Open(docxPath, false);
 
-        var body = doc.MainDocumentPart?.Document.Body;
+        var body = doc.MainDocumentPart?.Document?.Body;
 
         if (body == null)
             return "";
@@ -122,7 +122,7 @@ public class DocxTemplateWriter
     {
         using var doc = WordprocessingDocument.Open(docxPath, false);
 
-        var body = doc.MainDocumentPart?.Document.Body;
+        var body = doc.MainDocumentPart?.Document?.Body;
 
         if (body == null)
             return "";

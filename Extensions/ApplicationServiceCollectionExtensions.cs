@@ -12,7 +12,6 @@ using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Llm;
-using ICOGenerator.Services.Logging;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Requirements;
