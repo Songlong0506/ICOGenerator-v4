@@ -19,6 +19,10 @@ public static class DbInitializer
         await SeedUsersAsync(db, scope.ServiceProvider);
         await SeedRolePermissionsAsync(db);
 
+        // One-time: GitDiff moved from a standalone DiffTools class into GitTools. Re-home the existing
+        // tool-definition row BEFORE discovery runs so the Tech Lead's existing assignment keeps resolving.
+        await RehomeToolServiceTypeAsync(db, oldServiceType: "DiffTools", newServiceType: "GitTools");
+
         var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
         await discovery.SyncToolDefinitionsAsync();
 
@@ -244,6 +248,25 @@ public static class DbInitializer
             return;
 
         db.AgentTools.Add(new AgentTool { AgentId = developerId.Value, ToolDefinitionId = toolDefId.Value });
+        await db.SaveChangesAsync();
+    }
+
+    // One-time data fix for when a tool method is relocated between *Tools classes (e.g. GitDiff: DiffTools
+    // → GitTools). Updates ServiceType IN PLACE so each row keeps its Id — and therefore its AgentTool
+    // assignments — instead of being abandoned for a brand-new row. Idempotent: once renamed there are no
+    // rows under the old ServiceType, so later startups no-op. Tools are keyed by (ServiceType, MethodName),
+    // and the destination (GitTools, GitDiff) is only created by discovery AFTER this, so no row collides.
+    private static async Task RehomeToolServiceTypeAsync(AppDbContext db, string oldServiceType, string newServiceType)
+    {
+        var rows = await db.ToolDefinitions
+            .Where(x => x.ServiceType == oldServiceType)
+            .ToListAsync();
+        if (rows.Count == 0)
+            return;
+
+        foreach (var row in rows)
+            row.ServiceType = newServiceType;
+
         await db.SaveChangesAsync();
     }
 }

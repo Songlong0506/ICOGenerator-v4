@@ -296,7 +296,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<WorkspaceTools>();
         services.AddScoped<CommandTools>();
         services.AddScoped<GitTools>();
-        services.AddScoped<DiffTools>();
 
         // PR publisher: typed HttpClient gọi GitHub REST API để TẠO PR thật khi PullRequest:GitHubToken
         // được cấu hình và remote là github.com; nếu không, GitTools.OpenPullRequest fallback về link compare.

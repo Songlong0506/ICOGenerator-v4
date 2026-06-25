@@ -87,7 +87,7 @@ public class GetAgentActivityQuery
 
         // Progress events are kept in-memory per workflow run; they are the agent's actual steps.
         var events = _progress.GetEvents(task.WorkflowRunId, afterSeq)
-            .Select(x => new WorkflowProgressEventVm(x.Seq, x.At.ToString("o"), x.Kind, x.Message, x.Detail))
+            .Select(WorkflowProgressEventVm.From)
             .ToList();
 
         var lastSeq = events.Count > 0 ? events[^1].Seq : afterSeq;
