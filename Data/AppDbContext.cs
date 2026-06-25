@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<ToolDefinition> ToolDefinitions => Set<ToolDefinition>();
     public DbSet<AgentTool> AgentTools => Set<AgentTool>();
     public DbSet<ProjectDocument> ProjectDocuments => Set<ProjectDocument>();
+    public DbSet<ProjectSourceFile> ProjectSourceFiles => Set<ProjectSourceFile>();
     public DbSet<AgentConversation> AgentConversations => Set<AgentConversation>();
     public DbSet<AgentModelCallLog> AgentModelCallLogs => Set<AgentModelCallLog>();
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
@@ -123,6 +124,19 @@ public class AppDbContext : DbContext
             b.Property(x => x.VersionName).HasMaxLength(100);
             b.Property(x => x.FileName).HasMaxLength(300);
             b.Property(x => x.FilePath).HasMaxLength(1000);
+        });
+
+        // Tài liệu nguồn user upload: Project FK Cascade (xóa project ⇒ dọn luôn các nguồn). Kind lưu dạng chuỗi
+        // (dễ đọc, bền với việc chèn enum mới). ExtractedText/PageImagePaths để nvarchar(max) (LOB), còn lại bound.
+        builder.Entity<ProjectSourceFile>(b =>
+        {
+            b.HasOne(x => x.Project).WithMany(x => x.SourceFiles).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.FileName).HasMaxLength(300);
+            b.Property(x => x.ContentType).HasMaxLength(150);
+            b.Property(x => x.StoredPath).HasMaxLength(1000);
+            b.Property(x => x.UploadedByUserId).HasMaxLength(100);
+            b.HasIndex(x => new { x.ProjectId, x.CreatedAt });
         });
         builder.Entity<AgentModelCallLog>(b =>
         {

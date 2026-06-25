@@ -1,10 +1,11 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Requirements;
 
-public record RequirementWorkspaceResult(Project Project, string SelectedVersion);
+public record RequirementWorkspaceResult(Project Project, string SelectedVersion, bool BaModelSupportsVision);
 
 public class GetRequirementWorkspaceQuery
 {
@@ -26,10 +27,19 @@ public class GetRequirementWorkspaceQuery
             .Include(x => x.Conversations.OrderBy(c => c.CreatedAt))
                 .ThenInclude(x => x.Agent)
             .Include(x => x.WorkflowRuns.OrderBy(w => w.CreatedAt))
+            .Include(x => x.SourceFiles.OrderByDescending(s => s.CreatedAt))
             .FirstOrDefaultAsync(x => x.Id == projectId);
 
         if (project == null)
             return null;
+
+        // Cờ vision của model BA đang cấu hình: dùng để cảnh báo trên UI rằng ảnh sẽ KHÔNG được model đọc
+        // (chỉ phần text của PDF được dùng) khi model hiện tại không hỗ trợ vision.
+        var baSupportsVision = await _db.Agents
+            .AsNoTracking()
+            .Where(a => a.RoleKey == AgentRoleKey.BusinessAnalyst && a.AiModel != null)
+            .Select(a => a.AiModel!.SupportsVision)
+            .FirstOrDefaultAsync();
 
         var selectedVersion = version;
         if (string.IsNullOrWhiteSpace(selectedVersion))
@@ -43,6 +53,6 @@ public class GetRequirementWorkspaceQuery
                     .FirstOrDefault();
         }
 
-        return new RequirementWorkspaceResult(project, selectedVersion ?? "draft");
+        return new RequirementWorkspaceResult(project, selectedVersion ?? "draft", baSupportsVision);
     }
 }

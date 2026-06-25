@@ -41,6 +41,13 @@
     // Chỉ khi đã có hội thoại thì mới hiển thị gợi ý cho lượt hỏi mới nhất của BA.
     var displaySuggestions = lastBaSuggestions;
 
+    // Tài liệu nguồn (ảnh/PDF) người dùng upload cho project + cờ vision của model BA (để cảnh báo).
+    var sourceFiles = Model.SourceFiles.OrderByDescending(x => x.CreatedAt).ToList();
+    var baSupportsVision = ViewBag.BaSupportsVision is bool bv && bv;
+
+    static string FormatSize(long bytes) =>
+        bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.#} MB" : $"{Math.Max(1, bytes / 1024)} KB";
+
     static List<string> ParseSuggestions(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -61,6 +68,31 @@
         <h1>Requirements</h1>
     </div>
 </div>
+
+@if (TempData["Error"] != null)
+{
+    <div class="req-alert error">@TempData["Error"]</div>
+}
+@if (TempData["SourceUploaded"] != null)
+{
+    <div class="req-alert ok">Đã upload tài liệu nguồn.</div>
+}
+
+<style>
+    .req-alert { padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; }
+    .req-alert.error { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; }
+    .req-alert.ok { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .source-panel { margin-top: 18px; border-top: 1px solid #e5e7eb; padding-top: 14px; }
+    .source-vision-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 8px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; }
+    .source-upload-form { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .source-file-input { font-size: 12px; }
+    .source-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+    .source-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+    .source-item .source-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .source-item .source-size { color: #6b7280; }
+    .source-del { background: transparent; border: 0; color: #dc2626; cursor: pointer; padding: 2px 4px; width: auto; }
+    .source-inline { display: inline; }
+</style>
 
 <div class="grid doc-grid">
 
@@ -103,6 +135,62 @@
                 No requirement history yet.
             </div>
         }
+
+        <!-- SOURCE FILES: ảnh/PDF người dùng cung cấp để BA tham khảo khi viết requirement -->
+        <div class="source-panel">
+            <h3>Tài liệu nguồn</h3>
+            <div class="history-sub" style="margin-bottom:8px;">Ảnh / PDF để BA đọc khi viết requirement.</div>
+
+            @if (!baSupportsVision)
+            {
+                <div class="source-vision-warn">
+                    ⚠️ Model BA hiện không bật <b>vision</b> → ảnh sẽ không được đọc; chỉ phần chữ trích từ PDF được dùng.
+                    Bật "Hỗ trợ ảnh (vision)" trong màn hình AI Models nếu cần.
+                </div>
+            }
+
+            <form asp-action="UploadSource"
+                  method="post"
+                  enctype="multipart/form-data"
+                  class="source-upload-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="projectId" value="@Model.Id" />
+                <input type="file"
+                       name="files"
+                       multiple
+                       accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+                       class="source-file-input"
+                       required />
+                <button class="btn outline small full bottom" type="submit">⬆ Upload</button>
+            </form>
+
+            @if (sourceFiles.Any())
+            {
+                <ul class="source-list">
+                    @foreach (var src in sourceFiles)
+                    {
+                        <li class="source-item">
+                            <span>@(src.Kind == ICOGenerator.Domain.Enums.SourceFileKind.Image ? "🖼️" : "📄")</span>
+                            <span class="source-name" title="@src.FileName">@src.FileName</span>
+                            <span class="source-size">@FormatSize(src.SizeBytes)</span>
+                            <form asp-action="DeleteSource"
+                                  method="post"
+                                  class="source-inline"
+                                  onsubmit="return confirm('Xoá tài liệu nguồn này?');">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@src.Id" />
+                                <input type="hidden" name="projectId" value="@Model.Id" />
+                                <button class="source-del" type="submit" title="Xoá">🗑</button>
+                            </form>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <div class="empty-history">Chưa có tài liệu nguồn.</div>
+            }
+        </div>
 
         <form asp-action="NewChat"
               method="post"

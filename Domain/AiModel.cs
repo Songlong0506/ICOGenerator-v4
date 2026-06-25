@@ -13,5 +13,8 @@ public class AiModel
     public decimal InputPricePerMillionTokens { get; set; }
     public decimal OutputPricePerMillionTokens { get; set; }
     public bool IsActive { get; set; } = true;
+    // Model có nhận input ảnh (vision/multimodal) không. Chỉ khi true thì tài liệu nguồn dạng ảnh (và trang
+    // PDF scan đã render) mới được gửi cho model; model text-only chỉ nhận phần text bóc từ PDF.
+    public bool SupportsVision { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -110,7 +110,8 @@
                                         '@m.ContextWindow',
                                         '@m.InputPricePerMillionTokens.ToString(CultureInfo.InvariantCulture)',
                                         '@m.OutputPricePerMillionTokens.ToString(CultureInfo.InvariantCulture)',
-                                        '@m.IsActive.ToString().ToLower()'
+                                        '@m.IsActive.ToString().ToLower()',
+                                        '@m.SupportsVision.ToString().ToLower()'
                                     )">
                             ✎
                         </button>
@@ -202,6 +203,11 @@
             Active
         </label>
 
+        <label class="checkbox-line">
+            <input name="SupportsVision" type="checkbox" value="true" />
+            Hỗ trợ ảnh (vision) — cho phép gửi ảnh/PDF scan tới model
+        </label>
+
         <div class="modal-actions">
             <button type="button" class="btn" onclick="closeModal('addModel')">Cancel</button>
             <button class="btn primary">Add Model</button>
@@ -248,6 +254,11 @@
             Active
         </label>
 
+        <label class="checkbox-line">
+            <input id="edit-supports-vision" name="SupportsVision" type="checkbox" value="true" />
+            Hỗ trợ ảnh (vision) — cho phép gửi ảnh/PDF scan tới model
+        </label>
+
         <div class="modal-actions">
             <button type="button" class="btn" onclick="closeModal('editModel')">Cancel</button>
             <button class="btn primary">Save Changes</button>
@@ -266,7 +277,8 @@
             contextWindow,
             inputPrice,
             outputPrice,
-            isActive
+            isActive,
+            supportsVision
         ) {
             document.getElementById('edit-id').value = id;
             document.getElementById('edit-name').value = name;
@@ -281,6 +293,7 @@
             document.getElementById('edit-output-price').value = outputPrice;
 
             document.getElementById('edit-is-active').checked = isActive === 'true';
+            document.getElementById('edit-supports-vision').checked = supportsVision === 'true';
 
             openModal('editModel');
         }
