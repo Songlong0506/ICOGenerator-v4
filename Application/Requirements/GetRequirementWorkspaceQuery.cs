@@ -17,7 +17,11 @@ public class GetRequirementWorkspaceQuery
 
     public async Task<RequirementWorkspaceResult?> ExecuteAsync(Guid projectId, string? version = null)
     {
+        // Chỉ đọc để render màn hình workspace (controller trả thẳng vào View, không SaveChanges trên đồ
+        // thị này) ⇒ AsNoTracking để khỏi tốn change-tracker cho cả Project + Documents + Conversations +
+        // WorkflowRuns được Include bên dưới.
         var project = await _db.Projects
+            .AsNoTracking()
             .Include(x => x.Documents)
             .Include(x => x.Conversations.OrderBy(c => c.CreatedAt))
                 .ThenInclude(x => x.Agent)
