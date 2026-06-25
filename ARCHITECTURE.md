@@ -204,6 +204,27 @@ Quyết định bật theo `StructuredOutputPolicy` (cấu hình `Llm:Structured
 nhiều server local từ chối `response_format`; chỉ liệt kê ModelId chắc chắn hỗ trợ vào `ModelIds`. Mặc định
 tắt ⇒ hành vi **giữ nguyên** đường text + parser cũ.
 
+### 5.10. Logging tập trung & observability (Serilog + OpenTelemetry opt-in)
+Toàn app ghi log qua **Serilog** thay cho logging Console mặc định của ASP.NET. Cấu hình (mức log, sink,
+enrich) nằm ở section `Serilog` trong `appsettings.json` nên đổi **không cần build lại**; `Program.cs` chỉ
+`builder.Host.UseSerilog(...)` đọc từ config + `Enrich.FromLogContext`, và `app.UseSerilogRequestLogging()`
+ghi **một dòng tóm tắt có cấu trúc cho mỗi HTTP request** (method/path/status/thời lượng) thay cho log mặc
+định dài dòng. Một **bootstrap logger** (`CreateBootstrapLogger`) bắt cả lỗi xảy ra TRƯỚC khi host dựng
+xong — quan trọng vì `DbInitializer` migrate DB + seed **ngay lúc khởi động**; vì vậy toàn bộ thân
+`Program.cs` nằm trong `try / catch(Log.Fatal) / finally(Log.CloseAndFlush)` để một lỗi khởi động (vd không
+kết nối được SQL) thành **một log `Fatal`** rồi flush, thay vì stack trace trần ra stderr. Sink mặc định:
+Console (stdout — để Docker/k8s/journald gom) + File xoay vòng theo ngày trong `Logs/` (đã `.gitignore`,
+giữ 14 ngày). Production có thể đổi Console sang JSON nén cho log aggregator (Seq/Loki/ELK) qua
+`appsettings.Production.json` — **không sửa code**.
+
+Trên đó, **OpenTelemetry** (trace + metric) là **OPT-IN** qua `Otel:Enabled` (mặc định TẮT, cùng tinh thần
+opt-in như `Llm:Proxy` / `StructuredOutput` / `Budget`): chưa bật thì `AddObservabilityServices` **không
+đăng ký gì** — zero overhead, không sinh lỗi exporter. Khi bật, instrument **ASP.NET Core + HttpClient**
+(nên các lời gọi LLM ra ngoài tự thành span — **dựng lại được chuỗi agent → model → tool**) và **metric
+runtime/HTTP**, rồi xuất qua **OTLP** tới collector (`Otel:OtlpEndpoint`, trống ⇒ mặc định gRPC
+`http://localhost:4317`). Đăng ký tập trung ở `AddObservabilityServices` trong file Extensions như mọi nhóm
+DI khác.
+
 ---
 
 ## 6. Công thức thêm một tính năng mới
