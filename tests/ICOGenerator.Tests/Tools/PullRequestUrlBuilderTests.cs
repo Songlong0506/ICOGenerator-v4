@@ -1,4 +1,4 @@
-using ICOGenerator.Services.Tools;
+using ICOGenerator.Services.Tools.PullRequests;
 using Xunit;
 
 namespace ICOGenerator.Tests.Tools;

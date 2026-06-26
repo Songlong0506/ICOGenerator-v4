@@ -1,4 +1,4 @@
-namespace ICOGenerator.Services.Tools;
+namespace ICOGenerator.Services.Tools.PullRequests;
 
 /// <summary>
 /// Suy ra URL "tạo Pull/Merge Request sẵn điền" từ remote URL của repo + nhánh base/head.

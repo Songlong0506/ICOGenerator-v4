@@ -21,6 +21,7 @@ using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Tools;
 using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Execution;
+using ICOGenerator.Services.Tools.PullRequests;
 using ICOGenerator.Services.Workflows;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;

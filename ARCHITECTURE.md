@@ -43,6 +43,7 @@ Services/          # Hạ tầng & service nghiệp vụ tái dùng (gọi LLM, 
     Abstractions/  #     Interface hợp đồng (IToolExecutionLogger)
     Execution/     #     Class hiện thực: policy, logger, schema builder
     Registry/      #     Khám phá & gọi tool động (reflection)
+    PullRequests/  #     Hạ tầng publish PR (GitHub API, dựng link compare, parse remote URL)
   Workflows/       #   Orchestrator điều phối nhiều bước + background worker
 Controllers/       # MVC controller. Mỏng: chỉ nhận request -> gọi Application -> trả View/Json.
 Views/             # Razor view (.cshtml)
@@ -127,7 +128,10 @@ method qua reflection.
   bảng `ToolDefinition`; `ToolRegistry`/`IToolRegistry` lấy danh sách tool theo agent;
   `ToolRuntimeDescriptor` gói (definition + instance + `MethodInfo`) cho một tool runtime. Việc
   deserialize JSON args của model vào tham số method và invoke do `AIFunctionFactory` lo (xem mục 5.8).
-- Các nhóm tool nghiệp vụ: `WorkspaceTools`, `CommandTools`, `GitTools`, `DiffTools`.
+- Các nhóm tool nghiệp vụ: `WorkspaceTools`, `CommandTools`, `GitTools` (xem `ToolDiscoveryService.ToolTypes`).
+- `Tools/PullRequests` — hạ tầng tạo PR mà `GitTools.OpenPullRequest` dùng (không phải tool gọi-được của agent):
+  `GitHubPullRequestPublisher`/`IPullRequestPublisher` (gọi GitHub REST API), `PullRequestUrlBuilder` (dựng link
+  compare khi không tạo được PR thật), `GitRemoteUrl` (parse remote URL dùng chung).
 
 Muốn thêm tool mới cho agent: viết một method `public` có `[Description]` trong một class `*Tools`
 (thêm class mới vào `ToolDiscoveryService.ToolTypes` nếu cần). Registry + `AIFunctionFactory` tự sinh
