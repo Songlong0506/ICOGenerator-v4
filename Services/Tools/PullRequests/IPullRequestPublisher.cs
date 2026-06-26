@@ -1,4 +1,4 @@
-namespace ICOGenerator.Services.Tools;
+namespace ICOGenerator.Services.Tools.PullRequests;
 
 /// <summary>
 /// Kết quả của một lần cố gắng tạo Pull Request qua API nhà cung cấp.
