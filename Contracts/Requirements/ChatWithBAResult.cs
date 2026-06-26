@@ -1,6 +1,8 @@
-namespace ICOGenerator.Services.Requirements;
+namespace ICOGenerator.Contracts.Requirements;
 
-// Outcome of a synchronous BA chat turn. Lives in Services (not Application) so the dependency arrow stays Application → Services.
+// Outcome of a synchronous BA chat turn. Produced by BARequirementService (Services) and consumed by the
+// Application use case + Controller; lives in Contracts (neutral POCO) so neither side has to depend on the
+// other's layer — same placement as the other BA result type, BARequirementDocxResult.
 public enum ChatWithBAResult
 {
     Ok,

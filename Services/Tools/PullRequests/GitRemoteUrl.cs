@@ -1,4 +1,4 @@
-namespace ICOGenerator.Services.Tools;
+namespace ICOGenerator.Services.Tools.PullRequests;
 
 /// <summary>
 /// Tách một remote URL của git thành <c>host</c> + <c>path</c> ("owner/repo", hoặc

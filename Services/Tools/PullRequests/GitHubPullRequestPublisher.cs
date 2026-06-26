@@ -4,7 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace ICOGenerator.Services.Tools;
+namespace ICOGenerator.Services.Tools.PullRequests;
 
 /// <summary>
 /// Tạo Pull Request thật trên GitHub qua REST API (<c>POST /repos/{owner}/{repo}/pulls</c>) bằng token
