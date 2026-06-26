@@ -1,10 +1,7 @@
 using System.Text;
-using System.Text.Json;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
-using PDFtoImage;
-using SkiaSharp;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 
@@ -18,9 +15,10 @@ public class SourceFileValidationException : Exception
 
 /// <summary>
 /// Nhận một file upload (ảnh/PDF), lưu xuống workspace project và dựng <see cref="ProjectSourceFile"/> (CHƯA add DB —
-/// caller tự add + SaveChanges). Với PDF: bóc text từng trang bằng PdfPig; trang gần như không có text (PDF scan)
-/// thì render trang đó thành PNG (PDFtoImage) để gửi cho model vision. Render là best-effort: native PDFium/SkiaSharp
-/// thiếu trên một số môi trường ⇒ bỏ qua phần ảnh thay vì làm vỡ luồng upload.
+/// caller tự add + SaveChanges). Với PDF: CHỈ bóc text từng trang bằng PdfPig. PDF dạng scan/ảnh (trang gần như
+/// không có text) KHÔNG được hỗ trợ — các trang đó bị bỏ qua, không OCR/không render ảnh; nếu cả file không có
+/// text nào thì <see cref="ProjectSourceFile.ExtractedText"/> để null. Muốn dùng ảnh làm nguồn vision thì upload
+/// trực tiếp file ảnh (PNG/JPG/WebP/GIF).
 /// </summary>
 public class ProjectSourceIngestor
 {
@@ -28,12 +26,8 @@ public class ProjectSourceIngestor
     private static readonly string[] AllowedImageExts = { ".png", ".jpg", ".jpeg", ".webp", ".gif" };
     private const string PdfType = "application/pdf";
 
-    // Trang PDF có ít hơn ngần này ký tự (sau trim) coi như "scan/ảnh" ⇒ render thành ảnh cho vision.
+    // Trang PDF có ít hơn ngần này ký tự (sau trim) coi như "scan/ảnh" (không có text dùng được) ⇒ bỏ qua trang đó.
     private const int MinCharsForTextPage = 12;
-    // DPI render trang scan: đủ rõ để model đọc chữ mà không phình token quá mức.
-    private const int RenderDpi = 150;
-    // PDFium KHÔNG thread-safe ⇒ bọc mọi lời gọi render trong một lock toàn cục. Chỉ chạy lúc upload nên không phải hot path.
-    private static readonly object PdfiumLock = new();
 
     private readonly IArtifactStorage _storage;
     private readonly ILogger<ProjectSourceIngestor> _logger;
@@ -94,18 +88,17 @@ public class ProjectSourceIngestor
         else
         {
             entity.Kind = SourceFileKind.Pdf;
-            ProcessPdf(bytes, dir, entity, cancellationToken);
+            ProcessPdf(bytes, entity, cancellationToken);
         }
 
         return entity;
     }
 
-    // Bóc text từng trang; trang scan (gần như không text) thì render PNG để gửi vision. Toàn bộ best-effort:
-    // PDF hỏng/khóa ⇒ giữ nguyên file gốc, bỏ qua bóc text (entity vẫn hợp lệ, chỉ thiếu phần văn bản).
-    private void ProcessPdf(byte[] bytes, string dir, ProjectSourceFile entity, CancellationToken cancellationToken)
+    // Chỉ bóc text từng trang bằng PdfPig. Trang gần như không có text (PDF scan/ảnh) bị bỏ qua — app KHÔNG hỗ trợ
+    // PDF chỉ-ảnh (không OCR/không render). Best-effort: PDF hỏng/khóa ⇒ giữ nguyên file gốc, bỏ qua bóc text.
+    private void ProcessPdf(byte[] bytes, ProjectSourceFile entity, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
-        var pageImagePaths = new List<string>();
 
         try
         {
@@ -123,18 +116,12 @@ public class ProjectSourceIngestor
                 catch { text = page.Text; }
 
                 var trimmed = (text ?? string.Empty).Trim();
-                if (trimmed.Length >= MinCharsForTextPage)
-                {
-                    sb.AppendLine($"--- Trang {pageNumber} ---");
-                    sb.AppendLine(trimmed);
-                    sb.AppendLine();
-                }
-                else
-                {
-                    var pngPath = TryRenderPage(bytes, dir, pageNumber);
-                    if (pngPath != null)
-                        pageImagePaths.Add(pngPath);
-                }
+                if (trimmed.Length < MinCharsForTextPage)
+                    continue; // trang scan/ảnh: không có text dùng được ⇒ bỏ qua.
+
+                sb.AppendLine($"--- Trang {pageNumber} ---");
+                sb.AppendLine(trimmed);
+                sb.AppendLine();
             }
         }
         catch (OperationCanceledException)
@@ -143,46 +130,11 @@ public class ProjectSourceIngestor
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không đọc được PDF {File}; giữ nguyên file gốc, bỏ qua bóc text/render.", entity.FileName);
+            _logger.LogWarning(ex, "Không đọc được PDF {File}; giữ nguyên file gốc, bỏ qua bóc text.", entity.FileName);
         }
 
+        // PDF không bao giờ là nguồn vision: chỉ-ảnh thì ExtractedText để null, người dùng nên upload ảnh trực tiếp.
         entity.ExtractedText = sb.Length > 0 ? sb.ToString() : null;
-        if (pageImagePaths.Count > 0)
-        {
-            entity.PageImagePaths = JsonSerializer.Serialize(pageImagePaths);
-            entity.IsVisionSource = true;
-        }
-    }
-
-    private string? TryRenderPage(byte[] pdfBytes, string dir, int pageNumber1Based)
-    {
-        var pngPath = Path.Combine(dir, $"page-{pageNumber1Based}.png");
-        try
-        {
-            // PDFium không thread-safe — nối tiếp mọi lời gọi render. Index 0-based.
-            // CA1416: SavePng khai báo [SupportedOSPlatform] cho Windows/Linux/macOS… — phủ hết nền app này chạy
-            // (Windows server + Linux dev/CI); lỗi native (nếu thiếu lib) đã được try/catch bên dưới nuốt an toàn.
-            lock (PdfiumLock)
-            {
-                using var fs = File.Create(pngPath);
-#pragma warning disable CA1416
-                Conversion.SavePng(fs, pdfBytes, new Index(pageNumber1Based - 1), password: null, options: new RenderOptions(Dpi: RenderDpi));
-#pragma warning restore CA1416
-            }
-            return pngPath;
-        }
-        catch (Exception ex)
-        {
-            // Native PDFium/SkiaSharp có thể thiếu (vd Linux headless). Đừng làm vỡ upload: mất phần ảnh của trang scan này.
-            _logger.LogWarning(ex, "Render trang {Page} PDF sang ảnh thất bại (thiếu native PDFium/SkiaSharp?); bỏ qua trang.", pageNumber1Based);
-            TryDelete(pngPath);
-            return null;
-        }
-    }
-
-    private static void TryDelete(string path)
-    {
-        try { if (File.Exists(path)) File.Delete(path); } catch { /* best-effort */ }
     }
 
     private static string NormalizeImageType(string contentType, string ext)

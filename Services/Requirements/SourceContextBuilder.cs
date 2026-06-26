@@ -7,9 +7,10 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Biến các <see cref="ProjectSourceFile"/> của một project thành danh sách <see cref="AIContent"/> để gắn kèm
-/// lượt user khi gọi LLM: <see cref="TextContent"/> cho text bóc từ PDF, <see cref="DataContent"/> cho ảnh và
-/// các trang PDF scan đã render. Phần ảnh CHỈ được thêm khi model hỗ trợ vision; model text-only chỉ nhận text.
-/// Áp trần số ảnh + tổng dung lượng ảnh ngay tại đây để chặn đốt token ngoài kiểm soát.
+/// lượt user khi gọi LLM: <see cref="TextContent"/> cho text bóc từ PDF, <see cref="DataContent"/> cho ảnh người
+/// dùng upload trực tiếp. PDF chỉ đóng góp text (PDF scan/ảnh không có text bị bỏ qua, không render). Phần ảnh CHỈ
+/// được thêm khi model hỗ trợ vision; model text-only chỉ nhận text. Áp trần số ảnh + tổng dung lượng ảnh ngay tại
+/// đây để chặn đốt token ngoài kiểm soát.
 /// </summary>
 public class SourceContextBuilder
 {
@@ -54,7 +55,7 @@ public class SourceContextBuilder
             {
                 contents.Add(new TextContent(header + (s.Kind == SourceFileKind.Image
                     ? " (ảnh — xem nội dung ảnh đính kèm)"
-                    : " (PDF dạng scan — xem ảnh các trang đính kèm)")));
+                    : " (PDF dạng scan/ảnh — không trích xuất được text, nội dung bị bỏ qua)")));
             }
 
             if (!modelSupportsVision)
