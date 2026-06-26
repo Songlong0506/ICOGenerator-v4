@@ -204,6 +204,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<RejectStageUseCase>();
         services.AddScoped<RetryWorkflowUseCase>();
         services.AddScoped<StartNewChatUseCase>();
+        services.AddScoped<UploadProjectSourceUseCase>();
+        services.AddScoped<DeleteProjectSourceUseCase>();
         return services;
     }
 
@@ -350,6 +352,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<BAChatReplyParser>();
         services.AddScoped<RequirementReadinessParser>();
         services.AddScoped<RequirementDocumentGenerator>();
+        services.AddScoped<ProjectSourceIngestor>();
+        services.AddScoped<SourceContextBuilder>();
         return services;
     }
 

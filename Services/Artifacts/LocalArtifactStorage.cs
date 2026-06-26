@@ -22,4 +22,7 @@ public class LocalArtifactStorage : IArtifactStorage
 
     public string GetVersionPath(string projectKey, string versionName, ProjectArtifactDescriptor artifact) =>
         Path.Combine(_workspacePathResolver.GetPhaseVersionPath(projectKey, artifact.Phase, versionName), artifact.FileName);
+
+    public string GetSourceUploadDir(string projectKey) =>
+        Path.Combine(_workspacePathResolver.GetProjectWorkspacePath(projectKey), "00_Source");
 }

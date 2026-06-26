@@ -11,6 +11,7 @@ public class Project
     public bool IsUseBoschTemplate { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ProjectDocument> Documents { get; set; } = new List<ProjectDocument>();
+    public ICollection<ProjectSourceFile> SourceFiles { get; set; } = new List<ProjectSourceFile>();
     public ICollection<AgentConversation> Conversations { get; set; } = new List<AgentConversation>();
     public ICollection<AgentModelCallLog> ModelCallLogs { get; set; } = new List<AgentModelCallLog>();
     public ICollection<WorkflowRun> WorkflowRuns { get; set; } = new List<WorkflowRun>();

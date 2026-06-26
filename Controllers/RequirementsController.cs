@@ -26,6 +26,8 @@ public class RequirementsController : Controller
     private readonly StreamWorkflowProgressQuery _streamWorkflowProgressQuery;
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
     private readonly StartNewChatUseCase _startNewChatUseCase;
+    private readonly UploadProjectSourceUseCase _uploadProjectSourceUseCase;
+    private readonly DeleteProjectSourceUseCase _deleteProjectSourceUseCase;
 
     // SSE frames are hand-serialized, so match the camelCase the polling JSON (and client) already use.
     private static readonly JsonSerializerOptions SseJsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -42,7 +44,9 @@ public class RequirementsController : Controller
        GetWorkflowStatusQuery getWorkflowStatusQuery,
        StreamWorkflowProgressQuery streamWorkflowProgressQuery,
        GetDocumentPreviewQuery getDocumentPreviewQuery,
-       StartNewChatUseCase startNewChatUseCase)
+       StartNewChatUseCase startNewChatUseCase,
+       UploadProjectSourceUseCase uploadProjectSourceUseCase,
+       DeleteProjectSourceUseCase deleteProjectSourceUseCase)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
@@ -56,6 +60,8 @@ public class RequirementsController : Controller
         _streamWorkflowProgressQuery = streamWorkflowProgressQuery;
         _getDocumentPreviewQuery = getDocumentPreviewQuery;
         _startNewChatUseCase = startNewChatUseCase;
+        _uploadProjectSourceUseCase = uploadProjectSourceUseCase;
+        _deleteProjectSourceUseCase = deleteProjectSourceUseCase;
     }
 
     public async Task<IActionResult> Index(Guid projectId, string? version = null)
@@ -65,6 +71,7 @@ public class RequirementsController : Controller
             return RedirectToAction("Index", "Projects");
 
         ViewBag.SelectedVersion = result.SelectedVersion;
+        ViewBag.BaSupportsVision = result.BaModelSupportsVision;
         return View(result.Project);
     }
 
@@ -92,6 +99,43 @@ public class RequirementsController : Controller
             TempData["Error"] = ex.Message;
         }
 
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    // Upload tài liệu nguồn (ảnh/PDF) cho project. Nâng trần kích thước request để cho phép vài file ảnh/PDF
+    // (mặc định Kestrel ~28MB; multipart 128MB) — đặt 60MB cho cả request lẫn multipart body.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequestSizeLimit(60_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 60_000_000)]
+    public async Task<IActionResult> UploadSource(Guid projectId, List<IFormFile> files)
+    {
+        try
+        {
+            var result = await _uploadProjectSourceUseCase.ExecuteAsync(projectId, files, User.Identity?.Name);
+
+            if (result == UploadProjectSourceResult.ProjectNotFound)
+                return RedirectToAction("Index", "Projects");
+            if (result == UploadProjectSourceResult.NoFiles)
+                TempData["Error"] = "Chưa chọn file nào để upload.";
+            else
+                TempData["SourceUploaded"] = true;
+        }
+        catch (SourceFileValidationException ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> DeleteSource(Guid id, Guid projectId)
+    {
+        await _deleteProjectSourceUseCase.ExecuteAsync(id);
         return RedirectToAction(nameof(Index), new { projectId });
     }
 

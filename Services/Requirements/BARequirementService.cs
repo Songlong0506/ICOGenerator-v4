@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
@@ -22,6 +23,7 @@ public class BARequirementService
     private readonly RequirementReadinessParser _readinessParser;
     private readonly RequirementDocumentGenerator _documentGenerator;
     private readonly PromptTemplateService _promptTemplateService;
+    private readonly SourceContextBuilder _sourceContextBuilder;
 
     public BARequirementService(
         AppDbContext db,
@@ -32,7 +34,8 @@ public class BARequirementService
         BAChatReplyParser replyParser,
         RequirementReadinessParser readinessParser,
         RequirementDocumentGenerator documentGenerator,
-        PromptTemplateService promptTemplateService)
+        PromptTemplateService promptTemplateService,
+        SourceContextBuilder sourceContextBuilder)
     {
         _db = db;
         _llm = llm;
@@ -43,6 +46,7 @@ public class BARequirementService
         _readinessParser = readinessParser;
         _documentGenerator = documentGenerator;
         _promptTemplateService = promptTemplateService;
+        _sourceContextBuilder = sourceContextBuilder;
     }
 
     public async Task<ChatWithBAResult> ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
@@ -80,16 +84,39 @@ public class BARequirementService
             .ToListAsync(cancellationToken);
         recent.Reverse();
 
+        // Tài liệu nguồn (ảnh/PDF) của project: gắn vào ĐÚNG lượt user mới nhất (một lần) để BA "thấy" khi trả lời,
+        // tránh gửi lại ảnh ở mọi lượt (đốt token). Model không vision ⇒ builder chỉ trả phần text bóc từ PDF.
+        var sources = await _db.ProjectSourceFiles
+            .Where(s => s.ProjectId == projectId)
+            .OrderBy(s => s.CreatedAt)
+            .ToListAsync(cancellationToken);
+        var sourceContents = _sourceContextBuilder.Build(sources, model.SupportsVision);
+        var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
+
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BA/requirement-chat.v1.md"))
         };
-        messages.AddRange(recent.Select(c => new ChatMessage(
-            c.Role == "assistant" ? ChatRole.Assistant : ChatRole.User,
+        for (var i = 0; i < recent.Count; i++)
+        {
+            var c = recent[i];
+            var isAssistant = c.Role == "assistant";
             // Lượt cũ của BA được "dựng lại" đúng JSON {message, suggestions}. Nếu chỉ đưa text thuần,
             // model thấy phản hồi trước của mình là văn xuôi và bắt chước → bỏ JSON từ lượt 2 trở đi,
             // mất luôn gợi ý. Đưa lại đúng format giúp model giữ JSON ở mọi lượt.
-            c.Role == "assistant" ? BuildAssistantContext(c) : c.Message)));
+            var text = isAssistant ? BuildAssistantContext(c) : c.Message;
+
+            if (!isAssistant && i == lastUserIndex && sourceContents.Count > 0)
+            {
+                var contents = new List<AIContent> { new TextContent(text) };
+                contents.AddRange(sourceContents);
+                messages.Add(new ChatMessage(ChatRole.User, contents));
+            }
+            else
+            {
+                messages.Add(new ChatMessage(isAssistant ? ChatRole.Assistant : ChatRole.User, text));
+            }
+        }
 
         // BA được nhắc trả JSON {message, suggestions}: dùng structured output khi model được bật, ngược lại
         // parser luôn fallback an toàn về text thuần.
@@ -146,6 +173,7 @@ public class BARequirementService
         var project = await _db.Projects
             .Include(x => x.Documents)
             .Include(x => x.Conversations)
+            .Include(x => x.SourceFiles)
             .FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken)
             ?? throw new InvalidOperationException($"Project not found: {projectId}.");
 
@@ -159,11 +187,15 @@ public class BARequirementService
 
         var requirementBrief = BuildRequirementBrief(project.Conversations);
 
+        // Tài liệu nguồn (ảnh/PDF) của project → AIContent gắn kèm lượt soạn tài liệu (text PDF + ảnh nếu model vision).
+        var sources = project.SourceFiles.OrderBy(s => s.CreatedAt).ToList();
+        var sourceContents = _sourceContextBuilder.Build(sources, model.SupportsVision);
+
         // Cổng kiểm tra: nếu còn thiếu thông tin CỐT LÕI thì hỏi lại NGAY (một lượt BA trong khung chat)
         // và KHÔNG soạn 5 tài liệu — tránh sinh tài liệu rồi vứt đi/sinh lại (tốn token). Đây là một lời
-        // gọi LLM nhẹ (chỉ trả câu hỏi, không kèm nội dung tài liệu).
+        // gọi LLM nhẹ (chỉ trả câu hỏi). Kèm tóm tắt text tài liệu nguồn để readiness tính cả tài liệu đính kèm.
         Report("thinking", "Đang kiểm tra mức độ đầy đủ của yêu cầu…", requirementBrief);
-        var readiness = await CheckReadinessAsync(projectId, ba, model, requirementBrief, cancellationToken);
+        var readiness = await CheckReadinessAsync(projectId, ba, model, requirementBrief + BuildSourceBriefNote(sources), cancellationToken);
         if (!readiness.Ready)
         {
             var question = string.IsNullOrWhiteSpace(readiness.Message)
@@ -203,10 +235,14 @@ public class BARequirementService
             fsdTemplate,
             userStoriesTemplate);
 
+        // Lượt user mang prompt soạn tài liệu + tài liệu nguồn (text/ảnh) đính kèm. Không có nguồn ⇒ chỉ một
+        // TextContent, tương đương đường cũ.
+        var userContents = new List<AIContent> { new TextContent(prompt) };
+        userContents.AddRange(sourceContents);
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BA/requirement-draft.v1.md")),
-            new(ChatRole.User, prompt)
+            new(ChatRole.User, userContents)
         };
 
         Report("tool", "Đang gọi AI để soạn BRD, SRS, FSD, User Stories, AI Design Spec…");
@@ -305,6 +341,30 @@ public class BARequirementService
         return userTurns.Count == 0
             ? "(Chưa có yêu cầu nào được ghi nhận.)"
             : string.Join("\n", userTurns.Select(m => "- " + m));
+    }
+
+    // Tóm tắt (text) tài liệu nguồn để đưa vào lời gọi readiness — vốn là call text-only nên KHÔNG kèm ảnh được;
+    // bù lại nêu tên file + trích text (bóc từ PDF) có giới hạn, để gate đừng hỏi lại thứ đã có trong tài liệu.
+    private static string BuildSourceBriefNote(List<ProjectSourceFile> sources)
+    {
+        if (sources.Count == 0)
+            return string.Empty;
+
+        const int maxCharsPerFile = 4000;
+        var sb = new StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine($"(Người dùng đã đính kèm {sources.Count} tài liệu nguồn: {string.Join(", ", sources.Select(s => s.FileName))}.)");
+        foreach (var s in sources)
+        {
+            if (string.IsNullOrWhiteSpace(s.ExtractedText))
+                continue;
+            var text = s.ExtractedText!.Length > maxCharsPerFile
+                ? s.ExtractedText[..maxCharsPerFile] + "…(đã cắt bớt)"
+                : s.ExtractedText;
+            sb.AppendLine($"[Nội dung trích từ {s.FileName}]");
+            sb.AppendLine(text);
+        }
+        return sb.ToString();
     }
 
     private static string GetDoc(Project project, string fileName)
