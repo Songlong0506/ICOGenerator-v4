@@ -28,16 +28,19 @@ public class ProjectSourceFile
     /// <summary>Đường dẫn tuyệt đối tới file gốc đã lưu trong workspace project.</summary>
     public string StoredPath { get; set; } = string.Empty;
 
-    /// <summary>Text bóc từ PDF (null với ảnh, hoặc PDF scan không có text).</summary>
+    /// <summary>Text bóc từ PDF (null với ảnh, hoặc PDF scan/ảnh không có text — loại này không được hỗ trợ).</summary>
     public string? ExtractedText { get; set; }
 
-    /// <summary>JSON list đường dẫn ảnh PNG của các trang PDF scan đã render để gửi cho model vision (null nếu không có).</summary>
+    /// <summary>
+    /// [LEGACY] Trước đây giữ JSON list đường dẫn ảnh PNG của các trang PDF scan đã render cho vision. App đã bỏ
+    /// render PDF→ảnh nên trường này KHÔNG còn được ghi cho nguồn mới (luôn null); giữ cột để tương thích dữ liệu cũ.
+    /// </summary>
     public string? PageImagePaths { get; set; }
 
     /// <summary>Số trang (với PDF). 0 với ảnh.</summary>
     public int PageCount { get; set; }
 
-    /// <summary>True nếu nguồn này có phần ảnh cần model vision (ảnh, hoặc PDF có trang scan đã render).</summary>
+    /// <summary>True nếu nguồn này có phần ảnh cần model vision (chỉ với file ảnh upload trực tiếp; PDF luôn false).</summary>
     public bool IsVisionSource { get; set; }
 
     public string? UploadedByUserId { get; set; }
