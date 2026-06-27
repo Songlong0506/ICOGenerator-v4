@@ -4,7 +4,7 @@ public class Agent
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = string.Empty;
-    public AgentRoleKey RoleKey { get; set; } = AgentRoleKey.General;
+    public AgentRoleKey RoleKey { get; set; } = AgentRoleKey.BusinessAnalyst;
     public string Description { get; set; } = string.Empty;
     public string Color { get; set; } = "#8B5CF6";
     public AgentStatus Status { get; set; } = AgentStatus.Active;

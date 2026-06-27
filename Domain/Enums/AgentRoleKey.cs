@@ -4,8 +4,6 @@ namespace ICOGenerator.Domain.Enums;
 
 public enum AgentRoleKey
 {
-    [Description("General")]
-    General = 0,
     [Description("Business Analyst")]
     BusinessAnalyst = 1,
     [Description("Technical Lead")]
