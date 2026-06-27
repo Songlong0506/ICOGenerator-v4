@@ -26,11 +26,8 @@ public class AgentInstructionProvider
         }
         catch (FileNotFoundException)
         {
-            // Fall back to the General instruction; if even that is missing, no instruction.
-            if (roleKey == AgentRoleKey.General)
-                return string.Empty;
-
-            return GetInstruction(AgentRoleKey.General);
+            // No instruction file for this role: run without a role-specific instruction.
+            return string.Empty;
         }
     }
 
