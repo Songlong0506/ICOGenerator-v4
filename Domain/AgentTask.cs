@@ -11,7 +11,7 @@ public class AgentTask
     public Project Project { get; set; } = default!;
     public Guid? AgentId { get; set; }
     public Agent? Agent { get; set; }
-    public AgentTaskType Type { get; set; } = AgentTaskType.General;
+    public AgentTaskType Type { get; set; } = AgentTaskType.RequirementAnalysis;
     public AgentTaskStatus Status { get; set; } = AgentTaskStatus.Queued;
     public string Title { get; set; } = string.Empty;
     public string Input { get; set; } = string.Empty;
