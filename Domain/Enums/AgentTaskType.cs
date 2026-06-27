@@ -2,7 +2,6 @@ namespace ICOGenerator.Domain.Enums;
 
 public enum AgentTaskType
 {
-    General = 1,
     RequirementAnalysis = 2,
     ArchitectureDesign = 3,
     Implementation = 4,
