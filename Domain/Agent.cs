@@ -6,10 +6,9 @@ public class Agent
     public string Name { get; set; } = string.Empty;
     public AgentRoleKey RoleKey { get; set; } = AgentRoleKey.BusinessAnalyst;
     public string Description { get; set; } = string.Empty;
-    public string Color { get; set; } = "#8B5CF6";
+    public string Color { get; set; } = string.Empty;
     public AgentStatus Status { get; set; } = AgentStatus.Active;
     public double Temperature { get; set; } = 0.3;
-    // Mỗi agent bắt buộc gán AI model thủ công để tránh chạy nhầm model — không còn cơ chế model mặc định tự động.
     public Guid AiModelId { get; set; }
     public AiModel AiModel { get; set; } = null!;
     public ICollection<AgentTool> AgentTools { get; set; } = new List<AgentTool>();

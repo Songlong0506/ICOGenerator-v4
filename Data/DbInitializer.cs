@@ -71,25 +71,6 @@ public static class DbInitializer
         // Backfill: OpenPullRequest (bước "Tạo Pull Request" cuối pipeline) được thêm sau lần seed agent
         // ban đầu, nên các install cũ chưa có. Gắn idempotent cho Developer mỗi lần khởi động.
         await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.GitTools.OpenPullRequest));
-
-        if (!await db.Projects.AnyAsync())
-        {
-            var p = new Project { Name="E-commerce Web App", Description="Online store with product management, cart, payment...", Status=ProjectStatus.InProgress, CreatedAt=new DateTime(2024,5,20) };
-            db.Projects.AddRange(p,
-                new Project { Name="Task Management App", Description="Project management tool for teams", Status=ProjectStatus.Planning, CreatedAt=new DateTime(2024,5,18) },
-                new Project { Name="AI Chat Platform", Description="Chat platform with AI assistant", Status=ProjectStatus.InProgress, CreatedAt=new DateTime(2024,5,15) },
-                new Project { Name="Fitness Tracking App", Description="Mobile app for tracking workouts and health", Status=ProjectStatus.Completed, CreatedAt=new DateTime(2024,5,10) },
-                new Project { Name="Hotel Booking System", Description="Booking system for hotels and accommodations", Status=ProjectStatus.Planning, CreatedAt=new DateTime(2024,5,5) });
-            await db.SaveChangesAsync();
-
-            var ba = await db.Agents.FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
-            if (ba != null)
-            {
-                db.ProjectDocuments.Add(new ProjectDocument { ProjectId=p.Id, AgentId=ba.Id, Folder="01_Requirement", FileName="01_Project_Overview.md", TokenUsed=4250, Content="# Tổng quan dự án\nDự án E-commerce Web App là nền tảng thương mại điện tử cho phép người dùng xem sản phẩm, thêm vào giỏ hàng, thanh toán và quản lý đơn hàng.\n\n## Mục tiêu\n- Cung cấp trải nghiệm mua sắm trực tuyến mượt mà\n- Quản lý sản phẩm, đơn hàng, người dùng hiệu quả\n- Hỗ trợ thanh toán đa dạng" });
-                db.AgentConversations.Add(new AgentConversation { ProjectId=p.Id, AgentId=ba.Id, Message="Đã phân tích yêu cầu và tạo tài liệu tổng quan dự án.", TokenUsed=4250 });
-                await db.SaveChangesAsync();
-            }
-        }
     }
 
     // Mật khẩu mặc định khi chưa cấu hình Auth:SeedPasswords:* — chỉ dùng cho môi trường nội bộ/dev.
@@ -166,6 +147,7 @@ public static class DbInitializer
         foreach (var (role, permissions) in defaults)
             foreach (var permission in permissions)
                 db.RolePermissions.Add(new RolePermission { Role = role, Permission = permission });
+
 
         await db.SaveChangesAsync();
     }
