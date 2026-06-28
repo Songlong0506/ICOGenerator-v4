@@ -26,6 +26,11 @@ public static class DbInitializer
         await SeedUsersAsync(db, scope.ServiceProvider);
         await SeedRolePermissionsAsync(db);
 
+        // Backfill: quyền DeliveryAdvance (duyệt/đẩy bước delivery trên Agent Dashboard) được thêm sau
+        // lần seed quyền ban đầu. Với install cũ (bảng RolePermission không rỗng → SeedRolePermissionsAsync
+        // bỏ qua), cấp idempotent cho TeamDev để cổng duyệt trên dashboard hoạt động ngay sau khi nâng cấp.
+        await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.DeliveryAdvance);
+
         // One-time: GitDiff moved from a standalone DiffTools class into GitTools. Re-home the existing
         // tool-definition row BEFORE discovery runs so the Tech Lead's existing assignment keeps resolving.
         await RehomeToolServiceTypeAsync(db, oldServiceType: "DiffTools", newServiceType: "GitTools");
@@ -144,7 +149,7 @@ public static class DbInitializer
             {
                 AppPermission.ProjectsView, AppPermission.ProjectsCreate,
                 AppPermission.RequirementsView, AppPermission.RequirementsManage,
-                AppPermission.AgentsView, AppPermission.AgentsManage,
+                AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance,
                 AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete,
                 AppPermission.UsageView
             }),
@@ -158,6 +163,19 @@ public static class DbInitializer
             foreach (var permission in permissions)
                 db.RolePermissions.Add(new RolePermission { Role = role, Permission = permission });
 
+        await db.SaveChangesAsync();
+    }
+
+    // Cấp một quyền cho một role nếu chưa có (idempotent). Dùng để backfill quyền mới thêm sau lần seed
+    // ban đầu mà không động tới các quyền đã cấu hình tay. Bảng có unique index (Role, Permission) nên chỉ
+    // thêm khi thật sự thiếu.
+    private static async Task EnsureRolePermissionAsync(AppDbContext db, UserRole role, AppPermission permission)
+    {
+        var exists = await db.RolePermissions.AnyAsync(x => x.Role == role && x.Permission == permission);
+        if (exists)
+            return;
+
+        db.RolePermissions.Add(new RolePermission { Role = role, Permission = permission });
         await db.SaveChangesAsync();
     }
 

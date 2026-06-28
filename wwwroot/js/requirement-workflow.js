@@ -4,14 +4,10 @@
 
     if (!panels.length) return;
 
-    // Nút "Duyệt & tiếp tục" nằm ở composer (cạnh "Write Requirement"), ẩn cho tới
-    // khi có workflow chờ duyệt. Giữ tham chiếu để bật/tắt theo trạng thái poll.
-    const approveForm = document.getElementById('approveStageForm');
-    const approveRunInput = document.getElementById('approveStageRunId');
-
-    // Form ẩn để chạy lại bước thất bại; banner Failed sẽ điền runId rồi submit.
-    const retryForm = document.getElementById('retryWorkflowForm');
-    const retryRunInput = document.getElementById('retryWorkflowRunId');
+    // Cổng "Duyệt & tiếp tục"/Retry đã chuyển sang Agent Dashboard. Trang này chỉ hiển thị tiến độ;
+    // chỉ người có quyền DeliveryAdvance (TeamDev/Admin) mới được dẫn sang dashboard để thao tác.
+    const CAN_ADVANCE = window.REQUIREMENTS_CAN_ADVANCE === true || window.REQUIREMENTS_CAN_ADVANCE === 'true';
+    const DASHBOARD_URL = `/AgentDashboard/Index?projectId=${PID}`;
 
     const COLOR = {
         Queued: '#64748B',
@@ -145,32 +141,11 @@
         activity.style.display = 'flex';
     }
 
-    function showComposerApprove(data) {
-        if (!approveForm) return;
-        approveRunInput.value = data.runId || '';
-        approveForm.dataset.runId = data.runId || '';
-        approveForm.style.display = '';
-    }
-
-    function hideComposerApprove(runId) {
-        if (!approveForm) return;
-        // Chỉ ẩn khi nút đang gắn với chính run này, tránh một run đã kết thúc
-        // che mất nút duyệt của run khác đang chờ.
-        if (approveForm.dataset.runId && approveForm.dataset.runId !== String(runId)) return;
-        approveForm.style.display = 'none';
-        approveForm.dataset.runId = '';
-    }
-
     function updateBanner(panel, data) {
         const slot = panel.querySelector('.wf-banner-slot');
 
         // Chỉ reset "gate" key khi KHÔNG còn ở trạng thái chờ duyệt.
         if (data.runStatus !== 'WaitingForHuman') slot.dataset.gate = '';
-
-        // Cổng duyệt giờ là nút cố định ở composer (cạnh "Write Requirement"),
-        // chỉ bật khi bước hiện tại đã xong và đang chờ duyệt.
-        if (data.runStatus === 'WaitingForHuman') showComposerApprove(data);
-        else hideComposerApprove(data.runId);
 
         if (data.isCompleted) {
             if (data.runKind === 'Requirement') {
@@ -195,29 +170,34 @@
             const pocLink = data.pocReady
                 ? ` <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem POC</a>`
                 : '';
-            const nextHint = data.nextStageTitle
-                ? ` Bước kế: <b>${escapeHtml(data.nextStageTitle)}</b>.`
-                : '';
 
-            slot.innerHTML =
-                `<div class="wf-banner wf-wait">⏸️ Bước hiện tại đã xong — chờ duyệt.${nextHint}${pocLink}</div>`;
+            if (CAN_ADVANCE) {
+                // TeamDev/Admin: cổng duyệt sống ở Agent Dashboard → dẫn sang đó để bấm "Duyệt & tiếp tục".
+                const nextHint = data.nextStageTitle
+                    ? ` Bước kế: <b>${escapeHtml(data.nextStageTitle)}</b>.`
+                    : '';
+                slot.innerHTML =
+                    `<div class="wf-banner wf-wait">⏸️ Bước hiện tại đã xong — chờ duyệt.${nextHint}` +
+                    ` <a href="${DASHBOARD_URL}">Mở Agent Dashboard để duyệt</a>${pocLink}</div>`;
+            } else {
+                // User thường: flow dừng ở POC, không có thao tác duyệt — báo bàn giao cho đội Dev.
+                slot.innerHTML =
+                    `<div class="wf-banner wf-ok">✓ POC đã sẵn sàng. Đội ngũ Dev sẽ tiếp nhận các bước tiếp theo.${pocLink}</div>`;
+            }
         } else if (data.runStatus === 'Canceled') {
             slot.innerHTML = `<div class="wf-banner wf-fail">✗ Đã hủy. Hãy bổ sung requirement với BA, bấm “Write Requirement” rồi “Approve” để chạy lại.</div>`;
         } else if (data.runStatus === 'Failed') {
             const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
-            slot.innerHTML =
-                `<div class="wf-banner wf-fail">✗ Workflow thất bại.${err ? `<pre class="wf-err">${escapeHtml(err)}</pre>` : ''}` +
-                `<div class="wf-fail-actions"><button type="button" class="btn retry-wf-btn">↻ Thử lại bước này</button></div></div>`;
+            const errBlock = err ? `<pre class="wf-err">${escapeHtml(err)}</pre>` : '';
 
-            // Nút chạy lại: điền runId vào form ẩn rồi submit (reload trang, worker nhặt task đã re-queue).
-            const retryBtn = slot.querySelector('.retry-wf-btn');
-            if (retryBtn && retryForm && retryRunInput) {
-                retryBtn.addEventListener('click', function () {
-                    retryBtn.disabled = true;
-                    retryBtn.textContent = 'Đang khởi động lại…';
-                    retryRunInput.value = data.runId || '';
-                    retryForm.submit();
-                });
+            if (CAN_ADVANCE) {
+                // Retry đã chuyển sang Agent Dashboard (quyền DeliveryAdvance) → dẫn sang đó để chạy lại.
+                slot.innerHTML =
+                    `<div class="wf-banner wf-fail">✗ Workflow thất bại.${errBlock}` +
+                    `<div class="wf-fail-actions"><a class="btn" href="${DASHBOARD_URL}">↻ Mở Agent Dashboard để chạy lại</a></div></div>`;
+            } else {
+                slot.innerHTML =
+                    `<div class="wf-banner wf-fail">✗ Có lỗi khi xử lý bước này. Đội ngũ Dev sẽ kiểm tra.${errBlock}</div>`;
             }
         } else {
             slot.innerHTML = '';

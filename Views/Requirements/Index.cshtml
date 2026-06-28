@@ -325,36 +325,12 @@
                     </button>
                 </form>
 
-                <!-- DUYỆT & TIẾP TỤC: cổng duyệt bước delivery. Ẩn cho tới khi có workflow
-                     đang chờ duyệt; script tiến độ bên dưới sẽ bật nút và gắn đúng runId.
-                     Về sau dành cho admin bấm (không phải user). -->
-                <form asp-action="ApproveStage"
-                      method="post"
-                      id="approveStageForm"
-                      class="approve-stage"
-                      style="display:none;"
-                      onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang xử lý…';">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="projectId" value="@Model.Id" />
-                    <input type="hidden" name="runId" id="approveStageRunId" value="" />
-                    <button class="btn approve" type="submit"
-                            title="Duyệt bước hiện tại và chạy bước kế tiếp của quy trình delivery">
-                        ✓ Duyệt &amp; tiếp tục
-                    </button>
-                </form>
+                <!-- Cổng "Duyệt & tiếp tục" (và Retry/Reject) ĐÃ CHUYỂN sang Agent Dashboard: user thường
+                     dừng ở bước POC, chỉ TeamDev/Admin (quyền DeliveryAdvance) mới đẩy tiếp các bước
+                     Architecture/code/test. Trang này chỉ hiển thị tiến độ; banner bên dưới sẽ hướng
+                     dẫn người có quyền sang dashboard. -->
 
             </div>
-
-            <!-- THỬ LẠI BƯỚC THẤT BẠI: form ẩn, banner "Workflow thất bại" sẽ điền runId rồi submit.
-                 Re-queue đúng task đã hỏng (không Approve lại), worker chạy tiếp từ chỗ đó. -->
-            <form asp-action="RetryWorkflow"
-                  method="post"
-                  id="retryWorkflowForm"
-                  style="display:none;">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="projectId" value="@Model.Id" />
-                <input type="hidden" name="runId" id="retryWorkflowRunId" value="" />
-            </form>
 
             <!-- CHAT INPUT -->
             <form id="chatForm"
@@ -472,6 +448,11 @@
 
 @section Scripts {
     <script src="~/js/requirements.js" asp-append-version="true"></script>
-    <script>window.REQUIREMENTS_PROJECT_ID = '@Model.Id';</script>
+    <script>
+        window.REQUIREMENTS_PROJECT_ID = '@Model.Id';
+        // Người có quyền DeliveryAdvance (TeamDev/Admin) được dẫn sang Agent Dashboard để duyệt/đẩy bước;
+        // user thường chỉ thấy thông báo bàn giao "POC đã sẵn sàng".
+        window.REQUIREMENTS_CAN_ADVANCE = @((await Permissions.HasPermissionAsync(User, AppPermission.DeliveryAdvance)) ? "true" : "false");
+    </script>
     <script src="~/js/requirement-workflow.js" asp-append-version="true"></script>
 }
