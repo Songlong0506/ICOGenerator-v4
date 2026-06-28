@@ -186,10 +186,9 @@
 </div>
 <div id="newProject" class="modal-backdrop hidden">
     <form class="modal" asp-action="Create" method="post">
-        <button type="button" class="x" onclick="closeModal('newProject')">×</button><h2>New Project</h2><p>Create a new project to get started</p>
+        <button type="button" class="x" onclick="closeModal('newProject')">×</button><h2>New Project</h2>
         <label>Name *</label><input name="Name" placeholder="e.g E-commerce Web App" required />
         <label>Description</label><input name="Description" placeholder="Short description" />
-        <p class="muted" style="margin:4px 0 0;font-size:13px;">Generation Mode và Backend/Frontend Git sẽ do team kỹ thuật điền ở Agent Dashboard sau khi xem POC.</p>
         <div class="modal-actions"><button type="button" class="btn" onclick="closeModal('newProject')">Cancel</button><button class="btn primary">Create Project</button></div>
     </form>
 </div>
