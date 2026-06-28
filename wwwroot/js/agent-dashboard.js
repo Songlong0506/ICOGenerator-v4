@@ -258,6 +258,53 @@ async function pollActiveAgents() {
     setTimeout(pollActiveAgents, 3000);
 }
 
+// -- Stats: keep the table's Share / Total Tokens / Calls / Last Activity columns live. --
+async function pollAgentStats() {
+    let data;
+    try {
+        const response = await fetch(`/AgentDashboard/AgentStats?projectId=${PROJECT_ID}`);
+        if (response.ok) data = await response.json();
+    } catch { /* transient: keep last values, retry next tick */ }
+
+    if (data) updateAgentStats(data);
+
+    setTimeout(pollAgentStats, 3000);
+}
+
+function updateAgentStats(data) {
+    const totalTokens = Number(data.totalTokens || 0);
+    const byId = new Map((data.agents || []).map(a => [a.agentId, a]));
+
+    const totalEl = document.getElementById('total-tokens');
+    if (totalEl) totalEl.textContent = totalTokens.toLocaleString();
+
+    document.querySelectorAll('.agent-row').forEach(row => {
+        const stat = byId.get(row.dataset.agentId);
+        const tokens = Number(stat ? stat.totalTokens : 0);
+        const calls = Number(stat ? stat.calls : 0);
+        const sharePct = totalTokens > 0 ? (tokens / totalTokens) * 100 : 0;
+
+        const tokensCell = row.querySelector('.agent-tokens');
+        if (tokensCell) tokensCell.textContent = tokens.toLocaleString();
+
+        const callsCell = row.querySelector('.agent-calls');
+        if (callsCell) callsCell.textContent = calls.toLocaleString();
+
+        const fill = row.querySelector('.share-fill');
+        if (fill) fill.style.width = sharePct.toFixed(2) + '%';
+        const shareLabel = row.querySelector('.share-label');
+        if (shareLabel) shareLabel.textContent = sharePct.toFixed(1) + '%';
+
+        const activityCell = row.querySelector('.agent-last-activity');
+        if (activityCell) {
+            const lastUtc = stat && stat.lastActivityUtc;
+            activityCell.innerHTML = lastUtc
+                ? `<span class="last-activity" data-utc="${escapeHtml(lastUtc)}">${escapeHtml(formatDateTime(lastUtc))}</span>`
+                : '<span class="muted">—</span>';
+        }
+    });
+}
+
 // -- Popup: live operation feed for one agent. --
 let activityAgentId = null;
 let activityAfterSeq = 0;
@@ -374,6 +421,7 @@ document.getElementById('agent-activity-modal')
     });
 
 pollActiveAgents();
+pollAgentStats();
 
 // ===== Delivery gate: duyệt / từ chối / chạy-lại các bước sau POC =====
 // Chỉ chạy khi #delivery-gate được render (user có quyền DeliveryAdvance); ngược lại no-op.

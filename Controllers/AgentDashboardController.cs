@@ -14,6 +14,7 @@ namespace ICOGenerator.Controllers;
 public class AgentDashboardController : Controller
 {
     private readonly GetAgentDashboardQuery _getAgentDashboardQuery;
+    private readonly GetAgentStatsQuery _getAgentStatsQuery;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
     private readonly GetAgentActivityQuery _getAgentActivityQuery;
     private readonly GetAgentCallLogsQuery _getAgentCallLogsQuery;
@@ -26,6 +27,7 @@ public class AgentDashboardController : Controller
 
     public AgentDashboardController(
         GetAgentDashboardQuery getAgentDashboardQuery,
+        GetAgentStatsQuery getAgentStatsQuery,
         GetWorkflowStatusQuery getWorkflowStatusQuery,
         GetAgentActivityQuery getAgentActivityQuery,
         GetAgentCallLogsQuery getAgentCallLogsQuery,
@@ -37,6 +39,7 @@ public class AgentDashboardController : Controller
         UpdateDeliveryConfigUseCase updateDeliveryConfigUseCase)
     {
         _getAgentDashboardQuery = getAgentDashboardQuery;
+        _getAgentStatsQuery = getAgentStatsQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
         _getAgentActivityQuery = getAgentActivityQuery;
         _getAgentCallLogsQuery = getAgentCallLogsQuery;
@@ -75,6 +78,14 @@ public class AgentDashboardController : Controller
     public async Task<IActionResult> ActiveAgents(Guid projectId)
     {
         return Json(await _getAgentActivityQuery.GetActiveAgentsAsync(projectId));
+    }
+
+    // Lightweight poll for the dashboard table: per-agent Share / Total Tokens / Calls / Last Activity.
+    // Keeps those columns live while agents run, without reloading the page.
+    [HttpGet]
+    public async Task<IActionResult> AgentStats(Guid projectId)
+    {
+        return Json(await _getAgentStatsQuery.ExecuteAsync(projectId));
     }
 
     // Live operation feed for one agent's running task — backs the debug popup.

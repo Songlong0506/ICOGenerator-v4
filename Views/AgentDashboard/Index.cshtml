@@ -71,7 +71,7 @@
     </div>
     <div class="card token">
         <span>Total Tokens Used</span>
-        <b>@totalTokens.ToString("N0")</b>
+        <b id="total-tokens">@totalTokens.ToString("N0")</b>
     </div>
 </div>
 
@@ -205,11 +205,11 @@
                     </td>
                     <td class="share-col">
                         <div class="share-bar"><span class="share-fill" style="width:@(shareWidth)%"></span></div>
-                        <small class="muted">@shareLabel%</small>
+                        <small class="muted share-label">@shareLabel%</small>
                     </td>
-                    <td class="num-col">@agentTokens.ToString("N0")</td>
-                    <td class="num-col">@agentCalls.ToString("N0")</td>
-                    <td>
+                    <td class="num-col agent-tokens">@agentTokens.ToString("N0")</td>
+                    <td class="num-col agent-calls">@agentCalls.ToString("N0")</td>
+                    <td class="agent-last-activity">
                         @if (hasActivity)
                         {
                             <span class="last-activity" data-utc="@lastAtIso"></span>

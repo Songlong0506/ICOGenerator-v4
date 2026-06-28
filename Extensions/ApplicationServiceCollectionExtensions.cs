@@ -216,6 +216,7 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddAgentUseCases(this IServiceCollection services)
     {
         services.AddScoped<GetAgentDashboardQuery>();
+        services.AddScoped<GetAgentStatsQuery>();
         services.AddScoped<GetWorkflowStatusQuery>();
         services.AddScoped<StreamWorkflowProgressQuery>();
         services.AddScoped<GetAgentActivityQuery>();
