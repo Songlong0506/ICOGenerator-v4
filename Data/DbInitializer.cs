@@ -31,6 +31,13 @@ public static class DbInitializer
         // bỏ qua), cấp idempotent cho TeamDev để cổng duyệt trên dashboard hoạt động ngay sau khi nâng cấp.
         await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.DeliveryAdvance);
 
+        // Backfill: tab Feedback thêm sau lần seed ban đầu. Cấp quyền gửi/xem phản hồi (FeedbackView) cho cả
+        // User lẫn TeamDev, và quyền triage (FeedbackManage) cho TeamDev, để tab hiện ngay sau khi nâng cấp
+        // mà không cần reset DB. Admin có toàn quyền ngầm định nên không cần dòng nào.
+        await EnsureRolePermissionAsync(db, UserRole.User, AppPermission.FeedbackView);
+        await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.FeedbackView);
+        await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.FeedbackManage);
+
         // One-time: GitDiff moved from a standalone DiffTools class into GitTools. Re-home the existing
         // tool-definition row BEFORE discovery runs so the Tech Lead's existing assignment keeps resolving.
         await RehomeToolServiceTypeAsync(db, oldServiceType: "DiffTools", newServiceType: "GitTools");
@@ -132,11 +139,13 @@ public static class DbInitializer
                 AppPermission.RequirementsView, AppPermission.RequirementsManage,
                 AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance,
                 AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete,
-                AppPermission.UsageView
+                AppPermission.UsageView,
+                AppPermission.FeedbackView, AppPermission.FeedbackManage
             }),
             (UserRole.User, new[]
             {
-                AppPermission.ProjectsView, AppPermission.RequirementsView
+                AppPermission.ProjectsView, AppPermission.RequirementsView,
+                AppPermission.FeedbackView
             }),
         };
 
