@@ -6,6 +6,23 @@
 @functions {
     private static string Price(decimal v) =>
         v > 0 ? "$" + v.ToString("0.######", CultureInfo.InvariantCulture) : "–";
+
+    // Masked preview of the API key for display only (e.g. "sk-66af2***********************f1a2").
+    // Reveals only a short head/tail so the user can recognise which key is configured without ever
+    // exposing the full secret. Keys too short to safely reveal head+tail are fully masked.
+    private const int ApiKeyHead = 8;
+    private const int ApiKeyTail = 4;
+
+    private static string MaskApiKey(string? key)
+    {
+        if (string.IsNullOrEmpty(key))
+            return string.Empty;
+
+        if (key.Length <= ApiKeyHead + ApiKeyTail)
+            return new string('*', Math.Max(key.Length, 4));
+
+        return key[..ApiKeyHead] + new string('*', 12) + key[^ApiKeyTail..];
+    }
 }
 
 <style>
@@ -49,6 +66,18 @@
         background: #fef2f2;
         border: 1px solid #fecaca;
     }
+
+    .hint {
+        display: block;
+        margin-top: 4px;
+        color: #6b7280;
+        font-size: 12px;
+    }
+
+        .hint code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            color: #374151;
+        }
 </style>
 
 <div class="page-head">
@@ -111,7 +140,8 @@
                                         '@m.InputPricePerMillionTokens.ToString(CultureInfo.InvariantCulture)',
                                         '@m.OutputPricePerMillionTokens.ToString(CultureInfo.InvariantCulture)',
                                         '@m.IsActive.ToString().ToLower()',
-                                        '@m.SupportsVision.ToString().ToLower()'
+                                        '@m.SupportsVision.ToString().ToLower()',
+                                        '@JavaScriptEncoder.Default.Encode(MaskApiKey(m.ApiKey))'
                                     )">
                             ✎
                         </button>
@@ -239,6 +269,7 @@
 
         <label>ApiKey</label>
         <input id="edit-api-key" name="ApiKey" placeholder="Để trống để giữ key hiện tại" autocomplete="off" />
+        <small class="hint">Key hiện tại: <code id="edit-api-key-preview">—</code>. Để trống để giữ key hiện tại.</small>
 
         <label>Context Window</label>
         <input id="edit-context-window" name="ContextWindow" type="number" />
@@ -278,16 +309,18 @@
             inputPrice,
             outputPrice,
             isActive,
-            supportsVision
+            supportsVision,
+            apiKeyMask
         ) {
             document.getElementById('edit-id').value = id;
             document.getElementById('edit-name').value = name;
             document.getElementById('edit-provider').value = provider;
             document.getElementById('edit-model-id').value = modelId;
             document.getElementById('edit-endpoint').value = endpoint;
-            // The API key is never sent to the browser. Leave it blank on open; an empty
-            // field means "keep the existing key" (see UpdateAiModelUseCase).
+            // Only a masked preview of the key reaches the browser — never the full secret. Leave the
+            // input blank on open; an empty field means "keep the existing key" (see UpdateAiModelUseCase).
             document.getElementById('edit-api-key').value = '';
+            document.getElementById('edit-api-key-preview').textContent = apiKeyMask || '(chưa cấu hình)';
             document.getElementById('edit-context-window').value = contextWindow;
             document.getElementById('edit-input-price').value = inputPrice;
             document.getElementById('edit-output-price').value = outputPrice;
