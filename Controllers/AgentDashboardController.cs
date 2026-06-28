@@ -142,7 +142,12 @@ public class AgentDashboardController : Controller
     [RequirePermission(AppPermission.DeliveryAdvance)]
     public async Task<IActionResult> RejectStage(Guid projectId, Guid? runId = null)
     {
-        await _rejectStageUseCase.ExecuteAsync(projectId, runId);
+        var result = await _rejectStageUseCase.ExecuteAsync(projectId, runId);
+
+        if (result == RejectStageResult.PocGateNotRejectable)
+            TempData["Error"] = "Không thể từ chối ở bước POC. POC chưa đúng nghĩa là requirement cần điều chỉnh — "
+                + "việc này do người dùng thực hiện (chat với BA, bổ sung requirement rồi Approve lại để chạy phiên bản mới).";
+
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
