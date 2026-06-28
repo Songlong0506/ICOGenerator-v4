@@ -24,6 +24,7 @@ public class AgentDashboardController : Controller
     private readonly RejectStageUseCase _rejectStageUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly UpdateDeliveryConfigUseCase _updateDeliveryConfigUseCase;
+    private readonly GenerateTechnicalDocsUseCase _generateTechnicalDocsUseCase;
 
     public AgentDashboardController(
         GetAgentDashboardQuery getAgentDashboardQuery,
@@ -36,7 +37,8 @@ public class AgentDashboardController : Controller
         ApproveStageUseCase approveStageUseCase,
         RejectStageUseCase rejectStageUseCase,
         RetryWorkflowUseCase retryWorkflowUseCase,
-        UpdateDeliveryConfigUseCase updateDeliveryConfigUseCase)
+        UpdateDeliveryConfigUseCase updateDeliveryConfigUseCase,
+        GenerateTechnicalDocsUseCase generateTechnicalDocsUseCase)
     {
         _getAgentDashboardQuery = getAgentDashboardQuery;
         _getAgentStatsQuery = getAgentStatsQuery;
@@ -49,6 +51,7 @@ public class AgentDashboardController : Controller
         _rejectStageUseCase = rejectStageUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
         _updateDeliveryConfigUseCase = updateDeliveryConfigUseCase;
+        _generateTechnicalDocsUseCase = generateTechnicalDocsUseCase;
     }
 
     public async Task<IActionResult> Index(Guid projectId)
@@ -162,6 +165,29 @@ public class AgentDashboardController : Controller
 
         if (result == RetryWorkflowResult.NoFailedRun || result == RetryWorkflowResult.NoRetryableTask)
             TempData["Error"] = "Không tìm thấy bước thất bại nào để chạy lại.";
+
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    // Team dev trigger sinh tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) từ Product Brief + AI Design Spec
+    // đã duyệt. Trang Requirements (user thường) chỉ tạo Product Brief dễ hiểu; tài liệu kỹ thuật nặng
+    // sống ở đây. Cùng quyền DeliveryAdvance với các cổng duyệt vì cùng nhóm người dùng.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.DeliveryAdvance)]
+    public async Task<IActionResult> GenerateTechnicalDocs(Guid projectId)
+    {
+        var result = await _generateTechnicalDocsUseCase.ExecuteAsync(projectId);
+
+        TempData["Error"] = result switch
+        {
+            GenerateTechnicalDocsResult.ProjectNotFound => "Không tìm thấy project.",
+            GenerateTechnicalDocsResult.NoApprovedRequirement => "Chưa có requirement nào được duyệt. User cần Approve bản mô tả sản phẩm trước khi tạo tài liệu kỹ thuật.",
+            _ => null
+        };
+
+        if (result == GenerateTechnicalDocsResult.Started)
+            TempData["Info"] = "Đang sinh tài liệu kỹ thuật (BRD/SRS/FSD/User Stories) ở chế độ nền. Làm mới trang sau ít phút để xem trong Workspace.";
 
         return RedirectToAction(nameof(Index), new { projectId });
     }

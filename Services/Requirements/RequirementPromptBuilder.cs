@@ -4,18 +4,12 @@ namespace ICOGenerator.Services.Requirements;
 
 public class RequirementPromptBuilder
 {
-    public string Build(
-     Project project,
-     string userMessage,
-     string currentBrd,
-     string currentSrs,
-     string currentFsd,
-     string currentStories,
-     string currentAiDesignSpec,
-     string brdTemplate,
-     string srsTemplate,
-     string fsdTemplate,
-     string userStoriesTemplate)
+    // Lượt "Write Requirement" phía user: chỉ Product Brief (dễ hiểu) + AI Design Spec (cho POC).
+    public string BuildProductBrief(
+        Project project,
+        string userMessage,
+        string currentProductBrief,
+        string currentAiDesignSpec)
     {
         return $$"""
 Project:
@@ -26,6 +20,48 @@ Project Description:
 
 User latest message:
 {{userMessage}}
+
+Current Product Brief preview:
+{{currentProductBrief}}
+
+Current AI Design Spec preview:
+{{currentAiDesignSpec}}
+
+Your task:
+- Write/update the Product Brief in plain, non-technical Vietnamese for a normal end user.
+- Write/update the AI Design Spec (technical, structured) so the Developer Agent can build a POC.
+- Both must describe the SAME product (matching screens/features), only the wording differs.
+- Return JSON only.
+""";
+    }
+
+    // Lượt team dev trigger ở Agent Dashboard: soạn bộ tài liệu kỹ thuật nặng từ Product Brief +
+    // AI Design Spec đã duyệt, bám theo template công ty.
+    public string BuildTechnicalDocs(
+        Project project,
+        string productBrief,
+        string aiDesignSpec,
+        string currentBrd,
+        string currentSrs,
+        string currentFsd,
+        string currentStories,
+        string brdTemplate,
+        string srsTemplate,
+        string fsdTemplate,
+        string userStoriesTemplate)
+    {
+        return $$"""
+Project:
+{{project.Name}}
+
+Project Description:
+{{project.Description}}
+
+Approved Product Brief (source of truth, non-technical):
+{{productBrief}}
+
+Approved AI Design Spec (source of truth, technical):
+{{aiDesignSpec}}
 
 Current BRD preview:
 {{currentBrd}}
@@ -38,9 +74,6 @@ Current FSD preview:
 
 Current UserStories preview:
 {{currentStories}}
-
-Current AI Design Spec preview:
-{{currentAiDesignSpec}}
 
 Company BRD Template:
 {{brdTemplate}}
@@ -59,106 +92,14 @@ Your task:
 - Update SRS.docx structured data based on Company SRS Template.
 - Update FSD.docx structured data based on Company FSD Template.
 - Update UserStories.docx content.
-- Generate or update AIDesignSpec.docx content.
-
-FSD rules:
-- FSD must focus on functional behavior.
-- Include navigation structure.
-- Include screen hierarchy.
-- Include feature details.
-- Include actors and permissions.
-- Include main flows and alternative flows.
-- Include UI/API/Data references.
-- Do not describe low-level implementation.
-
-AI Design Spec rules:
-- AIDesignSpec is the ONLY document that will be sent to Developer Agent after approval.
-- It must be compact, clear, and optimized for AI code generation.
-- It must include enough information to generate a POC/mockup.
-- It should summarize BRD/SRS/FSD/UserStories into developer-ready context.
-- Do not include unnecessary business background.
-- Do not include long legal/project management sections.
-
-AIDesignSpec must include these sections:
-
-# AI Design Spec
-
-## 1. Project Goal
-Short summary of what the system must achieve.
-
-## 2. Target Users / Actors
-List user roles and what they can do.
-
-## 3. MVP Scope
-What must be built in the POC.
-
-## 4. Out of Scope
-What should not be built now.
-
-## 5. Navigation Structure
-Sidebar / top menu / child tabs.
-
-Example:
-- Projects
-  - Master List
-  - Training Plan
-  - Implementation
-  - Training Calendar
-- Reports
-- Settings
-  - Training Catalog
-  - System Settings
-
-## 6. Screens To Generate
-For each screen:
-- Screen name
-- Route URL
-- Purpose
-- Main components
-- Table columns if any
-- Form fields if any
-- Buttons/actions
-- Validation rules
-- Empty/loading/error states
-
-## 7. UI/UX Direction
-Describe visual style:
-- Enterprise dashboard
-- Left sidebar
-- Cards
-- Tables
-- Modal create/edit
-- Status badges
-- Responsive behavior
-
-## 8. Data Model Summary
-List main entities and important fields.
-
-## 9. API Expectations
-List expected endpoints at high level.
-Do not over-engineer.
-
-## 10. Business Rules
-Only rules required for POC behavior.
-
-## 11. Developer Instructions
-Tell Developer Agent:
-- Generate clean source code.
-- Prioritize working POC.
-- Use simple architecture.
-- Build only MVP scope.
-- Do not generate unnecessary modules.
-- Run build/test if tools are available.
+- Keep everything consistent with the approved Product Brief and AI Design Spec.
 
 General rules:
 - Keep the same section order as the templates.
 - Fill unknown sections with "TBD" or "Cần làm rõ".
-- Ask user for missing important information in assistantMessage.
-- Do NOT write source code.
-- Do NOT generate implementation files.
+- Do NOT write source code or implementation files.
 - Do NOT call tools.
 - Return JSON only.
 """;
     }
-
 }

@@ -4,6 +4,7 @@ using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements.Templates;
@@ -24,6 +25,7 @@ public class BARequirementService
     private readonly RequirementDocumentGenerator _documentGenerator;
     private readonly PromptTemplateService _promptTemplateService;
     private readonly SourceContextBuilder _sourceContextBuilder;
+    private readonly IProjectArtifactCatalog _artifactCatalog;
 
     public BARequirementService(
         AppDbContext db,
@@ -35,7 +37,8 @@ public class BARequirementService
         RequirementReadinessParser readinessParser,
         RequirementDocumentGenerator documentGenerator,
         PromptTemplateService promptTemplateService,
-        SourceContextBuilder sourceContextBuilder)
+        SourceContextBuilder sourceContextBuilder,
+        IProjectArtifactCatalog artifactCatalog)
     {
         _db = db;
         _llm = llm;
@@ -47,6 +50,7 @@ public class BARequirementService
         _documentGenerator = documentGenerator;
         _promptTemplateService = promptTemplateService;
         _sourceContextBuilder = sourceContextBuilder;
+        _artifactCatalog = artifactCatalog;
     }
 
     public async Task<ChatWithBAResult> ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
@@ -163,12 +167,7 @@ public class BARequirementService
     {
         void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
 
-        Report("setup", "Đang đọc hội thoại và template tài liệu…");
-
-        var brdTemplate = _templateService.GetBrdTemplate();
-        var srsTemplate = _templateService.GetSrsTemplate();
-        var fsdTemplate = _templateService.GetFsdTemplate();
-        var userStoriesTemplate = _templateService.GetUserStoriesTemplate();
+        Report("setup", "Đang đọc hội thoại…");
 
         var project = await _db.Projects
             .Include(x => x.Documents)
@@ -222,18 +221,11 @@ public class BARequirementService
 
         Report("thinking", "Đang tổng hợp yêu cầu từ hội thoại…", requirementBrief);
 
-        var prompt = _promptBuilder.Build(
+        var prompt = _promptBuilder.BuildProductBrief(
             project,
             requirementBrief,
-            GetDoc(project, "BRD.docx"),
-            GetDoc(project, "SRS.docx"),
-            GetDoc(project, "FSD.docx"),
-            GetDoc(project, "UserStories.docx"),
-            GetDoc(project, "AIDesignSpec.docx"),
-            brdTemplate,
-            srsTemplate,
-            fsdTemplate,
-            userStoriesTemplate);
+            GetDoc(project, _artifactCatalog.ProductBrief.FileName, "draft"),
+            GetDoc(project, _artifactCatalog.AiDesignSpec.FileName, "draft"));
 
         // Lượt user mang prompt soạn tài liệu + tài liệu nguồn (text/ảnh) đính kèm. Không có nguồn ⇒ chỉ một
         // TextContent, tương đương đường cũ.
@@ -241,14 +233,14 @@ public class BARequirementService
         userContents.AddRange(sourceContents);
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BA/requirement-draft.v1.md")),
+            new(ChatRole.System, _promptTemplateService.Get("BA/product-brief.v1.md")),
             new(ChatRole.User, userContents)
         };
 
-        Report("tool", "Đang gọi AI để soạn BRD, SRS, FSD, User Stories, AI Design Spec…");
+        Report("tool", "Đang gọi AI để soạn bản mô tả sản phẩm (Product Brief) + AI Design Spec…");
 
-        var (callResult, structuredDraft) = await _llm.ChatStructuredAsync<BARequirementDocxResult>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BARequirementDraft", workflowRunId), onToken, cancellationToken);
+        var (callResult, structuredDraft) = await _llm.ChatStructuredAsync<BAProductBriefResult>(
+            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAProductBrief", workflowRunId), onToken, cancellationToken);
 
         // On a failed call, do NOT fall through to the template fallback: it would fabricate documents from the raw user message and report success, hiding the failure. Fail the task instead.
         if (!callResult.IsSuccess)
@@ -264,14 +256,14 @@ public class BARequirementService
         // the same normalization so downstream sees fully-populated sections.
         var result = structuredDraft != null
             ? _responseParser.Normalize(structuredDraft)
-            : _responseParser.Parse(callResult.Content, project, requirementBrief);
+            : _responseParser.ParseProductBrief(callResult.Content, project, requirementBrief);
 
         Report("tool", "Đang tạo/cập nhật file tài liệu (.docx)…");
 
-        await _documentGenerator.GenerateDraftDocxFiles(project, ba.Id, result);
+        await _documentGenerator.GenerateProductBriefDraftFiles(project, ba.Id, result);
 
         var assistantMessage = string.IsNullOrWhiteSpace(result.AssistantMessage)
-            ? "Đã tạo/cập nhật 5 tài liệu: BRD, SRS, FSD, User Stories, AI Design Spec."
+            ? "Đã tạo/cập nhật bản mô tả sản phẩm (Product Brief) dễ hiểu cho bạn xem & duyệt."
             : result.AssistantMessage;
 
         _db.AgentConversations.Add(new AgentConversation
@@ -287,6 +279,93 @@ public class BARequirementService
 
         Report("final", "Đã tạo/cập nhật tài liệu.", assistantMessage);
         return RequirementDraftOutcome.Generated;
+    }
+
+    /// <summary>
+    /// Lượt team dev trigger ở Agent Dashboard: sinh bộ tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) từ
+    /// Product Brief + AI Design Spec ĐÃ DUYỆT của phiên bản requirement mới nhất. Ghi thẳng vào phiên
+    /// bản đó (đã duyệt) — không qua cổng draft như luồng phía user.
+    /// </summary>
+    public async Task GenerateTechnicalDocsAsync(Guid projectId, Action<string, string, string?>? onProgress = null, Action<string>? onToken = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default)
+    {
+        void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
+
+        Report("setup", "Đang đọc Product Brief & AI Design Spec đã duyệt và template tài liệu…");
+
+        var brdTemplate = _templateService.GetBrdTemplate();
+        var srsTemplate = _templateService.GetSrsTemplate();
+        var fsdTemplate = _templateService.GetFsdTemplate();
+        var userStoriesTemplate = _templateService.GetUserStoriesTemplate();
+
+        var project = await _db.Projects
+            .Include(x => x.Documents)
+            .FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken)
+            ?? throw new InvalidOperationException($"Project not found: {projectId}.");
+
+        var ba = await _db.Agents
+            .Include(x => x.AiModel)
+            .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst, cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Chưa cấu hình BA agent (RoleKey = BusinessAnalyst). Hãy tạo hoặc khôi phục agent BA trong màn hình Manage Agent.");
+
+        var model = ba.AiModel ?? throw new InvalidOperationException("BA agent model is not configured.");
+
+        // Phiên bản requirement đã duyệt mới nhất (V{n}). Không có ⇒ chưa Approve, không thể sinh tài liệu kỹ thuật.
+        var latestVersion = project.Documents
+            .Where(x => x.IsApproved && x.VersionName.StartsWith("V"))
+            .Select(x => x.VersionName)
+            .OrderByDescending(v => int.TryParse(v.Replace("V", ""), out var n) ? n : 0)
+            .FirstOrDefault()
+            ?? throw new InvalidOperationException("Chưa có phiên bản requirement nào được duyệt. Hãy Approve requirement trước khi tạo tài liệu kỹ thuật.");
+
+        var productBrief = GetDoc(project, _artifactCatalog.ProductBrief.FileName, latestVersion);
+        var aiDesignSpec = GetDoc(project, _artifactCatalog.AiDesignSpec.FileName, latestVersion);
+
+        Report("thinking", "Đang soạn tài liệu kỹ thuật từ Product Brief & AI Design Spec đã duyệt…");
+
+        var prompt = _promptBuilder.BuildTechnicalDocs(
+            project,
+            productBrief,
+            aiDesignSpec,
+            GetDoc(project, "BRD.docx", latestVersion),
+            GetDoc(project, "SRS.docx", latestVersion),
+            GetDoc(project, "FSD.docx", latestVersion),
+            GetDoc(project, "UserStories.docx", latestVersion),
+            brdTemplate,
+            srsTemplate,
+            fsdTemplate,
+            userStoriesTemplate);
+
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, _promptTemplateService.Get("BA/technical-docs.v1.md")),
+            new(ChatRole.User, prompt)
+        };
+
+        Report("tool", "Đang gọi AI để soạn BRD, SRS, FSD, User Stories…");
+
+        var (callResult, structuredDraft) = await _llm.ChatStructuredAsync<BARequirementDocxResult>(
+            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BATechnicalDocs", workflowRunId), onToken, cancellationToken);
+
+        if (!callResult.IsSuccess)
+        {
+            var detail = callResult.ErrorMessage ?? callResult.Content;
+            Report("error", "Lời gọi LLM thất bại.", detail);
+            throw new InvalidOperationException($"LLM call failed: {detail}");
+        }
+
+        Report("observation", "AI đã trả về nội dung, đang phân tích kết quả…");
+
+        var result = structuredDraft != null
+            ? _responseParser.Normalize(structuredDraft)
+            : _responseParser.Parse(callResult.Content, project, productBrief);
+
+        Report("tool", "Đang tạo file tài liệu kỹ thuật (.docx)…");
+
+        await _documentGenerator.GenerateTechnicalDocs(project, ba.Id, latestVersion, result);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        Report("final", $"Đã tạo tài liệu kỹ thuật (BRD, SRS, FSD, User Stories) cho phiên bản {latestVersion}.", null);
     }
 
     // Gọi một LLM nhẹ để quyết định đã đủ thông tin cốt lõi soạn tài liệu chưa. Fail-open: gate lỗi thì
@@ -367,10 +446,10 @@ public class BARequirementService
         return sb.ToString();
     }
 
-    private static string GetDoc(Project project, string fileName)
+    private static string GetDoc(Project project, string fileName, string versionName)
     {
         return project.Documents
-            .Where(x => x.VersionName == "draft" && x.FileName == fileName)
+            .Where(x => x.VersionName == versionName && x.FileName == fileName)
             .OrderByDescending(x => x.CreatedAt)
             .Select(x => x.Content)
             .FirstOrDefault() ?? "";

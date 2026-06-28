@@ -1,14 +1,13 @@
 @model Project
 @{
     ViewData["Title"] = "Requirements";
+    // Trang Requirements chỉ hiển thị tài liệu DỄ HIỂU cho user thường: Product Brief. Bản kỹ thuật
+    // (AI Design Spec) và tài liệu kỹ thuật nặng (BRD/SRS/FSD/UserStories) sống ở Agent Dashboard.
     var allDocuments = Model.Documents
-    .ToList();
-    var draftDocuments = Model.Documents
-        .Where(x => x.VersionName == "draft")
-        .OrderBy(x => x.FileName)
+        .Where(x => x.FileName == "ProductBrief.docx")
         .ToList();
 
-    var versions = Model.Documents
+    var versions = allDocuments
         .GroupBy(x => x.VersionName)
         .OrderByDescending(g => g.Key == "draft" ? int.MaxValue :
             int.TryParse(g.Key.Replace("V", ""), out var n) ? n : 0)
@@ -312,7 +311,8 @@
             <!-- ACTION BUTTONS: thao tác điều khiển workflow, tách khỏi luồng chat hội thoại -->
             <div class="composer-actions">
 
-                <!-- WRITE REQUIREMENT (generate the 5 docs on demand) -->
+                <!-- WRITE REQUIREMENT: sinh bản mô tả sản phẩm (Product Brief) DỄ HIỂU cho user.
+                     Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) do team dev trigger ở Agent Dashboard. -->
                 <form asp-action="WriteRequirement"
                       method="post"
                       class="write-req"
@@ -320,7 +320,7 @@
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="projectId" value="@Model.Id" />
                     <button class="btn outline write-req-btn" type="submit"
-                            title="Sinh/cập nhật BRD, SRS, FSD, User Stories, AI Design Spec từ hội thoại">
+                            title="Sinh/cập nhật bản mô tả sản phẩm dễ hiểu từ hội thoại">
                         📝 Write Requirement
                     </button>
                 </form>

@@ -272,6 +272,7 @@ Lưu ý thiết kế:
 - **Worker generic**: chỉ "chạy task → còn bước kế thì chờ duyệt, hết thì xong". Việc enqueue bước kế nằm ở `ApproveStageUseCase`.
 - **Vòng lặp về requirement**: Reject = hủy run; user bổ sung với BA → "Write Requirement" → "Approve" tạo run mới (phiên bản kế).
 - **Luồng requirement-draft** (`RequirementAnalysis`) vẫn là workflow một-bước riêng, không qua pipeline này.
+- **Tài liệu cho user vs cho dev (tách vai)**: "Write Requirement" ở trang `Requirements` chỉ sinh **Product Brief** (`ProductBrief.docx`, ngôn ngữ đời thường cho user) + **AI Design Spec** (`AIDesignSpec.docx`, bản kỹ thuật ẩn khỏi trang Requirements, dùng để dựng POC). Bộ tài liệu kỹ thuật nặng **BRD/SRS/FSD/UserStories** KHÔNG còn sinh ở đây — team dev bấm **"Tạo tài liệu kỹ thuật"** ở Agent Dashboard (`GenerateTechnicalDocs`, quyền `DeliveryAdvance`) để sinh chúng từ Product Brief + AI Design Spec đã duyệt. Đây cũng là workflow một-bước (`AgentTaskType.TechnicalDocs`), ghi thẳng vào phiên bản đã duyệt. Prompt: `Prompts/BA/product-brief.v1.md` và `Prompts/BA/technical-docs.v1.md`.
 
 ### 7.7. Vòng tự sửa lỗi (Testing ↔ BugFix)
 
