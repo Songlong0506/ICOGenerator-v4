@@ -145,6 +145,67 @@
 .dg-inline { display: inline; }
 .dg-alert.info { color: #1e40af; background: #eff6ff; border: 1px solid #bfdbfe; }
 
+/* ===== Timeline tiến trình delivery: mỗi bước có CSS theo trạng thái done/running/next/failed ===== */
+.dg-timeline { list-style: none; display: flex; margin: 4px 0 16px; padding: 0; }
+.dg-step {
+    flex: 1 1 0; position: relative; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 6px;
+}
+/* Đường nối giữa các bước; nằm dưới marker nên kéo từ tâm bước trước sang bước này. */
+.dg-step::before {
+    content: ''; position: absolute; top: 14px; left: -50%; width: 100%; height: 2px;
+    background: #e2e8f0; z-index: 0;
+}
+.dg-step:first-child::before { display: none; }
+.dg-step-marker {
+    position: relative; z-index: 1; box-sizing: border-box;
+    width: 30px; height: 30px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; line-height: 1;
+    background: #fff; border: 2px solid #cbd5e1; color: #94a3b8;
+}
+.dg-step-body { display: flex; flex-direction: column; align-items: center; margin-top: 6px; }
+.dg-step-title { font-size: 12px; font-weight: 600; line-height: 1.3; color: #475569; }
+.dg-step-state { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; margin-top: 3px; color: #94a3b8; }
+
+/* Đã xong */
+.dg-step.done .dg-step-marker { background: #16a34a; border-color: #16a34a; color: #fff; }
+.dg-step.done::before { background: #16a34a; }
+.dg-step.done .dg-step-title { color: #166534; }
+.dg-step.done .dg-step-state { color: #16a34a; }
+
+/* Đang chạy */
+.dg-step.running .dg-step-marker { background: #eff6ff; border-color: #2563eb; color: #2563eb; }
+.dg-step.running .dg-step-title { color: #1e40af; }
+.dg-step.running .dg-step-state { color: #2563eb; }
+.dg-step.running .pulse-dot { width: 9px; height: 9px; background: #2563eb; box-shadow: 0 0 0 0 rgba(37,99,235,.6); animation: pulse-ring-blue 1.4s ease-out infinite; }
+
+/* Bước kế tiếp (chờ duyệt) */
+.dg-step.next .dg-step-marker { background: #fffbeb; border-color: #d97706; border-style: dashed; color: #d97706; }
+.dg-step.next .dg-step-title { color: #92400e; }
+.dg-step.next .dg-step-state { color: #d97706; }
+
+/* Thất bại */
+.dg-step.failed .dg-step-marker { background: #dc2626; border-color: #dc2626; color: #fff; }
+.dg-step.failed::before { background: #16a34a; }
+.dg-step.failed .dg-step-title { color: #991b1b; }
+.dg-step.failed .dg-step-state { color: #dc2626; }
+
+@keyframes pulse-ring-blue {
+    0% { box-shadow: 0 0 0 0 rgba(37,99,235,.6); }
+    70% { box-shadow: 0 0 0 7px rgba(37,99,235,0); }
+    100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+}
+
+/* Màn hình hẹp: chuyển timeline sang dọc cho dễ đọc. */
+@media (max-width: 640px) {
+    .dg-timeline { flex-direction: column; }
+    .dg-step { flex-direction: row; align-items: flex-start; text-align: left; gap: 12px; padding: 0 0 16px; }
+    .dg-step::before { top: 0; left: 14px; width: 2px; height: 100%; }
+    .dg-step:last-child::before { display: none; }
+    .dg-step-body { align-items: flex-start; margin-top: 4px; }
+}
+
 /* ===== Cấu hình delivery: form TeamDev điền Generation Mode + Backend/Frontend Git ===== */
 .delivery-config { margin-bottom: 18px; }
 .dc-form { display: flex; flex-direction: column; gap: 6px; }

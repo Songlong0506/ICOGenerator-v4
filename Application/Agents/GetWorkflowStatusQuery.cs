@@ -19,12 +19,20 @@ public record WorkflowProgressEventVm(long Seq, string At, string Kind, string M
         new(ev.Seq, ev.At.ToString("o"), ev.Kind, ev.Message, ev.Detail);
 }
 
+/// <summary>
+/// Một bước trên dải timeline của Delivery Pipeline. <paramref name="State"/> là trạng thái hiển thị
+/// đã tính sẵn cho UI: "done" (đã xong), "running" (đang chạy), "next" (bước kế chờ duyệt),
+/// "failed" (thất bại), "pending" (chưa tới). Tính ở server để timeline bám đúng nguồn sự thật
+/// <see cref="DeliveryPipeline.Steps"/> thay vì lặp lại danh sách bước trong JS.
+/// </summary>
+public record PipelineStageVm(string Stage, string Title, string State);
+
 public record WorkflowStatusVm(
     bool HasWorkflow, string? RunName, string? RunStatus, bool IsTerminal, bool IsCompleted,
     IReadOnlyList<WorkflowTaskStatusVm> Tasks, IReadOnlyList<WorkflowProgressEventVm> Events, long LastEventSeq,
     string RunKind,
     Guid? RunId, string? CurrentStage, bool IsWaitingForHuman, string? NextStageTitle, bool PocReady,
-    bool NeedsMoreInfo);
+    bool NeedsMoreInfo, IReadOnlyList<PipelineStageVm> Pipeline);
 
 public class GetWorkflowStatusQuery
 {
@@ -60,7 +68,7 @@ public class GetWorkflowStatusQuery
         if (run == null)
             return new WorkflowStatusVm(false, null, null, true, false,
                 Array.Empty<WorkflowTaskStatusVm>(), Array.Empty<WorkflowProgressEventVm>(), afterSeq, "Delivery",
-                null, null, false, null, false, false);
+                null, null, false, null, false, false, Array.Empty<PipelineStageVm>());
 
         var isTerminal = run.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Failed or WorkflowRunStatus.Canceled;
 
@@ -102,10 +110,63 @@ public class GetWorkflowStatusQuery
                           && x.Type == AgentTaskType.RequirementAnalysis
                           && x.Output == RequirementDraftMarkers.NeedsMoreInfo);
 
+        // Pipeline timeline chỉ áp cho run delivery (POC → … → PR). Run "Requirement" (sinh tài liệu)
+        // không chạy các bước này nên để rỗng — UI cũng chỉ render timeline cho run delivery.
+        var pipeline = runKind == "Delivery"
+            ? BuildPipeline(run.CurrentStage, run.Status, tasks)
+            : Array.Empty<PipelineStageVm>();
+
         return new WorkflowStatusVm(
             true, run.Name, run.Status.ToString(),
             isTerminal, run.Status == WorkflowRunStatus.Completed,
             tasks, events, lastSeq, runKind,
-            run.Id, run.CurrentStage.ToString(), isWaiting, nextStep?.Title, pocReady, needsMoreInfo);
+            run.Id, run.CurrentStage.ToString(), isWaiting, nextStep?.Title, pocReady, needsMoreInfo, pipeline);
+    }
+
+    /// <summary>
+    /// Quy đổi trạng thái run + các task đã chạy thành dải timeline theo đúng thứ tự
+    /// <see cref="DeliveryPipeline.Steps"/>. Mỗi bước nhận một trạng thái hiển thị để JS chỉ việc vẽ.
+    /// </summary>
+    private static IReadOnlyList<PipelineStageVm> BuildPipeline(
+        WorkflowStageKey currentStage, WorkflowRunStatus status,
+        IReadOnlyList<WorkflowTaskStatusVm> tasks)
+    {
+        var completedTypes = tasks
+            .Where(t => t.Status == nameof(AgentTaskStatus.Completed))
+            .Select(t => t.Type)
+            .ToHashSet();
+
+        var runCompleted = status == WorkflowRunStatus.Completed;
+
+        // Bước sửa lỗi (BugFix) là chu trình quanh Testing, không nằm trong chuỗi tuyến tính →
+        // khi run đang ở BugFix, hiển thị Testing là bước đang chạy thay vì để cả dải "chờ".
+        var effectiveCurrent = currentStage == WorkflowStageKey.BugFix
+            ? WorkflowStageKey.Testing
+            : currentStage;
+
+        // Khi chờ duyệt, bước hiện tại đã xong và bước kế là điểm hành động tiếp theo của người dùng.
+        var nextStage = status == WorkflowRunStatus.WaitingForHuman
+            ? DeliveryPipeline.Next(currentStage)?.Stage
+            : null;
+
+        return DeliveryPipeline.Steps.Select(step =>
+        {
+            string state;
+            if (runCompleted || completedTypes.Contains(step.TaskType.ToString()))
+                state = "done";
+            else if (step.Stage == effectiveCurrent)
+                state = status switch
+                {
+                    WorkflowRunStatus.Failed => "failed",
+                    WorkflowRunStatus.WaitingForHuman => "done",
+                    _ => "running"
+                };
+            else if (step.Stage == nextStage)
+                state = "next";
+            else
+                state = "pending";
+
+            return new PipelineStageVm(step.Stage.ToString(), step.Title, state);
+        }).ToList();
     }
 }
