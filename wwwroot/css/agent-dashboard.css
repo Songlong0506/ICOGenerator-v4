@@ -125,3 +125,21 @@
 .tab.active { background: #007bc0; color: #fff; border-color: #007bc0; }
 .log-json { background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 16px; white-space: pre-wrap; overflow: auto; max-height: 60vh; font-size: 13px; }
 .hidden { display: none !important; }
+
+/* ===== Delivery gate: cổng duyệt/đẩy bước delivery (chỉ TeamDev/Admin thấy) ===== */
+.dg-alert { padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; font-size: 13px; }
+.dg-alert.error { color: #991b1b; background: #fee2e2; border: 1px solid #fecaca; }
+.delivery-gate { margin-bottom: 18px; }
+.dg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.dg-head h3 { margin: 0; }
+.dg-badge { padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.dg-banner { margin-bottom: 12px; }
+.dg-msg { font-size: 13px; line-height: 1.5; padding: 10px 12px; border-radius: 8px; }
+.dg-msg.wait { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+.dg-msg.fail { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.dg-msg.ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+.dg-msg.run { display: inline-flex; align-items: center; gap: 8px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+.dg-msg a { color: inherit; font-weight: 600; }
+.dg-err { margin: 8px 0 0; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 10px; white-space: pre-wrap; overflow: auto; max-height: 200px; font-size: 12px; }
+.dg-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.dg-inline { display: inline; }

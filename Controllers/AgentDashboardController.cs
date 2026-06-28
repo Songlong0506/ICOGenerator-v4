@@ -1,4 +1,5 @@
 using ICOGenerator.Application.Agents;
+using ICOGenerator.Application.Requirements;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace ICOGenerator.Controllers;
 
 // Dashboard agent theo dự án (chỉ đọc) — đi vào từ màn hình Projects nên gắn cùng quyền xem Agents.
+// Cổng duyệt/đẩy các bước delivery sống ở đây (xem các action POST bên dưới) và yêu cầu thêm
+// quyền DeliveryAdvance: user thường dừng ở POC, chỉ TeamDev/Admin mới đẩy tiếp Architecture/code/test.
 [RequirePermission(AppPermission.AgentsView)]
 public class AgentDashboardController : Controller
 {
@@ -15,6 +18,9 @@ public class AgentDashboardController : Controller
     private readonly GetAgentCallLogsQuery _getAgentCallLogsQuery;
     private readonly GetCallLogDetailQuery _getCallLogDetailQuery;
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
+    private readonly ApproveStageUseCase _approveStageUseCase;
+    private readonly RejectStageUseCase _rejectStageUseCase;
+    private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
 
     public AgentDashboardController(
         GetAgentDashboardQuery getAgentDashboardQuery,
@@ -22,7 +28,10 @@ public class AgentDashboardController : Controller
         GetAgentActivityQuery getAgentActivityQuery,
         GetAgentCallLogsQuery getAgentCallLogsQuery,
         GetCallLogDetailQuery getCallLogDetailQuery,
-        GetDocumentPreviewQuery getDocumentPreviewQuery)
+        GetDocumentPreviewQuery getDocumentPreviewQuery,
+        ApproveStageUseCase approveStageUseCase,
+        RejectStageUseCase rejectStageUseCase,
+        RetryWorkflowUseCase retryWorkflowUseCase)
     {
         _getAgentDashboardQuery = getAgentDashboardQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
@@ -30,6 +39,9 @@ public class AgentDashboardController : Controller
         _getAgentCallLogsQuery = getAgentCallLogsQuery;
         _getCallLogDetailQuery = getCallLogDetailQuery;
         _getDocumentPreviewQuery = getDocumentPreviewQuery;
+        _approveStageUseCase = approveStageUseCase;
+        _rejectStageUseCase = rejectStageUseCase;
+        _retryWorkflowUseCase = retryWorkflowUseCase;
     }
 
     public async Task<IActionResult> Index(Guid projectId)
@@ -86,5 +98,46 @@ public class AgentDashboardController : Controller
     {
         var result = await _getDocumentPreviewQuery.ExecuteAsync(id, projectId, path);
         return result == null ? NotFound() : Json(result);
+    }
+
+    // ===== Cổng delivery: chỉ TeamDev/Admin (DeliveryAdvance) mới đẩy được pipeline sau bước POC.
+    // Trước đây các action này nằm ở RequirementsController; đã chuyển về đây để gom cổng duyệt cùng
+    // chỗ artifact được duyệt (workspace 5 phase) và để redirect quay lại đúng dashboard.
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.DeliveryAdvance)]
+    public async Task<IActionResult> ApproveStage(Guid projectId, Guid? runId = null)
+    {
+        var result = await _approveStageUseCase.ExecuteAsync(projectId, runId);
+
+        if (result == ApproveStageResult.MissingAgent)
+            TempData["Error"] = "Không tìm thấy agent cho bước kế tiếp. Hãy kiểm tra cấu hình agent.";
+
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.DeliveryAdvance)]
+    public async Task<IActionResult> RejectStage(Guid projectId, Guid? runId = null)
+    {
+        await _rejectStageUseCase.ExecuteAsync(projectId, runId);
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    // Chạy lại bước đã thất bại (vd POC) mà không Approve lại từ đầu — dùng khi lỗi tạm thời như
+    // LLM rớt kết nối. Re-queue đúng task đã hỏng, worker sẽ tiếp tục từ chỗ đó.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.DeliveryAdvance)]
+    public async Task<IActionResult> RetryWorkflow(Guid projectId, Guid? runId = null)
+    {
+        var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId);
+
+        if (result == RetryWorkflowResult.NoFailedRun || result == RetryWorkflowResult.NoRetryableTask)
+            TempData["Error"] = "Không tìm thấy bước thất bại nào để chạy lại.";
+
+        return RedirectToAction(nameof(Index), new { projectId });
     }
 }

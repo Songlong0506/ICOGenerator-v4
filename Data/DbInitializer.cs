@@ -26,6 +26,11 @@ public static class DbInitializer
         await SeedUsersAsync(db, scope.ServiceProvider);
         await SeedRolePermissionsAsync(db);
 
+        // Backfill: quyền DeliveryAdvance (duyệt/đẩy bước delivery trên Agent Dashboard) được thêm sau
+        // lần seed quyền ban đầu. Với install cũ (bảng RolePermission không rỗng → SeedRolePermissionsAsync
+        // bỏ qua), cấp idempotent cho TeamDev để cổng duyệt trên dashboard hoạt động ngay sau khi nâng cấp.
+        await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.DeliveryAdvance);
+
         // One-time: GitDiff moved from a standalone DiffTools class into GitTools. Re-home the existing
         // tool-definition row BEFORE discovery runs so the Tech Lead's existing assignment keeps resolving.
         await RehomeToolServiceTypeAsync(db, oldServiceType: "DiffTools", newServiceType: "GitTools");
@@ -73,40 +78,31 @@ public static class DbInitializer
         await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.GitTools.OpenPullRequest));
     }
 
-    // Mật khẩu mặc định khi chưa cấu hình Auth:SeedPasswords:* — chỉ dùng cho môi trường nội bộ/dev.
-    // ⚠️ Đổi ngay sau lần chạy đầu (qua config) trên môi trường thật; tài liệu trong DEVELOPER_GUIDE.
-    private static readonly (string Username, string DisplayName, UserRole Role, string ConfigKey, string Default)[] SeedUsers =
+    // Bộ tài khoản seed cố định (admin/teamdev/user) cùng mật khẩu mặc định — chỉ dùng cho lần khởi tạo đầu.
+    // ⚠️ Mật khẩu mặc định chỉ hợp cho môi trường nội bộ/dev; đổi ngay sau lần đăng nhập đầu trên môi trường thật.
+    private static readonly (string Username, string DisplayName, UserRole Role, string DefaultPassword)[] SeedUsers =
     {
-        ("admin",   "Administrator",  UserRole.Admin,   "Auth:SeedPasswords:Admin",   "Admin@123"),
-        ("teamdev", "Team Developer", UserRole.TeamDev, "Auth:SeedPasswords:TeamDev", "TeamDev@123"),
-        ("user",    "User",           UserRole.User,    "Auth:SeedPasswords:User",    "User@123"),
+        ("admin",   "Administrator",  UserRole.Admin,   "Admin@123"),
+        ("teamdev", "Team Developer", UserRole.TeamDev, "TeamDev@123"),
+        ("user",    "User",           UserRole.User,    "User@123"),
     };
 
     // Seed bộ tài khoản cố định (admin/teamdev/user) nếu DB chưa có user nào. Mật khẩu được băm bằng
-    // PasswordHasher của ASP.NET. Lấy từ config trước; nếu thiếu thì dùng mặc định và ghi cảnh báo
-    // (cùng tinh thần "an toàn mặc định" như LoginUseCase). Admin tôn trọng Auth:Password cũ nếu có
-    // để giữ tương thích với cấu hình đăng nhập trước đây.
+    // PasswordHasher của ASP.NET rồi lưu vào bảng AppUser. Dùng mật khẩu mặc định và ghi cảnh báo để
+    // nhắc đổi trên môi trường thật.
     private static async Task SeedUsersAsync(AppDbContext db, IServiceProvider provider)
     {
         if (await db.AppUsers.AnyAsync())
             return;
 
-        var configuration = provider.GetRequiredService<IConfiguration>();
         var hasher = provider.GetRequiredService<IPasswordHasher<AppUser>>();
         var logger = provider.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(DbInitializer));
 
+        logger.LogWarning(
+            "Seed tài khoản (admin/teamdev/user) dùng MẬT KHẨU MẶC ĐỊNH. Hãy đổi mật khẩu ngay sau lần đăng nhập đầu trên môi trường thật.");
+
         foreach (var seed in SeedUsers)
         {
-            var configured = configuration[seed.ConfigKey];
-            if (string.IsNullOrWhiteSpace(configured) && seed.Role == UserRole.Admin)
-                configured = configuration["Auth:Password"]; // tương thích ngược với credential dùng chung trước đây
-
-            var password = string.IsNullOrWhiteSpace(configured) ? seed.Default : configured;
-            if (string.IsNullOrWhiteSpace(configured))
-                logger.LogWarning(
-                    "Seed user '{Username}' dùng mật khẩu MẶC ĐỊNH. Hãy đặt {ConfigKey} (env {EnvKey}) và đổi mật khẩu trên môi trường thật.",
-                    seed.Username, seed.ConfigKey, seed.ConfigKey.Replace(':', '_'));
-
             var user = new AppUser
             {
                 Username = seed.Username,
@@ -114,7 +110,7 @@ public static class DbInitializer
                 Role = seed.Role,
                 IsActive = true
             };
-            user.PasswordHash = hasher.HashPassword(user, password);
+            user.PasswordHash = hasher.HashPassword(user, seed.DefaultPassword);
             db.AppUsers.Add(user);
         }
 
@@ -134,7 +130,7 @@ public static class DbInitializer
             {
                 AppPermission.ProjectsView, AppPermission.ProjectsCreate,
                 AppPermission.RequirementsView, AppPermission.RequirementsManage,
-                AppPermission.AgentsView, AppPermission.AgentsManage,
+                AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance,
                 AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete,
                 AppPermission.UsageView
             }),
@@ -149,6 +145,19 @@ public static class DbInitializer
                 db.RolePermissions.Add(new RolePermission { Role = role, Permission = permission });
 
 
+        await db.SaveChangesAsync();
+    }
+
+    // Cấp một quyền cho một role nếu chưa có (idempotent). Dùng để backfill quyền mới thêm sau lần seed
+    // ban đầu mà không động tới các quyền đã cấu hình tay. Bảng có unique index (Role, Permission) nên chỉ
+    // thêm khi thật sự thiếu.
+    private static async Task EnsureRolePermissionAsync(AppDbContext db, UserRole role, AppPermission permission)
+    {
+        var exists = await db.RolePermissions.AnyAsync(x => x.Role == role && x.Permission == permission);
+        if (exists)
+            return;
+
+        db.RolePermissions.Add(new RolePermission { Role = role, Permission = permission });
         await db.SaveChangesAsync();
     }
 

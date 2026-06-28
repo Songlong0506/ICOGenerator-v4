@@ -9,7 +9,7 @@ namespace ICOGenerator.Application.Account;
 /// Xác thực người dùng theo bảng AppUser (thay cho credential dùng chung trong config trước đây):
 /// tìm user đang hoạt động theo username rồi kiểm tra mật khẩu băm bằng PasswordHasher. Trả về
 /// AppUser khi hợp lệ (để controller đọc Role và phát hành claim), hoặc null khi sai.
-/// Bộ user được seed trong DbInitializer; xem cấu hình mật khẩu seed ở Auth:SeedPasswords:*.
+/// Bộ user được seed trong DbInitializer với mật khẩu mặc định (đổi sau lần đăng nhập đầu).
 /// </summary>
 public class LoginUseCase
 {

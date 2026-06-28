@@ -23,6 +23,8 @@ public enum AppPermission
     AgentsView,
     [Description("Chỉnh sửa cấu hình Agent")]
     AgentsManage,
+    [Description("Duyệt & đẩy các bước delivery (Architecture, code, test...) trên Agent Dashboard")]
+    DeliveryAdvance,
 
     [Description("Xem danh sách AI Models")]
     ModelsView,
