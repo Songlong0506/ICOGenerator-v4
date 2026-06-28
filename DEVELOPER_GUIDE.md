@@ -22,14 +22,11 @@ Cấu hình ở `appsettings.json`:
 - `ConnectionStrings:DefaultConnection` — đổi `Server=...` sang SQL Server của bạn.
 - `AgentWorkspace:RootPath` — thư mục agent dùng làm workspace để đọc/ghi/đặt file sinh ra. **Đổi sang đường dẫn tồn tại trên máy bạn.**
 - `AllowedCommands` / `AllowedFileExtensions` — "rào chắn an toàn" giới hạn lệnh shell và loại file mà tool của agent được phép đụng tới. Mở rộng có cân nhắc.
-- `Auth` — đăng nhập (cookie) bảo vệ **toàn bộ** app. App dùng **bảng `AppUser`** với 3 tài khoản seed sẵn (`admin`/`teamdev`/`user`), mỗi tài khoản gắn một `UserRole` (Admin / TeamDev / User). Mật khẩu seed nạp qua `Auth:SeedPasswords:Admin|TeamDev|User` (biến môi trường `Auth__SeedPasswords__Admin`...). **KHÔNG commit mật khẩu thật**: nếu để trống, `DbInitializer` dùng mật khẩu mặc định (`Admin@123`...) và ghi cảnh báo — đổi ngay trên môi trường thật. `Auth:Password` (cũ) nếu có sẽ dùng làm mật khẩu seed cho `admin` (tương thích ngược).
+- Đăng nhập (cookie) bảo vệ **toàn bộ** app. App dùng **bảng `AppUser`** với 3 tài khoản seed sẵn (`admin`/`teamdev`/`user`), mỗi tài khoản gắn một `UserRole` (Admin / TeamDev / User). Khi DB còn rỗng, `DbInitializer` seed 3 tài khoản này với **mật khẩu mặc định** (`Admin@123` / `TeamDev@123` / `User@123`) và ghi cảnh báo — **đổi ngay sau lần đăng nhập đầu** trên môi trường thật.
 
 Bí mật cần đặt trước khi chạy (qua biến môi trường hoặc `dotnet user-secrets`, không commit):
 ```
 Encryption__ApiKeyKey            # khóa mã hóa ApiKey trong DB (app fail-fast nếu thiếu)
-Auth__SeedPasswords__Admin       # mật khẩu seed cho admin (để trống ⇒ dùng mặc định, có cảnh báo)
-Auth__SeedPasswords__TeamDev
-Auth__SeedPasswords__User
 ```
 
 Chạy:
