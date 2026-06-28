@@ -1,4 +1,5 @@
 using ICOGenerator.Application.Agents;
+using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Requirements;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
@@ -21,6 +22,7 @@ public class AgentDashboardController : Controller
     private readonly ApproveStageUseCase _approveStageUseCase;
     private readonly RejectStageUseCase _rejectStageUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
+    private readonly UpdateDeliveryConfigUseCase _updateDeliveryConfigUseCase;
 
     public AgentDashboardController(
         GetAgentDashboardQuery getAgentDashboardQuery,
@@ -31,7 +33,8 @@ public class AgentDashboardController : Controller
         GetDocumentPreviewQuery getDocumentPreviewQuery,
         ApproveStageUseCase approveStageUseCase,
         RejectStageUseCase rejectStageUseCase,
-        RetryWorkflowUseCase retryWorkflowUseCase)
+        RetryWorkflowUseCase retryWorkflowUseCase,
+        UpdateDeliveryConfigUseCase updateDeliveryConfigUseCase)
     {
         _getAgentDashboardQuery = getAgentDashboardQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
@@ -42,6 +45,7 @@ public class AgentDashboardController : Controller
         _approveStageUseCase = approveStageUseCase;
         _rejectStageUseCase = rejectStageUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
+        _updateDeliveryConfigUseCase = updateDeliveryConfigUseCase;
     }
 
     public async Task<IActionResult> Index(Guid projectId)
@@ -111,8 +115,13 @@ public class AgentDashboardController : Controller
     {
         var result = await _approveStageUseCase.ExecuteAsync(projectId, runId);
 
-        if (result == ApproveStageResult.MissingAgent)
-            TempData["Error"] = "Không tìm thấy agent cho bước kế tiếp. Hãy kiểm tra cấu hình agent.";
+        TempData["Error"] = result switch
+        {
+            ApproveStageResult.MissingAgent => "Không tìm thấy agent cho bước kế tiếp. Hãy kiểm tra cấu hình agent.",
+            ApproveStageResult.MissingGenerationMode => "Chưa chọn Generation Mode. Hãy điền cấu hình delivery ở Agent Dashboard trước khi đẩy sang bước kiến trúc.",
+            ApproveStageResult.MissingGitUrls => "Chưa nhập Backend/Frontend Git. Hãy điền cấu hình delivery ở Agent Dashboard trước khi tạo Pull Request.",
+            _ => null
+        };
 
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -139,5 +148,22 @@ public class AgentDashboardController : Controller
             TempData["Error"] = "Không tìm thấy bước thất bại nào để chạy lại.";
 
         return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    // Team kỹ thuật điền cấu hình delivery (Generation Mode, Backend/Frontend Git) mà end-user không cần
+    // biết lúc tạo project. Cùng quyền DeliveryAdvance với các cổng duyệt vì cùng một nhóm người dùng.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.DeliveryAdvance)]
+    public async Task<IActionResult> UpdateDeliveryConfig(UpdateDeliveryConfigVm vm)
+    {
+        var result = await _updateDeliveryConfigUseCase.ExecuteAsync(vm);
+
+        if (result == UpdateDeliveryConfigResult.ProjectNotFound)
+            TempData["Error"] = "Không tìm thấy project để cập nhật cấu hình.";
+        else
+            TempData["Info"] = "Đã lưu cấu hình delivery.";
+
+        return RedirectToAction(nameof(Index), new { projectId = vm.ProjectId });
     }
 }

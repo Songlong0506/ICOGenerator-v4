@@ -117,9 +117,14 @@ public class AgentTaskWorker : BackgroundService
                 .FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken)
                 ?? throw new InvalidOperationException($"Không tìm thấy project {task.ProjectId} cho task này.");
 
+            // Generation Mode do TeamDev chọn ở Agent Dashboard. Cổng Approve đã chặn pipeline đi quá POC
+            // khi giá trị còn null, nên tới các bước Architecture/Implementation nó luôn đã được chốt;
+            // null ở đây chỉ là phòng thủ và được coi như "không dùng Bosch" để cả seeding lẫn prompt nhất quán.
+            var useBoschTemplate = project.IsUseBoschTemplate == true;
+
             // Bosch template: clone bộ khung chuẩn (.NET + Angular) vào workspace TRƯỚC khi Developer
             // hiện thực, để bước Implementation code THÊM vào skeleton thay vì dựng khung từ đầu.
-            if (task.Type == AgentTaskType.Implementation && project.IsUseBoschTemplate)
+            if (task.Type == AgentTaskType.Implementation && useBoschTemplate)
             {
                 _progress.Report(task.WorkflowRunId, "setup", "Bosch template: chuẩn bị skeleton (.NET + Angular)…");
                 var seeder = scope.ServiceProvider.GetRequiredService<BoschTemplateSeeder>();
@@ -129,7 +134,7 @@ public class AgentTaskWorker : BackgroundService
             }
 
             var promptBuilder = scope.ServiceProvider.GetRequiredService<WorkflowTaskPromptBuilder>();
-            var prompt = promptBuilder.Build(task.Type, task.Input, project.IsUseBoschTemplate);
+            var prompt = promptBuilder.Build(task.Type, task.Input, useBoschTemplate);
             var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
 
             // POC được dựng qua NHIỀU call (SetPocContent cho màn hình đầu, rồi các AppendPocContent cho

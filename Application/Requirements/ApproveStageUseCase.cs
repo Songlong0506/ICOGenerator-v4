@@ -9,10 +9,12 @@ namespace ICOGenerator.Application.Requirements;
 
 public enum ApproveStageResult
 {
-    Advanced,       // đã enqueue bước kế
-    Completed,      // không còn bước kế → workflow hoàn tất
-    NoPendingStage, // không có workflow nào đang chờ duyệt
-    MissingAgent    // không tìm thấy agent cho vai của bước kế
+    Advanced,             // đã enqueue bước kế
+    Completed,            // không còn bước kế → workflow hoàn tất
+    NoPendingStage,       // không có workflow nào đang chờ duyệt
+    MissingAgent,         // không tìm thấy agent cho vai của bước kế
+    MissingGenerationMode,// bước kế cần Generation Mode nhưng TeamDev chưa chọn (điền ở Agent Dashboard)
+    MissingGitUrls        // bước kế (Pull Request) cần Backend/Frontend Git nhưng chưa được điền
 }
 
 /// <summary>
@@ -48,6 +50,13 @@ public class ApproveStageUseCase
             return ApproveStageResult.Completed;
         }
 
+        // Cổng cấu hình delivery (do TeamDev điền ở Agent Dashboard): chặn đẩy sang đúng bước CẦN field
+        // mà field còn trống — thay vì để worker âm thầm mặc định rồi sinh sai. Mỗi field gác đúng stage
+        // đầu tiên tiêu thụ nó: Generation Mode ở Architecture/Implementation, Git URL ở Pull Request.
+        var configError = await ValidateDeliveryConfigAsync(projectId, next.Stage);
+        if (configError != null)
+            return configError.Value;
+
         var agent = await _db.Agents.FirstOrDefaultAsync(a => a.RoleKey == next.Role);
         if (agent == null)
             return ApproveStageResult.MissingAgent;
@@ -70,6 +79,29 @@ public class ApproveStageUseCase
 
         await _db.SaveChangesAsync();
         return ApproveStageResult.Advanced;
+    }
+
+    // Kiểm tra project đã có đủ cấu hình delivery để chạy bước <paramref name="nextStage"/> chưa.
+    // Trả về null nếu hợp lệ, hoặc kết quả lỗi tương ứng để controller hiển thị hướng dẫn cho TeamDev.
+    private async Task<ApproveStageResult?> ValidateDeliveryConfigAsync(Guid projectId, WorkflowStageKey nextStage)
+    {
+        var project = await _db.Projects.AsNoTracking()
+            .Select(p => new { p.Id, p.IsUseBoschTemplate, p.BackendGitUrl, p.FrontendGitUrl })
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+        if (project == null)
+            return null; // project biến mất là tình huống bất thường khác; để luồng còn lại xử lý.
+
+        // Generation Mode quyết định template prompt cho cả Architecture lẫn Implementation (bosch/non-bosch).
+        if ((nextStage == WorkflowStageKey.ArchitectureDesign || nextStage == WorkflowStageKey.Implementation)
+            && project.IsUseBoschTemplate == null)
+            return ApproveStageResult.MissingGenerationMode;
+
+        // Backend/Frontend Git chỉ cần ở bước cuối — push code và tạo Pull Request.
+        if (nextStage == WorkflowStageKey.PullRequest
+            && (string.IsNullOrWhiteSpace(project.BackendGitUrl) || string.IsNullOrWhiteSpace(project.FrontendGitUrl)))
+            return ApproveStageResult.MissingGitUrls;
+
+        return null;
     }
 
     private async Task<WorkflowRun?> FindPendingRunAsync(Guid projectId, Guid? runId)

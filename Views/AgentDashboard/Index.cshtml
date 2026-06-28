@@ -80,6 +80,56 @@
     <div class="dg-alert error">@TempData["Error"]</div>
 }
 
+@if (TempData["Info"] != null)
+{
+    <div class="dg-alert info">@TempData["Info"]</div>
+}
+
+@if (canAdvance)
+{
+    <!-- CẤU HÌNH DELIVERY: team kỹ thuật điền các field mà end-user không cần biết lúc tạo project.
+         Generation Mode cần trước bước Architecture; Backend/Frontend Git cần trước bước Pull Request.
+         Có thể điền dần theo stage hoặc điền cả ba một lần. -->
+    <div class="card delivery-config">
+        <div class="dg-head">
+            <h3>Cấu hình delivery (Team kỹ thuật)</h3>
+            @{
+                var modeSet = Model.IsUseBoschTemplate.HasValue;
+                var gitSet = !string.IsNullOrWhiteSpace(Model.BackendGitUrl) && !string.IsNullOrWhiteSpace(Model.FrontendGitUrl);
+            }
+            <span class="muted">
+                Generation Mode: <b>@(modeSet ? (Model.IsUseBoschTemplate!.Value ? "Bosch Template" : "TechLead Define") : "chưa chọn")</b>
+                &nbsp;·&nbsp; Git: <b>@(gitSet ? "đã nhập" : "chưa nhập")</b>
+            </span>
+        </div>
+
+        <form asp-controller="AgentDashboard" asp-action="UpdateDeliveryConfig" method="post" class="dc-form">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="ProjectId" value="@Model.Id" />
+
+            <label>Generation Mode <small class="muted">— cần trước bước Architecture</small></label>
+            <div class="choice">
+                <label><input type="radio" name="IsUseBoschTemplate" value="true" checked="@(Model.IsUseBoschTemplate == true)" />
+                    <b>Use Bosch Template</b> — dùng khung chuẩn Bosch (.NET + Angular) làm nền</label>
+            </div>
+            <div class="choice">
+                <label><input type="radio" name="IsUseBoschTemplate" value="false" checked="@(Model.IsUseBoschTemplate == false)" />
+                    <b>Let TechLead Define</b> — để TechLead tự định kiến trúc và cấu trúc</label>
+            </div>
+
+            <label>Backend Git <small class="muted">— cần trước bước Pull Request</small></label>
+            <input name="BackendGitUrl" value="@Model.BackendGitUrl" placeholder="https://github.com/your-org/backend-repo.git" />
+
+            <label>Frontend Git <small class="muted">— cần trước bước Pull Request</small></label>
+            <input name="FrontendGitUrl" value="@Model.FrontendGitUrl" placeholder="https://github.com/your-org/frontend-repo.git" />
+
+            <div class="dg-actions">
+                <button class="btn primary" type="submit">Lưu cấu hình</button>
+            </div>
+        </form>
+    </div>
+}
+
 @if (canAdvance)
 {
     <!-- CỔNG DELIVERY: duyệt/đẩy/chạy-lại các bước sau POC (Architecture → code → review → test → PR).

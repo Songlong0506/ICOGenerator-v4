@@ -8,7 +8,10 @@ public class Project
     public ProjectStatus Status { get; set; } = ProjectStatus.Planning;
     public string? BackendGitUrl { get; set; }
     public string? FrontendGitUrl { get; set; }
-    public bool IsUseBoschTemplate { get; set; } = true;
+    // Cấu hình delivery do TeamDev điền ở Agent Dashboard (sau bước POC), không phải end-user lúc tạo project.
+    // null = TeamDev CHƯA chọn Generation Mode; cổng Approve chặn đẩy sang Architecture cho tới khi có giá trị
+    // rõ ràng (true = Bosch template, false = để TechLead tự định kiến trúc) — tránh âm thầm mặc định Bosch.
+    public bool? IsUseBoschTemplate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ProjectDocument> Documents { get; set; } = new List<ProjectDocument>();
     public ICollection<ProjectSourceFile> SourceFiles { get; set; } = new List<ProjectSourceFile>();
