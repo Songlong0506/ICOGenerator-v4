@@ -43,6 +43,11 @@ public enum AppPermission
     [Description("Lưu thay đổi Settings")]
     SettingsManage,
 
+    [Description("Gửi phản hồi & xem phản hồi của mình")]
+    FeedbackView,
+    [Description("Xem toàn bộ phản hồi & cập nhật trạng thái (triage)")]
+    FeedbackManage,
+
     [Description("Quản trị Roles & Permissions")]
     AdministrationManageRoles
 }

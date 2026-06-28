@@ -20,6 +20,7 @@
             "Usage" => "Usage",
             "Models" => "AI Models",
             "Settings" => "Settings",
+            "Feedback" => "Feedback",
             "Requirements" => "Requirements",
             "AgentDashboard" => "Agent Dashboard",
             "Roles" => "Roles & Permissions",
@@ -50,6 +51,7 @@
                     var canUsage = await Permissions.HasPermissionAsync(User, AppPermission.UsageView);
                     var canModels = await Permissions.HasPermissionAsync(User, AppPermission.ModelsView);
                     var canSettings = await Permissions.HasPermissionAsync(User, AppPermission.SettingsView);
+                    var canFeedback = await Permissions.HasPermissionAsync(User, AppPermission.FeedbackView);
                     var canRoles = await Permissions.HasPermissionAsync(User, AppPermission.AdministrationManageRoles);
                 }
                 <nav class="sidebar-nav">
@@ -86,6 +88,13 @@
                         <a class="nav-item @NavActive("Settings")" asp-controller="Settings" asp-action="Index" title="Settings">
                             <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1" /></svg>
                             <span class="nav-label">Settings</span>
+                        </a>
+                    }
+                    @if (canFeedback)
+                    {
+                        <a class="nav-item @NavActive("Feedback")" asp-controller="Feedback" asp-action="Index" title="Feedback">
+                            <svg class="ico" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                            <span class="nav-label">Feedback</span>
                         </a>
                     }
                     @if (canRoles)

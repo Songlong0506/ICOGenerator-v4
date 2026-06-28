@@ -1,5 +1,6 @@
 using ICOGenerator.Application.Account;
 using ICOGenerator.Application.Agents;
+using ICOGenerator.Application.Feedback;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Requirements;
@@ -11,6 +12,7 @@ using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Budget;
+using ICOGenerator.Services.Feedback;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Tools.Registry;
@@ -85,6 +87,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddModelUseCases();
         services.AddUsageUseCases();
         services.AddSettingsUseCases();
+        services.AddFeedbackUseCases();
         services.AddPromptServices();
         services.AddBudgetServices();
         services.AddLlmServices(configuration);
@@ -244,6 +247,18 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSingleton<AppSettingsFileStore>();
         services.AddScoped<GetAppSettingsQuery>();
         services.AddScoped<UpdateAppSettingsUseCase>();
+        return services;
+    }
+
+    private static IServiceCollection AddFeedbackUseCases(this IServiceCollection services)
+    {
+        // Store stateless + config-bound (như AppSettingsFileStore) ⇒ singleton; các use case/query scoped vì dùng DbContext.
+        services.AddSingleton<FeedbackAttachmentStore>();
+        services.AddScoped<GetFeedbackPageQuery>();
+        services.AddScoped<SubmitFeedbackUseCase>();
+        services.AddScoped<UpdateFeedbackStatusUseCase>();
+        services.AddScoped<GetFeedbackAttachmentQuery>();
+        services.AddScoped<DeleteFeedbackUseCase>();
         return services;
     }
 

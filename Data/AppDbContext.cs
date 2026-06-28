@@ -25,6 +25,8 @@ public class AppDbContext : DbContext
     public DbSet<AgentTask> AgentTasks => Set<AgentTask>();
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<Feedback> Feedbacks => Set<Feedback>();
+    public DbSet<FeedbackAttachment> FeedbackAttachments => Set<FeedbackAttachment>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -163,6 +165,30 @@ public class AppDbContext : DbContext
             b.Property(x => x.Role).HasConversion<string>().HasMaxLength(50);
             b.Property(x => x.Permission).HasConversion<string>().HasMaxLength(100);
             b.HasIndex(x => new { x.Role, x.Permission }).IsUnique();
+        });
+
+        // Phản hồi người dùng (toàn app, không gắn project). Type/Status lưu dạng chuỗi (dễ đọc, bền với việc
+        // chèn enum mới). Message để nvarchar(max) (LOB), các cột metadata còn lại bound để index/nhẹ hơn.
+        builder.Entity<Feedback>(b =>
+        {
+            b.Property(x => x.Type).HasConversion<string>().HasMaxLength(30);
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+            b.Property(x => x.Title).HasMaxLength(200);
+            b.Property(x => x.SubmittedByUsername).HasMaxLength(100);
+            b.Property(x => x.SubmittedByName).HasMaxLength(200);
+            b.HasIndex(x => x.CreatedAt);
+            b.HasIndex(x => new { x.SubmittedByUsername, x.CreatedAt });
+        });
+
+        // File đính kèm: Feedback FK Cascade (xóa phản hồi ⇒ dọn luôn metadata file). Kind lưu dạng chuỗi.
+        builder.Entity<FeedbackAttachment>(b =>
+        {
+            b.HasOne(x => x.Feedback).WithMany(x => x.Attachments).HasForeignKey(x => x.FeedbackId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.FileName).HasMaxLength(300);
+            b.Property(x => x.ContentType).HasMaxLength(150);
+            b.Property(x => x.StoredPath).HasMaxLength(1000);
+            b.HasIndex(x => x.FeedbackId);
         });
     }
 }

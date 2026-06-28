@@ -1,0 +1,226 @@
+@using ICOGenerator.Application.Feedback
+@using ICOGenerator.Domain.Enums
+@model FeedbackPage
+
+@{
+    string TypeBadge(FeedbackType t) => t switch
+    {
+        FeedbackType.Bug => "orange",
+        FeedbackType.Suggestion => "blue",
+        FeedbackType.Experience => "green",
+        _ => "gray"
+    };
+    string StatusBadge(FeedbackStatus s) => s switch
+    {
+        FeedbackStatus.New => "blue",
+        FeedbackStatus.InProgress => "orange",
+        FeedbackStatus.Resolved => "green",
+        _ => "gray"
+    };
+}
+
+<style>
+    .fb-grid { display: grid; grid-template-columns: 380px 1fr; gap: 22px; align-items: start; }
+    .fb-form-card label { margin-top: 14px; }
+    .fb-form-card label:first-of-type { margin-top: 0; }
+    .fb-hint { color: var(--muted); font-size: 12px; font-weight: 400; margin: 6px 0 0; }
+    .fb-file { padding: 9px 12px; background: #fff; }
+    .fb-submit-bar { margin-top: 18px; }
+
+    .fb-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .fb-toolbar form { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .fb-toolbar select { width: auto; min-width: 150px; }
+    .fb-toolbar .count { color: var(--muted); margin-left: auto; }
+
+    .fb-list { display: flex; flex-direction: column; gap: 14px; }
+    .fb-item { padding: 18px; }
+    .fb-item-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .fb-item-head h3 { margin: 0; font-size: 16px; flex: 1 1 auto; min-width: 0; }
+    .fb-meta { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
+    .fb-msg { white-space: pre-wrap; margin: 12px 0 0; line-height: 1.55; }
+
+    .fb-atts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .fb-att { display: inline-flex; align-items: center; text-decoration: none; }
+    .fb-att.img { width: 84px; height: 84px; border: 1px solid var(--line); overflow: hidden; background: #f3f6f9; }
+    .fb-att.img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .fb-att.file { gap: 8px; padding: 8px 12px; border: 1px solid var(--line); background: #fff; max-width: 260px; }
+    .fb-att.file:hover { background: #f3f6f9; text-decoration: none; }
+    .fb-att-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 13px; }
+    .fb-att-size { color: var(--muted); font-size: 12px; flex: 0 0 auto; }
+    .fb-att .ico { width: 18px; height: 18px; color: var(--bosch-blue); }
+
+    .fb-item-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .fb-item-foot form { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+    .fb-item-foot .spacer { flex: 1; }
+    .fb-status-form select { width: auto; min-width: 150px; padding: 6px 10px; }
+    .fb-empty { padding: 40px; text-align: center; color: var(--muted); }
+    .link-danger { background: transparent; border: 0; color: var(--bosch-red); font-weight: 700; cursor: pointer; padding: 6px 8px; width: auto; font-size: 13px; }
+    .link-danger:hover { text-decoration: underline; }
+
+    @@media (max-width: 1000px) { .fb-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="page-head">
+    <div>
+        <h1>Feedback</h1>
+        <p>Báo lỗi, góp ý hoặc chia sẻ trải nghiệm dùng app. Bạn có thể đính kèm ảnh, PDF, tài liệu hoặc video.</p>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert success">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert error">@TempData["Error"]</div>
+}
+
+<div class="fb-grid">
+
+    <!-- ===== Submit form ===== -->
+    <div class="card fb-form-card">
+        <h2 style="margin-top:0">Gửi phản hồi</h2>
+        <form asp-action="Submit" method="post" enctype="multipart/form-data">
+            <label for="fbType">Loại phản hồi</label>
+            <select id="fbType" name="Type">
+                @foreach (var t in Enum.GetValues<FeedbackType>())
+                {
+                    <option value="@t">@t.GetTitle()</option>
+                }
+            </select>
+
+            <label for="fbTitle">Tiêu đề *</label>
+            <input id="fbTitle" name="Title" maxlength="200" required placeholder="Tóm tắt ngắn gọn" />
+
+            <label for="fbMessage">Nội dung *</label>
+            <textarea id="fbMessage" name="Message" rows="6" required placeholder="Mô tả chi tiết lỗi/góp ý, các bước tái hiện, kết quả mong đợi..."></textarea>
+
+            <label for="fbFiles">Đính kèm</label>
+            <input id="fbFiles" class="fb-file" type="file" name="files" multiple
+                   accept="@string.Join(",", Model.AllowedExtensions)" />
+            <p class="fb-hint">
+                Ảnh, PDF, tài liệu (Word/Excel/PowerPoint/text) hoặc video. Tối đa @Model.MaxFiles file,
+                @(Model.MaxFileBytes / 1024 / 1024)MB mỗi file.
+            </p>
+
+            <div class="fb-submit-bar">
+                <button class="btn primary full" type="submit">Gửi phản hồi</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ===== List ===== -->
+    <div>
+        <div class="fb-toolbar">
+            <form asp-action="Index" method="get">
+                <select name="type" onchange="this.form.submit()">
+                    <option value="">Tất cả loại</option>
+                    @foreach (var t in Enum.GetValues<FeedbackType>())
+                    {
+                        <option value="@t" selected="@(Model.TypeFilter == t)">@t.GetTitle()</option>
+                    }
+                </select>
+                <select name="status" onchange="this.form.submit()">
+                    <option value="">Tất cả trạng thái</option>
+                    @foreach (var s in Enum.GetValues<FeedbackStatus>())
+                    {
+                        <option value="@s" selected="@(Model.StatusFilter == s)">@s.GetTitle()</option>
+                    }
+                </select>
+                @if (Model.StatusFilter != null || Model.TypeFilter != null)
+                {
+                    <a class="btn small" asp-action="Index">Xóa lọc</a>
+                }
+            </form>
+            <span class="count">@Model.TotalCount phản hồi@(Model.CanManage ? "" : " của bạn")</span>
+        </div>
+
+        @if (Model.Items.Count == 0)
+        {
+            <div class="card fb-empty">
+                Chưa có phản hồi nào. Hãy là người đầu tiên gửi góp ý ở bên trái!
+            </div>
+        }
+        else
+        {
+            <div class="fb-list">
+                @foreach (var item in Model.Items)
+                {
+                    <div class="card fb-item">
+                        <div class="fb-item-head">
+                            <span class="badge @TypeBadge(item.Type)">@item.Type.GetTitle()</span>
+                            <h3>@item.Title</h3>
+                            <span class="badge @StatusBadge(item.Status)">@item.Status.GetTitle()</span>
+                        </div>
+
+                        <p class="fb-meta">
+                            @item.SubmittedByName · @item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                        </p>
+
+                        <div class="fb-msg">@item.Message</div>
+
+                        @if (item.Attachments.Count > 0)
+                        {
+                            <div class="fb-atts">
+                                @foreach (var att in item.Attachments)
+                                {
+                                    if (att.IsImage)
+                                    {
+                                        <a class="fb-att img" target="_blank" title="@att.FileName"
+                                           href="@Url.Action("Attachment", new { id = att.Id })">
+                                            <img src="@Url.Action("Attachment", new { id = att.Id })" alt="@att.FileName" loading="lazy" />
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <a class="fb-att file" title="@att.FileName"
+                                           href="@Url.Action("Attachment", new { id = att.Id, download = true })">
+                                            <svg class="ico" viewBox="0 0 24 24">
+                                                @if (att.IsVideo)
+                                                {
+                                                    <polygon points="5 3 19 12 5 21 5 3" />
+                                                }
+                                                else
+                                                {
+                                                    <text><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></text>
+                                                }
+                                            </svg>
+                                            <span class="fb-att-name">@att.FileName</span>
+                                            <span class="fb-att-size">@att.SizeLabel</span>
+                                        </a>
+                                    }
+                                }
+                            </div>
+                        }
+
+                        @if (Model.CanManage || item.IsMine)
+                        {
+                            <div class="fb-item-foot">
+                                @if (Model.CanManage)
+                                {
+                                    <form class="fb-status-form" asp-action="UpdateStatus" method="post">
+                                        <input type="hidden" name="id" value="@item.Id" />
+                                        <label style="margin:0">Trạng thái</label>
+                                        <select name="status" onchange="this.form.submit()">
+                                            @foreach (var s in Enum.GetValues<FeedbackStatus>())
+                                            {
+                                                <option value="@s" selected="@(item.Status == s)">@s.GetTitle()</option>
+                                            }
+                                        </select>
+                                    </form>
+                                }
+                                <span class="spacer"></span>
+                                <form asp-action="Delete" method="post"
+                                      onsubmit="return confirm('Xóa phản hồi này? Hành động không thể hoàn tác.');">
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <button type="submit" class="link-danger">Xóa</button>
+                                </form>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>

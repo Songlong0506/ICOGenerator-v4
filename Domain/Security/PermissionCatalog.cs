@@ -28,6 +28,8 @@ public static class PermissionCatalog
             new[] { AppPermission.UsageView }),
         new PermissionScreen("Settings", "Settings", AppPermission.SettingsView,
             new[] { AppPermission.SettingsView, AppPermission.SettingsManage }),
+        new PermissionScreen("Feedback", "Feedback", AppPermission.FeedbackView,
+            new[] { AppPermission.FeedbackView, AppPermission.FeedbackManage }),
         new PermissionScreen("Roles", "Roles & Permissions", AppPermission.AdministrationManageRoles,
             new[] { AppPermission.AdministrationManageRoles }),
     };
