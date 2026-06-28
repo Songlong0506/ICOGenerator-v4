@@ -50,6 +50,10 @@
     var hasImplementationSource = workspaceDocuments.Any(d =>
         string.Equals(d.Folder, "04_Implementation", StringComparison.OrdinalIgnoreCase)
         && string.Equals(d.VersionName, "src", StringComparison.OrdinalIgnoreCase));
+
+    // Cổng duyệt/đẩy bước delivery chỉ hiện cho TeamDev/Admin (quyền DeliveryAdvance). User thường
+    // dừng ở bước POC bên màn hình Requirements và không thấy cổng này.
+    var canAdvance = await Permissions.HasPermissionAsync(User, AppPermission.DeliveryAdvance);
 }
 
 @section Styles {
@@ -70,6 +74,62 @@
         <b>@totalTokens.ToString("N0")</b>
     </div>
 </div>
+
+@if (TempData["Error"] != null)
+{
+    <div class="dg-alert error">@TempData["Error"]</div>
+}
+
+@if (canAdvance)
+{
+    <!-- CỔNG DELIVERY: duyệt/đẩy/chạy-lại các bước sau POC (Architecture → code → review → test → PR).
+         Ẩn cho tới khi poll thấy có workflow; JS (agent-dashboard.js) bật đúng nút theo trạng thái run. -->
+    <div class="card delivery-gate" id="delivery-gate" style="display:none;">
+        <div class="dg-head">
+            <h3>Delivery Pipeline</h3>
+            <span id="dg-status" class="muted"></span>
+        </div>
+
+        <div id="dg-banner" class="dg-banner"></div>
+
+        <div class="dg-actions">
+            <form id="dg-approve-form" asp-controller="AgentDashboard" asp-action="ApproveStage" method="post"
+                  class="dg-inline" style="display:none;"
+                  onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang xử lý…';">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="projectId" value="@Model.Id" />
+                <input type="hidden" name="runId" id="dg-approve-runid" value="" />
+                <button class="btn approve" type="submit"
+                        title="Duyệt bước hiện tại và chạy bước kế tiếp của quy trình delivery">
+                    ✓ Duyệt &amp; tiếp tục
+                </button>
+            </form>
+
+            <form id="dg-reject-form" asp-controller="AgentDashboard" asp-action="RejectStage" method="post"
+                  class="dg-inline" style="display:none;"
+                  onsubmit="return confirm('Từ chối kết quả bước này và hủy workflow? Cần Approve requirement lại để chạy phiên bản mới.');">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="projectId" value="@Model.Id" />
+                <input type="hidden" name="runId" id="dg-reject-runid" value="" />
+                <button class="btn outline" type="submit"
+                        title="Từ chối kết quả bước hiện tại và hủy workflow delivery">
+                    ✗ Từ chối
+                </button>
+            </form>
+
+            <form id="dg-retry-form" asp-controller="AgentDashboard" asp-action="RetryWorkflow" method="post"
+                  class="dg-inline" style="display:none;"
+                  onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang khởi động lại…';">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="projectId" value="@Model.Id" />
+                <input type="hidden" name="runId" id="dg-retry-runid" value="" />
+                <button class="btn" type="submit" title="Chạy lại bước đã thất bại mà không Approve lại từ đầu">
+                    ↻ Thử lại bước này
+                </button>
+            </form>
+        </div>
+    </div>
+}
 
 <div class="agent-table-wrap">
     <table class="agent-table">
@@ -289,7 +349,8 @@
         window.AGENT_DASHBOARD = {
             docs: @Html.Raw(docsJson),
             firstDocId: '@(firstDoc?.Id.ToString() ?? "")',
-            projectId: '@Model.Id'
+            projectId: '@Model.Id',
+            canAdvance: @(canAdvance ? "true" : "false")
         };
     </script>
     <script src="~/js/agent-dashboard.js" asp-append-version="true"></script>

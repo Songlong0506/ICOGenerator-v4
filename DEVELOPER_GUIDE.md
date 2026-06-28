@@ -262,7 +262,9 @@ Bản đồ file:
 | Khởi tạo | `Services/Workflows/WorkflowOrchestrator.cs` | tạo `WorkflowRun` + task ở `DeliveryPipeline.First` (POC). |
 | Chạy + cổng | `Services/Workflows/AgentTaskWorker.cs` | chạy task xong: nếu còn bước kế → set `WaitingForHuman` (KHÔNG tự enqueue); hết bước → `Completed`. Dùng `MaxSteps` theo bước. |
 | Cổng duyệt | `Application/Requirements/ApproveStageUseCase.cs`, `RejectStageUseCase.cs` | Approve → resolve input theo `InputSource` + enqueue bước kế; Reject → `Canceled`. |
-| Controller/UI | `RequirementsController` (`ApproveStage`/`RejectStage`), `GetWorkflowStatusQuery`, `Views/Requirements/Index.cshtml` | banner `WaitingForHuman` hiện nút "Duyệt & tiếp tục" / "Sửa requirement" + link "Xem POC". |
+| Controller/UI | `AgentDashboardController` (`ApproveStage`/`RejectStage`/`RetryWorkflow`), `GetWorkflowStatusQuery`, `Views/AgentDashboard/Index.cshtml` + `wwwroot/js/agent-dashboard.js` | Cổng "Duyệt & tiếp tục"/"Từ chối"/"Thử lại" sống trên **Agent Dashboard** và yêu cầu quyền `DeliveryAdvance`. Màn hình `Requirements` chỉ hiển thị tiến độ + banner bàn giao. |
+
+> **Phân tách vai trò (User vs TeamDev).** Flow của *user thường* dừng ở bước **POC** (`poc-demo.html`) — họ không có quyền `DeliveryAdvance` nên không thấy cổng duyệt; banner ở `Requirements` chỉ báo "POC đã sẵn sàng, đội Dev sẽ tiếp nhận". Các bước sau (Architecture → code → review → test → PR) do *TeamDev/Admin* đẩy từ Agent Dashboard. Quyền `DeliveryAdvance` thuộc nhóm màn hình **Agents** (xem `PermissionCatalog`), seed mặc định cho TeamDev và backfill idempotent trong `DbInitializer` cho install cũ.
 
 Lưu ý thiết kế:
 - **Hành vi sâu theo vai** đến từ *system-prompt* của agent (`Prompts/Agents/Instructions/{RoleKey}.md`); template `Prompts/Workflow/` chỉ mô tả *việc của bước*.

@@ -374,3 +374,92 @@ document.getElementById('agent-activity-modal')
     });
 
 pollActiveAgents();
+
+// ===== Delivery gate: duyệt / từ chối / chạy-lại các bước sau POC =====
+// Chỉ chạy khi #delivery-gate được render (user có quyền DeliveryAdvance); ngược lại no-op.
+(function () {
+    const gate = document.getElementById('delivery-gate');
+    if (!gate) return;
+
+    const statusEl = document.getElementById('dg-status');
+    const bannerEl = document.getElementById('dg-banner');
+    const approveForm = document.getElementById('dg-approve-form');
+    const rejectForm = document.getElementById('dg-reject-form');
+    const retryForm = document.getElementById('dg-retry-form');
+    const runIdInputs = [
+        document.getElementById('dg-approve-runid'),
+        document.getElementById('dg-reject-runid'),
+        document.getElementById('dg-retry-runid')
+    ];
+
+    const COLOR = {
+        Queued: '#64748B', Running: '#2563EB', Completed: '#16A34A',
+        Failed: '#DC2626', Canceled: '#64748B', WaitingForHuman: '#D97706', Retrying: '#2563EB'
+    };
+
+    function badge(status) {
+        const c = COLOR[status] || '#64748B';
+        return `<span class="dg-badge" style="background:${c}1A;color:${c};border:1px solid ${c}55;">${escapeHtml(status)}</span>`;
+    }
+
+    function setForms(approve, reject, retry) {
+        approveForm.style.display = approve ? '' : 'none';
+        rejectForm.style.display = reject ? '' : 'none';
+        retryForm.style.display = retry ? '' : 'none';
+    }
+
+    function setRunId(id) {
+        runIdInputs.forEach(input => { if (input) input.value = id || ''; });
+    }
+
+    async function poll() {
+        let data;
+        try {
+            const response = await fetch(`/AgentDashboard/WorkflowStatus?projectId=${PROJECT_ID}`);
+            data = await response.json();
+        } catch {
+            setTimeout(poll, 4000);
+            return;
+        }
+
+        // Cổng chỉ áp cho workflow delivery (sau khi Approve requirement). Run "Requirement" (sinh tài liệu)
+        // không có cổng ở đây — user vẫn đang ở màn hình Requirements.
+        if (!data.hasWorkflow || data.runKind !== 'Delivery') {
+            gate.style.display = 'none';
+            setTimeout(poll, 4000);
+            return;
+        }
+
+        gate.style.display = '';
+        setRunId(data.runId);
+        if (statusEl) statusEl.innerHTML = `${escapeHtml(data.runName || 'Delivery')} · ${badge(data.runStatus)}`;
+
+        const pocLink = data.pocReady
+            ? ` <a href="/Projects/Mockup?projectId=${PROJECT_ID}" target="_blank">Xem POC</a>`
+            : '';
+
+        if (data.runStatus === 'WaitingForHuman') {
+            const nextHint = data.nextStageTitle ? ` Bước kế: <b>${escapeHtml(data.nextStageTitle)}</b>.` : '';
+            bannerEl.innerHTML = `<div class="dg-msg wait">⏸️ Bước hiện tại đã xong — chờ duyệt.${nextHint}${pocLink}</div>`;
+            setForms(true, true, false);
+        } else if (data.runStatus === 'Failed') {
+            const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
+            bannerEl.innerHTML = `<div class="dg-msg fail">✗ Workflow thất bại.${err ? `<pre class="dg-err">${escapeHtml(err)}</pre>` : ''}</div>`;
+            setForms(false, false, true);
+        } else if (data.isCompleted) {
+            bannerEl.innerHTML = `<div class="dg-msg ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/DownloadSource?projectId=${PROJECT_ID}">⬇ Tải source code</a></div>`;
+            setForms(false, false, false);
+        } else if (data.runStatus === 'Canceled') {
+            bannerEl.innerHTML = `<div class="dg-msg fail">✗ Đã hủy. Quay lại Requirements, bổ sung với BA rồi Approve để chạy phiên bản mới.</div>`;
+            setForms(false, false, false);
+        } else {
+            // Running / Queued / Retrying...
+            bannerEl.innerHTML = `<div class="dg-msg run"><span class="pulse-dot"></span> Đang chạy bước hiện tại…${pocLink}</div>`;
+            setForms(false, false, false);
+        }
+
+        setTimeout(poll, data.isTerminal ? 5000 : 2500);
+    }
+
+    poll();
+})();
