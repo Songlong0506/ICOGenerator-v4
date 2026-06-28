@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<FeedbackAttachment> FeedbackAttachments => Set<FeedbackAttachment>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -189,6 +190,21 @@ public class AppDbContext : DbContext
             b.Property(x => x.ContentType).HasMaxLength(150);
             b.Property(x => x.StoredPath).HasMaxLength(1000);
             b.HasIndex(x => x.FeedbackId);
+        });
+
+        // Nhật ký thay đổi cấu hình (Settings/Role/Agent/Model). Category/Action lưu dạng chuỗi (dễ đọc, bền
+        // với việc chèn enum mới). Before/AfterJson để nvarchar(max) (LOB), các cột metadata còn lại bound để
+        // index/nhẹ hơn. Index theo (Category, CreatedAt) và CreatedAt cho lọc + sắp xếp ở trang Audit Log.
+        builder.Entity<AuditLog>(b =>
+        {
+            b.Property(x => x.Category).HasConversion<string>().HasMaxLength(30);
+            b.Property(x => x.Action).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.EntityId).HasMaxLength(100);
+            b.Property(x => x.Summary).HasMaxLength(500);
+            b.Property(x => x.ActorUsername).HasMaxLength(100);
+            b.Property(x => x.ActorRole).HasMaxLength(50);
+            b.HasIndex(x => x.CreatedAt);
+            b.HasIndex(x => new { x.Category, x.CreatedAt });
         });
     }
 }

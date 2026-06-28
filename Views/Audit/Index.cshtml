@@ -1,0 +1,136 @@
+@using ICOGenerator.Application.Audit
+@using ICOGenerator.Domain.Enums
+@model AuditLogListPage
+
+@{
+    string CategoryBadge(AuditCategory c) => c switch
+    {
+        AuditCategory.Settings => "blue",
+        AuditCategory.Role => "orange",
+        AuditCategory.Agent => "green",
+        _ => "gray"
+    };
+    string ActionBadge(AuditAction a) => a switch
+    {
+        AuditAction.Create => "green",
+        AuditAction.Update => "blue",
+        _ => "orange"
+    };
+}
+
+<style>
+    .audit-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .audit-toolbar select { width: auto; min-width: 170px; }
+    .audit-toolbar .count { color: var(--muted); margin-left: auto; }
+
+    .audit-list { display: flex; flex-direction: column; gap: 12px; }
+    .audit-item { padding: 16px 18px; }
+    .audit-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .audit-head h3 { margin: 0; font-size: 15px; flex: 1 1 auto; min-width: 0; }
+    .audit-meta { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
+    .audit-diff { margin-top: 12px; }
+    .audit-diff > summary { cursor: pointer; color: var(--bosch-blue); font-size: 13px; font-weight: 700; }
+    .audit-diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+    .audit-diff-grid h4 { margin: 0 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .audit-json { background: #f3f6f9; border: 1px solid var(--line); padding: 12px; margin: 0; font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; overflow-x: auto; }
+    .audit-empty { padding: 40px; text-align: center; color: var(--muted); }
+
+    @@media (max-width: 760px) { .audit-diff-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="page-head">
+    <div>
+        <h1>Audit Log</h1>
+        <p>Nhật ký thay đổi cấu hình (Settings, Roles, Agents, AI Models): ai đổi gì, khi nào — để dễ debug khi có sự cố.</p>
+    </div>
+</div>
+
+<div class="audit-toolbar">
+    <form asp-action="Index" method="get">
+        <select name="category" onchange="this.form.submit()">
+            <option value="">Tất cả loại</option>
+            @foreach (var c in Enum.GetValues<AuditCategory>())
+            {
+                <option value="@c" selected="@(Model.CategoryFilter == c)">@c.GetTitle()</option>
+            }
+        </select>
+        @if (Model.CategoryFilter != null)
+        {
+            <a class="btn small" asp-action="Index">Xóa lọc</a>
+        }
+    </form>
+    <span class="count">@Model.TotalCount bản ghi</span>
+</div>
+
+@if (Model.Items.Count == 0)
+{
+    <div class="card audit-empty">
+        Chưa có thay đổi cấu hình nào được ghi lại@(Model.CategoryFilter != null ? " cho loại đã chọn" : "").
+    </div>
+}
+else
+{
+    <div class="audit-list">
+        @foreach (var item in Model.Items)
+        {
+            <div class="card audit-item">
+                <div class="audit-head">
+                    <span class="badge @CategoryBadge(item.Category)">@item.Category.GetTitle()</span>
+                    <span class="badge @ActionBadge(item.Action)">@item.Action.GetTitle()</span>
+                    <h3>@item.Summary</h3>
+                </div>
+
+                <p class="audit-meta">
+                    @item.ActorUsername@(string.IsNullOrEmpty(item.ActorRole) ? "" : $" · {item.ActorRole}")
+                    · @item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")
+                </p>
+
+                @if (item.BeforeJson != null || item.AfterJson != null)
+                {
+                    <details class="audit-diff">
+                        <summary>Xem chi tiết thay đổi</summary>
+                        <div class="audit-diff-grid">
+                            <div>
+                                <h4>Trước</h4>
+                                <pre class="audit-json">@(item.BeforeJson ?? "—")</pre>
+                            </div>
+                            <div>
+                                <h4>Sau</h4>
+                                <pre class="audit-json">@(item.AfterJson ?? "—")</pre>
+                            </div>
+                        </div>
+                    </details>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="pager" style="margin-top:16px">
+        <span>Hiển thị @Model.FirstItemIndex–@Model.LastItemIndex trên @Model.TotalCount bản ghi</span>
+        @if (Model.TotalPages > 1)
+        {
+            <div class="pager-controls">
+                @if (Model.HasPrevious)
+                {
+                    <a class="btn outline" asp-action="Index" asp-route-category="@Model.CategoryFilter" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">‹ Trước</a>
+                }
+                else
+                {
+                    <span class="btn outline disabled">‹ Trước</span>
+                }
+
+                <span class="btn primary">@Model.Page / @Model.TotalPages</span>
+
+                @if (Model.HasNext)
+                {
+                    <a class="btn outline" asp-action="Index" asp-route-category="@Model.CategoryFilter" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">Sau ›</a>
+                }
+                else
+                {
+                    <span class="btn outline disabled">Sau ›</span>
+                }
+            </div>
+        }
+    </div>
+}

@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Settings;
 
 namespace ICOGenerator.Application.Settings;
@@ -6,7 +8,15 @@ namespace ICOGenerator.Application.Settings;
 public class UpdateAppSettingsUseCase
 {
     private readonly AppSettingsFileStore _store;
-    public UpdateAppSettingsUseCase(AppSettingsFileStore store) => _store = store;
+    private readonly GetAppSettingsQuery _getAppSettings;
+    private readonly IAuditLogger _audit;
+
+    public UpdateAppSettingsUseCase(AppSettingsFileStore store, GetAppSettingsQuery getAppSettings, IAuditLogger audit)
+    {
+        _store = store;
+        _getAppSettings = getAppSettings;
+        _audit = audit;
+    }
 
     /// <summary>Returns an error message, or null when the settings were saved.</summary>
     public async Task<string?> ExecuteAsync(AppSettingsVm input)
@@ -16,6 +26,9 @@ public class UpdateAppSettingsUseCase
 
         if (string.IsNullOrWhiteSpace(input.WorkspaceRootPath))
             return "Workspace root path is required.";
+
+        // Đọc trạng thái TRƯỚC khi ghi để audit log so sánh được. ConnectionString sẽ bị AuditLogger tự che.
+        var before = await _getAppSettings.ExecuteAsync();
 
         await _store.UpdateAsync(root =>
         {
@@ -31,6 +44,9 @@ public class UpdateAppSettingsUseCase
 
             root["AllowedHosts"] = string.IsNullOrWhiteSpace(input.AllowedHosts) ? "*" : input.AllowedHosts.Trim();
         });
+
+        await _audit.LogAsync(AuditCategory.Settings, AuditAction.Update, "AppSettings",
+            "Cập nhật cấu hình ứng dụng", before: before, after: input);
         return null;
     }
 

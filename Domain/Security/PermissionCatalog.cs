@@ -32,6 +32,8 @@ public static class PermissionCatalog
             new[] { AppPermission.FeedbackView, AppPermission.FeedbackManage }),
         new PermissionScreen("Roles", "Roles & Permissions", AppPermission.AdministrationManageRoles,
             new[] { AppPermission.AdministrationManageRoles }),
+        new PermissionScreen("Audit", "Audit Log", AppPermission.AuditView,
+            new[] { AppPermission.AuditView }),
     };
 
     /// <summary>Mọi quyền đang được khai báo trong catalog (phẳng, không trùng).</summary>

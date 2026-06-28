@@ -1,5 +1,7 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Agents;
@@ -7,7 +9,13 @@ namespace ICOGenerator.Application.Agents;
 public class UpdateAgentUseCase
 {
     private readonly AppDbContext _db;
-    public UpdateAgentUseCase(AppDbContext db) => _db = db;
+    private readonly IAuditLogger _audit;
+
+    public UpdateAgentUseCase(AppDbContext db, IAuditLogger audit)
+    {
+        _db = db;
+        _audit = audit;
+    }
 
     public async Task<UpdateAgentResult> ExecuteAsync(AgentEditVm vm)
     {
@@ -19,6 +27,9 @@ public class UpdateAgentUseCase
         // tránh chạy nhầm model ngoài ý muốn.
         if (vm.AiModelId is not { } modelId || !await _db.AiModels.AnyAsync(x => x.Id == modelId))
             return UpdateAgentResult.ModelRequired;
+
+        // Chụp trạng thái TRƯỚC khi sửa để so sánh trong audit log.
+        var before = Snapshot(agent);
 
         agent.Name = vm.Name?.Trim() ?? string.Empty;
         agent.Description = vm.Description?.Trim() ?? string.Empty;
@@ -43,6 +54,21 @@ public class UpdateAgentUseCase
         }
 
         await _db.SaveChangesAsync();
+
+        await _audit.LogAsync(AuditCategory.Agent, AuditAction.Update, agent.Id.ToString(),
+            $"Cập nhật Agent \"{agent.Name}\"", before: before, after: Snapshot(agent));
         return UpdateAgentResult.Success;
     }
+
+    // Ảnh chụp cấu hình agent (kèm danh sách tool đã gán) để so sánh before/after trong audit log.
+    private static object Snapshot(Agent a) => new
+    {
+        a.Name,
+        a.Description,
+        a.Color,
+        Status = a.Status.ToString(),
+        a.Temperature,
+        AiModelId = a.AiModelId.ToString(),
+        ToolDefinitionIds = a.AgentTools.Select(t => t.ToolDefinitionId).OrderBy(id => id).ToList()
+    };
 }

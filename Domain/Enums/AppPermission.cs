@@ -49,5 +49,8 @@ public enum AppPermission
     FeedbackManage,
 
     [Description("Quản trị Roles & Permissions")]
-    AdministrationManageRoles
+    AdministrationManageRoles,
+
+    [Description("Xem nhật ký thay đổi cấu hình (Audit Log)")]
+    AuditView
 }
