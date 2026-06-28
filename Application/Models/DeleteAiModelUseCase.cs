@@ -1,4 +1,6 @@
 using ICOGenerator.Data;
+using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Models;
@@ -6,7 +8,13 @@ namespace ICOGenerator.Application.Models;
 public class DeleteAiModelUseCase
 {
     private readonly AppDbContext _db;
-    public DeleteAiModelUseCase(AppDbContext db) => _db = db;
+    private readonly IAuditLogger _audit;
+
+    public DeleteAiModelUseCase(AppDbContext db, IAuditLogger audit)
+    {
+        _db = db;
+        _audit = audit;
+    }
 
     public async Task<DeleteAiModelResult> ExecuteAsync(Guid id)
     {
@@ -18,8 +26,14 @@ public class DeleteAiModelUseCase
         if (isUsed)
             return DeleteAiModelResult.InUse;
 
+        var before = CreateAiModelUseCase.Snapshot(model);
+        var name = model.Name;
+
         _db.AiModels.Remove(model);
         await _db.SaveChangesAsync();
+
+        await _audit.LogAsync(AuditCategory.Model, AuditAction.Delete, id.ToString(),
+            $"Xóa AI Model \"{name}\"", before: before);
         return DeleteAiModelResult.Deleted;
     }
 }

@@ -18,11 +18,13 @@ public class UpdateRolePermissionsUseCase
 
     private readonly AppDbContext _db;
     private readonly IPermissionService _permissions;
+    private readonly IAuditLogger _audit;
 
-    public UpdateRolePermissionsUseCase(AppDbContext db, IPermissionService permissions)
+    public UpdateRolePermissionsUseCase(AppDbContext db, IPermissionService permissions, IAuditLogger audit)
     {
         _db = db;
         _permissions = permissions;
+        _audit = audit;
     }
 
     public async Task ExecuteAsync(IEnumerable<string>? granted, CancellationToken cancellationToken = default)
@@ -33,6 +35,11 @@ public class UpdateRolePermissionsUseCase
         var existing = await _db.RolePermissions
             .Where(x => EditableRoles.Contains(x.Role))
             .ToListAsync(cancellationToken);
+
+        // Chụp quyền TRƯỚC khi thay để audit log so sánh được "role X được mở/thu quyền nào".
+        var before = SnapshotPermissions(existing.GroupBy(x => x.Role)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Permission)));
+
         _db.RolePermissions.RemoveRange(existing);
 
         foreach (var role in EditableRoles)
@@ -42,7 +49,23 @@ public class UpdateRolePermissionsUseCase
 
         await _db.SaveChangesAsync(cancellationToken);
         _permissions.InvalidateCache();
+
+        await _audit.LogAsync(AuditCategory.Role, AuditAction.Update, "RolePermissions",
+            "Cập nhật ma trận quyền của các role",
+            before: before,
+            after: SnapshotPermissions(selected.ToDictionary(kvp => kvp.Key, kvp => (IEnumerable<AppPermission>)kvp.Value)),
+            cancellationToken: cancellationToken);
     }
+
+    // Đưa quyền về dạng { "TeamDev": ["ProjectsView", ...], ... } đã sắp xếp để before/after dễ so sánh bằng mắt.
+    private static Dictionary<string, List<string>> SnapshotPermissions(
+        IReadOnlyDictionary<UserRole, IEnumerable<AppPermission>> byRole) =>
+        EditableRoles.ToDictionary(
+            role => role.ToString(),
+            role => (byRole.TryGetValue(role, out var perms) ? perms : Enumerable.Empty<AppPermission>())
+                .Select(p => p.ToString())
+                .OrderBy(p => p)
+                .ToList());
 
     // "TeamDev:ProjectsView" -> (TeamDev, ProjectsView). Bỏ qua chuỗi sai định dạng, role không chỉnh được,
     // và quyền trùng (HashSet). Admin có lọt vào cũng bị loại vì không nằm trong EditableRoles.

@@ -1,5 +1,6 @@
 using ICOGenerator.Application.Account;
 using ICOGenerator.Application.Agents;
+using ICOGenerator.Application.Audit;
 using ICOGenerator.Application.Feedback;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Projects;
@@ -88,6 +89,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddUsageUseCases();
         services.AddSettingsUseCases();
         services.AddFeedbackUseCases();
+        services.AddAuditUseCases();
         services.AddPromptServices();
         services.AddBudgetServices();
         services.AddLlmServices(configuration);
@@ -110,6 +112,11 @@ public static class ApplicationServiceCollectionExtensions
         // Phân quyền: cache (singleton) chia sẻ giữa các request; PermissionService scoped vì phụ thuộc DbContext.
         services.AddMemoryCache();
         services.AddScoped<IPermissionService, PermissionService>();
+
+        // Audit log thay đổi cấu hình: cần actor từ request hiện tại ⇒ đăng ký IHttpContextAccessor; logger
+        // scoped vì dùng DbContext. Đặt ở AddAuthServices cùng PermissionService (cross-cutting bảo mật).
+        services.AddHttpContextAccessor();
+        services.AddScoped<IAuditLogger, AuditLogger>();
 
         services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(options =>
@@ -248,6 +255,12 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSingleton<AppSettingsFileStore>();
         services.AddScoped<GetAppSettingsQuery>();
         services.AddScoped<UpdateAppSettingsUseCase>();
+        return services;
+    }
+
+    private static IServiceCollection AddAuditUseCases(this IServiceCollection services)
+    {
+        services.AddScoped<GetAuditLogPageQuery>();
         return services;
     }
 
