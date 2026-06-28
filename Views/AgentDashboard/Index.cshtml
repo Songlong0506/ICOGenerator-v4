@@ -121,6 +121,30 @@
 
 @if (canAdvance)
 {
+    <!-- TÀI LIỆU KỸ THUẬT: team dev trigger sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design
+         Spec đã duyệt. Trang Requirements (user thường) chỉ tạo Product Brief dễ hiểu. -->
+    <div class="card tech-docs">
+        <div class="dg-head">
+            <h3>Tài liệu kỹ thuật</h3>
+        </div>
+        <p class="muted">
+            Sinh <b>BRD / SRS / FSD / User Stories</b> từ Product Brief + AI Design Spec đã duyệt (dành cho team dev).
+            Kết quả xuất hiện trong Workspace ở phase <b>01_Requirement</b>.
+        </p>
+        <form asp-controller="AgentDashboard" asp-action="GenerateTechnicalDocs" method="post"
+              onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo…';">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="projectId" value="@Model.Id" />
+            <button class="btn primary" type="submit"
+                    title="Sinh tài liệu kỹ thuật từ requirement đã duyệt">
+                📝 Tạo tài liệu kỹ thuật
+            </button>
+        </form>
+    </div>
+}
+
+@if (canAdvance)
+{
     <!-- CỔNG DELIVERY: duyệt/đẩy/chạy-lại các bước sau POC (Architecture → code → review → test → PR).
          Ẩn cho tới khi poll thấy có workflow; JS (agent-dashboard.js) bật đúng nút theo trạng thái run. -->
     <div class="card delivery-gate" id="delivery-gate" style="display:none;">

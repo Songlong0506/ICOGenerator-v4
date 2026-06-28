@@ -106,6 +106,21 @@ public class AgentTaskWorker : BackgroundService
                 return;
             }
 
+            // Tài liệu kỹ thuật (team dev trigger) cũng là workflow một-bước, không qua pipeline delivery.
+            if (task.Type == AgentTaskType.TechnicalDocs)
+            {
+                await RunTechnicalDocsAsync(scope, task, cancellationToken);
+
+                task.Status = AgentTaskStatus.Completed;
+                task.Output = "Technical documents generated.";
+                task.FinishedAt = DateTime.UtcNow;
+                task.WorkflowRun.Status = WorkflowRunStatus.Completed;
+                task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
+                task.WorkflowRun.FinishedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(cancellationToken);
+                return;
+            }
+
             // POC template chỉ cần cho bước POC preview.
             if (task.Type == AgentTaskType.PocPreview)
             {
@@ -331,6 +346,20 @@ public class AgentTaskWorker : BackgroundService
                 : "Đã tạo/cập nhật tài liệu requirement.");
 
         return outcome;
+    }
+
+    private async Task RunTechnicalDocsAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
+    {
+        var baService = scope.ServiceProvider.GetRequiredService<BARequirementService>();
+
+        await baService.GenerateTechnicalDocsAsync(
+            task.ProjectId,
+            onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
+            onToken: token => _progress.ReportToken(task.WorkflowRunId, token),
+            workflowRunId: task.WorkflowRunId,
+            cancellationToken: cancellationToken);
+
+        _progress.Report(task.WorkflowRunId, "completed", "Đã tạo tài liệu kỹ thuật (BRD/SRS/FSD/UserStories).");
     }
 
     private async Task EnsureDesignAssetsAsync(IServiceScope scope, AppDbContext db, Guid projectId)

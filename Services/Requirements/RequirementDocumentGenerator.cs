@@ -35,34 +35,56 @@ public class RequirementDocumentGenerator
         _artifactCatalog = artifactCatalog;
         _artifactStorage = artifactStorage;
     }
-    public async Task GenerateDraftDocxFiles(Project project, Guid baId, BARequirementDocxResult result)
+
+    // Lượt "Write Requirement" phía user: chỉ sinh Product Brief (cho user) + AI Design Spec (cho POC),
+    // cả hai ở dạng draft. Tài liệu kỹ thuật nặng do team dev trigger sau (GenerateTechnicalDocs).
+    public async Task GenerateProductBriefDraftFiles(Project project, Guid baId, BAProductBriefResult result)
+    {
+        var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
+
+        var productBriefOutput = _artifactStorage.GetDraftPath(projectKey, _artifactCatalog.ProductBrief);
+        var aiDesignSpecOutput = _artifactStorage.GetDraftPath(projectKey, _artifactCatalog.AiDesignSpec);
+
+        CreateSimpleDocumentDocx(productBriefOutput, "Product Brief", result.ProductBrief.Content);
+        CreateSimpleDocumentDocx(aiDesignSpecOutput, "AI Design Spec", result.AiDesignSpec.Content);
+
+        await UpsertDocument(project.Id, baId, _artifactCatalog.ProductBrief, productBriefOutput, result.ProductBrief.Content, "draft", isApproved: false);
+        await UpsertDocument(project.Id, baId, _artifactCatalog.AiDesignSpec, aiDesignSpecOutput, result.AiDesignSpec.Content, "draft", isApproved: false);
+    }
+
+    // Lượt team dev trigger ở Agent Dashboard: sinh BRD/SRS/FSD/UserStories cho một phiên bản requirement
+    // ĐÃ DUYỆT. Ghi thẳng vào thư mục phiên bản đó (không qua draft) và lưu là tài liệu đã duyệt.
+    public async Task GenerateTechnicalDocs(Project project, Guid baId, string versionName, BARequirementDocxResult result)
     {
         var brdTemplate = _templateService.EnsureTemplateDocx("BRD_Template.docx");
         var srsTemplate = _templateService.EnsureTemplateDocx("SRS_Template.docx");
         var fsdTemplate = _templateService.EnsureTemplateDocx("FSD_Template.docx");
 
         var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
-        var brdOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("BRD"));
-        var srsOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("SRS"));
-        var fsdOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("FSD"));
-        var storiesOutput = _artifactStorage.GetDraftPath(projectKey, GetArtifact("UserStories"));
-        var aiDesignSpecOutput = _artifactStorage.GetDraftPath(projectKey, _artifactCatalog.AiDesignSpec);
+
+        var brdArtifact = GetTechnicalArtifact("BRD");
+        var srsArtifact = GetTechnicalArtifact("SRS");
+        var fsdArtifact = GetTechnicalArtifact("FSD");
+        var storiesArtifact = GetTechnicalArtifact("UserStories");
+
+        var brdOutput = _artifactStorage.GetVersionPath(projectKey, versionName, brdArtifact);
+        var srsOutput = _artifactStorage.GetVersionPath(projectKey, versionName, srsArtifact);
+        var fsdOutput = _artifactStorage.GetVersionPath(projectKey, versionName, fsdArtifact);
+        var storiesOutput = _artifactStorage.GetVersionPath(projectKey, versionName, storiesArtifact);
 
         _docxWriter.CreateFromTemplate(brdTemplate, brdOutput, BuildBrdReplacements(project, result.Brd));
         _docxWriter.CreateFromTemplate(srsTemplate, srsOutput, BuildSrsReplacements(project, result.Srs));
         _docxWriter.CreateFromTemplate(fsdTemplate, fsdOutput, BuildFsdReplacements(project, result.Fsd));
         CreateSimpleDocumentDocx(storiesOutput, "User Stories", result.UserStories.Content);
-        CreateSimpleDocumentDocx(aiDesignSpecOutput, "AI Design Spec", result.AiDesignSpec.Content);
 
-        await UpsertDraftDocument(project.Id, baId, GetArtifact("BRD"), brdOutput, _docxWriter.ExtractText(brdOutput));
-        await UpsertDraftDocument(project.Id, baId, GetArtifact("SRS"), srsOutput, _docxWriter.ExtractText(srsOutput));
-        await UpsertDraftDocument(project.Id, baId, GetArtifact("FSD"), fsdOutput, _docxWriter.ExtractText(fsdOutput));
-        await UpsertDraftDocument(project.Id, baId, GetArtifact("UserStories"), storiesOutput, result.UserStories.Content);
-        await UpsertDraftDocument(project.Id, baId, _artifactCatalog.AiDesignSpec, aiDesignSpecOutput, result.AiDesignSpec.Content);
+        await UpsertDocument(project.Id, baId, brdArtifact, brdOutput, _docxWriter.ExtractText(brdOutput), versionName, isApproved: true);
+        await UpsertDocument(project.Id, baId, srsArtifact, srsOutput, _docxWriter.ExtractText(srsOutput), versionName, isApproved: true);
+        await UpsertDocument(project.Id, baId, fsdArtifact, fsdOutput, _docxWriter.ExtractText(fsdOutput), versionName, isApproved: true);
+        await UpsertDocument(project.Id, baId, storiesArtifact, storiesOutput, result.UserStories.Content, versionName, isApproved: true);
     }
 
-    private ProjectArtifactDescriptor GetArtifact(string key) =>
-        _artifactCatalog.RequirementDocuments.First(x => x.Key == key);
+    private ProjectArtifactDescriptor GetTechnicalArtifact(string key) =>
+        _artifactCatalog.TechnicalDocuments.First(x => x.Key == key);
 
     private static void CreateSimpleDocumentDocx(string outputPath, string title, string content)
     {
@@ -89,13 +111,13 @@ public class RequirementDocumentGenerator
         mainPart.Document.Save();
     }
 
-    private async Task UpsertDraftDocument(Guid projectId, Guid agentId, ProjectArtifactDescriptor artifact, string filePath, string previewContent)
+    private async Task UpsertDocument(Guid projectId, Guid agentId, ProjectArtifactDescriptor artifact, string filePath, string previewContent, string versionName, bool isApproved)
     {
         var fileName = artifact.FileName;
         var doc = await _db.ProjectDocuments
             .FirstOrDefaultAsync(x =>
                 x.ProjectId == projectId &&
-                x.VersionName == "draft" &&
+                x.VersionName == versionName &&
                 x.FileName == fileName);
 
         if (doc == null)
@@ -105,8 +127,8 @@ public class RequirementDocumentGenerator
                 ProjectId = projectId,
                 AgentId = agentId,
                 Folder = artifact.Phase,
-                VersionName = "draft",
-                IsApproved = false,
+                VersionName = versionName,
+                IsApproved = isApproved,
                 FileName = fileName,
                 FilePath = filePath,
                 Content = previewContent,
@@ -116,6 +138,7 @@ public class RequirementDocumentGenerator
         else
         {
             doc.Folder = artifact.Phase;
+            doc.IsApproved = isApproved;
             doc.Content = previewContent;
             doc.FilePath = filePath;
             doc.TokenUsed = TokenEstimator.Estimate(previewContent);

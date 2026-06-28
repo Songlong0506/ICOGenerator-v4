@@ -232,6 +232,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetDocumentPreviewQuery>();
         services.AddScoped<GetAgentManagementPageQuery>();
         services.AddScoped<UpdateAgentUseCase>();
+        services.AddScoped<GenerateTechnicalDocsUseCase>();
         return services;
     }
 

@@ -22,6 +22,107 @@ public class RequirementResponseParser
         return result;
     }
 
+    // Product Brief path (lượt "Write Requirement" phía user).
+    public BAProductBriefResult Normalize(BAProductBriefResult result)
+    {
+        result.ProductBrief ??= new();
+        result.AiDesignSpec ??= new();
+        result.ProductBrief.Content ??= "";
+        result.AiDesignSpec.Content ??= "";
+        return result;
+    }
+
+    public BAProductBriefResult ParseProductBrief(string response, Project project, string userMessage)
+    {
+        try
+        {
+            var json = JsonExtractor.Extract(response);
+            var result = JsonSerializer.Deserialize<BAProductBriefResult>(json, JsonDefaults.CaseInsensitive);
+
+            if (result != null)
+                return Normalize(result);
+        }
+        catch
+        {
+            // Conservative fallback so the chat still produces a draft Product Brief + AI Design Spec.
+        }
+
+        return new BAProductBriefResult
+        {
+            AssistantMessage = "Tôi đã tạo bản mô tả sản phẩm dựa trên thông tin bạn cung cấp.",
+            ProductBrief = new ProductBriefDto
+            {
+                Content = $$"""
+# {{project.Name}}
+
+## Sản phẩm này là gì?
+{{userMessage}}
+
+## Dành cho ai?
+Cần làm rõ
+
+## Người dùng làm được những gì? (các tính năng chính)
+- {{userMessage}}
+
+## Các màn hình chính
+Cần làm rõ
+
+## Luồng sử dụng điển hình
+Cần làm rõ
+
+## Phạm vi bản đầu tiên (làm gì trước)
+{{userMessage}}
+
+## Tạm thời chưa làm
+Cần làm rõ
+
+## Điểm cần xác nhận
+- Cần làm rõ thêm thông tin sản phẩm.
+"""
+            },
+            AiDesignSpec = new AiDesignSpecDto
+            {
+                Content = $$"""
+# AI Design Spec
+
+## 1. Project Goal
+{{userMessage}}
+
+## 2. Target Users / Actors
+Cần làm rõ
+
+## 3. MVP Scope
+{{userMessage}}
+
+## 4. Out of Scope
+Cần làm rõ
+
+## 5. Navigation Structure
+Cần làm rõ
+
+## 6. Screens To Generate
+Cần làm rõ
+
+## 7. UI/UX Direction
+Cần làm rõ
+
+## 8. Data Model Summary
+Cần làm rõ
+
+## 9. API Expectations
+Cần làm rõ
+
+## 10. Business Rules
+Cần làm rõ
+
+## 11. Developer Instructions
+- Generate a working POC.
+- Build only MVP scope.
+"""
+            }
+        };
+    }
+
     public BARequirementDocxResult Parse(string response, Project project, string userMessage)
     {
         try
