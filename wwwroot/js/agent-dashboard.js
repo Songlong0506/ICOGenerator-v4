@@ -488,8 +488,11 @@ pollAgentStats();
 
         if (data.runStatus === 'WaitingForHuman') {
             const nextHint = data.nextStageTitle ? ` Bước kế: <b>${escapeHtml(data.nextStageTitle)}</b>.` : '';
+            // Cổng POC: POC chưa đúng = requirement cần điều chỉnh → việc của user (chat BA → Approve lại),
+            // không phải TeamDev. Vì vậy ẩn nút "Từ chối" ở bước POC; các bước sau vẫn cho từ chối.
+            const isPocGate = data.currentStage === 'PocPreview';
             bannerEl.innerHTML = `<div class="dg-msg wait">⏸️ Bước hiện tại đã xong — chờ duyệt.${nextHint}${pocLink}</div>`;
-            setForms(true, true, false);
+            setForms(true, !isPocGate, false);
         } else if (data.runStatus === 'Failed') {
             const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
             bannerEl.innerHTML = `<div class="dg-msg fail">✗ Workflow thất bại.${err ? `<pre class="dg-err">${escapeHtml(err)}</pre>` : ''}</div>`;
