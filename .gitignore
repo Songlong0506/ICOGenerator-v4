@@ -368,3 +368,6 @@ FodyWeavers.xsd
 *.db
 *.db-shm
 *.db-wal
+
+# User-uploaded feedback attachments (Feedback:UploadRootPath; default {ContentRoot}/FeedbackUploads)
+FeedbackUploads/
