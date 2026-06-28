@@ -189,9 +189,7 @@
         <button type="button" class="x" onclick="closeModal('newProject')">×</button><h2>New Project</h2><p>Create a new project to get started</p>
         <label>Name *</label><input name="Name" placeholder="e.g E-commerce Web App" required />
         <label>Description</label><input name="Description" placeholder="Short description" />
-        <label>Generation Mode *</label><div class="choice"><input type="radio" name="IsUseBoschTemplate" value="true" checked /> <b>Use Bosch Template</b><br /><span>Use Bosch template as the base structure</span></div><div class="choice"><input type="radio" name="IsUseBoschTemplate" value="false" /> <b>Let TechLead Define</b><br /><span>Let TechLead define architecture and structure</span></div>
-        <label>Backend Git *</label><input name="BackendGitUrl" placeholder="https://github.com/your-org/backend-repo.git" required />
-        <label>Frontend Git *</label><input name="FrontendGitUrl" placeholder="https://github.com/your-org/frontend-repo.git" required />
+        <p class="muted" style="margin:4px 0 0;font-size:13px;">Generation Mode và Backend/Frontend Git sẽ do team kỹ thuật điền ở Agent Dashboard sau khi xem POC.</p>
         <div class="modal-actions"><button type="button" class="btn" onclick="closeModal('newProject')">Cancel</button><button class="btn primary">Create Project</button></div>
     </form>
 </div>

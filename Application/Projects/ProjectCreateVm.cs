@@ -2,11 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ICOGenerator.Application.Projects;
 
+// End-user (không rành kỹ thuật) chỉ nhập Name + Description khi tạo project. Các field kỹ thuật
+// (Generation Mode, Backend/Frontend Git) do TeamDev điền sau ở Agent Dashboard — xem UpdateDeliveryConfigVm.
 public class ProjectCreateVm
 {
     [Required] public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public bool IsUseBoschTemplate { get; set; } = true;
-    [Required] public string BackendGitUrl { get; set; } = string.Empty;
-    [Required] public string FrontendGitUrl { get; set; } = string.Empty;
 }

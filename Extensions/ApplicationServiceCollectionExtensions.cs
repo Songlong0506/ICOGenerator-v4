@@ -181,6 +181,7 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddScoped<GetProjectListQuery>();
         services.AddScoped<CreateProjectUseCase>();
+        services.AddScoped<UpdateDeliveryConfigUseCase>();
         services.AddScoped<GetMockupFileQuery>();
         services.AddScoped<GetImplementationSourceQuery>();
         return services;

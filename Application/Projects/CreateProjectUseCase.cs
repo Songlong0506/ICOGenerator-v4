@@ -23,13 +23,12 @@ public class CreateProjectUseCase
 
     public async Task<Guid> ExecuteAsync(ProjectCreateVm vm)
     {
+        // Chỉ lưu Name + Description. Generation Mode và Backend/Frontend Git để trống — TeamDev điền sau
+        // ở Agent Dashboard (UpdateDeliveryConfigUseCase) khi pipeline cần tới chúng.
         var project = new Project
         {
             Name = vm.Name,
             Description = vm.Description,
-            IsUseBoschTemplate = vm.IsUseBoschTemplate,
-            BackendGitUrl = vm.BackendGitUrl,
-            FrontendGitUrl = vm.FrontendGitUrl,
             Status = ProjectStatus.Planning
         };
 
