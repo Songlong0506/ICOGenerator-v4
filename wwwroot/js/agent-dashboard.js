@@ -430,6 +430,7 @@ pollAgentStats();
     if (!gate) return;
 
     const statusEl = document.getElementById('dg-status');
+    const timelineEl = document.getElementById('dg-timeline');
     const bannerEl = document.getElementById('dg-banner');
     const approveForm = document.getElementById('dg-approve-form');
     const rejectForm = document.getElementById('dg-reject-form');
@@ -448,6 +449,38 @@ pollAgentStats();
     function badge(status) {
         const c = COLOR[status] || '#64748B';
         return `<span class="dg-badge" style="background:${c}1A;color:${c};border:1px solid ${c}55;">${escapeHtml(status)}</span>`;
+    }
+
+    // Nhãn + biểu tượng cho từng trạng thái bước (khớp lớp CSS .dg-step.<state>).
+    const STEP_LABEL = {
+        done: 'Đã xong', running: 'Đang chạy', next: 'Bước kế tiếp',
+        failed: 'Thất bại', pending: 'Chờ'
+    };
+
+    function stepMarker(state, ordinal) {
+        if (state === 'done') return '✓';
+        if (state === 'failed') return '✕';
+        if (state === 'running') return '<span class="pulse-dot"></span>';
+        if (state === 'next') return '→';
+        return String(ordinal);
+    }
+
+    function renderTimeline(pipeline) {
+        if (!timelineEl) return;
+        if (!Array.isArray(pipeline) || pipeline.length === 0) {
+            timelineEl.innerHTML = '';
+            return;
+        }
+        timelineEl.innerHTML = pipeline.map((s, i) => {
+            const state = STEP_LABEL[s.state] ? s.state : 'pending';
+            return `<li class="dg-step ${state}">
+                <span class="dg-step-marker">${stepMarker(state, i + 1)}</span>
+                <span class="dg-step-body">
+                    <span class="dg-step-title">${escapeHtml(s.title)}</span>
+                    <span class="dg-step-state">${STEP_LABEL[state]}</span>
+                </span>
+            </li>`;
+        }).join('');
     }
 
     function setForms(approve, reject, retry) {
@@ -481,6 +514,7 @@ pollAgentStats();
         gate.style.display = '';
         setRunId(data.runId);
         if (statusEl) statusEl.innerHTML = `${escapeHtml(data.runName || 'Delivery')} · ${badge(data.runStatus)}`;
+        renderTimeline(data.pipeline);
 
         const pocLink = data.pocReady
             ? ` <a href="/Projects/Mockup?projectId=${PROJECT_ID}" target="_blank">Xem POC</a>`
