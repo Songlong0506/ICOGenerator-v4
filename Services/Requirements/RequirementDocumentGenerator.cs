@@ -37,7 +37,7 @@ public class RequirementDocumentGenerator
     }
 
     // Lượt "Write Requirement" phía user: chỉ sinh Product Brief (cho user) + AI Design Spec (cho POC),
-    // cả hai ở dạng draft. Tài liệu kỹ thuật nặng do team dev trigger sau (GenerateTechnicalDocs).
+    // cả hai ở dạng draft. Tài liệu kỹ thuật nặng sinh sau ở bước 2 của Delivery Pipeline (TechnicalDocs).
     public async Task GenerateProductBriefDraftFiles(Project project, Guid baId, BAProductBriefResult result)
     {
         var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);

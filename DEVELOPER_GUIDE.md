@@ -244,9 +244,10 @@ Pipeline đã hiện thực **có cổng duyệt giữa mọi bước** (không 
 ```
 Approve requirement
   → POC preview      (Dev,      từ AI Design Spec) ──┐ WaitingForHuman
-  → ArchitectureDesign (Tech Lead, từ AI Design Spec) ┤ mỗi bước xong DỪNG chờ
-  → Implementation   (Dev,  code đa file, từ kiến trúc)┤ user bấm Duyệt mới sang bước kế;
-  → CodeReview       (Tech Lead, soát code Dev)       ┤ bấm "Sửa requirement" → hủy run
+  → TechnicalDocs    (BA, BRD/SRS/FSD/UserStories)    ┤ mỗi bước xong DỪNG chờ
+  → ArchitectureDesign (Tech Lead, từ AI Design Spec) ┤ user bấm Duyệt mới sang bước kế;
+  → Implementation   (Dev,  code đa file, từ kiến trúc)┤ bấm "Sửa requirement" → hủy run
+  → CodeReview       (Tech Lead, soát code Dev)       ┤
   → Testing          (Tester, từ output review)      ──┘
   → Completed
 ```
@@ -256,7 +257,7 @@ Bản đồ file:
 | Thành phần | File | Vai trò |
 |---|---|---|
 | Giai đoạn/loại việc mới | `Domain/Enums/WorkflowStageKey.cs`, `AgentTaskType.cs` | thêm `PocPreview` (và trước đó `ArchitectureDesign`, `Testing`). Enum lưu int → **không cần migration**. |
-| Khai báo pipeline | `Services/Workflows/DeliveryPipeline.cs` | `Steps` (POC → Architecture → Impl → CodeReview → Test), mỗi bước khai báo `InputSource` (DesignSpec/PreviousOutput) + `MaxSteps`. Thêm vai = thêm một dòng. |
+| Khai báo pipeline | `Services/Workflows/DeliveryPipeline.cs` | `Steps` (POC → TechnicalDocs → Architecture → Impl → CodeReview → Test → PR), mỗi bước khai báo `InputSource` (DesignSpec/PreviousOutput) + `MaxSteps`. Thêm vai = thêm một dòng. |
 | Prompt theo bước | `Prompts/Workflow/{poc-preview,architecture-design,implementation,code-review,testing}.v1.md` | `{{input}}` = nội dung theo `InputSource`. `implementation` = sinh **code đa file** trong `04_Implementation/src/`; `code-review` = Tech Lead soát code đó, ghi `04_Implementation/code-review.md`. |
 | Dựng prompt | `Services/Workflows/WorkflowTaskPromptBuilder.cs` | map `AgentTaskType` → template. |
 | Khởi tạo | `Services/Workflows/WorkflowOrchestrator.cs` | tạo `WorkflowRun` + task ở `DeliveryPipeline.First` (POC). |
@@ -272,7 +273,7 @@ Lưu ý thiết kế:
 - **Worker generic**: chỉ "chạy task → còn bước kế thì chờ duyệt, hết thì xong". Việc enqueue bước kế nằm ở `ApproveStageUseCase`.
 - **Vòng lặp về requirement**: Reject = hủy run; user bổ sung với BA → "Write Requirement" → "Approve" tạo run mới (phiên bản kế).
 - **Luồng requirement-draft** (`RequirementAnalysis`) vẫn là workflow một-bước riêng, không qua pipeline này.
-- **Tài liệu cho user vs cho dev (tách vai)**: "Write Requirement" ở trang `Requirements` chỉ sinh **Product Brief** (`ProductBrief.docx`, ngôn ngữ đời thường cho user) + **AI Design Spec** (`AIDesignSpec.docx`, bản kỹ thuật ẩn khỏi trang Requirements, dùng để dựng POC). Bộ tài liệu kỹ thuật nặng **BRD/SRS/FSD/UserStories** KHÔNG còn sinh ở đây — team dev bấm **"Tạo tài liệu kỹ thuật"** ở Agent Dashboard (`GenerateTechnicalDocs`, quyền `DeliveryAdvance`) để sinh chúng từ Product Brief + AI Design Spec đã duyệt. Đây cũng là workflow một-bước (`AgentTaskType.TechnicalDocs`), ghi thẳng vào phiên bản đã duyệt. Prompt: `Prompts/BA/product-brief.v1.md` và `Prompts/BA/technical-docs.v1.md`.
+- **Tài liệu cho user vs cho dev (tách vai)**: "Write Requirement" ở trang `Requirements` chỉ sinh **Product Brief** (`ProductBrief.docx`, ngôn ngữ đời thường cho user) + **AI Design Spec** (`AIDesignSpec.docx`, bản kỹ thuật ẩn khỏi trang Requirements, dùng để dựng POC). Bộ tài liệu kỹ thuật nặng **BRD/SRS/FSD/UserStories** KHÔNG sinh ở đây — chúng là **bước 2 của Delivery Pipeline** (`AgentTaskType.TechnicalDocs`, sau POC): chạy tự động sau khi duyệt POC, do BA sinh từ Product Brief + AI Design Spec đã duyệt rồi dừng ở cổng duyệt như mọi bước. Khác với các bước khác (agent + prompt chung), bước này chạy qua `BARequirementService.GenerateTechnicalDocsAsync` (worker xử lý nhánh riêng, không dùng `MaxSteps`). Prompt: `Prompts/BA/product-brief.v1.md` và `Prompts/BA/technical-docs.v1.md`.
 
 ### 7.7. Vòng tự sửa lỗi (Testing ↔ BugFix)
 

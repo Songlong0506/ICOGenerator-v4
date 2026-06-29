@@ -10,8 +10,8 @@ public enum AgentTaskType
     BugFix = 7,
     PocPreview = 9,
     PullRequest = 10,
-    // Team dev trigger ở Agent Dashboard: sinh tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) từ
-    // Product Brief + AI Design Spec đã duyệt. Là workflow một-bước (như RequirementAnalysis),
-    // không thuộc Delivery Pipeline.
+    // Bước 2 của Delivery Pipeline (sau POC): sinh tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) từ
+    // Product Brief + AI Design Spec đã duyệt. Do BA chạy qua BARequirementService (không phải agent+
+    // prompt chung), rồi rơi về cổng duyệt tuyến tính như mọi bước khác.
     TechnicalDocs = 11
 }

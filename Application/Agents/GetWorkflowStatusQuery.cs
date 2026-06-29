@@ -93,10 +93,10 @@ public class GetWorkflowStatusQuery
 
         var lastSeq = events.Count > 0 ? events[^1].Seq : afterSeq;
 
-        // RequirementAnalysis (Write Requirement) và TechnicalDocs (team dev trigger) là các workflow
-        // một-bước của BA, KHÔNG chạy pipeline delivery → không render timeline POC→…→PR.
-        var runKind = tasks.Any(t => t.Type == nameof(AgentTaskType.RequirementAnalysis)
-                                     || t.Type == nameof(AgentTaskType.TechnicalDocs))
+        // RequirementAnalysis (Write Requirement) là workflow một-bước của BA, KHÔNG chạy pipeline
+        // delivery → không render timeline POC→…→PR. (TechnicalDocs nay là bước 2 của pipeline delivery,
+        // nên một run chứa nó vẫn là "Delivery" và hiển thị đầy đủ timeline.)
+        var runKind = tasks.Any(t => t.Type == nameof(AgentTaskType.RequirementAnalysis))
             ? "Requirement"
             : "Delivery";
 

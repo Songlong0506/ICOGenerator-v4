@@ -48,6 +48,30 @@ public class DeliveryPipelineTests
     }
 
     [Fact]
+    public void Next_AfterPocPreview_IsTechnicalDocsByBusinessAnalyst()
+    {
+        // Bước 2 của pipeline: duyệt POC xong thì sinh tài liệu kỹ thuật (BRD/SRS/FSD/UserStories).
+        var step = DeliveryPipeline.Next(WorkflowStageKey.PocPreview);
+
+        Assert.NotNull(step);
+        Assert.Equal(WorkflowStageKey.TechnicalDocs, step!.Stage);
+        Assert.Equal(AgentRoleKey.BusinessAnalyst, step.Role);
+        Assert.Equal(AgentTaskType.TechnicalDocs, step.TaskType);
+    }
+
+    [Fact]
+    public void Next_AfterTechnicalDocs_IsArchitectureDesignByTechLead()
+    {
+        // Sau tài liệu kỹ thuật mới tới kiến trúc — phần đắt (code) vẫn nằm sau các cổng duyệt rẻ.
+        var step = DeliveryPipeline.Next(WorkflowStageKey.TechnicalDocs);
+
+        Assert.NotNull(step);
+        Assert.Equal(WorkflowStageKey.ArchitectureDesign, step!.Stage);
+        Assert.Equal(AgentRoleKey.TechLead, step.Role);
+        Assert.Equal(AgentTaskType.ArchitectureDesign, step.TaskType);
+    }
+
+    [Fact]
     public void Next_AfterImplementation_IsCodeReviewByTechLead()
     {
         var step = DeliveryPipeline.Next(WorkflowStageKey.Implementation);
