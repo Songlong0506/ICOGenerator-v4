@@ -4,12 +4,12 @@ namespace ICOGenerator.Services.Requirements;
 
 public class RequirementPromptBuilder
 {
-    // Lượt "Write Requirement" phía user: chỉ Product Brief (dễ hiểu) + AI Design Spec (cho POC).
+    // Lượt "Write Requirement" phía user: chỉ sinh Product Brief (dễ hiểu). AI Design Spec được
+    // sinh ở bước Approve (xem BuildAiDesignSpec).
     public string BuildProductBrief(
         Project project,
         string userMessage,
-        string currentProductBrief,
-        string currentAiDesignSpec)
+        string currentProductBrief)
     {
         return $$"""
 Project:
@@ -24,13 +24,36 @@ User latest message:
 Current Product Brief preview:
 {{currentProductBrief}}
 
+Your task:
+- Write/update the Product Brief in plain, non-technical Vietnamese for a normal end user.
+- Return JSON only.
+""";
+    }
+
+    // Bước Approve: sinh AI Design Spec (kỹ thuật, có cấu trúc) từ Product Brief ĐÃ DUYỆT để Developer
+    // Agent dựng POC. Bám đúng phạm vi của Product Brief, không thêm tính năng ngoài.
+    public string BuildAiDesignSpec(
+        Project project,
+        string approvedProductBrief,
+        string currentAiDesignSpec)
+    {
+        return $$"""
+Project:
+{{project.Name}}
+
+Project Description:
+{{project.Description}}
+
+Approved Product Brief (source of truth, non-technical):
+{{approvedProductBrief}}
+
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
 Your task:
-- Write/update the Product Brief in plain, non-technical Vietnamese for a normal end user.
-- Write/update the AI Design Spec (technical, structured) so the Developer Agent can build a POC.
-- Both must describe the SAME product (matching screens/features), only the wording differs.
+- Write the AI Design Spec (technical, structured) so the Developer Agent can build a POC.
+- It must describe the SAME product as the approved Product Brief (matching screens/features); only the wording differs.
+- Do NOT add features or screens that are not in the approved Product Brief.
 - Return JSON only.
 """;
     }
