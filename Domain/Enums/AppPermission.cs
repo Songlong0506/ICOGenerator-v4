@@ -13,6 +13,8 @@ public enum AppPermission
     ProjectsView,
     [Description("Tạo dự án mới")]
     ProjectsCreate,
+    [Description("Xem tất cả dự án của mọi người (không chỉ dự án mình tạo)")]
+    ProjectsViewAll,
 
     [Description("Xem workspace yêu cầu (Requirements)")]
     RequirementsView,

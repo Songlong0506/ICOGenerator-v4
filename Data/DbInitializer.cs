@@ -42,6 +42,11 @@ public static class DbInitializer
         // (người trực tiếp quản lý Agents/Models nên cần debug khi cấu hình đổi). Admin có toàn quyền ngầm định.
         await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.AuditView);
 
+        // Backfill: quyền ProjectsViewAll (xem mọi project, không chỉ project mình tạo) được thêm sau lần
+        // seed ban đầu. Cấp idempotent cho TeamDev để họ vẫn thấy tất cả project ngay sau khi nâng cấp;
+        // User thường không được cấp nên chỉ thấy project của chính mình. Admin có toàn quyền ngầm định.
+        await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.ProjectsViewAll);
+
         // One-time: GitDiff moved from a standalone DiffTools class into GitTools. Re-home the existing
         // tool-definition row BEFORE discovery runs so the Tech Lead's existing assignment keeps resolving.
         await RehomeToolServiceTypeAsync(db, oldServiceType: "DiffTools", newServiceType: "GitTools");
@@ -139,7 +144,7 @@ public static class DbInitializer
         {
             (UserRole.TeamDev, new[]
             {
-                AppPermission.ProjectsView, AppPermission.ProjectsCreate,
+                AppPermission.ProjectsView, AppPermission.ProjectsCreate, AppPermission.ProjectsViewAll,
                 AppPermission.RequirementsView, AppPermission.RequirementsManage,
                 AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance,
                 AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete,

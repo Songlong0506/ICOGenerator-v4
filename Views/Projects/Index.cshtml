@@ -87,7 +87,7 @@
 </div>
 <div class="card table-card">
     <table>
-        <thead><tr><th>Project Name</th><th>Description</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
             @foreach (var item in Model.Items)
             {
@@ -106,6 +106,7 @@
                         </div>
                     </td>
                     <td>@p.Description</td>
+                    <td>@(string.IsNullOrWhiteSpace(p.CreatedByUsername) ? "—" : p.CreatedByUsername)</td>
                     <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>
                     <td><span class="@Badge(p.Status)">@p.Status</span></td>
                     <td>

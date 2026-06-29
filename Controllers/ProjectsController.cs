@@ -13,22 +13,27 @@ public class ProjectsController : Controller
     private readonly CreateProjectUseCase _createProjectUseCase;
     private readonly GetMockupFileQuery _getMockupFileQuery;
     private readonly GetImplementationSourceQuery _getImplementationSourceQuery;
+    private readonly IPermissionService _permissions;
 
     public ProjectsController(
         GetProjectListQuery getProjectListQuery,
         CreateProjectUseCase createProjectUseCase,
         GetMockupFileQuery getMockupFileQuery,
-        GetImplementationSourceQuery getImplementationSourceQuery)
+        GetImplementationSourceQuery getImplementationSourceQuery,
+        IPermissionService permissions)
     {
         _getProjectListQuery = getProjectListQuery;
         _createProjectUseCase = createProjectUseCase;
         _getMockupFileQuery = getMockupFileQuery;
         _getImplementationSourceQuery = getImplementationSourceQuery;
+        _permissions = permissions;
     }
 
     public async Task<IActionResult> Index(int page = 1, int pageSize = GetProjectListQuery.DefaultPageSize)
     {
-        var result = await _getProjectListQuery.ExecuteAsync(page, pageSize);
+        // Admin/TeamDev (quyền ProjectsViewAll) thấy mọi project; User thường chỉ thấy project mình tạo.
+        var canViewAll = await _permissions.HasPermissionAsync(User, AppPermission.ProjectsViewAll, HttpContext.RequestAborted);
+        var result = await _getProjectListQuery.ExecuteAsync(page, pageSize, User.Identity?.Name, canViewAll);
         return View(result);
     }
 
@@ -40,7 +45,7 @@ public class ProjectsController : Controller
         if (!ModelState.IsValid)
             return RedirectToAction(nameof(Index));
 
-        await _createProjectUseCase.ExecuteAsync(vm);
+        await _createProjectUseCase.ExecuteAsync(vm, User.Identity?.Name);
         return RedirectToAction(nameof(Index));
     }
 

@@ -21,7 +21,7 @@ public class CreateProjectUseCase
         _logger = logger;
     }
 
-    public async Task<Guid> ExecuteAsync(ProjectCreateVm vm)
+    public async Task<Guid> ExecuteAsync(ProjectCreateVm vm, string? createdByUsername = null)
     {
         // Chỉ lưu Name + Description. Generation Mode và Backend/Frontend Git để trống — TeamDev điền sau
         // ở Agent Dashboard (UpdateDeliveryConfigUseCase) khi pipeline cần tới chúng.
@@ -29,7 +29,9 @@ public class CreateProjectUseCase
         {
             Name = vm.Name,
             Description = vm.Description,
-            Status = ProjectStatus.Planning
+            Status = ProjectStatus.Planning,
+            // Gắn chủ sở hữu để trang Projects/Index lọc đúng: User thường chỉ thấy project của mình.
+            CreatedByUsername = createdByUsername
         };
 
         _db.Projects.Add(project);

@@ -17,7 +17,7 @@ public static class PermissionCatalog
     public static IReadOnlyList<PermissionScreen> Screens { get; } = new[]
     {
         new PermissionScreen("Projects", "Projects", AppPermission.ProjectsView,
-            new[] { AppPermission.ProjectsView, AppPermission.ProjectsCreate }),
+            new[] { AppPermission.ProjectsView, AppPermission.ProjectsCreate, AppPermission.ProjectsViewAll }),
         new PermissionScreen("Requirements", "Requirements", AppPermission.RequirementsView,
             new[] { AppPermission.RequirementsView, AppPermission.RequirementsManage }),
         new PermissionScreen("Agents", "Agents", AppPermission.AgentsView,

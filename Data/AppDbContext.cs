@@ -105,6 +105,9 @@ public class AppDbContext : DbContext
             b.Property(x => x.Description).HasMaxLength(2000);
             b.Property(x => x.BackendGitUrl).HasMaxLength(500);
             b.Property(x => x.FrontendGitUrl).HasMaxLength(500);
+            b.Property(x => x.CreatedByUsername).HasMaxLength(100);
+            // Lọc danh sách project theo chủ sở hữu (User thường) là truy vấn nóng ở trang Projects/Index.
+            b.HasIndex(x => new { x.CreatedByUsername, x.CreatedAt });
         });
         builder.Entity<Agent>(b =>
         {

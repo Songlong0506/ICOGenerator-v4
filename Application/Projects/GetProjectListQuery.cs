@@ -18,12 +18,23 @@ public class GetProjectListQuery
 
     public const int DefaultPageSize = 10;
 
-    public async Task<ProjectListPage> ExecuteAsync(int page = 1, int pageSize = DefaultPageSize)
+    public async Task<ProjectListPage> ExecuteAsync(
+        int page = 1,
+        int pageSize = DefaultPageSize,
+        string? username = null,
+        bool canViewAll = false)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = DefaultPageSize;
 
-        var baseQuery = _db.Projects.AsNoTracking().OrderByDescending(x => x.CreatedAt);
+        IQueryable<Domain.Project> projects = _db.Projects.AsNoTracking();
+
+        // Người không có quyền ProjectsViewAll (User thường) chỉ thấy project do chính mình tạo. Project
+        // "không có chủ" (CreatedByUsername == null, tạo trước khi có tính năng này) không hiện cho họ.
+        if (!canViewAll)
+            projects = projects.Where(x => x.CreatedByUsername != null && x.CreatedByUsername == username);
+
+        var baseQuery = projects.OrderByDescending(x => x.CreatedAt);
 
         var totalCount = await baseQuery.CountAsync();
 
