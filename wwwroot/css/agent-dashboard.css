@@ -208,6 +208,17 @@
 
 /* ===== Cấu hình delivery: form TeamDev điền Generation Mode + Backend/Frontend Git ===== */
 .delivery-config { margin-bottom: 18px; }
+
+/* Summary card thay cho form thường trực: chỉ hiện trạng thái gọn + nút mở popup. */
+.delivery-config-summary { margin-bottom: 18px; }
+.delivery-config-summary .dg-head { justify-content: space-between; margin-bottom: 8px; }
+.dc-summary { display: flex; flex-wrap: wrap; gap: 6px 24px; font-size: 13px; }
+.dc-summary-item { display: inline-flex; align-items: baseline; gap: 6px; }
+.dc-summary-item b { word-break: break-all; }
+
+/* Popup cấu hình delivery: hẹp hơn modal mặc định cho vừa form. */
+.delivery-config-card { width: min(560px, 96vw); }
+
 .dc-form { display: flex; flex-direction: column; gap: 6px; }
 .dc-form > label { font-size: 13px; font-weight: 600; margin-top: 8px; }
 .dc-form input[type=text], .dc-form input:not([type]) { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; }
