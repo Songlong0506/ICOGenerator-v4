@@ -82,36 +82,4 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
 
         return workflowRun.Id;
     }
-
-    public async Task<Guid> StartTechnicalDocsWorkflowAsync(Guid projectId)
-    {
-        var ba = await _db.Agents
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
-
-        var workflowRun = new WorkflowRun
-        {
-            ProjectId = projectId,
-            Name = "Generate Technical Docs",
-            Status = WorkflowRunStatus.Queued,
-            CurrentStage = WorkflowStageKey.RequirementApproved,
-            StartedAt = null
-        };
-
-        var docsTask = new AgentTask
-        {
-            WorkflowRunId = workflowRun.Id,
-            ProjectId = projectId,
-            AgentId = ba?.Id,
-            Type = AgentTaskType.TechnicalDocs,
-            Status = AgentTaskStatus.Queued,
-            Title = "Generate technical documents (BRD/SRS/FSD/UserStories)"
-        };
-
-        _db.WorkflowRuns.Add(workflowRun);
-        _db.AgentTasks.Add(docsTask);
-        await _db.SaveChangesAsync();
-
-        return workflowRun.Id;
-    }
 }

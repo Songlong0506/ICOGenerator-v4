@@ -119,29 +119,8 @@
     </div>
 }
 
-@if (canAdvance)
-{
-    <!-- TÀI LIỆU KỸ THUẬT: team dev trigger sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design
-         Spec đã duyệt. Trang Requirements (user thường) chỉ tạo Product Brief dễ hiểu. -->
-    <div class="card tech-docs">
-        <div class="dg-head">
-            <h3>Tài liệu kỹ thuật</h3>
-        </div>
-        <p class="muted">
-            Sinh <b>BRD / SRS / FSD / User Stories</b> từ Product Brief + AI Design Spec đã duyệt (dành cho team dev).
-            Kết quả xuất hiện trong Workspace ở phase <b>01_Requirement</b>.
-        </p>
-        <form asp-controller="AgentDashboard" asp-action="GenerateTechnicalDocs" method="post"
-              onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo…';">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="projectId" value="@Model.Id" />
-            <button class="btn primary" type="submit"
-                    title="Sinh tài liệu kỹ thuật từ requirement đã duyệt">
-                📝 Tạo tài liệu kỹ thuật
-            </button>
-        </form>
-    </div>
-}
+@* Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) nay là BƯỚC 2 của Delivery Pipeline (sau POC): chạy tự
+   động sau khi duyệt POC thay vì có nút trigger riêng — theo dõi trong timeline "Delivery Pipeline". *@
 
 @if (canAdvance)
 {

@@ -40,8 +40,12 @@ public static class DeliveryPipeline
 {
     public static readonly IReadOnlyList<PipelineStep> Steps = new[]
     {
-        new PipelineStep(WorkflowStageKey.PocPreview,         AgentRoleKey.Developer, AgentTaskType.PocPreview,         "Tạo POC HTML để xem trước",        PipelineInputSource.DesignSpec,     10),
-        new PipelineStep(WorkflowStageKey.ArchitectureDesign, AgentRoleKey.TechLead,  AgentTaskType.ArchitectureDesign, "Đề xuất kiến trúc từ AI Design Spec", PipelineInputSource.DesignSpec,  8),
+        new PipelineStep(WorkflowStageKey.PocPreview,         AgentRoleKey.Developer,       AgentTaskType.PocPreview,         "Tạo POC HTML để xem trước",        PipelineInputSource.DesignSpec,     10),
+        // Sinh tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) từ Product Brief + AI Design Spec đã duyệt.
+        // BA chạy qua BARequirementService (đọc context project), không qua agent+prompt chung — vì vậy
+        // MaxSteps ở đây không được tiêu thụ (worker xử lý nhánh riêng); InputSource giữ DesignSpec cho nhất quán.
+        new PipelineStep(WorkflowStageKey.TechnicalDocs,      AgentRoleKey.BusinessAnalyst, AgentTaskType.TechnicalDocs,      "Tạo tài liệu kỹ thuật (BRD/SRS/FSD/UserStories)", PipelineInputSource.DesignSpec, 8),
+        new PipelineStep(WorkflowStageKey.ArchitectureDesign, AgentRoleKey.TechLead,        AgentTaskType.ArchitectureDesign, "Đề xuất kiến trúc từ AI Design Spec", PipelineInputSource.DesignSpec,  8),
         // Implementation sinh dự án thật nhiều file. Mỗi bước = 1 lần gọi LLM = 1 action, nên budget phải đủ rộng;
         // agent nên dùng WriteFiles (ghi nhiều file/lần) để khỏi tiêu hết bước cho từng file lẻ. Nếu vẫn cạn,
         // AgentRunService còn một lượt "chốt kết quả" cuối để giữ phần đã làm thay vì fail trắng.

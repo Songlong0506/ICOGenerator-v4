@@ -106,7 +106,9 @@ public class AgentTaskWorker : BackgroundService
                 return;
             }
 
-            // Tài liệu kỹ thuật (team dev trigger) cũng là workflow một-bước, không qua pipeline delivery.
+            // Tài liệu kỹ thuật là BƯỚC 2 của Delivery Pipeline (sau POC): chạy qua BARequirementService
+            // (sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design Spec) thay vì agent+prompt chung,
+            // rồi rơi về cổng duyệt tuyến tính như mọi bước — KHÔNG hoàn tất run.
             if (task.Type == AgentTaskType.TechnicalDocs)
             {
                 await RunTechnicalDocsAsync(scope, task, cancellationToken);
@@ -114,9 +116,7 @@ public class AgentTaskWorker : BackgroundService
                 task.Status = AgentTaskStatus.Completed;
                 task.Output = "Technical documents generated.";
                 task.FinishedAt = DateTime.UtcNow;
-                task.WorkflowRun.Status = WorkflowRunStatus.Completed;
-                task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
-                task.WorkflowRun.FinishedAt = DateTime.UtcNow;
+                AdvanceLinearPipeline(task);
                 await db.SaveChangesAsync(cancellationToken);
                 return;
             }
