@@ -24,12 +24,12 @@ Khi CHƯA đủ (thiếu thông tin cốt lõi):
 ```json
 {
   "ready": false,
-  "message": "Gộp TẤT CẢ các câu hỏi cốt lõi còn thiếu vào đây, hỏi một mạch, ngắn gọn, đúng ngôn ngữ của người dùng.",
+  "message": "Chỉ hỏi MỘT câu hỏi cốt lõi quan trọng nhất còn thiếu, ngắn gọn, đúng ngôn ngữ của người dùng.",
   "suggestions": ["Đáp án gợi ý 1", "Đáp án gợi ý 2", "Đáp án gợi ý 3"]
 }
 ```
 
 Quy tắc:
-- Khi `ready = false`: `message` phải hỏi **một mạch tất cả** những gì còn thiếu (đừng hỏi nhỏ giọt từng câu để khỏi phải hỏi lại nhiều lần), và `suggestions` đưa 2–5 đáp án ngắn (~2–6 từ) để người dùng bấm nhanh.
+- Khi `ready = false`: `message` **chỉ đặt MỘT câu hỏi duy nhất** — chọn điểm cốt lõi quan trọng nhất còn thiếu để hỏi trước. TUYỆT ĐỐI KHÔNG gộp nhiều câu hỏi vào một lượt (hỏi dồn khiến người dùng bị rối, khó trả lời); những điểm còn thiếu khác sẽ được hỏi ở các lượt sau. `suggestions` đưa 2–5 đáp án ngắn (~2–6 từ) để người dùng bấm nhanh.
 - KHÔNG thêm lựa chọn kiểu "Khác"/"Tự nhập" (đã có ô nhập tự do).
 - Đúng ngôn ngữ của người dùng.
