@@ -106,6 +106,31 @@ public class AgentTaskWorker : BackgroundService
                 return;
             }
 
+            // Sinh AI Design Spec (sau khi Approve) chạy NỀN ở đây thay vì đồng bộ trong ApproveRequirementUseCase
+            // (vốn làm treo màn hình chờ LLM). Run này một bước của BA; xong thì TỰ khởi động delivery workflow
+            // dựng POC với nội dung spec vừa sinh — giữ nguyên hành vi cũ, chỉ khác là không treo UI.
+            if (task.Type == AgentTaskType.AiDesignSpec)
+            {
+                var specContent = await RunAiDesignSpecAsync(scope, task, cancellationToken);
+
+                task.Status = AgentTaskStatus.Completed;
+                task.Output = "AI Design Spec generated.";
+                task.FinishedAt = DateTime.UtcNow;
+                task.WorkflowRun.Status = WorkflowRunStatus.Completed;
+                task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
+                task.WorkflowRun.FinishedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(cancellationToken);
+
+                // Spec đã sinh xong → tự khởi động delivery workflow dựng POC (giống bước cũ trong Approve).
+                // Tạo run delivery TRƯỚC khi báo "completed" để khi UI reload (run Requirement hoàn tất),
+                // panel delivery đã tồn tại và bắt đầu hiển thị tiến độ. task.Input giữ versionName.
+                var orchestrator = scope.ServiceProvider.GetRequiredService<IWorkflowOrchestrator>();
+                await orchestrator.StartDeliveryWorkflowAsync(task.ProjectId, task.Input, specContent);
+
+                _progress.Report(task.WorkflowRunId, "completed", "Đã sinh AI Design Spec — đang khởi động quy trình dựng POC…");
+                return;
+            }
+
             // Tài liệu kỹ thuật là BƯỚC 2 của Delivery Pipeline (sau POC): chạy qua BARequirementService
             // (sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design Spec) thay vì agent+prompt chung,
             // rồi rơi về cổng duyệt tuyến tính như mọi bước — KHÔNG hoàn tất run.
@@ -346,6 +371,20 @@ public class AgentTaskWorker : BackgroundService
                 : "Đã tạo/cập nhật tài liệu requirement.");
 
         return outcome;
+    }
+
+    private async Task<string> RunAiDesignSpecAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
+    {
+        var baService = scope.ServiceProvider.GetRequiredService<BARequirementService>();
+
+        // task.Input mang versionName (V{n}) của requirement vừa được duyệt — phiên bản cần sinh spec.
+        return await baService.GenerateAiDesignSpecAsync(
+            task.ProjectId,
+            task.Input,
+            onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
+            onToken: token => _progress.ReportToken(task.WorkflowRunId, token),
+            workflowRunId: task.WorkflowRunId,
+            cancellationToken: cancellationToken);
     }
 
     private async Task RunTechnicalDocsAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)

@@ -243,6 +243,7 @@ Pipeline đã hiện thực **có cổng duyệt giữa mọi bước** (không 
 
 ```
 Approve requirement
+  → AI Design Spec   (BA, NỀN — run "Requirement Progress" riêng; xong tự khởi động delivery)
   → POC preview      (Dev,      từ AI Design Spec) ──┐ WaitingForHuman
   → TechnicalDocs    (BA, BRD/SRS/FSD/UserStories)    ┤ mỗi bước xong DỪNG chờ
   → ArchitectureDesign (Tech Lead, từ AI Design Spec) ┤ user bấm Duyệt mới sang bước kế;
@@ -260,7 +261,7 @@ Bản đồ file:
 | Khai báo pipeline | `Services/Workflows/DeliveryPipeline.cs` | `Steps` (POC → TechnicalDocs → Architecture → Impl → CodeReview → Test → PR), mỗi bước khai báo `InputSource` (DesignSpec/PreviousOutput) + `MaxSteps`. Thêm vai = thêm một dòng. |
 | Prompt theo bước | `Prompts/Workflow/{poc-preview,architecture-design,implementation,code-review,testing}.v1.md` | `{{input}}` = nội dung theo `InputSource`. `implementation` = sinh **code đa file** trong `04_Implementation/src/`; `code-review` = Tech Lead soát code đó, ghi `04_Implementation/code-review.md`. |
 | Dựng prompt | `Services/Workflows/WorkflowTaskPromptBuilder.cs` | map `AgentTaskType` → template. |
-| Khởi tạo | `Services/Workflows/WorkflowOrchestrator.cs` | tạo `WorkflowRun` + task ở `DeliveryPipeline.First` (POC). |
+| Khởi tạo | `Services/Workflows/WorkflowOrchestrator.cs` | `StartAiDesignSpecWorkflowAsync` (run NỀN sinh AI Design Spec sau Approve — một bước BA, tránh treo màn hình), rồi `StartDeliveryWorkflowAsync` tạo `WorkflowRun` + task ở `DeliveryPipeline.First` (POC). |
 | Chạy + cổng | `Services/Workflows/AgentTaskWorker.cs` | chạy task xong: nếu còn bước kế → set `WaitingForHuman` (KHÔNG tự enqueue); hết bước → `Completed`. Dùng `MaxSteps` theo bước. |
 | Cổng duyệt | `Application/Requirements/ApproveStageUseCase.cs`, `RejectStageUseCase.cs` | Approve → resolve input theo `InputSource` + enqueue bước kế; Reject → `Canceled`. **Ngoại lệ:** ở cổng **POC** (`WorkflowStageKey.PocPreview`) Reject bị chặn (`RejectStageResult.PocGateNotRejectable`) — POC sai = đổi requirement, là việc của user, không phải TeamDev. Nút "Từ chối" cũng bị ẩn ở client cho bước này. |
 | Controller/UI | `AgentDashboardController` (`ApproveStage`/`RejectStage`/`RetryWorkflow`), `GetWorkflowStatusQuery`, `Views/AgentDashboard/Index.cshtml` + `wwwroot/js/agent-dashboard.js` | Cổng "Duyệt & tiếp tục"/"Từ chối"/"Thử lại" sống trên **Agent Dashboard** và yêu cầu quyền `DeliveryAdvance`. Màn hình `Requirements` chỉ hiển thị tiến độ + banner bàn giao. |

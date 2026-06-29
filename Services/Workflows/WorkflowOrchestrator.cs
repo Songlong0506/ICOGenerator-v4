@@ -51,6 +51,41 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
         return workflowRun.Id;
     }
 
+    public async Task<Guid> StartAiDesignSpecWorkflowAsync(Guid projectId, string requirementVersionName)
+    {
+        var ba = await _db.Agents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
+
+        // Tên chứa "Requirement" để UI hiển thị panel "Requirement Progress" (run một bước của BA, không
+        // phải pipeline delivery). versionName được nhét vào Input để worker biết phiên bản nào cần sinh spec.
+        var workflowRun = new WorkflowRun
+        {
+            ProjectId = projectId,
+            Name = $"Requirement Design Spec {requirementVersionName}",
+            Status = WorkflowRunStatus.Queued,
+            CurrentStage = WorkflowStageKey.RequirementApproved,
+            StartedAt = null
+        };
+
+        var specTask = new AgentTask
+        {
+            WorkflowRunId = workflowRun.Id,
+            ProjectId = projectId,
+            AgentId = ba?.Id,
+            Type = AgentTaskType.AiDesignSpec,
+            Status = AgentTaskStatus.Queued,
+            Title = "Sinh AI Design Spec từ Product Brief đã duyệt",
+            Input = requirementVersionName
+        };
+
+        _db.WorkflowRuns.Add(workflowRun);
+        _db.AgentTasks.Add(specTask);
+        await _db.SaveChangesAsync();
+
+        return workflowRun.Id;
+    }
+
     public async Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId)
     {
         var ba = await _db.Agents

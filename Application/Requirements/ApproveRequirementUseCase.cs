@@ -1,6 +1,5 @@
 using ICOGenerator.Data;
 using ICOGenerator.Services.Artifacts;
-using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,16 +11,14 @@ public class ApproveRequirementUseCase
     private readonly WorkspacePathResolver _workspacePathResolver;
     private readonly IProjectArtifactCatalog _artifactCatalog;
     private readonly IWorkflowOrchestrator _workflowOrchestrator;
-    private readonly BARequirementService _baRequirementService;
     private readonly ILogger<ApproveRequirementUseCase> _logger;
 
-    public ApproveRequirementUseCase(AppDbContext db, WorkspacePathResolver workspacePathResolver, IProjectArtifactCatalog artifactCatalog, IWorkflowOrchestrator workflowOrchestrator, BARequirementService baRequirementService, ILogger<ApproveRequirementUseCase> logger)
+    public ApproveRequirementUseCase(AppDbContext db, WorkspacePathResolver workspacePathResolver, IProjectArtifactCatalog artifactCatalog, IWorkflowOrchestrator workflowOrchestrator, ILogger<ApproveRequirementUseCase> logger)
     {
         _db = db;
         _workspacePathResolver = workspacePathResolver;
         _artifactCatalog = artifactCatalog;
         _workflowOrchestrator = workflowOrchestrator;
-        _baRequirementService = baRequirementService;
         _logger = logger;
     }
 
@@ -85,28 +82,17 @@ public class ApproveRequirementUseCase
 
         await _db.SaveChangesAsync();
 
-        // Approval is now committed. Sinh AI Design Spec từ Product Brief đã duyệt (lời gọi LLM, đồng bộ):
-        // đây là input để dựng POC. Nếu thất bại, phiên bản vẫn đứng vững — báo kết quả riêng để user retry.
-        string aiDesignSpecContent;
+        // Approval is now committed. Sinh AI Design Spec từ Product Brief đã duyệt là một lời gọi LLM chậm —
+        // trước đây chạy ĐỒNG BỘ ngay đây làm màn hình Approve treo chờ. Nay đẩy sang một workflow NỀN
+        // ("Requirement Progress") để tiến độ report live; worker sinh spec xong sẽ tự khởi động delivery
+        // workflow dựng POC. Đây chỉ là vài INSERT (nhanh), nên Approve trả về ngay.
         try
         {
-            aiDesignSpecContent = await _baRequirementService.GenerateAiDesignSpecAsync(projectId, versionName);
+            await _workflowOrchestrator.StartAiDesignSpecWorkflowAsync(projectId, versionName);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Requirement {Version} approved for project {ProjectId} but generating the AI Design Spec failed.", versionName, projectId);
-            return ApproveRequirementResult.AiDesignSpecGenerationFailed;
-        }
-
-        // Starting the delivery workflow is a separate, retryable step — if it throws, report a distinct
-        // result rather than a 500 that hides the successful approval + spec generation.
-        try
-        {
-            await _workflowOrchestrator.StartDeliveryWorkflowAsync(projectId, versionName, aiDesignSpecContent);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Requirement {Version} approved for project {ProjectId} but starting the delivery workflow failed.", versionName, projectId);
+            _logger.LogError(ex, "Requirement {Version} approved for project {ProjectId} but starting the AI Design Spec workflow failed.", versionName, projectId);
             return ApproveRequirementResult.WorkflowStartFailed;
         }
 

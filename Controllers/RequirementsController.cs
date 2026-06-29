@@ -166,15 +166,9 @@ public class RequirementsController : Controller
             return RedirectToAction(nameof(Index), new { projectId });
         }
 
-        if (result == ApproveRequirementResult.AiDesignSpecGenerationFailed)
-        {
-            TempData["Error"] = "Đã duyệt requirement nhưng không tạo được AI Design Spec từ Product Brief. Vui lòng thử Approve lại.";
-            return RedirectToAction(nameof(Index), new { projectId });
-        }
-
         if (result == ApproveRequirementResult.WorkflowStartFailed)
         {
-            TempData["Error"] = "Tài liệu đã được duyệt nhưng không khởi động được workflow tạo POC. Vui lòng thử lại.";
+            TempData["Error"] = "Tài liệu đã được duyệt nhưng không khởi động được workflow sinh AI Design Spec / tạo POC. Vui lòng thử lại.";
             return RedirectToAction(nameof(Index), new { projectId });
         }
 
