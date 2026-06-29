@@ -96,6 +96,9 @@
                     <td>
                         <div class="project-name-cell">
                             <b>@p.Name</b>
+                            @* Tạm ẩn badge "Task đang chạy": điều kiện HasRunningWorkflow bao gồm cả
+                               Queued/WaitingForHuman nên gây hiểu nhầm là có agent đang chạy. Mở lại khi
+                               đã làm rõ ngữ nghĩa nhãn (xem GetProjectListQuery.HasRunningWorkflow).
                             @if (item.HasRunningWorkflow)
                             {
                                 <span class="task-running-indicator" title="Workflow @item.LatestWorkflowStatus - @item.LatestWorkflowStage">
@@ -103,6 +106,7 @@
                                     Task đang chạy
                                 </span>
                             }
+                            *@
                         </div>
                     </td>
                     <td>@p.Description</td>
