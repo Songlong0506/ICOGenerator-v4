@@ -40,6 +40,13 @@
     // Chỉ khi đã có hội thoại thì mới hiển thị gợi ý cho lượt hỏi mới nhất của BA.
     var displaySuggestions = lastBaSuggestions;
 
+    // Nút "Write Requirement" chỉ "sẵn sàng" (nổi bật) khi lượt BA mới nhất tự báo đã đủ thông tin
+    // (ReadyForRequirement = true). Khi chưa đủ — kể cả khi workspace còn trống — nút ở trạng thái "mờ"
+    // kèm ghi chú: BA vẫn đang hỏi thêm, nhưng người dùng VẪN có thể bấm tạo ngay nếu muốn (gate readiness
+    // phía server vẫn chặn nếu thực sự thiếu thông tin cốt lõi).
+    var lastBaTurn = conversations.LastOrDefault(c => c.Role == "assistant");
+    var requirementReady = lastBaTurn?.ReadyForRequirement ?? false;
+
     // Tài liệu nguồn (ảnh/PDF) người dùng upload cho project + cờ vision của model BA (để cảnh báo).
     var sourceFiles = Model.SourceFiles.OrderByDescending(x => x.CreatedAt).ToList();
     var baSupportsVision = ViewBag.BaSupportsVision is bool bv && bv;
@@ -312,17 +319,27 @@
             <div class="composer-actions">
 
                 <!-- WRITE REQUIREMENT: sinh bản mô tả sản phẩm (Product Brief) DỄ HIỂU cho user.
-                     Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) do team dev trigger ở Agent Dashboard. -->
+                     Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) do team dev trigger ở Agent Dashboard.
+                     Nút ở 2 trạng thái: "mờ" (write-req-waiting) khi BA còn câu hỏi, "sẵn sàng"
+                     (write-req-ready) khi BA đã đủ thông tin. Cả hai đều bấm được (lối thoát thủ công);
+                     khi chưa sẵn sàng có ghi chú nhắc người dùng. -->
                 <form asp-action="WriteRequirement"
                       method="post"
-                      class="write-req"
+                      class="write-req @(requirementReady ? "write-req-ready" : "write-req-waiting")"
                       onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="projectId" value="@Model.Id" />
-                    <button class="btn outline write-req-btn" type="submit"
-                            title="Sinh/cập nhật bản mô tả sản phẩm dễ hiểu từ hội thoại">
+                    <button class="btn write-req-btn @(requirementReady ? "primary" : "outline")"
+                            type="submit"
+                            title="@(requirementReady
+                                ? "BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm."
+                                : "BA vẫn đang hỏi thêm thông tin. Bạn vẫn có thể tạo ngay, nhưng nên trả lời thêm để tài liệu đầy đủ hơn.")">
                         📝 Write Requirement
                     </button>
+                    @if (!requirementReady)
+                    {
+                        <span class="write-req-hint">BA đang hỏi thêm — bạn vẫn có thể tạo ngay.</span>
+                    }
                 </form>
 
                 <!-- Cổng "Duyệt & tiếp tục" (và Retry/Reject) ĐÃ CHUYỂN sang Agent Dashboard: user thường

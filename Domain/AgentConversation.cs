@@ -19,6 +19,11 @@ public class AgentConversation
     // KHÔNG đưa vào ngữ cảnh gửi lại cho LLM (Message vẫn giữ phần text thuần để giữ context sạch).
     public string? Suggestions { get; set; }
 
+    // Chỉ áp dụng cho lượt assistant (BA): BA đã khai thác đủ thông tin để soạn tài liệu hay chưa.
+    // Khi lượt BA mới nhất có cờ này = true, UI bật nổi bật nút "Write Requirement"; ngược lại nút ở
+    // trạng thái "mờ/phụ" (vẫn bấm được — gate readiness phía server vẫn chặn nếu thực sự thiếu).
+    public bool ReadyForRequirement { get; set; }
+
     public int TokenUsed { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
