@@ -1,6 +1,9 @@
 (function () {
     const PID = window.REQUIREMENTS_PROJECT_ID;
-    const panels = Array.from(document.querySelectorAll('.workflow-progress[data-run-id]'));
+    // Mỗi panel nay gom NHIỀU run liền kề (data-run-ids) thành một timeline thống nhất. Run "lead"
+    // (data-lead-run-id, mới nhất trong nhóm) quyết định badge/banner/activity; các run còn lại chỉ
+    // góp event vào feed chung.
+    const panels = Array.from(document.querySelectorAll('.workflow-progress[data-run-ids]'));
 
     if (!panels.length) return;
 
@@ -39,6 +42,25 @@
         error: '❌'
     };
 
+    // ── Danh sách run của một panel ─────────────────────────────────────────────
+    function runIdsOf(panel) {
+        return (panel.dataset.runIds || '')
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean);
+    }
+
+    function leadRunId(panel) {
+        return panel.dataset.leadRunId || runIdsOf(panel).slice(-1)[0];
+    }
+
+    // Trạng thái theo từng run (seq đã thấy, con trỏ poll, kết nối SSE) — seq là TOÀN CỤC giữa các run,
+    // nên chống trùng phải tính riêng từng run để event run này không "nuốt" event run kia.
+    function runState(panel, runId) {
+        panel._runs = panel._runs || {};
+        return panel._runs[runId] || (panel._runs[runId] = { maxSeq: 0, afterSeq: 0, es: null, polling: false });
+    }
+
     function maybeScrollPanel(panel, data) {
         if (panel.dataset.autoscroll !== 'true') return;
 
@@ -49,12 +71,18 @@
         }
     }
 
+    // Feed dùng chung cho cả nhóm; mỗi run có một "segment" (display:contents) giữ đúng thứ tự
+    // run → seq, nhưng hiển thị liền mạch như một dòng thời gian duy nhất.
     function ensureSkeleton(panel) {
         const bodyEl = panel.querySelector('.wf-body');
         if (bodyEl.querySelector('.wf-feed')) return;
 
+        const segments = runIdsOf(panel)
+            .map(id => `<div class="wf-seg" data-run-id="${id}"></div>`)
+            .join('');
+
         bodyEl.innerHTML =
-            '<div class="wf-feed"></div>' +
+            `<div class="wf-feed">${segments}</div>` +
             '<div class="wf-activity" style="display:none;">' +
                 '<span class="wf-typing"><span></span><span></span><span></span></span>' +
                 '<span class="wf-activity-text"></span>' +
@@ -62,6 +90,10 @@
             // Khu "đang gõ": hiển thị token model sinh ra theo thời gian thực (giống xem agent làm việc).
             '<div class="wf-stream" style="display:none;"></div>' +
             '<div class="wf-banner-slot"></div>';
+    }
+
+    function segOf(panel, runId) {
+        return panel.querySelector(`.wf-seg[data-run-id="${runId}"]`);
     }
 
     // Nối token vào khu stream, giữ phần đuôi để DOM không phình theo cả lần sinh dài.
@@ -95,10 +127,12 @@
         }
     }
 
-    function appendEvents(panel, events) {
+    function appendEvents(panel, runId, events) {
         if (!events.length) return;
 
+        const seg = segOf(panel, runId);
         const feed = panel.querySelector('.wf-feed');
+        if (!seg || !feed) return;
 
         for (const ev of events) {
             const icon = EVENT_ICON[ev.kind] || '•';
@@ -118,7 +152,7 @@
 
             html += '</div>';
             item.innerHTML = html;
-            feed.appendChild(item);
+            seg.appendChild(item);
         }
 
         feed.scrollTop = feed.scrollHeight;
@@ -150,7 +184,7 @@
         if (data.isCompleted) {
             if (data.runKind === 'Requirement') {
                 // Run sinh AI Design Spec (sau Approve) cũng là "Requirement" kind nhưng báo khác: nó dẫn
-                // sang delivery (POC). Reload bên dưới sẽ hiện panel delivery mà worker vừa tạo.
+                // sang delivery (POC). Reload bên dưới sẽ hiện run delivery mà worker vừa tạo, gộp chung panel.
                 const isSpec = (data.tasks || []).some(t => t.type === 'AiDesignSpec');
                 slot.innerHTML = data.needsMoreInfo
                     ? `<div class="wf-banner wf-wait">❓ Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi BA trong khung chat.</div>`
@@ -158,8 +192,9 @@
                         ? `<div class="wf-banner wf-ok">✓ Đã tạo AI Design Spec — đang khởi động quy trình dựng POC…</div>`
                         : `<div class="wf-banner wf-ok">✓ Đã tạo/cập nhật tài liệu requirement.</div>`;
 
-                // Reload đúng 1 lần để hiển thị tài liệu draft + tin nhắn BA mới.
-                const reloadKey = 'wf-reloaded-' + panel.dataset.runId;
+                // Reload đúng 1 lần để hiển thị tài liệu draft + tin nhắn BA mới (và gộp run delivery vừa tạo
+                // vào cùng panel). Key theo lead run để mỗi hành trình chỉ reload một lần.
+                const reloadKey = 'wf-reloaded-' + leadRunId(panel);
                 if (!sessionStorage.getItem(reloadKey)) {
                     sessionStorage.setItem(reloadKey, '1');
                     setTimeout(() => location.reload(), 1200);
@@ -209,10 +244,10 @@
         }
     }
 
-    // Cập nhật banner/activity/cổng-duyệt từ trạng thái tổng thể của run. KHÔNG nạp event ở đây
+    // Cập nhật badge/banner/activity từ trạng thái tổng thể của LEAD run. KHÔNG nạp event ở đây
     // (SSE đã lo feed); afterSeq cực lớn để status trả về mảng event rỗng, tránh đụng feed.
     async function refreshStatus(panel) {
-        const runId = panel.dataset.runId;
+        const runId = leadRunId(panel);
         const sub = panel.querySelector('.wf-sub');
         let data;
 
@@ -237,23 +272,30 @@
         maybeScrollPanel(panel, data);
     }
 
-    // Xử lý một sự kiện SSE: token thì gõ live, milestone thì ghi vào feed + làm tươi trạng thái.
-    function handleEvent(panel, ev) {
+    // Xử lý một sự kiện SSE của một run cụ thể: token thì gõ live (chỉ lead run), milestone thì ghi vào
+    // segment của run đó; lead run còn làm tươi badge/banner/activity của cả panel.
+    function handleEvent(panel, runId, ev) {
+        const isLead = runId === leadRunId(panel);
+
         if (ev.kind === 'token') {
-            renderToken(panel, ev.message);
+            if (isLead) renderToken(panel, ev.message);
             return;
         }
 
         // Chống trùng khi EventSource tự reconnect (nó phát lại backlog có seq); token có seq 0 luôn qua.
-        if (ev.seq && ev.seq <= (panel._maxSeq || 0)) return;
+        const st = runState(panel, runId);
+        if (ev.seq && ev.seq <= st.maxSeq) return;
 
-        resetStream(panel);
-        appendEvents(panel, [ev]);
+        if (isLead) resetStream(panel);
+        appendEvents(panel, runId, [ev]);
 
         if (ev.seq) {
-            panel._maxSeq = ev.seq;
-            panel.dataset.afterSeq = String(ev.seq);
+            st.maxSeq = ev.seq;
+            st.afterSeq = ev.seq;
         }
+
+        if (!isLead) return;
+
         panel.dataset.lastMsg = ev.message;
 
         const textEl = panel.querySelector('.wf-activity-text');
@@ -274,52 +316,56 @@
         ensureSkeleton(panel);
         refreshStatus(panel);
 
+        runIdsOf(panel).forEach(runId => connectRunStream(panel, runId));
+    }
+
+    function connectRunStream(panel, runId) {
         // Không có EventSource (trình duyệt cũ) → dùng polling như trước.
         if (typeof EventSource === 'undefined') {
-            pollFallback(panel);
+            pollRun(panel, runId);
             return;
         }
 
-        const runId = panel.dataset.runId;
         let es;
         try {
             es = new EventSource(`/Requirements/WorkflowStream?projectId=${PID}&runId=${runId}&afterSeq=0`);
         } catch (e) {
-            pollFallback(panel);
+            pollRun(panel, runId);
             return;
         }
-        panel._es = es;
+        runState(panel, runId).es = es;
 
         es.onmessage = function (e) {
             let ev;
             try { ev = JSON.parse(e.data); } catch (err) { return; }
-            handleEvent(panel, ev);
+            handleEvent(panel, runId, ev);
         };
 
         // Server báo đã hết (run kết thúc): tự đóng để EventSource không reconnect vô ích.
         es.addEventListener('end', function () {
             es.close();
-            refreshStatus(panel);
+            if (runId === leadRunId(panel)) refreshStatus(panel);
         });
 
         es.onerror = function () {
             // CONNECTING (0) = đang tự thử lại, cứ để yên. CLOSED (2) = hỏng hẳn → quay về polling.
             if (es.readyState === EventSource.CLOSED) {
-                pollFallback(panel);
+                pollRun(panel, runId);
             }
         };
     }
 
-    // Dự phòng khi SSE không dùng được: poll trạng thái + event theo nhịp (hành vi cũ).
-    function pollFallback(panel) {
-        if (panel._polling) return;
-        panel._polling = true;
-        if (panel._es) { try { panel._es.close(); } catch (e) { } }
+    // Dự phòng khi SSE không dùng được: poll trạng thái + event của một run theo nhịp (hành vi cũ).
+    function pollRun(panel, runId) {
+        const st = runState(panel, runId);
+        if (st.polling) return;
+        st.polling = true;
+        if (st.es) { try { st.es.close(); } catch (e) { } }
+
+        const isLead = runId === leadRunId(panel);
 
         async function load() {
-            const runId = panel.dataset.runId;
-            const afterSeq = panel.dataset.afterSeq || '0';
-            const sub = panel.querySelector('.wf-sub');
+            const afterSeq = st.afterSeq || 0;
             let data;
 
             try {
@@ -332,22 +378,25 @@
 
             if (!data.hasWorkflow) return;
 
-            if (sub) sub.innerHTML = `${escapeHtml(data.runName)} · ${badge(data.runStatus)}`;
-
             ensureSkeleton(panel);
 
             const events = data.events || [];
-            appendEvents(panel, events);
+            appendEvents(panel, runId, events);
 
             if (events.length) {
-                panel.dataset.afterSeq = String(data.lastEventSeq);
-                panel._maxSeq = data.lastEventSeq;
-                panel.dataset.lastMsg = events[events.length - 1].message;
+                st.afterSeq = data.lastEventSeq;
+                st.maxSeq = data.lastEventSeq;
+                if (isLead) panel.dataset.lastMsg = events[events.length - 1].message;
             }
 
-            updateActivity(panel, data);
-            updateBanner(panel, data);
-            maybeScrollPanel(panel, data);
+            if (isLead) {
+                const sub = panel.querySelector('.wf-sub');
+                if (sub) sub.innerHTML = `${escapeHtml(data.runName)} · ${badge(data.runStatus)}`;
+
+                updateActivity(panel, data);
+                updateBanner(panel, data);
+                maybeScrollPanel(panel, data);
+            }
 
             if (!data.isTerminal) setTimeout(load, 1500);
         }
