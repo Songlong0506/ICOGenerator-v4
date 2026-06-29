@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,14 +12,16 @@ public class ApproveRequirementUseCase
     private readonly WorkspacePathResolver _workspacePathResolver;
     private readonly IProjectArtifactCatalog _artifactCatalog;
     private readonly IWorkflowOrchestrator _workflowOrchestrator;
+    private readonly BARequirementService _baRequirementService;
     private readonly ILogger<ApproveRequirementUseCase> _logger;
 
-    public ApproveRequirementUseCase(AppDbContext db, WorkspacePathResolver workspacePathResolver, IProjectArtifactCatalog artifactCatalog, IWorkflowOrchestrator workflowOrchestrator, ILogger<ApproveRequirementUseCase> logger)
+    public ApproveRequirementUseCase(AppDbContext db, WorkspacePathResolver workspacePathResolver, IProjectArtifactCatalog artifactCatalog, IWorkflowOrchestrator workflowOrchestrator, BARequirementService baRequirementService, ILogger<ApproveRequirementUseCase> logger)
     {
         _db = db;
         _workspacePathResolver = workspacePathResolver;
         _artifactCatalog = artifactCatalog;
         _workflowOrchestrator = workflowOrchestrator;
+        _baRequirementService = baRequirementService;
         _logger = logger;
     }
 
@@ -38,9 +41,11 @@ public class ApproveRequirementUseCase
         if (!draftDocs.Any())
             return ApproveRequirementResult.NoDraftDocuments;
 
-        var aiDesignSpec = draftDocs.FirstOrDefault(x => x.FileName == _artifactCatalog.AiDesignSpec.FileName);
-        if (aiDesignSpec == null)
-            return ApproveRequirementResult.MissingAiDesignSpec;
+        // AI Design Spec không còn được sinh ở "Write Requirement" nữa — nó được sinh từ Product Brief
+        // đã duyệt ngay bên dưới. Vì vậy điều kiện duyệt giờ là phải có Product Brief draft.
+        var productBrief = draftDocs.FirstOrDefault(x => x.FileName == _artifactCatalog.ProductBrief.FileName);
+        if (productBrief == null)
+            return ApproveRequirementResult.MissingProductBrief;
 
         var nextVersion = project.Documents
             .Where(x => x.IsApproved && x.VersionName.StartsWith("V"))
@@ -80,11 +85,24 @@ public class ApproveRequirementUseCase
 
         await _db.SaveChangesAsync();
 
-        // Approval is now committed. Starting the delivery workflow is a separate, retryable step —
-        // if it throws, report a distinct result rather than a 500 that hides the successful approval.
+        // Approval is now committed. Sinh AI Design Spec từ Product Brief đã duyệt (lời gọi LLM, đồng bộ):
+        // đây là input để dựng POC. Nếu thất bại, phiên bản vẫn đứng vững — báo kết quả riêng để user retry.
+        string aiDesignSpecContent;
         try
         {
-            await _workflowOrchestrator.StartDeliveryWorkflowAsync(projectId, versionName, aiDesignSpec.Content);
+            aiDesignSpecContent = await _baRequirementService.GenerateAiDesignSpecAsync(projectId, versionName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Requirement {Version} approved for project {ProjectId} but generating the AI Design Spec failed.", versionName, projectId);
+            return ApproveRequirementResult.AiDesignSpecGenerationFailed;
+        }
+
+        // Starting the delivery workflow is a separate, retryable step — if it throws, report a distinct
+        // result rather than a 500 that hides the successful approval + spec generation.
+        try
+        {
+            await _workflowOrchestrator.StartDeliveryWorkflowAsync(projectId, versionName, aiDesignSpecContent);
         }
         catch (Exception ex)
         {

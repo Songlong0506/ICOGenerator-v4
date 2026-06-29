@@ -151,9 +151,9 @@ public class RequirementsController : Controller
         if (result == ApproveRequirementResult.ProjectNotFound)
             return RedirectToAction("Index", "Projects");
 
-        if (result == ApproveRequirementResult.MissingAiDesignSpec)
+        if (result == ApproveRequirementResult.MissingProductBrief)
         {
-            TempData["Error"] = "AI Design Spec chưa được tạo. Vui lòng chat với BA trước khi approve.";
+            TempData["Error"] = "Product Brief chưa được tạo. Vui lòng bấm \"Write Requirement\" để tạo Product Brief trước khi approve.";
             return RedirectToAction(nameof(Index), new { projectId });
         }
 
@@ -163,6 +163,12 @@ public class RequirementsController : Controller
         if (result == ApproveRequirementResult.PromotionFailed)
         {
             TempData["Error"] = "Không thể chuyển tài liệu draft sang phiên bản đã duyệt (file có thể đang bị mở/khóa). Đóng file đang mở rồi thử lại.";
+            return RedirectToAction(nameof(Index), new { projectId });
+        }
+
+        if (result == ApproveRequirementResult.AiDesignSpecGenerationFailed)
+        {
+            TempData["Error"] = "Đã duyệt requirement nhưng không tạo được AI Design Spec từ Product Brief. Vui lòng thử Approve lại.";
             return RedirectToAction(nameof(Index), new { projectId });
         }
 
