@@ -108,39 +108,41 @@
                     <td>@p.Description</td>
                     <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>
                     <td><span class="@Badge(p.Status)">@p.Status</span></td>
-                    <td class="actions">
-                        <a class="btn outline"
-                           asp-controller="Requirements"
-                           asp-action="Index"
-                           asp-route-projectId="@p.Id">
-                            Requirements
-                        </a>
-
-                        <a class="btn"
-                           asp-controller="AgentDashboard"
-                           asp-action="Index"
-                           asp-route-projectId="@p.Id">
-                            Agent Dashboard
-                        </a>
-
-                        @if (item.HasMockup)
-                        {
-                            <a class="btn success"
-                               asp-controller="Projects"
-                               asp-action="Mockup"
-                               asp-route-projectId="@p.Id"
-                               target="_blank">
-                                Mockup
+                    <td>
+                        <div class="actions">
+                            <a class="btn outline"
+                               asp-controller="Requirements"
+                               asp-action="Index"
+                               asp-route-projectId="@p.Id">
+                                Requirements
                             </a>
-                        }
-                        else
-                        {
-                            <button class="btn disabled"
-                                    type="button"
-                                    disabled>
-                                Mockup
-                            </button>
-                        }
+
+                            <a class="btn"
+                               asp-controller="AgentDashboard"
+                               asp-action="Index"
+                               asp-route-projectId="@p.Id">
+                                Agent Dashboard
+                            </a>
+
+                            @if (item.HasMockup)
+                            {
+                                <a class="btn success"
+                                   asp-controller="Projects"
+                                   asp-action="Mockup"
+                                   asp-route-projectId="@p.Id"
+                                   target="_blank">
+                                    Mockup
+                                </a>
+                            }
+                            else
+                            {
+                                <button class="btn disabled"
+                                        type="button"
+                                        disabled>
+                                    Mockup
+                                </button>
+                            }
+                        </div>
                     </td>
                 </tr>
             }
