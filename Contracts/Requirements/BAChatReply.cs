@@ -8,4 +8,9 @@ public class BAChatReply
     public string Message { get; set; } = "";
 
     public List<string> Suggestions { get; set; } = new();
+
+    // BA tự đánh giá đã khai thác đủ thông tin để soạn tài liệu hay chưa: true khi không còn câu hỏi
+    // nào → UI bật nút "Write Requirement". Còn bất kỳ điểm nào cần hỏi thì để false (mặc định) để nút
+    // ở trạng thái "chưa sẵn sàng". Đây là tín hiệu cho UI; bước sinh tài liệu vẫn có cổng readiness riêng.
+    public bool Ready { get; set; }
 }
