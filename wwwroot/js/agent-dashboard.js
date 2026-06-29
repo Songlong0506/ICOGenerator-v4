@@ -535,7 +535,7 @@ pollAgentStats();
             setForms(false, false, false);
         } else {
             // Running / Queued / Retrying...
-            bannerEl.innerHTML = `<div class="dg-msg run"><span class="pulse-dot"></span> Đang chạy bước hiện tại…</div>`;
+            bannerEl.innerHTML = '';
             setForms(false, false, false);
         }
 
