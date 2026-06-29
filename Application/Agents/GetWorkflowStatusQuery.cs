@@ -93,10 +93,13 @@ public class GetWorkflowStatusQuery
 
         var lastSeq = events.Count > 0 ? events[^1].Seq : afterSeq;
 
-        // RequirementAnalysis (Write Requirement) là workflow một-bước của BA, KHÔNG chạy pipeline
-        // delivery → không render timeline POC→…→PR. (TechnicalDocs nay là bước 2 của pipeline delivery,
-        // nên một run chứa nó vẫn là "Delivery" và hiển thị đầy đủ timeline.)
-        var runKind = tasks.Any(t => t.Type == nameof(AgentTaskType.RequirementAnalysis))
+        // RequirementAnalysis (Write Requirement) và AiDesignSpec (sinh spec sau Approve) là các workflow
+        // một-bước của BA, KHÔNG chạy pipeline delivery → không render timeline POC→…→PR. AiDesignSpec còn
+        // tận dụng cùng nhánh "Requirement" để UI reload một lần khi xong, hiện panel delivery (POC) mà
+        // worker tạo ngay sau đó. (TechnicalDocs nay là bước 2 của pipeline delivery, nên run chứa nó vẫn
+        // là "Delivery" và hiển thị đầy đủ timeline.)
+        var runKind = tasks.Any(t => t.Type == nameof(AgentTaskType.RequirementAnalysis)
+                                     || t.Type == nameof(AgentTaskType.AiDesignSpec))
             ? "Requirement"
             : "Delivery";
 

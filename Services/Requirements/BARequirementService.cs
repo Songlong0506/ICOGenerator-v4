@@ -286,8 +286,15 @@ public class BARequirementService
     /// delivery workflow dựng POC. Tách khỏi "Write Requirement" để không sinh lại spec mỗi lần user
     /// chỉnh Product Brief — chỉ sinh một lần khi đã chốt requirement.
     /// </summary>
-    public async Task<string> GenerateAiDesignSpecAsync(Guid projectId, string versionName, CancellationToken cancellationToken = default)
+    /// <param name="onProgress">Callback (kind, message, detail) báo tiến độ live cho UI; null khi gọi đồng bộ.</param>
+    /// <param name="onToken">Callback nhận từng token khi model soạn spec, để stream "đang gõ" lên UI.</param>
+    /// <param name="workflowRunId">Run liên quan để gắn chi phí token vào đúng workflow run (null nếu gọi ngoài workflow).</param>
+    public async Task<string> GenerateAiDesignSpecAsync(Guid projectId, string versionName, Action<string, string, string?>? onProgress = null, Action<string>? onToken = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default)
     {
+        void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
+
+        Report("setup", "Đang đọc Product Brief đã duyệt…");
+
         var project = await _db.Projects
             .Include(x => x.Documents)
             .FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken)
@@ -316,21 +323,32 @@ public class BARequirementService
             new(ChatRole.User, prompt)
         };
 
-        var (callResult, structuredSpec) = await _llm.ChatStructuredAsync<BAAiDesignSpecResult>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAAiDesignSpec"), cancellationToken: cancellationToken);
+        Report("tool", "Đang gọi AI để soạn AI Design Spec…");
 
-        // On a failed call, do NOT fall through to a fabricated spec: surface the failure so Approve can
+        var (callResult, structuredSpec) = await _llm.ChatStructuredAsync<BAAiDesignSpecResult>(
+            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAAiDesignSpec", workflowRunId), onToken, cancellationToken);
+
+        // On a failed call, do NOT fall through to a fabricated spec: surface the failure so the caller can
         // report it and the user retries, rather than silently feeding an empty spec into the POC step.
         if (!callResult.IsSuccess)
-            throw new InvalidOperationException($"LLM call failed: {callResult.ErrorMessage ?? callResult.Content}");
+        {
+            var detail = callResult.ErrorMessage ?? callResult.Content;
+            Report("error", "Lời gọi LLM thất bại.", detail);
+            throw new InvalidOperationException($"LLM call failed: {detail}");
+        }
+
+        Report("observation", "AI đã trả về nội dung, đang phân tích kết quả…");
 
         var result = structuredSpec != null
             ? _responseParser.Normalize(structuredSpec)
             : _responseParser.ParseAiDesignSpec(callResult.Content, productBrief);
 
+        Report("tool", "Đang tạo/cập nhật file AI Design Spec (.docx)…");
+
         await _documentGenerator.GenerateAiDesignSpecVersionFile(project, ba.Id, versionName, result);
         await _db.SaveChangesAsync(cancellationToken);
 
+        Report("final", $"Đã tạo AI Design Spec cho phiên bản {versionName}.");
         return result.AiDesignSpec.Content;
     }
 

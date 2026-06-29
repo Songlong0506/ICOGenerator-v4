@@ -149,9 +149,14 @@
 
         if (data.isCompleted) {
             if (data.runKind === 'Requirement') {
+                // Run sinh AI Design Spec (sau Approve) cũng là "Requirement" kind nhưng báo khác: nó dẫn
+                // sang delivery (POC). Reload bên dưới sẽ hiện panel delivery mà worker vừa tạo.
+                const isSpec = (data.tasks || []).some(t => t.type === 'AiDesignSpec');
                 slot.innerHTML = data.needsMoreInfo
                     ? `<div class="wf-banner wf-wait">❓ Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi BA trong khung chat.</div>`
-                    : `<div class="wf-banner wf-ok">✓ Đã tạo/cập nhật tài liệu requirement.</div>`;
+                    : isSpec
+                        ? `<div class="wf-banner wf-ok">✓ Đã tạo AI Design Spec — đang khởi động quy trình dựng POC…</div>`
+                        : `<div class="wf-banner wf-ok">✓ Đã tạo/cập nhật tài liệu requirement.</div>`;
 
                 // Reload đúng 1 lần để hiển thị tài liệu draft + tin nhắn BA mới.
                 const reloadKey = 'wf-reloaded-' + panel.dataset.runId;
