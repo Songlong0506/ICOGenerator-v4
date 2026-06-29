@@ -520,6 +520,12 @@
         padding-right: 4px;
     }
 
+    /* Segment gom event theo từng run trong một feed gộp; display:contents để wrapper "tàng hình",
+       các .wf-event vẫn là con trực tiếp của .wf-feed (giữ nguyên gap/flex), nhìn liền mạch một timeline. */
+    .wf-seg {
+        display: contents;
+    }
+
     .wf-event {
         display: flex;
         align-items: flex-start;

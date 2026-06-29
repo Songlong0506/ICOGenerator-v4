@@ -29,6 +29,27 @@
         .OrderBy(x => x.CreatedAt)
         .ToList();
 
+    // Gộp tiến độ thành MỘT timeline thống nhất: các workflow run LIỀN KỀ trên timeline (không có
+    // tin nhắn hội thoại xen giữa) thuộc cùng một hành trình — ví dụ "Requirement Design Spec V1"
+    // rồi "Delivery Workflow V1" mà worker sinh ngay sau khi spec xong — nên gom vào MỘT panel:
+    // một header, một badge, một banner, một feed sự kiện liên tục. Run "lead" (mới nhất trong nhóm)
+    // quyết định trạng thái tổng thể; mỗi run vẫn có stream riêng, JS dồn event vào cùng một feed.
+    var renderGroups = new List<(string Kind, AgentConversation? Conversation, List<WorkflowRun> Runs)>();
+    foreach (var item in timelineItems)
+    {
+        if (item.Kind == "workflow" && item.WorkflowRun != null)
+        {
+            if (renderGroups.Count > 0 && renderGroups[^1].Kind == "workflow")
+                renderGroups[^1].Runs.Add(item.WorkflowRun);
+            else
+                renderGroups.Add(("workflow", null, new List<WorkflowRun> { item.WorkflowRun }));
+        }
+        else if (item.Conversation != null)
+        {
+            renderGroups.Add(("conversation", item.Conversation, new List<WorkflowRun>()));
+        }
+    }
+
     // Gợi ý chỉ hiển thị cho lượt HỎI mới nhất của BA (item cuối timeline). Các lượt cũ coi như đã trả lời.
     var lastItem = timelineItems.LastOrDefault();
     var lastBaSuggestions = (lastItem != null && lastItem.Kind == "conversation"
@@ -225,40 +246,48 @@
                 </div>
             }
 
-            @foreach (var item in timelineItems)
+            @foreach (var group in renderGroups)
             {
-                if (item.Kind == "workflow" && item.WorkflowRun != null)
+                if (group.Kind == "workflow")
                 {
-                    var run = item.WorkflowRun;
-                    var autoScroll = autoScrollWorkflowRunId == run.Id ? "true" : "false";
+                    var runs = group.Runs;
+                    var leadRun = runs[runs.Count - 1];
+                    var groupAutoScroll = runs.Any(r => r.Id == autoScrollWorkflowRunId) ? "true" : "false";
+                    var runIds = string.Join(",", runs.Select(r => r.Id));
+                    // Hành trình kết thúc bằng run delivery → nhãn "Delivery Progress"; ngược lại (chỉ có
+                    // run requirement của BA) giữ "Requirement Progress" như trước.
+                    var groupTitle = runs.Any(r => r.Name != null && r.Name.Contains("Delivery"))
+                        ? "Delivery Progress"
+                        : "Requirement Progress";
 
-                    <div id="wf-panel-@run.Id"
+                    <div id="wf-panel-@leadRun.Id"
                          class="req-msg ba workflow-progress"
-                         data-run-id="@run.Id"
-                         data-autoscroll="@autoScroll">
+                         data-run-ids="@runIds"
+                         data-lead-run-id="@leadRun.Id"
+                         data-autoscroll="@groupAutoScroll">
                         <div class="workflow-progress-head">
                             <b>BA</b>
-                            <span class="workflow-progress-title">@(run.Name != null && run.Name.Contains("Requirement") ? "Requirement Progress" : "Delivery Progress")</span>
+                            <span class="workflow-progress-title">@groupTitle</span>
                         </div>
-                        <small id="wf-sub-@run.Id" class="muted wf-sub"></small>
-                        <div id="wf-body-@run.Id" class="workflow-progress-body wf-body">
+                        <small class="muted wf-sub"></small>
+                        <div class="workflow-progress-body wf-body">
                             <div class="wf-banner wf-run">⏳ Đang tải tiến độ delivery…</div>
                         </div>
                     </div>
                 }
-                else if (item.Conversation?.Role == "user")
+                else if (group.Conversation?.Role == "user")
                 {
                     <div class="req-msg you">
-                        <p>@item.Conversation.Message</p>
+                        <p>@group.Conversation.Message</p>
                     </div>
                 }
-                else if (item.Conversation != null)
+                else if (group.Conversation != null)
                 {
                     <div class="req-msg ba">
                         <b>BA</b>
 
                         <p style="white-space: pre-wrap;">
-                            @item.Conversation.Message
+                            @group.Conversation.Message
                         </p>
                     </div>
                 }
