@@ -40,11 +40,15 @@
     }
 
     .icon-btn {
+        align-items: center;
         border: 1px solid #d4d8db;
         background: white;
-        padding: 8px 11px;
         cursor: pointer;
-        width: auto;
+        display: inline-flex;
+        height: 35px;
+        justify-content: center;
+        padding: 0;
+        width: 37px;
     }
 
         .icon-btn.danger {
@@ -86,7 +90,7 @@
     </div>
 
     <button class="btn primary" onclick="openModal('addModel')" type="button">
-        ＋ Add Model
+        <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Model
     </button>
 </div>
 
@@ -130,6 +134,8 @@
                     <td class="actions">
                         <button class="icon-btn"
                                 type="button"
+                                aria-label="Edit model"
+                                title="Edit model"
                                 onclick="openEditModel(
                                         '@m.Id',
                                         '@JavaScriptEncoder.Default.Encode(m.Name)',
@@ -143,14 +149,16 @@
                                         '@m.SupportsVision.ToString().ToLower()',
                                         '@JavaScriptEncoder.Default.Encode(MaskApiKey(m.ApiKey))'
                                     )">
-                            ✎
+                            <i class="bi bi-pencil-fill" aria-hidden="true"></i>
                         </button>
 
                         <form asp-action="Delete" method="post" class="inline-form"
                               onsubmit="return confirm('Delete this model?');">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@m.Id" />
-                            <button class="icon-btn danger" type="submit">🗑</button>
+                            <button class="icon-btn danger" type="submit" aria-label="Delete model" title="Delete model">
+                                <i class="bi bi-trash" aria-hidden="true"></i>
+                            </button>
                         </form>
                     </td>
                 </tr>
