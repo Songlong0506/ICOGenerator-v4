@@ -201,6 +201,16 @@ function closeLogModal() {
     document.getElementById('log-modal').style.display = 'none';
 }
 
+function openDeliveryConfig() {
+    const modal = document.getElementById('delivery-config-modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeDeliveryConfig() {
+    const modal = document.getElementById('delivery-config-modal');
+    if (modal) modal.style.display = 'none';
+}
+
 function showLogTab(name, button) {
     ['request', 'response', 'content', 'error'].forEach(x => document.getElementById(`log-${x}`).classList.add('hidden'));
     document.getElementById(`log-${name}`).classList.remove('hidden');
@@ -419,6 +429,13 @@ document.getElementById('agent-activity-modal')
     .addEventListener('click', function (e) {
         if (e.target.id === 'agent-activity-modal') closeAgentActivity();
     });
+
+const deliveryConfigModal = document.getElementById('delivery-config-modal');
+if (deliveryConfigModal) {
+    deliveryConfigModal.addEventListener('click', function (e) {
+        if (e.target.id === 'delivery-config-modal') closeDeliveryConfig();
+    });
+}
 
 pollActiveAgents();
 pollAgentStats();
