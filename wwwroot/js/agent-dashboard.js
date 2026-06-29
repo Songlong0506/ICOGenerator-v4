@@ -452,9 +452,10 @@ pollAgentStats();
     }
 
     // Nhãn + biểu tượng cho từng trạng thái bước (khớp lớp CSS .dg-step.<state>).
+    // Các trạng thái tĩnh không hiện chữ để timeline gọn hơn; marker/màu vẫn thể hiện tiến độ.
     const STEP_LABEL = {
-        done: 'Đã xong', running: 'Đang chạy', next: 'Bước kế tiếp',
-        failed: 'Thất bại', pending: 'Chờ'
+        done: '', running: 'Đang chạy', next: '',
+        failed: 'Thất bại', pending: ''
     };
 
     function stepMarker(state, ordinal) {
@@ -472,12 +473,12 @@ pollAgentStats();
             return;
         }
         timelineEl.innerHTML = pipeline.map((s, i) => {
-            const state = STEP_LABEL[s.state] ? s.state : 'pending';
+            const state = Object.prototype.hasOwnProperty.call(STEP_LABEL, s.state) ? s.state : 'pending';
             return `<li class="dg-step ${state}">
                 <span class="dg-step-marker">${stepMarker(state, i + 1)}</span>
                 <span class="dg-step-body">
                     <span class="dg-step-title">${escapeHtml(s.title)}</span>
-                    <span class="dg-step-state">${STEP_LABEL[state]}</span>
+                    ${STEP_LABEL[state] ? `<span class="dg-step-state">${STEP_LABEL[state]}</span>` : ''}
                 </span>
             </li>`;
         }).join('');
@@ -516,16 +517,11 @@ pollAgentStats();
         if (statusEl) statusEl.innerHTML = `${escapeHtml(data.runName || 'Delivery')} · ${badge(data.runStatus)}`;
         renderTimeline(data.pipeline);
 
-        const pocLink = data.pocReady
-            ? ` <a href="/Projects/Mockup?projectId=${PROJECT_ID}" target="_blank">Xem POC</a>`
-            : '';
-
         if (data.runStatus === 'WaitingForHuman') {
-            const nextHint = data.nextStageTitle ? ` Bước kế: <b>${escapeHtml(data.nextStageTitle)}</b>.` : '';
             // Cổng POC: POC chưa đúng = requirement cần điều chỉnh → việc của user (chat BA → Approve lại),
             // không phải TeamDev. Vì vậy ẩn nút "Từ chối" ở bước POC; các bước sau vẫn cho từ chối.
             const isPocGate = data.currentStage === 'PocPreview';
-            bannerEl.innerHTML = `<div class="dg-msg wait">⏸️ Bước hiện tại đã xong — chờ duyệt.${nextHint}${pocLink}</div>`;
+            bannerEl.innerHTML = '';
             setForms(true, !isPocGate, false);
         } else if (data.runStatus === 'Failed') {
             const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
@@ -539,7 +535,7 @@ pollAgentStats();
             setForms(false, false, false);
         } else {
             // Running / Queued / Retrying...
-            bannerEl.innerHTML = `<div class="dg-msg run"><span class="pulse-dot"></span> Đang chạy bước hiện tại…${pocLink}</div>`;
+            bannerEl.innerHTML = `<div class="dg-msg run"><span class="pulse-dot"></span> Đang chạy bước hiện tại…</div>`;
             setForms(false, false, false);
         }
 
