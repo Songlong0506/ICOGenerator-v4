@@ -36,20 +36,31 @@ public class RequirementDocumentGenerator
         _artifactStorage = artifactStorage;
     }
 
-    // Lượt "Write Requirement" phía user: chỉ sinh Product Brief (cho user) + AI Design Spec (cho POC),
-    // cả hai ở dạng draft. Tài liệu kỹ thuật nặng sinh sau ở bước 2 của Delivery Pipeline (TechnicalDocs).
+    // Lượt "Write Requirement" phía user: chỉ sinh Product Brief (cho user) ở dạng draft. AI Design Spec
+    // được sinh ở bước Approve (GenerateAiDesignSpecVersionFile). Tài liệu kỹ thuật nặng sinh sau ở
+    // bước 2 của Delivery Pipeline (TechnicalDocs).
     public async Task GenerateProductBriefDraftFiles(Project project, Guid baId, BAProductBriefResult result)
     {
         var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
 
         var productBriefOutput = _artifactStorage.GetDraftPath(projectKey, _artifactCatalog.ProductBrief);
-        var aiDesignSpecOutput = _artifactStorage.GetDraftPath(projectKey, _artifactCatalog.AiDesignSpec);
 
         CreateSimpleDocumentDocx(productBriefOutput, "Product Brief", result.ProductBrief.Content);
-        CreateSimpleDocumentDocx(aiDesignSpecOutput, "AI Design Spec", result.AiDesignSpec.Content);
 
         await UpsertDocument(project.Id, baId, _artifactCatalog.ProductBrief, productBriefOutput, result.ProductBrief.Content, "draft", isApproved: false);
-        await UpsertDocument(project.Id, baId, _artifactCatalog.AiDesignSpec, aiDesignSpecOutput, result.AiDesignSpec.Content, "draft", isApproved: false);
+    }
+
+    // Bước Approve: sinh AI Design Spec từ Product Brief đã duyệt. Ghi thẳng vào thư mục phiên bản đã
+    // duyệt (V{n}) — không qua cổng draft — và lưu là tài liệu đã duyệt, giống luồng technical docs.
+    public async Task GenerateAiDesignSpecVersionFile(Project project, Guid baId, string versionName, BAAiDesignSpecResult result)
+    {
+        var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
+
+        var aiDesignSpecOutput = _artifactStorage.GetVersionPath(projectKey, versionName, _artifactCatalog.AiDesignSpec);
+
+        CreateSimpleDocumentDocx(aiDesignSpecOutput, "AI Design Spec", result.AiDesignSpec.Content);
+
+        await UpsertDocument(project.Id, baId, _artifactCatalog.AiDesignSpec, aiDesignSpecOutput, result.AiDesignSpec.Content, versionName, isApproved: true);
     }
 
     // Lượt team dev trigger ở Agent Dashboard: sinh BRD/SRS/FSD/UserStories cho một phiên bản requirement

@@ -224,8 +224,7 @@ public class BARequirementService
         var prompt = _promptBuilder.BuildProductBrief(
             project,
             requirementBrief,
-            GetDoc(project, _artifactCatalog.ProductBrief.FileName, "draft"),
-            GetDoc(project, _artifactCatalog.AiDesignSpec.FileName, "draft"));
+            GetDoc(project, _artifactCatalog.ProductBrief.FileName, "draft"));
 
         // Lượt user mang prompt soạn tài liệu + tài liệu nguồn (text/ảnh) đính kèm. Không có nguồn ⇒ chỉ một
         // TextContent, tương đương đường cũ.
@@ -237,7 +236,7 @@ public class BARequirementService
             new(ChatRole.User, userContents)
         };
 
-        Report("tool", "Đang gọi AI để soạn bản mô tả sản phẩm (Product Brief) + AI Design Spec…");
+        Report("tool", "Đang gọi AI để soạn bản mô tả sản phẩm (Product Brief)…");
 
         var (callResult, structuredDraft) = await _llm.ChatStructuredAsync<BAProductBriefResult>(
             model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAProductBrief", workflowRunId), onToken, cancellationToken);
@@ -279,6 +278,60 @@ public class BARequirementService
 
         Report("final", "Đã tạo/cập nhật tài liệu.", assistantMessage);
         return RequirementDraftOutcome.Generated;
+    }
+
+    /// <summary>
+    /// Bước Approve (chạy đồng bộ): sinh AI Design Spec từ Product Brief ĐÃ DUYỆT của một phiên bản
+    /// requirement (V{n}), ghi thẳng vào phiên bản đó (đã duyệt) và trả về nội dung spec để khởi động
+    /// delivery workflow dựng POC. Tách khỏi "Write Requirement" để không sinh lại spec mỗi lần user
+    /// chỉnh Product Brief — chỉ sinh một lần khi đã chốt requirement.
+    /// </summary>
+    public async Task<string> GenerateAiDesignSpecAsync(Guid projectId, string versionName, CancellationToken cancellationToken = default)
+    {
+        var project = await _db.Projects
+            .Include(x => x.Documents)
+            .FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken)
+            ?? throw new InvalidOperationException($"Project not found: {projectId}.");
+
+        var ba = await _db.Agents
+            .Include(x => x.AiModel)
+            .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst, cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Chưa cấu hình BA agent (RoleKey = BusinessAnalyst). Hãy tạo hoặc khôi phục agent BA trong màn hình Manage Agent.");
+
+        var model = ba.AiModel ?? throw new InvalidOperationException("BA agent model is not configured.");
+
+        var productBrief = GetDoc(project, _artifactCatalog.ProductBrief.FileName, versionName);
+        if (string.IsNullOrWhiteSpace(productBrief))
+            throw new InvalidOperationException($"Product Brief đã duyệt không tồn tại cho phiên bản {versionName}.");
+
+        var prompt = _promptBuilder.BuildAiDesignSpec(
+            project,
+            productBrief,
+            GetDoc(project, _artifactCatalog.AiDesignSpec.FileName, versionName));
+
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, _promptTemplateService.Get("BA/ai-design-spec.v1.md")),
+            new(ChatRole.User, prompt)
+        };
+
+        var (callResult, structuredSpec) = await _llm.ChatStructuredAsync<BAAiDesignSpecResult>(
+            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAAiDesignSpec"), cancellationToken: cancellationToken);
+
+        // On a failed call, do NOT fall through to a fabricated spec: surface the failure so Approve can
+        // report it and the user retries, rather than silently feeding an empty spec into the POC step.
+        if (!callResult.IsSuccess)
+            throw new InvalidOperationException($"LLM call failed: {callResult.ErrorMessage ?? callResult.Content}");
+
+        var result = structuredSpec != null
+            ? _responseParser.Normalize(structuredSpec)
+            : _responseParser.ParseAiDesignSpec(callResult.Content, productBrief);
+
+        await _documentGenerator.GenerateAiDesignSpecVersionFile(project, ba.Id, versionName, result);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return result.AiDesignSpec.Content;
     }
 
     /// <summary>

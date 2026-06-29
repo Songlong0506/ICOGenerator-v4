@@ -26,9 +26,7 @@ public class RequirementResponseParser
     public BAProductBriefResult Normalize(BAProductBriefResult result)
     {
         result.ProductBrief ??= new();
-        result.AiDesignSpec ??= new();
         result.ProductBrief.Content ??= "";
-        result.AiDesignSpec.Content ??= "";
         return result;
     }
 
@@ -44,7 +42,7 @@ public class RequirementResponseParser
         }
         catch
         {
-            // Conservative fallback so the chat still produces a draft Product Brief + AI Design Spec.
+            // Conservative fallback so the chat still produces a draft Product Brief.
         }
 
         return new BAProductBriefResult
@@ -79,20 +77,49 @@ Cần làm rõ
 ## Điểm cần xác nhận
 - Cần làm rõ thêm thông tin sản phẩm.
 """
-            },
+            }
+        };
+    }
+
+    // AI Design Spec path (sinh từ Product Brief đã duyệt khi user bấm Approve).
+    public BAAiDesignSpecResult Normalize(BAAiDesignSpecResult result)
+    {
+        result.AiDesignSpec ??= new();
+        result.AiDesignSpec.Content ??= "";
+        return result;
+    }
+
+    public BAAiDesignSpecResult ParseAiDesignSpec(string response, string productBrief)
+    {
+        try
+        {
+            var json = JsonExtractor.Extract(response);
+            var result = JsonSerializer.Deserialize<BAAiDesignSpecResult>(json, JsonDefaults.CaseInsensitive);
+
+            if (result != null)
+                return Normalize(result);
+        }
+        catch
+        {
+            // Conservative fallback so Approve still produces a usable AI Design Spec for the POC step.
+        }
+
+        return new BAAiDesignSpecResult
+        {
+            AssistantMessage = "Đã tạo AI Design Spec từ Product Brief đã duyệt.",
             AiDesignSpec = new AiDesignSpecDto
             {
                 Content = $$"""
 # AI Design Spec
 
 ## 1. Project Goal
-{{userMessage}}
+{{productBrief}}
 
 ## 2. Target Users / Actors
 Cần làm rõ
 
 ## 3. MVP Scope
-{{userMessage}}
+{{productBrief}}
 
 ## 4. Out of Scope
 Cần làm rõ
