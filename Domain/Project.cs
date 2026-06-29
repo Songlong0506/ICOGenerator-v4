@@ -12,6 +12,10 @@ public class Project
     // null = TeamDev CHƯA chọn Generation Mode; cổng Approve chặn đẩy sang Architecture cho tới khi có giá trị
     // rõ ràng (true = Bosch template, false = để TechLead tự định kiến trúc) — tránh âm thầm mặc định Bosch.
     public bool? IsUseBoschTemplate { get; set; }
+    // Username (claim Name) của người tạo project. Dùng để lọc danh sách: User thường chỉ thấy project
+    // do mình tạo; Admin/TeamDev (quyền ProjectsViewAll) thấy tất cả. Nullable để tương thích các project
+    // cũ tạo trước khi có cột này — chúng coi như "không có chủ" và chỉ hiện cho người xem-tất-cả.
+    public string? CreatedByUsername { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ProjectDocument> Documents { get; set; } = new List<ProjectDocument>();
     public ICollection<ProjectSourceFile> SourceFiles { get; set; } = new List<ProjectSourceFile>();
