@@ -15,5 +15,11 @@ public class AppUser
     public string DisplayName { get; set; } = string.Empty;
     public UserRole Role { get; set; } = UserRole.User;
     public bool IsActive { get; set; } = true;
+    // Bộ nhớ dài hạn về CHÍNH người dùng này, gom XUYÊN SUỐT mọi project họ tạo (khác với
+    // Project.ConversationSummary chỉ nhớ trong một dự án). Là một hồ sơ ngắn gọn các sự thật BỀN về
+    // user — vai trò, lĩnh vực/ngành, tổ chức, văn phong/định dạng tài liệu họ ưa, thuật ngữ hay dùng,
+    // ràng buộc lặp lại — được BA chắt lọc DẦN từ hội thoại và nạp lại ở mọi cuộc để "càng nói càng hiểu
+    // user". null = chưa chắt lọc được gì. Xem UserMemoryService.
+    public string? UserMemory { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

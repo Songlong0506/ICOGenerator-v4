@@ -385,6 +385,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ProjectSourceIngestor>();
         services.AddScoped<SourceContextBuilder>();
         services.AddScoped<ConversationMemoryService>();
+        services.AddScoped<UserMemoryService>();
         return services;
     }
 

@@ -27,6 +27,7 @@ public class BARequirementService
     private readonly SourceContextBuilder _sourceContextBuilder;
     private readonly IProjectArtifactCatalog _artifactCatalog;
     private readonly ConversationMemoryService _memory;
+    private readonly UserMemoryService _userMemory;
 
     public BARequirementService(
         AppDbContext db,
@@ -40,7 +41,8 @@ public class BARequirementService
         PromptTemplateService promptTemplateService,
         SourceContextBuilder sourceContextBuilder,
         IProjectArtifactCatalog artifactCatalog,
-        ConversationMemoryService memory)
+        ConversationMemoryService memory,
+        UserMemoryService userMemory)
     {
         _db = db;
         _llm = llm;
@@ -54,6 +56,7 @@ public class BARequirementService
         _sourceContextBuilder = sourceContextBuilder;
         _artifactCatalog = artifactCatalog;
         _memory = memory;
+        _userMemory = userMemory;
     }
 
     public async Task<ChatWithBAResult> ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
@@ -90,6 +93,10 @@ public class BARequirementService
         var memory = await _memory.LoadAsync(project, ba, model, cancellationToken);
         var recent = memory.RecentTurns;
 
+        // Bộ nhớ CẤP USER: hồ sơ bền về chính người dùng, gom xuyên các dự án của họ. Chắt lọc DẦN theo lô
+        // rồi nạp lại ở mọi cuộc để BA "càng nói càng hiểu user". Xem UserMemoryService.
+        var userMemory = await _userMemory.UpdateAndLoadAsync(project, ba, model, cancellationToken);
+
         // Tài liệu nguồn (ảnh/PDF) của project: gắn vào ĐÚNG lượt user mới nhất (một lần) để BA "thấy" khi trả lời,
         // tránh gửi lại ảnh ở mọi lượt (đốt token). Model không vision ⇒ builder chỉ trả phần text bóc từ PDF.
         var sources = await _db.ProjectSourceFiles
@@ -103,6 +110,14 @@ public class BARequirementService
         {
             new(ChatRole.System, _promptTemplateService.Get("BA/requirement-chat.v1.md"))
         };
+        // Hồ sơ người dùng (nếu có): nạp như một system message nền để BA hiểu user ngay từ lượt đầu, kể cả
+        // ở dự án mới. Đây là điều tạo cảm giác "càng nói chuyện càng hiểu mình".
+        if (!string.IsNullOrWhiteSpace(userMemory))
+        {
+            messages.Add(new ChatMessage(ChatRole.System,
+                "## Hồ sơ người dùng (đúc kết từ các lần trao đổi trước — dùng để hiểu & phục vụ đúng ý người dùng, KHÔNG nhắc lại như thể vừa được kể)\n"
+                + userMemory));
+        }
         // Đính kèm bộ nhớ dài hạn (nếu có) như một system message nền — BA nhớ các lượt cũ đã lược bớt
         // mà không phải đọc lại nguyên văn.
         if (!string.IsNullOrWhiteSpace(memory.Summary))
