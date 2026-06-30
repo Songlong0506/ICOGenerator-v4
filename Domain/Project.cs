@@ -22,6 +22,10 @@ public class Project
     // con trỏ để biết lượt nào còn phải gửi nguyên văn. Xem ConversationMemoryService.
     public string? ConversationSummary { get; set; }
     public int SummarizedTurnCount { get; set; }
+    // Con trỏ riêng cho bộ nhớ CẤP USER (AppUser.UserMemory): số lượt cũ nhất (xếp theo CreatedAt) của
+    // project này đã được chắt lọc vào hồ sơ user của người tạo. Tách khỏi SummarizedTurnCount vì hai bộ
+    // nhớ tiến theo nhịp/độ trễ khác nhau. Xem UserMemoryService.
+    public int UserMemoryHarvestedTurnCount { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ProjectDocument> Documents { get; set; } = new List<ProjectDocument>();
     public ICollection<ProjectSourceFile> SourceFiles { get; set; } = new List<ProjectSourceFile>();

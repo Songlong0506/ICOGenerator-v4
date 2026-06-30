@@ -243,6 +243,21 @@ gộp — nên KHÔNG tóm tắt trên mỗi lượt chat (đây mới là chỗ
 sau mỗi lần gộp. **Fail-open:** lời gọi tóm tắt lỗi ⇒ giữ nguyên summary cũ, KHÔNG dời con trỏ (các lượt
 chưa gộp vẫn được gửi nguyên văn) — không bao giờ fail trắng, không mất lượt nào.
 
+### 5.12. Bộ nhớ cấp người dùng (personalization — "càng nói càng hiểu user")
+Song song với bộ nhớ theo dự án ở 5.11, `UserMemoryService` lo một tầng nhớ **gắn theo NGƯỜI DÙNG** chứ
+không theo dự án — đây là thứ tạo cảm giác giống Claude/ChatGPT: trò chuyện càng nhiều, BA càng hiểu user.
+
+- **Lưu ở đâu:** một hồ sơ ngắn gọn các sự thật **bền** về user (vai trò, lĩnh vực, tổ chức, văn phong/định
+  dạng ưa dùng, thuật ngữ hay dùng…) lưu trên `AppUser.UserMemory`, dùng lại **xuyên suốt mọi dự án** của họ.
+  Hồ sơ được quy về **người tạo dự án** (`Project.CreatedByUsername`); dự án không có chủ thì bỏ qua.
+- **Chắt lọc khi nào:** `BARequirementService.ChatAsync` gọi `UserMemoryService.UpdateAndLoadAsync` mỗi lượt;
+  việc gọi LLM chắt lọc **gom theo lô** — chỉ chạy khi đã có ≥ `HarvestBatchThreshold` (=10) lượt mới chưa
+  chắt lọc (con trỏ riêng `Project.UserMemoryHarvestedTurnCount`, tách khỏi `SummarizedTurnCount` vì hai bộ
+  nhớ tiến theo nhịp khác nhau). Prompt: `BA/user-memory.v1.md`.
+- **Nạp lại:** hồ sơ user (nếu có) được đính vào prompt BA như một `System` message nền — nên BA "đã biết
+  user là ai" ngay từ lượt đầu, kể cả ở dự án mới.
+- **Fail-open:** lời gọi chắt lọc lỗi ⇒ giữ hồ sơ cũ, KHÔNG dời con trỏ; lần sau gặp ngưỡng sẽ thử lại.
+
 ---
 
 ## 6. Công thức thêm một tính năng mới
