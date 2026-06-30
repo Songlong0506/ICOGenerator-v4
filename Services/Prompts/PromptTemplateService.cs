@@ -15,7 +15,8 @@ public class PromptTemplateService
         _environment = environment;
     }
 
-    public string Get(string relativePath) => Cache.GetOrAdd(relativePath, ReadTemplate);
+    // virtual: cho phép test thay bằng stub không phụ thuộc hệ thống file (prompt thật vẫn nạp như cũ ở runtime).
+    public virtual string Get(string relativePath) => Cache.GetOrAdd(relativePath, ReadTemplate);
 
     private string ReadTemplate(string relativePath)
     {

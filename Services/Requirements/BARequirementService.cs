@@ -26,6 +26,7 @@ public class BARequirementService
     private readonly PromptTemplateService _promptTemplateService;
     private readonly SourceContextBuilder _sourceContextBuilder;
     private readonly IProjectArtifactCatalog _artifactCatalog;
+    private readonly ConversationMemoryService _memory;
 
     public BARequirementService(
         AppDbContext db,
@@ -38,7 +39,8 @@ public class BARequirementService
         RequirementDocumentGenerator documentGenerator,
         PromptTemplateService promptTemplateService,
         SourceContextBuilder sourceContextBuilder,
-        IProjectArtifactCatalog artifactCatalog)
+        IProjectArtifactCatalog artifactCatalog,
+        ConversationMemoryService memory)
     {
         _db = db;
         _llm = llm;
@@ -51,12 +53,15 @@ public class BARequirementService
         _promptTemplateService = promptTemplateService;
         _sourceContextBuilder = sourceContextBuilder;
         _artifactCatalog = artifactCatalog;
+        _memory = memory;
     }
 
     public async Task<ChatWithBAResult> ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
     {
         // Validate the project up front: writing an AgentConversation for a non-existent project would throw an FK DbUpdateException → HTTP 500. Return a status the controller can surface.
-        if (!await _db.Projects.AnyAsync(x => x.Id == projectId, cancellationToken))
+        // Tracked (không AsNoTracking) vì bộ nhớ hội thoại ghi thẳng ConversationSummary/SummarizedTurnCount lên entity này.
+        var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
+        if (project == null)
             return ChatWithBAResult.ProjectNotFound;
 
         var ba = await _db.Agents
@@ -80,13 +85,10 @@ public class BARequirementService
         });
         await _db.SaveChangesAsync(cancellationToken);
 
-        // Lấy tối đa 20 lượt gần nhất để giữ ngữ cảnh mà vẫn nhẹ token.
-        var recent = await _db.AgentConversations
-            .Where(c => c.ProjectId == projectId)
-            .OrderByDescending(c => c.CreatedAt)
-            .Take(20)
-            .ToListAsync(cancellationToken);
-        recent.Reverse();
+        // Bộ nhớ hội thoại: cửa sổ lượt gần nhất (gửi nguyên văn) + đoạn tóm tắt dài hạn các lượt cũ đã
+        // được gộp dần. Giữ ngữ cảnh hội thoại dài mà prompt không phình token. Xem ConversationMemoryService.
+        var memory = await _memory.LoadAsync(project, ba, model, cancellationToken);
+        var recent = memory.RecentTurns;
 
         // Tài liệu nguồn (ảnh/PDF) của project: gắn vào ĐÚNG lượt user mới nhất (một lần) để BA "thấy" khi trả lời,
         // tránh gửi lại ảnh ở mọi lượt (đốt token). Model không vision ⇒ builder chỉ trả phần text bóc từ PDF.
@@ -101,6 +103,14 @@ public class BARequirementService
         {
             new(ChatRole.System, _promptTemplateService.Get("BA/requirement-chat.v1.md"))
         };
+        // Đính kèm bộ nhớ dài hạn (nếu có) như một system message nền — BA nhớ các lượt cũ đã lược bớt
+        // mà không phải đọc lại nguyên văn.
+        if (!string.IsNullOrWhiteSpace(memory.Summary))
+        {
+            messages.Add(new ChatMessage(ChatRole.System,
+                "## Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược bớt để tiết kiệm token — dùng làm ngữ cảnh nền)\n"
+                + memory.Summary));
+        }
         for (var i = 0; i < recent.Count; i++)
         {
             var c = recent[i];
