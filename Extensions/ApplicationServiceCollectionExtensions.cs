@@ -384,6 +384,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<RequirementDocumentGenerator>();
         services.AddScoped<ProjectSourceIngestor>();
         services.AddScoped<SourceContextBuilder>();
+        services.AddScoped<ConversationMemoryService>();
         return services;
     }
 

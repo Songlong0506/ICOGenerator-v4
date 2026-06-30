@@ -228,6 +228,21 @@ runtime/HTTP**, rồi xuất qua **OTLP** tới collector (`Otel:OtlpEndpoint`, 
 `http://localhost:4317`). Đăng ký tập trung ở `AddObservabilityServices` trong file Extensions như mọi nhóm
 DI khác.
 
+### 5.11. Bộ nhớ hội thoại BA (summarization memory — hai tầng nhớ)
+Hội thoại BA (`ChatWithBAUseCase` → `BARequirementService.ChatAsync`) dùng **hai tầng nhớ** để giữ ngữ
+cảnh khi chat dài mà prompt không phình token, do `ConversationMemoryService` lo:
+
+- **Ngắn hạn (working memory):** `RecentWindowSize` (=20) lượt gần nhất luôn gửi **nguyên văn** cho model.
+- **Dài hạn:** các lượt **cũ** rơi ra ngoài cửa sổ được **gộp dần** thành một đoạn tóm tắt (text) lưu bền
+  trên `Project.ConversationSummary`; `Project.SummarizedTurnCount` là con trỏ "đã gộp tới lượt nào". Đoạn
+  tóm tắt được đính vào prompt như một `System` message nền (prompt `BA/conversation-summary.v1.md`).
+
+Việc tóm tắt **gom theo lô**: chỉ gọi LLM khi đã có ít nhất `SummarizeBatchThreshold` (=10) lượt cũ chưa
+gộp — nên KHÔNG tóm tắt trên mỗi lượt chat (đây mới là chỗ tiết kiệm token). Trong lúc chờ đủ lô, các lượt
+đó vẫn gửi nguyên văn nên **không mất ngữ cảnh**; cửa sổ verbatim chỉ phình tạm tới `20 + (10-1)` rồi co lại
+sau mỗi lần gộp. **Fail-open:** lời gọi tóm tắt lỗi ⇒ giữ nguyên summary cũ, KHÔNG dời con trỏ (các lượt
+chưa gộp vẫn được gửi nguyên văn) — không bao giờ fail trắng, không mất lượt nào.
+
 ---
 
 ## 6. Công thức thêm một tính năng mới
