@@ -28,6 +28,7 @@ public class BARequirementService
     private readonly IProjectArtifactCatalog _artifactCatalog;
     private readonly ConversationMemoryService _memory;
     private readonly UserMemoryService _userMemory;
+    private readonly ChecklistGapMemoryService _checklistGapMemory;
 
     public BARequirementService(
         AppDbContext db,
@@ -42,7 +43,8 @@ public class BARequirementService
         SourceContextBuilder sourceContextBuilder,
         IProjectArtifactCatalog artifactCatalog,
         ConversationMemoryService memory,
-        UserMemoryService userMemory)
+        UserMemoryService userMemory,
+        ChecklistGapMemoryService checklistGapMemory)
     {
         _db = db;
         _llm = llm;
@@ -57,6 +59,7 @@ public class BARequirementService
         _artifactCatalog = artifactCatalog;
         _memory = memory;
         _userMemory = userMemory;
+        _checklistGapMemory = checklistGapMemory;
     }
 
     public async Task<ChatWithBAResult> ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
@@ -110,6 +113,15 @@ public class BARequirementService
         {
             new(ChatRole.System, _promptTemplateService.Get("BA/requirement-chat.v1.md"))
         };
+        // Checklist bổ sung được BA rút kinh nghiệm từ các dự án TRƯỚC (của bất kỳ ai) — nạp cho MỌI dự án
+        // mới để hỏi kỹ hơn ngay từ đầu, bù cho những nhóm câu hỏi mà checklist tĩnh ban đầu chưa lường tới.
+        // Xem ChecklistGapMemoryService.
+        if (!string.IsNullOrWhiteSpace(ba.LearnedChecklistNotes))
+        {
+            messages.Add(new ChatMessage(ChatRole.System,
+                "## Checklist bổ sung (rút kinh nghiệm từ các dự án trước — chủ động hỏi thêm các mục này nếu liên quan)\n"
+                + ba.LearnedChecklistNotes));
+        }
         // Hồ sơ người dùng (nếu có): nạp như một system message nền để BA hiểu user ngay từ lượt đầu, kể cả
         // ở dự án mới. Đây là điều tạo cảm giác "càng nói chuyện càng hiểu mình".
         if (!string.IsNullOrWhiteSpace(userMemory))
@@ -309,6 +321,11 @@ public class BARequirementService
         });
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Tài liệu đã sinh thành công ⇒ đây là lúc có bức tranh Q&A đầy đủ để rút "khoảng trống checklist"
+        // (thông tin người dùng phải tự nêu ra mà BA chưa từng hỏi), gộp vào hồ sơ chung của Agent BA để
+        // MỌI dự án MỚI sau này (của bất kỳ ai) được hỏi kỹ hơn. Chỉ chạy một lần/dự án; fail-open nếu lỗi.
+        await _checklistGapMemory.HarvestAsync(project, ba, model, cancellationToken);
 
         Report("final", "Đã tạo/cập nhật tài liệu.", assistantMessage);
         return RequirementDraftOutcome.Generated;

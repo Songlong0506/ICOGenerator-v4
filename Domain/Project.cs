@@ -26,6 +26,11 @@ public class Project
     // project này đã được chắt lọc vào hồ sơ user của người tạo. Tách khỏi SummarizedTurnCount vì hai bộ
     // nhớ tiến theo nhịp/độ trễ khác nhau. Xem UserMemoryService.
     public int UserMemoryHarvestedTurnCount { get; set; }
+    // Đánh dấu dự án này ĐÃ được rà soát một lần để rút "khoảng trống checklist" (thông tin người dùng
+    // phải tự nêu ra mà BA chưa từng hỏi) vào Agent.LearnedChecklistNotes — dùng chung cho MỌI dự án sau
+    // này. Chỉ rà soát MỘT LẦN, ngay sau khi tài liệu được sinh thành công (lúc đó mới có bức tranh Q&A
+    // đầy đủ). Xem ChecklistGapMemoryService.
+    public bool ChecklistGapHarvested { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ProjectDocument> Documents { get; set; } = new List<ProjectDocument>();
     public ICollection<ProjectSourceFile> SourceFiles { get; set; } = new List<ProjectSourceFile>();
