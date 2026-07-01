@@ -10,8 +10,6 @@ namespace ICOGenerator.Services.Llm;
 /// </summary>
 public static class MaxOutputTokenResolver
 {
-    // Upper bound for completion tokens, plus prompt headroom so small-context models aren't asked for
-    // more output than fits.
     private const int MaxCompletionTokens = 100000;
     private const int ContextSafetyMargin = 1024;
 

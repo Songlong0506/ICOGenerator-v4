@@ -115,7 +115,6 @@ public class AgentDashboardController : Controller
         return result == null ? NotFound() : Json(result);
     }
 
-    // ===== Cổng delivery: chỉ TeamDev/Admin (DeliveryAdvance) mới đẩy được pipeline sau bước POC.
     // Trước đây các action này nằm ở RequirementsController; đã chuyển về đây để gom cổng duyệt cùng
     // chỗ artifact được duyệt (workspace 5 phase) và để redirect quay lại đúng dashboard.
 

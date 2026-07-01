@@ -32,7 +32,6 @@ internal sealed class ThinkingDisabledHandler : DelegatingHandler
 
         try
         {
-            // Leave the body untouched if it is not a JSON object or already carries a thinking field.
             if (JsonNode.Parse(body) is not JsonObject obj || obj.ContainsKey("thinking"))
                 return false;
 

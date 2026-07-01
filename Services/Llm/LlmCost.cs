@@ -7,7 +7,6 @@ namespace ICOGenerator.Services.Llm;
 /// </summary>
 public static class LlmCost
 {
-    /// <summary>Chi phí USD của một cặp (prompt, completion) token theo đơn giá /1 triệu token.</summary>
     public static decimal Usd(long promptTokens, long completionTokens, decimal inputPricePerMillionTokens, decimal outputPricePerMillionTokens)
         => promptTokens / 1_000_000m * inputPricePerMillionTokens
          + completionTokens / 1_000_000m * outputPricePerMillionTokens;

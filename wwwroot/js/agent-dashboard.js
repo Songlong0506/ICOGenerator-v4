@@ -245,7 +245,6 @@ const ACTIVITY_ICON = {
     observation: '📥', final: '✅', completed: '🎉', error: '❌'
 };
 
-// -- Indicator: poll which agents are running and mark their cards. --
 async function pollActiveAgents() {
     let active = [];
     try {
@@ -268,7 +267,6 @@ async function pollActiveAgents() {
     setTimeout(pollActiveAgents, 3000);
 }
 
-// -- Stats: keep the table's Share / Total Tokens / Calls / Last Activity columns live. --
 async function pollAgentStats() {
     let data;
     try {
@@ -315,7 +313,6 @@ function updateAgentStats(data) {
     });
 }
 
-// -- Popup: live operation feed for one agent. --
 let activityAgentId = null;
 let activityAfterSeq = 0;
 let activityTimer = null;

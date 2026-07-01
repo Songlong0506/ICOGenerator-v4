@@ -17,7 +17,6 @@ public class FeedbackAttachmentStore
     private static readonly IReadOnlyDictionary<string, (FeedbackAttachmentKind Kind, string ContentType)> AllowedExtensions =
         new Dictionary<string, (FeedbackAttachmentKind, string)>(StringComparer.OrdinalIgnoreCase)
         {
-            // Ảnh
             [".png"] = (FeedbackAttachmentKind.Image, "image/png"),
             [".jpg"] = (FeedbackAttachmentKind.Image, "image/jpeg"),
             [".jpeg"] = (FeedbackAttachmentKind.Image, "image/jpeg"),
@@ -25,9 +24,7 @@ public class FeedbackAttachmentStore
             [".webp"] = (FeedbackAttachmentKind.Image, "image/webp"),
             [".bmp"] = (FeedbackAttachmentKind.Image, "image/bmp"),
             [".svg"] = (FeedbackAttachmentKind.Image, "image/svg+xml"),
-            // PDF
             [".pdf"] = (FeedbackAttachmentKind.Pdf, "application/pdf"),
-            // Tài liệu
             [".doc"] = (FeedbackAttachmentKind.Document, "application/msword"),
             [".docx"] = (FeedbackAttachmentKind.Document, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
             [".xls"] = (FeedbackAttachmentKind.Document, "application/vnd.ms-excel"),
@@ -38,7 +35,6 @@ public class FeedbackAttachmentStore
             [".csv"] = (FeedbackAttachmentKind.Document, "text/csv"),
             [".md"] = (FeedbackAttachmentKind.Document, "text/markdown"),
             [".rtf"] = (FeedbackAttachmentKind.Document, "application/rtf"),
-            // Video
             [".mp4"] = (FeedbackAttachmentKind.Video, "video/mp4"),
             [".webm"] = (FeedbackAttachmentKind.Video, "video/webm"),
             [".mov"] = (FeedbackAttachmentKind.Video, "video/quicktime"),

@@ -178,7 +178,7 @@ public class AgentRunService
             if (onToken != null)
             {
                 try { onToken(delta); }
-                catch { /* ignore UI streaming failures */ }
+                catch { }
             }
         }
 
