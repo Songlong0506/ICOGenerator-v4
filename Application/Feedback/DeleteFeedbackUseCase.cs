@@ -28,7 +28,7 @@ public class DeleteFeedbackUseCase
         if (feedback == null)
             return DeleteFeedbackResult.NotFound;
 
-        var isOwner = username != null && feedback.SubmittedByUsername == username;
+        var isOwner = username != null && feedback.CreatedByUsername == username;
         if (!canManage && !isOwner)
             return DeleteFeedbackResult.Forbidden;
 

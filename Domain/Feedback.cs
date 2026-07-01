@@ -22,7 +22,7 @@ public class Feedback
     public string Message { get; set; } = string.Empty;
 
     /// <summary>Username người gửi (claim Name) — dùng để lọc "phản hồi của tôi". Null nếu không xác định.</summary>
-    public string? SubmittedByUsername { get; set; }
+    public string? CreatedByUsername { get; set; }
 
     /// <summary>Tên hiển thị người gửi tại thời điểm gửi (chụp lại để không phụ thuộc việc đổi tên sau này).</summary>
     public string? SubmittedByName { get; set; }
