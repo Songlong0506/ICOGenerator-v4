@@ -386,6 +386,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<SourceContextBuilder>();
         services.AddScoped<ConversationMemoryService>();
         services.AddScoped<UserMemoryService>();
+        services.AddScoped<ChecklistGapMemoryService>();
         return services;
     }
 
