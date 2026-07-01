@@ -43,7 +43,7 @@ public class SubmitFeedbackUseCase
             Type = input.Type,
             Title = title,
             Message = message,
-            SubmittedByUsername = username,
+            CreatedByUsername = username,
             SubmittedByName = string.IsNullOrWhiteSpace(displayName) ? username : displayName,
         };
 

@@ -28,7 +28,7 @@ public class GetFeedbackAttachmentQuery
         if (attachment == null)
             return null;
 
-        var isOwner = username != null && attachment.Feedback.SubmittedByUsername == username;
+        var isOwner = username != null && attachment.Feedback.CreatedByUsername == username;
         if (!canManage && !isOwner)
             return null;
 

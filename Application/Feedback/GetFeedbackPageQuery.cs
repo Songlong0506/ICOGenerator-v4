@@ -32,7 +32,7 @@ public class GetFeedbackPageQuery
 
         // Người dùng thường: chỉ phản hồi của mình. Không có username (hiếm) ⇒ không thấy gì.
         if (!canManage)
-            query = query.Where(f => f.SubmittedByUsername != null && f.SubmittedByUsername == username);
+            query = query.Where(f => f.CreatedByUsername != null && f.CreatedByUsername == username);
 
         if (statusFilter.HasValue)
             query = query.Where(f => f.Status == statusFilter.Value);
@@ -49,9 +49,9 @@ public class GetFeedbackPageQuery
             f.Status,
             f.Title,
             f.Message,
-            string.IsNullOrWhiteSpace(f.SubmittedByName) ? (f.SubmittedByUsername ?? "—") : f.SubmittedByName,
+            string.IsNullOrWhiteSpace(f.SubmittedByName) ? (f.CreatedByUsername ?? "—") : f.SubmittedByName,
             f.CreatedAt,
-            username != null && f.SubmittedByUsername == username,
+            username != null && f.CreatedByUsername == username,
             f.Attachments
                 .OrderBy(a => a.CreatedAt)
                 .Select(a => new FeedbackAttachmentVm(a.Id, a.FileName, a.Kind, a.ContentType, a.SizeBytes))

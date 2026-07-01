@@ -114,6 +114,7 @@ public class AppDbContext : DbContext
             b.Property(x => x.Name).HasMaxLength(100);
             b.Property(x => x.Description).HasMaxLength(1000);
             b.Property(x => x.Color).HasMaxLength(50);
+            b.Property(x => x.CreatedByUsername).HasMaxLength(100);
         });
         builder.Entity<ToolDefinition>(b =>
         {
@@ -178,10 +179,10 @@ public class AppDbContext : DbContext
             b.Property(x => x.Type).HasConversion<string>().HasMaxLength(30);
             b.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
             b.Property(x => x.Title).HasMaxLength(200);
-            b.Property(x => x.SubmittedByUsername).HasMaxLength(100);
+            b.Property(x => x.CreatedByUsername).HasMaxLength(100);
             b.Property(x => x.SubmittedByName).HasMaxLength(200);
             b.HasIndex(x => x.CreatedAt);
-            b.HasIndex(x => new { x.SubmittedByUsername, x.CreatedAt });
+            b.HasIndex(x => new { x.CreatedByUsername, x.CreatedAt });
         });
 
         // File đính kèm: Feedback FK Cascade (xóa phản hồi ⇒ dọn luôn metadata file). Kind lưu dạng chuỗi.

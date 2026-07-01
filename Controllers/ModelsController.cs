@@ -42,7 +42,7 @@ public class ModelsController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        await _createAiModelUseCase.ExecuteAsync(model);
+        await _createAiModelUseCase.ExecuteAsync(model, User.Identity?.Name);
         return RedirectToAction(nameof(Index));
     }
 

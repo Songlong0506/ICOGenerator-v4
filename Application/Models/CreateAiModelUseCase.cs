@@ -16,12 +16,13 @@ public class CreateAiModelUseCase
         _audit = audit;
     }
 
-    public async Task ExecuteAsync(AiModel model)
+    public async Task ExecuteAsync(AiModel model, string? createdByUsername = null)
     {
         // Identity & audit fields are server-owned; overwrite whatever the form posted so a client
-        // can't over-post a chosen Id or fake CreatedAt (mass assignment).
+        // can't over-post a chosen Id, fake CreatedAt, or spoof the creator (mass assignment).
         model.Id = Guid.NewGuid();
         model.CreatedAt = DateTime.UtcNow;
+        model.CreatedByUsername = createdByUsername;
 
         _db.AiModels.Add(model);
         await _db.SaveChangesAsync();
@@ -41,6 +42,7 @@ public class CreateAiModelUseCase
         m.InputPricePerMillionTokens,
         m.OutputPricePerMillionTokens,
         m.IsActive,
-        m.SupportsVision
+        m.SupportsVision,
+        m.CreatedByUsername
     };
 }
