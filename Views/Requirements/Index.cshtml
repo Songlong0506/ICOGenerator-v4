@@ -57,16 +57,17 @@
         ? ParseSuggestions(lastItem.Conversation.Suggestions)
         : new List<string>();
 
-    // Lượt chào đầu tiên (workspace trống) KHÔNG gợi ý: để người dùng tự mô tả ý tưởng dự án.
-    // Chỉ khi đã có hội thoại thì mới hiển thị gợi ý cho lượt hỏi mới nhất của BA.
-    var displaySuggestions = lastBaSuggestions;
-
     // Nút "Write Requirement" chỉ "sẵn sàng" (nổi bật) khi lượt BA mới nhất tự báo đã đủ thông tin
     // (ReadyForRequirement = true). Khi chưa đủ — kể cả khi workspace còn trống — nút ở trạng thái "mờ"
     // kèm ghi chú: BA vẫn đang hỏi thêm, nhưng người dùng VẪN có thể bấm tạo ngay nếu muốn (gate readiness
     // phía server vẫn chặn nếu thực sự thiếu thông tin cốt lõi).
     var lastBaTurn = conversations.LastOrDefault(c => c.Role == "assistant");
     var requirementReady = lastBaTurn?.ReadyForRequirement ?? false;
+
+    // Lượt chào đầu tiên (workspace trống) KHÔNG gợi ý: để người dùng tự mô tả ý tưởng dự án.
+    // Khi BA đã báo đủ thông tin (ready), gợi ý dạng "Đã đủ, tiếp tục"/"Bổ sung thêm" không còn giá trị
+    // (bấm vào chỉ gửi lại một tin nhắn chat) — ẩn hẳn, để người dùng bấm thẳng nút "Write Requirement".
+    var displaySuggestions = requirementReady ? new List<string>() : lastBaSuggestions;
 
     // Tài liệu nguồn (ảnh/PDF) người dùng upload cho project + cờ vision của model BA (để cảnh báo).
     var sourceFiles = Model.SourceFiles.OrderByDescending(x => x.CreatedAt).ToList();
