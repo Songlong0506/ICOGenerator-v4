@@ -167,9 +167,6 @@ public class BARequirementService
         // Surface a failure as a clearly-labelled assistant turn instead of a 500, but never present an API error as if it were a normal BA answer.
         string reply;
         string? suggestionsJson = null;
-        // BA tự báo đã đủ thông tin chưa → quyết định nút "Write Requirement" bật nổi bật hay để mờ.
-        // Lời gọi lỗi ⇒ chắc chắn chưa sẵn sàng (false).
-        var ready = false;
         if (!callResult.IsSuccess)
         {
             reply = $"⚠️ Lời gọi AI thất bại, chưa thể trả lời. Chi tiết: {callResult.ErrorMessage ?? callResult.Content}";
@@ -184,8 +181,6 @@ public class BARequirementService
             // Lưu suggestions tách riêng (JSON) để UI render chip; chỉ set khi thực sự có gợi ý.
             if (parsedReply.Suggestions.Count > 0)
                 suggestionsJson = JsonSerializer.Serialize(parsedReply.Suggestions);
-
-            ready = parsedReply.Ready;
         }
 
         _db.AgentConversations.Add(new AgentConversation
@@ -195,7 +190,6 @@ public class BARequirementService
             Role = "assistant",
             Message = reply,
             Suggestions = suggestionsJson,
-            ReadyForRequirement = ready,
             TokenUsed = TokenEstimator.Estimate(reply)
         });
         await _db.SaveChangesAsync(cancellationToken);
@@ -314,9 +308,6 @@ public class BARequirementService
             AgentId = ba.Id,
             Role = "assistant",
             Message = assistantMessage,
-            // Đã soạn xong tài liệu ⇒ BA không còn câu hỏi → giữ nút "Write Requirement" ở trạng thái sẵn sàng
-            // (để tạo lại/cập nhật) thay vì quay về mờ ngay sau khi vừa sinh tài liệu.
-            ReadyForRequirement = true,
             TokenUsed = TokenEstimator.Estimate(assistantMessage)
         });
 
@@ -527,7 +518,10 @@ public class BARequirementService
             }
         }
 
-        return JsonSerializer.Serialize(new { message = c.Message, suggestions, ready = c.ReadyForRequirement });
+        // "ready" được suy ra từ chính nội dung lượt: prompt ép model hễ mời bấm "Write Requirement" thì
+        // đó là lúc đã đủ thông tin, nên message có nhắc nút ⇔ ready. Echo lại cờ này để củng cố format JSON.
+        var ready = c.Message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
+        return JsonSerializer.Serialize(new { message = c.Message, suggestions, ready });
     }
 
     private static string BuildRequirementBrief(IEnumerable<AgentConversation> conversations)
