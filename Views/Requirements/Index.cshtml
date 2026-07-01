@@ -61,18 +61,13 @@
     // Chỉ khi đã có hội thoại thì mới hiển thị gợi ý cho lượt hỏi mới nhất của BA.
     var displaySuggestions = lastBaSuggestions;
 
-    // Nút "Write Requirement" chỉ "sẵn sàng" (nổi bật) khi lượt BA mới nhất tự báo đã đủ thông tin
-    // (ReadyForRequirement = true). Khi chưa đủ — kể cả khi workspace còn trống — nút ở trạng thái "mờ"
-    // kèm ghi chú: BA vẫn đang hỏi thêm, nhưng người dùng VẪN có thể bấm tạo ngay nếu muốn (gate readiness
-    // phía server vẫn chặn nếu thực sự thiếu thông tin cốt lõi).
+    // Nút "Write Requirement" hiện "sẵn sàng" (nổi bật) khi lượt BA mới nhất MỜI người dùng bấm nút — tức
+    // lời nhắn có nhắc tới "Write Requirement". Prompt ép model chỉ mời bấm khi đã khai thác đủ thông tin,
+    // nên chính nội dung lời nhắn là tín hiệu sẵn sàng (khớp với lời mời, không còn cờ ready lưu riêng).
+    // Khi chưa mời — kể cả lúc workspace còn trống — nút ở trạng thái "mờ" kèm ghi chú: BA vẫn đang hỏi thêm,
+    // nhưng người dùng VẪN có thể bấm tạo ngay (gate readiness phía server vẫn chặn nếu thực sự thiếu thông tin).
     var lastBaTurn = conversations.LastOrDefault(c => c.Role == "assistant");
-
-    // An toàn hiển thị: đôi khi model mời bấm nút "Write Requirement" NGAY trong lời nhắn nhưng lại lỡ
-    // để cờ ready=false → nút bị mờ trong khi BA bảo bấm, gây mâu thuẫn (đúng ca người dùng gặp). Prompt
-    // đã cấm nhưng model không phải lúc nào cũng tuân, nên chốt lại ở đây: hễ lời nhắn mới nhất của BA có
-    // nhắc tới nút "Write Requirement" thì coi như đã sẵn sàng, để nút luôn nổi bật khớp với lời mời.
-    var lastBaInvitesWrite = lastBaTurn?.Message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
-    var requirementReady = (lastBaTurn?.ReadyForRequirement ?? false) || lastBaInvitesWrite;
+    var requirementReady = lastBaTurn?.Message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
 
     // Tài liệu nguồn (ảnh/PDF) người dùng upload cho project + cờ vision của model BA (để cảnh báo).
     var sourceFiles = Model.SourceFiles.OrderByDescending(x => x.CreatedAt).ToList();
