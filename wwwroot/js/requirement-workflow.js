@@ -42,7 +42,6 @@
         error: '❌'
     };
 
-    // ── Danh sách run của một panel ─────────────────────────────────────────────
     function runIdsOf(panel) {
         return (panel.dataset.runIds || '')
             .split(',')

@@ -5,8 +5,8 @@ namespace ICOGenerator.Application.Projects;
 
 public enum UpdateDeliveryConfigResult
 {
-    Updated,        // đã lưu cấu hình
-    ProjectNotFound // không tìm thấy project
+    Updated,
+    ProjectNotFound
 }
 
 /// <summary>

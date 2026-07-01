@@ -272,7 +272,6 @@
                 }
             }
 
-            // Individual tool toggles
             checkboxes.forEach(function (checkbox) {
                 checkbox.addEventListener('change', function () {
                     reflectCard(checkbox);
@@ -297,7 +296,6 @@
                     if (activeFilter !== 'all') applyFilters(); else syncGroupCheckbox(group);
                 });
 
-                // Collapse / expand
                 const toggle = group.querySelector('.tool-group-toggle');
                 toggle.addEventListener('click', function () {
                     const collapsed = group.classList.toggle('collapsed');
@@ -305,14 +303,12 @@
                 });
             });
 
-            // Search
             let searchTimer;
             searchInput.addEventListener('input', function () {
                 clearTimeout(searchTimer);
                 searchTimer = setTimeout(applyFilters, 120);
             });
 
-            // Status filter chips
             chips.forEach(function (chip) {
                 chip.addEventListener('click', function () {
                     chips.forEach(c => c.classList.remove('active'));
@@ -322,7 +318,6 @@
                 });
             });
 
-            // Bulk actions
             document.querySelectorAll('.tools-bulk .link-btn').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     const action = btn.dataset.bulk;
@@ -338,7 +333,6 @@
                 });
             });
 
-            // Init
             groups.forEach(syncGroupCheckbox);
             updateSelectedCount();
         })();
