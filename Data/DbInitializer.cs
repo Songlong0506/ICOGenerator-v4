@@ -26,31 +26,6 @@ public static class DbInitializer
         await SeedUsersAsync(db, scope.ServiceProvider);
         await SeedRolePermissionsAsync(db);
 
-        // Backfill: quyền DeliveryAdvance (duyệt/đẩy bước delivery trên Agent Dashboard) được thêm sau
-        // lần seed quyền ban đầu. Với install cũ (bảng RolePermission không rỗng → SeedRolePermissionsAsync
-        // bỏ qua), cấp idempotent cho TeamDev để cổng duyệt trên dashboard hoạt động ngay sau khi nâng cấp.
-        await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.DeliveryAdvance);
-
-        // Backfill: tab Feedback thêm sau lần seed ban đầu. Cấp quyền gửi/xem phản hồi (FeedbackView) cho cả
-        // User lẫn TeamDev, và quyền triage (FeedbackManage) cho TeamDev, để tab hiện ngay sau khi nâng cấp
-        // mà không cần reset DB. Admin có toàn quyền ngầm định nên không cần dòng nào.
-        await EnsureRolePermissionAsync(db, UserRole.User, AppPermission.FeedbackView);
-        await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.FeedbackView);
-        await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.FeedbackManage);
-
-        // Backfill: tab Audit Log thêm sau lần seed ban đầu. Cấp quyền xem nhật ký thay đổi cấu hình cho TeamDev
-        // (người trực tiếp quản lý Agents/Models nên cần debug khi cấu hình đổi). Admin có toàn quyền ngầm định.
-        await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.AuditView);
-
-        // Backfill: quyền ProjectsViewAll (xem mọi project, không chỉ project mình tạo) được thêm sau lần
-        // seed ban đầu. Cấp idempotent cho TeamDev để họ vẫn thấy tất cả project ngay sau khi nâng cấp;
-        // User thường không được cấp nên chỉ thấy project của chính mình. Admin có toàn quyền ngầm định.
-        await EnsureRolePermissionAsync(db, UserRole.TeamDev, AppPermission.ProjectsViewAll);
-
-        // One-time: GitDiff moved from a standalone DiffTools class into GitTools. Re-home the existing
-        // tool-definition row BEFORE discovery runs so the Tech Lead's existing assignment keeps resolving.
-        await RehomeToolServiceTypeAsync(db, oldServiceType: "DiffTools", newServiceType: "GitTools");
-
         var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
         await discovery.SyncToolDefinitionsAsync();
 
@@ -84,20 +59,6 @@ public static class DbInitializer
             await AssignDefaultToolsAsync(db);
         }
 
-        // Backfill: AppendPocContent was added after the initial agent seed, so existing installs (DB not
-        // empty → AssignDefaultToolsAsync skipped) won't have it wired to the Developer. Attach it
-        // idempotently on every startup so the multi-call POC flow works without a manual DB reset.
-        await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.WorkspaceTools.AppendPocContent));
-
-        // Backfill: bộ tool nâng chất lượng POC (script nghiệp vụ + tự kiểm tra) được thêm sau các seed
-        // cũ. Gắn idempotent cho Developer mỗi lần khởi động, cùng lý do với AppendPocContent ở trên.
-        await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.WorkspaceTools.SetPocScript));
-        await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.WorkspaceTools.AppendPocScript));
-        await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.WorkspaceTools.AuditPocContent));
-
-        // Backfill: OpenPullRequest (bước "Tạo Pull Request" cuối pipeline) được thêm sau lần seed agent
-        // ban đầu, nên các install cũ chưa có. Gắn idempotent cho Developer mỗi lần khởi động.
-        await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.GitTools.OpenPullRequest));
     }
 
     // Bộ tài khoản seed cố định (admin/teamdev/user) cùng mật khẩu mặc định — chỉ dùng cho lần khởi tạo đầu.
@@ -173,19 +134,6 @@ public static class DbInitializer
         await db.SaveChangesAsync();
     }
 
-    // Cấp một quyền cho một role nếu chưa có (idempotent). Dùng để backfill quyền mới thêm sau lần seed
-    // ban đầu mà không động tới các quyền đã cấu hình tay. Bảng có unique index (Role, Permission) nên chỉ
-    // thêm khi thật sự thiếu.
-    private static async Task EnsureRolePermissionAsync(AppDbContext db, UserRole role, AppPermission permission)
-    {
-        var exists = await db.RolePermissions.AnyAsync(x => x.Role == role && x.Permission == permission);
-        if (exists)
-            return;
-
-        db.RolePermissions.Add(new RolePermission { Role = role, Permission = permission });
-        await db.SaveChangesAsync();
-    }
-
     // Số lần một task được phép chạy lại sau khi bị gián đoạn bởi restart trước khi bị coi là Failed,
     // để một task liên tục làm crash host không bị re-queue vô hạn.
     private const int MaxTaskAttempts = 3;
@@ -246,50 +194,4 @@ public static class DbInitializer
         await db.SaveChangesAsync();
     }
 
-    // Idempotently wires a single tool (by its method name) to the Developer agent if not already
-    // assigned. Used to backfill tools added after the one-time AssignDefaultToolsAsync seed; safe to
-    // run on every startup (no-op once present, and no-op before the tool definition is discovered).
-    private static async Task EnsureDeveloperHasToolAsync(AppDbContext db, string toolName)
-    {
-        var developerId = await db.Agents
-            .Where(x => x.RoleKey == AgentRoleKey.Developer)
-            .Select(x => (Guid?)x.Id)
-            .FirstOrDefaultAsync();
-        if (developerId is null)
-            return;
-
-        var toolDefId = await db.ToolDefinitions
-            .Where(x => x.Name == toolName)
-            .Select(x => (Guid?)x.Id)
-            .FirstOrDefaultAsync();
-        if (toolDefId is null)
-            return;
-
-        var alreadyAssigned = await db.AgentTools
-            .AnyAsync(x => x.AgentId == developerId.Value && x.ToolDefinitionId == toolDefId.Value);
-        if (alreadyAssigned)
-            return;
-
-        db.AgentTools.Add(new AgentTool { AgentId = developerId.Value, ToolDefinitionId = toolDefId.Value });
-        await db.SaveChangesAsync();
-    }
-
-    // One-time data fix for when a tool method is relocated between *Tools classes (e.g. GitDiff: DiffTools
-    // → GitTools). Updates ServiceType IN PLACE so each row keeps its Id — and therefore its AgentTool
-    // assignments — instead of being abandoned for a brand-new row. Idempotent: once renamed there are no
-    // rows under the old ServiceType, so later startups no-op. Tools are keyed by (ServiceType, MethodName),
-    // and the destination (GitTools, GitDiff) is only created by discovery AFTER this, so no row collides.
-    private static async Task RehomeToolServiceTypeAsync(AppDbContext db, string oldServiceType, string newServiceType)
-    {
-        var rows = await db.ToolDefinitions
-            .Where(x => x.ServiceType == oldServiceType)
-            .ToListAsync();
-        if (rows.Count == 0)
-            return;
-
-        foreach (var row in rows)
-            row.ServiceType = newServiceType;
-
-        await db.SaveChangesAsync();
-    }
 }
