@@ -178,6 +178,14 @@ public class BARequirementService
                 ? "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu."
                 : parsedReply.Message;
 
+            // UI hiện suy ra trạng thái sẵn sàng từ lời mời bấm "Write Requirement". Nếu structured output
+            // trả `ready=true` nhưng model quên nhắc nút trong câu chữ, bổ sung lời mời để quy trình không bị
+            // kẹt ở trạng thái "BA đã đủ thông tin" nhưng nút vẫn mờ.
+            if (parsedReply.Ready && !reply.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase))
+            {
+                reply += "\n\nNếu bạn thấy tóm tắt đã đủ ý, hãy bấm nút \"Write Requirement\" để tạo tài liệu.";
+            }
+
             // Lưu suggestions tách riêng (JSON) để UI render chip; chỉ set khi thực sự có gợi ý.
             if (parsedReply.Suggestions.Count > 0)
                 suggestionsJson = JsonSerializer.Serialize(parsedReply.Suggestions);

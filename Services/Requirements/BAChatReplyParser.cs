@@ -39,7 +39,8 @@ public class BAChatReplyParser
                             Message = message.Length > 0
                                 ? message
                                 : "Đã ghi nhận. Bạn có thể chọn một gợi ý bên dưới hoặc tự nhập thêm.",
-                            Suggestions = suggestions
+                            Suggestions = suggestions,
+                            Ready = parsed.Ready ?? false
                         };
                     }
                 }
@@ -102,5 +103,6 @@ public class BAChatReplyParser
     {
         public string? Message { get; set; }
         public List<JsonElement>? Suggestions { get; set; }
+        public bool? Ready { get; set; }
     }
 }
