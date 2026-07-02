@@ -19,6 +19,17 @@ public static class PocTemplate
     public const string Placeholder = "<!-- POC_CONTENT -->";
 
     /// <summary>
+    /// Second marked region: the POC page-logic script (business-rule behaviour — computed values,
+    /// sign/state flows, role simulation), written only via SetPocScript/AppendPocScript. Lives AFTER
+    /// the shell script so the shell hooks (window.pocToast / window.pocNavigate) already exist when
+    /// it runs. Must match the literal lines in Prompts/Design/poc-template.html.
+    /// </summary>
+    public const string ScriptStartMarker = "<!-- POC_SCRIPT_START : page logic injected via SetPocScript -->";
+    public const string ScriptEndMarker = "<!-- POC_SCRIPT_END -->";
+
+    public const string ScriptPlaceholder = "/* POC_SCRIPT */";
+
+    /// <summary>
     /// Builds the poc-demo.html body by collapsing everything between the markers into a single
     /// placeholder line. Returns null when the markers are missing/malformed (caller falls back to a raw copy).
     /// </summary>
@@ -72,17 +83,121 @@ public static class PocTemplate
             + current[endIdx..];
     }
 
-    private static bool TryLocateRegion(string content, out int afterStart, out int endIdx)
+    private static bool TryLocateRegion(string content, out int afterStart, out int endIdx) =>
+        TryLocateRegion(content, StartMarker, EndMarker, out afterStart, out endIdx);
+
+    private static bool TryLocateRegion(string content, string startMarker, string endMarker, out int afterStart, out int endIdx)
     {
         afterStart = 0;
-        var startIdx = content.IndexOf(StartMarker, StringComparison.Ordinal);
-        endIdx = content.IndexOf(EndMarker, StringComparison.Ordinal);
+        var startIdx = content.IndexOf(startMarker, StringComparison.Ordinal);
+        endIdx = content.IndexOf(endMarker, StringComparison.Ordinal);
 
         if (startIdx < 0 || endIdx <= startIdx)
             return false;
 
-        afterStart = startIdx + StartMarker.Length;
+        afterStart = startIdx + startMarker.Length;
         return true;
+    }
+
+    // ---- POC page-logic script (the POC_SCRIPT region) ----
+
+    /// <summary>
+    /// Replaces the POC_SCRIPT region with a single &lt;script&gt; carrying <paramref name="script"/>
+    /// (normalized: an accidental &lt;script&gt; wrapper or markdown fence is stripped, "&lt;/script"
+    /// inside the code is escaped so it can't terminate the element early). When the file predates the
+    /// script region (a workspace seeded from an older template), the whole region is grafted in just
+    /// before &lt;/body&gt; so SetPocScript keeps working without re-seeding the demo. Returns the input
+    /// unchanged when the script is blank, or null when there is neither a region nor a &lt;/body&gt;.
+    /// </summary>
+    public static string? ReplaceScript(string current, string script)
+    {
+        var js = NormalizeScript(script);
+        if (js.Length == 0)
+            return current;
+
+        if (TryLocateRegion(current, ScriptStartMarker, ScriptEndMarker, out var afterStart, out var endIdx))
+            return current[..afterStart] + ScriptBlock(js) + current[endIdx..];
+
+        var bodyIdx = current.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
+        if (bodyIdx < 0)
+            return null;
+
+        return current[..bodyIdx]
+            + "    " + ScriptStartMarker + ScriptBlock(js) + ScriptEndMarker + "\n"
+            + current[bodyIdx..];
+    }
+
+    /// <summary>
+    /// Appends <paramref name="addition"/> to the END of the script already in the POC_SCRIPT region,
+    /// so long page logic can be delivered across several small calls (same reason AppendContent
+    /// exists: one big call gets cut off at the token limit). Chunks share one &lt;script&gt; element
+    /// and run in order. On an empty region (or a file without one) this behaves like ReplaceScript.
+    /// </summary>
+    public static string? AppendScript(string current, string addition)
+    {
+        var js = NormalizeScript(addition);
+        if (js.Length == 0)
+            return current;
+
+        if (!TryLocateRegion(current, ScriptStartMarker, ScriptEndMarker, out var afterStart, out var endIdx))
+            return ReplaceScript(current, addition); // no region yet: also covers the pre-region fallback
+
+        var existing = ExtractScriptBody(current[afterStart..endIdx]);
+        var merged = existing.Length == 0 ? js : existing + "\n\n" + js;
+        return current[..afterStart] + ScriptBlock(merged) + current[endIdx..];
+    }
+
+    /// <summary>
+    /// The JavaScript currently in the POC_SCRIPT region ("" when the region is missing or still the
+    /// seed placeholder). Used by the audit to tell a behaving POC from static screens.
+    /// </summary>
+    public static string GetScriptBody(string current) =>
+        TryLocateRegion(current, ScriptStartMarker, ScriptEndMarker, out var afterStart, out var endIdx)
+            ? ExtractScriptBody(current[afterStart..endIdx])
+            : string.Empty;
+
+    private static string ScriptBlock(string js) =>
+        "\n    <script>\n" + js + "\n    </script>\n    ";
+
+    private static string ExtractScriptBody(string region)
+    {
+        var open = region.IndexOf("<script", StringComparison.OrdinalIgnoreCase);
+        if (open < 0)
+            return string.Empty;
+        var openEnd = region.IndexOf('>', open);
+        var close = region.LastIndexOf("</script>", StringComparison.OrdinalIgnoreCase);
+        if (openEnd < 0 || close <= openEnd)
+            return string.Empty;
+        return region[(openEnd + 1)..close].Replace(ScriptPlaceholder, string.Empty).Trim();
+    }
+
+    // Models sometimes wrap the JS in a <script> tag or a markdown fence despite instructions — accept
+    // it and keep just the code. "</script" inside the code would terminate the inline element early
+    // (the classic breakout), so it's escaped the standard way; legitimate JS only carries that text
+    // inside a string literal, where "<\/script" is equivalent.
+    private static string NormalizeScript(string? script)
+    {
+        var js = (script ?? string.Empty).Trim();
+
+        if (js.StartsWith("```", StringComparison.Ordinal))
+        {
+            var firstLineEnd = js.IndexOf('\n');
+            js = firstLineEnd < 0 ? string.Empty : js[(firstLineEnd + 1)..];
+            var closingFence = js.LastIndexOf("```", StringComparison.Ordinal);
+            if (closingFence >= 0)
+                js = js[..closingFence];
+            js = js.Trim();
+        }
+
+        if (js.StartsWith("<script", StringComparison.OrdinalIgnoreCase))
+        {
+            var openEnd = js.IndexOf('>');
+            var close = js.LastIndexOf("</script>", StringComparison.OrdinalIgnoreCase);
+            if (openEnd >= 0 && close > openEnd)
+                js = js[(openEnd + 1)..close].Trim();
+        }
+
+        return js.Replace("</script", "<\\/script", StringComparison.OrdinalIgnoreCase);
     }
 
     // Shell customization (App Name, browser title, breadcrumb, left nav) — these live OUTSIDE the

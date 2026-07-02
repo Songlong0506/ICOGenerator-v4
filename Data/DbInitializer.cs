@@ -89,6 +89,12 @@ public static class DbInitializer
         // idempotently on every startup so the multi-call POC flow works without a manual DB reset.
         await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.WorkspaceTools.AppendPocContent));
 
+        // Backfill: bộ tool nâng chất lượng POC (script nghiệp vụ + tự kiểm tra) được thêm sau các seed
+        // cũ. Gắn idempotent cho Developer mỗi lần khởi động, cùng lý do với AppendPocContent ở trên.
+        await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.WorkspaceTools.SetPocScript));
+        await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.WorkspaceTools.AppendPocScript));
+        await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.WorkspaceTools.AuditPocContent));
+
         // Backfill: OpenPullRequest (bước "Tạo Pull Request" cuối pipeline) được thêm sau lần seed agent
         // ban đầu, nên các install cũ chưa có. Gắn idempotent cho Developer mỗi lần khởi động.
         await EnsureDeveloperHasToolAsync(db, nameof(ICOGenerator.Services.Tools.GitTools.OpenPullRequest));
@@ -234,7 +240,7 @@ public static class DbInitializer
 
         await Assign(AgentRoleKey.BusinessAnalyst, "ListFiles", "ReadFile", "WriteFile", "SearchFiles");
         await Assign(AgentRoleKey.TechLead, "ListFiles", "ReadFile", "WriteFile", "GitDiff", "GitStatus");
-        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SetPocContent", "AppendPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch", "OpenPullRequest");
+        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SetPocContent", "AppendPocContent", "SetPocScript", "AppendPocScript", "AuditPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch", "OpenPullRequest");
         await Assign(AgentRoleKey.Tester, "ListFiles", "ReadFile", "WriteFile", "RunCommand");
         await Assign(AgentRoleKey.UiUx, "WriteFile", "ReadFile", "ListFiles");
         await db.SaveChangesAsync();

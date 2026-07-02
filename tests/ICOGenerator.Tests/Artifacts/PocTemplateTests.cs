@@ -276,6 +276,125 @@ public class PocTemplateTests
         Assert.Contains(PocTemplate.EndMarker, doc);
     }
 
+    // ---- POC_SCRIPT region (page logic written via SetPocScript/AppendPocScript) ----
+
+    private static string TemplateWithScriptRegion(string content = "<p>c</p>") =>
+        $"<html><body>\n{PocTemplate.StartMarker}\n{content}\n{PocTemplate.EndMarker}\n" +
+        $"    {PocTemplate.ScriptStartMarker}\n    <script>\n    {PocTemplate.ScriptPlaceholder}\n    </script>\n    {PocTemplate.ScriptEndMarker}\n</body></html>";
+
+    [Fact]
+    public void ReplaceScript_WritesJsIntoRegion_DropsPlaceholder_KeepsMarkers()
+    {
+        var updated = PocTemplate.ReplaceScript(TemplateWithScriptRegion(), "function login(){ pocNavigate('Dashboard'); }");
+
+        Assert.NotNull(updated);
+        Assert.Contains("function login(){ pocNavigate('Dashboard'); }", updated);
+        Assert.DoesNotContain(PocTemplate.ScriptPlaceholder, updated);
+        Assert.Contains(PocTemplate.ScriptStartMarker, updated);
+        Assert.Contains(PocTemplate.ScriptEndMarker, updated);
+        Assert.Equal(1, Count(updated!, "<script>"));
+    }
+
+    [Fact]
+    public void ReplaceScript_SecondCallReplaces_InsteadOfStacking()
+    {
+        var doc = PocTemplate.ReplaceScript(TemplateWithScriptRegion(), "var first = 1;")!;
+
+        var again = PocTemplate.ReplaceScript(doc, "var second = 2;")!;
+
+        Assert.Contains("var second = 2;", again);
+        Assert.DoesNotContain("var first = 1;", again);
+        Assert.Equal(1, Count(again, "<script>"));
+    }
+
+    [Fact]
+    public void ReplaceScript_StripsScriptTagWrapper_AndMarkdownFence()
+    {
+        // Models sometimes wrap the JS despite instructions; the wrapper is stripped, not doubled.
+        var wrapped = PocTemplate.ReplaceScript(TemplateWithScriptRegion(), "<script>\nvar x = 1;\n</script>")!;
+        Assert.Contains("var x = 1;", wrapped);
+        Assert.Equal(1, Count(wrapped, "<script"));
+
+        var fenced = PocTemplate.ReplaceScript(TemplateWithScriptRegion(), "```js\nvar y = 2;\n```")!;
+        Assert.Contains("var y = 2;", fenced);
+        Assert.DoesNotContain("```", fenced);
+    }
+
+    [Fact]
+    public void ReplaceScript_EscapesEarlyScriptTermination()
+    {
+        // "</script" inside the JS would end the inline element early; it is escaped the standard way.
+        var updated = PocTemplate.ReplaceScript(TemplateWithScriptRegion(), "var s = \"</script>\";")!;
+
+        Assert.Contains("var s = \"<\\/script>\";", updated);
+    }
+
+    [Fact]
+    public void ReplaceScript_GraftsRegionBeforeBody_WhenRegionMissing()
+    {
+        // Workspace seeded from an older template (no script region): the region is grafted in
+        // before </body> so SetPocScript keeps working, and later calls replace instead of stacking.
+        var legacy = TemplateWith("<p>old</p>");
+
+        var updated = PocTemplate.ReplaceScript(legacy, "var z = 3;");
+
+        Assert.NotNull(updated);
+        Assert.Contains(PocTemplate.ScriptStartMarker, updated);
+        Assert.Contains("var z = 3;", updated);
+        Assert.True(updated!.IndexOf("var z = 3;", System.StringComparison.Ordinal)
+                    < updated.IndexOf("</body>", System.StringComparison.Ordinal));
+
+        var again = PocTemplate.ReplaceScript(updated, "var w = 4;")!;
+        Assert.Contains("var w = 4;", again);
+        Assert.DoesNotContain("var z = 3;", again);
+    }
+
+    [Fact]
+    public void ReplaceScript_ReturnsNull_WhenNoRegionAndNoBody()
+    {
+        Assert.Null(PocTemplate.ReplaceScript("<html>nothing</html>", "var x = 1;"));
+    }
+
+    [Fact]
+    public void ReplaceScript_NoOp_WhenBlank()
+    {
+        var doc = TemplateWithScriptRegion();
+        Assert.Equal(doc, PocTemplate.ReplaceScript(doc, "   "));
+    }
+
+    [Fact]
+    public void AppendScript_AddsAfterExistingChunk_InOneScriptElement()
+    {
+        var doc = PocTemplate.ReplaceScript(TemplateWithScriptRegion(), "function a(){}")!;
+
+        doc = PocTemplate.AppendScript(doc, "function b(){}")!;
+
+        Assert.Contains("function a(){}", doc);
+        Assert.Contains("function b(){}", doc);
+        Assert.True(doc.IndexOf("function a(){}", System.StringComparison.Ordinal)
+                    < doc.IndexOf("function b(){}", System.StringComparison.Ordinal));
+        Assert.Equal(1, Count(doc, "<script>"));
+    }
+
+    [Fact]
+    public void AppendScript_OnEmptyRegion_ActsLikeSet()
+    {
+        var doc = PocTemplate.AppendScript(TemplateWithScriptRegion(), "function only(){}");
+
+        Assert.NotNull(doc);
+        Assert.Contains("function only(){}", doc);
+        Assert.DoesNotContain(PocTemplate.ScriptPlaceholder, doc);
+    }
+
+    [Fact]
+    public void GetScriptBody_EmptyOnSeed_ReturnsJsAfterSet()
+    {
+        Assert.Equal(string.Empty, PocTemplate.GetScriptBody(TemplateWithScriptRegion()));
+
+        var doc = PocTemplate.ReplaceScript(TemplateWithScriptRegion(), "var q = 1;")!;
+        Assert.Equal("var q = 1;", PocTemplate.GetScriptBody(doc));
+    }
+
     private static int Count(string haystack, string needle)
     {
         int count = 0, idx = 0;
