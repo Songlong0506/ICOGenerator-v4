@@ -104,10 +104,8 @@ public static class PocTemplate
     /// <summary>
     /// Replaces the POC_SCRIPT region with a single &lt;script&gt; carrying <paramref name="script"/>
     /// (normalized: an accidental &lt;script&gt; wrapper or markdown fence is stripped, "&lt;/script"
-    /// inside the code is escaped so it can't terminate the element early). When the file predates the
-    /// script region (a workspace seeded from an older template), the whole region is grafted in just
-    /// before &lt;/body&gt; so SetPocScript keeps working without re-seeding the demo. Returns the input
-    /// unchanged when the script is blank, or null when there is neither a region nor a &lt;/body&gt;.
+    /// inside the code is escaped so it can't terminate the element early). Returns the input
+    /// unchanged when the script is blank, or null when the script markers are missing/malformed.
     /// </summary>
     public static string? ReplaceScript(string current, string script)
     {
@@ -115,23 +113,16 @@ public static class PocTemplate
         if (js.Length == 0)
             return current;
 
-        if (TryLocateRegion(current, ScriptStartMarker, ScriptEndMarker, out var afterStart, out var endIdx))
-            return current[..afterStart] + ScriptBlock(js) + current[endIdx..];
-
-        var bodyIdx = current.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
-        if (bodyIdx < 0)
-            return null;
-
-        return current[..bodyIdx]
-            + "    " + ScriptStartMarker + ScriptBlock(js) + ScriptEndMarker + "\n"
-            + current[bodyIdx..];
+        return TryLocateRegion(current, ScriptStartMarker, ScriptEndMarker, out var afterStart, out var endIdx)
+            ? current[..afterStart] + ScriptBlock(js) + current[endIdx..]
+            : null;
     }
 
     /// <summary>
     /// Appends <paramref name="addition"/> to the END of the script already in the POC_SCRIPT region,
     /// so long page logic can be delivered across several small calls (same reason AppendContent
     /// exists: one big call gets cut off at the token limit). Chunks share one &lt;script&gt; element
-    /// and run in order. On an empty region (or a file without one) this behaves like ReplaceScript.
+    /// and run in order. On an empty region this behaves like ReplaceScript.
     /// </summary>
     public static string? AppendScript(string current, string addition)
     {
@@ -140,7 +131,7 @@ public static class PocTemplate
             return current;
 
         if (!TryLocateRegion(current, ScriptStartMarker, ScriptEndMarker, out var afterStart, out var endIdx))
-            return ReplaceScript(current, addition); // no region yet: also covers the pre-region fallback
+            return null;
 
         var existing = ExtractScriptBody(current[afterStart..endIdx]);
         var merged = existing.Length == 0 ? js : existing + "\n\n" + js;

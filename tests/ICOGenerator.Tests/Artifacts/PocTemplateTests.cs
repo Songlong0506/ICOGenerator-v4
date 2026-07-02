@@ -330,27 +330,17 @@ public class PocTemplateTests
     }
 
     [Fact]
-    public void ReplaceScript_GraftsRegionBeforeBody_WhenRegionMissing()
+    public void ReplaceScript_ReturnsNull_WhenRegionMissing()
     {
-        // Workspace seeded from an older template (no script region): the region is grafted in
-        // before </body> so SetPocScript keeps working, and later calls replace instead of stacking.
-        var legacy = TemplateWith("<p>old</p>");
+        var templateWithoutScriptRegion = TemplateWith("<p>old</p>");
 
-        var updated = PocTemplate.ReplaceScript(legacy, "var z = 3;");
+        var updated = PocTemplate.ReplaceScript(templateWithoutScriptRegion, "var z = 3;");
 
-        Assert.NotNull(updated);
-        Assert.Contains(PocTemplate.ScriptStartMarker, updated);
-        Assert.Contains("var z = 3;", updated);
-        Assert.True(updated!.IndexOf("var z = 3;", System.StringComparison.Ordinal)
-                    < updated.IndexOf("</body>", System.StringComparison.Ordinal));
-
-        var again = PocTemplate.ReplaceScript(updated, "var w = 4;")!;
-        Assert.Contains("var w = 4;", again);
-        Assert.DoesNotContain("var z = 3;", again);
+        Assert.Null(updated);
     }
 
     [Fact]
-    public void ReplaceScript_ReturnsNull_WhenNoRegionAndNoBody()
+    public void ReplaceScript_ReturnsNull_WhenRegionMissingWithoutBody()
     {
         Assert.Null(PocTemplate.ReplaceScript("<html>nothing</html>", "var x = 1;"));
     }
@@ -384,6 +374,16 @@ public class PocTemplateTests
         Assert.NotNull(doc);
         Assert.Contains("function only(){}", doc);
         Assert.DoesNotContain(PocTemplate.ScriptPlaceholder, doc);
+    }
+
+    [Fact]
+    public void AppendScript_ReturnsNull_WhenRegionMissing()
+    {
+        var templateWithoutScriptRegion = TemplateWith("<p>old</p>");
+
+        var updated = PocTemplate.AppendScript(templateWithoutScriptRegion, "var z = 3;");
+
+        Assert.Null(updated);
     }
 
     [Fact]
