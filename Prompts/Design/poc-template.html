@@ -29,8 +29,10 @@
     4. You MAY rename the App Name, the breadcrumb text and the nav items/groups to
        fit the feature, but do NOT change the shell structure, the <style> or the <script>.
     5. BUTTONS STAY INTERACTIVE WITHOUT CUSTOM JS — the shell <script> already wires content
-       buttons, so NEVER add your own <script>. Every .btn shows a toast acknowledging the
-       click (use Bootstrap buttons: "btn btn-primary", "btn btn-outline-primary", "btn btn-link"),
+       buttons, so NEVER inline a <script> in the content region (page logic goes into the
+       dedicated POC_SCRIPT region via the SetPocScript tool — see rule 8). Every .btn shows a
+       toast acknowledging the click (use Bootstrap buttons: "btn btn-primary",
+       "btn btn-outline-primary", "btn btn-link"),
        so Add / Save / Edit / Delete never feel dead. To open a dialog instead, use a STANDARD
        BOOTSTRAP MODAL (the JS bundle is loaded): give the trigger
        data-bs-toggle="modal" data-bs-target="#someId", and author the modal
@@ -65,7 +67,20 @@
        is prevented from reloading on submit. With no data-crud-* attributes the page still works
        (static rows + click toasts). PREFER wiring real CRUD: make EVERY data list a data-crud-table
        (with an Add button) and EVERY create/upload/edit form a data-crud-form, so the main actions
-       actually work and persist — don't leave the primary buttons as toast-only stubs.
+       actually work and persist — don't leave the primary buttons as toast-only stubs. CRUD is for
+       genuine add/edit/delete lists only — do NOT put it on fixed-cardinality lists (e.g. "exactly
+       5 goals") or on approval/sign/score flows; those belong to the POC_SCRIPT logic (rule 8).
+    8. BUSINESS LOGIC LIVES IN THE POC_SCRIPT REGION — a second marked region near </body>
+       (POC_SCRIPT_START/END) holds ONE <script> written only via the SetPocScript/AppendPocScript
+       tools (pure JS, no external libraries). It runs after the shell script and is where the
+       spec's business rules become real behaviour: compute derived values (totals, weighted
+       averages, ratings) from the seed data instead of hard-coding them, drive status/sign state
+       transitions (lock/unlock controls, swap badges), and simulate roles (a fake login/persona
+       switch that shows only that role's nav items and screens). The shell exposes
+       window.pocToast(msg) for feedback and window.pocNavigate(label) to open a screen like a
+       sidebar click. Declare functions globally so onclick="…" attributes in the content can call
+       them, and put data-no-toast on buttons the script fully handles so the generic click-toast
+       stays out of the way.
 
   Content classes (Bootstrap 5.3, already loaded):
     buttons  btn btn-primary / btn btn-outline-primary / btn btn-link
@@ -968,9 +983,13 @@
       }
       document.querySelectorAll('.btn, a').forEach(function (b) {
         if (b.hasAttribute('data-bs-toggle') || b.hasAttribute('data-bs-dismiss')) return; // Bootstrap handles these
+        if (b.hasAttribute('data-no-toast')) return; // the POC logic script drives this control and gives its own feedback
         // CRUD controls (below) give their own meaningful feedback ("Record added" …) — don't double-toast them.
         if (b.matches('[data-crud-add],[data-crud-save],[data-crud-edit],[data-crud-delete],[data-crud-reset]')) return;
-        if (b.type === 'submit') return; // a form submit gives its own feedback (CRUD save / "Saved" toast)
+        // Only a submit INSIDE a form gives its own feedback (CRUD save / "Saved" toast). A <button>
+        // without a type attribute reports type "submit" too — outside a form it submits nothing,
+        // so it still needs the click-toast or it feels dead.
+        if (b.type === 'submit' && b.closest('form')) return;
         var isLink = b.tagName === 'A' && !b.classList.contains('btn');
         if (isLink) {
           var href = b.getAttribute('href');
@@ -1262,7 +1281,34 @@
         var reset = t.closest('[data-crud-reset]'); if (reset) { e.preventDefault(); crudHandleReset(reset); return; }
         var save = t.closest('[data-crud-save]'); if (save && !save.closest('[data-crud-form]')) { crudHandleSave(save); return; }
       });
+
+      // ---- Hooks for the POC logic script (the POC_SCRIPT region below) ----
+      // The generated page logic makes the spec's business rules actually behave (computed values,
+      // sign/state flows, role simulation) and gets two shell services for that:
+      //   pocToast(msg)      — the standard feedback toast.
+      //   pocNavigate(label) — open a screen exactly as if its sidebar item was clicked (active
+      //                        state, breadcrumb and view switch); falls back to switching the
+      //                        .page-view directly when no menu item matches, e.g. a login screen
+      //                        that is deliberately not in the menu.
+      // Buttons the POC script fully handles should carry data-no-toast so the generic click-toast
+      // above doesn't double up on the script's own feedback.
+      window.pocToast = toast;
+      window.pocNavigate = function (label) {
+        var key = viewKey(label), match = null;
+        document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (item) {
+          if (item.parentElement && item.parentElement.classList.contains('nav-group')) return; // group header
+          if (!match && viewKey(navLabel(item)) === key) match = item;
+        });
+        if (match) { match.click(); return true; }
+        return showView(label);
+      };
     })();
     </script>
+
+    <!-- POC_SCRIPT_START : page logic injected via SetPocScript -->
+    <script>
+    /* POC_SCRIPT */
+    </script>
+    <!-- POC_SCRIPT_END -->
 </body>
 </html>
