@@ -5,10 +5,11 @@ namespace ICOGenerator.Services.Requirements;
 public class RequirementPromptBuilder
 {
     // Lượt "Write Requirement" phía user: chỉ sinh Product Brief (dễ hiểu). AI Design Spec được
-    // sinh ở bước Approve (xem BuildAiDesignSpec).
+    // sinh ở bước Approve (xem BuildAiDesignSpec). conversationTranscript là bản ghi Hỏi–Đáp đầy đủ
+    // (BA hỏi / Người dùng trả lời) — giữ cả câu hỏi để câu trả lời ngắn kiểu chip không mất ngữ cảnh.
     public string BuildProductBrief(
         Project project,
-        string userMessage,
+        string conversationTranscript,
         string currentProductBrief)
     {
         return $$"""
@@ -18,14 +19,70 @@ Project:
 Project Description:
 {{project.Description}}
 
-User latest message:
-{{userMessage}}
+Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
+{{conversationTranscript}}
 
 Current Product Brief preview:
 {{currentProductBrief}}
 
 Your task:
 - Write/update the Product Brief in plain, non-technical Vietnamese for a normal end user.
+- Return JSON only.
+""";
+    }
+
+    // Vòng TỰ SOÁT bản nháp Product Brief: reviewer đối chiếu bản nháp với hội thoại để tìm vấn đề
+    // thực chất (bỏ sót/sai lệch/bịa thêm/thiếu mục). Xem Prompts/BA/product-brief-review.v1.md.
+    public string BuildProductBriefReview(
+        Project project,
+        string conversationTranscript,
+        string draftProductBrief)
+    {
+        return $$"""
+Project:
+{{project.Name}}
+
+Project Description:
+{{project.Description}}
+
+Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
+{{conversationTranscript}}
+
+Bản nháp Product Brief cần soát:
+{{draftProductBrief}}
+
+Your task:
+- Review the draft against the conversation and list substantive issues.
+- Return JSON only.
+""";
+    }
+
+    // Vòng SỬA sau tự soát (chạy đúng một lần): cùng system prompt với lượt soạn, nhưng kèm bản nháp
+    // trước + danh sách vấn đề reviewer đã chỉ ra để model sửa đúng chỗ, giữ nguyên phần không bị chê.
+    public string BuildProductBriefRevision(
+        Project project,
+        string conversationTranscript,
+        string draftProductBrief,
+        IReadOnlyList<string> reviewIssues)
+    {
+        return $$"""
+Project:
+{{project.Name}}
+
+Project Description:
+{{project.Description}}
+
+Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
+{{conversationTranscript}}
+
+Bản nháp Product Brief trước (cần sửa):
+{{draftProductBrief}}
+
+Kết quả tự soát — các vấn đề PHẢI sửa cho hết:
+{{string.Join("\n", reviewIssues.Select(i => "- " + i))}}
+
+Your task:
+- Rewrite the Product Brief fixing EVERY listed issue; keep the parts that were not criticized.
 - Return JSON only.
 """;
     }

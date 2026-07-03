@@ -29,6 +29,8 @@ public class BARequirementService
     private readonly ConversationMemoryService _memory;
     private readonly UserMemoryService _userMemory;
     private readonly ChecklistGapMemoryService _checklistGapMemory;
+    private readonly RequirementCoverageService _coverage;
+    private readonly ProductBriefReviewParser _reviewParser;
 
     public BARequirementService(
         AppDbContext db,
@@ -44,7 +46,9 @@ public class BARequirementService
         IProjectArtifactCatalog artifactCatalog,
         ConversationMemoryService memory,
         UserMemoryService userMemory,
-        ChecklistGapMemoryService checklistGapMemory)
+        ChecklistGapMemoryService checklistGapMemory,
+        RequirementCoverageService coverage,
+        ProductBriefReviewParser reviewParser)
     {
         _db = db;
         _llm = llm;
@@ -60,6 +64,8 @@ public class BARequirementService
         _memory = memory;
         _userMemory = userMemory;
         _checklistGapMemory = checklistGapMemory;
+        _coverage = coverage;
+        _reviewParser = reviewParser;
     }
 
     public async Task<ChatWithBAResult> ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
@@ -100,6 +106,11 @@ public class BARequirementService
         // rồi nạp lại ở mọi cuộc để BA "càng nói càng hiểu user". Xem UserMemoryService.
         var userMemory = await _userMemory.UpdateAndLoadAsync(project, ba, model, cancellationToken);
 
+        // Bản đồ bao phủ yêu cầu: gộp lượt user vừa lưu (và lượt BA trước đó) vào bảng trạng thái 13 nhóm
+        // thông tin, rồi nạp cho BA chọn câu hỏi kế tiếp — phỏng vấn "theo bản đồ" thay vì tuyến tính.
+        // Cập nhật ở TỪNG lượt (không batch) vì bản đồ phải tươi mới dẫn được câu hỏi; fail-open khi lỗi.
+        var coverageMap = await _coverage.UpdateAndLoadAsync(project, ba, model, cancellationToken);
+
         // Tài liệu nguồn (ảnh/PDF) của project: gắn vào ĐÚNG lượt user mới nhất (một lần) để BA "thấy" khi trả lời,
         // tránh gửi lại ảnh ở mọi lượt (đốt token). Model không vision ⇒ builder chỉ trả phần text bóc từ PDF.
         var sources = await _db.ProjectSourceFiles
@@ -111,7 +122,7 @@ public class BARequirementService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BA/requirement-chat.v1.md"))
+            new(ChatRole.System, _promptTemplateService.Get("BA/requirement-chat.v2.md"))
         };
         // Checklist bổ sung được BA rút kinh nghiệm từ các dự án TRƯỚC (của bất kỳ ai) — nạp cho MỌI dự án
         // mới để hỏi kỹ hơn ngay từ đầu, bù cho những nhóm câu hỏi mà checklist tĩnh ban đầu chưa lường tới.
@@ -137,6 +148,14 @@ public class BARequirementService
             messages.Add(new ChatMessage(ChatRole.System,
                 "## Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược bớt để tiết kiệm token — dùng làm ngữ cảnh nền)\n"
                 + memory.Summary));
+        }
+        // Bản đồ bao phủ (nếu có): la bàn để BA chọn câu hỏi kế tiếp — ưu tiên nhóm ★ chưa rõ, không hỏi
+        // lại nhóm đã [RÕ]. Prompt requirement-chat.v2 hướng dẫn cách dùng heading này.
+        if (!string.IsNullOrWhiteSpace(coverageMap))
+        {
+            messages.Add(new ChatMessage(ChatRole.System,
+                "## Bản đồ bao phủ yêu cầu (trạng thái khai thác từng nhóm thông tin — dùng để chọn câu hỏi kế tiếp, KHÔNG hỏi lại nhóm đã [RÕ])\n"
+                + coverageMap));
         }
         for (var i = 0; i < recent.Count; i++)
         {
@@ -169,7 +188,9 @@ public class BARequirementService
         string? suggestionsJson = null;
         if (!callResult.IsSuccess)
         {
-            reply = $"⚠️ Lời gọi AI thất bại, chưa thể trả lời. Chi tiết: {callResult.ErrorMessage ?? callResult.Content}";
+            // Tiền tố dùng chung với ConversationTranscriptBuilder để transcript tổng hợp yêu cầu lọc
+            // được các lượt lỗi này ra.
+            reply = $"{ConversationTranscriptBuilder.LlmFailurePrefix}, chưa thể trả lời. Chi tiết: {callResult.ErrorMessage ?? callResult.Content}";
         }
         else
         {
@@ -221,17 +242,21 @@ public class BARequirementService
 
         var model = ba.AiModel ?? throw new InvalidOperationException("BA agent model is not configured.");
 
-        var requirementBrief = BuildRequirementBrief(project.Conversations);
+        // Transcript Hỏi–Đáp đầy đủ (BA hỏi / user trả lời) — KHÔNG chỉ lượt user, để câu trả lời ngắn
+        // kiểu chip ("Nhân viên văn phòng") còn nguyên ngữ cảnh câu hỏi khi soạn tài liệu.
+        var conversationTranscript = ConversationTranscriptBuilder.Build(project.Conversations);
 
         // Tài liệu nguồn (ảnh/PDF) của project → AIContent gắn kèm lượt soạn tài liệu (text PDF + ảnh nếu model vision).
         var sources = project.SourceFiles.OrderBy(s => s.CreatedAt).ToList();
         var sourceContents = _sourceContextBuilder.Build(sources, model.SupportsVision);
 
         // Cổng kiểm tra: nếu còn thiếu thông tin CỐT LÕI thì hỏi lại NGAY (một lượt BA trong khung chat)
-        // và KHÔNG soạn 5 tài liệu — tránh sinh tài liệu rồi vứt đi/sinh lại (tốn token). Đây là một lời
-        // gọi LLM nhẹ (chỉ trả câu hỏi). Kèm tóm tắt text tài liệu nguồn để readiness tính cả tài liệu đính kèm.
-        Report("thinking", "Đang kiểm tra mức độ đầy đủ của yêu cầu…", requirementBrief);
-        var readiness = await CheckReadinessAsync(projectId, ba, model, requirementBrief + BuildSourceBriefNote(sources), cancellationToken);
+        // và KHÔNG soạn tài liệu — tránh sinh tài liệu rồi vứt đi/sinh lại (tốn token). Đây là một lời
+        // gọi LLM nhẹ (chỉ trả câu hỏi). Kèm tóm tắt text tài liệu nguồn để readiness tính cả tài liệu
+        // đính kèm, và bản đồ bao phủ (nếu có) để gate đối chiếu các nhóm ★ thay vì đoán lại từ đầu.
+        Report("thinking", "Đang kiểm tra mức độ đầy đủ của yêu cầu…", conversationTranscript);
+        var readiness = await CheckReadinessAsync(projectId, ba, model,
+            conversationTranscript + BuildSourceBriefNote(sources) + BuildCoverageNote(project), cancellationToken);
         if (!readiness.Ready)
         {
             var question = string.IsNullOrWhiteSpace(readiness.Message)
@@ -256,11 +281,11 @@ public class BARequirementService
             return RequirementDraftOutcome.NeedsMoreInfo;
         }
 
-        Report("thinking", "Đang tổng hợp yêu cầu từ hội thoại…", requirementBrief);
+        Report("thinking", "Đang tổng hợp yêu cầu từ hội thoại…", conversationTranscript);
 
         var prompt = _promptBuilder.BuildProductBrief(
             project,
-            requirementBrief,
+            conversationTranscript,
             GetDoc(project, _artifactCatalog.ProductBrief.FileName, "draft"));
 
         // Lượt user mang prompt soạn tài liệu + tài liệu nguồn (text/ảnh) đính kèm. Không có nguồn ⇒ chỉ một
@@ -269,7 +294,7 @@ public class BARequirementService
         userContents.AddRange(sourceContents);
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BA/product-brief.v1.md")),
+            new(ChatRole.System, _promptTemplateService.Get("BA/product-brief.v2.md")),
             new(ChatRole.User, userContents)
         };
 
@@ -292,7 +317,11 @@ public class BARequirementService
         // the same normalization so downstream sees fully-populated sections.
         var result = structuredDraft != null
             ? _responseParser.Normalize(structuredDraft)
-            : _responseParser.ParseProductBrief(callResult.Content, project, requirementBrief);
+            : _responseParser.ParseProductBrief(callResult.Content, project, conversationTranscript);
+
+        // Vòng TỰ SOÁT (đúng một vòng): reviewer đối chiếu bản nháp với hội thoại (bỏ sót/sai lệch/bịa
+        // thêm/thiếu mục) rồi sửa nếu có vấn đề. Fail-open toàn tuyến — soát/sửa lỗi thì dùng bản nháp đầu.
+        result = await ReviewAndReviseDraftAsync(project, ba, model, conversationTranscript, result, Report, onToken, workflowRunId, cancellationToken);
 
         Report("tool", "Đang tạo/cập nhật file tài liệu (.docx)…");
 
@@ -487,7 +516,7 @@ public class BARequirementService
     {
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BA/requirement-readiness.v1.md")),
+            new(ChatRole.System, _promptTemplateService.Get("BA/requirement-readiness.v2.md")),
             new(ChatRole.User, requirementBrief)
         };
 
@@ -524,18 +553,94 @@ public class BARequirementService
         return JsonSerializer.Serialize(new { message = c.Message, suggestions, ready });
     }
 
-    private static string BuildRequirementBrief(IEnumerable<AgentConversation> conversations)
+    // Vòng TỰ SOÁT bản nháp Product Brief + một vòng sửa duy nhất. Fail-open ở mọi nhánh: lời gọi soát
+    // lỗi / parse hỏng ⇒ coi như đạt; lời gọi sửa lỗi / bản sửa rỗng ⇒ giữ bản nháp đầu. Vòng soát là
+    // call nhẹ (chỉ trả danh sách vấn đề); vòng sửa chỉ chạy khi thật sự có vấn đề.
+    private async Task<BAProductBriefResult> ReviewAndReviseDraftAsync(
+        Project project,
+        Agent ba,
+        AiModel model,
+        string conversationTranscript,
+        BAProductBriefResult draft,
+        Action<string, string, string?> report,
+        Action<string>? onToken,
+        Guid? workflowRunId,
+        CancellationToken cancellationToken)
     {
-        var userTurns = conversations
-            .OrderBy(c => c.CreatedAt)
-            .Where(c => c.Role != "assistant")
-            .Select(c => (c.Message ?? string.Empty).Trim())
-            .Where(m => m.Length > 0)
-            .ToList();
+        // Không có nội dung để soát (model trả rỗng, hoặc fallback khung) thì soát cũng vô ích.
+        if (string.IsNullOrWhiteSpace(draft.ProductBrief.Content))
+            return draft;
 
-        return userTurns.Count == 0
-            ? "(Chưa có yêu cầu nào được ghi nhận.)"
-            : string.Join("\n", userTurns.Select(m => "- " + m));
+        report("thinking", "Đang tự soát bản nháp so với hội thoại…", null);
+
+        var reviewMessages = new List<ChatMessage>
+        {
+            new(ChatRole.System, _promptTemplateService.Get("BA/product-brief-review.v1.md")),
+            new(ChatRole.User, _promptBuilder.BuildProductBriefReview(project, conversationTranscript, draft.ProductBrief.Content))
+        };
+
+        var (reviewCall, structuredReview) = await _llm.ChatStructuredAsync<ProductBriefReview>(
+            model, reviewMessages, ba.Temperature, new ModelCallLogContext(project.Id, ba, "BAProductBriefReview", workflowRunId), cancellationToken: cancellationToken);
+
+        if (!reviewCall.IsSuccess)
+        {
+            report("observation", "Tự soát không chạy được — dùng bản nháp hiện tại.", reviewCall.ErrorMessage);
+            return draft;
+        }
+
+        var review = structuredReview != null
+            ? _reviewParser.Normalize(structuredReview)
+            : _reviewParser.Parse(reviewCall.Content);
+
+        if (review.Issues.Count == 0)
+        {
+            report("observation", "Tự soát: bản nháp khớp hội thoại, không có vấn đề.", null);
+            return draft;
+        }
+
+        report("tool", $"Tự soát phát hiện {review.Issues.Count} vấn đề — đang sửa bản nháp…",
+            string.Join("\n", review.Issues.Select(i => "- " + i)));
+
+        var revisionMessages = new List<ChatMessage>
+        {
+            new(ChatRole.System, _promptTemplateService.Get("BA/product-brief.v2.md")),
+            new(ChatRole.User, _promptBuilder.BuildProductBriefRevision(project, conversationTranscript, draft.ProductBrief.Content, review.Issues))
+        };
+
+        var (revisionCall, structuredRevision) = await _llm.ChatStructuredAsync<BAProductBriefResult>(
+            model, revisionMessages, ba.Temperature, new ModelCallLogContext(project.Id, ba, "BAProductBriefRevision", workflowRunId), onToken, cancellationToken);
+
+        if (!revisionCall.IsSuccess)
+        {
+            report("observation", "Vòng sửa không chạy được — giữ bản nháp đầu.", revisionCall.ErrorMessage);
+            return draft;
+        }
+
+        // Đường sửa dùng TryParse STRICT (không fallback template): bản sửa hỏng/rỗng thì giữ bản nháp
+        // đầu — thà thiếu một vòng đánh bóng còn hơn ghi đè bản tốt bằng khung "Cần làm rõ".
+        var revised = structuredRevision != null
+            ? _responseParser.Normalize(structuredRevision)
+            : _responseParser.TryParseProductBrief(revisionCall.Content);
+
+        if (revised == null || string.IsNullOrWhiteSpace(revised.ProductBrief.Content))
+        {
+            report("observation", "Bản sửa không hợp lệ — giữ bản nháp đầu.", null);
+            return draft;
+        }
+
+        report("observation", "Đã sửa bản nháp theo kết quả tự soát.", null);
+        return revised;
+    }
+
+    // Bản đồ bao phủ (nếu đã có từ các lượt chat) đính vào lời gọi readiness để gate đối chiếu các nhóm
+    // ★ theo trạng thái đã ghi nhận thay vì suy lại toàn bộ từ transcript.
+    private static string BuildCoverageNote(Project project)
+    {
+        if (string.IsNullOrWhiteSpace(project.RequirementCoverageMap))
+            return string.Empty;
+
+        return "\n## Bản đồ bao phủ yêu cầu (trạng thái khai thác từng nhóm thông tin)\n"
+            + project.RequirementCoverageMap;
     }
 
     // Tóm tắt (text) tài liệu nguồn để đưa vào lời gọi readiness — vốn là call text-only nên KHÔNG kèm ảnh được;

@@ -387,6 +387,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ConversationMemoryService>();
         services.AddScoped<UserMemoryService>();
         services.AddScoped<ChecklistGapMemoryService>();
+        services.AddScoped<RequirementCoverageService>();
+        services.AddScoped<ProductBriefReviewParser>();
         return services;
     }
 
