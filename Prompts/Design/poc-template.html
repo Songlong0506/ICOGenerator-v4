@@ -22,10 +22,12 @@
     3. MULTI-PAGE (so the sidebar actually navigates): wrap EACH screen in its own
        <section class="page-view" data-view="LABEL">…</section>, where LABEL is the
        EXACT sidebar nav label that opens it (a top-level leaf or a sub-item). Give the
-       default screen class "page-view active". The inlined <script> shows the matching
-       section when its nav item is clicked and hides the rest; provide one section per
-       clickable leaf. Without these sections the menu only updates the breadcrumb and
-       the page body never changes.
+       default screen class "page-view active" — that section is the LANDING SCREEN and
+       the shell keeps it visible on load, even when its label has no menu item (e.g. a
+       login/persona screen the POC script leaves via pocNavigate). The inlined <script>
+       shows the matching section when its nav item is clicked and hides the rest; provide
+       one section per clickable leaf. Without these sections the menu only updates the
+       breadcrumb and the page body never changes.
     4. You MAY rename the App Name, the breadcrumb text and the nav items/groups to
        fit the feature, but do NOT change the shell structure, the <style> or the <script>.
     5. BUTTONS STAY INTERACTIVE WITHOUT CUSTOM JS — the shell <script> already wires content
@@ -79,8 +81,11 @@
        switch that shows only that role's nav items and screens). The shell exposes
        window.pocToast(msg) for feedback and window.pocNavigate(label) to open a screen like a
        sidebar click. Declare functions globally so onclick="…" attributes in the content can call
-       them, and put data-no-toast on buttons the script fully handles so the generic click-toast
-       stays out of the way.
+       them — EVERY function referenced by an onclick/onsubmit MUST be defined here or the control
+       throws and does nothing — and put data-no-toast on buttons the script fully handles so the
+       generic click-toast stays out of the way. END the script by calling your render/init
+       functions once, so the landing screen and every list/table shows its seed data immediately
+       — screens must not stay blank until the user logs in or clicks something.
 
   Content classes (Bootstrap 5.3, already loaded):
     buttons  btn btn-primary / btn btn-outline-primary / btn btn-link
@@ -938,6 +943,19 @@
         if (pageEl) pageEl.scrollTop = 0;
         return true;
       }
+      // Clickable menu leaf whose label matches the view label ("" when none does — e.g. a login
+      // screen that is deliberately not in the menu).
+      function findNavItem(label) {
+        var key = viewKey(label), match = null;
+        document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (item) {
+          if (item.parentElement && item.parentElement.classList.contains('nav-group')) return; // group header
+          if (!match && viewKey(navLabel(item)) === key) match = item;
+        });
+        return match;
+      }
+      function clearNavActive() {
+        document.querySelectorAll('.sidebar-nav .nav-item.active').forEach(function (n) { n.classList.remove('active'); });
+      }
 
       document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (item) {
         if (item.parentElement && item.parentElement.classList.contains('nav-group')) return; // group header
@@ -952,11 +970,25 @@
         });
       });
 
-      // On load, reveal the active item's view; fall back to the first section so the page is never blank.
+      // On load, the section the content marked "page-view active" IS the landing screen — the
+      // author chose it (it may have no menu item at all, e.g. a login/persona screen the POC
+      // script navigates away from). Keep it and only align the menu highlight/breadcrumb with it;
+      // the old behaviour (force-showing the active menu item's view) replaced such landing screens
+      // with an uninitialized page, which made the whole demo look dead. Without an authored active
+      // section, fall back to the active item's view, then to the first section, so the page is
+      // never blank.
       if (views.length) {
-        var activeItem = document.querySelector('.sidebar-nav .nav-item.active');
-        if (!showView(navLabel(activeItem)))
-          views.forEach(function (v, i) { v.classList.toggle('active', i === 0); });
+        var authored = pageEl.querySelector('.page-view.active');
+        if (authored) {
+          views.forEach(function (v) { v.classList.toggle('active', v === authored); }); // drop stray extra actives
+          var landingItem = findNavItem(authored.getAttribute('data-view'));
+          if (landingItem) landingItem.click();  // reuse the click wiring: highlight + breadcrumb + view
+          else clearNavActive();                 // landing screen outside the menu: no item is "current"
+        } else {
+          var activeItem = document.querySelector('.sidebar-nav .nav-item.active');
+          if (!showView(navLabel(activeItem)))
+            views.forEach(function (v, i) { v.classList.toggle('active', i === 0); });
+        }
       }
 
       // Popups / dialogs are NATIVE BOOTSTRAP MODALS — opened via data-bs-toggle="modal"
@@ -1294,13 +1326,11 @@
       // above doesn't double up on the script's own feedback.
       window.pocToast = toast;
       window.pocNavigate = function (label) {
-        var key = viewKey(label), match = null;
-        document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (item) {
-          if (item.parentElement && item.parentElement.classList.contains('nav-group')) return; // group header
-          if (!match && viewKey(navLabel(item)) === key) match = item;
-        });
+        var match = findNavItem(label);
         if (match) { match.click(); return true; }
-        return showView(label);
+        if (!showView(label)) return false;
+        clearNavActive(); // screen outside the menu (e.g. back to Login): no item is "current"
+        return true;
       };
     })();
     </script>

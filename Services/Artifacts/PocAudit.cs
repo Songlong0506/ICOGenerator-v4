@@ -46,6 +46,7 @@ public static class PocAudit
         var crudEntities = CheckCrud(scan, issues, warnings);
         var scriptBody = PocTemplate.GetScriptBody(html);
         CheckScript(html, scriptBody, issues, warnings);
+        CheckHandlerFunctions(html, scan, scriptBody, issues);
 
         return Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody);
     }
@@ -59,15 +60,17 @@ public static class PocAudit
     // Every clickable menu leaf (top-level leaf or sub-item; group headers only expand) must have a
     // page-view section with the same data-view label, or clicking it changes nothing but the breadcrumb.
     private static void CheckNavAgainstSections(
-        List<string> navLeaves, List<string> sections, List<string> issues, List<string> warnings)
+        List<string> navLeaves, List<PocSection> sections, List<string> issues, List<string> warnings)
     {
-        var sectionKeys = new HashSet<string>(sections.Select(Key));
+        var sectionKeys = new HashSet<string>(sections.Select(s => Key(s.Label)));
         foreach (var leaf in navLeaves.Where(l => !sectionKeys.Contains(Key(l))))
             issues.Add($"Menu item '{leaf}' has no <section class=\"page-view\" data-view=\"{leaf}\"> — clicking it will not change the page. Append the missing section or rename one to match.");
 
+        // The section marked "active" is the landing screen the shell keeps on load, so it is
+        // reachable even without a menu item (the login/persona pattern).
         var leafKeys = new HashSet<string>(navLeaves.Select(Key));
-        foreach (var s in sections.Where(s => !leafKeys.Contains(Key(s))))
-            warnings.Add($"Section data-view=\"{s}\" is not opened by any menu item — fine only if the POC script navigates to it (pocNavigate('{s}')); otherwise it is unreachable.");
+        foreach (var s in sections.Where(s => !s.Active && !leafKeys.Contains(Key(s.Label))))
+            warnings.Add($"Section data-view=\"{s.Label}\" is not opened by any menu item — fine only if the POC script navigates to it (pocNavigate('{s.Label}')); otherwise it is unreachable.");
     }
 
     private static HashSet<string> CheckIds(string html, List<string> issues)
@@ -154,9 +157,59 @@ public static class PocAudit
             warnings.Add("The feature content carries an inline <script> — move that logic into SetPocScript (the dedicated POC_SCRIPT region) so it is kept when content is edited.");
     }
 
+    // JS keywords/builtins and shell hooks an inline handler may legitimately call; anything else the
+    // handler invokes must be a global the POC script defines, or the click throws "X is not defined"
+    // and the control silently does nothing — exactly how a shipped POC ended up with dead buttons.
+    private static readonly HashSet<string> HandlerKnownCallables = new(StringComparer.Ordinal)
+    {
+        // shell hooks
+        "pocToast", "pocNavigate",
+        // browser globals usable without a receiver
+        "alert", "confirm", "prompt", "print", "open", "close", "scrollTo", "scrollBy", "fetch",
+        "setTimeout", "setInterval", "clearTimeout", "clearInterval", "requestAnimationFrame",
+        "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURIComponent", "decodeURIComponent",
+        "encodeURI", "decodeURI", "String", "Number", "Boolean", "Array", "Object", "Date", "RegExp", "Error",
+        // keywords/operators the call-site regex can pick up
+        "if", "for", "while", "switch", "catch", "function", "return", "typeof", "new", "delete", "void", "do", "in", "of", "try", "else", "this",
+    };
+
+    private static void CheckHandlerFunctions(string html, string scan, string scriptBody, List<string> issues)
+    {
+        // Functions actually defined somewhere the page executes: the POC_SCRIPT region plus any
+        // inline <script> the content carries (discouraged but functional, and already warned about).
+        var defs = new StringBuilder(scriptBody);
+        if (TryGetContentRegion(html, out var content))
+            foreach (Match s in Regex.Matches(content, "<script\\b[^>]*>(.*?)</script>", RegexOptions.Singleline | RegexOptions.IgnoreCase))
+                defs.Append('\n').Append(s.Groups[1].Value);
+        var defined = new HashSet<string>(
+            Regex.Matches(defs.ToString(),
+                    "\\bfunction\\s+([A-Za-z_$][\\w$]*)\\s*\\(|\\bwindow\\.([A-Za-z_$][\\w$]*)\\s*=|\\b(?:var|let|const)\\s+([A-Za-z_$][\\w$]*)\\s*=")
+                .SelectMany(m => new[] { m.Groups[1].Value, m.Groups[2].Value, m.Groups[3].Value })
+                .Where(n => n.Length > 0),
+            StringComparer.Ordinal);
+
+        // Function calls inside inline on* handlers (onclick, onsubmit, onchange…). Dotted calls
+        // (this.form.reset(), bootstrap.Modal(...)) have a receiver of their own and are skipped.
+        var missing = new List<string>();
+        foreach (Match handler in Regex.Matches(scan, "\\son[a-z]+\\s*=\\s*(\"[^\"]*\"|'[^']*')", RegexOptions.IgnoreCase))
+        {
+            var body = WebUtility.HtmlDecode(handler.Groups[1].Value.Trim('"', '\''));
+            foreach (Match call in Regex.Matches(body, "(?<![\\w$.])([A-Za-z_$][\\w$]*)\\s*\\("))
+            {
+                var name = call.Groups[1].Value;
+                if (HandlerKnownCallables.Contains(name) || defined.Contains(name) || missing.Contains(name))
+                    continue;
+                missing.Add(name);
+            }
+        }
+
+        foreach (var name in missing)
+            issues.Add($"An onclick/onsubmit handler calls {name}(…) but the POC script never defines it — the control throws \"{name} is not defined\" and nothing happens. Define {name} as a global function via SetPocScript/AppendPocScript, or fix the handler.");
+    }
+
     private static string Render(
         List<string> issues, List<string> warnings,
-        List<string> navLeaves, List<string> sections, List<string> crudEntities, string scriptBody)
+        List<string> navLeaves, List<PocSection> sections, List<string> crudEntities, string scriptBody)
     {
         var sb = new StringBuilder();
         sb.AppendLine(issues.Count == 0 && warnings.Count == 0
@@ -215,21 +268,26 @@ public static class PocAudit
         return labels;
     }
 
-    private static List<string> SectionLabels(string html)
+    // A page-view section: its data-view label and whether the author marked it "active"
+    // (the landing screen the shell keeps visible on load).
+    private readonly record struct PocSection(string Label, bool Active);
+
+    private static List<PocSection> SectionLabels(string html)
     {
-        var labels = new List<string>();
+        var sections = new List<PocSection>();
         foreach (Match tag in Regex.Matches(html, "<section\\b[^>]*>"))
         {
-            if (!tag.Value.Contains("page-view", StringComparison.Ordinal))
+            var cls = Regex.Match(tag.Value, "class=\"([^\"]*)\"");
+            if (!cls.Success || !Regex.IsMatch(cls.Groups[1].Value, "(^| )page-view( |$)"))
                 continue;
             var view = Regex.Match(tag.Value, "data-view=\"([^\"]*)\"");
             if (!view.Success)
                 continue;
             var text = WebUtility.HtmlDecode(view.Groups[1].Value).Trim();
             if (text.Length > 0)
-                labels.Add(text);
+                sections.Add(new PocSection(text, Regex.IsMatch(cls.Groups[1].Value, "(^| )active( |$)")));
         }
-        return labels;
+        return sections;
     }
 
     private static bool TryGetContentRegion(string html, out string content)
