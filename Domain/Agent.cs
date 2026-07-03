@@ -8,7 +8,7 @@ public class Agent
     public string Description { get; set; } = string.Empty;
     public string Color { get; set; } = string.Empty;
     public AgentStatus Status { get; set; } = AgentStatus.Active;
-    public double Temperature { get; set; } = 0.3;
+    public double Temperature { get; set; }
     public Guid AiModelId { get; set; }
     public AiModel AiModel { get; set; } = null!;
     // Checklist bổ sung mà BA tự rút kinh nghiệm XUYÊN SUỐT mọi dự án/mọi người dùng (khác AppUser.UserMemory
@@ -16,8 +16,6 @@ public class Agent
     // chưa từng hỏi tới, khoảng trống đó được khái quát hoá và gộp vào đây, rồi nạp lại cho MỌI dự án MỚI để
     // BA hỏi kỹ hơn ngay từ đầu. null = chưa rút được kinh nghiệm nào. Xem ChecklistGapMemoryService.
     public string? LearnedChecklistNotes { get; set; }
-    // Username (claim Name) của người tạo agent này qua UI quản trị. Nullable để tương thích các agent seed
-    // sẵn (DbInitializer) — chúng coi như do hệ thống tạo, không có chủ. Dùng để biết "ai đã tạo agent này".
     public string? CreatedByUsername { get; set; }
     public ICollection<AgentTool> AgentTools { get; set; } = new List<AgentTool>();
     public ICollection<AgentModelCallLog> ModelCallLogs { get; set; } = new List<AgentModelCallLog>();

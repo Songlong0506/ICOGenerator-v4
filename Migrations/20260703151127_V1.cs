@@ -15,19 +15,19 @@ namespace ICOGenerator.Migrations
                 name: "AiModels",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    Provider = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    ModelId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Endpoint = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    ApiKey = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
-                    ContextWindow = table.Column<int>(type: "INTEGER", nullable: false),
-                    InputPricePerMillionTokens = table.Column<decimal>(type: "TEXT", precision: 18, scale: 6, nullable: false),
-                    OutputPricePerMillionTokens = table.Column<decimal>(type: "TEXT", precision: 18, scale: 6, nullable: false),
-                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    SupportsVision = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedByUsername = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Provider = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    ModelId = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Endpoint = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    ApiKey = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    ContextWindow = table.Column<int>(type: "int", nullable: false),
+                    InputPricePerMillionTokens = table.Column<decimal>(type: "decimal(18,6)", precision: 18, scale: 6, nullable: false),
+                    OutputPricePerMillionTokens = table.Column<decimal>(type: "decimal(18,6)", precision: 18, scale: 6, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    SupportsVision = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -38,14 +38,14 @@ namespace ICOGenerator.Migrations
                 name: "AppUsers",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Username = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    PasswordHash = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    DisplayName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Role = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    UserMemory = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Username = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    PasswordHash = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    DisplayName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Role = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    UserMemory = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -56,16 +56,16 @@ namespace ICOGenerator.Migrations
                 name: "AuditLogs",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Category = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
-                    Action = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    EntityId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    Summary = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    ActorUsername = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    ActorRole = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    BeforeJson = table.Column<string>(type: "TEXT", nullable: true),
-                    AfterJson = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Category = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    Action = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    EntityId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Summary = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    ActorUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    ActorRole = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    BeforeJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    AfterJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -76,15 +76,15 @@ namespace ICOGenerator.Migrations
                 name: "Feedbacks",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Type = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
-                    Status = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
-                    Title = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Message = table.Column<string>(type: "TEXT", nullable: false),
-                    CreatedByUsername = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    SubmittedByName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Type = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Message = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CreatedByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    SubmittedByName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -95,19 +95,21 @@ namespace ICOGenerator.Migrations
                 name: "Projects",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Description = table.Column<string>(type: "TEXT", maxLength: 2000, nullable: false),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    BackendGitUrl = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    FrontendGitUrl = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
-                    IsUseBoschTemplate = table.Column<bool>(type: "INTEGER", nullable: true),
-                    CreatedByUsername = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    ConversationSummary = table.Column<string>(type: "TEXT", nullable: true),
-                    SummarizedTurnCount = table.Column<int>(type: "INTEGER", nullable: false),
-                    UserMemoryHarvestedTurnCount = table.Column<int>(type: "INTEGER", nullable: false),
-                    ChecklistGapHarvested = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    BackendGitUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    FrontendGitUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IsUseBoschTemplate = table.Column<bool>(type: "bit", nullable: true),
+                    CreatedByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    ConversationSummary = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    SummarizedTurnCount = table.Column<int>(type: "int", nullable: false),
+                    UserMemoryHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
+                    ChecklistGapHarvested = table.Column<bool>(type: "bit", nullable: false),
+                    RequirementCoverageMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CoverageHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -118,9 +120,9 @@ namespace ICOGenerator.Migrations
                 name: "RolePermissions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Role = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    Permission = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Role = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Permission = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -131,13 +133,13 @@ namespace ICOGenerator.Migrations
                 name: "ToolDefinitions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    DisplayName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Description = table.Column<string>(type: "TEXT", maxLength: 3000, nullable: false),
-                    ServiceType = table.Column<string>(type: "TEXT", nullable: false),
-                    MethodName = table.Column<string>(type: "TEXT", nullable: false),
-                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    DisplayName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(3000)", maxLength: 3000, nullable: false),
+                    ServiceType = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    MethodName = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -148,17 +150,17 @@ namespace ICOGenerator.Migrations
                 name: "Agents",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    RoleKey = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    Description = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
-                    Color = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    Temperature = table.Column<double>(type: "REAL", nullable: false),
-                    AiModelId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    LearnedChecklistNotes = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedByUsername = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    RoleKey = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    Color = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    Temperature = table.Column<double>(type: "float", nullable: false),
+                    AiModelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LearnedChecklistNotes = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -175,14 +177,14 @@ namespace ICOGenerator.Migrations
                 name: "FeedbackAttachments",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    FeedbackId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Kind = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    FileName = table.Column<string>(type: "TEXT", maxLength: 300, nullable: false),
-                    ContentType = table.Column<string>(type: "TEXT", maxLength: 150, nullable: false),
-                    SizeBytes = table.Column<long>(type: "INTEGER", nullable: false),
-                    StoredPath = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    FeedbackId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    FileName = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    ContentType = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    SizeBytes = table.Column<long>(type: "bigint", nullable: false),
+                    StoredPath = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -199,19 +201,19 @@ namespace ICOGenerator.Migrations
                 name: "ProjectSourceFiles",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Kind = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    FileName = table.Column<string>(type: "TEXT", maxLength: 300, nullable: false),
-                    ContentType = table.Column<string>(type: "TEXT", maxLength: 150, nullable: false),
-                    SizeBytes = table.Column<long>(type: "INTEGER", nullable: false),
-                    StoredPath = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
-                    ExtractedText = table.Column<string>(type: "TEXT", nullable: true),
-                    PageImagePaths = table.Column<string>(type: "TEXT", nullable: true),
-                    PageCount = table.Column<int>(type: "INTEGER", nullable: false),
-                    IsVisionSource = table.Column<bool>(type: "INTEGER", nullable: false),
-                    UploadedByUserId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    FileName = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    ContentType = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    SizeBytes = table.Column<long>(type: "bigint", nullable: false),
+                    StoredPath = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    ExtractedText = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PageImagePaths = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PageCount = table.Column<int>(type: "int", nullable: false),
+                    IsVisionSource = table.Column<bool>(type: "bit", nullable: false),
+                    UploadedByUserId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -228,14 +230,14 @@ namespace ICOGenerator.Migrations
                 name: "WorkflowRuns",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Status = table.Column<string>(type: "TEXT", nullable: false),
-                    CurrentStage = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    StartedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    FinishedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    CurrentStage = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    StartedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    FinishedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -252,14 +254,14 @@ namespace ICOGenerator.Migrations
                 name: "AgentConversations",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    AgentId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Role = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    Message = table.Column<string>(type: "TEXT", nullable: false),
-                    Suggestions = table.Column<string>(type: "TEXT", nullable: true),
-                    TokenUsed = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Role = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Message = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Suggestions = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TokenUsed = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -282,27 +284,27 @@ namespace ICOGenerator.Migrations
                 name: "AgentModelCallLogs",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    AgentId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    WorkflowRunId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    AgentName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    ModelName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    ModelId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    Endpoint = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
-                    RequestJson = table.Column<string>(type: "TEXT", nullable: false),
-                    ResponseText = table.Column<string>(type: "TEXT", nullable: false),
-                    ExtractedContent = table.Column<string>(type: "TEXT", nullable: true),
-                    ErrorMessage = table.Column<string>(type: "TEXT", nullable: true),
-                    PromptTokens = table.Column<int>(type: "INTEGER", nullable: false),
-                    CompletionTokens = table.Column<int>(type: "INTEGER", nullable: false),
-                    TotalTokens = table.Column<int>(type: "INTEGER", nullable: false),
-                    DurationMs = table.Column<long>(type: "INTEGER", nullable: false),
-                    HttpStatusCode = table.Column<int>(type: "INTEGER", nullable: true),
-                    IsSuccess = table.Column<bool>(type: "INTEGER", nullable: false),
-                    Step = table.Column<int>(type: "INTEGER", nullable: false),
-                    Purpose = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    WorkflowRunId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    AgentName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    ModelName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    ModelId = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Endpoint = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    RequestJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ResponseText = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ExtractedContent = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ErrorMessage = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PromptTokens = table.Column<int>(type: "int", nullable: false),
+                    CompletionTokens = table.Column<int>(type: "int", nullable: false),
+                    TotalTokens = table.Column<int>(type: "int", nullable: false),
+                    DurationMs = table.Column<long>(type: "bigint", nullable: false),
+                    HttpStatusCode = table.Column<int>(type: "int", nullable: true),
+                    IsSuccess = table.Column<bool>(type: "bit", nullable: false),
+                    Step = table.Column<int>(type: "int", nullable: false),
+                    Purpose = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -325,8 +327,8 @@ namespace ICOGenerator.Migrations
                 name: "AgentTools",
                 columns: table => new
                 {
-                    AgentId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ToolDefinitionId = table.Column<Guid>(type: "TEXT", nullable: false)
+                    AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ToolDefinitionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -349,17 +351,17 @@ namespace ICOGenerator.Migrations
                 name: "ProjectDocuments",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    AgentId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    Folder = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
-                    VersionName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    IsApproved = table.Column<bool>(type: "INTEGER", nullable: false),
-                    FileName = table.Column<string>(type: "TEXT", maxLength: 300, nullable: false),
-                    Content = table.Column<string>(type: "TEXT", nullable: false),
-                    FilePath = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true),
-                    TokenUsed = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Folder = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    VersionName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    IsApproved = table.Column<bool>(type: "bit", nullable: false),
+                    FileName = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    FilePath = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    TokenUsed = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -381,20 +383,20 @@ namespace ICOGenerator.Migrations
                 name: "AgentTasks",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    WorkflowRunId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ProjectId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    AgentId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    Type = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
-                    Status = table.Column<string>(type: "TEXT", nullable: false),
-                    Title = table.Column<string>(type: "TEXT", maxLength: 300, nullable: false),
-                    Input = table.Column<string>(type: "TEXT", nullable: false),
-                    Output = table.Column<string>(type: "TEXT", nullable: true),
-                    Error = table.Column<string>(type: "TEXT", nullable: true),
-                    Attempt = table.Column<int>(type: "INTEGER", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    StartedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
-                    FinishedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    WorkflowRunId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Type = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    Input = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Output = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Error = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Attempt = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    StartedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    FinishedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
