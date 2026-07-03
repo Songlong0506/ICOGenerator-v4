@@ -207,7 +207,8 @@ public class WorkspaceTools
     [Description("Set the POC page-logic JavaScript of 04_Implementation/poc-demo.html (REPLACES the dedicated POC_SCRIPT region; the shell script, Bootstrap and the data-crud-* engine stay untouched and keep working). " +
         "Call it ONCE, AFTER all SetPocContent/AppendPocContent calls, to make the AI Design Spec's business rules actually behave in the demo: compute derived values (totals, weighted averages, ratings) from the seed data instead of hard-coding numbers, drive status/sign state transitions (lock/unlock controls, swap badges, revoke signatures on edit), and simulate roles — after a fake login/persona pick, show only that role's sidebar items and screens. " +
         "'script' (required): PURE JavaScript only — no <script> tag, no external libraries/CDN, no frameworks; plain DOM APIs. It runs AFTER the shell script, so window.pocToast(msg) shows the standard toast and window.pocNavigate(label) opens a screen exactly like a sidebar click (falling back to a direct view switch for screens not in the menu, e.g. Login). " +
-        "Declare functions globally so onclick=\"…\" attributes in the content can call them, and put data-no-toast on buttons this script fully handles so the shell's generic click-toast doesn't double up. " +
+        "Declare functions globally so onclick=\"…\" attributes in the content can call them — EVERY function referenced by an onclick/onsubmit must be defined here or the control throws and does nothing — and put data-no-toast on buttons this script fully handles so the shell's generic click-toast doesn't double up. " +
+        "END the script by calling your render/init functions once, so the landing screen (the section authored with class \"page-view active\" — the shell keeps it on load, even a Login screen outside the menu) and every list/table shows its seed data immediately, not only after a login or click. " +
         "If the logic is too long for one call, send the core here and add the rest with AppendPocScript (split at whole-function boundaries).")]
     public async Task<string> SetPocScript(string script)
     {
@@ -243,7 +244,7 @@ public class WorkspaceTools
         return $"POC script appended: {PocTemplate.MockupRelativePath}";
     }
 
-    [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing: sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, data-crud tables without a matching form or with mismatched field names, and whether the POC logic script is still empty. " +
+    [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing: sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, onclick/onsubmit handlers calling functions the POC script never defines (the control would throw and feel dead), data-crud tables without a matching form or with mismatched field names, and whether the POC logic script is still empty. " +
         "Call it ONCE after all content and script calls, fix every reported ISSUE (AppendPocContent for missing sections/modals, ReplaceInFile for small in-place corrections, SetPocScript to replace the logic), then return your final result. It reads the file for you — do NOT re-read poc-demo.html with ReadFile.")]
     public async Task<string> AuditPocContent()
     {

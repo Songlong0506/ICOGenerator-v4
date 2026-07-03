@@ -37,6 +37,9 @@ public class PocAuditTests
     private static string Section(string view, string inner = "x") =>
         $"<section class=\"page-view\" data-view=\"{view}\">{inner}</section>";
 
+    private static string ActiveSection(string view, string inner = "x") =>
+        $"<section class=\"page-view active\" data-view=\"{view}\">{inner}</section>";
+
     [Fact]
     public void Ok_WhenEveryLeafHasASection_CaseInsensitive()
     {
@@ -81,6 +84,54 @@ public class PocAuditTests
         Assert.Contains("WARNINGS", report);
         Assert.Contains("data-view=\"Login\"", report);
         Assert.Contains("pocNavigate('Login')", report);
+    }
+
+    [Fact]
+    public void ActiveLandingSectionOutsideMenu_IsNotWarnedUnreachable()
+    {
+        // The login/persona pattern: the landing screen carries "active" and has no menu item —
+        // the shell keeps it visible on load, so it is reachable by definition.
+        var doc = Doc(Leaf("Home"), ActiveSection("Login") + Section("Home"));
+
+        var report = PocAudit.Run(doc);
+
+        Assert.StartsWith("POC audit: OK", report);
+        Assert.DoesNotContain("data-view=\"Login\"", report);
+    }
+
+    [Fact]
+    public void ReportsHandlerCallingFunctionTheScriptNeverDefines()
+    {
+        // The shipped-POC bug this guards against: onclick="openUserModal()" with no such function
+        // anywhere — the button throws "openUserModal is not defined" and feels dead.
+        var content = Section("Home",
+            "<button class=\"btn\" onclick=\"openUserModal()\">Add user</button>" +
+            "<form onsubmit=\"saveUser(event)\"><button type=\"submit\">Save</button></form>");
+        var doc = Doc(Leaf("Home"), content, script: "function renderUsers() {}\nrenderUsers();");
+
+        var report = PocAudit.Run(doc);
+
+        Assert.Contains("ISSUES", report);
+        Assert.Contains("openUserModal", report);
+        Assert.Contains("saveUser", report);
+    }
+
+    [Fact]
+    public void HandlersCallingDefinedOrShellOrDottedFunctions_AreOk()
+    {
+        var content = Section("Home",
+            "<button class=\"btn\" onclick=\"handleLogin(event)\">Login</button>" +          // function declaration
+            "<button class=\"btn\" onclick=\"doIt()\">Go</button>" +                          // window.-assigned
+            "<button class=\"btn\" onclick=\"refresh()\">Refresh</button>" +                  // const function expression
+            "<button class=\"btn\" onclick=\"pocNavigate('Home')\" data-no-toast>Nav</button>" + // shell hook
+            "<button class=\"btn\" onclick=\"this.form.reset()\">Reset</button>" +            // dotted: has a receiver
+            "<button class=\"btn\" onclick=\"if (confirm('sure?')) doIt()\">Del</button>");   // keyword + builtin
+        var doc = Doc(Leaf("Home"), content,
+            script: "function handleLogin(e) {}\nwindow.doIt = function () {};\nconst refresh = function () {};");
+
+        var report = PocAudit.Run(doc);
+
+        Assert.StartsWith("POC audit: OK", report);
     }
 
     [Fact]
