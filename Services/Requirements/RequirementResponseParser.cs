@@ -30,6 +30,25 @@ public class RequirementResponseParser
         return result;
     }
 
+    // Bản STRICT cho vòng SỬA sau tự soát: parse hỏng thì trả null để caller GIỮ bản nháp đầu. Tuyệt
+    // đối không dùng fallback template ở đường này — nó sẽ ghi đè một bản nháp tốt bằng khung "Cần làm rõ".
+    public BAProductBriefResult? TryParseProductBrief(string response)
+    {
+        try
+        {
+            var json = JsonExtractor.Extract(response);
+            if (string.IsNullOrEmpty(json))
+                return null;
+
+            var result = JsonSerializer.Deserialize<BAProductBriefResult>(json, JsonDefaults.CaseInsensitive);
+            return result == null ? null : Normalize(result);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public BAProductBriefResult ParseProductBrief(string response, Project project, string userMessage)
     {
         try
