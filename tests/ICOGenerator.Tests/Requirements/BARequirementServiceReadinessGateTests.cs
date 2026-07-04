@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -190,7 +191,10 @@ public class BARequirementServiceReadinessGateTests : IDisposable
             new UserMemoryService(db, llm, prompts),
             new ChecklistGapMemoryService(db, llm, prompts),
             new RequirementCoverageService(db, llm, prompts),
-            new ProductBriefReviewParser());
+            new ProductBriefReviewParser(),
+            // OrgUnits trống trong các test này ⇒ service trả null (fail-open), không thêm system message nào.
+            new OrganizationContextService(db, prompts, new MemoryCache(new MemoryCacheOptions()),
+                NullLogger<OrganizationContextService>.Instance));
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());

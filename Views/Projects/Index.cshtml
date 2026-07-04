@@ -87,7 +87,7 @@
 </div>
 <div class="card table-card">
     <table>
-        <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
             @foreach (var item in Model.Items)
             {
@@ -100,6 +100,8 @@
                     </td>
                     <td>@p.Description</td>
                     <td>@(string.IsNullOrWhiteSpace(p.CreatedByUsername) ? "—" : p.CreatedByUsername)</td>
+                    @* Tên đơn vị tra từ OrgUnits; mã không còn trong dữ liệu HR thì hiển thị mã thô. *@
+                    <td>@(item.OrgUnitName ?? (string.IsNullOrWhiteSpace(p.OrgUnitCode) ? "—" : p.OrgUnitCode))</td>
                     <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>
                     <td><span class="@Badge(p.Status)">@p.Status</span></td>
                     <td>
@@ -185,6 +187,27 @@
         <button type="button" class="x" onclick="closeModal('newProject')">×</button><h2>New Project</h2>
         <label>Name *</label><input name="Name" placeholder="e.g E-commerce Web App" required />
         <label>Description</label><input name="Description" placeholder="Short description" />
+        @if (Model.OrgUnitOptions.Count > 0)
+        {
+            @* Đơn vị yêu cầu (tùy chọn): giúp BA hiểu bối cảnh phòng ban ngay từ đầu, tài liệu ghi đúng
+               đơn vị chủ quản và trang Usage thống kê được theo phòng ban. *@
+            <label>Đơn vị yêu cầu (Org Unit)</label>
+            <select name="OrgUnitCode">
+                <option value="">— Chưa chọn —</option>
+                <optgroup label="Phòng ban (Department)">
+                    @foreach (var o in Model.OrgUnitOptions.Where(o => o.IsDepartment))
+                    {
+                        <option value="@o.Code">@o.Name</option>
+                    }
+                </optgroup>
+                <optgroup label="OrgUnit khác">
+                    @foreach (var o in Model.OrgUnitOptions.Where(o => !o.IsDepartment))
+                    {
+                        <option value="@o.Code">@o.Name</option>
+                    }
+                </optgroup>
+            </select>
+        }
         <div class="modal-actions"><button type="button" class="btn" onclick="closeModal('newProject')">Cancel</button><button class="btn primary">Create Project</button></div>
     </form>
 </div>

@@ -154,6 +154,57 @@
     }
 </div>
 
+@* Chỉ hiện khi có ít nhất một project đã gắn đơn vị — toàn bộ rơi vào "(Chưa gắn đơn vị)" thì bảng không nói lên điều gì. *@
+@if (Model.DepartmentUsage.Any(d => d.DepartmentCode != null))
+{
+    <div class="card table-card usage-section">
+        <div class="chart-head" style="padding:22px 28px 0">
+            <h2>Usage by department</h2>
+        </div>
+
+        @{
+            var maxDeptTokens = Math.Max(Model.DepartmentUsage.Max(x => x.TotalTokens), 1);
+        }
+        <table>
+            <thead>
+                <tr>
+                    <th>Department / Org Unit</th>
+                    <th style="width:25%">Share</th>
+                    <th>Projects</th>
+                    <th>Total Tokens</th>
+                    <th>Calls</th>
+                    <th>Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var d in Model.DepartmentUsage)
+                {
+                    var width = d.TotalTokens * 100d / maxDeptTokens;
+                    <tr>
+                        <td>
+                            <b>@d.DepartmentName</b>
+                            @if (!string.IsNullOrWhiteSpace(d.DepartmentCode))
+                            {
+                                <small class="muted" style="display:block">mã @d.DepartmentCode</small>
+                            }
+                        </td>
+                        <td>
+                            <div class="project-bar-track" title="@Percent(d.TotalTokens, Model.TotalTokens)% of all tokens">
+                                <div class="project-bar-fill" style="width:@width.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
+                            </div>
+                            <small class="muted">@Percent(d.TotalTokens, Model.TotalTokens)%</small>
+                        </td>
+                        <td>@d.ProjectCount.ToString("N0")</td>
+                        <td><b>@d.TotalTokens.ToString("N0")</b></td>
+                        <td>@d.CallCount.ToString("N0")</td>
+                        <td class="cost-cell">@Money(d.Cost)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
 <div class="card table-card usage-section">
     <div class="chart-head" style="padding:22px 28px 0">
         <h2>Usage by project</h2>

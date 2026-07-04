@@ -31,6 +31,7 @@ public class BARequirementService
     private readonly ChecklistGapMemoryService _checklistGapMemory;
     private readonly RequirementCoverageService _coverage;
     private readonly ProductBriefReviewParser _reviewParser;
+    private readonly OrganizationContextService _orgContext;
 
     public BARequirementService(
         AppDbContext db,
@@ -48,7 +49,8 @@ public class BARequirementService
         UserMemoryService userMemory,
         ChecklistGapMemoryService checklistGapMemory,
         RequirementCoverageService coverage,
-        ProductBriefReviewParser reviewParser)
+        ProductBriefReviewParser reviewParser,
+        OrganizationContextService orgContext)
     {
         _db = db;
         _llm = llm;
@@ -66,6 +68,7 @@ public class BARequirementService
         _checklistGapMemory = checklistGapMemory;
         _coverage = coverage;
         _reviewParser = reviewParser;
+        _orgContext = orgContext;
     }
 
     public async Task<ChatWithBAResult> ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
@@ -124,6 +127,17 @@ public class BARequirementService
         {
             new(ChatRole.System, _promptTemplateService.Get("BA/requirement-chat.v3.md"))
         };
+        // Bối cảnh tổ chức Bosch render từ dữ liệu HR thật (OrgUnits/Associates, có cache) + đơn vị yêu cầu
+        // của dự án (nếu đã gắn lúc tạo project): BA hiểu ngay tên phòng ban/chức danh người dùng nhắc tới,
+        // gợi ý bằng tên phòng thật và hỏi luồng duyệt đúng ngôn ngữ manager/HoD. Fail-open: chưa có dữ
+        // liệu ⇒ bỏ qua, chat như cũ. Xem OrganizationContextService.
+        var organizationContext = OrganizationContextService.Combine(
+            await _orgContext.BuildBaContextAsync(cancellationToken),
+            await _orgContext.BuildProjectUnitNoteAsync(project.OrgUnitCode, cancellationToken));
+        if (!string.IsNullOrWhiteSpace(organizationContext))
+        {
+            messages.Add(new ChatMessage(ChatRole.System, organizationContext));
+        }
         // Checklist bổ sung được BA rút kinh nghiệm từ các dự án TRƯỚC (của bất kỳ ai) — nạp cho MỌI dự án
         // mới để hỏi kỹ hơn ngay từ đầu, bù cho những nhóm câu hỏi mà checklist tĩnh ban đầu chưa lường tới.
         // Xem ChecklistGapMemoryService.
@@ -328,10 +342,18 @@ public class BARequirementService
 
         Report("thinking", "Đang tổng hợp yêu cầu từ hội thoại…", conversationTranscript);
 
+        // Bối cảnh tổ chức + đơn vị yêu cầu: để tài liệu dùng ĐÚNG tên phòng ban/HoD thật (mục phạm vi,
+        // stakeholder) thay vì "TBD"/tên bịa. Cùng một khối này được đưa vào cả vòng tự soát/sửa bên dưới
+        // để reviewer không coi các tên thật đó là chi tiết "tự thêm ngoài hội thoại".
+        var organizationContext = OrganizationContextService.Combine(
+            await _orgContext.BuildBaContextAsync(cancellationToken),
+            await _orgContext.BuildProjectUnitNoteAsync(project.OrgUnitCode, cancellationToken));
+
         var prompt = _promptBuilder.BuildProductBrief(
             project,
             conversationTranscript,
-            GetDoc(project, _artifactCatalog.ProductBrief.FileName, "draft"));
+            GetDoc(project, _artifactCatalog.ProductBrief.FileName, "draft"),
+            organizationContext);
 
         // Lượt user mang prompt soạn tài liệu + tài liệu nguồn (text/ảnh) đính kèm. Không có nguồn ⇒ chỉ một
         // TextContent, tương đương đường cũ.
@@ -392,7 +414,7 @@ public class BARequirementService
 
         // Vòng TỰ SOÁT (đúng một vòng): reviewer đối chiếu bản nháp với hội thoại (bỏ sót/sai lệch/tự
         // thêm/giả định còn sót/thiếu mục) rồi sửa nếu có vấn đề. Fail-open toàn tuyến — soát/sửa lỗi thì dùng bản nháp đầu.
-        result = await ReviewAndReviseDraftAsync(project, ba, model, conversationTranscript, result, Report, onToken, workflowRunId, cancellationToken);
+        result = await ReviewAndReviseDraftAsync(project, ba, model, conversationTranscript, organizationContext, result, Report, onToken, workflowRunId, cancellationToken);
 
         Report("tool", "Đang tạo/cập nhật file tài liệu (.docx)…");
 
@@ -536,6 +558,12 @@ public class BARequirementService
 
         Report("thinking", "Đang soạn tài liệu kỹ thuật từ Product Brief & AI Design Spec đã duyệt…");
 
+        // BRD/SRS có mục stakeholder/đơn vị liên quan: đưa bối cảnh tổ chức + đơn vị yêu cầu để các mục đó
+        // mang tên phòng ban/HoD thật từ HR thay vì "TBD".
+        var organizationContext = OrganizationContextService.Combine(
+            await _orgContext.BuildBaContextAsync(cancellationToken),
+            await _orgContext.BuildProjectUnitNoteAsync(project.OrgUnitCode, cancellationToken));
+
         var prompt = _promptBuilder.BuildTechnicalDocs(
             project,
             productBrief,
@@ -547,7 +575,8 @@ public class BARequirementService
             brdTemplate,
             srsTemplate,
             fsdTemplate,
-            userStoriesTemplate);
+            userStoriesTemplate,
+            organizationContext);
 
         var messages = new List<ChatMessage>
         {
@@ -643,6 +672,7 @@ public class BARequirementService
         Agent ba,
         AiModel model,
         string conversationTranscript,
+        string organizationContext,
         BAProductBriefResult draft,
         Action<string, string, string?> report,
         Action<string>? onToken,
@@ -658,7 +688,7 @@ public class BARequirementService
         var reviewMessages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BA/product-brief-review.v2.md")),
-            new(ChatRole.User, _promptBuilder.BuildProductBriefReview(project, conversationTranscript, draft.ProductBrief.Content))
+            new(ChatRole.User, _promptBuilder.BuildProductBriefReview(project, conversationTranscript, draft.ProductBrief.Content, organizationContext))
         };
 
         var (reviewCall, structuredReview) = await _llm.ChatStructuredAsync<ProductBriefReview>(
@@ -686,7 +716,7 @@ public class BARequirementService
         var revisionMessages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BA/product-brief.v3.md")),
-            new(ChatRole.User, _promptBuilder.BuildProductBriefRevision(project, conversationTranscript, draft.ProductBrief.Content, review.Issues))
+            new(ChatRole.User, _promptBuilder.BuildProductBriefRevision(project, conversationTranscript, draft.ProductBrief.Content, review.Issues, organizationContext))
         };
 
         var (revisionCall, structuredRevision) = await _llm.ChatStructuredAsync<BAProductBriefResult>(

@@ -8,6 +8,10 @@ public record MonthlyUsageItem(int Year, int Month, long PromptTokens, long Comp
 
 public record ProjectUsageItem(Guid ProjectId, string ProjectName, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, DateTime? LastCallAt, decimal Cost);
 
+// Một dòng "Usage by department": project gắn orgUnit con được ROLL-UP về department gần nhất (đi ngược
+// TargetResponsible trên bảng OrgUnits). DepartmentCode null = nhóm project chưa gắn đơn vị.
+public record DepartmentUsageItem(string? DepartmentCode, string DepartmentName, int ProjectCount, long TotalTokens, int CallCount, decimal Cost);
+
 public record ModelUsageItem(string ModelId, string ModelName, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal InputPricePerMillionTokens, decimal OutputPricePerMillionTokens, bool HasPrice, decimal Cost);
 
 public record UsageOverviewVm(
@@ -21,7 +25,8 @@ public record UsageOverviewVm(
     bool HasAnyPricing,
     IReadOnlyList<MonthlyUsageItem> MonthlyUsage,
     IReadOnlyList<ModelUsageItem> ModelUsage,
-    IReadOnlyList<ProjectUsageItem> ProjectUsage);
+    IReadOnlyList<ProjectUsageItem> ProjectUsage,
+    IReadOnlyList<DepartmentUsageItem> DepartmentUsage);
 
 public class GetUsageOverviewQuery
 {
@@ -68,6 +73,7 @@ public class GetUsageOverviewQuery
             {
                 x.ProjectId,
                 ProjectName = x.Project!.Name,
+                ProjectOrgUnitCode = x.Project!.OrgUnitCode,
                 x.WorkflowRunId,
                 x.CreatedAt.Year,
                 x.CreatedAt.Month,
@@ -78,6 +84,7 @@ public class GetUsageOverviewQuery
             {
                 g.Key.ProjectId,
                 g.Key.ProjectName,
+                g.Key.ProjectOrgUnitCode,
                 g.Key.WorkflowRunId,
                 g.Key.Year,
                 g.Key.Month,
@@ -157,6 +164,11 @@ public class GetUsageOverviewQuery
             .OrderByDescending(x => x.TotalTokens)
             .ToList();
 
+        // ----- Theo phòng ban: roll-up orgUnit con của project về department gần nhất -----
+        var departments = await BuildDepartmentUsageAsync(logRaw
+            .Select(x => (x.ProjectId, x.ProjectOrgUnitCode, x.TotalTokens, x.CallCount, Cost: CostFor(x.ModelId, x.PromptTokens, x.CompletionTokens)))
+            .ToList());
+
         var hasAnyPricing = priceByModelId.Values.Any(p => p.Input > 0 || p.Output > 0);
 
         return new UsageOverviewVm(
@@ -170,6 +182,58 @@ public class GetUsageOverviewQuery
             hasAnyPricing,
             monthly,
             models,
-            projects);
+            projects,
+            departments);
+    }
+
+    // Gom chi phí về ĐƠN VỊ CẤP PHÒNG BAN: project thường gắn một orgUnit con (line/nhóm), nên đi ngược
+    // TargetResponsible tới department gần nhất (IsDepartment). Không tìm được department trên đường đi
+    // (chuỗi cấp trên trỏ ra ngoài dữ liệu) thì giữ chính orgUnit đó làm nhóm; mã không còn tồn tại hoặc
+    // project chưa gắn đơn vị rơi vào nhóm "(Chưa gắn đơn vị)".
+    private async Task<IReadOnlyList<DepartmentUsageItem>> BuildDepartmentUsageAsync(
+        IReadOnlyList<(Guid ProjectId, string? OrgUnitCode, long TotalTokens, int CallCount, decimal Cost)> rows)
+    {
+        if (rows.Count == 0)
+            return Array.Empty<DepartmentUsageItem>();
+
+        // Bảng OrgUnits nhỏ (vài trăm dòng) — nạp một lần, dựng map cha-con trong RAM. Mã trùng lấy bản đầu.
+        var units = (await _db.OrgUnits.AsNoTracking()
+                .Where(u => !u.IsDelete && u.OrgUnitCode != null && u.OrgUnitCode != "")
+                .Select(u => new { Code = u.OrgUnitCode!, u.DisplayName, u.TargetResponsible, u.IsDepartment })
+                .ToListAsync())
+            .GroupBy(u => u.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToDictionary(u => u.Code, u => u, StringComparer.OrdinalIgnoreCase);
+
+        (string? Code, string Name) ResolveDepartment(string? orgUnitCode)
+        {
+            if (string.IsNullOrWhiteSpace(orgUnitCode) || !units.TryGetValue(orgUnitCode.Trim(), out var unit))
+                return (null, "(Chưa gắn đơn vị)");
+
+            var current = unit;
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { current.Code };
+            while (!current.IsDepartment
+                   && !string.IsNullOrWhiteSpace(current.TargetResponsible)
+                   && units.TryGetValue(current.TargetResponsible!, out var parent)
+                   && visited.Add(parent.Code))
+            {
+                current = parent;
+            }
+
+            var resolved = current.IsDepartment ? current : unit;
+            return (resolved.Code, string.IsNullOrWhiteSpace(resolved.DisplayName) ? resolved.Code : resolved.DisplayName!);
+        }
+
+        return rows
+            .GroupBy(r => ResolveDepartment(r.OrgUnitCode))
+            .Select(g => new DepartmentUsageItem(
+                g.Key.Code,
+                g.Key.Name,
+                g.Select(r => r.ProjectId).Distinct().Count(),
+                g.Sum(r => r.TotalTokens),
+                g.Sum(r => r.CallCount),
+                g.Sum(r => r.Cost)))
+            .OrderByDescending(x => x.TotalTokens)
+            .ToList();
     }
 }

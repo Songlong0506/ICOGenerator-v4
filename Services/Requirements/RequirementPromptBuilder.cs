@@ -7,10 +7,13 @@ public class RequirementPromptBuilder
     // Lượt "Write Requirement" phía user: chỉ sinh Product Brief (dễ hiểu). AI Design Spec được
     // sinh ở bước Approve (xem BuildAiDesignSpec). conversationTranscript là bản ghi Hỏi–Đáp đầy đủ
     // (BA hỏi / Người dùng trả lời) — giữ cả câu hỏi để câu trả lời ngắn kiểu chip không mất ngữ cảnh.
+    // organizationContext (có thể rỗng): bối cảnh tổ chức Bosch + đơn vị yêu cầu, render từ dữ liệu HR
+    // thật — để tài liệu dùng đúng tên phòng ban/HoD thay vì "TBD". Xem OrganizationContextService.
     public string BuildProductBrief(
         Project project,
         string conversationTranscript,
-        string currentProductBrief)
+        string currentProductBrief,
+        string organizationContext = "")
     {
         return $$"""
 Project:
@@ -18,7 +21,7 @@ Project:
 
 Project Description:
 {{project.Description}}
-
+{{OrganizationSection(organizationContext)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
 
@@ -33,10 +36,13 @@ Your task:
 
     // Vòng TỰ SOÁT bản nháp Product Brief: reviewer đối chiếu bản nháp với hội thoại để tìm vấn đề
     // thực chất (bỏ sót/sai lệch/tự thêm/giả định còn sót/thiếu mục). Xem Prompts/BA/product-brief-review.v2.md.
+    // organizationContext phải TRÙNG với khối đã đưa cho lượt soạn: tên phòng ban/HoD lấy từ đó là dữ
+    // liệu hợp lệ, reviewer không được tính là "tự thêm ngoài hội thoại".
     public string BuildProductBriefReview(
         Project project,
         string conversationTranscript,
-        string draftProductBrief)
+        string draftProductBrief,
+        string organizationContext = "")
     {
         return $$"""
 Project:
@@ -44,7 +50,7 @@ Project:
 
 Project Description:
 {{project.Description}}
-
+{{OrganizationSection(organizationContext)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
 
@@ -53,6 +59,7 @@ Bản nháp Product Brief cần soát:
 
 Your task:
 - Review the draft against the conversation and list substantive issues.
+- Organization facts (department names, HoD/manager names) taken from the organization context above are legitimate — do NOT flag them as fabricated.
 - Return JSON only.
 """;
     }
@@ -63,7 +70,8 @@ Your task:
         Project project,
         string conversationTranscript,
         string draftProductBrief,
-        IReadOnlyList<string> reviewIssues)
+        IReadOnlyList<string> reviewIssues,
+        string organizationContext = "")
     {
         return $$"""
 Project:
@@ -71,7 +79,7 @@ Project:
 
 Project Description:
 {{project.Description}}
-
+{{OrganizationSection(organizationContext)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
 
@@ -128,7 +136,8 @@ Your task:
         string brdTemplate,
         string srsTemplate,
         string fsdTemplate,
-        string userStoriesTemplate)
+        string userStoriesTemplate,
+        string organizationContext = "")
     {
         return $$"""
 Project:
@@ -136,7 +145,7 @@ Project:
 
 Project Description:
 {{project.Description}}
-
+{{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{productBrief}}
 
@@ -177,9 +186,25 @@ Your task:
 General rules:
 - Keep the same section order as the templates.
 - Fill unknown sections with "TBD" or "Cần làm rõ".
+- When the organization context above names real departments/HoD/managers relevant to this project, use those REAL names in stakeholder/scope sections instead of "TBD".
 - Do NOT write source code or implementation files.
 - Do NOT call tools.
 - Return JSON only.
+""";
+    }
+
+    // Khối "bối cảnh tổ chức" chèn vào giữa prompt: rỗng thì biến mất không để lại dòng thừa; có nội dung
+    // thì tự mang đúng một dòng trống đệm trên/dưới để khớp nhịp các section xung quanh.
+    private static string OrganizationSection(string organizationContext)
+    {
+        if (string.IsNullOrWhiteSpace(organizationContext))
+            return string.Empty;
+
+        return $"""
+
+Bối cảnh tổ chức Bosch (dữ liệu thật từ HR — khi nhắc tới phòng ban/chức danh/người phụ trách, dùng ĐÚNG tên trong này; nếu có mục "Đơn vị yêu cầu", ghi nhận nó là đơn vị chủ quản của dự án):
+{organizationContext.Trim()}
+
 """;
     }
 }

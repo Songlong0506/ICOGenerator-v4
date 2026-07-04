@@ -53,6 +53,22 @@ public class GetProjectListQuery
             })
             .ToListAsync();
 
+        // Một lượt quét nhẹ bảng OrgUnits (~vài trăm dòng) phục vụ cả hai nhu cầu của trang: tra tên đơn
+        // vị cho các project đang hiển thị và danh sách chọn của modal New Project. Mã trùng (dữ liệu
+        // đồng bộ lỗi) lấy bản đầu để không vỡ dropdown.
+        var orgUnits = (await _db.OrgUnits.AsNoTracking()
+                .Where(u => !u.IsDelete && u.OrgUnitCode != null && u.OrgUnitCode != ""
+                            && u.DisplayName != null && u.DisplayName != "")
+                .Select(u => new { u.OrgUnitCode, u.DisplayName, u.IsDepartment })
+                .ToListAsync())
+            .GroupBy(u => u.OrgUnitCode!, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .Select(u => new OrgUnitOption(u.OrgUnitCode!, u.DisplayName!, u.IsDepartment))
+            .OrderByDescending(o => o.IsDepartment)
+            .ThenBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var orgUnitNameByCode = orgUnits.ToDictionary(o => o.Code, o => o.Name, StringComparer.OrdinalIgnoreCase);
+
         var items = rows
             .Select(row =>
             {
@@ -69,10 +85,13 @@ public class GetProjectListQuery
                     File.Exists(_workspacePathResolver.GetMockupPath(projectKey)),
                     latestWorkflow?.Status.ToString(),
                     latestWorkflow?.CurrentStage.ToString(),
-                    hasRunningWorkflow);
+                    hasRunningWorkflow,
+                    row.Project.OrgUnitCode != null
+                        ? orgUnitNameByCode.GetValueOrDefault(row.Project.OrgUnitCode)
+                        : null);
             })
             .ToList();
 
-        return new ProjectListPage(items, page, pageSize, totalCount);
+        return new ProjectListPage(items, page, pageSize, totalCount, orgUnits);
     }
 }
