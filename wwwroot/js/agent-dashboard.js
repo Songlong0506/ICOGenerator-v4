@@ -188,11 +188,8 @@ async function viewLogDetail(id) {
     document.getElementById('log-request').textContent = prettyJson(log.requestJson);
     document.getElementById('log-request-readable').innerHTML = buildReadableRequest(log.requestJson);
     document.getElementById('log-response').textContent = prettyJson(log.responseText);
-    document.getElementById('log-content').textContent = log.extractedContent || '';
-    document.getElementById('log-content-readable').innerHTML = buildReadableContent(log.extractedContent);
     document.getElementById('log-error').textContent = log.errorMessage || '';
     requestReadableMode = false;
-    contentReadableMode = false;
     document.getElementById('log-modal').style.display = 'flex';
     showLogTab('request', document.querySelector('.tab'));
 }
@@ -216,21 +213,15 @@ function closeDeliveryConfig() {
 }
 
 let requestReadableMode = false;
-let contentReadableMode = false;
 
 function showLogTab(name, button) {
-    ['request', 'response', 'content', 'error'].forEach(x => document.getElementById(`log-${x}`).classList.add('hidden'));
+    ['request', 'response', 'error'].forEach(x => document.getElementById(`log-${x}`).classList.add('hidden'));
     document.getElementById('log-request-readable').classList.add('hidden');
-    document.getElementById('log-content-readable').classList.add('hidden');
     document.getElementById('log-request-toggle').classList.add('hidden');
-    document.getElementById('log-content-toggle').classList.add('hidden');
 
     if (name === 'request') {
         document.getElementById('log-request-toggle').classList.remove('hidden');
         applyRequestFormat();
-    } else if (name === 'content') {
-        document.getElementById('log-content-toggle').classList.remove('hidden');
-        applyContentFormat();
     } else {
         document.getElementById(`log-${name}`).classList.remove('hidden');
     }
@@ -244,19 +235,9 @@ function toggleRequestFormat() {
     applyRequestFormat();
 }
 
-function toggleContentFormat() {
-    contentReadableMode = !contentReadableMode;
-    applyContentFormat();
-}
-
 // Chuyển đổi hiển thị tab Request giữa JSON gốc và dạng dễ đọc.
 function applyRequestFormat() {
     applyReadableToggle('log-request', 'log-request-readable', 'log-request-toggle', requestReadableMode);
-}
-
-// Chuyển đổi hiển thị tab Extracted Content giữa JSON gốc và dạng dễ đọc.
-function applyContentFormat() {
-    applyReadableToggle('log-content', 'log-content-readable', 'log-content-toggle', contentReadableMode);
 }
 
 function applyReadableToggle(preId, readableId, toggleId, readableMode) {
@@ -296,12 +277,6 @@ function buildReadableRequest(requestJson) {
             <div class="rd-body">${bodyHtml}</div>
         </div>`;
     }).join('');
-}
-
-// Extracted Content là một object JSON đơn -> hiển thị theo từng trường, giải mã unicode.
-function buildReadableContent(extractedContent) {
-    if (!extractedContent) return '<p class="rd-empty">Không có nội dung.</p>';
-    return renderReadableContent(extractedContent);
 }
 
 function renderReadableContent(content) {
