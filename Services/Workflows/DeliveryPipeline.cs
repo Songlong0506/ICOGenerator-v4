@@ -41,9 +41,10 @@ public static class DeliveryPipeline
     public static readonly IReadOnlyList<PipelineStep> Steps = new[]
     {
         // POC dựng qua nhiều call nhỏ: SetPocContent (màn đầu) + AppendPocContent (mỗi màn/modal)
-        // + SetPocScript/AppendPocScript (logic nghiệp vụ) + AuditPocContent (tự kiểm tra) + 1–2 lần sửa
-        // theo audit — nên budget 14 thay vì 10 như trước, đủ cho spec ~10 màn hình có kèm bước tự soát.
-        new PipelineStep(WorkflowStageKey.PocPreview,         AgentRoleKey.Developer,       AgentTaskType.PocPreview,         "Tạo POC HTML để xem trước",        PipelineInputSource.DesignSpec,     14),
+        // + SetPocScript/AppendPocScript (logic nghiệp vụ) + AuditPocContent (tự kiểm tra, nay đối chiếu
+        // cả ĐỘ PHỦ so với AI Design Spec) + các lần sửa theo audit + 1 lần audit xác nhận lại — budget 16
+        // (trước là 14, chưa tính vòng audit thứ hai), đủ cho spec ~10 màn hình kèm chu trình tự soát.
+        new PipelineStep(WorkflowStageKey.PocPreview,         AgentRoleKey.Developer,       AgentTaskType.PocPreview,         "Tạo POC HTML để xem trước",        PipelineInputSource.DesignSpec,     16),
         // Sinh tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) từ Product Brief + AI Design Spec đã duyệt.
         // BA chạy qua BARequirementService (đọc context project), không qua agent+prompt chung — vì vậy
         // MaxSteps ở đây không được tiêu thụ (worker xử lý nhánh riêng); InputSource giữ DesignSpec cho nhất quán.

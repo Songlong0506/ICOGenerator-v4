@@ -20,6 +20,12 @@ public class WorkspaceTools
     // so a workflow cancel / app shutdown actually stops a spawned process instead of waiting out the timeout.
     public CancellationToken RunCancellationToken { get; private set; } = CancellationToken.None;
 
+    // The AI Design Spec of the current POC run, parsed into the checklist AuditPocContent compares
+    // the demo against (missing spec screens, unimplemented business rules). Set by AgentTaskWorker
+    // for PocPreview tasks — same scoped-ambient pattern as SetWorkspace; empty elsewhere, which
+    // keeps the audit wiring-only exactly as before.
+    private PocSpec _pocSpec = PocSpec.Empty;
+
     public void SetWorkspace(string projectKey)
     {
         CurrentWorkspacePath = _workspacePathResolver.GetProjectWorkspacePath(projectKey);
@@ -27,6 +33,8 @@ public class WorkspaceTools
     }
 
     public void SetRunCancellation(CancellationToken cancellationToken) => RunCancellationToken = cancellationToken;
+
+    public void SetPocSpec(string? aiDesignSpec) => _pocSpec = PocSpec.Parse(aiDesignSpec);
 
     [Description("Write a source code or documentation file into the current workspace.")]
     public async Task<string> WriteFile(string relativePath, string content)
@@ -243,8 +251,8 @@ public class WorkspaceTools
         return $"POC script appended: {PocTemplate.MockupRelativePath}";
     }
 
-    [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing: sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, data-crud tables without a matching form or with mismatched field names, and whether the POC logic script is still empty. " +
-        "Call it ONCE after all content and script calls, fix every reported ISSUE (AppendPocContent for missing sections/modals, ReplaceInFile for small in-place corrections, SetPocScript to replace the logic), then return your final result. It reads the file for you — do NOT re-read poc-demo.html with ReadFile.")]
+    [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing. It checks the wiring — sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, data-crud tables without a matching form or with mismatched field names, an empty POC logic script — AND coverage against the AI Design Spec of this run: every screen of '§ Screens To Generate' missing from the demo is an ISSUE, and the spec's business rules are echoed as a checklist you must verify actually behaves. " +
+        "Call it after all content and script calls, fix every reported ISSUE (AppendPocContent for missing sections/modals, ReplaceInFile for small in-place corrections, SetPocScript to replace the logic), then call it AGAIN to confirm the report is clean (up to 3 rounds) before returning your final result. It reads the file for you — do NOT re-read poc-demo.html with ReadFile.")]
     public async Task<string> AuditPocContent()
     {
         EnsureWorkspace();
@@ -252,7 +260,7 @@ public class WorkspaceTools
         if (!File.Exists(fullPath)) return $"File not found: {PocTemplate.MockupRelativePath}";
 
         var current = await File.ReadAllTextAsync(fullPath);
-        return PocAudit.Run(current);
+        return PocAudit.Run(current, _pocSpec);
     }
 
     public void RenameFolder(string oldRelativePath, string newRelativePath)

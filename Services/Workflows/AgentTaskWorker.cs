@@ -5,6 +5,7 @@ using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Requirements;
+using ICOGenerator.Services.Tools;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Workflows;
@@ -151,6 +152,12 @@ public class AgentTaskWorker : BackgroundService
             {
                 _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
                 await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
+
+                // Đưa AI Design Spec của run này (task.Input) cho AuditPocContent qua WorkspaceTools
+                // CÙNG SCOPE (agentRunService và tool registry cùng resolve instance scoped này), để
+                // audit đối chiếu ĐỘ PHỦ so với spec — màn hình thiếu, business rule chưa chạy —
+                // thay vì chỉ soát wiring nội bộ rồi "OK" trên một POC mới phủ nửa spec.
+                scope.ServiceProvider.GetRequiredService<WorkspaceTools>().SetPocSpec(task.Input);
             }
 
             var project = await db.Projects.AsNoTracking()
