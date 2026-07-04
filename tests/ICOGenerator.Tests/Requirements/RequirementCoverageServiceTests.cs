@@ -106,6 +106,54 @@ public class RequirementCoverageServiceTests : IDisposable
         Assert.Equal("bản đồ v1", map);
     }
 
+    [Fact]
+    public async Task UpdateAndLoadAsync_IncludesBaSuggestions_SoReferentialAnswerKeepsContext()
+    {
+        // Kịch bản bug gốc: BA hỏi kèm 3 gợi ý, user chọn option tham chiếu "Cả hai mục tiêu trên".
+        // Khối hội thoại gộp phải chứa các option đã đưa ra, nếu không distill mất context.
+        var ba = new Agent { Id = Guid.NewGuid(), Name = "BA", Temperature = 0.2, AiModelId = _model.Id };
+        var project = new Project { Id = Guid.NewGuid(), Name = "P" };
+        var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        await using (var seed = NewDb())
+        {
+            seed.Agents.Add(ba);
+            seed.Projects.Add(project);
+            seed.AgentConversations.Add(new AgentConversation
+            {
+                ProjectId = project.Id,
+                AgentId = ba.Id,
+                Role = "assistant",
+                Message = "Mục tiêu cụ thể của ứng dụng này là gì?",
+                Suggestions = "[\"Số hóa quy trình thủ công trên Excel\",\"Chuẩn hóa mẫu JD và quản lý phiên bản\",\"Cả hai mục tiêu trên\"]",
+                CreatedAt = baseTime
+            });
+            seed.AgentConversations.Add(new AgentConversation
+            {
+                ProjectId = project.Id,
+                AgentId = ba.Id,
+                Role = "user",
+                Message = "Cả hai mục tiêu trên",
+                CreatedAt = baseTime.AddSeconds(1)
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        var llm = new FakeLlm { Reply = "bản đồ v1" };
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.Equal(1, llm.Calls);
+        Assert.NotNull(llm.LastUserMessage);
+        // Cả hai option "thực" phải xuất hiện để "Cả hai mục tiêu trên" nối được về đúng nội dung.
+        Assert.Contains("Số hóa quy trình thủ công trên Excel", llm.LastUserMessage);
+        Assert.Contains("Chuẩn hóa mẫu JD và quản lý phiên bản", llm.LastUserMessage);
+        Assert.Contains("Cả hai mục tiêu trên", llm.LastUserMessage);
+    }
+
     private RequirementCoverageService NewSut(AppDbContext db, ILlmClient llm) => new(db, llm, new StubPrompts());
 
     private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? existingMap = null, int harvestedTurnCount = 0)
@@ -149,9 +197,13 @@ public class RequirementCoverageServiceTests : IDisposable
         public string Reply = "bản đồ bao phủ";
         public bool Fail;
 
+        // Text của lượt user cuối (chính là khối hội thoại được gộp) để test soi xem gợi ý có được đính kèm không.
+        public string? LastUserMessage;
+
         public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
         {
             Calls++;
+            LastUserMessage = messages.LastOrDefault(m => m.Role == ChatRole.User)?.Text;
             return Task.FromResult(new LlmCallResult
             {
                 IsSuccess = !Fail,

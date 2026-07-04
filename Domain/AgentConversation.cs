@@ -15,8 +15,10 @@ public class AgentConversation
     public string Message { get; set; } = string.Empty;
 
     // JSON array (chuỗi) các đáp án gợi ý cho lượt hỏi của BA, để UI render thành "chip" bấm chọn
-    // (giống plan mode). Null/không có nghĩa là lượt này không kèm gợi ý. Chỉ là phụ trợ cho UI —
-    // KHÔNG đưa vào ngữ cảnh gửi lại cho LLM (Message vẫn giữ phần text thuần để giữ context sạch).
+    // (giống plan mode). Null/không có nghĩa là lượt này không kèm gợi ý. Trước UI là mục đích DUY NHẤT,
+    // nhưng gợi ý cũng là NGỮ CẢNH: câu trả lời tham chiếu ("Cả hai mục tiêu trên") vô nghĩa nếu reader
+    // không thấy các option đã đưa ra. Vì vậy khi dựng ngữ cảnh gửi LLM, các reader render qua
+    // ConversationTurnRenderer để đính kèm danh sách này (Message vẫn giữ nguyên phần text thuần cho UI).
     public string? Suggestions { get; set; }
 
     public int TokenUsed { get; set; }

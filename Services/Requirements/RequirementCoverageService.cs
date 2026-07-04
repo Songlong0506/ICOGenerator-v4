@@ -85,8 +85,9 @@ public class RequirementCoverageService
         sb.AppendLine("## Các lượt hội thoại mới cần gộp vào bản đồ");
         foreach (var t in turns)
         {
-            var who = t.Role == "assistant" ? "BA" : "Người dùng";
-            sb.AppendLine($"- {who}: {(t.Message ?? string.Empty).Trim()}");
+            // Render chung (ConversationTurnRenderer): lượt BA kèm luôn các đáp án gợi ý đã đưa ra, để
+            // câu trả lời tham chiếu ("Cả hai mục tiêu trên") không trỏ vào khoảng không → mất context.
+            sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
         }
 
         var messages = new List<ChatMessage>

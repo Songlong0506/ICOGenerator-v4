@@ -8,7 +8,8 @@ namespace ICOGenerator.Services.Requirements;
 /// cổng readiness và bước soạn Product Brief. Trước đây hai bước này chỉ nhận các lượt CỦA USER — mất
 /// sạch câu hỏi của BA, nên câu trả lời ngắn kiểu chip gợi ý ("Nhân viên văn phòng", "Có, cần duyệt")
 /// trở nên vô nghĩa vì không biết đang trả lời cho câu hỏi nào. Giữ cả hai vai để mỗi câu trả lời còn
-/// nguyên ngữ cảnh.
+/// nguyên ngữ cảnh, và render qua <see cref="ConversationTurnRenderer"/> để lượt BA kèm luôn các đáp án
+/// gợi ý — nếu không, đáp án tham chiếu như "Cả hai mục tiêu trên" trỏ tới option reader chưa từng thấy.
 /// </summary>
 public static class ConversationTranscriptBuilder
 {
@@ -33,12 +34,12 @@ public static class ConversationTranscriptBuilder
             if (message.Length == 0)
                 continue;
 
-            var isAssistant = turn.Role == "assistant";
+            var isAssistant = ConversationTurnRenderer.IsAssistant(turn);
             if (isAssistant && message.StartsWith(LlmFailurePrefix, StringComparison.Ordinal))
                 continue;
 
             hasUserTurn |= !isAssistant;
-            sb.Append(isAssistant ? "BA: " : "Người dùng: ").AppendLine(message);
+            sb.AppendLine(ConversationTurnRenderer.Render(turn));
         }
 
         // Chưa có lượt user nào (mới chỉ BA chào/hỏi) ⇒ chưa có yêu cầu để tổng hợp.

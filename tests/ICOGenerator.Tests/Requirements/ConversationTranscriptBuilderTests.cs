@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Requirements;
 using Xunit;
@@ -7,13 +8,14 @@ namespace ICOGenerator.Tests.Requirements;
 // Transcript Hỏi–Đáp cho readiness gate + lượt soạn Product Brief. Các test chốt: (1) giữ CẢ câu hỏi của
 // BA lẫn câu trả lời của user theo đúng thứ tự thời gian (đây là lý do tồn tại — bản cũ chỉ lấy lượt user,
 // câu trả lời chip ngắn mất sạch ngữ cảnh); (2) chưa có lượt user nào thì trả placeholder; (3) lượt BA báo
-// lỗi gọi AI và lượt rỗng bị lọc bỏ.
+// lỗi gọi AI và lượt rỗng bị lọc bỏ; (4) lượt BA có gợi ý thì đính kèm option để đáp án tham chiếu còn ngữ cảnh.
 public class ConversationTranscriptBuilderTests
 {
-    private static AgentConversation Turn(string role, string message, int second) => new()
+    private static AgentConversation Turn(string role, string message, int second, string? suggestions = null) => new()
     {
         Role = role,
         Message = message,
+        Suggestions = suggestions,
         CreatedAt = new DateTime(2026, 1, 1, 0, 0, second, DateTimeKind.Utc)
     };
 
@@ -43,6 +45,32 @@ public class ConversationTranscriptBuilderTests
 
         Assert.Equal("(Chưa có yêu cầu nào được ghi nhận.)",
             ConversationTranscriptBuilder.Build(Array.Empty<AgentConversation>()));
+    }
+
+    [Fact]
+    public void Build_AttachesBaSuggestions_SoReferentialAnswerKeepsContext()
+    {
+        var suggestions = JsonSerializer.Serialize(new[]
+        {
+            "Số hóa quy trình thủ công trên Excel",
+            "Chuẩn hóa mẫu JD và quản lý phiên bản",
+            "Cả hai mục tiêu trên"
+        });
+
+        var transcript = ConversationTranscriptBuilder.Build(new[]
+        {
+            Turn("assistant", "Mục tiêu cụ thể của ứng dụng này là gì?", 1, suggestions),
+            Turn("user", "Cả hai mục tiêu trên", 2)
+        }).Replace("\r\n", "\n");
+
+        Assert.Equal(
+            "BA: Mục tiêu cụ thể của ứng dụng này là gì?\n" +
+            "   (Các lựa chọn gợi ý đã đưa cho người dùng: " +
+            "[1] Số hóa quy trình thủ công trên Excel; " +
+            "[2] Chuẩn hóa mẫu JD và quản lý phiên bản; " +
+            "[3] Cả hai mục tiêu trên)\n" +
+            "Người dùng: Cả hai mục tiêu trên",
+            transcript);
     }
 
     [Fact]
