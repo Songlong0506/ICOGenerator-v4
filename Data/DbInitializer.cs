@@ -181,39 +181,7 @@ public static class DbInitializer
     {
         if (!await db.OrgUnits.AnyAsync())
         {
-            db.OrgUnits.AddRange(
-                new OrgUnit
-                {
-                    Id = Guid.Parse("8BA9C19B-B26A-4976-B60D-02EA83BDCE68"),
-                    CreatedDate = DateTime.Parse("2023-12-05 11:15:09.3212666"),
-                    UpdatedDate = DateTime.Parse("2026-05-29 15:01:29.9372381"),
-                    UpdatedBy = "993F9106-79CB-4BB0-B061-EBDE116C32B6",
-                    IsDelete = false,
-                    DisplayName = "HcP/MFE2.12",
-                    CostCenter = "00001835050010",
-                    DiscManagerLId = "00000000",
-                    OrgUnitCode = "50672627",
-                    TargetResponsible = "50672623",
-                    TrgtManagerLId = "34183936",
-                    TypeOrganize = "G",
-                    IsDepartment = false
-                },
-                new OrgUnit
-                {
-                    Id = Guid.Parse("CAC232E2-F42E-4DB1-BA60-034B34E9A6A0"),
-                    CreatedDate = DateTime.Parse("2023-12-05 11:15:09.3213296"),
-                    UpdatedDate = DateTime.Parse("2026-04-13 11:28:33.1419204"),
-                    UpdatedBy = "993F9106-79CB-4BB0-B061-EBDE116C32B6",
-                    IsDelete = false,
-                    DisplayName = "HcP/MFW3.2-F3",
-                    CostCenter = "00001838200010",
-                    DiscManagerLId = "00000000",
-                    OrgUnitCode = "50764278",
-                    TargetResponsible = "50740821",
-                    TrgtManagerLId = "33489047",
-                    TypeOrganize = "G",
-                    IsDepartment = false
-                });
+            db.OrgUnits.AddRange(OrgUnitsSeedData.All);
             await db.SaveChangesAsync();
         }
 
