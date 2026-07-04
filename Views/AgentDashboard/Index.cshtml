@@ -402,22 +402,14 @@
 
                 <label>Generation Mode</label>
                 <div class="generation-mode-options" role="radiogroup" aria-label="Generation Mode">
-                    <label class="generation-mode-card">
-                        <input type="radio" name="IsUseBoschTemplate" value="true" checked="@(Model.IsUseBoschTemplate == true)" />
-                        <span class="generation-mode-mark" aria-hidden="true"></span>
-                        <span class="generation-mode-copy">
-                            <b>Use Bosch Template</b>
-                            <small>Generate artifacts from the standard Bosch delivery template.</small>
-                        </span>
-                    </label>
-                    <label class="generation-mode-card">
-                        <input type="radio" name="IsUseBoschTemplate" value="false" checked="@(Model.IsUseBoschTemplate == false)" />
-                        <span class="generation-mode-mark" aria-hidden="true"></span>
-                        <span class="generation-mode-copy">
-                            <b>Let TechLead Define</b>
-                            <small>Allow the tech lead to define the architecture and implementation approach.</small>
-                        </span>
-                    </label>
+                    <div class="form-check generation-mode-radio">
+                        <input class="form-check-input" type="radio" id="generation-mode-bosch" name="IsUseBoschTemplate" value="true" checked="@(Model.IsUseBoschTemplate == true)" />
+                        <label class="form-check-label" for="generation-mode-bosch">Use Bosch Template</label>
+                    </div>
+                    <div class="form-check generation-mode-radio">
+                        <input class="form-check-input" type="radio" id="generation-mode-techlead" name="IsUseBoschTemplate" value="false" checked="@(Model.IsUseBoschTemplate == false)" />
+                        <label class="form-check-label" for="generation-mode-techlead">Let TechLead Define</label>
+                    </div>
                 </div>
 
                 <label>Backend Git</label>
