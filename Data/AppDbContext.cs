@@ -28,6 +28,8 @@ public class AppDbContext : DbContext
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<FeedbackAttachment> FeedbackAttachments => Set<FeedbackAttachment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
+    public DbSet<Associate> Associates => Set<Associate>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -208,6 +210,16 @@ public class AppDbContext : DbContext
             b.Property(x => x.ActorRole).HasMaxLength(50);
             b.HasIndex(x => x.CreatedAt);
             b.HasIndex(x => new { x.Category, x.CreatedAt });
+        });
+
+        // Dữ liệu tổ chức đồng bộ từ HR_Portal (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu
+        // chính giữa hai bảng nên đánh index cho cả hai; các cột decimal cần khai precision tường minh.
+        builder.Entity<OrgUnit>().HasIndex(x => x.OrgUnitCode);
+        builder.Entity<Associate>(b =>
+        {
+            b.Property(x => x.StandardWorkingHour).HasPrecision(18, 2);
+            b.HasIndex(x => x.OrgUnitCode);
+            b.HasIndex(x => x.GlobalId);
         });
     }
 }
