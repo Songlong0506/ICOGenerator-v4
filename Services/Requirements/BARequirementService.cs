@@ -202,6 +202,36 @@ public class BARequirementService
             // Lưu suggestions tách riêng (JSON) để UI render chip; chỉ set khi thực sự có gợi ý.
             if (parsedReply.Suggestions.Count > 0)
                 suggestionsJson = JsonSerializer.Serialize(parsedReply.Suggestions);
+
+            // Lượt MỜI bấm "Write Requirement" phải qua ĐÚNG cổng readiness của bước sinh tài liệu NGAY
+            // TẠI ĐÂY, trước khi người dùng nhìn thấy lời mời. Không kiểm ở đây thì hai "giám khảo" (BA
+            // chat tự thấy đủ, gate lúc bấm nút lại chê thiếu) vênh nhau: BA mời bấm nút, người dùng bấm
+            // thì bị chặn "cần bổ sung thông tin" — lặp đi lặp lại rất khó chịu. Gate chê thiếu ⇒ thay
+            // lời mời bằng chính câu hỏi của gate (hỏi tiếp ngay trong chat, nút vẫn mờ); gate pass ⇒ giữ
+            // lời mời và bước sinh tài liệu sẽ KHÔNG chạy lại gate trên cùng transcript (xem
+            // GenerateOrUpdateDraftAsync). Vẫn một cổng, một tiêu chuẩn — chỉ chạy sớm hơn.
+            if (IsWriteRequirementInvite(reply))
+            {
+                // Gate phải thấy ĐÚNG transcript mà lần bấm nút sẽ thấy: toàn bộ hội thoại đã lưu (gồm
+                // lượt user vừa lưu ở trên) + chính lời mời này (chưa lưu, đính tạm vào cuối).
+                var allTurns = await _db.AgentConversations
+                    .Where(c => c.ProjectId == projectId)
+                    .ToListAsync(cancellationToken);
+                allTurns.Add(new AgentConversation { Role = "assistant", Message = reply, CreatedAt = DateTime.UtcNow });
+
+                var readiness = await CheckReadinessAsync(projectId, ba, model,
+                    ConversationTranscriptBuilder.Build(allTurns) + BuildSourceBriefNote(sources) + BuildCoverageNote(project),
+                    cancellationToken);
+                if (!readiness.Ready)
+                {
+                    reply = string.IsNullOrWhiteSpace(readiness.Message)
+                        ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
+                        : readiness.Message;
+                    suggestionsJson = readiness.Suggestions.Count > 0
+                        ? JsonSerializer.Serialize(readiness.Suggestions)
+                        : null;
+                }
+            }
         }
 
         _db.AgentConversations.Add(new AgentConversation
@@ -255,31 +285,45 @@ public class BARequirementService
         // tránh sinh tài liệu rồi vứt đi/sinh lại (tốn token). Đây là một lời gọi LLM nhẹ (chỉ trả câu
         // hỏi). Kèm tóm tắt text tài liệu nguồn để readiness tính cả tài liệu đính kèm, và bản đồ bao
         // phủ (nếu có) để gate đối chiếu từng nhóm thay vì đoán lại từ đầu.
-        Report("thinking", "Đang kiểm tra mức độ đầy đủ của yêu cầu…", conversationTranscript);
-        var readiness = await CheckReadinessAsync(projectId, ba, model,
-            conversationTranscript + BuildSourceBriefNote(sources) + BuildCoverageNote(project), cancellationToken);
-        if (!readiness.Ready)
+        //
+        // NGOẠI LỆ: lượt cuối hội thoại là lời BA mời bấm "Write Requirement" ⇒ lời mời đó CHỈ tồn tại
+        // sau khi chính cổng này đã pass ngay trong bước chat (ChatAsync) trên đúng transcript hiện tại,
+        // và chưa có gì mới kể từ đó. Chạy lại gate vừa tốn một lời gọi vừa có thể "đổi ý" (LLM không
+        // tất định) — chính là vòng lặp khó chịu "mời bấm nút xong lại chặn cần bổ sung thông tin". Bỏ
+        // qua gate ở nhánh này; van "không giả định" của bước soạn tài liệu (needsClarification bên
+        // dưới) vẫn là chốt chặn cuối nên chất lượng tài liệu không đổi.
+        if (IsVerifiedInviteLatestTurn(project.Conversations))
         {
-            var question = string.IsNullOrWhiteSpace(readiness.Message)
-                ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
-                : readiness.Message;
-            var pendingSuggestions = readiness.Suggestions.Count > 0
-                ? JsonSerializer.Serialize(readiness.Suggestions)
-                : null;
-
-            _db.AgentConversations.Add(new AgentConversation
+            Report("thinking", "Yêu cầu đã được kiểm tra đủ ngay trong bước chat — bắt đầu soạn tài liệu.", conversationTranscript);
+        }
+        else
+        {
+            Report("thinking", "Đang kiểm tra mức độ đầy đủ của yêu cầu…", conversationTranscript);
+            var readiness = await CheckReadinessAsync(projectId, ba, model,
+                conversationTranscript + BuildSourceBriefNote(sources) + BuildCoverageNote(project), cancellationToken);
+            if (!readiness.Ready)
             {
-                ProjectId = projectId,
-                AgentId = ba.Id,
-                Role = "assistant",
-                Message = question,
-                Suggestions = pendingSuggestions,
-                TokenUsed = TokenEstimator.Estimate(question)
-            });
-            await _db.SaveChangesAsync(cancellationToken);
+                var question = string.IsNullOrWhiteSpace(readiness.Message)
+                    ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
+                    : readiness.Message;
+                var pendingSuggestions = readiness.Suggestions.Count > 0
+                    ? JsonSerializer.Serialize(readiness.Suggestions)
+                    : null;
 
-            Report("final", "Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat.", question);
-            return RequirementDraftOutcome.NeedsMoreInfo;
+                _db.AgentConversations.Add(new AgentConversation
+                {
+                    ProjectId = projectId,
+                    AgentId = ba.Id,
+                    Role = "assistant",
+                    Message = question,
+                    Suggestions = pendingSuggestions,
+                    TokenUsed = TokenEstimator.Estimate(question)
+                });
+                await _db.SaveChangesAsync(cancellationToken);
+
+                Report("final", "Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat.", question);
+                return RequirementDraftOutcome.NeedsMoreInfo;
+            }
         }
 
         Report("thinking", "Đang tổng hợp yêu cầu từ hội thoại…", conversationTranscript);
@@ -556,6 +600,27 @@ public class BARequirementService
         return structuredReadiness ?? _readinessParser.Parse(callResult.Content);
     }
 
+    // Lượt BA "mời bấm Write Requirement" — cùng tín hiệu mà UI dùng để làm nổi nút (Index.cshtml đọc
+    // Contains tương tự trên lượt BA mới nhất) và BuildAssistantContext dùng để echo cờ ready. Từ khi có
+    // cổng readiness chạy ngay trong ChatAsync, một lời mời được LƯU đồng nghĩa gate đã pass trên đúng
+    // transcript tại thời điểm đó.
+    private static bool IsWriteRequirementInvite(string? message) =>
+        message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
+
+    // Lượt CÓ NỘI DUNG mới nhất của hội thoại là lời mời bấm "Write Requirement" của BA ⇒ gate readiness
+    // đã pass ở bước chat và chưa có thông tin nào mới kể từ đó (người dùng gõ thêm thì ChatAsync luôn
+    // lưu một lượt BA mới đè lên vị trí cuối). Lượt lỗi LLM không bao giờ chứa lời mời nên không cần lọc
+    // riêng. Thứ tự CreatedAt rồi Id — như ConversationTranscriptBuilder — vì CreatedAt có thể trùng.
+    private static bool IsVerifiedInviteLatestTurn(IEnumerable<AgentConversation> conversations)
+    {
+        var lastTurn = conversations
+            .Where(c => !string.IsNullOrWhiteSpace(c.Message))
+            .OrderBy(c => c.CreatedAt)
+            .ThenBy(c => c.Id)
+            .LastOrDefault();
+        return lastTurn?.Role == "assistant" && IsWriteRequirementInvite(lastTurn.Message);
+    }
+
     // Dựng lại một lượt BA cũ theo đúng JSON shape mà model được yêu cầu xuất, để củng cố format ở
     // mỗi lượt. Không có việc này, model nhìn các lượt trước là văn xuôi và sẽ bỏ JSON (kèm gợi ý) từ
     // lượt thứ 2. Suggestions hỏng/cũ thì coi như mảng rỗng.
@@ -576,7 +641,7 @@ public class BARequirementService
 
         // "ready" được suy ra từ chính nội dung lượt: prompt ép model hễ mời bấm "Write Requirement" thì
         // đó là lúc đã đủ thông tin, nên message có nhắc nút ⇔ ready. Echo lại cờ này để củng cố format JSON.
-        var ready = c.Message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
+        var ready = IsWriteRequirementInvite(c.Message);
         return JsonSerializer.Serialize(new { message = c.Message, suggestions, ready });
     }
 
