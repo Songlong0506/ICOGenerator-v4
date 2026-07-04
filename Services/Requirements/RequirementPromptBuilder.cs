@@ -32,7 +32,7 @@ Your task:
     }
 
     // Vòng TỰ SOÁT bản nháp Product Brief: reviewer đối chiếu bản nháp với hội thoại để tìm vấn đề
-    // thực chất (bỏ sót/sai lệch/bịa thêm/thiếu mục). Xem Prompts/BA/product-brief-review.v1.md.
+    // thực chất (bỏ sót/sai lệch/tự thêm/giả định còn sót/thiếu mục). Xem Prompts/BA/product-brief-review.v2.md.
     public string BuildProductBriefReview(
         Project project,
         string conversationTranscript,
