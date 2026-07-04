@@ -193,7 +193,6 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         stopwatch.Stop();
         var text = response.Text ?? string.Empty;
         result.Content = text;
-        result.ExtractedContent = text;
         result.ResponseText = text;
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.HttpStatusCode = 200;

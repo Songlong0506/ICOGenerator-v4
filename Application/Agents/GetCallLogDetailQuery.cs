@@ -8,7 +8,7 @@ namespace ICOGenerator.Application.Agents;
 public record CallLogDetailVm(
     Guid Id, Guid ProjectId, Guid AgentId, string AgentName, string ModelName, string ModelId,
     string Endpoint, string Purpose, int Step, string RequestJson, string ResponseText,
-    string? ExtractedContent, string? ErrorMessage, int PromptTokens, int CompletionTokens,
+    string? ErrorMessage, int PromptTokens, int CompletionTokens,
     int TotalTokens, long DurationMs, int? HttpStatusCode, bool IsSuccess, DateTime CreatedAt);
 
 public class GetCallLogDetailQuery
@@ -38,7 +38,6 @@ public class GetCallLogDetailQuery
             log.Step,
             log.RequestJson,
             log.ResponseText,
-            log.ExtractedContent,
             log.ErrorMessage,
             log.PromptTokens,
             log.CompletionTokens,
