@@ -35,7 +35,6 @@
                         <b>@a.Name</b><br />
                         <small>@a.RoleKey.GetTitle()</small>
                     </div>
-                    <span class="badge @(a.Status == AgentStatus.Active ? "green" : "gray")">@a.Status</span>
                 </a>
             }
         </div>
@@ -45,10 +44,6 @@
             <div>
                 <b>@Model.Count</b>
                 <span>Total Agents</span>
-            </div>
-            <div>
-                <b>@Model.Count(x => x.Status == AgentStatus.Active)</b>
-                <span>Active Agents</span>
             </div>
         </div>
     </section>
@@ -92,15 +87,6 @@
                 </div>
 
                 <div class="form-grid three">
-                    <div>
-                        <label>Status</label>
-                        <select name="Status">
-                            @foreach (var status in Enum.GetValues<AgentStatus>())
-                            {
-                                <option value="@status" selected="@(selected.Status == status)">@status</option>
-                            }
-                        </select>
-                    </div>
                     <div>
                         <label>Color</label>
                         <input type="color" name="Color" value="@selected.Color" />
