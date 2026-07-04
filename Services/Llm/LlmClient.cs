@@ -112,7 +112,6 @@ public class LlmCallResult
     public string Content { get; set; } = string.Empty;
     public string RequestJson { get; set; } = string.Empty;
     public string ResponseText { get; set; } = string.Empty;
-    public string? ExtractedContent { get; set; }
     public string? ErrorMessage { get; set; }
     public string Endpoint { get; set; } = string.Empty;
     public string ModelId { get; set; } = string.Empty;

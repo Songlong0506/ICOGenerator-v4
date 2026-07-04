@@ -25,7 +25,6 @@ public class ModelCallLogger : IModelCallLogger
             Endpoint = callResult.Endpoint,
             RequestJson = callResult.RequestJson,
             ResponseText = callResult.ResponseText,
-            ExtractedContent = callResult.ExtractedContent,
             ErrorMessage = callResult.ErrorMessage,
             PromptTokens = callResult.PromptTokens,
             CompletionTokens = callResult.CompletionTokens,

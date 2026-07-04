@@ -21,7 +21,6 @@ public class AgentModelCallLog
 
     public string RequestJson { get; set; } = string.Empty;
     public string ResponseText { get; set; } = string.Empty;
-    public string? ExtractedContent { get; set; }
     public string? ErrorMessage { get; set; }
 
     public int PromptTokens { get; set; }
