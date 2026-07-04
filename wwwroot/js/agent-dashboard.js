@@ -92,37 +92,54 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-async function loadAgentLogs(agentId, agentName) {
+// Current agent whose call logs the modal is showing (kept so the pager can re-fetch pages).
+let logsAgentId = null;
+let logsAgentName = null;
+
+function loadAgentLogs(agentId, agentName) {
+
+    logsAgentId = agentId;
+    logsAgentName = agentName;
 
     document.getElementById('logs-modal').style.display = 'flex';
 
     document.getElementById('logs-subtitle').textContent =
         `Agent: ${agentName}`;
 
-    const tbody = document.getElementById('logs-tbody');
+    return loadAgentLogsPage(1);
+}
 
+async function loadAgentLogsPage(page) {
+
+    const tbody = document.getElementById('logs-tbody');
+    const pager = document.getElementById('logs-pager');
+
+    pager.innerHTML = '';
     tbody.innerHTML =
         '<tr><td colspan="7">Loading...</td></tr>';
 
     const url =
-        `/AgentDashboard/AgentCallLogs?projectId=${PROJECT_ID}&agentId=${agentId}`;
+        `/AgentDashboard/AgentCallLogs?projectId=${PROJECT_ID}&agentId=${logsAgentId}&page=${page}`;
 
-    let logs;
+    let result;
     try {
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        logs = await response.json();
+        result = await response.json();
     } catch (err) {
         tbody.innerHTML =
             '<tr><td colspan="7">Failed to load logs. Please try again.</td></tr>';
         return;
     }
 
+    const logs = result.items || [];
+
     if (!logs.length) {
 
         tbody.innerHTML =
             '<tr><td colspan="7">No AI call logs found for this agent.</td></tr>';
 
+        renderLogsPager(result);
         return;
     }
 
@@ -167,6 +184,46 @@ async function loadAgentLogs(agentId, agentName) {
             </td>
         </tr>
     `).join('');
+
+    renderLogsPager(result);
+}
+
+// Build the pager below the logs table. Mirrors the Projects table pager (Prev / numbered
+// pages / Next) so the popup uses the same look and behaviour.
+function renderLogsPager(result) {
+
+    const pager = document.getElementById('logs-pager');
+    const totalCount = result.totalCount || 0;
+    const totalPages = result.totalPages || 0;
+    const page = result.page || 1;
+
+    const summary =
+        `<span>Showing ${result.firstItemIndex || 0} to ${result.lastItemIndex || 0} of ${totalCount} call logs</span>`;
+
+    if (totalPages <= 1) {
+        pager.innerHTML = summary;
+        return;
+    }
+
+    let controls = '<div class="logs-pager-controls">';
+
+    controls += result.hasPrevious
+        ? `<button class="btn outline" onclick="loadAgentLogsPage(${page - 1})">‹ Prev</button>`
+        : '<span class="btn outline disabled">‹ Prev</span>';
+
+    for (let i = 1; i <= totalPages; i++) {
+        controls += i === page
+            ? `<span class="btn primary">${i}</span>`
+            : `<button class="btn" onclick="loadAgentLogsPage(${i})">${i}</button>`;
+    }
+
+    controls += result.hasNext
+        ? `<button class="btn outline" onclick="loadAgentLogsPage(${page + 1})">Next ›</button>`
+        : '<span class="btn outline disabled">Next ›</span>';
+
+    controls += '</div>';
+
+    pager.innerHTML = summary + controls;
 }
 
 function closeLogsModal() {
