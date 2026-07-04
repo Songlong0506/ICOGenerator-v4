@@ -19,7 +19,15 @@ public static class PocAudit
     private static readonly string[] ReservedIds =
         ["appShell", "userModal", "imprintModal", "toastHost", "sbToggle", "navUser", "navImprint"];
 
-    public static string Run(string html)
+    public static string Run(string html) => Run(html, PocSpec.Empty);
+
+    /// <summary>
+    /// Audit with the feature-parity gate: <paramref name="spec"/> is the parsed AI Design Spec of
+    /// this run, so the report can also say which spec screens the demo is missing and which
+    /// business rules still need behaviour — the gap the wiring-only checks could never see (a POC
+    /// covering half the spec used to audit "OK").
+    /// </summary>
+    public static string Run(string html, PocSpec spec)
     {
         var issues = new List<string>();
         var warnings = new List<string>();
@@ -45,9 +53,34 @@ public static class PocAudit
         CheckModalTargets(scan, ids, issues);
         var crudEntities = CheckCrud(scan, issues, warnings);
         var scriptBody = PocTemplate.GetScriptBody(html);
-        CheckScript(html, scriptBody, issues, warnings);
+        CheckScript(html, scriptBody, spec.Rules.Count, issues, warnings);
+        var coveredScreens = CheckSpecCoverage(spec, navLeaves, sections, issues);
 
-        return Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody);
+        return Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody, spec, coveredScreens);
+    }
+
+    // Feature-parity gate: every screen the AI Design Spec declares (§ Screens To Generate) must
+    // exist in the demo as a page-view section or at least a menu leaf (a leaf whose section is
+    // missing is already an issue from CheckNavAgainstSections). Matching is fuzzy both ways so
+    // "Màn hình Đăng nhập" in the spec still pairs with a section labelled "Đăng nhập". Returns how
+    // many spec screens were found, for the summary line.
+    private static int CheckSpecCoverage(PocSpec spec, List<string> navLeaves, List<string> sections, List<string> issues)
+    {
+        if (spec.Screens.Count == 0)
+            return 0;
+
+        var labels = sections.Concat(navLeaves).ToList();
+        var covered = 0;
+        foreach (var screen in spec.Screens)
+        {
+            if (labels.Any(label => PocSpec.Matches(screen, label)))
+            {
+                covered++;
+                continue;
+            }
+            issues.Add($"Spec screen '{screen}' (AI Design Spec § Screens To Generate) has no matching menu item or page-view section — that feature is missing from the demo. Append it (<section class=\"page-view\" data-view=\"{screen}\"> plus a menu entry), or rename an existing screen if it is the same one under a different name.");
+        }
+        return covered;
     }
 
     private static void CheckContentSeeded(string html, List<string> issues)
@@ -144,10 +177,18 @@ public static class PocAudit
         return tableEntities;
     }
 
-    private static void CheckScript(string html, string scriptBody, List<string> issues, List<string> warnings)
+    private static void CheckScript(string html, string scriptBody, int specRuleCount, List<string> issues, List<string> warnings)
     {
         if (scriptBody.Length == 0)
-            warnings.Add("The POC logic script (POC_SCRIPT region) is still empty — if the AI Design Spec defines business rules (computed totals/averages/ratings, sign or approval flows, role-based screens), implement them with SetPocScript so the demo behaves instead of only showing static screens.");
+        {
+            // With a parsed spec this is a hard ISSUE: rules are declared, so an empty script means a
+            // static POC by definition. Without one (old spec / audit run standalone) it stays the
+            // benefit-of-the-doubt warning.
+            if (specRuleCount > 0)
+                issues.Add($"The POC logic script (POC_SCRIPT region) is empty although the AI Design Spec declares {specRuleCount} business rule(s) — the demo would be static screens. Implement them with SetPocScript: compute derived values from the data on screen, validate live while typing, drive the status/sign transitions on click.");
+            else
+                warnings.Add("The POC logic script (POC_SCRIPT region) is still empty — if the AI Design Spec defines business rules (computed totals/averages/ratings, sign or approval flows, role-based screens), implement them with SetPocScript so the demo behaves instead of only showing static screens.");
+        }
 
         // Inline <script> inside the content region bypasses SetPocScript and is lost on content edits.
         if (TryGetContentRegion(html, out var content) && content.Contains("<script", StringComparison.OrdinalIgnoreCase))
@@ -156,7 +197,8 @@ public static class PocAudit
 
     private static string Render(
         List<string> issues, List<string> warnings,
-        List<string> navLeaves, List<string> sections, List<string> crudEntities, string scriptBody)
+        List<string> navLeaves, List<string> sections, List<string> crudEntities, string scriptBody,
+        PocSpec spec, int coveredScreens)
     {
         var sb = new StringBuilder();
         sb.AppendLine(issues.Count == 0 && warnings.Count == 0
@@ -176,7 +218,18 @@ public static class PocAudit
                 sb.AppendLine($"{i + 1}. {warnings[i]}");
         }
 
+        // Rule behaviour cannot be verified by a string scan, so the rules are echoed as a checklist
+        // right when the agent is fixing things — each one must demonstrably run in the demo.
+        if (spec.Rules.Count > 0)
+        {
+            sb.AppendLine("BUSINESS RULES from the AI Design Spec — verify EACH ONE actually behaves in the demo (computed live from the data on screen, validated while typing, state changed on click); implement any missing one via SetPocScript/AppendPocScript before returning:");
+            for (var i = 0; i < spec.Rules.Count; i++)
+                sb.AppendLine($"{i + 1}. {spec.Rules[i]}");
+        }
+
         sb.Append($"Summary: {navLeaves.Count} menu leaves, {sections.Count} screens, ");
+        if (spec.Screens.Count > 0)
+            sb.Append($"spec coverage: {coveredScreens}/{spec.Screens.Count} spec screens, ");
         sb.Append(crudEntities.Count > 0 ? $"CRUD entities: {string.Join(", ", crudEntities.Distinct(StringComparer.Ordinal))}, " : "no CRUD entities, ");
         sb.Append(scriptBody.Length > 0 ? $"POC script: {scriptBody.Length} chars." : "POC script: empty.");
         return sb.ToString();

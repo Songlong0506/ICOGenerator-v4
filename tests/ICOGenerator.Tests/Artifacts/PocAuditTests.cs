@@ -222,4 +222,71 @@ public class PocAuditTests
 
         Assert.Contains("inline <script>", report);
     }
+
+    // ---- Feature-parity gate: the audit compares the demo against the parsed AI Design Spec ----
+
+    private static PocSpec Spec(string[] screens, params string[] rules) =>
+        PocSpec.Parse("## 6. Screens To Generate\n"
+            + string.Concat(screens.Select(s => $"### {s}\n"))
+            + "## 10. Business Rules\n"
+            + string.Concat(rules.Select(r => $"- {r}\n")));
+
+    [Fact]
+    public void ReportsSpecScreenMissingFromDemo_AndCoverageCount()
+    {
+        var doc = Doc(Leaf("Đăng nhập"), Section("Đăng nhập"));
+
+        var report = PocAudit.Run(doc, Spec(["Đăng nhập", "Chấm điểm cuối năm"]));
+
+        Assert.Contains("ISSUES", report);
+        Assert.Contains("'Chấm điểm cuối năm'", report);
+        Assert.Contains("spec coverage: 1/2 spec screens", report);
+    }
+
+    [Fact]
+    public void SpecScreenMatchesSectionByContainment()
+    {
+        // Spec heading "Màn hình Đăng nhập" vs a section simply labelled "Đăng nhập" — same screen.
+        var doc = Doc(Leaf("Đăng nhập"), Section("Đăng nhập"));
+
+        var report = PocAudit.Run(doc, Spec(["Màn hình Đăng nhập"]));
+
+        Assert.StartsWith("POC audit: OK", report);
+        Assert.Contains("spec coverage: 1/1 spec screens", report);
+    }
+
+    [Fact]
+    public void EmptyScriptBecomesAnIssue_WhenSpecDeclaresBusinessRules()
+    {
+        var doc = Doc(Leaf("Home"), Section("Home"), script: "");
+
+        var report = PocAudit.Run(doc, Spec(["Home"], "BR-1: Tổng trọng số = 100%"));
+
+        Assert.Contains("ISSUES", report);
+        Assert.Contains("1 business rule(s)", report);
+    }
+
+    [Fact]
+    public void EchoesBusinessRulesAsSelfCheckChecklist()
+    {
+        var doc = Doc(Leaf("Home"), Section("Home"));
+
+        var report = PocAudit.Run(doc, Spec(["Home"], "BR-1: Tổng trọng số = 100%", "BR-2: Ký xong thì khoá chỉnh sửa"));
+
+        Assert.Contains("BUSINESS RULES from the AI Design Spec", report);
+        Assert.Contains("1. BR-1: Tổng trọng số = 100%", report);
+        Assert.Contains("2. BR-2: Ký xong thì khoá chỉnh sửa", report);
+    }
+
+    [Fact]
+    public void EmptySpec_KeepsTheWiringOnlyBehaviour()
+    {
+        var doc = Doc(Leaf("Home"), Section("Home"));
+
+        var report = PocAudit.Run(doc, PocSpec.Empty);
+
+        Assert.StartsWith("POC audit: OK", report);
+        Assert.DoesNotContain("spec coverage", report);
+        Assert.DoesNotContain("BUSINESS RULES", report);
+    }
 }
