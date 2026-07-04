@@ -155,8 +155,6 @@ async function loadAgentLogsPage(page) {
 
             <td>
                 ${escapeHtml(x.modelName || x.modelId || '-')}
-                <br>
-                <small>${escapeHtml(x.endpoint || '')}</small>
             </td>
 
             <td>

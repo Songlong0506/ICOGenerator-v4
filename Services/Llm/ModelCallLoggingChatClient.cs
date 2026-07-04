@@ -171,7 +171,6 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         var messageList = messages as IList<ChatMessage> ?? messages.ToList();
         var result = new LlmCallResult
         {
-            Endpoint = _model.Endpoint,
             ModelId = _model.ModelId,
             ModelName = _model.Name,
             // ChatMessage.Text is empty for tool-result turns, so this slightly undercounts on tool-heavy

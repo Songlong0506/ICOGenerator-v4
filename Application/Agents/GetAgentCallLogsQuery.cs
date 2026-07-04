@@ -5,7 +5,7 @@ namespace ICOGenerator.Application.Agents;
 
 // One row in an agent's AI call-log list (serialized to camelCase JSON for the Manage Agent popup).
 public record AgentCallLogListItem(
-    Guid Id, string AgentName, string ModelName, string ModelId, string Endpoint, string Purpose,
+    Guid Id, string AgentName, string ModelName, string ModelId, string Purpose,
     int Step, int PromptTokens, int CompletionTokens, int TotalTokens, long DurationMs,
     int? HttpStatusCode, bool IsSuccess, string? ErrorMessage, DateTime CreatedAt);
 
@@ -56,7 +56,6 @@ public class GetAgentCallLogsQuery
                 x.AgentName,
                 x.ModelName,
                 x.ModelId,
-                x.Endpoint,
                 x.Purpose,
                 x.Step,
                 x.PromptTokens,

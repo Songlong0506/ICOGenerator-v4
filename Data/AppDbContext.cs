@@ -150,7 +150,6 @@ public class AppDbContext : DbContext
             b.Property(x => x.AgentName).HasMaxLength(200);
             b.Property(x => x.ModelName).HasMaxLength(200);
             b.Property(x => x.ModelId).HasMaxLength(200);
-            b.Property(x => x.Endpoint).HasMaxLength(500);
             b.Property(x => x.Purpose).HasMaxLength(100);
         });
 
