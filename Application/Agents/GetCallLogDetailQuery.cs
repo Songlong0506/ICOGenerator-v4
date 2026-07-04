@@ -7,7 +7,7 @@ namespace ICOGenerator.Application.Agents;
 // modal. Serialized to camelCase JSON; property names mirror the columns the frontend reads.
 public record CallLogDetailVm(
     Guid Id, Guid ProjectId, Guid AgentId, string AgentName, string ModelName, string ModelId,
-    string Endpoint, string Purpose, int Step, string RequestJson, string ResponseText,
+    string Purpose, int Step, string RequestJson, string ResponseText,
     string? ErrorMessage, int PromptTokens, int CompletionTokens,
     int TotalTokens, long DurationMs, int? HttpStatusCode, bool IsSuccess, DateTime CreatedAt);
 
@@ -33,7 +33,6 @@ public class GetCallLogDetailQuery
             log.AgentName,
             log.ModelName,
             log.ModelId,
-            log.Endpoint,
             log.Purpose,
             log.Step,
             log.RequestJson,

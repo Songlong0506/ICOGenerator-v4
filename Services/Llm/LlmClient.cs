@@ -113,7 +113,6 @@ public class LlmCallResult
     public string RequestJson { get; set; } = string.Empty;
     public string ResponseText { get; set; } = string.Empty;
     public string? ErrorMessage { get; set; }
-    public string Endpoint { get; set; } = string.Empty;
     public string ModelId { get; set; } = string.Empty;
     public string ModelName { get; set; } = string.Empty;
     public int PromptTokens { get; set; }

@@ -22,7 +22,6 @@ public class ModelCallLogger : IModelCallLogger
             AgentName = agent.Name,
             ModelName = callResult.ModelName,
             ModelId = callResult.ModelId,
-            Endpoint = callResult.Endpoint,
             RequestJson = callResult.RequestJson,
             ResponseText = callResult.ResponseText,
             ErrorMessage = callResult.ErrorMessage,
