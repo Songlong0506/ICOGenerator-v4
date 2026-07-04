@@ -2,6 +2,7 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
+using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Projects;
 
@@ -23,15 +24,26 @@ public class CreateProjectUseCase
 
     public async Task<Guid> ExecuteAsync(ProjectCreateVm vm, string? createdByUsername = null)
     {
-        // Chỉ lưu Name + Description. Generation Mode và Backend/Frontend Git để trống — TeamDev điền sau
-        // ở Agent Dashboard (UpdateDeliveryConfigUseCase) khi pipeline cần tới chúng.
+        // Đơn vị yêu cầu (tùy chọn): chỉ lưu khi mã CÓ THẬT trong OrgUnits — dropdown render từ DB nên mã
+        // lạ chỉ đến từ request tự chế; lặng lẽ bỏ qua thay vì chặn việc tạo project vì một field phụ.
+        string? orgUnitCode = null;
+        if (!string.IsNullOrWhiteSpace(vm.OrgUnitCode))
+        {
+            var code = vm.OrgUnitCode.Trim();
+            if (await _db.OrgUnits.AnyAsync(u => !u.IsDelete && u.OrgUnitCode == code))
+                orgUnitCode = code;
+        }
+
+        // Chỉ lưu Name + Description (+ đơn vị yêu cầu nếu chọn). Generation Mode và Backend/Frontend Git
+        // để trống — TeamDev điền sau ở Agent Dashboard (UpdateDeliveryConfigUseCase) khi pipeline cần tới chúng.
         var project = new Project
         {
             Name = vm.Name,
             Description = vm.Description,
             Status = ProjectStatus.Planning,
             // Gắn chủ sở hữu để trang Projects/Index lọc đúng: User thường chỉ thấy project của mình.
-            CreatedByUsername = createdByUsername
+            CreatedByUsername = createdByUsername,
+            OrgUnitCode = orgUnitCode
         };
 
         _db.Projects.Add(project);

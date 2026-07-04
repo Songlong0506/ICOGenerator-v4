@@ -389,6 +389,10 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ChecklistGapMemoryService>();
         services.AddScoped<RequirementCoverageService>();
         services.AddScoped<ProductBriefReviewParser>();
+        // Bối cảnh tổ chức Bosch render từ OrgUnits/Associates cho prompt BA (chat + soạn tài liệu).
+        // Scoped vì dùng DbContext; bản render dùng chung nằm trong IMemoryCache (singleton) nên vẫn
+        // chỉ tốn một lần dựng mỗi giờ cho cả tiến trình.
+        services.AddScoped<OrganizationContextService>();
         return services;
     }
 

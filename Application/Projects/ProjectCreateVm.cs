@@ -8,4 +8,6 @@ public class ProjectCreateVm
 {
     [Required] public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    // Đơn vị yêu cầu (tùy chọn) — mã OrgUnits.OrgUnitCode chọn từ dropdown; rỗng = chưa gắn.
+    [MaxLength(50)] public string? OrgUnitCode { get; set; }
 }
