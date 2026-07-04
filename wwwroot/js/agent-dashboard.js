@@ -186,9 +186,13 @@ async function viewLogDetail(id) {
 
     document.getElementById('log-detail-meta').textContent = `${log.agentName} · ${log.modelName || log.modelId} · ${formatDateTime(log.createdAt)} · ${log.totalTokens || 0} tokens · ${log.durationMs || 0} ms`;
     document.getElementById('log-request').textContent = prettyJson(log.requestJson);
+    document.getElementById('log-request-readable').innerHTML = buildReadableRequest(log.requestJson);
     document.getElementById('log-response').textContent = prettyJson(log.responseText);
     document.getElementById('log-content').textContent = log.extractedContent || '';
+    document.getElementById('log-content-readable').innerHTML = buildReadableContent(log.extractedContent);
     document.getElementById('log-error').textContent = log.errorMessage || '';
+    requestReadableMode = false;
+    contentReadableMode = false;
     document.getElementById('log-modal').style.display = 'flex';
     showLogTab('request', document.querySelector('.tab'));
 }
@@ -211,11 +215,127 @@ function closeDeliveryConfig() {
     if (modal) modal.style.display = 'none';
 }
 
+let requestReadableMode = false;
+let contentReadableMode = false;
+
 function showLogTab(name, button) {
     ['request', 'response', 'content', 'error'].forEach(x => document.getElementById(`log-${x}`).classList.add('hidden'));
-    document.getElementById(`log-${name}`).classList.remove('hidden');
+    document.getElementById('log-request-readable').classList.add('hidden');
+    document.getElementById('log-content-readable').classList.add('hidden');
+    document.getElementById('log-request-toggle').classList.add('hidden');
+    document.getElementById('log-content-toggle').classList.add('hidden');
+
+    if (name === 'request') {
+        document.getElementById('log-request-toggle').classList.remove('hidden');
+        applyRequestFormat();
+    } else if (name === 'content') {
+        document.getElementById('log-content-toggle').classList.remove('hidden');
+        applyContentFormat();
+    } else {
+        document.getElementById(`log-${name}`).classList.remove('hidden');
+    }
+
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     button.classList.add('active');
+}
+
+function toggleRequestFormat() {
+    requestReadableMode = !requestReadableMode;
+    applyRequestFormat();
+}
+
+function toggleContentFormat() {
+    contentReadableMode = !contentReadableMode;
+    applyContentFormat();
+}
+
+// Chuyển đổi hiển thị tab Request giữa JSON gốc và dạng dễ đọc.
+function applyRequestFormat() {
+    applyReadableToggle('log-request', 'log-request-readable', 'log-request-toggle', requestReadableMode);
+}
+
+// Chuyển đổi hiển thị tab Extracted Content giữa JSON gốc và dạng dễ đọc.
+function applyContentFormat() {
+    applyReadableToggle('log-content', 'log-content-readable', 'log-content-toggle', contentReadableMode);
+}
+
+function applyReadableToggle(preId, readableId, toggleId, readableMode) {
+    const pre = document.getElementById(preId);
+    const readable = document.getElementById(readableId);
+    const toggle = document.getElementById(toggleId);
+
+    if (readableMode) {
+        pre.classList.add('hidden');
+        readable.classList.remove('hidden');
+        toggle.textContent = '{ } JSON gốc';
+    } else {
+        readable.classList.add('hidden');
+        pre.classList.remove('hidden');
+        toggle.textContent = '📖 Dễ đọc';
+    }
+}
+
+// Dựng HTML dạng hội thoại, giải mã nội dung JSON lồng (unicode \uXXXX -> ký tự thật).
+function buildReadableRequest(requestJson) {
+    let messages;
+    try { messages = JSON.parse(requestJson); }
+    catch { return '<p class="rd-empty">Không thể phân tích nội dung để hiển thị dạng dễ đọc.</p>'; }
+
+    if (!Array.isArray(messages)) messages = [messages];
+    if (!messages.length) return '<p class="rd-empty">Không có nội dung.</p>';
+
+    return messages.map(m => {
+        const role = (m && m.role) ? String(m.role) : 'message';
+        const bodyHtml = renderReadableContent(m ? m.content : m);
+        return `<div class="rd-msg rd-msg-${escapeHtml(role)}">
+            <div class="rd-role">${escapeHtml(role)}</div>
+            <div class="rd-body">${bodyHtml}</div>
+        </div>`;
+    }).join('');
+}
+
+// Extracted Content là một object JSON đơn -> hiển thị theo từng trường, giải mã unicode.
+function buildReadableContent(extractedContent) {
+    if (!extractedContent) return '<p class="rd-empty">Không có nội dung.</p>';
+    return renderReadableContent(extractedContent);
+}
+
+function renderReadableContent(content) {
+    if (content === null || content === undefined) return '<span class="rd-muted">(trống)</span>';
+
+    let value = content;
+    if (typeof content === 'string') {
+        const parsed = tryParseJson(content);
+        if (parsed === undefined) return `<div class="rd-text">${escapeHtml(content)}</div>`;
+        value = parsed;
+    }
+    if (value !== null && typeof value === 'object') return renderReadableObject(value);
+    return `<div class="rd-text">${escapeHtml(String(value))}</div>`;
+}
+
+function renderReadableObject(obj) {
+    if (Array.isArray(obj)) {
+        if (!obj.length) return '<span class="rd-muted">[]</span>';
+        return '<ul class="rd-list">' + obj.map(v => `<li>${renderReadableValue(v)}</li>`).join('') + '</ul>';
+    }
+    return Object.entries(obj).map(([k, v]) =>
+        `<div class="rd-field"><span class="rd-key">${escapeHtml(k)}</span><div class="rd-fieldval">${renderReadableValue(v)}</div></div>`
+    ).join('');
+}
+
+function renderReadableValue(v) {
+    if (v === null || v === undefined) return '<span class="rd-muted">null</span>';
+    if (Array.isArray(v)) {
+        if (!v.length) return '<span class="rd-muted">[]</span>';
+        return '<ul class="rd-list">' + v.map(item => `<li>${renderReadableValue(item)}</li>`).join('') + '</ul>';
+    }
+    if (typeof v === 'object') return `<pre class="rd-pre">${escapeHtml(JSON.stringify(v, null, 2))}</pre>`;
+    return `<span class="rd-text">${escapeHtml(String(v))}</span>`;
+}
+
+function tryParseJson(s) {
+    try { return JSON.parse(s); }
+    catch { return undefined; }
 }
 
 function prettyJson(value) {

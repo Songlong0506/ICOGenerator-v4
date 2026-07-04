@@ -126,6 +126,27 @@
 .log-json { background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 16px; white-space: pre-wrap; overflow: auto; max-height: 60vh; font-size: 13px; }
 .hidden { display: none !important; }
 
+/* ===== Tab Request: nút chuyển đổi + hiển thị dạng dễ đọc ===== */
+.log-format-toggle { margin-left: auto; font-size: 13px; }
+.log-readable { background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 16px; overflow: auto; max-height: 60vh; font-size: 13px; }
+.rd-msg { border: 1px solid #1e293b; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #111c33; }
+.rd-msg:last-child { margin-bottom: 0; }
+.rd-role { text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: .04em; margin-bottom: 6px; color: #38bdf8; }
+.rd-msg-user .rd-role { color: #4ade80; }
+.rd-msg-assistant .rd-role { color: #fbbf24; }
+.rd-msg-system .rd-role { color: #a78bfa; }
+.rd-body { white-space: pre-wrap; word-break: break-word; line-height: 1.55; }
+.rd-text { white-space: pre-wrap; }
+.rd-field { margin: 6px 0; }
+.rd-key { display: inline-block; font-weight: 700; color: #94a3b8; }
+.rd-key::after { content: ':'; }
+.rd-fieldval { margin-top: 2px; }
+.rd-list { margin: 4px 0 4px 18px; padding: 0; }
+.rd-list li { margin: 2px 0; }
+.rd-pre { background: #0b1424; border-radius: 8px; padding: 8px; margin: 4px 0; white-space: pre-wrap; word-break: break-word; }
+.rd-muted { color: #64748b; }
+.rd-empty { color: #94a3b8; }
+
 /* ===== Delivery gate: cổng duyệt/đẩy bước delivery (chỉ TeamDev/Admin thấy) ===== */
 .dg-alert { padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; font-size: 13px; }
 .dg-alert.error { color: #991b1b; background: #fee2e2; border: 1px solid #fecaca; }
