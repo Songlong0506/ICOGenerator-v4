@@ -356,9 +356,11 @@
             <button class="tab" onclick="showLogTab('response', this)">Response</button>
             <button class="tab" onclick="showLogTab('content', this)">Extracted Content</button>
             <button class="tab" onclick="showLogTab('error', this)">Error</button>
+            <button class="btn log-format-toggle" id="log-request-toggle" type="button" onclick="toggleRequestFormat()">📖 Dễ đọc</button>
         </div>
 
         <pre class="log-json" id="log-request"></pre>
+        <div class="log-readable hidden" id="log-request-readable"></div>
         <pre class="log-json hidden" id="log-response"></pre>
         <pre class="log-json hidden" id="log-content"></pre>
         <pre class="log-json hidden" id="log-error"></pre>
