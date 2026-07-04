@@ -6,7 +6,8 @@ public enum RequirementDraftOutcome
     // Đã soạn/cập nhật bộ tài liệu.
     Generated,
 
-    // Cổng kiểm tra thấy thiếu thông tin cốt lõi → KHÔNG sinh tài liệu, đã đẩy câu hỏi vào khung chat.
+    // Còn điểm sẽ phải giả định (cổng kiểm tra chặn, hoặc bước soạn tài liệu trả needsClarification)
+    // → KHÔNG sinh tài liệu, đã đẩy câu hỏi vào khung chat.
     NeedsMoreInfo
 }
 

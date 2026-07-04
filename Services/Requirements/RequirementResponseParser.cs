@@ -22,11 +22,43 @@ public class RequirementResponseParser
         return result;
     }
 
+    // Giữ số gợi ý kèm câu hỏi làm rõ ở mức chip UI chịu được — cùng giới hạn với BAChatReplyParser.
+    private const int MaxClarifyingSuggestions = 6;
+    private const int MaxClarifyingSuggestionLength = 200;
+
     // Product Brief path (lượt "Write Requirement" phía user).
     public BAProductBriefResult Normalize(BAProductBriefResult result)
     {
         result.ProductBrief ??= new();
         result.ProductBrief.Content ??= "";
+        result.ClarifyingQuestion = (result.ClarifyingQuestion ?? "").Trim();
+        result.ClarifyingSuggestions = CleanClarifyingSuggestions(result.ClarifyingSuggestions);
+        return result;
+    }
+
+    // Van thoát needsClarification đẩy suggestions thẳng lên UI như chip chat, nên làm sạch theo cùng
+    // chuẩn với lượt chat: bỏ mục rỗng/trùng/quá dài, chặn trên số lượng.
+    private static List<string> CleanClarifyingSuggestions(List<string>? raw)
+    {
+        var result = new List<string>();
+        if (raw == null)
+            return result;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var value in raw)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                continue;
+
+            var trimmed = value.Trim();
+            if (trimmed.Length > MaxClarifyingSuggestionLength || !seen.Add(trimmed))
+                continue;
+
+            result.Add(trimmed);
+            if (result.Count >= MaxClarifyingSuggestions)
+                break;
+        }
+
         return result;
     }
 
@@ -92,9 +124,6 @@ Cần làm rõ
 
 ## Tạm thời chưa làm
 Cần làm rõ
-
-## Điểm cần xác nhận
-- Cần làm rõ thêm thông tin sản phẩm.
 """
             }
         };

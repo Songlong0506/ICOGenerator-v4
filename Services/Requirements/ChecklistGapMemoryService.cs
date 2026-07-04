@@ -11,7 +11,7 @@ namespace ICOGenerator.Services.Requirements;
 /// Bộ nhớ CẤP TOÀN HỆ THỐNG cho BA — khác <see cref="UserMemoryService"/> (gắn theo TỪNG người dùng) và
 /// <see cref="ConversationMemoryService"/> (gắn theo TỪNG dự án), service này rút kinh nghiệm về CHÍNH BỘ
 /// CÂU HỎI của BA: khi người dùng phải tự gõ ra một thông tin yêu cầu mà BA chưa từng hỏi tới, đó là dấu
-/// hiệu checklist câu hỏi (<c>Prompts/BA/requirement-chat.v2.md</c>) còn thiếu. Sau khi một dự án hoàn tất
+/// hiệu checklist câu hỏi (<c>Prompts/BA/requirement-chat.v3.md</c>) còn thiếu. Sau khi một dự án hoàn tất
 /// sinh tài liệu, service phân tích lại toàn bộ hội thoại MỘT LẦN, khái quát hoá các khoảng trống thành
 /// mục checklist mới, rồi gộp vào <see cref="Agent.LearnedChecklistNotes"/> — hồ sơ dùng chung cho MỌI dự
 /// án MỚI sau này, của BẤT KỲ người dùng nào (chứ không riêng người tạo ra dự án vừa phân tích).
