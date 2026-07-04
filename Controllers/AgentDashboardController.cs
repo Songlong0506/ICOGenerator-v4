@@ -96,9 +96,9 @@ public class AgentDashboardController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> AgentCallLogs(Guid projectId, Guid agentId)
+    public async Task<IActionResult> AgentCallLogs(Guid projectId, Guid agentId, int page = 1)
     {
-        return Json(await _getAgentCallLogsQuery.ExecuteAsync(projectId, agentId));
+        return Json(await _getAgentCallLogsQuery.ExecuteAsync(projectId, agentId, page));
     }
 
     [HttpGet]
