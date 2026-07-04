@@ -277,10 +277,14 @@ function applyReadableToggle(preId, readableId, toggleId, readableMode) {
 
 // Dựng HTML dạng hội thoại, giải mã nội dung JSON lồng (unicode \uXXXX -> ký tự thật).
 function buildReadableRequest(requestJson) {
-    let messages;
-    try { messages = JSON.parse(requestJson); }
+    let parsed;
+    try { parsed = JSON.parse(requestJson); }
     catch { return '<p class="rd-empty">Không thể phân tích nội dung để hiển thị dạng dễ đọc.</p>'; }
 
+    // RequestJson được lưu dạng object { model, messages: [...], ... }; lấy mảng hội thoại bên trong.
+    // Vẫn chấp nhận trường hợp requestJson là mảng messages trần để tương thích ngược.
+    let messages = parsed;
+    if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.messages)) messages = parsed.messages;
     if (!Array.isArray(messages)) messages = [messages];
     if (!messages.length) return '<p class="rd-empty">Không có nội dung.</p>';
 
