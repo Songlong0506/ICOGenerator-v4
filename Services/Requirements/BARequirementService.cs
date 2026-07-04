@@ -626,18 +626,8 @@ public class BARequirementService
     // lượt thứ 2. Suggestions hỏng/cũ thì coi như mảng rỗng.
     private static string BuildAssistantContext(AgentConversation c)
     {
-        var suggestions = new List<string>();
-        if (!string.IsNullOrWhiteSpace(c.Suggestions))
-        {
-            try
-            {
-                suggestions = JsonSerializer.Deserialize<List<string>>(c.Suggestions) ?? new List<string>();
-            }
-            catch
-            {
-                // Dữ liệu cũ/không hợp lệ: bỏ qua, giữ mảng rỗng.
-            }
-        }
+        // Parse chung với đường render transcript (ConversationTurnRenderer): null/rỗng/hỏng → mảng rỗng.
+        var suggestions = ConversationTurnRenderer.ParseSuggestions(c.Suggestions);
 
         // "ready" được suy ra từ chính nội dung lượt: prompt ép model hễ mời bấm "Write Requirement" thì
         // đó là lúc đã đủ thông tin, nên message có nhắc nút ⇔ ready. Echo lại cờ này để củng cố format JSON.
