@@ -25,6 +25,7 @@ public static class DbInitializer
         await RecoverOrphanedTasksAsync(db);
         await SeedUsersAsync(db, scope.ServiceProvider);
         await SeedRolePermissionsAsync(db);
+        await SeedOrgUnitsAndAssociatesAsync(db);
 
         var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
         await discovery.SyncToolDefinitionsAsync();
@@ -172,6 +173,166 @@ public static class DbInitializer
         }
 
         await db.SaveChangesAsync();
+    }
+
+    // Dữ liệu mẫu đồng bộ từ HR_Portal (bảng OrgUnits/Associates) — chỉ seed một lần khi hai bảng còn trống,
+    // giữ nguyên Id/giá trị gốc để khớp với dữ liệu thật bên HR_Portal.
+    private static async Task SeedOrgUnitsAndAssociatesAsync(AppDbContext db)
+    {
+        if (!await db.OrgUnits.AnyAsync())
+        {
+            db.OrgUnits.AddRange(
+                new OrgUnit
+                {
+                    Id = Guid.Parse("8BA9C19B-B26A-4976-B60D-02EA83BDCE68"),
+                    CreatedDate = DateTime.Parse("2023-12-05 11:15:09.3212666"),
+                    UpdatedDate = DateTime.Parse("2026-05-29 15:01:29.9372381"),
+                    UpdatedBy = "993F9106-79CB-4BB0-B061-EBDE116C32B6",
+                    IsDelete = false,
+                    DisplayName = "HcP/MFE2.12",
+                    CostCenter = "00001835050010",
+                    DiscManagerLId = "00000000",
+                    OrgUnitCode = "50672627",
+                    TargetResponsible = "50672623",
+                    TrgtManagerLId = "34183936",
+                    TypeOrganize = "G",
+                    IsDepartment = false
+                },
+                new OrgUnit
+                {
+                    Id = Guid.Parse("CAC232E2-F42E-4DB1-BA60-034B34E9A6A0"),
+                    CreatedDate = DateTime.Parse("2023-12-05 11:15:09.3213296"),
+                    UpdatedDate = DateTime.Parse("2026-04-13 11:28:33.1419204"),
+                    UpdatedBy = "993F9106-79CB-4BB0-B061-EBDE116C32B6",
+                    IsDelete = false,
+                    DisplayName = "HcP/MFW3.2-F3",
+                    CostCenter = "00001838200010",
+                    DiscManagerLId = "00000000",
+                    OrgUnitCode = "50764278",
+                    TargetResponsible = "50740821",
+                    TrgtManagerLId = "33489047",
+                    TypeOrganize = "G",
+                    IsDepartment = false
+                });
+            await db.SaveChangesAsync();
+        }
+
+        if (!await db.Associates.AnyAsync())
+        {
+            db.Associates.AddRange(
+                new Associate
+                {
+                    Id = Guid.Parse("50CCF4D7-3915-4F74-8DF0-00A1939CD65C"),
+                    CreatedDate = DateTime.Parse("2025-03-19 12:00:00.6655978"),
+                    UpdatedDate = DateTime.Parse("2026-01-02 12:00:00.8284540"),
+                    IsDelete = false,
+                    PersonalNumber = "35962752",
+                    GlobalId = "11954888",
+                    DisplayName = "Le Anh Hao",
+                    OrgUnitCode = "50920748",
+                    OrganizationUnit = "PS/EPC2-VN",
+                    Email = "HAO.LEANH@VN.BOSCH.COM",
+                    Gender = "1",
+                    Position = "Technical Documentation Engineer",
+                    StandardWorkingHour = 0,
+                    Costcenter = "0000183955",
+                    LeadingPerson = "35962752",
+                    HiredDate = DateTime.Parse("2025-03-12"),
+                    UserId = "LHN9HC",
+                    IsIndirect = false
+                },
+                new Associate
+                {
+                    Id = Guid.Parse("55D57B86-F3EE-4C50-BB39-00A89223B4D7"),
+                    CreatedDate = DateTime.Parse("2023-12-05 11:15:07.6898918"),
+                    UpdatedDate = DateTime.Parse("2026-04-21 11:21:58.8802359"),
+                    UpdatedBy = "993F9106-79CB-4BB0-B061-EBDE116C32B6",
+                    IsDelete = false,
+                    PersonalNumber = "33490151",
+                    GlobalId = "11215615",
+                    DisplayName = "Le Van Trung",
+                    OrgUnitCode = "51003053",
+                    OrganizationUnit = "HcP/TEF3.3.8",
+                    Email = "VANTRUNG.LE@VN.BOSCH.COM",
+                    Gender = "1",
+                    Position = "Senior Technician - Maintenance Service",
+                    StandardWorkingHour = 0,
+                    Costcenter = "0000183310",
+                    LeadingPerson = "33490151",
+                    HiredDate = DateTime.Parse("2016-03-21"),
+                    UserId = "EVA1HC",
+                    IsIndirect = false,
+                    Birthday = DateTime.Parse("1986-04-06")
+                },
+                new Associate
+                {
+                    Id = Guid.Parse("3497ABCF-CC3D-4431-A5F2-013401C9997A"),
+                    CreatedDate = DateTime.Parse("2023-12-05 11:15:07.6895740"),
+                    UpdatedDate = DateTime.Parse("2026-04-21 11:21:58.8803813"),
+                    UpdatedBy = "993F9106-79CB-4BB0-B061-EBDE116C32B6",
+                    IsDelete = false,
+                    PersonalNumber = "33491515",
+                    GlobalId = "11338441",
+                    DisplayName = "Dang Van Nhat Huy",
+                    OrgUnitCode = "50151518",
+                    OrganizationUnit = "HcP/HRL",
+                    Email = "HUY.DANGVANNHAT@VN.BOSCH.COM",
+                    Gender = "1",
+                    Position = "Manager - HRBP cum Recruitment",
+                    StandardWorkingHour = 0,
+                    Costcenter = "0000183010",
+                    LeadingPerson = "33491515",
+                    HiredDate = DateTime.Parse("2017-04-17"),
+                    UserId = "HGD1HC",
+                    IsIndirect = true,
+                    Birthday = DateTime.Parse("1991-08-01")
+                },
+                new Associate
+                {
+                    Id = Guid.Parse("527E584C-003E-4350-B336-0141C0F656FF"),
+                    CreatedDate = DateTime.Parse("2026-02-06 12:00:00.6811889"),
+                    UpdatedDate = DateTime.Parse("2026-06-16 12:00:00.7046670"),
+                    IsDelete = false,
+                    PersonalNumber = "36208273",
+                    GlobalId = "11991011",
+                    DisplayName = "Nguyen Huynh Minh Phu",
+                    OrgUnitCode = "51008667",
+                    OrganizationUnit = "PS-CC/EAD-VN",
+                    Email = "FIXED-TERM.PHU.NGUYENHUYNHMINH@VN.BOSCH.COM",
+                    Gender = "1",
+                    Position = "Intern",
+                    StandardWorkingHour = 0,
+                    Costcenter = "0000183960",
+                    LeadingPerson = "36208273",
+                    HiredDate = DateTime.Parse("2026-02-05"),
+                    UserId = "PGY6HC",
+                    IsIndirect = false
+                },
+                new Associate
+                {
+                    Id = Guid.Parse("89295735-AAB1-4604-A54B-0158F8458489"),
+                    CreatedDate = DateTime.Parse("2023-12-05 11:15:07.6898831"),
+                    UpdatedDate = DateTime.Parse("2026-04-21 11:21:58.8801473"),
+                    UpdatedBy = "993F9106-79CB-4BB0-B061-EBDE116C32B6",
+                    IsDelete = false,
+                    PersonalNumber = "33489270",
+                    GlobalId = "11130636",
+                    DisplayName = "Le Trung Hieu",
+                    OrgUnitCode = "50610498",
+                    OrganizationUnit = "HcP/TEF3.3.2",
+                    Email = "HIEU.LETRUNG@BOSCH.COM",
+                    Gender = "1",
+                    Position = "Senior Technician - Maintenance",
+                    StandardWorkingHour = 0,
+                    Costcenter = "0000183310",
+                    LeadingPerson = "33489270",
+                    HiredDate = DateTime.Parse("2015-03-30"),
+                    UserId = "LIH1HC",
+                    IsIndirect = false,
+                    Birthday = DateTime.Parse("1990-11-25")
+                });
+            await db.SaveChangesAsync();
+        }
     }
 
     private static async Task AssignDefaultToolsAsync(AppDbContext db)
