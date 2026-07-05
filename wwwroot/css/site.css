@@ -339,6 +339,34 @@ input:focus, textarea:focus, select:focus {
     box-shadow: 0 0 0 2px var(--bosch-blue-tint-strong);
 }
 
+/* Read-only fields: make it obvious they can't be edited */
+input[readonly], textarea[readonly] {
+    background: #f3f5f6;
+    color: var(--muted);
+    border-style: dashed;
+    cursor: not-allowed;
+}
+
+input[readonly]:focus, textarea[readonly]:focus {
+    border-color: var(--line);
+    box-shadow: none;
+}
+
+.readonly-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: #e7eaec;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    vertical-align: middle;
+}
+
 input[type="color"] { padding: 4px; height: 40px; }
 input[type="checkbox"], input[type="radio"] { width: auto; }
 
@@ -515,12 +543,6 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 
 .agent-header { display: flex; align-items: center; gap: 18px; margin-bottom: 8px; }
 .agent-header .btn { margin-left: auto; }
-
-.stats { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.stats h3 { grid-column: 1 / -1; }
-.stats div { border: 1px solid var(--line); padding: 14px; }
-.stats b { font-size: 28px; display: block; color: var(--bosch-blue-dark); }
-.stats span { color: var(--muted); }
 
 /* ---------- Manage Agent ---------- */
 .token b, .status b { display: block; }
