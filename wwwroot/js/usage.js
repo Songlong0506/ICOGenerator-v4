@@ -21,7 +21,9 @@
             if (el.tagName === 'BUTTON') { el.type = 'button'; }
             el.className = 'btn' + (opts.className ? ' ' + opts.className : '');
             if (opts.disabled) { el.className += ' disabled'; }
-            el.textContent = label;
+            // opts.html = true khi label chứa markup icon (Bootstrap Icons). Chỉ dùng cho chuỗi
+            // hằng số trong file này nên an toàn với innerHTML; nhãn số trang vẫn dùng textContent.
+            if (opts.html) { el.innerHTML = label; } else { el.textContent = label; }
             if (!opts.disabled && !opts.current && typeof opts.onClick === 'function') {
                 el.addEventListener('click', opts.onClick);
             }
@@ -46,7 +48,8 @@
             controls.innerHTML = '';
             if (totalPages <= 1) { return; }
 
-            controls.appendChild(button('‹ Prev', {
+            controls.appendChild(button('<i class="bi bi-chevron-left" aria-hidden="true"></i> Prev', {
+                html: true,
                 className: 'outline',
                 disabled: page === 1,
                 onClick: function () { goTo(page - 1); }
@@ -62,7 +65,8 @@
                 })(i);
             }
 
-            controls.appendChild(button('Next ›', {
+            controls.appendChild(button('Next <i class="bi bi-chevron-right" aria-hidden="true"></i>', {
+                html: true,
                 className: 'outline',
                 disabled: page === totalPages,
                 onClick: function () { goTo(page + 1); }
