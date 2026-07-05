@@ -118,12 +118,6 @@ Cần làm rõ
 
 ## Luồng sử dụng điển hình
 Cần làm rõ
-
-## Phạm vi bản đầu tiên (làm gì trước)
-{{userMessage}}
-
-## Tạm thời chưa làm
-Cần làm rõ
 """
             }
         };

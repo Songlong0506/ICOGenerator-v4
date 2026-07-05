@@ -36,7 +36,7 @@ public class Project
     // này. Chỉ rà soát MỘT LẦN, ngay sau khi tài liệu được sinh thành công (lúc đó mới có bức tranh Q&A
     // đầy đủ). Xem ChecklistGapMemoryService.
     public bool ChecklistGapHarvested { get; set; }
-    // "Bản đồ bao phủ yêu cầu" của dự án: bảng trạng thái (text, 13 nhóm cố định) cho biết nhóm thông tin
+    // "Bản đồ bao phủ yêu cầu" của dự án: bảng trạng thái (text, 12 nhóm cố định) cho biết nhóm thông tin
     // nào đã khai thác [RÕ]/[MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG], cập nhật sau mỗi lượt chat để BA chọn
     // câu hỏi kế tiếp và cổng readiness khỏi đoán lại từ đầu. null = chưa có lượt chat nào được ghi nhận.
     // CoverageHarvestedTurnCount = số lượt cũ nhất (xếp theo CreatedAt) đã gộp vào bản đồ — con trỏ để

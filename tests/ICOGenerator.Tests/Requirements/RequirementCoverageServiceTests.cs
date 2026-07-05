@@ -11,7 +11,7 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// "Bản đồ bao phủ yêu cầu" per project: gộp các lượt chat MỚI (kể từ con trỏ) vào bảng trạng thái 13 nhóm,
+// "Bản đồ bao phủ yêu cầu" per project: gộp các lượt chat MỚI (kể từ con trỏ) vào bảng trạng thái 12 nhóm,
 // lưu trên Project.RequirementCoverageMap. Các test chốt: (1) không có lượt mới thì không gọi LLM, trả bản
 // đồ hiện hành; (2) có lượt mới thì gọi LLM một lần, ghi bản đồ + dời con trỏ (bền trong DB); (3) lời gọi
 // lỗi thì fail-open — giữ bản đồ cũ, KHÔNG dời con trỏ để lượt sau gộp bù; (4) lần gọi sau chỉ gộp phần delta.
