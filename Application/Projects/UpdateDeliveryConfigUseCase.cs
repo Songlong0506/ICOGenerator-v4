@@ -29,7 +29,7 @@ public class UpdateDeliveryConfigUseCase
         if (project == null)
             return UpdateDeliveryConfigResult.ProjectNotFound;
 
-        // null được giữ nguyên là null (chưa chọn) — cổng Approve sẽ chặn nếu cần tới mà chưa có.
+        // Generation Mode luôn có giá trị (true/false); mặc định true nếu form không post giá trị nào.
         project.IsUseBoschTemplate = vm.IsUseBoschTemplate;
 
         // Chuẩn hóa chuỗi rỗng/khoảng trắng về null để "chưa nhập" và "" là một trạng thái duy nhất.

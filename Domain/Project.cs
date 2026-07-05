@@ -10,8 +10,8 @@ public class Project
     public string? FrontendGitUrl { get; set; }
     // Cấu hình delivery do TeamDev điền ở Agent Dashboard (sau bước POC), không phải end-user lúc tạo project.
     // Mặc định = true (dùng Bosch template); TeamDev có thể đổi sang false (để TechLead tự định kiến trúc) ở
-    // Agent Dashboard. null = chưa chọn Generation Mode (chỉ xảy ra với project cũ tạo trước khi có mặc định).
-    public bool? IsUseBoschTemplate { get; set; } = true;
+    // Agent Dashboard. Luôn có giá trị rõ ràng — không còn trạng thái "chưa chọn".
+    public bool IsUseBoschTemplate { get; set; } = true;
     // Username (claim Name) của người tạo project. Dùng để lọc danh sách: User thường chỉ thấy project
     // do mình tạo; Admin/TeamDev (quyền ProjectsViewAll) thấy tất cả. Nullable để tương thích các project
     // cũ tạo trước khi có cột này — chúng coi như "không có chủ" và chỉ hiện cho người xem-tất-cả.

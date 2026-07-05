@@ -7,8 +7,8 @@ public class UpdateDeliveryConfigVm
 {
     public Guid ProjectId { get; set; }
 
-    // null = chưa chọn; true = Bosch template; false = để TechLead tự định kiến trúc.
-    public bool? IsUseBoschTemplate { get; set; }
+    // true = Bosch template; false = để TechLead tự định kiến trúc. Mặc định true.
+    public bool IsUseBoschTemplate { get; set; } = true;
 
     public string? BackendGitUrl { get; set; }
     public string? FrontendGitUrl { get; set; }
