@@ -352,21 +352,6 @@ input[readonly]:focus, textarea[readonly]:focus {
     box-shadow: none;
 }
 
-.readonly-tag {
-    display: inline-block;
-    margin-left: 6px;
-    padding: 1px 7px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--muted);
-    background: #e7eaec;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    vertical-align: middle;
-}
-
 input[type="color"] { padding: 4px; height: 40px; }
 input[type="checkbox"], input[type="radio"] { width: auto; }
 

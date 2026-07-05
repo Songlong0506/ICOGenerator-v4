@@ -57,7 +57,6 @@
         </div>
         <div class="chart-tools">
             <form method="get" asp-controller="Usage" asp-action="Index" class="year-filter">
-                <label for="usage-year">Năm</label>
                 <select id="usage-year" name="year" onchange="this.form.submit()">
                     @foreach (var y in Model.AvailableYears)
                     {
@@ -126,10 +125,6 @@
                     <tr>
                         <td>
                             <b>@m.ModelName</b>
-                            @if (!string.IsNullOrWhiteSpace(m.ModelId) && m.ModelId != m.ModelName)
-                            {
-                                <small class="muted" style="display:block">@m.ModelId</small>
-                            }
                         </td>
                         <td>
                             @if (m.HasPrice)
@@ -183,10 +178,6 @@
                         <tr>
                             <td>
                                 <b>@d.DepartmentName</b>
-                                @if (!string.IsNullOrWhiteSpace(d.DepartmentCode))
-                                {
-                                    <small class="muted" style="display:block">mã @d.DepartmentCode</small>
-                                }
                             </td>
                             <td>
                                 <div class="project-bar-track" title="@Percent(d.TotalTokens, Model.TotalTokens)% of all tokens">

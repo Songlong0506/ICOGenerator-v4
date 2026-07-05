@@ -494,7 +494,7 @@
        nằm trong URL — chia sẻ được và giữ nguyên khi phân trang. Thay đổi select tự submit. *@
     <form method="get" asp-controller="Projects" asp-action="Index" class="filter-bar">
         <div class="filter-field">
-            <label>Đơn vị yêu cầu (Org Unit)</label>
+            <label>Org Unit</label>
             @* Combo chọn NHIỀU đơn vị: mỗi lựa chọn là một checkbox name="orgUnit" nằm sẵn trong form GET,
                nên khi bấm "Lọc" toàn bộ mã đã tick được gửi lên (mảng). Không tự submit theo từng tick để
                người dùng chọn xong nhiều đơn vị rồi mới lọc. UI (nút, panel, tìm kiếm, chọn tất cả) do JS lái. *@
@@ -532,7 +532,7 @@
             </div>
         </div>
         <div class="filter-field">
-            <label for="filter-status">Trạng thái (Status)</label>
+            <label for="filter-status">Status</label>
             <select id="filter-status" name="status" onchange="this.form.submit()">
                 <option value="">Tất cả trạng thái</option>
                 @foreach (var s in Enum.GetValues<ProjectStatus>())
@@ -665,7 +665,7 @@
             @* Đơn vị yêu cầu (tùy chọn): giúp BA hiểu bối cảnh phòng ban ngay từ đầu, tài liệu ghi đúng
                đơn vị chủ quản và trang Usage thống kê được theo phòng ban. Dropdown phẳng, không phân
                cấp Department/OrgUnit, kèm ô tìm kiếm để chọn nhanh khi danh sách dài. *@
-            <label>Đơn vị yêu cầu (Org Unit)</label>
+            <label>Org Unit</label>
             <div class="org-combo" data-org-combo>
                 <input type="hidden" name="OrgUnitCode" value="" data-org-value />
                 <button type="button" class="org-combo-trigger" data-org-trigger aria-haspopup="listbox" aria-expanded="false">

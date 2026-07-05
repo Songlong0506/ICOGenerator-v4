@@ -25,7 +25,6 @@
     <section>
         <div class="card">
             <h3>All Agents (@Model.Count)</h3>
-            <input class="search full" placeholder="Search agents..." />
 
             @foreach (var a in Model)
             {
@@ -63,7 +62,7 @@
                         <input name="Name" value="@selected.Name" required />
                     </div>
                     <div>
-                        <label>Role / Title <span class="readonly-tag">Read only</span></label>
+                        <label>Role / Title</label>
                         <input value="@selected.RoleKey.GetTitle()" readonly />
                     </div>
                     <div>
@@ -92,7 +91,7 @@
                 <label>Description</label>
                 <textarea name="Description" rows="3">@selected.Description</textarea>
 
-                <label>Instruction(<code>@(ViewBag.InstructionFile as string)</code>) <span class="readonly-tag">Read only</span></label>
+                <label>Instruction(<code>@(ViewBag.InstructionFile as string)</code>)</label>
                 <textarea rows="8" readonly>@(ViewBag.Instruction as string)</textarea>
 
                 <div class="tools-head">

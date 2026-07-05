@@ -428,7 +428,6 @@
             <div class="logs-header">
                 <div>
                     <h3>Cấu hình delivery</h3>
-                    <p class="muted">Chỉ cần cấu hình một lần cho dự án.</p>
                 </div>
                 <button class="btn" type="button" onclick="closeDeliveryConfig()">Close</button>
             </div>
@@ -450,10 +449,10 @@
                 </div>
 
                 <label>Backend Git</label>
-                <input name="BackendGitUrl" value="@Model.BackendGitUrl" placeholder="https://github.com/your-org/backend-repo.git" />
+                <input name="BackendGitUrl" value="@Model.BackendGitUrl" placeholder="https://your-org.com/backend-repo.git" />
 
                 <label>Frontend Git</label>
-                <input name="FrontendGitUrl" value="@Model.FrontendGitUrl" placeholder="https://github.com/your-org/frontend-repo.git" />
+                <input name="FrontendGitUrl" value="@Model.FrontendGitUrl" placeholder="https://your-org.com/frontend-repo.git" />
 
                 <div class="dg-actions">
                     <button class="btn primary" type="submit">Lưu cấu hình</button>
