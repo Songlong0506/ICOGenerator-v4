@@ -56,9 +56,21 @@
 <div class="card usage-section">
     <div class="chart-head">
         <h2>Tokens per month</h2>
-        <div class="legend">
-            <span><i class="swatch-prompt"></i>Prompt</span>
-            <span><i class="swatch-completion"></i>Completion</span>
+        <div class="chart-tools">
+            <form method="get" asp-controller="Usage" asp-action="Index" class="year-filter">
+                <label for="usage-year">Năm</label>
+                <select id="usage-year" name="year" onchange="this.form.submit()">
+                    <option value="" selected="@(Model.SelectedYear == null)">12 tháng gần nhất</option>
+                    @foreach (var y in Model.AvailableYears)
+                    {
+                        <option value="@y" selected="@(Model.SelectedYear == y)">@y</option>
+                    }
+                </select>
+            </form>
+            <div class="legend">
+                <span><i class="swatch-prompt"></i>Prompt</span>
+                <span><i class="swatch-completion"></i>Completion</span>
+            </div>
         </div>
     </div>
 
