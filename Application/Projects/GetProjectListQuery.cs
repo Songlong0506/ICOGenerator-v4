@@ -64,8 +64,9 @@ public class GetProjectListQuery
             .GroupBy(u => u.OrgUnitCode!, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .Select(u => new OrgUnitOption(u.OrgUnitCode!, u.DisplayName!, u.IsDepartment))
-            .OrderByDescending(o => o.IsDepartment)
-            .ThenBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
+            // Dropdown giờ là danh sách phẳng có ô tìm kiếm (không phân cấp Department/OrgUnit),
+            // nên chỉ cần xếp theo tên cho dễ tra.
+            .OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
         var orgUnitNameByCode = orgUnits.ToDictionary(o => o.Code, o => o.Name, StringComparer.OrdinalIgnoreCase);
 
