@@ -33,7 +33,7 @@
     .link-btn {
         background: transparent;
         border: 0;
-        color: #007bc0;
+        color: var(--bosch-blue);
         cursor: pointer;
         font-weight: 700;
         width: auto;
@@ -41,7 +41,7 @@
 
     .icon-btn {
         align-items: center;
-        border: 1px solid #d4d8db;
+        border: 1px solid var(--line);
         background: white;
         cursor: pointer;
         display: inline-flex;
@@ -52,7 +52,7 @@
     }
 
         .icon-btn.danger {
-            color: #dc2626;
+            color: var(--danger);
         }
 
     .checkbox-line {
@@ -65,22 +65,18 @@
             width: auto;
         }
 
-    .alert.error {
-        color: #b91c1c;
-        background: #fef2f2;
-        border: 1px solid #fecaca;
-    }
+    /* .alert.error is shared in site.css */
 
     .hint {
         display: block;
         margin-top: 4px;
-        color: #6b7280;
+        color: var(--muted);
         font-size: 12px;
     }
 
         .hint code {
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            color: #374151;
+            color: var(--ink);
         }
 </style>
 

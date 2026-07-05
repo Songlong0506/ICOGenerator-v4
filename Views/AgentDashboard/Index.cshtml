@@ -170,7 +170,7 @@
 }
 
 <div class="agent-table-wrap">
-    <table class="agent-table">
+    <table class="data-table agent-table">
         <thead>
             <tr>
                 <th>Agent</th>
@@ -358,7 +358,7 @@
         </div>
 
         <div style="overflow-x:auto;">
-            <table class="logs-table">
+            <table class="data-table logs-table">
                 <thead>
                     <tr>
                         <th>Time</th>
@@ -437,12 +437,12 @@
                 <input type="hidden" name="ProjectId" value="@Model.Id" />
 
                 <label>Generation Mode</label>
-                <div class="generation-mode-options" role="radiogroup" aria-label="Generation Mode">
-                    <div class="form-check generation-mode-radio">
+                <div class="radio-group" role="radiogroup" aria-label="Generation Mode">
+                    <div class="form-check">
                         <input class="form-check-input" type="radio" id="generation-mode-bosch" name="IsUseBoschTemplate" value="true" checked="@(Model.IsUseBoschTemplate == true)" />
                         <label class="form-check-label" for="generation-mode-bosch">Use Bosch Template</label>
                     </div>
-                    <div class="form-check generation-mode-radio">
+                    <div class="form-check">
                         <input class="form-check-input" type="radio" id="generation-mode-techlead" name="IsUseBoschTemplate" value="false" checked="@(Model.IsUseBoschTemplate == false)" />
                         <label class="form-check-label" for="generation-mode-techlead">Let TechLead Define</label>
                     </div>
