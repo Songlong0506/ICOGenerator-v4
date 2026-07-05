@@ -64,12 +64,50 @@ public class GetProjectListQueryTests : IDisposable
         Assert.Empty(page.Items);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WithMultipleOrgUnitCodes_ReturnsProjectsMatchingAny()
+    {
+        await SeedOrgUnitProjectsAsync();
+
+        await using var db = NewDb();
+        // Chọn nhiều đơn vị ⇒ dự án khớp BẤT KỲ mã nào trong danh sách (multi select).
+        var page = await NewQuery(db).ExecuteAsync(
+            username: "alice", canViewAll: true, orgUnitCodes: new[] { "10", "20" });
+
+        Assert.Equal(2, page.TotalCount);
+        Assert.Equal(new[] { "10", "20" }, page.SelectedOrgUnitCodesOrEmpty.OrderBy(c => c));
+        Assert.All(page.Items, i => Assert.Contains(i.Project.OrgUnitCode, new[] { "10", "20" }));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithEmptyOrgUnitCodes_ReturnsAllProjects()
+    {
+        await SeedOrgUnitProjectsAsync();
+
+        await using var db = NewDb();
+        // Danh sách rỗng (kể cả toàn chuỗi trắng/trùng) ⇒ không lọc theo đơn vị.
+        var page = await NewQuery(db).ExecuteAsync(
+            username: "alice", canViewAll: true, orgUnitCodes: new[] { "", "  " });
+
+        Assert.Equal(3, page.TotalCount);
+        Assert.Empty(page.SelectedOrgUnitCodesOrEmpty);
+    }
+
     private async Task SeedProjectsAsync()
     {
         await using var db = NewDb();
         db.Projects.Add(new Project { Name = "Alice's project", CreatedByUsername = "alice" });
         db.Projects.Add(new Project { Name = "Carol's project", CreatedByUsername = "carol" });
         db.Projects.Add(new Project { Name = "Legacy project", CreatedByUsername = null });
+        await db.SaveChangesAsync();
+    }
+
+    private async Task SeedOrgUnitProjectsAsync()
+    {
+        await using var db = NewDb();
+        db.Projects.Add(new Project { Name = "P10", CreatedByUsername = "alice", OrgUnitCode = "10" });
+        db.Projects.Add(new Project { Name = "P20", CreatedByUsername = "alice", OrgUnitCode = "20" });
+        db.Projects.Add(new Project { Name = "P30", CreatedByUsername = "alice", OrgUnitCode = "30" });
         await db.SaveChangesAsync();
     }
 
