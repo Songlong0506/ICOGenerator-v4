@@ -1,0 +1,52 @@
+.inline-form {
+    display: inline;
+}
+
+.link-btn {
+    background: transparent;
+    border: 0;
+    color: var(--bosch-blue);
+    cursor: pointer;
+    font-weight: 700;
+    width: auto;
+}
+
+.icon-btn {
+    align-items: center;
+    border: 1px solid var(--line);
+    background: white;
+    cursor: pointer;
+    display: inline-flex;
+    height: 35px;
+    justify-content: center;
+    padding: 0;
+    width: 37px;
+}
+
+    .icon-btn.danger {
+        color: var(--danger);
+    }
+
+.checkbox-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+    .checkbox-line input {
+        width: auto;
+    }
+
+/* .alert.error is shared in site.css */
+
+.hint {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+    .hint code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: var(--ink);
+    }

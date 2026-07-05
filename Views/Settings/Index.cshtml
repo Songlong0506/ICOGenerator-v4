@@ -1,30 +1,9 @@
 @using ICOGenerator.Application.Settings
 @model AppSettingsVm
 
-<style>
-    .settings-form {
-        max-width: 860px;
-    }
-
-    .settings-card {
-        margin-bottom: 22px;
-    }
-
-        .settings-card h2 {
-            margin: 0 0 4px;
-            font-size: 20px;
-        }
-
-        .settings-card .hint {
-            color: var(--muted);
-            margin: 0 0 6px;
-        }
-
-    .save-bar {
-        display: flex;
-        justify-content: end;
-    }
-</style>
+@section Styles {
+    <link rel="stylesheet" href="~/css/settings.css" asp-append-version="true" />
+}
 
 <div class="page-head">
     <div>
