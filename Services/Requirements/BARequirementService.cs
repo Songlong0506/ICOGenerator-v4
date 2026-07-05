@@ -109,7 +109,7 @@ public class BARequirementService
         // rồi nạp lại ở mọi cuộc để BA "càng nói càng hiểu user". Xem UserMemoryService.
         var userMemory = await _userMemory.UpdateAndLoadAsync(project, ba, model, cancellationToken);
 
-        // Bản đồ bao phủ yêu cầu: gộp lượt user vừa lưu (và lượt BA trước đó) vào bảng trạng thái 13 nhóm
+        // Bản đồ bao phủ yêu cầu: gộp lượt user vừa lưu (và lượt BA trước đó) vào bảng trạng thái 12 nhóm
         // thông tin, rồi nạp cho BA chọn câu hỏi kế tiếp — phỏng vấn "theo bản đồ" thay vì tuyến tính.
         // Cập nhật ở TỪNG lượt (không batch) vì bản đồ phải tươi mới dẫn được câu hỏi; fail-open khi lỗi.
         var coverageMap = await _coverage.UpdateAndLoadAsync(project, ba, model, cancellationToken);
