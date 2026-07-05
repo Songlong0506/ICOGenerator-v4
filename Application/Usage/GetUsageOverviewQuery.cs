@@ -26,7 +26,11 @@ public record UsageOverviewVm(
     IReadOnlyList<MonthlyUsageItem> MonthlyUsage,
     IReadOnlyList<ModelUsageItem> ModelUsage,
     IReadOnlyList<ProjectUsageItem> ProjectUsage,
-    IReadOnlyList<DepartmentUsageItem> DepartmentUsage);
+    IReadOnlyList<DepartmentUsageItem> DepartmentUsage,
+    // Bộ lọc năm cho biểu đồ "Tokens per month". SelectedYear = null → xem 12 tháng gần nhất (mặc định);
+    // có giá trị → xem trọn 12 tháng (01–12) của năm đó. AvailableYears: các năm có dữ liệu (giảm dần).
+    int? SelectedYear,
+    IReadOnlyList<int> AvailableYears);
 
 public class GetUsageOverviewQuery
 {
@@ -35,7 +39,7 @@ public class GetUsageOverviewQuery
     private readonly AppDbContext _db;
     public GetUsageOverviewQuery(AppDbContext db) => _db = db;
 
-    public async Task<UsageOverviewVm> ExecuteAsync()
+    public async Task<UsageOverviewVm> ExecuteAsync(int? year = null)
     {
         // Bảng giá theo ModelId. Log chỉ lưu ModelId/ModelName dạng chuỗi (không FK), nên ta tra giá bằng
         // ModelId. Cùng một ModelId có thể có nhiều bản ghi AiModel (khác endpoint) → gộp lại, lấy bản đầu.
@@ -60,7 +64,6 @@ public class GetUsageOverviewQuery
             => modelId != null && priceByModelId.TryGetValue(modelId, out var p) && (p.Input > 0 || p.Output > 0);
 
         var now = DateTime.UtcNow;
-        var firstMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-(MonthsToShow - 1));
 
         // One pass over the whole call-log table, aggregated at the finest grain every section below
         // needs — project + run + month + model. Each section re-aggregates this in memory: sums, counts
@@ -132,7 +135,23 @@ public class GetUsageOverviewQuery
         var totalCalls = models.Sum(x => x.CallCount);
         var totalCost = models.Sum(x => x.Cost);
 
-        // ----- Theo tháng (12 tháng gần nhất); rows ngoài cửa sổ tự bị loại vì vòng lặp chỉ duyệt 12 tháng -----
+        // Các năm có dữ liệu, để đổ vào dropdown chọn năm; luôn kèm năm hiện tại dù chưa có log nào.
+        var availableYears = logRaw.Select(x => x.Year)
+            .Append(now.Year)
+            .Distinct()
+            .OrderByDescending(y => y)
+            .ToList();
+
+        // year hợp lệ khi có trong danh sách năm; ngược lại (null hoặc năm lạ) → về mặc định "12 tháng gần nhất".
+        var selectedYear = year is int y && availableYears.Contains(y) ? y : (int?)null;
+
+        // ----- Theo tháng -----
+        // Không chọn năm → cửa sổ trượt 12 tháng kết thúc ở tháng hiện tại. Chọn năm → trọn 01–12 của năm đó.
+        var firstMonth = selectedYear is int sy
+            ? new DateTime(sy, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            : new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-(MonthsToShow - 1));
+
+        // rows ngoài cửa sổ tự bị loại vì vòng lặp chỉ duyệt 12 tháng.
         var monthly = Enumerable.Range(0, MonthsToShow)
             .Select(offset =>
             {
@@ -148,6 +167,11 @@ public class GetUsageOverviewQuery
                     rows.Sum(x => CostFor(x.ModelId, x.PromptTokens, x.CompletionTokens)));
             })
             .ToList();
+
+        // Token/chi phí THÁNG HIỆN TẠI tính độc lập với cửa sổ đang xem (xem năm quá khứ không làm sai số này).
+        var currentMonthRows = logRaw.Where(x => x.Year == now.Year && x.Month == now.Month).ToList();
+        var currentMonthTokens = currentMonthRows.Sum(x => x.TotalTokens);
+        var currentMonthCost = currentMonthRows.Sum(x => CostFor(x.ModelId, x.PromptTokens, x.CompletionTokens));
 
         // ----- Theo project (gộp lại từ logRaw) -----
         var projects = logRaw
@@ -176,14 +200,16 @@ public class GetUsageOverviewQuery
             totalPrompt,
             totalCompletion,
             totalCalls,
-            monthly[^1].TotalTokens,
+            currentMonthTokens,
             totalCost,
-            monthly[^1].Cost,
+            currentMonthCost,
             hasAnyPricing,
             monthly,
             models,
             projects,
-            departments);
+            departments,
+            selectedYear,
+            availableYears);
     }
 
     // Gom chi phí về ĐƠN VỊ CẤP PHÒNG BAN: project thường gắn một orgUnit con (line/nhóm), nên đi ngược

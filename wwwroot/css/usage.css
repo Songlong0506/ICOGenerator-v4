@@ -53,6 +53,41 @@
         font-size: 20px;
     }
 
+.chart-tools {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+}
+
+.year-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+    .year-filter label {
+        color: var(--muted);
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+    .year-filter select {
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-weight: 700;
+        font-size: 13px;
+        color: inherit;
+        background: #fff;
+        cursor: pointer;
+    }
+
+    .year-filter select:focus {
+        outline: none;
+        border-color: #007bc0;
+        box-shadow: 0 0 0 2px rgba(0, 123, 192, .2);
+    }
+
 .legend {
     display: flex;
     gap: 18px;

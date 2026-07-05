@@ -15,8 +15,8 @@ public class UsageController : Controller
         _getUsageOverviewQuery = getUsageOverviewQuery;
     }
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(int? year)
     {
-        return View(await _getUsageOverviewQuery.ExecuteAsync());
+        return View(await _getUsageOverviewQuery.ExecuteAsync(year));
     }
 }
