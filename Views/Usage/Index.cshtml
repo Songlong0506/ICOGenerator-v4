@@ -166,43 +166,49 @@
         @{
             var maxDeptTokens = Math.Max(Model.DepartmentUsage.Max(x => x.TotalTokens), 1);
         }
-        <table>
-            <thead>
-                <tr>
-                    <th>Department / Org Unit</th>
-                    <th style="width:25%">Share</th>
-                    <th>Projects</th>
-                    <th>Total Tokens</th>
-                    <th>Calls</th>
-                    <th>Cost</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var d in Model.DepartmentUsage)
-                {
-                    var width = d.TotalTokens * 100d / maxDeptTokens;
+        <div data-paginate data-page-size="10" data-noun="departments">
+            <table>
+                <thead>
                     <tr>
-                        <td>
-                            <b>@d.DepartmentName</b>
-                            @if (!string.IsNullOrWhiteSpace(d.DepartmentCode))
-                            {
-                                <small class="muted" style="display:block">mã @d.DepartmentCode</small>
-                            }
-                        </td>
-                        <td>
-                            <div class="project-bar-track" title="@Percent(d.TotalTokens, Model.TotalTokens)% of all tokens">
-                                <div class="project-bar-fill" style="width:@width.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
-                            </div>
-                            <small class="muted">@Percent(d.TotalTokens, Model.TotalTokens)%</small>
-                        </td>
-                        <td>@d.ProjectCount.ToString("N0")</td>
-                        <td><b>@d.TotalTokens.ToString("N0")</b></td>
-                        <td>@d.CallCount.ToString("N0")</td>
-                        <td class="cost-cell">@Money(d.Cost)</td>
+                        <th>Department / Org Unit</th>
+                        <th style="width:25%">Share</th>
+                        <th>Projects</th>
+                        <th>Total Tokens</th>
+                        <th>Calls</th>
+                        <th>Cost</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var d in Model.DepartmentUsage)
+                    {
+                        var width = d.TotalTokens * 100d / maxDeptTokens;
+                        <tr>
+                            <td>
+                                <b>@d.DepartmentName</b>
+                                @if (!string.IsNullOrWhiteSpace(d.DepartmentCode))
+                                {
+                                    <small class="muted" style="display:block">mã @d.DepartmentCode</small>
+                                }
+                            </td>
+                            <td>
+                                <div class="project-bar-track" title="@Percent(d.TotalTokens, Model.TotalTokens)% of all tokens">
+                                    <div class="project-bar-fill" style="width:@width.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
+                                </div>
+                                <small class="muted">@Percent(d.TotalTokens, Model.TotalTokens)%</small>
+                            </td>
+                            <td>@d.ProjectCount.ToString("N0")</td>
+                            <td><b>@d.TotalTokens.ToString("N0")</b></td>
+                            <td>@d.CallCount.ToString("N0")</td>
+                            <td class="cost-cell">@Money(d.Cost)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="pager" data-pager>
+                <span data-pager-summary></span>
+                <div class="pager-controls" data-pager-controls></div>
+            </div>
+        </div>
     </div>
 }
 
@@ -218,40 +224,127 @@
     else
     {
         var maxProjectTokens = Math.Max(Model.ProjectUsage.Max(x => x.TotalTokens), 1);
-        <table>
-            <thead>
-                <tr>
-                    <th>Project</th>
-                    <th style="width:25%">Share</th>
-                    <th>Total Tokens</th>
-                    <th>Prompt</th>
-                    <th>Completion</th>
-                    <th>Calls</th>
-                    <th>Cost</th>
-                    <th>Last Activity</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var p in Model.ProjectUsage)
-                {
-                    var width = p.TotalTokens * 100d / maxProjectTokens;
+        <div data-paginate data-page-size="10" data-noun="projects">
+            <table>
+                <thead>
                     <tr>
-                        <td><b>@p.ProjectName</b></td>
-                        <td>
-                            <div class="project-bar-track" title="@Percent(p.TotalTokens, Model.TotalTokens)% of all tokens">
-                                <div class="project-bar-fill" style="width:@width.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
-                            </div>
-                            <small class="muted">@Percent(p.TotalTokens, Model.TotalTokens)%</small>
-                        </td>
-                        <td><b>@p.TotalTokens.ToString("N0")</b></td>
-                        <td>@p.PromptTokens.ToString("N0")</td>
-                        <td>@p.CompletionTokens.ToString("N0")</td>
-                        <td>@p.CallCount.ToString("N0")</td>
-                        <td class="cost-cell">@Money(p.Cost)</td>
-                        <td class="muted">@(p.LastCallAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "–")</td>
+                        <th>Project</th>
+                        <th style="width:25%">Share</th>
+                        <th>Total Tokens</th>
+                        <th>Prompt</th>
+                        <th>Completion</th>
+                        <th>Calls</th>
+                        <th>Cost</th>
+                        <th>Last Activity</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.ProjectUsage)
+                    {
+                        var width = p.TotalTokens * 100d / maxProjectTokens;
+                        <tr>
+                            <td><b>@p.ProjectName</b></td>
+                            <td>
+                                <div class="project-bar-track" title="@Percent(p.TotalTokens, Model.TotalTokens)% of all tokens">
+                                    <div class="project-bar-fill" style="width:@width.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
+                                </div>
+                                <small class="muted">@Percent(p.TotalTokens, Model.TotalTokens)%</small>
+                            </td>
+                            <td><b>@p.TotalTokens.ToString("N0")</b></td>
+                            <td>@p.PromptTokens.ToString("N0")</td>
+                            <td>@p.CompletionTokens.ToString("N0")</td>
+                            <td>@p.CallCount.ToString("N0")</td>
+                            <td class="cost-cell">@Money(p.Cost)</td>
+                            <td class="muted">@(p.LastCallAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "–")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="pager" data-pager>
+                <span data-pager-summary></span>
+                <div class="pager-controls" data-pager-controls></div>
+            </div>
+        </div>
     }
 </div>
+
+@section Scripts {
+    <script>
+        // Phân trang phía client cho các bảng Usage (giữ nguyên style pager của trang Projects).
+        // Tất cả dòng vẫn nằm trong DOM nên phần trăm "Share" (tính theo tổng của mọi dòng) không bị lệch;
+        // chỉ ẩn/hiện dòng theo trang hiện tại.
+        (function () {
+            function initPager(container) {
+                var pageSize = parseInt(container.getAttribute('data-page-size'), 10) || 10;
+                var noun = container.getAttribute('data-noun') || 'rows';
+                var tbody = container.querySelector('tbody');
+                var summary = container.querySelector('[data-pager-summary]');
+                var controls = container.querySelector('[data-pager-controls]');
+                if (!tbody || !summary || !controls) return;
+
+                var rows = Array.prototype.slice.call(tbody.children);
+                var total = rows.length;
+                var totalPages = Math.max(1, Math.ceil(total / pageSize));
+                var page = 1;
+
+                function button(label, opts) {
+                    opts = opts || {};
+                    var el = document.createElement(opts.disabled || opts.current ? 'span' : 'button');
+                    if (el.tagName === 'BUTTON') { el.type = 'button'; }
+                    el.className = 'btn' + (opts.className ? ' ' + opts.className : '');
+                    if (opts.disabled) { el.className += ' disabled'; }
+                    el.textContent = label;
+                    if (!opts.disabled && !opts.current && typeof opts.onClick === 'function') {
+                        el.addEventListener('click', opts.onClick);
+                    }
+                    return el;
+                }
+
+                function goTo(p) {
+                    page = Math.min(Math.max(1, p), totalPages);
+                    render();
+                }
+
+                function render() {
+                    var start = (page - 1) * pageSize;
+                    var end = Math.min(start + pageSize, total);
+                    rows.forEach(function (row, i) {
+                        row.style.display = (i >= start && i < end) ? '' : 'none';
+                    });
+
+                    var first = total === 0 ? 0 : start + 1;
+                    summary.textContent = 'Showing ' + first + ' to ' + end + ' of ' + total + ' ' + noun;
+
+                    controls.innerHTML = '';
+                    if (totalPages <= 1) { return; }
+
+                    controls.appendChild(button('‹ Prev', {
+                        className: 'outline',
+                        disabled: page === 1,
+                        onClick: function () { goTo(page - 1); }
+                    }));
+
+                    for (var i = 1; i <= totalPages; i++) {
+                        (function (p) {
+                            controls.appendChild(button(String(p), {
+                                className: p === page ? 'primary' : '',
+                                current: p === page,
+                                onClick: function () { goTo(p); }
+                            }));
+                        })(i);
+                    }
+
+                    controls.appendChild(button('Next ›', {
+                        className: 'outline',
+                        disabled: page === totalPages,
+                        onClick: function () { goTo(page + 1); }
+                    }));
+                }
+
+                render();
+            }
+
+            Array.prototype.slice.call(document.querySelectorAll('[data-paginate]')).forEach(initPager);
+        })();
+    </script>
+}

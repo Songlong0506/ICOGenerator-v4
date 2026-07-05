@@ -190,3 +190,24 @@
     color: var(--muted);
     font-weight: 700;
 }
+
+/* ---------- Pager (same style as Projects) ---------- */
+.pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.pager-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+    .pager-controls .btn {
+        padding: 8px 12px;
+        min-width: 40px;
+    }
