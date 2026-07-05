@@ -137,7 +137,8 @@ Your task:
         string srsTemplate,
         string fsdTemplate,
         string userStoriesTemplate,
-        string organizationContext = "")
+        string organizationContext = "",
+        string? revisionFeedback = null)
     {
         return $$"""
 Project:
@@ -175,7 +176,7 @@ Company FSD Template:
 
 Company UserStories Template:
 {{userStoriesTemplate}}
-
+{{RevisionSection(revisionFeedback)}}
 Your task:
 - Update BRD.docx structured data based on Company BRD Template.
 - Update SRS.docx structured data based on Company SRS Template.
@@ -190,6 +191,22 @@ General rules:
 - Do NOT write source code or implementation files.
 - Do NOT call tools.
 - Return JSON only.
+""";
+    }
+
+    // Khối "yêu cầu chỉnh sửa" khi người duyệt từ cổng duyệt gửi nhận xét về bộ tài liệu kỹ thuật
+    // (RequestStageRevisionUseCase): BA cập nhật bộ tài liệu hiện có theo đúng nhận xét thay vì
+    // soạn lại như mới. Rỗng thì biến mất, cùng cơ chế với OrganizationSection.
+    private static string RevisionSection(string? revisionFeedback)
+    {
+        if (string.IsNullOrWhiteSpace(revisionFeedback))
+            return string.Empty;
+
+        return $"""
+
+Reviewer change request (bản "Current ... preview" ở trên là kết quả lần trước — người duyệt yêu cầu CHỈNH SỬA; xử lý TRỌN VẸN từng ý dưới đây, giữ nguyên những phần không bị nhắc tới):
+{revisionFeedback.Trim()}
+
 """;
     }
 

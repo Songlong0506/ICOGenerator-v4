@@ -248,6 +248,13 @@ input.logs-filter-input[type="number"] { min-width: 120px; }
 /* Popup cấu hình delivery: hẹp hơn modal mặc định cho vừa form. */
 .delivery-config-card { width: min(560px, 96vw); }
 
+/* Popup "Yêu cầu chỉnh sửa" tại cổng duyệt: cùng khổ với popup cấu hình. */
+.revise-card { width: min(560px, 96vw); }
+.revise-hint { font-size: 12px; margin: 2px 0 0; }
+.revise-hint:empty { display: none; }
+/* Ghi chú số vòng chỉnh sửa đã dùng, đặt cạnh các nút ở cổng duyệt. */
+.dg-revise-note { font-size: 12px; align-self: center; }
+
 .dc-form { display: flex; flex-direction: column; gap: 6px; }
 .dc-form > label { font-size: 13px; font-weight: 600; margin-top: 8px; }
 /* Git URL inputs inherit the shared flat input styling from site.css.

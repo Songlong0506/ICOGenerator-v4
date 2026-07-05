@@ -150,8 +150,13 @@ public class AgentTaskWorker : BackgroundService
             // POC template chỉ cần cho bước POC preview.
             if (task.Type == AgentTaskType.PocPreview)
             {
-                _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
-                await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
+                // Task CHỈNH SỬA giữ nguyên POC hiện có để agent sửa theo nhận xét — re-seed ở đây
+                // sẽ ghi đè poc-demo.html về placeholder và xoá sạch sản phẩm lần trước.
+                if (task.RevisionFeedback == null)
+                {
+                    _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
+                    await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
+                }
 
                 // Đưa AI Design Spec của run này (task.Input) cho AuditPocContent qua WorkspaceTools
                 // CÙNG SCOPE (agentRunService và tool registry cùng resolve instance scoped này), để
@@ -180,8 +185,22 @@ public class AgentTaskWorker : BackgroundService
                 _progress.Report(task.WorkflowRunId, "setup", $"Bosch skeleton: {seedSummary}");
             }
 
+            // Task chỉnh sửa: kèm bàn giao của lần gần nhất vào prompt để agent biết mình đã làm gì
+            // (sản phẩm thật vẫn nằm trong workspace; đây chỉ là phần tóm tắt bàn giao).
+            var previousOutput = task.RevisionFeedback == null
+                ? null
+                : await db.AgentTasks
+                    .Where(t => t.WorkflowRunId == task.WorkflowRunId
+                                && t.Type == task.Type
+                                && t.Status == AgentTaskStatus.Completed
+                                && t.Id != task.Id)
+                    .OrderByDescending(t => t.FinishedAt ?? t.CreatedAt)
+                    .ThenByDescending(t => t.CreatedAt)
+                    .Select(t => t.Output)
+                    .FirstOrDefaultAsync(cancellationToken);
+
             var promptBuilder = scope.ServiceProvider.GetRequiredService<WorkflowTaskPromptBuilder>();
-            var prompt = promptBuilder.Build(task.Type, task.Input, useBoschTemplate);
+            var prompt = promptBuilder.Build(task.Type, task.Input, useBoschTemplate, task.RevisionFeedback, previousOutput);
             var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
 
             // POC được dựng qua NHIỀU call (SetPocContent cho màn hình đầu, rồi các AppendPocContent cho
@@ -398,11 +417,14 @@ public class AgentTaskWorker : BackgroundService
     {
         var baService = scope.ServiceProvider.GetRequiredService<BARequirementService>();
 
+        // Task chỉnh sửa mang nhận xét của người duyệt — BA sẽ cập nhật bộ tài liệu hiện có theo
+        // nhận xét (prompt TechnicalDocs vốn đã ở dạng "update", chỉ cần thêm khối yêu cầu sửa).
         await baService.GenerateTechnicalDocsAsync(
             task.ProjectId,
             onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
             onToken: token => _progress.ReportToken(task.WorkflowRunId, token),
             workflowRunId: task.WorkflowRunId,
+            revisionFeedback: task.RevisionFeedback,
             cancellationToken: cancellationToken);
 
         _progress.Report(task.WorkflowRunId, "completed", "Đã tạo tài liệu kỹ thuật (BRD/SRS/FSD/UserStories).");

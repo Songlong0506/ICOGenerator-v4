@@ -263,8 +263,8 @@ Bản đồ file:
 | Dựng prompt | `Services/Workflows/WorkflowTaskPromptBuilder.cs` | map `AgentTaskType` → template. |
 | Khởi tạo | `Services/Workflows/WorkflowOrchestrator.cs` | `StartAiDesignSpecWorkflowAsync` (run NỀN sinh AI Design Spec sau Approve — một bước BA, tránh treo màn hình), rồi `StartDeliveryWorkflowAsync` tạo `WorkflowRun` + task ở `DeliveryPipeline.First` (POC). |
 | Chạy + cổng | `Services/Workflows/AgentTaskWorker.cs` | chạy task xong: nếu còn bước kế → set `WaitingForHuman` (KHÔNG tự enqueue); hết bước → `Completed`. Dùng `MaxSteps` theo bước. |
-| Cổng duyệt | `Application/Requirements/ApproveStageUseCase.cs`, `RejectStageUseCase.cs` | Approve → resolve input theo `InputSource` + enqueue bước kế; Reject → `Canceled`. **Ngoại lệ:** ở cổng **POC** (`WorkflowStageKey.PocPreview`) Reject bị chặn (`RejectStageResult.PocGateNotRejectable`) — POC sai = đổi requirement, là việc của user, không phải TeamDev. Nút "Từ chối" cũng bị ẩn ở client cho bước này. |
-| Controller/UI | `AgentDashboardController` (`ApproveStage`/`RejectStage`/`RetryWorkflow`), `GetWorkflowStatusQuery`, `Views/AgentDashboard/Index.cshtml` + `wwwroot/js/agent-dashboard.js` | Cổng "Duyệt & tiếp tục"/"Từ chối"/"Thử lại" sống trên **Agent Dashboard** và yêu cầu quyền `DeliveryAdvance`. Màn hình `Requirements` chỉ hiển thị tiến độ + banner bàn giao. |
+| Cổng duyệt | `Application/Requirements/ApproveStageUseCase.cs`, `RejectStageUseCase.cs`, `RequestStageRevisionUseCase.cs` | Approve → resolve input theo `InputSource` + enqueue bước kế; Reject → `Canceled`; **Yêu cầu chỉnh sửa** → enqueue lại ĐÚNG bước hiện tại kèm nhận xét (xem 7.8). **Ngoại lệ:** ở cổng **POC** (`WorkflowStageKey.PocPreview`) Reject bị chặn (`RejectStageResult.PocGateNotRejectable`) — POC sai = đổi requirement, là việc của user, không phải TeamDev. Nút "Từ chối" cũng bị ẩn ở client cho bước này (riêng "Yêu cầu chỉnh sửa" vẫn được phép — sửa POC cho bám spec KHÔNG phải đổi requirement). |
+| Controller/UI | `AgentDashboardController` (`ApproveStage`/`RejectStage`/`RequestRevision`/`RetryWorkflow`), `GetWorkflowStatusQuery`, `Views/AgentDashboard/Index.cshtml` + `wwwroot/js/agent-dashboard.js` | Cổng "Duyệt & tiếp tục"/"Yêu cầu chỉnh sửa"/"Từ chối"/"Thử lại" sống trên **Agent Dashboard** và yêu cầu quyền `DeliveryAdvance`. Màn hình `Requirements` chỉ hiển thị tiến độ + banner bàn giao. |
 
 > **Phân tách vai trò (User vs TeamDev).** Flow của *user thường* dừng ở bước **POC** (`poc-demo.html`) — họ không có quyền `DeliveryAdvance` nên không thấy cổng duyệt; banner ở `Requirements` chỉ báo "POC đã sẵn sàng, đội Dev sẽ tiếp nhận". Các bước sau (Architecture → code → review → test → PR) do *TeamDev/Admin* đẩy từ Agent Dashboard. Quyền `DeliveryAdvance` thuộc nhóm màn hình **Agents** (xem `PermissionCatalog`), seed mặc định cho TeamDev và backfill idempotent trong `DbInitializer` cho install cũ.
 
@@ -272,7 +272,7 @@ Lưu ý thiết kế:
 - **Hành vi sâu theo vai** đến từ *system-prompt* của agent (`Prompts/Agents/Instructions/{RoleKey}.md`); template `Prompts/Workflow/` chỉ mô tả *việc của bước*.
 - **POC template** (`poc-template.html`) chỉ copy vào workspace ở bước `PocPreview`. File có HAI vùng marker do `Services/Artifacts/PocTemplate.cs` quản: `POC_CONTENT` (HTML tính năng — `SetPocContent`/`AppendPocContent`) và `POC_SCRIPT` (JS nghiệp vụ — `SetPocScript`/`AppendPocScript`; shell expose `window.pocToast`/`window.pocNavigate` cho script này). Bước POC yêu cầu hiện thực Business Rules của spec thành hành vi thật (tính toán, validate, chuyển trạng thái, mô phỏng vai) chứ không chỉ màn hình tĩnh; agent tự soát bằng tool `AuditPocContent` (`Services/Artifacts/PocAudit.cs` — bắt menu thiếu section, id trùng/đụng id shell, trigger modal trỏ id không tồn tại, CRUD thiếu form/lệch field, script rỗng, **và độ phủ so với AI Design Spec**: worker đưa spec của run vào `WorkspaceTools.SetPocSpec`, `Services/Artifacts/PocSpec.cs` parse mục "Screens To Generate" (heading `###`) + "Business Rules" (bullet `- BR-n:`) — màn hình spec chưa có trong POC là ISSUE, business rules được in kèm làm checklist tự đối chiếu) rồi sửa hết ISSUES và audit lại đến khi sạch (tối đa 3 vòng) trước khi trả final.
 - **Worker generic**: chỉ "chạy task → còn bước kế thì chờ duyệt, hết thì xong". Việc enqueue bước kế nằm ở `ApproveStageUseCase`.
-- **Vòng lặp về requirement**: Reject = hủy run; user bổ sung với BA → "Write Requirement" → "Approve" tạo run mới (phiên bản kế).
+- **Vòng lặp về requirement**: Reject = hủy run; user bổ sung với BA → "Write Requirement" → "Approve" tạo run mới (phiên bản kế). Kết quả chỉ *gần* đúng thì đừng Reject — dùng "Yêu cầu chỉnh sửa" (7.8) để sửa đúng bước đó, rẻ hơn nhiều.
 - **Luồng requirement-draft** (`RequirementAnalysis`) vẫn là workflow một-bước riêng, không qua pipeline này.
 - **Tài liệu cho user vs cho dev (tách vai)**: "Write Requirement" ở trang `Requirements` **chỉ sinh Product Brief** (`ProductBrief.docx`, ngôn ngữ đời thường cho user) ở dạng draft — để user có thể chỉnh đi chỉnh lại mà không đốt token sinh lại bản kỹ thuật. **AI Design Spec** (`AIDesignSpec.docx`, bản kỹ thuật để dựng POC) chỉ được sinh **khi user bấm Approve**: `ApproveRequirementUseCase` promote Product Brief lên `V{n}` rồi gọi đồng bộ `BARequirementService.GenerateAiDesignSpecAsync` (lời gọi LLM từ Product Brief đã duyệt), ghi thẳng vào `02_Design/V{n}` (đã duyệt), rồi mới `StartDeliveryWorkflowAsync` dựng POC. Bộ tài liệu kỹ thuật nặng **BRD/SRS/FSD/UserStories** KHÔNG sinh ở đây — chúng là **bước 2 của Delivery Pipeline** (`AgentTaskType.TechnicalDocs`, sau POC): sau khi duyệt POC thì BA sinh chúng từ Product Brief + AI Design Spec đã duyệt rồi dừng ở cổng duyệt như mọi bước. Khác với các bước khác (agent + prompt chung), bước này chạy qua `BARequirementService.GenerateTechnicalDocsAsync` (worker xử lý nhánh riêng, không dùng `MaxSteps`). Prompt: `Prompts/BA/product-brief.v3.md`, `Prompts/BA/ai-design-spec.v1.md` và `Prompts/BA/technical-docs.v1.md`.
 
@@ -295,6 +295,34 @@ Khác với chuỗi tuyến tính (POC → Architecture → Impl → CodeReview 
 | Khai báo chu trình | `Services/Workflows/DeliveryPipeline.cs` | `BugFixStep` (ngoài `Steps`), `TestingStep`, `MaxBugFixAttempts`. |
 | Prompt | `Prompts/Workflow/{testing,bugfix}.v1.md` | testing yêu cầu chốt verdict; bugfix giao Developer sửa đúng chỗ theo báo cáo. |
 | Điều phối chu trình | `Services/Workflows/AgentTaskWorker.cs` | `TryAdvanceTestFixCycleAsync` (FAIL→BugFix; BugFix xong→Testing lại); ngoài chu trình → `AdvanceLinearPipeline`. |
+
+### 7.8. Vòng chỉnh sửa theo nhận xét tại cổng duyệt (Request Revision)
+
+Trước đây tại cổng duyệt chỉ có hai lựa chọn "được ăn cả ngã về không": Approve (đi tiếp) hoặc Reject (**hủy cả run** — quay lại chat BA, Approve lại, đốt lại token của mọi bước đã xong). Kết quả *gần* đúng ("kiến trúc ổn nhưng thiếu ERD") không có chỗ đứng. Nay có lựa chọn thứ ba — **"Yêu cầu chỉnh sửa"**: người duyệt gõ nhận xét → agent sửa lại ĐÚNG bước đó → quay về đúng cổng duyệt, các bước đã xong không chạy lại.
+
+```
+WaitingForHuman (stage X) ──"Yêu cầu chỉnh sửa" + nhận xét──► Queued (vẫn stage X)
+        ▲                                                          │ worker chạy task
+        └───────────── AdvanceLinearPipeline (giữ CurrentStage) ◄──┘  chỉnh sửa
+```
+
+Thiết kế:
+- **Task chỉnh sửa giữ `Input` NGUYÊN BẢN** của bước (spec / output bước trước); nhận xét nằm riêng ở cột `AgentTask.RevisionFeedback` (null = task thường). Nhờ vậy chỗ tiêu thụ Input (vd `SetPocSpec` cho audit POC) vẫn nhận dữ liệu sạch, và prompt gốc của bước không bị trộn.
+- **Prompt**: `WorkflowTaskPromptBuilder` render template bước như thường rồi **nối thêm** khối `Prompts/Workflow/revision.v1.md` (bàn giao lần trước + nhận xét + quy tắc "SỬA trên cái đã có, KHÔNG làm lại từ đầu"). Bước `TechnicalDocs` đi đường riêng: `GenerateTechnicalDocsAsync(revisionFeedback:)` → khối "Reviewer change request" trong `RequirementPromptBuilder.BuildTechnicalDocs` (prompt này vốn dạng "update" bộ tài liệu hiện có).
+- **Không phá sản phẩm cũ**: worker BỎ QUA re-seed POC (`EnsureDesignAssetsAsync` sẽ ghi đè `poc-demo.html` về placeholder) khi task là chỉnh sửa; Bosch skeleton vốn idempotent nên không cần gì thêm.
+- **Trần vòng lặp**: `DeliveryPipeline.MaxRevisionRounds` (=3) mỗi bước — đếm bằng số task có `RevisionFeedback != null` cùng loại trong run (cùng cách đếm với BugFix, không cần bảng mới). Chạm trần chỉ còn Duyệt/Từ chối; UI hiển thị "Đã dùng x/3".
+- **Hand-off dùng bản đã sửa**: `ApproveStageUseCase.ResolveInputAsync` lấy "output của task Completed mới nhất" — sau chỉnh sửa, đó chính là bản sửa.
+- **Được phép cả ở cổng POC** (nơi Reject bị chặn): nhận xét ở đây nghĩa là "POC chưa bám đúng spec đã duyệt / chỉnh UI", không phải đổi requirement (việc đó vẫn của user qua chat BA).
+- **Chỉnh sửa bước Testing compose với chu trình BugFix**: bản test sửa lại mà báo FAIL thì `TryAdvanceTestFixCycleAsync` vẫn tự giao Developer sửa như thường.
+
+| Thành phần | File | Vai trò |
+|---|---|---|
+| Cột mới | `Domain/AgentTask.cs` (`RevisionFeedback`), migration `AddAgentTaskRevisionFeedback` | nhận xét của người duyệt, null = task thường. |
+| Use case | `Application/Requirements/RequestStageRevisionUseCase.cs` | validate + đếm vòng + enqueue task chỉnh sửa (Input nguyên bản, agent của lần gần nhất), run → `Queued` giữ nguyên stage. |
+| Trần vòng | `Services/Workflows/DeliveryPipeline.cs` (`MaxRevisionRounds`) | chặn đốt token khi không hội tụ. |
+| Prompt | `Prompts/Workflow/revision.v1.md`, `WorkflowTaskPromptBuilder`, `RequirementPromptBuilder.RevisionSection` | khối chỉnh sửa nối sau prompt gốc / chèn vào prompt TechnicalDocs. |
+| Worker | `Services/Workflows/AgentTaskWorker.cs` | skip re-seed POC khi revision; truyền `RevisionFeedback` + bàn giao cũ vào prompt builder / BA service. |
+| UI | `AgentDashboardController.RequestRevision`, `GetWorkflowStatusQuery` (`RevisionRoundsUsed/Limit`), `Views/AgentDashboard/Index.cshtml` (`#revise-modal`), `agent-dashboard.js` | nút "✎ Yêu cầu chỉnh sửa" + popup nhận xét + ghi chú "x/3"; timeline hiển thị bước đang sửa lại là "running". |
 
 ---
 

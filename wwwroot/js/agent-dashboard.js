@@ -357,6 +357,19 @@ function closeDeliveryConfig() {
     if (modal) modal.style.display = 'none';
 }
 
+function openReviseModal() {
+    const modal = document.getElementById('revise-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    const feedback = document.getElementById('revise-feedback');
+    if (feedback) feedback.focus();
+}
+
+function closeReviseModal() {
+    const modal = document.getElementById('revise-modal');
+    if (modal) modal.style.display = 'none';
+}
+
 let requestReadableMode = false;
 
 function showLogTab(name, button) {
@@ -686,6 +699,13 @@ if (deliveryConfigModal) {
     });
 }
 
+const reviseModal = document.getElementById('revise-modal');
+if (reviseModal) {
+    reviseModal.addEventListener('click', function (e) {
+        if (e.target.id === 'revise-modal') closeReviseModal();
+    });
+}
+
 pollActiveAgents();
 pollAgentStats();
 
@@ -701,10 +721,14 @@ pollAgentStats();
     const approveForm = document.getElementById('dg-approve-form');
     const rejectForm = document.getElementById('dg-reject-form');
     const retryForm = document.getElementById('dg-retry-form');
+    const reviseBtn = document.getElementById('dg-revise-btn');
+    const reviseNote = document.getElementById('dg-revise-note');
+    const reviseRemaining = document.getElementById('revise-remaining');
     const runIdInputs = [
         document.getElementById('dg-approve-runid'),
         document.getElementById('dg-reject-runid'),
-        document.getElementById('dg-retry-runid')
+        document.getElementById('dg-retry-runid'),
+        document.getElementById('dg-revise-runid')
     ];
 
     const COLOR = {
@@ -750,10 +774,26 @@ pollAgentStats();
         }).join('');
     }
 
-    function setForms(approve, reject, retry) {
+    function setForms(approve, reject, retry, revise) {
         approveForm.style.display = approve ? '' : 'none';
         rejectForm.style.display = reject ? '' : 'none';
         retryForm.style.display = retry ? '' : 'none';
+        if (reviseBtn) reviseBtn.style.display = revise ? '' : 'none';
+    }
+
+    // Ghi chú số vòng chỉnh sửa đã dùng — hiện cạnh các nút cổng duyệt (và trong popup) để người
+    // duyệt biết còn được gửi nhận xét mấy lần trước khi chỉ còn Duyệt/Từ chối.
+    function setReviseRounds(used, limit, waiting) {
+        const exhausted = used >= limit;
+        const text = exhausted
+            ? `Đã hết ${used}/${limit} vòng chỉnh sửa cho bước này — chỉ còn Duyệt hoặc Từ chối.`
+            : `Đã dùng ${used}/${limit} vòng chỉnh sửa cho bước này.`;
+        if (reviseNote) {
+            reviseNote.style.display = waiting && used > 0 ? '' : 'none';
+            reviseNote.textContent = text;
+        }
+        if (reviseRemaining) reviseRemaining.textContent = text;
+        return !exhausted;
     }
 
     function setRunId(id) {
@@ -786,23 +826,30 @@ pollAgentStats();
         if (data.runStatus === 'WaitingForHuman') {
             // Cổng POC: POC chưa đúng = requirement cần điều chỉnh → việc của user (chat BA → Approve lại),
             // không phải TeamDev. Vì vậy ẩn nút "Từ chối" ở bước POC; các bước sau vẫn cho từ chối.
+            // "Yêu cầu chỉnh sửa" thì được ở MỌI cổng (kể cả POC — sửa cho bám spec, không đổi requirement),
+            // tới khi hết số vòng cho phép.
             const isPocGate = data.currentStage === 'PocPreview';
+            const canRevise = setReviseRounds(data.revisionRoundsUsed || 0, data.revisionRoundsLimit || 0, true);
             bannerEl.innerHTML = '';
-            setForms(true, !isPocGate, false);
+            setForms(true, !isPocGate, false, canRevise);
         } else if (data.runStatus === 'Failed') {
             const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
             bannerEl.innerHTML = `<div class="dg-msg fail">✗ Workflow thất bại.${err ? `<pre class="dg-err">${escapeHtml(err)}</pre>` : ''}</div>`;
-            setForms(false, false, true);
+            setReviseRounds(0, 0, false);
+            setForms(false, false, true, false);
         } else if (data.isCompleted) {
             bannerEl.innerHTML = `<div class="dg-msg ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/DownloadSource?projectId=${PROJECT_ID}">⬇ Tải source code</a></div>`;
-            setForms(false, false, false);
+            setReviseRounds(0, 0, false);
+            setForms(false, false, false, false);
         } else if (data.runStatus === 'Canceled') {
             bannerEl.innerHTML = `<div class="dg-msg fail">✗ Đã hủy. Quay lại Requirements, bổ sung với BA rồi Approve để chạy phiên bản mới.</div>`;
-            setForms(false, false, false);
+            setReviseRounds(0, 0, false);
+            setForms(false, false, false, false);
         } else {
             // Running / Queued / Retrying...
             bannerEl.innerHTML = '';
-            setForms(false, false, false);
+            setReviseRounds(0, 0, false);
+            setForms(false, false, false, false);
         }
 
         setTimeout(poll, data.isTerminal ? 5000 : 2500);
