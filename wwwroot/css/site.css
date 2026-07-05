@@ -891,3 +891,31 @@ input[type="week"] {
 
 .radio-option:has(input:checked) .radio-option-label,
 .form-check:has(.form-check-input:checked) .form-check-label { color: var(--bosch-blue-dark); }
+
+/* Màu icon feed hoạt động (Bootstrap Icons từ eventIconHtml trong site.js). Icon là monochrome nên
+   tô màu theo loại event để giữ tín hiệu trực quan như emoji cũ. Scope trong 2 container feed
+   (.act-icon ở agent-dashboard, .wf-event-icon ở requirement-workflow) để không ảnh hưởng icon ở
+   các View khác. Bảng màu khớp với COLOR trong requirement-workflow.js. */
+.act-icon .bi-rocket-takeoff,
+.wf-event-icon .bi-rocket-takeoff,
+.act-icon .bi-inbox,
+.wf-event-icon .bi-inbox { color: #2563EB; }
+
+.act-icon .bi-lightbulb,
+.wf-event-icon .bi-lightbulb { color: #D97706; }
+
+.act-icon .bi-gear,
+.wf-event-icon .bi-gear,
+.act-icon .bi-tools,
+.wf-event-icon .bi-tools { color: #64748B; }
+
+.act-icon .bi-check-circle,
+.wf-event-icon .bi-check-circle,
+.act-icon .bi-check-circle-fill,
+.wf-event-icon .bi-check-circle-fill { color: #16A34A; }
+
+.act-icon .bi-x-circle,
+.wf-event-icon .bi-x-circle { color: #DC2626; }
+
+.act-icon .bi-dot,
+.wf-event-icon .bi-dot { color: #94A3B8; }

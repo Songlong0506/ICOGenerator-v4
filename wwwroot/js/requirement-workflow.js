@@ -31,16 +31,7 @@
 
     // escapeHtml dùng chung ở site.js (nạp qua _Layout trước file này).
 
-    const EVENT_ICON = {
-        start: '🚀',
-        setup: '⚙️',
-        thinking: '🤔',
-        tool: '🔧',
-        observation: '📥',
-        final: '✅',
-        completed: '🎉',
-        error: '❌'
-    };
+    // Icon feed dùng eventIconHtml() (Bootstrap Icons) khai báo ở site.js.
 
     function runIdsOf(panel) {
         return (panel.dataset.runIds || '')
@@ -134,7 +125,7 @@
         if (!seg || !feed) return;
 
         for (const ev of events) {
-            const icon = EVENT_ICON[ev.kind] || '•';
+            const icon = eventIconHtml(ev.kind);
             const time = new Date(ev.at).toLocaleTimeString();
             const item = document.createElement('div');
             item.className = `wf-event wf-event-${escapeHtml(ev.kind)}`;

@@ -495,10 +495,7 @@ document.querySelectorAll('#logs-filters .logs-filter-input').forEach(function (
 });
 
 // ===== Live agent indicator + activity (debug) popup =====
-const ACTIVITY_ICON = {
-    start: '🚀', setup: '⚙️', thinking: '🤔', tool: '🔧',
-    observation: '📥', final: '✅', completed: '🎉', error: '❌'
-};
+// Icon feed dùng eventIconHtml() (Bootstrap Icons) khai báo ở site.js.
 
 async function pollActiveAgents() {
     let active = [];
@@ -658,7 +655,7 @@ function appendActivityEvents(feed, events) {
     if (placeholder) placeholder.remove();
 
     for (const ev of events) {
-        const icon = ACTIVITY_ICON[ev.kind] || '•';
+        const icon = eventIconHtml(ev.kind);
         const row = document.createElement('div');
         row.className = 'act-event';
 
