@@ -42,11 +42,6 @@
         <b>@Money(Model.TotalCost)</b>
         <small>@Compact(Model.TotalTokens) tokens · all time</small>
     </div>
-    <div class="card cost">
-        <span>This month</span>
-        <b>@Money(Model.CurrentMonthCost)</b>
-        <small>@DateTime.UtcNow.ToString("MM/yyyy") · @Compact(Model.CurrentMonthTokens) tokens</small>
-    </div>
 </div>
 
 @if (!Model.HasAnyPricing)
@@ -78,6 +73,10 @@
             <div class="month-col"
                  title="@MonthLabel(m.Year, m.Month): @m.TotalTokens.ToString("N0") tokens · @Money(m.Cost) (@m.CallCount calls)">
                 <div class="month-value">@(m.TotalTokens > 0 ? Compact(m.TotalTokens) : "–")</div>
+                @if (m.TotalTokens > 0)
+                {
+                    <div class="month-cost">@Money(m.Cost)</div>
+                }
                 <div class="month-bar">
                     <div class="seg-completion" style="height:@completionHeight.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
                     <div class="seg-prompt" style="height:@promptHeight.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
