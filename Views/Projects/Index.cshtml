@@ -194,6 +194,54 @@
         color: var(--muted);
         text-align: center;
     }
+
+    /* ---------- Filter bar (Org Unit + Status) ---------- */
+    .filter-card {
+        margin-bottom: 16px;
+    }
+
+    .filter-bar {
+        display: flex;
+        align-items: flex-end;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .filter-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 200px;
+    }
+
+        .filter-field > label {
+            color: var(--muted);
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        .filter-field select {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--ink);
+            background: #fff;
+            cursor: pointer;
+        }
+
+            .filter-field select:focus {
+                outline: none;
+                border-color: var(--bosch-blue);
+                box-shadow: 0 0 0 2px var(--bosch-blue-tint-strong);
+            }
+
+    .filter-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
 </style>
 
 <div class="page-head">
@@ -202,10 +250,57 @@
     </div>
     <button class="btn primary" onclick="openModal('newProject')">＋ New Project</button>
 </div>
+@{
+    var hasFilter = !string.IsNullOrEmpty(Model.SelectedOrgUnitCode) || Model.SelectedStatus.HasValue;
+    // Giá trị bộ lọc để giữ nguyên trong link phân trang (null thì tag helper tự bỏ qua tham số).
+    var orgUnitRoute = string.IsNullOrEmpty(Model.SelectedOrgUnitCode) ? null : Model.SelectedOrgUnitCode;
+    var statusRoute = Model.SelectedStatus?.ToString();
+}
+<div class="card filter-card">
+    @* Khu vực lọc danh sách dự án theo Đơn vị yêu cầu (Org Unit) và Trạng thái. Form GET nên bộ lọc
+       nằm trong URL — chia sẻ được và giữ nguyên khi phân trang. Thay đổi select tự submit. *@
+    <form method="get" asp-controller="Projects" asp-action="Index" class="filter-bar">
+        <div class="filter-field">
+            <label for="filter-orgunit">Đơn vị yêu cầu (Org Unit)</label>
+            <select id="filter-orgunit" name="orgUnit" onchange="this.form.submit()">
+                <option value="">Tất cả đơn vị</option>
+                @foreach (var o in Model.OrgUnitOptions)
+                {
+                    <option value="@o.Code" selected="@(string.Equals(Model.SelectedOrgUnitCode, o.Code, StringComparison.OrdinalIgnoreCase))">@o.Name</option>
+                }
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="filter-status">Trạng thái (Status)</label>
+            <select id="filter-status" name="status" onchange="this.form.submit()">
+                <option value="">Tất cả trạng thái</option>
+                @foreach (var s in Enum.GetValues<ProjectStatus>())
+                {
+                    <option value="@s" selected="@(Model.SelectedStatus == s)">@s</option>
+                }
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn primary">Lọc</button>
+            @if (hasFilter)
+            {
+                <a class="btn outline" asp-controller="Projects" asp-action="Index">Xóa lọc</a>
+            }
+        </div>
+    </form>
+</div>
 <div class="card table-card">
     <table>
         <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
+            @if (Model.Items.Count == 0)
+            {
+                <tr>
+                    <td colspan="7" style="text-align:center; color:var(--muted); padding:24px;">
+                        @(hasFilter ? "Không có dự án nào khớp với bộ lọc." : "Chưa có dự án nào.")
+                    </td>
+                </tr>
+            }
             @foreach (var item in Model.Items)
             {
                 var p = item.Project;
@@ -268,7 +363,7 @@
             <div class="pager-controls">
                 @if (Model.HasPrevious)
                 {
-                    <a class="btn outline" asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">‹ Prev</a>
+                    <a class="btn outline" asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize" asp-route-orgUnit="@orgUnitRoute" asp-route-status="@statusRoute">‹ Prev</a>
                 }
                 else
                 {
@@ -283,13 +378,13 @@
                     }
                     else
                     {
-                        <a class="btn" asp-action="Index" asp-route-page="@i" asp-route-pageSize="@Model.PageSize">@i</a>
+                        <a class="btn" asp-action="Index" asp-route-page="@i" asp-route-pageSize="@Model.PageSize" asp-route-orgUnit="@orgUnitRoute" asp-route-status="@statusRoute">@i</a>
                     }
                 }
 
                 @if (Model.HasNext)
                 {
-                    <a class="btn outline" asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">Next ›</a>
+                    <a class="btn outline" asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize" asp-route-orgUnit="@orgUnitRoute" asp-route-status="@statusRoute">Next ›</a>
                 }
                 else
                 {
