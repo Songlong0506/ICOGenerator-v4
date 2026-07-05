@@ -105,7 +105,7 @@
 
 .muted { color: var(--muted); }
 .logs-panel { display: none; margin-top: 24px; }
-.logs-header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 16px; }
+.logs-header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 16px; padding-right: 32px; }
 .logs-header p { color: var(--muted); margin: 4px 0 0; }
 .logs-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding: 12px 14px; margin-bottom: 16px; background: var(--surface-alt); border: 1px solid var(--line); }
 .logs-filter { display: flex; flex-direction: column; gap: 4px; }
@@ -124,7 +124,10 @@ input.logs-filter-input[type="number"] { min-width: 120px; }
 .badge-error { background: var(--danger-tint); color: var(--danger-ink); }
 /* .btn / .btn-primary now come from the shared button component in site.css. */
 .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, .45); z-index: 9999; align-items: center; justify-content: center; padding: 24px; }
-.modal-card { background: var(--surface); width: min(1100px, 96vw); max-height: 90vh; overflow: auto; padding: 20px; box-shadow: 0 20px 60px rgba(15, 23, 42, .25); }
+.modal-card { position: relative; background: var(--surface); width: min(1100px, 96vw); max-height: 90vh; overflow: auto; padding: 20px; box-shadow: 0 20px 60px rgba(15, 23, 42, .25); }
+/* Standardized close control: a corner "×" icon shared by every modal (matches .modal .x). */
+.modal-x { position: absolute; right: 16px; top: 12px; background: transparent; border: 0; padding: 0; width: auto; font-size: 26px; line-height: 1; color: var(--muted); cursor: pointer; z-index: 1; }
+.modal-x:hover { color: var(--ink); }
 .tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .tab { border: 1px solid var(--line); background: var(--surface); padding: 8px 12px; cursor: pointer; }
 .tab.active { background: var(--bosch-blue); color: #fff; border-color: var(--bosch-blue); }
@@ -249,4 +252,4 @@ input.logs-filter-input[type="number"] { min-width: 120px; }
 .dc-form > label { font-size: 13px; font-weight: 600; margin-top: 8px; }
 /* Git URL inputs inherit the shared flat input styling from site.css.
    Generation-mode radios now use the shared .radio-group / .form-check component. */
-.dc-form .dg-actions { margin-top: 12px; }
+.dc-form .dg-actions { margin-top: 12px; justify-content: flex-end; }
