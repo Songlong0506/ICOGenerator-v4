@@ -28,6 +28,40 @@
     --sidebar-w-collapsed: 60px;
     --shadow: 0 1px 3px rgba(0,0,0,.12);
     --font: "Bosch-Sans", Arial, Helvetica, sans-serif;
+
+    /* ---- Semantic status colors (single source of truth) ----
+       Use these instead of hardcoding hex. Changing a brand/status color
+       here updates every button, badge, alert and table across the app. */
+    --success: var(--bosch-green);
+    --success-ink: #006f3c;
+    --success-tint: rgba(0, 136, 74, .12);
+    --success-border: rgba(0, 136, 74, .30);
+    --danger: var(--bosch-red);
+    --danger-ink: #b91c1c;
+    --danger-tint: #fef2f2;
+    --danger-border: #fecaca;
+    --warning: #b5530a;
+    --warning-ink: #92400e;
+    --warning-tint: rgba(245, 130, 32, .16);
+    --warning-border: #fde68a;
+    --info: var(--bosch-blue);
+    --info-ink: #1e40af;
+    --info-tint: var(--bosch-blue-tint);
+    --info-border: #bfdbfe;
+
+    /* ---- Neutral surfaces (canonical replacements for scattered slate hex) ---- */
+    --surface-alt: #f7f8f9;   /* table headers, filter bars, subtle fills */
+    --surface-hover: #f3f6f9; /* row / item hover */
+    --code-bg: #0f172a;       /* dark JSON / code viewers */
+    --code-ink: #e2e8f0;
+
+    /* ---- Shape & focus (flat Bosch design) ----
+       Structural surfaces stay square; pills/badges keep their own radius. */
+    --radius: 0;
+    --radius-badge: 10px;
+    --radius-pill: 999px;
+    --focus-ring: 0 0 0 2px var(--bosch-blue-tint-strong);
+
     /* Back-compat aliases used by inline view styles */
     --primary: #007bc0;
     --primary2: #00629a;
@@ -240,11 +274,11 @@ th, td {
 th {
     color: var(--muted);
     font-weight: 700;
-    background: #f7f8f9;
+    background: var(--surface-alt);
     border-bottom: 2px solid var(--line);
 }
 
-tbody tr:hover td { background: #f3f6f9; }
+tbody tr:hover td { background: var(--surface-hover); }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -284,16 +318,35 @@ tbody tr:hover td { background: #f3f6f9; }
 
 .btn.success,
 .btn.approve {
-    border-color: var(--bosch-green);
-    color: var(--bosch-green);
+    border-color: var(--success);
+    color: var(--success);
     background: rgba(0,136,74,.08);
 }
 
 .btn.success:hover, .btn.approve:hover { background: rgba(0,136,74,.16); }
 
-.btn.disabled { opacity: .45; cursor: not-allowed; }
+.btn.danger {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: var(--danger-tint);
+}
+
+.btn.danger:hover { background: #fde8e8; }
+
+.btn.disabled, .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.small { padding: 6px 12px; font-size: 13px; }
 .btn.full { width: 100%; }
+
+/* Dash-style aliases so `btn-primary`, `btn-outline`, … resolve to the same
+   look as the canonical `.btn.primary` etc. (older markup used both forms). */
+.btn-primary { background: var(--bosch-blue); border-color: var(--bosch-blue); color: #fff; }
+.btn-primary:hover { background: var(--bosch-blue-hover); border-color: var(--bosch-blue-hover); }
+.btn-primary:active { background: var(--bosch-blue-active); border-color: var(--bosch-blue-active); }
+.btn-outline { background: transparent; border-color: var(--bosch-blue); color: var(--bosch-blue); }
+.btn-outline:hover { background: var(--bosch-blue-tint); color: var(--bosch-blue-hover); }
+.btn-success { border-color: var(--success); color: var(--success); background: rgba(0,136,74,.08); }
+.btn-danger { border-color: var(--danger); color: var(--danger); background: var(--danger-tint); }
+.btn-small { padding: 6px 12px; font-size: 13px; }
 
 .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
@@ -393,8 +446,10 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 
 /* ---------- Alerts ---------- */
 .alert { padding: 12px 16px; margin-bottom: 18px; font-weight: 700; border: 1px solid transparent; }
-.alert.success { color: #006f3c; background: rgba(0,136,74,.12); border-color: rgba(0,136,74,.3); }
-.alert.error { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+.alert.success { color: var(--success-ink); background: var(--success-tint); border-color: var(--success-border); }
+.alert.error { color: var(--danger-ink); background: var(--danger-tint); border-color: var(--danger-border); }
+.alert.info { color: var(--info-ink); background: var(--info-tint); border-color: var(--info-border); }
+.alert.warning { color: var(--warning-ink); background: var(--warning-tint); border-color: var(--warning-border); }
 
 .muted { color: var(--muted); }
 
@@ -662,3 +717,192 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
     .agents-grid, .manage-grid { grid-template-columns: 1fr; }
     .imprint-grid { grid-template-columns: 1fr; gap: 4px 0; }
 }
+
+/* ============================================================
+   UNIFIED COMPONENTS — one definition per component, token-driven.
+   To restyle a component app-wide, edit it here (and its tokens in
+   :root) — screens should reuse these classes, not redefine them.
+
+     • Button ......... .btn (+ .primary/.outline/.success/.danger)
+                        and dash-aliases .btn-primary / .btn-outline …
+     • Table .......... .data-table (wrap with .table-wrap)
+     • Datepicker ..... native date/time inputs via the global input
+                        rule; lay out with .filter-bar / .filter-field
+     • Multiselect .... .ms-combo (searchable, checkbox options)
+     • Radio .......... .radio-group + .radio-option (alias .form-check)
+   ============================================================ */
+
+/* ---------- Datepicker / date & time inputs ----------
+   These inherit the global input styling above; pin a consistent height
+   so date/time/number controls line up with text inputs and selects. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"] {
+    min-height: 40px;
+}
+
+/* ---------- Filter bar layout (used by list/log filters) ---------- */
+.filter-bar { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.filter-field { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
+.filter-field > label { margin: 0; color: var(--muted); font-weight: 700; font-size: 13px; }
+.filter-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ---------- Data table ---------- */
+.table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    margin-bottom: 18px;
+}
+
+.data-table { width: 100%; border-collapse: collapse; background: var(--surface); }
+
+.data-table th,
+.data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.data-table th {
+    background: var(--surface-alt);
+    color: var(--muted);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover td { background: var(--surface-hover); }
+.data-table .num-col { text-align: right; white-space: nowrap; }
+
+/* ---------- Multi-select combo (searchable, checkbox options) ---------- */
+.ms-combo { position: relative; min-width: 240px; }
+
+.ms-combo-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.ms-combo-trigger:focus { outline: none; border-color: var(--bosch-blue); box-shadow: var(--focus-ring); }
+
+.ms-combo-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-combo-text.is-placeholder { color: var(--muted); }
+.ms-combo-caret { color: var(--muted); font-size: 12px; transition: transform .15s; }
+.ms-combo.open .ms-combo-caret { transform: rotate(180deg); }
+
+.ms-combo-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 10;
+    min-width: 240px;
+    background: #fff;
+    border: 1px solid var(--line);
+    box-shadow: 0 12px 30px rgba(0,0,0,.18);
+    overflow: hidden;
+}
+
+.ms-combo-search { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--line); }
+.ms-combo-search-box { position: relative; flex: 1; }
+.ms-combo-search-box input { width: 100%; padding: 8px 32px 8px 12px; font-size: 14px; border: 1px solid var(--line); }
+.ms-combo-search-box input:focus { outline: none; border-color: var(--bosch-blue); box-shadow: var(--focus-ring); }
+.ms-combo-search-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--muted); pointer-events: none; }
+
+/* Custom checkbox square drawn on top of a hidden native checkbox, so option
+   rows share one look regardless of platform. */
+.ms-combo-checkbox { display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; font-weight: inherit; color: inherit; }
+.ms-combo-checkbox input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
+
+.ms-combo-box {
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--line);
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ms-combo-box::after { content: "✓"; font-size: 12px; font-weight: 900; line-height: 1; color: #fff; opacity: 0; }
+
+.ms-combo-all input:checked + .ms-combo-box,
+.ms-combo-all input:indeterminate + .ms-combo-box { background: var(--bosch-blue); border-color: var(--bosch-blue); }
+.ms-combo-all input:checked + .ms-combo-box::after { opacity: 1; }
+.ms-combo-all input:indeterminate + .ms-combo-box::after { content: "–"; opacity: 1; }
+
+.ms-combo-list { list-style: none; margin: 0; padding: 4px; max-height: 240px; overflow-y: auto; }
+.ms-combo-option > .ms-combo-checkbox { padding: 9px 12px; }
+.ms-combo-option:hover { background: var(--bosch-blue-tint); }
+.ms-combo-option-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+
+/* Selected row uses the Bosch blue accent (matches nav-item.active / tool-card.enabled). */
+.ms-combo-option.selected { background: var(--bosch-blue); color: #fff; }
+.ms-combo-option.selected:hover { background: var(--bosch-blue-hover); }
+.ms-combo-option.selected .ms-combo-option-text { font-weight: 700; }
+.ms-combo-option.selected .ms-combo-box { border-color: transparent; background: transparent; }
+.ms-combo-option.selected .ms-combo-box::after { opacity: 1; }
+.ms-combo-option.hidden { display: none; }
+
+.ms-combo-empty { padding: 14px 12px; font-size: 13px; color: var(--muted); text-align: center; }
+
+/* ---------- Radio group (card-style options) ----------
+   `.form-check`/`.form-check-input`/`.form-check-label` are provided as
+   aliases so existing Bootstrap-style markup renders with the Bosch look
+   even though Bootstrap CSS is not loaded. */
+.radio-group { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 8px; }
+
+.radio-option,
+.form-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    cursor: pointer;
+}
+
+.radio-option input[type="radio"],
+.form-check .form-check-input {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--bosch-blue);
+    cursor: pointer;
+}
+
+.radio-option .radio-option-label,
+.form-check .form-check-label {
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+    cursor: pointer;
+}
+
+.radio-option:has(input:checked),
+.form-check:has(.form-check-input:checked) {
+    border-color: var(--bosch-blue);
+    background: var(--bosch-blue-tint);
+}
+
+.radio-option:has(input:checked) .radio-option-label,
+.form-check:has(.form-check-input:checked) .form-check-label { color: var(--bosch-blue-dark); }
