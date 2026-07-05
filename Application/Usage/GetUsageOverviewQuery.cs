@@ -27,9 +27,13 @@ public record UsageOverviewVm(
     IReadOnlyList<ModelUsageItem> ModelUsage,
     IReadOnlyList<ProjectUsageItem> ProjectUsage,
     IReadOnlyList<DepartmentUsageItem> DepartmentUsage,
-    // Bộ lọc năm cho biểu đồ "Tokens per month". SelectedYear = null → xem 12 tháng gần nhất (mặc định);
-    // có giá trị → xem trọn 12 tháng (01–12) của năm đó. AvailableYears: các năm có dữ liệu (giảm dần).
-    int? SelectedYear,
+    // Bộ lọc năm cho biểu đồ "Tokens per month". Dropdown chỉ cho chọn năm (không còn "12 tháng gần nhất"),
+    // nên SelectedYear luôn có giá trị và biểu đồ hiện trọn 12 tháng (01–12) của năm đó.
+    // SelectedYearTokens / SelectedYearCost: tổng token & chi phí của năm đang chọn (gộp vào card biểu đồ).
+    // AvailableYears: các năm có dữ liệu (giảm dần).
+    int SelectedYear,
+    long SelectedYearTokens,
+    decimal SelectedYearCost,
     IReadOnlyList<int> AvailableYears);
 
 public class GetUsageOverviewQuery
@@ -142,14 +146,12 @@ public class GetUsageOverviewQuery
             .OrderByDescending(y => y)
             .ToList();
 
-        // year hợp lệ khi có trong danh sách năm; ngược lại (null hoặc năm lạ) → về mặc định "12 tháng gần nhất".
-        var selectedYear = year is int y && availableYears.Contains(y) ? y : (int?)null;
+        // year hợp lệ khi có trong danh sách năm; ngược lại (null hoặc năm lạ) → mặc định về năm hiện tại.
+        var selectedYear = year is int y && availableYears.Contains(y) ? y : now.Year;
 
         // ----- Theo tháng -----
-        // Không chọn năm → cửa sổ trượt 12 tháng kết thúc ở tháng hiện tại. Chọn năm → trọn 01–12 của năm đó.
-        var firstMonth = selectedYear is int sy
-            ? new DateTime(sy, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            : new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-(MonthsToShow - 1));
+        // Luôn hiện trọn 01–12 của năm đang chọn.
+        var firstMonth = new DateTime(selectedYear, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         // rows ngoài cửa sổ tự bị loại vì vòng lặp chỉ duyệt 12 tháng.
         var monthly = Enumerable.Range(0, MonthsToShow)
@@ -167,6 +169,10 @@ public class GetUsageOverviewQuery
                     rows.Sum(x => CostFor(x.ModelId, x.PromptTokens, x.CompletionTokens)));
             })
             .ToList();
+
+        // Tổng token & chi phí của NĂM ĐANG CHỌN — cộng thẳng từ 12 tháng vừa dựng (gộp vào card biểu đồ).
+        var selectedYearTokens = monthly.Sum(x => x.TotalTokens);
+        var selectedYearCost = monthly.Sum(x => x.Cost);
 
         // Token/chi phí THÁNG HIỆN TẠI tính độc lập với cửa sổ đang xem (xem năm quá khứ không làm sai số này).
         var currentMonthRows = logRaw.Where(x => x.Year == now.Year && x.Month == now.Month).ToList();
@@ -209,6 +215,8 @@ public class GetUsageOverviewQuery
             projects,
             departments,
             selectedYear,
+            selectedYearTokens,
+            selectedYearCost,
             availableYears);
     }
 
