@@ -1,7 +1,7 @@
 <!--
 File này là TEMPLATE để OrganizationContextService render tự động từ hai bảng OrgUnits/Associates:
 ba placeholder {{DEPARTMENTS}}, {{POSITIONS}}, {{TOTALS}} được thay bằng dữ liệu gộp lấy từ DB.
-(Khác với organization-context.v1.md — bản điền tay, nay được thay bằng bản render tự động này.)
+(Bản render tự động này thay cho lối điền tay trước đây.)
 Khối comment HTML này bị service CẮT BỎ trước khi render — không bao giờ tới model; phần chữ tĩnh
 bên dưới chỉnh thoải mái, không cần build lại.
 -->
