@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ICOGenerator.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260704150645_AddProjectOrgUnitCode")]
-    partial class AddProjectOrgUnitCode
+    [Migration("20260705071200_V1")]
+    partial class V1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -723,7 +723,7 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<bool?>("IsUseBoschTemplate")
+                    b.Property<bool>("IsUseBoschTemplate")
                         .HasColumnType("bit");
 
                     b.Property<string>("Name")

@@ -328,10 +328,11 @@ sắp xếp lại; namespace luôn khớp đường dẫn.
   `AgentJobRunner` tạo nên một hàng đợi `AgentJob` mà UI không bao giờ gọi tới — chat BA thật đi
   qua `Chat` → `ChatWithBAUseCase` (đồng bộ). Cụm code chết này đã được xoá. **Bảng `AgentJobs`
   cũng đã được drop** (entity `AgentJob` + enum `AgentJobStatus` + `DbSet` đã xoá). Toàn bộ lịch
-  sử migration sau đó đã được gộp lại thành một baseline duy nhất `20260620141602_V1` (tạo 10
-  bảng, không còn `AgentJobs`); migration `RemoveAgentJob` riêng lẻ không còn tồn tại nữa. (Về sau
-  có thêm migration tiến `AddUsersAndRolePermissions` cho hệ thống user/role — migration tính năng
-  bình thường nằm trên baseline, không phải một phần của baseline.)
+  sử migration đã được gộp lại thành một baseline `V1` duy nhất (tạo đủ 18 bảng khớp
+  `AppDbContextModelSnapshot`); các migration tiến lẻ tẻ trước đây (drop cột/backfill/alter cho DB
+  cũ) không còn tồn tại. Mỗi khi cần reset DB tạo lại từ đầu, cứ xoá `Migrations/` rồi
+  `dotnet ef migrations add V1` để có lại một baseline sạch — nhớ đặt `ASPNETCORE_ENVIRONMENT`
+  khác `Development` để migration sinh ra theo provider SqlServer (production), không phải Sqlite.
 - `IModelCallLogger`/`ModelCallLogger` (log lời gọi model) **đã được gộp vào `Services/Llm`** (trước
   đây nằm riêng ở `Services/Logging`): nó chỉ phục vụ một loại log và phụ thuộc chặt `LlmCallResult`,
   nên để cạnh client gọi LLM là hợp lý. Nếu sau này log nhiều loại khác thì tách lại thư mục riêng.
