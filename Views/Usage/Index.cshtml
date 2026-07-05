@@ -36,14 +36,6 @@
     </div>
 </div>
 
-<div class="usage-cards">
-    <div class="card cost">
-        <span>Total cost</span>
-        <b>@Money(Model.TotalCost)</b>
-        <small>@Compact(Model.TotalTokens) tokens · all time</small>
-    </div>
-</div>
-
 @if (!Model.HasAnyPricing)
 {
     <div class="pricing-hint">
@@ -55,12 +47,18 @@
 
 <div class="card usage-section">
     <div class="chart-head">
-        <h2>Tokens per month</h2>
+        <div class="chart-title">
+            <h2>Tokens per month</h2>
+            <div class="year-cost">
+                <span>Total cost @Model.SelectedYear</span>
+                <b>@Money(Model.SelectedYearCost)</b>
+                <small>@Compact(Model.SelectedYearTokens) tokens</small>
+            </div>
+        </div>
         <div class="chart-tools">
             <form method="get" asp-controller="Usage" asp-action="Index" class="year-filter">
                 <label for="usage-year">Năm</label>
                 <select id="usage-year" name="year" onchange="this.form.submit()">
-                    <option value="" selected="@(Model.SelectedYear == null)">12 tháng gần nhất</option>
                     @foreach (var y in Model.AvailableYears)
                     {
                         <option value="@y" selected="@(Model.SelectedYear == y)">@y</option>
