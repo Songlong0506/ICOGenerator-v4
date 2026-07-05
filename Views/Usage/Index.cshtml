@@ -218,6 +218,7 @@
                 <thead>
                     <tr>
                         <th>Project</th>
+                        <th>Department / Org Unit</th>
                         <th style="width:25%">Share</th>
                         <th>Total Tokens</th>
                         <th>Prompt</th>
@@ -233,6 +234,7 @@
                         var width = p.TotalTokens * 100d / maxProjectTokens;
                         <tr>
                             <td><b>@p.ProjectName</b></td>
+                            <td class="muted">@p.DepartmentName</td>
                             <td>
                                 <div class="project-bar-track" title="@Percent(p.TotalTokens, Model.TotalTokens)% of all tokens">
                                     <div class="project-bar-fill" style="width:@width.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
