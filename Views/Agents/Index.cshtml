@@ -38,14 +38,6 @@
                 </a>
             }
         </div>
-
-        <div class="card stats">
-            <h3>Agent Overview</h3>
-            <div>
-                <b>@Model.Count</b>
-                <span>Total Agents</span>
-            </div>
-        </div>
     </section>
 
     <section class="card detail">
@@ -71,7 +63,7 @@
                         <input name="Name" value="@selected.Name" required />
                     </div>
                     <div>
-                        <label>Role / Title</label>
+                        <label>Role / Title <span class="readonly-tag">Read only</span></label>
                         <input value="@selected.RoleKey.GetTitle()" readonly />
                     </div>
                     <div>
@@ -100,7 +92,7 @@
                 <label>Description</label>
                 <textarea name="Description" rows="3">@selected.Description</textarea>
 
-                <label>Instruction(<code>@(ViewBag.InstructionFile as string)</code>)</label>
+                <label>Instruction(<code>@(ViewBag.InstructionFile as string)</code>) <span class="readonly-tag">Read only</span></label>
                 <textarea rows="8" readonly>@(ViewBag.Instruction as string)</textarea>
 
                 <div class="tools-head">
