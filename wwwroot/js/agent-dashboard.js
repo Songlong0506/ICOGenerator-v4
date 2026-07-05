@@ -106,6 +106,93 @@ function loadAgentLogs(agentId, agentName) {
     document.getElementById('logs-subtitle').textContent =
         `Agent: ${agentName}`;
 
+    // Fresh agent → start from an empty filter bar so old selections don't carry over.
+    resetLogFilterInputs();
+
+    return loadAgentLogsPage(1);
+}
+
+// Convert a <input type="datetime-local"> value (local time) to a UTC wall-clock string
+// (yyyy-MM-ddTHH:mm:ss). CreatedAt is stored in UTC, so the backend compares against this directly.
+function toUtcWallClock(localValue) {
+    if (!localValue) return '';
+    const d = new Date(localValue);
+    if (isNaN(d.getTime())) return '';
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
+        + `T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+}
+
+function getLogFilters() {
+    const val = id => {
+        const el = document.getElementById(id);
+        return el ? el.value.trim() : '';
+    };
+    return {
+        fromUtc: toUtcWallClock(val('filter-from')),
+        toUtc: toUtcWallClock(val('filter-to')),
+        purpose: val('filter-purpose'),
+        minDurationMs: val('filter-min-duration'),
+        maxDurationMs: val('filter-max-duration'),
+        status: val('filter-status')
+    };
+}
+
+function buildLogsUrl(page) {
+    const params = new URLSearchParams();
+    params.set('projectId', PROJECT_ID);
+    params.set('agentId', logsAgentId);
+    params.set('page', page);
+
+    const f = getLogFilters();
+    if (f.fromUtc) params.set('fromUtc', f.fromUtc);
+    if (f.toUtc) params.set('toUtc', f.toUtc);
+    if (f.purpose) params.set('purpose', f.purpose);
+    if (f.minDurationMs !== '') params.set('minDurationMs', f.minDurationMs);
+    if (f.maxDurationMs !== '') params.set('maxDurationMs', f.maxDurationMs);
+    if (f.status) params.set('status', f.status);
+
+    return `/AgentDashboard/AgentCallLogs?${params.toString()}`;
+}
+
+// Rebuild the Purpose dropdown from the server's distinct list, preserving the current
+// selection. Skips the rebuild when the option set is unchanged (avoids flicker on paging).
+function populatePurposeFilter(purposes) {
+    const select = document.getElementById('filter-purpose');
+    if (!select) return;
+
+    const list = Array.isArray(purposes) ? purposes : [];
+    const desired = ['', ...list];
+    const existing = Array.from(select.options).map(o => o.value);
+    const unchanged = existing.length === desired.length
+        && existing.every((v, i) => v === desired[i]);
+    if (unchanged) return;
+
+    const current = select.value;
+    select.innerHTML = '<option value="">All</option>'
+        + list.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+    select.value = list.includes(current) ? current : '';
+}
+
+function resetLogFilterInputs() {
+    ['filter-from', 'filter-to', 'filter-min-duration', 'filter-max-duration', 'filter-status']
+        .forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+    const purpose = document.getElementById('filter-purpose');
+    if (purpose) {
+        purpose.innerHTML = '<option value="">All</option>';
+        purpose.value = '';
+    }
+}
+
+function applyLogFilters() {
+    return loadAgentLogsPage(1);
+}
+
+function clearLogFilters() {
+    resetLogFilterInputs();
     return loadAgentLogsPage(1);
 }
 
@@ -118,8 +205,7 @@ async function loadAgentLogsPage(page) {
     tbody.innerHTML =
         '<tr><td colspan="7">Loading...</td></tr>';
 
-    const url =
-        `/AgentDashboard/AgentCallLogs?projectId=${PROJECT_ID}&agentId=${logsAgentId}&page=${page}`;
+    const url = buildLogsUrl(page);
 
     let result;
     try {
@@ -132,12 +218,16 @@ async function loadAgentLogsPage(page) {
         return;
     }
 
+    populatePurposeFilter(result.purposes);
+
     const logs = result.items || [];
 
     if (!logs.length) {
 
-        tbody.innerHTML =
-            '<tr><td colspan="7">No AI call logs found for this agent.</td></tr>';
+        const hasActiveFilter = Object.values(getLogFilters()).some(v => v !== '');
+        tbody.innerHTML = hasActiveFilter
+            ? '<tr><td colspan="7">No AI call logs match the current filters.</td></tr>'
+            : '<tr><td colspan="7">No AI call logs found for this agent.</td></tr>';
 
         renderLogsPager(result);
         return;
@@ -392,6 +482,17 @@ document.getElementById('logs-modal')
             closeLogsModal();
         }
     });
+
+// Dropdowns filter immediately on change; text/date/number fields filter on Enter (or the button).
+document.querySelectorAll('#logs-filters .logs-filter-input').forEach(function (el) {
+    if (el.tagName === 'SELECT') {
+        el.addEventListener('change', applyLogFilters);
+    } else {
+        el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') applyLogFilters();
+        });
+    }
+});
 
 // ===== Live agent indicator + activity (debug) popup =====
 const ACTIVITY_ICON = {

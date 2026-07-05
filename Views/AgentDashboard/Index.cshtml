@@ -320,6 +320,43 @@
             </button>
         </div>
 
+        <div class="logs-filters" id="logs-filters">
+            <div class="logs-filter">
+                <label for="filter-from">Time from</label>
+                <input type="datetime-local" id="filter-from" class="logs-filter-input">
+            </div>
+            <div class="logs-filter">
+                <label for="filter-to">Time to</label>
+                <input type="datetime-local" id="filter-to" class="logs-filter-input">
+            </div>
+            <div class="logs-filter">
+                <label for="filter-purpose">Purpose</label>
+                <select id="filter-purpose" class="logs-filter-input">
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="logs-filter">
+                <label for="filter-min-duration">Duration ≥ (ms)</label>
+                <input type="number" id="filter-min-duration" class="logs-filter-input" min="0" step="1" placeholder="0">
+            </div>
+            <div class="logs-filter">
+                <label for="filter-max-duration">Duration ≤ (ms)</label>
+                <input type="number" id="filter-max-duration" class="logs-filter-input" min="0" step="1" placeholder="∞">
+            </div>
+            <div class="logs-filter">
+                <label for="filter-status">Status</label>
+                <select id="filter-status" class="logs-filter-input">
+                    <option value="">All</option>
+                    <option value="success">Success</option>
+                    <option value="error">Error</option>
+                </select>
+            </div>
+            <div class="logs-filter logs-filter-actions">
+                <button class="btn btn-primary" onclick="applyLogFilters()">Filter</button>
+                <button class="btn" onclick="clearLogFilters()">Clear</button>
+            </div>
+        </div>
+
         <div style="overflow-x:auto;">
             <table class="logs-table">
                 <thead>

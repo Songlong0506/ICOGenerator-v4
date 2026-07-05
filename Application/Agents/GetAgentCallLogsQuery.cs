@@ -11,11 +11,14 @@ public record AgentCallLogListItem(
 
 // A single page of an agent's AI call logs (mirrors ProjectListPage so the popup pager
 // can share the same paging metadata/style as the Projects table).
+// Purposes: distinct purpose values across the agent's logs (unfiltered) — feeds the popup's
+// Purpose filter dropdown so it stays complete no matter which filters are currently applied.
 public record AgentCallLogPage(
     IReadOnlyList<AgentCallLogListItem> Items,
     int Page,
     int PageSize,
-    int TotalCount)
+    int TotalCount,
+    IReadOnlyList<string> Purposes)
 {
     public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);
     public bool HasPrevious => Page > 1;
@@ -35,16 +38,57 @@ public class GetAgentCallLogsQuery
         _db = db;
     }
 
+    // Filters (all optional) map to the popup's filter bar: Time (from/to), Purpose, Duration
+    // (min/max ms) and Status. Times arrive as UTC wall-clock (CreatedAt is stored in UTC), so
+    // they compare directly against the column.
     public async Task<AgentCallLogPage> ExecuteAsync(
-        Guid projectId, Guid agentId, int page = 1, int pageSize = DefaultPageSize)
+        Guid projectId, Guid agentId, int page = 1, int pageSize = DefaultPageSize,
+        string? purpose = null, string? status = null,
+        long? minDurationMs = null, long? maxDurationMs = null,
+        DateTime? fromUtc = null, DateTime? toUtc = null)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = DefaultPageSize;
 
-        var baseQuery = _db.AgentModelCallLogs
+        var scope = _db.AgentModelCallLogs
             .AsNoTracking()
-            .Where(x => x.ProjectId == projectId && x.AgentId == agentId)
-            .OrderByDescending(x => x.CreatedAt);
+            .Where(x => x.ProjectId == projectId && x.AgentId == agentId);
+
+        // Distinct purposes across all of this agent's logs (before filters) for the dropdown.
+        var purposes = await scope
+            .Where(x => x.Purpose != "")
+            .Select(x => x.Purpose)
+            .Distinct()
+            .OrderBy(p => p)
+            .ToListAsync();
+
+        var filtered = scope;
+
+        if (!string.IsNullOrWhiteSpace(purpose))
+            filtered = filtered.Where(x => x.Purpose == purpose);
+
+        if (string.Equals(status, "success", StringComparison.OrdinalIgnoreCase))
+            filtered = filtered.Where(x => x.IsSuccess);
+        else if (string.Equals(status, "error", StringComparison.OrdinalIgnoreCase))
+            filtered = filtered.Where(x => !x.IsSuccess);
+
+        if (minDurationMs.HasValue)
+            filtered = filtered.Where(x => x.DurationMs >= minDurationMs.Value);
+        if (maxDurationMs.HasValue)
+            filtered = filtered.Where(x => x.DurationMs <= maxDurationMs.Value);
+
+        if (fromUtc.HasValue)
+        {
+            var from = DateTime.SpecifyKind(fromUtc.Value, DateTimeKind.Unspecified);
+            filtered = filtered.Where(x => x.CreatedAt >= from);
+        }
+        if (toUtc.HasValue)
+        {
+            var to = DateTime.SpecifyKind(toUtc.Value, DateTimeKind.Unspecified);
+            filtered = filtered.Where(x => x.CreatedAt <= to);
+        }
+
+        var baseQuery = filtered.OrderByDescending(x => x.CreatedAt);
 
         var totalCount = await baseQuery.CountAsync();
 
@@ -68,6 +112,6 @@ public class GetAgentCallLogsQuery
                 x.CreatedAt))
             .ToListAsync();
 
-        return new AgentCallLogPage(items, page, pageSize, totalCount);
+        return new AgentCallLogPage(items, page, pageSize, totalCount, purposes);
     }
 }
