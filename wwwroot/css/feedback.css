@@ -1,0 +1,38 @@
+.fb-grid { display: grid; grid-template-columns: 380px 1fr; gap: 22px; align-items: start; }
+.fb-form-card label { margin-top: 14px; }
+.fb-form-card label:first-of-type { margin-top: 0; }
+.fb-hint { color: var(--muted); font-size: 12px; font-weight: 400; margin: 6px 0 0; }
+.fb-file { padding: 9px 12px; background: #fff; }
+.fb-submit-bar { margin-top: 18px; }
+
+.fb-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.fb-toolbar form { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fb-toolbar select { width: auto; min-width: 150px; }
+.fb-toolbar .count { color: var(--muted); margin-left: auto; }
+
+.fb-list { display: flex; flex-direction: column; gap: 14px; }
+.fb-item { padding: 18px; }
+.fb-item-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fb-item-head h3 { margin: 0; font-size: 16px; flex: 1 1 auto; min-width: 0; }
+.fb-meta { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
+.fb-msg { white-space: pre-wrap; margin: 12px 0 0; line-height: 1.55; }
+
+.fb-atts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.fb-att { display: inline-flex; align-items: center; text-decoration: none; }
+.fb-att.img { width: 84px; height: 84px; border: 1px solid var(--line); overflow: hidden; background: #f3f6f9; }
+.fb-att.img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fb-att.file { gap: 8px; padding: 8px 12px; border: 1px solid var(--line); background: #fff; max-width: 260px; }
+.fb-att.file:hover { background: #f3f6f9; text-decoration: none; }
+.fb-att-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 13px; }
+.fb-att-size { color: var(--muted); font-size: 12px; flex: 0 0 auto; }
+.fb-att .ico { width: 18px; height: 18px; color: var(--bosch-blue); }
+
+.fb-item-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.fb-item-foot form { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+.fb-item-foot .spacer { flex: 1; }
+.fb-status-form select { width: auto; min-width: 150px; padding: 6px 10px; }
+.fb-empty { padding: 40px; text-align: center; color: var(--muted); }
+.link-danger { background: transparent; border: 0; color: var(--bosch-red); font-weight: 700; cursor: pointer; padding: 6px 8px; width: auto; font-size: 13px; }
+.link-danger:hover { text-decoration: underline; }
+
+@media (max-width: 1000px) { .fb-grid { grid-template-columns: 1fr; } }
