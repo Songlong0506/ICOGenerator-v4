@@ -32,7 +32,7 @@ public class ProjectsController : Controller
     public async Task<IActionResult> Index(
         int page = 1,
         int pageSize = GetProjectListQuery.DefaultPageSize,
-        string? orgUnit = null,
+        string[]? orgUnit = null,
         ProjectStatus? status = null)
     {
         // Admin/TeamDev (quyền ProjectsViewAll) thấy mọi project; User thường chỉ thấy project mình tạo.

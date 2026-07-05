@@ -242,6 +242,225 @@
         align-items: center;
         gap: 8px;
     }
+
+    /* ---------- Org Unit multi-select combo (filter bar) ---------- */
+    .ms-combo {
+        position: relative;
+        min-width: 240px;
+    }
+
+    .ms-combo-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        background: #fff;
+        color: var(--ink);
+        font-family: inherit;
+        font-size: 14px;
+        text-align: left;
+        cursor: pointer;
+    }
+
+        .ms-combo-trigger:focus {
+            outline: none;
+            border-color: var(--bosch-blue);
+            box-shadow: 0 0 0 2px var(--bosch-blue-tint-strong);
+        }
+
+    .ms-combo-text {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+        .ms-combo-text.is-placeholder {
+            color: var(--muted);
+        }
+
+    .ms-combo-caret {
+        color: var(--muted);
+        font-size: 12px;
+        transition: transform .15s;
+    }
+
+    .ms-combo.open .ms-combo-caret {
+        transform: rotate(180deg);
+    }
+
+    .ms-combo-panel {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        z-index: 10;
+        min-width: 240px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 12px 30px rgba(0,0,0,.18);
+        overflow: hidden;
+    }
+
+    .ms-combo-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .ms-combo-search-box {
+        position: relative;
+        flex: 1;
+    }
+
+        .ms-combo-search-box input {
+            width: 100%;
+            padding: 8px 32px 8px 12px;
+            font-size: 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+        }
+
+            .ms-combo-search-box input:focus {
+                outline: none;
+                border-color: var(--bosch-blue);
+                box-shadow: 0 0 0 2px var(--bosch-blue-tint-strong);
+            }
+
+    .ms-combo-search-icon {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 13px;
+        color: var(--muted);
+        pointer-events: none;
+    }
+
+    /* Hàng chọn có checkbox: ẩn checkbox gốc, vẽ ô vuông tùy biến (.ms-combo-box) để đồng bộ giao diện. */
+    .ms-combo-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0;
+        cursor: pointer;
+        font-weight: inherit;
+        color: inherit;
+    }
+
+        .ms-combo-checkbox input[type="checkbox"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+            margin: 0;
+        }
+
+    .ms-combo-box {
+        flex: 0 0 18px;
+        width: 18px;
+        height: 18px;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 4px;
+        background: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .ms-combo-box::after {
+            content: "✓";
+            font-size: 12px;
+            font-weight: 900;
+            line-height: 1;
+            color: #fff;
+            opacity: 0;
+        }
+
+    /* Checkbox "Chọn tất cả": khi tick thì tô xanh Bosch cho khác hàng thường. */
+    .ms-combo-all input:checked + .ms-combo-box,
+    .ms-combo-all input:indeterminate + .ms-combo-box {
+        background: var(--bosch-blue);
+        border-color: var(--bosch-blue);
+    }
+
+        .ms-combo-all input:checked + .ms-combo-box::after {
+            opacity: 1;
+        }
+
+    .ms-combo-all input:indeterminate + .ms-combo-box::after {
+        content: "–";
+        opacity: 1;
+    }
+
+    .ms-combo-list {
+        list-style: none;
+        margin: 0;
+        padding: 4px;
+        max-height: 240px;
+        overflow-y: auto;
+    }
+
+    .ms-combo-option {
+        border-radius: 6px;
+    }
+
+        .ms-combo-option > .ms-combo-checkbox {
+            padding: 9px 12px;
+        }
+
+        .ms-combo-option:hover {
+            background: var(--bosch-blue-tint);
+        }
+
+        .ms-combo-option-text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+
+        /* Hàng đã chọn: nền navy đậm, chữ trắng, dấu ✓ trắng — bám theo mẫu thiết kế. */
+        .ms-combo-option.selected {
+            background: #0f172a;
+            color: #fff;
+        }
+
+            .ms-combo-option.selected:hover {
+                background: #1e293b;
+            }
+
+            .ms-combo-option.selected .ms-combo-option-text {
+                font-weight: 700;
+            }
+
+            .ms-combo-option.selected .ms-combo-box {
+                border-color: transparent;
+                background: transparent;
+            }
+
+                .ms-combo-option.selected .ms-combo-box::after {
+                    opacity: 1;
+                }
+
+        .ms-combo-option.hidden {
+            display: none;
+        }
+
+    .ms-combo-empty {
+        padding: 14px 12px;
+        font-size: 13px;
+        color: var(--muted);
+        text-align: center;
+    }
 </style>
 
 <div class="page-head">
@@ -251,24 +470,66 @@
     <button class="btn primary" onclick="openModal('newProject')">＋ New Project</button>
 </div>
 @{
-    var hasFilter = !string.IsNullOrEmpty(Model.SelectedOrgUnitCode) || Model.SelectedStatus.HasValue;
-    // Giá trị bộ lọc để giữ nguyên trong link phân trang (null thì tag helper tự bỏ qua tham số).
-    var orgUnitRoute = string.IsNullOrEmpty(Model.SelectedOrgUnitCode) ? null : Model.SelectedOrgUnitCode;
-    var statusRoute = Model.SelectedStatus?.ToString();
+    var selectedOrgUnits = Model.SelectedOrgUnitCodesOrEmpty;
+    var hasFilter = selectedOrgUnits.Count > 0 || Model.SelectedStatus.HasValue;
+
+    // Link phân trang phải giữ nguyên bộ lọc. Org Unit giờ chọn nhiều (mảng) nên asp-route-* không dựng
+    // được — tự ghép query string với đủ các tham số orgUnit lặp lại + status.
+    string PageUrl(int targetPage)
+    {
+        var qs = new List<string>
+        {
+            $"page={targetPage}",
+            $"pageSize={Model.PageSize}"
+        };
+        foreach (var code in selectedOrgUnits)
+            qs.Add($"orgUnit={Uri.EscapeDataString(code)}");
+        if (Model.SelectedStatus.HasValue)
+            qs.Add($"status={Model.SelectedStatus}");
+        return $"{Url.Action("Index")}?{string.Join("&", qs)}";
+    }
 }
 <div class="card filter-card">
     @* Khu vực lọc danh sách dự án theo Đơn vị yêu cầu (Org Unit) và Trạng thái. Form GET nên bộ lọc
        nằm trong URL — chia sẻ được và giữ nguyên khi phân trang. Thay đổi select tự submit. *@
     <form method="get" asp-controller="Projects" asp-action="Index" class="filter-bar">
         <div class="filter-field">
-            <label for="filter-orgunit">Đơn vị yêu cầu (Org Unit)</label>
-            <select id="filter-orgunit" name="orgUnit" onchange="this.form.submit()">
-                <option value="">Tất cả đơn vị</option>
-                @foreach (var o in Model.OrgUnitOptions)
-                {
-                    <option value="@o.Code" selected="@(string.Equals(Model.SelectedOrgUnitCode, o.Code, StringComparison.OrdinalIgnoreCase))">@o.Name</option>
-                }
-            </select>
+            <label>Đơn vị yêu cầu (Org Unit)</label>
+            @* Combo chọn NHIỀU đơn vị: mỗi lựa chọn là một checkbox name="orgUnit" nằm sẵn trong form GET,
+               nên khi bấm "Lọc" toàn bộ mã đã tick được gửi lên (mảng). Không tự submit theo từng tick để
+               người dùng chọn xong nhiều đơn vị rồi mới lọc. UI (nút, panel, tìm kiếm, chọn tất cả) do JS lái. *@
+            <div class="ms-combo" data-ms-combo>
+                <button type="button" class="ms-combo-trigger" data-ms-trigger aria-haspopup="listbox" aria-expanded="false">
+                    <span class="ms-combo-text" data-ms-label data-ms-placeholder="Tất cả đơn vị"></span>
+                    <span class="ms-combo-caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="ms-combo-panel hidden" data-ms-panel>
+                    <div class="ms-combo-search">
+                        <label class="ms-combo-checkbox ms-combo-all" title="Chọn tất cả">
+                            <input type="checkbox" data-ms-all />
+                            <span class="ms-combo-box" aria-hidden="true"></span>
+                        </label>
+                        <div class="ms-combo-search-box">
+                            <input type="text" placeholder="Tìm đơn vị…" autocomplete="off" data-ms-search />
+                            <span class="ms-combo-search-icon" aria-hidden="true">🔍</span>
+                        </div>
+                    </div>
+                    <ul class="ms-combo-list" role="listbox" aria-multiselectable="true" data-ms-list>
+                        @foreach (var o in Model.OrgUnitOptions)
+                        {
+                            var isSelected = selectedOrgUnits.Contains(o.Code, StringComparer.OrdinalIgnoreCase);
+                            <li class="ms-combo-option @(isSelected ? "selected" : "")" role="option" aria-selected="@(isSelected ? "true" : "false")" data-search="@o.Name.ToLowerInvariant()">
+                                <label class="ms-combo-checkbox">
+                                    <input type="checkbox" name="orgUnit" value="@o.Code" @(isSelected ? "checked" : "") data-ms-option />
+                                    <span class="ms-combo-box" aria-hidden="true"></span>
+                                    <span class="ms-combo-option-text">@o.Name</span>
+                                </label>
+                            </li>
+                        }
+                    </ul>
+                    <div class="ms-combo-empty hidden" data-ms-empty>Không tìm thấy đơn vị</div>
+                </div>
+            </div>
         </div>
         <div class="filter-field">
             <label for="filter-status">Trạng thái (Status)</label>
@@ -363,7 +624,7 @@
             <div class="pager-controls">
                 @if (Model.HasPrevious)
                 {
-                    <a class="btn outline" asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize" asp-route-orgUnit="@orgUnitRoute" asp-route-status="@statusRoute">‹ Prev</a>
+                    <a class="btn outline" href="@PageUrl(Model.Page - 1)">‹ Prev</a>
                 }
                 else
                 {
@@ -378,13 +639,13 @@
                     }
                     else
                     {
-                        <a class="btn" asp-action="Index" asp-route-page="@i" asp-route-pageSize="@Model.PageSize" asp-route-orgUnit="@orgUnitRoute" asp-route-status="@statusRoute">@i</a>
+                        <a class="btn" href="@PageUrl(i)">@i</a>
                     }
                 }
 
                 @if (Model.HasNext)
                 {
-                    <a class="btn outline" asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize" asp-route-orgUnit="@orgUnitRoute" asp-route-status="@statusRoute">Next ›</a>
+                    <a class="btn outline" href="@PageUrl(Model.Page + 1)">Next ›</a>
                 }
                 else
                 {
@@ -499,6 +760,119 @@
             document.addEventListener('click', function (e) {
                 if (!combo.contains(e.target)) close();
             });
+        })();
+
+        // Combo "Đơn vị yêu cầu" ở thanh lọc — chọn NHIỀU. Mỗi option là 1 checkbox name="orgUnit" sẵn trong
+        // form GET; JS chỉ lo giao diện (nhãn nút, mở/đóng panel, tìm kiếm, chọn tất cả) và đồng bộ lớp
+        // .selected. Không tự submit theo từng tick — người dùng chọn xong rồi bấm "Lọc".
+        (function () {
+            var combo = document.querySelector('[data-ms-combo]');
+            if (!combo) return;
+
+            var trigger = combo.querySelector('[data-ms-trigger]');
+            var panel = combo.querySelector('[data-ms-panel]');
+            var label = combo.querySelector('[data-ms-label]');
+            var search = combo.querySelector('[data-ms-search]');
+            var empty = combo.querySelector('[data-ms-empty]');
+            var allBox = combo.querySelector('[data-ms-all]');
+            var placeholder = label.getAttribute('data-ms-placeholder') || '';
+            var options = Array.prototype.slice.call(combo.querySelectorAll('.ms-combo-option'));
+
+            function checkboxOf(opt) { return opt.querySelector('[data-ms-option]'); }
+            function isVisible(opt) { return !opt.classList.contains('hidden'); }
+
+            // Nhãn nút: 0 chọn → placeholder; 1–2 → ghép tên; >2 → "N mục đã chọn".
+            function renderLabel() {
+                var names = options
+                    .filter(function (opt) { return checkboxOf(opt).checked; })
+                    .map(function (opt) { return opt.querySelector('.ms-combo-option-text').textContent.trim(); });
+                if (names.length === 0) {
+                    label.textContent = placeholder;
+                    label.classList.add('is-placeholder');
+                } else {
+                    label.textContent = names.length <= 2 ? names.join(', ') : (names.length + ' mục đã chọn');
+                    label.classList.remove('is-placeholder');
+                }
+            }
+
+            // Trạng thái "Chọn tất cả" bám theo các option ĐANG hiển thị (sau khi lọc tìm kiếm).
+            function renderAll() {
+                var visible = options.filter(isVisible);
+                var checked = visible.filter(function (opt) { return checkboxOf(opt).checked; });
+                allBox.checked = visible.length > 0 && checked.length === visible.length;
+                allBox.indeterminate = checked.length > 0 && checked.length < visible.length;
+            }
+
+            function syncOption(opt) {
+                var on = checkboxOf(opt).checked;
+                opt.classList.toggle('selected', on);
+                opt.setAttribute('aria-selected', on ? 'true' : 'false');
+            }
+
+            function open() {
+                combo.classList.add('open');
+                panel.classList.remove('hidden');
+                trigger.setAttribute('aria-expanded', 'true');
+                search.value = '';
+                filter();
+                search.focus();
+            }
+
+            function close() {
+                combo.classList.remove('open');
+                panel.classList.add('hidden');
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+
+            function filter() {
+                var q = search.value.trim().toLowerCase();
+                var visible = 0;
+                options.forEach(function (opt) {
+                    var match = q === '' || opt.getAttribute('data-search').indexOf(q) !== -1;
+                    opt.classList.toggle('hidden', !match);
+                    if (match) visible++;
+                });
+                empty.classList.toggle('hidden', visible > 0);
+                renderAll();
+            }
+
+            trigger.addEventListener('click', function () {
+                if (combo.classList.contains('open')) close(); else open();
+            });
+
+            options.forEach(function (opt) {
+                checkboxOf(opt).addEventListener('change', function () {
+                    syncOption(opt);
+                    renderLabel();
+                    renderAll();
+                });
+            });
+
+            allBox.addEventListener('change', function () {
+                var on = allBox.checked;
+                options.filter(isVisible).forEach(function (opt) {
+                    var cb = checkboxOf(opt);
+                    if (cb.checked !== on) {
+                        cb.checked = on;
+                        syncOption(opt);
+                    }
+                });
+                renderLabel();
+                renderAll();
+            });
+
+            search.addEventListener('input', filter);
+
+            search.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') { close(); trigger.focus(); }
+            });
+
+            document.addEventListener('click', function (e) {
+                if (!combo.contains(e.target)) close();
+            });
+
+            renderLabel();
+            renderAll();
         })();
     </script>
 }

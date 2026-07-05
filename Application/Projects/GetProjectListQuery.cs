@@ -23,7 +23,7 @@ public class GetProjectListQuery
         int pageSize = DefaultPageSize,
         string? username = null,
         bool canViewAll = false,
-        string? orgUnitCode = null,
+        IReadOnlyList<string>? orgUnitCodes = null,
         ProjectStatus? status = null)
     {
         if (page < 1) page = 1;
@@ -36,11 +36,16 @@ public class GetProjectListQuery
         if (!canViewAll)
             projects = projects.Where(x => x.CreatedByUsername != null && x.CreatedByUsername == username);
 
-        // Bộ lọc của trang: theo đơn vị yêu cầu (OrgUnitCode) và/hoặc trạng thái. Chuỗi rỗng coi như không
-        // lọc; áp trước khi phân trang để tổng số & số trang khớp với kết quả đã lọc.
-        var normalizedOrgUnitCode = string.IsNullOrWhiteSpace(orgUnitCode) ? null : orgUnitCode.Trim();
-        if (normalizedOrgUnitCode != null)
-            projects = projects.Where(x => x.OrgUnitCode == normalizedOrgUnitCode);
+        // Bộ lọc của trang: theo đơn vị yêu cầu (OrgUnitCode, chọn nhiều) và/hoặc trạng thái. Bỏ mã rỗng
+        // và trùng; danh sách rỗng coi như không lọc. Áp trước khi phân trang để tổng số & số trang khớp
+        // với kết quả đã lọc. Nhiều mã ⇒ dự án khớp BẤT KỲ mã nào (IN).
+        var normalizedOrgUnitCodes = (orgUnitCodes ?? Enumerable.Empty<string>())
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (normalizedOrgUnitCodes.Count > 0)
+            projects = projects.Where(x => x.OrgUnitCode != null && normalizedOrgUnitCodes.Contains(x.OrgUnitCode));
         if (status.HasValue)
             projects = projects.Where(x => x.Status == status.Value);
 
@@ -103,6 +108,6 @@ public class GetProjectListQuery
             })
             .ToList();
 
-        return new ProjectListPage(items, page, pageSize, totalCount, orgUnits, normalizedOrgUnitCode, status);
+        return new ProjectListPage(items, page, pageSize, totalCount, orgUnits, normalizedOrgUnitCodes, status);
     }
 }
