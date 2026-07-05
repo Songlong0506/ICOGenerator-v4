@@ -306,6 +306,7 @@
 
 <div class="modal-backdrop" id="logs-modal">
     <div class="modal-card large-modal">
+        <button class="modal-x" type="button" aria-label="Close" onclick="closeLogsModal()">×</button>
 
         <div class="logs-header">
             <div>
@@ -314,10 +315,6 @@
                     Click an agent card to view model invocation history.
                 </p>
             </div>
-
-            <button class="btn" onclick="closeLogsModal()">
-                Close
-            </button>
         </div>
 
         <div class="logs-filters" id="logs-filters">
@@ -382,12 +379,12 @@
 
 <div class="modal-backdrop" id="log-modal">
     <div class="modal-card">
+        <button class="modal-x" type="button" aria-label="Close" onclick="closeLogModal()">×</button>
         <div class="logs-header">
             <div>
                 <h3>Model Invocation Detail</h3>
                 <p id="log-detail-meta"></p>
             </div>
-            <button class="btn" onclick="closeLogModal()">Close</button>
         </div>
 
         <div class="tabs">
@@ -406,12 +403,12 @@
 
 <div class="modal-backdrop" id="agent-activity-modal">
     <div class="modal-card">
+        <button class="modal-x" type="button" aria-label="Close" onclick="closeAgentActivity()">×</button>
         <div class="logs-header">
             <div>
                 <h3>Agent Activity</h3>
                 <p id="activity-subtitle">Các thao tác agent đang thực hiện (real-time, để debug).</p>
             </div>
-            <button class="btn" onclick="closeAgentActivity()">Close</button>
         </div>
 
         <div id="activity-meta" class="activity-meta"></div>
@@ -425,11 +422,11 @@
 {
     <div class="modal-backdrop" id="delivery-config-modal">
         <div class="modal-card delivery-config-card">
+            <button class="modal-x" type="button" aria-label="Close" onclick="closeDeliveryConfig()">×</button>
             <div class="logs-header">
                 <div>
                     <h3>Cấu hình delivery</h3>
                 </div>
-                <button class="btn" type="button" onclick="closeDeliveryConfig()">Close</button>
             </div>
 
             <form asp-controller="AgentDashboard" asp-action="UpdateDeliveryConfig" method="post" class="dc-form">
