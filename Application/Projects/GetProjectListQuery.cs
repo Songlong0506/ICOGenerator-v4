@@ -22,7 +22,9 @@ public class GetProjectListQuery
         int page = 1,
         int pageSize = DefaultPageSize,
         string? username = null,
-        bool canViewAll = false)
+        bool canViewAll = false,
+        string? orgUnitCode = null,
+        ProjectStatus? status = null)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = DefaultPageSize;
@@ -33,6 +35,14 @@ public class GetProjectListQuery
         // "không có chủ" (CreatedByUsername == null, tạo trước khi có tính năng này) không hiện cho họ.
         if (!canViewAll)
             projects = projects.Where(x => x.CreatedByUsername != null && x.CreatedByUsername == username);
+
+        // Bộ lọc của trang: theo đơn vị yêu cầu (OrgUnitCode) và/hoặc trạng thái. Chuỗi rỗng coi như không
+        // lọc; áp trước khi phân trang để tổng số & số trang khớp với kết quả đã lọc.
+        var normalizedOrgUnitCode = string.IsNullOrWhiteSpace(orgUnitCode) ? null : orgUnitCode.Trim();
+        if (normalizedOrgUnitCode != null)
+            projects = projects.Where(x => x.OrgUnitCode == normalizedOrgUnitCode);
+        if (status.HasValue)
+            projects = projects.Where(x => x.Status == status.Value);
 
         var baseQuery = projects.OrderByDescending(x => x.CreatedAt);
 
@@ -93,6 +103,6 @@ public class GetProjectListQuery
             })
             .ToList();
 
-        return new ProjectListPage(items, page, pageSize, totalCount, orgUnits);
+        return new ProjectListPage(items, page, pageSize, totalCount, orgUnits, normalizedOrgUnitCode, status);
     }
 }

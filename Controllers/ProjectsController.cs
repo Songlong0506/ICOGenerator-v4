@@ -29,11 +29,15 @@ public class ProjectsController : Controller
         _permissions = permissions;
     }
 
-    public async Task<IActionResult> Index(int page = 1, int pageSize = GetProjectListQuery.DefaultPageSize)
+    public async Task<IActionResult> Index(
+        int page = 1,
+        int pageSize = GetProjectListQuery.DefaultPageSize,
+        string? orgUnit = null,
+        ProjectStatus? status = null)
     {
         // Admin/TeamDev (quyền ProjectsViewAll) thấy mọi project; User thường chỉ thấy project mình tạo.
         var canViewAll = await _permissions.HasPermissionAsync(User, AppPermission.ProjectsViewAll, HttpContext.RequestAborted);
-        var result = await _getProjectListQuery.ExecuteAsync(page, pageSize, User.Identity?.Name, canViewAll);
+        var result = await _getProjectListQuery.ExecuteAsync(page, pageSize, User.Identity?.Name, canViewAll, orgUnit, status);
         return View(result);
     }
 

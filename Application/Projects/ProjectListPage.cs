@@ -1,3 +1,5 @@
+using ICOGenerator.Domain.Enums;
+
 namespace ICOGenerator.Application.Projects;
 
 public record ProjectListPage(
@@ -7,7 +9,11 @@ public record ProjectListPage(
     int TotalCount,
     // Danh sách đơn vị cho dropdown "Đơn vị yêu cầu" trong modal New Project (department xếp trước).
     // Trang Index chứa luôn modal tạo mới nên page query trả kèm — controller không phải gọi query thứ hai.
-    IReadOnlyList<OrgUnitOption> OrgUnitOptions)
+    IReadOnlyList<OrgUnitOption> OrgUnitOptions,
+    // Giá trị bộ lọc đang áp dụng — view dùng để đánh dấu lựa chọn hiện tại và giữ nguyên khi phân trang.
+    // null = không lọc theo tiêu chí đó.
+    string? SelectedOrgUnitCode = null,
+    ProjectStatus? SelectedStatus = null)
 {
     public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);
     public bool HasPrevious => Page > 1;
