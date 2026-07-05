@@ -128,7 +128,6 @@ public class AgentDashboardController : Controller
         TempData["Error"] = result switch
         {
             ApproveStageResult.MissingAgent => "Không tìm thấy agent cho bước kế tiếp. Hãy kiểm tra cấu hình agent.",
-            ApproveStageResult.MissingGenerationMode => "Chưa chọn Generation Mode. Hãy điền cấu hình delivery ở Agent Dashboard trước khi đẩy sang bước kiến trúc.",
             ApproveStageResult.MissingGitUrls => "Chưa nhập Backend/Frontend Git. Hãy điền cấu hình delivery ở Agent Dashboard trước khi tạo Pull Request.",
             _ => null
         };

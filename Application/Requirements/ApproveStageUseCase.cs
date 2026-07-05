@@ -13,7 +13,6 @@ public enum ApproveStageResult
     Completed,            // không còn bước kế → workflow hoàn tất
     NoPendingStage,       // không có workflow nào đang chờ duyệt
     MissingAgent,         // không tìm thấy agent cho vai của bước kế
-    MissingGenerationMode,// bước kế cần Generation Mode nhưng TeamDev chưa chọn (điền ở Agent Dashboard)
     MissingGitUrls        // bước kế (Pull Request) cần Backend/Frontend Git nhưng chưa được điền
 }
 
@@ -86,15 +85,12 @@ public class ApproveStageUseCase
     private async Task<ApproveStageResult?> ValidateDeliveryConfigAsync(Guid projectId, WorkflowStageKey nextStage)
     {
         var project = await _db.Projects.AsNoTracking()
-            .Select(p => new { p.Id, p.IsUseBoschTemplate, p.BackendGitUrl, p.FrontendGitUrl })
+            .Select(p => new { p.Id, p.BackendGitUrl, p.FrontendGitUrl })
             .FirstOrDefaultAsync(p => p.Id == projectId);
         if (project == null)
             return null; // project biến mất là tình huống bất thường khác; để luồng còn lại xử lý.
 
-        // Generation Mode quyết định template prompt cho cả Architecture lẫn Implementation (bosch/non-bosch).
-        if ((nextStage == WorkflowStageKey.ArchitectureDesign || nextStage == WorkflowStageKey.Implementation)
-            && project.IsUseBoschTemplate == null)
-            return ApproveStageResult.MissingGenerationMode;
+        // Generation Mode (IsUseBoschTemplate) luôn có giá trị true/false nên không cần cổng chặn ở đây nữa.
 
         // Backend/Frontend Git chỉ cần ở bước cuối — push code và tạo Pull Request.
         if (nextStage == WorkflowStageKey.PullRequest
