@@ -47,16 +47,6 @@
         <b>@Money(Model.CurrentMonthCost)</b>
         <small>@DateTime.UtcNow.ToString("MM/yyyy") · @Compact(Model.CurrentMonthTokens) tokens</small>
     </div>
-    <div class="card">
-        <span>Total tokens</span>
-        <b title="@Model.TotalTokens.ToString("N0")">@Compact(Model.TotalTokens)</b>
-        <small>Prompt @Compact(Model.TotalPromptTokens) · Completion @Compact(Model.TotalCompletionTokens)</small>
-    </div>
-    <div class="card">
-        <span>Model calls</span>
-        <b>@Model.TotalCalls.ToString("N0")</b>
-        <small>Across @Model.ProjectUsage.Count project(s)</small>
-    </div>
 </div>
 
 @if (!Model.HasAnyPricing)
