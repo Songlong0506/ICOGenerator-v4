@@ -34,6 +34,7 @@ public class EvalRunnerService
     private readonly AppDbContext _db;
     private readonly IChatClientFactory _chatClientFactory;
     private readonly PromptTemplateService _prompts;
+    private readonly IPromptOverrideProvider _promptOverrides;
     private readonly ILogger<EvalRunnerService> _logger;
     private readonly int _requestTimeoutSeconds;
 
@@ -41,12 +42,14 @@ public class EvalRunnerService
         AppDbContext db,
         IChatClientFactory chatClientFactory,
         PromptTemplateService prompts,
+        IPromptOverrideProvider promptOverrides,
         IConfiguration configuration,
         ILogger<EvalRunnerService> logger)
     {
         _db = db;
         _chatClientFactory = chatClientFactory;
         _prompts = prompts;
+        _promptOverrides = promptOverrides;
         _logger = logger;
         _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
     }
@@ -130,8 +133,13 @@ public class EvalRunnerService
     {
         var stopwatch = Stopwatch.StartNew();
 
-        // (1) Model mục tiêu trả lời tình huống với NỘI DUNG HIỆN HÀNH của template prompt.
-        var systemPrompt = _prompts.Get(scenario.PromptKey);
+        // (1) Model mục tiêu trả lời tình huống với NỘI DUNG HIỆN HÀNH của template prompt. Hỏi provider
+        // TRƯỚC để ghi lại đã đo phiên bản NÀO: bản DB active (Prompt Studio) ⇒ dùng + snapshot id/số
+        // phiên bản lên kết quả; không có ⇒ nội dung file (PromptVersionId null = "file").
+        var promptOverride = _promptOverrides.GetActiveOverride(scenario.PromptKey);
+        var systemPrompt = promptOverride?.Content ?? _prompts.Get(scenario.PromptKey);
+        result.PromptVersionId = promptOverride?.Id;
+        result.PromptVersionNumber = promptOverride?.VersionNumber;
         var targetResult = await CallModelAsync(targetModel, systemPrompt, scenario.UserInput, TargetTemperature, cancellationToken);
 
         result.Output = targetResult.Content;

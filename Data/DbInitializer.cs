@@ -119,6 +119,7 @@ public static class DbInitializer
                 AppPermission.UsageView,
                 AppPermission.QualityView,
                 AppPermission.EvalView, AppPermission.EvalManage,
+                AppPermission.PromptView, AppPermission.PromptManage,
                 AppPermission.FeedbackView, AppPermission.FeedbackManage,
                 AppPermission.AuditView
             }),

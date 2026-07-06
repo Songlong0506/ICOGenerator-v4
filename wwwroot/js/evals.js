@@ -137,9 +137,12 @@
                 const scoreHtml = r.score != null
                     ? '<span class="eval-score ' + scoreClass(r.score) + '">' + r.score + '/5</span>'
                     : '<span class="badge red" title="' + escapeHtml(r.errorMessage || '') + '">lỗi</span>';
+                // Phiên bản prompt đã đo (Prompt Studio): null = nội dung file trong repo.
+                const promptLabel = r.promptVersionNumber != null ? 'prompt v' + r.promptVersionNumber : 'prompt file';
                 return '<details class="eval-result"' + (i === 0 ? ' open' : '') + '>' +
                     '<summary><span class="eval-result-name">' + escapeHtml(r.scenarioName) + '</span>' + scoreHtml +
-                    '<span class="eval-result-meta">' + (r.targetTokens + r.judgeTokens).toLocaleString() + ' tok · ' +
+                    '<span class="eval-result-meta">' + promptLabel + ' · ' +
+                    (r.targetTokens + r.judgeTokens).toLocaleString() + ' tok · ' +
                     Math.round(r.durationMs / 1000) + 's</span></summary>' +
                     (r.errorMessage ? '<p class="eval-run-error">' + escapeHtml(r.errorMessage) + '</p>' : '') +
                     (r.judgeReasoning ? '<p class="eval-reasoning"><b>Judge:</b> ' + escapeHtml(r.judgeReasoning) + '</p>' : '') +

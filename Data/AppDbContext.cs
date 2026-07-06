@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<EvalScenario> EvalScenarios => Set<EvalScenario>();
     public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
     public DbSet<EvalResult> EvalResults => Set<EvalResult>();
+    public DbSet<PromptTemplateVersion> PromptTemplateVersions => Set<PromptTemplateVersion>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -279,6 +280,18 @@ public class AppDbContext : DbContext
             b.Property(x => x.ScenarioName).HasMaxLength(200);
             b.HasIndex(x => x.EvalRunId);
             b.HasIndex(x => x.EvalScenarioId);
+        });
+
+        // Phiên bản prompt chỉnh runtime (Prompt Studio): Content là snapshot đầy đủ (nvarchar(max)),
+        // metadata bound. (PromptKey, VersionNumber) duy nhất — cũng là index cho "lịch sử một template";
+        // (PromptKey, IsActive) phục vụ truy vấn nóng "bản active của mọi template" mà provider cache lại.
+        builder.Entity<PromptTemplateVersion>(b =>
+        {
+            b.Property(x => x.PromptKey).HasMaxLength(300);
+            b.Property(x => x.ChangeNote).HasMaxLength(500);
+            b.Property(x => x.CreatedByUsername).HasMaxLength(100);
+            b.HasIndex(x => new { x.PromptKey, x.VersionNumber }).IsUnique();
+            b.HasIndex(x => new { x.PromptKey, x.IsActive });
         });
 
         // Dữ liệu tổ chức đồng bộ từ HR_Portal (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu

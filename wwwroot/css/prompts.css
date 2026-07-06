@@ -1,0 +1,82 @@
+/* Prompt Studio: danh sách template + trang chi tiết (editor, lịch sử phiên bản) + trang diff. */
+
+.prompt-sub { max-width: 860px; }
+
+.prompt-key {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    background: var(--chip-bg, rgba(0, 0, 0, .05));
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.prompt-key.lg { font-size: 17px; }
+
+.prompt-key-link { text-decoration: none; }
+.prompt-key-link:hover .prompt-key { color: var(--bosch-blue); }
+
+.prompt-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.prompt-card-head h3 { margin: 0; }
+
+/* ----- Editor ----- */
+.prompt-editor-card { margin-bottom: 18px; }
+
+.prompt-editor {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    resize: vertical;
+    background: var(--card-bg, #fff);
+    color: inherit;
+}
+
+.prompt-editor:focus { outline: 2px solid var(--bosch-blue); outline-offset: -1px; }
+
+.prompt-editor-foot {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    align-items: center;
+}
+
+.prompt-note-input {
+    flex: 1;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+}
+
+.prompt-content-pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    max-height: 520px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+}
+
+/* ----- Lịch sử & diff ----- */
+.prompt-note { max-width: 340px; }
+.prompt-empty { color: var(--muted); text-align: center; padding: 18px 10px; }
+.prompt-diff-link { white-space: nowrap; }
+
+.prompt-diff-card { padding: 14px 16px; }
+.prompt-diff { max-height: 72vh; min-height: 200px; }

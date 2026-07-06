@@ -48,6 +48,11 @@ public enum AppPermission
     [Description("Quản lý scenario & chạy eval (tốn token thật)")]
     EvalManage,
 
+    [Description("Xem Prompt Studio (nội dung & lịch sử phiên bản prompt)")]
+    PromptView,
+    [Description("Sửa/kích hoạt/rollback phiên bản prompt (đổi hành vi AI ngay lập tức)")]
+    PromptManage,
+
     [Description("Xem Settings")]
     SettingsView,
     [Description("Lưu thay đổi Settings")]

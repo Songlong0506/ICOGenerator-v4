@@ -1,0 +1,165 @@
+@using ICOGenerator.Application.Prompts
+@model PromptDetailVm
+
+@{
+    ViewData["Title"] = "Prompt Studio";
+    var canManage = await Permissions.HasPermissionAsync(User, AppPermission.PromptManage);
+    var latestNumber = Model.Versions.Count > 0 ? Model.Versions.Max(v => v.VersionNumber) : 0;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/prompts.css" asp-append-version="true" />
+}
+
+@section Breadcrumb {
+    <text><a asp-action="Index">Prompt Studio</a> <span class="sep">&rsaquo;</span> @Model.PromptKey</text>
+}
+
+<div class="page-head">
+    <div>
+        <h1><code class="prompt-key lg">@Model.PromptKey</code></h1>
+        <p class="muted prompt-sub">
+            Đang dùng:
+            @if (Model.ActiveVersionNumber is int active)
+            {
+                <span class="badge green">DB v@(active)</span>
+                @if (canManage)
+                {
+                    <form asp-action="RevertToFile" method="post" class="inline-form">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="key" value="@Model.PromptKey" />
+                        <button class="btn outline small" type="submit"
+                                onclick="return confirm('Quay về nội dung FILE trong repo? Lịch sử phiên bản vẫn được giữ.');">
+                            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Quay về file
+                        </button>
+                    </form>
+                }
+            }
+            else if (Model.FileExists)
+            {
+                <span class="badge gray">Nội dung file trong repo</span>
+            }
+            else
+            {
+                <span class="badge orange">File đã xoá — chưa có bản DB active</span>
+            }
+        </p>
+    </div>
+</div>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert error">@TempData["Error"]</div>
+}
+@if (TempData["Info"] != null)
+{
+    <div class="alert ok">@TempData["Info"]</div>
+}
+@if (TempData["Saved"] != null)
+{
+    <div class="alert ok">Đã cập nhật — mọi lời gọi AI kế tiếp dùng nội dung mới ngay lập tức.</div>
+}
+
+<div class="card prompt-editor-card">
+    <div class="prompt-card-head">
+        <h3>@(canManage ? "Nội dung đang dùng (sửa rồi Lưu để tạo phiên bản mới)" : "Nội dung đang dùng")</h3>
+    </div>
+    @if (canManage)
+    {
+        <form asp-action="Save" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="key" value="@Model.PromptKey" />
+            <textarea class="prompt-editor" name="content" rows="22" spellcheck="false">@Model.ActiveContent</textarea>
+            <div class="prompt-editor-foot">
+                <input class="prompt-note-input" type="text" name="changeNote" maxlength="500"
+                       placeholder="Ghi chú thay đổi (vd: siết điều kiện mời bấm Write Requirement)" />
+                <button class="btn primary" type="submit">
+                    <i class="bi bi-save" aria-hidden="true"></i> Lưu &amp; kích hoạt
+                </button>
+            </div>
+        </form>
+    }
+    else
+    {
+        <pre class="prompt-content-pre">@Model.ActiveContent</pre>
+    }
+</div>
+
+<div class="card table-card">
+    <div class="prompt-card-head">
+        <h3>Lịch sử phiên bản</h3>
+        @if (Model.FileExists && latestNumber > 0)
+        {
+            <a class="btn outline small" asp-action="Diff" asp-route-key="@Model.PromptKey" asp-route-from="0" asp-route-to="@latestNumber"
+               title="So nội dung file trong repo với phiên bản mới nhất">
+                <i class="bi bi-file-earmark-diff" aria-hidden="true"></i> File ↔ v@(latestNumber)
+            </a>
+        }
+    </div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Phiên bản</th>
+                    <th>Ghi chú</th>
+                    <th>Người sửa</th>
+                    <th>Thời điểm</th>
+                    <th>Diff</th>
+                    @if (canManage)
+                    {
+                        <th>Actions</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Versions.Any())
+                {
+                    <tr><td colspan="6" class="prompt-empty">Chưa có phiên bản nào — template vẫn dùng nội dung file trong repo. Sửa và Lưu để bắt đầu có lịch sử.</td></tr>
+                }
+                @foreach (var v in Model.Versions)
+                {
+                    <tr>
+                        <td>
+                            <b>v@(v.VersionNumber)</b>
+                            @if (v.IsActive)
+                            {
+                                <span class="badge green">Đang dùng</span>
+                            }
+                        </td>
+                        <td class="prompt-note">@(v.ChangeNote ?? "—")</td>
+                        <td>@(v.CreatedByUsername ?? "—")</td>
+                        <td><span class="prompt-time" data-utc="@v.CreatedAt.ToString("o")"></span></td>
+                        <td>
+                            @* v1 so với file gốc (mốc 0); các bản sau so với bản liền trước. *@
+                            <a class="prompt-diff-link" asp-action="Diff" asp-route-key="@Model.PromptKey"
+                               asp-route-from="@(v.VersionNumber == 1 ? 0 : v.VersionNumber - 1)" asp-route-to="@v.VersionNumber">
+                                @(v.VersionNumber == 1 ? "file ↔ v1" : $"v{v.VersionNumber - 1} ↔ v{v.VersionNumber}")
+                            </a>
+                        </td>
+                        @if (canManage)
+                        {
+                            <td class="actions">
+                                @if (!v.IsActive)
+                                {
+                                    <form asp-action="Activate" method="post" class="inline-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@v.Id" />
+                                        <button class="btn outline small" type="submit"
+                                                title="Dùng lại phiên bản này (rollback)"
+                                                onclick="return confirm('Kích hoạt v@(v.VersionNumber)? Mọi lời gọi AI kế tiếp sẽ dùng phiên bản này.');">
+                                            <i class="bi bi-arrow-repeat" aria-hidden="true"></i> Kích hoạt
+                                        </button>
+                                    </form>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/prompts.js" asp-append-version="true"></script>
+}

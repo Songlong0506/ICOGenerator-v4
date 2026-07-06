@@ -1,5 +1,5 @@
 using ICOGenerator.Data;
-using ICOGenerator.Services.Evals;
+using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Evals;
@@ -11,9 +11,9 @@ namespace ICOGenerator.Application.Evals;
 public class UpdateEvalScenarioUseCase
 {
     private readonly AppDbContext _db;
-    private readonly EvalPromptCatalog _promptCatalog;
+    private readonly PromptFileCatalog _promptCatalog;
 
-    public UpdateEvalScenarioUseCase(AppDbContext db, EvalPromptCatalog promptCatalog)
+    public UpdateEvalScenarioUseCase(AppDbContext db, PromptFileCatalog promptCatalog)
     {
         _db = db;
         _promptCatalog = promptCatalog;

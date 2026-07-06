@@ -1,6 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Evals;
+using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Evals;
@@ -43,9 +43,9 @@ public class GetEvalPageQuery
     private const int MaxRuns = 20;
 
     private readonly AppDbContext _db;
-    private readonly EvalPromptCatalog _promptCatalog;
+    private readonly PromptFileCatalog _promptCatalog;
 
-    public GetEvalPageQuery(AppDbContext db, EvalPromptCatalog promptCatalog)
+    public GetEvalPageQuery(AppDbContext db, PromptFileCatalog promptCatalog)
     {
         _db = db;
         _promptCatalog = promptCatalog;

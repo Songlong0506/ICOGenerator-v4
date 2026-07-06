@@ -13,7 +13,9 @@ public record EvalResultItemVm(
     string? JudgeReasoning,
     int TargetTokens,
     int JudgeTokens,
-    long DurationMs);
+    long DurationMs,
+    // Phiên bản prompt (Prompt Studio) đã dùng làm system prompt; null = nội dung file trong repo.
+    int? PromptVersionNumber);
 
 public record EvalRunDetailVm(
     Guid Id,
@@ -56,7 +58,7 @@ public class GetEvalRunDetailQuery
             .OrderBy(x => x.CreatedAt)
             .Select(x => new EvalResultItemVm(
                 x.Id, x.ScenarioName, x.Score, x.IsSuccess, x.ErrorMessage,
-                x.Output, x.JudgeReasoning, x.TargetTokens, x.JudgeTokens, x.DurationMs))
+                x.Output, x.JudgeReasoning, x.TargetTokens, x.JudgeTokens, x.DurationMs, x.PromptVersionNumber))
             .ToListAsync(cancellationToken);
 
         return new EvalRunDetailVm(
