@@ -106,57 +106,197 @@
 .swatch-prompt { background: #007bc0; }
 .swatch-completion { background: #99c6e4; }
 
+/* ---------- Tokens per month: cột chi phí, trục tung $ / trục hoành Month ---------- */
+/* Grid: [tiêu đề trục Y | vạch trục Y | vùng vẽ]; hàng dưới là nhãn tháng + tiêu đề trục X,
+   đặt cùng cột "vùng vẽ" để tự canh thẳng dưới các cột. */
 .month-chart {
+    display: grid;
+    grid-template-columns: auto 56px 1fr;
+    grid-template-rows: 240px auto auto;
+    column-gap: 12px;
+    row-gap: 8px;
+    padding-top: 12px;
+}
+
+.mc-ytitle {
+    grid-column: 1;
+    grid-row: 1;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    align-self: center;
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: .02em;
+}
+
+.mc-yaxis {
+    grid-column: 2;
+    grid-row: 1;
+    position: relative;
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+    /* Mỗi nhãn định vị đúng phần trăm của vạch tương ứng (khớp đường lưới cùng %). */
+    .mc-yaxis span {
+        position: absolute;
+        right: 0;
+        transform: translateY(50%);
+        white-space: nowrap;
+        line-height: 1;
+    }
+
+.mc-plot {
+    grid-column: 3;
+    grid-row: 1;
+    position: relative;
+    overflow: visible;
+}
+
+.mc-grid {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #eef2f7;
+}
+
+.mc-cols {
+    position: absolute;
+    inset: 0;
     display: grid;
     grid-template-columns: repeat(12, 1fr);
     gap: 14px;
     align-items: end;
-    height: 240px;
-    padding-top: 10px;
 }
 
-.month-col {
+.mc-col {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    justify-content: flex-end;
     height: 100%;
-    justify-content: end;
+    cursor: default;
 }
 
-.month-value {
-    font-size: 12px;
-    font-weight: 800;
-    color: var(--muted);
-}
-
-.month-cost {
+.mc-value {
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 800;
     color: #047857;
-    margin-top: -4px;
+    white-space: nowrap;
+    margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
 }
 
-.month-bar {
+.mc-bar {
     width: 100%;
-    max-width: 48px;
+    max-width: 42px;
+    min-height: 2px;
     display: flex;
     flex-direction: column;
-    justify-content: end;
-    border-radius: 6px 6px 0 0;
+    justify-content: flex-end;
+    border-radius: 5px 5px 0 0;
     overflow: hidden;
-    background: #f1f5f9;
-    flex: 1;
+    transition: filter .12s ease;
 }
 
-    .month-bar .seg-completion { background: #99c6e4; }
-    .month-bar .seg-prompt { background: #007bc0; }
+.mc-col:hover .mc-bar { filter: brightness(1.06) saturate(1.1); }
 
-.month-label {
-    font-size: 12px;
+.mc-seg-completion { background: #99c6e4; }
+.mc-seg-prompt { background: #007bc0; }
+
+.mc-xaxis {
+    grid-column: 3;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 14px;
     color: var(--muted);
     font-weight: 700;
-    white-space: nowrap;
+    font-size: 11px;
+}
+
+    .mc-xaxis span {
+        text-align: center;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+
+.mc-xtitle {
+    grid-column: 3;
+    grid-row: 3;
+    text-align: center;
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: .02em;
+}
+
+/* ---------- Tooltip chi tiết khi hover một cột ---------- */
+.chart-tip {
+    position: fixed;
+    z-index: 60;
+    pointer-events: none;
+    min-width: 190px;
+    max-width: 260px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #1f2933;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.5;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, .3);
+}
+
+    .chart-tip[hidden] { display: none; }
+
+.chart-tip-title {
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.chart-tip-row {
+    display: grid;
+    grid-template-columns: 12px 1fr auto;
+    align-items: center;
+    gap: 8px;
+}
+
+    .chart-tip-row i {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+    }
+
+    .chart-tip-row span { color: #cbd5e1; }
+
+    .chart-tip-row b,
+    .chart-tip-total b {
+        font-variant-numeric: tabular-nums;
+    }
+
+.chart-tip-total {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, .16);
+    font-weight: 800;
+}
+
+    .chart-tip-total span { color: #e2e8f0; }
+
+.chart-tip-note {
+    margin-top: 6px;
+    color: #94a3b8;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
 }
 
 .usage-section {

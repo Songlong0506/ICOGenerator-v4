@@ -24,6 +24,21 @@
         : "$" + v.ToString("N2", CultureInfo.InvariantCulture);
 
     private static string Unit(decimal v) => "$" + v.ToString("0.######", CultureInfo.InvariantCulture);
+
+    // Trục $ của biểu đồ theo tháng: chọn bước "đẹp" (1/2/5 × 10^n) phủ hết giá trị lớn nhất và chia
+    // thành ~targetTicks vạch đều nhau. Chưa có chi phí (max ≤ 0) thì trả trục mặc định 0..1.
+    private static (double Max, double Step) NiceScale(double rawMax, int targetTicks = 5)
+    {
+        if (rawMax <= 0) return (1d, 0.25d);
+        var rawStep = rawMax / targetTicks;
+        var mag = Math.Pow(10, Math.Floor(Math.Log10(rawStep)));
+        var norm = rawStep / mag;
+        var niceStep = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+        var niceMax = Math.Ceiling(rawMax / niceStep) * niceStep;
+        // Đảm bảo còn khoảng trống phía trên để nhãn giá trị không chạm vạch đỉnh.
+        if (niceMax <= rawMax) niceMax += niceStep;
+        return (niceMax, niceStep);
+    }
 }
 
 @section Styles {
@@ -72,27 +87,58 @@
     </div>
 
     @{
-        var maxMonthTokens = Math.Max(Model.MonthlyUsage.Max(x => x.TotalTokens), 1);
+        var maxMonthCost = (double)Model.MonthlyUsage.Max(x => x.Cost);
+        var (axisMax, axisStep) = NiceScale(maxMonthCost);
+        var tickCount = (int)Math.Round(axisMax / axisStep);
+        // Vạch từ đỉnh (axisMax) xuống 0, để trục tung hiển thị theo thứ tự trên → dưới.
+        var ticks = Enumerable.Range(0, tickCount + 1).Select(i => axisMax - i * axisStep).ToList();
+        string Pct(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
     }
-    <div class="month-chart">
-        @foreach (var m in Model.MonthlyUsage)
-        {
-            var promptHeight = m.PromptTokens * 100d / maxMonthTokens;
-            var completionHeight = m.CompletionTokens * 100d / maxMonthTokens;
-            <div class="month-col"
-                 title="@MonthLabel(m.Year, m.Month): @m.TotalTokens.ToString("N0") tokens · @Money(m.Cost) (@m.CallCount calls)">
-                <div class="month-value">@(m.TotalTokens > 0 ? Compact(m.TotalTokens) : "–")</div>
-                @if (m.TotalTokens > 0)
+    <div class="month-chart" data-month-chart>
+        <div class="mc-ytitle">Cost (USD)</div>
+        <div class="mc-yaxis">
+            @foreach (var t in ticks)
+            {
+                <span style="bottom:@Pct(t / axisMax * 100)%">@Money((decimal)t)</span>
+            }
+        </div>
+        <div class="mc-plot">
+            @foreach (var t in ticks)
+            {
+                <span class="mc-grid" style="bottom:@Pct(t / axisMax * 100)%"></span>
+            }
+            <div class="mc-cols">
+                @foreach (var m in Model.MonthlyUsage)
                 {
-                    <div class="month-cost">@Money(m.Cost)</div>
+                    var totalPct = axisMax > 0 ? (double)m.Cost / axisMax * 100 : 0;
+                    var promptFrac = m.Cost > 0 ? (double)m.PromptCost / (double)m.Cost * 100 : 0;
+                    var completionFrac = m.Cost > 0 ? (double)m.CompletionCost / (double)m.Cost * 100 : 0;
+                    <div class="mc-col" data-col
+                         data-label="@MonthLabel(m.Year, m.Month)"
+                         data-prompt="@Money(m.PromptCost)"
+                         data-completion="@Money(m.CompletionCost)"
+                         data-total="@Money(m.Cost)"
+                         data-tokens="@m.TotalTokens.ToString("N0")"
+                         data-calls="@m.CallCount.ToString("N0")">
+                        @if (m.Cost > 0)
+                        {
+                            <div class="mc-value">@Money(m.Cost)</div>
+                        }
+                        <div class="mc-bar" style="height:@Pct(totalPct)%">
+                            <div class="mc-seg mc-seg-completion" style="height:@Pct(completionFrac)%"></div>
+                            <div class="mc-seg mc-seg-prompt" style="height:@Pct(promptFrac)%"></div>
+                        </div>
+                    </div>
                 }
-                <div class="month-bar">
-                    <div class="seg-completion" style="height:@completionHeight.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
-                    <div class="seg-prompt" style="height:@promptHeight.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
-                </div>
-                <div class="month-label">@MonthLabel(m.Year, m.Month)</div>
             </div>
-        }
+        </div>
+        <div class="mc-xaxis">
+            @foreach (var m in Model.MonthlyUsage)
+            {
+                <span>@MonthLabel(m.Year, m.Month)</span>
+            }
+        </div>
+        <div class="mc-xtitle">Month</div>
     </div>
 </div>
 
