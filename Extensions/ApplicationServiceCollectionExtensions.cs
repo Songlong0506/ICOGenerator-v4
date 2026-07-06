@@ -3,6 +3,7 @@ using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Audit;
 using ICOGenerator.Application.Feedback;
 using ICOGenerator.Application.Models;
+using ICOGenerator.Application.Notifications;
 using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Quality;
 using ICOGenerator.Application.Requirements;
@@ -16,6 +17,7 @@ using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Feedback;
 using ICOGenerator.Services.Llm;
+using ICOGenerator.Services.Notifications;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Requirements;
@@ -92,6 +94,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSettingsUseCases();
         services.AddFeedbackUseCases();
         services.AddAuditUseCases();
+        services.AddNotificationServices();
         services.AddPromptServices();
         services.AddBudgetServices();
         services.AddLlmServices(configuration);
@@ -282,6 +285,16 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UpdateFeedbackStatusUseCase>();
         services.AddScoped<GetFeedbackAttachmentQuery>();
         services.AddScoped<DeleteFeedbackUseCase>();
+        return services;
+    }
+
+    private static IServiceCollection AddNotificationServices(this IServiceCollection services)
+    {
+        // Ghi thông báo (dùng bởi worker) + đọc/đánh dấu (dùng bởi controller). Tất cả scoped vì phụ thuộc DbContext.
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<GetNotificationsQuery>();
+        services.AddScoped<MarkNotificationReadUseCase>();
+        services.AddScoped<MarkAllNotificationsReadUseCase>();
         return services;
     }
 

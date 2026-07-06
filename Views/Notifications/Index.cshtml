@@ -1,0 +1,71 @@
+@using ICOGenerator.Application.Notifications
+@using ICOGenerator.Domain.Enums
+@model NotificationInboxVm
+
+@{
+    (string icon, string cls) TypeMeta(NotificationType t) => t switch
+    {
+        NotificationType.GateAwaitingApproval => ("bi-hourglass-split", "warn"),
+        NotificationType.WorkflowCompleted => ("bi-check-circle", "ok"),
+        NotificationType.WorkflowFailed => ("bi-x-circle", "danger"),
+        _ => ("bi-bell", "")
+    };
+}
+
+<div class="page-head">
+    <div>
+        <h1>Thông báo</h1>
+        <p>Các sự kiện cần bạn để mắt tới: cổng chờ duyệt, workflow hoàn tất hoặc thất bại.</p>
+    </div>
+    @if (Model.Items.Any(i => !i.IsRead))
+    {
+        <button type="button" class="btn" id="inboxMarkAll">Đánh dấu tất cả đã đọc</button>
+    }
+</div>
+
+<div class="notif-inbox">
+    <div class="notif-list">
+        @if (!Model.Items.Any())
+        {
+            <div class="notif-empty">Chưa có thông báo nào.</div>
+        }
+        else
+        {
+            foreach (var n in Model.Items)
+            {
+                var meta = TypeMeta(n.Type);
+                <a class="notif-item @(n.IsRead ? "read" : "unread")" href="/Notifications/Open/@n.Id">
+                    <span class="notif-ico @meta.cls"><i class="bi @meta.icon"></i></span>
+                    <span class="notif-body">
+                        <span class="notif-title">@n.Title</span>
+                        <span class="notif-msg">@n.Message</span>
+                        <span class="notif-meta">
+                            @if (!string.IsNullOrWhiteSpace(n.ProjectName))
+                            {
+                                <span class="notif-project">@n.ProjectName</span>
+                            }
+                            <span class="notif-time" data-utc="@n.CreatedAt.ToString("o")">@n.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                        </span>
+                    </span>
+                </a>
+            }
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var btn = document.getElementById("inboxMarkAll");
+            if (!btn) return;
+            btn.addEventListener("click", function () {
+                var tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                fetch("/Notifications/MarkAllRead", {
+                    method: "POST",
+                    headers: { "RequestVerificationToken": tokenEl ? tokenEl.value : "" },
+                    credentials: "same-origin"
+                }).then(function () { location.reload(); });
+            });
+        })();
+    </script>
+}
