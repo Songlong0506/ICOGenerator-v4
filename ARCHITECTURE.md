@@ -310,6 +310,29 @@ Trả lời câu "sửa prompt/đổi model xong, chất lượng LÊN hay XUỐ
 - Phân quyền: `EvalView`/`EvalManage` (màn hình "Prompt Evals" trong `PermissionCatalog`; TeamDev
   được seed mặc định). Trang Delivery Quality có card "Prompt evals gần nhất" trỏ sang.
 
+### 5.16. Tri thức xuyên dự án (retrieval trên tài liệu đã duyệt — Services/Requirements/Knowledge)
+Biến kho tài liệu ĐÃ DUYỆT tích lũy trong DB thành ngữ cảnh cho BA: `ProjectKnowledgeService` truy
+xuất các đoạn LIÊN QUAN từ tài liệu đã duyệt của các dự án KHÁC rồi render một khối (~4KB, template
+`BA/project-knowledge.v1.md`) đính vào prompt — BA hiểu thuật ngữ tổ chức, hỏi sắc hơn, nhận diện
+dự án tương tự ("phòng X từng làm tool gần giống"), tài liệu thống nhất thuật ngữ.
+
+- **Truy xuất lexical BM25 thuần in-memory** (`Bm25TextIndex`) — KHÔNG cần hạ tầng embedding/vector,
+  chạy được cả SqlServer lẫn Sqlite. Corpus = bản MỚI NHẤT của mỗi (dự án, loại tài liệu nghiệp vụ:
+  ProductBrief/BRD/SRS/FSD/UserStories) đã duyệt, cắt đoạn theo heading markdown (`MarkdownChunker`,
+  trần 1200 ký tự/đoạn). Chỉ mục cache trong IMemoryCache 10 phút — tài liệu duyệt mới xuất hiện
+  trong tri thức trễ nhất vài phút, đổi lấy chi phí dựng chỉ mục ~0 trên mỗi lượt chat.
+- **Truy vấn** = tên + mô tả dự án + tin nhắn hiện tại (lượt chat) / phần đầu transcript (bước soạn
+  Product Brief). Đoạn của CHÍNH dự án đang hỏi bị loại; dự án cùng đơn vị yêu cầu (`OrgUnitCode`)
+  được cộng điểm nhẹ (×1.25).
+- **Nơi tiêu thụ:** `BARequirementService.ChatAsync` (system message riêng) và
+  `GenerateOrUpdateDraftAsync` (tham số `knowledgeContext` của `RequirementPromptBuilder`, đưa cả
+  vào vòng tự soát/sửa để reviewer không coi thuật ngữ lấy từ đó là "tự thêm" — nhưng TÍNH NĂNG chỉ
+  có trong khối tri thức mà không có trong hội thoại vẫn bị flag).
+- **Chốt an toàn nội dung:** cả template lẫn prompt builder nói rõ khối này CHỈ là tham khảo — không
+  được chép yêu cầu/tính năng từ dự án khác; mọi yêu cầu phải đến từ hội thoại.
+- **Fail-open toàn tuyến:** chưa có tài liệu duyệt / lỗi DB / lỗi render ⇒ trả null, chat và soạn
+  tài liệu chạy như khi chưa có tính năng.
+
 ---
 
 ## 6. Công thức thêm một tính năng mới

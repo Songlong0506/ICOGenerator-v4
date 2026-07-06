@@ -6,6 +6,7 @@ using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
+using ICOGenerator.Services.Requirements.Knowledge;
 using ICOGenerator.Services.Requirements.Templates;
 using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Hosting;
@@ -194,7 +195,10 @@ public class BARequirementServiceReadinessGateTests : IDisposable
             new ProductBriefReviewParser(),
             // OrgUnits trống trong các test này ⇒ service trả null (fail-open), không thêm system message nào.
             new OrganizationContextService(db, prompts, new MemoryCache(new MemoryCacheOptions()),
-                NullLogger<OrganizationContextService>.Instance));
+                NullLogger<OrganizationContextService>.Instance),
+            // Không có tài liệu đã duyệt nào ⇒ service trả null (fail-open), không thêm system message nào.
+            new ProjectKnowledgeService(db, prompts, new MemoryCache(new MemoryCacheOptions()),
+                NullLogger<ProjectKnowledgeService>.Instance));
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
