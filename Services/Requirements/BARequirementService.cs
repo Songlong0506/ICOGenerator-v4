@@ -521,7 +521,7 @@ public class BARequirementService
     /// Product Brief + AI Design Spec ĐÃ DUYỆT của phiên bản requirement mới nhất. Ghi thẳng vào phiên
     /// bản đó (đã duyệt) — không qua cổng draft như luồng phía user.
     /// </summary>
-    public async Task GenerateTechnicalDocsAsync(Guid projectId, Action<string, string, string?>? onProgress = null, Action<string>? onToken = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default)
+    public async Task GenerateTechnicalDocsAsync(Guid projectId, Action<string, string, string?>? onProgress = null, Action<string>? onToken = null, Guid? workflowRunId = null, string? revisionFeedback = null, CancellationToken cancellationToken = default)
     {
         void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
 
@@ -576,7 +576,8 @@ public class BARequirementService
             srsTemplate,
             fsdTemplate,
             userStoriesTemplate,
-            organizationContext);
+            organizationContext,
+            revisionFeedback);
 
         var messages = new List<ChatMessage>
         {

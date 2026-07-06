@@ -32,7 +32,10 @@ public record WorkflowStatusVm(
     IReadOnlyList<WorkflowTaskStatusVm> Tasks, IReadOnlyList<WorkflowProgressEventVm> Events, long LastEventSeq,
     string RunKind,
     Guid? RunId, string? CurrentStage, bool IsWaitingForHuman, string? NextStageTitle, bool PocReady,
-    bool NeedsMoreInfo, IReadOnlyList<PipelineStageVm> Pipeline);
+    bool NeedsMoreInfo, IReadOnlyList<PipelineStageVm> Pipeline,
+    // Vòng "Yêu cầu chỉnh sửa" tại cổng duyệt: đã dùng bao nhiêu vòng cho bước đang chờ duyệt và
+    // trần cho phép — UI hiển thị "x/y" và ẩn nút khi chạm trần.
+    int RevisionRoundsUsed, int RevisionRoundsLimit);
 
 public class GetWorkflowStatusQuery
 {
@@ -68,7 +71,8 @@ public class GetWorkflowStatusQuery
         if (run == null)
             return new WorkflowStatusVm(false, null, null, true, false,
                 Array.Empty<WorkflowTaskStatusVm>(), Array.Empty<WorkflowProgressEventVm>(), afterSeq, "Delivery",
-                null, null, false, null, false, false, Array.Empty<PipelineStageVm>());
+                null, null, false, null, false, false, Array.Empty<PipelineStageVm>(),
+                0, DeliveryPipeline.MaxRevisionRounds);
 
         var isTerminal = run.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Failed or WorkflowRunStatus.Canceled;
 
@@ -122,11 +126,23 @@ public class GetWorkflowStatusQuery
             ? BuildPipeline(run.CurrentStage, run.Status, tasks)
             : Array.Empty<PipelineStageVm>();
 
+        // Số vòng "Yêu cầu chỉnh sửa" đã dùng cho bước đang chờ duyệt (đếm task chỉnh sửa cùng loại
+        // trong run) — chỉ có nghĩa khi đang WaitingForHuman; ngoài cổng duyệt trả 0 cho gọn.
+        var currentStep = DeliveryPipeline.Find(run.CurrentStage);
+        var revisionRoundsUsed = isWaiting && currentStep != null
+            ? await _db.AgentTasks
+                .AsNoTracking()
+                .CountAsync(x => x.WorkflowRunId == run.Id
+                                 && x.Type == currentStep.TaskType
+                                 && x.RevisionFeedback != null)
+            : 0;
+
         return new WorkflowStatusVm(
             true, run.Name, run.Status.ToString(),
             isTerminal, run.Status == WorkflowRunStatus.Completed,
             tasks, events, lastSeq, runKind,
-            run.Id, run.CurrentStage.ToString(), isWaiting, nextStep?.Title, pocReady, needsMoreInfo, pipeline);
+            run.Id, run.CurrentStage.ToString(), isWaiting, nextStep?.Title, pocReady, needsMoreInfo, pipeline,
+            revisionRoundsUsed, DeliveryPipeline.MaxRevisionRounds);
     }
 
     /// <summary>
@@ -155,10 +171,16 @@ public class GetWorkflowStatusQuery
             ? DeliveryPipeline.Next(currentStage)?.Stage
             : null;
 
+        // Run đang chạy/đợi worker ở bước hiện tại: bước đó phải hiện "running" NGAY CẢ KHI đã có
+        // task Completed cùng loại — trường hợp task chỉnh sửa (revision) chạy lại đúng bước cũ.
+        var isActiveRun = status is WorkflowRunStatus.Queued or WorkflowRunStatus.Running;
+
         return DeliveryPipeline.Steps.Select(step =>
         {
             string state;
-            if (runCompleted || completedTypes.Contains(step.TaskType.ToString()))
+            if (isActiveRun && step.Stage == effectiveCurrent)
+                state = "running";
+            else if (runCompleted || completedTypes.Contains(step.TaskType.ToString()))
                 state = "done";
             else if (step.Stage == effectiveCurrent)
                 state = status switch

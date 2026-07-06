@@ -73,6 +73,14 @@ public static class DeliveryPipeline
     public const int MaxBugFixAttempts = 3;
 
     /// <summary>
+    /// Số vòng "Yêu cầu chỉnh sửa" tối đa cho MỖI bước tại cổng duyệt (RequestStageRevisionUseCase).
+    /// Người duyệt gửi nhận xét → agent sửa lại đúng bước đó → quay về chờ duyệt; trần này chặn
+    /// đốt token vô hạn khi kết quả không hội tụ — chạm trần thì chỉ còn Duyệt hoặc Từ chối
+    /// (quay về sửa requirement), cùng tinh thần với <see cref="MaxBugFixAttempts"/>.
+    /// </summary>
+    public const int MaxRevisionRounds = 3;
+
+    /// <summary>
     /// Bước sửa lỗi — KHÔNG nằm trong <see cref="Steps"/> vì nó là một CHU TRÌNH quanh Testing
     /// (Testing↔BugFix), không phải hand-off tuyến tính. Worker dùng định nghĩa này khi Tester
     /// báo FAIL; <see cref="Next"/> cố tình không trả về nó để pipeline tuyến tính vẫn đọc thẳng.

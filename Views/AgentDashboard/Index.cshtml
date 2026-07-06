@@ -143,6 +143,12 @@
                 </button>
             </form>
 
+            <button class="btn outline" type="button" id="dg-revise-btn" style="display:none;"
+                    onclick="openReviseModal()"
+                    title="Gửi nhận xét để agent sửa lại kết quả bước hiện tại — không hủy workflow, không chạy lại các bước đã xong">
+                ✎ Yêu cầu chỉnh sửa
+            </button>
+
             <form id="dg-reject-form" asp-controller="AgentDashboard" asp-action="RejectStage" method="post"
                   class="dg-inline" style="display:none;"
                   onsubmit="return confirm('Từ chối kết quả bước này và hủy workflow? Cần Approve requirement lại để chạy phiên bản mới.');">
@@ -165,6 +171,8 @@
                     ↻ Thử lại bước này
                 </button>
             </form>
+
+            <span id="dg-revise-note" class="muted dg-revise-note" style="display:none;"></span>
         </div>
     </div>
 }
@@ -453,6 +461,36 @@
 
                 <div class="dg-actions">
                     <button class="btn primary" type="submit">Lưu cấu hình</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @* Popup "Yêu cầu chỉnh sửa" tại cổng duyệt: người duyệt gõ nhận xét → agent sửa lại đúng bước
+       đang chờ duyệt (không hủy workflow, không chạy lại các bước đã xong). *@
+    <div class="modal-backdrop" id="revise-modal">
+        <div class="modal-card revise-card">
+            <button class="modal-x" type="button" aria-label="Close" onclick="closeReviseModal()">×</button>
+            <div class="logs-header">
+                <div>
+                    <h3>Yêu cầu chỉnh sửa</h3>
+                </div>
+            </div>
+
+            <form asp-controller="AgentDashboard" asp-action="RequestRevision" method="post" class="dc-form"
+                  onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Đang gửi…';">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="projectId" value="@Model.Id" />
+                <input type="hidden" name="runId" id="dg-revise-runid" value="" />
+
+                <label for="revise-feedback">Nhận xét cho agent — bước đang chờ duyệt sẽ được sửa lại theo nhận xét này</label>
+                <textarea name="feedback" id="revise-feedback" rows="6" required
+                          placeholder="Ví dụ: Màn hình Dashboard còn thiếu bộ lọc theo tháng như spec; bảng tồn kho cần phân trang; đổi nhãn nút 'Save' thành 'Lưu'…"></textarea>
+
+                <p class="muted revise-hint" id="revise-remaining"></p>
+
+                <div class="dg-actions">
+                    <button class="btn primary" type="submit">Gửi yêu cầu chỉnh sửa</button>
                 </div>
             </form>
         </div>

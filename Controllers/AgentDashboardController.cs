@@ -22,6 +22,7 @@ public class AgentDashboardController : Controller
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
     private readonly ApproveStageUseCase _approveStageUseCase;
     private readonly RejectStageUseCase _rejectStageUseCase;
+    private readonly RequestStageRevisionUseCase _requestStageRevisionUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly UpdateDeliveryConfigUseCase _updateDeliveryConfigUseCase;
 
@@ -35,6 +36,7 @@ public class AgentDashboardController : Controller
         GetDocumentPreviewQuery getDocumentPreviewQuery,
         ApproveStageUseCase approveStageUseCase,
         RejectStageUseCase rejectStageUseCase,
+        RequestStageRevisionUseCase requestStageRevisionUseCase,
         RetryWorkflowUseCase retryWorkflowUseCase,
         UpdateDeliveryConfigUseCase updateDeliveryConfigUseCase)
     {
@@ -47,6 +49,7 @@ public class AgentDashboardController : Controller
         _getDocumentPreviewQuery = getDocumentPreviewQuery;
         _approveStageUseCase = approveStageUseCase;
         _rejectStageUseCase = rejectStageUseCase;
+        _requestStageRevisionUseCase = requestStageRevisionUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
         _updateDeliveryConfigUseCase = updateDeliveryConfigUseCase;
     }
@@ -151,6 +154,30 @@ public class AgentDashboardController : Controller
         if (result == RejectStageResult.PocGateNotRejectable)
             TempData["Error"] = "Không thể từ chối ở bước POC. POC chưa đúng nghĩa là requirement cần điều chỉnh — "
                 + "việc này do người dùng thực hiện (chat với BA, bổ sung requirement rồi Approve lại để chạy phiên bản mới).";
+
+        return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    // Lựa chọn thứ ba tại cổng duyệt: gửi nhận xét để agent SỬA LẠI bước hiện tại thay vì hủy cả
+    // workflow (Reject) rồi chạy lại từ đầu. Được phép cả ở cổng POC — nhận xét ở đây là "POC chưa
+    // bám đúng spec đã duyệt", không phải đổi requirement.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.DeliveryAdvance)]
+    public async Task<IActionResult> RequestRevision(Guid projectId, string? feedback, Guid? runId = null)
+    {
+        var result = await _requestStageRevisionUseCase.ExecuteAsync(projectId, feedback, runId);
+
+        TempData["Error"] = result switch
+        {
+            RequestStageRevisionResult.MissingFeedback => "Hãy nhập nhận xét — agent cần biết phải sửa gì.",
+            RequestStageRevisionResult.RevisionLimitReached => "Đã dùng hết số vòng chỉnh sửa cho bước này. Hãy Duyệt để đi tiếp, hoặc Từ chối rồi quay lại chat với BA để đổi requirement.",
+            RequestStageRevisionResult.NoWaitingRun => "Không có bước nào đang chờ duyệt để yêu cầu chỉnh sửa.",
+            _ => null
+        };
+
+        if (result == RequestStageRevisionResult.Queued)
+            TempData["Info"] = "Đã gửi yêu cầu chỉnh sửa — agent đang sửa lại bước này theo nhận xét của bạn.";
 
         return RedirectToAction(nameof(Index), new { projectId });
     }
