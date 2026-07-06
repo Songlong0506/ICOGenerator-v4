@@ -196,6 +196,82 @@ public class NotificationServiceTests : IDisposable
             Assert.Equal(1, await db.Notifications.CountAsync(n => n.RecipientUsername == "teamdev"));
     }
 
+    [Fact]
+    public async Task Dispatch_RespectsInAppToggle_AndCollectsPerUserEmailRecipients()
+    {
+        var projectId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+
+        await using (var db = NewDb())
+        {
+            db.AppUsers.AddRange(
+                new AppUser { Username = "bell_all", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyByEmail = false },
+                new AppUser { Username = "email_opt", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyByEmail = true, Email = "e@bosch.com" },
+                new AppUser { Username = "muted_inapp", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = false, NotifyByEmail = false },
+                new AppUser { Username = "opt_no_addr", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyByEmail = true, Email = null });
+            db.Projects.Add(new Project { Id = projectId, Name = "P" });
+            db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
+            await db.SaveChangesAsync();
+        }
+
+        var channel = new RecordingChannel(isEnabled: true);
+        await using (var db = NewDb())
+        {
+            var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
+            var svc = new NotificationService(
+                db, FakePermissions.WithDeliveryAdvanceFor(UserRole.TeamDev),
+                new INotificationChannel[] { channel }, new NotificationOptions(),
+                NullLogger<NotificationService>.Instance);
+            await svc.NotifyGateOpenedAsync(run, "X");
+            await db.SaveChangesAsync();
+        }
+
+        // In-app: chỉ 3 user bật chuông (muted_inapp bị loại).
+        await using (var db = NewDb())
+        {
+            var users = await db.Notifications.Select(n => n.RecipientUsername).OrderBy(x => x).ToListAsync();
+            Assert.Equal(new[] { "bell_all", "email_opt", "opt_no_addr" }, users);
+        }
+
+        // Email cá nhân: chỉ email_opt (opt-in + có địa chỉ). opt_no_addr opt-in nhưng thiếu email ⇒ loại.
+        Assert.NotNull(channel.Last);
+        Assert.Equal(new[] { "e@bosch.com" }, channel.Last!.EmailRecipients);
+    }
+
+    [Fact]
+    public async Task Dispatch_SkipsEventType_WhenUserMutedIt()
+    {
+        var projectId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+
+        await using (var db = NewDb())
+        {
+            db.AppUsers.Add(new AppUser { Username = "gate_only", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyOnCompleted = false });
+            db.Projects.Add(new Project { Id = projectId, Name = "P" });
+            db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
+            await db.SaveChangesAsync();
+        }
+
+        async Task Fire(Func<NotificationService, WorkflowRun, Task> act)
+        {
+            await using var db = NewDb();
+            var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
+            var svc = new NotificationService(db, FakePermissions.WithDeliveryAdvanceFor(UserRole.TeamDev),
+                Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
+            await act(svc, run);
+            await db.SaveChangesAsync();
+        }
+
+        await Fire((svc, run) => svc.NotifyRunCompletedAsync(run));   // đã tắt ⇒ không tạo
+        await Fire((svc, run) => svc.NotifyGateOpenedAsync(run, "X")); // vẫn bật ⇒ tạo
+
+        await using (var db = NewDb())
+        {
+            var types = await db.Notifications.Select(n => n.Type).ToListAsync();
+            Assert.Equal(new[] { NotificationType.GateAwaitingApproval }, types);
+        }
+    }
+
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 
     public void Dispose() => _connection.Dispose();

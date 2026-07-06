@@ -13,15 +13,21 @@ public class NotificationsController : Controller
     private readonly GetNotificationsQuery _getNotifications;
     private readonly MarkNotificationReadUseCase _markRead;
     private readonly MarkAllNotificationsReadUseCase _markAllRead;
+    private readonly GetNotificationPreferencesQuery _getPreferences;
+    private readonly UpdateNotificationPreferencesUseCase _updatePreferences;
 
     public NotificationsController(
         GetNotificationsQuery getNotifications,
         MarkNotificationReadUseCase markRead,
-        MarkAllNotificationsReadUseCase markAllRead)
+        MarkAllNotificationsReadUseCase markAllRead,
+        GetNotificationPreferencesQuery getPreferences,
+        UpdateNotificationPreferencesUseCase updatePreferences)
     {
         _getNotifications = getNotifications;
         _markRead = markRead;
         _markAllRead = markAllRead;
+        _getPreferences = getPreferences;
+        _updatePreferences = updatePreferences;
     }
 
     // Trang inbox đầy đủ.
@@ -70,5 +76,29 @@ public class NotificationsController : Controller
     {
         var updated = await _markAllRead.ExecuteAsync(User.Identity?.Name ?? string.Empty, HttpContext.RequestAborted);
         return Json(new { ok = true, updated });
+    }
+
+    // Trang tùy chọn thông báo của chính người dùng.
+    [HttpGet]
+    public async Task<IActionResult> Preferences()
+    {
+        var vm = await _getPreferences.ExecuteAsync(User.Identity?.Name ?? string.Empty, HttpContext.RequestAborted);
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Preferences(NotificationPreferencesVm input)
+    {
+        var result = await _updatePreferences.ExecuteAsync(User.Identity?.Name ?? string.Empty, input, HttpContext.RequestAborted);
+
+        TempData[result == UpdatePreferencesResult.Ok ? "Success" : "Error"] = result switch
+        {
+            UpdatePreferencesResult.Ok => "Đã lưu tùy chọn thông báo.",
+            UpdatePreferencesResult.InvalidEmail => "Email không hợp lệ — hãy nhập địa chỉ đúng để nhận email cá nhân.",
+            _ => "Không tìm thấy tài khoản."
+        };
+
+        return RedirectToAction(nameof(Preferences));
     }
 }

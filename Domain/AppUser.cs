@@ -22,4 +22,26 @@ public class AppUser
     // user". null = chưa chắt lọc được gì. Xem UserMemoryService.
     public string? UserMemory { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // ---- Tùy chọn thông báo (mỗi user tự quản ở trang Preferences) ----
+    // Mặc định GIỮ NGUYÊN hành vi cũ: vẫn nhận chuông in-app cho mọi loại sự kiện; email cá nhân TẮT
+    // (opt-in). Kênh Teams / danh sách email cố định do admin cấu hình, KHÔNG chịu ảnh hưởng của các cờ này.
+
+    /// <summary>Email cá nhân để nhận thông báo (khi bật <see cref="NotifyByEmail"/>). Trống ⇒ không route email tới user.</summary>
+    public string? Email { get; set; }
+
+    /// <summary>Nhận thông báo qua chuông in-app.</summary>
+    public bool NotifyInApp { get; set; } = true;
+
+    /// <summary>Nhận thông báo qua email cá nhân (opt-in; cần <see cref="Email"/>).</summary>
+    public bool NotifyByEmail { get; set; }
+
+    /// <summary>Nhận sự kiện "cổng chờ duyệt".</summary>
+    public bool NotifyOnGate { get; set; } = true;
+
+    /// <summary>Nhận sự kiện "workflow hoàn tất".</summary>
+    public bool NotifyOnCompleted { get; set; } = true;
+
+    /// <summary>Nhận sự kiện "workflow thất bại".</summary>
+    public bool NotifyOnFailed { get; set; } = true;
 }

@@ -105,14 +105,15 @@ public class NotificationChannelsTests
     // ---------------- Email ----------------
 
     [Fact]
-    public void Email_IsEnabled_RequiresFlagHostFromAndRecipients()
+    public void Email_IsEnabled_RequiresFlagHostAndFrom()
     {
+        // Người nhận có thể đến per-message (opt-in cá nhân) nên IsEnabled KHÔNG còn đòi To.
         Assert.False(new EmailNotificationChannel(new NotificationOptions(), NullLogger<EmailNotificationChannel>.Instance).IsEnabled);
 
-        var missingTo = new NotificationOptions { Email = { Enabled = true, Host = "smtp", From = "a@b" } };
-        Assert.False(new EmailNotificationChannel(missingTo, NullLogger<EmailNotificationChannel>.Instance).IsEnabled);
+        var missingFrom = new NotificationOptions { Email = { Enabled = true, Host = "smtp" } };
+        Assert.False(new EmailNotificationChannel(missingFrom, NullLogger<EmailNotificationChannel>.Instance).IsEnabled);
 
-        var ok = new NotificationOptions { Email = { Enabled = true, Host = "smtp", From = "a@b", To = new[] { "x@y" } } };
+        var ok = new NotificationOptions { Email = { Enabled = true, Host = "smtp", From = "a@b" } };
         Assert.True(new EmailNotificationChannel(ok, NullLogger<EmailNotificationChannel>.Instance).IsEnabled);
     }
 
@@ -128,6 +129,21 @@ public class NotificationChannelsTests
         Assert.Contains("Cổng thanh toán", mail.Subject);
         Assert.Contains("Một bước đã xong.", mail.Body);
         Assert.Contains("https://app/x", mail.Body);
+    }
+
+    [Fact]
+    public void Email_BuildMail_MergesConfigToWithPerUserRecipients_Deduped()
+    {
+        var email = new EmailChannelOptions { Enabled = true, Host = "smtp", From = "noreply@bosch.com", To = new[] { "team@bosch.com" } };
+        var message = new NotificationMessage(NotificationType.WorkflowFailed, "T", "M", "P", null,
+            new[] { "u1@bosch.com", "TEAM@bosch.com" }); // trùng To (khác hoa/thường) phải bị khử
+
+        using var mail = EmailNotificationChannel.BuildMail(email, message);
+
+        var addrs = mail.To.Select(a => a.Address).ToList();
+        Assert.Equal(2, addrs.Count);
+        Assert.Contains("team@bosch.com", addrs);
+        Assert.Contains("u1@bosch.com", addrs);
     }
 
     // Bắt request cuối cùng để kiểm tra URL + payload, trả về status cấu hình sẵn.
