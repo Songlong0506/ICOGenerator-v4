@@ -12,4 +12,7 @@ public sealed record NotificationMessage(
     string Title,
     string Message,
     string? ProjectName,
-    string? Url);
+    string? Url,
+    // Email cá nhân của những user đã opt-in nhận email cho sự kiện này (ngoài danh sách To cố định của
+    // admin). Kênh email gộp hai nguồn; các kênh khác (Teams) bỏ qua. null/rỗng ⇒ chỉ dùng danh sách To.
+    IReadOnlyList<string>? EmailRecipients = null);

@@ -171,6 +171,14 @@ public class AppDbContext : DbContext
             b.Property(x => x.DisplayName).HasMaxLength(200);
             b.Property(x => x.PasswordHash).HasMaxLength(500);
             b.Property(x => x.Role).HasConversion<string>().HasMaxLength(50);
+            b.Property(x => x.Email).HasMaxLength(200);
+            // HasDefaultValue để install cũ (migration thêm cột) có giá trị hợp lý cho các dòng sẵn có,
+            // giữ nguyên hành vi: vẫn nhận chuông cho mọi loại sự kiện, email cá nhân tắt.
+            b.Property(x => x.NotifyInApp).HasDefaultValue(true);
+            b.Property(x => x.NotifyByEmail).HasDefaultValue(false);
+            b.Property(x => x.NotifyOnGate).HasDefaultValue(true);
+            b.Property(x => x.NotifyOnCompleted).HasDefaultValue(true);
+            b.Property(x => x.NotifyOnFailed).HasDefaultValue(true);
             b.HasIndex(x => x.Username).IsUnique();
         });
 

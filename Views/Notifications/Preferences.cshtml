@@ -1,0 +1,70 @@
+@using ICOGenerator.Application.Notifications
+@model NotificationPreferencesVm
+
+<div class="page-head">
+    <div>
+        <h1>Tùy chọn thông báo</h1>
+        <p>Chọn cách bạn muốn nhận thông báo về các sự kiện workflow (cổng chờ duyệt, hoàn tất, thất bại).</p>
+    </div>
+    <a class="btn" asp-controller="Notifications" asp-action="Index">← Về hộp thông báo</a>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert success">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert error">@TempData["Error"]</div>
+}
+
+<form asp-controller="Notifications" asp-action="Preferences" method="post" class="pref-form">
+    <div class="card pref-card">
+        <h2 class="pref-h">Kênh nhận</h2>
+
+        <label class="choice pref-choice">
+            <input type="checkbox" asp-for="NotifyInApp" />
+            <span>
+                <b>Chuông trong ứng dụng</b>
+                <small>Hiện ở biểu tượng chuông trên thanh trên cùng và hộp thông báo.</small>
+            </span>
+        </label>
+
+        <label class="choice pref-choice">
+            <input type="checkbox" asp-for="NotifyByEmail" />
+            <span>
+                <b>Email cá nhân</b>
+                <small>Gửi tới địa chỉ email của bạn bên dưới.</small>
+            </span>
+        </label>
+
+        <div class="pref-email">
+            <label asp-for="Email">Địa chỉ email</label>
+            <input asp-for="Email" type="email" placeholder="ban@bosch.com" autocomplete="email" />
+            @if (!Model.EmailChannelConfigured)
+            {
+                <small class="pref-hint">Kênh email hệ thống chưa được bật — tùy chọn này sẽ có tác dụng khi admin cấu hình SMTP.</small>
+            }
+        </div>
+    </div>
+
+    <div class="card pref-card">
+        <h2 class="pref-h">Loại sự kiện</h2>
+        <p class="pref-sub">Áp dụng cho cả chuông và email cá nhân của bạn.</p>
+
+        <label class="choice pref-choice">
+            <input type="checkbox" asp-for="NotifyOnGate" />
+            <span><b>Cổng chờ duyệt</b><small>Một bước đã xong và đang chờ duyệt để đi tiếp.</small></span>
+        </label>
+        <label class="choice pref-choice">
+            <input type="checkbox" asp-for="NotifyOnCompleted" />
+            <span><b>Workflow hoàn tất</b><small>Quy trình giao hàng đã chạy xong.</small></span>
+        </label>
+        <label class="choice pref-choice">
+            <input type="checkbox" asp-for="NotifyOnFailed" />
+            <span><b>Workflow thất bại</b><small>Quy trình dừng vì lỗi, cần xem lại.</small></span>
+        </label>
+    </div>
+
+    <button type="submit" class="btn primary">Lưu tùy chọn</button>
+</form>

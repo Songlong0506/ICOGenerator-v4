@@ -296,6 +296,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetNotificationsQuery>();
         services.AddScoped<MarkNotificationReadUseCase>();
         services.AddScoped<MarkAllNotificationsReadUseCase>();
+        services.AddScoped<GetNotificationPreferencesQuery>();
+        services.AddScoped<UpdateNotificationPreferencesUseCase>();
 
         // Kênh NGOÀI (Teams/email) — OPT-IN: bind section "Notifications" (mặc định TẮT nên không gửi gì và
         // không có overhead mạng). Teams cần HttpClient (typed client như GitHubPullRequestPublisher); Email
