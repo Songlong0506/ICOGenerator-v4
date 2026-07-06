@@ -28,6 +28,8 @@ public static class PermissionCatalog
             new[] { AppPermission.UsageView }),
         new PermissionScreen("Quality", "Delivery Quality", AppPermission.QualityView,
             new[] { AppPermission.QualityView }),
+        new PermissionScreen("Evals", "Prompt Evals", AppPermission.EvalView,
+            new[] { AppPermission.EvalView, AppPermission.EvalManage }),
         new PermissionScreen("Settings", "Settings", AppPermission.SettingsView,
             new[] { AppPermission.SettingsView, AppPermission.SettingsManage }),
         new PermissionScreen("Feedback", "Feedback", AppPermission.FeedbackView,

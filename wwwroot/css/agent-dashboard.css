@@ -75,6 +75,9 @@
     100% { box-shadow: 0 0 0 0 rgba(22,163,74,0); }
 }
 
+/* Đầu khung preview: tiêu đề tài liệu + nút "Lịch sử" (chỉ hiện với doc DB-tracked). */
+.doc-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
 .preview { max-height: 70vh; overflow: auto; }
 .doc-render { line-height: 1.65; color: var(--slate-800); font-size: 14px; }
 .doc-render > :first-child { margin-top: 0; }

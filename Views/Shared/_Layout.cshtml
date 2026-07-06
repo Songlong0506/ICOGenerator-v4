@@ -20,6 +20,7 @@
             "Agents" => "Agents",
             "Usage" => "Usage",
             "Quality" => "Delivery Quality",
+            "Evals" => "Prompt Evals",
             "Models" => "AI Models",
             "Settings" => "Settings",
             "Feedback" => "Feedback",
@@ -52,6 +53,7 @@
                     var canAgents = await Permissions.HasPermissionAsync(User, AppPermission.AgentsView);
                     var canUsage = await Permissions.HasPermissionAsync(User, AppPermission.UsageView);
                     var canQuality = await Permissions.HasPermissionAsync(User, AppPermission.QualityView);
+                    var canEvals = await Permissions.HasPermissionAsync(User, AppPermission.EvalView);
                     var canModels = await Permissions.HasPermissionAsync(User, AppPermission.ModelsView);
                     var canSettings = await Permissions.HasPermissionAsync(User, AppPermission.SettingsView);
                     var canFeedback = await Permissions.HasPermissionAsync(User, AppPermission.FeedbackView);
@@ -85,6 +87,13 @@
                         <a class="nav-item @NavActive("Quality")" asp-controller="Quality" asp-action="Index" title="Delivery Quality">
                             <svg class="ico" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
                             <span class="nav-label">Quality</span>
+                        </a>
+                    }
+                    @if (canEvals)
+                    {
+                        <a class="nav-item @NavActive("Evals")" asp-controller="Evals" asp-action="Index" title="Prompt Evals">
+                            <svg class="ico" viewBox="0 0 24 24"><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>
+                            <span class="nav-label">Evals</span>
                         </a>
                     }
                     @if (canModels)

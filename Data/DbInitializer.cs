@@ -118,6 +118,7 @@ public static class DbInitializer
                 AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete,
                 AppPermission.UsageView,
                 AppPermission.QualityView,
+                AppPermission.EvalView, AppPermission.EvalManage,
                 AppPermission.FeedbackView, AppPermission.FeedbackManage,
                 AppPermission.AuditView
             }),

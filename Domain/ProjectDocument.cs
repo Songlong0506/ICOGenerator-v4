@@ -23,4 +23,7 @@ public class ProjectDocument
     public int TokenUsed { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Lịch sử nội dung: một revision mỗi lần Content bị ghi/ghi đè (xem ProjectDocumentRevision).</summary>
+    public List<ProjectDocumentRevision> Revisions { get; set; } = new();
 }

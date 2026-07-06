@@ -1,0 +1,299 @@
+@using System.Text.Encodings.Web
+@using ICOGenerator.Application.Evals
+@model EvalPageVm
+
+@{
+    ViewData["Title"] = "Prompt Evals";
+    var canManage = await Permissions.HasPermissionAsync(User, AppPermission.EvalManage);
+
+    // Map scenario cho form sửa (JS đổ dữ liệu vào modal) — cùng mẫu DOCS của Agent Dashboard.
+    var scenarioMap = Model.Scenarios.ToDictionary(
+        s => s.Id.ToString(),
+        s => (object)new { name = s.Name, promptKey = s.PromptKey, userInput = s.UserInput, criteria = s.Criteria, isActive = s.IsActive });
+    var scenariosJson = System.Text.Json.JsonSerializer.Serialize(scenarioMap);
+
+    static string StatusBadge(EvalRunStatus status) => status switch
+    {
+        EvalRunStatus.Completed => "green",
+        EvalRunStatus.Failed => "red",
+        EvalRunStatus.Running => "blue",
+        _ => "gray"
+    };
+
+    static string ScoreClass(double? score) => score switch
+    {
+        null => "",
+        >= 4.5 => "score-great",
+        >= 3.5 => "score-good",
+        >= 2.5 => "score-mid",
+        _ => "score-bad"
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/evals.css" asp-append-version="true" />
+}
+
+<div class="page-head">
+    <div>
+        <h1>Prompt Evals</h1>
+        <p class="muted eval-sub">
+            Golden set đánh giá prompt: mỗi scenario = (template prompt + đầu vào mô phỏng + tiêu chí chấm).
+            Chạy run để model trả lời rồi LLM-judge chấm 1–5 — đổi prompt/model xong nhìn điểm là biết lên hay xuống.
+        </p>
+    </div>
+    @if (canManage)
+    {
+        <div class="eval-head-actions">
+            <button class="btn outline" type="button" onclick="openCreateScenario()">
+                <i class="bi bi-plus-lg" aria-hidden="true"></i> Scenario
+            </button>
+            <button class="btn primary" type="button" onclick="openModal('runModal')" @(Model.Scenarios.Any(s => s.IsActive) ? "" : "disabled") title="Chạy toàn bộ scenario đang bật (tốn token thật)">
+                <i class="bi bi-play-fill" aria-hidden="true"></i> Chạy eval
+            </button>
+        </div>
+    }
+</div>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert error">@TempData["Error"]</div>
+}
+@if (TempData["RunStarted"] != null)
+{
+    <div class="alert ok">Đã xếp hàng run eval — worker sẽ chạy nền, tiến độ cập nhật ngay trong bảng dưới.</div>
+}
+
+<div class="card table-card eval-card">
+    <div class="eval-card-head">
+        <h3>Scenarios (golden set)</h3>
+        <span class="muted">@Model.Scenarios.Count(s => s.IsActive) đang bật / @Model.Scenarios.Count tổng</span>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tên</th>
+                    <th>Prompt template</th>
+                    <th>Trạng thái</th>
+                    <th>Tạo lúc</th>
+                    @if (canManage)
+                    {
+                        <th>Actions</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Scenarios.Any())
+                {
+                    <tr><td colspan="5" class="eval-empty">Chưa có scenario nào. Thêm scenario đầu tiên để bắt đầu đo chất lượng prompt.</td></tr>
+                }
+                @foreach (var s in Model.Scenarios)
+                {
+                    <tr>
+                        <td><b>@s.Name</b></td>
+                        <td><code class="eval-prompt-key">@s.PromptKey</code></td>
+                        <td><span class="badge @(s.IsActive ? "green" : "gray")">@(s.IsActive ? "Active" : "Off")</span></td>
+                        <td><span class="eval-time" data-utc="@s.CreatedAt.ToString("o")"></span></td>
+                        @if (canManage)
+                        {
+                            <td class="actions">
+                                <button class="icon-btn" type="button" aria-label="Sửa scenario" title="Sửa scenario"
+                                        onclick="openEditScenario('@s.Id')">
+                                    <i class="bi bi-pencil-fill" aria-hidden="true"></i>
+                                </button>
+                                <form asp-action="DeleteScenario" method="post" class="inline-form"
+                                      onsubmit="return confirm('Xoá scenario này? Kết quả các run cũ vẫn được giữ.');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@s.Id" />
+                                    <button class="icon-btn danger" type="submit" aria-label="Xoá scenario" title="Xoá scenario">
+                                        <i class="bi bi-trash" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card table-card eval-card">
+    <div class="eval-card-head">
+        <h3>Runs</h3>
+        <button class="btn outline small" type="button" id="compareBtn" disabled onclick="openCompare()"
+                title="Chọn đúng 2 run (checkbox) để so sánh điểm theo từng scenario">
+            <i class="bi bi-arrow-left-right" aria-hidden="true"></i> So sánh 2 run
+        </button>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th class="eval-cmp-col" title="Chọn 2 run để so sánh"></th>
+                    <th>Thời điểm</th>
+                    <th>Ghi chú</th>
+                    <th>Model</th>
+                    <th>Judge</th>
+                    <th>Prompt</th>
+                    <th>Tiến độ</th>
+                    <th>Điểm TB</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Runs.Any())
+                {
+                    <tr><td colspan="10" class="eval-empty">Chưa có run nào.</td></tr>
+                }
+                @foreach (var r in Model.Runs)
+                {
+                    var isLive = r.Status is EvalRunStatus.Queued or EvalRunStatus.Running;
+                    <tr data-run-id="@r.Id" data-live="@(isLive ? "true" : "false")">
+                        <td class="eval-cmp-col"><input type="checkbox" class="cmp-check" value="@r.Id" onchange="onCompareCheckChanged()" /></td>
+                        <td><span class="eval-time" data-utc="@r.CreatedAt.ToString("o")"></span></td>
+                        <td class="eval-note" title="@r.Note">@(string.IsNullOrWhiteSpace(r.Note) ? "–" : r.Note)</td>
+                        <td>@r.TargetModelName</td>
+                        <td>@r.JudgeModelName</td>
+                        <td>@if (string.IsNullOrWhiteSpace(r.PromptKey)) {<span class="muted">tất cả</span>} else {<code class="eval-prompt-key">@r.PromptKey</code>}</td>
+                        <td class="run-progress">@r.CompletedCount/@r.ScenarioCount</td>
+                        <td class="run-score"><span class="eval-score @ScoreClass(r.AverageScore)">@(r.AverageScore?.ToString("0.00") ?? "–")</span></td>
+                        <td class="run-status">
+                            <span class="badge @StatusBadge(r.Status)" title="@r.Error">@r.Status</span>
+                        </td>
+                        <td class="actions">
+                            <button class="btn outline small" type="button" onclick="openRunDetail('@r.Id')">Chi tiết</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (canManage)
+{
+    <!-- Modal thêm/sửa scenario: MỘT form dùng chung — JS đổi action (CreateScenario/UpdateScenario) và đổ dữ liệu. -->
+    <div id="scenarioModal" class="modal-backdrop hidden">
+        <form class="modal eval-modal" method="post" id="scenarioForm">
+            @Html.AntiForgeryToken()
+            <button type="button" class="x" onclick="closeModal('scenarioModal')">×</button>
+
+            <h2 id="scenarioModalTitle">Thêm Scenario</h2>
+
+            <input type="hidden" name="id" id="scenario-id" />
+
+            <label>Tên *</label>
+            <input name="name" id="scenario-name" required placeholder="BA hỏi lại khi thiếu thông tin" />
+
+            <label>Prompt template *</label>
+            <select name="promptKey" id="scenario-prompt-key" required>
+                @foreach (var key in Model.PromptKeys)
+                {
+                    <option value="@key">@key</option>
+                }
+            </select>
+
+            <label>Đầu vào mô phỏng (user gửi gì) *</label>
+            <textarea name="userInput" id="scenario-user-input" rows="5" required
+                      placeholder="Tôi muốn làm app quản lý kho cho phòng MFG..."></textarea>
+
+            <label>Tiêu chí chấm (judge đối chiếu từng dòng) *</label>
+            <textarea name="criteria" id="scenario-criteria" rows="5" required
+                      placeholder="- Phải hỏi lại về X thay vì tự giả định&#10;- Trả lời bằng tiếng Việt&#10;- ..."></textarea>
+
+            <label class="checkbox-line" id="scenario-active-line" style="display:none;">
+                <input name="isActive" id="scenario-is-active" type="checkbox" value="true" checked />
+                Đang bật (được chạy trong run mới)
+            </label>
+
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('scenarioModal')">Cancel</button>
+                <button class="btn primary" id="scenarioSubmitBtn">Thêm Scenario</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal chạy run -->
+    <div id="runModal" class="modal-backdrop hidden">
+        <form class="modal eval-modal" asp-action="StartRun" method="post">
+            @Html.AntiForgeryToken()
+            <button type="button" class="x" onclick="closeModal('runModal')">×</button>
+
+            <h2>Chạy Eval</h2>
+            <p class="muted eval-modal-hint">
+                Mỗi scenario tốn 2 lời gọi LLM (trả lời + chấm). Lời gọi eval không tính vào Usage/Budget theo project.
+            </p>
+
+            <label>Model mục tiêu *</label>
+            <select name="targetModelId" required>
+                @foreach (var m in Model.Models)
+                {
+                    <option value="@m.Id">@m.Name</option>
+                }
+            </select>
+
+            <label>Model judge *</label>
+            <select name="judgeModelId" required>
+                @foreach (var m in Model.Models)
+                {
+                    <option value="@m.Id">@m.Name</option>
+                }
+            </select>
+
+            <label>Chỉ chạy scenario của prompt</label>
+            <select name="promptKey">
+                <option value="">— tất cả scenario đang bật —</option>
+                @foreach (var key in Model.Scenarios.Where(s => s.IsActive).Select(s => s.PromptKey).Distinct().OrderBy(x => x))
+                {
+                    <option value="@key">@key</option>
+                }
+            </select>
+
+            <label>Ghi chú</label>
+            <input name="note" maxlength="500" placeholder="vd: sau khi sửa requirement-chat v3" />
+
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('runModal')">Cancel</button>
+                <button class="btn primary">▶ Chạy</button>
+            </div>
+        </form>
+    </div>
+}
+
+<!-- Modal chi tiết run (nội dung fetch từ /Evals/RunDetail) -->
+<div id="runDetailModal" class="modal-backdrop hidden">
+    <div class="modal eval-wide-modal">
+        <button type="button" class="x" onclick="closeModal('runDetailModal')">×</button>
+        <h2 id="runDetailTitle">Chi tiết run</h2>
+        <div id="runDetailBody" class="eval-detail-body"><p class="muted">Đang tải…</p></div>
+        <div class="modal-actions">
+            <button type="button" class="btn" onclick="closeModal('runDetailModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal so sánh 2 run (nội dung fetch từ /Evals/Compare) -->
+<div id="compareModal" class="modal-backdrop hidden">
+    <div class="modal eval-wide-modal">
+        <button type="button" class="x" onclick="closeModal('compareModal')">×</button>
+        <h2>So sánh 2 run</h2>
+        <div id="compareBody" class="eval-detail-body"><p class="muted">Đang tải…</p></div>
+        <div class="modal-actions">
+            <button type="button" class="btn" onclick="closeModal('compareModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        window.EVALS = {
+            scenarios: @Html.Raw(scenariosJson),
+            createUrl: '@Url.Action("CreateScenario")',
+            updateUrl: '@Url.Action("UpdateScenario")'
+        };
+    </script>
+    <script src="~/js/evals.js" asp-append-version="true"></script>
+}
