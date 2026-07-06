@@ -49,11 +49,26 @@
     --info-tint: var(--bosch-blue-tint);
     --info-border: #bfdbfe;
 
+    /* ---- Neutral slate scale (canonical neutrals) ----
+       Single source of truth for the ad-hoc slate greys that were scattered
+       as raw hex across the per-page stylesheets. Values follow the common
+       slate ramp (50 = lightest surface, 900 = darkest ink). */
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1e293b;
+    --slate-900: #0f172a;
+
     /* ---- Neutral surfaces (canonical replacements for scattered slate hex) ---- */
     --surface-alt: #f7f8f9;   /* table headers, filter bars, subtle fills */
     --surface-hover: #f3f6f9; /* row / item hover */
-    --code-bg: #0f172a;       /* dark JSON / code viewers */
-    --code-ink: #e2e8f0;
+    --code-bg: var(--slate-900); /* dark JSON / code viewers */
+    --code-ink: var(--slate-200);
 
     /* ---- Shape & focus (flat Bosch design) ----
        Structural surfaces stay square; pills/badges keep their own radius. */
@@ -297,7 +312,7 @@ tbody tr:hover td { background: var(--surface-hover); }
     cursor: pointer;
 }
 
-.btn:hover { background: #f3f6f9; text-decoration: none; }
+.btn:hover { background: var(--surface-hover); text-decoration: none; }
 
 .btn.primary {
     background: var(--bosch-blue);
@@ -363,8 +378,8 @@ tbody tr:hover td { background: var(--surface-hover); }
 }
 
 .badge.blue { color: var(--bosch-blue-dark); background: var(--bosch-blue-tint); }
-.badge.green { color: #006f3c; background: rgba(0,136,74,.14); }
-.badge.orange { color: #b5530a; background: rgba(245,130,32,.16); }
+.badge.green { color: var(--success-ink); background: rgba(0,136,74,.14); }
+.badge.orange { color: var(--warning); background: rgba(245,130,32,.16); }
 .badge.gray { color: var(--muted); background: #e7eaec; }
 
 /* ---------- Pager ---------- */
@@ -575,7 +590,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
     margin-top: 4px;
 }
 
-.agent-item:hover { background: #f3f6f9; text-decoration: none; }
+.agent-item:hover { background: var(--surface-hover); text-decoration: none; }
 .agent-item.active { background: var(--bosch-blue-tint); border-color: var(--bosch-blue); }
 
 .circle { width: 36px; height: 36px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
@@ -673,7 +688,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 .tool-group:last-of-type { border-bottom: 0; }
 .tool-group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; position: sticky; top: 0; background: #fcfcfd; padding: 8px 6px; z-index: 1; }
 .tool-group-toggle { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; cursor: pointer; font-size: 14px; color: var(--ink); padding: 4px; width: auto; }
-.tool-group-toggle .chevron { transition: transform .15s; font-size: 12px; color: #94a3b8; }
+.tool-group-toggle .chevron { transition: transform .15s; font-size: 12px; color: var(--slate-400); }
 .tool-group.collapsed .tool-group-toggle .chevron { transform: rotate(-90deg); }
 .tool-group-count { background: #eef0f2; color: var(--muted); border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 700; }
 .tool-group-count .grp-enabled { color: var(--bosch-blue); }
@@ -691,7 +706,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 .tool-card .tool-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .tool-card .tool-title b { font-size: 14px; }
 .tool-card small { display: block; color: var(--muted); margin-top: 10px; }
-.tools-empty { padding: 32px; text-align: center; color: #94a3b8; font-size: 14px; }
+.tools-empty { padding: 32px; text-align: center; color: var(--slate-400); font-size: 14px; }
 
 @media (max-width: 1100px) {
     .tool-group-body { grid-template-columns: 1fr; }
@@ -907,7 +922,7 @@ input[type="week"] {
 .act-icon .bi-gear,
 .wf-event-icon .bi-gear,
 .act-icon .bi-tools,
-.wf-event-icon .bi-tools { color: #64748B; }
+.wf-event-icon .bi-tools { color: var(--slate-500); }
 
 .act-icon .bi-check-circle,
 .wf-event-icon .bi-check-circle,
@@ -918,4 +933,4 @@ input[type="week"] {
 .wf-event-icon .bi-x-circle { color: #DC2626; }
 
 .act-icon .bi-dot,
-.wf-event-icon .bi-dot { color: #94A3B8; }
+.wf-event-icon .bi-dot { color: var(--slate-400); }

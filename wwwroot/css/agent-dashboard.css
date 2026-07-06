@@ -25,17 +25,17 @@
 .tree ul { padding-left: 18px; }
 .tree .folder { font-weight: 600; margin-top: 6px; }
 .tree-row { display: inline-flex; align-items: center; gap: 4px; width: 100%; border: 0; background: transparent; padding: 2px 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.tree-row:hover { color: #007bc0; }
-.folder-caret { display: inline-block; width: 14px; color: #64748b; transition: transform .15s ease; }
+.tree-row:hover { color: var(--bosch-blue); }
+.folder-caret { display: inline-block; width: 14px; color: var(--slate-500); transition: transform .15s ease; }
 .tree .folder.collapsed > .tree-children { display: none; }
 .tree .folder.collapsed > .tree-row .folder-caret { transform: rotate(-90deg); }
 .tree .version-folder { font-weight: 400; }
 .tree .file { cursor: pointer; padding: 2px 0; display: flex; align-items: center; gap: 4px; }
 .tree .file .file-icon { flex: none; }
 .tree .file .file-name { white-space: nowrap; }
-.tree .file:hover { color: #007bc0; }
-.tree .file.selected { color: #007bc0; font-weight: 600; }
-.tree .empty { color: #94a3b8; padding: 2px 0; font-style: italic; }
+.tree .file:hover { color: var(--bosch-blue); }
+.tree .file.selected { color: var(--bosch-blue); font-weight: 600; }
+.tree .empty { color: var(--slate-400); padding: 2px 0; font-style: italic; }
 .ws-clear { padding: 4px 10px; font-size: 12px; }
 
 /* ---------- Agent table ----------
@@ -76,7 +76,7 @@
 }
 
 .preview { max-height: 70vh; overflow: auto; }
-.doc-render { line-height: 1.65; color: #1e293b; font-size: 14px; }
+.doc-render { line-height: 1.65; color: var(--slate-800); font-size: 14px; }
 .doc-render > :first-child { margin-top: 0; }
 .doc-render h1 { font-size: 24px; margin: 20px 0 12px; font-weight: 700; }
 .doc-render h2 { font-size: 20px; margin: 18px 0 10px; font-weight: 700; }
@@ -84,23 +84,23 @@
 .doc-render h4, .doc-render h5, .doc-render h6 { font-size: 15px; margin: 14px 0 6px; font-weight: 700; }
 .doc-render p { margin: 8px 0; }
 .doc-render table.doc-table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13px; }
-.doc-render table.doc-table td { border: 1px solid #cbd5e1; padding: 8px 12px; vertical-align: top; text-align: left; }
-.doc-render table.doc-table tr:first-child td { background: #f1f5f9; font-weight: 600; }
-.doc-empty, .doc-loading { color: #94a3b8; font-style: italic; }
+.doc-render table.doc-table td { border: 1px solid var(--slate-300); padding: 8px 12px; vertical-align: top; text-align: left; }
+.doc-render table.doc-table tr:first-child td { background: var(--slate-100); font-weight: 600; }
+.doc-empty, .doc-loading { color: var(--slate-400); font-style: italic; }
 
-.activity-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 12px; font-size: 13px; color: #475569; }
-.activity-meta b { color: #1e293b; }
-.activity-feed { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; max-height: 60vh; overflow: auto; }
-.activity-empty { color: #94a3b8; font-style: italic; margin: 4px; }
-.act-event { display: flex; gap: 10px; padding: 8px 6px; border-bottom: 1px dashed #e2e8f0; }
+.activity-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 12px; font-size: 13px; color: var(--slate-600); }
+.activity-meta b { color: var(--slate-800); }
+.activity-feed { background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 12px; padding: 12px; max-height: 60vh; overflow: auto; }
+.activity-empty { color: var(--slate-400); font-style: italic; margin: 4px; }
+.act-event { display: flex; gap: 10px; padding: 8px 6px; border-bottom: 1px dashed var(--slate-200); }
 .act-event:last-child { border-bottom: 0; }
 .act-icon { flex: 0 0 auto; }
 .act-main { flex: 1 1 auto; min-width: 0; }
-.act-msg { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: #1e293b; }
-.act-time { color: #94a3b8; font-size: 11px; white-space: nowrap; }
+.act-msg { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--slate-800); }
+.act-time { color: var(--slate-400); font-size: 11px; white-space: nowrap; }
 .act-detail { margin-top: 4px; }
-.act-detail summary { cursor: pointer; color: #64748b; font-size: 12px; }
-.act-detail pre { margin: 6px 0 0; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 10px; white-space: pre-wrap; overflow: auto; max-height: 240px; font-size: 12px; }
+.act-detail summary { cursor: pointer; color: var(--slate-500); font-size: 12px; }
+.act-detail pre { margin: 6px 0 0; background: var(--slate-900); color: var(--slate-200); border-radius: 8px; padding: 10px; white-space: pre-wrap; overflow: auto; max-height: 240px; font-size: 12px; }
 .activity-live { display: inline-flex; align-items: center; gap: 6px; color: #166534; font-weight: 700; }
 
 .muted { color: var(--muted); }
@@ -136,8 +136,8 @@ input.logs-filter-input[type="number"] { min-width: 120px; }
 
 /* ===== Tab Request: nút chuyển đổi + hiển thị dạng dễ đọc ===== */
 .log-format-toggle { margin-left: auto; font-size: 13px; }
-.log-readable { background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 16px; overflow: auto; max-height: 60vh; font-size: 13px; }
-.rd-msg { border: 1px solid #1e293b; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #111c33; }
+.log-readable { background: var(--slate-900); color: var(--slate-200); border-radius: 12px; padding: 16px; overflow: auto; max-height: 60vh; font-size: 13px; }
+.rd-msg { border: 1px solid var(--slate-800); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #111c33; }
 .rd-msg:last-child { margin-bottom: 0; }
 .rd-role { text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: .04em; margin-bottom: 6px; color: #38bdf8; }
 .rd-msg-user .rd-role { color: #4ade80; }
@@ -146,33 +146,33 @@ input.logs-filter-input[type="number"] { min-width: 120px; }
 .rd-body { white-space: pre-wrap; word-break: break-word; line-height: 1.55; }
 .rd-text { white-space: pre-wrap; }
 .rd-field { margin: 6px 0; }
-.rd-key { display: inline-block; font-weight: 700; color: #94a3b8; }
+.rd-key { display: inline-block; font-weight: 700; color: var(--slate-400); }
 .rd-key::after { content: ':'; }
 .rd-fieldval { margin-top: 2px; }
 .rd-list { margin: 4px 0 4px 18px; padding: 0; }
 .rd-list li { margin: 2px 0; }
 .rd-pre { background: #0b1424; border-radius: 8px; padding: 8px; margin: 4px 0; white-space: pre-wrap; word-break: break-word; }
-.rd-muted { color: #64748b; }
-.rd-empty { color: #94a3b8; }
+.rd-muted { color: var(--slate-500); }
+.rd-empty { color: var(--slate-400); }
 
 /* ===== Delivery gate: cổng duyệt/đẩy bước delivery (chỉ TeamDev/Admin thấy) ===== */
 .dg-alert { padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; font-size: 13px; }
-.dg-alert.error { color: #991b1b; background: #fee2e2; border: 1px solid #fecaca; }
+.dg-alert.error { color: #991b1b; background: #fee2e2; border: 1px solid var(--danger-border); }
 .delivery-gate { margin-bottom: 18px; }
 .dg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .dg-head h3 { margin: 0; }
 .dg-badge { padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .dg-banner { margin-bottom: 12px; }
 .dg-msg { font-size: 13px; line-height: 1.5; padding: 10px 12px; border-radius: 8px; }
-.dg-msg.wait { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
-.dg-msg.fail { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.dg-msg.wait { background: #fffbeb; border: 1px solid var(--warning-border); color: var(--warning-ink); }
+.dg-msg.fail { background: var(--danger-tint); border: 1px solid var(--danger-border); color: #991b1b; }
 .dg-msg.ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
-.dg-msg.run { display: inline-flex; align-items: center; gap: 8px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+.dg-msg.run { display: inline-flex; align-items: center; gap: 8px; background: #eff6ff; border: 1px solid var(--info-border); color: var(--info-ink); }
 .dg-msg a { color: inherit; font-weight: 600; }
-.dg-err { margin: 8px 0 0; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 10px; white-space: pre-wrap; overflow: auto; max-height: 200px; font-size: 12px; }
+.dg-err { margin: 8px 0 0; background: var(--slate-900); color: var(--slate-200); border-radius: 8px; padding: 10px; white-space: pre-wrap; overflow: auto; max-height: 200px; font-size: 12px; }
 .dg-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .dg-inline { display: inline; }
-.dg-alert.info { color: #1e40af; background: #eff6ff; border: 1px solid #bfdbfe; }
+.dg-alert.info { color: var(--info-ink); background: #eff6ff; border: 1px solid var(--info-border); }
 
 /* ===== Timeline tiến trình delivery: mỗi bước có CSS theo trạng thái done/running/next/failed ===== */
 .dg-timeline { list-style: none; display: flex; margin: 4px 0 16px; padding: 0; }
@@ -183,7 +183,7 @@ input.logs-filter-input[type="number"] { min-width: 120px; }
 /* Đường nối giữa các bước; nằm dưới marker nên kéo từ tâm bước trước sang bước này. */
 .dg-step::before {
     content: ''; position: absolute; top: 14px; left: -50%; width: 100%; height: 2px;
-    background: #e2e8f0; z-index: 0;
+    background: var(--slate-200); z-index: 0;
 }
 .dg-step:first-child::before { display: none; }
 .dg-step-marker {
@@ -191,11 +191,11 @@ input.logs-filter-input[type="number"] { min-width: 120px; }
     width: 30px; height: 30px; border-radius: 50%;
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 13px; font-weight: 700; line-height: 1;
-    background: #fff; border: 2px solid #cbd5e1; color: #94a3b8;
+    background: #fff; border: 2px solid var(--slate-300); color: var(--slate-400);
 }
 .dg-step-body { display: flex; flex-direction: column; align-items: center; margin-top: 6px; }
-.dg-step-title { font-size: 12px; font-weight: 600; line-height: 1.3; color: #475569; }
-.dg-step-state { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; margin-top: 3px; color: #94a3b8; }
+.dg-step-title { font-size: 12px; font-weight: 600; line-height: 1.3; color: var(--slate-600); }
+.dg-step-state { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; margin-top: 3px; color: var(--slate-400); }
 
 /* Đã xong */
 .dg-step.done .dg-step-marker { background: #16a34a; border-color: #16a34a; color: #fff; }
@@ -205,13 +205,13 @@ input.logs-filter-input[type="number"] { min-width: 120px; }
 
 /* Đang chạy */
 .dg-step.running .dg-step-marker { background: #eff6ff; border-color: #2563eb; color: #2563eb; }
-.dg-step.running .dg-step-title { color: #1e40af; }
+.dg-step.running .dg-step-title { color: var(--info-ink); }
 .dg-step.running .dg-step-state { color: #2563eb; }
 .dg-step.running .pulse-dot { width: 9px; height: 9px; background: #2563eb; box-shadow: 0 0 0 0 rgba(37,99,235,.6); animation: pulse-ring-blue 1.4s ease-out infinite; }
 
 /* Bước kế tiếp (chờ duyệt) */
 .dg-step.next .dg-step-marker { background: #fffbeb; border-color: #d97706; border-style: dashed; color: #d97706; }
-.dg-step.next .dg-step-title { color: #92400e; }
+.dg-step.next .dg-step-title { color: var(--warning-ink); }
 .dg-step.next .dg-step-state { color: #d97706; }
 
 /* Thất bại */

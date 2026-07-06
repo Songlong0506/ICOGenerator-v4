@@ -19,10 +19,10 @@
 
 .fb-atts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .fb-att { display: inline-flex; align-items: center; text-decoration: none; }
-.fb-att.img { width: 84px; height: 84px; border: 1px solid var(--line); overflow: hidden; background: #f3f6f9; }
+.fb-att.img { width: 84px; height: 84px; border: 1px solid var(--line); overflow: hidden; background: var(--surface-hover); }
 .fb-att.img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .fb-att.file { gap: 8px; padding: 8px 12px; border: 1px solid var(--line); background: #fff; max-width: 260px; }
-.fb-att.file:hover { background: #f3f6f9; text-decoration: none; }
+.fb-att.file:hover { background: var(--surface-hover); text-decoration: none; }
 .fb-att-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 13px; }
 .fb-att-size { color: var(--muted); font-size: 12px; flex: 0 0 auto; }
 .fb-att .ico { width: 18px; height: 18px; color: var(--bosch-blue); }
