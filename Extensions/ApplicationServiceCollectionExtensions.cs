@@ -1,6 +1,7 @@
 using ICOGenerator.Application.Account;
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Audit;
+using ICOGenerator.Application.Evals;
 using ICOGenerator.Application.Feedback;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Notifications;
@@ -15,6 +16,7 @@ using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Budget;
+using ICOGenerator.Services.Evals;
 using ICOGenerator.Services.Feedback;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Notifications;
@@ -91,6 +93,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddModelUseCases();
         services.AddUsageUseCases();
         services.AddQualityUseCases();
+        services.AddEvalUseCases();
         services.AddSettingsUseCases();
         services.AddFeedbackUseCases();
         services.AddAuditUseCases();
@@ -223,6 +226,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<StartNewChatUseCase>();
         services.AddScoped<UploadProjectSourceUseCase>();
         services.AddScoped<DeleteProjectSourceUseCase>();
+        services.AddScoped<GetDocumentRevisionsQuery>();
+        services.AddScoped<GetDocumentRevisionDiffQuery>();
         return services;
     }
 
@@ -259,6 +264,24 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddQualityUseCases(this IServiceCollection services)
     {
         services.AddScoped<GetDeliveryQualityQuery>();
+        return services;
+    }
+
+    private static IServiceCollection AddEvalUseCases(this IServiceCollection services)
+    {
+        // Trang Prompt Evals: use case/query scoped (DbContext); catalog prompt quét đĩa một lần ⇒ singleton;
+        // runner scoped (DbContext) và worker nền poll run Queued (cùng mẫu AgentTaskWorker).
+        services.AddSingleton<EvalPromptCatalog>();
+        services.AddScoped<GetEvalPageQuery>();
+        services.AddScoped<CreateEvalScenarioUseCase>();
+        services.AddScoped<UpdateEvalScenarioUseCase>();
+        services.AddScoped<DeleteEvalScenarioUseCase>();
+        services.AddScoped<StartEvalRunUseCase>();
+        services.AddScoped<GetEvalRunStatusQuery>();
+        services.AddScoped<GetEvalRunDetailQuery>();
+        services.AddScoped<CompareEvalRunsQuery>();
+        services.AddScoped<EvalRunnerService>();
+        services.AddHostedService<EvalRunWorker>();
         return services;
     }
 
@@ -404,6 +427,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<BAChatReplyParser>();
         services.AddScoped<RequirementReadinessParser>();
         services.AddScoped<RequirementDocumentGenerator>();
+        // Diff thuần in-memory, stateless ⇒ singleton (như các policy/store stateless khác).
+        services.AddSingleton<DocumentDiffService>();
         services.AddScoped<ProjectSourceIngestor>();
         services.AddScoped<SourceContextBuilder>();
         services.AddScoped<ConversationMemoryService>();

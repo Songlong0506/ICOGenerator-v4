@@ -47,7 +47,8 @@ public class RequirementDocumentGenerator
 
         CreateSimpleDocumentDocx(productBriefOutput, "Product Brief", result.ProductBrief.Content);
 
-        await UpsertDocument(project.Id, baId, _artifactCatalog.ProductBrief, productBriefOutput, result.ProductBrief.Content, "draft", isApproved: false);
+        await UpsertDocument(project.Id, baId, _artifactCatalog.ProductBrief, productBriefOutput, result.ProductBrief.Content, "draft", isApproved: false,
+            changeNote: "Write Requirement (soạn/cập nhật Product Brief)");
     }
 
     // Bước Approve: sinh AI Design Spec từ Product Brief đã duyệt. Ghi thẳng vào thư mục phiên bản đã
@@ -60,12 +61,13 @@ public class RequirementDocumentGenerator
 
         CreateSimpleDocumentDocx(aiDesignSpecOutput, "AI Design Spec", result.AiDesignSpec.Content);
 
-        await UpsertDocument(project.Id, baId, _artifactCatalog.AiDesignSpec, aiDesignSpecOutput, result.AiDesignSpec.Content, versionName, isApproved: true);
+        await UpsertDocument(project.Id, baId, _artifactCatalog.AiDesignSpec, aiDesignSpecOutput, result.AiDesignSpec.Content, versionName, isApproved: true,
+            changeNote: $"Sinh AI Design Spec cho phiên bản {versionName}");
     }
 
     // Lượt team dev trigger ở Agent Dashboard: sinh BRD/SRS/FSD/UserStories cho một phiên bản requirement
     // ĐÃ DUYỆT. Ghi thẳng vào thư mục phiên bản đó (không qua draft) và lưu là tài liệu đã duyệt.
-    public async Task GenerateTechnicalDocs(Project project, Guid baId, string versionName, BARequirementDocxResult result)
+    public async Task GenerateTechnicalDocs(Project project, Guid baId, string versionName, BARequirementDocxResult result, string? changeNote = null)
     {
         var brdTemplate = _templateService.EnsureTemplateDocx("BRD_Template.docx");
         var srsTemplate = _templateService.EnsureTemplateDocx("SRS_Template.docx");
@@ -88,10 +90,11 @@ public class RequirementDocumentGenerator
         _docxWriter.CreateFromTemplate(fsdTemplate, fsdOutput, BuildFsdReplacements(project, result.Fsd));
         CreateSimpleDocumentDocx(storiesOutput, "User Stories", result.UserStories.Content);
 
-        await UpsertDocument(project.Id, baId, brdArtifact, brdOutput, _docxWriter.ExtractText(brdOutput), versionName, isApproved: true);
-        await UpsertDocument(project.Id, baId, srsArtifact, srsOutput, _docxWriter.ExtractText(srsOutput), versionName, isApproved: true);
-        await UpsertDocument(project.Id, baId, fsdArtifact, fsdOutput, _docxWriter.ExtractText(fsdOutput), versionName, isApproved: true);
-        await UpsertDocument(project.Id, baId, storiesArtifact, storiesOutput, result.UserStories.Content, versionName, isApproved: true);
+        var note = string.IsNullOrWhiteSpace(changeNote) ? $"Sinh tài liệu kỹ thuật {versionName}" : changeNote;
+        await UpsertDocument(project.Id, baId, brdArtifact, brdOutput, _docxWriter.ExtractText(brdOutput), versionName, isApproved: true, note);
+        await UpsertDocument(project.Id, baId, srsArtifact, srsOutput, _docxWriter.ExtractText(srsOutput), versionName, isApproved: true, note);
+        await UpsertDocument(project.Id, baId, fsdArtifact, fsdOutput, _docxWriter.ExtractText(fsdOutput), versionName, isApproved: true, note);
+        await UpsertDocument(project.Id, baId, storiesArtifact, storiesOutput, result.UserStories.Content, versionName, isApproved: true, note);
     }
 
     private ProjectArtifactDescriptor GetTechnicalArtifact(string key) =>
@@ -122,7 +125,7 @@ public class RequirementDocumentGenerator
         mainPart.Document.Save();
     }
 
-    private async Task UpsertDocument(Guid projectId, Guid agentId, ProjectArtifactDescriptor artifact, string filePath, string previewContent, string versionName, bool isApproved)
+    private async Task UpsertDocument(Guid projectId, Guid agentId, ProjectArtifactDescriptor artifact, string filePath, string previewContent, string versionName, bool isApproved, string changeNote)
     {
         var fileName = artifact.FileName;
         var doc = await _db.ProjectDocuments
@@ -133,7 +136,7 @@ public class RequirementDocumentGenerator
 
         if (doc == null)
         {
-            _db.ProjectDocuments.Add(new ProjectDocument
+            doc = new ProjectDocument
             {
                 ProjectId = projectId,
                 AgentId = agentId,
@@ -144,17 +147,46 @@ public class RequirementDocumentGenerator
                 FilePath = filePath,
                 Content = previewContent,
                 TokenUsed = TokenEstimator.Estimate(previewContent)
-            });
+            };
+            _db.ProjectDocuments.Add(doc);
+
+            await SnapshotRevisionAsync(doc, previewContent, changeNote);
         }
         else
         {
+            // Chỉ snapshot khi NỘI DUNG thực sự đổi — ghi lại cùng nội dung (vd chỉ đổi FilePath) mà cũng
+            // tạo revision sẽ làm lịch sử đầy các bản trùng nhau, diff toàn "không đổi".
+            var contentChanged = !string.Equals(doc.Content, previewContent, StringComparison.Ordinal);
+
             doc.Folder = artifact.Phase;
             doc.IsApproved = isApproved;
             doc.Content = previewContent;
             doc.FilePath = filePath;
             doc.TokenUsed = TokenEstimator.Estimate(previewContent);
             // Giữ nguyên CreatedAt: ghi đè bằng UtcNow mỗi lần cập nhật sẽ mất thời điểm tạo gốc và sai thứ tự sắp xếp theo CreatedAt (GetDoc/dashboard).
+
+            if (contentChanged)
+                await SnapshotRevisionAsync(doc, previewContent, changeNote);
         }
+    }
+
+    // Ảnh chụp lịch sử: mỗi lần Content được ghi (lần đầu hoặc ghi đè) thêm MỘT revision giữ nội dung đầy
+    // đủ sau lần ghi đó. Chỉ Add vào change tracker — SaveChanges của caller lưu atomic cùng document,
+    // nên không bao giờ có revision "mồ côi" khi lời gọi LLM phía sau thất bại.
+    private async Task SnapshotRevisionAsync(ProjectDocument doc, string content, string changeNote)
+    {
+        var lastNumber = await _db.ProjectDocumentRevisions
+            .Where(x => x.ProjectDocumentId == doc.Id)
+            .MaxAsync(x => (int?)x.RevisionNumber) ?? 0;
+
+        _db.ProjectDocumentRevisions.Add(new ProjectDocumentRevision
+        {
+            ProjectDocumentId = doc.Id,
+            RevisionNumber = lastNumber + 1,
+            Content = content,
+            ChangeNote = changeNote.Length > 500 ? changeNote[..500] : changeNote,
+            VersionName = doc.VersionName
+        });
     }
 
     private static Dictionary<string, string> BuildBrdReplacements(Project project, BrdDto brd)

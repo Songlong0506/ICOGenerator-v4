@@ -58,6 +58,7 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/agent-dashboard.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/doc-history.css" asp-append-version="true" />
 }
 
 
@@ -307,7 +308,18 @@
     </div>
 
     <div class="card">
-        <h3 id="doc-title">@(firstDoc?.FileName ?? "No document")</h3>
+        <div class="doc-preview-head">
+            <h3 id="doc-title">@(firstDoc?.FileName ?? "No document")</h3>
+            <!-- Lịch sử revision chỉ có cho tài liệu DB-tracked (file chỉ-trên-đĩa không có lịch sử);
+                 agent-dashboard.js bật/tắt nút này trong showDoc theo meta.path. -->
+            <button type="button"
+                    id="doc-history-btn"
+                    class="btn outline small hidden"
+                    onclick="openDocHistory(currentDbDocId)"
+                    title="Xem các lần sinh/sửa trước và khác biệt giữa chúng">
+                <i class="bi bi-clock-history" aria-hidden="true"></i> Lịch sử
+            </button>
+        </div>
         <div class="preview"><div id="doc-content" class="doc-render"><p class="doc-empty">No document yet</p></div></div>
     </div>
 </div>
@@ -507,4 +519,5 @@
         };
     </script>
     <script src="~/js/agent-dashboard.js" asp-append-version="true"></script>
+    <script src="~/js/doc-history.js" asp-append-version="true"></script>
 }

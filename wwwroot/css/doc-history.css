@@ -1,0 +1,138 @@
+/* Modal "Lịch sử tài liệu" (doc-history.js) — dùng chung Requirements + Agent Dashboard.
+   Backdrop dùng .modal-backdrop của site.css; phần dưới đây chỉ style riêng cho card lịch sử. */
+
+/* Mở CHỒNG LÊN modal Requirement (.req-modal-overlay z-index 9999) nên phải cao hơn nó —
+   .modal-backdrop mặc định chỉ 60 sẽ chìm xuống dưới và bị chặn click. */
+#dh-modal { z-index: 10000; }
+
+.dh-card {
+    position: relative;
+    background: var(--surface);
+    width: min(1000px, 96vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, .25);
+}
+
+.dh-title {
+    margin: 0 24px 14px 0;
+    font-size: 17px;
+}
+
+.dh-body {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 14px;
+    min-height: 0;
+    flex: 1;
+}
+
+/* ----- Cột trái: danh sách revision ----- */
+.dh-list {
+    border: 1px solid var(--line);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.dh-rev {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 12px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.dh-rev:hover { background: var(--bosch-blue-tint); }
+.dh-rev.selected { background: var(--bosch-blue-tint-strong); box-shadow: inset 3px 0 0 var(--bosch-blue); }
+
+.dh-rev-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.dh-rev-version {
+    font-size: 11px;
+    color: var(--bosch-blue-dark);
+    background: var(--bosch-blue-tint);
+    padding: 1px 7px;
+    border-radius: 9px;
+}
+
+.dh-rev-time { font-size: 12px; color: var(--muted); }
+
+.dh-rev-note {
+    font-size: 12px;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* ----- Cột phải: diff ----- */
+.dh-diff-panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.dh-diff-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.dh-diff-title { font-weight: 600; font-size: 13px; }
+
+.dh-legend { display: flex; gap: 10px; font-size: 12px; }
+.dh-legend-item.added { color: var(--success-ink); }
+.dh-legend-item.removed { color: var(--danger-ink); }
+
+.dh-diff {
+    border: 1px solid var(--line);
+    overflow: auto;
+    flex: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 6px 0;
+    min-height: 260px;
+}
+
+.dh-line {
+    display: flex;
+    gap: 8px;
+    padding: 0 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.dh-line-sign { flex: 0 0 10px; user-select: none; color: var(--muted); }
+
+.dh-line.added { background: var(--success-tint); }
+.dh-line.added .dh-line-sign { color: var(--success-ink); }
+
+.dh-line.removed { background: var(--danger-tint); }
+.dh-line.removed .dh-line-sign { color: var(--danger-ink); }
+
+.dh-empty { color: var(--muted); padding: 10px 12px; margin: 0; font-size: 13px; }
+
+@media (max-width: 760px) {
+    .dh-body { grid-template-columns: 1fr; }
+    .dh-list { max-height: 180px; }
+}

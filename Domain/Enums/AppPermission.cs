@@ -43,6 +43,11 @@ public enum AppPermission
     [Description("Xem báo cáo chất lượng giao hàng (Delivery Quality)")]
     QualityView,
 
+    [Description("Xem trang Prompt Evals (golden set + kết quả run)")]
+    EvalView,
+    [Description("Quản lý scenario & chạy eval (tốn token thật)")]
+    EvalManage,
+
     [Description("Xem Settings")]
     SettingsView,
     [Description("Lưu thay đổi Settings")]

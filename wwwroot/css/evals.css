@@ -1,0 +1,106 @@
+/* Trang Prompt Evals: golden set + run + chi tiết/so sánh. Tái dùng .data-table/.badge/.modal của
+   design system; dưới đây chỉ là phần riêng của màn hình eval. */
+
+.eval-sub { margin: 4px 0 0; max-width: 760px; font-size: 13px; }
+
+.eval-head-actions { display: flex; gap: 10px; }
+
+.eval-card { margin-bottom: 18px; }
+
+.eval-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 16px 10px;
+}
+
+.eval-card-head h3 { margin: 0; font-size: 15px; }
+
+.eval-empty { color: var(--muted); text-align: center; padding: 22px 12px !important; }
+
+.eval-prompt-key {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    background: var(--bosch-blue-tint);
+    color: var(--bosch-blue-dark);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.eval-note { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.eval-cmp-col { width: 34px; text-align: center; }
+.eval-cmp-col input { width: auto; }
+
+/* Badge đỏ cho run Failed (site.css chỉ có blue/green/orange/gray). */
+.badge.red { color: var(--danger-ink); background: var(--danger-tint); }
+
+/* Điểm judge tô màu theo mức. */
+.eval-score { font-weight: 700; }
+.eval-score.score-great { color: var(--success-ink); }
+.eval-score.score-good { color: var(--bosch-blue-dark); }
+.eval-score.score-mid { color: var(--warning); }
+.eval-score.score-bad { color: var(--danger-ink); }
+
+/* ----- Modals ----- */
+.eval-modal { width: 560px; }
+.eval-modal label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 13px; }
+.eval-modal input[type="text"], .eval-modal input:not([type]), .eval-modal select, .eval-modal textarea { width: 100%; }
+.eval-modal textarea { resize: vertical; }
+.eval-modal-hint { margin: 6px 0 0; font-size: 12.5px; }
+
+.eval-wide-modal { width: min(900px, 94vw); max-height: 88vh; display: flex; flex-direction: column; }
+.eval-detail-body { overflow-y: auto; flex: 1; min-height: 120px; }
+
+.eval-detail-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    color: var(--muted);
+}
+
+.eval-run-error { color: var(--danger-ink); font-size: 13px; }
+
+.eval-result { border: 1px solid var(--line); margin-bottom: 8px; }
+.eval-result summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    cursor: pointer;
+    list-style: none;
+}
+.eval-result summary::-webkit-details-marker { display: none; }
+.eval-result[open] summary { border-bottom: 1px solid var(--line); background: var(--bg); }
+.eval-result-name { font-weight: 600; margin-right: auto; }
+.eval-result-meta { color: var(--muted); font-size: 12px; }
+
+.eval-reasoning { padding: 8px 12px 0; margin: 0; font-size: 13px; }
+
+.eval-output {
+    margin: 8px 12px 12px;
+    padding: 10px;
+    background: var(--bg);
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 320px;
+    overflow: auto;
+}
+
+/* ----- So sánh 2 run ----- */
+.eval-cmp-run { margin-bottom: 6px; font-size: 13.5px; }
+.eval-cmp-label {
+    display: inline-block;
+    min-width: 52px;
+    font-weight: 700;
+    color: var(--bosch-blue-dark);
+}
+.eval-cmp-table { margin-top: 10px; }
+.delta-up { color: var(--success-ink); font-weight: 700; }
+.delta-down { color: var(--danger-ink); font-weight: 700; }
+.delta-flat { color: var(--muted); }

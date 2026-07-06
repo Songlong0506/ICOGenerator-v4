@@ -26,6 +26,8 @@ public class RequirementsController : Controller
     private readonly StartNewChatUseCase _startNewChatUseCase;
     private readonly UploadProjectSourceUseCase _uploadProjectSourceUseCase;
     private readonly DeleteProjectSourceUseCase _deleteProjectSourceUseCase;
+    private readonly GetDocumentRevisionsQuery _getDocumentRevisionsQuery;
+    private readonly GetDocumentRevisionDiffQuery _getDocumentRevisionDiffQuery;
 
     // SSE frames are hand-serialized, so match the camelCase the polling JSON (and client) already use.
     private static readonly JsonSerializerOptions SseJsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -41,7 +43,9 @@ public class RequirementsController : Controller
        GetDocumentPreviewQuery getDocumentPreviewQuery,
        StartNewChatUseCase startNewChatUseCase,
        UploadProjectSourceUseCase uploadProjectSourceUseCase,
-       DeleteProjectSourceUseCase deleteProjectSourceUseCase)
+       DeleteProjectSourceUseCase deleteProjectSourceUseCase,
+       GetDocumentRevisionsQuery getDocumentRevisionsQuery,
+       GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
@@ -54,6 +58,8 @@ public class RequirementsController : Controller
         _startNewChatUseCase = startNewChatUseCase;
         _uploadProjectSourceUseCase = uploadProjectSourceUseCase;
         _deleteProjectSourceUseCase = deleteProjectSourceUseCase;
+        _getDocumentRevisionsQuery = getDocumentRevisionsQuery;
+        _getDocumentRevisionDiffQuery = getDocumentRevisionDiffQuery;
     }
 
     public async Task<IActionResult> Index(Guid projectId, string? version = null)
@@ -230,6 +236,29 @@ public class RequirementsController : Controller
     {
         await _startNewChatUseCase.ExecuteAsync(projectId);
         return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    // Lịch sử revision của một tài liệu sinh ra (metadata) — cho modal "Lịch sử" ở trang Requirements
+    // và Agent Dashboard (dashboard gọi chéo sang đây; TeamDev/Admin đều có RequirementsView).
+    [HttpGet]
+    public async Task<IActionResult> DocumentRevisions(Guid id)
+    {
+        var result = await _getDocumentRevisionsQuery.ExecuteAsync(id, HttpContext.RequestAborted);
+        if (result == null)
+            return NotFound("Document not found.");
+
+        return Json(result);
+    }
+
+    // Diff một revision so với revision liền trước của cùng tài liệu (tính lúc xem).
+    [HttpGet]
+    public async Task<IActionResult> DocumentRevisionDiff(Guid id)
+    {
+        var result = await _getDocumentRevisionDiffQuery.ExecuteAsync(id, HttpContext.RequestAborted);
+        if (result == null)
+            return NotFound("Revision not found.");
+
+        return Json(result);
     }
 
     [HttpGet]

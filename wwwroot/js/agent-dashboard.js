@@ -4,6 +4,8 @@ const DOCS = window.AGENT_DASHBOARD.docs;
 const FIRST_DOC_ID = window.AGENT_DASHBOARD.firstDocId;
 const PROJECT_ID = window.AGENT_DASHBOARD.projectId;
 let activeAgentFilter = null;
+// Doc DB-tracked đang xem (nút "Lịch sử" của khung preview trỏ vào id này; file chỉ-trên-đĩa không có lịch sử).
+let currentDbDocId = null;
 
 function filterByAgent(agentId, name) {
     if (activeAgentFilter === agentId) { clearAgentFilter(); return; }
@@ -61,6 +63,13 @@ async function showDoc(id) {
     const contentEl = document.getElementById('doc-content');
 
     if (meta) titleEl.textContent = meta.name;
+
+    // Lịch sử revision chỉ tồn tại cho tài liệu có bản ghi DB (meta.path rỗng); file chỉ-trên-đĩa
+    // mang Guid tạm mỗi request nên không tra lịch sử được.
+    const isDbDoc = meta && !meta.path;
+    currentDbDocId = isDbDoc ? id : null;
+    const historyBtn = document.getElementById('doc-history-btn');
+    if (historyBtn) historyBtn.classList.toggle('hidden', !isDbDoc);
 
     document.querySelectorAll('#ws-tree .file').forEach(f => f.classList.remove('selected'));
     const node = document.querySelector('#ws-tree .file[data-doc-id="' + id + '"]');

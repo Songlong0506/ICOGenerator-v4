@@ -33,6 +33,17 @@ public record ModelReliabilityItem(
     decimal Cost,
     bool HasPrice);
 
+// Tóm tắt các run eval prompt gần nhất (trang Prompt Evals là nguồn chi tiết; đây chỉ là "nhiệt kế"
+// đặt cạnh các chỉ số delivery — chất lượng giao hàng và chất lượng prompt nên được nhìn cùng nhau).
+public record EvalRunSummaryItem(
+    Guid Id,
+    string? Note,
+    string TargetModelName,
+    string? PromptKey,
+    double? AverageScore,
+    EvalRunStatus Status,
+    DateTime CreatedAt);
+
 public record DeliveryQualityVm(
     int SelectedYear,
     IReadOnlyList<int> AvailableYears,
@@ -57,7 +68,9 @@ public record DeliveryQualityVm(
     // ----- Phân rã -----
     IReadOnlyList<StageBreakdownItem> FailedByStage,
     IReadOnlyList<ProjectQualityItem> Projects,
-    IReadOnlyList<ModelReliabilityItem> Models);
+    IReadOnlyList<ModelReliabilityItem> Models,
+    // ----- Prompt eval (không lọc theo năm — chỉ là các run gần nhất) -----
+    IReadOnlyList<EvalRunSummaryItem> RecentEvalRuns);
 
 /// <summary>
 /// Tổng hợp "sức khỏe" quy trình giao hàng từ dữ liệu đã có (WorkflowRun + AgentTask + AgentModelCallLog):
@@ -217,6 +230,13 @@ public class GetDeliveryQualityQuery
             .OrderByDescending(x => x.Count)
             .ToList();
 
+        // ----- Prompt eval gần nhất (nhiệt kế; chi tiết ở trang Prompt Evals) -----
+        var recentEvalRuns = await _db.EvalRuns.AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(5)
+            .Select(x => new EvalRunSummaryItem(x.Id, x.Note, x.TargetModelName, x.PromptKey, x.AverageScore, x.Status, x.CreatedAt))
+            .ToListAsync(cancellationToken);
+
         // ----- Theo project -----
         var projects = runs
             .GroupBy(r => new { r.ProjectId, r.ProjectName })
@@ -264,7 +284,8 @@ public class GetDeliveryQualityQuery
             runs.Count == 0 ? 0 : Math.Round(runsNeedingRework * 100d / runs.Count, 1),
             failedByStage,
             projects,
-            models);
+            models,
+            recentEvalRuns);
     }
 
     // Dòng run rút gọn cho tổng hợp trong RAM.

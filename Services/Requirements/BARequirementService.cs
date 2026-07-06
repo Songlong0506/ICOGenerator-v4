@@ -605,7 +605,13 @@ public class BARequirementService
 
         Report("tool", "Đang tạo file tài liệu kỹ thuật (.docx)…");
 
-        await _documentGenerator.GenerateTechnicalDocs(project, ba.Id, latestVersion, result);
+        // Ghi chú nguồn gốc cho lịch sử revision: phân biệt lần sinh thường với vòng "Yêu cầu chỉnh sửa"
+        // (kèm chính nhận xét của người duyệt — nhìn lịch sử là biết bản này sửa vì lý do gì).
+        var revisionChangeNote = string.IsNullOrWhiteSpace(revisionFeedback)
+            ? $"Sinh tài liệu kỹ thuật {latestVersion}"
+            : $"Chỉnh sửa theo nhận xét: {revisionFeedback}";
+
+        await _documentGenerator.GenerateTechnicalDocs(project, ba.Id, latestVersion, result, revisionChangeNote);
         await _db.SaveChangesAsync(cancellationToken);
 
         Report("final", $"Đã tạo tài liệu kỹ thuật (BRD, SRS, FSD, User Stories) cho phiên bản {latestVersion}.", null);

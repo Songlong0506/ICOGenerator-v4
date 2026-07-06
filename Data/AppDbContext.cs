@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<ToolDefinition> ToolDefinitions => Set<ToolDefinition>();
     public DbSet<AgentTool> AgentTools => Set<AgentTool>();
     public DbSet<ProjectDocument> ProjectDocuments => Set<ProjectDocument>();
+    public DbSet<ProjectDocumentRevision> ProjectDocumentRevisions => Set<ProjectDocumentRevision>();
     public DbSet<ProjectSourceFile> ProjectSourceFiles => Set<ProjectSourceFile>();
     public DbSet<AgentConversation> AgentConversations => Set<AgentConversation>();
     public DbSet<AgentModelCallLog> AgentModelCallLogs => Set<AgentModelCallLog>();
@@ -31,6 +32,9 @@ public class AppDbContext : DbContext
     public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
     public DbSet<Associate> Associates => Set<Associate>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<EvalScenario> EvalScenarios => Set<EvalScenario>();
+    public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
+    public DbSet<EvalResult> EvalResults => Set<EvalResult>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -144,6 +148,18 @@ public class AppDbContext : DbContext
             b.Property(x => x.FilePath).HasMaxLength(1000);
         });
 
+        // Lịch sử nội dung tài liệu: Document FK Cascade (xóa document ⇒ dọn luôn lịch sử; chuỗi cascade
+        // Project → Documents → Revisions là một đường duy nhất nên SQL Server không kêu multiple-path).
+        // Content để nvarchar(max) (LOB); (DocumentId, RevisionNumber) duy nhất — cũng là index cho truy
+        // vấn nóng "liệt kê revision của một document theo thứ tự".
+        builder.Entity<ProjectDocumentRevision>(b =>
+        {
+            b.HasOne(x => x.ProjectDocument).WithMany(x => x.Revisions).HasForeignKey(x => x.ProjectDocumentId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.ChangeNote).HasMaxLength(500);
+            b.Property(x => x.VersionName).HasMaxLength(100);
+            b.HasIndex(x => new { x.ProjectDocumentId, x.RevisionNumber }).IsUnique();
+        });
+
         // Tài liệu nguồn user upload: Project FK Cascade (xóa project ⇒ dọn luôn các nguồn). Kind lưu dạng chuỗi
         // (dễ đọc, bền với việc chèn enum mới). ExtractedText/PageImagePaths để nvarchar(max) (LOB), còn lại bound.
         builder.Entity<ProjectSourceFile>(b =>
@@ -232,6 +248,37 @@ public class AppDbContext : DbContext
             b.Property(x => x.ProjectName).HasMaxLength(200);
             b.Property(x => x.Link).HasMaxLength(1000);
             b.HasIndex(x => new { x.RecipientUsername, x.IsRead, x.CreatedAt });
+        });
+
+        // Prompt eval harness: scenario (golden set) / run / kết quả từng scenario. Status lưu dạng chuỗi
+        // (dễ đọc, bền với việc chèn enum mới); các trường LỚN (UserInput/Criteria/Output/Reasoning/Error)
+        // để nvarchar(max), metadata bound. Model & scenario tham chiếu bằng Guid KHÔNG FK (xem chú thích
+        // trên entity); chỉ EvalResult → EvalRun là FK thật (Cascade: xoá run dọn luôn kết quả).
+        builder.Entity<EvalScenario>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(200);
+            b.Property(x => x.PromptKey).HasMaxLength(300);
+            b.Property(x => x.CreatedByUsername).HasMaxLength(100);
+            b.HasIndex(x => new { x.IsActive, x.CreatedAt });
+        });
+        builder.Entity<EvalRun>(b =>
+        {
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+            b.Property(x => x.Note).HasMaxLength(500);
+            b.Property(x => x.PromptKey).HasMaxLength(300);
+            b.Property(x => x.TargetModelName).HasMaxLength(200);
+            b.Property(x => x.JudgeModelName).HasMaxLength(200);
+            b.Property(x => x.CreatedByUsername).HasMaxLength(100);
+            // Worker poll run Queued cũ nhất + trang Eval liệt kê run mới nhất: cùng một index phục vụ cả hai.
+            b.HasIndex(x => new { x.Status, x.CreatedAt });
+            b.HasIndex(x => x.CreatedAt);
+        });
+        builder.Entity<EvalResult>(b =>
+        {
+            b.HasOne(x => x.EvalRun).WithMany(x => x.Results).HasForeignKey(x => x.EvalRunId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.ScenarioName).HasMaxLength(200);
+            b.HasIndex(x => x.EvalRunId);
+            b.HasIndex(x => x.EvalScenarioId);
         });
 
         // Dữ liệu tổ chức đồng bộ từ HR_Portal (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu

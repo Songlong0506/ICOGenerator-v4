@@ -35,6 +35,7 @@ Application/       # Tầng điều phối use case. Mỗi file = 1 thao tác ng
 Services/          # Hạ tầng & service nghiệp vụ tái dùng (gọi LLM, tool, file, prompt...).
   Agents/          #   Vòng lặp agent tự động dùng tool + background runner
   Artifacts/       #   Lưu/đọc file sản phẩm trong workspace
+  Evals/           #   Prompt eval harness: golden set + runner + LLM-judge + worker nền (xem 5.15)
   Llm/             #   Client gọi LLM + model request/response + ghi log lời gọi model (IModelCallLogger)
   Prompts/         #   Nạp & render template prompt (file .md trong /Prompts)
   Requirements/    #   Biến hội thoại BA -> tài liệu requirement
@@ -277,6 +278,37 @@ Hai bảng **`OrgUnits`/`Associates`** (đồng bộ từ HR_Portal, seed một 
   đúng tên phòng ban/HoD thật thay vì "TBD"; khối context đưa cả vào vòng tự soát để reviewer không coi tên
   thật là "tự thêm"). Trang **Usage** thêm bảng "Usage by department" (roll-up orgUnit của project về
   department gần nhất). **Fail-open toàn tuyến**: bảng trống/lỗi ⇒ mọi luồng chạy như trước.
+
+### 5.14. Lịch sử revision tài liệu sinh ra (version history + diff)
+Tài liệu sinh ra bị **ghi đè** ở nhiều luồng (bấm lại "Write Requirement" trên draft; vòng "Yêu cầu
+chỉnh sửa" sinh lại BRD/SRS/FSD/UserStories cùng phiên bản) — trước đây lịch sử mất sạch. Nay
+`RequirementDocumentGenerator.UpsertDocument` là **chốt chặn duy nhất**: mỗi lần Content được ghi
+(lần đầu hoặc ghi đè CÓ thay đổi) nó chụp một **`ProjectDocumentRevision`** (nội dung đầy đủ — không
+lưu delta — + `ChangeNote` nguồn gốc: "Write Requirement", "Chỉnh sửa theo nhận xét: ..." v.v.; ghi
+lại cùng nội dung thì KHÔNG snapshot). Revision chỉ Add vào change tracker — SaveChanges của caller
+lưu **atomic** cùng document, không bao giờ có revision mồ côi. Diff giữa revision liền kề tính **lúc
+xem** bằng `DocumentDiffService` (LCS theo dòng, trim đầu/cuối chung, quá trần DP thì fallback "thay
+cả khối"). UI: nút **Lịch sử** ở modal tài liệu trang Requirements + khung preview Agent Dashboard
+(chỉ doc DB-tracked), dùng chung `wwwroot/js/doc-history.js` + endpoint
+`Requirements/DocumentRevisions|DocumentRevisionDiff`.
+
+### 5.15. Prompt evaluation harness (golden set + LLM-judge, màn hình Prompt Evals)
+Trả lời câu "sửa prompt/đổi model xong, chất lượng LÊN hay XUỐNG?" bằng số thay vì cảm tính:
+- **`EvalScenario`** (golden set): một tình huống = (template prompt dưới `/Prompts` + đầu vào mô
+  phỏng + tiêu chí chấm). System prompt lấy **nội dung hiện hành** của file template lúc chạy, nên
+  cùng bộ scenario đo được các phiên bản prompt khác nhau.
+- **`EvalRun`/`EvalResult`**: một run chạy mọi scenario đang bật (lọc được theo template) với model
+  MỤC TIÊU rồi để model **JUDGE** chấm 1–5 theo tiêu chí (prompt `Eval/judge.v1.md`, parse bằng
+  `EvalJudgeParser`). Run chạy **nền** bởi `EvalRunWorker` (poll Queued như `AgentTaskWorker`; run
+  Running mồ côi sau restart → Failed); UI poll tiến độ, xem chi tiết từng scenario và **so sánh 2
+  run** theo từng scenario (khớp bằng `EvalScenarioId`).
+- Lời gọi eval **tái dùng** middleware `ModelCallLoggingChatClient` (deadline/trần token/map lỗi)
+  nhưng với `NullModelCallLogger`: KHÔNG ghi `AgentModelCallLogs` (bảng đó FK cứng Project/Agent) và
+  không qua budget guard theo-project — token/lỗi đã nằm trên `EvalResult`.
+- Model & scenario tham chiếu bằng **Guid + snapshot tên, không FK** (như `AgentModelCallLog`): xoá
+  model/scenario không bị chặn và không mất lịch sử điểm.
+- Phân quyền: `EvalView`/`EvalManage` (màn hình "Prompt Evals" trong `PermissionCatalog`; TeamDev
+  được seed mặc định). Trang Delivery Quality có card "Prompt evals gần nhất" trỏ sang.
 
 ---
 

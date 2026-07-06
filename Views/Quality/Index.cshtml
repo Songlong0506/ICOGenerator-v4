@@ -238,3 +238,55 @@ else
         }
     </div>
 }
+
+@* Prompt eval: hiển thị NGOÀI khối TotalRuns>0 — chất lượng prompt đo được cả khi năm nay chưa có run giao hàng. *@
+@if (Model.RecentEvalRuns.Count > 0)
+{
+    var canEvals = await Permissions.HasPermissionAsync(User, AppPermission.EvalView);
+
+    <div class="q-section-title">Prompt evals gần nhất</div>
+    <div class="card table-card">
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Thời điểm</th>
+                        <th>Ghi chú</th>
+                        <th>Model</th>
+                        <th>Prompt</th>
+                        <th class="num-col">Điểm TB (1–5)</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.RecentEvalRuns)
+                    {
+                        <tr>
+                            <td>@r.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@(string.IsNullOrWhiteSpace(r.Note) ? "–" : r.Note)</td>
+                            <td>@r.TargetModelName</td>
+                            <td>@(string.IsNullOrWhiteSpace(r.PromptKey) ? "tất cả" : r.PromptKey)</td>
+                            <td class="num-col">
+                                @if (r.AverageScore is double score)
+                                {
+                                    <span class="q-rate-pill @(score >= 4 ? "good" : score >= 3 ? "warn" : "bad")">@score.ToString("0.00", CultureInfo.InvariantCulture)</span>
+                                }
+                                else
+                                {
+                                    <text>–</text>
+                                }
+                            </td>
+                            <td>@r.Status</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (canEvals)
+        {
+            <div class="q-eval-foot">
+                <a asp-controller="Evals" asp-action="Index">Xem chi tiết & chạy eval ở trang Prompt Evals →</a>
+            </div>
+        }
+    </div>
+}

@@ -86,3 +86,6 @@
 
 .q-muted { color: var(--muted); }
 .q-empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+
+/* Chân card "Prompt evals gần nhất": link sang trang Prompt Evals. */
+.q-eval-foot { padding: 10px 16px; border-top: 1px solid var(--line); font-size: 13px; }

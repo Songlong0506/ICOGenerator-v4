@@ -438,6 +438,12 @@
                            asp-route-id="@doc.Id">
                             Download
                         </a>
+                        <button type="button"
+                                class="btn outline"
+                                onclick="openDocHistory('@doc.Id')"
+                                title="Xem các lần sinh/sửa trước và khác biệt giữa chúng">
+                            <i class="bi bi-clock-history" aria-hidden="true"></i> Lịch sử
+                        </button>
                     </div>
                 </div>
             }
@@ -467,10 +473,12 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/requirements.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/doc-history.css" asp-append-version="true" />
 }
 
 @section Scripts {
     <script src="~/js/requirements.js" asp-append-version="true"></script>
+    <script src="~/js/doc-history.js" asp-append-version="true"></script>
     <script>
         window.REQUIREMENTS_PROJECT_ID = '@Model.Id';
         // Người có quyền DeliveryAdvance (TeamDev/Admin) được dẫn sang Agent Dashboard để duyệt/đẩy bước;
