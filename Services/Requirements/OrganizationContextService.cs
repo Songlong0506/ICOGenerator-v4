@@ -20,7 +20,7 @@ namespace ICOGenerator.Services.Requirements;
 /// dữ liệu HR chỉ đổi khi đồng bộ lại). Fail-open toàn tuyến: bảng trống/lỗi DB ⇒ trả null, chat và sinh
 /// tài liệu tiếp tục như khi chưa có tính năng này.
 /// </summary>
-public class OrganizationContextService
+public partial class OrganizationContextService
 {
     private const string TemplatePath = "BA/organization-context.v2.md";
     private const string CacheKey = "OrganizationContext.BaContext";
@@ -188,7 +188,7 @@ public class OrganizationContextService
 
         // Khối comment HTML đầu template là ghi chú cho người sửa file — cắt bỏ TRƯỚC khi thay placeholder
         // (comment được phép nhắc tên placeholder mà không bị chèn dữ liệu trùng), model không thấy nó.
-        var template = Regex.Replace(_prompts.Get(TemplatePath), "<!--.*?-->", string.Empty, RegexOptions.Singleline);
+        var template = HtmlCommentRegex().Replace(_prompts.Get(TemplatePath), string.Empty);
         return template.Trim()
             .Replace("{{DEPARTMENTS}}", deptSection.ToString().TrimEnd())
             .Replace("{{POSITIONS}}", positionSection.ToString())
@@ -260,4 +260,8 @@ public class OrganizationContextService
             .GroupBy(a => a.PersonalNumber!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First().DisplayName!, StringComparer.OrdinalIgnoreCase);
     }
+
+    // Khối comment HTML đầu template (ghi chú cho người sửa file) — cắt bỏ trước khi thay placeholder.
+    [GeneratedRegex("<!--.*?-->", RegexOptions.Singleline)]
+    private static partial Regex HtmlCommentRegex();
 }

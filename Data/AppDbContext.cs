@@ -97,6 +97,11 @@ public class AppDbContext : DbContext
         builder.Entity<AgentTask>().HasOne(x => x.Project).WithMany(x => x.AgentTasks).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<AgentTask>().HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.SetNull);
         builder.Entity<AgentTask>().HasIndex(x => new { x.ProjectId, x.Status, x.CreatedAt });
+        // AgentTaskWorker poll bảng này MỖI 2 GIÂY với WHERE Status == Queued ORDER BY CreatedAt (KHÔNG lọc
+        // ProjectId), nên index (ProjectId, Status, CreatedAt) ở trên — leading column ProjectId — không seek
+        // được cho query đó và SQL Server phải scan (chi phí tăng dần khi bảng tích lũy task lịch sử). Index
+        // (Status, CreatedAt) này biến poll thành một seek + lấy dòng cũ nhất ở ngay đầu range.
+        builder.Entity<AgentTask>().HasIndex(x => new { x.Status, x.CreatedAt });
 
         // Bound short metadata columns so EF stops mapping them to nvarchar(max) (LOB columns can't be
         // indexed and are slower). Genuinely large fields (Content, RequestJson, ResponseText, Message,
