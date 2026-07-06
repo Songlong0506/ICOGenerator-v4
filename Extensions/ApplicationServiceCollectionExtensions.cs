@@ -4,6 +4,7 @@ using ICOGenerator.Application.Audit;
 using ICOGenerator.Application.Feedback;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Projects;
+using ICOGenerator.Application.Quality;
 using ICOGenerator.Application.Requirements;
 using ICOGenerator.Application.Roles;
 using ICOGenerator.Application.Usage;
@@ -87,6 +88,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddAgentUseCases();
         services.AddModelUseCases();
         services.AddUsageUseCases();
+        services.AddQualityUseCases();
         services.AddSettingsUseCases();
         services.AddFeedbackUseCases();
         services.AddAuditUseCases();
@@ -248,6 +250,12 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddUsageUseCases(this IServiceCollection services)
     {
         services.AddScoped<GetUsageOverviewQuery>();
+        return services;
+    }
+
+    private static IServiceCollection AddQualityUseCases(this IServiceCollection services)
+    {
+        services.AddScoped<GetDeliveryQualityQuery>();
         return services;
     }
 
