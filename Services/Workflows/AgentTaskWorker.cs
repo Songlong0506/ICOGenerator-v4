@@ -4,6 +4,7 @@ using ICOGenerator.Domain.Enums;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Notifications;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Tools;
 using Microsoft.EntityFrameworkCore;
@@ -59,6 +60,7 @@ public class AgentTaskWorker : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var agentRunService = scope.ServiceProvider.GetRequiredService<AgentRunService>();
+        var notifier = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
         var task = await db.AgentTasks
             .Include(x => x.WorkflowRun)
@@ -76,6 +78,7 @@ public class AgentTaskWorker : BackgroundService
             task.Error = "No agent is assigned to this task.";
             task.FinishedAt = DateTime.UtcNow;
             FailRun(task.WorkflowRun);
+            await notifier.NotifyRunFailedAsync(task.WorkflowRun, task.Error, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
             return;
         }
@@ -142,7 +145,7 @@ public class AgentTaskWorker : BackgroundService
                 task.Status = AgentTaskStatus.Completed;
                 task.Output = "Technical documents generated.";
                 task.FinishedAt = DateTime.UtcNow;
-                AdvanceLinearPipeline(task);
+                await AdvanceLinearPipelineAsync(notifier, task, cancellationToken);
                 await db.SaveChangesAsync(cancellationToken);
                 return;
             }
@@ -231,8 +234,8 @@ public class AgentTaskWorker : BackgroundService
 
             // Vòng tự sửa lỗi (Testing↔BugFix) là một CHU TRÌNH (không phải hand-off tuyến tính) nên
             // được xử lý riêng. Nếu task này không thuộc chu trình đó thì rơi về cổng duyệt tuyến tính.
-            if (!await TryAdvanceTestFixCycleAsync(db, task, cancellationToken))
-                AdvanceLinearPipeline(task);
+            if (!await TryAdvanceTestFixCycleAsync(db, task, notifier, cancellationToken))
+                await AdvanceLinearPipelineAsync(notifier, task, cancellationToken);
 
             await db.SaveChangesAsync(cancellationToken);
         }
@@ -254,19 +257,22 @@ public class AgentTaskWorker : BackgroundService
 
     // Cổng duyệt tuyến tính: bước chạy xong thì DỪNG chờ người duyệt thay vì tự enqueue bước kế.
     // Bước kế chỉ được tạo khi user bấm duyệt (ApproveStageUseCase). CurrentStage giữ nguyên ở bước
-    // vừa xong để biết đang chờ duyệt cái gì.
-    private void AdvanceLinearPipeline(AgentTask task)
+    // vừa xong để biết đang chờ duyệt cái gì. Thông báo được Add vào cùng DbContext (không SaveChanges);
+    // lần SaveChanges của người gọi lưu chúng atomic với lần chuyển trạng thái.
+    private async Task AdvanceLinearPipelineAsync(INotificationService notifier, AgentTask task, CancellationToken cancellationToken)
     {
         var next = DeliveryPipeline.Next(task.WorkflowRun.CurrentStage);
         if (next is null)
         {
             _progress.Report(task.WorkflowRunId, "completed", "Workflow hoàn tất — tất cả các bước đã xong.");
             CompleteRun(task.WorkflowRun);
+            await notifier.NotifyRunCompletedAsync(task.WorkflowRun, cancellationToken);
         }
         else
         {
             _progress.Report(task.WorkflowRunId, "completed", $"Bước \"{task.Title}\" xong — chờ bạn duyệt để sang: {next.Title}.");
             task.WorkflowRun.Status = WorkflowRunStatus.WaitingForHuman;
+            await notifier.NotifyGateOpenedAsync(task.WorkflowRun, next.Title, cancellationToken);
         }
     }
 
@@ -277,7 +283,7 @@ public class AgentTaskWorker : BackgroundService
     //   • Testing FAIL hết ngạch  → kết thúc run, báo còn lỗi để người xem lại.
     //   • Testing PASS/không rõ    → trả false (pipeline tuyến tính kết thúc run như cũ).
     //   • BugFix xong              → luôn chạy lại Testing để xác minh.
-    private async Task<bool> TryAdvanceTestFixCycleAsync(AppDbContext db, AgentTask task, CancellationToken cancellationToken)
+    private async Task<bool> TryAdvanceTestFixCycleAsync(AppDbContext db, AgentTask task, INotificationService notifier, CancellationToken cancellationToken)
     {
         if (task.Type == AgentTaskType.Testing)
         {
@@ -293,6 +299,7 @@ public class AgentTaskWorker : BackgroundService
                 _progress.Report(task.WorkflowRunId, "completed",
                     $"Vẫn còn lỗi sau {DeliveryPipeline.MaxBugFixAttempts} lần tự sửa — dừng vòng lặp, cần người xem lại báo cáo test.");
                 CompleteRun(task.WorkflowRun);
+                await notifier.NotifyRunCompletedAsync(task.WorkflowRun, cancellationToken);
                 return true;
             }
 
@@ -364,6 +371,7 @@ public class AgentTaskWorker : BackgroundService
         {
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var notifier = scope.ServiceProvider.GetRequiredService<INotificationService>();
             var task = await db.AgentTasks.Include(x => x.WorkflowRun).FirstOrDefaultAsync(x => x.Id == taskId);
             if (task == null)
                 return;
@@ -372,6 +380,7 @@ public class AgentTaskWorker : BackgroundService
             task.Error = error;
             task.FinishedAt = DateTime.UtcNow;
             FailRun(task.WorkflowRun);
+            await notifier.NotifyRunFailedAsync(task.WorkflowRun, error, CancellationToken.None);
             await db.SaveChangesAsync(CancellationToken.None);
         }
         catch (Exception ex)

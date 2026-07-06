@@ -141,6 +141,22 @@
                         }
                     </div>
                     <div class="topbar-spacer"></div>
+                    <div class="notif" id="notifRoot">
+                        <button class="notif-bell" id="notifBell" type="button" title="Thông báo" aria-label="Thông báo" aria-haspopup="true" aria-expanded="false">
+                            <i class="bi bi-bell"></i>
+                            <span class="notif-badge" id="notifBadge" hidden>0</span>
+                        </button>
+                        <div class="notif-panel" id="notifPanel" hidden>
+                            <div class="notif-panel-head">
+                                <span>Thông báo</span>
+                                <button type="button" class="notif-markall" id="notifMarkAll">Đánh dấu đã đọc</button>
+                            </div>
+                            <div class="notif-list" id="notifList">
+                                <div class="notif-empty">Đang tải…</div>
+                            </div>
+                            <a class="notif-foot" asp-controller="Notifications" asp-action="Index">Xem tất cả</a>
+                        </div>
+                    </div>
                     <div class="bosch-logo">BOSCH</div>
                 </header>
 
@@ -195,7 +211,9 @@
         </div>
     </div>
 
+    @Html.AntiForgeryToken()
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/notifications.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

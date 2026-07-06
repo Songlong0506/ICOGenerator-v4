@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
     public DbSet<Associate> Associates => Set<Associate>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -218,6 +219,19 @@ public class AppDbContext : DbContext
             b.Property(x => x.ActorRole).HasMaxLength(50);
             b.HasIndex(x => x.CreatedAt);
             b.HasIndex(x => new { x.Category, x.CreatedAt });
+        });
+
+        // Thông báo in-app: Type lưu dạng chuỗi (dễ đọc, bền với việc chèn enum mới). Message để nvarchar(max)
+        // (LOB), các cột metadata còn lại bound để nhẹ hơn. Index (RecipientUsername, IsRead, CreatedAt) phục vụ
+        // truy vấn nóng của chuông: đếm chưa đọc + lấy N thông báo mới nhất của một người.
+        builder.Entity<Notification>(b =>
+        {
+            b.Property(x => x.RecipientUsername).HasMaxLength(100);
+            b.Property(x => x.Type).HasConversion<string>().HasMaxLength(40);
+            b.Property(x => x.Title).HasMaxLength(300);
+            b.Property(x => x.ProjectName).HasMaxLength(200);
+            b.Property(x => x.Link).HasMaxLength(1000);
+            b.HasIndex(x => new { x.RecipientUsername, x.IsRead, x.CreatedAt });
         });
 
         // Dữ liệu tổ chức đồng bộ từ HR_Portal (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu
