@@ -4,7 +4,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Usage;
 
-public record MonthlyUsageItem(int Year, int Month, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal Cost);
+// PromptCost / CompletionCost: chi phí tách riêng phần input (prompt) và output (completion) để biểu đồ
+// "Tokens per month" xếp chồng theo trục $ (PromptCost + CompletionCost = Cost).
+public record MonthlyUsageItem(int Year, int Month, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal PromptCost, decimal CompletionCost, decimal Cost);
 
 // DepartmentName: phòng ban gần nhất mà project được roll-up về (cùng cách giải như "Usage by department").
 // Project chưa gắn đơn vị → "(Chưa gắn đơn vị)".
@@ -65,6 +67,11 @@ public class GetUsageOverviewQuery
             => modelId != null && priceByModelId.TryGetValue(modelId, out var p)
                 ? LlmCost.Usd(prompt, completion, p.Input, p.Output)
                 : 0m;
+
+        // Chi phí chỉ tính riêng phần prompt / completion (dùng cho biểu đồ theo tháng, trục $).
+        // LlmCost.Usd tuyến tính & tách được nên PromptCostFor + CompletionCostFor == CostFor.
+        decimal PromptCostFor(string? modelId, long prompt) => CostFor(modelId, prompt, 0);
+        decimal CompletionCostFor(string? modelId, long completion) => CostFor(modelId, 0, completion);
 
         bool HasPrice(string? modelId)
             => modelId != null && priceByModelId.TryGetValue(modelId, out var p) && (p.Input > 0 || p.Output > 0);
@@ -161,6 +168,8 @@ public class GetUsageOverviewQuery
             {
                 var month = firstMonth.AddMonths(offset);
                 var rows = logRaw.Where(x => x.Year == month.Year && x.Month == month.Month).ToList();
+                var promptCost = rows.Sum(x => PromptCostFor(x.ModelId, x.PromptTokens));
+                var completionCost = rows.Sum(x => CompletionCostFor(x.ModelId, x.CompletionTokens));
                 return new MonthlyUsageItem(
                     month.Year,
                     month.Month,
@@ -168,7 +177,9 @@ public class GetUsageOverviewQuery
                     rows.Sum(x => x.CompletionTokens),
                     rows.Sum(x => x.TotalTokens),
                     rows.Sum(x => x.CallCount),
-                    rows.Sum(x => CostFor(x.ModelId, x.PromptTokens, x.CompletionTokens)));
+                    promptCost,
+                    completionCost,
+                    promptCost + completionCost);
             })
             .ToList();
 
