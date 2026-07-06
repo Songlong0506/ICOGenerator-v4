@@ -40,6 +40,9 @@ public enum AppPermission
     [Description("Xem báo cáo Usage")]
     UsageView,
 
+    [Description("Xem báo cáo chất lượng giao hàng (Delivery Quality)")]
+    QualityView,
+
     [Description("Xem Settings")]
     SettingsView,
     [Description("Lưu thay đổi Settings")]

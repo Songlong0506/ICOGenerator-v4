@@ -1,0 +1,240 @@
+@using System.Globalization
+@using ICOGenerator.Application.Quality
+@model DeliveryQualityVm
+
+@functions {
+    private static string Money(decimal v) =>
+        v <= 0 ? "$0.00"
+        : v < 0.01m ? "$" + v.ToString("0.####", CultureInfo.InvariantCulture)
+        : "$" + v.ToString("N2", CultureInfo.InvariantCulture);
+
+    private static string Pct(double v) => v.ToString("0.#", CultureInfo.InvariantCulture) + "%";
+
+    private static string Duration(double? minutes)
+    {
+        if (minutes is not double m) return "–";
+        if (m < 1) return "< 1 phút";
+        if (m < 60) return m.ToString("0.#", CultureInfo.InvariantCulture) + " phút";
+        var h = (int)(m / 60);
+        var rem = (int)Math.Round(m - h * 60);
+        return rem > 0 ? $"{h}h {rem}m" : $"{h}h";
+    }
+
+    // Ngưỡng đơn giản để tô màu tỷ lệ: hoàn tất cao = tốt; thất bại/rework cao = xấu.
+    private static string GoodHighClass(double pct) => pct >= 80 ? "good" : pct >= 50 ? "warn" : "bad";
+    private static string GoodLowClass(double pct) => pct <= 10 ? "good" : pct <= 30 ? "warn" : "bad";
+
+    // % chiều rộng một segment trong thanh outcome (đã format cho thuộc tính style).
+    private static string ShareStyle(int n, int total) =>
+        (total <= 0 ? 0 : n * 100d / total).ToString("0.##", CultureInfo.InvariantCulture);
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/quality.css" asp-append-version="true" />
+}
+
+<div class="page-head">
+    <div>
+        <h1>Delivery Quality</h1>
+        <p>Sức khỏe quy trình giao hàng: thông lượng, thời gian, chi phí và mức rước việc (revision + bugfix). Bổ trợ trang Usage (chỉ đo chi phí token).</p>
+    </div>
+    <div class="q-toolbar">
+        <form method="get" asp-controller="Quality" asp-action="Index" class="year-filter">
+            <select name="year" onchange="this.form.submit()" aria-label="Chọn năm">
+                @foreach (var yr in Model.AvailableYears)
+                {
+                    <option value="@yr" selected="@(Model.SelectedYear == yr)">@yr</option>
+                }
+            </select>
+        </form>
+    </div>
+</div>
+
+@if (!Model.HasAnyPricing)
+{
+    <div class="pricing-hint">
+        Chưa đặt đơn giá cho model nào, nên chi phí đang hiển thị $0. Vào
+        <a asp-controller="Models" asp-action="Index">AI Models</a>
+        để nhập <b>Input/Output price ($/1M tokens)</b> cho từng model.
+    </div>
+}
+
+@if (Model.TotalRuns == 0)
+{
+    <div class="card">
+        <div class="q-empty">Chưa có workflow run nào trong năm @Model.SelectedYear. Duyệt một requirement để khởi động quy trình giao hàng.</div>
+    </div>
+}
+else
+{
+    <div class="q-section-title">Kết quả giao hàng</div>
+    <div class="q-tiles">
+        <div class="q-tile accent">
+            <div class="q-label">Tổng số run</div>
+            <div class="q-value">@Model.TotalRuns.ToString("N0")</div>
+            <div class="q-sub">@Model.InProgressRuns đang chạy</div>
+        </div>
+        <div class="q-tile @GoodHighClass(Model.CompletionRate)">
+            <div class="q-label">Tỷ lệ hoàn tất</div>
+            <div class="q-value">@Pct(Model.CompletionRate)</div>
+            <div class="q-sub">@Model.CompletedRuns hoàn tất / @(Model.CompletedRuns + Model.FailedRuns + Model.CanceledRuns) đã kết thúc</div>
+        </div>
+        <div class="q-tile @GoodLowClass(Model.FailureRate)">
+            <div class="q-label">Tỷ lệ thất bại</div>
+            <div class="q-value">@Pct(Model.FailureRate)</div>
+            <div class="q-sub">@Model.FailedRuns thất bại · @Model.CanceledRuns hủy</div>
+        </div>
+        <div class="q-tile">
+            <div class="q-label">Thời gian giao hàng TB</div>
+            <div class="q-value">@Duration(Model.AvgDurationMinutes)</div>
+            <div class="q-sub">trên các run đã hoàn tất</div>
+        </div>
+        <div class="q-tile">
+            <div class="q-label">Tổng chi phí</div>
+            <div class="q-value">@Money(Model.TotalCost)</div>
+            <div class="q-sub">chỉ tính call thuộc run giao hàng</div>
+        </div>
+        <div class="q-tile">
+            <div class="q-label">Chi phí / run</div>
+            <div class="q-value">@Money(Model.AvgCostPerRun)</div>
+            <div class="q-sub">trung bình mỗi run</div>
+        </div>
+    </div>
+
+    <div class="card" style="padding:18px 20px; margin-top:16px;">
+        <div class="q-outcome">
+            @if (Model.CompletedRuns > 0)
+            {
+                <span class="seg-completed" style="width:@ShareStyle(Model.CompletedRuns, Model.TotalRuns)%" title="Hoàn tất: @Model.CompletedRuns"></span>
+            }
+            @if (Model.FailedRuns > 0)
+            {
+                <span class="seg-failed" style="width:@ShareStyle(Model.FailedRuns, Model.TotalRuns)%" title="Thất bại: @Model.FailedRuns"></span>
+            }
+            @if (Model.CanceledRuns > 0)
+            {
+                <span class="seg-canceled" style="width:@ShareStyle(Model.CanceledRuns, Model.TotalRuns)%" title="Hủy: @Model.CanceledRuns"></span>
+            }
+            @if (Model.InProgressRuns > 0)
+            {
+                <span class="seg-progress" style="width:@ShareStyle(Model.InProgressRuns, Model.TotalRuns)%" title="Đang chạy: @Model.InProgressRuns"></span>
+            }
+        </div>
+        <div class="q-outcome-legend">
+            <span><i class="k-completed"></i>Hoàn tất <b>@Model.CompletedRuns</b></span>
+            <span><i class="k-failed"></i>Thất bại <b>@Model.FailedRuns</b></span>
+            <span><i class="k-canceled"></i>Hủy <b>@Model.CanceledRuns</b></span>
+            <span><i class="k-progress"></i>Đang chạy <b>@Model.InProgressRuns</b></span>
+        </div>
+    </div>
+
+    @if (Model.FailedByStage.Count > 0)
+    {
+        <div class="q-section-title">Run thất bại dừng ở giai đoạn nào</div>
+        <div class="q-stage-list">
+            @foreach (var s in Model.FailedByStage)
+            {
+                <span class="q-stage-chip">@s.StageLabel <b>@s.Count</b></span>
+            }
+        </div>
+    }
+
+    <div class="q-section-title">Rước việc (rework)</div>
+    <div class="q-tiles">
+        <div class="q-tile @GoodLowClass(Model.ReworkRate)">
+            <div class="q-label">Run cần rework</div>
+            <div class="q-value">@Pct(Model.ReworkRate)</div>
+            <div class="q-sub">có ít nhất một vòng revision/bugfix</div>
+        </div>
+        <div class="q-tile">
+            <div class="q-label">Yêu cầu chỉnh sửa</div>
+            <div class="q-value">@Model.TotalRevisionRequests.ToString("N0")</div>
+            <div class="q-sub">@Model.RunsNeedingRevision run cần chỉnh sửa</div>
+        </div>
+        <div class="q-tile">
+            <div class="q-label">Vòng tự sửa lỗi</div>
+            <div class="q-value">@Model.TotalBugFixRounds.ToString("N0")</div>
+            <div class="q-sub">@Model.RunsNeedingBugFix run cần bugfix</div>
+        </div>
+    </div>
+
+    <div class="q-section-title">Chất lượng theo project</div>
+    <div class="card table-card">
+        @if (Model.Projects.Count == 0)
+        {
+            <div class="empty-state">Chưa có dữ liệu project.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Project</th>
+                            <th class="num-col">Runs</th>
+                            <th class="num-col">Hoàn tất</th>
+                            <th class="num-col">Thất bại</th>
+                            <th class="num-col">Chỉnh sửa</th>
+                            <th class="num-col">Bugfix</th>
+                            <th class="num-col">Thời gian TB</th>
+                            <th class="num-col">Chi phí</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model.Projects)
+                        {
+                            <tr>
+                                <td><b>@p.ProjectName</b></td>
+                                <td class="num-col">@p.Runs</td>
+                                <td class="num-col">@p.Completed</td>
+                                <td class="num-col">@(p.Failed > 0 ? p.Failed.ToString() : "–")</td>
+                                <td class="num-col">@(p.RevisionRequests > 0 ? p.RevisionRequests.ToString() : "–")</td>
+                                <td class="num-col">@(p.BugFixRounds > 0 ? p.BugFixRounds.ToString() : "–")</td>
+                                <td class="num-col">@Duration(p.AvgDurationMinutes)</td>
+                                <td class="num-col">@Money(p.Cost)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="q-section-title">Độ tin cậy model</div>
+    <div class="card table-card">
+        @if (Model.Models.Count == 0)
+        {
+            <div class="empty-state">Chưa có lời gọi model nào trong năm @Model.SelectedYear.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Model</th>
+                            <th class="num-col">Calls</th>
+                            <th class="num-col">Tỷ lệ thành công</th>
+                            <th class="num-col">Độ trễ TB</th>
+                            <th class="num-col">Tokens</th>
+                            <th class="num-col">Chi phí</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in Model.Models)
+                        {
+                            <tr>
+                                <td><b>@m.ModelName</b></td>
+                                <td class="num-col">@m.Calls.ToString("N0")</td>
+                                <td class="num-col"><span class="q-rate-pill @GoodHighClass(m.SuccessRate)">@Pct(m.SuccessRate)</span></td>
+                                <td class="num-col">@(m.AvgLatencyMs >= 1000 ? (m.AvgLatencyMs / 1000d).ToString("0.#", CultureInfo.InvariantCulture) + "s" : m.AvgLatencyMs.ToString("0") + "ms")</td>
+                                <td class="num-col">@m.TotalTokens.ToString("N0")</td>
+                                <td class="num-col">@(m.HasPrice ? Money(m.Cost) : "–")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}

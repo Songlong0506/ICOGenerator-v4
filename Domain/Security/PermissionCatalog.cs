@@ -26,6 +26,8 @@ public static class PermissionCatalog
             new[] { AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete }),
         new PermissionScreen("Usage", "Usage", AppPermission.UsageView,
             new[] { AppPermission.UsageView }),
+        new PermissionScreen("Quality", "Delivery Quality", AppPermission.QualityView,
+            new[] { AppPermission.QualityView }),
         new PermissionScreen("Settings", "Settings", AppPermission.SettingsView,
             new[] { AppPermission.SettingsView, AppPermission.SettingsManage }),
         new PermissionScreen("Feedback", "Feedback", AppPermission.FeedbackView,
