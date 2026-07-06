@@ -114,7 +114,9 @@ public class GetWorkflowStatusQuery
 
         // Cổng kiểm tra đã bỏ qua việc sinh tài liệu (thiếu thông tin) → UI hiển thị banner "cần bổ sung"
         // thay vì "đã tạo tài liệu". Output không nằm trong projection tasks (để rỗng), nên đọc riêng.
-        var needsMoreInfo = await _db.AgentTasks
+        // Chỉ có nghĩa với run "Requirement" (mới có task RequirementAnalysis); run "Delivery" không bao giờ
+        // chứa task này nên bỏ hẳn round-trip DB — query nằm trên đường poll (2.5–4s/lần) nên tránh gọi thừa.
+        var needsMoreInfo = runKind == "Requirement" && await _db.AgentTasks
             .AsNoTracking()
             .AnyAsync(x => x.WorkflowRunId == run.Id
                           && x.Type == AgentTaskType.RequirementAnalysis

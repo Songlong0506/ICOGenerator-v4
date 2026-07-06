@@ -12,7 +12,7 @@ namespace ICOGenerator.Services.Artifacts;
 /// discovering them in the demo. Checks are plain string/regex scans: the markup is machine-shaped
 /// (shell template + Bootstrap sections), so no HTML parser dependency is warranted.
 /// </summary>
-public static class PocAudit
+public static partial class PocAudit
 {
     // Ids owned by the shell (poc-template.html); feature content reusing one makes Bootstrap open the
     // wrong dialog or the shell script wire the wrong element. Must match the prompt's reserved list.
@@ -41,9 +41,9 @@ public static class PocAudit
         // swallows everything up to the first real </script> — nav, sections and all. The checks that
         // live IN comments (the region markers, the seed placeholder) or in the script region still
         // use the raw html.
-        var scan = Regex.Replace(html, "<!--.*?-->", string.Empty, RegexOptions.Singleline);
-        scan = Regex.Replace(scan, "<style\\b.*?</style>", string.Empty, RegexOptions.Singleline | RegexOptions.IgnoreCase);
-        scan = Regex.Replace(scan, "<script\\b.*?</script>", string.Empty, RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        var scan = HtmlCommentRegex().Replace(html, string.Empty);
+        scan = StyleBlockRegex().Replace(scan, string.Empty);
+        scan = ScriptBlockRegex().Replace(scan, string.Empty);
 
         var navLeaves = NavLeafLabels(scan);
         var sections = SectionLabels(scan);
@@ -105,7 +105,7 @@ public static class PocAudit
 
     private static HashSet<string> CheckIds(string html, List<string> issues)
     {
-        var ids = Regex.Matches(html, "\\bid=\"([^\"]+)\"").Select(m => m.Groups[1].Value).ToList();
+        var ids = IdAttributeRegex().Matches(html).Select(m => m.Groups[1].Value).ToList();
         foreach (var group in ids.GroupBy(x => x, StringComparer.Ordinal).Where(g => g.Count() > 1))
         {
             issues.Add(ReservedIds.Contains(group.Key, StringComparer.Ordinal)
@@ -117,7 +117,7 @@ public static class PocAudit
 
     private static void CheckModalTargets(string html, HashSet<string> ids, List<string> issues)
     {
-        var missing = Regex.Matches(html, "data-(?:bs-target|crud-modal)=\"#([^\"]+)\"")
+        var missing = ModalTargetRegex().Matches(html)
             .Select(m => m.Groups[1].Value)
             .Where(id => !ids.Contains(id))
             .Distinct(StringComparer.Ordinal);
@@ -134,7 +134,7 @@ public static class PocAudit
         // the first — but field coverage is checked across all of them so a stray wrapper form doesn't
         // produce false mismatches; the duplication itself is reported separately.
         var formsByEntity = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        foreach (Match form in Regex.Matches(html, "<form\\b[^>]*data-crud-form=\"([^\"]+)\"[^>]*>"))
+        foreach (Match form in CrudFormRegex().Matches(html))
         {
             var entity = form.Groups[1].Value;
             if (!formsByEntity.TryGetValue(entity, out var blocks))
@@ -146,7 +146,7 @@ public static class PocAudit
             warnings.Add($"There are {blocks.Count} <form data-crud-form=\"{entity}\"> — keep exactly ONE per entity (the engine submits through the first, so an extra wrapper form around the table can hijack Add/Edit).");
 
         var tableEntities = new List<string>();
-        foreach (Match table in Regex.Matches(html, "<table\\b[^>]*data-crud-table=\"([^\"]+)\"[^>]*>"))
+        foreach (Match table in CrudTableRegex().Matches(html))
         {
             var entity = table.Groups[1].Value;
             tableEntities.Add(entity);
@@ -158,11 +158,11 @@ public static class PocAudit
             }
 
             var tableBlock = BlockAfter(html, table.Index, "</table>");
-            var tableFields = Regex.Matches(tableBlock, "data-field=\"([^\"]+)\"")
+            var tableFields = DataFieldRegex().Matches(tableBlock)
                 .Select(m => m.Groups[1].Value).Distinct(StringComparer.Ordinal).ToList();
 
             var formFields = new HashSet<string>(
-                blocks.SelectMany(b => Regex.Matches(b, "\\bname=\"([^\"]+)\"").Select(m => m.Groups[1].Value)),
+                blocks.SelectMany(b => NameAttributeRegex().Matches(b).Select(m => m.Groups[1].Value)),
                 StringComparer.Ordinal);
 
             var unmatched = tableFields.Where(f => !formFields.Contains(f)).ToList();
@@ -170,7 +170,7 @@ public static class PocAudit
                 issues.Add($"CRUD '{entity}': no form control is named [{string.Join(", ", unmatched)}] although the table declares those data-field columns — records saved from the form leave those cells empty. Align name=\"…\" with data-field=\"…\".");
         }
 
-        foreach (var add in Regex.Matches(html, "data-crud-add=\"([^\"]+)\"").Select(m => m.Groups[1].Value).Distinct(StringComparer.Ordinal))
+        foreach (var add in CrudAddRegex().Matches(html).Select(m => m.Groups[1].Value).Distinct(StringComparer.Ordinal))
             if (!tableEntities.Contains(add) && !formsByEntity.ContainsKey(add))
                 warnings.Add($"data-crud-add=\"{add}\" has neither a data-crud-table nor a data-crud-form for that entity — the button adds records nothing displays.");
 
@@ -249,7 +249,7 @@ public static class PocAudit
             return labels;
         var nav = html[navStart..navEnd];
 
-        var itemStarts = Regex.Matches(nav, "<div class=\"nav-item[\" ]");
+        var itemStarts = NavItemStartRegex().Matches(nav);
         for (var i = 0; i < itemStarts.Count; i++)
         {
             var start = itemStarts[i].Index;
@@ -258,7 +258,7 @@ public static class PocAudit
             if (block.Contains("nav-chevron", StringComparison.Ordinal))
                 continue; // group header
 
-            var label = Regex.Match(block, "<span class=\"nav-label\">(.*?)</span>", RegexOptions.Singleline);
+            var label = NavLabelRegex().Match(block);
             if (!label.Success)
                 continue;
             var text = WebUtility.HtmlDecode(label.Groups[1].Value).Trim();
@@ -271,11 +271,11 @@ public static class PocAudit
     private static List<string> SectionLabels(string html)
     {
         var labels = new List<string>();
-        foreach (Match tag in Regex.Matches(html, "<section\\b[^>]*>"))
+        foreach (Match tag in SectionTagRegex().Matches(html))
         {
             if (!tag.Value.Contains("page-view", StringComparison.Ordinal))
                 continue;
-            var view = Regex.Match(tag.Value, "data-view=\"([^\"]*)\"");
+            var view = DataViewRegex().Match(tag.Value);
             if (!view.Success)
                 continue;
             var text = WebUtility.HtmlDecode(view.Groups[1].Value).Trim();
@@ -304,4 +304,47 @@ public static class PocAudit
 
     // Same normalization the shell's view routing applies (viewKey): labels match case-insensitively.
     private static string Key(string label) => label.Trim().ToLowerInvariant();
+
+    // --- Regex biên dịch sẵn (source-generated) cho các phép quét markup ở trên ---
+    [GeneratedRegex("<!--.*?-->", RegexOptions.Singleline)]
+    private static partial Regex HtmlCommentRegex();
+
+    [GeneratedRegex("<style\\b.*?</style>", RegexOptions.Singleline | RegexOptions.IgnoreCase)]
+    private static partial Regex StyleBlockRegex();
+
+    [GeneratedRegex("<script\\b.*?</script>", RegexOptions.Singleline | RegexOptions.IgnoreCase)]
+    private static partial Regex ScriptBlockRegex();
+
+    [GeneratedRegex("\\bid=\"([^\"]+)\"")]
+    private static partial Regex IdAttributeRegex();
+
+    [GeneratedRegex("data-(?:bs-target|crud-modal)=\"#([^\"]+)\"")]
+    private static partial Regex ModalTargetRegex();
+
+    [GeneratedRegex("<form\\b[^>]*data-crud-form=\"([^\"]+)\"[^>]*>")]
+    private static partial Regex CrudFormRegex();
+
+    [GeneratedRegex("<table\\b[^>]*data-crud-table=\"([^\"]+)\"[^>]*>")]
+    private static partial Regex CrudTableRegex();
+
+    [GeneratedRegex("data-field=\"([^\"]+)\"")]
+    private static partial Regex DataFieldRegex();
+
+    [GeneratedRegex("\\bname=\"([^\"]+)\"")]
+    private static partial Regex NameAttributeRegex();
+
+    [GeneratedRegex("data-crud-add=\"([^\"]+)\"")]
+    private static partial Regex CrudAddRegex();
+
+    [GeneratedRegex("<div class=\"nav-item[\" ]")]
+    private static partial Regex NavItemStartRegex();
+
+    [GeneratedRegex("<span class=\"nav-label\">(.*?)</span>", RegexOptions.Singleline)]
+    private static partial Regex NavLabelRegex();
+
+    [GeneratedRegex("<section\\b[^>]*>")]
+    private static partial Regex SectionTagRegex();
+
+    [GeneratedRegex("data-view=\"([^\"]*)\"")]
+    private static partial Regex DataViewRegex();
 }

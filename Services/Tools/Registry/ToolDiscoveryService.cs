@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Tools;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Tools.Registry;
 
-public class ToolDiscoveryService
+public partial class ToolDiscoveryService
 {
     private readonly AppDbContext _db;
     public ToolDiscoveryService(AppDbContext db) { _db = db; }
@@ -58,5 +59,9 @@ public class ToolDiscoveryService
     }
 
     private static string SplitPascalCase(string input) =>
-        System.Text.RegularExpressions.Regex.Replace(input, "(?<!^)([A-Z])", " $1");
+        PascalCaseBoundaryRegex().Replace(input, " $1");
+
+    // Chèn khoảng trắng trước mỗi chữ HOA (trừ ký tự đầu) để "WriteFile" → "Write File".
+    [GeneratedRegex("(?<!^)([A-Z])")]
+    private static partial Regex PascalCaseBoundaryRegex();
 }

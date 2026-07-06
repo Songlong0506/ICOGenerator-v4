@@ -10,7 +10,7 @@ namespace ICOGenerator.Services.Artifacts;
 /// deliberately tolerant — a spec that predates that contract simply yields an empty checklist and
 /// the audit skips the coverage checks instead of chasing ghosts.
 /// </summary>
-public sealed class PocSpec
+public sealed partial class PocSpec
 {
     public static readonly PocSpec Empty = new([], []);
 
@@ -42,7 +42,7 @@ public sealed class PocSpec
         {
             var line = raw.TrimEnd();
 
-            var level2 = Regex.Match(line, "^\\s{0,3}##(?!#)\\s*(.+)$");
+            var level2 = Level2HeadingRegex().Match(line);
             if (level2.Success)
             {
                 section = ClassifySection(level2.Groups[1].Value);
@@ -52,7 +52,7 @@ public sealed class PocSpec
             switch (section)
             {
                 case CurrentSection.Screens:
-                    var screenHeading = Regex.Match(line, "^\\s{0,3}###\\s*(.+)$");
+                    var screenHeading = Level3HeadingRegex().Match(line);
                     if (screenHeading.Success)
                         AddUnique(screens, CleanScreenName(screenHeading.Groups[1].Value), MaxScreens);
                     break;
@@ -60,7 +60,7 @@ public sealed class PocSpec
                 case CurrentSection.Rules:
                     // Only TOP-LEVEL bullets/numbered items are rules — column 0, since any
                     // indentation (2+ spaces) is how markdown nests a detail under the rule above.
-                    var bullet = Regex.Match(line, "^(?:[-*+]|\\d{1,2}[.)])\\s+(.+)$");
+                    var bullet = TopLevelBulletRegex().Match(line);
                     if (bullet.Success)
                         AddUnique(rules, CleanRuleText(bullet.Groups[1].Value), MaxRules);
                     break;
@@ -91,7 +91,7 @@ public sealed class PocSpec
 
     /// <summary>Normalization shared by both sides of the match (mirrors the shell's case-insensitive view routing).</summary>
     public static string Key(string label) =>
-        Regex.Replace((label ?? string.Empty).Trim(), "\\s+", " ").ToLowerInvariant();
+        WhitespaceRegex().Replace((label ?? string.Empty).Trim(), " ").ToLowerInvariant();
 
     private enum CurrentSection { Other, Screens, Rules }
 
@@ -114,8 +114,8 @@ public sealed class PocSpec
     private static string CleanScreenName(string raw)
     {
         var name = StripMarkdownEmphasis(StripNumbering(raw));
-        name = Regex.Replace(name, "^(?:screen|màn hình)\\s*[:\\-–—]\\s*", string.Empty, RegexOptions.IgnoreCase);
-        name = Regex.Replace(name, "\\s*[(（][^)）]*[)）]\\s*$", string.Empty);
+        name = ScreenLabelPrefixRegex().Replace(name, string.Empty);
+        name = TrailingParentheticalRegex().Replace(name, string.Empty);
         return name.Trim();
     }
 
@@ -123,11 +123,11 @@ public sealed class PocSpec
     {
         var rule = StripMarkdownEmphasis(raw).Trim();
         // Placeholder bullets ("N/A", "Không có") are not rules.
-        return Regex.IsMatch(rule, "^(?:n/?a|none|không có)\\.?$", RegexOptions.IgnoreCase) ? string.Empty : rule;
+        return PlaceholderBulletRegex().IsMatch(rule) ? string.Empty : rule;
     }
 
     private static string StripNumbering(string text) =>
-        Regex.Replace(text.Trim(), "^\\d{1,2}(?:\\.\\d{1,2})*[.)]?\\s*", string.Empty);
+        LeadingNumberingRegex().Replace(text.Trim(), string.Empty);
 
     private static string StripMarkdownEmphasis(string text) =>
         text.Replace("**", string.Empty).Replace("`", string.Empty).Trim();
@@ -139,4 +139,36 @@ public sealed class PocSpec
         if (!list.Any(x => Key(x) == Key(value)))
             list.Add(value);
     }
+
+    // Heading "## …" (không phải "###") — dòng phân mục cấp 2 của spec markdown.
+    [GeneratedRegex("^\\s{0,3}##(?!#)\\s*(.+)$")]
+    private static partial Regex Level2HeadingRegex();
+
+    // Heading "### …" — mỗi màn hình một dòng trong mục "Screens To Generate".
+    [GeneratedRegex("^\\s{0,3}###\\s*(.+)$")]
+    private static partial Regex Level3HeadingRegex();
+
+    // Bullet/numbered item ở CỘT 0 (không thụt đầu dòng) — mỗi business rule một dòng.
+    [GeneratedRegex("^(?:[-*+]|\\d{1,2}[.)])\\s+(.+)$")]
+    private static partial Regex TopLevelBulletRegex();
+
+    // Gộp mọi cụm khoảng trắng về một dấu cách (chuẩn hoá nhãn để so khớp).
+    [GeneratedRegex("\\s+")]
+    private static partial Regex WhitespaceRegex();
+
+    // Tiền tố nhãn "Screen:" / "Màn hình:" (chỉ khi có dấu phân cách theo sau).
+    [GeneratedRegex("^(?:screen|màn hình)\\s*[:\\-–—]\\s*", RegexOptions.IgnoreCase)]
+    private static partial Regex ScreenLabelPrefixRegex();
+
+    // Gợi ý route/chú thích trong ngoặc ở cuối tên màn hình.
+    [GeneratedRegex("\\s*[(（][^)）]*[)）]\\s*$")]
+    private static partial Regex TrailingParentheticalRegex();
+
+    // Bullet placeholder ("N/A", "none", "Không có") — không phải rule thật.
+    [GeneratedRegex("^(?:n/?a|none|không có)\\.?$", RegexOptions.IgnoreCase)]
+    private static partial Regex PlaceholderBulletRegex();
+
+    // Đánh số đầu dòng ("6.", "6.1.", "1)"…) cần cắt bỏ.
+    [GeneratedRegex("^\\d{1,2}(?:\\.\\d{1,2})*[.)]?\\s*")]
+    private static partial Regex LeadingNumberingRegex();
 }
