@@ -30,7 +30,7 @@
         border: 1px solid var(--line);
         padding: 14px;
         margin-top: 12px;
-        background: #f7f8f9;
+        background: var(--surface-alt);
     }
 
     .history-left {
@@ -70,7 +70,7 @@
         }
 
         .req-msg.ba {
-            background: #f7f8f9;
+            background: var(--surface-alt);
             border-color: var(--line);
         }
 
@@ -136,7 +136,7 @@
         padding: 0 6px;
         border: 1px solid var(--line);
         border-radius: 6px;
-        background: #f7f8f9;
+        background: var(--surface-alt);
         color: var(--muted);
         font-size: 12px;
         font-weight: 600;
@@ -332,7 +332,7 @@
 
     .doc-render {
         line-height: 1.65;
-        color: #1e293b;
+        color: var(--slate-800);
         font-size: 14px;
     }
 
@@ -378,20 +378,20 @@
     }
 
     .doc-render table.doc-table td {
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--slate-300);
         padding: 8px 12px;
         vertical-align: top;
         text-align: left;
     }
 
     .doc-render table.doc-table tr:first-child td {
-        background: #f1f5f9;
+        background: var(--slate-100);
         font-weight: 600;
     }
 
     .doc-empty,
     .doc-loading {
-        color: #94a3b8;
+        color: var(--slate-400);
         font-style: italic;
     }
 
@@ -407,7 +407,7 @@
     }
 
     .workflow-progress {
-        border: 1px solid #bfdbfe;
+        border: 1px solid var(--info-border);
         background: #f8fbff;
         max-width: 88%;
     }
@@ -438,11 +438,11 @@
     }
 
     #wf-panel .muted {
-        color: #64748B;
+        color: var(--slate-500);
     }
 
     .wf-task {
-        border: 1px solid #E2E8F0;
+        border: 1px solid var(--slate-200);
         border-radius: 8px;
         padding: 8px 10px;
         margin-top: 8px;
@@ -484,7 +484,7 @@
     }
 
     .retry-wf-btn:hover {
-        background: #B91C1C;
+        background: var(--danger-ink);
     }
 
     .retry-wf-btn:disabled {
@@ -493,13 +493,13 @@
     }
 
     .wf-out {
-        color: #475569;
+        color: var(--slate-600);
         font-size: 12px;
         margin-top: 6px;
         white-space: pre-wrap;
         max-height: 140px;
         overflow: auto;
-        background: #F8FAFC;
+        background: var(--slate-50);
         padding: 6px 8px;
         border-radius: 6px;
     }
@@ -521,8 +521,8 @@
     }
 
     .wf-fail {
-        background: #FEF2F2;
-        color: #B91C1C;
+        background: var(--danger-tint);
+        color: var(--danger-ink);
     }
 
     .wf-wait {
@@ -554,7 +554,7 @@
         padding: 6px 8px;
         border-radius: 8px;
         background: #fff;
-        border: 1px solid #E2E8F0;
+        border: 1px solid var(--slate-200);
         font-size: 13px;
         animation: wf-fade-in .25s ease-out;
     }
@@ -582,28 +582,28 @@
     }
 
     .wf-event-msg {
-        color: #334155;
+        color: var(--slate-700);
     }
 
     .wf-event-time {
-        color: #94A3B8;
+        color: var(--slate-400);
         font-size: 11px;
         margin-left: 8px;
         white-space: nowrap;
     }
 
     .wf-event-thinking {
-        background: #F8FAFC;
+        background: var(--slate-50);
         border-style: dashed;
     }
 
     .wf-event-error {
-        border-color: #FECACA;
-        background: #FEF2F2;
+        border-color: var(--danger-border);
+        background: var(--danger-tint);
     }
 
     .wf-event-error .wf-event-msg {
-        color: #B91C1C;
+        color: var(--danger-ink);
     }
 
     .wf-event-final,
@@ -618,7 +618,7 @@
 
     .wf-event-detail summary {
         cursor: pointer;
-        color: #64748B;
+        color: var(--slate-500);
         font-size: 11px;
         user-select: none;
     }
@@ -626,10 +626,10 @@
     .wf-event-detail pre {
         margin: 4px 0 0;
         padding: 6px 8px;
-        background: #F8FAFC;
+        background: var(--slate-50);
         border-radius: 6px;
         font-size: 11px;
-        color: #475569;
+        color: var(--slate-600);
         white-space: pre-wrap;
         word-break: break-word;
         max-height: 120px;
@@ -711,14 +711,14 @@
         max-height: 150px;
         overflow: auto;
         border-radius: 8px;
-        background: #0f172a;
-        color: #e2e8f0;
+        background: var(--slate-900);
+        color: var(--slate-200);
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         font-size: 12px;
         line-height: 1.55;
         white-space: pre-wrap;
         word-break: break-word;
-        border: 1px solid #1e293b;
+        border: 1px solid var(--slate-800);
     }
 
     /* Con trỏ nhấp nháy ở cuối dòng đang gõ. */
@@ -768,10 +768,10 @@
 
 /* ---------- Source documents panel / alerts ---------- */
 .req-alert { padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; }
-.req-alert.error { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; }
+.req-alert.error { color: var(--danger-ink); background: var(--danger-tint); border: 1px solid var(--danger-border); }
 .req-alert.ok { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; }
 .source-panel { margin-top: 18px; border-top: 1px solid #e5e7eb; padding-top: 14px; }
-.source-vision-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 8px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; }
+.source-vision-warn { background: #fffbeb; border: 1px solid var(--warning-border); color: var(--warning-ink); padding: 8px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; }
 .source-upload-form { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .source-file-input { font-size: 12px; }
 .source-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
