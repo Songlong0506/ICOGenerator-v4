@@ -18,6 +18,15 @@ public class EvalResult
     /// <summary>Trả lời của model mục tiêu cho UserInput của scenario.</summary>
     public string Output { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Phiên bản prompt (PromptTemplateVersion) đã dùng làm system prompt lúc chạy: null = nội dung
+    /// FILE trong repo (không có bản DB active). Tham chiếu Guid + snapshot số phiên bản, KHÔNG FK
+    /// (như EvalScenarioId) — xoá lịch sử prompt không mất lịch sử điểm. Nhờ cặp cột này, so hai run
+    /// biết ngay mỗi run đo phiên bản prompt NÀO thay vì đoán theo thời điểm chạy.
+    /// </summary>
+    public Guid? PromptVersionId { get; set; }
+    public int? PromptVersionNumber { get; set; }
+
     /// <summary>Điểm judge 1–5; null khi lời gọi target/judge lỗi hoặc judge trả về không parse được.</summary>
     public int? Score { get; set; }
 

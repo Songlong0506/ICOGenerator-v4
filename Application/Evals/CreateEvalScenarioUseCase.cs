@@ -1,6 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Evals;
+using ICOGenerator.Services.Prompts;
 
 namespace ICOGenerator.Application.Evals;
 
@@ -8,9 +8,9 @@ namespace ICOGenerator.Application.Evals;
 public class CreateEvalScenarioUseCase
 {
     private readonly AppDbContext _db;
-    private readonly EvalPromptCatalog _promptCatalog;
+    private readonly PromptFileCatalog _promptCatalog;
 
-    public CreateEvalScenarioUseCase(AppDbContext db, EvalPromptCatalog promptCatalog)
+    public CreateEvalScenarioUseCase(AppDbContext db, PromptFileCatalog promptCatalog)
     {
         _db = db;
         _promptCatalog = promptCatalog;

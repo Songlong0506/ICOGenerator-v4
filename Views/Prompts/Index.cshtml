@@ -1,0 +1,78 @@
+@using ICOGenerator.Application.Prompts
+@model PromptStudioPageVm
+
+@{
+    ViewData["Title"] = "Prompt Studio";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/prompts.css" asp-append-version="true" />
+}
+
+<div class="page-head">
+    <div>
+        <h1>Prompt Studio</h1>
+        <p class="muted prompt-sub">
+            Nội dung &amp; lịch sử PHIÊN BẢN của các template prompt dưới /Prompts. Sửa ở đây có hiệu lực
+            ngay (không cần deploy), rollback một cú nhấp; template chưa sửa bao giờ vẫn dùng nội dung file trong repo.
+        </p>
+    </div>
+</div>
+
+<div class="card table-card">
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Template</th>
+                    <th>Nguồn đang dùng</th>
+                    <th>Số phiên bản</th>
+                    <th>Sửa lần cuối</th>
+                    <th>Bởi</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in Model.Templates)
+                {
+                    <tr>
+                        <td>
+                            <a class="prompt-key-link" asp-action="Detail" asp-route-key="@t.PromptKey">
+                                <code class="prompt-key">@t.PromptKey</code>
+                            </a>
+                            @if (!t.FileExists)
+                            {
+                                <span class="badge orange" title="File .md đã bị xoá khỏi repo — template chỉ còn sống bằng phiên bản DB">File đã xoá</span>
+                            }
+                        </td>
+                        <td>
+                            @if (t.ActiveVersionNumber is int active)
+                            {
+                                <span class="badge green" title="Bản DB đang thay nội dung file">DB v@(active)</span>
+                            }
+                            else
+                            {
+                                <span class="badge gray" title="Dùng nội dung file trong repo">File</span>
+                            }
+                        </td>
+                        <td>@(t.VersionCount == 0 ? "—" : t.VersionCount.ToString())</td>
+                        <td>
+                            @if (t.LastChangedAt is DateTime lastAt)
+                            {
+                                <span class="prompt-time" data-utc="@lastAt.ToString("o")"></span>
+                            }
+                            else
+                            {
+                                <span class="muted">Chưa sửa bao giờ</span>
+                            }
+                        </td>
+                        <td>@(t.LastChangedBy ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/prompts.js" asp-append-version="true"></script>
+}

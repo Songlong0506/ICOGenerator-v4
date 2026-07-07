@@ -166,6 +166,53 @@ public class EvalRunnerServiceTests : IDisposable
         Assert.Equal("Khớp", results[0].ScenarioName);
     }
 
+    [Fact]
+    public async Task RunAsync_StampsPromptVersionOnResults_NullMeansFile()
+    {
+        Guid runId;
+        await using (var db = NewDb())
+        {
+            db.EvalScenarios.Add(new EvalScenario { Name = "S1", PromptKey = "BA/x.md", UserInput = "in", Criteria = "c" });
+            var run = NewRun();
+            db.EvalRuns.Add(run);
+            await db.SaveChangesAsync();
+            runId = run.Id;
+        }
+
+        // (1) Không có bản DB active ⇒ kết quả ghi "file" (PromptVersionId null).
+        await using (var db = NewDb())
+        {
+            await NewRunner(db, judgeReply: """{"score": 4, "reasoning": "ổn"}""").RunAsync(runId);
+        }
+        await using (var verify = NewDb())
+        {
+            var result = await verify.EvalResults.SingleAsync(x => x.EvalRunId == runId);
+            Assert.Null(result.PromptVersionId);
+            Assert.Null(result.PromptVersionNumber);
+        }
+
+        // (2) Có bản DB active ⇒ kết quả snapshot đúng id + số phiên bản đã đo.
+        var overrideId = Guid.NewGuid();
+        Guid secondRunId;
+        await using (var db = NewDb())
+        {
+            var run = NewRun();
+            db.EvalRuns.Add(run);
+            await db.SaveChangesAsync();
+            secondRunId = run.Id;
+        }
+        await using (var db = NewDb())
+        {
+            await NewRunner(db, judgeReply: """{"score": 4, "reasoning": "ổn"}""",
+                overrides: new FixedPromptOverrideProvider(new PromptOverride(overrideId, 3, "## prompt v3"))).RunAsync(secondRunId);
+        }
+
+        await using var verify2 = NewDb();
+        var stamped = await verify2.EvalResults.SingleAsync(x => x.EvalRunId == secondRunId);
+        Assert.Equal(overrideId, stamped.PromptVersionId);
+        Assert.Equal(3, stamped.PromptVersionNumber);
+    }
+
     private EvalRun NewRun() => new()
     {
         TargetModelId = _targetModelId,
@@ -174,10 +221,11 @@ public class EvalRunnerServiceTests : IDisposable
         JudgeModelName = "Judge"
     };
 
-    private EvalRunnerService NewRunner(AppDbContext db, string judgeReply) =>
+    private EvalRunnerService NewRunner(AppDbContext db, string judgeReply, IPromptOverrideProvider? overrides = null) =>
         new(db,
             new FakeChatClientFactory("câu trả lời của target", judgeReply),
             new StubPromptTemplateService(),
+            overrides ?? new NoPromptOverrideProvider(),
             new ConfigurationBuilder().Build(),
             NullLogger<EvalRunnerService>.Instance);
 
@@ -220,6 +268,20 @@ public class EvalRunnerServiceTests : IDisposable
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
         public void Dispose() { }
+    }
+
+    private sealed class NoPromptOverrideProvider : IPromptOverrideProvider
+    {
+        public PromptOverride? GetActiveOverride(string promptKey) => null;
+        public void Invalidate() { }
+    }
+
+    private sealed class FixedPromptOverrideProvider : IPromptOverrideProvider
+    {
+        private readonly PromptOverride _override;
+        public FixedPromptOverrideProvider(PromptOverride @override) => _override = @override;
+        public PromptOverride? GetActiveOverride(string promptKey) => _override;
+        public void Invalidate() { }
     }
 
     private sealed class StubPromptTemplateService : PromptTemplateService

@@ -6,6 +6,7 @@ using ICOGenerator.Application.Feedback;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Notifications;
 using ICOGenerator.Application.Projects;
+using ICOGenerator.Application.Prompts;
 using ICOGenerator.Application.Quality;
 using ICOGenerator.Application.Requirements;
 using ICOGenerator.Application.Roles;
@@ -94,6 +95,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddUsageUseCases();
         services.AddQualityUseCases();
         services.AddEvalUseCases();
+        services.AddPromptStudioUseCases();
         services.AddSettingsUseCases();
         services.AddFeedbackUseCases();
         services.AddAuditUseCases();
@@ -269,9 +271,8 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddEvalUseCases(this IServiceCollection services)
     {
-        // Trang Prompt Evals: use case/query scoped (DbContext); catalog prompt quét đĩa một lần ⇒ singleton;
-        // runner scoped (DbContext) và worker nền poll run Queued (cùng mẫu AgentTaskWorker).
-        services.AddSingleton<EvalPromptCatalog>();
+        // Trang Prompt Evals: use case/query scoped (DbContext); runner scoped (DbContext) và worker nền
+        // poll run Queued (cùng mẫu AgentTaskWorker). PromptFileCatalog nằm ở AddPromptServices.
         services.AddScoped<GetEvalPageQuery>();
         services.AddScoped<CreateEvalScenarioUseCase>();
         services.AddScoped<UpdateEvalScenarioUseCase>();
@@ -282,6 +283,19 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<CompareEvalRunsQuery>();
         services.AddScoped<EvalRunnerService>();
         services.AddHostedService<EvalRunWorker>();
+        return services;
+    }
+
+    private static IServiceCollection AddPromptStudioUseCases(this IServiceCollection services)
+    {
+        // Màn hình Prompt Studio (Application/Prompts): tất cả scoped vì dùng DbContext.
+        services.AddScoped<GetPromptStudioPageQuery>();
+        services.AddScoped<GetPromptDetailQuery>();
+        services.AddScoped<GetPromptVersionDiffQuery>();
+        services.AddScoped<GetPromptVersionDownloadQuery>();
+        services.AddScoped<SavePromptVersionUseCase>();
+        services.AddScoped<ActivatePromptVersionUseCase>();
+        services.AddScoped<RevertPromptToFileUseCase>();
         return services;
     }
 
@@ -324,6 +338,11 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddPromptServices(this IServiceCollection services)
     {
         services.AddScoped<PromptTemplateService>();
+        // Bản prompt chỉnh runtime (Prompt Studio) ghi đè nội dung file: provider scoped (DbContext),
+        // cache các bản active nằm trong IMemoryCache (singleton) nên vẫn một query mỗi 30s cho cả tiến trình.
+        services.AddScoped<IPromptOverrideProvider, DbPromptOverrideProvider>();
+        // Danh mục file .md dưới /Prompts (dùng bởi Prompt Studio + scenario eval): quét đĩa một lần ⇒ singleton.
+        services.AddSingleton<PromptFileCatalog>();
         return services;
     }
 

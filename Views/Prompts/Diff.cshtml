@@ -1,0 +1,65 @@
+@using ICOGenerator.Application.Prompts
+@using ICOGenerator.Services.Requirements
+@model PromptDiffVm
+
+@{
+    ViewData["Title"] = "Prompt Studio";
+    var changedCount = Model.Lines.Count(l => l.Kind != DiffLineKind.Same);
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/doc-history.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/prompts.css" asp-append-version="true" />
+}
+
+@section Breadcrumb {
+    <text>
+        <a asp-action="Index">Prompt Studio</a> <span class="sep">&rsaquo;</span>
+        <a asp-action="Detail" asp-route-key="@Model.PromptKey">@Model.PromptKey</a> <span class="sep">&rsaquo;</span>
+        Diff
+    </text>
+}
+
+<div class="page-head">
+    <div>
+        <h1><code class="prompt-key lg">@Model.PromptKey</code></h1>
+        <p class="muted prompt-sub">
+            So sánh <span class="badge gray">@Model.FromLabel</span> → <span class="badge green">@Model.ToLabel</span>
+            @if (changedCount == 0)
+            {
+                <span> — hai bản giống hệt nhau.</span>
+            }
+        </p>
+    </div>
+    <a class="btn outline" asp-action="Detail" asp-route-key="@Model.PromptKey">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i> Về lịch sử
+    </a>
+</div>
+
+<div class="card prompt-diff-card">
+    <div class="dh-diff-head">
+        <span class="dh-diff-title">@Model.FromLabel → @Model.ToLabel</span>
+        <div class="dh-legend">
+            <span class="dh-legend-item added">+ thêm</span>
+            <span class="dh-legend-item removed">− xoá</span>
+        </div>
+    </div>
+    <div class="dh-diff prompt-diff">
+        @foreach (var line in Model.Lines)
+        {
+            var cls = line.Kind switch
+            {
+                DiffLineKind.Added => "added",
+                DiffLineKind.Removed => "removed",
+                _ => ""
+            };
+            var sign = line.Kind switch
+            {
+                DiffLineKind.Added => "+",
+                DiffLineKind.Removed => "−",
+                _ => " "
+            };
+            <div class="dh-line @cls"><span class="dh-line-sign">@sign</span><span>@line.Text</span></div>
+        }
+    </div>
+</div>

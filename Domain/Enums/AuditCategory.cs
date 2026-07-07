@@ -15,5 +15,7 @@ public enum AuditCategory
     [Description("Agent")]
     Agent,
     [Description("AI Model")]
-    Model
+    Model,
+    [Description("Prompt template")]
+    Prompt
 }

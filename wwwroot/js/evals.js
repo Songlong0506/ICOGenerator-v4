@@ -137,9 +137,12 @@
                 const scoreHtml = r.score != null
                     ? '<span class="eval-score ' + scoreClass(r.score) + '">' + r.score + '/5</span>'
                     : '<span class="badge red" title="' + escapeHtml(r.errorMessage || '') + '">lỗi</span>';
+                // Phiên bản prompt đã đo (Prompt Studio): null = nội dung file trong repo.
+                const promptLabel = r.promptVersionNumber != null ? 'prompt v' + r.promptVersionNumber : 'prompt file';
                 return '<details class="eval-result"' + (i === 0 ? ' open' : '') + '>' +
                     '<summary><span class="eval-result-name">' + escapeHtml(r.scenarioName) + '</span>' + scoreHtml +
-                    '<span class="eval-result-meta">' + (r.targetTokens + r.judgeTokens).toLocaleString() + ' tok · ' +
+                    '<span class="eval-result-meta">' + promptLabel + ' · ' +
+                    (r.targetTokens + r.judgeTokens).toLocaleString() + ' tok · ' +
                     Math.round(r.durationMs / 1000) + 's</span></summary>' +
                     (r.errorMessage ? '<p class="eval-run-error">' + escapeHtml(r.errorMessage) + '</p>' : '') +
                     (r.judgeReasoning ? '<p class="eval-reasoning"><b>Judge:</b> ' + escapeHtml(r.judgeReasoning) + '</p>' : '') +
@@ -185,13 +188,18 @@
                     (run.averageScore != null ? run.averageScore.toFixed(2) : '–') + '</b></div>';
             };
 
+            // Nhãn phiên bản prompt đã đo ("v3" = bản DB Prompt Studio, "file" = nội dung repo) — hai run
+            // đo hai phiên bản khác nhau thì delta là so sánh PROMPT, cùng phiên bản thì là so sánh MODEL.
+            const promptTag = function (label) {
+                return label ? ' <span class="muted">(' + escapeHtml(label) + ')</span>' : '';
+            };
             const rows = cmp.rows.map(function (r) {
                 const delta = r.delta == null ? '–'
                     : (r.delta > 0 ? '+' + r.delta : String(r.delta));
                 const deltaClass = r.delta == null ? '' : r.delta > 0 ? 'delta-up' : r.delta < 0 ? 'delta-down' : 'delta-flat';
                 return '<tr><td>' + escapeHtml(r.scenarioName) + '</td>' +
-                    '<td>' + (r.scoreA != null ? r.scoreA : '–') + '</td>' +
-                    '<td>' + (r.scoreB != null ? r.scoreB : '–') + '</td>' +
+                    '<td>' + (r.scoreA != null ? r.scoreA : '–') + promptTag(r.promptA) + '</td>' +
+                    '<td>' + (r.scoreB != null ? r.scoreB : '–') + promptTag(r.promptB) + '</td>' +
                     '<td class="' + deltaClass + '">' + delta + '</td></tr>';
             }).join('');
 

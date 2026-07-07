@@ -310,6 +310,36 @@ Trả lời câu "sửa prompt/đổi model xong, chất lượng LÊN hay XUỐ
 - Phân quyền: `EvalView`/`EvalManage` (màn hình "Prompt Evals" trong `PermissionCatalog`; TeamDev
   được seed mặc định). Trang Delivery Quality có card "Prompt evals gần nhất" trỏ sang.
 
+### 5.16. Quản lý phiên bản prompt (Prompt Studio — sửa runtime, rollback, gắn với eval)
+Prompt gốc vẫn là file `.md` trong repo, nhưng trước đây sửa prompt là mất bản cũ, muốn đổi phải
+deploy, và eval run không biết mình đã đo phiên bản nào. Nay có một lớp PHIÊN BẢN trên DB:
+
+- **`PromptTemplateVersion`**: mỗi lần lưu ở màn hình **Prompt Studio** là một snapshot ĐẦY ĐỦ nội
+  dung (không delta — như `ProjectDocumentRevision`), đánh số tăng dần theo `PromptKey`. Lần sửa
+  ĐẦU TIÊN chụp thêm nội dung file làm v1 (baseline) nên lịch sử luôn diff được về bản gốc; nội
+  dung trùng bản đang dùng thì KHÔNG snapshot. Nhiều nhất MỘT bản `IsActive` mỗi key.
+- **Độ phân giải nội dung**: `PromptTemplateService.Get` hỏi `IPromptOverrideProvider`
+  (`DbPromptOverrideProvider` — nạp MỌI bản active bằng một query, cache IMemoryCache 30s, các thao
+  tác ghi `Invalidate()` nên đổi prompt **có hiệu lực ngay**, không cần deploy/restart). **Fail-open**:
+  DB lỗi ⇒ provider trả null ⇒ mọi prompt rơi về nội dung file — app không bao giờ hỏng vì bảng này.
+  `GetFileContent` luôn đọc file (baseline cho Studio). Danh mục file quét bởi `PromptFileCatalog`
+  (Services/Prompts — đổi tên từ `EvalPromptCatalog` vì giờ Studio cũng dùng).
+- **UI (Controllers/PromptsController + Views/Prompts)**: danh sách template (nguồn đang dùng:
+  File / DB v{n}), trang chi tiết (editor + "Lưu & kích hoạt", lịch sử, "Kích hoạt" rollback,
+  "Quay về file"), trang **Diff** giữa hai mốc (mốc `0` = file; tái dùng `DocumentDiffService` +
+  style diff của doc-history). Mọi thao tác ghi vào **Audit Log** (category `Prompt`).
+- **Gắn với eval**: `EvalRunnerService` hỏi provider trước khi chạy từng scenario và snapshot
+  `EvalResult.PromptVersionId/PromptVersionNumber` (Guid + số, **không FK** — như mọi tham chiếu
+  eval khác; null = nội dung file). Chi tiết run hiển thị "prompt v{n}/file" từng kết quả; màn so
+  sánh 2 run gắn nhãn phiên bản mỗi bên (cùng nhãn = so MODEL, khác nhãn = so PROMPT); trang chi
+  tiết template có bảng **"Điểm eval theo phiên bản"** (gộp điểm judge theo `PromptVersionNumber`)
+  — nhìn một bảng là biết phiên bản nào tốt hơn.
+- **Export/Import**: mỗi phiên bản tải được về file `.md` (tên mang số phiên bản, vd
+  `requirement-chat.v3.db-v2.md`) để đồng bộ ngược bản đã "chín" về repo; chiều ngược lại nút "Nạp
+  từ file" đổ nội dung một file `.md` vào editor (client-side) rồi Lưu như một lần sửa bình thường.
+- Phân quyền: `PromptView`/`PromptManage` (màn hình "Prompt Studio" trong `PermissionCatalog`;
+  TeamDev được seed mặc định — sửa prompt đổi hành vi AI ngay nên chỉ giao cho role tin cậy).
+
 ---
 
 ## 6. Công thức thêm một tính năng mới
