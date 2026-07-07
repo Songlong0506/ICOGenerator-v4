@@ -292,6 +292,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetPromptStudioPageQuery>();
         services.AddScoped<GetPromptDetailQuery>();
         services.AddScoped<GetPromptVersionDiffQuery>();
+        services.AddScoped<GetPromptVersionDownloadQuery>();
         services.AddScoped<SavePromptVersionUseCase>();
         services.AddScoped<ActivatePromptVersionUseCase>();
         services.AddScoped<RevertPromptToFileUseCase>();

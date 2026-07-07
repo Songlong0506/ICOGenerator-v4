@@ -188,13 +188,18 @@
                     (run.averageScore != null ? run.averageScore.toFixed(2) : '–') + '</b></div>';
             };
 
+            // Nhãn phiên bản prompt đã đo ("v3" = bản DB Prompt Studio, "file" = nội dung repo) — hai run
+            // đo hai phiên bản khác nhau thì delta là so sánh PROMPT, cùng phiên bản thì là so sánh MODEL.
+            const promptTag = function (label) {
+                return label ? ' <span class="muted">(' + escapeHtml(label) + ')</span>' : '';
+            };
             const rows = cmp.rows.map(function (r) {
                 const delta = r.delta == null ? '–'
                     : (r.delta > 0 ? '+' + r.delta : String(r.delta));
                 const deltaClass = r.delta == null ? '' : r.delta > 0 ? 'delta-up' : r.delta < 0 ? 'delta-down' : 'delta-flat';
                 return '<tr><td>' + escapeHtml(r.scenarioName) + '</td>' +
-                    '<td>' + (r.scoreA != null ? r.scoreA : '–') + '</td>' +
-                    '<td>' + (r.scoreB != null ? r.scoreB : '–') + '</td>' +
+                    '<td>' + (r.scoreA != null ? r.scoreA : '–') + promptTag(r.promptA) + '</td>' +
+                    '<td>' + (r.scoreB != null ? r.scoreB : '–') + promptTag(r.promptB) + '</td>' +
                     '<td class="' + deltaClass + '">' + delta + '</td></tr>';
             }).join('');
 

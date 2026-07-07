@@ -80,3 +80,8 @@
 
 .prompt-diff-card { padding: 14px 16px; }
 .prompt-diff { max-height: 72vh; min-height: 200px; }
+
+/* ----- Import/export & card eval theo phiên bản ----- */
+.prompt-import-label { cursor: pointer; margin: 0; white-space: nowrap; }
+.prompt-download { margin-left: 6px; vertical-align: middle; }
+.prompt-eval-card { margin-bottom: 18px; }

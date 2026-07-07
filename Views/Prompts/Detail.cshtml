@@ -71,6 +71,12 @@
             <input type="hidden" name="key" value="@Model.PromptKey" />
             <textarea class="prompt-editor" name="content" rows="22" spellcheck="false">@Model.ActiveContent</textarea>
             <div class="prompt-editor-foot">
+                @* Import: nạp một file .md (đã export từ môi trường khác / bản chỉnh ngoài) vào editor
+                   để soát lại rồi Lưu — client-side thuần, không endpoint riêng. Xem prompts.js. *@
+                <label class="btn outline small prompt-import-label" title="Nạp nội dung một file .md vào editor (chưa lưu — bấm Lưu để tạo phiên bản)">
+                    <i class="bi bi-upload" aria-hidden="true"></i> Nạp từ file
+                    <input type="file" id="promptImportInput" accept=".md,.txt,text/markdown,text/plain" hidden />
+                </label>
                 <input class="prompt-note-input" type="text" name="changeNote" maxlength="500"
                        placeholder="Ghi chú thay đổi (vd: siết điều kiện mời bấm Write Requirement)" />
                 <button class="btn primary" type="submit">
@@ -84,6 +90,50 @@
         <pre class="prompt-content-pre">@Model.ActiveContent</pre>
     }
 </div>
+
+@if (Model.EvalStats.Any())
+{
+    <div class="card table-card prompt-eval-card">
+        <div class="prompt-card-head">
+            <h3>Điểm eval theo phiên bản</h3>
+            <a class="btn outline small" asp-controller="Evals" asp-action="Index" title="Chạy eval mới / xem chi tiết run ở trang Prompt Evals">
+                <i class="bi bi-play-fill" aria-hidden="true"></i> Prompt Evals
+            </a>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Phiên bản đã đo</th>
+                        <th>Điểm judge TB (1–5)</th>
+                        <th>Số kết quả</th>
+                        <th>Lần chạy cuối</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in Model.EvalStats)
+                    {
+                        <tr>
+                            <td>
+                                @if (s.VersionNumber is int measured)
+                                {
+                                    <span class="badge green">DB v@(measured)</span>
+                                }
+                                else
+                                {
+                                    <span class="badge gray">File</span>
+                                }
+                            </td>
+                            <td><b>@s.AverageScore.ToString("0.00")</b></td>
+                            <td>@s.ResultCount</td>
+                            <td><span class="prompt-time" data-utc="@s.LastRunAt.ToString("o")"></span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
 
 <div class="card table-card">
     <div class="prompt-card-head">
@@ -134,6 +184,10 @@
                             <a class="prompt-diff-link" asp-action="Diff" asp-route-key="@Model.PromptKey"
                                asp-route-from="@(v.VersionNumber == 1 ? 0 : v.VersionNumber - 1)" asp-route-to="@v.VersionNumber">
                                 @(v.VersionNumber == 1 ? "file ↔ v1" : $"v{v.VersionNumber - 1} ↔ v{v.VersionNumber}")
+                            </a>
+                            <a class="icon-btn prompt-download" asp-action="Download" asp-route-key="@Model.PromptKey" asp-route-version="@v.VersionNumber"
+                               title="Tải phiên bản này về file .md (đồng bộ ngược về repo / mang sang môi trường khác)">
+                                <i class="bi bi-download" aria-hidden="true"></i>
                             </a>
                         </td>
                         @if (canManage)

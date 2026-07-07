@@ -17,6 +17,7 @@ public class PromptsController : Controller
     private readonly SavePromptVersionUseCase _saveVersion;
     private readonly ActivatePromptVersionUseCase _activateVersion;
     private readonly RevertPromptToFileUseCase _revertToFile;
+    private readonly GetPromptVersionDownloadQuery _getDownload;
 
     public PromptsController(
         GetPromptStudioPageQuery getStudioPage,
@@ -24,7 +25,8 @@ public class PromptsController : Controller
         GetPromptVersionDiffQuery getDiff,
         SavePromptVersionUseCase saveVersion,
         ActivatePromptVersionUseCase activateVersion,
-        RevertPromptToFileUseCase revertToFile)
+        RevertPromptToFileUseCase revertToFile,
+        GetPromptVersionDownloadQuery getDownload)
     {
         _getStudioPage = getStudioPage;
         _getDetail = getDetail;
@@ -32,6 +34,7 @@ public class PromptsController : Controller
         _saveVersion = saveVersion;
         _activateVersion = activateVersion;
         _revertToFile = revertToFile;
+        _getDownload = getDownload;
     }
 
     public async Task<IActionResult> Index()
@@ -58,6 +61,17 @@ public class PromptsController : Controller
             return NotFound("Prompt version not found.");
 
         return View(vm);
+    }
+
+    // Xuất một phiên bản DB ra file .md (đồng bộ ngược bản đã "chín" về repo / mang sang môi trường khác).
+    [HttpGet]
+    public async Task<IActionResult> Download(string key, int version)
+    {
+        var vm = await _getDownload.ExecuteAsync(key, version, HttpContext.RequestAborted);
+        if (vm == null)
+            return NotFound("Prompt version not found.");
+
+        return File(System.Text.Encoding.UTF8.GetBytes(vm.Content), "text/markdown", vm.FileName);
     }
 
     [HttpPost]
