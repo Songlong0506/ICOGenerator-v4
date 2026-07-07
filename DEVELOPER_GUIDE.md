@@ -360,7 +360,8 @@ Thiết kế:
 - `Services/Agents/` — vòng lặp agent (`AgentRunService`) dùng bởi worker pipeline.
 - `Services/Workflows/` — orchestrator pipeline + `AgentTaskWorker` (nơi làm hand-off ở mục 7).
 - `Services/Requirements/` — biến hội thoại BA thành tài liệu (kèm lịch sử revision + diff, xem ARCHITECTURE 5.14).
-- `Services/Evals/` — prompt eval harness: golden set + runner + LLM-judge + worker nền (ARCHITECTURE 5.15).
+- `Services/Evals/` — prompt eval harness: golden set + runner + LLM-judge + lịch định kỳ + chốt chặn hồi quy (ARCHITECTURE 5.15).
+- `Services/Quality/` — ma trận truy vết yêu cầu → story/code/test (ARCHITECTURE 5.17).
 - `Services/Tools/` — `Abstractions` (hợp đồng), `Execution` (hiện thực), `Registry` (khám phá/gọi), và các nhóm tool nghiệp vụ.
 - `Services/Llm/`, `Services/Prompts/`, `Services/Artifacts/` — gọi LLM, nạp prompt template, lưu file sản phẩm.
 - `Prompts/` — template prompt dạng `.md`.

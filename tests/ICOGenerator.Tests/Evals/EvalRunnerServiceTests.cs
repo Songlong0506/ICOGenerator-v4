@@ -4,6 +4,7 @@ using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Evals;
 using ICOGenerator.Services.Llm;
+using ICOGenerator.Services.Notifications;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Hosting;
@@ -178,6 +179,8 @@ public class EvalRunnerServiceTests : IDisposable
         new(db,
             new FakeChatClientFactory("câu trả lời của target", judgeReply),
             new StubPromptTemplateService(),
+            new EvalRegressionDetector(db, new NoopNotifications(), new ConfigurationBuilder().Build(),
+                NullLogger<EvalRegressionDetector>.Instance),
             new ConfigurationBuilder().Build(),
             NullLogger<EvalRunnerService>.Instance);
 
@@ -243,5 +246,14 @@ public class EvalRunnerServiceTests : IDisposable
         public string Protect(string? plainText) => plainText ?? string.Empty;
         public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
         public bool IsProtected(string? value) => false;
+    }
+
+    // Regression detector cần một INotificationService; test runner không quan tâm thông báo.
+    private sealed class NoopNotifications : INotificationService
+    {
+        public Task NotifyGateOpenedAsync(WorkflowRun run, string nextStepTitle, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task NotifyRunCompletedAsync(WorkflowRun run, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task NotifyRunFailedAsync(WorkflowRun run, string? error, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task NotifyEvalRegressionAsync(EvalRun run, double delta, double threshold, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

@@ -18,5 +18,9 @@ public enum NotificationType
 
     /// <summary>Workflow dừng vì lỗi — cần người xem lại.</summary>
     [Description("Workflow thất bại")]
-    WorkflowFailed
+    WorkflowFailed,
+
+    /// <summary>Một run eval hoàn tất với điểm TỤT quá ngưỡng so với baseline — prompt/model có thể vừa hỏng.</summary>
+    [Description("Prompt eval tụt điểm")]
+    EvalRegression
 }

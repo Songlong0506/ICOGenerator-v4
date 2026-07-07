@@ -117,7 +117,7 @@ public static class DbInitializer
                 AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance,
                 AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete,
                 AppPermission.UsageView,
-                AppPermission.QualityView,
+                AppPermission.QualityView, AppPermission.QualityManage,
                 AppPermission.EvalView, AppPermission.EvalManage,
                 AppPermission.FeedbackView, AppPermission.FeedbackManage,
                 AppPermission.AuditView

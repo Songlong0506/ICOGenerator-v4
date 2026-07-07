@@ -41,6 +41,24 @@ public class EvalRun
     /// <summary>Lỗi mức RUN (model bị xoá, worker gián đoạn...); lỗi từng scenario nằm trên EvalResult.</summary>
     public string? Error { get; set; }
 
+    /// <summary>Lịch sinh ra run này (null = run bấm tay). Guid không FK — xoá lịch vẫn giữ lịch sử run.</summary>
+    public Guid? ScheduleId { get; set; }
+
+    /// <summary>
+    /// Run baseline được chọn để so hồi quy khi run này hoàn tất (run Completed gần nhất trước đó có cùng
+    /// model mục tiêu + cùng bộ lọc PromptKey). Null = không có gì để so (run so sánh được đầu tiên).
+    /// </summary>
+    public Guid? BaselineEvalRunId { get; set; }
+
+    /// <summary>
+    /// Chênh lệch điểm so với baseline, tính trên các scenario CHUNG giữa hai run (mới − cũ, thang 1–5).
+    /// Âm = tụt. Null khi chưa so được (không có baseline / không có scenario chung).
+    /// </summary>
+    public double? ScoreDelta { get; set; }
+
+    /// <summary>Run này TỤT quá ngưỡng so với baseline (xem EvalRegressionDetector) — đã bắn thông báo.</summary>
+    public bool IsRegression { get; set; }
+
     public string? CreatedByUsername { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

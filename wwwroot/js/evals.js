@@ -64,6 +64,50 @@
         openModal('scenarioModal');
     };
 
+    // ---------- Schedule modal (một form cho cả thêm lẫn sửa, cùng cơ chế scenario) ----------
+
+    window.openCreateSchedule = function () {
+        const form = document.getElementById('scheduleForm');
+        form.action = window.EVALS.createScheduleUrl;
+        form.reset();
+        document.getElementById('schedule-id').value = '';
+        document.getElementById('scheduleModalTitle').textContent = 'Thêm lịch định kỳ';
+        document.getElementById('scheduleSubmitBtn').textContent = 'Thêm lịch';
+        document.getElementById('schedule-enabled-line').style.display = 'none';
+        openModal('scheduleModal');
+    };
+
+    window.openEditSchedule = function (id) {
+        const data = window.EVALS.schedules[id];
+        if (!data) return;
+
+        const form = document.getElementById('scheduleForm');
+        form.action = window.EVALS.updateScheduleUrl;
+        document.getElementById('schedule-id').value = id;
+        document.getElementById('schedule-name').value = data.name;
+        document.getElementById('schedule-target-model').value = data.targetModelId;
+        document.getElementById('schedule-judge-model').value = data.judgeModelId;
+        document.getElementById('schedule-prompt-key').value = data.promptKey;
+        document.getElementById('schedule-interval').value = data.intervalHours;
+        document.getElementById('schedule-threshold').value = data.regressionThreshold;
+        document.getElementById('schedule-is-enabled').checked = data.isEnabled;
+        document.getElementById('schedule-enabled-line').style.display = '';
+        document.getElementById('scheduleModalTitle').textContent = 'Sửa lịch định kỳ';
+        document.getElementById('scheduleSubmitBtn').textContent = 'Lưu thay đổi';
+        openModal('scheduleModal');
+    };
+
+    // Ô "Δ so với baseline" — cùng cách hiển thị với phần render server (DeltaHtml trong view).
+    function deltaHtml(delta, isRegression) {
+        if (delta == null) return '<span class="muted">–</span>';
+        const cls = delta > 0 ? 'delta-up' : delta < 0 ? 'delta-down' : 'delta-flat';
+        const text = (delta > 0 ? '+' : '') + delta.toFixed(2);
+        const badge = isRegression
+            ? ' <span class="badge red" title="Tụt quá ngưỡng so với run baseline — đã gửi thông báo">Tụt</span>'
+            : '';
+        return '<span class="' + cls + '">' + text + '</span>' + badge;
+    }
+
     // ---------- Poll tiến độ run đang Queued/Running ----------
 
     async function pollLiveRuns() {
@@ -81,6 +125,10 @@
                 const scoreEl = row.querySelector('.run-score .eval-score');
                 scoreEl.textContent = s.averageScore != null ? s.averageScore.toFixed(2) : '–';
                 scoreEl.className = 'eval-score ' + scoreClass(s.averageScore);
+
+                // Delta + cờ hồi quy chỉ xuất hiện khi run chuyển Completed (detector chạy lúc chốt run).
+                const deltaEl = row.querySelector('.run-delta');
+                if (deltaEl) deltaEl.innerHTML = deltaHtml(s.scoreDelta, s.isRegression);
 
                 const badge = row.querySelector('.run-status .badge');
                 badge.textContent = s.status;

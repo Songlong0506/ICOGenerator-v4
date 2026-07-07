@@ -21,4 +21,11 @@ public interface INotificationService
 
     /// <summary>Workflow dừng vì lỗi — cần người xem lại.</summary>
     Task NotifyRunFailedAsync(WorkflowRun run, string? error, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Một run eval hoàn tất với điểm TỤT quá <paramref name="threshold"/> so với baseline
+    /// (<paramref name="delta"/> âm, tính trên các scenario chung). Người nhận là user có quyền
+    /// <c>EvalView</c> — họ là người theo dõi chất lượng prompt. Cùng hợp đồng Add-không-SaveChanges.
+    /// </summary>
+    Task NotifyEvalRegressionAsync(EvalRun run, double delta, double threshold, CancellationToken cancellationToken = default);
 }

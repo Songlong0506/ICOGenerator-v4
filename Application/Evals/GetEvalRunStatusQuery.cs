@@ -3,13 +3,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Evals;
 
-// Trạng thái gọn cho polling (JSON camelCase): tiến độ x/y + điểm trung bình tới thời điểm hiện tại.
+// Trạng thái gọn cho polling (JSON camelCase): tiến độ x/y + điểm trung bình tới thời điểm hiện tại,
+// kèm delta so với baseline + cờ hồi quy (chỉ có sau khi run Completed — xem EvalRegressionDetector).
 public record EvalRunStatusVm(
     Guid Id,
     string Status,
     int ScenarioCount,
     int CompletedCount,
     double? AverageScore,
+    double? ScoreDelta,
+    bool IsRegression,
     long TotalTokens,
     string? Error,
     DateTime? FinishedAt);
@@ -30,7 +33,8 @@ public class GetEvalRunStatusQuery
             .AsNoTracking()
             .Where(x => x.Id == runId)
             .Select(x => new EvalRunStatusVm(
-                x.Id, x.Status.ToString(), x.ScenarioCount, x.CompletedCount, x.AverageScore, x.TotalTokens, x.Error, x.FinishedAt))
+                x.Id, x.Status.ToString(), x.ScenarioCount, x.CompletedCount, x.AverageScore,
+                x.ScoreDelta, x.IsRegression, x.TotalTokens, x.Error, x.FinishedAt))
             .FirstOrDefaultAsync(cancellationToken);
     }
 }

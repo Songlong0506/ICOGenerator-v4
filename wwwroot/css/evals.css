@@ -104,3 +104,7 @@
 .delta-up { color: var(--success-ink); font-weight: 700; }
 .delta-down { color: var(--danger-ink); font-weight: 700; }
 .delta-flat { color: var(--muted); }
+
+/* ----- Lịch định kỳ + cột Δ của bảng Runs ----- */
+.eval-sched-icon { margin-left: 6px; color: var(--muted); font-size: 12px; }
+.run-delta { white-space: nowrap; }

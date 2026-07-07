@@ -89,3 +89,64 @@
 
 /* Chân card "Prompt evals gần nhất": link sang trang Prompt Evals. */
 .q-eval-foot { padding: 10px 16px; border-top: 1px solid var(--line); font-size: 13px; }
+
+/* ---- Ma trận truy vết (Quality/Traceability) ---- */
+.badge.red { color: var(--danger-ink); background: var(--danger-tint); }
+
+.trace-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+.trace-project-picker { display: flex; align-items: center; gap: 8px; }
+.trace-project-picker label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.trace-project-picker select {
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    max-width: 360px;
+}
+.trace-build-status { font-size: 13px; }
+
+.trace-stats { margin-bottom: 16px; }
+.trace-empty-card { padding: 28px 20px; }
+.trace-summary { padding: 12px 16px; margin-bottom: 16px; font-size: 13.5px; }
+
+.trace-table td { vertical-align: top; }
+.trace-req { min-width: 220px; max-width: 340px; }
+.trace-code {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--bosch-blue-dark);
+    background: var(--bosch-blue-tint);
+    border-radius: var(--radius-badge);
+}
+.trace-kind { font-size: 12px; margin-left: 4px; }
+.trace-note { font-size: 12px; margin-top: 4px; }
+.trace-cell { max-width: 260px; }
+.trace-chip {
+    display: inline-block;
+    margin: 0 4px 4px 0;
+    padding: 2px 8px;
+    font-size: 12px;
+    background: var(--surface-alt);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-badge);
+    word-break: break-all;
+}
+.trace-chip.mono { font-family: var(--mono, ui-monospace, monospace); font-size: 11.5px; }
+
+.trace-orphans { padding: 14px 16px; margin-top: 16px; }
+.trace-orphans h3 { margin: 0 0 10px; font-size: 14px; }
+.trace-orphans ul { margin: 0; padding-left: 18px; }
+.trace-orphans li { margin-bottom: 6px; font-size: 13px; }
+
+.trace-meta { margin-top: 14px; font-size: 12.5px; }
