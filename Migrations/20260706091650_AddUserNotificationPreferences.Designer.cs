@@ -4,6 +4,7 @@ using ICOGenerator.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ICOGenerator.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260706091650_AddUserNotificationPreferences")]
+    partial class AddUserNotificationPreferences
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -564,182 +567,6 @@ namespace ICOGenerator.Migrations
                     b.ToTable("AuditLogs");
                 });
 
-            modelBuilder.Entity("ICOGenerator.Domain.EvalResult", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<long>("DurationMs")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("EvalRunId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("EvalScenarioId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("IsSuccess")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("JudgeReasoning")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("JudgeTokens")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Output")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid?>("PromptVersionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("PromptVersionNumber")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ScenarioName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int?>("Score")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TargetTokens")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EvalRunId");
-
-                    b.HasIndex("EvalScenarioId");
-
-                    b.ToTable("EvalResults");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.EvalRun", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<double?>("AverageScore")
-                        .HasColumnType("float");
-
-                    b.Property<int>("CompletedCount")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedByUsername")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Error")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("FinishedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("JudgeModelId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("JudgeModelName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("PromptKey")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<int>("ScenarioCount")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<Guid>("TargetModelId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("TargetModelName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<long>("TotalTokens")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("Status", "CreatedAt");
-
-                    b.ToTable("EvalRuns");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.EvalScenario", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedByUsername")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Criteria")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("PromptKey")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserInput")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsActive", "CreatedAt");
-
-                    b.ToTable("EvalScenarios");
-                });
-
             modelBuilder.Entity("ICOGenerator.Domain.Feedback", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1069,43 +896,6 @@ namespace ICOGenerator.Migrations
                     b.ToTable("ProjectDocuments");
                 });
 
-            modelBuilder.Entity("ICOGenerator.Domain.ProjectDocumentRevision", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ChangeNote")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("ProjectDocumentId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("RevisionNumber")
-                        .HasColumnType("int");
-
-                    b.Property<string>("VersionName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProjectDocumentId", "RevisionNumber")
-                        .IsUnique();
-
-                    b.ToTable("ProjectDocumentRevisions");
-                });
-
             modelBuilder.Entity("ICOGenerator.Domain.ProjectSourceFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1162,48 +952,6 @@ namespace ICOGenerator.Migrations
                     b.HasIndex("ProjectId", "CreatedAt");
 
                     b.ToTable("ProjectSourceFiles");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.PromptTemplateVersion", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ChangeNote")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedByUsername")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("PromptKey")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<int>("VersionNumber")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PromptKey", "IsActive");
-
-                    b.HasIndex("PromptKey", "VersionNumber")
-                        .IsUnique();
-
-                    b.ToTable("PromptTemplateVersions");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.RolePermission", b =>
@@ -1405,17 +1153,6 @@ namespace ICOGenerator.Migrations
                     b.Navigation("ToolDefinition");
                 });
 
-            modelBuilder.Entity("ICOGenerator.Domain.EvalResult", b =>
-                {
-                    b.HasOne("ICOGenerator.Domain.EvalRun", "EvalRun")
-                        .WithMany("Results")
-                        .HasForeignKey("EvalRunId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("EvalRun");
-                });
-
             modelBuilder.Entity("ICOGenerator.Domain.FeedbackAttachment", b =>
                 {
                     b.HasOne("ICOGenerator.Domain.Feedback", "Feedback")
@@ -1442,17 +1179,6 @@ namespace ICOGenerator.Migrations
                     b.Navigation("Agent");
 
                     b.Navigation("Project");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.ProjectDocumentRevision", b =>
-                {
-                    b.HasOne("ICOGenerator.Domain.ProjectDocument", "ProjectDocument")
-                        .WithMany("Revisions")
-                        .HasForeignKey("ProjectDocumentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ProjectDocument");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.ProjectSourceFile", b =>
@@ -1484,11 +1210,6 @@ namespace ICOGenerator.Migrations
                     b.Navigation("ModelCallLogs");
                 });
 
-            modelBuilder.Entity("ICOGenerator.Domain.EvalRun", b =>
-                {
-                    b.Navigation("Results");
-                });
-
             modelBuilder.Entity("ICOGenerator.Domain.Feedback", b =>
                 {
                     b.Navigation("Attachments");
@@ -1507,11 +1228,6 @@ namespace ICOGenerator.Migrations
                     b.Navigation("SourceFiles");
 
                     b.Navigation("WorkflowRuns");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.ProjectDocument", b =>
-                {
-                    b.Navigation("Revisions");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.ToolDefinition", b =>

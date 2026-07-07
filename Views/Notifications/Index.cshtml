@@ -17,10 +17,13 @@
         <h1>Thông báo</h1>
         <p>Các sự kiện cần bạn để mắt tới: cổng chờ duyệt, workflow hoàn tất hoặc thất bại.</p>
     </div>
-    @if (Model.Items.Any(i => !i.IsRead))
-    {
-        <button type="button" class="btn" id="inboxMarkAll">Đánh dấu tất cả đã đọc</button>
-    }
+    <div class="inbox-actions">
+        <a class="btn" asp-controller="Notifications" asp-action="Preferences"><i class="bi bi-gear"></i> Tùy chọn</a>
+        @if (Model.Items.Any(i => !i.IsRead))
+        {
+            <button type="button" class="btn" id="inboxMarkAll">Đánh dấu tất cả đã đọc</button>
+        }
+    </div>
 </div>
 
 <div class="notif-inbox">

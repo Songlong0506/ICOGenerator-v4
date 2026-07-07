@@ -181,7 +181,10 @@
                             <div class="notif-list" id="notifList">
                                 <div class="notif-empty">Đang tải…</div>
                             </div>
-                            <a class="notif-foot" asp-controller="Notifications" asp-action="Index">Xem tất cả</a>
+                            <div class="notif-foot-row">
+                                <a class="notif-foot" asp-controller="Notifications" asp-action="Index">Xem tất cả</a>
+                                <a class="notif-foot" asp-controller="Notifications" asp-action="Preferences" title="Tùy chọn thông báo"><i class="bi bi-gear"></i></a>
+                            </div>
                         </div>
                     </div>
                     <div class="bosch-logo">BOSCH</div>

@@ -21,6 +21,7 @@ using ICOGenerator.Services.Evals;
 using ICOGenerator.Services.Feedback;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Notifications;
+using ICOGenerator.Services.Notifications.Channels;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Requirements;
@@ -99,7 +100,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSettingsUseCases();
         services.AddFeedbackUseCases();
         services.AddAuditUseCases();
-        services.AddNotificationServices();
+        services.AddNotificationServices(configuration);
         services.AddPromptServices();
         services.AddBudgetServices();
         services.AddLlmServices(configuration);
@@ -325,13 +326,23 @@ public static class ApplicationServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddNotificationServices(this IServiceCollection services)
+    private static IServiceCollection AddNotificationServices(this IServiceCollection services, IConfiguration configuration)
     {
         // Ghi thông báo (dùng bởi worker) + đọc/đánh dấu (dùng bởi controller). Tất cả scoped vì phụ thuộc DbContext.
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<GetNotificationsQuery>();
         services.AddScoped<MarkNotificationReadUseCase>();
         services.AddScoped<MarkAllNotificationsReadUseCase>();
+        services.AddScoped<GetNotificationPreferencesQuery>();
+        services.AddScoped<UpdateNotificationPreferencesUseCase>();
+
+        // Kênh NGOÀI (Teams/email) — OPT-IN: bind section "Notifications" (mặc định TẮT nên không gửi gì và
+        // không có overhead mạng). Teams cần HttpClient (typed client như GitHubPullRequestPublisher); Email
+        // dùng SmtpClient của BCL nên chỉ cần singleton. Cả hai self-disable khi thiếu cấu hình.
+        var options = configuration.GetSection("Notifications").Get<NotificationOptions>() ?? new NotificationOptions();
+        services.AddSingleton(options);
+        services.AddHttpClient<INotificationChannel, TeamsNotificationChannel>();
+        services.AddSingleton<INotificationChannel, EmailNotificationChannel>();
         return services;
     }
 

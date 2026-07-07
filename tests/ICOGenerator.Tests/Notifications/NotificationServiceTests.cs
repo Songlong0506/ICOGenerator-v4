@@ -50,7 +50,7 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
-            var svc = new NotificationService(db, FakePermissions.WithDeliveryAdvanceFor(UserRole.Admin, UserRole.TeamDev), NullLogger<NotificationService>.Instance);
+            var svc = new NotificationService(db, FakePermissions.WithDeliveryAdvanceFor(UserRole.Admin, UserRole.TeamDev), Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
 
             await svc.NotifyGateOpenedAsync(run, "Đề xuất kiến trúc");
             // Service chỉ Add — người gọi lưu.
@@ -91,7 +91,7 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
-            var svc = new NotificationService(db, FakePermissions.WithDeliveryAdvanceFor(UserRole.TeamDev), NullLogger<NotificationService>.Instance);
+            var svc = new NotificationService(db, FakePermissions.WithDeliveryAdvanceFor(UserRole.TeamDev), Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
             await svc.NotifyGateOpenedAsync(run, "X");
             // KHÔNG SaveChanges ⇒ không có dòng nào được persist.
         }
@@ -151,9 +151,151 @@ public class NotificationServiceTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task NotifyGateOpened_DispatchesToEnabledChannelsOnly_AndIsFailOpen()
+    {
+        var projectId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+
+        await using (var db = NewDb())
+        {
+            db.AppUsers.Add(new AppUser { Username = "teamdev", Role = UserRole.TeamDev, IsActive = true });
+            db.Projects.Add(new Project { Id = projectId, Name = "Cổng thanh toán" });
+            db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
+            await db.SaveChangesAsync();
+        }
+
+        var enabled = new RecordingChannel(isEnabled: true);
+        var disabled = new RecordingChannel(isEnabled: false);
+        var throwing = new ThrowingChannel();
+
+        await using (var db = NewDb())
+        {
+            var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
+            var options = new NotificationOptions { BaseUrl = "https://app.example/" };
+            var svc = new NotificationService(
+                db,
+                FakePermissions.WithDeliveryAdvanceFor(UserRole.TeamDev),
+                new INotificationChannel[] { enabled, disabled, throwing },
+                options,
+                NullLogger<NotificationService>.Instance);
+
+            await svc.NotifyGateOpenedAsync(run, "Đề xuất kiến trúc");
+            await db.SaveChangesAsync();
+        }
+
+        // Kênh bật nhận đúng thông điệp với URL TUYỆT ĐỐI (đã ghép BaseUrl, không nhân đôi dấu /).
+        Assert.NotNull(enabled.Last);
+        Assert.Equal(NotificationType.GateAwaitingApproval, enabled.Last!.Type);
+        Assert.Equal($"https://app.example/AgentDashboard?projectId={projectId}", enabled.Last.Url);
+        Assert.Equal("Cổng thanh toán", enabled.Last.ProjectName);
+
+        // Kênh tắt không được gọi; kênh ném lỗi không làm gãy (fail-open) và in-app vẫn ghi.
+        Assert.Null(disabled.Last);
+        await using (var db = NewDb())
+            Assert.Equal(1, await db.Notifications.CountAsync(n => n.RecipientUsername == "teamdev"));
+    }
+
+    [Fact]
+    public async Task Dispatch_RespectsInAppToggle_AndCollectsPerUserEmailRecipients()
+    {
+        var projectId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+
+        await using (var db = NewDb())
+        {
+            db.AppUsers.AddRange(
+                new AppUser { Username = "bell_all", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyByEmail = false },
+                new AppUser { Username = "email_opt", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyByEmail = true, Email = "e@bosch.com" },
+                new AppUser { Username = "muted_inapp", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = false, NotifyByEmail = false },
+                new AppUser { Username = "opt_no_addr", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyByEmail = true, Email = null });
+            db.Projects.Add(new Project { Id = projectId, Name = "P" });
+            db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
+            await db.SaveChangesAsync();
+        }
+
+        var channel = new RecordingChannel(isEnabled: true);
+        await using (var db = NewDb())
+        {
+            var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
+            var svc = new NotificationService(
+                db, FakePermissions.WithDeliveryAdvanceFor(UserRole.TeamDev),
+                new INotificationChannel[] { channel }, new NotificationOptions(),
+                NullLogger<NotificationService>.Instance);
+            await svc.NotifyGateOpenedAsync(run, "X");
+            await db.SaveChangesAsync();
+        }
+
+        // In-app: chỉ 3 user bật chuông (muted_inapp bị loại).
+        await using (var db = NewDb())
+        {
+            var users = await db.Notifications.Select(n => n.RecipientUsername).OrderBy(x => x).ToListAsync();
+            Assert.Equal(new[] { "bell_all", "email_opt", "opt_no_addr" }, users);
+        }
+
+        // Email cá nhân: chỉ email_opt (opt-in + có địa chỉ). opt_no_addr opt-in nhưng thiếu email ⇒ loại.
+        Assert.NotNull(channel.Last);
+        Assert.Equal(new[] { "e@bosch.com" }, channel.Last!.EmailRecipients);
+    }
+
+    [Fact]
+    public async Task Dispatch_SkipsEventType_WhenUserMutedIt()
+    {
+        var projectId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+
+        await using (var db = NewDb())
+        {
+            db.AppUsers.Add(new AppUser { Username = "gate_only", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyOnCompleted = false });
+            db.Projects.Add(new Project { Id = projectId, Name = "P" });
+            db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
+            await db.SaveChangesAsync();
+        }
+
+        async Task Fire(Func<NotificationService, WorkflowRun, Task> act)
+        {
+            await using var db = NewDb();
+            var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
+            var svc = new NotificationService(db, FakePermissions.WithDeliveryAdvanceFor(UserRole.TeamDev),
+                Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
+            await act(svc, run);
+            await db.SaveChangesAsync();
+        }
+
+        await Fire((svc, run) => svc.NotifyRunCompletedAsync(run));   // đã tắt ⇒ không tạo
+        await Fire((svc, run) => svc.NotifyGateOpenedAsync(run, "X")); // vẫn bật ⇒ tạo
+
+        await using (var db = NewDb())
+        {
+            var types = await db.Notifications.Select(n => n.Type).ToListAsync();
+            Assert.Equal(new[] { NotificationType.GateAwaitingApproval }, types);
+        }
+    }
+
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 
     public void Dispose() => _connection.Dispose();
+
+    private sealed class RecordingChannel : INotificationChannel
+    {
+        public RecordingChannel(bool isEnabled) => IsEnabled = isEnabled;
+        public string Name => "Recording";
+        public bool IsEnabled { get; }
+        public NotificationMessage? Last { get; private set; }
+        public Task SendAsync(NotificationMessage message, CancellationToken cancellationToken = default)
+        {
+            Last = message;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingChannel : INotificationChannel
+    {
+        public string Name => "Throwing";
+        public bool IsEnabled => true;
+        public Task SendAsync(NotificationMessage message, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("boom");
+    }
 
     private sealed class PassthroughApiKeyProtector : IApiKeyProtector
     {

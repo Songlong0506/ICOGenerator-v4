@@ -1055,3 +1055,23 @@ input[type="week"] {
     overflow: hidden;
 }
 .notif-inbox .notif-list { max-height: none; }
+
+/* ---- Notification preferences page ---- */
+.pref-form { max-width: 620px; }
+.pref-card { margin-bottom: 16px; }
+.pref-h { font-size: 15px; margin: 0 0 4px; }
+.pref-sub { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+.pref-choice { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
+.pref-choice input[type="checkbox"] { margin-top: 3px; flex: 0 0 auto; }
+.pref-choice span { display: flex; flex-direction: column; gap: 2px; }
+.pref-choice small { color: var(--muted); font-size: 12px; }
+.pref-email { margin-top: 12px; }
+.pref-email label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.pref-email input { max-width: 340px; }
+.pref-hint { display: block; margin-top: 6px; color: var(--warning-ink); font-size: 12px; }
+
+/* ---- Notification bell footer (two actions) + inbox actions ---- */
+.notif-foot-row { display: flex; border-top: 1px solid var(--line); }
+.notif-foot-row .notif-foot { flex: 1; border-top: none; }
+.notif-foot-row .notif-foot:last-child { flex: 0 0 auto; border-left: 1px solid var(--line); padding-left: 16px; padding-right: 16px; }
+.inbox-actions { display: flex; gap: 10px; align-items: center; }
