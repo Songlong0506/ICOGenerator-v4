@@ -34,6 +34,7 @@ public class EvalRunnerService
     private readonly AppDbContext _db;
     private readonly IChatClientFactory _chatClientFactory;
     private readonly PromptTemplateService _prompts;
+    private readonly EvalRegressionDetector _regressionDetector;
     private readonly ILogger<EvalRunnerService> _logger;
     private readonly int _requestTimeoutSeconds;
 
@@ -41,12 +42,14 @@ public class EvalRunnerService
         AppDbContext db,
         IChatClientFactory chatClientFactory,
         PromptTemplateService prompts,
+        EvalRegressionDetector regressionDetector,
         IConfiguration configuration,
         ILogger<EvalRunnerService> logger)
     {
         _db = db;
         _chatClientFactory = chatClientFactory;
         _prompts = prompts;
+        _regressionDetector = regressionDetector;
         _logger = logger;
         _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
     }
@@ -123,6 +126,9 @@ public class EvalRunnerService
 
         run.Status = EvalRunStatus.Completed;
         run.FinishedAt = DateTime.UtcNow;
+        // So hồi quy với baseline TRƯỚC lần lưu cuối để delta/cờ/thông báo lưu atomic cùng trạng thái
+        // Completed. Detector fail-open: lỗi so sánh không làm gãy việc chốt run.
+        await _regressionDetector.ApplyAsync(run, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
     }
 

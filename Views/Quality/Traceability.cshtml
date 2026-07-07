@@ -1,0 +1,206 @@
+@using ICOGenerator.Application.Quality
+@using ICOGenerator.Services.Quality
+@model TraceabilityPageVm
+
+@{
+    ViewData["Title"] = "Ma trận truy vết";
+    var canManage = await Permissions.HasPermissionAsync(User, AppPermission.QualityManage);
+
+    static (string Cls, string Label) StatusBadge(string status) => status switch
+    {
+        TraceabilityMatrix.StatusCovered => ("green", "Đủ vết"),
+        TraceabilityMatrix.StatusMissing => ("red", "Chưa có vết"),
+        _ => ("orange", "Một phần")
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/quality.css" asp-append-version="true" />
+}
+
+<div class="page-head">
+    <div>
+        <h1>Ma trận truy vết</h1>
+        <p>
+            Mỗi yêu cầu trong tài liệu (BRD / Product Brief) được nối tới user story, file code và bằng chứng test —
+            và cái gì đang "mồ côi". Kết quả do AI đối chiếu trên tài liệu + workspace hiện hành của project.
+        </p>
+    </div>
+    <div class="q-toolbar">
+        <a class="btn outline" asp-controller="Quality" asp-action="Index">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i> Delivery Quality
+        </a>
+    </div>
+</div>
+
+@if (!Model.Projects.Any())
+{
+    <div class="card trace-empty-card">
+        <p class="muted">
+            Chưa có project nào có tài liệu yêu cầu (Product Brief/BRD). Hãy hoàn tất bước
+            "Write Requirement" ở trang Requirements trước, rồi quay lại đây phân tích truy vết.
+        </p>
+    </div>
+}
+else
+{
+    <div class="card trace-controls">
+        <form method="get" asp-controller="Quality" asp-action="Traceability" class="trace-project-picker">
+            <label for="trace-project">Project</label>
+            <select id="trace-project" name="projectId" onchange="this.form.submit()">
+                @foreach (var p in Model.Projects)
+                {
+                    <option value="@p.Id" selected="@(Model.SelectedProjectId == p.Id)">@p.Name</option>
+                }
+            </select>
+        </form>
+        @if (canManage && Model.SelectedProjectId != null)
+        {
+            <form id="trace-build-form" class="inline-form">
+                @Html.AntiForgeryToken()
+                <button class="btn primary" type="submit" id="trace-build-btn"
+                        title="Một lời gọi LLM (tốn token thật, tính vào chi phí project); có thể mất tới vài phút">
+                    <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                    @(Model.Matrix == null ? "Phân tích" : "Phân tích lại")
+                </button>
+            </form>
+        }
+        <div id="trace-build-status" class="muted trace-build-status" hidden></div>
+    </div>
+    <div id="trace-build-error" class="alert error" hidden></div>
+
+    @if (Model.Matrix == null)
+    {
+        <div class="card trace-empty-card">
+            <p class="muted">
+                Project <b>@Model.SelectedProjectName</b> chưa được phân tích lần nào.
+                @(canManage ? "Bấm \"Phân tích\" để AI đối chiếu tài liệu, code và test hiện có." :
+                            "Cần quyền phân tích (QualityManage) để chạy lần đầu.")
+            </p>
+        </div>
+    }
+    else
+    {
+        var m = Model.Matrix;
+        var total = m.Requirements.Count;
+
+        <div class="q-tiles trace-stats">
+            <div class="q-tile accent">
+                <div class="q-label">Yêu cầu</div>
+                <div class="q-value">@total</div>
+            </div>
+            <div class="q-tile good">
+                <div class="q-label">Đủ vết</div>
+                <div class="q-value">@Model.CoveredCount</div>
+            </div>
+            <div class="q-tile warn">
+                <div class="q-label">Một phần</div>
+                <div class="q-value">@Model.PartialCount</div>
+            </div>
+            <div class="q-tile bad">
+                <div class="q-label">Chưa có vết</div>
+                <div class="q-value">@Model.MissingCount</div>
+            </div>
+            <div class="q-tile @(m.OrphanStories.Count > 0 ? "warn" : "")">
+                <div class="q-label">Story mồ côi</div>
+                <div class="q-value">@m.OrphanStories.Count</div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(m.Summary))
+        {
+            <div class="card trace-summary">
+                <b>Tổng kết:</b> @m.Summary
+            </div>
+        }
+
+        <div class="card table-card">
+            <div class="table-wrap">
+                <table class="data-table trace-table">
+                    <thead>
+                        <tr>
+                            <th>Yêu cầu</th>
+                            <th>User stories</th>
+                            <th>Code</th>
+                            <th>Test</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in m.Requirements)
+                        {
+                            var (cls, label) = StatusBadge(r.Status);
+                            <tr>
+                                <td class="trace-req">
+                                    <span class="trace-code">@r.Code</span>
+                                    <b>@r.Title</b>
+                                    @if (!string.IsNullOrWhiteSpace(r.Kind))
+                                    {
+                                        <span class="muted trace-kind">(@r.Kind)</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(r.Note))
+                                    {
+                                        <div class="muted trace-note">@r.Note</div>
+                                    }
+                                </td>
+                                <td class="trace-cell">@Chips(r.Stories)</td>
+                                <td class="trace-cell">@Chips(r.CodeFiles, mono: true)</td>
+                                <td class="trace-cell">@Chips(r.Tests)</td>
+                                <td><span class="badge @cls">@label</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (m.OrphanStories.Any())
+        {
+            <div class="card trace-orphans">
+                <h3>User story mồ côi (không truy vết được về yêu cầu nào)</h3>
+                <ul>
+                    @foreach (var o in m.OrphanStories)
+                    {
+                        <li>
+                            <b>@o.Story</b>
+                            @if (!string.IsNullOrWhiteSpace(o.Reason))
+                            {
+                                <span class="muted"> — @o.Reason</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <p class="muted trace-meta">
+            Phân tích lúc <span class="trace-time" data-utc="@Model.GeneratedAt?.ToString("o")"></span>
+            bằng <b>@Model.ModelName</b> (@Model.TotalTokens.ToString("N0") tokens)@(string.IsNullOrWhiteSpace(Model.GeneratedByUsername) ? "" : $" — bởi {Model.GeneratedByUsername}").
+            Tài liệu/code đổi rồi thì bấm "Phân tích lại" để ma trận bám trạng thái mới.
+        </p>
+    }
+}
+
+@functions {
+    // Danh sách dấu vết trong một ô: mỗi mục một "chip"; rỗng thì gạch ngang mờ.
+    private static Microsoft.AspNetCore.Html.IHtmlContent Chips(IReadOnlyList<string> items, bool mono = false)
+    {
+        if (items.Count == 0)
+            return new Microsoft.AspNetCore.Html.HtmlString("<span class=\"muted\">–</span>");
+
+        var encoder = System.Text.Encodings.Web.HtmlEncoder.Default;
+        var cls = mono ? "trace-chip mono" : "trace-chip";
+        var html = string.Join("", items.Select(i => $"<span class=\"{cls}\">{encoder.Encode(i)}</span>"));
+        return new Microsoft.AspNetCore.Html.HtmlString(html);
+    }
+}
+
+@section Scripts {
+    <script>
+        window.TRACE = {
+            projectId: '@Model.SelectedProjectId',
+            buildUrl: '@Url.Action("BuildTraceability")'
+        };
+    </script>
+    <script src="~/js/traceability.js" asp-append-version="true"></script>
+}

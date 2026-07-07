@@ -39,6 +39,9 @@
         <p>Sức khỏe quy trình giao hàng: thông lượng, thời gian, chi phí và mức rước việc (revision + bugfix). Bổ trợ trang Usage (chỉ đo chi phí token).</p>
     </div>
     <div class="q-toolbar">
+        <a class="btn outline" asp-controller="Quality" asp-action="Traceability" title="Ma trận truy vết yêu cầu → user story → code → test">
+            <i class="bi bi-diagram-3" aria-hidden="true"></i> Ma trận truy vết
+        </a>
         <form method="get" asp-controller="Quality" asp-action="Index" class="year-filter">
             <select name="year" onchange="this.form.submit()" aria-label="Chọn năm">
                 @foreach (var yr in Model.AvailableYears)

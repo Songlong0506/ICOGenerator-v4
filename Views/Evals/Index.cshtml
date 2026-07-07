@@ -12,6 +12,21 @@
         s => (object)new { name = s.Name, promptKey = s.PromptKey, userInput = s.UserInput, criteria = s.Criteria, isActive = s.IsActive });
     var scenariosJson = System.Text.Json.JsonSerializer.Serialize(scenarioMap);
 
+    // Map lịch định kỳ cho form sửa — cùng cơ chế với scenario.
+    var scheduleMap = Model.Schedules.ToDictionary(
+        s => s.Id.ToString(),
+        s => (object)new
+        {
+            name = s.Name,
+            promptKey = s.PromptKey ?? "",
+            targetModelId = s.TargetModelId,
+            judgeModelId = s.JudgeModelId,
+            intervalHours = s.IntervalHours,
+            regressionThreshold = s.RegressionThreshold,
+            isEnabled = s.IsEnabled
+        });
+    var schedulesJson = System.Text.Json.JsonSerializer.Serialize(scheduleMap);
+
     static string StatusBadge(EvalRunStatus status) => status switch
     {
         EvalRunStatus.Completed => "green",
@@ -28,6 +43,18 @@
         >= 2.5 => "score-mid",
         _ => "score-bad"
     };
+
+    // Ô "Δ so với baseline" của một run: dấu + màu như modal so sánh 2 run; kèm badge khi tụt quá ngưỡng.
+    static string DeltaHtml(double? delta, bool isRegression)
+    {
+        if (delta is not double d) return "<span class=\"muted\">–</span>";
+        var cls = d > 0 ? "delta-up" : d < 0 ? "delta-down" : "delta-flat";
+        var text = (d > 0 ? "+" : "") + d.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        var badge = isRegression
+            ? " <span class=\"badge red\" title=\"Tụt quá ngưỡng so với run baseline — đã gửi thông báo\">Tụt</span>"
+            : "";
+        return $"<span class=\"{cls}\">{text}</span>{badge}";
+    }
 }
 
 @section Styles {
@@ -47,6 +74,9 @@
         <div class="eval-head-actions">
             <button class="btn outline" type="button" onclick="openCreateScenario()">
                 <i class="bi bi-plus-lg" aria-hidden="true"></i> Scenario
+            </button>
+            <button class="btn outline" type="button" onclick="openCreateSchedule()" @(Model.Scenarios.Any(s => s.IsActive) ? "" : "disabled") title="Đặt lịch tự chạy eval định kỳ + cảnh báo khi điểm tụt">
+                <i class="bi bi-alarm" aria-hidden="true"></i> Lịch định kỳ
             </button>
             <button class="btn primary" type="button" onclick="openModal('runModal')" @(Model.Scenarios.Any(s => s.IsActive) ? "" : "disabled") title="Chạy toàn bộ scenario đang bật (tốn token thật)">
                 <i class="bi bi-play-fill" aria-hidden="true"></i> Chạy eval
@@ -119,6 +149,75 @@
     </div>
 </div>
 
+@if (Model.Schedules.Any())
+{
+    <div class="card table-card eval-card">
+        <div class="eval-card-head">
+            <h3>Lịch chạy định kỳ</h3>
+            <span class="muted">@Model.Schedules.Count(s => s.IsEnabled) đang bật / @Model.Schedules.Count tổng — run đến hạn tự xếp hàng, tụt quá ngưỡng thì báo ở chuông thông báo</span>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Tên</th>
+                        <th>Chu kỳ</th>
+                        <th>Prompt</th>
+                        <th>Model / Judge</th>
+                        <th>Ngưỡng tụt</th>
+                        <th>Chạy kế tiếp</th>
+                        <th>Trạng thái</th>
+                        @if (canManage)
+                        {
+                            <th>Actions</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in Model.Schedules)
+                    {
+                        <tr>
+                            <td><b>@s.Name</b></td>
+                            <td>mỗi @s.IntervalHours giờ</td>
+                            <td>@if (string.IsNullOrWhiteSpace(s.PromptKey)) {<span class="muted">tất cả</span>} else {<code class="eval-prompt-key">@s.PromptKey</code>}</td>
+                            <td>@s.TargetModelName <span class="muted">/ @s.JudgeModelName</span></td>
+                            <td>−@s.RegressionThreshold.ToString("0.##")</td>
+                            <td>
+                                @if (s.IsEnabled)
+                                {
+                                    <span class="eval-time" data-utc="@s.NextRunAt.ToString("o")"></span>
+                                }
+                                else
+                                {
+                                    <span class="muted">–</span>
+                                }
+                            </td>
+                            <td><span class="badge @(s.IsEnabled ? "green" : "gray")">@(s.IsEnabled ? "Active" : "Off")</span></td>
+                            @if (canManage)
+                            {
+                                <td class="actions">
+                                    <button class="icon-btn" type="button" aria-label="Sửa lịch" title="Sửa lịch"
+                                            onclick="openEditSchedule('@s.Id')">
+                                        <i class="bi bi-pencil-fill" aria-hidden="true"></i>
+                                    </button>
+                                    <form asp-action="DeleteSchedule" method="post" class="inline-form"
+                                          onsubmit="return confirm('Xoá lịch này? Các run cũ sinh từ lịch vẫn được giữ.');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@s.Id" />
+                                        <button class="icon-btn danger" type="submit" aria-label="Xoá lịch" title="Xoá lịch">
+                                            <i class="bi bi-trash" aria-hidden="true"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
 <div class="card table-card eval-card">
     <div class="eval-card-head">
         <h3>Runs</h3>
@@ -139,6 +238,7 @@
                     <th>Prompt</th>
                     <th>Tiến độ</th>
                     <th>Điểm TB</th>
+                    <th title="Chênh lệch so với run trước cùng model + cùng bộ lọc prompt, tính trên các scenario chung">Δ</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
@@ -146,20 +246,27 @@
             <tbody>
                 @if (!Model.Runs.Any())
                 {
-                    <tr><td colspan="10" class="eval-empty">Chưa có run nào.</td></tr>
+                    <tr><td colspan="11" class="eval-empty">Chưa có run nào.</td></tr>
                 }
                 @foreach (var r in Model.Runs)
                 {
                     var isLive = r.Status is EvalRunStatus.Queued or EvalRunStatus.Running;
                     <tr data-run-id="@r.Id" data-live="@(isLive ? "true" : "false")">
                         <td class="eval-cmp-col"><input type="checkbox" class="cmp-check" value="@r.Id" onchange="onCompareCheckChanged()" /></td>
-                        <td><span class="eval-time" data-utc="@r.CreatedAt.ToString("o")"></span></td>
+                        <td>
+                            <span class="eval-time" data-utc="@r.CreatedAt.ToString("o")"></span>
+                            @if (r.IsScheduled)
+                            {
+                                <i class="bi bi-alarm eval-sched-icon" title="Run sinh từ lịch định kỳ" aria-hidden="true"></i>
+                            }
+                        </td>
                         <td class="eval-note" title="@r.Note">@(string.IsNullOrWhiteSpace(r.Note) ? "–" : r.Note)</td>
                         <td>@r.TargetModelName</td>
                         <td>@r.JudgeModelName</td>
                         <td>@if (string.IsNullOrWhiteSpace(r.PromptKey)) {<span class="muted">tất cả</span>} else {<code class="eval-prompt-key">@r.PromptKey</code>}</td>
                         <td class="run-progress">@r.CompletedCount/@r.ScenarioCount</td>
                         <td class="run-score"><span class="eval-score @ScoreClass(r.AverageScore)">@(r.AverageScore?.ToString("0.00") ?? "–")</span></td>
+                        <td class="run-delta">@Html.Raw(DeltaHtml(r.ScoreDelta, r.IsRegression))</td>
                         <td class="run-status">
                             <span class="badge @StatusBadge(r.Status)" title="@r.Error">@r.Status</span>
                         </td>
@@ -212,6 +319,66 @@
             <div class="modal-actions">
                 <button type="button" class="btn" onclick="closeModal('scenarioModal')">Cancel</button>
                 <button class="btn primary" id="scenarioSubmitBtn">Thêm Scenario</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal thêm/sửa lịch định kỳ: MỘT form dùng chung — JS đổi action (CreateSchedule/UpdateSchedule) và đổ dữ liệu. -->
+    <div id="scheduleModal" class="modal-backdrop hidden">
+        <form class="modal eval-modal" method="post" id="scheduleForm">
+            @Html.AntiForgeryToken()
+            <button type="button" class="x" onclick="closeModal('scheduleModal')">×</button>
+
+            <h2 id="scheduleModalTitle">Thêm lịch định kỳ</h2>
+            <p class="muted eval-modal-hint">
+                Đến hạn, hệ thống tự xếp hàng một run eval (tốn token thật). Run xong được so với run trước
+                cùng model + cùng bộ lọc; tụt quá ngưỡng thì báo ở chuông thông báo.
+            </p>
+
+            <input type="hidden" name="id" id="schedule-id" />
+
+            <label>Tên *</label>
+            <input name="name" id="schedule-name" required maxlength="200" placeholder="vd: Hằng đêm — bộ BA chat" />
+
+            <label>Model mục tiêu *</label>
+            <select name="targetModelId" id="schedule-target-model" required>
+                @foreach (var m in Model.Models)
+                {
+                    <option value="@m.Id">@m.Name</option>
+                }
+            </select>
+
+            <label>Model judge *</label>
+            <select name="judgeModelId" id="schedule-judge-model" required>
+                @foreach (var m in Model.Models)
+                {
+                    <option value="@m.Id">@m.Name</option>
+                }
+            </select>
+
+            <label>Chỉ chạy scenario của prompt</label>
+            <select name="promptKey" id="schedule-prompt-key">
+                <option value="">— tất cả scenario đang bật —</option>
+                @foreach (var key in Model.PromptKeys)
+                {
+                    <option value="@key">@key</option>
+                }
+            </select>
+
+            <label>Chu kỳ (giờ) *</label>
+            <input name="intervalHours" id="schedule-interval" type="number" min="1" max="@EvalScheduleRules.MaxIntervalHours" value="24" required />
+
+            <label>Ngưỡng tụt điểm để cảnh báo (thang 1–5) *</label>
+            <input name="regressionThreshold" id="schedule-threshold" type="number" min="0.05" max="@EvalScheduleRules.MaxRegressionThreshold" step="0.05" value="0.5" required />
+
+            <label class="checkbox-line" id="schedule-enabled-line" style="display:none;">
+                <input name="isEnabled" id="schedule-is-enabled" type="checkbox" value="true" checked />
+                Đang bật (worker canh hạn và tự chạy)
+            </label>
+
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('scheduleModal')">Cancel</button>
+                <button class="btn primary" id="scheduleSubmitBtn">Thêm lịch</button>
             </div>
         </form>
     </div>
@@ -292,7 +459,10 @@
         window.EVALS = {
             scenarios: @Html.Raw(scenariosJson),
             createUrl: '@Url.Action("CreateScenario")',
-            updateUrl: '@Url.Action("UpdateScenario")'
+            updateUrl: '@Url.Action("UpdateScenario")',
+            schedules: @Html.Raw(schedulesJson),
+            createScheduleUrl: '@Url.Action("CreateSchedule")',
+            updateScheduleUrl: '@Url.Action("UpdateSchedule")'
         };
     </script>
     <script src="~/js/evals.js" asp-append-version="true"></script>

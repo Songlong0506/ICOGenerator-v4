@@ -14,6 +14,9 @@ public class EvalsController : Controller
     private readonly CreateEvalScenarioUseCase _createScenario;
     private readonly UpdateEvalScenarioUseCase _updateScenario;
     private readonly DeleteEvalScenarioUseCase _deleteScenario;
+    private readonly CreateEvalScheduleUseCase _createSchedule;
+    private readonly UpdateEvalScheduleUseCase _updateSchedule;
+    private readonly DeleteEvalScheduleUseCase _deleteSchedule;
     private readonly StartEvalRunUseCase _startRun;
     private readonly GetEvalRunStatusQuery _getRunStatus;
     private readonly GetEvalRunDetailQuery _getRunDetail;
@@ -24,6 +27,9 @@ public class EvalsController : Controller
         CreateEvalScenarioUseCase createScenario,
         UpdateEvalScenarioUseCase updateScenario,
         DeleteEvalScenarioUseCase deleteScenario,
+        CreateEvalScheduleUseCase createSchedule,
+        UpdateEvalScheduleUseCase updateSchedule,
+        DeleteEvalScheduleUseCase deleteSchedule,
         StartEvalRunUseCase startRun,
         GetEvalRunStatusQuery getRunStatus,
         GetEvalRunDetailQuery getRunDetail,
@@ -33,6 +39,9 @@ public class EvalsController : Controller
         _createScenario = createScenario;
         _updateScenario = updateScenario;
         _deleteScenario = deleteScenario;
+        _createSchedule = createSchedule;
+        _updateSchedule = updateSchedule;
+        _deleteSchedule = deleteSchedule;
         _startRun = startRun;
         _getRunStatus = getRunStatus;
         _getRunDetail = getRunDetail;
@@ -70,6 +79,35 @@ public class EvalsController : Controller
     public async Task<IActionResult> DeleteScenario(Guid id)
     {
         await _deleteScenario.ExecuteAsync(id);
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.EvalManage)]
+    public async Task<IActionResult> CreateSchedule(string? name, Guid targetModelId, Guid judgeModelId, string? promptKey, int intervalHours, double regressionThreshold)
+    {
+        var result = await _createSchedule.ExecuteAsync(name, targetModelId, judgeModelId, promptKey, intervalHours, regressionThreshold, User.Identity?.Name);
+        SetScheduleResultMessage(result);
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.EvalManage)]
+    public async Task<IActionResult> UpdateSchedule(Guid id, string? name, Guid targetModelId, Guid judgeModelId, string? promptKey, int intervalHours, double regressionThreshold, bool isEnabled)
+    {
+        var result = await _updateSchedule.ExecuteAsync(id, name, targetModelId, judgeModelId, promptKey, intervalHours, regressionThreshold, isEnabled);
+        SetScheduleResultMessage(result);
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.EvalManage)]
+    public async Task<IActionResult> DeleteSchedule(Guid id)
+    {
+        await _deleteSchedule.ExecuteAsync(id);
         return RedirectToAction(nameof(Index));
     }
 
@@ -130,6 +168,19 @@ public class EvalsController : Controller
             SaveEvalScenarioResult.InvalidInput => "Vui lòng điền đủ Tên, Prompt, Đầu vào và Tiêu chí chấm.",
             SaveEvalScenarioResult.UnknownPromptKey => "Prompt template không tồn tại dưới /Prompts.",
             SaveEvalScenarioResult.NotFound => "Scenario không tồn tại (có thể đã bị xoá).",
+            _ => null
+        };
+    }
+
+    private void SetScheduleResultMessage(SaveEvalScheduleResult result)
+    {
+        TempData["Error"] = result switch
+        {
+            SaveEvalScheduleResult.InvalidInput => $"Vui lòng điền Tên, chu kỳ 1–{EvalScheduleRules.MaxIntervalHours} giờ và ngưỡng tụt trong (0; {EvalScheduleRules.MaxRegressionThreshold}].",
+            SaveEvalScheduleResult.UnknownPromptKey => "Prompt template không tồn tại dưới /Prompts.",
+            SaveEvalScheduleResult.TargetModelNotFound => "Model mục tiêu không tồn tại hoặc đã tắt.",
+            SaveEvalScheduleResult.JudgeModelNotFound => "Model judge không tồn tại hoặc đã tắt.",
+            SaveEvalScheduleResult.NotFound => "Lịch không tồn tại (có thể đã bị xoá).",
             _ => null
         };
     }

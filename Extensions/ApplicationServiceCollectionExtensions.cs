@@ -21,6 +21,7 @@ using ICOGenerator.Services.Feedback;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Notifications;
 using ICOGenerator.Services.Prompts;
+using ICOGenerator.Services.Quality;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Requirements.Knowledge;
@@ -266,6 +267,10 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddQualityUseCases(this IServiceCollection services)
     {
         services.AddScoped<GetDeliveryQualityQuery>();
+        // Ma trận truy vết: builder ở Services/Quality (gọi LLM + đọc workspace) — scoped vì DbContext.
+        services.AddScoped<GetTraceabilityPageQuery>();
+        services.AddScoped<BuildTraceabilityMatrixUseCase>();
+        services.AddScoped<TraceabilityMatrixBuilder>();
         return services;
     }
 
@@ -284,6 +289,14 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<CompareEvalRunsQuery>();
         services.AddScoped<EvalRunnerService>();
         services.AddHostedService<EvalRunWorker>();
+        // Lịch chạy eval định kỳ + chốt chặn hồi quy: dispatcher/detector scoped (DbContext);
+        // worker nền chỉ canh lịch đến hạn rồi tạo run Queued cho EvalRunWorker ở trên chạy.
+        services.AddScoped<CreateEvalScheduleUseCase>();
+        services.AddScoped<UpdateEvalScheduleUseCase>();
+        services.AddScoped<DeleteEvalScheduleUseCase>();
+        services.AddScoped<EvalScheduleDispatcher>();
+        services.AddScoped<EvalRegressionDetector>();
+        services.AddHostedService<EvalScheduleWorker>();
         return services;
     }
 

@@ -35,6 +35,8 @@ public class AppDbContext : DbContext
     public DbSet<EvalScenario> EvalScenarios => Set<EvalScenario>();
     public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
     public DbSet<EvalResult> EvalResults => Set<EvalResult>();
+    public DbSet<EvalSchedule> EvalSchedules => Set<EvalSchedule>();
+    public DbSet<ProjectTraceability> ProjectTraceabilities => Set<ProjectTraceability>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -279,6 +281,29 @@ public class AppDbContext : DbContext
             b.Property(x => x.ScenarioName).HasMaxLength(200);
             b.HasIndex(x => x.EvalRunId);
             b.HasIndex(x => x.EvalScenarioId);
+        });
+        // Lịch chạy eval định kỳ: model tham chiếu bằng Guid + snapshot tên (không FK — như EvalRun).
+        // Index (IsEnabled, NextRunAt) phục vụ poll "lịch nào đến hạn" của EvalScheduleWorker; index
+        // ScheduleId trên EvalRuns phục vụ kiểm tra "run trước của lịch còn chạy?" + tra lịch sử theo lịch.
+        builder.Entity<EvalSchedule>(b =>
+        {
+            b.Property(x => x.Name).HasMaxLength(200);
+            b.Property(x => x.PromptKey).HasMaxLength(300);
+            b.Property(x => x.TargetModelName).HasMaxLength(200);
+            b.Property(x => x.JudgeModelName).HasMaxLength(200);
+            b.Property(x => x.CreatedByUsername).HasMaxLength(100);
+            b.HasIndex(x => new { x.IsEnabled, x.NextRunAt });
+        });
+        builder.Entity<EvalRun>().HasIndex(x => x.ScheduleId);
+
+        // Ma trận truy vết của một project (một dòng/project, ghi đè khi phân tích lại). Project FK
+        // Cascade: xoá project dọn luôn ma trận. MatrixJson để nvarchar(max) (LOB), metadata bound.
+        builder.Entity<ProjectTraceability>(b =>
+        {
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.ModelName).HasMaxLength(200);
+            b.Property(x => x.GeneratedByUsername).HasMaxLength(100);
+            b.HasIndex(x => x.ProjectId).IsUnique();
         });
 
         // Dữ liệu tổ chức đồng bộ từ HR_Portal (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu

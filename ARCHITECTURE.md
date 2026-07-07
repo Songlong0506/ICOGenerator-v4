@@ -35,9 +35,10 @@ Application/       # Tầng điều phối use case. Mỗi file = 1 thao tác ng
 Services/          # Hạ tầng & service nghiệp vụ tái dùng (gọi LLM, tool, file, prompt...).
   Agents/          #   Vòng lặp agent tự động dùng tool + background runner
   Artifacts/       #   Lưu/đọc file sản phẩm trong workspace
-  Evals/           #   Prompt eval harness: golden set + runner + LLM-judge + worker nền (xem 5.15)
+  Evals/           #   Prompt eval harness: golden set + runner + LLM-judge + lịch định kỳ + worker nền (xem 5.15)
   Llm/             #   Client gọi LLM + model request/response + ghi log lời gọi model (IModelCallLogger)
   Prompts/         #   Nạp & render template prompt (file .md trong /Prompts)
+  Quality/         #   Ma trận truy vết yêu cầu -> story/code/test (builder + parser, xem 5.17)
   Requirements/    #   Biến hội thoại BA -> tài liệu requirement
     Templates/     #     Sinh file .docx
   Tools/           #   Hệ thống công cụ cho agent (xem mục 5.3)
@@ -309,6 +310,20 @@ Trả lời câu "sửa prompt/đổi model xong, chất lượng LÊN hay XUỐ
   model/scenario không bị chặn và không mất lịch sử điểm.
 - Phân quyền: `EvalView`/`EvalManage` (màn hình "Prompt Evals" trong `PermissionCatalog`; TeamDev
   được seed mặc định). Trang Delivery Quality có card "Prompt evals gần nhất" trỏ sang.
+- **Lịch chạy định kỳ + chốt chặn hồi quy** (biến eval từ công cụ bấm tay thành lưới an toàn tự động):
+  - **`EvalSchedule`**: lịch = (model mục tiêu/judge + bộ lọc PromptKey + chu kỳ giờ + ngưỡng tụt điểm).
+    `EvalScheduleWorker` (poll 30s) giao cho `EvalScheduleDispatcher` xử lý lịch đến hạn: tạo một
+    EvalRun Queued (EvalRunWorker chạy như run bấm tay, run mang `ScheduleId` — Guid không FK) rồi
+    **LUÔN dời `NextRunAt`** tới (now + chu kỳ) kể cả khi lượt bị bỏ qua (run trước chưa xong / model
+    tắt / hết scenario khớp) — lịch hỏng chỉ cảnh báo mỗi chu kỳ, không retry dồn dập. Tạo/sửa lịch
+    KHÔNG chạy ngay (hạn đầu = now + chu kỳ) để việc tạo lịch không âm thầm đốt token.
+  - **`EvalRegressionDetector`** chạy cho MỌI run vừa Completed (gọi từ `EvalRunnerService`, lưu atomic
+    cùng trạng thái): baseline = run Completed gần nhất **cùng model mục tiêu + cùng bộ lọc PromptKey**;
+    delta tính trên các **scenario CHUNG** cả hai run đều chấm được (bộ scenario thêm/bớt giữa hai run
+    không làm lệch phép so). Tụt từ ngưỡng trở lên (ngưỡng của lịch, run bấm tay dùng
+    `Evals:RegressionThreshold` mặc định 0.5) ⇒ đánh dấu `IsRegression` + bắn Notification loại
+    `EvalRegression` cho user có quyền EvalView. Cột Δ + badge "Tụt" hiện ngay trên bảng Runs.
+    Fail-open: lỗi so sánh không làm gãy việc chốt run.
 
 ### 5.16. Tri thức xuyên dự án (retrieval trên tài liệu đã duyệt — Services/Requirements/Knowledge)
 Biến kho tài liệu ĐÃ DUYỆT tích lũy trong DB thành ngữ cảnh cho BA: `ProjectKnowledgeService` truy
@@ -338,6 +353,28 @@ dự án tương tự ("phòng X từng làm tool gần giống"), tài liệu t
   được chép yêu cầu/tính năng từ dự án khác; mọi yêu cầu phải đến từ hội thoại.
 - **Fail-open toàn tuyến:** chưa có tài liệu duyệt / lỗi DB / lỗi render ⇒ trả null, chat và soạn
   tài liệu chạy như khi chưa có tính năng.
+
+### 5.17. Ma trận truy vết yêu cầu (Services/Quality — trang Quality/Traceability)
+Trả lời câu "mỗi yêu cầu đã có user story / code / test tương ứng chưa, và story nào tự mọc ra ngoài
+yêu cầu?" — đúng ngôn ngữ khách hàng doanh nghiệp. `TraceabilityMatrixBuilder` gom 4 nguồn của MỘT
+project: tài liệu yêu cầu (**BRD**, hoặc **Product Brief** khi chưa có BRD — bản MỚI NHẤT trong DB,
+không lọc approve vì ma trận nên đọc trên trạng thái hiện hành), tài liệu **UserStories**, **danh sách
+file code** trong workspace `04_Implementation/src` (trần 300 file, bỏ bin/obj/node_modules...) và
+**báo cáo test** `05_Test/test-report.md` — rồi để model đối chiếu theo prompt
+`Quality/traceability-matrix.v1.md` và parse JSON bằng `TraceabilityMatrixParser` (khoan dung
+code-fence/thiếu mảng/status lạ→partial; ma trận không có dòng yêu cầu nào ⇒ fail để chạy lại).
+
+- **Nguồn hạ nguồn chưa có** thì prompt ghi "(chưa có)" và status tính trên các nguồn HIỆN CÓ — dự án
+  mới đi nửa pipeline vẫn phân tích được. Nguồn code/test đọc lỗi ⇒ fail-open coi như trống.
+- Chạy bằng **agent BA + model của nó**, log `AgentModelCallLogs` với Purpose `TraceabilityMatrix`
+  (chi phí tính vào project, đi qua budget guard). Thao tác **đồng bộ theo yêu cầu** (bấm "Phân tích"
+  → fetch chờ như chat BA), KHÔNG phải bước pipeline — không thêm worker.
+- Kết quả lưu **`ProjectTraceability`** (mỗi project MỘT dòng, JSON đã chuẩn hoá, ghi đè khi phân tích
+  lại — ma trận luôn nên đọc trên tài liệu/code hiện hành nên không giữ lịch sử). UI: trang
+  **Quality/Traceability** (chọn project → bảng yêu cầu × story/code/test + badge trạng thái + card
+  story mồ côi + dải đếm), nút dẫn từ trang Delivery Quality.
+- Phân quyền: xem = `QualityView`; bấm phân tích (đốt token thật) = **`QualityManage`** (TeamDev được
+  seed mặc định; DB cũ cần Admin tick thêm ở màn Roles & Permissions vì seed chỉ chạy khi bảng trống).
 
 ---
 

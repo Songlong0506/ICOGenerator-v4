@@ -7,8 +7,9 @@ using Microsoft.EntityFrameworkCore;
 namespace ICOGenerator.Services.Notifications;
 
 /// <summary>
-/// Hiện thực <see cref="INotificationService"/>: xác định người nhận đủ điều kiện (user hoạt động có quyền
-/// <see cref="AppPermission.DeliveryAdvance"/>) rồi <c>Add</c> một <see cref="Notification"/> cho mỗi người
+/// Hiện thực <see cref="INotificationService"/>: xác định người nhận đủ điều kiện theo quyền phù hợp với
+/// loại thông báo (workflow ⇒ <see cref="AppPermission.DeliveryAdvance"/>; eval ⇒
+/// <see cref="AppPermission.EvalView"/>) rồi <c>Add</c> một <see cref="Notification"/> cho mỗi người
 /// vào DbContext hiện hành. Không SaveChanges (xem hợp đồng ở interface). Toàn bộ bọc try/catch fail-open.
 /// </summary>
 public class NotificationService : INotificationService
@@ -42,11 +43,43 @@ public class NotificationService : INotificationService
             string.IsNullOrWhiteSpace(error) ? "Quy trình giao hàng đã dừng vì lỗi — cần xem lại." : $"Quy trình dừng vì lỗi: {Truncate(error, 300)}",
             cancellationToken);
 
+    public async Task NotifyEvalRegressionAsync(EvalRun run, double delta, double threshold, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var recipients = await ResolveRecipientsAsync(AppPermission.EvalView, cancellationToken);
+            if (recipients.Count == 0)
+                return;
+
+            var runLabel = string.IsNullOrWhiteSpace(run.Note) ? run.TargetModelName : run.Note;
+            var message =
+                $"Run \"{Truncate(runLabel, 120)}\" đạt {run.AverageScore:0.00} — tụt {Math.Abs(delta):0.00} điểm " +
+                $"so với run trước trên các scenario chung (ngưỡng cảnh báo {threshold:0.00}). Prompt/model có thể vừa hỏng.";
+
+            foreach (var username in recipients)
+            {
+                _db.Notifications.Add(new Notification
+                {
+                    RecipientUsername = username,
+                    Type = NotificationType.EvalRegression,
+                    Title = "Prompt eval tụt điểm",
+                    Message = message,
+                    Link = "/Evals"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            // Fail-open: một thông báo hỏng không được làm gãy việc chốt kết quả run eval.
+            _logger.LogWarning(ex, "Không tạo được thông báo hồi quy cho eval run {RunId}.", run.Id);
+        }
+    }
+
     private async Task CreateForEligibleAsync(WorkflowRun run, NotificationType type, string title, string message, CancellationToken cancellationToken)
     {
         try
         {
-            var recipients = await ResolveRecipientsAsync(cancellationToken);
+            var recipients = await ResolveRecipientsAsync(AppPermission.DeliveryAdvance, cancellationToken);
             if (recipients.Count == 0)
                 return;
 
@@ -77,9 +110,9 @@ public class NotificationService : INotificationService
         }
     }
 
-    // Người nhận = user đang hoạt động thuộc role CÓ quyền DeliveryAdvance. Bảng user nhỏ (seed vài tài
-    // khoản) nên duyệt trực tiếp; kết quả kiểm tra quyền được cache trong PermissionService.
-    private async Task<IReadOnlyList<string>> ResolveRecipientsAsync(CancellationToken cancellationToken)
+    // Người nhận = user đang hoạt động thuộc role CÓ quyền tương ứng loại thông báo. Bảng user nhỏ
+    // (seed vài tài khoản) nên duyệt trực tiếp; kết quả kiểm tra quyền được cache trong PermissionService.
+    private async Task<IReadOnlyList<string>> ResolveRecipientsAsync(AppPermission permission, CancellationToken cancellationToken)
     {
         var activeUsers = await _db.AppUsers
             .Where(u => u.IsActive)
@@ -90,7 +123,7 @@ public class NotificationService : INotificationService
         foreach (var role in activeUsers.Select(u => u.Role).Distinct())
         {
             var granted = await _permissions.GetGrantedAsync(role, cancellationToken);
-            if (granted.Contains(AppPermission.DeliveryAdvance))
+            if (granted.Contains(permission))
                 qualifyingRoles.Add(role);
         }
 
