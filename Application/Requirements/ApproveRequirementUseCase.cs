@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Requirements.Knowledge;
 using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,14 +12,16 @@ public class ApproveRequirementUseCase
     private readonly WorkspacePathResolver _workspacePathResolver;
     private readonly IProjectArtifactCatalog _artifactCatalog;
     private readonly IWorkflowOrchestrator _workflowOrchestrator;
+    private readonly ProjectKnowledgeService _knowledge;
     private readonly ILogger<ApproveRequirementUseCase> _logger;
 
-    public ApproveRequirementUseCase(AppDbContext db, WorkspacePathResolver workspacePathResolver, IProjectArtifactCatalog artifactCatalog, IWorkflowOrchestrator workflowOrchestrator, ILogger<ApproveRequirementUseCase> logger)
+    public ApproveRequirementUseCase(AppDbContext db, WorkspacePathResolver workspacePathResolver, IProjectArtifactCatalog artifactCatalog, IWorkflowOrchestrator workflowOrchestrator, ProjectKnowledgeService knowledge, ILogger<ApproveRequirementUseCase> logger)
     {
         _db = db;
         _workspacePathResolver = workspacePathResolver;
         _artifactCatalog = artifactCatalog;
         _workflowOrchestrator = workflowOrchestrator;
+        _knowledge = knowledge;
         _logger = logger;
     }
 
@@ -81,6 +84,10 @@ public class ApproveRequirementUseCase
         }
 
         await _db.SaveChangesAsync();
+
+        // Bộ tài liệu vừa duyệt là nguồn tri thức xuyên dự án mới — xóa chỉ mục cache để các dự án
+        // khác thấy ngay, không phải đợi hết TTL.
+        _knowledge.InvalidateIndex();
 
         // Approval is now committed. Sinh AI Design Spec từ Product Brief đã duyệt là một lời gọi LLM chậm —
         // trước đây chạy ĐỒNG BỘ ngay đây làm màn hình Approve treo chờ. Nay đẩy sang một workflow NỀN

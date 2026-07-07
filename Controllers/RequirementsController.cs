@@ -28,6 +28,7 @@ public class RequirementsController : Controller
     private readonly DeleteProjectSourceUseCase _deleteProjectSourceUseCase;
     private readonly GetDocumentRevisionsQuery _getDocumentRevisionsQuery;
     private readonly GetDocumentRevisionDiffQuery _getDocumentRevisionDiffQuery;
+    private readonly GetSimilarProjectsQuery _getSimilarProjectsQuery;
 
     // SSE frames are hand-serialized, so match the camelCase the polling JSON (and client) already use.
     private static readonly JsonSerializerOptions SseJsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -45,7 +46,8 @@ public class RequirementsController : Controller
        UploadProjectSourceUseCase uploadProjectSourceUseCase,
        DeleteProjectSourceUseCase deleteProjectSourceUseCase,
        GetDocumentRevisionsQuery getDocumentRevisionsQuery,
-       GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery)
+       GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery,
+       GetSimilarProjectsQuery getSimilarProjectsQuery)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
@@ -60,6 +62,14 @@ public class RequirementsController : Controller
         _deleteProjectSourceUseCase = deleteProjectSourceUseCase;
         _getDocumentRevisionsQuery = getDocumentRevisionsQuery;
         _getDocumentRevisionDiffQuery = getDocumentRevisionDiffQuery;
+        _getSimilarProjectsQuery = getSimilarProjectsQuery;
+    }
+
+    // Panel "Dự án tương tự": JS gọi sau khi trang tải (và sau mỗi lượt chat) — không chặn page load.
+    [HttpGet]
+    public async Task<IActionResult> SimilarProjects(Guid projectId)
+    {
+        return Json(await _getSimilarProjectsQuery.ExecuteAsync(projectId, HttpContext.RequestAborted));
     }
 
     public async Task<IActionResult> Index(Guid projectId, string? version = null)

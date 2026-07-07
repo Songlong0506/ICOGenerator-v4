@@ -169,3 +169,51 @@ function showDocument(id) {
         loadDocPreview(target);
     }
 }
+
+// ---------- Panel "Dự án tương tự" (tri thức xuyên dự án) ----------
+// Đổ danh sách dự án khác có tài liệu ĐÃ DUYỆT khớp nội dung đang trao đổi. Fail-open: endpoint
+// lỗi/không có gì khớp thì panel giữ trạng thái ẩn — trang Requirements không phụ thuộc tính năng này.
+(function () {
+    const panel = document.getElementById("similarPanel");
+    const list = document.getElementById("similarList");
+    if (!panel || !list) return;
+
+    async function loadSimilarProjects() {
+        try {
+            const response = await fetch(`/Requirements/SimilarProjects?projectId=${encodeURIComponent(panel.dataset.projectId)}`);
+            if (!response.ok) return;
+            const items = await response.json();
+            if (!Array.isArray(items) || items.length === 0) return;
+
+            // Dựng bằng DOM API (textContent) — tên dự án/snippet là dữ liệu người dùng, không nhét thẳng vào HTML.
+            list.replaceChildren(...items.map(function (item) {
+                const li = document.createElement("li");
+                li.className = "similar-item";
+
+                const name = document.createElement("div");
+                name.className = "similar-name";
+                name.textContent = item.projectName;
+                if (item.orgUnitCode) {
+                    const unit = document.createElement("span");
+                    unit.className = "similar-unit";
+                    unit.textContent = item.orgUnitCode;
+                    name.appendChild(unit);
+                }
+
+                const docs = document.createElement("div");
+                docs.className = "similar-docs";
+                docs.textContent = "Khớp: " + item.matchedDocuments.join(", ");
+
+                const snippet = document.createElement("div");
+                snippet.className = "similar-snippet";
+                snippet.textContent = item.snippet;
+
+                li.append(name, docs, snippet);
+                return li;
+            }));
+            panel.hidden = false;
+        } catch { /* fail-open: giữ panel ẩn */ }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadSimilarProjects);
+})();

@@ -7,6 +7,7 @@ using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
+using ICOGenerator.Services.Requirements.Knowledge;
 using ICOGenerator.Services.Requirements.Templates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -32,6 +33,7 @@ public class BARequirementService
     private readonly RequirementCoverageService _coverage;
     private readonly ProductBriefReviewParser _reviewParser;
     private readonly OrganizationContextService _orgContext;
+    private readonly ProjectKnowledgeService _knowledge;
 
     public BARequirementService(
         AppDbContext db,
@@ -50,7 +52,8 @@ public class BARequirementService
         ChecklistGapMemoryService checklistGapMemory,
         RequirementCoverageService coverage,
         ProductBriefReviewParser reviewParser,
-        OrganizationContextService orgContext)
+        OrganizationContextService orgContext,
+        ProjectKnowledgeService knowledge)
     {
         _db = db;
         _llm = llm;
@@ -69,6 +72,7 @@ public class BARequirementService
         _coverage = coverage;
         _reviewParser = reviewParser;
         _orgContext = orgContext;
+        _knowledge = knowledge;
     }
 
     public async Task<ChatWithBAResult> ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
@@ -137,6 +141,22 @@ public class BARequirementService
         if (!string.IsNullOrWhiteSpace(organizationContext))
         {
             messages.Add(new ChatMessage(ChatRole.System, organizationContext));
+        }
+        // Tri thức xuyên dự án: các đoạn trích LIÊN QUAN từ tài liệu đã duyệt của những dự án KHÁC
+        // (truy xuất BM25, boost dự án cùng đơn vị yêu cầu). Truy vấn = vài lượt user GẦN NHẤT (không
+        // chỉ tin nhắn hiện tại — lượt "ừ đúng rồi" đơn lẻ không mang nội dung truy xuất được) + tên/
+        // mô tả dự án. BA nhờ đó hiểu thuật ngữ tổ chức, hỏi sắc hơn và nhận diện dự án tương tự.
+        // Fail-open: chưa có tài liệu duyệt/lỗi ⇒ bỏ qua, chat như cũ. Xem ProjectKnowledgeService.
+        var knowledgeQuery = string.Join("\n", recent
+            .Where(c => c.Role != "assistant")
+            .TakeLast(3)
+            .Select(c => c.Message));
+        var knowledgeContext = await _knowledge.BuildKnowledgeContextAsync(
+            project.Id, project.Name, project.Description, project.OrgUnitCode,
+            string.IsNullOrWhiteSpace(knowledgeQuery) ? userMessage : knowledgeQuery, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(knowledgeContext))
+        {
+            messages.Add(new ChatMessage(ChatRole.System, knowledgeContext));
         }
         // Checklist bổ sung được BA rút kinh nghiệm từ các dự án TRƯỚC (của bất kỳ ai) — nạp cho MỌI dự án
         // mới để hỏi kỹ hơn ngay từ đầu, bù cho những nhóm câu hỏi mà checklist tĩnh ban đầu chưa lường tới.
@@ -349,11 +369,18 @@ public class BARequirementService
             await _orgContext.BuildBaContextAsync(cancellationToken),
             await _orgContext.BuildProjectUnitNoteAsync(project.OrgUnitCode, cancellationToken));
 
+        // Tri thức xuyên dự án cho bước SOẠN: giúp tài liệu thống nhất thuật ngữ với các dự án đã duyệt.
+        // Truy vấn bằng transcript (phần đầu — nơi mô tả bài toán gốc). Cùng khối này đưa vào vòng tự
+        // soát/sửa bên dưới để reviewer không coi thuật ngữ lấy từ đó là "tự thêm". Fail-open như mọi tầng.
+        var knowledgeContext = await _knowledge.BuildKnowledgeContextAsync(
+            project.Id, project.Name, project.Description, project.OrgUnitCode, conversationTranscript, cancellationToken) ?? "";
+
         var prompt = _promptBuilder.BuildProductBrief(
             project,
             conversationTranscript,
             GetDoc(project, _artifactCatalog.ProductBrief.FileName, "draft"),
-            organizationContext);
+            organizationContext,
+            knowledgeContext);
 
         // Lượt user mang prompt soạn tài liệu + tài liệu nguồn (text/ảnh) đính kèm. Không có nguồn ⇒ chỉ một
         // TextContent, tương đương đường cũ.
@@ -414,7 +441,7 @@ public class BARequirementService
 
         // Vòng TỰ SOÁT (đúng một vòng): reviewer đối chiếu bản nháp với hội thoại (bỏ sót/sai lệch/tự
         // thêm/giả định còn sót/thiếu mục) rồi sửa nếu có vấn đề. Fail-open toàn tuyến — soát/sửa lỗi thì dùng bản nháp đầu.
-        result = await ReviewAndReviseDraftAsync(project, ba, model, conversationTranscript, organizationContext, result, Report, onToken, workflowRunId, cancellationToken);
+        result = await ReviewAndReviseDraftAsync(project, ba, model, conversationTranscript, organizationContext, knowledgeContext, result, Report, onToken, workflowRunId, cancellationToken);
 
         Report("tool", "Đang tạo/cập nhật file tài liệu (.docx)…");
 
@@ -680,6 +707,7 @@ public class BARequirementService
         AiModel model,
         string conversationTranscript,
         string organizationContext,
+        string knowledgeContext,
         BAProductBriefResult draft,
         Action<string, string, string?> report,
         Action<string>? onToken,
@@ -695,7 +723,7 @@ public class BARequirementService
         var reviewMessages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BA/product-brief-review.v2.md")),
-            new(ChatRole.User, _promptBuilder.BuildProductBriefReview(project, conversationTranscript, draft.ProductBrief.Content, organizationContext))
+            new(ChatRole.User, _promptBuilder.BuildProductBriefReview(project, conversationTranscript, draft.ProductBrief.Content, organizationContext, knowledgeContext))
         };
 
         var (reviewCall, structuredReview) = await _llm.ChatStructuredAsync<ProductBriefReview>(
@@ -723,7 +751,7 @@ public class BARequirementService
         var revisionMessages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BA/product-brief.v3.md")),
-            new(ChatRole.User, _promptBuilder.BuildProductBriefRevision(project, conversationTranscript, draft.ProductBrief.Content, review.Issues, organizationContext))
+            new(ChatRole.User, _promptBuilder.BuildProductBriefRevision(project, conversationTranscript, draft.ProductBrief.Content, review.Issues, organizationContext, knowledgeContext))
         };
 
         var (revisionCall, structuredRevision) = await _llm.ChatStructuredAsync<BAProductBriefResult>(

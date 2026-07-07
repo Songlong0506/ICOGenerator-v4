@@ -9,11 +9,14 @@ public class RequirementPromptBuilder
     // (BA hỏi / Người dùng trả lời) — giữ cả câu hỏi để câu trả lời ngắn kiểu chip không mất ngữ cảnh.
     // organizationContext (có thể rỗng): bối cảnh tổ chức Bosch + đơn vị yêu cầu, render từ dữ liệu HR
     // thật — để tài liệu dùng đúng tên phòng ban/HoD thay vì "TBD". Xem OrganizationContextService.
+    // knowledgeContext (có thể rỗng): trích đoạn tài liệu đã duyệt của dự án KHÁC — chỉ để thống nhất
+    // thuật ngữ, KHÔNG phải nguồn yêu cầu. Xem ProjectKnowledgeService.
     public string BuildProductBrief(
         Project project,
         string conversationTranscript,
         string currentProductBrief,
-        string organizationContext = "")
+        string organizationContext = "",
+        string knowledgeContext = "")
     {
         return $$"""
 Project:
@@ -21,7 +24,7 @@ Project:
 
 Project Description:
 {{project.Description}}
-{{OrganizationSection(organizationContext)}}
+{{OrganizationSection(organizationContext)}}{{KnowledgeSection(knowledgeContext)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
 
@@ -36,13 +39,14 @@ Your task:
 
     // Vòng TỰ SOÁT bản nháp Product Brief: reviewer đối chiếu bản nháp với hội thoại để tìm vấn đề
     // thực chất (bỏ sót/sai lệch/tự thêm/giả định còn sót/thiếu mục). Xem Prompts/BA/product-brief-review.v2.md.
-    // organizationContext phải TRÙNG với khối đã đưa cho lượt soạn: tên phòng ban/HoD lấy từ đó là dữ
-    // liệu hợp lệ, reviewer không được tính là "tự thêm ngoài hội thoại".
+    // organizationContext/knowledgeContext phải TRÙNG với khối đã đưa cho lượt soạn: tên phòng ban/HoD
+    // hay thuật ngữ lấy từ đó là dữ liệu hợp lệ, reviewer không được tính là "tự thêm ngoài hội thoại".
     public string BuildProductBriefReview(
         Project project,
         string conversationTranscript,
         string draftProductBrief,
-        string organizationContext = "")
+        string organizationContext = "",
+        string knowledgeContext = "")
     {
         return $$"""
 Project:
@@ -50,7 +54,7 @@ Project:
 
 Project Description:
 {{project.Description}}
-{{OrganizationSection(organizationContext)}}
+{{OrganizationSection(organizationContext)}}{{KnowledgeSection(knowledgeContext)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
 
@@ -60,6 +64,7 @@ Bản nháp Product Brief cần soát:
 Your task:
 - Review the draft against the conversation and list substantive issues.
 - Organization facts (department names, HoD/manager names) taken from the organization context above are legitimate — do NOT flag them as fabricated.
+- Terminology consistent with the reference knowledge block is legitimate, but any FEATURE that appears only there and not in the conversation IS fabricated — flag it.
 - Return JSON only.
 """;
     }
@@ -71,7 +76,8 @@ Your task:
         string conversationTranscript,
         string draftProductBrief,
         IReadOnlyList<string> reviewIssues,
-        string organizationContext = "")
+        string organizationContext = "",
+        string knowledgeContext = "")
     {
         return $$"""
 Project:
@@ -79,7 +85,7 @@ Project:
 
 Project Description:
 {{project.Description}}
-{{OrganizationSection(organizationContext)}}
+{{OrganizationSection(organizationContext)}}{{KnowledgeSection(knowledgeContext)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
 
@@ -206,6 +212,21 @@ General rules:
 
 Reviewer change request (bản "Current ... preview" ở trên là kết quả lần trước — người duyệt yêu cầu CHỈNH SỬA; xử lý TRỌN VẸN từng ý dưới đây, giữ nguyên những phần không bị nhắc tới):
 {revisionFeedback.Trim()}
+
+""";
+    }
+
+    // Khối "tri thức xuyên dự án" (trích tài liệu đã duyệt của dự án khác): rỗng thì biến mất, cùng cơ
+    // chế với OrganizationSection. Nhấn mạnh vai trò THAM KHẢO — chép tính năng từ đây là fabrication.
+    private static string KnowledgeSection(string knowledgeContext)
+    {
+        if (string.IsNullOrWhiteSpace(knowledgeContext))
+            return string.Empty;
+
+        return $"""
+
+Tri thức tham khảo từ tài liệu ĐÃ DUYỆT của các dự án KHÁC (CHỈ để thống nhất thuật ngữ/văn phong và nhận diện trùng lặp — KHÔNG được chép yêu cầu/tính năng từ đây; mọi yêu cầu phải đến từ hội thoại bên dưới):
+{knowledgeContext.Trim()}
 
 """;
     }

@@ -23,6 +23,7 @@ using ICOGenerator.Services.Notifications;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Tools.Registry;
 using ICOGenerator.Services.Requirements;
+using ICOGenerator.Services.Requirements.Knowledge;
 using ICOGenerator.Services.Settings;
 using ICOGenerator.Services.Requirements.Templates;
 using ICOGenerator.Services.Security;
@@ -228,6 +229,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<DeleteProjectSourceUseCase>();
         services.AddScoped<GetDocumentRevisionsQuery>();
         services.AddScoped<GetDocumentRevisionDiffQuery>();
+        services.AddScoped<GetSimilarProjectsQuery>();
         return services;
     }
 
@@ -440,6 +442,9 @@ public static class ApplicationServiceCollectionExtensions
         // Scoped vì dùng DbContext; bản render dùng chung nằm trong IMemoryCache (singleton) nên vẫn
         // chỉ tốn một lần dựng mỗi giờ cho cả tiến trình.
         services.AddScoped<OrganizationContextService>();
+        // Tri thức xuyên dự án (BM25 trên tài liệu đã duyệt) cho prompt BA (chat + soạn Product Brief).
+        // Scoped vì dùng DbContext; chỉ mục dùng chung nằm trong IMemoryCache (singleton).
+        services.AddScoped<ProjectKnowledgeService>();
         return services;
     }
 
