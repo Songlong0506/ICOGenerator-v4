@@ -229,6 +229,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<DeleteProjectSourceUseCase>();
         services.AddScoped<GetDocumentRevisionsQuery>();
         services.AddScoped<GetDocumentRevisionDiffQuery>();
+        services.AddScoped<GetSimilarProjectsQuery>();
         return services;
     }
 

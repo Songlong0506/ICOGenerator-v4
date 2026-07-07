@@ -84,36 +84,96 @@ public partial class ProjectKnowledgeService
     {
         try
         {
-            var index = await _cache.GetOrCreateAsync(CacheKey, entry =>
-            {
-                entry.AbsoluteExpirationRelativeToNow = CacheDuration;
-                return BuildIndexAsync(cancellationToken);
-            });
-            if (index == null || index.Count == 0)
-                return null;
-
-            var fullQuery = string.Join(" ",
-                new[] { projectName, projectDescription, Truncate(query) }
-                    .Where(s => !string.IsNullOrWhiteSpace(s)));
-
-            var hits = index.Search(
-                fullQuery,
-                TopChunks,
-                filter: chunk => chunk.ProjectId != projectId,
-                boost: chunk => projectOrgUnitCode != null
-                                && string.Equals(chunk.OrgUnitCode, projectOrgUnitCode, StringComparison.OrdinalIgnoreCase)
-                    ? SameOrgUnitBoost
-                    : 1.0);
-            if (hits.Count == 0)
-                return null;
-
-            return Render(hits);
+            var hits = await SearchAsync(projectId, projectName, projectDescription, projectOrgUnitCode,
+                query, TopChunks, cancellationToken);
+            return hits.Count == 0 ? null : Render(hits);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Không dựng được khối tri thức xuyên dự án — tiếp tục không có phần ngữ cảnh này.");
             return null;
         }
+    }
+
+    /// <summary>
+    /// Các dự án KHÁC giống dự án đang xét nhất (cho panel "Dự án tương tự" ở trang Requirements):
+    /// gom các đoạn khớp theo dự án nguồn, điểm dự án = tổng điểm đoạn, kèm loại tài liệu khớp và một
+    /// snippet của đoạn khớp nhất. Fail-open: lỗi/không có gì ⇒ danh sách rỗng.
+    /// </summary>
+    public virtual async Task<IReadOnlyList<SimilarProject>> FindSimilarProjectsAsync(
+        Guid projectId,
+        string? projectName,
+        string? projectDescription,
+        string? projectOrgUnitCode,
+        string query,
+        int maxProjects = 3,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Lấy dư đoạn (mỗi dự án có thể khớp nhiều đoạn) rồi mới gom nhóm theo dự án.
+            var hits = await SearchAsync(projectId, projectName, projectDescription, projectOrgUnitCode,
+                query, maxProjects * 4, cancellationToken);
+
+            return hits
+                .GroupBy(h => h.Chunk.ProjectId)
+                .Select(g =>
+                {
+                    var best = g.OrderByDescending(h => h.Score).First().Chunk;
+                    return new SimilarProject(
+                        g.Key,
+                        best.ProjectName,
+                        best.OrgUnitCode,
+                        Math.Round(g.Sum(h => h.Score), 3),
+                        g.Select(h => h.Chunk.DocumentLabel).Distinct().OrderBy(l => l, StringComparer.OrdinalIgnoreCase).ToList(),
+                        Snip(best.Text));
+                })
+                .OrderByDescending(p => p.Score)
+                .Take(maxProjects)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không tìm được dự án tương tự — trả danh sách rỗng.");
+            return Array.Empty<SimilarProject>();
+        }
+    }
+
+    /// <summary>
+    /// Xóa chỉ mục cache để tài liệu VỪA DUYỆT xuất hiện trong tri thức ngay (gọi từ bước Approve),
+    /// không phải đợi hết TTL.
+    /// </summary>
+    public virtual void InvalidateIndex() => _cache.Remove(CacheKey);
+
+    private async Task<IReadOnlyList<(KnowledgeChunk Chunk, double Score)>> SearchAsync(
+        Guid projectId,
+        string? projectName,
+        string? projectDescription,
+        string? projectOrgUnitCode,
+        string query,
+        int topK,
+        CancellationToken cancellationToken)
+    {
+        var index = await _cache.GetOrCreateAsync(CacheKey, entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+            return BuildIndexAsync(cancellationToken);
+        });
+        if (index == null || index.Count == 0)
+            return Array.Empty<(KnowledgeChunk, double)>();
+
+        var fullQuery = string.Join(" ",
+            new[] { projectName, projectDescription, Truncate(query) }
+                .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+        return index.Search(
+            fullQuery,
+            topK,
+            filter: chunk => chunk.ProjectId != projectId,
+            boost: chunk => projectOrgUnitCode != null
+                            && string.Equals(chunk.OrgUnitCode, projectOrgUnitCode, StringComparison.OrdinalIgnoreCase)
+                ? SameOrgUnitBoost
+                : 1.0);
     }
 
     // Chỉ mục dựng từ bản MỚI NHẤT của mỗi (dự án, loại tài liệu) đã duyệt — các phiên bản V cũ gần
@@ -171,6 +231,13 @@ public partial class ProjectKnowledgeService
 
     private static string Truncate(string query) =>
         query.Length > MaxQueryChars ? query[..MaxQueryChars] : query;
+
+    // Snippet một dòng cho panel "Dự án tương tự" — đủ nhận diện nội dung, không tràn card.
+    private static string Snip(string text)
+    {
+        var flattened = text.ReplaceLineEndings(" ").Trim();
+        return flattened.Length <= 220 ? flattened : flattened[..220] + "…";
+    }
 
     [GeneratedRegex("<!--.*?-->", RegexOptions.Singleline)]
     private static partial Regex HtmlCommentRegex();

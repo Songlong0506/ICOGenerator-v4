@@ -202,6 +202,16 @@
             }
         </div>
 
+        @* Panel "Dự án tương tự": JS đổ dữ liệu từ /Requirements/SimilarProjects (tri thức xuyên dự
+           án — tài liệu ĐÃ DUYỆT của dự án khác). Ẩn khi chưa có gì khớp; fail-open khi endpoint lỗi. *@
+        <div class="similar-panel" id="similarPanel" data-project-id="@Model.Id" hidden>
+            <h3>Dự án tương tự</h3>
+            <div class="history-sub" style="margin-bottom:8px;">
+                Tài liệu đã duyệt của dự án khác khớp nội dung đang trao đổi — tham khảo hoặc tránh làm trùng.
+            </div>
+            <ul class="similar-list" id="similarList"></ul>
+        </div>
+
         <form asp-action="NewChat"
               method="post"
               class="new-chat-form"

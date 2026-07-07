@@ -319,11 +319,17 @@ dự án tương tự ("phòng X từng làm tool gần giống"), tài liệu t
 - **Truy xuất lexical BM25 thuần in-memory** (`Bm25TextIndex`) — KHÔNG cần hạ tầng embedding/vector,
   chạy được cả SqlServer lẫn Sqlite. Corpus = bản MỚI NHẤT của mỗi (dự án, loại tài liệu nghiệp vụ:
   ProductBrief/BRD/SRS/FSD/UserStories) đã duyệt, cắt đoạn theo heading markdown (`MarkdownChunker`,
-  trần 1200 ký tự/đoạn). Chỉ mục cache trong IMemoryCache 10 phút — tài liệu duyệt mới xuất hiện
-  trong tri thức trễ nhất vài phút, đổi lấy chi phí dựng chỉ mục ~0 trên mỗi lượt chat.
-- **Truy vấn** = tên + mô tả dự án + tin nhắn hiện tại (lượt chat) / phần đầu transcript (bước soạn
+  trần 1200 ký tự/đoạn). Chỉ mục cache trong IMemoryCache 10 phút; bước Approve gọi
+  `InvalidateIndex()` nên bộ tài liệu VỪA DUYỆT xuất hiện trong tri thức ngay, không đợi hết TTL.
+- **Truy vấn** = tên + mô tả dự án + vài lượt user GẦN NHẤT (lượt chat — không chỉ tin nhắn hiện
+  tại, vì lượt "ừ đúng rồi" đơn lẻ không truy xuất được gì) / phần đầu transcript (bước soạn
   Product Brief). Đoạn của CHÍNH dự án đang hỏi bị loại; dự án cùng đơn vị yêu cầu (`OrgUnitCode`)
   được cộng điểm nhẹ (×1.25).
+- **Panel "Dự án tương tự"** (trang Requirements): `FindSimilarProjectsAsync` gom các đoạn khớp
+  theo dự án nguồn (điểm dự án = tổng điểm đoạn, kèm loại tài liệu khớp + snippet) — đưa THẲNG cho
+  người dùng thấy để tham khảo/tránh làm trùng, cùng nguồn tri thức mà BA dùng trong prompt. JS
+  fetch `Requirements/SimilarProjects` sau khi trang tải (không chặn page load); không có gì khớp
+  thì panel ẩn.
 - **Nơi tiêu thụ:** `BARequirementService.ChatAsync` (system message riêng) và
   `GenerateOrUpdateDraftAsync` (tham số `knowledgeContext` của `RequirementPromptBuilder`, đưa cả
   vào vòng tự soát/sửa để reviewer không coi thuật ngữ lấy từ đó là "tự thêm" — nhưng TÍNH NĂNG chỉ

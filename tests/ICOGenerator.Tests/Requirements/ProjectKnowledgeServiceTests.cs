@@ -104,6 +104,63 @@ public class ProjectKnowledgeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Build_AfterInvalidateIndex_NewlyApprovedDocAppearsImmediately()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var sut = NewSut(cache);
+
+        // Mồi cache khi corpus trống, rồi "duyệt" một tài liệu mới.
+        Assert.Null(await sut.BuildKnowledgeContextAsync(
+            _currentProjectId, "Kho mới", "", null, "ứng dụng quản lý kho vật tư"));
+        await SeedDocAsync("Dự án mới duyệt", "# Phạm vi\nỨng dụng quản lý kho vật tư nhập xuất tồn hằng ngày của phân xưởng.", approved: true);
+
+        // InvalidateIndex (bước Approve gọi) ⇒ tài liệu vừa duyệt xuất hiện NGAY, không đợi hết TTL.
+        sut.InvalidateIndex();
+        var result = await sut.BuildKnowledgeContextAsync(
+            _currentProjectId, "Kho mới", "", null, "ứng dụng quản lý kho vật tư");
+
+        Assert.NotNull(result);
+        Assert.Contains("Dự án mới duyệt", result);
+    }
+
+    [Fact]
+    public async Task FindSimilarProjects_GroupsHitsByProject_WithDocLabelsAndSnippet()
+    {
+        // Một dự án khớp bằng HAI loại tài liệu ⇒ phải gom thành MỘT kết quả mang cả hai nhãn.
+        var projectId = Guid.NewGuid();
+        await SeedDocAsync("Dự án kho cũ", "# Phạm vi\nỨng dụng quản lý kho vật tư giúp thủ kho theo dõi nhập xuất tồn hằng ngày.", approved: true,
+            projectId: projectId, createProject: true);
+        await SeedDocAsync("Dự án kho cũ", "# Yêu cầu\nHệ thống quản lý kho vật tư phải hỗ trợ kiểm kê tồn kho định kỳ hằng tháng.", approved: true,
+            projectId: projectId, fileName: "BRD.docx");
+
+        var similar = await NewSut().FindSimilarProjectsAsync(
+            _currentProjectId, "Kho mới", "", null, "ứng dụng quản lý kho vật tư");
+
+        var item = Assert.Single(similar);
+        Assert.Equal(projectId, item.ProjectId);
+        Assert.Equal("Dự án kho cũ", item.ProjectName);
+        Assert.Equal(new[] { "BRD", "Product Brief" }, item.MatchedDocuments);
+        Assert.False(string.IsNullOrWhiteSpace(item.Snippet));
+        Assert.True(item.Score > 0);
+    }
+
+    [Fact]
+    public async Task FindSimilarProjects_ExcludesOwnProject_AndBoostsSameOrgUnit()
+    {
+        const string content = "# Phạm vi\nỨng dụng quản lý kho vật tư giúp thủ kho theo dõi nhập xuất tồn hằng ngày tại phân xưởng.";
+        await SeedDocAsync("Kho mới", "# Phạm vi\nSELF ứng dụng quản lý kho vật tư nhập xuất tồn của phân xưởng.", approved: true, projectId: _currentProjectId);
+        await SeedDocAsync("Dự án khác phòng", content, approved: true, orgUnitCode: "HcP/TEF");
+        await SeedDocAsync("Dự án cùng phòng", content, approved: true, orgUnitCode: "HcP/MFW");
+
+        var similar = await NewSut().FindSimilarProjectsAsync(
+            _currentProjectId, "Kho mới", "", "HcP/MFW", "ứng dụng quản lý kho vật tư");
+
+        Assert.DoesNotContain(similar, p => p.ProjectId == _currentProjectId);
+        Assert.Equal(2, similar.Count);
+        Assert.Equal("Dự án cùng phòng", similar[0].ProjectName); // boost cùng đơn vị thắng khi nội dung ngang nhau
+    }
+
+    [Fact]
     public async Task Build_TemplateLoadFails_FailsOpenToNull()
     {
         await SeedDocAsync("Dự án kho cũ", "# Phạm vi\nỨng dụng quản lý kho vật tư nhập xuất tồn hằng ngày của phân xưởng.", approved: true);
@@ -121,17 +178,17 @@ public class ProjectKnowledgeServiceTests : IDisposable
             NullLogger<ProjectKnowledgeService>.Instance);
 
     private async Task SeedDocAsync(string projectName, string content, bool approved,
-        string? orgUnitCode = null, Guid? projectId = null)
+        string? orgUnitCode = null, Guid? projectId = null, string fileName = "ProductBrief.docx", bool createProject = false)
     {
         await using var db = NewDb();
         var id = projectId ?? Guid.NewGuid();
-        if (projectId == null)
+        if (projectId == null || createProject)
             db.Projects.Add(new Project { Id = id, Name = projectName, Description = "", OrgUnitCode = orgUnitCode });
 
         db.ProjectDocuments.Add(new ProjectDocument
         {
             ProjectId = id,
-            FileName = "ProductBrief.docx",
+            FileName = fileName,
             VersionName = "V1",
             IsApproved = approved,
             Content = content

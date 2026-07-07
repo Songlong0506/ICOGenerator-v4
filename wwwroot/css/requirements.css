@@ -780,3 +780,37 @@
 .source-item .source-size { color: #6b7280; }
 .source-del { background: transparent; border: 0; color: #dc2626; cursor: pointer; padding: 2px 4px; width: auto; }
 .source-inline { display: inline; }
+
+/* ----- Panel "Dự án tương tự" (tri thức xuyên dự án) ----- */
+.similar-panel { margin-top: 16px; }
+
+.similar-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+.similar-item {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+}
+
+.similar-name { font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.similar-unit {
+    font-weight: 400;
+    font-size: 11px;
+    color: var(--muted);
+    background: #e7eaec;
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+
+.similar-docs { color: var(--bosch-blue); font-size: 11.5px; margin-top: 2px; }
+
+.similar-snippet {
+    color: var(--muted);
+    margin-top: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}

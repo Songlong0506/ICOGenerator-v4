@@ -143,11 +143,17 @@ public class BARequirementService
             messages.Add(new ChatMessage(ChatRole.System, organizationContext));
         }
         // Tri thức xuyên dự án: các đoạn trích LIÊN QUAN từ tài liệu đã duyệt của những dự án KHÁC
-        // (truy xuất BM25 theo tin nhắn hiện tại + tên/mô tả dự án, boost dự án cùng đơn vị yêu cầu).
-        // BA nhờ đó hiểu thuật ngữ tổ chức, hỏi sắc hơn và nhận diện dự án tương tự. Fail-open: chưa
-        // có tài liệu duyệt/lỗi ⇒ bỏ qua, chat như cũ. Xem ProjectKnowledgeService.
+        // (truy xuất BM25, boost dự án cùng đơn vị yêu cầu). Truy vấn = vài lượt user GẦN NHẤT (không
+        // chỉ tin nhắn hiện tại — lượt "ừ đúng rồi" đơn lẻ không mang nội dung truy xuất được) + tên/
+        // mô tả dự án. BA nhờ đó hiểu thuật ngữ tổ chức, hỏi sắc hơn và nhận diện dự án tương tự.
+        // Fail-open: chưa có tài liệu duyệt/lỗi ⇒ bỏ qua, chat như cũ. Xem ProjectKnowledgeService.
+        var knowledgeQuery = string.Join("\n", recent
+            .Where(c => c.Role != "assistant")
+            .TakeLast(3)
+            .Select(c => c.Message));
         var knowledgeContext = await _knowledge.BuildKnowledgeContextAsync(
-            project.Id, project.Name, project.Description, project.OrgUnitCode, userMessage, cancellationToken);
+            project.Id, project.Name, project.Description, project.OrgUnitCode,
+            string.IsNullOrWhiteSpace(knowledgeQuery) ? userMessage : knowledgeQuery, cancellationToken);
         if (!string.IsNullOrWhiteSpace(knowledgeContext))
         {
             messages.Add(new ChatMessage(ChatRole.System, knowledgeContext));
