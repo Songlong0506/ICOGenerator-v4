@@ -107,7 +107,6 @@
 .activity-live { display: inline-flex; align-items: center; gap: 6px; color: #166534; font-weight: 700; }
 
 .muted { color: var(--muted); }
-.logs-panel { display: none; margin-top: 24px; }
 .logs-header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 16px; padding-right: 32px; }
 .logs-header p { color: var(--muted); margin: 4px 0 0; }
 .logs-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding: 12px 14px; margin-bottom: 16px; background: var(--surface-alt); border: 1px solid var(--line); }

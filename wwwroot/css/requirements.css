@@ -169,11 +169,6 @@
         display: flex;
     }
 
-    .approve-stage {
-        margin: 0;
-        display: flex;
-    }
-
     /* Compact button sized to its label instead of a full-width bar so it
        reads as an action button rather than a separator. */
     .write-req-btn {
@@ -441,26 +436,6 @@
         color: var(--slate-500);
     }
 
-    .wf-task {
-        border: 1px solid var(--slate-200);
-        border-radius: 8px;
-        padding: 8px 10px;
-        margin-top: 8px;
-        background: #fff;
-    }
-
-    .wf-task-head {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        flex-wrap: wrap;
-    }
-
-    .wf-meta {
-        font-size: 12px;
-        margin-top: 2px;
-    }
-
     .wf-err {
         color: #DC2626;
         font-size: 13px;
@@ -468,40 +443,9 @@
         white-space: pre-wrap;
     }
 
-    /* Nút "Thử lại bước này" trong banner Workflow thất bại. */
+    /* Khối hành động trong banner Workflow thất bại (link mở Agent Dashboard để chạy lại). */
     .wf-fail-actions {
         margin-top: 8px;
-    }
-
-    .retry-wf-btn {
-        background: #DC2626;
-        color: #fff;
-        border: none;
-        border-radius: 6px;
-        padding: 6px 12px;
-        font-size: 13px;
-        cursor: pointer;
-    }
-
-    .retry-wf-btn:hover {
-        background: var(--danger-ink);
-    }
-
-    .retry-wf-btn:disabled {
-        opacity: 0.6;
-        cursor: default;
-    }
-
-    .wf-out {
-        color: var(--slate-600);
-        font-size: 12px;
-        margin-top: 6px;
-        white-space: pre-wrap;
-        max-height: 140px;
-        overflow: auto;
-        background: var(--slate-50);
-        padding: 6px 8px;
-        border-radius: 6px;
     }
 
     .wf-banner {

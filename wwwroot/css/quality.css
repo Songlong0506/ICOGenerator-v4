@@ -84,7 +84,6 @@
 .q-rate-pill.warn { background: var(--warning-tint); color: var(--warning-ink); }
 .q-rate-pill.bad { background: var(--danger-tint); color: var(--danger-ink); }
 
-.q-muted { color: var(--muted); }
 .q-empty { padding: 40px 20px; text-align: center; color: var(--muted); }
 
 /* Chân card "Prompt evals gần nhất": link sang trang Prompt Evals. */
