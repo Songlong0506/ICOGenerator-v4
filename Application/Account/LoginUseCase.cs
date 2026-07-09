@@ -27,7 +27,9 @@ public class LoginUseCase
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
             return null;
 
+        // Chỉ đọc để xác thực và phát claim, không sửa entity ⇒ khỏi track (nhất quán với các query đọc khác).
         var user = await _db.AppUsers
+            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Username == username && x.IsActive, cancellationToken);
         if (user is null)
             return null;

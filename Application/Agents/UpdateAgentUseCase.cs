@@ -43,14 +43,15 @@ public class UpdateAgentUseCase
 
         var existingToolIds = agent.AgentTools.Select(x => x.ToolDefinitionId).ToHashSet();
         var newToolIds = selectedToolIds.Where(id => !existingToolIds.Contains(id)).ToList();
-        foreach (var toolId in newToolIds)
-        {
-            var toolExists = await _db.ToolDefinitions.AnyAsync(x => x.Id == toolId && x.IsActive);
-            if (!toolExists)
-                continue;
-
+        // Lọc các tool id hợp lệ (còn tồn tại và đang active) bằng MỘT truy vấn thay vì AnyAsync từng id.
+        var validNewToolIds = newToolIds.Count == 0
+            ? []
+            : await _db.ToolDefinitions
+                .Where(x => newToolIds.Contains(x.Id) && x.IsActive)
+                .Select(x => x.Id)
+                .ToListAsync();
+        foreach (var toolId in validNewToolIds)
             _db.AgentTools.Add(new AgentTool { AgentId = agent.Id, ToolDefinitionId = toolId });
-        }
 
         await _db.SaveChangesAsync();
 
