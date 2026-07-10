@@ -130,6 +130,35 @@ public class NotificationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task MarkAllRead_UpdatesOnlyOwnersUnread_AndReturnsCount()
+    {
+        await using (var db = NewDb())
+        {
+            db.Notifications.AddRange(
+                new Notification { RecipientUsername = "teamdev", Title = "a", IsRead = false },
+                new Notification { RecipientUsername = "teamdev", Title = "b", IsRead = false },
+                new Notification { RecipientUsername = "teamdev", Title = "c", IsRead = true },
+                new Notification { RecipientUsername = "other", Title = "d", IsRead = false });
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+            Assert.Equal(2, await new MarkAllNotificationsReadUseCase(db).ExecuteAsync("teamdev"));
+
+        await using (var db = NewDb())
+        {
+            // Toàn bộ thông báo của teamdev đã đọc (có ReadAt); của người khác giữ nguyên.
+            Assert.False(await db.Notifications.AnyAsync(n => n.RecipientUsername == "teamdev" && !n.IsRead));
+            Assert.True(await db.Notifications.Where(n => n.RecipientUsername == "teamdev" && n.Title != "c").AllAsync(n => n.ReadAt != null));
+            Assert.False(await db.Notifications.Where(n => n.RecipientUsername == "other").Select(n => n.IsRead).FirstAsync());
+        }
+
+        // Không còn gì chưa đọc ⇒ 0 dòng cập nhật.
+        await using (var db = NewDb())
+            Assert.Equal(0, await new MarkAllNotificationsReadUseCase(db).ExecuteAsync("teamdev"));
+    }
+
+    [Fact]
     public async Task GetNotifications_ReturnsUnreadCountAndItemsForUserOnly()
     {
         await using (var db = NewDb())

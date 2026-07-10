@@ -348,10 +348,6 @@ async function viewLogDetail(id) {
     showLogTab('request', document.querySelector('.tab'));
 }
 
-function closeLogsPanel() {
-    document.getElementById('logs-panel').style.display = 'none';
-}
-
 function closeLogModal() {
     document.getElementById('log-modal').style.display = 'none';
 }
