@@ -271,7 +271,11 @@ public class BARequirementService
 
         Report("setup", "Đang đọc hội thoại…");
 
+        // AsSplitQuery: Include 3 collection (Documents/Conversations/SourceFiles) trong một query sinh tích
+        // Descartes (số dòng = tích cỡ các collection, nhân bản cả cột Content nvarchar(max)); tách thành một
+        // query mỗi collection để tránh kéo dữ liệu trùng lớn với project có nhiều hội thoại.
         var project = await _db.Projects
+            .AsSplitQuery()
             .Include(x => x.Documents)
             .Include(x => x.Conversations)
             .Include(x => x.SourceFiles)
