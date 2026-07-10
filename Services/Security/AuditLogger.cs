@@ -4,7 +4,6 @@ using System.Text.Json.Nodes;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using Microsoft.AspNetCore.Http;
 
 namespace ICOGenerator.Services.Security;
 
