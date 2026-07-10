@@ -21,8 +21,13 @@ public class GetRequirementWorkspaceQuery
         // Chỉ đọc để render màn hình workspace (controller trả thẳng vào View, không SaveChanges trên đồ
         // thị này) ⇒ AsNoTracking để khỏi tốn change-tracker cho cả Project + Documents + Conversations +
         // WorkflowRuns được Include bên dưới.
+        // AsSplitQuery: Include 4 collection (Documents/Conversations/WorkflowRuns/SourceFiles) trong MỘT
+        // query sinh tích Descartes — số dòng = tích cỡ các collection, nhân bản cả cột Content nvarchar(max)
+        // của mỗi Document qua từng tổ hợp. Tách thành một query mỗi collection (ORDER BY trong Include vẫn
+        // giữ) để không kéo lượng dữ liệu trùng khổng lồ với project nhiều hội thoại/tài liệu.
         var project = await _db.Projects
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(x => x.Documents)
             .Include(x => x.Conversations.OrderBy(c => c.CreatedAt))
                 .ThenInclude(x => x.Agent)
