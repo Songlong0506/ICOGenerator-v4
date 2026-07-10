@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ICOGenerator v4 — Slide thuyết trình</title>
+<style>
+  :root{
+    --bg:#0d141d;
+    --surface:#16202c;
+    --surface-2:#1c2836;
+    --line:#263444;
+    --text:#e8eef5;
+    --muted:#8fa1b3;
+    --ai:#43d6c0;
+    --ai-dim:rgba(67,214,192,.14);
+    --human:#f0b454;
+    --human-dim:rgba(240,180,84,.14);
+    --display:"Segoe UI Variable Display","Segoe UI",-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --body:"Segoe UI",-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --mono:"Cascadia Code",ui-monospace,"SF Mono",Consolas,"Liberation Mono",monospace;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--body);overflow:hidden;height:100%}
+  *{box-sizing:border-box}
+
+  #viewport{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg)}
+  #deck{width:1280px;height:720px;position:relative;flex:none}
+
+  .slide{
+    position:absolute;inset:0;padding:60px 84px 88px;
+    display:flex;flex-direction:column;
+    opacity:0;visibility:hidden;transition:opacity .35s ease;
+    background:
+      radial-gradient(1100px 600px at 85% -10%, rgba(67,214,192,.06), transparent 60%),
+      var(--bg);
+  }
+  .slide.on{opacity:1;visibility:visible}
+  @media (prefers-reduced-motion: reduce){ .slide{transition:none} }
+
+  .eyebrow{
+    font-family:var(--mono);font-size:14px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--ai);margin:0 0 18px;display:flex;align-items:center;gap:12px;
+  }
+  .eyebrow::before{content:"";width:26px;height:2px;background:var(--ai);flex:none}
+  .eyebrow.warm{color:var(--human)} .eyebrow.warm::before{background:var(--human)}
+
+  h1{font-family:var(--display);font-size:84px;line-height:1.04;font-weight:800;
+     letter-spacing:-0.02em;margin:0;text-wrap:balance}
+  h2{font-family:var(--display);font-size:44px;line-height:1.12;font-weight:800;
+     letter-spacing:-0.015em;margin:0 0 14px;text-wrap:balance;max-width:22ch}
+  .lede{font-size:21px;line-height:1.55;color:var(--muted);margin:0 0 26px;max-width:62ch}
+  .lede strong{color:var(--text);font-weight:600}
+  .accent{color:var(--ai)}
+
+  .foot{
+    position:absolute;left:84px;right:84px;bottom:30px;
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-family:var(--mono);font-size:12.5px;color:var(--muted);letter-spacing:.08em;
+  }
+  .foot .n{color:var(--text)}
+
+  /* ---------- title slide ---------- */
+  .title-slide{justify-content:center}
+  .title-sub{font-size:24px;line-height:1.5;color:var(--muted);max-width:46ch;margin:26px 0 0}
+  .title-sub strong{color:var(--text);font-weight:600}
+  .agent-row{display:flex;gap:10px;margin-top:44px;flex-wrap:wrap}
+  .agent-chip{
+    font-family:var(--mono);font-size:15px;padding:9px 16px;border:1px solid var(--line);
+    border-radius:999px;background:var(--surface);color:var(--text)
+  }
+  .agent-chip b{color:var(--ai);font-weight:600;margin-right:8px}
+  .hint{margin-top:52px;font-family:var(--mono);font-size:13px;color:var(--muted)}
+
+  /* ---------- generic building blocks ---------- */
+  .cols{display:grid;gap:18px;flex:1;align-content:start}
+  .cols.c2{grid-template-columns:1fr 1fr}
+  .cols.c3{grid-template-columns:1fr 1fr 1fr}
+  .cols.c5{grid-template-columns:repeat(5,1fr)}
+
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:22px 24px;display:flex;flex-direction:column;gap:8px;min-width:0;
+  }
+  .card h3{font-family:var(--display);font-size:20px;font-weight:700;margin:0;letter-spacing:-.01em}
+  .card p{font-size:16px;line-height:1.5;color:var(--muted);margin:0}
+  .card .k{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ai)}
+  .card .k.warm{color:var(--human)}
+
+  ul.big{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:18px}
+  ul.big li{display:flex;gap:16px;font-size:20px;line-height:1.5;max-width:74ch}
+  ul.big li::before{content:"";flex:none;width:9px;height:9px;border-radius:2px;background:var(--ai);margin-top:11px}
+  ul.big li b{font-weight:600}
+  ul.big li .mut{color:var(--muted)}
+
+  .feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 34px;flex:1;align-content:start}
+  .feature{display:flex;flex-direction:column;gap:4px;padding:14px 0 12px;border-top:1px solid var(--line)}
+  .feature h3{font-family:var(--display);font-size:19.5px;font-weight:700;margin:0}
+  .feature h3 .tick{color:var(--ai);margin-right:10px;font-family:var(--mono);font-weight:600}
+  .feature p{font-size:15.5px;line-height:1.45;color:var(--muted);margin:0}
+
+  /* ---------- pipeline slide ---------- */
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 6px;margin-top:8px}
+  .stage{
+    display:flex;align-items:center;gap:9px;background:var(--surface);
+    border:1px solid var(--line);border-radius:9px;padding:11px 14px;
+    font-size:16.5px;font-weight:600;white-space:nowrap;
+  }
+  .stage .dot{width:8px;height:8px;border-radius:50%;background:var(--ai);flex:none}
+  .stage.start{background:transparent;border-style:dashed;font-weight:400;color:var(--muted)}
+  .stage.start .dot{background:var(--muted)}
+  .stage.final{border-color:var(--ai);background:var(--ai-dim)}
+  .gate{
+    font-family:var(--mono);font-size:13px;color:var(--human);flex:none;
+    display:flex;align-items:center;gap:5px;padding:0 2px;
+  }
+  .gate::before{content:"◆";font-size:11px}
+  .arrow{color:var(--muted);font-size:17px;flex:none;opacity:.7}
+  .loop-note{
+    display:inline-flex;align-items:center;gap:8px;margin-top:22px;
+    font-size:15.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);
+    border-radius:9px;padding:10px 16px;
+  }
+  .loop-note b{color:var(--text)}
+  .legend{display:flex;gap:28px;margin-top:26px;font-family:var(--mono);font-size:13.5px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:9px}
+  .legend .d-ai{width:9px;height:9px;border-radius:50%;background:var(--ai)}
+  .legend .d-h{color:var(--human);font-size:11px}
+
+  /* ---------- value tiles ---------- */
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:18px;flex:1;align-content:start}
+  .tile{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:26px 28px;display:flex;flex-direction:column;gap:10px;
+  }
+  .tile .num{font-family:var(--mono);font-size:13px;color:var(--ai);letter-spacing:.16em}
+  .tile h3{font-family:var(--display);font-size:24px;font-weight:800;margin:0;letter-spacing:-.01em}
+  .tile p{font-size:16.5px;line-height:1.5;color:var(--muted);margin:0}
+
+  /* ---------- tech slide ---------- */
+  .tech-rows{display:flex;flex-direction:column;flex:1}
+  .tech-row{
+    display:grid;grid-template-columns:340px 1fr;gap:26px;align-items:baseline;
+    padding:15px 0;border-top:1px solid var(--line);
+  }
+  .tech-row .t{font-family:var(--mono);font-size:16px;color:var(--text);font-weight:600}
+  .tech-row .d{font-size:16.5px;line-height:1.45;color:var(--muted)}
+
+  /* ---------- closing ---------- */
+  .closing{justify-content:center;align-items:flex-start}
+  .closing h1{font-size:72px}
+  .closing .lede{font-size:23px;margin-top:24px}
+
+  /* ---------- HUD ---------- */
+  #bar{position:fixed;top:0;left:0;height:3px;background:var(--ai);width:0;z-index:10;transition:width .25s ease}
+  @media (prefers-reduced-motion: reduce){ #bar{transition:none} }
+  .zone{position:fixed;top:0;bottom:0;width:18%;z-index:5;cursor:pointer}
+  .zone:focus-visible{outline:2px solid var(--ai);outline-offset:-4px}
+  #zPrev{left:0}#zNext{right:0}
+
+  /* ---------- print: mỗi slide một trang ---------- */
+  @media print{
+    html,body{overflow:visible;background:#fff}
+    #viewport{position:static;display:block}
+    #deck{transform:none !important;width:1280px;height:auto;margin:0 auto}
+    .slide{position:relative;opacity:1;visibility:visible;height:720px;page-break-after:always;break-after:page}
+    #bar,.zone{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div id="viewport">
+  <div id="deck">
+
+    <!-- 01 · TITLE -->
+    <section class="slide title-slide on">
+      <p class="eyebrow">Nội bộ · Tháng 7 / 2026</p>
+      <h1>ICOGenerator <span class="accent">v4</span></h1>
+      <p class="title-sub">Đội AI agent biến ý tưởng thành sản phẩm phần mềm —
+        từ yêu cầu đến Pull Request, <strong>con người phê duyệt ở từng bước</strong>.</p>
+      <div class="agent-row">
+        <span class="agent-chip"><b>BA</b>yêu cầu</span>
+        <span class="agent-chip"><b>Tech Lead</b>kiến trúc</span>
+        <span class="agent-chip"><b>Developer</b>code</span>
+        <span class="agent-chip"><b>Tester</b>kiểm thử</span>
+        <span class="agent-chip"><b>UI/UX</b>thiết kế</span>
+      </div>
+      <p class="hint">→ Dùng phím mũi tên hoặc bấm mép phải màn hình để chuyển slide</p>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">01</span> / 13</span></div>
+    </section>
+
+    <!-- 02 · PROBLEM -->
+    <section class="slide">
+      <p class="eyebrow warm">Vấn đề</p>
+      <h2>Từ ý tưởng đến sản phẩm đang tốn quá nhiều công đoạn thủ công</h2>
+      <p class="lede">Mỗi dự án đều lặp lại cùng một chuỗi việc — nhưng theo cách khác nhau, với chất lượng khác nhau.</p>
+      <ul class="big">
+        <li><span><b>Tài liệu ngốn ngày công.</b> <span class="mut">Khai thác yêu cầu, viết BRD / SRS / FSD / User Stories chiếm phần lớn thời gian của BA — chất lượng phụ thuộc từng người viết.</span></span></li>
+        <li><span><b>Demo đến quá muộn.</b> <span class="mut">Các bên phải chờ rất lâu mới có bản POC đầu tiên để cùng hình dung sản phẩm.</span></span></li>
+        <li><span><b>Dùng AI rời rạc.</b> <span class="mut">Mỗi người một prompt, không đo được chất lượng, không gom được chi phí về một chỗ.</span></span></li>
+        <li><span><b>Thiếu điểm kiểm soát.</b> <span class="mut">Output của LLM đi thẳng vào sản phẩm mà không có cổng duyệt, không có dấu vết ai đã đồng ý cái gì.</span></span></li>
+      </ul>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">02</span> / 13</span></div>
+    </section>
+
+    <!-- 03 · SOLUTION -->
+    <section class="slide">
+      <p class="eyebrow">Giải pháp</p>
+      <h2>Một "đội dự án AI" làm việc theo quy trình chuẩn</h2>
+      <p class="lede">Web app nội bộ điều phối <strong>5 agent chuyên trách</strong> qua một pipeline giao hàng thống nhất.
+        Nguyên tắc xuyên suốt: <strong>AI làm việc — con người quyết định.</strong></p>
+      <div class="cols c5">
+        <div class="card"><span class="k">BA</span><h3>Business Analyst</h3><p>Chat khai thác yêu cầu, sinh Product Brief, Design Spec và bộ tài liệu kỹ thuật.</p></div>
+        <div class="card"><span class="k">TL</span><h3>Tech Lead</h3><p>Đề xuất kiến trúc hệ thống và review code của Developer.</p></div>
+        <div class="card"><span class="k">DEV</span><h3>Developer</h3><p>Dựng POC, viết code, sửa lỗi, commit và mở Pull Request.</p></div>
+        <div class="card"><span class="k">QA</span><h3>Tester</h3><p>Viết &amp; chạy test, trả verdict PASS / FAIL cho từng vòng.</p></div>
+        <div class="card"><span class="k">UX</span><h3>UI/UX</h3><p>Hỗ trợ thiết kế flow và wireframe cho sản phẩm.</p></div>
+      </div>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">03</span> / 13</span></div>
+    </section>
+
+    <!-- 04 · PIPELINE -->
+    <section class="slide">
+      <p class="eyebrow">Quy trình end-to-end</p>
+      <h2>Ý tưởng → Pull Request: một chuỗi có kiểm soát</h2>
+      <div class="flow">
+        <span class="stage start"><span class="dot"></span>Ý tưởng</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>Chat với BA</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>Product Brief</span>
+        <span class="gate">duyệt</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>AI Design Spec</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>POC preview</span>
+        <span class="gate">duyệt</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>Technical Docs</span>
+        <span class="gate">duyệt</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>Architecture</span>
+        <span class="gate">duyệt</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>Implementation</span>
+        <span class="gate">duyệt</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>Code Review</span>
+        <span class="gate">duyệt</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>Testing ⇄ Bug Fix</span>
+        <span class="arrow">›</span>
+        <span class="stage final"><span class="dot"></span>Pull Request</span>
+      </div>
+      <p class="loop-note">⇄ &nbsp;Testing trả <b>FAIL</b> → Developer tự sửa lỗi → test lại, tự động tối đa <b>3 vòng</b> — không cần con người can thiệp giữa chừng.</p>
+      <div class="legend">
+        <span><span class="d-ai"></span>AI agent thực hiện</span>
+        <span><span class="d-h">◆</span>Cổng duyệt của con người (Approve / Yêu cầu sửa / Reject)</span>
+      </div>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">04</span> / 13</span></div>
+    </section>
+
+    <!-- 05 · BA AGENT -->
+    <section class="slide">
+      <p class="eyebrow">Điểm nhấn 1</p>
+      <h2>BA agent khai thác yêu cầu như một BA thật</h2>
+      <div class="feature-grid">
+        <div class="feature"><h3><span class="tick">01</span>Trí nhớ hội thoại dài hạn</h3><p>Chat dài không "quên" đầu câu chuyện — hội thoại cũ được tóm tắt dần thành bộ nhớ hai tầng, tiết kiệm token.</p></div>
+        <div class="feature"><h3><span class="tick">02</span>Càng dùng càng hiểu bạn</h3><p>Ghi nhớ vai trò, lĩnh vực, văn phong của từng người dùng và mang theo sang mọi dự án mới.</p></div>
+        <div class="feature"><h3><span class="tick">03</span>Hiểu bối cảnh tổ chức</h3><p>Biết phòng ban, quản lý thực tế để hỏi đúng luồng duyệt và điền đúng tên vào tài liệu — chỉ dùng dữ liệu tổng hợp, không đưa PII vào prompt.</p></div>
+        <div class="feature"><h3><span class="tick">04</span>Đọc tài liệu đính kèm</h3><p>PDF, hình ảnh người dùng upload trở thành ngữ cảnh cho việc phân tích yêu cầu.</p></div>
+        <div class="feature"><h3><span class="tick">05</span>Xuất tài liệu chuẩn Word</h3><p>Product Brief, BRD / SRS / FSD / User Stories dạng DOCX — có lịch sử phiên bản và so sánh diff giữa các lần sửa.</p></div>
+        <div class="feature"><h3><span class="tick">06</span>Không "bịa" khi thiếu thông tin</h3><p>Tự đánh giá độ sẵn sàng của yêu cầu; chưa đủ thì đặt câu hỏi tiếp thay vì sinh tài liệu ẩu.</p></div>
+      </div>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">05</span> / 13</span></div>
+    </section>
+
+    <!-- 06 · CONTROL -->
+    <section class="slide">
+      <p class="eyebrow warm">Điểm nhấn 2</p>
+      <h2>Không có bước nào "tự ý" đi tiếp</h2>
+      <p class="lede">Tự động hóa chỉ có giá trị khi kiểm soát được. Mỗi chặng của pipeline đều nằm trong ba lớp rào:</p>
+      <div class="cols c3">
+        <div class="card">
+          <span class="k warm">Rào 1</span><h3>Cổng duyệt mỗi chặng</h3>
+          <p>Sau mỗi bước, workflow dừng chờ con người: <b>Approve</b> để đi tiếp, <b>Yêu cầu chỉnh sửa</b> kèm nhận xét để agent làm lại, hoặc <b>Reject</b> để dừng.</p>
+        </div>
+        <div class="card">
+          <span class="k warm">Rào 2</span><h3>Vòng sửa có giới hạn</h3>
+          <p>Tối đa <b>3 vòng revision</b> mỗi chặng và <b>3 lần Bug Fix</b> mỗi vòng test — không bao giờ đốt token vô hạn vì một yêu cầu mơ hồ.</p>
+        </div>
+        <div class="card">
+          <span class="k warm">Rào 3</span><h3>Kết quả có dấu vết</h3>
+          <p>Điểm đến cuối là <b>Pull Request thật trên GitHub</b> — code vào quy trình review chuẩn của team, không chèn thẳng vào sản phẩm.</p>
+        </div>
+      </div>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">06</span> / 13</span></div>
+    </section>
+
+    <!-- 07 · PROMPT STUDIO & EVALS -->
+    <section class="slide">
+      <p class="eyebrow">Điểm nhấn 3</p>
+      <h2>Chất lượng AI được đo bằng số, không bằng cảm tính</h2>
+      <div class="cols c2">
+        <div class="card">
+          <span class="k">Prompt Studio</span>
+          <h3>Quản lý prompt như quản lý mã nguồn</h3>
+          <p>Sửa prompt ngay trên web, <b>hiệu lực tức thì</b> — không cần deploy lại.</p>
+          <p>Mỗi lần lưu là một phiên bản: xem diff giữa các bản, <b>rollback một cú bấm</b>, quay về bản gốc bất cứ lúc nào.</p>
+          <p>Mọi thay đổi đều vào Audit log — biết ai đổi gì, khi nào.</p>
+        </div>
+        <div class="card">
+          <span class="k">Prompt Evals</span>
+          <h3>Đổi prompt / model xong — biết ngay lên hay xuống</h3>
+          <p>Bộ tình huống chuẩn (golden set) chạy tự động nền; model "giám khảo" chấm <b>1–5 theo tiêu chí</b> định sẵn.</p>
+          <p>So sánh hai lần chạy theo từng tình huống: cùng prompt khác model = so model; cùng model khác prompt = so prompt.</p>
+          <p>Bảng điểm gắn với <b>từng phiên bản prompt</b> — nhìn một bảng là biết bản nào tốt hơn.</p>
+        </div>
+      </div>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">07</span> / 13</span></div>
+    </section>
+
+    <!-- 08 · OPERATIONS -->
+    <section class="slide">
+      <p class="eyebrow">Vận hành</p>
+      <h2>Nhìn thấy mọi thứ: chi phí, chất lượng, lịch sử</h2>
+      <div class="tiles">
+        <div class="tile"><span class="num">USAGE</span><h3>Chi phí AI đo được</h3><p>Token &amp; chi phí thống kê theo dự án, theo model và theo phòng ban — biết ngân sách AI đang đi đâu.</p></div>
+        <div class="tile"><span class="num">QUALITY</span><h3>Chất lượng giao hàng</h3><p>Dashboard Delivery Quality: tỉ lệ qua gate, số vòng revision, kết quả test — theo dõi xu hướng theo thời gian.</p></div>
+        <div class="tile"><span class="num">AUDIT</span><h3>Mọi thao tác có dấu vết</h3><p>Audit log toàn hệ thống + lịch sử revision từng tài liệu, xem diff tài liệu khác gì so với bản trước.</p></div>
+        <div class="tile"><span class="num">NOTIFY</span><h3>Thông báo đa kênh</h3><p>Chuông in-app, Microsoft Teams, email — bật tắt theo tùy chọn của từng người dùng, đến gate là có người biết.</p></div>
+      </div>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">08</span> / 13</span></div>
+    </section>
+
+    <!-- 09 · SECURITY -->
+    <section class="slide">
+      <p class="eyebrow warm">An toàn &amp; phân quyền</p>
+      <h2>Secure-by-default từ thiết kế</h2>
+      <ul class="big">
+        <li><span><b>Đăng nhập bắt buộc toàn app.</b> <span class="mut">Mọi màn hình đứng sau lớp xác thực; màn hình mới thêm vào cũng tự động được bảo vệ.</span></span></li>
+        <li><span><b>Phân quyền theo vai trò, cấu hình runtime.</b> <span class="mut">Admin / TeamDev / User — quyền cấp theo từng hành động, chỉnh trên UI không cần deploy.</span></span></li>
+        <li><span><b>Agent bị "rào" bằng whitelist.</b> <span class="mut">Chỉ chạy được lệnh và đụng loại file trong danh sách cho phép; mỗi agent chỉ dùng đúng bộ tool được cấp.</span></span></li>
+        <li><span><b>Dữ liệu nhạy cảm được bảo vệ.</b> <span class="mut">API key mã hóa trong DB; dữ liệu nhân sự chỉ dùng dạng tổng hợp — không đưa PII vào prompt.</span></span></li>
+        <li><span><b>Chạy được với LLM nội bộ.</b> <span class="mut">Kết nối mọi endpoint OpenAI-compatible, kể cả model on-premise — dữ liệu không bắt buộc rời hạ tầng công ty.</span></span></li>
+      </ul>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">09</span> / 13</span></div>
+    </section>
+
+    <!-- 10 · TECH -->
+    <section class="slide">
+      <p class="eyebrow">Nền tảng kỹ thuật</p>
+      <h2>Xây trên nền chuẩn — dễ bảo trì, dễ mở rộng</h2>
+      <div class="tech-rows">
+        <div class="tech-row"><span class="t">.NET 8 · ASP.NET Core MVC</span><span class="d">Web app + EF Core; SQL Server cho môi trường thật, SQLite cho dev/CI.</span></div>
+        <div class="tech-row"><span class="t">Microsoft Agent Framework</span><span class="d">Vòng lặp agent + native tool-calling chuẩn của Microsoft — không tự chế vòng lặp, dễ nâng cấp theo hệ sinh thái.</span></div>
+        <div class="tech-row"><span class="t">OpenAI-compatible LLM</span><span class="d">Cắm được model cloud hoặc on-premise (LM Studio…); đổi model bằng cấu hình, không sửa code.</span></div>
+        <div class="tech-row"><span class="t">Serilog + OpenTelemetry</span><span class="d">Log có cấu trúc, trace tận từng lời gọi model khi cần điều tra sự cố (opt-in, zero overhead khi tắt).</span></div>
+        <div class="tech-row"><span class="t">Kiến trúc phân lớp</span><span class="d">Tài liệu ARCHITECTURE / DEVELOPER GUIDE đầy đủ + unit tests. Thêm một tool cho agent = thêm một method — không sửa lõi.</span></div>
+      </div>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">10</span> / 13</span></div>
+    </section>
+
+    <!-- 11 · VALUE -->
+    <section class="slide">
+      <p class="eyebrow">Giá trị mang lại</p>
+      <h2>Vì sao điều này đáng đầu tư</h2>
+      <div class="tiles">
+        <div class="tile"><span class="num">TỐC ĐỘ</span><h3>Ý tưởng có tài liệu + demo trong ngày</h3><p>BA agent sinh bộ tài liệu và POC ngay trong buổi trao đổi đầu tiên — thay vì chờ hàng tuần để "thấy" sản phẩm.</p></div>
+        <div class="tile"><span class="num">CHUẨN HÓA</span><h3>Mọi dự án cùng một chuẩn artefact</h3><p>Cùng bộ BRD / SRS / FSD / User Stories, cùng pipeline, có phiên bản — không còn phụ thuộc phong cách từng người.</p></div>
+        <div class="tile"><span class="num">KIỂM SOÁT</span><h3>Chi phí và chất lượng AI đo được</h3><p>Token theo phòng ban, điểm eval theo phiên bản prompt, giới hạn vòng lặp — dùng AI có ngân sách và có số liệu.</p></div>
+        <div class="tile"><span class="num">TIN CẬY</span><h3>Con người luôn là người quyết định</h3><p>AI tăng tốc từng chặng, nhưng mọi kết quả đều qua cổng duyệt và để lại dấu vết audit.</p></div>
+      </div>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">11</span> / 13</span></div>
+    </section>
+
+    <!-- 12 · ROADMAP -->
+    <section class="slide">
+      <p class="eyebrow">Tiếp theo</p>
+      <h2>Định hướng phát triển</h2>
+      <ul class="big">
+        <li><span><b>Phối hợp đa agent sâu hơn.</b> <span class="mut">Đưa UI/UX agent tham gia trực tiếp pipeline; agent trao đổi kết quả với nhau nhiều vòng hơn.</span></span></li>
+        <li><span><b>Mở rộng bộ eval.</b> <span class="mut">Thêm tình huống chuẩn cho mọi prompt chủ chốt, biến eval thành bước regression bắt buộc trước khi đổi prompt/model.</span></span></li>
+        <li><span><b>Tích hợp sâu với công cụ của team.</b> <span class="mut">Repo nội bộ, CI/CD, Teams — để kết quả pipeline chảy thẳng vào quy trình hiện có.</span></span></li>
+        <li><span><b>Cải tiến theo phản hồi thật.</b> <span class="mut">Module Feedback đã thu nhận ý kiến người dùng ngay trong app — làm nguồn ưu tiên tính năng.</span></span></li>
+      </ul>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">12</span> / 13</span></div>
+    </section>
+
+    <!-- 13 · CLOSING -->
+    <section class="slide closing">
+      <p class="eyebrow">Demo &amp; Q&amp;A</p>
+      <h1>Mời anh/chị xem <span class="accent">đội AI</span> làm việc</h1>
+      <p class="lede">Demo trực tiếp: từ một ý tưởng, BA agent khai thác yêu cầu và pipeline chạy đến Pull Request.<br>
+      Cảm ơn anh/chị đã lắng nghe — rất mong nhận được góp ý.</p>
+      <div class="foot"><span>ICOGenerator v4</span><span><span class="n">13</span> / 13</span></div>
+    </section>
+
+  </div>
+</div>
+
+<div id="bar"></div>
+<div class="zone" id="zPrev" tabindex="0" aria-label="Slide trước"></div>
+<div class="zone" id="zNext" tabindex="0" aria-label="Slide sau"></div>
+
+<script>
+(function(){
+  var deck = document.getElementById('deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll('.slide'));
+  var bar = document.getElementById('bar');
+  var i = 0;
+
+  function fit(){
+    var s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    deck.style.transform = 'scale(' + s + ')';
+  }
+
+  function go(n){
+    n = Math.max(0, Math.min(slides.length - 1, n));
+    slides[i].classList.remove('on');
+    i = n;
+    slides[i].classList.add('on');
+    bar.style.width = ((i + 1) / slides.length * 100) + '%';
+    if (history.replaceState) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(i + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); go(i - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+  });
+
+  document.getElementById('zNext').addEventListener('click', function(){ go(i + 1); });
+  document.getElementById('zPrev').addEventListener('click', function(){ go(i - 1); });
+
+  var tx = null;
+  document.addEventListener('touchstart', function(e){ tx = e.changedTouches[0].clientX; }, {passive:true});
+  document.addEventListener('touchend', function(e){
+    if (tx === null) return;
+    var dx = e.changedTouches[0].clientX - tx;
+    if (dx < -40) go(i + 1); else if (dx > 40) go(i - 1);
+    tx = null;
+  }, {passive:true});
+
+  window.addEventListener('resize', fit);
+
+  var h = parseInt((location.hash || '').replace('#',''), 10);
+  fit();
+  if (h >= 1 && h <= slides.length) go(h - 1); else go(0);
+})();
+</script>
+</body>
+</html>
