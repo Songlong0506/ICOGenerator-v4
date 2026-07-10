@@ -10,8 +10,6 @@ namespace ICOGenerator.Services.Evals;
 /// </summary>
 public static class EvalJudgeParser
 {
-    private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
-
     public static bool TryParse(string? responseText, out int score, out string reasoning)
     {
         score = 0;
@@ -26,7 +24,7 @@ public static class EvalJudgeParser
 
         try
         {
-            var parsed = JsonSerializer.Deserialize<JudgeVerdict>(json, Options);
+            var parsed = JsonSerializer.Deserialize<JudgeVerdict>(json, JsonDefaults.CaseInsensitive);
             if (parsed?.Score is not int raw)
                 return false;
 

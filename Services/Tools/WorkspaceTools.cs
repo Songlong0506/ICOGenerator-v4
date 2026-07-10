@@ -263,22 +263,6 @@ public class WorkspaceTools
         return PocAudit.Run(current, _pocSpec);
     }
 
-    public void RenameFolder(string oldRelativePath, string newRelativePath)
-    {
-        EnsureWorkspace();
-
-        var oldFullPath = GetSafeFullPath(oldRelativePath);
-        var newFullPath = GetSafeFullPath(newRelativePath);
-
-        if (!Directory.Exists(oldFullPath))
-            throw new InvalidOperationException($"Folder not found: {oldRelativePath}");
-
-        if (Directory.Exists(newFullPath))
-            throw new InvalidOperationException($"Target folder already exists: {newRelativePath}");
-
-        Directory.Move(oldFullPath, newFullPath);
-    }
-
     private string GetSafeFullPath(string relativePath)
     {
         return _workspacePathResolver.GetSafeFullPath(CurrentWorkspacePath, relativePath);
