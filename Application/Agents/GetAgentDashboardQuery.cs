@@ -32,11 +32,33 @@ public class GetAgentDashboardQuery
         if (project == null)
             return null;
 
-        project.Documents = await _db.ProjectDocuments.AsNoTracking()
-            .Where(x => x.ProjectId == projectId)
-            .OrderBy(x => x.Folder)
-            .ThenBy(x => x.FileName)
-            .ToListAsync();
+        // KHÔNG kéo cột Content: dashboard chỉ liệt kê file (tree + docMap), nội dung preview được fetch
+        // on-demand qua GetDocumentPreviewQuery — Content là nvarchar(max) của mọi phiên bản tài liệu,
+        // phần nặng nhất của query cũ mà view không hề đọc.
+        project.Documents = (await _db.ProjectDocuments.AsNoTracking()
+                .Where(x => x.ProjectId == projectId)
+                .OrderBy(x => x.Folder)
+                .ThenBy(x => x.FileName)
+                .Select(x => new
+                {
+                    x.Id, x.ProjectId, x.AgentId, x.Folder, x.VersionName,
+                    x.IsApproved, x.FileName, x.FilePath, x.TokenUsed, x.CreatedAt
+                })
+                .ToListAsync())
+            .Select(x => new ProjectDocument
+            {
+                Id = x.Id,
+                ProjectId = x.ProjectId,
+                AgentId = x.AgentId,
+                Folder = x.Folder,
+                VersionName = x.VersionName,
+                IsApproved = x.IsApproved,
+                FileName = x.FileName,
+                FilePath = x.FilePath,
+                TokenUsed = x.TokenUsed,
+                CreatedAt = x.CreatedAt
+            })
+            .ToList();
 
         var agents = await _db.Agents.AsNoTracking()
             .Include(x => x.AgentTools)
