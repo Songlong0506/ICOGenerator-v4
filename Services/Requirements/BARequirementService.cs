@@ -116,7 +116,9 @@ public class BARequirementService
 
         // Tài liệu nguồn (ảnh/PDF) của project: gắn vào ĐÚNG lượt user mới nhất (một lần) để BA "thấy" khi trả lời,
         // tránh gửi lại ảnh ở mọi lượt (đốt token). Model không vision ⇒ builder chỉ trả phần text bóc từ PDF.
+        // Chỉ đọc (builder không ghi gì lên entity) ⇒ AsNoTracking, khỏi track cả ExtractedText dài.
         var sources = await _db.ProjectSourceFiles
+            .AsNoTracking()
             .Where(s => s.ProjectId == projectId)
             .OrderBy(s => s.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -227,8 +229,10 @@ public class BARequirementService
             if (IsWriteRequirementInvite(reply))
             {
                 // Gate phải thấy ĐÚNG transcript mà lần bấm nút sẽ thấy: toàn bộ hội thoại đã lưu (gồm
-                // lượt user vừa lưu ở trên) + chính lời mời này (chưa lưu, đính tạm vào cuối).
+                // lượt user vừa lưu ở trên) + chính lời mời này (chưa lưu, đính tạm vào cuối — chỉ vào
+                // list cục bộ, không vào change tracker ⇒ AsNoTracking cho cả lượt đọc này).
                 var allTurns = await _db.AgentConversations
+                    .AsNoTracking()
                     .Where(c => c.ProjectId == projectId)
                     .ToListAsync(cancellationToken);
                 allTurns.Add(new AgentConversation { Role = "assistant", Message = reply, CreatedAt = DateTime.UtcNow });
@@ -271,10 +275,14 @@ public class BARequirementService
 
         Report("setup", "Đang đọc hội thoại…");
 
+        // AsSplitQuery: ba collection Include trên một query single-query JOIN chéo thành tích Descartes
+        // |Documents| × |Conversations| × |SourceFiles| dòng, mỗi dòng lặp lại cả Content tài liệu lẫn text
+        // hội thoại — tách mỗi collection một query. Vẫn tracked vì generator/ghi chú bên dưới ghi lên graph này.
         var project = await _db.Projects
             .Include(x => x.Documents)
             .Include(x => x.Conversations)
             .Include(x => x.SourceFiles)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken)
             ?? throw new InvalidOperationException($"Project not found: {projectId}.");
 
