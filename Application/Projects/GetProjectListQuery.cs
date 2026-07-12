@@ -31,10 +31,13 @@ public class GetProjectListQuery
 
         IQueryable<Domain.Project> projects = _db.Projects.AsNoTracking();
 
-        // Người không có quyền ProjectsViewAll (User thường) chỉ thấy project do chính mình tạo. Project
-        // "không có chủ" (CreatedByUsername == null, tạo trước khi có tính năng này) không hiện cho họ.
+        // Người không có quyền ProjectsViewAll (User thường) chỉ thấy project do chính mình tạo HOẶC
+        // project mình được mời làm thành viên (ProjectMember). Project "không có chủ"
+        // (CreatedByUsername == null, tạo trước khi có tính năng này) không hiện cho họ.
         if (!canViewAll)
-            projects = projects.Where(x => x.CreatedByUsername != null && x.CreatedByUsername == username);
+            projects = projects.Where(x =>
+                (x.CreatedByUsername != null && x.CreatedByUsername == username)
+                || x.Members.Any(m => m.Username == username));
 
         // Bộ lọc của trang: theo đơn vị yêu cầu (OrgUnitCode, chọn nhiều) và/hoặc trạng thái. Bỏ mã rỗng
         // và trùng; danh sách rỗng coi như không lọc. Áp trước khi phân trang để tổng số & số trang khớp

@@ -46,6 +46,9 @@ public class Project
     public int CoverageHarvestedTurnCount { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ProjectDocument> Documents { get; set; } = new List<ProjectDocument>();
+    // Thành viên được mời vào project (reviewer/stakeholder) — thấy project trong danh sách của mình và
+    // được góp ý trên Product Brief/POC. Xem ProjectMember.
+    public ICollection<ProjectMember> Members { get; set; } = new List<ProjectMember>();
     public ICollection<ProjectSourceFile> SourceFiles { get; set; } = new List<ProjectSourceFile>();
     public ICollection<AgentConversation> Conversations { get; set; } = new List<AgentConversation>();
     public ICollection<AgentModelCallLog> ModelCallLogs { get; set; } = new List<AgentModelCallLog>();

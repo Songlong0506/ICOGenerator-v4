@@ -28,6 +28,10 @@ public class RequirementsController : Controller
     private readonly DeleteProjectSourceUseCase _deleteProjectSourceUseCase;
     private readonly GetDocumentRevisionsQuery _getDocumentRevisionsQuery;
     private readonly GetDocumentRevisionDiffQuery _getDocumentRevisionDiffQuery;
+    private readonly GetBriefCommentsQuery _getBriefCommentsQuery;
+    private readonly AddBriefCommentUseCase _addBriefCommentUseCase;
+    private readonly ResolveBriefCommentUseCase _resolveBriefCommentUseCase;
+    private readonly IPermissionService _permissions;
 
     // SSE frames are hand-serialized, so match the camelCase the polling JSON (and client) already use.
     private static readonly JsonSerializerOptions SseJsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -45,7 +49,11 @@ public class RequirementsController : Controller
        UploadProjectSourceUseCase uploadProjectSourceUseCase,
        DeleteProjectSourceUseCase deleteProjectSourceUseCase,
        GetDocumentRevisionsQuery getDocumentRevisionsQuery,
-       GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery)
+       GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery,
+       GetBriefCommentsQuery getBriefCommentsQuery,
+       AddBriefCommentUseCase addBriefCommentUseCase,
+       ResolveBriefCommentUseCase resolveBriefCommentUseCase,
+       IPermissionService permissions)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
@@ -60,6 +68,10 @@ public class RequirementsController : Controller
         _deleteProjectSourceUseCase = deleteProjectSourceUseCase;
         _getDocumentRevisionsQuery = getDocumentRevisionsQuery;
         _getDocumentRevisionDiffQuery = getDocumentRevisionDiffQuery;
+        _getBriefCommentsQuery = getBriefCommentsQuery;
+        _addBriefCommentUseCase = addBriefCommentUseCase;
+        _resolveBriefCommentUseCase = resolveBriefCommentUseCase;
+        _permissions = permissions;
     }
 
     public async Task<IActionResult> Index(Guid projectId, string? version = null)
@@ -259,6 +271,52 @@ public class RequirementsController : Controller
             return NotFound("Revision not found.");
 
         return Json(result);
+    }
+
+    // ----- Góp ý của reviewer trên Product Brief (modal Requirement). -----
+
+    [HttpGet]
+    public async Task<IActionResult> BriefComments(Guid projectId)
+    {
+        var canManageAll = await _permissions.HasPermissionAsync(User, AppPermission.ProjectsViewAll, HttpContext.RequestAborted);
+        var result = await _getBriefCommentsQuery.ExecuteAsync(projectId, User.Identity?.Name, canManageAll, HttpContext.RequestAborted);
+        return result == null ? NotFound() : Json(result);
+    }
+
+    [HttpPost]
+    [RequirePermission(AppPermission.RequirementsComment)]
+    public async Task<IActionResult> AddBriefComment(Guid projectId, string? content, string? anchorText)
+    {
+        var result = await _addBriefCommentUseCase.ExecuteAsync(projectId, content, anchorText, User.Identity?.Name, HttpContext.RequestAborted);
+
+        return Json(new
+        {
+            ok = result == AddBriefCommentResult.Added,
+            message = result switch
+            {
+                AddBriefCommentResult.MissingContent => "Hãy nhập nội dung góp ý.",
+                AddBriefCommentResult.ProjectNotFound => "Không tìm thấy project.",
+                _ => null
+            }
+        });
+    }
+
+    [HttpPost]
+    [RequirePermission(AppPermission.RequirementsComment)]
+    public async Task<IActionResult> ResolveBriefComment(Guid id)
+    {
+        var result = await _resolveBriefCommentUseCase.ExecuteAsync(
+            id, User.Identity?.Name,
+            await _permissions.HasPermissionAsync(User, AppPermission.ProjectsViewAll, HttpContext.RequestAborted),
+            HttpContext.RequestAborted);
+
+        return Json(new
+        {
+            ok = result is ResolveBriefCommentResult.Resolved or ResolveBriefCommentResult.AlreadyResolved,
+            message = result == ResolveBriefCommentResult.NotAllowed
+                ? "Chỉ tác giả góp ý, chủ project hoặc TeamDev/Admin mới resolve được."
+                : null
+        });
     }
 
     [HttpGet]

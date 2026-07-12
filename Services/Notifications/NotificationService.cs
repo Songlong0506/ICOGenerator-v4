@@ -34,26 +34,35 @@ public class NotificationService : INotificationService
     }
 
     public Task NotifyGateOpenedAsync(WorkflowRun run, string nextStepTitle, CancellationToken cancellationToken = default) =>
-        CreateForEligibleAsync(run, NotificationType.GateAwaitingApproval,
+        CreateForEligibleAsync(run.ProjectId, run.Id, $"/AgentDashboard?projectId={run.ProjectId}",
+            NotificationType.GateAwaitingApproval,
             "Chờ duyệt bước delivery",
             $"Một bước đã xong — chờ bạn duyệt để sang: {nextStepTitle}.",
             cancellationToken);
 
     public Task NotifyRunCompletedAsync(WorkflowRun run, CancellationToken cancellationToken = default) =>
-        CreateForEligibleAsync(run, NotificationType.WorkflowCompleted,
+        CreateForEligibleAsync(run.ProjectId, run.Id, $"/AgentDashboard?projectId={run.ProjectId}",
+            NotificationType.WorkflowCompleted,
             "Workflow hoàn tất",
             "Quy trình giao hàng đã chạy xong tất cả các bước.",
             cancellationToken);
 
     public Task NotifyRunFailedAsync(WorkflowRun run, string? error, CancellationToken cancellationToken = default) =>
-        CreateForEligibleAsync(run, NotificationType.WorkflowFailed,
+        CreateForEligibleAsync(run.ProjectId, run.Id, $"/AgentDashboard?projectId={run.ProjectId}",
+            NotificationType.WorkflowFailed,
             "Workflow thất bại",
             string.IsNullOrWhiteSpace(error) ? "Quy trình giao hàng đã dừng vì lỗi — cần xem lại." : $"Quy trình dừng vì lỗi: {Truncate(error, 300)}",
             cancellationToken);
 
-    private async Task CreateForEligibleAsync(WorkflowRun run, NotificationType type, string title, string message, CancellationToken cancellationToken)
+    public Task NotifyPocFeedbackSubmittedAsync(Guid projectId, string? submittedByUsername, int annotationCount, CancellationToken cancellationToken = default) =>
+        CreateForEligibleAsync(projectId, workflowRunId: null, $"/Projects/PocReview?projectId={projectId}",
+            NotificationType.PocFeedbackSubmitted,
+            "Có góp ý mới trên POC",
+            $"{(string.IsNullOrWhiteSpace(submittedByUsername) ? "Người dùng" : submittedByUsername)} vừa gửi {annotationCount} góp ý trên POC — mở POC Review để xử lý.",
+            cancellationToken);
+
+    private async Task CreateForEligibleAsync(Guid projectId, Guid? workflowRunId, string relativeLink, NotificationType type, string title, string message, CancellationToken cancellationToken)
     {
-        var relativeLink = $"/AgentDashboard?projectId={run.ProjectId}";
         string? projectName = null;
         IReadOnlyList<string> emailRecipients = Array.Empty<string>();
 
@@ -61,7 +70,7 @@ public class NotificationService : INotificationService
         try
         {
             projectName = await _db.Projects
-                .Where(p => p.Id == run.ProjectId)
+                .Where(p => p.Id == projectId)
                 .Select(p => p.Name)
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -76,9 +85,9 @@ public class NotificationService : INotificationService
                     Type = type,
                     Title = title,
                     Message = message,
-                    ProjectId = run.ProjectId,
+                    ProjectId = projectId,
                     ProjectName = projectName,
-                    WorkflowRunId = run.Id,
+                    WorkflowRunId = workflowRunId,
                     Link = relativeLink
                 });
             }
@@ -93,7 +102,7 @@ public class NotificationService : INotificationService
         catch (Exception ex)
         {
             // Fail-open: lỗi ghi in-app không được làm gãy workflow, và cũng không chặn kênh ngoài bên dưới.
-            _logger.LogWarning(ex, "Không tạo được thông báo in-app cho workflow run {RunId}.", run.Id);
+            _logger.LogWarning(ex, "Không tạo được thông báo in-app cho project {ProjectId}.", projectId);
         }
 
         // ----- Kênh NGOÀI (Teams/email): độc lập với in-app, opt-in, fail-open. Teams broadcast (không theo

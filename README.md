@@ -572,8 +572,8 @@ Route mặc định: `{controller=Projects}/{action=Index}/{id?}`. Mọi endpoin
 | Màn hình | Controller | Actions chính | Quyền |
 |---|---|---|---|
 | **Login** | `Account` | `GET/POST Login` (AllowAnonymous), `POST Logout`, `GET AccessDenied` | — |
-| **Projects** (trang chủ) | `Projects` | `Index` (lọc theo chủ nếu không có `ProjectsViewAll`), `POST Create`, `Mockup` (xem POC sandbox), `DownloadSource` (zip) | `ProjectsView`; Create: `ProjectsCreate` |
-| **Requirements** (workspace chat BA) | `Requirements` | `Index`, `POST Chat`, `POST UploadSource`/`DeleteSource`, `POST WriteRequirement`, `POST Approve`, `POST NewChat`, `GET WorkflowStatus`/`WorkflowStream` (SSE), `GET DocumentRevisions`/`DocumentRevisionDiff`/`DocumentPreview`/`DownloadDocument` | `RequirementsView`; mọi thao tác ghi: `RequirementsManage` |
+| **Projects** (trang chủ) | `Projects` | `Index` (lọc theo chủ + project được share nếu không có `ProjectsViewAll`), `POST Create`, `Mockup` (xem POC sandbox; `annotate=1` tiêm script góp ý), `PocReview` (xem POC + annotate), `GET PocAnnotations`/`Members`, `POST AddPocAnnotation`/`DeletePocAnnotation`/`SubmitPocAnnotations`/`ApplyPocAnnotationsRevision`, `POST AddMember`/`RemoveMember`, `DownloadSource` (zip) | `ProjectsView`; Create: `ProjectsCreate`; góp ý POC: `RequirementsComment`; gom thành revision: `DeliveryAdvance` |
+| **Requirements** (workspace chat BA) | `Requirements` | `Index`, `POST Chat`, `POST UploadSource`/`DeleteSource`, `POST WriteRequirement`, `POST Approve`, `POST NewChat`, `GET WorkflowStatus`/`WorkflowStream` (SSE), `GET DocumentRevisions`/`DocumentRevisionDiff`/`DocumentPreview`/`DownloadDocument`, `GET BriefComments`, `POST AddBriefComment`/`ResolveBriefComment` | `RequirementsView`; thao tác workflow: `RequirementsManage`; góp ý Brief: `RequirementsComment` |
 | **Agent Dashboard** (điều phối delivery) | `AgentDashboard` | `Index`, `GET WorkflowStatus`/`ActiveAgents`/`AgentStats`/`AgentActivity`/`AgentCallLogs`/`CallLogDetail`/`DocumentPreview`, `POST ApproveStage`/`RejectStage`/`RequestRevision`/`RetryWorkflow`/`UpdateDeliveryConfig` | `AgentsView`; các POST cổng duyệt: `DeliveryAdvance` |
 | **Agents** (cấu hình agent) | `Agents` | `Index`, `POST Update` (model, temperature, tools...) | `AgentsView` / `AgentsManage` |
 | **AI Models** | `Models` | `Index`, `POST Create`/`Update`/`Delete` | `ModelsView` / `ModelsCreate`/`Edit`/`Delete` |
@@ -676,7 +676,13 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 - So sánh 2 run theo từng scenario; nhãn phiên bản prompt mỗi bên (cùng nhãn = so model, khác nhãn = so prompt).
 - Eval dùng lại middleware LLM nhưng với `NullModelCallLogger` (không ghi `AgentModelCallLogs`, không qua budget theo-project) — token/lỗi nằm ngay trên `EvalResult`.
 
-### 16.5. Feedback
+### 16.5. Vòng phản hồi của stakeholder (chia sẻ project + góp ý Brief + annotate POC)
+- **Chia sẻ project**: chủ project (hoặc `ProjectsViewAll`) mời đồng nghiệp bằng username (modal "Chia sẻ" ở Requirements). Thành viên thấy project trong danh sách của mình và góp ý được — không thay chủ.
+- **Góp ý Product Brief**: panel trong modal Requirement; neo tùy chọn vào đoạn trích (bôi đen trên preview). Resolve bởi tác giả/chủ/`ProjectsViewAll`. Nút "Chèn vào chat" gom góp ý mở thành một tin nhắn cho BA (người dùng duyệt rồi tự gửi).
+- **Annotate POC** (trang `Projects/PocReview`): click phần tử trong mockup (iframe sandbox + postMessage) và ghi nhận xét. `Open → Submitted` ("Gửi đội Dev" + notification `PocFeedbackSubmitted`) `→ Processed` (đội Dev gom thành MỘT yêu cầu chỉnh sửa POC qua đúng cơ chế RequestRevision của cổng duyệt).
+- Quyền mới **`RequirementsComment`** (seed cho User + TeamDev; DB có sẵn thì Admin tick thêm ở Roles & Permissions).
+
+### 16.6. Feedback
 Người dùng gửi bug/góp ý kèm tối đa 8 file × 50MB (ảnh, PDF, Office, video — whitelist trong `FeedbackAttachmentStore`). TeamDev/Admin triage bằng `FeedbackManage`.
 
 ---

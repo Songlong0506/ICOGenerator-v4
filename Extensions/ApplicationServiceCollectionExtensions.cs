@@ -205,6 +205,16 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UpdateDeliveryConfigUseCase>();
         services.AddScoped<GetMockupFileQuery>();
         services.AddScoped<GetImplementationSourceQuery>();
+        services.AddScoped<GetProjectMembersQuery>();
+        services.AddScoped<AddProjectMemberUseCase>();
+        services.AddScoped<RemoveProjectMemberUseCase>();
+        services.AddScoped<GetPocReviewPageQuery>();
+        services.AddScoped<GetAnnotatableMockupQuery>();
+        services.AddScoped<GetPocAnnotationsQuery>();
+        services.AddScoped<AddPocAnnotationUseCase>();
+        services.AddScoped<DeletePocAnnotationUseCase>();
+        services.AddScoped<SubmitPocAnnotationsUseCase>();
+        services.AddScoped<ApplyPocAnnotationsRevisionUseCase>();
         return services;
     }
 
@@ -231,6 +241,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<DeleteProjectSourceUseCase>();
         services.AddScoped<GetDocumentRevisionsQuery>();
         services.AddScoped<GetDocumentRevisionDiffQuery>();
+        services.AddScoped<GetBriefCommentsQuery>();
+        services.AddScoped<AddBriefCommentUseCase>();
+        services.AddScoped<ResolveBriefCommentUseCase>();
         return services;
     }
 

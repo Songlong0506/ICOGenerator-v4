@@ -76,6 +76,13 @@
     static string FormatSize(long bytes) =>
         bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.#} MB" : $"{Math.Max(1, bytes / 1024)} KB";
 
+    // Chia sẻ project: chỉ chủ project hoặc người xem-tất-cả (TeamDev/Admin) thấy nút quản lý thành viên.
+    var isOwner = Model.CreatedByUsername != null && Model.CreatedByUsername == User.Identity?.Name;
+    var canViewAllProjects = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsViewAll);
+    var canShare = isOwner || canViewAllProjects;
+    var canComment = await Permissions.HasPermissionAsync(User, AppPermission.RequirementsComment);
+    var canManageRequirements = await Permissions.HasPermissionAsync(User, AppPermission.RequirementsManage);
+
     static List<string> ParseSuggestions(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -95,6 +102,13 @@
     <div>
         <h1>Requirements</h1>
     </div>
+    @if (canShare)
+    {
+        <button type="button" class="btn outline" onclick="openShareModal()"
+                title="Mời đồng nghiệp vào xem &amp; góp ý project này.">
+            👥 Chia sẻ
+        </button>
+    }
 </div>
 
 @if (TempData["Error"] != null)
@@ -415,38 +429,71 @@
             }
         </div>
 
-        <div class="requirement-content">
-            @foreach (var doc in allDocuments)
-            {
-                <div class="doc-preview"
-                     id="doc-@doc.Id"
-                     data-version="@doc.VersionName"
-                     style="display:none;">
+        <div class="req-modal-columns">
+            <div class="requirement-content">
+                @foreach (var doc in allDocuments)
+                {
+                    <div class="doc-preview"
+                         id="doc-@doc.Id"
+                         data-version="@doc.VersionName"
+                         style="display:none;">
 
-                    <h3>@doc.FileName</h3>
+                        <h3>@doc.FileName</h3>
 
-                    <div class="doc-render"
-                         data-doc-id="@doc.Id"
-                         data-loaded="false">
-                        <p class="doc-loading">Loading…</p>
+                        <div class="doc-render"
+                             data-doc-id="@doc.Id"
+                             data-loaded="false">
+                            <p class="doc-loading">Loading…</p>
+                        </div>
+
+                        <div class="doc-actions">
+                            <a class="btn outline"
+                               asp-controller="Requirements"
+                               asp-action="DownloadDocument"
+                               asp-route-id="@doc.Id">
+                                Download
+                            </a>
+                            <button type="button"
+                                    class="btn outline"
+                                    onclick="openDocHistory('@doc.Id')"
+                                    title="Xem các lần sinh/sửa trước và khác biệt giữa chúng">
+                                <i class="bi bi-clock-history" aria-hidden="true"></i> Lịch sử
+                            </button>
+                        </div>
                     </div>
+                }
+            </div>
 
-                    <div class="doc-actions">
-                        <a class="btn outline"
-                           asp-controller="Requirements"
-                           asp-action="DownloadDocument"
-                           asp-route-id="@doc.Id">
-                            Download
-                        </a>
-                        <button type="button"
-                                class="btn outline"
-                                onclick="openDocHistory('@doc.Id')"
-                                title="Xem các lần sinh/sửa trước và khác biệt giữa chúng">
-                            <i class="bi bi-clock-history" aria-hidden="true"></i> Lịch sử
+            @* Panel góp ý của reviewer trên Product Brief — sống theo PROJECT (mọi phiên bản đều xem được). *@
+            <aside class="brief-comments" id="briefCommentsPanel">
+                <div class="brief-comments-head">
+                    <h4>Góp ý <span id="briefCommentCount" class="muted"></span></h4>
+                    @if (canManageRequirements)
+                    {
+                        <button type="button" id="briefInsertToChatBtn" class="btn outline small" style="display:none;"
+                                title="Chèn các góp ý còn mở vào ô chat để nhờ BA sửa Product Brief theo đó.">
+                            📥 Chèn vào chat
                         </button>
-                    </div>
+                    }
                 </div>
-            }
+
+                @if (canComment)
+                {
+                    <div class="brief-comment-hint muted">Bôi đen một đoạn trong tài liệu để góp ý theo ngữ cảnh, hoặc góp ý chung bên dưới.</div>
+                    <form id="briefCommentForm">
+                        <div id="briefAnchorPreview" class="brief-anchor" style="display:none;">
+                            <span id="briefAnchorText"></span>
+                            <button type="button" id="briefAnchorClear" title="Bỏ đoạn trích">×</button>
+                        </div>
+                        <textarea id="briefCommentInput" rows="2" maxlength="4000" placeholder="Góp ý của bạn về Product Brief…"></textarea>
+                        <button type="submit" class="btn primary small">Gửi góp ý</button>
+                    </form>
+                }
+
+                <div id="briefCommentList" class="brief-comment-list">
+                    <div class="brief-comment-empty">Đang tải…</div>
+                </div>
+            </aside>
         </div>
 
         <div class="modal-footer">
@@ -467,6 +514,32 @@
     </div>
 </div>
 
+@if (canShare)
+{
+    <div id="shareModal" class="req-modal-overlay">
+        <div class="requirement-modal share-modal">
+            <div class="modal-header">
+                <div>
+                    <h2>Chia sẻ project</h2>
+                    <div class="muted">Thành viên thấy project trong danh sách của họ, xem được workspace và góp ý trên Product Brief/POC.</div>
+                </div>
+                <button class="modal-close" type="button" aria-label="Close" onclick="closeShareModal()">×</button>
+            </div>
+
+            <div class="share-body">
+                <form id="shareAddForm" class="share-add-form">
+                    <input type="text" id="shareUsernameInput" placeholder="Username đồng nghiệp (vd: teamdev)" autocomplete="off" />
+                    <button type="submit" class="btn primary small">＋ Thêm</button>
+                </form>
+                <div id="shareMessage" class="share-message" style="display:none;"></div>
+                <div id="shareMemberList" class="share-member-list">
+                    <div class="brief-comment-empty">Đang tải…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @section Breadcrumb {
     Projects <span class="sep">&rsaquo;</span> @Model.Name <span class="sep">&rsaquo;</span> <b>Requirements</b>
 }
@@ -474,6 +547,7 @@
 @section Styles {
     <link rel="stylesheet" href="~/css/requirements.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/doc-history.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/collab-review.css" asp-append-version="true" />
 }
 
 @section Scripts {
@@ -484,6 +558,11 @@
         // Người có quyền DeliveryAdvance (TeamDev/Admin) được dẫn sang Agent Dashboard để duyệt/đẩy bước;
         // user thường chỉ thấy thông báo bàn giao "POC đã sẵn sàng".
         window.REQUIREMENTS_CAN_ADVANCE = @((await Permissions.HasPermissionAsync(User, AppPermission.DeliveryAdvance)) ? "true" : "false");
+        window.REQUIREMENTS_CAN_COMMENT = @(canComment ? "true" : "false");
+        window.REQUIREMENTS_CAN_MANAGE = @(canManageRequirements ? "true" : "false");
+        window.REQUIREMENTS_CAN_SHARE = @(canShare ? "true" : "false");
     </script>
     <script src="~/js/requirement-workflow.js" asp-append-version="true"></script>
+    <script src="~/js/brief-comments.js" asp-append-version="true"></script>
+    <script src="~/js/project-members.js" asp-append-version="true"></script>
 }

@@ -21,4 +21,10 @@ public interface INotificationService
 
     /// <summary>Workflow dừng vì lỗi — cần người xem lại.</summary>
     Task NotifyRunFailedAsync(WorkflowRun run, string? error, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Người dùng đã gửi một lượt góp ý (annotation) trên POC — đội Dev nên mở trang POC Review để xử lý.
+    /// Không gắn với WorkflowRun nào (góp ý được phép cả khi run đã kết thúc).
+    /// </summary>
+    Task NotifyPocFeedbackSubmittedAsync(Guid projectId, string? submittedByUsername, int annotationCount, CancellationToken cancellationToken = default);
 }

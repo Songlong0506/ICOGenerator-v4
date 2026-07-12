@@ -18,5 +18,9 @@ public enum NotificationType
 
     /// <summary>Workflow dừng vì lỗi — cần người xem lại.</summary>
     [Description("Workflow thất bại")]
-    WorkflowFailed
+    WorkflowFailed,
+
+    /// <summary>Người dùng đã gửi một lượt góp ý (annotation) trên POC — đội Dev nên xem và xử lý.</summary>
+    [Description("Có góp ý mới trên POC")]
+    PocFeedbackSubmitted
 }

@@ -19,7 +19,7 @@ public static class PermissionCatalog
         new PermissionScreen("Projects", "Projects", AppPermission.ProjectsView,
             new[] { AppPermission.ProjectsView, AppPermission.ProjectsCreate, AppPermission.ProjectsViewAll }),
         new PermissionScreen("Requirements", "Requirements", AppPermission.RequirementsView,
-            new[] { AppPermission.RequirementsView, AppPermission.RequirementsManage }),
+            new[] { AppPermission.RequirementsView, AppPermission.RequirementsManage, AppPermission.RequirementsComment }),
         new PermissionScreen("Agents", "Agents", AppPermission.AgentsView,
             new[] { AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance }),
         new PermissionScreen("Models", "AI Models", AppPermission.ModelsView,

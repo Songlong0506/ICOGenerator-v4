@@ -1,0 +1,116 @@
+@model Project
+@{
+    ViewData["Title"] = "POC Review";
+    var hasMockup = ViewBag.HasMockup is bool hm && hm;
+    var canComment = ViewBag.CanComment is bool cc && cc;
+    var canAdvance = ViewBag.CanAdvance is bool ca && ca;
+}
+
+<div class="page-head">
+    <div>
+        <h1>POC Review</h1>
+        <p class="muted">Xem demo và góp ý trực tiếp trên giao diện — click chọn phần tử rồi ghi nhận xét.</p>
+    </div>
+    @if (hasMockup)
+    {
+        <a class="btn outline" asp-action="Mockup" asp-route-projectId="@Model.Id" target="_blank">
+            Mở mockup toàn màn hình ↗
+        </a>
+    }
+</div>
+
+@Html.AntiForgeryToken()
+
+@if (!hasMockup)
+{
+    <div class="card poc-empty">
+        Project này chưa có POC. POC được sinh tự động sau khi Product Brief được Approve — quay lại
+        <a asp-controller="Requirements" asp-action="Index" asp-route-projectId="@Model.Id">Requirements</a> để hoàn tất bước đó.
+    </div>
+}
+else
+{
+    <div class="poc-review-grid">
+        <section class="card poc-frame-panel">
+            <iframe id="pocFrame"
+                    src="@Url.Action("Mockup", new { projectId = Model.Id, annotate = true })"
+                    title="POC mockup"
+                    sandbox="allow-scripts allow-forms allow-modals"></iframe>
+        </section>
+
+        <aside class="card poc-side-panel">
+            @if (canComment)
+            {
+                <div class="poc-composer">
+                    <div class="poc-composer-actions">
+                        <button type="button" id="pocPickBtn" class="btn primary small" disabled
+                                title="Bật rồi click vào một phần tử trong trang demo bên trái.">
+                            🎯 Chọn phần tử &amp; góp ý
+                        </button>
+                        <button type="button" id="pocGeneralBtn" class="btn outline small">
+                            ＋ Góp ý chung
+                        </button>
+                    </div>
+                    <div id="pocPickHint" class="poc-pick-hint" style="display:none;">
+                        Đang chọn — click vào một phần tử trong trang demo…
+                    </div>
+
+                    <form id="pocAnnotationForm" style="display:none;">
+                        <div class="poc-picked-label">
+                            <span id="pocPickedLabel"></span>
+                        </div>
+                        <textarea id="pocCommentInput" rows="3" maxlength="2000"
+                                  placeholder="Nhận xét của bạn về phần tử này…"></textarea>
+                        <div class="poc-composer-actions">
+                            <button type="submit" class="btn primary small">Lưu góp ý</button>
+                            <button type="button" id="pocCancelBtn" class="btn outline small">Hủy</button>
+                        </div>
+                    </form>
+                </div>
+            }
+
+            <div class="poc-list-head">
+                <h3>Góp ý trên POC</h3>
+                <span id="pocCounts" class="muted"></span>
+            </div>
+
+            <div id="pocAnnotationList" class="poc-annotation-list">
+                <div class="poc-empty-list">Đang tải…</div>
+            </div>
+
+            <div class="poc-side-footer">
+                @if (canComment)
+                {
+                    <button type="button" id="pocSubmitBtn" class="btn primary full" style="display:none;">
+                        📨 Gửi phản hồi cho đội Dev
+                    </button>
+                }
+                @if (canAdvance)
+                {
+                    <button type="button" id="pocApplyBtn" class="btn outline full" style="display:none;"
+                            title="Gom mọi góp ý chưa xử lý thành MỘT yêu cầu chỉnh sửa POC (chỉ khi workflow đang dừng ở cổng POC).">
+                        🛠 Yêu cầu agent chỉnh sửa POC
+                    </button>
+                }
+                <div id="pocActionMessage" class="poc-action-message" style="display:none;"></div>
+            </div>
+        </aside>
+    </div>
+}
+
+@section Breadcrumb {
+    Projects <span class="sep">&rsaquo;</span> @Model.Name <span class="sep">&rsaquo;</span> <b>POC Review</b>
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/poc-review.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script>
+        window.POC_PROJECT_ID = '@Model.Id';
+        window.POC_CAN_COMMENT = @(canComment ? "true" : "false");
+        window.POC_CAN_ADVANCE = @(canAdvance ? "true" : "false");
+    </script>
+    <script src="~/js/poc-review.js" asp-append-version="true"></script>
+}

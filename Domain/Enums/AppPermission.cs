@@ -20,6 +20,8 @@ public enum AppPermission
     RequirementsView,
     [Description("Thao tác workflow yêu cầu (chat BA, duyệt, chạy lại...)")]
     RequirementsManage,
+    [Description("Góp ý: comment trên Product Brief & annotate POC (không sửa nội dung)")]
+    RequirementsComment,
 
     [Description("Xem cấu hình Agents")]
     AgentsView,

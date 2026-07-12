@@ -139,12 +139,12 @@
 
                             @if (item.HasMockup)
                             {
+                                @* POC Review: xem demo trong khung + annotate trực tiếp (thay vì chỉ mở tab thô). *@
                                 <a class="btn success"
                                    asp-controller="Projects"
-                                   asp-action="Mockup"
-                                   asp-route-projectId="@p.Id"
-                                   target="_blank">
-                                    Mockup
+                                   asp-action="PocReview"
+                                   asp-route-projectId="@p.Id">
+                                    POC Review
                                 </a>
                             }
                             else
@@ -152,7 +152,7 @@
                                 <button class="btn disabled"
                                         type="button"
                                         disabled>
-                                    Mockup
+                                    POC Review
                                 </button>
                             }
                         </div>

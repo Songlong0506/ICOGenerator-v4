@@ -36,6 +36,9 @@ public class AppDbContext : DbContext
     public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
     public DbSet<EvalResult> EvalResults => Set<EvalResult>();
     public DbSet<PromptTemplateVersion> PromptTemplateVersions => Set<PromptTemplateVersion>();
+    public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
+    public DbSet<BriefComment> BriefComments => Set<BriefComment>();
+    public DbSet<PocAnnotation> PocAnnotations => Set<PocAnnotation>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -300,6 +303,43 @@ public class AppDbContext : DbContext
             b.Property(x => x.CreatedByUsername).HasMaxLength(100);
             b.HasIndex(x => new { x.PromptKey, x.VersionNumber }).IsUnique();
             b.HasIndex(x => new { x.PromptKey, x.IsActive });
+        });
+
+        // Thành viên được mời vào project: Project FK Cascade (xóa project ⇒ dọn luôn thành viên).
+        // (ProjectId, Username) duy nhất — một người chỉ được mời một lần; index Username phục vụ truy
+        // vấn nóng "các project user này là thành viên" ở trang Projects/Index.
+        builder.Entity<ProjectMember>(b =>
+        {
+            b.HasOne(x => x.Project).WithMany(x => x.Members).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.Username).HasMaxLength(100);
+            b.Property(x => x.AddedByUsername).HasMaxLength(100);
+            b.HasIndex(x => new { x.ProjectId, x.Username }).IsUnique();
+            b.HasIndex(x => x.Username);
+        });
+
+        // Góp ý trên Product Brief: Project FK Cascade. Content/AnchorText bound (góp ý là văn bản ngắn,
+        // không phải LOB). Index (ProjectId, CreatedAt) cho truy vấn "góp ý của một project theo thứ tự".
+        builder.Entity<BriefComment>(b =>
+        {
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.AuthorUsername).HasMaxLength(100);
+            b.Property(x => x.AnchorText).HasMaxLength(500);
+            b.Property(x => x.Content).HasMaxLength(4000);
+            b.Property(x => x.ResolvedByUsername).HasMaxLength(100);
+            b.HasIndex(x => new { x.ProjectId, x.CreatedAt });
+        });
+
+        // Annotation trên POC: Project FK Cascade; Status lưu dạng chuỗi như mọi enum khác. Index
+        // (ProjectId, Status, CreatedAt) cho truy vấn "annotation chưa xử lý của một project".
+        builder.Entity<PocAnnotation>(b =>
+        {
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.AuthorUsername).HasMaxLength(100);
+            b.Property(x => x.ElementLabel).HasMaxLength(300);
+            b.Property(x => x.ElementPath).HasMaxLength(500);
+            b.Property(x => x.Comment).HasMaxLength(2000);
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+            b.HasIndex(x => new { x.ProjectId, x.Status, x.CreatedAt });
         });
 
         // Dữ liệu tổ chức đồng bộ từ HR_Portal (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu

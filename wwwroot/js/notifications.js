@@ -18,7 +18,8 @@
     var TYPE_META = {
         GateAwaitingApproval: { icon: "bi-hourglass-split", cls: "warn" },
         WorkflowCompleted: { icon: "bi-check-circle", cls: "ok" },
-        WorkflowFailed: { icon: "bi-x-circle", cls: "danger" }
+        WorkflowFailed: { icon: "bi-x-circle", cls: "danger" },
+        PocFeedbackSubmitted: { icon: "bi-chat-square-text", cls: "warn" }
     };
 
     function antiForgeryToken() {
