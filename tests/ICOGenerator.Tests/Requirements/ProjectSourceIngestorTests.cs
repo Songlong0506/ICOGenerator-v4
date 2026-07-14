@@ -65,8 +65,6 @@ public class ProjectSourceIngestorTests : IDisposable
         Assert.Equal(1, entity.PageCount);
         Assert.False(string.IsNullOrWhiteSpace(entity.ExtractedText));
         Assert.Contains("quan ly dao tao", entity.ExtractedText);
-        // Trang có text ⇒ KHÔNG render ảnh.
-        Assert.Null(entity.PageImagePaths);
     }
 
     [Fact]

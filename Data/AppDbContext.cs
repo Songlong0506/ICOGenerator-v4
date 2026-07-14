@@ -162,7 +162,7 @@ public class AppDbContext : DbContext
         });
 
         // Tài liệu nguồn user upload: Project FK Cascade (xóa project ⇒ dọn luôn các nguồn). Kind lưu dạng chuỗi
-        // (dễ đọc, bền với việc chèn enum mới). ExtractedText/PageImagePaths để nvarchar(max) (LOB), còn lại bound.
+        // (dễ đọc, bền với việc chèn enum mới). ExtractedText để nvarchar(max) (LOB), còn lại bound.
         builder.Entity<ProjectSourceFile>(b =>
         {
             b.HasOne(x => x.Project).WithMany(x => x.SourceFiles).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
