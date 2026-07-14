@@ -79,7 +79,7 @@ erDiagram
     ProjectDocument {
         Guid Id PK
         Guid ProjectId FK
-        Guid AgentId FK_optional
+        Guid AgentId FK "optional"
         string Folder
         string VersionName
         bool IsApproved
@@ -158,7 +158,7 @@ erDiagram
         Guid Id PK
         Guid WorkflowRunId FK
         Guid ProjectId FK
-        Guid AgentId FK_optional
+        Guid AgentId FK "optional"
         AgentTaskType Type
         AgentTaskStatus Status
         string Title
@@ -243,15 +243,15 @@ erDiagram
     }
 
     AgentTool {
-        Guid AgentId PK_FK
-        Guid ToolDefinitionId PK_FK
+        Guid AgentId PK, FK
+        Guid ToolDefinitionId PK, FK
     }
 
     AgentModelCallLog {
         Guid Id PK
         Guid ProjectId FK
         Guid AgentId FK
-        Guid WorkflowRunId nullable_index_only
+        Guid WorkflowRunId "nullable, index only"
         string AgentName
         string ModelName
         string ModelId
@@ -408,9 +408,9 @@ erDiagram
         Guid Id PK
         string Note
         string PromptKey
-        Guid TargetModelId no_fk
+        Guid TargetModelId "no fk"
         string TargetModelName
-        Guid JudgeModelId no_fk
+        Guid JudgeModelId "no fk"
         string JudgeModelName
         EvalRunStatus Status
         int ScenarioCount
@@ -427,10 +427,10 @@ erDiagram
     EvalResult {
         Guid Id PK
         Guid EvalRunId FK
-        Guid EvalScenarioId no_fk
+        Guid EvalScenarioId "no fk"
         string ScenarioName
         string Output
-        Guid PromptVersionId no_fk
+        Guid PromptVersionId "no fk"
         int PromptVersionNumber
         int Score
         string JudgeReasoning
