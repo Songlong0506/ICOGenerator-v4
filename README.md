@@ -277,7 +277,7 @@ tests/ICOGenerator.Tests # xUnit
 ### 5.6. Migration
 
 - Đổi entity ⇒ `dotnet ef migrations add <Tên>`; `DbInitializer` tự `MigrateAsync` lúc khởi động (SqlServer).
-- Migration hiện tại là một **baseline `V1` duy nhất** + các migration tiến sau nó. Khi cần sinh migration, đặt `ASPNETCORE_ENVIRONMENT` khác `Development` để nó sinh theo provider SqlServer (không phải Sqlite).
+- Migration hiện tại là một **baseline `V1` duy nhất** (đã gộp toàn bộ lịch sử; các migration tiến lẻ tẻ trước đây không còn). Khi cần sinh migration, đặt `ASPNETCORE_ENVIRONMENT` khác `Development` để nó sinh theo provider SqlServer (không phải Sqlite).
 - Sqlite **không chạy migration** (dùng `EnsureCreated`) ⇒ đổi schema khi dev Sqlite = xóa file `ICOGenerator.db*` để dựng lại.
 
 ---

@@ -45,7 +45,13 @@ namespace ICOGenerator.Migrations
                     Role = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     UserMemory = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Email = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    NotifyInApp = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    NotifyByEmail = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    NotifyOnGate = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    NotifyOnCompleted = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    NotifyOnFailed = table.Column<bool>(type: "bit", nullable: false, defaultValue: true)
                 },
                 constraints: table =>
                 {
@@ -108,6 +114,52 @@ namespace ICOGenerator.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "EvalRuns",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Note = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    PromptKey = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
+                    TargetModelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TargetModelName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    JudgeModelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    JudgeModelName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    ScenarioCount = table.Column<int>(type: "int", nullable: false),
+                    CompletedCount = table.Column<int>(type: "int", nullable: false),
+                    AverageScore = table.Column<double>(type: "float", nullable: true),
+                    TotalTokens = table.Column<long>(type: "bigint", nullable: false),
+                    Error = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    StartedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    FinishedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EvalRuns", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "EvalScenarios",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    PromptKey = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    UserInput = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Criteria = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EvalScenarios", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Feedbacks",
                 columns: table => new
                 {
@@ -124,6 +176,28 @@ namespace ICOGenerator.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Feedbacks", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Notifications",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    RecipientUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Type = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    Message = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ProjectName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    WorkflowRunId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Link = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    IsRead = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ReadAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Notifications", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -176,6 +250,24 @@ namespace ICOGenerator.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Projects", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PromptTemplateVersions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    PromptKey = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    VersionNumber = table.Column<int>(type: "int", nullable: false),
+                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ChangeNote = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PromptTemplateVersions", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -232,6 +324,37 @@ namespace ICOGenerator.Migrations
                         principalTable: "AiModels",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "EvalResults",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EvalRunId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EvalScenarioId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ScenarioName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Output = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    PromptVersionId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    PromptVersionNumber = table.Column<int>(type: "int", nullable: true),
+                    Score = table.Column<int>(type: "int", nullable: true),
+                    JudgeReasoning = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IsSuccess = table.Column<bool>(type: "bit", nullable: false),
+                    ErrorMessage = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TargetTokens = table.Column<int>(type: "int", nullable: false),
+                    JudgeTokens = table.Column<int>(type: "int", nullable: false),
+                    DurationMs = table.Column<long>(type: "bigint", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EvalResults", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_EvalResults_EvalRuns_EvalRunId",
+                        column: x => x.EvalRunId,
+                        principalTable: "EvalRuns",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -450,6 +573,7 @@ namespace ICOGenerator.Migrations
                     Status = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     Title = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
                     Input = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    RevisionFeedback = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Output = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Error = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Attempt = table.Column<int>(type: "int", nullable: false),
@@ -476,6 +600,29 @@ namespace ICOGenerator.Migrations
                         name: "FK_AgentTasks_WorkflowRuns_WorkflowRunId",
                         column: x => x.WorkflowRunId,
                         principalTable: "WorkflowRuns",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ProjectDocumentRevisions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProjectDocumentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    RevisionNumber = table.Column<int>(type: "int", nullable: false),
+                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ChangeNote = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    VersionName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProjectDocumentRevisions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProjectDocumentRevisions_ProjectDocuments_ProjectDocumentId",
+                        column: x => x.ProjectDocumentId,
+                        principalTable: "ProjectDocuments",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -526,6 +673,11 @@ namespace ICOGenerator.Migrations
                 columns: new[] { "ProjectId", "Status", "CreatedAt" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_AgentTasks_Status_CreatedAt",
+                table: "AgentTasks",
+                columns: new[] { "Status", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AgentTasks_WorkflowRunId",
                 table: "AgentTasks",
                 column: "WorkflowRunId");
@@ -567,6 +719,31 @@ namespace ICOGenerator.Migrations
                 column: "CreatedAt");
 
             migrationBuilder.CreateIndex(
+                name: "IX_EvalResults_EvalRunId",
+                table: "EvalResults",
+                column: "EvalRunId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EvalResults_EvalScenarioId",
+                table: "EvalResults",
+                column: "EvalScenarioId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EvalRuns_CreatedAt",
+                table: "EvalRuns",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EvalRuns_Status_CreatedAt",
+                table: "EvalRuns",
+                columns: new[] { "Status", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EvalScenarios_IsActive_CreatedAt",
+                table: "EvalScenarios",
+                columns: new[] { "IsActive", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_FeedbackAttachments_FeedbackId",
                 table: "FeedbackAttachments",
                 column: "FeedbackId");
@@ -582,9 +759,20 @@ namespace ICOGenerator.Migrations
                 columns: new[] { "CreatedByUsername", "CreatedAt" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Notifications_RecipientUsername_IsRead_CreatedAt",
+                table: "Notifications",
+                columns: new[] { "RecipientUsername", "IsRead", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_OrgUnits_OrgUnitCode",
                 table: "OrgUnits",
                 column: "OrgUnitCode");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProjectDocumentRevisions_ProjectDocumentId_RevisionNumber",
+                table: "ProjectDocumentRevisions",
+                columns: new[] { "ProjectDocumentId", "RevisionNumber" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ProjectDocuments_AgentId",
@@ -605,6 +793,17 @@ namespace ICOGenerator.Migrations
                 name: "IX_ProjectSourceFiles_ProjectId_CreatedAt",
                 table: "ProjectSourceFiles",
                 columns: new[] { "ProjectId", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PromptTemplateVersions_PromptKey_IsActive",
+                table: "PromptTemplateVersions",
+                columns: new[] { "PromptKey", "IsActive" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PromptTemplateVersions_PromptKey_VersionNumber",
+                table: "PromptTemplateVersions",
+                columns: new[] { "PromptKey", "VersionNumber" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_RolePermissions_Role_Permission",
@@ -654,16 +853,28 @@ namespace ICOGenerator.Migrations
                 name: "AuditLogs");
 
             migrationBuilder.DropTable(
+                name: "EvalResults");
+
+            migrationBuilder.DropTable(
+                name: "EvalScenarios");
+
+            migrationBuilder.DropTable(
                 name: "FeedbackAttachments");
+
+            migrationBuilder.DropTable(
+                name: "Notifications");
 
             migrationBuilder.DropTable(
                 name: "OrgUnits");
 
             migrationBuilder.DropTable(
-                name: "ProjectDocuments");
+                name: "ProjectDocumentRevisions");
 
             migrationBuilder.DropTable(
                 name: "ProjectSourceFiles");
+
+            migrationBuilder.DropTable(
+                name: "PromptTemplateVersions");
 
             migrationBuilder.DropTable(
                 name: "RolePermissions");
@@ -675,7 +886,13 @@ namespace ICOGenerator.Migrations
                 name: "ToolDefinitions");
 
             migrationBuilder.DropTable(
+                name: "EvalRuns");
+
+            migrationBuilder.DropTable(
                 name: "Feedbacks");
+
+            migrationBuilder.DropTable(
+                name: "ProjectDocuments");
 
             migrationBuilder.DropTable(
                 name: "Agents");

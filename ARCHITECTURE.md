@@ -390,7 +390,7 @@ sắp xếp lại; namespace luôn khớp đường dẫn.
   `AgentJobRunner` tạo nên một hàng đợi `AgentJob` mà UI không bao giờ gọi tới — chat BA thật đi
   qua `Chat` → `ChatWithBAUseCase` (đồng bộ). Cụm code chết này đã được xoá. **Bảng `AgentJobs`
   cũng đã được drop** (entity `AgentJob` + enum `AgentJobStatus` + `DbSet` đã xoá). Toàn bộ lịch
-  sử migration đã được gộp lại thành một baseline `V1` duy nhất (tạo đủ 18 bảng khớp
+  sử migration đã được gộp lại thành một baseline `V1` duy nhất (tạo đủ 24 bảng khớp
   `AppDbContextModelSnapshot`); các migration tiến lẻ tẻ trước đây (drop cột/backfill/alter cho DB
   cũ) không còn tồn tại. Mỗi khi cần reset DB tạo lại từ đầu, cứ xoá `Migrations/` rồi
   `dotnet ef migrations add V1` để có lại một baseline sạch — nhớ đặt `ASPNETCORE_ENVIRONMENT`

@@ -317,7 +317,7 @@ Thiết kế:
 
 | Thành phần | File | Vai trò |
 |---|---|---|
-| Cột mới | `Domain/AgentTask.cs` (`RevisionFeedback`), migration `AddAgentTaskRevisionFeedback` | nhận xét của người duyệt, null = task thường. |
+| Cột mới | `Domain/AgentTask.cs` (`RevisionFeedback`), schema trong migration `V1` | nhận xét của người duyệt, null = task thường. |
 | Use case | `Application/Requirements/RequestStageRevisionUseCase.cs` | validate + đếm vòng + enqueue task chỉnh sửa (Input nguyên bản, agent của lần gần nhất), run → `Queued` giữ nguyên stage. |
 | Trần vòng | `Services/Workflows/DeliveryPipeline.cs` (`MaxRevisionRounds`) | chặn đốt token khi không hội tụ. |
 | Prompt | `Prompts/Workflow/revision.v1.md`, `WorkflowTaskPromptBuilder`, `RequirementPromptBuilder.RevisionSection` | khối chỉnh sửa nối sau prompt gốc / chèn vào prompt TechnicalDocs. |
