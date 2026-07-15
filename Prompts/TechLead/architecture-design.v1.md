@@ -10,9 +10,9 @@ Bản kiến trúc cần nêu:
 - Rủi ro / điểm cần lưu ý cho bước Implementation.
 
 BẮT BUỘC dùng tool `WriteFile` để ghi bản kiến trúc ra file (relative): 03_Architecture/architecture-design.md
-Ví dụ action: {"type":"tool","tool":"WriteFile","args":{"relativePath":"03_Architecture/architecture-design.md","content":"# Kiến trúc\n..."}}
+Ví dụ: gọi tool WriteFile với args {"relativePath":"03_Architecture/architecture-design.md","content":"# Kiến trúc\n..."}
 
-Sau khi WriteFile trả về thành công, trả `final` kèm phần nội dung kiến trúc (sẽ được chuyển cho Developer làm đầu vào). KHÔNG trả final khi chưa ghi file.
+Sau khi WriteFile trả về thành công, trả lời cuối (text, không gọi tool) kèm phần nội dung kiến trúc (sẽ được chuyển cho Developer làm đầu vào). KHÔNG trả lời cuối khi chưa ghi file.
 
 # AI Design Spec
 

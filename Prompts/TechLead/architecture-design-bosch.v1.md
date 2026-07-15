@@ -12,7 +12,7 @@ Bản thiết kế cần nêu rõ, theo từng tầng:
 - Mô hình dữ liệu chính, các màn hình/luồng tương tác, và rủi ro/điểm cần lưu ý cho bước Implementation.
 
 BẮT BUỘC dùng tool `WriteFile` để ghi bản thiết kế ra file (relative): `03_Architecture/architecture-design.md`
-Sau khi WriteFile trả về thành công, trả `final` kèm nội dung thiết kế (sẽ chuyển cho Developer làm đầu vào). KHÔNG trả final khi chưa ghi file.
+Sau khi WriteFile trả về thành công, trả lời cuối (text, không gọi tool) kèm nội dung thiết kế (sẽ chuyển cho Developer làm đầu vào). KHÔNG trả lời cuối khi chưa ghi file.
 
 # AI Design Spec
 

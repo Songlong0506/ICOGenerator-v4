@@ -14,7 +14,7 @@ Ghi `04_Implementation/src/README.md`: stack, cấu trúc thư mục, cách cài
 NGÂN SÁCH BƯỚC: mỗi action là một lần gọi tool, nên ƯU TIÊN `WriteFiles` (gom 10–20 file/lần) thay vì `WriteFile` lẻ. ĐƯỢC PHÉP dùng `RunCommand` để `dotnet build` (trong `04_Implementation/src/backend`) và `npm install` / `npm run build` (trong `04_Implementation/src/frontend`) để xác nhận biên dịch; đọc lỗi và sửa, lặp tới khi sạch trong giới hạn bước.
 
 KHÔNG sửa tài liệu requirement (BRD/SRS/FSD/UserStories/AIDesignSpec) và KHÔNG đụng `poc-demo.html`.
-Khi xong, trả `final` tóm tắt: phần backend + frontend đã làm, danh sách file chính đã tạo/sửa, cách chạy, và phần còn hạn chế. Bản tóm tắt này sẽ được chuyển cho Tester.
+Khi xong, trả lời cuối (text, không gọi tool) tóm tắt: phần backend + frontend đã làm, danh sách file chính đã tạo/sửa, cách chạy, và phần còn hạn chế. Bản tóm tắt này sẽ được chuyển cho Tester.
 
 # Kiến trúc đã duyệt
 
