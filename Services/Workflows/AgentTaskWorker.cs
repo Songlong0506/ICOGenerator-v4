@@ -481,11 +481,14 @@ public class AgentTaskWorker : BackgroundService
 
         if (seeded == null)
         {
-            // Markers missing/malformed: fall back to a raw copy so we never lose the file.
-            File.Copy(templateSrc, demoPath, overwrite: true);
+            // Markers missing/malformed: fall back to a raw copy so we never lose the file, but still drop
+            // the developer-agent instruction comment so the served demo can't leak it as page text.
+            await File.WriteAllTextAsync(demoPath, PocTemplate.StripDeveloperGuide(template));
             return;
         }
 
-        await File.WriteAllTextAsync(demoPath, seeded);
+        // The instruction comment heading the template is LLM guidance, not page content; keep it out of
+        // the seeded demo so a later disturbance to it can't render as raw text (see StripDeveloperGuide).
+        await File.WriteAllTextAsync(demoPath, PocTemplate.StripDeveloperGuide(seeded));
     }
 }

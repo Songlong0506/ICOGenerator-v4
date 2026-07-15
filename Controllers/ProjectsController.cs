@@ -1,5 +1,6 @@
 using ICOGenerator.Application.Projects;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Mvc;
 
@@ -59,6 +60,15 @@ public class ProjectsController : Controller
         if (result == null)
             return NotFound("Mockup file not found.");
 
+        // poc-demo.html leads with a big developer-agent instruction comment copied from poc-template.html.
+        // It is guidance for the LLM, not page content, and a disturbed copy of it renders as raw
+        // "(POC_SCRIPT_START/END) holds ONE …" text instead of the POC (the "Mockup button opens a broken
+        // page" bug). Strip it before serving so the browser always gets the shell + content, including for
+        // demos generated before this fix. The file is small self-contained HTML, so reading it into memory
+        // (rather than streaming the physical file) is fine.
+        var html = await System.IO.File.ReadAllTextAsync(result.FilePath, HttpContext.RequestAborted);
+        html = PocTemplate.StripDeveloperGuide(html);
+
         // This HTML is agent/LLM-generated and served from our own origin. Sandbox it so any injected
         // <script> runs in an opaque origin — no access to the admin auth cookie and no authenticated
         // same-origin POSTs (e.g. to Settings) — closing the prompt-injection escalation path.
@@ -67,7 +77,7 @@ public class ProjectsController : Controller
         // that omission (opaque origin, no auth cookie, no authenticated same-origin POSTs) is the
         // actual security boundary, and forms/modals don't weaken it.
         Response.Headers["Content-Security-Policy"] = "sandbox allow-scripts allow-forms allow-modals;";
-        return PhysicalFile(result.FilePath, "text/html", enableRangeProcessing: true);
+        return Content(html, "text/html; charset=utf-8");
     }
 
     // Packages the agent-generated multi-file app (04_Implementation/src) into a .zip the user can

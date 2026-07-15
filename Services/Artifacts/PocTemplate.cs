@@ -44,6 +44,39 @@ public static class PocTemplate
     }
 
     /// <summary>
+    /// Removes the leading developer-agent instruction block — the big comment between the DOCTYPE and the
+    /// opening &lt;html&gt; tag in poc-template.html. That block is guidance for the LLM authoring the POC and
+    /// must never reach the browser: it carries literal &lt;script&gt; text and the marker names, so if the
+    /// comment is ever disturbed (a re-emit, an encoding slip, a stray early "--&gt;") its instructions leak
+    /// onto the page as raw text — the "(POC_SCRIPT_START/END) holds ONE …" garbage instead of the POC.
+    /// It strips by anchors (keep the DOCTYPE, drop everything up to &lt;html&gt;), NOT by matching the comment,
+    /// so it works even when the comment itself is malformed. Idempotent, and returns the input unchanged
+    /// when there is no &lt;html&gt; tag to anchor on (or the document already starts with it).
+    /// </summary>
+    public static string StripDeveloperGuide(string html)
+    {
+        if (string.IsNullOrEmpty(html))
+            return html;
+
+        var htmlIdx = html.IndexOf("<html", StringComparison.OrdinalIgnoreCase);
+        if (htmlIdx <= 0)
+            return html; // no <html>, or it's already the first tag — nothing before it to strip
+
+        // Keep a DOCTYPE that sits before <html> (so the page never falls into quirks mode), and drop
+        // only the block between it and <html>.
+        var doctypeIdx = html.IndexOf("<!DOCTYPE", StringComparison.OrdinalIgnoreCase);
+        if (doctypeIdx >= 0 && doctypeIdx < htmlIdx)
+        {
+            var doctypeEnd = html.IndexOf('>', doctypeIdx);
+            if (doctypeEnd >= 0 && doctypeEnd < htmlIdx)
+                return html[..(doctypeEnd + 1)] + "\n" + html[htmlIdx..];
+        }
+
+        // No usable DOCTYPE before <html>: drop whatever precedes <html> outright.
+        return html[htmlIdx..];
+    }
+
+    /// <summary>
     /// Replaces everything between the markers (exclusive) with <paramref name="newContent"/>,
     /// keeping the markers intact. Returns null when the markers are missing/malformed.
     /// </summary>
