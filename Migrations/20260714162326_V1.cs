@@ -393,7 +393,6 @@ namespace ICOGenerator.Migrations
                     SizeBytes = table.Column<long>(type: "bigint", nullable: false),
                     StoredPath = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
                     ExtractedText = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    PageImagePaths = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PageCount = table.Column<int>(type: "int", nullable: false),
                     IsVisionSource = table.Column<bool>(type: "bit", nullable: false),
                     UploadedByUserId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),

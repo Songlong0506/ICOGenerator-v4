@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using Microsoft.Extensions.AI;
@@ -86,24 +85,10 @@ public class SourceContextBuilder
         return contents;
     }
 
+    // Chỉ ảnh user upload trực tiếp mới đóng góp phần vision; PDF chỉ đóng góp text (app đã bỏ render PDF→ảnh).
     private static IEnumerable<(string Path, string MediaType)> EnumerateImageAssets(ProjectSourceFile s)
     {
         if (s.Kind == SourceFileKind.Image)
-        {
             yield return (s.StoredPath, string.IsNullOrWhiteSpace(s.ContentType) ? "image/png" : s.ContentType);
-            yield break;
-        }
-
-        if (string.IsNullOrWhiteSpace(s.PageImagePaths))
-            yield break;
-
-        List<string>? paths = null;
-        try { paths = JsonSerializer.Deserialize<List<string>>(s.PageImagePaths!); }
-        catch { /* dữ liệu hỏng: coi như không có ảnh trang */ }
-
-        if (paths == null)
-            yield break;
-        foreach (var p in paths)
-            yield return (p, "image/png");
     }
 }

@@ -31,12 +31,6 @@ public class ProjectSourceFile
     /// <summary>Text bóc từ PDF (null với ảnh, hoặc PDF scan/ảnh không có text — loại này không được hỗ trợ).</summary>
     public string? ExtractedText { get; set; }
 
-    /// <summary>
-    /// [LEGACY] Trước đây giữ JSON list đường dẫn ảnh PNG của các trang PDF scan đã render cho vision. App đã bỏ
-    /// render PDF→ảnh nên trường này KHÔNG còn được ghi cho nguồn mới (luôn null); giữ cột để tương thích dữ liệu cũ.
-    /// </summary>
-    public string? PageImagePaths { get; set; }
-
     /// <summary>Số trang (với PDF). 0 với ảnh.</summary>
     public int PageCount { get; set; }
 
