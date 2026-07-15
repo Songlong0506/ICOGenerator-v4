@@ -234,7 +234,7 @@ tests/ICOGenerator.Tests # xUnit
 | Bảng | Vai trò | Điểm đáng chú ý |
 |---|---|---|
 | `Projects` | Dự án — gốc nối tới tài liệu, hội thoại, workflow | Ngoài metadata còn mang **bộ nhớ của luồng BA**: `ConversationSummary` + `SummarizedTurnCount` (tóm tắt hội thoại dài), `UserMemoryHarvestedTurnCount`, `RequirementCoverageMap` + `CoverageHarvestedTurnCount` (bản đồ bao phủ 12 nhóm thông tin), `ChecklistGapHarvested`. `CreatedByUsername` để lọc "chỉ thấy project mình tạo"; `OrgUnitCode` (không FK) gắn đơn vị yêu cầu; `IsUseBoschTemplate` (mặc định true) do TeamDev đổi ở Agent Dashboard |
-| `Agents` | "Nhân sự AI": `RoleKey` (BusinessAnalyst/TechLead/Developer/Tester/UiUx), `AiModelId`, `Temperature`, `Color`, `LearnedChecklistNotes` | System prompt **không lưu DB** — nạp từ `Prompts/Agents/Instructions/{RoleKey}.md` qua `AgentInstructionProvider`. FK sang AiModel là `Restrict` (không xóa được model đang dùng) |
+| `Agents` | "Nhân sự AI": `RoleKey` (BusinessAnalyst/TechLead/Developer/Tester/UiUx), `AiModelId`, `Temperature`, `Color`, `LearnedChecklistNotes` | System prompt **không lưu DB** — nạp từ `Prompts/{RoleKey}/instruction.md` qua `AgentInstructionProvider`. FK sang AiModel là `Restrict` (không xóa được model đang dùng) |
 | `AiModels` | Danh mục model LLM: `ModelId`, `Endpoint`, `ApiKey` (mã hóa), `ContextWindow`, đơn giá Input/Output per-1M-token (decimal 18,6) | Đơn giá là đầu vào của trang Usage + Budget guard. Model tự host giá 0 ⇒ chi phí 0 |
 | `ToolDefinitions` | Danh mục tool (đồng bộ từ code khi khởi động) | Unique index `(ServiceType, MethodName)` |
 | `AgentTools` | Bảng nối agent ↔ tool được phép dùng | Khóa chính kép `(AgentId, ToolDefinitionId)` |
@@ -298,7 +298,7 @@ Browser POST /Requirements/Chat
                  ├► ConversationMemoryService        → 20 lượt gần nhất nguyên văn + tóm tắt lượt cũ
                  ├► RequirementCoverageService       → bản đồ bao phủ 12 nhóm thông tin
                  ├► SourceContextBuilder             → ngữ cảnh từ tài liệu user upload
-                 ├► RequirementPromptBuilder         → dựng prompt (template Prompts/BA/*)
+                 ├► RequirementPromptBuilder         → dựng prompt (template Prompts/BusinessAnalyst/*)
                  ├► ILlmClient                       → gọi LLM  [Services/Llm]
                  └► BAChatReplyParser                → parse trả lời (+ readiness gate)
        └► AppDbContext.SaveChanges                   [Data] — lưu lượt hội thoại
@@ -351,13 +351,13 @@ Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.
 
 | # | Stage (`WorkflowStageKey`) | Agent | `AgentTaskType` | Input | MaxSteps | Prompt template |
 |---|---|---|---|---|---|---|
-| 1 | `PocPreview` | Developer | `PocPreview` | AI Design Spec | 16 | `Workflow/poc-preview.v1.md` |
-| 2 | `TechnicalDocs` | BA | `TechnicalDocs` | AI Design Spec | (8, không tiêu thụ*) | `BA/technical-docs.v1.md` |
-| 3 | `ArchitectureDesign` | Tech Lead | `ArchitectureDesign` | AI Design Spec | 8 | `Workflow/architecture-design[-bosch].v1.md` |
-| 4 | `Implementation` | Developer | `Implementation` | Output bước trước | 40 | `Workflow/implementation[-bosch].v1.md` |
-| 5 | `CodeReview` | Tech Lead | `CodeReview` | Output bước trước | 12 | `Workflow/code-review.v1.md` |
-| 6 | `Testing` | Tester | `Testing` | Output bước trước | 8 | `Workflow/testing.v1.md` |
-| 7 | `PullRequest` | Developer | `PullRequest` | Output bước trước | 6 | `Workflow/pull-request.v1.md` |
+| 1 | `PocPreview` | Developer | `PocPreview` | AI Design Spec | 16 | `Developer/poc-preview.v1.md` |
+| 2 | `TechnicalDocs` | BA | `TechnicalDocs` | AI Design Spec | (8, không tiêu thụ*) | `BusinessAnalyst/technical-docs.v1.md` |
+| 3 | `ArchitectureDesign` | Tech Lead | `ArchitectureDesign` | AI Design Spec | 8 | `TechLead/architecture-design[-bosch].v1.md` |
+| 4 | `Implementation` | Developer | `Implementation` | Output bước trước | 40 | `Developer/implementation[-bosch].v1.md` |
+| 5 | `CodeReview` | Tech Lead | `CodeReview` | Output bước trước | 12 | `TechLead/code-review.v1.md` |
+| 6 | `Testing` | Tester | `Testing` | Output bước trước | 8 | `Tester/testing.v1.md` |
+| 7 | `PullRequest` | Developer | `PullRequest` | Output bước trước | 6 | `Developer/pull-request.v1.md` |
 
 \* Bước TechnicalDocs **không** chạy qua agent + prompt chung: worker xử lý nhánh riêng, gọi `BARequirementService.GenerateTechnicalDocsAsync` (BA cần đọc context project) — sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design Spec đã duyệt.
 
@@ -370,7 +370,7 @@ Mỗi bước chạy xong, run **dừng** ở `WaitingForHuman`. Trên **Agent D
 | Hành động | Use case | Hệ quả |
 |---|---|---|
 | **Duyệt & tiếp tục** | `ApproveStageUseCase` | Resolve input theo `InputSource` (spec hoặc output task Completed mới nhất — tức bản đã-sửa nếu có revision) → enqueue bước kế |
-| **Yêu cầu chỉnh sửa** (kèm nhận xét) | `RequestStageRevisionUseCase` | Enqueue lại **đúng bước hiện tại**: `Input` giữ NGUYÊN BẢN, nhận xét nằm riêng ở `AgentTask.RevisionFeedback`; prompt gốc + nối khối `Workflow/revision.v1.md`. Trần `MaxRevisionRounds = 3` mỗi bước (đếm bằng số task có `RevisionFeedback != null` cùng loại trong run) |
+| **Yêu cầu chỉnh sửa** (kèm nhận xét) | `RequestStageRevisionUseCase` | Enqueue lại **đúng bước hiện tại**: `Input` giữ NGUYÊN BẢN, nhận xét nằm riêng ở `AgentTask.RevisionFeedback`; prompt gốc + nối khối `Shared/revision.v1.md`. Trần `MaxRevisionRounds = 3` mỗi bước (đếm bằng số task có `RevisionFeedback != null` cùng loại trong run) |
 | **Từ chối** | `RejectStageUseCase` | Hủy run (`Canceled`) — quay về chat BA sửa requirement, Approve lại tạo run phiên bản kế. **Ngoại lệ: cổng POC không Reject được** (`PocGateNotRejectable`) — POC sai nghĩa là requirement sai, việc của user; "Yêu cầu chỉnh sửa" thì vẫn được |
 | **Thử lại** | `RetryWorkflowUseCase` | Chạy lại khi task Failed |
 
@@ -507,21 +507,21 @@ Nghĩa là: sửa prompt qua Prompt Studio **có hiệu lực ngay không cần 
 
 | File | Dùng cho |
 |---|---|
-| `BA/requirement-chat.v3.md` | Lượt chat BA |
-| `BA/requirement-readiness.v3.md` | Cổng kiểm tra "đủ thông tin để viết requirement chưa" |
-| `BA/product-brief.v3.md` | Sinh Product Brief (Write Requirement) |
-| `BA/product-brief-review.v2.md` | Vòng tự soát Product Brief |
-| `BA/ai-design-spec.v1.md` | Sinh AI Design Spec sau Approve |
-| `BA/technical-docs.v1.md` | Sinh BRD/SRS/FSD/UserStories (bước 2 pipeline) |
-| `BA/conversation-summary.v1.md` | Gộp tóm tắt hội thoại (bộ nhớ dài hạn) |
-| `BA/user-memory.v1.md` | Chắt lọc hồ sơ user |
-| `BA/checklist-gap.v1.md` | Rút "khoảng trống checklist" sau khi sinh tài liệu |
-| `BA/requirement-coverage.v1.md` | Cập nhật bản đồ bao phủ yêu cầu |
-| `BA/organization-context.v2.md` | Khung render bức tranh tổ chức |
-| `Workflow/poc-preview.v1.md`, `architecture-design[-bosch].v1.md`, `implementation[-bosch].v1.md`, `code-review.v1.md`, `testing.v1.md`, `bugfix.v1.md`, `pull-request.v1.md` | Từng bước pipeline (`{{input}}` = nội dung theo `InputSource`); bản `-bosch` dùng khi `Project.IsUseBoschTemplate` |
-| `Workflow/revision.v1.md` | Khối "Yêu cầu chỉnh sửa" nối sau prompt gốc của bước |
-| `Agents/Instructions/{BusinessAnalyst,TechLead,Developer,Tester,UiUx}.md` | **System prompt theo vai** — hành vi sâu của agent nằm ở đây; template Workflow chỉ mô tả *việc của bước* |
-| `Agents/tool-agent-native.v1.md` | Khung prompt chung cho agent chạy tool |
+| `BusinessAnalyst/requirement-chat.v3.md` | Lượt chat BA |
+| `BusinessAnalyst/requirement-readiness.v3.md` | Cổng kiểm tra "đủ thông tin để viết requirement chưa" |
+| `BusinessAnalyst/product-brief.v3.md` | Sinh Product Brief (Write Requirement) |
+| `BusinessAnalyst/product-brief-review.v2.md` | Vòng tự soát Product Brief |
+| `BusinessAnalyst/ai-design-spec.v1.md` | Sinh AI Design Spec sau Approve |
+| `BusinessAnalyst/technical-docs.v1.md` | Sinh BRD/SRS/FSD/UserStories (bước 2 pipeline) |
+| `BusinessAnalyst/conversation-summary.v1.md` | Gộp tóm tắt hội thoại (bộ nhớ dài hạn) |
+| `BusinessAnalyst/user-memory.v1.md` | Chắt lọc hồ sơ user |
+| `BusinessAnalyst/checklist-gap.v1.md` | Rút "khoảng trống checklist" sau khi sinh tài liệu |
+| `BusinessAnalyst/requirement-coverage.v1.md` | Cập nhật bản đồ bao phủ yêu cầu |
+| `BusinessAnalyst/organization-context.v2.md` | Khung render bức tranh tổ chức |
+| `TechLead/architecture-design[-bosch].v1.md`, `TechLead/code-review.v1.md`, `Developer/poc-preview.v1.md`, `Developer/implementation[-bosch].v1.md`, `Developer/bugfix.v1.md`, `Developer/pull-request.v1.md`, `Tester/testing.v1.md` | Từng bước pipeline theo vai (`{{input}}` = nội dung theo `InputSource`); bản `-bosch` dùng khi `Project.IsUseBoschTemplate` |
+| `Shared/revision.v1.md` | Khối "Yêu cầu chỉnh sửa" nối sau prompt gốc của bước |
+| `{BusinessAnalyst,TechLead,Developer,Tester,UiUx}/instruction.md` | **System prompt theo vai** — hành vi sâu của agent nằm ở đây; template task theo vai chỉ mô tả *việc của bước* |
+| `Shared/tool-agent-native.v1.md` | Khung prompt chung cho agent chạy tool |
 | `Eval/judge.v1.md` | LLM-judge chấm điểm eval 1–5 |
 | `Design/poc-template.html` | Shell HTML của POC (sidebar/topbar/Bootstrap + engine `data-crud-*`, hai vùng marker `POC_CONTENT`/`POC_SCRIPT`) |
 

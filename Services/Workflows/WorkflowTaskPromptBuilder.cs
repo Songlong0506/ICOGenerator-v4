@@ -5,7 +5,7 @@ namespace ICOGenerator.Services.Workflows;
 
 /// <summary>
 /// Dựng user-prompt cho một bước pipeline theo <see cref="AgentTaskType"/>.
-/// Prompt nằm ở file template trong <c>Prompts/Workflow/</c> (nạp qua
+/// Prompt nằm ở file template trong thư mục theo vai <c>Prompts/{TechLead,Developer,Tester}/</c> (nạp qua
 /// <see cref="PromptTemplateService"/>); chỗ <c>{{input}}</c> được thay bằng nội
 /// dung hand-off (output của bước trước, hoặc AI Design Spec cho bước đầu tiên).
 ///
@@ -17,7 +17,7 @@ namespace ICOGenerator.Services.Workflows;
 /// (.NET + Angular) đã được clone vào workspace; các bước còn lại dùng chung template.
 ///
 /// Với task CHỈNH SỬA (có <c>revisionFeedback</c> — người duyệt yêu cầu sửa lại bước tại cổng
-/// duyệt), prompt gốc được nối thêm khối <c>Workflow/revision.v1.md</c>: nhắc agent rằng sản
+/// duyệt), prompt gốc được nối thêm khối <c>Shared/revision.v1.md</c>: nhắc agent rằng sản
 /// phẩm lần trước còn nguyên trong workspace, kèm bàn giao cũ + nhận xét, và yêu cầu SỬA trên
 /// cái đã có thay vì làm lại từ đầu.
 /// </summary>
@@ -39,20 +39,20 @@ public class WorkflowTaskPromptBuilder
         if (string.IsNullOrWhiteSpace(revisionFeedback))
             return prompt;
 
-        return prompt + _promptTemplateService.Get("Workflow/revision.v1.md")
+        return prompt + _promptTemplateService.Get("Shared/revision.v1.md")
             .Replace("{{previous_output}}", string.IsNullOrWhiteSpace(previousOutput) ? "(không có bàn giao lần trước — đọc trực tiếp sản phẩm trong workspace)" : previousOutput)
             .Replace("{{feedback}}", revisionFeedback);
     }
 
     private static string TemplatePath(AgentTaskType taskType, bool useBoschTemplate) => taskType switch
     {
-        AgentTaskType.PocPreview         => "Workflow/poc-preview.v1.md",
-        AgentTaskType.ArchitectureDesign => useBoschTemplate ? "Workflow/architecture-design-bosch.v1.md" : "Workflow/architecture-design.v1.md",
-        AgentTaskType.Implementation     => useBoschTemplate ? "Workflow/implementation-bosch.v1.md" : "Workflow/implementation.v1.md",
-        AgentTaskType.CodeReview         => "Workflow/code-review.v1.md",
-        AgentTaskType.Testing            => "Workflow/testing.v1.md",
-        AgentTaskType.BugFix             => "Workflow/bugfix.v1.md",
-        AgentTaskType.PullRequest        => "Workflow/pull-request.v1.md",
+        AgentTaskType.PocPreview         => "Developer/poc-preview.v1.md",
+        AgentTaskType.ArchitectureDesign => useBoschTemplate ? "TechLead/architecture-design-bosch.v1.md" : "TechLead/architecture-design.v1.md",
+        AgentTaskType.Implementation     => useBoschTemplate ? "Developer/implementation-bosch.v1.md" : "Developer/implementation.v1.md",
+        AgentTaskType.CodeReview         => "TechLead/code-review.v1.md",
+        AgentTaskType.Testing            => "Tester/testing.v1.md",
+        AgentTaskType.BugFix             => "Developer/bugfix.v1.md",
+        AgentTaskType.PullRequest        => "Developer/pull-request.v1.md",
         _ => throw new InvalidOperationException($"Không có prompt template cho task type '{taskType}'.")
     };
 }

@@ -205,7 +205,7 @@ public class OrganizationContextServiceTests : IDisposable
 
     public void Dispose() => _connection.Dispose();
 
-    // Template thật nằm ở Prompts/BA/organization-context.v2.md (không copy sang test project); stub giữ
+    // Template thật nằm ở Prompts/BusinessAnalyst/organization-context.v2.md (không copy sang test project); stub giữ
     // đúng ba placeholder để test khẳng định chúng được thay bằng dữ liệu render.
     private sealed class StubPrompts : PromptTemplateService
     {

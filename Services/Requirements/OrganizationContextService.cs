@@ -22,7 +22,7 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public partial class OrganizationContextService
 {
-    private const string TemplatePath = "BA/organization-context.v2.md";
+    private const string TemplatePath = "BusinessAnalyst/organization-context.v2.md";
     private const string CacheKey = "OrganizationContext.BaContext";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(1);
     // Đủ để BA nhận diện các nhóm nghề chính trong nhà máy mà phần chức danh vẫn gọn một đoạn.

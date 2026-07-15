@@ -35,7 +35,7 @@ Your task:
     }
 
     // Vòng TỰ SOÁT bản nháp Product Brief: reviewer đối chiếu bản nháp với hội thoại để tìm vấn đề
-    // thực chất (bỏ sót/sai lệch/tự thêm/giả định còn sót/thiếu mục). Xem Prompts/BA/product-brief-review.v2.md.
+    // thực chất (bỏ sót/sai lệch/tự thêm/giả định còn sót/thiếu mục). Xem Prompts/BusinessAnalyst/product-brief-review.v2.md.
     // organizationContext phải TRÙNG với khối đã đưa cho lượt soạn: tên phòng ban/HoD lấy từ đó là dữ
     // liệu hợp lệ, reviewer không được tính là "tự thêm ngoài hội thoại".
     public string BuildProductBriefReview(

@@ -68,7 +68,7 @@ ICOGenerator-v4/
 ├── Domain/                            # Entity + enum thuần nghiệp vụ
 ├── Data/                              # AppDbContext, seed, migration bootstrap
 ├── Services/                          # Hạ tầng nghiệp vụ: LLM, agent, workflow, tools, requirement...
-├── Prompts/                           # Prompt file cho agent/workflow/BA/eval
+├── Prompts/                           # Prompt file theo vai agent (BusinessAnalyst/TechLead/Developer/Tester/UiUx) + Shared/Eval/Design
 ├── Templates/                         # Mẫu DOCX cho requirement docs
 ├── Migrations/                        # EF Core migrations
 └── tests/ICOGenerator.Tests/          # Unit tests theo module
