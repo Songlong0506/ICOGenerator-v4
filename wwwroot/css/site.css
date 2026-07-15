@@ -652,8 +652,9 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
    ============================================================ */
 .tool-card { border: 1px solid var(--line); padding: 14px; }
 
-.tools-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; }
-.tools-head h3 { margin: 0; }
+.tools-head, .prompts-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; }
+.tools-head h3, .prompts-head h3 { margin: 0; }
+.prompts-head { margin-bottom: 10px; }
 .tools-counter { font-size: 13px; color: var(--muted); }
 .tools-counter b { color: var(--bosch-blue); font-size: 15px; }
 

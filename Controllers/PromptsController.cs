@@ -5,13 +5,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
 
-// Prompt Studio: xem/sửa nội dung template prompt theo PHIÊN BẢN (bảng PromptTemplateVersions) —
-// sửa prompt không cần deploy, rollback một cú nhấp, diff giữa các phiên bản. Mặc định cả controller
-// chỉ cần quyền xem; các action ghi (đổi hành vi AI ngay lập tức) yêu cầu PromptManage.
-[RequirePermission(AppPermission.PromptView)]
+// Xem/sửa nội dung template prompt theo PHIÊN BẢN (bảng PromptTemplateVersions) — sửa prompt không cần
+// deploy, rollback một cú nhấp, diff giữa các phiên bản. Danh sách prompt được truy cập từ trang Agents
+// (gộp theo role của agent); controller này lo phần chi tiết/lịch sử. Quyền đi theo Agents.
+[RequirePermission(AppPermission.AgentsView)]
 public class PromptsController : Controller
 {
-    private readonly GetPromptStudioPageQuery _getStudioPage;
     private readonly GetPromptDetailQuery _getDetail;
     private readonly GetPromptVersionDiffQuery _getDiff;
     private readonly SavePromptVersionUseCase _saveVersion;
@@ -20,7 +19,6 @@ public class PromptsController : Controller
     private readonly GetPromptVersionDownloadQuery _getDownload;
 
     public PromptsController(
-        GetPromptStudioPageQuery getStudioPage,
         GetPromptDetailQuery getDetail,
         GetPromptVersionDiffQuery getDiff,
         SavePromptVersionUseCase saveVersion,
@@ -28,18 +26,12 @@ public class PromptsController : Controller
         RevertPromptToFileUseCase revertToFile,
         GetPromptVersionDownloadQuery getDownload)
     {
-        _getStudioPage = getStudioPage;
         _getDetail = getDetail;
         _getDiff = getDiff;
         _saveVersion = saveVersion;
         _activateVersion = activateVersion;
         _revertToFile = revertToFile;
         _getDownload = getDownload;
-    }
-
-    public async Task<IActionResult> Index()
-    {
-        return View(await _getStudioPage.ExecuteAsync(HttpContext.RequestAborted));
     }
 
     [HttpGet]
@@ -76,7 +68,7 @@ public class PromptsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.PromptManage)]
+    [RequirePermission(AppPermission.AgentsManage)]
     public async Task<IActionResult> Save(string key, string? content, string? changeNote)
     {
         var result = await _saveVersion.ExecuteAsync(key, content, changeNote, User.Identity?.Name);
@@ -94,13 +86,13 @@ public class PromptsController : Controller
             TempData["Saved"] = true;
 
         return result == SavePromptVersionResult.UnknownPromptKey
-            ? RedirectToAction(nameof(Index))
+            ? RedirectToAction("Index", "Agents")
             : RedirectToAction(nameof(Detail), new { key });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.PromptManage)]
+    [RequirePermission(AppPermission.AgentsManage)]
     public async Task<IActionResult> Activate(Guid id)
     {
         var promptKey = await _activateVersion.ExecuteAsync(id);
@@ -113,7 +105,7 @@ public class PromptsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.PromptManage)]
+    [RequirePermission(AppPermission.AgentsManage)]
     public async Task<IActionResult> RevertToFile(string key)
     {
         await _revertToFile.ExecuteAsync(key);

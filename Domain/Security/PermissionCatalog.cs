@@ -30,8 +30,8 @@ public static class PermissionCatalog
             new[] { AppPermission.QualityView }),
         new PermissionScreen("Evals", "Prompt Evals", AppPermission.EvalView,
             new[] { AppPermission.EvalView, AppPermission.EvalManage }),
-        new PermissionScreen("Prompts", "Prompt Studio", AppPermission.PromptView,
-            new[] { AppPermission.PromptView, AppPermission.PromptManage }),
+        // Prompt Studio đã gộp vào màn hình Agents (danh sách prompt theo role của agent) — dùng chung
+        // quyền Agents. Không còn màn hình riêng nên PromptView/PromptManage không xuất hiện trong ma trận.
         new PermissionScreen("Settings", "Settings", AppPermission.SettingsView,
             new[] { AppPermission.SettingsView, AppPermission.SettingsManage }),
         new PermissionScreen("Feedback", "Feedback", AppPermission.FeedbackView,

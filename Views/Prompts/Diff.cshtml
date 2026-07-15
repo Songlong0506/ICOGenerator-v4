@@ -14,7 +14,7 @@
 
 @section Breadcrumb {
     <text>
-        <a asp-action="Index">Prompt Studio</a> <span class="sep">&rsaquo;</span>
+        <a asp-controller="Agents" asp-action="Index">Agents</a> <span class="sep">&rsaquo;</span>
         <a asp-action="Detail" asp-route-key="@Model.PromptKey">@Model.PromptKey</a> <span class="sep">&rsaquo;</span>
         Diff
     </text>

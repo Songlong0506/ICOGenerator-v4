@@ -3,7 +3,7 @@
 
 @{
     ViewData["Title"] = "Prompt Studio";
-    var canManage = await Permissions.HasPermissionAsync(User, AppPermission.PromptManage);
+    var canManage = await Permissions.HasPermissionAsync(User, AppPermission.AgentsManage);
     var latestNumber = Model.Versions.Count > 0 ? Model.Versions.Max(v => v.VersionNumber) : 0;
 }
 
@@ -12,7 +12,7 @@
 }
 
 @section Breadcrumb {
-    <text><a asp-action="Index">Prompt Studio</a> <span class="sep">&rsaquo;</span> @Model.PromptKey</text>
+    <text><a asp-controller="Agents" asp-action="Index">Agents</a> <span class="sep">&rsaquo;</span> @Model.PromptKey</text>
 }
 
 <div class="page-head">
