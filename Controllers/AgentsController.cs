@@ -17,14 +17,14 @@ public class AgentsController : Controller
         _updateAgentUseCase = updateAgentUseCase;
     }
 
-    public async Task<IActionResult> Index(Guid? id)
+    public async Task<IActionResult> Index(Guid? id, bool shared = false)
     {
-        var page = await _getAgentManagementPageQuery.ExecuteAsync(id);
+        var page = await _getAgentManagementPageQuery.ExecuteAsync(id, shared);
         ViewBag.Selected = page.SelectedAgent;
         ViewBag.Models = page.Models;
         ViewBag.Tools = page.Tools;
-        ViewBag.Instruction = page.Instruction;
-        ViewBag.InstructionFile = page.InstructionFile;
+        ViewBag.Prompts = page.Prompts;
+        ViewBag.SharedSelected = page.SharedSelected;
         return View(page.Agents);
     }
 

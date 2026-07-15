@@ -289,8 +289,8 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddPromptStudioUseCases(this IServiceCollection services)
     {
-        // Màn hình Prompt Studio (Application/Prompts): tất cả scoped vì dùng DbContext.
-        services.AddScoped<GetPromptStudioPageQuery>();
+        // Prompt Studio (Application/Prompts): tất cả scoped vì dùng DbContext. Danh sách prompt nay nằm
+        // trong trang Agents (GetAgentManagementPageQuery); controller này chỉ lo chi tiết/lịch sử.
         services.AddScoped<GetPromptDetailQuery>();
         services.AddScoped<GetPromptVersionDiffQuery>();
         services.AddScoped<GetPromptVersionDownloadQuery>();

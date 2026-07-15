@@ -1,8 +1,11 @@
+@using ICOGenerator.Application.Agents
 @model List<Agent>
 @{
-    var selected = ViewBag.Selected as Agent ?? Model.FirstOrDefault();
+    var sharedSelected = (ViewBag.SharedSelected as bool?) ?? false;
+    var selected = ViewBag.Selected as Agent ?? (sharedSelected ? null : Model.FirstOrDefault());
     var tools = ViewBag.Tools as List<ToolDefinition> ?? new();
     var models = ViewBag.Models as List<AiModel> ?? new();
+    var prompts = ViewBag.Prompts as IReadOnlyList<AgentPromptItem> ?? new List<AgentPromptItem>();
 }
 
 <div class="page-head">
@@ -28,7 +31,7 @@
 
             @foreach (var a in Model)
             {
-                <a class="agent-item @(selected?.Id == a.Id ? "active" : "")" asp-action="Index" asp-route-id="@a.Id">
+                <a class="agent-item @(!sharedSelected && selected?.Id == a.Id ? "active" : "")" asp-action="Index" asp-route-id="@a.Id">
                     <span class="circle" style="background:@a.Color"></span>
                     <div>
                         <b>@a.Name</b><br />
@@ -36,11 +39,31 @@
                     </div>
                 </a>
             }
+
+            @* Prompt không thuộc role agent nào (Shared/, Eval/, Design/) — gộp về một mục chung. *@
+            <a class="agent-item @(sharedSelected ? "active" : "")" asp-action="Index" asp-route-shared="true">
+                <span class="circle" style="background:#94a3b8"></span>
+                <div>
+                    <b>Shared / General</b><br />
+                    <small>Prompt dùng chung</small>
+                </div>
+            </a>
         </div>
     </section>
 
     <section class="card detail">
-        @if (selected != null)
+        @if (sharedSelected)
+        {
+            <div class="agent-header">
+                <span class="big-circle" style="background:#94a3b8"></span>
+                <div>
+                    <h2>Shared / General</h2>
+                </div>
+            </div>
+            <p class="muted">Prompt dùng chung, không gắn với role của agent nào. Bấm để xem/sửa theo phiên bản.</p>
+            @await Html.PartialAsync("_PromptList", prompts)
+        }
+        else if (selected != null)
         {
             var enabledToolIds = selected.AgentTools.Select(x => x.ToolDefinitionId).ToHashSet();
 
@@ -91,8 +114,11 @@
                 <label>Description</label>
                 <textarea name="Description" rows="3">@selected.Description</textarea>
 
-                <label>Instruction(<code>@(ViewBag.InstructionFile as string)</code>)</label>
-                <textarea rows="8" readonly>@(ViewBag.Instruction as string)</textarea>
+                <div class="prompts-head">
+                    <h3>Prompts</h3>
+                    <span class="muted">Template dưới <code>Prompts/@selected.RoleKey/</code> — bấm để xem/sửa theo phiên bản</span>
+                </div>
+                @await Html.PartialAsync("_PromptList", prompts)
 
                 <div class="tools-head">
                     <h3>Tools</h3>
@@ -164,4 +190,5 @@
 
 @section Scripts {
     <script src="~/js/agents.js" asp-append-version="true"></script>
+    <script src="~/js/prompts.js" asp-append-version="true"></script>
 }
