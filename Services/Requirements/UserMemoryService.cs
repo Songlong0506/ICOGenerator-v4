@@ -104,7 +104,7 @@ public class UserMemoryService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _prompts.Get("BA/user-memory.v1.md")),
+            new(ChatRole.System, _prompts.Get("BusinessAnalyst/user-memory.v1.md")),
             new(ChatRole.User, sb.ToString())
         };
 

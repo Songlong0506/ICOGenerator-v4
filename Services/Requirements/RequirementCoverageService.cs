@@ -12,7 +12,7 @@ namespace ICOGenerator.Services.Requirements;
 /// "Bản đồ bao phủ yêu cầu" của MỘT dự án — trạng thái sống của cuộc phỏng vấn. Khác các tầng bộ nhớ
 /// (<see cref="ConversationMemoryService"/> nhớ ngữ cảnh, <see cref="UserMemoryService"/> nhớ người dùng,
 /// <see cref="ChecklistGapMemoryService"/> rút kinh nghiệm bộ câu hỏi), service này duy trì một bảng
-/// trạng thái theo 12 nhóm thông tin cố định (khớp checklist trong <c>Prompts/BA/requirement-chat.v3.md</c>):
+/// trạng thái theo 12 nhóm thông tin cố định (khớp checklist trong <c>Prompts/BusinessAnalyst/requirement-chat.v3.md</c>):
 /// nhóm nào đã [RÕ], nhóm nào [MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG] — lưu trên
 /// <see cref="Project.RequirementCoverageMap"/>. BA đọc bản đồ để chọn câu hỏi kế tiếp thay vì phỏng vấn
 /// tuyến tính, còn cổng readiness đối chiếu từng dòng (mọi dòng áp dụng phải [RÕ]/[KHÔNG ÁP DỤNG])
@@ -92,7 +92,7 @@ public class RequirementCoverageService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _prompts.Get("BA/requirement-coverage.v1.md")),
+            new(ChatRole.System, _prompts.Get("BusinessAnalyst/requirement-coverage.v1.md")),
             new(ChatRole.User, sb.ToString())
         };
 

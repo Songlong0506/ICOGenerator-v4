@@ -25,7 +25,7 @@ public class GetPromptVersionDownloadQueryTests : IDisposable
         db.Database.EnsureCreated();
         db.PromptTemplateVersions.Add(new PromptTemplateVersion
         {
-            PromptKey = "BA/requirement-chat.v3.md",
+            PromptKey = "BusinessAnalyst/requirement-chat.v3.md",
             VersionNumber = 2,
             Content = "## nội dung v2"
         });
@@ -36,7 +36,7 @@ public class GetPromptVersionDownloadQueryTests : IDisposable
     public async Task Execute_ReturnsContentWithVersionedFileName()
     {
         await using var db = NewDb();
-        var vm = await new GetPromptVersionDownloadQuery(db).ExecuteAsync("BA/requirement-chat.v3.md", 2);
+        var vm = await new GetPromptVersionDownloadQuery(db).ExecuteAsync("BusinessAnalyst/requirement-chat.v3.md", 2);
 
         Assert.NotNull(vm);
         Assert.Equal("requirement-chat.v3.db-v2.md", vm!.FileName);
@@ -49,9 +49,9 @@ public class GetPromptVersionDownloadQueryTests : IDisposable
         await using var db = NewDb();
         var sut = new GetPromptVersionDownloadQuery(db);
 
-        Assert.Null(await sut.ExecuteAsync("BA/requirement-chat.v3.md", 99));
+        Assert.Null(await sut.ExecuteAsync("BusinessAnalyst/requirement-chat.v3.md", 99));
         Assert.Null(await sut.ExecuteAsync("BA/khac.md", 2));
-        Assert.Null(await sut.ExecuteAsync("BA/requirement-chat.v3.md", 0));
+        Assert.Null(await sut.ExecuteAsync("BusinessAnalyst/requirement-chat.v3.md", 0));
         Assert.Null(await sut.ExecuteAsync(null, 2));
     }
 

@@ -5,7 +5,7 @@ using ICOGenerator.Services.Prompts;
 namespace ICOGenerator.Services.Agents;
 
 /// <summary>
-/// Resolves an agent's instruction from Prompts/Agents/Instructions/{RoleKey}.md instead of a database column.
+/// Resolves an agent's instruction from Prompts/{RoleKey}/instruction.md instead of a database column.
 /// </summary>
 public class AgentInstructionProvider
 {
@@ -31,5 +31,5 @@ public class AgentInstructionProvider
         }
     }
 
-    public static string RelativePath(AgentRoleKey roleKey) => $"Agents/Instructions/{roleKey}.md";
+    public static string RelativePath(AgentRoleKey roleKey) => $"{roleKey}/instruction.md";
 }

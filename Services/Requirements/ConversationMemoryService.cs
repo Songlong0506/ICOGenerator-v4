@@ -110,7 +110,7 @@ public class ConversationMemoryService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _prompts.Get("BA/conversation-summary.v1.md")),
+            new(ChatRole.System, _prompts.Get("BusinessAnalyst/conversation-summary.v1.md")),
             new(ChatRole.User, sb.ToString())
         };
 

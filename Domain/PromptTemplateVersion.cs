@@ -13,7 +13,7 @@ public class PromptTemplateVersion
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    /// <summary>Đường dẫn tương đối dưới /Prompts, separator '/' (vd "BA/requirement-chat.v3.md").</summary>
+    /// <summary>Đường dẫn tương đối dưới /Prompts, separator '/' (vd "BusinessAnalyst/requirement-chat.v3.md").</summary>
     public string PromptKey { get; set; } = string.Empty;
 
     /// <summary>Số phiên bản 1-based, tăng dần theo PromptKey (v1 thường là bản chụp từ file).</summary>

@@ -13,7 +13,7 @@ public class EvalScenario
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Đường dẫn template prompt dưới /Prompts (vd "BA/requirement-chat.v3.md"). Nội dung HIỆN HÀNH của
+    /// Đường dẫn template prompt dưới /Prompts (vd "BusinessAnalyst/requirement-chat.v3.md"). Nội dung HIỆN HÀNH của
     /// file được dùng làm system prompt lúc chạy — nên cùng bộ scenario đo được các phiên bản prompt khác nhau.
     /// </summary>
     public string PromptKey { get; set; } = string.Empty;

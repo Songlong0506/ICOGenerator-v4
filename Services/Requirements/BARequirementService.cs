@@ -127,7 +127,7 @@ public class BARequirementService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BA/requirement-chat.v3.md"))
+            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/requirement-chat.v3.md"))
         };
         // Bối cảnh tổ chức Bosch render từ dữ liệu HR thật (OrgUnits/Associates, có cache) + đơn vị yêu cầu
         // của dự án (nếu đã gắn lúc tạo project): BA hiểu ngay tên phòng ban/chức danh người dùng nhắc tới,
@@ -369,7 +369,7 @@ public class BARequirementService
         userContents.AddRange(sourceContents);
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BA/product-brief.v3.md")),
+            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/product-brief.v3.md")),
             new(ChatRole.User, userContents)
         };
 
@@ -491,7 +491,7 @@ public class BARequirementService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BA/ai-design-spec.v1.md")),
+            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/ai-design-spec.v1.md")),
             new(ChatRole.User, prompt)
         };
 
@@ -589,7 +589,7 @@ public class BARequirementService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BA/technical-docs.v1.md")),
+            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/technical-docs.v1.md")),
             new(ChatRole.User, prompt)
         };
 
@@ -631,7 +631,7 @@ public class BARequirementService
     {
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BA/requirement-readiness.v3.md")),
+            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/requirement-readiness.v3.md")),
             new(ChatRole.User, requirementBrief)
         };
 
@@ -702,7 +702,7 @@ public class BARequirementService
 
         var reviewMessages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BA/product-brief-review.v2.md")),
+            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/product-brief-review.v2.md")),
             new(ChatRole.User, _promptBuilder.BuildProductBriefReview(project, conversationTranscript, draft.ProductBrief.Content, organizationContext))
         };
 
@@ -730,7 +730,7 @@ public class BARequirementService
 
         var revisionMessages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BA/product-brief.v3.md")),
+            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/product-brief.v3.md")),
             new(ChatRole.User, _promptBuilder.BuildProductBriefRevision(project, conversationTranscript, draft.ProductBrief.Content, review.Issues, organizationContext))
         };
 

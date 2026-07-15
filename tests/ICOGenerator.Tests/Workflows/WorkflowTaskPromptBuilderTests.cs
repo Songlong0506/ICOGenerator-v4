@@ -62,7 +62,7 @@ public class WorkflowTaskPromptBuilderTests
         public StubPrompts() : base(null!) { }
 
         public override string Get(string relativePath) =>
-            relativePath == "Workflow/revision.v1.md"
+            relativePath == "Shared/revision.v1.md"
                 ? "REVISION|prev={{previous_output}}|fb={{feedback}}"
                 : "BASE:{{input}}";
     }
