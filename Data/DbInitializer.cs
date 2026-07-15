@@ -26,6 +26,7 @@ public static class DbInitializer
         await SeedUsersAsync(db, scope.ServiceProvider);
         await SeedRolePermissionsAsync(db);
         await SeedOrgUnitsAndAssociatesAsync(db);
+        await SeedEvalScenariosAsync(db);
 
         var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
         await discovery.SyncToolDefinitionsAsync();
@@ -192,6 +193,17 @@ public static class DbInitializer
             db.Associates.AddRange(AssociatesSeedData.All);
             await db.SaveChangesAsync();
         }
+    }
+
+    // Golden set mặc định cho Prompt Evals (xem EvalScenariosSeedData) — chỉ seed khi bảng còn trống,
+    // để bộ scenario người dùng đã chỉnh/tắt không bị ghi đè ở các lần khởi động sau.
+    private static async Task SeedEvalScenariosAsync(AppDbContext db)
+    {
+        if (await db.EvalScenarios.AnyAsync())
+            return;
+
+        db.EvalScenarios.AddRange(EvalScenariosSeedData.Build());
+        await db.SaveChangesAsync();
     }
 
     private static async Task AssignDefaultToolsAsync(AppDbContext db)
