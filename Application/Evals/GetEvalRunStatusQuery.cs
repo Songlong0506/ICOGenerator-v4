@@ -11,6 +11,7 @@ public record EvalRunStatusVm(
     int CompletedCount,
     double? AverageScore,
     long TotalTokens,
+    decimal TotalCost,
     string? Error,
     DateTime? FinishedAt);
 
@@ -30,7 +31,7 @@ public class GetEvalRunStatusQuery
             .AsNoTracking()
             .Where(x => x.Id == runId)
             .Select(x => new EvalRunStatusVm(
-                x.Id, x.Status.ToString(), x.ScenarioCount, x.CompletedCount, x.AverageScore, x.TotalTokens, x.Error, x.FinishedAt))
+                x.Id, x.Status.ToString(), x.ScenarioCount, x.CompletedCount, x.AverageScore, x.TotalTokens, x.TotalCost, x.Error, x.FinishedAt))
             .FirstOrDefaultAsync(cancellationToken);
     }
 }

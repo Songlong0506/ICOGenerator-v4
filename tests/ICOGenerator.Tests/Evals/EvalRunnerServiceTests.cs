@@ -35,9 +35,10 @@ public class EvalRunnerServiceTests : IDisposable
 
         using var db = NewDb();
         db.Database.EnsureCreated();
+        // Đơn giá khác nhau để test khẳng định chi phí được tính theo ĐÚNG model của từng lời gọi.
         db.AiModels.AddRange(
-            new AiModel { Id = _targetModelId, Name = "Target", ModelId = "target" },
-            new AiModel { Id = _judgeModelId, Name = "Judge", ModelId = "judge" });
+            new AiModel { Id = _targetModelId, Name = "Target", ModelId = "target", InputPricePerMillionTokens = 1m, OutputPricePerMillionTokens = 2m },
+            new AiModel { Id = _judgeModelId, Name = "Judge", ModelId = "judge", InputPricePerMillionTokens = 3m, OutputPricePerMillionTokens = 4m });
         db.SaveChanges();
     }
 
@@ -71,6 +72,10 @@ public class EvalRunnerServiceTests : IDisposable
         Assert.Equal(2, reloaded.CompletedCount);
         Assert.Equal(4, reloaded.AverageScore);
         Assert.True(reloaded.TotalTokens > 0);
+        // Chi phí USD chốt lúc chạy theo đơn giá model; cả hai model đều có giá > 0 nên tổng phải > 0
+        // và bằng đúng tổng chi phí target+judge cộng dồn từ các result.
+        Assert.True(reloaded.TotalCost > 0);
+        Assert.Equal(results.Sum(r => r.TargetCost + r.JudgeCost), reloaded.TotalCost);
         Assert.NotNull(reloaded.FinishedAt);
 
         Assert.Equal(2, results.Count);
@@ -80,6 +85,8 @@ public class EvalRunnerServiceTests : IDisposable
             Assert.Equal(4, r.Score);
             Assert.Equal("ổn", r.JudgeReasoning);
             Assert.Equal("câu trả lời của target", r.Output);
+            Assert.True(r.TargetCost > 0);
+            Assert.True(r.JudgeCost > 0);
         });
     }
 

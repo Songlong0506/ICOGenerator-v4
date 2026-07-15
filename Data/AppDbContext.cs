@@ -278,6 +278,8 @@ public class AppDbContext : DbContext
             b.Property(x => x.TargetModelName).HasMaxLength(200);
             b.Property(x => x.JudgeModelName).HasMaxLength(200);
             b.Property(x => x.CreatedByUsername).HasMaxLength(100);
+            // decimal(18,6): chi phí eval hay nhỏ dưới cent (giống đơn giá $/1M token), tránh làm tròn về 2 chữ số.
+            b.Property(x => x.TotalCost).HasPrecision(18, 6);
             // Worker poll run Queued cũ nhất + trang Eval liệt kê run mới nhất: cùng một index phục vụ cả hai.
             b.HasIndex(x => new { x.Status, x.CreatedAt });
             b.HasIndex(x => x.CreatedAt);
@@ -286,6 +288,8 @@ public class AppDbContext : DbContext
         {
             b.HasOne(x => x.EvalRun).WithMany(x => x.Results).HasForeignKey(x => x.EvalRunId).OnDelete(DeleteBehavior.Cascade);
             b.Property(x => x.ScenarioName).HasMaxLength(200);
+            b.Property(x => x.TargetCost).HasPrecision(18, 6);
+            b.Property(x => x.JudgeCost).HasPrecision(18, 6);
             b.HasIndex(x => x.EvalRunId);
             b.HasIndex(x => x.EvalScenarioId);
         });

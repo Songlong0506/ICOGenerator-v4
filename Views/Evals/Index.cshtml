@@ -1,3 +1,4 @@
+@using System.Globalization
 @using System.Text.Encodings.Web
 @using ICOGenerator.Application.Evals
 @model EvalPageVm
@@ -28,6 +29,13 @@
         >= 2.5 => "score-mid",
         _ => "score-bad"
     };
+
+    // Chi phí eval hay nhỏ dưới 1 cent (đơn giá $/1M token) — hiện thêm chữ số để không làm tròn về $0.00.
+    // Cùng quy tắc với trang Usage để hai nơi đọc ra tiền giống nhau.
+    static string Money(decimal v) =>
+        v <= 0 ? "$0.00"
+        : v < 0.01m ? "$" + v.ToString("0.####", CultureInfo.InvariantCulture)
+        : "$" + v.ToString("N2", CultureInfo.InvariantCulture);
 }
 
 @section Styles {
@@ -139,6 +147,7 @@
                     <th>Prompt</th>
                     <th>Tiến độ</th>
                     <th>Điểm TB</th>
+                    <th title="Tổng chi phí USD (target + judge) theo đơn giá model lúc chạy">Chi phí</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
@@ -146,7 +155,7 @@
             <tbody>
                 @if (!Model.Runs.Any())
                 {
-                    <tr><td colspan="10" class="eval-empty">Chưa có run nào.</td></tr>
+                    <tr><td colspan="11" class="eval-empty">Chưa có run nào.</td></tr>
                 }
                 @foreach (var r in Model.Runs)
                 {
@@ -160,6 +169,7 @@
                         <td>@if (string.IsNullOrWhiteSpace(r.PromptKey)) {<span class="muted">tất cả</span>} else {<code class="eval-prompt-key">@r.PromptKey</code>}</td>
                         <td class="run-progress">@r.CompletedCount/@r.ScenarioCount</td>
                         <td class="run-score"><span class="eval-score @ScoreClass(r.AverageScore)">@(r.AverageScore?.ToString("0.00") ?? "–")</span></td>
+                        <td class="run-cost">@Money(r.TotalCost)</td>
                         <td class="run-status">
                             <span class="badge @StatusBadge(r.Status)" title="@r.Error">@r.Status</span>
                         </td>

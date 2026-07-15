@@ -38,6 +38,9 @@ public class EvalRun
     /// <summary>Tổng token của cả lời gọi target lẫn judge trong run.</summary>
     public long TotalTokens { get; set; }
 
+    /// <summary>Tổng chi phí USD (target + judge) của run, cộng dồn từ EvalResult theo đơn giá lúc chạy.</summary>
+    public decimal TotalCost { get; set; }
+
     /// <summary>Lỗi mức RUN (model bị xoá, worker gián đoạn...); lỗi từng scenario nằm trên EvalResult.</summary>
     public string? Error { get; set; }
 

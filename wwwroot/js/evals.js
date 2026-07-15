@@ -33,6 +33,14 @@
         }
     }
 
+    // Chi phí USD — cùng quy tắc với trang Usage/helper Money của view: số dưới 1 cent hiện thêm chữ số
+    // để không bị làm tròn về $0.00.
+    function formatMoney(v) {
+        if (!v || v <= 0) return '$0.00';
+        if (v < 0.01) return '$' + parseFloat(v.toFixed(4)).toString();
+        return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     // ---------- Scenario modal (một form cho cả thêm lẫn sửa) ----------
 
     window.openCreateScenario = function () {
@@ -82,6 +90,9 @@
                 scoreEl.textContent = s.averageScore != null ? s.averageScore.toFixed(2) : '–';
                 scoreEl.className = 'eval-score ' + scoreClass(s.averageScore);
 
+                const costEl = row.querySelector('.run-cost');
+                if (costEl) costEl.textContent = formatMoney(s.totalCost);
+
                 const badge = row.querySelector('.run-status .badge');
                 badge.textContent = s.status;
                 badge.className = 'badge ' + statusBadgeClass(s.status);
@@ -125,6 +136,7 @@
                 '<span>Điểm TB: <b class="eval-score ' + scoreClass(run.averageScore) + '">' +
                     (run.averageScore != null ? run.averageScore.toFixed(2) : '–') + '</b></span>' +
                 '<span>Tokens: <b>' + run.totalTokens.toLocaleString() + '</b></span>' +
+                '<span title="Tổng chi phí USD (target + judge) theo đơn giá model lúc chạy">Chi phí: <b>' + formatMoney(run.totalCost) + '</b></span>' +
                 (run.error ? '<span class="eval-run-error">' + escapeHtml(run.error) + '</span>' : '') +
                 '</div>';
 
@@ -143,6 +155,7 @@
                     '<summary><span class="eval-result-name">' + escapeHtml(r.scenarioName) + '</span>' + scoreHtml +
                     '<span class="eval-result-meta">' + promptLabel + ' · ' +
                     (r.targetTokens + r.judgeTokens).toLocaleString() + ' tok · ' +
+                    formatMoney(r.targetCost + r.judgeCost) + ' · ' +
                     Math.round(r.durationMs / 1000) + 's</span></summary>' +
                     (r.errorMessage ? '<p class="eval-run-error">' + escapeHtml(r.errorMessage) + '</p>' : '') +
                     (r.judgeReasoning ? '<p class="eval-reasoning"><b>Judge:</b> ' + escapeHtml(r.judgeReasoning) + '</p>' : '') +
