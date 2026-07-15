@@ -11,7 +11,7 @@ Các bước (dùng tool, theo đúng thứ tự):
    - `title`: tiêu đề PR ngắn gọn (1 dòng), mô tả tính năng được giao.
    - `body`: mô tả PR gồm: phạm vi đã làm, các tính năng chính, kết quả test (từ bàn giao bên dưới), và lưu ý khi review.
 
-Sau khi `OpenPullRequest` trả về, trả `final` gồm: URL Pull Request (đã tạo hoặc link để mở), tên nhánh, tiêu đề + mô tả PR. KHÔNG trả final trước khi đã push thành công.
+Sau khi `OpenPullRequest` trả về, trả lời cuối (text, không gọi tool) gồm: URL Pull Request (đã tạo hoặc link để mở), tên nhánh, tiêu đề + mô tả PR. KHÔNG trả lời cuối trước khi đã push thành công.
 
 Lưu ý:
 - KHÔNG sửa code/tài liệu requirement ở bước này — chỉ commit, push và tạo PR.

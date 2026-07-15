@@ -13,9 +13,9 @@ Báo cáo cần nêu, theo mức độ quan trọng:
 - **Điểm đạt**: phần đã làm tốt, đúng hướng.
 
 BẮT BUỘC dùng tool `WriteFile` để ghi báo cáo ra file (relative): `04_Implementation/code-review.md`
-Ví dụ action: {"type":"tool","tool":"WriteFile","args":{"relativePath":"04_Implementation/code-review.md","content":"# Code Review\n..."}}
+Ví dụ: gọi tool WriteFile với args {"relativePath":"04_Implementation/code-review.md","content":"# Code Review\n..."}
 
-Sau khi WriteFile trả về thành công, trả `final` gồm: (1) tóm tắt ngắn ứng dụng đã hiện thực, (2) kết quả review — *đạt* hay *cần chỉnh* — kèm các vấn đề chính. Bản tóm tắt này sẽ được chuyển cho Tester làm đầu vào. KHÔNG trả final khi chưa ghi file.
+Sau khi WriteFile trả về thành công, trả lời cuối (text, không gọi tool) gồm: (1) tóm tắt ngắn ứng dụng đã hiện thực, (2) kết quả review — *đạt* hay *cần chỉnh* — kèm các vấn đề chính. Bản tóm tắt này sẽ được chuyển cho Tester làm đầu vào. KHÔNG trả lời cuối khi chưa ghi file.
 
 # Bàn giao từ Developer
 

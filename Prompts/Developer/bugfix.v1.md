@@ -7,7 +7,7 @@ Các bước:
 - KHÔNG viết lại toàn bộ dự án và KHÔNG đổi stack: chỉ sửa đúng phần gây lỗi, giữ nguyên phần đang chạy tốt.
 - Nếu môi trường cho phép, dùng tool chạy lệnh build/test để xác nhận đã hết lỗi; còn lỗi thì sửa tiếp.
 
-Khi xong, trả `final` tóm tắt: từng lỗi đã sửa và cách sửa, các file đã đụng, và kết quả build/test sau khi sửa. Bản tóm tắt này sẽ được chuyển lại cho Tester để kiểm thử lại.
+Khi xong, trả lời cuối (text, không gọi tool) tóm tắt: từng lỗi đã sửa và cách sửa, các file đã đụng, và kết quả build/test sau khi sửa. Bản tóm tắt này sẽ được chuyển lại cho Tester để kiểm thử lại.
 
 # Báo cáo test cần xử lý
 

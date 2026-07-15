@@ -46,7 +46,7 @@ HƯỚNG DẪN VIẾT SCRIPT (tham số script của SetPocScript/AppendPocScrip
 - Giữ toàn bộ trạng thái demo trong MỘT object JS (mock data seed theo trạng thái quy trình như yêu cầu ở trên; không cần backend/localStorage); khi trạng thái đổi thì render lại phần màn hình liên quan bằng innerHTML từ object đó.
 - KHÔNG định nghĩa lại hàm/biến của shell, KHÔNG đụng engine data-crud-* (nó chạy song song), KHÔNG gắn handler trùm lên nút mở modal Bootstrap.
 
-- KHÔNG dùng WriteFile/RunCommand/grep cho việc này; ReplaceInFile CHỈ dùng để sửa lỗi nhỏ mà AuditPocContent chỉ ra. Sau khi audit sạch issue, trả final result NGAY, KHÔNG đọc lại file.
+- KHÔNG dùng WriteFile/RunCommand/grep cho việc này; ReplaceInFile CHỈ dùng để sửa lỗi nhỏ mà AuditPocContent chỉ ra. Sau khi audit sạch issue, trả lời cuối (text, không gọi tool) NGAY, KHÔNG đọc lại file.
 
 Kết quả: content tính năng + App Name + breadcrumb + menu sidebar + script nghiệp vụ được cập nhật trong 04_Implementation/poc-demo.html, AuditPocContent không còn issue.
 
