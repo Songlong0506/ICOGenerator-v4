@@ -140,8 +140,9 @@ dotnet bin/Debug/net8.0/ICOGenerator.dll
 3. **Seed users** (khi bảng trống): `admin`/`Admin@123`, `teamdev`/`TeamDev@123`, `user`/`User@123` — **đổi ngay trên môi trường thật**, app có ghi log cảnh báo.
 4. **Seed ma trận quyền** (khi bảng trống): TeamDev = mọi thứ trừ Settings/Roles; User = xem Projects/Requirements + gửi Feedback. Admin không cần dòng nào (implicit-all).
 5. **Seed OrgUnits/Associates** (dữ liệu tổ chức mẫu từ HR_Portal, chỉ khi trống).
-6. **Đồng bộ danh mục tool**: `ToolDiscoveryService` quét các method có `[Description]` trong các class `*Tools` → upsert bảng `ToolDefinitions`.
-7. **Seed 2 AiModels** (Qwen3.6 27B @ LM Studio, DeepSeek V4 Flash) + **5 agents** (BA/Tech Lead/Developer/Tester/UI-UX) kèm bộ tool mặc định cho từng vai — chỉ khi các bảng trống.
+6. **Seed golden set Prompt Evals** (khi bảng `EvalScenarios` trống): bộ scenario mặc định phủ các prompt đánh-giá-được (xem `Data/EvalScenariosSeedData.cs`) — sửa/tắt thoải mái, không bị ghi đè ở lần khởi động sau.
+7. **Đồng bộ danh mục tool**: `ToolDiscoveryService` quét các method có `[Description]` trong các class `*Tools` → upsert bảng `ToolDefinitions`.
+8. **Seed 2 AiModels** (Qwen3.6 27B @ LM Studio, DeepSeek V4 Flash) + **5 agents** (BA/Tech Lead/Developer/Tester/UI-UX) kèm bộ tool mặc định cho từng vai — chỉ khi các bảng trống.
 
 Vào app → redirect `/Account/Login` → đăng nhập → route mặc định là **Projects** (`{controller=Projects}/{action=Index}`).
 
