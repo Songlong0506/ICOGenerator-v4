@@ -29,6 +29,51 @@ public class PocTemplateTests
     }
 
     [Fact]
+    public void StripDeveloperGuide_DropsHeadInstructionComment_KeepsDoctypeAndDocument()
+    {
+        var doc =
+            "<!DOCTYPE html>\n" +
+            "<!--\n  Developer agent rules: (POC_SCRIPT_START/END) holds ONE <script> written via SetPocScript.\n-->\n" +
+            "<html lang=\"en\"><head><title>POC</title></head><body>hi</body></html>";
+
+        var stripped = PocTemplate.StripDeveloperGuide(doc);
+
+        Assert.StartsWith("<!DOCTYPE html>", stripped);
+        Assert.Contains("<html lang=\"en\">", stripped);
+        Assert.Contains("<body>hi</body>", stripped);
+        // The instruction block — and the exact text that leaked onto the page — is gone.
+        Assert.DoesNotContain("POC_SCRIPT_START/END", stripped);
+        Assert.DoesNotContain("Developer agent rules", stripped);
+    }
+
+    [Fact]
+    public void StripDeveloperGuide_RemovesBlock_EvenWhenCommentIsMalformed()
+    {
+        // A stray early "-->" reopens the parser mid-comment (the real-world cause of the leaked text);
+        // stripping by DOCTYPE→<html> anchors removes the whole block regardless of the broken comment.
+        var doc =
+            "<!DOCTYPE html>\n" +
+            "<!-- intro --> leaked instructions (POC_SCRIPT_START/END) holds ONE\n" +
+            "<html><body>ok</body></html>";
+
+        var stripped = PocTemplate.StripDeveloperGuide(doc);
+
+        Assert.Equal("<!DOCTYPE html>\n<html><body>ok</body></html>", stripped);
+        Assert.DoesNotContain("leaked instructions", stripped);
+    }
+
+    [Fact]
+    public void StripDeveloperGuide_IsIdempotent_AndNoOp_WhenNothingToStrip()
+    {
+        var clean = "<!DOCTYPE html>\n<html><body>ok</body></html>";
+        Assert.Equal(clean, PocTemplate.StripDeveloperGuide(clean));
+
+        // No <html> to anchor on, or the document already starts with it: left untouched.
+        Assert.Equal("<html><body>ok</body></html>", PocTemplate.StripDeveloperGuide("<html><body>ok</body></html>"));
+        Assert.Equal("no html here", PocTemplate.StripDeveloperGuide("no html here"));
+    }
+
+    [Fact]
     public void ReplaceContent_SwapsRegion_AndKeepsMarkersAndShell()
     {
         var seeded = PocTemplate.SeedFromTemplate(TemplateWith("anything"))!;
