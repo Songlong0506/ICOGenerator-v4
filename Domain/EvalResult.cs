@@ -38,6 +38,16 @@ public class EvalResult
 
     public int TargetTokens { get; set; }
     public int JudgeTokens { get; set; }
+
+    /// <summary>
+    /// Chi phí USD của lời gọi model MỤC TIÊU / JUDGE, chốt NGAY lúc chạy theo đơn giá model tại thời điểm
+    /// đó (LlmCost.Usd trên token prompt/completion). Snapshot thay vì tính lại lúc đọc vì — như tên model
+    /// và số phiên bản prompt — model có thể bị xoá hoặc đổi giá sau này, run cũ vẫn phải đọc đúng chi phí đã
+    /// tiêu. 0 khi model chưa đặt đơn giá (giống trang Usage) hoặc lời gọi lỗi.
+    /// </summary>
+    public decimal TargetCost { get; set; }
+    public decimal JudgeCost { get; set; }
+
     public long DurationMs { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

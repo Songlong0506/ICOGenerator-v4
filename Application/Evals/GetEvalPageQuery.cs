@@ -25,6 +25,7 @@ public record EvalRunItemVm(
     int CompletedCount,
     double? AverageScore,
     long TotalTokens,
+    decimal TotalCost,
     string? Error,
     DateTime CreatedAt,
     DateTime? FinishedAt);
@@ -65,7 +66,7 @@ public class GetEvalPageQuery
             .Take(MaxRuns)
             .Select(x => new EvalRunItemVm(
                 x.Id, x.Note, x.PromptKey, x.TargetModelName, x.JudgeModelName, x.Status,
-                x.ScenarioCount, x.CompletedCount, x.AverageScore, x.TotalTokens, x.Error, x.CreatedAt, x.FinishedAt))
+                x.ScenarioCount, x.CompletedCount, x.AverageScore, x.TotalTokens, x.TotalCost, x.Error, x.CreatedAt, x.FinishedAt))
             .ToListAsync(cancellationToken);
 
         var models = await _db.AiModels

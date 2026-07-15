@@ -120,6 +120,7 @@ public class EvalRunnerService
             _db.EvalResults.Add(result);
             run.CompletedCount++;
             run.TotalTokens += result.TargetTokens + result.JudgeTokens;
+            run.TotalCost += result.TargetCost + result.JudgeCost;
             run.AverageScore = scores.Count == 0 ? null : Math.Round(scores.Average(), 2);
             await _db.SaveChangesAsync(cancellationToken);
         }
@@ -144,6 +145,9 @@ public class EvalRunnerService
 
         result.Output = targetResult.Content;
         result.TargetTokens = targetResult.TotalTokens;
+        result.TargetCost = LlmCost.Usd(
+            targetResult.PromptTokens, targetResult.CompletionTokens,
+            targetModel.InputPricePerMillionTokens, targetModel.OutputPricePerMillionTokens);
 
         if (!targetResult.IsSuccess)
         {
@@ -161,6 +165,9 @@ public class EvalRunnerService
         stopwatch.Stop();
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.JudgeTokens = judgeResult.TotalTokens;
+        result.JudgeCost = LlmCost.Usd(
+            judgeResult.PromptTokens, judgeResult.CompletionTokens,
+            judgeModel.InputPricePerMillionTokens, judgeModel.OutputPricePerMillionTokens);
 
         if (!judgeResult.IsSuccess)
         {
