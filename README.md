@@ -642,7 +642,7 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 | `Budget:{Enabled,Period,SystemUsdLimit,PerProjectUsdLimit}` | true / Monthly / 0 / 0 | Trần chi phí USD. 0 = không giới hạn scope đó (opt-in thực tế) |
 | `Encryption:ApiKeyKey` | ⚠️ có giá trị commit sẵn | **Bắt buộc nạp qua env**; khóa cũ trong git history coi như đã lộ — xoay khóa trên môi trường thật |
 | `Serilog:*` | Console + File `Logs/ico-.log` xoay ngày, giữ 14 ngày, 50MB/ngày | Mức log/sink đổi không cần build |
-| `Otel:{Enabled,ServiceName,OtlpEndpoint}` | false / ICOGenerator / trống ⇒ gRPC `localhost:4317` | OpenTelemetry opt-in. Đừng bật khi chưa có collector |
+| `Otel:{Enabled,ServiceName,OtlpEndpoint}` | false / ICOGenerator / trống ⇒ gRPC `localhost:4317` | OpenTelemetry opt-in. Đừng bật khi chưa có collector — dev/demo chạy `docker compose -f docker-compose.otel.yml up -d` là có sẵn |
 
 > Màn hình **Settings** trong app sửa được một phần cấu hình này lúc runtime (qua `AppSettingsFileStore` ghi ngược vào file) — vì vậy trang Settings được bảo vệ chặt (`SettingsManage`, mặc định chỉ Admin).
 
@@ -654,6 +654,7 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 - `UseSerilogRequestLogging()`: một dòng tóm tắt có cấu trúc cho mỗi HTTP request.
 - Sink: **Console** (stdout — Docker/k8s gom được) + **File** `Logs/ico-{ngày}.log` (gitignored). Production muốn JSON nén cho Seq/Loki/ELK: đổi formatter qua `appsettings.Production.json`, không sửa code.
 - **OpenTelemetry** (opt-in): bật `Otel:Enabled` ⇒ trace ASP.NET Core + HttpClient (lời gọi LLM tự thành span — dựng lại được chuỗi agent → model → tool) + metric runtime/HTTP, xuất OTLP. Tắt = không đăng ký gì, zero overhead.
+  - **Collector cục bộ để "bật là chạy"**: `docker compose -f docker-compose.otel.yml up -d` dựng **.NET Aspire Dashboard** (OTLP endpoint + UI) nghe sẵn ở `localhost:4317` — đúng default của `Otel:OtlpEndpoint`, nên chỉ cần set `Otel:Enabled=true` là có trace ngay. UI: `http://localhost:18888`. Collector chạy **tách riêng** app (đúng triết lý OTel), file compose chỉ dành cho dev/demo (dashboard anonymous, đừng dùng cho production).
 - **Log nghiệp vụ riêng**: `AgentModelCallLogs` (mỗi lời gọi model — xem popup AI Call Logs ở Agent Dashboard), `ToolExecutionLogger` (mỗi lần gọi tool), `AuditLogs` (thay đổi cấu hình).
 
 ---
@@ -752,7 +753,7 @@ Các công thức chuyên biệt: thêm **tool** (§8.2), thêm **bước pipeli
 | Sinh tài liệu ném `FileNotFoundException` trên bản publish | Thiếu thư mục `Templates/` — csproj đã cấu hình copy; nếu tự đóng gói tay phải mang theo `Templates/*.docx` + `Prompts/**` |
 | Đổi schema khi dev Sqlite không thấy cột mới | Sqlite dùng `EnsureCreated` (không migration) — xóa `ICOGenerator.db*` để dựng lại |
 | Muốn reset sạch lịch sử migration | Xóa `Migrations/` → `dotnet ef migrations add V1` với env ≠ Development (để sinh theo SqlServer) — xem ARCHITECTURE §9 |
-| Bật Otel xong log đầy lỗi exporter | Chưa có OTLP collector — tắt `Otel:Enabled` hoặc dựng collector trước |
+| Bật Otel xong log đầy lỗi exporter | Chưa có OTLP collector — tắt `Otel:Enabled` hoặc dựng collector trước (nhanh nhất: `docker compose -f docker-compose.otel.yml up -d`, nghe sẵn `localhost:4317`) |
 | Cổng duyệt POC không có nút Từ chối | Cố ý (`PocGateNotRejectable`) — POC sai = requirement sai, user sửa qua chat BA; TeamDev chỉ được "Yêu cầu chỉnh sửa" |
 
 ---
