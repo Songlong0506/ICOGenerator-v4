@@ -43,11 +43,15 @@ public class RequestStageRevisionUseCase
         _db = db;
     }
 
-    public async Task<RequestStageRevisionResult> ExecuteAsync(Guid projectId, string? feedback, Guid? runId = null)
+    /// <param name="includePocComments">
+    /// Chỉ có nghĩa ở cổng POC: gom các ghi chú GHIM TRỰC TIẾP trên POC (status Open — xem
+    /// <see cref="Domain.PocComment"/>) vào cuối nhận xét, kèm màn hình + selector của từng phần tử để
+    /// Developer agent sửa đúng chỗ; ghi chú đã gom chuyển Sent để vòng chỉnh sửa sau không gửi lặp.
+    /// Khi có ghi chú được gom, phần nhận xét gõ tay được phép trống.
+    /// </param>
+    public async Task<RequestStageRevisionResult> ExecuteAsync(Guid projectId, string? feedback, Guid? runId = null, bool includePocComments = false)
     {
-        feedback = feedback?.Trim();
-        if (string.IsNullOrEmpty(feedback))
-            return RequestStageRevisionResult.MissingFeedback;
+        feedback = feedback?.Trim() ?? string.Empty;
 
         var query = _db.WorkflowRuns
             .Where(x => x.ProjectId == projectId && x.Status == WorkflowRunStatus.WaitingForHuman);
@@ -63,6 +67,27 @@ public class RequestStageRevisionUseCase
         var step = DeliveryPipeline.Find(run.CurrentStage);
         if (step == null)
             return RequestStageRevisionResult.NoWaitingRun;
+
+        // Cổng POC: gom các ghi chú ghim trực tiếp trên POC vào nhận xét. Đổi Status ở đây chỉ nằm trong
+        // change tracker — các đường return sớm bên dưới (thiếu task/hết vòng) không SaveChanges nên
+        // không "đốt" ghi chú của người dùng.
+        if (includePocComments && run.CurrentStage == WorkflowStageKey.PocPreview)
+        {
+            var pocComments = await _db.PocComments
+                .Where(c => c.ProjectId == projectId && c.Status == PocCommentStatus.Open)
+                .OrderBy(c => c.CreatedAt)
+                .ToListAsync();
+
+            if (pocComments.Count > 0)
+            {
+                feedback = AppendPocComments(feedback, pocComments);
+                foreach (var comment in pocComments)
+                    comment.Status = PocCommentStatus.Sent;
+            }
+        }
+
+        if (feedback.Length == 0)
+            return RequestStageRevisionResult.MissingFeedback;
 
         // Task gần nhất đã hoàn tất của bước này (bản gốc hoặc bản chỉnh sửa trước đó) — nguồn
         // Input nguyên bản và agent đảm nhiệm. Không có thì run đang ở trạng thái bất thường.
@@ -102,5 +127,34 @@ public class RequestStageRevisionUseCase
 
         await _db.SaveChangesAsync();
         return RequestStageRevisionResult.Queued;
+    }
+
+    // Dựng khối ghi chú ghim máy-đọc-được nối vào nhận xét gõ tay: mỗi dòng một ghi chú, kèm màn hình
+    // (data-view) và CSS selector để Developer agent tìm đúng phần tử trong poc-demo.html thay vì đoán.
+    private static string AppendPocComments(string feedback, IReadOnlyList<PocComment> comments)
+    {
+        var sb = new System.Text.StringBuilder(feedback);
+
+        if (sb.Length > 0)
+            sb.Append("\n\n");
+
+        sb.Append("## Ghi chú ghim trực tiếp trên POC (mỗi dòng một phần tử cần sửa)");
+        for (var i = 0; i < comments.Count; i++)
+        {
+            var c = comments[i];
+            sb.Append('\n').Append(i + 1).Append(". ");
+
+            if (!string.IsNullOrWhiteSpace(c.PageView))
+                sb.Append("[Màn hình \"").Append(c.PageView).Append("\"] ");
+            if (!string.IsNullOrWhiteSpace(c.ElementLabel))
+                sb.Append("Phần tử: ").Append(c.ElementLabel).Append(" — ");
+
+            sb.Append(c.Comment);
+
+            if (!string.IsNullOrWhiteSpace(c.ElementPath))
+                sb.Append(" (selector: ").Append(c.ElementPath).Append(')');
+        }
+
+        return sb.ToString();
     }
 }

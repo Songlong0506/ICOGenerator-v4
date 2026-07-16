@@ -14,6 +14,10 @@ public class ProjectsController : Controller
     private readonly CreateProjectUseCase _createProjectUseCase;
     private readonly GetMockupFileQuery _getMockupFileQuery;
     private readonly GetImplementationSourceQuery _getImplementationSourceQuery;
+    private readonly GetPocReviewQuery _getPocReviewQuery;
+    private readonly ListPocCommentsQuery _listPocCommentsQuery;
+    private readonly AddPocCommentUseCase _addPocCommentUseCase;
+    private readonly DeletePocCommentUseCase _deletePocCommentUseCase;
     private readonly IPermissionService _permissions;
 
     public ProjectsController(
@@ -21,12 +25,20 @@ public class ProjectsController : Controller
         CreateProjectUseCase createProjectUseCase,
         GetMockupFileQuery getMockupFileQuery,
         GetImplementationSourceQuery getImplementationSourceQuery,
+        GetPocReviewQuery getPocReviewQuery,
+        ListPocCommentsQuery listPocCommentsQuery,
+        AddPocCommentUseCase addPocCommentUseCase,
+        DeletePocCommentUseCase deletePocCommentUseCase,
         IPermissionService permissions)
     {
         _getProjectListQuery = getProjectListQuery;
         _createProjectUseCase = createProjectUseCase;
         _getMockupFileQuery = getMockupFileQuery;
         _getImplementationSourceQuery = getImplementationSourceQuery;
+        _getPocReviewQuery = getPocReviewQuery;
+        _listPocCommentsQuery = listPocCommentsQuery;
+        _addPocCommentUseCase = addPocCommentUseCase;
+        _deletePocCommentUseCase = deletePocCommentUseCase;
         _permissions = permissions;
     }
 
@@ -54,7 +66,7 @@ public class ProjectsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    public async Task<IActionResult> Mockup(Guid projectId)
+    public async Task<IActionResult> Mockup(Guid projectId, bool review = false)
     {
         var result = await _getMockupFileQuery.ExecuteAsync(projectId);
         if (result == null)
@@ -69,6 +81,12 @@ public class ProjectsController : Controller
         var html = await System.IO.File.ReadAllTextAsync(result.FilePath, HttpContext.RequestAborted);
         html = PocTemplate.StripDeveloperGuide(html);
 
+        // REVIEW mode (nhúng trong iframe của trang PocReview): tiêm annotator để người xem ghim ghi chú
+        // lên phần tử. Annotator chỉ nói chuyện với trang cha qua postMessage — sandbox bên dưới giữ nguyên
+        // (origin opaque, không cookie), nên review mode KHÔNG nới rào chắn bảo mật nào.
+        if (review)
+            html = PocTemplate.InjectAnnotator(html);
+
         // This HTML is agent/LLM-generated and served from our own origin. Sandbox it so any injected
         // <script> runs in an opaque origin — no access to the admin auth cookie and no authenticated
         // same-origin POSTs (e.g. to Settings) — closing the prompt-injection escalation path.
@@ -78,6 +96,68 @@ public class ProjectsController : Controller
         // actual security boundary, and forms/modals don't weaken it.
         Response.Headers["Content-Security-Policy"] = "sandbox allow-scripts allow-forms allow-modals;";
         return Content(html, "text/html; charset=utf-8");
+    }
+
+    // ==== Review POC: xem POC trong iframe + ghim ghi chú trực tiếp lên phần tử ====
+    // Cùng quyền ProjectsView với Mockup (xem = review); GHI ghi chú cũng chỉ cần ProjectsView — cùng
+    // triết lý với Feedback (quyền View đủ để GỬI phản hồi của chính mình), vì đây chính là kênh phản
+    // hồi của người dùng cuối về POC. Xóa bị siết ở use case: chủ ghi chú hoặc người có DeliveryAdvance.
+
+    public async Task<IActionResult> PocReview(Guid projectId)
+    {
+        var result = await _getPocReviewQuery.ExecuteAsync(projectId, HttpContext.RequestAborted);
+        if (result == null)
+            return RedirectToAction(nameof(Index));
+
+        if (!result.HasMockup)
+        {
+            TempData["Error"] = "Project này chưa có POC demo để review.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        ViewBag.CanManageComments = await _permissions.HasPermissionAsync(
+            User, AppPermission.DeliveryAdvance, HttpContext.RequestAborted);
+        return View(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> PocComments(Guid projectId)
+    {
+        var canManage = await _permissions.HasPermissionAsync(
+            User, AppPermission.DeliveryAdvance, HttpContext.RequestAborted);
+        return Json(await _listPocCommentsQuery.ExecuteAsync(
+            projectId, User.Identity?.Name, canManage, HttpContext.RequestAborted));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddPocComment(
+        Guid projectId, string? pageView, string? elementLabel, string? elementPath,
+        double xPercent, double yPercent, string? comment)
+    {
+        var (result, item) = await _addPocCommentUseCase.ExecuteAsync(
+            projectId, pageView, elementLabel, elementPath, xPercent, yPercent, comment,
+            User.Identity?.Name, HttpContext.RequestAborted);
+
+        return result switch
+        {
+            AddPocCommentResult.Ok => Json(item),
+            AddPocCommentResult.MissingComment => BadRequest("Nội dung ghi chú trống."),
+            AddPocCommentResult.TooManyComments => BadRequest("Project đã có quá nhiều ghi chú — hãy xóa bớt trước khi ghim thêm."),
+            _ => NotFound("Project không tồn tại.")
+        };
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeletePocComment(Guid id)
+    {
+        var canManage = await _permissions.HasPermissionAsync(
+            User, AppPermission.DeliveryAdvance, HttpContext.RequestAborted);
+        var deleted = await _deletePocCommentUseCase.ExecuteAsync(
+            id, User.Identity?.Name, canManage, HttpContext.RequestAborted);
+
+        return deleted ? Json(new { ok = true }) : NotFound();
     }
 
     // Packages the agent-generated multi-file app (04_Implementation/src) into a .zip the user can

@@ -28,32 +28,203 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
     });
 
-    chatForm.addEventListener("submit", function (e) {
-        const text = messageInput.value.trim();
+    // ==== Chat BA dạng streaming ====
+    // Submit được chặn lại và gửi qua POST /Requirements/ChatStream (Server-Sent Events): trạng thái
+    // ("BA đang soạn…") cập nhật dòng thinking, token "đang gõ" đổ dần vào một bubble BA, frame done
+    // mang bản chốt (reply + suggestions + cờ mời Write Requirement) để render tại chỗ — KHÔNG reload.
+    // Stream hỏng trước khi nhận được frame nào → fallback postback cổ điển (hành vi cũ, reload trang).
+    const STREAM_URL = "/Requirements/ChatStream";
+    let chatBusy = false;
+    let liveBubble = null;
 
-        if (!text) {
-            e.preventDefault();
-            return;
-        }
-
-        document.getElementById("hiddenMessage").value = text;
-
-        const html = `
+    function appendUserBubble(text) {
+        thinkingBox.insertAdjacentHTML("beforebegin", `
             <div class="req-msg you">
                 <p>${escapeHtml(text)}</p>
             </div>
-        `;
+        `);
+    }
 
-        thinkingBox.insertAdjacentHTML("beforebegin", html);
+    function ensureLiveBubble() {
+        if (liveBubble) return liveBubble;
+
+        thinkingBox.insertAdjacentHTML("beforebegin", `
+            <div class="req-msg ba streaming">
+                <b>BA</b>
+                <p style="white-space: pre-wrap;"></p>
+            </div>
+        `);
+        liveBubble = thinkingBox.previousElementSibling;
+        return liveBubble;
+    }
+
+    function setThinkingText(text) {
+        const el = document.getElementById("thinkingText");
+        if (el) el.textContent = text;
+    }
+
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Render lại các chip gợi ý cho lượt BA mới nhất (markup khớp bản server render trong Index.cshtml);
+    // dời #suggestionList xuống dưới bubble mới nhất vì các lượt streaming được chèn vào sau nó trong DOM.
+    function renderSuggestions(suggestions) {
+        if (!suggestionList) return;
+
+        if (!Array.isArray(suggestions) || suggestions.length === 0) {
+            suggestionList.style.display = "none";
+            suggestionList.innerHTML = "";
+            return;
+        }
+
+        suggestionList.innerHTML = suggestions.map((s, i) => `
+            <button type="button" class="suggestion-option" role="option" data-suggestion="${escapeHtml(s)}">
+                <span class="suggestion-option-text">${escapeHtml(s)}</span>
+                <span class="suggestion-option-key">${i + 1}</span>
+            </button>
+        `).join("");
+        thinkingBox.before(suggestionList);
+        suggestionList.style.display = "";
+    }
+
+    // Đồng bộ trạng thái nút "Write Requirement" với cờ mời của lượt BA mới nhất — đúng logic server
+    // render (requirementReady trong Index.cshtml), vì trang không reload nữa.
+    function setWriteRequirementReady(ready) {
+        const form = document.querySelector("form.write-req");
+        if (!form) return;
+
+        form.classList.toggle("write-req-ready", ready);
+        form.classList.toggle("write-req-waiting", !ready);
+
+        const btn = form.querySelector(".write-req-btn");
+        if (btn) {
+            btn.classList.toggle("primary", ready);
+            btn.classList.toggle("outline", !ready);
+        }
+
+        const hint = form.querySelector(".write-req-hint");
+        if (hint) hint.style.display = ready ? "none" : "";
+    }
+
+    function finishTurn(data) {
+        const bubble = ensureLiveBubble();
+        const p = bubble.querySelector("p");
+        bubble.classList.remove("streaming");
+
+        if (data.ok) {
+            // Bản preview đã stream có thể khác bản chốt (lời mời bị cổng readiness thay bằng câu hỏi)
+            // → luôn thay bằng bản chốt.
+            p.textContent = data.reply || "";
+            renderSuggestions(data.suggestions);
+            setWriteRequirementReady(data.invitesWriteRequirement === true);
+        } else {
+            bubble.classList.add("chat-error");
+            p.textContent = data.error || "Có lỗi khi xử lý lượt chat. Vui lòng thử lại.";
+        }
+
+        thinkingBox.style.display = "none";
+        liveBubble = null;
+        chatBusy = false;
+        scrollToBottom();
+    }
+
+    function handleFrame(raw) {
+        // Frame SSE: các dòng "data: {json}"; bỏ qua comment (": ping") và event end.
+        const lines = raw.split("\n");
+        let json = "";
+        for (const line of lines) {
+            if (line.startsWith("data: ")) json += line.slice(6);
+        }
+        if (!json) return;
+
+        let ev;
+        try { ev = JSON.parse(json); } catch { return; }
+
+        if (ev.type === "status") {
+            setThinkingText(ev.text || "BA đang xử lý…");
+        } else if (ev.type === "token") {
+            const bubble = ensureLiveBubble();
+            bubble.querySelector("p").textContent += ev.text || "";
+            scrollToBottom();
+        } else if (ev.type === "done") {
+            finishTurn(ev);
+        }
+    }
+
+    // true khi lượt đang gửi đã nhận ĐƯỢC ít nhất một frame SSE — quyết định cách phục hồi khi lỗi:
+    // đã nhận frame nghĩa là server ĐANG xử lý lượt này (và sẽ lưu DB dù stream đứt) → chỉ reload;
+    // chưa nhận frame nào mới được phép re-submit theo đường postback cổ điển.
+    let sawFrame = false;
+
+    async function streamChat(text) {
+        const fd = new FormData();
+        fd.append("projectId", chatForm.querySelector('input[name="projectId"]').value);
+        fd.append("message", text);
+        const token = chatForm.querySelector('input[name="__RequestVerificationToken"]');
+        if (token) fd.append("__RequestVerificationToken", token.value);
+
+        const response = await fetch(STREAM_URL, { method: "POST", body: fd, headers: { Accept: "text/event-stream" } });
+        if (!response.ok || !response.body) throw new Error("stream request failed");
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            let idx;
+            while ((idx = buffer.indexOf("\n\n")) >= 0) {
+                const frame = buffer.slice(0, idx);
+                buffer = buffer.slice(idx + 2);
+                sawFrame = true;
+                handleFrame(frame);
+            }
+        }
+
+        return sawFrame;
+    }
+
+    chatForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        const text = messageInput.value.trim();
+        if (!text || chatBusy) return;
+
+        chatBusy = true;
+        sawFrame = false;
+        appendUserBubble(text);
 
         messageInput.value = "";
         resizeMessageInput();
 
-        // Lượt đã được trả lời → ẩn các gợi ý cũ ngay (trang sẽ reload với gợi ý mới nếu có).
+        // Lượt đã được trả lời → ẩn các gợi ý cũ ngay (gợi ý mới render lại ở frame done nếu có).
         if (suggestionList) suggestionList.style.display = "none";
 
+        setThinkingText("BA is analyzing requirements...");
         thinkingBox.style.display = "block";
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        scrollToBottom();
+
+        streamChat(text).then(function (gotFrame) {
+            if (!gotFrame) throw new Error("no frame");
+        }).catch(function () {
+            if (!chatBusy) return; // done đã xử lý xong, lỗi chỉ là đuôi stream — bỏ qua
+
+            if (sawFrame) {
+                // Stream đứt giữa chừng NHƯNG server đã nhận lượt này và vẫn chạy trọn
+                // (CancellationToken.None) → reload để hiển thị bản đã lưu; re-submit sẽ nhân đôi lượt.
+                location.reload();
+                return;
+            }
+
+            // Hỏng từ trước khi nhận frame nào (mạng/proxy không stream được):
+            // quay về postback cổ điển — submit native để không đi lại listener này.
+            document.getElementById("hiddenMessage").value = text;
+            HTMLFormElement.prototype.submit.call(chatForm);
+        });
     });
 
     // Chọn một đáp án gợi ý = điền sẵn câu trả lời rồi gửi qua đúng pipeline submit ở trên,

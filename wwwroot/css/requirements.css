@@ -74,6 +74,27 @@
             border-color: var(--line);
         }
 
+        /* Bubble BA đang stream (ChatStream): con trỏ nhấp nháy ở cuối text báo "đang gõ";
+           gỡ class .streaming khi frame done thay bản preview bằng bản chốt. */
+        .req-msg.ba.streaming p::after {
+            content: "▍";
+            margin-left: 2px;
+            color: var(--bosch-blue);
+            animation: chat-caret-blink 1s steps(1) infinite;
+        }
+
+        /* Lượt chat thất bại (budget/cấu hình/lỗi bất ngờ) render tại chỗ, thay cho banner TempData
+           của đường postback cũ. */
+        .req-msg.ba.chat-error {
+            border-color: #f3c2c2;
+            background: #fdf3f3;
+            color: #a33;
+        }
+
+    @keyframes chat-caret-blink {
+        50% { opacity: 0; }
+    }
+
     /* Suggestion options: đáp án gợi ý "bấm-để-trả-lời" cho lượt hỏi mới nhất của BA, trình bày dạng
        danh sách dọc có đánh số — giống option-select của Claude — thay cho "chip" ngang. Nằm dưới tin
        nhắn BA; người dùng bấm (hoặc gõ phím số) để trả nhanh thay vì gõ tay từng chữ. */

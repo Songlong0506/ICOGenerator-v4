@@ -1,0 +1,210 @@
+/* POC Review: iframe POC bên trái + panel ghi chú bên phải. Dùng chung design token của app
+   (biến --line/--surface-alt/--muted... khai báo ở site.css). */
+
+.poc-review-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 16px;
+    align-items: start;
+}
+
+.poc-frame-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.poc-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.poc-toolbar-hint {
+    flex: 1;
+    font-size: 13px;
+}
+
+#pocFrame {
+    width: 100%;
+    height: calc(100vh - 240px);
+    min-height: 480px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+}
+
+/* ===== Panel ghi chú ===== */
+
+.poc-comments-panel h3 {
+    margin-bottom: 4px;
+}
+
+.poc-count {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted);
+}
+
+.poc-panel-hint {
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.poc-comment-form {
+    border: 1px solid var(--bosch-blue);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bosch-blue-tint);
+}
+
+    /* display:flex ở trên đè mất UA style của attribute hidden — khẳng định lại để form chỉ hiện khi đang ghim. */
+    .poc-comment-form[hidden] {
+        display: none;
+    }
+
+.poc-target-label {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.poc-comment-form textarea {
+    width: 100%;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+}
+
+.poc-form-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.poc-comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: calc(100vh - 360px);
+    overflow-y: auto;
+}
+
+.poc-comment-item {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+}
+
+    .poc-comment-item:hover {
+        border-color: var(--bosch-blue);
+    }
+
+    .poc-comment-item.highlight {
+        background: var(--bosch-blue-tint);
+        border-color: var(--bosch-blue);
+    }
+
+.poc-comment-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Số thứ tự — khớp màu với pin trong POC (cam = chờ gửi, xám = đã gửi Dev). */
+.poc-pin-no {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #d97706;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+    .poc-pin-no.sent {
+        background: #64748b;
+    }
+
+.poc-comment-target {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.poc-badge {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid;
+}
+
+    .poc-badge.open {
+        color: #d97706;
+        border-color: #d9770655;
+        background: #d977061a;
+    }
+
+    .poc-badge.sent {
+        color: #64748b;
+        border-color: #64748b55;
+        background: #64748b1a;
+    }
+
+.poc-comment-del {
+    flex: 0 0 auto;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    opacity: .6;
+}
+
+    .poc-comment-del:hover {
+        opacity: 1;
+    }
+
+.poc-comment-view {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+}
+
+.poc-comment-text {
+    font-size: 14px;
+    margin-top: 6px;
+    white-space: pre-wrap;
+}
+
+.poc-comment-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+}
+
+@media (max-width: 1100px) {
+    .poc-review-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .poc-comment-list {
+        max-height: 320px;
+    }
+}

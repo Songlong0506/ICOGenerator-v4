@@ -160,13 +160,14 @@ public class AgentDashboardController : Controller
 
     // Lựa chọn thứ ba tại cổng duyệt: gửi nhận xét để agent SỬA LẠI bước hiện tại thay vì hủy cả
     // workflow (Reject) rồi chạy lại từ đầu. Được phép cả ở cổng POC — nhận xét ở đây là "POC chưa
-    // bám đúng spec đã duyệt", không phải đổi requirement.
+    // bám đúng spec đã duyệt", không phải đổi requirement. includePocComments (chỉ có nghĩa ở cổng
+    // POC) gom thêm các ghi chú người xem đã ghim trực tiếp trên POC vào nhận xét gửi agent.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.DeliveryAdvance)]
-    public async Task<IActionResult> RequestRevision(Guid projectId, string? feedback, Guid? runId = null)
+    public async Task<IActionResult> RequestRevision(Guid projectId, string? feedback, Guid? runId = null, bool includePocComments = false)
     {
-        var result = await _requestStageRevisionUseCase.ExecuteAsync(projectId, feedback, runId);
+        var result = await _requestStageRevisionUseCase.ExecuteAsync(projectId, feedback, runId, includePocComments);
 
         TempData["Error"] = result switch
         {

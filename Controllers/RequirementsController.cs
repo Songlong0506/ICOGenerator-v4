@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Threading.Channels;
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Requirements;
 using ICOGenerator.Domain.Enums;
@@ -28,6 +29,7 @@ public class RequirementsController : Controller
     private readonly DeleteProjectSourceUseCase _deleteProjectSourceUseCase;
     private readonly GetDocumentRevisionsQuery _getDocumentRevisionsQuery;
     private readonly GetDocumentRevisionDiffQuery _getDocumentRevisionDiffQuery;
+    private readonly ILogger<RequirementsController> _logger;
 
     // SSE frames are hand-serialized, so match the camelCase the polling JSON (and client) already use.
     private static readonly JsonSerializerOptions SseJsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -45,7 +47,8 @@ public class RequirementsController : Controller
        UploadProjectSourceUseCase uploadProjectSourceUseCase,
        DeleteProjectSourceUseCase deleteProjectSourceUseCase,
        GetDocumentRevisionsQuery getDocumentRevisionsQuery,
-       GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery)
+       GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery,
+       ILogger<RequirementsController> logger)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
         _generateRequirementDraftUseCase = generateRequirementDraftUseCase;
@@ -60,6 +63,7 @@ public class RequirementsController : Controller
         _deleteProjectSourceUseCase = deleteProjectSourceUseCase;
         _getDocumentRevisionsQuery = getDocumentRevisionsQuery;
         _getDocumentRevisionDiffQuery = getDocumentRevisionDiffQuery;
+        _logger = logger;
     }
 
     public async Task<IActionResult> Index(Guid projectId, string? version = null)
@@ -73,6 +77,8 @@ public class RequirementsController : Controller
         return View(result.Project);
     }
 
+    // Đường postback cổ điển (reload cả trang) — giữ làm FALLBACK khi trình duyệt không stream được
+    // (fetch/ReadableStream lỗi): requirements.js chỉ submit form này khi ChatStream thất bại từ sớm.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
@@ -85,10 +91,10 @@ public class RequirementsController : Controller
         {
             var result = await _chatWithBAUseCase.ExecuteAsync(projectId, message);
 
-            if (result == ChatWithBAResult.ProjectNotFound)
+            if (result.Status == ChatWithBAResult.ProjectNotFound)
                 return RedirectToAction("Index", "Projects");
 
-            if (result == ChatWithBAResult.BaNotConfigured)
+            if (result.Status == ChatWithBAResult.BaNotConfigured)
                 TempData["Error"] = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent.";
         }
         catch (BudgetExceededException ex)
@@ -98,6 +104,117 @@ public class RequirementsController : Controller
         }
 
         return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    // Chat BA dạng STREAMING: một request POST xử lý trọn lượt chat và trả Server-Sent Events —
+    // trạng thái ("BA đang soạn…"), token "đang gõ" (đã lọc cú pháp JSON), và frame done mang bản chốt
+    // (reply + suggestions + cờ mời Write Requirement) để client render tại chỗ, không reload trang.
+    // Dùng fetch + đọc ReadableStream phía client (EventSource không POST được); antiforgery đi theo
+    // FormData như postback thường nên AutoValidateAntiforgeryToken toàn cục vẫn phủ.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task ChatStream(Guid projectId, string message)
+    {
+        Response.StatusCode = 200;
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers["X-Accel-Buffering"] = "no";
+        HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
+
+        // Callback token/status đến từ vòng stream LLM (đồng bộ) nên không ghi thẳng response được:
+        // đẩy qua channel không giới hạn (TryWrite không block), vòng dưới đọc ra và ghi SSE frame.
+        var channel = Channel.CreateUnbounded<object>();
+
+        // Chạy lượt chat với CancellationToken.None: người dùng đóng tab giữa chừng thì turn vẫn chạy
+        // trọn và lưu DB (lượt user đã lưu trước khi gọi LLM — bỏ ngang sẽ để hội thoại "cụt" không có
+        // trả lời). Việc GHI response mới theo RequestAborted.
+        var chatTask = RunChatAsync();
+
+        var aborted = HttpContext.RequestAborted;
+        var clientGone = false;
+
+        await foreach (var ev in channel.Reader.ReadAllAsync(CancellationToken.None))
+        {
+            if (clientGone)
+                continue; // vẫn drain channel cho chatTask chạy nốt, chỉ thôi ghi response
+
+            try
+            {
+                await Response.WriteAsync($"data: {JsonSerializer.Serialize(ev, SseJsonOptions)}\n\n", aborted);
+                await Response.Body.FlushAsync(aborted);
+            }
+            catch (OperationCanceledException)
+            {
+                clientGone = true;
+            }
+        }
+
+        await chatTask; // mọi lỗi đã được gói thành frame done bên trong — await chỉ để không bỏ rơi task
+
+        if (!clientGone)
+        {
+            try
+            {
+                await Response.WriteAsync("event: end\ndata: {}\n\n", aborted);
+                await Response.Body.FlushAsync(aborted);
+            }
+            catch (OperationCanceledException) { }
+        }
+
+        async Task RunChatAsync()
+        {
+            object done;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    done = new { type = "done", ok = false, error = "Tin nhắn trống." };
+                }
+                else
+                {
+                    var result = await _chatWithBAUseCase.ExecuteAsync(
+                        projectId, message,
+                        status => channel.Writer.TryWrite(new { type = "status", text = status }),
+                        token => channel.Writer.TryWrite(new { type = "token", text = token }),
+                        CancellationToken.None);
+
+                    done = result.Status switch
+                    {
+                        ChatWithBAResult.ProjectNotFound => new { type = "done", ok = false, error = "Project không tồn tại." },
+                        ChatWithBAResult.BaNotConfigured => new
+                        {
+                            type = "done",
+                            ok = false,
+                            error = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent."
+                        },
+                        _ => (object)new
+                        {
+                            type = "done",
+                            ok = true,
+                            reply = result.Reply,
+                            suggestions = result.Suggestions,
+                            invitesWriteRequirement = result.InvitesWriteRequirement
+                        }
+                    };
+                }
+            }
+            catch (BudgetExceededException ex)
+            {
+                done = new { type = "done", ok = false, error = ex.Message };
+            }
+            catch (Exception ex)
+            {
+                // Lỗi bất ngờ: response SSE đã bắt đầu nên không còn trang lỗi nào để trả — gói thành
+                // frame done (thông điệp chung) cho client hiển thị, chi tiết ghi log. KHÔNG rethrow:
+                // ném tiếp chỉ làm Kestrel abort connection sau khi client đã nhận frame lỗi.
+                _logger.LogError(ex, "ChatStream thất bại cho project {ProjectId}", projectId);
+                done = new { type = "done", ok = false, error = "Có lỗi khi xử lý lượt chat. Vui lòng thử lại." };
+            }
+
+            channel.Writer.TryWrite(done);
+            channel.Writer.TryComplete();
+        }
     }
 
     // Upload tài liệu nguồn (ảnh/PDF) cho project. Nâng trần kích thước request để cho phép vài file ảnh/PDF

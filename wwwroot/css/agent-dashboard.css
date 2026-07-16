@@ -262,3 +262,37 @@ input.logs-filter-input[type="number"] { min-width: 120px; }
 /* Git URL inputs inherit the shared flat input styling from site.css.
    Generation-mode radios now use the shared .radio-group / .form-check component. */
 .dc-form .dg-actions { margin-top: 12px; justify-content: flex-end; }
+
+/* Khối "gửi kèm ghi chú ghim trên POC" trong popup Yêu cầu chỉnh sửa (chỉ hiện ở cổng POC). */
+.revise-poc-comments {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    background: var(--surface-alt);
+}
+
+.revise-poc-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.revise-poc-list {
+    margin: 8px 0 6px;
+    padding-left: 18px;
+    font-size: 13px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+    .revise-poc-list li {
+        margin-bottom: 4px;
+    }
+
+.revise-poc-link {
+    font-size: 12px;
+}

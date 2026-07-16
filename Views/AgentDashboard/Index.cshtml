@@ -496,8 +496,21 @@
                 <input type="hidden" name="runId" id="dg-revise-runid" value="" />
 
                 <label for="revise-feedback">Nhận xét cho agent — bước đang chờ duyệt sẽ được sửa lại theo nhận xét này</label>
-                <textarea name="feedback" id="revise-feedback" rows="6" required
+                <textarea name="feedback" id="revise-feedback" rows="6"
                           placeholder="Ví dụ: Màn hình Dashboard còn thiếu bộ lọc theo tháng như spec; bảng tồn kho cần phân trang; đổi nhãn nút 'Save' thành 'Lưu'…"></textarea>
+
+                @* Chỉ hiện ở cổng POC (JS bật/tắt theo currentStage): gom các ghi chú người xem đã GHIM
+                   trực tiếp trên POC (trang Projects/PocReview) vào nhận xét gửi agent. Có ghi chú được
+                   gom thì phần nhận xét gõ tay được phép trống — required của textarea do JS quản. *@
+                <div id="revise-poc-comments" class="revise-poc-comments" style="display:none;">
+                    <label class="revise-poc-toggle">
+                        <input type="checkbox" name="includePocComments" id="revise-include-poc" value="true" checked />
+                        <span id="revise-poc-summary">Gửi kèm các ghi chú đã ghim trên POC</span>
+                    </label>
+                    <ul id="revise-poc-list" class="revise-poc-list"></ul>
+                    <a asp-controller="Projects" asp-action="PocReview" asp-route-projectId="@Model.Id"
+                       target="_blank" class="revise-poc-link">Mở POC Review để xem/ghim thêm ↗</a>
+                </div>
 
                 <p class="muted revise-hint" id="revise-remaining"></p>
 

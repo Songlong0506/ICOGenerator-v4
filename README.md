@@ -274,6 +274,7 @@ tests/ICOGenerator.Tests # xUnit
 | `Notifications` | Thông báo in-app (chuông): index `(RecipientUsername, IsRead, CreatedAt)` |
 | `EvalScenarios` / `EvalRuns` / `EvalResults` | Prompt eval harness (golden set + LLM-judge). Model/scenario tham chiếu bằng **Guid + snapshot tên, không FK** — xóa không mất lịch sử điểm |
 | `PromptTemplateVersions` | Phiên bản prompt chỉnh runtime (Prompt Studio): snapshot đầy đủ, unique `(PromptKey, VersionNumber)`, tối đa một `IsActive` mỗi key |
+| `PocComments` | Ghi chú GHIM trực tiếp lên phần tử trong POC (trang POC Review): màn hình + nhãn + CSS selector + vị trí. `Open` → gom vào "Yêu cầu chỉnh sửa" ở cổng POC → `Sent` (không gửi lặp) |
 
 ### 5.6. Migration
 
@@ -287,11 +288,20 @@ tests/ICOGenerator.Tests # xUnit
 
 Phân biệt được hai luồng này là tránh được 90% nhầm lẫn khi đọc code.
 
-### 6.1. Động cơ 1 — Chat với BA (đồng bộ theo request)
+### 6.1. Động cơ 1 — Chat với BA (một request xử lý trọn lượt, STREAM kết quả)
+
+Đường chat chính là `POST /Requirements/ChatStream` — cùng một request xử lý trọn lượt chat và trả
+**Server-Sent Events**: frame `status` ("BA đang soạn câu trả lời…"), frame `token` (BA "đang gõ" —
+đã lọc cú pháp JSON qua `BAChatTokenFilter`, chỉ phần `message` hiển thị được stream), và frame `done`
+mang bản chốt (reply + suggestions + cờ mời Write Requirement) để client render tại chỗ **không reload
+trang**. Client dùng `fetch` + đọc `ReadableStream` (EventSource không POST được); stream hỏng trước khi
+nhận frame nào thì `requirements.js` tự rơi về `POST /Requirements/Chat` (postback cổ điển, reload trang).
+Lượt chat chạy với `CancellationToken.None` — người dùng đóng tab giữa chừng thì turn vẫn hoàn tất và lưu
+DB, chỉ việc ghi response dừng lại.
 
 ```
-Browser POST /Requirements/Chat
-  └► RequirementsController.Chat                     [Controllers]
+Browser POST /Requirements/ChatStream (SSE)  [hoặc POST /Requirements/Chat — fallback]
+  └► RequirementsController.ChatStream               [Controllers]
        └► ChatWithBAUseCase.ExecuteAsync             [Application/Requirements]
             └► BARequirementService.ChatAsync        [Services/Requirements]
                  ├► OrganizationContextService       → system message "bức tranh tổ chức" (cache 1h)
@@ -371,7 +381,7 @@ Mỗi bước chạy xong, run **dừng** ở `WaitingForHuman`. Trên **Agent D
 | Hành động | Use case | Hệ quả |
 |---|---|---|
 | **Duyệt & tiếp tục** | `ApproveStageUseCase` | Resolve input theo `InputSource` (spec hoặc output task Completed mới nhất — tức bản đã-sửa nếu có revision) → enqueue bước kế |
-| **Yêu cầu chỉnh sửa** (kèm nhận xét) | `RequestStageRevisionUseCase` | Enqueue lại **đúng bước hiện tại**: `Input` giữ NGUYÊN BẢN, nhận xét nằm riêng ở `AgentTask.RevisionFeedback`; prompt gốc + nối khối `Shared/revision.v1.md`. Trần `MaxRevisionRounds = 3` mỗi bước (đếm bằng số task có `RevisionFeedback != null` cùng loại trong run) |
+| **Yêu cầu chỉnh sửa** (kèm nhận xét) | `RequestStageRevisionUseCase` | Enqueue lại **đúng bước hiện tại**: `Input` giữ NGUYÊN BẢN, nhận xét nằm riêng ở `AgentTask.RevisionFeedback`; prompt gốc + nối khối `Shared/revision.v1.md`. Trần `MaxRevisionRounds = 3` mỗi bước (đếm bằng số task có `RevisionFeedback != null` cùng loại trong run). **Riêng cổng POC**: popup còn gom các ghi chú GHIM trực tiếp trên POC (`PocComments` Open, từ trang POC Review — xem §11.2) vào nhận xét, kèm màn hình + CSS selector từng phần tử để Developer sửa đúng chỗ; ghi chú đã gom chuyển `Sent`, và khi có ghi chú gửi kèm thì nhận xét gõ tay được phép trống |
 | **Từ chối** | `RejectStageUseCase` | Hủy run (`Canceled`) — quay về chat BA sửa requirement, Approve lại tạo run phiên bản kế. **Ngoại lệ: cổng POC không Reject được** (`PocGateNotRejectable`) — POC sai nghĩa là requirement sai, việc của user; "Yêu cầu chỉnh sửa" thì vẫn được |
 | **Thử lại** | `RetryWorkflowUseCase` | Chạy lại khi task Failed |
 
@@ -557,6 +567,7 @@ Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-
 - File `04_Implementation/poc-demo.html` — seed từ `Prompts/Design/poc-template.html` ở bước PocPreview; hai vùng marker do `PocTemplate.cs` quản: `POC_CONTENT` (HTML) và `POC_SCRIPT` (JS; shell expose `window.pocToast`/`window.pocNavigate`).
 - Yêu cầu của bước POC: hiện thực **Business Rules của spec thành hành vi thật** (tính toán, validate, chuyển trạng thái, mô phỏng vai) chứ không chỉ màn hình tĩnh; agent tự soát bằng `AuditPocContent` (`PocAudit.cs` đối chiếu cả độ phủ với "Screens To Generate" + "BR-n" của spec, do `PocSpec.cs` parse).
 - Xem POC: `GET /Projects/Mockup?projectId=` — endpoint **sandbox riêng** (HTML do LLM sinh không được thả vào layout chính).
+- **Review POC (ghim ghi chú lên phần tử)**: `GET /Projects/PocReview?projectId=` nhúng POC trong iframe ở chế độ review (`Mockup?review=True` tiêm `wwwroot/js/poc-annotator.js` lúc phục vụ — file trên đĩa không đổi). Người xem bật "chế độ ghim", click phần tử → annotator gửi mô tả (màn hình `data-view`, nhãn, CSS selector, vị trí %) lên trang cha qua postMessage → lưu bảng `PocComments`. Pin đánh số vẽ ngay trên phần tử. Sandbox giữ nguyên (origin opaque, không cookie) — mọi thao tác ghi đều từ trang cha. Các ghi chú `Open` được gom vào "Yêu cầu chỉnh sửa" tại cổng POC (xem §7.2).
 - Khi task là revision, worker **bỏ qua re-seed** POC để không ghi đè sản phẩm cũ về placeholder.
 
 ### 11.3. Khung Bosch & tải source
@@ -573,8 +584,8 @@ Route mặc định: `{controller=Projects}/{action=Index}/{id?}`. Mọi endpoin
 | Màn hình | Controller | Actions chính | Quyền |
 |---|---|---|---|
 | **Login** | `Account` | `GET/POST Login` (AllowAnonymous), `POST Logout`, `GET AccessDenied` | — |
-| **Projects** (trang chủ) | `Projects` | `Index` (lọc theo chủ nếu không có `ProjectsViewAll`), `POST Create`, `Mockup` (xem POC sandbox), `DownloadSource` (zip) | `ProjectsView`; Create: `ProjectsCreate` |
-| **Requirements** (workspace chat BA) | `Requirements` | `Index`, `POST Chat`, `POST UploadSource`/`DeleteSource`, `POST WriteRequirement`, `POST Approve`, `POST NewChat`, `GET WorkflowStatus`/`WorkflowStream` (SSE), `GET DocumentRevisions`/`DocumentRevisionDiff`/`DocumentPreview`/`DownloadDocument` | `RequirementsView`; mọi thao tác ghi: `RequirementsManage` |
+| **Projects** (trang chủ) | `Projects` | `Index` (lọc theo chủ nếu không có `ProjectsViewAll`), `POST Create`, `Mockup` (xem POC sandbox; `review=True` tiêm annotator), `PocReview` (review POC + ghim ghi chú), `GET PocComments`, `POST AddPocComment`/`DeletePocComment`, `DownloadSource` (zip) | `ProjectsView`; Create: `ProjectsCreate`; thêm ghi chú POC: `ProjectsView` (như Feedback — quyền View đủ để gửi phản hồi của mình); xóa: chủ ghi chú hoặc `DeliveryAdvance` |
+| **Requirements** (workspace chat BA) | `Requirements` | `Index`, `POST ChatStream` (SSE — đường chat chính, stream token), `POST Chat` (fallback postback), `POST UploadSource`/`DeleteSource`, `POST WriteRequirement`, `POST Approve`, `POST NewChat`, `GET WorkflowStatus`/`WorkflowStream` (SSE), `GET DocumentRevisions`/`DocumentRevisionDiff`/`DocumentPreview`/`DownloadDocument` | `RequirementsView`; mọi thao tác ghi: `RequirementsManage` |
 | **Agent Dashboard** (điều phối delivery) | `AgentDashboard` | `Index`, `GET WorkflowStatus`/`ActiveAgents`/`AgentStats`/`AgentActivity`/`AgentCallLogs`/`CallLogDetail`/`DocumentPreview`, `POST ApproveStage`/`RejectStage`/`RequestRevision`/`RetryWorkflow`/`UpdateDeliveryConfig` | `AgentsView`; các POST cổng duyệt: `DeliveryAdvance` |
 | **Agents** (cấu hình agent) | `Agents` | `Index`, `POST Update` (model, temperature, tools...) | `AgentsView` / `AgentsManage` |
 | **AI Models** | `Models` | `Index`, `POST Create`/`Update`/`Delete` | `ModelsView` / `ModelsCreate`/`Edit`/`Delete` |

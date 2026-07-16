@@ -77,6 +77,30 @@ public static class PocTemplate
     }
 
     /// <summary>
+    /// Script tag injected when the POC is served in REVIEW mode (Projects/Mockup?review=1, embedded by
+    /// the PocReview page): loads the pin-comment annotator that talks to the parent page via postMessage.
+    /// A static-file URL (not inline) so the script stays cacheable and editable like any other wwwroot
+    /// asset; static files need no auth, so the opaque-origin sandboxed document can still fetch it.
+    /// </summary>
+    public const string AnnotatorScriptTag = "<script src=\"/js/poc-annotator.js\" defer></script>";
+
+    /// <summary>
+    /// Appends the review annotator script just before &lt;/body&gt; (or at the end when the generated
+    /// HTML has no closing body tag). Injected ONLY at serve time in review mode — the file on disk and
+    /// the normal Mockup view stay untouched, so the annotator can never leak into the delivered POC.
+    /// </summary>
+    public static string InjectAnnotator(string html)
+    {
+        if (string.IsNullOrEmpty(html))
+            return html;
+
+        var bodyIdx = html.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
+        return bodyIdx < 0
+            ? html + "\n" + AnnotatorScriptTag
+            : html[..bodyIdx] + AnnotatorScriptTag + "\n" + html[bodyIdx..];
+    }
+
+    /// <summary>
     /// Replaces everything between the markers (exclusive) with <paramref name="newContent"/>,
     /// keeping the markers intact. Returns null when the markers are missing/malformed.
     /// </summary>

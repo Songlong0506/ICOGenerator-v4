@@ -71,13 +71,15 @@ public class BARequirementService
         _orgContext = orgContext;
     }
 
-    public async Task<ChatWithBAResult> ChatAsync(Guid projectId, string userMessage, CancellationToken cancellationToken = default)
+    /// <param name="onStatus">Callback nhận thông điệp trạng thái ngắn ("BA đang soạn trả lời…") để UI cập nhật dòng "đang suy nghĩ" khi stream.</param>
+    /// <param name="onToken">Callback nhận từng đoạn text HIỂN THỊ ĐƯỢC của lời trả lời khi model đang gõ (đã lọc cú pháp JSON qua <see cref="BAChatTokenFilter"/>).</param>
+    public async Task<BAChatTurnResult> ChatAsync(Guid projectId, string userMessage, Action<string>? onStatus = null, Action<string>? onToken = null, CancellationToken cancellationToken = default)
     {
         // Validate the project up front: writing an AgentConversation for a non-existent project would throw an FK DbUpdateException → HTTP 500. Return a status the controller can surface.
         // Tracked (không AsNoTracking) vì bộ nhớ hội thoại ghi thẳng ConversationSummary/SummarizedTurnCount lên entity này.
         var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
         if (project == null)
-            return ChatWithBAResult.ProjectNotFound;
+            return new BAChatTurnResult { Status = ChatWithBAResult.ProjectNotFound };
 
         var ba = await _db.Agents
             .Include(x => x.AiModel)
@@ -86,7 +88,7 @@ public class BARequirementService
         // A missing BA agent / model is a configuration problem, not an exceptional crash: report
         // it as a result so Chat can show a friendly message instead of a 500.
         if (ba?.AiModel == null)
-            return ChatWithBAResult.BaNotConfigured;
+            return new BAChatTurnResult { Status = ChatWithBAResult.BaNotConfigured };
 
         var model = ba.AiModel;
 
@@ -99,6 +101,10 @@ public class BARequirementService
             TokenUsed = TokenEstimator.Estimate(userMessage)
         });
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Các bước chuẩn bị dưới đây có thể gọi LLM (tóm tắt/bồi hồ sơ/bản đồ bao phủ) — báo trạng thái
+        // để người dùng thấy BA "đang làm việc" thay vì spinner câm khi stream.
+        onStatus?.Invoke("BA đang đọc lại ngữ cảnh hội thoại…");
 
         // Bộ nhớ hội thoại: cửa sổ lượt gần nhất (gửi nguyên văn) + đoạn tóm tắt dài hạn các lượt cũ đã
         // được gộp dần. Giữ ngữ cảnh hội thoại dài mà prompt không phình token. Xem ConversationMemoryService.
@@ -194,10 +200,16 @@ public class BARequirementService
             }
         }
 
+        onStatus?.Invoke("BA đang soạn câu trả lời…");
+
         // BA được nhắc trả JSON {message, suggestions}: dùng structured output khi model được bật, ngược lại
-        // parser luôn fallback an toàn về text thuần.
+        // parser luôn fallback an toàn về text thuần. Khi có onToken, luồng token thô (cú pháp JSON) được
+        // lọc qua BAChatTokenFilter để chỉ phần message hiển thị được stream lên UI; đường structured
+        // output vốn không stream nên callback đơn giản là không được gọi — UI vẫn nhận bản chốt ở done.
+        var tokenFilter = onToken == null ? null : new BAChatTokenFilter(onToken);
         var (callResult, structuredReply) = await _llm.ChatStructuredAsync<BAChatReply>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAChat"), cancellationToken: cancellationToken);
+            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAChat"),
+            tokenFilter == null ? null : tokenFilter.Feed, cancellationToken);
 
         // Surface a failure as a clearly-labelled assistant turn instead of a 500, but never present an API error as if it were a normal BA answer.
         string reply;
@@ -228,6 +240,8 @@ public class BARequirementService
             // GenerateOrUpdateDraftAsync). Vẫn một cổng, một tiêu chuẩn — chỉ chạy sớm hơn.
             if (IsWriteRequirementInvite(reply))
             {
+                onStatus?.Invoke("Đang kiểm tra đã khai thác đủ thông tin chưa…");
+
                 // Gate phải thấy ĐÚNG transcript mà lần bấm nút sẽ thấy: toàn bộ hội thoại đã lưu (gồm
                 // lượt user vừa lưu ở trên) + chính lời mời này (chưa lưu, đính tạm vào cuối — chỉ vào
                 // list cục bộ, không vào change tracker ⇒ AsNoTracking cho cả lượt đọc này).
@@ -263,7 +277,17 @@ public class BARequirementService
         });
         await _db.SaveChangesAsync(cancellationToken);
 
-        return ChatWithBAResult.Ok;
+        // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
+        // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
+        return new BAChatTurnResult
+        {
+            Status = ChatWithBAResult.Ok,
+            Reply = reply,
+            Suggestions = string.IsNullOrEmpty(suggestionsJson)
+                ? new List<string>()
+                : JsonSerializer.Deserialize<List<string>>(suggestionsJson) ?? new List<string>(),
+            InvitesWriteRequirement = IsWriteRequirementInvite(reply)
+        };
     }
 
     /// <param name="onProgress">Callback (kind, message, detail) báo tiến độ live cho UI; có thể null khi gọi đồng bộ.</param>
