@@ -190,15 +190,17 @@
                     setTimeout(() => location.reload(), 1200);
                 }
             } else {
-                slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem demo POC</a> · <a href="/Projects/DownloadSource?projectId=${PID}">⬇ Tải source code</a></div>`;
+                slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/PocReview?projectId=${PID}" target="_blank">Xem demo POC</a> · <a href="/Projects/DownloadSource?projectId=${PID}">⬇ Tải source code</a></div>`;
             }
         } else if (data.runStatus === 'WaitingForHuman') {
             // Tránh dựng lại banner mỗi nhịp poll: chỉ render lại khi sang cổng mới.
             if (slot.dataset.gate === data.currentStage) return;
             slot.dataset.gate = data.currentStage;
 
+            // Dẫn sang trang review (xem POC + ghim ghi chú lên phần tử) thay vì trang Mockup trần —
+            // ghi chú ghim ở đây sẽ được gom vào "Yêu cầu chỉnh sửa" tại cổng POC.
             const pocLink = data.pocReady
-                ? ` <a href="/Projects/Mockup?projectId=${PID}" target="_blank">Xem POC</a>`
+                ? ` <a href="/Projects/PocReview?projectId=${PID}" target="_blank">Xem POC</a>`
                 : '';
 
             if (CAN_ADVANCE) {

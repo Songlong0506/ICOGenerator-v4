@@ -146,6 +146,14 @@
                                    target="_blank">
                                     Mockup
                                 </a>
+                                @* Review = xem POC kèm ghim ghi chú trực tiếp lên phần tử (Projects/PocReview). *@
+                                <a class="btn outline"
+                                   asp-controller="Projects"
+                                   asp-action="PocReview"
+                                   asp-route-projectId="@p.Id"
+                                   title="Xem POC và ghim ghi chú trực tiếp lên phần tử cần sửa">
+                                    💬 Review
+                                </a>
                             }
                             else
                             {

@@ -36,6 +36,7 @@ public class AppDbContext : DbContext
     public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
     public DbSet<EvalResult> EvalResults => Set<EvalResult>();
     public DbSet<PromptTemplateVersion> PromptTemplateVersions => Set<PromptTemplateVersion>();
+    public DbSet<PocComment> PocComments => Set<PocComment>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -304,6 +305,22 @@ public class AppDbContext : DbContext
             b.Property(x => x.CreatedByUsername).HasMaxLength(100);
             b.HasIndex(x => new { x.PromptKey, x.VersionNumber }).IsUnique();
             b.HasIndex(x => new { x.PromptKey, x.IsActive });
+        });
+
+        // Ghi chú ghim trên POC: Project FK Cascade (xóa project ⇒ dọn luôn ghi chú). Status lưu dạng
+        // chuỗi (dễ đọc, bền với việc chèn enum mới); Comment bound 4000 (một ghi chú review, không phải
+        // tài liệu). Index (ProjectId, Status, CreatedAt) phục vụ truy vấn nóng "ghi chú Open của một
+        // project theo thứ tự" ở trang PocReview và khi gom vào yêu cầu chỉnh sửa.
+        builder.Entity<PocComment>(b =>
+        {
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.PageView).HasMaxLength(200);
+            b.Property(x => x.ElementLabel).HasMaxLength(300);
+            b.Property(x => x.ElementPath).HasMaxLength(600);
+            b.Property(x => x.Comment).HasMaxLength(4000);
+            b.Property(x => x.CreatedByUsername).HasMaxLength(100);
+            b.HasIndex(x => new { x.ProjectId, x.Status, x.CreatedAt });
         });
 
         // Dữ liệu tổ chức đồng bộ từ HR_Portal (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu

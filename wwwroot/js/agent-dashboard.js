@@ -368,11 +368,69 @@ function openReviseModal() {
     modal.style.display = 'flex';
     const feedback = document.getElementById('revise-feedback');
     if (feedback) feedback.focus();
+
+    loadRevisePocComments();
 }
 
 function closeReviseModal() {
     const modal = document.getElementById('revise-modal');
     if (modal) modal.style.display = 'none';
+}
+
+// Cổng POC: nạp các ghi chú người xem đã GHIM trực tiếp trên POC (Projects/PocReview) vào popup
+// "Yêu cầu chỉnh sửa" — mặc định gửi kèm cho agent (checkbox). Khi có ghi chú được gửi kèm, phần
+// nhận xét gõ tay được phép trống (required của textarea bật/tắt theo đó). Bước hiện tại do vòng
+// poll cổng ghi vào #delivery-gate (data-stage); không phải cổng POC thì ẩn cả khối.
+async function loadRevisePocComments() {
+    const block = document.getElementById('revise-poc-comments');
+    const feedback = document.getElementById('revise-feedback');
+    if (!block || !feedback) return;
+
+    const gate = document.getElementById('delivery-gate');
+    const isPocGate = gate && gate.dataset.stage === 'PocPreview';
+
+    const listEl = document.getElementById('revise-poc-list');
+    const summaryEl = document.getElementById('revise-poc-summary');
+    const checkbox = document.getElementById('revise-include-poc');
+
+    function syncRequired(hasComments) {
+        feedback.required = !(hasComments && checkbox && checkbox.checked);
+    }
+
+    if (!isPocGate) {
+        block.style.display = 'none';
+        syncRequired(false);
+        return;
+    }
+
+    let comments = [];
+    try {
+        const response = await fetch(`/Projects/PocComments?projectId=${PROJECT_ID}`);
+        if (response.ok) comments = await response.json();
+    } catch { /* lỗi mạng: coi như không có ghi chú, chỉ mất tiện ích phụ */ }
+
+    const open = comments.filter(c => c.status === 'Open');
+    if (open.length === 0) {
+        block.style.display = 'none';
+        syncRequired(false);
+        return;
+    }
+
+    block.style.display = '';
+    summaryEl.textContent = `Gửi kèm ${open.length} ghi chú đã ghim trên POC`;
+    listEl.innerHTML = open.map(c => `
+        <li>
+            <b>${escapeHtml(c.elementLabel || 'Vị trí trên trang')}</b>
+            ${c.pageView ? `<span class="muted">· ${escapeHtml(c.pageView)}</span>` : ''}
+            — ${escapeHtml(c.comment)}
+        </li>
+    `).join('');
+
+    syncRequired(true);
+    if (checkbox && !checkbox.dataset.wired) {
+        checkbox.dataset.wired = '1';
+        checkbox.addEventListener('change', () => syncRequired(block.style.display !== 'none'));
+    }
 }
 
 let requestReadableMode = false;
@@ -824,6 +882,8 @@ pollAgentStats();
         }
 
         gate.style.display = '';
+        // Bước hiện tại cho popup "Yêu cầu chỉnh sửa" (khối ghi chú POC chỉ hiện ở cổng PocPreview).
+        gate.dataset.stage = data.currentStage || '';
         setRunId(data.runId);
         if (statusEl) statusEl.innerHTML = `${escapeHtml(data.runName || 'Delivery')} · ${badge(data.runStatus)}`;
         renderTimeline(data.pipeline);

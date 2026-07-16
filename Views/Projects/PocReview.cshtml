@@ -1,0 +1,82 @@
+@model ICOGenerator.Application.Projects.PocReviewPage
+@{
+    ViewData["Title"] = "POC Review";
+    var canManage = ViewBag.CanManageComments is bool cm && cm;
+}
+
+@* Trang review POC: nhúng POC (sandbox, origin opaque — xem ProjectsController.Mockup) trong iframe ở
+   chế độ review (annotator được tiêm lúc phục vụ), kèm panel ghi chú bên phải. Người xem bật "chế độ
+   ghim", click phần tử trong POC để ghi chú; các ghi chú Open được người duyệt gom vào "Yêu cầu chỉnh
+   sửa" ở cổng POC trên Agent Dashboard. Trang cha (đây) giữ toàn bộ thao tác ghi/xóa — iframe chỉ nói
+   chuyện qua postMessage nên rào chắn sandbox giữ nguyên. *@
+
+<div class="page-head">
+    <div>
+        <h1>POC Review</h1>
+        <p class="muted">Bật chế độ ghim rồi click vào phần tử trong POC để ghi chú cho đội Dev.</p>
+    </div>
+</div>
+
+<div class="poc-review-layout"
+     id="pocReviewRoot"
+     data-project-id="@Model.ProjectId"
+     data-comments-url="@Url.Action("PocComments", "Projects", new { projectId = Model.ProjectId })"
+     data-add-url="@Url.Action("AddPocComment", "Projects")"
+     data-delete-url="@Url.Action("DeletePocComment", "Projects")">
+
+    <section class="card poc-frame-panel">
+        <div class="poc-toolbar">
+            <button type="button" id="pinModeBtn" class="btn outline">📌 Bật chế độ ghim</button>
+            <span class="muted poc-toolbar-hint" id="pinModeHint">Chế độ ghim đang tắt — POC thao tác bình thường.</span>
+            <a class="btn outline small poc-open-tab"
+               asp-action="Mockup"
+               asp-route-projectId="@Model.ProjectId"
+               target="_blank">Mở tab riêng ↗</a>
+        </div>
+
+        @* sandbox trên thẻ iframe LẶP LẠI đúng CSP sandbox mà endpoint Mockup tự đặt (defense-in-depth,
+           không nới thêm gì); review=True để server tiêm annotator vào tài liệu (bool binder KHÔNG
+           nhận "1" — phải là true/false). *@
+        <iframe id="pocFrame"
+                title="POC demo"
+                src="@Url.Action("Mockup", "Projects", new { projectId = Model.ProjectId, review = true })"
+                sandbox="allow-scripts allow-forms allow-modals"></iframe>
+    </section>
+
+    <aside class="card poc-comments-panel">
+        <h3>Ghi chú trên POC <span class="poc-count" id="pocCommentCount"></span></h3>
+        <p class="muted poc-panel-hint">
+            Ghi chú sẽ được gom vào "Yêu cầu chỉnh sửa" ở cổng POC (Agent Dashboard) để agent sửa đúng phần tử.
+        </p>
+
+        <form id="pocCommentForm" class="poc-comment-form" hidden>
+            @Html.AntiForgeryToken()
+            <div class="poc-target-label" id="pocTargetLabel"></div>
+            <textarea id="pocCommentText" rows="3" maxlength="4000"
+                      placeholder="Phần tử này cần sửa gì? Ví dụ: đổi nhãn thành 'Lưu', thêm cột Trạng thái…"></textarea>
+            <div class="poc-form-actions">
+                <button type="submit" class="btn primary small">Ghim ghi chú</button>
+                <button type="button" class="btn outline small" id="pocCommentCancel">Hủy</button>
+            </div>
+        </form>
+
+        <div id="pocCommentList" class="poc-comment-list">
+            <p class="muted">Đang tải ghi chú…</p>
+        </div>
+    </aside>
+</div>
+
+@section Breadcrumb {
+    Projects <span class="sep">&rsaquo;</span> @Model.ProjectName <span class="sep">&rsaquo;</span> <b>POC Review</b>
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/poc-review.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script>
+        window.POC_REVIEW_CAN_MANAGE = @(canManage ? "true" : "false");
+    </script>
+    <script src="~/js/poc-review.js" asp-append-version="true"></script>
+}

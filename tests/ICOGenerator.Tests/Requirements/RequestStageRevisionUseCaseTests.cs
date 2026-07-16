@@ -324,6 +324,148 @@ public class RequestStageRevisionUseCaseTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task ExecuteAsync_AtPocGate_MergesPinnedComments_AndMarksThemSent()
+    {
+        var projectId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+
+        await using (var db = NewDb())
+        {
+            db.Projects.Add(new Project { Id = projectId, Name = "P" });
+            db.WorkflowRuns.Add(new WorkflowRun
+            {
+                Id = runId,
+                ProjectId = projectId,
+                Status = WorkflowRunStatus.WaitingForHuman,
+                CurrentStage = WorkflowStageKey.PocPreview
+            });
+            db.AgentTasks.Add(new AgentTask
+            {
+                WorkflowRunId = runId,
+                ProjectId = projectId,
+                Type = AgentTaskType.PocPreview,
+                Status = AgentTaskStatus.Completed,
+                Title = "Tạo POC HTML để xem trước",
+                Input = "spec",
+                FinishedAt = DateTime.UtcNow
+            });
+            db.PocComments.AddRange(
+                new PocComment
+                {
+                    ProjectId = projectId,
+                    PageView = "Overview",
+                    ElementLabel = "Nút “Save”",
+                    ElementPath = "#main > button:nth-of-type(2)",
+                    Comment = "Đổi nhãn thành 'Lưu'",
+                    CreatedAt = DateTime.UtcNow.AddMinutes(-2)
+                },
+                // Ghi chú đã Sent ở vòng trước — KHÔNG được gửi lặp.
+                new PocComment
+                {
+                    ProjectId = projectId,
+                    Comment = "đã gửi vòng trước",
+                    Status = PocCommentStatus.Sent,
+                    CreatedAt = DateTime.UtcNow.AddMinutes(-9)
+                });
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            // Nhận xét gõ tay được phép TRỐNG khi có ghi chú ghim được gửi kèm.
+            var result = await new RequestStageRevisionUseCase(db)
+                .ExecuteAsync(projectId, "  ", runId, includePocComments: true);
+            Assert.Equal(RequestStageRevisionResult.Queued, result);
+        }
+
+        await using (var db = NewDb())
+        {
+            var revision = await db.AgentTasks.SingleAsync(t => t.RevisionFeedback != null);
+            Assert.Contains("Ghi chú ghim trực tiếp trên POC", revision.RevisionFeedback);
+            Assert.Contains("Màn hình \"Overview\"", revision.RevisionFeedback);
+            Assert.Contains("Đổi nhãn thành 'Lưu'", revision.RevisionFeedback);
+            Assert.Contains("selector: #main > button:nth-of-type(2)", revision.RevisionFeedback);
+            Assert.DoesNotContain("đã gửi vòng trước", revision.RevisionFeedback);
+
+            // Ghi chú Open đã gom → Sent để vòng chỉnh sửa sau không gửi lặp.
+            Assert.Equal(PocCommentStatus.Sent,
+                (await db.PocComments.SingleAsync(c => c.Comment == "Đổi nhãn thành 'Lưu'")).Status);
+        }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AtPocGate_NoOpenComments_AndBlankFeedback_ReturnsMissingFeedback()
+    {
+        var projectId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+
+        await using (var db = NewDb())
+        {
+            db.Projects.Add(new Project { Id = projectId, Name = "P" });
+            db.WorkflowRuns.Add(new WorkflowRun
+            {
+                Id = runId,
+                ProjectId = projectId,
+                Status = WorkflowRunStatus.WaitingForHuman,
+                CurrentStage = WorkflowStageKey.PocPreview
+            });
+            await db.SaveChangesAsync();
+        }
+
+        await using var readDb = NewDb();
+        var result = await new RequestStageRevisionUseCase(readDb)
+            .ExecuteAsync(projectId, "", runId, includePocComments: true);
+
+        Assert.Equal(RequestStageRevisionResult.MissingFeedback, result);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_NotPocGate_IgnoresIncludeFlag_AndKeepsCommentsOpen()
+    {
+        var projectId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+
+        await using (var db = NewDb())
+        {
+            db.Projects.Add(new Project { Id = projectId, Name = "P" });
+            db.WorkflowRuns.Add(new WorkflowRun
+            {
+                Id = runId,
+                ProjectId = projectId,
+                Status = WorkflowRunStatus.WaitingForHuman,
+                CurrentStage = WorkflowStageKey.ArchitectureDesign
+            });
+            db.AgentTasks.Add(new AgentTask
+            {
+                WorkflowRunId = runId,
+                ProjectId = projectId,
+                Type = AgentTaskType.ArchitectureDesign,
+                Status = AgentTaskStatus.Completed,
+                Title = "Đề xuất kiến trúc",
+                Input = "spec",
+                FinishedAt = DateTime.UtcNow
+            });
+            db.PocComments.Add(new PocComment { ProjectId = projectId, Comment = "ghi chú POC" });
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            var result = await new RequestStageRevisionUseCase(db)
+                .ExecuteAsync(projectId, "sửa kiến trúc", runId, includePocComments: true);
+            Assert.Equal(RequestStageRevisionResult.Queued, result);
+        }
+
+        await using (var db = NewDb())
+        {
+            var revision = await db.AgentTasks.SingleAsync(t => t.RevisionFeedback != null);
+            // Ghi chú POC thuộc cổng POC — bước khác không được "mượn" (và cũng không bị đốt).
+            Assert.DoesNotContain("ghi chú POC", revision.RevisionFeedback);
+            Assert.Equal(PocCommentStatus.Open, (await db.PocComments.SingleAsync()).Status);
+        }
+    }
+
     // AgentTask.AgentId is a real FK — tests that assert agent preservation need a seeded agent
     // (with its own AiModel, also a required FK).
     private static Agent NewAgent(Guid id) => new()

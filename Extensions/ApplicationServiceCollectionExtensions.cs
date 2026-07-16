@@ -205,6 +205,10 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UpdateDeliveryConfigUseCase>();
         services.AddScoped<GetMockupFileQuery>();
         services.AddScoped<GetImplementationSourceQuery>();
+        services.AddScoped<GetPocReviewQuery>();
+        services.AddScoped<ListPocCommentsQuery>();
+        services.AddScoped<AddPocCommentUseCase>();
+        services.AddScoped<DeletePocCommentUseCase>();
         return services;
     }
 
