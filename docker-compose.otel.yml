@@ -1,0 +1,43 @@
+# docker-compose.otel.yml — OTLP backend cục bộ cho OpenTelemetry (Otel:Enabled=true).
+#
+# Đây KHÔNG phải collector nhúng trong app: nó chạy TÁCH RIÊNG (đúng triết lý OTel —
+# app sinh telemetry qua SDK, collector/backend nhận-lưu-hiển thị độc lập). Mục đích chỉ
+# để "bật là chạy được ngay" khi dev/demo, không phải cấu hình cho production.
+#
+# ⚠️ CHỈ dùng LOCAL/DEV: dashboard chạy anonymous (KHÔNG auth) cho tiện. Đừng phơi ra mạng ngoài.
+#
+# Dùng:
+#   docker compose -f docker-compose.otel.yml up -d
+#   # rồi bật Otel: set Otel__Enabled=true (env) hoặc "Otel:Enabled": true trong appsettings.*.json
+#   # OTLP ingest nghe ở localhost:4317 — KHỚP đúng default của app (Otel:OtlpEndpoint để trống).
+#   # Mở UI xem trace/metric: http://localhost:18888
+#   docker compose -f docker-compose.otel.yml down
+#
+# Đổi sang Jaeger: comment service 'aspire-dashboard', bỏ comment 'jaeger' bên dưới
+# (Jaeger nghe OTLP thẳng ở 4317 nên không cần map port lệch).
+
+services:
+  # .NET Aspire Dashboard — một image = OTLP endpoint + UI xem trace / metric / log.
+  # Hợp nhất cho use-case dev/demo này: nhẹ, không cần file cấu hình collector.
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.0
+    container_name: ico-aspire-dashboard
+    restart: unless-stopped
+    environment:
+      # LOCAL DEV ONLY: tắt auth cho cả UI lẫn OTLP ingest để không phải cấp token.
+      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+    ports:
+      - "18888:18888"   # Dashboard UI → http://localhost:18888
+      - "4317:18889"    # OTLP gRPC ingest (container nghe 18889) → map ra host 4317
+                        # để khớp default Otel:OtlpEndpoint = http://localhost:4317.
+
+  # ── Jaeger all-in-one (thay thế Aspire — bỏ comment cả khối để dùng) ─────────────
+  # jaeger:
+  #   image: jaegertracing/all-in-one:1.60
+  #   container_name: ico-jaeger
+  #   restart: unless-stopped
+  #   environment:
+  #     - COLLECTOR_OTLP_ENABLED=true
+  #   ports:
+  #     - "16686:16686"  # Jaeger UI  → http://localhost:16686
+  #     - "4317:4317"    # OTLP gRPC  → khớp default Otel:OtlpEndpoint

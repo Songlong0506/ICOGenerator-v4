@@ -229,6 +229,12 @@ runtime/HTTP**, rồi xuất qua **OTLP** tới collector (`Otel:OtlpEndpoint`, 
 `http://localhost:4317`). Đăng ký tập trung ở `AddObservabilityServices` trong file Extensions như mọi nhóm
 DI khác.
 
+Collector **không nhúng vào app** (giữ đúng ranh giới OTel: SDK sinh telemetry ↔ collector/backend nhận-lưu-
+hiển thị, khác vòng đời, khác scale). Để dev/demo "bật là chạy", repo kèm `docker-compose.otel.yml` dựng
+**.NET Aspire Dashboard** (OTLP endpoint + UI trong một image) map ra `localhost:4317` — khớp default nên chỉ
+cần `docker compose -f docker-compose.otel.yml up -d` rồi `Otel:Enabled=true`. File compose chạy dashboard
+**anonymous**, chỉ dùng local — production trỏ `Otel:OtlpEndpoint` tới collector thật (Jaeger/Tempo/Grafana).
+
 ### 5.11. Bộ nhớ hội thoại BA (summarization memory — hai tầng nhớ)
 Hội thoại BA (`ChatWithBAUseCase` → `BARequirementService.ChatAsync`) dùng **hai tầng nhớ** để giữ ngữ
 cảnh khi chat dài mà prompt không phình token, do `ConversationMemoryService` lo:
