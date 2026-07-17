@@ -224,7 +224,7 @@ else
                         @foreach (var m in Model.Models)
                         {
                             <tr>
-                                <td><b>@m.ModelName</b></td>
+                                <td><b>@m.ModelId</b></td>
                                 <td class="num-col">@m.Calls.ToString("N0")</td>
                                 <td class="num-col"><span class="q-rate-pill @GoodHighClass(m.SuccessRate)">@Pct(m.SuccessRate)</span></td>
                                 <td class="num-col">@(m.AvgLatencyMs >= 1000 ? (m.AvgLatencyMs / 1000d).ToString("0.#", CultureInfo.InvariantCulture) + "s" : m.AvgLatencyMs.ToString("0") + "ms")</td>

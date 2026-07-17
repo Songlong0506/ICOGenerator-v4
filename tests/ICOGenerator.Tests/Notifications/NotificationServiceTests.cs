@@ -30,7 +30,7 @@ public class NotificationServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task NotifyGateOpened_CreatesForActiveDeliveryAdvanceUsersOnly()
+    public async Task NotifyGateOpened_CreatesForDeliveryAdvanceUsersOnly()
     {
         var projectId = Guid.NewGuid();
         var runId = Guid.NewGuid();
@@ -38,10 +38,9 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             db.AppUsers.AddRange(
-                new AppUser { Username = "admin", Role = UserRole.Admin, IsActive = true },
-                new AppUser { Username = "teamdev", Role = UserRole.TeamDev, IsActive = true },
-                new AppUser { Username = "teamdev_off", Role = UserRole.TeamDev, IsActive = false },
-                new AppUser { Username = "user", Role = UserRole.User, IsActive = true });
+                new AppUser { Username = "admin", Role = UserRole.Admin },
+                new AppUser { Username = "teamdev", Role = UserRole.TeamDev },
+                new AppUser { Username = "user", Role = UserRole.User });
             db.Projects.Add(new Project { Id = projectId, Name = "Cổng thanh toán" });
             db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId, Status = WorkflowRunStatus.WaitingForHuman });
             await db.SaveChangesAsync();
@@ -82,7 +81,7 @@ public class NotificationServiceTests : IDisposable
 
         await using (var db = NewDb())
         {
-            db.AppUsers.Add(new AppUser { Username = "teamdev", Role = UserRole.TeamDev, IsActive = true });
+            db.AppUsers.Add(new AppUser { Username = "teamdev", Role = UserRole.TeamDev });
             db.Projects.Add(new Project { Id = projectId, Name = "P" });
             db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
             await db.SaveChangesAsync();
@@ -188,7 +187,7 @@ public class NotificationServiceTests : IDisposable
 
         await using (var db = NewDb())
         {
-            db.AppUsers.Add(new AppUser { Username = "teamdev", Role = UserRole.TeamDev, IsActive = true });
+            db.AppUsers.Add(new AppUser { Username = "teamdev", Role = UserRole.TeamDev });
             db.Projects.Add(new Project { Id = projectId, Name = "Cổng thanh toán" });
             db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
             await db.SaveChangesAsync();
@@ -234,10 +233,10 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             db.AppUsers.AddRange(
-                new AppUser { Username = "bell_all", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyByEmail = false },
-                new AppUser { Username = "email_opt", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyByEmail = true, Email = "e@bosch.com" },
-                new AppUser { Username = "muted_inapp", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = false, NotifyByEmail = false },
-                new AppUser { Username = "opt_no_addr", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyByEmail = true, Email = null });
+                new AppUser { Username = "bell_all", Role = UserRole.TeamDev, NotifyInApp = true, NotifyByEmail = false },
+                new AppUser { Username = "email_opt", Role = UserRole.TeamDev, NotifyInApp = true, NotifyByEmail = true, Email = "e@bosch.com" },
+                new AppUser { Username = "muted_inapp", Role = UserRole.TeamDev, NotifyInApp = false, NotifyByEmail = false },
+                new AppUser { Username = "opt_no_addr", Role = UserRole.TeamDev, NotifyInApp = true, NotifyByEmail = true, Email = null });
             db.Projects.Add(new Project { Id = projectId, Name = "P" });
             db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
             await db.SaveChangesAsync();
@@ -275,7 +274,7 @@ public class NotificationServiceTests : IDisposable
 
         await using (var db = NewDb())
         {
-            db.AppUsers.Add(new AppUser { Username = "gate_only", Role = UserRole.TeamDev, IsActive = true, NotifyInApp = true, NotifyOnCompleted = false });
+            db.AppUsers.Add(new AppUser { Username = "gate_only", Role = UserRole.TeamDev, NotifyInApp = true, NotifyOnCompleted = false });
             db.Projects.Add(new Project { Id = projectId, Name = "P" });
             db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
             await db.SaveChangesAsync();

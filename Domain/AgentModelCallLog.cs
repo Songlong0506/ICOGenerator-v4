@@ -15,7 +15,6 @@ public class AgentModelCallLog
     public Guid? WorkflowRunId { get; set; }
 
     public string AgentName { get; set; } = string.Empty;
-    public string ModelName { get; set; } = string.Empty;
     public string ModelId { get; set; } = string.Empty;
 
     public string RequestJson { get; set; } = string.Empty;

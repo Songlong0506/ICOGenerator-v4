@@ -172,7 +172,6 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         var result = new LlmCallResult
         {
             ModelId = _model.ModelId,
-            ModelName = _model.ModelId,
             // ChatMessage.Text is empty for tool-result turns, so this slightly undercounts on tool-heavy
             // conversations — acceptable for an estimate used only for the cost/usage display.
             PromptTokens = TokenEstimator.Estimate(string.Join("\n", messageList.Select(m => m.Text)))

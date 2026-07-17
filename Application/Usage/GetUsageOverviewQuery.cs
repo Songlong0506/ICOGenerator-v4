@@ -16,7 +16,7 @@ public record ProjectUsageItem(Guid ProjectId, string ProjectName, string Depart
 // TargetResponsible trên bảng OrgUnits). DepartmentCode null = nhóm project chưa gắn đơn vị.
 public record DepartmentUsageItem(string? DepartmentCode, string DepartmentName, int ProjectCount, long TotalTokens, int CallCount, decimal Cost);
 
-public record ModelUsageItem(string ModelId, string ModelName, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal InputPricePerMillionTokens, decimal OutputPricePerMillionTokens, bool HasPrice, decimal Cost);
+public record ModelUsageItem(string ModelId, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal InputPricePerMillionTokens, decimal OutputPricePerMillionTokens, bool HasPrice, decimal Cost);
 
 public record UsageOverviewVm(
     long TotalTokens,
@@ -49,7 +49,7 @@ public class GetUsageOverviewQuery
 
     public async Task<UsageOverviewVm> ExecuteAsync(int? year = null)
     {
-        // Bảng giá theo ModelId. Log chỉ lưu ModelId/ModelName dạng chuỗi (không FK), nên ta tra giá bằng
+        // Bảng giá theo ModelId. Log chỉ lưu ModelId dạng chuỗi (không FK), nên ta tra giá bằng
         // ModelId. Cùng một ModelId có thể có nhiều bản ghi AiModel (khác endpoint) → gộp lại, lấy bản đầu.
         var priceByModelId = (await _db.AiModels
                 .AsNoTracking()
@@ -82,7 +82,7 @@ public class GetUsageOverviewQuery
         // needs — project + run + month + model. Each section re-aggregates this in memory: sums, counts
         // and maxes all compose, and per-token cost is linear in (prompt, completion) for a fixed model,
         // so summing CostFor over these rows equals computing it on the coarser groups. One table scan
-        // instead of four. ModelId/ModelName/ProjectName are bounded columns (≤ nvarchar(200)).
+        // instead of four. ModelId/ProjectName are bounded columns (≤ nvarchar(200)).
         var logRaw = await _db.AgentModelCallLogs
             .AsNoTracking()
             .GroupBy(x => new
@@ -93,8 +93,7 @@ public class GetUsageOverviewQuery
                 x.WorkflowRunId,
                 x.CreatedAt.Year,
                 x.CreatedAt.Month,
-                x.ModelId,
-                x.ModelName
+                x.ModelId
             })
             .Select(g => new
             {
@@ -105,7 +104,6 @@ public class GetUsageOverviewQuery
                 g.Key.Year,
                 g.Key.Month,
                 g.Key.ModelId,
-                g.Key.ModelName,
                 PromptTokens = g.Sum(x => (long)x.PromptTokens),
                 CompletionTokens = g.Sum(x => (long)x.CompletionTokens),
                 TotalTokens = g.Sum(x => (long)x.TotalTokens),
@@ -115,9 +113,8 @@ public class GetUsageOverviewQuery
             .ToListAsync();
 
         // ----- Theo model (toàn thời gian); cũng là nguồn cộng ra tổng token + tổng chi phí -----
-        // Gom theo cả ModelId + ModelName (ModelId ↔ ModelName gần như 1:1 nên bảng không bị tách dòng).
         var models = logRaw
-            .GroupBy(x => new { x.ModelId, x.ModelName })
+            .GroupBy(x => new { x.ModelId })
             .Select(g =>
             {
                 var modelId = g.Key.ModelId;
@@ -127,8 +124,7 @@ public class GetUsageOverviewQuery
                 var callCount = g.Sum(x => x.CallCount);
                 var price = priceByModelId.TryGetValue(modelId ?? string.Empty, out var p) ? p : (Input: 0m, Output: 0m);
                 return new ModelUsageItem(
-                    modelId ?? string.Empty,
-                    string.IsNullOrWhiteSpace(g.Key.ModelName) ? (modelId ?? "(unknown)") : g.Key.ModelName,
+                    string.IsNullOrWhiteSpace(modelId) ? "(unknown)" : modelId,
                     promptTokens,
                     completionTokens,
                     totalTokens,

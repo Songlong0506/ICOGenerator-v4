@@ -251,7 +251,6 @@ erDiagram
         Guid AgentId FK
         Guid WorkflowRunId "nullable, index only"
         string AgentName
-        string ModelName
         string ModelId
         string RequestJson
         string ResponseText
@@ -291,7 +290,7 @@ erDiagram
         string PasswordHash
         string DisplayName
         UserRole Role
-        bool IsActive
+        string OrgUnitName
         string UserMemory
         string Email
         bool NotifyInApp

@@ -73,10 +73,10 @@ public class GetDeliveryQualityQueryTests : IDisposable
 
             // Call logs: cost theo run (WorkflowRunId != null) + 1 call chat BA (run null) cho độ tin cậy model.
             db.AgentModelCallLogs.AddRange(
-                new AgentModelCallLog { ProjectId = p1, AgentId = agentId, WorkflowRunId = runA, ModelId = "m1", ModelName = "Model One", PromptTokens = 1_000_000, CompletionTokens = 500_000, TotalTokens = 1_500_000, IsSuccess = true, DurationMs = 1000, CreatedAt = Utc(2026, 3, 1) },
-                new AgentModelCallLog { ProjectId = p2, AgentId = agentId, WorkflowRunId = runD, ModelId = "m1", ModelName = "Model One", PromptTokens = 2_000_000, CompletionTokens = 0, TotalTokens = 2_000_000, IsSuccess = true, DurationMs = 2000, CreatedAt = Utc(2026, 3, 4) },
-                new AgentModelCallLog { ProjectId = p1, AgentId = agentId, WorkflowRunId = runB, ModelId = "m1", ModelName = "Model One", PromptTokens = 0, CompletionTokens = 0, TotalTokens = 0, IsSuccess = false, DurationMs = 500, CreatedAt = Utc(2026, 3, 2) },
-                new AgentModelCallLog { ProjectId = p1, AgentId = agentId, WorkflowRunId = null, ModelId = "m1", ModelName = "Model One", PromptTokens = 100_000, CompletionTokens = 0, TotalTokens = 100_000, IsSuccess = true, DurationMs = 300, CreatedAt = Utc(2026, 3, 5) });
+                new AgentModelCallLog { ProjectId = p1, AgentId = agentId, WorkflowRunId = runA, ModelId = "m1", PromptTokens = 1_000_000, CompletionTokens = 500_000, TotalTokens = 1_500_000, IsSuccess = true, DurationMs = 1000, CreatedAt = Utc(2026, 3, 1) },
+                new AgentModelCallLog { ProjectId = p2, AgentId = agentId, WorkflowRunId = runD, ModelId = "m1", PromptTokens = 2_000_000, CompletionTokens = 0, TotalTokens = 2_000_000, IsSuccess = true, DurationMs = 2000, CreatedAt = Utc(2026, 3, 4) },
+                new AgentModelCallLog { ProjectId = p1, AgentId = agentId, WorkflowRunId = runB, ModelId = "m1", PromptTokens = 0, CompletionTokens = 0, TotalTokens = 0, IsSuccess = false, DurationMs = 500, CreatedAt = Utc(2026, 3, 2) },
+                new AgentModelCallLog { ProjectId = p1, AgentId = agentId, WorkflowRunId = null, ModelId = "m1", PromptTokens = 100_000, CompletionTokens = 0, TotalTokens = 100_000, IsSuccess = true, DurationMs = 300, CreatedAt = Utc(2026, 3, 5) });
 
             await db.SaveChangesAsync();
         }

@@ -23,7 +23,7 @@ public class NotificationPreferencesTests : IDisposable
         _options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection).Options;
         using var db = NewDb();
         db.Database.EnsureCreated();
-        db.AppUsers.Add(new AppUser { Username = "teamdev", Role = UserRole.TeamDev, IsActive = true });
+        db.AppUsers.Add(new AppUser { Username = "teamdev", Role = UserRole.TeamDev });
         db.SaveChanges();
     }
 

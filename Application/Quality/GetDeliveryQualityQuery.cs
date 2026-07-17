@@ -24,7 +24,6 @@ public record ProjectQualityItem(
 // Độ tin cậy của model (khác trang Usage vốn chỉ đo chi phí): tỷ lệ call thành công + độ trễ trung bình.
 public record ModelReliabilityItem(
     string ModelId,
-    string ModelName,
     int Calls,
     int SuccessCount,
     double SuccessRate,
@@ -172,11 +171,10 @@ public class GetDeliveryQualityQuery
         // Gộp cả prompt/completion để tính chi phí ngay trong một truy vấn (cùng công thức LlmCost với Usage). -----
         var modelAgg = await _db.AgentModelCallLogs.AsNoTracking()
             .Where(x => x.CreatedAt.Year == selectedYear)
-            .GroupBy(x => new { x.ModelId, x.ModelName })
+            .GroupBy(x => new { x.ModelId })
             .Select(g => new
             {
                 g.Key.ModelId,
-                g.Key.ModelName,
                 Calls = g.Count(),
                 SuccessCount = g.Sum(x => x.IsSuccess ? 1 : 0),
                 DurationSum = g.Sum(x => x.DurationMs),
@@ -188,8 +186,7 @@ public class GetDeliveryQualityQuery
 
         var models = modelAgg
             .Select(m => new ModelReliabilityItem(
-                m.ModelId ?? string.Empty,
-                string.IsNullOrWhiteSpace(m.ModelName) ? (m.ModelId ?? "(unknown)") : m.ModelName,
+                string.IsNullOrWhiteSpace(m.ModelId) ? "(unknown)" : m.ModelId,
                 m.Calls,
                 m.SuccessCount,
                 m.Calls == 0 ? 0 : Math.Round(m.SuccessCount * 100d / m.Calls, 1),

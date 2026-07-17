@@ -25,18 +25,21 @@ public class SsoUserProvisioner
     /// <summary>
     /// Quy danh tính SSO về một AppUser. Vai trò lấy từ Claims (<paramref name="roleFromClaims"/>):
     /// user MỚI được tạo với vai trò này (rơi về <paramref name="defaultRole"/> nếu Claims không ánh xạ
-    /// được vai trò nào), user ĐÃ TỒN TẠI được ĐỒNG BỘ vai trò từ Claims. Trả về null khi phải TỪ CHỐI
-    /// truy cập: user tồn tại nhưng bị khóa (IsActive = false), hoặc username rỗng.
+    /// được vai trò nào), user ĐÃ TỒN TẠI được ĐỒNG BỘ vai trò + đơn vị tổ chức từ Claims. Trả về null
+    /// khi phải TỪ CHỐI truy cập: username rỗng.
     /// </summary>
     /// <param name="roleFromClaims">Vai trò ánh xạ từ role claim của IdentityServer; null = Claims không
     /// khớp mapping nào ⇒ user mới dùng <paramref name="defaultRole"/>, user cũ GIỮ NGUYÊN vai trò (tránh
     /// vô tình hạ quyền khi mapping chưa cấu hình đủ).</param>
+    /// <param name="orgUnitName">Đơn vị tổ chức từ claim "department"; đồng bộ lại mỗi lần đăng nhập khi
+    /// có giá trị. Trống ⇒ GIỮ NGUYÊN giá trị cũ (không xóa khi IdP tạm thời không phát claim).</param>
     public async Task<AppUser?> ResolveOrProvisionAsync(
         string? username,
         string? displayName,
         string? email,
         UserRole? roleFromClaims,
         UserRole defaultRole,
+        string? orgUnitName = null,
         CancellationToken cancellationToken = default)
     {
         // Thiếu claim username (null/rỗng) ⇒ không xác định được AppUser ⇒ TỪ CHỐI.
@@ -50,10 +53,11 @@ public class SsoUserProvisioner
         var user = await _db.AppUsers
             .FirstOrDefaultAsync(u => u.Username.ToLower() == lowered, cancellationToken);
 
+        var trimmedOrgUnit = string.IsNullOrWhiteSpace(orgUnitName) ? null : orgUnitName!.Trim();
+
         if (user is not null)
         {
-            if (!user.IsActive)
-                return null;
+            var changed = false;
 
             // Đồng bộ vai trò từ Claims: IdentityServer là nguồn sự thật về vai trò. Chỉ ghi DB khi ánh xạ
             // được vai trò từ claim VÀ khác vai trò hiện tại (claim không khớp mapping ⇒ giữ nguyên).
@@ -62,8 +66,19 @@ public class SsoUserProvisioner
                 _logger.LogInformation(
                     "Đồng bộ vai trò SSO user {Username}: {OldRole} → {NewRole}.", user.Username, user.Role, role);
                 user.Role = role;
-                await _db.SaveChangesAsync(cancellationToken);
+                changed = true;
             }
+
+            // Đồng bộ đơn vị tổ chức từ claim department. Chỉ cập nhật khi claim CÓ giá trị và khác giá trị
+            // hiện tại; claim trống ⇒ giữ nguyên (tránh xóa khi IdP tạm thời không phát department).
+            if (trimmedOrgUnit is not null && user.OrgUnitName != trimmedOrgUnit)
+            {
+                user.OrgUnitName = trimmedOrgUnit;
+                changed = true;
+            }
+
+            if (changed)
+                await _db.SaveChangesAsync(cancellationToken);
 
             return user;
         }
@@ -75,7 +90,7 @@ public class SsoUserProvisioner
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? normalized : displayName!.Trim(),
             Email = string.IsNullOrWhiteSpace(email) ? null : email!.Trim(),
             Role = newRole,
-            IsActive = true
+            OrgUnitName = trimmedOrgUnit
         };
 
         _db.AppUsers.Add(created);

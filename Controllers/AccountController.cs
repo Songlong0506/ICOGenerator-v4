@@ -52,7 +52,7 @@ public class AccountController : Controller
     {
         var admin = await _db.AppUsers
             .AsNoTracking()
-            .Where(u => u.IsActive && u.Role == UserRole.Admin)
+            .Where(u => u.Role == UserRole.Admin)
             .OrderByDescending(u => u.Username == "admin")
             .ThenBy(u => u.CreatedAt)
             .FirstOrDefaultAsync(HttpContext.RequestAborted);
