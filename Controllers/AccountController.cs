@@ -64,7 +64,9 @@ public class AccountController : Controller
         var claims = new List<Claim>
         {
             new(ClaimTypes.Name, admin.Username),
-            new(ClaimTypes.Role, admin.Role.ToString())
+            new(ClaimTypes.Role, admin.Role.ToString()),
+            // Tên hiển thị cho UI (left menu…); tách khỏi claim Name vì Name là NTID lái quyền sở hữu.
+            new("display_name", string.IsNullOrWhiteSpace(admin.DisplayName) ? admin.Username : admin.DisplayName)
         };
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 

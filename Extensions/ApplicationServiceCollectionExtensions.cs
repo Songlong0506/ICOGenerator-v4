@@ -270,8 +270,13 @@ public static class ApplicationServiceCollectionExtensions
             identity.RemoveClaim(claim);
         foreach (var claim in identity.FindAll(ClaimTypes.Role).ToList())
             identity.RemoveClaim(claim);
+        foreach (var claim in identity.FindAll("display_name").ToList())
+            identity.RemoveClaim(claim);
         identity.AddClaim(new Claim(ClaimTypes.Name, appUser.Username));
         identity.AddClaim(new Claim(ClaimTypes.Role, appUser.Role.ToString()));
+        // Tên hiển thị cho UI (left menu…); tách khỏi claim Name vì Name là NTID lái quyền sở hữu.
+        identity.AddClaim(new Claim("display_name",
+            string.IsNullOrWhiteSpace(appUser.DisplayName) ? appUser.Username : appUser.DisplayName));
     }
 
     // Đăng nhập SSO thất bại (token bị từ chối ở OnTokenValidated, user hủy ở IdP, lỗi giao thức…): ghi log
