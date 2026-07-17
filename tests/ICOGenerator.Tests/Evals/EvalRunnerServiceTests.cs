@@ -37,8 +37,8 @@ public class EvalRunnerServiceTests : IDisposable
         db.Database.EnsureCreated();
         // Đơn giá khác nhau để test khẳng định chi phí được tính theo ĐÚNG model của từng lời gọi.
         db.AiModels.AddRange(
-            new AiModel { Id = _targetModelId, Name = "Target", ModelId = "target", InputPricePerMillionTokens = 1m, OutputPricePerMillionTokens = 2m },
-            new AiModel { Id = _judgeModelId, Name = "Judge", ModelId = "judge", InputPricePerMillionTokens = 3m, OutputPricePerMillionTokens = 4m });
+            new AiModel { Id = _targetModelId, ModelId = "target", InputPricePerMillionTokens = 1m, OutputPricePerMillionTokens = 2m },
+            new AiModel { Id = _judgeModelId, ModelId = "judge", InputPricePerMillionTokens = 3m, OutputPricePerMillionTokens = 4m });
         db.SaveChanges();
     }
 

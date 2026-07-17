@@ -30,7 +30,7 @@ public record EvalRunItemVm(
     DateTime CreatedAt,
     DateTime? FinishedAt);
 
-public record EvalModelOptionVm(Guid Id, string Name);
+public record EvalModelOptionVm(Guid Id, string ModelId);
 
 public record EvalPageVm(
     IReadOnlyList<EvalScenarioItemVm> Scenarios,
@@ -72,8 +72,8 @@ public class GetEvalPageQuery
         var models = await _db.AiModels
             .AsNoTracking()
             .Where(x => x.IsActive)
-            .OrderBy(x => x.Name)
-            .Select(x => new EvalModelOptionVm(x.Id, x.Name))
+            .OrderBy(x => x.ModelId)
+            .Select(x => new EvalModelOptionVm(x.Id, x.ModelId))
             .ToListAsync(cancellationToken);
 
         return new EvalPageVm(scenarios, runs, _promptCatalog.PromptKeys, models);

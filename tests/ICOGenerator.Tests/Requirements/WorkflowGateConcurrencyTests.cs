@@ -133,7 +133,7 @@ public class WorkflowGateConcurrencyTests : IDisposable
         // ApproveStage ở cổng POC enqueue bước kế (TechnicalDocs — vai BA) nên cần sẵn agent BA + model.
         if (!await db.Agents.AnyAsync(a => a.RoleKey == AgentRoleKey.BusinessAnalyst))
         {
-            var model = new AiModel { Name = "M", ModelId = "m", Endpoint = "http://localhost", ApiKey = "" };
+            var model = new AiModel { ModelId = "m", Endpoint = "http://localhost", ApiKey = "" };
             db.AiModels.Add(model);
             db.Agents.Add(new Agent { Name = "BA", RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = model.Id });
         }

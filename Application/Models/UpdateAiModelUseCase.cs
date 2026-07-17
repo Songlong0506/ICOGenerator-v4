@@ -26,7 +26,6 @@ public class UpdateAiModelUseCase
         // Chụp trạng thái TRƯỚC khi sửa để so sánh trong audit log.
         var before = CreateAiModelUseCase.Snapshot(model);
 
-        model.Name = input.Name;
         model.ModelId = input.ModelId;
         model.Endpoint = input.Endpoint;
         // The edit form no longer round-trips the decrypted key to the browser, so a blank field
@@ -42,7 +41,7 @@ public class UpdateAiModelUseCase
         await _db.SaveChangesAsync();
 
         await _audit.LogAsync(AuditCategory.Model, AuditAction.Update, model.Id.ToString(),
-            $"Cập nhật AI Model \"{model.Name}\"",
+            $"Cập nhật AI Model \"{model.ModelId}\"",
             before: before, after: CreateAiModelUseCase.Snapshot(model));
         return true;
     }

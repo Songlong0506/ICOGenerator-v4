@@ -94,7 +94,7 @@
                             <option value="" disabled selected="@(selected.AiModelId == Guid.Empty)">-- Chọn model --</option>
                             @foreach (var m in models)
                             {
-                                <option value="@m.Id" selected="@(selected.AiModelId == m.Id)">@m.Name (@m.ModelId)</option>
+                                <option value="@m.Id" selected="@(selected.AiModelId == m.Id)">@m.ModelId</option>
                             }
                         </select>
                     </div>

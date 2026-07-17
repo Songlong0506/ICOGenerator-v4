@@ -27,8 +27,8 @@ public class StartEvalRunUseCaseTests : IDisposable
         using var db = NewDb();
         db.Database.EnsureCreated();
         db.AiModels.AddRange(
-            new AiModel { Id = _targetModelId, Name = "Target", ModelId = "target" },
-            new AiModel { Id = _judgeModelId, Name = "Judge", ModelId = "judge" });
+            new AiModel { Id = _targetModelId, ModelId = "target" },
+            new AiModel { Id = _judgeModelId, ModelId = "judge" });
         db.EvalScenarios.AddRange(
             new EvalScenario { Name = "S1", PromptKey = "BA/x.md", UserInput = "in", Criteria = "c" },
             new EvalScenario { Name = "S2", PromptKey = "BA/y.md", UserInput = "in", Criteria = "c" },
@@ -49,8 +49,8 @@ public class StartEvalRunUseCaseTests : IDisposable
         var run = await verify.EvalRuns.SingleAsync();
         Assert.Equal(EvalRunStatus.Queued, run.Status);
         Assert.Equal(2, run.ScenarioCount); // chỉ đếm scenario đang bật
-        Assert.Equal("Target", run.TargetModelName);
-        Assert.Equal("Judge", run.JudgeModelName);
+        Assert.Equal("target", run.TargetModelName);
+        Assert.Equal("judge", run.JudgeModelName);
         Assert.Equal("thử", run.Note);
         Assert.Equal("admin", run.CreatedByUsername);
         Assert.Null(run.PromptKey);

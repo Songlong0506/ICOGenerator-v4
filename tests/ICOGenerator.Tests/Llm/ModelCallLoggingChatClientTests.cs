@@ -11,7 +11,7 @@ namespace ICOGenerator.Tests.Llm;
 // per-call result building, error mapping, token cap, step accounting and single-place DB logging.
 public class ModelCallLoggingChatClientTests
 {
-    private static AiModel Model() => new() { Name = "M", ModelId = "m", Endpoint = "http://localhost" };
+    private static AiModel Model() => new() { ModelId = "m", Endpoint = "http://localhost" };
     private static ModelCallLogContext Ctx(int firstStep = 1) => new(Guid.NewGuid(), new Agent { Name = "BA" }, "TestPurpose", null, firstStep);
     private static ChatMessage[] Hi() => new[] { new ChatMessage(ChatRole.User, "hi") };
 

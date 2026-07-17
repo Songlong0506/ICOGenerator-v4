@@ -17,7 +17,7 @@ public class ListAiModelsQuery
 
         var baseQuery = _db.AiModels
             .AsNoTracking()
-            .OrderBy(x => x.Name);
+            .OrderBy(x => x.ModelId);
 
         var totalCount = await baseQuery.CountAsync();
 

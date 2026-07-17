@@ -43,7 +43,7 @@ public class ProjectAccessGuardTests : IDisposable
             new Project { Id = _bobProjectId, Name = "PB", CreatedByUsername = "bob" },
             new Project { Id = _orphanProjectId, Name = "PO", CreatedByUsername = null });
 
-        var model = new AiModel { Name = "M", ModelId = "m", Endpoint = "http://localhost", ApiKey = "" };
+        var model = new AiModel { ModelId = "m", Endpoint = "http://localhost", ApiKey = "" };
         db.AiModels.Add(model);
         var agent = new Agent { Name = "BA", AiModelId = model.Id };
         db.Agents.Add(agent);

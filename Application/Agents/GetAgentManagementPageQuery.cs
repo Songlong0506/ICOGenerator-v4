@@ -31,7 +31,7 @@ public class GetAgentManagementPageQuery
             .OrderBy(x => x.Name)
             .ToListAsync();
 
-        var models = await _db.AiModels.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync();
+        var models = await _db.AiModels.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.ModelId).ToListAsync();
         var tools = await _db.ToolDefinitions.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.DisplayName).ToListAsync();
 
         // Chỉ kéo metadata (không Content — cột LOB) để thống kê phiên bản cho mỗi prompt key.

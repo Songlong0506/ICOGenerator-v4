@@ -28,13 +28,12 @@ public class CreateAiModelUseCase
         await _db.SaveChangesAsync();
 
         await _audit.LogAsync(AuditCategory.Model, AuditAction.Create, model.Id.ToString(),
-            $"Tạo AI Model \"{model.Name}\"", after: Snapshot(model));
+            $"Tạo AI Model \"{model.ModelId}\"", after: Snapshot(model));
     }
 
     // Ảnh chụp các trường có ý nghĩa để debug; KHÔNG kèm ApiKey (AuditLogger cũng tự che theo tên trường).
     internal static object Snapshot(AiModel m) => new
     {
-        m.Name,
         m.ModelId,
         m.Endpoint,
         m.ContextWindow,

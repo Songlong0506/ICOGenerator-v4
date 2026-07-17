@@ -1,6 +1,5 @@
 function openEditModel(
     id,
-    name,
     modelId,
     endpoint,
     contextWindow,
@@ -11,7 +10,6 @@ function openEditModel(
     apiKeyMask
 ) {
     document.getElementById('edit-id').value = id;
-    document.getElementById('edit-name').value = name;
     document.getElementById('edit-model-id').value = modelId;
     document.getElementById('edit-endpoint').value = endpoint;
     // Only a masked preview of the key reaches the browser — never the full secret. Leave the
