@@ -23,6 +23,10 @@
 		<PackageReference Include="Microsoft.Agents.AI" Version="1.10.0" />
 		<PackageReference Include="Microsoft.Extensions.AI" Version="10.7.0" />
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
+		<!-- Đăng nhập SSO qua IdentityServer (OpenID Connect). Handler OIDC KHÔNG nằm trong shared
+		     framework của ASP.NET Core nên phải kéo NuGet riêng. Chỉ dùng khi Authentication:Provider =
+		     "IdentityServer"; provider "Local" (mặc định) vẫn chạy cookie như cũ, không chạm gói này. -->
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.11" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
