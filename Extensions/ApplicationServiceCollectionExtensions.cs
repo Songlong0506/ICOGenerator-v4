@@ -33,7 +33,9 @@ using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Tools.PullRequests;
 using ICOGenerator.Services.Workflows;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -44,6 +46,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using System.Net;
+using System.Security.Claims;
 
 namespace ICOGenerator.Extensions;
 
@@ -55,7 +58,7 @@ public static class ApplicationServiceCollectionExtensions
         // CSRF-protected even if it forgets [ValidateAntiForgeryToken]. [IgnoreAntiforgeryToken] opts out.
         services.AddControllersWithViews(options =>
             options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
-        services.AddAuthServices(environment);
+        services.AddAuthServices(configuration, environment);
         services.AddObservabilityServices(configuration, environment);
         // MUST stay Singleton: OnModelCreating captures this instance in the ApiKey value-converter
         // and EF caches that model globally; Scoped/Transient would bind it to a disposed instance.
@@ -114,7 +117,7 @@ public static class ApplicationServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddAuthServices(this IServiceCollection services, IWebHostEnvironment environment)
+    private static IServiceCollection AddAuthServices(this IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment)
     {
         services.AddScoped<LoginUseCase>();
 
@@ -131,22 +134,26 @@ public static class ApplicationServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.AddScoped<IAuditLogger, AuditLogger>();
 
-        services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-            .AddCookie(options =>
-            {
-                options.LoginPath = "/Account/Login";
-                options.LogoutPath = "/Account/Logout";
-                options.AccessDeniedPath = "/Account/AccessDenied";
-                options.ExpireTimeSpan = TimeSpan.FromHours(8);
-                options.SlidingExpiration = true;
-                options.Cookie.HttpOnly = true;
-                options.Cookie.SameSite = SameSiteMode.Lax;
-                // Always send the auth cookie over HTTPS only; relax to SameAsRequest in Development so
-                // the cookie still works over the plain-HTTP local profile (http://localhost:55357).
-                options.Cookie.SecurePolicy = environment.IsDevelopment()
-                    ? CookieSecurePolicy.SameAsRequest
-                    : CookieSecurePolicy.Always;
-            });
+        // Cờ chọn kiểu đăng nhập: "Local" (form username/password tự code, mặc định) hoặc "IdentityServer"
+        // (SSO Bosch). Đăng ký singleton để AccountController đọc mà không cần IOptions. Tương lai bỏ login
+        // tự code ⇒ chỉ đổi cờ này sang IdentityServer, không phải sửa code.
+        var authSettings = configuration.GetSection(AuthenticationSettings.SectionName).Get<AuthenticationSettings>()
+            ?? new AuthenticationSettings();
+        services.AddSingleton(authSettings);
+
+        if (authSettings.Provider == AuthProvider.IdentityServer)
+        {
+            var identityServer = configuration.GetSection(IdentityServerSettings.SectionName).Get<IdentityServerSettings>()
+                ?? new IdentityServerSettings();
+            services.AddSingleton(identityServer);
+            // Bridge danh tính SSO → AppUser (tra/tự tạo user, đọc DbContext) ⇒ scoped.
+            services.AddScoped<SsoUserProvisioner>();
+            services.AddIdentityServerAuthentication(identityServer, environment);
+        }
+        else
+        {
+            services.AddLocalCookieAuthentication(environment);
+        }
 
         // Secure by default: every endpoint requires auth unless it opts out with [AllowAnonymous],
         // so the command-running Settings page stays guarded even if a controller forgets [Authorize].
@@ -158,6 +165,142 @@ public static class ApplicationServiceCollectionExtensions
         });
 
         return services;
+    }
+
+    // Cấu hình cookie phiên đăng nhập của app — dùng chung cho cả hai provider: Local coi cookie là nơi
+    // đăng nhập trực tiếp; IdentityServer coi cookie là SignInScheme lưu phiên SAU khi OIDC xác thực xong.
+    private static void ConfigureAppCookie(CookieAuthenticationOptions options, IWebHostEnvironment environment)
+    {
+        options.LoginPath = "/Account/Login";
+        options.LogoutPath = "/Account/Logout";
+        options.AccessDeniedPath = "/Account/AccessDenied";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        // Always send the auth cookie over HTTPS only; relax to SameAsRequest in Development so
+        // the cookie still works over the plain-HTTP local profile (http://localhost:55357).
+        options.Cookie.SecurePolicy = environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
+    }
+
+    // Đăng nhập tự code (mặc định): chỉ cookie, AccountController xác thực bằng LoginUseCase.
+    private static void AddLocalCookieAuthentication(this IServiceCollection services, IWebHostEnvironment environment)
+    {
+        services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddCookie(options => ConfigureAppCookie(options, environment));
+    }
+
+    // SSO qua IdentityServer: cookie giữ phiên (SignInScheme), OIDC là scheme thách thức (đẩy user sang IdP).
+    // Cấu hình OIDC theo mẫu Bosch (implicit "token id_token", lấy claim từ userinfo). Điểm mấu chốt là
+    // OnTokenValidated: bắc cầu danh tính SSO về một AppUser rồi phát lại claim Name (username gắn quyền
+    // sở hữu) + Role (lái toàn bộ phân quyền) — nếu không app sẽ không biết vai trò của người đăng nhập.
+    private static void AddIdentityServerAuthentication(this IServiceCollection services, IdentityServerSettings ids, IWebHostEnvironment environment)
+    {
+        services.AddAuthentication(options =>
+            {
+                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+            })
+            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options => ConfigureAppCookie(options, environment))
+            .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, o =>
+            {
+                o.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                o.Authority = ids.BaseURL;
+                o.ClientId = ids.Client_Id;
+                if (!string.IsNullOrWhiteSpace(ids.ClientSecret))
+                    o.ClientSecret = ids.ClientSecret;
+                o.ResponseType = string.IsNullOrWhiteSpace(ids.ResponseType) ? "token id_token" : ids.ResponseType;
+                o.SaveTokens = true;
+                o.Scope.Clear();
+                o.Scope.Add("openid");
+                o.Scope.Add("profile");
+                o.Scope.Add("email");
+                if (!string.IsNullOrWhiteSpace(ids.APIName))
+                    o.Scope.Add(ids.APIName);
+                o.Scope.Add("IdentityServerApi");
+                o.GetClaimsFromUserInfoEndpoint = true;
+                o.RequireHttpsMetadata = ids.RequireHttpsMetadata;
+                // Giữ tên claim gốc (preferred_username/email/name/sub/role) thay vì map sang URI dài, để
+                // phần bridge đọc claim ổn định; Name/Role của app do ta tự phát lại theo AppUser bên dưới.
+                o.MapInboundClaims = false;
+                o.TokenValidationParameters.NameClaimType = ClaimTypes.Name;
+                o.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
+                o.Events = new OpenIdConnectEvents
+                {
+                    OnTokenValidated = ctx => BridgeSsoIdentityAsync(ctx, ids),
+                    OnRemoteFailure = HandleSsoFailure
+                };
+            });
+    }
+
+    // Bắc cầu danh tính IdentityServer về AppUser rồi phát lại claim Name (username) + Role của app. Chạy
+    // trong OnTokenValidated nên claim id_token (preferred_username/email/name/sub) đã sẵn sàng; claim từ
+    // userinfo tới sau vẫn được ghép vào cookie nhưng không cần cho bước tra AppUser (mặc định theo NTID).
+    private static async Task BridgeSsoIdentityAsync(TokenValidatedContext context, IdentityServerSettings ids)
+    {
+        if (context.Principal?.Identity is not ClaimsIdentity identity)
+        {
+            context.Fail("IdentityServer không trả về danh tính hợp lệ.");
+            return;
+        }
+
+        var username = ResolveSsoUsername(context.Principal, ids.UsernameClaim);
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            context.Fail("Token IdentityServer thiếu claim định danh người dùng.");
+            return;
+        }
+
+        var displayName = context.Principal.FindFirstValue("name");
+        var email = context.Principal.FindFirstValue("email");
+
+        var provisioner = context.HttpContext.RequestServices.GetRequiredService<SsoUserProvisioner>();
+        var appUser = await provisioner.ResolveOrProvisionAsync(
+            username, displayName, email, ids.AutoProvisionUsers, ids.DefaultRole, context.HttpContext.RequestAborted);
+        if (appUser is null)
+        {
+            context.Fail("Tài khoản không được phép truy cập ứng dụng.");
+            return;
+        }
+
+        // AppUser là nguồn sự thật cho Name (quyền sở hữu) + Role (phân quyền): bỏ mọi claim cùng loại đến
+        // từ IdP rồi phát lại theo AppUser để PermissionService/ProjectAccessGuard đọc đúng.
+        foreach (var claim in identity.FindAll(ClaimTypes.Name).ToList())
+            identity.RemoveClaim(claim);
+        foreach (var claim in identity.FindAll(ClaimTypes.Role).ToList())
+            identity.RemoveClaim(claim);
+        identity.AddClaim(new Claim(ClaimTypes.Name, appUser.Username));
+        identity.AddClaim(new Claim(ClaimTypes.Role, appUser.Role.ToString()));
+    }
+
+    // Chọn định danh user từ token: claim cấu hình trước, rồi lần lượt preferred_username → email → name → sub.
+    private static string? ResolveSsoUsername(ClaimsPrincipal principal, string? preferredClaim)
+    {
+        foreach (var claimType in new[] { preferredClaim, "preferred_username", "email", "name", "sub" })
+        {
+            if (string.IsNullOrWhiteSpace(claimType))
+                continue;
+            var value = principal.FindFirstValue(claimType);
+            if (!string.IsNullOrWhiteSpace(value))
+                return value.Trim();
+        }
+        return null;
+    }
+
+    // Đăng nhập SSO thất bại (token bị từ chối ở OnTokenValidated, user hủy ở IdP, lỗi giao thức…): ghi log
+    // rồi đưa về trang "không đủ quyền" ([AllowAnonymous]) thay vì ném stack trace. HandleResponse chặn
+    // handler chạy tiếp — tránh vòng lặp challenge lại IdP.
+    private static Task HandleSsoFailure(RemoteFailureContext context)
+    {
+        var logger = context.HttpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("ICOGenerator.Sso");
+        logger.LogWarning(context.Failure, "Đăng nhập SSO IdentityServer thất bại.");
+        context.Response.Redirect("/Account/AccessDenied");
+        context.HandleResponse();
+        return Task.CompletedTask;
     }
 
     // OpenTelemetry trace + metric — OPT-IN (Otel:Enabled, mặc định TẮT, cùng tinh thần opt-in như

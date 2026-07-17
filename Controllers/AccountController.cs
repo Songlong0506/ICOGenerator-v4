@@ -2,6 +2,7 @@ using System.Security.Claims;
 using ICOGenerator.Application.Account;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,8 +11,13 @@ namespace ICOGenerator.Controllers;
 public class AccountController : Controller
 {
     private readonly LoginUseCase _loginUseCase;
+    private readonly AuthenticationSettings _authSettings;
 
-    public AccountController(LoginUseCase loginUseCase) => _loginUseCase = loginUseCase;
+    public AccountController(LoginUseCase loginUseCase, AuthenticationSettings authSettings)
+    {
+        _loginUseCase = loginUseCase;
+        _authSettings = authSettings;
+    }
 
     [HttpGet]
     [AllowAnonymous]
@@ -19,6 +25,16 @@ public class AccountController : Controller
     {
         if (User.Identity?.IsAuthenticated == true)
             return RedirectToLocal(returnUrl);
+
+        // SSO: bỏ qua form tự code, đẩy thẳng người dùng sang IdentityServer. Cookie LoginPath cũng trỏ
+        // vào đây nên mọi trang cần đăng nhập sẽ tự động chuyển hướng SSO.
+        if (_authSettings.Provider == AuthProvider.IdentityServer)
+        {
+            var target = Url.IsLocalUrl(returnUrl) ? returnUrl! : Url.Action("Index", "Projects")!;
+            return Challenge(
+                new AuthenticationProperties { RedirectUri = target },
+                OpenIdConnectDefaults.AuthenticationScheme);
+        }
 
         ViewBag.ReturnUrl = returnUrl;
         return View(new LoginVm());
@@ -29,6 +45,10 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginVm vm, string? returnUrl = null)
     {
+        // Ở chế độ SSO không có đăng nhập bằng mật khẩu cục bộ: quay về GET để challenge IdentityServer.
+        if (_authSettings.Provider == AuthProvider.IdentityServer)
+            return RedirectToAction(nameof(Login), new { returnUrl });
+
         ViewBag.ReturnUrl = returnUrl;
 
         if (!ModelState.IsValid)
@@ -65,12 +85,26 @@ public class AccountController : Controller
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        // SSO: đăng xuất luôn khỏi IdentityServer (RP-initiated logout) để không bị đăng nhập lại ngầm
+        // qua phiên còn sống ở IdP. SaveTokens = true nên handler tự đính id_token_hint.
+        if (_authSettings.Provider == AuthProvider.IdentityServer)
+        {
+            return SignOut(
+                new AuthenticationProperties { RedirectUri = Url.Action(nameof(Login), "Account") },
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                OpenIdConnectDefaults.AuthenticationScheme);
+        }
+
         return RedirectToAction(nameof(Login));
     }
 
     // Trang báo "không đủ quyền" — đích của cookie AccessDeniedPath khi user đã đăng nhập nhưng
-    // RequirePermission từ chối. Vẫn yêu cầu đăng nhập (không [AllowAnonymous]).
+    // RequirePermission từ chối, VÀ đích khi đăng nhập SSO bị từ chối (user bị khóa / không được cấp).
+    // [AllowAnonymous] để trường hợp SSO-từ-chối (chưa có cookie) không bị đẩy ngược về Login → tránh
+    // vòng lặp challenge lại IdentityServer.
     [HttpGet]
+    [AllowAnonymous]
     public IActionResult AccessDenied() => View();
 
     // Only redirect to a local path so a crafted ?returnUrl can't become an open redirect.
