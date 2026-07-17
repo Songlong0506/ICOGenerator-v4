@@ -46,7 +46,7 @@ public class GetDeliveryQualityQueryTests : IDisposable
         {
             db.AiModels.Add(new AiModel
             {
-                Id = modelId, Name = "Model One", ModelId = "m1", Endpoint = "http://x", ApiKey = "",
+                Id = modelId, ModelId = "m1", Endpoint = "http://x", ApiKey = "",
                 InputPricePerMillionTokens = 1m, OutputPricePerMillionTokens = 2m
             });
             // AgentModelCallLog.AgentId là FK Restrict tới Agent — cần một agent thật để tham chiếu.

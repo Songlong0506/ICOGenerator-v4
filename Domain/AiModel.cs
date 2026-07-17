@@ -4,7 +4,6 @@ namespace ICOGenerator.Domain;
 public class AiModel
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    [MaxLength(100)] public string Name { get; set; } = string.Empty;
     [MaxLength(200)] public string ModelId { get; set; } = string.Empty;
     [MaxLength(500)] public string Endpoint { get; set; } = string.Empty;
     [MaxLength(1000)] public string ApiKey { get; set; } = string.Empty;

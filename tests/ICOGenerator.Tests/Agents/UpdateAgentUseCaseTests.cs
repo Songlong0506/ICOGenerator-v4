@@ -39,7 +39,7 @@ public class UpdateAgentUseCaseTests : IDisposable
 
         await using (var db = NewDb())
         {
-            db.AiModels.Add(new AiModel { Id = modelId, Name = "M", ModelId = "m", Endpoint = "http://x", ApiKey = "k" });
+            db.AiModels.Add(new AiModel { Id = modelId, ModelId = "m", Endpoint = "http://x", ApiKey = "k" });
             // (ServiceType, MethodName) có unique index nên phải khác nhau giữa các tool.
             db.ToolDefinitions.AddRange(
                 new ToolDefinition { Id = keptTool, Name = "Kept", ServiceType = "T", MethodName = "Kept", IsActive = true },
@@ -83,7 +83,7 @@ public class UpdateAgentUseCaseTests : IDisposable
 
         await using (var db = NewDb())
         {
-            db.AiModels.Add(new AiModel { Id = modelId, Name = "M", ModelId = "m", Endpoint = "http://x", ApiKey = "k" });
+            db.AiModels.Add(new AiModel { Id = modelId, ModelId = "m", Endpoint = "http://x", ApiKey = "k" });
             db.Agents.Add(new Agent { Id = agentId, Name = "A", AiModelId = modelId });
             await db.SaveChangesAsync();
         }

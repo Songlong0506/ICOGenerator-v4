@@ -32,7 +32,6 @@ public class BudgetGuardTests : IDisposable
         var model = new AiModel
         {
             ModelId = ModelId,
-            Name = "M",
             Endpoint = "http://localhost",
             ApiKey = "",
             InputPricePerMillionTokens = 10m,

@@ -205,8 +205,6 @@ stateDiagram-v2
 erDiagram
     AiModel {
         Guid Id PK
-        string Name
-        string Provider
         string ModelId
         string Endpoint
         string ApiKey_encrypted

@@ -241,7 +241,7 @@
             <select name="targetModelId" required>
                 @foreach (var m in Model.Models)
                 {
-                    <option value="@m.Id">@m.Name</option>
+                    <option value="@m.Id">@m.ModelId</option>
                 }
             </select>
 
@@ -249,7 +249,7 @@
             <select name="judgeModelId" required>
                 @foreach (var m in Model.Models)
                 {
-                    <option value="@m.Id">@m.Name</option>
+                    <option value="@m.Id">@m.ModelId</option>
                 }
             </select>
 

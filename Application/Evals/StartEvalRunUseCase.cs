@@ -51,9 +51,9 @@ public class StartEvalRunUseCase
             Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
             PromptKey = promptKey,
             TargetModelId = targetModel.Id,
-            TargetModelName = targetModel.Name,
+            TargetModelName = targetModel.ModelId,
             JudgeModelId = judgeModel.Id,
-            JudgeModelName = judgeModel.Name,
+            JudgeModelName = judgeModel.ModelId,
             ScenarioCount = scenarioCount,
             CreatedByUsername = createdByUsername
         });

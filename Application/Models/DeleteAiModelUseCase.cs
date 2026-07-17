@@ -27,13 +27,13 @@ public class DeleteAiModelUseCase
             return DeleteAiModelResult.InUse;
 
         var before = CreateAiModelUseCase.Snapshot(model);
-        var name = model.Name;
+        var modelId = model.ModelId;
 
         _db.AiModels.Remove(model);
         await _db.SaveChangesAsync();
 
         await _audit.LogAsync(AuditCategory.Model, AuditAction.Delete, id.ToString(),
-            $"Xóa AI Model \"{name}\"", before: before);
+            $"Xóa AI Model \"{modelId}\"", before: before);
         return DeleteAiModelResult.Deleted;
     }
 }

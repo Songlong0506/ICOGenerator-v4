@@ -473,7 +473,7 @@ public class RequestStageRevisionUseCaseTests : IDisposable
         Id = id,
         Name = "Tech Lead",
         RoleKey = AgentRoleKey.TechLead,
-        AiModel = new AiModel { Name = "test-model" }
+        AiModel = new AiModel { ModelId = "test-model" }
     };
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
