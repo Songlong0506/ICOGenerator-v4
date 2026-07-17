@@ -33,7 +33,6 @@ public class SsoUserProvisioner
         string username,
         string? displayName,
         string? email,
-        bool autoProvision,
         UserRole defaultRole,
         CancellationToken cancellationToken = default)
     {
@@ -49,12 +48,6 @@ public class SsoUserProvisioner
 
         if (user is not null)
             return user.IsActive ? user : null;
-
-        if (!autoProvision)
-        {
-            _logger.LogWarning("Từ chối SSO user {Username}: chưa có trong AppUser và AutoProvisionUsers = false.", normalized);
-            return null;
-        }
 
         var created = new AppUser
         {
