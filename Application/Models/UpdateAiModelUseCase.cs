@@ -27,7 +27,6 @@ public class UpdateAiModelUseCase
         var before = CreateAiModelUseCase.Snapshot(model);
 
         model.Name = input.Name;
-        model.Provider = input.Provider;
         model.ModelId = input.ModelId;
         model.Endpoint = input.Endpoint;
         // The edit form no longer round-trips the decrypted key to the browser, so a blank field

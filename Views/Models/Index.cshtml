@@ -51,7 +51,6 @@
         <thead>
             <tr>
                 <th>Model Name</th>
-                <th>Provider</th>
                 <th>Model ID</th>
                 <th>Context Window</th>
                 <th title="Đơn giá token đầu vào, tính theo 1 triệu token">Input $/1M</th>
@@ -66,7 +65,6 @@
             {
                 <tr>
                     <td><b>@m.Name</b></td>
-                    <td>@m.Provider</td>
                     <td>@m.ModelId</td>
                     <td>@m.ContextWindow.ToString("N0")</td>
                     <td>@Price(m.InputPricePerMillionTokens)</td>
@@ -84,7 +82,6 @@
                                 onclick="openEditModel(
                                         '@m.Id',
                                         '@JavaScriptEncoder.Default.Encode(m.Name)',
-                                        '@JavaScriptEncoder.Default.Encode(m.Provider)',
                                         '@JavaScriptEncoder.Default.Encode(m.ModelId)',
                                         '@JavaScriptEncoder.Default.Encode(m.Endpoint)',
                                         '@m.ContextWindow',
@@ -160,9 +157,6 @@
         <label>Model *</label>
         <input name="Name" required placeholder="Qwen3.6 27B" />
 
-        <label>Provider *</label>
-        <input name="Provider" value="LM Studio" required />
-
         <label>Model ID *</label>
         <input name="ModelId" required placeholder="qwen3.6-27b@q3_k_s" />
 
@@ -210,9 +204,6 @@
 
         <label>Model *</label>
         <input id="edit-name" name="Name" required />
-
-        <label>Provider *</label>
-        <input id="edit-provider" name="Provider" required />
 
         <label>Model ID *</label>
         <input id="edit-model-id" name="ModelId" required />
