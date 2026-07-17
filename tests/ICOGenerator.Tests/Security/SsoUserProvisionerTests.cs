@@ -33,7 +33,7 @@ public class SsoUserProvisionerTests : IDisposable
         var sut = NewSut();
 
         var user = await sut.ResolveOrProvisionAsync(
-            "VUS5HC", "Vu Song Toan", "toan@bosch.com", UserRole.Admin, UserRole.User);
+            "VUS5HC", "Vu Song Toan", "toan@bosch.com", UserRole.Admin);
 
         Assert.NotNull(user);
         Assert.Equal(UserRole.Admin, user!.Role);
@@ -49,7 +49,7 @@ public class SsoUserProvisionerTests : IDisposable
         var sut = NewSut();
 
         var user = await sut.ResolveOrProvisionAsync(
-            "NEW1", "New User", null, roleFromClaims: null, defaultRole: UserRole.TeamDev);
+            "NEW1", "New User", null, roleFromClaims: null);
 
         Assert.NotNull(user);
         Assert.Equal(UserRole.TeamDev, user!.Role);
@@ -62,7 +62,7 @@ public class SsoUserProvisionerTests : IDisposable
         var sut = NewSut();
 
         var user = await sut.ResolveOrProvisionAsync(
-            "VUS5HC", "Vu Song Toan", null, UserRole.Admin, UserRole.User);
+            "VUS5HC", "Vu Song Toan", null, UserRole.Admin);
 
         Assert.NotNull(user);
         Assert.Equal(UserRole.Admin, user!.Role);
@@ -77,7 +77,7 @@ public class SsoUserProvisionerTests : IDisposable
         var sut = NewSut();
 
         var user = await sut.ResolveOrProvisionAsync(
-            "admin", "Admin", null, roleFromClaims: null, defaultRole: UserRole.User);
+            "admin", "Admin", null, roleFromClaims: null);
 
         Assert.NotNull(user);
         Assert.Equal(UserRole.Admin, user!.Role);
@@ -89,7 +89,7 @@ public class SsoUserProvisionerTests : IDisposable
         var sut = NewSut();
 
         var user = await sut.ResolveOrProvisionAsync(
-            "VUS5HC", "Vu Song Toan", null, UserRole.Admin, UserRole.User, orgUnitName: "HcP/ICO3");
+            "VUS5HC", "Vu Song Toan", null, UserRole.User, orgUnitName: "HcP/ICO3");
 
         Assert.NotNull(user);
         Assert.Equal("HcP/ICO3", user!.OrgUnitName);
@@ -104,7 +104,7 @@ public class SsoUserProvisionerTests : IDisposable
         var sut = NewSut();
 
         await sut.ResolveOrProvisionAsync(
-            "VUS5HC", "Vu Song Toan", null, roleFromClaims: null, defaultRole: UserRole.User, orgUnitName: "HcP/ICO3");
+            "VUS5HC", "Vu Song Toan", null, roleFromClaims: null, orgUnitName: "HcP/ICO3");
 
         await using var verify = NewDb();
         Assert.Equal("HcP/ICO3", (await verify.AppUsers.SingleAsync()).OrgUnitName);
@@ -117,7 +117,7 @@ public class SsoUserProvisionerTests : IDisposable
         var sut = NewSut();
 
         await sut.ResolveOrProvisionAsync(
-            "VUS5HC", "Vu Song Toan", null, roleFromClaims: null, defaultRole: UserRole.User, orgUnitName: null);
+            "VUS5HC", "Vu Song Toan", null, roleFromClaims: null, orgUnitName: null);
 
         await using var verify = NewDb();
         Assert.Equal("HcP/ICO3", (await verify.AppUsers.SingleAsync()).OrgUnitName);
@@ -129,7 +129,7 @@ public class SsoUserProvisionerTests : IDisposable
         var sut = NewSut();
 
         Assert.Null(await sut.ResolveOrProvisionAsync(
-            "   ", null, null, UserRole.Admin, UserRole.User));
+            "   ", null, null, UserRole.Admin));
     }
 
     private async Task SeedUser(string username, UserRole role, string? orgUnitName = null)

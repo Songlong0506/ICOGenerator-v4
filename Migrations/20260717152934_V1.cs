@@ -16,8 +16,6 @@ namespace ICOGenerator.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Provider = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     ModelId = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Endpoint = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     ApiKey = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
@@ -40,10 +38,9 @@ namespace ICOGenerator.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Username = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    PasswordHash = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     DisplayName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Role = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    OrgUnitName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     UserMemory = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     Email = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
@@ -129,6 +126,7 @@ namespace ICOGenerator.Migrations
                     CompletedCount = table.Column<int>(type: "int", nullable: false),
                     AverageScore = table.Column<double>(type: "float", nullable: true),
                     TotalTokens = table.Column<long>(type: "bigint", nullable: false),
+                    TotalCost = table.Column<decimal>(type: "decimal(18,6)", precision: 18, scale: 6, nullable: false),
                     Error = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -343,6 +341,8 @@ namespace ICOGenerator.Migrations
                     ErrorMessage = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     TargetTokens = table.Column<int>(type: "int", nullable: false),
                     JudgeTokens = table.Column<int>(type: "int", nullable: false),
+                    TargetCost = table.Column<decimal>(type: "decimal(18,6)", precision: 18, scale: 6, nullable: false),
+                    JudgeCost = table.Column<decimal>(type: "decimal(18,6)", precision: 18, scale: 6, nullable: false),
                     DurationMs = table.Column<long>(type: "bigint", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
@@ -377,6 +377,33 @@ namespace ICOGenerator.Migrations
                         name: "FK_FeedbackAttachments_Feedbacks_FeedbackId",
                         column: x => x.FeedbackId,
                         principalTable: "Feedbacks",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PocComments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    PageView = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    ElementLabel = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    ElementPath = table.Column<string>(type: "nvarchar(600)", maxLength: 600, nullable: false),
+                    XPercent = table.Column<double>(type: "float", nullable: false),
+                    YPercent = table.Column<double>(type: "float", nullable: false),
+                    Comment = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    CreatedByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PocComments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PocComments_Projects_ProjectId",
+                        column: x => x.ProjectId,
+                        principalTable: "Projects",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -472,7 +499,6 @@ namespace ICOGenerator.Migrations
                     AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     WorkflowRunId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     AgentName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    ModelName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     ModelId = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     RequestJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ResponseText = table.Column<string>(type: "nvarchar(max)", nullable: false),
@@ -642,6 +668,12 @@ namespace ICOGenerator.Migrations
                 column: "AgentId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AgentModelCallLogs_CreatedAt",
+                table: "AgentModelCallLogs",
+                column: "CreatedAt")
+                .Annotation("SqlServer:Include", new[] { "ProjectId", "ModelId", "PromptTokens", "CompletionTokens" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AgentModelCallLogs_ProjectId_AgentId_CreatedAt",
                 table: "AgentModelCallLogs",
                 columns: new[] { "ProjectId", "AgentId", "CreatedAt" });
@@ -768,6 +800,11 @@ namespace ICOGenerator.Migrations
                 column: "OrgUnitCode");
 
             migrationBuilder.CreateIndex(
+                name: "IX_PocComments_ProjectId_Status_CreatedAt",
+                table: "PocComments",
+                columns: new[] { "ProjectId", "Status", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ProjectDocumentRevisions_ProjectDocumentId_RevisionNumber",
                 table: "ProjectDocumentRevisions",
                 columns: new[] { "ProjectDocumentId", "RevisionNumber" },
@@ -865,6 +902,9 @@ namespace ICOGenerator.Migrations
 
             migrationBuilder.DropTable(
                 name: "OrgUnits");
+
+            migrationBuilder.DropTable(
+                name: "PocComments");
 
             migrationBuilder.DropTable(
                 name: "ProjectDocumentRevisions");

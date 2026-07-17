@@ -38,7 +38,6 @@ public class SsoUserProvisioner
         string? displayName,
         string? email,
         UserRole? roleFromClaims,
-        UserRole defaultRole,
         string? orgUnitName = null,
         CancellationToken cancellationToken = default)
     {
@@ -83,20 +82,19 @@ public class SsoUserProvisioner
             return user;
         }
 
-        var newRole = roleFromClaims ?? defaultRole;
         var created = new AppUser
         {
             Username = normalized,
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? normalized : displayName!.Trim(),
             Email = string.IsNullOrWhiteSpace(email) ? null : email!.Trim(),
-            Role = newRole,
+            Role = roleFromClaims ?? UserRole.User,
             OrgUnitName = trimmedOrgUnit
         };
 
         _db.AppUsers.Add(created);
         await _db.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Tự tạo AppUser cho SSO user {Username} với vai trò {Role}.", normalized, newRole);
+        _logger.LogInformation("Tự tạo AppUser cho SSO user {Username} với vai trò {Role}.", normalized, roleFromClaims);
         return created;
     }
 }
