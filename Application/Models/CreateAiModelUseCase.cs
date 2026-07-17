@@ -35,7 +35,6 @@ public class CreateAiModelUseCase
     internal static object Snapshot(AiModel m) => new
     {
         m.Name,
-        m.Provider,
         m.ModelId,
         m.Endpoint,
         m.ContextWindow,
