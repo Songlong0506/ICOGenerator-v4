@@ -246,24 +246,13 @@ public static class ApplicationServiceCollectionExtensions
             return;
         }
 
-        var username = ResolveSsoUsername(context.Principal, ids.UsernameClaim);
-        if (string.IsNullOrWhiteSpace(username))
-        {
-            context.Fail("Token IdentityServer thiếu claim định danh người dùng.");
-            return;
-        }
-
+        var username = context.Principal.FindFirstValue("username");
         var displayName = context.Principal.FindFirstValue("name");
         var email = context.Principal.FindFirstValue("email");
 
         var provisioner = context.HttpContext.RequestServices.GetRequiredService<SsoUserProvisioner>();
         var appUser = await provisioner.ResolveOrProvisionAsync(
-            username, displayName, email, ids.AutoProvisionUsers, ids.DefaultRole, context.HttpContext.RequestAborted);
-        if (appUser is null)
-        {
-            context.Fail("Tài khoản không được phép truy cập ứng dụng.");
-            return;
-        }
+            username, displayName, email, ids.DefaultRole, context.HttpContext.RequestAborted);
 
         // AppUser là nguồn sự thật cho Name (quyền sở hữu) + Role (phân quyền): bỏ mọi claim cùng loại đến
         // từ IdP rồi phát lại theo AppUser để PermissionService/ProjectAccessGuard đọc đúng.
@@ -273,20 +262,6 @@ public static class ApplicationServiceCollectionExtensions
             identity.RemoveClaim(claim);
         identity.AddClaim(new Claim(ClaimTypes.Name, appUser.Username));
         identity.AddClaim(new Claim(ClaimTypes.Role, appUser.Role.ToString()));
-    }
-
-    // Chọn định danh user từ token: claim cấu hình trước, rồi lần lượt preferred_username → email → name → sub.
-    private static string? ResolveSsoUsername(ClaimsPrincipal principal, string? preferredClaim)
-    {
-        foreach (var claimType in new[] { preferredClaim, "preferred_username", "email", "name", "sub" })
-        {
-            if (string.IsNullOrWhiteSpace(claimType))
-                continue;
-            var value = principal.FindFirstValue(claimType);
-            if (!string.IsNullOrWhiteSpace(value))
-                return value.Trim();
-        }
-        return null;
     }
 
     // Đăng nhập SSO thất bại (token bị từ chối ở OnTokenValidated, user hủy ở IdP, lỗi giao thức…): ghi log
