@@ -76,7 +76,18 @@ public class ApproveStageUseCase
         run.CurrentStage = next.Stage;
         run.Status = WorkflowRunStatus.Queued; // worker sẽ chuyển sang Running khi nhận task
 
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // WorkflowRun.Status là concurrency token: một request song song (double-click / hai người
+            // duyệt) đã chuyển run khỏi WaitingForHuman trước — bên thua KHÔNG enqueue task trùng, coi
+            // như không còn bước chờ duyệt. Task mới nằm cùng SaveChanges nên cũng không được ghi.
+            return ApproveStageResult.NoPendingStage;
+        }
+
         return ApproveStageResult.Advanced;
     }
 

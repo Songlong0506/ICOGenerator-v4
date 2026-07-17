@@ -19,6 +19,7 @@ public class ProjectsController : Controller
     private readonly AddPocCommentUseCase _addPocCommentUseCase;
     private readonly DeletePocCommentUseCase _deletePocCommentUseCase;
     private readonly IPermissionService _permissions;
+    private readonly IProjectAccessGuard _projectAccess;
 
     public ProjectsController(
         GetProjectListQuery getProjectListQuery,
@@ -29,7 +30,8 @@ public class ProjectsController : Controller
         ListPocCommentsQuery listPocCommentsQuery,
         AddPocCommentUseCase addPocCommentUseCase,
         DeletePocCommentUseCase deletePocCommentUseCase,
-        IPermissionService permissions)
+        IPermissionService permissions,
+        IProjectAccessGuard projectAccess)
     {
         _getProjectListQuery = getProjectListQuery;
         _createProjectUseCase = createProjectUseCase;
@@ -40,7 +42,13 @@ public class ProjectsController : Controller
         _addPocCommentUseCase = addPocCommentUseCase;
         _deletePocCommentUseCase = deletePocCommentUseCase;
         _permissions = permissions;
+        _projectAccess = projectAccess;
     }
+
+    // Các action theo projectId (Mockup/PocReview/DownloadSource...) chặn truy cập chéo: user thường
+    // chỉ đụng được project mình tạo (xem IProjectAccessGuard). Trả về như "không tồn tại".
+    private Task<bool> CanAccessProjectAsync(Guid projectId) =>
+        _projectAccess.CanAccessProjectAsync(User, projectId, HttpContext.RequestAborted);
 
     public async Task<IActionResult> Index(
         int page = 1,
@@ -68,6 +76,9 @@ public class ProjectsController : Controller
 
     public async Task<IActionResult> Mockup(Guid projectId, bool review = false)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound("Mockup file not found.");
+
         var result = await _getMockupFileQuery.ExecuteAsync(projectId);
         if (result == null)
             return NotFound("Mockup file not found.");
@@ -105,6 +116,9 @@ public class ProjectsController : Controller
 
     public async Task<IActionResult> PocReview(Guid projectId)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction(nameof(Index));
+
         var result = await _getPocReviewQuery.ExecuteAsync(projectId, HttpContext.RequestAborted);
         if (result == null)
             return RedirectToAction(nameof(Index));
@@ -123,6 +137,9 @@ public class ProjectsController : Controller
     [HttpGet]
     public async Task<IActionResult> PocComments(Guid projectId)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
         var canManage = await _permissions.HasPermissionAsync(
             User, AppPermission.DeliveryAdvance, HttpContext.RequestAborted);
         return Json(await _listPocCommentsQuery.ExecuteAsync(
@@ -135,6 +152,9 @@ public class ProjectsController : Controller
         Guid projectId, string? pageView, string? elementLabel, string? elementPath,
         double xPercent, double yPercent, string? comment)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound("Project không tồn tại.");
+
         var (result, item) = await _addPocCommentUseCase.ExecuteAsync(
             projectId, pageView, elementLabel, elementPath, xPercent, yPercent, comment,
             User.Identity?.Name, HttpContext.RequestAborted);
@@ -164,6 +184,9 @@ public class ProjectsController : Controller
     // download — the only way to actually get the produced source out of the workspace.
     public async Task<IActionResult> DownloadSource(Guid projectId)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound("Chưa có source code để tải. Hãy chạy tới bước Implementation để agent sinh code trong 04_Implementation/src.");
+
         var result = await _getImplementationSourceQuery.ExecuteAsync(projectId);
         if (result == null)
             return NotFound("Chưa có source code để tải. Hãy chạy tới bước Implementation để agent sinh code trong 04_Implementation/src.");

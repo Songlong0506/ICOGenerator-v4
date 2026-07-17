@@ -55,7 +55,17 @@ public class RejectStageUseCase
         run.Status = WorkflowRunStatus.Canceled;
         run.FinishedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Run đã bị một request song song chuyển khỏi WaitingForHuman (vd người khác vừa Duyệt) —
+            // không còn gì để từ chối; không ghi đè trạng thái mới bằng Canceled cũ.
+            return RejectStageResult.NoWaitingRun;
+        }
+
         return RejectStageResult.Rejected;
     }
 }

@@ -29,6 +29,7 @@ public class RequirementsController : Controller
     private readonly DeleteProjectSourceUseCase _deleteProjectSourceUseCase;
     private readonly GetDocumentRevisionsQuery _getDocumentRevisionsQuery;
     private readonly GetDocumentRevisionDiffQuery _getDocumentRevisionDiffQuery;
+    private readonly IProjectAccessGuard _projectAccess;
     private readonly ILogger<RequirementsController> _logger;
 
     // SSE frames are hand-serialized, so match the camelCase the polling JSON (and client) already use.
@@ -48,6 +49,7 @@ public class RequirementsController : Controller
        DeleteProjectSourceUseCase deleteProjectSourceUseCase,
        GetDocumentRevisionsQuery getDocumentRevisionsQuery,
        GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery,
+       IProjectAccessGuard projectAccess,
        ILogger<RequirementsController> logger)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
@@ -63,11 +65,21 @@ public class RequirementsController : Controller
         _deleteProjectSourceUseCase = deleteProjectSourceUseCase;
         _getDocumentRevisionsQuery = getDocumentRevisionsQuery;
         _getDocumentRevisionDiffQuery = getDocumentRevisionDiffQuery;
+        _projectAccess = projectAccess;
         _logger = logger;
     }
 
+    // Mọi action của controller này đều thao tác trong phạm vi MỘT project/tài liệu — chặn truy cập
+    // chéo (user thường chỉ được đụng project mình tạo; xem IProjectAccessGuard). Trả về giống hệt
+    // trường hợp "không tồn tại" để không xác nhận sự tồn tại của project với người ngoài.
+    private Task<bool> CanAccessProjectAsync(Guid projectId) =>
+        _projectAccess.CanAccessProjectAsync(User, projectId, HttpContext.RequestAborted);
+
     public async Task<IActionResult> Index(Guid projectId, string? version = null)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction("Index", "Projects");
+
         var result = await _getRequirementWorkspaceQuery.ExecuteAsync(projectId, version);
         if (result == null)
             return RedirectToAction("Index", "Projects");
@@ -84,6 +96,9 @@ public class RequirementsController : Controller
     [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> Chat(Guid projectId, string message)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction("Index", "Projects");
+
         if (string.IsNullOrWhiteSpace(message))
             return RedirectToAction(nameof(Index), new { projectId });
 
@@ -116,6 +131,13 @@ public class RequirementsController : Controller
     [RequirePermission(AppPermission.RequirementsManage)]
     public async Task ChatStream(Guid projectId, string message)
     {
+        // Chặn trước khi mở stream: client thấy !response.ok và tự rơi về đường postback (vốn cũng chặn).
+        if (!await CanAccessProjectAsync(projectId))
+        {
+            Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
         Response.StatusCode = 200;
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
@@ -226,6 +248,9 @@ public class RequirementsController : Controller
     [RequestFormLimits(MultipartBodyLengthLimit = 60_000_000)]
     public async Task<IActionResult> UploadSource(Guid projectId, List<IFormFile> files)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction("Index", "Projects");
+
         try
         {
             var result = await _uploadProjectSourceUseCase.ExecuteAsync(projectId, files, User.Identity?.Name);
@@ -250,6 +275,10 @@ public class RequirementsController : Controller
     [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> DeleteSource(Guid id, Guid projectId)
     {
+        // Kiểm tra theo id tài liệu nguồn (nguồn sự thật) — projectId trong form chỉ dùng để redirect.
+        if (!await _projectAccess.CanAccessSourceFileAsync(User, id, HttpContext.RequestAborted))
+            return RedirectToAction("Index", "Projects");
+
         await _deleteProjectSourceUseCase.ExecuteAsync(id);
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -259,6 +288,9 @@ public class RequirementsController : Controller
     [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> WriteRequirement(Guid projectId)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction("Index", "Projects");
+
         await _generateRequirementDraftUseCase.ExecuteAsync(projectId);
         TempData["WorkflowStarted"] = true;
         return RedirectToAction(nameof(Index), new { projectId });
@@ -269,6 +301,9 @@ public class RequirementsController : Controller
     [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> Approve(Guid projectId)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction("Index", "Projects");
+
         var result = await _approveRequirementUseCase.ExecuteAsync(projectId);
 
         if (result == ApproveRequirementResult.ProjectNotFound)
@@ -306,6 +341,9 @@ public class RequirementsController : Controller
     [HttpGet]
     public async Task<IActionResult> WorkflowStatus(Guid projectId, Guid? runId = null, long afterSeq = 0)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
         return Json(await _getWorkflowStatusQuery.ExecuteAsync(projectId, runId, afterSeq));
     }
 
@@ -314,6 +352,13 @@ public class RequirementsController : Controller
     [HttpGet]
     public async Task WorkflowStream(Guid projectId, Guid runId, long afterSeq = 0)
     {
+        // Chặn trước khi mở stream: EventSource nhận lỗi HTTP và client tự rơi về polling (vốn cũng chặn).
+        if (!await CanAccessProjectAsync(projectId))
+        {
+            Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
         Response.StatusCode = 200;
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
@@ -351,6 +396,9 @@ public class RequirementsController : Controller
     [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> NewChat(Guid projectId)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction("Index", "Projects");
+
         await _startNewChatUseCase.ExecuteAsync(projectId);
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -360,6 +408,9 @@ public class RequirementsController : Controller
     [HttpGet]
     public async Task<IActionResult> DocumentRevisions(Guid id)
     {
+        if (!await _projectAccess.CanAccessDocumentAsync(User, id, HttpContext.RequestAborted))
+            return NotFound("Document not found.");
+
         var result = await _getDocumentRevisionsQuery.ExecuteAsync(id, HttpContext.RequestAborted);
         if (result == null)
             return NotFound("Document not found.");
@@ -371,6 +422,9 @@ public class RequirementsController : Controller
     [HttpGet]
     public async Task<IActionResult> DocumentRevisionDiff(Guid id)
     {
+        if (!await _projectAccess.CanAccessDocumentRevisionAsync(User, id, HttpContext.RequestAborted))
+            return NotFound("Revision not found.");
+
         var result = await _getDocumentRevisionDiffQuery.ExecuteAsync(id, HttpContext.RequestAborted);
         if (result == null)
             return NotFound("Revision not found.");
@@ -381,6 +435,9 @@ public class RequirementsController : Controller
     [HttpGet]
     public async Task<IActionResult> DocumentPreview(Guid id)
     {
+        if (!await _projectAccess.CanAccessDocumentAsync(User, id, HttpContext.RequestAborted))
+            return NotFound("Document not found.");
+
         var result = await _getDocumentPreviewQuery.ExecuteAsync(id);
         if (result == null)
             return NotFound("Document not found.");
@@ -391,6 +448,9 @@ public class RequirementsController : Controller
     [HttpGet]
     public async Task<IActionResult> DownloadDocument(Guid id)
     {
+        if (!await _projectAccess.CanAccessDocumentAsync(User, id, HttpContext.RequestAborted))
+            return NotFound("Document not found.");
+
         var result = await _getDocumentDownloadQuery.ExecuteAsync(id);
         if (result == null)
             return NotFound("Document not found.");

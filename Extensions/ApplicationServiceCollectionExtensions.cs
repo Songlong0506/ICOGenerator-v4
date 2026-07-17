@@ -123,6 +123,8 @@ public static class ApplicationServiceCollectionExtensions
         // Phân quyền: cache (singleton) chia sẻ giữa các request; PermissionService scoped vì phụ thuộc DbContext.
         services.AddMemoryCache();
         services.AddScoped<IPermissionService, PermissionService>();
+        // Phân quyền THEO PROJECT (chặn truy cập chéo bằng GUID đoán/lộ): scoped vì phụ thuộc DbContext.
+        services.AddScoped<IProjectAccessGuard, ProjectAccessGuard>();
 
         // Audit log thay đổi cấu hình: cần actor từ request hiện tại ⇒ đăng ký IHttpContextAccessor; logger
         // scoped vì dùng DbContext. Đặt ở AddAuthServices cùng PermissionService (cross-cutting bảo mật).
