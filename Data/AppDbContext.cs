@@ -85,10 +85,35 @@ public class AppDbContext : DbContext
         // multiple-cascade-path (Project đã cascade cả CallLog lẫn WorkflowRun). Tên run lấy bằng join thủ công khi truy vấn.
         builder.Entity<AgentModelCallLog>().HasIndex(x => x.WorkflowRunId);
 
+        // Nội dung hội thoại user↔agent được mã hóa AT REST (cùng cơ chế/khóa với ApiKey — xem cảnh báo
+        // SINGLETON ở converter AiModel.ApiKey bên trên). RequestJson/ResponseText/ErrorMessage của log lời gọi
+        // LLM chứa lại toàn bộ transcript nên phải mã hóa CÙNG LÚC với AgentConversation.Message, nếu không việc
+        // mã hóa là vô nghĩa. Dữ liệu cũ (không có tiền tố "enc:v1:") vẫn đọc được nhờ Unprotect tương thích ngược.
+        // Đánh đổi: KHÔNG còn search/LIKE/order các cột này ở tầng SQL (ciphertext) — mọi lọc phải làm sau khi
+        // materialize (LINQ-to-Objects), như IsVerifiedInviteLatestTurn. Cột vẫn nvarchar(max) nên không đổi schema.
+        builder.Entity<AgentModelCallLog>().Property(x => x.RequestJson).HasConversion(
+            plain => _apiKeyProtector.Protect(plain),
+            stored => _apiKeyProtector.Unprotect(stored));
+        builder.Entity<AgentModelCallLog>().Property(x => x.ResponseText).HasConversion(
+            plain => _apiKeyProtector.Protect(plain),
+            stored => _apiKeyProtector.Unprotect(stored));
+        builder.Entity<AgentModelCallLog>().Property(x => x.ErrorMessage).HasConversion(
+            plain => _apiKeyProtector.Protect(plain),
+            stored => _apiKeyProtector.Unprotect(stored));
+
         // Khai báo tường minh để Agent FK là Restrict (cùng lý do AgentModelCallLog), giữ Project FK Cascade.
         builder.Entity<AgentConversation>().HasOne(x => x.Project).WithMany(x => x.Conversations).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         builder.Entity<AgentConversation>().HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<AgentConversation>().Property(x => x.Role).HasMaxLength(50);
+        // Message = text lượt chat; Suggestions = JSON các chip gợi ý (cũng là nội dung hội thoại). Mã hóa at rest
+        // (xem ghi chú converter của AgentModelCallLog bên trên). Suggestions nullable: EF giữ null nguyên trạng,
+        // converter chỉ chạy với giá trị non-null.
+        builder.Entity<AgentConversation>().Property(x => x.Message).HasConversion(
+            plain => _apiKeyProtector.Protect(plain),
+            stored => _apiKeyProtector.Unprotect(stored));
+        builder.Entity<AgentConversation>().Property(x => x.Suggestions).HasConversion(
+            plain => _apiKeyProtector.Protect(plain),
+            stored => _apiKeyProtector.Unprotect(stored));
 
         // Status giữ nguyên (đã nvarchar(450) trong index); thu gọn cột enum nvarchar(max) (CurrentStage, Type) để index được.
         // Status là CONCURRENCY TOKEN (không đổi schema — chỉ thêm "AND Status = @original" vào mọi UPDATE):
