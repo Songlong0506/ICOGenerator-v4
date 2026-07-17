@@ -1,0 +1,88 @@
+@{
+    ViewData["Title"] = "User Roles";
+    var canManage = await Permissions.HasPermissionAsync(User, AppPermission.UserRolesManage);
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/user-roles.css" asp-append-version="true" />
+}
+
+<div class="page-head">
+    <div>
+        <h1>User Roles</h1>
+        <p>Gán / thu hồi role cho người dùng trên Bosch IdentityServer.</p>
+    </div>
+    @if (canManage)
+    {
+        <button class="btn primary" type="button" onclick="openModal('assignModal')">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> Add
+        </button>
+    }
+</div>
+
+<div id="urFlash" class="alert" role="status" hidden></div>
+
+<div class="card ur-filter">
+    <div class="filter-field">
+        <label for="urRoleFilter">Xem người dùng theo role</label>
+        <select id="urRoleFilter">
+            <option value="">— Chọn role —</option>
+        </select>
+    </div>
+</div>
+
+<div class="card table-card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Người dùng</th>
+                <th>Email</th>
+                <th>Phòng ban</th>
+                @if (canManage)
+                {
+                    <th style="width:130px">Thao tác</th>
+                }
+            </tr>
+        </thead>
+        <tbody id="urUserRows" data-can-manage="@canManage.ToString().ToLowerInvariant()">
+            <tr><td colspan="4" class="ur-empty">Chọn một role ở trên để xem danh sách người dùng.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+@if (canManage)
+{
+    <div id="assignModal" class="modal-backdrop hidden">
+        <div class="modal">
+            <button type="button" class="x" onclick="closeModal('assignModal')" aria-label="Đóng">×</button>
+
+            <h2>Gán role cho người dùng</h2>
+
+            <label for="urAssignRole">Role *</label>
+            <select id="urAssignRole">
+                <option value="">— Chọn role —</option>
+            </select>
+
+            <label for="urUserSearch">Người dùng *</label>
+            <div class="ur-autocomplete">
+                <input id="urUserSearch" type="text" autocomplete="off"
+                       placeholder="Gõ tên hoặc NTID để tìm..." aria-expanded="false" />
+                <input type="hidden" id="urSelectedUser" />
+                <div id="urSuggest" class="ur-suggest hidden" role="listbox"></div>
+            </div>
+            <small class="hint">Gõ tối thiểu 2 ký tự rồi chọn một người dùng từ danh sách gợi ý.</small>
+
+            <div id="urSelectedChip" class="ur-chip hidden"></div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('assignModal')">Hủy</button>
+                <button type="button" class="btn danger" id="urWithdrawBtn">Thu hồi</button>
+                <button type="button" class="btn primary" id="urAssignBtn">Gán role</button>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script src="~/js/user-roles.js" asp-append-version="true"></script>
+}

@@ -68,6 +68,11 @@ public enum AppPermission
     [Description("Quản trị Roles & Permissions")]
     AdministrationManageRoles,
 
+    [Description("Xem trang gán quyền người dùng trên IdentityServer (User Roles)")]
+    UserRolesView,
+    [Description("Gán / thu hồi quyền người dùng trên IdentityServer")]
+    UserRolesManage,
+
     [Description("Xem nhật ký thay đổi cấu hình (Audit Log)")]
     AuditView
 }
