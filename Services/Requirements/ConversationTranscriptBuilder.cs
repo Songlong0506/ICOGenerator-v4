@@ -14,7 +14,7 @@ namespace ICOGenerator.Services.Requirements;
 public static class ConversationTranscriptBuilder
 {
     // Lượt "BA" là thông báo lỗi gọi AI (được surface vào khung chat thay vì ném 500) — không phải nội
-    // dung yêu cầu, đưa vào transcript chỉ gây nhiễu nên lọc bỏ. Khớp tiền tố ghi ở BARequirementService.
+    // dung yêu cầu, đưa vào transcript chỉ gây nhiễu nên lọc bỏ. Khớp tiền tố ghi ở BAChatService.
     public const string LlmFailurePrefix = "⚠️ Lời gọi AI thất bại";
 
     public static string Build(IEnumerable<AgentConversation> conversations)

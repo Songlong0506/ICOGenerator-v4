@@ -89,7 +89,7 @@ Luật bất di bất dịch:
 Browser
   └► RequirementsController.Chat(projectId, message)        [Controllers] - mỏng
        └► GenerateRequirementDraftUseCase.ExecuteAsync(...)  [Application] - điều phối
-            ├► BARequirementService                          [Services/Requirements]
+            ├► ProductBriefDraftService                      [Services/Requirements]
             │     ├► RequirementPromptBuilder  (dựng prompt)
             │     ├► ILlmClient                 (gọi LLM)      [Services/Llm]
             │     ├► RequirementResponseParser  (parse JSON)
@@ -236,7 +236,7 @@ cần `docker compose -f docker-compose.otel.yml up -d` rồi `Otel:Enabled=true
 **anonymous**, chỉ dùng local — production trỏ `Otel:OtlpEndpoint` tới collector thật (Jaeger/Tempo/Grafana).
 
 ### 5.11. Bộ nhớ hội thoại BA (summarization memory — hai tầng nhớ)
-Hội thoại BA (`ChatWithBAUseCase` → `BARequirementService.ChatAsync`) dùng **hai tầng nhớ** để giữ ngữ
+Hội thoại BA (`ChatWithBAUseCase` → `BAChatService.ChatAsync`) dùng **hai tầng nhớ** để giữ ngữ
 cảnh khi chat dài mà prompt không phình token, do `ConversationMemoryService` lo:
 
 - **Ngắn hạn (working memory):** `RecentWindowSize` (=20) lượt gần nhất luôn gửi **nguyên văn** cho model.
@@ -257,7 +257,7 @@ không theo dự án — đây là thứ tạo cảm giác giống Claude/ChatGP
 - **Lưu ở đâu:** một hồ sơ ngắn gọn các sự thật **bền** về user (vai trò, lĩnh vực, tổ chức, văn phong/định
   dạng ưa dùng, thuật ngữ hay dùng…) lưu trên `AppUser.UserMemory`, dùng lại **xuyên suốt mọi dự án** của họ.
   Hồ sơ được quy về **người tạo dự án** (`Project.CreatedByUsername`); dự án không có chủ thì bỏ qua.
-- **Chắt lọc khi nào:** `BARequirementService.ChatAsync` gọi `UserMemoryService.UpdateAndLoadAsync` mỗi lượt;
+- **Chắt lọc khi nào:** `BAChatService.ChatAsync` gọi `UserMemoryService.UpdateAndLoadAsync` mỗi lượt;
   việc gọi LLM chắt lọc **gom theo lô** — chỉ chạy khi đã có ≥ `HarvestBatchThreshold` (=10) lượt mới chưa
   chắt lọc (con trỏ riêng `Project.UserMemoryHarvestedTurnCount`, tách khỏi `SummarizedTurnCount` vì hai bộ
   nhớ tiến theo nhịp khác nhau). Prompt: `BusinessAnalyst/user-memory.v1.md`.
@@ -278,7 +278,7 @@ Hai bảng **`OrgUnits`/`Associates`** (đồng bộ từ HR_Portal, seed một 
 - **`BuildProjectUnitNoteAsync`** dựng ghi chú "đơn vị yêu cầu" từ **`Project.OrgUnitCode`** (chọn tùy chọn
   ở modal New Project; `CreateProjectUseCase` chỉ lưu mã có thật trong OrgUnits): orgUnit + manager +
   department cha + HoD.
-- Nơi tiêu thụ: `BARequirementService.ChatAsync` (system message nền — BA hiểu tên phòng/vai trò, gợi ý
+- Nơi tiêu thụ: `BAChatService.ChatAsync` (system message nền — BA hiểu tên phòng/vai trò, gợi ý
   bằng tên phòng thật, hỏi luồng duyệt đúng ngôn ngữ manager/HoD, biết external KHÔNG nằm trong dữ liệu HR),
   và các lời gọi soạn/soát/sửa Product Brief + Technical Docs (`RequirementPromptBuilder` — tài liệu dùng
   đúng tên phòng ban/HoD thật thay vì "TBD"; khối context đưa cả vào vòng tự soát để reviewer không coi tên

@@ -77,7 +77,7 @@ sequenceDiagram
     participant U as User
     participant UI as Requirements UI
     participant UC as ChatWithBAUseCase
-    participant BA as BARequirementService
+    participant BA as BAChatService
     participant LLM as LLM
     participant DB as DB
 
@@ -114,7 +114,7 @@ sequenceDiagram
     participant O as WorkflowOrchestrator
     participant DB as DB
     participant W as AgentTaskWorker
-    participant BA as BARequirementService
+    participant BA as ProductBriefDraftService
 
     U->>R: Click Generate/Update Requirement
     R->>UC: execute(projectId)
@@ -142,7 +142,7 @@ flowchart TD
     D --> E[Mark ProjectDocument approved + version]
     E --> F[StartAiDesignSpecWorkflowAsync]
     F --> G[AgentTask AiDesignSpec Queued]
-    G --> H[AgentTaskWorker gọi BARequirementService.GenerateAiDesignSpecAsync]
+    G --> H[AgentTaskWorker gọi RequirementDocsService.GenerateAiDesignSpecAsync]
     H --> I[Lưu AI Design Spec]
     I --> J[Tự khởi động Delivery Workflow]
 ```

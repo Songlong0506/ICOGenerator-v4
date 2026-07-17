@@ -248,7 +248,7 @@ public class AgentTaskWorker : BackgroundService
                 return;
             }
 
-            // Tài liệu kỹ thuật là BƯỚC 2 của Delivery Pipeline (sau POC): chạy qua BARequirementService
+            // Tài liệu kỹ thuật là BƯỚC 2 của Delivery Pipeline (sau POC): chạy qua RequirementDocsService
             // (sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design Spec) thay vì agent+prompt chung,
             // rồi rơi về cổng duyệt tuyến tính như mọi bước — KHÔNG hoàn tất run.
             if (task.Type == AgentTaskType.TechnicalDocs)
@@ -504,9 +504,9 @@ public class AgentTaskWorker : BackgroundService
 
     private async Task<RequirementDraftOutcome> RunRequirementDraftAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
     {
-        var baService = scope.ServiceProvider.GetRequiredService<BARequirementService>();
+        var draftService = scope.ServiceProvider.GetRequiredService<ProductBriefDraftService>();
 
-        var outcome = await baService.GenerateOrUpdateDraftAsync(
+        var outcome = await draftService.GenerateOrUpdateDraftAsync(
             task.ProjectId,
             onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
             onToken: token => _progress.ReportToken(task.WorkflowRunId, token),
@@ -523,10 +523,10 @@ public class AgentTaskWorker : BackgroundService
 
     private async Task<string> RunAiDesignSpecAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
     {
-        var baService = scope.ServiceProvider.GetRequiredService<BARequirementService>();
+        var docsService = scope.ServiceProvider.GetRequiredService<RequirementDocsService>();
 
         // task.Input mang versionName (V{n}) của requirement vừa được duyệt — phiên bản cần sinh spec.
-        return await baService.GenerateAiDesignSpecAsync(
+        return await docsService.GenerateAiDesignSpecAsync(
             task.ProjectId,
             task.Input,
             onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
@@ -537,11 +537,11 @@ public class AgentTaskWorker : BackgroundService
 
     private async Task RunTechnicalDocsAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
     {
-        var baService = scope.ServiceProvider.GetRequiredService<BARequirementService>();
+        var docsService = scope.ServiceProvider.GetRequiredService<RequirementDocsService>();
 
         // Task chỉnh sửa mang nhận xét của người duyệt — BA sẽ cập nhật bộ tài liệu hiện có theo
         // nhận xét (prompt TechnicalDocs vốn đã ở dạng "update", chỉ cần thêm khối yêu cầu sửa).
-        await baService.GenerateTechnicalDocsAsync(
+        await docsService.GenerateTechnicalDocsAsync(
             task.ProjectId,
             onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
             onToken: token => _progress.ReportToken(task.WorkflowRunId, token),

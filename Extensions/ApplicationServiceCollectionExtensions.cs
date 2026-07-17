@@ -457,7 +457,14 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddRequirementServices(this IServiceCollection services)
     {
-        services.AddScoped<BARequirementService>();
+        // Ba use case của luồng BA (chat / draft Product Brief / tài liệu sau Approve) + các mảnh dùng
+        // chung (resolver agent, cổng readiness, ghi lượt hội thoại) — tách từ BARequirementService cũ.
+        services.AddScoped<BAChatService>();
+        services.AddScoped<ProductBriefDraftService>();
+        services.AddScoped<RequirementDocsService>();
+        services.AddScoped<BAAgentResolver>();
+        services.AddScoped<RequirementReadinessGate>();
+        services.AddScoped<BAConversationLog>();
         services.AddScoped<RequirementPromptBuilder>();
         services.AddScoped<RequirementResponseParser>();
         services.AddScoped<BAChatReplyParser>();

@@ -200,7 +200,7 @@ Services/
                          #   TokenEstimator, MaxOutputTokenResolver, LlmCost, StructuredOutputPolicy...
   Notifications/         # NotificationService + Channels/ (Teams webhook, SMTP email)
   Prompts/               # PromptTemplateService, DbPromptOverrideProvider, PromptFileCatalog
-  Requirements/          # BARequirementService + toàn bộ trí nhớ/parser/generator của luồng BA
+  Requirements/          # BAChatService, ProductBriefDraftService, RequirementDocsService + trí nhớ/parser/generator của luồng BA
     Templates/           # RequirementTemplateService, DocxTemplateWriter (sinh .docx)
   Security/              # PermissionService, RequirePermissionAttribute, AesApiKeyProtector, AuditLogger
   Settings/              # AppSettingsFileStore (đọc/ghi appsettings từ màn hình Settings)
@@ -303,7 +303,7 @@ DB, chỉ việc ghi response dừng lại.
 Browser POST /Requirements/ChatStream (SSE)  [hoặc POST /Requirements/Chat — fallback]
   └► RequirementsController.ChatStream               [Controllers]
        └► ChatWithBAUseCase.ExecuteAsync             [Application/Requirements]
-            └► BARequirementService.ChatAsync        [Services/Requirements]
+            └► BAChatService.ChatAsync               [Services/Requirements]
                  ├► OrganizationContextService       → system message "bức tranh tổ chức" (cache 1h)
                  ├► UserMemoryService                → hồ sơ user (học dần, xuyên project)
                  ├► ConversationMemoryService        → 20 lượt gần nhất nguyên văn + tóm tắt lượt cũ
@@ -375,7 +375,7 @@ Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.
 | 6 | `Testing` | Tester | `Testing` | Output bước trước | 8 | `Tester/testing.v1.md` |
 | 7 | `PullRequest` | Developer | `PullRequest` | Output bước trước | 6 | `Developer/pull-request.v1.md` |
 
-\* Bước TechnicalDocs **không** chạy qua agent + prompt chung: worker xử lý nhánh riêng, gọi `BARequirementService.GenerateTechnicalDocsAsync` (BA cần đọc context project) — sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design Spec đã duyệt.
+\* Bước TechnicalDocs **không** chạy qua agent + prompt chung: worker xử lý nhánh riêng, gọi `RequirementDocsService.GenerateTechnicalDocsAsync` (BA cần đọc context project) — sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design Spec đã duyệt.
 
 Ngoài chuỗi tuyến tính còn **`BugFixStep`** (Developer, `BugFix`, MaxSteps 30) — cố tình không nằm trong `Steps` vì nó là chu trình quanh Testing (xem 7.3).
 

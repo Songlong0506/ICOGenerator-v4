@@ -43,7 +43,7 @@ public static class ConversationTurnRenderer
     /// <summary>
     /// Giải mã cột <see cref="AgentConversation.Suggestions"/> (JSON array chuỗi) an toàn: null/rỗng/hỏng
     /// đều trả mảng rỗng. Dùng chung cho cả đường render transcript lẫn <c>BuildAssistantContext</c> (dựng
-    /// lại lượt BA cũ đúng JSON để củng cố format) trong <see cref="BARequirementService"/>.
+    /// lại lượt BA cũ đúng JSON để củng cố format) trong <see cref="BAChatService"/>.
     /// </summary>
     public static List<string> ParseSuggestions(string? suggestionsJson)
     {

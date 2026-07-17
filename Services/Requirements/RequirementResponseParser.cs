@@ -9,7 +9,7 @@ public class RequirementResponseParser
 {
     // The model can return valid JSON with a null section/Content; guarantee non-null here, else downstream
     // deref throws a NullReferenceException. Shared by the text-parse path (below) and the structured-output
-    // path (BARequirementService), so both yield a fully-populated result.
+    // path (RequirementDocsService), so both yield a fully-populated result.
     public BARequirementDocxResult Normalize(BARequirementDocxResult result)
     {
         result.Brd ??= new();

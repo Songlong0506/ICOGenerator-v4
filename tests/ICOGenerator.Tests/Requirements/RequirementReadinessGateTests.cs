@@ -20,11 +20,12 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Cổng readiness phải chạy NGAY trong lượt chat khi BA định mời bấm "Write Requirement" (gate chê thiếu
-// ⇒ thay lời mời bằng câu hỏi của gate), và bước sinh tài liệu KHÔNG chạy lại gate khi lượt cuối là lời
-// mời đã được duyệt. Không có cặp hành vi này, hai "giám khảo" (BA chat và gate lúc bấm nút) vênh nhau:
-// BA mời bấm nút liên tục, người dùng bấm thì liên tục bị chặn "cần bổ sung thông tin".
-public class BARequirementServiceReadinessGateTests : IDisposable
+// Cổng readiness phải chạy NGAY trong lượt chat (BAChatService) khi BA định mời bấm "Write Requirement"
+// (gate chê thiếu ⇒ thay lời mời bằng câu hỏi của gate), và bước sinh tài liệu (ProductBriefDraftService)
+// KHÔNG chạy lại gate khi lượt cuối là lời mời đã được duyệt. Không có cặp hành vi này, hai "giám khảo"
+// (BA chat và gate lúc bấm nút) vênh nhau: BA mời bấm nút liên tục, người dùng bấm thì liên tục bị chặn
+// "cần bổ sung thông tin".
+public class RequirementReadinessGateTests : IDisposable
 {
     private const string InviteMessage = "Mình đã đủ thông tin. Nếu không còn gì bổ sung, vui lòng bấm nút \"Write Requirement\" để tạo tài liệu.";
     private const string GateQuestion = "Khi đơn bị từ chối thì xử lý tiếp thế nào?";
@@ -35,7 +36,7 @@ public class BARequirementServiceReadinessGateTests : IDisposable
     private readonly Guid _projectId = Guid.NewGuid();
     private readonly Guid _baId = Guid.NewGuid();
 
-    public BARequirementServiceReadinessGateTests()
+    public RequirementReadinessGateTests()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
@@ -59,7 +60,7 @@ public class BARequirementServiceReadinessGateTests : IDisposable
         };
 
         await using var db = NewDb();
-        await NewSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+        await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
 
         Assert.Equal(1, llm.ReadinessCalls);
         var lastBaTurn = await LastAssistantTurnAsync();
@@ -83,7 +84,7 @@ public class BARequirementServiceReadinessGateTests : IDisposable
         };
 
         await using var db = NewDb();
-        await NewSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+        await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
 
         Assert.Equal(1, llm.ReadinessCalls);
         Assert.Equal(InviteMessage, (await LastAssistantTurnAsync()).Message);
@@ -98,7 +99,7 @@ public class BARequirementServiceReadinessGateTests : IDisposable
         };
 
         await using var db = NewDb();
-        await NewSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+        await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
 
         Assert.Equal(0, llm.ReadinessCalls);
         Assert.Equal("Đối tượng người dùng chính là ai?", (await LastAssistantTurnAsync()).Message);
@@ -116,7 +117,7 @@ public class BARequirementServiceReadinessGateTests : IDisposable
         };
 
         await using var db = NewDb();
-        var outcome = await NewSut(db, llm).GenerateOrUpdateDraftAsync(_projectId);
+        var outcome = await NewDraftSut(db, llm).GenerateOrUpdateDraftAsync(_projectId);
 
         Assert.Equal(0, llm.ReadinessCalls);
         Assert.Equal(1, llm.ProductBriefCalls);
@@ -133,7 +134,7 @@ public class BARequirementServiceReadinessGateTests : IDisposable
         };
 
         await using var db = NewDb();
-        var outcome = await NewSut(db, llm).GenerateOrUpdateDraftAsync(_projectId);
+        var outcome = await NewDraftSut(db, llm).GenerateOrUpdateDraftAsync(_projectId);
 
         Assert.Equal(1, llm.ReadinessCalls);
         Assert.Equal(0, llm.ProductBriefCalls);
@@ -168,34 +169,54 @@ public class BARequirementServiceReadinessGateTests : IDisposable
         await db.SaveChangesAsync();
     }
 
-    private static BARequirementService NewSut(AppDbContext db, ILlmClient llm)
+    private static BAChatService NewChatSut(AppDbContext db, ILlmClient llm)
     {
         var config = new ConfigurationBuilder().Build();
         var prompts = new StubPrompts();
-        var replyParser = new BAChatReplyParser();
-        var catalog = new ProjectArtifactCatalog();
-        var templateService = new RequirementTemplateService(new FakeWebHostEnvironment());
-        return new BARequirementService(
+        return new BAChatService(
             db,
             llm,
-            templateService,
+            prompts,
+            new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance),
+            new BAChatReplyParser(),
+            new ConversationMemoryService(db, llm, prompts),
+            new UserMemoryService(db, llm, prompts),
+            new RequirementCoverageService(db, llm, prompts),
+            NewOrgContext(db, prompts),
+            NewGate(llm, prompts),
+            new BAAgentResolver(db),
+            new BAConversationLog(db));
+    }
+
+    private static ProductBriefDraftService NewDraftSut(AppDbContext db, ILlmClient llm)
+    {
+        var config = new ConfigurationBuilder().Build();
+        var prompts = new StubPrompts();
+        var catalog = new ProjectArtifactCatalog();
+        var templateService = new RequirementTemplateService(new FakeWebHostEnvironment());
+        return new ProductBriefDraftService(
+            db,
+            llm,
             new RequirementPromptBuilder(),
             new RequirementResponseParser(),
-            replyParser,
-            new RequirementReadinessParser(replyParser),
             new RequirementDocumentGenerator(db, templateService, new DocxTemplateWriter(), new WorkspacePathResolver(config), catalog, new FakeArtifactStorage()),
             prompts,
             new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance),
             catalog,
-            new ConversationMemoryService(db, llm, prompts),
-            new UserMemoryService(db, llm, prompts),
             new ChecklistGapMemoryService(db, llm, prompts),
-            new RequirementCoverageService(db, llm, prompts),
             new ProductBriefReviewParser(),
-            // OrgUnits trống trong các test này ⇒ service trả null (fail-open), không thêm system message nào.
-            new OrganizationContextService(db, prompts, new MemoryCache(new MemoryCacheOptions()),
-                NullLogger<OrganizationContextService>.Instance));
+            NewOrgContext(db, prompts),
+            NewGate(llm, prompts),
+            new BAAgentResolver(db),
+            new BAConversationLog(db));
     }
+
+    private static RequirementReadinessGate NewGate(ILlmClient llm, PromptTemplateService prompts) =>
+        new(llm, prompts, new RequirementReadinessParser(new BAChatReplyParser()));
+
+    // OrgUnits trống trong các test này ⇒ service trả null (fail-open), không thêm system message nào.
+    private static OrganizationContextService NewOrgContext(AppDbContext db, PromptTemplateService prompts) =>
+        new(db, prompts, new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance);
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 

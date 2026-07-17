@@ -46,7 +46,7 @@ public static class DeliveryPipeline
         // (trước là 14, chưa tính vòng audit thứ hai), đủ cho spec ~10 màn hình kèm chu trình tự soát.
         new PipelineStep(WorkflowStageKey.PocPreview,         AgentRoleKey.Developer,       AgentTaskType.PocPreview,         "Tạo POC HTML để xem trước",        PipelineInputSource.DesignSpec,     16),
         // Sinh tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) từ Product Brief + AI Design Spec đã duyệt.
-        // BA chạy qua BARequirementService (đọc context project), không qua agent+prompt chung — vì vậy
+        // BA chạy qua RequirementDocsService (đọc context project), không qua agent+prompt chung — vì vậy
         // MaxSteps ở đây không được tiêu thụ (worker xử lý nhánh riêng); InputSource giữ DesignSpec cho nhất quán.
         new PipelineStep(WorkflowStageKey.TechnicalDocs,      AgentRoleKey.BusinessAnalyst, AgentTaskType.TechnicalDocs,      "Tạo tài liệu kỹ thuật (BRD/SRS/FSD/UserStories)", PipelineInputSource.DesignSpec, 8),
         new PipelineStep(WorkflowStageKey.ArchitectureDesign, AgentRoleKey.TechLead,        AgentTaskType.ArchitectureDesign, "Đề xuất kiến trúc từ AI Design Spec", PipelineInputSource.DesignSpec,  8),
