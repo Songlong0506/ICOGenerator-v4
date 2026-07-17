@@ -91,11 +91,19 @@ public class AppDbContext : DbContext
         builder.Entity<AgentConversation>().Property(x => x.Role).HasMaxLength(50);
 
         // Status giữ nguyên (đã nvarchar(450) trong index); thu gọn cột enum nvarchar(max) (CurrentStage, Type) để index được.
-        builder.Entity<WorkflowRun>().Property(x => x.Status).HasConversion<string>();
+        // Status là CONCURRENCY TOKEN (không đổi schema — chỉ thêm "AND Status = @original" vào mọi UPDATE):
+        // hai người cùng bấm Duyệt/Chỉnh sửa một cổng WaitingForHuman sẽ không còn enqueue ĐÔI task (đốt token
+        // gấp đôi, output ghi đè nhau) — lần lưu thua ném DbUpdateConcurrencyException và use case cổng duyệt
+        // trả "không còn bước chờ duyệt". Chọn cách này thay vì rowversion vì nó chạy được trên CẢ Sqlite
+        // (rowversion là kiểu SQL-Server-specific, mà test/CI chạy Sqlite).
+        builder.Entity<WorkflowRun>().Property(x => x.Status).HasConversion<string>().IsConcurrencyToken();
         builder.Entity<WorkflowRun>().Property(x => x.CurrentStage).HasConversion<string>().HasMaxLength(50);
 
         builder.Entity<AgentTask>().Property(x => x.Type).HasConversion<string>().HasMaxLength(50);
-        builder.Entity<AgentTask>().Property(x => x.Status).HasConversion<string>();
+        // Concurrency token (như WorkflowRun.Status): cho phép worker "claim" task Queued → Running một cách
+        // nguyên tử — hai vòng dispatch (hoặc hai instance app trong tương lai) cùng nhặt một task thì chỉ
+        // một bên thắng, bên thua nhận DbUpdateConcurrencyException và bỏ qua task đó.
+        builder.Entity<AgentTask>().Property(x => x.Status).HasConversion<string>().IsConcurrencyToken();
 
         builder.Entity<WorkflowRun>().HasOne(x => x.Project).WithMany(x => x.WorkflowRuns).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         builder.Entity<WorkflowRun>().HasIndex(x => new { x.ProjectId, x.Status, x.CreatedAt });
@@ -180,6 +188,13 @@ public class AppDbContext : DbContext
             b.Property(x => x.ModelName).HasMaxLength(200);
             b.Property(x => x.ModelId).HasMaxLength(200);
             b.Property(x => x.Purpose).HasMaxLength(100);
+            // BudgetGuard chạy TRƯỚC MỖI lời gọi model: WHERE CreatedAt >= @windowStart GROUP BY
+            // (ProjectId, ModelId) SUM(token). Không có index theo CreatedAt thì mỗi lời gọi là một
+            // lượt scan cả bảng log (chỉ-tăng-không-giảm). Index này biến nó thành một range-seek;
+            // IncludeProperties phủ luôn các cột guard cần đọc nên khỏi lookup về clustered index
+            // (SQL Server; Sqlite bỏ qua include — vẫn dùng được phần key CreatedAt).
+            b.HasIndex(x => x.CreatedAt)
+                .IncludeProperties(x => new { x.ProjectId, x.ModelId, x.PromptTokens, x.CompletionTokens });
         });
 
         // Người dùng đăng nhập: Username là duy nhất, Role lưu dạng chuỗi (dễ đọc trong DB và bền với việc chèn enum mới).

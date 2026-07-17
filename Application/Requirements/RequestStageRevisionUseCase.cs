@@ -125,7 +125,18 @@ public class RequestStageRevisionUseCase
         // CurrentStage giữ nguyên — chạy xong bước này lại rơi về đúng cổng duyệt hiện tại.
         run.Status = WorkflowRunStatus.Queued;
 
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Run đã bị một request song song chuyển khỏi WaitingForHuman (double-click / người khác
+            // vừa Duyệt hoặc Từ chối) — không enqueue task chỉnh sửa trùng; ghi chú POC đổi Status
+            // nằm cùng SaveChanges nên cũng không bị "đốt".
+            return RequestStageRevisionResult.NoWaitingRun;
+        }
+
         return RequestStageRevisionResult.Queued;
     }
 

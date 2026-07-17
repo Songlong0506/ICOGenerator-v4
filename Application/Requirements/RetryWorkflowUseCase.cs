@@ -66,7 +66,17 @@ public class RetryWorkflowUseCase
         run.CurrentStage = ResolveStage(failedTask.Type, run.CurrentStage);
         run.FinishedAt = null;
 
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Run/task đã bị một request Retry song song re-queue trước (Status là concurrency token) —
+            // bên thua bỏ qua để không đẩy trùng; task kia đằng nào cũng đang được chạy lại.
+            return RetryWorkflowResult.NoFailedRun;
+        }
+
         return RetryWorkflowResult.Requeued;
     }
 

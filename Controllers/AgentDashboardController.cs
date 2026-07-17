@@ -25,6 +25,7 @@ public class AgentDashboardController : Controller
     private readonly RequestStageRevisionUseCase _requestStageRevisionUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly UpdateDeliveryConfigUseCase _updateDeliveryConfigUseCase;
+    private readonly IProjectAccessGuard _projectAccess;
 
     public AgentDashboardController(
         GetAgentDashboardQuery getAgentDashboardQuery,
@@ -38,7 +39,8 @@ public class AgentDashboardController : Controller
         RejectStageUseCase rejectStageUseCase,
         RequestStageRevisionUseCase requestStageRevisionUseCase,
         RetryWorkflowUseCase retryWorkflowUseCase,
-        UpdateDeliveryConfigUseCase updateDeliveryConfigUseCase)
+        UpdateDeliveryConfigUseCase updateDeliveryConfigUseCase,
+        IProjectAccessGuard projectAccess)
     {
         _getAgentDashboardQuery = getAgentDashboardQuery;
         _getAgentStatsQuery = getAgentStatsQuery;
@@ -52,10 +54,19 @@ public class AgentDashboardController : Controller
         _requestStageRevisionUseCase = requestStageRevisionUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
         _updateDeliveryConfigUseCase = updateDeliveryConfigUseCase;
+        _projectAccess = projectAccess;
     }
+
+    // TeamDev/Admin có ProjectsViewAll nên luôn pass; guard này chỉ chặn role tùy biến có AgentsView
+    // nhưng KHÔNG có ProjectsViewAll khỏi dòm dashboard của project người khác qua GUID.
+    private Task<bool> CanAccessProjectAsync(Guid projectId) =>
+        _projectAccess.CanAccessProjectAsync(User, projectId, HttpContext.RequestAborted);
 
     public async Task<IActionResult> Index(Guid projectId)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction("Index", "Projects");
+
         var result = await _getAgentDashboardQuery.ExecuteAsync(projectId);
         if (result == null)
             return RedirectToAction("Index", "Projects");
@@ -73,6 +84,9 @@ public class AgentDashboardController : Controller
     [HttpGet]
     public async Task<IActionResult> WorkflowStatus(Guid projectId)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
         return Json(await _getWorkflowStatusQuery.ExecuteAsync(projectId));
     }
 
@@ -80,6 +94,9 @@ public class AgentDashboardController : Controller
     [HttpGet]
     public async Task<IActionResult> ActiveAgents(Guid projectId)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
         return Json(await _getAgentActivityQuery.GetActiveAgentsAsync(projectId));
     }
 
@@ -88,6 +105,9 @@ public class AgentDashboardController : Controller
     [HttpGet]
     public async Task<IActionResult> AgentStats(Guid projectId)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
         return Json(await _getAgentStatsQuery.ExecuteAsync(projectId));
     }
 
@@ -95,6 +115,9 @@ public class AgentDashboardController : Controller
     [HttpGet]
     public async Task<IActionResult> AgentActivity(Guid projectId, Guid agentId, long afterSeq = 0)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
         return Json(await _getAgentActivityQuery.GetAgentActivityAsync(projectId, agentId, afterSeq));
     }
 
@@ -105,6 +128,9 @@ public class AgentDashboardController : Controller
         long? minDurationMs = null, long? maxDurationMs = null,
         DateTime? fromUtc = null, DateTime? toUtc = null)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
         return Json(await _getAgentCallLogsQuery.ExecuteAsync(
             projectId, agentId, page, GetAgentCallLogsQuery.DefaultPageSize,
             purpose, status, minDurationMs, maxDurationMs, fromUtc, toUtc));
@@ -113,6 +139,9 @@ public class AgentDashboardController : Controller
     [HttpGet]
     public async Task<IActionResult> CallLogDetail(Guid id)
     {
+        if (!await _projectAccess.CanAccessCallLogAsync(User, id, HttpContext.RequestAborted))
+            return NotFound();
+
         var result = await _getCallLogDetailQuery.ExecuteAsync(id);
         return result == null ? NotFound() : Json(result);
     }
@@ -120,6 +149,14 @@ public class AgentDashboardController : Controller
     [HttpGet]
     public async Task<IActionResult> DocumentPreview(Guid id, Guid projectId, string? path)
     {
+        // Hai cách định địa chỉ (xem GetDocumentPreviewQuery): theo projectId + path (file chỉ nằm trên
+        // đĩa) thì kiểm tra project; theo id dòng ProjectDocument thì giải ngược document → project.
+        var allowed = !string.IsNullOrWhiteSpace(path)
+            ? await CanAccessProjectAsync(projectId)
+            : await _projectAccess.CanAccessDocumentAsync(User, id, HttpContext.RequestAborted);
+        if (!allowed)
+            return NotFound();
+
         var result = await _getDocumentPreviewQuery.ExecuteAsync(id, projectId, path);
         return result == null ? NotFound() : Json(result);
     }
@@ -132,6 +169,9 @@ public class AgentDashboardController : Controller
     [RequirePermission(AppPermission.DeliveryAdvance)]
     public async Task<IActionResult> ApproveStage(Guid projectId, Guid? runId = null)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction("Index", "Projects");
+
         var result = await _approveStageUseCase.ExecuteAsync(projectId, runId);
 
         TempData["Error"] = result switch
@@ -149,6 +189,9 @@ public class AgentDashboardController : Controller
     [RequirePermission(AppPermission.DeliveryAdvance)]
     public async Task<IActionResult> RejectStage(Guid projectId, Guid? runId = null)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction("Index", "Projects");
+
         var result = await _rejectStageUseCase.ExecuteAsync(projectId, runId);
 
         if (result == RejectStageResult.PocGateNotRejectable)
@@ -167,6 +210,9 @@ public class AgentDashboardController : Controller
     [RequirePermission(AppPermission.DeliveryAdvance)]
     public async Task<IActionResult> RequestRevision(Guid projectId, string? feedback, Guid? runId = null, bool includePocComments = false)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction("Index", "Projects");
+
         var result = await _requestStageRevisionUseCase.ExecuteAsync(projectId, feedback, runId, includePocComments);
 
         TempData["Error"] = result switch
@@ -190,6 +236,9 @@ public class AgentDashboardController : Controller
     [RequirePermission(AppPermission.DeliveryAdvance)]
     public async Task<IActionResult> RetryWorkflow(Guid projectId, Guid? runId = null)
     {
+        if (!await CanAccessProjectAsync(projectId))
+            return RedirectToAction("Index", "Projects");
+
         var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId);
 
         if (result == RetryWorkflowResult.NoFailedRun || result == RetryWorkflowResult.NoRetryableTask)
@@ -205,6 +254,9 @@ public class AgentDashboardController : Controller
     [RequirePermission(AppPermission.DeliveryAdvance)]
     public async Task<IActionResult> UpdateDeliveryConfig(UpdateDeliveryConfigVm vm)
     {
+        if (!await CanAccessProjectAsync(vm.ProjectId))
+            return RedirectToAction("Index", "Projects");
+
         var result = await _updateDeliveryConfigUseCase.ExecuteAsync(vm);
 
         if (result == UpdateDeliveryConfigResult.ProjectNotFound)

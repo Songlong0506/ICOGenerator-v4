@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
@@ -13,17 +14,32 @@ namespace ICOGenerator.Services.Workflows;
 
 public class AgentTaskWorker : BackgroundService
 {
+    // Trần cứng cho Workers:MaxConcurrentAgentTasks — mỗi task là một agent run dài (nhiều lời gọi
+    // LLM), chạy quá nhiều task song song chỉ dồn nghẽn về endpoint model.
+    private const int MaxConfigurableConcurrency = 16;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AgentTaskWorker> _logger;
     private readonly IWorkflowProgressReporter _progress;
     private readonly IWebHostEnvironment _environment;
+    private readonly int _maxConcurrentTasks;
 
-    public AgentTaskWorker(IServiceScopeFactory scopeFactory, ILogger<AgentTaskWorker> logger, IWorkflowProgressReporter progress, IWebHostEnvironment environment)
+    // Task đang bay (taskId → Task xử lý) và project đang bận. Dispatcher (vòng ExecuteAsync) là người
+    // ghi/dọn duy nhất của _inFlight; _busyProjects được chính task xử lý gỡ trong finally khi xong —
+    // ConcurrentDictionary vì hai việc đó xảy ra trên thread khác nhau.
+    private readonly ConcurrentDictionary<Guid, Task> _inFlight = new();
+    private readonly ConcurrentDictionary<Guid, byte> _busyProjects = new();
+
+    public AgentTaskWorker(IServiceScopeFactory scopeFactory, ILogger<AgentTaskWorker> logger, IWorkflowProgressReporter progress, IWebHostEnvironment environment, IConfiguration configuration)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
         _progress = progress;
         _environment = environment;
+        // Mặc định 1 = giữ nguyên hành vi tuần tự cũ (an toàn cho LLM tự host một model). Tăng lên khi
+        // endpoint model chịu được nhiều request song song để các PROJECT khác nhau không phải xếp hàng
+        // chờ nhau cả một bước Implementation dài — trong MỘT project task vẫn luôn chạy tuần tự.
+        _maxConcurrentTasks = Math.Clamp(configuration.GetValue("Workers:MaxConcurrentAgentTasks", 1), 1, MaxConfigurableConcurrency);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -32,14 +48,14 @@ public class AgentTaskWorker : BackgroundService
         {
             try
             {
-                await ProcessNextQueuedTaskAsync(stoppingToken);
+                await DispatchQueuedTasksAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed while processing queued workflow agent tasks.");
+                _logger.LogError(ex, "Failed while dispatching queued workflow agent tasks.");
             }
 
             // Catch the shutdown cancellation here instead of letting it escape
@@ -53,20 +69,106 @@ public class AgentTaskWorker : BackgroundService
                 break;
             }
         }
+
+        // Shutdown: chờ các task đang bay unwind (chúng quan sát stoppingToken nên dừng nhanh). Task bị
+        // ngắt giữa chừng để nguyên Running — reaper của DbInitializer re-queue ở lần khởi động sau,
+        // đúng ngữ nghĩa cũ khi worker tuần tự bị ngắt.
+        try
+        {
+            await Task.WhenAll(_inFlight.Values.ToArray());
+        }
+        catch
+        {
+            // Mỗi task tự xử lý/log lỗi của nó; ở đây chỉ cần không để exception thoát khỏi ExecuteAsync.
+        }
     }
 
-    private async Task ProcessNextQueuedTaskAsync(CancellationToken cancellationToken)
+    // Nhặt các task Queued (cũ nhất trước) và giao cho tối đa MaxConcurrentAgentTasks task chạy SONG
+    // SONG — nhưng mỗi project chỉ một task tại một thời điểm: hai run của cùng project (vd hai lần bấm
+    // "Write Requirement" liên tiếp) ghi lên cùng workspace, chạy chồng sẽ giẫm file của nhau.
+    private async Task DispatchQueuedTasksAsync(CancellationToken stoppingToken)
+    {
+        // Dọn entry đã xong (dispatcher là người ghi duy nhất của _inFlight nên dọn ở đây là đủ).
+        foreach (var entry in _inFlight)
+            if (entry.Value.IsCompleted)
+                _inFlight.TryRemove(entry.Key, out _);
+
+        var slots = _maxConcurrentTasks - _inFlight.Count;
+        if (slots <= 0)
+            return;
+
+        var candidates = await SelectCandidatesAsync(slots, stoppingToken);
+
+        foreach (var candidate in candidates)
+        {
+            // Giữ chỗ project TRƯỚC khi spawn để nhịp dispatch sau không chọn thêm task cùng project.
+            if (!_busyProjects.TryAdd(candidate.ProjectId, 0))
+                continue;
+
+            _inFlight[candidate.TaskId] = RunOneAsync(candidate.TaskId, candidate.ProjectId, stoppingToken);
+        }
+    }
+
+    private sealed record QueuedCandidate(Guid TaskId, Guid ProjectId);
+
+    private async Task<IReadOnlyList<QueuedCandidate>> SelectCandidatesAsync(int slots, CancellationToken cancellationToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var busyProjects = _busyProjects.Keys.ToArray();
+
+        // Lấy dư một chút (slots × 4) rồi mới gom một-task-mỗi-project trong RAM: một project dồn nhiều
+        // task Queued liên tiếp sẽ không chiếm hết danh sách ứng viên của các project khác.
+        var rows = await db.AgentTasks
+            .AsNoTracking()
+            .Where(x => x.Status == AgentTaskStatus.Queued && !busyProjects.Contains(x.ProjectId))
+            .OrderBy(x => x.CreatedAt)
+            .Select(x => new { x.Id, x.ProjectId })
+            .Take(slots * 4)
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .DistinctBy(x => x.ProjectId)
+            .Take(slots)
+            .Select(x => new QueuedCandidate(x.Id, x.ProjectId))
+            .ToList();
+    }
+
+    // Chạy TRỌN một task: tự xử lý mọi lỗi (không bao giờ ném ra ngoài — dispatcher không await nó tại
+    // chỗ) và luôn trả "chỗ" project khi xong để nhịp dispatch sau nhặt tiếp task kế của project đó.
+    private async Task RunOneAsync(Guid taskId, Guid projectId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ProcessClaimedTaskAsync(taskId, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // App shutting down mid-task: leave it Running and let the startup reaper re-queue it on the
+            // next launch, instead of recording a misleading Failed for work that was merely interrupted.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed while processing workflow agent task {TaskId}.", taskId);
+        }
+        finally
+        {
+            _busyProjects.TryRemove(projectId, out _);
+        }
+    }
+
+    private async Task ProcessClaimedTaskAsync(Guid taskId, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var agentRunService = scope.ServiceProvider.GetRequiredService<AgentRunService>();
         var notifier = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
+        // Chỉ nhận task còn Queued — giữa lúc dispatcher chọn và lúc này, task có thể đã bị xử lý nơi khác.
         var task = await db.AgentTasks
             .Include(x => x.WorkflowRun)
-            .Where(x => x.Status == AgentTaskStatus.Queued)
-            .OrderBy(x => x.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(x => x.Id == taskId && x.Status == AgentTaskStatus.Queued, cancellationToken);
 
         if (task == null)
             return;
@@ -83,15 +185,26 @@ public class AgentTaskWorker : BackgroundService
             return;
         }
 
+        // CLAIM nguyên tử Queued → Running qua concurrency token (AgentTask.Status): một dispatch khác
+        // (hoặc instance app khác trong tương lai) đã nhặt trước thì bên thua lặng lẽ bỏ qua — không bao
+        // giờ hai bên cùng chạy một task. Claim nằm NGOÀI khối try bên dưới để thua claim không bị đánh
+        // nhầm thành task Failed.
+        task.Status = AgentTaskStatus.Running;
+        task.StartedAt = DateTime.UtcNow;
+        task.Attempt += 1;
+        task.WorkflowRun.Status = WorkflowRunStatus.Running;
+        task.WorkflowRun.StartedAt ??= DateTime.UtcNow;
         try
         {
-            task.Status = AgentTaskStatus.Running;
-            task.StartedAt = DateTime.UtcNow;
-            task.Attempt += 1;
-            task.WorkflowRun.Status = WorkflowRunStatus.Running;
-            task.WorkflowRun.StartedAt ??= DateTime.UtcNow;
             await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return;
+        }
 
+        try
+        {
             _progress.Report(task.WorkflowRunId, "start", $"Bắt đầu task: {task.Title}" + (task.Attempt > 1 ? $" (lần thử {task.Attempt})" : ""));
 
             if (task.Type == AgentTaskType.RequirementAnalysis)
