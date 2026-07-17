@@ -122,8 +122,18 @@ public partial class OrganizationContextService
         }
     }
 
+    /// <summary>
+    /// Khối ngữ cảnh tổ chức hoàn chỉnh cho một project: bức tranh chung (cache) + ghi chú "đơn vị yêu
+    /// cầu" nếu project đã gắn <c>OrgUnitCode</c>. Trả chuỗi rỗng khi chưa có dữ liệu nào (fail-open) —
+    /// caller cứ bỏ qua phần ngữ cảnh này.
+    /// </summary>
+    public async Task<string> BuildCombinedContextAsync(string? projectOrgUnitCode, CancellationToken cancellationToken = default)
+        => Combine(
+            await BuildBaContextAsync(cancellationToken),
+            await BuildProjectUnitNoteAsync(projectOrgUnitCode, cancellationToken));
+
     /// <summary>Ghép các phần ngữ cảnh tổ chức (bỏ phần trống) thành một khối; trả chuỗi rỗng khi không có gì.</summary>
-    public static string Combine(params string?[] sections)
+    private static string Combine(params string?[] sections)
         => string.Join("\n\n", sections.Where(s => !string.IsNullOrWhiteSpace(s)));
 
     private async Task<string?> RenderBaContextAsync(CancellationToken cancellationToken)

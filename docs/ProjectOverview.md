@@ -79,7 +79,7 @@ ICOGenerator-v4/
 | Feature | UI/Controller | Application | Services/Domain liên quan |
 |---|---|---|---|
 | Project list/create/config | `ProjectsController`, `Views/Projects` | `Application/Projects` | `Project`, `OrgUnit`, `WorkspacePathResolver` |
-| Requirement workspace | `RequirementsController`, `Views/Requirements` | `Application/Requirements` | `BARequirementService`, `ProjectDocument`, `ProjectSourceFile`, `AgentConversation` |
+| Requirement workspace | `RequirementsController`, `Views/Requirements` | `Application/Requirements` | `BAChatService`, `ProductBriefDraftService`, `ProjectDocument`, `ProjectSourceFile`, `AgentConversation` |
 | Delivery workflow | `AgentsController`, `AgentDashboardController` | `Application/Agents` | `WorkflowOrchestrator`, `AgentTaskWorker`, `DeliveryPipeline` |
 | Agent/model management | `AgentsController`, `ModelsController` | `Application/Agents`, `Application/Models` | `Agent`, `AiModel`, `AgentTool`, `ToolDefinition` |
 | Prompt Studio | `PromptsController` | `Application/Prompts` | `PromptTemplateService`, `PromptTemplateVersion` |
@@ -123,7 +123,7 @@ sequenceDiagram
 3. `Domain/Project.cs`, `Domain/WorkflowRun.cs`, `Domain/AgentTask.cs` — hiểu trục dữ liệu chính.
 4. `Services/Workflows/DeliveryPipeline.cs` — hiểu thứ tự pipeline delivery.
 5. `Services/Workflows/AgentTaskWorker.cs` — hiểu worker chạy task nền.
-6. `Services/Requirements/BARequirementService.cs` — hiểu requirement/BA flow.
+6. `Services/Requirements/BAChatService.cs` + `ProductBriefDraftService.cs` — hiểu requirement/BA flow.
 7. `Data/AppDbContext.cs` — hiểu mapping, quan hệ, index, cascade.
 
 ## 9. Cấu hình đáng chú ý
