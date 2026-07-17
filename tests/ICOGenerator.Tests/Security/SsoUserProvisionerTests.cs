@@ -3,7 +3,6 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,7 +16,6 @@ public class SsoUserProvisionerTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly DbContextOptions<AppDbContext> _options;
-    private readonly IPasswordHasher<AppUser> _hasher = new PasswordHasher<AppUser>();
 
     public SsoUserProvisionerTests()
     {
@@ -113,13 +111,12 @@ public class SsoUserProvisionerTests : IDisposable
     {
         await using var db = NewDb();
         var user = new AppUser { Username = username, Role = role, IsActive = isActive, DisplayName = username };
-        user.PasswordHash = _hasher.HashPassword(user, Guid.NewGuid().ToString("N"));
         db.AppUsers.Add(user);
         await db.SaveChangesAsync();
     }
 
     private SsoUserProvisioner NewSut() =>
-        new(NewDb(), _hasher, NullLogger<SsoUserProvisioner>.Instance);
+        new(NewDb(), NullLogger<SsoUserProvisioner>.Instance);
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 

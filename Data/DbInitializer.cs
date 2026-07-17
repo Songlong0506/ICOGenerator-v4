@@ -2,7 +2,6 @@ using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Domain.Security;
 using ICOGenerator.Services.Tools.Registry;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Data;
@@ -23,7 +22,7 @@ public static class DbInitializer
             await db.Database.EnsureCreatedAsync();
 
         await RecoverOrphanedTasksAsync(db);
-        await SeedUsersAsync(db, scope.ServiceProvider);
+        await SeedUsersAsync(db);
         await SeedRolePermissionsAsync(db);
         await SeedOrgUnitsAndAssociatesAsync(db);
         await SeedEvalScenariosAsync(db);
@@ -63,40 +62,30 @@ public static class DbInitializer
 
     }
 
-    // Bộ tài khoản seed cố định (admin/teamdev/user) cùng mật khẩu mặc định — chỉ dùng cho lần khởi tạo đầu.
-    // ⚠️ Mật khẩu mặc định chỉ hợp cho môi trường nội bộ/dev; đổi ngay sau lần đăng nhập đầu trên môi trường thật.
-    private static readonly (string Username, string DisplayName, UserRole Role, string DefaultPassword)[] SeedUsers =
+    // Bộ tài khoản seed cố định (admin/teamdev/user). Không còn mật khẩu: chế độ Local tự đăng nhập bằng
+    // tài khoản 'admin', chế độ IdentityServer đồng bộ user từ SSO. Ba vai trò seed sẵn để phân quyền chạy ngay.
+    private static readonly (string Username, string DisplayName, UserRole Role)[] SeedUsers =
     {
-        ("admin",   "Administrator",  UserRole.Admin,   "Admin@123"),
-        ("teamdev", "Team Developer", UserRole.TeamDev, "TeamDev@123"),
-        ("user",    "User",           UserRole.User,    "User@123"),
+        ("admin",   "Administrator",  UserRole.Admin),
+        ("teamdev", "Team Developer", UserRole.TeamDev),
+        ("user",    "User",           UserRole.User),
     };
 
-    // Seed bộ tài khoản cố định (admin/teamdev/user) nếu DB chưa có user nào. Mật khẩu được băm bằng
-    // PasswordHasher của ASP.NET rồi lưu vào bảng AppUser. Dùng mật khẩu mặc định và ghi cảnh báo để
-    // nhắc đổi trên môi trường thật.
-    private static async Task SeedUsersAsync(AppDbContext db, IServiceProvider provider)
+    // Seed bộ tài khoản cố định (admin/teamdev/user) nếu DB chưa có user nào.
+    private static async Task SeedUsersAsync(AppDbContext db)
     {
         if (await db.AppUsers.AnyAsync())
             return;
 
-        var hasher = provider.GetRequiredService<IPasswordHasher<AppUser>>();
-        var logger = provider.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(DbInitializer));
-
-        logger.LogWarning(
-            "Seed tài khoản (admin/teamdev/user) dùng MẬT KHẨU MẶC ĐỊNH. Hãy đổi mật khẩu ngay sau lần đăng nhập đầu trên môi trường thật.");
-
         foreach (var seed in SeedUsers)
         {
-            var user = new AppUser
+            db.AppUsers.Add(new AppUser
             {
                 Username = seed.Username,
                 DisplayName = seed.DisplayName,
                 Role = seed.Role,
                 IsActive = true
-            };
-            user.PasswordHash = hasher.HashPassword(user, seed.DefaultPassword);
-            db.AppUsers.Add(user);
+            });
         }
 
         await db.SaveChangesAsync();

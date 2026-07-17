@@ -202,7 +202,6 @@ public class AppDbContext : DbContext
         {
             b.Property(x => x.Username).HasMaxLength(100);
             b.Property(x => x.DisplayName).HasMaxLength(200);
-            b.Property(x => x.PasswordHash).HasMaxLength(500);
             b.Property(x => x.Role).HasConversion<string>().HasMaxLength(50);
             b.Property(x => x.Email).HasMaxLength(200);
             // HasDefaultValue để install cũ (migration thêm cột) có giá trị hợp lý cho các dòng sẵn có,
