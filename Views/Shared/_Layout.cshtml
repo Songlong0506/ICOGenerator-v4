@@ -1,3 +1,5 @@
+@using ICOGenerator.Application.Account
+@inject AuthenticationSettings AuthSettings
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -199,9 +201,13 @@
                     <select class="shell-select"><option>English</option><option>Tiếng Việt</option><option>Deutsch</option></select>
                 </div>
                 <p>Đang đăng nhập: <strong>@(User.Identity?.Name ?? "—")</strong>@(string.IsNullOrEmpty(currentRole) ? "" : $" · {currentRole}")</p>
-                <form asp-controller="Account" asp-action="Logout" method="post">
-                    <button class="btn primary" type="submit">Logout</button>
-                </form>
+                @* Local: tự đăng nhập bằng Admin nên Logout vô nghĩa (sẽ đăng nhập lại ngay) → chỉ hiện ở chế độ SSO. *@
+                @if (AuthSettings.Provider == AuthProvider.IdentityServer)
+                {
+                    <form asp-controller="Account" asp-action="Logout" method="post">
+                        <button class="btn primary" type="submit">Logout</button>
+                    </form>
+                }
             </div>
         </div>
     </div>

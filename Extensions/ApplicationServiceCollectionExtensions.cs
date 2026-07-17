@@ -37,7 +37,6 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry;
@@ -119,10 +118,6 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddAuthServices(this IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment)
     {
-        services.AddScoped<LoginUseCase>();
-
-        // Băm mật khẩu người dùng bằng PasswordHasher của ASP.NET (PBKDF2) — stateless nên đăng ký singleton.
-        services.AddSingleton<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
         // Phân quyền: cache (singleton) chia sẻ giữa các request; PermissionService scoped vì phụ thuộc DbContext.
         services.AddMemoryCache();
         services.AddScoped<IPermissionService, PermissionService>();
@@ -185,7 +180,8 @@ public static class ApplicationServiceCollectionExtensions
             : CookieSecurePolicy.Always;
     }
 
-    // Đăng nhập tự code (mặc định): chỉ cookie, AccountController xác thực bằng LoginUseCase.
+    // Đăng nhập cục bộ (mặc định): chỉ cookie. Không có form mật khẩu — AccountController tự đăng nhập
+    // bằng tài khoản Admin seed sẵn khi cookie LoginPath redirect người dùng chưa đăng nhập tới.
     private static void AddLocalCookieAuthentication(this IServiceCollection services, IWebHostEnvironment environment)
     {
         services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

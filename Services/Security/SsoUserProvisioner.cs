@@ -1,7 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Security;
@@ -15,13 +14,11 @@ namespace ICOGenerator.Services.Security;
 public class SsoUserProvisioner
 {
     private readonly AppDbContext _db;
-    private readonly IPasswordHasher<AppUser> _passwordHasher;
     private readonly ILogger<SsoUserProvisioner> _logger;
 
-    public SsoUserProvisioner(AppDbContext db, IPasswordHasher<AppUser> passwordHasher, ILogger<SsoUserProvisioner> logger)
+    public SsoUserProvisioner(AppDbContext db, ILogger<SsoUserProvisioner> logger)
     {
         _db = db;
-        _passwordHasher = passwordHasher;
         _logger = logger;
     }
 
@@ -80,8 +77,6 @@ public class SsoUserProvisioner
             Role = newRole,
             IsActive = true
         };
-        // User SSO không có mật khẩu cục bộ: đặt hash ngẫu nhiên (không thể đăng nhập bằng form Local).
-        created.PasswordHash = _passwordHasher.HashPassword(created, Guid.NewGuid().ToString("N"));
 
         _db.AppUsers.Add(created);
         await _db.SaveChangesAsync(cancellationToken);

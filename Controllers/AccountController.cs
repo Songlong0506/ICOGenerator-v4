@@ -1,33 +1,39 @@
 using System.Security.Claims;
 using ICOGenerator.Application.Account;
+using ICOGenerator.Data;
+using ICOGenerator.Domain.Enums;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Controllers;
 
+// Đăng nhập của app rẽ theo cờ Authentication:Provider (appsettings): 'IdentityServer' bắt buộc đăng nhập
+// SSO qua OpenID Connect; 'Local' KHÔNG có form username/password — tự đăng nhập bằng tài khoản Admin
+// seed sẵn. Đăng nhập/đăng xuất bằng mật khẩu tự viết đã bị bỏ (cùng với cột AppUser.PasswordHash).
 public class AccountController : Controller
 {
-    private readonly LoginUseCase _loginUseCase;
     private readonly AuthenticationSettings _authSettings;
+    private readonly AppDbContext _db;
 
-    public AccountController(LoginUseCase loginUseCase, AuthenticationSettings authSettings)
+    public AccountController(AuthenticationSettings authSettings, AppDbContext db)
     {
-        _loginUseCase = loginUseCase;
         _authSettings = authSettings;
+        _db = db;
     }
 
     [HttpGet]
     [AllowAnonymous]
-    public IActionResult Login(string? returnUrl = null)
+    public async Task<IActionResult> Login(string? returnUrl = null)
     {
         if (User.Identity?.IsAuthenticated == true)
             return RedirectToLocal(returnUrl);
 
-        // SSO: bỏ qua form tự code, đẩy thẳng người dùng sang IdentityServer. Cookie LoginPath cũng trỏ
-        // vào đây nên mọi trang cần đăng nhập sẽ tự động chuyển hướng SSO.
+        // SSO: đẩy thẳng người dùng sang IdentityServer. Cookie LoginPath cũng trỏ vào đây nên mọi trang
+        // cần đăng nhập sẽ tự động chuyển hướng SSO.
         if (_authSettings.Provider == AuthProvider.IdentityServer)
         {
             var target = Url.IsLocalUrl(returnUrl) ? returnUrl! : Url.Action("Index", "Projects")!;
@@ -36,37 +42,29 @@ public class AccountController : Controller
                 OpenIdConnectDefaults.AuthenticationScheme);
         }
 
-        ViewBag.ReturnUrl = returnUrl;
-        return View(new LoginVm());
+        // Local: không có đăng nhập bằng mật khẩu — tự đăng nhập bằng tài khoản Admin seed sẵn.
+        return await SignInLocalAdminAsync(returnUrl);
     }
 
-    [HttpPost]
-    [AllowAnonymous]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(LoginVm vm, string? returnUrl = null)
+    // Đăng nhập cục bộ mặc định: phát cookie theo tài khoản Admin (nguồn của claim Name + Role, lái toàn
+    // bộ phân quyền y như luồng SSO). Được gọi khi cookie LoginPath redirect người dùng chưa đăng nhập tới.
+    private async Task<IActionResult> SignInLocalAdminAsync(string? returnUrl)
     {
-        // Ở chế độ SSO không có đăng nhập bằng mật khẩu cục bộ: quay về GET để challenge IdentityServer.
-        if (_authSettings.Provider == AuthProvider.IdentityServer)
-            return RedirectToAction(nameof(Login), new { returnUrl });
+        var admin = await _db.AppUsers
+            .AsNoTracking()
+            .Where(u => u.IsActive && u.Role == UserRole.Admin)
+            .OrderByDescending(u => u.Username == "admin")
+            .ThenBy(u => u.CreatedAt)
+            .FirstOrDefaultAsync(HttpContext.RequestAborted);
 
-        ViewBag.ReturnUrl = returnUrl;
+        // Không có tài khoản Admin nào (DB rỗng bất thường) ⇒ báo lỗi rõ thay vì phát cookie trống.
+        if (admin is null)
+            return StatusCode(StatusCodes.Status500InternalServerError, "Chưa có tài khoản Admin để đăng nhập cục bộ.");
 
-        if (!ModelState.IsValid)
-            return View(vm);
-
-        var user = await _loginUseCase.ExecuteAsync(vm.Username, vm.Password);
-        if (user is null)
-        {
-            ModelState.AddModelError(string.Empty, "Sai tên đăng nhập hoặc mật khẩu.");
-            return View(vm);
-        }
-
-        // Claim Role lái toàn bộ phân quyền: authorization filter và menu sidebar đọc role này rồi
-        // tra quyền qua PermissionService.
         var claims = new List<Claim>
         {
-            new(ClaimTypes.Name, user.Username),
-            new(ClaimTypes.Role, user.Role.ToString())
+            new(ClaimTypes.Name, admin.Username),
+            new(ClaimTypes.Role, admin.Role.ToString())
         };
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 
@@ -78,18 +76,18 @@ public class AccountController : Controller
         return RedirectToLocal(returnUrl);
     }
 
-    // Intentionally NOT [AllowAnonymous]: the fallback policy already requires auth, and
-    // [ValidateAntiForgeryToken] blocks CSRF forced-logout.
+    // Đăng xuất chỉ có ý nghĩa ở chế độ SSO (RP-initiated logout khỏi IdentityServer để không bị đăng nhập
+    // lại ngầm qua phiên còn sống ở IdP). Ở chế độ Local, request kế sẽ tự đăng nhập lại bằng Admin nên nút
+    // Logout được ẩn (xem _Layout) — vẫn giữ endpoint để phòng gọi trực tiếp.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
-        // SSO: đăng xuất luôn khỏi IdentityServer (RP-initiated logout) để không bị đăng nhập lại ngầm
-        // qua phiên còn sống ở IdP. SaveTokens = true nên handler tự đính id_token_hint.
         if (_authSettings.Provider == AuthProvider.IdentityServer)
         {
+            // SaveTokens = true nên handler tự đính id_token_hint.
             return SignOut(
                 new AuthenticationProperties { RedirectUri = Url.Action(nameof(Login), "Account") },
                 CookieAuthenticationDefaults.AuthenticationScheme,
