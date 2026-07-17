@@ -32,6 +32,43 @@ public class IdentityServerSettings
     /// <summary>Bắt buộc HTTPS khi lấy metadata. Mẫu Bosch để false (IdP nội bộ chứng chỉ tự ký).</summary>
     public bool RequireHttpsMetadata { get; set; }
 
-    /// <summary>Vai trò gán cho user tự tạo qua SSO (khi <see cref="AutoProvisionUsers"/> = true).</summary>
+    /// <summary>Vai trò dự phòng khi KHÔNG ánh xạ được vai trò từ Claims: gán cho user mới, hoặc khi
+    /// <see cref="RoleMappings"/> chưa cấu hình.</summary>
     public UserRole DefaultRole { get; set; } = UserRole.User;
+
+    /// <summary>Tên claim chứa vai trò do IdentityServer phát (mặc định "role" như mẫu Bosch). Có thể có
+    /// nhiều claim cùng loại; bridge đọc hết rồi ánh xạ qua <see cref="RoleMappings"/>.</summary>
+    public string RoleClaim { get; set; } = "role";
+
+    /// <summary>Ánh xạ giá trị claim role của IdentityServer → <see cref="UserRole"/> của app
+    /// (không phân biệt hoa/thường). Vd { "HCP_CBO_API.CBO.ADMIN": "Admin" }. User nhận vai trò CAO NHẤT
+    /// khớp được; không khớp claim nào ⇒ <see cref="MapRole"/> trả null (giữ vai trò cũ / dùng DefaultRole).</summary>
+    public Dictionary<string, UserRole> RoleMappings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Ánh xạ tập role claim của SSO về <see cref="UserRole"/> của app, chọn vai trò CAO NHẤT
+    /// (Admin &gt; TeamDev &gt; User). Trả về null khi KHÔNG có claim nào khớp <see cref="RoleMappings"/> —
+    /// để bên gọi quyết định (giữ vai trò user cũ hoặc dùng <see cref="DefaultRole"/> cho user mới).
+    /// So khớp không phân biệt hoa/thường nên vẫn đúng dù config binding không giữ comparer của Dictionary.
+    /// </summary>
+    public UserRole? MapRole(IEnumerable<string> ssoRoles)
+    {
+        UserRole? best = null;
+        foreach (var raw in ssoRoles)
+        {
+            var ssoRole = raw?.Trim();
+            if (string.IsNullOrEmpty(ssoRole))
+                continue;
+
+            foreach (var (mappedKey, mappedRole) in RoleMappings)
+            {
+                if (!string.Equals(mappedKey, ssoRole, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                // Enum: Admin=0 < TeamDev=1 < User=2 ⇒ giá trị NHỎ hơn = quyền cao hơn; giữ vai trò cao nhất.
+                if (best is null || mappedRole < best)
+                    best = mappedRole;
+            }
+        }
+        return best;
+    }
 }
