@@ -83,8 +83,7 @@ public static class DbInitializer
             {
                 Username = seed.Username,
                 DisplayName = seed.DisplayName,
-                Role = seed.Role,
-                IsActive = true
+                Role = seed.Role
             });
         }
 

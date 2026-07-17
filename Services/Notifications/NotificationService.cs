@@ -144,7 +144,7 @@ public class NotificationService : INotificationService
     private async Task<IReadOnlyList<EligibleUser>> ResolveEligibleUsersAsync(CancellationToken cancellationToken)
     {
         var activeUsers = await _db.AppUsers
-            .Where(u => u.IsActive && u.Username != "")
+            .Where(u => u.Username != "")
             .Select(u => new EligibleUser(
                 u.Username, u.Role, u.Email,
                 u.NotifyInApp, u.NotifyByEmail, u.NotifyOnGate, u.NotifyOnCompleted, u.NotifyOnFailed))

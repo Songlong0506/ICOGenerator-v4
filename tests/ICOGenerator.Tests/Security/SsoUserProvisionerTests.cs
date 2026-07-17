@@ -84,18 +84,43 @@ public class SsoUserProvisionerTests : IDisposable
     }
 
     [Fact]
-    public async Task ExistingInactiveUser_ReturnsNull_DoesNotResurrect()
+    public async Task NewUser_TakesOrgUnitNameFromClaims()
     {
-        await SeedUser("blocked", UserRole.User, isActive: false);
         var sut = NewSut();
 
         var user = await sut.ResolveOrProvisionAsync(
-            "blocked", "Blocked", null, UserRole.Admin, UserRole.User);
+            "VUS5HC", "Vu Song Toan", null, UserRole.Admin, UserRole.User, orgUnitName: "HcP/ICO3");
 
-        Assert.Null(user);
-        // Vai trò không bị thay đổi cho user đã khóa.
+        Assert.NotNull(user);
+        Assert.Equal("HcP/ICO3", user!.OrgUnitName);
         await using var verify = NewDb();
-        Assert.Equal(UserRole.User, (await verify.AppUsers.SingleAsync()).Role);
+        Assert.Equal("HcP/ICO3", (await verify.AppUsers.SingleAsync()).OrgUnitName);
+    }
+
+    [Fact]
+    public async Task ExistingUser_OrgUnitNameSyncedFromClaims()
+    {
+        await SeedUser("vus5hc", UserRole.User);
+        var sut = NewSut();
+
+        await sut.ResolveOrProvisionAsync(
+            "VUS5HC", "Vu Song Toan", null, roleFromClaims: null, defaultRole: UserRole.User, orgUnitName: "HcP/ICO3");
+
+        await using var verify = NewDb();
+        Assert.Equal("HcP/ICO3", (await verify.AppUsers.SingleAsync()).OrgUnitName);
+    }
+
+    [Fact]
+    public async Task ExistingUser_EmptyOrgUnitClaim_KeepsCurrentOrgUnit()
+    {
+        await SeedUser("vus5hc", UserRole.User, orgUnitName: "HcP/ICO3");
+        var sut = NewSut();
+
+        await sut.ResolveOrProvisionAsync(
+            "VUS5HC", "Vu Song Toan", null, roleFromClaims: null, defaultRole: UserRole.User, orgUnitName: null);
+
+        await using var verify = NewDb();
+        Assert.Equal("HcP/ICO3", (await verify.AppUsers.SingleAsync()).OrgUnitName);
     }
 
     [Fact]
@@ -107,10 +132,10 @@ public class SsoUserProvisionerTests : IDisposable
             "   ", null, null, UserRole.Admin, UserRole.User));
     }
 
-    private async Task SeedUser(string username, UserRole role, bool isActive = true)
+    private async Task SeedUser(string username, UserRole role, string? orgUnitName = null)
     {
         await using var db = NewDb();
-        var user = new AppUser { Username = username, Role = role, IsActive = isActive, DisplayName = username };
+        var user = new AppUser { Username = username, Role = role, OrgUnitName = orgUnitName, DisplayName = username };
         db.AppUsers.Add(user);
         await db.SaveChangesAsync();
     }

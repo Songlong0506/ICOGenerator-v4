@@ -253,7 +253,7 @@ async function loadAgentLogsPage(page) {
             </td>
 
             <td>
-                ${escapeHtml(x.modelName || x.modelId || '-')}
+                ${escapeHtml(x.modelId || '-')}
             </td>
 
             <td>
@@ -338,7 +338,7 @@ async function viewLogDetail(id) {
         return;
     }
 
-    document.getElementById('log-detail-meta').textContent = `${log.agentName} · ${log.modelName || log.modelId} · ${formatDateTime(log.createdAt)} · ${log.totalTokens || 0} tokens · ${log.durationMs || 0} ms`;
+    document.getElementById('log-detail-meta').textContent = `${log.agentName} · ${log.modelId} · ${formatDateTime(log.createdAt)} · ${log.totalTokens || 0} tokens · ${log.durationMs || 0} ms`;
     document.getElementById('log-request').textContent = prettyJson(log.requestJson);
     document.getElementById('log-request-readable').innerHTML = buildReadableRequest(log.requestJson);
     document.getElementById('log-response').textContent = prettyJson(log.responseText);

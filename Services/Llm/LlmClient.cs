@@ -114,7 +114,6 @@ public class LlmCallResult
     public string ResponseText { get; set; } = string.Empty;
     public string? ErrorMessage { get; set; }
     public string ModelId { get; set; } = string.Empty;
-    public string ModelName { get; set; } = string.Empty;
     public int PromptTokens { get; set; }
     public int CompletionTokens { get; set; }
     public int TotalTokens { get; set; }

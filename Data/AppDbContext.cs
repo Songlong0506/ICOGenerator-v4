@@ -185,7 +185,6 @@ public class AppDbContext : DbContext
         builder.Entity<AgentModelCallLog>(b =>
         {
             b.Property(x => x.AgentName).HasMaxLength(200);
-            b.Property(x => x.ModelName).HasMaxLength(200);
             b.Property(x => x.ModelId).HasMaxLength(200);
             b.Property(x => x.Purpose).HasMaxLength(100);
             // BudgetGuard chạy TRƯỚC MỖI lời gọi model: WHERE CreatedAt >= @windowStart GROUP BY
@@ -203,6 +202,7 @@ public class AppDbContext : DbContext
             b.Property(x => x.Username).HasMaxLength(100);
             b.Property(x => x.DisplayName).HasMaxLength(200);
             b.Property(x => x.Role).HasConversion<string>().HasMaxLength(50);
+            b.Property(x => x.OrgUnitName).HasMaxLength(200);
             b.Property(x => x.Email).HasMaxLength(200);
             // HasDefaultValue để install cũ (migration thêm cột) có giá trị hợp lý cho các dòng sẵn có,
             // giữ nguyên hành vi: vẫn nhận chuông cho mọi loại sự kiện, email cá nhân tắt.

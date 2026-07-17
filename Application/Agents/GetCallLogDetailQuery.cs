@@ -6,7 +6,7 @@ namespace ICOGenerator.Application.Agents;
 // Full detail of a single AI call log (request/response payloads included), for the call-log detail
 // modal. Serialized to camelCase JSON; property names mirror the columns the frontend reads.
 public record CallLogDetailVm(
-    Guid Id, Guid ProjectId, Guid AgentId, string AgentName, string ModelName, string ModelId,
+    Guid Id, Guid ProjectId, Guid AgentId, string AgentName, string ModelId,
     string Purpose, int Step, string RequestJson, string ResponseText,
     string? ErrorMessage, int PromptTokens, int CompletionTokens,
     int TotalTokens, long DurationMs, int? HttpStatusCode, bool IsSuccess, DateTime CreatedAt);
@@ -31,7 +31,6 @@ public class GetCallLogDetailQuery
             log.ProjectId,
             log.AgentId,
             log.AgentName,
-            log.ModelName,
             log.ModelId,
             log.Purpose,
             log.Step,

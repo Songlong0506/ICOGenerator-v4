@@ -20,7 +20,6 @@ public class ModelCallLogger : IModelCallLogger
             AgentId = agent.Id,
             WorkflowRunId = workflowRunId,
             AgentName = agent.Name,
-            ModelName = callResult.ModelName,
             ModelId = callResult.ModelId,
             RequestJson = callResult.RequestJson,
             ResponseText = callResult.ResponseText,

@@ -158,7 +158,6 @@ public class BudgetGuardTests : IDisposable
             ProjectId = projectId,
             AgentId = _agentId,
             ModelId = ModelId,
-            ModelName = "M",
             PromptTokens = promptTokens,
             CompletionTokens = completionTokens,
             TotalTokens = promptTokens + completionTokens,
