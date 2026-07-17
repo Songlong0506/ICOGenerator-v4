@@ -32,16 +32,6 @@ public class IdentityServerSettings
     /// <summary>Bắt buộc HTTPS khi lấy metadata. Mẫu Bosch để false (IdP nội bộ chứng chỉ tự ký).</summary>
     public bool RequireHttpsMetadata { get; set; }
 
-    /// <summary>Claim trong token dùng làm định danh user (ánh xạ về AppUser.Username, quyền sở hữu, audit).
-    /// Mặc định "preferred_username" (thường là NTID Bosch). Nếu trống hoặc không có sẽ lần lượt thử
-    /// preferred_username → email → name → sub.</summary>
-    public string UsernameClaim { get; set; } = "preferred_username";
-
-    /// <summary>Tự tạo AppUser khi user đăng nhập SSO lần đầu (chưa có trong bảng). true (mặc định) ⇒
-    /// rollout mượt, user mới nhận <see cref="DefaultRole"/> (chỉ xem), admin nâng quyền sau ở màn hình
-    /// Roles. false ⇒ user chưa được admin tạo sẵn sẽ bị từ chối truy cập.</summary>
-    public bool AutoProvisionUsers { get; set; } = true;
-
     /// <summary>Vai trò gán cho user tự tạo qua SSO (khi <see cref="AutoProvisionUsers"/> = true).</summary>
     public UserRole DefaultRole { get; set; } = UserRole.User;
 }
