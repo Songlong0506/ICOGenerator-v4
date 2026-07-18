@@ -203,7 +203,13 @@
                 ? ` <a href="/Projects/PocReview?projectId=${PID}" target="_blank">Xem POC</a>`
                 : '';
 
-            if (CAN_ADVANCE) {
+            if (data.currentStage === 'PocPreview') {
+                // Cổng POC là điểm dừng của trang Requirements: chỉ báo POC đã tạo xong + link Xem POC cho
+                // MỌI vai trò. KHÔNG nêu bước kế (tài liệu kỹ thuật…) hay dẫn sang duyệt — việc tạo tiếp
+                // hay không do đội Dev xử lý ở Agent Dashboard, không đẩy sang quy trình delivery ở đây.
+                slot.innerHTML =
+                    `<div class="wf-banner wf-ok">✓ POC đã tạo xong. Đội ngũ Dev sẽ tiếp nhận các bước tiếp theo.${pocLink}</div>`;
+            } else if (CAN_ADVANCE) {
                 // TeamDev/Admin: cổng duyệt sống ở Agent Dashboard → dẫn sang đó để bấm "Duyệt & tiếp tục".
                 const nextHint = data.nextStageTitle
                     ? ` Bước kế: <b>${escapeHtml(data.nextStageTitle)}</b>.`
@@ -212,9 +218,9 @@
                     `<div class="wf-banner wf-wait">⏸️ Bước hiện tại đã xong — chờ duyệt.${nextHint}` +
                     ` <a href="${DASHBOARD_URL}">Mở Agent Dashboard để duyệt</a>${pocLink}</div>`;
             } else {
-                // User thường: flow dừng ở POC, không có thao tác duyệt — báo bàn giao cho đội Dev.
+                // User thường ở các cổng sau POC (hiếm — flow của họ dừng ở POC): báo bàn giao cho đội Dev.
                 slot.innerHTML =
-                    `<div class="wf-banner wf-ok">✓ POC đã sẵn sàng. Đội ngũ Dev sẽ tiếp nhận các bước tiếp theo.${pocLink}</div>`;
+                    `<div class="wf-banner wf-ok">✓ Bước hiện tại đã xong. Đội ngũ Dev sẽ tiếp nhận các bước tiếp theo.${pocLink}</div>`;
             }
         } else if (data.runStatus === 'Canceled') {
             slot.innerHTML = `<div class="wf-banner wf-fail">✗ Đã hủy. Hãy bổ sung requirement với BA, bấm “Write Requirement” rồi “Approve” để chạy lại.</div>`;
