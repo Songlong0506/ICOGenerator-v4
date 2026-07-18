@@ -383,7 +383,13 @@ public class AgentTaskWorker : BackgroundService
         }
         else
         {
-            _progress.Report(task.WorkflowRunId, "completed", $"Bước \"{task.Title}\" xong — chờ bạn duyệt để sang: {next.Title}.");
+            // Cổng POC là điểm dừng của trang Requirements (user thường chỉ tới đây): chỉ báo POC đã tạo
+            // xong, KHÔNG nêu bước kế (tài liệu kỹ thuật…) — các bước sau là việc của đội Dev ở Agent
+            // Dashboard. Các cổng còn lại (dashboard/TeamDev) vẫn nêu bước kế cho rõ hành trình.
+            var message = task.WorkflowRun.CurrentStage == WorkflowStageKey.PocPreview
+                ? $"Bước \"{task.Title}\" xong — POC đã sẵn sàng để xem."
+                : $"Bước \"{task.Title}\" xong — chờ bạn duyệt để sang: {next.Title}.";
+            _progress.Report(task.WorkflowRunId, "completed", message);
             task.WorkflowRun.Status = WorkflowRunStatus.WaitingForHuman;
             await notifier.NotifyGateOpenedAsync(task.WorkflowRun, next.Title, cancellationToken);
         }
