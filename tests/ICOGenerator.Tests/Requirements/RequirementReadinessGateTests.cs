@@ -185,7 +185,8 @@ public class RequirementReadinessGateTests : IDisposable
             NewOrgContext(db, prompts),
             NewGate(llm, prompts),
             new BAAgentResolver(db),
-            new BAConversationLog(db));
+            new BAConversationLog(db),
+            new DecisionLogService(db, llm, prompts));
     }
 
     private static ProductBriefDraftService NewDraftSut(AppDbContext db, ILlmClient llm)

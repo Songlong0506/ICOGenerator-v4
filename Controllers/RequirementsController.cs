@@ -86,6 +86,10 @@ public class RequirementsController : Controller
 
         ViewBag.SelectedVersion = result.SelectedVersion;
         ViewBag.BaSupportsVision = result.BaModelSupportsVision;
+        ViewBag.Coverage = result.Coverage;
+        ViewBag.Decisions = result.Decisions;
+        ViewBag.SpecAssumptions = result.SpecAssumptions;
+        ViewBag.SpecVersion = result.SpecVersion;
         return View(result.Project);
     }
 
@@ -216,7 +220,10 @@ public class RequirementsController : Controller
                             ok = true,
                             reply = result.Reply,
                             suggestions = result.Suggestions,
-                            invitesWriteRequirement = result.InvitesWriteRequirement
+                            invitesWriteRequirement = result.InvitesWriteRequirement,
+                            suggestionsMultiSelect = result.SuggestionsMultiSelect,
+                            coverage = result.Coverage,
+                            decisions = result.Decisions
                         }
                     };
                 }

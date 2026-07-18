@@ -34,6 +34,8 @@ public class StartNewChatUseCase
         project.UserMemoryHarvestedTurnCount = 0;
         project.RequirementCoverageMap = null;
         project.CoverageHarvestedTurnCount = 0;
+        project.DecisionLog = null;
+        project.DecisionHarvestedTurnCount = 0;
         await _db.SaveChangesAsync();
     }
 }

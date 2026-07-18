@@ -44,6 +44,17 @@ public class Project
     // Xem RequirementCoverageService.
     public string? RequirementCoverageMap { get; set; }
     public int CoverageHarvestedTurnCount { get; set; }
+    // "Nhật ký điều đã chốt" của dự án: danh sách bullet (text) các QUYẾT ĐỊNH người dùng đã xác nhận
+    // trong chat (vai trò, luồng, quy tắc, phương án đã "Đồng ý"), cập nhật sau mỗi lượt như bản đồ bao
+    // phủ. Hiển thị thành panel cạnh khung chat để user rà lại và bấm sửa một quyết định (gửi tin nhắn
+    // đính chính) thay vì phải lục scroll hội thoại. DecisionHarvestedTurnCount là con trỏ số lượt đã
+    // gộp (fail-open như CoverageHarvestedTurnCount). Xem DecisionLogService.
+    public string? DecisionLog { get; set; }
+    public int DecisionHarvestedTurnCount { get; set; }
+    // Con trỏ học từ ghi chú POC: số PocComment (xếp theo CreatedAt) của dự án đã được chắt lọc vào
+    // Agent.LearnedChecklistNotes sau mỗi vòng chỉnh sửa POC — ghi chú kiểu "thiếu màn hình X" chính là
+    // câu hỏi BA lẽ ra phải hỏi từ lúc phỏng vấn. Xem PocFeedbackMemoryService.
+    public int PocFeedbackHarvestedCount { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ProjectDocument> Documents { get; set; } = new List<ProjectDocument>();
     public ICollection<ProjectSourceFile> SourceFiles { get; set; } = new List<ProjectSourceFile>();

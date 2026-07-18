@@ -44,6 +44,44 @@
     </section>
 
     <aside class="card poc-comments-panel">
+        @* Checklist UAT: kịch bản đi-từng-bước sinh từ AI Design Spec (UatScenarioService) — biến review
+           từ khám phá tự do thành nghiệm thu có kịch bản. Tick từng bước (lưu localStorage); bước không
+           đạt thì "Báo lỗi" mở form ghi chú prefill sẵn ngữ cảnh kịch bản. *@
+        @if (Model.Scenarios.Scenarios.Any())
+        {
+            <details class="uat-panel" open>
+                <summary>🧭 Kịch bản kiểm thử <span class="poc-count">(@Model.Scenarios.Scenarios.Count)</span></summary>
+                <p class="muted poc-panel-hint">Đi theo từng kịch bản, tick các bước đã đạt; bước nào sai thì bấm "Báo lỗi".</p>
+                <div id="uatList">
+                    @for (var i = 0; i < Model.Scenarios.Scenarios.Count; i++)
+                    {
+                        var scenario = Model.Scenarios.Scenarios[i];
+                        <div class="uat-scenario" data-screen="@scenario.Screen" data-title="@scenario.Title">
+                            <div class="uat-title">
+                                @scenario.Title
+                                @if (scenario.RuleRefs.Any())
+                                {
+                                    <span class="uat-rules" title="Business rule kịch bản này kiểm chứng">@string.Join(", ", scenario.RuleRefs)</span>
+                                }
+                            </div>
+                            <ol class="uat-steps">
+                                @for (var j = 0; j < scenario.Steps.Count; j++)
+                                {
+                                    <li>
+                                        <label>
+                                            <input type="checkbox" class="uat-step" data-key="@(i)-@(j)" />
+                                            <span>@scenario.Steps[j]</span>
+                                        </label>
+                                    </li>
+                                }
+                            </ol>
+                            <button type="button" class="btn outline small uat-fail">✗ Báo lỗi kịch bản này</button>
+                        </div>
+                    }
+                </div>
+            </details>
+        }
+
         <h3>Ghi chú trên POC <span class="poc-count" id="pocCommentCount"></span></h3>
         <p class="muted poc-panel-hint">
             Ghi chú sẽ được gom vào "Yêu cầu chỉnh sửa" ở cổng POC (Agent Dashboard) để agent sửa đúng phần tử.
@@ -63,6 +101,22 @@
         <div id="pocCommentList" class="poc-comment-list">
             <p class="muted">Đang tải ghi chú…</p>
         </div>
+
+        @* Changelog các vòng "Yêu cầu chỉnh sửa" đã chạy: bàn giao cuối của agent nêu đã đổi gì ứng với
+           từng ghi chú — người review thấy ngay POC mới khác gì thay vì phải tự so hai bản. *@
+        @if (Model.Revisions.Any())
+        {
+            <div class="poc-changelog">
+                <h3>Nhật ký vòng sửa <span class="poc-count">(@Model.Revisions.Count)</span></h3>
+                @foreach (var revision in Model.Revisions)
+                {
+                    <details class="poc-changelog-item">
+                        <summary>@revision.Title@(revision.FinishedAt.HasValue ? $" · {revision.FinishedAt.Value.ToLocalTime():dd/MM HH:mm}" : "")</summary>
+                        <pre>@revision.Output</pre>
+                    </details>
+                }
+            </div>
+        }
     </aside>
 </div>
 

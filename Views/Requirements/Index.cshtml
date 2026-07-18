@@ -73,6 +73,30 @@
     var sourceFiles = Model.SourceFiles.OrderByDescending(x => x.CreatedAt).ToList();
     var baSupportsVision = ViewBag.BaSupportsVision is bool bv && bv;
 
+    // Panel tiến độ khai thác (bản đồ bao phủ đã parse) + "Điều đã chốt" — render lần đầu ở server,
+    // sau đó frame done của ChatStream cập nhật live (markup phải khớp renderCoverage/renderDecisions
+    // trong requirements.js).
+    var coverage = ViewBag.Coverage as IReadOnlyList<ICOGenerator.Contracts.Requirements.CoverageMapItem>
+        ?? new List<ICOGenerator.Contracts.Requirements.CoverageMapItem>();
+    var decisions = ViewBag.Decisions as IReadOnlyList<string> ?? new List<string>();
+    // Giả định BA tự đưa khi sinh AI Design Spec (mục ## 12. Assumptions) — hiển thị cho user rà lại.
+    var specAssumptions = ViewBag.SpecAssumptions as IReadOnlyList<string> ?? new List<string>();
+    var specVersion = ViewBag.SpecVersion as string;
+    var coverageClear = coverage.Count(x => x.Status == "RÕ");
+    var coverageApplicable = coverage.Count(x => x.Status != "KHÔNG ÁP DỤNG");
+
+    // Cờ multi-select của lượt hỏi mới nhất (chip cho phép chọn nhiều rồi gửi một lần). Conversation
+    // khác null đã ngầm định Kind == "conversation" (item workflow không có Conversation).
+    var lastSuggestionsMulti = lastItem?.Conversation is { Role: "assistant", SuggestionsMultiSelect: true };
+
+    static string CoverageIcon(string status) => status switch
+    {
+        "RÕ" => "✅",
+        "MỘT PHẦN" => "🟡",
+        "KHÔNG ÁP DỤNG" => "➖",
+        _ => "⚪"
+    };
+
     static string FormatSize(long bytes) =>
         bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.#} MB" : $"{Math.Max(1, bytes / 1024)} KB";
 
@@ -109,6 +133,65 @@
 <div class="grid doc-grid">
 
     <aside class="card history-panel">
+
+        @* Tiến độ khai thác yêu cầu: cho user thấy cuộc phỏng vấn đã rõ bao nhiêu nhóm thông tin và còn
+           thiếu gì — thay vì cảm giác "bị hỏi vô tận". Ẩn khi chưa có bản đồ (dự án mới). *@
+        <div class="coverage-panel" id="coveragePanel" @(coverage.Count == 0 ? "hidden" : "")>
+            <h3>Tiến độ khai thác</h3>
+            <div class="coverage-progress">
+                <div class="coverage-bar">
+                    <span id="coverageBarFill"
+                          style="width:@(coverageApplicable == 0 ? 0 : coverageClear * 100 / coverageApplicable)%"></span>
+                </div>
+                <span class="coverage-progress-text" id="coverageProgressText">Đã rõ @coverageClear/@coverageApplicable nhóm</span>
+            </div>
+            <ul class="coverage-list" id="coverageList">
+                @foreach (var item in coverage)
+                {
+                    <li class="coverage-item @(item.Status == "KHÔNG ÁP DỤNG" ? "na" : "")"
+                        title="@item.Summary">
+                        <span class="cov-ico">@CoverageIcon(item.Status)</span>
+                        <span class="cov-label">@(item.IsCore ? "★ " : "")@item.Label</span>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        @* "Điều đã chốt": các quyết định user đã xác nhận trong chat — bấm một mục để soạn sẵn tin nhắn
+           yêu cầu sửa lại, bắt hiểu nhầm sớm thay vì để nó đóng băng vào tài liệu. *@
+        <div class="decision-panel" id="decisionPanel" @(decisions.Count == 0 ? "hidden" : "")>
+            <h3>Điều đã chốt <span class="decision-count" id="decisionCount">(@decisions.Count)</span></h3>
+            <div class="history-sub decision-hint">Bấm vào một mục nếu muốn sửa lại quyết định đó.</div>
+            <ul class="decision-list" id="decisionList">
+                @foreach (var decision in decisions)
+                {
+                    <li>
+                        <button type="button" class="decision-item" data-decision="@decision" title="Bấm để yêu cầu sửa lại">
+                            @decision
+                        </button>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        @* Giả định của bản thiết kế (AI Design Spec): những điều BA tự quyết thay user khi dựng spec/POC.
+           User rà mục này để không bất ngờ khi xem POC; muốn đổi giả định nào thì nhắn trong chat. *@
+        @if (specAssumptions.Any())
+        {
+            <div class="assumption-panel">
+                <h3>Giả định của bản thiết kế @(string.IsNullOrEmpty(specVersion) ? "" : $"({specVersion})")</h3>
+                <div class="history-sub decision-hint">
+                    BA đã tự quyết các điểm sau khi dựng bản thiết kế POC. Nếu điểm nào chưa đúng ý,
+                    hãy nhắn trong chat để chỉnh trước khi xem POC.
+                </div>
+                <ul class="assumption-list">
+                    @foreach (var assumption in specAssumptions)
+                    {
+                        <li>@assumption</li>
+                    }
+                </ul>
+            </div>
+        }
 
         <h3>History</h3>
 
@@ -229,8 +312,11 @@
                     <b>BA</b>
 
                     <p>
-                        Xin chào! Tôi là Business Analyst.
-                        Bạn có thể mô tả ngắn gọn ý tưởng dự án không?
+                        Xin chào! Tôi là Business Analyst. Anh/chị cứ <b>kể thoải mái một mạch</b> mọi điều
+                        đang hình dung về ứng dụng: bài toán cần giải quyết, ai sẽ dùng, quy trình hiện tại
+                        đang làm thế nào và vướng ở đâu — càng chi tiết tôi càng đỡ phải hỏi lại.
+                        Nếu có sẵn tài liệu, ảnh chụp màn hình Excel/biểu mẫu đang dùng, anh/chị
+                        <b>đính kèm ở mục "Tài liệu nguồn"</b> bên trái để tôi đọc luôn nhé.
                     </p>
                 </div>
             }
@@ -286,6 +372,7 @@
                  class="suggestion-list"
                  role="listbox"
                  aria-label="Gợi ý trả lời"
+                 data-multi="@(lastSuggestionsMulti ? "true" : "false")"
                  style="@(displaySuggestions.Any() ? "" : "display:none;")">
                 @{
                     var suggestionIndex = 0;

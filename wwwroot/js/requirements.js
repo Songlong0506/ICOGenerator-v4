@@ -69,23 +69,119 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     // Render lại các chip gợi ý cho lượt BA mới nhất (markup khớp bản server render trong Index.cshtml);
     // dời #suggestionList xuống dưới bubble mới nhất vì các lượt streaming được chèn vào sau nó trong DOM.
-    function renderSuggestions(suggestions) {
+    // multiSelect = true: chip chuyển sang chế độ TOGGLE (chọn nhiều) + nút "Gửi các lựa chọn" — dùng cho
+    // câu hỏi kiểu "gồm những vai trò nào?" mà một đáp án là không đủ.
+    function renderSuggestions(suggestions, multiSelect) {
         if (!suggestionList) return;
 
         if (!Array.isArray(suggestions) || suggestions.length === 0) {
             suggestionList.style.display = "none";
             suggestionList.innerHTML = "";
+            suggestionList.dataset.multi = "false";
             return;
         }
 
+        suggestionList.dataset.multi = multiSelect ? "true" : "false";
         suggestionList.innerHTML = suggestions.map((s, i) => `
             <button type="button" class="suggestion-option" role="option" data-suggestion="${escapeHtml(s)}">
                 <span class="suggestion-option-text">${escapeHtml(s)}</span>
                 <span class="suggestion-option-key">${i + 1}</span>
             </button>
         `).join("");
+        ensureMultiControls();
         thinkingBox.before(suggestionList);
         suggestionList.style.display = "";
+    }
+
+    function isMultiSelect() {
+        return suggestionList && suggestionList.dataset.multi === "true";
+    }
+
+    // Chế độ chọn nhiều: thêm hint + nút gửi vào cuối danh sách chip (chỉ khi data-multi="true").
+    function ensureMultiControls() {
+        if (!suggestionList) return;
+
+        const existing = suggestionList.querySelector(".suggestion-multi-send");
+        if (!isMultiSelect()) {
+            if (existing) existing.remove();
+            return;
+        }
+        if (existing) return;
+
+        suggestionList.insertAdjacentHTML("beforeend", `
+            <div class="suggestion-multi-send">
+                <span class="suggestion-multi-hint">Chọn được nhiều đáp án rồi bấm gửi</span>
+                <button type="button" class="btn primary small" id="suggestionMultiSendBtn" disabled>Gửi các lựa chọn</button>
+            </div>
+        `);
+    }
+
+    function selectedSuggestionValues() {
+        return Array.from(suggestionList.querySelectorAll(".suggestion-option.selected"))
+            .map(o => (o.dataset.suggestion || "").trim())
+            .filter(Boolean);
+    }
+
+    function updateMultiSendState() {
+        const btn = document.getElementById("suggestionMultiSendBtn");
+        if (btn) btn.disabled = selectedSuggestionValues().length === 0;
+    }
+
+    // ==== Panel "Tiến độ khai thác" + "Điều đã chốt" (cột trái) — cập nhật live từ frame done ====
+    // Markup phải khớp bản server render trong Index.cshtml.
+    const coverageIcons = { "RÕ": "✅", "MỘT PHẦN": "🟡", "KHÔNG ÁP DỤNG": "➖" };
+
+    function renderCoverage(items) {
+        const panel = document.getElementById("coveragePanel");
+        const list = document.getElementById("coverageList");
+        if (!panel || !list || !Array.isArray(items) || items.length === 0) return;
+
+        const applicable = items.filter(x => x.status !== "KHÔNG ÁP DỤNG").length;
+        const clear = items.filter(x => x.status === "RÕ").length;
+
+        list.innerHTML = items.map(x => `
+            <li class="coverage-item ${x.status === "KHÔNG ÁP DỤNG" ? "na" : ""}" title="${escapeHtml(x.summary || "")}">
+                <span class="cov-ico">${coverageIcons[x.status] || "⚪"}</span>
+                <span class="cov-label">${x.isCore ? "★ " : ""}${escapeHtml(x.label)}</span>
+            </li>
+        `).join("");
+
+        const fill = document.getElementById("coverageBarFill");
+        if (fill) fill.style.width = applicable === 0 ? "0%" : `${Math.round(clear * 100 / applicable)}%`;
+        const text = document.getElementById("coverageProgressText");
+        if (text) text.textContent = `Đã rõ ${clear}/${applicable} nhóm`;
+        panel.hidden = false;
+    }
+
+    function renderDecisions(items) {
+        const panel = document.getElementById("decisionPanel");
+        const list = document.getElementById("decisionList");
+        if (!panel || !list || !Array.isArray(items) || items.length === 0) return;
+
+        list.innerHTML = items.map(d => `
+            <li>
+                <button type="button" class="decision-item" data-decision="${escapeHtml(d)}" title="Bấm để yêu cầu sửa lại">
+                    ${escapeHtml(d)}
+                </button>
+            </li>
+        `).join("");
+        const count = document.getElementById("decisionCount");
+        if (count) count.textContent = `(${items.length})`;
+        panel.hidden = false;
+    }
+
+    // Bấm một "điều đã chốt" → soạn sẵn tin nhắn đính chính vào ô nhập để user chỉ việc mô tả ý mới.
+    const decisionPanelEl = document.getElementById("decisionPanel");
+    if (decisionPanelEl) {
+        decisionPanelEl.addEventListener("click", function (e) {
+            const item = e.target.closest(".decision-item");
+            if (!item) return;
+
+            messageInput.value = `Tôi muốn sửa lại điều đã chốt: "${item.dataset.decision}". Ý đúng của tôi là: `;
+            resizeMessageInput();
+            messageInput.focus();
+            messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
+        });
     }
 
     // Đồng bộ trạng thái nút "Write Requirement" với cờ mời của lượt BA mới nhất — đúng logic server
@@ -116,8 +212,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // Bản preview đã stream có thể khác bản chốt (lời mời bị cổng readiness thay bằng câu hỏi)
             // → luôn thay bằng bản chốt.
             p.textContent = data.reply || "";
-            renderSuggestions(data.suggestions);
+            renderSuggestions(data.suggestions, data.suggestionsMultiSelect === true);
             setWriteRequirementReady(data.invitesWriteRequirement === true);
+            renderCoverage(data.coverage);
+            renderDecisions(data.decisions);
         } else {
             bubble.classList.add("chat-error");
             p.textContent = data.error || "Có lỗi khi xử lý lượt chat. Vui lòng thử lại.";
@@ -227,9 +325,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     });
 
-    // Chọn một đáp án gợi ý = điền sẵn câu trả lời rồi gửi qua đúng pipeline submit ở trên,
-    // để người dùng không phải gõ tay từng chữ. Vẫn có thể tự nhập nếu không gợi ý nào khớp.
+    // Chọn một đáp án gợi ý: chế độ thường = điền sẵn rồi gửi ngay; chế độ chọn nhiều (multi) =
+    // toggle chọn/bỏ, gom lại và gửi MỘT tin nhắn khi bấm "Gửi các lựa chọn".
     function selectSuggestion(option) {
+        if (isMultiSelect()) {
+            option.classList.toggle("selected");
+            updateMultiSendState();
+            return;
+        }
+
         const text = (option?.dataset.suggestion || "").trim();
         if (!text) return;
 
@@ -237,8 +341,24 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         chatForm.requestSubmit();
     }
 
+    function sendSelectedSuggestions() {
+        const values = selectedSuggestionValues();
+        if (values.length === 0) return;
+
+        messageInput.value = values.join(", ");
+        chatForm.requestSubmit();
+    }
+
     if (suggestionList) {
+        // Trang vừa tải với lượt hỏi multi-select (server render) → gắn nút gửi cho danh sách có sẵn.
+        ensureMultiControls();
+
         suggestionList.addEventListener("click", function (e) {
+            if (e.target.closest("#suggestionMultiSendBtn")) {
+                sendSelectedSuggestions();
+                return;
+            }
+
             const option = e.target.closest(".suggestion-option");
             if (!option) return;
 
@@ -247,12 +367,19 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         // Phím tắt số (1–9) chọn nhanh đáp án — giống option-select của Claude. Chỉ bắt khi
         // danh sách đang hiện và con trỏ KHÔNG ở ô nhập, để không cướp phím số khi đang soạn tin.
+        // Ở chế độ multi, phím số TOGGLE lựa chọn và Enter gửi các lựa chọn đã chọn.
         document.addEventListener("keydown", function (e) {
             if (!suggestionList || suggestionList.style.display === "none") return;
             if (e.ctrlKey || e.metaKey || e.altKey) return;
 
             const active = document.activeElement;
             if (active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT")) return;
+
+            if (e.key === "Enter" && isMultiSelect()) {
+                e.preventDefault();
+                sendSelectedSuggestions();
+                return;
+            }
 
             if (e.key < "1" || e.key > "9") return;
 

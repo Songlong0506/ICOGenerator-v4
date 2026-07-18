@@ -9,6 +9,10 @@ public class BAChatReply
 
     public List<string> Suggestions { get; set; } = new();
 
+    // true khi câu hỏi của lượt này cho phép CHỌN NHIỀU đáp án gợi ý cùng lúc (vd "gồm những vai trò
+    // nào?") — UI đổi chip sang chế độ toggle + nút gửi. Mặc định false (chọn một, gửi ngay).
+    public bool MultiSelect { get; set; }
+
     // BA tự đánh giá đã khai thác đủ thông tin để soạn tài liệu hay chưa: true khi không còn câu hỏi
     // nào → UI bật nút "Write Requirement". Còn bất kỳ điểm nào cần hỏi thì để false (mặc định) để nút
     // ở trạng thái "chưa sẵn sàng". Đây là tín hiệu cho UI; bước sinh tài liệu vẫn có cổng readiness riêng.

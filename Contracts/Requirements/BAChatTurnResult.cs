@@ -17,4 +17,13 @@ public class BAChatTurnResult
 
     /// <summary>True khi lời trả lời chốt là lời mời bấm "Write Requirement" — UI chuyển nút sang trạng thái sẵn sàng.</summary>
     public bool InvitesWriteRequirement { get; set; }
+
+    /// <summary>True khi câu hỏi lượt này cho phép chọn NHIỀU gợi ý cùng lúc (UI đổi chip sang chế độ toggle + nút gửi).</summary>
+    public bool SuggestionsMultiSelect { get; set; }
+
+    /// <summary>Bản đồ bao phủ yêu cầu đã parse (rỗng khi chưa có) — UI cập nhật panel tiến độ không cần reload.</summary>
+    public List<CoverageMapItem> Coverage { get; set; } = new();
+
+    /// <summary>"Điều đã chốt" — các quyết định người dùng đã xác nhận, cập nhật tới hết lượt này.</summary>
+    public List<string> Decisions { get; set; } = new();
 }

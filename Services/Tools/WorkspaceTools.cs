@@ -8,11 +8,13 @@ public class WorkspaceTools
 {
     private readonly IConfiguration _configuration;
     private readonly WorkspacePathResolver _workspacePathResolver;
+    private readonly IPocRuntimeChecker _pocRuntimeChecker;
 
-    public WorkspaceTools(IConfiguration configuration, WorkspacePathResolver workspacePathResolver)
+    public WorkspaceTools(IConfiguration configuration, WorkspacePathResolver workspacePathResolver, IPocRuntimeChecker pocRuntimeChecker)
     {
         _configuration = configuration;
         _workspacePathResolver = workspacePathResolver;
+        _pocRuntimeChecker = pocRuntimeChecker;
     }
     public string CurrentWorkspacePath { get; private set; } = string.Empty;
 
@@ -260,7 +262,36 @@ public class WorkspaceTools
         if (!File.Exists(fullPath)) return $"File not found: {PocTemplate.MockupRelativePath}";
 
         var current = await File.ReadAllTextAsync(fullPath);
-        return PocAudit.Run(current, _pocSpec);
+        var report = PocAudit.Run(current, _pocSpec);
+
+        // Tầng RUNTIME nối sau audit tĩnh: mở POC trong Chromium headless, đi qua từng màn hình, gom lỗi
+        // JS và chạy window.pocSelfTest() — lớp lỗi mà scan chuỗi không thấy (một TypeError làm chết cả
+        // trang nhưng markup vẫn "đúng"). Fail-open: môi trường không có browser thì ghi chú SKIPPED và
+        // giữ nguyên phần tĩnh.
+        var runtime = await _pocRuntimeChecker.CheckAsync(fullPath, RunCancellationToken);
+        var sb = new System.Text.StringBuilder(report);
+        sb.AppendLine();
+        if (!runtime.Ran)
+        {
+            sb.Append($"RUNTIME CHECK: SKIPPED — {runtime.SkipReason}");
+        }
+        else if (runtime.Issues.Count == 0)
+        {
+            sb.Append("RUNTIME CHECK (headless browser): OK — no JS errors, all screens open");
+            sb.Append(runtime.SelfTestResults.Count > 0
+                ? $", self-test {runtime.SelfTestResults.Count} rule(s) PASS."
+                : ". (window.pocSelfTest() not defined — no per-rule assertions were executed.)");
+        }
+        else
+        {
+            sb.AppendLine($"RUNTIME ISSUES (headless browser — fix these like the ISSUES above):");
+            for (var i = 0; i < runtime.Issues.Count; i++)
+                sb.AppendLine($"{i + 1}. {runtime.Issues[i]}");
+            if (runtime.SelfTestResults.Count > 0)
+                sb.Append($"Self-test summary: {string.Join("; ", runtime.SelfTestResults)}");
+        }
+
+        return sb.ToString();
     }
 
     private string GetSafeFullPath(string relativePath)

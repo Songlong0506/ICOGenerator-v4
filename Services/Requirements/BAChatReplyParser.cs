@@ -39,7 +39,9 @@ public class BAChatReplyParser
                             Message = message.Length > 0
                                 ? message
                                 : "Đã ghi nhận. Bạn có thể chọn một gợi ý bên dưới hoặc tự nhập thêm.",
-                            Suggestions = suggestions
+                            Suggestions = suggestions,
+                            // multiSelect chỉ có nghĩa khi thực sự có chip để chọn.
+                            MultiSelect = suggestions.Count > 0 && parsed.MultiSelect == true
                         };
                     }
                 }
@@ -102,5 +104,6 @@ public class BAChatReplyParser
     {
         public string? Message { get; set; }
         public List<JsonElement>? Suggestions { get; set; }
+        public bool? MultiSelect { get; set; }
     }
 }

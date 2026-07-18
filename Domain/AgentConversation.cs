@@ -21,6 +21,11 @@ public class AgentConversation
     // ConversationTurnRenderer để đính kèm danh sách này (Message vẫn giữ nguyên phần text thuần cho UI).
     public string? Suggestions { get; set; }
 
+    // true khi lượt hỏi này cho phép CHỌN NHIỀU đáp án gợi ý cùng lúc (vd "gồm những vai trò nào?").
+    // UI đổi chip sang chế độ toggle + nút gửi; các đáp án đã chọn được gửi thành MỘT tin nhắn.
+    // Cờ do model trả trong JSON {multiSelect} và được lưu lại để reload trang vẫn render đúng chế độ.
+    public bool SuggestionsMultiSelect { get; set; }
+
     public int TokenUsed { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

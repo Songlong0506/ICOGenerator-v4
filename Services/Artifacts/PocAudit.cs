@@ -190,6 +190,13 @@ public static partial class PocAudit
                 warnings.Add("The POC logic script (POC_SCRIPT region) is still empty — if the AI Design Spec defines business rules (computed totals/averages/ratings, sign or approval flows, role-based screens), implement them with SetPocScript so the demo behaves instead of only showing static screens.");
         }
 
+        // Business rules must be VERIFIABLE, not just claimed: the prompt requires the script to define
+        // window.pocSelfTest() with one assertion per BR-n. The runtime check executes it in a headless
+        // browser and turns each failing rule into a concrete issue; without the function the rules are
+        // back to being taken on the agent's word.
+        if (specRuleCount > 0 && scriptBody.Length > 0 && !scriptBody.Contains("pocSelfTest", StringComparison.Ordinal))
+            issues.Add($"The POC script does not define window.pocSelfTest() although the AI Design Spec declares {specRuleCount} business rule(s) — define it (globally) to return one entry per rule: [{{ rule: 'BR-1', pass: <boolean computed by CALLING the demo's own logic on the seed data>, detail: '<expected vs actual>' }}, …]. The audit runs it in a headless browser and reports failing rules.");
+
         // Inline <script> inside the content region bypasses SetPocScript and is lost on content edits.
         if (TryGetContentRegion(html, out var content) && content.Contains("<script", StringComparison.OrdinalIgnoreCase))
             warnings.Add("The feature content carries an inline <script> — move that logic into SetPocScript (the dedicated POC_SCRIPT region) so it is kept when content is edited.");

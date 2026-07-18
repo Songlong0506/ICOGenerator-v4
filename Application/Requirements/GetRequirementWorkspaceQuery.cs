@@ -1,19 +1,30 @@
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Requirements;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Requirements;
 
-public record RequirementWorkspaceResult(Project Project, string SelectedVersion, bool BaModelSupportsVision);
+public record RequirementWorkspaceResult(
+    Project Project,
+    string SelectedVersion,
+    bool BaModelSupportsVision,
+    IReadOnlyList<CoverageMapItem> Coverage,
+    IReadOnlyList<string> Decisions,
+    IReadOnlyList<string> SpecAssumptions,
+    string? SpecVersion);
 
 public class GetRequirementWorkspaceQuery
 {
     private readonly AppDbContext _db;
+    private readonly ICOGenerator.Services.Artifacts.IProjectArtifactCatalog _artifactCatalog;
 
-    public GetRequirementWorkspaceQuery(AppDbContext db)
+    public GetRequirementWorkspaceQuery(AppDbContext db, ICOGenerator.Services.Artifacts.IProjectArtifactCatalog artifactCatalog)
     {
         _db = db;
+        _artifactCatalog = artifactCatalog;
     }
 
     public async Task<RequirementWorkspaceResult?> ExecuteAsync(Guid projectId, string? version = null)
@@ -82,6 +93,26 @@ public class GetRequirementWorkspaceQuery
                     .FirstOrDefault();
         }
 
-        return new RequirementWorkspaceResult(project, selectedVersion ?? "draft", baSupportsVision);
+        // Giả định của AI Design Spec mới nhất (nếu đã sinh): spec được phép tự đưa giả định rồi đi
+        // thẳng vào bước dựng POC, nên panel này là chỗ duy nhất user thấy chúng trước khi xem POC.
+        // Chỉ kéo Content của ĐÚNG một document spec mới nhất (không đụng đường ProjectDocuments ở trên
+        // vốn cố tình bỏ Content).
+        var latestSpec = await _db.ProjectDocuments
+            .AsNoTracking()
+            .Where(d => d.ProjectId == projectId && d.FileName == _artifactCatalog.AiDesignSpec.FileName)
+            .OrderByDescending(d => d.CreatedAt)
+            .Select(d => new { d.Content, d.VersionName })
+            .FirstOrDefaultAsync();
+
+        // Panel tiến độ khai thác + "Điều đã chốt" cạnh khung chat: parse từ hai cột text trên Project
+        // (đã nạp sẵn ở query trên — không thêm round-trip DB nào).
+        return new RequirementWorkspaceResult(
+            project,
+            selectedVersion ?? "draft",
+            baSupportsVision,
+            CoverageMapParser.Parse(project.RequirementCoverageMap),
+            DecisionLogService.ParseItems(project.DecisionLog),
+            SpecAssumptionsParser.Parse(latestSpec?.Content),
+            latestSpec?.VersionName);
     }
 }
