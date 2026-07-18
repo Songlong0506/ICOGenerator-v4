@@ -399,13 +399,14 @@ sắp xếp lại; namespace luôn khớp đường dẫn.
   sử migration đã được gộp lại thành một baseline `V1` duy nhất (tạo đủ 24 bảng khớp
   `AppDbContextModelSnapshot`); các migration tiến lẻ tẻ trước đây (drop cột/backfill/alter cho DB
   cũ) không còn tồn tại. Mỗi khi cần reset DB tạo lại từ đầu, cứ xoá `Migrations/` rồi
-  `dotnet ef migrations add V1` để có lại một baseline sạch — nhớ đặt `ASPNETCORE_ENVIRONMENT`
-  khác `Development` để migration sinh ra theo provider SqlServer (production), không phải Sqlite.
+  `dotnet ef migrations add V1` để có lại một baseline sạch — nhớ để `Database:Provider` là
+  `SqlServer` (mặc định; đừng đặt `Database__Provider=Sqlite`) để migration sinh ra theo provider
+  SqlServer (production), không phải Sqlite.
 - `IModelCallLogger`/`ModelCallLogger` (log lời gọi model) **đã được gộp vào `Services/Llm`** (trước
   đây nằm riêng ở `Services/Logging`): nó chỉ phục vụ một loại log và phụ thuộc chặt `LlmCallResult`,
   nên để cạnh client gọi LLM là hợp lý. Nếu sau này log nhiều loại khác thì tách lại thư mục riêng.
 - Package `Microsoft.EntityFrameworkCore.Sqlite` được giữ trong `ICOGenerator.csproj` làm **provider
   thay thế**: chọn qua `Database:Provider` (`SqlServer` mặc định cho môi trường thật; `Sqlite` để chạy
-  end-to-end ở nơi KHÔNG có SQL Server — Claude Code web / CI / máy dev). `appsettings.Development.json`
-  đặt sẵn `Sqlite`; xem `AddDbContext` trong file Extensions. (Model đã provider-agnostic, test cũng
-  chạy trên Sqlite.)
+  end-to-end ở nơi KHÔNG có SQL Server — Claude Code web / CI / máy dev). Bật Sqlite bằng env var
+  `Database__Provider=Sqlite`; xem `AddDbContext` trong file Extensions. (Model đã provider-agnostic,
+  test cũng chạy trên Sqlite.)

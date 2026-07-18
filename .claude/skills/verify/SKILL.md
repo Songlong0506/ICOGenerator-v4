@@ -7,11 +7,11 @@ description: Chạy ICOGenerator end-to-end trong môi trường không có SQL 
 
 ## Build & chạy app (Sqlite)
 
-`launchSettings.json` ép `ASPNETCORE_ENVIRONMENT=Production` khi dùng `dotnet run` → **chạy DLL trực tiếp** để nhận env Development (Sqlite, DB file `ICOGenerator.db` đã .gitignore):
+Sqlite bật qua env var `Database__Provider=Sqlite` (DB file `ICOGenerator.db` đã .gitignore; connection string vẫn là chuỗi SQL Server thì code tự fallback về file này). Vẫn **chạy DLL trực tiếp** với `ASPNETCORE_ENVIRONMENT=Development` — `launchSettings.json` ép `Production` khi `dotnet run`, mà env Development mới nới `Cookie.SecurePolicy` để login chạy được qua HTTP:
 
 ```bash
 dotnet build -v q
-ASPNETCORE_ENVIRONMENT=Development Encryption__ApiKeyKey=verify-key \
+ASPNETCORE_ENVIRONMENT=Development Database__Provider=Sqlite Encryption__ApiKeyKey=verify-key \
   ASPNETCORE_URLS=http://127.0.0.1:5099 dotnet bin/Debug/net8.0/ICOGenerator.dll
 ```
 
@@ -42,7 +42,7 @@ Selectors cổng duyệt (Agent Dashboard `/AgentDashboard?projectId=...`): `#de
 
 ## Gotchas
 
-- App fail SqlServer lúc boot = env chưa phải Development (xem launchSettings ở trên).
+- App fail SqlServer lúc boot = thiếu env var `Database__Provider=Sqlite` (mặc định `appsettings.json` là SqlServer).
 - Worker chạy nền sẽ TỰ nhặt task Queued ngay — muốn quan sát trạng thái tĩnh thì đừng seed task Queued.
 - DB 4KB là bình thường (WAL); file `ICOGenerator.db*` đã gitignore.
 - **Sau khi chạy app trên Linux, XÓA thư mục rác `C:\Study App\ICOGeneratorWorkspaces` và `Logs/` trong repo root** — `AgentWorkspace:RootPath` là đường dẫn Windows nên Linux tạo thư mục literal chứa backslash, làm `dotnet build` fail `MSB3552 (**/*.resx cannot be found)`. Muốn tránh hẳn thì set env `AgentWorkspace__RootPath=/tmp/ico-workspaces` khi chạy.
