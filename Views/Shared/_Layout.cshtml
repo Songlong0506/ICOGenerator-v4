@@ -30,6 +30,7 @@
             "Requirements" => "Requirements",
             "AgentDashboard" => "Agent Dashboard",
             "Roles" => "Roles & Permissions",
+            "UserRoles" => "User Roles",
             "Audit" => "Audit Log",
             _ => "Home"
         };
@@ -61,6 +62,7 @@
                     var canSettings = await Permissions.HasPermissionAsync(User, AppPermission.SettingsView);
                     var canFeedback = await Permissions.HasPermissionAsync(User, AppPermission.FeedbackView);
                     var canRoles = await Permissions.HasPermissionAsync(User, AppPermission.AdministrationManageRoles);
+                    var canUserRoles = await Permissions.HasPermissionAsync(User, AppPermission.UserRolesView);
                     var canAudit = await Permissions.HasPermissionAsync(User, AppPermission.AuditView);
                 }
                 <nav class="sidebar-nav">
@@ -125,6 +127,13 @@
                         <a class="nav-item @NavActive("Roles")" asp-controller="Roles" asp-action="Index" title="Roles & Permissions">
                             <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /><path d="M17 3l2 2 3-3" /></svg>
                             <span class="nav-label">Roles</span>
+                        </a>
+                    }
+                    @if (canUserRoles)
+                    {
+                        <a class="nav-item @NavActive("UserRoles")" asp-controller="UserRoles" asp-action="Index" title="User Roles">
+                            <svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4" /><path d="M2 21a7 7 0 0 1 14 0" /><path d="M19 8v6M22 11h-6" /></svg>
+                            <span class="nav-label">User Roles</span>
                         </a>
                     }
                     @if (canAudit)

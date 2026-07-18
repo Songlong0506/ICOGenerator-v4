@@ -19,6 +19,7 @@ using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Evals;
 using ICOGenerator.Services.Feedback;
+using ICOGenerator.Services.Identity;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Notifications;
 using ICOGenerator.Services.Notifications.Channels;
@@ -100,6 +101,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddEvalUseCases();
         services.AddPromptStudioUseCases();
         services.AddSettingsUseCases();
+        services.AddUserRoleServices();
         services.AddFeedbackUseCases();
         services.AddAuditUseCases();
         services.AddNotificationServices(configuration);
@@ -450,6 +452,21 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddAuditUseCases(this IServiceCollection services)
     {
         services.AddScoped<GetAuditLogPageQuery>();
+        return services;
+    }
+
+    // Trang User Roles: gọi REST API quản trị của Bosch IdentityServer để gán/thu hồi role cho user.
+    // IdentityServerService scoped (đọc IHttpContextAccessor để lấy access_token của phiên hiện tại). Named
+    // HttpClient bỏ qua kiểm tra chứng chỉ vì IS4 nội bộ Bosch dùng chứng chỉ tự ký (như mẫu Bosch).
+    private static IServiceCollection AddUserRoleServices(this IServiceCollection services)
+    {
+        services.AddHttpClient(IdentityServerService.HttpClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback =
+                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+            });
+        services.AddScoped<IdentityServerService>();
         return services;
     }
 

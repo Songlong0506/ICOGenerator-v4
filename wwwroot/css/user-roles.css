@@ -1,0 +1,77 @@
+/* Trang User Roles (gán / thu hồi role IdentityServer). Tận dụng .card / .btn / .data-table / .modal
+   dùng chung ở site.css; file này chỉ thêm phần filter, autocomplete và một vài tiện ích nhỏ. */
+
+.ur-filter {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    margin-bottom: 18px;
+    padding: 16px 18px;
+}
+
+.ur-filter .filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 320px;
+    max-width: 420px;
+}
+
+.ur-empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 22px 12px;
+}
+
+.ur-muted { color: var(--muted); }
+
+/* ---- Ô autocomplete người dùng trong popup ---- */
+.ur-autocomplete { position: relative; }
+
+.ur-suggest {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    z-index: 5;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.ur-suggest-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--line);
+}
+
+.ur-suggest-item:last-child { border-bottom: 0; }
+.ur-suggest-item:hover { background: var(--bosch-blue-tint); }
+
+.ur-suggest-name { font-weight: 700; color: var(--ink); font-size: 14px; }
+.ur-suggest-meta { color: var(--muted); font-size: 12px; }
+
+.ur-suggest-empty {
+    padding: 10px 12px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+/* Chip xác nhận người dùng đã chọn. */
+.ur-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 6px 12px;
+    background: var(--bosch-blue-tint);
+    color: var(--bosch-blue-dark);
+    border: 1px solid var(--bosch-blue);
+    font-weight: 700;
+    font-size: 13px;
+}
