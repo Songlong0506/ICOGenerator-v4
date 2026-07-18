@@ -65,6 +65,16 @@
                     var canUserRoles = await Permissions.HasPermissionAsync(User, AppPermission.UserRolesView);
                     var canAudit = await Permissions.HasPermissionAsync(User, AppPermission.AuditView);
                 }
+                @{
+                    // Đếm số màn con được phép trong mỗi nhóm để: (1) ẩn cả nhóm khi không có con nào,
+                    // (2) tự "phẳng" nhóm khi chỉ còn đúng 1 con (không bắt user bấm mở thêm 1 lớp).
+                    var insightsCount = (canUsage ? 1 : 0) + (canQuality ? 1 : 0) + (canEvals ? 1 : 0);
+                    var insightsActive = NavActive("Usage", "Quality", "Evals") == "active";
+
+                    var adminCount = (canSettings ? 1 : 0) + (canModels ? 1 : 0) + (canRoles ? 1 : 0)
+                        + (canUserRoles ? 1 : 0) + (canAudit ? 1 : 0);
+                    var adminActive = NavActive("Settings", "Models", "Roles", "UserRoles", "Audit") == "active";
+                }
                 <nav class="sidebar-nav">
                     @if (canProjects)
                     {
@@ -80,41 +90,42 @@
                             <span class="nav-label">Agents</span>
                         </a>
                     }
-                    @if (canUsage)
+
+                    @* Nhóm Insights: đo lường & giám sát (Usage, Quality, Evals). *@
+                    @if (insightsCount > 0)
                     {
-                        <a class="nav-item @NavActive("Usage")" asp-controller="Usage" asp-action="Index" title="Usage">
-                            <svg class="ico" viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l3-3 3 3 5-6" /></svg>
-                            <span class="nav-label">Usage</span>
-                        </a>
+                        <div class="nav-group @(insightsActive ? "open" : "") @(insightsCount == 1 ? "nav-group--single" : "")" data-group="insights">
+                            <button type="button" class="nav-item nav-group-head" title="Insights" aria-expanded="@(insightsActive ? "true" : "false")">
+                                <svg class="ico" viewBox="0 0 24 24"><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="5" /><rect x="12" y="8" width="3" height="9" /><rect x="17" y="4" width="3" height="13" /></svg>
+                                <span class="nav-label">Insights</span>
+                                <svg class="ico nav-caret" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                            </button>
+                            <div class="nav-group-body">
+                                @if (canUsage)
+                                {
+                                    <a class="nav-item nav-sub @NavActive("Usage")" asp-controller="Usage" asp-action="Index" title="Usage">
+                                        <svg class="ico" viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l3-3 3 3 5-6" /></svg>
+                                        <span class="nav-label">Usage</span>
+                                    </a>
+                                }
+                                @if (canQuality)
+                                {
+                                    <a class="nav-item nav-sub @NavActive("Quality")" asp-controller="Quality" asp-action="Index" title="Delivery Quality">
+                                        <svg class="ico" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+                                        <span class="nav-label">Quality</span>
+                                    </a>
+                                }
+                                @if (canEvals)
+                                {
+                                    <a class="nav-item nav-sub @NavActive("Evals")" asp-controller="Evals" asp-action="Index" title="Prompt Evals">
+                                        <svg class="ico" viewBox="0 0 24 24"><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>
+                                        <span class="nav-label">Evals</span>
+                                    </a>
+                                }
+                            </div>
+                        </div>
                     }
-                    @if (canQuality)
-                    {
-                        <a class="nav-item @NavActive("Quality")" asp-controller="Quality" asp-action="Index" title="Delivery Quality">
-                            <svg class="ico" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
-                            <span class="nav-label">Quality</span>
-                        </a>
-                    }
-                    @if (canEvals)
-                    {
-                        <a class="nav-item @NavActive("Evals")" asp-controller="Evals" asp-action="Index" title="Prompt Evals">
-                            <svg class="ico" viewBox="0 0 24 24"><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>
-                            <span class="nav-label">Evals</span>
-                        </a>
-                    }
-                    @if (canModels)
-                    {
-                        <a class="nav-item @NavActive("Models")" asp-controller="Models" asp-action="Index" title="Models">
-                            <svg class="ico" viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z" /><path d="M3 7l9 5 9-5M12 12v10" /></svg>
-                            <span class="nav-label">Models</span>
-                        </a>
-                    }
-                    @if (canSettings)
-                    {
-                        <a class="nav-item @NavActive("Settings")" asp-controller="Settings" asp-action="Index" title="Settings">
-                            <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1" /></svg>
-                            <span class="nav-label">Settings</span>
-                        </a>
-                    }
+
                     @if (canFeedback)
                     {
                         <a class="nav-item @NavActive("Feedback")" asp-controller="Feedback" asp-action="Index" title="Feedback">
@@ -122,26 +133,54 @@
                             <span class="nav-label">Feedback</span>
                         </a>
                     }
-                    @if (canRoles)
+
+                    @* Nhóm Administration: quản trị & cấu hình hệ thống (Settings, Models, Roles, User Roles, Audit Log). *@
+                    @if (adminCount > 0)
                     {
-                        <a class="nav-item @NavActive("Roles")" asp-controller="Roles" asp-action="Index" title="Roles & Permissions">
-                            <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /><path d="M17 3l2 2 3-3" /></svg>
-                            <span class="nav-label">Roles</span>
-                        </a>
-                    }
-                    @if (canUserRoles)
-                    {
-                        <a class="nav-item @NavActive("UserRoles")" asp-controller="UserRoles" asp-action="Index" title="User Roles">
-                            <svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4" /><path d="M2 21a7 7 0 0 1 14 0" /><path d="M19 8v6M22 11h-6" /></svg>
-                            <span class="nav-label">User Roles</span>
-                        </a>
-                    }
-                    @if (canAudit)
-                    {
-                        <a class="nav-item @NavActive("Audit")" asp-controller="Audit" asp-action="Index" title="Audit Log">
-                            <svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M9 13h6M9 17h6M9 9h1" /></svg>
-                            <span class="nav-label">Audit Log</span>
-                        </a>
+                        <div class="nav-group @(adminActive ? "open" : "") @(adminCount == 1 ? "nav-group--single" : "")" data-group="administration">
+                            <button type="button" class="nav-item nav-group-head" title="Administration" aria-expanded="@(adminActive ? "true" : "false")">
+                                <svg class="ico" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
+                                <span class="nav-label">Administration</span>
+                                <svg class="ico nav-caret" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+                            </button>
+                            <div class="nav-group-body">
+                                @if (canSettings)
+                                {
+                                    <a class="nav-item nav-sub @NavActive("Settings")" asp-controller="Settings" asp-action="Index" title="Settings">
+                                        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1" /></svg>
+                                        <span class="nav-label">Settings</span>
+                                    </a>
+                                }
+                                @if (canModels)
+                                {
+                                    <a class="nav-item nav-sub @NavActive("Models")" asp-controller="Models" asp-action="Index" title="Models">
+                                        <svg class="ico" viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z" /><path d="M3 7l9 5 9-5M12 12v10" /></svg>
+                                        <span class="nav-label">Models</span>
+                                    </a>
+                                }
+                                @if (canRoles)
+                                {
+                                    <a class="nav-item nav-sub @NavActive("Roles")" asp-controller="Roles" asp-action="Index" title="Roles & Permissions">
+                                        <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /><path d="M17 3l2 2 3-3" /></svg>
+                                        <span class="nav-label">Roles</span>
+                                    </a>
+                                }
+                                @if (canUserRoles)
+                                {
+                                    <a class="nav-item nav-sub @NavActive("UserRoles")" asp-controller="UserRoles" asp-action="Index" title="User Roles">
+                                        <svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4" /><path d="M2 21a7 7 0 0 1 14 0" /><path d="M19 8v6M22 11h-6" /></svg>
+                                        <span class="nav-label">User Roles</span>
+                                    </a>
+                                }
+                                @if (canAudit)
+                                {
+                                    <a class="nav-item nav-sub @NavActive("Audit")" asp-controller="Audit" asp-action="Index" title="Audit Log">
+                                        <svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M9 13h6M9 17h6M9 9h1" /></svg>
+                                        <span class="nav-label">Audit Log</span>
+                                    </a>
+                                }
+                            </div>
+                        </div>
                     }
                 </nav>
 

@@ -41,6 +41,29 @@ function eventIconHtml(kind) {
     var toggle = document.getElementById('sbToggle');
     if (toggle) toggle.addEventListener('click', function () { shell.classList.toggle('collapsed'); });
 
+    // Nhóm sidebar: mở/gập khi bấm header + nhớ trạng thái theo từng nhóm (localStorage).
+    // Nếu nhóm đang chứa màn hình active thì luôn để mở, không cho trạng thái đã lưu ghi đè
+    // (nếu không, item của trang hiện tại sẽ bị ẩn). Nhóm 1-con (--single) không có header nên bỏ qua.
+    document.querySelectorAll('.nav-group').forEach(function (group) {
+        var head = group.querySelector('.nav-group-head');
+        if (!head) return;
+        var key = 'nav-group:' + (group.getAttribute('data-group') || '');
+        var hasActive = !!group.querySelector('.nav-item.active');
+        if (!hasActive) {
+            try {
+                var saved = localStorage.getItem(key);
+                if (saved === 'open') group.classList.add('open');
+                else if (saved === 'closed') group.classList.remove('open');
+            } catch (e) { /* localStorage không khả dụng: dùng trạng thái server render */ }
+        }
+        head.setAttribute('aria-expanded', group.classList.contains('open') ? 'true' : 'false');
+        head.addEventListener('click', function () {
+            var open = group.classList.toggle('open');
+            head.setAttribute('aria-expanded', open ? 'true' : 'false');
+            try { localStorage.setItem(key, open ? 'open' : 'closed'); } catch (e) { /* bỏ qua */ }
+        });
+    });
+
     function open(id) { var m = document.getElementById(id); if (m) m.classList.add('open'); }
     var u = document.getElementById('navUser'); if (u) u.addEventListener('click', function () { open('userModal'); });
     var i = document.getElementById('navImprint'); if (i) i.addEventListener('click', function () { open('imprintModal'); });
