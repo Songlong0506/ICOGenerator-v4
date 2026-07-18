@@ -112,15 +112,16 @@ Các bí mật *tùy chọn* khác (chỉ khi dùng tính năng tương ứng): 
 2. Đặt `Encryption__ApiKeyKey`.
 3. `dotnet run` → app nghe tại `https://localhost:55356` / `http://localhost:55357` (theo `Properties/launchSettings.json`).
 
-> ⚠️ `launchSettings.json` ép `ASPNETCORE_ENVIRONMENT=Production` — nghĩa là `dotnet run` mặc định dùng **SqlServer** theo `appsettings.json`, *không* đọc `appsettings.Development.json`.
+> ⚠️ `launchSettings.json` ép `ASPNETCORE_ENVIRONMENT=Production` — nghĩa là `dotnet run` mặc định dùng **SqlServer** theo `appsettings.json`.
 
 **Kịch bản B — không có SQL Server (Sqlite):**
 
-`appsettings.Development.json` đã đặt sẵn `Database:Provider=Sqlite` (DB file `ICOGenerator.db`, đã `.gitignore`). Vì `dotnet run` bị launchSettings ép Production, cách chắc chắn nhất là chạy DLL trực tiếp:
+Bật Sqlite bằng biến môi trường `Database__Provider=Sqlite` (DB file `ICOGenerator.db`, đã `.gitignore`; connection string vẫn dạng SQL Server thì code tự fallback về file này). Vẫn nên chạy DLL trực tiếp với `ASPNETCORE_ENVIRONMENT=Development` — vừa tránh launchSettings ép Production, vừa nới `Cookie.SecurePolicy` để login chạy được qua HTTP:
 
 ```bash
 dotnet build -v q
 ASPNETCORE_ENVIRONMENT=Development \
+Database__Provider=Sqlite \
 Encryption__ApiKeyKey=dev-key \
 AgentWorkspace__RootPath=/tmp/ico-workspaces \
 ASPNETCORE_URLS=http://127.0.0.1:5099 \
@@ -279,7 +280,7 @@ tests/ICOGenerator.Tests # xUnit
 ### 5.6. Migration
 
 - Đổi entity ⇒ `dotnet ef migrations add <Tên>`; `DbInitializer` tự `MigrateAsync` lúc khởi động (SqlServer).
-- Migration hiện tại là một **baseline `V1` duy nhất** (đã gộp toàn bộ lịch sử; các migration tiến lẻ tẻ trước đây không còn). Khi cần sinh migration, đặt `ASPNETCORE_ENVIRONMENT` khác `Development` để nó sinh theo provider SqlServer (không phải Sqlite).
+- Migration hiện tại là một **baseline `V1` duy nhất** (đã gộp toàn bộ lịch sử; các migration tiến lẻ tẻ trước đây không còn). Khi cần sinh migration, để `Database:Provider` là `SqlServer` (mặc định) — **đừng** đặt `Database__Provider=Sqlite` — để nó sinh theo provider SqlServer (không phải Sqlite).
 - Sqlite **không chạy migration** (dùng `EnsureCreated`) ⇒ đổi schema khi dev Sqlite = xóa file `ICOGenerator.db*` để dựng lại.
 
 ---
@@ -642,7 +643,7 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 
 | Key | Mặc định | Ý nghĩa |
 |---|---|---|
-| `Database:Provider` | `SqlServer` | `SqlServer` hoặc `Sqlite`. Development.json đặt sẵn `Sqlite`. Sqlite mà connection string vẫn dạng SQL Server ⇒ tự fallback file `ICOGenerator.db` |
+| `Database:Provider` | `SqlServer` | `SqlServer` hoặc `Sqlite`. Chạy Sqlite bằng env var `Database__Provider=Sqlite`. Sqlite mà connection string vẫn dạng SQL Server ⇒ tự fallback file `ICOGenerator.db` |
 | `ConnectionStrings:DefaultConnection` | `Server=SONGLONG;...` | Chuỗi kết nối. SqlServer bật `EnableRetryOnFailure` |
 | `AgentWorkspace:RootPath` | `C:\Study App\ICOGeneratorWorkspaces` | Thư mục gốc workspace agent. **Phải đổi theo máy** |
 | `AllowedCommands` | dotnet, git status/diff/add/commit/push/checkout/remote get-url, dir, npm, node | Whitelist lệnh cho `RunCommand` |
@@ -761,7 +762,7 @@ Các công thức chuyên biệt: thêm **tool** (§8.2), thêm **bước pipeli
 | Triệu chứng | Nguyên nhân & cách xử lý |
 |---|---|
 | App chết ngay khi khởi động, log Fatal `Encryption...` | Thiếu `Encryption__ApiKeyKey` — cố ý fail-fast. Đặt biến môi trường rồi chạy lại |
-| App cố kết nối SQL Server dù bạn muốn Sqlite | Env đang là `Production` (launchSettings ép vậy khi `dotnet run`). Chạy DLL trực tiếp với `ASPNETCORE_ENVIRONMENT=Development` (§3.3-B) |
+| App cố kết nối SQL Server dù bạn muốn Sqlite | Thiếu env var `Database__Provider=Sqlite` (mặc định `appsettings.json` là SqlServer). Đặt biến này khi chạy DLL trực tiếp (§3.3-B) |
 | `Unable to resolve service for type ...` | Quên đăng ký DI trong `ApplicationServiceCollectionExtensions` — thêm vào đúng nhóm `AddXxx()` |
 | `dotnet build` fail `MSB3552: **/*.resx cannot be found` (Linux) | Lần chạy trước tạo thư mục literal `C:\Study App\...` trong repo (root path Windows). Xóa thư mục rác đó + `Logs/`; lần sau set `AgentWorkspace__RootPath` |
 | ApiKey model giải mã lỗi / gọi LLM báo key sai sau khi đổi máy/khóa | `Encryption__ApiKeyKey` khác với khóa lúc mã hóa. Dùng lại khóa cũ, hoặc nhập lại ApiKey ở màn AI Models |
