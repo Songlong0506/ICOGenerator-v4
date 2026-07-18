@@ -230,19 +230,57 @@
             try { localStorage.setItem(storageKey, JSON.stringify(checked)); } catch { }
         });
 
+        // Guided tour: bấm một bước (hoặc "▶ Hướng dẫn" đi lần lượt) → POC mở đúng màn hình + tô sáng
+        // phần tử khớp mô tả bước, để người xem biết bấm vào đâu thay vì tự mò. "Chỉ chỗ" là READ-ONLY:
+        // annotator chỉ highlight, không tự thao tác — user vẫn tự bấm để kiểm chứng nghiệp vụ thật.
+        function tourStep(screen, text) {
+            postToFrame({ type: "poc-tour-step", screen: screen || "", text: text || "" });
+        }
+
         uatList.addEventListener("click", function (e) {
             const fail = e.target.closest(".uat-fail");
-            if (!fail) return;
+            if (fail) {
+                const scenario = fail.closest(".uat-scenario");
+                const title = scenario?.dataset.title || "";
+                openForm({
+                    pageView: scenario?.dataset.screen || "",
+                    elementLabel: `Kịch bản: ${title}`,
+                    elementPath: "",
+                    xPercent: 0,
+                    yPercent: 0
+                }, `Kịch bản "${title}" chưa đạt — `);
+                return;
+            }
 
-            const scenario = fail.closest(".uat-scenario");
-            const title = scenario?.dataset.title || "";
-            openForm({
-                pageView: scenario?.dataset.screen || "",
-                elementLabel: `Kịch bản: ${title}`,
-                elementPath: "",
-                xPercent: 0,
-                yPercent: 0
-            }, `Kịch bản "${title}" chưa đạt — `);
+            // Bấm chữ của một bước → chỉ chỗ ngay bước đó.
+            const stepText = e.target.closest(".uat-step-text");
+            if (stepText) {
+                const scenario = stepText.closest(".uat-scenario");
+                tourStep(scenario?.dataset.screen || "", stepText.dataset.step || stepText.textContent);
+                return;
+            }
+
+            // "▶ Hướng dẫn" → đi lần lượt từng bước của kịch bản, mỗi bước dừng ~1.8s để người xem theo kịp.
+            const tourBtn = e.target.closest(".uat-tour");
+            if (tourBtn) {
+                const scenario = tourBtn.closest(".uat-scenario");
+                const screen = scenario?.dataset.screen || "";
+                const steps = Array.from(scenario.querySelectorAll(".uat-step-text"))
+                    .map(s => s.dataset.step || s.textContent);
+                let i = 0;
+                tourBtn.disabled = true;
+                (function walk() {
+                    if (i >= steps.length) { tourBtn.disabled = false; return; }
+                    tourStep(screen, steps[i]);
+                    const el = scenario.querySelectorAll(".uat-step-text")[i];
+                    if (el) {
+                        el.classList.add("uat-step-active");
+                        setTimeout(() => el.classList.remove("uat-step-active"), 1700);
+                    }
+                    i++;
+                    setTimeout(walk, 1800);
+                })();
+            }
         });
     }
 

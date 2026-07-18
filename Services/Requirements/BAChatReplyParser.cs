@@ -41,7 +41,8 @@ public class BAChatReplyParser
                                 : "Đã ghi nhận. Bạn có thể chọn một gợi ý bên dưới hoặc tự nhập thêm.",
                             Suggestions = suggestions,
                             // multiSelect chỉ có nghĩa khi thực sự có chip để chọn.
-                            MultiSelect = suggestions.Count > 0 && parsed.MultiSelect == true
+                            MultiSelect = suggestions.Count > 0 && parsed.MultiSelect == true,
+                            FlowDiagram = CleanFlow(parsed.FlowDiagram)
                         };
                     }
                 }
@@ -100,10 +101,37 @@ public class BAChatReplyParser
         return null;
     }
 
+    // Trần số bước để một model "hào phóng" không đổ cả kịch bản dài vào sơ đồ.
+    private const int MaxFlowSteps = 12;
+
+    private static List<FlowStep> CleanFlow(List<FlowStep>? raw)
+    {
+        var result = new List<FlowStep>();
+        if (raw == null)
+            return result;
+
+        foreach (var step in raw)
+        {
+            var action = (step.Action ?? string.Empty).Trim();
+            if (action.Length == 0)
+                continue; // bước không có hành động thì vô nghĩa.
+            result.Add(new FlowStep
+            {
+                Actor = (step.Actor ?? string.Empty).Trim(),
+                Action = action,
+                Outcome = (step.Outcome ?? string.Empty).Trim()
+            });
+            if (result.Count >= MaxFlowSteps)
+                break;
+        }
+        return result;
+    }
+
     private class RawReply
     {
         public string? Message { get; set; }
         public List<JsonElement>? Suggestions { get; set; }
         public bool? MultiSelect { get; set; }
+        public List<FlowStep>? FlowDiagram { get; set; }
     }
 }

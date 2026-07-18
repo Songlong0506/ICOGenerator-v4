@@ -278,7 +278,10 @@ public class AgentTaskWorker : BackgroundService
                 // CÙNG SCOPE (agentRunService và tool registry cùng resolve instance scoped này), để
                 // audit đối chiếu ĐỘ PHỦ so với spec — màn hình thiếu, business rule chưa chạy —
                 // thay vì chỉ soát wiring nội bộ rồi "OK" trên một POC mới phủ nửa spec.
-                scope.ServiceProvider.GetRequiredService<WorkspaceTools>().SetPocSpec(task.Input);
+                var pocTools = scope.ServiceProvider.GetRequiredService<WorkspaceTools>();
+                pocTools.SetPocSpec(task.Input);
+                // Bối cảnh cho tầng Visual QA (agent UI/UX vision chấm ảnh): spec gốc + project/run để log.
+                pocTools.SetPocReviewContext(task.Input, task.ProjectId, task.WorkflowRunId);
             }
 
             var project = await db.Projects.AsNoTracking()

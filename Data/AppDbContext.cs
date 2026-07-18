@@ -37,6 +37,7 @@ public class AppDbContext : DbContext
     public DbSet<EvalResult> EvalResults => Set<EvalResult>();
     public DbSet<PromptTemplateVersion> PromptTemplateVersions => Set<PromptTemplateVersion>();
     public DbSet<PocComment> PocComments => Set<PocComment>();
+    public DbSet<AgentDomainChecklistNote> AgentDomainChecklistNotes => Set<AgentDomainChecklistNote>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -103,6 +104,16 @@ public class AppDbContext : DbContext
 
         // Khai báo tường minh để Agent FK là Restrict (cùng lý do AgentModelCallLog), giữ Project FK Cascade.
         builder.Entity<AgentConversation>().HasOne(x => x.Project).WithMany(x => x.Conversations).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        // "New Chat" LƯU TRỮ hội thoại cũ (ArchivedAt != null) thay vì xóa cứng. Global filter để MỌI
+        // query lẫn Include (UI, memory, transcript, con trỏ harvest) chỉ thấy hội thoại hiện hành —
+        // không đường đọc nào có thể quên lọc. Cần đọc bản lưu trữ thì dùng IgnoreQueryFilters().
+        builder.Entity<AgentConversation>().HasQueryFilter(x => x.ArchivedAt == null);
+
+        // Checklist học được theo miền: mỗi (agent, miền) đúng MỘT bucket — index unique để hai vòng
+        // harvest song song không tạo bucket đôi. Xem ChecklistNoteStore.
+        builder.Entity<AgentDomainChecklistNote>().Property(x => x.DomainKey).HasMaxLength(40);
+        builder.Entity<AgentDomainChecklistNote>().HasIndex(x => new { x.AgentId, x.DomainKey }).IsUnique();
+        builder.Entity<AgentDomainChecklistNote>().HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
         builder.Entity<AgentConversation>().HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<AgentConversation>().Property(x => x.Role).HasMaxLength(50);
         // Message = text lượt chat; Suggestions = JSON các chip gợi ý (cũng là nội dung hội thoại). Mã hóa at rest
@@ -112,6 +123,9 @@ public class AppDbContext : DbContext
             plain => _apiKeyProtector.Protect(plain),
             stored => _apiKeyProtector.Unprotect(stored));
         builder.Entity<AgentConversation>().Property(x => x.Suggestions).HasConversion(
+            plain => _apiKeyProtector.Protect(plain),
+            stored => _apiKeyProtector.Unprotect(stored));
+        builder.Entity<AgentConversation>().Property(x => x.FlowDiagram).HasConversion(
             plain => _apiKeyProtector.Protect(plain),
             stored => _apiKeyProtector.Unprotect(stored));
 

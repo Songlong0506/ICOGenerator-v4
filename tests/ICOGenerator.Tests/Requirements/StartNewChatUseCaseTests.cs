@@ -8,9 +8,10 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Nút "＋ New Chat": xoá lịch sử hội thoại VÀ reset toàn bộ bộ nhớ per-project gắn với hội thoại
-// (summary + các con trỏ đếm-lượt + bản đồ bao phủ). Nếu chỉ xoá lượt chat mà giữ con trỏ, Skip(summarized)
-// sẽ nuốt các lượt MỚI của chat sau (BA không thấy tin nhắn nào) và summary/bản đồ cũ vẫn được nạp lại.
+// Nút "＋ New Chat": LƯU TRỮ lịch sử hội thoại (ArchivedAt, không xóa cứng — hội thoại là nguồn gốc
+// của tài liệu đã sinh) VÀ reset toàn bộ bộ nhớ per-project gắn với hội thoại (summary + các con trỏ
+// đếm-lượt + bản đồ bao phủ). Global query filter ArchivedAt == null khiến mọi đường đọc thấy lịch sử
+// trống; nếu chỉ lưu trữ lượt chat mà giữ con trỏ, Skip(summarized) sẽ nuốt các lượt MỚI của chat sau.
 // Không đụng dữ liệu của project khác.
 public class StartNewChatUseCaseTests : IDisposable
 {
@@ -28,7 +29,7 @@ public class StartNewChatUseCaseTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_DeletesConversations_AndResetsChatMemoryState()
+    public async Task ExecuteAsync_ArchivesConversations_AndResetsChatMemoryState()
     {
         var (project, other) = await SeedAsync();
 
@@ -36,7 +37,14 @@ public class StartNewChatUseCaseTests : IDisposable
         await new StartNewChatUseCase(db).ExecuteAsync(project.Id);
 
         await using var verify = NewDb();
+        // Đường đọc thường (qua global filter) thấy lịch sử trống…
         Assert.Equal(0, await verify.AgentConversations.CountAsync(c => c.ProjectId == project.Id));
+        // …nhưng các lượt vẫn còn trong DB, được đóng dấu ArchivedAt (không xóa cứng).
+        var archived = await verify.AgentConversations.IgnoreQueryFilters()
+            .Where(c => c.ProjectId == project.Id)
+            .ToListAsync();
+        Assert.Equal(4, archived.Count);
+        Assert.All(archived, c => Assert.NotNull(c.ArchivedAt));
 
         var reloaded = await verify.Projects.FirstAsync(p => p.Id == project.Id);
         Assert.Null(reloaded.ConversationSummary);

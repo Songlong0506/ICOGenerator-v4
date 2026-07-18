@@ -78,10 +78,16 @@ public class RequirementDocsService
         if (string.IsNullOrWhiteSpace(productBrief))
             throw new InvalidOperationException($"Product Brief đã duyệt không tồn tại cho phiên bản {versionName}.");
 
+        // Spec là đầu vào duy nhất của bước dựng POC — đưa bối cảnh tổ chức (phòng ban/chức danh thật)
+        // vào đây để dữ liệu mẫu của POC mang tên thật của đơn vị yêu cầu. Fail-open: không có dữ liệu
+        // HR thì khối này rỗng, prompt như cũ.
+        var organizationContext = await _orgContext.BuildCombinedContextAsync(project.OrgUnitCode, cancellationToken);
+
         var prompt = _promptBuilder.BuildAiDesignSpec(
             project,
             productBrief,
-            ProjectDocumentLookup.GetContent(project, _artifactCatalog.AiDesignSpec.FileName, versionName));
+            ProjectDocumentLookup.GetContent(project, _artifactCatalog.AiDesignSpec.FileName, versionName),
+            organizationContext ?? string.Empty);
 
         var messages = new List<ChatMessage>
         {

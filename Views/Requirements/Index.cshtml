@@ -113,6 +113,22 @@
             return new List<string>();
         }
     }
+
+    static List<ICOGenerator.Contracts.Requirements.FlowStep> ParseFlow(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new List<ICOGenerator.Contracts.Requirements.FlowStep>();
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<ICOGenerator.Contracts.Requirements.FlowStep>>(json,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                ?? new List<ICOGenerator.Contracts.Requirements.FlowStep>();
+        }
+        catch
+        {
+            return new List<ICOGenerator.Contracts.Requirements.FlowStep>();
+        }
+    }
 }
 
 <div class="page-head">
@@ -127,7 +143,22 @@
 }
 @if (TempData["SourceUploaded"] != null)
 {
-    <div class="req-alert ok">Đã upload tài liệu nguồn.</div>
+    <div class="req-alert ok">Đã upload tài liệu nguồn. BA đang đọc và sẽ tóm tắt lại trong khung chat để anh/chị xác nhận.</div>
+}
+@if (TempData["SourceScanWarning"] != null)
+{
+    <div class="req-alert error">⚠️ @TempData["SourceScanWarning"]</div>
+}
+@if (TempData["RequirementApproved"] != null)
+{
+    // Đặt kỳ vọng ngay sau Approve: nói rõ điều gì đang chạy nền và mất khoảng bao lâu (ETA đo từ
+    // các lần dựng POC đã hoàn tất — EstimatePocEtaQuery; chưa có lịch sử thì bỏ phần con số).
+    var etaMinutes = TempData["ApprovedPocEtaMinutes"] as int?;
+    <div class="req-alert ok">
+        ✅ Yêu cầu đã được duyệt. Hệ thống đang tự dựng <b>bản demo (POC)</b> để anh/chị xem trước —
+        @(etaMinutes.HasValue ? $"thường mất khoảng {etaMinutes.Value} phút. " : "quá trình này chạy nền, có thể mất ít phút. ")
+        Anh/chị có thể theo dõi tiến độ ngay trong khung chat bên dưới và sẽ nhận thông báo khi POC sẵn sàng.
+    </div>
 }
 
 <div class="grid doc-grid">
@@ -232,7 +263,7 @@
 
         <div class="source-panel">
             <h3>Tài liệu nguồn</h3>
-            <div class="history-sub" style="margin-bottom:8px;">Ảnh / PDF để BA đọc khi viết requirement.</div>
+            <div class="history-sub" style="margin-bottom:8px;">Ảnh / PDF để BA đọc khi viết requirement. Anh/chị cũng có thể <b>dán (Ctrl+V)</b> hoặc <b>kéo-thả ảnh</b> thẳng vào khung chat.</div>
 
             @if (!baSupportsVision)
             {
@@ -288,7 +319,7 @@
         <form asp-action="NewChat"
               method="post"
               class="new-chat-form"
-              onsubmit="return confirm('Bắt đầu chat mới sẽ xóa toàn bộ lịch sử hội thoại của dự án này. Tiếp tục?');">
+              onsubmit="return confirm('Bắt đầu chat mới: hội thoại hiện tại sẽ được lưu trữ (BA không dùng nữa) và cuộc trò chuyện bắt đầu lại từ đầu. Tiếp tục?');">
 
             <input type="hidden"
                    name="projectId"
@@ -364,6 +395,37 @@
                         <p style="white-space: pre-wrap;">
                             @group.Conversation.Message
                         </p>
+
+                        @{
+                            // Sơ đồ luồng chỉ đính ở lượt BA mời "Write Requirement" và chỉ hiện cho lượt BA
+                            // MỚI NHẤT (như chip gợi ý) để không lặp lại các sơ đồ cũ trong lịch sử. Markup
+                            // khớp renderFlowDiagram (requirements.js) để frame done render y hệt khi không reload.
+                            var flow = group.Conversation.Id == lastBaTurn?.Id
+                                ? ParseFlow(group.Conversation.FlowDiagram)
+                                : new List<ICOGenerator.Contracts.Requirements.FlowStep>();
+                        }
+                        @if (flow.Any())
+                        {
+                            <div class="flow-diagram" aria-label="Sơ đồ luồng nghiệp vụ để xác nhận">
+                                <div class="flow-diagram-title">Luồng nghiệp vụ chính — anh/chị xem giúp đã đúng chưa nhé:</div>
+                                <ol class="flow-steps">
+                                    @foreach (var step in flow)
+                                    {
+                                        <li class="flow-step">
+                                            @if (!string.IsNullOrWhiteSpace(step.Actor))
+                                            {
+                                                <span class="flow-actor">@step.Actor</span>
+                                            }
+                                            <span class="flow-action">@step.Action</span>
+                                            @if (!string.IsNullOrWhiteSpace(step.Outcome))
+                                            {
+                                                <span class="flow-outcome">@step.Outcome</span>
+                                            }
+                                        </li>
+                                    }
+                                </ol>
+                            </div>
+                        }
                     </div>
                 }
             }
@@ -464,6 +526,17 @@
                           placeholder="Type your message..."
                           autocomplete="off"></textarea>
 
+                <!-- Nói thay vì gõ (Web Speech API). JS ẩn nút khi trình duyệt không hỗ trợ;
+                     đang ghi âm thì nút đổi trạng thái đỏ + text nhận dạng đổ dần vào ô nhập. -->
+                <button class="btn outline voice-btn"
+                        type="button"
+                        id="voiceInputBtn"
+                        hidden
+                        aria-label="Nói thay vì gõ"
+                        title="Nói thay vì gõ — bấm để bắt đầu/dừng ghi âm">
+                    <i class="bi bi-mic" aria-hidden="true"></i>
+                </button>
+
                 <button class="btn primary"
                         type="submit"
                         aria-label="Send message">
@@ -512,9 +585,12 @@
 
                     <h3>@doc.FileName</h3>
 
+                    @* Bản DRAFT cho phép ghi chú trực tiếp: bôi đen một đoạn → "＋ Ghi chú" → gom lại gửi
+                       BA sửa (ReviseBrief). Bản đã duyệt (V{n}) chỉ đọc, không gắn cờ này. *@
                     <div class="doc-render"
                          data-doc-id="@doc.Id"
-                         data-loaded="false">
+                         data-loaded="false"
+                         data-annotatable="@(doc.VersionName == "draft" ? "true" : "false")">
                         <p class="doc-loading">Loading…</p>
                     </div>
 
@@ -536,9 +612,24 @@
             }
         </div>
 
+        @* Khay ghi chú trên brief (chỉ bản draft): các ghi chú đã thêm + nút gửi cho BA sửa. Ẩn khi
+           chưa có ghi chú nào. Antiforgery token dùng cho POST ReviseBrief qua fetch. *@
+        <div class="brief-notes-tray" id="briefNotesTray" hidden>
+            @Html.AntiForgeryToken()
+            <div class="brief-notes-head">
+                <b>Ghi chú của bạn</b> <span class="brief-notes-count" id="briefNotesCount">(0)</span>
+                <span class="brief-notes-hint">Bôi đen một đoạn trong bản mô tả rồi bấm "＋ Ghi chú".</span>
+            </div>
+            <ul class="brief-notes-list" id="briefNotesList"></ul>
+        </div>
+
         <div class="modal-footer">
             @if (selectedVersion == "draft")
             {
+                <button type="button" class="btn outline" id="briefNotesSendBtn" hidden
+                        title="Gom các ghi chú và nhờ BA sửa lại bản mô tả">
+                    ✎ Gửi ghi chú cho BA sửa
+                </button>
                 <form asp-action="Approve" method="post">
                     <input type="hidden"
                            name="projectId"

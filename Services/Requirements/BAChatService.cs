@@ -6,6 +6,7 @@ using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -30,6 +31,8 @@ public class BAChatService
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
     private readonly DecisionLogService _decisionLog;
+    private readonly ChecklistNoteStore _checklistNotes;
+    private readonly IServiceScopeFactory? _scopeFactory;
 
     public BAChatService(
         AppDbContext db,
@@ -44,7 +47,9 @@ public class BAChatService
         RequirementReadinessGate readinessGate,
         BAAgentResolver agentResolver,
         BAConversationLog conversationLog,
-        DecisionLogService decisionLog)
+        DecisionLogService decisionLog,
+        ChecklistNoteStore checklistNotes,
+        IServiceScopeFactory? scopeFactory = null)
     {
         _db = db;
         _llm = llm;
@@ -59,6 +64,10 @@ public class BAChatService
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
         _decisionLog = decisionLog;
+        _checklistNotes = checklistNotes;
+        // null (test/không có DI đầy đủ) ⇒ các bước chuẩn bị chạy TUẦN TỰ trên chính scope này —
+        // hành vi cũ. Có factory ⇒ chạy SONG SONG, mỗi bước một scope riêng (xem PrepareTurnContextAsync).
+        _scopeFactory = scopeFactory;
     }
 
     /// <param name="onStatus">Callback nhận thông điệp trạng thái ngắn ("BA đang soạn trả lời…") để UI cập nhật dòng "đang suy nghĩ" khi stream.</param>
@@ -85,19 +94,15 @@ public class BAChatService
         // để người dùng thấy BA "đang làm việc" thay vì spinner câm khi stream.
         onStatus?.Invoke("BA đang đọc lại ngữ cảnh hội thoại…");
 
-        // Bộ nhớ hội thoại: cửa sổ lượt gần nhất (gửi nguyên văn) + đoạn tóm tắt dài hạn các lượt cũ đã
-        // được gộp dần. Giữ ngữ cảnh hội thoại dài mà prompt không phình token. Xem ConversationMemoryService.
-        var memory = await _memory.LoadAsync(project, ba, model, cancellationToken);
+        // Ba bước chuẩn bị (bộ nhớ hội thoại + hồ sơ user + bản đồ bao phủ) độc lập với nhau và là phần
+        // chậm nhất trước khi BA "đặt bút" — chạy SONG SONG để độ chờ mỗi lượt bằng bước chậm nhất thay vì
+        // tổng ba bước. Xem PrepareTurnContextAsync về cách cô lập DbContext.
+        var (memory, userMemory, coverageMap) = await PrepareTurnContextAsync(project, ba, model, cancellationToken);
         var recent = memory.RecentTurns;
 
-        // Bộ nhớ CẤP USER: hồ sơ bền về chính người dùng, gom xuyên các dự án của họ. Chắt lọc DẦN theo lô
-        // rồi nạp lại ở mọi cuộc để BA "càng nói càng hiểu user". Xem UserMemoryService.
-        var userMemory = await _userMemory.UpdateAndLoadAsync(project, ba, model, cancellationToken);
-
-        // Bản đồ bao phủ yêu cầu: gộp lượt user vừa lưu (và lượt BA trước đó) vào bảng trạng thái 12 nhóm
-        // thông tin, rồi nạp cho BA chọn câu hỏi kế tiếp — phỏng vấn "theo bản đồ" thay vì tuyến tính.
-        // Cập nhật ở TỪNG lượt (không batch) vì bản đồ phải tươi mới dẫn được câu hỏi; fail-open khi lỗi.
-        var coverageMap = await _coverage.UpdateAndLoadAsync(project, ba, model, cancellationToken);
+        // Ba nhánh (khi chạy song song) ghi cột bộ nhớ qua context riêng — đồng bộ lại giá trị bản đồ lên
+        // entity đang track để các chỗ đọc phía dưới (BuildCoverageNote, kết quả trả về) thấy bản tươi.
+        project.RequirementCoverageMap = coverageMap;
 
         // Tài liệu nguồn (ảnh/PDF) của project: gắn vào ĐÚNG lượt user mới nhất (một lần) để BA "thấy" khi trả lời,
         // tránh gửi lại ảnh ở mọi lượt (đốt token). Model không vision ⇒ builder chỉ trả phần text bóc từ PDF.
@@ -123,14 +128,15 @@ public class BAChatService
         {
             messages.Add(new ChatMessage(ChatRole.System, organizationContext));
         }
-        // Checklist bổ sung được BA rút kinh nghiệm từ các dự án TRƯỚC (của bất kỳ ai) — nạp cho MỌI dự án
-        // mới để hỏi kỹ hơn ngay từ đầu, bù cho những nhóm câu hỏi mà checklist tĩnh ban đầu chưa lường tới.
-        // Xem ChecklistGapMemoryService.
-        if (!string.IsNullOrWhiteSpace(ba.LearnedChecklistNotes))
+        // Checklist bổ sung được BA rút kinh nghiệm từ các dự án TRƯỚC (của bất kỳ ai) — bucket chung +
+        // bucket đúng MIỀN nghiệp vụ của dự án (Project.DomainKey, phân loại nền sau lượt chat đầu) — nạp
+        // để hỏi kỹ hơn ngay từ đầu mà không bị nhiễu bởi bài học của miền khác. Xem ChecklistNoteStore.
+        var learnedChecklist = await _checklistNotes.BuildForChatAsync(ba, project.DomainKey, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(learnedChecklist))
         {
             messages.Add(new ChatMessage(ChatRole.System,
                 "## Checklist bổ sung (rút kinh nghiệm từ các dự án trước — chủ động hỏi thêm các mục này nếu liên quan)\n"
-                + ba.LearnedChecklistNotes));
+                + learnedChecklist));
         }
         // Hồ sơ người dùng (nếu có): nạp như một system message nền để BA hiểu user ngay từ lượt đầu, kể cả
         // ở dự án mới. Đây là điều tạo cảm giác "càng nói chuyện càng hiểu mình".
@@ -192,6 +198,7 @@ public class BAChatService
         string reply;
         string? suggestionsJson = null;
         var suggestionsMultiSelect = false;
+        var flowDiagram = new List<FlowStep>();
         if (!callResult.IsSuccess)
         {
             // Tiền tố dùng chung với ConversationTranscriptBuilder để transcript tổng hợp yêu cầu lọc
@@ -211,6 +218,10 @@ public class BAChatService
                 suggestionsJson = JsonSerializer.Serialize(parsedReply.Suggestions);
                 suggestionsMultiSelect = parsedReply.MultiSelect;
             }
+
+            // Sơ đồ luồng chỉ có nghĩa ở lượt mời "Write Requirement"; giữ lại đây, nhánh gate bên dưới
+            // sẽ xóa nếu lời mời bị thay bằng câu hỏi (khi đó chưa nên vẽ luồng vì còn thiếu thông tin).
+            flowDiagram = parsedReply.FlowDiagram ?? new List<FlowStep>();
 
             // Lượt MỜI bấm "Write Requirement" phải qua ĐÚNG cổng readiness của bước sinh tài liệu NGAY
             // TẠI ĐÂY, trước khi người dùng nhìn thấy lời mời. Không kiểm ở đây thì hai "giám khảo" (BA
@@ -248,16 +259,19 @@ public class BAChatService
                         : null;
                     // Câu hỏi của gate là câu hỏi đơn thông thường — không giữ cờ multi của lời mời bị thay.
                     suggestionsMultiSelect = false;
+                    // Lời mời bị thay bằng câu hỏi ⇒ chưa đủ thông tin, không vẽ sơ đồ luồng nữa.
+                    flowDiagram = new List<FlowStep>();
                 }
+            }
+            else
+            {
+                // Sơ đồ luồng chỉ dành cho lượt MỜI bấm nút; lượt hỏi thường mà model lỡ kèm luồng thì bỏ.
+                flowDiagram = new List<FlowStep>();
             }
         }
 
-        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, cancellationToken);
-
-        // "Điều đã chốt": gộp CẢ lượt user lẫn lượt BA vừa lưu vào nhật ký quyết định để frame done mang
-        // bản mới nhất cho panel cạnh chat. Fail-open bên trong service — lỗi thì giữ nhật ký cũ.
-        onStatus?.Invoke("Đang cập nhật những điều đã chốt…");
-        var decisionLog = await _decisionLog.UpdateAndLoadAsync(project, ba, model, cancellationToken);
+        var flowDiagramJson = flowDiagram.Count > 0 ? JsonSerializer.Serialize(flowDiagram) : null;
+        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, flowDiagramJson, cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -273,8 +287,130 @@ public class BAChatService
             // Bản đồ ở thời điểm này đã gộp tới lượt user mới nhất (cập nhật đầu lượt); lượt BA vừa trả
             // lời sẽ được gộp ở lượt sau — đủ tươi cho panel tiến độ.
             Coverage = CoverageMapParser.Parse(project.RequirementCoverageMap).ToList(),
-            Decisions = DecisionLogService.ParseItems(decisionLog).ToList()
+            // "Điều đã chốt" KHÔNG còn chặn đường trả về (một lời gọi LLM ~vài giây mỗi lượt): frame done
+            // mang bản đang lưu, bản gộp lượt mới do UpdateDecisionsAsync đẩy ở frame phụ sau done.
+            Decisions = DecisionLogService.ParseItems(project.DecisionLog).ToList(),
+            FlowDiagram = flowDiagram
         };
+    }
+
+    /// <summary>
+    /// Gộp các lượt chat mới vào nhật ký "Điều đã chốt" rồi trả bản hiện hành. Tách khỏi
+    /// <see cref="ChatAsync"/> để chạy SAU khi user đã nhận câu trả lời (frame done): panel cập nhật
+    /// trễ vài giây không sao, còn mỗi lượt chat nhanh hơn đúng một lời gọi LLM. Fail-open toàn phần.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> UpdateDecisionsAsync(Guid projectId, CancellationToken cancellationToken = default)
+    {
+        var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
+        if (project == null)
+            return Array.Empty<string>();
+
+        var ba = await _agentResolver.FindConfiguredAsync(cancellationToken);
+        if (ba == null)
+            return DecisionLogService.ParseItems(project.DecisionLog).ToList();
+
+        var decisionLog = await _decisionLog.UpdateAndLoadAsync(project, ba, ba.AiModel!, cancellationToken);
+        return DecisionLogService.ParseItems(decisionLog).ToList();
+    }
+
+    /// <summary>
+    /// Sau khi người dùng upload tài liệu nguồn: BA đọc các nguồn MỚI, tóm tắt những gì hiểu được và xin
+    /// xác nhận — thêm MỘT lượt assistant vào hội thoại. Bắt lỗi đọc-nhầm-tài-liệu ngay đầu vào thay vì để
+    /// nó thấm vào Product Brief. Fail-open toàn phần: chưa cấu hình BA / model không vision với ảnh /
+    /// không có nguồn / lời gọi lỗi ⇒ không thêm lượt nào (trả false), upload vẫn thành công như cũ.
+    /// </summary>
+    public async Task<bool> AcknowledgeSourcesAsync(Guid projectId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
+            if (project == null)
+                return false;
+
+            var ba = await _agentResolver.FindConfiguredAsync(cancellationToken);
+            if (ba == null)
+                return false;
+            var model = ba.AiModel!;
+
+            var sources = await _db.ProjectSourceFiles
+                .AsNoTracking()
+                .Where(s => s.ProjectId == projectId)
+                .OrderBy(s => s.CreatedAt)
+                .ToListAsync(cancellationToken);
+            var sourceContents = _sourceContextBuilder.Build(sources, model.SupportsVision);
+            if (sourceContents.Count == 0)
+                return false; // không có gì đọc được (chưa nguồn / PDF scan + model không vision).
+
+            var userContent = new List<AIContent> { new TextContent("Đây là các tài liệu nguồn tôi vừa đính kèm. Bạn đọc giúp và tóm tắt lại cách hiểu để tôi xác nhận nhé.") };
+            userContent.AddRange(sourceContents);
+
+            var messages = new List<ChatMessage>
+            {
+                new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/source-ack.v1.md")),
+                new(ChatRole.User, userContent)
+            };
+
+            var (callResult, parsed) = await _llm.ChatStructuredAsync<BAChatReply>(
+                model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BASourceAck"),
+                cancellationToken: cancellationToken);
+            if (!callResult.IsSuccess)
+                return false;
+
+            var reply = parsed ?? _replyParser.Parse(callResult.Content);
+            if (string.IsNullOrWhiteSpace(reply.Message))
+                return false;
+
+            var suggestionsJson = reply.Suggestions.Count > 0 ? JsonSerializer.Serialize(reply.Suggestions) : null;
+            await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply.Message.Trim(), suggestionsJson, reply.MultiSelect, cancellationToken: cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return false; // bước phụ trợ — lỗi thì bỏ qua, không làm hỏng upload.
+        }
+    }
+
+    /// <summary>Kết quả 3 bước chuẩn bị ngữ cảnh của một lượt chat.</summary>
+    private async Task<(ConversationMemoryService.Memory Memory, string? UserMemory, string? CoverageMap)> PrepareTurnContextAsync(
+        Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
+    {
+        // Không có scope factory (unit test dựng tay) ⇒ tuần tự trên scope hiện tại — hành vi cũ.
+        if (_scopeFactory == null)
+        {
+            var seqMemory = await _memory.LoadAsync(project, ba, model, cancellationToken);
+            var seqUserMemory = await _userMemory.UpdateAndLoadAsync(project, ba, model, cancellationToken);
+            var seqCoverage = await _coverage.UpdateAndLoadAsync(project, ba, model, cancellationToken);
+            return (seqMemory, seqUserMemory, seqCoverage);
+        }
+
+        // DbContext không thread-safe nên mỗi nhánh chạy trong MỘT DI scope riêng: tự load Project/BA
+        // từ context của scope đó rồi gọi đúng service tương ứng. Ba nhánh ghi các CỘT KHÁC NHAU trên
+        // dòng Projects (summary / con trỏ user-memory / bản đồ bao phủ) nên không giẫm nhau.
+        var memoryTask = RunInScopeAsync((sp, prj, agent) =>
+            sp.GetRequiredService<ConversationMemoryService>().LoadAsync(prj, agent, agent.AiModel!, cancellationToken), project.Id, cancellationToken);
+        var userMemoryTask = RunInScopeAsync((sp, prj, agent) =>
+            sp.GetRequiredService<UserMemoryService>().UpdateAndLoadAsync(prj, agent, agent.AiModel!, cancellationToken), project.Id, cancellationToken);
+        var coverageTask = RunInScopeAsync((sp, prj, agent) =>
+            sp.GetRequiredService<RequirementCoverageService>().UpdateAndLoadAsync(prj, agent, agent.AiModel!, cancellationToken), project.Id, cancellationToken);
+
+        await Task.WhenAll(memoryTask, userMemoryTask, coverageTask);
+        return (memoryTask.Result, userMemoryTask.Result, coverageTask.Result);
+    }
+
+    // Chạy một bước chuẩn bị trong scope DI riêng (DbContext riêng). Project/BA load lại từ context của
+    // scope để entity được track đúng chỗ; BA thiếu cấu hình đã bị chặn từ đầu ChatAsync nên không xảy ra.
+    private async Task<T> RunInScopeAsync<T>(Func<IServiceProvider, Project, Agent, Task<T>> action, Guid projectId, CancellationToken cancellationToken)
+    {
+        await using var scope = _scopeFactory!.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var project = await db.Projects.FirstAsync(p => p.Id == projectId, cancellationToken);
+        var ba = await scope.ServiceProvider.GetRequiredService<BAAgentResolver>().FindConfiguredAsync(cancellationToken)
+                 ?? throw new InvalidOperationException("BA agent is no longer configured.");
+        return await action(scope.ServiceProvider, project, ba);
     }
 
     // Dựng lại một lượt BA cũ theo đúng JSON shape mà model được yêu cầu xuất, để củng cố format ở

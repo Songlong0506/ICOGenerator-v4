@@ -17,4 +17,8 @@ public class BAChatReply
     // nào → UI bật nút "Write Requirement". Còn bất kỳ điểm nào cần hỏi thì để false (mặc định) để nút
     // ở trạng thái "chưa sẵn sàng". Đây là tín hiệu cho UI; bước sinh tài liệu vẫn có cổng readiness riêng.
     public bool Ready { get; set; }
+
+    // Sơ đồ luồng nghiệp vụ chính (vai trò → hành động → kết quả) — CHỈ điền ở lượt mời bấm "Write
+    // Requirement" (Ready = true) để user xác nhận trực quan trước khi tạo tài liệu. Rỗng ở các lượt hỏi.
+    public List<FlowStep> FlowDiagram { get; set; } = new();
 }

@@ -372,6 +372,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<DeleteProjectSourceUseCase>();
         services.AddScoped<GetDocumentRevisionsQuery>();
         services.AddScoped<GetDocumentRevisionDiffQuery>();
+        services.AddScoped<EstimatePocEtaQuery>();
+        services.AddScoped<ReviseBriefFromNotesUseCase>();
         return services;
     }
 
@@ -582,6 +584,9 @@ public static class ApplicationServiceCollectionExtensions
         // Kiểm tra runtime POC (Chromium headless, Playwright). Singleton để giữ browser dùng chung
         // giữa các vòng audit; fail-open khi môi trường không có browser (xem PlaywrightPocRuntimeChecker).
         services.AddSingleton<IPocRuntimeChecker, PlaywrightPocRuntimeChecker>();
+        // Tầng Visual QA: agent UI/UX (vision) chấm ảnh chụp POC; scoped vì dùng DbContext + LLM. Fail-open
+        // khi chưa cấu hình agent UI/UX vision (xem PocVisualReviewer).
+        services.AddScoped<PocVisualReviewer>();
         services.AddScoped<CommandTools>();
         services.AddScoped<GitTools>();
 
@@ -630,6 +635,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ConversationMemoryService>();
         services.AddScoped<UserMemoryService>();
         services.AddScoped<ChecklistGapMemoryService>();
+        services.AddScoped<ChecklistNoteStore>();
+        services.AddScoped<ProjectDomainClassifier>();
         services.AddScoped<RequirementCoverageService>();
         services.AddScoped<DecisionLogService>();
         services.AddScoped<UatScenarioService>();

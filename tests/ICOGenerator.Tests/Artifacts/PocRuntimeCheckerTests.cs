@@ -110,6 +110,32 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CaptureScreenshots_ReturnsOnePngPerOpenedScreen()
+    {
+        var path = Path.Combine(_dir, "poc-demo.html");
+        await File.WriteAllTextAsync(path, Shell.Replace("{SCRIPT}", ""));
+
+        var report = await _checker.CheckAsync(path, captureScreenshots: true);
+        if (!report.Ran)
+            return; // không có Chromium: fail-open, không có gì để assert.
+
+        // Hai màn hình mở được (Trang chủ + Danh sách) ⇒ hai ảnh PNG không rỗng.
+        Assert.Equal(2, report.Screenshots.Count);
+        Assert.All(report.Screenshots, s => Assert.True(s.Png.Length > 0));
+        Assert.Contains(report.Screenshots, s => s.Screen == "Trang chủ");
+    }
+
+    [Fact]
+    public async Task WithoutCaptureFlag_NoScreenshots()
+    {
+        var report = await CheckHtmlAsync(Shell.Replace("{SCRIPT}", ""));
+        if (!report.Ran)
+            return;
+
+        Assert.Empty(report.Screenshots);
+    }
+
+    [Fact]
     public async Task BrokenNavigation_IsReported()
     {
         // pocNavigate ném lỗi → không màn hình nào mở được ngoài màn active sẵn.

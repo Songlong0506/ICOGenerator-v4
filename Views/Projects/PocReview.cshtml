@@ -51,7 +51,7 @@
         {
             <details class="uat-panel" open>
                 <summary>🧭 Kịch bản kiểm thử <span class="poc-count">(@Model.Scenarios.Scenarios.Count)</span></summary>
-                <p class="muted poc-panel-hint">Đi theo từng kịch bản, tick các bước đã đạt; bước nào sai thì bấm "Báo lỗi".</p>
+                <p class="muted poc-panel-hint">Đi theo từng kịch bản, tick các bước đã đạt; bấm vào một bước để POC <b>chỉ chỗ</b> cần thao tác; bước nào sai thì bấm "Báo lỗi".</p>
                 <div id="uatList">
                     @for (var i = 0; i < Model.Scenarios.Scenarios.Count; i++)
                     {
@@ -63,6 +63,7 @@
                                 {
                                     <span class="uat-rules" title="Business rule kịch bản này kiểm chứng">@string.Join(", ", scenario.RuleRefs)</span>
                                 }
+                                <button type="button" class="btn outline small uat-tour" title="Đi lần lượt từng bước, POC sẽ chỉ chỗ">▶ Hướng dẫn</button>
                             </div>
                             <ol class="uat-steps">
                                 @for (var j = 0; j < scenario.Steps.Count; j++)
@@ -70,7 +71,7 @@
                                     <li>
                                         <label>
                                             <input type="checkbox" class="uat-step" data-key="@(i)-@(j)" />
-                                            <span>@scenario.Steps[j]</span>
+                                            <span class="uat-step-text" data-step="@scenario.Steps[j]" title="Bấm để POC chỉ chỗ thao tác này">@scenario.Steps[j]</span>
                                         </label>
                                     </li>
                                 }

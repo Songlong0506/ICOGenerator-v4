@@ -123,7 +123,7 @@ public class ChecklistGapMemoryServiceTests : IDisposable
         Assert.Null(trackedBa.LearnedChecklistNotes);
     }
 
-    private ChecklistGapMemoryService NewSut(AppDbContext db, ILlmClient llm) => new(db, llm, new StubPrompts());
+    private ChecklistGapMemoryService NewSut(AppDbContext db, ILlmClient llm) => new(db, llm, new StubPrompts(), new ChecklistNoteStore(db));
 
     private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? existingNotes = null)
     {

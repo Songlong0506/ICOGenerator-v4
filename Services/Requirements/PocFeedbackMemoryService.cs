@@ -13,8 +13,9 @@ namespace ICOGenerator.Services.Requirements;
 /// cuộc phỏng vấn yêu cầu đã bỏ sót — tín hiệu còn mạnh hơn khoảng trống hội thoại mà
 /// <see cref="ChecklistGapMemoryService"/> khai thác. Sau MỖI vòng chỉnh sửa POC hoàn tất (lúc đó ghi
 /// chú đã thật sự dẫn tới một lần sửa), service chắt lọc các ghi chú mới thành mục checklist khái quát
-/// và gộp vào <see cref="Agent.LearnedChecklistNotes"/> — BA sẽ hỏi tới điểm đó ngay từ phỏng vấn ở mọi
-/// dự án sau, lỗi không lặp lại ở POC.
+/// và gộp vào bucket checklist học được của BA (theo miền nghiệp vụ của dự án — xem
+/// <see cref="ChecklistNoteStore"/>) — BA sẽ hỏi tới điểm đó ngay từ phỏng vấn ở các dự án cùng miền sau,
+/// lỗi không lặp lại ở POC.
 /// <para>
 /// Con trỏ <see cref="Project.PocFeedbackHarvestedCount"/> (số ghi chú đã chắt lọc, xếp theo CreatedAt)
 /// cho phép harvest nhiều vòng mà không gộp lặp; <b>fail-open</b> như các bộ nhớ khác: lời gọi lỗi thì
@@ -29,13 +30,15 @@ public class PocFeedbackMemoryService
     private readonly AppDbContext _db;
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
+    private readonly ChecklistNoteStore _noteStore;
     private readonly ILogger<PocFeedbackMemoryService> _logger;
 
-    public PocFeedbackMemoryService(AppDbContext db, ILlmClient llm, PromptTemplateService prompts, ILogger<PocFeedbackMemoryService> logger)
+    public PocFeedbackMemoryService(AppDbContext db, ILlmClient llm, PromptTemplateService prompts, ChecklistNoteStore noteStore, ILogger<PocFeedbackMemoryService> logger)
     {
         _db = db;
         _llm = llm;
         _prompts = prompts;
+        _noteStore = noteStore;
         _logger = logger;
     }
 
@@ -69,11 +72,14 @@ public class PocFeedbackMemoryService
             if (delta.Count == 0)
                 return;
 
-            var updated = await DistillAsync(ba.LearnedChecklistNotes, delta, ba, ba.AiModel!, projectId, cancellationToken);
+            // Bài học vào BUCKET đúng miền nghiệp vụ của dự án (bucket chung khi chưa phân loại) —
+            // ghi chú POC của dự án kho không gây nhiễu phỏng vấn dự án nghỉ phép. Xem ChecklistNoteStore.
+            var existingNotes = await _noteStore.LoadBucketAsync(ba, project.DomainKey, cancellationToken);
+            var updated = await DistillAsync(existingNotes, delta, ba, ba.AiModel!, projectId, cancellationToken);
             if (updated == null)
                 return; // fail-open: giữ checklist cũ + con trỏ đứng yên, vòng sau gộp bù.
 
-            ba.LearnedChecklistNotes = string.IsNullOrWhiteSpace(updated) ? null : updated;
+            await _noteStore.SetBucketAsync(ba, project.DomainKey, updated, cancellationToken);
             project.PocFeedbackHarvestedCount += delta.Count;
             await _db.SaveChangesAsync(cancellationToken);
         }

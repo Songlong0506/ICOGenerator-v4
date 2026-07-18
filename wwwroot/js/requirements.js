@@ -203,6 +203,29 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (hint) hint.style.display = ready ? "none" : "";
     }
 
+    // Sơ đồ luồng nghiệp vụ (chỉ ở lượt mời "Write Requirement"): render trong bubble BA để user xác
+    // nhận trực quan. Markup khớp bản server render trong Index.cshtml. Xóa sơ đồ của lượt cũ trước khi
+    // vẽ để chỉ lượt mới nhất còn hiện (như chip gợi ý).
+    function renderFlowDiagram(bubble, steps) {
+        chatMessages.querySelectorAll(".flow-diagram").forEach(el => el.remove());
+        if (!Array.isArray(steps) || steps.length === 0) return;
+
+        const rows = steps.map(s => `
+            <li class="flow-step">
+                ${s.actor ? `<span class="flow-actor">${escapeHtml(s.actor)}</span>` : ""}
+                <span class="flow-action">${escapeHtml(s.action || "")}</span>
+                ${s.outcome ? `<span class="flow-outcome">${escapeHtml(s.outcome)}</span>` : ""}
+            </li>
+        `).join("");
+
+        bubble.insertAdjacentHTML("beforeend", `
+            <div class="flow-diagram" aria-label="Sơ đồ luồng nghiệp vụ để xác nhận">
+                <div class="flow-diagram-title">Luồng nghiệp vụ chính — anh/chị xem giúp đã đúng chưa nhé:</div>
+                <ol class="flow-steps">${rows}</ol>
+            </div>
+        `);
+    }
+
     function finishTurn(data) {
         const bubble = ensureLiveBubble();
         const p = bubble.querySelector("p");
@@ -216,6 +239,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             setWriteRequirementReady(data.invitesWriteRequirement === true);
             renderCoverage(data.coverage);
             renderDecisions(data.decisions);
+            renderFlowDiagram(bubble, data.flowDiagram);
         } else {
             bubble.classList.add("chat-error");
             p.textContent = data.error || "Có lỗi khi xử lý lượt chat. Vui lòng thử lại.";
@@ -247,6 +271,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             scrollToBottom();
         } else if (ev.type === "done") {
             finishTurn(ev);
+        } else if (ev.type === "decisions") {
+            // Frame phụ SAU done: bản "Điều đã chốt" đã gộp lượt vừa rồi (server tách lời gọi LLM này
+            // ra khỏi đường trả lời để lượt chat nhanh hơn — panel tự làm tươi trễ vài giây).
+            renderDecisions(ev.decisions);
         }
     }
 
@@ -391,6 +419,138 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             selectSuggestion(options[index]);
         });
     }
+
+    // ==== Dán / kéo-thả ảnh thẳng vào khung chat làm tài liệu nguồn ====
+    // Người dùng nghiệp vụ hay chụp màn hình Excel/biểu mẫu — bắt họ đi qua form "Tài liệu nguồn" ở
+    // sidebar là ma sát thừa. Dán (Ctrl+V) hoặc kéo-thả ảnh vào khung chat sẽ upload qua đúng endpoint
+    // UploadSource (BA tự tóm tắt sau đó), rồi reload trang để hiện lượt xác nhận của BA.
+    (function initSourceDropPaste() {
+        const token = chatForm.querySelector('input[name="__RequestVerificationToken"]');
+        const projectIdInput = chatForm.querySelector('input[name="projectId"]');
+        if (!token || !projectIdInput) return;
+
+        let uploading = false;
+
+        async function uploadImages(fileList) {
+            const images = Array.from(fileList || []).filter(f => f.type && f.type.startsWith("image/"));
+            if (images.length === 0 || uploading) return;
+
+            uploading = true;
+            setThinkingText("Đang tải ảnh lên để BA đọc…");
+            thinkingBox.style.display = "block";
+            scrollToBottom();
+
+            const fd = new FormData();
+            fd.append("projectId", projectIdInput.value);
+            fd.append("__RequestVerificationToken", token.value);
+            images.forEach(img => fd.append("files", img, img.name || "anh-dan.png"));
+
+            try {
+                const resp = await fetch("/Requirements/UploadSource", { method: "POST", body: fd });
+                // Endpoint trả về redirect→trang Index; reload để hiện tài liệu mới + lượt tóm tắt của BA.
+                if (resp.ok || resp.redirected) {
+                    location.reload();
+                    return;
+                }
+                throw new Error("upload failed");
+            } catch {
+                thinkingBox.style.display = "none";
+                uploading = false;
+                alert("Không tải được ảnh lên. Anh/chị thử lại hoặc dùng nút Upload ở mục 'Tài liệu nguồn'.");
+            }
+        }
+
+        messageInput.addEventListener("paste", function (e) {
+            const items = e.clipboardData && e.clipboardData.files;
+            if (items && items.length > 0 && Array.from(items).some(f => f.type.startsWith("image/"))) {
+                e.preventDefault();
+                uploadImages(items);
+            }
+        });
+
+        const chatPanel = chatMessages.closest(".chat-panel") || chatMessages;
+        ["dragover", "dragenter"].forEach(ev => chatPanel.addEventListener(ev, function (e) {
+            if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files")) {
+                e.preventDefault();
+                chatPanel.classList.add("drag-over");
+            }
+        }));
+        ["dragleave", "dragend"].forEach(ev => chatPanel.addEventListener(ev, function (e) {
+            if (e.target === chatPanel) chatPanel.classList.remove("drag-over");
+        }));
+        chatPanel.addEventListener("drop", function (e) {
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                e.preventDefault();
+                chatPanel.classList.remove("drag-over");
+                uploadImages(e.dataTransfer.files);
+            }
+        });
+    })();
+
+    // ==== Nói thay vì gõ (Web Speech API) ====
+    // User nghiệp vụ "kể một mạch" bằng lời nhanh hơn gõ nhiều — đúng lượt mở đầu BA mời kể tự do.
+    // Nhận dạng đổ DẦN vào ô nhập (giữ nguyên phần đã gõ trước đó); user vẫn sửa tay rồi tự bấm gửi.
+    // Trình duyệt không hỗ trợ (Firefox…) thì nút giữ nguyên hidden — không đổi gì so với trước.
+    (function initVoiceInput() {
+        const voiceBtn = document.getElementById("voiceInputBtn");
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!voiceBtn || !SpeechRecognition) return;
+
+        voiceBtn.hidden = false;
+
+        let recognition = null; // instance đang ghi âm; null = đang nghỉ
+        let baseText = "";      // phần user đã gõ trước khi bấm ghi — luôn giữ nguyên ở đầu ô
+
+        function stopRecording() {
+            if (!recognition) return;
+            try { recognition.stop(); } catch { /* đã dừng rồi thì thôi */ }
+        }
+
+        function setRecordingUi(on) {
+            voiceBtn.classList.toggle("recording", on);
+            voiceBtn.querySelector("i").className = on ? "bi bi-mic-fill" : "bi bi-mic";
+            voiceBtn.title = on ? "Đang nghe… bấm để dừng" : "Nói thay vì gõ — bấm để bắt đầu/dừng ghi âm";
+        }
+
+        voiceBtn.addEventListener("click", function () {
+            if (recognition) {
+                stopRecording();
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            // Ngôn ngữ nhận dạng theo <html lang>; app nội bộ mặc định tiếng Việt.
+            recognition.lang = document.documentElement.lang || "vi-VN";
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            baseText = messageInput.value ? messageInput.value.replace(/\s+$/, "") + " " : "";
+
+            recognition.onresult = function (e) {
+                let transcript = "";
+                for (let i = 0; i < e.results.length; i++) {
+                    transcript += e.results[i][0].transcript;
+                }
+                messageInput.value = baseText + transcript;
+                resizeMessageInput();
+            };
+            // Lỗi (từ chối mic, mất mạng…) và kết thúc đều đưa nút về trạng thái nghỉ; text đã nhận vẫn ở ô nhập.
+            recognition.onerror = stopRecording;
+            recognition.onend = function () {
+                recognition = null;
+                setRecordingUi(false);
+                messageInput.focus();
+            };
+
+            try {
+                recognition.start();
+                setRecordingUi(true);
+            } catch {
+                recognition = null;
+                setRecordingUi(false);
+            }
+        });
+    })();
 }
 
 // Sau khi gửi chat, server redirect và tải lại trang Index. Mặc định trình duyệt đặt
@@ -428,6 +588,127 @@ async function loadDocPreview(previewEl) {
         render.innerHTML = '<p class="doc-empty">Unable to load preview.</p>';
     }
 }
+
+// ==== Ghi chú trực tiếp trên bản xem trước Product Brief (bản draft) ====
+// Bôi đen một đoạn trong bản mô tả → nút "＋ Ghi chú" nổi lên → nhập điều cần sửa; các ghi chú gom vào
+// khay dưới modal, bấm "Gửi ghi chú cho BA sửa" sẽ nhờ BA soạn lại brief theo đúng các đoạn được chú
+// (POST /Requirements/ReviseBrief — tái dùng vòng "Write Requirement"). Người dùng chỉ vào chỗ cần sửa
+// thay vì mô tả bằng lời cả đoạn.
+(function initBriefAnnotator() {
+    const tray = document.getElementById("briefNotesTray");
+    const listEl = document.getElementById("briefNotesList");
+    const countEl = document.getElementById("briefNotesCount");
+    const sendBtn = document.getElementById("briefNotesSendBtn");
+    const content = document.querySelector(".requirement-content");
+    if (!tray || !listEl || !sendBtn || !content) return;
+
+    const notes = []; // { quote, note }
+    let addBtn = null;
+    let pendingQuote = "";
+
+    function currentDraftRender() {
+        // Chỉ cho ghi chú trên vùng preview của bản draft đang hiển thị.
+        return Array.from(content.querySelectorAll('.doc-render[data-annotatable="true"]'))
+            .find(el => el.offsetParent !== null) || null;
+    }
+
+    function renderNotes() {
+        countEl.textContent = `(${notes.length})`;
+        tray.hidden = notes.length === 0;
+        sendBtn.hidden = notes.length === 0;
+        listEl.innerHTML = notes.map((n, i) => `
+            <li class="brief-note-item">
+                ${n.quote ? `<span class="brief-note-quote">“${escapeHtml(n.quote)}”</span>` : ""}
+                <span class="brief-note-text">${escapeHtml(n.note)}</span>
+                <button type="button" class="brief-note-del" data-i="${i}" title="Xóa ghi chú">🗑</button>
+            </li>
+        `).join("");
+    }
+
+    function removeAddBtn() {
+        if (addBtn) { addBtn.remove(); addBtn = null; }
+    }
+
+    function showAddButton(rect, quote) {
+        removeAddBtn();
+        pendingQuote = quote;
+        addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.className = "btn primary small brief-add-note-btn";
+        addBtn.textContent = "＋ Ghi chú";
+        addBtn.style.position = "absolute";
+        addBtn.style.top = `${window.scrollY + rect.top - 38}px`;
+        addBtn.style.left = `${window.scrollX + rect.left}px`;
+        addBtn.style.zIndex = "10000";
+        document.body.appendChild(addBtn);
+
+        addBtn.addEventListener("click", function () {
+            const note = window.prompt(`Ghi chú cho đoạn:\n“${pendingQuote.slice(0, 160)}”\n\nĐiều cần sửa là gì?`);
+            removeAddBtn();
+            window.getSelection().removeAllRanges();
+            if (note && note.trim()) {
+                notes.push({ quote: pendingQuote, note: note.trim() });
+                renderNotes();
+            }
+        });
+    }
+
+    document.addEventListener("mouseup", function () {
+        // Chờ selection ổn định.
+        setTimeout(function () {
+            const render = currentDraftRender();
+            if (!render) { removeAddBtn(); return; }
+
+            const sel = window.getSelection();
+            if (!sel || sel.isCollapsed || sel.rangeCount === 0) { removeAddBtn(); return; }
+
+            const range = sel.getRangeAt(0);
+            // Selection phải nằm TRONG vùng preview draft.
+            if (!render.contains(range.commonAncestorContainer)) { removeAddBtn(); return; }
+
+            const quote = sel.toString().trim();
+            if (quote.length < 3) { removeAddBtn(); return; }
+
+            showAddButton(range.getBoundingClientRect(), quote);
+        }, 10);
+    });
+
+    listEl.addEventListener("click", function (e) {
+        const del = e.target.closest(".brief-note-del");
+        if (!del) return;
+        notes.splice(Number(del.dataset.i), 1);
+        renderNotes();
+    });
+
+    sendBtn.addEventListener("click", async function () {
+        if (notes.length === 0) return;
+
+        const token = tray.querySelector('input[name="__RequestVerificationToken"]');
+        const fd = new FormData();
+        fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
+        fd.append("notesJson", JSON.stringify(notes));
+        if (token) fd.append("__RequestVerificationToken", token.value);
+
+        sendBtn.disabled = true;
+        sendBtn.textContent = "Đang gửi…";
+        try {
+            const resp = await fetch("/Requirements/ReviseBrief", { method: "POST", body: fd });
+            const data = await resp.json();
+            if (data.ok) {
+                // Brief đang được soạn lại (workflow nền) — reload để thấy tiến độ + bản mới.
+                location.reload();
+            } else {
+                alert(data.error || "Không gửi được ghi chú.");
+                sendBtn.disabled = false;
+                sendBtn.textContent = "✎ Gửi ghi chú cho BA sửa";
+            }
+        } catch {
+            alert("Không gửi được ghi chú — kiểm tra kết nối rồi thử lại.");
+            sendBtn.disabled = false;
+            sendBtn.textContent = "✎ Gửi ghi chú cho BA sửa";
+        }
+    });
+})();
 
 function openRequirementModal(version) {
     document.getElementById("modalTitle").innerText =

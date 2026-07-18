@@ -32,6 +32,16 @@ public record ModelReliabilityItem(
     decimal Cost,
     bool HasPrice);
 
+// Phễu khai thác yêu cầu theo project: cuộc phỏng vấn tốn bao nhiêu lượt, Brief phải viết lại mấy lần,
+// POC bị ghim bao nhiêu ghi chú. Ba con số này là "đồng hồ" đo tác dụng của mọi thay đổi prompt/flow ở
+// chặng requirement → POC: cải tiến thật thì các số này giảm dần qua các dự án.
+public record RequirementFunnelItem(
+    Guid ProjectId,
+    string ProjectName,
+    int UserTurns,          // số lượt NGƯỜI DÙNG phải trả lời trong phỏng vấn (hội thoại hiện hành)
+    int BriefRewrites,      // số lần Product Brief bị ghi lại SAU bản đầu (revision - lần ghi đầu)
+    int PocComments);       // số ghi chú ghim trên POC
+
 // Tóm tắt các run eval prompt gần nhất (trang Prompt Evals là nguồn chi tiết; đây chỉ là "nhiệt kế"
 // đặt cạnh các chỉ số delivery — chất lượng giao hàng và chất lượng prompt nên được nhìn cùng nhau).
 public record EvalRunSummaryItem(
@@ -68,6 +78,11 @@ public record DeliveryQualityVm(
     IReadOnlyList<StageBreakdownItem> FailedByStage,
     IReadOnlyList<ProjectQualityItem> Projects,
     IReadOnlyList<ModelReliabilityItem> Models,
+    // ----- Phễu khai thác yêu cầu (project tạo trong năm đang chọn) -----
+    IReadOnlyList<RequirementFunnelItem> RequirementFunnel,
+    double? AvgFunnelUserTurns,
+    double? AvgFunnelBriefRewrites,
+    double? AvgFunnelPocComments,
     // ----- Prompt eval (không lọc theo năm — chỉ là các run gần nhất) -----
     IReadOnlyList<EvalRunSummaryItem> RecentEvalRuns);
 
@@ -227,6 +242,63 @@ public class GetDeliveryQualityQuery
             .OrderByDescending(x => x.Count)
             .ToList();
 
+        // ----- Phễu khai thác yêu cầu: đo trên các PROJECT tạo trong năm (không phụ thuộc run) -----
+        // Số liệu lấy từ dữ liệu sẵn có: lượt user trong hội thoại hiện hành (global filter đã bỏ phần
+        // lưu trữ của "New Chat"), số revision Product Brief trừ lần ghi đầu của mỗi document, và số
+        // ghi chú ghim trên POC. Đây là baseline để so tác dụng của các thay đổi prompt/flow.
+        var funnelProjects = await _db.Projects.AsNoTracking()
+            .Where(p => p.CreatedAt.Year == selectedYear)
+            .Select(p => new { p.Id, p.Name, p.CreatedAt })
+            .ToListAsync(cancellationToken);
+
+        var funnel = new List<RequirementFunnelItem>();
+        double? avgUserTurns = null, avgBriefRewrites = null, avgPocComments = null;
+        if (funnelProjects.Count > 0)
+        {
+            var funnelIds = funnelProjects.Select(p => p.Id).ToList();
+
+            var userTurnsByProject = (await _db.AgentConversations.AsNoTracking()
+                    .Where(c => funnelIds.Contains(c.ProjectId) && c.Role != "assistant")
+                    .GroupBy(c => c.ProjectId)
+                    .Select(g => new { ProjectId = g.Key, Count = g.Count() })
+                    .ToListAsync(cancellationToken))
+                .ToDictionary(x => x.ProjectId, x => x.Count);
+
+            // revisions - số document = số lần GHI LẠI (mỗi document luôn có revision 1 là bản đầu).
+            var briefAgg = (await _db.ProjectDocumentRevisions.AsNoTracking()
+                    .Where(r => funnelIds.Contains(r.ProjectDocument.ProjectId) && r.ProjectDocument.FileName == "ProductBrief.docx")
+                    .GroupBy(r => r.ProjectDocument.ProjectId)
+                    .Select(g => new { ProjectId = g.Key, Revisions = g.Count(), Documents = g.Select(x => x.ProjectDocumentId).Distinct().Count() })
+                    .ToListAsync(cancellationToken))
+                .ToDictionary(x => x.ProjectId, x => Math.Max(0, x.Revisions - x.Documents));
+
+            var pocByProject = (await _db.PocComments.AsNoTracking()
+                    .Where(c => funnelIds.Contains(c.ProjectId))
+                    .GroupBy(c => c.ProjectId)
+                    .Select(g => new { ProjectId = g.Key, Count = g.Count() })
+                    .ToListAsync(cancellationToken))
+                .ToDictionary(x => x.ProjectId, x => x.Count);
+
+            funnel = funnelProjects
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new RequirementFunnelItem(
+                    p.Id,
+                    p.Name,
+                    userTurnsByProject.GetValueOrDefault(p.Id),
+                    briefAgg.GetValueOrDefault(p.Id),
+                    pocByProject.GetValueOrDefault(p.Id)))
+                // Project chưa có hoạt động nào thì bỏ khỏi phễu (chỉ gây nhiễu trung bình).
+                .Where(f => f.UserTurns > 0 || f.BriefRewrites > 0 || f.PocComments > 0)
+                .ToList();
+
+            if (funnel.Count > 0)
+            {
+                avgUserTurns = Math.Round(funnel.Average(f => f.UserTurns), 1);
+                avgBriefRewrites = Math.Round(funnel.Average(f => f.BriefRewrites), 1);
+                avgPocComments = Math.Round(funnel.Average(f => f.PocComments), 1);
+            }
+        }
+
         // ----- Prompt eval gần nhất (nhiệt kế; chi tiết ở trang Prompt Evals) -----
         var recentEvalRuns = await _db.EvalRuns.AsNoTracking()
             .OrderByDescending(x => x.CreatedAt)
@@ -282,6 +354,10 @@ public class GetDeliveryQualityQuery
             failedByStage,
             projects,
             models,
+            funnel,
+            avgUserTurns,
+            avgBriefRewrites,
+            avgPocComments,
             recentEvalRuns);
     }
 

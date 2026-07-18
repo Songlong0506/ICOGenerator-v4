@@ -95,6 +95,80 @@
         50% { opacity: 0; }
     }
 
+    /* Sơ đồ luồng nghiệp vụ đính trong bubble BA ở lượt mời "Write Requirement": các bước dọc, mỗi bước
+       có badge vai trò → hành động → kết quả, nối bằng đường dẫn để user "nhìn" ra luồng và bắt lỗi. */
+    .flow-diagram {
+        margin-top: 14px;
+        padding: 14px 16px;
+        background: var(--surface, #fff);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+    }
+
+    .flow-diagram-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--bosch-blue);
+        margin-bottom: 12px;
+    }
+
+    .flow-steps {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .flow-step {
+        position: relative;
+        padding: 0 0 18px 20px;
+        border-left: 2px solid var(--line);
+    }
+
+        .flow-step:last-child {
+            padding-bottom: 0;
+            border-left-color: transparent;
+        }
+
+        /* Chấm mốc trên đường dẫn dọc trước mỗi bước. */
+        .flow-step::before {
+            content: "";
+            position: absolute;
+            left: -6px;
+            top: 2px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--bosch-blue);
+        }
+
+    .flow-actor {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #fff;
+        background: var(--bosch-blue);
+        border-radius: 10px;
+        padding: 1px 9px;
+        margin-right: 8px;
+    }
+
+    .flow-action {
+        font-size: 14px;
+        color: var(--text, #1a1a1a);
+    }
+
+    .flow-outcome {
+        display: block;
+        margin-top: 3px;
+        font-size: 12.5px;
+        color: var(--text-muted, #666);
+    }
+
+        .flow-outcome::before {
+            content: "→ ";
+            color: var(--bosch-blue);
+        }
+
     /* Suggestion options: đáp án gợi ý "bấm-để-trả-lời" cho lượt hỏi mới nhất của BA, trình bày dạng
        danh sách dọc có đánh số — giống option-select của Claude — thay cho "chip" ngang. Nằm dưới tin
        nhắn BA; người dùng bấm (hoặc gõ phím số) để trả nhanh thay vì gõ tay từng chữ. */
@@ -247,6 +321,64 @@
             flex: 0 0 auto;
             min-height: 44px;
         }
+
+        /* Nút "nói thay vì gõ": đang ghi âm thì chuyển đỏ + nhấp nháy nhẹ để user biết mic đang mở. */
+        .req-chatbox .voice-btn.recording {
+            color: #fff;
+            background: #d32f2f;
+            border-color: #d32f2f;
+            animation: voice-pulse 1.2s ease-in-out infinite;
+        }
+
+@keyframes voice-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.45); }
+    50% { box-shadow: 0 0 0 6px rgba(211, 47, 47, 0); }
+}
+
+    /* Khay ghi chú trên Product Brief (trong modal): danh sách ghi chú đã thêm + nút gửi cho BA sửa. */
+    .brief-notes-tray {
+        border-top: 1px solid var(--line);
+        padding: 12px 4px 4px;
+        margin-top: 8px;
+    }
+
+    .brief-notes-head {
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+
+    .brief-notes-count { color: var(--bosch-blue); font-weight: 600; }
+
+    .brief-notes-hint { color: var(--text-muted, #666); font-weight: 400; margin-left: 6px; }
+
+    .brief-notes-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+    .brief-note-item {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        font-size: 13px;
+        background: var(--surface-alt);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 6px 10px;
+    }
+
+    .brief-note-quote { color: var(--text-muted, #666); font-style: italic; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .brief-note-text { flex: 1; }
+
+    .brief-note-del { border: none; background: none; cursor: pointer; opacity: .6; }
+    .brief-note-del:hover { opacity: 1; }
+
+    .brief-add-note-btn { box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+
+    /* Khung chat khi đang kéo ảnh vào (dán/kéo-thả tài liệu nguồn) — viền nổi báo "thả vào đây". */
+    .chat-panel.drag-over {
+        outline: 2px dashed var(--bosch-blue);
+        outline-offset: -6px;
+        background: var(--bosch-blue-tint);
+    }
 
     .thinking {
         border: 1px dashed var(--bosch-blue);

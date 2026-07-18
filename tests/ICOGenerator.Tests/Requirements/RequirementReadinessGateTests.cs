@@ -91,6 +91,58 @@ public class RequirementReadinessGateTests : IDisposable
     }
 
     [Fact]
+    public async Task ChatAsync_InviteAndGateReady_StoresFlowDiagram()
+    {
+        var llm = new FakeLlm
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = InviteMessage,
+                Ready = true,
+                FlowDiagram = new List<FlowStep>
+                {
+                    new() { Actor = "Nhân viên", Action = "Gửi đơn", Outcome = "Chờ duyệt" }
+                }
+            },
+            Readiness = new RequirementReadiness { Ready = true }
+        };
+
+        await using var db = NewDb();
+        var result = await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+
+        // Lượt mời đã qua gate → sơ đồ luồng được giữ và lưu để reload trang vẫn hiện.
+        Assert.Single(result.FlowDiagram);
+        Assert.Equal("Gửi đơn", result.FlowDiagram[0].Action);
+        var stored = await LastAssistantTurnAsync();
+        Assert.False(string.IsNullOrEmpty(stored.FlowDiagram));
+        // JSON lưu escape unicode (encoder mặc định) nên so bằng deserialize thay vì so chuỗi.
+        var storedSteps = System.Text.Json.JsonSerializer.Deserialize<List<FlowStep>>(stored.FlowDiagram!);
+        Assert.Equal("Gửi đơn", storedSteps![0].Action);
+    }
+
+    [Fact]
+    public async Task ChatAsync_InviteButGateNotReady_DropsFlowDiagram()
+    {
+        var llm = new FakeLlm
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = InviteMessage,
+                Ready = true,
+                FlowDiagram = new List<FlowStep> { new() { Action = "Gửi đơn" } }
+            },
+            Readiness = new RequirementReadiness { Ready = false, Message = GateQuestion, Suggestions = new List<string> { "Sửa và gửi lại" } }
+        };
+
+        await using var db = NewDb();
+        var result = await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+
+        // Lời mời bị gate thay bằng câu hỏi (chưa đủ thông tin) → không vẽ/không lưu sơ đồ luồng.
+        Assert.Empty(result.FlowDiagram);
+        Assert.Null((await LastAssistantTurnAsync()).FlowDiagram);
+    }
+
+    [Fact]
     public async Task ChatAsync_NormalQuestion_DoesNotCallGate()
     {
         var llm = new FakeLlm
@@ -186,7 +238,8 @@ public class RequirementReadinessGateTests : IDisposable
             NewGate(llm, prompts),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new DecisionLogService(db, llm, prompts));
+            new DecisionLogService(db, llm, prompts),
+            new ChecklistNoteStore(db));
     }
 
     private static ProductBriefDraftService NewDraftSut(AppDbContext db, ILlmClient llm)
@@ -204,7 +257,7 @@ public class RequirementReadinessGateTests : IDisposable
             prompts,
             new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance),
             catalog,
-            new ChecklistGapMemoryService(db, llm, prompts),
+            new ChecklistGapMemoryService(db, llm, prompts, new ChecklistNoteStore(db)),
             new ProductBriefReviewParser(),
             NewOrgContext(db, prompts),
             NewGate(llm, prompts),
