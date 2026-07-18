@@ -345,6 +345,25 @@ public class AgentTaskWorker : BackgroundService
             task.Output = output;
             task.FinishedAt = DateTime.UtcNow;
 
+            // POC vừa dựng xong (lần đầu — vòng revision giữ nguyên kịch bản vì spec không đổi): sinh bộ
+            // kịch bản UAT từ spec cho trang POC Review. Fail-open bên trong service — không bao giờ làm
+            // fail task POC vì bước phụ trợ này.
+            if (task.Type == AgentTaskType.PocPreview && task.RevisionFeedback == null)
+            {
+                _progress.Report(task.WorkflowRunId, "tool", "Đang sinh kịch bản UAT cho trang POC Review…");
+                await scope.ServiceProvider.GetRequiredService<UatScenarioService>()
+                    .TryGenerateAsync(task.ProjectId, task.Input, task.WorkflowRunId, cancellationToken);
+            }
+
+            // Vòng CHỈNH SỬA POC vừa xong: các ghi chú ghim đã thật sự dẫn tới một lần sửa — chắt lọc
+            // chúng thành bài học cho bộ câu hỏi của BA (Agent.LearnedChecklistNotes) để lỗi tương tự
+            // được hỏi từ khâu phỏng vấn ở các dự án sau. Fail-open bên trong service.
+            if (task.Type == AgentTaskType.PocPreview && task.RevisionFeedback != null)
+            {
+                await scope.ServiceProvider.GetRequiredService<PocFeedbackMemoryService>()
+                    .TryHarvestAsync(task.ProjectId, cancellationToken);
+            }
+
             // Vòng tự sửa lỗi (Testing↔BugFix) là một CHU TRÌNH (không phải hand-off tuyến tính) nên
             // được xử lý riêng. Nếu task này không thuộc chu trình đó thì rơi về cổng duyệt tuyến tính.
             if (!await TryAdvanceTestFixCycleAsync(db, task, notifier, cancellationToken))

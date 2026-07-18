@@ -579,6 +579,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ToolPolicyService>();
         services.AddScoped<IToolExecutionLogger, ToolExecutionLogger>();
         services.AddScoped<WorkspaceTools>();
+        // Kiểm tra runtime POC (Chromium headless, Playwright). Singleton để giữ browser dùng chung
+        // giữa các vòng audit; fail-open khi môi trường không có browser (xem PlaywrightPocRuntimeChecker).
+        services.AddSingleton<IPocRuntimeChecker, PlaywrightPocRuntimeChecker>();
         services.AddScoped<CommandTools>();
         services.AddScoped<GitTools>();
 
@@ -628,6 +631,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UserMemoryService>();
         services.AddScoped<ChecklistGapMemoryService>();
         services.AddScoped<RequirementCoverageService>();
+        services.AddScoped<DecisionLogService>();
+        services.AddScoped<UatScenarioService>();
+        services.AddScoped<PocFeedbackMemoryService>();
         services.AddScoped<ProductBriefReviewParser>();
         // Bối cảnh tổ chức Bosch render từ OrgUnits/Associates cho prompt BA (chat + soạn tài liệu).
         // Scoped vì dùng DbContext; bản render dùng chung nằm trong IMemoryCache (singleton) nên vẫn

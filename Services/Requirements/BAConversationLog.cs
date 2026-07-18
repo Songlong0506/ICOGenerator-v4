@@ -18,7 +18,7 @@ public class BAConversationLog
         _db = db;
     }
 
-    public async Task AppendAsync(Guid projectId, Guid agentId, string role, string message, string? suggestionsJson = null, CancellationToken cancellationToken = default)
+    public async Task AppendAsync(Guid projectId, Guid agentId, string role, string message, string? suggestionsJson = null, bool suggestionsMultiSelect = false, CancellationToken cancellationToken = default)
     {
         _db.AgentConversations.Add(new AgentConversation
         {
@@ -27,6 +27,7 @@ public class BAConversationLog
             Role = role,
             Message = message,
             Suggestions = suggestionsJson,
+            SuggestionsMultiSelect = suggestionsMultiSelect,
             TokenUsed = TokenEstimator.Estimate(message)
         });
         await _db.SaveChangesAsync(cancellationToken);

@@ -208,3 +208,33 @@
         max-height: 320px;
     }
 }
+
+/* ==== Checklist UAT (kịch bản đi-từng-bước) ==== */
+
+.uat-panel { margin-bottom: 16px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
+
+    .uat-panel > summary { cursor: pointer; font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+
+.uat-scenario { border: 1px solid var(--line, #e5e7eb); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; background: var(--surface-alt, #fafafa); }
+
+.uat-title { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.uat-rules { font-size: 11px; font-weight: 500; color: #555; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 999px; padding: 1px 8px; }
+
+.uat-steps { margin: 8px 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+
+    .uat-steps li { font-size: 12.5px; line-height: 1.5; }
+
+    .uat-steps label { display: flex; align-items: baseline; gap: 6px; cursor: pointer; }
+
+    .uat-steps input:checked + span { color: #16a34a; text-decoration: line-through; text-decoration-color: rgba(22, 163, 74, .4); }
+
+/* ==== Nhật ký vòng sửa (changelog) ==== */
+
+.poc-changelog { margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 12px; }
+
+.poc-changelog-item { margin-bottom: 8px; }
+
+    .poc-changelog-item > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+
+    .poc-changelog-item pre { white-space: pre-wrap; font-family: inherit; font-size: 12px; line-height: 1.55; background: var(--surface-alt, #fafafa); border: 1px solid var(--line, #e5e7eb); border-radius: 8px; padding: 8px 10px; margin: 6px 0 0; max-height: 260px; overflow-y: auto; }

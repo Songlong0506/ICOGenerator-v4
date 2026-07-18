@@ -745,3 +745,117 @@
 .source-item .source-size { color: #6b7280; }
 .source-del { background: transparent; border: 0; color: #dc2626; cursor: pointer; padding: 2px 4px; width: auto; }
 .source-inline { display: inline; }
+
+/* ==== Panel "Tiến độ khai thác" (bản đồ bao phủ) + "Điều đã chốt" ở cột trái ==== */
+
+.coverage-panel { margin-bottom: 18px; border-bottom: 1px solid #e5e7eb; padding-bottom: 14px; }
+
+.coverage-progress { display: flex; align-items: center; gap: 8px; margin: 8px 0 10px; }
+
+.coverage-bar {
+    flex: 1;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--surface-alt);
+    border: 1px solid var(--line);
+    overflow: hidden;
+}
+
+    .coverage-bar span {
+        display: block;
+        height: 100%;
+        background: var(--bosch-blue);
+        border-radius: 999px;
+        transition: width .3s ease;
+    }
+
+.coverage-progress-text { font-size: 12px; color: #555; white-space: nowrap; }
+
+.coverage-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.coverage-item { display: flex; align-items: baseline; gap: 6px; font-size: 12px; line-height: 1.5; cursor: default; }
+
+    .coverage-item.na { color: #9ca3af; }
+
+    .coverage-item .cov-ico { flex: 0 0 auto; font-size: 11px; }
+
+    .coverage-item .cov-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.decision-panel { margin-bottom: 18px; border-bottom: 1px solid #e5e7eb; padding-bottom: 14px; }
+
+.decision-count { font-weight: 400; font-size: 12px; color: #777; }
+
+.decision-hint { margin: 4px 0 8px; }
+
+.decision-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.decision-item {
+    font-family: inherit;
+    width: 100%;
+    text-align: left;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 5px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+    .decision-item:hover,
+    .decision-item:focus-visible {
+        background: var(--bosch-blue-tint);
+        border-color: var(--bosch-blue);
+        outline: none;
+    }
+
+/* ==== Chip gợi ý chế độ CHỌN NHIỀU (multiSelect) ==== */
+
+.suggestion-option.selected {
+    background: var(--bosch-blue-tint);
+    border-color: var(--bosch-blue);
+}
+
+    .suggestion-option.selected .suggestion-option-key {
+        background: var(--bosch-blue);
+        color: #fff;
+        border-color: var(--bosch-blue);
+    }
+
+.suggestion-multi-send { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+
+.suggestion-multi-hint { font-size: 12px; color: #777; }
+
+/* ==== Panel "Giả định của bản thiết kế" (AI Design Spec § Assumptions) ==== */
+
+.assumption-panel { margin-bottom: 18px; border-bottom: 1px solid #e5e7eb; padding-bottom: 14px; }
+
+.assumption-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+    .assumption-list li {
+        font-size: 12px;
+        line-height: 1.5;
+        padding: 4px 8px;
+        border-left: 3px solid var(--warning-border, #f2c94c);
+        background: var(--surface-alt);
+        border-radius: 0 6px 6px 0;
+    }

@@ -109,6 +109,52 @@ public class RequirementDocsService
             ? _responseParser.Normalize(structuredSpec)
             : _responseParser.ParseAiDesignSpec(callResult.Content, productBrief);
 
+        // Đối chiếu deterministic Brief ↔ Spec: màn hình nào của Brief bị rơi rụng khỏi "Screens To
+        // Generate" thì cho BA sửa lại ĐÚNG MỘT vòng (kèm báo cáo lệch), vì spec là đầu vào duy nhất
+        // của POC — thiếu ở đây là POC thiếu tính năng mà audit POC (chỉ so với spec) không thấy.
+        // Fail-open: vòng sửa lỗi/vẫn lệch thì dùng bản tốt nhất đang có, không chặn pipeline.
+        var parityReport = SpecBriefParityChecker.Check(productBrief, result.AiDesignSpec.Content);
+        if (parityReport != null)
+        {
+            Report("tool", "Phát hiện màn hình rơi rụng so với Product Brief — đang yêu cầu BA bổ sung…", parityReport);
+
+            var fixPrompt = prompt
+                + "\n\n## BẢN AI DESIGN SPEC VỪA SINH (chưa đạt — cần sửa)\n"
+                + result.AiDesignSpec.Content
+                + "\n\n## KẾT QUẢ ĐỐI CHIẾU TỰ ĐỘNG VỚI PRODUCT BRIEF\n"
+                + parityReport
+                + "\n\nHãy xuất lại TOÀN BỘ AI Design Spec: BỔ SUNG heading `### 6.n. <Tên màn hình>` (kèm chi tiết) cho TỪNG màn hình bị thiếu nêu trên, giữ nguyên các phần đã đúng. Vẫn trả JSON đúng format cũ.";
+
+            var fixMessages = new List<ChatMessage>
+            {
+                new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/ai-design-spec.v1.md")),
+                new(ChatRole.User, fixPrompt)
+            };
+
+            var (fixCall, fixStructured) = await _llm.ChatStructuredAsync<BAAiDesignSpecResult>(
+                model, fixMessages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAAiDesignSpecParityFix", workflowRunId), onToken, cancellationToken);
+
+            if (fixCall.IsSuccess)
+            {
+                var fixedResult = fixStructured != null
+                    ? _responseParser.Normalize(fixStructured)
+                    : _responseParser.ParseAiDesignSpec(fixCall.Content, productBrief);
+
+                if (!string.IsNullOrWhiteSpace(fixedResult.AiDesignSpec.Content))
+                {
+                    result = fixedResult;
+                    var remaining = SpecBriefParityChecker.Check(productBrief, result.AiDesignSpec.Content);
+                    Report("observation", remaining == null
+                        ? "Spec đã bổ sung đủ các màn hình của Product Brief."
+                        : "Spec sau vòng sửa vẫn còn lệch — tiếp tục với bản hiện có.", remaining);
+                }
+            }
+            else
+            {
+                Report("observation", "Vòng sửa spec thất bại — tiếp tục với bản đã sinh.", fixCall.ErrorMessage ?? fixCall.Content);
+            }
+        }
+
         Report("tool", "Đang tạo/cập nhật file AI Design Spec (.docx)…");
 
         await _documentGenerator.GenerateAiDesignSpecVersionFile(project, ba.Id, versionName, result);

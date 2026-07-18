@@ -129,7 +129,7 @@ public class ProductBriefDraftService
                     ? JsonSerializer.Serialize(readiness.Suggestions)
                     : null;
 
-                await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", question, pendingSuggestions, cancellationToken);
+                await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", question, pendingSuggestions, cancellationToken: cancellationToken);
 
                 Report("final", "Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat.", question);
                 return RequirementDraftOutcome.NeedsMoreInfo;
@@ -193,7 +193,7 @@ public class ProductBriefDraftService
                 result.ClarifyingSuggestions.Count > 0
                     ? JsonSerializer.Serialize(result.ClarifyingSuggestions)
                     : null,
-                cancellationToken);
+                cancellationToken: cancellationToken);
 
             Report("final", "Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat.", clarify);
             return RequirementDraftOutcome.NeedsMoreInfo;

@@ -29,6 +29,7 @@ public class BAChatService
     private readonly RequirementReadinessGate _readinessGate;
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
+    private readonly DecisionLogService _decisionLog;
 
     public BAChatService(
         AppDbContext db,
@@ -42,7 +43,8 @@ public class BAChatService
         OrganizationContextService orgContext,
         RequirementReadinessGate readinessGate,
         BAAgentResolver agentResolver,
-        BAConversationLog conversationLog)
+        BAConversationLog conversationLog,
+        DecisionLogService decisionLog)
     {
         _db = db;
         _llm = llm;
@@ -56,6 +58,7 @@ public class BAChatService
         _readinessGate = readinessGate;
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
+        _decisionLog = decisionLog;
     }
 
     /// <param name="onStatus">Callback nhận thông điệp trạng thái ngắn ("BA đang soạn trả lời…") để UI cập nhật dòng "đang suy nghĩ" khi stream.</param>
@@ -188,6 +191,7 @@ public class BAChatService
         // Surface a failure as a clearly-labelled assistant turn instead of a 500, but never present an API error as if it were a normal BA answer.
         string reply;
         string? suggestionsJson = null;
+        var suggestionsMultiSelect = false;
         if (!callResult.IsSuccess)
         {
             // Tiền tố dùng chung với ConversationTranscriptBuilder để transcript tổng hợp yêu cầu lọc
@@ -203,7 +207,10 @@ public class BAChatService
 
             // Lưu suggestions tách riêng (JSON) để UI render chip; chỉ set khi thực sự có gợi ý.
             if (parsedReply.Suggestions.Count > 0)
+            {
                 suggestionsJson = JsonSerializer.Serialize(parsedReply.Suggestions);
+                suggestionsMultiSelect = parsedReply.MultiSelect;
+            }
 
             // Lượt MỜI bấm "Write Requirement" phải qua ĐÚNG cổng readiness của bước sinh tài liệu NGAY
             // TẠI ĐÂY, trước khi người dùng nhìn thấy lời mời. Không kiểm ở đây thì hai "giám khảo" (BA
@@ -239,11 +246,18 @@ public class BAChatService
                     suggestionsJson = readiness.Suggestions.Count > 0
                         ? JsonSerializer.Serialize(readiness.Suggestions)
                         : null;
+                    // Câu hỏi của gate là câu hỏi đơn thông thường — không giữ cờ multi của lời mời bị thay.
+                    suggestionsMultiSelect = false;
                 }
             }
         }
 
-        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, cancellationToken);
+        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, cancellationToken);
+
+        // "Điều đã chốt": gộp CẢ lượt user lẫn lượt BA vừa lưu vào nhật ký quyết định để frame done mang
+        // bản mới nhất cho panel cạnh chat. Fail-open bên trong service — lỗi thì giữ nhật ký cũ.
+        onStatus?.Invoke("Đang cập nhật những điều đã chốt…");
+        var decisionLog = await _decisionLog.UpdateAndLoadAsync(project, ba, model, cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -254,7 +268,12 @@ public class BAChatService
             Suggestions = string.IsNullOrEmpty(suggestionsJson)
                 ? new List<string>()
                 : JsonSerializer.Deserialize<List<string>>(suggestionsJson) ?? new List<string>(),
-            InvitesWriteRequirement = RequirementReadinessGate.IsWriteRequirementInvite(reply)
+            InvitesWriteRequirement = RequirementReadinessGate.IsWriteRequirementInvite(reply),
+            SuggestionsMultiSelect = suggestionsMultiSelect,
+            // Bản đồ ở thời điểm này đã gộp tới lượt user mới nhất (cập nhật đầu lượt); lượt BA vừa trả
+            // lời sẽ được gộp ở lượt sau — đủ tươi cho panel tiến độ.
+            Coverage = CoverageMapParser.Parse(project.RequirementCoverageMap).ToList(),
+            Decisions = DecisionLogService.ParseItems(decisionLog).ToList()
         };
     }
 
@@ -269,6 +288,6 @@ public class BAChatService
         // "ready" được suy ra từ chính nội dung lượt: prompt ép model hễ mời bấm "Write Requirement" thì
         // đó là lúc đã đủ thông tin, nên message có nhắc nút ⇔ ready. Echo lại cờ này để củng cố format JSON.
         var ready = RequirementReadinessGate.IsWriteRequirementInvite(c.Message);
-        return JsonSerializer.Serialize(new { message = c.Message, suggestions, ready });
+        return JsonSerializer.Serialize(new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, ready });
     }
 }

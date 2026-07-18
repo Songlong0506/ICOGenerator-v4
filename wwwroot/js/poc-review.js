@@ -98,12 +98,14 @@
 
     // ===== Form ghim =====
 
-    function openForm(pick) {
+    function openForm(pick, prefill) {
         pendingPick = pick;
         targetLabelEl.textContent = (pick.pageView ? `[${pick.pageView}] ` : "") + (pick.elementLabel || "Vị trí trên trang");
         formEl.hidden = false;
-        textEl.value = "";
+        textEl.value = prefill || "";
         textEl.focus();
+        // Prefill: đặt con trỏ ở cuối để người dùng gõ tiếp phần mô tả.
+        textEl.setSelectionRange(textEl.value.length, textEl.value.length);
     }
 
     function closeForm() {
@@ -205,6 +207,44 @@
     });
 
     pinModeBtn.addEventListener("click", () => setPinMode(!pinMode));
+
+    // ===== Checklist UAT (kịch bản đi-từng-bước) =====
+    // Tick từng bước được lưu localStorage theo project để rời trang quay lại vẫn còn; "Báo lỗi" mở
+    // form ghi chú với ngữ cảnh kịch bản prefill sẵn — ghi chú đi chung pipeline với pin thường.
+    const uatList = document.getElementById("uatList");
+    if (uatList) {
+        const storageKey = `poc-uat-${projectId}`;
+
+        let checked = {};
+        try { checked = JSON.parse(localStorage.getItem(storageKey) || "{}"); } catch { checked = {}; }
+
+        uatList.querySelectorAll(".uat-step").forEach(function (box) {
+            box.checked = checked[box.dataset.key] === true;
+        });
+
+        uatList.addEventListener("change", function (e) {
+            const box = e.target.closest(".uat-step");
+            if (!box) return;
+
+            checked[box.dataset.key] = box.checked;
+            try { localStorage.setItem(storageKey, JSON.stringify(checked)); } catch { }
+        });
+
+        uatList.addEventListener("click", function (e) {
+            const fail = e.target.closest(".uat-fail");
+            if (!fail) return;
+
+            const scenario = fail.closest(".uat-scenario");
+            const title = scenario?.dataset.title || "";
+            openForm({
+                pageView: scenario?.dataset.screen || "",
+                elementLabel: `Kịch bản: ${title}`,
+                elementPath: "",
+                xPercent: 0,
+                yPercent: 0
+            }, `Kịch bản "${title}" chưa đạt — `);
+        });
+    }
 
     loadComments();
 })();
