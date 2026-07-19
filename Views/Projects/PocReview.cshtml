@@ -45,6 +45,70 @@
     </section>
 
     <aside class="card poc-comments-panel">
+        @* Truy vết yêu cầu↔POC (U2): "POC này ĐÁNG LẼ phủ gì" — chắt từ AI Design Spec đã duyệt. Giúp
+           người review biết độ phủ so với yêu cầu (không chỉ đi tìm lỗi), và mỗi quy tắc có kịch bản UAT
+           nào kiểm. Ẩn khi spec chưa parse được (bản cũ) — fail-open. *@
+        @{
+            var cov = Model.Coverage;
+            var hasCoverage = cov.Screens.Any() || cov.Rules.Any() || cov.WorkedExamples.Any();
+        }
+        @if (hasCoverage)
+        {
+            <details class="uat-panel poc-coverage-panel" open>
+                <summary>🎯 Yêu cầu POC này bao phủ</summary>
+                <p class="muted poc-panel-hint">Đối chiếu bản demo với những gì AI Design Spec (đã duyệt) yêu cầu — để biết POC có phủ đúng yêu cầu chưa.</p>
+
+                @if (cov.Screens.Any())
+                {
+                    <div class="poc-cov-group">
+                        <div class="poc-cov-head">Màn hình theo yêu cầu <span class="poc-count">(@cov.Screens.Count)</span></div>
+                        <div class="poc-cov-chips">
+                            @foreach (var screen in cov.Screens)
+                            {
+                                <span class="poc-cov-chip">@screen</span>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (cov.Rules.Any())
+                {
+                    <div class="poc-cov-group">
+                        <div class="poc-cov-head">Quy tắc nghiệp vụ <span class="poc-count">(@cov.Rules.Count)</span></div>
+                        <ul class="poc-cov-rules">
+                            @foreach (var rule in cov.Rules)
+                            {
+                                <li>
+                                    <span class="poc-cov-rule-text">@rule.Rule</span>
+                                    @if (rule.ScenarioTitles.Any())
+                                    {
+                                        <span class="poc-cov-rule-tested" title="Kịch bản UAT kiểm quy tắc này">✓ có kịch bản kiểm: @string.Join("; ", rule.ScenarioTitles)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="poc-cov-rule-untested" title="Chưa có kịch bản UAT nào tham chiếu quy tắc này">⚠ chưa có kịch bản kiểm</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                @if (cov.WorkedExamples.Any())
+                {
+                    <div class="poc-cov-group">
+                        <div class="poc-cov-head">Ví dụ tính thử đã chốt <span class="poc-count">(@cov.WorkedExamples.Count)</span></div>
+                        <ul class="poc-cov-worked">
+                            @foreach (var we in cov.WorkedExamples)
+                            {
+                                <li>@we</li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </details>
+        }
+
         @* Checklist UAT: kịch bản đi-từng-bước sinh từ AI Design Spec (UatScenarioService) — biến review
            từ khám phá tự do thành nghiệm thu có kịch bản. Tick từng bước (lưu localStorage); bước không
            đạt thì "Báo lỗi" mở form ghi chú prefill sẵn ngữ cảnh kịch bản. *@

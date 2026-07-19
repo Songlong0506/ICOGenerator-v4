@@ -110,6 +110,43 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PassingScenario_IsReportedAndNoIssue()
+    {
+        // window.pocScenarios(): kịch bản end-to-end (R-POC1) — pass thì vào ScenarioResults, không tạo issue.
+        var report = await CheckHtmlAsync(Shell.Replace("{SCRIPT}", """
+            <script>
+            function pocScenarios() {
+                return [{ title: 'Gửi rồi duyệt đơn', pass: true, detail: 'trạng thái cuối Đã duyệt' }];
+            }
+            </script>
+            """));
+
+        if (!report.Ran)
+            return;
+
+        Assert.Single(report.ScenarioResults);
+        Assert.StartsWith("PASS", report.ScenarioResults[0]);
+        Assert.DoesNotContain(report.Issues, i => i.Contains("Kịch bản nghiệp vụ"));
+    }
+
+    [Fact]
+    public async Task FailingScenario_BecomesIssue()
+    {
+        var report = await CheckHtmlAsync(Shell.Replace("{SCRIPT}", """
+            <script>
+            function pocScenarios() {
+                return [{ title: 'Duyệt đơn xuyên màn', pass: false, detail: 'màn nhân viên vẫn hiện Chờ duyệt' }];
+            }
+            </script>
+            """));
+
+        if (!report.Ran)
+            return;
+
+        Assert.Contains(report.Issues, i => i.Contains("Kịch bản nghiệp vụ") && i.Contains("Duyệt đơn xuyên màn"));
+    }
+
+    [Fact]
     public async Task CaptureScreenshots_ReturnsOnePngPerOpenedScreen()
     {
         var path = Path.Combine(_dir, "poc-demo.html");

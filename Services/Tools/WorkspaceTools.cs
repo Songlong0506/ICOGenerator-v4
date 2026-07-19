@@ -37,6 +37,12 @@ public class WorkspaceTools
     private Guid _pocProjectId;
     private Guid? _pocWorkflowRunId;
 
+    // Progress sink của LƯỢT chạy hiện tại (AgentRunService set như SetRunCancellation) — để các tool POC
+    // tường thuật milestone "đã dựng màn hình X" cho người dùng trong lúc chờ, thay vì chỉ feed token câm.
+    // Null ngoài một agent run (unit test dựng tay) ⇒ không phát gì.
+    private Action<string, string, string?>? _progressSink;
+    private int _pocScreensBuilt;
+
     public void SetWorkspace(string projectKey)
     {
         CurrentWorkspacePath = _workspacePathResolver.GetProjectWorkspacePath(projectKey);
@@ -44,6 +50,28 @@ public class WorkspaceTools
     }
 
     public void SetRunCancellation(CancellationToken cancellationToken) => RunCancellationToken = cancellationToken;
+
+    // Đăng ký nơi nhận milestone tiến độ cho lượt chạy này (khớp chữ ký onProgress của AgentRunService).
+    // Reset bộ đếm màn hình để mỗi POC run đếm lại từ đầu.
+    public void SetProgressSink(Action<string, string, string?>? sink)
+    {
+        _progressSink = sink;
+        _pocScreensBuilt = 0;
+    }
+
+    // Tường thuật từng màn hình page-view trong đoạn content vừa nạp thành milestone "poc-screen" — UI
+    // hiện "Đã dựng màn hình N: <tên>" để người dùng thấy POC lớn dần thay vì chờ câm. Chỉ đếm SECTION
+    // page-view (modal/CRUD form không phải màn hình). Không có sink hoặc không có màn hình ⇒ no-op.
+    private void NarratePocScreens(string? content)
+    {
+        if (_progressSink == null)
+            return;
+        foreach (var label in PocContentScreens.Extract(content))
+        {
+            _pocScreensBuilt++;
+            _progressSink.Invoke("poc-screen", $"Đã dựng màn hình {_pocScreensBuilt}: {label}", null);
+        }
+    }
 
     public void SetPocSpec(string? aiDesignSpec) => _pocSpec = PocSpec.Parse(aiDesignSpec);
 
@@ -208,6 +236,9 @@ public class WorkspaceTools
         }
 
         await File.WriteAllTextAsync(fullPath, updated);
+        // SetPocContent GHI ĐÈ cả vùng nội dung ⇒ đây là màn hình ĐẦU TIÊN: đếm lại từ 0.
+        _pocScreensBuilt = 0;
+        NarratePocScreens(content);
         return $"POC content updated: {PocTemplate.MockupRelativePath}";
     }
 
@@ -229,6 +260,7 @@ public class WorkspaceTools
             return $"POC content markers not found in file: {PocTemplate.MockupRelativePath}";
 
         await File.WriteAllTextAsync(fullPath, updated);
+        NarratePocScreens(content);
         return $"POC content appended: {PocTemplate.MockupRelativePath}";
     }
 
@@ -271,7 +303,7 @@ public class WorkspaceTools
         return $"POC script appended: {PocTemplate.MockupRelativePath}";
     }
 
-    [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing. It checks the wiring — sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, data-crud tables without a matching form or with mismatched field names, an empty POC logic script — AND coverage against the AI Design Spec of this run: every screen of '§ Screens To Generate' missing from the demo is an ISSUE, and the spec's business rules are echoed as a checklist you must verify actually behaves. It also opens the POC in a headless browser (RUNTIME) to collect JS errors and run window.pocSelfTest(), and — when a UI/UX vision agent is configured — has that agent review a screenshot of every screen for visual defects (blank screens, broken layout, wrong language) reported as VISUAL ISSUES/WARNINGS to fix the same way. " +
+    [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing. It checks the wiring — sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, data-crud tables without a matching form or with mismatched field names, an empty POC logic script — AND coverage against the AI Design Spec of this run: every screen of '§ Screens To Generate' missing from the demo is an ISSUE, and the spec's business rules are echoed as a checklist you must verify actually behaves. It also opens the POC in a headless browser (RUNTIME) to collect JS errors, run window.pocSelfTest() (per-rule assertions) and window.pocScenarios() (end-to-end multi-screen business journeys), and — when a UI/UX vision agent is configured — has that agent review a screenshot of every screen for visual defects (blank screens, broken layout, wrong language) reported as VISUAL ISSUES/WARNINGS to fix the same way. " +
         "Call it after all content and script calls, fix every reported ISSUE (AppendPocContent for missing sections/modals, ReplaceInFile for small in-place corrections, SetPocScript to replace the logic), then call it AGAIN to confirm the report is clean (up to 3 rounds) before returning your final result. It reads the file for you — do NOT re-read poc-demo.html with ReadFile.")]
     public async Task<string> AuditPocContent()
     {
@@ -302,6 +334,8 @@ public class WorkspaceTools
             sb.Append(runtime.SelfTestResults.Count > 0
                 ? $", self-test {runtime.SelfTestResults.Count} rule(s) PASS."
                 : ". (window.pocSelfTest() not defined — no per-rule assertions were executed.)");
+            if (runtime.ScenarioResults.Count > 0)
+                sb.Append($" End-to-end scenarios: {runtime.ScenarioResults.Count} PASS.");
         }
         else
         {
@@ -309,7 +343,9 @@ public class WorkspaceTools
             for (var i = 0; i < runtime.Issues.Count; i++)
                 sb.AppendLine($"{i + 1}. {runtime.Issues[i]}");
             if (runtime.SelfTestResults.Count > 0)
-                sb.Append($"Self-test summary: {string.Join("; ", runtime.SelfTestResults)}");
+                sb.AppendLine($"Self-test summary: {string.Join("; ", runtime.SelfTestResults)}");
+            if (runtime.ScenarioResults.Count > 0)
+                sb.Append($"End-to-end scenario summary: {string.Join("; ", runtime.ScenarioResults)}");
         }
 
         // Oracle ĐỘC LẬP cho công thức: đối chiếu KỲ VỌNG lấy từ "## 13. Worked Examples" của spec (người

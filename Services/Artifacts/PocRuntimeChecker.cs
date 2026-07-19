@@ -15,10 +15,11 @@ public sealed record PocRuntimeReport(
     IReadOnlyList<string> Issues,
     IReadOnlyList<string> SelfTestResults,
     IReadOnlyList<PocScreenshot> Screenshots,
-    IReadOnlyList<PocWorkedExampleResult> WorkedExampleResults)
+    IReadOnlyList<PocWorkedExampleResult> WorkedExampleResults,
+    IReadOnlyList<string> ScenarioResults)
 {
     public static PocRuntimeReport Skipped(string reason) =>
-        new(false, reason, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<PocScreenshot>(), Array.Empty<PocWorkedExampleResult>());
+        new(false, reason, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<PocScreenshot>(), Array.Empty<PocWorkedExampleResult>(), Array.Empty<string>());
 }
 
 /// <summary>
@@ -50,6 +51,9 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
 {
     private const int MaxScreens = 20;
     private const int MaxIssues = 20;
+    // Ảnh trạng thái tương tác (mở modal) để Visual QA chấm — trần thấp vì chỉ cần vài mẫu để bắt lỗi
+    // "modal mở ra bị vỡ layout" (lớp lỗi mà ảnh tĩnh mỗi màn không thấy). Xem R-POC2.
+    private const int MaxModalShots = 3;
     private const float GotoTimeoutMs = 15000;
 
     private readonly IConfiguration _configuration;
@@ -94,6 +98,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
     {
         var issues = new List<string>();
         var screenshots = new List<PocScreenshot>();
+        var modalShots = 0;
 
         // Viewport desktop cố định để ảnh chụp phản ánh đúng bố cục enterprise dashboard mà spec yêu cầu.
         await using var context = await browser.NewContextAsync(captureScreenshots
@@ -181,6 +186,13 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                 {
                     // Chụp lỗi một màn không được làm hỏng cả lượt check — bỏ qua ảnh màn đó.
                 }
+
+                // R-POC2: ảnh TRẠNG THÁI TƯƠNG TÁC — mở một modal của màn này rồi chụp, để Visual QA bắt lỗi
+                // "hộp thoại mở ra bị vỡ/trống" mà ảnh tĩnh không thấy. Best-effort: Bootstrap nạp từ CDN nên
+                // môi trường offline sẽ không mở được modal (không chụp) — không sao. Luôn đóng lại (Escape)
+                // để không che các màn chụp sau.
+                if (modalShots < MaxModalShots && screenshots.Count < MaxScreens)
+                    modalShots += await TryCaptureModalAsync(page, screen, screenshots);
             }
         }
 
@@ -210,6 +222,36 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                 selfTestResults.Add($"{(pass ? "PASS" : "FAIL")} {rule}{(detail.Length > 0 ? $" — {detail}" : "")}");
                 if (!pass)
                     issues.Add($"Self-test business rule FAIL: {rule}{(detail.Length > 0 ? $" — {detail}" : "")}. Sửa logic trong SetPocScript cho tới khi assertion này pass (đừng sửa assertion cho pass giả).");
+            }
+        }
+
+        // window.pocScenarios(): mỗi KỊCH BẢN nghiệp vụ END-TO-END (nhiều bước, đi qua nhiều màn hình/vai
+        // trò) một phần tử {id/title, pass, detail}. Lớp lỗi mà pocSelfTest (rule cô lập) không thấy: luồng
+        // GÃY GIỮA các màn hình — bấm "Duyệt" ở màn A nhưng trạng thái/danh sách ở màn B không đổi. Hàm do
+        // agent lái chính POC qua từng bước rồi assert trạng thái cuối; fail thành ISSUE như self-test.
+        currentScreen = "(pocScenarios)";
+        var scenarioRaw = await page.EvaluateAsync<string[]?>(
+            @"() => {
+                if (typeof window.pocScenarios !== 'function') return null;
+                let result;
+                try { result = window.pocScenarios(); }
+                catch (e) { return ['FAIL|pocScenarios|ném lỗi khi chạy: ' + (e && e.message ? e.message : e)]; }
+                if (!Array.isArray(result)) return ['FAIL|pocScenarios|không trả về mảng [{id/title, pass, detail}]'];
+                return result.map(x => (x && x.pass ? 'PASS' : 'FAIL') + '|' + String((x && (x.title || x.id)) || '?') + '|' + String((x && x.detail) || ''));
+            }");
+
+        var scenarioResults = new List<string>();
+        if (scenarioRaw != null)
+        {
+            foreach (var entry in scenarioRaw)
+            {
+                var parts = entry.Split('|', 3);
+                var pass = parts[0] == "PASS";
+                var name = parts.Length > 1 ? parts[1] : "?";
+                var detail = parts.Length > 2 ? parts[2] : string.Empty;
+                scenarioResults.Add($"{(pass ? "PASS" : "FAIL")} {name}{(detail.Length > 0 ? $" — {detail}" : "")}");
+                if (!pass)
+                    issues.Add($"Kịch bản nghiệp vụ (end-to-end) FAIL: {name}{(detail.Length > 0 ? $" — {detail}" : "")}. Sửa logic để luồng chạy ĐÚNG qua các màn hình (trạng thái sau mỗi bước phản ánh nhất quán trên mọi màn liên quan) — đừng sửa assertion cho pass giả.");
             }
         }
 
@@ -243,7 +285,47 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         }
 
         lock (errors) issues.AddRange(errors);
-        return new PocRuntimeReport(true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots, workedResults);
+        return new PocRuntimeReport(true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots, workedResults, scenarioResults);
+    }
+
+    // Mở modal đầu tiên của màn đang active, chụp ảnh trạng thái mở (cho Visual QA), rồi đóng lại. Trả về
+    // 1 nếu đã chụp được một ảnh modal, 0 nếu không có modal / không mở được (offline / lỗi). Best-effort:
+    // mọi lỗi được nuốt — một ảnh tương tác không chụp được không được làm hỏng lượt runtime check.
+    private static async Task<int> TryCaptureModalAsync(IPage page, string screen, List<PocScreenshot> screenshots)
+    {
+        try
+        {
+            var opened = await page.EvaluateAsync<bool>(
+                @"() => {
+                    const active = document.querySelector('section.page-view.active');
+                    if (!active) return false;
+                    const trigger = active.querySelector('[data-bs-toggle=""modal""]');
+                    if (!trigger) return false;
+                    trigger.click();
+                    return true;
+                }");
+            if (!opened)
+                return 0;
+
+            await page.WaitForTimeoutAsync(350);
+            var shown = await page.EvaluateAsync<bool>("() => !!document.querySelector('.modal.show')");
+            var captured = 0;
+            if (shown)
+            {
+                var png = await page.ScreenshotAsync(new PageScreenshotOptions { FullPage = true });
+                screenshots.Add(new PocScreenshot($"{screen} (hộp thoại)", png));
+                captured = 1;
+            }
+
+            // Đóng modal: Escape (Bootstrap lắng nghe) rồi chờ hiệu ứng để màn chụp sau không bị che.
+            await page.Keyboard.PressAsync("Escape");
+            await page.WaitForTimeoutAsync(250);
+            return captured;
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     // Kết quả evaluate "mở màn hình + đo độ đầy" — Playwright deserialize JSON theo các key camelCase.

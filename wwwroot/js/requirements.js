@@ -233,6 +233,20 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
+    // Bấm "chưa đúng?" trên MỘT bước của sơ đồ luồng → soạn sẵn tin nhắn đính chính đúng bước đó vào ô
+    // nhập, thay vì bắt user tự mô tả lại cả luồng. Sơ đồ nằm trong bubble BA (thêm động vào chatMessages)
+    // nên bắt sự kiện ở mức chatMessages (delegated) để áp cho cả sơ đồ server-render lẫn client-render.
+    if (chatMessages) {
+        chatMessages.addEventListener("click", function (e) {
+            const fix = e.target.closest(".flow-step-fix");
+            if (!fix) return;
+            messageInput.value = `Bước "${fix.dataset.step}" trong sơ đồ luồng chưa đúng. Ý đúng của tôi là: `;
+            resizeMessageInput();
+            messageInput.focus();
+            messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
+        });
+    }
+
     // Đồng bộ trạng thái nút "Write Requirement" với cờ mời của lượt BA mới nhất — đúng logic server
     // render (requirementReady trong Index.cshtml), vì trang không reload nữa.
     function setWriteRequirementReady(ready) {
@@ -264,6 +278,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 ${s.actor ? `<span class="flow-actor">${escapeHtml(s.actor)}</span>` : ""}
                 <span class="flow-action">${escapeHtml(s.action || "")}</span>
                 ${s.outcome ? `<span class="flow-outcome">${escapeHtml(s.outcome)}</span>` : ""}
+                <button type="button" class="flow-step-fix" data-step="${escapeHtml(s.action || "")}" title="Bấm nếu bước này chưa đúng để đính chính ngay trong chat">chưa đúng?</button>
             </li>
         `).join("");
 

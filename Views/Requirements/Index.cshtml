@@ -255,8 +255,8 @@
         @* "Ví dụ tính thử đã xác nhận" (A): các con số user đã chốt cho quy tắc định lượng — cũng là chuẩn
            để POC tự kiểm đối chiếu độc lập. Hiển thị để user thấy hệ thống đã ghi nhận đúng cách tính. *@
         <div class="worked-panel" id="workedPanel" @(workedExamples.Count == 0 ? "hidden" : "")>
-            <h3>Ví dụ tính thử đã xác nhận <span class="worked-count" id="workedCount">(@workedExamples.Count)</span></h3>
-            <div class="history-sub decision-hint">Cách tính anh/chị đã chốt — bản demo (POC) sẽ được kiểm tự động theo đúng các con số này.</div>
+            <h3>Ví dụ đã xác nhận <span class="worked-count" id="workedCount">(@workedExamples.Count)</span></h3>
+            <div class="history-sub decision-hint">Cách tính & luồng anh/chị đã chốt — bản demo (POC) sẽ được kiểm tự động theo đúng các ví dụ này.</div>
             <ul class="worked-list" id="workedList">
                 @foreach (var ex in workedExamples)
                 {
@@ -487,6 +487,7 @@
                                             {
                                                 <span class="flow-outcome">@step.Outcome</span>
                                             }
+                                            <button type="button" class="flow-step-fix" data-step="@step.Action" title="Bấm nếu bước này chưa đúng để đính chính ngay trong chat">chưa đúng?</button>
                                         </li>
                                     }
                                 </ol>
