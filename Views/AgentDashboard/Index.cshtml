@@ -200,15 +200,15 @@
                 var shareLabel = sharePct.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
                 var hasActivity = lastActivityByAgent.TryGetValue(a.Id, out var lastAt);
                 var lastAtIso = hasActivity ? DateTime.SpecifyKind(lastAt, DateTimeKind.Utc).ToString("o") : null;
-                <tr class="agent-row" data-agent-id="@a.Id" data-agent-name="@a.Name" onclick="filterByAgent('@a.Id', '@a.Name')">
+                <tr class="agent-row" data-agent-id="@a.Id" data-agent-name="@a.RoleKey.GetTitle()" onclick="filterByAgent('@a.Id', '@a.RoleKey.GetTitle()')">
                     <td>
                         <div class="agent-name-cell">
                             <span class="circle" style="background:@a.Color"></span>
                             <span class="agent-name-text">
-                                <b>@a.Name</b>
-                                <small class="muted">@a.RoleKey.GetTitle()</small>
+                                <b>@a.RoleKey.GetTitle()</b>
+                                <small class="muted">@a.Description</small>
                             </span>
-                            <span class="running-indicator" title="Agent đang chạy — bấm để xem hoạt động" onclick="event.stopPropagation(); openAgentActivity('@a.Id', '@a.Name')"><span class="pulse-dot"></span> Running</span>
+                            <span class="running-indicator" title="Agent đang chạy — bấm để xem hoạt động" onclick="event.stopPropagation(); openAgentActivity('@a.Id', '@a.RoleKey.GetTitle()')"><span class="pulse-dot"></span> Running</span>
                         </div>
                     </td>
                     <td class="share-col">
@@ -228,7 +228,7 @@
                         }
                     </td>
                     <td>
-                        <button type="button" class="btn" onclick="event.stopPropagation(); loadAgentLogs('@a.Id', '@a.Name')">View Logs</button>
+                        <button type="button" class="btn" onclick="event.stopPropagation(); loadAgentLogs('@a.Id', '@a.RoleKey.GetTitle()')">View Logs</button>
                     </td>
                 </tr>
             }

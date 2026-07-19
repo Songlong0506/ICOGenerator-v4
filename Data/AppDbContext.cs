@@ -69,7 +69,10 @@ public class AppDbContext : DbContext
         builder.Entity<AiModel>().Property(x => x.InputPricePerMillionTokens).HasPrecision(18, 6);
         builder.Entity<AiModel>().Property(x => x.OutputPricePerMillionTokens).HasPrecision(18, 6);
         builder.Entity<Agent>().Property(x => x.RoleKey).HasConversion<string>().HasMaxLength(100);
-        builder.Entity<Agent>().HasIndex(x => x.RoleKey);
+        // RoleKey là danh tính của agent: mọi lookup (BAAgentResolver, WorkflowOrchestrator, AgentTaskWorker,
+        // ApproveStageUseCase, …) đều dùng FirstOrDefault(x => x.RoleKey == …) và ngầm định mỗi role đúng một
+        // agent. Unique để DB ép ràng buộc đó — trước đây cột Name tự do dùng để phân biệt agent trùng role.
+        builder.Entity<Agent>().HasIndex(x => x.RoleKey).IsUnique();
         // Restrict: không thể xóa model đang được agent sử dụng (DeleteAiModelUseCase đã chặn ở tầng app).
         builder.Entity<Agent>()
             .HasOne(x => x.AiModel)
@@ -175,7 +178,6 @@ public class AppDbContext : DbContext
         });
         builder.Entity<Agent>(b =>
         {
-            b.Property(x => x.Name).HasMaxLength(100);
             b.Property(x => x.Description).HasMaxLength(1000);
             b.Property(x => x.Color).HasMaxLength(50);
             b.Property(x => x.CreatedByUsername).HasMaxLength(100);

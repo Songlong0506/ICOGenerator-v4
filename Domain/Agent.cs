@@ -3,7 +3,6 @@ namespace ICOGenerator.Domain;
 public class Agent
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public string Name { get; set; } = string.Empty;
     public AgentRoleKey RoleKey { get; set; } = AgentRoleKey.BusinessAnalyst;
     public string Description { get; set; } = string.Empty;
     public string Color { get; set; } = string.Empty;

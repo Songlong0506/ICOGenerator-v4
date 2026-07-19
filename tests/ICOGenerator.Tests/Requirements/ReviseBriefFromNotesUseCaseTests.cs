@@ -30,7 +30,7 @@ public class ReviseBriefFromNotesUseCaseTests : IDisposable
         db.Database.EnsureCreated();
         var model = new AiModel { Id = Guid.NewGuid(), ModelId = "m" };
         db.AiModels.Add(model);
-        db.Agents.Add(new Agent { Id = Guid.NewGuid(), Name = "BA", RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = model.Id });
+        db.Agents.Add(new Agent { Id = Guid.NewGuid(), RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = model.Id });
         db.Projects.Add(new Project { Id = _projectId, Name = "P" });
         db.SaveChanges();
     }

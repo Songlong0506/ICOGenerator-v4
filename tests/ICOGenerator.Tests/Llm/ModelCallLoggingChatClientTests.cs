@@ -12,7 +12,7 @@ namespace ICOGenerator.Tests.Llm;
 public class ModelCallLoggingChatClientTests
 {
     private static AiModel Model() => new() { ModelId = "m", Endpoint = "http://localhost" };
-    private static ModelCallLogContext Ctx(int firstStep = 1) => new(Guid.NewGuid(), new Agent { Name = "BA" }, "TestPurpose", null, firstStep);
+    private static ModelCallLogContext Ctx(int firstStep = 1) => new(Guid.NewGuid(), new Agent(), "TestPurpose", null, firstStep);
     private static ChatMessage[] Hi() => new[] { new ChatMessage(ChatRole.User, "hi") };
 
     [Fact]

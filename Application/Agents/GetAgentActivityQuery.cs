@@ -52,10 +52,11 @@ public class GetAgentActivityQuery
 
     public async Task<AgentActivityVm> GetAgentActivityAsync(Guid projectId, Guid agentId, long afterSeq = 0)
     {
-        var agentName = await _db.Agents.AsNoTracking()
+        var roleKey = await _db.Agents.AsNoTracking()
             .Where(x => x.Id == agentId)
-            .Select(x => x.Name)
+            .Select(x => (AgentRoleKey?)x.RoleKey)
             .FirstOrDefaultAsync();
+        var agentName = roleKey?.GetTitle();
 
         // Prefer an in-flight task; otherwise fall back to the agent's most recent one so the popup
         // still shows what just happened if the work finished between a poll and the user's click.

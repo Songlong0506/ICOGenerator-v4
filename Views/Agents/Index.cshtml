@@ -34,8 +34,8 @@
                 <a class="agent-item @(!sharedSelected && selected?.Id == a.Id ? "active" : "")" asp-action="Index" asp-route-id="@a.Id">
                     <span class="circle" style="background:@a.Color"></span>
                     <div>
-                        <b>@a.Name</b><br />
-                        <small>@a.RoleKey.GetTitle()</small>
+                        <b>@a.RoleKey.GetTitle()</b><br />
+                        <small>@a.Description</small>
                     </div>
                 </a>
             }
@@ -74,16 +74,12 @@
                 <div class="agent-header">
                     <span class="big-circle" style="background:@selected.Color"></span>
                     <div>
-                        <h2>@selected.Name</h2>
+                        <h2>@selected.RoleKey.GetTitle()</h2>
                     </div>
                     <button type="submit" class="btn primary">Save Changes</button>
                 </div>
 
                 <div class="form-grid three">
-                    <div>
-                        <label>Name</label>
-                        <input name="Name" value="@selected.Name" required />
-                    </div>
                     <div>
                         <label>Role / Title</label>
                         <input value="@selected.RoleKey.GetTitle()" readonly />

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Budget;
 using Microsoft.Extensions.AI;
 
@@ -182,7 +183,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         callOptions.MaxOutputTokens = maxTokens;
         result.RequestJson = BuildRequestJson(messageList, callOptions, maxTokens);
 
-        _onProgress?.Invoke("thinking", $"Agent {_context.Agent.Name} đang suy nghĩ… (bước {BudgetLabel(step)})", null);
+        _onProgress?.Invoke("thinking", $"Agent {_context.Agent.RoleKey.GetTitle()} đang suy nghĩ… (bước {BudgetLabel(step)})", null);
         return new CallState(step, messageList, callOptions, result, Stopwatch.StartNew());
     }
 

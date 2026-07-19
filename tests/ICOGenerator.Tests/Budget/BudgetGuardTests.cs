@@ -38,7 +38,7 @@ public class BudgetGuardTests : IDisposable
             OutputPricePerMillionTokens = 30m
         };
         db.AiModels.Add(model);
-        db.Agents.Add(new Agent { Id = _agentId, Name = "Dev", AiModelId = model.Id });
+        db.Agents.Add(new Agent { Id = _agentId, AiModelId = model.Id });
         db.SaveChanges();
     }
 

@@ -46,7 +46,7 @@ public class UpdateAgentUseCaseTests : IDisposable
                 new ToolDefinition { Id = removedTool, Name = "Removed", ServiceType = "T", MethodName = "Removed", IsActive = true },
                 new ToolDefinition { Id = newActiveTool, Name = "NewActive", ServiceType = "T", MethodName = "NewActive", IsActive = true },
                 new ToolDefinition { Id = inactiveTool, Name = "Inactive", ServiceType = "T", MethodName = "Inactive", IsActive = false });
-            db.Agents.Add(new Agent { Id = agentId, Name = "A", AiModelId = modelId });
+            db.Agents.Add(new Agent { Id = agentId, AiModelId = modelId });
             db.AgentTools.AddRange(
                 new AgentTool { AgentId = agentId, ToolDefinitionId = keptTool },
                 new AgentTool { AgentId = agentId, ToolDefinitionId = removedTool });
@@ -58,7 +58,6 @@ public class UpdateAgentUseCaseTests : IDisposable
             var result = await new UpdateAgentUseCase(db, new NullAuditLogger()).ExecuteAsync(new AgentEditVm
             {
                 Id = agentId,
-                Name = "A2",
                 AiModelId = modelId,
                 ToolDefinitionIds = [keptTool, newActiveTool, inactiveTool, missingTool]
             });
@@ -84,7 +83,7 @@ public class UpdateAgentUseCaseTests : IDisposable
         await using (var db = NewDb())
         {
             db.AiModels.Add(new AiModel { Id = modelId, ModelId = "m", Endpoint = "http://x", ApiKey = "k" });
-            db.Agents.Add(new Agent { Id = agentId, Name = "A", AiModelId = modelId });
+            db.Agents.Add(new Agent { Id = agentId, AiModelId = modelId });
             await db.SaveChangesAsync();
         }
 
@@ -93,7 +92,6 @@ public class UpdateAgentUseCaseTests : IDisposable
             var result = await new UpdateAgentUseCase(db, new NullAuditLogger()).ExecuteAsync(new AgentEditVm
             {
                 Id = agentId,
-                Name = "A2",
                 AiModelId = Guid.NewGuid() // model không tồn tại
             });
             Assert.Equal(UpdateAgentResult.ModelRequired, result);

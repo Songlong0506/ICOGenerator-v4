@@ -50,7 +50,7 @@ public class GetDeliveryQualityQueryTests : IDisposable
                 InputPricePerMillionTokens = 1m, OutputPricePerMillionTokens = 2m
             });
             // AgentModelCallLog.AgentId là FK Restrict tới Agent — cần một agent thật để tham chiếu.
-            db.Agents.Add(new Agent { Id = agentId, Name = "Dev", RoleKey = AgentRoleKey.Developer, AiModelId = modelId });
+            db.Agents.Add(new Agent { Id = agentId, RoleKey = AgentRoleKey.Developer, AiModelId = modelId });
             db.Projects.AddRange(
                 new Project { Id = p1, Name = "Alpha" },
                 new Project { Id = p2, Name = "Beta" });

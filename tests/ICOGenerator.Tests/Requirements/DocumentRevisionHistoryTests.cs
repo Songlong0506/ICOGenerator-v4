@@ -39,7 +39,7 @@ public class DocumentRevisionHistoryTests : IDisposable
 
         var model = new AiModel { Id = Guid.NewGuid(), ModelId = "test" };
         db.AiModels.Add(model);
-        db.Agents.Add(new Agent { Id = _baId, Name = "BA", AiModelId = model.Id });
+        db.Agents.Add(new Agent { Id = _baId, AiModelId = model.Id });
         db.Projects.Add(new Project { Id = _projectId, Name = "P" });
         db.SaveChanges();
     }

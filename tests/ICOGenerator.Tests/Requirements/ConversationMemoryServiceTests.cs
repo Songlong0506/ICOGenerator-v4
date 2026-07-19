@@ -24,7 +24,7 @@ public class ConversationMemoryServiceTests : IDisposable
 
     public ConversationMemoryServiceTests()
     {
-        _ba = new Agent { Id = Guid.NewGuid(), Name = "BA", Temperature = 0.2, AiModelId = _model.Id };
+        _ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id };
 
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
