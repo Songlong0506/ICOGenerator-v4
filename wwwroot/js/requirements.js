@@ -184,6 +184,55 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
+    // "Triển vọng phỏng vấn" (frame "outlook"): điểm cần làm rõ (D), màn hình dự kiến (G), ví dụ tính
+    // thử đã xác nhận (A). Mỗi danh sách rỗng thì ẩn panel tương ứng (mục đã được chốt/giải quyết rời đi).
+    function renderList(panelId, listId, countId, items, itemHtml) {
+        const panel = document.getElementById(panelId);
+        const list = document.getElementById(listId);
+        if (!panel || !list || !Array.isArray(items)) return;
+        if (items.length === 0) { panel.hidden = true; return; }
+        list.innerHTML = items.map(itemHtml).join("");
+        const count = document.getElementById(countId);
+        if (count) count.textContent = `(${items.length})`;
+        panel.hidden = false;
+    }
+
+    function renderOutlook(data) {
+        renderList("scopePanel", "scopeList", "scopeCount", data.plannedScope,
+            s => `<li class="scope-item">${escapeHtml(s)}</li>`);
+        renderList("openQPanel", "openQList", "openQCount", data.openQuestions,
+            q => `<li><button type="button" class="open-q-item" data-question="${escapeHtml(q)}" title="Bấm để trả lời điểm này">${escapeHtml(q)}</button></li>`);
+        renderList("workedPanel", "workedList", "workedCount", data.workedExamples,
+            ex => `<li class="worked-item">${escapeHtml(ex)}</li>`);
+    }
+
+    // Bấm một "điểm cần làm rõ" → soạn sẵn tin nhắn trả lời điểm đó vào ô nhập.
+    const openQPanelEl = document.getElementById("openQPanel");
+    if (openQPanelEl) {
+        openQPanelEl.addEventListener("click", function (e) {
+            const item = e.target.closest(".open-q-item");
+            if (!item) return;
+            messageInput.value = `Về điểm "${item.dataset.question}": `;
+            resizeMessageInput();
+            messageInput.focus();
+            messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
+        });
+    }
+
+    // Bấm một "giả định của bản thiết kế" (E) → soạn sẵn tin nhắn đính chính; gửi đi sẽ soạn lại tài liệu
+    // và dựng lại POC cho khớp giả định đã sửa (đóng vòng trước khi bản demo bị coi là chốt).
+    const assumptionPanelEl = document.getElementById("assumptionPanel");
+    if (assumptionPanelEl) {
+        assumptionPanelEl.addEventListener("click", function (e) {
+            const item = e.target.closest(".assumption-item");
+            if (!item) return;
+            messageInput.value = `Giả định "${item.dataset.assumption}" chưa đúng. Thực tế là: `;
+            resizeMessageInput();
+            messageInput.focus();
+            messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
+        });
+    }
+
     // Đồng bộ trạng thái nút "Write Requirement" với cờ mời của lượt BA mới nhất — đúng logic server
     // render (requirementReady trong Index.cshtml), vì trang không reload nữa.
     function setWriteRequirementReady(ready) {
@@ -275,6 +324,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // Frame phụ SAU done: bản "Điều đã chốt" đã gộp lượt vừa rồi (server tách lời gọi LLM này
             // ra khỏi đường trả lời để lượt chat nhanh hơn — panel tự làm tươi trễ vài giây).
             renderDecisions(ev.decisions);
+        } else if (ev.type === "outlook") {
+            // Frame phụ SAU done: "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ
+            // tính thử đã xác nhận) đã gộp lượt vừa rồi — làm tươi ba panel bên phải.
+            renderOutlook(ev);
         }
     }
 

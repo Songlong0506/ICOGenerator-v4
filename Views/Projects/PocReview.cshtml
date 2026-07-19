@@ -22,7 +22,8 @@
      data-project-id="@Model.ProjectId"
      data-comments-url="@Url.Action("PocComments", "Projects", new { projectId = Model.ProjectId })"
      data-add-url="@Url.Action("AddPocComment", "Projects")"
-     data-delete-url="@Url.Action("DeletePocComment", "Projects")">
+     data-delete-url="@Url.Action("DeletePocComment", "Projects")"
+     data-route-req-url="@Url.Action("RoutePocFeedbackToRequirement", "Projects")">
 
     <section class="card poc-frame-panel">
         <div class="poc-toolbar">
@@ -87,6 +88,19 @@
         <p class="muted poc-panel-hint">
             Ghi chú sẽ được gom vào "Yêu cầu chỉnh sửa" ở cổng POC (Agent Dashboard) để agent sửa đúng phần tử.
         </p>
+        @* Đóng vòng POC → TÀI LIỆU: khi POC lộ ra điều tài liệu yêu cầu HIỂU SAI (thiếu màn hình/bước, sai
+           công thức…), gửi các điểm đó về BA để sửa TÀI LIỆU rồi dựng lại POC — thay vì chỉ vá HTML. Ghi
+           chú thẩm mỹ được bỏ qua ở đây. Chỉ hiện với người có quyền quản lý requirement. *@
+        @if (canManage)
+        {
+            <div class="poc-route-req">
+                <button type="button" id="pocRouteReqBtn" class="btn outline small full">↩ Có điểm hiểu sai yêu cầu → gửi về Requirement</button>
+                <p class="muted poc-panel-hint" id="pocRouteReqHint">
+                    Dùng khi bản demo cho thấy TÀI LIỆU yêu cầu còn thiếu/sai (không phải lỗi trình bày). BA sẽ
+                    cập nhật lại bản mô tả, sau đó anh/chị duyệt lại để dựng POC mới từ tài liệu đã sửa.
+                </p>
+            </div>
+        }
 
         <form id="pocCommentForm" class="poc-comment-form" hidden>
             @Html.AntiForgeryToken()

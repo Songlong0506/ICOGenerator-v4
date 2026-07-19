@@ -100,11 +100,15 @@ Your task:
     // organizationContext (có thể rỗng): spec là ĐẦU VÀO DUY NHẤT của bước dựng POC, nên tên phòng ban/
     // chức danh/người thật phải vào spec (mục Sample Data) thì dữ liệu mẫu của POC mới "trông như của
     // công ty mình" thay vì "Nguyễn Văn A / Phòng X" chung chung.
+    // workedExamples (có thể rỗng): các ví dụ tính thử người dùng ĐÃ xác nhận cho quy tắc định lượng
+    // (Project.WorkedExamples, chắt từ hội thoại). Chúng phải đi vào mục "## 13. Worked Examples" của spec
+    // để POC dựng từ spec đối chiếu ĐỘC LẬP con số kỳ vọng — xem ai-design-spec.v1.md và PocRuntimeChecker.
     public string BuildAiDesignSpec(
         Project project,
         string approvedProductBrief,
         string currentAiDesignSpec,
-        string organizationContext = "")
+        string organizationContext = "",
+        string? workedExamples = null)
     {
         return $$"""
 Project:
@@ -115,7 +119,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-
+{{WorkedExamplesSection(workedExamples)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -125,6 +129,21 @@ Your task:
 - Do NOT add features or screens that are not in the approved Product Brief.
 - When the organization context above names real departments/roles/people relevant to this project, use those REAL names in the spec's sample data (seed records, example approvers, department dropdowns) so the POC demo feels like THIS organization — do NOT invent generic placeholder names for things the context already names.
 - Return JSON only.
+""";
+    }
+
+    // Khối "ví dụ tính thử đã xác nhận" chèn vào prompt sinh spec: rỗng thì biến mất. Có nội dung thì bắt
+    // spec đưa NGUYÊN các con số này vào mục "## 13. Worked Examples" — đây là oracle độc lập cho POC.
+    private static string WorkedExamplesSection(string? workedExamples)
+    {
+        if (string.IsNullOrWhiteSpace(workedExamples))
+            return string.Empty;
+
+        return $"""
+
+Ví dụ tính thử người dùng ĐÃ XÁC NHẬN trong lúc phỏng vấn (đưa NGUYÊN các con số này vào mục "## 13. Worked Examples" của spec — chúng là chuẩn để POC tự kiểm đối chiếu):
+{workedExamples.Trim()}
+
 """;
     }
 

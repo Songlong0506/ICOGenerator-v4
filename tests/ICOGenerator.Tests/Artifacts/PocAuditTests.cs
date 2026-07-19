@@ -289,4 +289,34 @@ public class PocAuditTests
         Assert.DoesNotContain("spec coverage", report);
         Assert.DoesNotContain("BUSINESS RULES", report);
     }
+
+    // ---- Worked examples (§ 13): the independent oracle wiring the static audit can prompt for ----
+
+    private static PocSpec SpecWithWorkedExample() =>
+        PocSpec.Parse("## 6. Screens To Generate\n### Home\n"
+            + "## 13. Worked Examples\n- WE-1 (BR-1): 80/90/70 trọng số 50/30/20 => 81\n");
+
+    [Fact]
+    public void MissingPocWorkedExamples_BecomesAnIssue_WhenSpecDeclaresWorkedExamples()
+    {
+        // Script tồn tại nhưng KHÔNG định nghĩa window.pocWorkedExamples → mất tầng oracle độc lập.
+        var doc = Doc(Leaf("Home"), Section("Home"), script: "function pocSelfTest(){ return []; }");
+
+        var report = PocAudit.Run(doc, SpecWithWorkedExample());
+
+        Assert.Contains("ISSUES", report);
+        Assert.Contains("pocWorkedExamples()", report);
+    }
+
+    [Fact]
+    public void EchoesWorkedExamplesChecklist()
+    {
+        var doc = Doc(Leaf("Home"), Section("Home"), script: "function pocWorkedExamples(){ return [{ref:'WE-1', computed: 81}]; }");
+
+        var report = PocAudit.Run(doc, SpecWithWorkedExample());
+
+        Assert.Contains("WORKED EXAMPLES from the AI Design Spec", report);
+        Assert.Contains("WE-1", report);
+        Assert.Contains("expected 81", report);
+    }
 }

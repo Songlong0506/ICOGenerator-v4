@@ -56,6 +56,20 @@ public class Project
     // gộp (fail-open như CoverageHarvestedTurnCount). Xem DecisionLogService.
     public string? DecisionLog { get; set; }
     public int DecisionHarvestedTurnCount { get; set; }
+    // "Triển vọng phỏng vấn" — ba danh sách bullet (text) chắt lọc từ hội thoại trong CÙNG một lời gọi
+    // (InterviewOutlookService), cập nhật ở hậu kỳ lượt chat như DecisionLog (không cộng vào độ chờ):
+    //  • OpenQuestions: điểm còn MƠ HỒ / MÂU THUẪN chưa chốt — panel "Điểm cần làm rõ" cạnh chat để user
+    //    thấy chỗ tài liệu còn mỏng (đối trọng với "Điều đã chốt"). Mục được chốt thì rời khỏi danh sách.
+    //  • PlannedScope: các MÀN HÌNH/TÍNH NĂNG dự kiến dựng dần theo hội thoại — panel "Sẽ xây gì" để user
+    //    bắt hiểu nhầm sớm và giữ động lực thay vì phỏng vấn "mù" tới lúc Write Requirement.
+    //  • WorkedExamples: các VÍ DỤ TÍNH THỬ người dùng ĐÃ XÁC NHẬN (input → kết quả kỳ vọng) cho quy tắc
+    //    định lượng — nguồn để bước sinh AI Design Spec đúc thành "## 13. Worked Examples" và POC tự kiểm
+    //    (window.pocWorkedExamples) đối chiếu ĐỘC LẬP: kỳ vọng do user chốt, giá trị do POC tự tính.
+    // InterviewOutlookHarvestedTurnCount là con trỏ số lượt đã gộp (fail-open như các bản đồ khác).
+    public string? OpenQuestions { get; set; }
+    public string? PlannedScope { get; set; }
+    public string? WorkedExamples { get; set; }
+    public int InterviewOutlookHarvestedTurnCount { get; set; }
     // Con trỏ học từ ghi chú POC: số PocComment (xếp theo CreatedAt) của dự án đã được chắt lọc vào
     // Agent.LearnedChecklistNotes sau mỗi vòng chỉnh sửa POC — ghi chú kiểu "thiếu màn hình X" chính là
     // câu hỏi BA lẽ ra phải hỏi từ lúc phỏng vấn. Xem PocFeedbackMemoryService.

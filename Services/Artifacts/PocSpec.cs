@@ -3,6 +3,13 @@ using System.Text.RegularExpressions;
 namespace ICOGenerator.Services.Artifacts;
 
 /// <summary>
+/// Một ví dụ tính thử đã chốt từ "## 13. Worked Examples": rule minh hoạ (<paramref name="RuleRef"/>, có
+/// thể null), mô tả đầu vào và <paramref name="Expected"/> = kết quả kỳ vọng (chuỗi so khớp). POC tự tính
+/// lại ví dụ này và runtime checker đối chiếu — kỳ vọng do người dùng chốt, giá trị do POC tính.
+/// </summary>
+public sealed record PocWorkedExample(string Ref, string? RuleRef, string Description, string Expected);
+
+/// <summary>
 /// Deterministic reading of the AI Design Spec (markdown) into the checklist PocAudit compares the
 /// generated demo against: the screen names of "Screens To Generate" and the bullets of
 /// "Business Rules". The BA prompt pins the shape (one "### 6.n. Tên màn hình" heading per screen,
@@ -12,19 +19,26 @@ namespace ICOGenerator.Services.Artifacts;
 /// </summary>
 public sealed partial class PocSpec
 {
-    public static readonly PocSpec Empty = new([], []);
+    public static readonly PocSpec Empty = new([], [], []);
 
     // Defensive caps: a runaway spec must not turn the audit report into a novel.
     private const int MaxScreens = 30;
     private const int MaxRules = 40;
+    private const int MaxWorkedExamples = 40;
 
     public IReadOnlyList<string> Screens { get; }
     public IReadOnlyList<string> Rules { get; }
 
-    private PocSpec(IReadOnlyList<string> screens, IReadOnlyList<string> rules)
+    // Ví dụ tính thử đã chốt (§ 13. Worked Examples): mỗi mục input → kết quả kỳ vọng cho một rule định
+    // lượng. Đây là ORACLE ĐỘC LẬP — POC tự tính lại (window.pocWorkedExamples) và PocRuntimeChecker đối
+    // chiếu giá trị POC tính ra với Expected ở đây (kỳ vọng do người dùng chốt, không phải agent tự đặt).
+    public IReadOnlyList<PocWorkedExample> WorkedExamples { get; }
+
+    private PocSpec(IReadOnlyList<string> screens, IReadOnlyList<string> rules, IReadOnlyList<PocWorkedExample> workedExamples)
     {
         Screens = screens;
         Rules = rules;
+        WorkedExamples = workedExamples;
     }
 
     public static PocSpec Parse(string? specMarkdown)
@@ -36,6 +50,7 @@ public sealed partial class PocSpec
 
         var screens = new List<string>();
         var rules = new List<string>();
+        var workedExamples = new List<PocWorkedExample>();
         var section = CurrentSection.Other;
 
         foreach (var raw in lines)
@@ -64,10 +79,40 @@ public sealed partial class PocSpec
                     if (bullet.Success)
                         AddUnique(rules, CleanRuleText(bullet.Groups[1].Value), MaxRules);
                     break;
+
+                case CurrentSection.WorkedExamples:
+                    var we = TopLevelBulletRegex().Match(line);
+                    if (we.Success && workedExamples.Count < MaxWorkedExamples)
+                    {
+                        var parsed = ParseWorkedExample(we.Groups[1].Value);
+                        if (parsed != null && workedExamples.All(x => x.Ref != parsed.Ref))
+                            workedExamples.Add(parsed);
+                    }
+                    break;
             }
         }
 
-        return screens.Count == 0 && rules.Count == 0 ? Empty : new PocSpec(screens, rules);
+        return screens.Count == 0 && rules.Count == 0 && workedExamples.Count == 0
+            ? Empty
+            : new PocSpec(screens, rules, workedExamples);
+    }
+
+    // "WE-1 (BR-3): 3 mục tiêu 80/90/70, trọng số 50/30/20 => 81" → ref "WE-1", rule "BR-3",
+    // input "3 mục tiêu…", expected "81". Placeholder ("Không có") và dòng thiếu "=>" bị bỏ (không đối
+    // chiếu được thì không phải worked example).
+    private static PocWorkedExample? ParseWorkedExample(string raw)
+    {
+        var text = StripMarkdownEmphasis(raw).Trim();
+        var m = WorkedExampleRegex().Match(text);
+        if (!m.Success)
+            return null;
+        var expected = m.Groups[4].Value.Trim();
+        var input = m.Groups[3].Value.Trim();
+        if (expected.Length == 0)
+            return null;
+        var refName = "WE-" + m.Groups[1].Value;
+        var ruleRef = m.Groups[2].Success ? m.Groups[2].Value.Trim() : null;
+        return new PocWorkedExample(refName, string.IsNullOrWhiteSpace(ruleRef) ? null : ruleRef, input, expected);
     }
 
     /// <summary>
@@ -93,7 +138,7 @@ public sealed partial class PocSpec
     public static string Key(string label) =>
         WhitespaceRegex().Replace((label ?? string.Empty).Trim(), " ").ToLowerInvariant();
 
-    private enum CurrentSection { Other, Screens, Rules }
+    private enum CurrentSection { Other, Screens, Rules, WorkedExamples }
 
     // Headings come numbered ("## 6. Screens To Generate"); classification goes by the words so a
     // renumbered spec still parses. English names are pinned by the BA prompt; the Vietnamese
@@ -101,6 +146,9 @@ public sealed partial class PocSpec
     private static CurrentSection ClassifySection(string headingText)
     {
         var text = Key(StripNumbering(headingText));
+        // "Worked Examples" / "ví dụ tính" checked FIRST: it must not fall through to the rules branch.
+        if (text.Contains("worked example", StringComparison.Ordinal) || text.Contains("ví dụ tính", StringComparison.Ordinal))
+            return CurrentSection.WorkedExamples;
         if (text.Contains("screen", StringComparison.Ordinal) || text.Contains("màn hình", StringComparison.Ordinal))
             return CurrentSection.Screens;
         if (text.Contains("business rule", StringComparison.Ordinal) || text.Contains("quy tắc", StringComparison.Ordinal))
@@ -167,6 +215,11 @@ public sealed partial class PocSpec
     // Bullet placeholder ("N/A", "none", "Không có") — không phải rule thật.
     [GeneratedRegex("^(?:n/?a|none|không có)\\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex PlaceholderBulletRegex();
+
+    // "WE-1 (BR-3): <input> => <expected>" — ref số, rule tùy chọn trong ngoặc, input, kết quả kỳ vọng
+    // sau "=>" hoặc "→". Group1=ref số, Group2=rule (tùy chọn), Group3=input, Group4=expected.
+    [GeneratedRegex("^WE[-\\s]?(\\d+)\\s*(?:\\(\\s*(BR[-\\s]?\\d+)\\s*\\))?\\s*:?\\s*(.*?)\\s*(?:=>|→)\\s*(.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex WorkedExampleRegex();
 
     // Đánh số đầu dòng ("6.", "6.1.", "1)"…) cần cắt bỏ.
     [GeneratedRegex("^\\d{1,2}(?:\\.\\d{1,2})*[.)]?\\s*")]

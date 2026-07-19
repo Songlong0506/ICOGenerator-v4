@@ -312,6 +312,25 @@ public class WorkspaceTools
                 sb.Append($"Self-test summary: {string.Join("; ", runtime.SelfTestResults)}");
         }
 
+        // Oracle ĐỘC LẬP cho công thức: đối chiếu KỲ VỌNG lấy từ "## 13. Worked Examples" của spec (người
+        // dùng đã chốt) với GIÁ TRỊ do POC tự tính (window.pocWorkedExamples). Chỉ so khi runtime thật sự
+        // chạy (có browser); không có worked example nào thì lặng lẽ bỏ qua (không đổi hành vi cũ).
+        if (runtime.Ran && _pocSpec.WorkedExamples.Count > 0)
+        {
+            var oracleIssues = PocWorkedExampleOracle.Compare(_pocSpec.WorkedExamples, runtime.WorkedExampleResults);
+            sb.AppendLine();
+            if (oracleIssues.Count == 0)
+            {
+                sb.Append($"WORKED EXAMPLES ORACLE: OK — POC tính đúng {_pocSpec.WorkedExamples.Count} ví dụ người dùng đã chốt.");
+            }
+            else
+            {
+                sb.AppendLine("WORKED EXAMPLES ORACLE (POC tính SAI/thiếu so với con số người dùng đã chốt — fix logic, ĐỪNG sửa kỳ vọng):");
+                for (var i = 0; i < oracleIssues.Count; i++)
+                    sb.AppendLine($"{i + 1}. {oracleIssues[i]}");
+            }
+        }
+
         // Tầng VISUAL QA: đưa ảnh chụp từng màn hình cho agent UI/UX (vision) chấm bố cục/dữ liệu mẫu —
         // lớp khiếm khuyết mà scan chuỗi và self-test không thấy (màn hình trống, layout vỡ, sai ngôn ngữ).
         // Fail-open: không có agent vision / không ảnh ⇒ SKIPPED, không đổi hành vi cũ.

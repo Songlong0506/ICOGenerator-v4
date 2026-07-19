@@ -5,16 +5,20 @@ namespace ICOGenerator.Services.Artifacts;
 /// <summary>Ảnh chụp một màn hình POC (PNG) để tầng Visual QA (vision model) chấm bố cục/dữ liệu mẫu.</summary>
 public sealed record PocScreenshot(string Screen, byte[] Png);
 
+/// <summary>Kết quả POC tự tính một worked example (window.pocWorkedExamples): ref + giá trị POC tính ra.</summary>
+public sealed record PocWorkedExampleResult(string Ref, string Computed);
+
 /// <summary>Kết quả một lần kiểm tra runtime POC. <see cref="Ran"/> = false nghĩa là bị bỏ qua (không có browser/tắt cấu hình) — audit vẫn tiếp tục với phần tĩnh.</summary>
 public sealed record PocRuntimeReport(
     bool Ran,
     string? SkipReason,
     IReadOnlyList<string> Issues,
     IReadOnlyList<string> SelfTestResults,
-    IReadOnlyList<PocScreenshot> Screenshots)
+    IReadOnlyList<PocScreenshot> Screenshots,
+    IReadOnlyList<PocWorkedExampleResult> WorkedExampleResults)
 {
     public static PocRuntimeReport Skipped(string reason) =>
-        new(false, reason, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<PocScreenshot>());
+        new(false, reason, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<PocScreenshot>(), Array.Empty<PocWorkedExampleResult>());
 }
 
 /// <summary>
@@ -131,21 +135,40 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             cancellationToken.ThrowIfCancellationRequested();
             currentScreen = screen;
 
-            var opened = await page.EvaluateAsync<bool>(
+            // Mở màn hình VÀ đo luôn "độ đầy" của nó trong một lần evaluate: text hiển thị + số phần tử
+            // nội dung (control/bảng/card…) của section đang active. Đây là heuristic màn-hình-trống KHÔNG
+            // cần vision agent — lớp lỗi mà scan chuỗi/self-test đều mù (màn mở được nhưng rỗng trơn).
+            var probe = await page.EvaluateAsync<ScreenProbe?>(
                 @"(label) => {
                     try {
                         if (typeof window.pocNavigate === 'function') window.pocNavigate(label);
                         const active = document.querySelector('section.page-view.active');
-                        return !!active && (active.dataset.view || '').trim().toLowerCase() === label.trim().toLowerCase();
-                    } catch { return false; }
+                        const opened = !!active && (active.dataset.view || '').trim().toLowerCase() === label.trim().toLowerCase();
+                        const overflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
+                        if (!active) return { opened: opened, textLen: 0, controls: 0, overflowX: overflow };
+                        const text = (active.innerText || '').replace(/\s+/g, ' ').trim();
+                        const controls = active.querySelectorAll('h1,h2,h3,h4,h5,p,input,select,textarea,button,table,canvas,svg,img,.card,li').length;
+                        return { opened: opened, textLen: text.length, controls: controls, overflowX: overflow };
+                    } catch { return { opened: false, textLen: 0, controls: 0, overflowX: 0 }; }
                 }", screen);
             await page.WaitForTimeoutAsync(100);
 
-            if (!opened)
+            if (probe is not { Opened: true })
             {
                 issues.Add($"Màn hình '{screen}' không mở được qua pocNavigate — click menu tương ứng sẽ không đổi nội dung (kiểm tra nhãn data-view khớp nhãn menu và script không ném lỗi khi render).");
                 continue; // màn hình không mở được thì ảnh chụp vô nghĩa (vẫn ở màn cũ).
             }
+
+            // Màn mở được nhưng KHÔNG có phần tử nội dung nào (không heading/đoạn văn/control/bảng/card) và
+            // gần như không chữ = section rỗng trơn — báo issue để Developer dựng nội dung thật. Precision
+            // cao (controls < 1): chỉ bắt màn thực sự trống, không đụng màn tối giản có tiêu đề.
+            if (probe.TextLen < 15 && probe.Controls < 1)
+                issues.Add($"Màn hình '{screen}' gần như TRỐNG (chỉ {probe.TextLen} ký tự hiển thị, không có phần tử nội dung nào) — dựng nội dung thật cho màn này theo AI Design Spec (bảng/thẻ/form + dữ liệu mẫu), đừng để một section rỗng.");
+
+            // Tràn NGANG ở bề rộng desktop = layout không co giãn (bảng quá rộng không bọc table-responsive,
+            // phần tử fixed-width tràn khung). Ngưỡng nới (>24px) để bỏ qua chênh lệch scrollbar lặt vặt.
+            else if (probe.OverflowX > 24)
+                issues.Add($"Màn hình '{screen}' bị TRÀN NGANG {probe.OverflowX}px ở bề rộng desktop (phải cuộn ngang) — bọc bảng rộng trong `table-responsive`, dùng lưới/flex co giãn thay cho phần tử cố định bề rộng, để layout không vỡ trên màn hẹp.");
 
             if (captureScreenshots && screenshots.Count < MaxScreens)
             {
@@ -190,8 +213,46 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             }
         }
 
+        // window.pocWorkedExamples(): POC tự tính lại từng worked example rồi trả [{ref, computed}]. Đây là
+        // NGUYÊN LIỆU cho oracle độc lập — WorkspaceTools đối chiếu `computed` với `Expected` của spec (kỳ
+        // vọng do người dùng chốt). Chỉ thu THÔ ở đây (giá trị POC tính), so khớp để tầng có spec làm.
+        currentScreen = "(pocWorkedExamples)";
+        var workedRaw = await page.EvaluateAsync<string[]?>(
+            @"() => {
+                if (typeof window.pocWorkedExamples !== 'function') return null;
+                let result;
+                try { result = window.pocWorkedExamples(); }
+                catch (e) { return ['__ERROR__|' + (e && e.message ? e.message : e)]; }
+                if (!Array.isArray(result)) return ['__ERROR__|không trả về mảng [{ref, computed}]'];
+                return result.map(x => String((x && x.ref) || '?') + '|' + String((x && (x.computed !== undefined ? x.computed : x.value)) ?? ''));
+            }");
+
+        var workedResults = new List<PocWorkedExampleResult>();
+        if (workedRaw != null)
+        {
+            foreach (var entry in workedRaw)
+            {
+                var parts = entry.Split('|', 2);
+                if (parts[0] == "__ERROR__")
+                {
+                    issues.Add($"window.pocWorkedExamples() ném lỗi/không hợp lệ: {(parts.Length > 1 ? parts[1] : "?")}. Định nghĩa hàm GLOBAL trả [{{ ref:'WE-n', computed:<giá trị POC tính> }}] cho từng worked example của spec.");
+                    continue;
+                }
+                workedResults.Add(new PocWorkedExampleResult(parts[0], parts.Length > 1 ? parts[1] : string.Empty));
+            }
+        }
+
         lock (errors) issues.AddRange(errors);
-        return new PocRuntimeReport(true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots);
+        return new PocRuntimeReport(true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots, workedResults);
+    }
+
+    // Kết quả evaluate "mở màn hình + đo độ đầy" — Playwright deserialize JSON theo các key camelCase.
+    private sealed class ScreenProbe
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("opened")] public bool Opened { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("textLen")] public int TextLen { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("controls")] public int Controls { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("overflowX")] public int OverflowX { get; set; }
     }
 
     private async Task<IBrowser?> GetBrowserAsync()
