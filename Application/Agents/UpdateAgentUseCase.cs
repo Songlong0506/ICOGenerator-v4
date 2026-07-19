@@ -31,7 +31,6 @@ public class UpdateAgentUseCase
         // Chụp trạng thái TRƯỚC khi sửa để so sánh trong audit log.
         var before = Snapshot(agent);
 
-        agent.Name = vm.Name?.Trim() ?? string.Empty;
         agent.Description = vm.Description?.Trim() ?? string.Empty;
         agent.Color = string.IsNullOrWhiteSpace(vm.Color) ? "#8B5CF6" : vm.Color.Trim();
         agent.Temperature = vm.Temperature;
@@ -56,14 +55,14 @@ public class UpdateAgentUseCase
         await _db.SaveChangesAsync();
 
         await _audit.LogAsync(AuditCategory.Agent, AuditAction.Update, agent.Id.ToString(),
-            $"Cập nhật Agent \"{agent.Name}\"", before: before, after: Snapshot(agent));
+            $"Cập nhật Agent \"{agent.RoleKey.GetTitle()}\"", before: before, after: Snapshot(agent));
         return UpdateAgentResult.Success;
     }
 
     // Ảnh chụp cấu hình agent (kèm danh sách tool đã gán) để so sánh before/after trong audit log.
     private static object Snapshot(Agent a) => new
     {
-        a.Name,
+        RoleKey = a.RoleKey.ToString(),
         a.Description,
         a.Color,
         a.Temperature,

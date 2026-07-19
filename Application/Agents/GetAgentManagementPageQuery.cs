@@ -28,7 +28,7 @@ public class GetAgentManagementPageQuery
             .Include(x => x.AiModel)
             .Include(x => x.AgentTools)
             .ThenInclude(x => x.ToolDefinition)
-            .OrderBy(x => x.Name)
+            .OrderBy(x => x.RoleKey)
             .ToListAsync();
 
         var models = await _db.AiModels.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.ModelId).ToListAsync();

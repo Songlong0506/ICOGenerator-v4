@@ -98,7 +98,7 @@ public class PocVisualReviewerTests : IDisposable
         await using var db = NewDb();
         var model = new AiModel { Id = Guid.NewGuid(), ModelId = "vision-model", SupportsVision = supportsVision };
         db.AiModels.Add(model);
-        db.Agents.Add(new Agent { Id = Guid.NewGuid(), Name = "UI/UX", RoleKey = AgentRoleKey.UiUx, Temperature = 0.2, AiModelId = model.Id });
+        db.Agents.Add(new Agent { Id = Guid.NewGuid(), RoleKey = AgentRoleKey.UiUx, Temperature = 0.2, AiModelId = model.Id });
         await db.SaveChangesAsync();
     }
 

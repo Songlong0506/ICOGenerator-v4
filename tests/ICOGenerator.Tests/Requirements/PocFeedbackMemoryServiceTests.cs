@@ -116,7 +116,6 @@ public class PocFeedbackMemoryServiceTests : IDisposable
         var ba = new Agent
         {
             Id = Guid.NewGuid(),
-            Name = "BA",
             RoleKey = AgentRoleKey.BusinessAnalyst,
             Temperature = 0.2,
             AiModelId = _model.Id,

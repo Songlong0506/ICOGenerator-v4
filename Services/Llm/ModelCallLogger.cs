@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 
 namespace ICOGenerator.Services.Llm;
 
@@ -19,7 +20,7 @@ public class ModelCallLogger : IModelCallLogger
             ProjectId = projectId,
             AgentId = agent.Id,
             WorkflowRunId = workflowRunId,
-            AgentName = agent.Name,
+            AgentName = agent.RoleKey.GetTitle(),
             ModelId = callResult.ModelId,
             RequestJson = callResult.RequestJson,
             ResponseText = callResult.ResponseText,

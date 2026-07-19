@@ -76,20 +76,36 @@ public class GetWorkflowStatusQuery
 
         var isTerminal = run.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Failed or WorkflowRunStatus.Canceled;
 
-        var tasks = await _db.AgentTasks
+        // RoleKey (enum) được project thô rồi map sang tiêu đề hiển thị trong bộ nhớ — GetTitle() đọc
+        // [Description] nên EF không dịch được vào SQL.
+        var taskRows = await _db.AgentTasks
             .AsNoTracking()
             .Where(x => x.WorkflowRunId == run.Id)
             .OrderBy(x => x.CreatedAt)
-            .Select(x => new WorkflowTaskStatusVm(
+            .Select(x => new
+            {
                 x.Title,
-                x.Type.ToString(),
-                x.Status.ToString(),
-                x.Agent != null ? x.Agent.Name : null,
+                Type = x.Type.ToString(),
+                Status = x.Status.ToString(),
+                AgentRole = x.Agent != null ? (AgentRoleKey?)x.Agent.RoleKey : null,
                 x.Attempt,
                 x.Error,
-                x.StartedAt != null ? x.StartedAt.Value.ToString("o") : null,
-                x.FinishedAt != null ? x.FinishedAt.Value.ToString("o") : null))
+                StartedAt = x.StartedAt != null ? x.StartedAt.Value.ToString("o") : null,
+                FinishedAt = x.FinishedAt != null ? x.FinishedAt.Value.ToString("o") : null
+            })
             .ToListAsync();
+
+        var tasks = taskRows
+            .Select(x => new WorkflowTaskStatusVm(
+                x.Title,
+                x.Type,
+                x.Status,
+                x.AgentRole?.GetTitle(),
+                x.Attempt,
+                x.Error,
+                x.StartedAt,
+                x.FinishedAt))
+            .ToList();
 
         var events = _progress.GetEvents(run.Id, afterSeq)
             .Select(WorkflowProgressEventVm.From)

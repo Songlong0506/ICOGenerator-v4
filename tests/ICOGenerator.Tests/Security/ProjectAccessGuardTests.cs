@@ -45,7 +45,7 @@ public class ProjectAccessGuardTests : IDisposable
 
         var model = new AiModel { ModelId = "m", Endpoint = "http://localhost", ApiKey = "" };
         db.AiModels.Add(model);
-        var agent = new Agent { Name = "BA", AiModelId = model.Id };
+        var agent = new Agent { AiModelId = model.Id };
         db.Agents.Add(agent);
 
         var document = new ProjectDocument { ProjectId = _aliceProjectId, FileName = "ProductBrief.docx" };

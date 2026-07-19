@@ -45,7 +45,7 @@ public class RequirementReadinessGateTests : IDisposable
         using var db = NewDb();
         db.Database.EnsureCreated();
         db.AiModels.Add(_model);
-        db.Agents.Add(new Agent { Id = _baId, Name = "BA", RoleKey = AgentRoleKey.BusinessAnalyst, Temperature = 0.2, AiModelId = _model.Id });
+        db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, Temperature = 0.2, AiModelId = _model.Id });
         db.Projects.Add(new Project { Id = _projectId, Name = "P", Description = "app nghỉ phép" });
         db.SaveChanges();
     }

@@ -471,7 +471,6 @@ public class RequestStageRevisionUseCaseTests : IDisposable
     private static Agent NewAgent(Guid id) => new()
     {
         Id = id,
-        Name = "Tech Lead",
         RoleKey = AgentRoleKey.TechLead,
         AiModel = new AiModel { ModelId = "test-model" }
     };

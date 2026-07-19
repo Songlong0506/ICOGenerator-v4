@@ -28,8 +28,9 @@ public class EvalRunnerService
     private const double JudgeTemperature = 0.0;
     private const int DefaultRequestTimeoutSeconds = 600;
 
-    // Agent "đại diện" cho ModelCallLogContext (middleware chỉ dùng Name cho progress line; logger là no-op).
-    private static readonly Agent EvalAgentStub = new() { Name = "Eval" };
+    // Agent "đại diện" cho ModelCallLogContext (middleware chỉ dùng RoleKey.GetTitle() cho progress line;
+    // logger là no-op nên danh tính agent không quan trọng với eval).
+    private static readonly Agent EvalAgentStub = new();
 
     private readonly AppDbContext _db;
     private readonly IChatClientFactory _chatClientFactory;

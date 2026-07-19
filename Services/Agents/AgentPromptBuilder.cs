@@ -23,7 +23,7 @@ public class AgentPromptBuilder
     public string BuildNative(Agent agent)
     {
         return _promptTemplateService.Get("Shared/tool-agent-native.v1.md")
-            .Replace("{{agentName}}", agent.Name)
+            .Replace("{{agentName}}", agent.RoleKey.GetTitle())
             .Replace("{{roleTitle}}", agent.RoleKey.GetTitle())
             .Replace("{{instruction}}", _instructionProvider.GetInstruction(agent));
     }

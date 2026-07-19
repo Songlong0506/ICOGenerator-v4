@@ -111,7 +111,7 @@ public class RequirementCoverageServiceTests : IDisposable
     {
         // Kịch bản bug gốc: BA hỏi kèm 3 gợi ý, user chọn option tham chiếu "Cả hai mục tiêu trên".
         // Khối hội thoại gộp phải chứa các option đã đưa ra, nếu không distill mất context.
-        var ba = new Agent { Id = Guid.NewGuid(), Name = "BA", Temperature = 0.2, AiModelId = _model.Id };
+        var ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id };
         var project = new Project { Id = Guid.NewGuid(), Name = "P" };
         var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -158,7 +158,7 @@ public class RequirementCoverageServiceTests : IDisposable
 
     private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? existingMap = null, int harvestedTurnCount = 0)
     {
-        var ba = new Agent { Id = Guid.NewGuid(), Name = "BA", Temperature = 0.2, AiModelId = _model.Id };
+        var ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id };
         var project = new Project
         {
             Id = Guid.NewGuid(),

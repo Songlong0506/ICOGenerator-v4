@@ -1,6 +1,7 @@
 using System.Text;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Llm;
@@ -94,7 +95,7 @@ public class AgentRunService
 
         var runtimeAgent = new ChatClientAgent(functionInvoker, new ChatClientAgentOptions
         {
-            Name = agent.Name,
+            Name = agent.RoleKey.GetTitle(),
             ChatOptions = new ChatOptions
             {
                 Instructions = _promptBuilder.BuildNative(agent),

@@ -27,7 +27,7 @@ public class ConversationEncryptionAtRestTests : IDisposable
 
     public ConversationEncryptionAtRestTests()
     {
-        _agent = new Agent { Id = Guid.NewGuid(), Name = "BA", AiModelId = _model.Id };
+        _agent = new Agent { Id = Guid.NewGuid(), AiModelId = _model.Id };
         _project = new Project { Id = Guid.NewGuid(), Name = "P" };
 
         _connection = new SqliteConnection("DataSource=:memory:");

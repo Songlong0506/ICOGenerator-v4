@@ -127,7 +127,7 @@ public class ChecklistGapMemoryServiceTests : IDisposable
 
     private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? existingNotes = null)
     {
-        var ba = new Agent { Id = Guid.NewGuid(), Name = "BA", Temperature = 0.2, AiModelId = _model.Id, LearnedChecklistNotes = existingNotes };
+        var ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id, LearnedChecklistNotes = existingNotes };
         var project = new Project { Id = Guid.NewGuid(), Name = "P" };
 
         await using var db = NewDb();

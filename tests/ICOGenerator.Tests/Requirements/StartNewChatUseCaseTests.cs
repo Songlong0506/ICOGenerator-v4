@@ -70,7 +70,7 @@ public class StartNewChatUseCaseTests : IDisposable
     private async Task<(Project Project, Project Other)> SeedAsync()
     {
         var model = new AiModel { Id = Guid.NewGuid(), ModelId = "test" };
-        var ba = new Agent { Id = Guid.NewGuid(), Name = "BA", AiModelId = model.Id };
+        var ba = new Agent { Id = Guid.NewGuid(), AiModelId = model.Id };
         var project = new Project
         {
             Id = Guid.NewGuid(),

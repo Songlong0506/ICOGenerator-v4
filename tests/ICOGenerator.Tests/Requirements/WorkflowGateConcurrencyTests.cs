@@ -135,7 +135,7 @@ public class WorkflowGateConcurrencyTests : IDisposable
         {
             var model = new AiModel { ModelId = "m", Endpoint = "http://localhost", ApiKey = "" };
             db.AiModels.Add(model);
-            db.Agents.Add(new Agent { Name = "BA", RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = model.Id });
+            db.Agents.Add(new Agent { RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = model.Id });
         }
 
         db.Projects.Add(new Project { Id = projectId, Name = "P" });

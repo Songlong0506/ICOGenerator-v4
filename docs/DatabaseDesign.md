@@ -219,8 +219,7 @@ erDiagram
 
     Agent {
         Guid Id PK
-        string Name
-        AgentRoleKey RoleKey
+        AgentRoleKey RoleKey UK
         string Description
         string Color
         double Temperature
@@ -279,6 +278,7 @@ erDiagram
 - `AgentModelCallLog.WorkflowRunId` có index nhưng không khai FK để tránh multiple cascade path; truy vấn join thủ công khi cần.
 - `AgentTool` là bảng many-to-many explicit với composite key.
 - `ToolDefinition` unique theo `(ServiceType, MethodName)` để đồng bộ discovery không tạo trùng.
+- `Agent.RoleKey` là unique: mỗi role đúng một agent — mọi lookup agent trong hệ thống đều theo `RoleKey`.
 
 ## 7. Security/RBAC/Audit schema
 
