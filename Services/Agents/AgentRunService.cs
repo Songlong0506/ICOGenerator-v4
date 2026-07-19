@@ -67,6 +67,8 @@ public class AgentRunService
         // Surface this run's token to tools (CommandTools resolves the same scoped WorkspaceTools) so a
         // cancel/shutdown kills any spawned process instead of letting it run to the command timeout.
         _workspaceTools.SetRunCancellation(cancellationToken);
+        // Cho các tool POC tường thuật milestone "đã dựng màn hình X" qua chính sink tiến độ của run này.
+        _workspaceTools.SetProgressSink(onProgress);
         var tools = await _toolRegistry.GetToolsForAgentAsync(agentId);
 
         var hardCap = maxSteps * AutoContinueFactor;

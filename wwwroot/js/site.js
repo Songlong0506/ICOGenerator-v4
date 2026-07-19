@@ -22,6 +22,7 @@ const EVENT_ICON_CLASS = {
     thinking: "bi-lightbulb",
     tool: "bi-tools",
     observation: "bi-inbox",
+    "poc-screen": "bi-window-stack",
     final: "bi-check-circle",
     completed: "bi-check-circle-fill",
     error: "bi-x-circle"
