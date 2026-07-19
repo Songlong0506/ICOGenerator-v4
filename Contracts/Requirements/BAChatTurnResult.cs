@@ -26,4 +26,7 @@ public class BAChatTurnResult
 
     /// <summary>"Điều đã chốt" — các quyết định người dùng đã xác nhận, cập nhật tới hết lượt này.</summary>
     public List<string> Decisions { get; set; } = new();
+
+    /// <summary>Sơ đồ luồng nghiệp vụ để user xác nhận trực quan — CHỈ có ở lượt mời "Write Requirement", rỗng ở lượt hỏi.</summary>
+    public List<FlowStep> FlowDiagram { get; set; } = new();
 }

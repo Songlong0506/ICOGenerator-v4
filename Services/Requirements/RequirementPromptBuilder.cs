@@ -97,10 +97,14 @@ Your task:
 
     // Bước Approve: sinh AI Design Spec (kỹ thuật, có cấu trúc) từ Product Brief ĐÃ DUYỆT để Developer
     // Agent dựng POC. Bám đúng phạm vi của Product Brief, không thêm tính năng ngoài.
+    // organizationContext (có thể rỗng): spec là ĐẦU VÀO DUY NHẤT của bước dựng POC, nên tên phòng ban/
+    // chức danh/người thật phải vào spec (mục Sample Data) thì dữ liệu mẫu của POC mới "trông như của
+    // công ty mình" thay vì "Nguyễn Văn A / Phòng X" chung chung.
     public string BuildAiDesignSpec(
         Project project,
         string approvedProductBrief,
-        string currentAiDesignSpec)
+        string currentAiDesignSpec,
+        string organizationContext = "")
     {
         return $$"""
 Project:
@@ -108,7 +112,7 @@ Project:
 
 Project Description:
 {{project.Description}}
-
+{{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
 
@@ -119,6 +123,7 @@ Your task:
 - Write the AI Design Spec (technical, structured) so the Developer Agent can build a POC.
 - It must describe the SAME product as the approved Product Brief (matching screens/features); only the wording differs.
 - Do NOT add features or screens that are not in the approved Product Brief.
+- When the organization context above names real departments/roles/people relevant to this project, use those REAL names in the spec's sample data (seed records, example approvers, department dropdowns) so the POC demo feels like THIS organization — do NOT invent generic placeholder names for things the context already names.
 - Return JSON only.
 """;
     }

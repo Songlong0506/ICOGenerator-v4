@@ -2,11 +2,19 @@ using Microsoft.Playwright;
 
 namespace ICOGenerator.Services.Artifacts;
 
+/// <summary>Ảnh chụp một màn hình POC (PNG) để tầng Visual QA (vision model) chấm bố cục/dữ liệu mẫu.</summary>
+public sealed record PocScreenshot(string Screen, byte[] Png);
+
 /// <summary>Kết quả một lần kiểm tra runtime POC. <see cref="Ran"/> = false nghĩa là bị bỏ qua (không có browser/tắt cấu hình) — audit vẫn tiếp tục với phần tĩnh.</summary>
-public sealed record PocRuntimeReport(bool Ran, string? SkipReason, IReadOnlyList<string> Issues, IReadOnlyList<string> SelfTestResults)
+public sealed record PocRuntimeReport(
+    bool Ran,
+    string? SkipReason,
+    IReadOnlyList<string> Issues,
+    IReadOnlyList<string> SelfTestResults,
+    IReadOnlyList<PocScreenshot> Screenshots)
 {
     public static PocRuntimeReport Skipped(string reason) =>
-        new(false, reason, Array.Empty<string>(), Array.Empty<string>());
+        new(false, reason, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<PocScreenshot>());
 }
 
 /// <summary>
@@ -15,10 +23,15 @@ public sealed record PocRuntimeReport(bool Ran, string? SkipReason, IReadOnlyLis
 /// Mở file trong Chromium headless, đi qua TỪNG màn hình bằng chính pocNavigate của shell, gom lỗi
 /// JS (pageerror + console error), và chạy window.pocSelfTest() — bộ assertion mỗi Business Rule mà
 /// prompt POC yêu cầu agent tự sinh — để rule fail thành ISSUE cụ thể thay vì lời tự khai.
+/// <para>
+/// <paramref name="captureScreenshots"/> = true còn chụp ảnh TỪNG màn hình để tầng Visual QA (vision
+/// model) chấm bố cục/dữ liệu mẫu — thứ mà cả scan chuỗi lẫn self-test đều "mù" (màn hình trống trơn,
+/// layout vỡ vẫn pass). Chỉ bật khi có agent UI/UX vision để không chụp phí.
+/// </para>
 /// </summary>
 public interface IPocRuntimeChecker
 {
-    Task<PocRuntimeReport> CheckAsync(string pocHtmlPath, CancellationToken cancellationToken = default);
+    Task<PocRuntimeReport> CheckAsync(string pocHtmlPath, bool captureScreenshots = false, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -49,7 +62,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         _logger = logger;
     }
 
-    public async Task<PocRuntimeReport> CheckAsync(string pocHtmlPath, CancellationToken cancellationToken = default)
+    public async Task<PocRuntimeReport> CheckAsync(string pocHtmlPath, bool captureScreenshots = false, CancellationToken cancellationToken = default)
     {
         if (!_configuration.GetValue("Poc:RuntimeCheck:Enabled", true))
             return PocRuntimeReport.Skipped("tắt qua cấu hình Poc:RuntimeCheck:Enabled.");
@@ -63,7 +76,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
 
         try
         {
-            return await RunCheckAsync(browser, pocHtmlPath, cancellationToken);
+            return await RunCheckAsync(browser, pocHtmlPath, captureScreenshots, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -73,11 +86,15 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         }
     }
 
-    private static async Task<PocRuntimeReport> RunCheckAsync(IBrowser browser, string pocHtmlPath, CancellationToken cancellationToken)
+    private static async Task<PocRuntimeReport> RunCheckAsync(IBrowser browser, string pocHtmlPath, bool captureScreenshots, CancellationToken cancellationToken)
     {
         var issues = new List<string>();
+        var screenshots = new List<PocScreenshot>();
 
-        await using var context = await browser.NewContextAsync();
+        // Viewport desktop cố định để ảnh chụp phản ánh đúng bố cục enterprise dashboard mà spec yêu cầu.
+        await using var context = await browser.NewContextAsync(captureScreenshots
+            ? new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 1440, Height = 900 } }
+            : null);
         var page = await context.NewPageAsync();
 
         // Gom lỗi JS thật: pageerror (exception chưa bắt) + console.error KHÔNG PHẢI lỗi tải tài nguyên
@@ -125,7 +142,23 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             await page.WaitForTimeoutAsync(100);
 
             if (!opened)
+            {
                 issues.Add($"Màn hình '{screen}' không mở được qua pocNavigate — click menu tương ứng sẽ không đổi nội dung (kiểm tra nhãn data-view khớp nhãn menu và script không ném lỗi khi render).");
+                continue; // màn hình không mở được thì ảnh chụp vô nghĩa (vẫn ở màn cũ).
+            }
+
+            if (captureScreenshots && screenshots.Count < MaxScreens)
+            {
+                try
+                {
+                    var png = await page.ScreenshotAsync(new PageScreenshotOptions { FullPage = true });
+                    screenshots.Add(new PocScreenshot(screen, png));
+                }
+                catch
+                {
+                    // Chụp lỗi một màn không được làm hỏng cả lượt check — bỏ qua ảnh màn đó.
+                }
+            }
         }
 
         currentScreen = "(pocSelfTest)";
@@ -158,7 +191,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         }
 
         lock (errors) issues.AddRange(errors);
-        return new PocRuntimeReport(true, null, issues.Take(MaxIssues).ToList(), selfTestResults);
+        return new PocRuntimeReport(true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots);
     }
 
     private async Task<IBrowser?> GetBrowserAsync()

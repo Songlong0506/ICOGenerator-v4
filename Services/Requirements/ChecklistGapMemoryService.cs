@@ -30,17 +30,20 @@ public class ChecklistGapMemoryService
     private readonly AppDbContext _db;
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
+    private readonly ChecklistNoteStore _noteStore;
 
-    public ChecklistGapMemoryService(AppDbContext db, ILlmClient llm, PromptTemplateService prompts)
+    public ChecklistGapMemoryService(AppDbContext db, ILlmClient llm, PromptTemplateService prompts, ChecklistNoteStore noteStore)
     {
         _db = db;
         _llm = llm;
         _prompts = prompts;
+        _noteStore = noteStore;
     }
 
     /// <summary>
     /// Phân tích hội thoại của một dự án VỪA sinh tài liệu thành công để rút khoảng trống checklist, gộp vào
-    /// hồ sơ chung của Agent BA. Bỏ qua nếu dự án đã harvest rồi hoặc chưa có hội thoại nào.
+    /// hồ sơ của Agent BA — vào BUCKET đúng miền nghiệp vụ của dự án (Project.DomainKey), hoặc bucket chung
+    /// khi dự án chưa được phân loại miền. Bỏ qua nếu dự án đã harvest rồi hoặc chưa có hội thoại nào.
     /// <paramref name="project"/> và <paramref name="ba"/> phải là entity ĐANG ĐƯỢC TRACK — cột kết quả được
     /// ghi thẳng lên chúng rồi lưu trong này.
     /// </summary>
@@ -53,11 +56,12 @@ public class ChecklistGapMemoryService
         if (turns.Count == 0)
             return;
 
-        var updated = await DistillAsync(ba.LearnedChecklistNotes, turns, ba, model, project.Id, cancellationToken);
+        var existingNotes = await _noteStore.LoadBucketAsync(ba, project.DomainKey, cancellationToken);
+        var updated = await DistillAsync(existingNotes, turns, ba, model, project.Id, cancellationToken);
         if (updated == null)
             return; // fail-open: chắt lọc lỗi, giữ checklist cũ + không đánh dấu, lần sau thử lại.
 
-        ba.LearnedChecklistNotes = string.IsNullOrWhiteSpace(updated) ? null : updated;
+        await _noteStore.SetBucketAsync(ba, project.DomainKey, updated, cancellationToken);
         project.ChecklistGapHarvested = true;
         await _db.SaveChangesAsync(cancellationToken);
     }

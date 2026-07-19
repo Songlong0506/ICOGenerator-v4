@@ -29,6 +29,8 @@ public class RequirementsController : Controller
     private readonly DeleteProjectSourceUseCase _deleteProjectSourceUseCase;
     private readonly GetDocumentRevisionsQuery _getDocumentRevisionsQuery;
     private readonly GetDocumentRevisionDiffQuery _getDocumentRevisionDiffQuery;
+    private readonly EstimatePocEtaQuery _estimatePocEtaQuery;
+    private readonly ReviseBriefFromNotesUseCase _reviseBriefFromNotesUseCase;
     private readonly IProjectAccessGuard _projectAccess;
     private readonly ILogger<RequirementsController> _logger;
 
@@ -49,6 +51,8 @@ public class RequirementsController : Controller
        DeleteProjectSourceUseCase deleteProjectSourceUseCase,
        GetDocumentRevisionsQuery getDocumentRevisionsQuery,
        GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery,
+       EstimatePocEtaQuery estimatePocEtaQuery,
+       ReviseBriefFromNotesUseCase reviseBriefFromNotesUseCase,
        IProjectAccessGuard projectAccess,
        ILogger<RequirementsController> logger)
     {
@@ -65,6 +69,8 @@ public class RequirementsController : Controller
         _deleteProjectSourceUseCase = deleteProjectSourceUseCase;
         _getDocumentRevisionsQuery = getDocumentRevisionsQuery;
         _getDocumentRevisionDiffQuery = getDocumentRevisionDiffQuery;
+        _estimatePocEtaQuery = estimatePocEtaQuery;
+        _reviseBriefFromNotesUseCase = reviseBriefFromNotesUseCase;
         _projectAccess = projectAccess;
         _logger = logger;
     }
@@ -115,6 +121,13 @@ public class RequirementsController : Controller
 
             if (result.Status == ChatWithBAResult.BaNotConfigured)
                 TempData["Error"] = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent.";
+            else
+            {
+                // Đường postback reload cả trang nên panel "Điều đã chốt" render từ server — gộp lượt
+                // mới trước khi redirect (ở đường streaming việc này chạy sau frame done).
+                await _chatWithBAUseCase.UpdateDecisionsAsync(projectId);
+                await _chatWithBAUseCase.EnsureProjectDomainAsync(projectId);
+            }
         }
         catch (BudgetExceededException ex)
         {
@@ -191,6 +204,7 @@ public class RequirementsController : Controller
         async Task RunChatAsync()
         {
             object done;
+            var turnSucceeded = false;
             try
             {
                 if (string.IsNullOrWhiteSpace(message))
@@ -204,6 +218,7 @@ public class RequirementsController : Controller
                         status => channel.Writer.TryWrite(new { type = "status", text = status }),
                         token => channel.Writer.TryWrite(new { type = "token", text = token }),
                         CancellationToken.None);
+                    turnSucceeded = result.Status == ChatWithBAResult.Ok;
 
                     done = result.Status switch
                     {
@@ -223,7 +238,8 @@ public class RequirementsController : Controller
                             invitesWriteRequirement = result.InvitesWriteRequirement,
                             suggestionsMultiSelect = result.SuggestionsMultiSelect,
                             coverage = result.Coverage,
-                            decisions = result.Decisions
+                            decisions = result.Decisions,
+                            flowDiagram = result.FlowDiagram
                         }
                     };
                 }
@@ -242,6 +258,27 @@ public class RequirementsController : Controller
             }
 
             channel.Writer.TryWrite(done);
+
+            // "Điều đã chốt" cập nhật SAU frame done: user đã đọc được câu trả lời, lời gọi LLM gộp
+            // quyết định không còn cộng vào độ chờ cảm nhận — panel tự thay bằng frame phụ này.
+            // Fail-open: lỗi thì giữ panel bản cũ (done đã mang bản đang lưu).
+            if (turnSucceeded)
+            {
+                try
+                {
+                    var decisions = await _chatWithBAUseCase.UpdateDecisionsAsync(projectId, CancellationToken.None);
+                    channel.Writer.TryWrite(new { type = "decisions", decisions });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Không cập nhật được 'Điều đã chốt' sau lượt chat của project {ProjectId}", projectId);
+                }
+
+                // Phân loại miền nghiệp vụ (một lần cho mỗi dự án, fail-open bên trong) — cũng ở hậu kỳ
+                // để lượt chat không phải chờ; miền chọn bucket checklist học được cho các lượt sau.
+                await _chatWithBAUseCase.EnsureProjectDomainAsync(projectId, CancellationToken.None);
+            }
+
             channel.Writer.TryComplete();
         }
     }
@@ -262,12 +299,26 @@ public class RequirementsController : Controller
         {
             var result = await _uploadProjectSourceUseCase.ExecuteAsync(projectId, files, User.Identity?.Name);
 
-            if (result == UploadProjectSourceResult.ProjectNotFound)
+            if (result.Status == UploadProjectSourceStatus.ProjectNotFound)
                 return RedirectToAction("Index", "Projects");
-            if (result == UploadProjectSourceResult.NoFiles)
+            if (result.Status == UploadProjectSourceStatus.NoFiles)
+            {
                 TempData["Error"] = "Chưa chọn file nào để upload.";
+            }
             else
+            {
                 TempData["SourceUploaded"] = true;
+                // Cảnh báo rõ khi PDF là bản scan (không bóc được text ⇒ BA không đọc được nội dung),
+                // tránh cảm giác "đã tải lên mà BA không thấy gì".
+                if (result.ScannedPdfNames.Count > 0)
+                    TempData["SourceScanWarning"] =
+                        $"Các file sau là bản scan/ảnh nên tôi không đọc được chữ bên trong: {string.Join(", ", result.ScannedPdfNames)}. "
+                        + "Hãy tải lên bản có chữ (hoặc chụp ảnh trực tiếp từng trang) nếu muốn tôi đọc nội dung đó.";
+
+                // BA đọc các nguồn mới, tóm tắt và xin xác nhận (thêm một lượt assistant) — đóng vòng phản
+                // hồi ngay tại đầu vào. Fail-open: không thêm được thì upload vẫn thành công như cũ.
+                await _chatWithBAUseCase.AcknowledgeSourcesAsync(projectId);
+            }
         }
         catch (SourceFileValidationException ex)
         {
@@ -301,6 +352,37 @@ public class RequirementsController : Controller
         await _generateRequirementDraftUseCase.ExecuteAsync(projectId);
         TempData["WorkflowStarted"] = true;
         return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    // Ghi chú người dùng ghim trực tiếp lên bản xem trước Product Brief → gom thành một lượt phản hồi
+    // trong hội thoại rồi chạy lại workflow soạn Brief (tái dùng đúng vòng "Write Requirement").
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> ReviseBrief(Guid projectId, [FromForm] string notesJson)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
+
+        List<BriefNote> notes;
+        try
+        {
+            notes = JsonSerializer.Deserialize<List<BriefNote>>(notesJson ?? "[]",
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<BriefNote>();
+        }
+        catch
+        {
+            return Json(new { ok = false, error = "Dữ liệu ghi chú không hợp lệ." });
+        }
+
+        var result = await _reviseBriefFromNotesUseCase.ExecuteAsync(projectId, notes);
+        return result switch
+        {
+            ReviseBriefResult.Ok => Json(new { ok = true }),
+            ReviseBriefResult.NoNotes => Json(new { ok = false, error = "Chưa có ghi chú nào để gửi." }),
+            ReviseBriefResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
+            _ => Json(new { ok = false, error = "Không gửi được ghi chú." })
+        };
     }
 
     [HttpPost]
@@ -338,6 +420,13 @@ public class RequirementsController : Controller
         }
 
         TempData["WorkflowStarted"] = true;
+        // Banner kỳ vọng sau Approve: user cần biết điều gì xảy ra tiếp theo và trong bao lâu, thay vì
+        // nhìn spinner vô định. Cờ riêng (không dùng chung WorkflowStarted của Write Requirement) vì
+        // chỉ Approve mới dẫn tới dựng POC. ETA đo từ lịch sử vận hành; null = chưa có lịch sử.
+        TempData["RequirementApproved"] = true;
+        var etaMinutes = await _estimatePocEtaQuery.ExecuteAsync(HttpContext.RequestAborted);
+        if (etaMinutes.HasValue)
+            TempData["ApprovedPocEtaMinutes"] = etaMinutes.Value;
         return RedirectToAction(nameof(Index), new { projectId });
     }
 

@@ -239,6 +239,56 @@ else
     </div>
 }
 
+@* Phễu khai thác yêu cầu: cũng NGOÀI khối TotalRuns>0 — cuộc phỏng vấn/Brief/POC đo được cả khi chưa có run nào
+   kết thúc. Ba con số là baseline để biết mỗi thay đổi prompt/flow có thật sự làm phỏng vấn gọn hơn, Brief ít
+   phải viết lại hơn, POC ít bị ghim lỗi hơn. *@
+@if (Model.RequirementFunnel.Count > 0)
+{
+    <div class="q-section-title">Phễu khai thác yêu cầu (project tạo trong năm @Model.SelectedYear)</div>
+    <div class="q-tiles">
+        <div class="q-tile">
+            <div class="q-label">Lượt trả lời của user / phỏng vấn</div>
+            <div class="q-value">@(Model.AvgFunnelUserTurns?.ToString("0.#", CultureInfo.InvariantCulture) ?? "–")</div>
+            <div class="q-sub">trung bình mỗi project</div>
+        </div>
+        <div class="q-tile">
+            <div class="q-label">Số lần viết lại Product Brief</div>
+            <div class="q-value">@(Model.AvgFunnelBriefRewrites?.ToString("0.#", CultureInfo.InvariantCulture) ?? "–")</div>
+            <div class="q-sub">sau bản đầu, trung bình mỗi project</div>
+        </div>
+        <div class="q-tile">
+            <div class="q-label">Ghi chú ghim trên POC</div>
+            <div class="q-value">@(Model.AvgFunnelPocComments?.ToString("0.#", CultureInfo.InvariantCulture) ?? "–")</div>
+            <div class="q-sub">trung bình mỗi project</div>
+        </div>
+    </div>
+    <div class="card table-card">
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th class="num-col">Lượt trả lời</th>
+                        <th class="num-col">Viết lại Brief</th>
+                        <th class="num-col">Ghi chú POC</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in Model.RequirementFunnel)
+                    {
+                        <tr>
+                            <td><b>@f.ProjectName</b></td>
+                            <td class="num-col">@f.UserTurns</td>
+                            <td class="num-col">@(f.BriefRewrites > 0 ? f.BriefRewrites.ToString() : "–")</td>
+                            <td class="num-col">@(f.PocComments > 0 ? f.PocComments.ToString() : "–")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
 @* Prompt eval: hiển thị NGOÀI khối TotalRuns>0 — chất lượng prompt đo được cả khi năm nay chưa có run giao hàng. *@
 @if (Model.RecentEvalRuns.Count > 0)
 {

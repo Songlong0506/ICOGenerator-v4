@@ -229,6 +229,14 @@
 
     .uat-steps input:checked + span { color: #16a34a; text-decoration: line-through; text-decoration-color: rgba(22, 163, 74, .4); }
 
+    /* Chữ của bước bấm được để POC "chỉ chỗ"; bước đang được tour làm nổi bật. */
+    .uat-step-text { cursor: pointer; border-bottom: 1px dashed transparent; }
+    .uat-step-text:hover { border-bottom-color: #d97706; }
+    .uat-step-active { background: rgba(217, 119, 6, .15); border-radius: 3px; }
+
+/* Nút "▶ Hướng dẫn" nằm cuối tiêu đề kịch bản, đẩy sang phải. */
+.uat-tour { margin-left: auto; }
+
 /* ==== Nhật ký vòng sửa (changelog) ==== */
 
 .poc-changelog { margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 12px; }

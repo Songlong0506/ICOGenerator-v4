@@ -36,6 +36,11 @@ public class Project
     // này. Chỉ rà soát MỘT LẦN, ngay sau khi tài liệu được sinh thành công (lúc đó mới có bức tranh Q&A
     // đầy đủ). Xem ChecklistGapMemoryService.
     public bool ChecklistGapHarvested { get; set; }
+    // Miền nghiệp vụ của dự án (slug thuộc taxonomy cố định của ProjectDomainClassifier, vd
+    // "leave-management", "inventory"; "other" khi không khớp miền nào). Được phân loại MỘT LẦN từ hội
+    // thoại (chạy nền sau lượt chat, không cộng vào độ chờ). Dùng để tách "checklist học được" của BA
+    // theo miền: bài học của dự án kho không lẫn vào phỏng vấn dự án nghỉ phép. null = chưa phân loại.
+    public string? DomainKey { get; set; }
     // "Bản đồ bao phủ yêu cầu" của dự án: bảng trạng thái (text, 12 nhóm cố định) cho biết nhóm thông tin
     // nào đã khai thác [RÕ]/[MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG], cập nhật sau mỗi lượt chat để BA chọn
     // câu hỏi kế tiếp và cổng readiness khỏi đoán lại từ đầu. null = chưa có lượt chat nào được ghi nhận.

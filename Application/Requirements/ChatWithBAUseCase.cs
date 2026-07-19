@@ -6,10 +6,12 @@ namespace ICOGenerator.Application.Requirements;
 public class ChatWithBAUseCase
 {
     private readonly BAChatService _baChatService;
+    private readonly ProjectDomainClassifier _domainClassifier;
 
-    public ChatWithBAUseCase(BAChatService baChatService)
+    public ChatWithBAUseCase(BAChatService baChatService, ProjectDomainClassifier domainClassifier)
     {
         _baChatService = baChatService;
+        _domainClassifier = domainClassifier;
     }
 
     /// <param name="onStatus">Callback trạng thái ngắn cho UI streaming (null khi gọi kiểu postback cổ điển).</param>
@@ -17,4 +19,25 @@ public class ChatWithBAUseCase
     public Task<BAChatTurnResult> ExecuteAsync(Guid projectId, string message,
         Action<string>? onStatus = null, Action<string>? onToken = null, CancellationToken cancellationToken = default) =>
         _baChatService.ChatAsync(projectId, message, onStatus, onToken, cancellationToken);
+
+    /// <summary>
+    /// Gộp lượt chat mới vào "Điều đã chốt" — gọi SAU khi user đã nhận câu trả lời (sau frame done ở
+    /// đường streaming / trước redirect ở đường postback) để lời gọi LLM này không cộng vào độ chờ.
+    /// </summary>
+    public Task<IReadOnlyList<string>> UpdateDecisionsAsync(Guid projectId, CancellationToken cancellationToken = default) =>
+        _baChatService.UpdateDecisionsAsync(projectId, cancellationToken);
+
+    /// <summary>
+    /// Phân loại miền nghiệp vụ của dự án nếu chưa có (idempotent, fail-open) — cũng chạy ở hậu kỳ lượt
+    /// chat để không cộng vào độ chờ. Miền quyết định bucket "checklist học được" nào của BA được dùng.
+    /// </summary>
+    public Task EnsureProjectDomainAsync(Guid projectId, CancellationToken cancellationToken = default) =>
+        _domainClassifier.TryClassifyAsync(projectId, cancellationToken);
+
+    /// <summary>
+    /// Sau upload tài liệu nguồn: BA tóm tắt những gì đọc được + xin xác nhận (thêm một lượt assistant).
+    /// Fail-open — trả false khi không thêm được lượt nào.
+    /// </summary>
+    public Task<bool> AcknowledgeSourcesAsync(Guid projectId, CancellationToken cancellationToken = default) =>
+        _baChatService.AcknowledgeSourcesAsync(projectId, cancellationToken);
 }

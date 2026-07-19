@@ -3,8 +3,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Requirements;
 
-// Backs the "＋ New Chat" button (previously a no-op redirect): clears the project's BA
-// conversation history so the next chat starts fresh.
+// Backs the "＋ New Chat" button: archives the project's BA conversation history so the next
+// chat starts fresh. KHÔNG xóa cứng — hội thoại là nguồn gốc của mọi tài liệu đã sinh, cần giữ
+// lại tra cứu được; mọi đường đọc lọc ArchivedAt == null nên với BA lịch sử coi như trống.
 public class StartNewChatUseCase
 {
     private readonly AppDbContext _db;
@@ -16,9 +17,10 @@ public class StartNewChatUseCase
 
     public async Task ExecuteAsync(Guid projectId)
     {
+        var archivedAt = DateTime.UtcNow;
         await _db.AgentConversations
-            .Where(c => c.ProjectId == projectId)
-            .ExecuteDeleteAsync();
+            .Where(c => c.ProjectId == projectId && c.ArchivedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.ArchivedAt, archivedAt));
 
         // Xoá lượt chat mà giữ nguyên bộ nhớ per-project thì chat "mới" vẫn nhớ chuyện cũ (summary/bản đồ
         // cũ được nạp lại) và các con trỏ đếm-lượt trỏ vượt quá bảng đã trống — tệ nhất là

@@ -9,12 +9,14 @@ public class WorkspaceTools
     private readonly IConfiguration _configuration;
     private readonly WorkspacePathResolver _workspacePathResolver;
     private readonly IPocRuntimeChecker _pocRuntimeChecker;
+    private readonly PocVisualReviewer _pocVisualReviewer;
 
-    public WorkspaceTools(IConfiguration configuration, WorkspacePathResolver workspacePathResolver, IPocRuntimeChecker pocRuntimeChecker)
+    public WorkspaceTools(IConfiguration configuration, WorkspacePathResolver workspacePathResolver, IPocRuntimeChecker pocRuntimeChecker, PocVisualReviewer pocVisualReviewer)
     {
         _configuration = configuration;
         _workspacePathResolver = workspacePathResolver;
         _pocRuntimeChecker = pocRuntimeChecker;
+        _pocVisualReviewer = pocVisualReviewer;
     }
     public string CurrentWorkspacePath { get; private set; } = string.Empty;
 
@@ -28,6 +30,13 @@ public class WorkspaceTools
     // keeps the audit wiring-only exactly as before.
     private PocSpec _pocSpec = PocSpec.Empty;
 
+    // Raw spec + định danh project/run của lượt POC hiện tại — để tầng Visual QA (PocVisualReviewer) gửi
+    // spec kèm ảnh và ghi log lời gọi model UI/UX vào đúng project/run. Rỗng ngoài bước POC ⇒ visual QA
+    // tự bỏ qua như phần runtime.
+    private string? _pocSpecRaw;
+    private Guid _pocProjectId;
+    private Guid? _pocWorkflowRunId;
+
     public void SetWorkspace(string projectKey)
     {
         CurrentWorkspacePath = _workspacePathResolver.GetProjectWorkspacePath(projectKey);
@@ -37,6 +46,15 @@ public class WorkspaceTools
     public void SetRunCancellation(CancellationToken cancellationToken) => RunCancellationToken = cancellationToken;
 
     public void SetPocSpec(string? aiDesignSpec) => _pocSpec = PocSpec.Parse(aiDesignSpec);
+
+    // Bối cảnh cho tầng Visual QA của AuditPocContent (spec gốc + project/run để log). AgentTaskWorker gọi
+    // cho bước PocPreview; ngoài bước đó không set ⇒ visual QA bỏ qua.
+    public void SetPocReviewContext(string? aiDesignSpec, Guid projectId, Guid? workflowRunId)
+    {
+        _pocSpecRaw = aiDesignSpec;
+        _pocProjectId = projectId;
+        _pocWorkflowRunId = workflowRunId;
+    }
 
     [Description("Write a source code or documentation file into the current workspace.")]
     public async Task<string> WriteFile(string relativePath, string content)
@@ -253,7 +271,7 @@ public class WorkspaceTools
         return $"POC script appended: {PocTemplate.MockupRelativePath}";
     }
 
-    [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing. It checks the wiring — sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, data-crud tables without a matching form or with mismatched field names, an empty POC logic script — AND coverage against the AI Design Spec of this run: every screen of '§ Screens To Generate' missing from the demo is an ISSUE, and the spec's business rules are echoed as a checklist you must verify actually behaves. " +
+    [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing. It checks the wiring — sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, data-crud tables without a matching form or with mismatched field names, an empty POC logic script — AND coverage against the AI Design Spec of this run: every screen of '§ Screens To Generate' missing from the demo is an ISSUE, and the spec's business rules are echoed as a checklist you must verify actually behaves. It also opens the POC in a headless browser (RUNTIME) to collect JS errors and run window.pocSelfTest(), and — when a UI/UX vision agent is configured — has that agent review a screenshot of every screen for visual defects (blank screens, broken layout, wrong language) reported as VISUAL ISSUES/WARNINGS to fix the same way. " +
         "Call it after all content and script calls, fix every reported ISSUE (AppendPocContent for missing sections/modals, ReplaceInFile for small in-place corrections, SetPocScript to replace the logic), then call it AGAIN to confirm the report is clean (up to 3 rounds) before returning your final result. It reads the file for you — do NOT re-read poc-demo.html with ReadFile.")]
     public async Task<string> AuditPocContent()
     {
@@ -264,11 +282,14 @@ public class WorkspaceTools
         var current = await File.ReadAllTextAsync(fullPath);
         var report = PocAudit.Run(current, _pocSpec);
 
+        // Chỉ chụp ảnh khi tầng Visual QA thực sự chạy được (có agent UI/UX vision) — không thì khỏi chụp phí.
+        var wantVisual = await _pocVisualReviewer.IsConfiguredAsync(RunCancellationToken);
+
         // Tầng RUNTIME nối sau audit tĩnh: mở POC trong Chromium headless, đi qua từng màn hình, gom lỗi
         // JS và chạy window.pocSelfTest() — lớp lỗi mà scan chuỗi không thấy (một TypeError làm chết cả
         // trang nhưng markup vẫn "đúng"). Fail-open: môi trường không có browser thì ghi chú SKIPPED và
         // giữ nguyên phần tĩnh.
-        var runtime = await _pocRuntimeChecker.CheckAsync(fullPath, RunCancellationToken);
+        var runtime = await _pocRuntimeChecker.CheckAsync(fullPath, wantVisual, RunCancellationToken);
         var sb = new System.Text.StringBuilder(report);
         sb.AppendLine();
         if (!runtime.Ran)
@@ -289,6 +310,39 @@ public class WorkspaceTools
                 sb.AppendLine($"{i + 1}. {runtime.Issues[i]}");
             if (runtime.SelfTestResults.Count > 0)
                 sb.Append($"Self-test summary: {string.Join("; ", runtime.SelfTestResults)}");
+        }
+
+        // Tầng VISUAL QA: đưa ảnh chụp từng màn hình cho agent UI/UX (vision) chấm bố cục/dữ liệu mẫu —
+        // lớp khiếm khuyết mà scan chuỗi và self-test không thấy (màn hình trống, layout vỡ, sai ngôn ngữ).
+        // Fail-open: không có agent vision / không ảnh ⇒ SKIPPED, không đổi hành vi cũ.
+        if (wantVisual && runtime.Screenshots.Count > 0)
+        {
+            var visual = await _pocVisualReviewer.ReviewAsync(
+                _pocProjectId, _pocSpecRaw, runtime.Screenshots, _pocWorkflowRunId, RunCancellationToken);
+            sb.AppendLine();
+            if (!visual.Ran)
+            {
+                sb.Append($"VISUAL CHECK: SKIPPED — {visual.SkipReason}");
+            }
+            else if (visual.Issues.Count == 0 && visual.Warnings.Count == 0)
+            {
+                sb.Append("VISUAL CHECK (UI/UX designer reviewed screenshots): OK — no visual defects found.");
+            }
+            else
+            {
+                if (visual.Issues.Count > 0)
+                {
+                    sb.AppendLine("VISUAL ISSUES (UI/UX designer reviewed screenshots — fix these like the ISSUES above):");
+                    for (var i = 0; i < visual.Issues.Count; i++)
+                        sb.AppendLine($"{i + 1}. {visual.Issues[i]}");
+                }
+                if (visual.Warnings.Count > 0)
+                {
+                    sb.AppendLine("VISUAL WARNINGS (fix if unintended):");
+                    for (var i = 0; i < visual.Warnings.Count; i++)
+                        sb.AppendLine($"{i + 1}. {visual.Warnings[i]}");
+                }
+            }
         }
 
         return sb.ToString();

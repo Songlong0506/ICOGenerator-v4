@@ -239,6 +239,87 @@
         setTimeout(function () { pin.classList.remove("flash"); }, 1600);
     }
 
+    // ===== Guided tour: dẫn người xem theo từng bước kịch bản UAT =====
+    // Trang cha gửi text một bước ("Bấm nút Duyệt ở đơn đang chờ"); annotator tìm phần tử tương tác có
+    // chữ khớp nhất trong màn hình đang mở rồi tô sáng + cuộn tới. Không khớp phần tử nào thì nháy cả
+    // vùng nội dung để người xem biết đang ở đúng màn hình. Chỉ ĐỌC DOM + tô sáng, không thao tác thay user.
+
+    // Từ dừng (tiếng Việt) bỏ khi so khớp — giữ lại danh từ/động từ mang nghĩa.
+    var TOUR_STOPWORDS = { "bam": 1, "nut": 1, "vao": 1, "o": 1, "the": 1, "va": 1, "cua": 1, "mot": 1, "voi": 1, "man": 1, "hinh": 1, "kiem": 1, "tra": 1, "mo": 1, "chon": 1, "nhap": 1, "xem": 1, "dang": 1 };
+
+    function tourTokens(text) {
+        // Bỏ dấu tiếng Việt để so khớp không phụ thuộc dấu; tách từ; bỏ stopword & từ quá ngắn.
+        var norm = (text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
+        return norm.split(/[^a-z0-9]+/).filter(function (w) { return w.length >= 2 && !TOUR_STOPWORDS[w]; });
+    }
+
+    function elementText(el) {
+        if (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA") {
+            return (el.getAttribute("placeholder") || el.getAttribute("name") || el.getAttribute("aria-label") || "");
+        }
+        return (el.textContent || el.getAttribute("aria-label") || el.title || "");
+    }
+
+    function findBestMatch(stepText) {
+        var wanted = tourTokens(stepText);
+        if (wanted.length === 0) return null;
+
+        // Ưu tiên phần tử tương tác; nới ra heading/nhãn/ô bảng nếu không có nút khớp.
+        var candidates = document.querySelectorAll(
+            ".page-view.active button, .page-view.active a, .page-view.active .btn, .page-view.active [role='button']," +
+            ".page-view.active input, .page-view.active select, .page-view.active th, .page-view.active label," +
+            ".page-view.active h1, .page-view.active h2, .page-view.active h3, .page-view.active td");
+
+        var best = null, bestScore = 0;
+        candidates.forEach(function (el) {
+            var rect = el.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) return; // ẩn
+
+            var have = tourTokens(elementText(el));
+            if (have.length === 0) return;
+            var haveSet = {};
+            have.forEach(function (w) { haveSet[w] = 1; });
+
+            var hits = 0;
+            wanted.forEach(function (w) { if (haveSet[w]) hits++; });
+            if (hits === 0) return;
+
+            // Ưu tiên khớp nhiều token VÀ phần tử ngắn gọn (nút "Duyệt" hơn cả một đoạn dài chứa "duyệt").
+            var score = hits * 10 - Math.min(have.length, 20) * 0.2;
+            if (score > bestScore) { bestScore = score; best = el; }
+        });
+        return best;
+    }
+
+    var tourTimer = null;
+    function highlightElement(el) {
+        el.classList.add("poc-tour-target");
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        if (tourTimer) clearTimeout(tourTimer);
+        tourTimer = setTimeout(function () {
+            document.querySelectorAll(".poc-tour-target").forEach(function (x) { x.classList.remove("poc-tour-target"); });
+        }, 2600);
+    }
+
+    function flashMain() {
+        var main = document.querySelector(".page-view.active") || document.querySelector("main") || document.body;
+        main.classList.add("poc-tour-flash");
+        setTimeout(function () { main.classList.remove("poc-tour-flash"); }, 900);
+    }
+
+    function runTourStep(screen, text) {
+        // Mở đúng màn hình trước (nếu kịch bản chỉ định), rồi tìm & tô sáng sau khi render.
+        if (screen && typeof window.pocNavigate === "function" && screen !== currentView()) {
+            window.pocNavigate(screen);
+        }
+        setTimeout(function () {
+            document.querySelectorAll(".poc-tour-target").forEach(function (x) { x.classList.remove("poc-tour-target"); });
+            var el = findBestMatch(text);
+            if (el) highlightElement(el);
+            else flashMain();
+        }, 120);
+    }
+
     // ===== Lệnh từ trang cha =====
 
     // Handshake: iframe local load rất nhanh nên poc-ready có thể phát TRƯỚC khi trang cha kịp đăng
@@ -272,6 +353,9 @@
                 window.pocNavigate(c.pageView);
             }
             setTimeout(function () { renderPins(); flashPin(c.id); }, 60);
+        } else if (e.data.type === "poc-tour-step") {
+            // Guided tour: dẫn tới màn hình + tô sáng phần tử khớp mô tả bước.
+            runTourStep(e.data.screen || "", e.data.text || "");
         }
     });
 
@@ -287,7 +371,12 @@
         "  box-shadow: 0 1px 4px rgba(0,0,0,.35); cursor: pointer; z-index: 99999; }" +
         ".poc-pin.sent { background: #64748b; }" +
         ".poc-pin.flash { animation: poc-pin-flash 0.4s ease 3; }" +
-        "@keyframes poc-pin-flash { 50% { transform: scale(1.45); background: #e20015; } }";
+        "@keyframes poc-pin-flash { 50% { transform: scale(1.45); background: #e20015; } }" +
+        // Guided tour: phần tử đang được "chỉ chỗ" và nháy vùng nội dung khi không tìm ra phần tử.
+        ".poc-tour-target { outline: 3px solid #d97706 !important; outline-offset: 2px;" +
+        "  box-shadow: 0 0 0 6px rgba(217,119,6,.25) !important; border-radius: 3px; transition: outline .15s; }" +
+        ".poc-tour-flash { animation: poc-tour-flash 0.9s ease; }" +
+        "@keyframes poc-tour-flash { 0%,100% { background: transparent; } 40% { background: rgba(217,119,6,.12); } }";
     document.head.appendChild(style);
 
     // Báo trang cha là annotator đã sẵn sàng (trang cha sẽ gửi danh sách ghi chú + trạng thái mode).

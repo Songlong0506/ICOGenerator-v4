@@ -109,7 +109,7 @@ public class PocFeedbackMemoryServiceTests : IDisposable
     }
 
     private PocFeedbackMemoryService NewSut(AppDbContext db, ILlmClient llm) =>
-        new(db, llm, new StubPrompts(), NullLogger<PocFeedbackMemoryService>.Instance);
+        new(db, llm, new StubPrompts(), new ChecklistNoteStore(db), NullLogger<PocFeedbackMemoryService>.Instance);
 
     private async Task<Project> SeedAsync(int sentComments, int openComments, string? existingNotes = null)
     {
