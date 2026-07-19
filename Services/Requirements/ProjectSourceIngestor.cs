@@ -14,11 +14,11 @@ public class SourceFileValidationException : Exception
 }
 
 /// <summary>
-/// Nhận một file upload (ảnh/PDF), lưu xuống workspace project và dựng <see cref="ProjectSourceFile"/> (CHƯA add DB —
-/// caller tự add + SaveChanges). Với PDF: CHỈ bóc text từng trang bằng PdfPig. PDF dạng scan/ảnh (trang gần như
-/// không có text) KHÔNG được hỗ trợ — các trang đó bị bỏ qua, không OCR/không render ảnh; nếu cả file không có
-/// text nào thì <see cref="ProjectSourceFile.ExtractedText"/> để null. Muốn dùng ảnh làm nguồn vision thì upload
-/// trực tiếp file ảnh (PNG/JPG/WebP/GIF).
+/// Nhận một file upload (ảnh / PDF / bảng tính Excel-CSV), lưu xuống workspace project và dựng
+/// <see cref="ProjectSourceFile"/> (CHƯA add DB — caller tự add + SaveChanges). Với PDF: CHỈ bóc text từng
+/// trang bằng PdfPig (PDF scan/ảnh không có text KHÔNG được hỗ trợ). Với bảng tính (.xlsx/.csv): bóc thành
+/// text có cấu trúc (tiêu đề cột + vài dòng mẫu) bằng <see cref="SpreadsheetTextExtractor"/> — fidelity cao
+/// hơn hẳn ảnh chụp Excel. Muốn dùng ảnh làm nguồn vision thì upload trực tiếp file ảnh (PNG/JPG/WebP/GIF).
 /// </summary>
 public class ProjectSourceIngestor
 {
@@ -50,9 +50,11 @@ public class ProjectSourceIngestor
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         var isImage = AllowedImageTypes.Contains(normalizedType) || AllowedImageExts.Contains(ext);
         var isPdf = normalizedType == PdfType || ext == ".pdf";
+        // Bảng tính ưu tiên xét sau ảnh/PDF: một .csv có thể mang contentType text/plain, chỉ dựa vào đuôi file.
+        var isSpreadsheet = !isImage && !isPdf && SpreadsheetTextExtractor.IsSpreadsheet(normalizedType, fileName);
 
-        if (!isImage && !isPdf)
-            throw new SourceFileValidationException($"Định dạng không hỗ trợ: {fileName}. Chỉ nhận ảnh (PNG/JPG/WebP/GIF) hoặc PDF.");
+        if (!isImage && !isPdf && !isSpreadsheet)
+            throw new SourceFileValidationException($"Định dạng không hỗ trợ: {fileName}. Chỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF hoặc bảng tính (Excel .xlsx/.csv).");
         if (sizeBytes <= 0)
             throw new SourceFileValidationException($"File rỗng: {fileName}.");
         if (sizeBytes > _maxFileBytes)
@@ -74,7 +76,9 @@ public class ProjectSourceIngestor
             Id = id,
             ProjectId = projectId,
             FileName = fileName,
-            ContentType = isImage ? NormalizeImageType(normalizedType, ext) : PdfType,
+            ContentType = isImage ? NormalizeImageType(normalizedType, ext)
+                        : isPdf ? PdfType
+                        : NormalizeSpreadsheetType(ext),
             SizeBytes = sizeBytes,
             StoredPath = storedPath,
             UploadedByUserId = uploadedByUserId,
@@ -85,10 +89,17 @@ public class ProjectSourceIngestor
             entity.Kind = SourceFileKind.Image;
             entity.IsVisionSource = true;
         }
-        else
+        else if (isPdf)
         {
             entity.Kind = SourceFileKind.Pdf;
             ProcessPdf(bytes, entity, cancellationToken);
+        }
+        else
+        {
+            entity.Kind = SourceFileKind.Spreadsheet;
+            // Bảng tính không bao giờ là nguồn vision: bóc thành text cấu trúc; không đọc được ⇒ để null
+            // (giữ nguyên file gốc), người dùng vẫn thấy file đã đính kèm.
+            entity.ExtractedText = SpreadsheetTextExtractor.Extract(bytes, fileName);
         }
 
         return entity;
@@ -149,6 +160,12 @@ public class ProjectSourceIngestor
             _ => "image/jpeg", // .jpg/.jpeg và "image/jpg" → chuẩn hoá về image/jpeg
         };
     }
+
+    private static string NormalizeSpreadsheetType(string ext) => ext switch
+    {
+        ".csv" => "text/csv",
+        _ => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx/.xlsm
+    };
 
     private static string SanitizeFileName(string fileName)
     {

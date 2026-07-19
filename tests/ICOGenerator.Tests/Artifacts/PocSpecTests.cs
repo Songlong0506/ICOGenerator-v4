@@ -89,4 +89,42 @@ public class PocSpecTests
     {
         Assert.Equal(expected, PocSpec.Matches(specScreen, label));
     }
+
+    private const string SpecWithWorkedExamples = """
+        # AI Design Spec
+        ## 10. Business Rules
+        - BR-3: Tổng điểm = Σ(điểm × trọng số)
+        ## 13. Worked Examples
+        - WE-1 (BR-3): 3 mục tiêu 80/90/70, trọng số 50%/30%/20% => 81
+        - WE-2 (BR-3): cộng ngày phép vào làm 1/7 → 7.5 ngày
+        - Không có
+        ## 14. Ghi chú
+        - WE-999: dòng ngoài section không tính
+        """;
+
+    [Fact]
+    public void ParsesWorkedExamples_RefRuleInputAndExpected()
+    {
+        var spec = PocSpec.Parse(SpecWithWorkedExamples);
+
+        Assert.Equal(2, spec.WorkedExamples.Count);
+
+        var we1 = spec.WorkedExamples[0];
+        Assert.Equal("WE-1", we1.Ref);
+        Assert.Equal("BR-3", we1.RuleRef);
+        Assert.Equal("81", we1.Expected);
+        Assert.Contains("80/90/70", we1.Description);
+
+        // "→" cũng được nhận là dấu phân tách kết quả kỳ vọng.
+        Assert.Equal("7.5 ngày", spec.WorkedExamples[1].Expected);
+    }
+
+    [Fact]
+    public void WorkedExamples_IgnorePlaceholderAndOutOfSectionBullets()
+    {
+        var spec = PocSpec.Parse(SpecWithWorkedExamples);
+
+        Assert.DoesNotContain(spec.WorkedExamples, w => w.Ref == "WE-999"); // ở section khác
+        Assert.DoesNotContain(spec.WorkedExamples, w => w.Description.Contains("Không có")); // placeholder không có "=>"
+    }
 }

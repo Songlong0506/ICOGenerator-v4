@@ -11,5 +11,12 @@ public enum PocCommentStatus
     Open,
 
     /// <summary>Đã gộp vào một yêu cầu chỉnh sửa POC (Developer agent đã/đang xử lý).</summary>
-    Sent
+    Sent,
+
+    /// <summary>
+    /// Đã gửi NGƯỢC về bước Requirement: ghi chú này phản ánh HIỂU SAI YÊU CẦU (không phải lỗi HTML), nên
+    /// được đưa vào hội thoại BA để soạn lại tài liệu của CHÍNH dự án — POC dựng lại từ tài liệu đã sửa.
+    /// Xem RoutePocFeedbackToRequirementUseCase.
+    /// </summary>
+    RoutedToRequirement
 }

@@ -1,4 +1,5 @@
 using ICOGenerator.Application.Projects;
+using ICOGenerator.Application.Requirements;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Security;
@@ -18,6 +19,7 @@ public class ProjectsController : Controller
     private readonly ListPocCommentsQuery _listPocCommentsQuery;
     private readonly AddPocCommentUseCase _addPocCommentUseCase;
     private readonly DeletePocCommentUseCase _deletePocCommentUseCase;
+    private readonly RoutePocFeedbackToRequirementUseCase _routePocFeedbackUseCase;
     private readonly IPermissionService _permissions;
     private readonly IProjectAccessGuard _projectAccess;
 
@@ -30,6 +32,7 @@ public class ProjectsController : Controller
         ListPocCommentsQuery listPocCommentsQuery,
         AddPocCommentUseCase addPocCommentUseCase,
         DeletePocCommentUseCase deletePocCommentUseCase,
+        RoutePocFeedbackToRequirementUseCase routePocFeedbackUseCase,
         IPermissionService permissions,
         IProjectAccessGuard projectAccess)
     {
@@ -41,6 +44,7 @@ public class ProjectsController : Controller
         _listPocCommentsQuery = listPocCommentsQuery;
         _addPocCommentUseCase = addPocCommentUseCase;
         _deletePocCommentUseCase = deletePocCommentUseCase;
+        _routePocFeedbackUseCase = routePocFeedbackUseCase;
         _permissions = permissions;
         _projectAccess = projectAccess;
     }
@@ -178,6 +182,27 @@ public class ProjectsController : Controller
             id, User.Identity?.Name, canManage, HttpContext.RequestAborted);
 
         return deleted ? Json(new { ok = true }) : NotFound();
+    }
+
+    // Đóng vòng POC → TÀI LIỆU: lọc các ghi chú Open phản ánh hiểu-sai-yêu-cầu, đưa vào hội thoại BA và
+    // soạn lại draft. Cần quyền quản lý requirement (đây là hành động sửa tài liệu, không phải ghim ghi chú).
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> RoutePocFeedbackToRequirement(Guid projectId)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound("Project không tồn tại.");
+
+        var result = await _routePocFeedbackUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
+        return result switch
+        {
+            RoutePocFeedbackResult.Ok => Json(new { ok = true, message = "Đã gửi các điểm thuộc yêu cầu về BA để cập nhật tài liệu — hệ thống đang soạn lại bản mô tả, sau đó anh/chị duyệt lại để dựng POC mới." }),
+            RoutePocFeedbackResult.NoOpenComments => Json(new { ok = false, message = "Chưa có ghi chú nào đang mở để gửi." }),
+            RoutePocFeedbackResult.NoRequirementIssue => Json(new { ok = false, message = "Các ghi chú hiện tại chỉ là chỉnh trình bày (không phải hiểu sai yêu cầu) — hãy dùng \"Yêu cầu chỉnh sửa\" ở cổng POC để đội Dev sửa demo." }),
+            RoutePocFeedbackResult.BaNotConfigured => Json(new { ok = false, message = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst)." }),
+            _ => NotFound("Project không tồn tại.")
+        };
     }
 
     // Packages the agent-generated multi-file app (04_Implementation/src) into a .zip the user can

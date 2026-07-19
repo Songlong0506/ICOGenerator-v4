@@ -239,6 +239,7 @@ public class RequirementReadinessGateTests : IDisposable
             new BAAgentResolver(db),
             new BAConversationLog(db),
             new DecisionLogService(db, llm, prompts),
+            new InterviewOutlookService(db, llm, prompts),
             new ChecklistNoteStore(db));
     }
 

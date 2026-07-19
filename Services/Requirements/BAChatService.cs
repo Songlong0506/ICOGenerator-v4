@@ -31,6 +31,7 @@ public class BAChatService
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
     private readonly DecisionLogService _decisionLog;
+    private readonly InterviewOutlookService _interviewOutlook;
     private readonly ChecklistNoteStore _checklistNotes;
     private readonly IServiceScopeFactory? _scopeFactory;
 
@@ -48,6 +49,7 @@ public class BAChatService
         BAAgentResolver agentResolver,
         BAConversationLog conversationLog,
         DecisionLogService decisionLog,
+        InterviewOutlookService interviewOutlook,
         ChecklistNoteStore checklistNotes,
         IServiceScopeFactory? scopeFactory = null)
     {
@@ -64,6 +66,7 @@ public class BAChatService
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
         _decisionLog = decisionLog;
+        _interviewOutlook = interviewOutlook;
         _checklistNotes = checklistNotes;
         // null (test/không có DI đầy đủ) ⇒ các bước chuẩn bị chạy TUẦN TỰ trên chính scope này —
         // hành vi cũ. Có factory ⇒ chạy SONG SONG, mỗi bước một scope riêng (xem PrepareTurnContextAsync).
@@ -311,6 +314,24 @@ public class BAChatService
 
         var decisionLog = await _decisionLog.UpdateAndLoadAsync(project, ba, ba.AiModel!, cancellationToken);
         return DecisionLogService.ParseItems(decisionLog).ToList();
+    }
+
+    /// <summary>
+    /// Gộp lượt chat mới vào "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ tính thử
+    /// đã xác nhận) rồi trả bản hiện hành. Như <see cref="UpdateDecisionsAsync"/>: gọi ở HẬU KỲ lượt chat
+    /// (sau frame done) để lời gọi LLM này không cộng vào độ chờ. Fail-open toàn phần.
+    /// </summary>
+    public async Task<InterviewOutlook> UpdateInterviewOutlookAsync(Guid projectId, CancellationToken cancellationToken = default)
+    {
+        var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
+        if (project == null)
+            return new InterviewOutlook();
+
+        var ba = await _agentResolver.FindConfiguredAsync(cancellationToken);
+        if (ba == null)
+            return InterviewOutlookService.Current(project);
+
+        return await _interviewOutlook.UpdateAndLoadAsync(project, ba, ba.AiModel!, cancellationToken);
     }
 
     /// <summary>

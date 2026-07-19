@@ -54,6 +54,10 @@ public static partial class PocAudit
         var crudEntities = CheckCrud(scan, issues, warnings);
         var scriptBody = PocTemplate.GetScriptBody(html);
         CheckScript(html, scriptBody, spec.Rules.Count, issues, warnings);
+        // Worked examples có trong spec ⇒ POC PHẢI định nghĩa window.pocWorkedExamples() để oracle độc lập
+        // đối chiếu (runtime check chạy nó). Thiếu hàm = mất tầng kiểm con số người dùng đã chốt.
+        if (spec.WorkedExamples.Count > 0 && scriptBody.Length > 0 && !scriptBody.Contains("pocWorkedExamples", StringComparison.Ordinal))
+            issues.Add($"The POC script does not define window.pocWorkedExamples() although the AI Design Spec declares {spec.WorkedExamples.Count} worked example(s) — define it (globally) to return one entry per example: [{{ ref: 'WE-1', computed: <value computed by CALLING the demo's own logic for that example's inputs> }}, …]. The audit runs it in a headless browser and checks each computed value against the user-confirmed expected result.");
         var coveredScreens = CheckSpecCoverage(spec, navLeaves, sections, issues);
 
         return Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody, spec, coveredScreens);
@@ -232,6 +236,15 @@ public static partial class PocAudit
             sb.AppendLine("BUSINESS RULES from the AI Design Spec — verify EACH ONE actually behaves in the demo (computed live from the data on screen, validated while typing, state changed on click); implement any missing one via SetPocScript/AppendPocScript before returning:");
             for (var i = 0; i < spec.Rules.Count; i++)
                 sb.AppendLine($"{i + 1}. {spec.Rules[i]}");
+        }
+
+        // Worked examples are the INDEPENDENT oracle: expected values the user confirmed. window.pocWorkedExamples()
+        // must reproduce each by CALLING the demo's real logic — never hard-code the expected number.
+        if (spec.WorkedExamples.Count > 0)
+        {
+            sb.AppendLine("WORKED EXAMPLES from the AI Design Spec — window.pocWorkedExamples() must return { ref, computed } for EACH, where 'computed' is produced by calling the demo's own business logic on that example's inputs (NOT the expected number hard-coded). The runtime check compares each computed value to the user-confirmed expected:");
+            foreach (var we in spec.WorkedExamples)
+                sb.AppendLine($"- {we.Ref}{(string.IsNullOrWhiteSpace(we.RuleRef) ? "" : $" ({we.RuleRef})")}: {we.Description} => expected {we.Expected}");
         }
 
         sb.Append($"Summary: {navLeaves.Count} menu leaves, {sections.Count} screens, ");

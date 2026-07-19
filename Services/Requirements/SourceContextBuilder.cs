@@ -52,9 +52,12 @@ public class SourceContextBuilder
             }
             else
             {
-                contents.Add(new TextContent(header + (s.Kind == SourceFileKind.Image
-                    ? " (ảnh — xem nội dung ảnh đính kèm)"
-                    : " (PDF dạng scan/ảnh — không trích xuất được text, nội dung bị bỏ qua)")));
+                contents.Add(new TextContent(header + (s.Kind switch
+                {
+                    SourceFileKind.Image => " (ảnh — xem nội dung ảnh đính kèm)",
+                    SourceFileKind.Spreadsheet => " (bảng tính — không đọc được nội dung, đã bỏ qua)",
+                    _ => " (PDF dạng scan/ảnh — không trích xuất được text, nội dung bị bỏ qua)"
+                })));
             }
 
             if (!modelSupportsVision)

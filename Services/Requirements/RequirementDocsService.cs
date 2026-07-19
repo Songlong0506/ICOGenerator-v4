@@ -87,7 +87,8 @@ public class RequirementDocsService
             project,
             productBrief,
             ProjectDocumentLookup.GetContent(project, _artifactCatalog.AiDesignSpec.FileName, versionName),
-            organizationContext ?? string.Empty);
+            organizationContext ?? string.Empty,
+            project.WorkedExamples);
 
         var messages = new List<ChatMessage>
         {

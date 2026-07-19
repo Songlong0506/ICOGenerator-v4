@@ -136,6 +136,30 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task BlankSection_IsReported()
+    {
+        // Section mở được nhưng RỖNG TRƠN (không heading/nội dung) — heuristic màn-hình-trống (H).
+        var html = """
+            <!doctype html><html><head><meta charset="utf-8"></head><body>
+            <section class="page-view active" data-view="Trống"></section>
+            <script>
+            window.pocNavigate = function (label) {
+                document.querySelectorAll('section.page-view').forEach(function (s) {
+                    s.classList.toggle('active', (s.dataset.view || '').toLowerCase() === label.toLowerCase());
+                });
+            };
+            </script>
+            </body></html>
+            """;
+
+        var report = await CheckHtmlAsync(html);
+        if (!report.Ran)
+            return;
+
+        Assert.Contains(report.Issues, i => i.Contains("Trống") && i.Contains("TRỐNG"));
+    }
+
+    [Fact]
     public async Task BrokenNavigation_IsReported()
     {
         // pocNavigate ném lỗi → không màn hình nào mở được ngoài màn active sẵn.

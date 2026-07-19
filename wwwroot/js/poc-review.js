@@ -180,6 +180,43 @@
         if (item) postToFrame({ type: "poc-focus", id: item.dataset.id });
     });
 
+    // "Gửi về Requirement" (B): các ghi chú hiểu-sai-yêu-cầu được lọc + đưa vào hội thoại BA để soạn lại
+    // TÀI LIỆU của chính dự án (không chỉ vá HTML). Server tự bỏ ghi chú thẩm mỹ.
+    const routeReqBtn = document.getElementById("pocRouteReqBtn");
+    const routeReqUrl = root.dataset.routeReqUrl;
+    const routeReqHint = document.getElementById("pocRouteReqHint");
+    if (routeReqBtn && routeReqUrl) {
+        routeReqBtn.addEventListener("click", async function () {
+            if (!confirm("Gửi các điểm HIỂU SAI YÊU CẦU về BA để cập nhật tài liệu? (Ghi chú chỉnh trình bày sẽ được bỏ qua.)")) return;
+
+            routeReqBtn.disabled = true;
+            const original = routeReqBtn.textContent;
+            routeReqBtn.textContent = "Đang gửi…";
+
+            const fd = new FormData();
+            fd.append("projectId", projectId);
+            if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
+
+            try {
+                const response = await fetch(routeReqUrl, { method: "POST", body: fd });
+                const data = await response.json().catch(() => null);
+                if (routeReqHint && data && data.message) {
+                    routeReqHint.textContent = data.message;
+                    routeReqHint.classList.toggle("poc-route-ok", !!data.ok);
+                }
+                if (data && data.ok) {
+                    // Các ghi chú đã chuyển trạng thái (RoutedToRequirement) — làm tươi danh sách.
+                    await loadComments();
+                }
+            } catch {
+                if (routeReqHint) routeReqHint.textContent = "Không gửi được — thử lại sau.";
+            } finally {
+                routeReqBtn.disabled = false;
+                routeReqBtn.textContent = original;
+            }
+        });
+    }
+
     // ===== Tin nhắn từ annotator trong iframe =====
 
     window.addEventListener("message", function (e) {

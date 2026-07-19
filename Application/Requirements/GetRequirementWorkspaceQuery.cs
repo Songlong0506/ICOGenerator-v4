@@ -13,6 +13,9 @@ public record RequirementWorkspaceResult(
     bool BaModelSupportsVision,
     IReadOnlyList<CoverageMapItem> Coverage,
     IReadOnlyList<string> Decisions,
+    IReadOnlyList<string> OpenQuestions,
+    IReadOnlyList<string> PlannedScope,
+    IReadOnlyList<string> WorkedExamples,
     IReadOnlyList<string> SpecAssumptions,
     string? SpecVersion);
 
@@ -112,6 +115,9 @@ public class GetRequirementWorkspaceQuery
             baSupportsVision,
             CoverageMapParser.Parse(project.RequirementCoverageMap),
             DecisionLogService.ParseItems(project.DecisionLog),
+            InterviewOutlookService.ParseItems(project.OpenQuestions),
+            InterviewOutlookService.ParseItems(project.PlannedScope),
+            InterviewOutlookService.ParseItems(project.WorkedExamples),
             SpecAssumptionsParser.Parse(latestSpec?.Content),
             latestSpec?.VersionName);
     }

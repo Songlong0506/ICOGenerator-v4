@@ -94,6 +94,9 @@ public class RequirementsController : Controller
         ViewBag.BaSupportsVision = result.BaModelSupportsVision;
         ViewBag.Coverage = result.Coverage;
         ViewBag.Decisions = result.Decisions;
+        ViewBag.OpenQuestions = result.OpenQuestions;
+        ViewBag.PlannedScope = result.PlannedScope;
+        ViewBag.WorkedExamples = result.WorkedExamples;
         ViewBag.SpecAssumptions = result.SpecAssumptions;
         ViewBag.SpecVersion = result.SpecVersion;
         return View(result.Project);
@@ -123,9 +126,10 @@ public class RequirementsController : Controller
                 TempData["Error"] = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent.";
             else
             {
-                // Đường postback reload cả trang nên panel "Điều đã chốt" render từ server — gộp lượt
-                // mới trước khi redirect (ở đường streaming việc này chạy sau frame done).
+                // Đường postback reload cả trang nên các panel render từ server — gộp lượt mới trước khi
+                // redirect (ở đường streaming việc này chạy sau frame done).
                 await _chatWithBAUseCase.UpdateDecisionsAsync(projectId);
+                await _chatWithBAUseCase.UpdateInterviewOutlookAsync(projectId);
                 await _chatWithBAUseCase.EnsureProjectDomainAsync(projectId);
             }
         }
@@ -272,6 +276,25 @@ public class RequirementsController : Controller
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Không cập nhật được 'Điều đã chốt' sau lượt chat của project {ProjectId}", projectId);
+                }
+
+                // Cùng nhịp hậu kỳ: gộp "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ
+                // tính thử đã xác nhận) rồi đẩy frame phụ cập nhật các panel bên phải. Fail-open: lỗi thì
+                // giữ panel bản cũ.
+                try
+                {
+                    var outlook = await _chatWithBAUseCase.UpdateInterviewOutlookAsync(projectId, CancellationToken.None);
+                    channel.Writer.TryWrite(new
+                    {
+                        type = "outlook",
+                        openQuestions = outlook.OpenQuestions,
+                        plannedScope = outlook.PlannedScope,
+                        workedExamples = outlook.WorkedExamples
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Không cập nhật được 'triển vọng phỏng vấn' sau lượt chat của project {ProjectId}", projectId);
                 }
 
                 // Phân loại miền nghiệp vụ (một lần cho mỗi dự án, fail-open bên trong) — cũng ở hậu kỳ

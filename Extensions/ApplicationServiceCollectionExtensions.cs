@@ -374,6 +374,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetDocumentRevisionDiffQuery>();
         services.AddScoped<EstimatePocEtaQuery>();
         services.AddScoped<ReviseBriefFromNotesUseCase>();
+        services.AddScoped<RoutePocFeedbackToRequirementUseCase>();
         return services;
     }
 
@@ -639,6 +640,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ProjectDomainClassifier>();
         services.AddScoped<RequirementCoverageService>();
         services.AddScoped<DecisionLogService>();
+        services.AddScoped<InterviewOutlookService>();
         services.AddScoped<UatScenarioService>();
         services.AddScoped<PocFeedbackMemoryService>();
         services.AddScoped<ProductBriefReviewParser>();

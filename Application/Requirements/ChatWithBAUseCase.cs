@@ -28,6 +28,13 @@ public class ChatWithBAUseCase
         _baChatService.UpdateDecisionsAsync(projectId, cancellationToken);
 
     /// <summary>
+    /// Gộp lượt chat mới vào "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ tính thử) —
+    /// gọi SAU khi user đã nhận câu trả lời (hậu kỳ) như <see cref="UpdateDecisionsAsync"/>.
+    /// </summary>
+    public Task<InterviewOutlook> UpdateInterviewOutlookAsync(Guid projectId, CancellationToken cancellationToken = default) =>
+        _baChatService.UpdateInterviewOutlookAsync(projectId, cancellationToken);
+
+    /// <summary>
     /// Phân loại miền nghiệp vụ của dự án nếu chưa có (idempotent, fail-open) — cũng chạy ở hậu kỳ lượt
     /// chat để không cộng vào độ chờ. Miền quyết định bucket "checklist học được" nào của BA được dùng.
     /// </summary>
