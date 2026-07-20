@@ -36,9 +36,30 @@
         flash.hidden = false;
     }
 
+    var reauthTriggered = false;
+
+    // Phiên SSO hết hạn giữa chừng: server trả { authExpired:true, loginUrl }. Đá người dùng sang endpoint
+    // ReAuth để challenge lại OIDC (thường im lặng). Trả về Promise không bao giờ resolve để callback phía
+    // sau (hiển thị lỗi / bật lại nút) không chạy — trang sắp điều hướng đi.
+    function handleAuthExpired(data) {
+        if (!reauthTriggered) {
+            reauthTriggered = true;
+            showFlash(data.message || "Phiên đăng nhập đã hết hạn. Đang đăng nhập lại…", "info");
+            window.location.assign(data.loginUrl || "/Account/Login");
+        }
+        return new Promise(function () { });
+    }
+
+    // Đọc JSON kể cả khi status lỗi để không nuốt mất tín hiệu authExpired/loginUrl; authExpired ⇒ điều hướng.
+    function readJson(r) {
+        return r.json()
+            .catch(function () { return { ok: false, message: "Máy chủ trả về lỗi." }; })
+            .then(function (data) { return data && data.authExpired ? handleAuthExpired(data) : data; });
+    }
+
     function getJson(url) {
         return fetch(url, { headers: { "Accept": "application/json" }, credentials: "same-origin" })
-            .then(function (r) { return r.ok ? r.json() : { ok: false, message: "Máy chủ trả về lỗi." }; })
+            .then(readJson)
             .catch(function () { return { ok: false, message: "Lỗi mạng khi gọi máy chủ." }; });
     }
 
@@ -56,7 +77,7 @@
             credentials: "same-origin",
             body: body
         })
-            .then(function (r) { return r.ok ? r.json() : { ok: false, message: "Máy chủ trả về lỗi." }; })
+            .then(readJson)
             .catch(function () { return { ok: false, message: "Lỗi mạng khi gọi máy chủ." }; });
     }
 

@@ -1,9 +1,22 @@
+using System.Globalization;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using ICOGenerator.Application.Account;
 using Microsoft.AspNetCore.Authentication;
 
 namespace ICOGenerator.Services.Identity;
+
+/// <summary>
+/// Ném khi phiên SSO không còn dùng được để gọi IdentityServer: thiếu / hết hạn access_token, hoặc IS4
+/// trả 401. Controller bắt riêng ngoại lệ này để đá người dùng đăng nhập lại (challenge OIDC) thay vì
+/// hiển thị "không kết nối được" chung chung. Chỉ phát sinh ở chế độ IdentityServer (Local giữ fail-mềm).
+/// </summary>
+public sealed class IdentityServerSessionExpiredException : Exception
+{
+    public IdentityServerSessionExpiredException(string message) : base(message) { }
+}
 
 /// <summary>
 /// Cầu nối gọi REST API quản trị của Bosch IdentityServer (IS4): lấy danh sách role của API resource,
@@ -26,15 +39,18 @@ public class IdentityServerService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IConfiguration _config;
+    private readonly AuthenticationSettings _authSettings;
 
     public IdentityServerService(
         IHttpClientFactory httpClientFactory,
         IHttpContextAccessor httpContextAccessor,
-        IConfiguration config)
+        IConfiguration config,
+        AuthenticationSettings authSettings)
     {
         _httpClientFactory = httpClientFactory;
         _httpContextAccessor = httpContextAccessor;
         _config = config;
+        _authSettings = authSettings;
     }
 
     private IConfigurationSection Section => _config.GetSection("IdentityServer");
@@ -43,10 +59,51 @@ public class IdentityServerService
     /// <summary>Tên API resource (vd HCP_CBO_API) — role được gắn theo resource này khi assign/withdraw.</summary>
     public string ApiName => Section.GetValue<string>("APIName") ?? string.Empty;
 
+    /// <summary>
+    /// Phiên SSO coi như hết hạn khi: đang ở chế độ <see cref="AuthProvider.IdentityServer"/> VÀ (không có
+    /// access_token, hoặc <c>expires_at</c> đã qua). Dùng để (a) chặn sớm trong <see cref="CreateClientAsync"/>,
+    /// (b) cho controller kiểm tra ngay khi vào trang User Roles. Ở chế độ Local luôn trả <c>false</c> —
+    /// không có IdP để đăng nhập lại nên giữ hành vi fail-mềm (trả danh sách rỗng) như cũ.
+    /// </summary>
+    public async Task<bool> IsSessionExpiredAsync()
+    {
+        if (_authSettings.Provider != AuthProvider.IdentityServer)
+            return false;
+
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext is null)
+            return true;
+
+        var token = await httpContext.GetTokenAsync("access_token");
+        if (string.IsNullOrWhiteSpace(token))
+            return true;
+
+        // expires_at do SaveTokens lưu (ISO 8601). Trừ 30s skew để không rơi vào cảnh token hết hạn ngay
+        // giữa lời gọi. Không parse được (IdP không phát expires_at) ⇒ để IS4 tự quyết bằng 401.
+        var expiresAtRaw = await httpContext.GetTokenAsync("expires_at");
+        if (DateTimeOffset.TryParse(expiresAtRaw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var expiresAt))
+            return expiresAt <= DateTimeOffset.UtcNow.AddSeconds(30);
+
+        return false;
+    }
+
+    // IS4 trả 401 dù expires_at chưa qua (token bị thu hồi, lệch giờ máy chủ…) ⇒ vẫn coi là phiên hết hạn
+    // để UI đá người dùng đăng nhập lại, thay vì nuốt thành danh sách rỗng khó hiểu.
+    private void EnsureAuthorized(HttpResponseMessage response)
+    {
+        if (_authSettings.Provider == AuthProvider.IdentityServer
+            && response.StatusCode == HttpStatusCode.Unauthorized)
+            throw new IdentityServerSessionExpiredException("IdentityServer từ chối access_token (401) — phiên SSO đã hết hạn.");
+    }
+
     // Client dùng chung pool handler (đã bỏ kiểm tra chứng chỉ); BaseAddress + bearer token gắn theo TỪNG
     // request vì token là của phiên người dùng hiện tại, không thể là default header của client pooled.
     private async Task<HttpClient> CreateClientAsync()
     {
+        // Phiên SSO hết hạn ⇒ dừng sớm để controller đá đăng nhập lại, thay vì gửi token chết cho IS4.
+        if (await IsSessionExpiredAsync())
+            throw new IdentityServerSessionExpiredException("Phiên đăng nhập SSO đã hết hạn.");
+
         var client = _httpClientFactory.CreateClient(HttpClientName);
 
         var baseUrl = Section.GetValue<string>("BaseURL");
@@ -66,6 +123,7 @@ public class IdentityServerService
     {
         var client = await CreateClientAsync();
         var response = await client.GetAsync($"{Endpoint("RolesByAPIName")}/{ApiName}");
+        EnsureAuthorized(response);
         if (!response.IsSuccessStatusCode)
             return new List<IdentityServerRoleResponse>();
 
@@ -83,6 +141,7 @@ public class IdentityServerService
 
         var client = await CreateClientAsync();
         var response = await client.GetAsync(apiUrl);
+        EnsureAuthorized(response);
         if (!response.IsSuccessStatusCode)
             return new List<LdapUserResponse>();
 
@@ -97,6 +156,7 @@ public class IdentityServerService
         var client = await CreateClientAsync();
         var content = JsonContent(request);
         var response = await client.PostAsync(Endpoint("IdentityServerUser"), content);
+        EnsureAuthorized(response);
         if (!response.IsSuccessStatusCode)
             return new List<LdapUserResponse>();
 
@@ -110,6 +170,7 @@ public class IdentityServerService
     {
         var client = await CreateClientAsync();
         var response = await client.PostAsync(Endpoint("RoleForUser"), JsonContent(request));
+        EnsureAuthorized(response);
         return response.IsSuccessStatusCode;
     }
 
@@ -118,6 +179,7 @@ public class IdentityServerService
     {
         var client = await CreateClientAsync();
         var response = await client.PostAsync(Endpoint("WithdrawalRole"), JsonContent(request));
+        EnsureAuthorized(response);
         return response.IsSuccessStatusCode;
     }
 

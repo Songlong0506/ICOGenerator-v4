@@ -78,6 +78,25 @@ public class AccountController : Controller
         return RedirectToLocal(returnUrl);
     }
 
+    // Buộc challenge lại OIDC để làm mới access_token đã hết hạn (SaveTokens lưu access_token + expires_at
+    // mới vào cookie), KỂ CẢ khi cookie app còn sống — khác Login vốn bounce về ngay nếu đã đăng nhập. Phiên
+    // ở IdP thường còn sống nên vòng này im lặng (không phải gõ lại mật khẩu). Dùng bởi trang User Roles khi
+    // phát hiện access_token hết hạn. [AllowAnonymous] để tự làm chủ việc challenge dù cookie đã hết hay chưa.
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult ReAuth(string? returnUrl = null)
+    {
+        var target = Url.IsLocalUrl(returnUrl) ? returnUrl! : Url.Action("Index", "Projects")!;
+
+        // Chế độ Local không có IdP để đăng nhập lại ⇒ chỉ quay về trang đích.
+        if (_authSettings.Provider != AuthProvider.IdentityServer)
+            return LocalRedirect(target);
+
+        return Challenge(
+            new AuthenticationProperties { RedirectUri = target },
+            OpenIdConnectDefaults.AuthenticationScheme);
+    }
+
     // Đăng xuất chỉ có ý nghĩa ở chế độ SSO (RP-initiated logout khỏi IdentityServer để không bị đăng nhập
     // lại ngầm qua phiên còn sống ở IdP). Ở chế độ Local, request kế sẽ tự đăng nhập lại bằng Admin nên nút
     // Logout được ẩn (xem _Layout) — vẫn giữ endpoint để phòng gọi trực tiếp.
