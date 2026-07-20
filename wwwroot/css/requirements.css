@@ -536,25 +536,6 @@
         cursor: pointer;
     }
 
-    .requirement-tabs {
-        display: flex;
-        gap: 10px;
-        padding: 20px;
-        border-bottom: 1px solid #eee;
-    }
-
-    .doc-tab {
-        border: 1px solid var(--bosch-blue);
-        background: white;
-        color: var(--bosch-blue);
-        padding: 8px 14px;
-        cursor: pointer;
-    }
-
-    .doc-tab:hover {
-        background: var(--bosch-blue-tint);
-    }
-
     .requirement-content {
         flex: 1;
         overflow-y: auto;
@@ -635,7 +616,9 @@
     }
 
     .doc-actions {
-        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
     }
 
     .modal-footer {
@@ -643,6 +626,14 @@
         border-top: 1px solid #eee;
         display: flex;
         justify-content: flex-end;
+        align-items: center;
+        gap: 12px;
+    }
+
+    /* Đẩy nút "Gửi ghi chú cho BA sửa" về sát trái để tách khỏi nút Approve bên phải;
+       khi nút này ẩn (chưa có ghi chú) thì Approve vẫn nằm bên phải. */
+    .modal-footer #briefNotesSendBtn {
+        margin-right: auto;
     }
 
     .workflow-progress {
