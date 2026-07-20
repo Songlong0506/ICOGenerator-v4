@@ -139,7 +139,7 @@ dotnet bin/Debug/net8.0/ICOGenerator.dll
 1. **Schema**: SqlServer → `MigrateAsync()` (chạy migrations); Sqlite → `EnsureCreatedAsync()` (dựng thẳng từ model, vì migration sinh ra là SQL-Server-specific).
 2. **Cứu task mồ côi**: task còn `Running` sau restart được re-queue (tối đa 3 lần thử — quá thì đánh `Failed` cả task lẫn run).
 3. **Seed users** (khi bảng trống): `admin`/`Admin@123`, `teamdev`/`TeamDev@123`, `user`/`User@123` — **đổi ngay trên môi trường thật**, app có ghi log cảnh báo.
-4. **Seed ma trận quyền** (khi bảng trống): TeamDev = mọi thứ trừ Settings/Roles; User = xem Projects/Requirements + gửi Feedback. Admin không cần dòng nào (implicit-all).
+4. **Seed ma trận quyền** (khi bảng trống): Admin = toàn bộ quyền (cấu hình được); TeamDev = mọi thứ trừ Settings/Roles; User = xem Projects/Requirements + gửi Feedback. SuperAdmin không cần dòng nào (implicit-all).
 5. **Seed OrgUnits/Associates** (dữ liệu tổ chức mẫu từ HR_Portal, chỉ khi trống).
 6. **Seed golden set Prompt Evals** (khi bảng `EvalScenarios` trống): bộ scenario mặc định phủ các prompt đánh-giá-được (xem `Data/EvalScenariosSeedData.cs`) — sửa/tắt thoải mái, không bị ghi đè ở lần khởi động sau.
 7. **Đồng bộ danh mục tool**: `ToolDiscoveryService` quét các method có `[Description]` trong các class `*Tools` → upsert bảng `ToolDefinitions`.
@@ -262,8 +262,8 @@ tests/ICOGenerator.Tests # xUnit
 
 | Bảng | Vai trò | Điểm đáng chú ý |
 |---|---|---|
-| `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `PasswordHash` (PBKDF2 qua `PasswordHasher`), `Role` (Admin/TeamDev/User), `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | Chưa có UI tạo user — seed 3 tài khoản cố định |
-| `RolePermissions` | Cấp quyền `(Role, Permission)` — cấu hình runtime ở màn Roles | Unique `(Role, Permission)`. Admin implicit-all, không có dòng nào |
+| `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `PasswordHash` (PBKDF2 qua `PasswordHasher`), `Role` (SuperAdmin/Admin/TeamDev/User), `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | Chưa có UI tạo user — seed 4 tài khoản cố định |
+| `RolePermissions` | Cấp quyền `(Role, Permission)` — cấu hình runtime ở màn Roles | Unique `(Role, Permission)`. SuperAdmin implicit-all, không có dòng nào |
 | `AuditLogs` | Nhật ký thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt): actor, before/after JSON | Ghi qua `IAuditLogger` |
 
 ### 5.5. Nhóm vệ tinh
@@ -618,11 +618,11 @@ Route mặc định: `{controller=Projects}/{action=Index}/{id?}`. Mọi endpoin
 - Security headers trên mọi response: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: no-referrer`. Không đặt CSP global (inline script hiện có); HTML do LLM sinh được sandbox ở endpoint `Projects/Mockup` riêng.
 - Mật khẩu băm PBKDF2 (`PasswordHasher<AppUser>`).
 
-### 13.2. Phân quyền (3 role người dùng × quyền mức hành động)
+### 13.2. Phân quyền (4 role người dùng × quyền mức hành động)
 
-- `UserRole`: **Admin / TeamDev / User** — *khác hẳn* `AgentRoleKey` (vai của AI).
+- `UserRole`: **SuperAdmin / Admin / TeamDev / User** — *khác hẳn* `AgentRoleKey` (vai của AI).
 - Quyền mức hành động: enum `AppPermission` (24 quyền — xem bảng §12). `PermissionCatalog` (Domain/Security) gom quyền theo màn hình để render ma trận + lọc menu sidebar.
-- **Một nguồn sự thật**: `IPermissionService` (cache MemoryCache; **Admin implicit-all** nên không tự khóa được), dùng bởi filter `[RequirePermission(...)]` và `_Layout.cshtml`.
+- **Một nguồn sự thật**: `IPermissionService` (cache MemoryCache; **SuperAdmin implicit-all** nên không tự khóa được, **Admin nay cấu hình được** như TeamDev/User), dùng bởi filter `[RequirePermission(...)]` và `_Layout.cshtml`.
 - Cấu hình runtime ở màn Roles; lưu xong `InvalidateCache()` ⇒ **hiệu lực ngay, không cần đăng nhập lại**. Thiếu quyền ⇒ `/Account/AccessDenied`.
 - **Phân quyền THEO PROJECT** (`IProjectAccessGuard` — Services/Security): người không có `ProjectsViewAll` chỉ thao tác được project **mình tạo**, áp ở đầu mọi controller action nhận `projectId`/document id (Requirements, Projects/Mockup·PocReview·DownloadSource, Agent Dashboard) — chặn truy cập chéo bằng GUID đoán/lộ qua URL/log. "Không phải của bạn" trả về y hệt "không tồn tại" (redirect về danh sách / 404) để không rò rỉ sự tồn tại của project. Ai có `ProjectsViewAll` (TeamDev/Admin mặc định) pass ngay, không tốn thêm query.
 - **Thêm quyền mới**: thêm giá trị `AppPermission` → khai báo vào `PermissionCatalog.Screens` → gắn `[RequirePermission]` → (nếu là menu) thêm nhánh `@if` trong `_Layout.cshtml` → cân nhắc seed/backfill trong `DbInitializer`.
@@ -769,7 +769,7 @@ Các công thức chuyên biệt: thêm **tool** (§8.2), thêm **bước pipeli
 | Lỗi `Value cannot be an empty string (Parameter 'key')` khi agent chạy | Model đang chọn có ApiKey rỗng (model seed DeepSeek để trống) — điền ApiKey hoặc trỏ agent sang model khác |
 | Agent chạy "thành công" nhưng Output rỗng (khi dùng stub/proxy) | Endpoint không hỗ trợ **SSE streaming** — app đọc stream. Stub phải trả `text/event-stream` |
 | Task đứng `Running` mãi sau khi app restart | Bình thường: `DbInitializer` sẽ re-queue ở lần khởi động kế (tối đa 3 lần thử rồi Failed). Không tự sửa tay Status trong DB khi app đang chạy |
-| Đổi quyền ở màn Roles mà user kêu không thấy thay đổi | Không thể — cache được invalidate ngay khi lưu. Kiểm tra lại đúng role, và nhớ **Admin luôn full quyền** bất kể ma trận |
+| Đổi quyền ở màn Roles mà user kêu không thấy thay đổi | Không thể — cache được invalidate ngay khi lưu. Kiểm tra lại đúng role, và nhớ **SuperAdmin luôn full quyền** bất kể ma trận (Admin thì theo ma trận) |
 | Sinh tài liệu ném `FileNotFoundException` trên bản publish | Thiếu thư mục `Templates/` — csproj đã cấu hình copy; nếu tự đóng gói tay phải mang theo `Templates/*.docx` + `Prompts/**` |
 | Đổi schema khi dev Sqlite không thấy cột mới | Sqlite dùng `EnsureCreated` (không migration) — xóa `ICOGenerator.db*` để dựng lại |
 | Muốn reset sạch lịch sử migration | Xóa `Migrations/` → `dotnet ef migrations add V1` với env ≠ Development (để sinh theo SqlServer) — xem ARCHITECTURE §9 |

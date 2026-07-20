@@ -7,14 +7,14 @@ using Microsoft.EntityFrameworkCore;
 namespace ICOGenerator.Application.Roles;
 
 /// <summary>
-/// Lưu lại ma trận quyền cho các role CHỈNH ĐƯỢC (TeamDev, User). Admin bị bỏ qua hoàn toàn vì
-/// luôn có toàn quyền. Nhận danh sách chuỗi "Role:Permission" từ các checkbox được tích.
+/// Lưu lại ma trận quyền cho các role CHỈNH ĐƯỢC (Admin, TeamDev, User). SuperAdmin bị bỏ qua hoàn toàn
+/// vì luôn có toàn quyền. Nhận danh sách chuỗi "Role:Permission" từ các checkbox được tích.
 /// Sau khi lưu sẽ xóa cache của PermissionService để thay đổi có hiệu lực ngay.
 /// </summary>
 public class UpdateRolePermissionsUseCase
 {
-    // Admin không nằm ở đây: không bao giờ ghi quyền cho admin (implicit-all).
-    private static readonly UserRole[] EditableRoles = { UserRole.TeamDev, UserRole.User };
+    // SuperAdmin không nằm ở đây: không bao giờ ghi quyền cho super admin (implicit-all).
+    private static readonly UserRole[] EditableRoles = { UserRole.Admin, UserRole.TeamDev, UserRole.User };
 
     private readonly AppDbContext _db;
     private readonly IPermissionService _permissions;
@@ -68,7 +68,7 @@ public class UpdateRolePermissionsUseCase
                 .ToList());
 
     // "TeamDev:ProjectsView" -> (TeamDev, ProjectsView). Bỏ qua chuỗi sai định dạng, role không chỉnh được,
-    // và quyền trùng (HashSet). Admin có lọt vào cũng bị loại vì không nằm trong EditableRoles.
+    // và quyền trùng (HashSet). SuperAdmin có lọt vào cũng bị loại vì không nằm trong EditableRoles.
     private static Dictionary<UserRole, HashSet<AppPermission>> ParseSelections(IEnumerable<string>? granted)
     {
         var result = EditableRoles.ToDictionary(r => r, _ => new HashSet<AppPermission>());

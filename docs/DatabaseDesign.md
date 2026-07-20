@@ -515,7 +515,7 @@ Khi DB khởi tạo rỗng, `DbInitializer` seed:
 | Data | Nội dung |
 |---|---|
 | Users | `admin/Admin@123`, `teamdev/TeamDev@123`, `user/User@123` |
-| Role permissions | TeamDev gần đủ quyền vận hành; User quyền project/requirement/feedback cơ bản; Admin implicit-all |
+| Role permissions | SuperAdmin implicit-all; Admin mặc định toàn bộ quyền (cấu hình được); TeamDev gần đủ quyền vận hành; User quyền project/requirement/feedback cơ bản |
 | Org/Associates | Dữ liệu mẫu HR_Portal |
 | Tool definitions | Đồng bộ từ tool discovery |
 | AI models | LM Studio local + DeepSeek mẫu |

@@ -39,7 +39,8 @@ flowchart LR
 
 | Role | Ý nghĩa trong app |
 |---|---|
-| `Admin` | Có toàn quyền implicit, quản lý cấu hình, role, model, prompt, audit... |
+| `SuperAdmin` | Có toàn quyền implicit (không cấu hình được, không tự khóa), quản lý cấu hình, role, model, prompt, audit... |
+| `Admin` | Cấu hình quyền được (mặc định seed toàn bộ quyền); quản lý cấu hình, role, model, prompt, audit trong phạm vi được cấp |
 | `TeamDev` | Người vận hành delivery pipeline, duyệt gate, quản lý agent/model/prompt/eval trong phạm vi team |
 | `User` | Tạo/xem project, trao đổi requirement, gửi feedback |
 

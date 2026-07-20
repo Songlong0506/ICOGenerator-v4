@@ -27,14 +27,30 @@ public class PermissionServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Admin_AlwaysHasAllPermissions_EvenWithEmptyTable()
+    public async Task SuperAdmin_AlwaysHasAllPermissions_EvenWithEmptyTable()
     {
         var service = new PermissionService(NewDb(), NewCache());
 
-        var granted = await service.GetGrantedAsync(UserRole.Admin);
+        var granted = await service.GetGrantedAsync(UserRole.SuperAdmin);
 
         Assert.Equal(Enum.GetValues<AppPermission>().ToHashSet(), granted);
-        Assert.True(await service.HasPermissionAsync(Principal(UserRole.Admin), AppPermission.AdministrationManageRoles));
+        Assert.True(await service.HasPermissionAsync(Principal(UserRole.SuperAdmin), AppPermission.AdministrationManageRoles));
+    }
+
+    [Fact]
+    public async Task Admin_IsConfigurable_ReadsGrantedRowsNotImplicitAll()
+    {
+        await using (var db = NewDb())
+        {
+            db.RolePermissions.Add(new RolePermission { Role = UserRole.Admin, Permission = AppPermission.ProjectsView });
+            await db.SaveChangesAsync();
+        }
+
+        var service = new PermissionService(NewDb(), NewCache());
+
+        Assert.True(await service.HasPermissionAsync(Principal(UserRole.Admin), AppPermission.ProjectsView));
+        // Không còn implicit-all: quyền không được cấp thì không có.
+        Assert.False(await service.HasPermissionAsync(Principal(UserRole.Admin), AppPermission.AdministrationManageRoles));
     }
 
     [Fact]
