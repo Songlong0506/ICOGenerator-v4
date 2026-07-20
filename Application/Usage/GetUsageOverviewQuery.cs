@@ -18,14 +18,10 @@ public record DepartmentUsageItem(string? DepartmentCode, string DepartmentName,
 
 public record ModelUsageItem(string ModelId, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal InputPricePerMillionTokens, decimal OutputPricePerMillionTokens, bool HasPrice, decimal Cost);
 
+// TotalTokens: chỉ dùng làm mẫu số cho các % ở bảng project/department. Các tổng khác (prompt/completion/
+// calls/cost, token & chi phí tháng hiện tại) từng có ở đây nhưng không section nào của view đọc tới — bỏ đi.
 public record UsageOverviewVm(
     long TotalTokens,
-    long TotalPromptTokens,
-    long TotalCompletionTokens,
-    int TotalCalls,
-    long CurrentMonthTokens,
-    decimal TotalCost,
-    decimal CurrentMonthCost,
     bool HasAnyPricing,
     IReadOnlyList<MonthlyUsageItem> MonthlyUsage,
     IReadOnlyList<ModelUsageItem> ModelUsage,
@@ -139,10 +135,6 @@ public class GetUsageOverviewQuery
             .ToList();
 
         var totalTokens = models.Sum(x => x.TotalTokens);
-        var totalPrompt = models.Sum(x => x.PromptTokens);
-        var totalCompletion = models.Sum(x => x.CompletionTokens);
-        var totalCalls = models.Sum(x => x.CallCount);
-        var totalCost = models.Sum(x => x.Cost);
 
         // Các năm có dữ liệu, để đổ vào dropdown chọn năm; luôn kèm năm hiện tại dù chưa có log nào.
         var availableYears = logRaw.Select(x => x.Year)
@@ -183,11 +175,6 @@ public class GetUsageOverviewQuery
         var selectedYearTokens = monthly.Sum(x => x.TotalTokens);
         var selectedYearCost = monthly.Sum(x => x.Cost);
 
-        // Token/chi phí THÁNG HIỆN TẠI tính độc lập với cửa sổ đang xem (xem năm quá khứ không làm sai số này).
-        var currentMonthRows = logRaw.Where(x => x.Year == now.Year && x.Month == now.Month).ToList();
-        var currentMonthTokens = currentMonthRows.Sum(x => x.TotalTokens);
-        var currentMonthCost = currentMonthRows.Sum(x => CostFor(x.ModelId, x.PromptTokens, x.CompletionTokens));
-
         // Bộ giải phòng ban (roll-up orgUnit con của project về department gần nhất) — dựng một lần, dùng
         // chung cho cả cột "Department / Org Unit" ở bảng project lẫn bảng "Usage by department".
         var resolveDepartment = await BuildDepartmentResolverAsync();
@@ -218,12 +205,6 @@ public class GetUsageOverviewQuery
 
         return new UsageOverviewVm(
             totalTokens,
-            totalPrompt,
-            totalCompletion,
-            totalCalls,
-            currentMonthTokens,
-            totalCost,
-            currentMonthCost,
             hasAnyPricing,
             monthly,
             models,
