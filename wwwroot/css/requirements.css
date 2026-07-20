@@ -206,6 +206,24 @@
         display: none;
     }
 
+    /* Gộp câu hỏi mới nhất của BA + đáp án gợi ý thành MỘT khối liền mạch: khi ngay dưới bubble BA có
+       danh sách gợi ý còn option (:has(.suggestion-option)), bỏ khoảng cách + đường viền đáy của bubble
+       rồi cho suggestion-list "nối" tiếp phần thân với cùng nền/viền để nhìn là một card duy nhất. Thuần
+       CSS — không đụng cơ chế singleton/di chuyển #suggestionList trong requirements.js. */
+    .req-msg.ba:has(+ .suggestion-list .suggestion-option) {
+        margin-bottom: 0;
+        padding-bottom: 12px;
+        border-bottom-color: transparent;
+    }
+
+    .suggestion-list:has(.suggestion-option) {
+        margin-top: 0;
+        padding: 0 18px 16px;
+        background: var(--surface-alt);
+        border: 1px solid var(--line);
+        border-top: none;
+    }
+
     .suggestion-option {
         font-family: inherit;
         font-size: 14px;
