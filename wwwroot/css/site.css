@@ -77,6 +77,24 @@
     --radius-pill: 999px;
     --focus-ring: 0 0 0 2px var(--bosch-blue-tint-strong);
 
+    /* ---- Bosch form-field tokens (filled + underline, floating label) ----
+       Drives the .bci-field component (text/date/time/select). Matches the
+       Bosch Web Core "Interactive Example" field: light grey fill, dark
+       underline that turns blue + 2px on focus, small persistent top label. */
+    --field-bg: #e0e2e5;
+    --field-bg-hover: #d7dade;
+    --field-bg-disabled: #eceef0;
+    --field-line: #6f7579;      /* resting underline */
+    --field-line-disabled: #b6bbbf;
+    --field-h: 48px;            /* control height incl. floating label */
+    --field-label: 11px;        /* floating label size */
+
+    /* ---- Checkbox tokens (Bosch square) ---- */
+    --check-size: 20px;
+    --check-border: #6f7579;
+    --check-border-disabled: #b6bbbf;
+    --check-bg-disabled: #e0e2e5;
+
     /* Back-compat aliases used by inline view styles */
     --primary: #007bc0;
     --primary2: #00629a;
@@ -438,7 +456,21 @@ input, textarea, select {
 }
 
 textarea { resize: vertical; }
-select { background: #fff; }
+
+/* Native <select>: swap the platform chevron for a consistent Bosch one so
+   every dropdown across the app shares one look (floating-label dropdowns
+   use .bci-field; this covers plain filter/form selects). */
+select {
+    background-color: #fff;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 38px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%235a6066' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+}
+select:disabled { background-color: var(--field-bg-disabled); color: var(--muted); cursor: not-allowed; }
 
 input:focus, textarea:focus, select:focus {
     outline: none;
@@ -460,7 +492,8 @@ input[readonly]:focus, textarea[readonly]:focus {
 }
 
 input[type="color"] { padding: 4px; height: 40px; }
-input[type="checkbox"], input[type="radio"] { width: auto; }
+/* Bosch-blue selection colour for every native checkbox/radio app-wide. */
+input[type="checkbox"], input[type="radio"] { width: auto; accent-color: var(--bosch-blue); }
 
 .choice {
     border: 1px solid var(--line);
@@ -1115,3 +1148,308 @@ input[type="week"] {
 .notif-foot-row .notif-foot { flex: 1; border-top: none; }
 .notif-foot-row .notif-foot:last-child { flex: 0 0 auto; border-left: 1px solid var(--line); padding-left: 16px; padding-right: 16px; }
 .inbox-actions { display: flex; gap: 10px; align-items: center; }
+
+/* ============================================================
+   BOSCH FORM-KIT COMPONENTS
+   Standardized, reusable controls that match the Bosch Web Core
+   reference (filled + underline fields, square checkboxes, pill
+   switches, floating-label dropdowns, data-table state indicators).
+
+   Consume these classes instead of hand-rolling markup so every
+   screen shares one look. See /Home/UiKit for a live styleguide.
+
+     • Field ......... .bci-field  (wraps input / textarea / select;
+                       add .bci-field--cal or .bci-field--clock for
+                       date/time icon)
+     • Dropdown ...... .bci-field with a <select> (chevron auto-added)
+     • Checkbox ...... .bci-check  (checked / indeterminate / disabled)
+     • Switch ........ .bci-switch (toggle; Disable / Required …)
+     • Table state ... .data-table--row-indicators /
+                       .data-table--cell-indicators /
+                       .data-table--col-stripes + .state-* rows/cells
+   ============================================================ */
+
+/* ---------- Floating-label field (filled + underline) ---------- */
+.bci-field {
+    position: relative;
+    display: block;
+    margin: 14px 0;
+}
+
+.bci-field > input,
+.bci-field > select,
+.bci-field > textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--field-bg);
+    border: 0;
+    border-bottom: 1px solid var(--field-line);
+    /* top padding leaves room for the floating label */
+    padding: 20px 12px 7px;
+    min-height: var(--field-h);
+    transition: background .12s, border-color .12s, box-shadow .12s;
+}
+
+.bci-field > select {
+    /* native chevron off; use the Bosch chevron background instead */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 40px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%235a6066' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+}
+
+.bci-field > textarea { min-height: 92px; resize: vertical; line-height: 1.5; }
+
+.bci-field:hover > input:not(:disabled),
+.bci-field:hover > select:not(:disabled),
+.bci-field:hover > textarea:not(:disabled) { background: var(--field-bg-hover); }
+
+.bci-field > input:focus,
+.bci-field > select:focus,
+.bci-field > textarea:focus {
+    outline: none;
+    border-bottom: 2px solid var(--bosch-blue);
+    /* keep text baseline steady when the 1px border becomes 2px */
+    padding-bottom: 6px;
+    box-shadow: none;
+}
+
+/* Floating label — persistent, small, top-left (Bosch style) */
+.bci-field > label {
+    position: absolute;
+    top: 6px;
+    left: 12px;
+    margin: 0;
+    font-size: var(--field-label);
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: .2px;
+    color: var(--muted);
+    pointer-events: none;
+    transition: color .12s;
+}
+
+.bci-field > input:focus ~ label,
+.bci-field > select:focus ~ label,
+.bci-field > textarea:focus ~ label { color: var(--bosch-blue); }
+
+.bci-field > input::placeholder,
+.bci-field > textarea::placeholder { color: #8a9096; }
+
+/* Disabled + readonly */
+.bci-field > input:disabled,
+.bci-field > select:disabled,
+.bci-field > textarea:disabled,
+.bci-field > input[readonly] {
+    background: var(--field-bg-disabled);
+    border-bottom-style: dashed;
+    border-bottom-color: var(--field-line-disabled);
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
+/* Invalid state */
+.bci-field.is-invalid > input,
+.bci-field.is-invalid > select,
+.bci-field.is-invalid > textarea { border-bottom-color: var(--danger); }
+.bci-field.is-invalid > label { color: var(--danger); }
+.bci-field .bci-field-error { display: block; margin-top: 4px; font-size: 12px; color: var(--danger-ink); }
+
+/* Date / time icon variants — native picker indicator is made transparent
+   and stretched over the icon so the whole right side stays clickable. */
+.bci-field--cal,
+.bci-field--clock { }
+.bci-field--cal { background: no-repeat right 12px center; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%235a6066' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='1'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E"); }
+.bci-field--clock { background: no-repeat right 12px center; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%235a6066' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E"); }
+.bci-field--cal > input,
+.bci-field--clock > input { padding-right: 40px; background-color: transparent; }
+.bci-field--cal:hover,
+.bci-field--clock:hover { background-color: transparent; }
+.bci-field--cal > input::-webkit-calendar-picker-indicator,
+.bci-field--clock > input::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: 0;
+    width: 40px;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* ---------- Checkbox (Bosch square) ---------- */
+.bci-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0;
+    font-weight: 400;
+    color: var(--ink);
+    cursor: pointer;
+    user-select: none;
+}
+
+.bci-check > input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+}
+
+.bci-check-box {
+    position: relative;
+    flex: 0 0 var(--check-size);
+    width: var(--check-size);
+    height: var(--check-size);
+    background: #fff;
+    border: 1.5px solid var(--check-border);
+    transition: background .12s, border-color .12s;
+}
+
+/* check mark */
+.bci-check-box::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    opacity: 0;
+}
+
+.bci-check > input:checked + .bci-check-box {
+    background: var(--bosch-blue);
+    border-color: var(--bosch-blue);
+}
+.bci-check > input:checked + .bci-check-box::after { opacity: 1; }
+
+/* indeterminate — set el.indeterminate = true in JS */
+.bci-check > input:indeterminate + .bci-check-box {
+    background: var(--bosch-blue);
+    border-color: var(--bosch-blue);
+}
+.bci-check > input:indeterminate + .bci-check-box::after {
+    content: "";
+    left: 4px;
+    top: 8px;
+    width: 10px;
+    height: 0;
+    border: 0;
+    border-top: 2px solid #fff;
+    transform: none;
+    opacity: 1;
+}
+
+.bci-check > input:focus-visible + .bci-check-box { box-shadow: var(--focus-ring); }
+
+/* disabled */
+.bci-check.is-disabled,
+.bci-check > input:disabled ~ .bci-check-label { color: var(--muted); cursor: not-allowed; }
+.bci-check > input:disabled + .bci-check-box {
+    background: var(--check-bg-disabled);
+    border-color: var(--check-border-disabled);
+}
+.bci-check > input:disabled:checked + .bci-check-box,
+.bci-check > input:disabled:indeterminate + .bci-check-box { background: var(--check-border-disabled); }
+
+.bci-check-label { font-size: 14px; line-height: 1.25; }
+
+/* ---------- Switch (toggle) ---------- */
+.bci-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0;
+    cursor: pointer;
+    user-select: none;
+    color: var(--ink);
+}
+
+.bci-switch > input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
+
+.bci-switch-track {
+    position: relative;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 20px;
+    border-radius: var(--radius-pill);
+    background: #9aa0a6;
+    transition: background .15s;
+}
+.bci-switch-track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,.3);
+    transition: transform .15s;
+}
+.bci-switch > input:checked + .bci-switch-track { background: var(--bosch-blue); }
+.bci-switch > input:checked + .bci-switch-track::after { transform: translateX(20px); }
+.bci-switch > input:focus-visible + .bci-switch-track { box-shadow: var(--focus-ring); }
+.bci-switch > input:disabled + .bci-switch-track { background: #cbd0d4; cursor: not-allowed; }
+.bci-switch > input:disabled ~ .bci-switch-label { color: var(--muted); }
+.bci-switch-label { font-size: 14px; }
+
+/* ---------- Data-table state indicators / stripes / empty ---------- */
+/* State palette shared by row & cell indicators */
+.data-table .state-info    { --state-color: var(--info); }
+.data-table .state-neutral { --state-color: var(--slate-400); }
+.data-table .state-success { --state-color: var(--success); }
+.data-table .state-warning { --state-color: var(--warning); }
+.data-table .state-error   { --state-color: var(--danger); }
+
+/* Row indicators: colored bar on the left edge of the whole row */
+.data-table--row-indicators tbody td:first-child { position: relative; }
+.data-table--row-indicators tbody tr[class*="state-"] td:first-child::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--state-color, transparent);
+}
+
+/* Cell indicators: colored bar on individual state cells */
+.data-table--cell-indicators td.state-cell { position: relative; }
+.data-table--cell-indicators td.state-cell[class*="state-"]::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--state-color, transparent);
+}
+
+/* Column stripes — tint every even column */
+.data-table--col-stripes tbody td:nth-child(even),
+.data-table--col-stripes thead th:nth-child(even) { background: var(--surface-alt); }
+.data-table--col-stripes tbody tr:hover td:nth-child(even) { background: var(--surface-hover); }
+
+/* Row stripes (zebra) */
+.data-table--row-stripes tbody tr:nth-child(even) td { background: var(--surface-alt); }
+
+/* Empty state */
+.data-table-empty {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--muted);
+}
+.data-table-empty .data-table-empty-icon { color: var(--slate-400); margin-bottom: 10px; }
+.data-table-empty .data-table-empty-title { font-weight: 700; color: var(--ink); margin-bottom: 4px; }

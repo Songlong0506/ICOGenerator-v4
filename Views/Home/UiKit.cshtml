@@ -1,0 +1,240 @@
+@{
+    ViewData["Title"] = "UI Kit";
+    Layout = "_Layout";
+
+    // Demo rows for the data table (mirrors the Bosch Web Core "Table" demo).
+    var elements = new[]
+    {
+        new { State = "info",    No = 1,  Name = "Hydrogen",  Weight = "1.0079",  Symbol = "H"  },
+        new { State = "neutral", No = 2,  Name = "Helium",    Weight = "—",       Symbol = "He" },
+        new { State = "success", No = 3,  Name = "Lithium",   Weight = "6.941",   Symbol = "Li" },
+        new { State = "warning", No = 4,  Name = "Beryllium", Weight = "9.0122",  Symbol = "Be" },
+        new { State = "error",   No = 5,  Name = "Boron",     Weight = "10.811",  Symbol = "B"  },
+        new { State = "info",    No = 6,  Name = "Carbon",    Weight = "12.0107", Symbol = "C"  },
+        new { State = "neutral", No = 7,  Name = "Nitrogen",  Weight = "14.0067", Symbol = "N"  },
+        new { State = "success", No = 8,  Name = "Oxygen",    Weight = "15.9994", Symbol = "O"  },
+    };
+}
+
+@section Breadcrumb {
+    <text>Home <span class="sep">&rsaquo;</span> Design system <span class="sep">&rsaquo;</span> UI Kit</text>
+}
+
+<div class="uikit">
+    <h1>UI Kit</h1>
+    <p class="muted">
+        Standardized Bosch form-kit components. Reuse these classes across every screen
+        instead of hand-rolling markup — edit them once in <code>site.css</code> to restyle the whole app.
+    </p>
+
+    <!-- ================= Data table ================= -->
+    <section class="uikit-section">
+        <h2>Data table</h2>
+
+        <div class="uikit-toolbar">
+            <label class="bci-switch">
+                <input type="checkbox" id="tbl-empty">
+                <span class="bci-switch-track"></span>
+                <span class="bci-switch-label">Show empty state</span>
+            </label>
+            <label class="bci-switch">
+                <input type="checkbox" id="tbl-stripes">
+                <span class="bci-switch-track"></span>
+                <span class="bci-switch-label">Switch to column stripes</span>
+            </label>
+            <div class="uikit-radios">
+                <label class="uikit-radio"><input type="radio" name="ind" value="none" checked> Hide indicators</label>
+                <label class="uikit-radio"><input type="radio" name="ind" value="row"> Show row indicators</label>
+                <label class="uikit-radio"><input type="radio" name="ind" value="cell"> Show cell indicators</label>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table" id="demoTable">
+                <thead>
+                    <tr>
+                        <th>State</th>
+                        <th>No.</th>
+                        <th>Name</th>
+                        <th>Weight</th>
+                        <th>Severity</th>
+                        <th>Symbol</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in elements)
+                    {
+                        <tr class="state-@e.State">
+                            <td class="state-cell state-@e.State">@e.State</td>
+                            <td class="num-col">@e.No</td>
+                            <td>@e.Name</td>
+                            <td class="num-col">@e.Weight</td>
+                            <td>@e.State</td>
+                            <td>@e.Symbol</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="data-table-empty hidden" id="demoEmpty">
+                <div class="data-table-empty-icon">
+                    <svg class="ico" style="width:40px;height:40px" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18M9 4v16"/></svg>
+                </div>
+                <div class="data-table-empty-title">No data</div>
+                <div>There are no elements to display.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= Form fields ================= -->
+    <section class="uikit-section">
+        <h2>Form fields</h2>
+        <div class="uikit-grid">
+            <div class="bci-field">
+                <input id="f-label" type="text" placeholder="Enter a value" value="Date/Time">
+                <label for="f-label">Label</label>
+            </div>
+            <div class="bci-field">
+                <input id="f-ph" type="text" placeholder="Set a date and time">
+                <label for="f-ph">Placeholder</label>
+            </div>
+            <div class="bci-field">
+                <textarea id="f-desc" placeholder="Describe the requirement…"></textarea>
+                <label for="f-desc">Description</label>
+            </div>
+            <div class="bci-field">
+                <input id="f-ro" type="text" value="Read-only value" readonly>
+                <label for="f-ro">Read-only</label>
+            </div>
+            <div class="bci-field is-invalid">
+                <input id="f-err" type="text" value="bad@value">
+                <label for="f-err">Invalid</label>
+                <span class="bci-field-error">Please enter a valid value.</span>
+            </div>
+            <div class="bci-field">
+                <input id="f-dis" type="text" value="Disabled" disabled>
+                <label for="f-dis">Disabled</label>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= Dropdown ================= -->
+    <section class="uikit-section">
+        <h2>Dropdown</h2>
+        <div class="uikit-grid">
+            <div class="bci-field">
+                <select id="d-opt">
+                    <option value="">Select…</option>
+                    <option>Basic examples</option>
+                    <option>Multiple selection</option>
+                    <option>Option groups</option>
+                    <option>Other examples</option>
+                </select>
+                <label for="d-opt">Pick an option</label>
+            </div>
+            <div class="bci-field">
+                <select id="d-grp">
+                    <optgroup label="Metals">
+                        <option>Lithium</option>
+                        <option>Beryllium</option>
+                    </optgroup>
+                    <optgroup label="Non-metals">
+                        <option>Hydrogen</option>
+                        <option>Carbon</option>
+                    </optgroup>
+                </select>
+                <label for="d-grp">Option groups</label>
+            </div>
+            <div class="bci-field">
+                <select id="d-dis" disabled>
+                    <option>Disabled</option>
+                </select>
+                <label for="d-dis">Disabled</label>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= Date & time ================= -->
+    <section class="uikit-section">
+        <h2>Date &amp; time selection</h2>
+        <div class="uikit-grid">
+            <div class="bci-field bci-field--cal">
+                <input id="dt-date" type="date">
+                <label for="dt-date">Date</label>
+            </div>
+            <div class="bci-field bci-field--clock">
+                <input id="dt-time" type="time">
+                <label for="dt-time">Time</label>
+            </div>
+            <div class="bci-field bci-field--cal">
+                <input id="dt-dt" type="datetime-local">
+                <label for="dt-dt">Date / Time</label>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= Checkbox ================= -->
+    <section class="uikit-section">
+        <h2>Checkbox</h2>
+        <div class="uikit-stack">
+            <label class="bci-check"><input type="checkbox"><span class="bci-check-box"></span><span class="bci-check-label">Default</span></label>
+            <label class="bci-check"><input type="checkbox" checked><span class="bci-check-box"></span><span class="bci-check-label">Checked</span></label>
+            <label class="bci-check"><input type="checkbox" id="chk-indet"><span class="bci-check-box"></span><span class="bci-check-label">Indeterminate</span></label>
+            <label class="bci-check"><input type="checkbox" disabled><span class="bci-check-box"></span><span class="bci-check-label">Disabled</span></label>
+            <label class="bci-check"><input type="checkbox" checked disabled><span class="bci-check-box"></span><span class="bci-check-label">Disabled + checked</span></label>
+        </div>
+    </section>
+
+    <!-- ================= Switch ================= -->
+    <section class="uikit-section">
+        <h2>Switch</h2>
+        <div class="uikit-stack">
+            <label class="bci-switch"><input type="checkbox"><span class="bci-switch-track"></span><span class="bci-switch-label">Disable</span></label>
+            <label class="bci-switch"><input type="checkbox" checked><span class="bci-switch-track"></span><span class="bci-switch-label">Required</span></label>
+            <label class="bci-switch"><input type="checkbox" disabled><span class="bci-switch-track"></span><span class="bci-switch-label">Disabled</span></label>
+        </div>
+    </section>
+</div>
+
+@section Styles {
+    <style>
+        .uikit { max-width: 1080px; }
+        .uikit-section { margin: 34px 0; }
+        .uikit-section > h2 { border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 18px; }
+        .uikit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px 24px; }
+        .uikit-stack { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+        .uikit-toolbar { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; background: var(--surface-alt); border: 1px solid var(--line); padding: 12px 16px; margin-bottom: 14px; }
+        .uikit-radios { display: flex; gap: 18px; }
+        .uikit-radio { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-weight: 400; color: var(--ink); cursor: pointer; }
+        .uikit-radio input { width: auto; accent-color: var(--bosch-blue); }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            var indet = document.getElementById('chk-indet');
+            if (indet) indet.indeterminate = true;
+
+            var table = document.getElementById('demoTable');
+            var wrap = document.querySelector('#demoTable').closest('.table-wrap');
+            var empty = document.getElementById('demoEmpty');
+
+            document.getElementById('tbl-empty').addEventListener('change', function () {
+                table.classList.toggle('hidden', this.checked);
+                empty.classList.toggle('hidden', !this.checked);
+            });
+
+            document.getElementById('tbl-stripes').addEventListener('change', function () {
+                table.classList.toggle('data-table--col-stripes', this.checked);
+            });
+
+            document.querySelectorAll('input[name="ind"]').forEach(function (r) {
+                r.addEventListener('change', function () {
+                    table.classList.remove('data-table--row-indicators', 'data-table--cell-indicators');
+                    if (this.value === 'row') table.classList.add('data-table--row-indicators');
+                    if (this.value === 'cell') table.classList.add('data-table--cell-indicators');
+                });
+            });
+        })();
+    </script>
+}
