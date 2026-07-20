@@ -395,6 +395,75 @@
 
     .brief-add-note-btn { box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 
+    /* Popover nhập ghi chú (thay window.prompt) — hộp nhỏ nổi ngay dưới đoạn được bôi đen. */
+    .brief-note-popover {
+        width: 320px;
+        max-width: calc(100vw - 24px);
+        background: var(--surface, #fff);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, .18);
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        animation: brief-note-pop-in .12s ease-out;
+    }
+
+    @keyframes brief-note-pop-in {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .brief-note-popover-title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text, #1a1a1a);
+    }
+
+    .brief-note-popover-quote {
+        margin: 0;
+        font-size: 12.5px;
+        font-style: italic;
+        color: var(--text-muted, #666);
+        max-height: 3.4em;
+        overflow: hidden;
+    }
+
+    .brief-note-popover-label {
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--text, #1a1a1a);
+    }
+
+    .brief-note-popover-input {
+        width: 100%;
+        box-sizing: border-box;
+        font: inherit;
+        font-size: 13px;
+        color: var(--text, #1a1a1a);
+        background: var(--surface-alt, #fff);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px 10px;
+        resize: vertical;
+        min-height: 60px;
+    }
+
+    .brief-note-popover-input:focus {
+        outline: none;
+        border-color: var(--bosch-blue);
+        box-shadow: 0 0 0 2px var(--bosch-blue-tint, rgba(0, 122, 204, .18));
+    }
+
+    .brief-note-popover-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 2px;
+    }
+
     /* Khung chat khi đang kéo ảnh vào (dán/kéo-thả tài liệu nguồn) — viền nổi báo "thả vào đây". */
     .chat-panel.drag-over {
         outline: 2px dashed var(--bosch-blue);
