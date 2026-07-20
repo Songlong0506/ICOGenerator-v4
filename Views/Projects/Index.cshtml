@@ -38,26 +38,31 @@
        nằm trong URL — chia sẻ được và giữ nguyên khi phân trang. Thay đổi select tự submit. *@
     <form method="get" asp-controller="Projects" asp-action="Index" class="filter-bar">
         <div class="filter-field">
-            <label>Org Unit</label>
             @* Combo chọn NHIỀU đơn vị: mỗi lựa chọn là một checkbox name="orgUnit" nằm sẵn trong form GET,
                nên khi bấm "Lọc" toàn bộ mã đã tick được gửi lên (mảng). Không tự submit theo từng tick để
-               người dùng chọn xong nhiều đơn vị rồi mới lọc. UI (nút, panel, tìm kiếm, chọn tất cả) do JS lái. *@
-            <div class="ms-combo" data-ms-combo>
+               người dùng chọn xong nhiều đơn vị rồi mới lọc. UI (nút, panel, tìm kiếm, chọn tất cả) do JS lái.
+               Nhãn "Org Unit" hiển thị bên trong nút bấm để đồng bộ với các dropdown khác trong app. *@
+            <div class="ms-combo ms-combo--has-caption" data-ms-combo>
                 <button type="button" class="ms-combo-trigger" data-ms-trigger aria-haspopup="listbox" aria-expanded="false">
-                    <span class="ms-combo-text" data-ms-label data-ms-placeholder="Tất cả đơn vị"></span>
-                    <span class="ms-combo-caret" aria-hidden="true">▾</span>
+                    <span class="ms-combo-trigger-main">
+                        <span class="ms-combo-caption">Org Unit</span>
+                        <span class="ms-combo-text" data-ms-label data-ms-placeholder="Tất cả đơn vị"></span>
+                    </span>
+                    <span class="ms-combo-caret" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></span>
                 </button>
                 <div class="ms-combo-panel hidden" data-ms-panel>
                     <div class="ms-combo-search">
-                        <label class="ms-combo-checkbox ms-combo-all" title="Chọn tất cả">
-                            <input type="checkbox" data-ms-all />
-                            <span class="ms-combo-box" aria-hidden="true"></span>
-                        </label>
                         <div class="ms-combo-search-box">
                             <input type="text" placeholder="Tìm đơn vị…" autocomplete="off" data-ms-search />
-                            <span class="ms-combo-search-icon" aria-hidden="true">🔍</span>
+                            <button type="button" class="ms-combo-search-clear hidden" data-ms-clear aria-label="Xóa tìm kiếm"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button>
+                            <span class="ms-combo-search-icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14.5" y2="14.5"/></svg></span>
                         </div>
                     </div>
+                    <label class="ms-combo-checkbox ms-combo-all ms-combo-all-row" title="Chọn tất cả">
+                        <input type="checkbox" data-ms-all />
+                        <span class="ms-combo-box" aria-hidden="true"></span>
+                        <span class="ms-combo-all-text" data-ms-all-text>Chọn tất cả</span>
+                    </label>
                     <ul class="ms-combo-list" role="listbox" aria-multiselectable="true" data-ms-list>
                         @foreach (var o in Model.OrgUnitOptions)
                         {

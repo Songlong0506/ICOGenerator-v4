@@ -818,8 +818,19 @@ input[type="week"] {
 .data-table tbody tr:hover td { background: var(--surface-hover); }
 .data-table .num-col { text-align: right; white-space: nowrap; }
 
-/* ---------- Multi-select combo (searchable, checkbox options) ---------- */
-.ms-combo { position: relative; min-width: 240px; }
+/* ---------- Dropdown / combo (single + multi select) ----------
+   ONE look for every dropdown in the app. The multi-select combo (searchable,
+   checkbox options — .ms-combo markup in a View) and the auto-enhanced native
+   <select> (dropdown.js builds the same .ms-combo markup with a .ms-combo--single
+   modifier) share this block, so all dropdowns render identically:
+     • grey trigger showing an inline caption (field label) + selected value
+     • chevron caret that flips when open
+     • panel with a search box (magnifier + clear ✕) shown for longer lists
+     • grey checkbox squares for multi rows; a "select all (N)" row
+   To restyle every dropdown app-wide, edit here. */
+.ms-combo { position: relative; min-width: 0; }
+.ms-combo--single { min-width: 170px; }
+.ms-combo[data-ms-combo] { min-width: 240px; }
 
 .ms-combo-trigger {
     display: flex;
@@ -827,9 +838,10 @@ input[type="week"] {
     justify-content: space-between;
     gap: 8px;
     width: 100%;
-    padding: 9px 12px;
+    min-height: 46px;
+    padding: 5px 12px;
     border: 1px solid var(--line);
-    background: #fff;
+    background: #ebedee;
     color: var(--ink);
     font-family: inherit;
     font-size: 14px;
@@ -837,19 +849,31 @@ input[type="week"] {
     cursor: pointer;
 }
 
-.ms-combo-trigger:focus { outline: none; border-color: var(--bosch-blue); box-shadow: var(--focus-ring); }
+.ms-combo-trigger:hover { background: #e4e6e8; }
+.ms-combo-trigger:focus,
+.ms-combo-trigger:focus-visible { outline: none; border-color: var(--bosch-blue); box-shadow: var(--focus-ring); }
+.ms-combo.open .ms-combo-trigger { border-color: var(--bosch-blue); background: #fff; }
 
-.ms-combo-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Left column of the trigger: small caption (field label) over the value. */
+.ms-combo-trigger-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.ms-combo-caption { font-size: 11px; line-height: 1.3; color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-combo:not(.ms-combo--has-caption) .ms-combo-caption { display: none; }
+
+.ms-combo-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; line-height: 1.35; color: var(--ink); }
 .ms-combo-text.is-placeholder { color: var(--muted); }
-.ms-combo-caret { color: var(--muted); font-size: 12px; transition: transform .15s; }
+
+.ms-combo-caret { flex: 0 0 auto; color: var(--muted); font-size: 13px; line-height: 1; transition: transform .15s; }
 .ms-combo.open .ms-combo-caret { transform: rotate(180deg); }
+.ms-combo-caret svg,
+.ms-combo-search-icon svg,
+.ms-combo-search-clear svg { display: block; }
 
 .ms-combo-panel {
     position: absolute;
-    top: calc(100% + 4px);
+    top: calc(100% + 3px);
     left: 0;
     right: 0;
-    z-index: 10;
+    z-index: 30;
     min-width: 240px;
     background: #fff;
     border: 1px solid var(--line);
@@ -857,23 +881,56 @@ input[type="week"] {
     overflow: hidden;
 }
 
-.ms-combo-search { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--line); }
-.ms-combo-search-box { position: relative; flex: 1; }
-.ms-combo-search-box input { width: 100%; padding: 8px 32px 8px 12px; font-size: 14px; border: 1px solid var(--line); }
-.ms-combo-search-box input:focus { outline: none; border-color: var(--bosch-blue); box-shadow: var(--focus-ring); }
-.ms-combo-search-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--muted); pointer-events: none; }
+/* Search row — full-width box with magnifier + clear (✕), light-blue fill. */
+.ms-combo-search { padding: 10px; border-bottom: 1px solid var(--line); }
+.ms-combo-search-box { position: relative; }
+.ms-combo-search-box input {
+    width: 100%;
+    padding: 9px 60px 9px 12px;
+    font-size: 14px;
+    border: 1px solid #b7cdec;
+    background: #e6effb;
+    color: var(--ink);
+}
+.ms-combo-search-box input::placeholder { color: #7f8a97; }
+.ms-combo-search-box input:focus { outline: none; border-color: var(--bosch-blue); box-shadow: var(--focus-ring); background: #fff; }
+
+.ms-combo-search-icon,
+.ms-combo-search-clear {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.ms-combo-search-icon { right: 10px; pointer-events: none; }
+.ms-combo-search-clear {
+    right: 34px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 0;
+}
+.ms-combo-search-clear:hover { color: var(--ink); }
+.ms-combo-search-clear.hidden { display: none; }
 
 /* Custom checkbox square drawn on top of a hidden native checkbox, so option
-   rows share one look regardless of platform. */
-.ms-combo-checkbox { display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; font-weight: inherit; color: inherit; }
+   rows share one look regardless of platform. Unchecked reads as a grey square. */
+.ms-combo-checkbox { display: flex; align-items: center; gap: 12px; margin: 0; cursor: pointer; font-weight: inherit; color: inherit; }
 .ms-combo-checkbox input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
 
 .ms-combo-box {
     flex: 0 0 18px;
     width: 18px;
     height: 18px;
-    border: 1.5px solid var(--line);
-    background: #fff;
+    border: 1px solid #9aa0a6;
+    background: #9aa0a6;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -881,25 +938,60 @@ input[type="week"] {
 
 .ms-combo-box::after { content: "✓"; font-size: 12px; font-weight: 900; line-height: 1; color: #fff; opacity: 0; }
 
-.ms-combo-all input:checked + .ms-combo-box,
+.ms-combo-checkbox input:checked + .ms-combo-box,
 .ms-combo-all input:indeterminate + .ms-combo-box { background: var(--bosch-blue); border-color: var(--bosch-blue); }
-.ms-combo-all input:checked + .ms-combo-box::after { opacity: 1; }
+.ms-combo-checkbox input:checked + .ms-combo-box::after { opacity: 1; }
 .ms-combo-all input:indeterminate + .ms-combo-box::after { content: "–"; opacity: 1; }
 
-.ms-combo-list { list-style: none; margin: 0; padding: 4px; max-height: 240px; overflow-y: auto; }
-.ms-combo-option > .ms-combo-checkbox { padding: 9px 12px; }
-.ms-combo-option:hover { background: var(--bosch-blue-tint); }
-.ms-combo-option-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+/* "Select all (N)" row above the option list. */
+.ms-combo-all-row { padding: 11px 12px; border-bottom: 1px solid var(--line); }
+.ms-combo-all-row:hover { background: var(--surface-hover); }
+.ms-combo-all-text { font-size: 14px; color: var(--ink); }
 
-/* Selected row uses the Bosch blue accent (matches nav-item.active / tool-card.enabled). */
+.ms-combo-list { list-style: none; margin: 0; padding: 4px 0; max-height: 260px; overflow-y: auto; }
+.ms-combo-option > .ms-combo-checkbox { padding: 11px 12px; }
+.ms-combo-option:hover { background: var(--surface-hover); }
+.ms-combo-option-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+
+/* Selected multi-row uses the Bosch blue accent. */
 .ms-combo-option.selected { background: var(--bosch-blue); color: #fff; }
 .ms-combo-option.selected:hover { background: var(--bosch-blue-hover); }
 .ms-combo-option.selected .ms-combo-option-text { font-weight: 700; }
-.ms-combo-option.selected .ms-combo-box { border-color: transparent; background: transparent; }
+.ms-combo-option.selected .ms-combo-box { border-color: rgba(255,255,255,.85); background: transparent; }
 .ms-combo-option.selected .ms-combo-box::after { opacity: 1; }
 .ms-combo-option.hidden { display: none; }
 
+/* Single-select variant: no checkbox squares, a lighter selected highlight. */
+.ms-combo--single .ms-combo-option > .ms-combo-checkbox { padding: 10px 14px; }
+.ms-combo--single .ms-combo-box { display: none; }
+.ms-combo--single .ms-combo-option.selected { background: var(--bosch-blue-tint); color: var(--bosch-blue-dark); }
+.ms-combo--single .ms-combo-option.selected:hover { background: var(--bosch-blue-tint-strong); }
+.ms-combo--single .ms-combo-option.selected .ms-combo-option-text { font-weight: 700; }
+.ms-combo--single .ms-combo-option-text { position: relative; }
+.ms-combo--single .ms-combo-option.selected .ms-combo-checkbox::after {
+    content: "✓"; margin-left: auto; padding-left: 10px; font-size: 13px; font-weight: 900; color: var(--bosch-blue-dark);
+}
+
 .ms-combo-empty { padding: 14px 12px; font-size: 13px; color: var(--muted); text-align: center; }
+
+/* External <label> hidden by dropdown.js once its text moves into the trigger. */
+.cs-enhanced-hidden { display: none !important; }
+
+/* The native <select> replaced by dropdown.js: invisible but still focusable
+   (kept in the layout box so constraint validation of `required` selects can
+   focus it), non-interactive so clicks reach the custom trigger beneath. */
+.cs-enhanced-select {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 46px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+}
 
 /* ---------- Radio group (card-style options) ----------
    `.form-check`/`.form-check-input`/`.form-check-label` are provided as
