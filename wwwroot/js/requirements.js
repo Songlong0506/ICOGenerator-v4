@@ -856,7 +856,7 @@ async function loadDocPreview(previewEl) {
 
 function openRequirementModal(version) {
     document.getElementById("modalTitle").innerText =
-        "Requirement " + version;
+        "Product Brief " + (version.charAt(0).toUpperCase() + version.slice(1));
 
     document.getElementById("requirementModal").style.display = "flex";
 
