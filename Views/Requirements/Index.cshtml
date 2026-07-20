@@ -630,18 +630,6 @@
             </button>
         </div>
 
-        <div class="requirement-tabs">
-            @foreach (var doc in allDocuments)
-            {
-                <button class="doc-tab"
-                        data-version="@doc.VersionName"
-                        onclick="showDocument('@doc.Id')"
-                        style="display:none;">
-                    @System.IO.Path.GetFileNameWithoutExtension(doc.FileName)
-                </button>
-            }
-        </div>
-
         <div class="requirement-content">
             @foreach (var doc in allDocuments)
             {
@@ -649,17 +637,6 @@
                      id="doc-@doc.Id"
                      data-version="@doc.VersionName"
                      style="display:none;">
-
-                    <h3>@doc.FileName</h3>
-
-                    @* Bản DRAFT cho phép ghi chú trực tiếp: bôi đen một đoạn → "＋ Ghi chú" → gom lại gửi
-                       BA sửa (ReviseBrief). Bản đã duyệt (V{n}) chỉ đọc, không gắn cờ này. *@
-                    <div class="doc-render"
-                         data-doc-id="@doc.Id"
-                         data-loaded="false"
-                         data-annotatable="@(doc.VersionName == "draft" ? "true" : "false")">
-                        <p class="doc-loading">Loading…</p>
-                    </div>
 
                     <div class="doc-actions">
                         <a class="btn outline"
@@ -674,6 +651,17 @@
                                 title="Xem các lần sinh/sửa trước và khác biệt giữa chúng">
                             <i class="bi bi-clock-history" aria-hidden="true"></i> Lịch sử
                         </button>
+                    </div>
+
+                    <h3>@doc.FileName</h3>
+
+                    @* Bản DRAFT cho phép ghi chú trực tiếp: bôi đen một đoạn → "＋ Ghi chú" → gom lại gửi
+                       BA sửa (ReviseBrief). Bản đã duyệt (V{n}) chỉ đọc, không gắn cờ này. *@
+                    <div class="doc-render"
+                         data-doc-id="@doc.Id"
+                         data-loaded="false"
+                         data-annotatable="@(doc.VersionName == "draft" ? "true" : "false")">
+                        <p class="doc-loading">Loading…</p>
                     </div>
                 </div>
             }
