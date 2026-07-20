@@ -51,6 +51,12 @@ public class ModelsController : Controller
     [RequirePermission(AppPermission.ModelsEdit)]
     public async Task<IActionResult> Update(AiModel input)
     {
+        // Trên form Edit, để trống ApiKey nghĩa là "giữ key hiện tại" (xem UpdateAiModelUseCase): key
+        // thật không bao giờ được gửi về browser nên trường luôn rỗng khi chỉ sửa các thuộc tính khác.
+        // Với <Nullable>enable</Nullable>, string không-nullable như ApiKey bị coi là [Required] ngầm định,
+        // khiến ApiKey rỗng làm ModelState invalid. Bỏ riêng lỗi validation của ApiKey để cho phép giữ key.
+        ModelState.Remove(nameof(AiModel.ApiKey));
+
         if (!ModelState.IsValid)
         {
             TempData["Error"] = "Dữ liệu model không hợp lệ. Vui lòng kiểm tra lại.";
