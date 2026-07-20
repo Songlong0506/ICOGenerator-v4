@@ -672,6 +672,7 @@ async function loadDocPreview(previewEl) {
 
     const notes = []; // { quote, note }
     let addBtn = null;
+    let notePopover = null;
     let pendingQuote = "";
 
     function currentDraftRender() {
@@ -697,6 +698,86 @@ async function loadDocPreview(previewEl) {
         if (addBtn) { addBtn.remove(); addBtn = null; }
     }
 
+    function removeNotePopover() {
+        if (notePopover) { notePopover.remove(); notePopover = null; }
+        document.removeEventListener("mousedown", onOutsideMouseDown, true);
+        document.removeEventListener("keydown", onPopoverKeyDown, true);
+    }
+
+    function onOutsideMouseDown(e) {
+        if (notePopover && !notePopover.contains(e.target)) removeNotePopover();
+    }
+
+    function onPopoverKeyDown(e) {
+        if (e.key === "Escape") { e.preventDefault(); removeNotePopover(); }
+    }
+
+    // Popover nhỏ ngay dưới đoạn bôi đen để nhập ghi chú — thay cho window.prompt() của trình duyệt.
+    function openNotePopover(anchorRect, quote) {
+        removeAddBtn();
+        removeNotePopover();
+
+        notePopover = document.createElement("div");
+        notePopover.className = "brief-note-popover";
+        notePopover.setAttribute("role", "dialog");
+        notePopover.setAttribute("aria-label", "Ghi chú cho đoạn");
+        notePopover.innerHTML = `
+            <p class="brief-note-popover-title">Ghi chú cho đoạn</p>
+            <p class="brief-note-popover-quote">“${escapeHtml(quote.slice(0, 160))}${quote.length > 160 ? "…" : ""}”</p>
+            <label class="brief-note-popover-label" for="briefNotePopoverInput">Điều cần sửa là gì?</label>
+            <textarea id="briefNotePopoverInput" class="brief-note-popover-input" rows="3"
+                placeholder="Nhập điều cần sửa…"></textarea>
+            <div class="brief-note-popover-actions">
+                <button type="button" class="btn small" data-act="cancel">Hủy</button>
+                <button type="button" class="btn primary small" data-act="save">Lưu ghi chú</button>
+            </div>`;
+        notePopover.style.position = "absolute";
+        notePopover.style.zIndex = "10001";
+        notePopover.style.visibility = "hidden";
+        notePopover.style.top = "0";
+        notePopover.style.left = "0";
+        document.body.appendChild(notePopover);
+
+        // Canh vị trí: mặc định ngay dưới đoạn bôi đen, không tràn mép phải/dưới của khung nhìn.
+        const pw = notePopover.offsetWidth;
+        const ph = notePopover.offsetHeight;
+        const vw = document.documentElement.clientWidth;
+        const vh = document.documentElement.clientHeight;
+        let left = anchorRect.left;
+        if (left + pw > vw - 12) left = vw - pw - 12;
+        if (left < 12) left = 12;
+        let top = anchorRect.bottom + 8;
+        if (top + ph > vh - 12) top = Math.max(12, anchorRect.top - ph - 8); // không đủ chỗ bên dưới → lật lên trên
+        notePopover.style.left = `${window.scrollX + left}px`;
+        notePopover.style.top = `${window.scrollY + top}px`;
+        notePopover.style.visibility = "";
+
+        const input = notePopover.querySelector(".brief-note-popover-input");
+
+        function commit() {
+            const val = input.value.trim();
+            removeNotePopover();
+            window.getSelection().removeAllRanges();
+            if (val) {
+                notes.push({ quote, note: val });
+                renderNotes();
+            }
+        }
+
+        notePopover.querySelector('[data-act="save"]').addEventListener("click", commit);
+        notePopover.querySelector('[data-act="cancel"]').addEventListener("click", function () {
+            removeNotePopover();
+            window.getSelection().removeAllRanges();
+        });
+        input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commit(); } // Ctrl/⌘+Enter lưu nhanh
+        });
+
+        document.addEventListener("mousedown", onOutsideMouseDown, true);
+        document.addEventListener("keydown", onPopoverKeyDown, true);
+        input.focus();
+    }
+
     function showAddButton(rect, quote) {
         removeAddBtn();
         pendingQuote = quote;
@@ -710,14 +791,9 @@ async function loadDocPreview(previewEl) {
         addBtn.style.zIndex = "10000";
         document.body.appendChild(addBtn);
 
-        addBtn.addEventListener("click", function () {
-            const note = window.prompt(`Ghi chú cho đoạn:\n“${pendingQuote.slice(0, 160)}”\n\nĐiều cần sửa là gì?`);
-            removeAddBtn();
-            window.getSelection().removeAllRanges();
-            if (note && note.trim()) {
-                notes.push({ quote: pendingQuote, note: note.trim() });
-                renderNotes();
-            }
+        addBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            openNotePopover(addBtn.getBoundingClientRect(), pendingQuote);
         });
     }
 
