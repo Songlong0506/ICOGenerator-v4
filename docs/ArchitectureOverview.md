@@ -251,7 +251,7 @@ Các điểm quan trọng:
 - Cookie auth dùng `HttpOnly`, `SameSite=Lax`, HTTPS-only ngoài development.
 - CSRF được bật mặc định cho unsafe HTTP verbs bằng `AutoValidateAntiforgeryTokenAttribute`.
 - Security headers baseline: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`.
-- `Admin` implicit-all; role khác đọc quyền từ `RolePermission`.
+- `SuperAdmin` implicit-all; role khác (Admin/TeamDev/User) đọc quyền từ `RolePermission`.
 
 ## 9. Storage architecture
 

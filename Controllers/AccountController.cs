@@ -46,20 +46,23 @@ public class AccountController : Controller
         return await SignInLocalAdminAsync(returnUrl);
     }
 
-    // Đăng nhập cục bộ mặc định: phát cookie theo tài khoản Admin (nguồn của claim Name + Role, lái toàn
-    // bộ phân quyền y như luồng SSO). Được gọi khi cookie LoginPath redirect người dùng chưa đăng nhập tới.
+    // Đăng nhập cục bộ mặc định: phát cookie theo tài khoản SuperAdmin (nguồn của claim Name + Role, lái toàn
+    // bộ phân quyền y như luồng SSO). Ưu tiên SuperAdmin (toàn quyền, không thể tự khóa) rồi mới đến Admin để
+    // dev cục bộ luôn đủ quyền dù ma trận quyền của Admin bị chỉnh xuống. Gọi khi cookie LoginPath redirect
+    // người dùng chưa đăng nhập tới.
     private async Task<IActionResult> SignInLocalAdminAsync(string? returnUrl)
     {
         var admin = await _db.AppUsers
             .AsNoTracking()
-            .Where(u => u.Role == UserRole.Admin)
-            .OrderByDescending(u => u.Username == "admin")
+            .Where(u => u.Role == UserRole.SuperAdmin || u.Role == UserRole.Admin)
+            .OrderByDescending(u => u.Role == UserRole.SuperAdmin)
+            .ThenByDescending(u => u.Username == "superadmin" || u.Username == "admin")
             .ThenBy(u => u.CreatedAt)
             .FirstOrDefaultAsync(HttpContext.RequestAborted);
 
-        // Không có tài khoản Admin nào (DB rỗng bất thường) ⇒ báo lỗi rõ thay vì phát cookie trống.
+        // Không có tài khoản quản trị nào (DB rỗng bất thường) ⇒ báo lỗi rõ thay vì phát cookie trống.
         if (admin is null)
-            return StatusCode(StatusCodes.Status500InternalServerError, "Chưa có tài khoản Admin để đăng nhập cục bộ.");
+            return StatusCode(StatusCodes.Status500InternalServerError, "Chưa có tài khoản quản trị để đăng nhập cục bộ.");
 
         var claims = new List<Claim>
         {

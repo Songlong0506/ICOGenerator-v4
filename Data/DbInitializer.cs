@@ -24,6 +24,7 @@ public static class DbInitializer
         await RecoverOrphanedTasksAsync(db);
         await SeedUsersAsync(db);
         await SeedRolePermissionsAsync(db);
+        await BackfillSuperAdminAsync(db);
         await SeedOrgUnitsAndAssociatesAsync(db);
         await SeedEvalScenariosAsync(db);
 
@@ -62,13 +63,15 @@ public static class DbInitializer
 
     }
 
-    // Bộ tài khoản seed cố định (admin/teamdev/user). Không còn mật khẩu: chế độ Local tự đăng nhập bằng
-    // tài khoản 'admin', chế độ IdentityServer đồng bộ user từ SSO. Ba vai trò seed sẵn để phân quyền chạy ngay.
+    // Bộ tài khoản seed cố định (superadmin/admin/teamdev/user). Không còn mật khẩu: chế độ Local tự đăng nhập
+    // bằng tài khoản SuperAdmin (toàn quyền), chế độ IdentityServer đồng bộ user từ SSO. Bốn vai trò seed sẵn
+    // để phân quyền chạy ngay.
     private static readonly (string Username, string DisplayName, UserRole Role)[] SeedUsers =
     {
-        ("admin",   "Administrator",  UserRole.Admin),
-        ("teamdev", "Team Developer", UserRole.TeamDev),
-        ("user",    "User",           UserRole.User),
+        ("superadmin", "Super Administrator", UserRole.SuperAdmin),
+        ("admin",      "Administrator",       UserRole.Admin),
+        ("teamdev",    "Team Developer",      UserRole.TeamDev),
+        ("user",       "User",                UserRole.User),
     };
 
     // Seed bộ tài khoản cố định (admin/teamdev/user) nếu DB chưa có user nào.
@@ -90,8 +93,9 @@ public static class DbInitializer
         await db.SaveChangesAsync();
     }
 
-    // Quyền mặc định khi bảng RolePermission còn trống. Admin KHÔNG cần dòng nào (implicit-all trong
-    // PermissionService). TeamDev: mọi thứ trừ quản trị (Settings + Roles). User: chỉ xem Projects/Requirements.
+    // Quyền mặc định khi bảng RolePermission còn trống. SuperAdmin KHÔNG cần dòng nào (implicit-all trong
+    // PermissionService). Admin: seed sẵn TOÀN BỘ quyền để giữ hành vi "toàn quyền" nhưng nay CHỈNH được.
+    // TeamDev: mọi thứ trừ quản trị (Settings + Roles). User: chỉ xem Projects/Requirements.
     private static async Task SeedRolePermissionsAsync(AppDbContext db)
     {
         if (await db.RolePermissions.AnyAsync())
@@ -99,6 +103,7 @@ public static class DbInitializer
 
         var defaults = new (UserRole Role, AppPermission[] Permissions)[]
         {
+            (UserRole.Admin, PermissionCatalog.AllPermissions.ToArray()),
             (UserRole.TeamDev, new[]
             {
                 AppPermission.ProjectsView, AppPermission.ProjectsCreate, AppPermission.ProjectsViewAll,
@@ -124,6 +129,38 @@ public static class DbInitializer
 
 
         await db.SaveChangesAsync();
+    }
+
+    // Nâng cấp DB đã có dữ liệu (bảng AppUser/RolePermission không còn trống nên hai hàm seed ở trên bỏ qua):
+    // trước đây Admin là implicit-all nên KHÔNG có dòng RolePermission nào, và chưa hề có role SuperAdmin.
+    // Sau khi Admin chuyển sang "cấu hình được", nếu không xử lý thì Admin sẽ mất sạch quyền và không còn tài
+    // khoản toàn quyền. Backfill idempotent (chạy mỗi lần khởi động, an toàn khi lặp):
+    //  1) Chưa có user SuperAdmin ⇒ tạo 'superadmin' (luôn có một tài khoản toàn quyền không thể tự khóa).
+    //  2) Admin chưa có dòng quyền nào ⇒ cấp TOÀN BỘ quyền để giữ đúng hành vi cũ (giờ đã chỉnh được).
+    private static async Task BackfillSuperAdminAsync(AppDbContext db)
+    {
+        var changed = false;
+
+        if (!await db.AppUsers.AnyAsync(u => u.Role == UserRole.SuperAdmin))
+        {
+            db.AppUsers.Add(new AppUser
+            {
+                Username = "superadmin",
+                DisplayName = "Super Administrator",
+                Role = UserRole.SuperAdmin
+            });
+            changed = true;
+        }
+
+        if (await db.AppUsers.AnyAsync() && !await db.RolePermissions.AnyAsync(x => x.Role == UserRole.Admin))
+        {
+            foreach (var permission in PermissionCatalog.AllPermissions)
+                db.RolePermissions.Add(new RolePermission { Role = UserRole.Admin, Permission = permission });
+            changed = true;
+        }
+
+        if (changed)
+            await db.SaveChangesAsync();
     }
 
     // Số lần một task được phép chạy lại sau khi bị gián đoạn bởi restart trước khi bị coi là Failed,

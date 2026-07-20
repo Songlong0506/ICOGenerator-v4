@@ -33,13 +33,14 @@ public class IdentityServerSettings
     public bool RequireHttpsMetadata { get; set; }
 
     /// <summary>Ánh xạ giá trị claim role của IdentityServer → <see cref="UserRole"/> của app
-    /// (không phân biệt hoa/thường). Vd { "HCP_CBO_API.CBO.ADMIN": "Admin" }. User nhận vai trò CAO NHẤT
-    /// khớp được; không khớp claim nào ⇒ <see cref="MapRole"/> trả null (giữ vai trò cũ / dùng DefaultRole).</summary>
+    /// (không phân biệt hoa/thường). Vd { "HCP_CBO_API.CBO.SUPERADMIN": "SuperAdmin" }. User nhận vai trò
+    /// CAO NHẤT khớp được; không khớp claim nào ⇒ <see cref="MapRole"/> trả null (giữ vai trò cũ / dùng
+    /// DefaultRole).</summary>
     public Dictionary<string, UserRole> RoleMappings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Ánh xạ tập role claim của SSO về <see cref="UserRole"/> của app, chọn vai trò CAO NHẤT
-    /// (Admin &gt; TeamDev &gt; User). Trả về null khi KHÔNG có claim nào khớp <see cref="RoleMappings"/> —
+    /// (SuperAdmin &gt; Admin &gt; TeamDev &gt; User). Trả về null khi KHÔNG có claim nào khớp <see cref="RoleMappings"/> —
     /// để bên gọi quyết định (giữ vai trò user cũ hoặc dùng <see cref="DefaultRole"/> cho user mới).
     /// So khớp không phân biệt hoa/thường nên vẫn đúng dù config binding không giữ comparer của Dictionary.
     /// </summary>
@@ -56,11 +57,22 @@ public class IdentityServerSettings
             {
                 if (!string.Equals(mappedKey, ssoRole, StringComparison.OrdinalIgnoreCase))
                     continue;
-                // Enum: Admin=0 < TeamDev=1 < User=2 ⇒ giá trị NHỎ hơn = quyền cao hơn; giữ vai trò cao nhất.
-                if (best is null || mappedRole < best)
+                // Giá trị enum KHÔNG phản ánh đặc quyền (SuperAdmin thêm sau với giá trị 3) nên so sánh
+                // bằng thứ hạng tường minh để giữ vai trò cao nhất.
+                if (best is null || PrivilegeRank(mappedRole) > PrivilegeRank(best.Value))
                     best = mappedRole;
             }
         }
         return best;
     }
+
+    /// <summary>Thứ hạng đặc quyền (cao → thấp): SuperAdmin &gt; Admin &gt; TeamDev &gt; User.</summary>
+    private static int PrivilegeRank(UserRole role) => role switch
+    {
+        UserRole.SuperAdmin => 3,
+        UserRole.Admin => 2,
+        UserRole.TeamDev => 1,
+        UserRole.User => 0,
+        _ => -1
+    };
 }

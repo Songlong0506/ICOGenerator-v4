@@ -159,9 +159,9 @@ một **fallback authorization policy** bắt **mọi endpoint** phải đăng n
 Người dùng nằm ở bảng **`AppUser`** (seed sẵn `admin`/`teamdev`/`user`); `LoginUseCase` đối chiếu
 mật khẩu băm bằng `PasswordHasher` rồi `AccountController` phát hành claim **Role**.
 
-Trên nền đó là **phân quyền theo role** (`UserRole`: Admin/TeamDev/User): quyền ở mức hành động
+Trên nền đó là **phân quyền theo role** (`UserRole`: SuperAdmin/Admin/TeamDev/User): quyền ở mức hành động
 (`AppPermission`) được cấp cho role qua bảng **`RolePermission`** (cấu hình runtime tại màn hình
-Roles & Permissions). `IPermissionService` (có cache, Admin implicit-all) là nguồn sự thật duy nhất,
+Roles & Permissions). `IPermissionService` (có cache, SuperAdmin implicit-all) là nguồn sự thật duy nhất,
 dùng bởi cả filter `[RequirePermission(...)]` trên controller/action lẫn `_Layout` để lọc menu.
 Thiếu quyền ⇒ `/Account/AccessDenied`. Chi tiết xem DEVELOPER_GUIDE §8.1.
 

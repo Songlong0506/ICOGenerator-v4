@@ -340,9 +340,9 @@ Thiết kế:
 
 ## 8.1. Phân quyền (Role & Permission)
 
-- **3 role người dùng** (`Domain/Enums/UserRole.cs`): `Admin`, `TeamDev`, `User`. Khác hẳn `AgentRoleKey` (vai của AI agent). Người dùng nằm ở bảng `AppUser`, seed sẵn trong `DbInitializer` (chưa có UI tạo user).
+- **4 role người dùng** (`Domain/Enums/UserRole.cs`): `SuperAdmin`, `Admin`, `TeamDev`, `User`. Khác hẳn `AgentRoleKey` (vai của AI agent). Người dùng nằm ở bảng `AppUser`, seed sẵn trong `DbInitializer` (chưa có UI tạo user).
 - **Quyền ở mức hành động** (`Domain/Enums/AppPermission.cs`), ví dụ `ProjectsView`, `ModelsDelete`, `SettingsManage`. `PermissionCatalog` (`Domain/Security`) gom quyền theo màn hình để render ma trận và lọc menu.
-- **Cấp quyền** lưu ở bảng `RolePermission` (cấu hình được). **Admin luôn có toàn quyền** (implicit-all trong `PermissionService`) nên không có dòng nào trong bảng và không tự khóa được. Mặc định: TeamDev = mọi thứ trừ Settings/Roles; User = chỉ xem Projects/Requirements.
+- **Cấp quyền** lưu ở bảng `RolePermission` (cấu hình được). **SuperAdmin luôn có toàn quyền** (implicit-all trong `PermissionService`) nên không có dòng nào trong bảng và không tự khóa được. **Admin nay cấu hình được** như TeamDev/User (mặc định seed toàn bộ quyền để giữ hành vi cũ). Mặc định: TeamDev = mọi thứ trừ Settings/Roles; User = chỉ xem Projects/Requirements.
 - **Kiểm tra quyền — một nguồn sự thật:** `IPermissionService` (`Services/Security`, có cache MemoryCache). Dùng bởi:
   - Filter `[RequirePermission(AppPermission.X)]` đặt trên controller (mức xem) hoặc action (mức thao tác). Thiếu quyền ⇒ về `/Account/AccessDenied`.
   - `_Layout.cshtml` (qua `@inject IPermissionService`) để ẩn/hiện menu sidebar.

@@ -12,6 +12,7 @@ public class IdentityServerSettingsTests
     {
         RoleMappings =
         {
+            ["HCP_CBO_API.CBO.SUPERADMIN"] = UserRole.SuperAdmin,
             ["HCP_CBO_API.CBO.ADMIN"] = UserRole.Admin,
             ["HCP_CBO_API.CBO.TEAMDEV"] = UserRole.TeamDev,
             ["HCP_CBO_API.CBO.USER"] = UserRole.User
@@ -42,6 +43,14 @@ public class IdentityServerSettingsTests
         // User có cả USER lẫn ADMIN ⇒ nhận Admin (quyền cao nhất).
         var role = WithMappings().MapRole(new[] { "HCP_CBO_API.CBO.USER", "HCP_CBO_API.CBO.ADMIN" });
         Assert.Equal(UserRole.Admin, role);
+    }
+
+    [Fact]
+    public void MapRole_SuperAdmin_OutranksAdmin()
+    {
+        // SuperAdmin có giá trị enum lớn hơn Admin nhưng phải thắng nhờ thứ hạng đặc quyền tường minh.
+        var role = WithMappings().MapRole(new[] { "HCP_CBO_API.CBO.ADMIN", "HCP_CBO_API.CBO.SUPERADMIN" });
+        Assert.Equal(UserRole.SuperAdmin, role);
     }
 
     [Fact]

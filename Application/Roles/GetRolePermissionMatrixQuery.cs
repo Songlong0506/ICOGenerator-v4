@@ -5,7 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Roles;
 
-/// <summary>Dựng ma trận quyền hiện tại từ bảng RolePermission để hiển thị màn hình cấu hình.</summary>
+/// <summary>Dựng ma trận quyền hiện tại từ bảng RolePermission để hiển thị màn hình cấu hình.
+/// SuperAdmin là cột "khóa" (implicit-all, không sửa được); Admin/TeamDev/User cấu hình được.</summary>
 public class GetRolePermissionMatrixQuery
 {
     private readonly AppDbContext _db;
@@ -23,7 +24,8 @@ public class GetRolePermissionMatrixQuery
 
         var columns = new List<RolePermissionColumn>
         {
-            new() { Role = UserRole.Admin,   Title = UserRole.Admin.GetTitle(),   Locked = true },
+            new() { Role = UserRole.SuperAdmin, Title = UserRole.SuperAdmin.GetTitle(), Locked = true },
+            new() { Role = UserRole.Admin,   Title = UserRole.Admin.GetTitle(),   Granted = GrantedFor(UserRole.Admin) },
             new() { Role = UserRole.TeamDev, Title = UserRole.TeamDev.GetTitle(), Granted = GrantedFor(UserRole.TeamDev) },
             new() { Role = UserRole.User,    Title = UserRole.User.GetTitle(),    Granted = GrantedFor(UserRole.User) },
         };
