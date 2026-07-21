@@ -275,7 +275,7 @@
             </div>
         }
 
-        <h3>History</h3>
+        <h3>Product Brief</h3>
 
         @if (versions.Any())
         {
@@ -288,11 +288,7 @@
 
                         <div>
                             <div class="history-title">
-                                Requirement @version.Key
-                            </div>
-
-                            <div class="history-sub">
-                                Bản mô tả sản phẩm
+                                @(version.Key == "draft" ? "Draft" : version.Key)
                             </div>
                         </div>
                     </div>
