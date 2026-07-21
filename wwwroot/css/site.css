@@ -482,6 +482,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 
 .form-grid { display: grid; gap: 16px; }
 .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+.form-grid.four { grid-template-columns: repeat(4, 1fr);}
 
 /* ---------- Alerts ---------- */
 .alert { padding: 12px 16px; margin-bottom: 18px; font-weight: 700; border: 1px solid transparent; }
