@@ -60,8 +60,9 @@ public class WorkspaceTools
     }
 
     // Tường thuật từng màn hình page-view trong đoạn content vừa nạp thành milestone "poc-screen" — UI
-    // hiện "Đã dựng màn hình N: <tên>" để người dùng thấy POC lớn dần thay vì chờ câm. Chỉ đếm SECTION
-    // page-view (modal/CRUD form không phải màn hình). Không có sink hoặc không có màn hình ⇒ no-op.
+    // hiện "Đã dựng màn hình N/M: <tên>" để người dùng thấy POC lớn dần VÀ còn bao xa nữa là xong (M =
+    // số màn hình spec yêu cầu; spec không parse được thì đành bỏ mẫu số). Chỉ đếm SECTION page-view
+    // (modal/CRUD form không phải màn hình). Không có sink hoặc không có màn hình ⇒ no-op.
     private void NarratePocScreens(string? content)
     {
         if (_progressSink == null)
@@ -69,7 +70,9 @@ public class WorkspaceTools
         foreach (var label in PocContentScreens.Extract(content))
         {
             _pocScreensBuilt++;
-            _progressSink.Invoke("poc-screen", $"Đã dựng màn hình {_pocScreensBuilt}: {label}", null);
+            // POC có thể có màn ngoài spec (vd Login) nên N > M vẫn hợp lệ — khi đó bỏ mẫu số cho đỡ khó hiểu.
+            var total = _pocSpec.Screens.Count >= _pocScreensBuilt ? $"/{_pocSpec.Screens.Count}" : "";
+            _progressSink.Invoke("poc-screen", $"Đã dựng màn hình {_pocScreensBuilt}{total}: {label}", null);
         }
     }
 
@@ -312,7 +315,8 @@ public class WorkspaceTools
         if (!File.Exists(fullPath)) return $"File not found: {PocTemplate.MockupRelativePath}";
 
         var current = await File.ReadAllTextAsync(fullPath);
-        var report = PocAudit.Run(current, _pocSpec);
+        var audit = PocAudit.RunDetailed(current, _pocSpec);
+        var report = audit.Report;
 
         // Chỉ chụp ảnh khi tầng Visual QA thực sự chạy được (có agent UI/UX vision) — không thì khỏi chụp phí.
         var wantVisual = await _pocVisualReviewer.IsConfiguredAsync(RunCancellationToken);
@@ -351,9 +355,10 @@ public class WorkspaceTools
         // Oracle ĐỘC LẬP cho công thức: đối chiếu KỲ VỌNG lấy từ "## 13. Worked Examples" của spec (người
         // dùng đã chốt) với GIÁ TRỊ do POC tự tính (window.pocWorkedExamples). Chỉ so khi runtime thật sự
         // chạy (có browser); không có worked example nào thì lặng lẽ bỏ qua (không đổi hành vi cũ).
+        IReadOnlyList<string> oracleIssues = Array.Empty<string>();
         if (runtime.Ran && _pocSpec.WorkedExamples.Count > 0)
         {
-            var oracleIssues = PocWorkedExampleOracle.Compare(_pocSpec.WorkedExamples, runtime.WorkedExampleResults);
+            oracleIssues = PocWorkedExampleOracle.Compare(_pocSpec.WorkedExamples, runtime.WorkedExampleResults);
             sb.AppendLine();
             if (oracleIssues.Count == 0)
             {
@@ -370,10 +375,16 @@ public class WorkspaceTools
         // Tầng VISUAL QA: đưa ảnh chụp từng màn hình cho agent UI/UX (vision) chấm bố cục/dữ liệu mẫu —
         // lớp khiếm khuyết mà scan chuỗi và self-test không thấy (màn hình trống, layout vỡ, sai ngôn ngữ).
         // Fail-open: không có agent vision / không ảnh ⇒ SKIPPED, không đổi hành vi cũ.
+        var visualRan = false;
+        IReadOnlyList<string> visualIssues = Array.Empty<string>();
+        IReadOnlyList<string> visualWarnings = Array.Empty<string>();
         if (wantVisual && runtime.Screenshots.Count > 0)
         {
             var visual = await _pocVisualReviewer.ReviewAsync(
                 _pocProjectId, _pocSpecRaw, runtime.Screenshots, _pocWorkflowRunId, RunCancellationToken);
+            visualRan = visual.Ran;
+            visualIssues = visual.Issues;
+            visualWarnings = visual.Warnings;
             sb.AppendLine();
             if (!visual.Ran)
             {
@@ -398,6 +409,38 @@ public class WorkspaceTools
                         sb.AppendLine($"{i + 1}. {visual.Warnings[i]}");
                 }
             }
+        }
+
+        // Lưu bản chụp kết quả vòng kiểm NÀY (ghi đè mỗi lần audit ⇒ file luôn là vòng cuối) cho panel
+        // "Máy đã tự kiểm" trên trang POC Review: người duyệt thấy rule/ví dụ/kịch bản nào máy đã xác
+        // nhận pass và những issue nào còn lại nếu agent hết vòng sửa mà chưa sạch. Fail-open: lưu lỗi
+        // thì bỏ qua, không làm hỏng lượt audit của agent.
+        try
+        {
+            var summary = new PocVerificationSummary
+            {
+                CheckedAtUtc = DateTime.UtcNow,
+                SpecScreens = audit.SpecScreens,
+                CoveredScreens = audit.CoveredScreens,
+                OpenIssues = audit.Issues
+                    .Concat(runtime.Issues)
+                    .Concat(oracleIssues)
+                    .Concat(visualIssues)
+                    .ToList(),
+                SelfTestResults = runtime.SelfTestResults.ToList(),
+                ScenarioResults = runtime.ScenarioResults.ToList(),
+                WorkedExamplesTotal = _pocSpec.WorkedExamples.Count,
+                WorkedExampleIssues = oracleIssues.ToList(),
+                RuntimeRan = runtime.Ran,
+                RuntimeSkipReason = runtime.SkipReason,
+                VisualRan = visualRan,
+                VisualWarnings = visualWarnings.ToList()
+            };
+            await PocVerification.SaveAsync(CurrentWorkspacePath, summary, RunCancellationToken);
+        }
+        catch
+        {
+            // Bước phụ trợ cho trang review — không được chặn kết quả audit trả cho agent.
         }
 
         return sb.ToString();

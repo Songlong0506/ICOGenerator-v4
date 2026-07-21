@@ -290,10 +290,17 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         `);
     }
 
+    // Tiền tố lượt BA "lời gọi AI thất bại" — khớp ConversationTranscriptBuilder.LlmFailurePrefix phía
+    // server. Lượt như vậy được lưu DB như lượt thường (done ok=true) nên phải nhận diện bằng nội dung.
+    const LLM_FAILURE_PREFIX = "⚠️ Lời gọi AI thất bại";
+
     function finishTurn(data) {
         const bubble = ensureLiveBubble();
         const p = bubble.querySelector("p");
         bubble.classList.remove("streaming");
+
+        // Lượt mới đã chốt ⇒ mọi nút "Thử lại" của các lượt cũ hết hiệu lực (server chỉ retry được lượt CUỐI).
+        chatMessages.querySelectorAll(".chat-retry-btn").forEach(b => b.remove());
 
         if (data.ok) {
             // Bản preview đã stream có thể khác bản chốt (lời mời bị cổng readiness thay bằng câu hỏi)
@@ -304,6 +311,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             renderCoverage(data.coverage);
             renderDecisions(data.decisions);
             renderFlowDiagram(bubble, data.flowDiagram);
+
+            // Lượt lỗi LLM: tô đỏ + nút "Thử lại" (server xóa lượt lỗi rồi chạy lại, khỏi gõ lại câu hỏi)
+            // — markup khớp bản server render trong Index.cshtml.
+            if ((data.reply || "").startsWith(LLM_FAILURE_PREFIX)) {
+                bubble.classList.add("chat-error");
+                bubble.insertAdjacentHTML("beforeend",
+                    `<button type="button" class="btn outline small chat-retry-btn" title="Chạy lại lượt trả lời vừa lỗi — không cần gõ lại câu hỏi">↻ Thử lại</button>`);
+            }
         } else {
             bubble.classList.add("chat-error");
             p.textContent = data.error || "Có lỗi khi xử lý lượt chat. Vui lòng thử lại.";
@@ -351,10 +366,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // chưa nhận frame nào mới được phép re-submit theo đường postback cổ điển.
     let sawFrame = false;
 
-    async function streamChat(text) {
+    async function streamChat(text, retry) {
         const fd = new FormData();
         fd.append("projectId", chatForm.querySelector('input[name="projectId"]').value);
         fd.append("message", text);
+        if (retry) fd.append("retry", "true");
         const token = chatForm.querySelector('input[name="__RequestVerificationToken"]');
         if (token) fd.append("__RequestVerificationToken", token.value);
 
@@ -402,7 +418,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         thinkingBox.style.display = "block";
         scrollToBottom();
 
-        streamChat(text).then(function (gotFrame) {
+        streamChat(text, false).then(function (gotFrame) {
             if (!gotFrame) throw new Error("no frame");
         }).catch(function () {
             if (!chatBusy) return; // done đã xử lý xong, lỗi chỉ là đuôi stream — bỏ qua
@@ -418,6 +434,33 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // quay về postback cổ điển — submit native để không đi lại listener này.
             document.getElementById("hiddenMessage").value = text;
             HTMLFormElement.prototype.submit.call(chatForm);
+        });
+    });
+
+    // "Thử lại" một lượt BA bị lỗi LLM: server XÓA lượt lỗi rồi chạy lại lượt chat trên transcript hiện
+    // có (không thêm lượt user nào) — cùng đường SSE như một lượt thường. Bubble lỗi được gỡ ngay (server
+    // sắp xóa bản ghi tương ứng); stream hỏng thì reload — trang sẽ hiển thị đúng trạng thái đã lưu,
+    // KHÔNG re-submit vì retry không có message để post lại.
+    chatMessages.addEventListener("click", function (e) {
+        const btn = e.target.closest(".chat-retry-btn");
+        if (!btn || chatBusy) return;
+
+        chatBusy = true;
+        sawFrame = false;
+
+        const failedBubble = btn.closest(".req-msg.ba");
+        if (failedBubble) failedBubble.remove();
+        if (suggestionList) suggestionList.style.display = "none";
+
+        setThinkingText("BA đang thử trả lời lại…");
+        thinkingBox.style.display = "block";
+        scrollToBottom();
+
+        streamChat("", true).then(function (gotFrame) {
+            if (!gotFrame) throw new Error("no frame");
+        }).catch(function () {
+            if (!chatBusy) return;
+            location.reload();
         });
     });
 

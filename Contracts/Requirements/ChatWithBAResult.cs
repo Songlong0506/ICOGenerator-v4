@@ -13,5 +13,10 @@ public enum ChatWithBAResult
 
     // No active BA agent / AI model is configured. The synchronous Chat request has no
     // /Home/Error page, so this is surfaced as a TempData message instead of an exception.
-    BaNotConfigured
+    BaNotConfigured,
+
+    // A retry was requested but the latest conversation turn is not an LLM-failure notice — nothing
+    // to redo (e.g. the user already sent a new message, or a second tab retried first). Surfaced as
+    // an error frame so the client can tell the user to reload instead of silently double-running.
+    NothingToRetry
 }

@@ -438,12 +438,23 @@
                 }
                 else if (group.Conversation != null)
                 {
-                    <div class="req-msg ba">
+                    // Lượt BA là THÔNG BÁO LỖI gọi AI (tiền tố ⚠️ dùng chung với transcript filter): tô đỏ
+                    // như đường streaming, và nếu là lượt CUỐI của hội thoại thì kèm nút "Thử lại" — server
+                    // xóa lượt lỗi rồi chạy lại, người dùng khỏi phải gõ lại câu vừa hỏi.
+                    var isFailureTurn = (group.Conversation.Message ?? "").StartsWith(
+                        ICOGenerator.Services.Requirements.ConversationTranscriptBuilder.LlmFailurePrefix, StringComparison.Ordinal);
+                    var isLastTurn = group.Conversation.Id == conversations.LastOrDefault()?.Id;
+                    <div class="req-msg ba @(isFailureTurn ? "chat-error" : "")">
                         <b>BA</b>
 
                         <p style="white-space: pre-wrap;">
                             @group.Conversation.Message
                         </p>
+
+                        @if (isFailureTurn && isLastTurn)
+                        {
+                            <button type="button" class="btn outline small chat-retry-btn" title="Chạy lại lượt trả lời vừa lỗi — không cần gõ lại câu hỏi">↻ Thử lại</button>
+                        }
 
                         @{
                             // Sơ đồ luồng chỉ đính ở lượt BA mời "Write Requirement" và chỉ hiện cho lượt BA

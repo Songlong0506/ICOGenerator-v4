@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Requirements;
 using Xunit;
@@ -52,6 +53,58 @@ public class ConversationTurnRendererTests
     {
         Assert.Equal("BA: Đối tượng người dùng chính là ai?",
             ConversationTurnRenderer.Render(Turn("assistant", "Đối tượng người dùng chính là ai?", suggestions)));
+    }
+
+    [Fact]
+    public void Render_AssistantTurnWithFlowDiagram_AppendsConfirmedFlowSteps()
+    {
+        var flow = JsonSerializer.Serialize(new[]
+        {
+            new FlowStep { Actor = "Nhân viên", Action = "Gửi đơn nghỉ phép", Outcome = "Đơn ở trạng thái Chờ duyệt" },
+            new FlowStep { Actor = "Quản lý", Action = "Duyệt đơn", Outcome = "Đơn Đã duyệt, khóa sửa" },
+            new FlowStep { Actor = "", Action = "Hệ thống gửi thông báo", Outcome = "" }
+        });
+        var turn = Turn("assistant", "Nếu tóm tắt đã đủ, bấm \"Write Requirement\" nhé.");
+        turn.FlowDiagram = flow;
+
+        var rendered = ConversationTurnRenderer.Render(turn).Replace("\r\n", "\n");
+
+        Assert.Equal(
+            "BA: Nếu tóm tắt đã đủ, bấm \"Write Requirement\" nhé.\n" +
+            "   (Sơ đồ luồng nghiệp vụ đã trình bày cho người dùng xác nhận: " +
+            "1. Nhân viên: Gửi đơn nghỉ phép → Đơn ở trạng thái Chờ duyệt; " +
+            "2. Quản lý: Duyệt đơn → Đơn Đã duyệt, khóa sửa; " +
+            "3. Hệ thống gửi thông báo)",
+            rendered);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("[]")]
+    [InlineData("{ khong-phai-json")]
+    public void Render_AssistantTurnWithoutUsableFlowDiagram_IsPlainText(string? flowDiagram)
+    {
+        var turn = Turn("assistant", "Đối tượng người dùng chính là ai?");
+        turn.FlowDiagram = flowDiagram;
+        Assert.Equal("BA: Đối tượng người dùng chính là ai?", ConversationTurnRenderer.Render(turn));
+    }
+
+    [Fact]
+    public void ParseFlowDiagram_DropsStepsWithoutAction_AndSurvivesMalformedJson()
+    {
+        var flow = JsonSerializer.Serialize(new[]
+        {
+            new FlowStep { Actor = "Nhân viên", Action = "  ", Outcome = "..." },
+            new FlowStep { Actor = "Quản lý", Action = "Duyệt đơn", Outcome = "" }
+        });
+
+        var parsed = ConversationTurnRenderer.ParseFlowDiagram(flow);
+        Assert.Single(parsed);
+        Assert.Equal("Duyệt đơn", parsed[0].Action);
+
+        Assert.Empty(ConversationTurnRenderer.ParseFlowDiagram("khong-phai-json"));
+        Assert.Empty(ConversationTurnRenderer.ParseFlowDiagram(null));
     }
 
     [Fact]

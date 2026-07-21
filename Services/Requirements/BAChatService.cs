@@ -93,6 +93,52 @@ public class BAChatService
 
         await _conversationLog.AppendAsync(projectId, ba.Id, "user", userMessage, cancellationToken: cancellationToken);
 
+        return await RunTurnAsync(project, ba, model, onStatus, onToken, cancellationToken);
+    }
+
+    /// <summary>
+    /// "Thử lại" lượt BA vừa LỖI (lời gọi LLM thất bại được lưu thành thông báo ⚠️): xóa đúng lượt lỗi
+    /// cuối rồi chạy lại lượt chat trên transcript hiện có — KHÔNG ghi thêm lượt user nào (câu hỏi của
+    /// người dùng vẫn đang nằm cuối hội thoại). Không có gì để thử lại (lượt cuối không phải thông báo
+    /// lỗi — ví dụ user đã nhắn thêm, hoặc tab khác đã retry trước) ⇒ trả
+    /// <see cref="ChatWithBAResult.NothingToRetry"/> để UI mời tải lại trang thay vì chạy đúp.
+    /// </summary>
+    public async Task<BAChatTurnResult> RetryLastTurnAsync(Guid projectId, Action<string>? onStatus = null, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+    {
+        var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
+        if (project == null)
+            return new BAChatTurnResult { Status = ChatWithBAResult.ProjectNotFound };
+
+        var ba = await _agentResolver.FindConfiguredAsync(cancellationToken);
+        if (ba == null)
+            return new BAChatTurnResult { Status = ChatWithBAResult.BaNotConfigured };
+
+        // Cùng thứ tự ổn định (CreatedAt rồi Id) như mọi chỗ đọc hội thoại — lấy lượt MỚI NHẤT.
+        var lastTurn = await _db.AgentConversations
+            .Where(c => c.ProjectId == projectId)
+            .OrderByDescending(c => c.CreatedAt)
+            .ThenByDescending(c => c.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (lastTurn == null
+            || lastTurn.Role != "assistant"
+            || !(lastTurn.Message ?? string.Empty).StartsWith(ConversationTranscriptBuilder.LlmFailurePrefix, StringComparison.Ordinal))
+            return new BAChatTurnResult { Status = ChatWithBAResult.NothingToRetry };
+
+        // Xóa hẳn lượt lỗi (nó không phải nội dung yêu cầu — transcript vốn đã lọc bỏ nó) để lượt chạy
+        // lại ghi câu trả lời mới vào đúng vị trí cuối hội thoại.
+        _db.AgentConversations.Remove(lastTurn);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return await RunTurnAsync(project, ba, ba.AiModel!, onStatus, onToken, cancellationToken);
+    }
+
+    // Lõi một lượt trả lời của BA (chuẩn bị ngữ cảnh → gọi LLM → cổng readiness → lưu lượt assistant).
+    // Tách khỏi ChatAsync để đường "thử lại lượt lỗi" chạy lại y hệt mà không ghi thêm lượt user.
+    private async Task<BAChatTurnResult> RunTurnAsync(Project project, Agent ba, AiModel model, Action<string>? onStatus, Action<string>? onToken, CancellationToken cancellationToken)
+    {
+        var projectId = project.Id;
+
         // Các bước chuẩn bị dưới đây có thể gọi LLM (tóm tắt/bồi hồ sơ/bản đồ bao phủ) — báo trạng thái
         // để người dùng thấy BA "đang làm việc" thay vì spinner câm khi stream.
         onStatus?.Invoke("BA đang đọc lại ngữ cảnh hội thoại…");
@@ -445,6 +491,10 @@ public class BAChatService
         // "ready" được suy ra từ chính nội dung lượt: prompt ép model hễ mời bấm "Write Requirement" thì
         // đó là lúc đã đủ thông tin, nên message có nhắc nút ⇔ ready. Echo lại cờ này để củng cố format JSON.
         var ready = RequirementReadinessGate.IsWriteRequirementInvite(c.Message);
-        return JsonSerializer.Serialize(new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, ready });
+        // Echo cả sơ đồ luồng đã vẽ (nếu có): BA các lượt sau thấy mình ĐÃ trình bày luồng nào cho người
+        // dùng xác nhận — sửa đúng bước bị người dùng đính chính thay vì vẽ lại từ đầu một luồng khác.
+        var flowDiagram = ConversationTurnRenderer.ParseFlowDiagram(c.FlowDiagram)
+            .Select(s => new { actor = s.Actor, action = s.Action, outcome = s.Outcome });
+        return JsonSerializer.Serialize(new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, ready, flowDiagram });
     }
 }

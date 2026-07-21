@@ -29,7 +29,8 @@ public record PocReviewPage(
     bool HasMockup,
     UatScenarioSet Scenarios,
     IReadOnlyList<PocRevisionEntry> Revisions,
-    PocReviewCoverage Coverage);
+    PocReviewCoverage Coverage,
+    PocVerificationSummary? Verification);
 
 /// <summary>
 /// Dữ liệu cho trang review POC (Projects/PocReview): tên project, POC đã tồn tại chưa, bộ kịch bản
@@ -62,8 +63,12 @@ public class GetPocReviewQuery
         if (project == null)
             return null;
 
-        var mockupPath = _workspacePathResolver.GetMockupPath(
-            WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
+        var workspaceFolder = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
+        var mockupPath = _workspacePathResolver.GetMockupPath(workspaceFolder);
+
+        // Kết quả vòng tự kiểm CUỐI của AuditPocContent (nếu có) — panel "Máy đã tự kiểm" trên trang
+        // review. Fail-open: chưa có file (POC cũ) ⇒ null, view tự ẩn panel.
+        var verification = PocVerification.TryLoad(_workspacePathResolver.GetProjectWorkspacePath(workspaceFolder));
 
         var scenarios = await _uatScenarios.LoadAsync(project.Id, project.Name, cancellationToken);
 
@@ -84,7 +89,7 @@ public class GetPocReviewQuery
             .Select(t => new PocRevisionEntry(t.Title, t.FinishedAt, t.Output!))
             .ToListAsync(cancellationToken);
 
-        return new PocReviewPage(project.Id, project.Name, File.Exists(mockupPath), scenarios, revisions, coverage);
+        return new PocReviewPage(project.Id, project.Name, File.Exists(mockupPath), scenarios, revisions, coverage, verification);
     }
 
     // Nạp AI Design Spec mới nhất (mọi phiên bản), parse bằng chính PocSpec của audit, rồi cross-link mỗi

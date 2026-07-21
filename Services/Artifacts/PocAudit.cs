@@ -4,6 +4,14 @@ using System.Text.RegularExpressions;
 
 namespace ICOGenerator.Services.Artifacts;
 
+/// <summary>Kết quả một lượt audit tĩnh: report render sẵn cho agent + phần cấu trúc để lưu lại cho trang review.</summary>
+public sealed record PocAuditOutcome(
+    string Report,
+    IReadOnlyList<string> Issues,
+    IReadOnlyList<string> Warnings,
+    int SpecScreens,
+    int CoveredScreens);
+
 /// <summary>
 /// Deterministic self-check of a generated poc-demo.html, run by the Developer agent (AuditPocContent)
 /// after all content/script calls. It catches exactly the defects that made reviewed POCs feel broken —
@@ -27,7 +35,14 @@ public static partial class PocAudit
     /// business rules still need behaviour — the gap the wiring-only checks could never see (a POC
     /// covering half the spec used to audit "OK").
     /// </summary>
-    public static string Run(string html, PocSpec spec)
+    public static string Run(string html, PocSpec spec) => RunDetailed(html, spec).Report;
+
+    /// <summary>
+    /// Như <see cref="Run(string, PocSpec)"/> nhưng trả thêm danh sách issue/warning CÓ CẤU TRÚC và số
+    /// màn hình spec đã phủ — để <c>AuditPocContent</c> lưu lại kết quả vòng kiểm CUỐI cho trang POC
+    /// Review (người review cần biết máy đã kiểm gì và còn gì chưa đạt, không chỉ agent cần biết).
+    /// </summary>
+    public static PocAuditOutcome RunDetailed(string html, PocSpec spec)
     {
         var issues = new List<string>();
         var warnings = new List<string>();
@@ -60,7 +75,8 @@ public static partial class PocAudit
             issues.Add($"The POC script does not define window.pocWorkedExamples() although the AI Design Spec declares {spec.WorkedExamples.Count} worked example(s) — define it (globally) to return one entry per example: [{{ ref: 'WE-1', computed: <value computed by CALLING the demo's own logic for that example's inputs> }}, …]. The audit runs it in a headless browser and checks each computed value against the user-confirmed expected result.");
         var coveredScreens = CheckSpecCoverage(spec, navLeaves, sections, issues);
 
-        return Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody, spec, coveredScreens);
+        var report = Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody, spec, coveredScreens);
+        return new PocAuditOutcome(report, issues, warnings, spec.Screens.Count, coveredScreens);
     }
 
     // Feature-parity gate: every screen the AI Design Spec declares (§ Screens To Generate) must

@@ -319,4 +319,23 @@ public class PocAuditTests
         Assert.Contains("WE-1", report);
         Assert.Contains("expected 81", report);
     }
+
+    // ---- RunDetailed: phần cấu trúc cho bản chụp "Máy đã tự kiểm" (PocVerification) ----
+
+    [Fact]
+    public void RunDetailed_ReturnsStructuredIssuesAndCoverage_MatchingTheRenderedReport()
+    {
+        var spec = PocSpec.Parse("## 6. Screens To Generate\n### Home\n### Reports\n");
+        var doc = Doc(Leaf("Home"), Section("Home"));
+
+        var outcome = PocAudit.RunDetailed(doc, spec);
+
+        Assert.Equal(2, outcome.SpecScreens);
+        Assert.Equal(1, outcome.CoveredScreens);
+        Assert.Contains(outcome.Issues, i => i.Contains("'Reports'"));
+        // Report render và danh sách cấu trúc phải kể cùng một chuyện.
+        foreach (var issue in outcome.Issues)
+            Assert.Contains(issue, outcome.Report);
+        Assert.Equal(outcome.Report, PocAudit.Run(doc, spec));
+    }
 }
