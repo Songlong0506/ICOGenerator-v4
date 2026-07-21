@@ -256,6 +256,23 @@
 
 .poc-cov-rule-untested { font-size: 11px; color: #b45309; }
 
+/* ==== Panel "Máy đã tự kiểm" (kết quả vòng audit cuối) ==== */
+
+.poc-verif-ok { color: #0a7d33; }
+
+.poc-verif-bad { color: #b91c1c; }
+
+.poc-verif-panel > summary .poc-verif-ok,
+.poc-verif-panel > summary .poc-verif-bad { font-size: 12px; font-weight: 600; margin-left: 6px; }
+
+.poc-verif-lines { margin: 6px 0 0; padding-left: 18px; }
+
+    .poc-verif-lines li { font-size: 12.5px; line-height: 1.6; }
+
+.poc-verif-issues { margin: 4px 0 0; padding-left: 18px; }
+
+    .poc-verif-issues li { font-size: 12.5px; line-height: 1.5; }
+
 /* ==== Nhật ký vòng sửa (changelog) ==== */
 
 .poc-changelog { margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 12px; }

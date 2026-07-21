@@ -147,10 +147,13 @@ public class RequirementsController : Controller
     // (reply + suggestions + cờ mời Write Requirement) để client render tại chỗ, không reload trang.
     // Dùng fetch + đọc ReadableStream phía client (EventSource không POST được); antiforgery đi theo
     // FormData như postback thường nên AutoValidateAntiforgeryToken toàn cục vẫn phủ.
+    // retry=true: "thử lại" lượt BA vừa lỗi LLM — xóa lượt lỗi cuối rồi chạy lại trên transcript hiện
+    // có (message bị bỏ qua, KHÔNG ghi thêm lượt user). Cùng một đường SSE để mọi frame (status/token/
+    // done/decisions/outlook) hành xử y hệt một lượt chat thường.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
-    public async Task ChatStream(Guid projectId, string message)
+    public async Task ChatStream(Guid projectId, string message, bool retry = false)
     {
         // Chặn trước khi mở stream: client thấy !response.ok và tự rơi về đường postback (vốn cũng chặn).
         if (!await CanAccessProjectAsync(projectId))
@@ -211,17 +214,17 @@ public class RequirementsController : Controller
             var turnSucceeded = false;
             try
             {
-                if (string.IsNullOrWhiteSpace(message))
+                if (!retry && string.IsNullOrWhiteSpace(message))
                 {
                     done = new { type = "done", ok = false, error = "Tin nhắn trống." };
                 }
                 else
                 {
-                    var result = await _chatWithBAUseCase.ExecuteAsync(
-                        projectId, message,
-                        status => channel.Writer.TryWrite(new { type = "status", text = status }),
-                        token => channel.Writer.TryWrite(new { type = "token", text = token }),
-                        CancellationToken.None);
+                    Action<string> onStatus = status => channel.Writer.TryWrite(new { type = "status", text = status });
+                    Action<string> onToken = token => channel.Writer.TryWrite(new { type = "token", text = token });
+                    var result = retry
+                        ? await _chatWithBAUseCase.RetryAsync(projectId, onStatus, onToken, CancellationToken.None)
+                        : await _chatWithBAUseCase.ExecuteAsync(projectId, message, onStatus, onToken, CancellationToken.None);
                     turnSucceeded = result.Status == ChatWithBAResult.Ok;
 
                     done = result.Status switch
@@ -232,6 +235,12 @@ public class RequirementsController : Controller
                             type = "done",
                             ok = false,
                             error = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent."
+                        },
+                        ChatWithBAResult.NothingToRetry => new
+                        {
+                            type = "done",
+                            ok = false,
+                            error = "Không còn lượt lỗi nào để thử lại — tải lại trang để xem hội thoại mới nhất nhé."
                         },
                         _ => (object)new
                         {

@@ -21,6 +21,15 @@ public class ChatWithBAUseCase
         _baChatService.ChatAsync(projectId, message, onStatus, onToken, cancellationToken);
 
     /// <summary>
+    /// Thử lại lượt BA vừa lỗi LLM: xóa lượt lỗi cuối rồi chạy lại lượt chat trên transcript hiện có
+    /// (không ghi thêm lượt user). Trả <see cref="ChatWithBAResult.NothingToRetry"/> khi lượt cuối
+    /// không phải thông báo lỗi.
+    /// </summary>
+    public Task<BAChatTurnResult> RetryAsync(Guid projectId,
+        Action<string>? onStatus = null, Action<string>? onToken = null, CancellationToken cancellationToken = default) =>
+        _baChatService.RetryLastTurnAsync(projectId, onStatus, onToken, cancellationToken);
+
+    /// <summary>
     /// Gộp lượt chat mới vào "Điều đã chốt" — gọi SAU khi user đã nhận câu trả lời (sau frame done ở
     /// đường streaming / trước redirect ở đường postback) để lời gọi LLM này không cộng vào độ chờ.
     /// </summary>

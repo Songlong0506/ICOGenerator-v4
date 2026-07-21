@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 
 namespace ICOGenerator.Services.Requirements;
@@ -32,12 +33,55 @@ public static class ConversationTurnRenderer
         if (!isAssistant)
             return $"{label}: {message}";
 
-        var suggestions = ParseSuggestions(turn.Suggestions);
-        if (suggestions.Count == 0)
-            return $"{label}: {message}";
+        var rendered = $"{label}: {message}";
 
-        var options = string.Join("; ", suggestions.Select((s, i) => $"[{i + 1}] {s}"));
-        return $"{label}: {message}\n   (Các lựa chọn gợi ý đã đưa cho người dùng: {options})";
+        var suggestions = ParseSuggestions(turn.Suggestions);
+        if (suggestions.Count > 0)
+        {
+            var options = string.Join("; ", suggestions.Select((s, i) => $"[{i + 1}] {s}"));
+            rendered += $"\n   (Các lựa chọn gợi ý đã đưa cho người dùng: {options})";
+        }
+
+        // Sơ đồ luồng BA đã VẼ cho người dùng xác nhận ở lượt mời "Write Requirement" nằm ở cột riêng
+        // (FlowDiagram) — không render thì các reader transcript (readiness gate, bản đồ bao phủ, bước
+        // soạn Product Brief) không hề thấy chuỗi bước mà người dùng đã duyệt bằng hình: tài liệu được
+        // soạn "mù" đúng phần luồng đã chốt kỹ nhất.
+        var flowSteps = ParseFlowDiagram(turn.FlowDiagram);
+        if (flowSteps.Count > 0)
+        {
+            var steps = flowSteps.Select((s, i) =>
+            {
+                var actor = s.Actor.Trim();
+                var outcome = s.Outcome.Trim();
+                var step = $"{i + 1}. {(actor.Length > 0 ? $"{actor}: " : "")}{s.Action.Trim()}";
+                return outcome.Length > 0 ? $"{step} → {outcome}" : step;
+            });
+            rendered += $"\n   (Sơ đồ luồng nghiệp vụ đã trình bày cho người dùng xác nhận: {string.Join("; ", steps)})";
+        }
+
+        return rendered;
+    }
+
+    /// <summary>
+    /// Giải mã cột <see cref="AgentConversation.FlowDiagram"/> (JSON array <see cref="FlowStep"/>) an
+    /// toàn như <see cref="ParseSuggestions"/>: null/rỗng/hỏng đều trả mảng rỗng. Bước không có hành
+    /// động bị bỏ (không có gì để kể).
+    /// </summary>
+    public static List<FlowStep> ParseFlowDiagram(string? flowDiagramJson)
+    {
+        if (string.IsNullOrWhiteSpace(flowDiagramJson))
+            return new List<FlowStep>();
+
+        try
+        {
+            var steps = JsonSerializer.Deserialize<List<FlowStep>>(flowDiagramJson) ?? new List<FlowStep>();
+            return steps.Where(s => !string.IsNullOrWhiteSpace(s.Action)).ToList();
+        }
+        catch
+        {
+            // Dữ liệu cũ/không hợp lệ: bỏ qua, coi như không có sơ đồ.
+            return new List<FlowStep>();
+        }
     }
 
     /// <summary>

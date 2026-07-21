@@ -109,6 +109,90 @@
             </details>
         }
 
+        @* Kết quả VÒNG TỰ KIỂM CUỐI của hệ thống (audit tĩnh + headless browser + oracle ví dụ đã chốt +
+           visual QA) — người review thấy máy ĐÃ xác nhận gì (đỡ kiểm lại bằng tay) và còn issue nào agent
+           chưa xử lý được sau các vòng sửa (chỗ cần soi kỹ nhất). Ẩn khi chưa có dữ liệu (POC cũ). *@
+        @if (Model.Verification is { } verif)
+        {
+            var selfPass = verif.SelfTestResults.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
+            var scenarioPass = verif.ScenarioResults.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
+            var weOk = Math.Max(0, verif.WorkedExamplesTotal - verif.WorkedExampleIssues.Count);
+            <details class="uat-panel poc-verif-panel" open>
+                <summary>
+                    🧪 Máy đã tự kiểm
+                    @if (verif.OpenIssues.Any())
+                    {
+                        <span class="poc-verif-bad">✗ còn @verif.OpenIssues.Count điểm chưa đạt</span>
+                    }
+                    else
+                    {
+                        <span class="poc-verif-ok">✓ vòng kiểm cuối sạch</span>
+                    }
+                </summary>
+                <p class="muted poc-panel-hint">
+                    Kết quả vòng kiểm tự động cuối cùng trước khi bàn giao POC (@verif.CheckedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")) —
+                    những mục ✓ máy đã xác nhận chạy đúng; những mục ✗ là chỗ nên soi kỹ khi review.
+                </p>
+
+                <ul class="poc-verif-lines">
+                    @if (verif.RuntimeRan)
+                    {
+                        @if (verif.SelfTestResults.Any())
+                        {
+                            <li class="@(selfPass == verif.SelfTestResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
+                                Quy tắc nghiệp vụ tự kiểm: @selfPass/@verif.SelfTestResults.Count PASS
+                            </li>
+                        }
+                        @if (verif.ScenarioResults.Any())
+                        {
+                            <li class="@(scenarioPass == verif.ScenarioResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
+                                Kịch bản end-to-end: @scenarioPass/@verif.ScenarioResults.Count PASS
+                            </li>
+                        }
+                        @if (verif.WorkedExamplesTotal > 0)
+                        {
+                            <li class="@(verif.WorkedExampleIssues.Any() ? "poc-verif-bad" : "poc-verif-ok")">
+                                Ví dụ đã chốt với người dùng: POC tính đúng @weOk/@verif.WorkedExamplesTotal
+                            </li>
+                        }
+                        @if (verif.SpecScreens > 0)
+                        {
+                            <li class="@(verif.CoveredScreens >= verif.SpecScreens ? "poc-verif-ok" : "poc-verif-bad")">
+                                Độ phủ màn hình theo spec: @verif.CoveredScreens/@verif.SpecScreens
+                            </li>
+                        }
+                        @if (verif.VisualRan)
+                        {
+                            <li class="@(verif.VisualWarnings.Any() ? "" : "poc-verif-ok")">
+                                UI/UX agent đã soát ảnh từng màn hình@(verif.VisualWarnings.Any() ? $" — {verif.VisualWarnings.Count} cảnh báo nhỏ" : "")
+                            </li>
+                        }
+                    }
+                    else
+                    {
+                        <li class="muted">Tầng chạy thử trong trình duyệt không hoạt động ở môi trường này (@verif.RuntimeSkipReason) — chỉ có kiểm tra tĩnh.</li>
+                    }
+                </ul>
+
+                @if (verif.OpenIssues.Any())
+                {
+                    <div class="poc-cov-group">
+                        <div class="poc-cov-head poc-verif-bad">Điểm máy báo CHƯA ĐẠT mà agent chưa xử lý xong — ưu tiên xem khi review:</div>
+                        <ul class="poc-verif-issues">
+                            @foreach (var issue in verif.OpenIssues.Take(8))
+                            {
+                                <li>@issue</li>
+                            }
+                            @if (verif.OpenIssues.Count > 8)
+                            {
+                                <li class="muted">… và @(verif.OpenIssues.Count - 8) điểm khác.</li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </details>
+        }
+
         @* Checklist UAT: kịch bản đi-từng-bước sinh từ AI Design Spec (UatScenarioService) — biến review
            từ khám phá tự do thành nghiệm thu có kịch bản. Tick từng bước (lưu localStorage); bước không
            đạt thì "Báo lỗi" mở form ghi chú prefill sẵn ngữ cảnh kịch bản. *@

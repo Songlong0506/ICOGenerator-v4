@@ -91,6 +91,11 @@
             color: #a33;
         }
 
+        /* Nút "Thử lại" trong bubble lượt BA bị lỗi LLM — chạy lại lượt vừa lỗi, khỏi gõ lại câu hỏi. */
+        .req-msg.ba .chat-retry-btn {
+            margin-top: 8px;
+        }
+
     @keyframes chat-caret-blink {
         50% { opacity: 0; }
     }
