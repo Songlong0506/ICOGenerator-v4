@@ -37,17 +37,20 @@
     <div>
         <h1>Delivery Quality</h1>
     </div>
-    <div class="q-toolbar">
-        <form method="get" asp-controller="Quality" asp-action="Index" class="year-filter">
-            <select name="year" onchange="this.form.submit()" aria-label="Chọn năm">
-                @foreach (var yr in Model.AvailableYears)
-                {
-                    <option value="@yr" selected="@(Model.SelectedYear == yr)">@yr</option>
-                }
-            </select>
-        </form>
-    </div>
 </div>
+
+@* Command bar (mẫu Bosch): chọn năm để lọc dashboard (form GET, tự submit khi đổi). *@
+<form method="get" asp-controller="Quality" asp-action="Index" class="command-bar cbar-filter-form">
+    <div class="cbar-field">
+        <label for="q-filter-year">Năm</label>
+        <select id="q-filter-year" name="year" data-caption="Năm" onchange="this.form.submit()" aria-label="Chọn năm">
+            @foreach (var yr in Model.AvailableYears)
+            {
+                <option value="@yr" selected="@(Model.SelectedYear == yr)">@yr</option>
+            }
+        </select>
+    </div>
+</form>
 
 @if (!Model.HasAnyPricing)
 {
