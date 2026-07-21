@@ -461,7 +461,11 @@ input:hover, textarea:hover, select:hover {
     border-bottom-color: var(--input-underline-hover);
 }
 
-textarea { resize: vertical; }
+/* Top-align so the caption+textarea read as one control. A textarea is an
+   inline-block that defaults to vertical-align:baseline, so the line-box
+   leading pushes it down and opens a gap below its integrated caption —
+   inputs/selects don't show it because their box fills the line. */
+textarea { resize: vertical; vertical-align: top; }
 
 input:focus, textarea:focus, select:focus {
     outline: none;
