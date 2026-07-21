@@ -53,66 +53,125 @@
 }
 else
 {
-    <div class="audit-list">
-        @foreach (var item in Model.Items)
-        {
-            <div class="card audit-item">
-                <div class="audit-head">
-                    <span class="badge @CategoryBadge(item.Category)">@item.Category.GetTitle()</span>
-                    <span class="badge @ActionBadge(item.Action)">@item.Action.GetTitle()</span>
-                    <h3>@item.Summary</h3>
+    <div class="card table-card">
+        <table class="audit-table">
+            <thead>
+                <tr>
+                    <th>Loại</th>
+                    <th>Hành động</th>
+                    <th>Tóm tắt</th>
+                    <th>Người thực hiện</th>
+                    <th>Thời gian</th>
+                    <th class="col-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td><span class="badge @CategoryBadge(item.Category)">@item.Category.GetTitle()</span></td>
+                        <td><span class="badge @ActionBadge(item.Action)">@item.Action.GetTitle()</span></td>
+                        <td class="audit-summary">@item.Summary</td>
+                        <td>@item.ActorUsername@(string.IsNullOrEmpty(item.ActorRole) ? "" : $" · {item.ActorRole}")</td>
+                        <td class="audit-time">@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                        <td class="actions">
+                            <button class="btn small outline"
+                                    type="button"
+                                    aria-label="Xem chi tiết"
+                                    data-category="@item.Category.GetTitle()"
+                                    data-category-class="@CategoryBadge(item.Category)"
+                                    data-action="@item.Action.GetTitle()"
+                                    data-action-class="@ActionBadge(item.Action)"
+                                    data-summary="@item.Summary"
+                                    data-actor="@item.ActorUsername@(string.IsNullOrEmpty(item.ActorRole) ? "" : $" · {item.ActorRole}")"
+                                    data-time="@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")"
+                                    data-entity="@item.EntityId"
+                                    data-before="@(item.BeforeJson ?? "")"
+                                    data-after="@(item.AfterJson ?? "")"
+                                    onclick="openAuditDetail(this)">
+                                <i class="bi bi-eye" aria-hidden="true"></i> Chi tiết
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="pager">
+            <span>Hiển thị @Model.FirstItemIndex–@Model.LastItemIndex trên @Model.TotalCount bản ghi</span>
+            @if (Model.TotalPages > 1)
+            {
+                <div class="pager-controls">
+                    @if (Model.HasPrevious)
+                    {
+                        <a class="btn outline" asp-action="Index" asp-route-category="@Model.CategoryFilter" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">‹ Trước</a>
+                    }
+                    else
+                    {
+                        <span class="btn outline disabled">‹ Trước</span>
+                    }
+
+                    <span class="btn primary">@Model.Page / @Model.TotalPages</span>
+
+                    @if (Model.HasNext)
+                    {
+                        <a class="btn outline" asp-action="Index" asp-route-category="@Model.CategoryFilter" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">Sau ›</a>
+                    }
+                    else
+                    {
+                        <span class="btn outline disabled">Sau ›</span>
+                    }
                 </div>
-
-                <p class="audit-meta">
-                    @item.ActorUsername@(string.IsNullOrEmpty(item.ActorRole) ? "" : $" · {item.ActorRole}")
-                    · @item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")
-                </p>
-
-                @if (item.BeforeJson != null || item.AfterJson != null)
-                {
-                    <details class="audit-diff">
-                        <summary>Xem chi tiết thay đổi</summary>
-                        <div class="audit-diff-grid">
-                            <div>
-                                <h4>Trước</h4>
-                                <pre class="audit-json">@(item.BeforeJson ?? "—")</pre>
-                            </div>
-                            <div>
-                                <h4>Sau</h4>
-                                <pre class="audit-json">@(item.AfterJson ?? "—")</pre>
-                            </div>
-                        </div>
-                    </details>
-                }
-            </div>
-        }
+            }
+        </div>
     </div>
+}
 
-    <div class="pager" style="margin-top:16px">
-        <span>Hiển thị @Model.FirstItemIndex–@Model.LastItemIndex trên @Model.TotalCount bản ghi</span>
-        @if (Model.TotalPages > 1)
-        {
-            <div class="pager-controls">
-                @if (Model.HasPrevious)
-                {
-                    <a class="btn outline" asp-action="Index" asp-route-category="@Model.CategoryFilter" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">‹ Trước</a>
-                }
-                else
-                {
-                    <span class="btn outline disabled">‹ Trước</span>
-                }
+<div id="auditDetail" class="modal-backdrop hidden">
+    <div class="modal audit-detail-modal">
+        <button type="button" class="x" onclick="closeModal('auditDetail')">×</button>
 
-                <span class="btn primary">@Model.Page / @Model.TotalPages</span>
+        <h2>Chi tiết thay đổi</h2>
 
-                @if (Model.HasNext)
-                {
-                    <a class="btn outline" asp-action="Index" asp-route-category="@Model.CategoryFilter" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">Sau ›</a>
-                }
-                else
-                {
-                    <span class="btn outline disabled">Sau ›</span>
-                }
+        <div class="audit-detail-head">
+            <span class="badge" id="audit-detail-category"></span>
+            <span class="badge" id="audit-detail-action"></span>
+        </div>
+
+        <p class="audit-detail-summary" id="audit-detail-summary"></p>
+
+        <dl class="audit-detail-meta">
+            <div>
+                <dt>Người thực hiện</dt>
+                <dd id="audit-detail-actor"></dd>
             </div>
-        }
+            <div>
+                <dt>Thời gian</dt>
+                <dd id="audit-detail-time"></dd>
+            </div>
+            <div>
+                <dt>Đối tượng</dt>
+                <dd id="audit-detail-entity"></dd>
+            </div>
+        </dl>
+
+        <div class="audit-diff-grid" id="audit-detail-diff">
+            <div>
+                <h4>Trước</h4>
+                <pre class="audit-json" id="audit-detail-before"></pre>
+            </div>
+            <div>
+                <h4>Sau</h4>
+                <pre class="audit-json" id="audit-detail-after"></pre>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button type="button" class="btn" onclick="closeModal('auditDetail')">Đóng</button>
+        </div>
     </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/audit.js" asp-append-version="true"></script>
 }
