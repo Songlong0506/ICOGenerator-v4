@@ -490,6 +490,49 @@ input[readonly]:focus, textarea[readonly]:focus {
     padding-bottom: 9px;
 }
 
+/* ---------- Bosch integrated label (caption inside the field) ----------
+   When a <label> sits directly before a text field, it becomes a small caption
+   tucked into the TOP of the field box. Label + field share one grey (light-blue
+   on focus) fill and a single underline, so the pair reads as ONE control —
+   matching the Bosch spec where the label lives inside the input. Labels not
+   followed by a field (checkbox/radio rows, ms-combo dropdowns) keep the plain
+   block style above. */
+label:has(+ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"])),
+label:has(+ textarea),
+label:has(+ select) {
+    margin: 16px 0 0;
+    padding: 7px 12px 2px;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.3;
+    color: var(--muted);
+    background: var(--input-bg);
+    cursor: text;
+}
+
+/* The field directly under an integrated caption loses its top padding so the
+   value / placeholder sits snug beneath the caption. */
+label:has(+ input) + input,
+label:has(+ textarea) + textarea,
+label:has(+ select) + select {
+    padding-top: 3px;
+}
+
+/* Focus: the caption adopts the same light-blue fill + Bosch-blue ink. */
+label:has(+ input:focus),
+label:has(+ textarea:focus),
+label:has(+ select:focus) {
+    background: var(--input-focus-bg);
+    color: var(--bosch-blue-dark);
+}
+
+/* Read-only: caption matches the muted read-only fill. */
+label:has(+ input[readonly]),
+label:has(+ textarea[readonly]) {
+    background: var(--input-readonly-bg);
+    cursor: not-allowed;
+}
+
 /* Non-text controls opt out of the filled/underline treatment. */
 input[type="color"] { padding: 4px; height: 40px; border: 1px solid var(--line); background: #fff; }
 input[type="checkbox"], input[type="radio"], input[type="range"], input[type="file"] {
@@ -620,7 +663,7 @@ input[type="checkbox"], input[type="radio"], input[type="range"], input[type="fi
 
 .shell-modal-close:hover { color: var(--ink); }
 .shell-modal-body { padding: 18px; }
-.shell-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.shell-field { display: flex; flex-direction: column; gap: 0; margin-bottom: 14px; }
 .shell-field label { margin: 0; }
 .shell-select { width: 100%; }
 
@@ -830,8 +873,8 @@ input[type="week"] {
 
 /* ---------- Filter bar layout (used by list/log filters) ---------- */
 .filter-bar { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
-.filter-field { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
-.filter-field > label { margin: 0; color: var(--muted); font-weight: 700; font-size: 13px; }
+.filter-field { display: flex; flex-direction: column; gap: 0; min-width: 200px; }
+.filter-field > label { margin: 0; }
 .filter-actions { display: flex; align-items: center; gap: 8px; }
 
 /* ---------- Data table ---------- */
