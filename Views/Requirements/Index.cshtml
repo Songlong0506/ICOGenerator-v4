@@ -91,7 +91,6 @@
     var coverageApplicable = coverage.Count(x => x.Status != "KHÔNG ÁP DỤNG");
     // "Chào lại" cho phỏng vấn dài (F): khi quay lại một dự án đang dở (đã có tiến độ nhưng chưa xong,
     // và requirement chưa được mời chốt), nói rõ còn bao nhiêu nhóm thông tin cần làm rõ.
-    var coverageRemaining = coverageApplicable - coverageClear;
 
     // Cờ multi-select của lượt hỏi mới nhất (chip cho phép chọn nhiều rồi gửi một lần). Conversation
     // khác null đã ngầm định Kind == "conversation" (item workflow không có Conversation).
@@ -166,17 +165,6 @@
         ✅ Yêu cầu đã được duyệt. Hệ thống đang tự dựng <b>bản demo (POC)</b> để anh/chị xem trước —
         @(etaMinutes.HasValue ? $"thường mất khoảng {etaMinutes.Value} phút. " : "quá trình này chạy nền, có thể mất ít phút. ")
         Anh/chị có thể theo dõi tiến độ ngay trong khung chat bên dưới và sẽ nhận thông báo khi POC sẵn sàng.
-    </div>
-}
-
-@* "Chào lại" (F): quay lại một cuộc phỏng vấn đang dở — nhắc còn bao nhiêu nhóm cần làm rõ để user biết
-   sắp xong tới đâu, thay vì cảm giác "bị hỏi vô tận". Ẩn khi chưa bắt đầu / đã sẵn sàng chốt. *@
-@if (coverage.Count > 0 && coverageRemaining > 0 && !requirementReady)
-{
-    <div class="req-alert info welcome-back">
-        👋 Tiếp tục nhé — cuộc trao đổi đã rõ <b>@coverageClear/@coverageApplicable</b> nhóm thông tin,
-        còn <b>@coverageRemaining</b> nhóm cần làm rõ. Trả lời tiếp các câu hỏi của BA để hoàn tất;
-        anh/chị có thể xem "Tiến độ khai thác" và "Sẽ xây gì" ở cột bên phải.
     </div>
 }
 
@@ -326,7 +314,6 @@
 
         <div class="source-panel">
             <h3>Tài liệu nguồn</h3>
-            <div class="history-sub" style="margin-bottom:8px;">Ảnh / PDF để BA đọc khi viết requirement. Anh/chị cũng có thể <b>dán (Ctrl+V)</b> hoặc <b>kéo-thả ảnh</b> thẳng vào khung chat.</div>
 
             @if (!baSupportsVision)
             {
