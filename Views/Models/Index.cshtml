@@ -33,10 +33,6 @@
     <div>
         <h1>AI Models</h1>
     </div>
-
-    <button class="btn primary" onclick="openModal('addModel')" type="button">
-        <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Model
-    </button>
 </div>
 
 @if (TempData["Error"] != null)
@@ -44,10 +40,22 @@
     <div class="alert error">@TempData["Error"]</div>
 }
 
-<input class="search" placeholder="Search models..." />
+@await Html.PartialAsync("_CommandBar", new CommandBarModel
+{
+    SearchPlaceholder = "Search models…",
+    TargetSelector = "#modelsTable",
+    SortOptions = new[]
+    {
+        new CommandBarSort { Label = "Model ID A→Z", Column = 0 },
+        new CommandBarSort { Label = "Model ID Z→A", Column = 0, Descending = true },
+        new CommandBarSort { Label = "Context window ↑", Column = 1, Numeric = true },
+        new CommandBarSort { Label = "Context window ↓", Column = 1, Numeric = true, Descending = true },
+    },
+    Primary = new CommandBarButton { Label = "Add Model", Icon = "bi-plus-lg", OnClick = "openModal('addModel')" }
+})
 
 <div class="card table-card">
-    <table>
+    <table id="modelsTable">
         <thead>
             <tr>
                 <th>Model ID</th>

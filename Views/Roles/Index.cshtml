@@ -17,10 +17,16 @@
     <div class="alert success">@TempData["Success"]</div>
 }
 
+@await Html.PartialAsync("_CommandBar", new CommandBarModel
+{
+    SearchPlaceholder = "Tìm quyền…",
+    TargetSelector = "#rolesTable"
+})
+
 <form asp-action="Update" method="post">
     @Html.AntiForgeryToken()
 
-    <table class="data-table roles-table">
+    <table id="rolesTable" class="data-table roles-table">
         <thead>
             <tr>
                 <th>Quyền</th>
@@ -33,7 +39,7 @@
         <tbody>
             @foreach (var screen in Model.Screens)
             {
-                <tr class="screen-row">
+                <tr class="screen-row" data-cbar-skip>
                     <td colspan="@(Model.Columns.Count + 1)">@screen.Title</td>
                 </tr>
                 @foreach (var permission in screen.Permissions)

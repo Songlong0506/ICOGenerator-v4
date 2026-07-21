@@ -12,24 +12,26 @@
         <h1>User Roles</h1>
         <p>Gán / thu hồi role cho người dùng trên Bosch IdentityServer.</p>
     </div>
+</div>
+
+@* Command bar (mẫu Bosch): chọn Role để xem người dùng, nút Add để gán role. *@
+<div class="command-bar cbar-filter-form">
+    <div class="cbar-field">
+        <label for="urRoleFilter">Role</label>
+        <select id="urRoleFilter" data-caption="Role">
+            <option value="">— Chọn role —</option>
+        </select>
+    </div>
     @if (canManage)
     {
-        <button class="btn primary" type="button" onclick="openModal('assignModal')">
-            <i class="bi bi-plus-lg" aria-hidden="true"></i> Add
+        <button type="button" class="cbar-primary" onclick="openModal('assignModal')" title="Add" aria-label="Add">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+            <span class="cbar-primary-label">Add</span>
         </button>
     }
 </div>
 
 <div id="urFlash" class="alert" role="status" hidden></div>
-
-<div class="card ur-filter">
-    <div class="filter-field">
-        <label for="urRoleFilter">Xem người dùng theo role</label>
-        <select id="urRoleFilter">
-            <option value="">— Chọn role —</option>
-        </select>
-    </div>
-</div>
 
 <div class="card table-card">
     <table class="data-table">

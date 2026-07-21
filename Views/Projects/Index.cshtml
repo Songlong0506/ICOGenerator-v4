@@ -11,7 +11,6 @@
     <div>
         <h1>Projects</h1>
     </div>
-    <button class="btn primary" onclick="openModal('newProject')">＋ New Project</button>
 </div>
 @{
     var selectedOrgUnits = Model.SelectedOrgUnitCodesOrEmpty;
@@ -33,11 +32,11 @@
         return $"{Url.Action("Index")}?{string.Join("&", qs)}";
     }
 }
-<div class="card filter-card">
-    @* Khu vực lọc danh sách dự án theo Đơn vị yêu cầu (Org Unit) và Trạng thái. Form GET nên bộ lọc
-       nằm trong URL — chia sẻ được và giữ nguyên khi phân trang. Thay đổi select tự submit. *@
-    <form method="get" asp-controller="Projects" asp-action="Index" class="filter-bar">
-        <div class="filter-field">
+@* Command bar (mẫu Bosch): bộ lọc Org Unit + Status nằm ngay trên thanh, nút "Lọc" áp dụng
+   (form GET nên bộ lọc nằm trong URL — chia sẻ được và giữ nguyên khi phân trang), nút "New
+   Project" mở modal tạo dự án. *@
+<form method="get" asp-controller="Projects" asp-action="Index" class="command-bar cbar-filter-form">
+    <div class="cbar-field">
             @* Combo chọn NHIỀU đơn vị: mỗi lựa chọn là một checkbox name="orgUnit" nằm sẵn trong form GET,
                nên khi bấm "Lọc" toàn bộ mã đã tick được gửi lên (mảng). Không tự submit theo từng tick để
                người dùng chọn xong nhiều đơn vị rồi mới lọc. UI (nút, panel, tìm kiếm, chọn tất cả) do JS lái.
@@ -80,25 +79,32 @@
                 </div>
             </div>
         </div>
-        <div class="filter-field">
-            <label for="filter-status">Status</label>
-            <select id="filter-status" name="status" onchange="this.form.submit()">
-                <option value="">Tất cả trạng thái</option>
-                @foreach (var s in Enum.GetValues<ProjectStatus>())
-                {
-                    <option value="@s" selected="@(Model.SelectedStatus == s)">@s</option>
-                }
-            </select>
-        </div>
-        <div class="filter-actions">
-            <button type="submit" class="btn primary">Lọc</button>
-            @if (hasFilter)
+    <div class="cbar-field">
+        <label for="filter-status">Status</label>
+        <select id="filter-status" name="status">
+            <option value="">Tất cả trạng thái</option>
+            @foreach (var s in Enum.GetValues<ProjectStatus>())
             {
-                <a class="btn outline" asp-controller="Projects" asp-action="Index">Xóa lọc</a>
+                <option value="@s" selected="@(Model.SelectedStatus == s)">@s</option>
             }
-        </div>
-    </form>
-</div>
+        </select>
+    </div>
+    <button type="submit" class="cbar-btn emphasize">
+        <i class="bi bi-funnel" aria-hidden="true"></i>
+        <span>Lọc</span>
+    </button>
+    @if (hasFilter)
+    {
+        <a class="cbar-btn" asp-controller="Projects" asp-action="Index">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+            <span>Xóa lọc</span>
+        </a>
+    }
+    <button type="button" class="cbar-primary" onclick="openModal('newProject')" title="New Project" aria-label="New Project">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        <span class="cbar-primary-label">New Project</span>
+    </button>
+</form>
 <div class="card table-card">
     <table>
         <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>

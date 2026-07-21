@@ -1,0 +1,73 @@
+@using ICOGenerator.Application.Shared
+@model CommandBarModel
+@{
+    // Command bar dùng chung (mẫu Bosch). Tìm kiếm/sắp xếp chạy client-side qua command-bar.js
+    // trên Model.TargetSelector; nút "Filter" chỉ bật/tắt panel lọc server-side của màn hình.
+
+    // SVG nội tuyến để ô tìm kiếm vẫn có kính lúp kể cả khi font icon (CDN) không tải được.
+    var searchSvg = "<svg width=\"18\" height=\"18\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"7\" cy=\"7\" r=\"4.5\"/><line x1=\"10.5\" y1=\"10.5\" x2=\"14.5\" y2=\"14.5\"/></svg>";
+
+    void RenderButton(CommandBarButton b, string cls, string labelClass)
+    {
+        <text>
+        <button type="button" class="@cls" title="@(b.Title ?? b.Label)" disabled="@b.Disabled" onclick="@b.OnClick" aria-label="@b.Label">
+            @if (b.Icon != null) { <i class="bi @b.Icon" aria-hidden="true"></i> }
+            <span class="@labelClass">@b.Label</span>
+        </button>
+        </text>
+    }
+}
+
+<div class="command-bar" data-cbar data-cbar-target="@Model.TargetSelector">
+
+    @if (Model.HasSearch)
+    {
+        <label class="cbar-search">
+            <span class="cbar-search-icon" aria-hidden="true">@Html.Raw(searchSvg)</span>
+            <input type="search" data-cbar-search placeholder="@Model.SearchPlaceholder" autocomplete="off" aria-label="@Model.SearchPlaceholder" />
+        </label>
+    }
+
+    @if (Model.FilterPanelId != null)
+    {
+        <button type="button" class="cbar-btn @(Model.FilterPanelOpen ? "open" : "")" data-cbar-filter-toggle="#@Model.FilterPanelId" aria-expanded="@(Model.FilterPanelOpen ? "true" : "false")">
+            <i class="bi bi-funnel" aria-hidden="true"></i>
+            <span>Filter</span>
+            @if (Model.FilterActive)
+            {
+                <span class="cbar-dot" aria-hidden="true"></span>
+            }
+        </button>
+    }
+
+    @if (Model.HasSort)
+    {
+        <div class="cbar-menu-wrap" data-cbar-menu>
+            <button type="button" class="cbar-btn" data-cbar-menu-toggle aria-haspopup="true" aria-expanded="false">
+                <i class="bi bi-sort-down" aria-hidden="true"></i>
+                <span>Sort</span>
+            </button>
+            <div class="cbar-menu" role="menu" hidden>
+                @foreach (var s in Model.SortOptions)
+                {
+                    <button type="button" class="cbar-menu-item" role="menuitem"
+                            data-cbar-sort data-col="@s.Column"
+                            data-dir="@(s.Descending ? "desc" : "asc")"
+                            data-numeric="@(s.Numeric ? "1" : "0")">
+                        @s.Label
+                    </button>
+                }
+            </div>
+        </div>
+    }
+
+    @foreach (var pill in Model.Pills)
+    {
+        RenderButton(pill, "cbar-btn", "");
+    }
+
+    @if (Model.Primary != null)
+    {
+        RenderButton(Model.Primary, "cbar-primary", "cbar-primary-label");
+    }
+</div>
