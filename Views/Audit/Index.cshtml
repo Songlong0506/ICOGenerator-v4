@@ -116,33 +116,14 @@ else
             </tbody>
         </table>
 
-        <div class="pager">
-            <span>Hiển thị @Model.FirstItemIndex–@Model.LastItemIndex trên @Model.TotalCount bản ghi</span>
-            @if (Model.TotalPages > 1)
-            {
-                <div class="pager-controls">
-                    @if (Model.HasPrevious)
-                    {
-                        <a class="btn outline" asp-action="Index" asp-route-category="@Model.CategoryFilter" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">‹ Trước</a>
-                    }
-                    else
-                    {
-                        <span class="btn outline disabled">‹ Trước</span>
-                    }
-
-                    <span class="btn primary">@Model.Page / @Model.TotalPages</span>
-
-                    @if (Model.HasNext)
-                    {
-                        <a class="btn outline" asp-action="Index" asp-route-category="@Model.CategoryFilter" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">Sau ›</a>
-                    }
-                    else
-                    {
-                        <span class="btn outline disabled">Sau ›</span>
-                    }
-                </div>
-            }
-        </div>
+        @await Html.PartialAsync("_Pager", new ICOGenerator.Application.Shared.PagerModel
+        {
+            Page = Model.Page,
+            TotalPages = Model.TotalPages,
+            PageSize = Model.PageSize,
+            PageUrl = p => Url.Action("Index", new { category = Model.CategoryFilter, page = p, pageSize = Model.PageSize })!,
+            PageSizeUrl = s => Url.Action("Index", new { category = Model.CategoryFilter, page = 1, pageSize = s })!
+        })
     </div>
 }
 

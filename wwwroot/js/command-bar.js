@@ -78,6 +78,8 @@
             rows.forEach(function (row) {
                 var match = !term || (row.textContent || '').toLowerCase().indexOf(term) !== -1;
                 row.style.display = match ? '' : 'none';
+                // Đánh dấu để bộ phân trang (BoschPager) biết hàng nào bị lọc bỏ.
+                row.classList.toggle('cbar-filtered', !match);
                 if (match) visible++;
             });
 
@@ -89,6 +91,9 @@
             } else if (empty) {
                 empty.classList.remove('show');
             }
+
+            // Tính lại trang hiện hành theo các hàng còn qua bộ lọc.
+            if (window.BoschPager) { window.BoschPager.refresh(target); }
         }
 
         // ---- Tìm kiếm ----
@@ -122,6 +127,9 @@
                     var empty = parent.querySelector('.cbar-empty-row');
                     if (empty) parent.appendChild(empty);
                 }
+
+                // Sau khi sắp xếp lại DOM, dựng lại trang hiện hành.
+                if (window.BoschPager) { window.BoschPager.refresh(target); }
 
                 // Đánh dấu tuỳ chọn đang chọn trong menu.
                 var menu = item.closest('.cbar-menu');

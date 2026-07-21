@@ -1,0 +1,57 @@
+@model ICOGenerator.Application.Shared.PagerModel
+@*
+    Pager phía server dùng chung — mẫu Bảng chuẩn Bosch.
+    Ô "Elements per page" bên trái + dải số trang bên phải (chevron ‹ ›, nút tròn,
+    trang hiện tại là chấm tròn xanh). Cùng class .pager* với pager client (site.js)
+    nên hai loại trông giống hệt nhau.
+*@
+<div class="pager">
+    <div class="pager-size">
+        <select data-caption="Elements per page" aria-label="Elements per page"
+                onchange="if(this.value)location.href=this.value;">
+            @foreach (var size in Model.PageSizes)
+            {
+                <option value="@Model.PageSizeUrl(size)" selected="@(size == Model.PageSize)">@size</option>
+            }
+        </select>
+    </div>
+
+    @if (Model.TotalPages > 1)
+    {
+        <div class="pager-pages">
+            @if (Model.Page > 1)
+            {
+                <a class="pager-nav" href="@Model.PageUrl(Model.Page - 1)" aria-label="Previous page"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
+            }
+            else
+            {
+                <span class="pager-nav is-disabled" aria-hidden="true"><i class="bi bi-chevron-left"></i></span>
+            }
+
+            @foreach (var item in Model.PageItems())
+            {
+                if (item == -1)
+                {
+                    <span class="pager-ellipsis">…</span>
+                }
+                else if (item == Model.Page)
+                {
+                    <span class="pager-page is-active" aria-current="page">@item</span>
+                }
+                else
+                {
+                    <a class="pager-page" href="@Model.PageUrl(item)">@item</a>
+                }
+            }
+
+            @if (Model.Page < Model.TotalPages)
+            {
+                <a class="pager-nav" href="@Model.PageUrl(Model.Page + 1)" aria-label="Next page"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+            }
+            else
+            {
+                <span class="pager-nav is-disabled" aria-hidden="true"><i class="bi bi-chevron-right"></i></span>
+            }
+        </div>
+    }
+</div>
