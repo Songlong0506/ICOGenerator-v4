@@ -220,30 +220,17 @@
         @if (Model.OrgUnitOptions.Count > 0)
         {
             @* Đơn vị yêu cầu (tùy chọn): giúp BA hiểu bối cảnh phòng ban ngay từ đầu, tài liệu ghi đúng
-               đơn vị chủ quản và trang Usage thống kê được theo phòng ban. Dropdown phẳng, không phân
-               cấp Department/OrgUnit, kèm ô tìm kiếm để chọn nhanh khi danh sách dài. *@
+               đơn vị chủ quản và trang Usage thống kê được theo phòng ban. Dùng <select> gốc để
+               dropdown.js tự nâng cấp thành combo chuẩn (.ms-combo--single) — đồng bộ với mọi dropdown
+               khác trong app, kèm ô tìm kiếm khi danh sách dài. *@
             <label>Org Unit</label>
-            <div class="org-combo" data-org-combo>
-                <input type="hidden" name="OrgUnitCode" value="" data-org-value />
-                <button type="button" class="org-combo-trigger" data-org-trigger aria-haspopup="listbox" aria-expanded="false">
-                    <span class="org-combo-text is-placeholder" data-org-label>— Chưa chọn —</span>
-                    <span class="org-combo-caret" aria-hidden="true">▾</span>
-                </button>
-                <div class="org-combo-panel hidden" data-org-panel>
-                    <div class="org-combo-search">
-                        <input type="text" placeholder="Tìm đơn vị…" autocomplete="off" data-org-search />
-                        <span class="org-combo-search-icon" aria-hidden="true">🔍</span>
-                    </div>
-                    <ul class="org-combo-list" role="listbox" data-org-list>
-                        <li class="org-combo-option" role="option" data-code="" data-search="">— Chưa chọn —</li>
-                        @foreach (var o in Model.OrgUnitOptions)
-                        {
-                            <li class="org-combo-option" role="option" data-code="@o.Code" data-search="@o.Name.ToLowerInvariant()">@o.Name</li>
-                        }
-                    </ul>
-                    <div class="org-combo-empty hidden" data-org-empty>Không tìm thấy đơn vị</div>
-                </div>
-            </div>
+            <select name="OrgUnitCode">
+                <option value="">— Chưa chọn —</option>
+                @foreach (var o in Model.OrgUnitOptions)
+                {
+                    <option value="@o.Code">@o.Name</option>
+                }
+            </select>
         }
         <div class="modal-actions"><button type="button" class="btn" onclick="closeModal('newProject')">Cancel</button><button class="btn primary">Create Project</button></div>
     </form>
