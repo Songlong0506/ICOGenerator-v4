@@ -62,10 +62,10 @@
     SearchPlaceholder = "Tìm scenario…",
     TargetSelector = "#evalScenarios",
     Pills = canManage
-        ? new[] { new CommandBarPill { Label = "Scenario", Icon = "bi-plus-lg", OnClick = "openCreateScenario()" } }
-        : Array.Empty<CommandBarPill>(),
+        ? new[] { new CommandBarButton { Label = "Scenario", Icon = "bi-plus-lg", OnClick = "openCreateScenario()" } }
+        : Array.Empty<CommandBarButton>(),
     Primary = canManage
-        ? new CommandBarPill
+        ? new CommandBarButton
         {
             Label = "Chạy eval",
             Icon = "bi-play-fill",

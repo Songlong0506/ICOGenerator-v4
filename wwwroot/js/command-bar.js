@@ -3,14 +3,14 @@
  * Mỗi <div class="command-bar" data-cbar> có thể trỏ tới một bảng/danh sách qua
  * data-cbar-target (CSS selector). Trên phần tử đó, thanh cung cấp:
  *   • tìm kiếm  — [data-cbar-search]  lọc hàng theo văn bản
- *   • sắp xếp   — [data-cbar-sort]    sắp xếp hàng theo cột / data-key
+ *   • sắp xếp   — [data-cbar-sort]    sắp xếp hàng theo cột (data-col)
  * Ngoài ra, độc lập với target:
  *   • nút Filter — [data-cbar-filter-toggle="#panel"] bật/tắt panel lọc server-side
- *   • menu thả   — [data-cbar-menu] (Sort, overflow ⋮) mở/đóng, đóng khi bấm ra ngoài
+ *   • menu Sort  — [data-cbar-menu] mở/đóng, đóng khi bấm ra ngoài / nhấn Escape
  *
- * Hàng dữ liệu = <tbody> <tr> (bỏ qua tr có data-cbar-skip) với bảng, hoặc
- * [data-cbar-item] / phần tử con trực tiếp với danh sách. Không đụng tới bộ lọc
- * server: search/sort chỉ tác động lên các hàng đang render ở client.
+ * Hàng dữ liệu = <tbody> <tr> với bảng (bỏ qua tr có data-cbar-skip), hoặc phần tử
+ * con trực tiếp với danh sách. Không đụng tới bộ lọc server: search/sort chỉ tác động
+ * lên các hàng đang render ở client.
  */
 (function () {
     'use strict';
@@ -23,23 +23,16 @@
                 tbody.querySelectorAll(':scope > tr'),
                 function (tr) { return !tr.hasAttribute('data-cbar-skip') && !tr.classList.contains('cbar-empty-row'); });
         }
-        var tagged = target.querySelectorAll(':scope [data-cbar-item], :scope > [data-cbar-item]');
-        if (tagged.length) return Array.prototype.slice.call(tagged);
+        // Danh sách (không phải bảng): mỗi phần tử con là một mục (dùng cho tìm kiếm).
         return Array.prototype.filter.call(target.children, function (el) {
             return !el.classList.contains('cbar-empty-row') && !el.hasAttribute('data-cbar-skip');
         });
     }
 
-    function cellText(row, col, key) {
-        if (key) {
-            var keyed = row.matches('[data-' + key + ']') ? row : row.querySelector('[data-' + key + ']');
-            if (keyed) return (keyed.getAttribute('data-' + key) || keyed.textContent || '').trim();
-        }
-        if (row.tagName === 'TR') {
-            var cell = row.cells && row.cells[col];
-            return cell ? (cell.getAttribute('data-sort') || cell.textContent || '').trim() : '';
-        }
-        return (row.textContent || '').trim();
+    // Giá trị so sánh khi sắp xếp (chỉ áp dụng cho bảng): ô data-sort nếu có, không thì text.
+    function cellText(row, col) {
+        var cell = row.cells && row.cells[col];
+        return cell ? (cell.getAttribute('data-sort') || cell.textContent || '').trim() : '';
     }
 
     function ensureEmptyRow(target) {
@@ -109,13 +102,12 @@
             item.addEventListener('click', function () {
                 if (!target) return;
                 var col = parseInt(item.getAttribute('data-col') || '0', 10);
-                var key = item.getAttribute('data-key') || '';
                 var dir = item.getAttribute('data-dir') === 'desc' ? -1 : 1;
                 var numeric = item.getAttribute('data-numeric') === '1';
 
                 var rows = rowsOf(target);
                 rows.sort(function (a, b) {
-                    var av = cellText(a, col, key), bv = cellText(b, col, key);
+                    var av = cellText(a, col), bv = cellText(b, col);
                     if (numeric) {
                         var an = parseFloat(av.replace(/[^0-9.\-]/g, '')) || 0;
                         var bn = parseFloat(bv.replace(/[^0-9.\-]/g, '')) || 0;

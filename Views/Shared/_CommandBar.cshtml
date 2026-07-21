@@ -1,68 +1,26 @@
 @using ICOGenerator.Application.Shared
 @model CommandBarModel
 @{
-    // Command bar dùng chung (mẫu Bosch). Xem CommandBarModel để biết ý nghĩa từng phần.
-    // Tìm kiếm/sắp xếp chạy client-side qua command-bar.js trên Model.TargetSelector;
-    // không đụng tới bộ lọc phía server sẵn có của màn hình (nút "Filter" chỉ bật/tắt panel lọc đó).
+    // Command bar dùng chung (mẫu Bosch). Tìm kiếm/sắp xếp chạy client-side qua command-bar.js
+    // trên Model.TargetSelector; nút "Filter" chỉ bật/tắt panel lọc server-side của màn hình.
 
     // SVG nội tuyến để ô tìm kiếm vẫn có kính lúp kể cả khi font icon (CDN) không tải được.
     var searchSvg = "<svg width=\"18\" height=\"18\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"7\" cy=\"7\" r=\"4.5\"/><line x1=\"10.5\" y1=\"10.5\" x2=\"14.5\" y2=\"14.5\"/></svg>";
-}
 
-@* Một nút pill (giữa thanh) — link điều hướng hoặc button (mở modal / toggle). *@
-@{
-    void RenderPill(CommandBarPill p)
+    void RenderButton(CommandBarButton b, string cls, string labelClass)
     {
-        var cls = "cbar-btn"
-            + (p.Kind == CommandBarPillKind.Toggle ? " cbar-toggle" : "")
-            + (p.Active ? " active" : "")
-            + (p.Emphasize ? " emphasize" : "")
-            + (p.Variant != null ? " " + p.Variant : "");
         <text>
-        @if (p.Kind == CommandBarPillKind.Link)
-        {
-            <a class="@cls" href="@(p.Href ?? "#")" title="@p.Title">
-                @if (p.Icon != null) { <i class="bi @p.Icon" aria-hidden="true"></i> }
-                <span>@p.Label</span>
-            </a>
-        }
-        else
-        {
-            <button type="button" class="@cls" title="@p.Title" disabled="@p.Disabled"
-                    onclick="@p.OnClick"
-                    aria-pressed="@(p.Kind == CommandBarPillKind.Toggle ? (p.Active ? "true" : "false") : null)">
-                @if (p.Icon != null) { <i class="bi @p.Icon" aria-hidden="true"></i> }
-                <span>@p.Label</span>
-            </button>
-        }
-        </text>
-    }
-
-    void RenderMenuItem(CommandBarPill p)
-    {
-        var cls = "cbar-menu-item" + (p.Variant != null ? " " + p.Variant : "");
-        <text>
-        @if (p.Kind == CommandBarPillKind.Link)
-        {
-            <a class="@cls" role="menuitem" href="@(p.Href ?? "#")">
-                @if (p.Icon != null) { <i class="bi @p.Icon" aria-hidden="true"></i> }
-                <span>@p.Label</span>
-            </a>
-        }
-        else
-        {
-            <button type="button" class="@cls" role="menuitem" onclick="@p.OnClick">
-                @if (p.Icon != null) { <i class="bi @p.Icon" aria-hidden="true"></i> }
-                <span>@p.Label</span>
-            </button>
-        }
+        <button type="button" class="@cls" title="@(b.Title ?? b.Label)" disabled="@b.Disabled" onclick="@b.OnClick" aria-label="@b.Label">
+            @if (b.Icon != null) { <i class="bi @b.Icon" aria-hidden="true"></i> }
+            <span class="@labelClass">@b.Label</span>
+        </button>
         </text>
     }
 }
 
 <div class="command-bar" data-cbar data-cbar-target="@Model.TargetSelector">
 
-    @if (Model.ShowSearch && Model.TargetSelector != null)
+    @if (Model.HasSearch)
     {
         <label class="cbar-search">
             <span class="cbar-search-icon" aria-hidden="true">@Html.Raw(searchSvg)</span>
@@ -82,7 +40,7 @@
         </button>
     }
 
-    @if (Model.HasSort && Model.TargetSelector != null)
+    @if (Model.HasSort)
     {
         <div class="cbar-menu-wrap" data-cbar-menu>
             <button type="button" class="cbar-btn" data-cbar-menu-toggle aria-haspopup="true" aria-expanded="false">
@@ -93,9 +51,7 @@
                 @foreach (var s in Model.SortOptions)
                 {
                     <button type="button" class="cbar-menu-item" role="menuitem"
-                            data-cbar-sort
-                            data-col="@s.Column"
-                            data-key="@(s.Key ?? "")"
+                            data-cbar-sort data-col="@s.Column"
                             data-dir="@(s.Descending ? "desc" : "asc")"
                             data-numeric="@(s.Numeric ? "1" : "0")">
                         @s.Label
@@ -107,40 +63,11 @@
 
     @foreach (var pill in Model.Pills)
     {
-        RenderPill(pill);
-    }
-
-    @if (Model.OverflowItems.Count > 0)
-    {
-        <div class="cbar-menu-wrap cbar-overflow" data-cbar-menu>
-            <button type="button" class="cbar-btn cbar-icon-only" data-cbar-menu-toggle aria-haspopup="true" aria-expanded="false" title="More" aria-label="More actions">
-                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
-            </button>
-            <div class="cbar-menu cbar-menu--right" role="menu" hidden>
-                @foreach (var item in Model.OverflowItems)
-                {
-                    RenderMenuItem(item);
-                }
-            </div>
-        </div>
+        RenderButton(pill, "cbar-btn", "");
     }
 
     @if (Model.Primary != null)
     {
-        var p = Model.Primary;
-        if (p.Kind == CommandBarPillKind.Link)
-        {
-            <a class="cbar-primary" href="@(p.Href ?? "#")" title="@(p.Title ?? p.Label)" aria-label="@p.Label">
-                <i class="bi @(p.Icon ?? "bi-plus-lg")" aria-hidden="true"></i>
-                <span class="cbar-primary-label">@p.Label</span>
-            </a>
-        }
-        else
-        {
-            <button type="button" class="cbar-primary" onclick="@p.OnClick" disabled="@p.Disabled" title="@(p.Title ?? p.Label)" aria-label="@p.Label">
-                <i class="bi @(p.Icon ?? "bi-plus-lg")" aria-hidden="true"></i>
-                <span class="cbar-primary-label">@p.Label</span>
-            </button>
-        }
+        RenderButton(Model.Primary, "cbar-primary", "cbar-primary-label");
     }
 </div>

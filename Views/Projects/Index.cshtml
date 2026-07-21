@@ -106,12 +106,12 @@
     </button>
 </form>
 <div class="card table-card">
-    <table id="projectsTable">
+    <table>
         <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
             @if (Model.Items.Count == 0)
             {
-                <tr data-cbar-skip>
+                <tr>
                     <td colspan="7" style="text-align:center; color:var(--muted); padding:24px;">
                         @(hasFilter ? "Không có dự án nào khớp với bộ lọc." : "Chưa có dự án nào.")
                     </td>
@@ -130,7 +130,7 @@
                     <td>@(string.IsNullOrWhiteSpace(p.CreatedByUsername) ? "—" : p.CreatedByUsername)</td>
                     @* Tên đơn vị tra từ OrgUnits; mã không còn trong dữ liệu HR thì hiển thị mã thô. *@
                     <td>@(item.OrgUnitName ?? (string.IsNullOrWhiteSpace(p.OrgUnitCode) ? "—" : p.OrgUnitCode))</td>
-                    <td data-sort="@p.CreatedAt.ToString("o")">@p.CreatedAt.ToString("MMM dd, yyyy")</td>
+                    <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>
                     <td><span class="@Badge(p.Status)">@p.Status</span></td>
                     <td>
                         <div class="actions">

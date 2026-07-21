@@ -115,10 +115,10 @@
         }
         else
         {
-            <div id="fbList" class="fb-list">
+            <div class="fb-list">
                 @foreach (var item in Model.Items)
                 {
-                    <div class="card fb-item" data-cbar-item data-date="@item.CreatedAt.ToString("o")">
+                    <div class="card fb-item">
                         <div class="fb-item-head">
                             <span class="badge @TypeBadge(item.Type)">@item.Type.GetTitle()</span>
                             <h3>@item.Title</h3>

@@ -29,19 +29,6 @@
 .cbar-field select:not(.cs-enhanced-select) { min-width: 170px; max-width: 230px; }
 .command-bar.cbar-filter-form { align-items: center; }
 
-/* Số mục bên trái, ngăn cách bằng đường kẻ dọc mảnh (như mockup). */
-.cbar-count {
-    font-size: 13px;
-    color: var(--muted);
-    font-weight: 600;
-    white-space: nowrap;
-    padding: 0 12px 0 6px;
-    border-right: 1px solid var(--line);
-    align-self: stretch;
-    display: flex;
-    align-items: center;
-}
-
 /* ---------- Ô tìm kiếm (lọc client-side) ---------- */
 .cbar-search {
     position: relative;
@@ -113,28 +100,20 @@
 .cbar-btn i { font-size: 16px; line-height: 1; color: var(--muted); }
 .cbar-btn:hover i { color: var(--ink); }
 
-/* Trạng thái mở (menu/panel đang bật) và toggle đang bật. */
-.cbar-btn.open,
-.cbar-toggle.active {
+/* Trạng thái mở (menu Sort / panel Filter đang bật). */
+.cbar-btn.open {
     background: var(--bosch-blue-tint);
     border-color: var(--bosch-blue-tint-strong);
     color: var(--bosch-blue-dark);
 }
 
-.cbar-btn.open i,
-.cbar-toggle.active i { color: var(--bosch-blue); }
+.cbar-btn.open i { color: var(--bosch-blue); }
 
-/* Pill nhấn mạnh / màu ngữ nghĩa (dùng cho hành động phụ nổi bật). */
-.cbar-btn.emphasize { color: var(--bosch-blue); }
+/* Nút nhấn mạnh (nút "Lọc" trên Projects). */
+.cbar-btn.emphasize,
 .cbar-btn.emphasize i { color: var(--bosch-blue); }
-.cbar-btn.danger { color: var(--danger); }
-.cbar-btn.danger i { color: var(--danger); }
-.cbar-btn.success { color: var(--success); }
-.cbar-btn.success i { color: var(--success); }
 
-.cbar-btn.cbar-icon-only { padding: 0 10px; }
-
-/* Chấm nhấn mạnh khi đang có bộ lọc áp dụng. */
+/* Chấm nhấn mạnh khi đang có bộ lọc áp dụng (nút Filter trên Audit). */
 .cbar-dot {
     width: 7px;
     height: 7px;
@@ -144,7 +123,7 @@
     margin-left: 1px;
 }
 
-/* ---------- Menu thả (Sort, overflow ⋮) ---------- */
+/* ---------- Menu thả (Sort) ---------- */
 .cbar-menu-wrap { position: relative; }
 
 .cbar-menu {
@@ -162,7 +141,6 @@
 }
 
 .cbar-menu[hidden] { display: none; }
-.cbar-menu--right { left: auto; right: 0; }
 
 .cbar-menu-item {
     display: flex;
@@ -186,15 +164,9 @@
 .cbar-menu-item i { font-size: 15px; color: var(--muted); width: 16px; text-align: center; }
 .cbar-menu-item.active { color: var(--bosch-blue-dark); font-weight: 700; }
 .cbar-menu-item.active i { color: var(--bosch-blue); }
-.cbar-menu-item.danger { color: var(--danger); }
-.cbar-menu-item.danger i { color: var(--danger); }
 
-/* Đẩy overflow + nút chính về sát phải. */
-.cbar-overflow { margin-left: auto; }
-
-/* Khi không có overflow, nút chính vẫn cần đẩy phải: bộ chọn phần tử "+" đứng cuối. */
+/* Nút hành động chính luôn đẩy về sát phải thanh. */
 .command-bar > .cbar-primary { margin-left: auto; }
-.command-bar > .cbar-overflow + .cbar-primary { margin-left: 8px; }
 
 /* ---------- Nút hành động chính "+" (ô vuông xanh) ---------- */
 .cbar-primary {
