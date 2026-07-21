@@ -11,7 +11,6 @@
     <div>
         <h1>Projects</h1>
     </div>
-    <button class="btn primary" onclick="openModal('newProject')">＋ New Project</button>
 </div>
 @{
     var selectedOrgUnits = Model.SelectedOrgUnitCodesOrEmpty;
@@ -33,7 +32,26 @@
         return $"{Url.Action("Index")}?{string.Join("&", qs)}";
     }
 }
-<div class="card filter-card">
+@await Html.PartialAsync("_CommandBar", new CommandBarModel
+{
+    Count = Model.TotalCount,
+    ItemNoun = "projects",
+    SearchPlaceholder = "Search projects…",
+    TargetSelector = "#projectsTable",
+    FilterPanelId = "projectsFilter",
+    FilterPanelOpen = hasFilter,
+    FilterActive = hasFilter,
+    SortOptions = new[]
+    {
+        new CommandBarSort { Label = "Name A→Z", Column = 0 },
+        new CommandBarSort { Label = "Name Z→A", Column = 0, Descending = true },
+        new CommandBarSort { Label = "Newest first", Column = 4, Descending = true },
+        new CommandBarSort { Label = "Oldest first", Column = 4 },
+    },
+    Primary = new CommandBarPill { Label = "New Project", OnClick = "openModal('newProject')" }
+})
+
+<div id="projectsFilter" class="card filter-card cbar-panel">
     @* Khu vực lọc danh sách dự án theo Đơn vị yêu cầu (Org Unit) và Trạng thái. Form GET nên bộ lọc
        nằm trong URL — chia sẻ được và giữ nguyên khi phân trang. Thay đổi select tự submit. *@
     <form method="get" asp-controller="Projects" asp-action="Index" class="filter-bar">
@@ -100,12 +118,12 @@
     </form>
 </div>
 <div class="card table-card">
-    <table>
+    <table id="projectsTable">
         <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
             @if (Model.Items.Count == 0)
             {
-                <tr>
+                <tr data-cbar-skip>
                     <td colspan="7" style="text-align:center; color:var(--muted); padding:24px;">
                         @(hasFilter ? "Không có dự án nào khớp với bộ lọc." : "Chưa có dự án nào.")
                     </td>
@@ -124,7 +142,7 @@
                     <td>@(string.IsNullOrWhiteSpace(p.CreatedByUsername) ? "—" : p.CreatedByUsername)</td>
                     @* Tên đơn vị tra từ OrgUnits; mã không còn trong dữ liệu HR thì hiển thị mã thô. *@
                     <td>@(item.OrgUnitName ?? (string.IsNullOrWhiteSpace(p.OrgUnitCode) ? "—" : p.OrgUnitCode))</td>
-                    <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>
+                    <td data-sort="@p.CreatedAt.ToString("o")">@p.CreatedAt.ToString("MMM dd, yyyy")</td>
                     <td><span class="@Badge(p.Status)">@p.Status</span></td>
                     <td>
                         <div class="actions">

@@ -49,9 +49,6 @@
     @if (canManage)
     {
         <div class="eval-head-actions">
-            <button class="btn outline" type="button" onclick="openCreateScenario()">
-                <i class="bi bi-plus-lg" aria-hidden="true"></i> Scenario
-            </button>
             <button class="btn primary" type="button" onclick="openModal('runModal')" @(Model.Scenarios.Any(s => s.IsActive) ? "" : "disabled") title="Chạy toàn bộ scenario đang bật (tốn token thật)">
                 <i class="bi bi-play-fill" aria-hidden="true"></i> Chạy eval
             </button>
@@ -68,13 +65,27 @@
     <div class="alert ok">Đã xếp hàng run eval — worker sẽ chạy nền, tiến độ cập nhật ngay trong bảng dưới.</div>
 }
 
+@await Html.PartialAsync("_CommandBar", new CommandBarModel
+{
+    Count = Model.Scenarios.Count,
+    ItemNoun = "scenarios",
+    SearchPlaceholder = "Tìm scenario…",
+    TargetSelector = "#evalScenarios",
+    SortOptions = new[]
+    {
+        new CommandBarSort { Label = "Tên (A→Z)", Column = 0 },
+        new CommandBarSort { Label = "Tên (Z→A)", Column = 0, Descending = true },
+    },
+    Primary = canManage ? new CommandBarPill { Label = "Scenario", OnClick = "openCreateScenario()" } : null
+})
+
 <div class="card table-card eval-card">
     <div class="eval-card-head">
         <h3>Scenarios (golden set)</h3>
         <span class="muted">@Model.Scenarios.Count(s => s.IsActive) đang bật / @Model.Scenarios.Count tổng</span>
     </div>
     <div class="table-wrap">
-        <table class="data-table">
+        <table id="evalScenarios" class="data-table">
             <thead>
                 <tr>
                     <th>Tên</th>
@@ -90,7 +101,7 @@
             <tbody>
                 @if (!Model.Scenarios.Any())
                 {
-                    <tr><td colspan="5" class="eval-empty">Chưa có scenario nào. Thêm scenario đầu tiên để bắt đầu đo chất lượng prompt.</td></tr>
+                    <tr data-cbar-skip><td colspan="5" class="eval-empty">Chưa có scenario nào. Thêm scenario đầu tiên để bắt đầu đo chất lượng prompt.</td></tr>
                 }
                 @foreach (var s in Model.Scenarios)
                 {

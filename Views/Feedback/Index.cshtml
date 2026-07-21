@@ -73,28 +73,54 @@
     </div>
 
     <div>
-        <div class="fb-toolbar">
-            <form asp-action="Index" method="get">
-                <select name="type" onchange="this.form.submit()">
-                    <option value="">Tất cả loại</option>
-                    @foreach (var t in Enum.GetValues<FeedbackType>())
-                    {
-                        <option value="@t" selected="@(Model.TypeFilter == t)">@t.GetTitle()</option>
-                    }
-                </select>
-                <select name="status" onchange="this.form.submit()">
-                    <option value="">Tất cả trạng thái</option>
-                    @foreach (var s in Enum.GetValues<FeedbackStatus>())
-                    {
-                        <option value="@s" selected="@(Model.StatusFilter == s)">@s.GetTitle()</option>
-                    }
-                </select>
-                @if (Model.StatusFilter != null || Model.TypeFilter != null)
+        @{
+            var fbHasFilter = Model.StatusFilter != null || Model.TypeFilter != null;
+        }
+        @await Html.PartialAsync("_CommandBar", new CommandBarModel
+        {
+            CountText = $"{Model.TotalCount} phản hồi{(Model.CanManage ? "" : " của bạn")}",
+            ItemNoun = "phản hồi",
+            SearchPlaceholder = "Tìm phản hồi…",
+            TargetSelector = "#fbList",
+            FilterPanelId = "fbFilter",
+            FilterPanelOpen = fbHasFilter,
+            FilterActive = fbHasFilter,
+            SortOptions = new[]
+            {
+                new CommandBarSort { Label = "Mới nhất", Key = "date", Descending = true },
+                new CommandBarSort { Label = "Cũ nhất", Key = "date" },
+            }
+        })
+
+        <div id="fbFilter" class="card filter-card cbar-panel">
+            <form asp-action="Index" method="get" class="filter-bar">
+                <div class="filter-field">
+                    <label for="fb-filter-type">Loại</label>
+                    <select id="fb-filter-type" name="type" onchange="this.form.submit()">
+                        <option value="">Tất cả loại</option>
+                        @foreach (var t in Enum.GetValues<FeedbackType>())
+                        {
+                            <option value="@t" selected="@(Model.TypeFilter == t)">@t.GetTitle()</option>
+                        }
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="fb-filter-status">Trạng thái</label>
+                    <select id="fb-filter-status" name="status" onchange="this.form.submit()">
+                        <option value="">Tất cả trạng thái</option>
+                        @foreach (var s in Enum.GetValues<FeedbackStatus>())
+                        {
+                            <option value="@s" selected="@(Model.StatusFilter == s)">@s.GetTitle()</option>
+                        }
+                    </select>
+                </div>
+                @if (fbHasFilter)
                 {
-                    <a class="btn small" asp-action="Index">Xóa lọc</a>
+                    <div class="filter-actions">
+                        <a class="btn outline" asp-action="Index">Xóa lọc</a>
+                    </div>
                 }
             </form>
-            <span class="count">@Model.TotalCount phản hồi@(Model.CanManage ? "" : " của bạn")</span>
         </div>
 
         @if (Model.Items.Count == 0)
@@ -105,10 +131,10 @@
         }
         else
         {
-            <div class="fb-list">
+            <div id="fbList" class="fb-list">
                 @foreach (var item in Model.Items)
                 {
-                    <div class="card fb-item">
+                    <div class="card fb-item" data-cbar-item data-date="@item.CreatedAt.ToString("o")">
                         <div class="fb-item-head">
                             <span class="badge @TypeBadge(item.Type)">@item.Type.GetTitle()</span>
                             <h3>@item.Title</h3>

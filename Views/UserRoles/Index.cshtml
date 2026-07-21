@@ -12,17 +12,22 @@
         <h1>User Roles</h1>
         <p>Gán / thu hồi role cho người dùng trên Bosch IdentityServer.</p>
     </div>
-    @if (canManage)
-    {
-        <button class="btn primary" type="button" onclick="openModal('assignModal')">
-            <i class="bi bi-plus-lg" aria-hidden="true"></i> Add
-        </button>
-    }
 </div>
+
+@await Html.PartialAsync("_CommandBar", new CommandBarModel
+{
+    CountText = null,
+    ShowSearch = true,
+    SearchPlaceholder = "Tìm người dùng…",
+    TargetSelector = "#urUsersTable",
+    FilterPanelId = "urFilterPanel",
+    FilterPanelOpen = true,
+    Primary = canManage ? new CommandBarPill { Label = "Add", OnClick = "openModal('assignModal')" } : null
+})
 
 <div id="urFlash" class="alert" role="status" hidden></div>
 
-<div class="card ur-filter">
+<div id="urFilterPanel" class="card ur-filter cbar-panel">
     <div class="filter-field">
         <label for="urRoleFilter">Xem người dùng theo role</label>
         <select id="urRoleFilter">
@@ -32,7 +37,7 @@
 </div>
 
 <div class="card table-card">
-    <table class="data-table">
+    <table id="urUsersTable" class="data-table">
         <thead>
             <tr>
                 <th>Người dùng</th>
@@ -45,7 +50,7 @@
             </tr>
         </thead>
         <tbody id="urUserRows" data-can-manage="@canManage.ToString().ToLowerInvariant()">
-            <tr><td colspan="4" class="ur-empty">Chọn một role ở trên để xem danh sách người dùng.</td></tr>
+            <tr data-cbar-skip><td colspan="4" class="ur-empty">Chọn một role ở trên để xem danh sách người dùng.</td></tr>
         </tbody>
     </table>
 </div>

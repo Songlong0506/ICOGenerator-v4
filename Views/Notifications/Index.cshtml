@@ -26,11 +26,19 @@
     </div>
 </div>
 
+@await Html.PartialAsync("_CommandBar", new CommandBarModel
+{
+    Count = Model.Items.Count(),
+    ItemNoun = "thông báo",
+    SearchPlaceholder = "Tìm thông báo…",
+    TargetSelector = "#inboxList"
+})
+
 <div class="notif-inbox">
-    <div class="notif-list">
+    <div id="inboxList" class="notif-list">
         @if (!Model.Items.Any())
         {
-            <div class="notif-empty">Chưa có thông báo nào.</div>
+            <div class="notif-empty" data-cbar-skip>Chưa có thông báo nào.</div>
         }
         else
         {

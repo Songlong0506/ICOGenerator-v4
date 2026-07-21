@@ -28,21 +28,42 @@
     </div>
 </div>
 
-<div class="audit-toolbar">
-    <form asp-action="Index" method="get">
-        <select name="category" onchange="this.form.submit()">
-            <option value="">Tất cả loại</option>
-            @foreach (var c in Enum.GetValues<AuditCategory>())
-            {
-                <option value="@c" selected="@(Model.CategoryFilter == c)">@c.GetTitle()</option>
-            }
-        </select>
+@await Html.PartialAsync("_CommandBar", new CommandBarModel
+{
+    Count = Model.TotalCount,
+    ItemNoun = "bản ghi",
+    SearchPlaceholder = "Tìm trong nhật ký…",
+    TargetSelector = "#auditTable",
+    FilterPanelId = "auditFilter",
+    FilterPanelOpen = Model.CategoryFilter != null,
+    FilterActive = Model.CategoryFilter != null,
+    SortOptions = new[]
+    {
+        new CommandBarSort { Label = "Thời gian mới nhất", Column = 4, Descending = true },
+        new CommandBarSort { Label = "Thời gian cũ nhất", Column = 4 },
+        new CommandBarSort { Label = "Loại (A→Z)", Column = 0 },
+    }
+})
+
+<div id="auditFilter" class="card filter-card cbar-panel">
+    <form asp-action="Index" method="get" class="filter-bar">
+        <div class="filter-field">
+            <label for="audit-category">Loại</label>
+            <select id="audit-category" name="category" onchange="this.form.submit()">
+                <option value="">Tất cả loại</option>
+                @foreach (var c in Enum.GetValues<AuditCategory>())
+                {
+                    <option value="@c" selected="@(Model.CategoryFilter == c)">@c.GetTitle()</option>
+                }
+            </select>
+        </div>
         @if (Model.CategoryFilter != null)
         {
-            <a class="btn small" asp-action="Index">Xóa lọc</a>
+            <div class="filter-actions">
+                <a class="btn outline" asp-action="Index">Xóa lọc</a>
+            </div>
         }
     </form>
-    <span class="count">@Model.TotalCount bản ghi</span>
 </div>
 
 @if (Model.Items.Count == 0)
@@ -54,7 +75,7 @@
 else
 {
     <div class="card table-card">
-        <table class="audit-table">
+        <table id="auditTable" class="audit-table">
             <thead>
                 <tr>
                     <th>Loại</th>
