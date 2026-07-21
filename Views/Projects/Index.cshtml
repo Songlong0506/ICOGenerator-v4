@@ -148,32 +148,16 @@
                                 Agent Dashboard
                             </a>
 
-                            @if (item.HasMockup)
-                            {
-                                <a class="btn success"
-                                   asp-controller="Projects"
-                                   asp-action="Mockup"
-                                   asp-route-projectId="@p.Id"
-                                   target="_blank">
-                                    Mockup
-                                </a>
-                                @* Review = xem POC kèm ghim ghi chú trực tiếp lên phần tử (Projects/PocReview). *@
-                                <a class="btn outline"
-                                   asp-controller="Projects"
-                                   asp-action="PocReview"
-                                   asp-route-projectId="@p.Id"
-                                   title="Xem POC và ghim ghi chú trực tiếp lên phần tử cần sửa">
-                                    💬 Review
-                                </a>
-                            }
-                            else
-                            {
-                                <button class="btn disabled"
-                                        type="button"
-                                        disabled>
-                                    Mockup
-                                </button>
-                            }
+                              @if (item.HasMockup)
+  {
+      <a class="btn outline"
+         asp-controller="Projects"
+         asp-action="PocReview"
+         asp-route-projectId="@p.Id"
+         title="Xem POC và ghim ghi chú trực tiếp lên phần tử cần sửa">
+          Mockup
+      </a>
+  }
                         </div>
                     </td>
                 </tr>
