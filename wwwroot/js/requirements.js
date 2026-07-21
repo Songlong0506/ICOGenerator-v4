@@ -860,17 +860,10 @@ function openRequirementModal(version) {
 
     document.getElementById("requirementModal").style.display = "flex";
 
-    document.querySelectorAll(".doc-tab")
-        .forEach(x => x.style.display = "none");
-
     document.querySelectorAll(".doc-preview")
         .forEach(x => x.style.display = "none");
 
-    const tabs = document.querySelectorAll(`.doc-tab[data-version="${version}"]`);
     const docs = document.querySelectorAll(`.doc-preview[data-version="${version}"]`);
-
-    tabs.forEach(x => x.style.display = "inline-block");
-
     if (docs.length > 0) {
         docs[0].style.display = "block";
         loadDocPreview(docs[0]);
@@ -879,16 +872,4 @@ function openRequirementModal(version) {
 
 function closeRequirementModal() {
     document.getElementById("requirementModal").style.display = "none";
-}
-
-function showDocument(id) {
-    document.querySelectorAll(".doc-preview")
-        .forEach(x => x.style.display = "none");
-
-    const target = document.getElementById("doc-" + id);
-
-    if (target) {
-        target.style.display = "block";
-        loadDocPreview(target);
-    }
 }
