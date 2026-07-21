@@ -44,19 +44,25 @@
     <div class="card fb-form-card">
         <h2 style="margin-top:0">Gửi phản hồi</h2>
         <form asp-action="Submit" method="post" enctype="multipart/form-data">
-            <label for="fbType">Loại phản hồi</label>
-            <select id="fbType" name="Type">
-                @foreach (var t in Enum.GetValues<FeedbackType>())
-                {
-                    <option value="@t">@t.GetTitle()</option>
-                }
-            </select>
+            <div class="bci-field">
+                <select id="fbType" name="Type">
+                    @foreach (var t in Enum.GetValues<FeedbackType>())
+                    {
+                        <option value="@t">@t.GetTitle()</option>
+                    }
+                </select>
+                <label for="fbType">Loại phản hồi</label>
+            </div>
 
-            <label for="fbTitle">Tiêu đề *</label>
-            <input id="fbTitle" name="Title" maxlength="200" required placeholder="Tóm tắt ngắn gọn" />
+            <div class="bci-field">
+                <input id="fbTitle" name="Title" maxlength="200" required placeholder="Tóm tắt ngắn gọn" />
+                <label for="fbTitle">Tiêu đề *</label>
+            </div>
 
-            <label for="fbMessage">Nội dung *</label>
-            <textarea id="fbMessage" name="Message" rows="6" required placeholder="Mô tả chi tiết lỗi/góp ý, các bước tái hiện, kết quả mong đợi..."></textarea>
+            <div class="bci-field">
+                <textarea id="fbMessage" name="Message" rows="6" required placeholder="Mô tả chi tiết lỗi/góp ý, các bước tái hiện, kết quả mong đợi..."></textarea>
+                <label for="fbMessage">Nội dung *</label>
+            </div>
 
             <label for="fbFiles">Đính kèm</label>
             <input id="fbFiles" class="fb-file" type="file" name="files" multiple

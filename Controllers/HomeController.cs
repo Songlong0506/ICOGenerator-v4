@@ -15,6 +15,12 @@ public class HomeController : Controller
         _logger = logger;
     }
 
+    // Living styleguide for the standardized Bosch form-kit components
+    // (fields, checkbox, switch, dropdown, data-table indicators). Kept
+    // anonymous so it doubles as a design reference and a visual-test target.
+    [AllowAnonymous]
+    public IActionResult UiKit() => View();
+
     // Reachable without login so an error around authentication shows the error page instead of bouncing to /Account/Login.
     [AllowAnonymous]
     public IActionResult Error()
