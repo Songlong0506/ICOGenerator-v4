@@ -77,6 +77,18 @@
     --radius-pill: 999px;
     --focus-ring: 0 0 0 2px var(--bosch-blue-tint-strong);
 
+    /* ---- Bosch "integrated" form fields ----
+       Text inputs, textareas and selects render as a light-grey filled box
+       with a single underline accent (no top/side borders). On focus the box
+       fills light-blue and the underline turns Bosch-blue. Single source of
+       truth for every field in the app — see the Forms block below. */
+    --input-bg: #e0e2e5;
+    --input-bg-hover: #d6d9dc;
+    --input-underline: #9aa0a6;
+    --input-underline-hover: #6f767c;
+    --input-focus-bg: #d7e6f7;
+    --input-readonly-bg: #eceef0;
+
     /* Back-compat aliases used by inline view styles */
     --primary: #007bc0;
     --primary2: #00629a;
@@ -427,40 +439,64 @@ tbody tr:hover td { background: var(--surface-hover); }
 /* ---------- Forms ---------- */
 label { display: block; font-weight: 700; font-size: 13px; color: var(--muted); margin: 16px 0 6px; }
 
+/* Bosch integrated field: light-grey filled box + single underline accent.
+   The underline grows from 1px to 2px Bosch-blue on focus; padding-bottom
+   drops by 1px on focus so the extra border width never shifts the content. */
 input, textarea, select {
     width: 100%;
     font-family: inherit;
     font-size: 14px;
     padding: 9px 12px;
-    border: 1px solid var(--line);
-    background: #fff;
+    border: 0;
+    border-bottom: 1px solid var(--input-underline);
+    background: var(--input-bg);
     color: var(--ink);
+    transition: background .12s ease, border-color .12s ease;
+}
+
+input::placeholder, textarea::placeholder { color: var(--muted); }
+
+input:hover, textarea:hover, select:hover {
+    background: var(--input-bg-hover);
+    border-bottom-color: var(--input-underline-hover);
 }
 
 textarea { resize: vertical; }
-select { background: #fff; }
 
 input:focus, textarea:focus, select:focus {
     outline: none;
-    border-color: var(--bosch-blue);
-    box-shadow: 0 0 0 2px var(--bosch-blue-tint-strong);
+    background: var(--input-focus-bg);
+    border-bottom: 2px solid var(--bosch-blue);
+    padding-bottom: 8px;
+    box-shadow: none;
 }
 
 /* Read-only fields: make it obvious they can't be edited */
 input[readonly], textarea[readonly] {
-    background: #f3f5f6;
+    background: var(--input-readonly-bg);
     color: var(--muted);
-    border-style: dashed;
+    border-bottom-style: dashed;
     cursor: not-allowed;
 }
 
-input[readonly]:focus, textarea[readonly]:focus {
-    border-color: var(--line);
-    box-shadow: none;
+input[readonly]:hover, textarea[readonly]:hover {
+    background: var(--input-readonly-bg);
+    border-bottom-color: var(--input-underline);
 }
 
-input[type="color"] { padding: 4px; height: 40px; }
-input[type="checkbox"], input[type="radio"] { width: auto; }
+input[readonly]:focus, textarea[readonly]:focus {
+    background: var(--input-readonly-bg);
+    border-bottom: 1px dashed var(--input-underline);
+    padding-bottom: 9px;
+}
+
+/* Non-text controls opt out of the filled/underline treatment. */
+input[type="color"] { padding: 4px; height: 40px; border: 1px solid var(--line); background: #fff; }
+input[type="checkbox"], input[type="radio"], input[type="range"], input[type="file"] {
+    width: auto;
+    border: 0;
+    background: transparent;
+}
 
 .choice {
     border: 1px solid var(--line);
@@ -471,11 +507,18 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 .choice input { width: auto; }
 
 .search {
-    border: 1px solid var(--line);
+    border: 0;
+    border-bottom: 1px solid var(--input-underline);
     padding: 10px 14px;
     max-width: 320px;
     margin-bottom: 20px;
-    background: #fff;
+    background: var(--input-bg);
+}
+
+.search:focus {
+    background: var(--input-focus-bg);
+    border-bottom: 2px solid var(--bosch-blue);
+    padding-bottom: 9px;
 }
 
 .full { width: 100%; max-width: none; }
@@ -682,8 +725,8 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
     background: #fff;
 }
 
-.chatbox input { border: 0; }
-.chatbox input:focus { box-shadow: none; }
+.chatbox input { border: 0; background: transparent; }
+.chatbox input:focus { box-shadow: none; background: transparent; padding-bottom: 9px; }
 
 .bottom { margin-top: 24px; }
 
@@ -703,13 +746,14 @@ input[type="checkbox"], input[type="radio"] { width: auto; }
 
 .tools-search {
     width: 100%;
-    border: 1px solid var(--line);
+    border: 0;
+    border-bottom: 1px solid var(--input-underline);
     padding: 11px 14px 11px 38px;
     font-size: 14px;
-    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") no-repeat 12px center;
+    background: var(--input-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") no-repeat 12px center;
 }
 
-.tools-search:focus { outline: none; border-color: var(--bosch-blue); box-shadow: 0 0 0 2px var(--bosch-blue-tint-strong); }
+.tools-search:focus { outline: none; background-color: var(--input-focus-bg); border-bottom: 2px solid var(--bosch-blue); padding-bottom: 10px; box-shadow: none; }
 
 .tool-filter-chips { display: inline-flex; background: #eef0f2; padding: 3px; gap: 2px; }
 .tool-filter-chips .chip { border: 0; background: transparent; padding: 7px 14px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; transition: .15s; width: auto; }
