@@ -2,9 +2,8 @@
 @model CommandBarModel
 @{
     // Command bar dùng chung (mẫu Bosch). Xem CommandBarModel để biết ý nghĩa từng phần.
-    // Tìm kiếm/sắp xếp/đếm chạy client-side qua command-bar.js trên Model.TargetSelector;
+    // Tìm kiếm/sắp xếp chạy client-side qua command-bar.js trên Model.TargetSelector;
     // không đụng tới bộ lọc phía server sẵn có của màn hình (nút "Filter" chỉ bật/tắt panel lọc đó).
-    var countText = Model.CountText ?? (Model.Count.HasValue ? $"{Model.Count} {Model.ItemNoun}" : null);
 
     // SVG nội tuyến để ô tìm kiếm vẫn có kính lúp kể cả khi font icon (CDN) không tải được.
     var searchSvg = "<svg width=\"18\" height=\"18\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"7\" cy=\"7\" r=\"4.5\"/><line x1=\"10.5\" y1=\"10.5\" x2=\"14.5\" y2=\"14.5\"/></svg>";
@@ -29,7 +28,7 @@
         }
         else
         {
-            <button type="button" class="@cls" title="@p.Title"
+            <button type="button" class="@cls" title="@p.Title" disabled="@p.Disabled"
                     onclick="@p.OnClick"
                     aria-pressed="@(p.Kind == CommandBarPillKind.Toggle ? (p.Active ? "true" : "false") : null)">
                 @if (p.Icon != null) { <i class="bi @p.Icon" aria-hidden="true"></i> }
@@ -62,11 +61,6 @@
 }
 
 <div class="command-bar" data-cbar data-cbar-target="@Model.TargetSelector">
-
-    @if (countText != null)
-    {
-        <span class="cbar-count" data-cbar-count data-cbar-noun="@Model.ItemNoun">@countText</span>
-    }
 
     @if (Model.ShowSearch && Model.TargetSelector != null)
     {
@@ -143,7 +137,7 @@
         }
         else
         {
-            <button type="button" class="cbar-primary" onclick="@p.OnClick" title="@(p.Title ?? p.Label)" aria-label="@p.Label">
+            <button type="button" class="cbar-primary" onclick="@p.OnClick" disabled="@p.Disabled" title="@(p.Title ?? p.Label)" aria-label="@p.Label">
                 <i class="bi @(p.Icon ?? "bi-plus-lg")" aria-hidden="true"></i>
                 <span class="cbar-primary-label">@p.Label</span>
             </button>

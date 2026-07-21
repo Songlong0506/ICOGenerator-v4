@@ -13,15 +13,6 @@ namespace ICOGenerator.Application.Shared;
 /// </summary>
 public sealed class CommandBarModel
 {
-    /// <summary>Số mục hiển thị bên trái (vd 11 → "11 items"). Null thì ẩn.</summary>
-    public int? Count { get; init; }
-
-    /// <summary>Danh từ đi kèm số đếm ("items", "projects", …).</summary>
-    public string ItemNoun { get; init; } = "items";
-
-    /// <summary>Ghi đè toàn bộ text đếm khi cần (vd "Showing 1–20 of 120").</summary>
-    public string? CountText { get; init; }
-
     /// <summary>Bật ô tìm kiếm (lọc client-side trên <see cref="TargetSelector"/>).</summary>
     public bool ShowSearch { get; init; } = true;
 
@@ -116,6 +107,9 @@ public sealed class CommandBarPill
 
     /// <summary>Nhấn mạnh nút (dùng cho hành động chính hoặc pill nổi bật).</summary>
     public bool Emphasize { get; init; }
+
+    /// <summary>Vô hiệu hoá nút (vd "Chạy eval" khi chưa có scenario nào bật).</summary>
+    public bool Disabled { get; init; }
 
     /// <summary>Class variant thêm cho hành động nguy hiểm/thành công ("danger", "success").</summary>
     public string? Variant { get; init; }

@@ -4,7 +4,6 @@
  * data-cbar-target (CSS selector). Trên phần tử đó, thanh cung cấp:
  *   • tìm kiếm  — [data-cbar-search]  lọc hàng theo văn bản
  *   • sắp xếp   — [data-cbar-sort]    sắp xếp hàng theo cột / data-key
- *   • đếm       — [data-cbar-count]   cập nhật số mục đang hiển thị khi tìm kiếm
  * Ngoài ra, độc lập với target:
  *   • nút Filter — [data-cbar-filter-toggle="#panel"] bật/tắt panel lọc server-side
  *   • menu thả   — [data-cbar-menu] (Sort, overflow ⋮) mở/đóng, đóng khi bấm ra ngoài
@@ -78,10 +77,6 @@
         var selector = bar.getAttribute('data-cbar-target');
         var target = selector ? document.querySelector(selector) : null;
 
-        var countEl = bar.querySelector('[data-cbar-count]');
-        var originalCount = countEl ? countEl.textContent : null;
-        var noun = countEl ? (countEl.getAttribute('data-cbar-noun') || 'items') : 'items';
-
         function applyFilter(term) {
             if (!target) return;
             term = (term || '').trim().toLowerCase();
@@ -100,11 +95,6 @@
                 empty.classList.add('show');
             } else if (empty) {
                 empty.classList.remove('show');
-            }
-
-            // Số đếm: đang tìm thì hiện số hàng khớp; xoá tìm thì trả text server gốc.
-            if (countEl) {
-                countEl.textContent = term ? (visible + ' ' + noun) : (originalCount || (visible + ' ' + noun));
             }
         }
 

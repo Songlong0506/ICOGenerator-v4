@@ -28,8 +28,6 @@
 
 @await Html.PartialAsync("_CommandBar", new CommandBarModel
 {
-    Count = Model.Items.Count(),
-    ItemNoun = "thông báo",
     SearchPlaceholder = "Tìm thông báo…",
     TargetSelector = "#inboxList"
 })

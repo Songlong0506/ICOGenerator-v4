@@ -24,22 +24,14 @@
     <div class="alert error">@TempData["Error"]</div>
 }
 
-@await Html.PartialAsync("_CommandBar", new CommandBarModel
-{
-    Count = Model.Count,
-    ItemNoun = "agents",
-    SearchPlaceholder = "Tìm agent…",
-    TargetSelector = "#agentsListCard"
-})
-
 <div class="grid agents-grid">
     <section>
-        <div id="agentsListCard" class="card">
-            <h3 data-cbar-skip>All Agents (@Model.Count)</h3>
+        <div class="card">
+            <h3>All Agents (@Model.Count)</h3>
 
             @foreach (var a in Model)
             {
-                <a class="agent-item @(!sharedSelected && selected?.Id == a.Id ? "active" : "")" data-cbar-item asp-action="Index" asp-route-id="@a.Id">
+                <a class="agent-item @(!sharedSelected && selected?.Id == a.Id ? "active" : "")" asp-action="Index" asp-route-id="@a.Id">
                     <span class="circle" style="background:@a.Color"></span>
                     <div>
                         <b>@a.RoleKey.GetTitle()</b><br />
@@ -48,7 +40,7 @@
             }
 
             @* Prompt không thuộc role agent nào (Shared/, Eval/, Design/) — gộp về một mục chung. *@
-            <a class="agent-item @(sharedSelected ? "active" : "")" data-cbar-item asp-action="Index" asp-route-shared="true">
+            <a class="agent-item @(sharedSelected ? "active" : "")" asp-action="Index" asp-route-shared="true">
                 <span class="circle" style="background:#94a3b8"></span>
                 <div>
                     <b>Shared / General</b><br />

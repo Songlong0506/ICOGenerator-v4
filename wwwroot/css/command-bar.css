@@ -18,6 +18,17 @@
     min-height: 56px;
 }
 
+/* ---------- Bộ lọc dropdown nội tuyến (Org Unit, Status, Loại, Role…) ----------
+   Bọc mỗi <select>/combo để giới hạn bề rộng và ẩn nhãn (caption hiển thị bên
+   trong combo sau khi dropdown.js nâng cấp). */
+.cbar-field { display: flex; align-items: center; flex: 0 0 auto; }
+.cbar-field > label { display: none; }
+.cbar-field .ms-combo--single { min-width: 190px; }
+.cbar-field .ms-combo[data-ms-combo] { min-width: 220px; }
+/* Trước khi dropdown.js nâng cấp, ràng buộc bề rộng select thô để không kéo giãn thanh. */
+.cbar-field select:not(.cs-enhanced-select) { min-width: 170px; max-width: 230px; }
+.command-bar.cbar-filter-form { align-items: center; }
+
 /* Số mục bên trái, ngăn cách bằng đường kẻ dọc mảnh (như mockup). */
 .cbar-count {
     font-size: 13px;

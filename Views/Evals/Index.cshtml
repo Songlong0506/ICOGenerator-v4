@@ -46,14 +46,6 @@
     <div>
         <h1>Prompt Evals</h1>
     </div>
-    @if (canManage)
-    {
-        <div class="eval-head-actions">
-            <button class="btn primary" type="button" onclick="openModal('runModal')" @(Model.Scenarios.Any(s => s.IsActive) ? "" : "disabled") title="Chạy toàn bộ scenario đang bật (tốn token thật)">
-                <i class="bi bi-play-fill" aria-hidden="true"></i> Chạy eval
-            </button>
-        </div>
-    }
 </div>
 
 @if (TempData["Error"] != null)
@@ -67,16 +59,21 @@
 
 @await Html.PartialAsync("_CommandBar", new CommandBarModel
 {
-    Count = Model.Scenarios.Count,
-    ItemNoun = "scenarios",
     SearchPlaceholder = "Tìm scenario…",
     TargetSelector = "#evalScenarios",
-    SortOptions = new[]
-    {
-        new CommandBarSort { Label = "Tên (A→Z)", Column = 0 },
-        new CommandBarSort { Label = "Tên (Z→A)", Column = 0, Descending = true },
-    },
-    Primary = canManage ? new CommandBarPill { Label = "Scenario", OnClick = "openCreateScenario()" } : null
+    Pills = canManage
+        ? new[] { new CommandBarPill { Label = "Scenario", Icon = "bi-plus-lg", OnClick = "openCreateScenario()" } }
+        : Array.Empty<CommandBarPill>(),
+    Primary = canManage
+        ? new CommandBarPill
+        {
+            Label = "Chạy eval",
+            Icon = "bi-play-fill",
+            OnClick = "openModal('runModal')",
+            Disabled = !Model.Scenarios.Any(s => s.IsActive),
+            Title = "Chạy toàn bộ scenario đang bật (tốn token thật)"
+        }
+        : null
 })
 
 <div class="card table-card eval-card">

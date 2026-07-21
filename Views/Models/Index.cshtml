@@ -42,8 +42,6 @@
 
 @await Html.PartialAsync("_CommandBar", new CommandBarModel
 {
-    Count = Model.TotalCount,
-    ItemNoun = "models",
     SearchPlaceholder = "Search models…",
     TargetSelector = "#modelsTable",
     SortOptions = new[]
