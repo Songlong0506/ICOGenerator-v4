@@ -3,11 +3,11 @@
     ViewData["Title"] = "Requirements";
     // Trang Requirements chỉ hiển thị tài liệu DỄ HIỂU cho user thường: Product Brief. Bản kỹ thuật
     // (AI Design Spec) và tài liệu kỹ thuật nặng (BRD/SRS/FSD/UserStories) sống ở Agent Dashboard.
-    var allDocuments = Model.Documents
+    var productBriefs = Model.Documents
         .Where(x => x.FileName == "ProductBrief.docx")
         .ToList();
 
-    var versions = allDocuments
+    var versions = productBriefs
         .GroupBy(x => x.VersionName)
         .OrderByDescending(g => g.Key == "draft" ? int.MaxValue :
             int.TryParse(g.Key.Replace("V", ""), out var n) ? n : 0)
@@ -292,7 +292,7 @@
                             </div>
 
                             <div class="history-sub">
-                                @version.Count() documents
+                                Bản mô tả sản phẩm
                             </div>
                         </div>
                     </div>
@@ -618,7 +618,7 @@
         </div>
 
         <div class="requirement-content">
-            @foreach (var doc in allDocuments)
+            @foreach (var doc in productBriefs)
             {
                 <div class="doc-preview"
                      id="doc-@doc.Id"
