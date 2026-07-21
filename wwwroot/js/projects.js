@@ -79,6 +79,8 @@
     var search = combo.querySelector('[data-ms-search]');
     var empty = combo.querySelector('[data-ms-empty]');
     var allBox = combo.querySelector('[data-ms-all]');
+    var allText = combo.querySelector('[data-ms-all-text]');
+    var clearBtn = combo.querySelector('[data-ms-clear]');
     var placeholder = label.getAttribute('data-ms-placeholder') || '';
     var options = Array.prototype.slice.call(combo.querySelectorAll('.ms-combo-option'));
 
@@ -105,6 +107,7 @@
         var checked = visible.filter(function (opt) { return checkboxOf(opt).checked; });
         allBox.checked = visible.length > 0 && checked.length === visible.length;
         allBox.indeterminate = checked.length > 0 && checked.length < visible.length;
+        if (allText) allText.textContent = 'Chọn tất cả (' + options.length + ')';
     }
 
     function syncOption(opt) {
@@ -130,6 +133,7 @@
 
     function filter() {
         var q = search.value.trim().toLowerCase();
+        if (clearBtn) clearBtn.classList.toggle('hidden', q === '');
         var visible = 0;
         options.forEach(function (opt) {
             var match = q === '' || opt.getAttribute('data-search').indexOf(q) !== -1;
@@ -170,6 +174,14 @@
     search.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { close(); trigger.focus(); }
     });
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            search.value = '';
+            filter();
+            search.focus();
+        });
+    }
 
     document.addEventListener('click', function (e) {
         if (!combo.contains(e.target)) close();
