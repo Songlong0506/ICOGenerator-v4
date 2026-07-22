@@ -231,7 +231,6 @@ namespace ICOGenerator.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Description = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
-                    Status = table.Column<int>(type: "int", nullable: false),
                     BackendGitUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     FrontendGitUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     IsUseBoschTemplate = table.Column<bool>(type: "bit", nullable: false),
@@ -241,8 +240,16 @@ namespace ICOGenerator.Migrations
                     SummarizedTurnCount = table.Column<int>(type: "int", nullable: false),
                     UserMemoryHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
                     ChecklistGapHarvested = table.Column<bool>(type: "bit", nullable: false),
+                    DomainKey = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     RequirementCoverageMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CoverageHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
+                    DecisionLog = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    DecisionHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
+                    OpenQuestions = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PlannedScope = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    WorkedExamples = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    InterviewOutlookHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
+                    PocFeedbackHarvestedCount = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -303,7 +310,6 @@ namespace ICOGenerator.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     RoleKey = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
                     Color = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
@@ -470,7 +476,10 @@ namespace ICOGenerator.Migrations
                     Role = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Message = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Suggestions = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    SuggestionsMultiSelect = table.Column<bool>(type: "bit", nullable: false),
+                    FlowDiagram = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     TokenUsed = table.Column<int>(type: "int", nullable: false),
+                    ArchivedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -486,6 +495,27 @@ namespace ICOGenerator.Migrations
                         name: "FK_AgentConversations_Projects_ProjectId",
                         column: x => x.ProjectId,
                         principalTable: "Projects",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AgentDomainChecklistNotes",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    DomainKey = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AgentDomainChecklistNotes", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AgentDomainChecklistNotes_Agents_AgentId",
+                        column: x => x.AgentId,
+                        principalTable: "Agents",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -663,6 +693,12 @@ namespace ICOGenerator.Migrations
                 column: "ProjectId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AgentDomainChecklistNotes_AgentId_DomainKey",
+                table: "AgentDomainChecklistNotes",
+                columns: new[] { "AgentId", "DomainKey" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AgentModelCallLogs_AgentId",
                 table: "AgentModelCallLogs",
                 column: "AgentId");
@@ -691,7 +727,8 @@ namespace ICOGenerator.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Agents_RoleKey",
                 table: "Agents",
-                column: "RoleKey");
+                column: "RoleKey",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_AgentTasks_AgentId",
@@ -869,6 +906,9 @@ namespace ICOGenerator.Migrations
         {
             migrationBuilder.DropTable(
                 name: "AgentConversations");
+
+            migrationBuilder.DropTable(
+                name: "AgentDomainChecklistNotes");
 
             migrationBuilder.DropTable(
                 name: "AgentModelCallLogs");
