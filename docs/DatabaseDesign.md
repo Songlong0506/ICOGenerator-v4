@@ -61,7 +61,6 @@ erDiagram
         Guid Id PK
         string Name
         string Description
-        ProjectStatus Status
         string BackendGitUrl
         string FrontendGitUrl
         bool IsUseBoschTemplate

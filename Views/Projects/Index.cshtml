@@ -1,7 +1,4 @@
 @model ICOGenerator.Application.Projects.ProjectListPage
-@{
-    string Badge(ProjectStatus s) => s switch { ProjectStatus.Completed => "badge green", ProjectStatus.InProgress => "badge blue", _ => "badge orange" };
-}
 
 @section Styles {
     <link rel="stylesheet" href="~/css/projects.css" asp-append-version="true" />
@@ -14,10 +11,10 @@
 </div>
 @{
     var selectedOrgUnits = Model.SelectedOrgUnitCodesOrEmpty;
-    var hasFilter = selectedOrgUnits.Count > 0 || Model.SelectedStatus.HasValue;
+    var hasFilter = selectedOrgUnits.Count > 0;
 
     // Link phân trang phải giữ nguyên bộ lọc. Org Unit giờ chọn nhiều (mảng) nên asp-route-* không dựng
-    // được — tự ghép query string với đủ các tham số orgUnit lặp lại + status.
+    // được — tự ghép query string với đủ các tham số orgUnit lặp lại.
     string BuildUrl(int targetPage, int targetPageSize)
     {
         var qs = new List<string>
@@ -27,14 +24,12 @@
         };
         foreach (var code in selectedOrgUnits)
             qs.Add($"orgUnit={Uri.EscapeDataString(code)}");
-        if (Model.SelectedStatus.HasValue)
-            qs.Add($"status={Model.SelectedStatus}");
         return $"{Url.Action("Index")}?{string.Join("&", qs)}";
     }
 
     string PageUrl(int targetPage) => BuildUrl(targetPage, Model.PageSize);
 }
-@* Command bar (mẫu Bosch): bộ lọc Org Unit + Status nằm ngay trên thanh, nút "Lọc" áp dụng
+@* Command bar (mẫu Bosch): bộ lọc Org Unit nằm ngay trên thanh, nút "Lọc" áp dụng
    (form GET nên bộ lọc nằm trong URL — chia sẻ được và giữ nguyên khi phân trang), nút "New
    Project" mở modal tạo dự án. *@
 <form method="get" asp-controller="Projects" asp-action="Index" class="command-bar cbar-filter-form">
@@ -81,16 +76,6 @@
                 </div>
             </div>
         </div>
-    <div class="cbar-field">
-        <label for="filter-status">Status</label>
-        <select id="filter-status" name="status">
-            <option value="">Tất cả trạng thái</option>
-            @foreach (var s in Enum.GetValues<ProjectStatus>())
-            {
-                <option value="@s" selected="@(Model.SelectedStatus == s)">@s</option>
-            }
-        </select>
-    </div>
     <button type="submit" class="cbar-btn emphasize">
         <i class="bi bi-funnel" aria-hidden="true"></i>
         <span>Lọc</span>
@@ -109,12 +94,12 @@
 </form>
 <div class="card table-card">
     <table>
-        <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th>Status</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th>Actions</th></tr></thead>
         <tbody>
             @if (Model.Items.Count == 0)
             {
                 <tr>
-                    <td colspan="7" style="text-align:center; color:var(--muted); padding:24px;">
+                    <td colspan="6" style="text-align:center; color:var(--muted); padding:24px;">
                         @(hasFilter ? "Không có dự án nào khớp với bộ lọc." : "Chưa có dự án nào.")
                     </td>
                 </tr>
@@ -133,7 +118,6 @@
                     @* Tên đơn vị tra từ OrgUnits; mã không còn trong dữ liệu HR thì hiển thị mã thô. *@
                     <td>@(item.OrgUnitName ?? (string.IsNullOrWhiteSpace(p.OrgUnitCode) ? "—" : p.OrgUnitCode))</td>
                     <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>
-                    <td><span class="@Badge(p.Status)">@p.Status</span></td>
                     <td>
                         <div class="actions">
                             <a class="btn outline"

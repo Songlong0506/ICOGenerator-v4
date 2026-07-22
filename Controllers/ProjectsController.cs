@@ -57,12 +57,11 @@ public class ProjectsController : Controller
     public async Task<IActionResult> Index(
         int page = 1,
         int pageSize = GetProjectListQuery.DefaultPageSize,
-        string[]? orgUnit = null,
-        ProjectStatus? status = null)
+        string[]? orgUnit = null)
     {
         // Admin/TeamDev (quyền ProjectsViewAll) thấy mọi project; User thường chỉ thấy project mình tạo.
         var canViewAll = await _permissions.HasPermissionAsync(User, AppPermission.ProjectsViewAll, HttpContext.RequestAborted);
-        var result = await _getProjectListQuery.ExecuteAsync(page, pageSize, User.Identity?.Name, canViewAll, orgUnit, status);
+        var result = await _getProjectListQuery.ExecuteAsync(page, pageSize, User.Identity?.Name, canViewAll, orgUnit);
         return View(result);
     }
 

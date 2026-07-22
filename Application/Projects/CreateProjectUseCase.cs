@@ -1,6 +1,5 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,7 +39,6 @@ public class CreateProjectUseCase
         {
             Name = vm.Name,
             Description = vm.Description,
-            Status = ProjectStatus.Planning,
             // Gắn chủ sở hữu để trang Projects/Index lọc đúng: User thường chỉ thấy project của mình.
             CreatedByUsername = createdByUsername,
             OrgUnitCode = orgUnitCode
