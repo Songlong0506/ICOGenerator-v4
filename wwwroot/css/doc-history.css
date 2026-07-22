@@ -16,6 +16,26 @@
     box-shadow: 0 20px 60px rgba(15, 23, 42, .25);
 }
 
+/* Nút đóng "×": doc-history.css được nạp trên mọi trang dùng modal (Requirements +
+   Agent Dashboard), còn .modal-x lại chỉ định nghĩa trong agent-dashboard.css — nên
+   trên trang Requirements nút bị mất style và tràn full-width. Khai báo lại ở đây cho
+   đồng bộ với các popup khác, theo đúng chuẩn "×" ở góc. */
+#dh-modal .modal-x {
+    position: absolute;
+    right: 16px;
+    top: 12px;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    width: auto;
+    font-size: 26px;
+    line-height: 1;
+    color: var(--muted);
+    cursor: pointer;
+    z-index: 1;
+}
+#dh-modal .modal-x:hover { color: var(--ink); }
+
 .dh-title {
     margin: 0 24px 14px 0;
     font-size: 17px;
