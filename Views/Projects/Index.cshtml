@@ -114,7 +114,7 @@
                         </div>
                     </td>
                     <td>@p.Description</td>
-                    <td>@(string.IsNullOrWhiteSpace(p.CreatedByUsername) ? "—" : p.CreatedByUsername)</td>
+                    <td>@(string.IsNullOrWhiteSpace(item.CreatedByDisplayName) ? "—" : item.CreatedByDisplayName)</td>
                     @* Tên đơn vị tra từ OrgUnits; mã không còn trong dữ liệu HR thì hiển thị mã thô. *@
                     <td>@(item.OrgUnitName ?? (string.IsNullOrWhiteSpace(p.OrgUnitCode) ? "—" : p.OrgUnitCode))</td>
                     <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>

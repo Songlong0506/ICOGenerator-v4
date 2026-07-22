@@ -2,6 +2,7 @@ using ICOGenerator.Application.Projects;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Identity;
 using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -119,7 +120,7 @@ public class GetProjectListQueryTests : IDisposable
                 ["AgentWorkspace:RootPath"] = Path.Combine(Path.GetTempPath(), "ico-tests")
             })
             .Build();
-        return new GetProjectListQuery(db, new WorkspacePathResolver(configuration));
+        return new GetProjectListQuery(db, new WorkspacePathResolver(configuration), new UserDisplayNameResolver(db));
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());

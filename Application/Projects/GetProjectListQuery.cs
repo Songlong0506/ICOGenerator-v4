@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Identity;
 using ICOGenerator.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,11 +10,16 @@ public class GetProjectListQuery
 {
     private readonly AppDbContext _db;
     private readonly WorkspacePathResolver _workspacePathResolver;
+    private readonly UserDisplayNameResolver _displayNames;
 
-    public GetProjectListQuery(AppDbContext db, WorkspacePathResolver workspacePathResolver)
+    public GetProjectListQuery(
+        AppDbContext db,
+        WorkspacePathResolver workspacePathResolver,
+        UserDisplayNameResolver displayNames)
     {
         _db = db;
         _workspacePathResolver = workspacePathResolver;
+        _displayNames = displayNames;
     }
 
     public const int DefaultPageSize = 10;
@@ -82,6 +88,10 @@ public class GetProjectListQuery
             .ToList();
         var orgUnitNameByCode = orgUnits.ToDictionary(o => o.Code, o => o.Name, StringComparer.OrdinalIgnoreCase);
 
+        // Tên hiển thị người tạo: chỉ tra các username đang hiện trên trang (một truy vấn gộp).
+        var displayNameByUsername = await _displayNames.ResolveManyAsync(
+            rows.Select(r => r.Project.CreatedByUsername));
+
         var items = rows
             .Select(row =>
             {
@@ -101,7 +111,10 @@ public class GetProjectListQuery
                     hasRunningWorkflow,
                     row.Project.OrgUnitCode != null
                         ? orgUnitNameByCode.GetValueOrDefault(row.Project.OrgUnitCode)
-                        : null);
+                        : null,
+                    string.IsNullOrWhiteSpace(row.Project.CreatedByUsername)
+                        ? null
+                        : _displayNames.Resolve(displayNameByUsername, row.Project.CreatedByUsername));
             })
             .ToList();
 

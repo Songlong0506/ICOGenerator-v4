@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Identity;
 using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,16 +10,18 @@ public class GetAgentManagementPageQuery
 {
     private readonly AppDbContext _db;
     private readonly PromptFileCatalog _catalog;
+    private readonly UserDisplayNameResolver _displayNames;
 
     // Thư mục prompt trùng tên với AgentRoleKey mới thuộc về một agent; phần còn lại (Shared, Eval,
     // Design, ...) gộp vào mục "Shared / General".
     private static readonly HashSet<string> RoleFolders =
         new(Enum.GetNames<AgentRoleKey>(), StringComparer.OrdinalIgnoreCase);
 
-    public GetAgentManagementPageQuery(AppDbContext db, PromptFileCatalog catalog)
+    public GetAgentManagementPageQuery(AppDbContext db, PromptFileCatalog catalog, UserDisplayNameResolver displayNames)
     {
         _db = db;
         _catalog = catalog;
+        _displayNames = displayNames;
     }
 
     public async Task<AgentManagementPage> ExecuteAsync(Guid? id, bool shared = false)
@@ -39,6 +42,9 @@ public class GetAgentManagementPageQuery
             .Select(v => new { v.PromptKey, v.VersionNumber, v.IsActive, v.CreatedAt, v.CreatedByUsername })
             .ToListAsync();
 
+        var displayNameByUsername = await _displayNames.ResolveManyAsync(
+            versions.Select(v => v.CreatedByUsername));
+
         var statsByKey = versions
             .GroupBy(v => v.PromptKey, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g =>
@@ -48,7 +54,9 @@ public class GetAgentManagementPageQuery
                     Count: g.Count(),
                     Active: g.Where(v => v.IsActive).Select(v => (int?)v.VersionNumber).FirstOrDefault(),
                     LastAt: (DateTime?)latest.CreatedAt,
-                    LastBy: latest.CreatedByUsername);
+                    LastBy: string.IsNullOrWhiteSpace(latest.CreatedByUsername)
+                        ? null
+                        : _displayNames.Resolve(displayNameByUsername, latest.CreatedByUsername));
             }, StringComparer.OrdinalIgnoreCase);
 
         // Mọi prompt key: file .md dưới /Prompts + key chỉ còn sống bằng phiên bản DB (file đã xoá).
