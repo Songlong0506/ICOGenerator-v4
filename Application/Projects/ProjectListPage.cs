@@ -1,5 +1,3 @@
-using ICOGenerator.Domain.Enums;
-
 namespace ICOGenerator.Application.Projects;
 
 public record ProjectListPage(
@@ -12,8 +10,7 @@ public record ProjectListPage(
     IReadOnlyList<OrgUnitOption> OrgUnitOptions,
     // Giá trị bộ lọc đang áp dụng — view dùng để đánh dấu lựa chọn hiện tại và giữ nguyên khi phân trang.
     // Danh sách rỗng = không lọc theo đơn vị; nhiều mã = lọc theo bất kỳ đơn vị nào đã chọn (multi select).
-    IReadOnlyList<string>? SelectedOrgUnitCodes = null,
-    ProjectStatus? SelectedStatus = null)
+    IReadOnlyList<string>? SelectedOrgUnitCodes = null)
 {
     // View luôn có danh sách (không null) để dựng combo multi select và link phân trang.
     public IReadOnlyList<string> SelectedOrgUnitCodesOrEmpty => SelectedOrgUnitCodes ?? Array.Empty<string>();

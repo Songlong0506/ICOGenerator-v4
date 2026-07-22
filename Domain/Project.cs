@@ -1,11 +1,9 @@
-using ICOGenerator.Domain.Enums;
 namespace ICOGenerator.Domain;
 public class Project
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public ProjectStatus Status { get; set; } = ProjectStatus.Planning;
     public string? BackendGitUrl { get; set; }
     public string? FrontendGitUrl { get; set; }
     // Cấu hình delivery do TeamDev điền ở Agent Dashboard (sau bước POC), không phải end-user lúc tạo project.
