@@ -1,4 +1,5 @@
 using ICOGenerator.Data;
+using ICOGenerator.Services.Identity;
 using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,7 +10,9 @@ public record PromptVersionItemVm(
     int VersionNumber,
     string? ChangeNote,
     bool IsActive,
-    string? CreatedByUsername,
+    // Tên hiển thị của người sửa (AppUser.DisplayName tra từ CreatedByUsername); fallback về username
+    // thô khi không tra được user.
+    string? CreatedByDisplayName,
     DateTime CreatedAt);
 
 /// <summary>
@@ -36,12 +39,18 @@ public class GetPromptDetailQuery
     private readonly AppDbContext _db;
     private readonly PromptFileCatalog _catalog;
     private readonly PromptTemplateService _templates;
+    private readonly UserDisplayNameResolver _displayNames;
 
-    public GetPromptDetailQuery(AppDbContext db, PromptFileCatalog catalog, PromptTemplateService templates)
+    public GetPromptDetailQuery(
+        AppDbContext db,
+        PromptFileCatalog catalog,
+        PromptTemplateService templates,
+        UserDisplayNameResolver displayNames)
     {
         _db = db;
         _catalog = catalog;
         _templates = templates;
+        _displayNames = displayNames;
     }
 
     public async Task<PromptDetailVm?> ExecuteAsync(string? promptKey, CancellationToken cancellationToken = default)
@@ -59,6 +68,9 @@ public class GetPromptDetailQuery
         if (!fileExists && versions.Count == 0)
             return null;
 
+        var displayNameByUsername = await _displayNames.ResolveManyAsync(
+            versions.Select(v => v.CreatedByUsername), cancellationToken);
+
         var active = versions.FirstOrDefault(v => v.IsActive);
         // Không có bản DB active thì nội dung đang dùng là file; file cũng không còn (template mồ côi
         // chưa kích hoạt bản nào) thì đành trống — UI hiển thị cảnh báo.
@@ -71,7 +83,12 @@ public class GetPromptDetailQuery
             active?.VersionNumber,
             activeContent,
             versions
-                .Select(v => new PromptVersionItemVm(v.Id, v.VersionNumber, v.ChangeNote, v.IsActive, v.CreatedByUsername, v.CreatedAt))
+                .Select(v => new PromptVersionItemVm(
+                    v.Id, v.VersionNumber, v.ChangeNote, v.IsActive,
+                    string.IsNullOrWhiteSpace(v.CreatedByUsername)
+                        ? null
+                        : _displayNames.Resolve(displayNameByUsername, v.CreatedByUsername),
+                    v.CreatedAt))
                 .ToList(),
             await LoadEvalStatsAsync(key, cancellationToken));
     }

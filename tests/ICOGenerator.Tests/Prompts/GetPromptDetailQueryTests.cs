@@ -1,6 +1,7 @@
 using ICOGenerator.Application.Prompts;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Identity;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Hosting;
@@ -85,7 +86,7 @@ public class GetPromptDetailQueryTests : IDisposable
     private static GetPromptDetailQuery NewSut(AppDbContext db)
     {
         var env = new FakeWebHostEnvironment();
-        return new GetPromptDetailQuery(db, new PromptFileCatalog(env), new PromptTemplateService(env));
+        return new GetPromptDetailQuery(db, new PromptFileCatalog(env), new PromptTemplateService(env), new UserDisplayNameResolver(db));
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
