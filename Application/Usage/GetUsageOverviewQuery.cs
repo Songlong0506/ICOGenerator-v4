@@ -8,13 +8,18 @@ namespace ICOGenerator.Application.Usage;
 // "Tokens per month" xếp chồng theo trục $ (PromptCost + CompletionCost = Cost).
 public record MonthlyUsageItem(int Year, int Month, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal PromptCost, decimal CompletionCost, decimal Cost);
 
-// DepartmentName: phòng ban gần nhất mà project được roll-up về (cùng cách giải như "Usage by department").
+// OrgUnitName: đơn vị (orgUnit) mà project gắn trực tiếp — KHÔNG roll-up lên phòng ban.
 // Project chưa gắn đơn vị → "(Chưa gắn đơn vị)".
-public record ProjectUsageItem(Guid ProjectId, string ProjectName, string DepartmentName, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, DateTime? LastCallAt, decimal Cost);
+public record ProjectUsageItem(Guid ProjectId, string ProjectName, string OrgUnitName, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, DateTime? LastCallAt, decimal Cost);
 
 // Một dòng "Usage by department": project gắn orgUnit con được ROLL-UP về department gần nhất (đi ngược
 // TargetResponsible trên bảng OrgUnits). DepartmentCode null = nhóm project chưa gắn đơn vị.
 public record DepartmentUsageItem(string? DepartmentCode, string DepartmentName, int ProjectCount, long TotalTokens, int CallCount, decimal Cost);
+
+// Một dòng "Usage by department" khi xem theo Org Unit: project gộp theo đơn vị gắn TRỰC TIẾP (không
+// roll-up lên phòng ban). Code null = nhóm project chưa gắn đơn vị. Cùng shape với DepartmentUsageItem để
+// view render chung một bảng, chỉ khác cách gom nhóm.
+public record OrgUnitUsageItem(string? OrgUnitCode, string OrgUnitName, int ProjectCount, long TotalTokens, int CallCount, decimal Cost);
 
 public record ModelUsageItem(string ModelId, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal InputPricePerMillionTokens, decimal OutputPricePerMillionTokens, bool HasPrice, decimal Cost);
 
@@ -27,6 +32,9 @@ public record UsageOverviewVm(
     IReadOnlyList<ModelUsageItem> ModelUsage,
     IReadOnlyList<ProjectUsageItem> ProjectUsage,
     IReadOnlyList<DepartmentUsageItem> DepartmentUsage,
+    // Cùng dữ liệu "Usage by department" nhưng gom theo đơn vị gắn trực tiếp (không roll-up). View hiện
+    // OrgUnitUsage làm mặc định và cho toggle sang DepartmentUsage.
+    IReadOnlyList<OrgUnitUsageItem> OrgUnitUsage,
     // Bộ lọc năm cho biểu đồ "Tokens per month". Dropdown chỉ cho chọn năm (không còn "12 tháng gần nhất"),
     // nên SelectedYear luôn có giá trị và biểu đồ hiện trọn 12 tháng (01–12) của năm đó.
     // SelectedYearTokens / SelectedYearCost: tổng token & chi phí của năm đang chọn (gộp vào card biểu đồ).
@@ -175,18 +183,20 @@ public class GetUsageOverviewQuery
         var selectedYearTokens = monthly.Sum(x => x.TotalTokens);
         var selectedYearCost = monthly.Sum(x => x.Cost);
 
-        // Bộ giải phòng ban (roll-up orgUnit con của project về department gần nhất) — dựng một lần, dùng
-        // chung cho cả cột "Department / Org Unit" ở bảng project lẫn bảng "Usage by department".
-        var resolveDepartment = await BuildDepartmentResolverAsync();
+        // Nạp bảng OrgUnits một lần rồi dựng hai bộ giải: (1) roll-up về phòng ban gần nhất, (2) giải trực
+        // tiếp orgUnit của project (không roll-up). Dùng chung cho bảng project và bảng "Usage by department".
+        var units = await LoadOrgUnitsAsync();
+        var resolveDepartment = BuildDepartmentResolver(units);
+        var resolveOrgUnit = BuildOrgUnitResolver(units);
 
         // ----- Theo project (gộp lại từ logRaw) -----
-        // Mỗi project chỉ gắn một OrgUnitCode nên lấy bản đầu của nhóm là đủ để giải ra phòng ban.
+        // Mỗi project chỉ gắn một OrgUnitCode nên lấy bản đầu của nhóm là đủ để giải ra đơn vị.
         var projects = logRaw
             .GroupBy(x => new { x.ProjectId, x.ProjectName })
             .Select(g => new ProjectUsageItem(
                 g.Key.ProjectId,
                 g.Key.ProjectName,
-                resolveDepartment(g.First().ProjectOrgUnitCode).Name,
+                resolveOrgUnit(g.First().ProjectOrgUnitCode).Name,
                 g.Sum(x => x.PromptTokens),
                 g.Sum(x => x.CompletionTokens),
                 g.Sum(x => x.TotalTokens),
@@ -196,10 +206,16 @@ public class GetUsageOverviewQuery
             .OrderByDescending(x => x.TotalTokens)
             .ToList();
 
-        // ----- Theo phòng ban: roll-up orgUnit con của project về department gần nhất -----
-        var departments = BuildDepartmentUsage(logRaw
+        // Chi phí đã quy đổi ở mức project + orgUnit — chung cho cả hai cách gom nhóm (phòng ban / đơn vị).
+        var costRows = logRaw
             .Select(x => (x.ProjectId, x.ProjectOrgUnitCode, x.TotalTokens, x.CallCount, Cost: CostFor(x.ModelId, x.PromptTokens, x.CompletionTokens)))
-            .ToList(), resolveDepartment);
+            .ToList();
+
+        // ----- Theo phòng ban: roll-up orgUnit con của project về department gần nhất -----
+        var departments = BuildDepartmentUsage(costRows, resolveDepartment);
+
+        // ----- Theo đơn vị: gom theo orgUnit gắn trực tiếp (mặc định của bảng "Usage by department") -----
+        var orgUnits = BuildOrgUnitUsage(costRows, resolveOrgUnit);
 
         var hasAnyPricing = priceByModelId.Values.Any(p => p.Input > 0 || p.Output > 0);
 
@@ -210,27 +226,35 @@ public class GetUsageOverviewQuery
             models,
             projects,
             departments,
+            orgUnits,
             selectedYear,
             selectedYearTokens,
             selectedYearCost,
             availableYears);
     }
 
-    // Dựng hàm giải ĐƠN VỊ CẤP PHÒNG BAN: project thường gắn một orgUnit con (line/nhóm), nên đi ngược
-    // TargetResponsible tới department gần nhất (IsDepartment). Không tìm được department trên đường đi
-    // (chuỗi cấp trên trỏ ra ngoài dữ liệu) thì giữ chính orgUnit đó làm nhóm; mã không còn tồn tại hoặc
-    // project chưa gắn đơn vị rơi vào nhóm "(Chưa gắn đơn vị)".
-    private async Task<Func<string?, (string? Code, string Name)>> BuildDepartmentResolverAsync()
+    // Một dòng OrgUnits đã nạp vào RAM (dựng map cha-con để giải phòng ban / đơn vị).
+    private sealed record OrgUnitRow(string Code, string? DisplayName, string? TargetResponsible, bool IsDepartment);
+
+    // Nạp bảng OrgUnits (nhỏ, vài trăm dòng) một lần, dựng dict theo mã. Mã trùng lấy bản đầu.
+    private async Task<IReadOnlyDictionary<string, OrgUnitRow>> LoadOrgUnitsAsync()
     {
-        // Bảng OrgUnits nhỏ (vài trăm dòng) — nạp một lần, dựng map cha-con trong RAM. Mã trùng lấy bản đầu.
-        var units = (await _db.OrgUnits.AsNoTracking()
+        return (await _db.OrgUnits.AsNoTracking()
                 .Where(u => !u.IsDelete && u.OrgUnitCode != null && u.OrgUnitCode != "")
-                .Select(u => new { Code = u.OrgUnitCode!, u.DisplayName, u.TargetResponsible, u.IsDepartment })
+                .Select(u => new OrgUnitRow(u.OrgUnitCode!, u.DisplayName, u.TargetResponsible, u.IsDepartment))
                 .ToListAsync())
             .GroupBy(u => u.Code, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToDictionary(u => u.Code, u => u, StringComparer.OrdinalIgnoreCase);
+    }
 
+    // Dựng hàm giải ĐƠN VỊ CẤP PHÒNG BAN: project thường gắn một orgUnit con (line/nhóm), nên đi ngược
+    // TargetResponsible tới department gần nhất (IsDepartment). Không tìm được department trên đường đi
+    // (chuỗi cấp trên trỏ ra ngoài dữ liệu) thì giữ chính orgUnit đó làm nhóm; mã không còn tồn tại hoặc
+    // project chưa gắn đơn vị rơi vào nhóm "(Chưa gắn đơn vị)".
+    private static Func<string?, (string? Code, string Name)> BuildDepartmentResolver(
+        IReadOnlyDictionary<string, OrgUnitRow> units)
+    {
         return orgUnitCode =>
         {
             if (string.IsNullOrWhiteSpace(orgUnitCode) || !units.TryGetValue(orgUnitCode.Trim(), out var unit))
@@ -249,6 +273,42 @@ public class GetUsageOverviewQuery
             var resolved = current.IsDepartment ? current : unit;
             return (resolved.Code, string.IsNullOrWhiteSpace(resolved.DisplayName) ? resolved.Code : resolved.DisplayName!);
         };
+    }
+
+    // Dựng hàm giải ĐƠN VỊ TRỰC TIẾP: lấy chính orgUnit mà project gắn (không roll-up lên phòng ban).
+    // Mã không còn tồn tại hoặc project chưa gắn đơn vị rơi vào nhóm "(Chưa gắn đơn vị)".
+    private static Func<string?, (string? Code, string Name)> BuildOrgUnitResolver(
+        IReadOnlyDictionary<string, OrgUnitRow> units)
+    {
+        return orgUnitCode =>
+        {
+            if (string.IsNullOrWhiteSpace(orgUnitCode) || !units.TryGetValue(orgUnitCode.Trim(), out var unit))
+                return (null, "(Chưa gắn đơn vị)");
+
+            return (unit.Code, string.IsNullOrWhiteSpace(unit.DisplayName) ? unit.Code : unit.DisplayName!);
+        };
+    }
+
+    // Gom chi phí theo đơn vị gắn trực tiếp (không roll-up) — dùng cho bảng "Usage by department" khi
+    // xem theo Org Unit.
+    private static IReadOnlyList<OrgUnitUsageItem> BuildOrgUnitUsage(
+        IReadOnlyList<(Guid ProjectId, string? OrgUnitCode, long TotalTokens, int CallCount, decimal Cost)> rows,
+        Func<string?, (string? Code, string Name)> resolveOrgUnit)
+    {
+        if (rows.Count == 0)
+            return Array.Empty<OrgUnitUsageItem>();
+
+        return rows
+            .GroupBy(r => resolveOrgUnit(r.OrgUnitCode))
+            .Select(g => new OrgUnitUsageItem(
+                g.Key.Code,
+                g.Key.Name,
+                g.Select(r => r.ProjectId).Distinct().Count(),
+                g.Sum(r => r.TotalTokens),
+                g.Sum(r => r.CallCount),
+                g.Sum(r => r.Cost)))
+            .OrderByDescending(x => x.TotalTokens)
+            .ToList();
     }
 
     // Gom chi phí về phòng ban dùng hàm giải đã dựng sẵn (chia sẻ với bảng project).

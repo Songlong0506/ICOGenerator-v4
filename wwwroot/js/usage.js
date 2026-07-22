@@ -51,3 +51,36 @@
         col.addEventListener('mouseleave', function () { tip.hidden = true; });
     });
 })();
+
+// Toggle bảng "Usage by department" giữa hai cách gom: theo Org Unit (mặc định) và theo Department.
+// Cả hai bảng đã render sẵn từ server; nút chỉ đổi bảng nào hiển thị, nạp lại phân trang cho bảng vừa hiện
+// và cập nhật nhãn nút thành cách gom sẽ chuyển sang.
+(function () {
+    var section = document.querySelector('[data-dept-usage]');
+    if (!section) { return; }
+
+    var btn = section.querySelector('[data-dept-toggle]');
+    var panels = {
+        orgunit: section.querySelector('[data-dept-panel="orgunit"]'),
+        department: section.querySelector('[data-dept-panel="department"]')
+    };
+    if (!btn || !panels.orgunit || !panels.department) { return; }
+
+    var labels = { orgunit: 'Xem theo Department', department: 'Xem theo Org Unit' };
+
+    function show(mode) {
+        var next = mode === 'department' ? 'department' : 'orgunit';
+        panels.orgunit.hidden = next !== 'orgunit';
+        panels.department.hidden = next !== 'department';
+        btn.setAttribute('data-mode', next);
+        btn.textContent = labels[next];
+        // Bảng vừa hiện cần tính lại trang hiển thị (pager của nó dựng lúc còn ẩn).
+        if (window.BoschPager) {
+            window.BoschPager.refresh(panels[next]);
+        }
+    }
+
+    btn.addEventListener('click', function () {
+        show(btn.getAttribute('data-mode') === 'orgunit' ? 'department' : 'orgunit');
+    });
+})();

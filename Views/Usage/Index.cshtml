@@ -197,21 +197,65 @@
 </div>
 
 @* Chỉ hiện khi có ít nhất một project đã gắn đơn vị — toàn bộ rơi vào "(Chưa gắn đơn vị)" thì bảng không nói lên điều gì. *@
-@if (Model.DepartmentUsage.Any(d => d.DepartmentCode != null))
+@if (Model.OrgUnitUsage.Any(d => d.OrgUnitCode != null) || Model.DepartmentUsage.Any(d => d.DepartmentCode != null))
 {
-    <div class="card table-card usage-section">
+    <div class="card table-card usage-section" data-dept-usage>
         <div class="chart-head" style="padding:22px 28px 0">
             <h2>Usage by department</h2>
+            @* Toggle giữa Org Unit (mặc định) và Department; nhãn nút cho biết cách gom sắp chuyển sang. *@
+            <button type="button" class="btn dept-toggle" data-dept-toggle data-mode="orgunit">
+                Xem theo Department
+            </button>
         </div>
 
         @{
-            var maxDeptTokens = Math.Max(Model.DepartmentUsage.Max(x => x.TotalTokens), 1);
+            var maxOrgUnitTokens = Math.Max(Model.OrgUnitUsage.DefaultIfEmpty().Max(x => x?.TotalTokens ?? 0), 1);
+            var maxDeptTokens = Math.Max(Model.DepartmentUsage.DefaultIfEmpty().Max(x => x?.TotalTokens ?? 0), 1);
         }
-        <div data-paginate data-page-size="10" data-noun="departments">
+
+        @* Bảng theo Org Unit — hiển thị mặc định. *@
+        <div data-paginate data-page-size="10" data-noun="org units" data-dept-panel="orgunit">
             <table>
                 <thead>
                     <tr>
-                        <th>Department / Org Unit</th>
+                        <th>Org Unit</th>
+                        <th style="width:25%">Share</th>
+                        <th>Projects</th>
+                        <th>Total Tokens</th>
+                        <th>Calls</th>
+                        <th>Cost</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in Model.OrgUnitUsage)
+                    {
+                        var width = d.TotalTokens * 100d / maxOrgUnitTokens;
+                        <tr>
+                            <td>
+                                <b>@d.OrgUnitName</b>
+                            </td>
+                            <td>
+                                <div class="project-bar-track" title="@Percent(d.TotalTokens, Model.TotalTokens)% of all tokens">
+                                    <div class="project-bar-fill" style="width:@width.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
+                                </div>
+                                <small class="muted">@Percent(d.TotalTokens, Model.TotalTokens)%</small>
+                            </td>
+                            <td>@d.ProjectCount.ToString("N0")</td>
+                            <td><b>@d.TotalTokens.ToString("N0")</b></td>
+                            <td>@d.CallCount.ToString("N0")</td>
+                            <td class="cost-cell">@Money(d.Cost)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @* Bảng theo Department — ẩn cho tới khi bấm toggle. *@
+        <div data-paginate data-page-size="10" data-noun="departments" data-dept-panel="department" hidden>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Department</th>
                         <th style="width:25%">Share</th>
                         <th>Projects</th>
                         <th>Total Tokens</th>
@@ -262,7 +306,7 @@
                 <thead>
                     <tr>
                         <th>Project</th>
-                        <th>Department / Org Unit</th>
+                        <th>Org Unit</th>
                         <th style="width:25%">Share</th>
                         <th>Total Tokens</th>
                         <th>Prompt</th>
@@ -278,7 +322,7 @@
                         var width = p.TotalTokens * 100d / maxProjectTokens;
                         <tr>
                             <td><b>@p.ProjectName</b></td>
-                            <td class="muted">@p.DepartmentName</td>
+                            <td class="muted">@p.OrgUnitName</td>
                             <td>
                                 <div class="project-bar-track" title="@Percent(p.TotalTokens, Model.TotalTokens)% of all tokens">
                                     <div class="project-bar-fill" style="width:@width.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
