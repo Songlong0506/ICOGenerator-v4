@@ -31,6 +31,7 @@ public class RequirementsController : Controller
     private readonly GetDocumentRevisionDiffQuery _getDocumentRevisionDiffQuery;
     private readonly EstimatePocEtaQuery _estimatePocEtaQuery;
     private readonly ReviseBriefFromNotesUseCase _reviseBriefFromNotesUseCase;
+    private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly IProjectAccessGuard _projectAccess;
     private readonly ILogger<RequirementsController> _logger;
 
@@ -53,6 +54,7 @@ public class RequirementsController : Controller
        GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery,
        EstimatePocEtaQuery estimatePocEtaQuery,
        ReviseBriefFromNotesUseCase reviseBriefFromNotesUseCase,
+       RetryWorkflowUseCase retryWorkflowUseCase,
        IProjectAccessGuard projectAccess,
        ILogger<RequirementsController> logger)
     {
@@ -71,6 +73,7 @@ public class RequirementsController : Controller
         _getDocumentRevisionDiffQuery = getDocumentRevisionDiffQuery;
         _estimatePocEtaQuery = estimatePocEtaQuery;
         _reviseBriefFromNotesUseCase = reviseBriefFromNotesUseCase;
+        _retryWorkflowUseCase = retryWorkflowUseCase;
         _projectAccess = projectAccess;
         _logger = logger;
     }
@@ -462,9 +465,29 @@ public class RequirementsController : Controller
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
-    // Cổng duyệt/đẩy bước delivery (ApproveStage/RejectStage/RetryWorkflow) đã chuyển sang
+    // Cổng DUYỆT/ĐẨY bước delivery (ApproveStage/RejectStage/RequestRevision) sống ở
     // AgentDashboardController và yêu cầu quyền DeliveryAdvance: user thường dừng ở bước POC,
     // chỉ TeamDev/Admin mới đẩy tiếp các bước Architecture/code/test trên Agent Dashboard.
+
+    // CHẠY LẠI bước đã thất bại thì khác — lỗi thường là tạm thời (LLM rớt kết nối) và điển hình rơi
+    // vào chính workflow "Write Requirement" do user thường tự chạy. Vì họ KHÔNG có quyền vào Agent
+    // Dashboard, ta cho retry ngay tại trang Requirements với quyền RequirementsManage (bằng đúng quyền
+    // để bấm "Write Requirement"/"Approve"). Chỉ re-queue đúng task đã hỏng — không duyệt, không đẩy bước
+    // kế — nên không đụng ranh giới quyền DeliveryAdvance. Trả JSON để banner (render bằng JS) tự xử lý.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> RetryWorkflow(Guid projectId, Guid? runId = null)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
+
+        var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId);
+
+        return result == RetryWorkflowResult.Requeued
+            ? Json(new { ok = true })
+            : Json(new { ok = false, error = "Không tìm thấy bước thất bại nào để chạy lại. Hãy tải lại trang rồi thử lại." });
+    }
 
     [HttpGet]
     public async Task<IActionResult> WorkflowStatus(Guid projectId, Guid? runId = null, long afterSeq = 0)
