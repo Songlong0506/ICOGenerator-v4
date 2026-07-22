@@ -87,6 +87,12 @@
         cursor: pointer;
     }
 
+/* Nút toggle Org Unit / Department ở bảng "Usage by department" — gọn, cùng cỡ với year-picker. */
+.dept-toggle {
+    padding: 7px 14px;
+    font-size: 13px;
+}
+
 .legend {
     display: flex;
     gap: 18px;
