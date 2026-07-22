@@ -165,6 +165,37 @@
         activity.style.display = 'flex';
     }
 
+    // "Thử lại" ngay tại trang Requirements: re-queue đúng bước đã hỏng của lead run rồi reload để thấy
+    // tiến độ chạy lại. Token antiforgery lấy từ form chat có sẵn trên trang (mọi POST khác cũng dùng nó).
+    async function retryWorkflow(panel, btn) {
+        const runId = leadRunId(panel);
+        const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+
+        const oldLabel = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Đang khởi động lại…';
+
+        const fd = new FormData();
+        fd.append('projectId', PID);
+        if (runId) fd.append('runId', runId);
+        if (tokenEl) fd.append('__RequestVerificationToken', tokenEl.value);
+
+        try {
+            const resp = await fetch('/Requirements/RetryWorkflow', { method: 'POST', body: fd });
+            const data = await resp.json();
+            if (data.ok) {
+                location.reload();
+                return;
+            }
+            alert(data.error || 'Không chạy lại được. Hãy tải lại trang rồi thử lại.');
+        } catch (e) {
+            alert('Không kết nối được máy chủ để chạy lại. Kiểm tra mạng rồi thử lại.');
+        }
+
+        btn.disabled = false;
+        btn.textContent = oldLabel;
+    }
+
     function updateBanner(panel, data) {
         const slot = panel.querySelector('.wf-banner-slot');
 
@@ -228,15 +259,21 @@
             const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
             const errBlock = err ? `<pre class="wf-err">${escapeHtml(err)}</pre>` : '';
 
-            if (CAN_ADVANCE) {
-                // Retry đã chuyển sang Agent Dashboard (quyền DeliveryAdvance) → dẫn sang đó để chạy lại.
-                slot.innerHTML =
-                    `<div class="wf-banner wf-fail">✗ Workflow thất bại.${errBlock}` +
-                    `<div class="wf-fail-actions"><a class="btn" href="${DASHBOARD_URL}">↻ Mở Agent Dashboard để chạy lại</a></div></div>`;
-            } else {
-                slot.innerHTML =
-                    `<div class="wf-banner wf-fail">✗ Có lỗi khi xử lý bước này. Đội ngũ Dev sẽ kiểm tra.${errBlock}</div>`;
-            }
+            // Lỗi thường là tạm thời (LLM rớt kết nối) → cho MỌI vai trò bấm "Thử lại" chạy lại đúng bước
+            // đã hỏng ngay tại đây. Trước đây chỉ TeamDev/Admin được dẫn sang Agent Dashboard, nhưng user
+            // thường (người chạy "Write Requirement") lại không có quyền vào trang đó nên bị kẹt.
+            // TeamDev/Admin vẫn có link sang dashboard cho các thao tác khác (duyệt/yêu cầu chỉnh sửa…).
+            const dashboardLink = CAN_ADVANCE
+                ? ` <a class="btn outline" href="${DASHBOARD_URL}">Mở Agent Dashboard</a>`
+                : '';
+            slot.innerHTML =
+                `<div class="wf-banner wf-fail">✗ Workflow thất bại.${errBlock}` +
+                `<div class="wf-fail-actions">` +
+                    `<button type="button" class="btn wf-retry-btn">↻ Thử lại</button>${dashboardLink}` +
+                `</div></div>`;
+
+            const retryBtn = slot.querySelector('.wf-retry-btn');
+            if (retryBtn) retryBtn.addEventListener('click', () => retryWorkflow(panel, retryBtn));
         } else {
             slot.innerHTML = '';
         }

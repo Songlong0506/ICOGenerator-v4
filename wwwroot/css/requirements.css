@@ -703,9 +703,14 @@
         white-space: pre-wrap;
     }
 
-    /* Khối hành động trong banner Workflow thất bại (link mở Agent Dashboard để chạy lại). */
+    /* Khối hành động trong banner Workflow thất bại: nút "Thử lại" (chạy lại ngay tại trang) cho mọi
+       vai trò, kèm link mở Agent Dashboard cho TeamDev/Admin. */
     .wf-fail-actions {
         margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
     }
 
     .wf-banner {
