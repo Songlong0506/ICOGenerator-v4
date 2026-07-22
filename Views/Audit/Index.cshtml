@@ -16,6 +16,13 @@
         AuditAction.Update => "blue",
         _ => "orange"
     };
+
+    // Tên hiển thị người thực hiện (fallback về username khi không tra được), kèm vai trò nếu có.
+    string ActorDisplay(string? username) =>
+        string.IsNullOrWhiteSpace(username) ? ""
+            : (Model.ActorDisplayNames.TryGetValue(username.Trim(), out var dn) ? dn : username);
+    string ActorWithRole(string? username, string? role) =>
+        ActorDisplay(username) + (string.IsNullOrEmpty(role) ? "" : $" · {role}");
 }
 
 @section Styles {
@@ -76,11 +83,11 @@ else
         <table id="auditTable" class="audit-table">
             <thead>
                 <tr>
-                    <th>Loại</th>
-                    <th>Hành động</th>
-                    <th>Tóm tắt</th>
-                    <th>Người thực hiện</th>
-                    <th>Thời gian</th>
+                    <th>Category</th>
+                    <th>Action</th>
+                    <th>Summary</th>
+                    <th>Performed By</th>
+                    <th>Time</th>
                     <th class="col-actions">Actions</th>
                 </tr>
             </thead>
@@ -91,7 +98,7 @@ else
                         <td><span class="badge @CategoryBadge(item.Category)">@item.Category.GetTitle()</span></td>
                         <td><span class="badge @ActionBadge(item.Action)">@item.Action.GetTitle()</span></td>
                         <td class="audit-summary">@item.Summary</td>
-                        <td>@item.ActorUsername@(string.IsNullOrEmpty(item.ActorRole) ? "" : $" · {item.ActorRole}")</td>
+                        <td>@ActorWithRole(item.ActorUsername, item.ActorRole)</td>
                         <td class="audit-time">@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
                         <td class="actions">
                             <button class="btn small outline"
@@ -102,7 +109,7 @@ else
                                     data-action="@item.Action.GetTitle()"
                                     data-action-class="@ActionBadge(item.Action)"
                                     data-summary="@item.Summary"
-                                    data-actor="@item.ActorUsername@(string.IsNullOrEmpty(item.ActorRole) ? "" : $" · {item.ActorRole}")"
+                                    data-actor="@ActorWithRole(item.ActorUsername, item.ActorRole)"
                                     data-time="@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")"
                                     data-entity="@item.EntityId"
                                     data-before="@(item.BeforeJson ?? "")"

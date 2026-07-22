@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Audit;
@@ -11,7 +12,12 @@ namespace ICOGenerator.Application.Audit;
 public class GetAuditLogPageQuery
 {
     private readonly AppDbContext _db;
-    public GetAuditLogPageQuery(AppDbContext db) => _db = db;
+    private readonly UserDisplayNameResolver _displayNames;
+    public GetAuditLogPageQuery(AppDbContext db, UserDisplayNameResolver displayNames)
+    {
+        _db = db;
+        _displayNames = displayNames;
+    }
 
     public const int DefaultPageSize = 20;
 
@@ -35,6 +41,9 @@ public class GetAuditLogPageQuery
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return new AuditLogListPage(items, category, page, pageSize, totalCount);
+        var actorDisplayNames = await _displayNames.ResolveManyAsync(
+            items.Select(x => x.ActorUsername), cancellationToken);
+
+        return new AuditLogListPage(items, category, page, pageSize, totalCount, actorDisplayNames);
     }
 }
