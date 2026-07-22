@@ -213,7 +213,7 @@ public class WorkspaceTools
         "For WORKING, PERSISTENT CRUD with NO custom <script>, annotate the content with data-crud-* attributes and the shell engine handles add/edit/delete + localStorage automatically: a list <table data-crud-table=\"ENTITY\" data-crud-modal=\"#id\"> whose <thead> has one <th data-field=\"FIELD\"> per column plus a final <th data-actions> (rows you write in <tbody> are seed data); exactly ONE <form data-crud-form=\"ENTITY\"> (inputs use name=\"FIELD\", with a type=submit Save), usually inside a Bootstrap modal; an Add button with data-crud-add=\"ENTITY\"; optional data-crud-title/data-crud-count/data-crud-reset. The form's name=\"…\" must match the table's data-field names. Seed <td> cells may contain rich HTML (images, badges) and are preserved. For a one-click add with no form (e.g. an Add-to-cart/Buy button), put data-crud-add=\"ENTITY\" data-crud-values='{\"field\":\"value\"}' on the button. Wire EVERY data list (data-crud-table + an Add button) and EVERY create/edit form (data-crud-form) this way so the primary actions actually work and persist — don't leave the main buttons as toast-only stubs. " +
         "'appName': the application/product name, shown in the sidebar header and the browser tab — never leave it as the template default \"App Name\". " +
         "'breadcrumb': the top-bar breadcrumb text, e.g. \"Home > Orders\". " +
-        "'navItems': the left sidebar menu — an array of objects { \"label\": string, \"icon\"?: string, \"children\"?: (string | { \"label\": string, \"icon\"?: string })[] }. 'icon' is an optional Bootstrap Icons name shown before the label (e.g. \"house\", \"cart3\", \"people\", \"bag\", \"gear\"; full list at https://icons.getbootstrap.com — the leading \"bi-\" is optional); set one for every item, and if omitted a neutral default icon is used. 'children' is optional and turns the entry into an expandable group. Set these to the real screens, not the template's Overview/Module A/Module B/Settings. " +
+        "'navItems': the left sidebar menu — a real JSON ARRAY (not a JSON-encoded string) of objects { \"label\": string, \"icon\"?: string, \"children\"?: (string | { \"label\": string, \"icon\"?: string })[] }. 'icon' is an optional Bootstrap Icons name shown before the label (e.g. \"house\", \"cart3\", \"people\", \"bag\", \"gear\"; full list at https://icons.getbootstrap.com — the leading \"bi-\" is optional); set one for every item, and if omitted a neutral default icon is used. 'children' is optional and turns the entry into an expandable group. Set these to the real screens, not the template's Overview/Module A/Module B/Settings. " +
         "The rest of the shell (style/script, topbar, popups) is kept untouched. Use this instead of ReplaceInFile for the POC.")]
     public async Task<string> SetPocContent(string content, string? appName = null, string? breadcrumb = null, JsonElement? navItems = null)
     {
@@ -226,23 +226,38 @@ public class WorkspaceTools
         if (updated == null)
             return $"POC content markers not found in file: {PocTemplate.MockupRelativePath}";
 
-        // Customise the shell bits outside the content markers (App Name, title, breadcrumb, menu). Each step no-ops on empty/malformed input, so a slip in one never blocks the others or the content — worst case the shell stays as the template, never a failure.
+        // Customise the shell bits outside the content markers (App Name, title, breadcrumb, menu). Each step no-ops on empty/malformed input, so a slip in one never blocks the others or the content — worst case the shell stays as the template, never a failure. The MENU outcome is reported back explicitly: a dropped navItems used to return plain success, so the agent believed the sidebar was rebuilt while the demo kept the template tabs (sections present, no tab to open them) — and nothing downstream could repair it.
         if (!string.IsNullOrWhiteSpace(appName))
             updated = PocTemplate.ReplaceAppName(updated, appName);
         if (!string.IsNullOrWhiteSpace(breadcrumb))
             updated = PocTemplate.ReplaceBreadcrumb(updated, breadcrumb);
+        string navNote;
         if (navItems is { } navJson)
         {
             var items = PocNavItem.ParseList(navJson);
-            if (items.Count > 0)
-                updated = PocTemplate.ReplaceNav(updated, items);
+            if (items.Count == 0)
+            {
+                navNote = " WARNING: 'navItems' could not be read as a menu — the sidebar was NOT updated and still shows the template items, which will not match your screens. Send navItems as a JSON ARRAY of { \"label\", \"icon\", \"children\" } objects (NOT a JSON-encoded string). Re-issue SetPocContent NOW with the same content plus valid navItems, BEFORE any AppendPocContent.";
+            }
+            else
+            {
+                var withNav = PocTemplate.ReplaceNav(updated, items);
+                navNote = ReferenceEquals(withNav, updated)
+                    ? " WARNING: the sidebar <nav> anchor was not found in the file, so the menu could not be rebuilt and was left unchanged."
+                    : $" Sidebar menu rebuilt with {items.Count} top-level item(s).";
+                updated = withNav;
+            }
+        }
+        else
+        {
+            navNote = " WARNING: no 'navItems' was given — the sidebar menu was left as-is. If you have not set the menu yet it still shows the template items (Overview/Records/…), which will not match your screens; re-issue SetPocContent NOW with the same content plus navItems, BEFORE any AppendPocContent.";
         }
 
         await File.WriteAllTextAsync(fullPath, updated);
         // SetPocContent GHI ĐÈ cả vùng nội dung ⇒ đây là màn hình ĐẦU TIÊN: đếm lại từ 0.
         _pocScreensBuilt = 0;
         NarratePocScreens(content);
-        return $"POC content updated: {PocTemplate.MockupRelativePath}";
+        return $"POC content updated: {PocTemplate.MockupRelativePath}." + navNote;
     }
 
     [Description("Append MORE feature HTML to the END of the POC content region in 04_Implementation/poc-demo.html, after what's already there. " +

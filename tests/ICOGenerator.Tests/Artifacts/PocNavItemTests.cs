@@ -89,4 +89,26 @@ public class PocNavItemTests
     {
         Assert.Empty(Parse(json));
     }
+
+    [Fact]
+    public void ParseList_UnwrapsJsonEncodedArrayString()
+    {
+        // A model may double-encode navItems (the array arrives as a JSON string). Dropping it left
+        // POCs with page-view sections but no sidebar tab to open them.
+        var items = Parse("""
+            "[{\"label\":\"Dashboard\",\"icon\":\"house\"},{\"label\":\"Orders\",\"children\":[\"All Orders\"]}]"
+            """);
+
+        Assert.Equal(new[] { "Dashboard", "Orders" }, items.Select(x => x.Label));
+        Assert.Equal("house", items[0].Icon);
+        Assert.Equal(new[] { "All Orders" }, items[1].Children!.Select(c => c.Label));
+    }
+
+    [Theory]
+    [InlineData("\"[not json\"")]                 // starts like an array but is not valid JSON
+    [InlineData("\"  {\\\"label\\\":\\\"x\\\"}\"")] // encoded JSON, but not an array
+    public void ParseList_ReturnsEmpty_ForUnparsableEncodedStrings(string json)
+    {
+        Assert.Empty(Parse(json));
+    }
 }
