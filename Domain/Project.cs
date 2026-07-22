@@ -40,8 +40,10 @@ public class Project
     // theo miền: bài học của dự án kho không lẫn vào phỏng vấn dự án nghỉ phép. null = chưa phân loại.
     public string? DomainKey { get; set; }
     // "Bản đồ bao phủ yêu cầu" của dự án: bảng trạng thái (text, 12 nhóm cố định) cho biết nhóm thông tin
-    // nào đã khai thác [RÕ]/[MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG], cập nhật sau mỗi lượt chat để BA chọn
-    // câu hỏi kế tiếp và cổng readiness khỏi đoán lại từ đầu. null = chưa có lượt chat nào được ghi nhận.
+    // nào đã khai thác [RÕ]/[MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG], cập nhật sau mỗi lượt chat. NGUỒN CHÂN
+    // LÝ DUY NHẤT của độ sẵn sàng: BA chọn câu hỏi kế tiếp từ đây, panel tiến độ render nó, và cổng
+    // "Write Requirement" suy ready tất định từ nó (RequirementReadinessGate.Evaluate). null = chưa có
+    // lượt chat nào được ghi nhận (cổng coi là CHƯA sẵn sàng — fail-closed).
     // CoverageHarvestedTurnCount = số lượt cũ nhất (xếp theo CreatedAt) đã gộp vào bản đồ — con trỏ để
     // biết lượt nào còn phải gộp tiếp (fail-open: lời gọi lỗi thì con trỏ đứng yên, lần sau gộp bù).
     // Xem RequirementCoverageService.

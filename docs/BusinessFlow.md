@@ -86,7 +86,7 @@ sequenceDiagram
     UC->>DB: lưu AgentConversation role=user
     UC->>BA: tạo prompt gồm transcript + memory + org context + sources
     BA->>LLM: gọi BA model
-    LLM-->>BA: reply + suggestions/readiness
+    LLM-->>BA: reply + suggestions (readiness suy tất định từ coverage map)
     BA->>DB: lưu AgentConversation role=assistant
     BA->>DB: cập nhật conversation summary/memory/coverage nếu cần
     UC-->>UI: assistant reply + next questions

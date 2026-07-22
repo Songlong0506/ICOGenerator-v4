@@ -12,9 +12,9 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Bước "Write Requirement": sinh/cập nhật bản nháp Product Brief từ hội thoại BA — qua cổng readiness
-/// (trừ khi lượt cuối là lời mời đã được gate duyệt ngay trong chat, xem <see cref="BAChatService"/>),
-/// soạn bằng LLM, một vòng tự soát/sửa, rồi ghi file .docx. Luồng chat nằm ở <see cref="BAChatService"/>;
-/// các tài liệu sau Approve nằm ở <see cref="RequirementDocsService"/>.
+/// TẤT ĐỊNH trên bản đồ bao phủ (trừ khi lượt cuối là lời mời đã qua chính cổng đó ngay trong chat, xem
+/// <see cref="BAChatService"/>), soạn bằng LLM, một vòng tự soát/sửa, rồi ghi file .docx. Luồng chat nằm
+/// ở <see cref="BAChatService"/>; các tài liệu sau Approve nằm ở <see cref="RequirementDocsService"/>.
 /// </summary>
 public class ProductBriefDraftService
 {
@@ -29,7 +29,7 @@ public class ProductBriefDraftService
     private readonly ChecklistGapMemoryService _checklistGapMemory;
     private readonly ProductBriefReviewParser _reviewParser;
     private readonly OrganizationContextService _orgContext;
-    private readonly RequirementReadinessGate _readinessGate;
+    private readonly RequirementCoverageService _coverage;
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
 
@@ -45,7 +45,7 @@ public class ProductBriefDraftService
         ChecklistGapMemoryService checklistGapMemory,
         ProductBriefReviewParser reviewParser,
         OrganizationContextService orgContext,
-        RequirementReadinessGate readinessGate,
+        RequirementCoverageService coverage,
         BAAgentResolver agentResolver,
         BAConversationLog conversationLog)
     {
@@ -60,7 +60,7 @@ public class ProductBriefDraftService
         _checklistGapMemory = checklistGapMemory;
         _reviewParser = reviewParser;
         _orgContext = orgContext;
-        _readinessGate = readinessGate;
+        _coverage = coverage;
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
     }
@@ -96,18 +96,19 @@ public class ProductBriefDraftService
         var sources = project.SourceFiles.OrderBy(s => s.CreatedAt).ToList();
         var sourceContents = _sourceContextBuilder.Build(sources, model.SupportsVision);
 
-        // Cổng kiểm tra: tài liệu KHÔNG được phép chứa giả định, nên còn BẤT KỲ điểm nào sẽ phải giả
-        // định (kể cả điểm phụ) thì hỏi lại NGAY (một lượt BA trong khung chat) và KHÔNG soạn tài liệu —
-        // tránh sinh tài liệu rồi vứt đi/sinh lại (tốn token). Đây là một lời gọi LLM nhẹ (chỉ trả câu
-        // hỏi). Kèm tóm tắt text tài liệu nguồn để readiness tính cả tài liệu đính kèm, và bản đồ bao
-        // phủ (nếu có) để gate đối chiếu từng nhóm thay vì đoán lại từ đầu.
+        // Cổng kiểm tra: tài liệu KHÔNG được phép chứa giả định, nên còn BẤT KỲ nhóm áp dụng nào chưa
+        // [RÕ] trên bản đồ bao phủ thì hỏi lại NGAY (một lượt BA trong khung chat) và KHÔNG soạn tài
+        // liệu — tránh sinh tài liệu rồi vứt đi/sinh lại (tốn token). Ready suy TẤT ĐỊNH từ bản đồ
+        // (RequirementReadinessGate.Evaluate) — cùng nguồn chân lý với lời mời trong chat và panel tiến
+        // độ. Trước khi xét phải gộp nốt các lượt chưa distill vào bản đồ: đường POC-feedback/ghi chú
+        // duyệt (RoutePocFeedbackToRequirementUseCase, ReviseBriefFromNotesUseCase) thêm lượt user rồi
+        // gọi thẳng vào đây, không đi qua lượt chat nào để bản đồ kịp tươi.
         //
         // NGOẠI LỆ: lượt cuối hội thoại là lời BA mời bấm "Write Requirement" ⇒ lời mời đó CHỈ tồn tại
-        // sau khi chính cổng này đã pass ngay trong bước chat (BAChatService.ChatAsync) trên đúng
-        // transcript hiện tại, và chưa có gì mới kể từ đó. Chạy lại gate vừa tốn một lời gọi vừa có thể
-        // "đổi ý" (LLM không tất định) — chính là vòng lặp khó chịu "mời bấm nút xong lại chặn cần bổ
-        // sung thông tin". Bỏ qua gate ở nhánh này; van "không giả định" của bước soạn tài liệu
-        // (needsClarification bên dưới) vẫn là chốt chặn cuối nên chất lượng tài liệu không đổi.
+        // sau khi chính cổng tất định này đã pass ngay trong bước chat (BAChatService) trên bản đồ hiện
+        // hành, và chưa có gì mới kể từ đó — xét lại chỉ tốn một lượt distill vô ích. Bỏ qua gate ở
+        // nhánh này; van "không giả định" của bước soạn tài liệu (needsClarification bên dưới) vẫn là
+        // chốt chặn cuối nên chất lượng tài liệu không đổi.
         if (RequirementReadinessGate.IsVerifiedInviteLatestTurn(project.Conversations))
         {
             Report("thinking", "Yêu cầu đã được kiểm tra đủ ngay trong bước chat — bắt đầu soạn tài liệu.", conversationTranscript);
@@ -115,11 +116,8 @@ public class ProductBriefDraftService
         else
         {
             Report("thinking", "Đang kiểm tra mức độ đầy đủ của yêu cầu…", conversationTranscript);
-            var readiness = await _readinessGate.CheckAsync(projectId, ba, model,
-                conversationTranscript
-                    + RequirementReadinessGate.BuildSourceBriefNote(sources)
-                    + RequirementReadinessGate.BuildCoverageNote(project),
-                cancellationToken);
+            var coverageMap = await _coverage.UpdateAndLoadAsync(project, ba, model, cancellationToken);
+            var readiness = RequirementReadinessGate.Evaluate(coverageMap);
             if (!readiness.Ready)
             {
                 var question = string.IsNullOrWhiteSpace(readiness.Message)
@@ -180,9 +178,9 @@ public class ProductBriefDraftService
             ? _responseParser.Normalize(structuredDraft)
             : _responseParser.ParseProductBrief(callResult.Content, project, conversationTranscript);
 
-        // Van thoát "không giả định" (lớp chốt chặn sau cổng readiness — vốn fail-open khi lỗi): model
-        // soạn tài liệu phát hiện còn điểm PHẢI tự giả định mới viết được thì trả câu hỏi thay vì viết
-        // bừa. Xử lý y hệt đường cổng chặn: đẩy câu hỏi vào khung chat, KHÔNG sinh file.
+        // Van thoát "không giả định" (lớp chốt chặn cuối sau cổng readiness — bắt phần bản đồ bao phủ
+        // lỡ chấm [RÕ] non): model soạn tài liệu phát hiện còn điểm PHẢI tự giả định mới viết được thì
+        // trả câu hỏi thay vì viết bừa. Xử lý y hệt đường cổng chặn: đẩy câu hỏi vào khung chat, KHÔNG sinh file.
         if (result.NeedsClarification)
         {
             var clarify = string.IsNullOrWhiteSpace(result.ClarifyingQuestion)

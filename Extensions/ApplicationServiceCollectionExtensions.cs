@@ -617,17 +617,16 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddRequirementServices(this IServiceCollection services)
     {
         // Ba use case của luồng BA (chat / draft Product Brief / tài liệu sau Approve) + các mảnh dùng
-        // chung (resolver agent, cổng readiness, ghi lượt hội thoại) — tách từ BARequirementService cũ.
+        // chung (resolver agent, ghi lượt hội thoại) — tách từ BARequirementService cũ. Cổng readiness
+        // (RequirementReadinessGate) giờ là hàm tất định trên bản đồ bao phủ, không cần DI.
         services.AddScoped<BAChatService>();
         services.AddScoped<ProductBriefDraftService>();
         services.AddScoped<RequirementDocsService>();
         services.AddScoped<BAAgentResolver>();
-        services.AddScoped<RequirementReadinessGate>();
         services.AddScoped<BAConversationLog>();
         services.AddScoped<RequirementPromptBuilder>();
         services.AddScoped<RequirementResponseParser>();
         services.AddScoped<BAChatReplyParser>();
-        services.AddScoped<RequirementReadinessParser>();
         services.AddScoped<RequirementDocumentGenerator>();
         // Diff thuần in-memory, stateless ⇒ singleton (như các policy/store stateless khác).
         services.AddSingleton<DocumentDiffService>();

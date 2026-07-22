@@ -10,9 +10,9 @@ public class BAProductBriefResult
     public ProductBriefDto ProductBrief { get; set; } = new();
 
     // Van thoát "không giả định": tài liệu chỉ được chứa điều người dùng đã nói/đã chốt, nên khi model
-    // soạn tài liệu phát hiện còn điểm PHẢI tự giả định mới viết được (lọt qua cổng readiness — vốn
-    // fail-open khi lỗi), nó đặt cờ này kèm MỘT câu hỏi thay vì viết bừa. Service sẽ KHÔNG sinh file mà
-    // đẩy câu hỏi vào khung chat (NeedsMoreInfo), giống đường cổng readiness chặn.
+    // soạn tài liệu phát hiện còn điểm PHẢI tự giả định mới viết được (bản đồ bao phủ lỡ chấm [RÕ] non
+    // nên cổng readiness tất định cho qua), nó đặt cờ này kèm MỘT câu hỏi thay vì viết bừa. Service sẽ
+    // KHÔNG sinh file mà đẩy câu hỏi vào khung chat (NeedsMoreInfo), giống đường cổng readiness chặn.
     public bool NeedsClarification { get; set; }
 
     public string ClarifyingQuestion { get; set; } = "";

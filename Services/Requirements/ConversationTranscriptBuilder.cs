@@ -5,7 +5,7 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Dựng bản ghi hội thoại Hỏi–Đáp (BA hỏi / Người dùng trả lời) từ các lượt chat, dùng làm đầu vào cho
-/// cổng readiness và bước soạn Product Brief. Trước đây hai bước này chỉ nhận các lượt CỦA USER — mất
+/// bước soạn Product Brief. Trước đây bước này chỉ nhận các lượt CỦA USER — mất
 /// sạch câu hỏi của BA, nên câu trả lời ngắn kiểu chip gợi ý ("Nhân viên văn phòng", "Có, cần duyệt")
 /// trở nên vô nghĩa vì không biết đang trả lời cho câu hỏi nào. Giữ cả hai vai để mỗi câu trả lời còn
 /// nguyên ngữ cảnh, và render qua <see cref="ConversationTurnRenderer"/> để lượt BA kèm luôn các đáp án

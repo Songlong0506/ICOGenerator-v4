@@ -154,6 +154,37 @@ public class RequirementCoverageServiceTests : IDisposable
         Assert.Contains("Cả hai mục tiêu trên", llm.LastUserMessage);
     }
 
+    [Fact]
+    public async Task UpdateAndLoadAsync_IncludesSourceFileText_SoMapCreditsAttachedDocs()
+    {
+        // Bản đồ là nguồn chân lý của cổng "Write Requirement" ⇒ distill phải thấy text tài liệu nguồn,
+        // nếu không bản đồ treo [CHƯA HỎI] những thứ tài liệu đính kèm đã trả lời và cổng chặn oan.
+        var (project, ba) = await SeedAsync(turns: 2);
+        await using (var seed = NewDb())
+        {
+            seed.ProjectSourceFiles.Add(new ProjectSourceFile
+            {
+                ProjectId = project.Id,
+                FileName = "quy-trinh-duyet.pdf",
+                ContentType = "application/pdf",
+                ExtractedText = "Quy trình duyệt: nhân viên gửi đơn, trưởng phòng duyệt trong 2 ngày."
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        var llm = new FakeLlm { Reply = "bản đồ v1" };
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.Equal(1, llm.Calls);
+        Assert.NotNull(llm.LastUserMessage);
+        Assert.Contains("quy-trinh-duyet.pdf", llm.LastUserMessage);
+        Assert.Contains("trưởng phòng duyệt trong 2 ngày", llm.LastUserMessage);
+    }
+
     private RequirementCoverageService NewSut(AppDbContext db, ILlmClient llm) => new(db, llm, new StubPrompts());
 
     private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? existingMap = null, int harvestedTurnCount = 0)
