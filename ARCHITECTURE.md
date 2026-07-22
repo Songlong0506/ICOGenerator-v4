@@ -203,7 +203,7 @@ Các lời gọi của BA trả JSON (soạn 5 tài liệu, cổng kiểm tra đ
 output** của MEAI (`response_format: json_schema` qua `IChatClient.GetResponseAsync<T>`) thay vì chỉ nhắc
 model trả JSON rồi parse văn xuôi. `ILlmClient.ChatStructuredAsync<T>` lo việc này; khi structured **không**
 bật/không khả dụng/JSON không khớp schema thì trả `value = null` để caller **fallback** về parser tay cũ
-(`RequirementResponseParser`/`BAChatReplyParser`/`RequirementReadinessParser`) — không bao giờ fail trắng.
+(`RequirementResponseParser`/`BAChatReplyParser`) — không bao giờ fail trắng.
 Quyết định bật theo `StructuredOutputPolicy` (cấu hình `Llm:StructuredOutput`): **opt-in**, mặc định TẮT vì
 nhiều server local từ chối `response_format`; chỉ liệt kê ModelId chắc chắn hỗ trợ vào `ModelIds`. Mặc định
 tắt ⇒ hành vi **giữ nguyên** đường text + parser cũ.

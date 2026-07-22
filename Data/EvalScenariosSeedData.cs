@@ -168,86 +168,14 @@ public static class EvalScenariosSeedData
             - KHÔNG nhắc tới nút "Write Requirement".
             """);
 
-        // ================= BusinessAnalyst/requirement-readiness.v3.md =================
-
-        Add(
-            "Readiness — hội thoại đủ (kể cả phương án đã chốt): ready=true",
-            "BusinessAnalyst/requirement-readiness.v3.md",
-            """
-            Hội thoại khai thác yêu cầu:
-            BA: Anh/chị muốn ứng dụng giải quyết việc gì?
-            Người dùng: Sổ theo dõi mượn trả sách nội bộ của thư viện công ty, thay cho file Excel hay bị ghi đè.
-            BA: Ai sẽ dùng ứng dụng này?
-            Người dùng: Thủ thư là người ghi mượn/trả và quản lý danh mục sách; nhân viên công ty chỉ tra cứu xem sách còn hay đang được mượn.
-            BA: Luồng mượn sách diễn ra thế nào?
-            Người dùng: Nhân viên tới quầy, thủ thư tìm sách theo tên rồi ghi lượt mượn cho người đó, hẹn trả trong 14 ngày. Khi trả thì thủ thư bấm xác nhận đã trả.
-            BA: Nếu quá 14 ngày chưa trả thì sao?
-            Người dùng: Hệ thống đánh dấu quá hạn để thủ thư nhắc, không phạt gì cả.
-            BA: Có trường hợp sách bị mất hoặc hỏng không?
-            Người dùng: Có, thủ thư đánh dấu "mất/hỏng" và sách đó không cho mượn nữa.
-            BA: Danh mục sách gồm những thông tin gì và ai được sửa?
-            Người dùng: Tên sách, tác giả, mã sách, số lượng bản. Chỉ thủ thư được thêm/sửa/xóa.
-            BA: Có cần báo cáo thống kê gì không?
-            Người dùng: Không cần, xem danh sách là đủ.
-            BA: Khoảng bao nhiêu người dùng và bao nhiêu lượt mượn mỗi ngày?
-            Người dùng: Công ty 150 người, chắc 10–20 lượt mượn mỗi ngày.
-            BA: Mình chốt: nhân viên tra cứu không cần đăng nhập, chỉ thủ thư có tài khoản để thao tác nhé?
-               (Các lựa chọn gợi ý đã đưa cho người dùng: [1] Đồng ý; [2] Tôi muốn khác)
-            Người dùng: Đồng ý.
-            """,
-            """
-            - Trả về DUY NHẤT một object JSON {ready, message, suggestions}, không chữ ngoài JSON.
-            - ready PHẢI là true — mọi nhóm áp dụng đã rõ; phương án BA đề xuất đã được người dùng bấm "Đồng ý" là điều ĐÃ CHỐT, không được coi là còn thiếu.
-            - message là chuỗi rỗng và suggestions là mảng rỗng.
-            - KHÔNG chặn vì các nhóm không áp dụng hoặc đã trả lời là không cần (báo cáo, thông báo).
-            """);
-
-        Add(
-            "Readiness — hội thoại mỏng: chặn với ĐÚNG MỘT câu hỏi nghiệp vụ",
-            "BusinessAnalyst/requirement-readiness.v3.md",
-            """
-            Hội thoại khai thác yêu cầu:
-            BA: Anh/chị muốn ứng dụng giải quyết việc gì?
-            Người dùng: Quản lý hợp đồng của phòng mua hàng, để biết hợp đồng nào sắp hết hạn.
-            BA: Ai sẽ dùng ứng dụng?
-            Người dùng: Nhân viên mua hàng nhập hợp đồng, trưởng phòng xem toàn bộ.
-            Người dùng: Nhớ làm phần nhắc trước khi hợp đồng hết hạn nhé.
-            """,
-            """
-            - Trả về DUY NHẤT một object JSON {ready, message, suggestions}, không chữ ngoài JSON.
-            - ready PHẢI là false — còn nhiều nhóm chưa khai thác (luồng nghiệp vụ chính, dữ liệu hợp đồng gồm gì, nhắc trước bao nhiêu ngày và nhắc ai, ngoại lệ, quy mô…).
-            - message chứa ĐÚNG MỘT câu hỏi, không gộp nhiều câu, ở góc nhìn nghiệp vụ, nhắm vào điểm quan trọng còn thiếu.
-            - KHÔNG hỏi chi tiết kỹ thuật (API, SSO, email server, database…).
-            - suggestions có 2–5 đáp án ngắn; không có mục "Khác"/"Tự nhập".
-            """);
-
-        Add(
-            "Readiness — app cá nhân một người dùng: không tra khảo nhóm không áp dụng",
-            "BusinessAnalyst/requirement-readiness.v3.md",
-            """
-            Hội thoại khai thác yêu cầu:
-            BA: Anh/chị muốn ứng dụng giải quyết việc gì?
-            Người dùng: Tôi muốn một app ghi chú việc cần làm cho riêng tôi, dùng một mình, khỏi quên việc.
-            BA: Anh/chị thao tác với ghi chú thế nào?
-            Người dùng: Thêm việc mới, đánh dấu xong, xóa việc. Việc nào có hạn thì ghi kèm ngày hạn.
-            BA: Việc quá hạn thì hiển thị thế nào?
-            Người dùng: Tô đỏ và đưa lên đầu danh sách là được.
-            BA: Có cần nhắc nhở khi sắp tới hạn không?
-            Người dùng: Không cần, tôi tự mở app xem.
-            BA: Một ngày anh/chị có khoảng bao nhiêu việc?
-            Người dùng: Vài việc thôi, 5–10 việc.
-            """,
-            """
-            - Trả về DUY NHẤT một object JSON {ready, message, suggestions}, không chữ ngoài JSON.
-            - ready PHẢI là true — app cá nhân MỘT người dùng: phân quyền, vai trò, báo cáo, thông báo hiển nhiên không áp dụng hoặc đã được trả lời; KHÔNG được chặn để tra khảo các nhóm đó.
-            - message là chuỗi rỗng, suggestions là mảng rỗng.
-            """);
-
-        // ================= BusinessAnalyst/requirement-coverage.v1.md =================
+        // ================= BusinessAnalyst/requirement-coverage.v2.md =================
+        // Bản đồ bao phủ là NGUỒN CHÂN LÝ DUY NHẤT của cổng "Write Requirement" (ready suy tất định:
+        // mọi dòng áp dụng [RÕ]/[KHÔNG ÁP DỤNG]) nên các scenario phủ cả hai chiều sai: chấm [RÕ] non
+        // (suy diễn) và giữ [MỘT PHẦN]/[CHƯA HỎI] oan (tra khảo nhóm không áp dụng, bỏ qua điều đã chốt).
 
         Add(
             "Coverage map — dựng mới từ hội thoại: đúng 12 dòng, không suy diễn",
-            "BusinessAnalyst/requirement-coverage.v1.md",
+            "BusinessAnalyst/requirement-coverage.v2.md",
             """
             ## Các lượt hội thoại mới cần gộp vào bản đồ
             - BA: Anh/chị muốn ứng dụng giải quyết việc gì?
@@ -269,7 +197,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Coverage map — gộp lũy tiến khi người dùng đổi ý: ý mới nhất thắng",
-            "BusinessAnalyst/requirement-coverage.v1.md",
+            "BusinessAnalyst/requirement-coverage.v2.md",
             """
             ## Bản đồ hiện có (gộp/cập nhật cùng các lượt mới bên dưới)
             - ★ Mục tiêu / bài toán: [RÕ] Quản lý yêu cầu sửa chữa thiết bị trong nhà máy.
@@ -297,6 +225,63 @@ public static class EvalScenariosSeedData
             - Chức năng & luồng chính được nâng cấp (việc phân công đã rõ).
             - Vòng đời & trạng thái ghi nhận chuỗi trạng thái kèm nhánh "chờ nhà cung cấp".
             - Các nhóm chưa có thông tin mới (thông báo, báo cáo, quy mô…) giữ nguyên [CHƯA HỎI] — không tự suy diễn.
+            """);
+
+        Add(
+            "Coverage map — hội thoại đủ (kể cả phương án đã chốt): mọi dòng [RÕ]/[KHÔNG ÁP DỤNG] để mở cổng",
+            "BusinessAnalyst/requirement-coverage.v2.md",
+            """
+            ## Các lượt hội thoại mới cần gộp vào bản đồ
+            - BA: Anh/chị muốn ứng dụng giải quyết việc gì?
+            - Người dùng: Sổ theo dõi mượn trả sách nội bộ của thư viện công ty, thay cho file Excel hay bị ghi đè.
+            - BA: Ai sẽ dùng ứng dụng này?
+            - Người dùng: Thủ thư là người ghi mượn/trả và quản lý danh mục sách; nhân viên công ty chỉ tra cứu xem sách còn hay đang được mượn.
+            - BA: Luồng mượn sách diễn ra thế nào?
+            - Người dùng: Nhân viên tới quầy, thủ thư tìm sách theo tên rồi ghi lượt mượn cho người đó, hẹn trả trong 14 ngày. Khi trả thì thủ thư bấm xác nhận đã trả.
+            - BA: Nếu quá 14 ngày chưa trả thì sao?
+            - Người dùng: Hệ thống đánh dấu quá hạn để thủ thư nhắc, không phạt gì cả.
+            - BA: Có trường hợp sách bị mất hoặc hỏng không?
+            - Người dùng: Có, thủ thư đánh dấu "mất/hỏng" và sách đó không cho mượn nữa.
+            - BA: Danh mục sách gồm những thông tin gì và ai được sửa?
+            - Người dùng: Tên sách, tác giả, mã sách, số lượng bản. Chỉ thủ thư được thêm/sửa/xóa.
+            - BA: Có cần báo cáo thống kê gì không?
+            - Người dùng: Không cần, xem danh sách là đủ.
+            - BA: Khoảng bao nhiêu người dùng và bao nhiêu lượt mượn mỗi ngày?
+            - Người dùng: Công ty 150 người, chắc 10–20 lượt mượn mỗi ngày.
+            - BA: Mình chốt: nhân viên tra cứu không cần đăng nhập, chỉ thủ thư có tài khoản để thao tác nhé?
+               (Các lựa chọn gợi ý đã đưa cho người dùng: [1] Đồng ý; [2] Tôi muốn khác)
+            - Người dùng: Đồng ý.
+            """,
+            """
+            - Xuất ĐÚNG 12 dòng đúng thứ tự/tên nhóm, mỗi dòng một trạng thái hợp lệ, không lời dẫn.
+            - KHÔNG còn dòng nào [CHƯA HỎI]/[MỘT PHẦN] — hội thoại này đã đủ để mở cổng "Write Requirement": mọi dòng phải là [RÕ] hoặc [KHÔNG ÁP DỤNG].
+            - Báo cáo / thống kê là [KHÔNG ÁP DỤNG] (người dùng đã nói không cần) — KHÔNG để [CHƯA HỎI].
+            - Phân quyền được tính [RÕ]: phương án "tra cứu không cần đăng nhập, chỉ thủ thư có tài khoản" đã được người dùng bấm "Đồng ý" — điều ĐÃ CHỐT, không phải giả định.
+            - KHÔNG đòi chi tiết kỹ thuật (cách đăng nhập, database…) để coi một nhóm là thiếu.
+            """);
+
+        Add(
+            "Coverage map — app cá nhân một người dùng: chủ động [KHÔNG ÁP DỤNG], không tra khảo",
+            "BusinessAnalyst/requirement-coverage.v2.md",
+            """
+            ## Các lượt hội thoại mới cần gộp vào bản đồ
+            - BA: Anh/chị muốn ứng dụng giải quyết việc gì?
+            - Người dùng: Tôi muốn một app ghi chú việc cần làm cho riêng tôi, dùng một mình, khỏi quên việc.
+            - BA: Anh/chị thao tác với ghi chú thế nào?
+            - Người dùng: Thêm việc mới, đánh dấu xong, xóa việc. Việc nào có hạn thì ghi kèm ngày hạn.
+            - BA: Việc quá hạn thì hiển thị thế nào?
+            - Người dùng: Tô đỏ và đưa lên đầu danh sách là được.
+            - BA: Có cần nhắc nhở khi sắp tới hạn không?
+            - Người dùng: Không cần, tôi tự mở app xem.
+            - BA: Một ngày anh/chị có khoảng bao nhiêu việc?
+            - Người dùng: Vài việc thôi, 5–10 việc.
+            """,
+            """
+            - Xuất ĐÚNG 12 dòng đúng thứ tự/tên nhóm, mỗi dòng một trạng thái hợp lệ, không lời dẫn.
+            - App cá nhân MỘT người dùng: các nhóm hiển nhiên không liên quan (phân quyền theo nghiệp vụ, báo cáo/thống kê, quy trình duyệt nhiều vai trò…) phải được CHỦ ĐỘNG đánh [KHÔNG ÁP DỤNG] kèm lý do ngắn — KHÔNG treo [CHƯA HỎI] để chờ tra khảo.
+            - Thông báo / nhắc nhở là [KHÔNG ÁP DỤNG] hoặc [RÕ] (người dùng đã nói không cần) — KHÔNG để [CHƯA HỎI].
+            - Mục tiêu, chức năng, vòng đời (việc: chưa xong → xong; quá hạn tô đỏ), quy mô là [RÕ] theo đúng lời người dùng.
+            - KHÔNG còn dòng nào [CHƯA HỎI]/[MỘT PHẦN] — hội thoại này đã đủ để mở cổng "Write Requirement".
             """);
 
         // ================= BusinessAnalyst/product-brief.v3.md =================

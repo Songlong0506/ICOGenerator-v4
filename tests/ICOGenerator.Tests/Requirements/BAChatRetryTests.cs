@@ -146,7 +146,6 @@ public class BAChatRetryTests : IDisposable
             new UserMemoryService(db, llm, prompts),
             new RequirementCoverageService(db, llm, prompts),
             new OrganizationContextService(db, prompts, new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
-            new RequirementReadinessGate(llm, prompts, new RequirementReadinessParser(new BAChatReplyParser())),
             new BAAgentResolver(db),
             new BAConversationLog(db),
             new DecisionLogService(db, llm, prompts),

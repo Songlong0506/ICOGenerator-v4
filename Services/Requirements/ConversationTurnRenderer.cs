@@ -5,11 +5,11 @@ using ICOGenerator.Domain;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Kết xuất MỘT lượt hội thoại thành text cho các ngữ cảnh gửi LLM (transcript readiness/soạn Product
-/// Brief, distill bản đồ bao phủ). Điểm mấu chốt & lý do tồn tại: đính kèm các đáp án gợi ý
+/// Kết xuất MỘT lượt hội thoại thành text cho các ngữ cảnh gửi LLM (transcript soạn Product Brief,
+/// distill bản đồ bao phủ). Điểm mấu chốt & lý do tồn tại: đính kèm các đáp án gợi ý
 /// (<see cref="AgentConversation.Suggestions"/>) của lượt BA ngay sau câu hỏi. Không có chúng, một câu trả
 /// lời THAM CHIẾU như "Cả hai mục tiêu trên" / "Tất cả các mục trên" trỏ tới những lựa chọn mà reader chưa
-/// từng thấy → mất ngữ cảnh (bản đồ bao phủ không ghi được thông tin, readiness/Product Brief hiểu sai).
+/// từng thấy → mất ngữ cảnh (bản đồ bao phủ không ghi được thông tin, Product Brief hiểu sai).
 /// <para>
 /// Gom về MỘT chỗ để mọi nơi đọc hội thoại đều nhất quán: trước đây <see cref="ConversationTranscriptBuilder"/>
 /// và <see cref="RequirementCoverageService"/> mỗi nơi tự dựng text và cùng bỏ sót suggestions; tách riêng
@@ -43,9 +43,9 @@ public static class ConversationTurnRenderer
         }
 
         // Sơ đồ luồng BA đã VẼ cho người dùng xác nhận ở lượt mời "Write Requirement" nằm ở cột riêng
-        // (FlowDiagram) — không render thì các reader transcript (readiness gate, bản đồ bao phủ, bước
-        // soạn Product Brief) không hề thấy chuỗi bước mà người dùng đã duyệt bằng hình: tài liệu được
-        // soạn "mù" đúng phần luồng đã chốt kỹ nhất.
+        // (FlowDiagram) — không render thì các reader transcript (bản đồ bao phủ, bước soạn Product
+        // Brief) không hề thấy chuỗi bước mà người dùng đã duyệt bằng hình: tài liệu được soạn "mù"
+        // đúng phần luồng đã chốt kỹ nhất.
         var flowSteps = ParseFlowDiagram(turn.FlowDiagram);
         if (flowSteps.Count > 0)
         {

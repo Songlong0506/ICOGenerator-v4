@@ -62,10 +62,12 @@
     var displaySuggestions = lastBaSuggestions;
 
     // Nút "Write Requirement" hiện "sẵn sàng" (nổi bật) khi lượt BA mới nhất MỜI người dùng bấm nút — tức
-    // lời nhắn có nhắc tới "Write Requirement". Prompt ép model chỉ mời bấm khi đã khai thác đủ thông tin,
-    // nên chính nội dung lời nhắn là tín hiệu sẵn sàng (khớp với lời mời, không còn cờ ready lưu riêng).
-    // Khi chưa mời — kể cả lúc workspace còn trống — nút ở trạng thái "mờ" kèm ghi chú: BA vẫn đang hỏi thêm,
-    // nhưng người dùng VẪN có thể bấm tạo ngay (gate readiness phía server vẫn chặn nếu thực sự thiếu thông tin).
+    // lời nhắn có nhắc tới "Write Requirement". Lời mời chỉ được LƯU sau khi cổng readiness tất định
+    // (RequirementReadinessGate.Evaluate — mọi dòng áp dụng của bản đồ bao phủ đã [RÕ]) pass ngay trong
+    // lượt chat, nên nút nổi ⇔ panel "Tiến độ khai thác" bên cạnh cũng đã đầy — cùng một nguồn dữ liệu,
+    // không thể vênh nhau. Khi chưa mời — kể cả lúc workspace còn trống — nút ở trạng thái "mờ" kèm ghi chú:
+    // BA vẫn đang hỏi thêm, nhưng người dùng VẪN có thể bấm tạo ngay (cổng tất định phía server vẫn chặn
+    // nếu bản đồ thực sự còn thiếu).
     var lastBaTurn = conversations.LastOrDefault(c => c.Role == "assistant");
     var requirementReady = lastBaTurn?.Message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
 

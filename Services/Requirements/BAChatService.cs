@@ -12,8 +12,8 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Một lượt chat với BA (luồng đồng bộ phía user): lắp ngữ cảnh (memory hai tầng, hồ sơ user, bản đồ bao
-/// phủ, bối cảnh tổ chức, tài liệu nguồn) → gọi LLM → chạy cổng readiness ngay khi BA định mời bấm
-/// "Write Requirement" → lưu lượt trả lời. Các bước sinh tài liệu nằm ở
+/// phủ, bối cảnh tổ chức, tài liệu nguồn) → gọi LLM → xét cổng readiness TẤT ĐỊNH trên bản đồ bao phủ
+/// ngay khi BA định mời bấm "Write Requirement" → lưu lượt trả lời. Các bước sinh tài liệu nằm ở
 /// <see cref="ProductBriefDraftService"/> và <see cref="RequirementDocsService"/>.
 /// </summary>
 public class BAChatService
@@ -27,7 +27,6 @@ public class BAChatService
     private readonly UserMemoryService _userMemory;
     private readonly RequirementCoverageService _coverage;
     private readonly OrganizationContextService _orgContext;
-    private readonly RequirementReadinessGate _readinessGate;
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
     private readonly DecisionLogService _decisionLog;
@@ -45,7 +44,6 @@ public class BAChatService
         UserMemoryService userMemory,
         RequirementCoverageService coverage,
         OrganizationContextService orgContext,
-        RequirementReadinessGate readinessGate,
         BAAgentResolver agentResolver,
         BAConversationLog conversationLog,
         DecisionLogService decisionLog,
@@ -62,7 +60,6 @@ public class BAChatService
         _userMemory = userMemory;
         _coverage = coverage;
         _orgContext = orgContext;
-        _readinessGate = readinessGate;
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
         _decisionLog = decisionLog;
@@ -272,32 +269,16 @@ public class BAChatService
             // sẽ xóa nếu lời mời bị thay bằng câu hỏi (khi đó chưa nên vẽ luồng vì còn thiếu thông tin).
             flowDiagram = parsedReply.FlowDiagram ?? new List<FlowStep>();
 
-            // Lượt MỜI bấm "Write Requirement" phải qua ĐÚNG cổng readiness của bước sinh tài liệu NGAY
-            // TẠI ĐÂY, trước khi người dùng nhìn thấy lời mời. Không kiểm ở đây thì hai "giám khảo" (BA
-            // chat tự thấy đủ, gate lúc bấm nút lại chê thiếu) vênh nhau: BA mời bấm nút, người dùng bấm
-            // thì bị chặn "cần bổ sung thông tin" — lặp đi lặp lại rất khó chịu. Gate chê thiếu ⇒ thay
-            // lời mời bằng chính câu hỏi của gate (hỏi tiếp ngay trong chat, nút vẫn mờ); gate pass ⇒ giữ
-            // lời mời và bước sinh tài liệu sẽ KHÔNG chạy lại gate trên cùng transcript (xem
-            // ProductBriefDraftService.GenerateOrUpdateDraftAsync). Vẫn một cổng, một tiêu chuẩn — chỉ
-            // chạy sớm hơn.
+            // Lượt MỜI bấm "Write Requirement" phải qua cổng readiness TẤT ĐỊNH ngay tại đây, trước khi
+            // người dùng nhìn thấy lời mời: ready suy thẳng từ bản đồ bao phủ (đã gộp tới lượt user mới
+            // nhất ở đầu lượt này) — cùng dữ liệu mà panel "Tiến độ khai thác" render, nên panel, lời mời
+            // và nút KHÔNG THỂ vênh nhau. Bản đồ chưa đủ (kể cả khi lượt gộp lỗi giữ bản cũ — fail-closed,
+            // lượt sau gộp bù) ⇒ thay lời mời bằng câu hỏi nêu đúng nhóm còn thiếu, nút vẫn mờ; đủ ⇒ giữ
+            // lời mời và bước sinh tài liệu KHÔNG xét lại trên cùng transcript (xem
+            // ProductBriefDraftService.GenerateOrUpdateDraftAsync). Một nguồn chân lý, một tiêu chuẩn.
             if (RequirementReadinessGate.IsWriteRequirementInvite(reply))
             {
-                onStatus?.Invoke("Đang kiểm tra đã khai thác đủ thông tin chưa…");
-
-                // Gate phải thấy ĐÚNG transcript mà lần bấm nút sẽ thấy: toàn bộ hội thoại đã lưu (gồm
-                // lượt user vừa lưu ở trên) + chính lời mời này (chưa lưu, đính tạm vào cuối — chỉ vào
-                // list cục bộ, không vào change tracker ⇒ AsNoTracking cho cả lượt đọc này).
-                var allTurns = await _db.AgentConversations
-                    .AsNoTracking()
-                    .Where(c => c.ProjectId == projectId)
-                    .ToListAsync(cancellationToken);
-                allTurns.Add(new AgentConversation { Role = "assistant", Message = reply, CreatedAt = DateTime.UtcNow });
-
-                var readiness = await _readinessGate.CheckAsync(projectId, ba, model,
-                    ConversationTranscriptBuilder.Build(allTurns)
-                        + RequirementReadinessGate.BuildSourceBriefNote(sources)
-                        + RequirementReadinessGate.BuildCoverageNote(project),
-                    cancellationToken);
+                var readiness = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap);
                 if (!readiness.Ready)
                 {
                     reply = string.IsNullOrWhiteSpace(readiness.Message)

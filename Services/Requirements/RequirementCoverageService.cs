@@ -14,9 +14,12 @@ namespace ICOGenerator.Services.Requirements;
 /// <see cref="ChecklistGapMemoryService"/> rút kinh nghiệm bộ câu hỏi), service này duy trì một bảng
 /// trạng thái theo 12 nhóm thông tin cố định (khớp checklist trong <c>Prompts/BusinessAnalyst/requirement-chat.v3.md</c>):
 /// nhóm nào đã [RÕ], nhóm nào [MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG] — lưu trên
-/// <see cref="Project.RequirementCoverageMap"/>. BA đọc bản đồ để chọn câu hỏi kế tiếp thay vì phỏng vấn
-/// tuyến tính, còn cổng readiness đối chiếu từng dòng (mọi dòng áp dụng phải [RÕ]/[KHÔNG ÁP DỤNG])
-/// thay vì đoán lại từ đầu.
+/// <see cref="Project.RequirementCoverageMap"/>. Bản đồ là NGUỒN CHÂN LÝ DUY NHẤT của độ sẵn sàng:
+/// BA đọc nó để chọn câu hỏi kế tiếp, panel "Tiến độ khai thác" render nó, và
+/// <see cref="RequirementReadinessGate"/> suy ready TẤT ĐỊNH từ nó (mọi dòng áp dụng [RÕ] ⇔ cho phép
+/// "Write Requirement") — không còn lời gọi LLM nào chấm lại, nên lượt distill này chính là "giám khảo"
+/// và tiêu chí thẩm định nằm trong prompt requirement-coverage.v2. Distill đọc cả text tài liệu nguồn
+/// để không bắt người dùng gõ lại điều tài liệu đính kèm đã có.
 /// <para>
 /// Khác hai bộ nhớ kia, việc cập nhật KHÔNG gom theo lô: bản đồ phải tươi ở từng lượt mới dẫn được câu
 /// hỏi kế tiếp, nên mỗi lượt chat gộp ngay các lượt mới (thường chỉ 1–2 lượt → lời gọi rất nhẹ). Vẫn
@@ -59,7 +62,15 @@ public class RequirementCoverageService
         if (delta.Count == 0)
             return project.RequirementCoverageMap;
 
-        var updated = await DistillAsync(project.RequirementCoverageMap, delta, ba, model, project.Id, cancellationToken);
+        // Text tài liệu nguồn (nếu có) đi kèm MỌI lần distill có lượt mới: thông tin trong tài liệu có
+        // giá trị như lời người dùng nói, để bản đồ không treo [CHƯA HỎI] thứ tài liệu đã trả lời.
+        var sources = await _db.ProjectSourceFiles
+            .AsNoTracking()
+            .Where(s => s.ProjectId == project.Id)
+            .OrderBy(s => s.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var updated = await DistillAsync(project.RequirementCoverageMap, delta, sources, ba, model, project.Id, cancellationToken);
         if (updated != null)
         {
             project.RequirementCoverageMap = string.IsNullOrWhiteSpace(updated) ? null : updated;
@@ -71,9 +82,9 @@ public class RequirementCoverageService
         return project.RequirementCoverageMap;
     }
 
-    // Gộp bản đồ hiện có + các lượt mới thành MỘT bản đồ duy nhất. Trả về null khi lời gọi lỗi/rỗng để
-    // caller fail-open (giữ bản đồ cũ, không dời con trỏ).
-    private async Task<string?> DistillAsync(string? existingMap, List<AgentConversation> turns, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
+    // Gộp bản đồ hiện có + các lượt mới (+ text tài liệu nguồn) thành MỘT bản đồ duy nhất. Trả về null
+    // khi lời gọi lỗi/rỗng để caller fail-open (giữ bản đồ cũ, không dời con trỏ).
+    private async Task<string?> DistillAsync(string? existingMap, List<AgentConversation> turns, List<ProjectSourceFile> sources, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(existingMap))
@@ -89,10 +100,11 @@ public class RequirementCoverageService
             // câu trả lời tham chiếu ("Cả hai mục tiêu trên") không trỏ vào khoảng không → mất context.
             sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
         }
+        sb.Append(BuildSourceBriefNote(sources));
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _prompts.Get("BusinessAnalyst/requirement-coverage.v1.md")),
+            new(ChatRole.System, _prompts.Get("BusinessAnalyst/requirement-coverage.v2.md")),
             new(ChatRole.User, sb.ToString())
         };
 
@@ -105,5 +117,29 @@ public class RequirementCoverageService
 
         var map = result.Content.Trim();
         return map.Length > MaxCoverageChars ? map[..MaxCoverageChars] : map;
+    }
+
+    // Tóm tắt (text) tài liệu nguồn cho lượt distill — call text-only nên KHÔNG kèm ảnh được; bù lại
+    // nêu tên file + trích text (bóc từ PDF) có giới hạn, để bản đồ ghi nhận được thứ tài liệu đã có.
+    private static string BuildSourceBriefNote(List<ProjectSourceFile> sources)
+    {
+        if (sources.Count == 0)
+            return string.Empty;
+
+        const int maxCharsPerFile = 4000;
+        var sb = new StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine($"## Tài liệu nguồn (người dùng đã đính kèm {sources.Count} tài liệu: {string.Join(", ", sources.Select(s => s.FileName))})");
+        foreach (var s in sources)
+        {
+            if (string.IsNullOrWhiteSpace(s.ExtractedText))
+                continue;
+            var text = s.ExtractedText!.Length > maxCharsPerFile
+                ? s.ExtractedText[..maxCharsPerFile] + "…(đã cắt bớt)"
+                : s.ExtractedText;
+            sb.AppendLine($"[Nội dung trích từ {s.FileName}]");
+            sb.AppendLine(text);
+        }
+        return sb.ToString();
     }
 }
