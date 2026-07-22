@@ -21,8 +21,6 @@
     string ActorDisplay(string? username) =>
         string.IsNullOrWhiteSpace(username) ? ""
             : (Model.ActorDisplayNames.TryGetValue(username.Trim(), out var dn) ? dn : username);
-    string ActorWithRole(string? username, string? role) =>
-        ActorDisplay(username) + (string.IsNullOrEmpty(role) ? "" : $" · {role}");
 }
 
 @section Styles {
@@ -41,13 +39,7 @@
     TargetSelector = "#auditTable",
     FilterPanelId = "auditFilter",
     FilterPanelOpen = Model.CategoryFilter != null,
-    FilterActive = Model.CategoryFilter != null,
-    SortOptions = new[]
-    {
-        new CommandBarSort { Label = "Thời gian mới nhất", Column = 4, Descending = true },
-        new CommandBarSort { Label = "Thời gian cũ nhất", Column = 4 },
-        new CommandBarSort { Label = "Loại (A→Z)", Column = 0 },
-    }
+    FilterActive = Model.CategoryFilter != null
 })
 
 <div id="auditFilter" class="card filter-card cbar-panel">
@@ -98,7 +90,7 @@ else
                         <td><span class="badge @CategoryBadge(item.Category)">@item.Category.GetTitle()</span></td>
                         <td><span class="badge @ActionBadge(item.Action)">@item.Action.GetTitle()</span></td>
                         <td class="audit-summary">@item.Summary</td>
-                        <td>@ActorWithRole(item.ActorUsername, item.ActorRole)</td>
+                        <td>@item.ActorUsername</td>
                         <td class="audit-time">@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
                         <td class="actions">
                             <button class="btn small outline"
@@ -109,7 +101,7 @@ else
                                     data-action="@item.Action.GetTitle()"
                                     data-action-class="@ActionBadge(item.Action)"
                                     data-summary="@item.Summary"
-                                    data-actor="@ActorWithRole(item.ActorUsername, item.ActorRole)"
+                                    data-actor="@item.ActorUsername"
                                     data-time="@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")"
                                     data-entity="@item.EntityId"
                                     data-before="@(item.BeforeJson ?? "")"
@@ -138,7 +130,7 @@ else
     <div class="modal audit-detail-modal">
         <button type="button" class="x" onclick="closeModal('auditDetail')">×</button>
 
-        <h2>Chi tiết thay đổi</h2>
+        <h2>Detail Change</h2>
 
         <div class="audit-detail-head">
             <span class="badge" id="audit-detail-category"></span>
@@ -149,32 +141,32 @@ else
 
         <dl class="audit-detail-meta">
             <div>
-                <dt>Người thực hiện</dt>
+                <dt>Performed By</dt>
                 <dd id="audit-detail-actor"></dd>
             </div>
             <div>
-                <dt>Thời gian</dt>
+                <dt>Time</dt>
                 <dd id="audit-detail-time"></dd>
             </div>
             <div>
-                <dt>Đối tượng</dt>
+                <dt>Object</dt>
                 <dd id="audit-detail-entity"></dd>
             </div>
         </dl>
 
         <div class="audit-diff-grid" id="audit-detail-diff">
             <div>
-                <h4>Trước</h4>
+                <h4>Before</h4>
                 <pre class="audit-json" id="audit-detail-before"></pre>
             </div>
             <div>
-                <h4>Sau</h4>
+                <h4>After</h4>
                 <pre class="audit-json" id="audit-detail-after"></pre>
             </div>
         </div>
 
         <div class="modal-actions">
-            <button type="button" class="btn" onclick="closeModal('auditDetail')">Đóng</button>
+            <button type="button" class="btn" onclick="closeModal('auditDetail')">Close</button>
         </div>
     </div>
 </div>

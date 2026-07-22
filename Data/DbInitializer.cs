@@ -34,8 +34,8 @@ public static class DbInitializer
         if (!await db.AiModels.AnyAsync())
         {
             db.AiModels.AddRange(
-                new AiModel { ModelId = "qwen3.6-27b@q3_k_s", Endpoint = "http://127.0.0.1:1234/v1", ApiKey = "lm-studio", ContextWindow = 128000 },
-                new AiModel { ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "", ContextWindow = 1000000, InputPricePerMillionTokens = 0.14m, OutputPricePerMillionTokens = 0.28m }
+                new AiModel { ModelId = "qwen3.6-27b@q3_k_s", Endpoint = "http://127.0.0.1:1234/v1", ApiKey = "lm-studio", SupportsVision = false, ContextWindow = 128000 },
+                new AiModel { ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "", SupportsVision = true, ContextWindow = 1000000, InputPricePerMillionTokens = 0.14m, OutputPricePerMillionTokens = 0.28m }
             );
             await db.SaveChangesAsync();
         }

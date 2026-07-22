@@ -21,9 +21,6 @@ public sealed class CommandBarModel
     /// </summary>
     public string? TargetSelector { get; init; }
 
-    /// <summary>Các tuỳ chọn sắp xếp client-side. Rỗng thì ẩn nút Sort.</summary>
-    public IReadOnlyList<CommandBarSort> SortOptions { get; init; } = Array.Empty<CommandBarSort>();
-
     /// <summary>Id panel lọc (server-side) mà nút "Filter" bật/tắt. Null thì ẩn nút Filter.</summary>
     public string? FilterPanelId { get; init; }
 
@@ -39,24 +36,7 @@ public sealed class CommandBarModel
     /// <summary>Nút hành động chính bên phải (thường là "New …" / "Add …" / "Chạy …").</summary>
     public CommandBarButton? Primary { get; init; }
 
-    public bool HasSort => SortOptions.Count > 0 && TargetSelector != null;
     public bool HasSearch => TargetSelector != null;
-}
-
-/// <summary>Một tuỳ chọn sắp xếp client-side cho bảng.</summary>
-public sealed class CommandBarSort
-{
-    /// <summary>Nhãn hiển thị trong menu Sort (vd "Name A→Z").</summary>
-    public required string Label { get; init; }
-
-    /// <summary>Chỉ số cột (0-based) để so sánh.</summary>
-    public int Column { get; init; }
-
-    /// <summary>Sắp xếp giảm dần.</summary>
-    public bool Descending { get; init; }
-
-    /// <summary>So sánh dạng số thay vì chuỗi.</summary>
-    public bool Numeric { get; init; }
 }
 
 /// <summary>Một nút trên command bar (pill giữa thanh hoặc nút chính) — luôn mở modal qua OnClick.</summary>

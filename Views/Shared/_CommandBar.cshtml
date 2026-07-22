@@ -40,27 +40,6 @@
         </button>
     }
 
-    @if (Model.HasSort)
-    {
-        <div class="cbar-menu-wrap" data-cbar-menu>
-            <button type="button" class="cbar-btn" data-cbar-menu-toggle aria-haspopup="true" aria-expanded="false">
-                <i class="bi bi-sort-down" aria-hidden="true"></i>
-                <span>Sort</span>
-            </button>
-            <div class="cbar-menu" role="menu" hidden>
-                @foreach (var s in Model.SortOptions)
-                {
-                    <button type="button" class="cbar-menu-item" role="menuitem"
-                            data-cbar-sort data-col="@s.Column"
-                            data-dir="@(s.Descending ? "desc" : "asc")"
-                            data-numeric="@(s.Numeric ? "1" : "0")">
-                        @s.Label
-                    </button>
-                }
-            </div>
-        </div>
-    }
-
     @foreach (var pill in Model.Pills)
     {
         RenderButton(pill, "cbar-btn", "");

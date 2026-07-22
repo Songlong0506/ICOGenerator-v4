@@ -44,13 +44,6 @@
 {
     SearchPlaceholder = "Search models…",
     TargetSelector = "#modelsTable",
-    SortOptions = new[]
-    {
-        new CommandBarSort { Label = "Model ID A→Z", Column = 0 },
-        new CommandBarSort { Label = "Model ID Z→A", Column = 0, Descending = true },
-        new CommandBarSort { Label = "Context window ↑", Column = 1, Numeric = true },
-        new CommandBarSort { Label = "Context window ↓", Column = 1, Numeric = true, Descending = true },
-    },
     Primary = new CommandBarButton { Label = "Add Model", Icon = "bi-plus-lg", OnClick = "openModal('addModel')" }
 })
 
@@ -60,8 +53,8 @@
             <tr>
                 <th>Model ID</th>
                 <th>Context Window</th>
-                <th title="Đơn giá token đầu vào, tính theo 1 triệu token">Input $/1M</th>
-                <th title="Đơn giá token đầu ra, tính theo 1 triệu token">Output $/1M</th>
+                <th>Input $/1M</th>
+                <th>Output $/1M</th>
                 <th>Status</th>
                 <th>Actions</th>
             </tr>
