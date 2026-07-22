@@ -260,16 +260,11 @@
             const errBlock = err ? `<pre class="wf-err">${escapeHtml(err)}</pre>` : '';
 
             // Lỗi thường là tạm thời (LLM rớt kết nối) → cho MỌI vai trò bấm "Thử lại" chạy lại đúng bước
-            // đã hỏng ngay tại đây. Trước đây chỉ TeamDev/Admin được dẫn sang Agent Dashboard, nhưng user
-            // thường (người chạy "Write Requirement") lại không có quyền vào trang đó nên bị kẹt.
-            // TeamDev/Admin vẫn có link sang dashboard cho các thao tác khác (duyệt/yêu cầu chỉnh sửa…).
-            const dashboardLink = CAN_ADVANCE
-                ? ` <a class="btn outline" href="${DASHBOARD_URL}">Mở Agent Dashboard</a>`
-                : '';
+            // đã hỏng ngay tại đây (user thường chạy "Write Requirement" không có quyền vào Agent Dashboard).
             slot.innerHTML =
                 `<div class="wf-banner wf-fail">✗ Workflow thất bại.${errBlock}` +
                 `<div class="wf-fail-actions">` +
-                    `<button type="button" class="btn wf-retry-btn">↻ Thử lại</button>${dashboardLink}` +
+                    `<button type="button" class="btn wf-retry-btn">↻ Thử lại</button>` +
                 `</div></div>`;
 
             const retryBtn = slot.querySelector('.wf-retry-btn');
