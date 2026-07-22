@@ -24,6 +24,26 @@ public sealed class PocNavItem
     /// </summary>
     public static List<PocNavItem> ParseList(JsonElement element)
     {
+        // Models sometimes DOUBLE-ENCODE the array: navItems arrives as the string "[{\"label\":…}]"
+        // instead of a JSON array. Unwrap it here — dropping it silently left generated POCs with all
+        // their page-view sections but no matching sidebar tabs to open them.
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            var raw = element.GetString();
+            if (!string.IsNullOrWhiteSpace(raw) && raw.TrimStart().StartsWith('['))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(raw);
+                    return ParseList(doc.RootElement);
+                }
+                catch (JsonException)
+                {
+                    // not valid JSON after all — fall through to the empty result below
+                }
+            }
+        }
+
         var result = new List<PocNavItem>();
         if (element.ValueKind != JsonValueKind.Array)
             return result;
