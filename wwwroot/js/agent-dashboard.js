@@ -104,6 +104,8 @@ document.addEventListener('DOMContentLoaded', function () {
 // Current agent whose call logs the modal is showing (kept so the pager can re-fetch pages).
 let logsAgentId = null;
 let logsAgentName = null;
+// Số dòng mỗi trang cho popup Call Logs ("Elements per page" — mẫu bảng chuẩn Bosch).
+let logsPageSize = 10;
 
 function loadAgentLogs(agentId, agentName) {
 
@@ -152,6 +154,7 @@ function buildLogsUrl(page) {
     params.set('projectId', PROJECT_ID);
     params.set('agentId', logsAgentId);
     params.set('page', page);
+    params.set('pageSize', logsPageSize);
 
     const f = getLogFilters();
     if (f.fromUtc) params.set('fromUtc', f.fromUtc);
@@ -285,42 +288,78 @@ async function loadAgentLogsPage(page) {
     renderLogsPager(result);
 }
 
-// Build the pager below the logs table. Mirrors the Projects table pager (Prev / numbered
-// pages / Next) so the popup uses the same look and behaviour.
+// Đổi số dòng mỗi trang rồi tải lại từ trang 1.
+function setLogsPageSize(value) {
+    const n = parseInt(value, 10);
+    if (n > 0) logsPageSize = n;
+    return loadAgentLogsPage(1);
+}
+
+// Chuỗi số trang cần hiển thị, chèn '...' làm dấu ellipsis — khớp mẫu Bosch (1 2 3 4 5 … N).
+function logsPageItems(current, total) {
+    const items = [];
+    if (total <= 7) {
+        for (let i = 1; i <= total; i++) items.push(i);
+        return items;
+    }
+    let start = Math.max(2, current - 1);
+    let end = Math.min(total - 1, current + 1);
+    if (current <= 4) { start = 2; end = 5; }
+    if (current >= total - 3) { start = total - 4; end = total - 1; }
+    items.push(1);
+    if (start > 2) items.push('...');
+    for (let i = start; i <= end; i++) items.push(i);
+    if (end < total - 1) items.push('...');
+    items.push(total);
+    return items;
+}
+
+// Dựng footer phân trang theo mẫu bảng chuẩn Bosch (dùng chung class .pager* với site.css):
+// ô "Elements per page" bên trái + dải số trang tròn bên phải (chevron ‹ ›, trang hiện tại
+// là chấm xanh). Select được nâng cấp thành combo Bosch qua dropdown.js.
 function renderLogsPager(result) {
 
     const pager = document.getElementById('logs-pager');
-    const totalCount = result.totalCount || 0;
     const totalPages = result.totalPages || 0;
     const page = result.page || 1;
 
-    const summary =
-        `<span>Showing ${result.firstItemIndex || 0} to ${result.lastItemIndex || 0} of ${totalCount} call logs</span>`;
+    const options = [10, 50, 100]
+        .map(n => `<option value="${n}"${n === logsPageSize ? ' selected' : ''}>${n}</option>`)
+        .join('');
+    let html =
+        '<div class="pager-size">'
+        + '<select data-caption="Elements per page" aria-label="Elements per page"'
+        + ' onchange="setLogsPageSize(this.value)">' + options + '</select>'
+        + '</div>';
 
-    if (totalPages <= 1) {
-        pager.innerHTML = summary;
-        return;
+    if (totalPages > 1) {
+        html += '<div class="pager-pages">';
+        html += result.hasPrevious
+            ? `<button type="button" class="pager-nav" aria-label="Previous page" onclick="loadAgentLogsPage(${page - 1})"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>`
+            : '<span class="pager-nav is-disabled" aria-hidden="true"><i class="bi bi-chevron-left"></i></span>';
+
+        logsPageItems(page, totalPages).forEach(item => {
+            if (item === '...') {
+                html += '<span class="pager-ellipsis">…</span>';
+            } else if (item === page) {
+                html += `<span class="pager-page is-active" aria-current="page">${item}</span>`;
+            } else {
+                html += `<button type="button" class="pager-page" onclick="loadAgentLogsPage(${item})">${item}</button>`;
+            }
+        });
+
+        html += result.hasNext
+            ? `<button type="button" class="pager-nav" aria-label="Next page" onclick="loadAgentLogsPage(${page + 1})"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>`
+            : '<span class="pager-nav is-disabled" aria-hidden="true"><i class="bi bi-chevron-right"></i></span>';
+        html += '</div>';
     }
 
-    let controls = '<div class="logs-pager-controls">';
+    pager.classList.add('pager');
+    pager.innerHTML = html;
 
-    controls += result.hasPrevious
-        ? `<button class="btn outline" onclick="loadAgentLogsPage(${page - 1})">‹ Prev</button>`
-        : '<span class="btn outline disabled">‹ Prev</span>';
-
-    for (let i = 1; i <= totalPages; i++) {
-        controls += i === page
-            ? `<span class="btn primary">${i}</span>`
-            : `<button class="btn" onclick="loadAgentLogsPage(${i})">${i}</button>`;
-    }
-
-    controls += result.hasNext
-        ? `<button class="btn outline" onclick="loadAgentLogsPage(${page + 1})">Next ›</button>`
-        : '<span class="btn outline disabled">Next ›</span>';
-
-    controls += '</div>';
-
-    pager.innerHTML = summary + controls;
+    // Select dựng động nên dropdown.js (chỉ tự nâng cấp lúc tải trang) chưa xử lý — nâng cấp tại đây.
+    const sel = pager.querySelector('select');
+    if (sel && window.CsDropdown) window.CsDropdown.enhance(sel);
 }
 
 function closeLogsModal() {

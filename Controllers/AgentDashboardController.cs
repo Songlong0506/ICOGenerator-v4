@@ -123,7 +123,7 @@ public class AgentDashboardController : Controller
 
     [HttpGet]
     public async Task<IActionResult> AgentCallLogs(
-        Guid projectId, Guid agentId, int page = 1,
+        Guid projectId, Guid agentId, int page = 1, int pageSize = 10,
         string? purpose = null, string? status = null,
         long? minDurationMs = null, long? maxDurationMs = null,
         DateTime? fromUtc = null, DateTime? toUtc = null)
@@ -131,8 +131,11 @@ public class AgentDashboardController : Controller
         if (!await CanAccessProjectAsync(projectId))
             return NotFound();
 
+        // "Elements per page" chỉ nhận các giá trị chuẩn; ngoài danh sách thì về mặc định.
+        if (pageSize is not (10 or 50 or 100)) pageSize = 10;
+
         return Json(await _getAgentCallLogsQuery.ExecuteAsync(
-            projectId, agentId, page, GetAgentCallLogsQuery.DefaultPageSize,
+            projectId, agentId, page, pageSize,
             purpose, status, minDurationMs, maxDurationMs, fromUtc, toUtc));
     }
 
