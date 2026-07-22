@@ -68,6 +68,12 @@
     /* ---- Neutral surfaces (canonical replacements for scattered slate hex) ---- */
     --surface-alt: #f7f8f9;   /* table headers, filter bars, subtle fills */
     --surface-hover: #f3f6f9; /* row / item hover */
+
+    /* ---- Bosch standard data table ---- */
+    --table-stripe: #f3f5f6;      /* zebra: shaded row (odd rows) */
+    --table-hover: #e0e5e9;       /* row hover — clearly darker than the stripe */
+    --table-header-ink: var(--ink); /* header label colour (dark, bold) */
+    --table-header-line: #9aa0a6; /* solid rule under the header row */
     --code-bg: var(--slate-900); /* dark JSON / code viewers */
     --code-ink: var(--slate-200);
 
@@ -328,9 +334,16 @@ a:hover { color: var(--bosch-blue-hover); text-decoration: underline; }
     padding: 20px;
 }
 
-.table-card { padding: 0; overflow: hidden; }
+/* No clipping: the pager's "Elements per page" dropdown panel opens below the
+   footer and must be free to overflow the card. Wide tables scroll inside their
+   own .table-wrap, so the card itself does not need to clip. */
+.table-card { padding: 0; }
 
-/* ---------- Tables ---------- */
+/* ---------- Tables (Bosch standard) ----------
+   One look for every table in the app: white surface, dark bold header with a
+   single solid rule beneath it, zebra-striped body rows, and a distinct grey
+   hover on the whole row. Restyle app-wide by editing the tokens above and the
+   rules here — screens should not redefine these. */
 table { width: 100%; border-collapse: collapse; background: var(--surface); }
 
 th, td {
@@ -341,13 +354,27 @@ th, td {
 }
 
 th {
-    color: var(--muted);
+    color: var(--table-header-ink);
     font-weight: 700;
-    background: var(--surface-alt);
-    border-bottom: 2px solid var(--line);
+    background: var(--surface);
+    border-bottom: 1px solid var(--table-header-line);
+    white-space: nowrap;
 }
 
-tbody tr:hover td { background: var(--surface-hover); }
+/* Zebra striping — shaded odd rows, matching the Bosch reference. Applied at the
+   row (tr) level, not the cell, so a screen can still tint a whole row via a
+   higher-specificity class (e.g. an "active"/"selected" state) and have it show. */
+tbody tr:nth-child(odd) { background: var(--table-stripe); }
+
+/* Row hover overrides the stripe with a clearly darker grey. */
+tbody tr:hover { background: var(--table-hover); }
+
+/* Client-paginated tables (site.js) stripe by the *visible* row order, not the
+   DOM position, so the zebra pattern stays correct as pages change. These rules
+   sit after the nth-child one and carry higher specificity, so they win. */
+[data-paginate] tbody tr { background: var(--surface); }
+[data-paginate] tbody tr.pgr-stripe { background: var(--table-stripe); }
+[data-paginate] tbody tr:hover { background: var(--table-hover); }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -436,8 +463,126 @@ tbody tr:hover td { background: var(--surface-hover); }
 .badge.orange { color: var(--warning); background: rgba(245,130,32,.16); }
 .badge.gray { color: var(--muted); background: #e7eaec; }
 
-/* ---------- Pager ---------- */
-.pager { padding: 18px 22px; color: var(--muted); }
+/* ---------- Pager (Bosch standard table footer) ----------
+   One footer for every table: an "Elements per page" selector on the left and
+   a numbered page strip on the right (chevron ‹ ›, round page buttons, the
+   active page as a filled Bosch-blue circle). Server-rendered pagers (Razor
+   links) and the client pager built by site.js share these classes so they
+   render identically. */
+.pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 13px;
+}
+
+/* "Elements per page" selector (left). */
+.pager-size {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-weight: 400;
+    font-size: 13px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.pager-size select {
+    min-height: 38px;
+    padding: 6px 30px 6px 12px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a6066' d='M2 4l4 4 4-4z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+
+.pager-size select:focus,
+.pager-size select:focus-visible {
+    outline: none;
+    border-color: var(--bosch-blue);
+    box-shadow: var(--focus-ring);
+}
+
+/* Summary text ("Showing 1 to 10 of …") — optional, sits beside the selector. */
+.pager-summary { color: var(--muted); font-size: 13px; }
+
+/* Numbered page strip (right). */
+.pager-pages,
+.pager-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.pager-page,
+.pager-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background .12s;
+}
+
+.pager-page:hover,
+.pager-nav:hover { background: var(--table-hover); text-decoration: none; }
+
+.pager-page.is-active,
+.pager-page.is-active:hover {
+    background: var(--bosch-blue);
+    color: #fff;
+    font-weight: 700;
+    cursor: default;
+}
+
+.pager-nav { color: var(--muted); }
+
+.pager-nav.is-disabled,
+.pager-nav[disabled] {
+    opacity: .35;
+    pointer-events: none;
+    cursor: default;
+}
+
+.pager-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 34px;
+    color: var(--muted);
+    user-select: none;
+}
+
+@media (max-width: 600px) {
+    .pager { flex-direction: column; align-items: stretch; }
+    .pager-pages, .pager-controls { margin-left: 0; justify-content: center; flex-wrap: wrap; }
+    .pager-size { justify-content: space-between; }
+}
 
 /* ---------- Forms ---------- */
 label { display: block; font-weight: 700; font-size: 13px; color: var(--muted); margin: 16px 0 6px; }
@@ -935,14 +1080,15 @@ input[type="week"] {
 }
 
 .data-table th {
-    background: var(--surface-alt);
-    color: var(--muted);
+    background: var(--surface);
+    color: var(--table-header-ink);
     font-weight: 700;
     white-space: nowrap;
+    border-bottom: 1px solid var(--table-header-line);
 }
 
+/* Zebra + hover come from the global tbody rules above (row-level). */
 .data-table tbody tr:last-child td { border-bottom: 0; }
-.data-table tbody tr:hover td { background: var(--surface-hover); }
 .data-table .num-col { text-align: right; white-space: nowrap; }
 
 /* ---------- Dropdown / combo (single + multi select) ----------

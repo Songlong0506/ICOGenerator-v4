@@ -82,7 +82,7 @@
         <span class="muted">@Model.Scenarios.Count(s => s.IsActive) đang bật / @Model.Scenarios.Count tổng</span>
     </div>
     <div class="table-wrap">
-        <table id="evalScenarios" class="data-table">
+        <table id="evalScenarios" class="data-table" data-paginate data-page-size="10">
             <thead>
                 <tr>
                     <th>Tên</th>
@@ -140,7 +140,7 @@
         </button>
     </div>
     <div class="table-wrap">
-        <table class="data-table">
+        <table class="data-table" data-paginate data-page-size="10">
             <thead>
                 <tr>
                     <th class="eval-cmp-col" title="Chọn 2 run để so sánh"></th>

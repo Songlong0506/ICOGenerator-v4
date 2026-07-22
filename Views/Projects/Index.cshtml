@@ -18,12 +18,12 @@
 
     // Link phân trang phải giữ nguyên bộ lọc. Org Unit giờ chọn nhiều (mảng) nên asp-route-* không dựng
     // được — tự ghép query string với đủ các tham số orgUnit lặp lại + status.
-    string PageUrl(int targetPage)
+    string BuildUrl(int targetPage, int targetPageSize)
     {
         var qs = new List<string>
         {
             $"page={targetPage}",
-            $"pageSize={Model.PageSize}"
+            $"pageSize={targetPageSize}"
         };
         foreach (var code in selectedOrgUnits)
             qs.Add($"orgUnit={Uri.EscapeDataString(code)}");
@@ -31,6 +31,8 @@
             qs.Add($"status={Model.SelectedStatus}");
         return $"{Url.Action("Index")}?{string.Join("&", qs)}";
     }
+
+    string PageUrl(int targetPage) => BuildUrl(targetPage, Model.PageSize);
 }
 @* Command bar (mẫu Bosch): bộ lọc Org Unit + Status nằm ngay trên thanh, nút "Lọc" áp dụng
    (form GET nên bộ lọc nằm trong URL — chia sẻ được và giữ nguyên khi phân trang), nút "New
@@ -164,43 +166,14 @@
             }
         </tbody>
     </table>
-    <div class="pager">
-        <span>Showing @Model.FirstItemIndex to @Model.LastItemIndex of @Model.TotalCount projects</span>
-        @if (Model.TotalPages > 1)
-        {
-            <div class="pager-controls">
-                @if (Model.HasPrevious)
-                {
-                    <a class="btn outline" href="@PageUrl(Model.Page - 1)">‹ Prev</a>
-                }
-                else
-                {
-                    <span class="btn outline disabled">‹ Prev</span>
-                }
-
-                @for (var i = 1; i <= Model.TotalPages; i++)
-                {
-                    if (i == Model.Page)
-                    {
-                        <span class="btn primary">@i</span>
-                    }
-                    else
-                    {
-                        <a class="btn" href="@PageUrl(i)">@i</a>
-                    }
-                }
-
-                @if (Model.HasNext)
-                {
-                    <a class="btn outline" href="@PageUrl(Model.Page + 1)">Next ›</a>
-                }
-                else
-                {
-                    <span class="btn outline disabled">Next ›</span>
-                }
-            </div>
-        }
-    </div>
+    @await Html.PartialAsync("_Pager", new ICOGenerator.Application.Shared.PagerModel
+    {
+        Page = Model.Page,
+        TotalPages = Model.TotalPages,
+        PageSize = Model.PageSize,
+        PageUrl = PageUrl,
+        PageSizeUrl = size => BuildUrl(1, size)
+    })
 </div>
 <div id="newProject" class="modal-backdrop hidden">
     <form class="modal" asp-action="Create" method="post">
