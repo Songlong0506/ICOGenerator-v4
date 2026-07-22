@@ -326,12 +326,18 @@
 
         if (!isLead) return;
 
-        panel.dataset.lastMsg = ev.message;
+        // Mốc 'completed'/'error' đã được ghi vào FEED (dòng ✓/✗ kèm giờ) → KHÔNG cho nó ghi đè dòng
+        // "đang làm" (activity) hay lastMsg. Nếu ghi đè, thanh loading 3 chấm sẽ lặp lại y hệt mốc vừa
+        // chốt — trông như agent vẫn đang treo ở việc đã xong. Chỉ event đang-diễn-ra mới cập nhật
+        // activity; refreshStatus bên dưới lo việc ẩn thanh này khi run không còn chạy.
+        if (ev.kind !== 'completed' && ev.kind !== 'error') {
+            panel.dataset.lastMsg = ev.message;
 
-        const textEl = panel.querySelector('.wf-activity-text');
-        const activity = panel.querySelector('.wf-activity');
-        if (textEl) textEl.textContent = ev.message;
-        if (activity && ev.kind !== 'completed' && ev.kind !== 'error') activity.style.display = 'flex';
+            const textEl = panel.querySelector('.wf-activity-text');
+            const activity = panel.querySelector('.wf-activity');
+            if (textEl) textEl.textContent = ev.message;
+            if (activity) activity.style.display = 'flex';
+        }
 
         // Các mốc này đổi trạng thái run (bắt đầu / chờ duyệt / xong / lỗi) → đồng bộ lại banner.
         if (ev.kind === 'start' || ev.kind === 'setup' || ev.kind === 'completed' || ev.kind === 'error') {
