@@ -119,9 +119,9 @@ input.logs-filter-input[type="number"] { min-width: 120px; }
 .logs-filter-actions { flex-direction: row; gap: 8px; align-items: center; }
 /* .logs-table look comes from the shared .data-table component in site.css. */
 .logs-table td { vertical-align: top; }
-.logs-pager { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 16px; color: var(--muted); }
-.logs-pager-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.logs-pager-controls .btn { padding: 8px 12px; min-width: 40px; }
+/* Footer phân trang popup Call Logs dùng chung mẫu .pager (site.css); renderLogsPager thêm
+   class .pager vào #logs-pager nên chỉ cần giữ margin-top ở đây. */
+.logs-pager { margin-top: 16px; }
 .badge-success { background: var(--success-tint); color: var(--success-ink); }
 .badge-error { background: var(--danger-tint); color: var(--danger-ink); }
 /* .btn / .btn-primary now come from the shared button component in site.css. */
