@@ -32,17 +32,13 @@ public class IdentityServerSettings
     /// <summary>Bắt buộc HTTPS khi lấy metadata. Mẫu Bosch để false (IdP nội bộ chứng chỉ tự ký).</summary>
     public bool RequireHttpsMetadata { get; set; }
 
-    /// <summary>Ánh xạ giá trị claim role của IdentityServer → <see cref="UserRole"/> của app
-    /// (không phân biệt hoa/thường). Vd { "HCP_CBO_API.CBO.SUPERADMIN": "SuperAdmin" }. User nhận vai trò
-    /// CAO NHẤT khớp được; không khớp claim nào ⇒ <see cref="MapRole"/> trả null (giữ vai trò cũ / dùng
-    /// DefaultRole).</summary>
-    public Dictionary<string, UserRole> RoleMappings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-
     /// <summary>
     /// Ánh xạ tập role claim của SSO về <see cref="UserRole"/> của app, chọn vai trò CAO NHẤT
-    /// (SuperAdmin &gt; Admin &gt; TeamDev &gt; User). Trả về null khi KHÔNG có claim nào khớp <see cref="RoleMappings"/> —
-    /// để bên gọi quyết định (giữ vai trò user cũ hoặc dùng <see cref="DefaultRole"/> cho user mới).
-    /// So khớp không phân biệt hoa/thường nên vẫn đúng dù config binding không giữ comparer của Dictionary.
+    /// (SuperAdmin &gt; Admin &gt; TeamDev &gt; User). Nguồn ánh xạ là <see cref="SsoRoleClaimAttribute"/> khai
+    /// báo trên từng <see cref="UserRole"/> (xem <see cref="SsoRoleClaims"/>), thay cho bảng cấu hình
+    /// "IdentityServer:RoleMappings" trước đây. Trả về null khi KHÔNG có claim nào khớp — để bên gọi quyết
+    /// định (giữ vai trò user cũ hoặc dùng <see cref="DefaultRole"/> cho user mới). So khớp không phân biệt
+    /// hoa/thường.
     /// </summary>
     public UserRole? MapRole(IEnumerable<string> ssoRoles)
     {
@@ -53,15 +49,13 @@ public class IdentityServerSettings
             if (string.IsNullOrEmpty(ssoRole))
                 continue;
 
-            foreach (var (mappedKey, mappedRole) in RoleMappings)
-            {
-                if (!string.Equals(mappedKey, ssoRole, StringComparison.OrdinalIgnoreCase))
-                    continue;
-                // Giá trị enum KHÔNG phản ánh đặc quyền (SuperAdmin thêm sau với giá trị 3) nên so sánh
-                // bằng thứ hạng tường minh để giữ vai trò cao nhất.
-                if (best is null || PrivilegeRank(mappedRole) > PrivilegeRank(best.Value))
-                    best = mappedRole;
-            }
+            if (SsoRoleClaims.Resolve(ssoRole) is not UserRole mappedRole)
+                continue;
+
+            // Giá trị enum KHÔNG phản ánh đặc quyền (SuperAdmin thêm sau với giá trị 3) nên so sánh
+            // bằng thứ hạng tường minh để giữ vai trò cao nhất.
+            if (best is null || PrivilegeRank(mappedRole) > PrivilegeRank(best.Value))
+                best = mappedRole;
         }
         return best;
     }
