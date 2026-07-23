@@ -48,6 +48,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     function ensureLiveBubble() {
         if (liveBubble) return liveBubble;
 
+        // BA đã có nội dung để "gõ" vào bubble → ẩn ngay dòng thinking ("BA đang soạn…"): nếu không,
+        // bubble đang stream và khung thinking hiển thị CÙNG LÚC thành 2 khu vực BA trùng nhau.
+        thinkingBox.style.display = "none";
+
         thinkingBox.insertAdjacentHTML("beforebegin", `
             <div class="req-msg ba streaming">
                 <b>BA</b>
