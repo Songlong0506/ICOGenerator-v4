@@ -727,6 +727,14 @@ input[type="checkbox"], input[type="radio"], input[type="range"], input[type="fi
    top AND bottom edge instead of the odd control breaking the row. */
 .form-grid > div { display: flex; flex-direction: column; }
 .form-grid > div > label { margin-top: 0; }
+/* The integrated-caption rule above carries a very high specificity from its
+   five chained :not()s, so its 16px top margin sneaks back onto text/number
+   captions in a grid cell and drops those fields ~16px below the combo/colour
+   controls in the same row (staggered rows). Re-zero it at matching specificity,
+   scoped to the grid, so every field in a row keeps a common top edge. */
+.form-grid > div > label:has(+ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"])),
+.form-grid > div > label:has(+ textarea),
+.form-grid > div > label:has(+ select) { margin-top: 0; }
 .form-grid > div > input,
 .form-grid > div > select,
 .form-grid > div > textarea { flex: 1 1 auto; }
