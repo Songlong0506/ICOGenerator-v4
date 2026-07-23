@@ -60,14 +60,18 @@
                 <input type="hidden" name="Id" value="@selected.Id" />
 
                 <div class="agent-header">
-                    <span class="big-circle" style="background:@selected.Color"></span>
+                    <button type="button" id="agentColorSwatch" class="big-circle color-swatch"
+                            style="background:@selected.Color" title="Bấm để đổi màu" aria-label="Đổi màu agent">
+                        <span class="color-swatch-icon" aria-hidden="true">🎨</span>
+                    </button>
+                    <input type="color" id="agentColorInput" name="Color" value="@selected.Color" class="visually-hidden" />
                     <div>
                         <h2>@selected.RoleKey.GetTitle()</h2>
                     </div>
                     <button type="submit" class="btn primary">Save Changes</button>
                 </div>
 
-                <div class="form-grid three">
+                <div class="form-grid two">
                     <div>
                         <label>Model *</label>
                         <select name="AiModelId" required>
@@ -82,11 +86,6 @@
                         <label>Temperature</label>
                         <input type="number" step="0.1" min="0" max="2" name="Temperature" value="@selected.Temperature" />
                     </div>
-                    <div>
-                        <label>Color</label>
-                        <input type="color" name="Color" value="@selected.Color" />
-                    </div>
-                  
                 </div>
 
                 <label>Description</label>
