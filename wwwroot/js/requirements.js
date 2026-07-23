@@ -86,8 +86,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
 
         suggestionList.dataset.multi = multiSelect ? "true" : "false";
+        // Checkbox chỉ hiển thị ở chế độ chọn nhiều (CSS ẩn nó khi data-multi != "true"),
+        // nên vẫn render span trong mọi trường hợp để markup JS/server đồng nhất.
+        const ariaSelected = multiSelect ? ` aria-selected="false"` : "";
         suggestionList.innerHTML = suggestions.map((s, i) => `
-            <button type="button" class="suggestion-option" role="option" data-suggestion="${escapeHtml(s)}">
+            <button type="button" class="suggestion-option" role="option"${ariaSelected} data-suggestion="${escapeHtml(s)}">
+                <span class="suggestion-option-check" aria-hidden="true"></span>
                 <span class="suggestion-option-text">${escapeHtml(s)}</span>
                 <span class="suggestion-option-key">${i + 1}</span>
             </button>
@@ -101,7 +105,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         return suggestionList && suggestionList.dataset.multi === "true";
     }
 
-    // Chế độ chọn nhiều: thêm hint + nút gửi vào cuối danh sách chip (chỉ khi data-multi="true").
+    // Chế độ chọn nhiều: thêm nút gửi vào cuối danh sách chip (chỉ khi data-multi="true").
+    // Checkbox ở đầu mỗi option (xem renderSuggestions + CSS) đã báo rõ đây là chọn nhiều,
+    // nên không cần dòng chữ hint nữa.
     function ensureMultiControls() {
         if (!suggestionList) return;
 
@@ -114,7 +120,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         suggestionList.insertAdjacentHTML("beforeend", `
             <div class="suggestion-multi-send">
-                <span class="suggestion-multi-hint">Chọn được nhiều đáp án rồi bấm gửi</span>
                 <button type="button" class="btn primary small" id="suggestionMultiSendBtn" disabled>Gửi các lựa chọn</button>
             </div>
         `);
@@ -475,7 +480,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // toggle chọn/bỏ, gom lại và gửi MỘT tin nhắn khi bấm "Gửi các lựa chọn".
     function selectSuggestion(option) {
         if (isMultiSelect()) {
-            option.classList.toggle("selected");
+            const nowSelected = option.classList.toggle("selected");
+            option.setAttribute("aria-selected", nowSelected ? "true" : "false");
             updateMultiSendState();
             return;
         }
