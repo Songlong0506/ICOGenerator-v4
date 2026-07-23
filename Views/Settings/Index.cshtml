@@ -20,7 +20,17 @@
     <div class="alert error" style="color:#b91c1c;background:#fef2f2;border:1px solid #fecaca">@TempData["Error"]</div>
 }
 
-<form class="settings-form" asp-action="Update" method="post">
+@await Html.PartialAsync("_CommandBar", new CommandBarModel
+{
+    Primary = new CommandBarButton
+    {
+        Label = "Save Settings",
+        Icon = "bi-check-lg",
+        OnClick = "document.getElementById('settingsForm').requestSubmit()"
+    }
+})
+
+<form id="settingsForm" class="settings-form" asp-action="Update" method="post">
     @Html.AntiForgeryToken()
 
     <div class="card settings-card">
@@ -59,7 +69,4 @@
         <input name="AllowedHosts" value="@Model.AllowedHosts" placeholder="*" />
     </div>
 
-    <div class="save-bar">
-        <button class="btn primary" type="submit">Save Settings</button>
-    </div>
 </form>
