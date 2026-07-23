@@ -9,76 +9,76 @@ namespace ICOGenerator.Domain.Enums;
 /// </summary>
 public enum AppPermission
 {
-    [Description("Xem danh sách dự án")]
+    [Description("Read")]
     ProjectsView,
-    [Description("Tạo dự án mới")]
+    [Description("Create")]
     ProjectsCreate,
-    [Description("Xem tất cả dự án của mọi người (không chỉ dự án mình tạo)")]
+    [Description("View all projects (not just own)")]
     ProjectsViewAll,
-    [Description("Hiện nút Requirements trên danh sách dự án")]
+    [Description("Show Requirements button on project list")]
     ProjectsOpenRequirements,
-    [Description("Hiện nút Agent Dashboard trên danh sách dự án")]
+    [Description("Show Agent Dashboard button on project list")]
     ProjectsOpenAgentDashboard,
-    [Description("Hiện nút Mockup trên danh sách dự án")]
+    [Description("Show Mockup button on project list")]
     ProjectsOpenMockup,
 
-    [Description("Xem workspace yêu cầu (Requirements)")]
+    [Description("Read")]
     RequirementsView,
-    [Description("Thao tác workflow yêu cầu (chat BA, duyệt, chạy lại...)")]
+    [Description("Manage requirements workflow (chat BA, approve, re-run...)")]
     RequirementsManage,
 
-    [Description("Xem cấu hình Agents")]
+    [Description("Read")]
     AgentsView,
-    [Description("Chỉnh sửa cấu hình Agent")]
+    [Description("Update")]
     AgentsManage,
-    [Description("Duyệt & đẩy các bước delivery (Architecture, code, test...) trên Agent Dashboard")]
+    [Description("Approve & advance delivery steps (Architecture, code, test...)")]
     DeliveryAdvance,
 
-    [Description("Xem danh sách AI Models")]
+    [Description("Read")]
     ModelsView,
-    [Description("Thêm AI Model")]
+    [Description("Create")]
     ModelsCreate,
-    [Description("Sửa AI Model")]
+    [Description("Update")]
     ModelsEdit,
-    [Description("Xóa AI Model")]
+    [Description("Delete")]
     ModelsDelete,
 
-    [Description("Xem báo cáo Usage")]
+    [Description("Read")]
     UsageView,
 
-    [Description("Xem báo cáo chất lượng giao hàng (Delivery Quality)")]
+    [Description("Read")]
     QualityView,
 
-    [Description("Xem trang Prompt Evals (golden set + kết quả run)")]
+    [Description("Read")]
     EvalView,
-    [Description("Quản lý scenario & chạy eval (tốn token thật)")]
+    [Description("Manage scenarios & run evals (consumes real tokens)")]
     EvalManage,
 
     // Đã nghỉ hưu: Prompt Studio gộp vào màn hình Agents, quyền đi theo AgentsView/AgentsManage.
     // GIỮ giá trị (quyền lưu DB dạng chuỗi tên enum) để không "mồ côi" bản ghi cũ; không còn code nào đọc.
-    [Description("(Đã gộp vào Agents) Xem prompt")]
+    [Description("(Merged into Agents) View prompt")]
     PromptView,
-    [Description("(Đã gộp vào Agents) Sửa/kích hoạt/rollback phiên bản prompt")]
+    [Description("(Merged into Agents) Edit/activate/rollback prompt version")]
     PromptManage,
 
-    [Description("Xem Settings")]
+    [Description("Read")]
     SettingsView,
-    [Description("Lưu thay đổi Settings")]
+    [Description("Update")]
     SettingsManage,
 
-    [Description("Gửi phản hồi & xem phản hồi của mình")]
+    [Description("Submit & view own feedback")]
     FeedbackView,
-    [Description("Xem toàn bộ phản hồi & cập nhật trạng thái (triage)")]
+    [Description("View all feedback & update status (triage)")]
     FeedbackManage,
 
-    [Description("Quản trị Roles & Permissions")]
+    [Description("Manage Roles & Permissions")]
     AdministrationManageRoles,
 
-    [Description("Xem trang gán quyền người dùng trên IdentityServer (User Roles)")]
+    [Description("Read")]
     UserRolesView,
-    [Description("Gán / thu hồi quyền người dùng trên IdentityServer")]
+    [Description("Assign / revoke user permissions (IdentityServer)")]
     UserRolesManage,
 
-    [Description("Xem nhật ký thay đổi cấu hình (Audit Log)")]
+    [Description("Read")]
     AuditView
 }
