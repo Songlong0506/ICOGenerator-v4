@@ -19,17 +19,23 @@
 
 @await Html.PartialAsync("_CommandBar", new CommandBarModel
 {
-    SearchPlaceholder = "Tìm quyền…",
-    TargetSelector = "#rolesTable"
+    SearchPlaceholder = "Search permissions…",
+    TargetSelector = "#rolesTable",
+    Primary = new CommandBarButton
+    {
+        Label = "Save",
+        Icon = "bi-check-lg",
+        OnClick = "document.getElementById('rolesForm').requestSubmit()"
+    }
 })
 
-<form asp-action="Update" method="post">
+<form id="rolesForm" asp-action="Update" method="post">
     @Html.AntiForgeryToken()
 
     <table id="rolesTable" class="data-table roles-table">
         <thead>
             <tr>
-                <th>Quyền</th>
+                <th>Permission</th>
                 @foreach (var col in Model.Columns)
                 {
                     <th class="role-col">@col.Title</th>
@@ -51,7 +57,7 @@
                             <td class="role-col">
                                 @if (col.Locked)
                                 {
-                                    <span class="locked-mark" title="SuperAdmin luôn có toàn quyền">✓</span>
+                                    <span class="locked-mark" title="Super Administrator always has full access">✓</span>
                                 }
                                 else
                                 {
@@ -65,8 +71,4 @@
             }
         </tbody>
     </table>
-
-    <div class="save-bar">
-        <button class="btn primary" type="submit">Lưu cấu hình</button>
-    </div>
 </form>
