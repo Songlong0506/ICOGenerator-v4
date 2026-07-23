@@ -52,8 +52,9 @@ public class ChatWithBAUseCase
 
     /// <summary>
     /// Sau upload tài liệu nguồn: BA tóm tắt những gì đọc được + xin xác nhận (thêm một lượt assistant).
+    /// <paramref name="note"/> là ghi chú tùy chọn người dùng gõ cạnh ảnh trong khung chat trước khi gửi.
     /// Fail-open — trả false khi không thêm được lượt nào.
     /// </summary>
-    public Task<bool> AcknowledgeSourcesAsync(Guid projectId, CancellationToken cancellationToken = default) =>
-        _baChatService.AcknowledgeSourcesAsync(projectId, cancellationToken);
+    public Task<bool> AcknowledgeSourcesAsync(Guid projectId, string? note = null, CancellationToken cancellationToken = default) =>
+        _baChatService.AcknowledgeSourcesAsync(projectId, note, cancellationToken);
 }

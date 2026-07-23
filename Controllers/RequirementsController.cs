@@ -325,7 +325,7 @@ public class RequirementsController : Controller
     [RequirePermission(AppPermission.RequirementsManage)]
     [RequestSizeLimit(60_000_000)]
     [RequestFormLimits(MultipartBodyLengthLimit = 60_000_000)]
-    public async Task<IActionResult> UploadSource(Guid projectId, List<IFormFile> files)
+    public async Task<IActionResult> UploadSource(Guid projectId, List<IFormFile> files, string? note = null)
     {
         if (!await CanAccessProjectAsync(projectId))
             return RedirectToAction("Index", "Projects");
@@ -351,8 +351,9 @@ public class RequirementsController : Controller
                         + "Hãy tải lên bản có chữ (hoặc chụp ảnh trực tiếp từng trang) nếu muốn tôi đọc nội dung đó.";
 
                 // BA đọc các nguồn mới, tóm tắt và xin xác nhận (thêm một lượt assistant) — đóng vòng phản
-                // hồi ngay tại đầu vào. Fail-open: không thêm được thì upload vẫn thành công như cũ.
-                await _chatWithBAUseCase.AcknowledgeSourcesAsync(projectId);
+                // hồi ngay tại đầu vào. Kèm theo ghi chú người dùng gõ cạnh ảnh (nếu có) để BA đọc ảnh đúng
+                // trọng tâm. Fail-open: không thêm được thì upload vẫn thành công như cũ.
+                await _chatWithBAUseCase.AcknowledgeSourcesAsync(projectId, note);
             }
         }
         catch (SourceFileValidationException ex)

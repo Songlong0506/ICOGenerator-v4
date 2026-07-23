@@ -373,6 +373,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
     }
 
+    // Ảnh đã đính kèm nhưng CHƯA gửi (staged): initSourceDropPaste đổ vào đây khi user đính kèm/dán/kéo-thả.
+    // Khi bấm gửi mà mảng này khác rỗng, form ưu tiên upload ảnh (kèm ghi chú trong ô nhập) thay vì chat.
+    const stagedImages = [];
+    // Do initSourceDropPaste gán: upload các ảnh đang staged kèm ghi chú (text) rồi reload.
+    let sendStagedImages = null;
+
     // true khi lượt đang gửi đã nhận ĐƯỢC ít nhất một frame SSE — quyết định cách phục hồi khi lỗi:
     // đã nhận frame nghĩa là server ĐANG xử lý lượt này (và sẽ lưu DB dù stream đứt) → chỉ reload;
     // chưa nhận frame nào mới được phép re-submit theo đường postback cổ điển.
@@ -412,6 +418,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     chatForm.addEventListener("submit", function (e) {
         e.preventDefault();
+
+        // Có ảnh đã đính kèm chờ gửi → gửi ảnh (kèm ghi chú đang gõ trong ô nhập, nếu có) qua luồng
+        // UploadSource thay vì gửi tin nhắn chat. Ảnh có thể gửi mà không cần ghi chú.
+        if (stagedImages.length > 0) {
+            if (chatBusy || !sendStagedImages) return;
+            sendStagedImages(messageInput.value.trim());
+            return;
+        }
 
         const text = messageInput.value.trim();
         if (!text || chatBusy) return;
@@ -544,22 +558,77 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
-    // ==== Dán / kéo-thả ảnh thẳng vào khung chat làm tài liệu nguồn ====
+    // ==== Đính kèm / dán / kéo-thả ảnh — xem trước trong khung chat rồi mới gửi ====
     // Người dùng nghiệp vụ hay chụp màn hình Excel/biểu mẫu — bắt họ đi qua form "Tài liệu nguồn" ở
-    // sidebar là ma sát thừa. Dán (Ctrl+V) hoặc kéo-thả ảnh vào khung chat sẽ upload qua đúng endpoint
-    // UploadSource (BA tự tóm tắt sau đó), rồi reload trang để hiện lượt xác nhận của BA.
+    // sidebar là ma sát thừa. Đính kèm (nút), dán (Ctrl+V) hoặc kéo-thả ảnh vào khung chat sẽ STAGE ảnh
+    // thành thumbnail nhỏ ngay trên ô nhập: user có thể gõ thêm ghi chú/thông tin, xóa bớt ảnh, rồi bấm
+    // gửi mới thật sự upload qua endpoint UploadSource (kèm ghi chú) → BA tóm tắt → reload.
     (function initSourceDropPaste() {
         const token = chatForm.querySelector('input[name="__RequestVerificationToken"]');
         const projectIdInput = chatForm.querySelector('input[name="projectId"]');
+        const preview = document.getElementById("attachPreview");
         if (!token || !projectIdInput) return;
 
         let uploading = false;
+        const defaultPlaceholder = messageInput.placeholder;
 
-        async function uploadImages(fileList) {
+        // Vẽ lại khay xem trước từ stagedImages. Mỗi ảnh giữ kèm objectURL để thu hồi khi gỡ (tránh rò
+        // bộ nhớ). Ẩn khay + trả lại placeholder gốc khi không còn ảnh nào.
+        function renderPreview() {
+            if (!preview) return;
+
+            if (stagedImages.length === 0) {
+                preview.innerHTML = "";
+                preview.hidden = true;
+                messageInput.placeholder = defaultPlaceholder;
+                return;
+            }
+
+            preview.innerHTML = stagedImages.map((img, i) => `
+                <div class="attach-thumb" title="${escapeHtml(img.file.name || "ảnh")}">
+                    <img src="${img.url}" alt="${escapeHtml(img.file.name || "ảnh đính kèm")}" />
+                    <button type="button" class="attach-thumb-remove" data-i="${i}" aria-label="Gỡ ảnh này">×</button>
+                </div>
+            `).join("");
+            preview.hidden = false;
+        }
+
+        function stageImages(fileList) {
             const images = Array.from(fileList || []).filter(f => f.type && f.type.startsWith("image/"));
-            if (images.length === 0 || uploading) return;
+            if (images.length === 0) return;
+
+            images.forEach(file => stagedImages.push({ file, url: URL.createObjectURL(file) }));
+            renderPreview();
+            messageInput.placeholder = "Thêm ghi chú cho ảnh (không bắt buộc) rồi bấm gửi…";
+            messageInput.focus();
+        }
+
+        function clearStaged() {
+            stagedImages.forEach(img => URL.revokeObjectURL(img.url));
+            stagedImages.length = 0;
+            renderPreview();
+        }
+
+        // Gỡ MỘT ảnh khỏi khay (thu hồi objectURL của đúng ảnh đó).
+        if (preview) {
+            preview.addEventListener("click", function (e) {
+                const btn = e.target.closest(".attach-thumb-remove");
+                if (!btn) return;
+                const idx = Number(btn.dataset.i);
+                if (Number.isNaN(idx) || idx < 0 || idx >= stagedImages.length) return;
+                URL.revokeObjectURL(stagedImages[idx].url);
+                stagedImages.splice(idx, 1);
+                renderPreview();
+            });
+        }
+
+        // Gửi các ảnh đang staged (kèm ghi chú tùy chọn) qua UploadSource → BA tóm tắt → reload.
+        // Gán ra ngoài để listener submit của form gọi được.
+        sendStagedImages = async function (note) {
+            if (stagedImages.length === 0 || uploading) return;
 
             uploading = true;
+            chatBusy = true;
             setThinkingText("Đang tải ảnh lên để BA đọc…");
             thinkingBox.style.display = "block";
             scrollToBottom();
@@ -567,12 +636,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const fd = new FormData();
             fd.append("projectId", projectIdInput.value);
             fd.append("__RequestVerificationToken", token.value);
-            images.forEach(img => fd.append("files", img, img.name || "anh-dan.png"));
+            if (note) fd.append("note", note);
+            stagedImages.forEach(img => fd.append("files", img.file, img.file.name || "anh-dan.png"));
 
             try {
                 const resp = await fetch("/Requirements/UploadSource", { method: "POST", body: fd });
                 // Endpoint trả về redirect→trang Index; reload để hiện tài liệu mới + lượt tóm tắt của BA.
                 if (resp.ok || resp.redirected) {
+                    clearStaged();
                     location.reload();
                     return;
                 }
@@ -580,15 +651,16 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             } catch {
                 thinkingBox.style.display = "none";
                 uploading = false;
+                chatBusy = false;
                 alert("Không tải được ảnh lên. Anh/chị thử lại hoặc dùng nút Upload ở mục 'Tài liệu nguồn'.");
             }
-        }
+        };
 
         messageInput.addEventListener("paste", function (e) {
             const items = e.clipboardData && e.clipboardData.files;
             if (items && items.length > 0 && Array.from(items).some(f => f.type.startsWith("image/"))) {
                 e.preventDefault();
-                uploadImages(items);
+                stageImages(items);
             }
         });
 
@@ -606,19 +678,19 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 e.preventDefault();
                 chatPanel.classList.remove("drag-over");
-                uploadImages(e.dataTransfer.files);
+                stageImages(e.dataTransfer.files);
             }
         });
 
-        // Nút đính kèm ảnh trong khung soạn: mở hộp chọn file rồi đi qua đúng luồng uploadImages ở trên
-        // (upload → BA tóm tắt → reload). Điểm bấm rõ ràng cho người không biết mẹo dán/kéo-thả.
+        // Nút đính kèm ảnh trong khung soạn: mở hộp chọn file rồi STAGE ảnh (xem trước) như dán/kéo-thả.
+        // Điểm bấm rõ ràng cho người không biết mẹo dán/kéo-thả.
         const attachBtn = document.getElementById("attachImageBtn");
         const attachInput = document.getElementById("attachImageInput");
         if (attachBtn && attachInput) {
             attachBtn.addEventListener("click", () => attachInput.click());
             attachInput.addEventListener("change", function () {
                 if (attachInput.files && attachInput.files.length > 0) {
-                    uploadImages(attachInput.files);
+                    stageImages(attachInput.files);
                     // Reset để chọn lại đúng file cũ vẫn kích hoạt 'change' lần sau.
                     attachInput.value = "";
                 }

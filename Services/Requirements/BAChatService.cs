@@ -367,7 +367,7 @@ public class BAChatService
     /// nó thấm vào Product Brief. Fail-open toàn phần: chưa cấu hình BA / model không vision với ảnh /
     /// không có nguồn / lời gọi lỗi ⇒ không thêm lượt nào (trả false), upload vẫn thành công như cũ.
     /// </summary>
-    public async Task<bool> AcknowledgeSourcesAsync(Guid projectId, CancellationToken cancellationToken = default)
+    public async Task<bool> AcknowledgeSourcesAsync(Guid projectId, string? note = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -389,7 +389,13 @@ public class BAChatService
             if (sourceContents.Count == 0)
                 return false; // không có gì đọc được (chưa nguồn / PDF scan + model không vision).
 
-            var userContent = new List<AIContent> { new TextContent("Đây là các tài liệu nguồn tôi vừa đính kèm. Bạn đọc giúp và tóm tắt lại cách hiểu để tôi xác nhận nhé.") };
+            // Ghi chú người dùng gõ cạnh ảnh (nếu có) → BA đọc đúng trọng tâm thay vì tóm tắt chung chung.
+            var trimmedNote = note?.Trim();
+            var promptText = string.IsNullOrEmpty(trimmedNote)
+                ? "Đây là các tài liệu nguồn tôi vừa đính kèm. Bạn đọc giúp và tóm tắt lại cách hiểu để tôi xác nhận nhé."
+                : $"Đây là các tài liệu nguồn tôi vừa đính kèm, kèm ghi chú của tôi: \"{trimmedNote}\". Bạn đọc giúp và tóm tắt lại cách hiểu để tôi xác nhận nhé.";
+
+            var userContent = new List<AIContent> { new TextContent(promptText) };
             userContent.AddRange(sourceContents);
 
             var messages = new List<ChatMessage>
@@ -397,6 +403,12 @@ public class BAChatService
                 new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/source-ack.v1.md")),
                 new(ChatRole.User, userContent)
             };
+
+            // Có ghi chú → lưu thành một lượt user để hiển thị trong hội thoại (ảnh đã đính kèm hiện ở
+            // "Tài liệu nguồn"; lượt này ghi lại điều user muốn nói kèm ảnh). Không ghi chú → giữ nguyên
+            // hành vi cũ, chỉ thêm lượt tóm tắt của BA.
+            if (!string.IsNullOrEmpty(trimmedNote))
+                await _conversationLog.AppendAsync(projectId, ba.Id, "user", trimmedNote, cancellationToken: cancellationToken);
 
             var (callResult, parsed) = await _llm.ChatStructuredAsync<BAChatReply>(
                 model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BASourceAck"),
