@@ -320,17 +320,15 @@
         font-weight: 600;
     }
 
-    /* Trạng thái "chưa sẵn sàng": BA còn câu hỏi → nút mờ/phụ để không mời gọi bấm sớm, nhưng VẪN
-       bấm được (lối thoát thủ công). Trạng thái "sẵn sàng" dùng .btn.primary nên nổi bật tự nhiên. */
-    .write-req-waiting .write-req-btn {
+    /* Trạng thái "chưa sẵn sàng": BA còn câu hỏi (chưa đủ nhóm [RÕ]) → nút mờ VÀ KHÓA (disabled)
+       để user hoàn tất khai thác trước; nút tự mở khóa khi panel "Tiến độ khai thác" đầy. Trạng thái
+       "sẵn sàng" dùng .btn.primary nên nổi bật tự nhiên. */
+    .write-req-waiting .write-req-btn,
+    .write-req-btn:disabled {
         opacity: 0.55;
         filter: grayscale(0.4);
+        cursor: not-allowed;
     }
-
-        .write-req-waiting .write-req-btn:hover {
-            opacity: 0.8;
-            filter: none;
-        }
 
     /* Ghi chú nhỏ cạnh nút khi BA chưa thấy đủ thông tin. */
     .write-req-hint {

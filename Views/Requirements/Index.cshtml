@@ -540,9 +540,11 @@
 
                 <!-- WRITE REQUIREMENT: sinh bản mô tả sản phẩm (Product Brief) DỄ HIỂU cho user.
                      Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) do team dev trigger ở Agent Dashboard.
-                     Nút ở 2 trạng thái: "mờ" (write-req-waiting) khi BA còn câu hỏi, "sẵn sàng"
-                     (write-req-ready) khi BA đã đủ thông tin. Cả hai đều bấm được (lối thoát thủ công);
-                     khi chưa sẵn sàng có ghi chú nhắc người dùng. -->
+                     Nút ở 2 trạng thái: "mờ" + KHÓA (write-req-waiting) khi BA còn câu hỏi — panel
+                     "Tiến độ khai thác" chưa đầy; "sẵn sàng" (write-req-ready) khi mọi nhóm áp dụng đã
+                     [RÕ]. Nút CHỈ enable ở trạng thái sẵn sàng: dùng chung cờ requirementReady với panel
+                     tiến độ (cùng bản đồ bao phủ) nên nút mở khóa ⇔ panel đầy, không thể vênh. Bấm khi
+                     chưa đủ vốn cũng bị cổng server chặn (chỉ trả lại câu hỏi, không sinh tài liệu). -->
                 <form asp-action="WriteRequirement"
                       method="post"
                       class="write-req @(requirementReady ? "write-req-ready" : "write-req-waiting")"
@@ -551,14 +553,15 @@
                     <input type="hidden" name="projectId" value="@Model.Id" />
                     <button class="btn write-req-btn @(requirementReady ? "primary" : "outline")"
                             type="submit"
+                            disabled="@(requirementReady ? null : "disabled")"
                             title="@(requirementReady
                                 ? "BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm."
-                                : "BA vẫn đang hỏi thêm thông tin. Bạn vẫn có thể tạo ngay, nhưng nên trả lời thêm để tài liệu đầy đủ hơn.")">
+                                : "BA vẫn đang hỏi thêm thông tin. Hoàn tất các nhóm còn lại trong 'Tiến độ khai thác' để mở khóa nút này.")">
                         📝 Write Requirement
                     </button>
                     @if (!requirementReady)
                     {
-                        <span class="write-req-hint">BA đang hỏi thêm — bạn vẫn có thể tạo ngay.</span>
+                        <span class="write-req-hint">Hoàn tất các nhóm còn lại trong “Tiến độ khai thác” để tạo tài liệu.</span>
                     }
                 </form>
 
