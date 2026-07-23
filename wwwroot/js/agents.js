@@ -1,3 +1,21 @@
+// Clicking the agent color swatch opens the native color picker and previews the
+// chosen color live on both the header swatch and the matching sidebar circle.
+(function () {
+    const swatch = document.getElementById('agentColorSwatch');
+    const input = document.getElementById('agentColorInput');
+    if (!swatch || !input) return;
+
+    swatch.addEventListener('click', function () { input.click(); });
+
+    function preview() {
+        swatch.style.background = input.value;
+        const activeCircle = document.querySelector('.agent-item.active .circle');
+        if (activeCircle) activeCircle.style.background = input.value;
+    }
+    input.addEventListener('input', preview);
+    input.addEventListener('change', preview);
+})();
+
 (function () {
     const scroll = document.getElementById('toolsScroll');
     if (!scroll) return;
