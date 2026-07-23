@@ -119,31 +119,47 @@
                     <td>@(item.OrgUnitName ?? (string.IsNullOrWhiteSpace(p.OrgUnitCode) ? "—" : p.OrgUnitCode))</td>
                     <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>
                     <td>
+                        @* Phân quyền hiển thị từng nút theo ma trận Roles & Permissions (assign được ở màn hình
+                           Roles), không hardcode vai trò:
+                           - Requirements: quyền ProjectsOpenRequirements.
+                           - Agent Dashboard: quyền ProjectsOpenAgentDashboard.
+                           - Mockup: quyền ProjectsOpenMockup (và vẫn cần dự án có mockup như trước). *@
+                        @{
+                            var canOpenRequirements = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenRequirements);
+                            var canOpenAgentDashboard = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenAgentDashboard);
+                            var canOpenMockup = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenMockup);
+                        }
                         <div class="actions">
-                            <a class="btn outline"
-                               asp-controller="Requirements"
-                               asp-action="Index"
-                               asp-route-projectId="@p.Id">
-                                Requirements
-                            </a>
+                            @if (canOpenRequirements)
+                            {
+                                <a class="btn outline"
+                                   asp-controller="Requirements"
+                                   asp-action="Index"
+                                   asp-route-projectId="@p.Id">
+                                    Requirements
+                                </a>
+                            }
 
-                            <a class="btn"
-                               asp-controller="AgentDashboard"
-                               asp-action="Index"
-                               asp-route-projectId="@p.Id">
-                                Agent Dashboard
-                            </a>
+                            @if (canOpenAgentDashboard)
+                            {
+                                <a class="btn"
+                                   asp-controller="AgentDashboard"
+                                   asp-action="Index"
+                                   asp-route-projectId="@p.Id">
+                                    Agent Dashboard
+                                </a>
+                            }
 
-                              @if (item.HasMockup)
-  {
-      <a class="btn outline"
-         asp-controller="Projects"
-         asp-action="PocReview"
-         asp-route-projectId="@p.Id"
-         title="Xem POC và ghim ghi chú trực tiếp lên phần tử cần sửa">
-          Mockup
-      </a>
-  }
+                            @if (canOpenMockup && item.HasMockup)
+                            {
+                                <a class="btn outline"
+                                   asp-controller="Projects"
+                                   asp-action="PocReview"
+                                   asp-route-projectId="@p.Id"
+                                   title="Xem POC và ghim ghi chú trực tiếp lên phần tử cần sửa">
+                                    Mockup
+                                </a>
+                            }
                         </div>
                     </td>
                 </tr>
