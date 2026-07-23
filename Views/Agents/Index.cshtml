@@ -112,22 +112,47 @@
                     </div>
                 </div>
 
+                @* Selected summary bar — xem nhanh & bỏ chọn tool đã bật mà không phải cuộn tìm. *@
+                <div class="tools-selected @(enabledToolIds.Count == 0 ? "is-empty" : "")" id="toolsSelected">
+                    <span class="tools-selected-label">Đã chọn</span>
+                    <div class="tools-selected-chips" id="toolsSelectedChips">
+                        @foreach (var t in tools.Where(x => enabledToolIds.Contains(x.Id)).OrderBy(x => x.DisplayName))
+                        {
+                            <button type="button" class="sel-chip" data-tool-id="@t.Id" title="Bỏ chọn @t.DisplayName">
+                                <span>@t.DisplayName</span>
+                                <span class="sel-chip-x" aria-hidden="true">✕</span>
+                            </button>
+                        }
+                    </div>
+                    <span class="tools-selected-none">Chưa chọn tool nào.</span>
+                </div>
+
                 <div class="tools-bulk">
                     <button type="button" class="link-btn" data-bulk="expand">Expand all</button>
                     <span class="sep">·</span>
                     <button type="button" class="link-btn" data-bulk="collapse">Collapse all</button>
                     <span class="sep">·</span>
                     <button type="button" class="link-btn" data-bulk="clear">Clear selection</button>
+                    <span class="tools-bulk-spacer"></span>
+                    <label class="tools-sort">
+                        <span>Sắp xếp</span>
+                        <select id="toolSort">
+                            <option value="name">Tên (A→Z)</option>
+                            <option value="status">Trạng thái (đã bật lên trước)</option>
+                        </select>
+                    </label>
                 </div>
 
                 <div class="tools-scroll" id="toolsScroll">
                     @foreach (var group in tools.GroupBy(x => string.IsNullOrWhiteSpace(x.ServiceType) ? "Other" : x.ServiceType).OrderBy(g => g.Key))
                     {
-                        var groupTools = group.ToList();
+                        var groupTools = group.OrderBy(x => x.DisplayName).ToList();
                         var groupEnabled = groupTools.Count(x => enabledToolIds.Contains(x.Id));
-                        <section class="tool-group" data-group="@group.Key">
+                        // Nhóm có tool đã bật thì mở sẵn để thấy ngay; nhóm rỗng thì thu gọn cho đỡ rối.
+                        var collapsed = groupEnabled == 0;
+                        <section class="tool-group @(collapsed ? "collapsed" : "")" data-group="@group.Key">
                             <header class="tool-group-head">
-                                <button type="button" class="tool-group-toggle" aria-expanded="true">
+                                <button type="button" class="tool-group-toggle" aria-expanded="@((!collapsed).ToString().ToLowerInvariant())">
                                     <span class="chevron">▾</span>
                                     <b>@group.Key</b>
                                     <span class="tool-group-count"><span class="grp-enabled">@groupEnabled</span>/<span class="grp-total">@groupTools.Count</span></span>
@@ -142,16 +167,14 @@
                                 {
                                     var enabled = enabledToolIds.Contains(t.Id);
                                     var search = $"{t.DisplayName} {t.Description} {t.ServiceType} {t.MethodName}".ToLowerInvariant();
-                                    <label class="tool-card selectable @(enabled ? "enabled" : "")" data-search="@search" data-enabled="@enabled.ToString().ToLowerInvariant()">
+                                    <label class="tool-row selectable @(enabled ? "enabled" : "")" data-search="@search" data-enabled="@enabled.ToString().ToLowerInvariant()" data-name="@t.DisplayName.ToLowerInvariant()" data-tool-id="@t.Id">
                                         <input class="tool-checkbox" type="checkbox" name="ToolDefinitionIds" value="@t.Id" checked="@enabled" />
-                                        <div class="tool-body">
-                                            <div class="tool-title">
-                                                <b>@t.DisplayName</b>
-                                                <span class="badge @(enabled ? "green" : "gray")">@(enabled ? "Enabled" : "Disabled")</span>
-                                            </div>
-                                            <p>@t.Description</p>
-                                            <small>@t.ServiceType.@t.MethodName</small>
-                                        </div>
+                                        <span class="tool-row-main">
+                                            <b class="tool-row-name">@t.DisplayName</b>
+                                            <code class="tool-row-method">@t.ServiceType.@t.MethodName</code>
+                                        </span>
+                                        <span class="tool-row-desc" title="@t.Description">@t.Description</span>
+                                        <span class="badge @(enabled ? "green" : "gray")">@(enabled ? "Enabled" : "Disabled")</span>
                                     </label>
                                 }
                             </div>
