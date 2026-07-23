@@ -500,7 +500,9 @@
                     <button type="button"
                             class="suggestion-option"
                             role="option"
+                            aria-selected="@(lastSuggestionsMulti ? "false" : null)"
                             data-suggestion="@suggestion">
+                        <span class="suggestion-option-check" aria-hidden="true"></span>
                         <span class="suggestion-option-text">@suggestion</span>
                         <span class="suggestion-option-key">@suggestionIndex</span>
                     </button>

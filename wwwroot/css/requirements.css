@@ -1069,9 +1069,39 @@
         border-color: var(--bosch-blue);
     }
 
-.suggestion-multi-send { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+/* Checkbox ở đầu mỗi option: chỉ hiện ở chế độ chọn nhiều (data-multi="true"),
+   thay cho dòng chữ hint để người dùng tự nhận ra có thể chọn nhiều đáp án. */
+.suggestion-option-check {
+    display: none;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--line);
+    border-radius: 5px;
+    background: var(--surface);
+    transition: background .15s ease, border-color .15s ease;
+}
 
-.suggestion-multi-hint { font-size: 12px; color: #777; }
+.suggestion-list[data-multi="true"] .suggestion-option-check {
+    display: inline-flex;
+}
+
+    .suggestion-option.selected .suggestion-option-check {
+        background: var(--bosch-blue);
+        border-color: var(--bosch-blue);
+    }
+
+        .suggestion-option.selected .suggestion-option-check::after {
+            content: "✓";
+            color: #fff;
+            font-size: 12px;
+            line-height: 1;
+            font-weight: 700;
+        }
+
+.suggestion-multi-send { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
 
 /* ==== Panel "Giả định của bản thiết kế" (AI Design Spec § Assumptions) ==== */
 
