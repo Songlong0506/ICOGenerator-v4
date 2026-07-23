@@ -13,7 +13,6 @@
     var columnCount = canManage ? 4 : 3;
 
     var roleFilter = document.getElementById("urRoleFilter");
-    var flash = document.getElementById("urFlash");
 
     // Các phần tử của popup Add chỉ tồn tại khi có quyền quản lý.
     var assignRole = document.getElementById("urAssignRole");
@@ -30,10 +29,7 @@
     }
 
     function showFlash(message, kind) {
-        if (!flash) return;
-        flash.className = "alert " + (kind || "info");
-        flash.textContent = message;
-        flash.hidden = false;
+        if (window.toast) { window.toast(message, kind || "info"); }
     }
 
     var reauthTriggered = false;

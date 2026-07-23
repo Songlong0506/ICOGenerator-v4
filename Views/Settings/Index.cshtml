@@ -11,15 +11,6 @@
     </div>
 </div>
 
-@if (TempData["Success"] != null)
-{
-    <div class="alert success">@TempData["Success"]</div>
-}
-@if (TempData["Error"] != null)
-{
-    <div class="alert error" style="color:#b91c1c;background:#fef2f2;border:1px solid #fecaca">@TempData["Error"]</div>
-}
-
 @await Html.PartialAsync("_CommandBar", new CommandBarModel
 {
     Primary = new CommandBarButton

@@ -76,16 +76,6 @@
     </div>
 </div>
 
-@if (TempData["Error"] != null)
-{
-    <div class="dg-alert error">@TempData["Error"]</div>
-}
-
-@if (TempData["Info"] != null)
-{
-    <div class="dg-alert info">@TempData["Info"]</div>
-}
-
 @if (canAdvance)
 {
     @* Cấu hình delivery chỉ cần set một lần nên không hiển thị form thường trực; chỉ hiện summary

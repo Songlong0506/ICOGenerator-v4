@@ -1,0 +1,21 @@
+@* Flash message chuẩn dùng chung toàn app: chuyển TempData -> toast (góc trên-trái).
+   toast.js nhặt các .server-toast này lúc tải trang. Đặt một lần trong _Layout nên mọi
+   view chỉ cần set TempData["Success"|"Error"|"Info"|"Warning"] là có toast, không cần
+   tự chèn <div class="alert">. Các key riêng của từng màn (Saved, RunStarted, …) vẫn do
+   view đó tự render .server-toast. *@
+@if (TempData["Success"] != null)
+{
+    <div class="server-toast" data-toast-type="success" hidden>@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="server-toast" data-toast-type="error" hidden>@TempData["Error"]</div>
+}
+@if (TempData["Info"] != null)
+{
+    <div class="server-toast" data-toast-type="info" hidden>@TempData["Info"]</div>
+}
+@if (TempData["Warning"] != null)
+{
+    <div class="server-toast" data-toast-type="warning" hidden>@TempData["Warning"]</div>
+}

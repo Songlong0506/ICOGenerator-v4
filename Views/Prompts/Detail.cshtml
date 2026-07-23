@@ -47,17 +47,9 @@
     </div>
 </div>
 
-@if (TempData["Error"] != null)
-{
-    <div class="alert error">@TempData["Error"]</div>
-}
-@if (TempData["Info"] != null)
-{
-    <div class="alert ok">@TempData["Info"]</div>
-}
 @if (TempData["Saved"] != null)
 {
-    <div class="alert ok">Đã cập nhật — mọi lời gọi AI kế tiếp dùng nội dung mới ngay lập tức.</div>
+    <div class="server-toast" data-toast-type="success" hidden>Đã cập nhật — mọi lời gọi AI kế tiếp dùng nội dung mới ngay lập tức.</div>
 }
 
 <div class="card prompt-editor-card">
