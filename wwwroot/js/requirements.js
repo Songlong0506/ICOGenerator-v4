@@ -609,6 +609,21 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 uploadImages(e.dataTransfer.files);
             }
         });
+
+        // Nút đính kèm ảnh trong khung soạn: mở hộp chọn file rồi đi qua đúng luồng uploadImages ở trên
+        // (upload → BA tóm tắt → reload). Điểm bấm rõ ràng cho người không biết mẹo dán/kéo-thả.
+        const attachBtn = document.getElementById("attachImageBtn");
+        const attachInput = document.getElementById("attachImageInput");
+        if (attachBtn && attachInput) {
+            attachBtn.addEventListener("click", () => attachInput.click());
+            attachInput.addEventListener("change", function () {
+                if (attachInput.files && attachInput.files.length > 0) {
+                    uploadImages(attachInput.files);
+                    // Reset để chọn lại đúng file cũ vẫn kích hoạt 'change' lần sau.
+                    attachInput.value = "";
+                }
+            });
+        }
     })();
 
     // ==== Nói thay vì gõ (Web Speech API) ====

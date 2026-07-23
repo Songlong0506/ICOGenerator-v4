@@ -586,6 +586,22 @@
                           placeholder="Type your message..."
                           autocomplete="off"></textarea>
 
+                <!-- Đính kèm ảnh: mở hộp chọn file rồi upload qua đúng endpoint UploadSource (BA đọc &
+                     tóm tắt). Dùng chung luồng với dán (Ctrl+V) / kéo-thả ảnh — chỉ thêm điểm bấm rõ
+                     ràng cho người dùng không biết mẹo dán. Input không có name để không lẫn vào form chat. -->
+                <input type="file"
+                       id="attachImageInput"
+                       accept="image/png,image/jpeg,image/webp,image/gif"
+                       multiple
+                       hidden />
+                <button class="btn outline attach-btn"
+                        type="button"
+                        id="attachImageBtn"
+                        aria-label="Đính kèm ảnh"
+                        title="Đính kèm ảnh (chụp màn hình biểu mẫu, bảng Excel…) để BA đọc nội dung">
+                    <i class="bi bi-paperclip" aria-hidden="true"></i>
+                </button>
+
                 <!-- Nói thay vì gõ (Web Speech API). JS ẩn nút khi trình duyệt không hỗ trợ;
                      đang ghi âm thì nút đổi trạng thái đỏ + text nhận dạng đổ dần vào ô nhập. -->
                 <button class="btn outline voice-btn"
