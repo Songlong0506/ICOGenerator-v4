@@ -107,6 +107,7 @@ public static class DbInitializer
             (UserRole.TeamDev, new[]
             {
                 AppPermission.ProjectsView, AppPermission.ProjectsCreate, AppPermission.ProjectsViewAll,
+                AppPermission.ProjectsOpenAgentDashboard,
                 AppPermission.RequirementsView, AppPermission.RequirementsManage,
                 AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance,
                 AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete,
@@ -118,7 +119,9 @@ public static class DbInitializer
             }),
             (UserRole.User, new[]
             {
-                AppPermission.ProjectsView, AppPermission.RequirementsView,
+                AppPermission.ProjectsView,
+                AppPermission.ProjectsOpenRequirements, AppPermission.ProjectsOpenMockup,
+                AppPermission.RequirementsView,
                 AppPermission.FeedbackView
             }),
         };

@@ -15,6 +15,12 @@ public enum AppPermission
     ProjectsCreate,
     [Description("Xem tất cả dự án của mọi người (không chỉ dự án mình tạo)")]
     ProjectsViewAll,
+    [Description("Hiện nút Requirements trên danh sách dự án")]
+    ProjectsOpenRequirements,
+    [Description("Hiện nút Agent Dashboard trên danh sách dự án")]
+    ProjectsOpenAgentDashboard,
+    [Description("Hiện nút Mockup trên danh sách dự án")]
+    ProjectsOpenMockup,
 
     [Description("Xem workspace yêu cầu (Requirements)")]
     RequirementsView,

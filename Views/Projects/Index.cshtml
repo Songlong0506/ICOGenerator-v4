@@ -119,16 +119,18 @@
                     <td>@(item.OrgUnitName ?? (string.IsNullOrWhiteSpace(p.OrgUnitCode) ? "—" : p.OrgUnitCode))</td>
                     <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>
                     <td>
-                        @* Phân quyền hiển thị theo VAI TRÒ người dùng (không dùng ma trận permission):
-                           - Requirements & Mockup: chỉ role User thấy.
-                           - Agent Dashboard: chỉ role TeamDev thấy.
-                           Dùng nameof(UserRole.*) để khớp đúng chuỗi claim role đã seed, tránh gõ tay sai chính tả. *@
+                        @* Phân quyền hiển thị từng nút theo ma trận Roles & Permissions (assign được ở màn hình
+                           Roles), không hardcode vai trò:
+                           - Requirements: quyền ProjectsOpenRequirements.
+                           - Agent Dashboard: quyền ProjectsOpenAgentDashboard.
+                           - Mockup: quyền ProjectsOpenMockup (và vẫn cần dự án có mockup như trước). *@
                         @{
-                            var isUserRole = User.IsInRole(nameof(UserRole.User));
-                            var isTeamDevRole = User.IsInRole(nameof(UserRole.TeamDev));
+                            var canOpenRequirements = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenRequirements);
+                            var canOpenAgentDashboard = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenAgentDashboard);
+                            var canOpenMockup = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenMockup);
                         }
                         <div class="actions">
-                            @if (isUserRole)
+                            @if (canOpenRequirements)
                             {
                                 <a class="btn outline"
                                    asp-controller="Requirements"
@@ -138,7 +140,7 @@
                                 </a>
                             }
 
-                            @if (isTeamDevRole)
+                            @if (canOpenAgentDashboard)
                             {
                                 <a class="btn"
                                    asp-controller="AgentDashboard"
@@ -148,7 +150,7 @@
                                 </a>
                             }
 
-                            @if (isUserRole && item.HasMockup)
+                            @if (canOpenMockup && item.HasMockup)
                             {
                                 <a class="btn outline"
                                    asp-controller="Projects"
