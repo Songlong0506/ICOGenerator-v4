@@ -262,6 +262,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         const btn = form.querySelector(".write-req-btn");
         if (btn) {
+            // Nút CHỈ enable khi đủ thông tin (mọi nhóm áp dụng [RÕ]) — khớp thuộc tính disabled
+            // server render trong Index.cshtml. Panel "Tiến độ khai thác" đầy ⇔ ready ⇔ nút mở khóa.
+            btn.disabled = !ready;
             btn.classList.toggle("primary", ready);
             btn.classList.toggle("outline", !ready);
         }
