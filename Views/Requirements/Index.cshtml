@@ -566,6 +566,11 @@
 
             </div>
 
+            <!-- Khay xem trước ảnh đã đính kèm (chưa gửi): đính kèm/dán/kéo-thả ảnh sẽ hiện thumbnail nhỏ
+                 ở đây để user gõ thêm ghi chú vào ô nhập rồi mới bấm gửi. JS (requirements.js) dựng các
+                 thumbnail và xử lý xóa từng ảnh; ẩn khi chưa có ảnh nào. -->
+            <div id="attachPreview" class="attach-preview" hidden aria-label="Ảnh đính kèm chờ gửi"></div>
+
             <form id="chatForm"
                   asp-action="Chat"
                   method="post"
