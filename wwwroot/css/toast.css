@@ -1,0 +1,72 @@
+/* ---------- Toast notifications (app-wide) ----------
+   Thay cho các "div .alert" chèn giữa trang: toast nổi ở GÓC TRÊN-TRÁI, tự biến mất,
+   không đẩy layout. Server render flash qua .server-toast (xem _Flash.cshtml), client
+   gọi window.toast(msg, type). Màu dùng chung biến trong site.css để đồng bộ theme. */
+
+.toast-container {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 4000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(380px, calc(100vw - 32px));
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--card, #fff);
+    color: var(--ink, #1a1a1a);
+    border: 1px solid var(--line, #d4d8db);
+    border-left: 4px solid var(--info-ink, #1e40af);
+    border-radius: 4px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .16);
+    font-size: 14px;
+    line-height: 1.45;
+    opacity: 0;
+    transform: translateX(-16px);
+    transition: opacity .25s ease, transform .25s ease;
+}
+
+.toast--in { opacity: 1; transform: translateX(0); }
+.toast--out { opacity: 0; transform: translateX(-16px); }
+
+.toast-icon { flex: 0 0 auto; font-size: 16px; line-height: 1.45; margin-top: 1px; }
+.toast-body { flex: 1 1 auto; font-weight: 600; word-break: break-word; }
+.toast-body b { font-weight: 800; }
+
+.toast-close {
+    flex: 0 0 auto;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--muted, #6b7280);
+    padding: 0 2px;
+}
+.toast-close:hover { color: var(--ink, #1a1a1a); }
+
+.toast--success { border-left-color: var(--success-ink); }
+.toast--success .toast-icon { color: var(--success-ink); }
+.toast--error { border-left-color: var(--danger-ink); }
+.toast--error .toast-icon { color: var(--danger-ink); }
+.toast--warning { border-left-color: var(--warning-ink); }
+.toast--warning .toast-icon { color: var(--warning-ink); }
+.toast--info { border-left-color: var(--info-ink); }
+.toast--info .toast-icon { color: var(--info-ink); }
+
+@media (max-width: 640px) {
+    .toast-container { left: 8px; right: 8px; top: 8px; width: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toast { transition: opacity .15s ease; transform: none; }
+    .toast--in, .toast--out { transform: none; }
+}

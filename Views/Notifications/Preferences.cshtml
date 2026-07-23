@@ -9,15 +9,6 @@
     <a class="btn" asp-controller="Notifications" asp-action="Index">← Về hộp thông báo</a>
 </div>
 
-@if (TempData["Success"] != null)
-{
-    <div class="alert success">@TempData["Success"]</div>
-}
-@if (TempData["Error"] != null)
-{
-    <div class="alert error">@TempData["Error"]</div>
-}
-
 <form asp-controller="Notifications" asp-action="Preferences" method="post" class="pref-form">
     <div class="card pref-card">
         <h2 class="pref-h">Kênh nhận</h2>

@@ -12,11 +12,6 @@
     </div>
 </div>
 
-@if (TempData["Success"] != null)
-{
-    <div class="alert success">@TempData["Success"]</div>
-}
-
 @await Html.PartialAsync("_CommandBar", new CommandBarModel
 {
     SearchPlaceholder = "Search permissions…",

@@ -35,11 +35,6 @@
     </div>
 </div>
 
-@if (TempData["Error"] != null)
-{
-    <div class="alert error">@TempData["Error"]</div>
-}
-
 @await Html.PartialAsync("_CommandBar", new CommandBarModel
 {
     SearchPlaceholder = "Search models…",

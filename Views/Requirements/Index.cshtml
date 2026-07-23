@@ -146,28 +146,20 @@
     </div>
 </div>
 
-@if (TempData["Error"] != null)
-{
-    <div class="req-alert error">@TempData["Error"]</div>
-}
 @if (TempData["SourceUploaded"] != null)
 {
-    <div class="req-alert ok">Đã upload tài liệu nguồn. BA đang đọc và sẽ tóm tắt lại trong khung chat để anh/chị xác nhận.</div>
+    <div class="server-toast" data-toast-type="success" hidden>Đã upload tài liệu nguồn. BA đang đọc và sẽ tóm tắt lại trong khung chat để anh/chị xác nhận.</div>
 }
 @if (TempData["SourceScanWarning"] != null)
 {
-    <div class="req-alert error">⚠️ @TempData["SourceScanWarning"]</div>
+    <div class="server-toast" data-toast-type="error" hidden>⚠️ @TempData["SourceScanWarning"]</div>
 }
 @if (TempData["RequirementApproved"] != null)
 {
     // Đặt kỳ vọng ngay sau Approve: nói rõ điều gì đang chạy nền và mất khoảng bao lâu (ETA đo từ
     // các lần dựng POC đã hoàn tất — EstimatePocEtaQuery; chưa có lịch sử thì bỏ phần con số).
     var etaMinutes = TempData["ApprovedPocEtaMinutes"] as int?;
-    <div class="req-alert ok">
-        ✅ Yêu cầu đã được duyệt. Hệ thống đang tự dựng <b>bản demo (POC)</b> để anh/chị xem trước —
-        @(etaMinutes.HasValue ? $"thường mất khoảng {etaMinutes.Value} phút. " : "quá trình này chạy nền, có thể mất ít phút. ")
-        Anh/chị có thể theo dõi tiến độ ngay trong khung chat bên dưới và sẽ nhận thông báo khi POC sẵn sàng.
-    </div>
+    <div class="server-toast" data-toast-type="success" hidden>✅ Yêu cầu đã được duyệt. Hệ thống đang tự dựng <b>bản demo (POC)</b> để anh/chị xem trước — @(etaMinutes.HasValue ? $"thường mất khoảng {etaMinutes.Value} phút. " : "quá trình này chạy nền, có thể mất ít phút. ")Anh/chị có thể theo dõi tiến độ ngay trong khung chat bên dưới và sẽ nhận thông báo khi POC sẵn sàng.</div>
 }
 
 <div class="grid doc-grid">
