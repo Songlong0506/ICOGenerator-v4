@@ -100,7 +100,7 @@ Encryption__ApiKeyKey=<chuỗi-bí-mật-của-bạn>
 
 Nạp qua biến môi trường hoặc `dotnet user-secrets`. **Cảnh báo:** đổi khóa này sau khi đã có ApiKey trong DB sẽ làm các ApiKey cũ không giải mã được (xem [§19](#19-troubleshooting--lỗi-thường-gặp)).
 
-Các bí mật *tùy chọn* khác (chỉ khi dùng tính năng tương ứng): `PullRequest__GitHubToken`, `Notifications__Email__Password`, `BoschTemplate__BackendRepoUrl` / `BoschTemplate__FrontendRepoUrl`.
+Các bí mật *tùy chọn* khác (chỉ khi dùng tính năng tương ứng): `PullRequest__GitHubToken`, `Notifications__Email__Password`, `Notifications__BoschEmail__ApiKey`, `BoschTemplate__BackendRepoUrl` / `BoschTemplate__FrontendRepoUrl`.
 
 ### 3.3. Ba kịch bản chạy
 
@@ -199,7 +199,7 @@ Services/
   Feedback/              # FeedbackAttachmentStore (lưu file đính kèm)
   Llm/                   # LlmClient, OpenAIChatClientFactory, ModelCallLoggingChatClient,
                          #   TokenEstimator, MaxOutputTokenResolver, LlmCost, StructuredOutputPolicy...
-  Notifications/         # NotificationService + Channels/ (Teams webhook, SMTP email)
+  Notifications/         # NotificationService + Channels/ (Teams webhook, SMTP email, Bosch Email Server API)
   Prompts/               # PromptTemplateService, DbPromptOverrideProvider, PromptFileCatalog
   Requirements/          # BAChatService, ProductBriefDraftService, RequirementDocsService + trí nhớ/parser/generator của luồng BA
     Templates/           # RequirementTemplateService, DocxTemplateWriter (sinh .docx)
@@ -656,6 +656,7 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 | `Notifications:BaseUrl` | trống | URL gốc app để dựng link tuyệt đối trong Teams/email |
 | `Notifications:Teams:{Enabled,WebhookUrl}` | tắt | Incoming Webhook Teams. Fail-open |
 | `Notifications:Email:{Enabled,Host,Port,UseStartTls,Username,Password,From,To}` | tắt / 587 STARTTLS | SMTP. Password qua env. Fail-open |
+| `Notifications:BoschEmail:{Enabled,BaseUrl,SendMailApi,ApiKey,FromEmail,To,OnlySendToTesterEmail,TesterEmail}` | tắt / `api/Email` | Email Server API nội bộ Bosch (HTTP) thay SMTP. ApiKey qua env. `OnlySendToTesterEmail` = chốt an toàn non-prod. Fail-open |
 | `Llm:Proxy:{Enabled,Address}` | false / `http://127.0.0.1:3128` | Proxy công ty cho lời gọi LLM ra ngoài (client "proxied"); code mặc định coi Enabled=true nếu **thiếu key** — appsettings hiện đặt tường minh false |
 | `Llm:StructuredOutput:{Enabled,ModelIds}` | false / [] | Opt-in `response_format: json_schema` cho các lời gọi BA trả JSON, chỉ với ModelId liệt kê |
 | `Budget:{Enabled,Period,SystemUsdLimit,PerProjectUsdLimit}` | true / Monthly / 0 / 0 | Trần chi phí USD. 0 = không giới hạn scope đó (opt-in thực tế) |
@@ -682,7 +683,7 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 
 ### 16.1. Notifications
 - **In-app (chuông)**: luôn chạy. `NotificationService` ghi bảng `Notifications` tại các sự kiện workflow (cổng chờ duyệt / hoàn tất / thất bại); client poll `GET /Notifications/Feed`.
-- **Kênh ngoài (Teams webhook, SMTP email)**: opt-in qua config, fail-open (lỗi gửi chỉ log warning, không gãy workflow). Kiến trúc plugin: hiện thực `INotificationChannel` mới + đăng ký DI là xong.
+- **Kênh ngoài (Teams webhook, SMTP email, Bosch Email Server API)**: opt-in qua config, fail-open (lỗi gửi chỉ log warning, không gãy workflow). Kiến trúc plugin: hiện thực `INotificationChannel` mới + đăng ký DI là xong. `BoschEmailServerNotificationChannel` gửi qua Email Server API nội bộ (HTTP + header `ApiKey`, giống các app Bosch khác) — dùng khi hạ tầng chỉ mở API thay vì SMTP; kèm chốt an toàn `OnlySendToTesterEmail` lọc người nhận về danh sách tester cho môi trường non-prod.
 - **Tùy chọn theo user**: `/Notifications/Preferences` — bật/tắt kênh, chọn loại sự kiện, email cá nhân.
 
 ### 16.2. Budget guard

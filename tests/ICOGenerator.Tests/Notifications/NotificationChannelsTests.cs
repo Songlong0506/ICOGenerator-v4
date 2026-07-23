@@ -146,6 +146,129 @@ public class NotificationChannelsTests
         Assert.Contains("u1@bosch.com", addrs);
     }
 
+    // ---------------- Bosch Email Server (HTTP API) ----------------
+
+    private static NotificationOptions BoschOk() => new()
+    {
+        BoschEmail =
+        {
+            Enabled = true,
+            BaseUrl = "https://email.example/email-server-api",
+            ApiKey = "secret-key",
+            FromEmail = "auto-mail-no-reply@vn.bosch.com",
+            To = new[] { "team@bosch.com" }
+        }
+    };
+
+    [Fact]
+    public void Bosch_IsEnabled_RequiresFlagBaseUrlApiKeyAndFrom()
+    {
+        Assert.False(new BoschEmailServerNotificationChannel(new HttpClient(), new NotificationOptions(), NullLogger<BoschEmailServerNotificationChannel>.Instance).IsEnabled);
+
+        var missingKey = new NotificationOptions { BoschEmail = { Enabled = true, BaseUrl = "https://x", FromEmail = "a@b" } };
+        Assert.False(new BoschEmailServerNotificationChannel(new HttpClient(), missingKey, NullLogger<BoschEmailServerNotificationChannel>.Instance).IsEnabled);
+
+        Assert.True(new BoschEmailServerNotificationChannel(new HttpClient(), BoschOk(), NullLogger<BoschEmailServerNotificationChannel>.Instance).IsEnabled);
+    }
+
+    [Fact]
+    public void Bosch_BuildUri_JoinsBaseAndPath_NormalizingSlashes()
+    {
+        var opts = new EmailServerChannelOptions { BaseUrl = "https://email.example/email-server-api/", SendMailApi = "/api/Email" };
+        Assert.Equal("https://email.example/email-server-api/api/Email", BoschEmailServerNotificationChannel.BuildUri(opts).ToString());
+    }
+
+    [Fact]
+    public void Bosch_BuildRequest_SetsFromRecipientsSubjectAndBody()
+    {
+        var email = BoschOk().BoschEmail;
+        var request = BoschEmailServerNotificationChannel.BuildRequest(email, Msg("https://app/x"));
+
+        Assert.Equal("auto-mail-no-reply@vn.bosch.com", request.From);
+        Assert.Equal(new[] { "team@bosch.com" }, request.To);
+        Assert.Contains("Chờ duyệt", request.Subject);
+        Assert.Contains("Cổng thanh toán", request.Subject);
+        Assert.Contains("Một bước đã xong.", request.Body);
+        Assert.Contains("https://app/x", request.Body);
+    }
+
+    [Fact]
+    public void Bosch_BuildRequest_MergesConfigToWithPerUserRecipients_Deduped()
+    {
+        var email = BoschOk().BoschEmail;
+        var message = new NotificationMessage(NotificationType.WorkflowFailed, "T", "M", "P", null,
+            new[] { "u1@bosch.com", "TEAM@bosch.com" }); // trùng To (khác hoa/thường) phải bị khử
+
+        var request = BoschEmailServerNotificationChannel.BuildRequest(email, message);
+
+        Assert.Equal(2, request.To.Count);
+        Assert.Contains("team@bosch.com", request.To);
+        Assert.Contains("u1@bosch.com", request.To);
+    }
+
+    [Fact]
+    public void Bosch_TesterFilter_KeepsOnlyTesters_WhenEnabled()
+    {
+        var email = BoschOk().BoschEmail;
+        email.OnlySendToTesterEmail = true;
+        email.TesterEmail = new[] { "tester@vn.bosch.com" };
+        var message = new NotificationMessage(NotificationType.WorkflowFailed, "T", "M", "P", null,
+            new[] { "real.user@bosch.com", "tester@vn.bosch.com" });
+
+        var request = BoschEmailServerNotificationChannel.BuildRequest(email, message);
+
+        Assert.Equal(new[] { "tester@vn.bosch.com" }, request.To); // người nhận thật bị khử
+    }
+
+    [Fact]
+    public void Bosch_TesterFilter_FallsBackToAllTesters_WhenNoneMatch()
+    {
+        var email = BoschOk().BoschEmail;
+        email.OnlySendToTesterEmail = true;
+        email.TesterEmail = new[] { "tester@vn.bosch.com" };
+        email.To = new[] { "real.user@bosch.com" }; // không ai là tester ⇒ gửi tới toàn bộ tester
+
+        var request = BoschEmailServerNotificationChannel.BuildRequest(email, new NotificationMessage(NotificationType.WorkflowFailed, "T", "M", "P", null));
+
+        Assert.Equal(new[] { "tester@vn.bosch.com" }, request.To);
+    }
+
+    [Fact]
+    public async Task Bosch_SendAsync_PostsJsonArrayWithApiKeyHeader()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.OK);
+        var channel = new BoschEmailServerNotificationChannel(new HttpClient(handler), BoschOk(), NullLogger<BoschEmailServerNotificationChannel>.Instance);
+
+        await channel.SendAsync(Msg());
+
+        Assert.Equal("https://email.example/email-server-api/api/Email", handler.RequestUri?.ToString());
+        Assert.Equal("secret-key", handler.ApiKeyHeader);
+        Assert.StartsWith("[", handler.Body.TrimStart()); // mảng JSON theo hợp đồng API
+        Assert.Contains("team@bosch.com", handler.Body);
+        Assert.Contains("auto-mail-no-reply@vn.bosch.com", handler.Body);
+    }
+
+    [Fact]
+    public async Task Bosch_SendAsync_NoOp_WhenDisabled()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.OK);
+        var channel = new BoschEmailServerNotificationChannel(new HttpClient(handler), new NotificationOptions(), NullLogger<BoschEmailServerNotificationChannel>.Instance);
+
+        await channel.SendAsync(Msg());
+
+        Assert.False(handler.WasCalled);
+    }
+
+    [Fact]
+    public async Task Bosch_SendAsync_Swallows_HttpFailure()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.InternalServerError);
+        var channel = new BoschEmailServerNotificationChannel(new HttpClient(handler), BoschOk(), NullLogger<BoschEmailServerNotificationChannel>.Instance);
+
+        await channel.SendAsync(Msg()); // fail-open: không ném dù server trả 500
+        Assert.True(handler.WasCalled);
+    }
+
     // Bắt request cuối cùng để kiểm tra URL + payload, trả về status cấu hình sẵn.
     private sealed class CapturingHandler : HttpMessageHandler
     {
@@ -155,11 +278,14 @@ public class NotificationChannelsTests
         public bool WasCalled { get; private set; }
         public Uri? RequestUri { get; private set; }
         public string Body { get; private set; } = string.Empty;
+        public string? ApiKeyHeader { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             WasCalled = true;
             RequestUri = request.RequestUri;
+            if (request.Headers.TryGetValues("ApiKey", out var values))
+                ApiKeyHeader = values.FirstOrDefault();
             Body = request.Content == null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
             return new HttpResponseMessage(_status);
         }

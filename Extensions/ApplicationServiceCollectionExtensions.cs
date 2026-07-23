@@ -504,6 +504,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSingleton(options);
         services.AddHttpClient<INotificationChannel, TeamsNotificationChannel>();
         services.AddSingleton<INotificationChannel, EmailNotificationChannel>();
+        // Email Server API của Bosch (HTTP): kênh email thay thế khi hạ tầng chỉ mở API thay vì SMTP. Cần
+        // HttpClient (typed client như Teams); self-disable khi thiếu BaseUrl/ApiKey/FromEmail.
+        services.AddHttpClient<INotificationChannel, BoschEmailServerNotificationChannel>();
         return services;
     }
 
