@@ -2,7 +2,7 @@
 // - Server: các flash message (TempData) được render thành <div class="server-toast" data-toast-type="..">…</div>
 //   (xem Views/Shared/_Flash.cshtml + các view). Script này nhặt chúng lúc tải trang và bắn toast.
 // - Client: gọi window.toast(message, type) hoặc window.Toast.show(message, { type, duration, html }).
-// Toast nổi ở góc trên-trái, tự ẩn sau vài giây, hover thì tạm dừng đếm giờ, có nút đóng.
+// Toast nổi ở góc trên-phải, tự ẩn sau vài giây, hover thì tạm dừng đếm giờ, có nút đóng.
 (function () {
     "use strict";
 
