@@ -1250,6 +1250,18 @@ input[type="week"] {
 /* External <label> hidden by dropdown.js once its text moves into the trigger. */
 .cs-enhanced-hidden { display: none !important; }
 
+/* Label bị ẩn cũng mang theo margin-top 16px vốn tạo khoảng cách giữa các field
+   xếp dọc, làm combo dính sát field phía trên (vd Description / Org Unit trong
+   modal New Project). Trả lại khoảng cách đó cho chính combo. */
+label.cs-enhanced-hidden + .ms-combo--single { margin-top: 16px; }
+
+/* Các layout tự quản khoảng cách bằng flex/gap (filter bar, form grid, shell
+   modal, thanh lọc logs) có label margin 0 — không cộng thêm khoảng cách. */
+.filter-field > label.cs-enhanced-hidden + .ms-combo--single,
+.form-grid label.cs-enhanced-hidden + .ms-combo--single,
+.shell-field label.cs-enhanced-hidden + .ms-combo--single,
+.logs-filter label.cs-enhanced-hidden + .ms-combo--single { margin-top: 0; }
+
 /* The native <select> replaced by dropdown.js: invisible but still focusable
    (kept in the layout box so constraint validation of `required` selects can
    focus it), non-interactive so clicks reach the custom trigger beneath. */
