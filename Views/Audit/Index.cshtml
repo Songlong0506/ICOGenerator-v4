@@ -90,7 +90,7 @@ else
                         <td><span class="badge @CategoryBadge(item.Category)">@item.Category.GetTitle()</span></td>
                         <td><span class="badge @ActionBadge(item.Action)">@item.Action.GetTitle()</span></td>
                         <td class="audit-summary">@item.Summary</td>
-                        <td>@item.ActorUsername</td>
+                        <td>@ActorDisplay(item.ActorUsername)</td>
                         <td class="audit-time">@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
                         <td class="actions">
                             <button class="btn small outline"
@@ -101,7 +101,7 @@ else
                                     data-action="@item.Action.GetTitle()"
                                     data-action-class="@ActionBadge(item.Action)"
                                     data-summary="@item.Summary"
-                                    data-actor="@item.ActorUsername"
+                                    data-actor="@ActorDisplay(item.ActorUsername)"
                                     data-time="@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")"
                                     data-entity="@item.EntityId"
                                     data-before="@(item.BeforeJson ?? "")"
