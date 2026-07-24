@@ -123,6 +123,22 @@
         }
     }
 
+    static List<ICOGenerator.Contracts.Requirements.ChatAttachment> ParseAttachments(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new List<ICOGenerator.Contracts.Requirements.ChatAttachment>();
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<ICOGenerator.Contracts.Requirements.ChatAttachment>>(json,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                ?? new List<ICOGenerator.Contracts.Requirements.ChatAttachment>();
+        }
+        catch
+        {
+            return new List<ICOGenerator.Contracts.Requirements.ChatAttachment>();
+        }
+    }
+
     static List<ICOGenerator.Contracts.Requirements.FlowStep> ParseFlow(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -425,8 +441,34 @@
                 }
                 else if (group.Conversation?.Role == "user")
                 {
+                    // Ảnh/file người dùng đính kèm ở lượt này (lưu JSON trong Attachments) — render ngay
+                    // trong bubble như ChatGPT/Claude: ảnh thành thumbnail (bấm mở bản gốc), file khác
+                    // thành chip tên file. Nguồn đã bị xóa ⇒ endpoint trả 404, onerror ẩn thumbnail hỏng.
+                    var attachments = ParseAttachments(group.Conversation.Attachments);
                     <div class="req-msg you">
-                        <p>@group.Conversation.Message</p>
+                        @if (attachments.Any())
+                        {
+                            <div class="chat-attachments">
+                                @foreach (var att in attachments)
+                                {
+                                    var src = Url.Action("SourceContent", new { id = att.Id });
+                                    @if (att.IsImage)
+                                    {
+                                        <a href="@src" target="_blank" rel="noopener" class="chat-attachment-img" title="@att.Name">
+                                            <img src="@src" alt="@att.Name" loading="lazy" onerror="this.closest('a').style.display='none'" />
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <a href="@src" target="_blank" rel="noopener" class="chat-attachment-file" title="@att.Name">📄 @att.Name</a>
+                                    }
+                                }
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(group.Conversation.Message))
+                        {
+                            <p>@group.Conversation.Message</p>
+                        }
                     </div>
                 }
                 else if (group.Conversation != null)

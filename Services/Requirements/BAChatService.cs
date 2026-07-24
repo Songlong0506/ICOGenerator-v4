@@ -301,7 +301,7 @@ public class BAChatService
         }
 
         var flowDiagramJson = flowDiagram.Count > 0 ? JsonSerializer.Serialize(flowDiagram) : null;
-        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, flowDiagramJson, cancellationToken);
+        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, flowDiagramJson, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -364,10 +364,13 @@ public class BAChatService
     /// <summary>
     /// Sau khi người dùng upload tài liệu nguồn: BA đọc các nguồn MỚI, tóm tắt những gì hiểu được và xin
     /// xác nhận — thêm MỘT lượt assistant vào hội thoại. Bắt lỗi đọc-nhầm-tài-liệu ngay đầu vào thay vì để
-    /// nó thấm vào Product Brief. Fail-open toàn phần: chưa cấu hình BA / model không vision với ảnh /
-    /// không có nguồn / lời gọi lỗi ⇒ không thêm lượt nào (trả false), upload vẫn thành công như cũ.
+    /// nó thấm vào Product Brief. Lượt USER (ghi chú + danh sách file đính kèm) được lưu NGAY khi có gì để
+    /// lưu — bubble hiển thị ảnh trong hội thoại như ChatGPT/Claude, kể cả khi bước đọc phía sau lỗi.
+    /// Lời gọi LLM lỗi / trả rỗng ⇒ lưu một lượt assistant ⚠️ (cùng tiền tố với lượt chat thường) để UI
+    /// tô đỏ + hiện nút "Thử lại" thay vì im lặng khiến người dùng tưởng BA không trả lời.
+    /// Fail-open với upload: chưa cấu hình BA / lỗi bất ngờ ⇒ trả false, upload vẫn thành công như cũ.
     /// </summary>
-    public async Task<bool> AcknowledgeSourcesAsync(Guid projectId, string? note = null, CancellationToken cancellationToken = default)
+    public async Task<bool> AcknowledgeSourcesAsync(Guid projectId, string? note = null, IReadOnlyList<ChatAttachment>? attachments = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -380,6 +383,13 @@ public class BAChatService
                 return false;
             var model = ba.AiModel!;
 
+            // Lưu lượt user TRƯỚC các bước có thể lỗi: ghi chú (nếu có) + danh sách file vừa đính kèm để
+            // bubble render ảnh ngay trong hội thoại. Không ghi chú, không file ⇒ không thêm lượt nào.
+            var trimmedNote = note?.Trim();
+            var attachmentsJson = attachments is { Count: > 0 } ? JsonSerializer.Serialize(attachments) : null;
+            if (!string.IsNullOrEmpty(trimmedNote) || attachmentsJson != null)
+                await _conversationLog.AppendAsync(projectId, ba.Id, "user", trimmedNote ?? string.Empty, attachmentsJson: attachmentsJson, cancellationToken: cancellationToken);
+
             var sources = await _db.ProjectSourceFiles
                 .AsNoTracking()
                 .Where(s => s.ProjectId == projectId)
@@ -387,10 +397,19 @@ public class BAChatService
                 .ToListAsync(cancellationToken);
             var sourceContents = _sourceContextBuilder.Build(sources, model.SupportsVision);
             if (sourceContents.Count == 0)
-                return false; // không có gì đọc được (chưa nguồn / PDF scan + model không vision).
+            {
+                // Không có gì đọc được (model không vision với ảnh / PDF scan). Nếu người dùng vừa gửi từ
+                // khung chat thì nói rõ lý do thay vì im lặng — họ còn đường khác (gõ tóm tắt nội dung ảnh).
+                if (!string.IsNullOrEmpty(trimmedNote) || attachmentsJson != null)
+                    await _conversationLog.AppendAsync(projectId, ba.Id, "assistant",
+                        "Mình đã nhận được file anh/chị gửi, nhưng model AI hiện tại chưa đọc được nội dung bên trong "
+                        + "(ảnh cần model hỗ trợ vision; PDF dạng scan không bóc được chữ). "
+                        + "Anh/chị có thể gõ tóm tắt các thông tin chính trong file vào chat để mình nắm nhé.",
+                        cancellationToken: cancellationToken);
+                return false;
+            }
 
             // Ghi chú người dùng gõ cạnh ảnh (nếu có) → BA đọc đúng trọng tâm thay vì tóm tắt chung chung.
-            var trimmedNote = note?.Trim();
             var promptText = string.IsNullOrEmpty(trimmedNote)
                 ? "Đây là các tài liệu nguồn tôi vừa đính kèm. Bạn đọc giúp và tóm tắt lại cách hiểu để tôi xác nhận nhé."
                 : $"Đây là các tài liệu nguồn tôi vừa đính kèm, kèm ghi chú của tôi: \"{trimmedNote}\". Bạn đọc giúp và tóm tắt lại cách hiểu để tôi xác nhận nhé.";
@@ -404,21 +423,39 @@ public class BAChatService
                 new(ChatRole.User, userContent)
             };
 
-            // Có ghi chú → lưu thành một lượt user để hiển thị trong hội thoại (ảnh đã đính kèm hiện ở
-            // "Tài liệu nguồn"; lượt này ghi lại điều user muốn nói kèm ảnh). Không ghi chú → giữ nguyên
-            // hành vi cũ, chỉ thêm lượt tóm tắt của BA.
-            if (!string.IsNullOrEmpty(trimmedNote))
-                await _conversationLog.AppendAsync(projectId, ba.Id, "user", trimmedNote, cancellationToken: cancellationToken);
+            // Lời gọi LLM có thể THROW trước cả khi tới model (ví dụ ApiKey rỗng làm BuildClient ném
+            // ArgumentException) chứ không chỉ trả IsSuccess=false — bắt riêng tại đây để lỗi nào cũng
+            // thành lượt ⚠️ hiển thị được, thay vì lọt xuống catch-all và BA "mất tích" không dấu vết.
+            LlmCallResult? callResult = null;
+            BAChatReply? parsed = null;
+            string? callError = null;
+            try
+            {
+                (callResult, parsed) = await _llm.ChatStructuredAsync<BAChatReply>(
+                    model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BASourceAck"),
+                    cancellationToken: cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                callError = ex.Message;
+            }
 
-            var (callResult, parsed) = await _llm.ChatStructuredAsync<BAChatReply>(
-                model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BASourceAck"),
-                cancellationToken: cancellationToken);
-            if (!callResult.IsSuccess)
+            var reply = callResult is { IsSuccess: true } ? (parsed ?? _replyParser.Parse(callResult.Content)) : null;
+            if (reply == null || string.IsNullOrWhiteSpace(reply.Message))
+            {
+                // Trước đây chỗ này return false im lặng: ghi chú của user đã hiện trong hội thoại nhưng BA
+                // "mất tích". Lưu lượt ⚠️ như RunTurnAsync để UI tô đỏ + nút "Thử lại" (retry xóa lượt lỗi
+                // rồi chạy lại lượt chat thường — tài liệu nguồn vẫn được đính vào lượt user mới nhất).
+                var detail = callError ?? callResult?.ErrorMessage ?? callResult?.Content;
+                await _conversationLog.AppendAsync(projectId, ba.Id, "assistant",
+                    $"{ConversationTranscriptBuilder.LlmFailurePrefix}, chưa thể đọc và tóm tắt tài liệu vừa gửi. Chi tiết: {detail}",
+                    cancellationToken: cancellationToken);
                 return false;
-
-            var reply = parsed ?? _replyParser.Parse(callResult.Content);
-            if (string.IsNullOrWhiteSpace(reply.Message))
-                return false;
+            }
 
             var suggestionsJson = reply.Suggestions.Count > 0 ? JsonSerializer.Serialize(reply.Suggestions) : null;
             await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply.Message.Trim(), suggestionsJson, reply.MultiSelect, cancellationToken: cancellationToken);

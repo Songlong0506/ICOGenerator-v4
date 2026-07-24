@@ -1,4 +1,5 @@
 using ICOGenerator.Data;
+using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Requirements;
@@ -16,7 +17,8 @@ public enum UploadProjectSourceStatus { Ok, ProjectNotFound, NoFiles }
 public record UploadProjectSourceOutcome(
     UploadProjectSourceStatus Status,
     IReadOnlyList<string> IngestedFileNames,
-    IReadOnlyList<string> ScannedPdfNames);
+    IReadOnlyList<string> ScannedPdfNames,
+    IReadOnlyList<ProjectSourceFile> IngestedFiles);
 
 /// <summary>
 /// Nhận các file (ảnh/PDF) người dùng upload làm tài liệu nguồn cho project: ingest từng file (lưu đĩa + bóc text
@@ -39,14 +41,14 @@ public class UploadProjectSourceUseCase
     {
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
         if (project == null)
-            return new UploadProjectSourceOutcome(UploadProjectSourceStatus.ProjectNotFound, Array.Empty<string>(), Array.Empty<string>());
+            return new UploadProjectSourceOutcome(UploadProjectSourceStatus.ProjectNotFound, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<ProjectSourceFile>());
 
         var valid = files?.Where(f => f is { Length: > 0 }).ToList() ?? new List<IFormFile>();
         if (valid.Count == 0)
-            return new UploadProjectSourceOutcome(UploadProjectSourceStatus.NoFiles, Array.Empty<string>(), Array.Empty<string>());
+            return new UploadProjectSourceOutcome(UploadProjectSourceStatus.NoFiles, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<ProjectSourceFile>());
 
         var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
-        var ingested = new List<string>();
+        var ingested = new List<ProjectSourceFile>();
         var scanned = new List<string>();
         foreach (var file in valid)
         {
@@ -54,7 +56,7 @@ public class UploadProjectSourceUseCase
             var entity = await _ingestor.IngestAsync(
                 projectId, projectKey, file.FileName, file.ContentType, file.Length, stream, uploadedByUserId, cancellationToken);
             _db.ProjectSourceFiles.Add(entity);
-            ingested.Add(entity.FileName);
+            ingested.Add(entity);
 
             // PDF không bóc được text nào = bản scan/ảnh: nội dung sẽ KHÔNG được BA đọc (app không OCR).
             // Gom lại để cảnh báo người dùng, tránh cảm giác "đã tải lên rồi mà BA không thấy gì".
@@ -63,6 +65,6 @@ public class UploadProjectSourceUseCase
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        return new UploadProjectSourceOutcome(UploadProjectSourceStatus.Ok, ingested, scanned);
+        return new UploadProjectSourceOutcome(UploadProjectSourceStatus.Ok, ingested.Select(x => x.FileName).ToList(), scanned, ingested);
     }
 }

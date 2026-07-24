@@ -51,10 +51,12 @@ public class ChatWithBAUseCase
         _domainClassifier.TryClassifyAsync(projectId, cancellationToken);
 
     /// <summary>
-    /// Sau upload tài liệu nguồn: BA tóm tắt những gì đọc được + xin xác nhận (thêm một lượt assistant).
-    /// <paramref name="note"/> là ghi chú tùy chọn người dùng gõ cạnh ảnh trong khung chat trước khi gửi.
-    /// Fail-open — trả false khi không thêm được lượt nào.
+    /// Sau upload tài liệu nguồn: lưu lượt user (ghi chú + file đính kèm để bubble hiển thị ảnh trong
+    /// hội thoại) rồi BA tóm tắt những gì đọc được + xin xác nhận (thêm một lượt assistant; lỗi LLM được
+    /// lưu thành lượt ⚠️ có nút "Thử lại"). <paramref name="note"/> là ghi chú tùy chọn người dùng gõ
+    /// cạnh ảnh trong khung chat trước khi gửi; <paramref name="attachments"/> là các file vừa upload.
+    /// Fail-open — trả false khi bước tóm tắt không thành công.
     /// </summary>
-    public Task<bool> AcknowledgeSourcesAsync(Guid projectId, string? note = null, CancellationToken cancellationToken = default) =>
-        _baChatService.AcknowledgeSourcesAsync(projectId, note, cancellationToken);
+    public Task<bool> AcknowledgeSourcesAsync(Guid projectId, string? note = null, IReadOnlyList<ChatAttachment>? attachments = null, CancellationToken cancellationToken = default) =>
+        _baChatService.AcknowledgeSourcesAsync(projectId, note, attachments, cancellationToken);
 }

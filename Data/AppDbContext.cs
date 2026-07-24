@@ -131,6 +131,9 @@ public class AppDbContext : DbContext
         builder.Entity<AgentConversation>().Property(x => x.FlowDiagram).HasConversion(
             plain => _apiKeyProtector.Protect(plain),
             stored => _apiKeyProtector.Unprotect(stored));
+        builder.Entity<AgentConversation>().Property(x => x.Attachments).HasConversion(
+            plain => _apiKeyProtector.Protect(plain),
+            stored => _apiKeyProtector.Unprotect(stored));
 
         // Status giữ nguyên (đã nvarchar(450) trong index); thu gọn cột enum nvarchar(max) (CurrentStage, Type) để index được.
         // Status là CONCURRENCY TOKEN (không đổi schema — chỉ thêm "AND Status = @original" vào mọi UPDATE):

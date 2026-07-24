@@ -31,6 +31,12 @@ public class AgentConversation
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? FlowDiagram { get; set; }
 
+    // JSON array (chuỗi) các file người dùng đính kèm ở lượt user này (ChatAttachment[]: id + tên +
+    // cờ ảnh, trỏ về ProjectSourceFile) — để bubble hiển thị ảnh ngay trong hội thoại như ChatGPT/Claude.
+    // File gốc vẫn sống ở "Tài liệu nguồn"; xóa nguồn thì bubble chỉ mất ảnh xem trước (id hỏng → ẩn).
+    // Null với lượt không đính kèm. Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
+    public string? Attachments { get; set; }
+
     public int TokenUsed { get; set; }
 
     // Thời điểm lượt bị LƯU TRỮ bởi "New Chat" (null = đang thuộc hội thoại hiện hành). Hội thoại là
