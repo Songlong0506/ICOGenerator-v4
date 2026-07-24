@@ -894,8 +894,13 @@ input[type="checkbox"], input[type="radio"], input[type="range"], input[type="fi
 
 /* ---------- Layout grids ---------- */
 .grid { display: grid; gap: 18px; }
-.agents-grid { grid-template-columns: 320px 1fr; }
-.manage-grid { grid-template-columns: 320px 1fr; }
+/* minmax(0, 1fr) thay cho 1fr: track được phép co lại nhỏ hơn nội dung,
+   nhờ vậy phần Tools (tên method/description dài) cắt bằng ellipsis thay vì
+   kéo giãn cột làm cả trang phải scroll ngang. */
+.agents-grid { grid-template-columns: 320px minmax(0, 1fr); }
+.manage-grid { grid-template-columns: 320px minmax(0, 1fr); }
+/* Cột lưới không được phình theo nội dung con — bảo hiểm cho ellipsis bên trong. */
+.agents-grid > section, .manage-grid > section { min-width: 0; }
 
 /* ---------- Agents list ---------- */
 .agent-item {
