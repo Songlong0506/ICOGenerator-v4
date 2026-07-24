@@ -93,6 +93,17 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
+    // Ẩn HẲN danh sách gợi ý: không chỉ display:none mà còn XÓA các chip. Bắt buộc phải xóa vì CSS gộp
+    // câu hỏi + chips (.req-msg.ba:has(+ .suggestion-list .suggestion-option)) chỉ dựa vào SỰ TỒN TẠI của
+    // .suggestion-option trong DOM — nếu chỉ display:none mà giữ chip, bong bóng BA phía trên vẫn bị bỏ
+    // margin đáy nên tin nhắn tiếp theo (lượt user vừa gửi) DÍNH sát vào nó trong lúc BA đang "suy nghĩ".
+    function hideSuggestions() {
+        if (!suggestionList) return;
+        suggestionList.style.display = "none";
+        suggestionList.innerHTML = "";
+        suggestionList.dataset.multi = "false";
+    }
+
     // Render lại các chip gợi ý cho lượt BA mới nhất (markup khớp bản server render trong Index.cshtml);
     // dời #suggestionList xuống dưới bubble mới nhất vì các lượt streaming được chèn vào sau nó trong DOM.
     // multiSelect = true: chip chuyển sang chế độ TOGGLE (chọn nhiều) + nút "Gửi các lựa chọn" — dùng cho
@@ -101,9 +112,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (!suggestionList) return;
 
         if (!Array.isArray(suggestions) || suggestions.length === 0) {
-            suggestionList.style.display = "none";
-            suggestionList.innerHTML = "";
-            suggestionList.dataset.multi = "false";
+            hideSuggestions();
             return;
         }
 
@@ -460,7 +469,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         resizeMessageInput();
 
         // Lượt đã được trả lời → ẩn các gợi ý cũ ngay (gợi ý mới render lại ở frame done nếu có).
-        if (suggestionList) suggestionList.style.display = "none";
+        hideSuggestions();
 
         setThinkingText("BA is analyzing requirements...");
         thinkingBox.style.display = "block";
@@ -498,7 +507,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         const failedBubble = btn.closest(".req-msg.ba");
         if (failedBubble) failedBubble.remove();
-        if (suggestionList) suggestionList.style.display = "none";
+        hideSuggestions();
 
         setThinkingText("BA đang thử trả lời lại…");
         thinkingBox.style.display = "block";
