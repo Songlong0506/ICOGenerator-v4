@@ -446,6 +446,46 @@ tbody tr:hover { background: var(--table-hover); }
 
 .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
+/* ---------- Icon buttons (borderless action icons) ---------- */
+.icon-btn {
+    align-items: center;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: inline-flex;
+    height: 32px;
+    justify-content: center;
+    padding: 0;
+    width: 32px;
+    transition: color .15s ease, background-color .15s ease;
+}
+
+.icon-btn:hover {
+    color: var(--bosch-blue);
+    background: var(--bosch-blue-tint);
+}
+
+.icon-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.icon-btn i {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.icon-btn.danger {
+    color: var(--danger);
+}
+
+.icon-btn.danger:hover {
+    color: var(--danger-ink);
+    background: var(--danger-tint);
+}
+
 /* ---------- Badges ---------- */
 .badge {
     display: inline-block;
