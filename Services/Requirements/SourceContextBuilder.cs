@@ -54,7 +54,12 @@ public class SourceContextBuilder
             {
                 contents.Add(new TextContent(header + (s.Kind switch
                 {
-                    SourceFileKind.Image => " (ảnh — xem nội dung ảnh đính kèm)",
+                    // Ảnh CHỈ đọc được khi model có vision. Với model text-only, KHÔNG được viết "xem nội dung ảnh
+                    // đính kèm" (ảnh không hề được gửi kèm ở dưới) — câu đó khiến model tưởng có ảnh và BỊA nội
+                    // dung. Nói thẳng là không đọc được để BA hỏi người dùng gõ lại thay vì tự suy đoán.
+                    SourceFileKind.Image => modelSupportsVision
+                        ? " (ảnh — xem nội dung ảnh đính kèm)"
+                        : " (ảnh — model hiện tại KHÔNG đọc được ảnh nên nội dung ảnh KHÔNG được gửi kèm; TUYỆT ĐỐI không tự suy đoán nội dung ảnh, hãy hỏi người dùng gõ/nhập lại các thông tin trong ảnh)",
                     SourceFileKind.Spreadsheet => " (bảng tính — không đọc được nội dung, đã bỏ qua)",
                     _ => " (PDF dạng scan/ảnh — không trích xuất được text, nội dung bị bỏ qua)"
                 })));
