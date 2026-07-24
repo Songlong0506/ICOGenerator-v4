@@ -438,10 +438,18 @@
                 </div>
             }
 
+            @{
+                // Gộp các lượt BA LIỀN KỀ dưới MỘT nhãn "BA" (kiểu Teams/ChatGPT): mỗi lượt assistant vốn
+                // tự in nhãn riêng, nên hai lượt BA nối nhau (vd lượt tóm tắt tài liệu do AcknowledgeSources
+                // thêm ngay sau một câu hỏi BA) hiện "BA" hai lần chồng nhau. Chỉ in nhãn cho lượt BA ĐẦU
+                // của một chuỗi; panel workflow và lượt user (đều KHÔNG phải bong bóng BA) cắt chuỗi lại.
+                var prevWasBaBubble = false;
+            }
             @foreach (var group in renderGroups)
             {
                 if (group.Kind == "workflow")
                 {
+                    prevWasBaBubble = false;
                     var runs = group.Runs;
                     var leadRun = runs[runs.Count - 1];
                     var groupAutoScroll = runs.Any(r => r.Id == autoScrollWorkflowRunId) ? "true" : "false";
@@ -472,6 +480,7 @@
                     // Ảnh/file người dùng đính kèm ở lượt này (lưu JSON trong Attachments) — render ngay
                     // trong bubble như ChatGPT/Claude: ảnh thành thumbnail (bấm mở bản gốc), file khác
                     // thành chip tên file. Nguồn đã bị xóa ⇒ endpoint trả 404, onerror ẩn thumbnail hỏng.
+                    prevWasBaBubble = false;
                     var attachments = ParseAttachments(group.Conversation.Attachments);
                     <div class="req-msg you">
                         @if (attachments.Any())
@@ -507,7 +516,10 @@
                     var isFailureTurn = (group.Conversation.Message ?? "").StartsWith(
                         ICOGenerator.Services.Requirements.ConversationTranscriptBuilder.LlmFailurePrefix, StringComparison.Ordinal);
                     var isLastTurn = group.Conversation.Id == conversations.LastOrDefault()?.Id;
-                    <b class="req-who">BA</b>
+                    @if (!prevWasBaBubble)
+                    {
+                        <b class="req-who">BA</b>
+                    }
                     <div class="req-msg ba @(isFailureTurn ? "chat-error" : "")">
                         @* Giữ pre-wrap để tôn trọng xuống dòng trong câu trả lời của BA, nhưng đặt biểu thức
                            NGAY trong thẻ <p> (không xuống dòng/thụt lề) — nếu không, khoảng trắng thụt lề của
@@ -551,9 +563,10 @@
                             </div>
                         }
                     </div>
+                    prevWasBaBubble = true;
                 }
             }
-    
+
             <div id="suggestionList"
                  class="suggestion-list"
                  role="listbox"
