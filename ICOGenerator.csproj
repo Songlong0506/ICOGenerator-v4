@@ -52,6 +52,10 @@
 		<None Update="Templates/*.docx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
 	<ItemGroup>
+		<!-- Expose internal types (e.g. ThinkingDisabledHandler) to the test project for unit testing. -->
+		<InternalsVisibleTo Include="ICOGenerator.Tests" />
+	</ItemGroup>
+	<ItemGroup>
 		<Compile Remove="tests/**/*.cs" />
 		<Content Remove="tests/**/*" />
 		<None Remove="tests/**/*" />
