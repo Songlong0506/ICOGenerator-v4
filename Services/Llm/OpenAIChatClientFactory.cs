@@ -35,7 +35,7 @@ public class OpenAIChatClientFactory : IChatClientFactory
         {
             Endpoint = new Uri(model.Endpoint.TrimEnd('/')),
             // Route the SDK through the named HttpClient: it owns the handler pipeline (proxy choice +
-            // the thinking-disable shim) and an infinite timeout. LlmClient enforces the single per-call
+            // the per-API request-compatibility shim) and an infinite timeout. LlmClient enforces the single per-call
             // deadline, so disable the SDK's own 100s network timeout here.
             Transport = new HttpClientPipelineTransport(http),
             NetworkTimeout = Timeout.InfiniteTimeSpan,

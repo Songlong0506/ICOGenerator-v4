@@ -263,11 +263,14 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     }
 
     // Logged in the shape the call-log UI expects; tools are summarised by name (the full JSON schema is
-    // produced downstream by the OpenAI SDK). The "thinking" field is injected by ThinkingDisabledHandler
-    // in the HttpClient pipeline (see OpenAIChatClientFactory) — but NOT for the official OpenAI API, which
-    // 400s on unknown parameters, so the log mirrors that here to reflect the body actually sent.
+    // produced downstream by the OpenAI SDK). Mirrors LlmRequestCompatibilityHandler so the preview matches
+    // the body actually sent: "thinking" is injected only for OpenAI-compatible (non-OpenAI) endpoints, and
+    // "temperature" is dropped for OpenAI reasoning models that reject a non-default value.
     private string BuildRequestJson(IList<ChatMessage> messageList, ChatOptions callOptions, int maxTokens)
     {
+        var isOpenAi = OpenAiCompatibility.IsOpenAiHost(OpenAiCompatibility.HostOf(_model.Endpoint));
+        var dropTemperature = isOpenAi && OpenAiCompatibility.IsReasoningModel(_model.ModelId);
+
         var node = JsonSerializer.SerializeToNode(new
         {
             model = _model.ModelId,
@@ -276,23 +279,15 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             max_tokens = maxTokens,
             stream = true,
             tools = callOptions.Tools?.Select(t => t.Name) ?? Enumerable.Empty<string>(),
-        })!;
+        })!.AsObject();
 
-        if (InjectsThinking())
+        if (dropTemperature)
+            node.Remove("temperature");
+
+        if (!isOpenAi)
             node["thinking"] = new JsonObject { ["type"] = "disabled" };
 
         return node.ToJsonString(SerializeOptions);
-    }
-
-    // Mirrors ThinkingDisabledHandler: the non-standard "thinking" field is sent to every endpoint EXCEPT
-    // the official OpenAI API (*.openai.com), which rejects unknown parameters with HTTP 400.
-    private bool InjectsThinking()
-    {
-        if (!Uri.TryCreate(_model.Endpoint, UriKind.Absolute, out var uri))
-            return true;
-        var host = uri.Host;
-        return !(host.Equals("openai.com", StringComparison.OrdinalIgnoreCase)
-            || host.EndsWith(".openai.com", StringComparison.OrdinalIgnoreCase));
     }
 
     private string BudgetLabel(int step) =>

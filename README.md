@@ -492,7 +492,7 @@ LlmClient / AgentRunService
        ├► HttpClient "direct"  (UseProxy=false)        — cho endpoint localhost
        ├► HttpClient "proxied" (Llm:Proxy — mặc định tắt trong appsettings) — khi ngồi sau proxy công ty
        │     cả hai: Timeout = Infinite (deadline per-call do CancellationToken lo)
-       │     + ThinkingDisabledHandler (chèn lại field "thinking" mà SDK OpenAI typed không diễn đạt được)
+       │     + LlmRequestCompatibilityHandler (chèn field "thinking" cho endpoint tương thích; với OpenAI chính thức thì bỏ "thinking" và bỏ "temperature" cho reasoning model o-series/gpt-5)
        └► ChatClientBuilder compose ModelCallLoggingChatClient (middleware chung):
              deadline • trần completion-token (MaxOutputTokenResolver + TokenEstimator)
              • map lỗi API/timeout thành LlmCallResult • ghi AgentModelCallLogs • progress
