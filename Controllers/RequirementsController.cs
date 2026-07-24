@@ -29,6 +29,7 @@ public class RequirementsController : Controller
     private readonly DeleteProjectSourceUseCase _deleteProjectSourceUseCase;
     private readonly GetDocumentRevisionsQuery _getDocumentRevisionsQuery;
     private readonly GetDocumentRevisionDiffQuery _getDocumentRevisionDiffQuery;
+    private readonly GetSourceFileContentQuery _getSourceFileContentQuery;
     private readonly EstimatePocEtaQuery _estimatePocEtaQuery;
     private readonly ReviseBriefFromNotesUseCase _reviseBriefFromNotesUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
@@ -52,6 +53,7 @@ public class RequirementsController : Controller
        DeleteProjectSourceUseCase deleteProjectSourceUseCase,
        GetDocumentRevisionsQuery getDocumentRevisionsQuery,
        GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery,
+       GetSourceFileContentQuery getSourceFileContentQuery,
        EstimatePocEtaQuery estimatePocEtaQuery,
        ReviseBriefFromNotesUseCase reviseBriefFromNotesUseCase,
        RetryWorkflowUseCase retryWorkflowUseCase,
@@ -71,6 +73,7 @@ public class RequirementsController : Controller
         _deleteProjectSourceUseCase = deleteProjectSourceUseCase;
         _getDocumentRevisionsQuery = getDocumentRevisionsQuery;
         _getDocumentRevisionDiffQuery = getDocumentRevisionDiffQuery;
+        _getSourceFileContentQuery = getSourceFileContentQuery;
         _estimatePocEtaQuery = estimatePocEtaQuery;
         _reviseBriefFromNotesUseCase = reviseBriefFromNotesUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
@@ -352,8 +355,13 @@ public class RequirementsController : Controller
 
                 // BA đọc các nguồn mới, tóm tắt và xin xác nhận (thêm một lượt assistant) — đóng vòng phản
                 // hồi ngay tại đầu vào. Kèm theo ghi chú người dùng gõ cạnh ảnh (nếu có) để BA đọc ảnh đúng
-                // trọng tâm. Fail-open: không thêm được thì upload vẫn thành công như cũ.
-                await _chatWithBAUseCase.AcknowledgeSourcesAsync(projectId, note);
+                // trọng tâm, và danh sách file vừa upload để lượt user hiển thị ảnh ngay trong hội thoại.
+                // Fail-open: bước tóm tắt lỗi thì upload vẫn thành công (lỗi hiện thành lượt ⚠️ trong chat).
+                var attachments = result.IngestedFiles
+                    .Select(f => new ChatAttachment(f.Id, f.FileName,
+                        f.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                await _chatWithBAUseCase.AcknowledgeSourcesAsync(projectId, note, attachments);
             }
         }
         catch (SourceFileValidationException ex)
@@ -608,5 +616,20 @@ public class RequirementsController : Controller
             return NotFound("Document not found.");
 
         return PhysicalFile(result.FilePath, result.ContentType, result.FileName);
+    }
+
+    // Nội dung một tài liệu nguồn (ProjectSourceFile) — bubble hội thoại dùng làm src cho ảnh đính kèm.
+    // Trả inline (không ép download); 404 khi nguồn đã bị xóa để bubble ẩn ảnh hỏng.
+    [HttpGet]
+    public async Task<IActionResult> SourceContent(Guid id)
+    {
+        if (!await _projectAccess.CanAccessSourceFileAsync(User, id, HttpContext.RequestAborted))
+            return NotFound("Source not found.");
+
+        var result = await _getSourceFileContentQuery.ExecuteAsync(id, HttpContext.RequestAborted);
+        if (result == null)
+            return NotFound("Source not found.");
+
+        return PhysicalFile(result.FilePath, result.ContentType);
     }
 }

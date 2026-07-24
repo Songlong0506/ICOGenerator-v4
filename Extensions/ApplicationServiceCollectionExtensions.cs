@@ -372,6 +372,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<StartNewChatUseCase>();
         services.AddScoped<UploadProjectSourceUseCase>();
         services.AddScoped<DeleteProjectSourceUseCase>();
+        services.AddScoped<GetSourceFileContentQuery>();
         services.AddScoped<GetDocumentRevisionsQuery>();
         services.AddScoped<GetDocumentRevisionDiffQuery>();
         services.AddScoped<EstimatePocEtaQuery>();
