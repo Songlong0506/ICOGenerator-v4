@@ -383,7 +383,7 @@
             @if (!conversations.Any())
             {
                 <div class="req-msg ba">
-                    <b>BA</b>
+                    <b class="req-who">BA</b>
 
                     <p>
                         Xin chào! Tôi là Business Analyst. Anh/chị cứ <b>kể thoải mái một mạch</b> mọi điều
@@ -427,6 +427,7 @@
                 else if (group.Conversation?.Role == "user")
                 {
                     <div class="req-msg you">
+                        <b class="req-who">Bạn</b>
                         <p>@group.Conversation.Message</p>
                     </div>
                 }
@@ -439,11 +440,12 @@
                         ICOGenerator.Services.Requirements.ConversationTranscriptBuilder.LlmFailurePrefix, StringComparison.Ordinal);
                     var isLastTurn = group.Conversation.Id == conversations.LastOrDefault()?.Id;
                     <div class="req-msg ba @(isFailureTurn ? "chat-error" : "")">
-                        <b>BA</b>
+                        <b class="req-who">BA</b>
 
-                        <p style="white-space: pre-wrap;">
-                            @group.Conversation.Message
-                        </p>
+                        @* Giữ pre-wrap để tôn trọng xuống dòng trong câu trả lời của BA, nhưng đặt biểu thức
+                           NGAY trong thẻ <p> (không xuống dòng/thụt lề) — nếu không, khoảng trắng thụt lề của
+                           mã Razor bị pre-wrap giữ lại, đẩy dòng đầu tin nhắn thụt vào trông rất khó chịu. *@
+                        <p style="white-space: pre-wrap;">@((group.Conversation.Message ?? "").Trim())</p>
 
                         @if (isFailureTurn && isLastTurn)
                         {
@@ -513,7 +515,7 @@
                  class="req-msg ba thinking"
                  style="display:none;">
 
-                <b>BA</b>
+                <b class="req-who">BA</b>
 
                 <div class="thinking-content">
 
