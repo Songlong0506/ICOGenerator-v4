@@ -58,10 +58,13 @@
     }
 
     .req-msg {
-        padding: 12px 16px;
-        margin-bottom: 10px;
-        max-width: 75%;
+        padding: 10px 14px;
+        margin-bottom: 12px;
+        max-width: 78%;
         border: 1px solid transparent;
+        border-radius: 14px;
+        line-height: 1.5;
+        word-break: break-word;
     }
 
         /* Thu gọn khoảng cách giữa các đoạn trong bubble: bỏ margin thừa của <p>
@@ -74,14 +77,37 @@
             margin-top: 8px;
         }
 
+        /* Nhãn vai ("BA" / "Bạn") đứng đầu mỗi bong bóng: chữ nhỏ, in hoa nhẹ, mờ — để bong bóng của BA và
+           của người dùng có CÙNG cấu trúc (nhãn + nội dung), khác trước đây chỉ BA có nhãn còn user thì không. */
+        .req-msg .req-who {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: var(--bosch-blue-dark);
+            opacity: .7;
+        }
+
+        /* Bong bóng người dùng: cùng khung viền + nhãn như BA, chỉ khác màu và neo bên phải; "đuôi" bo nhỏ
+           ở góc dưới-phải cho ra dáng hội thoại. */
         .req-msg.you {
             margin-left: auto;
             background: var(--bosch-blue-tint);
+            border-color: var(--bosch-blue-tint-strong);
+            border-bottom-right-radius: 4px;
         }
 
+            .req-msg.you .req-who {
+                text-align: right;
+            }
+
+        /* Bong bóng BA: nền xám nhạt, "đuôi" bo nhỏ ở góc dưới-trái (đối xứng với bong bóng người dùng). */
         .req-msg.ba {
             background: var(--surface-alt);
             border-color: var(--line);
+            border-bottom-left-radius: 4px;
         }
 
         /* Bubble BA đang stream (ChatStream): con trỏ nhấp nháy ở cuối text báo "đang gõ";

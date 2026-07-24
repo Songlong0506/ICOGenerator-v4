@@ -40,6 +40,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     function appendUserBubble(text) {
         thinkingBox.insertAdjacentHTML("beforebegin", `
             <div class="req-msg you">
+                <b class="req-who">Bạn</b>
                 <p>${escapeHtml(text)}</p>
             </div>
         `);
@@ -54,7 +55,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         thinkingBox.insertAdjacentHTML("beforebegin", `
             <div class="req-msg ba streaming">
-                <b>BA</b>
+                <b class="req-who">BA</b>
                 <p style="white-space: pre-wrap;"></p>
             </div>
         `);
