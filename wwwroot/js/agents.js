@@ -27,7 +27,6 @@
     const checkboxes = Array.from(scroll.querySelectorAll('.tool-checkbox'));
     const selectedBar = document.getElementById('toolsSelected');
     const selectedChips = document.getElementById('toolsSelectedChips');
-    const sortSelect = document.getElementById('toolSort');
 
     let activeFilter = 'all';
 
@@ -82,18 +81,12 @@
         renderSelectedBar();
     }
 
-    // Sort rows inside every group: by name, or enabled-first then name.
+    // Sort rows inside every group by name.
     function applySort() {
-        const mode = sortSelect ? sortSelect.value : 'name';
         groups.forEach(function (group) {
             const body = group.querySelector('.tool-group-body');
             const rows = Array.from(body.querySelectorAll('.tool-row'));
             rows.sort(function (a, b) {
-                if (mode === 'status') {
-                    const ea = a.dataset.enabled === 'true' ? 0 : 1;
-                    const eb = b.dataset.enabled === 'true' ? 0 : 1;
-                    if (ea !== eb) return ea - eb;
-                }
                 return (a.dataset.name || '').localeCompare(b.dataset.name || '');
             });
             rows.forEach(function (r) { body.appendChild(r); });
@@ -188,21 +181,6 @@
         searchTimer = setTimeout(applyFilters, 120);
     });
 
-    document.querySelectorAll('.tools-bulk .link-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            const action = btn.dataset.bulk;
-            if (action === 'expand') {
-                groups.forEach(g => { g.classList.remove('collapsed'); g.querySelector('.tool-group-toggle').setAttribute('aria-expanded', 'true'); });
-            } else if (action === 'collapse') {
-                groups.forEach(g => { g.classList.add('collapsed'); g.querySelector('.tool-group-toggle').setAttribute('aria-expanded', 'false'); });
-            } else if (action === 'clear') {
-                checkboxes.forEach(function (b) { if (b.checked) { b.checked = false; reflectCard(b); } });
-                updateSelectedCount();
-                applyFilters();
-            }
-        });
-    });
-
     // Removing a tool from the selected bar unchecks its underlying checkbox.
     if (selectedChips) {
         selectedChips.addEventListener('click', function (e) {
@@ -216,10 +194,6 @@
             syncGroupCheckbox(box.closest('.tool-group'));
             if (activeFilter !== 'all') applyFilters();
         });
-    }
-
-    if (sortSelect) {
-        sortSelect.addEventListener('change', applySort);
     }
 
     groups.forEach(syncGroupCheckbox);

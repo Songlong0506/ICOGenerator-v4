@@ -1070,14 +1070,6 @@ input[type="checkbox"], input[type="radio"], input[type="range"], input[type="fi
 .sel-chip-x { font-size: 11px; color: var(--slate-400); }
 .sel-chip:hover .sel-chip-x { color: #fff; }
 
-.tools-bulk { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; }
-.tools-bulk .link-btn { border: 0; background: transparent; color: var(--bosch-blue); font-weight: 600; cursor: pointer; padding: 0; font-size: 13px; width: auto; }
-.tools-bulk .link-btn:hover { text-decoration: underline; }
-.tools-bulk .sep { color: var(--line); }
-.tools-bulk-spacer { flex: 1; }
-.tools-sort { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: var(--muted); font-weight: 400; }
-.tools-sort select { width: auto; border: 1px solid var(--line); background: #fff; padding: 4px 8px; font-size: 13px; color: var(--ink); cursor: pointer; }
-
 .tools-scroll { max-height: 560px; overflow-y: auto; border: 1px solid var(--line); padding: 8px; background: #fcfcfd; }
 .tools-scroll::-webkit-scrollbar { width: 10px; }
 .tools-scroll::-webkit-scrollbar-thumb { background: #b9c6d2; border-radius: 8px; border: 2px solid #fcfcfd; }

@@ -122,22 +122,6 @@
                     <span class="tools-selected-none">Chưa chọn tool nào.</span>
                 </div>
 
-                <div class="tools-bulk">
-                    <button type="button" class="link-btn" data-bulk="expand">Expand all</button>
-                    <span class="sep">·</span>
-                    <button type="button" class="link-btn" data-bulk="collapse">Collapse all</button>
-                    <span class="sep">·</span>
-                    <button type="button" class="link-btn" data-bulk="clear">Clear selection</button>
-                    <span class="tools-bulk-spacer"></span>
-                    <label class="tools-sort">
-                        <span>Sắp xếp</span>
-                        <select id="toolSort">
-                            <option value="name">Tên (A→Z)</option>
-                            <option value="status">Trạng thái (đã bật lên trước)</option>
-                        </select>
-                    </label>
-                </div>
-
                 <div class="tools-scroll" id="toolsScroll">
                     @foreach (var group in tools.GroupBy(x => string.IsNullOrWhiteSpace(x.ServiceType) ? "Other" : x.ServiceType).OrderBy(g => g.Key))
                     {
