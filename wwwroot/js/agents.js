@@ -23,7 +23,6 @@
     const searchInput = document.getElementById('toolSearch');
     const selectedCount = document.getElementById('toolsSelectedCount');
     const emptyMsg = document.getElementById('toolsEmpty');
-    const chips = Array.from(document.querySelectorAll('.tool-filter-chips .chip'));
     const groups = Array.from(scroll.querySelectorAll('.tool-group'));
     const checkboxes = Array.from(scroll.querySelectorAll('.tool-checkbox'));
     const selectedBar = document.getElementById('toolsSelected');
@@ -187,15 +186,6 @@
     searchInput.addEventListener('input', function () {
         clearTimeout(searchTimer);
         searchTimer = setTimeout(applyFilters, 120);
-    });
-
-    chips.forEach(function (chip) {
-        chip.addEventListener('click', function () {
-            chips.forEach(c => c.classList.remove('active'));
-            chip.classList.add('active');
-            activeFilter = chip.dataset.filter;
-            applyFilters();
-        });
     });
 
     document.querySelectorAll('.tools-bulk .link-btn').forEach(function (btn) {
