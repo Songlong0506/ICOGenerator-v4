@@ -89,19 +89,17 @@
         color: var(--muted);
     }
 
-        /* Bong bóng người dùng: nền xanh nhạt, neo bên phải; "đuôi" bo nhỏ ở góc dưới-phải cho ra dáng hội thoại. */
+        /* Bong bóng người dùng: nền xanh nhạt, neo bên phải. Bo 4 góc ĐỀU NHAU cho cân đối. */
         .req-msg.you {
             margin-left: auto;
             background: var(--bosch-blue-tint);
             border-color: var(--bosch-blue-tint-strong);
-            border-bottom-right-radius: 4px;
         }
 
-        /* Bong bóng BA: nền xám nhạt, "đuôi" bo nhỏ ở góc dưới-trái (đối xứng với bong bóng người dùng). */
+        /* Bong bóng BA: nền xám nhạt, bo 4 góc đều nhau. */
         .req-msg.ba {
             background: var(--surface-alt);
             border-color: var(--line);
-            border-bottom-left-radius: 4px;
         }
 
         /* Bubble BA đang stream (ChatStream): con trỏ nhấp nháy ở cuối text báo "đang gõ";
@@ -229,20 +227,36 @@
     /* Suggestion options: đáp án gợi ý "bấm-để-trả-lời" cho lượt hỏi mới nhất của BA, trình bày dạng
        danh sách dọc có đánh số — giống option-select của Claude — thay cho "chip" ngang. Nằm dưới tin
        nhắn BA; người dùng bấm (hoặc gõ phím số) để trả nhanh thay vì gõ tay từng chữ. */
-    /* Danh sách đáp án gợi ý nằm NGAY dưới bong bóng BA, thụt vào cho thẳng hàng với bong bóng. Mỗi option
-       là một nút bo góc độc lập → tự nó đã gọn gàng, KHÔNG bọc thêm card nền/viền quanh cả danh sách. Trước
-       đây có mẹo "gộp" bong bóng + danh sách thành một card (bỏ viền đáy bong bóng, thêm nền cho danh sách);
-       khi bong bóng chuyển sang bo góc thì mẹo đó làm mối nối bị vỡ, nên đã bỏ hẳn. */
     .suggestion-list {
         display: flex;
         flex-direction: column;
         gap: 6px;
-        margin: 4px 0 12px 6px;
+        margin: 4px 0 12px;
         max-width: 78%;
     }
 
     .suggestion-list:empty {
         display: none;
+    }
+
+    /* GỘP câu hỏi BA + các đáp án gợi ý thành MỘT khung chat duy nhất: khi ngay dưới bong bóng BA có danh
+       sách gợi ý còn option, bỏ bo góc đáy của bong bóng (giữ viền đáy làm đường ngăn cách câu hỏi với đáp
+       án), rồi cho danh sách nối tiếp bằng CÙNG nền + viền + độ rộng, bo góc ở đáy. Bong bóng và danh sách
+       đều rộng 78% và neo trái nên hai mép viền thẳng hàng — nhìn liền một khung. */
+    .req-msg.ba:has(+ .suggestion-list .suggestion-option) {
+        margin-bottom: 0;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    .suggestion-list:has(.suggestion-option) {
+        margin-top: 0;
+        padding: 10px 12px 12px;
+        background: var(--surface-alt);
+        border: 1px solid var(--line);
+        border-top: none;
+        border-bottom-left-radius: 14px;
+        border-bottom-right-radius: 14px;
     }
 
     .suggestion-option {
