@@ -77,31 +77,25 @@
             margin-top: 8px;
         }
 
-        /* Nhãn vai ("BA" / "Bạn") đứng đầu mỗi bong bóng: chữ nhỏ, in hoa nhẹ, mờ — để bong bóng của BA và
-           của người dùng có CÙNG cấu trúc (nhãn + nội dung), khác trước đây chỉ BA có nhãn còn user thì không. */
-        .req-msg .req-who {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: .04em;
-            text-transform: uppercase;
-            color: var(--bosch-blue-dark);
-            opacity: .7;
-        }
+    /* Nhãn người gửi kiểu Microsoft Teams: tên "BA" đứng NGOÀI bong bóng, ngay phía trên, chữ nhỏ mờ.
+       Chỉ tin nhắn của BA mới có nhãn — tin nhắn của người dùng không hiện tên (giống Teams: mình không
+       thấy tên của chính mình). Là phần tử anh em ĐỨNG TRƯỚC bong bóng trong DOM, không nằm trong khung. */
+    .req-who {
+        display: block;
+        margin: 2px 0 3px 6px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: .01em;
+        color: var(--muted);
+    }
 
-        /* Bong bóng người dùng: cùng khung viền + nhãn như BA, chỉ khác màu và neo bên phải; "đuôi" bo nhỏ
-           ở góc dưới-phải cho ra dáng hội thoại. */
+        /* Bong bóng người dùng: nền xanh nhạt, neo bên phải; "đuôi" bo nhỏ ở góc dưới-phải cho ra dáng hội thoại. */
         .req-msg.you {
             margin-left: auto;
             background: var(--bosch-blue-tint);
             border-color: var(--bosch-blue-tint-strong);
             border-bottom-right-radius: 4px;
         }
-
-            .req-msg.you .req-who {
-                text-align: right;
-            }
 
         /* Bong bóng BA: nền xám nhạt, "đuôi" bo nhỏ ở góc dưới-trái (đối xứng với bong bóng người dùng). */
         .req-msg.ba {
@@ -235,34 +229,20 @@
     /* Suggestion options: đáp án gợi ý "bấm-để-trả-lời" cho lượt hỏi mới nhất của BA, trình bày dạng
        danh sách dọc có đánh số — giống option-select của Claude — thay cho "chip" ngang. Nằm dưới tin
        nhắn BA; người dùng bấm (hoặc gõ phím số) để trả nhanh thay vì gõ tay từng chữ. */
+    /* Danh sách đáp án gợi ý nằm NGAY dưới bong bóng BA, thụt vào cho thẳng hàng với bong bóng. Mỗi option
+       là một nút bo góc độc lập → tự nó đã gọn gàng, KHÔNG bọc thêm card nền/viền quanh cả danh sách. Trước
+       đây có mẹo "gộp" bong bóng + danh sách thành một card (bỏ viền đáy bong bóng, thêm nền cho danh sách);
+       khi bong bóng chuyển sang bo góc thì mẹo đó làm mối nối bị vỡ, nên đã bỏ hẳn. */
     .suggestion-list {
         display: flex;
         flex-direction: column;
         gap: 6px;
-        margin: 0 0 10px;
-        max-width: 75%;
+        margin: 4px 0 12px 6px;
+        max-width: 78%;
     }
 
     .suggestion-list:empty {
         display: none;
-    }
-
-    /* Gộp câu hỏi mới nhất của BA + đáp án gợi ý thành MỘT khối liền mạch: khi ngay dưới bubble BA có
-       danh sách gợi ý còn option (:has(.suggestion-option)), bỏ khoảng cách + đường viền đáy của bubble
-       rồi cho suggestion-list "nối" tiếp phần thân với cùng nền/viền để nhìn là một card duy nhất. Thuần
-       CSS — không đụng cơ chế singleton/di chuyển #suggestionList trong requirements.js. */
-    .req-msg.ba:has(+ .suggestion-list .suggestion-option) {
-        margin-bottom: 0;
-        padding-bottom: 8px;
-        border-bottom-color: transparent;
-    }
-
-    .suggestion-list:has(.suggestion-option) {
-        margin-top: 0;
-        padding: 0 16px 12px;
-        background: var(--surface-alt);
-        border: 1px solid var(--line);
-        border-top: none;
     }
 
     .suggestion-option {

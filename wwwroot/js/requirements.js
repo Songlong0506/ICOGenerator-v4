@@ -40,7 +40,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     function appendUserBubble(text) {
         thinkingBox.insertAdjacentHTML("beforebegin", `
             <div class="req-msg you">
-                <b class="req-who">Bạn</b>
                 <p>${escapeHtml(text)}</p>
             </div>
         `);
@@ -53,9 +52,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // bubble đang stream và khung thinking hiển thị CÙNG LÚC thành 2 khu vực BA trùng nhau.
         thinkingBox.style.display = "none";
 
+        // Nhãn "BA" đứng NGOÀI bong bóng (kiểu Teams) → chèn nhãn rồi tới bong bóng; previousElementSibling
+        // của thinkingBox vẫn là bong bóng (phần tử chèn sau cùng), nên liveBubble trỏ đúng.
         thinkingBox.insertAdjacentHTML("beforebegin", `
+            <b class="req-who">BA</b>
             <div class="req-msg ba streaming">
-                <b class="req-who">BA</b>
                 <p style="white-space: pre-wrap;"></p>
             </div>
         `);
