@@ -351,6 +351,13 @@
         background: var(--surface-alt);
     }
 
+        /* Khay xem trước ảnh chỉ hiện khi ĐÃ có ảnh dán/kéo-thả/đính kèm. Không có dòng này thì
+           display:flex ở trên đè lên thuộc tính [hidden] (vốn = display:none của trình duyệt),
+           khiến khung gạch đứt rỗng vẫn lộ ra dù chưa dán ảnh nào. JS chỉ gỡ [hidden] khi có ảnh. */
+        .attach-preview[hidden] {
+            display: none;
+        }
+
     .attach-thumb {
         position: relative;
         width: 56px;
