@@ -58,11 +58,21 @@
     }
 
     .req-msg {
-        padding: 18px;
-        margin-bottom: 16px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
         max-width: 75%;
         border: 1px solid transparent;
     }
+
+        /* Thu gọn khoảng cách giữa các đoạn trong bubble: bỏ margin thừa của <p>
+           đầu/cuối, giữ khoảng cách vừa phải giữa các đoạn liền nhau. */
+        .req-msg p {
+            margin: 0;
+        }
+
+        .req-msg p + p {
+            margin-top: 8px;
+        }
 
         .req-msg.you {
             margin-left: auto;
@@ -203,7 +213,7 @@
         display: flex;
         flex-direction: column;
         gap: 6px;
-        margin: 0 0 16px;
+        margin: 0 0 10px;
         max-width: 75%;
     }
 
@@ -217,13 +227,13 @@
        CSS — không đụng cơ chế singleton/di chuyển #suggestionList trong requirements.js. */
     .req-msg.ba:has(+ .suggestion-list .suggestion-option) {
         margin-bottom: 0;
-        padding-bottom: 12px;
+        padding-bottom: 8px;
         border-bottom-color: transparent;
     }
 
     .suggestion-list:has(.suggestion-option) {
         margin-top: 0;
-        padding: 0 18px 16px;
+        padding: 0 16px 12px;
         background: var(--surface-alt);
         border: 1px solid var(--line);
         border-top: none;
@@ -238,7 +248,7 @@
         align-items: center;
         gap: 12px;
         width: 100%;
-        padding: 12px 14px;
+        padding: 9px 12px;
         border: 1px solid var(--line);
         border-radius: 10px;
         background: var(--surface);
