@@ -45,6 +45,26 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         `);
     }
 
+    // Bong bóng "lạc quan" cho lượt gửi ẢNH: hiện ngay ảnh (từ objectURL đang xem trước) + ghi chú như
+    // một lượt user thật, để user thấy tin đã gửi trong lúc BA đọc ảnh — thay vì chỉ có spinner rồi reload.
+    // Markup khớp bản server render (.req-msg you > .chat-attachments) để nhìn giống hệt sau khi reload.
+    // Trả về phần tử vừa chèn để có thể gỡ đi (hoàn tác) nếu upload thất bại.
+    function appendUserImageBubble(note, images) {
+        const thumbs = images.map(img => `
+            <span class="chat-attachment-img" title="${escapeHtml(img.file.name || "ảnh")}">
+                <img src="${img.url}" alt="${escapeHtml(img.file.name || "ảnh đính kèm")}" />
+            </span>
+        `).join("");
+        const noteHtml = note ? `<p>${escapeHtml(note)}</p>` : "";
+        thinkingBox.insertAdjacentHTML("beforebegin", `
+            <div class="req-msg you">
+                <div class="chat-attachments">${thumbs}</div>
+                ${noteHtml}
+            </div>
+        `);
+        return thinkingBox.previousElementSibling;
+    }
+
     function ensureLiveBubble() {
         if (liveBubble) return liveBubble;
 
@@ -631,7 +651,22 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
             uploading = true;
             chatBusy = true;
-            setThinkingText("Đang tải ảnh lên để BA đọc…");
+
+            // Hiện NGAY bong bóng của user (ảnh + ghi chú) rồi mới để BA đọc — trải nghiệm giống chat
+            // thường (tin của mình lên khung trước), thay vì đứng nhìn spinner rồi cả trang reload.
+            const optimisticBubble = appendUserImageBubble(note, stagedImages);
+
+            // Dọn ô nhập + khay xem trước ngay như vừa gửi tin. KHÔNG revoke objectURL ở đây: bong bóng
+            // lạc quan vừa chèn còn đang dùng chúng cho tới khi reload (hoặc bị gỡ khi lỗi).
+            messageInput.value = "";
+            resizeMessageInput();
+            if (preview) {
+                preview.innerHTML = "";
+                preview.hidden = true;
+            }
+            messageInput.placeholder = defaultPlaceholder;
+
+            setThinkingText("BA đang đọc ảnh…");
             thinkingBox.style.display = "block";
             scrollToBottom();
 
@@ -651,9 +686,17 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 }
                 throw new Error("upload failed");
             } catch {
+                // Hoàn tác: gỡ bong bóng lạc quan, khôi phục khay ảnh + ghi chú để user thử lại.
+                if (optimisticBubble) optimisticBubble.remove();
                 thinkingBox.style.display = "none";
                 uploading = false;
                 chatBusy = false;
+                if (note) {
+                    messageInput.value = note;
+                    resizeMessageInput();
+                }
+                renderPreview();
+                messageInput.placeholder = "Thêm ghi chú cho ảnh (không bắt buộc) rồi bấm gửi…";
                 alert("Không tải được ảnh lên. Anh/chị thử lại hoặc dùng nút Upload ở mục 'Tài liệu nguồn'.");
             }
         };
