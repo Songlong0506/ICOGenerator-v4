@@ -2,6 +2,7 @@ using System.ClientModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Budget;
@@ -263,9 +264,11 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
 
     // Logged in the shape the call-log UI expects; tools are summarised by name (the full JSON schema is
     // produced downstream by the OpenAI SDK). The "thinking" field is injected by ThinkingDisabledHandler
-    // in the HttpClient pipeline (see OpenAIChatClientFactory).
-    private string BuildRequestJson(IList<ChatMessage> messageList, ChatOptions callOptions, int maxTokens) =>
-        JsonSerializer.Serialize(new
+    // in the HttpClient pipeline (see OpenAIChatClientFactory) — but NOT for the official OpenAI API, which
+    // 400s on unknown parameters, so the log mirrors that here to reflect the body actually sent.
+    private string BuildRequestJson(IList<ChatMessage> messageList, ChatOptions callOptions, int maxTokens)
+    {
+        var node = JsonSerializer.SerializeToNode(new
         {
             model = _model.ModelId,
             messages = messageList.Select(m => new { role = m.Role.Value, content = m.Text }),
@@ -273,8 +276,24 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             max_tokens = maxTokens,
             stream = true,
             tools = callOptions.Tools?.Select(t => t.Name) ?? Enumerable.Empty<string>(),
-            thinking = new { type = "disabled" }
-        }, SerializeOptions);
+        })!;
+
+        if (InjectsThinking())
+            node["thinking"] = new JsonObject { ["type"] = "disabled" };
+
+        return node.ToJsonString(SerializeOptions);
+    }
+
+    // Mirrors ThinkingDisabledHandler: the non-standard "thinking" field is sent to every endpoint EXCEPT
+    // the official OpenAI API (*.openai.com), which rejects unknown parameters with HTTP 400.
+    private bool InjectsThinking()
+    {
+        if (!Uri.TryCreate(_model.Endpoint, UriKind.Absolute, out var uri))
+            return true;
+        var host = uri.Host;
+        return !(host.Equals("openai.com", StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith(".openai.com", StringComparison.OrdinalIgnoreCase));
+    }
 
     private string BudgetLabel(int step) =>
         _maxSteps <= 0 ? step.ToString()
