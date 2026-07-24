@@ -118,6 +118,16 @@ public class ProjectSourceIngestorTests : IDisposable
         Assert.DoesNotContain(noVision, c => c is Microsoft.Extensions.AI.DataContent);
         // Cả hai đều phải có phần text (tiêu đề nguồn) để model biết có tài liệu đính kèm.
         Assert.Contains(noVision, c => c is Microsoft.Extensions.AI.TextContent);
+
+        // Text vision: được phép mời model "xem nội dung ảnh" vì ảnh THẬT SỰ được gửi kèm.
+        var visionText = string.Concat(withVision.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        Assert.Contains("xem nội dung ảnh", visionText);
+
+        // Text không-vision KHÔNG được mời "xem nội dung ảnh" (ảnh không gửi kèm → model sẽ bịa); phải nói thẳng
+        // là không đọc được để BA hỏi người dùng gõ lại thay vì tự suy đoán.
+        var noVisionText = string.Concat(noVision.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        Assert.DoesNotContain("xem nội dung ảnh", noVisionText);
+        Assert.Contains("KHÔNG đọc được ảnh", noVisionText);
     }
 
     private static byte[] BuildTextPdf(string text)
