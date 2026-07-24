@@ -1,7 +1,7 @@
 namespace ICOGenerator.Services.Budget;
 
 /// <summary>
-/// Cấu hình trần ngân sách LLM (config-bound, testable — cùng kiểu với <c>StructuredOutputPolicy</c>).
+/// Cấu hình trần ngân sách LLM (config-bound, testable).
 ///
 ///   "Budget": { "Enabled": true, "Period": "Monthly", "SystemUsdLimit": 50, "PerProjectUsdLimit": 10 }
 ///

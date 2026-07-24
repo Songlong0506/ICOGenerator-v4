@@ -6,31 +6,23 @@ namespace ICOGenerator.Tests.Llm;
 
 public class StructuredOutputPolicyTests
 {
-    private static AiModel Model(string modelId) => new() { ModelId = modelId };
+    private static AiModel Model(bool supportsStructuredOutput) =>
+        new() { ModelId = "gpt-4o-mini", SupportsStructuredOutput = supportsStructuredOutput };
 
     [Fact]
-    public void UsesStructuredOutput_WhenEnabledAndListed_CaseInsensitive()
+    public void UsesStructuredOutput_WhenModelOptedIn()
     {
-        var policy = new StructuredOutputPolicy(enabled: true, modelIds: new[] { "GPT-4o-Mini" });
+        var policy = new StructuredOutputPolicy();
 
-        Assert.True(policy.UseStructuredOutput(Model("gpt-4o-mini")));
-        Assert.False(policy.UseStructuredOutput(Model("another-model")));
+        Assert.True(policy.UseStructuredOutput(Model(supportsStructuredOutput: true)));
     }
 
     [Fact]
-    public void DoesNotUseStructuredOutput_WhenEnabledButListEmpty()
+    public void DoesNotUseStructuredOutput_WhenModelNotOptedIn()
     {
-        var policy = new StructuredOutputPolicy(enabled: true, modelIds: System.Array.Empty<string>());
+        // Opt-in default: a model stays on the legacy text path until SupportsStructuredOutput is ticked.
+        var policy = new StructuredOutputPolicy();
 
-        Assert.False(policy.UseStructuredOutput(Model("gpt-4o-mini")));
-    }
-
-    [Fact]
-    public void DoesNotUseStructuredOutput_WhenDisabled_EvenIfListed()
-    {
-        // Opt-in default: a listed model still stays on the legacy text path until the feature is enabled.
-        var policy = new StructuredOutputPolicy(enabled: false, modelIds: new[] { "gpt-4o-mini" });
-
-        Assert.False(policy.UseStructuredOutput(Model("gpt-4o-mini")));
+        Assert.False(policy.UseStructuredOutput(Model(supportsStructuredOutput: false)));
     }
 }

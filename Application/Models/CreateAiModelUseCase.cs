@@ -41,6 +41,7 @@ public class CreateAiModelUseCase
         m.OutputPricePerMillionTokens,
         m.IsActive,
         m.SupportsVision,
+        m.SupportsStructuredOutput,
         m.CreatedByUsername
     };
 }

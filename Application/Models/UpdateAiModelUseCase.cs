@@ -37,6 +37,7 @@ public class UpdateAiModelUseCase
         model.OutputPricePerMillionTokens = input.OutputPricePerMillionTokens;
         model.IsActive = input.IsActive;
         model.SupportsVision = input.SupportsVision;
+        model.SupportsStructuredOutput = input.SupportsStructuredOutput;
 
         await _db.SaveChangesAsync();
 
