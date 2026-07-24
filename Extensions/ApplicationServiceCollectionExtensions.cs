@@ -538,8 +538,9 @@ public static class ApplicationServiceCollectionExtensions
         var proxyEnabled = configuration.GetValue("Llm:Proxy:Enabled", true);
         var proxyAddress = configuration.GetValue("Llm:Proxy:Address", "http://127.0.0.1:3128");
 
-        // Re-injects the non-standard "thinking" field that the typed OpenAI SDK can't express.
-        services.AddTransient<ThinkingDisabledHandler>();
+        // Patches outgoing LLM bodies per target API: the non-standard "thinking" field for OpenAI-compatible
+        // endpoints, and dropping params the official OpenAI API rejects (thinking, reasoning-model temperature).
+        services.AddTransient<LlmRequestCompatibilityHandler>();
 
         // Two pooled clients (direct for localhost, proxied). Timeout is infinite: the per-call deadline
         // is enforced by LlmClient's linked CancellationToken, not by HttpClient/the SDK.
@@ -550,7 +551,7 @@ public static class ApplicationServiceCollectionExtensions
                 UseProxy = false,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5)
             })
-            .AddHttpMessageHandler<ThinkingDisabledHandler>();
+            .AddHttpMessageHandler<LlmRequestCompatibilityHandler>();
 
         services.AddHttpClient(OpenAIChatClientFactory.ProxiedClientName)
             .ConfigureHttpClient(c => c.Timeout = Timeout.InfiniteTimeSpan)
@@ -561,7 +562,7 @@ public static class ApplicationServiceCollectionExtensions
                 Proxy = proxyEnabled ? new WebProxy(proxyAddress) : null,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5)
             })
-            .AddHttpMessageHandler<ThinkingDisabledHandler>();
+            .AddHttpMessageHandler<LlmRequestCompatibilityHandler>();
 
         // Builds a Microsoft.Extensions.AI IChatClient per AiModel; depends only on the singleton
         // IHttpClientFactory, so it is safe to register as a singleton.
