@@ -408,6 +408,24 @@
         line-height: 1.3;
     }
 
+    /* Write Requirement khi nằm cuối panel "Tiến độ khai thác" (sidebar hẹp): tách khỏi danh sách
+       nhóm bằng đường kẻ nhẹ, nút trải rộng để dễ bấm, hint xuống dòng gọn thay vì đứng cạnh. */
+    .coverage-panel .write-req {
+        display: block;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .coverage-panel .write-req-btn {
+        width: 100%;
+    }
+
+    .coverage-panel .write-req-hint {
+        display: block;
+        margin: 6px 0 0;
+    }
+
     /* Khay xem trước ảnh đã đính kèm (chưa gửi): hàng thumbnail nhỏ ngay trên ô nhập. User gõ ghi chú
        rồi mới bấm gửi. Ẩn (hidden) khi chưa có ảnh nào. */
     .attach-preview {
