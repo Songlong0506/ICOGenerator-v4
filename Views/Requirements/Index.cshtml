@@ -203,6 +203,34 @@
                     </li>
                 }
             </ul>
+
+            <!-- WRITE REQUIREMENT: sinh bản mô tả sản phẩm (Product Brief) DỄ HIỂU cho user.
+                 Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) do team dev trigger ở Agent Dashboard.
+                 Đặt ngay cuối panel "Tiến độ khai thác" như phần thưởng khi thanh tiến độ đầy: nút ở 2
+                 trạng thái — "mờ" + KHÓA (write-req-waiting) khi BA còn câu hỏi (panel chưa đầy); "sẵn
+                 sàng" (write-req-ready) khi mọi nhóm áp dụng đã [RÕ]. Nút CHỈ enable ở trạng thái sẵn
+                 sàng: dùng chung cờ requirementReady với panel tiến độ (cùng bản đồ bao phủ) nên nút mở
+                 khóa ⇔ panel đầy, không thể vênh. Bấm khi chưa đủ vốn cũng bị cổng server chặn (chỉ trả
+                 lại câu hỏi, không sinh tài liệu). -->
+            <form asp-action="WriteRequirement"
+                  method="post"
+                  class="write-req @(requirementReady ? "write-req-ready" : "write-req-waiting")"
+                  onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="projectId" value="@Model.Id" />
+                <button class="btn write-req-btn @(requirementReady ? "primary" : "outline")"
+                        type="submit"
+                        disabled="@(requirementReady ? null : "disabled")"
+                        title="@(requirementReady
+                            ? "BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm."
+                            : "BA vẫn đang hỏi thêm thông tin. Hoàn tất các nhóm còn lại trong 'Tiến độ khai thác' để mở khóa nút này.")">
+                    📝 Write Requirement
+                </button>
+                @if (!requirementReady)
+                {
+                    <span class="write-req-hint">Hoàn tất các nhóm còn lại phía trên để tạo tài liệu.</span>
+                }
+            </form>
         </div>
 
         @* "Điều đã chốt": các quyết định user đã xác nhận trong chat — bấm một mục để soạn sẵn tin nhắn
@@ -571,32 +599,9 @@
 
             <div class="composer-actions">
 
-                <!-- WRITE REQUIREMENT: sinh bản mô tả sản phẩm (Product Brief) DỄ HIỂU cho user.
-                     Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) do team dev trigger ở Agent Dashboard.
-                     Nút ở 2 trạng thái: "mờ" + KHÓA (write-req-waiting) khi BA còn câu hỏi — panel
-                     "Tiến độ khai thác" chưa đầy; "sẵn sàng" (write-req-ready) khi mọi nhóm áp dụng đã
-                     [RÕ]. Nút CHỈ enable ở trạng thái sẵn sàng: dùng chung cờ requirementReady với panel
-                     tiến độ (cùng bản đồ bao phủ) nên nút mở khóa ⇔ panel đầy, không thể vênh. Bấm khi
-                     chưa đủ vốn cũng bị cổng server chặn (chỉ trả lại câu hỏi, không sinh tài liệu). -->
-                <form asp-action="WriteRequirement"
-                      method="post"
-                      class="write-req @(requirementReady ? "write-req-ready" : "write-req-waiting")"
-                      onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="projectId" value="@Model.Id" />
-                    <button class="btn write-req-btn @(requirementReady ? "primary" : "outline")"
-                            type="submit"
-                            disabled="@(requirementReady ? null : "disabled")"
-                            title="@(requirementReady
-                                ? "BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm."
-                                : "BA vẫn đang hỏi thêm thông tin. Hoàn tất các nhóm còn lại trong 'Tiến độ khai thác' để mở khóa nút này.")">
-                        📝 Write Requirement
-                    </button>
-                    @if (!requirementReady)
-                    {
-                        <span class="write-req-hint">Hoàn tất các nhóm còn lại trong “Tiến độ khai thác” để tạo tài liệu.</span>
-                    }
-                </form>
+                <!-- WRITE REQUIREMENT đã CHUYỂN lên cuối panel "Tiến độ khai thác" (cột trái): nút mở khóa
+                     đúng khi thanh tiến độ đầy nên đặt ở đó tạo mạch "lấp đầy → nút sáng ngay đây", đồng
+                     thời gọn khu vực soạn chat. -->
 
                 <!-- Cổng "Duyệt & tiếp tục" (và Retry/Reject) ĐÃ CHUYỂN sang Agent Dashboard: user thường
                      dừng ở bước POC, chỉ TeamDev/Admin (quyền DeliveryAdvance) mới đẩy tiếp các bước
