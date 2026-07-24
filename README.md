@@ -498,7 +498,7 @@ LlmClient / AgentRunService
              • map lỗi API/timeout thành LlmCallResult • ghi AgentModelCallLogs • progress
 ```
 
-- **`ILlmClient.ChatAsync`** — đường chat thuần (BA). **`ChatStructuredAsync<T>`** — structured output (`response_format: json_schema`), **opt-in** theo `StructuredOutputPolicy` (`Llm:StructuredOutput`, mặc định TẮT vì nhiều server local từ chối `response_format`); JSON không khớp schema ⇒ trả `value=null` để caller fallback về parser tay (`RequirementResponseParser`/`BAChatReplyParser`) — không bao giờ fail trắng.
+- **`ILlmClient.ChatAsync`** — đường chat thuần (BA). **`ChatStructuredAsync<T>`** — structured output (`response_format: json_schema`), **opt-in theo từng model** qua `StructuredOutputPolicy` (cờ `AiModel.SupportsStructuredOutput` tick ở trang Models, mặc định TẮT vì nhiều server local từ chối `response_format`); JSON không khớp schema ⇒ trả `value=null` để caller fallback về parser tay (`RequirementResponseParser`/`BAChatReplyParser`) — không bao giờ fail trắng.
 - **`LlmCost`** tính chi phí = token × đơn giá model — cùng công thức cho trang Usage và Budget guard.
 - **`IBudgetGuard`** kiểm tra **trước mỗi lời gọi** (cả agent lẫn BA chat): chạm trần (`Budget:*`) ⇒ từ chối gọi, ném `BudgetExceededException` với lý do.
 - **`JsonExtractor`/`JsonDefaults`** — tiện ích bóc JSON từ trả lời văn xuôi.
@@ -658,7 +658,6 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 | `Notifications:Email:{Enabled,Host,Port,UseStartTls,Username,Password,From,To}` | tắt / 587 STARTTLS | SMTP. Password qua env. Fail-open |
 | `Notifications:BoschEmail:{Enabled,BaseUrl,SendMailApi,ApiKey,FromEmail,To,OnlySendToTesterEmail,TesterEmail}` | tắt / `api/Email` | Email Server API nội bộ Bosch (HTTP) thay SMTP. ApiKey qua env. `OnlySendToTesterEmail` = chốt an toàn non-prod. Fail-open |
 | `Llm:Proxy:{Enabled,Address}` | false / `http://127.0.0.1:3128` | Proxy công ty cho lời gọi LLM ra ngoài (client "proxied"); code mặc định coi Enabled=true nếu **thiếu key** — appsettings hiện đặt tường minh false |
-| `Llm:StructuredOutput:{Enabled,ModelIds}` | false / [] | Opt-in `response_format: json_schema` cho các lời gọi BA trả JSON, chỉ với ModelId liệt kê |
 | `Budget:{Enabled,Period,SystemUsdLimit,PerProjectUsdLimit}` | true / Monthly / 0 / 0 | Trần chi phí USD. 0 = không giới hạn scope đó (opt-in thực tế) |
 | `Encryption:ApiKeyKey` | ⚠️ có giá trị commit sẵn | **Bắt buộc nạp qua env**; khóa cũ trong git history coi như đã lộ — xoay khóa trên môi trường thật |
 | `Serilog:*` | Console + File `Logs/ico-.log` xoay ngày, giữ 14 ngày, 50MB/ngày | Mức log/sink đổi không cần build |
@@ -799,7 +798,7 @@ Các công thức chuyên biệt: thêm **tool** (§8.2), thêm **bước pipeli
 | **Prompt key** | Đường dẫn tương đối file prompt dưới `/Prompts` — khóa dùng bởi PromptTemplateService/Studio/Evals |
 | **Golden set** | Bộ `EvalScenario` chuẩn để chấm chất lượng prompt/model bằng LLM-judge |
 | **Fail-open** | Nguyên tắc thiết kế lặp lại khắp app: tính năng phụ (memory, org context, notification, prompt override) lỗi thì âm thầm rơi về hành vi cơ bản, không bao giờ làm gãy luồng chính |
-| **Opt-in** | Nguyên tắc cấu hình: tính năng có phụ thuộc ngoài (Proxy, StructuredOutput, Otel, Budget limits, Teams/Email) mặc định TẮT |
+| **Opt-in** | Nguyên tắc cấu hình: tính năng có phụ thuộc ngoài (Proxy, Otel, Budget limits, Teams/Email) mặc định TẮT; structured output opt-in **theo từng model** (`AiModel.SupportsStructuredOutput`) |
 
 ---
 
