@@ -14,7 +14,8 @@ namespace ICOGenerator.Tests.Llm;
 // so the BA turn survives on the text context instead of surfacing an API-error turn.
 public class LlmClientTests
 {
-    private static AiModel Model() => new() { ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com" };
+    private static AiModel Model(bool supportsStructuredOutput = false) =>
+        new() { ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", SupportsStructuredOutput = supportsStructuredOutput };
     private static ModelCallLogContext Ctx() => new(Guid.NewGuid(), new Agent(), "TestPurpose");
 
     private const string ImageRejectedError =
@@ -30,10 +31,10 @@ public class LlmClientTests
         })
     };
 
-    private static LlmClient Client(FakeChatClientFactory factory, bool structuredForModel = false) => new(
+    private static LlmClient Client(FakeChatClientFactory factory) => new(
         factory,
         new FakeModelCallLogger(),
-        new StructuredOutputPolicy(enabled: structuredForModel, structuredForModel ? new[] { "deepseek-v4-flash" } : Array.Empty<string>()),
+        new StructuredOutputPolicy(),
         new NoopBudgetGuard(),
         new ConfigurationBuilder().Build(),
         NullLogger<LlmClient>.Instance);
@@ -83,9 +84,9 @@ public class LlmClientTests
     public async Task ChatStructured_RetriesWithoutImages_WhenEndpointRejectsImageContent()
     {
         var factory = new FakeChatClientFactory(rejectImagesWith: ImageRejectedError, replyText: """{"answer":"ok"}""");
-        var client = Client(factory, structuredForModel: true);
+        var client = Client(factory);
 
-        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(Model(), MessagesWithImage(), 0.3, Ctx());
+        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(Model(supportsStructuredOutput: true), MessagesWithImage(), 0.3, Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(value);

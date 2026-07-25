@@ -204,9 +204,10 @@ output** của MEAI (`response_format: json_schema` qua `IChatClient.GetResponse
 model trả JSON rồi parse văn xuôi. `ILlmClient.ChatStructuredAsync<T>` lo việc này; khi structured **không**
 bật/không khả dụng/JSON không khớp schema thì trả `value = null` để caller **fallback** về parser tay cũ
 (`RequirementResponseParser`/`BAChatReplyParser`) — không bao giờ fail trắng.
-Quyết định bật theo `StructuredOutputPolicy` (cấu hình `Llm:StructuredOutput`): **opt-in**, mặc định TẮT vì
-nhiều server local từ chối `response_format`; chỉ liệt kê ModelId chắc chắn hỗ trợ vào `ModelIds`. Mặc định
-tắt ⇒ hành vi **giữ nguyên** đường text + parser cũ.
+Quyết định bật theo `StructuredOutputPolicy` — đọc cờ **theo từng model** `AiModel.SupportsStructuredOutput`
+(tick ở trang quản trị Models, giống `SupportsVision`): **opt-in**, mặc định TẮT vì nhiều server local từ
+chối `response_format`; chỉ bật cho model chắc chắn hỗ trợ. Model để tắt ⇒ hành vi **giữ nguyên** đường text
++ parser cũ.
 
 ### 5.10. Logging tập trung & observability (Serilog + OpenTelemetry opt-in)
 Toàn app ghi log qua **Serilog** thay cho logging Console mặc định của ASP.NET. Cấu hình (mức log, sink,
@@ -222,7 +223,7 @@ giữ 14 ngày). Production có thể đổi Console sang JSON nén cho log aggr
 `appsettings.Production.json` — **không sửa code**.
 
 Trên đó, **OpenTelemetry** (trace + metric) là **OPT-IN** qua `Otel:Enabled` (mặc định TẮT, cùng tinh thần
-opt-in như `Llm:Proxy` / `StructuredOutput` / `Budget`): chưa bật thì `AddObservabilityServices` **không
+opt-in như `Llm:Proxy` / `Budget`): chưa bật thì `AddObservabilityServices` **không
 đăng ký gì** — zero overhead, không sinh lỗi exporter. Khi bật, instrument **ASP.NET Core + HttpClient**
 (nên các lời gọi LLM ra ngoài tự thành span — **dựng lại được chuỗi agent → model → tool**) và **metric
 runtime/HTTP**, rồi xuất qua **OTLP** tới collector (`Otel:OtlpEndpoint`, trống ⇒ mặc định gRPC

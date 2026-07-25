@@ -82,6 +82,7 @@
                                         '@m.OutputPricePerMillionTokens.ToString(CultureInfo.InvariantCulture)',
                                         '@m.IsActive.ToString().ToLower()',
                                         '@m.SupportsVision.ToString().ToLower()',
+                                        '@m.SupportsStructuredOutput.ToString().ToLower()',
                                         '@JavaScriptEncoder.Default.Encode(MaskApiKey(m.ApiKey))'
                                     )">
                             <i class="bi bi-pencil-fill" aria-hidden="true"></i>
@@ -146,6 +147,11 @@
             Hỗ trợ ảnh (vision) — cho phép gửi ảnh/PDF scan tới model
         </label>
 
+        <label class="checkbox-line">
+            <input name="SupportsStructuredOutput" type="checkbox" value="true" />
+            Hỗ trợ structured output (response_format: json_schema) — chỉ bật khi endpoint chắc chắn hỗ trợ
+        </label>
+
         <div class="modal-actions">
             <button type="button" class="btn" onclick="closeModal('addModel')">Cancel</button>
             <button class="btn primary">Add Model</button>
@@ -190,6 +196,11 @@
         <label class="checkbox-line">
             <input id="edit-supports-vision" name="SupportsVision" type="checkbox" value="true" />
             Hỗ trợ ảnh (vision) — cho phép gửi ảnh/PDF scan tới model
+        </label>
+
+        <label class="checkbox-line">
+            <input id="edit-supports-structured-output" name="SupportsStructuredOutput" type="checkbox" value="true" />
+            Hỗ trợ structured output (response_format: json_schema) — chỉ bật khi endpoint chắc chắn hỗ trợ
         </label>
 
         <div class="modal-actions">
