@@ -47,7 +47,7 @@
 {
     SearchPlaceholder = "Search models…",
     TargetSelector = "#modelsTable",
-    Primary = new CommandBarButton { Label = "Add Model", Icon = "bi-plus-lg", OnClick = "openModal('addModel')" }
+    Primary = new CommandBarButton { Label = "Add Model", Icon = "bi-plus-lg", OnClick = "openAddModel()" }
 })
 
 <div class="card table-card">
@@ -160,7 +160,16 @@
             Hỗ trợ structured output (response_format: json_schema) — chỉ bật khi endpoint chắc chắn hỗ trợ
         </label>
 
+        <div id="add-test-result" class="test-result hidden" role="status" aria-live="polite"></div>
+
         <div class="modal-actions">
+            <button type="button" class="btn test-conn-btn"
+                    data-test-url="@Url.Action("TestConnection")"
+                    data-result="add-test-result"
+                    onclick="testModelConnection(this)">
+                <i class="bi bi-plug" aria-hidden="true"></i> Test Connection
+            </button>
+            <span class="modal-actions-spacer"></span>
             <button type="button" class="btn" onclick="closeModal('addModel')">Cancel</button>
             <button class="btn primary">Add Model</button>
         </div>
@@ -211,7 +220,16 @@
             Hỗ trợ structured output (response_format: json_schema) — chỉ bật khi endpoint chắc chắn hỗ trợ
         </label>
 
+        <div id="edit-test-result" class="test-result hidden" role="status" aria-live="polite"></div>
+
         <div class="modal-actions">
+            <button type="button" class="btn test-conn-btn"
+                    data-test-url="@Url.Action("TestConnection")"
+                    data-result="edit-test-result"
+                    onclick="testModelConnection(this)">
+                <i class="bi bi-plug" aria-hidden="true"></i> Test Connection
+            </button>
+            <span class="modal-actions-spacer"></span>
             <button type="button" class="btn" onclick="closeModal('editModel')">Cancel</button>
             <button class="btn primary">Save Changes</button>
         </div>
