@@ -4,8 +4,16 @@
 @model AiModelListPage
 
 @functions {
+    // Prices are stored as decimal(18,6), so a raw ToString() renders "0.140000". Three decimals
+    // ("$0.001") is enough resolution for $ / 1M tokens, and trailing zeros are dropped.
+    private const string PriceFormat = "0.###";
+
     private static string Price(decimal v) =>
-        v > 0 ? "$" + v.ToString("0.######", CultureInfo.InvariantCulture) : "–";
+        v > 0 ? "$" + v.ToString(PriceFormat, CultureInfo.InvariantCulture) : "–";
+
+    // Same rounding, without the "$"/"–" decoration, for prefilling the Edit modal's number inputs.
+    private static string PriceValue(decimal v) =>
+        v.ToString(PriceFormat, CultureInfo.InvariantCulture);
 
     // Masked preview of the API key for display only (e.g. "sk-66af2***********************f1a2").
     // Reveals only a short head/tail so the user can recognise which key is configured without ever
@@ -78,8 +86,8 @@
                                         '@JavaScriptEncoder.Default.Encode(m.ModelId)',
                                         '@JavaScriptEncoder.Default.Encode(m.Endpoint)',
                                         '@m.ContextWindow',
-                                        '@m.InputPricePerMillionTokens.ToString(CultureInfo.InvariantCulture)',
-                                        '@m.OutputPricePerMillionTokens.ToString(CultureInfo.InvariantCulture)',
+                                        '@PriceValue(m.InputPricePerMillionTokens)',
+                                        '@PriceValue(m.OutputPricePerMillionTokens)',
                                         '@m.IsActive.ToString().ToLower()',
                                         '@m.SupportsVision.ToString().ToLower()',
                                         '@m.SupportsStructuredOutput.ToString().ToLower()',
@@ -132,10 +140,10 @@
         <input name="ContextWindow" type="number" value="128000" />
 
         <label>Input price ($ / 1M tokens)</label>
-        <input name="InputPricePerMillionTokens" type="number" step="0.000001" min="0" value="0" />
+        <input name="InputPricePerMillionTokens" type="number" step="0.001" min="0" value="0" />
 
         <label>Output price ($ / 1M tokens)</label>
-        <input name="OutputPricePerMillionTokens" type="number" step="0.000001" min="0" value="0" />
+        <input name="OutputPricePerMillionTokens" type="number" step="0.001" min="0" value="0" />
 
         <label class="checkbox-line">
             <input name="IsActive" type="checkbox" value="true" checked />
@@ -183,10 +191,10 @@
         <input id="edit-context-window" name="ContextWindow" type="number" />
 
         <label>Input price ($ / 1M tokens)</label>
-        <input id="edit-input-price" name="InputPricePerMillionTokens" type="number" step="0.000001" min="0" />
+        <input id="edit-input-price" name="InputPricePerMillionTokens" type="number" step="0.001" min="0" />
 
         <label>Output price ($ / 1M tokens)</label>
-        <input id="edit-output-price" name="OutputPricePerMillionTokens" type="number" step="0.000001" min="0" />
+        <input id="edit-output-price" name="OutputPricePerMillionTokens" type="number" step="0.001" min="0" />
 
         <label class="checkbox-line">
             <input id="edit-is-active" name="IsActive" type="checkbox" value="true" />
