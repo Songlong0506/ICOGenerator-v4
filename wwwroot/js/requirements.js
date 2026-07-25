@@ -521,6 +521,54 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     });
 
+    // ==== Khôi phục sau khi F5 GIỮA lúc BA đang trả lời ====
+    // Nếu tải lại trang khi lượt hội thoại mới nhất còn là của user (BA chưa kịp lưu câu trả lời — vẫn
+    // đang sinh nền với CancellationToken.None), khung chat sẽ THIẾU bong bóng trả lời. Hiện lại dòng
+    // "BA đang soạn…" và hỏi server (ChatReplyStatus) theo nhịp cho tới khi câu trả lời đã được lưu, rồi
+    // tải lại để render bản chốt (bong bóng BA + gợi ý + các panel). Chặn gửi lượt mới trong lúc chờ để
+    // không tạo hai lượt chạy song song. Server persist lượt assistant dù client đã rời đi nên gần như
+    // luôn về đích trong vài giây; đặt trần số lần hỏi để không quay vô hạn ở trường hợp hiếm (tiến trình
+    // server khởi động lại giữa chừng làm lượt trả lời không bao giờ được lưu).
+    if (chatMessages.dataset.replyPending === "true") {
+        const pendingProjectId = chatForm.querySelector('input[name="projectId"]').value;
+        chatBusy = true;
+        hideSuggestions();
+        setThinkingText("BA đang soạn câu trả lời…");
+        thinkingBox.style.display = "block";
+        scrollToBottom();
+
+        let pendingAttempts = 0;
+        const pendingMaxAttempts = 160; // ~160 × 2.5s ≈ 6-7 phút: dư cho một lượt trả lời dài.
+        const pollReply = async function () {
+            pendingAttempts++;
+            try {
+                const res = await fetch(
+                    `/Requirements/ChatReplyStatus?projectId=${encodeURIComponent(pendingProjectId)}`,
+                    { headers: { Accept: "application/json" } });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (!data.pending) {
+                        // Câu trả lời đã được lưu → tải lại để render bản chốt do server dựng.
+                        location.reload();
+                        return;
+                    }
+                }
+            } catch (_) {
+                // Lỗi mạng tạm thời: thử lại ở nhịp sau.
+            }
+            if (pendingAttempts < pendingMaxAttempts) {
+                setTimeout(pollReply, 2500);
+            } else {
+                // Hết hạn chờ: dừng spinner, mở lại ô nhập và mời người dùng tải lại/nhắn tiếp thay vì
+                // quay mãi.
+                thinkingBox.style.display = "none";
+                chatBusy = false;
+                setThinkingText("BA is analyzing requirements...");
+            }
+        };
+        setTimeout(pollReply, 2000);
+    }
+
     // Chọn một đáp án gợi ý: chế độ thường = điền sẵn rồi gửi ngay; chế độ chọn nhiều (multi) =
     // toggle chọn/bỏ, gom lại và gửi MỘT tin nhắn khi bấm "Gửi các lựa chọn".
     function selectSuggestion(option) {

@@ -30,6 +30,14 @@ public class ChatWithBAUseCase
         _baChatService.RetryLastTurnAsync(projectId, onStatus, onToken, cancellationToken);
 
     /// <summary>
+    /// Cho biết câu trả lời của BA cho lượt hiện tại còn "đang chờ" (lượt hội thoại mới nhất là của người
+    /// dùng, BA vẫn đang sinh lượt assistant với CancellationToken.None). Dùng để khôi phục khung "BA đang
+    /// soạn…" sau khi tải lại trang giữa chừng — xem <see cref="BAChatService.IsReplyPendingAsync"/>.
+    /// </summary>
+    public Task<bool> IsReplyPendingAsync(Guid projectId, CancellationToken cancellationToken = default) =>
+        _baChatService.IsReplyPendingAsync(projectId, cancellationToken);
+
+    /// <summary>
     /// Gộp lượt chat mới vào "Điều đã chốt" — gọi SAU khi user đã nhận câu trả lời (sau frame done ở
     /// đường streaming / trước redirect ở đường postback) để lời gọi LLM này không cộng vào độ chờ.
     /// </summary>

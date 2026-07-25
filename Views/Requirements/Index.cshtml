@@ -50,6 +50,12 @@
         }
     }
 
+    // F5 GIỮA lúc BA đang trả lời: lượt user đã lưu nhưng lượt assistant còn đang sinh nền (ChatStream
+    // chạy với CancellationToken.None nên câu trả lời vẫn được lưu, chỉ chưa kịp). Khi lượt hội thoại
+    // MỚI NHẤT là của user, câu trả lời còn "đang chờ" — JS hiện lại khung "BA đang soạn…" và chờ câu
+    // trả lời được lưu (poll ChatReplyStatus) rồi tải lại, thay vì để bong bóng trả lời biến mất.
+    var chatReplyPending = conversations.LastOrDefault()?.Role == "user";
+
     // Gợi ý chỉ hiển thị cho lượt HỎI mới nhất của BA (item cuối timeline). Các lượt cũ coi như đã trả lời.
     var lastItem = timelineItems.LastOrDefault();
     var lastBaSuggestions = (lastItem != null && lastItem.Kind == "conversation"
@@ -422,7 +428,8 @@
     <section class="card chat-panel">
 
         <div id="chatMessages"
-             class="chat-messages">
+             class="chat-messages"
+             data-reply-pending="@(chatReplyPending ? "true" : "false")">
 
             @if (!conversations.Any())
             {
