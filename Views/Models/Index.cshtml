@@ -58,6 +58,8 @@
                 <th>Context Window</th>
                 <th>Input $/1M</th>
                 <th>Output $/1M</th>
+                <th>Vision</th>
+                <th>Structured Output</th>
                 <th>Status</th>
                 <th>Actions</th>
             </tr>
@@ -71,6 +73,22 @@
                     <td>@m.ContextWindow.ToString("N0")</td>
                     <td>@Price(m.InputPricePerMillionTokens)</td>
                     <td>@Price(m.OutputPricePerMillionTokens)</td>
+                    <td>
+                        <span class="badge @(m.SupportsVision ? "green" : "gray")"
+                              title="@(m.SupportsVision
+                                         ? "Model nhận input ảnh — tài liệu ảnh/PDF scan được gửi thẳng cho model"
+                                         : "Model text-only — chỉ nhận phần text bóc từ tài liệu")">
+                            @(m.SupportsVision ? "Có" : "Không")
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge @(m.SupportsStructuredOutput ? "green" : "gray")"
+                              title="@(m.SupportsStructuredOutput
+                                         ? "Model hỗ trợ response_format: json_schema — các lời gọi trả JSON dùng structured output"
+                                         : "Không dùng structured output — kết quả JSON được parse từ văn xuôi")">
+                            @(m.SupportsStructuredOutput ? "Có" : "Không")
+                        </span>
+                    </td>
                     <td>
                         <span class="badge @(m.IsActive ? "green" : "gray")">
                             @(m.IsActive ? "Active" : "Inactive")
