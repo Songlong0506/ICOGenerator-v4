@@ -182,7 +182,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         list.innerHTML = items.map(x => `
             <li class="coverage-item ${x.status === "KHÔNG ÁP DỤNG" ? "na" : ""}" title="${escapeHtml(x.summary || "")}">
                 <span class="cov-ico">${coverageIcons[x.status] || "⚪"}</span>
-                <span class="cov-label">${x.isCore ? "★ " : ""}${escapeHtml(x.label)}</span>
+                <span class="cov-label">${escapeHtml(x.label)}</span>
             </li>
         `).join("");
 

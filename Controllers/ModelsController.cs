@@ -13,17 +13,20 @@ public class ModelsController : Controller
     private readonly CreateAiModelUseCase _createAiModelUseCase;
     private readonly UpdateAiModelUseCase _updateAiModelUseCase;
     private readonly DeleteAiModelUseCase _deleteAiModelUseCase;
+    private readonly TestAiModelConnectionUseCase _testAiModelConnectionUseCase;
 
     public ModelsController(
         ListAiModelsQuery listAiModelsQuery,
         CreateAiModelUseCase createAiModelUseCase,
         UpdateAiModelUseCase updateAiModelUseCase,
-        DeleteAiModelUseCase deleteAiModelUseCase)
+        DeleteAiModelUseCase deleteAiModelUseCase,
+        TestAiModelConnectionUseCase testAiModelConnectionUseCase)
     {
         _listAiModelsQuery = listAiModelsQuery;
         _createAiModelUseCase = createAiModelUseCase;
         _updateAiModelUseCase = updateAiModelUseCase;
         _deleteAiModelUseCase = deleteAiModelUseCase;
+        _testAiModelConnectionUseCase = testAiModelConnectionUseCase;
     }
 
     public async Task<IActionResult> Index(int page = 1, int pageSize = ListAiModelsQuery.DefaultPageSize)
@@ -67,6 +70,24 @@ public class ModelsController : Controller
             TempData["Error"] = "Model không tồn tại.";
 
         return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
+    /// Gọi thử endpoint đang gõ trong modal Add/Edit (nút "Test Connection") và trả JSON cho JS hiển thị.
+    /// Nhận cùng form như Create/Update nên ApiKey để trống vẫn hợp lệ (nghĩa là "dùng key đã lưu" — xem
+    /// <see cref="TestAiModelConnectionUseCase"/>). Mở cho cả quyền tạo lẫn quyền sửa vì nút có ở cả hai modal.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.ModelsCreate, AppPermission.ModelsEdit)]
+    public async Task<IActionResult> TestConnection(AiModel input, CancellationToken cancellationToken)
+    {
+        ModelState.Remove(nameof(AiModel.ApiKey));
+
+        if (!ModelState.IsValid)
+            return Json(new TestAiModelConnectionResult(false, "Dữ liệu model không hợp lệ. Vui lòng kiểm tra lại."));
+
+        return Json(await _testAiModelConnectionUseCase.ExecuteAsync(input, cancellationToken));
     }
 
     [HttpPost]

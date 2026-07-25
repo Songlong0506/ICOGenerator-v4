@@ -507,6 +507,8 @@ LlmClient / AgentRunService
 
 Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible), `ApiKey`, `ContextWindow`, đơn giá (0 nếu tự host). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
 
+Modal Add/Edit có nút **Test Connection**: gọi thử một request chat cực nhỏ (prompt `"ping"`, chặn ở 16 token đầu ra) tới endpoint đang gõ và hiện ngay kết quả (OK + thời gian phản hồi, hoặc lỗi kèm status/nguyên nhân) — không cần lưu model rồi đi chạy agent mới biết cấu hình sai. Lời gọi thử KHÔNG ghi call log, không tính vào budget; trên form Edit để trống `ApiKey` thì nó dùng key đã lưu. Deadline riêng: `Llm:TestConnectionTimeoutSeconds` (mặc định 30s).
+
 ---
 
 ## 10. Hệ thống Prompt
@@ -593,7 +595,7 @@ Route mặc định: `{controller=Projects}/{action=Index}/{id?}`. Mọi endpoin
 | **Requirements** (workspace chat BA) | `Requirements` | `Index`, `POST ChatStream` (SSE — đường chat chính, stream token), `POST Chat` (fallback postback), `POST UploadSource`/`DeleteSource`, `POST WriteRequirement`, `POST Approve`, `POST NewChat`, `GET WorkflowStatus`/`WorkflowStream` (SSE), `GET DocumentRevisions`/`DocumentRevisionDiff`/`DocumentPreview`/`DownloadDocument` | `RequirementsView`; mọi thao tác ghi: `RequirementsManage` |
 | **Agent Dashboard** (điều phối delivery) | `AgentDashboard` | `Index`, `GET WorkflowStatus`/`ActiveAgents`/`AgentStats`/`AgentActivity`/`AgentCallLogs`/`CallLogDetail`/`DocumentPreview`, `POST ApproveStage`/`RejectStage`/`RequestRevision`/`RetryWorkflow`/`UpdateDeliveryConfig` | `AgentsView`; các POST cổng duyệt: `DeliveryAdvance` |
 | **Agents** (cấu hình agent) | `Agents` | `Index`, `POST Update` (model, temperature, tools...) | `AgentsView` / `AgentsManage` |
-| **AI Models** | `Models` | `Index`, `POST Create`/`Update`/`Delete` | `ModelsView` / `ModelsCreate`/`Edit`/`Delete` |
+| **AI Models** | `Models` | `Index`, `POST Create`/`Update`/`Delete`/`TestConnection` | `ModelsView` / `ModelsCreate`/`Edit`/`Delete`; `TestConnection` cần `ModelsCreate` HOẶC `ModelsEdit` |
 | **Usage** (chi phí LLM) | `Usage` | `Index(year?)` — theo model/project/tháng + roll-up phòng ban | `UsageView` |
 | **Delivery Quality** | `Quality` | `Index(year?)` — thông lượng, rework, độ tin cậy model | `QualityView` |
 | **Prompt Evals** | `Evals` | `Index`, `POST CreateScenario`/`UpdateScenario`/`DeleteScenario`/`StartRun`, `GET RunStatus`/`RunDetail`/`Compare` | `EvalView` / `EvalManage` |

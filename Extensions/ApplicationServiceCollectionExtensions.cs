@@ -402,6 +402,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<CreateAiModelUseCase>();
         services.AddScoped<UpdateAiModelUseCase>();
         services.AddScoped<DeleteAiModelUseCase>();
+        services.AddScoped<TestAiModelConnectionUseCase>();
         return services;
     }
 
@@ -570,6 +571,8 @@ public static class ApplicationServiceCollectionExtensions
         // Config-bound, opt-in choice of structured output (response_format: json_schema) per model.
         services.AddSingleton<StructuredOutputPolicy>();
         services.AddScoped<IModelCallLogger, ModelCallLogger>();
+        // Lời gọi thử của nút "Test Connection" (trang Models): chỉ cần factory + config nên là singleton.
+        services.AddSingleton<IModelConnectionTester, ModelConnectionTester>();
         services.AddScoped<ILlmClient, LlmClient>();
         return services;
     }
