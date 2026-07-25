@@ -51,15 +51,19 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         `);
     }
 
-    // Bong bóng "lạc quan" cho lượt gửi ẢNH: hiện ngay ảnh (từ objectURL đang xem trước) + ghi chú như
-    // một lượt user thật, để user thấy tin đã gửi trong lúc BA đọc ảnh — thay vì chỉ có spinner rồi reload.
-    // Markup khớp bản server render (.req-msg you > .chat-attachments) để nhìn giống hệt sau khi reload.
-    // Trả về phần tử vừa chèn để có thể gỡ đi (hoàn tác) nếu upload thất bại.
-    function appendUserImageBubble(note, images) {
-        const thumbs = images.map(img => `
-            <span class="chat-attachment-img" title="${escapeHtml(img.file.name || "ảnh")}">
-                <img src="${img.url}" alt="${escapeHtml(img.file.name || "ảnh đính kèm")}" />
+    // Bong bóng "lạc quan" cho lượt gửi ĐÍNH KÈM: hiện ngay ảnh (từ objectURL đang xem trước) / chip tên
+    // file + ghi chú như một lượt user thật, để user thấy tin đã gửi trong lúc BA đọc — thay vì chỉ có
+    // spinner rồi reload. Markup khớp bản server render (.req-msg you > .chat-attachments) để nhìn giống
+    // hệt sau khi reload. Trả về phần tử vừa chèn để có thể gỡ đi (hoàn tác) nếu upload thất bại.
+    function appendUserImageBubble(note, files) {
+        const thumbs = files.map(f => f.url
+            ? `
+            <span class="chat-attachment-img" title="${escapeHtml(f.file.name || "ảnh")}">
+                <img src="${f.url}" alt="${escapeHtml(f.file.name || "ảnh đính kèm")}" />
             </span>
+        `
+            : `
+            <span class="chat-attachment-file" title="${escapeHtml(f.file.name || "tệp")}">📄 ${escapeHtml(f.file.name || "tệp")}</span>
         `).join("");
         const noteHtml = note ? `<p>${escapeHtml(note)}</p>` : "";
         thinkingBox.insertAdjacentHTML("beforebegin", `
@@ -416,10 +420,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         return true;
     }
 
-    // Ảnh đã đính kèm nhưng CHƯA gửi (staged): initSourceDropPaste đổ vào đây khi user đính kèm/dán/kéo-thả.
-    // Khi bấm gửi mà mảng này khác rỗng, form ưu tiên upload ảnh (kèm ghi chú trong ô nhập) thay vì chat.
+    // File đã đính kèm nhưng CHƯA gửi (staged): initSourceDropPaste đổ vào đây khi user đính kèm/dán/kéo-thả.
+    // Mỗi phần tử { file, url } — url là objectURL để xem trước (chỉ ảnh; file PDF/bảng tính có url = null).
+    // Khi bấm gửi mà mảng này khác rỗng, form ưu tiên upload file (kèm ghi chú trong ô nhập) thay vì chat.
     const stagedImages = [];
-    // Do initSourceDropPaste gán: upload các ảnh đang staged kèm ghi chú (text) rồi reload.
+    // Do initSourceDropPaste gán: upload các file đang staged kèm ghi chú (text) rồi reload.
     let sendStagedImages = null;
 
     // true khi lượt đang gửi đã nhận ĐƯỢC ít nhất một frame SSE — quyết định cách phục hồi khi lỗi:
@@ -719,11 +724,27 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
-    // ==== Đính kèm / dán / kéo-thả ảnh — xem trước trong khung chat rồi mới gửi ====
-    // Người dùng nghiệp vụ hay chụp màn hình Excel/biểu mẫu — bắt họ đi qua form "Tài liệu nguồn" ở
-    // sidebar là ma sát thừa. Đính kèm (nút), dán (Ctrl+V) hoặc kéo-thả ảnh vào khung chat sẽ STAGE ảnh
-    // thành thumbnail nhỏ ngay trên ô nhập: user có thể gõ thêm ghi chú/thông tin, xóa bớt ảnh, rồi bấm
-    // gửi mới thật sự upload qua endpoint UploadSource (kèm ghi chú) → BA tóm tắt → reload.
+    // ==== Đính kèm / dán / kéo-thả tài liệu — xem trước trong khung chat rồi mới gửi ====
+    // Người dùng nghiệp vụ hay chụp màn hình Excel/biểu mẫu — bắt họ đi qua một form upload riêng ở
+    // sidebar là ma sát thừa (form đó đã bị bỏ; đây là lối đính kèm DUY NHẤT). Đính kèm (nút), dán
+    // (Ctrl+V) hoặc kéo-thả file vào khung chat sẽ STAGE file ngay trên ô nhập — ảnh thành thumbnail,
+    // PDF/bảng tính thành chip tên file: user gõ thêm ghi chú, xoá bớt, rồi bấm gửi mới thật sự upload
+    // qua endpoint UploadSource (kèm ghi chú) → BA tóm tắt → reload.
+
+    // Danh sách định dạng phải khớp ProjectSourceIngestor (ảnh PNG/JPG/WebP/GIF, PDF, .xlsx/.xlsm/.csv):
+    // lọc ngay ở client để user biết file không hỗ trợ TRƯỚC khi upload, thay vì nhận lỗi sau một vòng POST.
+    const SUPPORTED_DOC_EXTS = [".pdf", ".xlsx", ".xlsm", ".csv"];
+
+    function isImageFile(f) {
+        return !!(f.type && f.type.startsWith("image/"));
+    }
+
+    function isSupportedFile(f) {
+        if (isImageFile(f)) return true;
+        const name = (f.name || "").toLowerCase();
+        return SUPPORTED_DOC_EXTS.some(ext => name.endsWith(ext));
+    }
+
     (function initSourceDropPaste() {
         const token = chatForm.querySelector('input[name="__RequestVerificationToken"]');
         const projectIdInput = chatForm.querySelector('input[name="projectId"]');
@@ -733,8 +754,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         let uploading = false;
         const defaultPlaceholder = messageInput.placeholder;
 
-        // Vẽ lại khay xem trước từ stagedImages. Mỗi ảnh giữ kèm objectURL để thu hồi khi gỡ (tránh rò
-        // bộ nhớ). Ẩn khay + trả lại placeholder gốc khi không còn ảnh nào.
+        const ATTACH_PLACEHOLDER = "Thêm ghi chú cho tài liệu (không bắt buộc) rồi bấm gửi…";
+
+        // Vẽ lại khay xem trước từ stagedImages. Ảnh giữ kèm objectURL để thu hồi khi gỡ (tránh rò bộ
+        // nhớ) và hiện thumbnail; PDF/bảng tính không có bản xem trước nên hiện chip tên file.
+        // Ẩn khay + trả lại placeholder gốc khi không còn file nào.
         function renderPreview() {
             if (!preview) return;
 
@@ -745,45 +769,66 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 return;
             }
 
-            preview.innerHTML = stagedImages.map((img, i) => `
-                <div class="attach-thumb" title="${escapeHtml(img.file.name || "ảnh")}">
-                    <img src="${img.url}" alt="${escapeHtml(img.file.name || "ảnh đính kèm")}" />
-                    <button type="button" class="attach-thumb-remove" data-i="${i}" aria-label="Gỡ ảnh này">×</button>
+            preview.innerHTML = stagedImages.map((item, i) => {
+                const name = item.file.name || (item.url ? "ảnh" : "tệp");
+                const body = item.url
+                    ? `<img src="${item.url}" alt="${escapeHtml(name)}" />`
+                    : `<span class="attach-thumb-name">📄 ${escapeHtml(name)}</span>`;
+                return `
+                <div class="attach-thumb ${item.url ? "" : "attach-thumb-file"}" title="${escapeHtml(name)}">
+                    ${body}
+                    <button type="button" class="attach-thumb-remove" data-i="${i}" aria-label="Gỡ tệp này">×</button>
                 </div>
-            `).join("");
+            `;
+            }).join("");
             preview.hidden = false;
         }
 
+        // Nhận file từ nút đính kèm / dán / kéo-thả. File không hỗ trợ bị loại và báo ngay tên cụ thể.
         function stageImages(fileList) {
-            const images = Array.from(fileList || []).filter(f => f.type && f.type.startsWith("image/"));
-            if (images.length === 0) return;
+            const all = Array.from(fileList || []);
+            if (all.length === 0) return;
 
-            images.forEach(file => stagedImages.push({ file, url: URL.createObjectURL(file) }));
+            const accepted = all.filter(isSupportedFile);
+            const rejected = all.filter(f => !isSupportedFile(f));
+
+            // Ảnh mới có objectURL (xem trước được); PDF/bảng tính để url = null → hiện chip tên file.
+            accepted.forEach(file => stagedImages.push({
+                file,
+                url: isImageFile(file) ? URL.createObjectURL(file) : null
+            }));
+
+            if (rejected.length > 0) {
+                alert("Không hỗ trợ định dạng của: " + rejected.map(f => f.name || "tệp không tên").join(", ")
+                    + ".\nChỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF hoặc bảng tính (.xlsx/.xlsm/.csv).");
+            }
+            if (accepted.length === 0) return;
+
             renderPreview();
-            messageInput.placeholder = "Thêm ghi chú cho ảnh (không bắt buộc) rồi bấm gửi…";
+            messageInput.placeholder = ATTACH_PLACEHOLDER;
             messageInput.focus();
         }
 
         function clearStaged() {
-            stagedImages.forEach(img => URL.revokeObjectURL(img.url));
+            stagedImages.forEach(item => { if (item.url) URL.revokeObjectURL(item.url); });
             stagedImages.length = 0;
             renderPreview();
         }
 
-        // Gỡ MỘT ảnh khỏi khay (thu hồi objectURL của đúng ảnh đó).
+        // Gỡ MỘT file khỏi khay (thu hồi objectURL của đúng ảnh đó, nếu có).
         if (preview) {
             preview.addEventListener("click", function (e) {
                 const btn = e.target.closest(".attach-thumb-remove");
                 if (!btn) return;
                 const idx = Number(btn.dataset.i);
                 if (Number.isNaN(idx) || idx < 0 || idx >= stagedImages.length) return;
-                URL.revokeObjectURL(stagedImages[idx].url);
+                if (stagedImages[idx].url) URL.revokeObjectURL(stagedImages[idx].url);
                 stagedImages.splice(idx, 1);
                 renderPreview();
             });
         }
 
-        // Gửi các ảnh đang staged (kèm ghi chú tùy chọn) qua UploadSource → BA tóm tắt → reload.
+        // Gửi các file đang staged (kèm ghi chú tùy chọn) qua UploadSource → BA tóm tắt → reload.
         // Gán ra ngoài để listener submit của form gọi được.
         sendStagedImages = async function (note) {
             if (stagedImages.length === 0 || uploading) return;
@@ -805,7 +850,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
             messageInput.placeholder = defaultPlaceholder;
 
-            setThinkingText("BA đang đọc ảnh…");
+            setThinkingText("BA đang đọc tài liệu…");
             thinkingBox.style.display = "block";
             scrollToBottom();
 
@@ -813,7 +858,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             fd.append("projectId", projectIdInput.value);
             fd.append("__RequestVerificationToken", token.value);
             if (note) fd.append("note", note);
-            stagedImages.forEach(img => fd.append("files", img.file, img.file.name || "anh-dan.png"));
+            stagedImages.forEach(item => fd.append("files", item.file, item.file.name || "anh-dan.png"));
 
             try {
                 const resp = await fetch("/Requirements/UploadSource", { method: "POST", body: fd });
@@ -825,7 +870,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 }
                 throw new Error("upload failed");
             } catch {
-                // Hoàn tác: gỡ bong bóng lạc quan, khôi phục khay ảnh + ghi chú để user thử lại.
+                // Hoàn tác: gỡ bong bóng lạc quan, khôi phục khay đính kèm + ghi chú để user thử lại.
                 if (optimisticBubble) optimisticBubble.remove();
                 thinkingBox.style.display = "none";
                 uploading = false;
@@ -835,14 +880,16 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     resizeMessageInput();
                 }
                 renderPreview();
-                messageInput.placeholder = "Thêm ghi chú cho ảnh (không bắt buộc) rồi bấm gửi…";
-                alert("Không tải được ảnh lên. Anh/chị thử lại hoặc dùng nút Upload ở mục 'Tài liệu nguồn'.");
+                messageInput.placeholder = ATTACH_PLACEHOLDER;
+                alert("Không tải được tài liệu lên. Anh/chị kiểm tra kết nối rồi bấm gửi lại giúp mình.");
             }
         };
 
+        // Dán (Ctrl+V): chỉ chặn sự kiện khi clipboard có FILE ĐƯỢC HỖ TRỢ — dán một file lạ (vd .docx)
+        // không được nuốt mất thao tác dán text kèm theo.
         messageInput.addEventListener("paste", function (e) {
             const items = e.clipboardData && e.clipboardData.files;
-            if (items && items.length > 0 && Array.from(items).some(f => f.type.startsWith("image/"))) {
+            if (items && items.length > 0 && Array.from(items).some(isSupportedFile)) {
                 e.preventDefault();
                 stageImages(items);
             }
@@ -866,8 +913,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
         });
 
-        // Nút đính kèm ảnh trong khung soạn: mở hộp chọn file rồi STAGE ảnh (xem trước) như dán/kéo-thả.
-        // Điểm bấm rõ ràng cho người không biết mẹo dán/kéo-thả.
+        // Nút đính kèm trong khung soạn: mở hộp chọn file rồi STAGE file (xem trước) như dán/kéo-thả.
+        // Điểm bấm rõ ràng cho người không biết mẹo dán/kéo-thả — và là lối đính kèm chính sau khi form
+        // upload ở sidebar bị bỏ.
         const attachBtn = document.getElementById("attachImageBtn");
         const attachInput = document.getElementById("attachImageInput");
         if (attachBtn && attachInput) {
@@ -1200,3 +1248,73 @@ function openRequirementModal(version) {
 function closeRequirementModal() {
     document.getElementById("requirementModal").style.display = "none";
 }
+
+// ==== Popup "Tài liệu nguồn" ====
+// Chỉ để XEM LẠI/XOÁ các file đã đính kèm cho BA (việc đính kèm nằm ở nút 📎 trong khung chat). Xoá gọi
+// DeleteSource bằng fetch rồi gỡ hàng tại chỗ: popup không đóng, người dùng dọn liền mấy file một lúc —
+// khác hẳn form POST cũ (mỗi lần xoá là reload cả trang). Sau khi xoá xong KHÔNG reload: các thumbnail
+// trong hội thoại trỏ tới nguồn đã xoá sẽ nhận 404 và tự ẩn (onerror) ở lần tải trang sau.
+(function initSourceModal() {
+    const modal = document.getElementById("sourceModal");
+    const openBtn = document.getElementById("sourceOpenBtn");
+    if (!modal || !openBtn) return;
+
+    const closeBtn = document.getElementById("sourceModalClose");
+    const tbody = document.getElementById("sourceTableBody");
+    const table = document.getElementById("sourceTable");
+    const emptyEl = document.getElementById("sourceEmpty");
+    const badge = document.getElementById("sourceCountBadge");
+    const projectIdEl = document.getElementById("sourceModalProjectId");
+    const token = modal.querySelector('input[name="__RequestVerificationToken"]');
+
+    function open() { modal.style.display = "flex"; }
+    function close() { modal.style.display = "none"; }
+
+    // Đồng bộ bảng/empty-state/badge sau mỗi lần xoá — badge trên sidebar là thứ user thấy khi popup đóng.
+    function syncCount() {
+        const count = tbody ? tbody.querySelectorAll("tr").length : 0;
+        if (table) table.hidden = count === 0;
+        if (emptyEl) emptyEl.hidden = count > 0;
+        if (badge) {
+            badge.textContent = String(count);
+            badge.hidden = count === 0;
+        }
+    }
+
+    openBtn.addEventListener("click", open);
+    if (closeBtn) closeBtn.addEventListener("click", close);
+    modal.addEventListener("click", function (e) {
+        if (e.target === modal) close(); // bấm nền tối để đóng
+    });
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && modal.style.display === "flex") close();
+    });
+
+    if (tbody) {
+        tbody.addEventListener("click", async function (e) {
+            const btn = e.target.closest(".source-del");
+            if (!btn) return;
+
+            const row = btn.closest("tr");
+            const id = btn.dataset.sourceId;
+            if (!row || !id) return;
+            if (!confirm("Xoá tài liệu nguồn này? BA sẽ không dùng nội dung của nó cho các lượt sau.")) return;
+
+            btn.disabled = true;
+            const fd = new FormData();
+            fd.append("id", id);
+            fd.append("projectId", projectIdEl ? projectIdEl.value : "");
+            if (token) fd.append("__RequestVerificationToken", token.value);
+
+            try {
+                const resp = await fetch("/Requirements/DeleteSource", { method: "POST", body: fd });
+                if (!resp.ok && !resp.redirected) throw new Error("delete failed");
+                row.remove();
+                syncCount();
+            } catch {
+                btn.disabled = false;
+                alert("Không xoá được tài liệu — kiểm tra kết nối rồi thử lại.");
+            }
+        });
+    }
+})();

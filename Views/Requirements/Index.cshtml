@@ -188,6 +188,34 @@
 
     <aside class="card history-panel">
 
+        @* Hai hành động luôn có mặt (không phụ thuộc trạng thái hội thoại) đứng trên cùng sidebar, để
+           "Tiến độ khai thác" — thứ user cần nhìn nhất — không bị đẩy xuống dưới các panel dài.
+           "Tài liệu nguồn" giờ chỉ là CỬA XEM LẠI: việc đính kèm file đã nằm trong khung chat (nút 📎),
+           nên ở đây không còn form upload, chỉ mở popup liệt kê/xoá các file đã đính kèm. *@
+        <div class="sidebar-actions">
+            <form asp-action="NewChat"
+                  method="post"
+                  class="new-chat-form"
+                  onsubmit="return confirm('Bắt đầu chat mới: hội thoại hiện tại sẽ được lưu trữ (BA không dùng nữa) và cuộc trò chuyện bắt đầu lại từ đầu. Tiếp tục?');">
+
+                <input type="hidden"
+                       name="projectId"
+                       value="@Model.Id" />
+
+                <button class="btn outline full" type="submit">
+                    ＋ New Chat
+                </button>
+            </form>
+
+            <button type="button"
+                    class="btn outline full source-open-btn"
+                    id="sourceOpenBtn"
+                    title="Xem lại và xoá các tài liệu anh/chị đã đính kèm cho BA">
+                📎 Tài liệu nguồn
+                <span class="source-count-badge" id="sourceCountBadge" @(sourceFiles.Any() ? "" : "hidden")>@sourceFiles.Count</span>
+            </button>
+        </div>
+
         @* Tiến độ khai thác yêu cầu: cho user thấy cuộc phỏng vấn đã rõ bao nhiêu nhóm thông tin và còn
            thiếu gì — thay vì cảm giác "bị hỏi vô tận". Ẩn khi chưa có bản đồ (dự án mới). *@
         <div class="coverage-panel" id="coveragePanel" @(coverage.Count == 0 ? "hidden" : "")>
@@ -355,77 +383,6 @@
             </div>
         }
 
-        <div class="source-panel">
-            <h3>Tài liệu nguồn</h3>
-
-            @if (!baSupportsVision)
-            {
-                <div class="source-vision-warn">
-                    ⚠️ Model BA hiện không bật <b>vision</b> → ảnh sẽ không được đọc; chỉ phần chữ trích từ PDF được dùng.
-                    Bật "Hỗ trợ ảnh (vision)" trong màn hình AI Models nếu cần.
-                </div>
-            }
-
-            <form asp-action="UploadSource"
-                  method="post"
-                  enctype="multipart/form-data"
-                  class="source-upload-form">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="projectId" value="@Model.Id" />
-                <input type="file"
-                       name="files"
-                       multiple
-                       accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.xlsx,.xlsm,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-                       class="source-file-input"
-                       required />
-                <button class="btn outline small full bottom" type="submit">⬆ Upload</button>
-            </form>
-
-            @if (sourceFiles.Any())
-            {
-                <ul class="source-list">
-                    @foreach (var src in sourceFiles)
-                    {
-                        <li class="source-item">
-                            <span>@(src.Kind switch {
-                                ICOGenerator.Domain.Enums.SourceFileKind.Image => "🖼️",
-                                ICOGenerator.Domain.Enums.SourceFileKind.Spreadsheet => "📊",
-                                _ => "📄" })</span>
-                            <span class="source-name" title="@src.FileName">@src.FileName</span>
-                            <span class="source-size">@FormatSize(src.SizeBytes)</span>
-                            <form asp-action="DeleteSource"
-                                  method="post"
-                                  class="source-inline"
-                                  onsubmit="return confirm('Xoá tài liệu nguồn này?');">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@src.Id" />
-                                <input type="hidden" name="projectId" value="@Model.Id" />
-                                <button class="source-del" type="submit" title="Xoá">🗑</button>
-                            </form>
-                        </li>
-                    }
-                </ul>
-            }
-            else
-            {
-                <div class="empty-history">Chưa có tài liệu nguồn.</div>
-            }
-        </div>
-
-        <form asp-action="NewChat"
-              method="post"
-              class="new-chat-form"
-              onsubmit="return confirm('Bắt đầu chat mới: hội thoại hiện tại sẽ được lưu trữ (BA không dùng nữa) và cuộc trò chuyện bắt đầu lại từ đầu. Tiếp tục?');">
-
-            <input type="hidden"
-                   name="projectId"
-                   value="@Model.Id" />
-
-            <button class="btn outline full bottom">
-                ＋ New Chat
-            </button>
-        </form>
-
     </aside>
 
     <section class="card chat-panel">
@@ -442,8 +399,8 @@
                         Xin chào! Tôi là Business Analyst. Anh/chị cứ <b>kể thoải mái một mạch</b> mọi điều
                         đang hình dung về ứng dụng: bài toán cần giải quyết, ai sẽ dùng, quy trình hiện tại
                         đang làm thế nào và vướng ở đâu — càng chi tiết tôi càng đỡ phải hỏi lại.
-                        Nếu có sẵn tài liệu, ảnh chụp màn hình Excel/biểu mẫu đang dùng, anh/chị
-                        <b>đính kèm ở mục "Tài liệu nguồn"</b> bên trái để tôi đọc luôn nhé.
+                        Nếu có sẵn tài liệu, ảnh chụp màn hình Excel/biểu mẫu đang dùng, anh/chị bấm
+                        <b>nút 📎 ngay dưới ô nhập</b> (hoặc dán/kéo-thả file vào khung chat) để tôi đọc luôn nhé.
                     </p>
                 </div>
             }
@@ -658,19 +615,21 @@
                           placeholder="Type your message..."
                           autocomplete="off"></textarea>
 
-                <!-- Đính kèm ảnh: mở hộp chọn file rồi upload qua đúng endpoint UploadSource (BA đọc &
-                     tóm tắt). Dùng chung luồng với dán (Ctrl+V) / kéo-thả ảnh — chỉ thêm điểm bấm rõ
-                     ràng cho người dùng không biết mẹo dán. Input không có name để không lẫn vào form chat. -->
+                <!-- Đính kèm tài liệu: mở hộp chọn file rồi upload qua đúng endpoint UploadSource (BA đọc &
+                     tóm tắt). Dùng chung luồng với dán (Ctrl+V) / kéo-thả — chỉ thêm điểm bấm rõ ràng cho
+                     người dùng không biết mẹo dán. Input không có name để không lẫn vào form chat.
+                     accept phải phủ ĐỦ mọi định dạng ProjectSourceIngestor nhận (ảnh/PDF/bảng tính): đây là
+                     lối đính kèm DUY NHẤT sau khi form upload ở sidebar bị bỏ. -->
                 <input type="file"
                        id="attachImageInput"
-                       accept="image/png,image/jpeg,image/webp,image/gif"
+                       accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf,.xlsx,.xlsm,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
                        multiple
                        hidden />
                 <button class="btn outline attach-btn"
                         type="button"
                         id="attachImageBtn"
-                        aria-label="Đính kèm ảnh"
-                        title="Đính kèm ảnh (chụp màn hình biểu mẫu, bảng Excel…) để BA đọc nội dung">
+                        aria-label="Đính kèm tài liệu"
+                        title="Đính kèm tài liệu để BA đọc: ảnh/chụp màn hình, PDF, Excel (.xlsx) hoặc CSV">
                     <i class="bi bi-paperclip" aria-hidden="true"></i>
                 </button>
 
@@ -696,6 +655,81 @@
 
     </section>
 
+</div>
+
+@* Popup "Tài liệu nguồn": bảng liệt kê MỌI file người dùng đã đính kèm cho BA (qua nút 📎 / dán /
+   kéo-thả trong khung chat) — xem lại, mở bản gốc, hoặc xoá. Không còn form upload ở đây: đính kèm đã
+   là một phần của cuộc trò chuyện. Xoá chạy bằng fetch để bảng cập nhật tại chỗ (popup không đóng). *@
+<div id="sourceModal" class="req-modal-overlay">
+    <div class="requirement-modal source-modal">
+
+        <div class="modal-header">
+            <div>
+                <h2>Tài liệu nguồn</h2>
+                <div class="history-sub">Các file anh/chị đã đính kèm cho BA trong cuộc trò chuyện. Xoá file nghĩa là BA không dùng nội dung đó cho các lượt sau nữa.</div>
+            </div>
+
+            <button class="modal-close" type="button" aria-label="Close" id="sourceModalClose">×</button>
+        </div>
+
+        <div class="requirement-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="sourceModalProjectId" value="@Model.Id" />
+
+            @if (!baSupportsVision)
+            {
+                <div class="source-vision-warn">
+                    ⚠️ Model BA hiện không bật <b>vision</b> → ảnh sẽ không được đọc; chỉ phần chữ trích từ PDF/bảng tính được dùng.
+                    Bật "Hỗ trợ ảnh (vision)" trong màn hình AI Models nếu cần.
+                </div>
+            }
+
+            <table class="source-table" id="sourceTable" @(sourceFiles.Any() ? "" : "hidden")>
+                <thead>
+                    <tr>
+                        <th class="source-col-name">Tên file</th>
+                        <th>Loại</th>
+                        <th class="source-col-num">Kích thước</th>
+                        <th>Đính kèm lúc</th>
+                        <th class="source-col-act"></th>
+                    </tr>
+                </thead>
+                <tbody id="sourceTableBody">
+                    @foreach (var src in sourceFiles)
+                    {
+                        <tr data-source-id="@src.Id">
+                            <td class="source-col-name">
+                                <a href="@Url.Action("SourceContent", new { id = src.Id })"
+                                   target="_blank"
+                                   rel="noopener"
+                                   class="source-name"
+                                   title="Mở bản gốc: @src.FileName">
+                                    @(src.Kind switch {
+                                        ICOGenerator.Domain.Enums.SourceFileKind.Image => "🖼️",
+                                        ICOGenerator.Domain.Enums.SourceFileKind.Spreadsheet => "📊",
+                                        _ => "📄" }) @src.FileName
+                                </a>
+                            </td>
+                            <td>@(src.Kind switch {
+                                ICOGenerator.Domain.Enums.SourceFileKind.Image => "Ảnh",
+                                ICOGenerator.Domain.Enums.SourceFileKind.Spreadsheet => "Bảng tính",
+                                _ => "PDF" })</td>
+                            <td class="source-col-num">@FormatSize(src.SizeBytes)</td>
+                            <td>@src.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="source-col-act">
+                                <button type="button" class="source-del" data-source-id="@src.Id" title="Xoá tài liệu này">🗑</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="empty-history" id="sourceEmpty" @(sourceFiles.Any() ? "hidden" : "")>
+                Chưa có tài liệu nguồn nào. Bấm nút 📎 dưới ô nhập trong khung chat để đính kèm ảnh, PDF hoặc file Excel/CSV cho BA đọc.
+            </div>
+        </div>
+
+    </div>
 </div>
 
 <div id="requirementModal" class="req-modal-overlay">
