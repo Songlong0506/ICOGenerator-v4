@@ -233,10 +233,7 @@
             <button type="button" class="x" onclick="closeModal('runModal')">×</button>
 
             <h2>Chạy Eval</h2>
-            <p class="muted eval-modal-hint">
-                Mỗi scenario tốn 2 lời gọi LLM (trả lời + chấm). Lời gọi eval không tính vào Usage/Budget theo project.
-            </p>
-
+            
             <label>Model mục tiêu *</label>
             <select name="targetModelId" required>
                 @foreach (var m in Model.Models)

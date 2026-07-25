@@ -35,9 +35,8 @@ public static class DbInitializer
         {
             db.AiModels.AddRange(
                 new AiModel { ModelId = "qwen3.6-27b@q3_k_s", Endpoint = "http://127.0.0.1:1234/v1", ApiKey = "lm-studio", SupportsVision = false, ContextWindow = 128000 },
-                // DeepSeek chat API chỉ nhận content text — gửi phần ảnh (image_url) bị trả 400
-                // "unknown variant `image_url`, expected `text`", nên SupportsVision phải tắt.
-                new AiModel { ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "", SupportsVision = false, ContextWindow = 1000000, InputPricePerMillionTokens = 0.14m, OutputPricePerMillionTokens = 0.28m }
+                new AiModel { ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "", SupportsVision = false, ContextWindow = 1000000, InputPricePerMillionTokens = 0.14m, OutputPricePerMillionTokens = 0.28m },
+                new AiModel { ModelId = "gpt-5-nano", Endpoint = "https://api.openai.com/v1", ApiKey = "", SupportsVision = true, ContextWindow = 400000, InputPricePerMillionTokens = 0.05m, OutputPricePerMillionTokens = 0.4m }
             );
             await db.SaveChangesAsync();
         }
