@@ -205,7 +205,10 @@
                     <li class="coverage-item @(item.Status == "KHÔNG ÁP DỤNG" ? "na" : "")"
                         title="@item.Summary">
                         <span class="cov-ico">@CoverageIcon(item.Status)</span>
-                        <span class="cov-label">@(item.IsCore ? "★ " : "")@item.Label</span>
+                        @* IsCore (★) vẫn dùng để xếp thứ tự nhóm còn thiếu trong RequirementReadinessGate,
+                           nhưng KHÔNG hiển thị: với user, "nhóm cốt lõi" là phân loại nội bộ của BA — mọi nhóm
+                           áp dụng đều phải [RÕ] mới mở được Write Requirement, nên ★ chỉ gây nhiễu. *@
+                        <span class="cov-label">@item.Label</span>
                     </li>
                 }
             </ul>
