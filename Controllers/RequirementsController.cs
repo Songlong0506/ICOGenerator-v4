@@ -321,6 +321,22 @@ public class RequirementsController : Controller
         }
     }
 
+    // Sau khi tải lại trang (F5) GIỮA lúc BA đang trả lời: lượt user đã lưu nhưng lượt assistant còn đang
+    // sinh nền (ChatStream chạy với CancellationToken.None nên vẫn hoàn tất & lưu dù client đã rời đi).
+    // Endpoint nhẹ này cho client biết câu trả lời còn "đang chờ" (lượt hội thoại mới nhất là của user)
+    // để hiện lại khung "BA đang soạn…" và tự tải lại khi câu trả lời đã được lưu — tránh để bong bóng
+    // trả lời "biến mất" sau F5. Chỉ đọc, không ghi.
+    [HttpGet]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> ChatReplyStatus(Guid projectId)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
+        var pending = await _chatWithBAUseCase.IsReplyPendingAsync(projectId, HttpContext.RequestAborted);
+        return Json(new { pending });
+    }
+
     // Upload tài liệu nguồn (ảnh/PDF) cho project. Nâng trần kích thước request để cho phép vài file ảnh/PDF
     // (mặc định Kestrel ~28MB; multipart 128MB) — đặt 60MB cho cả request lẫn multipart body.
     [HttpPost]
