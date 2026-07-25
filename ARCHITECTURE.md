@@ -204,7 +204,7 @@ output** của MEAI (`response_format: json_schema` qua `IChatClient.GetResponse
 model trả JSON rồi parse văn xuôi. `ILlmClient.ChatStructuredAsync<T>` lo việc này; khi structured **không**
 bật/không khả dụng/JSON không khớp schema thì trả `value = null` để caller **fallback** về parser tay cũ
 (`RequirementResponseParser`/`BAChatReplyParser`) — không bao giờ fail trắng.
-Quyết định bật theo `StructuredOutputPolicy` — đọc cờ **theo từng model** `AiModel.SupportsStructuredOutput`
+Quyết định bật đọc thẳng cờ **theo từng model** `AiModel.SupportsStructuredOutput`
 (tick ở trang quản trị Models, giống `SupportsVision`): **opt-in**, mặc định TẮT vì nhiều server local từ
 chối `response_format`; chỉ bật cho model chắc chắn hỗ trợ. Model để tắt ⇒ hành vi **giữ nguyên** đường text
 + parser cũ.
