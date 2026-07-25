@@ -33,6 +33,15 @@ public class BAChatService
     private readonly InterviewOutlookService _interviewOutlook;
     private readonly ChecklistNoteStore _checklistNotes;
     private readonly IServiceScopeFactory? _scopeFactory;
+    private readonly BAChatTurnTracker? _turnTracker;
+
+    /// <summary>
+    /// Ngưỡng ân hạn trước khi một lượt đang chờ bị coi là ĐÃ CHẾT khi không có lượt nào đang chạy trong
+    /// tiến trình (xem <see cref="BAChatTurnTracker"/>). Chỉ dùng cho các lượt KHÔNG được sổ theo dõi ghi
+    /// nhận — tiến trình vừa khởi động lại, hoặc lượt do instance khác chạy — nên đủ rộng để không cắt
+    /// ngang một lượt thật, mà vẫn ngắn hơn nhiều so với việc treo màn hình vĩnh viễn.
+    /// </summary>
+    public static readonly TimeSpan ReplyStaleAfter = TimeSpan.FromMinutes(3);
 
     public BAChatService(
         AppDbContext db,
@@ -49,7 +58,8 @@ public class BAChatService
         DecisionLogService decisionLog,
         InterviewOutlookService interviewOutlook,
         ChecklistNoteStore checklistNotes,
-        IServiceScopeFactory? scopeFactory = null)
+        IServiceScopeFactory? scopeFactory = null,
+        BAChatTurnTracker? turnTracker = null)
     {
         _db = db;
         _llm = llm;
@@ -68,6 +78,8 @@ public class BAChatService
         // null (test/không có DI đầy đủ) ⇒ các bước chuẩn bị chạy TUẦN TỰ trên chính scope này —
         // hành vi cũ. Có factory ⇒ chạy SONG SONG, mỗi bước một scope riêng (xem PrepareTurnContextAsync).
         _scopeFactory = scopeFactory;
+        // null (test) ⇒ không có sổ theo dõi lượt đang chạy: GetReplyStateAsync chỉ xét tuổi lượt user.
+        _turnTracker = turnTracker;
     }
 
     /// <param name="onStatus">Callback nhận thông điệp trạng thái ngắn ("BA đang soạn trả lời…") để UI cập nhật dòng "đang suy nghĩ" khi stream.</param>
@@ -90,7 +102,60 @@ public class BAChatService
 
         await _conversationLog.AppendAsync(projectId, ba.Id, "user", userMessage, cancellationToken: cancellationToken);
 
-        return await RunTurnAsync(project, ba, model, onStatus, onToken, cancellationToken);
+        return await RunTurnGuaranteedAsync(project, ba, model, onStatus, onToken, cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="RunTurnAsync"/> + BẢO ĐẢM hội thoại không bao giờ kết thúc bằng một lượt user "cụt".
+    /// <para>
+    /// Lượt user được lưu TRƯỚC khi gọi LLM (để nó không biến mất khi user F5). Nếu phần sau đó ném ra
+    /// ngoài — lỗi mạng/hạ tầng, DbContext hỏng, chạm trần ngân sách, host tắt giữa chừng — thì trước đây
+    /// hội thoại nằm lại vĩnh viễn ở trạng thái "lượt cuối là user", tức là
+    /// <see cref="GetReplyStateAsync"/> luôn báo pending: màn hình treo ở "BA đang soạn câu trả lời…",
+    /// F5 cũng không thoát và không gửi được tin mới. Ở đây mọi ngoại lệ đều được ĐÓNG LƯỢT bằng một lượt
+    /// assistant ⚠️ (đúng tiền tố dùng chung) để UI tô đỏ + hiện nút "Thử lại", rồi mới ném tiếp cho
+    /// controller xử lý như cũ.
+    /// </para>
+    /// </summary>
+    private async Task<BAChatTurnResult> RunTurnGuaranteedAsync(Project project, Agent ba, AiModel model, Action<string>? onStatus, Action<string>? onToken, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await RunTurnAsync(project, ba, model, onStatus, onToken, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await TryCloseTurnWithFailureAsync(project.Id, ba.Id, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Ghi lượt assistant ⚠️ "đóng" một lượt chat vừa vỡ. Best-effort và KHÔNG được ném: nó chạy trên
+    /// đường xử lý ngoại lệ, nuốt mất lỗi gốc thì còn tệ hơn. Dùng scope DI riêng khi có (DbContext của
+    /// scope hiện tại có thể chính là thứ vừa hỏng); token None vì lượt phải được lưu kể cả khi request
+    /// đã bị hủy — đó chính là lúc cần nó nhất.
+    /// </summary>
+    private async Task TryCloseTurnWithFailureAsync(Guid projectId, Guid baId, Exception ex)
+    {
+        var message = $"{ConversationTranscriptBuilder.LlmFailurePrefix}, lượt trả lời bị gián đoạn. Chi tiết: {ex.Message}";
+        try
+        {
+            if (_scopeFactory != null)
+            {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                await scope.ServiceProvider.GetRequiredService<BAConversationLog>()
+                    .AppendAsync(projectId, baId, "assistant", message, cancellationToken: CancellationToken.None);
+                return;
+            }
+
+            await _conversationLog.AppendAsync(projectId, baId, "assistant", message, cancellationToken: CancellationToken.None);
+        }
+        catch
+        {
+            // Ghi lượt đóng cũng hỏng (mất kết nối DB): không còn gì làm được ở đây. Cờ "stale" của
+            // GetReplyStateAsync vẫn là lưới an toàn cuối để UI không treo mãi.
+        }
     }
 
     /// <summary>
@@ -101,17 +166,35 @@ public class BAChatService
     /// kịp. UI dùng cờ này để, sau khi tải lại trang giữa lúc BA đang trả lời, hiện lại khung "BA đang
     /// soạn…" rồi chờ câu trả lời được lưu (thay vì để bong bóng trả lời "biến mất" cho tới lần F5 sau).
     /// Global query filter đã loại các lượt đã lưu trữ (ArchivedAt != null) nên chỉ xét hội thoại hiện hành.
+    /// <para>
+    /// Kèm cờ <see cref="ChatReplyState.Stale"/>: lượt đang chờ đó KHÔNG bao giờ về đích nữa — không có
+    /// lượt nào đang chạy trong tiến trình (<see cref="BAChatTurnTracker"/>) và lượt user đã cũ hơn
+    /// <see cref="ReplyStaleAfter"/>. Xảy ra khi tiến trình khởi động lại giữa lúc BA đang trả lời, hoặc
+    /// lỗi hạ tầng nuốt mất cả lượt ⚠️ đóng lượt. Không có cờ này, UI chờ mãi ⇒ treo màn hình ở
+    /// "BA đang soạn câu trả lời…" và chặn luôn việc gửi tin mới, F5 cũng không thoát.
+    /// </para>
     /// </summary>
-    public async Task<bool> IsReplyPendingAsync(Guid projectId, CancellationToken cancellationToken = default)
+    public async Task<ChatReplyState> GetReplyStateAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
         // Cùng thứ tự ổn định (CreatedAt rồi Id) như RetryLastTurnAsync và mọi chỗ đọc hội thoại khác.
-        var lastRole = await _db.AgentConversations
+        var lastTurn = await _db.AgentConversations
             .Where(c => c.ProjectId == projectId)
             .OrderByDescending(c => c.CreatedAt)
             .ThenByDescending(c => c.Id)
-            .Select(c => c.Role)
+            .Select(c => new { c.Role, c.CreatedAt })
             .FirstOrDefaultAsync(cancellationToken);
-        return lastRole == "user";
+
+        if (lastTurn?.Role != "user")
+            return new ChatReplyState(false, false);
+
+        // Lượt đang chạy thật trong tiến trình này ⇒ cứ chờ, dù đã chờ bao lâu (model chậm vẫn về đích).
+        if (_turnTracker?.IsRunning(projectId) == true)
+            return new ChatReplyState(true, false);
+
+        // Không ai đang chạy: chỉ kết luận "chết" sau ngưỡng ân hạn, để không cắt ngang lượt vừa mới bắt
+        // đầu (sổ theo dõi chưa kịp ghi) hay lượt do instance khác chạy.
+        var age = DateTime.UtcNow - lastTurn.CreatedAt;
+        return new ChatReplyState(true, age > ReplyStaleAfter);
     }
 
     /// <summary>
@@ -120,6 +203,11 @@ public class BAChatService
     /// người dùng vẫn đang nằm cuối hội thoại). Không có gì để thử lại (lượt cuối không phải thông báo
     /// lỗi — ví dụ user đã nhắn thêm, hoặc tab khác đã retry trước) ⇒ trả
     /// <see cref="ChatWithBAResult.NothingToRetry"/> để UI mời tải lại trang thay vì chạy đúp.
+    /// <para>
+    /// Cũng nhận lượt cuối là USER còn "cụt" (câu trả lời đã chết — xem <see cref="GetReplyStateAsync"/>):
+    /// chạy lại đúng lượt đó trên transcript hiện có, không xóa gì và không ghi thêm lượt user. Đây là
+    /// đường thoát cho các hội thoại đã kẹt sẵn trong DB.
+    /// </para>
     /// </summary>
     public async Task<BAChatTurnResult> RetryLastTurnAsync(Guid projectId, Action<string>? onStatus = null, Action<string>? onToken = null, CancellationToken cancellationToken = default)
     {
@@ -138,8 +226,17 @@ public class BAChatService
             .ThenByDescending(c => c.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (lastTurn == null
-            || lastTurn.Role != "assistant"
+        if (lastTurn == null)
+            return new BAChatTurnResult { Status = ChatWithBAResult.NothingToRetry };
+
+        // Lượt user "cụt": câu trả lời cũ đã chết. Chạy lại nguyên lượt đó, không xóa gì, không ghi thêm
+        // lượt user. Việc chặn chạy đúp (khi lượt đó THẬT SỰ đang được trả lời ở nơi khác) nằm ở điểm
+        // vào — BAChatTurnTracker.TryBeginExclusive trong ChatStream — vì chỉ ở đó mới phân biệt được
+        // "lượt của người khác" với "lượt của chính request này".
+        if (lastTurn.Role == "user")
+            return await RunTurnGuaranteedAsync(project, ba, ba.AiModel!, onStatus, onToken, cancellationToken);
+
+        if (lastTurn.Role != "assistant"
             || !(lastTurn.Message ?? string.Empty).StartsWith(ConversationTranscriptBuilder.LlmFailurePrefix, StringComparison.Ordinal))
             return new BAChatTurnResult { Status = ChatWithBAResult.NothingToRetry };
 
@@ -148,7 +245,7 @@ public class BAChatService
         _db.AgentConversations.Remove(lastTurn);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return await RunTurnAsync(project, ba, ba.AiModel!, onStatus, onToken, cancellationToken);
+        return await RunTurnGuaranteedAsync(project, ba, ba.AiModel!, onStatus, onToken, cancellationToken);
     }
 
     // Lõi một lượt trả lời của BA (chuẩn bị ngữ cảnh → gọi LLM → cổng readiness → lưu lượt assistant).
@@ -393,6 +490,11 @@ public class BAChatService
     /// </summary>
     public async Task<bool> AcknowledgeSourcesAsync(Guid projectId, string? note = null, IReadOnlyList<ChatAttachment>? attachments = null, CancellationToken cancellationToken = default)
     {
+        // Lượt user (ghi chú/ảnh) được ghi bên trong try; giữ lại id BA + cờ đã-ghi ở ngoài để nhánh
+        // catch còn ĐÓNG được lượt bằng một lượt ⚠️ thay vì để hội thoại cụt ở lượt user (xem
+        // RunTurnGuaranteedAsync — cùng một cái bẫy "màn hình treo ở BA đang soạn…").
+        Guid? baId = null;
+        var userTurnAppended = false;
         try
         {
             var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
@@ -403,13 +505,17 @@ public class BAChatService
             if (ba == null)
                 return false;
             var model = ba.AiModel!;
+            baId = ba.Id;
 
             // Lưu lượt user TRƯỚC các bước có thể lỗi: ghi chú (nếu có) + danh sách file vừa đính kèm để
             // bubble render ảnh ngay trong hội thoại. Không ghi chú, không file ⇒ không thêm lượt nào.
             var trimmedNote = note?.Trim();
             var attachmentsJson = attachments is { Count: > 0 } ? JsonSerializer.Serialize(attachments) : null;
             if (!string.IsNullOrEmpty(trimmedNote) || attachmentsJson != null)
+            {
                 await _conversationLog.AppendAsync(projectId, ba.Id, "user", trimmedNote ?? string.Empty, attachmentsJson: attachmentsJson, cancellationToken: cancellationToken);
+                userTurnAppended = true;
+            }
 
             var sources = await _db.ProjectSourceFiles
                 .AsNoTracking()
@@ -484,11 +590,17 @@ public class BAChatService
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            if (userTurnAppended && baId.HasValue)
+                await TryCloseTurnWithFailureAsync(projectId, baId.Value, new OperationCanceledException("Request đã bị hủy giữa chừng."));
             throw;
         }
-        catch
+        catch (Exception ex)
         {
-            return false; // bước phụ trợ — lỗi thì bỏ qua, không làm hỏng upload.
+            // Bước phụ trợ — lỗi thì bỏ qua, không làm hỏng upload. Nhưng nếu lượt user đã được ghi thì
+            // phải đóng lượt lại, nếu không hội thoại kẹt vĩnh viễn ở "BA đang soạn câu trả lời…".
+            if (userTurnAppended && baId.HasValue)
+                await TryCloseTurnWithFailureAsync(projectId, baId.Value, ex);
+            return false;
         }
     }
 

@@ -17,11 +17,15 @@ using Xunit;
 namespace ICOGenerator.Tests.Requirements;
 
 // Sau khi F5 GIỮA lúc BA đang trả lời, lượt user đã được lưu nhưng lượt assistant còn đang sinh nền
-// (ChatStream chạy với CancellationToken.None nên vẫn hoàn tất & lưu). IsReplyPendingAsync là nguồn để
+// (ChatStream chạy với CancellationToken.None nên vẫn hoàn tất & lưu). GetReplyStateAsync là nguồn để
 // UI hiện lại khung "BA đang soạn…" rồi tự tải lại khi câu trả lời đã lưu — tránh bong bóng trả lời
-// biến mất. Nó phải trả TRUE khi lượt hội thoại HIỆN HÀNH mới nhất là của user, và FALSE cho mọi trạng
+// biến mất. Pending phải TRUE khi lượt hội thoại HIỆN HÀNH mới nhất là của user, và FALSE cho mọi trạng
 // thái đã có (hoặc không cần) câu trả lời: lượt cuối là assistant, hội thoại trống, dự án lạ, và các lượt
 // user cũ đã bị "New Chat" lưu trữ (ArchivedAt != null — bị global query filter loại).
+//
+// Cờ Stale là lưới an toàn chống treo màn hình: lượt đang chờ mà KHÔNG có lượt nào đang chạy trong tiến
+// trình và lượt user đã cũ hơn ngưỡng ⇒ câu trả lời sẽ không bao giờ tới (server khởi động lại giữa
+// chừng), UI phải mở khóa ô nhập + mời "Thử lại" thay vì quay spinner mãi.
 public class BAChatReplyPendingTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -53,7 +57,7 @@ public class BAChatReplyPendingTests : IDisposable
             ("user", "Nhân viên toàn công ty")); // BA chưa kịp trả lời lượt này → đang chờ.
 
         await using var db = NewDb();
-        Assert.True(await NewSut(db).IsReplyPendingAsync(_projectId));
+        Assert.True((await NewSut(db).GetReplyStateAsync(_projectId)).Pending);
     }
 
     [Fact]
@@ -64,21 +68,21 @@ public class BAChatReplyPendingTests : IDisposable
             ("assistant", "Đối tượng người dùng chính là ai?"));
 
         await using var db = NewDb();
-        Assert.False(await NewSut(db).IsReplyPendingAsync(_projectId));
+        Assert.False((await NewSut(db).GetReplyStateAsync(_projectId)).Pending);
     }
 
     [Fact]
     public async Task NotPending_WhenNoConversationYet()
     {
         await using var db = NewDb();
-        Assert.False(await NewSut(db).IsReplyPendingAsync(_projectId));
+        Assert.False((await NewSut(db).GetReplyStateAsync(_projectId)).Pending);
     }
 
     [Fact]
     public async Task NotPending_WhenProjectUnknown()
     {
         await using var db = NewDb();
-        Assert.False(await NewSut(db).IsReplyPendingAsync(Guid.NewGuid()));
+        Assert.False((await NewSut(db).GetReplyStateAsync(Guid.NewGuid())).Pending);
     }
 
     [Fact]
@@ -90,15 +94,61 @@ public class BAChatReplyPendingTests : IDisposable
             ("user", "Ý tưởng cũ đã lưu trữ"));
 
         await using var db = NewDb();
-        Assert.False(await NewSut(db).IsReplyPendingAsync(_projectId));
+        Assert.False((await NewSut(db).GetReplyStateAsync(_projectId)).Pending);
+    }
+
+    [Fact]
+    public async Task Stale_WhenPendingTurnIsOldAndNothingIsRunning()
+    {
+        // Lượt user "cụt" từ lâu mà không tiến trình nào đang chạy nó ⇒ câu trả lời đã chết: UI phải
+        // được phép ngừng chờ. Đây chính là trạng thái làm treo màn hình ở "BA đang soạn câu trả lời…".
+        await SeedTurnsAsync(("user", "Nhân viên toàn công ty"));
+
+        await using var db = NewDb();
+        var state = await NewSut(db, new BAChatTurnTracker()).GetReplyStateAsync(_projectId);
+
+        Assert.True(state.Pending);
+        Assert.True(state.Stale);
+    }
+
+    [Fact]
+    public async Task NotStale_WhilePendingTurnIsStillRunningInThisProcess()
+    {
+        // Cùng lượt "cụt" cũ, nhưng sổ theo dõi báo BA đang chạy thật (model chậm) ⇒ cứ chờ tiếp.
+        await SeedTurnsAsync(("user", "Nhân viên toàn công ty"));
+        var tracker = new BAChatTurnTracker();
+        using var registration = tracker.Begin(_projectId);
+
+        await using var db = NewDb();
+        var state = await NewSut(db, tracker).GetReplyStateAsync(_projectId);
+
+        Assert.True(state.Pending);
+        Assert.False(state.Stale);
+    }
+
+    [Fact]
+    public async Task NotStale_WhenPendingTurnWasJustCreated()
+    {
+        // Lượt vừa gửi xong (sổ theo dõi có thể chưa kịp ghi / instance khác chạy): ngưỡng ân hạn giữ
+        // cho UI không cắt ngang một lượt hoàn toàn bình thường.
+        await SeedTurnsAsync(createdAt: DateTime.UtcNow, archived: false,
+            ("user", "Nhân viên toàn công ty"));
+
+        await using var db = NewDb();
+        var state = await NewSut(db, new BAChatTurnTracker()).GetReplyStateAsync(_projectId);
+
+        Assert.True(state.Pending);
+        Assert.False(state.Stale);
     }
 
     private Task SeedTurnsAsync(params (string Role, string Message)[] turns) => SeedTurnsAsync(false, turns);
 
-    private async Task SeedTurnsAsync(bool archived, params (string Role, string Message)[] turns)
+    private Task SeedTurnsAsync(bool archived, params (string Role, string Message)[] turns)
+        => SeedTurnsAsync(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), archived, turns);
+
+    private async Task SeedTurnsAsync(DateTime createdAt, bool archived, params (string Role, string Message)[] turns)
     {
         await using var db = NewDb();
-        var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         for (var i = 0; i < turns.Length; i++)
         {
             db.AgentConversations.Add(new AgentConversation
@@ -107,15 +157,15 @@ public class BAChatReplyPendingTests : IDisposable
                 AgentId = _baId,
                 Role = turns[i].Role,
                 Message = turns[i].Message,
-                CreatedAt = baseTime.AddSeconds(i),
-                ArchivedAt = archived ? baseTime.AddMinutes(1) : null
+                CreatedAt = createdAt.AddSeconds(i),
+                ArchivedAt = archived ? createdAt.AddMinutes(1) : null
             });
         }
         await db.SaveChangesAsync();
     }
 
     // Cùng harness dựng BAChatService như BAChatRetryTests (không scope factory ⇒ chạy tuần tự trên db test).
-    private static BAChatService NewSut(AppDbContext db)
+    private static BAChatService NewSut(AppDbContext db, BAChatTurnTracker? tracker = null)
     {
         var config = new ConfigurationBuilder().Build();
         var prompts = new StubPrompts();
@@ -134,7 +184,9 @@ public class BAChatReplyPendingTests : IDisposable
             new BAConversationLog(db),
             new DecisionLogService(db, llm, prompts),
             new InterviewOutlookService(db, llm, prompts),
-            new ChecklistNoteStore(db));
+            new ChecklistNoteStore(db),
+            scopeFactory: null,
+            turnTracker: tracker);
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
