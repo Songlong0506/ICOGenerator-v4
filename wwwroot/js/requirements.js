@@ -34,6 +34,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // mang bản chốt (reply + suggestions + cờ mời Write Requirement) để render tại chỗ — KHÔNG reload.
     // Stream hỏng trước khi nhận được frame nào → fallback postback cổ điển (hành vi cũ, reload trang).
     const STREAM_URL = "/Requirements/ChatStream";
+    // Ngưỡng coi stream là ĐÃ CHẾT: server gửi frame "ping" mỗi 10s trong suốt lượt (xem
+    // HeartbeatInterval ở RequirementsController), nên im lặng quá lâu nghĩa là kết nối đứt chứ không
+    // phải BA đang nghĩ lâu. Bắt buộc phải có: khi mạng rớt giữa chừng, fetch/ReadableStream có thể KHÔNG
+    // bao giờ reject — promise treo vĩnh viễn, chatBusy kẹt ở true và màn hình đứng mãi ở "BA đang soạn
+    // câu trả lời…", gửi tin mới cũng không được.
+    const STREAM_IDLE_TIMEOUT_MS = 45000;
     let chatBusy = false;
     let liveBubble = null;
 
@@ -373,6 +379,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         scrollToBottom();
     }
 
+    // Trả về true nếu đây là frame NỘI DUNG (không phải nhịp tim/khung rỗng) — tức server đã thật sự
+    // nhận và đang xử lý lượt này. Nhịp tim không tính: nó có thể tới trước khi lượt user kịp lưu.
     function handleFrame(raw) {
         // Frame SSE: các dòng "data: {json}"; bỏ qua comment (": ping") và event end.
         const lines = raw.split("\n");
@@ -380,10 +388,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         for (const line of lines) {
             if (line.startsWith("data: ")) json += line.slice(6);
         }
-        if (!json) return;
+        if (!json) return false;
 
         let ev;
-        try { ev = JSON.parse(json); } catch { return; }
+        try { ev = JSON.parse(json); } catch { return false; }
+
+        if (ev.type === "ping") return false; // nhịp tim: chỉ để biết kết nối còn sống
 
         if (ev.type === "status") {
             setThinkingText(ev.text || "BA đang xử lý…");
@@ -392,6 +402,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             bubble.querySelector("p").textContent += ev.text || "";
             scrollToBottom();
         } else if (ev.type === "done") {
+            sawDone = true;
             finishTurn(ev);
         } else if (ev.type === "decisions") {
             // Frame phụ SAU done: bản "Điều đã chốt" đã gộp lượt vừa rồi (server tách lời gọi LLM này
@@ -402,6 +413,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // tính thử đã xác nhận) đã gộp lượt vừa rồi — làm tươi ba panel bên phải.
             renderOutlook(ev);
         }
+        return true;
     }
 
     // Ảnh đã đính kèm nhưng CHƯA gửi (staged): initSourceDropPaste đổ vào đây khi user đính kèm/dán/kéo-thả.
@@ -414,6 +426,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // đã nhận frame nghĩa là server ĐANG xử lý lượt này (và sẽ lưu DB dù stream đứt) → chỉ reload;
     // chưa nhận frame nào mới được phép re-submit theo đường postback cổ điển.
     let sawFrame = false;
+    // true khi đã nhận frame "done" — tức lượt đã CHỐT. Stream kết thúc mà thiếu nó (proxy đóng kết nối
+    // im lặng, server bị kill giữa chừng) là kết thúc GIẢ: đọc xong không lỗi, không exception, nhưng
+    // lượt chưa xong. Không kiểm tra cờ này thì chatBusy kẹt ở true và spinner "BA đang soạn câu trả
+    // lời…" quay vĩnh viễn — đúng triệu chứng người dùng báo.
+    let sawDone = false;
 
     async function streamChat(text, retry) {
         const fd = new FormData();
@@ -423,28 +440,49 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const token = chatForm.querySelector('input[name="__RequestVerificationToken"]');
         if (token) fd.append("__RequestVerificationToken", token.value);
 
-        const response = await fetch(STREAM_URL, { method: "POST", body: fd, headers: { Accept: "text/event-stream" } });
-        if (!response.ok || !response.body) throw new Error("stream request failed");
+        // Đồng hồ canh stream "im lặng": mỗi lần có dữ liệu về (kể cả nhịp tim) thì hẹn lại giờ; quá
+        // STREAM_IDLE_TIMEOUT_MS không nghe thấy gì ⇒ abort để reader.read() reject và nhánh catch của
+        // người gọi phục hồi. Nếu không abort, một kết nối chết âm thầm (mất Wi-Fi, proxy cắt) sẽ giữ
+        // promise treo mãi và khóa cứng khung chat.
+        const controller = new AbortController();
+        let idleTimer = null;
+        const armIdleTimer = () => {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => controller.abort(), STREAM_IDLE_TIMEOUT_MS);
+        };
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
+        try {
+            armIdleTimer();
+            const response = await fetch(STREAM_URL, {
+                method: "POST",
+                body: fd,
+                headers: { Accept: "text/event-stream" },
+                signal: controller.signal
+            });
+            if (!response.ok || !response.body) throw new Error("stream request failed");
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
 
-            buffer += decoder.decode(value, { stream: true });
-            let idx;
-            while ((idx = buffer.indexOf("\n\n")) >= 0) {
-                const frame = buffer.slice(0, idx);
-                buffer = buffer.slice(idx + 2);
-                sawFrame = true;
-                handleFrame(frame);
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                armIdleTimer();
+
+                buffer += decoder.decode(value, { stream: true });
+                let idx;
+                while ((idx = buffer.indexOf("\n\n")) >= 0) {
+                    const frame = buffer.slice(0, idx);
+                    buffer = buffer.slice(idx + 2);
+                    if (handleFrame(frame)) sawFrame = true;
+                }
             }
-        }
 
-        return sawFrame;
+            return sawFrame;
+        } finally {
+            clearTimeout(idleTimer);
+        }
     }
 
     chatForm.addEventListener("submit", function (e) {
@@ -463,6 +501,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         chatBusy = true;
         sawFrame = false;
+        sawDone = false;
         appendUserBubble(text);
 
         messageInput.value = "";
@@ -477,6 +516,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         streamChat(text, false).then(function (gotFrame) {
             if (!gotFrame) throw new Error("no frame");
+            if (!sawDone) throw new Error("stream ended without done");
         }).catch(function () {
             if (!chatBusy) return; // done đã xử lý xong, lỗi chỉ là đuôi stream — bỏ qua
 
@@ -504,9 +544,16 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         chatBusy = true;
         sawFrame = false;
+        sawDone = false;
 
         const failedBubble = btn.closest(".req-msg.ba");
-        if (failedBubble) failedBubble.remove();
+        if (failedBubble) {
+            // Gỡ cả nhãn "BA" đứng ngay trước bong bóng lỗi — ensureLiveBubble sẽ chèn nhãn mới cho lượt
+            // chạy lại, không thì hai chữ "BA" chồng nhau.
+            const label = failedBubble.previousElementSibling;
+            if (label && label.classList.contains("req-who")) label.remove();
+            failedBubble.remove();
+        }
         hideSuggestions();
 
         setThinkingText("BA đang thử trả lời lại…");
@@ -515,20 +562,49 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         streamChat("", true).then(function (gotFrame) {
             if (!gotFrame) throw new Error("no frame");
+            if (!sawDone) throw new Error("stream ended without done");
         }).catch(function () {
             if (!chatBusy) return;
             location.reload();
         });
     });
 
+    // Lượt trả lời đang chờ đã CHẾT (server báo stale, hoặc hết hạn chờ): mở khóa khung chat và để lại
+    // một bong bóng lỗi có nút "Thử lại" — server chạy lại đúng lượt user còn "cụt" đó, người dùng không
+    // phải gõ lại câu hỏi. Trước đây chỗ này chỉ quay spinner vô hạn: màn hình đứng ở "BA đang soạn câu
+    // trả lời…", F5 cũng không thoát vì lượt user vẫn nằm cuối hội thoại, và ô nhập bị khóa (chatBusy).
+    function recoverFromDeadReply(reason) {
+        thinkingBox.style.display = "none";
+        setThinkingText("BA is analyzing requirements...");
+        chatBusy = false;
+
+        // Chỉ để MỘT bong bóng phục hồi (F5 liên tục không được cộng dồn).
+        chatMessages.querySelectorAll(".chat-dead-reply").forEach(el => {
+            const label = el.previousElementSibling;
+            if (label && label.classList.contains("req-who")) label.remove();
+            el.remove();
+        });
+
+        thinkingBox.insertAdjacentHTML("beforebegin", `
+            <b class="req-who">BA</b>
+            <div class="req-msg ba chat-error chat-dead-reply">
+                <p style="white-space: pre-wrap;">${escapeHtml(reason)}</p>
+                <button type="button" class="btn outline small chat-retry-btn" title="Chạy lại lượt trả lời vừa hỏng — không cần gõ lại câu hỏi">↻ Thử lại</button>
+            </div>
+        `);
+        scrollToBottom();
+        messageInput.focus();
+    }
+
     // ==== Khôi phục sau khi F5 GIỮA lúc BA đang trả lời ====
     // Nếu tải lại trang khi lượt hội thoại mới nhất còn là của user (BA chưa kịp lưu câu trả lời — vẫn
     // đang sinh nền với CancellationToken.None), khung chat sẽ THIẾU bong bóng trả lời. Hiện lại dòng
     // "BA đang soạn…" và hỏi server (ChatReplyStatus) theo nhịp cho tới khi câu trả lời đã được lưu, rồi
     // tải lại để render bản chốt (bong bóng BA + gợi ý + các panel). Chặn gửi lượt mới trong lúc chờ để
-    // không tạo hai lượt chạy song song. Server persist lượt assistant dù client đã rời đi nên gần như
-    // luôn về đích trong vài giây; đặt trần số lần hỏi để không quay vô hạn ở trường hợp hiếm (tiến trình
-    // server khởi động lại giữa chừng làm lượt trả lời không bao giờ được lưu).
+    // không tạo hai lượt chạy song song.
+    // Server còn trả cờ "stale" khi lượt chờ đó KHÔNG bao giờ về đích (không tiến trình nào đang chạy nó
+    // — vd server khởi động lại giữa chừng, hoặc lỗi hạ tầng nuốt mất cả lượt ⚠️ đóng lượt): dừng chờ
+    // ngay và mời "Thử lại", thay vì khóa khung chat suốt nhiều phút rồi bỏ mặc.
     if (chatMessages.dataset.replyPending === "true") {
         const pendingProjectId = chatForm.querySelector('input[name="projectId"]').value;
         chatBusy = true;
@@ -552,6 +628,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                         location.reload();
                         return;
                     }
+                    if (data.stale) {
+                        recoverFromDeadReply(
+                            "⚠️ Lượt trả lời trước bị gián đoạn (mất kết nối hoặc server khởi động lại) nên "
+                            + "không hoàn tất. Anh/chị bấm \"Thử lại\" để mình trả lời câu vừa rồi, hoặc cứ nhắn tiếp bình thường.");
+                        return;
+                    }
                 }
             } catch (_) {
                 // Lỗi mạng tạm thời: thử lại ở nhịp sau.
@@ -559,14 +641,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             if (pendingAttempts < pendingMaxAttempts) {
                 setTimeout(pollReply, 2500);
             } else {
-                // Hết hạn chờ: dừng spinner, mở lại ô nhập và mời người dùng tải lại/nhắn tiếp thay vì
-                // quay mãi.
-                thinkingBox.style.display = "none";
-                chatBusy = false;
-                setThinkingText("BA is analyzing requirements...");
+                recoverFromDeadReply(
+                    "⚠️ Chờ quá lâu mà chưa nhận được câu trả lời. Anh/chị bấm \"Thử lại\" để mình trả lời "
+                    + "câu vừa rồi, hoặc cứ nhắn tiếp bình thường.");
             }
         };
-        setTimeout(pollReply, 2000);
+        // Hỏi NGAY lần đầu: server tự phân biệt "đang chạy" với "đã chết" nên không cần chờ lấy lệ —
+        // trạng thái kẹt được mở khóa trong tích tắc thay vì bắt người dùng nhìn spinner rồi mới biết.
+        pollReply();
     }
 
     // Chọn một đáp án gợi ý: chế độ thường = điền sẵn rồi gửi ngay; chế độ chọn nhiều (multi) =

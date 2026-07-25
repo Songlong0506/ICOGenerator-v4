@@ -628,6 +628,10 @@ public static class ApplicationServiceCollectionExtensions
         // chung (resolver agent, ghi lượt hội thoại) — tách từ BARequirementService cũ. Cổng readiness
         // (RequirementReadinessGate) giờ là hàm tất định trên bản đồ bao phủ, không cần DI.
         services.AddScoped<BAChatService>();
+        // Sổ theo dõi các lượt BA đang chạy dở trong tiến trình (chỉ trong bộ nhớ, không trạng thái theo
+        // request) ⇒ singleton: ChatStream ghi dấu, ChatReplyStatus đọc để biết một lượt đang chờ là còn
+        // sống hay đã chết.
+        services.AddSingleton<BAChatTurnTracker>();
         services.AddScoped<ProductBriefDraftService>();
         services.AddScoped<RequirementDocsService>();
         services.AddScoped<BAAgentResolver>();
