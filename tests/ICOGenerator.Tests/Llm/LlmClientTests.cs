@@ -34,7 +34,6 @@ public class LlmClientTests
     private static LlmClient Client(FakeChatClientFactory factory) => new(
         factory,
         new FakeModelCallLogger(),
-        new StructuredOutputPolicy(),
         new NoopBudgetGuard(),
         new ConfigurationBuilder().Build(),
         NullLogger<LlmClient>.Instance);

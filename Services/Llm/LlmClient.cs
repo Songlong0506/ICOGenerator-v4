@@ -12,16 +12,14 @@ public class LlmClient : ILlmClient
 
     private readonly IChatClientFactory _chatClientFactory;
     private readonly IModelCallLogger _modelCallLogger;
-    private readonly StructuredOutputPolicy _structuredOutputPolicy;
     private readonly IBudgetGuard _budgetGuard;
     private readonly ILogger<LlmClient> _logger;
     private readonly int _requestTimeoutSeconds;
 
-    public LlmClient(IChatClientFactory chatClientFactory, IModelCallLogger modelCallLogger, StructuredOutputPolicy structuredOutputPolicy, IBudgetGuard budgetGuard, IConfiguration configuration, ILogger<LlmClient> logger)
+    public LlmClient(IChatClientFactory chatClientFactory, IModelCallLogger modelCallLogger, IBudgetGuard budgetGuard, IConfiguration configuration, ILogger<LlmClient> logger)
     {
         _chatClientFactory = chatClientFactory;
         _modelCallLogger = modelCallLogger;
-        _structuredOutputPolicy = structuredOutputPolicy;
         _budgetGuard = budgetGuard;
         _logger = logger;
         _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
@@ -71,9 +69,12 @@ public class LlmClient : ILlmClient
 
     public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
     {
-        // Models not opted into structured output keep the exact streaming + manual-parse behaviour
-        // (including live token streaming for the requirement draft).
-        if (!_structuredOutputPolicy.UseStructuredOutput(model))
+        // Structured output (response_format: json_schema) is opt-in per model via the SupportsStructuredOutput
+        // tick on the Models admin screen, defaulting to false because many weak / local OpenAI-compatible
+        // servers reject the parameter. Models not opted in keep the exact streaming + manual-parse behaviour
+        // (including live token streaming for the requirement draft); even when on, callers keep their parser
+        // as a fallback, so a model returning JSON that misses the schema still degrades gracefully.
+        if (!model.SupportsStructuredOutput)
         {
             var plain = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
             return (plain, null);

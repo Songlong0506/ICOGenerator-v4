@@ -19,7 +19,7 @@ public interface ILlmClient
 
     /// <summary>
     /// Like <see cref="ChatWithLogAsync"/> but asks the model for structured output (a JSON object matching
-    /// <typeparamref name="T"/>) when <see cref="StructuredOutputPolicy"/> opts the model in, and returns the
+    /// <typeparamref name="T"/>) when <see cref="AiModel.SupportsStructuredOutput"/> opts the model in, and returns the
     /// deserialized value alongside the raw result. Falls back transparently to the plain streaming text call
     /// when the model is not opted in, so <paramref name="onToken"/> still streams on that path.
     /// </summary>

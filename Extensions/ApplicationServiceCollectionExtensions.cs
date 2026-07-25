@@ -525,7 +525,7 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddBudgetServices(this IServiceCollection services)
     {
-        // Config-bound USD caps (singleton like StructuredOutputPolicy); the guard needs the scoped DbContext
+        // Config-bound USD caps (singleton); the guard needs the scoped DbContext
         // to sum spend, so it is scoped. Registered before LLM services since LlmClient/AgentRunService depend on it.
         services.AddSingleton<BudgetPolicy>();
         services.AddScoped<IBudgetGuard, BudgetGuard>();
@@ -568,8 +568,6 @@ public static class ApplicationServiceCollectionExtensions
         // Builds a Microsoft.Extensions.AI IChatClient per AiModel; depends only on the singleton
         // IHttpClientFactory, so it is safe to register as a singleton.
         services.AddSingleton<IChatClientFactory, OpenAIChatClientFactory>();
-        // Config-bound, opt-in choice of structured output (response_format: json_schema) per model.
-        services.AddSingleton<StructuredOutputPolicy>();
         services.AddScoped<IModelCallLogger, ModelCallLogger>();
         // Lời gọi thử của nút "Test Connection" (trang Models): chỉ cần factory + config nên là singleton.
         services.AddSingleton<IModelConnectionTester, ModelConnectionTester>();

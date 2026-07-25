@@ -198,7 +198,7 @@ Services/
   Evals/                 # Prompt eval harness: EvalRunnerService, EvalRunWorker, EvalJudgeParser
   Feedback/              # FeedbackAttachmentStore (lưu file đính kèm)
   Llm/                   # LlmClient, OpenAIChatClientFactory, ModelCallLoggingChatClient,
-                         #   TokenEstimator, MaxOutputTokenResolver, LlmCost, StructuredOutputPolicy...
+                         #   TokenEstimator, MaxOutputTokenResolver, LlmCost, JsonExtractor...
   Notifications/         # NotificationService + Channels/ (Teams webhook, SMTP email, Bosch Email Server API)
   Prompts/               # PromptTemplateService, DbPromptOverrideProvider, PromptFileCatalog
   Requirements/          # BAChatService, ProductBriefDraftService, RequirementDocsService + trí nhớ/parser/generator của luồng BA
@@ -498,7 +498,7 @@ LlmClient / AgentRunService
              • map lỗi API/timeout thành LlmCallResult • ghi AgentModelCallLogs • progress
 ```
 
-- **`ILlmClient.ChatAsync`** — đường chat thuần (BA). **`ChatStructuredAsync<T>`** — structured output (`response_format: json_schema`), **opt-in theo từng model** qua `StructuredOutputPolicy` (cờ `AiModel.SupportsStructuredOutput` tick ở trang Models, mặc định TẮT vì nhiều server local từ chối `response_format`); JSON không khớp schema ⇒ trả `value=null` để caller fallback về parser tay (`RequirementResponseParser`/`BAChatReplyParser`) — không bao giờ fail trắng.
+- **`ILlmClient.ChatAsync`** — đường chat thuần (BA). **`ChatStructuredAsync<T>`** — structured output (`response_format: json_schema`), **opt-in theo từng model** qua cờ `AiModel.SupportsStructuredOutput` (tick ở trang Models, mặc định TẮT vì nhiều server local từ chối `response_format`); JSON không khớp schema ⇒ trả `value=null` để caller fallback về parser tay (`RequirementResponseParser`/`BAChatReplyParser`) — không bao giờ fail trắng.
 - **`LlmCost`** tính chi phí = token × đơn giá model — cùng công thức cho trang Usage và Budget guard.
 - **`IBudgetGuard`** kiểm tra **trước mỗi lời gọi** (cả agent lẫn BA chat): chạm trần (`Budget:*`) ⇒ từ chối gọi, ném `BudgetExceededException` với lý do.
 - **`JsonExtractor`/`JsonDefaults`** — tiện ích bóc JSON từ trả lời văn xuôi.
