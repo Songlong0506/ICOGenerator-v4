@@ -34,10 +34,16 @@ public class RequirementsController : Controller
     private readonly ReviseBriefFromNotesUseCase _reviseBriefFromNotesUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly IProjectAccessGuard _projectAccess;
+    private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly ILogger<RequirementsController> _logger;
 
     // SSE frames are hand-serialized, so match the camelCase the polling JSON (and client) already use.
     private static readonly JsonSerializerOptions SseJsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+    // Nhịp gửi frame "ping" trong lúc lượt chat chạy. Phải NGẮN hơn nhiều so với ngưỡng phát hiện stream
+    // treo phía client (STREAM_IDLE_TIMEOUT_MS trong requirements.js) để một nhịp lỡ không bị hiểu nhầm
+    // là mất kết nối.
+    private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(10);
 
     public RequirementsController(
        GetRequirementWorkspaceQuery getRequirementWorkspaceQuery,
@@ -58,6 +64,7 @@ public class RequirementsController : Controller
        ReviseBriefFromNotesUseCase reviseBriefFromNotesUseCase,
        RetryWorkflowUseCase retryWorkflowUseCase,
        IProjectAccessGuard projectAccess,
+       BAChatTurnTracker chatTurnTracker,
        ILogger<RequirementsController> logger)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
@@ -78,6 +85,7 @@ public class RequirementsController : Controller
         _reviseBriefFromNotesUseCase = reviseBriefFromNotesUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
         _projectAccess = projectAccess;
+        _chatTurnTracker = chatTurnTracker;
         _logger = logger;
     }
 
@@ -178,10 +186,18 @@ public class RequirementsController : Controller
         // đẩy qua channel không giới hạn (TryWrite không block), vòng dưới đọc ra và ghi SSE frame.
         var channel = Channel.CreateUnbounded<object>();
 
+        // Nhịp tim: một frame "ping" đều đặn trong lúc BA làm việc. Giữa "BA đang soạn câu trả lời…" và
+        // frame done có thể là cả một lời gọi LLM dài mà KHÔNG có token nào (đường structured output không
+        // stream) — không có nhịp tim thì client không phân biệt được "đang chờ" với "kết nối đã chết",
+        // và proxy/ load balancer cũng hay tự cắt kết nối im lặng lâu. Client dựa vào nhịp này để phát
+        // hiện stream treo (xem STREAM_IDLE_TIMEOUT_MS trong requirements.js) thay vì quay spinner mãi.
+        using var heartbeatCts = new CancellationTokenSource();
+
         // Chạy lượt chat với CancellationToken.None: người dùng đóng tab giữa chừng thì turn vẫn chạy
         // trọn và lưu DB (lượt user đã lưu trước khi gọi LLM — bỏ ngang sẽ để hội thoại "cụt" không có
         // trả lời). Việc GHI response mới theo RequestAborted.
         var chatTask = RunChatAsync();
+        var heartbeatTask = SendHeartbeatAsync(heartbeatCts.Token);
 
         var aborted = HttpContext.RequestAborted;
         var clientGone = false;
@@ -203,6 +219,7 @@ public class RequirementsController : Controller
         }
 
         await chatTask; // mọi lỗi đã được gói thành frame done bên trong — await chỉ để không bỏ rơi task
+        await heartbeatTask; // đã bị hủy ở cuối RunChatAsync — await để không bỏ rơi task
 
         if (!clientGone)
         {
@@ -214,7 +231,63 @@ public class RequirementsController : Controller
             catch (OperationCanceledException) { }
         }
 
+        async Task SendHeartbeatAsync(CancellationToken ct)
+        {
+            try
+            {
+                using var timer = new PeriodicTimer(HeartbeatInterval);
+                while (await timer.WaitForNextTickAsync(ct))
+                    channel.Writer.TryWrite(new { type = "ping" });
+            }
+            catch (OperationCanceledException)
+            {
+                // Lượt chat đã xong — dừng nhịp tim là đúng.
+            }
+        }
+
+        // Vỏ bọc bảo đảm hai việc LUÔN xảy ra dù lượt chat vỡ kiểu gì: dừng nhịp tim và ĐÓNG channel.
+        // Không có nó, một ngoại lệ lọt ra ngoài (vd bước hậu kỳ) sẽ để vòng đọc channel ở trên treo vô
+        // hạn — client ngồi nhìn "BA đang soạn câu trả lời…" mà không bao giờ có frame done.
         async Task RunChatAsync()
+        {
+            // Sổ theo dõi "project này đang có lượt BA chạy dở" — nguồn để ChatReplyStatus phân biệt
+            // "BA đang soạn thật" với "lượt trả lời đã chết" thay vì bắt client đoán. Phải bao trọn cả
+            // phần hậu kỳ để một tab khác không retry đè lên lượt đang chạy.
+            // "Thử lại" giành chỗ ĐỘC QUYỀN: nó chạy lại một lượt đã có trong hội thoại, nên nếu lượt đó
+            // thật sự đang được trả lời ở nơi khác thì phải nhường, không thì thành hai câu trả lời cho
+            // cùng một câu hỏi. Kiểm tra phải nằm ở ĐÂY (trước khi tự ghi dấu) — bên trong lượt chạy thì
+            // không còn phân biệt được dấu của người khác với dấu của chính mình.
+            IDisposable? exclusiveTurn = null;
+            if (retry && !_chatTurnTracker.TryBeginExclusive(projectId, out exclusiveTurn))
+            {
+                channel.Writer.TryWrite(new
+                {
+                    type = "done",
+                    ok = false,
+                    error = "BA đang trả lời lượt này rồi — tải lại trang để xem câu trả lời nhé."
+                });
+                heartbeatCts.Cancel();
+                channel.Writer.TryComplete();
+                return;
+            }
+            using var turnRegistration = exclusiveTurn ?? _chatTurnTracker.Begin(projectId);
+
+            try
+            {
+                await RunChatCoreAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ChatStream vỡ ngoài vòng xử lý lượt cho project {ProjectId}", projectId);
+            }
+            finally
+            {
+                heartbeatCts.Cancel();
+                channel.Writer.TryComplete();
+            }
+        }
+
+        async Task RunChatCoreAsync()
         {
             object done;
             var turnSucceeded = false;
@@ -316,8 +389,6 @@ public class RequirementsController : Controller
                 // để lượt chat không phải chờ; miền chọn bucket checklist học được cho các lượt sau.
                 await _chatWithBAUseCase.EnsureProjectDomainAsync(projectId, CancellationToken.None);
             }
-
-            channel.Writer.TryComplete();
         }
     }
 
@@ -325,7 +396,8 @@ public class RequirementsController : Controller
     // sinh nền (ChatStream chạy với CancellationToken.None nên vẫn hoàn tất & lưu dù client đã rời đi).
     // Endpoint nhẹ này cho client biết câu trả lời còn "đang chờ" (lượt hội thoại mới nhất là của user)
     // để hiện lại khung "BA đang soạn…" và tự tải lại khi câu trả lời đã được lưu — tránh để bong bóng
-    // trả lời "biến mất" sau F5. Chỉ đọc, không ghi.
+    // trả lời "biến mất" sau F5. Kèm cờ "stale" khi lượt chờ đó đã chết hẳn (không còn tiến trình nào
+    // chạy nó) để client dừng chờ và mời "Thử lại" thay vì treo mãi ở spinner. Chỉ đọc, không ghi.
     [HttpGet]
     [RequirePermission(AppPermission.RequirementsManage)]
     public async Task<IActionResult> ChatReplyStatus(Guid projectId)
@@ -333,8 +405,8 @@ public class RequirementsController : Controller
         if (!await CanAccessProjectAsync(projectId))
             return NotFound();
 
-        var pending = await _chatWithBAUseCase.IsReplyPendingAsync(projectId, HttpContext.RequestAborted);
-        return Json(new { pending });
+        var state = await _chatWithBAUseCase.GetReplyStateAsync(projectId, HttpContext.RequestAborted);
+        return Json(new { pending = state.Pending, stale = state.Stale });
     }
 
     // Upload tài liệu nguồn (ảnh/PDF) cho project. Nâng trần kích thước request để cho phép vài file ảnh/PDF

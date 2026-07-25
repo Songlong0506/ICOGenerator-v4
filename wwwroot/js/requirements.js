@@ -34,6 +34,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // mang bản chốt (reply + suggestions + cờ mời Write Requirement) để render tại chỗ — KHÔNG reload.
     // Stream hỏng trước khi nhận được frame nào → fallback postback cổ điển (hành vi cũ, reload trang).
     const STREAM_URL = "/Requirements/ChatStream";
+    // Ngưỡng coi stream là ĐÃ CHẾT: server gửi frame "ping" mỗi 10s trong suốt lượt (xem
+    // HeartbeatInterval ở RequirementsController), nên im lặng quá lâu nghĩa là kết nối đứt chứ không
+    // phải BA đang nghĩ lâu. Bắt buộc phải có: khi mạng rớt giữa chừng, fetch/ReadableStream có thể KHÔNG
+    // bao giờ reject — promise treo vĩnh viễn, chatBusy kẹt ở true và màn hình đứng mãi ở "BA đang soạn
+    // câu trả lời…", gửi tin mới cũng không được.
+    const STREAM_IDLE_TIMEOUT_MS = 45000;
     let chatBusy = false;
     let liveBubble = null;
 
@@ -45,15 +51,19 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         `);
     }
 
-    // Bong bóng "lạc quan" cho lượt gửi ẢNH: hiện ngay ảnh (từ objectURL đang xem trước) + ghi chú như
-    // một lượt user thật, để user thấy tin đã gửi trong lúc BA đọc ảnh — thay vì chỉ có spinner rồi reload.
-    // Markup khớp bản server render (.req-msg you > .chat-attachments) để nhìn giống hệt sau khi reload.
-    // Trả về phần tử vừa chèn để có thể gỡ đi (hoàn tác) nếu upload thất bại.
-    function appendUserImageBubble(note, images) {
-        const thumbs = images.map(img => `
-            <span class="chat-attachment-img" title="${escapeHtml(img.file.name || "ảnh")}">
-                <img src="${img.url}" alt="${escapeHtml(img.file.name || "ảnh đính kèm")}" />
+    // Bong bóng "lạc quan" cho lượt gửi ĐÍNH KÈM: hiện ngay ảnh (từ objectURL đang xem trước) / chip tên
+    // file + ghi chú như một lượt user thật, để user thấy tin đã gửi trong lúc BA đọc — thay vì chỉ có
+    // spinner rồi reload. Markup khớp bản server render (.req-msg you > .chat-attachments) để nhìn giống
+    // hệt sau khi reload. Trả về phần tử vừa chèn để có thể gỡ đi (hoàn tác) nếu upload thất bại.
+    function appendUserImageBubble(note, files) {
+        const thumbs = files.map(f => f.url
+            ? `
+            <span class="chat-attachment-img" title="${escapeHtml(f.file.name || "ảnh")}">
+                <img src="${f.url}" alt="${escapeHtml(f.file.name || "ảnh đính kèm")}" />
             </span>
+        `
+            : `
+            <span class="chat-attachment-file" title="${escapeHtml(f.file.name || "tệp")}">📄 ${escapeHtml(f.file.name || "tệp")}</span>
         `).join("");
         const noteHtml = note ? `<p>${escapeHtml(note)}</p>` : "";
         thinkingBox.insertAdjacentHTML("beforebegin", `
@@ -373,6 +383,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         scrollToBottom();
     }
 
+    // Trả về true nếu đây là frame NỘI DUNG (không phải nhịp tim/khung rỗng) — tức server đã thật sự
+    // nhận và đang xử lý lượt này. Nhịp tim không tính: nó có thể tới trước khi lượt user kịp lưu.
     function handleFrame(raw) {
         // Frame SSE: các dòng "data: {json}"; bỏ qua comment (": ping") và event end.
         const lines = raw.split("\n");
@@ -380,10 +392,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         for (const line of lines) {
             if (line.startsWith("data: ")) json += line.slice(6);
         }
-        if (!json) return;
+        if (!json) return false;
 
         let ev;
-        try { ev = JSON.parse(json); } catch { return; }
+        try { ev = JSON.parse(json); } catch { return false; }
+
+        if (ev.type === "ping") return false; // nhịp tim: chỉ để biết kết nối còn sống
 
         if (ev.type === "status") {
             setThinkingText(ev.text || "BA đang xử lý…");
@@ -392,6 +406,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             bubble.querySelector("p").textContent += ev.text || "";
             scrollToBottom();
         } else if (ev.type === "done") {
+            sawDone = true;
             finishTurn(ev);
         } else if (ev.type === "decisions") {
             // Frame phụ SAU done: bản "Điều đã chốt" đã gộp lượt vừa rồi (server tách lời gọi LLM này
@@ -402,18 +417,25 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // tính thử đã xác nhận) đã gộp lượt vừa rồi — làm tươi ba panel bên phải.
             renderOutlook(ev);
         }
+        return true;
     }
 
-    // Ảnh đã đính kèm nhưng CHƯA gửi (staged): initSourceDropPaste đổ vào đây khi user đính kèm/dán/kéo-thả.
-    // Khi bấm gửi mà mảng này khác rỗng, form ưu tiên upload ảnh (kèm ghi chú trong ô nhập) thay vì chat.
+    // File đã đính kèm nhưng CHƯA gửi (staged): initSourceDropPaste đổ vào đây khi user đính kèm/dán/kéo-thả.
+    // Mỗi phần tử { file, url } — url là objectURL để xem trước (chỉ ảnh; file PDF/bảng tính có url = null).
+    // Khi bấm gửi mà mảng này khác rỗng, form ưu tiên upload file (kèm ghi chú trong ô nhập) thay vì chat.
     const stagedImages = [];
-    // Do initSourceDropPaste gán: upload các ảnh đang staged kèm ghi chú (text) rồi reload.
+    // Do initSourceDropPaste gán: upload các file đang staged kèm ghi chú (text) rồi reload.
     let sendStagedImages = null;
 
     // true khi lượt đang gửi đã nhận ĐƯỢC ít nhất một frame SSE — quyết định cách phục hồi khi lỗi:
     // đã nhận frame nghĩa là server ĐANG xử lý lượt này (và sẽ lưu DB dù stream đứt) → chỉ reload;
     // chưa nhận frame nào mới được phép re-submit theo đường postback cổ điển.
     let sawFrame = false;
+    // true khi đã nhận frame "done" — tức lượt đã CHỐT. Stream kết thúc mà thiếu nó (proxy đóng kết nối
+    // im lặng, server bị kill giữa chừng) là kết thúc GIẢ: đọc xong không lỗi, không exception, nhưng
+    // lượt chưa xong. Không kiểm tra cờ này thì chatBusy kẹt ở true và spinner "BA đang soạn câu trả
+    // lời…" quay vĩnh viễn — đúng triệu chứng người dùng báo.
+    let sawDone = false;
 
     async function streamChat(text, retry) {
         const fd = new FormData();
@@ -423,28 +445,49 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const token = chatForm.querySelector('input[name="__RequestVerificationToken"]');
         if (token) fd.append("__RequestVerificationToken", token.value);
 
-        const response = await fetch(STREAM_URL, { method: "POST", body: fd, headers: { Accept: "text/event-stream" } });
-        if (!response.ok || !response.body) throw new Error("stream request failed");
+        // Đồng hồ canh stream "im lặng": mỗi lần có dữ liệu về (kể cả nhịp tim) thì hẹn lại giờ; quá
+        // STREAM_IDLE_TIMEOUT_MS không nghe thấy gì ⇒ abort để reader.read() reject và nhánh catch của
+        // người gọi phục hồi. Nếu không abort, một kết nối chết âm thầm (mất Wi-Fi, proxy cắt) sẽ giữ
+        // promise treo mãi và khóa cứng khung chat.
+        const controller = new AbortController();
+        let idleTimer = null;
+        const armIdleTimer = () => {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => controller.abort(), STREAM_IDLE_TIMEOUT_MS);
+        };
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
+        try {
+            armIdleTimer();
+            const response = await fetch(STREAM_URL, {
+                method: "POST",
+                body: fd,
+                headers: { Accept: "text/event-stream" },
+                signal: controller.signal
+            });
+            if (!response.ok || !response.body) throw new Error("stream request failed");
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
 
-            buffer += decoder.decode(value, { stream: true });
-            let idx;
-            while ((idx = buffer.indexOf("\n\n")) >= 0) {
-                const frame = buffer.slice(0, idx);
-                buffer = buffer.slice(idx + 2);
-                sawFrame = true;
-                handleFrame(frame);
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                armIdleTimer();
+
+                buffer += decoder.decode(value, { stream: true });
+                let idx;
+                while ((idx = buffer.indexOf("\n\n")) >= 0) {
+                    const frame = buffer.slice(0, idx);
+                    buffer = buffer.slice(idx + 2);
+                    if (handleFrame(frame)) sawFrame = true;
+                }
             }
-        }
 
-        return sawFrame;
+            return sawFrame;
+        } finally {
+            clearTimeout(idleTimer);
+        }
     }
 
     chatForm.addEventListener("submit", function (e) {
@@ -463,6 +506,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         chatBusy = true;
         sawFrame = false;
+        sawDone = false;
         appendUserBubble(text);
 
         messageInput.value = "";
@@ -477,6 +521,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         streamChat(text, false).then(function (gotFrame) {
             if (!gotFrame) throw new Error("no frame");
+            if (!sawDone) throw new Error("stream ended without done");
         }).catch(function () {
             if (!chatBusy) return; // done đã xử lý xong, lỗi chỉ là đuôi stream — bỏ qua
 
@@ -504,9 +549,16 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         chatBusy = true;
         sawFrame = false;
+        sawDone = false;
 
         const failedBubble = btn.closest(".req-msg.ba");
-        if (failedBubble) failedBubble.remove();
+        if (failedBubble) {
+            // Gỡ cả nhãn "BA" đứng ngay trước bong bóng lỗi — ensureLiveBubble sẽ chèn nhãn mới cho lượt
+            // chạy lại, không thì hai chữ "BA" chồng nhau.
+            const label = failedBubble.previousElementSibling;
+            if (label && label.classList.contains("req-who")) label.remove();
+            failedBubble.remove();
+        }
         hideSuggestions();
 
         setThinkingText("BA đang thử trả lời lại…");
@@ -515,20 +567,49 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         streamChat("", true).then(function (gotFrame) {
             if (!gotFrame) throw new Error("no frame");
+            if (!sawDone) throw new Error("stream ended without done");
         }).catch(function () {
             if (!chatBusy) return;
             location.reload();
         });
     });
 
+    // Lượt trả lời đang chờ đã CHẾT (server báo stale, hoặc hết hạn chờ): mở khóa khung chat và để lại
+    // một bong bóng lỗi có nút "Thử lại" — server chạy lại đúng lượt user còn "cụt" đó, người dùng không
+    // phải gõ lại câu hỏi. Trước đây chỗ này chỉ quay spinner vô hạn: màn hình đứng ở "BA đang soạn câu
+    // trả lời…", F5 cũng không thoát vì lượt user vẫn nằm cuối hội thoại, và ô nhập bị khóa (chatBusy).
+    function recoverFromDeadReply(reason) {
+        thinkingBox.style.display = "none";
+        setThinkingText("BA is analyzing requirements...");
+        chatBusy = false;
+
+        // Chỉ để MỘT bong bóng phục hồi (F5 liên tục không được cộng dồn).
+        chatMessages.querySelectorAll(".chat-dead-reply").forEach(el => {
+            const label = el.previousElementSibling;
+            if (label && label.classList.contains("req-who")) label.remove();
+            el.remove();
+        });
+
+        thinkingBox.insertAdjacentHTML("beforebegin", `
+            <b class="req-who">BA</b>
+            <div class="req-msg ba chat-error chat-dead-reply">
+                <p style="white-space: pre-wrap;">${escapeHtml(reason)}</p>
+                <button type="button" class="btn outline small chat-retry-btn" title="Chạy lại lượt trả lời vừa hỏng — không cần gõ lại câu hỏi">↻ Thử lại</button>
+            </div>
+        `);
+        scrollToBottom();
+        messageInput.focus();
+    }
+
     // ==== Khôi phục sau khi F5 GIỮA lúc BA đang trả lời ====
     // Nếu tải lại trang khi lượt hội thoại mới nhất còn là của user (BA chưa kịp lưu câu trả lời — vẫn
     // đang sinh nền với CancellationToken.None), khung chat sẽ THIẾU bong bóng trả lời. Hiện lại dòng
     // "BA đang soạn…" và hỏi server (ChatReplyStatus) theo nhịp cho tới khi câu trả lời đã được lưu, rồi
     // tải lại để render bản chốt (bong bóng BA + gợi ý + các panel). Chặn gửi lượt mới trong lúc chờ để
-    // không tạo hai lượt chạy song song. Server persist lượt assistant dù client đã rời đi nên gần như
-    // luôn về đích trong vài giây; đặt trần số lần hỏi để không quay vô hạn ở trường hợp hiếm (tiến trình
-    // server khởi động lại giữa chừng làm lượt trả lời không bao giờ được lưu).
+    // không tạo hai lượt chạy song song.
+    // Server còn trả cờ "stale" khi lượt chờ đó KHÔNG bao giờ về đích (không tiến trình nào đang chạy nó
+    // — vd server khởi động lại giữa chừng, hoặc lỗi hạ tầng nuốt mất cả lượt ⚠️ đóng lượt): dừng chờ
+    // ngay và mời "Thử lại", thay vì khóa khung chat suốt nhiều phút rồi bỏ mặc.
     if (chatMessages.dataset.replyPending === "true") {
         const pendingProjectId = chatForm.querySelector('input[name="projectId"]').value;
         chatBusy = true;
@@ -552,6 +633,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                         location.reload();
                         return;
                     }
+                    if (data.stale) {
+                        recoverFromDeadReply(
+                            "⚠️ Lượt trả lời trước bị gián đoạn (mất kết nối hoặc server khởi động lại) nên "
+                            + "không hoàn tất. Anh/chị bấm \"Thử lại\" để mình trả lời câu vừa rồi, hoặc cứ nhắn tiếp bình thường.");
+                        return;
+                    }
                 }
             } catch (_) {
                 // Lỗi mạng tạm thời: thử lại ở nhịp sau.
@@ -559,14 +646,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             if (pendingAttempts < pendingMaxAttempts) {
                 setTimeout(pollReply, 2500);
             } else {
-                // Hết hạn chờ: dừng spinner, mở lại ô nhập và mời người dùng tải lại/nhắn tiếp thay vì
-                // quay mãi.
-                thinkingBox.style.display = "none";
-                chatBusy = false;
-                setThinkingText("BA is analyzing requirements...");
+                recoverFromDeadReply(
+                    "⚠️ Chờ quá lâu mà chưa nhận được câu trả lời. Anh/chị bấm \"Thử lại\" để mình trả lời "
+                    + "câu vừa rồi, hoặc cứ nhắn tiếp bình thường.");
             }
         };
-        setTimeout(pollReply, 2000);
+        // Hỏi NGAY lần đầu: server tự phân biệt "đang chạy" với "đã chết" nên không cần chờ lấy lệ —
+        // trạng thái kẹt được mở khóa trong tích tắc thay vì bắt người dùng nhìn spinner rồi mới biết.
+        pollReply();
     }
 
     // Chọn một đáp án gợi ý: chế độ thường = điền sẵn rồi gửi ngay; chế độ chọn nhiều (multi) =
@@ -637,11 +724,27 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
-    // ==== Đính kèm / dán / kéo-thả ảnh — xem trước trong khung chat rồi mới gửi ====
-    // Người dùng nghiệp vụ hay chụp màn hình Excel/biểu mẫu — bắt họ đi qua form "Tài liệu nguồn" ở
-    // sidebar là ma sát thừa. Đính kèm (nút), dán (Ctrl+V) hoặc kéo-thả ảnh vào khung chat sẽ STAGE ảnh
-    // thành thumbnail nhỏ ngay trên ô nhập: user có thể gõ thêm ghi chú/thông tin, xóa bớt ảnh, rồi bấm
-    // gửi mới thật sự upload qua endpoint UploadSource (kèm ghi chú) → BA tóm tắt → reload.
+    // ==== Đính kèm / dán / kéo-thả tài liệu — xem trước trong khung chat rồi mới gửi ====
+    // Người dùng nghiệp vụ hay chụp màn hình Excel/biểu mẫu — bắt họ đi qua một form upload riêng ở
+    // sidebar là ma sát thừa (form đó đã bị bỏ; đây là lối đính kèm DUY NHẤT). Đính kèm (nút), dán
+    // (Ctrl+V) hoặc kéo-thả file vào khung chat sẽ STAGE file ngay trên ô nhập — ảnh thành thumbnail,
+    // PDF/bảng tính thành chip tên file: user gõ thêm ghi chú, xoá bớt, rồi bấm gửi mới thật sự upload
+    // qua endpoint UploadSource (kèm ghi chú) → BA tóm tắt → reload.
+
+    // Danh sách định dạng phải khớp ProjectSourceIngestor (ảnh PNG/JPG/WebP/GIF, PDF, .xlsx/.xlsm/.csv):
+    // lọc ngay ở client để user biết file không hỗ trợ TRƯỚC khi upload, thay vì nhận lỗi sau một vòng POST.
+    const SUPPORTED_DOC_EXTS = [".pdf", ".xlsx", ".xlsm", ".csv"];
+
+    function isImageFile(f) {
+        return !!(f.type && f.type.startsWith("image/"));
+    }
+
+    function isSupportedFile(f) {
+        if (isImageFile(f)) return true;
+        const name = (f.name || "").toLowerCase();
+        return SUPPORTED_DOC_EXTS.some(ext => name.endsWith(ext));
+    }
+
     (function initSourceDropPaste() {
         const token = chatForm.querySelector('input[name="__RequestVerificationToken"]');
         const projectIdInput = chatForm.querySelector('input[name="projectId"]');
@@ -651,8 +754,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         let uploading = false;
         const defaultPlaceholder = messageInput.placeholder;
 
-        // Vẽ lại khay xem trước từ stagedImages. Mỗi ảnh giữ kèm objectURL để thu hồi khi gỡ (tránh rò
-        // bộ nhớ). Ẩn khay + trả lại placeholder gốc khi không còn ảnh nào.
+        const ATTACH_PLACEHOLDER = "Thêm ghi chú cho tài liệu (không bắt buộc) rồi bấm gửi…";
+
+        // Vẽ lại khay xem trước từ stagedImages. Ảnh giữ kèm objectURL để thu hồi khi gỡ (tránh rò bộ
+        // nhớ) và hiện thumbnail; PDF/bảng tính không có bản xem trước nên hiện chip tên file.
+        // Ẩn khay + trả lại placeholder gốc khi không còn file nào.
         function renderPreview() {
             if (!preview) return;
 
@@ -663,45 +769,66 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 return;
             }
 
-            preview.innerHTML = stagedImages.map((img, i) => `
-                <div class="attach-thumb" title="${escapeHtml(img.file.name || "ảnh")}">
-                    <img src="${img.url}" alt="${escapeHtml(img.file.name || "ảnh đính kèm")}" />
-                    <button type="button" class="attach-thumb-remove" data-i="${i}" aria-label="Gỡ ảnh này">×</button>
+            preview.innerHTML = stagedImages.map((item, i) => {
+                const name = item.file.name || (item.url ? "ảnh" : "tệp");
+                const body = item.url
+                    ? `<img src="${item.url}" alt="${escapeHtml(name)}" />`
+                    : `<span class="attach-thumb-name">📄 ${escapeHtml(name)}</span>`;
+                return `
+                <div class="attach-thumb ${item.url ? "" : "attach-thumb-file"}" title="${escapeHtml(name)}">
+                    ${body}
+                    <button type="button" class="attach-thumb-remove" data-i="${i}" aria-label="Gỡ tệp này">×</button>
                 </div>
-            `).join("");
+            `;
+            }).join("");
             preview.hidden = false;
         }
 
+        // Nhận file từ nút đính kèm / dán / kéo-thả. File không hỗ trợ bị loại và báo ngay tên cụ thể.
         function stageImages(fileList) {
-            const images = Array.from(fileList || []).filter(f => f.type && f.type.startsWith("image/"));
-            if (images.length === 0) return;
+            const all = Array.from(fileList || []);
+            if (all.length === 0) return;
 
-            images.forEach(file => stagedImages.push({ file, url: URL.createObjectURL(file) }));
+            const accepted = all.filter(isSupportedFile);
+            const rejected = all.filter(f => !isSupportedFile(f));
+
+            // Ảnh mới có objectURL (xem trước được); PDF/bảng tính để url = null → hiện chip tên file.
+            accepted.forEach(file => stagedImages.push({
+                file,
+                url: isImageFile(file) ? URL.createObjectURL(file) : null
+            }));
+
+            if (rejected.length > 0) {
+                alert("Không hỗ trợ định dạng của: " + rejected.map(f => f.name || "tệp không tên").join(", ")
+                    + ".\nChỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF hoặc bảng tính (.xlsx/.xlsm/.csv).");
+            }
+            if (accepted.length === 0) return;
+
             renderPreview();
-            messageInput.placeholder = "Thêm ghi chú cho ảnh (không bắt buộc) rồi bấm gửi…";
+            messageInput.placeholder = ATTACH_PLACEHOLDER;
             messageInput.focus();
         }
 
         function clearStaged() {
-            stagedImages.forEach(img => URL.revokeObjectURL(img.url));
+            stagedImages.forEach(item => { if (item.url) URL.revokeObjectURL(item.url); });
             stagedImages.length = 0;
             renderPreview();
         }
 
-        // Gỡ MỘT ảnh khỏi khay (thu hồi objectURL của đúng ảnh đó).
+        // Gỡ MỘT file khỏi khay (thu hồi objectURL của đúng ảnh đó, nếu có).
         if (preview) {
             preview.addEventListener("click", function (e) {
                 const btn = e.target.closest(".attach-thumb-remove");
                 if (!btn) return;
                 const idx = Number(btn.dataset.i);
                 if (Number.isNaN(idx) || idx < 0 || idx >= stagedImages.length) return;
-                URL.revokeObjectURL(stagedImages[idx].url);
+                if (stagedImages[idx].url) URL.revokeObjectURL(stagedImages[idx].url);
                 stagedImages.splice(idx, 1);
                 renderPreview();
             });
         }
 
-        // Gửi các ảnh đang staged (kèm ghi chú tùy chọn) qua UploadSource → BA tóm tắt → reload.
+        // Gửi các file đang staged (kèm ghi chú tùy chọn) qua UploadSource → BA tóm tắt → reload.
         // Gán ra ngoài để listener submit của form gọi được.
         sendStagedImages = async function (note) {
             if (stagedImages.length === 0 || uploading) return;
@@ -723,7 +850,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
             messageInput.placeholder = defaultPlaceholder;
 
-            setThinkingText("BA đang đọc ảnh…");
+            setThinkingText("BA đang đọc tài liệu…");
             thinkingBox.style.display = "block";
             scrollToBottom();
 
@@ -731,7 +858,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             fd.append("projectId", projectIdInput.value);
             fd.append("__RequestVerificationToken", token.value);
             if (note) fd.append("note", note);
-            stagedImages.forEach(img => fd.append("files", img.file, img.file.name || "anh-dan.png"));
+            stagedImages.forEach(item => fd.append("files", item.file, item.file.name || "anh-dan.png"));
 
             try {
                 const resp = await fetch("/Requirements/UploadSource", { method: "POST", body: fd });
@@ -743,7 +870,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 }
                 throw new Error("upload failed");
             } catch {
-                // Hoàn tác: gỡ bong bóng lạc quan, khôi phục khay ảnh + ghi chú để user thử lại.
+                // Hoàn tác: gỡ bong bóng lạc quan, khôi phục khay đính kèm + ghi chú để user thử lại.
                 if (optimisticBubble) optimisticBubble.remove();
                 thinkingBox.style.display = "none";
                 uploading = false;
@@ -753,14 +880,16 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     resizeMessageInput();
                 }
                 renderPreview();
-                messageInput.placeholder = "Thêm ghi chú cho ảnh (không bắt buộc) rồi bấm gửi…";
-                alert("Không tải được ảnh lên. Anh/chị thử lại hoặc dùng nút Upload ở mục 'Tài liệu nguồn'.");
+                messageInput.placeholder = ATTACH_PLACEHOLDER;
+                alert("Không tải được tài liệu lên. Anh/chị kiểm tra kết nối rồi bấm gửi lại giúp mình.");
             }
         };
 
+        // Dán (Ctrl+V): chỉ chặn sự kiện khi clipboard có FILE ĐƯỢC HỖ TRỢ — dán một file lạ (vd .docx)
+        // không được nuốt mất thao tác dán text kèm theo.
         messageInput.addEventListener("paste", function (e) {
             const items = e.clipboardData && e.clipboardData.files;
-            if (items && items.length > 0 && Array.from(items).some(f => f.type.startsWith("image/"))) {
+            if (items && items.length > 0 && Array.from(items).some(isSupportedFile)) {
                 e.preventDefault();
                 stageImages(items);
             }
@@ -784,8 +913,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
         });
 
-        // Nút đính kèm ảnh trong khung soạn: mở hộp chọn file rồi STAGE ảnh (xem trước) như dán/kéo-thả.
-        // Điểm bấm rõ ràng cho người không biết mẹo dán/kéo-thả.
+        // Nút đính kèm trong khung soạn: mở hộp chọn file rồi STAGE file (xem trước) như dán/kéo-thả.
+        // Điểm bấm rõ ràng cho người không biết mẹo dán/kéo-thả — và là lối đính kèm chính sau khi form
+        // upload ở sidebar bị bỏ.
         const attachBtn = document.getElementById("attachImageBtn");
         const attachInput = document.getElementById("attachImageInput");
         if (attachBtn && attachInput) {
@@ -1118,3 +1248,73 @@ function openRequirementModal(version) {
 function closeRequirementModal() {
     document.getElementById("requirementModal").style.display = "none";
 }
+
+// ==== Popup "Tài liệu nguồn" ====
+// Chỉ để XEM LẠI/XOÁ các file đã đính kèm cho BA (việc đính kèm nằm ở nút 📎 trong khung chat). Xoá gọi
+// DeleteSource bằng fetch rồi gỡ hàng tại chỗ: popup không đóng, người dùng dọn liền mấy file một lúc —
+// khác hẳn form POST cũ (mỗi lần xoá là reload cả trang). Sau khi xoá xong KHÔNG reload: các thumbnail
+// trong hội thoại trỏ tới nguồn đã xoá sẽ nhận 404 và tự ẩn (onerror) ở lần tải trang sau.
+(function initSourceModal() {
+    const modal = document.getElementById("sourceModal");
+    const openBtn = document.getElementById("sourceOpenBtn");
+    if (!modal || !openBtn) return;
+
+    const closeBtn = document.getElementById("sourceModalClose");
+    const tbody = document.getElementById("sourceTableBody");
+    const table = document.getElementById("sourceTable");
+    const emptyEl = document.getElementById("sourceEmpty");
+    const badge = document.getElementById("sourceCountBadge");
+    const projectIdEl = document.getElementById("sourceModalProjectId");
+    const token = modal.querySelector('input[name="__RequestVerificationToken"]');
+
+    function open() { modal.style.display = "flex"; }
+    function close() { modal.style.display = "none"; }
+
+    // Đồng bộ bảng/empty-state/badge sau mỗi lần xoá — badge trên sidebar là thứ user thấy khi popup đóng.
+    function syncCount() {
+        const count = tbody ? tbody.querySelectorAll("tr").length : 0;
+        if (table) table.hidden = count === 0;
+        if (emptyEl) emptyEl.hidden = count > 0;
+        if (badge) {
+            badge.textContent = String(count);
+            badge.hidden = count === 0;
+        }
+    }
+
+    openBtn.addEventListener("click", open);
+    if (closeBtn) closeBtn.addEventListener("click", close);
+    modal.addEventListener("click", function (e) {
+        if (e.target === modal) close(); // bấm nền tối để đóng
+    });
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && modal.style.display === "flex") close();
+    });
+
+    if (tbody) {
+        tbody.addEventListener("click", async function (e) {
+            const btn = e.target.closest(".source-del");
+            if (!btn) return;
+
+            const row = btn.closest("tr");
+            const id = btn.dataset.sourceId;
+            if (!row || !id) return;
+            if (!confirm("Xoá tài liệu nguồn này? BA sẽ không dùng nội dung của nó cho các lượt sau.")) return;
+
+            btn.disabled = true;
+            const fd = new FormData();
+            fd.append("id", id);
+            fd.append("projectId", projectIdEl ? projectIdEl.value : "");
+            if (token) fd.append("__RequestVerificationToken", token.value);
+
+            try {
+                const resp = await fetch("/Requirements/DeleteSource", { method: "POST", body: fd });
+                if (!resp.ok && !resp.redirected) throw new Error("delete failed");
+                row.remove();
+                syncCount();
+            } catch {
+                btn.disabled = false;
+                alert("Không xoá được tài liệu — kiểm tra kết nối rồi thử lại.");
+            }
+        });
+    }
+})();

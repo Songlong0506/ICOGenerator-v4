@@ -31,11 +31,13 @@ public class ChatWithBAUseCase
 
     /// <summary>
     /// Cho biết câu trả lời của BA cho lượt hiện tại còn "đang chờ" (lượt hội thoại mới nhất là của người
-    /// dùng, BA vẫn đang sinh lượt assistant với CancellationToken.None). Dùng để khôi phục khung "BA đang
-    /// soạn…" sau khi tải lại trang giữa chừng — xem <see cref="BAChatService.IsReplyPendingAsync"/>.
+    /// dùng, BA vẫn đang sinh lượt assistant với CancellationToken.None) và liệu lượt chờ đó đã CHẾT hẳn
+    /// hay chưa. Dùng để khôi phục khung "BA đang soạn…" sau khi tải lại trang giữa chừng — và để không
+    /// treo ở đó vĩnh viễn khi câu trả lời không bao giờ tới. Xem
+    /// <see cref="BAChatService.GetReplyStateAsync"/>.
     /// </summary>
-    public Task<bool> IsReplyPendingAsync(Guid projectId, CancellationToken cancellationToken = default) =>
-        _baChatService.IsReplyPendingAsync(projectId, cancellationToken);
+    public Task<ChatReplyState> GetReplyStateAsync(Guid projectId, CancellationToken cancellationToken = default) =>
+        _baChatService.GetReplyStateAsync(projectId, cancellationToken);
 
     /// <summary>
     /// Gộp lượt chat mới vào "Điều đã chốt" — gọi SAU khi user đã nhận câu trả lời (sau frame done ở

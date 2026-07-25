@@ -86,22 +86,91 @@ public class BAChatRetryTests : IDisposable
     }
 
     [Fact]
-    public async Task Retry_UserAlreadySentANewMessageAfterTheFailure_ReturnsNothingToRetry()
+    public void TryBeginExclusive_RefusesWhileAnotherTurnIsRunning_AndFreesUpAfterwards()
     {
-        // Lượt lỗi KHÔNG còn là lượt cuối (user đã nhắn tiếp) — retry lúc này sẽ chạy đúp lượt đang xử
-        // lý ở tab kia / lượt sắp được trả lời, nên phải bị từ chối.
+        // Điểm vào "Thử lại" (ChatStream) giành chỗ độc quyền qua sổ theo dõi: lượt đang được trả lời ở
+        // tab/request khác thì retry phải nhường, không thì hai câu trả lời cho cùng một câu hỏi. Kiểm
+        // tra + ghi dấu là MỘT thao tác nguyên tử nên hai request cùng lúc không thể cùng thắng.
+        var tracker = new BAChatTurnTracker();
+
+        var firstWon = tracker.TryBeginExclusive(_projectId, out var first);
+        var secondWon = tracker.TryBeginExclusive(_projectId, out var second);
+
+        Assert.True(firstWon);
+        Assert.False(secondWon);
+        Assert.Null(second);
+        Assert.True(tracker.IsRunning(_projectId));
+
+        first!.Dispose();
+        Assert.False(tracker.IsRunning(_projectId));
+        Assert.True(tracker.TryBeginExclusive(_projectId, out var third));
+        third!.Dispose();
+    }
+
+    [Fact]
+    public void Begin_IsRefCounted_SoOverlappingTurnsDoNotClearEachOthersMark()
+    {
+        var tracker = new BAChatTurnTracker();
+        var outer = tracker.Begin(_projectId);
+        var inner = tracker.Begin(_projectId);
+
+        inner.Dispose();
+        Assert.True(tracker.IsRunning(_projectId)); // lượt ngoài vẫn đang chạy
+
+        outer.Dispose();
+        Assert.False(tracker.IsRunning(_projectId));
+    }
+
+    [Fact]
+    public async Task Retry_OrphanedUserTurn_RerunsThatTurn_WithoutAddingUserTurn()
+    {
+        // Lượt user "cụt" mà KHÔNG còn ai đang trả lời: câu trả lời cũ đã chết (server khởi động lại giữa
+        // chừng, mạng vỡ). Đây là trạng thái làm treo màn hình ở "BA đang soạn câu trả lời…" — nút "Thử
+        // lại" phải chạy lại đúng lượt đó, không bắt người dùng gõ lại câu hỏi và không nhân đôi lượt user.
         await SeedTurnsAsync(
             ("user", "Tôi muốn app quản lý đơn nghỉ phép"),
-            ("assistant", FailureMessage),
-            ("user", "Bạn còn đó không?"));
-        var llm = new FakeLlm();
+            ("assistant", "Đối tượng người dùng chính là ai?"),
+            ("user", "Nhân viên toàn công ty"));
+        var llm = new FakeLlm { ChatReply = new BAChatReply { Message = "Quy trình duyệt hiện tại thế nào?" } };
 
         await using var db = NewDb();
-        var result = await NewSut(db, llm).RetryLastTurnAsync(_projectId);
+        var result = await NewSut(db, llm, new BAChatTurnTracker()).RetryLastTurnAsync(_projectId);
 
-        Assert.Equal(ChatWithBAResult.NothingToRetry, result.Status);
+        Assert.Equal(ChatWithBAResult.Ok, result.Status);
+        Assert.Equal("Quy trình duyệt hiện tại thế nào?", result.Reply);
+
         await using var verify = NewDb();
-        Assert.Equal(3, await verify.AgentConversations.CountAsync(c => c.ProjectId == _projectId));
+        var turns = await verify.AgentConversations
+            .Where(c => c.ProjectId == _projectId)
+            .OrderBy(c => c.CreatedAt).ThenBy(c => c.Id)
+            .ToListAsync();
+        Assert.Equal(4, turns.Count);
+        Assert.Equal(2, turns.Count(t => t.Role == "user"));
+        Assert.Equal("assistant", turns[3].Role);
+        Assert.Equal("Quy trình duyệt hiện tại thế nào?", turns[3].Message);
+    }
+
+    [Fact]
+    public async Task Chat_WhenTurnBlowsUp_ClosesConversationWithFailureTurn()
+    {
+        // Lượt user được lưu TRƯỚC khi gọi LLM. Nếu lượt vỡ bằng ngoại lệ (mạng đứt, hạ tầng lỗi) mà
+        // không đóng lượt, hội thoại nằm lại ở "lượt cuối là user" ⇒ trang Requirements treo vĩnh viễn ở
+        // "BA đang soạn câu trả lời…", F5 cũng không thoát và không gửi được tin mới.
+        var llm = new FakeLlm { ThrowOnChat = new HttpRequestException("connection reset") };
+
+        await using var db = NewDb();
+        await Assert.ThrowsAsync<HttpRequestException>(
+            () => NewSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép"));
+
+        await using var verify = NewDb();
+        var turns = await verify.AgentConversations
+            .Where(c => c.ProjectId == _projectId)
+            .OrderBy(c => c.CreatedAt).ThenBy(c => c.Id)
+            .ToListAsync();
+        Assert.Equal(2, turns.Count);
+        Assert.Equal("user", turns[0].Role);
+        Assert.Equal("assistant", turns[1].Role); // hội thoại KHÔNG kết thúc bằng lượt user
+        Assert.StartsWith(ConversationTranscriptBuilder.LlmFailurePrefix, turns[1].Message);
     }
 
     [Fact]
@@ -132,7 +201,7 @@ public class BAChatRetryTests : IDisposable
 
     // Cùng harness dựng BAChatService như RequirementReadinessGateTests (không scope factory ⇒ các bước
     // chuẩn bị chạy tuần tự trên chính db của test).
-    private static BAChatService NewSut(AppDbContext db, ILlmClient llm)
+    private static BAChatService NewSut(AppDbContext db, ILlmClient llm, BAChatTurnTracker? tracker = null)
     {
         var config = new ConfigurationBuilder().Build();
         var prompts = new StubPrompts();
@@ -150,7 +219,9 @@ public class BAChatRetryTests : IDisposable
             new BAConversationLog(db),
             new DecisionLogService(db, llm, prompts),
             new InterviewOutlookService(db, llm, prompts),
-            new ChecklistNoteStore(db));
+            new ChecklistNoteStore(db),
+            scopeFactory: null,
+            turnTracker: tracker);
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
@@ -161,12 +232,17 @@ public class BAChatRetryTests : IDisposable
     {
         public BAChatReply ChatReply = new() { Message = "Đã ghi nhận." };
         public int ChatCalls;
+        // Ngoại lệ NÉM RA từ lời gọi LLM (khác với IsSuccess=false): mô phỏng mạng đứt / hạ tầng lỗi.
+        public Exception? ThrowOnChat;
 
         public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
             => Task.FromResult(new LlmCallResult { IsSuccess = false, ErrorMessage = "not used in this test" });
 
         public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
         {
+            if (ThrowOnChat != null && logContext.Purpose == "BAChat")
+                throw ThrowOnChat;
+
             object? value = logContext.Purpose switch
             {
                 "BAChat" => ChatReply,
