@@ -8,13 +8,18 @@ namespace ICOGenerator.Services.Security;
 /// Đặt trên controller (mức xem) hoặc action (mức thao tác) để yêu cầu một <see cref="AppPermission"/>.
 /// Dùng TypeFilter để filter thật (<see cref="PermissionAuthorizationFilter"/>) được resolve qua DI,
 /// nhờ đó lấy được IPermissionService scoped.
+/// Truyền nhiều quyền = CẦN MỘT TRONG SỐ ĐÓ (OR), cho action dùng chung bởi nhiều thao tác (ví dụ thử kết
+/// nối model, mở từ cả form Add lẫn Edit). Muốn buộc phải có ĐỦ nhiều quyền thì xếp nhiều attribute (AND).
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
 public sealed class RequirePermissionAttribute : TypeFilterAttribute
 {
-    public RequirePermissionAttribute(AppPermission permission) : base(typeof(PermissionAuthorizationFilter))
+    public RequirePermissionAttribute(params AppPermission[] permissions) : base(typeof(PermissionAuthorizationFilter))
     {
-        Arguments = new object[] { permission };
+        if (permissions.Length == 0)
+            throw new ArgumentException("Cần ít nhất một AppPermission.", nameof(permissions));
+
+        Arguments = new object[] { permissions };
     }
 }
 
@@ -25,12 +30,12 @@ public sealed class RequirePermissionAttribute : TypeFilterAttribute
 public sealed class PermissionAuthorizationFilter : IAsyncAuthorizationFilter
 {
     private readonly IPermissionService _permissions;
-    private readonly AppPermission _permission;
+    private readonly AppPermission[] _required;
 
-    public PermissionAuthorizationFilter(IPermissionService permissions, AppPermission permission)
+    public PermissionAuthorizationFilter(IPermissionService permissions, AppPermission[] required)
     {
         _permissions = permissions;
-        _permission = permission;
+        _required = required;
     }
 
     public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
@@ -42,7 +47,12 @@ public sealed class PermissionAuthorizationFilter : IAsyncAuthorizationFilter
             return;
         }
 
-        if (!await _permissions.HasPermissionAsync(user, _permission, context.HttpContext.RequestAborted))
-            context.Result = new ForbidResult();
+        foreach (var permission in _required)
+        {
+            if (await _permissions.HasPermissionAsync(user, permission, context.HttpContext.RequestAborted))
+                return;
+        }
+
+        context.Result = new ForbidResult();
     }
 }

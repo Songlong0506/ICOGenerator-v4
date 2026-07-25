@@ -344,7 +344,7 @@ Thiết kế:
 - **Quyền ở mức hành động** (`Domain/Enums/AppPermission.cs`), ví dụ `ProjectsView`, `ModelsDelete`, `SettingsManage`. `PermissionCatalog` (`Domain/Security`) gom quyền theo màn hình để render ma trận và lọc menu.
 - **Cấp quyền** lưu ở bảng `RolePermission` (cấu hình được). **SuperAdmin luôn có toàn quyền** (implicit-all trong `PermissionService`) nên không có dòng nào trong bảng và không tự khóa được. **Admin nay cấu hình được** như TeamDev/User (mặc định seed toàn bộ quyền để giữ hành vi cũ). Mặc định: TeamDev = mọi thứ trừ Settings/Roles; User = chỉ xem Projects/Requirements.
 - **Kiểm tra quyền — một nguồn sự thật:** `IPermissionService` (`Services/Security`, có cache MemoryCache). Dùng bởi:
-  - Filter `[RequirePermission(AppPermission.X)]` đặt trên controller (mức xem) hoặc action (mức thao tác). Thiếu quyền ⇒ về `/Account/AccessDenied`.
+  - Filter `[RequirePermission(AppPermission.X)]` đặt trên controller (mức xem) hoặc action (mức thao tác). Thiếu quyền ⇒ về `/Account/AccessDenied`. Truyền nhiều quyền (`[RequirePermission(A, B)]`) = **cần một trong số đó** (OR), dùng cho action chung của nhiều thao tác; muốn buộc đủ cả thì xếp nhiều attribute (AND).
   - `_Layout.cshtml` (qua `@inject IPermissionService`) để ẩn/hiện menu sidebar.
 - **Cấu hình runtime:** màn hình **Roles & Permissions** (`RolesController`, chỉ Admin) tick ma trận và lưu; `UpdateRolePermissionsUseCase` gọi `InvalidateCache()` nên đổi quyền có hiệu lực **ngay, không cần đăng nhập lại**.
 - **Thêm màn hình/quyền mới:** thêm giá trị vào `AppPermission`, khai báo trong `PermissionCatalog.Screens`, gắn `[RequirePermission]` lên controller/action, và (nếu là menu) thêm nhánh `@if` trong `_Layout.cshtml`.

@@ -23,6 +23,28 @@
 
 /* .alert.error is shared in site.css */
 
+/* Đẩy nút "Test Connection" sang trái, để Cancel/Save vẫn nằm bên phải như các modal khác. */
+.modal-actions-spacer {
+    flex: 1 1 auto;
+}
+
+/* Kết quả thử kết nối, hiện trong modal Add/Edit. Màu lấy từ .alert.success/.error/.info của site.css. */
+.test-result {
+    margin-top: 18px;
+    margin-bottom: 0;
+}
+
+    .test-result-detail {
+        margin-top: 6px;
+        max-height: 120px;
+        overflow: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        font-weight: 400;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
 .hint {
     display: block;
     margin-top: 4px;
