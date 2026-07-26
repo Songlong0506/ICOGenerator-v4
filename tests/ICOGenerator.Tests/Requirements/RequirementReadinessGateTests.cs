@@ -391,6 +391,7 @@ public class RequirementReadinessGateTests : IDisposable
     private sealed class FakeArtifactStorage : IArtifactStorage
     {
         public void InitializeProjectWorkspace(string projectKey) { }
+        public bool TryRenameProjectWorkspace(string oldProjectKey, string newProjectKey) => true;
         public string GetDraftPath(string projectKey, ProjectArtifactDescriptor artifact) => Path.Combine(Path.GetTempPath(), artifact.FileName);
         public string GetVersionPath(string projectKey, string versionName, ProjectArtifactDescriptor artifact) => Path.Combine(Path.GetTempPath(), versionName, artifact.FileName);
         public string GetSourceUploadDir(string projectKey) => Path.GetTempPath();

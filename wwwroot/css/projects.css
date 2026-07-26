@@ -26,8 +26,36 @@
     gap: 8px;
 }
 
-/* Org Unit dropdown trong modal New Project dùng <select> gốc, được dropdown.js
-   nâng cấp thành combo chuẩn (.ms-combo--single, style chung ở site.css). */
+/* Mô tả dự án: kẹp 2 dòng để mọi dòng bảng cao đều nhau dù mô tả dài tới 2000 ký tự.
+   Nội dung đầy đủ xem ở tooltip (title) hoặc modal Chỉnh sửa. */
+.project-desc {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    max-width: 320px;
+}
+
+/* Cột Actions: bên trái là các nút ĐIỀU HƯỚNG (mở màn hình khác), bên phải — sau một vạch
+   ngăn — là thao tác trên chính dòng này (sửa dự án). Gói vạch + nút vào một khối không tách
+   rời để cột hẹp có xuống dòng thì cả cặp cùng xuống (không bao giờ còn một vạch lơ lửng
+   cuối dòng); margin-left:auto ghim cặp này về mép phải nên các dòng thẳng một cột với nhau. */
+.actions-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.actions-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--line);
+}
+
+/* Org Unit dropdown trong modal New Project / Chỉnh sửa dự án dùng <select> gốc, được
+   dropdown.js nâng cấp thành combo chuẩn (.ms-combo--single, style chung ở site.css). */
 
 /* Filter bar layout (.filter-bar / .filter-field / .filter-actions) is shared in site.css. */
 .filter-card {

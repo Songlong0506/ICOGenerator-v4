@@ -11,6 +11,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
@@ -137,7 +138,7 @@ public class DocumentRevisionHistoryTests : IDisposable
             new DocxTemplateWriter(),
             resolver,
             new ProjectArtifactCatalog(),
-            new LocalArtifactStorage(resolver));
+            new LocalArtifactStorage(resolver, NullLogger<LocalArtifactStorage>.Instance));
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());

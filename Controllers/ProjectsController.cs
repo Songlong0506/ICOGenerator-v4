@@ -13,6 +13,7 @@ public class ProjectsController : Controller
 {
     private readonly GetProjectListQuery _getProjectListQuery;
     private readonly CreateProjectUseCase _createProjectUseCase;
+    private readonly UpdateProjectUseCase _updateProjectUseCase;
     private readonly GetMockupFileQuery _getMockupFileQuery;
     private readonly GetImplementationSourceQuery _getImplementationSourceQuery;
     private readonly GetPocReviewQuery _getPocReviewQuery;
@@ -26,6 +27,7 @@ public class ProjectsController : Controller
     public ProjectsController(
         GetProjectListQuery getProjectListQuery,
         CreateProjectUseCase createProjectUseCase,
+        UpdateProjectUseCase updateProjectUseCase,
         GetMockupFileQuery getMockupFileQuery,
         GetImplementationSourceQuery getImplementationSourceQuery,
         GetPocReviewQuery getPocReviewQuery,
@@ -38,6 +40,7 @@ public class ProjectsController : Controller
     {
         _getProjectListQuery = getProjectListQuery;
         _createProjectUseCase = createProjectUseCase;
+        _updateProjectUseCase = updateProjectUseCase;
         _getMockupFileQuery = getMockupFileQuery;
         _getImplementationSourceQuery = getImplementationSourceQuery;
         _getPocReviewQuery = getPocReviewQuery;
@@ -75,6 +78,56 @@ public class ProjectsController : Controller
 
         await _createProjectUseCase.ExecuteAsync(vm, User.Identity?.Name);
         return RedirectToAction(nameof(Index));
+    }
+
+    // Sửa Name/Description/đơn vị yêu cầu của một project. Quyền ProjectsEdit là mức HÀNH ĐỘNG; ngoài ra
+    // vẫn qua IProjectAccessGuard nên User thường chỉ sửa được project của chính mình (Admin/TeamDev có
+    // ProjectsViewAll sửa được tất cả) — cùng luật với các action theo projectId khác trong controller.
+    // Trả về đúng trang/bộ lọc người dùng đang xem để họ không bị "nhảy" về trang 1 sau khi lưu.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.ProjectsEdit)]
+    public async Task<IActionResult> Update(
+        ProjectEditVm vm,
+        int page = 1,
+        int pageSize = GetProjectListQuery.DefaultPageSize,
+        string[]? orgUnit = null)
+    {
+        IActionResult BackToList() => RedirectToAction(nameof(Index), new { page, pageSize, orgUnit });
+
+        if (!await CanAccessProjectAsync(vm.ProjectId))
+            return NotFound("Project không tồn tại.");
+
+        if (!ModelState.IsValid)
+        {
+            TempData["Error"] = "Thông tin dự án không hợp lệ. Vui lòng kiểm tra lại.";
+            return BackToList();
+        }
+
+        var result = await _updateProjectUseCase.ExecuteAsync(vm, HttpContext.RequestAborted);
+        switch (result)
+        {
+            case UpdateProjectResult.Updated:
+                TempData["Success"] = "Đã cập nhật thông tin dự án.";
+                break;
+            case UpdateProjectResult.NoChange:
+                TempData["Info"] = "Không có thay đổi nào để lưu.";
+                break;
+            case UpdateProjectResult.NameRequired:
+                TempData["Error"] = "Tên dự án không được để trống.";
+                break;
+            case UpdateProjectResult.RenameBlockedByRunningWorkflow:
+                TempData["Warning"] = "Dự án đang chạy workflow nên chưa đổi được tên (tên dự án cũng là tên thư mục làm việc của agent). Hãy đợi workflow kết thúc — mô tả và đơn vị yêu cầu vẫn sửa được bình thường.";
+                break;
+            case UpdateProjectResult.WorkspaceRenameFailed:
+                TempData["Error"] = "Không đổi được tên thư mục làm việc của dự án nên thay đổi đã được hủy để không bỏ rơi tài liệu/POC đã sinh. Hãy thử lại sau (có thể một file trong thư mục đang mở).";
+                break;
+            default:
+                TempData["Error"] = "Project không tồn tại.";
+                break;
+        }
+
+        return BackToList();
     }
 
     public async Task<IActionResult> Mockup(Guid projectId, bool review = false)

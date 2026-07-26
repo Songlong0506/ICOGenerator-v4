@@ -92,6 +92,12 @@
         <span class="cbar-primary-label">New Project</span>
     </button>
 </form>
+@{
+    // Quyền sửa dự án tra MỘT LẦN cho cả trang (dùng ở từng dòng và ở modal bên dưới) thay vì mỗi dòng
+    // một lượt gọi. Cấp quyền ở màn hình Roles & Permissions; ngoài ra ProjectsController.Update còn qua
+    // IProjectAccessGuard nên User thường chỉ sửa được project của chính mình.
+    var canEditProject = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsEdit);
+}
 <div class="card table-card">
     <table>
         <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th>Actions</th></tr></thead>
@@ -113,7 +119,9 @@
                             <b>@p.Name</b>
                         </div>
                     </td>
-                    <td>@p.Description</td>
+                    @* Mô tả có thể dài (tới 2000 ký tự) — kẹp còn 2 dòng để chiều cao các dòng bảng đều
+                       nhau, xem đầy đủ qua tooltip hoặc modal Chỉnh sửa. *@
+                    <td><span class="project-desc" title="@p.Description">@p.Description</span></td>
                     <td>@(string.IsNullOrWhiteSpace(item.CreatedByDisplayName) ? "—" : item.CreatedByDisplayName)</td>
                     @* Tên đơn vị tra từ OrgUnits; mã không còn trong dữ liệu HR thì hiển thị mã thô. *@
                     <td>@(item.OrgUnitName ?? (string.IsNullOrWhiteSpace(p.OrgUnitCode) ? "—" : p.OrgUnitCode))</td>
@@ -160,6 +168,33 @@
                                     Mockup
                                 </a>
                             }
+
+                            @* Sửa thông tin dự án: nút biểu tượng (không phải nút chữ) và tách khỏi nhóm
+                               nút điều hướng bằng một vạch mờ — các nút chữ là "đi tới màn hình khác",
+                               còn đây là thao tác trên chính dòng này, giống trang AI Models. Dữ liệu dòng
+                               đi qua data-* (Razor tự HTML-encode) rồi JS đọc từ dataset — an toàn hơn
+                               việc nhồi giá trị vào tham số onclick. *@
+                            @if (canEditProject)
+                            {
+                            <span class="actions-tools">
+                                <span class="actions-sep" aria-hidden="true"></span>
+                                <button type="button"
+                                        class="icon-btn"
+                                        title="Chỉnh sửa dự án"
+                                        aria-label="Chỉnh sửa dự án @p.Name"
+                                        data-edit-project
+                                        data-project-id="@p.Id"
+                                        data-project-name="@p.Name"
+                                        data-project-description="@p.Description"
+                                        data-project-orgunit="@p.OrgUnitCode"
+                                        data-project-running="@(item.HasRunningWorkflow ? "true" : "false")">
+                                    @* SVG nội tuyến (không dùng font bootstrap-icons từ CDN): đây là nút
+                                       CHỈ có biểu tượng, nên CDN không tới được là nút biến thành ô trống
+                                       không ai thấy — cùng lý do dropdown.js vẽ caret/search bằng SVG. *@
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                                </button>
+                            </span>
+                            }
                         </div>
                     </td>
                 </tr>
@@ -198,6 +233,73 @@
         <div class="modal-actions"><button type="button" class="btn" onclick="closeModal('newProject')">Cancel</button><button class="btn primary">Create Project</button></div>
     </form>
 </div>
+
+@* Modal "Chỉnh sửa dự án" — MỘT modal dùng chung cho mọi dòng (JS đổ dữ liệu dòng được bấm vào), thay vì
+   render một modal cho mỗi project. Sửa ngay tại danh sách nên người dùng không mất ngữ cảnh (không rời
+   trang, không mất bộ lọc), và các field xếp đúng thứ tự như modal New Project để cảm giác "cùng một form".
+   Chỉ render khi có quyền sửa. *@
+@if (canEditProject)
+{
+    <div id="editProject" class="modal-backdrop hidden">
+        <form class="modal" asp-action="Update" method="post"
+              role="dialog" aria-modal="true" aria-labelledby="edit-project-title" data-edit-project-form>
+            <button type="button" class="x" onclick="closeModal('editProject')" aria-label="Đóng">×</button>
+            <h2 id="edit-project-title">Chỉnh sửa dự án</h2>
+            <p class="modal-sub" data-edit-subtitle></p>
+
+            <input type="hidden" name="ProjectId" data-edit-id />
+            @* Giữ nguyên trang + bộ lọc đang xem để sau khi lưu người dùng quay lại đúng chỗ cũ. *@
+            <input type="hidden" name="page" value="@Model.Page" />
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            @foreach (var code in selectedOrgUnits)
+            {
+                <input type="hidden" name="orgUnit" value="@code" />
+            }
+
+            <label for="edit-project-name">Name *</label>
+            <input id="edit-project-name" name="Name" maxlength="200" required autocomplete="off" data-edit-name />
+
+            @* Hai ghi chú dưới đây chỉ hiện khi ĐÚNG hoàn cảnh, để modal ở trạng thái thường không bị
+               nhiễu chữ: cảnh báo đổi tên (khi tên vừa bị sửa) và lý do không cho đổi tên (khi workflow
+               đang chạy — lúc đó ô Name ở chế độ chỉ đọc). *@
+            @* role="status" để trình đọc màn hình đọc cảnh báo NGAY khi nó xuất hiện (nó bật lên trong lúc
+               người dùng đang gõ ở ô Name, không phải lúc mở modal). *@
+            <p class="modal-note warning hidden" role="status" data-edit-rename-note>
+                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                Tên dự án cũng là tên thư mục làm việc của agent: khi lưu, thư mục sẽ được đổi tên theo —
+                tài liệu và POC đã sinh vẫn giữ nguyên.
+            </p>
+            <p class="modal-note info hidden" data-edit-locked-note>
+                <i class="bi bi-info-circle" aria-hidden="true"></i>
+                Dự án đang chạy workflow nên chưa đổi được tên (agent đang ghi vào thư mục làm việc hiện
+                tại). Mô tả và đơn vị yêu cầu vẫn sửa được.
+            </p>
+
+            <label for="edit-project-description">Description</label>
+            <textarea id="edit-project-description" name="Description" rows="3" maxlength="2000"
+                      placeholder="Short description" data-edit-description></textarea>
+
+            @if (Model.OrgUnitOptions.Count > 0)
+            {
+                <label for="edit-project-orgunit">Org Unit</label>
+                <select id="edit-project-orgunit" name="OrgUnitCode" data-edit-orgunit>
+                    <option value="">— Chưa chọn —</option>
+                    @foreach (var o in Model.OrgUnitOptions)
+                    {
+                        <option value="@o.Code">@o.Name</option>
+                    }
+                </select>
+            }
+
+            @* Nút Lưu chỉ bật khi CÓ thay đổi: bấm lưu một form y nguyên chỉ tạo thêm một dòng audit log
+               vô nghĩa, và trạng thái nút cho người dùng biết ngay là mình đã sửa gì chưa. *@
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('editProject')">Cancel</button>
+                <button class="btn primary" data-edit-save disabled>Lưu thay đổi</button>
+            </div>
+        </form>
+    </div>
+}
 
 @section Scripts {
     <script src="~/js/projects.js" asp-append-version="true"></script>

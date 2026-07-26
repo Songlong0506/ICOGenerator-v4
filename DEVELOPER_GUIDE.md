@@ -331,6 +331,7 @@ Thiết kế:
 - **Chat BA chạy đồng bộ.** Người dùng gửi message → `RequirementsController.Chat` → `ChatWithBAUseCase` → `BAChatService` (trong cùng request). Luồng job bất đồng bộ cũ (`AgentJob`/`AgentJobRunner`) đã được gỡ; đừng dựng lại trừ khi thực sự nối vào UI. Pipeline nền giao hàng vẫn dùng `WorkflowRun` + `AgentTask`.
 - **Rào an toàn của tool.** Tool chạy lệnh/đụng file bị giới hạn bởi `AllowedCommands` và `AllowedFileExtensions` trong `appsettings.json`, và `ToolPolicyService` kiểm tra tham số. Thêm tool mạnh thì cân nhắc kỹ.
 - **Thêm tool cho agent = viết một method** trong một class `*Tools` (`Services/Tools/...`); registry (`ToolDiscoveryService`) + `AIFunctionFactory` tự sinh schema và lo bind/invoke. Không phải sửa vòng lặp agent. Nhớ gán tool cho vai trong `DbInitializer.AssignDefaultToolsAsync`.
+- **Tên dự án cũng là tên thư mục workspace** (`WorkspacePathResolver.GetWorkspaceFolder(id, name)`). Code nào đổi `Project.Name` thì phải đổi tên thư mục theo, nếu không mọi đường dẫn tài liệu/POC tính lại sẽ trỏ vào thư mục trống. Luồng đúng đã có sẵn: `UpdateProjectUseCase` (xem ARCHITECTURE 5.17) — đừng viết lại `Project.Name = ...` ở chỗ khác.
 - **namespace = đường dẫn thư mục.** Giữ đúng để nhìn là biết file ở đâu.
 - **`Tools/Abstractions` chỉ chứa interface/record**; class hiện thực nằm ở `Tools/Execution`. Đừng để lẫn.
 - **Đăng ký DI một chỗ.** Mọi service mới phải vào đúng nhóm `AddXxx()` ở file Extensions, nếu không sẽ lỗi "Unable to resolve service" lúc chạy.
