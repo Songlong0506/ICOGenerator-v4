@@ -851,6 +851,26 @@ input[type="checkbox"], input[type="radio"], input[type="range"], input[type="fi
 
 .modal-actions { display: flex; justify-content: end; gap: 12px; margin-top: 22px; }
 
+/* Hai mảnh phụ tùy chọn của modal, dùng chung cho mọi màn hình:
+   .modal-sub  — dòng phụ ngay dưới <h2>, nói rõ đang thao tác trên bản ghi nào.
+   .modal-note — ghi chú/cảnh báo gắn với field ngay TRÊN nó (nhẹ hơn .alert, vốn dành cho đầu trang):
+                 chỉ một vạch màu bên trái + nền tint, không viền kín, để không cắt mạch form. */
+.modal-sub { margin: -2px 0 0; color: var(--muted); font-size: 13px; }
+
+.modal-note {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0 0;
+    padding: 9px 11px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    border-left: 3px solid transparent;
+}
+
+.modal-note i { flex: 0 0 auto; margin-top: 1px; }
+.modal-note.warning { color: var(--warning-ink); background: var(--warning-tint); border-left-color: var(--warning); }
+.modal-note.info { color: var(--info-ink); background: var(--info-tint); border-left-color: var(--bosch-blue); }
+
 /* ---------- Shell modals (user / imprint) ---------- */
 .modal-overlay.shell-modal {
     position: fixed;

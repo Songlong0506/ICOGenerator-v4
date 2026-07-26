@@ -347,6 +347,26 @@ deploy, và eval run không biết mình đã đo phiên bản nào. Nay có m�
 - Phân quyền: `PromptView`/`PromptManage` (màn hình "Prompt Studio" trong `PermissionCatalog`;
   TeamDev được seed mặc định — sửa prompt đổi hành vi AI ngay nên chỉ giao cho role tin cậy).
 
+### 5.17. Sửa thông tin dự án (và bất biến "tên dự án = tên thư mục workspace")
+Trang Projects sửa được Name / Description / đơn vị yêu cầu ngay tại danh sách (modal, quyền
+`ProjectsEdit` + `IProjectAccessGuard` nên User thường chỉ sửa project của mình). Ba field kỹ thuật
+(Generation Mode, Backend/Frontend Git) **không** ở đây — chúng thuộc `UpdateDeliveryConfigUseCase` ở
+Agent Dashboard; mỗi màn hình sửa đúng phần của mình.
+
+Điểm cần biết trước khi đụng vào luồng này: **tên thư mục workspace dẫn xuất từ TÊN dự án**
+(`WorkspacePathResolver.GetWorkspaceFolder(id, name)` — mọi đường dẫn tài liệu/POC tính lại từ đó mỗi
+lần cần). Vì vậy đổi tên mà không đổi thư mục = mọi đường dẫn trỏ sang thư mục trống, tài liệu/POC đã
+sinh coi như mất. `UpdateProjectUseCase` giữ hai bên khớp nhau bằng ba chốt:
+
+- Đổi thư mục **TRƯỚC** khi lưu DB (`IArtifactStorage.TryRenameProjectWorkspace`); thất bại ⇒ trả
+  `WorkspaceRenameFailed` và **không lưu gì** (giữ tên cũ, dữ liệu còn nguyên chỗ). Lưu DB lỗi sau đó ⇒
+  đổi thư mục về tên cũ rồi mới ném lỗi.
+- Đang có workflow chạy (run mới nhất chưa Completed/Failed/Canceled) ⇒ **chặn đổi TÊN**
+  (`RenameBlockedByRunningWorkflow`): agent nền giải đường dẫn workspace một lần lúc bắt đầu task rồi
+  ghi file suốt run. Description/đơn vị yêu cầu vẫn sửa được bình thường (UI cũng khóa sẵn ô Name).
+- "Chưa có gì trên đĩa" / hai key trùng nhau / `RootPath` cấu hình sai ⇒ coi như **không có gì phải
+  đổi** (true), không chặn việc sửa — cùng tinh thần best-effort với lúc tạo project.
+
 ---
 
 ## 6. Công thức thêm một tính năng mới

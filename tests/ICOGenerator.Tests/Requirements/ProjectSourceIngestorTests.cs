@@ -31,7 +31,7 @@ public class ProjectSourceIngestorTests : IDisposable
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["AgentWorkspace:RootPath"] = _root })
             .Build();
-        var storage = new LocalArtifactStorage(new WorkspacePathResolver(config));
+        var storage = new LocalArtifactStorage(new WorkspacePathResolver(config), NullLogger<LocalArtifactStorage>.Instance);
         return new ProjectSourceIngestor(storage, config, NullLogger<ProjectSourceIngestor>.Instance);
     }
 
@@ -88,7 +88,7 @@ public class ProjectSourceIngestorTests : IDisposable
             })
             .Build();
         var ingestor = new ProjectSourceIngestor(
-            new LocalArtifactStorage(new WorkspacePathResolver(config)), config, NullLogger<ProjectSourceIngestor>.Instance);
+            new LocalArtifactStorage(new WorkspacePathResolver(config), NullLogger<LocalArtifactStorage>.Instance), config, NullLogger<ProjectSourceIngestor>.Instance);
         using var ms = new MemoryStream(OnePixelPng);
 
         await Assert.ThrowsAsync<SourceFileValidationException>(() =>

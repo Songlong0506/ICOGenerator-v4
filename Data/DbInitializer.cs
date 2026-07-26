@@ -107,7 +107,7 @@ public static class DbInitializer
             (UserRole.Admin, PermissionCatalog.AllPermissions.ToArray()),
             (UserRole.TeamDev, new[]
             {
-                AppPermission.ProjectsView, AppPermission.ProjectsCreate, AppPermission.ProjectsViewAll,
+                AppPermission.ProjectsView, AppPermission.ProjectsCreate, AppPermission.ProjectsEdit, AppPermission.ProjectsViewAll,
                 AppPermission.ProjectsOpenAgentDashboard,
                 AppPermission.RequirementsView, AppPermission.RequirementsManage,
                 AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance,

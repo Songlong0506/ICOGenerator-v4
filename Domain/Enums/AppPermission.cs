@@ -13,6 +13,8 @@ public enum AppPermission
     ProjectsView,
     [Description("Create")]
     ProjectsCreate,
+    [Description("Update (name, description, org unit)")]
+    ProjectsEdit,
     [Description("View all projects (not just own)")]
     ProjectsViewAll,
     [Description("Show Requirements button on project list")]

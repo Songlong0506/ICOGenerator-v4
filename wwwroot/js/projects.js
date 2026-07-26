@@ -122,3 +122,91 @@
     renderLabel();
     renderAll();
 })();
+
+// Modal "Chỉnh sửa dự án" — MỘT modal dùng chung cho cả bảng: nút bút chì ở mỗi dòng mang dữ liệu dòng đó
+// trong data-* và JS đổ vào form. Ba việc modal này lo (ngoài đổ dữ liệu):
+//   • Nút "Lưu thay đổi" chỉ bật khi có thay đổi thật (và tên không rỗng).
+//   • Sửa tên ⇒ hiện cảnh báo thư mục làm việc sẽ được đổi tên theo — đổi tên là việc CÓ hệ quả trên đĩa,
+//     người dùng nên biết trước khi bấm lưu (server vẫn là chốt chặn: xem UpdateProjectUseCase).
+//   • Dự án đang chạy workflow ⇒ ô Name chuyển chỉ-đọc kèm lý do, thay vì để người dùng gõ xong mới bị
+//     server từ chối. Vẫn dùng readonly (không phải disabled) để Name còn được submit — server cần nó.
+(function () {
+    var modal = document.getElementById('editProject');
+    if (!modal) return;
+
+    var nameInput = modal.querySelector('[data-edit-name]');
+    var descInput = modal.querySelector('[data-edit-description]');
+    var orgSelect = modal.querySelector('[data-edit-orgunit]');
+    var idInput = modal.querySelector('[data-edit-id]');
+    var subtitle = modal.querySelector('[data-edit-subtitle]');
+    var renameNote = modal.querySelector('[data-edit-rename-note]');
+    var lockedNote = modal.querySelector('[data-edit-locked-note]');
+    var saveBtn = modal.querySelector('[data-edit-save]');
+
+    var original = { name: '', description: '', orgUnit: '' };
+    var locked = false;
+
+    function orgValue() { return orgSelect ? orgSelect.value : ''; }
+
+    function refresh() {
+        var name = nameInput.value.trim();
+        var renamed = name !== original.name;
+
+        saveBtn.disabled = name === '' || !(renamed
+            || descInput.value.trim() !== original.description
+            || orgValue() !== original.orgUnit);
+
+        // Không cảnh báo khi tên đang bị khóa: lúc đó tên không thể đổi nên cảnh báo chỉ gây hoang mang.
+        renameNote.classList.toggle('hidden', locked || !renamed);
+    }
+
+    function open(button) {
+        var data = button.dataset;
+
+        original.name = (data.projectName || '').trim();
+        original.description = (data.projectDescription || '').trim();
+        original.orgUnit = data.projectOrgunit || '';
+        locked = data.projectRunning === 'true';
+
+        idInput.value = data.projectId || '';
+        nameInput.value = original.name;
+        descInput.value = original.description;
+        if (orgSelect) {
+            // Mã đơn vị không còn trong dữ liệu HR (đã xóa/đồng bộ lại) thì không có <option> tương ứng —
+            // gán không ăn, select rơi về "— Chưa chọn —". Đồng bộ lại mốc so sánh theo giá trị THẬT của
+            // select để nút Lưu không bật lên vì một khác biệt người dùng không hề tạo ra.
+            orgSelect.value = original.orgUnit;
+            original.orgUnit = orgSelect.value;
+        }
+
+        nameInput.readOnly = locked;
+        lockedNote.classList.toggle('hidden', !locked);
+        renameNote.classList.add('hidden');
+
+        // Tên hiện tại của dự án luôn hiển thị ở đầu modal (textContent nên không dựng HTML từ dữ liệu):
+        // sau khi sửa ô Name, đây là mốc để biết mình đang sửa đúng dòng nào.
+        subtitle.textContent = 'Dự án: ' + original.name;
+
+        refresh();
+        openModal('editProject');
+        // Đang khóa tên thì con trỏ vào ô đầu tiên còn sửa được, khỏi bắt người dùng tự tab qua.
+        (locked ? descInput : nameInput).focus();
+    }
+
+    document.querySelectorAll('[data-edit-project]').forEach(function (button) {
+        button.addEventListener('click', function () { open(button); });
+    });
+
+    nameInput.addEventListener('input', refresh);
+    descInput.addEventListener('input', refresh);
+    // Combo tùy biến của dropdown.js vẫn phát 'change' trên <select> gốc nên chỉ cần nghe ở đây.
+    if (orgSelect) orgSelect.addEventListener('change', refresh);
+
+    // Esc để đóng — chỉ gắn cho modal này (không đụng các modal khác trong app) và chỉ khi nó đang mở.
+    // Combo Org Unit đang mở thì Esc thuộc về combo (dropdown.js tự đóng panel), chưa đóng cả modal.
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' || modal.classList.contains('hidden')) return;
+        if (modal.querySelector('.ms-combo.open')) return;
+        closeModal('editProject');
+    });
+})();
