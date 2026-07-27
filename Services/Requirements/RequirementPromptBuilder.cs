@@ -103,12 +103,18 @@ Your task:
     // workedExamples (có thể rỗng): các ví dụ tính thử người dùng ĐÃ xác nhận cho quy tắc định lượng
     // (Project.WorkedExamples, chắt từ hội thoại). Chúng phải đi vào mục "## 13. Worked Examples" của spec
     // để POC dựng từ spec đối chiếu ĐỘC LẬP con số kỳ vọng — xem ai-design-spec.v1.md và PocRuntimeChecker.
+    // assumptionCorrections (có thể rỗng): các giả định người dùng đã BÁC ở cổng xác nhận giả định, kèm ý
+    // đúng của họ (Project.SpecAssumptionCorrections). Phải nạp vào đây vì spec sinh từ Product Brief chứ
+    // không đọc transcript — thiếu khối này thì lượt sinh lại sau khi user báo sai vẫn đẻ ra đúng giả định
+    // vừa bị bác, và cổng thành vòng lặp vô nghĩa.
     public string BuildAiDesignSpec(
         Project project,
         string approvedProductBrief,
         string currentAiDesignSpec,
         string organizationContext = "",
-        string? workedExamples = null)
+        string? workedExamples = null,
+        string? assumptionCorrections = null,
+        string? realSampleData = null)
     {
         return $$"""
 Project:
@@ -119,7 +125,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-{{WorkedExamplesSection(workedExamples)}}
+{{WorkedExamplesSection(workedExamples)}}{{AssumptionCorrectionsSection(assumptionCorrections)}}{{RealSampleDataSection(realSampleData)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -143,6 +149,38 @@ Your task:
 
 Ví dụ tính thử người dùng ĐÃ XÁC NHẬN trong lúc phỏng vấn (đưa NGUYÊN các con số này vào mục "## 13. Worked Examples" của spec — chúng là chuẩn để POC tự kiểm đối chiếu):
 {workedExamples.Trim()}
+
+""";
+    }
+
+    // Khối "giả định đã bị bác": rỗng thì biến mất. Có nội dung thì đây là RÀNG BUỘC CỨNG của lượt sinh
+    // spec — người dùng đã đích thân nói các điều này sai, nên chúng không còn là chỗ để model tự quyết.
+    private static string AssumptionCorrectionsSection(string? assumptionCorrections)
+    {
+        if (string.IsNullOrWhiteSpace(assumptionCorrections))
+            return string.Empty;
+
+        return $"""
+
+Giả định người dùng đã BÁC ở các lượt trước (BẮT BUỘC tuân theo — TUYỆT ĐỐI không đưa lại giả định đã bị bác vào mục "## 12. Assumptions" hay vào bất kỳ mục nào của spec; điều đã có ý đúng kèm theo thì coi như yêu cầu ĐÃ CHỐT của người dùng, không phải giả định nữa):
+{assumptionCorrections.Trim()}
+
+""";
+    }
+
+    // Khối "dữ liệu thật của người dùng": trích từ chính file Excel/CSV/Word họ đính kèm khi phỏng vấn.
+    // Spec là đầu vào DUY NHẤT của bước dựng POC, nên đây là đường duy nhất để bản demo hiện lên đúng
+    // danh mục/tên/con số của đơn vị yêu cầu thay vì "Sản phẩm A / Nguyễn Văn B" — thứ khiến người xem
+    // demo mất niềm tin ngay dòng đầu tiên. Rỗng thì biến mất (dự án không đính kèm file nào).
+    private static string RealSampleDataSection(string? realSampleData)
+    {
+        if (string.IsNullOrWhiteSpace(realSampleData))
+            return string.Empty;
+
+        return $"""
+
+Dữ liệu THẬT trích từ tài liệu người dùng đính kèm (bảng tính/tài liệu của chính họ). Dùng các giá trị này làm DỮ LIỆU MẪU của spec (mục Data Model Summary và các bản ghi seed ở mục Screens To Generate): lấy đúng tên cột/tên danh mục/giá trị có thật ở đây thay vì bịa tên chung chung. Chỉ lấy phần LIÊN QUAN tới phạm vi Product Brief; đây là dữ liệu để demo, KHÔNG phải yêu cầu mới — TUYỆT ĐỐI không vì thấy một cột lạ mà thêm màn hình/tính năng ngoài Product Brief:
+{realSampleData.Trim()}
 
 """;
     }

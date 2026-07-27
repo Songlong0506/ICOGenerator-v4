@@ -71,4 +71,94 @@ public class PocVerificationTests : IDisposable
         File.WriteAllText(PocVerification.GetPath(_workspace), "{ khong-phai-json");
         Assert.Null(PocVerification.TryLoad(_workspace));
     }
+
+    // ==== Lịch sử vòng kiểm + phát hiện HỒI QUY ====
+    // Bản chụp "chỉ vòng cuối" không thấy được lớp lỗi nguy hiểm nhất của vòng sửa: agent sửa issue rồi
+    // làm gãy thứ đang chạy. So vòng này với vòng liền trước mới bắt được.
+
+    [Fact]
+    public async Task SaveAsync_PushesPreviousRoundIntoHistory()
+    {
+        await PocVerification.SaveAsync(_workspace, new PocVerificationSummary { SpecScreens = 1 });
+        await PocVerification.SaveAsync(_workspace, new PocVerificationSummary { SpecScreens = 2 });
+        await PocVerification.SaveAsync(_workspace, new PocVerificationSummary { SpecScreens = 3 });
+
+        Assert.Equal(3, PocVerification.TryLoad(_workspace)!.SpecScreens);
+
+        var history = PocVerification.TryLoadHistory(_workspace);
+        Assert.Equal(new[] { 1, 2 }, history.Select(h => h.SpecScreens).ToArray());
+    }
+
+    [Fact]
+    public void DetectRegressions_RulePassedBeforeButFailsNow_IsReported()
+    {
+        var previous = new PocVerificationSummary
+        {
+            SelfTestResults = new List<string> { "PASS BR-1 — ok", "FAIL BR-2 — kỳ vọng 81, thực tế 78" }
+        };
+
+        var regressions = PocVerification.DetectRegressions(
+            previous,
+            new[] { "FAIL BR-1 — kỳ vọng 100%, thực tế 90%", "PASS BR-2 — ok" },
+            Array.Empty<string>());
+
+        Assert.Single(regressions);
+        Assert.Contains("BR-1", regressions[0]);
+    }
+
+    [Fact]
+    public void DetectRegressions_AssertionDeletedInsteadOfFixed_IsAlsoReported()
+    {
+        // Xoá assertion để "hết fail" là đúng cái mẹo mà prompt POC cấm — phải bắt được.
+        var previous = new PocVerificationSummary { SelfTestResults = new List<string> { "PASS BR-3 — ok" } };
+
+        var regressions = PocVerification.DetectRegressions(previous, Array.Empty<string>(), Array.Empty<string>());
+
+        Assert.Single(regressions);
+        Assert.Contains("BR-3", regressions[0]);
+        Assert.Contains("KHÔNG CÒN được kiểm", regressions[0]);
+    }
+
+    [Fact]
+    public void DetectRegressions_NewlyFailingItem_IsNotARegression()
+    {
+        // Mục MỚI xuất hiện mà fail đã nằm trong ISSUES thường — báo lại ở đây chỉ gây nhiễu.
+        var previous = new PocVerificationSummary { SelfTestResults = new List<string> { "PASS BR-1 — ok" } };
+
+        var regressions = PocVerification.DetectRegressions(
+            previous, new[] { "PASS BR-1 — ok", "FAIL BR-9 — mới thêm" }, Array.Empty<string>());
+
+        Assert.Empty(regressions);
+    }
+
+    [Fact]
+    public void DetectRegressions_ScenarioRegression_IsReportedToo()
+    {
+        var previous = new PocVerificationSummary
+        {
+            ScenarioResults = new List<string> { "PASS Gửi và duyệt đơn — ok" }
+        };
+
+        var regressions = PocVerification.DetectRegressions(
+            previous, Array.Empty<string>(), new[] { "FAIL Gửi và duyệt đơn — đơn không rời danh sách chờ" });
+
+        Assert.Single(regressions);
+        Assert.Contains("Gửi và duyệt đơn", regressions[0]);
+    }
+
+    [Fact]
+    public void DetectRegressions_NoPreviousRound_ReportsNothing()
+        => Assert.Empty(PocVerification.DetectRegressions(null, new[] { "FAIL BR-1 — x" }, Array.Empty<string>()));
+
+    [Fact]
+    public async Task Reset_ClearsLatestAndHistory_SoARebuiltPocStartsClean()
+    {
+        await PocVerification.SaveAsync(_workspace, new PocVerificationSummary { SpecScreens = 1 });
+        await PocVerification.SaveAsync(_workspace, new PocVerificationSummary { SpecScreens = 2 });
+
+        PocVerification.Reset(_workspace);
+
+        Assert.Null(PocVerification.TryLoad(_workspace));
+        Assert.Empty(PocVerification.TryLoadHistory(_workspace));
+    }
 }

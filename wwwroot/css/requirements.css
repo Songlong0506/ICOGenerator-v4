@@ -1381,3 +1381,155 @@
 
 /* Banner "chào lại" (F) — biến thể info của req-alert. */
 .req-alert.info { background: var(--bosch-blue-tint, #eff6ff); border: 1px solid var(--bosch-blue, #3b82f6); color: var(--ink); }
+
+/* ==== Stepper hành trình (5 chặng) trên đầu trang Requirements ==== */
+/* User nghiệp vụ cần biết đang ở đâu và còn gì phía trước — trước đây trang chỉ có tiêu đề "Requirements". */
+
+.journey-stepper {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 16px;
+    padding: 10px 12px;
+    background: var(--surface, #fff);
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 10px;
+}
+
+.journey-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 150px;
+    min-width: 0;
+    padding: 4px 6px;
+    border-radius: 8px;
+}
+
+    .journey-step + .journey-step { border-left: 1px solid var(--line, #e5e7eb); }
+
+.journey-dot {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--surface-alt, #f3f4f6);
+    color: #6b7280;
+    border: 1px solid var(--line, #e5e7eb);
+}
+
+.journey-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+
+    .journey-text b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .journey-text small { font-size: 11px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.journey-step.done .journey-dot { background: #10b981; border-color: #10b981; color: #fff; }
+
+.journey-step.current { background: var(--bosch-blue-tint, #eff6ff); }
+
+    .journey-step.current .journey-dot { background: var(--bosch-blue, #3b82f6); border-color: var(--bosch-blue, #3b82f6); color: #fff; }
+
+    .journey-step.current .journey-text b { color: var(--bosch-blue, #3b82f6); }
+
+.journey-step.todo { opacity: .55; }
+
+/* ==== Cổng xác nhận giả định (panel giả định ở chế độ chặn, POC chưa dựng) ==== */
+
+.assumption-panel.gate {
+    border: 1px solid var(--warning-border, #f2c94c);
+    border-radius: 10px;
+    padding: 12px;
+    background: #fffdf5;
+}
+
+.assumption-gate-hint { font-size: 12px; line-height: 1.55; margin-bottom: 8px; }
+
+.assumption-list.gate { max-height: 320px; gap: 8px; }
+
+.assumption-gate-item {
+    padding: 8px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.assumption-gate-text { font-size: 12px; line-height: 1.5; margin-bottom: 6px; }
+
+.assumption-gate-actions { display: flex; gap: 6px; }
+
+.assumption-vote {
+    font-family: inherit;
+    font-size: 11.5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line, #e5e7eb);
+    background: var(--surface-alt, #f3f4f6);
+    color: #4b5563;
+    cursor: pointer;
+    width: auto;
+}
+
+    .assumption-vote.ok.is-on { background: #10b981; border-color: #10b981; color: #fff; }
+
+    .assumption-vote.bad.is-on { background: #dc2626; border-color: #dc2626; color: #fff; }
+
+.assumption-fix {
+    width: 100%;
+    margin-top: 6px;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 6px 8px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 6px;
+    resize: vertical;
+}
+
+.assumption-gate-bar { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+
+.assumption-gate-msg { font-size: 11.5px; color: #dc2626; }
+
+/* ==== Editor "Ví dụ đã xác nhận" (sửa tay oracle của POC) ==== */
+
+.worked-edit-btn {
+    float: right;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--line, #e5e7eb);
+    background: var(--surface-alt, #f3f4f6);
+    color: #4b5563;
+    cursor: pointer;
+    width: auto;
+}
+
+    .worked-edit-btn:hover { background: var(--bosch-blue-tint, #eff6ff); border-color: var(--bosch-blue, #3b82f6); }
+
+.worked-editor-hint { font-size: 11px; color: #6b7280; line-height: 1.5; margin-bottom: 6px; }
+
+#workedEditorText {
+    width: 100%;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 6px 8px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 6px;
+    resize: vertical;
+}
+
+.worked-editor-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+
+.worked-editor-msg { font-size: 11.5px; color: #dc2626; }
+
+/* Thuộc tính `hidden` chỉ là quy tắc display:none của trình duyệt ở độ ưu tiên THẤP NHẤT, nên bất kỳ
+   khai báo `display` nào của ta cũng ghi đè nó — nút `.btn` (inline-flex) và `.worked-list` (flex) vẫn
+   hiện nguyên dù JS đã set `hidden`. Khôi phục ý nghĩa của `hidden` cho đúng các phần tử đó. */
+.assumption-gate-bar .btn[hidden],
+.worked-list[hidden] { display: none; }

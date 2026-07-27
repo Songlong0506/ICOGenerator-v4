@@ -55,6 +55,11 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
     // "modal mở ra bị vỡ layout" (lớp lỗi mà ảnh tĩnh mỗi màn không thấy). Xem R-POC2.
     private const int MaxModalShots = 3;
     private const float GotoTimeoutMs = 15000;
+    // Lượt kiểm ở bề rộng ĐIỆN THOẠI (iPhone 12/13/14 logic width) — bề rộng mà người được gửi link demo
+    // hay mở nhất, và là nơi layout cố định bề rộng lộ ra ngay.
+    private const int MobileWidth = 390;
+    private const int MobileOverflowThreshold = 32;
+    private const int MaxMobileShots = 3;
 
     private readonly IConfiguration _configuration;
     private readonly ILogger<PlaywrightPocRuntimeChecker> _logger;
@@ -284,8 +289,75 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             }
         }
 
+        // LƯỢT ĐIỆN THOẠI: mở lại POC ở bề rộng 390px và đi qua từng màn hình. Trước đây mọi thứ chỉ được
+        // kiểm ở 1440px nên lớp lỗi "vỡ trên màn hẹp" KHÔNG cổng nào bắt được — kể cả Visual QA, vì nó chỉ
+        // nhìn ảnh desktop (dù prompt của nó có mục "phải cuộn ngang"). Đây là bề rộng mà người duyệt hay
+        // mở demo nhất khi được gửi link.
+        await RunMobilePassAsync(browser, url, screens, issues, screenshots, captureScreenshots, cancellationToken);
+
         lock (errors) issues.AddRange(errors);
         return new PocRuntimeReport(true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots, workedResults, scenarioResults);
+    }
+
+    // Lượt kiểm ở bề rộng điện thoại: chỉ đo TRÀN NGANG (lỗi khách quan, không phải sở thích thẩm mỹ) và
+    // chụp vài ảnh cho Visual QA. Best-effort toàn phần: lượt này lỗi thì lượt desktop ở trên vẫn nguyên
+    // giá trị, nên mọi ngoại lệ đều bị nuốt.
+    private static async Task RunMobilePassAsync(
+        IBrowser browser, string url, string[] screens, List<string> issues,
+        List<PocScreenshot> screenshots, bool captureScreenshots, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var context = await browser.NewContextAsync(new BrowserNewContextOptions
+            {
+                ViewportSize = new ViewportSize { Width = MobileWidth, Height = 844 }
+            });
+            var page = await context.NewPageAsync();
+            await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.Load, Timeout = GotoTimeoutMs });
+            await page.WaitForTimeoutAsync(300);
+
+            var shots = 0;
+            foreach (var screen in screens.Take(MaxScreens))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var overflow = await page.EvaluateAsync<int>(
+                    @"(label) => {
+                        try {
+                            if (typeof window.pocNavigate === 'function') window.pocNavigate(label);
+                            return Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
+                        } catch { return 0; }
+                    }", screen);
+                await page.WaitForTimeoutAsync(80);
+
+                // Ngưỡng rộng tay hơn desktop (>32px): ở 390px một chút lệch do scrollbar/viền là bình
+                // thường; chỉ báo khi thật sự phải kéo ngang mới đọc hết nội dung.
+                if (overflow > MobileOverflowThreshold)
+                    issues.Add($"Màn hình '{screen}' bị TRÀN NGANG {overflow}px ở bề rộng điện thoại ({MobileWidth}px) — người xem demo trên điện thoại phải kéo ngang mới đọc hết. Bọc bảng rộng trong `table-responsive`, dùng `row`/`col-*` để các cột xuống dòng trên màn hẹp, bỏ bề rộng cố định.");
+
+                if (captureScreenshots && shots < MaxMobileShots && screenshots.Count < MaxScreens + MaxMobileShots)
+                {
+                    try
+                    {
+                        var png = await page.ScreenshotAsync(new PageScreenshotOptions { FullPage = true });
+                        screenshots.Add(new PocScreenshot($"{screen} (điện thoại {MobileWidth}px)", png));
+                        shots++;
+                    }
+                    catch
+                    {
+                        // Ảnh một màn không chụp được thì bỏ qua màn đó.
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // Lượt điện thoại là lớp kiểm BỔ SUNG — hỏng thì im lặng bỏ qua, không đụng kết quả desktop.
+        }
     }
 
     // Mở modal đầu tiên của màn đang active, chụp ảnh trạng thái mở (cho Visual QA), rồi đóng lại. Trả về

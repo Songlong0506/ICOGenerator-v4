@@ -128,6 +128,90 @@ public class RequestStageRevisionUseCaseTests : IDisposable
         }
     }
 
+    // ==== Rào chắn onlyStage cho đường vào của USER THƯỜNG (trang POC Review) ====
+    // Người dùng nghiệp vụ được nhờ Dev chỉnh BẢN DEMO, nhưng không được với tới các bước kỹ thuật
+    // phía sau — nếu không, một nút "sửa demo" hoá ra lại điều khiển được cả pipeline.
+
+    [Fact]
+    public async Task ExecuteAsync_WithOnlyStagePoc_QueuesRevision_WhenWaitingAtPocGate()
+    {
+        var projectId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+
+        await using (var db = NewDb())
+        {
+            db.Projects.Add(new Project { Id = projectId, Name = "P" });
+            db.WorkflowRuns.Add(new WorkflowRun
+            {
+                Id = runId,
+                ProjectId = projectId,
+                Status = WorkflowRunStatus.WaitingForHuman,
+                CurrentStage = WorkflowStageKey.PocPreview
+            });
+            db.AgentTasks.Add(new AgentTask
+            {
+                WorkflowRunId = runId,
+                ProjectId = projectId,
+                Type = AgentTaskType.PocPreview,
+                Status = AgentTaskStatus.Completed,
+                Title = "Tạo POC HTML để xem trước",
+                Input = "spec",
+                FinishedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            var result = await new RequestStageRevisionUseCase(db).ExecuteAsync(
+                projectId, "Bảng đơn thiếu cột trạng thái.", runId: null,
+                includePocComments: true, onlyStage: WorkflowStageKey.PocPreview);
+            Assert.Equal(RequestStageRevisionResult.Queued, result);
+        }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithOnlyStagePoc_RefusesWhenRunWaitsAtALaterStage()
+    {
+        var projectId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+
+        await using (var db = NewDb())
+        {
+            db.Projects.Add(new Project { Id = projectId, Name = "P" });
+            db.WorkflowRuns.Add(new WorkflowRun
+            {
+                Id = runId,
+                ProjectId = projectId,
+                Status = WorkflowRunStatus.WaitingForHuman,
+                CurrentStage = WorkflowStageKey.Implementation
+            });
+            db.AgentTasks.Add(new AgentTask
+            {
+                WorkflowRunId = runId,
+                ProjectId = projectId,
+                Type = AgentTaskType.Implementation,
+                Status = AgentTaskStatus.Completed,
+                Title = "Sinh code đầy đủ từ kiến trúc",
+                Input = "architecture",
+                FinishedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            var result = await new RequestStageRevisionUseCase(db).ExecuteAsync(
+                projectId, "sửa giúp", runId: null,
+                includePocComments: true, onlyStage: WorkflowStageKey.PocPreview);
+            Assert.Equal(RequestStageRevisionResult.StageMismatch, result);
+        }
+
+        // Không có task chỉnh sửa nào được enqueue cho bước Implementation.
+        await using (var verify = NewDb())
+            Assert.Equal(0, await verify.AgentTasks.CountAsync(t => t.RevisionFeedback != null));
+    }
+
     [Fact]
     public async Task ExecuteAsync_ReturnsMissingFeedback_AndChangesNothing_WhenFeedbackBlank()
     {

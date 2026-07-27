@@ -61,7 +61,14 @@ public class SourceContextBuilder
                         ? " (ảnh — xem nội dung ảnh đính kèm)"
                         : " (ảnh — model hiện tại KHÔNG đọc được ảnh nên nội dung ảnh KHÔNG được gửi kèm; TUYỆT ĐỐI không tự suy đoán nội dung ảnh, hãy hỏi người dùng gõ/nhập lại các thông tin trong ảnh)",
                     SourceFileKind.Spreadsheet => " (bảng tính — không đọc được nội dung, đã bỏ qua)",
-                    _ => " (PDF dạng scan/ảnh — không trích xuất được text, nội dung bị bỏ qua)"
+                    SourceFileKind.Document => " (tài liệu Word — không đọc được nội dung, đã bỏ qua)",
+                    // PDF scan: có ảnh trang lấy được thì nội dung ĐI KÈM dưới dạng ảnh (khi model có
+                    // vision), nên đừng nói "bị bỏ qua" — câu đó khiến BA đi hỏi lại thứ nó đang cầm.
+                    _ => s.ScannedPageImageCount > 0
+                        ? (modelSupportsVision
+                            ? $" (PDF dạng scan — {s.ScannedPageImageCount} trang được gửi kèm dưới dạng ẢNH, xem nội dung ảnh đính kèm)"
+                            : " (PDF dạng scan — model hiện tại KHÔNG đọc được ảnh nên nội dung KHÔNG được gửi kèm; TUYỆT ĐỐI không tự suy đoán, hãy hỏi người dùng nhập lại các thông tin trong tài liệu)")
+                        : " (PDF dạng scan/ảnh — không trích xuất được text, nội dung bị bỏ qua)"
                 })));
             }
 
@@ -93,10 +100,37 @@ public class SourceContextBuilder
         return contents;
     }
 
-    // Chỉ ảnh user upload trực tiếp mới đóng góp phần vision; PDF chỉ đóng góp text (app đã bỏ render PDF→ảnh).
+    // Nguồn vision gồm: ảnh user upload trực tiếp, VÀ ảnh trang của PDF scan (PdfScanPageRenderer ghi
+    // page-{n}.png cạnh file gốc). Ảnh trang xếp theo SỐ TRANG chứ không theo thứ tự chuỗi, để trang 10
+    // không nhảy lên trước trang 2 — model đọc một biểu mẫu nhiều trang cần đúng trình tự.
     private static IEnumerable<(string Path, string MediaType)> EnumerateImageAssets(ProjectSourceFile s)
     {
         if (s.Kind == SourceFileKind.Image)
+        {
             yield return (s.StoredPath, string.IsNullOrWhiteSpace(s.ContentType) ? "image/png" : s.ContentType);
+            yield break;
+        }
+
+        if (s.Kind != SourceFileKind.Pdf || s.ScannedPageImageCount <= 0)
+            yield break;
+
+        var dir = Path.GetDirectoryName(s.StoredPath);
+        if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
+            yield break;
+
+        var pages = Directory
+            .EnumerateFiles(dir, PdfScanPageRenderer.PageImagePrefix + "*.png")
+            .Select(path => (Path: path, Page: ParsePageNumber(path)))
+            .Where(x => x.Page > 0)
+            .OrderBy(x => x.Page);
+
+        foreach (var page in pages)
+            yield return (page.Path, "image/png");
+    }
+
+    private static int ParsePageNumber(string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(path);
+        return int.TryParse(name[PdfScanPageRenderer.PageImagePrefix.Length..], out var n) ? n : 0;
     }
 }

@@ -236,6 +236,26 @@ public class AgentTaskWorker : BackgroundService
                 task.WorkflowRun.Status = WorkflowRunStatus.Completed;
                 task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
                 task.WorkflowRun.FinishedAt = DateTime.UtcNow;
+
+                // CỔNG XÁC NHẬN GIẢ ĐỊNH: spec được phép tự quyết thay người dùng những điều Product Brief
+                // không nói (mục "## 12. Assumptions"). Trước đây các giả định đó đi THẲNG vào POC nên một
+                // giả định sai chỉ lộ ra sau cả lượt dựng POC (5–15 phút) — đắt nhất trong toàn tuyến. Nay
+                // có giả định thì DỪNG tại đây: đánh dấu phiên bản đang chờ rà, trang Requirements hiện cổng
+                // "Xác nhận & dựng bản demo"; delivery chỉ khởi động khi user xác nhận
+                // (ConfirmSpecAssumptionsUseCase). Không có giả định nào ⇒ chạy thẳng như trước.
+                var assumptions = SpecAssumptionsParser.Parse(specContent);
+                if (assumptions.Count > 0)
+                {
+                    var gatedProject = await db.Projects.FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken);
+                    if (gatedProject != null)
+                        gatedProject.PendingAssumptionsVersion = task.Input;
+                    await db.SaveChangesAsync(cancellationToken);
+
+                    _progress.Report(task.WorkflowRunId, "completed",
+                        $"Đã sinh AI Design Spec — đang chờ anh/chị rà {assumptions.Count} giả định trước khi dựng bản demo.");
+                    return;
+                }
+
                 await db.SaveChangesAsync(cancellationToken);
 
                 // Spec đã sinh xong → tự khởi động delivery workflow dựng POC (giống bước cũ trong Approve).
@@ -321,6 +341,18 @@ public class AgentTaskWorker : BackgroundService
             var promptBuilder = scope.ServiceProvider.GetRequiredService<WorkflowTaskPromptBuilder>();
             var prompt = promptBuilder.Build(task.Type, task.Input, useBoschTemplate, task.RevisionFeedback, previousOutput);
             var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
+
+            // Bước POC: ngân sách suy theo SỐ MÀN HÌNH của spec (task.Input) thay vì một con số cứng —
+            // mỗi màn hình tốn ít nhất một call AppendPocContent, nên spec lớn cạn bước giữa chừng và audit
+            // báo thiếu màn hình mà không còn lượt nào để sửa. Chỉ nới lên, không siết xuống.
+            if (task.Type == AgentTaskType.PocPreview)
+            {
+                var screenCount = PocSpec.Parse(task.Input).Screens.Count;
+                maxSteps = DeliveryPipeline.PocStepBudget(screenCount);
+                if (screenCount > 0)
+                    _progress.Report(task.WorkflowRunId, "setup",
+                        $"Spec có {screenCount} màn hình — cấp ngân sách {maxSteps} bước cho lượt dựng POC.");
+            }
 
             // POC được dựng qua NHIỀU call (SetPocContent cho màn hình đầu, rồi các AppendPocContent cho
             // phần còn lại) để không call nào phải chứa cả trang và bị cắt do giới hạn token. Agent tự nối
@@ -607,6 +639,10 @@ public class AgentTaskWorker : BackgroundService
             // Pre-seed poc-demo.html so the dev agent edits only the content region, not re-emitting the whole shell (saves tokens per run).
             // The marker region is collapsed to a SINGLE placeholder so one deterministic ReplaceInFile works, vs reproducing the ~160-line block verbatim (always failed "Old text not found").
             await SeedPocDemoAsync(templateSrc, resolver.GetMockupPath(projectKey));
+
+            // POC được dựng LẠI TỪ ĐẦU ⇒ kết quả tự kiểm của bản cũ không còn để so: giữ lại chỉ khiến
+            // vòng audit đầu tiên báo "hồi quy" cho những rule thuộc một bản POC không còn tồn tại.
+            PocVerification.Reset(resolver.GetProjectWorkspacePath(projectKey));
         }
         catch (Exception ex)
         {

@@ -14,17 +14,20 @@ public class SourceFileValidationException : Exception
 }
 
 /// <summary>
-/// Nhận một file upload (ảnh / PDF / bảng tính Excel-CSV), lưu xuống workspace project và dựng
-/// <see cref="ProjectSourceFile"/> (CHƯA add DB — caller tự add + SaveChanges). Với PDF: CHỈ bóc text từng
-/// trang bằng PdfPig (PDF scan/ảnh không có text KHÔNG được hỗ trợ). Với bảng tính (.xlsx/.csv): bóc thành
-/// text có cấu trúc (tiêu đề cột + vài dòng mẫu) bằng <see cref="SpreadsheetTextExtractor"/> — fidelity cao
-/// hơn hẳn ảnh chụp Excel. Muốn dùng ảnh làm nguồn vision thì upload trực tiếp file ảnh (PNG/JPG/WebP/GIF).
+/// Nhận một file upload (ảnh / PDF / Word / bảng tính Excel-CSV), lưu xuống workspace project và dựng
+/// <see cref="ProjectSourceFile"/> (CHƯA add DB — caller tự add + SaveChanges). Với PDF: bóc text từng
+/// trang bằng PdfPig, và các trang KHÔNG có text (bản scan) được lấy ảnh nhúng ra PNG
+/// (<see cref="PdfScanPageRenderer"/>) để model vision đọc thay vì bỏ trắng. Với Word (.docx): bóc đoạn văn
+/// + bảng bằng <see cref="WordDocumentTextExtractor"/> — quy trình/biểu mẫu của phòng ban gần như luôn nằm
+/// ở đây. Với bảng tính (.xlsx/.csv): bóc thành text có cấu trúc (tiêu đề cột + vài dòng mẫu) bằng
+/// <see cref="SpreadsheetTextExtractor"/> — fidelity cao hơn hẳn ảnh chụp Excel.
 /// </summary>
 public class ProjectSourceIngestor
 {
     private static readonly string[] AllowedImageTypes = { "image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif" };
     private static readonly string[] AllowedImageExts = { ".png", ".jpg", ".jpeg", ".webp", ".gif" };
     private const string PdfType = "application/pdf";
+    private const string WordType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
     // Trang PDF có ít hơn ngần này ký tự (sau trim) coi như "scan/ảnh" (không có text dùng được) ⇒ bỏ qua trang đó.
     private const int MinCharsForTextPage = 12;
@@ -50,11 +53,12 @@ public class ProjectSourceIngestor
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         var isImage = AllowedImageTypes.Contains(normalizedType) || AllowedImageExts.Contains(ext);
         var isPdf = normalizedType == PdfType || ext == ".pdf";
-        // Bảng tính ưu tiên xét sau ảnh/PDF: một .csv có thể mang contentType text/plain, chỉ dựa vào đuôi file.
-        var isSpreadsheet = !isImage && !isPdf && SpreadsheetTextExtractor.IsSpreadsheet(normalizedType, fileName);
+        // Word/bảng tính xét sau ảnh/PDF: một .csv có thể mang contentType text/plain, chỉ dựa vào đuôi file.
+        var isWord = !isImage && !isPdf && WordDocumentTextExtractor.IsWordDocument(normalizedType, fileName);
+        var isSpreadsheet = !isImage && !isPdf && !isWord && SpreadsheetTextExtractor.IsSpreadsheet(normalizedType, fileName);
 
-        if (!isImage && !isPdf && !isSpreadsheet)
-            throw new SourceFileValidationException($"Định dạng không hỗ trợ: {fileName}. Chỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF hoặc bảng tính (Excel .xlsx/.csv).");
+        if (!isImage && !isPdf && !isWord && !isSpreadsheet)
+            throw new SourceFileValidationException($"Định dạng không hỗ trợ: {fileName}. Chỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF, Word (.docx) hoặc bảng tính (Excel .xlsx/.csv).");
         if (sizeBytes <= 0)
             throw new SourceFileValidationException($"File rỗng: {fileName}.");
         if (sizeBytes > _maxFileBytes)
@@ -78,6 +82,7 @@ public class ProjectSourceIngestor
             FileName = fileName,
             ContentType = isImage ? NormalizeImageType(normalizedType, ext)
                         : isPdf ? PdfType
+                        : isWord ? WordType
                         : NormalizeSpreadsheetType(ext),
             SizeBytes = sizeBytes,
             StoredPath = storedPath,
@@ -92,7 +97,14 @@ public class ProjectSourceIngestor
         else if (isPdf)
         {
             entity.Kind = SourceFileKind.Pdf;
-            ProcessPdf(bytes, entity, cancellationToken);
+            ProcessPdf(bytes, entity, dir, cancellationToken);
+        }
+        else if (isWord)
+        {
+            entity.Kind = SourceFileKind.Document;
+            // Word không bao giờ là nguồn vision: bóc đoạn văn + bảng thành text; không đọc được ⇒ null
+            // (giữ nguyên file gốc), người dùng vẫn thấy file đã đính kèm.
+            entity.ExtractedText = WordDocumentTextExtractor.Extract(bytes);
         }
         else
         {
@@ -105,11 +117,14 @@ public class ProjectSourceIngestor
         return entity;
     }
 
-    // Chỉ bóc text từng trang bằng PdfPig. Trang gần như không có text (PDF scan/ảnh) bị bỏ qua — app KHÔNG hỗ trợ
-    // PDF chỉ-ảnh (không OCR/không render). Best-effort: PDF hỏng/khóa ⇒ giữ nguyên file gốc, bỏ qua bóc text.
-    private void ProcessPdf(byte[] bytes, ProjectSourceFile entity, CancellationToken cancellationToken)
+    // Bóc text từng trang bằng PdfPig. Trang gần như không có text là trang SCAN: thay vì bỏ trắng như
+    // trước, lấy ảnh nhúng của trang ra PNG (PdfScanPageRenderer) để model có vision đọc được — người dùng
+    // nghiệp vụ hay đính kèm đúng thứ quý nhất (biểu mẫu, quy định đã ký) dưới dạng scan.
+    // Best-effort: PDF hỏng/khóa ⇒ giữ nguyên file gốc, bỏ qua cả text lẫn ảnh trang.
+    private void ProcessPdf(byte[] bytes, ProjectSourceFile entity, string sourceDir, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
+        var scannedPages = new List<int>();
 
         try
         {
@@ -128,12 +143,19 @@ public class ProjectSourceIngestor
 
                 var trimmed = (text ?? string.Empty).Trim();
                 if (trimmed.Length < MinCharsForTextPage)
-                    continue; // trang scan/ảnh: không có text dùng được ⇒ bỏ qua.
+                {
+                    scannedPages.Add(pageNumber); // trang scan/ảnh: thử lấy ảnh trang ở lượt dưới.
+                    continue;
+                }
 
                 sb.AppendLine($"--- Trang {pageNumber} ---");
                 sb.AppendLine(trimmed);
                 sb.AppendLine();
             }
+
+            // Ảnh trang phải lấy khi document còn mở (PdfPig đọc lười từ stream gốc).
+            entity.ScannedPageImageCount =
+                PdfScanPageRenderer.TryRenderScannedPages(doc, scannedPages, sourceDir, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -144,8 +166,9 @@ public class ProjectSourceIngestor
             _logger.LogWarning(ex, "Không đọc được PDF {File}; giữ nguyên file gốc, bỏ qua bóc text.", entity.FileName);
         }
 
-        // PDF không bao giờ là nguồn vision: chỉ-ảnh thì ExtractedText để null, người dùng nên upload ảnh trực tiếp.
         entity.ExtractedText = sb.Length > 0 ? sb.ToString() : null;
+        // Có ảnh trang ⇒ nguồn này CÓ phần cần model vision (SourceContextBuilder sẽ đính kèm các PNG đó).
+        entity.IsVisionSource = entity.ScannedPageImageCount > 0;
     }
 
     private static string NormalizeImageType(string contentType, string ext)

@@ -1,5 +1,6 @@
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
@@ -83,12 +84,18 @@ public class RequirementDocsService
         // HR thì khối này rỗng, prompt như cũ.
         var organizationContext = await _orgContext.BuildCombinedContextAsync(project.OrgUnitCode, cancellationToken);
 
+        // Dữ liệu mẫu THẬT từ file người dùng đính kèm (Excel/CSV/Word) — để POC dựng từ spec demo bằng
+        // đúng danh mục của họ. Chỉ đọc, fail-open: không có file nào thì khối này rỗng và prompt như cũ.
+        var realSampleData = await BuildRealSampleDataAsync(projectId, cancellationToken);
+
         var prompt = _promptBuilder.BuildAiDesignSpec(
             project,
             productBrief,
             ProjectDocumentLookup.GetContent(project, _artifactCatalog.AiDesignSpec.FileName, versionName),
             organizationContext ?? string.Empty,
-            project.WorkedExamples);
+            project.WorkedExamples,
+            project.SpecAssumptionCorrections,
+            realSampleData);
 
         var messages = new List<ChatMessage>
         {
@@ -169,6 +176,40 @@ public class RequirementDocsService
 
         Report("final", $"Đã tạo AI Design Spec cho phiên bản {versionName}.");
         return result.AiDesignSpec.Content;
+    }
+
+    // Trích phần text đã bóc từ các tài liệu NGUỒN có cấu trúc bảng (Excel/CSV, và Word — biểu mẫu Word
+    // render thành dòng "ô | ô"), làm dữ liệu mẫu thật cho spec. Ảnh và PDF không vào đây: text bóc từ
+    // PDF là văn xuôi, đưa vào chỗ "dữ liệu mẫu" chỉ làm nhiễu chứ không thành bản ghi seed được.
+    private async Task<string?> BuildRealSampleDataAsync(Guid projectId, CancellationToken cancellationToken)
+    {
+        const int maxFiles = 5;
+        const int maxCharsPerFile = 3000;
+
+        var sources = await _db.ProjectSourceFiles
+            .AsNoTracking()
+            .Where(s => s.ProjectId == projectId
+                        && (s.Kind == SourceFileKind.Spreadsheet || s.Kind == SourceFileKind.Document)
+                        && s.ExtractedText != null)
+            .OrderBy(s => s.CreatedAt)
+            .Take(maxFiles)
+            .Select(s => new { s.FileName, s.ExtractedText })
+            .ToListAsync(cancellationToken);
+
+        if (sources.Count == 0)
+            return null;
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var s in sources)
+        {
+            var text = s.ExtractedText!.Trim();
+            if (text.Length > maxCharsPerFile)
+                text = text[..maxCharsPerFile] + "\n…(đã cắt bớt)";
+            sb.AppendLine($"[Trích từ {s.FileName}]");
+            sb.AppendLine(text);
+            sb.AppendLine();
+        }
+        return sb.ToString().TrimEnd();
     }
 
     /// <summary>

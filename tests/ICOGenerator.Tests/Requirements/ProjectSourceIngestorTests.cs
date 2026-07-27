@@ -130,6 +130,103 @@ public class ProjectSourceIngestorTests : IDisposable
         Assert.Contains("KHÔNG đọc được ảnh", noVisionText);
     }
 
+
+    [Fact]
+    public async Task IngestAsync_WordDocument_ExtractsTextAndIsNotAVisionSource()
+    {
+        // Quy trình/biểu mẫu phòng ban thường là .docx — trước đây bị chặn ngay ở cổng validate nên người
+        // dùng phải copy tay sang chat (mất cấu trúc bảng).
+        var ingestor = NewIngestor();
+        var docx = BuildDocx("Quy trình duyệt đơn", "Trường", "Bắt buộc");
+        using var ms = new MemoryStream(docx);
+
+        var entity = await ingestor.IngestAsync(
+            Guid.NewGuid(), "proj-key", "quy-trinh.docx", null, docx.Length, ms, "tester");
+
+        Assert.Equal(SourceFileKind.Document, entity.Kind);
+        Assert.False(entity.IsVisionSource);
+        Assert.True(File.Exists(entity.StoredPath));
+        Assert.NotNull(entity.ExtractedText);
+        Assert.Contains("Quy trình duyệt đơn", entity.ExtractedText);
+        Assert.Contains("Trường | Bắt buộc", entity.ExtractedText);
+    }
+
+    [Fact]
+    public async Task IngestAsync_TextPdf_HasNoScannedPageImages()
+    {
+        // PDF bóc được text thì không có trang scan nào ⇒ không lấy ảnh trang, không thành nguồn vision.
+        var ingestor = NewIngestor();
+        // Chữ ASCII: font Standard14 của PdfPig không dựng được ký tự tiếng Việt có dấu.
+        var pdf = BuildTextPdf("Leave request: employee submits, manager approves.");
+        using var ms = new MemoryStream(pdf);
+
+        var entity = await ingestor.IngestAsync(
+            Guid.NewGuid(), "proj-key", "don.pdf", "application/pdf", pdf.Length, ms, "tester");
+
+        Assert.Equal(SourceFileKind.Pdf, entity.Kind);
+        Assert.Equal(0, entity.ScannedPageImageCount);
+        Assert.False(entity.IsVisionSource);
+    }
+
+    [Fact]
+    public void SourceContextBuilder_ScannedPdfWithPageImages_AttachesThemInPageOrder()
+    {
+        // Ảnh trang phải đi theo SỐ TRANG: một biểu mẫu nhiều trang đọc sai thứ tự là hiểu sai quy trình.
+        var dir = Path.Combine(_root, "scan-src");
+        Directory.CreateDirectory(dir);
+        foreach (var page in new[] { 1, 2, 10 })
+            File.WriteAllBytes(Path.Combine(dir, $"page-{page}.png"), OnePixelPng);
+
+        var source = new ICOGenerator.Domain.ProjectSourceFile
+        {
+            Kind = SourceFileKind.Pdf,
+            FileName = "bieu-mau-scan.pdf",
+            ContentType = "application/pdf",
+            StoredPath = Path.Combine(dir, "bieu-mau-scan.pdf"),
+            ScannedPageImageCount = 3,
+            IsVisionSource = true
+        };
+
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
+        var builder = new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance);
+
+        var withVision = builder.Build(new[] { source }, modelSupportsVision: true);
+        var noVision = builder.Build(new[] { source }, modelSupportsVision: false);
+
+        Assert.Equal(3, withVision.OfType<Microsoft.Extensions.AI.DataContent>().Count());
+        Assert.DoesNotContain(noVision, c => c is Microsoft.Extensions.AI.DataContent);
+
+        // Có ảnh gửi kèm ⇒ KHÔNG được nói "nội dung bị bỏ qua" (câu đó khiến BA đi hỏi lại thứ nó đang cầm).
+        var visionText = string.Concat(withVision.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        Assert.Contains("gửi kèm dưới dạng ẢNH", visionText);
+        Assert.DoesNotContain("nội dung bị bỏ qua", visionText);
+    }
+
+    private static byte[] BuildDocx(string paragraph, params string[] tableCells)
+    {
+        using var ms = new MemoryStream();
+        using (var doc = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Create(
+                   ms, DocumentFormat.OpenXml.WordprocessingDocumentType.Document))
+        {
+            var main = doc.AddMainDocumentPart();
+            main.Document = new DocumentFormat.OpenXml.Wordprocessing.Document();
+            var body = main.Document.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.Body());
+            body.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.Paragraph(
+                new DocumentFormat.OpenXml.Wordprocessing.Run(
+                    new DocumentFormat.OpenXml.Wordprocessing.Text(paragraph))));
+
+            var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
+            foreach (var cell in tableCells)
+                row.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.TableCell(
+                    new DocumentFormat.OpenXml.Wordprocessing.Paragraph(
+                        new DocumentFormat.OpenXml.Wordprocessing.Run(
+                            new DocumentFormat.OpenXml.Wordprocessing.Text(cell)))));
+            body.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.Table(row));
+            main.Document.Save();
+        }
+        return ms.ToArray();
+    }
+
     private static byte[] BuildTextPdf(string text)
     {
         var builder = new PdfDocumentBuilder();

@@ -147,7 +147,7 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CaptureScreenshots_ReturnsOnePngPerOpenedScreen()
+    public async Task CaptureScreenshots_ReturnsDesktopAndMobileShotsPerOpenedScreen()
     {
         var path = Path.Combine(_dir, "poc-demo.html");
         await File.WriteAllTextAsync(path, Shell.Replace("{SCRIPT}", ""));
@@ -156,10 +156,16 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
         if (!report.Ran)
             return; // không có Chromium: fail-open, không có gì để assert.
 
-        // Hai màn hình mở được (Trang chủ + Danh sách) ⇒ hai ảnh PNG không rỗng.
-        Assert.Equal(2, report.Screenshots.Count);
+        // Hai màn hình mở được (Trang chủ + Danh sách) ⇒ hai ảnh desktop…
+        var desktop = report.Screenshots.Where(s => !s.Screen.Contains("điện thoại")).ToList();
+        Assert.Equal(2, desktop.Count);
+        Assert.Contains(desktop, s => s.Screen == "Trang chủ");
+
+        // …cộng ảnh ở bề rộng ĐIỆN THOẠI cho Visual QA: lớp lỗi "vỡ trên màn hẹp" trước đây không cổng
+        // nào thấy vì mọi thứ chỉ được kiểm ở 1440px.
+        Assert.Contains(report.Screenshots, s => s.Screen.Contains("điện thoại"));
+
         Assert.All(report.Screenshots, s => Assert.True(s.Png.Length > 0));
-        Assert.Contains(report.Screenshots, s => s.Screen == "Trang chủ");
     }
 
     [Fact]
