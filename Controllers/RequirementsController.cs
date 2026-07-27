@@ -35,6 +35,8 @@ public class RequirementsController : Controller
     private readonly ConfirmSpecAssumptionsUseCase _confirmSpecAssumptionsUseCase;
     private readonly ReviseSpecAssumptionsUseCase _reviseSpecAssumptionsUseCase;
     private readonly UpdateWorkedExamplesUseCase _updateWorkedExamplesUseCase;
+    private readonly ProposeRemainingGapsUseCase _proposeRemainingGapsUseCase;
+    private readonly ConfirmRemainingGapsUseCase _confirmRemainingGapsUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly IProjectAccessGuard _projectAccess;
     private readonly BAChatTurnTracker _chatTurnTracker;
@@ -68,6 +70,8 @@ public class RequirementsController : Controller
        ConfirmSpecAssumptionsUseCase confirmSpecAssumptionsUseCase,
        ReviseSpecAssumptionsUseCase reviseSpecAssumptionsUseCase,
        UpdateWorkedExamplesUseCase updateWorkedExamplesUseCase,
+       ProposeRemainingGapsUseCase proposeRemainingGapsUseCase,
+       ConfirmRemainingGapsUseCase confirmRemainingGapsUseCase,
        RetryWorkflowUseCase retryWorkflowUseCase,
        IProjectAccessGuard projectAccess,
        BAChatTurnTracker chatTurnTracker,
@@ -92,6 +96,8 @@ public class RequirementsController : Controller
         _confirmSpecAssumptionsUseCase = confirmSpecAssumptionsUseCase;
         _reviseSpecAssumptionsUseCase = reviseSpecAssumptionsUseCase;
         _updateWorkedExamplesUseCase = updateWorkedExamplesUseCase;
+        _proposeRemainingGapsUseCase = proposeRemainingGapsUseCase;
+        _confirmRemainingGapsUseCase = confirmRemainingGapsUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
         _projectAccess = projectAccess;
         _chatTurnTracker = chatTurnTracker;
@@ -576,6 +582,68 @@ public class RequirementsController : Controller
             ReviseAssumptionsResult.NothingPending => Json(new { ok = false, error = "Không còn giả định nào đang chờ xác nhận — tải lại trang nhé." }),
             ReviseAssumptionsResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
             _ => Json(new { ok = false, error = "Không gửi được đính chính." })
+        };
+    }
+
+    // CỔNG "CHỐT NHANH PHẦN CÒN LẠI" — bước 1: BA soạn sẵn một phương án cho mỗi nhóm bản đồ bao phủ còn
+    // để trống. Chỉ ĐỌC (không ghi hội thoại): phương án chỉ thành yêu cầu khi user bấm chốt ở bước 2.
+    // Vẫn là POST vì lượt này gọi LLM và tốn token — không để nó chạy được bằng một cú load URL.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> ProposeGaps(Guid projectId)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
+
+        var outcome = await _proposeRemainingGapsUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
+        return outcome.Status switch
+        {
+            ProposeGapsStatus.Ok => Json(new
+            {
+                ok = true,
+                proposals = outcome.Proposals.Select(p => new { group = p.Group, question = p.Question, proposal = p.Proposal })
+            }),
+            ProposeGapsStatus.NothingPending => Json(new { ok = false, error = "Không còn nhóm thông tin nào thiếu — anh/chị bấm \"Write Requirement\" được rồi." }),
+            ProposeGapsStatus.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
+            ProposeGapsStatus.ProposalFailed => Json(new { ok = false, error = "Chưa soạn được phương án lúc này — anh/chị thử lại, hoặc trả lời tiếp trong khung chat." }),
+            _ => Json(new { ok = false, error = "Không soạn được phương án." })
+        };
+    }
+
+    // CỔNG "CHỐT NHANH PHẦN CÒN LẠI" — bước 2: ghi các phương án user đã duyệt vào hội thoại như lời của
+    // chính họ, gộp ngay vào bản đồ bao phủ và trả bản đồ + cờ ready để panel/nút cập nhật tại chỗ.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> ConfirmGaps(Guid projectId, [FromForm] string decisionsJson)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
+
+        List<GapDecision> decisions;
+        try
+        {
+            decisions = JsonSerializer.Deserialize<List<GapDecision>>(decisionsJson ?? "[]",
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<GapDecision>();
+        }
+        catch
+        {
+            return Json(new { ok = false, error = "Dữ liệu chốt không hợp lệ." });
+        }
+
+        var outcome = await _confirmRemainingGapsUseCase.ExecuteAsync(projectId, decisions, HttpContext.RequestAborted);
+        return outcome.Status switch
+        {
+            ConfirmGapsStatus.Ok => Json(new
+            {
+                ok = true,
+                ready = outcome.Ready,
+                coverage = outcome.Coverage.Select(c => new { label = c.Label, status = c.Status, summary = c.Summary, isCore = c.IsCore })
+            }),
+            ConfirmGapsStatus.NoDecisions => Json(new { ok = false, error = "Chưa có điểm nào để chốt." }),
+            ConfirmGapsStatus.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
+            _ => Json(new { ok = false, error = "Không ghi nhận được các điểm vừa chốt." })
         };
     }
 

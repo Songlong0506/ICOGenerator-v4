@@ -213,6 +213,17 @@ public static class PocTemplate
             ? ExtractScriptBody(current[afterStart..endIdx])
             : string.Empty;
 
+    /// <summary>
+    /// The feature markup currently between the POC_CONTENT markers ("" when the region is missing).
+    /// Used by the checks that must look at what the DEMO shows and nothing else — the shell around it
+    /// (sidebar, topbar, User/Imprint popups) ships fixed sample text of its own, so scanning the whole
+    /// file for sample data or UI language would be reading the template, not the generated POC.
+    /// </summary>
+    public static string GetContentBody(string current) =>
+        TryLocateRegion(current, out var afterStart, out var endIdx)
+            ? current[afterStart..endIdx]
+            : string.Empty;
+
     private static string ScriptBlock(string js) =>
         "\n    <script>\n" + js + "\n    </script>\n    ";
 

@@ -38,7 +38,11 @@ public record PocReviewPage(
     // Số vòng chỉnh sửa POC đã dùng / trần cho phép — hiện thẳng trên nút để người dùng biết còn mấy lượt
     // trước khi hết (trần là DeliveryPipeline.MaxRevisionRounds).
     int PocRevisionsUsed,
-    int PocRevisionLimit);
+    int PocRevisionLimit,
+    // Nghiệm thu của người yêu cầu: null = chưa ai xác nhận bản demo đạt. Trang review đổi khối hành động
+    // cuối thành một dòng "đã nghiệm thu bởi X lúc Y" khi có giá trị.
+    DateTime? PocAcceptedAtUtc,
+    string? PocAcceptedBy);
 
 /// <summary>
 /// Dữ liệu cho trang review POC (Projects/PocReview): tên project, POC đã tồn tại chưa, bộ kịch bản
@@ -112,7 +116,8 @@ public class GetPocReviewQuery
 
         return new PocReviewPage(
             project.Id, project.Name, File.Exists(mockupPath), scenarios, revisions, coverage, verification,
-            pocGateOpen, revisionsUsed, DeliveryPipeline.MaxRevisionRounds);
+            pocGateOpen, revisionsUsed, DeliveryPipeline.MaxRevisionRounds,
+            project.PocAcceptedAtUtc, project.PocAcceptedBy);
     }
 
     // Nạp AI Design Spec mới nhất (mọi phiên bản), parse bằng chính PocSpec của audit, rồi cross-link mỗi

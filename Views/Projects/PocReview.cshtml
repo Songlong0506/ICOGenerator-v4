@@ -261,6 +261,31 @@
              này CHỈ có ở cổng duyệt trên Agent Dashboard (quyền DeliveryAdvance) nên người dùng nghiệp vụ
              không có cách nào tự xử lý đúng loại lỗi họ hay bắt nhất.
            • "Gửi về Requirement" — sửa TÀI LIỆU rồi dựng lại POC; ghi chú thuần thẩm mỹ bị bỏ qua ở đó. *@
+        @* NGHIỆM THU: điểm dừng của hành trình phía người yêu cầu. Ba đường bên dưới đều là "còn sai chỗ
+           này"; thiếu đường "được rồi" thì đội delivery phải đi hỏi miệng và chặng cuối stepper trên trang
+           Requirements không bao giờ đóng. Bấm KHÔNG đẩy pipeline — chỉ ghi nhận + báo người có quyền duyệt. *@
+        @if (Model.PocAcceptedAtUtc.HasValue)
+        {
+            <div class="poc-accepted">
+                ✓ <b>Đã nghiệm thu</b>@(string.IsNullOrWhiteSpace(Model.PocAcceptedBy) ? "" : $" bởi {Model.PocAcceptedBy}")
+                · @Model.PocAcceptedAtUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                <div class="muted poc-panel-hint">Đội delivery đã được báo. Anh/chị vẫn ghim thêm ghi chú được nếu phát hiện điểm cần sửa.</div>
+            </div>
+        }
+        else if (canManageRequirements && Model.HasMockup)
+        {
+            <div class="poc-accept">
+                <button type="button" id="pocAcceptBtn" class="btn approve small full"
+                        data-accept-url="@Url.Action("AcceptPoc", "Projects")">
+                    ✓ Bản demo đã đạt — tôi nghiệm thu
+                </button>
+                <p class="muted poc-panel-hint">
+                    Bấm khi anh/chị đã xem xong và thấy bản demo phản ánh đúng yêu cầu. Đội delivery nhận được
+                    thông báo và mới đi tiếp các bước sau — bấm nút này KHÔNG tự khởi động gì.
+                </p>
+            </div>
+        }
+
         @if (canManageRequirements)
         {
             <div class="poc-route-req">

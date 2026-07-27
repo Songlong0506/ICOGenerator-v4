@@ -201,6 +201,16 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const text = document.getElementById("coverageProgressText");
         if (text) text.textContent = `Đã rõ ${clear}/${applicable} nhóm`;
         panel.hidden = false;
+
+        // Cổng "chốt nhanh" bám cùng bản đồ: còn nhóm trống thì hiện kèm số nhóm, hết thì ẩn hẳn (lúc đó
+        // nút "Write Requirement" đã mở — không còn gì để chốt nhanh).
+        const quick = document.getElementById("quickClosePanel");
+        if (quick) {
+            const pending = items.filter(x => x.status === "CHƯA HỎI" || x.status === "MỘT PHẦN").length;
+            quick.hidden = pending === 0;
+            const countEl = document.getElementById("quickCloseCount");
+            if (countEl) countEl.textContent = String(pending);
+        }
     }
 
     function renderDecisions(items) {
@@ -997,6 +1007,163 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
         });
     })();
+
+    // ==== Cổng "chốt nhanh phần còn lại" ====
+    // Đường tăng tốc cho phần phỏng vấn còn lại: BA đề xuất sẵn MỘT phương án cho mỗi nhóm bản đồ bao phủ
+    // còn trống, người dùng duyệt một lần thay vì trả lời từng câu qua nhiều lượt chat. Mỗi dòng mặc định
+    // "Đồng ý"; bấm "Sửa" mở ô gõ đè (dòng nào bị bỏ trống thì không được chốt). Chốt xong KHÔNG reload:
+    // server trả bản đồ đã gộp + cờ ready nên panel tiến độ và nút "Write Requirement" cập nhật tại chỗ,
+    // và lượt hội thoại vừa ghi được nối vào khung chat như một lượt bình thường.
+    (function initQuickClose() {
+        const panel = document.getElementById("quickClosePanel");
+        if (!panel) return;
+
+        const startBtn = document.getElementById("quickCloseStartBtn");
+        const bodyEl = document.getElementById("quickCloseBody");
+        const msgEl = document.getElementById("quickCloseMsg");
+        const hintEl = panel.querySelector(".quickclose-hint");
+        if (!startBtn || !bodyEl || !msgEl) return;
+
+        function token() {
+            const el = document.querySelector('input[name="__RequestVerificationToken"]');
+            return el ? el.value : "";
+        }
+
+        async function post(url, extra) {
+            const fd = new FormData();
+            fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
+            fd.append("__RequestVerificationToken", token());
+            Object.keys(extra || {}).forEach(k => fd.append(k, extra[k]));
+            const resp = await fetch(url, { method: "POST", body: fd });
+            return await resp.json();
+        }
+
+        function renderProposals(proposals) {
+            bodyEl.innerHTML = `
+                <div class="quickclose-lead">
+                    Đây là cách BA hiểu các điểm còn lại. Điểm nào <b>đúng ý</b> thì để nguyên; điểm nào
+                    <b>chưa đúng</b> thì bấm "Sửa" và ghi lại theo ý anh/chị. Bấm chốt là mình ghi nhận
+                    hết một lượt.
+                </div>
+                <ul class="quickclose-list">
+                    ${proposals.map((p, i) => `
+                        <li class="quickclose-item" data-index="${i}" data-group="${escapeHtml(p.group)}" data-question="${escapeHtml(p.question || "")}">
+                            <div class="quickclose-group">${escapeHtml(p.group)}</div>
+                            ${p.question ? `<div class="quickclose-question">${escapeHtml(p.question)}</div>` : ""}
+                            <div class="quickclose-proposal">${escapeHtml(p.proposal)}</div>
+                            <textarea class="quickclose-fix" rows="2" hidden>${escapeHtml(p.proposal)}</textarea>
+                            <div class="quickclose-actions">
+                                <button type="button" class="quickclose-vote ok is-on" data-vote="ok">Đúng ý</button>
+                                <button type="button" class="quickclose-vote edit" data-vote="edit">Sửa</button>
+                            </div>
+                        </li>
+                    `).join("")}
+                </ul>
+                <div class="quickclose-bar">
+                    <button type="button" class="btn primary full" id="quickCloseConfirmBtn">
+                        ✓ Chốt ${proposals.length} điểm này
+                    </button>
+                    <button type="button" class="btn outline full" id="quickCloseCancelBtn">Để tôi trả lời trong chat</button>
+                </div>`;
+            bodyEl.hidden = false;
+            startBtn.hidden = true;
+            if (hintEl) hintEl.hidden = true;
+        }
+
+        // Ghi lượt vừa chốt vào khung chat như một lượt bình thường: không có nó, người dùng bấm xong
+        // thấy panel biến mất mà hội thoại không đổi gì — y như thao tác vừa rồi rơi vào khoảng không.
+        function appendTurns(count) {
+            const you = document.createElement("div");
+            you.className = "req-msg you";
+            you.innerHTML = `<p>Tôi chốt luôn ${count} điểm còn lại theo phương án BA đề xuất.</p>`;
+            chatMessages.insertBefore(you, suggestionList);
+            scrollToBottom();
+        }
+
+        startBtn.addEventListener("click", async function () {
+            const original = startBtn.innerHTML;
+            startBtn.disabled = true;
+            startBtn.textContent = "BA đang soạn phương án…";
+            msgEl.textContent = "";
+            try {
+                const data = await post(panel.dataset.proposeUrl, null);
+                if (data.ok && Array.isArray(data.proposals) && data.proposals.length > 0) {
+                    renderProposals(data.proposals);
+                    return;
+                }
+                msgEl.textContent = data.error || "Chưa soạn được phương án.";
+            } catch {
+                msgEl.textContent = "Không gửi được — kiểm tra kết nối rồi thử lại.";
+            }
+            startBtn.disabled = false;
+            startBtn.innerHTML = original;
+        });
+
+        bodyEl.addEventListener("click", async function (e) {
+            const vote = e.target.closest(".quickclose-vote");
+            if (vote) {
+                const li = vote.closest(".quickclose-item");
+                const edit = vote.dataset.vote === "edit";
+                li.querySelector(".quickclose-vote.ok").classList.toggle("is-on", !edit);
+                li.querySelector(".quickclose-vote.edit").classList.toggle("is-on", edit);
+                li.querySelector(".quickclose-proposal").hidden = edit;
+                const fix = li.querySelector(".quickclose-fix");
+                fix.hidden = !edit;
+                if (edit) fix.focus();
+                return;
+            }
+
+            if (e.target.closest("#quickCloseCancelBtn")) {
+                bodyEl.hidden = true;
+                bodyEl.innerHTML = "";
+                startBtn.hidden = false;
+                startBtn.disabled = false;
+                if (hintEl) hintEl.hidden = false;
+                return;
+            }
+
+            const confirmBtn = e.target.closest("#quickCloseConfirmBtn");
+            if (!confirmBtn) return;
+
+            const items = Array.from(bodyEl.querySelectorAll(".quickclose-item"));
+            const decisions = items.map(li => {
+                const editing = li.querySelector(".quickclose-vote.edit").classList.contains("is-on");
+                const answer = editing
+                    ? li.querySelector(".quickclose-fix").value.trim()
+                    : li.querySelector(".quickclose-proposal").textContent.trim();
+                return { group: li.dataset.group, question: li.dataset.question, answer: answer };
+            }).filter(d => d.answer.length > 0);
+
+            if (decisions.length === 0) {
+                msgEl.textContent = "Chưa có điểm nào để chốt — ô đã sửa đang để trống.";
+                return;
+            }
+
+            const original = confirmBtn.textContent;
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = "Đang ghi nhận…";
+            msgEl.textContent = "";
+            try {
+                const data = await post(panel.dataset.confirmUrl, { decisionsJson: JSON.stringify(decisions) });
+                if (data.ok) {
+                    appendTurns(decisions.length);
+                    renderCoverage(data.coverage);
+                    setWriteRequirementReady(!!data.ready);
+                    panel.hidden = true;
+                    // Tải lại để khung chat có đúng lượt BA vừa lưu (kèm gợi ý/ngữ cảnh) thay vì bản dựng
+                    // tạm ở client — chờ một nhịp để người dùng kịp thấy thanh tiến độ nhảy lên.
+                    setTimeout(() => location.reload(), 900);
+                    return;
+                }
+                msgEl.textContent = data.error || "Không ghi nhận được.";
+            } catch {
+                msgEl.textContent = "Không gửi được — kiểm tra kết nối rồi thử lại.";
+            }
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = original;
+        });
+    })();
+
 }
 
 // Sau khi gửi chat, server redirect và tải lại trang Index. Mặc định trình duyệt đặt

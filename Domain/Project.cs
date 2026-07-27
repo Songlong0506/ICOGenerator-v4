@@ -87,6 +87,13 @@ public class Project
     // Agent.LearnedChecklistNotes sau mỗi vòng chỉnh sửa POC — ghi chú kiểu "thiếu màn hình X" chính là
     // câu hỏi BA lẽ ra phải hỏi từ lúc phỏng vấn. Xem PocFeedbackMemoryService.
     public int PocFeedbackHarvestedCount { get; set; }
+    // NGHIỆM THU BẢN DEMO — trạng thái KẾT của hành trình phía người dùng nghiệp vụ. Trước đây người
+    // yêu cầu xem POC, ghim ghi chú, nhờ sửa… nhưng không có cách nào nói "bản này được rồi": cổng duyệt
+    // nằm ở Agent Dashboard (quyền DeliveryAdvance), nên đội delivery phải đi hỏi miệng xem người yêu
+    // cầu đã ưng chưa, và chặng cuối của stepper không bao giờ đóng lại. null = chưa nghiệm thu.
+    // PocAcceptedBy giữ username người bấm (ai chịu trách nhiệm cho lời "được rồi" này).
+    public DateTime? PocAcceptedAtUtc { get; set; }
+    public string? PocAcceptedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<ProjectDocument> Documents { get; set; } = new List<ProjectDocument>();
     public ICollection<ProjectSourceFile> SourceFiles { get; set; } = new List<ProjectSourceFile>();

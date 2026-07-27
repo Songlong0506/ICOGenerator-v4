@@ -302,6 +302,11 @@ public class AgentTaskWorker : BackgroundService
                 pocTools.SetPocSpec(task.Input);
                 // Bối cảnh cho tầng Visual QA (agent UI/UX vision chấm ảnh): spec gốc + project/run để log.
                 pocTools.SetPocReviewContext(task.Input, task.ProjectId, task.WorkflowRunId);
+                // Dữ liệu mẫu THẬT (Excel/Word người dùng đính kèm) làm chuẩn đối chiếu cho audit: cùng
+                // nguồn đã nạp vào prompt sinh spec, giờ dùng để KIỂM CHỨNG POC có demo bằng danh mục của
+                // đơn vị yêu cầu không — thay vì chỉ hy vọng prompt được nghe lời.
+                pocTools.SetPocRealSampleData(
+                    await RealSampleDataReader.ReadAsync(db, task.ProjectId, cancellationToken));
             }
 
             var project = await db.Projects.AsNoTracking()
