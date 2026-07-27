@@ -300,3 +300,17 @@
     .poc-route-req .poc-panel-hint { margin-top: 6px; }
 
     .poc-route-req .poc-route-ok { color: #0a7d33; }
+
+/* ==== Nghiệm thu bản demo (đường ĐÓNG hành trình của người yêu cầu) ==== */
+
+.poc-accept { margin: 10px 0; }
+
+.poc-accepted {
+    margin: 10px 0;
+    padding: 8px 10px;
+    border: 1px solid #10b981;
+    border-radius: 8px;
+    background: #ecfdf5;
+    color: #065f46;
+    font-size: 12.5px;
+}

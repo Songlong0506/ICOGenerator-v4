@@ -217,6 +217,40 @@
         });
     }
 
+    // "Bản demo đã đạt — tôi nghiệm thu": đường ĐÓNG hành trình phía người yêu cầu, đối trọng với hai nút
+    // "còn sai chỗ này" bên dưới. Chỉ ghi nhận + báo người có quyền duyệt (không tự đẩy pipeline), nên sau
+    // khi thành công chỉ cần thay khối nút bằng dòng xác nhận tại chỗ.
+    const acceptBtn = document.getElementById("pocAcceptBtn");
+    if (acceptBtn) {
+        acceptBtn.addEventListener("click", async function () {
+            if (!confirm("Xác nhận bản demo này đã đạt yêu cầu? Đội delivery sẽ được báo để đi tiếp các bước sau.")) return;
+
+            const wrap = acceptBtn.closest(".poc-accept");
+            const hint = wrap ? wrap.querySelector(".poc-panel-hint") : null;
+            acceptBtn.disabled = true;
+            const original = acceptBtn.textContent;
+            acceptBtn.textContent = "Đang ghi nhận…";
+
+            const fd = new FormData();
+            fd.append("projectId", projectId);
+            if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
+
+            try {
+                const response = await fetch(acceptBtn.dataset.acceptUrl, { method: "POST", body: fd });
+                const data = await response.json().catch(() => null);
+                if (data && data.ok) {
+                    if (wrap) wrap.innerHTML = '<div class="poc-accepted">✓ <b>Đã nghiệm thu</b> — đội delivery đã được báo.</div>';
+                    return;
+                }
+                if (hint) hint.textContent = (data && data.message) || "Không ghi nhận được — thử lại sau.";
+            } catch {
+                if (hint) hint.textContent = "Không ghi nhận được — thử lại sau.";
+            }
+            acceptBtn.disabled = false;
+            acceptBtn.textContent = original;
+        });
+    }
+
     // "Nhờ đội Dev chỉnh bản demo": gom các ghi chú đang mở thành một vòng chỉnh sửa POC cho Developer.
     // Khác nút bên dưới (gửi về Requirement — sửa TÀI LIỆU rồi dựng lại), đây là đường vá chính bản demo,
     // vốn trước đây chỉ mở cho người có quyền cổng duyệt trên Agent Dashboard.

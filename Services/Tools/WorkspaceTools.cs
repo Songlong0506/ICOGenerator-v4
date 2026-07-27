@@ -37,6 +37,11 @@ public class WorkspaceTools
     private Guid _pocProjectId;
     private Guid? _pocWorkflowRunId;
 
+    // Text bóc từ Excel/Word người dùng đính kèm — cùng nguồn "dữ liệu mẫu THẬT" đã được nạp vào prompt
+    // sinh spec. Ở đây nó đóng vai KIỂM CHỨNG: audit đối chiếu để biết POC có thật sự demo bằng danh mục
+    // của đơn vị yêu cầu không, thay vì chỉ hy vọng prompt được nghe lời. null ⇒ tầng đó tự bỏ qua.
+    private string? _pocRealSampleData;
+
     // Progress sink của LƯỢT chạy hiện tại (AgentRunService set như SetRunCancellation) — để các tool POC
     // tường thuật milestone "đã dựng màn hình X" cho người dùng trong lúc chờ, thay vì chỉ feed token câm.
     // Null ngoài một agent run (unit test dựng tay) ⇒ không phát gì.
@@ -86,6 +91,9 @@ public class WorkspaceTools
         _pocProjectId = projectId;
         _pocWorkflowRunId = workflowRunId;
     }
+
+    /// <summary>Text bóc từ tài liệu Excel/Word của project cho tầng kiểm dữ liệu mẫu của AuditPocContent.</summary>
+    public void SetPocRealSampleData(string? realSampleText) => _pocRealSampleData = realSampleText;
 
     [Description("Write a source code or documentation file into the current workspace.")]
     public async Task<string> WriteFile(string relativePath, string content)
@@ -321,7 +329,7 @@ public class WorkspaceTools
         return $"POC script appended: {PocTemplate.MockupRelativePath}";
     }
 
-    [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing. It checks the wiring — sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, data-crud tables without a matching form or with mismatched field names, an empty POC logic script — AND coverage against the AI Design Spec of this run: every screen of '§ Screens To Generate' missing from the demo is an ISSUE, and the spec's business rules are echoed as a checklist you must verify actually behaves. It also opens the POC in a headless browser (RUNTIME) to collect JS errors, run window.pocSelfTest() (per-rule assertions) and window.pocScenarios() (end-to-end multi-screen business journeys), and — when a UI/UX vision agent is configured — has that agent review a screenshot of every screen for visual defects (blank screens, broken layout, wrong language) reported as VISUAL ISSUES/WARNINGS to fix the same way. " +
+    [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing. It checks the wiring — sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, data-crud tables without a matching form or with mismatched field names, an empty POC logic script — AND coverage against the AI Design Spec of this run: every screen of '§ Screens To Generate' missing from the demo is an ISSUE, and the spec's business rules are echoed as a checklist you must verify actually behaves. It also checks the SAMPLE DATA and the UI LANGUAGE: when the user attached spreadsheets/Word documents, the demo must seed its lists with the real names and catalogue values from those files (none of them on screen is an ISSUE), placeholder names ('Nguyễn Văn A', 'Product B', 'Lorem ipsum', example.com addresses) are reported, and a Vietnamese spec whose demo shows no Vietnamese text at all is an ISSUE. It also opens the POC in a headless browser (RUNTIME) to collect JS errors, run window.pocSelfTest() (per-rule assertions) and window.pocScenarios() (end-to-end multi-screen business journeys), and — when a UI/UX vision agent is configured — has that agent review a screenshot of every screen for visual defects (blank screens, broken layout, wrong language) reported as VISUAL ISSUES/WARNINGS to fix the same way. " +
         "Call it after all content and script calls, fix every reported ISSUE (AppendPocContent for missing sections/modals, ReplaceInFile for small in-place corrections, SetPocScript to replace the logic), then call it AGAIN to confirm the report is clean (up to 3 rounds) before returning your final result. It reads the file for you — do NOT re-read poc-demo.html with ReadFile.")]
     public async Task<string> AuditPocContent()
     {
@@ -330,7 +338,7 @@ public class WorkspaceTools
         if (!File.Exists(fullPath)) return $"File not found: {PocTemplate.MockupRelativePath}";
 
         var current = await File.ReadAllTextAsync(fullPath);
-        var audit = PocAudit.RunDetailed(current, _pocSpec);
+        var audit = PocAudit.RunDetailed(current, _pocSpec, new PocSampleDataContext(_pocSpecRaw, _pocRealSampleData));
         var report = audit.Report;
 
         // Chỉ chụp ảnh khi tầng Visual QA thực sự chạy được (có agent UI/UX vision) — không thì khỏi chụp phí.

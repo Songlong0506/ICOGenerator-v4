@@ -51,6 +51,12 @@ public class NotificationService : INotificationService
             string.IsNullOrWhiteSpace(error) ? "Quy trình giao hàng đã dừng vì lỗi — cần xem lại." : $"Quy trình dừng vì lỗi: {Truncate(error, 300)}",
             cancellationToken);
 
+    public Task NotifyPocAcceptedAsync(WorkflowRun run, string acceptedBy, CancellationToken cancellationToken = default) =>
+        CreateForEligibleAsync(run, NotificationType.PocAccepted,
+            "Bản demo đã được nghiệm thu",
+            $"{acceptedBy} xác nhận bản demo (POC) đã đạt — có thể duyệt cổng POC để đi tiếp các bước sau.",
+            cancellationToken);
+
     private async Task CreateForEligibleAsync(WorkflowRun run, NotificationType type, string title, string message, CancellationToken cancellationToken)
     {
         var relativeLink = $"/AgentDashboard?projectId={run.ProjectId}";

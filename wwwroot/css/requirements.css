@@ -1533,3 +1533,77 @@
    hiện nguyên dù JS đã set `hidden`. Khôi phục ý nghĩa của `hidden` cho đúng các phần tử đó. */
 .assumption-gate-bar .btn[hidden],
 .worked-list[hidden] { display: none; }
+
+/* ==== Cổng "chốt nhanh phần còn lại" (tăng tốc phần phỏng vấn còn lại) ==== */
+
+.quickclose { margin-top: 10px; }
+
+.quickclose-hint { font-size: 11px; color: #6b7280; line-height: 1.5; margin-top: 4px; }
+
+.quickclose-lead { font-size: 11.5px; line-height: 1.55; color: #4b5563; margin: 8px 0; }
+
+.quickclose-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.quickclose-item {
+    padding: 8px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.quickclose-group { font-size: 11.5px; font-weight: 600; color: var(--bosch-blue, #2563eb); }
+
+.quickclose-question { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+.quickclose-proposal { font-size: 12px; line-height: 1.5; margin-top: 5px; }
+
+.quickclose-fix {
+    width: 100%;
+    margin-top: 5px;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 6px 8px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 6px;
+    resize: vertical;
+}
+
+.quickclose-actions { display: flex; gap: 6px; margin-top: 6px; }
+
+.quickclose-vote {
+    font-family: inherit;
+    font-size: 11.5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line, #e5e7eb);
+    background: var(--surface-alt, #f3f4f6);
+    color: #4b5563;
+    cursor: pointer;
+    width: auto;
+}
+
+    .quickclose-vote.ok.is-on { background: #10b981; border-color: #10b981; color: #fff; }
+
+    .quickclose-vote.edit.is-on { background: var(--bosch-blue, #2563eb); border-color: var(--bosch-blue, #2563eb); color: #fff; }
+
+.quickclose-bar { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+
+.quickclose-msg { font-size: 11.5px; color: #dc2626; margin-top: 4px; }
+
+/* Như khối `[hidden]` ở trên: `hidden` là quy tắc display ưu tiên thấp nhất, nên mọi khai báo display
+   của ta (nút .btn inline-flex, panel/khu vực flex) ghi đè nó và phần tử vẫn lộ ra dù JS đã ẩn. */
+.quickclose[hidden],
+.quickclose-body[hidden],
+.quickclose-hint[hidden],
+.quickclose-fix[hidden],
+.quickclose-proposal[hidden],
+.quickclose .btn[hidden] { display: none; }

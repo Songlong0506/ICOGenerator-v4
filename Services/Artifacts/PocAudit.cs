@@ -41,8 +41,10 @@ public static partial class PocAudit
     /// Như <see cref="Run(string, PocSpec)"/> nhưng trả thêm danh sách issue/warning CÓ CẤU TRÚC và số
     /// màn hình spec đã phủ — để <c>AuditPocContent</c> lưu lại kết quả vòng kiểm CUỐI cho trang POC
     /// Review (người review cần biết máy đã kiểm gì và còn gì chưa đạt, không chỉ agent cần biết).
+    /// <paramref name="sampleData"/> (tùy chọn) bật thêm tầng <see cref="PocSampleDataCheck"/>: dữ liệu
+    /// mẫu có dùng đúng tài liệu người dùng gửi không, và UI có đúng ngôn ngữ của spec không.
     /// </summary>
-    public static PocAuditOutcome RunDetailed(string html, PocSpec spec)
+    public static PocAuditOutcome RunDetailed(string html, PocSpec spec, PocSampleDataContext? sampleData = null)
     {
         var issues = new List<string>();
         var warnings = new List<string>();
@@ -74,6 +76,12 @@ public static partial class PocAudit
         if (spec.WorkedExamples.Count > 0 && scriptBody.Length > 0 && !scriptBody.Contains("pocWorkedExamples", StringComparison.Ordinal))
             issues.Add($"The POC script does not define window.pocWorkedExamples() although the AI Design Spec declares {spec.WorkedExamples.Count} worked example(s) — define it (globally) to return one entry per example: [{{ ref: 'WE-1', computed: <value computed by CALLING the demo's own logic for that example's inputs> }}, …]. The audit runs it in a headless browser and checks each computed value against the user-confirmed expected result.");
         var coveredScreens = CheckSpecCoverage(spec, navLeaves, sections, issues);
+
+        // Dữ liệu mẫu + ngôn ngữ UI: chạy trên vùng POC_CONTENT của bản GỐC (không phải bản đã strip
+        // script/style ở trên — check này tự cắt vùng của nó). Không có bối cảnh ⇒ Empty, báo cáo y như cũ.
+        var sample = PocSampleDataCheck.Inspect(html, sampleData);
+        issues.AddRange(sample.Issues);
+        warnings.AddRange(sample.Warnings);
 
         var report = Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody, spec, coveredScreens);
         return new PocAuditOutcome(report, issues, warnings, spec.Screens.Count, coveredScreens);

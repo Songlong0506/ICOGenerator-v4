@@ -23,6 +23,7 @@ public class ProjectsController : Controller
     private readonly DeletePocCommentUseCase _deletePocCommentUseCase;
     private readonly RoutePocFeedbackToRequirementUseCase _routePocFeedbackUseCase;
     private readonly RequestStageRevisionUseCase _requestStageRevisionUseCase;
+    private readonly AcceptPocUseCase _acceptPocUseCase;
     private readonly IPermissionService _permissions;
     private readonly IProjectAccessGuard _projectAccess;
 
@@ -38,6 +39,7 @@ public class ProjectsController : Controller
         DeletePocCommentUseCase deletePocCommentUseCase,
         RoutePocFeedbackToRequirementUseCase routePocFeedbackUseCase,
         RequestStageRevisionUseCase requestStageRevisionUseCase,
+        AcceptPocUseCase acceptPocUseCase,
         IPermissionService permissions,
         IProjectAccessGuard projectAccess)
     {
@@ -52,6 +54,7 @@ public class ProjectsController : Controller
         _deletePocCommentUseCase = deletePocCommentUseCase;
         _routePocFeedbackUseCase = routePocFeedbackUseCase;
         _requestStageRevisionUseCase = requestStageRevisionUseCase;
+        _acceptPocUseCase = acceptPocUseCase;
         _permissions = permissions;
         _projectAccess = projectAccess;
     }
@@ -294,6 +297,30 @@ public class ProjectsController : Controller
             RequestStageRevisionResult.RevisionLimitReached => Json(new { ok = false, message = $"Bản demo đã qua {DeliveryPipeline.MaxRevisionRounds} vòng chỉnh sửa. Nếu vẫn chưa đúng thì thường là do TÀI LIỆU chưa khớp — hãy dùng nút gửi về Requirement." }),
             RequestStageRevisionResult.StageMismatch => Json(new { ok = false, message = "Quy trình đã đi qua bước bản demo nên không chỉnh ở đây được nữa — nhờ đội Dev xử lý trên Agent Dashboard." }),
             _ => Json(new { ok = false, message = "Không có bản demo nào đang chờ duyệt để chỉnh sửa." })
+        };
+    }
+
+    // NGHIỆM THU BẢN DEMO: điểm dừng của hành trình phía người yêu cầu. Trước đây họ chỉ có các đường
+    // "còn sai chỗ này" (ghim ghi chú / nhờ Dev chỉnh / gửi về Requirement) mà không có đường nào nói
+    // "được rồi", nên đội delivery phải đi hỏi miệng và chặng cuối stepper không bao giờ đóng.
+    // KHÔNG đẩy pipeline: chỉ ghi lại ai/lúc nào + báo cho người có quyền duyệt (xem AcceptPocUseCase).
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> AcceptPoc(Guid projectId)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound("Project không tồn tại.");
+
+        var result = await _acceptPocUseCase.ExecuteAsync(
+            projectId, User.Identity?.Name ?? string.Empty, HttpContext.RequestAborted);
+
+        return result switch
+        {
+            AcceptPocResult.Ok => Json(new { ok = true, message = "Đã ghi nhận anh/chị nghiệm thu bản demo — đội delivery đã được báo để đi tiếp các bước sau." }),
+            AcceptPocResult.AlreadyAccepted => Json(new { ok = false, message = "Bản demo này đã được nghiệm thu trước đó rồi." }),
+            AcceptPocResult.NoPoc => Json(new { ok = false, message = "Chưa có bản demo nào để nghiệm thu." }),
+            _ => NotFound("Project không tồn tại.")
         };
     }
 

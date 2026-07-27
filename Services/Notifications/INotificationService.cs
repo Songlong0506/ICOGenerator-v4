@@ -21,4 +21,10 @@ public interface INotificationService
 
     /// <summary>Workflow dừng vì lỗi — cần người xem lại.</summary>
     Task NotifyRunFailedAsync(WorkflowRun run, string? error, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Người yêu cầu đã NGHIỆM THU bản demo (POC). Đây là tín hiệu đội delivery vẫn phải đi hỏi miệng
+    /// trước đây: cổng duyệt nằm trên Agent Dashboard nên không ai biết người xem demo đã ưng hay chưa.
+    /// </summary>
+    Task NotifyPocAcceptedAsync(WorkflowRun run, string acceptedBy, CancellationToken cancellationToken = default);
 }

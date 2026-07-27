@@ -178,39 +178,11 @@ public class RequirementDocsService
         return result.AiDesignSpec.Content;
     }
 
-    // Trích phần text đã bóc từ các tài liệu NGUỒN có cấu trúc bảng (Excel/CSV, và Word — biểu mẫu Word
-    // render thành dòng "ô | ô"), làm dữ liệu mẫu thật cho spec. Ảnh và PDF không vào đây: text bóc từ
-    // PDF là văn xuôi, đưa vào chỗ "dữ liệu mẫu" chỉ làm nhiễu chứ không thành bản ghi seed được.
-    private async Task<string?> BuildRealSampleDataAsync(Guid projectId, CancellationToken cancellationToken)
-    {
-        const int maxFiles = 5;
-        const int maxCharsPerFile = 3000;
-
-        var sources = await _db.ProjectSourceFiles
-            .AsNoTracking()
-            .Where(s => s.ProjectId == projectId
-                        && (s.Kind == SourceFileKind.Spreadsheet || s.Kind == SourceFileKind.Document)
-                        && s.ExtractedText != null)
-            .OrderBy(s => s.CreatedAt)
-            .Take(maxFiles)
-            .Select(s => new { s.FileName, s.ExtractedText })
-            .ToListAsync(cancellationToken);
-
-        if (sources.Count == 0)
-            return null;
-
-        var sb = new System.Text.StringBuilder();
-        foreach (var s in sources)
-        {
-            var text = s.ExtractedText!.Trim();
-            if (text.Length > maxCharsPerFile)
-                text = text[..maxCharsPerFile] + "\n…(đã cắt bớt)";
-            sb.AppendLine($"[Trích từ {s.FileName}]");
-            sb.AppendLine(text);
-            sb.AppendLine();
-        }
-        return sb.ToString().TrimEnd();
-    }
+    // Dữ liệu mẫu THẬT cho spec — cùng hàm mà AuditPocContent dùng làm chuẩn đối chiếu, xem
+    // RealSampleDataReader (hai đầu phải đọc cùng một nguồn, nếu không cổng kiểm sẽ chấm POC theo một
+    // tập dữ liệu khác với tập đã đưa vào prompt).
+    private Task<string?> BuildRealSampleDataAsync(Guid projectId, CancellationToken cancellationToken) =>
+        RealSampleDataReader.ReadAsync(_db, projectId, cancellationToken);
 
     /// <summary>
     /// Lượt team dev trigger ở Agent Dashboard: sinh bộ tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) từ

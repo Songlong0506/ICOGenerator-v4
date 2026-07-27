@@ -111,7 +111,12 @@
         && (deliveryRun.Status == WorkflowRunStatus.WaitingForHuman
             || deliveryRun.Status == WorkflowRunStatus.Completed
             || deliveryRun.CurrentStage != WorkflowStageKey.PocPreview);
-    var journeyStep = pocBuilt ? 4
+    // Nghiệm thu (POST /Projects/AcceptPoc từ trang POC Review) là trạng thái KẾT: chặng cuối chuyển
+    // "done" thay vì đứng mãi ở "current". Không có nó, người dùng làm xong hết phần việc của mình mà
+    // thanh tiến trình vẫn trông như đang dở dang.
+    var pocAccepted = Model.PocAcceptedAtUtc.HasValue;
+    var journeyStep = pocAccepted ? 5
+        : pocBuilt ? 4
         : deliveryRun != null ? 3
         : hasApprovedVersion ? 2
         : productBriefs.Any() ? 1
@@ -124,7 +129,7 @@
         // CHỜ người dùng — nếu không, thanh tiến trình trông như đang chạy trong khi thực ra không ai chạy.
         ("Duyệt yêu cầu", pendingAssumptions ? "Đang chờ anh/chị xác nhận các giả định →" : "Chốt bản mô tả rồi dựng bản thiết kế"),
         ("Dựng bản demo", "Hệ thống tự tạo POC bấm được"),
-        ("Xem & góp ý", "Thử POC và ghim ghi chú cho đội Dev")
+        ("Xem & góp ý", pocAccepted ? "Anh/chị đã nghiệm thu bản demo" : "Thử POC, ghim ghi chú, rồi nghiệm thu")
     };
     var coverageClear = coverage.Count(x => x.Status == "RÕ");
     var coverageApplicable = coverage.Count(x => x.Status != "KHÔNG ÁP DỤNG");
@@ -287,6 +292,26 @@
                     </li>
                 }
             </ul>
+
+            @* CỔNG "CHỐT NHANH PHẦN CÒN LẠI": đường tăng tốc cho phần phỏng vấn còn lại. Phỏng vấn được
+               thiết kế "mỗi lượt một câu hỏi" và nút dưới đây chỉ mở khi MỌI nhóm áp dụng đã [RÕ] — đúng
+               về chất lượng nhưng cộng lại thành hàng chục lượt chat, và người dùng bận thì bỏ dở giữa
+               chừng chứ không có đường nào rút ngắn. Ở đây BA đề xuất sẵn một phương án cho từng nhóm
+               còn trống; người dùng gật đầu hoặc gõ đè, rồi chốt MỘT LẦN. Nguyên tắc "tài liệu không tự
+               giả định" giữ nguyên: phương án chỉ thành yêu cầu sau khi người dùng bấm chốt, và được ghi
+               vào hội thoại như lời của chính họ. Ẩn khi bản đồ đã đủ (không còn gì để chốt nhanh). *@
+            <div class="quickclose" id="quickClosePanel"
+                 data-propose-url="@Url.Action("ProposeGaps", "Requirements")"
+                 data-confirm-url="@Url.Action("ConfirmGaps", "Requirements")"
+                 @(coverage.Any(x => x.Status is "CHƯA HỎI" or "MỘT PHẦN") ? "" : "hidden")>
+                <button type="button" class="btn outline full quickclose-start" id="quickCloseStartBtn"
+                        title="BA đề xuất sẵn phương án cho các nhóm còn thiếu — anh/chị duyệt một lần thay vì trả lời từng câu">
+                    ⚡ Chốt nhanh <span id="quickCloseCount">@coverage.Count(x => x.Status is "CHƯA HỎI" or "MỘT PHẦN")</span> nhóm còn lại
+                </button>
+                <div class="quickclose-hint">Không muốn trả lời từng câu? Để BA đề xuất sẵn, anh/chị chỉ việc duyệt.</div>
+                <div class="quickclose-body" id="quickCloseBody" hidden></div>
+                <div class="quickclose-msg" id="quickCloseMsg"></div>
+            </div>
 
             <!-- WRITE REQUIREMENT: sinh bản mô tả sản phẩm (Product Brief) DỄ HIỂU cho user.
                  Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) do team dev trigger ở Agent Dashboard.
