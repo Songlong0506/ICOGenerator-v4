@@ -18,7 +18,14 @@ public enum RequestStageRevisionResult
     MissingFeedback,
 
     /// <summary>Đã dùng hết số vòng chỉnh sửa cho bước này (xem <see cref="DeliveryPipeline.MaxRevisionRounds"/>).</summary>
-    RevisionLimitReached
+    RevisionLimitReached,
+
+    /// <summary>
+    /// Có run đang chờ duyệt nhưng KHÔNG ở bước mà caller được phép chỉnh (xem tham số <c>onlyStage</c>) —
+    /// dùng cho đường vào của user thường ở trang POC Review: họ chỉ được chỉnh bản demo, không được với
+    /// tới các bước kỹ thuật phía sau.
+    /// </summary>
+    StageMismatch
 }
 
 /// <summary>
@@ -49,7 +56,16 @@ public class RequestStageRevisionUseCase
     /// Developer agent sửa đúng chỗ; ghi chú đã gom chuyển Sent để vòng chỉnh sửa sau không gửi lặp.
     /// Khi có ghi chú được gom, phần nhận xét gõ tay được phép trống.
     /// </param>
-    public async Task<RequestStageRevisionResult> ExecuteAsync(Guid projectId, string? feedback, Guid? runId = null, bool includePocComments = false)
+    /// <param name="onlyStage">
+    /// Khi khác null, chỉ cho phép chỉnh sửa nếu run đang chờ ở ĐÚNG bước này (ngược lại trả
+    /// <see cref="RequestStageRevisionResult.StageMismatch"/>). Đường vào từ Agent Dashboard để null (người
+    /// duyệt được chỉnh mọi bước); đường vào từ trang POC Review của user thường truyền
+    /// <see cref="WorkflowStageKey.PocPreview"/> — rào chắn để quyền "sửa demo" không nới thành quyền
+    /// điều khiển các bước kỹ thuật phía sau.
+    /// </param>
+    public async Task<RequestStageRevisionResult> ExecuteAsync(
+        Guid projectId, string? feedback, Guid? runId = null, bool includePocComments = false,
+        WorkflowStageKey? onlyStage = null)
     {
         feedback = feedback?.Trim() ?? string.Empty;
 
@@ -62,6 +78,9 @@ public class RequestStageRevisionUseCase
         var run = await query.OrderByDescending(x => x.CreatedAt).FirstOrDefaultAsync();
         if (run == null)
             return RequestStageRevisionResult.NoWaitingRun;
+
+        if (onlyStage.HasValue && run.CurrentStage != onlyStage.Value)
+            return RequestStageRevisionResult.StageMismatch;
 
         // Khi chờ duyệt, CurrentStage là bước VỪA chạy xong — đó là bước cần chỉnh sửa.
         var step = DeliveryPipeline.Find(run.CurrentStage);

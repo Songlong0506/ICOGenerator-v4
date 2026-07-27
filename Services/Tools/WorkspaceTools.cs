@@ -426,10 +426,25 @@ public class WorkspaceTools
             }
         }
 
-        // Lưu bản chụp kết quả vòng kiểm NÀY (ghi đè mỗi lần audit ⇒ file luôn là vòng cuối) cho panel
-        // "Máy đã tự kiểm" trên trang POC Review: người duyệt thấy rule/ví dụ/kịch bản nào máy đã xác
-        // nhận pass và những issue nào còn lại nếu agent hết vòng sửa mà chưa sạch. Fail-open: lưu lỗi
-        // thì bỏ qua, không làm hỏng lượt audit của agent.
+        // HỒI QUY giữa các vòng audit: đọc bản chụp vòng TRƯỚC (trước khi ghi đè) và tìm rule/kịch bản
+        // từng PASS mà vòng này FAIL hoặc biến mất. Không có tầng này thì một bản sửa làm gãy thứ đang
+        // chạy vẫn trông như "đang khá lên" — cả agent lẫn người review đều chỉ nhìn thấy vòng cuối.
+        var previousVerification = PocVerification.TryLoad(CurrentWorkspacePath);
+        var regressions = PocVerification.DetectRegressions(
+            previousVerification, runtime.SelfTestResults, runtime.ScenarioResults);
+
+        if (regressions.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("REGRESSIONS (đã PASS ở vòng kiểm TRƯỚC — bản sửa vừa rồi làm gãy; fix như ISSUES ở trên):");
+            for (var i = 0; i < regressions.Count; i++)
+                sb.AppendLine($"{i + 1}. {regressions[i]}");
+        }
+
+        // Lưu bản chụp kết quả vòng kiểm NÀY (ghi đè mỗi lần audit ⇒ file luôn là vòng cuối; bản cũ rơi
+        // vào file lịch sử) cho panel "Máy đã tự kiểm" trên trang POC Review: người duyệt thấy rule/ví dụ/
+        // kịch bản nào máy đã xác nhận pass và những issue nào còn lại nếu agent hết vòng sửa mà chưa sạch.
+        // Fail-open: lưu lỗi thì bỏ qua, không làm hỏng lượt audit của agent.
         try
         {
             var summary = new PocVerificationSummary
@@ -449,7 +464,8 @@ public class WorkspaceTools
                 RuntimeRan = runtime.Ran,
                 RuntimeSkipReason = runtime.SkipReason,
                 VisualRan = visualRan,
-                VisualWarnings = visualWarnings.ToList()
+                VisualWarnings = visualWarnings.ToList(),
+                Regressions = regressions
             };
             await PocVerification.SaveAsync(CurrentWorkspacePath, summary, RunCancellationToken);
         }

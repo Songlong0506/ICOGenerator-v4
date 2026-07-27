@@ -58,9 +58,15 @@ public class UploadProjectSourceUseCase
             _db.ProjectSourceFiles.Add(entity);
             ingested.Add(entity);
 
-            // PDF không bóc được text nào = bản scan/ảnh: nội dung sẽ KHÔNG được BA đọc (app không OCR).
-            // Gom lại để cảnh báo người dùng, tránh cảm giác "đã tải lên rồi mà BA không thấy gì".
-            if (entity.Kind == SourceFileKind.Pdf && string.IsNullOrWhiteSpace(entity.ExtractedText))
+            // PDF không bóc được text VÀ cũng không lấy được ảnh trang nào ⇒ nội dung thật sự bị bỏ qua.
+            // Gom lại để cảnh báo người dùng, tránh cảm giác "đã tải lên rồi mà BA không thấy gì". PDF scan
+            // mà lấy được ảnh trang thì KHÔNG cảnh báo: model vision đọc được nội dung qua ảnh.
+            // Tài liệu Word/bảng tính không bóc được text cũng rơi vào cùng cảnh báo — cùng một trải nghiệm
+            // hỏng ("tưởng đã gửi mà BA không thấy"), không có lý do gì để im lặng riêng cho định dạng đó.
+            var unreadable = string.IsNullOrWhiteSpace(entity.ExtractedText)
+                && entity.Kind is SourceFileKind.Pdf or SourceFileKind.Document or SourceFileKind.Spreadsheet
+                && entity.ScannedPageImageCount == 0;
+            if (unreadable)
                 scanned.Add(entity.FileName);
         }
 

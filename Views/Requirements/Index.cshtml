@@ -95,6 +95,37 @@
     // Giả định BA tự đưa khi sinh AI Design Spec (mục ## 12. Assumptions) — hiển thị cho user rà lại.
     var specAssumptions = ViewBag.SpecAssumptions as IReadOnlyList<string> ?? new List<string>();
     var specVersion = ViewBag.SpecVersion as string;
+    // CỔNG XÁC NHẬN GIẢ ĐỊNH: non-null ⇒ spec đã sinh xong nhưng POC CHƯA được dựng, đang chờ user rà
+    // danh sách giả định. Panel giả định lúc này đổi từ "để tham khảo" sang "cổng có nút bấm" — đây là
+    // chặn cuối cùng trước lượt dựng POC (lượt đắt nhất tuyến).
+    var pendingAssumptions = !string.IsNullOrEmpty(Model.PendingAssumptionsVersion);
+
+    // Stepper hành trình: user nghiệp vụ cần biết đang ở chặng nào và còn gì phía trước (trước đây trang
+    // chỉ có tiêu đề "Requirements" nên "Write Requirement" khác "Approve" ra sao là phải đoán).
+    // Suy TẤT ĐỊNH từ dữ liệu đã có trên trang — không thêm cột trạng thái nào để không có nguồn thứ hai.
+    var hasApprovedVersion = Model.Documents.Any(d => d.IsApproved && d.VersionName.StartsWith("V"));
+    var deliveryRun = workflowRuns.LastOrDefault(r => r.Name.StartsWith("Delivery Workflow", StringComparison.Ordinal));
+    // POC đã dựng xong ⇔ run delivery đã đi qua bước POC: hoặc dừng ở cổng duyệt (WaitingForHuman) hoặc
+    // đã chạy tiếp sang bước sau. Đang Running ở bước PocPreview thì vẫn là "đang dựng".
+    var pocBuilt = deliveryRun != null
+        && (deliveryRun.Status == WorkflowRunStatus.WaitingForHuman
+            || deliveryRun.Status == WorkflowRunStatus.Completed
+            || deliveryRun.CurrentStage != WorkflowStageKey.PocPreview);
+    var journeyStep = pocBuilt ? 4
+        : deliveryRun != null ? 3
+        : hasApprovedVersion ? 2
+        : productBriefs.Any() ? 1
+        : 0;
+    var journeySteps = new[]
+    {
+        ("Trò chuyện", "Kể yêu cầu để BA hỏi cho đủ"),
+        ("Bản mô tả", "BA soạn Product Brief để anh/chị đọc lại"),
+        // Chặng này ôm cả cổng xác nhận giả định: khi cổng đang mở, nói thẳng rằng quy trình đang ĐỨNG
+        // CHỜ người dùng — nếu không, thanh tiến trình trông như đang chạy trong khi thực ra không ai chạy.
+        ("Duyệt yêu cầu", pendingAssumptions ? "Đang chờ anh/chị xác nhận các giả định →" : "Chốt bản mô tả rồi dựng bản thiết kế"),
+        ("Dựng bản demo", "Hệ thống tự tạo POC bấm được"),
+        ("Xem & góp ý", "Thử POC và ghim ghi chú cho đội Dev")
+    };
     var coverageClear = coverage.Count(x => x.Status == "RÕ");
     var coverageApplicable = coverage.Count(x => x.Status != "KHÔNG ÁP DỤNG");
     // "Chào lại" cho phỏng vấn dài (F): khi quay lại một dự án đang dở (đã có tiến độ nhưng chưa xong,
@@ -167,6 +198,22 @@
         <h1>Requirements</h1>
     </div>
 </div>
+
+@* Bản đồ hành trình: chặng đã qua (done) / đang ở (current) / còn tới (mờ). Suy tất định từ tài liệu +
+   workflow run của chính trang này, nên không thể lệch với nội dung bên dưới. *@
+<ol class="journey-stepper" aria-label="Các chặng của quy trình">
+    @for (var i = 0; i < journeySteps.Length; i++)
+    {
+        var state = i < journeyStep ? "done" : i == journeyStep ? "current" : "todo";
+        <li class="journey-step @state" aria-current="@(state == "current" ? "step" : null)">
+            <span class="journey-dot">@(state == "done" ? "✓" : (i + 1).ToString())</span>
+            <span class="journey-text">
+                <b>@journeySteps[i].Item1</b>
+                <small>@journeySteps[i].Item2</small>
+            </span>
+        </li>
+    }
+</ol>
 
 @if (TempData["SourceUploaded"] != null)
 {
@@ -313,36 +360,99 @@
 
         @* "Ví dụ tính thử đã xác nhận" (A): các con số user đã chốt cho quy tắc định lượng — cũng là chuẩn
            để POC tự kiểm đối chiếu độc lập. Hiển thị để user thấy hệ thống đã ghi nhận đúng cách tính. *@
-        <div class="worked-panel" id="workedPanel" @(workedExamples.Count == 0 ? "hidden" : "")>
-            <h3>Ví dụ đã xác nhận <span class="worked-count" id="workedCount">(@workedExamples.Count)</span></h3>
-            <div class="history-sub decision-hint">Cách tính & luồng anh/chị đã chốt — bản demo (POC) sẽ được kiểm tự động theo đúng các ví dụ này.</div>
+        @* Panel này là ORACLE mà POC bị chấm theo (spec đúc thành "## 13. Worked Examples", POC phải tính
+           lại ra đúng kết quả) — nên nó SỬA ĐƯỢC tại chỗ: chép sai một ví dụ là cả tầng tự kiểm chấm theo
+           chuẩn sai. Chế độ xem và chế độ sửa dùng chung khung, JS đổi qua lại. *@
+        <div class="worked-panel" id="workedPanel" @(workedExamples.Count == 0 ? "hidden" : "")
+             data-update-url="@Url.Action("UpdateWorkedExamples", "Requirements")">
+            <h3>
+                Ví dụ đã xác nhận <span class="worked-count" id="workedCount">(@workedExamples.Count)</span>
+                <button type="button" class="worked-edit-btn" id="workedEditBtn" title="Sửa lại danh sách ví dụ">✎ Sửa</button>
+            </h3>
+            <div class="history-sub decision-hint">Cách tính &amp; luồng anh/chị đã chốt — bản demo (POC) sẽ được kiểm tự động theo đúng các ví dụ này.</div>
             <ul class="worked-list" id="workedList">
                 @foreach (var ex in workedExamples)
                 {
                     <li class="worked-item">@ex</li>
                 }
             </ul>
+            <div class="worked-editor" id="workedEditor" hidden>
+                <div class="worked-editor-hint">
+                    Mỗi dòng một ví dụ, dạng <b>đầu vào =&gt; kết quả kỳ vọng</b>
+                    (vd: <i>3 mục tiêu 80/90/70, trọng số 50/30/20 =&gt; 81</i>).
+                    Xoá hết dòng nghĩa là không có ví dụ nào để kiểm.
+                </div>
+                <textarea id="workedEditorText" rows="6" spellcheck="false"></textarea>
+                <div class="worked-editor-actions">
+                    <button type="button" class="btn primary small" id="workedSaveBtn">Lưu</button>
+                    <button type="button" class="btn outline small" id="workedCancelBtn">Hủy</button>
+                    <span class="worked-editor-msg" id="workedEditorMsg"></span>
+                </div>
+            </div>
         </div>
 
-        @* Giả định của bản thiết kế (AI Design Spec): những điều BA tự quyết thay user khi dựng spec/POC.
-           User rà mục này để không bất ngờ khi xem POC; muốn đổi giả định nào thì nhắn trong chat. *@
+        @* Giả định của bản thiết kế (AI Design Spec § 12): những điều BA tự quyết thay user.
+           HAI CHẾ ĐỘ:
+           • CỔNG (pendingAssumptions = true): POC CHƯA dựng, quy trình đang đứng chờ ở đây. Mỗi giả định
+             có hai nút Đúng/Chưa đúng; "Chưa đúng" mở ô gõ ý đúng. Xác nhận xong mới dựng POC — bắt lỗi
+             trước khi tốn trọn một lượt dựng (5–15 phút) thay vì sau.
+           • THAM KHẢO (POC đã dựng): giữ hành vi cũ — bấm vào một giả định để nhắn BA sửa qua khung chat. *@
         @if (specAssumptions.Any())
         {
-            <div class="assumption-panel" id="assumptionPanel">
+            <div class="assumption-panel @(pendingAssumptions ? "gate" : "")"
+                 id="assumptionPanel"
+                 data-pending="@(pendingAssumptions ? "true" : "false")"
+                 data-confirm-url="@Url.Action("ConfirmAssumptions", "Requirements")"
+                 data-revise-url="@Url.Action("ReviseAssumptions", "Requirements")">
                 <h3>Giả định cần xác nhận @(string.IsNullOrEmpty(specVersion) ? "" : $"({specVersion})")</h3>
-                <div class="history-sub decision-hint">
-                    BA đã tự quyết các điểm sau khi dựng bản thiết kế. <b>Rà lại giúp mình:</b> nếu điểm nào
-                    chưa đúng, bấm vào nó để sửa — mình sẽ cập nhật tài liệu và dựng lại bản demo cho khớp.
-                    Không bấm gì nghĩa là anh/chị đồng ý với các giả định này.
-                </div>
-                <ul class="assumption-list">
-                    @foreach (var assumption in specAssumptions)
-                    {
-                        <li>
-                            <button type="button" class="assumption-item" data-assumption="@assumption" title="Bấm nếu giả định này chưa đúng để sửa">@assumption</button>
-                        </li>
-                    }
-                </ul>
+                @if (pendingAssumptions)
+                {
+                    <div class="history-sub assumption-gate-hint">
+                        <b>Bản demo chưa được dựng — đang chờ anh/chị ở bước này.</b>
+                        Bản mô tả không nói rõ mấy điểm dưới đây nên BA đã tự quyết. Rà nhanh giúp mình:
+                        điểm nào <b>chưa đúng</b> thì đánh dấu và ghi ý đúng, xong bấm nút bên dưới —
+                        sửa ở đây chỉ mất vài giây, phát hiện sau khi xem demo thì phải dựng lại cả bản.
+                    </div>
+                    <ul class="assumption-list gate">
+                        @foreach (var assumption in specAssumptions)
+                        {
+                            <li class="assumption-gate-item" data-assumption="@assumption">
+                                <div class="assumption-gate-text">@assumption</div>
+                                <div class="assumption-gate-actions">
+                                    <button type="button" class="assumption-vote ok is-on" data-vote="ok">Đúng</button>
+                                    <button type="button" class="assumption-vote bad" data-vote="bad">Chưa đúng</button>
+                                </div>
+                                <textarea class="assumption-fix" rows="2" hidden
+                                          placeholder="Đúng ra là… (ghi ngắn gọn, có thể bỏ trống)"></textarea>
+                            </li>
+                        }
+                    </ul>
+                    <div class="assumption-gate-bar">
+                        <button type="button" class="btn primary full" id="assumptionConfirmBtn">
+                            ✓ Tất cả đúng — dựng bản demo
+                        </button>
+                        <button type="button" class="btn outline full" id="assumptionReviseBtn" hidden>
+                            ↻ Sửa các điểm đã đánh dấu rồi dựng lại bản thiết kế
+                        </button>
+                        <div class="assumption-gate-msg" id="assumptionGateMsg"></div>
+                    </div>
+                }
+                else
+                {
+                    <div class="history-sub decision-hint">
+                        BA đã tự quyết các điểm sau khi dựng bản thiết kế. <b>Rà lại giúp mình:</b> nếu điểm nào
+                        chưa đúng, bấm vào nó để sửa — mình sẽ cập nhật tài liệu và dựng lại bản demo cho khớp.
+                        Không bấm gì nghĩa là anh/chị đồng ý với các giả định này.
+                    </div>
+                    <ul class="assumption-list">
+                        @foreach (var assumption in specAssumptions)
+                        {
+                            <li>
+                                <button type="button" class="assumption-item" data-assumption="@assumption" title="Bấm nếu giả định này chưa đúng để sửa">@assumption</button>
+                            </li>
+                        }
+                    </ul>
+                }
             </div>
         }
 
@@ -618,14 +728,14 @@
                      lối đính kèm DUY NHẤT sau khi form upload ở sidebar bị bỏ. -->
                 <input type="file"
                        id="attachImageInput"
-                       accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf,.xlsx,.xlsm,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+                       accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf,.docx,.docm,.xlsx,.xlsm,.csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
                        multiple
                        hidden />
                 <button class="btn outline attach-btn"
                         type="button"
                         id="attachImageBtn"
                         aria-label="Đính kèm tài liệu"
-                        title="Đính kèm tài liệu để BA đọc: ảnh/chụp màn hình, PDF, Excel (.xlsx) hoặc CSV">
+                        title="Đính kèm tài liệu để BA đọc: ảnh/chụp màn hình, PDF (kể cả bản scan), Word (.docx), Excel (.xlsx) hoặc CSV">
                     <i class="bi bi-paperclip" aria-hidden="true"></i>
                 </button>
 
@@ -721,7 +831,7 @@
             </table>
 
             <div class="empty-history" id="sourceEmpty" @(sourceFiles.Any() ? "hidden" : "")>
-                Chưa có tài liệu nguồn nào. Bấm nút 📎 dưới ô nhập trong khung chat để đính kèm ảnh, PDF hoặc file Excel/CSV cho BA đọc.
+                Chưa có tài liệu nguồn nào. Bấm nút 📎 dưới ô nhập trong khung chat để đính kèm ảnh, PDF (kể cả bản scan), Word hoặc file Excel/CSV cho BA đọc.
             </div>
         </div>
 

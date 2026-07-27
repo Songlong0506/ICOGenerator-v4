@@ -67,6 +67,34 @@ public static class DeliveryPipeline
     };
 
     /// <summary>
+    /// Trần trên cho ngân sách bước của POC khi suy theo số màn hình (xem <see cref="PocStepBudget"/>) —
+    /// spec khổng lồ cũng không được đốt token vô hạn ở một bước.
+    /// </summary>
+    public const int PocMaxStepsCeiling = 30;
+
+    /// <summary>
+    /// Ngân sách bước THỰC TẾ cho bước dựng POC, suy từ số màn hình mà AI Design Spec yêu cầu.
+    ///
+    /// Vì sao không để một con số cứng: POC dựng qua nhiều call nhỏ (một SetPocContent + một
+    /// AppendPocContent cho MỖI màn hình/modal + script + các vòng audit-sửa). Con số 18 khai báo ở
+    /// <see cref="Steps"/> vừa đủ cho spec ~10 màn hình; spec 15 màn thì agent cạn bước GIỮA CHỪNG và
+    /// audit báo thiếu màn hình mà không còn lượt nào để sửa — hỏng đúng ở những dự án lớn nhất.
+    ///
+    /// Chỉ NỚI, không bao giờ siết xuống dưới con số khai báo: MaxSteps là trần chứ không phải mức tiêu,
+    /// nên spec nhỏ giữ nguyên hành vi cũ (agent xong sớm thì dừng sớm, không tốn gì).
+    /// </summary>
+    public static int PocStepBudget(int specScreenCount)
+    {
+        var declared = Find(WorkflowStageKey.PocPreview)?.MaxSteps ?? 18;
+        if (specScreenCount <= 0)
+            return declared; // spec không parse được ⇒ giữ nguyên trần khai báo.
+
+        // 10 bước nền (shell + script + 2 vòng audit/sửa) + ~1.5 bước mỗi màn hình (section + modal/sửa vặt).
+        var needed = 10 + (int)Math.Ceiling(specScreenCount * 1.5);
+        return Math.Clamp(Math.Max(declared, needed), declared, PocMaxStepsCeiling);
+    }
+
+    /// <summary>
     /// Số lần tự sửa lỗi tối đa cho một workflow run. Khi Tester báo FAIL, worker tự giao
     /// Developer sửa rồi chạy lại Testing — lặp tới khi PASS hoặc chạm trần này (tránh đốt
     /// token vô hạn nếu lỗi không hội tụ; hết trần thì dừng và để người xem lại báo cáo test).

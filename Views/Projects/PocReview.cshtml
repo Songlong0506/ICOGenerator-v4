@@ -2,6 +2,9 @@
 @{
     ViewData["Title"] = "POC Review";
     var canManage = ViewBag.CanManageComments is bool cm && cm;
+    // Quyền cho HAI nút đóng vòng ở cuối panel ghi chú (chỉnh bản demo / gửi về Requirement) — cả hai
+    // endpoint đều đòi RequirementsManage, nên UI phải soi đúng quyền đó chứ không phải DeliveryAdvance.
+    var canManageRequirements = ViewBag.CanManageRequirements is bool cmr && cmr;
 }
 
 @* Trang review POC: nhúng POC (sandbox, origin opaque — xem ProjectsController.Mockup) trong iframe ở
@@ -23,7 +26,8 @@
      data-comments-url="@Url.Action("PocComments", "Projects", new { projectId = Model.ProjectId })"
      data-add-url="@Url.Action("AddPocComment", "Projects")"
      data-delete-url="@Url.Action("DeletePocComment", "Projects")"
-     data-route-req-url="@Url.Action("RoutePocFeedbackToRequirement", "Projects")">
+     data-route-req-url="@Url.Action("RoutePocFeedbackToRequirement", "Projects")"
+     data-request-fix-url="@Url.Action("RequestPocFix", "Projects")">
 
     <section class="card poc-frame-panel">
         <div class="poc-toolbar">
@@ -174,6 +178,21 @@
                     }
                 </ul>
 
+                @* HỒI QUY giữa các vòng sửa: thứ từng chạy đúng mà vòng sửa sau làm gãy. Tách riêng khỏi
+                   "điểm chưa đạt" vì đây là tín hiệu KHÁC hẳn — không phải "chưa làm xong" mà là "đã lùi". *@
+                @if (verif.Regressions.Any())
+                {
+                    <div class="poc-cov-group">
+                        <div class="poc-cov-head poc-verif-bad">⚠ Đã chạy đúng ở vòng trước nhưng vòng này hỏng lại (@verif.Regressions.Count):</div>
+                        <ul class="poc-verif-issues">
+                            @foreach (var regression in verif.Regressions.Take(6))
+                            {
+                                <li>@regression</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
                 @if (verif.OpenIssues.Any())
                 {
                     <div class="poc-cov-group">
@@ -234,14 +253,28 @@
 
         <h3>Ghi chú trên POC <span class="poc-count" id="pocCommentCount"></span></h3>
         <p class="muted poc-panel-hint">
-            Ghi chú sẽ được gom vào "Yêu cầu chỉnh sửa" ở cổng POC (Agent Dashboard) để agent sửa đúng phần tử.
+            Ghim xong thì chọn một trong hai đường bên dưới: nhờ đội Dev <b>chỉnh bản demo</b> (lỗi trình bày,
+            nhãn, thiếu nút) hay gửi <b>về Requirement</b> (tài liệu yêu cầu hiểu sai).
         </p>
-        @* Đóng vòng POC → TÀI LIỆU: khi POC lộ ra điều tài liệu yêu cầu HIỂU SAI (thiếu màn hình/bước, sai
-           công thức…), gửi các điểm đó về BA để sửa TÀI LIỆU rồi dựng lại POC — thay vì chỉ vá HTML. Ghi
-           chú thẩm mỹ được bỏ qua ở đây. Chỉ hiện với người có quyền quản lý requirement. *@
-        @if (canManage)
+        @* HAI đường đóng vòng, cùng yêu cầu quyền RequirementsManage như endpoint:
+           • "Nhờ Dev chỉnh bản demo" — vá chính POC (Developer sửa HTML/JS theo ghi chú). Trước đây đường
+             này CHỈ có ở cổng duyệt trên Agent Dashboard (quyền DeliveryAdvance) nên người dùng nghiệp vụ
+             không có cách nào tự xử lý đúng loại lỗi họ hay bắt nhất.
+           • "Gửi về Requirement" — sửa TÀI LIỆU rồi dựng lại POC; ghi chú thuần thẩm mỹ bị bỏ qua ở đó. *@
+        @if (canManageRequirements)
         {
             <div class="poc-route-req">
+                @if (Model.PocGateOpen)
+                {
+                    <button type="button" id="pocRequestFixBtn" class="btn primary small full"
+                            data-limit-reached="@(Model.PocRevisionsUsed >= Model.PocRevisionLimit ? "true" : "false")">
+                        🛠 Nhờ đội Dev chỉnh bản demo theo ghi chú
+                    </button>
+                    <p class="muted poc-panel-hint">
+                        Dùng cho lỗi TRÌNH BÀY của bản demo (sai nhãn, thiếu nút, bảng trống, canh lệch).
+                        Đã dùng <b>@Model.PocRevisionsUsed/@Model.PocRevisionLimit</b> vòng chỉnh sửa.
+                    </p>
+                }
                 <button type="button" id="pocRouteReqBtn" class="btn outline small full">↩ Có điểm hiểu sai yêu cầu → gửi về Requirement</button>
                 <p class="muted poc-panel-hint" id="pocRouteReqHint">
                     Dùng khi bản demo cho thấy TÀI LIỆU yêu cầu còn thiếu/sai (không phải lỗi trình bày). BA sẽ

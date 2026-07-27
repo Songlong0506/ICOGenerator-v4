@@ -3,6 +3,7 @@ using ICOGenerator.Application.Requirements;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Security;
+using ICOGenerator.Services.Workflows;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
@@ -21,6 +22,7 @@ public class ProjectsController : Controller
     private readonly AddPocCommentUseCase _addPocCommentUseCase;
     private readonly DeletePocCommentUseCase _deletePocCommentUseCase;
     private readonly RoutePocFeedbackToRequirementUseCase _routePocFeedbackUseCase;
+    private readonly RequestStageRevisionUseCase _requestStageRevisionUseCase;
     private readonly IPermissionService _permissions;
     private readonly IProjectAccessGuard _projectAccess;
 
@@ -35,6 +37,7 @@ public class ProjectsController : Controller
         AddPocCommentUseCase addPocCommentUseCase,
         DeletePocCommentUseCase deletePocCommentUseCase,
         RoutePocFeedbackToRequirementUseCase routePocFeedbackUseCase,
+        RequestStageRevisionUseCase requestStageRevisionUseCase,
         IPermissionService permissions,
         IProjectAccessGuard projectAccess)
     {
@@ -48,6 +51,7 @@ public class ProjectsController : Controller
         _addPocCommentUseCase = addPocCommentUseCase;
         _deletePocCommentUseCase = deletePocCommentUseCase;
         _routePocFeedbackUseCase = routePocFeedbackUseCase;
+        _requestStageRevisionUseCase = requestStageRevisionUseCase;
         _permissions = permissions;
         _projectAccess = projectAccess;
     }
@@ -187,6 +191,11 @@ public class ProjectsController : Controller
 
         ViewBag.CanManageComments = await _permissions.HasPermissionAsync(
             User, AppPermission.DeliveryAdvance, HttpContext.RequestAborted);
+        // Hai hành động "đóng vòng" của trang này (gửi về Requirement, nhờ Dev chỉnh bản demo) đều yêu cầu
+        // RequirementsManage ở endpoint — nên UI phải soi ĐÚNG quyền đó. Trước đây chúng bị treo sau
+        // CanManageComments (DeliveryAdvance), tức là ẩn khỏi chính người dùng nghiệp vụ được phép bấm.
+        ViewBag.CanManageRequirements = await _permissions.HasPermissionAsync(
+            User, AppPermission.RequirementsManage, HttpContext.RequestAborted);
         return View(result);
     }
 
@@ -254,6 +263,37 @@ public class ProjectsController : Controller
             RoutePocFeedbackResult.NoRequirementIssue => Json(new { ok = false, message = "Các ghi chú hiện tại chỉ là chỉnh trình bày (không phải hiểu sai yêu cầu) — hãy dùng \"Yêu cầu chỉnh sửa\" ở cổng POC để đội Dev sửa demo." }),
             RoutePocFeedbackResult.BaNotConfigured => Json(new { ok = false, message = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst)." }),
             _ => NotFound("Project không tồn tại.")
+        };
+    }
+
+    // Đường "nhờ đội Dev chỉnh BẢN DEMO" cho user thường, ngay tại trang POC Review.
+    //
+    // Vì sao cần riêng: cổng duyệt delivery (ApproveStage/RequestRevision ở Agent Dashboard) đòi quyền
+    // DeliveryAdvance mà user nghiệp vụ không có, còn nút "gửi về Requirement" cạnh đây thì CỐ TÌNH bỏ
+    // qua các ghi chú thuần trình bày (xem poc-feedback-route.v1.md). Hệ quả cũ: đúng loại lỗi mà người
+    // xem demo hay bắt nhất — nhãn sai, thiếu nút, bảng trống, canh lệch — lại không có đường nào để họ
+    // xử lý, phải đi nhờ TeamDev.
+    //
+    // Rào chắn giữ nguyên: chỉ tác động khi run đang chờ ở ĐÚNG bước POC (onlyStage), không duyệt/không
+    // đẩy bước kế, và vẫn đếm chung trần DeliveryPipeline.MaxRevisionRounds như đường của người duyệt.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> RequestPocFix(Guid projectId, string? feedback)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound("Project không tồn tại.");
+
+        var result = await _requestStageRevisionUseCase.ExecuteAsync(
+            projectId, feedback, runId: null, includePocComments: true, onlyStage: WorkflowStageKey.PocPreview);
+
+        return result switch
+        {
+            RequestStageRevisionResult.Queued => Json(new { ok = true, message = "Đã gửi cho đội Dev chỉnh bản demo — theo dõi tiến độ ở trang Requirements, xong sẽ có bản mới để xem lại." }),
+            RequestStageRevisionResult.MissingFeedback => Json(new { ok = false, message = "Chưa có ghi chú nào đang mở và cũng chưa gõ nhận xét — ghim vài ghi chú trên POC rồi gửi nhé." }),
+            RequestStageRevisionResult.RevisionLimitReached => Json(new { ok = false, message = $"Bản demo đã qua {DeliveryPipeline.MaxRevisionRounds} vòng chỉnh sửa. Nếu vẫn chưa đúng thì thường là do TÀI LIỆU chưa khớp — hãy dùng nút gửi về Requirement." }),
+            RequestStageRevisionResult.StageMismatch => Json(new { ok = false, message = "Quy trình đã đi qua bước bản demo nên không chỉnh ở đây được nữa — nhờ đội Dev xử lý trên Agent Dashboard." }),
+            _ => Json(new { ok = false, message = "Không có bản demo nào đang chờ duyệt để chỉnh sửa." })
         };
     }
 

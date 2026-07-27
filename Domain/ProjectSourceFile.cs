@@ -34,8 +34,18 @@ public class ProjectSourceFile
     /// <summary>Số trang (với PDF). 0 với ảnh.</summary>
     public int PageCount { get; set; }
 
-    /// <summary>True nếu nguồn này có phần ảnh cần model vision (chỉ với file ảnh upload trực tiếp; PDF luôn false).</summary>
+    /// <summary>
+    /// True nếu nguồn này có phần ẢNH cần model vision: file ảnh upload trực tiếp, hoặc PDF scan đã lấy
+    /// được ảnh trang (<see cref="ScannedPageImageCount"/> &gt; 0).
+    /// </summary>
     public bool IsVisionSource { get; set; }
+
+    /// <summary>
+    /// Số ảnh trang PNG đã lấy ra từ các trang SCAN của PDF (nằm cạnh file gốc, tên <c>page-{n}.png</c> —
+    /// xem <see cref="Services.Requirements.PdfScanPageRenderer"/>). 0 = không phải PDF scan, hoặc không
+    /// lấy được ảnh nào (khi đó nội dung các trang scan thực sự bị bỏ qua và người dùng được cảnh báo).
+    /// </summary>
+    public int ScannedPageImageCount { get; set; }
 
     public string? UploadedByUserId { get; set; }
 

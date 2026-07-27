@@ -32,6 +32,9 @@ public class RequirementsController : Controller
     private readonly GetSourceFileContentQuery _getSourceFileContentQuery;
     private readonly EstimatePocEtaQuery _estimatePocEtaQuery;
     private readonly ReviseBriefFromNotesUseCase _reviseBriefFromNotesUseCase;
+    private readonly ConfirmSpecAssumptionsUseCase _confirmSpecAssumptionsUseCase;
+    private readonly ReviseSpecAssumptionsUseCase _reviseSpecAssumptionsUseCase;
+    private readonly UpdateWorkedExamplesUseCase _updateWorkedExamplesUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly IProjectAccessGuard _projectAccess;
     private readonly BAChatTurnTracker _chatTurnTracker;
@@ -62,6 +65,9 @@ public class RequirementsController : Controller
        GetSourceFileContentQuery getSourceFileContentQuery,
        EstimatePocEtaQuery estimatePocEtaQuery,
        ReviseBriefFromNotesUseCase reviseBriefFromNotesUseCase,
+       ConfirmSpecAssumptionsUseCase confirmSpecAssumptionsUseCase,
+       ReviseSpecAssumptionsUseCase reviseSpecAssumptionsUseCase,
+       UpdateWorkedExamplesUseCase updateWorkedExamplesUseCase,
        RetryWorkflowUseCase retryWorkflowUseCase,
        IProjectAccessGuard projectAccess,
        BAChatTurnTracker chatTurnTracker,
@@ -83,6 +89,9 @@ public class RequirementsController : Controller
         _getSourceFileContentQuery = getSourceFileContentQuery;
         _estimatePocEtaQuery = estimatePocEtaQuery;
         _reviseBriefFromNotesUseCase = reviseBriefFromNotesUseCase;
+        _confirmSpecAssumptionsUseCase = confirmSpecAssumptionsUseCase;
+        _reviseSpecAssumptionsUseCase = reviseSpecAssumptionsUseCase;
+        _updateWorkedExamplesUseCase = updateWorkedExamplesUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
         _projectAccess = projectAccess;
         _chatTurnTracker = chatTurnTracker;
@@ -438,7 +447,7 @@ public class RequirementsController : Controller
                 // tránh cảm giác "đã tải lên mà BA không thấy gì".
                 if (result.ScannedPdfNames.Count > 0)
                     TempData["SourceScanWarning"] =
-                        $"Các file sau là bản scan/ảnh nên tôi không đọc được chữ bên trong: {string.Join(", ", result.ScannedPdfNames)}. "
+                        $"Tôi không đọc được nội dung bên trong các file sau: {string.Join(", ", result.ScannedPdfNames)}. "
                         + "Hãy tải lên bản có chữ (hoặc chụp ảnh trực tiếp từng trang) nếu muốn tôi đọc nội dung đó.";
 
                 // BA đọc các nguồn mới, tóm tắt và xin xác nhận (thêm một lượt assistant) — đóng vòng phản
@@ -514,6 +523,89 @@ public class RequirementsController : Controller
             ReviseBriefResult.NoNotes => Json(new { ok = false, error = "Chưa có ghi chú nào để gửi." }),
             ReviseBriefResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
             _ => Json(new { ok = false, error = "Không gửi được ghi chú." })
+        };
+    }
+
+    // CỔNG XÁC NHẬN GIẢ ĐỊNH — nhánh "đồng ý": gỡ cổng rồi khởi động delivery workflow dựng POC. Trả JSON
+    // (panel render bằng JS như banner workflow) thay vì redirect, để trang không nháy giữa lúc user đang
+    // rà danh sách.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> ConfirmAssumptions(Guid projectId)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
+
+        var result = await _confirmSpecAssumptionsUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
+        return result switch
+        {
+            ConfirmAssumptionsResult.Ok => Json(new { ok = true }),
+            ConfirmAssumptionsResult.NothingPending => Json(new { ok = false, error = "Không còn giả định nào đang chờ xác nhận — tải lại trang nhé." }),
+            ConfirmAssumptionsResult.SpecMissing => Json(new { ok = false, error = "Không tìm thấy bản thiết kế của phiên bản này. Hãy thử duyệt lại requirement." }),
+            _ => Json(new { ok = false, error = "Không xác nhận được giả định." })
+        };
+    }
+
+    // CỔNG XÁC NHẬN GIẢ ĐỊNH — nhánh "có điểm chưa đúng": ghi đính chính, sinh LẠI AI Design Spec rồi
+    // dựng lại cổng ở lượt sinh mới (POC chưa hề được dựng nên không có gì phải vứt đi).
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> ReviseAssumptions(Guid projectId, [FromForm] string correctionsJson)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
+
+        List<AssumptionCorrection> corrections;
+        try
+        {
+            corrections = JsonSerializer.Deserialize<List<AssumptionCorrection>>(correctionsJson ?? "[]",
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AssumptionCorrection>();
+        }
+        catch
+        {
+            return Json(new { ok = false, error = "Dữ liệu đính chính không hợp lệ." });
+        }
+
+        var result = await _reviseSpecAssumptionsUseCase.ExecuteAsync(projectId, corrections, HttpContext.RequestAborted);
+        return result switch
+        {
+            ReviseAssumptionsResult.Ok => Json(new { ok = true }),
+            ReviseAssumptionsResult.NoNotes => Json(new { ok = false, error = "Chưa đánh dấu giả định nào chưa đúng." }),
+            ReviseAssumptionsResult.NothingPending => Json(new { ok = false, error = "Không còn giả định nào đang chờ xác nhận — tải lại trang nhé." }),
+            ReviseAssumptionsResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
+            _ => Json(new { ok = false, error = "Không gửi được đính chính." })
+        };
+    }
+
+    // Sửa TAY panel "Ví dụ đã xác nhận" — oracle mà POC bị chấm theo, nên user phải chỉnh được trực tiếp
+    // thay vì nói lại trong chat rồi chờ lượt chắt lọc hiểu đúng ý.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> UpdateWorkedExamples(Guid projectId, [FromForm] string examplesJson)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
+
+        List<string> examples;
+        try
+        {
+            examples = JsonSerializer.Deserialize<List<string>>(examplesJson ?? "[]") ?? new List<string>();
+        }
+        catch
+        {
+            return Json(new { ok = false, error = "Dữ liệu ví dụ không hợp lệ." });
+        }
+
+        var result = await _updateWorkedExamplesUseCase.ExecuteAsync(projectId, examples, HttpContext.RequestAborted);
+        return result switch
+        {
+            UpdateWorkedExamplesResult.Ok => Json(new { ok = true }),
+            UpdateWorkedExamplesResult.TooMany => Json(new { ok = false, error = "Quá nhiều ví dụ — giữ tối đa 30 ví dụ thôi nhé." }),
+            UpdateWorkedExamplesResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
+            _ => Json(new { ok = false, error = "Không lưu được danh sách ví dụ." })
         };
     }
 

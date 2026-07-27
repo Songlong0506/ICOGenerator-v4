@@ -379,6 +379,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<EstimatePocEtaQuery>();
         services.AddScoped<ReviseBriefFromNotesUseCase>();
         services.AddScoped<RoutePocFeedbackToRequirementUseCase>();
+        services.AddScoped<ConfirmSpecAssumptionsUseCase>();
+        services.AddScoped<ReviseSpecAssumptionsUseCase>();
+        services.AddScoped<UpdateWorkedExamplesUseCase>();
         return services;
     }
 

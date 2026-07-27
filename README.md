@@ -41,12 +41,15 @@ Luồng end-to-end nhìn từ người dùng:
 
 ```
 User tạo Project
-  └► Chat với agent BA (hỏi đáp làm rõ yêu cầu, có thể upload tài liệu nguồn)
+  └► Chat với agent BA (hỏi đáp làm rõ yêu cầu, có thể upload tài liệu nguồn:
+       ảnh, PDF — kể cả bản scan, Word .docx, Excel/CSV)
        └► "Write Requirement" → BA sinh Product Brief (ngôn ngữ đời thường, dạng draft, sửa được nhiều lần)
             └► User bấm "Approve"
                  ├► Product Brief được chốt thành V{n}
                  ├► BA sinh AI Design Spec (bản kỹ thuật) ở một run nền riêng
-                 └► Delivery Pipeline tự khởi động, chạy nền với CỔNG DUYỆT giữa mỗi bước:
+                 ├► CỔNG XÁC NHẬN GIẢ ĐỊNH: spec có giả định tự đưa ⇒ dừng cho user rà
+                 │  (Đồng ý → dựng POC; Chưa đúng → ghi đính chính rồi sinh lại spec)
+                 └► Delivery Pipeline khởi động, chạy nền với CỔNG DUYỆT giữa mỗi bước:
                       POC HTML → Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) → Kiến trúc
                       → Code đầy đủ → Code Review → Testing (tự sửa lỗi khi FAIL) → Pull Request
 ```
@@ -73,7 +76,7 @@ Bên trong, "nhân sự" là 5 **AI agent** (seed sẵn): **BA** (Business Analy
 | Agent runtime | **Microsoft.Agents.AI 1.10.0** (Microsoft Agent Framework) | `ChatClientAgent` + `AgentSession` tự lo vòng lặp ReAct |
 | LLM abstraction | **Microsoft.Extensions.AI 10.7.0** + `Microsoft.Extensions.AI.OpenAI` | Nói chuyện với mọi endpoint OpenAI-compatible (LM Studio, DeepSeek, OpenAI...) |
 | Sinh tài liệu | **DocumentFormat.OpenXml 3.5.1** | Điền nội dung vào template `.docx` trong `Templates/` |
-| Đọc PDF | **PdfPig 0.1.15** | Trích text từ tài liệu nguồn user upload |
+| Đọc PDF | **PdfPig 0.1.15** | Trích text từ tài liệu nguồn user upload; trang SCAN (không có text) được lấy ảnh nhúng ra PNG cho model vision |
 | Logging | **Serilog** (Console + File xoay ngày) | Cấu hình hoàn toàn qua `appsettings.json` |
 | Tracing/Metrics | **OpenTelemetry** (OTLP) | OPT-IN qua `Otel:Enabled`, mặc định tắt |
 | Test | **xUnit** (`tests/ICOGenerator.Tests`) | Chạy trên EF Sqlite — không cần SQL Server |
@@ -247,7 +250,7 @@ tests/ICOGenerator.Tests # xUnit
 |---|---|---|
 | `ProjectDocuments` | Tài liệu sinh ra (ProductBrief/AIDesignSpec/BRD/SRS/FSD/UserStories...): `Folder`, `VersionName`, `FileName`, `FilePath`, `Content`, `IsApproved` | Cascade theo Project |
 | `ProjectDocumentRevisions` | **Lịch sử nội dung** mỗi lần document bị ghi đè CÓ thay đổi — snapshot đầy đủ + `ChangeNote` nguồn gốc | Chốt chặn duy nhất tạo revision là `RequirementDocumentGenerator.UpsertDocument`. Diff tính lúc xem bằng `DocumentDiffService` (LCS theo dòng). Unique `(DocumentId, RevisionNumber)` |
-| `ProjectSourceFiles` | Tài liệu nguồn user upload cho BA đọc (PDF/ảnh/text...) — `ExtractedText` do `ProjectSourceIngestor` trích (PdfPig cho PDF) | Cascade theo Project |
+| `ProjectSourceFiles` | Tài liệu nguồn user upload cho BA đọc (ảnh / PDF / Word .docx / Excel-CSV) — `ExtractedText` do `ProjectSourceIngestor` trích; PDF **scan** không có text thì lấy ảnh nhúng từng trang ra `page-{n}.png` cạnh file gốc (`ScannedPageImageCount`) cho model vision | Cascade theo Project |
 | `AgentConversations` | Từng lượt hội thoại user ↔ agent trong project | Project FK Cascade, Agent FK **Restrict** (xóa agent không wipe lịch sử) |
 | `AgentModelCallLogs` | Log **mỗi lời gọi model**: request/response JSON, token, thời lượng, `Purpose`, `WorkflowRunId` (cột nhóm, cố ý không FK) | Nguồn dữ liệu của trang Usage, popup AI Call Logs, Delivery Quality |
 
@@ -325,7 +328,7 @@ Browser POST /Requirements/ChatStream (SSE)  [hoặc POST /Requirements/Chat —
                  ├► UserMemoryService                → hồ sơ user (học dần, xuyên project)
                  ├► ConversationMemoryService        → 20 lượt gần nhất nguyên văn + tóm tắt lượt cũ
                  ├► RequirementCoverageService       → bản đồ bao phủ 12 nhóm thông tin
-                 ├► SourceContextBuilder             → ngữ cảnh từ tài liệu user upload
+                 ├► SourceContextBuilder             → ngữ cảnh từ tài liệu user upload (text + ảnh/ảnh trang scan)
                  ├► RequirementPromptBuilder         → dựng prompt (template Prompts/BusinessAnalyst/*)
                  ├► ILlmClient                       → gọi LLM  [Services/Llm]
                  └► BAChatReplyParser                → parse trả lời (+ cổng readiness tất định từ bản đồ bao phủ)
@@ -340,9 +343,30 @@ Các cơ chế trí nhớ (chi tiết đầy đủ ở `ARCHITECTURE.md` §5.11�
 - **Checklist gap** (`Agent.LearnedChecklistNotes`): sau khi tài liệu sinh thành công, hệ thống rà một lần "user phải tự nêu thông tin gì mà BA chưa từng hỏi" và ghi nhớ **cho mọi project sau**.
 - **Bối cảnh tổ chức**: render từ OrgUnits/Associates, chỉ dữ liệu GỘP (không PII), cache 1h. Fail-open toàn tuyến.
 
+**Tài liệu nguồn** (`ProjectSourceIngestor`) — người dùng nghiệp vụ mô tả yêu cầu bằng thứ họ đang có, nên đường vào này quyết định chất lượng phỏng vấn:
+
+| Định dạng | Cách đọc |
+|---|---|
+| Ảnh (PNG/JPG/WebP/GIF) | gửi thẳng cho model vision |
+| PDF có text | bóc text từng trang (PdfPig) |
+| PDF **scan** | trang không có text ⇒ lấy ảnh nhúng lớn nhất của trang ra `page-{n}.png` (`PdfScanPageRenderer`), gửi cho model vision theo đúng thứ tự trang. Không lấy được ảnh nào mới cảnh báo "không đọc được" |
+| Word `.docx`/`.docm` | đoạn văn + bảng (render `ô \| ô`) theo đúng thứ tự tài liệu (`WordDocumentTextExtractor`) — quy trình/biểu mẫu phòng ban gần như luôn ở dạng này |
+| Excel `.xlsx`/`.xlsm` / CSV | tiêu đề cột + vài chục dòng mẫu (`SpreadsheetTextExtractor`) |
+
+Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spec làm **dữ liệu mẫu THẬT** (`RequirementDocsService.BuildRealSampleDataAsync`), để POC demo bằng đúng danh mục/tên của đơn vị yêu cầu thay vì "Sản phẩm A / Nguyễn Văn B".
+
+Trang Requirements còn có **stepper 5 chặng** (Trò chuyện → Bản mô tả → Duyệt yêu cầu → Dựng bản demo → Xem & góp ý) suy TẤT ĐỊNH từ tài liệu + workflow run của chính trang, và panel **"Ví dụ đã xác nhận" sửa được tay** (`UpdateWorkedExamplesUseCase`): đây là oracle mà POC bị chấm theo, nên một ví dụ chép sai làm cả tầng tự kiểm chấm theo chuẩn sai. Lượt sửa tay ghi ĐỒNG THỜI cột `Project.WorkedExamples` và một lượt hội thoại — thiếu lượt hội thoại thì `InterviewOutlookService` sẽ viết đè bản sửa về cách hiểu cũ ở lượt chat kế tiếp.
+
 **"Write Requirement"** chỉ sinh **Product Brief** (ngôn ngữ đời thường, dạng draft — user sửa đi sửa lại không đốt token bản kỹ thuật). Chạy dưới dạng workflow run một-bước loại `RequirementAnalysis` với tiến độ live (xem 6.3).
 
-**"Approve"** (`ApproveRequirementUseCase`): promote Product Brief lên `V{n}`, rồi khởi động run nền **AiDesignSpec** (một bước, BA sinh bản kỹ thuật từ Product Brief đã duyệt — chạy nền để màn hình không treo chờ LLM); xong tự khởi động Delivery Pipeline (§7).
+**"Approve"** (`ApproveRequirementUseCase`): promote Product Brief lên `V{n}`, rồi khởi động run nền **AiDesignSpec** (một bước, BA sinh bản kỹ thuật từ Product Brief đã duyệt — chạy nền để màn hình không treo chờ LLM).
+
+**Cổng xác nhận giả định** (giữa spec và POC): spec được phép tự quyết những điều Product Brief không nói (mục `## 12. Assumptions`). Nếu có giả định nào, worker **KHÔNG** khởi động Delivery Pipeline mà đánh dấu `Project.PendingAssumptionsVersion` — trang Requirements đổi panel giả định thành cổng có nút bấm:
+
+- **"Tất cả đúng — dựng bản demo"** → `ConfirmSpecAssumptionsUseCase`: gỡ cổng rồi `StartDeliveryWorkflowAsync` (đúng lời gọi worker vẫn tự chạy trước đây).
+- **"Sửa các điểm đã đánh dấu"** → `ReviseSpecAssumptionsUseCase`: ghi đính chính vào **cả** hội thoại BA (nguồn sự thật cho bản đồ bao phủ/decision log) **lẫn** `Project.SpecAssumptionCorrections` (đường tất định nạp vào prompt sinh spec — spec sinh từ Brief chứ không đọc transcript), rồi sinh LẠI spec; cổng dựng lại ở lượt sinh mới.
+
+Lý do đặt cổng ở đây chứ không sau POC: một giả định sai chỉ lộ ra khi xem POC là đã tốn trọn lượt dựng đắt nhất tuyến (5–15 phút), trong khi rà vài dòng chữ mất vài giây. Spec không có giả định nào ⇒ chạy thẳng sang Delivery Pipeline như trước (§7).
 
 ### 6.2. Động cơ 2 — Pipeline nền (bất đồng bộ, qua hàng đợi)
 
@@ -384,13 +408,15 @@ Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.
 
 | # | Stage (`WorkflowStageKey`) | Agent | `AgentTaskType` | Input | MaxSteps | Prompt template |
 |---|---|---|---|---|---|---|
-| 1 | `PocPreview` | Developer | `PocPreview` | AI Design Spec | 16 | `Developer/poc-preview.v1.md` |
+| 1 | `PocPreview` | Developer | `PocPreview` | AI Design Spec | 18, **nới theo số màn hình** của spec\*\* | `Developer/poc-preview.v1.md` |
 | 2 | `TechnicalDocs` | BA | `TechnicalDocs` | AI Design Spec | (8, không tiêu thụ*) | `BusinessAnalyst/technical-docs.v1.md` |
 | 3 | `ArchitectureDesign` | Tech Lead | `ArchitectureDesign` | AI Design Spec | 8 | `TechLead/architecture-design[-bosch].v1.md` |
 | 4 | `Implementation` | Developer | `Implementation` | Output bước trước | 40 | `Developer/implementation[-bosch].v1.md` |
 | 5 | `CodeReview` | Tech Lead | `CodeReview` | Output bước trước | 12 | `TechLead/code-review.v1.md` |
 | 6 | `Testing` | Tester | `Testing` | Output bước trước | 8 | `Tester/testing.v1.md` |
 | 7 | `PullRequest` | Developer | `PullRequest` | Output bước trước | 6 | `Developer/pull-request.v1.md` |
+
+\*\* POC dựng qua nhiều call nhỏ (một `AppendPocContent` cho MỖI màn hình), nên ngân sách bước suy từ số màn hình spec khai báo — `DeliveryPipeline.PocStepBudget` (≈ `10 + 1.5×số màn hình`, trần `PocMaxStepsCeiling = 30`). Chỉ NỚI, không siết dưới con số khai báo: `MaxSteps` là trần chứ không phải mức tiêu.
 
 \* Bước TechnicalDocs **không** chạy qua agent + prompt chung: worker xử lý nhánh riêng, gọi `RequirementDocsService.GenerateTechnicalDocsAsync` (BA cần đọc context project) — sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design Spec đã duyệt.
 
@@ -589,8 +615,11 @@ Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-
 
 - File `04_Implementation/poc-demo.html` — seed từ `Prompts/Design/poc-template.html` ở bước PocPreview; hai vùng marker do `PocTemplate.cs` quản: `POC_CONTENT` (HTML) và `POC_SCRIPT` (JS; shell expose `window.pocToast`/`window.pocNavigate`).
 - Yêu cầu của bước POC: hiện thực **Business Rules của spec thành hành vi thật** (tính toán, validate, chuyển trạng thái, mô phỏng vai) chứ không chỉ màn hình tĩnh; agent tự soát bằng `AuditPocContent` (`PocAudit.cs` đối chiếu cả độ phủ với "Screens To Generate" + "BR-n" của spec, do `PocSpec.cs` parse).
+- **Kiểm ở hai bề rộng**: `PocRuntimeChecker` đi qua từng màn hình ở 1440px rồi mở lại toàn bộ ở **390px** (điện thoại) — tràn ngang ở bề rộng nào cũng thành ISSUE, và ảnh mobile cũng được đưa cho tầng Visual QA. Trước đây mọi thứ chỉ kiểm ở desktop nên lớp lỗi "vỡ trên màn hẹp" không cổng nào thấy.
+- **Chống hồi quy giữa các vòng sửa**: `poc-verification.json` giữ vòng kiểm mới nhất, các vòng cũ rơi vào `poc-verification-history.json`. Mỗi lượt audit so với vòng trước (`PocVerification.DetectRegressions`) và báo mục từng PASS mà nay FAIL **hoặc biến mất** (xoá assertion cũng bị tính là hồi quy) — mục `REGRESSIONS` trong báo cáo cho agent, và một khối riêng trên trang POC Review. Khi POC được dựng lại từ đầu, `PocVerification.Reset` xoá cả hai file để không so với một bản POC không còn tồn tại.
 - Xem POC: `GET /Projects/Mockup?projectId=` — endpoint **sandbox riêng** (HTML do LLM sinh không được thả vào layout chính).
 - **Review POC (ghim ghi chú lên phần tử)**: `GET /Projects/PocReview?projectId=` nhúng POC trong iframe ở chế độ review (`Mockup?review=True` tiêm `wwwroot/js/poc-annotator.js` lúc phục vụ — file trên đĩa không đổi). Người xem bật "chế độ ghim", click phần tử → annotator gửi mô tả (màn hình `data-view`, nhãn, CSS selector, vị trí %) lên trang cha qua postMessage → lưu bảng `PocComments`. Pin đánh số vẽ ngay trên phần tử. Sandbox giữ nguyên (origin opaque, không cookie) — mọi thao tác ghi đều từ trang cha. Các ghi chú `Open` được gom vào "Yêu cầu chỉnh sửa" tại cổng POC (xem §7.2).
+- **Hai đường đóng vòng cho người dùng nghiệp vụ** ngay tại trang POC Review (đều cần `RequirementsManage`): `POST /Projects/RequestPocFix` — gom ghi chú Open thành một vòng chỉnh sửa POC cho Developer (`RequestStageRevisionUseCase` với `onlyStage: PocPreview`, đếm chung trần `MaxRevisionRounds`; rào `onlyStage` để quyền "sửa demo" không nới thành quyền điều khiển các bước kỹ thuật phía sau); và `POST /Projects/RoutePocFeedbackToRequirement` — gửi các điểm HIỂU SAI YÊU CẦU về BA sửa tài liệu. Trước đây đường thứ nhất chỉ có ở cổng duyệt trên Agent Dashboard (`DeliveryAdvance`), nên đúng loại lỗi người xem demo hay bắt nhất (nhãn sai, thiếu nút, bảng trống) lại không có đường nào để họ xử lý.
 - Khi task là revision, worker **bỏ qua re-seed** POC để không ghi đè sản phẩm cũ về placeholder.
 
 ### 11.3. Khung Bosch & tải source
@@ -607,8 +636,8 @@ Route mặc định: `{controller=Projects}/{action=Index}/{id?}`. Mọi endpoin
 | Màn hình | Controller | Actions chính | Quyền |
 |---|---|---|---|
 | **Login** | `Account` | `GET/POST Login` (AllowAnonymous), `POST Logout`, `GET AccessDenied` | — |
-| **Projects** (trang chủ) | `Projects` | `Index` (lọc theo chủ nếu không có `ProjectsViewAll`), `POST Create`, `Mockup` (xem POC sandbox; `review=True` tiêm annotator), `PocReview` (review POC + ghim ghi chú), `GET PocComments`, `POST AddPocComment`/`DeletePocComment`, `DownloadSource` (zip) | `ProjectsView`; Create: `ProjectsCreate`; thêm ghi chú POC: `ProjectsView` (như Feedback — quyền View đủ để gửi phản hồi của mình); xóa: chủ ghi chú hoặc `DeliveryAdvance` |
-| **Requirements** (workspace chat BA) | `Requirements` | `Index`, `POST ChatStream` (SSE — đường chat chính, stream token), `POST Chat` (fallback postback), `POST UploadSource`/`DeleteSource`, `POST WriteRequirement`, `POST Approve`, `POST NewChat`, `GET WorkflowStatus`/`WorkflowStream` (SSE), `GET DocumentRevisions`/`DocumentRevisionDiff`/`DocumentPreview`/`DownloadDocument` | `RequirementsView`; mọi thao tác ghi: `RequirementsManage` |
+| **Projects** (trang chủ) | `Projects` | `Index` (lọc theo chủ nếu không có `ProjectsViewAll`), `POST Create`, `Mockup` (xem POC sandbox; `review=True` tiêm annotator), `PocReview` (review POC + ghim ghi chú), `GET PocComments`, `POST AddPocComment`/`DeletePocComment`, `POST RequestPocFix` (nhờ Dev chỉnh demo), `POST RoutePocFeedbackToRequirement`, `DownloadSource` (zip) | `ProjectsView`; Create: `ProjectsCreate`; thêm ghi chú POC: `ProjectsView` (như Feedback — quyền View đủ để gửi phản hồi của mình); xóa: chủ ghi chú hoặc `DeliveryAdvance` |
+| **Requirements** (workspace chat BA) | `Requirements` | `Index`, `POST ChatStream` (SSE — đường chat chính, stream token), `POST Chat` (fallback postback), `POST UploadSource`/`DeleteSource`, `POST WriteRequirement`, `POST Approve`, `POST ConfirmAssumptions`/`ReviseAssumptions` (cổng giả định), `POST UpdateWorkedExamples` (sửa tay oracle), `POST NewChat`, `GET WorkflowStatus`/`WorkflowStream` (SSE), `GET DocumentRevisions`/`DocumentRevisionDiff`/`DocumentPreview`/`DownloadDocument` | `RequirementsView`; mọi thao tác ghi: `RequirementsManage` |
 | **Agent Dashboard** (điều phối delivery) | `AgentDashboard` | `Index`, `GET WorkflowStatus`/`ActiveAgents`/`AgentStats`/`AgentActivity`/`AgentCallLogs`/`CallLogDetail`/`DocumentPreview`, `POST ApproveStage`/`RejectStage`/`RequestRevision`/`RetryWorkflow`/`UpdateDeliveryConfig` | `AgentsView`; các POST cổng duyệt: `DeliveryAdvance` |
 | **Agents** (cấu hình agent) | `Agents` | `Index`, `POST Update` (model, temperature, tools...) | `AgentsView` / `AgentsManage` |
 | **AI Models** | `Models` | `Index`, `POST Create`/`Update`/`Delete`/`TestConnection` | `ModelsView` / `ModelsCreate`/`Edit`/`Delete`; `TestConnection` cần `ModelsCreate` HOẶC `ModelsEdit` |

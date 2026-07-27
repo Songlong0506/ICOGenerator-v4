@@ -217,6 +217,49 @@
         });
     }
 
+    // "Nhờ đội Dev chỉnh bản demo": gom các ghi chú đang mở thành một vòng chỉnh sửa POC cho Developer.
+    // Khác nút bên dưới (gửi về Requirement — sửa TÀI LIỆU rồi dựng lại), đây là đường vá chính bản demo,
+    // vốn trước đây chỉ mở cho người có quyền cổng duyệt trên Agent Dashboard.
+    const requestFixBtn = document.getElementById("pocRequestFixBtn");
+    const requestFixUrl = root.dataset.requestFixUrl;
+    if (requestFixBtn && requestFixUrl) {
+        const fixHint = requestFixBtn.nextElementSibling;
+
+        requestFixBtn.addEventListener("click", async function () {
+            if (requestFixBtn.dataset.limitReached === "true") {
+                if (fixHint) fixHint.textContent = "Đã hết số vòng chỉnh sửa cho bản demo này — nếu vẫn chưa đúng thì thường là do tài liệu, hãy dùng nút gửi về Requirement.";
+                return;
+            }
+            if (!confirm("Gửi các ghi chú đang mở cho đội Dev chỉnh bản demo?")) return;
+
+            requestFixBtn.disabled = true;
+            const original = requestFixBtn.textContent;
+            requestFixBtn.textContent = "Đang gửi…";
+
+            const fd = new FormData();
+            fd.append("projectId", projectId);
+            if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
+
+            try {
+                const response = await fetch(requestFixUrl, { method: "POST", body: fd });
+                const data = await response.json().catch(() => null);
+                if (fixHint && data && data.message) {
+                    fixHint.textContent = data.message;
+                    fixHint.classList.toggle("poc-route-ok", !!data.ok);
+                }
+                if (data && data.ok) {
+                    // Ghi chú đã chuyển sang Sent (đang được sửa) — làm tươi danh sách như nút kia.
+                    await loadComments();
+                }
+            } catch {
+                if (fixHint) fixHint.textContent = "Không gửi được — thử lại sau.";
+            } finally {
+                requestFixBtn.disabled = false;
+                requestFixBtn.textContent = original;
+            }
+        });
+    }
+
     // ===== Tin nhắn từ annotator trong iframe =====
 
     window.addEventListener("message", function (e) {

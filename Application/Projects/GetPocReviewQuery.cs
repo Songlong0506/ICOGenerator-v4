@@ -3,6 +3,7 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Requirements;
+using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Projects;
@@ -30,7 +31,14 @@ public record PocReviewPage(
     UatScenarioSet Scenarios,
     IReadOnlyList<PocRevisionEntry> Revisions,
     PocReviewCoverage Coverage,
-    PocVerificationSummary? Verification);
+    PocVerificationSummary? Verification,
+    // Cổng POC đang mở (có run chờ duyệt ĐÚNG ở bước PocPreview) ⇒ trang này còn gửi được yêu cầu chỉnh
+    // bản demo cho Developer; đã đi qua bước POC thì nút đó vô nghĩa và bị ẩn.
+    bool PocGateOpen,
+    // Số vòng chỉnh sửa POC đã dùng / trần cho phép — hiện thẳng trên nút để người dùng biết còn mấy lượt
+    // trước khi hết (trần là DeliveryPipeline.MaxRevisionRounds).
+    int PocRevisionsUsed,
+    int PocRevisionLimit);
 
 /// <summary>
 /// Dữ liệu cho trang review POC (Projects/PocReview): tên project, POC đã tồn tại chưa, bộ kịch bản
@@ -89,7 +97,22 @@ public class GetPocReviewQuery
             .Select(t => new PocRevisionEntry(t.Title, t.FinishedAt, t.Output!))
             .ToListAsync(cancellationToken);
 
-        return new PocReviewPage(project.Id, project.Name, File.Exists(mockupPath), scenarios, revisions, coverage, verification);
+        // Cổng POC còn mở không, và đã dùng mấy vòng chỉnh sửa — đếm CÙNG cách với
+        // RequestStageRevisionUseCase (task PocPreview có RevisionFeedback) để con số trên nút không vênh
+        // với cổng thật; đếm trên toàn project vì mỗi lần Approve là một delivery run mới cho cùng POC.
+        var pocGateOpen = await _db.WorkflowRuns.AsNoTracking()
+            .AnyAsync(r => r.ProjectId == projectId
+                           && r.Status == WorkflowRunStatus.WaitingForHuman
+                           && r.CurrentStage == WorkflowStageKey.PocPreview, cancellationToken);
+
+        var revisionsUsed = await _db.AgentTasks.AsNoTracking()
+            .CountAsync(t => t.ProjectId == projectId
+                             && t.Type == AgentTaskType.PocPreview
+                             && t.RevisionFeedback != null, cancellationToken);
+
+        return new PocReviewPage(
+            project.Id, project.Name, File.Exists(mockupPath), scenarios, revisions, coverage, verification,
+            pocGateOpen, revisionsUsed, DeliveryPipeline.MaxRevisionRounds);
     }
 
     // Nạp AI Design Spec mới nhất (mọi phiên bản), parse bằng chính PocSpec của audit, rồi cross-link mỗi

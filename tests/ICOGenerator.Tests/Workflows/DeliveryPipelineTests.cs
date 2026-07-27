@@ -105,4 +105,42 @@ public class DeliveryPipelineTests
     [Fact]
     public void MaxBugFixAttempts_IsPositive()
         => Assert.True(DeliveryPipeline.MaxBugFixAttempts > 0);
+
+    // ==== Ngân sách bước động cho bước dựng POC ====
+    // POC dựng qua nhiều call nhỏ (một Append cho MỖI màn hình), nên một con số cứng làm spec lớn cạn
+    // bước giữa chừng. Quy tắc: chỉ NỚI theo số màn hình, không bao giờ siết dưới con số khai báo.
+
+    [Fact]
+    public void PocStepBudget_UnparsableSpec_KeepsDeclaredBudget()
+    {
+        var declared = DeliveryPipeline.Find(WorkflowStageKey.PocPreview)!.MaxSteps;
+
+        Assert.Equal(declared, DeliveryPipeline.PocStepBudget(0));
+        Assert.Equal(declared, DeliveryPipeline.PocStepBudget(-3));
+    }
+
+    [Fact]
+    public void PocStepBudget_SmallSpec_NeverGoesBelowDeclaredBudget()
+    {
+        var declared = DeliveryPipeline.Find(WorkflowStageKey.PocPreview)!.MaxSteps;
+
+        // 3 màn hình "cần" ~15 bước, nhưng MaxSteps là TRẦN chứ không phải mức tiêu — siết xuống chỉ tạo
+        // rủi ro cạn bước cho dự án nhỏ mà không tiết kiệm được gì.
+        Assert.Equal(declared, DeliveryPipeline.PocStepBudget(3));
+    }
+
+    [Fact]
+    public void PocStepBudget_LargeSpec_GrowsWithScreenCount()
+    {
+        var declared = DeliveryPipeline.Find(WorkflowStageKey.PocPreview)!.MaxSteps;
+
+        Assert.True(DeliveryPipeline.PocStepBudget(14) > declared);
+        Assert.True(DeliveryPipeline.PocStepBudget(14) > DeliveryPipeline.PocStepBudget(10));
+    }
+
+    [Fact]
+    public void PocStepBudget_HugeSpec_IsCappedByCeiling()
+    {
+        Assert.Equal(DeliveryPipeline.PocMaxStepsCeiling, DeliveryPipeline.PocStepBudget(200));
+    }
 }

@@ -70,6 +70,19 @@ public class Project
     public string? PlannedScope { get; set; }
     public string? WorkedExamples { get; set; }
     public int InterviewOutlookHarvestedTurnCount { get; set; }
+    // CỔNG XÁC NHẬN GIẢ ĐỊNH (giữa "sinh AI Design Spec" và "dựng POC"). Spec được phép tự đưa giả định
+    // (mục "## 12. Assumptions") cho những điều Product Brief không nói; trước đây các giả định đó đi
+    // THẲNG vào POC và user chỉ phát hiện sai sau khi ngồi chờ cả lượt dựng POC. Nay spec sinh xong mà
+    // có giả định thì worker DỪNG lại: PendingAssumptionsVersion = phiên bản V{n} đang chờ user rà —
+    // non-null ⇔ trang Requirements hiện cổng "Xác nhận & dựng bản demo". Xác nhận ⇒ về null rồi mới
+    // khởi động delivery workflow; báo sai ⇒ về null, ghi đính chính vào SpecAssumptionCorrections và
+    // sinh lại spec (rồi cổng dựng lại). null trên dự án cũ = không có gì chờ, luồng chạy như trước.
+    public string? PendingAssumptionsVersion { get; set; }
+    // Các đính chính giả định người dùng đã gửi ở cổng trên, gom tích lũy (text bullet). Được nạp vào
+    // prompt sinh AI Design Spec (RequirementPromptBuilder.BuildAiDesignSpec) để lượt sinh lại KHÔNG
+    // lặp lại đúng giả định vừa bị bác. Giữ lại sau khi đã xác nhận: các lần sinh spec sau (phiên bản
+    // mới) vẫn phải tôn trọng điều user đã đính chính.
+    public string? SpecAssumptionCorrections { get; set; }
     // Con trỏ học từ ghi chú POC: số PocComment (xếp theo CreatedAt) của dự án đã được chắt lọc vào
     // Agent.LearnedChecklistNotes sau mỗi vòng chỉnh sửa POC — ghi chú kiểu "thiếu màn hình X" chính là
     // câu hỏi BA lẽ ra phải hỏi từ lúc phỏng vấn. Xem PocFeedbackMemoryService.

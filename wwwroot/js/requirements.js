@@ -240,6 +240,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const panel = document.getElementById(panelId);
         const list = document.getElementById(listId);
         if (!panel || !list || !Array.isArray(items)) return;
+        // Người dùng đang SỬA TAY panel này (xem initWorkedExamplesEditor): đừng viết đè lên thứ họ đang
+        // gõ — bản chắt lọc của lượt chat sẽ được áp ở lần tải trang sau.
+        if (panel.dataset.editing === "true") return;
         if (items.length === 0) { panel.hidden = true; return; }
         list.innerHTML = items.map(itemHtml).join("");
         const count = document.getElementById(countId);
@@ -731,9 +734,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // PDF/bảng tính thành chip tên file: user gõ thêm ghi chú, xoá bớt, rồi bấm gửi mới thật sự upload
     // qua endpoint UploadSource (kèm ghi chú) → BA tóm tắt → reload.
 
-    // Danh sách định dạng phải khớp ProjectSourceIngestor (ảnh PNG/JPG/WebP/GIF, PDF, .xlsx/.xlsm/.csv):
+    // Danh sách định dạng phải khớp ProjectSourceIngestor (ảnh PNG/JPG/WebP/GIF, PDF, .docx/.docm, .xlsx/.xlsm/.csv):
     // lọc ngay ở client để user biết file không hỗ trợ TRƯỚC khi upload, thay vì nhận lỗi sau một vòng POST.
-    const SUPPORTED_DOC_EXTS = [".pdf", ".xlsx", ".xlsm", ".csv"];
+    const SUPPORTED_DOC_EXTS = [".pdf", ".docx", ".docm", ".xlsx", ".xlsm", ".csv"];
 
     function isImageFile(f) {
         return !!(f.type && f.type.startsWith("image/"));
@@ -800,7 +803,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
             if (rejected.length > 0) {
                 alert("Không hỗ trợ định dạng của: " + rejected.map(f => f.name || "tệp không tên").join(", ")
-                    + ".\nChỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF hoặc bảng tính (.xlsx/.xlsm/.csv).");
+                    + ".\nChỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF, Word (.docx) hoặc bảng tính (.xlsx/.xlsm/.csv).");
             }
             if (accepted.length === 0) return;
 
@@ -1317,4 +1320,166 @@ function closeRequirementModal() {
             }
         });
     }
+})();
+
+// ==== Cổng xác nhận giả định (giữa "sinh bản thiết kế" và "dựng POC") ====
+// Panel ở chế độ CỔNG (data-pending="true") nghĩa là POC chưa hề được dựng: quy trình đang đứng chờ user
+// rà danh sách giả định mà bản thiết kế tự quyết. Mỗi dòng mặc định "Đúng"; bấm "Chưa đúng" mở ô gõ ý
+// đúng và đổi nút hành động sang nhánh sửa. Chỉ MỘT nút hiện tại mỗi thời điểm để không có hai đường
+// tiếp tục cạnh nhau — nhánh nào cũng dẫn tới một lượt chạy nền nên trang reload sau khi gửi.
+(function initAssumptionGate() {
+    const panel = document.getElementById("assumptionPanel");
+    if (!panel || panel.dataset.pending !== "true") return;
+
+    const confirmBtn = document.getElementById("assumptionConfirmBtn");
+    const reviseBtn = document.getElementById("assumptionReviseBtn");
+    const msgEl = document.getElementById("assumptionGateMsg");
+    const items = Array.from(panel.querySelectorAll(".assumption-gate-item"));
+
+    function markedBad() {
+        return items.filter(li => li.querySelector('.assumption-vote.bad').classList.contains("is-on"));
+    }
+
+    // Nút hiển thị theo trạng thái đánh dấu: chưa đánh dấu gì ⇒ "tất cả đúng, dựng demo";
+    // có ít nhất một điểm sai ⇒ chỉ còn nhánh sửa (dựng POC từ giả định đã biết là sai là phí một lượt).
+    function syncButtons() {
+        const bad = markedBad().length;
+        confirmBtn.hidden = bad > 0;
+        reviseBtn.hidden = bad === 0;
+        reviseBtn.textContent = `↻ Sửa ${bad} điểm đã đánh dấu rồi dựng lại bản thiết kế`;
+    }
+
+    panel.addEventListener("click", function (e) {
+        const vote = e.target.closest(".assumption-vote");
+        if (!vote) return;
+        const li = vote.closest(".assumption-gate-item");
+        const bad = vote.dataset.vote === "bad";
+        li.querySelector(".assumption-vote.ok").classList.toggle("is-on", !bad);
+        li.querySelector(".assumption-vote.bad").classList.toggle("is-on", bad);
+        const fix = li.querySelector(".assumption-fix");
+        fix.hidden = !bad;
+        if (bad) fix.focus();
+        syncButtons();
+    });
+
+    async function post(url, extra) {
+        const token = document.querySelector('input[name="__RequestVerificationToken"]');
+        const fd = new FormData();
+        fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
+        if (token) fd.append("__RequestVerificationToken", token.value);
+        Object.keys(extra || {}).forEach(k => fd.append(k, extra[k]));
+        const resp = await fetch(url, { method: "POST", body: fd });
+        return await resp.json();
+    }
+
+    async function run(btn, url, extra, busyText) {
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = busyText;
+        msgEl.textContent = "";
+        try {
+            const data = await post(url, extra);
+            if (data.ok) {
+                location.reload();
+                return;
+            }
+            msgEl.textContent = data.error || "Không gửi được.";
+        } catch {
+            msgEl.textContent = "Không gửi được — kiểm tra kết nối rồi thử lại.";
+        }
+        btn.disabled = false;
+        btn.textContent = original;
+    }
+
+    confirmBtn.addEventListener("click", () =>
+        run(confirmBtn, panel.dataset.confirmUrl, null, "Đang khởi động dựng bản demo…"));
+
+    reviseBtn.addEventListener("click", function () {
+        const corrections = markedBad().map(li => ({
+            assumption: li.dataset.assumption,
+            correction: li.querySelector(".assumption-fix").value.trim()
+        }));
+        if (corrections.length === 0) return;
+        run(reviseBtn, panel.dataset.reviseUrl,
+            { correctionsJson: JSON.stringify(corrections) }, "Đang gửi đính chính…");
+    });
+
+    syncButtons();
+})();
+
+// ==== Sửa tay panel "Ví dụ đã xác nhận" ====
+// Đây là oracle mà POC bị chấm theo (spec đúc thành "## 13. Worked Examples", POC phải tính lại ra đúng
+// kết quả), nên một ví dụ chép sai từ hội thoại làm cả tầng tự kiểm chấm theo chuẩn sai. Editor là một
+// textarea "mỗi dòng một ví dụ" — đơn giản nhất cho người nghiệp vụ và khớp đúng dạng lưu (bullet).
+(function initWorkedExamplesEditor() {
+    const panel = document.getElementById("workedPanel");
+    if (!panel) return;
+
+    const listEl = document.getElementById("workedList");
+    const editBtn = document.getElementById("workedEditBtn");
+    const editor = document.getElementById("workedEditor");
+    const textEl = document.getElementById("workedEditorText");
+    const saveBtn = document.getElementById("workedSaveBtn");
+    const cancelBtn = document.getElementById("workedCancelBtn");
+    const msgEl = document.getElementById("workedEditorMsg");
+    const countEl = document.getElementById("workedCount");
+    if (!listEl || !editBtn || !editor) return;
+
+    function currentItems() {
+        return Array.from(listEl.querySelectorAll(".worked-item")).map(li => li.textContent.trim());
+    }
+
+    function openEditor() {
+        textEl.value = currentItems().join("\n");
+        panel.dataset.editing = "true";
+        editor.hidden = false;
+        listEl.hidden = true;
+        editBtn.hidden = true;
+        msgEl.textContent = "";
+        textEl.focus();
+    }
+
+    function closeEditor() {
+        delete panel.dataset.editing;
+        editor.hidden = true;
+        listEl.hidden = false;
+        editBtn.hidden = false;
+    }
+
+    editBtn.addEventListener("click", openEditor);
+    cancelBtn.addEventListener("click", closeEditor);
+
+    saveBtn.addEventListener("click", async function () {
+        const examples = textEl.value.split("\n")
+            .map(l => l.replace(/^[-*]\s+/, "").trim())
+            .filter(l => l.length > 0);
+
+        const token = document.querySelector('input[name="__RequestVerificationToken"]');
+        const fd = new FormData();
+        fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
+        fd.append("examplesJson", JSON.stringify(examples));
+        if (token) fd.append("__RequestVerificationToken", token.value);
+
+        saveBtn.disabled = true;
+        msgEl.textContent = "Đang lưu…";
+        try {
+            const resp = await fetch(panel.dataset.updateUrl, { method: "POST", body: fd });
+            const data = await resp.json();
+            if (data.ok) {
+                // Render lại tại chỗ: lượt ghi cũng thêm một lượt hội thoại, nhưng nó chỉ là dấu vết cho
+                // bước chắt lọc sau — không có gì mới để user đọc nên khỏi reload cả trang.
+                listEl.innerHTML = examples
+                    .map(e => `<li class="worked-item">${escapeHtml(e)}</li>`).join("");
+                if (countEl) countEl.textContent = `(${examples.length})`;
+                panel.hidden = examples.length === 0;
+                msgEl.textContent = "";
+                closeEditor();
+            } else {
+                msgEl.textContent = data.error || "Không lưu được.";
+            }
+        } catch {
+            msgEl.textContent = "Không lưu được — kiểm tra kết nối rồi thử lại.";
+        }
+        saveBtn.disabled = false;
+    });
 })();
