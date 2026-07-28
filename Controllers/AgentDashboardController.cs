@@ -57,16 +57,15 @@ public class AgentDashboardController : Controller
         _projectAccess = projectAccess;
     }
 
-    // TeamDev/Admin có ProjectsViewAll nên luôn pass; guard này chỉ chặn role tùy biến có AgentsView
-    // nhưng KHÔNG có ProjectsViewAll khỏi dòm dashboard của project người khác qua GUID.
+    // TeamDev/Admin có ProjectsViewAll nên luôn pass; [RequireProjectAccess] chỉ chặn role tùy biến có
+    // AgentsView nhưng KHÔNG có ProjectsViewAll khỏi dòm dashboard của project người khác qua GUID.
+    // Chỉ DocumentPreview còn tự kiểm tra trong thân action (hai cách định địa chỉ, xem tại chỗ).
     private Task<bool> CanAccessProjectAsync(Guid projectId) =>
         _projectAccess.CanAccessProjectAsync(User, projectId, HttpContext.RequestAborted);
 
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> Index(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction("Index", "Projects");
-
         var result = await _getAgentDashboardQuery.ExecuteAsync(projectId);
         if (result == null)
             return RedirectToAction("Index", "Projects");
@@ -82,55 +81,45 @@ public class AgentDashboardController : Controller
     }
 
     [HttpGet]
+    [RequireProjectAccess]
     public async Task<IActionResult> WorkflowStatus(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         return Json(await _getWorkflowStatusQuery.ExecuteAsync(projectId));
     }
 
     // Lightweight poll for the dashboard: which agents currently have work in flight.
     [HttpGet]
+    [RequireProjectAccess]
     public async Task<IActionResult> ActiveAgents(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         return Json(await _getAgentActivityQuery.GetActiveAgentsAsync(projectId));
     }
 
     // Lightweight poll for the dashboard table: per-agent Share / Total Tokens / Calls / Last Activity.
     // Keeps those columns live while agents run, without reloading the page.
     [HttpGet]
+    [RequireProjectAccess]
     public async Task<IActionResult> AgentStats(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         return Json(await _getAgentStatsQuery.ExecuteAsync(projectId));
     }
 
     // Live operation feed for one agent's running task — backs the debug popup.
     [HttpGet]
+    [RequireProjectAccess]
     public async Task<IActionResult> AgentActivity(Guid projectId, Guid agentId, long afterSeq = 0)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         return Json(await _getAgentActivityQuery.GetAgentActivityAsync(projectId, agentId, afterSeq));
     }
 
     [HttpGet]
+    [RequireProjectAccess]
     public async Task<IActionResult> AgentCallLogs(
         Guid projectId, Guid agentId, int page = 1, int pageSize = 10,
         string? purpose = null, string? status = null,
         long? minDurationMs = null, long? maxDurationMs = null,
         DateTime? fromUtc = null, DateTime? toUtc = null)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         // "Elements per page" chỉ nhận các giá trị chuẩn; ngoài danh sách thì về mặc định.
         if (pageSize is not (10 or 50 or 100)) pageSize = 10;
 
@@ -140,11 +129,9 @@ public class AgentDashboardController : Controller
     }
 
     [HttpGet]
+    [RequireProjectAccess("id", ProjectResource.CallLog)]
     public async Task<IActionResult> CallLogDetail(Guid id)
     {
-        if (!await _projectAccess.CanAccessCallLogAsync(User, id, HttpContext.RequestAborted))
-            return NotFound();
-
         var result = await _getCallLogDetailQuery.ExecuteAsync(id);
         return result == null ? NotFound() : Json(result);
     }
@@ -170,11 +157,9 @@ public class AgentDashboardController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.DeliveryAdvance)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> ApproveStage(Guid projectId, Guid? runId = null)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction("Index", "Projects");
-
         var result = await _approveStageUseCase.ExecuteAsync(projectId, runId);
 
         TempData["Error"] = result switch
@@ -190,11 +175,9 @@ public class AgentDashboardController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.DeliveryAdvance)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> RejectStage(Guid projectId, Guid? runId = null)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction("Index", "Projects");
-
         var result = await _rejectStageUseCase.ExecuteAsync(projectId, runId);
 
         if (result == RejectStageResult.PocGateNotRejectable)
@@ -211,11 +194,9 @@ public class AgentDashboardController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.DeliveryAdvance)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> RequestRevision(Guid projectId, string? feedback, Guid? runId = null, bool includePocComments = false)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction("Index", "Projects");
-
         var result = await _requestStageRevisionUseCase.ExecuteAsync(projectId, feedback, runId, includePocComments);
 
         TempData["Error"] = result switch
@@ -237,11 +218,9 @@ public class AgentDashboardController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.DeliveryAdvance)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> RetryWorkflow(Guid projectId, Guid? runId = null)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction("Index", "Projects");
-
         var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId);
 
         if (result == RetryWorkflowResult.NoFailedRun || result == RetryWorkflowResult.NoRetryableTask)
@@ -255,11 +234,9 @@ public class AgentDashboardController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.DeliveryAdvance)]
+    [RequireProjectAccess("vm.ProjectId", Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> UpdateDeliveryConfig(UpdateDeliveryConfigVm vm)
     {
-        if (!await CanAccessProjectAsync(vm.ProjectId))
-            return RedirectToAction("Index", "Projects");
-
         var result = await _updateDeliveryConfigUseCase.ExecuteAsync(vm);
 
         if (result == UpdateDeliveryConfigResult.ProjectNotFound)

@@ -27,6 +27,7 @@ Domain/            # Trái tim: entity nghiệp vụ + enum. KHÔNG phụ thuộ
 Contracts/         # DTO "hợp đồng" dữ liệu (vd: BrdDto, FsdDto...). Thuần POCO, không logic.
   Requirements/
 Data/              # EF Core: AppDbContext + DbInitializer (seed).
+  SeedData/        #   Dữ liệu seed dạng NDJSON nhúng vào assembly (xem 5.22)
 Application/       # Tầng điều phối use case. Mỗi file = 1 thao tác người dùng.
   Agents/          #   - Query (đọc)  : GetXxxQuery
   Models/          #   - UseCase (ghi): XxxUseCase
@@ -164,6 +165,24 @@ Trên nền đó là **phân quyền theo role** (`UserRole`: SuperAdmin/Admin/T
 Roles & Permissions). `IPermissionService` (có cache, SuperAdmin implicit-all) là nguồn sự thật duy nhất,
 dùng bởi cả filter `[RequirePermission(...)]` trên controller/action lẫn `_Layout` để lọc menu.
 Thiếu quyền ⇒ `/Account/AccessDenied`. Chi tiết xem DEVELOPER_GUIDE §8.1.
+
+Phân quyền theo role là chiều DỌC ("role này có được làm việc X không") và không trả lời được câu
+hỏi chiều NGANG: "user A có được đụng project của user B không". Việc đó là của
+`IProjectAccessGuard`, khai báo trên action bằng **`[RequireProjectAccess]`**:
+
+```csharp
+[RequireProjectAccess]                                          // đọc "projectId", từ chối bằng 404
+[RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]  // endpoint fetch: { ok=false, error }
+[RequireProjectAccess("id", ProjectResource.Document)]          // id là ProjectDocument
+[RequireProjectAccess("vm.ProjectId")]                          // id nằm trong view model đã bind
+```
+
+Là **action filter** (không phải authorization filter) vì id cần lấy sau model binding. Từ chối luôn
+trả về giống hệt trường hợp "không tồn tại" để không xác nhận sự tồn tại của tài nguyên với người
+ngoài. `ProjectAccessCoverageTests` **fail build** nếu một action nhận `projectId` mà quên khai báo —
+quên guard không làm gãy gì cả nên không có chốt chặn này thì lỗ hổng không ai thấy. Action nào không
+diễn tả được bằng attribute thì tự kiểm tra trong thân hàm và phải khai báo lý do ở danh sách
+`Exempt` của test đó (hiện chỉ có `AgentDashboardController.DocumentPreview`).
 
 ### 5.8. Đường thực thi agent (native tool-calling, dùng Microsoft Agent Framework)
 `AgentRunService.RunAsync` chạy agent trên **Microsoft Agent Framework (`Microsoft.Agents.AI`)**: một
@@ -419,6 +438,25 @@ quên gợi ý) cộng điểm judge trên toàn transcript. Đây là tầng du
 nay làm cuộc phỏng vấn ngắn đi hay dài ra, có còn tới đích không". Ranh giới hiện tại: eval dừng ở
 cuộc phỏng vấn, chưa chạy tiếp Brief/Spec/POC (những bước đó cần project thật + agent + browser).
 
+### 5.22. Dữ liệu seed lớn là RESOURCE, không phải code
+Bộ dữ liệu HR_Portal (1549 `Associate` + 195 `OrgUnit`) từng là mảng khởi tạo viết tay trong C#
+(`AssociatesSeedData.All`, ~38k dòng — chiếm hơn một phần ba codebase). Nó là **dữ liệu** nhưng vẫn
+phải qua trình biên dịch: assembly phình lên và Roslyn/IDE parse lại toàn bộ mỗi lần gõ trong thư mục
+`Data`. Nay nội dung nằm ở `Data/SeedData/*.ndjson`, nhúng vào assembly qua `<EmbeddedResource>`
+(`LogicalName` đặt tường minh) và đọc bằng `SeedDataResource.Load<T>()`. Rebuild dự án giảm từ
+**~16s xuống ~5s**.
+
+Hai lựa chọn có chủ đích:
+- **NDJSON (mỗi bản ghi một dòng)** thay vì một mảng JSON: mảng nằm trọn trên một dòng 800KB thì
+  `git diff` vô dụng — lần đồng bộ lại từ HR_Portal sau này sẽ không review được. Tách dòng thì thấy
+  đúng bản ghi nào đổi, mà dung lượng y hệt.
+- **`Load()` thay cho `static readonly`**: seed chỉ chạy một lần lúc khởi động, xong thì mảng được GC
+  thu hồi thay vì nằm lại trong bộ nhớ suốt vòng đời tiến trình.
+
+Rủi ro mới của dạng nhúng là hỏng **âm thầm** (quên khai báo `<EmbeddedResource>`, sai `LogicalName`,
+file bị cắt) — app vẫn build, tới lúc chạy mới lộ. `HrPortalSeedDataTests` chốt số bản ghi và giá trị
+một bản ghi mốc để bắt cả ba trường hợp đó ở CI.
+
 ---
 
 ## 6. Công thức thêm một tính năng mới
@@ -428,7 +466,8 @@ Ví dụ: thêm màn hình "xuất báo cáo tổng hợp project".
 1. **Domain/Contracts:** nếu cần kiểu dữ liệu mới → thêm entity vào `Domain/` hoặc DTO vào `Contracts/`.
 2. **Application:** tạo `Application/Projects/ExportProjectReportUseCase.cs` (một class, một `ExecuteAsync`).
 3. **Services (nếu cần):** nếu có logic kỹ thuật tái dùng (sinh file, gọi LLM...) → đặt ở `Services/...`.
-4. **Controller:** thêm action mỏng trong `ProjectsController` gọi use case.
+4. **Controller:** thêm action mỏng trong `ProjectsController` gọi use case. Action nhận `projectId`
+   thì gắn `[RequireProjectAccess]` (xem 5.7) — quên là fail test, không phải fail âm thầm.
 5. **View:** thêm `.cshtml` nếu trả UI.
 6. **DI:** đăng ký use case trong nhóm `AddProjectUseCases()` ở file Extensions.
 7. **Test:** thêm test ở `tests/`.
@@ -459,6 +498,9 @@ sắp xếp lại; namespace luôn khớp đường dẫn.
 - **Controller luôn mỏng**, không chứa logic nghiệp vụ.
 - **Đăng ký DI** chỉ ở file Extensions, đúng nhóm theo layer.
 - **Đừng để Services `using` ngược** lên Application/Controllers.
+- **Action theo project luôn gắn `[RequireProjectAccess]`** — quyền theo role KHÔNG chặn được truy
+  cập chéo giữa các project (xem 5.7). Test sẽ fail nếu quên.
+- **Dữ liệu seed lớn để dạng resource, đừng viết thành mảng C#** (xem 5.22).
 
 ---
 

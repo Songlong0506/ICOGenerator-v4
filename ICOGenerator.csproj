@@ -52,6 +52,15 @@
 		<None Update="Templates/*.docx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
 	<ItemGroup>
+		<!-- Dữ liệu seed HR_Portal (Associates/OrgUnits) nhúng thẳng vào assembly: đây là DỮ LIỆU nên để
+		     dạng NDJSON thay vì mảng khởi tạo C# (~38k dòng phải biên dịch thành IL). LogicalName đặt
+		     tường minh để tên resource không phụ thuộc vào cách MSBuild suy ra từ đường dẫn —
+		     SeedDataResource tra cứu đúng chuỗi này. Nhúng (thay vì copy ra output) để bản publish không
+		     thể thiếu file. -->
+		<EmbeddedResource Include="Data/SeedData/associates.ndjson" LogicalName="ICOGenerator.Data.SeedData.associates.ndjson" />
+		<EmbeddedResource Include="Data/SeedData/org-units.ndjson" LogicalName="ICOGenerator.Data.SeedData.org-units.ndjson" />
+	</ItemGroup>
+	<ItemGroup>
 		<!-- Expose internal types (e.g. ThinkingDisabledHandler) to the test project for unit testing. -->
 		<InternalsVisibleTo Include="ICOGenerator.Tests" />
 	</ItemGroup>
