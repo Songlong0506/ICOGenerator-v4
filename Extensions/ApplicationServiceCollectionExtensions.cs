@@ -385,6 +385,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UpdateWorkedExamplesUseCase>();
         services.AddScoped<ProposeRemainingGapsUseCase>();
         services.AddScoped<ConfirmRemainingGapsUseCase>();
+        services.AddScoped<CheckRequirementConflictsUseCase>();
+        services.AddScoped<ReopenCoverageGroupUseCase>();
+        services.AddScoped<ResolveRequirementConflictsUseCase>();
         return services;
     }
 
@@ -660,6 +663,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<DecisionLogService>();
         services.AddScoped<InterviewOutlookService>();
         services.AddScoped<GapProposalService>();
+        services.AddScoped<RequirementConflictService>();
         services.AddScoped<UatScenarioService>();
         services.AddScoped<PocFeedbackMemoryService>();
         services.AddScoped<ProductBriefReviewParser>();

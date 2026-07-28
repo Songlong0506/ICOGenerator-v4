@@ -38,6 +38,9 @@ public class RequirementsController : Controller
     private readonly ProposeRemainingGapsUseCase _proposeRemainingGapsUseCase;
     private readonly ConfirmRemainingGapsUseCase _confirmRemainingGapsUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
+    private readonly CheckRequirementConflictsUseCase _checkRequirementConflictsUseCase;
+    private readonly ReopenCoverageGroupUseCase _reopenCoverageGroupUseCase;
+    private readonly ResolveRequirementConflictsUseCase _resolveRequirementConflictsUseCase;
     private readonly IProjectAccessGuard _projectAccess;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly ILogger<RequirementsController> _logger;
@@ -73,6 +76,9 @@ public class RequirementsController : Controller
        ProposeRemainingGapsUseCase proposeRemainingGapsUseCase,
        ConfirmRemainingGapsUseCase confirmRemainingGapsUseCase,
        RetryWorkflowUseCase retryWorkflowUseCase,
+       CheckRequirementConflictsUseCase checkRequirementConflictsUseCase,
+       ReopenCoverageGroupUseCase reopenCoverageGroupUseCase,
+       ResolveRequirementConflictsUseCase resolveRequirementConflictsUseCase,
        IProjectAccessGuard projectAccess,
        BAChatTurnTracker chatTurnTracker,
        ILogger<RequirementsController> logger)
@@ -99,6 +105,9 @@ public class RequirementsController : Controller
         _proposeRemainingGapsUseCase = proposeRemainingGapsUseCase;
         _confirmRemainingGapsUseCase = confirmRemainingGapsUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
+        _checkRequirementConflictsUseCase = checkRequirementConflictsUseCase;
+        _reopenCoverageGroupUseCase = reopenCoverageGroupUseCase;
+        _resolveRequirementConflictsUseCase = resolveRequirementConflictsUseCase;
         _projectAccess = projectAccess;
         _chatTurnTracker = chatTurnTracker;
         _logger = logger;
@@ -182,7 +191,7 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
-    public async Task ChatStream(Guid projectId, string message, bool retry = false)
+    public async Task ChatStream(Guid projectId, string message, bool retry = false, bool edit = false)
     {
         // Chặn trước khi mở stream: client thấy !response.ok và tự rơi về đường postback (vốn cũng chặn).
         if (!await CanAccessProjectAsync(projectId))
@@ -316,9 +325,13 @@ public class RequirementsController : Controller
                 {
                     Action<string> onStatus = status => channel.Writer.TryWrite(new { type = "status", text = status });
                     Action<string> onToken = token => channel.Writer.TryWrite(new { type = "token", text = token });
+                    // edit: SỬA lượt user vừa gửi (ghi đè nội dung + xóa câu trả lời cũ) rồi trả lời lại,
+                    // thay vì thêm một lượt mới — xem BAChatService.EditLastUserTurnAsync.
                     var result = retry
                         ? await _chatWithBAUseCase.RetryAsync(projectId, onStatus, onToken, CancellationToken.None)
-                        : await _chatWithBAUseCase.ExecuteAsync(projectId, message, onStatus, onToken, CancellationToken.None);
+                        : edit
+                            ? await _chatWithBAUseCase.EditLastAsync(projectId, message, onStatus, onToken, CancellationToken.None)
+                            : await _chatWithBAUseCase.ExecuteAsync(projectId, message, onStatus, onToken, CancellationToken.None);
                     turnSucceeded = result.Status == ChatWithBAResult.Ok;
 
                     done = result.Status switch
@@ -334,7 +347,9 @@ public class RequirementsController : Controller
                         {
                             type = "done",
                             ok = false,
-                            error = "Không còn lượt lỗi nào để thử lại — tải lại trang để xem hội thoại mới nhất nhé."
+                            error = edit
+                                ? "Không sửa được lượt vừa gửi — tải lại trang để xem hội thoại mới nhất nhé."
+                                : "Không còn lượt lỗi nào để thử lại — tải lại trang để xem hội thoại mới nhất nhé."
                         },
                         _ => (object)new
                         {
@@ -499,6 +514,79 @@ public class RequirementsController : Controller
         await _generateRequirementDraftUseCase.ExecuteAsync(projectId);
         TempData["WorkflowStarted"] = true;
         return RedirectToAction(nameof(Index), new { projectId });
+    }
+
+    // "Chỗ này chưa đúng" trên một nhóm của panel Tiến độ khai thác: hạ nhóm xuống [MỘT PHẦN] để BA hỏi
+    // lại và cổng Write Requirement đóng lại. Sửa TẤT ĐỊNH trên bản đồ (không gọi LLM) nên người dùng
+    // thấy thanh tiến độ lùi ngay lập tức.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> ReopenCoverage(Guid projectId, [FromForm] string label)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
+
+        var (result, coverage, ready) = await _reopenCoverageGroupUseCase.ExecuteAsync(projectId, label, HttpContext.RequestAborted);
+        if (result != ReopenCoverageResult.Ok)
+            return Json(new { ok = false, error = "Không tìm thấy nhóm này trong bản đồ — tải lại trang nhé." });
+
+        return Json(new
+        {
+            ok = true,
+            ready,
+            coverage = coverage.Select(c => new { label = c.Label, status = c.Status, summary = c.Summary, evidence = c.Evidence, isCore = c.IsCore })
+        });
+    }
+
+    // CỔNG SOÁT MÂU THUẪN — bước 1: chạy ngay trước khi soạn tài liệu (nút "Write Requirement" gọi trước
+    // khi submit form). Trả về các cặp điều đã chốt chọi nhau để người dùng chốt lại; danh sách rỗng ⇒
+    // client submit form như bình thường. POST vì lượt này gọi LLM và ghi kết quả lên project.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> CheckConflicts(Guid projectId)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
+
+        var conflicts = await _checkRequirementConflictsUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
+        return Json(new
+        {
+            ok = true,
+            conflicts = conflicts.Select(c => new { topic = c.Topic, sideA = c.SideA, sideB = c.SideB, question = c.Question, options = c.Options })
+        });
+    }
+
+    // CỔNG SOÁT MÂU THUẪN — bước 2: người dùng đã chốt từng điểm. Lựa chọn được ghi vào hội thoại nên
+    // bước soạn tài liệu (đọc transcript) tự khắc dùng đúng phương án đã chốt.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> ResolveConflicts(Guid projectId, [FromForm] string resolutionsJson)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
+
+        List<ConflictResolution> resolutions;
+        try
+        {
+            resolutions = JsonSerializer.Deserialize<List<ConflictResolution>>(resolutionsJson ?? "[]",
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<ConflictResolution>();
+        }
+        catch
+        {
+            return Json(new { ok = false, error = "Dữ liệu lựa chọn không hợp lệ." });
+        }
+
+        var result = await _resolveRequirementConflictsUseCase.ExecuteAsync(projectId, resolutions, HttpContext.RequestAborted);
+        return result switch
+        {
+            ResolveConflictsResult.Ok => Json(new { ok = true }),
+            ResolveConflictsResult.NoResolutions => Json(new { ok = false, error = "Chưa chọn phương án nào." }),
+            ResolveConflictsResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
+            _ => Json(new { ok = false, error = "Không ghi nhận được lựa chọn." })
+        };
     }
 
     // Ghi chú người dùng ghim trực tiếp lên bản xem trước Product Brief → gom thành một lượt phản hồi

@@ -248,6 +248,79 @@ public class BAChatService
         return await RunTurnGuaranteedAsync(project, ba, ba.AiModel!, onStatus, onToken, cancellationToken);
     }
 
+    /// <summary>
+    /// SỬA lượt user vừa gửi rồi trả lời lại: ghi đè nội dung lượt user MỚI NHẤT bằng
+    /// <paramref name="newMessage"/>, xóa lượt trả lời tương ứng (nếu đã có) và chạy lại lượt trên
+    /// transcript đã sửa.
+    /// <para>
+    /// Không có đường này, một câu gõ nhầm/nói hụt chỉ có thể "sửa" bằng cách nhắn thêm một câu đính
+    /// chính — nhưng bản đồ bao phủ, nhật ký điều đã chốt và bộ nhớ hội thoại đều đã kịp ghi nhận câu
+    /// SAI, và chúng gộp lũy tiến nên câu sai đó không bao giờ biến mất khỏi ngữ cảnh.
+    /// </para>
+    /// <para>
+    /// Vì lượt assistant bị xóa làm SỐ LƯỢT giảm đi, mọi con trỏ "đã gộp tới lượt thứ n" phải được kéo
+    /// lùi xuống trước lượt user vừa sửa — nếu không, con trỏ vượt quá số lượt hiện có và mọi lượt gộp
+    /// sau đó thấy delta rỗng: bản đồ/nhật ký đóng băng vĩnh viễn ở bản dựng từ câu đã bị sửa.
+    /// </para>
+    /// </summary>
+    public async Task<BAChatTurnResult> EditLastUserTurnAsync(Guid projectId, string newMessage, Action<string>? onStatus = null, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(newMessage))
+            return new BAChatTurnResult { Status = ChatWithBAResult.NothingToRetry };
+
+        var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
+        if (project == null)
+            return new BAChatTurnResult { Status = ChatWithBAResult.ProjectNotFound };
+
+        var ba = await _agentResolver.FindConfiguredAsync(cancellationToken);
+        if (ba == null)
+            return new BAChatTurnResult { Status = ChatWithBAResult.BaNotConfigured };
+
+        // Cùng thứ tự ổn định (CreatedAt rồi Id) như mọi chỗ đọc hội thoại khác.
+        var turns = await _db.AgentConversations
+            .Where(c => c.ProjectId == projectId)
+            .OrderByDescending(c => c.CreatedAt)
+            .ThenByDescending(c => c.Id)
+            .Take(2)
+            .ToListAsync(cancellationToken);
+
+        if (turns.Count == 0)
+            return new BAChatTurnResult { Status = ChatWithBAResult.NothingToRetry };
+
+        // Lượt cuối là assistant ⇒ xóa nó (câu trả lời cho câu hỏi cũ), lượt user cần sửa nằm ngay trước.
+        // Lượt cuối là user ⇒ câu trả lời chưa/không bao giờ tới, sửa thẳng lượt đó.
+        AgentConversation userTurn;
+        if (turns[0].Role == "assistant")
+        {
+            if (turns.Count < 2 || turns[1].Role != "user")
+                return new BAChatTurnResult { Status = ChatWithBAResult.NothingToRetry };
+            _db.AgentConversations.Remove(turns[0]);
+            userTurn = turns[1];
+        }
+        else
+        {
+            userTurn = turns[0];
+        }
+
+        userTurn.Message = newMessage.Trim();
+        userTurn.TokenUsed = TokenEstimator.Estimate(userTurn.Message);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        // Kéo lùi mọi con trỏ gộp về TRƯỚC lượt vừa sửa, để các bản đúc kết được dựng lại từ nội dung mới.
+        var turnCount = await _db.AgentConversations.CountAsync(c => c.ProjectId == projectId, cancellationToken);
+        var beforeEdited = Math.Max(0, turnCount - 1);
+        project.CoverageHarvestedTurnCount = Math.Min(project.CoverageHarvestedTurnCount, beforeEdited);
+        project.DecisionHarvestedTurnCount = Math.Min(project.DecisionHarvestedTurnCount, beforeEdited);
+        project.InterviewOutlookHarvestedTurnCount = Math.Min(project.InterviewOutlookHarvestedTurnCount, beforeEdited);
+        project.UserMemoryHarvestedTurnCount = Math.Min(project.UserMemoryHarvestedTurnCount, beforeEdited);
+        project.SummarizedTurnCount = Math.Min(project.SummarizedTurnCount, beforeEdited);
+        // Cổng soát mâu thuẫn cũng phải soát lại: nội dung vừa đổi có thể chính là vế đang chọi nhau.
+        project.ConflictCheckedTurnCount = Math.Min(project.ConflictCheckedTurnCount, beforeEdited);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return await RunTurnGuaranteedAsync(project, ba, ba.AiModel!, onStatus, onToken, cancellationToken);
+    }
+
     // Lõi một lượt trả lời của BA (chuẩn bị ngữ cảnh → gọi LLM → cổng readiness → lưu lượt assistant).
     // Tách khỏi ChatAsync để đường "thử lại lượt lỗi" chạy lại y hệt mà không ghi thêm lượt user.
     private async Task<BAChatTurnResult> RunTurnAsync(Project project, Agent ba, AiModel model, Action<string>? onStatus, Action<string>? onToken, CancellationToken cancellationToken)

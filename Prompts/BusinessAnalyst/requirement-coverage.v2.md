@@ -29,6 +29,14 @@ Xuất đúng **12 dòng** gạch đầu dòng theo đúng thứ tự và tên n
 - Quy mô sử dụng: [TRẠNG THÁI] <tóm tắt>
 ```
 
+**BẰNG CHỨNG (bắt buộc với mọi dòng `[RÕ]` và `[MỘT PHẦN]`):** kết thúc phần tóm tắt bằng khối `{nguồn: <trích NGẮN điều người dùng đã nói hoặc tên tài liệu>}`. Ví dụ:
+
+```
+- ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Nhân viên gửi đơn → quản lý duyệt → đơn khoá. {nguồn: "quản lý duyệt xong là đơn khoá luôn, không sửa được"}
+```
+
+Người dùng nhìn bản đồ để biết cuộc phỏng vấn đã hiểu đúng chưa; không có trích dẫn thì họ không có cách nào kiểm chứng một dòng `[RÕ]`, mà một dòng `[RÕ]` sai thì BA sẽ KHÔNG BAO GIỜ hỏi lại nhóm đó nữa. Trích dẫn phải là điều **thật sự có trong hội thoại/tài liệu** — TUYỆT ĐỐI không bịa. Dòng `[CHƯA HỎI]` thì không cần khối này.
+
 Trạng thái hợp lệ (chọn đúng MỘT cho mỗi dòng):
 - `[RÕ]` — đã đủ để viết tài liệu mà KHÔNG phải tự giả định gì ở nhóm này.
 - `[MỘT PHẦN]` — đã có thông tin nhưng còn điểm mà bước soạn tài liệu sẽ phải tự đoán; ghi rõ *còn thiếu: …*.
