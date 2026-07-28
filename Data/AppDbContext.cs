@@ -37,6 +37,7 @@ public class AppDbContext : DbContext
     public DbSet<EvalResult> EvalResults => Set<EvalResult>();
     public DbSet<PromptTemplateVersion> PromptTemplateVersions => Set<PromptTemplateVersion>();
     public DbSet<PocComment> PocComments => Set<PocComment>();
+    public DbSet<PocShareLink> PocShareLinks => Set<PocShareLink>();
     public DbSet<AgentDomainChecklistNote> AgentDomainChecklistNotes => Set<AgentDomainChecklistNote>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -379,6 +380,19 @@ public class AppDbContext : DbContext
             b.Property(x => x.Comment).HasMaxLength(4000);
             b.Property(x => x.CreatedByUsername).HasMaxLength(100);
             b.HasIndex(x => new { x.ProjectId, x.Status, x.CreatedAt });
+        });
+
+        // Link chia sẻ POC cho người ngoài hệ thống: Token là đường tra cứu DUY NHẤT (index unique — vừa
+        // để tra nhanh ở mỗi request khách, vừa để hai link không bao giờ trùng chuỗi). Cascade theo
+        // project như ghi chú: xóa project là mọi link chia sẻ của nó chết theo.
+        builder.Entity<PocShareLink>(b =>
+        {
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.Token).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Label).HasMaxLength(200);
+            b.Property(x => x.CreatedByUsername).HasMaxLength(100);
+            b.HasIndex(x => x.Token).IsUnique();
+            b.HasIndex(x => new { x.ProjectId, x.CreatedAt });
         });
 
         // Dữ liệu tổ chức đồng bộ từ HR_Portal (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu

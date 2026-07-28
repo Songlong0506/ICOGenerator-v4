@@ -21,6 +21,10 @@ public class ProjectsController : Controller
     private readonly ListPocCommentsQuery _listPocCommentsQuery;
     private readonly AddPocCommentUseCase _addPocCommentUseCase;
     private readonly DeletePocCommentUseCase _deletePocCommentUseCase;
+    private readonly ReopenPocCommentUseCase _reopenPocCommentUseCase;
+    private readonly CreatePocShareLinkUseCase _createPocShareLinkUseCase;
+    private readonly RevokePocShareLinkUseCase _revokePocShareLinkUseCase;
+    private readonly ListPocShareLinksQuery _listPocShareLinksQuery;
     private readonly RoutePocFeedbackToRequirementUseCase _routePocFeedbackUseCase;
     private readonly RequestStageRevisionUseCase _requestStageRevisionUseCase;
     private readonly AcceptPocUseCase _acceptPocUseCase;
@@ -37,6 +41,10 @@ public class ProjectsController : Controller
         ListPocCommentsQuery listPocCommentsQuery,
         AddPocCommentUseCase addPocCommentUseCase,
         DeletePocCommentUseCase deletePocCommentUseCase,
+        ReopenPocCommentUseCase reopenPocCommentUseCase,
+        CreatePocShareLinkUseCase createPocShareLinkUseCase,
+        RevokePocShareLinkUseCase revokePocShareLinkUseCase,
+        ListPocShareLinksQuery listPocShareLinksQuery,
         RoutePocFeedbackToRequirementUseCase routePocFeedbackUseCase,
         RequestStageRevisionUseCase requestStageRevisionUseCase,
         AcceptPocUseCase acceptPocUseCase,
@@ -52,6 +60,10 @@ public class ProjectsController : Controller
         _listPocCommentsQuery = listPocCommentsQuery;
         _addPocCommentUseCase = addPocCommentUseCase;
         _deletePocCommentUseCase = deletePocCommentUseCase;
+        _reopenPocCommentUseCase = reopenPocCommentUseCase;
+        _createPocShareLinkUseCase = createPocShareLinkUseCase;
+        _revokePocShareLinkUseCase = revokePocShareLinkUseCase;
+        _listPocShareLinksQuery = listPocShareLinksQuery;
         _routePocFeedbackUseCase = routePocFeedbackUseCase;
         _requestStageRevisionUseCase = requestStageRevisionUseCase;
         _acceptPocUseCase = acceptPocUseCase;
@@ -246,6 +258,71 @@ public class ProjectsController : Controller
             id, User.Identity?.Name, canManage, HttpContext.RequestAborted);
 
         return deleted ? Json(new { ok = true }) : NotFound();
+    }
+
+    // "Vẫn chưa đạt": mở lại một ghi chú mà vòng sửa đã tuyên bố xử lý xong, để nó vào yêu cầu chỉnh sửa
+    // TIẾP THEO. Không có đường này thì muốn nhắc lại cùng một lỗi phải ghim ghi chú mới, và danh sách
+    // phình lên bằng các bản sao của cùng một vấn đề.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReopenPocComment(Guid projectId, Guid id)
+    {
+        // Kiểm quyền TRƯỚC khi đụng dữ liệu; use case chỉ nhận ghi chú thuộc đúng project đã kiểm.
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
+        var result = await _reopenPocCommentUseCase.ExecuteAsync(projectId, id, HttpContext.RequestAborted);
+        return result switch
+        {
+            ReopenPocCommentResult.Ok => Json(new { ok = true }),
+            ReopenPocCommentResult.NotFound => NotFound(),
+            _ => BadRequest("Ghi chú này chưa qua vòng chỉnh sửa nào (hoặc đã được gửi ngược về bước Requirement).")
+        };
+    }
+
+    // ==== Link chia sẻ bản demo cho người KHÔNG có tài khoản ====
+    // Nghiệm thu thật luôn có nhiều người, nhưng trang review bị chặn theo quyền truy cập project. Ba
+    // action dưới đây cấp/thu hồi/liệt kê "chìa khoá dạng ai-có-link-nấy-vào-được" — luôn có hạn dùng và
+    // thu hồi được. Bề mặt mà khách chạm tới nằm ở PocShareController.
+
+    [HttpGet]
+    public async Task<IActionResult> PocShareLinks(Guid projectId)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
+        return Json(await _listPocShareLinksQuery.ExecuteAsync(projectId, HttpContext.RequestAborted));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> CreatePocShareLink(Guid projectId, string? label, int days = CreatePocShareLinkUseCase.DefaultDays)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
+        var link = await _createPocShareLinkUseCase.ExecuteAsync(
+            projectId, label, days, User.Identity?.Name, HttpContext.RequestAborted);
+        if (link == null)
+            return BadRequest("Dự án đã có quá nhiều link chia sẻ còn hiệu lực — thu hồi bớt trước khi tạo link mới.");
+
+        // URL tuyệt đối để người tạo copy dán thẳng vào chat/email.
+        var url = Url.Action("Open", "PocShare", new { token = link.Token }, Request.Scheme);
+        return Json(new { link.Id, link.Token, link.Label, link.ExpiresAtUtc, url });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    public async Task<IActionResult> RevokePocShareLink(Guid projectId, Guid id)
+    {
+        if (!await CanAccessProjectAsync(projectId))
+            return NotFound();
+
+        return await _revokePocShareLinkUseCase.ExecuteAsync(projectId, id, HttpContext.RequestAborted)
+            ? Json(new { ok = true })
+            : NotFound();
     }
 
     // Đóng vòng POC → TÀI LIỆU: lọc các ghi chú Open phản ánh hiểu-sai-yêu-cầu, đưa vào hội thoại BA và

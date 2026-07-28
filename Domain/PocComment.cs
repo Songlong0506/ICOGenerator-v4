@@ -37,4 +37,13 @@ public class PocComment
     public string? CreatedByUsername { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Thời điểm vòng chỉnh sửa POC mang ghi chú này chạy xong (null = chưa qua vòng sửa nào).</summary>
+    public DateTime? AddressedAtUtc { get; set; }
+
+    /// <summary>
+    /// Bàn giao của Developer agent ở vòng sửa đó (cắt ngắn) — người review đọc được "agent nói mình đã
+    /// làm gì" ngay cạnh ghi chú, thay vì chỉ thấy ghi chú im lặng chuyển trạng thái.
+    /// </summary>
+    public string? AddressedNote { get; set; }
 }

@@ -14,6 +14,13 @@ public enum PocCommentStatus
     Sent,
 
     /// <summary>
+    /// Vòng chỉnh sửa POC đã chạy XONG với ghi chú này trong tay: Developer agent đã có cơ hội sửa. Trạng
+    /// thái này tồn tại để người review vòng sau biết "cái nào đã được đụng tới" thay vì phải rà lại từ
+    /// đầu cả bản demo — và để họ mở lại (về Open) đúng những ghi chú CHƯA đạt cho vòng sau.
+    /// </summary>
+    Addressed,
+
+    /// <summary>
     /// Đã gửi NGƯỢC về bước Requirement: ghi chú này phản ánh HIỂU SAI YÊU CẦU (không phải lỗi HTML), nên
     /// được đưa vào hội thoại BA để soạn lại tài liệu của CHÍNH dự án — POC dựng lại từ tài liệu đã sửa.
     /// Xem RoutePocFeedbackToRequirementUseCase.

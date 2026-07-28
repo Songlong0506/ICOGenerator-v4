@@ -349,6 +349,11 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ListPocCommentsQuery>();
         services.AddScoped<AddPocCommentUseCase>();
         services.AddScoped<DeletePocCommentUseCase>();
+        services.AddScoped<ReopenPocCommentUseCase>();
+        services.AddScoped<CreatePocShareLinkUseCase>();
+        services.AddScoped<RevokePocShareLinkUseCase>();
+        services.AddScoped<ListPocShareLinksQuery>();
+        services.AddScoped<ResolvePocShareTokenQuery>();
         services.AddScoped<AcceptPocUseCase>();
         return services;
     }

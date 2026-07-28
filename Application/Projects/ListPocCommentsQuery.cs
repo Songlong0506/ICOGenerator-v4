@@ -18,7 +18,9 @@ public record PocCommentItem(
     string Status,
     string? CreatedBy,
     DateTime CreatedAt,
-    bool CanDelete);
+    bool CanDelete,
+    DateTime? AddressedAt,
+    string? AddressedNote);
 
 public class ListPocCommentsQuery
 {
@@ -50,7 +52,9 @@ public class ListPocCommentsQuery
             x.Status.ToString(),
             x.CreatedByUsername,
             x.CreatedAt,
-            canManage || (currentUsername != null && x.CreatedByUsername == currentUsername)))
+            canManage || (currentUsername != null && x.CreatedByUsername == currentUsername),
+            x.AddressedAtUtc,
+            x.AddressedNote))
             .ToList();
     }
 }

@@ -415,6 +415,11 @@ public class AgentTaskWorker : BackgroundService
             {
                 await scope.ServiceProvider.GetRequiredService<PocFeedbackMemoryService>()
                     .TryHarvestAsync(task.ProjectId, cancellationToken);
+
+                // Các ghi chú đã đi vào vòng sửa này chuyển sang "đã xử lý" kèm bàn giao của agent. Không
+                // có bước này, người review vòng sau nhìn danh sách ghi chú y hệt vòng trước và không có
+                // cách nào biết cái nào đã được đụng tới — họ phải rà lại cả bản demo từ đầu.
+                await MarkSentPocCommentsAddressedAsync(db, task, cancellationToken);
             }
 
             // Vòng tự sửa lỗi (Testing↔BugFix) là một CHU TRÌNH (không phải hand-off tuyến tính) nên
@@ -611,6 +616,45 @@ public class AgentTaskWorker : BackgroundService
             onToken: token => _progress.ReportToken(task.WorkflowRunId, token),
             workflowRunId: task.WorkflowRunId,
             cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Đóng vòng phản hồi cho các ghi chú ghim đã được gửi vào vòng chỉnh sửa POC vừa chạy xong: chuyển
+    /// <see cref="PocCommentStatus.Sent"/> → <see cref="PocCommentStatus.Addressed"/> kèm thời điểm và
+    /// bàn giao (cắt ngắn) của agent. Người review nhìn là biết cái nào đã được đụng tới, và mở lại đúng
+    /// những cái CHƯA đạt cho vòng sau. Best-effort: lỗi ở đây không được làm hỏng task đã hoàn tất.
+    /// </summary>
+    private static async Task MarkSentPocCommentsAddressedAsync(AppDbContext db, AgentTask task, CancellationToken cancellationToken)
+    {
+        const int maxNoteChars = 1500;
+        try
+        {
+            var comments = await db.PocComments
+                .Where(c => c.ProjectId == task.ProjectId && c.Status == PocCommentStatus.Sent)
+                .ToListAsync(cancellationToken);
+            if (comments.Count == 0)
+                return;
+
+            var note = (task.Output ?? string.Empty).Trim();
+            if (note.Length > maxNoteChars)
+                note = note[..maxNoteChars] + "…";
+
+            foreach (var comment in comments)
+            {
+                comment.Status = PocCommentStatus.Addressed;
+                comment.AddressedAtUtc = DateTime.UtcNow;
+                comment.AddressedNote = note.Length == 0 ? null : note;
+            }
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            // Bước phụ trợ cho trang review — không được làm fail một vòng sửa đã chạy xong.
+        }
     }
 
     private async Task RunTechnicalDocsAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
