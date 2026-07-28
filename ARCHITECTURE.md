@@ -161,9 +161,12 @@ mật khẩu băm bằng `PasswordHasher` rồi `AccountController` phát hành 
 
 Trên nền đó là **phân quyền theo role** (`UserRole`: SuperAdmin/Admin/TeamDev/User): quyền ở mức hành động
 (`AppPermission`) được cấp cho role qua bảng **`RolePermission`** (cấu hình runtime tại màn hình
-Roles & Permissions). `IPermissionService` (có cache, SuperAdmin implicit-all) là nguồn sự thật duy nhất,
-dùng bởi cả filter `[RequirePermission(...)]` trên controller/action lẫn `_Layout` để lọc menu.
-Thiếu quyền ⇒ `/Account/AccessDenied`. Chi tiết xem DEVELOPER_GUIDE §8.1.
+Roles & Permissions). Một người có thể giữ **nhiều role** (bảng nối **`AppUserRole`**, một claim `Role`
+cho mỗi vai trò) và quyền hiệu lực là **HỢP quyền của mọi vai trò** — vì quyền giữa các vai trò *giao
+nhau* chứ không lồng nhau, không được rút gọn về vai trò "cao nhất". `IPermissionService` (có cache,
+SuperAdmin implicit-all) là nguồn sự thật duy nhất, dùng bởi cả filter `[RequirePermission(...)]` trên
+controller/action lẫn `_Layout` để lọc menu. Thiếu quyền ⇒ `/Account/AccessDenied`.
+Chi tiết xem DEVELOPER_GUIDE §8.1.
 
 ### 5.8. Đường thực thi agent (native tool-calling, dùng Microsoft Agent Framework)
 `AgentRunService.RunAsync` chạy agent trên **Microsoft Agent Framework (`Microsoft.Agents.AI`)**: một

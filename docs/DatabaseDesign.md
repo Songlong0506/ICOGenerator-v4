@@ -23,7 +23,7 @@ flowchart TB
 | Project core | `Projects`, `ProjectDocuments`, `ProjectDocumentRevisions`, `ProjectSourceFiles`, `AgentConversations` | Dữ liệu project, tài liệu, upload, chat BA |
 | Workflow | `WorkflowRuns`, `AgentTasks` | Điều phối các run/task nền |
 | AI config/runtime | `Agents`, `AiModels`, `ToolDefinitions`, `AgentTools`, `AgentModelCallLogs` | Cấu hình agent/model/tool và log LLM |
-| Security | `AppUsers`, `RolePermissions`, `AuditLogs` | Login, RBAC, audit cấu hình |
+| Security | `AppUsers`, `AppUserRoles`, `RolePermissions`, `AuditLogs` | Login, RBAC (một user nhiều role), audit cấu hình |
 | Notifications/Feedback | `Notifications`, `Feedbacks`, `FeedbackAttachments` | Thông báo và phản hồi người dùng |
 | Prompt/eval | `PromptTemplateVersions`, `EvalScenarios`, `EvalRuns`, `EvalResults` | Prompt override và benchmark prompt/model |
 | Organization | `OrgUnits`, `Associates` | Dữ liệu tổ chức seed từ HR_Portal |
@@ -288,7 +288,6 @@ erDiagram
         string Username UK
         string PasswordHash
         string DisplayName
-        UserRole Role
         string OrgUnitName
         string UserMemory
         string Email
@@ -299,6 +298,13 @@ erDiagram
         bool NotifyOnFailed
         DateTime CreatedAt
     }
+
+    AppUserRole {
+        Guid AppUserId PK_FK
+        UserRole Role PK
+    }
+
+    AppUser ||--o{ AppUserRole : "giữ"
 
     RolePermission {
         Guid Id PK
@@ -323,6 +329,8 @@ erDiagram
 | Constraint/index | Ý nghĩa |
 |---|---|
 | `AppUser.Username` unique | Không trùng tài khoản đăng nhập |
+| `AppUserRole(AppUserId, Role)` PK | Một user giữ NHIỀU vai trò, mỗi vai trò chỉ gán một lần. Xóa user cascade sang bảng này |
+| `AppUserRole.Role` index | Chiều ngược: "ai đang giữ vai trò X" (đăng nhập Local tìm SuperAdmin, backfill khi khởi động) |
 | `RolePermission(Role, Permission)` unique | Một permission chỉ được cấp một lần cho role |
 | `AuditLog.CreatedAt`, `(Category, CreatedAt)` | Lọc/sắp xếp audit log |
 
@@ -513,7 +521,7 @@ Khi DB khởi tạo rỗng, `DbInitializer` seed:
 
 | Data | Nội dung |
 |---|---|
-| Users | `admin/Admin@123`, `teamdev/TeamDev@123`, `user/User@123` |
+| Users | `superadmin`, `admin`, `teamdev`, `user` — mỗi tài khoản seed một dòng `AppUserRoles` tương ứng (không mật khẩu: Local tự đăng nhập bằng SuperAdmin, SSO đồng bộ từ IdentityServer) |
 | Role permissions | SuperAdmin implicit-all; Admin mặc định toàn bộ quyền (cấu hình được); TeamDev gần đủ quyền vận hành; User quyền project/requirement/feedback cơ bản |
 | Org/Associates | Dữ liệu mẫu HR_Portal |
 | Tool definitions | Đồng bộ từ tool discovery |

@@ -145,31 +145,32 @@ public class NotificationService : INotificationService
         return string.IsNullOrWhiteSpace(baseUrl) ? null : baseUrl.TrimEnd('/') + relativeLink;
     }
 
-    // Người nhận đủ điều kiện = user đang hoạt động thuộc role CÓ quyền DeliveryAdvance, kèm tùy chọn thông
-    // báo của họ. Bảng user nhỏ (seed vài tài khoản) nên duyệt trực tiếp; kết quả kiểm tra quyền được cache.
+    // Người nhận đủ điều kiện = user đang hoạt động có quyền DeliveryAdvance ở BẤT KỲ vai trò nào họ giữ
+    // (một người có thể giữ nhiều vai trò, quyền là hợp của chúng), kèm tùy chọn thông báo của họ. Bảng user
+    // nhỏ (seed vài tài khoản) nên duyệt trực tiếp; kết quả kiểm tra quyền được cache theo role.
     private async Task<IReadOnlyList<EligibleUser>> ResolveEligibleUsersAsync(CancellationToken cancellationToken)
     {
         var activeUsers = await _db.AppUsers
             .Where(u => u.Username != "")
             .Select(u => new EligibleUser(
-                u.Username, u.Role, u.Email,
+                u.Username, u.Roles.Select(r => r.Role).ToList(), u.Email,
                 u.NotifyInApp, u.NotifyByEmail, u.NotifyOnGate, u.NotifyOnCompleted, u.NotifyOnFailed))
             .ToListAsync(cancellationToken);
 
         var qualifyingRoles = new HashSet<UserRole>();
-        foreach (var role in activeUsers.Select(u => u.Role).Distinct())
+        foreach (var role in activeUsers.SelectMany(u => u.Roles).Distinct())
         {
             var granted = await _permissions.GetGrantedAsync(role, cancellationToken);
             if (granted.Contains(AppPermission.DeliveryAdvance))
                 qualifyingRoles.Add(role);
         }
 
-        return activeUsers.Where(u => qualifyingRoles.Contains(u.Role)).ToList();
+        return activeUsers.Where(u => u.Roles.Any(qualifyingRoles.Contains)).ToList();
     }
 
     private sealed record EligibleUser(
         string Username,
-        UserRole Role,
+        IReadOnlyList<UserRole> Roles,
         string? Email,
         bool NotifyInApp,
         bool NotifyByEmail,

@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
     public DbSet<AgentTask> AgentTasks => Set<AgentTask>();
     public DbSet<AppUser> AppUsers => Set<AppUser>();
+    public DbSet<AppUserRole> AppUserRoles => Set<AppUserRole>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<FeedbackAttachment> FeedbackAttachments => Set<FeedbackAttachment>();
@@ -241,12 +242,11 @@ public class AppDbContext : DbContext
                 .IncludeProperties(x => new { x.ProjectId, x.ModelId, x.PromptTokens, x.CompletionTokens });
         });
 
-        // Người dùng đăng nhập: Username là duy nhất, Role lưu dạng chuỗi (dễ đọc trong DB và bền với việc chèn enum mới).
+        // Người dùng đăng nhập: Username là duy nhất. Vai trò nằm ở bảng nối AppUserRoles (một user nhiều vai trò).
         builder.Entity<AppUser>(b =>
         {
             b.Property(x => x.Username).HasMaxLength(100);
             b.Property(x => x.DisplayName).HasMaxLength(200);
-            b.Property(x => x.Role).HasConversion<string>().HasMaxLength(50);
             b.Property(x => x.OrgUnitName).HasMaxLength(200);
             b.Property(x => x.Email).HasMaxLength(200);
             // HasDefaultValue để install cũ (migration thêm cột) có giá trị hợp lý cho các dòng sẵn có,
@@ -257,6 +257,18 @@ public class AppDbContext : DbContext
             b.Property(x => x.NotifyOnCompleted).HasDefaultValue(true);
             b.Property(x => x.NotifyOnFailed).HasDefaultValue(true);
             b.HasIndex(x => x.Username).IsUnique();
+        });
+
+        // Vai trò của user (nhiều-nhiều): khóa chính (AppUserId, Role) vừa chặn gán trùng, vừa là index
+        // cho truy vấn nóng "các vai trò của một user". Cascade: xóa user ⇒ dọn luôn các dòng vai trò.
+        // Index phụ theo Role cho chiều ngược lại ("ai đang giữ vai trò X" — đăng nhập Local tìm SuperAdmin,
+        // DbInitializer backfill). Role lưu dạng chuỗi như mọi enum khác.
+        builder.Entity<AppUserRole>(b =>
+        {
+            b.HasKey(x => new { x.AppUserId, x.Role });
+            b.HasOne(x => x.AppUser).WithMany(x => x.Roles).HasForeignKey(x => x.AppUserId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.Role).HasConversion<string>().HasMaxLength(50);
+            b.HasIndex(x => x.Role);
         });
 
         // Bảng cấp quyền: cặp (Role, Permission) là duy nhất; cả hai cột enum lưu dạng chuỗi.
@@ -301,7 +313,8 @@ public class AppDbContext : DbContext
             b.Property(x => x.EntityId).HasMaxLength(100);
             b.Property(x => x.Summary).HasMaxLength(500);
             b.Property(x => x.ActorUsername).HasMaxLength(100);
-            b.Property(x => x.ActorRole).HasMaxLength(50);
+            // 200 (trước là 50) vì actor nay có thể giữ nhiều vai trò, ghi thành chuỗi nối "Admin,TeamDev".
+            b.Property(x => x.ActorRole).HasMaxLength(200);
             b.HasIndex(x => x.CreatedAt);
             b.HasIndex(x => new { x.Category, x.CreatedAt });
         });

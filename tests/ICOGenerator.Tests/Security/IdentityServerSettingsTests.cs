@@ -4,54 +4,71 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Security;
 
-// Ánh xạ role claim của IdentityServer → UserRole của app: chọn vai trò cao nhất, không phân biệt hoa/thường,
-// null khi không claim nào khớp. Ánh xạ lấy từ attribute [SsoRoleClaim] trên enum UserRole nên MapRole chạy
-// được ngay với instance mặc định (không cần cấu hình RoleMappings).
+// Ánh xạ role claim của IdentityServer → tập UserRole của app: giữ MỌI vai trò khớp (quyền của chúng giao
+// nhau nên không được gộp về vai trò "cao nhất"), không phân biệt hoa/thường, rỗng khi không claim nào khớp.
+// Ánh xạ lấy từ attribute [SsoRoleClaim] trên enum UserRole nên MapRoles chạy được ngay với instance mặc
+// định (không cần cấu hình RoleMappings).
 public class IdentityServerSettingsTests
 {
     [Fact]
-    public void MapRole_MapsKnownRole()
+    public void MapRoles_MapsKnownRole()
     {
-        Assert.Equal(UserRole.Admin, new IdentityServerSettings().MapRole(new[] { "HCP_CBO_API.CBO.ADMIN" }));
+        Assert.Equal(
+            new[] { UserRole.Admin },
+            new IdentityServerSettings().MapRoles(new[] { "HCP_CBO_API.CBO.ADMIN" }).ToArray());
     }
 
     [Fact]
-    public void MapRole_IsCaseInsensitive()
+    public void MapRoles_IsCaseInsensitive()
     {
-        Assert.Equal(UserRole.Admin, new IdentityServerSettings().MapRole(new[] { "hcp_cbo_api.cbo.admin" }));
+        Assert.Equal(
+            new[] { UserRole.Admin },
+            new IdentityServerSettings().MapRoles(new[] { "hcp_cbo_api.cbo.admin" }).ToArray());
     }
 
     [Fact]
-    public void MapRole_TrimsWhitespace()
+    public void MapRoles_TrimsWhitespace()
     {
-        Assert.Equal(UserRole.TeamDev, new IdentityServerSettings().MapRole(new[] { "  HCP_CBO_API.CBO.TEAMDEV  " }));
+        Assert.Equal(
+            new[] { UserRole.TeamDev },
+            new IdentityServerSettings().MapRoles(new[] { "  HCP_CBO_API.CBO.TEAMDEV  " }).ToArray());
     }
 
     [Fact]
-    public void MapRole_PicksHighestPrivilege_WhenMultipleRoles()
+    public void MapRoles_KeepsEveryMatchedRole()
     {
-        // User có cả USER lẫn ADMIN ⇒ nhận Admin (quyền cao nhất).
-        var role = new IdentityServerSettings().MapRole(new[] { "HCP_CBO_API.CBO.USER", "HCP_CBO_API.CBO.ADMIN" });
-        Assert.Equal(UserRole.Admin, role);
+        // User có cả USER lẫn ADMIN ⇒ giữ CẢ HAI. Trước đây chỉ giữ Admin, làm mất những quyền mà
+        // riêng vai trò User mới được cấp.
+        var roles = new IdentityServerSettings().MapRoles(new[] { "HCP_CBO_API.CBO.USER", "HCP_CBO_API.CBO.ADMIN" });
+
+        Assert.Equal(new[] { UserRole.Admin, UserRole.User }, roles.OrderBy(r => r.ToString(), StringComparer.Ordinal).ToArray());
     }
 
     [Fact]
-    public void MapRole_SuperAdmin_OutranksAdmin()
+    public void MapRoles_DeduplicatesRepeatedClaims()
     {
-        // SuperAdmin có giá trị enum lớn hơn Admin nhưng phải thắng nhờ thứ hạng đặc quyền tường minh.
-        var role = new IdentityServerSettings().MapRole(new[] { "HCP_CBO_API.CBO.ADMIN", "HCP_CBO_API.CBO.SUPERADMIN" });
-        Assert.Equal(UserRole.SuperAdmin, role);
+        var roles = new IdentityServerSettings().MapRoles(new[] { "HCP_CBO_API.CBO.ADMIN", "hcp_cbo_api.cbo.admin" });
+
+        Assert.Equal(new[] { UserRole.Admin }, roles.ToArray());
     }
 
     [Fact]
-    public void MapRole_ReturnsNull_WhenNoRoleMatches()
+    public void MapRoles_IgnoresUnknownClaims_ButKeepsKnownOnes()
     {
-        Assert.Null(new IdentityServerSettings().MapRole(new[] { "SOME.OTHER.ROLE", "" }));
+        var roles = new IdentityServerSettings().MapRoles(new[] { "SOME.OTHER.ROLE", "HCP_CBO_API.CBO.TEAMDEV" });
+
+        Assert.Equal(new[] { UserRole.TeamDev }, roles.ToArray());
     }
 
     [Fact]
-    public void MapRole_ReturnsNull_WhenNoRolesAtAll()
+    public void MapRoles_ReturnsEmpty_WhenNoRoleMatches()
     {
-        Assert.Null(new IdentityServerSettings().MapRole(Array.Empty<string>()));
+        Assert.Empty(new IdentityServerSettings().MapRoles(new[] { "SOME.OTHER.ROLE", "" }));
+    }
+
+    [Fact]
+    public void MapRoles_ReturnsEmpty_WhenNoRolesAtAll()
+    {
+        Assert.Empty(new IdentityServerSettings().MapRoles(Array.Empty<string>()));
     }
 }

@@ -251,14 +251,15 @@ public static class ApplicationServiceCollectionExtensions
         var email = context.Principal.FindFirstValue("email");
         var orgUnitName = context.Principal.FindFirstValue("department");
 
-        // Vai trò do IdentityServer phát (claim "role", có thể nhiều) → UserRole của app. null = không claim
-        // nào khớp mapping ⇒ provisioner dùng DefaultRole cho user mới, giữ nguyên vai trò cho user cũ.
+        // Vai trò do IdentityServer phát (claim "role", có thể nhiều) → TẬP UserRole của app; giữ tất cả
+        // vai trò khớp vì quyền của chúng giao nhau. Tập rỗng = không claim nào khớp mapping ⇒ provisioner
+        // dùng vai trò mặc định cho user mới, giữ nguyên vai trò cho user cũ.
         var ssoRoles = context.Principal.FindAll("role").Select(c => c.Value);
-        var roleFromClaims = ids.MapRole(ssoRoles);
+        var rolesFromClaims = ids.MapRoles(ssoRoles);
 
         var provisioner = context.HttpContext.RequestServices.GetRequiredService<SsoUserProvisioner>();
         var appUser = await provisioner.ResolveOrProvisionAsync(
-            username, displayName, email, roleFromClaims, orgUnitName, context.HttpContext.RequestAborted);
+            username, displayName, email, rolesFromClaims.ToList(), orgUnitName, context.HttpContext.RequestAborted);
 
         // Provisioner trả null = từ chối truy cập (user bị khóa / username rỗng). Fail rõ ràng để rơi vào
         // OnRemoteFailure → trang AccessDenied, thay vì NRE khi phát lại claim bên dưới.
@@ -277,7 +278,9 @@ public static class ApplicationServiceCollectionExtensions
         foreach (var claim in identity.FindAll("display_name").ToList())
             identity.RemoveClaim(claim);
         identity.AddClaim(new Claim(ClaimTypes.Name, appUser.Username));
-        identity.AddClaim(new Claim(ClaimTypes.Role, appUser.Role.ToString()));
+        // Một claim Role cho MỖI vai trò của user — quyền hiệu lực là hợp quyền của cả tập.
+        foreach (var role in appUser.Roles.Select(r => r.Role).Distinct())
+            identity.AddClaim(new Claim(ClaimTypes.Role, role.ToString()));
         // Tên hiển thị cho UI (left menu…); tách khỏi claim Name vì Name là NTID lái quyền sở hữu.
         identity.AddClaim(new Claim("display_name",
             string.IsNullOrWhiteSpace(appUser.DisplayName) ? appUser.Username : appUser.DisplayName));

@@ -87,7 +87,7 @@ public static class DbInitializer
             {
                 Username = seed.Username,
                 DisplayName = seed.DisplayName,
-                Role = seed.Role
+                Roles = { new AppUserRole { Role = seed.Role } }
             });
         }
 
@@ -145,13 +145,13 @@ public static class DbInitializer
     {
         var changed = false;
 
-        if (!await db.AppUsers.AnyAsync(u => u.Role == UserRole.SuperAdmin))
+        if (!await db.AppUserRoles.AnyAsync(r => r.Role == UserRole.SuperAdmin))
         {
             db.AppUsers.Add(new AppUser
             {
                 Username = "superadmin",
                 DisplayName = "Super Administrator",
-                Role = UserRole.SuperAdmin
+                Roles = { new AppUserRole { Role = UserRole.SuperAdmin } }
             });
             changed = true;
         }

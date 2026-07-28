@@ -54,8 +54,9 @@ public class AccountController : Controller
     {
         var admin = await _db.AppUsers
             .AsNoTracking()
-            .Where(u => u.Role == UserRole.SuperAdmin)
+            .Where(u => u.Roles.Any(r => r.Role == UserRole.SuperAdmin))
             .OrderBy(u => u.CreatedAt) // deterministic nếu lỡ có nhiều hơn một SuperAdmin
+            .Select(u => new { u.Username, u.DisplayName, Roles = u.Roles.Select(r => r.Role).ToList() })
             .FirstOrDefaultAsync(HttpContext.RequestAborted);
 
         // Không có tài khoản quản trị nào (DB rỗng bất thường) ⇒ báo lỗi rõ thay vì phát cookie trống.
@@ -65,10 +66,11 @@ public class AccountController : Controller
         var claims = new List<Claim>
         {
             new(ClaimTypes.Name, admin.Username),
-            new(ClaimTypes.Role, admin.Role.ToString()),
             // Tên hiển thị cho UI (left menu…); tách khỏi claim Name vì Name là NTID lái quyền sở hữu.
             new("display_name", string.IsNullOrWhiteSpace(admin.DisplayName) ? admin.Username : admin.DisplayName)
         };
+        // Một claim Role cho MỖI vai trò: PermissionService lấy hợp quyền của tất cả (xem AppUserRole).
+        claims.AddRange(admin.Roles.Select(role => new Claim(ClaimTypes.Role, role.ToString())));
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 
         await HttpContext.SignInAsync(
