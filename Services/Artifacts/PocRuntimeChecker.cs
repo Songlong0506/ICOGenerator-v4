@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using Microsoft.Playwright;
 
 namespace ICOGenerator.Services.Artifacts;
@@ -8,6 +9,16 @@ public sealed record PocScreenshot(string Screen, byte[] Png);
 /// <summary>Kết quả POC tự tính một worked example (window.pocWorkedExamples): ref + giá trị POC tính ra.</summary>
 public sealed record PocWorkedExampleResult(string Ref, string Computed);
 
+/// <summary>
+/// Kết quả LÁI THẬT một kịch bản nghiệm thu (UAT) trên POC: đi từng bước, tìm đúng nút/điều khiển được
+/// nhắc tới rồi CLICK và xem màn hình có đổi gì không. Khác <c>window.pocScenarios()</c> (agent tự viết,
+/// tự chấm bằng cách gọi hàm nội bộ), lớp này chạm vào đúng thứ người dùng sẽ chạm.
+/// </summary>
+public sealed record PocUatDriveResult(string Title, bool Pass, string Detail);
+
+/// <summary>Một bảng dữ liệu đọc được từ màn hình POC — nguyên liệu cho <see cref="PocCrossScreenConsistency"/>.</summary>
+public sealed record PocScreenTable(string Screen, IReadOnlyList<string> Headers, IReadOnlyList<IReadOnlyList<string>> Rows);
+
 /// <summary>Kết quả một lần kiểm tra runtime POC. <see cref="Ran"/> = false nghĩa là bị bỏ qua (không có browser/tắt cấu hình) — audit vẫn tiếp tục với phần tĩnh.</summary>
 public sealed record PocRuntimeReport(
     bool Ran,
@@ -16,10 +27,14 @@ public sealed record PocRuntimeReport(
     IReadOnlyList<string> SelfTestResults,
     IReadOnlyList<PocScreenshot> Screenshots,
     IReadOnlyList<PocWorkedExampleResult> WorkedExampleResults,
-    IReadOnlyList<string> ScenarioResults)
+    IReadOnlyList<string> ScenarioResults,
+    IReadOnlyList<PocUatDriveResult> UatDriveResults,
+    IReadOnlyList<PocScreenTable> ScreenTables)
 {
     public static PocRuntimeReport Skipped(string reason) =>
-        new(false, reason, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<PocScreenshot>(), Array.Empty<PocWorkedExampleResult>(), Array.Empty<string>());
+        new(false, reason, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<PocScreenshot>(),
+            Array.Empty<PocWorkedExampleResult>(), Array.Empty<string>(),
+            Array.Empty<PocUatDriveResult>(), Array.Empty<PocScreenTable>());
 }
 
 /// <summary>
@@ -36,7 +51,16 @@ public sealed record PocRuntimeReport(
 /// </summary>
 public interface IPocRuntimeChecker
 {
-    Task<PocRuntimeReport> CheckAsync(string pocHtmlPath, bool captureScreenshots = false, CancellationToken cancellationToken = default);
+    /// <param name="uatScenarios">
+    /// Bộ kịch bản nghiệm thu sinh TRƯỚC khi dựng POC (xem <see cref="Requirements.UatScenarioService"/>):
+    /// runtime lái thật từng bước bằng click để bắt "nút chết"/"thiếu điều khiển" — lớp lỗi mà assertion
+    /// do chính agent viết không bao giờ tự tố. Rỗng/null ⇒ bỏ qua lượt lái, hành vi như cũ.
+    /// </param>
+    Task<PocRuntimeReport> CheckAsync(
+        string pocHtmlPath,
+        bool captureScreenshots = false,
+        IReadOnlyList<UatScenario>? uatScenarios = null,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -61,6 +85,18 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
     private const int MobileOverflowThreshold = 32;
     private const int MaxMobileShots = 3;
 
+    // Lái UAT: mỗi kịch bản tốn một lần tải trang + ~0,4s mỗi bước, và audit chạy tới 3 vòng mỗi POC —
+    // trần giữ tổng chi phí ở mức vài giây thay vì làm bước POC dài ra thấy rõ.
+    private const int MaxUatScenarios = 5;
+    private const int MaxUatSteps = 6;
+
+    // Trích bảng cho phép đối chiếu chéo màn hình: đủ để bắt dữ liệu mẫu lệch nhau, không đủ để phình bộ nhớ.
+    private const int MaxTablesPerScreen = 3;
+    private const int MaxTablesTotal = 24;
+    private const int MaxTableRows = 25;
+    private const int MaxTableColumns = 8;
+    private const int MaxTableCellChars = 60;
+
     private readonly IConfiguration _configuration;
     private readonly ILogger<PlaywrightPocRuntimeChecker> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
@@ -75,7 +111,11 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         _logger = logger;
     }
 
-    public async Task<PocRuntimeReport> CheckAsync(string pocHtmlPath, bool captureScreenshots = false, CancellationToken cancellationToken = default)
+    public async Task<PocRuntimeReport> CheckAsync(
+        string pocHtmlPath,
+        bool captureScreenshots = false,
+        IReadOnlyList<UatScenario>? uatScenarios = null,
+        CancellationToken cancellationToken = default)
     {
         if (!_configuration.GetValue("Poc:RuntimeCheck:Enabled", true))
             return PocRuntimeReport.Skipped("tắt qua cấu hình Poc:RuntimeCheck:Enabled.");
@@ -89,7 +129,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
 
         try
         {
-            return await RunCheckAsync(browser, pocHtmlPath, captureScreenshots, cancellationToken);
+            return await RunCheckAsync(browser, pocHtmlPath, captureScreenshots, uatScenarios ?? Array.Empty<UatScenario>(), cancellationToken);
         }
         catch (Exception ex)
         {
@@ -99,10 +139,13 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         }
     }
 
-    private static async Task<PocRuntimeReport> RunCheckAsync(IBrowser browser, string pocHtmlPath, bool captureScreenshots, CancellationToken cancellationToken)
+    private static async Task<PocRuntimeReport> RunCheckAsync(
+        IBrowser browser, string pocHtmlPath, bool captureScreenshots,
+        IReadOnlyList<UatScenario> uatScenarios, CancellationToken cancellationToken)
     {
         var issues = new List<string>();
         var screenshots = new List<PocScreenshot>();
+        var screenTables = new List<PocScreenTable>();
         var modalShots = 0;
 
         // Viewport desktop cố định để ảnh chụp phản ánh đúng bố cục enterprise dashboard mà spec yêu cầu.
@@ -179,6 +222,11 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             // phần tử fixed-width tràn khung). Ngưỡng nới (>24px) để bỏ qua chênh lệch scrollbar lặt vặt.
             else if (probe.OverflowX > 24)
                 issues.Add($"Màn hình '{screen}' bị TRÀN NGANG {probe.OverflowX}px ở bề rộng desktop (phải cuộn ngang) — bọc bảng rộng trong `table-responsive`, dùng lưới/flex co giãn thay cho phần tử cố định bề rộng, để layout không vỡ trên màn hẹp.");
+
+            // Đọc các bảng dữ liệu của màn này để tầng PocCrossScreenConsistency đối chiếu CHÉO giữa các
+            // màn hình: cùng một bản ghi hiện ở hai nơi với con số/trạng thái khác nhau là lỗi người xem
+            // demo bắt ngay, mà mọi cổng hiện có đều mù (mỗi màn xét riêng thì màn nào cũng "hợp lệ").
+            await CollectScreenTablesAsync(page, screen, screenTables);
 
             if (captureScreenshots && screenshots.Count < MaxScreens)
             {
@@ -289,14 +337,260 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             }
         }
 
+        // LÁI THẬT bộ kịch bản nghiệm thu (UAT): mỗi kịch bản mở lại POC từ đầu (trạng thái sạch), đi từng
+        // bước, tìm đúng nút/điều khiển mà bước đó nhắc tới rồi CLICK. Đây là tầng duy nhất kiểm POC bằng
+        // thao tác của NGƯỜI DÙNG thay vì bằng assertion do chính agent viết — nên nó bắt được đúng lớp lỗi
+        // hay làm hỏng buổi demo: nhãn trong kịch bản không tồn tại trên màn hình, và nút bấm không làm gì cả.
+        var uatResults = await DriveUatScenariosAsync(page, url, uatScenarios, issues, errors, label => currentScreen = label, cancellationToken);
+
         // LƯỢT ĐIỆN THOẠI: mở lại POC ở bề rộng 390px và đi qua từng màn hình. Trước đây mọi thứ chỉ được
         // kiểm ở 1440px nên lớp lỗi "vỡ trên màn hẹp" KHÔNG cổng nào bắt được — kể cả Visual QA, vì nó chỉ
         // nhìn ảnh desktop (dù prompt của nó có mục "phải cuộn ngang"). Đây là bề rộng mà người duyệt hay
         // mở demo nhất khi được gửi link.
         await RunMobilePassAsync(browser, url, screens, issues, screenshots, captureScreenshots, cancellationToken);
 
-        lock (errors) issues.AddRange(errors);
-        return new PocRuntimeReport(true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots, workedResults, scenarioResults);
+        // Distinct: lượt lái UAT tải lại trang nhiều lần, nên một lỗi JS lúc tải trang sẽ được ghi lại ở
+        // mỗi lượt — người sửa chỉ cần thấy nó MỘT lần.
+        lock (errors) issues.AddRange(errors.Distinct(StringComparer.Ordinal));
+        return new PocRuntimeReport(
+            true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots, workedResults, scenarioResults,
+            uatResults, screenTables);
+    }
+
+    // Đọc bảng dữ liệu của màn hình đang mở (tối đa MaxTablesPerScreen bảng): tiêu đề cột + các dòng, cắt
+    // ngắn từng ô. Best-effort: màn không có bảng / evaluate lỗi ⇒ không thu gì, tầng đối chiếu tự bỏ qua.
+    private static async Task CollectScreenTablesAsync(IPage page, string screen, List<PocScreenTable> sink)
+    {
+        if (sink.Count >= MaxTablesTotal)
+            return;
+
+        try
+        {
+            var json = await page.EvaluateAsync<string>(
+                """
+                (limits) => {
+                  const active = document.querySelector('section.page-view.active');
+                  if (!active) return '[]';
+                  const clean = t => (t || '').replace(/\s+/g, ' ').trim().slice(0, limits.cell);
+                  const out = [];
+                  const tables = Array.from(active.querySelectorAll('table')).slice(0, limits.tables);
+                  for (const table of tables) {
+                    const headers = Array.from(table.querySelectorAll('thead th')).map(th => clean(th.innerText)).slice(0, limits.cols);
+                    if (headers.length === 0) continue;
+                    const rows = [];
+                    for (const tr of Array.from(table.querySelectorAll('tbody tr')).slice(0, limits.rows)) {
+                      const cells = Array.from(tr.querySelectorAll('td,th')).map(td => clean(td.innerText)).slice(0, limits.cols);
+                      if (cells.some(c => c.length > 0)) rows.push(cells);
+                    }
+                    if (rows.length > 0) out.push({ headers: headers, rows: rows });
+                  }
+                  return JSON.stringify(out);
+                }
+                """,
+                new { tables = MaxTablesPerScreen, rows = MaxTableRows, cols = MaxTableColumns, cell = MaxTableCellChars });
+
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<List<ScreenTableDto>>(json ?? "[]");
+            if (parsed == null)
+                return;
+
+            foreach (var table in parsed)
+            {
+                if (sink.Count >= MaxTablesTotal)
+                    return;
+                sink.Add(new PocScreenTable(
+                    screen,
+                    table.Headers ?? new List<string>(),
+                    (table.Rows ?? new List<List<string>>()).Select(r => (IReadOnlyList<string>)r).ToList()));
+            }
+        }
+        catch
+        {
+            // Đọc bảng là lớp bổ sung — hỏng thì bỏ qua màn này, phần còn lại của runtime check vẫn nguyên.
+        }
+    }
+
+    // Lái từng kịch bản nghiệm thu bằng THAO TÁC THẬT. Mỗi kịch bản chạy trên một lần tải trang mới để
+    // trạng thái của kịch bản trước không "rớt" sang kịch bản sau. Kết luận chỉ nêu hai loại khuyết tật
+    // KHÔNG THỂ CHỐI CÃI, để cổng này không biến thành máy sinh báo động giả:
+    //   • nhãn được nhắc trong ngoặc kép của bước không tồn tại ở đâu trên POC (thiếu điều khiển);
+    //   • bấm đúng điều khiển đó mà màn hình KHÔNG đổi gì (nút chết) — toast của shell được loại khỏi phép
+    //     so sánh vì shell tự toast cho mọi .btn, kể cả nút chưa nối logic.
+    // Bước mang tính QUAN SÁT ("kiểm tra đơn ở trạng thái Chờ duyệt") không tìm thấy điều khiển thì bỏ qua,
+    // không tính là lỗi.
+    private static async Task<List<PocUatDriveResult>> DriveUatScenariosAsync(
+        IPage page, string url, IReadOnlyList<UatScenario> scenarios,
+        List<string> issues, List<string> errors, Action<string> setCurrentScreen, CancellationToken cancellationToken)
+    {
+        var results = new List<PocUatDriveResult>();
+        if (scenarios.Count == 0)
+            return results;
+
+        foreach (var scenario in scenarios.Take(MaxUatScenarios))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            setCurrentScreen($"UAT: {scenario.Title}");
+
+            int errorsBefore;
+            lock (errors) errorsBefore = errors.Count;
+
+            string? failure = null;
+            var actionsDone = 0;
+
+            try
+            {
+                // Trạng thái sạch cho mỗi kịch bản: một kịch bản "duyệt đơn" chạy sau kịch bản "gửi đơn"
+                // mà không reset thì đang kiểm trên dữ liệu đã bị kịch bản trước làm biến dạng.
+                await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.Load, Timeout = GotoTimeoutMs });
+                await page.WaitForTimeoutAsync(250);
+
+                if (!string.IsNullOrWhiteSpace(scenario.Screen))
+                {
+                    await page.EvaluateAsync(
+                        "(label) => { try { if (typeof window.pocNavigate === 'function') window.pocNavigate(label); } catch {} }",
+                        scenario.Screen);
+                    await page.WaitForTimeoutAsync(120);
+                }
+
+                for (var i = 0; i < scenario.Steps.Count && i < MaxUatSteps && failure == null; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var step = scenario.Steps[i];
+                    var outcome = await RunUatStepAsync(page, step);
+
+                    switch (outcome.Status)
+                    {
+                        case "missing":
+                            failure = $"bước {i + 1} (\"{Shorten(step)}\"): không tìm thấy điều khiển nào mang nhãn '{outcome.Label}' trên POC";
+                            break;
+                        case "dead":
+                            failure = $"bước {i + 1} (\"{Shorten(step)}\"): bấm '{outcome.Label}' nhưng màn hình không thay đổi gì (nút chưa nối logic)";
+                            break;
+                        case "clicked":
+                            actionsDone++;
+                            break;
+                        // "skip" (bước quan sát, không có điều khiển tương ứng) và "nobootstrap" (modal
+                        // không mở được vì Bootstrap nạp từ CDN mà môi trường offline) — không kết luận.
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                failure ??= $"không lái được kịch bản ({FirstLine(ex.Message)})";
+            }
+
+            // Lỗi JS phát sinh TRONG lúc lái là bằng chứng mạnh nhất: người dùng bấm đúng kịch bản thì trang vỡ.
+            if (failure == null)
+            {
+                string[] newErrors;
+                lock (errors) newErrors = errors.Skip(errorsBefore).ToArray();
+                if (newErrors.Length > 0)
+                    failure = $"lỗi JS khi thao tác: {FirstLine(newErrors[0])}";
+            }
+
+            var pass = failure == null;
+            var detail = pass
+                ? $"{actionsDone} thao tác chạy được, không lỗi"
+                : failure!;
+            results.Add(new PocUatDriveResult(scenario.Title, pass, detail));
+
+            if (!pass)
+                issues.Add(
+                    $"Kịch bản nghiệm thu (UAT) '{scenario.Title}' KHÔNG thao tác được trên POC — {detail}. "
+                    + "Đây là kịch bản người dùng sẽ bấm thử khi nghiệm thu: sửa cho đúng nhãn/điều khiển và nối logic thật cho nút đó.");
+        }
+
+        return results;
+    }
+
+    // Một bước kịch bản: tìm điều khiển ứng với bước → chụp trạng thái → click → chờ → chụp lại → so.
+    // Toàn bộ chạy trong MỘT evaluate (async) để không phải đi lại nhiều vòng giữa C# và trang.
+    private static async Task<UatStepOutcome> RunUatStepAsync(IPage page, string step)
+    {
+        try
+        {
+            var json = await page.EvaluateAsync<string>(
+                """
+                async (step) => {
+                  const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                  const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+                  const snapshot = () => {
+                    const active = document.querySelector('section.page-view.active');
+                    const modals = document.querySelectorAll('.modal.show');
+                    // Chỉ lấy text của màn đang mở + modal đang mở: toast của shell nằm ngoài (#toastHost)
+                    // nên KHÔNG lọt vào chữ ký — shell tự toast cho mọi .btn, tính vào thì nút chết cũng "có phản ứng".
+                    let text = active ? (active.innerText || '') : '';
+                    modals.forEach(m => { text += '|' + (m.innerText || ''); });
+                    let h = 0;
+                    for (let i = 0; i < text.length; i++) { h = ((h * 31) + text.charCodeAt(i)) | 0; }
+                    return { view: active ? (active.dataset.view || '') : '', hash: h, modals: modals.length };
+                  };
+
+                  const stepText = norm(step);
+                  const quoted = [];
+                  const re = /["'“”‘’]([^"'“”‘’]{2,60})["'“”‘’]/g;
+                  let m;
+                  while ((m = re.exec(step)) !== null) quoted.push(m[1].trim());
+
+                  const controls = Array.from(document.querySelectorAll(
+                    'button, a, [role=button], input[type=submit], input[type=button], .btn, [data-crud-add]'))
+                    .filter(el => visible(el) && norm(el.innerText || el.value || '').length >= 2);
+
+                  let target = null;
+                  let label = '';
+
+                  for (const q of quoted) {
+                    const nq = norm(q);
+                    if (nq.length < 2) continue;
+                    target = controls.find(el => norm(el.innerText || el.value || '') === nq)
+                          || controls.find(el => norm(el.innerText || el.value || '').includes(nq));
+                    label = q;
+                    if (target) break;
+                    // Nhãn có tồn tại ở đâu đó trên trang (tiêu đề cột, chữ trong bảng) thì chưa kết luận
+                    // thiếu — bước có thể đang nói về dữ liệu chứ không phải nút bấm.
+                    const anywhere = norm(document.body.innerText || '').includes(nq);
+                    if (!anywhere) return JSON.stringify({ status: 'missing', label: q });
+                  }
+
+                  if (!target) {
+                    // Không có nhãn trong ngoặc: thử khớp NGƯỢC — nhãn nút nào xuất hiện nguyên văn trong câu bước.
+                    let best = null, bestLen = 0;
+                    for (const el of controls) {
+                      const t = norm(el.innerText || el.value || '');
+                      if (t.length >= 3 && t.length > bestLen && stepText.includes(t)) { best = el; bestLen = t.length; }
+                    }
+                    if (!best) return JSON.stringify({ status: 'skip', label: '' });
+                    target = best;
+                    label = (target.innerText || target.value || '').replace(/\s+/g, ' ').trim();
+                  }
+
+                  const before = snapshot();
+                  try { target.click(); } catch (e) { return JSON.stringify({ status: 'skip', label: label }); }
+                  await new Promise(r => setTimeout(r, 350));
+                  const after = snapshot();
+                  const changed = before.view !== after.view || before.hash !== after.hash || before.modals !== after.modals;
+                  if (!changed && target.getAttribute && target.getAttribute('data-bs-toggle') === 'modal' && !window.bootstrap)
+                    return JSON.stringify({ status: 'nobootstrap', label: label });
+                  return JSON.stringify({ status: changed ? 'clicked' : 'dead', label: label });
+                }
+                """, step);
+
+            return System.Text.Json.JsonSerializer.Deserialize<UatStepOutcome>(json ?? "{}") ?? new UatStepOutcome();
+        }
+        catch
+        {
+            // Bước không lái được (selector lạ, trang đang điều hướng) thì bỏ qua bước đó — không kết luận lỗi.
+            return new UatStepOutcome();
+        }
+    }
+
+    private static string Shorten(string text)
+    {
+        var clean = (text ?? string.Empty).Replace('\n', ' ').Trim();
+        return clean.Length <= 80 ? clean : clean[..77] + "…";
     }
 
     // Lượt kiểm ở bề rộng điện thoại: chỉ đo TRÀN NGANG (lỗi khách quan, không phải sở thích thẩm mỹ) và
@@ -398,6 +692,20 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         {
             return 0;
         }
+    }
+
+    /// <summary>Kết quả một bước lái UAT: status ∈ clicked|dead|missing|skip|nobootstrap + nhãn điều khiển liên quan.</summary>
+    private sealed class UatStepOutcome
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("status")] public string Status { get; set; } = "skip";
+        [System.Text.Json.Serialization.JsonPropertyName("label")] public string Label { get; set; } = string.Empty;
+    }
+
+    /// <summary>Một bảng đọc từ màn hình POC (JSON của evaluate) trước khi gắn tên màn hình.</summary>
+    private sealed class ScreenTableDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("headers")] public List<string>? Headers { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("rows")] public List<List<string>>? Rows { get; set; }
     }
 
     // Kết quả evaluate "mở màn hình + đo độ đầy" — Playwright deserialize JSON theo các key camelCase.

@@ -283,6 +283,17 @@ public class AgentTaskWorker : BackgroundService
                 return;
             }
 
+            var project = await db.Projects.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken)
+                ?? throw new InvalidOperationException($"Không tìm thấy project {task.ProjectId} cho task này.");
+
+            // Kịch bản nghiệm thu (UAT) của bước POC — sinh TRƯỚC khi agent đặt bút, không phải sau. Trước
+            // đây bộ này sinh sau khi POC dựng xong và chỉ để NGƯỜI đọc trên trang review, nên Developer
+            // agent dựng POC mà không biết mình sẽ bị nghiệm thu bằng đường đi nào, còn mọi assertion máy
+            // chạy đều do chính agent viết (cùng tác giả, cùng cách hiểu, sai cùng nhau). Sinh trước ⇒ nó
+            // vừa là ĐÍCH trong prompt, vừa là cổng đối chiếu độc lập ở AuditPocContent.
+            UatScenarioSet? uatScenarios = null;
+
             // POC template chỉ cần cho bước POC preview.
             if (task.Type == AgentTaskType.PocPreview)
             {
@@ -307,11 +318,22 @@ public class AgentTaskWorker : BackgroundService
                 // đơn vị yêu cầu không — thay vì chỉ hy vọng prompt được nghe lời.
                 pocTools.SetPocRealSampleData(
                     await RealSampleDataReader.ReadAsync(db, task.ProjectId, cancellationToken));
-            }
 
-            var project = await db.Projects.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken)
-                ?? throw new InvalidOperationException($"Không tìm thấy project {task.ProjectId} cho task này.");
+                // Vòng CHỈNH SỬA dùng lại bộ kịch bản đã sinh (spec không đổi) — sinh lại chỉ tốn một lời
+                // gọi LLM và làm lệch đích giữa hai vòng. Fail-open: sinh lỗi ⇒ bộ rỗng, mọi tầng UAT tự bỏ qua.
+                var uatService = scope.ServiceProvider.GetRequiredService<UatScenarioService>();
+                if (task.RevisionFeedback == null)
+                {
+                    _progress.Report(task.WorkflowRunId, "tool", "Đang sinh kịch bản nghiệm thu (UAT) từ spec để làm đích cho POC…");
+                    await uatService.TryGenerateAsync(task.ProjectId, task.Input, task.WorkflowRunId, cancellationToken);
+                }
+
+                uatScenarios = await uatService.LoadAsync(task.ProjectId, project.Name, cancellationToken);
+                pocTools.SetPocUatScenarios(uatScenarios);
+                if (uatScenarios.Scenarios.Count > 0)
+                    _progress.Report(task.WorkflowRunId, "setup",
+                        $"POC phải chạy được {uatScenarios.Scenarios.Count} kịch bản nghiệm thu — cổng audit sẽ đối chiếu và lái thử từng kịch bản.");
+            }
 
             // Generation Mode do TeamDev chọn ở Agent Dashboard. Cổng Approve đã chặn pipeline đi quá POC
             // khi giá trị còn null, nên tới các bước Architecture/Implementation nó luôn đã được chốt;
@@ -344,7 +366,8 @@ public class AgentTaskWorker : BackgroundService
                     .FirstOrDefaultAsync(cancellationToken);
 
             var promptBuilder = scope.ServiceProvider.GetRequiredService<WorkflowTaskPromptBuilder>();
-            var prompt = promptBuilder.Build(task.Type, task.Input, useBoschTemplate, task.RevisionFeedback, previousOutput);
+            var prompt = promptBuilder.Build(task.Type, task.Input, useBoschTemplate, task.RevisionFeedback, previousOutput,
+                UatScenarioService.BuildPromptBlock(uatScenarios));
             var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
 
             // Bước POC: ngân sách suy theo SỐ MÀN HÌNH của spec (task.Input) thay vì một con số cứng —
@@ -384,16 +407,6 @@ public class AgentTaskWorker : BackgroundService
             task.Status = AgentTaskStatus.Completed;
             task.Output = output;
             task.FinishedAt = DateTime.UtcNow;
-
-            // POC vừa dựng xong (lần đầu — vòng revision giữ nguyên kịch bản vì spec không đổi): sinh bộ
-            // kịch bản UAT từ spec cho trang POC Review. Fail-open bên trong service — không bao giờ làm
-            // fail task POC vì bước phụ trợ này.
-            if (task.Type == AgentTaskType.PocPreview && task.RevisionFeedback == null)
-            {
-                _progress.Report(task.WorkflowRunId, "tool", "Đang sinh kịch bản UAT cho trang POC Review…");
-                await scope.ServiceProvider.GetRequiredService<UatScenarioService>()
-                    .TryGenerateAsync(task.ProjectId, task.Input, task.WorkflowRunId, cancellationToken);
-            }
 
             // Vòng CHỈNH SỬA POC vừa xong: các ghi chú ghim đã thật sự dẫn tới một lần sửa — chắt lọc
             // chúng thành bài học cho bộ câu hỏi của BA (Agent.LearnedChecklistNotes) để lỗi tương tự

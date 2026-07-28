@@ -29,6 +29,24 @@ public sealed class PocVerificationSummary
     public int WorkedExamplesTotal { get; set; }
     public List<string> WorkedExampleIssues { get; set; } = new();
 
+    /// <summary>
+    /// Kịch bản NGHIỆM THU (UAT) sinh từ spec trước khi dựng POC: tổng số và số kịch bản đã có mục PASS
+    /// tương ứng trong <c>pocScenarios()</c>. Đây là thước đo "POC có demo được đúng thứ người dùng sắp
+    /// bấm thử không" — độc lập với assertion do chính agent dựng POC viết ra.
+    /// </summary>
+    public int UatTotal { get; set; }
+    public int UatCovered { get; set; }
+
+    /// <summary>
+    /// Từng dòng "PASS/FAIL &lt;kịch bản&gt; — chi tiết" của lượt LÁI THẬT bằng click trong trình duyệt
+    /// headless (tìm nút theo nhãn trong kịch bản → bấm → xem màn hình có đổi không). Rỗng khi không có
+    /// browser hoặc không có kịch bản nào.
+    /// </summary>
+    public List<string> UatDriveResults { get; set; } = new();
+
+    /// <summary>Dữ liệu mẫu lệch nhau giữa các màn hình (cùng bản ghi, cùng cột, hai giá trị) — rỗng = nhất quán.</summary>
+    public List<string> CrossScreenIssues { get; set; } = new();
+
     /// <summary>Tầng runtime (headless browser) có thật sự chạy không; không chạy thì vì sao.</summary>
     public bool RuntimeRan { get; set; }
     public string? RuntimeSkipReason { get; set; }

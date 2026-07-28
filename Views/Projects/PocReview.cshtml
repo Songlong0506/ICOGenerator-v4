@@ -165,6 +165,28 @@
                                 Độ phủ màn hình theo spec: @verif.CoveredScreens/@verif.SpecScreens
                             </li>
                         }
+                        @* Kịch bản nghiệm thu: sinh TRƯỚC khi POC được dựng, nên đây là thước đo độc lập
+                           với các assertion do chính agent dựng POC viết. Hai dòng: có mục tương ứng đang
+                           PASS không, và lượt lái THẬT bằng click có thao tác được không. *@
+                        @if (verif.UatTotal > 0)
+                        {
+                            <li class="@(verif.UatCovered >= verif.UatTotal ? "poc-verif-ok" : "poc-verif-bad")">
+                                Kịch bản nghiệm thu (checklist bên dưới) POC tự chạy đúng: @verif.UatCovered/@verif.UatTotal
+                            </li>
+                        }
+                        @if (verif.UatDriveResults.Any())
+                        {
+                            var drivePass = verif.UatDriveResults.Count(x => x.StartsWith("PASS", StringComparison.Ordinal));
+                            <li class="@(drivePass == verif.UatDriveResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
+                                Máy bấm thử theo kịch bản (click thật trên POC): @drivePass/@verif.UatDriveResults.Count kịch bản thao tác được
+                            </li>
+                        }
+                        @if (verif.CrossScreenIssues.Any())
+                        {
+                            <li class="poc-verif-bad">
+                                Dữ liệu mẫu lệch nhau giữa các màn hình: @verif.CrossScreenIssues.Count chỗ
+                            </li>
+                        }
                         @if (verif.VisualRan)
                         {
                             <li class="@(verif.VisualWarnings.Any() ? "" : "poc-verif-ok")">
