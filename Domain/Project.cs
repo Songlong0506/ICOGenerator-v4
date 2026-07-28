@@ -78,6 +78,14 @@ public class Project
     // khởi động delivery workflow; báo sai ⇒ về null, ghi đính chính vào SpecAssumptionCorrections và
     // sinh lại spec (rồi cổng dựng lại). null trên dự án cũ = không có gì chờ, luồng chạy như trước.
     public string? PendingAssumptionsVersion { get; set; }
+    // CỔNG SOÁT MÂU THUẪN (ngay trước khi soạn Product Brief — xem RequirementConflictService). Bản đồ bao
+    // phủ chỉ trả lời "đã rõ hết chưa", không trả lời "những điều đã rõ có chọi nhau không": người dùng nói
+    // ở lượt 3 rằng quản lý duyệt xong là hết, lượt 12 lại kể thêm HR duyệt — cả hai lần nhóm đó vẫn [RÕ].
+    // PendingConflicts = JSON các cặp mâu thuẫn đang chờ người dùng chốt lại (null = không có gì chờ);
+    // ConflictCheckedTurnCount = số lượt hội thoại tại thời điểm soát, để không gọi lại LLM khi hội thoại
+    // chưa đổi. Cả hai null/0 trên dự án cũ = luồng chạy y như trước.
+    public string? PendingConflicts { get; set; }
+    public int ConflictCheckedTurnCount { get; set; }
     // Các đính chính giả định người dùng đã gửi ở cổng trên, gom tích lũy (text bullet). Được nạp vào
     // prompt sinh AI Design Spec (RequirementPromptBuilder.BuildAiDesignSpec) để lượt sinh lại KHÔNG
     // lặp lại đúng giả định vừa bị bác. Giữ lại sau khi đã xác nhận: các lần sinh spec sau (phiên bản

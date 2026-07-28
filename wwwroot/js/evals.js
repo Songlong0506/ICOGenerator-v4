@@ -43,6 +43,17 @@
 
     // ---------- Scenario modal (một form cho cả thêm lẫn sửa) ----------
 
+    // Kiểu tình huống đổi thì nhãn ô "đầu vào" đổi theo: với phỏng vấn mô phỏng, ô đó là HỒ SƠ VAI DIỄN
+    // chứ không phải một tin nhắn — dùng nhầm là cả bộ eval đo sai thứ.
+    function syncScenarioKind() {
+        const interview = document.getElementById('scenario-kind').value === 'Interview';
+        document.getElementById('scenario-user-input-label').textContent =
+            interview ? 'Hồ sơ vai diễn của người dùng giả lập *' : 'Đầu vào mô phỏng (user gửi gì) *';
+        document.getElementById('scenario-persona-hint').style.display = interview ? '' : 'none';
+    }
+
+    document.getElementById('scenario-kind')?.addEventListener('change', syncScenarioKind);
+
     window.openCreateScenario = function () {
         const form = document.getElementById('scenarioForm');
         form.action = window.EVALS.createUrl;
@@ -51,6 +62,7 @@
         document.getElementById('scenarioModalTitle').textContent = 'Thêm Scenario';
         document.getElementById('scenarioSubmitBtn').textContent = 'Thêm Scenario';
         document.getElementById('scenario-active-line').style.display = 'none';
+        syncScenarioKind();
         openModal('scenarioModal');
     };
 
@@ -66,6 +78,8 @@
         document.getElementById('scenario-user-input').value = data.userInput;
         document.getElementById('scenario-criteria').value = data.criteria;
         document.getElementById('scenario-is-active').checked = data.isActive;
+        document.getElementById('scenario-kind').value = data.kind || 'Prompt';
+        syncScenarioKind();
         document.getElementById('scenario-active-line').style.display = '';
         document.getElementById('scenarioModalTitle').textContent = 'Sửa Scenario';
         document.getElementById('scenarioSubmitBtn').textContent = 'Lưu thay đổi';

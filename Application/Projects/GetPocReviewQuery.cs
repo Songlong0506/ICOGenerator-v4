@@ -32,6 +32,10 @@ public record PocReviewPage(
     IReadOnlyList<PocRevisionEntry> Revisions,
     PocReviewCoverage Coverage,
     PocVerificationSummary? Verification,
+    // Những gì vòng kiểm này SỬA ĐƯỢC so với vòng trước (rule/kịch bản FAIL→PASS, số điểm chưa đạt giảm).
+    // Đối trọng của Verification.Regressions: người review vòng thứ hai trở đi cần biết lần sửa vừa rồi
+    // đụng vào những gì để nhìn đúng chỗ, thay vì rà lại cả bản demo từ đầu.
+    IReadOnlyList<string> VerificationFixes,
     // Cổng POC đang mở (có run chờ duyệt ĐÚNG ở bước PocPreview) ⇒ trang này còn gửi được yêu cầu chỉnh
     // bản demo cho Developer; đã đi qua bước POC thì nút đó vô nghĩa và bị ẩn.
     bool PocGateOpen,
@@ -82,6 +86,13 @@ public class GetPocReviewQuery
         // review. Fail-open: chưa có file (POC cũ) ⇒ null, view tự ẩn panel.
         var verification = PocVerification.TryLoad(_workspacePathResolver.GetProjectWorkspacePath(workspaceFolder));
 
+        // So với vòng kiểm LIỀN TRƯỚC để nêu "đã sửa được gì" — cùng nguồn lịch sử mà tầng hồi quy dùng.
+        var workspacePath = _workspacePathResolver.GetProjectWorkspacePath(workspaceFolder);
+        var previousVerification = PocVerification.TryLoadHistory(workspacePath).LastOrDefault();
+        var verificationFixes = verification == null
+            ? new List<string>()
+            : PocVerification.DetectFixes(previousVerification, verification);
+
         var scenarios = await _uatScenarios.LoadAsync(project.Id, project.Name, cancellationToken);
 
         // Truy vết yêu cầu↔POC (U2): parse AI Design Spec (bản duyệt mới nhất) thành checklist — cùng
@@ -115,7 +126,7 @@ public class GetPocReviewQuery
                              && t.RevisionFeedback != null, cancellationToken);
 
         return new PocReviewPage(
-            project.Id, project.Name, File.Exists(mockupPath), scenarios, revisions, coverage, verification,
+            project.Id, project.Name, File.Exists(mockupPath), scenarios, revisions, coverage, verification, verificationFixes,
             pocGateOpen, revisionsUsed, DeliveryPipeline.MaxRevisionRounds,
             project.PocAcceptedAtUtc, project.PocAcceptedBy);
     }

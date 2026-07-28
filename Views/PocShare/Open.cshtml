@@ -1,0 +1,84 @@
+@model ICOGenerator.Application.Projects.PocReviewPage
+@{
+    ViewData["Title"] = $"Bản demo — {Model.ProjectName}";
+    var token = (string)ViewBag.ShareToken;
+    Layout = "_GuestLayout";
+}
+
+@* Trang xem dành cho NGƯỜI ĐƯỢC GỬI LINK (không có tài khoản): bản demo + kịch bản nghiệm thu + ghim góp
+   ý. Cố ý KHÔNG có gì khác của dự án — không tài liệu, không hội thoại, không kết quả tự kiểm nội bộ,
+   không nút điều khiển quy trình. Người xem chỉ cần bấm thử bản demo và chỉ đúng chỗ chưa ổn. *@
+
+<div class="page-head">
+    <div>
+        <h1>@Model.ProjectName — bản demo</h1>
+        <p class="muted">
+            Đây là bản demo để xem trước hướng đi (dữ liệu là dữ liệu mẫu, chưa phải hệ thống thật).
+            Bật chế độ ghim rồi bấm vào chỗ chưa đúng để góp ý cho đội dự án.
+        </p>
+    </div>
+</div>
+
+<div class="poc-review-layout"
+     id="pocShareRoot"
+     data-comments-url="@Url.Action("Comments", "PocShare", new { token })"
+     data-add-url="@Url.Action("AddComment", "PocShare", new { token })">
+
+    <section class="card poc-frame-panel">
+        <div class="poc-toolbar">
+            <button type="button" id="pinModeBtn" class="btn outline">📌 Bật chế độ ghim</button>
+            <span class="muted poc-toolbar-hint" id="pinModeHint">Chế độ ghim đang tắt — bản demo thao tác bình thường.</span>
+            <a class="btn outline small poc-open-tab" href="@Url.Action("Demo", "PocShare", new { token })" target="_blank">Mở tab riêng ↗</a>
+        </div>
+
+        @* Cùng rào chắn sandbox như đường có đăng nhập: HTML này do LLM sinh, phải chạy ở origin mờ. *@
+        <iframe id="pocFrame"
+                title="Bản demo"
+                src="@Url.Action("Demo", "PocShare", new { token, review = true })"
+                sandbox="allow-scripts allow-forms allow-modals"></iframe>
+    </section>
+
+    <aside class="card poc-comments-panel">
+        @if (Model.Scenarios.Scenarios.Any())
+        {
+            <details class="uat-panel" open>
+                <summary>🧭 Thử theo kịch bản <span class="poc-count">(@Model.Scenarios.Scenarios.Count)</span></summary>
+                <p class="muted poc-panel-hint">Nếu chưa biết bắt đầu từ đâu, đi theo các kịch bản dưới đây — đúng những việc hệ thống thật sẽ phải làm được.</p>
+                @foreach (var scenario in Model.Scenarios.Scenarios)
+                {
+                    <div class="uat-scenario">
+                        <div class="uat-title"><b>@scenario.Title</b></div>
+                        <ol class="uat-steps">
+                            @foreach (var step in scenario.Steps)
+                            {
+                                <li><span class="uat-step-text">@step</span></li>
+                            }
+                        </ol>
+                    </div>
+                }
+            </details>
+        }
+
+        <h3>Góp ý của mọi người <span class="poc-count" id="pocCommentCount"></span></h3>
+        <p class="muted poc-panel-hint">Bật chế độ ghim, bấm vào phần tử chưa đúng trong bản demo rồi gõ góp ý.</p>
+
+        <form id="pocCommentForm" class="poc-comment-form" hidden>
+            @Html.AntiForgeryToken()
+            <div class="poc-comment-target-row">
+                Góp ý cho: <b id="pocTargetLabel"></b>
+            </div>
+            <input type="text" id="pocGuestName" class="poc-guest-name" maxlength="60" placeholder="Tên của bạn (để đội dự án biết ai góp ý)" />
+            <textarea id="pocCommentText" rows="3" placeholder="Chỗ này chưa đúng ở điểm nào?"></textarea>
+            <div class="poc-comment-form-actions">
+                <button type="submit" class="btn primary small">Gửi góp ý</button>
+                <button type="button" class="btn outline small" id="pocCommentCancel">Hủy</button>
+            </div>
+        </form>
+
+        <div id="pocCommentList" class="poc-comment-list"></div>
+    </aside>
+</div>
+
+@section Scripts {
+    <script src="~/js/poc-share.js" asp-append-version="true"></script>
+}

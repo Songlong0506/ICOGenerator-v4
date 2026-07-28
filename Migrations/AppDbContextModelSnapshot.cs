@@ -754,6 +754,11 @@ namespace ICOGenerator.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -994,6 +999,12 @@ namespace ICOGenerator.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("AddressedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AddressedNote")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Comment")
                         .IsRequired()
                         .HasMaxLength(4000)
@@ -1042,6 +1053,47 @@ namespace ICOGenerator.Migrations
                     b.ToTable("PocComments");
                 });
 
+            modelBuilder.Entity("ICOGenerator.Domain.PocShareLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("ProjectId", "CreatedAt");
+
+                    b.ToTable("PocShareLinks");
+                });
+
             modelBuilder.Entity("ICOGenerator.Domain.Project", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1054,6 +1106,9 @@ namespace ICOGenerator.Migrations
 
                     b.Property<bool>("ChecklistGapHarvested")
                         .HasColumnType("bit");
+
+                    b.Property<int>("ConflictCheckedTurnCount")
+                        .HasColumnType("int");
 
                     b.Property<string>("ConversationSummary")
                         .HasColumnType("nvarchar(max)");
@@ -1105,6 +1160,9 @@ namespace ICOGenerator.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("PendingAssumptionsVersion")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PendingConflicts")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PlannedScope")
@@ -1565,6 +1623,17 @@ namespace ICOGenerator.Migrations
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.PocComment", b =>
+                {
+                    b.HasOne("ICOGenerator.Domain.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.PocShareLink", b =>
                 {
                     b.HasOne("ICOGenerator.Domain.Project", "Project")
                         .WithMany()

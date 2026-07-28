@@ -16,6 +16,8 @@
     var conversations = Model.Conversations
         .OrderBy(x => x.CreatedAt)
         .ToList();
+    // Lượt user MỚI NHẤT — nút "✎ sửa" chỉ gắn ở đây (server cũng chỉ sửa được lượt user cuối cùng).
+    var lastUserTurnId = conversations.LastOrDefault(x => x.Role == "user")?.Id;
     var workflowRuns = Model.WorkflowRuns
         .OrderBy(x => x.CreatedAt)
         .ToList();
@@ -270,7 +272,8 @@
 
         @* Tiến độ khai thác yêu cầu: cho user thấy cuộc phỏng vấn đã rõ bao nhiêu nhóm thông tin và còn
            thiếu gì — thay vì cảm giác "bị hỏi vô tận". Ẩn khi chưa có bản đồ (dự án mới). *@
-        <div class="coverage-panel" id="coveragePanel" @(coverage.Count == 0 ? "hidden" : "")>
+        <div class="coverage-panel" id="coveragePanel" @(coverage.Count == 0 ? "hidden" : "")
+             data-reopen-url="@Url.Action("ReopenCoverage", "Requirements")">
             <h3>Tiến độ khai thác</h3>
             <div class="coverage-progress">
                 <div class="coverage-bar">
@@ -283,12 +286,24 @@
                 @foreach (var item in coverage)
                 {
                     <li class="coverage-item @(item.Status == "KHÔNG ÁP DỤNG" ? "na" : "")"
+                        data-label="@item.Label"
                         title="@item.Summary">
                         <span class="cov-ico">@CoverageIcon(item.Status)</span>
                         @* IsCore (★) vẫn dùng để xếp thứ tự nhóm còn thiếu trong RequirementReadinessGate,
                            nhưng KHÔNG hiển thị: với user, "nhóm cốt lõi" là phân loại nội bộ của BA — mọi nhóm
                            áp dụng đều phải [RÕ] mới mở được Write Requirement, nên ★ chỉ gây nhiễu. *@
                         <span class="cov-label">@item.Label</span>
+                        @* BẰNG CHỨNG + đường đính chính: một nhóm bị chấm [RÕ] oan là điểm mù kín của hệ
+                           thống (BA bị cấm hỏi lại nhóm đã [RÕ]), nên người dùng phải thấy được kết luận
+                           dựa vào câu nào của mình VÀ có nút phản đối ngay tại đó. *@
+                        @if (item.Status is "RÕ" or "MỘT PHẦN")
+                        {
+                            <button type="button" class="cov-wrong" title="Nhóm này BA hiểu chưa đúng — hỏi lại giúp tôi">chưa đúng?</button>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(item.Evidence))
+                        {
+                            <div class="cov-evidence" title="Câu mà kết luận này dựa vào">@item.Evidence</div>
+                        }
                     </li>
                 }
             </ul>
@@ -336,6 +351,19 @@
                     📝 Write Requirement
                 </button>
             </form>
+
+            @* CỔNG SOÁT MÂU THUẪN: chạy khi bấm "Write Requirement", TRƯỚC khi tài liệu được soạn. Panel
+               tiến độ chỉ trả lời "đã rõ hết chưa"; cổng này trả lời "những điều đã rõ có chọi nhau
+               không" — và một mâu thuẫn lọt qua đây sẽ đóng băng thành yêu cầu sai rồi kéo cả POC theo.
+               Không có mâu thuẫn ⇒ panel không bao giờ hiện, form submit như trước. *@
+            <div class="conflict-panel" id="conflictPanel" hidden
+                 data-check-url="@Url.Action("CheckConflicts", "Requirements")"
+                 data-resolve-url="@Url.Action("ResolveConflicts", "Requirements")">
+                <h3>⚠ Có điểm đang mâu thuẫn</h3>
+                <div class="history-sub">Mấy điểm dưới đây anh/chị đã nói theo hai cách khác nhau. Chọn giúp phương án đúng để tài liệu không ghi nhầm.</div>
+                <div class="conflict-body" id="conflictBody"></div>
+                <div class="conflict-msg" id="conflictMsg"></div>
+            </div>
         </div>
 
         @* "Điều đã chốt": các quyết định user đã xác nhận trong chat — bấm một mục để soạn sẵn tin nhắn
@@ -603,6 +631,16 @@
                         @if (!string.IsNullOrWhiteSpace(group.Conversation.Message))
                         {
                             <p>@group.Conversation.Message</p>
+                        }
+                        @* SỬA lượt vừa gửi — chỉ ở lượt user CUỐI CÙNG (sửa lượt giữa hội thoại thì mọi
+                           lượt sau đó nói về nội dung đã biến mất). Không có nút này, một câu gõ nhầm chỉ
+                           "sửa" được bằng cách nhắn thêm câu đính chính, trong khi bản đồ bao phủ và nhật
+                           ký điều đã chốt đã kịp ghi nhận câu sai và chúng gộp lũy tiến. *@
+                        @if (group.Conversation.Id == lastUserTurnId && !string.IsNullOrWhiteSpace(group.Conversation.Message))
+                        {
+                            <button type="button" class="chat-edit-btn"
+                                    data-message="@group.Conversation.Message"
+                                    title="Sửa lại câu vừa gửi — BA sẽ trả lời lại từ nội dung mới">✎ sửa</button>
                         }
                     </div>
                 }

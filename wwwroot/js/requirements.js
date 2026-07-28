@@ -190,9 +190,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const clear = items.filter(x => x.status === "RÕ").length;
 
         list.innerHTML = items.map(x => `
-            <li class="coverage-item ${x.status === "KHÔNG ÁP DỤNG" ? "na" : ""}" title="${escapeHtml(x.summary || "")}">
+            <li class="coverage-item ${x.status === "KHÔNG ÁP DỤNG" ? "na" : ""}" data-label="${escapeHtml(x.label)}" title="${escapeHtml(x.summary || "")}">
                 <span class="cov-ico">${coverageIcons[x.status] || "⚪"}</span>
                 <span class="cov-label">${escapeHtml(x.label)}</span>
+                ${(x.status === "RÕ" || x.status === "MỘT PHẦN")
+                    ? `<button type="button" class="cov-wrong" title="Nhóm này BA hiểu chưa đúng — hỏi lại giúp tôi">chưa đúng?</button>`
+                    : ""}
+                ${x.evidence ? `<div class="cov-evidence" title="Câu mà kết luận này dựa vào">${escapeHtml(x.evidence)}</div>` : ""}
             </li>
         `).join("");
 
@@ -238,6 +242,102 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             if (!item) return;
 
             messageInput.value = `Tôi muốn sửa lại điều đã chốt: "${item.dataset.decision}". Ý đúng của tôi là: `;
+            resizeMessageInput();
+            messageInput.focus();
+            messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
+        });
+    }
+
+    // ==== SỬA lượt vừa gửi ====
+    // Bong bóng user CUỐI CÙNG có nút "✎ sửa": nội dung được nạp vào ô nhập, gửi lại sẽ GHI ĐÈ lượt đó
+    // (server xóa câu trả lời cũ và kéo lùi các con trỏ gộp) thay vì thêm một lượt mới. Không có đường
+    // này, một câu gõ nhầm chỉ sửa được bằng cách nhắn thêm câu đính chính — nhưng bản đồ bao phủ và
+    // nhật ký điều đã chốt đã kịp ghi nhận câu sai, và chúng gộp lũy tiến nên câu sai không mất đi.
+    let editingBubble = null;
+
+    function exitEditMode() {
+        if (editingBubble) editingBubble.classList.remove("is-editing");
+        editingBubble = null;
+        chatForm.classList.remove("chat-editing");
+    }
+
+    // Ghi đè bong bóng đang sửa + gỡ câu trả lời cũ ngay trên màn hình (server sắp xóa đúng lượt đó).
+    function applyEditToBubble(text) {
+        const bubble = editingBubble;
+        exitEditMode();
+        if (!bubble) return;
+
+        const p = bubble.querySelector("p");
+        if (p) p.textContent = text;
+
+        // Câu trả lời cũ nằm ngay sau bong bóng user (kèm nhãn "BA" phía trước nó).
+        let next = bubble.nextElementSibling;
+        while (next && !next.classList.contains("req-msg") && !next.classList.contains("req-who")) {
+            next = next.nextElementSibling;
+        }
+        if (next && next.classList.contains("req-who")) {
+            const label = next;
+            next = next.nextElementSibling;
+            label.remove();
+        }
+        if (next && next.classList.contains("req-msg") && next.classList.contains("ba")) next.remove();
+    }
+
+    chatMessages.addEventListener("click", function (e) {
+        const btn = e.target.closest(".chat-edit-btn");
+        if (!btn || chatBusy) return;
+
+        editingBubble = btn.closest(".req-msg.you");
+        if (editingBubble) editingBubble.classList.add("is-editing");
+        chatForm.classList.add("chat-editing");
+
+        messageInput.value = btn.dataset.message || "";
+        resizeMessageInput();
+        messageInput.focus();
+        messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
+    });
+
+    // Escape = bỏ sửa (ô nhập trở lại trạng thái gửi lượt mới).
+    messageInput.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && editingBubble) {
+            exitEditMode();
+            messageInput.value = "";
+            resizeMessageInput();
+        }
+    });
+
+    // Bấm "chưa đúng?" trên một nhóm của bản đồ bao phủ → hạ nhóm xuống [MỘT PHẦN] NGAY (server sửa bản
+    // đồ tất định, không chờ lượt chat) rồi soạn sẵn tin nhắn để user nói lại cho đúng. Không có đường
+    // này thì một nhóm bị chấm [RÕ] oan sẽ không bao giờ được hỏi lại — BA bị cấm hỏi lại nhóm đã [RÕ].
+    const coveragePanelEl = document.getElementById("coveragePanel");
+    if (coveragePanelEl) {
+        coveragePanelEl.addEventListener("click", async function (e) {
+            const btn = e.target.closest(".cov-wrong");
+            if (!btn) return;
+
+            const item = btn.closest(".coverage-item");
+            const label = item ? item.dataset.label : "";
+            if (!label) return;
+
+            btn.disabled = true;
+            try {
+                const fd = new FormData();
+                fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
+                fd.append("label", label);
+                const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                fd.append("__RequestVerificationToken", tokenEl ? tokenEl.value : "");
+                const resp = await fetch(coveragePanelEl.dataset.reopenUrl, { method: "POST", body: fd });
+                const data = await resp.json();
+                if (data.ok) {
+                    renderCoverage(data.coverage);
+                    setWriteRequirementReady(!!data.ready);
+                }
+            } catch {
+                // Mất mạng: không sửa được bản đồ thì thôi, người dùng vẫn gõ được đính chính vào chat
+                // bên dưới — lượt gộp kế tiếp sẽ hạ nhóm đó xuống.
+            }
+
+            messageInput.value = `Nhóm "${label}" BA hiểu chưa đúng. Ý đúng của tôi là: `;
             resizeMessageInput();
             messageInput.focus();
             messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
@@ -450,11 +550,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // lời…" quay vĩnh viễn — đúng triệu chứng người dùng báo.
     let sawDone = false;
 
-    async function streamChat(text, retry) {
+    async function streamChat(text, retry, edit) {
         const fd = new FormData();
         fd.append("projectId", chatForm.querySelector('input[name="projectId"]').value);
         fd.append("message", text);
         if (retry) fd.append("retry", "true");
+        // edit: server ghi ĐÈ lượt user cuối rồi trả lời lại, thay vì thêm một lượt mới.
+        if (edit) fd.append("edit", "true");
         const token = chatForm.querySelector('input[name="__RequestVerificationToken"]');
         if (token) fd.append("__RequestVerificationToken", token.value);
 
@@ -517,10 +619,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const text = messageInput.value.trim();
         if (!text || chatBusy) return;
 
+        // Đang SỬA lượt vừa gửi: không thêm bong bóng mới — ghi đè bong bóng cũ và gỡ câu trả lời cũ
+        // (server cũng xóa đúng lượt assistant đó), rồi gửi kèm cờ edit.
+        const editing = editingBubble !== null;
+
         chatBusy = true;
         sawFrame = false;
         sawDone = false;
-        appendUserBubble(text);
+        if (editing) {
+            applyEditToBubble(text);
+        } else {
+            appendUserBubble(text);
+        }
 
         messageInput.value = "";
         resizeMessageInput();
@@ -532,7 +642,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         thinkingBox.style.display = "block";
         scrollToBottom();
 
-        streamChat(text, false).then(function (gotFrame) {
+        streamChat(text, false, editing).then(function (gotFrame) {
             if (!gotFrame) throw new Error("no frame");
             if (!sawDone) throw new Error("stream ended without done");
         }).catch(function () {
@@ -546,7 +656,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
 
             // Hỏng từ trước khi nhận frame nào (mạng/proxy không stream được):
-            // quay về postback cổ điển — submit native để không đi lại listener này.
+            // quay về postback cổ điển — submit native để không đi lại listener này. Trừ lượt SỬA:
+            // postback chỉ biết thêm lượt mới, gửi qua đó sẽ nhân đôi câu vừa sửa.
+            if (editing) {
+                location.reload();
+                return;
+            }
             document.getElementById("hiddenMessage").value = text;
             HTMLFormElement.prototype.submit.call(chatForm);
         });
@@ -578,7 +693,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         thinkingBox.style.display = "block";
         scrollToBottom();
 
-        streamChat("", true).then(function (gotFrame) {
+        streamChat("", true, false).then(function (gotFrame) {
             if (!gotFrame) throw new Error("no frame");
             if (!sawDone) throw new Error("stream ended without done");
         }).catch(function () {
@@ -1648,5 +1763,140 @@ function closeRequirementModal() {
             msgEl.textContent = "Không lưu được — kiểm tra kết nối rồi thử lại.";
         }
         saveBtn.disabled = false;
+    });
+})();
+
+// ==== Cổng soát MÂU THUẪN (chạy khi bấm "Write Requirement") ====
+// Panel "Tiến độ khai thác" chỉ trả lời *đã rõ hết chưa*. Cổng này trả lời *những điều đã rõ có chọi nhau
+// không*: người dùng nói ở lượt 3 rằng quản lý duyệt xong là hết, tới lượt 12 lại kể thêm HR duyệt — bản
+// đồ bao phủ đánh dấu [RÕ] cả hai lần, còn bước soạn tài liệu (bị cấm tự giả định) sẽ chọn bừa một bên.
+// Không có mâu thuẫn ⇒ người dùng không thấy gì cả, form submit như trước (fail-open cả khi soát lỗi).
+(function initConflictGate() {
+    const panel = document.getElementById("conflictPanel");
+    const form = document.querySelector("form.write-req");
+    if (!panel || !form) return;
+
+    const bodyEl = document.getElementById("conflictBody");
+    const msgEl = document.getElementById("conflictMsg");
+    const submitBtn = form.querySelector("button");
+
+    // Đã soát xong (không còn mâu thuẫn / vừa chốt xong) ⇒ lần submit sau đi thẳng, không soát lại.
+    let cleared = false;
+
+    function token() {
+        const el = document.querySelector('input[name="__RequestVerificationToken"]');
+        return el ? el.value : "";
+    }
+
+    async function post(url, extra) {
+        const fd = new FormData();
+        fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
+        fd.append("__RequestVerificationToken", token());
+        Object.keys(extra || {}).forEach(k => fd.append(k, extra[k]));
+        const resp = await fetch(url, { method: "POST", body: fd });
+        return await resp.json();
+    }
+
+    function submitForRealNow() {
+        cleared = true;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Đang tạo tài liệu…";
+        // form.submit() không chạy handler onsubmit nên trạng thái nút phải tự đặt ở trên.
+        form.submit();
+    }
+
+    function render(conflicts) {
+        bodyEl.innerHTML = conflicts.map((c, i) => `
+            <div class="conflict-item" data-index="${i}" data-question="${escapeHtml(c.question || "")}">
+                ${c.topic ? `<div class="conflict-topic">${escapeHtml(c.topic)}</div>` : ""}
+                <div class="conflict-sides">
+                    <div class="conflict-side"><span class="conflict-side-tag">Anh/chị từng nói</span> ${escapeHtml(c.sideA || "")}</div>
+                    <div class="conflict-side"><span class="conflict-side-tag">Nhưng cũng nói</span> ${escapeHtml(c.sideB || "")}</div>
+                </div>
+                <div class="conflict-question">${escapeHtml(c.question || "")}</div>
+                <div class="conflict-options">
+                    ${(c.options || []).map(o => `
+                        <button type="button" class="conflict-option" data-value="${escapeHtml(o)}">${escapeHtml(o)}</button>
+                    `).join("")}
+                </div>
+                <input type="text" class="conflict-other" placeholder="Hoặc gõ cách hiểu đúng của anh/chị…" />
+            </div>`).join("") + `
+            <div class="conflict-bar">
+                <button type="button" class="btn primary full" id="conflictConfirmBtn">✓ Chốt lại rồi tạo tài liệu</button>
+            </div>`;
+        panel.hidden = false;
+        panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    // Lựa chọn của một mục = nút đang bật, hoặc ô tự nhập nếu người dùng gõ (ô gõ được ưu tiên).
+    function choiceOf(item) {
+        const typed = item.querySelector(".conflict-other").value.trim();
+        if (typed.length > 0) return typed;
+        const on = item.querySelector(".conflict-option.is-on");
+        return on ? on.dataset.value : "";
+    }
+
+    form.addEventListener("submit", async function (e) {
+        if (cleared) return;
+        e.preventDefault();
+
+        const original = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Đang soát mâu thuẫn…";
+        try {
+            const data = await post(panel.dataset.checkUrl, null);
+            if (!data.ok || !Array.isArray(data.conflicts) || data.conflicts.length === 0) {
+                submitForRealNow();
+                return;
+            }
+            render(data.conflicts);
+        } catch {
+            // Soát lỗi (mất mạng, LLM chết) KHÔNG được chặn người dùng — đây là cổng chất lượng, không
+            // phải cổng bảo mật: đi tiếp và soạn tài liệu như trước khi có cổng này.
+            submitForRealNow();
+            return;
+        }
+        submitBtn.disabled = false;
+        submitBtn.textContent = original;
+    });
+
+    bodyEl.addEventListener("click", async function (e) {
+        const option = e.target.closest(".conflict-option");
+        if (option) {
+            const item = option.closest(".conflict-item");
+            item.querySelectorAll(".conflict-option").forEach(b => b.classList.toggle("is-on", b === option));
+            item.querySelector(".conflict-other").value = "";
+            return;
+        }
+
+        const confirmBtn = e.target.closest("#conflictConfirmBtn");
+        if (!confirmBtn) return;
+
+        const items = Array.from(bodyEl.querySelectorAll(".conflict-item"));
+        const resolutions = items
+            .map(item => ({ question: item.dataset.question, choice: choiceOf(item) }))
+            .filter(r => r.choice.length > 0);
+
+        if (resolutions.length < items.length) {
+            msgEl.textContent = "Còn điểm chưa chọn — chọn một phương án (hoặc gõ cách hiểu đúng) cho từng điểm nhé.";
+            return;
+        }
+
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "Đang ghi nhận…";
+        msgEl.textContent = "";
+        try {
+            const data = await post(panel.dataset.resolveUrl, { resolutionsJson: JSON.stringify(resolutions) });
+            if (data.ok) {
+                panel.hidden = true;
+                submitForRealNow();
+                return;
+            }
+            msgEl.textContent = data.error || "Không ghi nhận được lựa chọn.";
+        } catch {
+            msgEl.textContent = "Không gửi được — kiểm tra kết nối rồi thử lại.";
+        }
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "✓ Chốt lại rồi tạo tài liệu";
     });
 })();

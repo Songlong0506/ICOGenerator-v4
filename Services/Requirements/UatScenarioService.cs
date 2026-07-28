@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
@@ -100,6 +101,41 @@ public class UatScenarioService
         {
             _logger.LogWarning(ex, "Could not generate UAT scenarios for project {ProjectId}.", projectId);
         }
+    }
+
+    /// <summary>
+    /// Khối văn bản mô tả bộ kịch bản nghiệm thu để NỐI vào prompt dựng POC. Đây là điểm khác biệt của
+    /// hướng "test-first": Developer agent biết TRƯỚC mình sẽ bị nghiệm thu bằng những đường đi nào, và
+    /// được yêu cầu đặt tên các mục <c>window.pocScenarios()</c> đúng bằng tiêu đề kịch bản để cổng
+    /// <see cref="Artifacts.PocUatCoverage"/> đối chiếu máy móc được. Bộ rỗng ⇒ chuỗi rỗng (prompt như cũ).
+    /// </summary>
+    public static string BuildPromptBlock(UatScenarioSet? set)
+    {
+        var scenarios = set?.Scenarios ?? new List<UatScenario>();
+        if (scenarios.Count == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine("# KỊCH BẢN NGHIỆM THU (UAT) — ĐÍCH BẮT BUỘC CỦA POC NÀY");
+        sb.AppendLine();
+        sb.AppendLine("Đây là các kịch bản do BA sinh từ chính AI Design Spec ở trên, TRƯỚC khi bạn dựng POC. Người dùng sẽ mở POC và bấm thử ĐÚNG các bước này để nghiệm thu, và cổng AuditPocContent đối chiếu MÁY MÓC:");
+        sb.AppendLine("- MỖI kịch bản dưới đây phải có ĐÚNG MỘT phần tử trong `window.pocScenarios()` với `title` là **nguyên văn tiêu đề kịch bản** (đặt tên khác đi sẽ bị báo là thiếu kịch bản).");
+        sb.AppendLine("- Phần tử đó phải PASS THẬT: `pass` được tính bằng cách gọi chính các hàm nghiệp vụ/điều hướng của POC theo đúng trình tự các bước, rồi so trạng thái quan sát được với kỳ vọng.");
+        sb.AppendLine("- Audit còn LÁI THẬT các bước này trong trình duyệt: nó tìm nút/điều khiển theo nhãn ghi trong bước rồi CLICK. Vì vậy nhãn nút trên UI phải trùng với nhãn nêu trong bước, và nút phải làm thật (bấm mà màn hình không đổi gì sẽ bị báo là nút chết).");
+        sb.AppendLine();
+
+        for (var i = 0; i < scenarios.Count; i++)
+        {
+            var s = scenarios[i];
+            sb.AppendLine($"{i + 1}. **{s.Title}**"
+                + (string.IsNullOrWhiteSpace(s.Screen) ? "" : $" — màn hình: {s.Screen}")
+                + (s.RuleRefs.Count > 0 ? $" — kiểm rule: {string.Join(", ", s.RuleRefs)}" : ""));
+            foreach (var step in s.Steps)
+                sb.AppendLine($"   - {step}");
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>Đọc bộ kịch bản đã lưu của project; không có/hỏng ⇒ bộ rỗng (trang review tự ẩn panel).</summary>

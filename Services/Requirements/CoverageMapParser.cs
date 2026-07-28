@@ -24,12 +24,17 @@ public static partial class CoverageMapParser
             if (!match.Success)
                 continue;
 
+            // Tóm tắt có thể kết thúc bằng khối bằng chứng "{nguồn: …}" — tách ra để UI hiện riêng (và để
+            // tooltip tóm tắt không lẫn phần trích dẫn). Bản đồ cũ không có khối này ⇒ Evidence rỗng.
+            var (summary, evidence) = SplitEvidence(match.Groups["summary"].Value.Trim());
+
             items.Add(new CoverageMapItem
             {
                 IsCore = match.Groups["core"].Success,
                 Label = match.Groups["label"].Value.Trim(),
                 Status = NormalizeStatus(match.Groups["status"].Value),
-                Summary = match.Groups["summary"].Value.Trim()
+                Summary = summary,
+                Evidence = evidence
             });
         }
 
@@ -42,6 +47,18 @@ public static partial class CoverageMapParser
         var applicable = items.Count(x => x.Status != "KHÔNG ÁP DỤNG");
         var clear = items.Count(x => x.Status == "RÕ");
         return (clear, applicable);
+    }
+
+    /// <summary>
+    /// Tách khối bằng chứng "{nguồn: …}" ở CUỐI tóm tắt. Không có khối ⇒ trả nguyên tóm tắt + bằng chứng
+    /// rỗng (bản đồ sinh trước khi format có mục này vẫn parse y như cũ).
+    /// </summary>
+    public static (string Summary, string Evidence) SplitEvidence(string summary)
+    {
+        var match = EvidenceRegex().Match(summary ?? string.Empty);
+        return match.Success
+            ? (summary![..match.Index].Trim(), match.Groups["evidence"].Value.Trim())
+            : (summary ?? string.Empty, string.Empty);
     }
 
     private static string NormalizeStatus(string raw)
@@ -60,4 +77,8 @@ public static partial class CoverageMapParser
     // trạng thái trong ngoặc vuông, phần còn lại là tóm tắt.
     [GeneratedRegex(@"^-\s*(?<core>★)?\s*(?<label>[^:\[\]]+):\s*\[(?<status>[^\]]+)\]\s*(?<summary>.*)$")]
     private static partial Regex CoverageLineRegex();
+
+    // Khối bằng chứng ở cuối tóm tắt: "{nguồn: người dùng nói 'quản lý duyệt là xong'}".
+    [GeneratedRegex(@"\{\s*(?:nguồn|nguon|source)\s*:\s*(?<evidence>[^}]*)\}\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex EvidenceRegex();
 }

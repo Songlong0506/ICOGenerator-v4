@@ -367,6 +367,58 @@ sinh coi như mất. `UpdateProjectUseCase` giữ hai bên khớp nhau bằng ba
 - "Chưa có gì trên đĩa" / hai key trùng nhau / `RootPath` cấu hình sai ⇒ coi như **không có gì phải
   đổi** (true), không chặn việc sửa — cùng tinh thần best-effort với lúc tạo project.
 
+### 5.18. Kịch bản nghiệm thu (UAT) là ĐÍCH của bước POC, không phải phụ lục
+`UatScenarioService` sinh bộ kịch bản từ AI Design Spec **TRƯỚC** khi Developer dựng POC (trước đây
+sinh sau, chỉ để người đọc). Điều đó đổi nó từ tài liệu thành **cổng**:
+- Bộ kịch bản được nối vào prompt POC (`BuildPromptBlock`) — agent biết trước mình sẽ bị nghiệm thu
+  bằng đường đi nào.
+- `PocUatCoverage` đối chiếu máy móc: mỗi kịch bản phải có một mục cùng tiêu đề trong
+  `window.pocScenarios()` và mục đó phải PASS. Lý do tồn tại: mọi assertion runtime khác đều do
+  CHÍNH agent dựng POC viết ra, nên nó pass đúng những gì nó đã hiểu — kể cả khi hiểu sai.
+- `PlaywrightPocRuntimeChecker` còn **lái thật** từng kịch bản bằng click (mỗi kịch bản một lần tải
+  trang sạch): tìm nút theo nhãn ghi trong bước rồi bấm. Chỉ kết luận hai khuyết tật không thể chối
+  cãi — nhãn không tồn tại trên POC, và bấm mà màn hình không đổi gì (toast của shell bị loại khỏi
+  phép so vì shell tự toast cho mọi `.btn`).
+- `PocCrossScreenConsistency` bắt lớp lỗi mà mọi cổng khác mù vì cổng nào cũng xét từng màn riêng:
+  cùng một bản ghi hiện ở hai màn với con số/trạng thái khác nhau. Chỉ so khoá **duy nhất trong từng
+  bảng** để "một khách hàng có nhiều đơn" không thành báo động giả.
+
+### 5.19. Hai cổng chất lượng phía yêu cầu: ĐỦ và KHÔNG MÂU THUẪN
+`RequirementReadinessGate` (đã có) chỉ trả lời *đã rõ hết chưa*. `RequirementConflictService` trả lời
+*những điều đã rõ có chọi nhau không* — chạy khi bấm "Write Requirement", trước khi tài liệu được
+soạn. Người dùng nói ở lượt 3 rằng quản lý duyệt xong là hết, lượt 12 lại kể thêm HR duyệt: bản đồ
+bao phủ đánh dấu [RÕ] cả hai lần, còn bước soạn tài liệu (bị cấm tự giả định) sẽ chọn bừa một bên.
+Lựa chọn của người dùng được ghi vào **chính hội thoại** nên mọi thứ đọc transcript đều thấy, không
+cần biết cổng này tồn tại. Fail-open toàn phần (`Project.PendingConflicts` + con trỏ
+`ConflictCheckedTurnCount` để không gọi lại LLM khi hội thoại chưa đổi).
+
+Cùng tinh thần "người dùng phải kiểm chứng được": bản đồ bao phủ nay mang **bằng chứng**
+(`{nguồn: …}` cuối mỗi dòng, `CoverageMapParser.SplitEvidence`) và có nút "chưa đúng?" hạ nhóm xuống
+[MỘT PHẦN] bằng phép sửa tất định (`CoverageMapEditor`). Không có đường này thì một nhóm bị chấm [RÕ]
+oan là điểm mù kín — prompt cấm BA hỏi lại nhóm đã [RÕ].
+
+### 5.20. Vòng phản hồi POC hai chiều + link chia sẻ cho người ngoài hệ thống
+- `PocComment` có thêm trạng thái `Addressed` (+ thời điểm + bàn giao của agent): vòng chỉnh sửa POC
+  chạy xong thì các ghi chú đã gửi chuyển sang "đã sửa — mời kiểm lại", và người review mở lại được
+  đúng cái **chưa đạt** (`ReopenPocCommentUseCase`) thay vì ghim ghi chú mới trùng nội dung.
+- `PocVerification.DetectFixes` là chiều ngược của `DetectRegressions`: "đã sửa được gì so với vòng
+  trước" — thứ người review vòng thứ hai luôn hỏi đầu tiên.
+- `PocShareLink` + `PocShareController` (`[AllowAnonymous]`, route `poc-share/{token}`): người không
+  có tài khoản mở được bản demo và ghim góp ý bằng tên mình. Token luôn có hạn dùng, thu hồi được, và
+  chỉ mở đúng ba thứ của MỘT project (trang xem, `poc-demo.html`, danh sách góp ý). Toàn bộ bề mặt
+  cho khách gom trong một controller để đọc một file là thấy hết; sandbox CSP của bản demo giữ nguyên
+  như đường có đăng nhập.
+
+### 5.21. Eval tầng PHỎNG VẤN (EvalScenarioKind.Interview)
+Golden set cũ đo **một lượt**: một đầu vào → một câu trả lời → judge chấm. Chất lượng yêu cầu lại do
+CẢ cuộc phỏng vấn quyết định, nên `EvalRunnerService` có thêm nhánh `Interview`: một model đóng vai
+người dùng nghiệp vụ theo hồ sơ persona (`Prompts/Eval/persona.v1.md`), BA hỏi và persona trả lời qua
+nhiều lượt tới khi BA mời bấm "Write Requirement" hoặc chạm trần lượt. Kết quả gồm **số đo tất định**
+(`InterviewTranscript.Measure`: số lượt, có tới đích không, số lượt hỏi dồn nhiều câu, số lượt hỏi mà
+quên gợi ý) cộng điểm judge trên toàn transcript. Đây là tầng duy nhất trả lời được "sửa prompt hôm
+nay làm cuộc phỏng vấn ngắn đi hay dài ra, có còn tới đích không". Ranh giới hiện tại: eval dừng ở
+cuộc phỏng vấn, chưa chạy tiếp Brief/Spec/POC (những bước đó cần project thật + agent + browser).
+
 ---
 
 ## 6. Công thức thêm một tính năng mới

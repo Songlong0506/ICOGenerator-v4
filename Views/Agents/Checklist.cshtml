@@ -1,0 +1,90 @@
+@model IReadOnlyList<ICOGenerator.Application.Agents.LearnedChecklistBucket>
+@{
+    ViewData["Title"] = "Checklist BA học được";
+    var canManage = ViewBag.CanManage is bool cm && cm;
+}
+
+@* Nội dung BA tự học được từ các dự án TRƯỚC (khoảng trống phỏng vấn + ghi chú người dùng ghim trên POC).
+   Nó được nạp vào prompt ở MỌI lượt chat của các dự án cùng miền — tức là một bài học rút sai từ một dự
+   án cá biệt sẽ âm thầm làm nhiễu mọi cuộc phỏng vấn sau đó. Trang này là chỗ duy nhất nhìn thấy và gỡ
+   được nó. *@
+
+<div class="page-head">
+    <div>
+        <h1>Checklist BA học được</h1>
+        <p class="muted">
+            Những điều BA tự rút ra từ các dự án trước và tự hỏi thêm ở các dự án sau. Bài học nào không
+            đúng thì sửa hoặc gỡ — nó đang được dùng cho mọi dự án cùng nhóm nghiệp vụ.
+        </p>
+    </div>
+    <a class="btn outline" asp-action="Index">← Về Agents</a>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert success">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert error">@TempData["Error"]</div>
+}
+
+@if (!Model.Any())
+{
+    <div class="card">
+        <p class="muted">
+            BA chưa học được gì. Nội dung ở đây xuất hiện sau khi một dự án hoàn tất phỏng vấn hoặc sau
+            khi ghi chú trên POC được gửi cho đội Dev sửa.
+        </p>
+    </div>
+}
+
+@foreach (var bucket in Model)
+{
+    <div class="card checklist-bucket">
+        <div class="checklist-bucket-head">
+            <h2>
+                @(bucket.DomainKey == null ? "Áp dụng cho mọi dự án" : $"Nhóm nghiệp vụ: {bucket.DomainKey}")
+                <span class="muted">· @bucket.ItemCount mục</span>
+            </h2>
+            @if (bucket.UpdatedAt.HasValue)
+            {
+                <span class="muted">cập nhật @bucket.UpdatedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+            }
+        </div>
+
+        @* Truy nguồn: dự án nào đã đóng góp bài học vào nhóm này. Khi thấy một mục lạ/sai, câu hỏi đầu
+           tiên luôn là "cái này ở đâu ra" — không có dòng này thì không có cách nào trả lời. *@
+        @if (bucket.Sources.Any())
+        {
+            <div class="checklist-sources">
+                Học từ @bucket.Sources.Count dự án:
+                @foreach (var source in bucket.Sources)
+                {
+                    <a asp-controller="Requirements" asp-action="Index" asp-route-projectId="@source.ProjectId"
+                       class="checklist-source-chip" title="@source.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")">@source.Name</a>
+                }
+            </div>
+        }
+
+        @if (canManage)
+        {
+            <form asp-action="SaveChecklist" method="post" class="checklist-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="domainKey" value="@bucket.DomainKey" />
+                <textarea name="notes" rows="@Math.Clamp(bucket.ItemCount + 2, 6, 24)" spellcheck="false">@bucket.Notes</textarea>
+                <div class="checklist-form-actions">
+                    <button type="submit" class="btn primary">Lưu</button>
+                    <button type="submit" class="btn outline danger"
+                            onclick="this.form.querySelector('textarea').value=''; return confirm('Gỡ toàn bộ checklist của nhóm này? BA sẽ thôi tự hỏi các điểm đó.');">
+                        Gỡ toàn bộ nhóm này
+                    </button>
+                </div>
+            </form>
+        }
+        else
+        {
+            <pre class="checklist-readonly">@bucket.Notes</pre>
+        }
+    </div>
+}

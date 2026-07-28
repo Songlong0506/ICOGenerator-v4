@@ -31,6 +31,20 @@ public static class EvalScenariosSeedData
                 CreatedByUsername = "seed"
             });
 
+        // Phỏng vấn MÔ PHỎNG: UserInput là hồ sơ vai diễn, một model đóng vai người dùng nghiệp vụ và
+        // BA phải tự đào cho ra thông tin qua nhiều lượt. Đây là tầng đo thứ mà scenario một-lượt không
+        // chạm tới: cả cuộc phỏng vấn có tới đích không và tốn bao nhiêu lượt của người dùng.
+        void AddInterview(string name, string persona, string criteria) =>
+            scenarios.Add(new EvalScenario
+            {
+                Name = name,
+                PromptKey = "BusinessAnalyst/requirement-chat.v3.md",
+                Kind = Domain.Enums.EvalScenarioKind.Interview,
+                UserInput = persona.Trim(),
+                Criteria = criteria.Trim(),
+                CreatedByUsername = "seed"
+            });
+
         // ================= BusinessAnalyst/requirement-chat.v3.md =================
 
         Add(
@@ -815,6 +829,62 @@ public static class EvalScenariosSeedData
             - Cả 3 business rule (chống đặt trùng, quyền hủy trước giờ họp, quyền Admin với danh mục) được phản ánh trong thiết kế (chỗ nào validate, tầng nào chịu trách nhiệm).
             - Bám đúng spec: đủ 3 màn hình; KHÔNG phát minh tính năng ngoài phạm vi (thông báo, báo cáo, tích hợp lịch ngoài đã Out of Scope).
             - Đề xuất stack đơn giản, khả thi để Developer hiện thực dự án nhiều file chạy được.
+            """);
+
+        // ================= Phỏng vấn mô phỏng (Kind = Interview) =================
+
+        AddInterview(
+            "Phỏng vấn mô phỏng — đơn nghỉ phép (có quy tắc định lượng)",
+            """
+            Bạn là trưởng nhóm hành chính nhân sự của một công ty 120 người, không rành công nghệ.
+
+            Bài toán: nhân viên xin nghỉ phép đang gửi qua email và Excel, hay thất lạc, cuối tháng chấm công rất mệt.
+            Muốn có ứng dụng nội bộ để nhân viên gửi đơn và quản lý duyệt.
+
+            Những điều bạn biết (chỉ nói khi được hỏi đúng chỗ):
+            - Vai trò: nhân viên, quản lý trực tiếp, và bạn (HR) xem được tất cả.
+            - Luồng: nhân viên gửi đơn → quản lý trực tiếp duyệt → đơn được duyệt thì khóa, không sửa được nữa.
+            - Nếu quản lý từ chối, nhân viên sửa lại rồi gửi lại được.
+            - Nếu quản lý trực tiếp đang nghỉ thì cấp trên của người đó duyệt thay.
+            - Mỗi người có 12 ngày phép/năm, cộng thêm 1 ngày cho mỗi 3 năm thâm niên, tối đa 18 ngày.
+            - Ngày phép năm cũ dùng tới hết tháng 3 năm sau, sau đó mất.
+            - Nghỉ nửa ngày được tính 0,5 ngày.
+            - Cần xem được ai đang nghỉ trong tuần này để xếp việc.
+            - HR cần xuất danh sách ngày nghỉ trong tháng để chấm công.
+            - Không cần app cho khách hàng, không cần tích hợp gì bên ngoài.
+            """,
+            """
+            - Khai thác được ĐẦY ĐỦ các thông tin trong hồ sơ vai diễn: vai trò, luồng duyệt, xử lý khi từ chối, người duyệt thay, công thức tính ngày phép (12 + thâm niên, trần 18), hạn dùng phép năm cũ, nghỉ nửa ngày, xem ai đang nghỉ, xuất danh sách chấm công.
+            - Với quy tắc ĐỊNH LƯỢNG (cách tính ngày phép), BA phải chốt bằng một VÍ DỤ SỐ cụ thể và xin xác nhận, không chỉ ghi lại lời mô tả.
+            - Với luồng duyệt, BA phải chốt lại chuỗi bước/trạng thái cụ thể để người dùng xác nhận.
+            - KHÔNG hỏi câu kỹ thuật (SSO, API, database, hạ tầng, email/SMTP).
+            - Mỗi lượt chỉ hỏi MỘT câu và luôn kèm đáp án gợi ý; càng ít lượt mà vẫn lấy đủ thông tin thì càng tốt.
+            - Kết thúc bằng lượt tóm tắt mời bấm "Write Requirement" — cuộc phỏng vấn phải TỚI ĐÍCH, không lan man vô hạn.
+            - Không tự giả định thay người dùng; điểm nào người dùng không có ý kiến thì đề xuất một phương án rồi xin chốt.
+            """);
+
+        AddInterview(
+            "Phỏng vấn mô phỏng — người dùng mơ hồ, hay nói \"sao cũng được\"",
+            """
+            Bạn là nhân viên kho của một xưởng nhỏ, rất bận và trả lời cộc lốc, hay nói "sao cũng được", "tuỳ bạn".
+
+            Bài toán: đang ghi sổ tay việc nhập/xuất vật tư, hay nhầm số lượng, sếp hỏi tồn kho thì phải đếm tay.
+
+            Những điều bạn biết (chỉ nói khi được hỏi, và trả lời rất ngắn):
+            - Chỉ có bạn và một người nữa nhập liệu; sếp thỉnh thoảng vào xem.
+            - Mỗi lần nhập hàng ghi: tên vật tư, số lượng, ngày, nhà cung cấp.
+            - Xuất hàng ghi: tên vật tư, số lượng, ngày, xuất cho tổ nào.
+            - Muốn biết tồn kho hiện tại của từng vật tư.
+            - Có lúc nhập nhầm, cần sửa lại phiếu đã ghi.
+            - Vật tư có khoảng 200 loại, mỗi ngày chừng 20-30 phiếu.
+            - Còn lại "sao cũng được", bạn không có ý kiến gì thêm.
+            """,
+            """
+            - Lấy đủ: hai người nhập liệu + sếp xem, các trường của phiếu nhập và phiếu xuất, nhu cầu xem tồn kho, sửa phiếu đã ghi, quy mô (~200 vật tư, 20-30 phiếu/ngày).
+            - Khi người dùng nói "sao cũng được"/"tuỳ bạn", BA phải ĐỀ XUẤT một phương án cụ thể rồi xin chốt (kèm gợi ý dạng Đồng ý / Muốn khác) — TUYỆT ĐỐI không bỏ lửng và cũng không tự ghi nhận như thể người dùng đã quyết.
+            - Không tra khảo: không hỏi đi hỏi lại một điểm người dùng đã trả lời hoặc đã nói không quan tâm.
+            - Mỗi lượt một câu hỏi, luôn có đáp án gợi ý, ngôn ngữ dễ hiểu với người không rành công nghệ.
+            - Cuộc phỏng vấn phải TỚI ĐÍCH (mời bấm "Write Requirement") trong số lượt hợp lý, không kéo dài vô tận vì người dùng trả lời cộc lốc.
             """);
 
         return scenarios.ToArray();

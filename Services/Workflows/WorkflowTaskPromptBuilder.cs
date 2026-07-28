@@ -30,11 +30,18 @@ public class WorkflowTaskPromptBuilder
         _promptTemplateService = promptTemplateService;
     }
 
+    /// <param name="acceptanceBlock">
+    /// Khối kịch bản nghiệm thu (UAT) nối sau phần input — chỉ bước POC dùng, xem
+    /// <see cref="Requirements.UatScenarioService.BuildPromptBlock"/>. Rỗng ⇒ prompt y như trước.
+    /// </param>
     public string Build(AgentTaskType taskType, string input, bool useBoschTemplate,
-        string? revisionFeedback = null, string? previousOutput = null)
+        string? revisionFeedback = null, string? previousOutput = null, string? acceptanceBlock = null)
     {
         var prompt = _promptTemplateService.Get(TemplatePath(taskType, useBoschTemplate))
             .Replace("{{input}}", input ?? string.Empty);
+
+        if (!string.IsNullOrWhiteSpace(acceptanceBlock))
+            prompt += Environment.NewLine + acceptanceBlock;
 
         if (string.IsNullOrWhiteSpace(revisionFeedback))
             return prompt;

@@ -26,6 +26,7 @@
      data-comments-url="@Url.Action("PocComments", "Projects", new { projectId = Model.ProjectId })"
      data-add-url="@Url.Action("AddPocComment", "Projects")"
      data-delete-url="@Url.Action("DeletePocComment", "Projects")"
+     data-reopen-url="@Url.Action("ReopenPocComment", "Projects")"
      data-route-req-url="@Url.Action("RoutePocFeedbackToRequirement", "Projects")"
      data-request-fix-url="@Url.Action("RequestPocFix", "Projects")">
 
@@ -165,6 +166,28 @@
                                 Độ phủ màn hình theo spec: @verif.CoveredScreens/@verif.SpecScreens
                             </li>
                         }
+                        @* Kịch bản nghiệm thu: sinh TRƯỚC khi POC được dựng, nên đây là thước đo độc lập
+                           với các assertion do chính agent dựng POC viết. Hai dòng: có mục tương ứng đang
+                           PASS không, và lượt lái THẬT bằng click có thao tác được không. *@
+                        @if (verif.UatTotal > 0)
+                        {
+                            <li class="@(verif.UatCovered >= verif.UatTotal ? "poc-verif-ok" : "poc-verif-bad")">
+                                Kịch bản nghiệm thu (checklist bên dưới) POC tự chạy đúng: @verif.UatCovered/@verif.UatTotal
+                            </li>
+                        }
+                        @if (verif.UatDriveResults.Any())
+                        {
+                            var drivePass = verif.UatDriveResults.Count(x => x.StartsWith("PASS", StringComparison.Ordinal));
+                            <li class="@(drivePass == verif.UatDriveResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
+                                Máy bấm thử theo kịch bản (click thật trên POC): @drivePass/@verif.UatDriveResults.Count kịch bản thao tác được
+                            </li>
+                        }
+                        @if (verif.CrossScreenIssues.Any())
+                        {
+                            <li class="poc-verif-bad">
+                                Dữ liệu mẫu lệch nhau giữa các màn hình: @verif.CrossScreenIssues.Count chỗ
+                            </li>
+                        }
                         @if (verif.VisualRan)
                         {
                             <li class="@(verif.VisualWarnings.Any() ? "" : "poc-verif-ok")">
@@ -177,6 +200,22 @@
                         <li class="muted">Tầng chạy thử trong trình duyệt không hoạt động ở môi trường này (@verif.RuntimeSkipReason) — chỉ có kiểm tra tĩnh.</li>
                     }
                 </ul>
+
+                @* ĐÃ SỬA ĐƯỢC so với vòng kiểm trước. Từ vòng review thứ hai trở đi, câu hỏi đầu tiên của
+                   người review luôn là "lần sửa vừa rồi đụng vào những gì?" — không có danh sách này họ
+                   phải rà lại cả bản demo từ đầu, dù hệ thống đã có sẵn dữ liệu để trả lời. *@
+                @if (Model.VerificationFixes.Any())
+                {
+                    <div class="poc-cov-group">
+                        <div class="poc-cov-head poc-verif-ok">✓ Đã sửa được so với vòng kiểm trước (@Model.VerificationFixes.Count):</div>
+                        <ul class="poc-verif-lines">
+                            @foreach (var fix in Model.VerificationFixes.Take(8))
+                            {
+                                <li class="poc-verif-ok">@fix</li>
+                            }
+                        </ul>
+                    </div>
+                }
 
                 @* HỒI QUY giữa các vòng sửa: thứ từng chạy đúng mà vòng sửa sau làm gãy. Tách riêng khỏi
                    "điểm chưa đạt" vì đây là tín hiệu KHÁC hẳn — không phải "chưa làm xong" mà là "đã lùi". *@
@@ -248,6 +287,34 @@
                         </div>
                     }
                 </div>
+            </details>
+        }
+
+        @* CHIA SẺ bản demo cho người không có tài khoản: nghiệm thu thật luôn có nhiều người, mà trang này
+           bị chặn theo quyền truy cập project. Link luôn có hạn dùng và thu hồi được; người xem chỉ mở
+           được đúng bản demo + ghim góp ý, không thấy gì khác của dự án. *@
+        @if (canManageRequirements)
+        {
+            <details class="uat-panel poc-share-panel" id="pocSharePanel"
+                     data-list-url="@Url.Action("PocShareLinks", "Projects", new { projectId = Model.ProjectId })"
+                     data-create-url="@Url.Action("CreatePocShareLink", "Projects")"
+                     data-revoke-url="@Url.Action("RevokePocShareLink", "Projects")">
+                <summary>🔗 Chia sẻ bản demo</summary>
+                <p class="muted poc-panel-hint">
+                    Tạo link cho người không có tài khoản (sếp, người dùng cuối) tự bấm thử và ghim góp ý.
+                    Link có hạn dùng và thu hồi được bất cứ lúc nào.
+                </p>
+                <div class="poc-share-form">
+                    <input type="text" id="pocShareLabel" maxlength="200" placeholder="Gửi cho ai? (vd: anh Hùng phòng NS)" />
+                    <select id="pocShareDays">
+                        <option value="7">7 ngày</option>
+                        <option value="14" selected>14 ngày</option>
+                        <option value="30">30 ngày</option>
+                    </select>
+                    <button type="button" class="btn primary small" id="pocShareCreate">Tạo link</button>
+                </div>
+                <div class="poc-share-msg" id="pocShareMsg"></div>
+                <div class="poc-share-list" id="pocShareList"></div>
             </details>
         }
 

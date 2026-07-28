@@ -349,6 +349,11 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ListPocCommentsQuery>();
         services.AddScoped<AddPocCommentUseCase>();
         services.AddScoped<DeletePocCommentUseCase>();
+        services.AddScoped<ReopenPocCommentUseCase>();
+        services.AddScoped<CreatePocShareLinkUseCase>();
+        services.AddScoped<RevokePocShareLinkUseCase>();
+        services.AddScoped<ListPocShareLinksQuery>();
+        services.AddScoped<ResolvePocShareTokenQuery>();
         services.AddScoped<AcceptPocUseCase>();
         return services;
     }
@@ -385,6 +390,11 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UpdateWorkedExamplesUseCase>();
         services.AddScoped<ProposeRemainingGapsUseCase>();
         services.AddScoped<ConfirmRemainingGapsUseCase>();
+        services.AddScoped<GetLearnedChecklistQuery>();
+        services.AddScoped<UpdateLearnedChecklistUseCase>();
+        services.AddScoped<CheckRequirementConflictsUseCase>();
+        services.AddScoped<ReopenCoverageGroupUseCase>();
+        services.AddScoped<ResolveRequirementConflictsUseCase>();
         return services;
     }
 
@@ -660,6 +670,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<DecisionLogService>();
         services.AddScoped<InterviewOutlookService>();
         services.AddScoped<GapProposalService>();
+        services.AddScoped<RequirementConflictService>();
         services.AddScoped<UatScenarioService>();
         services.AddScoped<PocFeedbackMemoryService>();
         services.AddScoped<ProductBriefReviewParser>();

@@ -32,6 +32,13 @@ public class BAAgentResolver
     }
 
     /// <summary>
+    /// Bản KHÔNG đòi model, entity được TRACK: cho các thao tác chỉ đụng dữ liệu của agent (sửa checklist
+    /// học được ở trang quản trị) — chúng không gọi LLM nên một agent chưa gắn model vẫn phải sửa được.
+    /// </summary>
+    public Task<Agent?> FindTrackedAsync(CancellationToken cancellationToken = default) =>
+        _db.Agents.FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst, cancellationToken);
+
+    /// <summary>
     /// Bản "cứng" cho các bước sinh tài liệu (chạy trong workflow): thiếu cấu hình thì throw với thông
     /// điệp hướng dẫn để task fail rõ ràng, thay vì chạy tiếp với agent rỗng.
     /// </summary>

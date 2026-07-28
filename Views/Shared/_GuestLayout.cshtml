@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"]</title>
+    @* Trang của người được gửi link chia sẻ: KHÔNG dùng _Layout vì layout chính mang sidebar điều hướng
+       toàn hệ thống (Projects/Agents/Settings/Audit…) — người xem bản demo không có tài khoản, hiện các
+       mục đó vừa vô nghĩa vừa để lộ bề mặt quản trị. Ở đây chỉ có đúng nội dung họ cần. *@
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/poc-review.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body class="guest-body">
+    <main class="guest-main">
+        @RenderBody()
+    </main>
+
+    <footer class="guest-footer">
+        Bản demo tạo bởi ICO Generator · góp ý của bạn được gửi thẳng cho đội dự án.
+    </footer>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

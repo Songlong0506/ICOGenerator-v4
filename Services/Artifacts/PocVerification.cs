@@ -29,6 +29,24 @@ public sealed class PocVerificationSummary
     public int WorkedExamplesTotal { get; set; }
     public List<string> WorkedExampleIssues { get; set; } = new();
 
+    /// <summary>
+    /// Kịch bản NGHIỆM THU (UAT) sinh từ spec trước khi dựng POC: tổng số và số kịch bản đã có mục PASS
+    /// tương ứng trong <c>pocScenarios()</c>. Đây là thước đo "POC có demo được đúng thứ người dùng sắp
+    /// bấm thử không" — độc lập với assertion do chính agent dựng POC viết ra.
+    /// </summary>
+    public int UatTotal { get; set; }
+    public int UatCovered { get; set; }
+
+    /// <summary>
+    /// Từng dòng "PASS/FAIL &lt;kịch bản&gt; — chi tiết" của lượt LÁI THẬT bằng click trong trình duyệt
+    /// headless (tìm nút theo nhãn trong kịch bản → bấm → xem màn hình có đổi không). Rỗng khi không có
+    /// browser hoặc không có kịch bản nào.
+    /// </summary>
+    public List<string> UatDriveResults { get; set; } = new();
+
+    /// <summary>Dữ liệu mẫu lệch nhau giữa các màn hình (cùng bản ghi, cùng cột, hai giá trị) — rỗng = nhất quán.</summary>
+    public List<string> CrossScreenIssues { get; set; } = new();
+
     /// <summary>Tầng runtime (headless browser) có thật sự chạy không; không chạy thì vì sao.</summary>
     public bool RuntimeRan { get; set; }
     public string? RuntimeSkipReason { get; set; }
@@ -181,14 +199,73 @@ public static class PocVerification
         }
 
         // "PASS BR-3 — chi tiết…" → (Name: "BR-3", Pass: true). Định dạng do PocRuntimeChecker dựng.
-        static (string Name, bool Pass) Split(string line)
+        static (string Name, bool Pass) Split(string line) => SplitResultLine(line);
+    }
+
+    /// <summary>
+    /// Chiều NGƯỢC LẠI của <see cref="DetectRegressions"/>: những gì vòng này SỬA ĐƯỢC so với vòng trước —
+    /// rule/kịch bản từ FAIL thành PASS, mục kiểm mới xuất hiện và đang PASS, và số điểm chưa đạt đã giảm.
+    ///
+    /// <para>
+    /// Người review vòng thứ hai trở đi không có cách nào biết "lần sửa vừa rồi đụng vào những gì" nên
+    /// phải rà lại toàn bộ bản demo từ đầu — trong khi hệ thống đã có sẵn dữ liệu để trả lời. Đây là danh
+    /// sách để họ nhìn đúng chỗ vừa thay đổi.
+    /// </para>
+    /// </summary>
+    public static List<string> DetectFixes(PocVerificationSummary? previous, PocVerificationSummary current)
+    {
+        var fixes = new List<string>();
+        if (previous == null || current == null)
+            return fixes;
+
+        Collect(previous.SelfTestResults, current.SelfTestResults, "Business rule");
+        Collect(previous.ScenarioResults, current.ScenarioResults, "Kịch bản end-to-end");
+        Collect(previous.UatDriveResults, current.UatDriveResults, "Kịch bản nghiệm thu (bấm thử)");
+
+        // Ví dụ đã chốt: trước sai, nay khớp hết.
+        if (previous.WorkedExampleIssues.Count > 0 && current.WorkedExampleIssues.Count == 0 && current.WorkedExamplesTotal > 0)
+            fixes.Add($"Ví dụ đã chốt với người dùng: POC đã tính đúng cả {current.WorkedExamplesTotal} ví dụ (vòng trước còn {previous.WorkedExampleIssues.Count} chỗ sai).");
+
+        if (previous.CrossScreenIssues.Count > 0 && current.CrossScreenIssues.Count == 0)
+            fixes.Add("Dữ liệu mẫu giữa các màn hình: đã khớp lại (vòng trước còn lệch).");
+
+        if (current.CoveredScreens > previous.CoveredScreens)
+            fixes.Add($"Độ phủ màn hình: {previous.CoveredScreens} → {current.CoveredScreens}/{current.SpecScreens} màn theo spec.");
+
+        var closed = previous.OpenIssues.Count - current.OpenIssues.Count;
+        if (closed > 0)
+            fixes.Add($"Số điểm máy báo chưa đạt: {previous.OpenIssues.Count} → {current.OpenIssues.Count} ({closed} điểm đã được xử lý).");
+
+        return fixes;
+
+        void Collect(IReadOnlyList<string> before, IReadOnlyList<string> after, string label)
         {
-            var text = (line ?? string.Empty).Trim();
-            var pass = text.StartsWith("PASS", StringComparison.Ordinal);
-            var rest = pass ? text[4..] : text.StartsWith("FAIL", StringComparison.Ordinal) ? text[4..] : text;
-            var dash = rest.IndexOf(" — ", StringComparison.Ordinal);
-            var name = (dash >= 0 ? rest[..dash] : rest).Trim();
-            return (name, pass);
+            var beforeByName = before
+                .Select(SplitResultLine)
+                .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Pass, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (name, passesNow) in after.Select(SplitResultLine))
+            {
+                if (!passesNow)
+                    continue;
+                if (!beforeByName.TryGetValue(name, out var passedBefore))
+                    fixes.Add($"{label} '{name}': mới được kiểm ở vòng này và đang PASS.");
+                else if (!passedBefore)
+                    fixes.Add($"{label} '{name}': FAIL ở vòng trước → PASS ở vòng này.");
+            }
         }
+    }
+
+    // "PASS BR-3 — chi tiết…" → (Name: "BR-3", Pass: true). Định dạng do PocRuntimeChecker dựng; dùng
+    // chung cho cả hai chiều so sánh để hai bên không bao giờ tách tên theo hai kiểu khác nhau.
+    private static (string Name, bool Pass) SplitResultLine(string line)
+    {
+        var text = (line ?? string.Empty).Trim();
+        var pass = text.StartsWith("PASS", StringComparison.Ordinal);
+        var rest = pass ? text[4..] : text.StartsWith("FAIL", StringComparison.Ordinal) ? text[4..] : text;
+        var dash = rest.IndexOf(" — ", StringComparison.Ordinal);
+        var name = (dash >= 0 ? rest[..dash] : rest).Trim();
+        return (name, pass);
     }
 }

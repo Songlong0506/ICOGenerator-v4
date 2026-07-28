@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Artifacts;
 
 namespace ICOGenerator.Services.Tools;
@@ -41,6 +42,9 @@ public class WorkspaceTools
     // sinh spec. Ở đây nó đóng vai KIỂM CHỨNG: audit đối chiếu để biết POC có thật sự demo bằng danh mục
     // của đơn vị yêu cầu không, thay vì chỉ hy vọng prompt được nghe lời. null ⇒ tầng đó tự bỏ qua.
     private string? _pocRealSampleData;
+
+    // Kịch bản nghiệm thu của lượt POC hiện tại (xem SetPocUatScenarios). null ⇒ các tầng UAT tự bỏ qua.
+    private UatScenarioSet? _pocUat;
 
     // Progress sink của LƯỢT chạy hiện tại (AgentRunService set như SetRunCancellation) — để các tool POC
     // tường thuật milestone "đã dựng màn hình X" cho người dùng trong lúc chờ, thay vì chỉ feed token câm.
@@ -94,6 +98,14 @@ public class WorkspaceTools
 
     /// <summary>Text bóc từ tài liệu Excel/Word của project cho tầng kiểm dữ liệu mẫu của AuditPocContent.</summary>
     public void SetPocRealSampleData(string? realSampleText) => _pocRealSampleData = realSampleText;
+
+    /// <summary>
+    /// Bộ kịch bản nghiệm thu (UAT) của lượt POC này — sinh từ AI Design Spec TRƯỚC khi agent đặt bút, nên
+    /// nó là ĐÍCH ĐỘC LẬP chứ không phải assertion agent tự đặt cho mình. AuditPocContent dùng nó hai chỗ:
+    /// đối chiếu <c>pocScenarios()</c> có phủ đủ kịch bản không, và lái THẬT từng bước bằng click trong
+    /// trình duyệt headless. Không set (ngoài bước POC) ⇒ cả hai tầng tự bỏ qua.
+    /// </summary>
+    public void SetPocUatScenarios(UatScenarioSet? scenarios) => _pocUat = scenarios;
 
     [Description("Write a source code or documentation file into the current workspace.")]
     public async Task<string> WriteFile(string relativePath, string content)
@@ -348,7 +360,7 @@ public class WorkspaceTools
         // JS và chạy window.pocSelfTest() — lớp lỗi mà scan chuỗi không thấy (một TypeError làm chết cả
         // trang nhưng markup vẫn "đúng"). Fail-open: môi trường không có browser thì ghi chú SKIPPED và
         // giữ nguyên phần tĩnh.
-        var runtime = await _pocRuntimeChecker.CheckAsync(fullPath, wantVisual, RunCancellationToken);
+        var runtime = await _pocRuntimeChecker.CheckAsync(fullPath, wantVisual, _pocUat?.Scenarios, RunCancellationToken);
         var sb = new System.Text.StringBuilder(report);
         sb.AppendLine();
         if (!runtime.Ran)
@@ -393,6 +405,41 @@ public class WorkspaceTools
                 for (var i = 0; i < oracleIssues.Count; i++)
                     sb.AppendLine($"{i + 1}. {oracleIssues[i]}");
             }
+        }
+
+        // Cổng KỊCH BẢN NGHIỆM THU (UAT): bộ kịch bản này sinh từ spec TRƯỚC khi POC được dựng và cũng chính
+        // là checklist người dùng sẽ nghiệm thu — nên nó là đích ĐỘC LẬP với assertion agent tự viết. Hai
+        // tầng: (1) mỗi kịch bản phải có một mục PASS trong pocScenarios(); (2) runtime đã LÁI THẬT từng
+        // bước bằng click, kết quả nằm ở runtime.UatDriveResults (issue đã được gộp vào runtime.Issues).
+        var uatIssues = PocUatCoverage.Check(_pocUat, runtime.Ran, runtime.ScenarioResults, PocTemplate.GetScriptBody(current));
+        if (_pocUat is { Scenarios.Count: > 0 })
+        {
+            sb.AppendLine();
+            if (uatIssues.Count == 0)
+            {
+                var driven = runtime.UatDriveResults.Count(x => x.Pass);
+                sb.Append($"UAT (kịch bản nghiệm thu người dùng sẽ chạy): OK — {_pocUat.Scenarios.Count} kịch bản đều có mục tương ứng đang PASS");
+                sb.Append(runtime.UatDriveResults.Count > 0
+                    ? $"; lái thật bằng click: {driven}/{runtime.UatDriveResults.Count} kịch bản thao tác được."
+                    : ".");
+            }
+            else
+            {
+                sb.AppendLine("UAT ISSUES (kịch bản người dùng sẽ nghiệm thu — fix như ISSUES ở trên):");
+                for (var i = 0; i < uatIssues.Count; i++)
+                    sb.AppendLine($"{i + 1}. {uatIssues[i]}");
+            }
+        }
+
+        // Nhất quán dữ liệu mẫu GIỮA CÁC MÀN HÌNH: cùng bản ghi, cùng cột, hai màn hai giá trị. Mỗi màn xét
+        // riêng thì màn nào cũng hợp lệ, nên không cổng nào khác thấy được — còn người xem demo thì thấy ngay.
+        var crossScreenIssues = PocCrossScreenConsistency.Check(runtime.ScreenTables);
+        if (crossScreenIssues.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("CROSS-SCREEN DATA ISSUES (cùng bản ghi hiển thị khác nhau giữa các màn — fix như ISSUES ở trên):");
+            for (var i = 0; i < crossScreenIssues.Count; i++)
+                sb.AppendLine($"{i + 1}. {crossScreenIssues[i]}");
         }
 
         // Tầng VISUAL QA: đưa ảnh chụp từng màn hình cho agent UI/UX (vision) chấm bố cục/dữ liệu mẫu —
@@ -463,10 +510,18 @@ public class WorkspaceTools
                 OpenIssues = audit.Issues
                     .Concat(runtime.Issues)
                     .Concat(oracleIssues)
+                    .Concat(uatIssues)
+                    .Concat(crossScreenIssues)
                     .Concat(visualIssues)
                     .ToList(),
                 SelfTestResults = runtime.SelfTestResults.ToList(),
                 ScenarioResults = runtime.ScenarioResults.ToList(),
+                UatTotal = _pocUat?.Scenarios.Count ?? 0,
+                UatCovered = PocUatCoverage.CountPassing(_pocUat, runtime.ScenarioResults),
+                UatDriveResults = runtime.UatDriveResults
+                    .Select(x => $"{(x.Pass ? "PASS" : "FAIL")} {x.Title} — {x.Detail}")
+                    .ToList(),
+                CrossScreenIssues = crossScreenIssues.ToList(),
                 WorkedExamplesTotal = _pocSpec.WorkedExamples.Count,
                 WorkedExampleIssues = oracleIssues.ToList(),
                 RuntimeRan = runtime.Ran,

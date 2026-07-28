@@ -72,7 +72,8 @@ public class AddPocCommentUseCase
         return (AddPocCommentResult.Ok, new PocCommentItem(
             entity.Id, entity.PageView, entity.ElementLabel, entity.ElementPath,
             entity.XPercent, entity.YPercent, entity.Comment, entity.Status.ToString(),
-            entity.CreatedByUsername, entity.CreatedAt, CanDelete: true));
+            entity.CreatedByUsername, entity.CreatedAt, CanDelete: true,
+            AddressedAt: null, AddressedNote: null));
     }
 
     private static string Clip(string? value, int maxLength)

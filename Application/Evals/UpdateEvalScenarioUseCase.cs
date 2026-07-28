@@ -1,4 +1,5 @@
 using ICOGenerator.Data;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,7 +20,7 @@ public class UpdateEvalScenarioUseCase
         _promptCatalog = promptCatalog;
     }
 
-    public async Task<SaveEvalScenarioResult> ExecuteAsync(Guid id, string? name, string? promptKey, string? userInput, string? criteria, bool isActive, CancellationToken cancellationToken = default)
+    public async Task<SaveEvalScenarioResult> ExecuteAsync(Guid id, string? name, string? promptKey, string? userInput, string? criteria, bool isActive, EvalScenarioKind kind = EvalScenarioKind.Prompt, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(promptKey)
             || string.IsNullOrWhiteSpace(userInput) || string.IsNullOrWhiteSpace(criteria))
@@ -36,6 +37,7 @@ public class UpdateEvalScenarioUseCase
         scenario.PromptKey = promptKey.Trim();
         scenario.UserInput = userInput.Trim();
         scenario.Criteria = criteria.Trim();
+        scenario.Kind = kind;
         scenario.IsActive = isActive;
         scenario.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);

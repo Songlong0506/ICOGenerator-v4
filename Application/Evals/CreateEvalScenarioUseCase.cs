@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Prompts;
 
 namespace ICOGenerator.Application.Evals;
@@ -16,7 +17,9 @@ public class CreateEvalScenarioUseCase
         _promptCatalog = promptCatalog;
     }
 
-    public async Task<SaveEvalScenarioResult> ExecuteAsync(string? name, string? promptKey, string? userInput, string? criteria, string? createdByUsername, CancellationToken cancellationToken = default)
+    /// <param name="kind">Prompt = một lượt (mặc định); Interview = phỏng vấn mô phỏng nhiều lượt, khi đó
+    /// <paramref name="userInput"/> là HỒ SƠ PERSONA của người dùng giả lập.</param>
+    public async Task<SaveEvalScenarioResult> ExecuteAsync(string? name, string? promptKey, string? userInput, string? criteria, string? createdByUsername, EvalScenarioKind kind = EvalScenarioKind.Prompt, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(promptKey)
             || string.IsNullOrWhiteSpace(userInput) || string.IsNullOrWhiteSpace(criteria))
@@ -31,6 +34,7 @@ public class CreateEvalScenarioUseCase
             PromptKey = promptKey.Trim(),
             UserInput = userInput.Trim(),
             Criteria = criteria.Trim(),
+            Kind = kind,
             CreatedByUsername = createdByUsername
         });
         await _db.SaveChangesAsync(cancellationToken);

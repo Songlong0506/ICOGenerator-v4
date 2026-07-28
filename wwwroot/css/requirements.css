@@ -1196,6 +1196,42 @@
 
     .coverage-item .cov-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Bằng chứng + nút đính chính: mục con của một dòng bản đồ, nên dòng chuyển sang xếp theo cột và phần
+   trích dẫn xuống hàng riêng (nó dài hơn nhãn nhiều). */
+.coverage-item { flex-wrap: wrap; }
+
+    .coverage-item .cov-wrong {
+        flex: 0 0 auto;
+        font-family: inherit;
+        font-size: 10.5px;
+        padding: 0 6px;
+        border-radius: 999px;
+        border: 1px solid var(--line, #e5e7eb);
+        background: transparent;
+        color: #9ca3af;
+        cursor: pointer;
+        width: auto;
+        opacity: 0;
+        transition: opacity .12s ease;
+    }
+
+    .coverage-item:hover .cov-wrong,
+    .coverage-item .cov-wrong:focus-visible { opacity: 1; }
+
+    .coverage-item .cov-wrong:hover { color: #dc2626; border-color: #fca5a5; }
+
+    .coverage-item .cov-evidence {
+        flex: 1 0 100%;
+        margin-left: 17px;
+        font-size: 10.5px;
+        line-height: 1.45;
+        color: #9ca3af;
+        font-style: italic;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
 .decision-panel { margin-bottom: 18px; border-bottom: 1px solid #e5e7eb; padding-bottom: 14px; }
 
 .decision-count { font-weight: 400; font-size: 12px; color: #777; }
@@ -1607,3 +1643,104 @@
 .quickclose-fix[hidden],
 .quickclose-proposal[hidden],
 .quickclose .btn[hidden] { display: none; }
+
+/* ==== Cổng soát MÂU THUẪN (bấm "Write Requirement" mới hiện, và chỉ khi thật sự có mâu thuẫn) ==== */
+
+.conflict-panel {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    background: #fffbeb;
+}
+
+    .conflict-panel h3 { margin: 0; font-size: 12.5px; color: #92400e; }
+
+.conflict-item {
+    padding: 8px;
+    margin-top: 8px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.conflict-topic { font-size: 11.5px; font-weight: 600; color: #92400e; }
+
+.conflict-sides { margin-top: 5px; display: flex; flex-direction: column; gap: 4px; }
+
+.conflict-side { font-size: 11.5px; line-height: 1.5; color: #4b5563; }
+
+.conflict-side-tag {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #92400e;
+    background: #fef3c7;
+    border-radius: 4px;
+    padding: 1px 5px;
+    margin-right: 4px;
+}
+
+.conflict-question { font-size: 12px; font-weight: 600; margin-top: 7px; line-height: 1.5; }
+
+.conflict-options { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+.conflict-option {
+    font-family: inherit;
+    font-size: 11.5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line, #e5e7eb);
+    background: var(--surface-alt, #f3f4f6);
+    color: #4b5563;
+    cursor: pointer;
+    width: auto;
+}
+
+    .conflict-option.is-on { background: var(--bosch-blue, #2563eb); border-color: var(--bosch-blue, #2563eb); color: #fff; }
+
+.conflict-other {
+    width: 100%;
+    margin-top: 6px;
+    font-family: inherit;
+    font-size: 11.5px;
+    padding: 5px 8px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 6px;
+}
+
+.conflict-bar { margin-top: 10px; }
+
+.conflict-msg { font-size: 11.5px; color: #dc2626; margin-top: 6px; }
+
+/* `hidden` là quy tắc display ưu tiên thấp nhất — khôi phục ý nghĩa của nó cho panel này. */
+.conflict-panel[hidden] { display: none; }
+
+/* ==== Sửa lượt vừa gửi ==== */
+
+.req-msg.you { position: relative; }
+
+.chat-edit-btn {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    font-family: inherit;
+    font-size: 10.5px;
+    padding: 0 6px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .45);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    width: auto;
+    opacity: 0;
+    transition: opacity .12s ease;
+}
+
+.req-msg.you:hover .chat-edit-btn,
+.chat-edit-btn:focus-visible { opacity: .85; }
+
+.req-msg.you.is-editing { outline: 2px dashed var(--bosch-blue, #2563eb); outline-offset: 2px; }
+
+/* Đang sửa: ô nhập đổi viền để không ai gõ tiếp mà tưởng mình đang gửi lượt mới. */
+.chat-editing #messageInput { border-color: var(--bosch-blue, #2563eb); }

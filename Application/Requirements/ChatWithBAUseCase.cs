@@ -30,6 +30,15 @@ public class ChatWithBAUseCase
         _baChatService.RetryLastTurnAsync(projectId, onStatus, onToken, cancellationToken);
 
     /// <summary>
+    /// Sửa lượt user vừa gửi rồi trả lời lại: ghi đè nội dung lượt user mới nhất, xóa câu trả lời cũ và
+    /// chạy lại lượt. Các con trỏ gộp (bản đồ bao phủ, nhật ký chốt, bộ nhớ) được kéo lùi để mọi bản đúc
+    /// kết dựng lại từ nội dung ĐÃ SỬA — xem <see cref="BAChatService.EditLastUserTurnAsync"/>.
+    /// </summary>
+    public Task<BAChatTurnResult> EditLastAsync(Guid projectId, string message,
+        Action<string>? onStatus = null, Action<string>? onToken = null, CancellationToken cancellationToken = default) =>
+        _baChatService.EditLastUserTurnAsync(projectId, message, onStatus, onToken, cancellationToken);
+
+    /// <summary>
     /// Cho biết câu trả lời của BA cho lượt hiện tại còn "đang chờ" (lượt hội thoại mới nhất là của người
     /// dùng, BA vẫn đang sinh lượt assistant với CancellationToken.None) và liệu lượt chờ đó đã CHẾT hẳn
     /// hay chưa. Dùng để khôi phục khung "BA đang soạn…" sau khi tải lại trang giữa chừng — và để không

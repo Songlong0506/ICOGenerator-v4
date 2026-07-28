@@ -11,6 +11,7 @@
     const commentsUrl = root.dataset.commentsUrl;
     const addUrl = root.dataset.addUrl;
     const deleteUrl = root.dataset.deleteUrl;
+    const reopenUrl = root.dataset.reopenUrl;
     const projectId = root.dataset.projectId;
 
     const pinModeBtn = document.getElementById("pinModeBtn");
@@ -55,9 +56,12 @@
     }
 
     function statusBadge(status) {
-        return status === "Sent"
-            ? '<span class="poc-badge sent">đã gửi Dev</span>'
-            : '<span class="poc-badge open">chờ gửi</span>';
+        if (status === "Sent") return '<span class="poc-badge sent">đã gửi Dev</span>';
+        // "Đã xử lý": vòng chỉnh sửa mang ghi chú này đã chạy xong. Người review cần phân biệt được nó
+        // với "đang chờ Dev" — nếu không, vòng review thứ hai nhìn danh sách y hệt vòng đầu.
+        if (status === "Addressed") return '<span class="poc-badge done">đã sửa — mời kiểm lại</span>';
+        if (status === "RoutedToRequirement") return '<span class="poc-badge routed">đã gửi về Requirement</span>';
+        return '<span class="poc-badge open">chờ gửi</span>';
     }
 
     function renderList() {
@@ -81,6 +85,13 @@
                 ${c.pageView ? `<div class="poc-comment-view">Màn hình: ${escapeHtml(c.pageView)}</div>` : ""}
                 <div class="poc-comment-text">${escapeHtml(c.comment)}</div>
                 <div class="poc-comment-meta">${escapeHtml(c.createdBy || "?")} · ${new Date(c.createdAt).toLocaleString()}</div>
+                ${c.status === "Addressed" ? `
+                    <div class="poc-comment-addressed">
+                        <div class="poc-comment-addressed-head">Dev đã sửa lúc ${new Date(c.addressedAt).toLocaleString()}</div>
+                        ${c.addressedNote ? `<div class="poc-comment-addressed-note">${escapeHtml(c.addressedNote)}</div>` : ""}
+                        <button type="button" class="poc-comment-reopen" data-id="${c.id}"
+                                title="Mở lại ghi chú này để nó vào vòng chỉnh sửa tiếp theo">✗ vẫn chưa đạt</button>
+                    </div>` : ""}
             </div>
         `).join("");
     }
@@ -171,6 +182,34 @@
             }
 
             comments = comments.filter(c => c.id !== del.dataset.id);
+            renderList();
+            pushCommentsToFrame();
+            return;
+        }
+
+        // "Vẫn chưa đạt": đưa ghi chú về trạng thái chờ gửi để nó vào yêu cầu chỉnh sửa TIẾP THEO, thay
+        // vì phải ghim một ghi chú mới trùng nội dung.
+        const reopen = e.target.closest(".poc-comment-reopen");
+        if (reopen) {
+            const fd = new FormData();
+            fd.append("projectId", projectId);
+            fd.append("id", reopen.dataset.id);
+            if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
+
+            try {
+                const response = await fetch(reopenUrl, { method: "POST", body: fd });
+                if (!response.ok) throw new Error();
+            } catch {
+                alert("Không mở lại được ghi chú.");
+                return;
+            }
+
+            const target = comments.find(c => c.id === reopen.dataset.id);
+            if (target) {
+                target.status = "Open";
+                target.addressedAt = null;
+                target.addressedNote = null;
+            }
             renderList();
             pushCommentsToFrame();
             return;
@@ -399,4 +438,122 @@
     }
 
     loadComments();
+})();
+
+// ==== Panel "Chia sẻ bản demo" ====
+// Tạo/thu hồi link cho người KHÔNG có tài khoản. Tách IIFE riêng để phần review cốt lõi không phụ thuộc
+// vào panel này (panel chỉ hiện với người có quyền quản lý requirement).
+(function () {
+    "use strict";
+
+    const panel = document.getElementById("pocSharePanel");
+    if (!panel) return;
+
+    const root = document.getElementById("pocReviewRoot");
+    const listEl = document.getElementById("pocShareList");
+    const msgEl = document.getElementById("pocShareMsg");
+    const labelEl = document.getElementById("pocShareLabel");
+    const daysEl = document.getElementById("pocShareDays");
+    const createBtn = document.getElementById("pocShareCreate");
+    const projectId = root.dataset.projectId;
+    const antiForgery = document.querySelector('#pocCommentForm input[name="__RequestVerificationToken"]');
+
+    let links = [];
+
+    function shareUrl(token) {
+        return `${location.origin}/poc-share/${token}`;
+    }
+
+    function render() {
+        if (!links.length) {
+            listEl.innerHTML = '<p class="muted">Chưa có link nào.</p>';
+            return;
+        }
+
+        listEl.innerHTML = links.map(l => {
+            const expired = new Date(l.expiresAtUtc) <= new Date();
+            const dead = !!l.revokedAtUtc || expired;
+            const state = l.revokedAtUtc ? "đã thu hồi" : (expired ? "đã hết hạn" : `hết hạn ${new Date(l.expiresAtUtc).toLocaleDateString()}`);
+            return `
+                <div class="poc-share-item ${dead ? "dead" : ""}" data-id="${l.id}">
+                    <div class="poc-share-item-head">
+                        <span class="poc-share-label">${escapeHtml(l.label || "Không đặt tên")}</span>
+                        <span class="poc-share-state">${escapeHtml(state)}</span>
+                    </div>
+                    ${dead ? "" : `
+                        <div class="poc-share-url-row">
+                            <input type="text" class="poc-share-url" readonly value="${escapeHtml(shareUrl(l.token))}" />
+                            <button type="button" class="btn outline small poc-share-copy">Copy</button>
+                            <button type="button" class="btn outline small poc-share-revoke" data-id="${l.id}">Thu hồi</button>
+                        </div>`}
+                </div>`;
+        }).join("");
+    }
+
+    async function load() {
+        try {
+            const response = await fetch(panel.dataset.listUrl);
+            links = response.ok ? await response.json() : [];
+        } catch {
+            links = [];
+        }
+        render();
+    }
+
+    createBtn.addEventListener("click", async function () {
+        createBtn.disabled = true;
+        msgEl.textContent = "";
+        try {
+            const fd = new FormData();
+            fd.append("projectId", projectId);
+            fd.append("label", labelEl.value.trim());
+            fd.append("days", daysEl.value);
+            if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
+
+            const response = await fetch(panel.dataset.createUrl, { method: "POST", body: fd });
+            if (!response.ok) {
+                msgEl.textContent = await response.text() || "Không tạo được link.";
+            } else {
+                labelEl.value = "";
+                await load();
+            }
+        } catch {
+            msgEl.textContent = "Không tạo được link — kiểm tra kết nối rồi thử lại.";
+        }
+        createBtn.disabled = false;
+    });
+
+    listEl.addEventListener("click", async function (e) {
+        const copy = e.target.closest(".poc-share-copy");
+        if (copy) {
+            const input = copy.closest(".poc-share-url-row").querySelector(".poc-share-url");
+            input.select();
+            try {
+                await navigator.clipboard.writeText(input.value);
+                msgEl.textContent = "Đã copy link.";
+            } catch {
+                // Trình duyệt chặn clipboard API (http, quyền) — link đã được bôi đen sẵn để Ctrl+C.
+                msgEl.textContent = "Không copy tự động được — link đã được bôi đen, bấm Ctrl+C.";
+            }
+            return;
+        }
+
+        const revoke = e.target.closest(".poc-share-revoke");
+        if (!revoke) return;
+        if (!confirm("Thu hồi link này? Người đang giữ link sẽ không mở được nữa.")) return;
+
+        try {
+            const fd = new FormData();
+            fd.append("projectId", projectId);
+            fd.append("id", revoke.dataset.id);
+            if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
+            const response = await fetch(panel.dataset.revokeUrl, { method: "POST", body: fd });
+            if (!response.ok) throw new Error();
+            await load();
+        } catch {
+            msgEl.textContent = "Không thu hồi được link.";
+        }
+    });
+
+    load();
 })();
