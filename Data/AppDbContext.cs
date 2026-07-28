@@ -328,6 +328,8 @@ public class AppDbContext : DbContext
             b.Property(x => x.Name).HasMaxLength(200);
             b.Property(x => x.PromptKey).HasMaxLength(300);
             b.Property(x => x.CreatedByUsername).HasMaxLength(100);
+            // Kind lưu dạng chuỗi như các enum khác (dễ đọc khi soi DB, bền với việc chèn giá trị mới).
+            b.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
             b.HasIndex(x => new { x.IsActive, x.CreatedAt });
         });
         builder.Entity<EvalRun>(b =>

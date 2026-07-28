@@ -5,6 +5,7 @@ using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Evals;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
+using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
@@ -233,6 +234,7 @@ public class EvalRunnerServiceTests : IDisposable
             new FakeChatClientFactory("câu trả lời của target", judgeReply),
             new StubPromptTemplateService(),
             overrides ?? new NoPromptOverrideProvider(),
+            new BAChatReplyParser(),
             new ConfigurationBuilder().Build(),
             NullLogger<EvalRunnerService>.Instance);
 

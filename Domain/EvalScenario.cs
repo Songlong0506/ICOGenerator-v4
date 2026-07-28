@@ -13,12 +13,23 @@ public class EvalScenario
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
+    /// Một lượt (<see cref="Enums.EvalScenarioKind.Prompt"/>) hay cả cuộc PHỎNG VẤN mô phỏng
+    /// (<see cref="Enums.EvalScenarioKind.Interview"/> — <see cref="UserInput"/> khi đó là hồ sơ persona
+    /// để một model đóng vai người dùng nghiệp vụ). Mặc định Prompt: scenario cũ chạy y như trước.
+    /// </summary>
+    public Enums.EvalScenarioKind Kind { get; set; } = Enums.EvalScenarioKind.Prompt;
+
+    /// <summary>
     /// Đường dẫn template prompt dưới /Prompts (vd "BusinessAnalyst/requirement-chat.v3.md"). Nội dung HIỆN HÀNH của
     /// file được dùng làm system prompt lúc chạy — nên cùng bộ scenario đo được các phiên bản prompt khác nhau.
     /// </summary>
     public string PromptKey { get; set; } = string.Empty;
 
-    /// <summary>Đầu vào mô phỏng (tin nhắn/transcript người dùng) gửi kèm system prompt.</summary>
+    /// <summary>
+    /// Với <see cref="Enums.EvalScenarioKind.Prompt"/>: đầu vào mô phỏng gửi kèm system prompt.
+    /// Với <see cref="Enums.EvalScenarioKind.Interview"/>: HỒ SƠ PERSONA — bài toán, vai trò, quy trình,
+    /// con số mà "người dùng" giả lập biết và sẽ chỉ tiết lộ khi BA hỏi đúng chỗ.
+    /// </summary>
     public string UserInput { get; set; } = string.Empty;
 
     /// <summary>Tiêu chí chấm (bullet list) mà judge dùng để cho điểm 1–5.</summary>

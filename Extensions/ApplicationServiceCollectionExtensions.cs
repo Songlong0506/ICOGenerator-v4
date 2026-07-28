@@ -390,6 +390,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UpdateWorkedExamplesUseCase>();
         services.AddScoped<ProposeRemainingGapsUseCase>();
         services.AddScoped<ConfirmRemainingGapsUseCase>();
+        services.AddScoped<GetLearnedChecklistQuery>();
+        services.AddScoped<UpdateLearnedChecklistUseCase>();
         services.AddScoped<CheckRequirementConflictsUseCase>();
         services.AddScoped<ReopenCoverageGroupUseCase>();
         services.AddScoped<ResolveRequirementConflictsUseCase>();

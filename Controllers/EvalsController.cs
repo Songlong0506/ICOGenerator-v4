@@ -47,9 +47,9 @@ public class EvalsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.EvalManage)]
-    public async Task<IActionResult> CreateScenario(string? name, string? promptKey, string? userInput, string? criteria)
+    public async Task<IActionResult> CreateScenario(string? name, string? promptKey, string? userInput, string? criteria, EvalScenarioKind kind = EvalScenarioKind.Prompt)
     {
-        var result = await _createScenario.ExecuteAsync(name, promptKey, userInput, criteria, User.Identity?.Name);
+        var result = await _createScenario.ExecuteAsync(name, promptKey, userInput, criteria, User.Identity?.Name, kind);
         SetScenarioResultMessage(result);
         return RedirectToAction(nameof(Index));
     }
@@ -57,9 +57,9 @@ public class EvalsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.EvalManage)]
-    public async Task<IActionResult> UpdateScenario(Guid id, string? name, string? promptKey, string? userInput, string? criteria, bool isActive)
+    public async Task<IActionResult> UpdateScenario(Guid id, string? name, string? promptKey, string? userInput, string? criteria, bool isActive, EvalScenarioKind kind = EvalScenarioKind.Prompt)
     {
-        var result = await _updateScenario.ExecuteAsync(id, name, promptKey, userInput, criteria, isActive);
+        var result = await _updateScenario.ExecuteAsync(id, name, promptKey, userInput, criteria, isActive, kind);
         SetScenarioResultMessage(result);
         return RedirectToAction(nameof(Index));
     }

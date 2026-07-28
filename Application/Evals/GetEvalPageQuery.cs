@@ -12,7 +12,9 @@ public record EvalScenarioItemVm(
     string UserInput,
     string Criteria,
     bool IsActive,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    // Prompt = một lượt; Interview = phỏng vấn mô phỏng nhiều lượt (UserInput là hồ sơ persona).
+    ICOGenerator.Domain.Enums.EvalScenarioKind Kind);
 
 public record EvalRunItemVm(
     Guid Id,
@@ -57,7 +59,7 @@ public class GetEvalPageQuery
         var scenarios = await _db.EvalScenarios
             .AsNoTracking()
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new EvalScenarioItemVm(x.Id, x.Name, x.PromptKey, x.UserInput, x.Criteria, x.IsActive, x.CreatedAt))
+            .Select(x => new EvalScenarioItemVm(x.Id, x.Name, x.PromptKey, x.UserInput, x.Criteria, x.IsActive, x.CreatedAt, x.Kind))
             .ToListAsync(cancellationToken);
 
         var runs = await _db.EvalRuns

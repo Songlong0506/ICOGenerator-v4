@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using System.Text;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
+using ICOGenerator.Services.Requirements;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 
@@ -26,6 +28,14 @@ public class EvalRunnerService
     // Nhiệt độ cố định để kết quả giữa các run so sánh được: target thấp (ít ngẫu nhiên), judge = 0.
     private const double TargetTemperature = 0.2;
     private const double JudgeTemperature = 0.0;
+
+    // Persona ấm hơn BA một chút: người thật trả lời không đều tăm tắp, và một persona quá "ngoan" sẽ
+    // che mất chính khuyết điểm mà bài kiểm tra cần lộ ra.
+    private const double PersonaTemperature = 0.4;
+
+    // Trần lượt cho phỏng vấn mô phỏng. Phỏng vấn thật hiếm khi quá con số này; chạm trần chính là một
+    // KẾT QUẢ (phỏng vấn không tới đích) chứ không phải lỗi hạ tầng.
+    private const int MaxInterviewTurns = 25;
     private const int DefaultRequestTimeoutSeconds = 600;
 
     // Agent "đại diện" cho ModelCallLogContext (middleware chỉ dùng RoleKey.GetTitle() cho progress line;
@@ -36,6 +46,7 @@ public class EvalRunnerService
     private readonly IChatClientFactory _chatClientFactory;
     private readonly PromptTemplateService _prompts;
     private readonly IPromptOverrideProvider _promptOverrides;
+    private readonly BAChatReplyParser _replyParser;
     private readonly ILogger<EvalRunnerService> _logger;
     private readonly int _requestTimeoutSeconds;
 
@@ -44,6 +55,7 @@ public class EvalRunnerService
         IChatClientFactory chatClientFactory,
         PromptTemplateService prompts,
         IPromptOverrideProvider promptOverrides,
+        BAChatReplyParser replyParser,
         IConfiguration configuration,
         ILogger<EvalRunnerService> logger)
     {
@@ -51,6 +63,7 @@ public class EvalRunnerService
         _chatClientFactory = chatClientFactory;
         _prompts = prompts;
         _promptOverrides = promptOverrides;
+        _replyParser = replyParser;
         _logger = logger;
         _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
     }
@@ -131,7 +144,157 @@ public class EvalRunnerService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task EvaluateScenarioAsync(EvalScenario scenario, AiModel targetModel, AiModel judgeModel, EvalResult result, CancellationToken cancellationToken)
+    private Task EvaluateScenarioAsync(EvalScenario scenario, AiModel targetModel, AiModel judgeModel, EvalResult result, CancellationToken cancellationToken) =>
+        scenario.Kind == EvalScenarioKind.Interview
+            ? EvaluateInterviewScenarioAsync(scenario, targetModel, judgeModel, result, cancellationToken)
+            : EvaluatePromptScenarioAsync(scenario, targetModel, judgeModel, result, cancellationToken);
+
+    /// <summary>
+    /// PHỎNG VẤN MÔ PHỎNG: chạy trọn một cuộc hỏi–đáp giữa BA (prompt đang đo) và một model đóng vai
+    /// người dùng nghiệp vụ theo hồ sơ persona, tới khi BA mời bấm "Write Requirement" hoặc chạm trần lượt.
+    ///
+    /// <para>
+    /// Đây là tầng eval mà bộ một-lượt không với tới. Chất lượng yêu cầu không được quyết bởi một câu trả
+    /// lời đẹp, mà bởi cả cuộc phỏng vấn: nó có tới đích không, tốn bao nhiêu lượt của người dùng, và có
+    /// tự phá các quy tắc chính prompt đặt ra không. Kết quả gồm hai phần: các con số ĐO ĐƯỢC
+    /// (<see cref="InterviewTranscript.Measure"/>) và điểm judge chấm trên toàn transcript.
+    /// </para>
+    /// </summary>
+    private async Task EvaluateInterviewScenarioAsync(EvalScenario scenario, AiModel targetModel, AiModel judgeModel, EvalResult result, CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+
+        var promptOverride = _promptOverrides.GetActiveOverride(scenario.PromptKey);
+        var systemPrompt = promptOverride?.Content ?? _prompts.Get(scenario.PromptKey);
+        result.PromptVersionId = promptOverride?.Id;
+        result.PromptVersionNumber = promptOverride?.VersionNumber;
+
+        var personaPrompt = _prompts.Get("Eval/persona.v1.md").Replace("{{persona}}", scenario.UserInput);
+        var turns = new List<InterviewTurn>();
+        var conversation = new List<ChatMessage> { new(ChatRole.System, systemPrompt) };
+
+        // Lượt mở màn của "người dùng": một câu mô tả sơ sài như người thật vẫn mở đầu, để BA phải tự đào.
+        var userMessage = "Chào bạn, mình muốn làm một ứng dụng cho công việc của mình.";
+
+        for (var i = 0; i < MaxInterviewTurns; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            conversation.Add(new ChatMessage(ChatRole.User, userMessage));
+            var baCall = await CallModelWithHistoryAsync(targetModel, conversation, TargetTemperature, cancellationToken);
+            result.TargetTokens += baCall.TotalTokens;
+            result.TargetCost += LlmCost.Usd(baCall.PromptTokens, baCall.CompletionTokens,
+                targetModel.InputPricePerMillionTokens, targetModel.OutputPricePerMillionTokens);
+
+            if (!baCall.IsSuccess)
+            {
+                Finish(false, $"Lời gọi model BA lỗi ở lượt {i + 1}: {baCall.ErrorMessage}");
+                return;
+            }
+
+            // BA được yêu cầu trả JSON {message, suggestions,…}; parser dùng chung với luồng chat thật nên
+            // model trả văn xuôi vẫn đo được (fallback về text thuần) thay vì làm hỏng cả lượt eval.
+            var reply = _replyParser.Parse(baCall.Content);
+            var baMessage = string.IsNullOrWhiteSpace(reply.Message) ? baCall.Content.Trim() : reply.Message.Trim();
+            conversation.Add(new ChatMessage(ChatRole.Assistant, baCall.Content));
+
+            var personaCall = await CallModelAsync(targetModel, personaPrompt, BuildPersonaInput(turns, baMessage, reply.Suggestions), PersonaTemperature, cancellationToken);
+            result.TargetTokens += personaCall.TotalTokens;
+            result.TargetCost += LlmCost.Usd(personaCall.PromptTokens, personaCall.CompletionTokens,
+                targetModel.InputPricePerMillionTokens, targetModel.OutputPricePerMillionTokens);
+
+            if (!personaCall.IsSuccess)
+            {
+                Finish(false, $"Lời gọi model persona lỗi ở lượt {i + 1}: {personaCall.ErrorMessage}");
+                return;
+            }
+
+            userMessage = personaCall.Content.Trim();
+            turns.Add(new InterviewTurn(baMessage, reply.Suggestions, userMessage));
+
+            // BA đã mời bấm nút ⇒ phỏng vấn tới đích, dừng ngay (chạy tiếp chỉ tốn token).
+            if (RequirementReadinessGate.IsWriteRequirementInvite(baMessage))
+                break;
+        }
+
+        var metrics = InterviewTranscript.Measure(turns);
+        var transcript = InterviewTranscript.Render(turns);
+        result.Output = $"{metrics.Format()}\n\n---\n\n{transcript}";
+
+        var judgeCall = await CallModelAsync(
+            judgeModel, _prompts.Get("Eval/judge.v1.md"), BuildInterviewJudgeInput(scenario, metrics, transcript), JudgeTemperature, cancellationToken);
+
+        result.JudgeTokens = judgeCall.TotalTokens;
+        result.JudgeCost = LlmCost.Usd(judgeCall.PromptTokens, judgeCall.CompletionTokens,
+            judgeModel.InputPricePerMillionTokens, judgeModel.OutputPricePerMillionTokens);
+
+        if (!judgeCall.IsSuccess)
+        {
+            Finish(false, $"Lời gọi judge lỗi: {judgeCall.ErrorMessage}");
+            return;
+        }
+
+        if (!EvalJudgeParser.TryParse(judgeCall.Content, out var score, out var reasoning))
+        {
+            result.JudgeReasoning = judgeCall.Content;
+            Finish(false, "Judge trả về không đúng định dạng JSON {score, reasoning}.");
+            return;
+        }
+
+        result.Score = score;
+        result.JudgeReasoning = reasoning;
+        Finish(true, null);
+
+        void Finish(bool success, string? error)
+        {
+            stopwatch.Stop();
+            result.DurationMs = stopwatch.ElapsedMilliseconds;
+            result.IsSuccess = success;
+            result.ErrorMessage = error;
+            // Transcript dở dang vẫn được giữ lại: nó là bằng chứng để hiểu vì sao lượt eval hỏng.
+            if (!success && string.IsNullOrEmpty(result.Output) && turns.Count > 0)
+                result.Output = InterviewTranscript.Render(turns);
+        }
+    }
+
+    private static string BuildPersonaInput(IReadOnlyList<InterviewTurn> turns, string baMessage, IReadOnlyList<string> suggestions)
+    {
+        var sb = new StringBuilder();
+        if (turns.Count > 0)
+        {
+            sb.AppendLine("## Cuộc trao đổi tới lúc này");
+            foreach (var turn in turns)
+            {
+                sb.AppendLine($"- BA: {turn.BaMessage}");
+                sb.AppendLine($"- Bạn đã trả lời: {turn.UserReply}");
+            }
+            sb.AppendLine();
+        }
+        sb.AppendLine("## BA vừa nói với bạn");
+        sb.AppendLine(baMessage);
+        if (suggestions.Count > 0)
+            sb.AppendLine($"(các đáp án BA gợi ý sẵn: {string.Join(" · ", suggestions)})");
+        sb.AppendLine();
+        sb.Append("Trả lời câu này bằng đúng lời của bạn (ngắn gọn, bám hồ sơ vai diễn).");
+        return sb.ToString();
+    }
+
+    private static string BuildInterviewJudgeInput(EvalScenario scenario, InterviewMetrics metrics, string transcript) =>
+        $"""
+         ## Hồ sơ người dùng được mô phỏng (điều BA CẦN khai thác cho ra)
+         {scenario.UserInput}
+
+         ## Số liệu đo được của cuộc phỏng vấn
+         {metrics.Format()}
+
+         ## Tiêu chí chấm
+         {scenario.Criteria}
+
+         ## Toàn bộ cuộc phỏng vấn cần chấm
+         {transcript}
+         """;
+
+    private async Task EvaluatePromptScenarioAsync(EvalScenario scenario, AiModel targetModel, AiModel judgeModel, EvalResult result, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -223,6 +386,25 @@ public class EvalRunnerService
         await foreach (var _ in client.GetStreamingResponseAsync(messages, new ChatOptions { Temperature = (float)temperature }, cancellationToken).ConfigureAwait(false))
         {
             // Buffered: middleware dựng result đầy đủ và trả qua onCompleted; không cần stream token cho eval.
+        }
+
+        return captured ?? throw new InvalidOperationException("Model call produced no result.");
+    }
+
+    // Như CallModelAsync nhưng gửi TRỌN lịch sử hội thoại — phỏng vấn mô phỏng cần BA thấy các lượt trước
+    // (không thì mỗi lượt nó lại hỏi từ đầu và bài kiểm tra đo nhầm thứ khác).
+    private async Task<LlmCallResult> CallModelWithHistoryAsync(AiModel model, List<ChatMessage> messages, double temperature, CancellationToken cancellationToken)
+    {
+        LlmCallResult? captured = null;
+        var client = _chatClientFactory.Create(model)
+            .AsBuilder()
+            .Use(inner => new ModelCallLoggingChatClient(
+                inner, model, new NullModelCallLogger(), new ModelCallLogContext(Guid.Empty, EvalAgentStub, "Eval"),
+                _requestTimeoutSeconds, throwOnFailure: false, onCompleted: r => captured = r))
+            .Build();
+
+        await foreach (var _ in client.GetStreamingResponseAsync(messages, new ChatOptions { Temperature = (float)temperature }, cancellationToken).ConfigureAwait(false))
+        {
         }
 
         return captured ?? throw new InvalidOperationException("Model call produced no result.");

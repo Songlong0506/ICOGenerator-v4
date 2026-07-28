@@ -10,7 +10,7 @@
     // Map scenario cho form sửa (JS đổ dữ liệu vào modal) — cùng mẫu DOCS của Agent Dashboard.
     var scenarioMap = Model.Scenarios.ToDictionary(
         s => s.Id.ToString(),
-        s => (object)new { name = s.Name, promptKey = s.PromptKey, userInput = s.UserInput, criteria = s.Criteria, isActive = s.IsActive });
+        s => (object)new { name = s.Name, promptKey = s.PromptKey, userInput = s.UserInput, criteria = s.Criteria, isActive = s.IsActive, kind = s.Kind.ToString() });
     var scenariosJson = System.Text.Json.JsonSerializer.Serialize(scenarioMap);
 
     static string StatusBadge(EvalRunStatus status) => status switch
@@ -100,7 +100,13 @@
                 {
                     <tr>
                         <td><b>@s.Name</b></td>
-                        <td><code class="eval-prompt-key">@s.PromptKey</code></td>
+                        <td>
+                            <code class="eval-prompt-key">@s.PromptKey</code>
+                            @if (s.Kind == ICOGenerator.Domain.Enums.EvalScenarioKind.Interview)
+                            {
+                                <span class="badge" title="Phỏng vấn mô phỏng nhiều lượt: AI đóng vai người dùng theo hồ sơ, BA phải tự đào thông tin">phỏng vấn</span>
+                            }
+                        </td>
                         <td><span class="badge @(s.IsActive ? "green" : "gray")">@(s.IsActive ? "Active" : "Off")</span></td>
                         <td><span class="eval-time" data-utc="@s.CreatedAt.ToString("o")"></span></td>
                         @if (canManage)
@@ -198,6 +204,15 @@
             <label>Tên *</label>
             <input name="name" id="scenario-name" required placeholder="BA hỏi lại khi thiếu thông tin" />
 
+            @* Kiểu tình huống: một lượt (như trước) hay PHỎNG VẤN MÔ PHỎNG nhiều lượt. Bộ một-lượt chấm
+               được một câu trả lời đẹp, nhưng chất lượng yêu cầu lại do CẢ cuộc phỏng vấn quyết định —
+               nó có tới đích không và tốn bao nhiêu lượt của người dùng. *@
+            <label>Kiểu tình huống *</label>
+            <select name="kind" id="scenario-kind">
+                <option value="Prompt">Một lượt — chấm câu trả lời cho một đầu vào</option>
+                <option value="Interview">Phỏng vấn mô phỏng — AI đóng vai người dùng, chạy trọn cuộc hỏi–đáp</option>
+            </select>
+
             <label>Prompt template *</label>
             <select name="promptKey" id="scenario-prompt-key" required>
                 @foreach (var key in Model.PromptKeys)
@@ -206,9 +221,13 @@
                 }
             </select>
 
-            <label>Đầu vào mô phỏng (user gửi gì) *</label>
+            <label id="scenario-user-input-label">Đầu vào mô phỏng (user gửi gì) *</label>
             <textarea name="userInput" id="scenario-user-input" rows="5" required
                       placeholder="Tôi muốn làm app quản lý kho cho phòng MFG..."></textarea>
+            <div class="muted" id="scenario-persona-hint" style="display:none; font-size:11.5px; margin-top:-4px;">
+                Với phỏng vấn mô phỏng, đây là <b>hồ sơ vai diễn</b>: bài toán, vai trò, quy trình, con số mà
+                "người dùng" giả lập biết — và chỉ tiết lộ khi BA hỏi đúng chỗ.
+            </div>
 
             <label>Tiêu chí chấm (judge đối chiếu từng dòng) *</label>
             <textarea name="criteria" id="scenario-criteria" rows="5" required
