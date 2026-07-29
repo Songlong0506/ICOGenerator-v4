@@ -1534,6 +1534,36 @@ function closeRequirementModal() {
     document.getElementById("requirementModal").style.display = "none";
 }
 
+// Mở popup Product Brief cho bản MỚI NHẤT: ưu tiên "draft" (bản BA vừa soạn/sửa, còn ghi chú được),
+// nếu không có thì lấy V{n} lớn nhất. Trả về false khi trang chưa có bản brief nào trong DOM để phía
+// gọi (link "Xem Product Brief" ở banner tiến độ) biết mà reload trang trước khi mở.
+function openLatestProductBrief() {
+    const previews = Array.from(document.querySelectorAll(".doc-preview[data-version]"));
+    if (!previews.length) return false;
+
+    const rank = v => v === "draft" ? Number.MAX_SAFE_INTEGER : (parseInt(v.replace("V", ""), 10) || 0);
+    const target = previews.reduce((best, x) =>
+        rank(x.dataset.version) > rank(best.dataset.version) ? x : best);
+
+    openRequirementModal(target.dataset.version);
+    return true;
+}
+
+// Người dùng bấm link "Xem Product Brief" ngay lúc trang sắp tự reload (tài liệu vừa sinh xong) → cờ
+// một lần này bảo trang mở popup ngay khi tải lại, để cú bấm không bị "rơi" mất. Cờ có hạn 30s: nếu cú
+// bấm lỡ nhịp reload (cờ ghi xong thì trang đã tải lại rồi), nó tự hết hạn thay vì bật popup bất ngờ ở
+// lần vào trang sau.
+(function openBriefAfterReload() {
+    const KEY = "req-open-brief-after-reload";
+    const at = parseInt(sessionStorage.getItem(KEY) || "", 10);
+    if (!at) return;
+
+    sessionStorage.removeItem(KEY);
+    if (Date.now() - at > 30000) return;
+
+    openLatestProductBrief();
+})();
+
 // ==== Popup "Tài liệu nguồn" ====
 // Chỉ để XEM LẠI/XOÁ các file đã đính kèm cho BA (việc đính kèm nằm ở nút 📎 trong khung chat). Xoá gọi
 // DeleteSource bằng fetch rồi gỡ hàng tại chỗ: popup không đóng, người dùng dọn liền mấy file một lúc —

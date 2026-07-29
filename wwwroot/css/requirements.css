@@ -886,6 +886,15 @@
         color: #047857;
     }
 
+    /* Link "Xem Product Brief" ngay trong banner hoàn tất: mở thẳng popup brief, không phải đi tìm nút
+       View ở sidebar. Kế thừa màu banner nên nổi trên nền xanh mà không chói như link mặc định. */
+    .wf-brief-link {
+        color: inherit;
+        font-weight: 600;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
     .wf-fail {
         background: var(--danger-tint);
         color: var(--danger-ink);
