@@ -24,15 +24,20 @@ Mục tiêu: bất kỳ ai (kể cả "tương lai của chính bạn") nhìn v�
 ```
 Domain/            # Trái tim: entity nghiệp vụ + enum. KHÔNG phụ thuộc layer nào khác.
   Enums/
-Contracts/         # DTO "hợp đồng" dữ liệu (vd: BrdDto, FsdDto...). Thuần POCO, không logic.
-  Requirements/
+Contracts/         # DTO "hợp đồng" dữ liệu ĐI QUA ranh giới Services <-> Application
+  Requirements/    #   (vd: BrdDto, FsdDto — schema LLM trả về, input dựng .docx).
+                   #   Thuần POCO, không logic, KHÔNG `using` layer nào khác.
+                   #   Model chỉ UI dùng thì KHÔNG vào đây — xem Application/ bên dưới (mục 8).
+Configuration/     # POCO cấu hình bind từ appsettings.json (AuthenticationSettings,
+                   #   IdentityServerSettings). Mọi layer đọc được; chỉ phụ thuộc Domain.
 Data/              # EF Core: AppDbContext + DbInitializer (seed).
   SeedData/        #   Dữ liệu seed dạng NDJSON nhúng vào assembly (xem 5.22)
 Application/       # Tầng điều phối use case. Mỗi file = 1 thao tác người dùng.
   Agents/          #   - Query (đọc)  : GetXxxQuery
   Models/          #   - UseCase (ghi): XxxUseCase
   Projects/        #   - ViewModel    : XxxVm
-  Requirements/
+  Requirements/    #   Model chỉ Application/Controllers/Views dùng (XxxVm, XxxPage, XxxResult)
+                   #   đặt CẠNH use case sinh ra nó, không tách sang Contracts/.
 Services/          # Hạ tầng & service nghiệp vụ tái dùng (gọi LLM, tool, file, prompt...).
   Agents/          #   Vòng lặp agent tự động dùng tool + background runner
   Artifacts/       #   Lưu/đọc file sản phẩm trong workspace
@@ -70,17 +75,25 @@ Mũi tên = "được phép phụ thuộc vào". Phụ thuộc chỉ đi **một
 Controllers ─► Application ─► Services ─► Data ─► Domain
                    │              │                  ▲
                    └──────────────┴──────────────────┘
-                         (đều có thể dùng Domain & Contracts)
+                  (đều có thể dùng Domain, Contracts & Configuration)
 ```
 
 Luật bất di bất dịch:
 - **Domain** không phụ thuộc gì (chỉ tự tham chiếu `Domain.Enums`). Đây là tầng ổn định nhất.
 - **Contracts** thuần POCO, không phụ thuộc layer khác.
+- **Configuration** POCO cấu hình, chỉ phụ thuộc `Domain`. Là lá dùng chung nên **mọi** layer đọc
+  được: `Extensions` bind DI, `Services` đọc khi gọi API ngoài, `Controllers`/`Views` đổi hành vi
+  hiển thị. Để ở đây thay vì `Application/` chính vì `Services` cũng cần đọc — đặt trong
+  `Application/` sẽ ép `Services` `using` ngược lên (đúng lỗi từng xảy ra với `Application/Account`).
 - **Services** *không bao giờ* `using` ngược lên `Application` hay `Controllers`.
 - **Application** điều phối: được phép gọi `Data`, `Domain`, `Services`.
-- **Controllers** chỉ gọi `Application` (không gọi thẳng `Services`/`Data`).
+- **Controllers** gọi `Application` cho nghiệp vụ, không tự viết logic.
 
-> Đã kiểm chứng: hiện không có vi phạm chiều nào ở trên.
+> Đã kiểm chứng: không layer nào dưới `Application` `using` ngược lên `Application`/`Controllers`.
+> Ngoại lệ *có chủ đích* ở chiều `Controllers → Services`: service cắt ngang không thuộc về một use
+> case cụ thể — chủ yếu `Services.Security` (`IPermissionService`, 14 controller), thêm vài chỗ lẻ
+> (`Artifacts`, `Workflows`, `Identity`, `Feedback`, `Budget`, `Data`). Đây là nợ đã biết, không
+> phải mẫu để nhân rộng: logic nghiệp vụ mới vẫn phải đi qua `Application`.
 
 ---
 
@@ -466,7 +479,9 @@ một bản ghi mốc để bắt cả ba trường hợp đó ở CI.
 
 Ví dụ: thêm màn hình "xuất báo cáo tổng hợp project".
 
-1. **Domain/Contracts:** nếu cần kiểu dữ liệu mới → thêm entity vào `Domain/` hoặc DTO vào `Contracts/`.
+1. **Domain/Contracts:** nếu cần kiểu dữ liệu mới → entity vào `Domain/`; DTO thì hỏi *ai đọc nó*:
+   `Services` cũng đọc → `Contracts/<Module>/`; chỉ Application/Controllers/Views đọc → để cạnh use
+   case trong `Application/<Module>/` (xem mục 8).
 2. **Application:** tạo `Application/Projects/ExportProjectReportUseCase.cs` (một class, một `ExecuteAsync`).
 3. **Services (nếu cần):** nếu có logic kỹ thuật tái dùng (sinh file, gọi LLM...) → đặt ở `Services/...`.
 4. **Controller:** thêm action mỏng trong `ProjectsController` gọi use case. Action nhận `projectId`
@@ -498,6 +513,17 @@ sắp xếp lại; namespace luôn khớp đường dẫn.
 - **Đặt tên theo vai trò:** `...Query` (đọc), `...UseCase` (ghi), `...Vm` (view model),
   `I...` (interface), `...Service` (service nghiệp vụ).
 - **namespace = đường dẫn thư mục.**
+- **Chỗ đặt DTO quyết định bởi ai đọc nó, không phải bởi "nó là DTO":**
+
+  | Kiểu dữ liệu | Đặt ở | Dấu hiệu nhận biết |
+  |---|---|---|
+  | Đi qua ranh giới `Services ↔ Application` — schema LLM trả về, input dựng `.docx` | `Contracts/<Module>/` | thuần POCO, **0 `using` ngoài**, không logic |
+  | Chỉ `Application`/`Controllers`/`Views` đọc — `XxxVm`, `XxxPage`, `XxxResult` | `Application/<Module>/`, cạnh use case sinh ra nó | có thể dùng `Domain`, được phép có property tính toán cho view (`TotalPages`, `HasNext`) |
+  | POCO cấu hình bind từ `appsettings.json` | `Configuration/` | có `const string SectionName` |
+
+  Đừng gom hết vào `Contracts/` cho "thống nhất": `Contracts/` mất tính thuần POCO, còn model bị
+  tách khỏi use case sinh ra nó. Ngược lại, đừng để POCO mà `Services` cần đọc nằm trong
+  `Application/` — đó là cách vi phạm chiều phụ thuộc lọt vào.
 - **Controller luôn mỏng**, không chứa logic nghiệp vụ.
 - **Đăng ký DI** chỉ ở file Extensions, đúng nhóm theo layer.
 - **Đừng để Services `using` ngược** lên Application/Controllers.

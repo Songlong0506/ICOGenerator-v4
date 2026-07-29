@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using ICOGenerator.Application.Account;
+using ICOGenerator.Configuration;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using Microsoft.AspNetCore.Authentication;

@@ -1,4 +1,4 @@
-using ICOGenerator.Application.Account;
+using ICOGenerator.Configuration;
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Audit;
 using ICOGenerator.Application.Evals;

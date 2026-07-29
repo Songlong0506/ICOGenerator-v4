@@ -1,6 +1,6 @@
 using ICOGenerator.Domain.Enums;
 
-namespace ICOGenerator.Application.Account;
+namespace ICOGenerator.Configuration;
 
 /// <summary>
 /// Cấu hình đăng nhập SSO qua IdentityServer (bind từ section "IdentityServer"). Chỉ có tác dụng khi
