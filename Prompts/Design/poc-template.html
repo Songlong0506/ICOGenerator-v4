@@ -893,14 +893,6 @@
       var toggle = document.getElementById('sbToggle');
       if (toggle) toggle.addEventListener('click', function () { shell.classList.toggle('collapsed'); });
 
-      // Expand / collapse nav groups (accordion)
-      document.querySelectorAll('.nav-group > .nav-item').forEach(function (head) {
-        head.addEventListener('click', function () {
-          if (shell.classList.contains('collapsed')) { shell.classList.remove('collapsed'); return; }
-          head.parentElement.classList.toggle('open');
-        });
-      });
-
       // Navigate between sidebar "pages". The content region holds one .page-view per screen
       // (its data-view === the nav label that opens it). Clicking a leaf item (top-level or sub-item)
       // marks it active, updates the breadcrumb, and reveals the matching .page-view while hiding the
@@ -926,10 +918,13 @@
       }
 
       // View routing: reveal the .page-view whose data-view matches the clicked nav label.
+      // The section list is read on every call (not cached at load) so screens injected later by the
+      // page-logic script are routed too.
       var pageEl = document.querySelector('.page');
-      var views = pageEl ? pageEl.querySelectorAll('.page-view') : [];
+      function pageViews() { return pageEl ? pageEl.querySelectorAll('.page-view') : []; }
       function viewKey(s) { return (s || '').trim().toLowerCase(); }
       function showView(label) {
+        var views = pageViews();
         if (!views.length) return false;                 // no per-screen sections: nothing to switch
         var key = viewKey(label), target = null;
         views.forEach(function (v) { if (viewKey(v.getAttribute('data-view')) === key) target = v; });
@@ -939,24 +934,46 @@
         return true;
       }
 
-      document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (item) {
-        if (item.parentElement && item.parentElement.classList.contains('nav-group')) return; // group header
-        item.addEventListener('click', function () {
-          if (shell.classList.contains('collapsed')) shell.classList.remove('collapsed');
-          document.querySelectorAll('.sidebar-nav .nav-item.active').forEach(function (n) { n.classList.remove('active'); });
-          item.classList.add('active');
-          var sub = item.closest('.nav-sub');
-          var header = sub ? sub.parentElement.querySelector('.nav-item') : null;
-          setBreadcrumb(sub ? [rootCrumb, navLabel(header), navLabel(item)] : [rootCrumb, navLabel(item)]);
-          showView(navLabel(item));
-        });
+      function isNavGroupHead(item) {
+        return !!(item.parentElement && item.parentElement.classList.contains('nav-group'));
+      }
+
+      // Open a menu item: active state + breadcrumb + view switch. This is the ONE place that does it —
+      // both the click handler below and window.pocNavigate() call it, so navigation never depends on
+      // dispatching a synthetic click (see pocNavigate for why that breaks).
+      function activateNav(item) {
+        if (!item) return false;
+        if (shell.classList.contains('collapsed')) shell.classList.remove('collapsed');
+        document.querySelectorAll('.sidebar-nav .nav-item.active').forEach(function (n) { n.classList.remove('active'); });
+        item.classList.add('active');
+        var sub = item.closest('.nav-sub');
+        var header = sub ? sub.parentElement.querySelector('.nav-item') : null;
+        if (sub && sub.parentElement) sub.parentElement.classList.add('open');   // keep the parent group open
+        setBreadcrumb(sub ? [rootCrumb, navLabel(header), navLabel(item)] : [rootCrumb, navLabel(item)]);
+        return showView(navLabel(item));
+      }
+
+      // Nav clicks are DELEGATED on the sidebar, not bound per element at load: the page-logic script is
+      // told to simulate roles, and a script that re-renders the menu (innerHTML) would strip per-element
+      // listeners and leave every menu item dead — breadcrumb changing while <main> keeps the old screen.
+      // With delegation the routing survives any number of menu rebuilds, and a rebuilt menu needs no
+      // click handler of its own.
+      document.addEventListener('click', function (e) {
+        var item = e.target && e.target.closest ? e.target.closest('.sidebar-nav .nav-item') : null;
+        if (!item) return;
+        if (isNavGroupHead(item)) {                        // group header: only expands / collapses
+          if (shell.classList.contains('collapsed')) { shell.classList.remove('collapsed'); return; }
+          item.parentElement.classList.toggle('open');
+          return;
+        }
+        activateNav(item);
       });
 
       // On load, reveal the active item's view; fall back to the first section so the page is never blank.
-      if (views.length) {
+      if (pageViews().length) {
         var activeItem = document.querySelector('.sidebar-nav .nav-item.active');
         if (!showView(navLabel(activeItem)))
-          views.forEach(function (v, i) { v.classList.toggle('active', i === 0); });
+          pageViews().forEach(function (v, i) { v.classList.toggle('active', i === 0); });
       }
 
       // Popups / dialogs are NATIVE BOOTSTRAP MODALS — opened via data-bs-toggle="modal"
@@ -1296,10 +1313,13 @@
       window.pocNavigate = function (label) {
         var key = viewKey(label), match = null;
         document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (item) {
-          if (item.parentElement && item.parentElement.classList.contains('nav-group')) return; // group header
+          if (isNavGroupHead(item)) return;               // group header
           if (!match && viewKey(navLabel(item)) === key) match = item;
         });
-        if (match) { match.click(); return true; }
+        // Activate DIRECTLY — never match.click(). A synthetic click dispatched from inside a click
+        // handler on that very item is swallowed by the DOM "click in progress" flag, so a page-logic
+        // script calling pocNavigate() from its own menu handler would silently never switch the view.
+        if (match) { activateNav(match); return true; }
         return showView(label);
       };
     })();

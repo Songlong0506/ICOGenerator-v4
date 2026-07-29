@@ -343,6 +343,14 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         // hay làm hỏng buổi demo: nhãn trong kịch bản không tồn tại trên màn hình, và nút bấm không làm gì cả.
         var uatResults = await DriveUatScenariosAsync(page, url, uatScenarios, issues, errors, label => currentScreen = label, cancellationToken);
 
+        // LƯỢT CLICK MENU: bấm THẬT vào từng mục menu đang hiển thị và xem <main> có đổi đúng màn không.
+        // Vòng đi màn hình ở trên gọi window.pocNavigate() bằng JS nên nó MÙ với lớp lỗi "click menu chết":
+        // menu bị script nghiệp vụ dựng lại (mô phỏng vai) làm mất handler, hoặc handler riêng của script gọi
+        // pocNavigate ngay trong lúc xử lý click của chính mục đó. Chạy sau lượt lái UAT để bắt được cả menu
+        // SAU khi đăng nhập/đổi vai, chứ không chỉ menu lúc mới tải.
+        currentScreen = "(click menu)";
+        await CheckNavClickRoutingAsync(page, issues, cancellationToken);
+
         // LƯỢT ĐIỆN THOẠI: mở lại POC ở bề rộng 390px và đi qua từng màn hình. Trước đây mọi thứ chỉ được
         // kiểm ở 1440px nên lớp lỗi "vỡ trên màn hẹp" KHÔNG cổng nào bắt được — kể cả Visual QA, vì nó chỉ
         // nhìn ảnh desktop (dù prompt của nó có mục "phải cuộn ngang"). Đây là bề rộng mà người duyệt hay
@@ -355,6 +363,59 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         return new PocRuntimeReport(
             true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots, workedResults, scenarioResults,
             uatResults, screenTables);
+    }
+
+    // Bấm thật từng mục menu lá đang hiển thị (bỏ tiêu đề nhóm và mục mở popup) rồi so màn hình đang active
+    // với nhãn mục đó. Chỉ xét mục CÓ section tương ứng: mục không có section là lỗi wiring, đã có cổng khác
+    // báo, xét ở đây chỉ tạo báo động trùng. Best-effort: evaluate hỏng ⇒ bỏ qua, không chặn audit.
+    private static async Task CheckNavClickRoutingAsync(IPage page, List<string> issues, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string[] dead;
+        try
+        {
+            dead = await page.EvaluateAsync<string[]>(
+                """
+                async () => {
+                  const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                  const labelOf = n => { const el = n.querySelector('.nav-label'); return el ? el.textContent.trim() : ''; };
+                  const sections = Array.from(document.querySelectorAll('section.page-view'));
+                  const views = sections.map(v => norm(v.dataset.view));
+                  if (!sections.length) return [];
+                  const items = Array.from(document.querySelectorAll('.sidebar-nav .nav-item')).filter(n =>
+                    !(n.parentElement && n.parentElement.classList.contains('nav-group')) && !n.hasAttribute('data-bs-toggle'));
+                  const bad = [];
+                  for (const item of items) {
+                    const label = labelOf(item);
+                    if (!label || views.indexOf(norm(label)) < 0) continue;
+                    // Đỗ sẵn ở MỘT màn KHÁC trước khi bấm (đổi class trực tiếp, không nhờ code của trang):
+                    // nếu màn đích đang mở sẵn thì mục menu chết vẫn "trông như" chạy đúng.
+                    const other = sections.find(v => norm(v.dataset.view) !== norm(label));
+                    if (other) sections.forEach(v => v.classList.toggle('active', v === other));
+                    try { item.click(); } catch { }
+                    await new Promise(r => setTimeout(r, 60));
+                    const active = document.querySelector('section.page-view.active');
+                    const shown = active ? norm(active.dataset.view) : '';
+                    if (shown !== norm(label)) bad.push(label + '|' + (shown || '(không màn nào hiện)'));
+                  }
+                  return bad;
+                }
+                """);
+        }
+        catch
+        {
+            return;
+        }
+
+        foreach (var entry in dead.Take(MaxIssues))
+        {
+            var parts = entry.Split('|', 2);
+            issues.Add(
+                $"CLICK mục menu '{parts[0]}' KHÔNG đổi nội dung — vẫn đang hiện màn '{(parts.Length > 1 ? parts[1] : "?")}'. "
+                + "Đây đúng là thứ người xem demo bấm đầu tiên. Để shell tự lo điều hướng: ĐỪNG gắn handler click "
+                + "riêng cho mục menu và đừng gọi pocNavigate() từ trong handler click của chính mục đó; "
+                + "dựng lại menu (mô phỏng vai) thì chỉ thay nội dung <nav class=\"sidebar-nav\">, shell đã bắt click bằng delegation.");
+        }
     }
 
     // Đọc bảng dữ liệu của màn hình đang mở (tối đa MaxTablesPerScreen bảng): tiêu đề cột + các dòng, cắt

@@ -88,6 +88,58 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
         Assert.StartsWith("PASS", report.SelfTestResults[0]);
     }
 
+    // Menu "chết": pocNavigate chạy tốt (lượt đi màn hình bằng JS pass sạch) nhưng CLICK vào mục menu
+    // thì <main> không đổi — đúng lỗi của POC quản lý JD: script nghiệp vụ dựng lại sidebar sau khi đăng
+    // nhập nên mục menu mất handler của shell, breadcrumb đổi mà nội dung vẫn nằm ở màn Đăng nhập.
+    private const string SidebarShell = """
+        <!doctype html><html><head><meta charset="utf-8"></head><body>
+        <aside class="sidebar"><nav class="sidebar-nav">
+          <div class="nav-item active"><span class="nav-label">Trang chủ</span></div>
+          <div class="nav-item"><span class="nav-label">Danh sách</span></div>
+        </nav></aside>
+        <main class="page">
+          <section class="page-view active" data-view="Trang chủ"><h1>Home</h1></section>
+          <section class="page-view" data-view="Danh sách"><h1>List</h1></section>
+        </main>
+        <script>
+        function showView(label) {
+            document.querySelectorAll('section.page-view').forEach(function (s) {
+                s.classList.toggle('active', (s.dataset.view || '').toLowerCase() === label.toLowerCase());
+            });
+        }
+        window.pocNavigate = showView;
+        {NAV_WIRING}
+        </script>
+        </body></html>
+        """;
+
+    [Fact]
+    public async Task SidebarItem_ThatDoesNotSwitchView_BecomesIssue()
+    {
+        var report = await CheckHtmlAsync(SidebarShell.Replace("{NAV_WIRING}", ""));
+
+        if (!report.Ran)
+            return;
+
+        Assert.Contains(report.Issues, i => i.Contains("CLICK mục menu") && i.Contains("Danh sách"));
+    }
+
+    [Fact]
+    public async Task SidebarItem_WiredByDelegation_HasNoIssue()
+    {
+        var report = await CheckHtmlAsync(SidebarShell.Replace("{NAV_WIRING}", """
+            document.addEventListener('click', function (e) {
+                var item = e.target.closest('.sidebar-nav .nav-item');
+                if (item) showView(item.querySelector('.nav-label').textContent.trim());
+            });
+            """));
+
+        if (!report.Ran)
+            return;
+
+        Assert.DoesNotContain(report.Issues, i => i.Contains("CLICK mục menu"));
+    }
+
     [Fact]
     public async Task FailingSelfTest_And_JsError_BecomeIssues()
     {
