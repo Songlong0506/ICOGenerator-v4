@@ -50,6 +50,9 @@ public class ReviseBriefFromNotesUseCaseTests : IDisposable
 
         Assert.Equal(ReviseBriefResult.Ok, result);
         Assert.Equal(_projectId, orchestrator.StartedProjectId);
+        // KHÔNG gộp vào run đang bay: lượt này vừa ghi thêm một lượt user (các ghi chú), mà run đang chạy
+        // đã đọc transcript từ trước — gộp là nuốt mất đúng phản hồi người dùng vừa gửi.
+        Assert.False(orchestrator.StartedWithCoalesce);
 
         await using var verify = NewDb();
         var turn = await verify.AgentConversations.SingleAsync(c => c.ProjectId == _projectId);
@@ -85,9 +88,11 @@ public class ReviseBriefFromNotesUseCaseTests : IDisposable
     private sealed class FakeOrchestrator : IWorkflowOrchestrator
     {
         public Guid? StartedProjectId;
-        public Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId)
+        public bool StartedWithCoalesce;
+        public Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId, bool coalesceWithActiveRun = false)
         {
             StartedProjectId = projectId;
+            StartedWithCoalesce = coalesceWithActiveRun;
             return Task.FromResult(Guid.NewGuid());
         }
         public Task<Guid> StartDeliveryWorkflowAsync(Guid projectId, string v, string s) => Task.FromResult(Guid.NewGuid());

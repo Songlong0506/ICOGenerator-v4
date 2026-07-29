@@ -73,11 +73,58 @@
     // lời nhắn có nhắc tới "Write Requirement". Lời mời chỉ được LƯU sau khi cổng readiness tất định
     // (RequirementReadinessGate.Evaluate — mọi dòng áp dụng của bản đồ bao phủ đã [RÕ]) pass ngay trong
     // lượt chat, nên nút nổi ⇔ panel "Tiến độ khai thác" bên cạnh cũng đã đầy — cùng một nguồn dữ liệu,
-    // không thể vênh nhau. Khi chưa mời — kể cả lúc workspace còn trống — nút ở trạng thái "mờ" kèm ghi chú:
-    // BA vẫn đang hỏi thêm, nhưng người dùng VẪN có thể bấm tạo ngay (cổng tất định phía server vẫn chặn
-    // nếu bản đồ thực sự còn thiếu).
+    // không thể vênh nhau. Khi chưa mời — kể cả lúc workspace còn trống — nút ở trạng thái "mờ" và KHÓA:
+    // BA vẫn đang hỏi thêm, hoàn tất các nhóm còn lại trong panel tiến độ thì nút tự mở.
     var lastBaTurn = conversations.LastOrDefault(c => c.Role == "assistant");
     var requirementReady = lastBaTurn?.Message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
+
+    // Cờ mời ở trên chỉ trả lời "đã đủ vốn để soạn chưa". Hai câu hỏi còn lại — "có đang soạn không" và
+    // "soạn rồi mà chưa có gì mới thì bấm lại để làm gì" — suy TẤT ĐỊNH từ các workflow run + hội thoại
+    // đã nạp sẵn trên trang, không thêm cột trạng thái nào để khỏi sinh nguồn sự thật thứ hai.
+    var draftRuns = workflowRuns
+        .Where(r => r.Name == ICOGenerator.Services.Workflows.WorkflowOrchestrator.RequirementDraftRunName)
+        .ToList();
+
+    // ĐANG SOẠN ⇒ khoá nút. Thiếu nhánh này thì bấm xong → redirect → trang render lại với lời mời vẫn ở
+    // cuối hội thoại → nút sáng lại, và mỗi lần bấm thêm là một run sinh lại đúng bản draft đó.
+    var draftRunInFlight = draftRuns.Any(r => r.Status is WorkflowRunStatus.Queued or WorkflowRunStatus.Running);
+
+    // ĐÃ SOẠN XONG VÀ CHƯA CÓ GÌ MỚI: bản draft đã tồn tại, vòng soạn gần nhất đã kết thúc, và người dùng
+    // chưa nói thêm câu nào kể từ đó. Bấm lại lúc này tốn 2–3 lời gọi LLM để ra gần đúng bản cũ, lại GHI ĐÈ
+    // bản đang có — và vì model chạy ở temperature > 0, bản mới có thể tệ hơn. Vẫn cho bấm (người dùng có
+    // quyền muốn bản khác) nhưng đổi sang nút "Tạo lại tài liệu" kèm xác nhận, không còn là hành động một chạm.
+    // Đây cũng là chỗ sửa một lời nói dối cũ của UI: sau khi soạn xong, lượt cuối là thông báo "đã tạo xong"
+    // nên requirementReady hoá false và nút hiện tooltip "BA vẫn đang hỏi thêm thông tin" trong khi panel
+    // "Tiến độ khai thác" đầy 100%.
+    var lastFinishedDraftRunAt = draftRuns
+        .Where(r => r.Status == WorkflowRunStatus.Completed && r.FinishedAt.HasValue)
+        .Max(r => (DateTime?)r.FinishedAt!.Value);
+    var lastUserTurnAt = conversations.LastOrDefault(x => x.Role == "user")?.CreatedAt;
+    var draftExists = productBriefs.Any(d => d.VersionName == "draft");
+    var requirementRegenerateOnly = draftExists
+        && lastFinishedDraftRunAt.HasValue
+        && (lastUserTurnAt == null || lastUserTurnAt <= lastFinishedDraftRunAt.Value);
+
+    // Bốn trạng thái loại trừ nhau, xét theo đúng thứ tự ưu tiên: đang chạy > đã xong & chưa có gì mới >
+    // sẵn sàng > còn phải khai thác thêm.
+    var writeReqState = draftRunInFlight ? "running"
+        : requirementRegenerateOnly ? "regenerate"
+        : requirementReady ? "ready"
+        : "waiting";
+    var writeReqEnabled = writeReqState is "ready" or "regenerate";
+    var writeReqLabel = writeReqState switch
+    {
+        "running" => "⏳ Đang tạo tài liệu…",
+        "regenerate" => "🔄 Tạo lại tài liệu",
+        _ => "📝 Write Requirement"
+    };
+    var writeReqTitle = writeReqState switch
+    {
+        "running" => "Tài liệu đang được soạn — theo dõi tiến độ trong khung chat. Nút mở lại khi soạn xong.",
+        "regenerate" => "Tài liệu đã soạn xong và anh/chị chưa bổ sung gì thêm. Bấm để soạn lại và GHI ĐÈ bản hiện tại.",
+        "ready" => "BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm.",
+        _ => "BA vẫn đang hỏi thêm thông tin. Hoàn tất các nhóm còn lại trong 'Tiến độ khai thác' để mở khóa nút này."
+    };
 
     // Tài liệu nguồn (ảnh/PDF) người dùng upload cho project + cờ vision của model BA (để cảnh báo).
     var sourceFiles = Model.SourceFiles.OrderByDescending(x => x.CreatedAt).ToList();
@@ -330,26 +377,46 @@
 
             <!-- WRITE REQUIREMENT: sinh bản mô tả sản phẩm (Product Brief) DỄ HIỂU cho user.
                  Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) do team dev trigger ở Agent Dashboard.
-                 Đặt ngay cuối panel "Tiến độ khai thác" như phần thưởng khi thanh tiến độ đầy: nút ở 2
-                 trạng thái — "mờ" + KHÓA (write-req-waiting) khi BA còn câu hỏi (panel chưa đầy); "sẵn
-                 sàng" (write-req-ready) khi mọi nhóm áp dụng đã [RÕ]. Nút CHỈ enable ở trạng thái sẵn
-                 sàng: dùng chung cờ requirementReady với panel tiến độ (cùng bản đồ bao phủ) nên nút mở
-                 khóa ⇔ panel đầy, không thể vênh. Bấm khi chưa đủ vốn cũng bị cổng server chặn (chỉ trả
-                 lại câu hỏi, không sinh tài liệu). -->
+                 Đặt ngay cuối panel "Tiến độ khai thác" như phần thưởng khi thanh tiến độ đầy. BỐN trạng
+                 thái (writeReqState, suy tất định ở đầu file):
+                   waiting    — BA còn câu hỏi (panel chưa đầy): mờ + KHÓA. Dùng chung cờ requirementReady
+                                với panel tiến độ (cùng bản đồ bao phủ) nên nút mở khóa ⇔ panel đầy.
+                   ready      — mọi nhóm áp dụng đã [RÕ]: nổi bật, bấm được.
+                   running    — vòng soạn đang xếp hàng/đang chạy: KHÓA cho tới khi run xong (trang tự tải
+                                lại lúc đó). Chặn kiểu spam bấm liên tục, mỗi lần một run sinh lại cùng bản.
+                   regenerate — đã soạn xong và hội thoại chưa có gì mới: vẫn bấm được nhưng đổi nhãn thành
+                                "Tạo lại tài liệu" + hỏi xác nhận ở JS, vì lượt này GHI ĐÈ bản đang có.
+                 data-* dưới đây là hợp đồng với requirements.js: nó cần biết run có đang bay không (để
+                 không mở khóa nút sau một lượt chat) và nhãn/tooltip gốc để khôi phục. -->
             <form asp-action="WriteRequirement"
                   method="post"
-                  class="write-req @(requirementReady ? "write-req-ready" : "write-req-waiting")"
+                  class="write-req write-req-@writeReqState"
+                  data-run-in-flight="@(draftRunInFlight ? "true" : "false")"
                   onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="projectId" value="@Model.Id" />
-                <button class="btn write-req-btn @(requirementReady ? "primary" : "outline")"
+                <button class="btn write-req-btn @(writeReqState == "ready" ? "primary" : "outline")"
                         type="submit"
-                        disabled="@(requirementReady ? null : "disabled")"
-                        title="@(requirementReady
-                            ? "BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm."
-                            : "BA vẫn đang hỏi thêm thông tin. Hoàn tất các nhóm còn lại trong 'Tiến độ khai thác' để mở khóa nút này.")">
-                    📝 Write Requirement
+                        disabled="@(writeReqEnabled ? null : "disabled")"
+                        data-idle-label="@writeReqLabel"
+                        data-ready-label="📝 Write Requirement"
+                        data-ready-title="BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm."
+                        data-waiting-title="BA vẫn đang hỏi thêm thông tin. Hoàn tất các nhóm còn lại trong 'Tiến độ khai thác' để mở khóa nút này."
+                        title="@writeReqTitle">
+                    @writeReqLabel
                 </button>
+                @* Ghi chú hiện ngay dưới nút cho hai trạng thái mới: tooltip không thấy được trên cảm ứng
+                   và rất dễ bỏ sót, mà đây đúng là hai lúc người dùng hay bấm đi bấm lại vì không hiểu nút
+                   đang làm gì. Lớp riêng (không phải .write-req-hint) để requirements.js xoá thẳng khi có
+                   lượt chat mới, khỏi lẫn với ghi chú của trạng thái "chưa đủ thông tin". *@
+                @if (writeReqState == "running")
+                {
+                    <small class="write-req-hint write-req-state-hint">Đang soạn tài liệu — theo dõi tiến độ trong khung chat. Nút mở lại khi xong.</small>
+                }
+                else if (writeReqState == "regenerate")
+                {
+                    <small class="write-req-hint write-req-state-hint">Tài liệu đã tạo xong. Muốn sửa nội dung, nhắn thêm cho BA trong khung chat rồi tạo lại.</small>
+                }
             </form>
 
             @* CỔNG SOÁT MÂU THUẪN: chạy khi bấm "Write Requirement", TRƯỚC khi tài liệu được soạn. Panel
