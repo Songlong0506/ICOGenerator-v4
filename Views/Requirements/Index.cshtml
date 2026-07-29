@@ -445,67 +445,30 @@
         </div>
 
         @* Giả định của bản thiết kế (AI Design Spec § 12): những điều BA tự quyết thay user.
-           HAI CHẾ ĐỘ:
-           • CỔNG (pendingAssumptions = true): POC CHƯA dựng, quy trình đang đứng chờ ở đây. Mỗi giả định
-             có hai nút Đúng/Chưa đúng; "Chưa đúng" mở ô gõ ý đúng. Xác nhận xong mới dựng POC — bắt lỗi
-             trước khi tốn trọn một lượt dựng (5–15 phút) thay vì sau.
-           • THAM KHẢO (POC đã dựng): giữ hành vi cũ — bấm vào một giả định để nhắn BA sửa qua khung chat. *@
-        @if (specAssumptions.Any())
+           Ở SIDEBAR chỉ còn CHẾ ĐỘ THAM KHẢO (POC đã dựng): danh sách tra cứu nguội, bấm một giả định để
+           nhắn BA sửa qua khung chat — đúng chỗ, vì nó nằm cùng họ với "Điều đã chốt"/"Điểm cần làm rõ".
+           CHẾ ĐỘ CỔNG (pendingAssumptions = true) đã CHUYỂN VÀO KHUNG CHAT: lúc đó quy trình đang ĐỨNG
+           CHỜ người dùng, mà lời mời rà giả định lại do BA nói ở cuối chat ("đang chờ anh/chị rà N giả
+           định"), trong khi nút bấm thì nằm lọt giữa một sidebar cuộn dài — người đọc phải tự đi tìm cổng.
+           Đặt cổng làm khối CUỐI của khung chat thì nó rơi đúng chỗ mắt đang nhìn (chat tự cuộn xuống đáy
+           khi tải trang) và có đủ bề ngang để hiện trọn danh sách thay vì ô cuộn cao 320px. *@
+        @if (specAssumptions.Any() && !pendingAssumptions)
         {
-            <div class="assumption-panel @(pendingAssumptions ? "gate" : "")"
-                 id="assumptionPanel"
-                 data-pending="@(pendingAssumptions ? "true" : "false")"
-                 data-confirm-url="@Url.Action("ConfirmAssumptions", "Requirements")"
-                 data-revise-url="@Url.Action("ReviseAssumptions", "Requirements")">
+            <div class="assumption-panel" id="assumptionPanel" data-pending="false">
                 <h3>Giả định cần xác nhận @(string.IsNullOrEmpty(specVersion) ? "" : $"({specVersion})")</h3>
-                @if (pendingAssumptions)
-                {
-                    <div class="history-sub assumption-gate-hint">
-                        <b>Bản demo chưa được dựng — đang chờ anh/chị ở bước này.</b>
-                        Bản mô tả không nói rõ mấy điểm dưới đây nên BA đã tự quyết. Rà nhanh giúp mình:
-                        điểm nào <b>chưa đúng</b> thì đánh dấu và ghi ý đúng, xong bấm nút bên dưới —
-                        sửa ở đây chỉ mất vài giây, phát hiện sau khi xem demo thì phải dựng lại cả bản.
-                    </div>
-                    <ul class="assumption-list gate">
-                        @foreach (var assumption in specAssumptions)
-                        {
-                            <li class="assumption-gate-item" data-assumption="@assumption">
-                                <div class="assumption-gate-text">@assumption</div>
-                                <div class="assumption-gate-actions">
-                                    <button type="button" class="assumption-vote ok is-on" data-vote="ok">Đúng</button>
-                                    <button type="button" class="assumption-vote bad" data-vote="bad">Chưa đúng</button>
-                                </div>
-                                <textarea class="assumption-fix" rows="2" hidden
-                                          placeholder="Đúng ra là… (ghi ngắn gọn, có thể bỏ trống)"></textarea>
-                            </li>
-                        }
-                    </ul>
-                    <div class="assumption-gate-bar">
-                        <button type="button" class="btn primary full" id="assumptionConfirmBtn">
-                            ✓ Tất cả đúng — dựng bản demo
-                        </button>
-                        <button type="button" class="btn outline full" id="assumptionReviseBtn" hidden>
-                            ↻ Sửa các điểm đã đánh dấu rồi dựng lại bản thiết kế
-                        </button>
-                        <div class="assumption-gate-msg" id="assumptionGateMsg"></div>
-                    </div>
-                }
-                else
-                {
-                    <div class="history-sub decision-hint">
-                        BA đã tự quyết các điểm sau khi dựng bản thiết kế. <b>Rà lại giúp mình:</b> nếu điểm nào
-                        chưa đúng, bấm vào nó để sửa — mình sẽ cập nhật tài liệu và dựng lại bản demo cho khớp.
-                        Không bấm gì nghĩa là anh/chị đồng ý với các giả định này.
-                    </div>
-                    <ul class="assumption-list">
-                        @foreach (var assumption in specAssumptions)
-                        {
-                            <li>
-                                <button type="button" class="assumption-item" data-assumption="@assumption" title="Bấm nếu giả định này chưa đúng để sửa">@assumption</button>
-                            </li>
-                        }
-                    </ul>
-                }
+                <div class="history-sub decision-hint">
+                    BA đã tự quyết các điểm sau khi dựng bản thiết kế. <b>Rà lại giúp mình:</b> nếu điểm nào
+                    chưa đúng, bấm vào nó để sửa — mình sẽ cập nhật tài liệu và dựng lại bản demo cho khớp.
+                    Không bấm gì nghĩa là anh/chị đồng ý với các giả định này.
+                </div>
+                <ul class="assumption-list">
+                    @foreach (var assumption in specAssumptions)
+                    {
+                        <li>
+                            <button type="button" class="assumption-item" data-assumption="@assumption" title="Bấm nếu giả định này chưa đúng để sửa">@assumption</button>
+                        </li>
+                    }
+                </ul>
             </div>
         }
 
@@ -701,6 +664,59 @@
                     </div>
                     prevWasBaBubble = true;
                 }
+            }
+
+            @* CỔNG XÁC NHẬN GIẢ ĐỊNH — khối CUỐI của dòng hội thoại, ngay dưới lượt BA vừa báo "đã sinh
+               bản thiết kế, đang chờ anh/chị rà N giả định". POC CHƯA dựng: quy trình thực sự đang đứng
+               chờ ở đây, nên câu hỏi và nút trả lời phải nằm cùng một chỗ — trước đây cổng ở sidebar nên
+               người dùng đọc xong lời mời trong chat rồi phải quét mắt sang cột trái tìm nút. Mỗi giả định
+               có hai nút Đúng/Chưa đúng; "Chưa đúng" mở ô gõ ý đúng. Xác nhận xong mới dựng POC — bắt lỗi
+               trước khi tốn trọn một lượt dựng (5–15 phút) thay vì sau. Markup/ID giữ nguyên như bản ở
+               sidebar để initAssumptionGate (requirements.js) dùng lại y hệt. *@
+            @if (specAssumptions.Any() && pendingAssumptions)
+            {
+                <div class="req-msg ba assumption-panel gate"
+                     id="assumptionPanel"
+                     data-pending="true"
+                     data-confirm-url="@Url.Action("ConfirmAssumptions", "Requirements")"
+                     data-revise-url="@Url.Action("ReviseAssumptions", "Requirements")">
+                    <div class="assumption-gate-head">
+                        <b>BA</b>
+                        <span class="assumption-gate-title">
+                            Giả định cần xác nhận @(string.IsNullOrEmpty(specVersion) ? "" : $"({specVersion})")
+                        </span>
+                        <span class="assumption-gate-count">@specAssumptions.Count điểm</span>
+                    </div>
+                    <div class="assumption-gate-hint">
+                        <b>Bản demo chưa được dựng — đang chờ anh/chị ở bước này.</b>
+                        Bản mô tả không nói rõ mấy điểm dưới đây nên BA đã tự quyết. Rà nhanh giúp mình:
+                        điểm nào <b>chưa đúng</b> thì đánh dấu và ghi ý đúng, xong bấm nút bên dưới —
+                        sửa ở đây chỉ mất vài giây, phát hiện sau khi xem demo thì phải dựng lại cả bản.
+                    </div>
+                    <ul class="assumption-list gate">
+                        @foreach (var assumption in specAssumptions)
+                        {
+                            <li class="assumption-gate-item" data-assumption="@assumption">
+                                <div class="assumption-gate-text">@assumption</div>
+                                <div class="assumption-gate-actions">
+                                    <button type="button" class="assumption-vote ok is-on" data-vote="ok">Đúng</button>
+                                    <button type="button" class="assumption-vote bad" data-vote="bad">Chưa đúng</button>
+                                </div>
+                                <textarea class="assumption-fix" rows="2" hidden
+                                          placeholder="Đúng ra là… (ghi ngắn gọn, có thể bỏ trống)"></textarea>
+                            </li>
+                        }
+                    </ul>
+                    <div class="assumption-gate-bar">
+                        <button type="button" class="btn primary" id="assumptionConfirmBtn">
+                            ✓ Tất cả đúng — dựng bản demo
+                        </button>
+                        <button type="button" class="btn outline" id="assumptionReviseBtn" hidden>
+                            ↻ Sửa các điểm đã đánh dấu rồi dựng lại bản thiết kế
+                        </button>
+                        <div class="assumption-gate-msg" id="assumptionGateMsg"></div>
+                    </div>
+                </div>
             }
 
             <div id="suggestionList"

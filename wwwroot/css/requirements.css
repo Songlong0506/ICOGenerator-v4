@@ -1475,60 +1475,90 @@
 
 .journey-step.todo { opacity: .55; }
 
-/* ==== Cổng xác nhận giả định (panel giả định ở chế độ chặn, POC chưa dựng) ==== */
+/* ==== Cổng xác nhận giả định (khối cuối KHUNG CHAT, POC chưa dựng) ====
+   Cổng sống trong dòng hội thoại nên tạo hình như một bong bóng BA (cùng họ với .workflow-progress),
+   chỉ đổi sang tông cảnh báo để tách khỏi các lượt chat thường: đây là chỗ quy trình đang ĐỨNG CHỜ.
+   Khác bản cũ ở sidebar: có bề ngang thật nên danh sách hiện TRỌN (không ô cuộn 320px — cuộn lồng trong
+   khung chat vốn đã cuộn là cách chắc chắn để vài giả định cuối không bao giờ được đọc) và mỗi dòng xếp
+   ngang: nội dung bên trái, hai nút Đúng/Chưa đúng bên phải. */
 
 .assumption-panel.gate {
+    max-width: 92%;
+    margin-bottom: 12px;
     border: 1px solid var(--warning-border, #f2c94c);
-    border-radius: 10px;
-    padding: 12px;
+    border-radius: 14px;
+    padding: 12px 14px;
     background: #fffdf5;
 }
 
-.assumption-gate-hint { font-size: 12px; line-height: 1.55; margin-bottom: 8px; }
+.assumption-gate-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 6px;
+}
 
-.assumption-list.gate { max-height: 320px; gap: 8px; }
+.assumption-gate-title { color: #b45309; font-size: 13px; font-weight: 800; }
+
+.assumption-gate-count { font-size: 12px; color: var(--muted, #777); }
+
+.assumption-gate-hint { font-size: 12.5px; line-height: 1.55; margin-bottom: 10px; color: #555; }
+
+/* Bỏ hẳn giới hạn chiều cao của .assumption-list: trong chat, khung chat mới là thứ cuộn. */
+.assumption-list.gate { max-height: none; overflow: visible; gap: 8px; }
 
 .assumption-gate-item {
-    padding: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 12px;
+    padding: 10px 12px;
     border: 1px solid var(--line, #e5e7eb);
-    border-radius: 8px;
+    border-radius: 10px;
     background: #fff;
 }
 
-.assumption-gate-text { font-size: 12px; line-height: 1.5; margin-bottom: 6px; }
+.assumption-gate-text { flex: 1 1 240px; font-size: 13px; line-height: 1.5; }
 
-.assumption-gate-actions { display: flex; gap: 6px; }
+.assumption-gate-actions { flex: 0 0 auto; display: flex; gap: 6px; }
 
 .assumption-vote {
     font-family: inherit;
-    font-size: 11.5px;
-    padding: 3px 10px;
+    font-size: 12px;
+    padding: 4px 12px;
     border-radius: 999px;
     border: 1px solid var(--line, #e5e7eb);
     background: var(--surface-alt, #f3f4f6);
     color: #4b5563;
     cursor: pointer;
     width: auto;
+    white-space: nowrap;
 }
 
     .assumption-vote.ok.is-on { background: #10b981; border-color: #10b981; color: #fff; }
 
     .assumption-vote.bad.is-on { background: #dc2626; border-color: #dc2626; color: #fff; }
 
+/* Ô ghi ý đúng chiếm trọn một hàng dưới cặp nút (flex-basis 100% ⇒ luôn tự xuống dòng). */
 .assumption-fix {
-    width: 100%;
-    margin-top: 6px;
+    flex: 1 1 100%;
     font-family: inherit;
-    font-size: 12px;
+    font-size: 12.5px;
     padding: 6px 8px;
     border: 1px solid var(--line, #e5e7eb);
     border-radius: 6px;
     resize: vertical;
 }
 
-.assumption-gate-bar { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.assumption-gate-bar {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
 
-.assumption-gate-msg { font-size: 11.5px; color: #dc2626; }
+.assumption-gate-msg { font-size: 12px; color: #dc2626; }
 
 /* ==== Editor "Ví dụ đã xác nhận" (sửa tay oracle của POC) ==== */
 
