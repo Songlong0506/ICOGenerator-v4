@@ -196,6 +196,34 @@
         btn.textContent = oldLabel;
     }
 
+    // Link "Xem Product Brief" trong banner hoàn tất: mở thẳng popup brief thay vì bắt người dùng đi tìm
+    // nút View ở sidebar. Nếu trang CHƯA reload sau khi tài liệu vừa sinh xong thì bản draft mới chưa có
+    // trong DOM → reload kèm cờ một lần để popup bật lên ngay sau khi tải lại.
+    function openBriefFromBanner(panel) {
+        if (!panel._pendingReload
+            && typeof window.openLatestProductBrief === 'function'
+            && window.openLatestProductBrief()) {
+            return;
+        }
+
+        // Cờ mang timestamp: bên nhận chỉ mở popup nếu cú bấm còn "tươi" (xem requirements.js). Bấm đúng
+        // lúc reload tự động đang chạy có thể làm cờ lỡ nhịp — cờ cũ hết hạn thay vì bật popup bất ngờ ở
+        // lần vào trang sau. Hủy luôn timer reload tự động để không có hai lượt điều hướng chồng nhau.
+        clearTimeout(panel._reloadTimer);
+        sessionStorage.setItem('req-open-brief-after-reload', String(Date.now()));
+        location.reload();
+    }
+
+    function wireBriefLink(panel, slot) {
+        const link = slot.querySelector('.wf-brief-link');
+        if (!link) return;
+
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            openBriefFromBanner(panel);
+        });
+    }
+
     function updateBanner(panel, data) {
         const slot = panel.querySelector('.wf-banner-slot');
 
@@ -211,14 +239,18 @@
                     ? `<div class="wf-banner wf-wait">❓ Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi BA trong khung chat.</div>`
                     : isSpec
                         ? `<div class="wf-banner wf-ok">✓ Đã tạo AI Design Spec — đang khởi động quy trình dựng POC…</div>`
-                        : `<div class="wf-banner wf-ok">✓ Đã tạo/cập nhật tài liệu requirement.</div>`;
+                        : `<div class="wf-banner wf-ok">✓ Đã tạo/cập nhật tài liệu requirement.` +
+                          ` <a href="#" class="wf-brief-link">Xem Product Brief</a></div>`;
+
+                wireBriefLink(panel, slot);
 
                 // Reload đúng 1 lần để hiển thị tài liệu draft + tin nhắn BA mới (và gộp run delivery vừa tạo
                 // vào cùng panel). Key theo lead run để mỗi hành trình chỉ reload một lần.
                 const reloadKey = 'wf-reloaded-' + leadRunId(panel);
                 if (!sessionStorage.getItem(reloadKey)) {
                     sessionStorage.setItem(reloadKey, '1');
-                    setTimeout(() => location.reload(), 1200);
+                    panel._pendingReload = true;
+                    panel._reloadTimer = setTimeout(() => location.reload(), 1200);
                 }
             } else {
                 slot.innerHTML = `<div class="wf-banner wf-ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/PocReview?projectId=${PID}" target="_blank">Xem demo POC</a> · <a href="/Projects/DownloadSource?projectId=${PID}">⬇ Tải source code</a></div>`;
