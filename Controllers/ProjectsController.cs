@@ -29,7 +29,6 @@ public class ProjectsController : Controller
     private readonly RequestStageRevisionUseCase _requestStageRevisionUseCase;
     private readonly AcceptPocUseCase _acceptPocUseCase;
     private readonly IPermissionService _permissions;
-    private readonly IProjectAccessGuard _projectAccess;
 
     public ProjectsController(
         GetProjectListQuery getProjectListQuery,
@@ -48,8 +47,7 @@ public class ProjectsController : Controller
         RoutePocFeedbackToRequirementUseCase routePocFeedbackUseCase,
         RequestStageRevisionUseCase requestStageRevisionUseCase,
         AcceptPocUseCase acceptPocUseCase,
-        IPermissionService permissions,
-        IProjectAccessGuard projectAccess)
+        IPermissionService permissions)
     {
         _getProjectListQuery = getProjectListQuery;
         _createProjectUseCase = createProjectUseCase;
@@ -68,13 +66,11 @@ public class ProjectsController : Controller
         _requestStageRevisionUseCase = requestStageRevisionUseCase;
         _acceptPocUseCase = acceptPocUseCase;
         _permissions = permissions;
-        _projectAccess = projectAccess;
     }
 
-    // Các action theo projectId (Mockup/PocReview/DownloadSource...) chặn truy cập chéo: user thường
-    // chỉ đụng được project mình tạo (xem IProjectAccessGuard). Trả về như "không tồn tại".
-    private Task<bool> CanAccessProjectAsync(Guid projectId) =>
-        _projectAccess.CanAccessProjectAsync(User, projectId, HttpContext.RequestAborted);
+    // Các action theo projectId (Mockup/PocReview/DownloadSource...) chặn truy cập chéo bằng
+    // [RequireProjectAccess]: user thường chỉ đụng được project mình tạo (xem IProjectAccessGuard).
+    // Trả về như "không tồn tại" để không xác nhận sự tồn tại của project với người ngoài.
 
     public async Task<IActionResult> Index(
         int page = 1,
@@ -106,6 +102,7 @@ public class ProjectsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.ProjectsEdit)]
+    [RequireProjectAccess("vm.ProjectId", Message = "Project không tồn tại.")]
     public async Task<IActionResult> Update(
         ProjectEditVm vm,
         int page = 1,
@@ -113,9 +110,6 @@ public class ProjectsController : Controller
         string[]? orgUnit = null)
     {
         IActionResult BackToList() => RedirectToAction(nameof(Index), new { page, pageSize, orgUnit });
-
-        if (!await CanAccessProjectAsync(vm.ProjectId))
-            return NotFound("Project không tồn tại.");
 
         if (!ModelState.IsValid)
         {
@@ -149,11 +143,9 @@ public class ProjectsController : Controller
         return BackToList();
     }
 
+    [RequireProjectAccess(Message = "Mockup file not found.")]
     public async Task<IActionResult> Mockup(Guid projectId, bool review = false)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound("Mockup file not found.");
-
         var result = await _getMockupFileQuery.ExecuteAsync(projectId);
         if (result == null)
             return NotFound("Mockup file not found.");
@@ -189,11 +181,9 @@ public class ProjectsController : Controller
     // triết lý với Feedback (quyền View đủ để GỬI phản hồi của chính mình), vì đây chính là kênh phản
     // hồi của người dùng cuối về POC. Xóa bị siết ở use case: chủ ghi chú hoặc người có DeliveryAdvance.
 
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> PocReview(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction(nameof(Index));
-
         var result = await _getPocReviewQuery.ExecuteAsync(projectId, HttpContext.RequestAborted);
         if (result == null)
             return RedirectToAction(nameof(Index));
@@ -215,11 +205,9 @@ public class ProjectsController : Controller
     }
 
     [HttpGet]
+    [RequireProjectAccess]
     public async Task<IActionResult> PocComments(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         var canManage = await _permissions.HasPermissionAsync(
             User, AppPermission.DeliveryAdvance, HttpContext.RequestAborted);
         return Json(await _listPocCommentsQuery.ExecuteAsync(
@@ -228,13 +216,11 @@ public class ProjectsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequireProjectAccess(Message = "Project không tồn tại.")]
     public async Task<IActionResult> AddPocComment(
         Guid projectId, string? pageView, string? elementLabel, string? elementPath,
         double xPercent, double yPercent, string? comment)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound("Project không tồn tại.");
-
         var (result, item) = await _addPocCommentUseCase.ExecuteAsync(
             projectId, pageView, elementLabel, elementPath, xPercent, yPercent, comment,
             User.Identity?.Name, HttpContext.RequestAborted);
@@ -265,12 +251,10 @@ public class ProjectsController : Controller
     // phình lên bằng các bản sao của cùng một vấn đề.
     [HttpPost]
     [ValidateAntiForgeryToken]
+    // Kiểm quyền TRƯỚC khi đụng dữ liệu; use case chỉ nhận ghi chú thuộc đúng project đã kiểm.
+    [RequireProjectAccess]
     public async Task<IActionResult> ReopenPocComment(Guid projectId, Guid id)
     {
-        // Kiểm quyền TRƯỚC khi đụng dữ liệu; use case chỉ nhận ghi chú thuộc đúng project đã kiểm.
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         var result = await _reopenPocCommentUseCase.ExecuteAsync(projectId, id, HttpContext.RequestAborted);
         return result switch
         {
@@ -286,22 +270,18 @@ public class ProjectsController : Controller
     // thu hồi được. Bề mặt mà khách chạm tới nằm ở PocShareController.
 
     [HttpGet]
+    [RequireProjectAccess]
     public async Task<IActionResult> PocShareLinks(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         return Json(await _listPocShareLinksQuery.ExecuteAsync(projectId, HttpContext.RequestAborted));
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess]
     public async Task<IActionResult> CreatePocShareLink(Guid projectId, string? label, int days = CreatePocShareLinkUseCase.DefaultDays)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         var link = await _createPocShareLinkUseCase.ExecuteAsync(
             projectId, label, days, User.Identity?.Name, HttpContext.RequestAborted);
         if (link == null)
@@ -315,11 +295,9 @@ public class ProjectsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess]
     public async Task<IActionResult> RevokePocShareLink(Guid projectId, Guid id)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         return await _revokePocShareLinkUseCase.ExecuteAsync(projectId, id, HttpContext.RequestAborted)
             ? Json(new { ok = true })
             : NotFound();
@@ -330,11 +308,9 @@ public class ProjectsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Message = "Project không tồn tại.")]
     public async Task<IActionResult> RoutePocFeedbackToRequirement(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound("Project không tồn tại.");
-
         var result = await _routePocFeedbackUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
         return result switch
         {
@@ -359,11 +335,9 @@ public class ProjectsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Message = "Project không tồn tại.")]
     public async Task<IActionResult> RequestPocFix(Guid projectId, string? feedback)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound("Project không tồn tại.");
-
         var result = await _requestStageRevisionUseCase.ExecuteAsync(
             projectId, feedback, runId: null, includePocComments: true, onlyStage: WorkflowStageKey.PocPreview);
 
@@ -384,11 +358,9 @@ public class ProjectsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Message = "Project không tồn tại.")]
     public async Task<IActionResult> AcceptPoc(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound("Project không tồn tại.");
-
         var result = await _acceptPocUseCase.ExecuteAsync(
             projectId, User.Identity?.Name ?? string.Empty, HttpContext.RequestAborted);
 
@@ -403,11 +375,9 @@ public class ProjectsController : Controller
 
     // Packages the agent-generated multi-file app (04_Implementation/src) into a .zip the user can
     // download — the only way to actually get the produced source out of the workspace.
+    [RequireProjectAccess(Message = "Chưa có source code để tải. Hãy chạy tới bước Implementation để agent sinh code trong 04_Implementation/src.")]
     public async Task<IActionResult> DownloadSource(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound("Chưa có source code để tải. Hãy chạy tới bước Implementation để agent sinh code trong 04_Implementation/src.");
-
         var result = await _getImplementationSourceQuery.ExecuteAsync(projectId);
         if (result == null)
             return NotFound("Chưa có source code để tải. Hãy chạy tới bước Implementation để agent sinh code trong 04_Implementation/src.");

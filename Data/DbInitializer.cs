@@ -213,13 +213,13 @@ public static class DbInitializer
     {
         if (!await db.OrgUnits.AnyAsync())
         {
-            db.OrgUnits.AddRange(OrgUnitsSeedData.All);
+            db.OrgUnits.AddRange(OrgUnitsSeedData.Load());
             await db.SaveChangesAsync();
         }
 
         if (!await db.Associates.AnyAsync())
         {
-            db.Associates.AddRange(AssociatesSeedData.All);
+            db.Associates.AddRange(AssociatesSeedData.Load());
             await db.SaveChangesAsync();
         }
     }

@@ -41,7 +41,6 @@ public class RequirementsController : Controller
     private readonly CheckRequirementConflictsUseCase _checkRequirementConflictsUseCase;
     private readonly ReopenCoverageGroupUseCase _reopenCoverageGroupUseCase;
     private readonly ResolveRequirementConflictsUseCase _resolveRequirementConflictsUseCase;
-    private readonly IProjectAccessGuard _projectAccess;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly ILogger<RequirementsController> _logger;
 
@@ -79,7 +78,6 @@ public class RequirementsController : Controller
        CheckRequirementConflictsUseCase checkRequirementConflictsUseCase,
        ReopenCoverageGroupUseCase reopenCoverageGroupUseCase,
        ResolveRequirementConflictsUseCase resolveRequirementConflictsUseCase,
-       IProjectAccessGuard projectAccess,
        BAChatTurnTracker chatTurnTracker,
        ILogger<RequirementsController> logger)
     {
@@ -108,22 +106,18 @@ public class RequirementsController : Controller
         _checkRequirementConflictsUseCase = checkRequirementConflictsUseCase;
         _reopenCoverageGroupUseCase = reopenCoverageGroupUseCase;
         _resolveRequirementConflictsUseCase = resolveRequirementConflictsUseCase;
-        _projectAccess = projectAccess;
         _chatTurnTracker = chatTurnTracker;
         _logger = logger;
     }
 
-    // Mọi action của controller này đều thao tác trong phạm vi MỘT project/tài liệu — chặn truy cập
-    // chéo (user thường chỉ được đụng project mình tạo; xem IProjectAccessGuard). Trả về giống hệt
-    // trường hợp "không tồn tại" để không xác nhận sự tồn tại của project với người ngoài.
-    private Task<bool> CanAccessProjectAsync(Guid projectId) =>
-        _projectAccess.CanAccessProjectAsync(User, projectId, HttpContext.RequestAborted);
+    // Mọi action của controller này đều thao tác trong phạm vi MỘT project/tài liệu nên đều mang
+    // [RequireProjectAccess] — chặn truy cập chéo (user thường chỉ được đụng project mình tạo; xem
+    // IProjectAccessGuard). Trả về giống hệt trường hợp "không tồn tại" để không xác nhận sự tồn tại
+    // của project với người ngoài.
 
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> Index(Guid projectId, string? version = null)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction("Index", "Projects");
-
         var result = await _getRequirementWorkspaceQuery.ExecuteAsync(projectId, version);
         if (result == null)
             return RedirectToAction("Index", "Projects");
@@ -145,11 +139,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> Chat(Guid projectId, string message)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction("Index", "Projects");
-
         if (string.IsNullOrWhiteSpace(message))
             return RedirectToAction(nameof(Index), new { projectId });
 
@@ -191,15 +183,10 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    // Chặn trước khi mở stream: client thấy !response.ok và tự rơi về đường postback (vốn cũng chặn).
+    [RequireProjectAccess]
     public async Task ChatStream(Guid projectId, string message, bool retry = false, bool edit = false)
     {
-        // Chặn trước khi mở stream: client thấy !response.ok và tự rơi về đường postback (vốn cũng chặn).
-        if (!await CanAccessProjectAsync(projectId))
-        {
-            Response.StatusCode = StatusCodes.Status404NotFound;
-            return;
-        }
-
         Response.StatusCode = 200;
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
@@ -430,11 +417,9 @@ public class RequirementsController : Controller
     // chạy nó) để client dừng chờ và mời "Thử lại" thay vì treo mãi ở spinner. Chỉ đọc, không ghi.
     [HttpGet]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess]
     public async Task<IActionResult> ChatReplyStatus(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         var state = await _chatWithBAUseCase.GetReplyStateAsync(projectId, HttpContext.RequestAborted);
         return Json(new { pending = state.Pending, stale = state.Stale });
     }
@@ -446,11 +431,9 @@ public class RequirementsController : Controller
     [RequirePermission(AppPermission.RequirementsManage)]
     [RequestSizeLimit(60_000_000)]
     [RequestFormLimits(MultipartBodyLengthLimit = 60_000_000)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> UploadSource(Guid projectId, List<IFormFile> files, string? note = null)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction("Index", "Projects");
-
         try
         {
             var result = await _uploadProjectSourceUseCase.ExecuteAsync(projectId, files, User.Identity?.Name);
@@ -493,12 +476,10 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    // Kiểm tra theo id tài liệu nguồn (nguồn sự thật) — projectId trong form chỉ dùng để redirect.
+    [RequireProjectAccess("id", ProjectResource.SourceFile, Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> DeleteSource(Guid id, Guid projectId)
     {
-        // Kiểm tra theo id tài liệu nguồn (nguồn sự thật) — projectId trong form chỉ dùng để redirect.
-        if (!await _projectAccess.CanAccessSourceFileAsync(User, id, HttpContext.RequestAborted))
-            return RedirectToAction("Index", "Projects");
-
         await _deleteProjectSourceUseCase.ExecuteAsync(id);
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -506,11 +487,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> WriteRequirement(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction("Index", "Projects");
-
         await _generateRequirementDraftUseCase.ExecuteAsync(projectId);
         TempData["WorkflowStarted"] = true;
         return RedirectToAction(nameof(Index), new { projectId });
@@ -522,11 +501,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> ReopenCoverage(Guid projectId, [FromForm] string label)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
-
         var (result, coverage, ready) = await _reopenCoverageGroupUseCase.ExecuteAsync(projectId, label, HttpContext.RequestAborted);
         if (result != ReopenCoverageResult.Ok)
             return Json(new { ok = false, error = "Không tìm thấy nhóm này trong bản đồ — tải lại trang nhé." });
@@ -545,11 +522,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> CheckConflicts(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
-
         var conflicts = await _checkRequirementConflictsUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
         return Json(new
         {
@@ -563,11 +538,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> ResolveConflicts(Guid projectId, [FromForm] string resolutionsJson)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
-
         List<ConflictResolution> resolutions;
         try
         {
@@ -594,11 +567,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> ReviseBrief(Guid projectId, [FromForm] string notesJson)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
-
         List<BriefNote> notes;
         try
         {
@@ -626,11 +597,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> ConfirmAssumptions(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
-
         var result = await _confirmSpecAssumptionsUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
         return result switch
         {
@@ -646,11 +615,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> ReviseAssumptions(Guid projectId, [FromForm] string correctionsJson)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
-
         List<AssumptionCorrection> corrections;
         try
         {
@@ -679,11 +646,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> ProposeGaps(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
-
         var outcome = await _proposeRemainingGapsUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
         return outcome.Status switch
         {
@@ -704,11 +669,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> ConfirmGaps(Guid projectId, [FromForm] string decisionsJson)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
-
         List<GapDecision> decisions;
         try
         {
@@ -740,11 +703,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> UpdateWorkedExamples(Guid projectId, [FromForm] string examplesJson)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
-
         List<string> examples;
         try
         {
@@ -768,11 +729,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> Approve(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction("Index", "Projects");
-
         var result = await _approveRequirementUseCase.ExecuteAsync(projectId);
 
         if (result == ApproveRequirementResult.ProjectNotFound)
@@ -822,11 +781,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> RetryWorkflow(Guid projectId, Guid? runId = null)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return Json(new { ok = false, error = "Không có quyền truy cập dự án." });
-
         var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId);
 
         return result == RetryWorkflowResult.Requeued
@@ -835,26 +792,19 @@ public class RequirementsController : Controller
     }
 
     [HttpGet]
+    [RequireProjectAccess]
     public async Task<IActionResult> WorkflowStatus(Guid projectId, Guid? runId = null, long afterSeq = 0)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return NotFound();
-
         return Json(await _getWorkflowStatusQuery.ExecuteAsync(projectId, runId, afterSeq));
     }
 
     // Server-Sent Events: đẩy realtime tiến độ + token "suy nghĩ" của agent cho một run, thay vì để
     // trình duyệt poll mỗi 1.5s. Trả về Task (ghi thẳng vào Response body) đúng giao thức text/event-stream.
     [HttpGet]
+    // Chặn trước khi mở stream: EventSource nhận lỗi HTTP và client tự rơi về polling (vốn cũng chặn).
+    [RequireProjectAccess]
     public async Task WorkflowStream(Guid projectId, Guid runId, long afterSeq = 0)
     {
-        // Chặn trước khi mở stream: EventSource nhận lỗi HTTP và client tự rơi về polling (vốn cũng chặn).
-        if (!await CanAccessProjectAsync(projectId))
-        {
-            Response.StatusCode = StatusCodes.Status404NotFound;
-            return;
-        }
-
         Response.StatusCode = 200;
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
@@ -890,11 +840,9 @@ public class RequirementsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> NewChat(Guid projectId)
     {
-        if (!await CanAccessProjectAsync(projectId))
-            return RedirectToAction("Index", "Projects");
-
         await _startNewChatUseCase.ExecuteAsync(projectId);
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -902,11 +850,9 @@ public class RequirementsController : Controller
     // Lịch sử revision của một tài liệu sinh ra (metadata) — cho modal "Lịch sử" ở trang Requirements
     // và Agent Dashboard (dashboard gọi chéo sang đây; TeamDev/Admin đều có RequirementsView).
     [HttpGet]
+    [RequireProjectAccess("id", ProjectResource.Document, Message = "Document not found.")]
     public async Task<IActionResult> DocumentRevisions(Guid id)
     {
-        if (!await _projectAccess.CanAccessDocumentAsync(User, id, HttpContext.RequestAborted))
-            return NotFound("Document not found.");
-
         var result = await _getDocumentRevisionsQuery.ExecuteAsync(id, HttpContext.RequestAborted);
         if (result == null)
             return NotFound("Document not found.");
@@ -916,11 +862,9 @@ public class RequirementsController : Controller
 
     // Diff một revision so với revision liền trước của cùng tài liệu (tính lúc xem).
     [HttpGet]
+    [RequireProjectAccess("id", ProjectResource.DocumentRevision, Message = "Revision not found.")]
     public async Task<IActionResult> DocumentRevisionDiff(Guid id)
     {
-        if (!await _projectAccess.CanAccessDocumentRevisionAsync(User, id, HttpContext.RequestAborted))
-            return NotFound("Revision not found.");
-
         var result = await _getDocumentRevisionDiffQuery.ExecuteAsync(id, HttpContext.RequestAborted);
         if (result == null)
             return NotFound("Revision not found.");
@@ -929,11 +873,9 @@ public class RequirementsController : Controller
     }
 
     [HttpGet]
+    [RequireProjectAccess("id", ProjectResource.Document, Message = "Document not found.")]
     public async Task<IActionResult> DocumentPreview(Guid id)
     {
-        if (!await _projectAccess.CanAccessDocumentAsync(User, id, HttpContext.RequestAborted))
-            return NotFound("Document not found.");
-
         var result = await _getDocumentPreviewQuery.ExecuteAsync(id);
         if (result == null)
             return NotFound("Document not found.");
@@ -942,11 +884,9 @@ public class RequirementsController : Controller
     }
 
     [HttpGet]
+    [RequireProjectAccess("id", ProjectResource.Document, Message = "Document not found.")]
     public async Task<IActionResult> DownloadDocument(Guid id)
     {
-        if (!await _projectAccess.CanAccessDocumentAsync(User, id, HttpContext.RequestAborted))
-            return NotFound("Document not found.");
-
         var result = await _getDocumentDownloadQuery.ExecuteAsync(id);
         if (result == null)
             return NotFound("Document not found.");
@@ -957,11 +897,9 @@ public class RequirementsController : Controller
     // Nội dung một tài liệu nguồn (ProjectSourceFile) — bubble hội thoại dùng làm src cho ảnh đính kèm.
     // Trả inline (không ép download); 404 khi nguồn đã bị xóa để bubble ẩn ảnh hỏng.
     [HttpGet]
+    [RequireProjectAccess("id", ProjectResource.SourceFile, Message = "Source not found.")]
     public async Task<IActionResult> SourceContent(Guid id)
     {
-        if (!await _projectAccess.CanAccessSourceFileAsync(User, id, HttpContext.RequestAborted))
-            return NotFound("Source not found.");
-
         var result = await _getSourceFileContentQuery.ExecuteAsync(id, HttpContext.RequestAborted);
         if (result == null)
             return NotFound("Source not found.");
