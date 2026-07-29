@@ -1,4 +1,4 @@
-namespace ICOGenerator.Application.Account;
+namespace ICOGenerator.Configuration;
 
 /// <summary>
 /// Cách người dùng đăng nhập vào app, chọn qua config "Authentication:Provider".

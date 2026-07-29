@@ -1,4 +1,4 @@
-using ICOGenerator.Application.Account;
+using ICOGenerator.Configuration;
 using ICOGenerator.Domain.Enums;
 using Xunit;
 
