@@ -678,7 +678,7 @@ Route mặc định: `{controller=Projects}/{action=Index}/{id?}`. Mọi endpoin
 
 ### 13.2. Phân quyền (4 role người dùng × quyền mức hành động)
 
-- `UserRole`: **SuperAdmin / Admin / TeamDev / User** — *khác hẳn* `AgentRoleKey` (vai của AI).
+- `UserRole`: **SuperAdmin / Admin / TeamDev / User** — *khác hẳn* `AgentRoleKey` (vai của AI). Một người giữ được **nhiều role** (bảng nối `AppUserRole`); quyền hiệu lực = **hợp quyền** của tất cả vai trò, vì quyền giữa các vai trò giao nhau chứ không lồng nhau.
 - Quyền mức hành động: enum `AppPermission` (24 quyền — xem bảng §12). `PermissionCatalog` (Domain/Security) gom quyền theo màn hình để render ma trận + lọc menu sidebar.
 - **Một nguồn sự thật**: `IPermissionService` (cache MemoryCache; **SuperAdmin implicit-all** nên không tự khóa được, **Admin nay cấu hình được** như TeamDev/User), dùng bởi filter `[RequirePermission(...)]` và `_Layout.cshtml`.
 - Cấu hình runtime ở màn Roles; lưu xong `InvalidateCache()` ⇒ **hiệu lực ngay, không cần đăng nhập lại**. Thiếu quyền ⇒ `/Account/AccessDenied`.

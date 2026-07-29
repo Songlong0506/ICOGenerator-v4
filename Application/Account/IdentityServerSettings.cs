@@ -4,10 +4,10 @@ namespace ICOGenerator.Application.Account;
 
 /// <summary>
 /// Cấu hình đăng nhập SSO qua IdentityServer (bind từ section "IdentityServer"). Chỉ có tác dụng khi
-/// Authentication:Provider = "IdentityServer". Vì app phân quyền theo bảng AppUser (claim Role) và gắn
-/// quyền sở hữu theo username, phần bridge (xem <c>SsoUserProvisioner</c>) sẽ ánh xạ danh tính SSO về
-/// một AppUser: tra theo <see cref="UsernameClaim"/>, tự tạo user mới với <see cref="DefaultRole"/> khi
-/// bật <see cref="AutoProvisionUsers"/>, hoặc từ chối truy cập nếu không.
+/// Authentication:Provider = "IdentityServer". Vì app phân quyền theo vai trò của AppUser (phát ra thành
+/// các claim Role) và gắn quyền sở hữu theo username, phần bridge (xem <c>SsoUserProvisioner</c>) sẽ ánh
+/// xạ danh tính SSO về một AppUser: tra theo claim "username", tự tạo user mới với tập vai trò lấy từ
+/// <see cref="MapRoles"/>, hoặc từ chối truy cập khi thiếu username.
 /// </summary>
 public class IdentityServerSettings
 {
@@ -33,40 +33,27 @@ public class IdentityServerSettings
     public bool RequireHttpsMetadata { get; set; }
 
     /// <summary>
-    /// Ánh xạ tập role claim của SSO về <see cref="UserRole"/> của app, chọn vai trò CAO NHẤT
-    /// (SuperAdmin &gt; Admin &gt; TeamDev &gt; User). Nguồn ánh xạ là <see cref="SsoRoleClaimAttribute"/> khai
-    /// báo trên từng <see cref="UserRole"/> (xem <see cref="SsoRoleClaims"/>), thay cho bảng cấu hình
-    /// "IdentityServer:RoleMappings" trước đây. Trả về null khi KHÔNG có claim nào khớp — để bên gọi quyết
-    /// định (giữ vai trò user cũ hoặc dùng <see cref="DefaultRole"/> cho user mới). So khớp không phân biệt
-    /// hoa/thường.
+    /// Ánh xạ tập role claim của SSO về TẬP <see cref="UserRole"/> của app — giữ lại TẤT CẢ vai trò khớp,
+    /// không rút gọn về vai trò "cao nhất": quyền giữa các vai trò giao nhau chứ không lồng nhau, gộp về
+    /// một vai trò sẽ làm mất quyền mà chỉ vai trò kia mới có. Quyền hiệu lực = hợp quyền của cả tập
+    /// (xem <c>PermissionService</c>). Nguồn ánh xạ là <see cref="SsoRoleClaimAttribute"/> khai báo trên
+    /// từng <see cref="UserRole"/> (xem <see cref="SsoRoleClaims"/>), thay cho bảng cấu hình
+    /// "IdentityServer:RoleMappings" trước đây. Trả về tập RỖNG khi không claim nào khớp — để bên gọi
+    /// quyết định (giữ nguyên vai trò của user cũ, hoặc vai trò mặc định cho user mới). So khớp không
+    /// phân biệt hoa/thường; claim trùng nhau chỉ tính một lần.
     /// </summary>
-    public UserRole? MapRole(IEnumerable<string> ssoRoles)
+    public IReadOnlySet<UserRole> MapRoles(IEnumerable<string> ssoRoles)
     {
-        UserRole? best = null;
+        var mapped = new HashSet<UserRole>();
         foreach (var raw in ssoRoles)
         {
             var ssoRole = raw?.Trim();
             if (string.IsNullOrEmpty(ssoRole))
                 continue;
 
-            if (SsoRoleClaims.Resolve(ssoRole) is not UserRole mappedRole)
-                continue;
-
-            // Giá trị enum KHÔNG phản ánh đặc quyền (SuperAdmin thêm sau với giá trị 3) nên so sánh
-            // bằng thứ hạng tường minh để giữ vai trò cao nhất.
-            if (best is null || PrivilegeRank(mappedRole) > PrivilegeRank(best.Value))
-                best = mappedRole;
+            if (SsoRoleClaims.Resolve(ssoRole) is UserRole mappedRole)
+                mapped.Add(mappedRole);
         }
-        return best;
+        return mapped;
     }
-
-    /// <summary>Thứ hạng đặc quyền (cao → thấp): SuperAdmin &gt; Admin &gt; TeamDev &gt; User.</summary>
-    private static int PrivilegeRank(UserRole role) => role switch
-    {
-        UserRole.SuperAdmin => 3,
-        UserRole.Admin => 2,
-        UserRole.TeamDev => 1,
-        UserRole.User => 0,
-        _ => -1
-    };
 }

@@ -60,7 +60,7 @@ public class AuditLogger : IAuditLogger
                 EntityId = entityId,
                 Summary = summary,
                 ActorUsername = string.IsNullOrWhiteSpace(user?.Identity?.Name) ? "system" : user!.Identity!.Name!,
-                ActorRole = user?.FindFirstValue(ClaimTypes.Role) ?? string.Empty,
+                ActorRole = DescribeActorRoles(user),
                 BeforeJson = Serialize(before),
                 AfterJson = Serialize(after)
             };
@@ -74,6 +74,16 @@ public class AuditLogger : IAuditLogger
             // người dùng thấy lỗi. Ghi lại để còn truy được vì sao audit không ghi được.
             _logger.LogError(ex, "Ghi audit log thất bại cho {Category}/{Action} {EntityId}", category, action, entityId);
         }
+    }
+
+    // Actor có thể giữ nhiều vai trò ⇒ ghi cả tập, nối bằng dấu phẩy và sắp xếp để dòng audit của cùng một
+    // người luôn đọc giống nhau. Cắt theo độ dài cột (200) phòng khi số vai trò lớn dần về sau.
+    private static string DescribeActorRoles(ClaimsPrincipal? user)
+    {
+        const int maxLength = 200;
+        var roles = user?.FindAll(ClaimTypes.Role).Select(c => c.Value).Distinct().OrderBy(x => x, StringComparer.Ordinal);
+        var joined = roles is null ? string.Empty : string.Join(",", roles);
+        return joined.Length <= maxLength ? joined : joined[..maxLength];
     }
 
     private static string? Serialize(object? value)

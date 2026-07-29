@@ -47,24 +47,49 @@ public class PermissionService : IPermissionService
         return granted;
     }
 
+    public async Task<IReadOnlySet<AppPermission>> GetGrantedAsync(IEnumerable<UserRole> roles, CancellationToken cancellationToken = default)
+    {
+        var distinct = roles.Distinct().ToList();
+
+        // Một vai trò toàn quyền là đủ — khỏi truy vấn các vai trò còn lại.
+        if (distinct.Contains(UserRole.SuperAdmin))
+            return AllPermissions;
+
+        var union = new HashSet<AppPermission>();
+        foreach (var role in distinct)
+            union.UnionWith(await GetGrantedAsync(role, cancellationToken));
+        return union;
+    }
+
     public async Task<bool> HasPermissionAsync(ClaimsPrincipal user, AppPermission permission, CancellationToken cancellationToken = default)
     {
         if (user.Identity?.IsAuthenticated != true)
             return false;
 
-        var role = GetRole(user);
-        if (role is null)
-            return false;
-
-        var granted = await GetGrantedAsync(role.Value, cancellationToken);
-        return granted.Contains(permission);
+        // Người dùng có thể giữ NHIỀU vai trò (nhiều claim Role) và quyền của các vai trò GIAO NHAU chứ
+        // không lồng nhau ⇒ phải duyệt hết, có một vai trò được cấp là đủ. Dừng sớm ở vai trò đầu tiên
+        // khớp để khỏi nạp quyền của các vai trò còn lại.
+        foreach (var role in GetRoles(user))
+        {
+            var granted = await GetGrantedAsync(role, cancellationToken);
+            if (granted.Contains(permission))
+                return true;
+        }
+        return false;
     }
 
     public void InvalidateCache() => Interlocked.Increment(ref _cacheVersion);
 
-    private static UserRole? GetRole(ClaimsPrincipal user)
+    /// <summary>
+    /// Các vai trò đọc từ claim Role của principal. Claim không ánh xạ được về <see cref="UserRole"/>
+    /// (vai trò cũ đã bỏ, hoặc claim lạ do IdP phát) bị BỎ QUA thay vì làm hỏng cả lượt kiểm tra quyền.
+    /// </summary>
+    private static IEnumerable<UserRole> GetRoles(ClaimsPrincipal user)
     {
-        var value = user.FindFirstValue(ClaimTypes.Role);
-        return Enum.TryParse<UserRole>(value, out var role) ? role : null;
+        foreach (var claim in user.FindAll(ClaimTypes.Role))
+        {
+            if (Enum.TryParse<UserRole>(claim.Value, out var role))
+                yield return role;
+        }
     }
 }

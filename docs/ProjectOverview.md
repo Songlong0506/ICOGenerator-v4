@@ -87,7 +87,7 @@ ICOGenerator-v4/
 | Eval harness | `EvalsController` | `Application/Evals` | `EvalRunWorker`, `EvalScenario`, `EvalRun`, `EvalResult` |
 | Usage/quality dashboards | `UsageController`, `QualityController` | `Application/Usage`, `Application/Quality` | `AgentModelCallLog`, workflow/task metrics |
 | Notifications | `NotificationsController` | `Application/Notifications` | `NotificationService`, `Notification` |
-| Security/RBAC/Audit | `AccountController`, `RolesController`, `AuditController` | `Application/Account`, `Application/Roles`, `Application/Audit` | `AppUser`, `RolePermission`, `AuditLog` |
+| Security/RBAC/Audit | `AccountController`, `RolesController`, `AuditController` | `Application/Account`, `Application/Roles`, `Application/Audit` | `AppUser`, `AppUserRole`, `RolePermission`, `AuditLog` |
 | Feedback | `FeedbackController` | `Application/Feedback` | `Feedback`, `FeedbackAttachment` |
 
 ## 7. Runtime lifecycle tổng quan

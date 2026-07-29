@@ -5,7 +5,8 @@ namespace ICOGenerator.Domain;
 /// <summary>
 /// Tài khoản người dùng đăng nhập. Không lưu mật khẩu: đăng nhập do provider ngoài quyết định —
 /// chế độ Local tự đăng nhập bằng tài khoản 'admin' seed sẵn (dev/nội bộ), chế độ IdentityServer
-/// xác thực SSO rồi đồng bộ user. Mỗi user gắn đúng một <see cref="UserRole"/>.
+/// xác thực SSO rồi đồng bộ user. Mỗi user giữ MỘT HOẶC NHIỀU <see cref="UserRole"/> (xem
+/// <see cref="Roles"/>).
 /// Bộ user được seed sẵn trong DbInitializer (admin/teamdev/user), chưa có UI tạo user.
 /// </summary>
 public class AppUser
@@ -13,7 +14,13 @@ public class AppUser
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Username { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
-    public UserRole Role { get; set; } = UserRole.User;
+
+    /// <summary>
+    /// Các vai trò của user. Quyền hiệu lực là HỢP quyền của mọi vai trò trong danh sách này — vai trò
+    /// có quyền giao nhau chứ không lồng nhau nên KHÔNG được rút gọn về một "vai trò chính". Đồng bộ lại
+    /// từ role claim của IdentityServer ở mỗi lần đăng nhập SSO (xem <c>SsoUserProvisioner</c>).
+    /// </summary>
+    public ICollection<AppUserRole> Roles { get; set; } = new List<AppUserRole>();
 
     /// <summary>
     /// Đơn vị tổ chức của user, đồng bộ từ claim "department" của IdentityServer mỗi lần đăng nhập SSO

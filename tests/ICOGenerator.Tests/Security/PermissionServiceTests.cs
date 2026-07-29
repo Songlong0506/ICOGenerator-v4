@@ -68,6 +68,61 @@ public class PermissionServiceTests : IDisposable
         Assert.False(await service.HasPermissionAsync(Principal(UserRole.User), AppPermission.ProjectsCreate));
     }
 
+    // Lý do có multi-role: quyền của hai vai trò GIAO NHAU (mỗi bên có quyền bên kia không có). Người giữ
+    // cả hai phải nhận HỢP quyền — cách cũ (gộp về vai trò "cao nhất") sẽ nuốt mất quyền của vai trò kia.
+    [Fact]
+    public async Task MultipleRoles_GetUnionOfPermissions_NotJustTheHighestRole()
+    {
+        await using (var db = NewDb())
+        {
+            db.RolePermissions.AddRange(
+                new RolePermission { Role = UserRole.Admin, Permission = AppPermission.AdministrationManageRoles },
+                new RolePermission { Role = UserRole.User, Permission = AppPermission.ProjectsView });
+            await db.SaveChangesAsync();
+        }
+
+        var service = new PermissionService(NewDb(), NewCache());
+        var both = Principal(UserRole.Admin, UserRole.User);
+
+        Assert.True(await service.HasPermissionAsync(both, AppPermission.AdministrationManageRoles));
+        Assert.True(await service.HasPermissionAsync(both, AppPermission.ProjectsView)); // chỉ vai trò User mới có
+        Assert.False(await service.HasPermissionAsync(both, AppPermission.ProjectsCreate)); // không vai trò nào có
+
+        Assert.Equal(
+            new HashSet<AppPermission> { AppPermission.AdministrationManageRoles, AppPermission.ProjectsView },
+            await service.GetGrantedAsync(new[] { UserRole.Admin, UserRole.User }));
+    }
+
+    [Fact]
+    public async Task SuperAdminAmongRoles_StillGetsEverything()
+    {
+        var service = new PermissionService(NewDb(), NewCache());
+
+        var granted = await service.GetGrantedAsync(new[] { UserRole.User, UserRole.SuperAdmin });
+
+        Assert.Equal(Enum.GetValues<AppPermission>().ToHashSet(), granted);
+        Assert.True(await service.HasPermissionAsync(
+            Principal(UserRole.User, UserRole.SuperAdmin), AppPermission.AdministrationManageRoles));
+    }
+
+    // Claim lạ (vai trò đã bỏ, hoặc IdP phát chuỗi khác) không được làm hỏng lượt kiểm tra: bỏ qua nó và
+    // vẫn xét các vai trò hợp lệ còn lại.
+    [Fact]
+    public async Task UnknownRoleClaim_IsIgnored_ValidOnesStillCount()
+    {
+        await using (var db = NewDb())
+        {
+            db.RolePermissions.Add(new RolePermission { Role = UserRole.User, Permission = AppPermission.ProjectsView });
+            await db.SaveChangesAsync();
+        }
+
+        var service = new PermissionService(NewDb(), NewCache());
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.Role, "LegacyAuditor"), new Claim(ClaimTypes.Role, UserRole.User.ToString()) }, "test"));
+
+        Assert.True(await service.HasPermissionAsync(principal, AppPermission.ProjectsView));
+    }
+
     [Fact]
     public async Task Unauthenticated_HasNoPermission()
     {
@@ -99,8 +154,8 @@ public class PermissionServiceTests : IDisposable
         Assert.True(await stale.HasPermissionAsync(Principal(UserRole.TeamDev), AppPermission.UsageView)); // đọc lại từ DB
     }
 
-    private static ClaimsPrincipal Principal(UserRole role) =>
-        new(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Role, role.ToString()) }, "test"));
+    private static ClaimsPrincipal Principal(params UserRole[] roles) =>
+        new(new ClaimsIdentity(roles.Select(r => new Claim(ClaimTypes.Role, r.ToString())), "test"));
 
     private static IMemoryCache NewCache() => new MemoryCache(new MemoryCacheOptions());
 
