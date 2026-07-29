@@ -1686,6 +1686,20 @@ function closeRequirementModal() {
             { correctionsJson: JSON.stringify(corrections) }, "Đang gửi đính chính…");
     });
 
+    // Cổng cao hơn một bong bóng chat thường, nên cuộn-xuống-đáy mặc định của khung chat cắt mất phần
+    // ĐẦU của nó (nhãn "BA" + tiêu đề + đoạn giải thích "bản demo chưa được dựng") — người dùng rơi
+    // thẳng vào giữa danh sách giả định mà không biết mình đang được hỏi gì. Khi cổng đang mở, neo đỉnh
+    // cổng lên đầu khung chat thay vì neo đáy. Chạy sau load để không bị scrollChatToBottom ghi đè.
+    function scrollGateIntoView() {
+        const chat = document.getElementById("chatMessages");
+        if (!chat) return;
+        chat.scrollTop += panel.getBoundingClientRect().top - chat.getBoundingClientRect().top - 8;
+    }
+
+    scrollGateIntoView();
+    requestAnimationFrame(scrollGateIntoView);
+    window.addEventListener("load", () => requestAnimationFrame(scrollGateIntoView));
+
     syncButtons();
 })();
 
