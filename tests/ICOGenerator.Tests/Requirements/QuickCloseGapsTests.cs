@@ -92,6 +92,57 @@ public class QuickCloseGapsTests : IDisposable
         Assert.Equal("Báo cáo / thống kê", outcome.Proposals[1].Group);
     }
 
+    // gpt-5-nano chép nguyên dòng của prompt vào `group` ("Thông báo / nhắc nhở: [CHƯA HỎI]") trong khi
+    // deepseek-v4-flash trả nhãn trần. Khớp nhãn thô ⇒ CẢ BỘ phương án bị loại và cổng báo "chưa soạn
+    // được phương án" dù lời gọi thành công — cổng phải chịu được cả hai kiểu viết nhãn.
+    [Fact]
+    public async Task Propose_WhenTheModelCopiesTheWholeMapLineAsTheGroupLabel_StillAligns()
+    {
+        await using var db = NewDb();
+        var llm = new FakeLlm
+        {
+            Proposals = new GapProposalSet
+            {
+                Proposals =
+                {
+                    new GapProposal { Group = "Thông báo / nhắc nhở: [CHƯA HỎI]", Question = "Ai được báo?", Proposal = "Quản lý nhận thông báo khi có đơn mới." },
+                    new GapProposal { Group = "- ★ Báo cáo / thống kê: [MỘT PHẦN] còn thiếu: ai được xem", Question = "Báo cáo nào?", Proposal = "Trưởng phòng xem báo cáo tháng." }
+                }
+            }
+        };
+
+        var outcome = await NewProposeSut(db, llm).ExecuteAsync(_projectId);
+
+        Assert.Equal(ProposeGapsStatus.Ok, outcome.Status);
+        Assert.Equal(2, outcome.Proposals.Count);
+        Assert.Equal("Thông báo / nhắc nhở", outcome.Proposals[0].Group);
+        Assert.Equal("Báo cáo / thống kê", outcome.Proposals[1].Group);
+    }
+
+    // Nhãn viết dài/ngắn hơn bản đồ vẫn ghép được, nhưng mỗi mục model chỉ được dùng cho MỘT nhóm —
+    // nếu không, một nhãn chung chung sẽ bị nhân bản thành phương án cho nhiều nhóm khác nhau.
+    [Fact]
+    public async Task Propose_MatchesLooselyWordedLabels_ButNeverReusesOneProposalForTwoGroups()
+    {
+        await using var db = NewDb();
+        var llm = new FakeLlm
+        {
+            Proposals = new GapProposalSet
+            {
+                Proposals =
+                {
+                    new GapProposal { Group = "**Thông báo / nhắc nhở của hệ thống**", Question = "Ai được báo?", Proposal = "Quản lý nhận thông báo khi có đơn mới." }
+                }
+            }
+        };
+
+        var outcome = await NewProposeSut(db, llm).ExecuteAsync(_projectId);
+
+        var only = Assert.Single(outcome.Proposals);
+        Assert.Equal("Thông báo / nhắc nhở", only.Group);
+        Assert.Equal("Quản lý nhận thông báo khi có đơn mới.", only.Proposal);
+    }
+
     [Fact]
     public async Task Propose_WhenNothingIsPending_SaysSo_WithoutCallingTheModel()
     {
