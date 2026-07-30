@@ -84,7 +84,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         // intentionally outside the failure mapping below so it isn't relabelled "LLM call failed".
         await EnsureWithinBudgetAsync(cancellationToken).ConfigureAwait(false);
 
-        var call = Begin(messages, options);
+        var call = Begin(messages, options, streaming: false);
 
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_requestTimeoutSeconds));
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
@@ -120,7 +120,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         // so the consumer's await-foreach observes BudgetExceededException before any chunk or log is produced.
         await EnsureWithinBudgetAsync(cancellationToken).ConfigureAwait(false);
 
-        var call = Begin(messages, options);
+        var call = Begin(messages, options, streaming: true);
 
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_requestTimeoutSeconds));
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
@@ -167,7 +167,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
 
     // Per-call setup shared by both overrides: bump the step, size the request, build the log shape, and
     // emit the "thinking" progress line. Clones the options so the agent's shared instance is never mutated.
-    private CallState Begin(IEnumerable<ChatMessage> messages, ChatOptions? options)
+    private CallState Begin(IEnumerable<ChatMessage> messages, ChatOptions? options, bool streaming)
     {
         var step = ++_step;
         var messageList = messages as IList<ChatMessage> ?? messages.ToList();
@@ -182,7 +182,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         var maxTokens = MaxOutputTokenResolver.Resolve(_model, result.PromptTokens);
         var callOptions = options?.Clone() ?? new ChatOptions();
         callOptions.MaxOutputTokens = maxTokens;
-        result.RequestJson = BuildRequestJson(messageList, callOptions, maxTokens);
+        result.RequestJson = BuildRequestJson(messageList, callOptions, maxTokens, streaming);
 
         _onProgress?.Invoke("thinking", $"Agent {_context.Agent.RoleKey.GetTitle()} đang suy nghĩ… (bước {BudgetLabel(step)})", null);
         return new CallState(step, messageList, callOptions, result, Stopwatch.StartNew());
@@ -266,7 +266,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     // produced downstream by the OpenAI SDK). Mirrors LlmRequestCompatibilityHandler so the preview matches
     // the body actually sent: "thinking" is injected only for OpenAI-compatible (non-OpenAI) endpoints, and
     // "temperature" is dropped for OpenAI reasoning models that reject a non-default value.
-    private string BuildRequestJson(IList<ChatMessage> messageList, ChatOptions callOptions, int maxTokens)
+    private string BuildRequestJson(IList<ChatMessage> messageList, ChatOptions callOptions, int maxTokens, bool streaming)
     {
         var isOpenAi = OpenAiCompatibility.IsOpenAiHost(OpenAiCompatibility.HostOf(_model.Endpoint));
         var dropTemperature = isOpenAi && OpenAiCompatibility.IsReasoningModel(_model.ModelId);
@@ -277,18 +277,32 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             messages = messageList.Select(m => new { role = m.Role.Value, content = m.Text }),
             temperature = callOptions.Temperature,
             max_tokens = maxTokens,
-            stream = true,
+            // Not always true: the json_schema level of structured output is a single round-trip.
+            stream = streaming,
             tools = callOptions.Tools?.Select(t => t.Name) ?? Enumerable.Empty<string>(),
         })!.AsObject();
 
         if (dropTemperature)
             node.Remove("temperature");
 
+        // response_format is what an endpoint 400s on when it doesn't implement the level asked for
+        // (DeepSeek: "This response_format type is unavailable now"), so the call log — the first place
+        // anyone looks at such a failure — has to show which level actually went out.
+        if (ResponseFormatPreview(callOptions.ResponseFormat) is { } responseFormat)
+            node["response_format"] = responseFormat;
+
         if (!isOpenAi)
             node["thinking"] = new JsonObject { ["type"] = "disabled" };
 
         return node.ToJsonString(SerializeOptions);
     }
+
+    private static JsonObject? ResponseFormatPreview(ChatResponseFormat? format) => format switch
+    {
+        ChatResponseFormatJson { Schema: not null } => new JsonObject { ["type"] = "json_schema" },
+        ChatResponseFormatJson => new JsonObject { ["type"] = "json_object" },
+        _ => null
+    };
 
     private string BudgetLabel(int step) =>
         _maxSteps <= 0 ? step.ToString()

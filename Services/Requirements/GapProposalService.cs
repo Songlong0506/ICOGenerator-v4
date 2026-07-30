@@ -120,10 +120,10 @@ public class GapProposalService
         if (!callResult.IsSuccess)
             return Array.Empty<GapProposal>();
 
-        // Structured output là TÙY CHỌN của từng model (AiModel.SupportsStructuredOutput, mặc định TẮT vì
-        // nhiều server OpenAI-compatible tự host từ chối tham số đó) — model chưa bật thì ChatStructuredAsync
-        // trả về value null và chỉ có text. Không có nhánh parse tay ở đây, cổng này sẽ không bao giờ chạy
-        // được trên chính cấu hình mặc định của app. Cùng cách fallback mà BAChatReplyParser dùng.
+        // Structured output là TÙY CHỌN của từng model (AiModel.StructuredOutputMode, mặc định None vì nhiều
+        // server OpenAI-compatible tự host từ chối tham số response_format) — model để None thì
+        // ChatStructuredAsync trả về value null và chỉ có text. Không có nhánh parse tay ở đây, cổng này sẽ
+        // không bao giờ chạy được trên chính cấu hình mặc định của app. Cùng cách fallback mà BAChatReplyParser dùng.
         var set = structured ?? ParseFallback(callResult.Content);
         if (set == null)
         {

@@ -13,7 +13,7 @@ function openEditModel(
     outputPrice,
     isActive,
     supportsVision,
-    supportsStructuredOutput,
+    structuredOutputMode,
     apiKeyMask
 ) {
     document.getElementById('edit-id').value = id;
@@ -29,7 +29,7 @@ function openEditModel(
 
     document.getElementById('edit-is-active').checked = isActive === 'true';
     document.getElementById('edit-supports-vision').checked = supportsVision === 'true';
-    document.getElementById('edit-supports-structured-output').checked = supportsStructuredOutput === 'true';
+    document.getElementById('edit-structured-output-mode').value = structuredOutputMode;
 
     resetTestResult('edit-test-result');
     openModal('editModel');

@@ -233,16 +233,31 @@ mà không xin thêm tool).
 > cùng với `NativeToolCallingPolicy`, `AgentActionParser`/`AgentActionDto`, `ToolSchemaBuilder` và cấu
 > hình `Llm:NativeToolCalling`. Giờ chỉ còn một đường thực thi duy nhất, không phải chọn theo model.
 
-### 5.9. Structured output cho các lời gọi BA (opt-in)
-Các lời gọi của BA trả JSON (soạn 5 tài liệu, cổng kiểm tra đầy đủ, gợi ý chat) có thể dùng **structured
-output** của MEAI (`response_format: json_schema` qua `IChatClient.GetResponseAsync<T>`) thay vì chỉ nhắc
-model trả JSON rồi parse văn xuôi. `ILlmClient.ChatStructuredAsync<T>` lo việc này; khi structured **không**
-bật/không khả dụng/JSON không khớp schema thì trả `value = null` để caller **fallback** về parser tay cũ
-(`RequirementResponseParser`/`BAChatReplyParser`) — không bao giờ fail trắng.
-Quyết định bật đọc thẳng cờ **theo từng model** `AiModel.SupportsStructuredOutput`
-(tick ở trang quản trị Models, giống `SupportsVision`): **opt-in**, mặc định TẮT vì nhiều server local từ
-chối `response_format`; chỉ bật cho model chắc chắn hỗ trợ. Model để tắt ⇒ hành vi **giữ nguyên** đường text
-+ parser cũ.
+### 5.9. Structured output cho các lời gọi BA (opt-in, 3 mức)
+Các lời gọi của BA trả JSON (soạn 5 tài liệu, cổng kiểm tra đầy đủ, gợi ý chat) có thể xin API ép định dạng
+JSON thay vì chỉ nhắc model trả JSON rồi parse văn xuôi. `ILlmClient.ChatStructuredAsync<T>` lo việc này.
+
+Mức xin được chọn **theo từng model** qua `AiModel.StructuredOutputMode` (dropdown ở trang quản trị Models,
+lưu DB dạng chuỗi). Đây **không phải cờ bật/tắt** vì `response_format` có hai tầng năng lực khác nhau và có
+endpoint chỉ đỡ được tầng dưới — DeepSeek nhận `json_object` nhưng trả 400 *"This response_format type is
+unavailable now"* với `json_schema`:
+
+| Mức | Gửi đi | Đường thực thi | Dành cho |
+|---|---|---|---|
+| `None` (mặc định) | không gửi `response_format` | streaming | server local/model lạ |
+| `JsonObject` | `{"type":"json_object"}` | **streaming** (giữ `onToken`) | DeepSeek, đa số server OpenAI-compatible |
+| `JsonSchema` | schema sinh từ `T` (`GetResponseAsync<T>`) | non-streaming (**`onToken` bị bỏ qua**) | endpoint OpenAI thật |
+
+Ba lưới đỡ, để một cấu hình sai không bao giờ làm chết tính năng:
+- **JSON không khớp kiểu mong đợi** ⇒ trả `value = null`, caller fallback về parser tay
+  (`RequirementResponseParser`/`BAChatReplyParser`). Reply có JSON hợp lệ nhưng **không trùng field nào** với
+  `T` cũng bị coi là không khớp — nếu không, `System.Text.Json` sẽ dựng ra một object toàn giá trị mặc định,
+  trông như parse thành công và cướp mất lượt của parser tay.
+- **Endpoint từ chối chính `response_format`** ⇒ gọi lại **một lần** bằng đường text thuần + ghi cảnh báo chỉ
+  đúng chỗ cần sửa (hạ mức ở trang Models). Không có nhánh này thì lỗi 400 bị middleware nuốt thành
+  `LlmCallResult` thất bại, và các caller `if (!callResult.IsSuccess) return empty` sẽ tắt cổng trong im lặng.
+- **Prompt không chứa chữ "json"** ⇒ bỏ `response_format` cho lượt đó (JSON mode bị cả DeepSeek lẫn OpenAI từ
+  chối nếu thiếu), khỏi tốn một vòng gọi chắc chắn 400.
 
 ### 5.10. Logging tập trung & observability (Serilog + OpenTelemetry opt-in)
 Toàn app ghi log qua **Serilog** thay cho logging Console mặc định của ASP.NET. Cấu hình (mức log, sink,
