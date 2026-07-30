@@ -175,13 +175,15 @@ public class AgentTaskWorker : BackgroundService
 
         if (task.AgentId == null)
         {
-            _progress.Report(task.WorkflowRunId, "error", "Không có agent nào được gán cho task này.");
             task.Status = AgentTaskStatus.Failed;
             task.Error = "No agent is assigned to this task.";
             task.FinishedAt = DateTime.UtcNow;
             FailRun(task.WorkflowRun);
             await notifier.NotifyRunFailedAsync(task.WorkflowRun, task.Error, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
+            // Báo SAU khi lưu: xem DeferredProgress — mốc đổi trạng thái phát trước SaveChanges thì UI
+            // đọc lại status và thấy trạng thái cũ.
+            _progress.Report(task.WorkflowRunId, "error", "Không có agent nào được gán cho task này.");
             return;
         }
 
@@ -203,13 +205,17 @@ public class AgentTaskWorker : BackgroundService
             return;
         }
 
+        // Các mốc "đổi trạng thái run" của task này được gom ở đây và chỉ phát SAU khi trạng thái mới đã
+        // được lưu (xem DeferredProgress).
+        var gateProgress = new DeferredProgress(_progress, task.WorkflowRunId);
+
         try
         {
             _progress.Report(task.WorkflowRunId, "start", $"Bắt đầu task: {task.Title}" + (task.Attempt > 1 ? $" (lần thử {task.Attempt})" : ""));
 
             if (task.Type == AgentTaskType.RequirementAnalysis)
             {
-                var outcome = await RunRequirementDraftAsync(scope, task, cancellationToken);
+                var outcome = await RunRequirementDraftAsync(scope, gateProgress, task, cancellationToken);
 
                 task.Status = AgentTaskStatus.Completed;
                 task.Output = outcome == RequirementDraftOutcome.NeedsMoreInfo
@@ -220,6 +226,7 @@ public class AgentTaskWorker : BackgroundService
                 task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
                 task.WorkflowRun.FinishedAt = DateTime.UtcNow;
                 await db.SaveChangesAsync(cancellationToken);
+                gateProgress.Flush();
                 return;
             }
 
@@ -273,13 +280,14 @@ public class AgentTaskWorker : BackgroundService
             // rồi rơi về cổng duyệt tuyến tính như mọi bước — KHÔNG hoàn tất run.
             if (task.Type == AgentTaskType.TechnicalDocs)
             {
-                await RunTechnicalDocsAsync(scope, task, cancellationToken);
+                await RunTechnicalDocsAsync(scope, gateProgress, task, cancellationToken);
 
                 task.Status = AgentTaskStatus.Completed;
                 task.Output = "Technical documents generated.";
                 task.FinishedAt = DateTime.UtcNow;
-                await AdvanceLinearPipelineAsync(notifier, task, cancellationToken);
+                await AdvanceLinearPipelineAsync(gateProgress, notifier, task, cancellationToken);
                 await db.SaveChangesAsync(cancellationToken);
+                gateProgress.Flush();
                 return;
             }
 
@@ -424,10 +432,11 @@ public class AgentTaskWorker : BackgroundService
 
             // Vòng tự sửa lỗi (Testing↔BugFix) là một CHU TRÌNH (không phải hand-off tuyến tính) nên
             // được xử lý riêng. Nếu task này không thuộc chu trình đó thì rơi về cổng duyệt tuyến tính.
-            if (!await TryAdvanceTestFixCycleAsync(db, task, notifier, cancellationToken))
-                await AdvanceLinearPipelineAsync(notifier, task, cancellationToken);
+            if (!await TryAdvanceTestFixCycleAsync(gateProgress, db, task, notifier, cancellationToken))
+                await AdvanceLinearPipelineAsync(gateProgress, notifier, task, cancellationToken);
 
             await db.SaveChangesAsync(cancellationToken);
+            gateProgress.Flush();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -437,24 +446,26 @@ public class AgentTaskWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            _progress.Report(task.WorkflowRunId, "error", "Task thất bại.", ex.Message);
             // Mark Failed in a FRESH scope: the run's DbContext may already be faulted (e.g. the
             // exception was a DbUpdateException), so reusing it to save the failure could itself throw
-            // and leave the task stuck non-terminal.
+            // and leave the task stuck non-terminal. Mốc "error" phát SAU khi đã ghi Failed để UI đọc lại
+            // status là thấy đúng trạng thái cuối (xem DeferredProgress).
             await MarkTaskFailedAsync(task.Id, ex.Message);
+            _progress.Report(task.WorkflowRunId, "error", "Task thất bại.", ex.Message);
         }
     }
 
     // Cổng duyệt tuyến tính: bước chạy xong thì DỪNG chờ người duyệt thay vì tự enqueue bước kế.
     // Bước kế chỉ được tạo khi user bấm duyệt (ApproveStageUseCase). CurrentStage giữ nguyên ở bước
     // vừa xong để biết đang chờ duyệt cái gì. Thông báo được Add vào cùng DbContext (không SaveChanges);
-    // lần SaveChanges của người gọi lưu chúng atomic với lần chuyển trạng thái.
-    private async Task AdvanceLinearPipelineAsync(INotificationService notifier, AgentTask task, CancellationToken cancellationToken)
+    // lần SaveChanges của người gọi lưu chúng atomic với lần chuyển trạng thái. Mốc tiến độ đi qua
+    // DeferredProgress vì trạng thái mới chỉ nằm trong DB sau lần SaveChanges đó.
+    private async Task AdvanceLinearPipelineAsync(DeferredProgress progress, INotificationService notifier, AgentTask task, CancellationToken cancellationToken)
     {
         var next = DeliveryPipeline.Next(task.WorkflowRun.CurrentStage);
         if (next is null)
         {
-            _progress.Report(task.WorkflowRunId, "completed", "Workflow hoàn tất — tất cả các bước đã xong.");
+            progress.Report("completed", "Workflow hoàn tất — tất cả các bước đã xong.");
             CompleteRun(task.WorkflowRun);
             await notifier.NotifyRunCompletedAsync(task.WorkflowRun, cancellationToken);
         }
@@ -466,7 +477,7 @@ public class AgentTaskWorker : BackgroundService
             var message = task.WorkflowRun.CurrentStage == WorkflowStageKey.PocPreview
                 ? $"Bước \"{task.Title}\" xong — POC đã sẵn sàng để xem."
                 : $"Bước \"{task.Title}\" xong — chờ bạn duyệt để sang: {next.Title}.";
-            _progress.Report(task.WorkflowRunId, "completed", message);
+            progress.Report("completed", message);
             task.WorkflowRun.Status = WorkflowRunStatus.WaitingForHuman;
             await notifier.NotifyGateOpenedAsync(task.WorkflowRun, next.Title, cancellationToken);
         }
@@ -479,7 +490,7 @@ public class AgentTaskWorker : BackgroundService
     //   • Testing FAIL hết ngạch  → kết thúc run, báo còn lỗi để người xem lại.
     //   • Testing PASS/không rõ    → trả false (pipeline tuyến tính kết thúc run như cũ).
     //   • BugFix xong              → luôn chạy lại Testing để xác minh.
-    private async Task<bool> TryAdvanceTestFixCycleAsync(AppDbContext db, AgentTask task, INotificationService notifier, CancellationToken cancellationToken)
+    private async Task<bool> TryAdvanceTestFixCycleAsync(DeferredProgress progress, AppDbContext db, AgentTask task, INotificationService notifier, CancellationToken cancellationToken)
     {
         if (task.Type == AgentTaskType.Testing)
         {
@@ -492,22 +503,22 @@ public class AgentTaskWorker : BackgroundService
 
             if (fixAttempts >= DeliveryPipeline.MaxBugFixAttempts)
             {
-                _progress.Report(task.WorkflowRunId, "completed",
+                progress.Report("completed",
                     $"Vẫn còn lỗi sau {DeliveryPipeline.MaxBugFixAttempts} lần tự sửa — dừng vòng lặp, cần người xem lại báo cáo test.");
                 CompleteRun(task.WorkflowRun);
                 await notifier.NotifyRunCompletedAsync(task.WorkflowRun, cancellationToken);
                 return true;
             }
 
-            _progress.Report(task.WorkflowRunId, "completed",
+            progress.Report("completed",
                 $"Test phát hiện lỗi — tự động giao Developer sửa (lần {fixAttempts + 1}/{DeliveryPipeline.MaxBugFixAttempts}).");
-            return await EnqueueFollowUpAsync(db, task, DeliveryPipeline.BugFixStep, task.Output ?? string.Empty, cancellationToken);
+            return await EnqueueFollowUpAsync(progress, db, task, DeliveryPipeline.BugFixStep, task.Output ?? string.Empty, cancellationToken);
         }
 
         if (task.Type == AgentTaskType.BugFix)
         {
-            _progress.Report(task.WorkflowRunId, "completed", "Đã sửa lỗi — chạy lại Test để xác minh.");
-            return await EnqueueFollowUpAsync(db, task, DeliveryPipeline.TestingStep, task.Output ?? string.Empty, cancellationToken);
+            progress.Report("completed", "Đã sửa lỗi — chạy lại Test để xác minh.");
+            return await EnqueueFollowUpAsync(progress, db, task, DeliveryPipeline.TestingStep, task.Output ?? string.Empty, cancellationToken);
         }
 
         return false;
@@ -515,7 +526,7 @@ public class AgentTaskWorker : BackgroundService
 
     // Enqueue task cho bước kế trong chu trình và đẩy run về Queued (worker tự nhặt — không cổng duyệt).
     // Thiếu agent cho vai cần thiết thì đánh Failed có thông báo rõ. Luôn trả true: đã xử lý hand-off.
-    private async Task<bool> EnqueueFollowUpAsync(AppDbContext db, AgentTask previous, PipelineStep step, string input, CancellationToken cancellationToken)
+    private async Task<bool> EnqueueFollowUpAsync(DeferredProgress progress, AppDbContext db, AgentTask previous, PipelineStep step, string input, CancellationToken cancellationToken)
     {
         var agentId = await db.Agents
             .Where(a => a.RoleKey == step.Role)
@@ -524,7 +535,7 @@ public class AgentTaskWorker : BackgroundService
 
         if (agentId is null)
         {
-            _progress.Report(previous.WorkflowRunId, "error", $"Không tìm thấy agent vai {step.Role} cho bước \"{step.Title}\".");
+            progress.Report("error", $"Không tìm thấy agent vai {step.Role} cho bước \"{step.Title}\".");
             FailRun(previous.WorkflowRun);
             return true;
         }
@@ -543,6 +554,41 @@ public class AgentTaskWorker : BackgroundService
         previous.WorkflowRun.CurrentStage = step.Stage;
         previous.WorkflowRun.Status = WorkflowRunStatus.Queued;
         return true;
+    }
+
+    /// <summary>
+    /// Bộ đệm cho các mốc tiến độ báo CHUYỂN TRẠNG THÁI của run ("completed" ở cổng duyệt, "error", …).
+    /// UI coi mấy mốc này là tín hiệu để đọc lại <c>/WorkflowStatus</c>; phát chúng TRƯỚC
+    /// <c>SaveChangesAsync</c> là một cuộc đua mà trình duyệt thường thua — nó đọc trúng trạng thái CŨ
+    /// (Running) trong khi worker chưa lưu xong. Ở cổng duyệt (WaitingForHuman) run KHÔNG terminal nên
+    /// SSE không đóng và cũng không còn event nào tới nữa: panel đứng im với badge "Running", banner cổng
+    /// không hiện, và thanh "đang gõ" treo mãi ở dòng cuối — đúng triệu chứng "tạo POC xong nhưng chat
+    /// treo ở 'Agent đã hoàn tất công việc.'". Gom lại rồi <see cref="Flush"/> sau khi lưu là hết đua.
+    /// Chỉ dùng trong luồng xử lý một task (không chia sẻ giữa các thread).
+    /// </summary>
+    private sealed class DeferredProgress
+    {
+        private readonly IWorkflowProgressReporter _reporter;
+        private readonly Guid _runId;
+        private readonly List<(string Kind, string Message, string? Detail)> _pending = new();
+
+        public DeferredProgress(IWorkflowProgressReporter reporter, Guid runId)
+        {
+            _reporter = reporter;
+            _runId = runId;
+        }
+
+        public void Report(string kind, string message, string? detail = null)
+            => _pending.Add((kind, message, detail));
+
+        /// <summary>Phát các mốc đã gom (gọi NGAY SAU khi trạng thái mới đã được lưu).</summary>
+        public void Flush()
+        {
+            foreach (var (kind, message, detail) in _pending)
+                _reporter.Report(_runId, kind, message, detail);
+
+            _pending.Clear();
+        }
     }
 
     private static void CompleteRun(WorkflowRun run)
@@ -585,7 +631,7 @@ public class AgentTaskWorker : BackgroundService
         }
     }
 
-    private async Task<RequirementDraftOutcome> RunRequirementDraftAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
+    private async Task<RequirementDraftOutcome> RunRequirementDraftAsync(IServiceScope scope, DeferredProgress progress, AgentTask task, CancellationToken cancellationToken)
     {
         var draftService = scope.ServiceProvider.GetRequiredService<ProductBriefDraftService>();
 
@@ -596,7 +642,7 @@ public class AgentTaskWorker : BackgroundService
             workflowRunId: task.WorkflowRunId,
             cancellationToken: cancellationToken);
 
-        _progress.Report(task.WorkflowRunId, "completed",
+        progress.Report("completed",
             outcome == RequirementDraftOutcome.NeedsMoreInfo
                 ? "Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat."
                 : "Đã tạo/cập nhật tài liệu requirement.");
@@ -657,7 +703,7 @@ public class AgentTaskWorker : BackgroundService
         }
     }
 
-    private async Task RunTechnicalDocsAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
+    private async Task RunTechnicalDocsAsync(IServiceScope scope, DeferredProgress progress, AgentTask task, CancellationToken cancellationToken)
     {
         var docsService = scope.ServiceProvider.GetRequiredService<RequirementDocsService>();
 
@@ -671,7 +717,7 @@ public class AgentTaskWorker : BackgroundService
             revisionFeedback: task.RevisionFeedback,
             cancellationToken: cancellationToken);
 
-        _progress.Report(task.WorkflowRunId, "completed", "Đã tạo tài liệu kỹ thuật (BRD/SRS/FSD/UserStories).");
+        progress.Report("completed", "Đã tạo tài liệu kỹ thuật (BRD/SRS/FSD/UserStories).");
     }
 
     private async Task EnsureDesignAssetsAsync(IServiceScope scope, AppDbContext db, Guid projectId)

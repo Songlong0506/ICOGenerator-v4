@@ -148,21 +148,37 @@
         feed.scrollTop = feed.scrollHeight;
     }
 
+    const IDLE_ACTIVITY_TEXT = 'Agent đang xử lý…';
+
+    function isActiveStatus(status) {
+        return status === 'Running' || status === 'Queued';
+    }
+
     function updateActivity(panel, data) {
         const activity = panel.querySelector('.wf-activity');
         const textEl = panel.querySelector('.wf-activity-text');
-        const running = data.runStatus === 'Running' || data.runStatus === 'Queued';
 
-        if (!running) {
+        if (!isActiveStatus(data.runStatus)) {
             activity.style.display = 'none';
             return;
         }
 
         const lastMsg = panel.dataset.lastMsg ||
-            (data.runStatus === 'Queued' ? 'Đang chờ agent nhận task…' : 'Agent đang xử lý…');
+            (data.runStatus === 'Queued' ? 'Đang chờ agent nhận task…' : IDLE_ACTIVITY_TEXT);
 
         textEl.textContent = lastMsg;
         activity.style.display = 'flex';
+    }
+
+    // Mốc KẾT THÚC một lượt (final/completed/error) đã nằm trong feed kèm giờ → không được trở thành nội
+    // dung dòng "đang làm": để nguyên thì thanh ba chấm đứng mãi ở "Agent đã hoàn tất công việc." như thể
+    // agent vẫn đang gõ. Xoá lastMsg để nếu run còn chạy tiếp, activity rơi về câu chung; nếu run đã dừng
+    // (cổng duyệt/hoàn tất/lỗi) thì refreshStatus ẩn hẳn thanh này.
+    function clearActivityMessage(panel) {
+        panel.dataset.lastMsg = '';
+
+        const textEl = panel.querySelector('.wf-activity-text');
+        if (textEl) textEl.textContent = IDLE_ACTIVITY_TEXT;
     }
 
     // "Thử lại" ngay tại trang Requirements: re-queue đúng bước đã hỏng của lead run rồi reload để thấy
@@ -317,10 +333,10 @@
             const response = await fetch(`/Requirements/WorkflowStatus?projectId=${PID}&runId=${runId}&afterSeq=999999999`);
             data = await response.json();
         } catch (e) {
-            return;
+            return null;
         }
 
-        if (!data.hasWorkflow) return;
+        if (!data.hasWorkflow) return null;
 
         if (sub) sub.innerHTML = `${escapeHtml(data.runName)} · ${badge(data.runStatus)}`;
 
@@ -332,6 +348,29 @@
         updateActivity(panel, data);
         updateBanner(panel, data);
         maybeScrollPanel(panel, data);
+
+        return data;
+    }
+
+    // Đọc lại trạng thái sau một mốc kết thúc bước, và đọc lại vài lần thưa dần nếu vẫn thấy run "đang
+    // chạy". Worker nay lưu trạng thái mới TRƯỚC khi phát mốc, nên lần đọc đầu thường đã đúng; các lần
+    // sau là lưới an toàn cho những nhịp còn lệch (bước kế vừa được enqueue, hoặc DB trả bản đọc cũ).
+    // Không có nó, một lần đọc lỡ nhịp là panel đứng im tới khi người dùng F5: badge sai, banner cổng
+    // không hiện, thanh "đang gõ" không bao giờ tắt vì ở cổng duyệt không còn event nào tới nữa.
+    function refreshUntilSettled(panel) {
+        const token = (panel._settleToken || 0) + 1;
+        panel._settleToken = token;
+
+        (async function attempt(round) {
+            if (panel._settleToken !== token) return; // đã có mốc mới hơn → nhường chuỗi đó
+
+            const data = await refreshStatus(panel);
+            if (panel._settleToken !== token) return;
+
+            if (!data || !isActiveStatus(data.runStatus) || round >= 3) return;
+
+            setTimeout(() => attempt(round + 1), 1000 * (round + 1));
+        })(0);
     }
 
     // Xử lý một sự kiện SSE của một run cụ thể: token thì gõ live (chỉ lead run), milestone thì ghi vào
@@ -358,11 +397,14 @@
 
         if (!isLead) return;
 
-        // Mốc 'completed'/'error' đã được ghi vào FEED (dòng ✓/✗ kèm giờ) → KHÔNG cho nó ghi đè dòng
-        // "đang làm" (activity) hay lastMsg. Nếu ghi đè, thanh loading 3 chấm sẽ lặp lại y hệt mốc vừa
-        // chốt — trông như agent vẫn đang treo ở việc đã xong. Chỉ event đang-diễn-ra mới cập nhật
-        // activity; refreshStatus bên dưới lo việc ẩn thanh này khi run không còn chạy.
-        if (ev.kind !== 'completed' && ev.kind !== 'error') {
+        // Mốc 'final'/'completed'/'error' đã được ghi vào FEED (dòng ✓/✗ kèm giờ) → KHÔNG cho nó ghi đè
+        // dòng "đang làm" (activity) hay lastMsg. Nếu ghi đè, thanh loading 3 chấm sẽ lặp lại y hệt mốc
+        // vừa chốt — trông như agent vẫn đang treo ở việc đã xong ("Agent đã hoàn tất công việc." kèm ba
+        // chấm). Chỉ event đang-diễn-ra mới cập nhật activity; refreshStatus lo việc ẩn thanh này khi run
+        // không còn chạy.
+        if (ev.kind === 'final' || ev.kind === 'completed' || ev.kind === 'error') {
+            clearActivityMessage(panel);
+        } else {
             panel.dataset.lastMsg = ev.message;
 
             const textEl = panel.querySelector('.wf-activity-text');
@@ -371,8 +413,11 @@
             if (activity) activity.style.display = 'flex';
         }
 
-        // Các mốc này đổi trạng thái run (bắt đầu / chờ duyệt / xong / lỗi) → đồng bộ lại banner.
-        if (ev.kind === 'start' || ev.kind === 'setup' || ev.kind === 'completed' || ev.kind === 'error') {
+        // Các mốc này đổi trạng thái run (bắt đầu / chờ duyệt / xong / lỗi) → đồng bộ lại banner. Với mốc
+        // kết thúc bước, đọc lại tới khi trạng thái hội tụ để panel không kẹt ở "Running".
+        if (ev.kind === 'completed' || ev.kind === 'error') {
+            refreshUntilSettled(panel);
+        } else if (ev.kind === 'start' || ev.kind === 'setup') {
             refreshStatus(panel);
         }
     }
@@ -454,7 +499,16 @@
             if (events.length) {
                 st.afterSeq = data.lastEventSeq;
                 st.maxSeq = data.lastEventSeq;
-                if (isLead) panel.dataset.lastMsg = events[events.length - 1].message;
+
+                // Cùng quy tắc với nhánh SSE: mốc kết thúc lượt không được thành dòng "đang làm".
+                if (isLead) {
+                    const last = events[events.length - 1];
+                    if (last.kind === 'final' || last.kind === 'completed' || last.kind === 'error') {
+                        clearActivityMessage(panel);
+                    } else {
+                        panel.dataset.lastMsg = last.message;
+                    }
+                }
             }
 
             if (isLead) {
