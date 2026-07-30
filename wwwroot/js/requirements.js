@@ -624,6 +624,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
     }
 
+    // Do initQuickClose gán: gỡ cổng "chốt nhanh" đang mở trong khung chat. Lượt chat thường phải gọi
+    // nó — cổng mở mà người dùng quay ra gõ trả lời tay nghĩa là họ đã chọn đường kia, để cả hai cùng
+    // sống thì bấm chốt sau đó sẽ ghi đè phần vừa trả lời trong chat mà không ai thấy.
+    let quickCloseDismiss = null;
+
     chatForm.addEventListener("submit", function (e) {
         e.preventDefault();
 
@@ -637,6 +642,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         const text = messageInput.value.trim();
         if (!text || chatBusy) return;
+
+        if (quickCloseDismiss) quickCloseDismiss();
 
         // Đang SỬA lượt vừa gửi: không thêm bong bóng mới — ghi đè bong bóng cũ và gỡ câu trả lời cũ
         // (server cũng xóa đúng lượt assistant đó), rồi gửi kèm cờ edit.
@@ -1148,6 +1155,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // "Đồng ý"; bấm "Sửa" mở ô gõ đè (dòng nào bị bỏ trống thì không được chốt). Chốt xong KHÔNG reload:
     // server trả bản đồ đã gộp + cờ ready nên panel tiến độ và nút "Write Requirement" cập nhật tại chỗ,
     // và lượt hội thoại vừa ghi được nối vào khung chat như một lượt bình thường.
+    //
+    // Cổng bắc qua HAI cột: nút mở ở sidebar (thuộc panel tiến độ — xem Index.cshtml), còn thân duyệt
+    // phương án dựng trong KHUNG CHAT. Vì thế mọi trạng thái chờ/lỗi đều phải hiện ở đúng cột mà người
+    // dùng đang nhìn: lúc BA soạn phương án dùng dòng "đang soạn" của chat, lỗi của bước chốt hiện ngay
+    // dưới cặp nút trong chat, còn #quickCloseMsg ở sidebar chỉ còn báo lỗi của bước mở cổng.
     (function initQuickClose() {
         const panel = document.getElementById("quickClosePanel");
         if (!panel) return;
@@ -1157,6 +1169,28 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const msgEl = document.getElementById("quickCloseMsg");
         const hintEl = panel.querySelector(".quickclose-hint");
         if (!startBtn || !bodyEl || !msgEl) return;
+
+        const startLabel = startBtn.innerHTML;
+
+        // Lỗi của bước CHỐT: hiện trong thân cổng (khung chat), cạnh đúng cái nút vừa bấm.
+        function gateMsg(text) {
+            const el = document.getElementById("quickCloseGateMsg");
+            if (el) el.textContent = text;
+        }
+
+        // Gỡ cổng khỏi khung chat, trả nút mở về sidebar. Dùng cho nút "Để tôi trả lời trong chat" và cho
+        // mọi lượt chat thường (xem quickCloseDismiss ở trên).
+        function dismiss() {
+            if (bodyEl.hidden) return;
+            bodyEl.hidden = true;
+            bodyEl.innerHTML = "";
+            startBtn.hidden = false;
+            startBtn.disabled = false;
+            startBtn.innerHTML = startLabel;
+            if (hintEl) hintEl.hidden = false;
+        }
+
+        quickCloseDismiss = dismiss;
 
         function token() {
             const el = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -1174,6 +1208,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         function renderProposals(proposals) {
             bodyEl.innerHTML = `
+                <div class="quickclose-head">
+                    <b>BA</b>
+                    <span class="quickclose-title">Chốt nhanh các nhóm còn lại</span>
+                    <span class="quickclose-count">${proposals.length} điểm</span>
+                </div>
                 <div class="quickclose-lead">
                     Đây là cách BA hiểu các điểm còn lại. Điểm nào <b>đúng ý</b> thì để nguyên; điểm nào
                     <b>chưa đúng</b> thì bấm "Sửa" và ghi lại theo ý anh/chị. Bấm chốt là mình ghi nhận
@@ -1185,7 +1224,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                             <div class="quickclose-group">${escapeHtml(p.group)}</div>
                             ${p.question ? `<div class="quickclose-question">${escapeHtml(p.question)}</div>` : ""}
                             <div class="quickclose-proposal">${escapeHtml(p.proposal)}</div>
-                            <textarea class="quickclose-fix" rows="2" hidden>${escapeHtml(p.proposal)}</textarea>
+                            <textarea class="quickclose-fix" rows="3" hidden>${escapeHtml(p.proposal)}</textarea>
                             <div class="quickclose-actions">
                                 <button type="button" class="quickclose-vote ok is-on" data-vote="ok">Đúng ý</button>
                                 <button type="button" class="quickclose-vote edit" data-vote="edit">Sửa</button>
@@ -1194,14 +1233,20 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     `).join("")}
                 </ul>
                 <div class="quickclose-bar">
-                    <button type="button" class="btn primary full" id="quickCloseConfirmBtn">
+                    <button type="button" class="btn primary" id="quickCloseConfirmBtn">
                         ✓ Chốt ${proposals.length} điểm này
                     </button>
-                    <button type="button" class="btn outline full" id="quickCloseCancelBtn">Để tôi trả lời trong chat</button>
+                    <button type="button" class="btn outline" id="quickCloseCancelBtn">Để tôi trả lời trong chat</button>
+                    <div class="quickclose-gate-msg" id="quickCloseGateMsg"></div>
                 </div>`;
+            // Dời cổng xuống CUỐI dòng hội thoại: khối này được server render ở một vị trí cố định, nên
+            // sau vài lượt chat streaming (chèn vào trước thinkingBox) nó sẽ nằm lọt phía trên các lượt
+            // mới — đúng cái bẫy "phải đi tìm cổng" mà lần chuyển này muốn bỏ.
+            thinkingBox.before(bodyEl);
             bodyEl.hidden = false;
             startBtn.hidden = true;
             if (hintEl) hintEl.hidden = true;
+            scrollToBottom();
         }
 
         // Ghi lượt vừa chốt vào khung chat như một lượt bình thường: không có nó, người dùng bấm xong
@@ -1210,15 +1255,24 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const you = document.createElement("div");
             you.className = "req-msg you";
             you.innerHTML = `<p>Tôi chốt luôn ${count} điểm còn lại theo phương án BA đề xuất.</p>`;
-            chatMessages.insertBefore(you, suggestionList);
+            // Cuối dòng hội thoại, không phải trước danh sách gợi ý: chốt nhanh chạy được ở bất kỳ lúc
+            // nào, kể cả sau vài lượt chat streaming — lúc đó #suggestionList không còn là điểm cuối.
+            chatMessages.insertBefore(you, thinkingBox);
             scrollToBottom();
         }
 
         startBtn.addEventListener("click", async function () {
-            const original = startBtn.innerHTML;
+            if (chatBusy) return;
+
+            chatBusy = true;
             startBtn.disabled = true;
             startBtn.textContent = "BA đang soạn phương án…";
             msgEl.textContent = "";
+            // Chỗ chờ nằm trong khung chat vì thân cổng sắp hiện ra ở đó: đổi nhãn một cái nút ở sidebar
+            // là không đủ khi mắt người dùng đã ở cột chat.
+            setThinkingText("BA đang soạn phương án cho các nhóm còn lại…");
+            thinkingBox.style.display = "block";
+            scrollToBottom();
             try {
                 const data = await post(panel.dataset.proposeUrl, null);
                 if (data.ok && Array.isArray(data.proposals) && data.proposals.length > 0) {
@@ -1228,9 +1282,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 msgEl.textContent = data.error || "Chưa soạn được phương án.";
             } catch {
                 msgEl.textContent = "Không gửi được — kiểm tra kết nối rồi thử lại.";
+            } finally {
+                thinkingBox.style.display = "none";
+                setThinkingText("BA is analyzing requirements...");
+                // Cổng mở KHÔNG khóa ô nhập: "Để tôi trả lời trong chat" vẫn là lựa chọn hợp lệ ở đây.
+                chatBusy = false;
             }
             startBtn.disabled = false;
-            startBtn.innerHTML = original;
+            startBtn.innerHTML = startLabel;
         });
 
         bodyEl.addEventListener("click", async function (e) {
@@ -1248,11 +1307,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
 
             if (e.target.closest("#quickCloseCancelBtn")) {
-                bodyEl.hidden = true;
-                bodyEl.innerHTML = "";
-                startBtn.hidden = false;
-                startBtn.disabled = false;
-                if (hintEl) hintEl.hidden = false;
+                dismiss();
+                messageInput.focus();
                 return;
             }
 
@@ -1269,17 +1325,21 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }).filter(d => d.answer.length > 0);
 
             if (decisions.length === 0) {
-                msgEl.textContent = "Chưa có điểm nào để chốt — ô đã sửa đang để trống.";
+                gateMsg("Chưa có điểm nào để chốt — ô đã sửa đang để trống.");
                 return;
             }
 
             const original = confirmBtn.textContent;
             confirmBtn.disabled = true;
             confirmBtn.textContent = "Đang ghi nhận…";
-            msgEl.textContent = "";
+            gateMsg("");
             try {
                 const data = await post(panel.dataset.confirmUrl, { decisionsJson: JSON.stringify(decisions) });
                 if (data.ok) {
+                    // Gỡ cổng TRƯỚC khi nối lượt: để lại danh sách phương án ngay trên bong bóng "tôi
+                    // chốt luôn N điểm" thì trông như vẫn còn phải duyệt.
+                    bodyEl.hidden = true;
+                    bodyEl.innerHTML = "";
                     appendTurns(decisions.length);
                     renderCoverage(data.coverage);
                     setWriteRequirementReady(!!data.ready);
@@ -1289,9 +1349,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     setTimeout(() => location.reload(), 900);
                     return;
                 }
-                msgEl.textContent = data.error || "Không ghi nhận được.";
+                gateMsg(data.error || "Không ghi nhận được.");
             } catch {
-                msgEl.textContent = "Không gửi được — kiểm tra kết nối rồi thử lại.";
+                gateMsg("Không gửi được — kiểm tra kết nối rồi thử lại.");
             }
             confirmBtn.disabled = false;
             confirmBtn.textContent = original;

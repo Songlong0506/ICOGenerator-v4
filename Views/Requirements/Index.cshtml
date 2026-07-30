@@ -356,12 +356,20 @@
             </ul>
 
             @* CỔNG "CHỐT NHANH PHẦN CÒN LẠI": đường tăng tốc cho phần phỏng vấn còn lại. Phỏng vấn được
-               thiết kế "mỗi lượt một câu hỏi" và nút dưới đây chỉ mở khi MỌI nhóm áp dụng đã [RÕ] — đúng
-               về chất lượng nhưng cộng lại thành hàng chục lượt chat, và người dùng bận thì bỏ dở giữa
-               chừng chứ không có đường nào rút ngắn. Ở đây BA đề xuất sẵn một phương án cho từng nhóm
-               còn trống; người dùng gật đầu hoặc gõ đè, rồi chốt MỘT LẦN. Nguyên tắc "tài liệu không tự
-               giả định" giữ nguyên: phương án chỉ thành yêu cầu sau khi người dùng bấm chốt, và được ghi
-               vào hội thoại như lời của chính họ. Ẩn khi bản đồ đã đủ (không còn gì để chốt nhanh). *@
+               thiết kế "mỗi lượt một câu hỏi" và nút Write Requirement chỉ mở khi MỌI nhóm áp dụng đã
+               [RÕ] — đúng về chất lượng nhưng cộng lại thành hàng chục lượt chat, và người dùng bận thì
+               bỏ dở giữa chừng chứ không có đường nào rút ngắn. Ở đây BA đề xuất sẵn một phương án cho
+               từng nhóm còn trống; người dùng gật đầu hoặc gõ đè, rồi chốt MỘT LẦN. Nguyên tắc "tài liệu
+               không tự giả định" giữ nguyên: phương án chỉ thành yêu cầu sau khi người dùng bấm chốt, và
+               được ghi vào hội thoại như lời của chính họ. Ẩn khi bản đồ đã đủ.
+
+               Ở SIDEBAR chỉ còn LỐI VÀO (nút mở + gợi ý): nó thuộc về panel "Tiến độ khai thác" vì con số
+               "N nhóm còn lại" lấy thẳng từ bản đồ bao phủ ngay trên — đó đúng là lúc người dùng nhận ra
+               mình còn thiếu. Còn THÂN DUYỆT PHƯƠNG ÁN đã chuyển vào KHUNG CHAT (#quickCloseBody, cuối
+               file này), cùng lý do đã áp cho cổng xác nhận giả định bên dưới: sidebar rộng 320px nên
+               danh sách phải co chữ và nhét vào ô cuộn 360px — cuộn lồng trong sidebar vốn đã cuộn là
+               cách chắc chắn để mấy điểm cuối không bao giờ được đọc, trong khi chính lượt "tôi chốt N
+               điểm" lại được ghi vào khung chat. Thao tác và kết quả giờ nằm cùng một chỗ. *@
             <div class="quickclose" id="quickClosePanel"
                  data-propose-url="@Url.Action("ProposeGaps", "Requirements")"
                  data-confirm-url="@Url.Action("ConfirmGaps", "Requirements")"
@@ -370,8 +378,7 @@
                         title="BA đề xuất sẵn phương án cho các nhóm còn thiếu — anh/chị duyệt một lần thay vì trả lời từng câu">
                     ⚡ Chốt nhanh <span id="quickCloseCount">@coverage.Count(x => x.Status is "CHƯA HỎI" or "MỘT PHẦN")</span> nhóm còn lại
                 </button>
-                <div class="quickclose-hint">Không muốn trả lời từng câu? Để BA đề xuất sẵn, anh/chị chỉ việc duyệt.</div>
-                <div class="quickclose-body" id="quickCloseBody" hidden></div>
+                <div class="quickclose-hint">Không muốn trả lời từng câu? Để BA đề xuất sẵn, anh/chị chỉ việc duyệt ngay trong khung chat.</div>
                 <div class="quickclose-msg" id="quickCloseMsg"></div>
             </div>
 
@@ -809,6 +816,15 @@
                     </button>
                 }
             </div>
+
+            @* THÂN CỔNG "CHỐT NHANH PHẦN CÒN LẠI" — rỗng lúc tải trang, requirements.js dựng nội dung sau
+               khi BA soạn xong phương án (bấm nút mở ở panel "Tiến độ khai thác"). Nằm trong khung chat
+               để danh sách có đủ bề ngang và rơi đúng chỗ mắt đang nhìn; JS còn dời khối này xuống ngay
+               trước #thinkingBox mỗi lần hiện, nên nó luôn là khối cuối kể cả sau vài lượt chat streaming.
+               Đặt SAU #suggestionList (không phải trước) vì quy tắc gộp "câu hỏi BA + chip gợi ý" dựa vào
+               kề nhau (.req-msg.ba:has(+ .suggestion-list …)): chen một div vào giữa là hỏng, kể cả khi
+               div đó đang ẩn. *@
+            <div class="req-msg ba quickclose-gate" id="quickCloseBody" hidden></div>
 
             <div id="thinkingBox"
                  class="req-msg ba thinking"

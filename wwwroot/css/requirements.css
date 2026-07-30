@@ -1623,11 +1623,38 @@
 
 /* ==== Cổng "chốt nhanh phần còn lại" (tăng tốc phần phỏng vấn còn lại) ==== */
 
+/* LỐI VÀO ở sidebar: chỉ còn nút mở + một dòng gợi ý, nên giữ cỡ chữ nhỏ như các panel bên cạnh. */
 .quickclose { margin-top: 10px; }
 
 .quickclose-hint { font-size: 11px; color: #6b7280; line-height: 1.5; margin-top: 4px; }
 
-.quickclose-lead { font-size: 11.5px; line-height: 1.55; color: #4b5563; margin: 8px 0; }
+.quickclose-msg { font-size: 11.5px; color: #dc2626; margin-top: 4px; }
+
+/* THÂN CỔNG sống trong khung chat (cùng lối với .assumption-panel.gate): tạo hình như một bong bóng BA,
+   tông xanh nhạt để tách khỏi lượt chat thường mà không lẫn với cổng giả định (tông cảnh báo). Có bề
+   ngang thật nên danh sách hiện TRỌN — bỏ hẳn ô cuộn cao 360px của bản cũ ở sidebar, vì cuộn lồng trong
+   khung chat vốn đã cuộn là cách chắc chắn để mấy điểm cuối không bao giờ được đọc.
+   Cần đủ BA lớp trong selector để thắng `.req-msg.ba` (nền xám bong bóng BA thường, cùng thuộc tính ở
+   độ ưu tiên (0,2,0)). Nền xanh RẤT nhạt và KHÔNG dùng token --bosch-blue-tint vì đó là nền bong bóng
+   của người dùng: cổng do BA dựng mà mang màu bong bóng "mình" thì đọc sai ngay từ cái liếc đầu. */
+.req-msg.ba.quickclose-gate {
+    max-width: 92%;
+    background: #f7fbff;
+    border-color: var(--bosch-blue-tint-strong, #cfe0fb);
+}
+
+.quickclose-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.quickclose-title { color: var(--bosch-blue, #2563eb); font-size: 13px; font-weight: 800; }
+
+.quickclose-count { font-size: 12px; color: var(--muted, #777); }
+
+.quickclose-lead { font-size: 12.5px; line-height: 1.55; color: #555; margin: 0 0 10px; }
 
 .quickclose-list {
     list-style: none;
@@ -1636,60 +1663,67 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 360px;
-    overflow-y: auto;
 }
 
 .quickclose-item {
-    padding: 8px;
+    padding: 10px 12px;
     border: 1px solid var(--line, #e5e7eb);
-    border-radius: 8px;
+    border-radius: 10px;
     background: #fff;
 }
 
-.quickclose-group { font-size: 11.5px; font-weight: 600; color: var(--bosch-blue, #2563eb); }
+.quickclose-group { font-size: 12.5px; font-weight: 600; color: var(--bosch-blue, #2563eb); }
 
-.quickclose-question { font-size: 11px; color: #6b7280; margin-top: 2px; }
+.quickclose-question { font-size: 12px; color: #6b7280; margin-top: 2px; }
 
-.quickclose-proposal { font-size: 12px; line-height: 1.5; margin-top: 5px; }
+.quickclose-proposal { font-size: 13px; line-height: 1.5; margin-top: 6px; }
 
 .quickclose-fix {
     width: 100%;
-    margin-top: 5px;
+    margin-top: 6px;
     font-family: inherit;
-    font-size: 12px;
+    font-size: 12.5px;
+    line-height: 1.5;
     padding: 6px 8px;
     border: 1px solid var(--line, #e5e7eb);
     border-radius: 6px;
     resize: vertical;
 }
 
-.quickclose-actions { display: flex; gap: 6px; margin-top: 6px; }
+.quickclose-actions { display: flex; gap: 6px; margin-top: 8px; }
 
 .quickclose-vote {
     font-family: inherit;
-    font-size: 11.5px;
-    padding: 3px 10px;
+    font-size: 12px;
+    padding: 4px 12px;
     border-radius: 999px;
     border: 1px solid var(--line, #e5e7eb);
     background: var(--surface-alt, #f3f4f6);
     color: #4b5563;
     cursor: pointer;
     width: auto;
+    white-space: nowrap;
 }
 
     .quickclose-vote.ok.is-on { background: #10b981; border-color: #10b981; color: #fff; }
 
     .quickclose-vote.edit.is-on { background: var(--bosch-blue, #2563eb); border-color: var(--bosch-blue, #2563eb); color: #fff; }
 
-.quickclose-bar { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+/* Hai nút xếp NGANG (không còn .full như hồi ở cột 320px) để cả hai lựa chọn cùng ở trong tầm mắt. */
+.quickclose-bar {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
 
-.quickclose-msg { font-size: 11.5px; color: #dc2626; margin-top: 4px; }
+.quickclose-gate-msg { font-size: 12px; color: #dc2626; }
 
 /* Như khối `[hidden]` ở trên: `hidden` là quy tắc display ưu tiên thấp nhất, nên mọi khai báo display
    của ta (nút .btn inline-flex, panel/khu vực flex) ghi đè nó và phần tử vẫn lộ ra dù JS đã ẩn. */
 .quickclose[hidden],
-.quickclose-body[hidden],
+.quickclose-gate[hidden],
 .quickclose-hint[hidden],
 .quickclose-fix[hidden],
 .quickclose-proposal[hidden],
