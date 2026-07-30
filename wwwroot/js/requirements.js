@@ -416,6 +416,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const form = document.querySelector("form.write-req");
         if (!form) return;
 
+        // VÒNG SOẠN ĐANG CHẠY ⇒ giữ nguyên nút khóa, bất kể lượt chat vừa rồi có mời bấm hay không: người
+        // dùng vẫn chat được trong lúc tài liệu đang soạn, và mở khóa ở đây sẽ mở lại đúng cửa spam mà
+        // trạng thái "running" của server vừa đóng. Run xong thì requirement-workflow.js tải lại trang,
+        // server render lại nút theo trạng thái mới.
+        if (form.dataset.runInFlight === "true") return;
+
+        // Vừa có lượt chat mới ⇒ hội thoại KHÔNG còn "chưa có gì mới kể từ lần soạn gần nhất", nên nút
+        // thôi đóng vai "Tạo lại tài liệu" (kèm xác nhận) và quay về đúng cờ mời của lượt BA mới nhất.
+        // Ghi chú của trạng thái đó cũng hết đúng → xoá luôn thay vì để nó nói sai bên dưới nút.
+        form.classList.remove("write-req-regenerate");
+        form.querySelectorAll(".write-req-state-hint").forEach(el => el.remove());
+
         form.classList.toggle("write-req-ready", ready);
         form.classList.toggle("write-req-waiting", !ready);
 
@@ -426,6 +438,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             btn.disabled = !ready;
             btn.classList.toggle("primary", ready);
             btn.classList.toggle("outline", !ready);
+
+            // Nhãn/tooltip cũng phải theo: rời trạng thái "Tạo lại tài liệu" mà giữ nguyên chữ cũ thì nút
+            // hứa một đằng làm một nẻo. data-idle-label là nhãn "nghỉ" hiện hành — cổng soát mâu thuẫn
+            // đọc lại nó để khôi phục sau khi soát xong.
+            btn.textContent = btn.dataset.readyLabel || "📝 Write Requirement";
+            btn.dataset.idleLabel = btn.textContent;
+            btn.title = (ready ? btn.dataset.readyTitle : btn.dataset.waitingTitle) || "";
         }
 
         const hint = form.querySelector(".write-req-hint");
@@ -1810,6 +1829,36 @@ function openLatestProductBrief() {
     });
 })();
 
+// ==== Xác nhận TẠO LẠI tài liệu ====
+// Server đặt lớp write-req-regenerate khi bản draft đã có và hội thoại CHƯA có gì mới kể từ lần soạn gần
+// nhất. Bấm lúc đó tốn 2–3 lời gọi LLM để ra gần đúng bản cũ, lại GHI ĐÈ bản đang có — và vì model chạy ở
+// temperature > 0, bản mới có thể tệ hơn bản người dùng đang hài lòng. Không cấm (họ có quyền muốn bản
+// khác), chỉ bắt xác nhận để nó không còn là cú bấm vô thức.
+//
+// Chặn ở sự kiện CLICK chứ không phải submit: huỷ ở đây thì form không submit nên cả handler onsubmit lẫn
+// cổng soát mâu thuẫn bên dưới đều không chạy. Huỷ ở submit thì cổng mâu thuẫn (một listener khác trên
+// cùng form) vẫn nghe thấy và tự gọi form.submit() — tức bấm "Huỷ" mà tài liệu vẫn bị soạn lại.
+(function initRegenerateConfirm() {
+    const form = document.querySelector("form.write-req");
+    if (!form) return;
+
+    const btn = form.querySelector(".write-req-btn");
+    if (!btn) return;
+
+    btn.addEventListener("click", function (e) {
+        if (!form.classList.contains("write-req-regenerate")) return;
+
+        const ok = confirm(
+            "Soạn lại bản mô tả sản phẩm và GHI ĐÈ bản hiện tại?\n\n" +
+            "Anh/chị chưa bổ sung thông tin nào kể từ lần tạo trước, nên bản mới sẽ dựa trên đúng những gì " +
+            "đã trao đổi — nội dung có thể khác đi mà không chắc tốt hơn.\n\n" +
+            "Muốn tài liệu đổi theo ý mình, cách chắc ăn hơn là nhắn thêm cho BA trong khung chat rồi tạo lại.\n\n" +
+            "Bản cũ vẫn xem lại được trong Lịch sử phiên bản.");
+
+        if (!ok) e.preventDefault();
+    });
+})();
+
 // ==== Cổng soát MÂU THUẪN (chạy khi bấm "Write Requirement") ====
 // Panel "Tiến độ khai thác" chỉ trả lời *đã rõ hết chưa*. Cổng này trả lời *những điều đã rõ có chọi nhau
 // không*: người dùng nói ở lượt 3 rằng quản lý duyệt xong là hết, tới lượt 12 lại kể thêm HR duyệt — bản
@@ -1884,7 +1933,10 @@ function openLatestProductBrief() {
         if (cleared) return;
         e.preventDefault();
 
-        const original = submitBtn.textContent;
+        // Nhãn để khôi phục lấy từ data-idle-label chứ KHÔNG đọc textContent tại đây: handler onsubmit
+        // inline chạy trước listener này và đã đổi nhãn thành "Đang tạo tài liệu…", nên đọc ở đây sẽ ghim
+        // luôn chữ đó làm nhãn "nghỉ" — phát hiện có mâu thuẫn, nút enable lại mà vẫn ghi "Đang tạo tài liệu…".
+        const original = submitBtn.dataset.idleLabel || submitBtn.textContent;
         submitBtn.disabled = true;
         submitBtn.textContent = "Đang soát mâu thuẫn…";
         try {

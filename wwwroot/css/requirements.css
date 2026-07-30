@@ -399,6 +399,18 @@
         cursor: not-allowed;
     }
 
+    /* Đang soạn tài liệu: nút khóa (phần mờ do :disabled ở trên lo) nhưng con trỏ phải nói "chờ đi", không
+       phải "cấm" — việc đang chạy chứ không bị từ chối. Đặt SAU quy tắc :disabled để thắng cùng specificity. */
+    .write-req-running .write-req-btn {
+        cursor: progress;
+    }
+
+    /* "Tạo lại tài liệu": bấm được nhưng cố ý KHÔNG dùng .primary — đây là hành động ghi đè bản đang có,
+       không phải bước tiếp theo của hành trình, nên không được mời gọi như nút sẵn sàng. */
+    .write-req-regenerate .write-req-btn {
+        font-weight: 500;
+    }
+
     /* Ghi chú nhỏ cạnh nút khi BA chưa thấy đủ thông tin. */
     .write-req-hint {
         font-size: 11px;

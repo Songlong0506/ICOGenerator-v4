@@ -206,7 +206,7 @@ public class SpecAssumptionsGateTests : IDisposable
         public Guid? SpecProjectId;
         public string? SpecVersion;
 
-        public Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId) => Task.FromResult(Guid.NewGuid());
+        public Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId, bool coalesceWithActiveRun = false) => Task.FromResult(Guid.NewGuid());
 
         public Task<Guid> StartDeliveryWorkflowAsync(Guid projectId, string versionName, string spec)
         {

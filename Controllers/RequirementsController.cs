@@ -490,7 +490,9 @@ public class RequirementsController : Controller
     [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> WriteRequirement(Guid projectId)
     {
-        await _generateRequirementDraftUseCase.ExecuteAsync(projectId);
+        // coalesce: lượt bấm nút KHÔNG mang thông tin mới nào, nên nếu vòng soạn trước còn đang chạy thì
+        // gộp về chính nó thay vì xếp thêm một run sinh lại cùng bản draft (xem StartRequirementDraftWorkflowAsync).
+        await _generateRequirementDraftUseCase.ExecuteAsync(projectId, coalesceWithActiveRun: true);
         TempData["WorkflowStarted"] = true;
         return RedirectToAction(nameof(Index), new { projectId });
     }
