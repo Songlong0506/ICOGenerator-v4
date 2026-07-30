@@ -1151,10 +1151,20 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     // ==== Cổng "chốt nhanh phần còn lại" ====
     // Đường tăng tốc cho phần phỏng vấn còn lại: BA đề xuất sẵn MỘT phương án cho mỗi nhóm bản đồ bao phủ
-    // còn trống, người dùng duyệt một lần thay vì trả lời từng câu qua nhiều lượt chat. Mỗi dòng mặc định
-    // "Đồng ý"; bấm "Sửa" mở ô gõ đè (dòng nào bị bỏ trống thì không được chốt). Chốt xong KHÔNG reload:
-    // server trả bản đồ đã gộp + cờ ready nên panel tiến độ và nút "Write Requirement" cập nhật tại chỗ,
-    // và lượt hội thoại vừa ghi được nối vào khung chat như một lượt bình thường.
+    // còn trống, người dùng duyệt một lần thay vì trả lời từng câu qua nhiều lượt chat. Chốt xong KHÔNG
+    // reload: server trả bản đồ đã gộp + cờ ready nên panel tiến độ và nút "Write Requirement" cập nhật
+    // tại chỗ, và lượt hội thoại vừa ghi được nối vào khung chat như một lượt bình thường.
+    //
+    // BA ĐOÁN THÌ KHÔNG CHỌN SẴN. Bản đầu tiên mặc định "Đúng ý" cho cả danh sách, nên bấm cổng ngay sau
+    // câu trả lời đầu tiên là nhận 11 phương án bịa đã được chọn sẵn — người dùng phải đọc và gõ đè gần
+    // như từng dòng, chậm hơn hẳn trả lời từng câu trong chat. Nay mỗi phương án về kèm cờ `grounded`
+    // (server chốt tất định, xem GapProposalService): có căn cứ ⇒ chọn sẵn kèm dòng "Căn cứ:" để soi
+    // được ngay; BA đoán ⇒ để ở "Để sau", người dùng chỉ động vào nếu muốn. Ba trạng thái mỗi dòng —
+    // ok / edit / skip — và chỉ dòng KHÁC "skip" mới được gửi đi, nên bỏ qua một phương án sai chỉ tốn
+    // 0 thao tác: nhóm đó ở nguyên trạng thái trống và BA hỏi tiếp trong chat.
+    //
+    // Chip lựa chọn (`options`) là chỗ tiết kiệm thời gian còn lại: đổi ý bằng một cú bấm thay vì gõ tay
+    // cả câu — chính là thao tác mà bản cũ bắt làm 11 lần.
     //
     // Cổng bắc qua HAI cột: nút mở ở sidebar (thuộc panel tiến độ — xem Index.cshtml), còn thân duyệt
     // phương án dựng trong KHUNG CHAT. Vì thế mọi trạng thái chờ/lỗi đều phải hiện ở đúng cột mà người
@@ -1206,39 +1216,73 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             return await resp.json();
         }
 
-        function renderProposals(proposals) {
+        // Điểm CÓ CĂN CỨ lên trước: đó là phần người dùng chỉ cần liếc rồi chốt. Xếp lẫn với phần BA
+        // đoán thì cả danh sách phải đọc kỹ như nhau — đúng cái làm cổng chậm hơn chat.
+        function sortProposals(proposals) {
+            const grounded = proposals.filter(p => p.grounded);
+            return grounded.concat(proposals.filter(p => !p.grounded));
+        }
+
+        function buildLead(groundedCount, guessCount) {
+            if (guessCount === 0) {
+                return `Cả ${groundedCount} điểm dưới đây đều suy ra từ những gì anh/chị đã nói —
+                    xem lại rồi bấm chốt là xong.`;
+            }
+            if (groundedCount === 0) {
+                return `Anh/chị mới trao đổi ít nên <b>cả ${guessCount} điểm dưới đây đều là BA phỏng đoán</b>,
+                    và mình <b>không chọn sẵn điểm nào</b>. Điểm nào đúng ý thì bấm "Đúng ý" hoặc chọn một
+                    phương án khác; điểm nào chưa nghĩ tới thì cứ để đó — BA sẽ hỏi tiếp trong khung chat.`;
+            }
+            return `<b>${groundedCount} điểm</b> mình suy ra từ trao đổi của anh/chị (đã chọn sẵn, có ghi rõ
+                căn cứ). <b>${guessCount} điểm</b> còn lại mình <b>chưa có căn cứ nên chỉ phỏng đoán</b> và
+                để trống — anh/chị bấm chọn nếu đúng ý, hoặc cứ để đó cho BA hỏi tiếp trong chat.`;
+        }
+
+        function renderProposals(raw) {
+            const proposals = sortProposals(raw);
+            const groundedCount = proposals.filter(p => p.grounded).length;
+
             bodyEl.innerHTML = `
                 <div class="quickclose-head">
                     <b>BA</b>
                     <span class="quickclose-title">Chốt nhanh các nhóm còn lại</span>
                     <span class="quickclose-count">${proposals.length} điểm</span>
                 </div>
-                <div class="quickclose-lead">
-                    Đây là cách BA hiểu các điểm còn lại. Điểm nào <b>đúng ý</b> thì để nguyên; điểm nào
-                    <b>chưa đúng</b> thì bấm "Sửa" và ghi lại theo ý anh/chị. Bấm chốt là mình ghi nhận
-                    hết một lượt.
-                </div>
+                <div class="quickclose-lead">${buildLead(groundedCount, proposals.length - groundedCount)}</div>
                 <ul class="quickclose-list">
-                    ${proposals.map((p, i) => `
-                        <li class="quickclose-item" data-index="${i}" data-group="${escapeHtml(p.group)}" data-question="${escapeHtml(p.question || "")}">
-                            <div class="quickclose-group">${escapeHtml(p.group)}</div>
+                    ${proposals.map((p, i) => {
+                        const options = Array.isArray(p.options) ? p.options : [];
+                        return `
+                        <li class="quickclose-item ${p.grounded ? "" : "is-guess is-skipped"}"
+                            data-index="${i}" data-state="${p.grounded ? "ok" : "skip"}"
+                            data-group="${escapeHtml(p.group)}" data-question="${escapeHtml(p.question || "")}">
+                            <div class="quickclose-group">
+                                ${escapeHtml(p.group)}
+                                <span class="quickclose-badge ${p.grounded ? "grounded" : "guess"}">${p.grounded ? "BA suy ra từ trao đổi" : "BA phỏng đoán"}</span>
+                            </div>
                             ${p.question ? `<div class="quickclose-question">${escapeHtml(p.question)}</div>` : ""}
+                            ${p.grounded && p.basis ? `<div class="quickclose-basis">Căn cứ: ${escapeHtml(p.basis)}</div>` : ""}
                             <div class="quickclose-proposal">${escapeHtml(p.proposal)}</div>
                             <textarea class="quickclose-fix" rows="3" hidden>${escapeHtml(p.proposal)}</textarea>
+                            ${options.length > 0 ? `
+                            <div class="quickclose-options">
+                                <span class="quickclose-options-label">Hoặc:</span>
+                                ${options.map(o => `<button type="button" class="quickclose-opt" data-option="${escapeHtml(o)}">${escapeHtml(o)}</button>`).join("")}
+                            </div>` : ""}
                             <div class="quickclose-actions">
-                                <button type="button" class="quickclose-vote ok is-on" data-vote="ok">Đúng ý</button>
+                                <button type="button" class="quickclose-vote ok ${p.grounded ? "is-on" : ""}" data-vote="ok">Đúng ý</button>
                                 <button type="button" class="quickclose-vote edit" data-vote="edit">Sửa</button>
+                                <button type="button" class="quickclose-vote skip ${p.grounded ? "" : "is-on"}" data-vote="skip">Để sau</button>
                             </div>
-                        </li>
-                    `).join("")}
+                        </li>`;
+                    }).join("")}
                 </ul>
                 <div class="quickclose-bar">
-                    <button type="button" class="btn primary" id="quickCloseConfirmBtn">
-                        ✓ Chốt ${proposals.length} điểm này
-                    </button>
+                    <button type="button" class="btn primary" id="quickCloseConfirmBtn"></button>
                     <button type="button" class="btn outline" id="quickCloseCancelBtn">Để tôi trả lời trong chat</button>
                     <div class="quickclose-gate-msg" id="quickCloseGateMsg"></div>
                 </div>`;
+            updateConfirmButton();
             // Dời cổng xuống CUỐI dòng hội thoại: khối này được server render ở một vị trí cố định, nên
             // sau vài lượt chat streaming (chèn vào trước thinkingBox) nó sẽ nằm lọt phía trên các lượt
             // mới — đúng cái bẫy "phải đi tìm cổng" mà lần chuyển này muốn bỏ.
@@ -1249,12 +1293,53 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             scrollToBottom();
         }
 
+        // Một dòng = MỘT câu trả lời, dù nó đến từ phương án BA soạn, một chip lựa chọn hay ô gõ tay:
+        // giữ nội dung ở đúng một chỗ (textarea) và chỉ đổi cách hiện, nên không bao giờ có cảnh dòng
+        // hiển thị một đằng mà nội dung gửi đi một nẻo.
+        function setAnswer(li, text) {
+            li.querySelector(".quickclose-fix").value = text;
+            li.querySelector(".quickclose-proposal").textContent = text;
+            li.querySelectorAll(".quickclose-opt").forEach(opt =>
+                opt.classList.toggle("is-on", opt.dataset.option === text));
+        }
+
+        function setState(li, state) {
+            li.dataset.state = state;
+            li.classList.toggle("is-skipped", state === "skip");
+            li.querySelector(".quickclose-fix").hidden = state !== "edit";
+            li.querySelector(".quickclose-proposal").hidden = state === "edit";
+            li.querySelectorAll(".quickclose-vote").forEach(btn =>
+                btn.classList.toggle("is-on", btn.dataset.vote === state));
+            updateConfirmButton();
+        }
+
+        function pickedDecisions() {
+            return Array.from(bodyEl.querySelectorAll(".quickclose-item"))
+                .filter(li => li.dataset.state !== "skip")
+                .map(li => ({
+                    group: li.dataset.group,
+                    question: li.dataset.question,
+                    answer: li.querySelector(".quickclose-fix").value.trim()
+                }))
+                .filter(d => d.answer.length > 0);
+        }
+
+        // Nhãn nút đếm LIVE theo số điểm đang chọn: với danh sách mà phần lớn để trống sẵn, một nút ghi
+        // cứng "Chốt 11 điểm" là lời hứa sai — người dùng phải đoán xem mình sắp gửi đi những gì.
+        function updateConfirmButton() {
+            const btn = document.getElementById("quickCloseConfirmBtn");
+            if (!btn) return;
+            const count = pickedDecisions().length;
+            btn.disabled = count === 0;
+            btn.textContent = count === 0 ? "Chưa chọn điểm nào" : `✓ Chốt ${count} điểm này`;
+        }
+
         // Ghi lượt vừa chốt vào khung chat như một lượt bình thường: không có nó, người dùng bấm xong
         // thấy panel biến mất mà hội thoại không đổi gì — y như thao tác vừa rồi rơi vào khoảng không.
         function appendTurns(count) {
             const you = document.createElement("div");
             you.className = "req-msg you";
-            you.innerHTML = `<p>Tôi chốt luôn ${count} điểm còn lại theo phương án BA đề xuất.</p>`;
+            you.innerHTML = `<p>Tôi chốt ${count} điểm theo phương án BA đề xuất.</p>`;
             // Cuối dòng hội thoại, không phải trước danh sách gợi ý: chốt nhanh chạy được ở bất kỳ lúc
             // nào, kể cả sau vài lượt chat streaming — lúc đó #suggestionList không còn là điểm cuối.
             chatMessages.insertBefore(you, thinkingBox);
@@ -1293,16 +1378,21 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
 
         bodyEl.addEventListener("click", async function (e) {
+            // Bấm một chip lựa chọn = vừa chọn nội dung vừa đồng ý: chip mà còn phải bấm thêm "Đúng ý"
+            // thì mất đúng cái lợi một-cú-bấm nó sinh ra để có.
+            const option = e.target.closest(".quickclose-opt");
+            if (option) {
+                const li = option.closest(".quickclose-item");
+                setAnswer(li, option.dataset.option);
+                setState(li, "ok");
+                return;
+            }
+
             const vote = e.target.closest(".quickclose-vote");
             if (vote) {
                 const li = vote.closest(".quickclose-item");
-                const edit = vote.dataset.vote === "edit";
-                li.querySelector(".quickclose-vote.ok").classList.toggle("is-on", !edit);
-                li.querySelector(".quickclose-vote.edit").classList.toggle("is-on", edit);
-                li.querySelector(".quickclose-proposal").hidden = edit;
-                const fix = li.querySelector(".quickclose-fix");
-                fix.hidden = !edit;
-                if (edit) fix.focus();
+                setState(li, vote.dataset.vote);
+                if (vote.dataset.vote === "edit") li.querySelector(".quickclose-fix").focus();
                 return;
             }
 
@@ -1315,17 +1405,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const confirmBtn = e.target.closest("#quickCloseConfirmBtn");
             if (!confirmBtn) return;
 
-            const items = Array.from(bodyEl.querySelectorAll(".quickclose-item"));
-            const decisions = items.map(li => {
-                const editing = li.querySelector(".quickclose-vote.edit").classList.contains("is-on");
-                const answer = editing
-                    ? li.querySelector(".quickclose-fix").value.trim()
-                    : li.querySelector(".quickclose-proposal").textContent.trim();
-                return { group: li.dataset.group, question: li.dataset.question, answer: answer };
-            }).filter(d => d.answer.length > 0);
-
+            const decisions = pickedDecisions();
             if (decisions.length === 0) {
-                gateMsg("Chưa có điểm nào để chốt — ô đã sửa đang để trống.");
+                gateMsg("Chưa chọn điểm nào — anh/chị bấm \"Đúng ý\" ở ít nhất một điểm, hoặc trả lời trong khung chat.");
                 return;
             }
 
@@ -1337,13 +1419,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 const data = await post(panel.dataset.confirmUrl, { decisionsJson: JSON.stringify(decisions) });
                 if (data.ok) {
                     // Gỡ cổng TRƯỚC khi nối lượt: để lại danh sách phương án ngay trên bong bóng "tôi
-                    // chốt luôn N điểm" thì trông như vẫn còn phải duyệt.
+                    // chốt N điểm" thì trông như vẫn còn phải duyệt.
                     bodyEl.hidden = true;
                     bodyEl.innerHTML = "";
                     appendTurns(decisions.length);
+                    // renderCoverage tự ẩn/hiện lối vào chốt nhanh theo số nhóm CÒN trống. Ẩn cứng ở đây
+                    // là sai từ khi "Để sau" thành lựa chọn bình thường: chốt một phần vẫn còn nhóm trống,
+                    // mà lối vào lại biến mất tới tận lúc trang tải lại.
                     renderCoverage(data.coverage);
                     setWriteRequirementReady(!!data.ready);
-                    panel.hidden = true;
                     // Tải lại để khung chat có đúng lượt BA vừa lưu (kèm gợi ý/ngữ cảnh) thay vì bản dựng
                     // tạm ở client — chờ một nhịp để người dùng kịp thấy thanh tiến độ nhảy lên.
                     setTimeout(() => location.reload(), 900);

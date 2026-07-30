@@ -378,7 +378,14 @@
                         title="BA đề xuất sẵn phương án cho các nhóm còn thiếu — anh/chị duyệt một lần thay vì trả lời từng câu">
                     ⚡ Chốt nhanh <span id="quickCloseCount">@coverage.Count(x => x.Status is "CHƯA HỎI" or "MỘT PHẦN")</span> nhóm còn lại
                 </button>
-                <div class="quickclose-hint">Không muốn trả lời từng câu? Để BA đề xuất sẵn, anh/chị chỉ việc duyệt ngay trong khung chat.</div>
+                @* Nói trước điều quyết định việc cổng này nhanh hay chậm: BA chỉ chọn sẵn phần CÓ CĂN CỨ.
+                   Bấm sớm không còn là cái bẫy "11 phương án bịa đã tick sẵn" nữa, nhưng người dùng cần
+                   biết điều đó TRƯỚC khi bấm thì mới dám bấm sớm. *@
+                <div class="quickclose-hint">
+                    Không muốn trả lời từng câu? BA đề xuất sẵn ngay trong khung chat — điểm nào suy ra được
+                    từ trao đổi thì chọn sẵn kèm căn cứ, điểm nào BA chỉ phỏng đoán thì để trống cho anh/chị
+                    chọn hoặc để sau.
+                </div>
                 <div class="quickclose-msg" id="quickCloseMsg"></div>
             </div>
 
