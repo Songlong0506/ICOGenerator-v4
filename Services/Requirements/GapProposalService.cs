@@ -35,12 +35,18 @@ public class GapProposalService
     private readonly AppDbContext _db;
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
+    private readonly ILogger<GapProposalService>? _logger;
 
-    public GapProposalService(AppDbContext db, ILlmClient llm, PromptTemplateService prompts)
+    public GapProposalService(
+        AppDbContext db,
+        ILlmClient llm,
+        PromptTemplateService prompts,
+        ILogger<GapProposalService>? logger = null)
     {
         _db = db;
         _llm = llm;
         _prompts = prompts;
+        _logger = logger;
     }
 
     /// <summary>
@@ -71,6 +77,10 @@ public class GapProposalService
 
         var sb = new StringBuilder();
         sb.AppendLine("## Các nhóm còn thiếu (soạn ĐÚNG một phương án cho MỖI nhóm dưới đây)");
+        // Nhắc tại chỗ vì đây là nơi model đọc danh sách: nhãn nhóm là phần TRƯỚC dấu hai chấm. Thiếu câu
+        // này, model yếu chép nguyên cả dòng ("… : [MỘT PHẦN] — đã biết/còn thiếu: …") vào trường group.
+        sb.AppendLine("Nhãn nhóm là phần TRƯỚC dấu hai chấm ở mỗi dòng. Trường `group` chỉ chứa nhãn đó — "
+            + "KHÔNG kèm `[MỘT PHẦN]`/`[CHƯA HỎI]`, không kèm phần \"đã biết/còn thiếu\".");
         foreach (var item in pending)
         {
             sb.Append("- ").Append(item.Label).Append(": [").Append(item.Status).Append(']');
@@ -115,7 +125,26 @@ public class GapProposalService
         // trả về value null và chỉ có text. Không có nhánh parse tay ở đây, cổng này sẽ không bao giờ chạy
         // được trên chính cấu hình mặc định của app. Cùng cách fallback mà BAChatReplyParser dùng.
         var set = structured ?? ParseFallback(callResult.Content);
-        return set == null ? Array.Empty<GapProposal>() : Align(set.Proposals, pending);
+        if (set == null)
+        {
+            _logger?.LogWarning(
+                "Gap proposals: model {Model} không trả về JSON đọc được cho dự án {ProjectId}.",
+                model.ModelId, project.Id);
+            return Array.Empty<GapProposal>();
+        }
+
+        var aligned = Align(set.Proposals, pending);
+        // Model trả phương án nhưng KHÔNG ghép được nhãn nào là lỗi câm: UI chỉ hiện "chưa soạn được
+        // phương án" trong khi log lời gọi vẫn xanh "Success". Ghi lại nhãn để chẩn đoán được từ log.
+        if (aligned.Count == 0 && set.Proposals.Count > 0)
+            _logger?.LogWarning(
+                "Gap proposals: model {Model} trả {Count} phương án nhưng không nhãn nào khớp nhóm còn "
+                + "thiếu của dự án {ProjectId}. Nhãn model trả: {ModelGroups}. Nhóm còn thiếu: {PendingGroups}.",
+                model.ModelId, set.Proposals.Count, project.Id,
+                string.Join(" | ", set.Proposals.Select(p => p.Group)),
+                string.Join(" | ", pending.Select(p => p.Label)));
+
+        return aligned;
     }
 
     private static GapProposalSet? ParseFallback(string? raw)
@@ -138,24 +167,62 @@ public class GapProposalService
     }
 
     /// <summary>
-    /// Ghép các mục model trả về vào ĐÚNG các nhóm đang thiếu: khớp nhãn không phân biệt hoa/thường và
-    /// bỏ qua ★/khoảng trắng thừa, mỗi nhóm lấy mục đầu tiên khớp. Nhóm không được đề xuất thì vắng mặt
-    /// (cổng sẽ nói rõ còn nhóm nào chưa có phương án) — thà thiếu còn hơn bịa thêm một dòng để lấp chỗ.
+    /// Ghép các mục model trả về vào ĐÚNG các nhóm đang thiếu: khớp nhãn đã chuẩn hoá (xem
+    /// <see cref="LabelKey"/>) trước, rồi mới tới khớp lỏng "một bên chứa bên kia" cho các nhóm còn sót —
+    /// vì model yếu hay viết nhãn dài/ngắn hơn bản đồ một chút. Mỗi mục model chỉ dùng cho MỘT nhóm.
+    /// Nhóm không được đề xuất thì vắng mặt (cổng sẽ nói rõ còn nhóm nào chưa có phương án) — thà thiếu
+    /// còn hơn bịa thêm một dòng để lấp chỗ.
     /// </summary>
     private static List<GapProposal> Align(List<GapProposal> raw, List<CoverageMapItem> pending)
     {
-        var result = new List<GapProposal>();
-        foreach (var item in pending)
+        var candidates = raw
+            .Where(p => !string.IsNullOrWhiteSpace(p.Proposal))
+            .Select(p => (Item: p, Key: LabelKey(p.Group)))
+            .Where(x => x.Key.Length > 0)
+            .ToList();
+
+        var taken = new bool[candidates.Count];
+        var matches = new GapProposal?[pending.Count];
+
+        // Hai lượt tách rời (không phải "khớp chặt rồi lỏng" cho từng nhóm): mọi nhãn khớp chính xác phải
+        // được nhận trước, nếu không một nhãn model viết chung chung có thể bị nhóm đứng trước cướp mất.
+        for (var i = 0; i < pending.Count; i++)
         {
-            var match = raw.FirstOrDefault(p =>
-                !string.IsNullOrWhiteSpace(p.Proposal) && LabelKey(p.Group) == LabelKey(item.Label));
+            var key = LabelKey(pending[i].Label);
+            var index = FindUntaken(candidates, taken, k => k == key);
+            if (index >= 0)
+            {
+                taken[index] = true;
+                matches[i] = candidates[index].Item;
+            }
+        }
+
+        for (var i = 0; i < pending.Count; i++)
+        {
+            if (matches[i] != null)
+                continue;
+
+            var key = LabelKey(pending[i].Label);
+            var index = FindUntaken(candidates, taken,
+                k => k.Contains(key, StringComparison.Ordinal) || key.Contains(k, StringComparison.Ordinal));
+            if (index >= 0)
+            {
+                taken[index] = true;
+                matches[i] = candidates[index].Item;
+            }
+        }
+
+        var result = new List<GapProposal>();
+        for (var i = 0; i < pending.Count; i++)
+        {
+            var match = matches[i];
             if (match == null)
                 continue;
 
             result.Add(new GapProposal
             {
                 // Nhãn LUÔN lấy từ bản đồ, không lấy bản model chép lại: UI ghép dòng tiến độ theo nhãn này.
-                Group = item.Label,
+                Group = pending[i].Label,
                 Question = match.Question.Trim(),
                 Proposal = match.Proposal.Trim()
             });
@@ -163,6 +230,34 @@ public class GapProposalService
         return result;
     }
 
-    private static string LabelKey(string? label) =>
-        (label ?? string.Empty).Replace("★", string.Empty).Trim().ToLowerInvariant();
+    private static int FindUntaken(
+        List<(GapProposal Item, string Key)> candidates, bool[] taken, Func<string, bool> isMatch)
+    {
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            if (!taken[i] && isMatch(candidates[i].Key))
+                return i;
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// Chuẩn hoá nhãn nhóm về dạng so sánh được: bỏ gạch đầu dòng/★, CẮT phần "…: [TRẠNG THÁI] tóm tắt"
+    /// nếu model chép nguyên dòng của prompt (gpt-5-nano trả `"Quy trình hiện tại &amp; điểm khó: [MỘT PHẦN]"`
+    /// và trước đây rơi hết — cổng báo "chưa soạn được phương án" trong khi lời gọi vẫn thành công), gộp
+    /// khoảng trắng, bỏ phân biệt hoa/thường. Nhãn bản đồ không bao giờ chứa ':' hay '[' (xem
+    /// <see cref="CoverageMapParser"/>) nên cắt ở dấu đầu tiên là an toàn.
+    /// </summary>
+    private static string LabelKey(string? label)
+    {
+        var text = (label ?? string.Empty).Replace("★", string.Empty).Replace('*', ' ').Trim();
+        text = text.TrimStart('-', '–', '—', ' ', '\t');
+
+        var cut = text.IndexOfAny([':', '[']);
+        if (cut > 0)
+            text = text[..cut];
+
+        return string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            .ToLowerInvariant();
+    }
 }

@@ -33,7 +33,7 @@ Chỉ trả về một đối tượng JSON hợp lệ, không kèm chữ nào k
 
 Quy tắc từng trường:
 
-- `group`: **chép nguyên văn** nhãn nhóm trong bản đồ bao phủ (không thêm ★, không đổi chữ) — hệ thống ghép lại theo nhãn này.
+- `group`: **chép nguyên văn** nhãn nhóm trong bản đồ bao phủ (không thêm ★, không đổi chữ) — hệ thống ghép lại theo nhãn này. Nhãn là phần **trước dấu hai chấm** ở mỗi dòng của phần "Các nhóm còn thiếu": chỉ `"Vòng đời & trạng thái"`, **không** phải `"Vòng đời & trạng thái: [MỘT PHẦN]"`, không kèm trạng thái trong ngoặc vuông, không kèm phần "đã biết/còn thiếu".
 - `question`: nêu đúng điều còn thiếu, để người dùng hiểu họ đang chốt cái gì.
 - `proposal`: nội dung sẽ được ghi nhận **như thể chính người dùng đã nói ra**, nếu họ bấm đồng ý. Vì vậy hãy viết như một câu khẳng định về ứng dụng, không phải một câu hỏi.
 
