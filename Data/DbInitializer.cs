@@ -35,8 +35,10 @@ public static class DbInitializer
         {
             db.AiModels.AddRange(
                 new AiModel { ModelId = "qwen3.6-27b@q3_k_s", Endpoint = "http://127.0.0.1:1234/v1", ApiKey = "lm-studio", SupportsVision = false, ContextWindow = 128000 },
-                new AiModel { ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "", SupportsVision = false, ContextWindow = 1000000, InputPricePerMillionTokens = 0.14m, OutputPricePerMillionTokens = 0.28m },
-                new AiModel { ModelId = "gpt-5-nano", Endpoint = "https://api.openai.com/v1", ApiKey = "", SupportsVision = true, ContextWindow = 400000, InputPricePerMillionTokens = 0.05m, OutputPricePerMillionTokens = 0.4m }
+                // DeepSeek nhận json_object nhưng 400 với json_schema; OpenAI nhận cả hai — seed đúng mức mà
+                // mỗi endpoint thật sự chấp nhận, model local để None cho an toàn.
+                new AiModel { ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "", SupportsVision = false, ContextWindow = 1000000, InputPricePerMillionTokens = 0.14m, OutputPricePerMillionTokens = 0.28m, StructuredOutputMode = StructuredOutputMode.JsonObject },
+                new AiModel { ModelId = "gpt-5-nano", Endpoint = "https://api.openai.com/v1", ApiKey = "", SupportsVision = true, ContextWindow = 400000, InputPricePerMillionTokens = 0.05m, OutputPricePerMillionTokens = 0.4m, StructuredOutputMode = StructuredOutputMode.JsonSchema }
             );
             await db.SaveChangesAsync();
         }

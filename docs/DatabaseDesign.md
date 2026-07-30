@@ -212,6 +212,7 @@ erDiagram
         decimal OutputPricePerMillionTokens
         bool IsActive
         bool SupportsVision
+        StructuredOutputMode StructuredOutputMode
         string CreatedByUsername
         DateTime CreatedAt
     }

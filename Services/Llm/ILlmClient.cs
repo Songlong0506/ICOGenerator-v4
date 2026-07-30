@@ -18,10 +18,18 @@ public interface ILlmClient
     Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Like <see cref="ChatWithLogAsync"/> but asks the model for structured output (a JSON object matching
-    /// <typeparamref name="T"/>) when <see cref="AiModel.SupportsStructuredOutput"/> opts the model in, and returns the
-    /// deserialized value alongside the raw result. Falls back transparently to the plain streaming text call
-    /// when the model is not opted in, so <paramref name="onToken"/> still streams on that path.
+    /// Like <see cref="ChatWithLogAsync"/> but asks the model for JSON and returns the deserialized value
+    /// alongside the raw result. How hard it asks depends on <see cref="AiModel.StructuredOutputMode"/>:
+    /// <list type="bullet">
+    ///   <item><b>None</b> — no <c>response_format</c> at all; identical to <see cref="ChatWithLogAsync"/> with a
+    ///         null value handed back, so the caller parses the text itself.</item>
+    ///   <item><b>JsonObject</b> — <c>response_format: json_object</c> on the streaming path, so
+    ///         <paramref name="onToken"/> keeps working and the reply is guaranteed to be syntactically valid JSON.</item>
+    ///   <item><b>JsonSchema</b> — a schema derived from <typeparamref name="T"/>. Non-streaming, so
+    ///         <paramref name="onToken"/> is NOT called at this level.</item>
+    /// </list>
+    /// An endpoint that rejects the requested <c>response_format</c> is retried once on the plain text path
+    /// rather than failing the turn.
     /// </summary>
     /// <returns>
     /// The raw call result plus the deserialized value, or <c>null</c> value when structured output was not

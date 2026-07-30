@@ -547,7 +547,7 @@ LlmClient / AgentRunService
              • map lỗi API/timeout thành LlmCallResult • ghi AgentModelCallLogs • progress
 ```
 
-- **`ILlmClient.ChatAsync`** — đường chat thuần (BA). **`ChatStructuredAsync<T>`** — structured output (`response_format: json_schema`), **opt-in theo từng model** qua cờ `AiModel.SupportsStructuredOutput` (tick ở trang Models, mặc định TẮT vì nhiều server local từ chối `response_format`); JSON không khớp schema ⇒ trả `value=null` để caller fallback về parser tay (`RequirementResponseParser`/`BAChatReplyParser`) — không bao giờ fail trắng.
+- **`ILlmClient.ChatAsync`** — đường chat thuần (BA). **`ChatStructuredAsync<T>`** — xin API ép JSON, **opt-in theo từng model** qua `AiModel.StructuredOutputMode` (dropdown ở trang Models, mặc định `None` vì nhiều server local từ chối `response_format`): `None` không gửi gì · `JsonObject` gửi `response_format: json_object` và **vẫn stream token** · `JsonSchema` gửi schema sinh từ `T` (chỉ endpoint OpenAI thật, **không stream**). DeepSeek chỉ nhận tới mức `JsonObject`. JSON không khớp kiểu mong đợi ⇒ trả `value=null` để caller fallback về parser tay (`RequirementResponseParser`/`BAChatReplyParser`); endpoint từ chối `response_format` ⇒ tự gọi lại bằng text thuần — không bao giờ fail trắng.
 - **`LlmCost`** tính chi phí = token × đơn giá model — cùng công thức cho trang Usage và Budget guard.
 - **`IBudgetGuard`** kiểm tra **trước mỗi lời gọi** (cả agent lẫn BA chat): chạm trần (`Budget:*`) ⇒ từ chối gọi, ném `BudgetExceededException` với lý do.
 - **`JsonExtractor`/`JsonDefaults`** — tiện ích bóc JSON từ trả lời văn xuôi.
@@ -858,7 +858,7 @@ Các công thức chuyên biệt: thêm **tool** (§8.2), thêm **bước pipeli
 | **Prompt key** | Đường dẫn tương đối file prompt dưới `/Prompts` — khóa dùng bởi PromptTemplateService/Studio/Evals |
 | **Golden set** | Bộ `EvalScenario` chuẩn để chấm chất lượng prompt/model bằng LLM-judge |
 | **Fail-open** | Nguyên tắc thiết kế lặp lại khắp app: tính năng phụ (memory, org context, notification, prompt override) lỗi thì âm thầm rơi về hành vi cơ bản, không bao giờ làm gãy luồng chính |
-| **Opt-in** | Nguyên tắc cấu hình: tính năng có phụ thuộc ngoài (Proxy, Otel, Budget limits, Teams/Email) mặc định TẮT; structured output opt-in **theo từng model** (`AiModel.SupportsStructuredOutput`) |
+| **Opt-in** | Nguyên tắc cấu hình: tính năng có phụ thuộc ngoài (Proxy, Otel, Budget limits, Teams/Email) mặc định TẮT; structured output opt-in **theo từng model**, 3 mức (`AiModel.StructuredOutputMode`) |
 
 ---
 
