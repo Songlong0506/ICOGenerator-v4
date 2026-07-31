@@ -14,13 +14,16 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Cổng "chốt nhanh phần còn lại": đổi N lượt hỏi lẻ thành MỘT lượt duyệt. Bốn bất biến phải giữ:
+// Cổng "chốt nhanh phần còn lại": đổi N lượt hỏi lẻ thành MỘT lượt duyệt. Năm bất biến phải giữ:
 //  1. Chỉ đề xuất cho các nhóm ĐANG TRỐNG của bản đồ — model trả thêm chủ đề khác thì bị loại.
 //  2. Điều người dùng chốt được ghi vào HỘI THOẠI (nguồn sự thật của mọi tầng chắt lọc), không phải một
 //     cột riêng — nếu không, lượt distill kế tiếp sẽ viết đè.
 //  3. Bản đồ được gộp NGAY trong lượt này, để thanh tiến độ/nút "Write Requirement" phản hồi tức thì.
 //  4. Lượt BA đóng lượt chỉ được MỜI bấm "Write Requirement" khi cổng tất định pass — cùng bất biến với
 //     đường chat, nếu không nút và panel sẽ vênh nhau.
+//  5. "Suy ra" phải KIẾM ĐƯỢC bằng một trích dẫn thật, không phải bằng lời tự khai của model: UI chỉ
+//     chọn sẵn phần suy ra, nên một phương án bịa đội lốt "suy ra" sẽ đi thẳng vào hội thoại như lời của
+//     chính người dùng. Đây là lỗ hổng đã làm cổng chậm hơn cả trả lời từng câu trong chat.
 public class QuickCloseGapsTests : IDisposable
 {
     private const string PartialMap = """
@@ -194,6 +197,163 @@ public class QuickCloseGapsTests : IDisposable
         Assert.Equal(ProposeGapsStatus.Ok, outcome.Status);
         var only = Assert.Single(outcome.Proposals);
         Assert.Equal("Thông báo / nhắc nhở", only.Group);
+    }
+
+    // ---- Bước 1b: "suy ra" hay "phỏng đoán" ----
+
+    [Fact]
+    public async Task Propose_MarksAProposalAsGrounded_WhenTheModelQuotesWhatTheUserActuallySaid()
+    {
+        await using var db = NewDb();
+        var llm = new FakeLlm
+        {
+            Proposals = new GapProposalSet
+            {
+                Proposals =
+                {
+                    new GapProposal
+                    {
+                        Group = "Thông báo / nhắc nhở",
+                        Question = "Ai được báo?",
+                        Confidence = "suy-ra",
+                        Basis = "app quản lý đơn nghỉ phép, có quản lý duyệt",
+                        Proposal = "Quản lý nhận thông báo khi có đơn mới."
+                    }
+                }
+            }
+        };
+
+        var outcome = await NewProposeSut(db, llm).ExecuteAsync(_projectId);
+
+        var only = Assert.Single(outcome.Proposals);
+        Assert.True(GapProposal.IsGrounded(only));
+        Assert.Equal("app quản lý đơn nghỉ phép, có quản lý duyệt", only.Basis);
+    }
+
+    // Model yếu bị ép điền một trường bắt buộc sẽ khai "suy-ra" rồi bỏ trống căn cứ. Tin lời khai đó là
+    // quay lại đúng hành vi cũ: cả danh sách phỏng đoán được tick sẵn và đi thẳng vào hội thoại.
+    [Theory]
+    [InlineData("suy-ra", "")]
+    [InlineData("suy-ra", "hội thoại")]
+    [InlineData("", "app quản lý đơn nghỉ phép")]
+    public async Task Propose_FallsBackToGuess_WhenTheClaimIsNotBackedByARealQuote(string confidence, string basis)
+    {
+        await using var db = NewDb();
+        var llm = new FakeLlm
+        {
+            Proposals = new GapProposalSet
+            {
+                Proposals =
+                {
+                    new GapProposal
+                    {
+                        Group = "Thông báo / nhắc nhở",
+                        Confidence = confidence,
+                        Basis = basis,
+                        Proposal = "Quản lý nhận thông báo khi có đơn mới."
+                    }
+                }
+            }
+        };
+
+        var outcome = await NewProposeSut(db, llm).ExecuteAsync(_projectId);
+
+        var only = Assert.Single(outcome.Proposals);
+        Assert.False(GapProposal.IsGrounded(only));
+        // Căn cứ không đạt thì phải BIẾN MẤT, không được hiện dưới một dòng đang gắn nhãn phỏng đoán.
+        Assert.Equal(string.Empty, only.Basis);
+    }
+
+    // Chép lại chính phương án vào ô căn cứ là cách "vòng tròn" mà model hay dùng để qua mặt yêu cầu
+    // trích dẫn — nó không chứng minh được gì về điều người dùng đã nói.
+    [Fact]
+    public async Task Propose_FallsBackToGuess_WhenTheBasisJustRepeatsTheProposal()
+    {
+        await using var db = NewDb();
+        var llm = new FakeLlm
+        {
+            Proposals = new GapProposalSet
+            {
+                Proposals =
+                {
+                    new GapProposal
+                    {
+                        Group = "Thông báo / nhắc nhở",
+                        Confidence = "suy-ra",
+                        Basis = "Quản lý nhận thông báo khi có đơn mới.",
+                        Proposal = "Quản lý  nhận thông báo khi có đơn mới."
+                    }
+                }
+            }
+        };
+
+        var outcome = await NewProposeSut(db, llm).ExecuteAsync(_projectId);
+
+        Assert.False(GapProposal.IsGrounded(Assert.Single(outcome.Proposals)));
+    }
+
+    // Ca nguy hiểm nhất, và là lý do phải đối chiếu chứ không chỉ đếm chữ: model TỰ BỊA một câu trích
+    // nghe rất giống lời người dùng. Người dùng không hề nói gì về ca làm việc — dòng này phải rơi về
+    // phỏng đoán, nếu không nó được chọn sẵn và đi thẳng vào hội thoại như lời của chính họ.
+    [Fact]
+    public async Task Propose_FallsBackToGuess_WhenTheQuoteAppearsNowhereInTheConversation()
+    {
+        await using var db = NewDb();
+        var llm = new FakeLlm
+        {
+            Proposals = new GapProposalSet
+            {
+                Proposals =
+                {
+                    new GapProposal
+                    {
+                        Group = "Thông báo / nhắc nhở",
+                        Confidence = "suy-ra",
+                        Basis = "anh/chị nói bộ phận vận hành chạy ba ca luân phiên mỗi ngày",
+                        Proposal = "Trưởng ca nhận thông báo khi có đơn mới."
+                    }
+                }
+            }
+        };
+
+        var outcome = await NewProposeSut(db, llm).ExecuteAsync(_projectId);
+
+        Assert.False(GapProposal.IsGrounded(Assert.Single(outcome.Proposals)));
+    }
+
+    // Chip lựa chọn chỉ có giá trị khi bấm vào là ĐỔI được câu trả lời: bản trùng phương án/trùng nhau
+    // tốn một dòng đọc mà không cho thêm lựa chọn nào.
+    [Fact]
+    public async Task Propose_KeepsOnlyOneTapOptionsThatActuallyOfferSomethingElse()
+    {
+        await using var db = NewDb();
+        var llm = new FakeLlm
+        {
+            Proposals = new GapProposalSet
+            {
+                Proposals =
+                {
+                    new GapProposal
+                    {
+                        Group = "Thông báo / nhắc nhở",
+                        Proposal = "Quản lý nhận thông báo khi có đơn mới.",
+                        Options =
+                        {
+                            "Quản lý nhận thông báo khi có đơn mới.",  // trùng chính phương án
+                            "  Chỉ nhân viên nhận thông báo  ",
+                            "Chỉ nhân viên nhận thông báo",            // trùng mục trước
+                            "   ",                                     // rỗng
+                            "Dự án không có thông báo"
+                        }
+                    }
+                }
+            }
+        };
+
+        var outcome = await NewProposeSut(db, llm).ExecuteAsync(_projectId);
+
+        var only = Assert.Single(outcome.Proposals);
+        Assert.Equal(new[] { "Chỉ nhân viên nhận thông báo", "Dự án không có thông báo" }, only.Options);
     }
 
     // ---- Bước 2: chốt ----

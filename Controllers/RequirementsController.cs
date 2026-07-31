@@ -657,7 +657,17 @@ public class RequirementsController : Controller
             ProposeGapsStatus.Ok => Json(new
             {
                 ok = true,
-                proposals = outcome.Proposals.Select(p => new { group = p.Group, question = p.Question, proposal = p.Proposal })
+                // grounded: cờ TẤT ĐỊNH đã chốt ở GapProposalService — UI chỉ chọn sẵn các điểm có căn
+                // cứ, phần BA đoán để trống. Không gửi chuỗi confidence thô để client không phải đoán lại.
+                proposals = outcome.Proposals.Select(p => new
+                {
+                    group = p.Group,
+                    question = p.Question,
+                    proposal = p.Proposal,
+                    basis = p.Basis,
+                    grounded = GapProposal.IsGrounded(p),
+                    options = p.Options
+                })
             }),
             ProposeGapsStatus.NothingPending => Json(new { ok = false, error = "Không còn nhóm thông tin nào thiếu — anh/chị bấm \"Write Requirement\" được rồi." }),
             ProposeGapsStatus.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),

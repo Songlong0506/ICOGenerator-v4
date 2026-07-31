@@ -1672,11 +1672,92 @@
     background: #fff;
 }
 
-.quickclose-group { font-size: 12.5px; font-weight: 600; color: var(--bosch-blue, #2563eb); }
+.quickclose-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--bosch-blue, #2563eb);
+}
+
+/* Nhãn CĂN CỨ đứng ngay cạnh tên nhóm, không nằm dưới cùng: người dùng quyết định đọc kỹ hay lướt qua
+   một dòng ngay ở chữ đầu tiên của dòng đó. "BA phỏng đoán" cố tình KHÔNG dùng tông đỏ cảnh báo — đây
+   là trạng thái bình thường của một cuộc phỏng vấn mới bắt đầu, không phải lỗi. */
+.quickclose-badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .01em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+    .quickclose-badge.grounded { background: #dcfce7; color: #15803d; }
+
+    .quickclose-badge.guess { background: #f3f4f6; color: #6b7280; }
 
 .quickclose-question { font-size: 12px; color: #6b7280; margin-top: 2px; }
 
+/* Trích dẫn mà BA nói là mình dựa vào. Hiện luôn (không phải tooltip) vì đây là cách DUY NHẤT người dùng
+   phát hiện một phương án được gắn nhãn "suy ra" nhưng dựa vào điều họ chưa hề nói. */
+.quickclose-basis {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #15803d;
+    background: #f0fdf4;
+    border-left: 2px solid #86efac;
+    padding: 3px 8px;
+    border-radius: 0 4px 4px 0;
+    margin-top: 6px;
+}
+
 .quickclose-proposal { font-size: 13px; line-height: 1.5; margin-top: 6px; }
+
+/* Dòng đang để lại: vẫn đọc được nhưng lùi hẳn về sau, để mắt chỉ dừng ở những điểm sắp được gửi đi. */
+.quickclose-item.is-skipped {
+    background: var(--surface-alt, #f9fafb);
+    border-style: dashed;
+}
+
+    .quickclose-item.is-skipped .quickclose-proposal { color: #9ca3af; }
+
+/* Chip lựa chọn: đổi ý bằng MỘT cú bấm thay vì gõ lại cả câu — thao tác mà bản trước bắt lặp cho từng
+   nhóm, và là lý do chính khiến chốt nhanh từng chậm hơn trả lời trong chat. */
+.quickclose-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.quickclose-options-label { font-size: 11.5px; color: #9ca3af; }
+
+.quickclose-opt {
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px dashed var(--bosch-blue-tint-strong, #cfe0fb);
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    width: auto;
+    text-align: left;
+}
+
+    .quickclose-opt:hover { border-style: solid; background: var(--bosch-blue-tint, #eff6ff); }
+
+    .quickclose-opt.is-on {
+        border-style: solid;
+        border-color: var(--bosch-blue, #2563eb);
+        background: var(--bosch-blue-tint, #eff6ff);
+        color: var(--bosch-blue, #2563eb);
+        font-weight: 600;
+    }
 
 .quickclose-fix {
     width: 100%;
@@ -1708,6 +1789,10 @@
     .quickclose-vote.ok.is-on { background: #10b981; border-color: #10b981; color: #fff; }
 
     .quickclose-vote.edit.is-on { background: var(--bosch-blue, #2563eb); border-color: var(--bosch-blue, #2563eb); color: #fff; }
+
+    /* "Để sau" bật sáng bằng tông xám: nó là một lựa chọn hợp lệ ngang hàng hai nút kia (nhóm đó ở
+       nguyên trạng thái trống và BA hỏi tiếp trong chat), không phải một cảnh báo. */
+    .quickclose-vote.skip.is-on { background: #6b7280; border-color: #6b7280; color: #fff; }
 
 /* Hai nút xếp NGANG (không còn .full như hồi ở cột 320px) để cả hai lựa chọn cùng ở trong tầm mắt. */
 .quickclose-bar {

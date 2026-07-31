@@ -111,7 +111,10 @@ public class ConfirmRemainingGapsUseCase
     private static string BuildUserTurn(List<GapDecision> decisions)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Tôi chốt luôn các điểm còn lại như sau:");
+        // "các điểm sau", KHÔNG phải "các điểm còn lại": từ khi "Để sau" là một lựa chọn bình thường ở
+        // cổng, chốt một phần mới là ca thường gặp — câu mở đầu nói quá sẽ dạy các tầng chắt lọc rằng
+        // phần chưa nói tới cũng đã được chốt.
+        sb.AppendLine("Tôi chốt các điểm sau:");
         foreach (var d in decisions)
         {
             sb.Append("- ");
@@ -130,6 +133,9 @@ public class ConfirmRemainingGapsUseCase
             return $"Đã ghi nhận {count} điểm anh/chị vừa chốt — bản đồ khai thác yêu cầu đã đủ. "
                    + "Nếu không còn gì bổ sung, anh/chị bấm nút \"Write Requirement\" để mình soạn bản mô tả sản phẩm nhé.";
 
+        // Chưa đủ là kết cục BÌNH THƯỜNG của một lượt chốt một phần (người dùng để lại các điểm BA phỏng
+        // đoán), nên lượt này phải nối tiếp cuộc phỏng vấn bằng câu hỏi cụ thể của gate — không dừng ở
+        // một câu báo "chưa đủ" rồi để người dùng tự nghĩ ra phải nói gì tiếp.
         return $"Đã ghi nhận {count} điểm anh/chị vừa chốt. "
                + (string.IsNullOrWhiteSpace(readiness.Message)
                    ? "Mình cần làm rõ thêm vài thông tin nữa trước khi viết tài liệu."
