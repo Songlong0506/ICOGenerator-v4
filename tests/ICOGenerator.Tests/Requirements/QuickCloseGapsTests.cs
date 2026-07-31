@@ -356,6 +356,35 @@ public class QuickCloseGapsTests : IDisposable
         Assert.Equal(new[] { "Chỉ nhân viên nhận thông báo", "Dự án không có thông báo" }, only.Options);
     }
 
+    // UI hiện mỗi nhóm như một câu hỏi CHỌN-MỘT với ba gợi ý đồng hạng: `Proposal` là gợi ý đầu, nên chỉ
+    // còn đúng 2 chỗ cho lựa chọn thay thế. Model trả dư thì cắt ở server, không đẩy phần cắt sang cho
+    // client — dòng thứ tư trở đi biến danh sách "liếc rồi bấm" thành một danh sách phải ĐỌC.
+    [Fact]
+    public async Task Propose_CapsAlternativesAtTwo_SoEachGroupOffersExactlyThreeChoices()
+    {
+        await using var db = NewDb();
+        var llm = new FakeLlm
+        {
+            Proposals = new GapProposalSet
+            {
+                Proposals =
+                {
+                    new GapProposal
+                    {
+                        Group = "Thông báo / nhắc nhở",
+                        Proposal = "Quản lý nhận thông báo khi có đơn mới.",
+                        Options = { "Chỉ nhân viên nhận", "Cả hai cùng nhận", "Gửi cuối ngày", "Dự án không có thông báo" }
+                    }
+                }
+            }
+        };
+
+        var outcome = await NewProposeSut(db, llm).ExecuteAsync(_projectId);
+
+        var only = Assert.Single(outcome.Proposals);
+        Assert.Equal(new[] { "Chỉ nhân viên nhận", "Cả hai cùng nhận" }, only.Options);
+    }
+
     // ---- Bước 2: chốt ----
 
     [Fact]

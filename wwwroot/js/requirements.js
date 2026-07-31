@@ -1159,12 +1159,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // câu trả lời đầu tiên là nhận 11 phương án bịa đã được chọn sẵn — người dùng phải đọc và gõ đè gần
     // như từng dòng, chậm hơn hẳn trả lời từng câu trong chat. Nay mỗi phương án về kèm cờ `grounded`
     // (server chốt tất định, xem GapProposalService): có căn cứ ⇒ chọn sẵn kèm dòng "Căn cứ:" để soi
-    // được ngay; BA đoán ⇒ để ở "Để sau", người dùng chỉ động vào nếu muốn. Ba trạng thái mỗi dòng —
-    // ok / edit / skip — và chỉ dòng KHÁC "skip" mới được gửi đi, nên bỏ qua một phương án sai chỉ tốn
-    // 0 thao tác: nhóm đó ở nguyên trạng thái trống và BA hỏi tiếp trong chat.
+    // được ngay; BA đoán ⇒ để ở "Để sau", người dùng chỉ động vào nếu muốn.
     //
-    // Chip lựa chọn (`options`) là chỗ tiết kiệm thời gian còn lại: đổi ý bằng một cú bấm thay vì gõ tay
-    // cả câu — chính là thao tác mà bản cũ bắt làm 11 lần.
+    // MỖI DÒNG LÀ MỘT CÂU HỎI TRẮC NGHIỆM, không phải một phương án kèm hai nút biểu quyết. Bản trước có
+    // "Đúng ý" / "Sửa" / "Để sau" cạnh một phương án mặc định, cộng thêm hàng chip `options` — tức HAI
+    // đường nói "đồng ý" cho cùng một việc (bấm chip đã là chọn + đồng ý), và ô gõ tay thì nấp sau một
+    // nút đổi chế độ. Nay: ba gợi ý ĐỒNG HẠNG (phương án BA đề xuất là lựa chọn đầu, hai lựa chọn còn
+    // lại từ `options`), thêm "Ý khác" để tự nhập, và chỉ còn "Để sau" là nút. Bấm một gợi ý = chốt luôn
+    // dòng đó. Cùng ngôn ngữ tương tác với cổng soát mâu thuẫn ở cuối file.
+    //
+    // Hai trạng thái mỗi dòng — ok / skip — và chỉ dòng KHÁC "skip" (kèm câu trả lời không rỗng) mới
+    // được gửi đi, nên bỏ qua một phương án sai vẫn tốn 0 thao tác: nhóm đó ở nguyên trạng thái trống và
+    // BA hỏi tiếp trong chat.
     //
     // Cổng bắc qua HAI cột: nút mở ở sidebar (thuộc panel tiến độ — xem Index.cshtml), còn thân duyệt
     // phương án dựng trong KHUNG CHAT. Vì thế mọi trạng thái chờ/lỗi đều phải hiện ở đúng cột mà người
@@ -1230,12 +1236,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
             if (groundedCount === 0) {
                 return `Anh/chị mới trao đổi ít nên <b>cả ${guessCount} điểm dưới đây đều là BA phỏng đoán</b>,
-                    và mình <b>không chọn sẵn điểm nào</b>. Điểm nào đúng ý thì bấm "Đúng ý" hoặc chọn một
-                    phương án khác; điểm nào chưa nghĩ tới thì cứ để đó — BA sẽ hỏi tiếp trong khung chat.`;
+                    và mình <b>không chọn sẵn điểm nào</b>. Mỗi điểm anh/chị bấm một gợi ý, hoặc bấm
+                    "Ý khác" để tự nhập; điểm nào chưa nghĩ tới thì để sau — BA sẽ hỏi tiếp trong khung chat.`;
             }
             return `<b>${groundedCount} điểm</b> mình suy ra từ trao đổi của anh/chị (đã chọn sẵn, có ghi rõ
                 căn cứ). <b>${guessCount} điểm</b> còn lại mình <b>chưa có căn cứ nên chỉ phỏng đoán</b> và
-                để trống — anh/chị bấm chọn nếu đúng ý, hoặc cứ để đó cho BA hỏi tiếp trong chat.`;
+                để trống — anh/chị bấm một gợi ý, tự nhập ở "Ý khác", hoặc để sau cho BA hỏi tiếp trong chat.`;
         }
 
         function renderProposals(raw) {
@@ -1251,9 +1257,17 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 <div class="quickclose-lead">${buildLead(groundedCount, proposals.length - groundedCount)}</div>
                 <ul class="quickclose-list">
                     ${proposals.map((p, i) => {
-                        const options = Array.isArray(p.options) ? p.options : [];
+                        // Ba gợi ý ĐỒNG HẠNG: phương án BA đề xuất đứng đầu, hai lựa chọn còn lại từ
+                        // `options`. Cắt ở 3 vì quá đó thì dòng này thành một danh sách phải ĐỌC, mất
+                        // đúng cái lợi "liếc rồi bấm". Model trả thiếu thì hiện ít hơn — KHÔNG độn thêm
+                        // cho đủ, độn là bịa (cùng nguyên tắc với GapProposalService).
+                        const choices = [p.proposal]
+                            .concat(Array.isArray(p.options) ? p.options : [])
+                            .map(c => (c || "").trim())
+                            .filter(c => c.length > 0)
+                            .slice(0, 3);
                         return `
-                        <li class="quickclose-item ${p.grounded ? "" : "is-guess is-skipped"}"
+                        <li class="quickclose-item ${p.grounded ? "" : "is-skipped"}"
                             data-index="${i}" data-state="${p.grounded ? "ok" : "skip"}"
                             data-group="${escapeHtml(p.group)}" data-question="${escapeHtml(p.question || "")}">
                             <div class="quickclose-group">
@@ -1262,16 +1276,20 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                             </div>
                             ${p.question ? `<div class="quickclose-question">${escapeHtml(p.question)}</div>` : ""}
                             ${p.grounded && p.basis ? `<div class="quickclose-basis">Căn cứ: ${escapeHtml(p.basis)}</div>` : ""}
-                            <div class="quickclose-proposal">${escapeHtml(p.proposal)}</div>
-                            <textarea class="quickclose-fix" rows="3" hidden>${escapeHtml(p.proposal)}</textarea>
-                            ${options.length > 0 ? `
-                            <div class="quickclose-options">
-                                <span class="quickclose-options-label">Hoặc:</span>
-                                ${options.map(o => `<button type="button" class="quickclose-opt" data-option="${escapeHtml(o)}">${escapeHtml(o)}</button>`).join("")}
-                            </div>` : ""}
+                            <div class="quickclose-choices">
+                                ${choices.map((c, ci) => `
+                                <button type="button" class="quickclose-choice ${p.grounded && ci === 0 ? "is-on" : ""}"
+                                        data-value="${escapeHtml(c)}">
+                                    <span class="quickclose-choice-text">${escapeHtml(c)}</span>
+                                    ${ci === 0 ? `<span class="quickclose-choice-tag">BA đề xuất</span>` : ""}
+                                </button>`).join("")}
+                                <button type="button" class="quickclose-choice is-other" data-other="1">
+                                    <span class="quickclose-choice-text">Ý khác — tôi tự nhập</span>
+                                </button>
+                            </div>
+                            <textarea class="quickclose-fix" rows="2" hidden
+                                      placeholder="Câu trả lời của anh/chị cho điểm này…">${p.grounded ? escapeHtml(choices[0] || "") : ""}</textarea>
                             <div class="quickclose-actions">
-                                <button type="button" class="quickclose-vote ok ${p.grounded ? "is-on" : ""}" data-vote="ok">Đúng ý</button>
-                                <button type="button" class="quickclose-vote edit" data-vote="edit">Sửa</button>
                                 <button type="button" class="quickclose-vote skip ${p.grounded ? "" : "is-on"}" data-vote="skip">Để sau</button>
                             </div>
                         </li>`;
@@ -1293,23 +1311,28 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             scrollToBottom();
         }
 
-        // Một dòng = MỘT câu trả lời, dù nó đến từ phương án BA soạn, một chip lựa chọn hay ô gõ tay:
-        // giữ nội dung ở đúng một chỗ (textarea) và chỉ đổi cách hiện, nên không bao giờ có cảnh dòng
-        // hiển thị một đằng mà nội dung gửi đi một nẻo.
+        // Một dòng = MỘT câu trả lời, dù nó đến từ gợi ý BA soạn hay ô "Ý khác": giữ nội dung ở đúng một
+        // chỗ (textarea) và chỉ đổi cách hiện, nên không bao giờ có cảnh dòng hiển thị một đằng mà nội
+        // dung gửi đi một nẻo.
         function setAnswer(li, text) {
             li.querySelector(".quickclose-fix").value = text;
-            li.querySelector(".quickclose-proposal").textContent = text;
-            li.querySelectorAll(".quickclose-opt").forEach(opt =>
-                opt.classList.toggle("is-on", opt.dataset.option === text));
         }
 
+        // Chỉ MỘT gợi ý sáng mỗi dòng (kể cả ô "Ý khác") — đây là câu hỏi chọn một, không phải bộ lọc.
+        function markChoice(li, chosen) {
+            li.querySelectorAll(".quickclose-choice").forEach(btn =>
+                btn.classList.toggle("is-on", btn === chosen));
+        }
+
+        // Hai trạng thái: "ok" (dòng này sẽ được gửi đi) và "skip" (để BA hỏi tiếp trong chat).
         function setState(li, state) {
             li.dataset.state = state;
             li.classList.toggle("is-skipped", state === "skip");
-            li.querySelector(".quickclose-fix").hidden = state !== "edit";
-            li.querySelector(".quickclose-proposal").hidden = state === "edit";
-            li.querySelectorAll(".quickclose-vote").forEach(btn =>
-                btn.classList.toggle("is-on", btn.dataset.vote === state));
+            if (state === "skip") {
+                markChoice(li, null);
+                li.querySelector(".quickclose-fix").hidden = true;
+            }
+            li.querySelector(".quickclose-vote.skip").classList.toggle("is-on", state === "skip");
             updateConfirmButton();
         }
 
@@ -1378,21 +1401,37 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
 
         bodyEl.addEventListener("click", async function (e) {
-            // Bấm một chip lựa chọn = vừa chọn nội dung vừa đồng ý: chip mà còn phải bấm thêm "Đúng ý"
+            // Bấm một gợi ý = vừa chọn nội dung vừa đồng ý. Gợi ý mà còn phải bấm thêm một nút xác nhận
             // thì mất đúng cái lợi một-cú-bấm nó sinh ra để có.
-            const option = e.target.closest(".quickclose-opt");
-            if (option) {
-                const li = option.closest(".quickclose-item");
-                setAnswer(li, option.dataset.option);
+            const choice = e.target.closest(".quickclose-choice");
+            if (choice) {
+                const li = choice.closest(".quickclose-item");
+                const fix = li.querySelector(".quickclose-fix");
+                markChoice(li, choice);
+                if (choice.dataset.other) {
+                    // "Ý khác" mồi sẵn nội dung đang chọn (hoặc phương án BA đề xuất nếu chưa chọn gì):
+                    // phần lớn lượt tự nhập là CHỈNH vài chữ của một gợi ý, và bắt gõ lại cả câu chính
+                    // là thao tác mà nút "Sửa" cũ vốn tránh được.
+                    if (fix.value.trim().length === 0) {
+                        const first = li.querySelector(".quickclose-choice:not(.is-other)");
+                        fix.value = first ? first.dataset.value : "";
+                    }
+                    fix.hidden = false;
+                    setState(li, "ok");
+                    fix.focus();
+                    fix.setSelectionRange(fix.value.length, fix.value.length);
+                    return;
+                }
+
+                fix.hidden = true;
+                setAnswer(li, choice.dataset.value);
                 setState(li, "ok");
                 return;
             }
 
             const vote = e.target.closest(".quickclose-vote");
             if (vote) {
-                const li = vote.closest(".quickclose-item");
-                setState(li, vote.dataset.vote);
-                if (vote.dataset.vote === "edit") li.querySelector(".quickclose-fix").focus();
+                setState(vote.closest(".quickclose-item"), vote.dataset.vote);
                 return;
             }
 
@@ -1407,7 +1446,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
             const decisions = pickedDecisions();
             if (decisions.length === 0) {
-                gateMsg("Chưa chọn điểm nào — anh/chị bấm \"Đúng ý\" ở ít nhất một điểm, hoặc trả lời trong khung chat.");
+                gateMsg("Chưa chọn điểm nào — anh/chị bấm một gợi ý ở ít nhất một điểm, hoặc trả lời trong khung chat.");
                 return;
             }
 
@@ -1439,6 +1478,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
             confirmBtn.disabled = false;
             confirmBtn.textContent = original;
+        });
+
+        // Ô "Ý khác" đang mở mà rỗng thì dòng đó KHÔNG được tính (pickedDecisions lọc câu rỗng), nên
+        // nhãn nút chốt phải nhảy theo từng phím gõ — nếu không nó hứa sai số điểm sắp gửi đi.
+        bodyEl.addEventListener("input", function (e) {
+            if (e.target.classList.contains("quickclose-fix")) updateConfirmButton();
         });
     })();
 

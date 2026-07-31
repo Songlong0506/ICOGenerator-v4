@@ -1713,61 +1713,87 @@
     margin-top: 6px;
 }
 
-.quickclose-proposal { font-size: 13px; line-height: 1.5; margin-top: 6px; }
-
 /* Dòng đang để lại: vẫn đọc được nhưng lùi hẳn về sau, để mắt chỉ dừng ở những điểm sắp được gửi đi. */
 .quickclose-item.is-skipped {
     background: var(--surface-alt, #f9fafb);
     border-style: dashed;
 }
 
-    .quickclose-item.is-skipped .quickclose-proposal { color: #9ca3af; }
+    .quickclose-item.is-skipped .quickclose-choice { opacity: .6; }
 
-/* Chip lựa chọn: đổi ý bằng MỘT cú bấm thay vì gõ lại cả câu — thao tác mà bản trước bắt lặp cho từng
-   nhóm, và là lý do chính khiến chốt nhanh từng chậm hơn trả lời trong chat. */
-.quickclose-options {
+/* Gợi ý xếp DỌC, mỗi cái một dòng đầy chiều ngang — không phải chip nằm ngang: gợi ý đầu là cả một câu
+   phương án (sẽ được ghi vào hội thoại như lời của chính người dùng), nên nó phải đọc được trọn vẹn chứ
+   không bị bóp trong một viên pill. Dạng danh sách cũng nói đúng bản chất "chọn MỘT trong số này". */
+.quickclose-choices {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
+    flex-direction: column;
+    gap: 5px;
     margin-top: 8px;
 }
 
-.quickclose-options-label { font-size: 11.5px; color: #9ca3af; }
-
-.quickclose-opt {
+.quickclose-choice {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
     font-family: inherit;
-    font-size: 12px;
-    line-height: 1.4;
-    padding: 4px 10px;
-    border-radius: 999px;
-    border: 1px dashed var(--bosch-blue-tint-strong, #cfe0fb);
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line, #e5e7eb);
     background: #fff;
     color: #374151;
     cursor: pointer;
-    width: auto;
+    width: 100%;
     text-align: left;
 }
 
-    .quickclose-opt:hover { border-style: solid; background: var(--bosch-blue-tint, #eff6ff); }
+    .quickclose-choice:hover { border-color: var(--bosch-blue-tint-strong, #cfe0fb); background: var(--bosch-blue-tint, #eff6ff); }
 
-    .quickclose-opt.is-on {
-        border-style: solid;
+    .quickclose-choice.is-on {
         border-color: var(--bosch-blue, #2563eb);
         background: var(--bosch-blue-tint, #eff6ff);
         color: var(--bosch-blue, #2563eb);
         font-weight: 600;
     }
 
+    /* "Ý khác" là lối thoát, không phải một phương án ngang hàng ba gợi ý trên: viền đứt + chữ nhạt để
+       mắt lướt qua nó khi một trong ba gợi ý đã đúng. */
+    .quickclose-choice.is-other {
+        border-style: dashed;
+        color: #6b7280;
+        font-size: 12px;
+    }
+
+.quickclose-choice-text { flex: 1; }
+
+/* Nhãn "BA đề xuất" trên gợi ý đầu: giữ lại thông tin mà bản trước truyền bằng cách để phương án ở một
+   dòng riêng phía trên — nay ba gợi ý đồng hạng nên phải nói rõ cái nào là mặc định BA nghiêng về. */
+.quickclose-choice-tag {
+    flex: none;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--bosch-blue, #2563eb);
+    background: var(--bosch-blue-tint, #eff6ff);
+    border-radius: 999px;
+    padding: 1px 7px;
+    white-space: nowrap;
+}
+
+.quickclose-choice.is-on .quickclose-choice-tag { background: #fff; }
+
+/* Ô "Ý khác": nối liền ngay dưới nút mở nó, nền trắng như các gợi ý — nó là NỘI DUNG của lựa chọn vừa
+   bấm, không phải một ô nhập rời nằm cạnh danh sách. */
 .quickclose-fix {
     width: 100%;
-    margin-top: 6px;
+    margin-top: 5px;
     font-family: inherit;
     font-size: 12.5px;
     line-height: 1.5;
-    padding: 6px 8px;
-    border: 1px solid var(--line, #e5e7eb);
-    border-radius: 6px;
+    padding: 7px 10px;
+    border: 1px solid var(--bosch-blue-tint-strong, #cfe0fb);
+    border-radius: 8px;
+    background: #fff;
     resize: vertical;
 }
 
@@ -1786,11 +1812,7 @@
     white-space: nowrap;
 }
 
-    .quickclose-vote.ok.is-on { background: #10b981; border-color: #10b981; color: #fff; }
-
-    .quickclose-vote.edit.is-on { background: var(--bosch-blue, #2563eb); border-color: var(--bosch-blue, #2563eb); color: #fff; }
-
-    /* "Để sau" bật sáng bằng tông xám: nó là một lựa chọn hợp lệ ngang hàng hai nút kia (nhóm đó ở
+    /* "Để sau" bật sáng bằng tông xám: nó là một lựa chọn hợp lệ ngang hàng với các gợi ý (nhóm đó ở
        nguyên trạng thái trống và BA hỏi tiếp trong chat), không phải một cảnh báo. */
     .quickclose-vote.skip.is-on { background: #6b7280; border-color: #6b7280; color: #fff; }
 
@@ -1811,7 +1833,6 @@
 .quickclose-gate[hidden],
 .quickclose-hint[hidden],
 .quickclose-fix[hidden],
-.quickclose-proposal[hidden],
 .quickclose .btn[hidden] { display: none; }
 
 /* ==== Cổng soát MÂU THUẪN (bấm "Write Requirement" mới hiện, và chỉ khi thật sự có mâu thuẫn) ==== */

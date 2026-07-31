@@ -34,8 +34,10 @@ public class GapProposal
     public string Confidence { get; set; } = string.Empty;
 
     /// <summary>
-    /// 2–3 phương án thay thế NGẮN cho cùng câu hỏi, để người dùng đổi ý bằng một cú bấm thay vì gõ tay.
-    /// Đây là câu trả lời trực tiếp cho "phải nhập tay sửa lại từng câu" — thứ làm cổng chậm hơn cả chat.
+    /// Hai phương án thay thế NGẮN cho cùng câu hỏi. UI hiện mỗi nhóm như một câu hỏi chọn-một với ba
+    /// gợi ý đồng hạng — <see cref="Proposal"/> là gợi ý đầu, hai mục này là hai gợi ý còn lại — rồi tới
+    /// ô "Ý khác" để tự nhập. Đây là câu trả lời trực tiếp cho "phải gõ tay sửa lại từng câu", thứ làm
+    /// bản đầu của cổng chậm hơn cả chat.
     /// </summary>
     public List<string> Options { get; set; } = new();
 

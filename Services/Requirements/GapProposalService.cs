@@ -40,9 +40,10 @@ public class GapProposalService
     private const int MaxGroups = 12;
     // Hội thoại gửi kèm để phương án bám điều người dùng đã nói. Cắt từ CUỐI (lượt gần nhất quan trọng nhất).
     private const int MaxTranscriptChars = 12000;
-    // Lựa chọn bấm-một-cái: quá 4 thì người dùng phải ĐỌC một danh sách thay vì chọn nhanh, mất đúng
-    // cái lợi của chip. Mỗi lựa chọn cũng phải ngắn — dài hơn thì nó là một phương án, không phải nhãn.
-    private const int MaxOptions = 4;
+    // Lựa chọn THAY THẾ: đúng 2, vì UI hiện MỘT câu hỏi chọn-một với ba gợi ý đồng hạng — phương án ở
+    // `Proposal` là gợi ý đầu, hai mục này là hai gợi ý còn lại (rồi tới ô "Ý khác" để tự nhập). Nhiều
+    // hơn thì người dùng phải ĐỌC một danh sách thay vì liếc rồi bấm, mất đúng cái lợi của cổng này.
+    private const int MaxOptions = 2;
     private const int MaxOptionChars = 120;
     // Căn cứ ngắn hơn ngần này là chữ đệm ("người dùng đã nói", "theo hội thoại") chứ không phải trích dẫn.
     private const int MinBasisChars = 8;
