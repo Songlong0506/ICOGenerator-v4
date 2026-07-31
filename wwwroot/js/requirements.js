@@ -1164,9 +1164,16 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // MỖI DÒNG LÀ MỘT CÂU HỎI TRẮC NGHIỆM, không phải một phương án kèm hai nút biểu quyết. Bản trước có
     // "Đúng ý" / "Sửa" / "Để sau" cạnh một phương án mặc định, cộng thêm hàng chip `options` — tức HAI
     // đường nói "đồng ý" cho cùng một việc (bấm chip đã là chọn + đồng ý), và ô gõ tay thì nấp sau một
-    // nút đổi chế độ. Nay: ba gợi ý ĐỒNG HẠNG (phương án BA đề xuất là lựa chọn đầu, hai lựa chọn còn
-    // lại từ `options`), thêm "Ý khác" để tự nhập, và chỉ còn "Để sau" là nút. Bấm một gợi ý = chốt luôn
-    // dòng đó. Cùng ngôn ngữ tương tác với cổng soát mâu thuẫn ở cuối file.
+    // nút đổi chế độ. Nay: ba gợi ý ĐỒNG HẠNG (phương án chính là lựa chọn đầu, hai lựa chọn còn lại từ
+    // `options`), thêm "Ý khác" để tự nhập, và chỉ còn "Để sau" là nút. Bấm một gợi ý = chốt luôn dòng
+    // đó. Cùng ngôn ngữ tương tác với cổng soát mâu thuẫn ở cuối file.
+    //
+    // KHÔNG DÁN NHÃN TỪNG DÒNG. Bản trước có badge "BA suy ra từ trao đổi" / "BA phỏng đoán" cạnh tên
+    // nhóm và nhãn "BA đề xuất" trên gợi ý đầu. Cả ba đều lặp lại điều màn hình đã nói bằng hình: dòng
+    // suy ra được CHỌN SẴN và có dòng "Căn cứ:", dòng chưa có căn cứ thì mờ và nằm ở "Để sau", còn gợi ý
+    // đầu thì đứng đầu. Riêng "BA đề xuất" còn sai lệch: nó gắn theo VỊ TRÍ nên hiện cả trên những dòng
+    // BA chỉ đoán, đọc như một sự bảo đảm không có thật. Ranh giới suy-ra / chưa-có-căn-cứ giờ nói MỘT
+    // lần ở đoạn dẫn, kèm con số (xem buildLead).
     //
     // Hai trạng thái mỗi dòng — ok / skip — và chỉ dòng KHÁC "skip" (kèm câu trả lời không rỗng) mới
     // được gửi đi, nên bỏ qua một phương án sai vẫn tốn 0 thao tác: nhóm đó ở nguyên trạng thái trống và
@@ -1229,19 +1236,22 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             return grounded.concat(proposals.filter(p => !p.grounded));
         }
 
+        // Đoạn dẫn là chỗ DUY NHẤT nói ra ranh giới suy-ra / chưa-có-căn-cứ, từ khi hai nhãn nhỏ trên mỗi
+        // dòng bị bỏ. Nó phải trả lời được câu hỏi người dùng hỏi ngay khi nhìn danh sách — "sao dòng này
+        // sáng còn dòng kia không" — bằng chính con số, chứ không dán nhãn từng dòng.
         function buildLead(groundedCount, guessCount) {
             if (guessCount === 0) {
                 return `Cả ${groundedCount} điểm dưới đây đều suy ra từ những gì anh/chị đã nói —
                     xem lại rồi bấm chốt là xong.`;
             }
             if (groundedCount === 0) {
-                return `Anh/chị mới trao đổi ít nên <b>cả ${guessCount} điểm dưới đây đều là BA phỏng đoán</b>,
-                    và mình <b>không chọn sẵn điểm nào</b>. Mỗi điểm anh/chị bấm một gợi ý, hoặc bấm
-                    "Ý khác" để tự nhập; điểm nào chưa nghĩ tới thì để sau — BA sẽ hỏi tiếp trong khung chat.`;
+                return `Anh/chị mới trao đổi ít nên mình <b>chưa chọn sẵn điểm nào</b> — ${guessCount} điểm
+                    dưới đây là gợi ý để anh/chị bấm nhanh. Mỗi điểm bấm một gợi ý, hoặc bấm "Ý khác" để
+                    tự nhập; điểm nào chưa nghĩ tới thì để sau — BA sẽ hỏi tiếp trong khung chat.`;
             }
             return `<b>${groundedCount} điểm</b> mình suy ra từ trao đổi của anh/chị (đã chọn sẵn, có ghi rõ
-                căn cứ). <b>${guessCount} điểm</b> còn lại mình <b>chưa có căn cứ nên chỉ phỏng đoán</b> và
-                để trống — anh/chị bấm một gợi ý, tự nhập ở "Ý khác", hoặc để sau cho BA hỏi tiếp trong chat.`;
+                căn cứ). <b>${guessCount} điểm</b> còn lại mình <b>chưa có căn cứ</b> nên để trống —
+                anh/chị bấm một gợi ý, tự nhập ở "Ý khác", hoặc để sau cho BA hỏi tiếp trong chat.`;
         }
 
         function renderProposals(raw) {
@@ -1257,7 +1267,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 <div class="quickclose-lead">${buildLead(groundedCount, proposals.length - groundedCount)}</div>
                 <ul class="quickclose-list">
                     ${proposals.map((p, i) => {
-                        // Ba gợi ý ĐỒNG HẠNG: phương án BA đề xuất đứng đầu, hai lựa chọn còn lại từ
+                        // Ba gợi ý ĐỒNG HẠNG: phương án chính đứng đầu, hai lựa chọn còn lại từ
                         // `options`. Cắt ở 3 vì quá đó thì dòng này thành một danh sách phải ĐỌC, mất
                         // đúng cái lợi "liếc rồi bấm". Model trả thiếu thì hiện ít hơn — KHÔNG độn thêm
                         // cho đủ, độn là bịa (cùng nguyên tắc với GapProposalService).
@@ -1270,10 +1280,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                         <li class="quickclose-item ${p.grounded ? "" : "is-skipped"}"
                             data-index="${i}" data-state="${p.grounded ? "ok" : "skip"}"
                             data-group="${escapeHtml(p.group)}" data-question="${escapeHtml(p.question || "")}">
-                            <div class="quickclose-group">
-                                ${escapeHtml(p.group)}
-                                <span class="quickclose-badge ${p.grounded ? "grounded" : "guess"}">${p.grounded ? "BA suy ra từ trao đổi" : "BA phỏng đoán"}</span>
-                            </div>
+                            <div class="quickclose-group">${escapeHtml(p.group)}</div>
                             ${p.question ? `<div class="quickclose-question">${escapeHtml(p.question)}</div>` : ""}
                             ${p.grounded && p.basis ? `<div class="quickclose-basis">Căn cứ: ${escapeHtml(p.basis)}</div>` : ""}
                             <div class="quickclose-choices">
@@ -1281,7 +1288,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                                 <button type="button" class="quickclose-choice ${p.grounded && ci === 0 ? "is-on" : ""}"
                                         data-value="${escapeHtml(c)}">
                                     <span class="quickclose-choice-text">${escapeHtml(c)}</span>
-                                    ${ci === 0 ? `<span class="quickclose-choice-tag">BA đề xuất</span>` : ""}
                                 </button>`).join("")}
                                 <button type="button" class="quickclose-choice is-other" data-other="1">
                                     <span class="quickclose-choice-text">Ý khác — tôi tự nhập</span>
@@ -1362,7 +1368,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         function appendTurns(count) {
             const you = document.createElement("div");
             you.className = "req-msg you";
-            you.innerHTML = `<p>Tôi chốt ${count} điểm theo phương án BA đề xuất.</p>`;
+            you.innerHTML = `<p>Tôi chốt ${count} điểm ở phần chốt nhanh.</p>`;
             // Cuối dòng hội thoại, không phải trước danh sách gợi ý: chốt nhanh chạy được ở bất kỳ lúc
             // nào, kể cả sau vài lượt chat streaming — lúc đó #suggestionList không còn là điểm cuối.
             chatMessages.insertBefore(you, thinkingBox);
@@ -1409,7 +1415,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 const fix = li.querySelector(".quickclose-fix");
                 markChoice(li, choice);
                 if (choice.dataset.other) {
-                    // "Ý khác" mồi sẵn nội dung đang chọn (hoặc phương án BA đề xuất nếu chưa chọn gì):
+                    // "Ý khác" mồi sẵn nội dung đang chọn (hoặc gợi ý đầu nếu chưa chọn gì):
                     // phần lớn lượt tự nhập là CHỈNH vài chữ của một gợi ý, và bắt gõ lại cả câu chính
                     // là thao tác mà nút "Sửa" cũ vốn tránh được.
                     if (fix.value.trim().length === 0) {

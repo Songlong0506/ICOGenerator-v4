@@ -1672,31 +1672,13 @@
     background: #fff;
 }
 
+/* Tên nhóm đứng MỘT MÌNH: hai badge "BA suy ra từ trao đổi" / "BA phỏng đoán" từng nằm cạnh đây đã bỏ,
+   vì chúng chỉ lặp lại điều dòng đó đã nói bằng hình (chọn sẵn + dòng "Căn cứ:" so với mờ + "Để sau"). */
 .quickclose-group {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
     font-size: 12.5px;
     font-weight: 600;
     color: var(--bosch-blue, #2563eb);
 }
-
-/* Nhãn CĂN CỨ đứng ngay cạnh tên nhóm, không nằm dưới cùng: người dùng quyết định đọc kỹ hay lướt qua
-   một dòng ngay ở chữ đầu tiên của dòng đó. "BA phỏng đoán" cố tình KHÔNG dùng tông đỏ cảnh báo — đây
-   là trạng thái bình thường của một cuộc phỏng vấn mới bắt đầu, không phải lỗi. */
-.quickclose-badge {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: .01em;
-    padding: 2px 8px;
-    border-radius: 999px;
-    white-space: nowrap;
-}
-
-    .quickclose-badge.grounded { background: #dcfce7; color: #15803d; }
-
-    .quickclose-badge.guess { background: #f3f4f6; color: #6b7280; }
 
 .quickclose-question { font-size: 12px; color: #6b7280; margin-top: 2px; }
 
@@ -1766,21 +1748,6 @@
     }
 
 .quickclose-choice-text { flex: 1; }
-
-/* Nhãn "BA đề xuất" trên gợi ý đầu: giữ lại thông tin mà bản trước truyền bằng cách để phương án ở một
-   dòng riêng phía trên — nay ba gợi ý đồng hạng nên phải nói rõ cái nào là mặc định BA nghiêng về. */
-.quickclose-choice-tag {
-    flex: none;
-    font-size: 10.5px;
-    font-weight: 700;
-    color: var(--bosch-blue, #2563eb);
-    background: var(--bosch-blue-tint, #eff6ff);
-    border-radius: 999px;
-    padding: 1px 7px;
-    white-space: nowrap;
-}
-
-.quickclose-choice.is-on .quickclose-choice-tag { background: #fff; }
 
 /* Ô "Ý khác": nối liền ngay dưới nút mở nó, nền trắng như các gợi ý — nó là NỘI DUNG của lựa chọn vừa
    bấm, không phải một ô nhập rời nằm cạnh danh sách. */

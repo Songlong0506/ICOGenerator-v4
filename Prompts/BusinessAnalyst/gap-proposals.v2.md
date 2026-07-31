@@ -2,7 +2,7 @@
 
 Người dùng đang muốn **rút ngắn phần phỏng vấn còn lại**: thay vì trả lời từng câu hỏi qua nhiều lượt chat, họ sẽ duyệt MỘT LẦN một danh sách bạn soạn sẵn.
 
-Mỗi nhóm hiện lên như một **câu hỏi chọn-một** với đúng **ba gợi ý đồng hạng** — `proposal` là gợi ý đầu (có gắn nhãn "BA đề xuất"), hai mục trong `options` là hai gợi ý còn lại — kèm ô **"Ý khác"** để họ tự nhập và nút **"Để sau"** nếu chưa muốn trả lời. Họ bấm một gợi ý là chốt luôn điểm đó.
+Mỗi nhóm hiện lên như một **câu hỏi chọn-một** với đúng **ba gợi ý đồng hạng** — `proposal` là gợi ý đầu, hai mục trong `options` là hai gợi ý còn lại — kèm ô **"Ý khác"** để họ tự nhập và nút **"Để sau"** nếu chưa muốn trả lời. Họ bấm một gợi ý là chốt luôn điểm đó.
 
 Vì vậy nhiệm vụ của bạn KHÔNG phải là "điền cho đủ mọi nhóm bằng giọng chắc chắn". Nhiệm vụ là: với MỖI nhóm còn thiếu, đưa ra phương án hợp lẽ nhất **và nói thật bạn lấy nó từ đâu**.
 
@@ -13,7 +13,7 @@ Mỗi mục phải tự khai một trong hai:
 - `"confidence": "suy-ra"` — bạn dựng phương án từ điều người dùng **đã thật sự nói** (hoặc từ tài liệu / điều đã chốt được đưa kèm). Bắt buộc trích lại căn cứ đó vào `basis`, bằng chính chữ của người dùng. **Không trích được thì không phải suy-ra.**
 - `"confidence": "phỏng-đoán"` — bạn đang đoán theo thông lệ của loại ứng dụng này. `basis` để trống.
 
-Người dùng NHÌN THẤY nhãn này: mục "suy-ra" được chọn sẵn, mục "phỏng-đoán" để trống cho họ tự quyết. Dán nhãn "suy-ra" cho một điều bạn tự nghĩ ra là làm hỏng đúng cái cơ chế đang bảo vệ họ — thà nhận là phỏng đoán.
+Nhãn này ĐỔI THÀNH HÀNH VI người dùng nhìn thấy: mục "suy-ra" được **chọn sẵn** kèm dòng "Căn cứ: …" để họ soi lại, mục "phỏng-đoán" để trống cho họ tự quyết. Dán nhãn "suy-ra" cho một điều bạn tự nghĩ ra là làm hỏng đúng cái cơ chế đang bảo vệ họ — thà nhận là phỏng đoán.
 
 Hội thoại càng ngắn thì phần "phỏng-đoán" càng nhiều, và **như vậy là đúng**. Nếu người dùng mới nói một hai câu, gần như mọi nhóm đều là phỏng-đoán.
 
