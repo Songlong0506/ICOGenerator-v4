@@ -18,6 +18,8 @@ namespace ICOGenerator.Tests.Requirements;
 //  (2) Bấm lần hai (hai tab) không tạo ra hai delivery run trên cùng workspace.
 //  (3) Báo sai ⇒ đính chính đi vào CẢ hội thoại LẪN cột nạp thẳng vào prompt sinh spec — chỉ ghi hội
 //      thoại thì lượt sinh lại vẫn đẻ ra đúng giả định vừa bị bác (spec sinh từ Brief, không đọc transcript).
+//  (4) Phần user để nguyên "Đúng" được NHỚ lại (Project.ConfirmedAssumptions) — không có nó thì lượt sinh
+//      lại dựng cổng hỏi y nguyên những điểm vừa duyệt; đổi ý (bác điểm từng duyệt) thì phải quên đi.
 public class SpecAssumptionsGateTests : IDisposable
 {
     private const string SpecFileName = "AiDesignSpec.docx";
@@ -181,8 +183,72 @@ public class SpecAssumptionsGateTests : IDisposable
         Assert.Equal(0, await NewDb().AgentConversations.CountAsync());
     }
 
+    // ==== Trí nhớ "đã duyệt đúng" (AssumptionMemory) ====
+    // Không có nó thì mỗi lần bác một điểm, lượt sinh lại dựng cổng hỏi NGUYÊN VĂN cả những điểm vừa bấm
+    // "Đúng" — chính là "tôi trả lời rồi mà BA cứ hỏi mãi".
+
+    [Fact]
+    public async Task Confirm_RemembersTheConfirmedAssumptions()
+    {
+        await using var db = NewDb();
+        await new ConfirmSpecAssumptionsUseCase(db, new FakeCatalog(), new FakeOrchestrator()).ExecuteAsync(_projectId);
+
+        await using var verify = NewDb();
+        Assert.Contains("Mỗi nhân viên chỉ thuộc một phòng ban",
+            (await verify.Projects.SingleAsync()).ConfirmedAssumptions);
+    }
+
+    [Fact]
+    public async Task Revise_RemembersTheItemsLeftMarkedOk_ButNotTheRejectedOne()
+    {
+        await SetSpecAssumptionsAsync("Mỗi nhân viên chỉ thuộc một phòng ban", "Hạn chót nhập theo ngày", "Có ba mức ưu tiên");
+
+        await using (var db = NewDb())
+            await NewReviseSut(db, new FakeOrchestrator()).ExecuteAsync(_projectId, new List<AssumptionCorrection>
+            {
+                new() { Assumption = "Hạn chót nhập theo ngày", Correction = "cần cả giờ" }
+            });
+
+        await using var verify = NewDb();
+        var remembered = AssumptionMemory.Split((await verify.Projects.SingleAsync()).ConfirmedAssumptions);
+
+        Assert.Contains("Mỗi nhân viên chỉ thuộc một phòng ban", remembered);
+        Assert.Contains("Có ba mức ưu tiên", remembered);
+        Assert.DoesNotContain("Hạn chót nhập theo ngày", remembered);
+    }
+
+    [Fact]
+    public async Task Revise_ForgetsAnAssumptionTheUserPreviouslyConfirmed_WhenTheyChangeTheirMind()
+    {
+        await using (var seed = NewDb())
+        {
+            (await seed.Projects.SingleAsync()).ConfirmedAssumptions = "Mỗi nhân viên chỉ thuộc một phòng ban";
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+            await NewReviseSut(db, new FakeOrchestrator()).ExecuteAsync(_projectId, new List<AssumptionCorrection>
+            {
+                // Chấm câu khác bản đã nhớ: so khớp là theo khoá chuẩn hoá, không phải nguyên văn.
+                new() { Assumption = "Mỗi nhân viên chỉ thuộc một phòng ban.", Correction = "kiêm nhiệm được 2 phòng" }
+            });
+
+        await using var verify = NewDb();
+        // Quên hẳn — nếu còn nằm trong trí nhớ thì lượt sinh sau coi như "đã duyệt" và không bao giờ hỏi lại.
+        Assert.Null((await verify.Projects.SingleAsync()).ConfirmedAssumptions);
+    }
+
+    private async Task SetSpecAssumptionsAsync(params string[] assumptions)
+    {
+        await using var db = NewDb();
+        var doc = await db.ProjectDocuments.SingleAsync(x => x.FileName == SpecFileName);
+        doc.Content = "# AI Design Spec\n## 12. Assumptions\n"
+                      + string.Join("\n", assumptions.Select(a => "- " + a));
+        await db.SaveChangesAsync();
+    }
+
     private ReviseSpecAssumptionsUseCase NewReviseSut(AppDbContext db, IWorkflowOrchestrator orchestrator) =>
-        new(db, new BAConversationLog(db), new BAAgentResolver(db), orchestrator);
+        new(db, new BAConversationLog(db), new BAAgentResolver(db), new FakeCatalog(), orchestrator);
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 

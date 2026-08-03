@@ -91,6 +91,11 @@ public class Project
     // lặp lại đúng giả định vừa bị bác. Giữ lại sau khi đã xác nhận: các lần sinh spec sau (phiên bản
     // mới) vẫn phải tôn trọng điều user đã đính chính.
     public string? SpecAssumptionCorrections { get; set; }
+    // Vế ĐỐI XỨNG của cột trên: các giả định user đã bấm "Đúng" ở cổng (mỗi dòng một giả định). Không có
+    // cột này thì mỗi lượt sinh lại spec, cổng hỏi lại NGUYÊN VĂN cả những điểm vừa được duyệt — user
+    // thấy "đã trả lời rồi mà BA cứ hỏi". Có nó thì cổng chỉ hỏi phần mới, và lượt sinh lại không đẻ ra
+    // giả định mới nào sẽ tự xác nhận chạy thẳng sang dựng POC. Xem AssumptionMemory.
+    public string? ConfirmedAssumptions { get; set; }
     // Con trỏ học từ ghi chú POC: số PocComment (xếp theo CreatedAt) của dự án đã được chắt lọc vào
     // Agent.LearnedChecklistNotes sau mỗi vòng chỉnh sửa POC — ghi chú kiểu "thiếu màn hình X" chính là
     // câu hỏi BA lẽ ra phải hỏi từ lúc phỏng vấn. Xem PocFeedbackMemoryService.
