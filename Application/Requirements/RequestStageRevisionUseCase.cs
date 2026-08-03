@@ -63,9 +63,15 @@ public class RequestStageRevisionUseCase
     /// <see cref="WorkflowStageKey.PocPreview"/> — rào chắn để quyền "sửa demo" không nới thành quyền
     /// điều khiển các bước kỹ thuật phía sau.
     /// </param>
+    /// <param name="pocCommentIds">
+    /// Chỉ có nghĩa cùng <paramref name="includePocComments"/>: giới hạn ở ĐÚNG các ghi chú này thay vì mọi
+    /// ghi chú Open. Đường vào từ trang POC Review truyền tập người dùng đã xếp vào nhóm "chỉnh bản demo"
+    /// trong hộp xác nhận, để các ghi chú thuộc nhóm còn lại (gửi về Requirement) không bị cuốn theo. Để
+    /// null ⇒ gom mọi ghi chú Open như cũ (cổng duyệt trên Agent Dashboard không có bước phân loại).
+    /// </param>
     public async Task<RequestStageRevisionResult> ExecuteAsync(
         Guid projectId, string? feedback, Guid? runId = null, bool includePocComments = false,
-        WorkflowStageKey? onlyStage = null)
+        WorkflowStageKey? onlyStage = null, IReadOnlyCollection<Guid>? pocCommentIds = null)
     {
         feedback = feedback?.Trim() ?? string.Empty;
 
@@ -92,8 +98,16 @@ public class RequestStageRevisionUseCase
         // không "đốt" ghi chú của người dùng.
         if (includePocComments && run.CurrentStage == WorkflowStageKey.PocPreview)
         {
-            var pocComments = await _db.PocComments
-                .Where(c => c.ProjectId == projectId && c.Status == PocCommentStatus.Open)
+            var pocCommentQuery = _db.PocComments
+                .Where(c => c.ProjectId == projectId && c.Status == PocCommentStatus.Open);
+
+            if (pocCommentIds != null)
+            {
+                var ids = pocCommentIds.Distinct().ToList();
+                pocCommentQuery = pocCommentQuery.Where(c => ids.Contains(c.Id));
+            }
+
+            var pocComments = await pocCommentQuery
                 .OrderBy(c => c.CreatedAt)
                 .ToListAsync();
 

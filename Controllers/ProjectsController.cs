@@ -25,8 +25,8 @@ public class ProjectsController : Controller
     private readonly CreatePocShareLinkUseCase _createPocShareLinkUseCase;
     private readonly RevokePocShareLinkUseCase _revokePocShareLinkUseCase;
     private readonly ListPocShareLinksQuery _listPocShareLinksQuery;
-    private readonly RoutePocFeedbackToRequirementUseCase _routePocFeedbackUseCase;
-    private readonly RequestStageRevisionUseCase _requestStageRevisionUseCase;
+    private readonly TriagePocFeedbackUseCase _triagePocFeedbackUseCase;
+    private readonly DispatchPocFeedbackUseCase _dispatchPocFeedbackUseCase;
     private readonly AcceptPocUseCase _acceptPocUseCase;
     private readonly IPermissionService _permissions;
 
@@ -44,8 +44,8 @@ public class ProjectsController : Controller
         CreatePocShareLinkUseCase createPocShareLinkUseCase,
         RevokePocShareLinkUseCase revokePocShareLinkUseCase,
         ListPocShareLinksQuery listPocShareLinksQuery,
-        RoutePocFeedbackToRequirementUseCase routePocFeedbackUseCase,
-        RequestStageRevisionUseCase requestStageRevisionUseCase,
+        TriagePocFeedbackUseCase triagePocFeedbackUseCase,
+        DispatchPocFeedbackUseCase dispatchPocFeedbackUseCase,
         AcceptPocUseCase acceptPocUseCase,
         IPermissionService permissions)
     {
@@ -62,8 +62,8 @@ public class ProjectsController : Controller
         _createPocShareLinkUseCase = createPocShareLinkUseCase;
         _revokePocShareLinkUseCase = revokePocShareLinkUseCase;
         _listPocShareLinksQuery = listPocShareLinksQuery;
-        _routePocFeedbackUseCase = routePocFeedbackUseCase;
-        _requestStageRevisionUseCase = requestStageRevisionUseCase;
+        _triagePocFeedbackUseCase = triagePocFeedbackUseCase;
+        _dispatchPocFeedbackUseCase = dispatchPocFeedbackUseCase;
         _acceptPocUseCase = acceptPocUseCase;
         _permissions = permissions;
     }
@@ -306,53 +306,105 @@ public class ProjectsController : Controller
             : NotFound();
     }
 
-    // Đóng vòng POC → TÀI LIỆU: lọc các ghi chú Open phản ánh hiểu-sai-yêu-cầu, đưa vào hội thoại BA và
-    // soạn lại draft. Cần quyền quản lý requirement (đây là hành động sửa tài liệu, không phải ghim ghi chú).
+    // BƯỚC 1 của lượt gửi ghi chú POC: phân loại từng ghi chú Open thành "chỉnh bản demo" hay "sửa tài
+    // liệu yêu cầu" để dựng hộp xác nhận. Chỉ đọc + gọi model, KHÔNG đổi trạng thái gì — người dùng còn
+    // đổi nhóm được trước khi bấm gửi ở DispatchPocFeedback.
+    //
+    // Vì sao trang này không còn bày hai nút: hai đường có chi phí lệch hẳn nhau (một vòng vá HTML có
+    // trần, so với soạn lại tài liệu + dựng lại toàn bộ POC), mà việc phân biệt chúng lại là phép phân
+    // loại hệ thống tự làm được — không phải việc của người xem demo.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
     [RequireProjectAccess(Message = "Project không tồn tại.")]
-    public async Task<IActionResult> RoutePocFeedbackToRequirement(Guid projectId)
+    public async Task<IActionResult> TriagePocFeedback(Guid projectId)
     {
-        var result = await _routePocFeedbackUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
-        return result switch
+        var report = await _triagePocFeedbackUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
+
+        return report.Status switch
         {
-            RoutePocFeedbackResult.Ok => Json(new { ok = true, message = "Đã gửi các điểm thuộc yêu cầu về BA để cập nhật tài liệu — hệ thống đang soạn lại bản mô tả, sau đó anh/chị duyệt lại để dựng POC mới." }),
-            RoutePocFeedbackResult.NoOpenComments => Json(new { ok = false, message = "Chưa có ghi chú nào đang mở để gửi." }),
-            RoutePocFeedbackResult.NoRequirementIssue => Json(new { ok = false, message = "Các ghi chú hiện tại chỉ là chỉnh trình bày (không phải hiểu sai yêu cầu) — hãy dùng \"Yêu cầu chỉnh sửa\" ở cổng POC để đội Dev sửa demo." }),
-            RoutePocFeedbackResult.BaNotConfigured => Json(new { ok = false, message = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst)." }),
+            PocFeedbackTriageStatus.NoOpenComments => Json(new { ok = false, message = "Chưa có ghi chú nào đang chờ gửi — ghim vài ghi chú trên bản demo rồi gửi nhé." }),
+            PocFeedbackTriageStatus.ProjectNotFound => NotFound("Project không tồn tại."),
+            _ => Json(new
+            {
+                ok = true,
+                classified = report.Classified,
+                baConfigured = report.BaConfigured,
+                items = report.Items.Select(i => new
+                {
+                    id = i.Id,
+                    index = i.Index,
+                    pageView = i.PageView,
+                    elementLabel = i.ElementLabel,
+                    comment = i.Comment,
+                    requirement = i.IsRequirementIssue,
+                    reason = i.Reason
+                })
+            })
+        };
+    }
+
+    // BƯỚC 2: gửi thật, theo đúng bảng phân loại người dùng vừa xác nhận. Mỗi đường chỉ nhận TẬP CON của
+    // nó — trước đây cả hai nút đều nuốt trọn mọi ghi chú Open, nên một buổi review lẫn hai loại thì
+    // không nút nào đúng (xem DispatchPocFeedbackUseCase).
+    //
+    // Cần quyền quản lý requirement: đây là hành động đẩy pipeline/sửa tài liệu, không phải ghim ghi chú.
+    // Rào chắn của đường chỉnh demo giữ nguyên — chỉ tác động khi run đang chờ ở ĐÚNG bước POC, không
+    // duyệt/không đẩy bước kế, vẫn đếm chung trần DeliveryPipeline.MaxRevisionRounds.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Message = "Project không tồn tại.")]
+    public async Task<IActionResult> DispatchPocFeedback(Guid projectId, Guid[]? fixIds, Guid[]? requirementIds)
+    {
+        var report = await _dispatchPocFeedbackUseCase.ExecuteAsync(
+            projectId,
+            fixIds ?? Array.Empty<Guid>(),
+            requirementIds ?? Array.Empty<Guid>(),
+            HttpContext.RequestAborted);
+
+        return report.Status switch
+        {
+            PocFeedbackDispatchStatus.Ok => Json(new { ok = true, message = DispatchOkMessage(report) }),
+            PocFeedbackDispatchStatus.NothingSelected => Json(new { ok = false, message = "Chưa chọn ghi chú nào để gửi." }),
+            PocFeedbackDispatchStatus.InvalidSelection => Json(new { ok = false, reload = true, message = "Danh sách ghi chú vừa thay đổi (có người khác gửi hoặc xóa) — mở lại để phân loại theo bản mới nhé." }),
+            PocFeedbackDispatchStatus.RequirementFailed => Json(new { ok = false, message = RequirementErrorMessage(report.RequirementError) }),
+            PocFeedbackDispatchStatus.FixFailed => Json(new { ok = false, message = FixErrorMessage(report.FixError) }),
             _ => NotFound("Project không tồn tại.")
         };
     }
 
-    // Đường "nhờ đội Dev chỉnh BẢN DEMO" cho user thường, ngay tại trang POC Review.
-    //
-    // Vì sao cần riêng: cổng duyệt delivery (ApproveStage/RequestRevision ở Agent Dashboard) đòi quyền
-    // DeliveryAdvance mà user nghiệp vụ không có, còn nút "gửi về Requirement" cạnh đây thì CỐ TÌNH bỏ
-    // qua các ghi chú thuần trình bày (xem poc-feedback-route.v1.md). Hệ quả cũ: đúng loại lỗi mà người
-    // xem demo hay bắt nhất — nhãn sai, thiếu nút, bảng trống, canh lệch — lại không có đường nào để họ
-    // xử lý, phải đi nhờ TeamDev.
-    //
-    // Rào chắn giữ nguyên: chỉ tác động khi run đang chờ ở ĐÚNG bước POC (onlyStage), không duyệt/không
-    // đẩy bước kế, và vẫn đếm chung trần DeliveryPipeline.MaxRevisionRounds như đường của người duyệt.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Message = "Project không tồn tại.")]
-    public async Task<IActionResult> RequestPocFix(Guid projectId, string? feedback)
+    // Đường tài liệu ĐÈ đường chỉnh demo trong cùng một lượt: POC sẽ được dựng lại từ tài liệu đã sửa nên
+    // vá HTML lúc này vừa phí một vòng trong trần, vừa cho ra bản vá bị bỏ đi ngay. Các ghi chú thẩm mỹ
+    // được giữ Open cho vòng review sau — phải nói rõ điều đó, nếu không người dùng tưởng chúng đã đi.
+    private static string DispatchOkMessage(PocFeedbackDispatchReport report)
     {
-        var result = await _requestStageRevisionUseCase.ExecuteAsync(
-            projectId, feedback, runId: null, includePocComments: true, onlyStage: WorkflowStageKey.PocPreview);
+        if (report.RoutedCount == 0)
+            return $"Đã gửi {report.FixSentCount} ghi chú cho đội Dev chỉnh bản demo — theo dõi tiến độ ở trang Requirements, xong sẽ có bản mới để xem lại.";
 
-        return result switch
-        {
-            RequestStageRevisionResult.Queued => Json(new { ok = true, message = "Đã gửi cho đội Dev chỉnh bản demo — theo dõi tiến độ ở trang Requirements, xong sẽ có bản mới để xem lại." }),
-            RequestStageRevisionResult.MissingFeedback => Json(new { ok = false, message = "Chưa có ghi chú nào đang mở và cũng chưa gõ nhận xét — ghim vài ghi chú trên POC rồi gửi nhé." }),
-            RequestStageRevisionResult.RevisionLimitReached => Json(new { ok = false, message = $"Bản demo đã qua {DeliveryPipeline.MaxRevisionRounds} vòng chỉnh sửa. Nếu vẫn chưa đúng thì thường là do TÀI LIỆU chưa khớp — hãy dùng nút gửi về Requirement." }),
-            RequestStageRevisionResult.StageMismatch => Json(new { ok = false, message = "Quy trình đã đi qua bước bản demo nên không chỉnh ở đây được nữa — nhờ đội Dev xử lý trên Agent Dashboard." }),
-            _ => Json(new { ok = false, message = "Không có bản demo nào đang chờ duyệt để chỉnh sửa." })
-        };
+        var message = $"Đã gửi {report.RoutedCount} điểm hiểu sai yêu cầu về BA để cập nhật tài liệu — hệ thống đang soạn lại bản mô tả, sau đó anh/chị duyệt lại để dựng bản demo mới.";
+
+        if (report.HeldCount > 0)
+            message += $" {report.HeldCount} ghi chú chỉnh trình bày được GIỮ LẠI (vẫn ở trạng thái chờ gửi): bản demo sắp dựng lại từ đầu nên chưa cần tốn một vòng chỉnh sửa, anh/chị xem lại chúng ở vòng review tới.";
+
+        return message;
     }
+
+    private static string RequirementErrorMessage(RoutePocFeedbackResult? error) => error switch
+    {
+        RoutePocFeedbackResult.BaNotConfigured => "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst) nên chưa gửi về Requirement được.",
+        RoutePocFeedbackResult.ComposeFailed => "Chưa soạn được phản hồi gửi BA (lỗi gọi model) — ghi chú vẫn còn nguyên, thử lại giúp nhé.",
+        RoutePocFeedbackResult.NoOpenComments => "Các ghi chú đã chọn không còn ở trạng thái chờ gửi — mở lại để phân loại theo bản mới nhé.",
+        _ => "Không gửi được về Requirement — ghi chú vẫn còn nguyên, thử lại giúp nhé."
+    };
+
+    private static string FixErrorMessage(RequestStageRevisionResult? error) => error switch
+    {
+        RequestStageRevisionResult.RevisionLimitReached => $"Bản demo đã qua {DeliveryPipeline.MaxRevisionRounds} vòng chỉnh sửa. Nếu vẫn chưa đúng thì thường là do TÀI LIỆU chưa khớp — hãy xếp các ghi chú đó sang nhóm sửa tài liệu yêu cầu.",
+        RequestStageRevisionResult.StageMismatch => "Quy trình đã đi qua bước bản demo nên không chỉnh ở đây được nữa — nhờ đội Dev xử lý trên Agent Dashboard.",
+        RequestStageRevisionResult.MissingFeedback => "Các ghi chú đã chọn không còn ở trạng thái chờ gửi — mở lại để phân loại theo bản mới nhé.",
+        _ => "Không có bản demo nào đang chờ duyệt để chỉnh sửa."
+    };
 
     // NGHIỆM THU BẢN DEMO: điểm dừng của hành trình phía người yêu cầu. Trước đây họ chỉ có các đường
     // "còn sai chỗ này" (ghim ghi chú / nhờ Dev chỉnh / gửi về Requirement) mà không có đường nào nói

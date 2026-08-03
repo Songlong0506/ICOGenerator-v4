@@ -219,44 +219,7 @@
         if (item) postToFrame({ type: "poc-focus", id: item.dataset.id });
     });
 
-    // "Gửi về Requirement" (B): các ghi chú hiểu-sai-yêu-cầu được lọc + đưa vào hội thoại BA để soạn lại
-    // TÀI LIỆU của chính dự án (không chỉ vá HTML). Server tự bỏ ghi chú thẩm mỹ.
-    const routeReqBtn = document.getElementById("pocRouteReqBtn");
-    const routeReqUrl = root.dataset.routeReqUrl;
-    const routeReqHint = document.getElementById("pocRouteReqHint");
-    if (routeReqBtn && routeReqUrl) {
-        routeReqBtn.addEventListener("click", async function () {
-            if (!confirm("Gửi các điểm HIỂU SAI YÊU CẦU về BA để cập nhật tài liệu? (Ghi chú chỉnh trình bày sẽ được bỏ qua.)")) return;
-
-            routeReqBtn.disabled = true;
-            const original = routeReqBtn.textContent;
-            routeReqBtn.textContent = "Đang gửi…";
-
-            const fd = new FormData();
-            fd.append("projectId", projectId);
-            if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
-
-            try {
-                const response = await fetch(routeReqUrl, { method: "POST", body: fd });
-                const data = await response.json().catch(() => null);
-                if (routeReqHint && data && data.message) {
-                    routeReqHint.textContent = data.message;
-                    routeReqHint.classList.toggle("poc-route-ok", !!data.ok);
-                }
-                if (data && data.ok) {
-                    // Các ghi chú đã chuyển trạng thái (RoutedToRequirement) — làm tươi danh sách.
-                    await loadComments();
-                }
-            } catch {
-                if (routeReqHint) routeReqHint.textContent = "Không gửi được — thử lại sau.";
-            } finally {
-                routeReqBtn.disabled = false;
-                routeReqBtn.textContent = original;
-            }
-        });
-    }
-
-    // "Bản demo đã đạt — tôi nghiệm thu": đường ĐÓNG hành trình phía người yêu cầu, đối trọng với hai nút
+    // "Bản demo đã đạt — tôi nghiệm thu": đường ĐÓNG hành trình phía người yêu cầu, đối trọng với nút
     // "còn sai chỗ này" bên dưới. Chỉ ghi nhận + báo người có quyền duyệt (không tự đẩy pipeline), nên sau
     // khi thành công chỉ cần thay khối nút bằng dòng xác nhận tại chỗ.
     const acceptBtn = document.getElementById("pocAcceptBtn");
@@ -290,46 +253,183 @@
         });
     }
 
-    // "Nhờ đội Dev chỉnh bản demo": gom các ghi chú đang mở thành một vòng chỉnh sửa POC cho Developer.
-    // Khác nút bên dưới (gửi về Requirement — sửa TÀI LIỆU rồi dựng lại), đây là đường vá chính bản demo,
-    // vốn trước đây chỉ mở cho người có quyền cổng duyệt trên Agent Dashboard.
-    const requestFixBtn = document.getElementById("pocRequestFixBtn");
-    const requestFixUrl = root.dataset.requestFixUrl;
-    if (requestFixBtn && requestFixUrl) {
-        const fixHint = requestFixBtn.nextElementSibling;
+    // ===== Gửi ghi chú đi xử lý: MỘT nút, hai đường =====
+    //
+    // Trang này từng bày HAI nút ("nhờ Dev chỉnh bản demo" / "gửi về Requirement") và bắt người xem demo
+    // tự phân loại ghi chú của mình — trong khi chính hệ thống làm được phép phân loại ấy, và cả hai nút
+    // đều nuốt trọn mọi ghi chú Open nên một buổi review lẫn hai loại thì không nút nào đúng.
+    //
+    // Nay: bấm gửi → server phân loại từng ghi chú (TriagePocFeedback, KHÔNG đổi trạng thái gì) → hộp xác
+    // nhận cho soát và đổi nhóm → gửi một lượt (DispatchPocFeedback), mỗi đường nhận đúng tập con của nó.
+    const sendBtn = document.getElementById("pocSendFeedbackBtn");
+    const triageUrl = root.dataset.triageUrl;
+    const dispatchUrl = root.dataset.dispatchUrl;
+    const gateOpen = root.dataset.gateOpen === "true";
 
-        requestFixBtn.addEventListener("click", async function () {
-            if (requestFixBtn.dataset.limitReached === "true") {
-                if (fixHint) fixHint.textContent = "Đã hết số vòng chỉnh sửa cho bản demo này — nếu vẫn chưa đúng thì thường là do tài liệu, hãy dùng nút gửi về Requirement.";
-                return;
+    if (sendBtn && triageUrl && dispatchUrl) {
+        const modal = document.getElementById("pocDispatchModal");
+        const groupsEl = document.getElementById("pocDispatchGroups");
+        const noteEl = document.getElementById("pocDispatchNote");
+        const msgEl = document.getElementById("pocDispatchMsg");
+        const confirmBtn = document.getElementById("pocDispatchConfirm");
+        const sendHint = document.getElementById("pocSendFeedbackHint");
+
+        let triaged = [];          // [{ id, pageView, elementLabel, comment, requirement, reason }]
+        let baConfigured = true;
+
+        function closeModal() {
+            modal.classList.add("hidden");
+        }
+
+        function itemHtml(item, i) {
+            const where = item.pageView ? `[${escapeHtml(item.pageView)}] ` : "";
+            const what = item.elementLabel ? `<b>${escapeHtml(item.elementLabel)}</b> — ` : "";
+            // Đích của nút chuyển nhóm là nhóm ĐỐI DIỆN nhóm hiện tại của ghi chú.
+            const moveLabel = item.requirement ? "→ chỉ là lỗi trình bày" : "→ đây là hiểu sai yêu cầu";
+            const moveDisabled = !item.requirement && !baConfigured;
+
+            return `
+                <li class="poc-dispatch-item">
+                    <div class="poc-dispatch-item-text">${where}${what}${escapeHtml(item.comment)}</div>
+                    ${item.reason ? `<div class="poc-dispatch-reason">${escapeHtml(item.reason)}</div>` : ""}
+                    <button type="button" class="poc-dispatch-move" data-i="${i}"${moveDisabled ? " disabled" : ""}>${moveLabel}</button>
+                </li>`;
+        }
+
+        function renderGroups() {
+            const fix = [];
+            const req = [];
+            triaged.forEach((item, i) => (item.requirement ? req : fix).push(i));
+
+            const warnings = [];
+            // Đường tài liệu ĐÈ đường chỉnh demo trong cùng một lượt (xem DispatchPocFeedbackUseCase):
+            // POC sắp dựng lại từ tài liệu đã sửa nên vá HTML bây giờ là phí một vòng trong trần. Ghi chú
+            // nhóm kia được giữ nguyên "chờ gửi" — phải nói rõ, không thì người dùng tưởng chúng đã đi.
+            if (req.length && fix.length) {
+                warnings.push(`Lượt này gửi <b>${req.length}</b> điểm về BA sửa tài liệu. <b>${fix.length}</b> ghi chú chỉnh trình bày được <b>giữ lại</b> ở trạng thái chờ gửi: bản demo sẽ dựng lại từ tài liệu mới nên chưa cần tốn một vòng chỉnh sửa — anh/chị xem lại chúng ở vòng review tới.`);
+            } else if (fix.length && !gateOpen) {
+                warnings.push("Quy trình đã đi qua bước bản demo nên vòng chỉnh sửa demo không còn mở — các ghi chú ở nhóm này chưa gửi đi được. Ghi chú nào thật ra là hiểu sai yêu cầu thì chuyển sang nhóm dưới.");
             }
-            if (!confirm("Gửi các ghi chú đang mở cho đội Dev chỉnh bản demo?")) return;
 
-            requestFixBtn.disabled = true;
-            const original = requestFixBtn.textContent;
-            requestFixBtn.textContent = "Đang gửi…";
+            groupsEl.innerHTML = `
+                <div class="poc-dispatch-group">
+                    <h4>🛠 Nhờ đội Dev chỉnh bản demo <span class="poc-count">(${fix.length})</span></h4>
+                    <p class="muted">Lỗi trình bày: sai nhãn, thiếu nút, bảng trống, canh lệch. Developer vá thẳng bản demo, tài liệu không đụng tới.</p>
+                    ${fix.length ? `<ul>${fix.map(i => itemHtml(triaged[i], i)).join("")}</ul>` : '<p class="muted poc-dispatch-empty">— không có —</p>'}
+                </div>
+                <div class="poc-dispatch-group">
+                    <h4>↩ Gửi về Requirement để sửa tài liệu <span class="poc-count">(${req.length})</span></h4>
+                    <p class="muted">Tài liệu yêu cầu thiếu/hiểu sai. BA soạn lại bản mô tả, sau đó anh/chị duyệt lại để dựng bản demo mới.</p>
+                    ${req.length ? `<ul>${req.map(i => itemHtml(triaged[i], i)).join("")}</ul>` : '<p class="muted poc-dispatch-empty">— không có —</p>'}
+                </div>
+                ${warnings.map(w => `<p class="poc-dispatch-warn">${w}</p>`).join("")}`;
+
+            // Không còn đường nào chạy được cho lựa chọn hiện tại ⇒ khóa nút gửi thay vì để server từ chối.
+            confirmBtn.disabled = req.length === 0 && (fix.length === 0 || !gateOpen);
+            confirmBtn.textContent = req.length
+                ? `Gửi ${req.length} điểm về Requirement`
+                : (fix.length ? `Gửi ${fix.length} ghi chú cho Dev` : "Gửi");
+        }
+
+        groupsEl.addEventListener("click", function (e) {
+            const move = e.target.closest(".poc-dispatch-move");
+            if (!move) return;
+            const item = triaged[Number(move.dataset.i)];
+            if (!item) return;
+            if (!item.requirement && !baConfigured) return;
+            item.requirement = !item.requirement;
+            msgEl.textContent = "";
+            renderGroups();
+        });
+
+        sendBtn.addEventListener("click", async function () {
+            sendBtn.disabled = true;
+            const original = sendBtn.textContent;
+            sendBtn.textContent = "Đang phân loại ghi chú…";
 
             const fd = new FormData();
             fd.append("projectId", projectId);
             if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
 
+            let data = null;
             try {
-                const response = await fetch(requestFixUrl, { method: "POST", body: fd });
-                const data = await response.json().catch(() => null);
-                if (fixHint && data && data.message) {
-                    fixHint.textContent = data.message;
-                    fixHint.classList.toggle("poc-route-ok", !!data.ok);
-                }
-                if (data && data.ok) {
-                    // Ghi chú đã chuyển sang Sent (đang được sửa) — làm tươi danh sách như nút kia.
-                    await loadComments();
-                }
+                const response = await fetch(triageUrl, { method: "POST", body: fd });
+                data = await response.json().catch(() => null);
             } catch {
-                if (fixHint) fixHint.textContent = "Không gửi được — thử lại sau.";
-            } finally {
-                requestFixBtn.disabled = false;
-                requestFixBtn.textContent = original;
+                data = null;
             }
+
+            sendBtn.disabled = false;
+            sendBtn.textContent = original;
+
+            if (!data || !data.ok) {
+                if (sendHint) sendHint.textContent = (data && data.message) || "Không phân loại được ghi chú — thử lại sau.";
+                return;
+            }
+
+            triaged = data.items.map(i => Object.assign({}, i));
+            baConfigured = data.baConfigured !== false;
+
+            // Máy không phân loại được ⇒ mọi ghi chú rơi về nhóm rẻ; nói rõ đó là mặc định an toàn chứ
+            // không phải kết luận, để người dùng biết mình phải tự soát.
+            const notes = [];
+            if (!data.classified) notes.push("Hệ thống chưa phân loại được lượt này, tạm xếp tất cả vào nhóm chỉnh bản demo — anh/chị soát giúp.");
+            if (!baConfigured) notes.push("Chưa cấu hình agent BA nên đường sửa tài liệu đang khóa.");
+            if (!notes.length) notes.push("Hệ thống đề xuất như dưới đây — bấm nút bên phải mỗi ghi chú để đổi nhóm.");
+            noteEl.textContent = notes.join(" ");
+
+            msgEl.textContent = "";
+            renderGroups();
+            modal.classList.remove("hidden");
+        });
+
+        confirmBtn.addEventListener("click", async function () {
+            const fd = new FormData();
+            fd.append("projectId", projectId);
+            if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
+            triaged.forEach(item => fd.append(item.requirement ? "requirementIds" : "fixIds", item.id));
+
+            confirmBtn.disabled = true;
+            const original = confirmBtn.textContent;
+            confirmBtn.textContent = "Đang gửi…";
+
+            let data = null;
+            try {
+                const response = await fetch(dispatchUrl, { method: "POST", body: fd });
+                data = await response.json().catch(() => null);
+            } catch {
+                data = null;
+            }
+
+            if (data && data.ok) {
+                closeModal();
+                if (sendHint) {
+                    sendHint.textContent = data.message;
+                    sendHint.classList.add("poc-route-ok");
+                }
+                await loadComments();
+                return;
+            }
+
+            // Danh sách vừa đổi dưới chân (người khác gửi/xóa) ⇒ bảng phân loại đang cầm đã cũ: đóng hộp
+            // và nạp lại thay vì để người dùng bấm gửi tiếp theo một bản không còn đúng.
+            if (data && data.reload) {
+                closeModal();
+                if (sendHint) sendHint.textContent = data.message;
+                await loadComments();
+                return;
+            }
+
+            msgEl.textContent = (data && data.message) || "Không gửi được — thử lại sau.";
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = original;
+        });
+
+        document.getElementById("pocDispatchCancel").addEventListener("click", closeModal);
+        document.getElementById("pocDispatchClose").addEventListener("click", closeModal);
+        modal.addEventListener("click", e => { if (e.target === modal) closeModal(); });
+        document.addEventListener("keydown", e => {
+            if (e.key === "Escape" && !modal.classList.contains("hidden")) closeModal();
         });
     }
 

@@ -292,7 +292,8 @@
 
     .poc-changelog-item pre { white-space: pre-wrap; font-family: inherit; font-size: 12px; line-height: 1.55; background: var(--surface-alt, #fafafa); border: 1px solid var(--line, #e5e7eb); border-radius: 8px; padding: 8px 10px; margin: 6px 0 0; max-height: 260px; overflow-y: auto; }
 
-/* "Gửi về Requirement" (B): đóng vòng POC → tài liệu cho các điểm hiểu-sai-yêu-cầu. */
+/* Đường đóng vòng DUY NHẤT của panel: gửi ghi chú đi xử lý (server phân loại, người dùng soát trong
+   hộp xác nhận rồi mỗi đường nhận đúng tập con của nó). */
 .poc-route-req { margin: 8px 0 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line, #e5e7eb); }
 
     .poc-route-req .btn.full { width: 100%; }
@@ -300,6 +301,68 @@
     .poc-route-req .poc-panel-hint { margin-top: 6px; }
 
     .poc-route-req .poc-route-ok { color: #0a7d33; }
+
+/* ==== Hộp xác nhận: bảng phân loại ghi chú trước khi gửi ====
+   Rộng hơn .modal mặc định (480px) vì mỗi dòng là nguyên văn một ghi chú + lý do máy xếp nhóm. */
+
+.poc-dispatch-modal { width: 680px; text-align: left; }
+
+    .poc-dispatch-modal h3 { margin: 0 0 6px; }
+
+.poc-dispatch-note { font-size: 12.5px; margin: 0 0 12px; }
+
+.poc-dispatch-group { margin-bottom: 14px; }
+
+    .poc-dispatch-group h4 { margin: 0 0 2px; font-size: 13.5px; }
+
+    .poc-dispatch-group > .muted { font-size: 12px; margin: 0 0 8px; }
+
+    .poc-dispatch-group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.poc-dispatch-empty { font-size: 12px; margin: 0; font-style: italic; }
+
+.poc-dispatch-item {
+    padding: 7px 9px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 8px;
+    background: var(--surface-alt, #fafafa);
+}
+
+.poc-dispatch-item-text { font-size: 12.5px; line-height: 1.5; }
+
+.poc-dispatch-reason { font-size: 11.5px; color: #6b7280; margin-top: 3px; font-style: italic; }
+
+.poc-dispatch-move {
+    margin-top: 5px;
+    background: transparent;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-family: inherit;
+    font-size: 11.5px;
+    color: var(--bosch-blue, #0d5bd1);
+    cursor: pointer;
+    width: auto;
+}
+
+    .poc-dispatch-move:hover:not(:disabled) { border-color: var(--bosch-blue, #0d5bd1); }
+
+    .poc-dispatch-move:disabled { color: #9ca3af; cursor: not-allowed; }
+
+/* Cảnh báo hệ quả của lựa chọn hiện tại (ghi chú nào được giữ lại, đường nào đang khóa) — người dùng
+   phải đọc được điều này TRƯỚC khi bấm gửi, nên nổi hơn phần .muted. */
+.poc-dispatch-warn {
+    font-size: 12px;
+    line-height: 1.55;
+    margin: 0 0 8px;
+    padding: 7px 9px;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    background: #fffbeb;
+    color: #78350f;
+}
+
+.poc-dispatch-msg { font-size: 12px; color: #b91c1c; }
 
 /* ==== Nghiệm thu bản demo (đường ĐÓNG hành trình của người yêu cầu) ==== */
 

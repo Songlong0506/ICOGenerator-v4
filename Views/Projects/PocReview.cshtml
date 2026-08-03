@@ -27,8 +27,11 @@
      data-add-url="@Url.Action("AddPocComment", "Projects")"
      data-delete-url="@Url.Action("DeletePocComment", "Projects")"
      data-reopen-url="@Url.Action("ReopenPocComment", "Projects")"
-     data-route-req-url="@Url.Action("RoutePocFeedbackToRequirement", "Projects")"
-     data-request-fix-url="@Url.Action("RequestPocFix", "Projects")">
+     data-triage-url="@Url.Action("TriagePocFeedback", "Projects")"
+     data-dispatch-url="@Url.Action("DispatchPocFeedback", "Projects")"
+     data-gate-open="@(Model.PocGateOpen ? "true" : "false")"
+     data-revisions-used="@Model.PocRevisionsUsed"
+     data-revision-limit="@Model.PocRevisionLimit">
 
     <section class="card poc-frame-panel">
         <div class="poc-toolbar">
@@ -408,14 +411,17 @@
 
         <h3>Ghi chú trên POC <span class="poc-count" id="pocCommentCount"></span></h3>
         <p class="muted poc-panel-hint">
-            Ghim xong thì chọn một trong hai đường bên dưới: nhờ đội Dev <b>chỉnh bản demo</b> (lỗi trình bày,
-            nhãn, thiếu nút) hay gửi <b>về Requirement</b> (tài liệu yêu cầu hiểu sai).
+            Ghim hết những chỗ chưa đúng rồi bấm <b>gửi</b> — hệ thống tự tách ghi chú nào là lỗi trình bày
+            của bản demo, ghi chú nào là tài liệu yêu cầu hiểu sai, và cho anh/chị soát lại trước khi gửi.
         </p>
-        @* HAI đường đóng vòng, cùng yêu cầu quyền RequirementsManage như endpoint:
-           • "Nhờ Dev chỉnh bản demo" — vá chính POC (Developer sửa HTML/JS theo ghi chú). Trước đây đường
-             này CHỈ có ở cổng duyệt trên Agent Dashboard (quyền DeliveryAdvance) nên người dùng nghiệp vụ
-             không có cách nào tự xử lý đúng loại lỗi họ hay bắt nhất.
-           • "Gửi về Requirement" — sửa TÀI LIỆU rồi dựng lại POC; ghi chú thuần thẩm mỹ bị bỏ qua ở đó. *@
+        @* MỘT đường đóng vòng thay cho hai nút cũ ("nhờ Dev chỉnh bản demo" / "gửi về Requirement").
+           Vì sao gộp: hai đường đó bắt người xem demo — dân nghiệp vụ — tự phân loại ghi chú của mình,
+           trong khi chính hệ thống làm được phép phân loại ấy (poc-feedback-triage.v1.md). Tệ hơn, CẢ HAI
+           nút cũ đều nuốt trọn mọi ghi chú Open nên một buổi review lẫn hai loại (chuyện thường) không có
+           nút nào đúng: bấm nút Dev thì tài liệu giữ nguyên chỗ hiểu sai, bấm nút Requirement thì các ghi
+           chú thẩm mỹ bị đánh dấu RoutedToRequirement dù BA đã loại chúng khỏi tin nhắn — mất trắng.
+           Nay: máy đề xuất nhóm cho từng ghi chú → người dùng soát/đổi trong hộp xác nhận → mỗi đường chỉ
+           nhận đúng tập con của nó. Quyền vẫn là RequirementsManage như hai endpoint cũ. *@
         @* NGHIỆM THU: điểm dừng của hành trình phía người yêu cầu. Ba đường bên dưới đều là "còn sai chỗ
            này"; thiếu đường "được rồi" thì đội delivery phải đi hỏi miệng và chặng cuối stepper trên trang
            Requirements không bao giờ đóng. Bấm KHÔNG đẩy pipeline — chỉ ghi nhận + báo người có quyền duyệt. *@
@@ -444,22 +450,44 @@
         @if (canManageRequirements)
         {
             <div class="poc-route-req">
-                @if (Model.PocGateOpen)
-                {
-                    <button type="button" id="pocRequestFixBtn" class="btn primary small full"
-                            data-limit-reached="@(Model.PocRevisionsUsed >= Model.PocRevisionLimit ? "true" : "false")">
-                        🛠 Nhờ đội Dev chỉnh bản demo theo ghi chú
-                    </button>
-                    <p class="muted poc-panel-hint">
-                        Dùng cho lỗi TRÌNH BÀY của bản demo (sai nhãn, thiếu nút, bảng trống, canh lệch).
-                        Đã dùng <b>@Model.PocRevisionsUsed/@Model.PocRevisionLimit</b> vòng chỉnh sửa.
-                    </p>
-                }
-                <button type="button" id="pocRouteReqBtn" class="btn outline small full">↩ Có điểm hiểu sai yêu cầu → gửi về Requirement</button>
-                <p class="muted poc-panel-hint" id="pocRouteReqHint">
-                    Dùng khi bản demo cho thấy TÀI LIỆU yêu cầu còn thiếu/sai (không phải lỗi trình bày). BA sẽ
-                    cập nhật lại bản mô tả, sau đó anh/chị duyệt lại để dựng POC mới từ tài liệu đã sửa.
+                <button type="button" id="pocSendFeedbackBtn" class="btn primary small full">
+                    📤 Gửi ghi chú cho đội xử lý
+                </button>
+                <p class="muted poc-panel-hint" id="pocSendFeedbackHint">
+                    @if (Model.PocGateOpen)
+                    {
+                        <text>
+                            Bấm để xem hệ thống xếp từng ghi chú vào đường nào — anh/chị đổi được trước khi gửi.
+                            Đã dùng <b>@Model.PocRevisionsUsed/@Model.PocRevisionLimit</b> vòng chỉnh bản demo.
+                        </text>
+                    }
+                    else
+                    {
+                        @* Cổng POC đóng ⇒ đường chỉnh bản demo không chạy được. Nói thẳng ở đây: trước đây
+                           nút đó chỉ lặng lẽ biến mất, và người dùng đẩy luôn ghi chú thẩm mỹ vào pipeline
+                           tài liệu — đúng cái panel này muốn tránh. *@
+                        <text>
+                            Quy trình đã đi qua bước bản demo nên vòng chỉnh sửa demo không còn mở — lượt này
+                            chỉ gửi được các điểm <b>hiểu sai yêu cầu</b> về BA để sửa tài liệu.
+                        </text>
+                    }
                 </p>
+            </div>
+
+            @* Hộp xác nhận: bảng phân loại của máy, mỗi ghi chú một dòng và đổi nhóm được. Dựng rỗng ở đây,
+               JS đổ nội dung sau khi gọi TriagePocFeedback. *@
+            <div class="modal-backdrop hidden" id="pocDispatchModal">
+                <div class="modal poc-dispatch-modal">
+                    <button type="button" class="x" id="pocDispatchClose" aria-label="Đóng">&times;</button>
+                    <h3>Gửi ghi chú đi xử lý</h3>
+                    <p class="muted poc-dispatch-note" id="pocDispatchNote"></p>
+                    <div id="pocDispatchGroups"></div>
+                    <div class="poc-dispatch-msg" id="pocDispatchMsg"></div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn outline small" id="pocDispatchCancel">Hủy</button>
+                        <button type="button" class="btn primary small" id="pocDispatchConfirm">Gửi</button>
+                    </div>
+                </div>
             </div>
         }
 
