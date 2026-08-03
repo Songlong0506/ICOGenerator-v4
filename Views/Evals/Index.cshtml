@@ -13,11 +13,21 @@
         s => (object)new { name = s.Name, promptKey = s.PromptKey, userInput = s.UserInput, criteria = s.Criteria, isActive = s.IsActive, kind = s.Kind.ToString() });
     var scenariosJson = System.Text.Json.JsonSerializer.Serialize(scenarioMap);
 
+    // Ước lượng chi phí theo lựa chọn bộ lọc prompt của modal chạy ("" = tất cả scenario đang bật).
+    var costMap = Model.CostEstimates.ToDictionary(
+        c => c.PromptKey ?? "",
+        c => (object)new { scenarioCount = c.ScenarioCount, cost = c.EstimatedCost, hasHistory = c.HasHistory });
+    var costJson = System.Text.Json.JsonSerializer.Serialize(costMap);
+
+    // Số cột bảng scenario đổi theo quyền — dòng "chưa có gì" phải trải đúng bấy nhiêu cột.
+    var scenarioColumnCount = canManage ? 6 : 5;
+
     static string StatusBadge(EvalRunStatus status) => status switch
     {
         EvalRunStatus.Completed => "green",
         EvalRunStatus.Failed => "red",
         EvalRunStatus.Running => "blue",
+        EvalRunStatus.Cancelled => "orange",
         _ => "gray"
     };
 
@@ -29,6 +39,13 @@
         >= 2.5 => "score-mid",
         _ => "score-bad"
     };
+
+    // Thời lượng run đọc cho người: "42s" / "3m 07s" / "1h 12m".
+    static string Duration(TimeSpan? d) =>
+        d is not { } t ? "–"
+        : t.TotalMinutes < 1 ? $"{t.TotalSeconds:0}s"
+        : t.TotalHours < 1 ? $"{t.Minutes}m {t.Seconds:00}s"
+        : $"{(int)t.TotalHours}h {t.Minutes:00}m";
 
     // Chi phí eval hay nhỏ dưới 1 cent (đơn giá $/1M token) — hiện thêm chữ số để không làm tròn về $0.00.
     // Cùng quy tắc với trang Usage để hai nơi đọc ra tiền giống nhau.
@@ -65,7 +82,7 @@
         {
             Label = "Chạy eval",
             Icon = "bi-play-fill",
-            OnClick = "openModal('runModal')",
+            OnClick = "openRunModal()",
             Disabled = !Model.Scenarios.Any(s => s.IsActive),
             Title = "Chạy toàn bộ scenario đang bật (tốn token thật)"
         }
@@ -83,6 +100,7 @@
                 <tr>
                     <th>Tên</th>
                     <th>Prompt template</th>
+                    <th title="Điểm judge của lần chấm gần nhất trên mọi run">Điểm gần nhất</th>
                     <th>Trạng thái</th>
                     <th>Tạo lúc</th>
                     @if (canManage)
@@ -94,7 +112,7 @@
             <tbody>
                 @if (!Model.Scenarios.Any())
                 {
-                    <tr data-cbar-skip><td colspan="5" class="eval-empty">Chưa có scenario nào. Thêm scenario đầu tiên để bắt đầu đo chất lượng prompt.</td></tr>
+                    <tr data-cbar-skip><td colspan="@scenarioColumnCount" class="eval-empty">Chưa có scenario nào. Thêm scenario đầu tiên để bắt đầu đo chất lượng prompt.</td></tr>
                 }
                 @foreach (var s in Model.Scenarios)
                 {
@@ -105,6 +123,21 @@
                             @if (s.Kind == ICOGenerator.Domain.Enums.EvalScenarioKind.Interview)
                             {
                                 <span class="badge" title="Phỏng vấn mô phỏng nhiều lượt: AI đóng vai người dùng theo hồ sơ, BA phải tự đào thông tin">phỏng vấn</span>
+                            }
+                        </td>
+                        <td>
+                            @if (s.LastScore is int last)
+                            {
+                                <span class="eval-score @ScoreClass(last)">@last/5</span>
+                                <span class="eval-cell-sub eval-time" data-utc="@s.LastRunAt!.Value.ToString("o")"></span>
+                            }
+                            else if (s.LastRunAt != null)
+                            {
+                                <span class="badge red" title="Lần chạy gần nhất không chấm được (lời gọi lỗi hoặc judge trả sai định dạng)">lỗi</span>
+                            }
+                            else
+                            {
+                                <span class="muted">chưa chạy</span>
                             }
                         </td>
                         <td><span class="badge @(s.IsActive ? "green" : "gray")">@(s.IsActive ? "Active" : "Off")</span></td>
@@ -136,13 +169,36 @@
 <div class="card table-card eval-card">
     <div class="eval-card-head">
         <h3>Runs</h3>
-        <button class="btn outline small" type="button" id="compareBtn" disabled onclick="openCompare()"
-                title="Chọn đúng 2 run (checkbox) để so sánh điểm theo từng scenario">
-            <i class="bi bi-arrow-left-right" aria-hidden="true"></i> So sánh 2 run
-        </button>
+
+        @* Lọc PHÍA SERVER (khác ô tìm kiếm của command bar — ô đó lọc client trên bảng scenario). *@
+        <form asp-action="Index" method="get" class="eval-run-filter">
+            <select name="runPromptKey" onchange="this.form.submit()" aria-label="Lọc theo prompt template">
+                <option value="">Mọi prompt</option>
+                @foreach (var key in Model.RunPromptKeys)
+                {
+                    <option value="@key" selected="@(Model.RunPromptKeyFilter == key)">@key</option>
+                }
+            </select>
+            <select name="runStatus" onchange="this.form.submit()" aria-label="Lọc theo trạng thái">
+                <option value="">Mọi trạng thái</option>
+                @foreach (var status in Enum.GetValues<EvalRunStatus>())
+                {
+                    <option value="@status" selected="@(Model.RunStatusFilter == status)">@status</option>
+                }
+            </select>
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            @if (Model.HasRunFilter)
+            {
+                <a class="btn outline small" asp-action="Index">Xoá lọc</a>
+            }
+            <button class="btn outline small" type="button" id="compareBtn" disabled onclick="openCompare()"
+                    title="Chọn đúng 2 run (checkbox) để so sánh điểm theo từng scenario">
+                <i class="bi bi-arrow-left-right" aria-hidden="true"></i> So sánh 2 run
+            </button>
+        </form>
     </div>
     <div class="table-wrap">
-        <table class="data-table" data-paginate data-page-size="10">
+        <table class="data-table">
             <thead>
                 <tr>
                     <th class="eval-cmp-col" title="Chọn 2 run để so sánh"></th>
@@ -151,7 +207,7 @@
                     <th>Model</th>
                     <th>Judge</th>
                     <th>Prompt</th>
-                    <th>Tiến độ</th>
+                    <th title="Số scenario đã chạy xong / tổng; kèm số scenario hỏng nếu có">Tiến độ</th>
                     <th>Điểm TB</th>
                     <th title="Tổng chi phí USD (target + judge) theo đơn giá model lúc chạy">Chi phí</th>
                     <th>Status</th>
@@ -161,32 +217,85 @@
             <tbody>
                 @if (!Model.Runs.Any())
                 {
-                    <tr><td colspan="11" class="eval-empty">Chưa có run nào.</td></tr>
+                    <tr><td colspan="11" class="eval-empty">@(Model.HasRunFilter ? "Không có run nào khớp bộ lọc." : "Chưa có run nào.")</td></tr>
                 }
                 @foreach (var r in Model.Runs)
                 {
                     var isLive = r.Status is EvalRunStatus.Queued or EvalRunStatus.Running;
-                    <tr data-run-id="@r.Id" data-live="@(isLive ? "true" : "false")">
+                    <tr data-run-id="@r.Id" data-live="@(isLive ? "true" : "false")" data-created="@r.CreatedAt.ToString("o")">
                         <td class="eval-cmp-col"><input type="checkbox" class="cmp-check" value="@r.Id" onchange="onCompareCheckChanged()" /></td>
-                        <td><span class="eval-time" data-utc="@r.CreatedAt.ToString("o")"></span></td>
+                        <td>
+                            <span class="eval-time" data-utc="@r.CreatedAt.ToString("o")"></span>
+                            @if (!string.IsNullOrWhiteSpace(r.CreatedByUsername))
+                            {
+                                <span class="eval-cell-sub">bởi @r.CreatedByUsername</span>
+                            }
+                        </td>
                         <td class="eval-note" title="@r.Note">@(string.IsNullOrWhiteSpace(r.Note) ? "–" : r.Note)</td>
                         <td>@r.TargetModelName</td>
                         <td>@r.JudgeModelName</td>
                         <td>@if (string.IsNullOrWhiteSpace(r.PromptKey)) {<span class="muted">tất cả</span>} else {<code class="eval-prompt-key">@r.PromptKey</code>}</td>
-                        <td class="run-progress">@r.CompletedCount/@r.ScenarioCount</td>
+                        <td class="run-progress-cell">
+                            <span class="run-progress">@r.CompletedCount/@r.ScenarioCount</span>
+                            @if (r.FailedCount > 0)
+                            {
+                                <span class="eval-failed" title="@r.FailedCount scenario chạy hỏng — điểm TB chỉ tính trên các scenario chấm được">@r.FailedCount lỗi</span>
+                            }
+                        </td>
                         <td class="run-score"><span class="eval-score @ScoreClass(r.AverageScore)">@(r.AverageScore?.ToString("0.00") ?? "–")</span></td>
                         <td class="run-cost">@Money(r.TotalCost)</td>
                         <td class="run-status">
                             <span class="badge @StatusBadge(r.Status)" title="@r.Error">@r.Status</span>
+                            @if (r.Duration != null)
+                            {
+                                <span class="eval-cell-sub">@Duration(r.Duration)</span>
+                            }
                         </td>
                         <td class="actions">
                             <button class="btn outline small" type="button" onclick="openRunDetail('@r.Id')">Chi tiết</button>
+                            @if (canManage && isLive)
+                            {
+                                <form asp-action="CancelRun" method="post" class="inline-form"
+                                      onsubmit="return confirm('Huỷ run này? Các scenario đã chạy xong vẫn được giữ lại.');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@r.Id" />
+                                    <input type="hidden" name="runPromptKey" value="@Model.RunPromptKeyFilter" />
+                                    <input type="hidden" name="runStatus" value="@Model.RunStatusFilter" />
+                                    <input type="hidden" name="page" value="@Model.Page" />
+                                    <button class="icon-btn danger" type="submit" aria-label="Huỷ run" title="Huỷ run (dừng sau scenario đang chạy dở)">
+                                        <i class="bi bi-stop-circle" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            }
+                            else if (canManage)
+                            {
+                                <form asp-action="DeleteRun" method="post" class="inline-form"
+                                      onsubmit="return confirm('Xoá run này cùng toàn bộ kết quả của nó?');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@r.Id" />
+                                    <input type="hidden" name="runPromptKey" value="@Model.RunPromptKeyFilter" />
+                                    <input type="hidden" name="runStatus" value="@Model.RunStatusFilter" />
+                                    <input type="hidden" name="page" value="@Model.Page" />
+                                    <button class="icon-btn danger" type="submit" aria-label="Xoá run" title="Xoá run và mọi kết quả của nó">
+                                        <i class="bi bi-trash" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            }
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
     </div>
+
+    @await Html.PartialAsync("_Pager", new ICOGenerator.Application.Shared.PagerModel
+    {
+        Page = Model.Page,
+        TotalPages = Model.TotalPages,
+        PageSize = Model.PageSize,
+        PageUrl = p => Url.Action("Index", new { runPromptKey = Model.RunPromptKeyFilter, runStatus = Model.RunStatusFilter, page = p, pageSize = Model.PageSize })!,
+        PageSizeUrl = s => Url.Action("Index", new { runPromptKey = Model.RunPromptKeyFilter, runStatus = Model.RunStatusFilter, page = 1, pageSize = s })!
+    })
 </div>
 
 @if (canManage)
@@ -232,6 +341,10 @@
             <label>Tiêu chí chấm (judge đối chiếu từng dòng) *</label>
             <textarea name="criteria" id="scenario-criteria" rows="5" required
                       placeholder="- Phải hỏi lại về X thay vì tự giả định&#10;- Trả lời bằng tiếng Việt&#10;- ..."></textarea>
+            <div class="muted eval-form-hint">
+                Mỗi dòng là <b>một</b> tiêu chí — judge chấm đạt/trượt từng dòng và hiện thành checklist trong
+                chi tiết run, nên dòng càng gọn và kiểm được thì kết quả càng dễ đọc.
+            </div>
 
             <label class="checkbox-line" id="scenario-active-line" style="display:none;">
                 <input name="isActive" id="scenario-is-active" type="checkbox" value="true" checked />
@@ -252,7 +365,7 @@
             <button type="button" class="x" onclick="closeModal('runModal')">×</button>
 
             <h2>Chạy Eval</h2>
-            
+
             <label>Model mục tiêu *</label>
             <select name="targetModelId" required>
                 @foreach (var m in Model.Models)
@@ -270,13 +383,17 @@
             </select>
 
             <label>Chỉ chạy scenario của prompt</label>
-            <select name="promptKey">
+            <select name="promptKey" id="run-prompt-key">
                 <option value="">— tất cả scenario đang bật —</option>
                 @foreach (var key in Model.Scenarios.Where(s => s.IsActive).Select(s => s.PromptKey).Distinct().OrderBy(x => x))
                 {
                     <option value="@key">@key</option>
                 }
             </select>
+
+            @* Ước lượng từ chi phí THẬT của các run gần đây — nút chạy đốt tiền thật, người bấm xứng đáng
+               biết con số trước khi bấm chứ không chỉ một lời cảnh báo chung chung. *@
+            <div class="eval-cost-estimate" id="run-cost-estimate"></div>
 
             <label>Ghi chú</label>
             <input name="note" maxlength="500" placeholder="vd: sau khi sửa requirement-chat v3" />
@@ -317,6 +434,7 @@
     <script>
         window.EVALS = {
             scenarios: @Html.Raw(scenariosJson),
+            costEstimates: @Html.Raw(costJson),
             createUrl: '@Url.Action("CreateScenario")',
             updateUrl: '@Url.Action("UpdateScenario")'
         };

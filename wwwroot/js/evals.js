@@ -29,8 +29,14 @@
             case 'Completed': return 'green';
             case 'Failed': return 'red';
             case 'Running': return 'blue';
+            case 'Cancelled': return 'orange';
             default: return 'gray';
         }
+    }
+
+    // Run đã chốt trạng thái ⇒ ngừng poll. Cancelled cũng là điểm dừng như Completed/Failed.
+    function isFinalStatus(status) {
+        return status === 'Completed' || status === 'Failed' || status === 'Cancelled';
     }
 
     // Chi phí USD — cùng quy tắc với trang Usage/helper Money của view: số dưới 1 cent hiện thêm chữ số
@@ -86,6 +92,35 @@
         openModal('scenarioModal');
     };
 
+    // ---------- Modal chạy eval: ước lượng chi phí trước khi bấm ----------
+
+    // Nút chạy đốt token thật. Con số dưới đây là chi phí TRUNG BÌNH của chính các scenario này ở những
+    // run gần đây (server tính) — không phải giá của cặp model đang chọn, nên luôn nói rõ đó là ước lượng.
+    function syncCostEstimate() {
+        const box = document.getElementById('run-cost-estimate');
+        const select = document.getElementById('run-prompt-key');
+        if (!box || !select) return;
+
+        const estimate = (window.EVALS.costEstimates || {})[select.value];
+        if (!estimate) {
+            box.textContent = '';
+            return;
+        }
+
+        const scenarios = estimate.scenarioCount + ' scenario đang bật';
+        box.innerHTML = estimate.hasHistory
+            ? '<b>' + scenarios + '</b> · ước tính <b>' + formatMoney(estimate.cost) + '</b> ' +
+              '<span class="muted">(theo chi phí thật của các run gần đây; đổi model thì con số thực tế lệch theo đơn giá)</span>'
+            : '<b>' + scenarios + '</b> · <span class="muted">chưa đủ lịch sử để ước tính chi phí</span>';
+    }
+
+    document.getElementById('run-prompt-key')?.addEventListener('change', syncCostEstimate);
+
+    window.openRunModal = function () {
+        syncCostEstimate();
+        openModal('runModal');
+    };
+
     // ---------- Poll tiến độ run đang Queued/Running ----------
 
     async function pollLiveRuns() {
@@ -112,7 +147,12 @@
                 badge.className = 'badge ' + statusBadgeClass(s.status);
                 if (s.error) badge.title = s.error;
 
-                if (s.status === 'Completed' || s.status === 'Failed') row.dataset.live = 'false';
+                // Vừa chốt trạng thái: nút Huỷ trên dòng này không còn nghĩa, và nút Xoá chỉ hiện sau khi
+                // tải lại — nạp lại trang một lần để hàng thao tác khớp trạng thái thật.
+                if (isFinalStatus(s.status)) {
+                    row.dataset.live = 'false';
+                    if (!document.querySelector('.modal-backdrop:not(.hidden)')) location.reload();
+                }
             } catch { /* lượt poll lỗi thì thử lại ở nhịp sau */ }
         }));
     }
@@ -129,6 +169,26 @@
     });
 
     // ---------- Chi tiết run ----------
+
+    // Checklist đối chiếu từng tiêu chí do judge trả về. Điểm tổng chỉ nói "có vấn đề"; danh sách này
+    // nói vấn đề nằm ở DÒNG TIÊU CHÍ NÀO — thiếu nó thì mỗi lần điểm tụt lại phải đọc reasoning rồi đoán.
+    // Kết quả cũ (chấm trước khi judge trả phần này) có mảng rỗng ⇒ không render gì.
+    function renderCriteria(criteria) {
+        if (!criteria || !criteria.length) return '';
+
+        // Dấu ✓/✕ vẽ bằng KÝ TỰ chứ không dùng font icon: cả ý nghĩa "đạt hay trượt" nằm ở dấu này, mà
+        // font icon đến từ CDN — mất mạng/CDN bị chặn là checklist thành một danh sách phẳng vô nghĩa.
+        // (Cùng lý do _CommandBar nhúng SVG kính lúp nội tuyến.)
+        return '<ul class="eval-criteria">' + criteria.map(function (c) {
+            const mark = c.passed ? '✓' : '✕';
+            return '<li class="' + (c.passed ? 'is-passed' : 'is-failed') + '">' +
+                '<span class="eval-crit-mark" aria-hidden="true">' + mark + '</span>' +
+                '<span class="sr-only">' + (c.passed ? 'Đạt: ' : 'Trượt: ') + '</span>' +
+                '<span>' + escapeHtml(c.criterion) +
+                (c.note ? '<span class="eval-crit-note">' + escapeHtml(c.note) + '</span>' : '') +
+                '</span></li>';
+        }).join('') + '</ul>';
+    }
 
     window.openRunDetail = async function (runId) {
         openModal('runDetailModal');
@@ -165,14 +225,22 @@
                     : '<span class="badge red" title="' + escapeHtml(r.errorMessage || '') + '">lỗi</span>';
                 // Phiên bản prompt đã đo (Prompt Studio): null = nội dung file trong repo.
                 const promptLabel = r.promptVersionNumber != null ? 'prompt v' + r.promptVersionNumber : 'prompt file';
+                const failed = (r.criteria || []).filter(function (c) { return !c.passed; }).length;
+                const criteriaCount = (r.criteria || []).length;
+                // Số tiêu chí trượt ngay trên summary: mở một scenario ra là biết nên đọc tiếp hay bỏ qua.
+                const criteriaTag = criteriaCount === 0 ? ''
+                    : ' · <span class="' + (failed ? 'eval-crit-failed' : 'eval-crit-passed') + '">' +
+                      (criteriaCount - failed) + '/' + criteriaCount + ' tiêu chí</span>';
+
                 return '<details class="eval-result"' + (i === 0 ? ' open' : '') + '>' +
                     '<summary><span class="eval-result-name">' + escapeHtml(r.scenarioName) + '</span>' + scoreHtml +
                     '<span class="eval-result-meta">' + promptLabel + ' · ' +
                     (r.targetTokens + r.judgeTokens).toLocaleString() + ' tok · ' +
                     formatMoney(r.targetCost + r.judgeCost) + ' · ' +
-                    Math.round(r.durationMs / 1000) + 's</span></summary>' +
+                    Math.round(r.durationMs / 1000) + 's' + criteriaTag + '</span></summary>' +
                     (r.errorMessage ? '<p class="eval-run-error">' + escapeHtml(r.errorMessage) + '</p>' : '') +
                     (r.judgeReasoning ? '<p class="eval-reasoning"><b>Judge:</b> ' + escapeHtml(r.judgeReasoning) + '</p>' : '') +
+                    renderCriteria(r.criteria) +
                     '<pre class="eval-output">' + escapeHtml(r.output || '(không có output)') + '</pre>' +
                     '</details>';
             }).join('');
@@ -200,9 +268,18 @@
         body.innerHTML = '<p class="muted">Đang tải…</p>';
 
         try {
-            // Run A = run CŨ hơn (checkbox nằm dưới trong bảng vì bảng sort mới nhất trước) để delta đọc là "mới - cũ".
-            const response = await fetch('/Evals/Compare?runA=' + encodeURIComponent(checked[1].value) +
-                '&runB=' + encodeURIComponent(checked[0].value));
+            // Run A = run CŨ hơn để delta đọc là "mới − cũ". Lấy theo THỜI ĐIỂM thật trên dòng, không theo
+            // thứ tự checkbox trong DOM: bảng đổi sắp xếp/phân trang là thứ tự đó lật, và nhãn A/B sẽ âm
+            // thầm đảo dấu delta mà không ai thấy.
+            const picked = checked
+                .map(function (box) {
+                    const row = box.closest('tr');
+                    return { id: box.value, createdAt: Date.parse(row?.dataset.created || '') || 0 };
+                })
+                .sort(function (a, b) { return a.createdAt - b.createdAt; });
+
+            const response = await fetch('/Evals/Compare?runA=' + encodeURIComponent(picked[0].id) +
+                '&runB=' + encodeURIComponent(picked[1].id));
             if (!response.ok) throw new Error('compare failed');
             const cmp = await response.json();
 

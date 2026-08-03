@@ -592,7 +592,7 @@ Nghĩa là: sửa prompt qua Prompt Studio **có hiệu lực ngay không cần 
 | `Shared/revision.v1.md` | Khối "Yêu cầu chỉnh sửa" nối sau prompt gốc của bước |
 | `{BusinessAnalyst,TechLead,Developer,Tester,UiUx}/instruction.md` | **System prompt theo vai** — hành vi sâu của agent nằm ở đây; template task theo vai chỉ mô tả *việc của bước* |
 | `Shared/tool-agent-native.v1.md` | Khung prompt chung cho agent chạy tool |
-| `Eval/judge.v1.md` | LLM-judge chấm điểm eval 1–5 |
+| `Eval/judge.v1.md` | LLM-judge chấm điểm eval 1–5 + đối chiếu ĐẠT/TRƯỢT từng dòng tiêu chí |
 | `Design/poc-template.html` | Shell HTML của POC (sidebar/topbar/Bootstrap + engine `data-crud-*`, hai vùng marker `POC_CONTENT`/`POC_SCRIPT`) |
 
 ### 10.3. Prompt Studio (màn hình `Prompts`)
@@ -660,7 +660,7 @@ Route mặc định: `{controller=Projects}/{action=Index}/{id?}`. Mọi endpoin
 | **AI Models** | `Models` | `Index`, `POST Create`/`Update`/`Delete`/`TestConnection` | `ModelsView` / `ModelsCreate`/`Edit`/`Delete`; `TestConnection` cần `ModelsCreate` HOẶC `ModelsEdit` |
 | **Usage** (chi phí LLM) | `Usage` | `Index(year?)` — theo model/project/tháng + roll-up phòng ban | `UsageView` |
 | **Delivery Quality** | `Quality` | `Index(year?)` — thông lượng, rework, độ tin cậy model | `QualityView` |
-| **Prompt Evals** | `Evals` | `Index`, `POST CreateScenario`/`UpdateScenario`/`DeleteScenario`/`StartRun`, `GET RunStatus`/`RunDetail`/`Compare` | `EvalView` / `EvalManage` |
+| **Prompt Evals** | `Evals` | `Index(runPromptKey?, runStatus?, page, pageSize)`, `POST CreateScenario`/`UpdateScenario`/`DeleteScenario`/`StartRun`/`CancelRun`/`DeleteRun`, `GET RunStatus`/`RunDetail`/`Compare` | `EvalView` / `EvalManage` |
 | **Prompt Studio** | `Prompts` | `Index`, `Detail`, `Diff`, `Download`, `POST Save`/`Activate`/`RevertToFile` | `PromptView` / `PromptManage` |
 | **Feedback** | `Feedback` | `Index`, `POST Submit` (kèm files), `POST UpdateStatus` (triage), `GET Attachment`, `POST Delete` | `FeedbackView` / `FeedbackManage` |
 | **Notifications** | `Notifications` | `Index`, `GET Feed` (chuông poll), `GET Open` (đánh dấu đọc + đi tới link), `POST MarkAllRead`, `GET/POST Preferences` | chỉ cần đăng nhập (dữ liệu tự lọc theo username) |
@@ -758,7 +758,12 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 
 ### 16.4. Prompt Evals (trả lời "sửa prompt/đổi model xong, chất lượng lên hay xuống?")
 - `EvalScenario` = golden set (template + input mô phỏng + tiêu chí). Run chạy **nền** (`EvalRunWorker` poll 3s) với model MỤC TIÊU, rồi model JUDGE chấm 1–5 (`Eval/judge.v1.md` + `EvalJudgeParser`).
-- So sánh 2 run theo từng scenario; nhãn phiên bản prompt mỗi bên (cùng nhãn = so model, khác nhãn = so prompt).
+- **Chấm theo từng tiêu chí**: judge trả kèm `criteria[]` (đạt/trượt + chỗ trượt), lưu ở `EvalResult.CriteriaJson`, hiện thành checklist ✓/✗ trong chi tiết run — điểm tổng nói "có vấn đề", checklist nói vấn đề ở DÒNG NÀO. Phần mở rộng: judge không trả thì vẫn có điểm, chỉ mất checklist.
+- **Huỷ run** (`CancelEvalRunUseCase`): Queued chốt `Cancelled` ngay; Running chỉ đặt cờ `EvalRun.CancelRequestedAt` rồi runner tự dừng ở **ranh giới scenario** kế tiếp (huỷ giữa một lời gọi LLM đang bay không cứu được token của lời gọi đó). Kết quả đã chạy xong được GIỮ, `Error` ghi rõ dừng ở x/y.
+- **Chặn chạy trùng**: đã có run Queued/Running cùng (target, judge, promptKey) thì `StartRun` từ chối — bấm hai lần không cho thêm thông tin, chỉ trả tiền hai lần.
+- **Ước lượng chi phí** trước khi bấm chạy: trung bình chi phí THẬT của chính các scenario đó ở ≤5 run gần nhất (scenario `Interview` đắt hơn `Prompt` nhiều lần nên ước lượng theo từng scenario, không chia đều).
+- Bảng Runs lọc (prompt key/trạng thái) + phân trang **phía server**, xoá được run đã kết thúc (FK Cascade dọn kết quả); bảng Scenarios hiện điểm của lần chấm gần nhất để thấy ngay chỗ yếu.
+- So sánh 2 run theo từng scenario; nhãn phiên bản prompt mỗi bên (cùng nhãn = so model, khác nhãn = so prompt). Nhãn A(cũ)/B(mới) suy từ `CreatedAt` thật, không từ thứ tự checkbox.
 - Eval dùng lại middleware LLM nhưng với `NullModelCallLogger` (không ghi `AgentModelCallLogs`, không qua budget theo-project) — token/lỗi nằm ngay trên `EvalResult`.
 
 ### 16.5. Feedback

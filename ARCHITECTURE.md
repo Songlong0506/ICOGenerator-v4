@@ -367,6 +367,32 @@ Trả lời câu "sửa prompt/đổi model xong, chất lượng LÊN hay XUỐ
   không qua budget guard theo-project — token/lỗi đã nằm trên `EvalResult`.
 - Model & scenario tham chiếu bằng **Guid + snapshot tên, không FK** (như `AgentModelCallLog`): xoá
   model/scenario không bị chặn và không mất lịch sử điểm.
+- **Chấm theo TỪNG tiêu chí** (`EvalResult.CriteriaJson`): judge trả kèm `criteria[]` — mỗi dòng
+  tiêu chí của scenario được đánh đạt/trượt và ghi chỗ trượt — render thành checklist ✓/✗ trong chi
+  tiết run. Một điểm tổng chỉ nói "có vấn đề"; danh sách này nói vấn đề nằm ở DÒNG NÀO, nếu không
+  mỗi lần điểm tụt lại phải đọc `JudgeReasoning` rồi đoán. Đây là phần **mở rộng, không bắt buộc**:
+  judge/kết quả cũ không có nó thì `CriteriaJson` null và điểm vẫn hợp lệ (`EvalJudgeParser` bỏ qua
+  phần tử rác từng cái). Lưu nguyên JSON, không dựng bảng con — dữ liệu này chỉ đọc kèm kết quả,
+  không bao giờ bị truy vấn/lọc riêng.
+- **Huỷ run** (`EvalRun.CancelRequestedAt` + `EvalRunStatus.Cancelled`): controller chỉ ĐẶT CỜ, còn
+  `EvalRunnerService` đọc lại cờ giữa hai scenario rồi mới chốt trạng thái — worker chạy ở
+  scope/DbContext khác nên giật trạng thái từ ngoài sẽ đụng độ lần `SaveChanges` kế tiếp của nó, và
+  huỷ giữa một lời gọi LLM đang bay không cứu được token của lời gọi đó (điểm cắt rẻ nhất là ranh
+  giới scenario). Run Queued thì chốt `Cancelled` ngay vì chưa ai đụng tới. Kết quả đã chạy xong
+  được GIỮ (đã trả tiền rồi) và vẫn tính vào điểm TB; `Error` ghi rõ dừng ở x/y. Restart giữa chừng:
+  run mồ côi CÓ cờ huỷ → `Cancelled` (kết cục người dùng muốn), không cờ → `Failed` như cũ.
+- **Chặn chạy trùng** (`StartEvalRunUseCase`): đã có run Queued/Running cùng (target, judge,
+  promptKey) thì từ chối — nút chạy nằm sau một modal + redirect nên bấm hai lần là chuyện thường,
+  và lần thứ hai không cho thêm thông tin gì ngoài hoá đơn LLM thứ hai.
+- **Ước lượng chi phí** trước khi chạy (`GetEvalPageQuery.BuildCostEstimatesAsync`): trung bình chi
+  phí THẬT của chính từng scenario ở ≤5 run Completed gần nhất, thiếu thì mượn trung bình cùng
+  `Kind` (scenario `Interview` đắt gấp nhiều lần `Prompt` nên không được chia đều). Cộng/chia làm
+  trong bộ nhớ, KHÔNG đẩy xuống SQL: Sqlite (Development/test) lưu decimal dạng TEXT nên `AVG`/phép
+  cộng phía DB cho ra số sai.
+- Bảng Runs lọc + phân trang **phía server** (`_Pager` như Audit/Models/Projects) và xoá được run đã
+  kết thúc (`DeleteEvalRunUseCase`; FK Cascade dọn `EvalResults`, run đang chạy phải huỷ trước để
+  không xoá dưới chân worker). Bảng Scenarios mang điểm lần chấm gần nhất (truy vấn tương quan —
+  golden set chỉ vài chục dòng).
 - Phân quyền: `EvalView`/`EvalManage` (màn hình "Prompt Evals" trong `PermissionCatalog`; TeamDev
   được seed mặc định). Trang Delivery Quality có card "Prompt evals gần nhất" trỏ sang.
 

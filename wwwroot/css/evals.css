@@ -30,6 +30,15 @@
 
 .eval-note { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Dòng phụ trong ô bảng (ai chạy, thời lượng, thời điểm chấm gần nhất). */
+.eval-cell-sub { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+
+.eval-failed { margin-left: 6px; color: var(--danger-ink); font-size: 11.5px; font-weight: 600; }
+
+/* Bộ lọc server của bảng Runs, nằm ngay trên đầu bảng cạnh nút So sánh. */
+.eval-run-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.eval-run-filter select { min-width: 150px; max-width: 260px; }
+
 .eval-cmp-col { width: 34px; text-align: center; }
 .eval-cmp-col input { width: auto; }
 
@@ -49,6 +58,18 @@
 .eval-modal input[type="text"], .eval-modal input:not([type]), .eval-modal select, .eval-modal textarea { width: 100%; }
 .eval-modal textarea { resize: vertical; }
 .eval-modal-hint { margin: 6px 0 0; font-size: 12.5px; }
+.eval-form-hint { margin-top: 5px; font-size: 11.5px; }
+
+/* Ước lượng chi phí trong modal chạy — nổi vừa đủ để không ai bấm "Chạy" mà không đọc. */
+.eval-cost-estimate:not(:empty) {
+    margin-top: 12px;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--warning);
+    background: var(--bg);
+    font-size: 12.5px;
+    line-height: 1.5;
+}
 
 .eval-wide-modal { width: min(900px, 94vw); max-height: 88vh; display: flex; flex-direction: column; }
 .eval-detail-body { overflow-y: auto; flex: 1; min-height: 120px; }
@@ -79,6 +100,30 @@
 .eval-result-meta { color: var(--muted); font-size: 12px; }
 
 .eval-reasoning { padding: 8px 12px 0; margin: 0; font-size: 13px; }
+
+/* ----- Checklist đối chiếu từng tiêu chí (judge trả kèm điểm) ----- */
+.eval-criteria { list-style: none; margin: 8px 0 0; padding: 0 12px; font-size: 12.5px; }
+.eval-criteria li { display: flex; gap: 7px; align-items: flex-start; padding: 3px 0; line-height: 1.45; }
+.eval-criteria li.is-failed { font-weight: 600; }
+/* Dấu ✓/✕ là ký tự thật (không phải font icon từ CDN) — xem chú thích renderCriteria trong evals.js. */
+.eval-crit-mark { flex: 0 0 14px; font-weight: 700; line-height: 1.45; }
+.eval-criteria li.is-passed .eval-crit-mark { color: var(--success-ink); }
+.eval-criteria li.is-failed .eval-crit-mark { color: var(--danger-ink); }
+.eval-crit-note { display: block; margin-top: 1px; color: var(--danger-ink); font-weight: 400; }
+
+/* Nhãn "Đạt/Trượt" chỉ dành cho trình đọc màn hình — dấu ✓/✕ không tự nói ra nghĩa. */
+.eval-criteria .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.eval-crit-passed { color: var(--success-ink); font-weight: 600; }
+.eval-crit-failed { color: var(--danger-ink); font-weight: 600; }
 
 .eval-output {
     margin: 8px 12px 12px;
