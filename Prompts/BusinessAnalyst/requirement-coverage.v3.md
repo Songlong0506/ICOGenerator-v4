@@ -57,3 +57,18 @@ Trạng thái hợp lệ (chọn đúng MỘT cho mỗi dòng):
 - **Chỉ đòi mức NGHIỆP VỤ, không đòi chi tiết kỹ thuật:** người dùng là người nghiệp vụ bình thường. Một nhóm KHÔNG bị coi là thiếu chỉ vì chưa nói về SSO, email/SMTP, API, database, tích hợp hệ thống ngoài… — phần đó do team kỹ thuật quyết sau.
 - **Chủ động đánh `[KHÔNG ÁP DỤNG]`, đừng biến bản đồ thành máy tra khảo:** khi người dùng nói rõ không cần ("không cần báo cáo"), hoặc bản chất dự án hiển nhiên không có nhóm đó (vd: ứng dụng cá nhân một người dùng thì không có phân quyền/thông báo cho người khác), hãy đánh `[KHÔNG ÁP DỤNG]` ngay — đừng treo `[CHƯA HỎI]` để chờ hỏi một câu vô nghĩa. Nếu chỉ là "chưa chắc có liên quan không" thì giữ `[CHƯA HỎI]`/`[MỘT PHẦN]`.
 - **Mâu thuẫn chưa chốt thì chưa `[RÕ]`:** hai câu trả lời vênh nhau về cùng một điểm mà chưa có câu chốt cuối ⇒ nhóm đó `[MỘT PHẦN]`, ghi *còn thiếu: chốt lại điểm mâu thuẫn*.
+
+## Chuẩn `[RÕ]` cho TỪNG nhóm (bắt buộc — đọc trước khi nâng bất kỳ dòng nào lên `[RÕ]`)
+
+Ba chuẩn dưới cùng một tinh thần với hai điều khoản "định lượng" và "luồng/trạng thái" ở trên: **một câu khẳng định chung chung không phải là một yêu cầu đã khai thác.** Nếu bước soạn tài liệu đọc dòng tóm tắt của bạn mà vẫn phải tự nghĩ ra chi tiết, dòng đó chưa `[RÕ]`.
+
+- **Luồng ngoại lệ & trường hợp đặc biệt** — `[RÕ]` khi có **ít nhất một tình huống hỏng cụ thể KÈM cách xử lý** ("đơn bị từ chối → nhân viên sửa rồi gửi lại"). "Có xử lý ngoại lệ", "sẽ báo lỗi", "xử lý bình thường" ⇒ `[MỘT PHẦN]`, ghi *còn thiếu: tình huống ngoại lệ cụ thể và cách xử lý*. Người dùng nói rõ luồng này không có ngoại lệ nào thì `[KHÔNG ÁP DỤNG]` — nhưng phải là điều họ ĐÃ nói, không phải điều bạn suy ra từ việc họ không nhắc tới.
+- **Quy tắc nghiệp vụ & ràng buộc** — `[RÕ]` khi mỗi quy tắc nêu được **điều kiện và hệ quả** ("nghỉ quá 3 ngày phải trưởng phòng duyệt"). Một danh sách chủ đề không có nội dung ("có giới hạn số ngày phép", "có hạn mức") ⇒ `[MỘT PHẦN]`, ghi *còn thiếu: giới hạn cụ thể là bao nhiêu, vượt thì sao*.
+- **Vòng đời & trạng thái** — `[RÕ]` khi **các trạng thái được gọi tên** và biết cái gì đẩy đối tượng từ trạng thái này sang trạng thái kia. "Đơn có nhiều trạng thái", "theo dõi được tiến độ" ⇒ `[MỘT PHẦN]`, ghi *còn thiếu: tên các trạng thái và điều kiện chuyển*.
+- **Thông báo / nhắc nhở** — `[RÕ]` khi rõ **ai nhận** và **khi nào**. "Có thông báo cho người liên quan" ⇒ `[MỘT PHẦN]`.
+- **Phân quyền theo nghiệp vụ** — `[RÕ]` khi rõ **vai trò nào làm/xem được gì**. "Phân quyền theo vai trò" là nhắc lại tên nhóm, không phải câu trả lời ⇒ `[MỘT PHẦN]`.
+
+## Hai điều KHÔNG được tính là căn cứ để `[RÕ]`
+
+- **Lời của BA mà người dùng chưa xác nhận.** Bạn đọc cả hai phía của hội thoại, và BA thường tự dựng phương án ("mình chốt là… nhé?"). Phương án đó chỉ thành yêu cầu khi có câu **đồng ý của NGƯỜI DÙNG** ở lượt sau. Trích dẫn `{nguồn: …}` phải lấy từ **lượt của người dùng hoặc tài liệu nguồn** — trích lời BA rồi đánh `[RÕ]` là ghi nhận điều chưa ai đồng ý, và từ lúc đó BA sẽ không bao giờ hỏi lại nhóm ấy nữa.
+- **Một tiếng "có/không" trả lời cho một câu hỏi MỞ.** Người dùng bấm một gợi ý rất ngắn ("Có", "Cần", "Đồng ý") cho một câu hỏi vốn đòi mô tả ("quy trình hiện tại đang làm thế nào?") thì thông tin thu được gần bằng không ⇒ nhóm đó `[MỘT PHẦN]`, ghi rõ phần còn thiếu. Ngược lại, một tiếng "Đồng ý" cho câu hỏi ĐÓNG có phương án cụ thể kèm theo thì là đã chốt thật — điều khoản này nhắm vào câu trả lời KHÔNG mang nội dung, không nhắm vào câu trả lời ngắn.

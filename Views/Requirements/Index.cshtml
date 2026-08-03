@@ -69,6 +69,14 @@
     // Chỉ khi đã có hội thoại thì mới hiển thị gợi ý cho lượt hỏi mới nhất của BA.
     var displaySuggestions = lastBaSuggestions;
 
+    // THẺ HỎI GỘP của lượt BA mới nhất (2–4 câu hỏi độc lập đặt cùng lúc). Phải render lại từ cột đã lưu
+    // chứ không chỉ dựng bằng JS ở frame done: F5 giữa chừng mà thẻ biến mất thì người dùng mất luôn các
+    // câu chưa trả lời, và Message của lượt gộp chỉ là câu dẫn nên màn hình còn lại đúng một câu vô nghĩa.
+    var lastBaQuestions = (lastItem != null && lastItem.Kind == "conversation"
+            && lastItem.Conversation != null && lastItem.Conversation.Role == "assistant")
+        ? ICOGenerator.Services.Requirements.ConversationTurnRenderer.ParseQuestions(lastItem.Conversation.Questions)
+        : new List<ICOGenerator.Contracts.Requirements.BAChatQuestion>();
+
     // Nút "Write Requirement" hiện "sẵn sàng" (nổi bật) khi lượt BA mới nhất MỜI người dùng bấm nút — tức
     // lời nhắn có nhắc tới "Write Requirement". Lời mời chỉ được LƯU sau khi cổng readiness tất định
     // (RequirementReadinessGate.Evaluate — mọi dòng áp dụng của bản đồ bao phủ đã [RÕ]) pass ngay trong
@@ -363,40 +371,6 @@
                     </li>
                 }
             </ul>
-
-            @* CỔNG "CHỐT NHANH PHẦN CÒN LẠI": đường tăng tốc cho phần phỏng vấn còn lại. Phỏng vấn được
-               thiết kế "mỗi lượt một câu hỏi" và nút Write Requirement chỉ mở khi MỌI nhóm áp dụng đã
-               [RÕ] — đúng về chất lượng nhưng cộng lại thành hàng chục lượt chat, và người dùng bận thì
-               bỏ dở giữa chừng chứ không có đường nào rút ngắn. Ở đây BA đề xuất sẵn một phương án cho
-               từng nhóm còn trống; người dùng gật đầu hoặc gõ đè, rồi chốt MỘT LẦN. Nguyên tắc "tài liệu
-               không tự giả định" giữ nguyên: phương án chỉ thành yêu cầu sau khi người dùng bấm chốt, và
-               được ghi vào hội thoại như lời của chính họ. Ẩn khi bản đồ đã đủ.
-
-               Ở SIDEBAR chỉ còn LỐI VÀO (nút mở + gợi ý): nó thuộc về panel "Tiến độ khai thác" vì con số
-               "N nhóm còn lại" lấy thẳng từ bản đồ bao phủ ngay trên — đó đúng là lúc người dùng nhận ra
-               mình còn thiếu. Còn THÂN DUYỆT PHƯƠNG ÁN đã chuyển vào KHUNG CHAT (#quickCloseBody, cuối
-               file này), cùng lý do đã áp cho cổng xác nhận giả định bên dưới: sidebar rộng 320px nên
-               danh sách phải co chữ và nhét vào ô cuộn 360px — cuộn lồng trong sidebar vốn đã cuộn là
-               cách chắc chắn để mấy điểm cuối không bao giờ được đọc, trong khi chính lượt "tôi chốt N
-               điểm" lại được ghi vào khung chat. Thao tác và kết quả giờ nằm cùng một chỗ. *@
-            <div class="quickclose" id="quickClosePanel"
-                 data-propose-url="@Url.Action("ProposeGaps", "Requirements")"
-                 data-confirm-url="@Url.Action("ConfirmGaps", "Requirements")"
-                 @(coverage.Any(x => x.Status is "CHƯA HỎI" or "MỘT PHẦN") ? "" : "hidden")>
-                <button type="button" class="btn outline full quickclose-start" id="quickCloseStartBtn"
-                        title="BA đề xuất sẵn phương án cho các nhóm còn thiếu — anh/chị duyệt một lần thay vì trả lời từng câu">
-                    ⚡ Chốt nhanh <span id="quickCloseCount">@coverage.Count(x => x.Status is "CHƯA HỎI" or "MỘT PHẦN")</span> nhóm còn lại
-                </button>
-                @* Nói trước điều quyết định việc cổng này nhanh hay chậm: BA chỉ chọn sẵn phần CÓ CĂN CỨ.
-                   Bấm sớm không còn là cái bẫy "11 phương án bịa đã tick sẵn" nữa, nhưng người dùng cần
-                   biết điều đó TRƯỚC khi bấm thì mới dám bấm sớm. *@
-                <div class="quickclose-hint">
-                    Không muốn trả lời từng câu? BA đề xuất sẵn ngay trong khung chat — điểm nào suy ra được
-                    từ trao đổi thì chọn sẵn kèm căn cứ, điểm nào BA chỉ phỏng đoán thì để trống cho anh/chị
-                    chọn hoặc để sau.
-                </div>
-                <div class="quickclose-msg" id="quickCloseMsg"></div>
-            </div>
 
             <!-- WRITE REQUIREMENT: sinh bản mô tả sản phẩm (Product Brief) DỄ HIỂU cho user.
                  Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) do team dev trigger ở Agent Dashboard.
@@ -868,14 +842,48 @@
                 }
             </div>
 
-            @* THÂN CỔNG "CHỐT NHANH PHẦN CÒN LẠI" — rỗng lúc tải trang, requirements.js dựng nội dung sau
-               khi BA soạn xong phương án (bấm nút mở ở panel "Tiến độ khai thác"). Nằm trong khung chat
-               để danh sách có đủ bề ngang và rơi đúng chỗ mắt đang nhìn; JS còn dời khối này xuống ngay
-               trước #thinkingBox mỗi lần hiện, nên nó luôn là khối cuối kể cả sau vài lượt chat streaming.
+            @* THẺ HỎI GỘP — 2–4 câu hỏi độc lập BA đặt trong CÙNG một lượt. Đây là đường thay thế cho cổng
+               "chốt nhanh" đã bỏ: cổng đó rút ngắn phỏng vấn bằng cách để BA tự soạn phương án cho mọi
+               nhóm còn trống rồi ghi vào hội thoại NHƯ LỜI NGƯỜI DÙNG — lấp đầy bản đồ bao phủ mà không ai
+               thật sự trả lời câu nào. Ở đây BA vẫn là người HỎI, người dùng vẫn là người TRẢ LỜI; thứ
+               được rút ngắn chỉ là số vòng đi-về, không phải độ sâu khai thác.
+
+               Render ở CẢ HAI đường (server ở đây khi tải trang, requirements.js ở frame done) vì reload
+               phải giữ nguyên các câu chưa trả lời. Markup hai bên phải khớp nhau.
+
                Đặt SAU #suggestionList (không phải trước) vì quy tắc gộp "câu hỏi BA + chip gợi ý" dựa vào
                kề nhau (.req-msg.ba:has(+ .suggestion-list …)): chen một div vào giữa là hỏng, kể cả khi
                div đó đang ẩn. *@
-            <div class="req-msg ba quickclose-gate" id="quickCloseBody" hidden></div>
+            <div class="req-msg ba batchq" id="batchQuestions" @(lastBaQuestions.Count > 0 ? "" : "hidden")>
+                @if (lastBaQuestions.Count > 0)
+                {
+                    <div class="batchq-lead">Anh/chị trả lời giúp mình mấy điểm sau — bấm một gợi ý hoặc tự nhập; điểm nào chưa nghĩ tới thì để trống.</div>
+                    <ul class="batchq-list">
+                        @foreach (var q in lastBaQuestions)
+                        {
+                            <li class="batchq-item" data-question="@q.Question" data-multi="@(q.MultiSelect ? "true" : "false")">
+                                @if (!string.IsNullOrWhiteSpace(q.Group))
+                                {
+                                    <div class="batchq-group">@q.Group</div>
+                                }
+                                <div class="batchq-question">@q.Question</div>
+                                <div class="batchq-choices">
+                                    @foreach (var s in q.Suggestions)
+                                    {
+                                        <button type="button" class="batchq-choice" data-value="@s">@s</button>
+                                    }
+                                    <button type="button" class="batchq-choice is-other" data-other="1">Ý khác — tôi tự nhập</button>
+                                </div>
+                                <textarea class="batchq-answer" rows="2" hidden placeholder="Câu trả lời của anh/chị…"></textarea>
+                            </li>
+                        }
+                    </ul>
+                    <div class="batchq-bar">
+                        <button type="button" class="btn primary" id="batchQuestionsSendBtn" disabled>Chưa trả lời câu nào</button>
+                        <div class="batchq-hint">Không cần trả lời hết — gửi phần anh/chị đã rõ, BA hỏi tiếp các câu còn lại.</div>
+                    </div>
+                }
+            </div>
 
             <div id="thinkingBox"
                  class="req-msg ba thinking"

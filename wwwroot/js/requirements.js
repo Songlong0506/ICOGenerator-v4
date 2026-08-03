@@ -177,6 +177,133 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (btn) btn.disabled = selectedSuggestionValues().length === 0;
     }
 
+    // ==== Thẻ hỏi GỘP (2–4 câu hỏi độc lập trong cùng một lượt BA) ====
+    // Thay cho cổng "chốt nhanh" đã bỏ. Khác biệt cốt tử, và là lý do cả khối này tồn tại: cổng cũ ghi
+    // PHƯƠNG ÁN DO BA TỰ SOẠN vào hội thoại như lời của chính người dùng — bản đồ bao phủ đầy lên mà
+    // không ai thật sự trả lời câu nào, rồi mọi tầng phía sau (Product Brief, spec, POC) tin đó là điều
+    // người dùng đã nói. Ở đây thứ được ghi luôn là CÂU TRẢ LỜI của người dùng cho câu hỏi của BA; cái
+    // được rút ngắn chỉ là số vòng đi-về.
+    //
+    // Cả cụm được gửi qua đúng đường chat thường (soạn thành một tin nhắn "- câu hỏi: trả lời" rồi
+    // requestSubmit) — không có endpoint riêng, nên không có đường ghi thứ hai nào lệch khỏi luồng chính
+    // và mọi thứ đã đúng ở lượt chat (cổng readiness, chắt lọc bản đồ, decision log) tự khắc đúng ở đây.
+    const batchPanel = document.getElementById("batchQuestions");
+
+    function hideBatchQuestions() {
+        if (!batchPanel || batchPanel.hidden) return;
+        batchPanel.hidden = true;
+        batchPanel.innerHTML = "";
+    }
+
+    // Các câu ĐÃ có câu trả lời, theo đúng thứ tự hỏi. Câu để trống đơn giản không có mặt — BA hỏi tiếp
+    // ở lượt sau, đúng như lời hứa dưới nút gửi.
+    function answeredBatchQuestions() {
+        if (!batchPanel || batchPanel.hidden) return [];
+        return Array.from(batchPanel.querySelectorAll(".batchq-item"))
+            .map(li => ({
+                question: li.dataset.question || "",
+                answer: (li.querySelector(".batchq-answer").value || "").trim()
+            }))
+            .filter(x => x.answer.length > 0);
+    }
+
+    // Nhãn nút đếm LIVE: một nút ghi cứng "Gửi 3 câu" trên thẻ mà người dùng mới trả lời 1 câu là lời
+    // hứa sai — họ không biết mình sắp gửi đi những gì.
+    function updateBatchSendButton() {
+        const btn = document.getElementById("batchQuestionsSendBtn");
+        if (!btn) return;
+        const count = answeredBatchQuestions().length;
+        btn.disabled = count === 0 || chatBusy;
+        btn.textContent = count === 0 ? "Chưa trả lời câu nào" : `Gửi ${count} câu trả lời`;
+    }
+
+    // Markup phải khớp bản server render trong Index.cshtml (đường tải lại trang).
+    function renderBatchQuestions(questions) {
+        if (!batchPanel) return;
+        if (!Array.isArray(questions) || questions.length === 0) {
+            hideBatchQuestions();
+            return;
+        }
+
+        batchPanel.innerHTML = `
+            <div class="batchq-lead">Anh/chị trả lời giúp mình mấy điểm sau — bấm một gợi ý hoặc tự nhập; điểm nào chưa nghĩ tới thì để trống.</div>
+            <ul class="batchq-list">
+                ${questions.map(q => `
+                <li class="batchq-item" data-question="${escapeHtml(q.question || "")}" data-multi="${q.multiSelect ? "true" : "false"}">
+                    ${q.group ? `<div class="batchq-group">${escapeHtml(q.group)}</div>` : ""}
+                    <div class="batchq-question">${escapeHtml(q.question || "")}</div>
+                    <div class="batchq-choices">
+                        ${(Array.isArray(q.suggestions) ? q.suggestions : []).map(s => `
+                        <button type="button" class="batchq-choice" data-value="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join("")}
+                        <button type="button" class="batchq-choice is-other" data-other="1">Ý khác — tôi tự nhập</button>
+                    </div>
+                    <textarea class="batchq-answer" rows="2" hidden placeholder="Câu trả lời của anh/chị…"></textarea>
+                </li>`).join("")}
+            </ul>
+            <div class="batchq-bar">
+                <button type="button" class="btn primary" id="batchQuestionsSendBtn" disabled>Chưa trả lời câu nào</button>
+                <div class="batchq-hint">Không cần trả lời hết — gửi phần anh/chị đã rõ, BA hỏi tiếp các câu còn lại.</div>
+            </div>`;
+
+        // Dời xuống cuối dòng hội thoại: các lượt streaming được chèn vào TRƯỚC thinkingBox, nên một khối
+        // render ở vị trí cố định sẽ trôi lên phía trên các lượt mới sau vài lượt chat.
+        thinkingBox.before(batchPanel);
+        batchPanel.hidden = false;
+        scrollToBottom();
+    }
+
+    if (batchPanel) {
+        batchPanel.addEventListener("click", function (e) {
+            const choice = e.target.closest(".batchq-choice");
+            if (choice) {
+                const li = choice.closest(".batchq-item");
+                const answer = li.querySelector(".batchq-answer");
+                const multi = li.dataset.multi === "true";
+
+                if (choice.dataset.other) {
+                    // "Ý khác" mồi sẵn nội dung đang chọn: phần lớn lượt tự nhập là CHỈNH vài chữ của một
+                    // gợi ý, bắt gõ lại cả câu là thao tác thừa.
+                    choice.classList.add("is-on");
+                    answer.hidden = false;
+                    answer.focus();
+                    answer.setSelectionRange(answer.value.length, answer.value.length);
+                    updateBatchSendButton();
+                    return;
+                }
+
+                if (multi) {
+                    // Câu chọn-nhiều: chip là toggle, câu trả lời là các lựa chọn nối bằng dấu phẩy.
+                    choice.classList.toggle("is-on");
+                    const picked = Array.from(li.querySelectorAll(".batchq-choice.is-on:not(.is-other)"))
+                        .map(b => b.dataset.value);
+                    answer.value = picked.join(", ");
+                } else {
+                    li.querySelectorAll(".batchq-choice").forEach(b => b.classList.toggle("is-on", b === choice));
+                    answer.hidden = true;
+                    answer.value = choice.dataset.value || "";
+                }
+                updateBatchSendButton();
+                return;
+            }
+
+            if (!e.target.closest("#batchQuestionsSendBtn")) return;
+
+            const answers = answeredBatchQuestions();
+            if (answers.length === 0 || chatBusy) return;
+
+            // Soạn thành MỘT tin nhắn của người dùng, mỗi dòng một cặp câu hỏi–trả lời. Kèm lại câu hỏi
+            // (không chỉ câu trả lời) vì mọi tầng chắt lọc đọc hội thoại: một dòng "Dưới 20 người" đứng
+            // trơ trọi thì bản đồ bao phủ không biết nó trả lời cho nhóm nào.
+            messageInput.value = answers.map(a => `- ${a.question}: ${a.answer}`).join("\n");
+            chatForm.requestSubmit();
+        });
+
+        // Ô "Ý khác" đang mở mà rỗng thì câu đó KHÔNG được tính, nên nhãn nút phải nhảy theo từng phím gõ.
+        batchPanel.addEventListener("input", function (e) {
+            if (e.target.classList.contains("batchq-answer")) updateBatchSendButton();
+        });
+    }
+
     // ==== Panel "Tiến độ khai thác" + "Điều đã chốt" (cột trái) — cập nhật live từ frame done ====
     // Markup phải khớp bản server render trong Index.cshtml.
     const coverageIcons = { "RÕ": "✅", "MỘT PHẦN": "🟡", "KHÔNG ÁP DỤNG": "➖" };
@@ -205,16 +332,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const text = document.getElementById("coverageProgressText");
         if (text) text.textContent = `Đã rõ ${clear}/${applicable} nhóm`;
         panel.hidden = false;
-
-        // Cổng "chốt nhanh" bám cùng bản đồ: còn nhóm trống thì hiện kèm số nhóm, hết thì ẩn hẳn (lúc đó
-        // nút "Write Requirement" đã mở — không còn gì để chốt nhanh).
-        const quick = document.getElementById("quickClosePanel");
-        if (quick) {
-            const pending = items.filter(x => x.status === "CHƯA HỎI" || x.status === "MỘT PHẦN").length;
-            quick.hidden = pending === 0;
-            const countEl = document.getElementById("quickCloseCount");
-            if (countEl) countEl.textContent = String(pending);
-        }
     }
 
     function renderDecisions(items) {
@@ -492,6 +609,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // → luôn thay bằng bản chốt.
             p.textContent = data.reply || "";
             renderSuggestions(data.suggestions, data.suggestionsMultiSelect === true);
+            renderBatchQuestions(data.questions);
             setWriteRequirementReady(data.invitesWriteRequirement === true);
             renderCoverage(data.coverage);
             renderDecisions(data.decisions);
@@ -624,11 +742,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
     }
 
-    // Do initQuickClose gán: gỡ cổng "chốt nhanh" đang mở trong khung chat. Lượt chat thường phải gọi
-    // nó — cổng mở mà người dùng quay ra gõ trả lời tay nghĩa là họ đã chọn đường kia, để cả hai cùng
-    // sống thì bấm chốt sau đó sẽ ghi đè phần vừa trả lời trong chat mà không ai thấy.
-    let quickCloseDismiss = null;
-
     chatForm.addEventListener("submit", function (e) {
         e.preventDefault();
 
@@ -643,7 +756,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const text = messageInput.value.trim();
         if (!text || chatBusy) return;
 
-        if (quickCloseDismiss) quickCloseDismiss();
+        // Người dùng quay ra gõ tay trong khi thẻ hỏi gộp còn mở nghĩa là họ đã chọn đường kia — gỡ thẻ,
+        // vì để cả hai cùng sống thì một cú bấm "Gửi" sau đó sẽ gửi lại các câu họ vừa trả lời bằng tay.
+        hideBatchQuestions();
 
         // Đang SỬA lượt vừa gửi: không thêm bong bóng mới — ghi đè bong bóng cũ và gỡ câu trả lời cũ
         // (server cũng xóa đúng lượt assistant đó), rồi gửi kèm cờ edit.
@@ -1149,349 +1264,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     })();
 
-    // ==== Cổng "chốt nhanh phần còn lại" ====
-    // Đường tăng tốc cho phần phỏng vấn còn lại: BA đề xuất sẵn MỘT phương án cho mỗi nhóm bản đồ bao phủ
-    // còn trống, người dùng duyệt một lần thay vì trả lời từng câu qua nhiều lượt chat. Chốt xong KHÔNG
-    // reload: server trả bản đồ đã gộp + cờ ready nên panel tiến độ và nút "Write Requirement" cập nhật
-    // tại chỗ, và lượt hội thoại vừa ghi được nối vào khung chat như một lượt bình thường.
-    //
-    // BA ĐOÁN THÌ KHÔNG CHỌN SẴN. Bản đầu tiên mặc định "Đúng ý" cho cả danh sách, nên bấm cổng ngay sau
-    // câu trả lời đầu tiên là nhận 11 phương án bịa đã được chọn sẵn — người dùng phải đọc và gõ đè gần
-    // như từng dòng, chậm hơn hẳn trả lời từng câu trong chat. Nay mỗi phương án về kèm cờ `grounded`
-    // (server chốt tất định, xem GapProposalService): có căn cứ ⇒ chọn sẵn kèm dòng "Căn cứ:" để soi
-    // được ngay; BA đoán ⇒ để ở "Để sau", người dùng chỉ động vào nếu muốn.
-    //
-    // MỖI DÒNG LÀ MỘT CÂU HỎI TRẮC NGHIỆM, không phải một phương án kèm hai nút biểu quyết. Bản trước có
-    // "Đúng ý" / "Sửa" / "Để sau" cạnh một phương án mặc định, cộng thêm hàng chip `options` — tức HAI
-    // đường nói "đồng ý" cho cùng một việc (bấm chip đã là chọn + đồng ý), và ô gõ tay thì nấp sau một
-    // nút đổi chế độ. Nay: ba gợi ý ĐỒNG HẠNG (phương án chính là lựa chọn đầu, hai lựa chọn còn lại từ
-    // `options`), thêm "Ý khác" để tự nhập, và chỉ còn "Để sau" là nút. Bấm một gợi ý = chốt luôn dòng
-    // đó. Cùng ngôn ngữ tương tác với cổng soát mâu thuẫn ở cuối file.
-    //
-    // KHÔNG DÁN NHÃN TỪNG DÒNG. Bản trước có badge "BA suy ra từ trao đổi" / "BA phỏng đoán" cạnh tên
-    // nhóm và nhãn "BA đề xuất" trên gợi ý đầu. Cả ba đều lặp lại điều màn hình đã nói bằng hình: dòng
-    // suy ra được CHỌN SẴN và có dòng "Căn cứ:", dòng chưa có căn cứ thì mờ và nằm ở "Để sau", còn gợi ý
-    // đầu thì đứng đầu. Riêng "BA đề xuất" còn sai lệch: nó gắn theo VỊ TRÍ nên hiện cả trên những dòng
-    // BA chỉ đoán, đọc như một sự bảo đảm không có thật. Ranh giới suy-ra / chưa-có-căn-cứ giờ nói MỘT
-    // lần ở đoạn dẫn, kèm con số (xem buildLead).
-    //
-    // Hai trạng thái mỗi dòng — ok / skip — và chỉ dòng KHÁC "skip" (kèm câu trả lời không rỗng) mới
-    // được gửi đi, nên bỏ qua một phương án sai vẫn tốn 0 thao tác: nhóm đó ở nguyên trạng thái trống và
-    // BA hỏi tiếp trong chat.
-    //
-    // Cổng bắc qua HAI cột: nút mở ở sidebar (thuộc panel tiến độ — xem Index.cshtml), còn thân duyệt
-    // phương án dựng trong KHUNG CHAT. Vì thế mọi trạng thái chờ/lỗi đều phải hiện ở đúng cột mà người
-    // dùng đang nhìn: lúc BA soạn phương án dùng dòng "đang soạn" của chat, lỗi của bước chốt hiện ngay
-    // dưới cặp nút trong chat, còn #quickCloseMsg ở sidebar chỉ còn báo lỗi của bước mở cổng.
-    (function initQuickClose() {
-        const panel = document.getElementById("quickClosePanel");
-        if (!panel) return;
-
-        const startBtn = document.getElementById("quickCloseStartBtn");
-        const bodyEl = document.getElementById("quickCloseBody");
-        const msgEl = document.getElementById("quickCloseMsg");
-        const hintEl = panel.querySelector(".quickclose-hint");
-        if (!startBtn || !bodyEl || !msgEl) return;
-
-        const startLabel = startBtn.innerHTML;
-
-        // Lỗi của bước CHỐT: hiện trong thân cổng (khung chat), cạnh đúng cái nút vừa bấm.
-        function gateMsg(text) {
-            const el = document.getElementById("quickCloseGateMsg");
-            if (el) el.textContent = text;
-        }
-
-        // Gỡ cổng khỏi khung chat, trả nút mở về sidebar. Dùng cho nút "Để tôi trả lời trong chat" và cho
-        // mọi lượt chat thường (xem quickCloseDismiss ở trên).
-        function dismiss() {
-            if (bodyEl.hidden) return;
-            bodyEl.hidden = true;
-            bodyEl.innerHTML = "";
-            startBtn.hidden = false;
-            startBtn.disabled = false;
-            startBtn.innerHTML = startLabel;
-            if (hintEl) hintEl.hidden = false;
-        }
-
-        quickCloseDismiss = dismiss;
-
-        function token() {
-            const el = document.querySelector('input[name="__RequestVerificationToken"]');
-            return el ? el.value : "";
-        }
-
-        async function post(url, extra) {
-            const fd = new FormData();
-            fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
-            fd.append("__RequestVerificationToken", token());
-            Object.keys(extra || {}).forEach(k => fd.append(k, extra[k]));
-            const resp = await fetch(url, { method: "POST", body: fd });
-            return await resp.json();
-        }
-
-        // Điểm CÓ CĂN CỨ lên trước: đó là phần người dùng chỉ cần liếc rồi chốt. Xếp lẫn với phần BA
-        // đoán thì cả danh sách phải đọc kỹ như nhau — đúng cái làm cổng chậm hơn chat.
-        function sortProposals(proposals) {
-            const grounded = proposals.filter(p => p.grounded);
-            return grounded.concat(proposals.filter(p => !p.grounded));
-        }
-
-        // Đoạn dẫn là chỗ DUY NHẤT nói ra ranh giới suy-ra / chưa-có-căn-cứ, từ khi hai nhãn nhỏ trên mỗi
-        // dòng bị bỏ. Nó phải trả lời được câu hỏi người dùng hỏi ngay khi nhìn danh sách — "sao dòng này
-        // sáng còn dòng kia không" — bằng chính con số, chứ không dán nhãn từng dòng.
-        function buildLead(groundedCount, guessCount) {
-            if (guessCount === 0) {
-                return `Cả ${groundedCount} điểm dưới đây đều suy ra từ những gì anh/chị đã nói —
-                    xem lại rồi bấm chốt là xong.`;
-            }
-            if (groundedCount === 0) {
-                return `Anh/chị mới trao đổi ít nên mình <b>chưa chọn sẵn điểm nào</b> — ${guessCount} điểm
-                    dưới đây là gợi ý để anh/chị bấm nhanh. Mỗi điểm bấm một gợi ý, hoặc bấm "Ý khác" để
-                    tự nhập; điểm nào chưa nghĩ tới thì để sau — BA sẽ hỏi tiếp trong khung chat.`;
-            }
-            return `<b>${groundedCount} điểm</b> mình suy ra từ trao đổi của anh/chị (đã chọn sẵn, có ghi rõ
-                căn cứ). <b>${guessCount} điểm</b> còn lại mình <b>chưa có căn cứ</b> nên để trống —
-                anh/chị bấm một gợi ý, tự nhập ở "Ý khác", hoặc để sau cho BA hỏi tiếp trong chat.`;
-        }
-
-        function renderProposals(raw) {
-            const proposals = sortProposals(raw);
-            const groundedCount = proposals.filter(p => p.grounded).length;
-
-            bodyEl.innerHTML = `
-                <div class="quickclose-head">
-                    <b>BA</b>
-                    <span class="quickclose-title">Chốt nhanh các nhóm còn lại</span>
-                    <span class="quickclose-count">${proposals.length} điểm</span>
-                </div>
-                <div class="quickclose-lead">${buildLead(groundedCount, proposals.length - groundedCount)}</div>
-                <ul class="quickclose-list">
-                    ${proposals.map((p, i) => {
-                        // Ba gợi ý ĐỒNG HẠNG: phương án chính đứng đầu, hai lựa chọn còn lại từ
-                        // `options`. Cắt ở 3 vì quá đó thì dòng này thành một danh sách phải ĐỌC, mất
-                        // đúng cái lợi "liếc rồi bấm". Model trả thiếu thì hiện ít hơn — KHÔNG độn thêm
-                        // cho đủ, độn là bịa (cùng nguyên tắc với GapProposalService).
-                        const choices = [p.proposal]
-                            .concat(Array.isArray(p.options) ? p.options : [])
-                            .map(c => (c || "").trim())
-                            .filter(c => c.length > 0)
-                            .slice(0, 3);
-                        return `
-                        <li class="quickclose-item ${p.grounded ? "" : "is-skipped"}"
-                            data-index="${i}" data-state="${p.grounded ? "ok" : "skip"}"
-                            data-group="${escapeHtml(p.group)}" data-question="${escapeHtml(p.question || "")}">
-                            <div class="quickclose-group">${escapeHtml(p.group)}</div>
-                            ${p.question ? `<div class="quickclose-question">${escapeHtml(p.question)}</div>` : ""}
-                            ${p.grounded && p.basis ? `<div class="quickclose-basis">Căn cứ: ${escapeHtml(p.basis)}</div>` : ""}
-                            <div class="quickclose-choices">
-                                ${choices.map((c, ci) => `
-                                <button type="button" class="quickclose-choice ${p.grounded && ci === 0 ? "is-on" : ""}"
-                                        data-value="${escapeHtml(c)}">
-                                    <span class="quickclose-choice-text">${escapeHtml(c)}</span>
-                                </button>`).join("")}
-                                <button type="button" class="quickclose-choice is-other" data-other="1">
-                                    <span class="quickclose-choice-text">Ý khác — tôi tự nhập</span>
-                                </button>
-                            </div>
-                            <textarea class="quickclose-fix" rows="2" hidden
-                                      placeholder="Câu trả lời của anh/chị cho điểm này…">${p.grounded ? escapeHtml(choices[0] || "") : ""}</textarea>
-                            <div class="quickclose-actions">
-                                <button type="button" class="quickclose-vote skip ${p.grounded ? "" : "is-on"}" data-vote="skip">Để sau</button>
-                            </div>
-                        </li>`;
-                    }).join("")}
-                </ul>
-                <div class="quickclose-bar">
-                    <button type="button" class="btn primary" id="quickCloseConfirmBtn"></button>
-                    <button type="button" class="btn outline" id="quickCloseCancelBtn">Để tôi trả lời trong chat</button>
-                    <div class="quickclose-gate-msg" id="quickCloseGateMsg"></div>
-                </div>`;
-            updateConfirmButton();
-            // Dời cổng xuống CUỐI dòng hội thoại: khối này được server render ở một vị trí cố định, nên
-            // sau vài lượt chat streaming (chèn vào trước thinkingBox) nó sẽ nằm lọt phía trên các lượt
-            // mới — đúng cái bẫy "phải đi tìm cổng" mà lần chuyển này muốn bỏ.
-            thinkingBox.before(bodyEl);
-            bodyEl.hidden = false;
-            startBtn.hidden = true;
-            if (hintEl) hintEl.hidden = true;
-            scrollToBottom();
-        }
-
-        // Một dòng = MỘT câu trả lời, dù nó đến từ gợi ý BA soạn hay ô "Ý khác": giữ nội dung ở đúng một
-        // chỗ (textarea) và chỉ đổi cách hiện, nên không bao giờ có cảnh dòng hiển thị một đằng mà nội
-        // dung gửi đi một nẻo.
-        function setAnswer(li, text) {
-            li.querySelector(".quickclose-fix").value = text;
-        }
-
-        // Chỉ MỘT gợi ý sáng mỗi dòng (kể cả ô "Ý khác") — đây là câu hỏi chọn một, không phải bộ lọc.
-        function markChoice(li, chosen) {
-            li.querySelectorAll(".quickclose-choice").forEach(btn =>
-                btn.classList.toggle("is-on", btn === chosen));
-        }
-
-        // Hai trạng thái: "ok" (dòng này sẽ được gửi đi) và "skip" (để BA hỏi tiếp trong chat).
-        function setState(li, state) {
-            li.dataset.state = state;
-            li.classList.toggle("is-skipped", state === "skip");
-            if (state === "skip") {
-                markChoice(li, null);
-                li.querySelector(".quickclose-fix").hidden = true;
-            }
-            li.querySelector(".quickclose-vote.skip").classList.toggle("is-on", state === "skip");
-            updateConfirmButton();
-        }
-
-        function pickedDecisions() {
-            return Array.from(bodyEl.querySelectorAll(".quickclose-item"))
-                .filter(li => li.dataset.state !== "skip")
-                .map(li => ({
-                    group: li.dataset.group,
-                    question: li.dataset.question,
-                    answer: li.querySelector(".quickclose-fix").value.trim()
-                }))
-                .filter(d => d.answer.length > 0);
-        }
-
-        // Nhãn nút đếm LIVE theo số điểm đang chọn: với danh sách mà phần lớn để trống sẵn, một nút ghi
-        // cứng "Chốt 11 điểm" là lời hứa sai — người dùng phải đoán xem mình sắp gửi đi những gì.
-        function updateConfirmButton() {
-            const btn = document.getElementById("quickCloseConfirmBtn");
-            if (!btn) return;
-            const count = pickedDecisions().length;
-            btn.disabled = count === 0;
-            btn.textContent = count === 0 ? "Chưa chọn điểm nào" : `✓ Chốt ${count} điểm này`;
-        }
-
-        // Ghi lượt vừa chốt vào khung chat như một lượt bình thường: không có nó, người dùng bấm xong
-        // thấy panel biến mất mà hội thoại không đổi gì — y như thao tác vừa rồi rơi vào khoảng không.
-        function appendTurns(count) {
-            const you = document.createElement("div");
-            you.className = "req-msg you";
-            you.innerHTML = `<p>Tôi chốt ${count} điểm ở phần chốt nhanh.</p>`;
-            // Cuối dòng hội thoại, không phải trước danh sách gợi ý: chốt nhanh chạy được ở bất kỳ lúc
-            // nào, kể cả sau vài lượt chat streaming — lúc đó #suggestionList không còn là điểm cuối.
-            chatMessages.insertBefore(you, thinkingBox);
-            scrollToBottom();
-        }
-
-        startBtn.addEventListener("click", async function () {
-            if (chatBusy) return;
-
-            chatBusy = true;
-            startBtn.disabled = true;
-            startBtn.textContent = "BA đang soạn phương án…";
-            msgEl.textContent = "";
-            // Chỗ chờ nằm trong khung chat vì thân cổng sắp hiện ra ở đó: đổi nhãn một cái nút ở sidebar
-            // là không đủ khi mắt người dùng đã ở cột chat.
-            setThinkingText("BA đang soạn phương án cho các nhóm còn lại…");
-            thinkingBox.style.display = "block";
-            scrollToBottom();
-            try {
-                const data = await post(panel.dataset.proposeUrl, null);
-                if (data.ok && Array.isArray(data.proposals) && data.proposals.length > 0) {
-                    renderProposals(data.proposals);
-                    return;
-                }
-                msgEl.textContent = data.error || "Chưa soạn được phương án.";
-            } catch {
-                msgEl.textContent = "Không gửi được — kiểm tra kết nối rồi thử lại.";
-            } finally {
-                thinkingBox.style.display = "none";
-                setThinkingText("BA is analyzing requirements...");
-                // Cổng mở KHÔNG khóa ô nhập: "Để tôi trả lời trong chat" vẫn là lựa chọn hợp lệ ở đây.
-                chatBusy = false;
-            }
-            startBtn.disabled = false;
-            startBtn.innerHTML = startLabel;
-        });
-
-        bodyEl.addEventListener("click", async function (e) {
-            // Bấm một gợi ý = vừa chọn nội dung vừa đồng ý. Gợi ý mà còn phải bấm thêm một nút xác nhận
-            // thì mất đúng cái lợi một-cú-bấm nó sinh ra để có.
-            const choice = e.target.closest(".quickclose-choice");
-            if (choice) {
-                const li = choice.closest(".quickclose-item");
-                const fix = li.querySelector(".quickclose-fix");
-                markChoice(li, choice);
-                if (choice.dataset.other) {
-                    // "Ý khác" mồi sẵn nội dung đang chọn (hoặc gợi ý đầu nếu chưa chọn gì):
-                    // phần lớn lượt tự nhập là CHỈNH vài chữ của một gợi ý, và bắt gõ lại cả câu chính
-                    // là thao tác mà nút "Sửa" cũ vốn tránh được.
-                    if (fix.value.trim().length === 0) {
-                        const first = li.querySelector(".quickclose-choice:not(.is-other)");
-                        fix.value = first ? first.dataset.value : "";
-                    }
-                    fix.hidden = false;
-                    setState(li, "ok");
-                    fix.focus();
-                    fix.setSelectionRange(fix.value.length, fix.value.length);
-                    return;
-                }
-
-                fix.hidden = true;
-                setAnswer(li, choice.dataset.value);
-                setState(li, "ok");
-                return;
-            }
-
-            const vote = e.target.closest(".quickclose-vote");
-            if (vote) {
-                setState(vote.closest(".quickclose-item"), vote.dataset.vote);
-                return;
-            }
-
-            if (e.target.closest("#quickCloseCancelBtn")) {
-                dismiss();
-                messageInput.focus();
-                return;
-            }
-
-            const confirmBtn = e.target.closest("#quickCloseConfirmBtn");
-            if (!confirmBtn) return;
-
-            const decisions = pickedDecisions();
-            if (decisions.length === 0) {
-                gateMsg("Chưa chọn điểm nào — anh/chị bấm một gợi ý ở ít nhất một điểm, hoặc trả lời trong khung chat.");
-                return;
-            }
-
-            const original = confirmBtn.textContent;
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = "Đang ghi nhận…";
-            gateMsg("");
-            try {
-                const data = await post(panel.dataset.confirmUrl, { decisionsJson: JSON.stringify(decisions) });
-                if (data.ok) {
-                    // Gỡ cổng TRƯỚC khi nối lượt: để lại danh sách phương án ngay trên bong bóng "tôi
-                    // chốt N điểm" thì trông như vẫn còn phải duyệt.
-                    bodyEl.hidden = true;
-                    bodyEl.innerHTML = "";
-                    appendTurns(decisions.length);
-                    // renderCoverage tự ẩn/hiện lối vào chốt nhanh theo số nhóm CÒN trống. Ẩn cứng ở đây
-                    // là sai từ khi "Để sau" thành lựa chọn bình thường: chốt một phần vẫn còn nhóm trống,
-                    // mà lối vào lại biến mất tới tận lúc trang tải lại.
-                    renderCoverage(data.coverage);
-                    setWriteRequirementReady(!!data.ready);
-                    // Tải lại để khung chat có đúng lượt BA vừa lưu (kèm gợi ý/ngữ cảnh) thay vì bản dựng
-                    // tạm ở client — chờ một nhịp để người dùng kịp thấy thanh tiến độ nhảy lên.
-                    setTimeout(() => location.reload(), 900);
-                    return;
-                }
-                gateMsg(data.error || "Không ghi nhận được.");
-            } catch {
-                gateMsg("Không gửi được — kiểm tra kết nối rồi thử lại.");
-            }
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = original;
-        });
-
-        // Ô "Ý khác" đang mở mà rỗng thì dòng đó KHÔNG được tính (pickedDecisions lọc câu rỗng), nên
-        // nhãn nút chốt phải nhảy theo từng phím gõ — nếu không nó hứa sai số điểm sắp gửi đi.
-        bodyEl.addEventListener("input", function (e) {
-            if (e.target.classList.contains("quickclose-fix")) updateConfirmButton();
-        });
-    })();
 
 }
 

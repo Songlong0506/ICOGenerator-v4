@@ -1639,42 +1639,22 @@
 .assumption-gate-bar .btn[hidden],
 .worked-list[hidden] { display: none; }
 
-/* ==== Cổng "chốt nhanh phần còn lại" (tăng tốc phần phỏng vấn còn lại) ==== */
+/* ==== Thẻ hỏi GỘP (2–4 câu hỏi độc lập trong cùng một lượt BA) ==== */
 
-/* LỐI VÀO ở sidebar: chỉ còn nút mở + một dòng gợi ý, nên giữ cỡ chữ nhỏ như các panel bên cạnh. */
-.quickclose { margin-top: 10px; }
-
-.quickclose-hint { font-size: 11px; color: #6b7280; line-height: 1.5; margin-top: 4px; }
-
-.quickclose-msg { font-size: 11.5px; color: #dc2626; margin-top: 4px; }
-
-/* THÂN CỔNG sống trong khung chat (cùng lối với .assumption-panel.gate): tạo hình như một bong bóng BA,
-   tông xanh nhạt để tách khỏi lượt chat thường mà không lẫn với cổng giả định (tông cảnh báo). Có bề
-   ngang thật nên danh sách hiện TRỌN — bỏ hẳn ô cuộn cao 360px của bản cũ ở sidebar, vì cuộn lồng trong
-   khung chat vốn đã cuộn là cách chắc chắn để mấy điểm cuối không bao giờ được đọc.
-   Cần đủ BA lớp trong selector để thắng `.req-msg.ba` (nền xám bong bóng BA thường, cùng thuộc tính ở
-   độ ưu tiên (0,2,0)). Nền xanh RẤT nhạt và KHÔNG dùng token --bosch-blue-tint vì đó là nền bong bóng
-   của người dùng: cổng do BA dựng mà mang màu bong bóng "mình" thì đọc sai ngay từ cái liếc đầu. */
-.req-msg.ba.quickclose-gate {
+/* Sống trong khung chat như một bong bóng BA (cùng lối với .assumption-panel.gate), tông xanh rất nhạt
+   để tách khỏi lượt chat thường mà không lẫn với cổng giả định (tông cảnh báo). Cần đủ BA lớp trong
+   selector để thắng `.req-msg.ba` (nền xám bong bóng BA thường, cùng độ ưu tiên (0,2,0)). KHÔNG dùng
+   token --bosch-blue-tint vì đó là nền bong bóng của NGƯỜI DÙNG: một thẻ do BA hỏi mà mang màu bong
+   bóng "mình" thì đọc sai ngay từ cái liếc đầu. */
+.req-msg.ba.batchq {
     max-width: 92%;
     background: #f7fbff;
     border-color: var(--bosch-blue-tint-strong, #cfe0fb);
 }
 
-.quickclose-head {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 6px;
-}
+.batchq-lead { font-size: 12.5px; line-height: 1.55; color: #555; margin: 0 0 10px; }
 
-.quickclose-title { color: var(--bosch-blue, #2563eb); font-size: 13px; font-weight: 800; }
-
-.quickclose-count { font-size: 12px; color: var(--muted, #777); }
-
-.quickclose-lead { font-size: 12.5px; line-height: 1.55; color: #555; margin: 0 0 10px; }
-
-.quickclose-list {
+.batchq-list {
     list-style: none;
     margin: 0;
     padding: 0;
@@ -1683,58 +1663,33 @@
     gap: 8px;
 }
 
-.quickclose-item {
+.batchq-item {
     padding: 10px 12px;
     border: 1px solid var(--line, #e5e7eb);
     border-radius: 10px;
     background: #fff;
 }
 
-/* Tên nhóm đứng MỘT MÌNH: hai badge "BA suy ra từ trao đổi" / "BA phỏng đoán" từng nằm cạnh đây đã bỏ,
-   vì chúng chỉ lặp lại điều dòng đó đã nói bằng hình (chọn sẵn + dòng "Căn cứ:" so với mờ + "Để sau"). */
-.quickclose-group {
-    font-size: 12.5px;
+/* Nhãn nhóm bản đồ bao phủ mà câu hỏi nhắm tới — nói cho người dùng biết trả lời câu này thì phần nào
+   của thanh tiến độ bên trái sẽ nhích. */
+.batchq-group {
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--bosch-blue, #2563eb);
 }
 
-.quickclose-question { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.batchq-question { font-size: 13px; line-height: 1.5; color: #374151; margin-top: 2px; }
 
-/* Trích dẫn mà BA nói là mình dựa vào. Hiện luôn (không phải tooltip) vì đây là cách DUY NHẤT người dùng
-   phát hiện một phương án được gắn nhãn "suy ra" nhưng dựa vào điều họ chưa hề nói. */
-.quickclose-basis {
-    font-size: 11.5px;
-    line-height: 1.5;
-    color: #15803d;
-    background: #f0fdf4;
-    border-left: 2px solid #86efac;
-    padding: 3px 8px;
-    border-radius: 0 4px 4px 0;
-    margin-top: 6px;
-}
-
-/* Dòng đang để lại: vẫn đọc được nhưng lùi hẳn về sau, để mắt chỉ dừng ở những điểm sắp được gửi đi. */
-.quickclose-item.is-skipped {
-    background: var(--surface-alt, #f9fafb);
-    border-style: dashed;
-}
-
-    .quickclose-item.is-skipped .quickclose-choice { opacity: .6; }
-
-/* Gợi ý xếp DỌC, mỗi cái một dòng đầy chiều ngang — không phải chip nằm ngang: gợi ý đầu là cả một câu
-   phương án (sẽ được ghi vào hội thoại như lời của chính người dùng), nên nó phải đọc được trọn vẹn chứ
-   không bị bóp trong một viên pill. Dạng danh sách cũng nói đúng bản chất "chọn MỘT trong số này". */
-.quickclose-choices {
+/* Gợi ý xếp DỌC, mỗi cái một dòng đầy chiều ngang thay vì chip nằm ngang: đây là câu trả lời sẽ được ghi
+   vào hội thoại, nên phải đọc trọn vẹn chứ không bị bóp trong một viên pill. */
+.batchq-choices {
     display: flex;
     flex-direction: column;
     gap: 5px;
     margin-top: 8px;
 }
 
-.quickclose-choice {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
+.batchq-choice {
     font-family: inherit;
     font-size: 12.5px;
     line-height: 1.5;
@@ -1748,28 +1703,26 @@
     text-align: left;
 }
 
-    .quickclose-choice:hover { border-color: var(--bosch-blue-tint-strong, #cfe0fb); background: var(--bosch-blue-tint, #eff6ff); }
+    .batchq-choice:hover { border-color: var(--bosch-blue-tint-strong, #cfe0fb); background: var(--bosch-blue-tint, #eff6ff); }
 
-    .quickclose-choice.is-on {
+    .batchq-choice.is-on {
         border-color: var(--bosch-blue, #2563eb);
         background: var(--bosch-blue-tint, #eff6ff);
         color: var(--bosch-blue, #2563eb);
         font-weight: 600;
     }
 
-    /* "Ý khác" là lối thoát, không phải một phương án ngang hàng ba gợi ý trên: viền đứt + chữ nhạt để
-       mắt lướt qua nó khi một trong ba gợi ý đã đúng. */
-    .quickclose-choice.is-other {
+    /* "Ý khác" là lối thoát, không phải một phương án ngang hàng: viền đứt + chữ nhạt để mắt lướt qua nó
+       khi một gợi ý đã đúng. Ô nhập tự do luôn có, nên không bao giờ bị kẹt ở các gợi ý sẵn. */
+    .batchq-choice.is-other {
         border-style: dashed;
         color: #6b7280;
         font-size: 12px;
     }
 
-.quickclose-choice-text { flex: 1; }
-
-/* Ô "Ý khác": nối liền ngay dưới nút mở nó, nền trắng như các gợi ý — nó là NỘI DUNG của lựa chọn vừa
-   bấm, không phải một ô nhập rời nằm cạnh danh sách. */
-.quickclose-fix {
+/* Ô tự nhập nối liền ngay dưới nút mở nó, nền trắng như các gợi ý — nó là NỘI DUNG của lựa chọn vừa bấm,
+   không phải một ô nhập rời nằm cạnh danh sách. */
+.batchq-answer {
     width: 100%;
     margin-top: 5px;
     font-family: inherit;
@@ -1782,27 +1735,7 @@
     resize: vertical;
 }
 
-.quickclose-actions { display: flex; gap: 6px; margin-top: 8px; }
-
-.quickclose-vote {
-    font-family: inherit;
-    font-size: 12px;
-    padding: 4px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--line, #e5e7eb);
-    background: var(--surface-alt, #f3f4f6);
-    color: #4b5563;
-    cursor: pointer;
-    width: auto;
-    white-space: nowrap;
-}
-
-    /* "Để sau" bật sáng bằng tông xám: nó là một lựa chọn hợp lệ ngang hàng với các gợi ý (nhóm đó ở
-       nguyên trạng thái trống và BA hỏi tiếp trong chat), không phải một cảnh báo. */
-    .quickclose-vote.skip.is-on { background: #6b7280; border-color: #6b7280; color: #fff; }
-
-/* Hai nút xếp NGANG (không còn .full như hồi ở cột 320px) để cả hai lựa chọn cùng ở trong tầm mắt. */
-.quickclose-bar {
+.batchq-bar {
     margin-top: 12px;
     display: flex;
     flex-wrap: wrap;
@@ -1810,15 +1743,14 @@
     gap: 10px;
 }
 
-.quickclose-gate-msg { font-size: 12px; color: #dc2626; }
+/* Lời hứa "không cần trả lời hết" phải đứng ngay cạnh nút gửi: không có nó, một thẻ 4 câu đọc như một
+   biểu mẫu bắt buộc và người dùng sẽ bịa cho xong thay vì để BA hỏi tiếp. */
+.batchq-hint { font-size: 11.5px; color: #6b7280; line-height: 1.5; }
 
 /* Như khối `[hidden]` ở trên: `hidden` là quy tắc display ưu tiên thấp nhất, nên mọi khai báo display
    của ta (nút .btn inline-flex, panel/khu vực flex) ghi đè nó và phần tử vẫn lộ ra dù JS đã ẩn. */
-.quickclose[hidden],
-.quickclose-gate[hidden],
-.quickclose-hint[hidden],
-.quickclose-fix[hidden],
-.quickclose .btn[hidden] { display: none; }
+.batchq[hidden],
+.batchq-answer[hidden] { display: none; }
 
 /* ==== Cổng soát MÂU THUẪN (bấm "Write Requirement" mới hiện, và chỉ khi thật sự có mâu thuẫn) ==== */
 

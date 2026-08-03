@@ -12,13 +12,13 @@ namespace ICOGenerator.Services.Requirements;
 /// "Bản đồ bao phủ yêu cầu" của MỘT dự án — trạng thái sống của cuộc phỏng vấn. Khác các tầng bộ nhớ
 /// (<see cref="ConversationMemoryService"/> nhớ ngữ cảnh, <see cref="UserMemoryService"/> nhớ người dùng,
 /// <see cref="ChecklistGapMemoryService"/> rút kinh nghiệm bộ câu hỏi), service này duy trì một bảng
-/// trạng thái theo 12 nhóm thông tin cố định (khớp checklist trong <c>Prompts/BusinessAnalyst/requirement-chat.v3.md</c>):
+/// trạng thái theo 12 nhóm thông tin cố định (khớp checklist trong <c>Prompts/BusinessAnalyst/requirement-chat.v4.md</c>):
 /// nhóm nào đã [RÕ], nhóm nào [MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG] — lưu trên
 /// <see cref="Project.RequirementCoverageMap"/>. Bản đồ là NGUỒN CHÂN LÝ DUY NHẤT của độ sẵn sàng:
 /// BA đọc nó để chọn câu hỏi kế tiếp, panel "Tiến độ khai thác" render nó, và
 /// <see cref="RequirementReadinessGate"/> suy ready TẤT ĐỊNH từ nó (mọi dòng áp dụng [RÕ] ⇔ cho phép
 /// "Write Requirement") — không còn lời gọi LLM nào chấm lại, nên lượt distill này chính là "giám khảo"
-/// và tiêu chí thẩm định nằm trong prompt requirement-coverage.v2. Distill đọc cả text tài liệu nguồn
+/// và tiêu chí thẩm định nằm trong prompt requirement-coverage.v3. Distill đọc cả text tài liệu nguồn
 /// để không bắt người dùng gõ lại điều tài liệu đính kèm đã có.
 /// <para>
 /// Khác hai bộ nhớ kia, việc cập nhật KHÔNG gom theo lô: bản đồ phải tươi ở từng lượt mới dẫn được câu
@@ -104,7 +104,7 @@ public class RequirementCoverageService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _prompts.Get("BusinessAnalyst/requirement-coverage.v2.md")),
+            new(ChatRole.System, _prompts.Get("BusinessAnalyst/requirement-coverage.v3.md")),
             new(ChatRole.User, sb.ToString())
         };
 

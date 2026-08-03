@@ -391,8 +391,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ConfirmSpecAssumptionsUseCase>();
         services.AddScoped<ReviseSpecAssumptionsUseCase>();
         services.AddScoped<UpdateWorkedExamplesUseCase>();
-        services.AddScoped<ProposeRemainingGapsUseCase>();
-        services.AddScoped<ConfirmRemainingGapsUseCase>();
         services.AddScoped<GetLearnedChecklistQuery>();
         services.AddScoped<UpdateLearnedChecklistUseCase>();
         services.AddScoped<CheckRequirementConflictsUseCase>();
@@ -675,7 +673,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<RequirementCoverageService>();
         services.AddScoped<DecisionLogService>();
         services.AddScoped<InterviewOutlookService>();
-        services.AddScoped<GapProposalService>();
         services.AddScoped<RequirementConflictService>();
         services.AddScoped<UatScenarioService>();
         services.AddScoped<PocFeedbackMemoryService>();
