@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Budget;
@@ -6,73 +5,31 @@ using Microsoft.Extensions.AI;
 
 namespace ICOGenerator.Services.Llm;
 
+/// <summary>
+/// Đường gọi LLM "một lượt hỏi–đáp" (BA chat, chắt lọc bộ nhớ, các cổng soát) — khác đường agent ở chỗ
+/// KHÔNG có vòng lặp tool. Bản thân class chỉ còn phần điều phối; mọi việc nặng đã nằm ở chỗ khác:
+/// <see cref="ModelCallPipeline"/> (dựng client + middleware + giữ kết quả), <see cref="EndpointQuirks"/>
+/// (endpoint từ chối cái gì thì bỏ cái đó rồi thử lại) và <see cref="LlmJson"/> (đọc JSON model trả về).
+/// </summary>
 public class LlmClient : ILlmClient
 {
-    // Overall per-call deadline, enforced inside ModelCallLoggingChatClient (the SDK's own network timeout
-    // is disabled in OpenAIChatClientFactory). Configurable via Llm:RequestTimeoutSeconds.
-    private const int DefaultRequestTimeoutSeconds = 600;
-
     private readonly IChatClientFactory _chatClientFactory;
     private readonly IModelCallLogger _modelCallLogger;
     private readonly IBudgetGuard _budgetGuard;
+    private readonly LlmSettings _settings;
     private readonly ILogger<LlmClient> _logger;
-    private readonly int _requestTimeoutSeconds;
 
-    public LlmClient(IChatClientFactory chatClientFactory, IModelCallLogger modelCallLogger, IBudgetGuard budgetGuard, IConfiguration configuration, ILogger<LlmClient> logger)
+    public LlmClient(IChatClientFactory chatClientFactory, IModelCallLogger modelCallLogger, IBudgetGuard budgetGuard, LlmSettings settings, ILogger<LlmClient> logger)
     {
         _chatClientFactory = chatClientFactory;
         _modelCallLogger = modelCallLogger;
         _budgetGuard = budgetGuard;
+        _settings = settings;
         _logger = logger;
-        _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
     }
 
     public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) =>
         StreamWithRetryAsync(model, messages, temperature, logContext, onToken, responseFormat: null, cancellationToken);
-
-    // The streaming call plus the text-only-endpoint retry, shared by the plain chat path and the JsonObject
-    // structured path (which only differs by the response_format it asks for).
-    private async Task<LlmCallResult> StreamWithRetryAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken, ChatResponseFormat? responseFormat, CancellationToken cancellationToken)
-    {
-        var result = await StreamOnceAsync(model, messages, temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
-
-        // A model configured SupportsVision=true whose endpoint is actually text-only (e.g. DeepSeek) rejects
-        // image parts with HTTP 400 "unknown variant `image_url`, expected `text`". Retry once without the
-        // images so the turn survives on the text context; the real fix is unticking SupportsVision on the
-        // Models page, which the warning points at.
-        if (IsImageContentRejected(result) && ContainsImageContent(messages))
-        {
-            LogVisionMisconfigured(model);
-            result = await StreamOnceAsync(model, StripImageContent(messages), temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
-        }
-
-        return result;
-    }
-
-    private async Task<LlmCallResult> StreamOnceAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken, ChatResponseFormat? responseFormat, CancellationToken cancellationToken)
-    {
-        // Compose the shared middleware over the per-model OpenAI client: it owns the deadline, token cap,
-        // result-building, error mapping and DB logging that used to live inline here.
-        LlmCallResult? captured = null;
-        var client = BuildClient(model, logContext, r => captured = r);
-
-        var options = new ChatOptions { Temperature = (float)temperature, ResponseFormat = responseFormat };
-
-        await foreach (var update in client.GetStreamingResponseAsync(messages, options, cancellationToken).ConfigureAwait(false))
-        {
-            var text = update.Text;
-            // Surface the delta live. A misbehaving sink must never break the LLM call, so swallow anything
-            // it throws (the buffered result is still returned).
-            if (!string.IsNullOrEmpty(text) && onToken != null)
-            {
-                try { onToken(text); }
-                catch { /* ignore UI streaming failures */ }
-            }
-        }
-
-        // The middleware reports the built result (success or swallowed failure) via the onCompleted callback.
-        return captured ?? throw new InvalidOperationException("Model call produced no result.");
-    }
 
     public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
     {
@@ -88,6 +45,34 @@ public class LlmClient : ILlmClient
         };
     }
 
+    // ── Đường stream (chat thuần + mức json_object) ───────────────────────────────────────────────────
+
+    // The streaming call plus the text-only-endpoint retry, shared by the plain chat path and the JsonObject
+    // structured path (which only differs by the response_format it asks for).
+    private async Task<LlmCallResult> StreamWithRetryAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken, ChatResponseFormat? responseFormat, CancellationToken cancellationToken)
+    {
+        var result = await StreamOnceAsync(model, messages, temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
+
+        // A model configured SupportsVision=true whose endpoint is actually text-only (e.g. DeepSeek) rejects
+        // image parts with HTTP 400 "unknown variant `image_url`, expected `text`". Retry once without the
+        // images so the turn survives on the text context; the real fix is unticking SupportsVision on the
+        // Models page, which the warning points at.
+        if (EndpointQuirks.RejectedImageContent(result) && EndpointQuirks.ContainsImageContent(messages))
+        {
+            LogVisionMisconfigured(model);
+            result = await StreamOnceAsync(model, EndpointQuirks.WithoutImageContent(messages), temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
+        }
+
+        return result;
+    }
+
+    private Task<LlmCallResult> StreamOnceAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken, ChatResponseFormat? responseFormat, CancellationToken cancellationToken) =>
+        NewPipeline(model, logContext).StreamAsync(
+            messages,
+            new ChatOptions { Temperature = (float)temperature, ResponseFormat = responseFormat },
+            onToken,
+            cancellationToken);
+
     /// <summary>
     /// JSON mode: asks for <c>response_format: {"type":"json_object"}</c>, which guarantees syntactically valid
     /// JSON but says nothing about the shape — so the text is deserialized into <typeparamref name="T"/>
@@ -99,7 +84,7 @@ public class LlmClient : ILlmClient
         // DeepSeek (and OpenAI's own json_object mode) reject the request unless the word "json" appears in the
         // prompt. Every prompt behind a structured call says it today, but prompts are edited by hand: skip the
         // parameter rather than spend a round trip on a guaranteed 400.
-        if (!MentionsJson(messages))
+        if (!EndpointQuirks.MentionsJson(messages))
         {
             _logger.LogWarning(
                 "Model {ModelId} đặt ở JSON mode nhưng prompt của lời gọi {Purpose} không chứa chữ \"json\" — "
@@ -113,7 +98,7 @@ public class LlmClient : ILlmClient
 
         // Endpoint turned out not to accept response_format at all: retry once on the plain text path so a
         // wrong Models-page setting costs a round trip instead of the whole feature.
-        if (IsResponseFormatRejected(result))
+        if (EndpointQuirks.RejectedResponseFormat(result))
         {
             LogStructuredOutputUnsupported(model, StructuredOutputMode.JsonObject, result);
             result = await StreamWithRetryAsync(model, messages, temperature, logContext, onToken, responseFormat: null, cancellationToken).ConfigureAwait(false);
@@ -122,11 +107,11 @@ public class LlmClient : ILlmClient
         return (result, Deserialize<T>(result));
     }
 
+    // ── Đường json_schema (một round-trip, không stream) ──────────────────────────────────────────────
+
     private async Task<(LlmCallResult Result, T? Value)> ChatWithJsonSchemaAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken, CancellationToken cancellationToken) where T : class
     {
-        LlmCallResult? captured = null;
-        var client = BuildClient(model, logContext, r => captured = r);
-
+        var pipeline = NewPipeline(model, logContext);
         var options = new ChatOptions { Temperature = (float)temperature };
 
         try
@@ -134,24 +119,24 @@ public class LlmClient : ILlmClient
             // GetResponseAsync<T> sets response_format to a JSON schema derived from T and deserializes the
             // reply. It routes through our middleware's (non-streaming) GetResponseAsync, so the call is still
             // deadline-bounded, token-capped and logged identically.
-            var response = await client.GetResponseAsync<T>(messages, options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
-            var result = captured ?? throw new InvalidOperationException("Model call produced no result.");
+            var response = await pipeline.Client.GetResponseAsync<T>(messages, options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             // Same text-only-endpoint fallback as ChatWithLogAsync (the middleware swallows the 400, so it
             // surfaces here as a captured failure rather than an exception).
-            if (IsImageContentRejected(result) && ContainsImageContent(messages))
+            if (EndpointQuirks.RejectedImageContent(pipeline.Result) && EndpointQuirks.ContainsImageContent(messages))
             {
                 LogVisionMisconfigured(model);
-                captured = null;
-                response = await client.GetResponseAsync<T>(StripImageContent(messages), options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
-                result = captured ?? throw new InvalidOperationException("Model call produced no result.");
+                pipeline.Reset();
+                response = await pipeline.Client.GetResponseAsync<T>(EndpointQuirks.WithoutImageContent(messages), options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
+
+            var result = pipeline.Result;
 
             // Endpoint accepts chat but not json_schema — DeepSeek answers 400 "This response_format type is
             // unavailable now". The middleware swallows it into a failed result rather than throwing, so
             // without this branch the whole feature would go dark on one wrong Models-page setting. Drop to
             // the plain streaming path (which also restores onToken) and let the caller's parser take over.
-            if (IsResponseFormatRejected(result))
+            if (EndpointQuirks.RejectedResponseFormat(result))
             {
                 LogStructuredOutputUnsupported(model, StructuredOutputMode.JsonSchema, result);
                 var degraded = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
@@ -172,67 +157,29 @@ public class LlmClient : ILlmClient
             // caller can still parse text.
             _logger.LogWarning(ex, "Structured output for {ModelId} failed; falling back to manual parse.", model.ModelId);
             // Don't hand back a captured image-rejection failure: the plain path below retries it text-only.
-            if (captured != null && !(IsImageContentRejected(captured) && ContainsImageContent(messages)))
-                return (captured, null);
+            if (pipeline.HasResult && !(EndpointQuirks.RejectedImageContent(pipeline.Result) && EndpointQuirks.ContainsImageContent(messages)))
+                return (pipeline.Result, null);
 
             var plain = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
             return (plain, null);
         }
     }
 
-    // OpenAI-compatible endpoints that don't implement the requested response_format level answer 400 naming
-    // the parameter — DeepSeek: "This response_format type is unavailable now"; local servers usually
-    // "response_format is not supported". Matching the parameter name covers both without a per-vendor table.
-    private static bool IsResponseFormatRejected(LlmCallResult result) =>
-        !result.IsSuccess && result.ResponseText.Contains("response_format", StringComparison.OrdinalIgnoreCase);
+    // ── Hạ tầng dùng chung ───────────────────────────────────────────────────────────────────────────
 
-    // JSON mode is refused outright unless the prompt itself mentions JSON (documented for both DeepSeek and
-    // OpenAI), so check before spending the call.
-    private static bool MentionsJson(List<ChatMessage> messages) =>
-        messages.Any(m => m.Text.Contains("json", StringComparison.OrdinalIgnoreCase));
+    // Mỗi lời gọi một đường ống mới: ModelCallLoggingChatClient đếm bước theo instance, nên client riêng
+    // giữ đúng số bước mà ModelCallLogContext.FirstStep khai báo cho call site này.
+    private ModelCallPipeline NewPipeline(AiModel model, ModelCallLogContext logContext) =>
+        new(_chatClientFactory, model, _modelCallLogger, logContext,
+            new ModelCallOptions(_settings.RequestTimeoutSeconds, ThrowOnFailure: false) { BudgetGuard = _budgetGuard });
 
     // Shared last step of the JSON levels: pull the object out of the reply text (tolerating a ```json fence
     // or chatter around it, which json_object already prevents but None/degraded replies don't) and read it
-    // into T. Anything unparseable is a null value, i.e. "caller, use your own parser".
-    private static T? Deserialize<T>(LlmCallResult result) where T : class
-    {
-        if (!result.IsSuccess)
-            return null;
-
-        var json = JsonExtractor.Extract(result.Content);
-        if (string.IsNullOrEmpty(json))
-            return null;
-
-        try
-        {
-            // json_object guarantees valid JSON but NOT the shape, and System.Text.Json happily turns a reply
-            // with entirely foreign field names into an all-defaults T. Handing that back would look like a
-            // parse success and quietly rob the caller of its fallback parser, so demand that the reply and T
-            // agree on at least one field before trusting it.
-            if (!SharesAnyFieldWith<T>(json))
-                return null;
-
-            return JsonSerializer.Deserialize<T>(json, JsonDefaults.CaseInsensitive);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    private static bool SharesAnyFieldWith<T>(string json)
-    {
-        using var document = JsonDocument.Parse(json);
-        if (document.RootElement.ValueKind != JsonValueKind.Object)
-            return false;
-
-        var expected = typeof(T)
-            .GetProperties()
-            .Select(p => p.Name)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        return document.RootElement.EnumerateObject().Any(p => expected.Contains(p.Name));
-    }
+    // into T. Anything unparseable is a null value, i.e. "caller, use your own parser" — including a reply
+    // whose field names are entirely foreign to T (requireKnownProperty), which would otherwise deserialize
+    // into an all-defaults object and look like a parse success.
+    private static T? Deserialize<T>(LlmCallResult result) where T : class =>
+        result.IsSuccess ? LlmJson.TryDeserialize<T>(result.Content, requireKnownProperty: true) : null;
 
     private void LogStructuredOutputUnsupported(AiModel model, StructuredOutputMode mode, LlmCallResult result) =>
         _logger.LogWarning(
@@ -240,39 +187,10 @@ public class LlmClient : ILlmClient
             + "Hãy hạ mức Structured Output của model này ở trang Models để hết vòng gọi thừa. Lỗi: {Error}",
             model.ModelId, mode, result.ResponseText);
 
-    // Text-only OpenAI-compatible endpoints (DeepSeek among them) reject image parts with a 400 whose body
-    // names the offending content type: "unknown variant `image_url`, expected `text`".
-    private static bool IsImageContentRejected(LlmCallResult result) =>
-        !result.IsSuccess && result.ResponseText.Contains("image_url", StringComparison.OrdinalIgnoreCase);
-
-    private static bool ContainsImageContent(List<ChatMessage> messages) =>
-        messages.Any(m => m.Contents.Any(c => c is DataContent or UriContent));
-
-    private static List<ChatMessage> StripImageContent(List<ChatMessage> messages) =>
-        messages.Select(m =>
-        {
-            if (!m.Contents.Any(c => c is DataContent or UriContent))
-                return m;
-            var kept = m.Contents.Where(c => c is not DataContent and not UriContent).ToList();
-            if (kept.Count == 0)
-                kept.Add(new TextContent("(ảnh đính kèm bị bỏ qua vì model không nhận ảnh)"));
-            return new ChatMessage(m.Role, kept);
-        }).ToList();
-
     private void LogVisionMisconfigured(AiModel model) =>
         _logger.LogWarning(
             "Model {ModelId} từ chối content ảnh (image_url) dù SupportsVision đang bật — thử lại không kèm ảnh. Tắt SupportsVision cho model này ở trang Models để hết cảnh báo.",
             model.ModelId);
-
-    // The chat client wraps the pooled (IHttpClientFactory-owned) HttpClient, so the OpenAI client is
-    // intentionally lightweight/per-call; the shared middleware is layered on via ChatClientBuilder.
-    private IChatClient BuildClient(AiModel model, ModelCallLogContext logContext, Action<LlmCallResult> onCompleted) =>
-        _chatClientFactory.Create(model)
-            .AsBuilder()
-            .Use(inner => new ModelCallLoggingChatClient(
-                inner, model, _modelCallLogger, logContext, _requestTimeoutSeconds,
-                throwOnFailure: false, onCompleted: onCompleted, budgetGuard: _budgetGuard))
-            .Build();
 }
 
 public class LlmCallResult

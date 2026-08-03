@@ -235,7 +235,7 @@ public class EvalRunnerServiceTests : IDisposable
             new StubPromptTemplateService(),
             overrides ?? new NoPromptOverrideProvider(),
             new BAChatReplyParser(),
-            new ConfigurationBuilder().Build(),
+            new LlmSettings(),
             NullLogger<EvalRunnerService>.Instance);
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());

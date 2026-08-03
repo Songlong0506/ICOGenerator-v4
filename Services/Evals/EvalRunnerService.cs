@@ -36,7 +36,6 @@ public class EvalRunnerService
     // Trần lượt cho phỏng vấn mô phỏng. Phỏng vấn thật hiếm khi quá con số này; chạm trần chính là một
     // KẾT QUẢ (phỏng vấn không tới đích) chứ không phải lỗi hạ tầng.
     private const int MaxInterviewTurns = 25;
-    private const int DefaultRequestTimeoutSeconds = 600;
 
     // Agent "đại diện" cho ModelCallLogContext (middleware chỉ dùng RoleKey.GetTitle() cho progress line;
     // logger là no-op nên danh tính agent không quan trọng với eval).
@@ -48,7 +47,7 @@ public class EvalRunnerService
     private readonly IPromptOverrideProvider _promptOverrides;
     private readonly BAChatReplyParser _replyParser;
     private readonly ILogger<EvalRunnerService> _logger;
-    private readonly int _requestTimeoutSeconds;
+    private readonly LlmSettings _llmSettings;
 
     public EvalRunnerService(
         AppDbContext db,
@@ -56,7 +55,7 @@ public class EvalRunnerService
         PromptTemplateService prompts,
         IPromptOverrideProvider promptOverrides,
         BAChatReplyParser replyParser,
-        IConfiguration configuration,
+        LlmSettings llmSettings,
         ILogger<EvalRunnerService> logger)
     {
         _db = db;
@@ -65,7 +64,7 @@ public class EvalRunnerService
         _promptOverrides = promptOverrides;
         _replyParser = replyParser;
         _logger = logger;
-        _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds);
+        _llmSettings = llmSettings;
     }
 
     public async Task RunAsync(Guid runId, CancellationToken cancellationToken = default)
@@ -365,50 +364,25 @@ public class EvalRunnerService
          {output}
          """;
 
-    // Cùng cách dựng client như LlmClient.BuildClient nhưng logger no-op (xem NullModelCallLogger) và
-    // không budget guard (eval không thuộc project nào). Deadline + trần token + map lỗi vẫn do middleware lo.
-    private async Task<LlmCallResult> CallModelAsync(AiModel model, string systemPrompt, string userPrompt, double temperature, CancellationToken cancellationToken)
-    {
-        LlmCallResult? captured = null;
-        var client = _chatClientFactory.Create(model)
-            .AsBuilder()
-            .Use(inner => new ModelCallLoggingChatClient(
-                inner, model, new NullModelCallLogger(), new ModelCallLogContext(Guid.Empty, EvalAgentStub, "Eval"),
-                _requestTimeoutSeconds, throwOnFailure: false, onCompleted: r => captured = r))
-            .Build();
-
-        var messages = new List<ChatMessage>
+    private Task<LlmCallResult> CallModelAsync(AiModel model, string systemPrompt, string userPrompt, double temperature, CancellationToken cancellationToken) =>
+        CallModelWithHistoryAsync(model, new List<ChatMessage>
         {
             new(ChatRole.System, systemPrompt),
             new(ChatRole.User, userPrompt)
-        };
+        }, temperature, cancellationToken);
 
-        await foreach (var _ in client.GetStreamingResponseAsync(messages, new ChatOptions { Temperature = (float)temperature }, cancellationToken).ConfigureAwait(false))
-        {
-            // Buffered: middleware dựng result đầy đủ và trả qua onCompleted; không cần stream token cho eval.
-        }
-
-        return captured ?? throw new InvalidOperationException("Model call produced no result.");
-    }
-
-    // Như CallModelAsync nhưng gửi TRỌN lịch sử hội thoại — phỏng vấn mô phỏng cần BA thấy các lượt trước
-    // (không thì mỗi lượt nó lại hỏi từ đầu và bài kiểm tra đo nhầm thứ khác).
-    private async Task<LlmCallResult> CallModelWithHistoryAsync(AiModel model, List<ChatMessage> messages, double temperature, CancellationToken cancellationToken)
-    {
-        LlmCallResult? captured = null;
-        var client = _chatClientFactory.Create(model)
-            .AsBuilder()
-            .Use(inner => new ModelCallLoggingChatClient(
-                inner, model, new NullModelCallLogger(), new ModelCallLogContext(Guid.Empty, EvalAgentStub, "Eval"),
-                _requestTimeoutSeconds, throwOnFailure: false, onCompleted: r => captured = r))
-            .Build();
-
-        await foreach (var _ in client.GetStreamingResponseAsync(messages, new ChatOptions { Temperature = (float)temperature }, cancellationToken).ConfigureAwait(false))
-        {
-        }
-
-        return captured ?? throw new InvalidOperationException("Model call produced no result.");
-    }
+    // Một lời gọi model cho eval, gửi TRỌN lịch sử hội thoại — phỏng vấn mô phỏng cần BA thấy các lượt
+    // trước (không thì mỗi lượt nó lại hỏi từ đầu và bài kiểm tra đo nhầm thứ khác).
+    //
+    // Cùng đường ống dùng chung như LlmClient, chỉ khác hai chỗ: logger no-op (xem NullModelCallLogger) và
+    // KHÔNG budget guard (eval không thuộc project nào). Deadline + trần token + map lỗi vẫn do middleware
+    // lo. Không truyền onToken: eval chỉ cần kết quả đã gom đủ.
+    private Task<LlmCallResult> CallModelWithHistoryAsync(AiModel model, List<ChatMessage> messages, double temperature, CancellationToken cancellationToken) =>
+        new ModelCallPipeline(
+                _chatClientFactory, model, new NullModelCallLogger(),
+                new ModelCallLogContext(Guid.Empty, EvalAgentStub, "Eval"),
+                new ModelCallOptions(_llmSettings.RequestTimeoutSeconds, ThrowOnFailure: false))
+            .StreamAsync(messages, new ChatOptions { Temperature = (float)temperature }, onToken: null, cancellationToken);
 
     private async Task<List<EvalScenario>> LoadScenariosAsync(EvalRun run, CancellationToken cancellationToken)
     {

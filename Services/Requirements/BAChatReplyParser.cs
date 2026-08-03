@@ -20,37 +20,26 @@ public class BAChatReplyParser
         if (text.Length == 0)
             return new BAChatReply();
 
-        try
+        // JSON hỏng/thiếu/không đúng dạng → parsed null → rơi xuống fallback text thuần bên dưới.
+        if (LlmJson.TryDeserialize<RawReply>(text) is { } parsed)
         {
-            var json = JsonExtractor.Extract(text);
-            if (!string.IsNullOrEmpty(json))
-            {
-                var parsed = JsonSerializer.Deserialize<RawReply>(json, JsonDefaults.CaseInsensitive);
-                if (parsed != null)
-                {
-                    var message = (parsed.Message ?? string.Empty).Trim();
-                    var suggestions = CleanSuggestions(parsed.Suggestions);
+            var message = (parsed.Message ?? string.Empty).Trim();
+            var suggestions = CleanSuggestions(parsed.Suggestions);
 
-                    // Có cấu trúc rõ ràng (message hoặc suggestions) → dùng kết quả parse.
-                    if (message.Length > 0 || suggestions.Count > 0)
-                    {
-                        return new BAChatReply
-                        {
-                            Message = message.Length > 0
-                                ? message
-                                : "Đã ghi nhận. Bạn có thể chọn một gợi ý bên dưới hoặc tự nhập thêm.",
-                            Suggestions = suggestions,
-                            // multiSelect chỉ có nghĩa khi thực sự có chip để chọn.
-                            MultiSelect = suggestions.Count > 0 && parsed.MultiSelect == true,
-                            FlowDiagram = CleanFlow(parsed.FlowDiagram)
-                        };
-                    }
-                }
+            // Có cấu trúc rõ ràng (message hoặc suggestions) → dùng kết quả parse.
+            if (message.Length > 0 || suggestions.Count > 0)
+            {
+                return new BAChatReply
+                {
+                    Message = message.Length > 0
+                        ? message
+                        : "Đã ghi nhận. Bạn có thể chọn một gợi ý bên dưới hoặc tự nhập thêm.",
+                    Suggestions = suggestions,
+                    // multiSelect chỉ có nghĩa khi thực sự có chip để chọn.
+                    MultiSelect = suggestions.Count > 0 && parsed.MultiSelect == true,
+                    FlowDiagram = CleanFlow(parsed.FlowDiagram)
+                };
             }
-        }
-        catch
-        {
-            // JSON hỏng/không đúng dạng: rơi xuống fallback text thuần bên dưới.
         }
 
         // Fallback: coi toàn bộ phản hồi là text hiển thị, không kèm chip (giống hành vi trước đây).

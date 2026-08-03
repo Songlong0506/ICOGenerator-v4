@@ -1,19 +1,17 @@
 using System.ClientModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Budget;
 using Microsoft.Extensions.AI;
 
 namespace ICOGenerator.Services.Llm;
 
 /// <summary>
-/// The single piece of per-model-call middleware shared by BOTH execution paths — the agent's native
-/// function-calling loop (<see cref="ICOGenerator.Services.Agents.AgentRunService"/>) and the plain
-/// streaming/structured chat used by <see cref="LlmClient"/> (BA, readiness, the prompt-based fallback).
+/// The single piece of per-model-call middleware shared by ALL execution paths — the agent's native
+/// function-calling loop (<see cref="ICOGenerator.Services.Agents.AgentRunService"/>), the plain
+/// streaming/structured chat used by <see cref="LlmClient"/> (BA, readiness, the prompt-based fallback),
+/// and the eval harness (<see cref="ICOGenerator.Services.Evals.EvalRunnerService"/>).
 /// As a <see cref="DelegatingChatClient"/> it sees exactly one model round-trip per call and owns every
 /// cross-cutting concern that used to be duplicated between the hand-written <c>LlmClient</c> and the
 /// agent-only <c>AgentModelCallChatClient</c>:
@@ -23,48 +21,36 @@ namespace ICOGenerator.Services.Llm;
 ///   <item>the single per-call deadline (the SDK's own network timeout is disabled in the factory);</item>
 ///   <item>the completion-token cap, recomputed per call from the current prompt size;</item>
 ///   <item>building the <see cref="LlmCallResult"/> + mapping API/timeout/other failures onto it;</item>
-///   <item>request-shape + DB logging via <see cref="IModelCallLogger"/> (call-log UI unchanged);</item>
+///   <item>request-shape (<see cref="ModelCallRequestPreview"/>) + DB logging via
+///         <see cref="IModelCallLogger"/> (call-log UI unchanged);</item>
 ///   <item>(optional) the per-step "thinking" progress line, and surfacing a failed call as a thrown,
-///         run-ending error (<paramref name="throwOnFailure"/>).</item>
+///         run-ending error (<see cref="ModelCallOptions.ThrowOnFailure"/>).</item>
 /// </list>
 /// The streaming override is the pass-through used by the agent loop and by <c>LlmClient</c>'s text path;
 /// the non-streaming override is a true single round-trip, used by structured output. The built result is
-/// handed back through <paramref name="onCompleted"/> so a terminal consumer (LlmClient) can return it
+/// handed back through <see cref="ModelCallOptions.OnCompleted"/> so a terminal consumer can return it
 /// without rebuilding; the agent path ignores it and reads the streamed text instead.
+///
+/// Callers rarely construct this directly — <see cref="ModelCallPipeline"/> composes it over the per-model
+/// client and captures the result for them.
 /// </summary>
 public sealed class ModelCallLoggingChatClient : DelegatingChatClient
 {
-    private static readonly JsonSerializerOptions SerializeOptions = new() { WriteIndented = true };
-
     private readonly AiModel _model;
     private readonly IModelCallLogger _logger;
     private readonly ModelCallLogContext _context;
-    private readonly int _requestTimeoutSeconds;
-    private readonly bool _throwOnFailure;
-    private readonly Action<LlmCallResult>? _onCompleted;
-    private readonly Action<string, string, string?>? _onProgress;
-    private readonly int _maxSteps;
-    private readonly int _hardCap;
-    private readonly IBudgetGuard? _budgetGuard;
+    private readonly ModelCallOptions _options;
 
     private int _step;
 
     public ModelCallLoggingChatClient(
-        IChatClient inner, AiModel model, IModelCallLogger logger, ModelCallLogContext context,
-        int requestTimeoutSeconds, bool throwOnFailure, Action<LlmCallResult>? onCompleted = null,
-        Action<string, string, string?>? onProgress = null, int maxSteps = 0, int hardCap = 0,
-        IBudgetGuard? budgetGuard = null) : base(inner)
+        IChatClient inner, AiModel model, IModelCallLogger logger,
+        ModelCallLogContext context, ModelCallOptions options) : base(inner)
     {
         _model = model;
         _logger = logger;
         _context = context;
-        _requestTimeoutSeconds = requestTimeoutSeconds;
-        _throwOnFailure = throwOnFailure;
-        _onCompleted = onCompleted;
-        _onProgress = onProgress;
-        _maxSteps = maxSteps;
-        _hardCap = hardCap;
-        _budgetGuard = budgetGuard;
+        _options = options;
         _step = context.FirstStep - 1;
     }
 
@@ -86,7 +72,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
 
         var call = Begin(messages, options, streaming: false);
 
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_requestTimeoutSeconds));
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_options.RequestTimeoutSeconds));
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
         try
@@ -104,10 +90,9 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         catch (Exception ex)
         {
             await FailAsync(call.Result, call.Stopwatch, call.Step, ex).ConfigureAwait(false);
-            if (_throwOnFailure)
-                throw new InvalidOperationException($"LLM call failed: {call.Result.ErrorMessage}", ex);
+            ThrowIfConfigured(call.Result, ex);
             // Swallowed: hand back an empty response so a structured caller falls back to manual parsing
-            // (the failure is recorded on the LlmCallResult delivered via onCompleted).
+            // (the failure is recorded on the LlmCallResult delivered via OnCompleted).
             return new ChatResponse(new ChatMessage(ChatRole.Assistant, string.Empty));
         }
     }
@@ -122,7 +107,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
 
         var call = Begin(messages, options, streaming: true);
 
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_requestTimeoutSeconds));
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_options.RequestTimeoutSeconds));
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
         var updates = new List<ChatResponseUpdate>();
@@ -147,8 +132,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             catch (Exception ex)
             {
                 await FailAsync(call.Result, call.Stopwatch, call.Step, ex).ConfigureAwait(false);
-                if (_throwOnFailure)
-                    throw new InvalidOperationException($"LLM call failed: {call.Result.ErrorMessage}", ex);
+                ThrowIfConfigured(call.Result, ex);
                 failed = true;
                 break;
             }
@@ -182,9 +166,9 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         var maxTokens = MaxOutputTokenResolver.Resolve(_model, result.PromptTokens);
         var callOptions = options?.Clone() ?? new ChatOptions();
         callOptions.MaxOutputTokens = maxTokens;
-        result.RequestJson = BuildRequestJson(messageList, callOptions, maxTokens, streaming);
+        result.RequestJson = ModelCallRequestPreview.Build(_model, messageList, callOptions, maxTokens, streaming);
 
-        _onProgress?.Invoke("thinking", $"Agent {_context.Agent.RoleKey.GetTitle()} đang suy nghĩ… (bước {BudgetLabel(step)})", null);
+        _options.OnProgress?.Invoke("thinking", $"Agent {_context.Agent.RoleKey.GetTitle()} đang suy nghĩ… (bước {BudgetLabel(step)})", null);
         return new CallState(step, messageList, callOptions, result, Stopwatch.StartNew());
     }
 
@@ -217,9 +201,9 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     }
 
     // Single place the budget breaker is consulted (both overrides call this first). No-op when no guard is
-    // wired (e.g. unit tests construct the client without one) so behaviour is unchanged unless enabled.
+    // wired (eval, unit tests) so behaviour is unchanged unless enabled.
     private Task EnsureWithinBudgetAsync(CancellationToken cancellationToken) =>
-        _budgetGuard?.EnsureWithinBudgetAsync(_context.ProjectId, cancellationToken) ?? Task.CompletedTask;
+        _options.BudgetGuard?.EnsureWithinBudgetAsync(_context.ProjectId, cancellationToken) ?? Task.CompletedTask;
 
     private async Task FailAsync(LlmCallResult result, Stopwatch stopwatch, int step, Exception ex)
     {
@@ -238,7 +222,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
                 break;
             // Our own deadline fired (stalled/slow stream).
             case OperationCanceledException:
-                result.ErrorMessage = $"LLM request timed out after {_requestTimeoutSeconds}s.";
+                result.ErrorMessage = $"LLM request timed out after {_options.RequestTimeoutSeconds}s.";
                 result.Content = result.ErrorMessage;
                 result.ResponseText = result.ErrorMessage;
                 break;
@@ -251,63 +235,29 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         result.CompletionTokens = TokenEstimator.Estimate(result.Content);
         result.TotalTokens = result.PromptTokens + result.CompletionTokens;
 
-        _onProgress?.Invoke("error", "Lời gọi LLM thất bại.", result.ErrorMessage);
+        _options.OnProgress?.Invoke("error", "Lời gọi LLM thất bại.", result.ErrorMessage);
         await CompleteAsync(result, step).ConfigureAwait(false);
+    }
+
+    // A failed call ends the run on the agent path; the chat/eval paths keep the failure on the result and
+    // let the caller decide (fallback parse, error turn in the UI).
+    private void ThrowIfConfigured(LlmCallResult result, Exception ex)
+    {
+        if (_options.ThrowOnFailure)
+            throw new InvalidOperationException($"LLM call failed: {result.ErrorMessage}", ex);
     }
 
     // Persist the call log (one place, identical shape for both paths) then surface the result.
     private async Task CompleteAsync(LlmCallResult result, int step)
     {
         await _logger.LogAsync(_context.ProjectId, _context.Agent, result, step, _context.Purpose, _context.WorkflowRunId).ConfigureAwait(false);
-        _onCompleted?.Invoke(result);
+        _options.OnCompleted?.Invoke(result);
     }
-
-    // Logged in the shape the call-log UI expects; tools are summarised by name (the full JSON schema is
-    // produced downstream by the OpenAI SDK). Mirrors LlmRequestCompatibilityHandler so the preview matches
-    // the body actually sent: "thinking" is injected only for OpenAI-compatible (non-OpenAI) endpoints, and
-    // "temperature" is dropped for OpenAI reasoning models that reject a non-default value.
-    private string BuildRequestJson(IList<ChatMessage> messageList, ChatOptions callOptions, int maxTokens, bool streaming)
-    {
-        var isOpenAi = OpenAiCompatibility.IsOpenAiHost(OpenAiCompatibility.HostOf(_model.Endpoint));
-        var dropTemperature = isOpenAi && OpenAiCompatibility.IsReasoningModel(_model.ModelId);
-
-        var node = JsonSerializer.SerializeToNode(new
-        {
-            model = _model.ModelId,
-            messages = messageList.Select(m => new { role = m.Role.Value, content = m.Text }),
-            temperature = callOptions.Temperature,
-            max_tokens = maxTokens,
-            // Not always true: the json_schema level of structured output is a single round-trip.
-            stream = streaming,
-            tools = callOptions.Tools?.Select(t => t.Name) ?? Enumerable.Empty<string>(),
-        })!.AsObject();
-
-        if (dropTemperature)
-            node.Remove("temperature");
-
-        // response_format is what an endpoint 400s on when it doesn't implement the level asked for
-        // (DeepSeek: "This response_format type is unavailable now"), so the call log — the first place
-        // anyone looks at such a failure — has to show which level actually went out.
-        if (ResponseFormatPreview(callOptions.ResponseFormat) is { } responseFormat)
-            node["response_format"] = responseFormat;
-
-        if (!isOpenAi)
-            node["thinking"] = new JsonObject { ["type"] = "disabled" };
-
-        return node.ToJsonString(SerializeOptions);
-    }
-
-    private static JsonObject? ResponseFormatPreview(ChatResponseFormat? format) => format switch
-    {
-        ChatResponseFormatJson { Schema: not null } => new JsonObject { ["type"] = "json_schema" },
-        ChatResponseFormatJson => new JsonObject { ["type"] = "json_object" },
-        _ => null
-    };
 
     private string BudgetLabel(int step) =>
-        _maxSteps <= 0 ? step.ToString()
-        : step <= _maxSteps ? $"{step}/{_maxSteps}"
-        : $"{step}/{_hardCap} (chạy thêm để hoàn tất)";
+        _options.MaxSteps <= 0 ? step.ToString()
+        : step <= _options.MaxSteps ? $"{step}/{_options.MaxSteps}"
+        : $"{step}/{_options.HardCap} (chạy thêm để hoàn tất)";
 
     private readonly record struct CallState(
         int Step, IList<ChatMessage> Messages, ChatOptions Options, LlmCallResult Result, Stopwatch Stopwatch);

@@ -15,7 +15,6 @@ namespace ICOGenerator.Services.Llm;
 /// </summary>
 public sealed class ModelConnectionTester : IModelConnectionTester
 {
-    private const int DefaultTimeoutSeconds = 30;
     // Chỉ cần biết endpoint có trả lời hay không, nên xin đúng vài token: nhanh và gần như không tốn tiền.
     private const int MaxOutputTokens = 16;
     private const int DetailMaxLength = 400;
@@ -24,10 +23,10 @@ public sealed class ModelConnectionTester : IModelConnectionTester
     private readonly IChatClientFactory _chatClientFactory;
     private readonly int _timeoutSeconds;
 
-    public ModelConnectionTester(IChatClientFactory chatClientFactory, IConfiguration configuration)
+    public ModelConnectionTester(IChatClientFactory chatClientFactory, LlmSettings settings)
     {
         _chatClientFactory = chatClientFactory;
-        _timeoutSeconds = configuration.GetValue("Llm:TestConnectionTimeoutSeconds", DefaultTimeoutSeconds);
+        _timeoutSeconds = settings.TestConnectionTimeoutSeconds;
     }
 
     public async Task<ModelConnectionTestOutcome> TestAsync(AiModel model, CancellationToken cancellationToken = default)
