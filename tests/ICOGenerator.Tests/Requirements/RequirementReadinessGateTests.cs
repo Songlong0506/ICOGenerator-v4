@@ -235,9 +235,9 @@ public class RequirementReadinessGateTests : IDisposable
         await using var db = NewDb();
         var outcome = await NewDraftSut(db, llm).GenerateOrUpdateDraftAsync(_projectId);
 
-        // Có lượt user mới sau lời mời ⇒ gộp nốt vào bản đồ (một lời gọi distill) rồi xét tất định.
-        // Distill lỗi (FakeLlm) ⇒ giữ bản đồ cũ — còn nhóm thiếu ⇒ chặn, KHÔNG soạn tài liệu.
-        Assert.Equal(1, llm.CoverageCalls);
+        // Có lượt user mới sau lời mời ⇒ gộp nốt vào bản đồ rồi xét tất định. Distill lỗi (FakeLlm) ⇒
+        // thử lại một lần rồi giữ bản đồ cũ — còn nhóm thiếu ⇒ chặn, KHÔNG soạn tài liệu (fail-closed).
+        Assert.Equal(2, llm.CoverageCalls);
         Assert.Equal(0, llm.ProductBriefCalls);
         Assert.Equal(RequirementDraftOutcome.NeedsMoreInfo, outcome);
         Assert.Contains("Quy tắc nghiệp vụ & ràng buộc", (await LastAssistantTurnAsync()).Message);
@@ -256,7 +256,8 @@ public class RequirementReadinessGateTests : IDisposable
         await using var db = NewDb();
         var outcome = await NewDraftSut(db, llm).GenerateOrUpdateDraftAsync(_projectId);
 
-        Assert.Equal(1, llm.CoverageCalls);
+        // Distill lỗi (FakeLlm) ⇒ thử lại một lần; bản đồ cũ đã đủ nên cổng vẫn mở và tài liệu vẫn được soạn.
+        Assert.Equal(2, llm.CoverageCalls);
         Assert.Equal(1, llm.ProductBriefCalls);
         Assert.Equal(RequirementDraftOutcome.NeedsMoreInfo, outcome);
     }

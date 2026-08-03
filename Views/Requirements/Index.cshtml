@@ -81,7 +81,8 @@
     // — render nó thành bong bóng riêng phía trên thẻ là hai khung liền nhau nói cùng một ý, vì bản thân
     // thẻ đã có dòng dẫn của nó. Nên lượt BA này KHÔNG có bong bóng riêng: câu dẫn xuống làm dòng đầu
     // của chính thẻ hỏi (xem #batchQuestions bên dưới + renderBatchQuestions trong requirements.js).
-    // Chỉ áp cho lượt gộp MỚI NHẤT — các lượt gộp cũ trong lịch sử không còn thẻ nên vẫn giữ bong bóng.
+    // Chỉ áp cho lượt gộp MỚI NHẤT — các lượt gộp cũ trong lịch sử vẫn giữ bong bóng, và bong bóng đó
+    // mang dấu vết chỉ-đọc các câu đã hỏi (.batchq-history bên dưới).
     var batchLeadTurn = lastBaQuestions.Count > 0 ? lastItem?.Conversation : null;
     var batchLead = (batchLeadTurn?.Message ?? "").Trim();
 
@@ -353,6 +354,13 @@
                           style="width:@(coverageApplicable == 0 ? 0 : coverageClear * 100 / coverageApplicable)%"></span>
                 </div>
                 <span class="coverage-progress-text" id="coverageProgressText">Đã rõ @coverageClear/@coverageApplicable nhóm</span>
+            </div>
+            @* Bản đồ không gộp được lượt vừa rồi (đã thử lại): danh sách bên dưới là bản CŨ và BA cũng vừa
+               dẫn lượt bằng bản cũ đó — nên nó có thể hỏi lại nhóm anh/chị vừa trả lời. Ẩn lúc tải trang
+               (cờ chỉ có ý nghĩa cho lượt vừa chạy); requirements.js bật khi frame done báo coverageStale. *@
+            <div class="coverage-stale" id="coverageStale" hidden>
+                ⚠️ Chưa cập nhật được tiến độ cho lượt vừa rồi — danh sách bên dưới đang là bản cũ.
+                Anh/chị cứ trả lời tiếp, lượt sau hệ thống gộp bù.
             </div>
             <ul class="coverage-list" id="coverageList">
                 @foreach (var item in coverage)
@@ -708,6 +716,33 @@
                         @if (isFailureTurn && isLastTurn)
                         {
                             <button type="button" class="btn outline small chat-retry-btn" title="Chạy lại lượt trả lời vừa lỗi — không cần gõ lại câu hỏi">↻ Thử lại</button>
+                        }
+
+                        @{
+                            // CÁC CÂU HỎI của một lượt hỏi GỘP CŨ, render CHỈ ĐỌC ngay trong bong bóng đã
+                            // hỏi chúng. Message của lượt gộp chỉ là câu dẫn ("mình hỏi 4 điểm sau"), nên
+                            // không có khối này thì lịch sử hội thoại nuốt mất chính các câu hỏi: người
+                            // dùng cuộn lên không đối chiếu được mình đã được hỏi gì và đã trả lời gì —
+                            // và khi BA lỡ hỏi lại, họ cũng không có bằng chứng nào để chỉ ra điều đó.
+                            // Lượt đang giữ thẻ hỏi SỐNG không tới được đây: nó đã `continue` ở trên vì
+                            // bong bóng của nó CHÍNH LÀ thẻ hỏi.
+                            var pastQuestions = ICOGenerator.Services.Requirements.ConversationTurnRenderer
+                                .ParseQuestions(group.Conversation.Questions);
+                        }
+                        @if (pastQuestions.Any())
+                        {
+                            <ul class="batchq-history">
+                                @foreach (var q in pastQuestions)
+                                {
+                                    <li>
+                                        @if (!string.IsNullOrWhiteSpace(q.Group))
+                                        {
+                                            <span class="batchq-history-group">@q.Group</span>
+                                        }
+                                        <span class="batchq-history-question">@q.Question</span>
+                                    </li>
+                                }
+                            </ul>
                         }
 
                         @{

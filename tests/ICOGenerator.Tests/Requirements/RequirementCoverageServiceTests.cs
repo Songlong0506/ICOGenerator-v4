@@ -14,7 +14,8 @@ namespace ICOGenerator.Tests.Requirements;
 // "Bản đồ bao phủ yêu cầu" per project: gộp các lượt chat MỚI (kể từ con trỏ) vào bảng trạng thái 12 nhóm,
 // lưu trên Project.RequirementCoverageMap. Các test chốt: (1) không có lượt mới thì không gọi LLM, trả bản
 // đồ hiện hành; (2) có lượt mới thì gọi LLM một lần, ghi bản đồ + dời con trỏ (bền trong DB); (3) lời gọi
-// lỗi thì fail-open — giữ bản đồ cũ, KHÔNG dời con trỏ để lượt sau gộp bù; (4) lần gọi sau chỉ gộp phần delta.
+// lỗi thì THỬ LẠI một lần rồi fail-open — giữ bản đồ cũ, KHÔNG dời con trỏ để lượt sau gộp bù, và báo cờ
+// DistillFailed để người dùng thấy tiến độ đang cũ; (4) lần gọi sau chỉ gộp phần delta.
 public class RequirementCoverageServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -43,10 +44,11 @@ public class RequirementCoverageServiceTests : IDisposable
         var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
         var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
 
-        var map = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+        var coverage = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
         Assert.Equal(0, llm.Calls);
-        Assert.Equal("- ★ Mục tiêu / bài toán: [RÕ] app kho", map);
+        Assert.Equal("- ★ Mục tiêu / bài toán: [RÕ] app kho", coverage.Map);
+        Assert.False(coverage.DistillFailed);
     }
 
     [Fact]
@@ -59,10 +61,11 @@ public class RequirementCoverageServiceTests : IDisposable
         var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
         var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
 
-        var map = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+        var coverage = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
         Assert.Equal(1, llm.Calls);
-        Assert.Equal("- ★ Mục tiêu / bài toán: [MỘT PHẦN] còn thiếu: luồng chính", map);
+        Assert.Equal("- ★ Mục tiêu / bài toán: [MỘT PHẦN] còn thiếu: luồng chính", coverage.Map);
+        Assert.False(coverage.DistillFailed);
         Assert.Equal(4, trackedProject.CoverageHarvestedTurnCount);
 
         // Bền trong DB, không chỉ trên entity đang track.
@@ -81,11 +84,15 @@ public class RequirementCoverageServiceTests : IDisposable
         var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
         var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
 
-        var map = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+        var coverage = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
-        Assert.Equal(1, llm.Calls);
-        Assert.Equal("bản đồ cũ", map);
+        // Lỗi ⇒ THỬ LẠI đúng một lần trước khi chịu thua: bản đồ đứng im không chỉ làm trễ panel, nó khiến
+        // BA dẫn lượt sau bằng bản đồ chưa có câu trả lời vừa rồi và hỏi lại đúng nhóm đó.
+        Assert.Equal(2, llm.Calls);
+        Assert.Equal("bản đồ cũ", coverage.Map);
         Assert.Equal(2, trackedProject.CoverageHarvestedTurnCount);
+        // …và người dùng phải BIẾT bản đồ đang cũ, thay vì tự hỏi vì sao tiến độ không nhích.
+        Assert.True(coverage.DistillFailed);
     }
 
     [Fact]
@@ -100,10 +107,10 @@ public class RequirementCoverageServiceTests : IDisposable
         var sut = NewSut(db, llm);
 
         await sut.UpdateAndLoadAsync(trackedProject, trackedBa, _model);
-        var map = await sut.UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+        var coverage = await sut.UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
         Assert.Equal(1, llm.Calls);
-        Assert.Equal("bản đồ v1", map);
+        Assert.Equal("bản đồ v1", coverage.Map);
     }
 
     [Fact]

@@ -1207,6 +1207,20 @@
 
 .coverage-progress-text { font-size: 12px; color: #555; white-space: nowrap; }
 
+/* Bản đồ bao phủ không gộp được lượt vừa rồi: danh sách bên dưới là bản CŨ. Tông cảnh báo nhưng không đỏ
+   — đây không phải lỗi người dùng gây ra và họ không cần làm gì, chỉ cần biết vì sao tiến độ đứng im
+   (và vì sao BA có thể hỏi lại nhóm họ vừa trả lời). */
+.coverage-stale {
+    margin: 6px 0 8px;
+    padding: 7px 9px;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    background: #fffbeb;
+    color: #7c5b12;
+    font-size: 11.5px;
+    line-height: 1.5;
+}
+
 .coverage-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
 
 .coverage-item { display: flex; align-items: baseline; gap: 6px; font-size: 12px; line-height: 1.5; cursor: default; }
@@ -1687,6 +1701,28 @@
 }
 
 .batchq-question { font-size: 13px; line-height: 1.5; color: #374151; margin-top: 2px; }
+
+/* DẤU VẾT chỉ-đọc của một thẻ hỏi gộp ĐÃ trả lời (lượt BA cũ). Message của lượt gộp chỉ là câu dẫn, nên
+   không có khối này thì lịch sử hội thoại nuốt mất chính các câu hỏi — người dùng cuộn lên chỉ thấy "mình
+   hỏi 4 điểm sau" rồi tới câu trả lời của mình. Nhạt và mảnh có chủ đích: đây là biên bản, không phải chỗ
+   để trả lời nữa (thẻ SỐNG duy nhất luôn nằm ở cuối dòng hội thoại). */
+.batchq-history {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 8px 0 0;
+    border-top: 1px dashed var(--line, #e5e7eb);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Nhãn nhóm nằm TRÊN câu hỏi như thẻ hỏi sống (.batchq-item): để chung dòng thì câu dài xuống hàng và
+   hai mục liền nhau trông so le, đọc như một đoạn văn đứt quãng. */
+.batchq-history > li { display: flex; flex-direction: column; gap: 1px; }
+
+.batchq-history-group { font-size: 11px; font-weight: 600; color: #9aa3af; }
+
+.batchq-history-question { font-size: 12.5px; line-height: 1.5; color: #6b7280; }
 
 /* Gợi ý xếp DỌC, mỗi cái một dòng đầy chiều ngang thay vì chip nằm ngang: đây là câu trả lời sẽ được ghi
    vào hội thoại, nên phải đọc trọn vẹn chứ không bị bóp trong một viên pill. */

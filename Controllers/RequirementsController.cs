@@ -350,6 +350,9 @@ public class RequirementsController : Controller
                                 multiSelect = q.MultiSelect
                             }),
                             coverage = result.Coverage,
+                            // Bản đồ bao phủ không gộp được lượt này (đã thử lại) ⇒ panel đang hiện bản
+                            // cũ và BA cũng vừa dẫn lượt bằng bản cũ đó. Client cảnh báo ngay trên panel.
+                            coverageStale = result.CoverageStale,
                             decisions = result.Decisions,
                             flowDiagram = result.FlowDiagram
                         }

@@ -189,18 +189,43 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // và mọi thứ đã đúng ở lượt chat (cổng readiness, chắt lọc bản đồ, decision log) tự khắc đúng ở đây.
     const batchPanel = document.getElementById("batchQuestions");
 
+    // Các câu hỏi đang nằm trên thẻ, dựng thành dấu vết CHỈ-ĐỌC. Không có phần này, các câu hỏi biến mất
+    // ngay khi người dùng trả lời (câu dẫn của lượt gộp không chứa câu hỏi nào), nên lịch sử chat còn lại
+    // đúng một câu "mình hỏi 4 điểm sau" vô nghĩa — và người dùng không có gì để đối chiếu khi BA lỡ hỏi
+    // lại điều họ vừa trả lời. Markup khớp bản server render cho một lượt gộp CŨ (.batchq-history).
+    function batchQuestionsHistoryHtml() {
+        const rows = Array.from(batchPanel.querySelectorAll(".batchq-item"))
+            .map(li => ({
+                group: ((li.querySelector(".batchq-group") || {}).textContent || "").trim(),
+                question: li.dataset.question || ""
+            }))
+            .filter(x => x.question)
+            .map(x => `
+                <li>
+                    ${x.group ? `<span class="batchq-history-group">${escapeHtml(x.group)}</span>` : ""}
+                    <span class="batchq-history-question">${escapeHtml(x.question)}</span>
+                </li>`)
+            .join("");
+
+        return rows ? `<ul class="batchq-history">${rows}</ul>` : "";
+    }
+
     function hideBatchQuestions() {
         if (!batchPanel || batchPanel.hidden) return;
 
         // Thẻ giờ CHỞ LUÔN câu dẫn của lượt (xem renderBatchQuestions), nên xóa trắng thẻ là xóa luôn
         // lượt BA đó khỏi màn hình — chưa kể nhãn "BA" phía trên thành mồ côi. Xếp thẻ lại thành một bong
-        // bóng BA thường mang đúng câu dẫn: đúng bằng thứ server render cho một lượt gộp CŨ sau khi F5.
+        // bóng BA thường mang câu dẫn KÈM các câu vừa hỏi: đúng bằng thứ server render cho một lượt gộp
+        // CŨ sau khi F5, nên hai đường không lệch nhau.
         const lead = batchPanel.querySelector(".batchq-lead");
         const label = batchPanel.previousElementSibling;
-        if (lead) {
+        const leadText = lead ? (lead.textContent || "").trim() : "";
+        const history = batchQuestionsHistoryHtml();
+        if (leadText || history) {
             batchPanel.insertAdjacentHTML("beforebegin", `
                 <div class="req-msg ba">
-                    <p style="white-space: pre-wrap;">${escapeHtml((lead.textContent || "").trim())}</p>
+                    ${leadText ? `<p style="white-space: pre-wrap;">${escapeHtml(leadText)}</p>` : ""}
+                    ${history}
                 </div>
             `);
         } else if (label && label.classList.contains("req-who")) {
@@ -344,10 +369,19 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Markup phải khớp bản server render trong Index.cshtml.
     const coverageIcons = { "RÕ": "✅", "MỘT PHẦN": "🟡", "KHÔNG ÁP DỤNG": "➖" };
 
-    function renderCoverage(items) {
+    // stale = lượt chắt lọc bản đồ của lượt vừa rồi đã lỗi (server đã thử lại): danh sách dưới đây là bản
+    // CŨ, chưa gộp câu trả lời vừa gửi — và BA cũng vừa dẫn lượt bằng đúng bản cũ đó. Phải nói ra: triệu
+    // chứng của nó (tiến độ đứng im + BA hỏi lại nhóm vừa trả lời) trông y hệt "BA không nghe mình nói".
+    function renderCoverage(items, stale) {
         const panel = document.getElementById("coveragePanel");
         const list = document.getElementById("coverageList");
-        if (!panel || !list || !Array.isArray(items) || items.length === 0) return;
+        if (!panel || !list) return;
+
+        const staleBox = document.getElementById("coverageStale");
+        if (staleBox) staleBox.hidden = stale !== true;
+        if (stale === true) panel.hidden = false;
+
+        if (!Array.isArray(items) || items.length === 0) return;
 
         const applicable = items.filter(x => x.status !== "KHÔNG ÁP DỤNG").length;
         const clear = items.filter(x => x.status === "RÕ").length;
@@ -652,7 +686,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             p.textContent = data.reply || "";
             renderSuggestions(data.suggestions, data.suggestionsMultiSelect === true);
             setWriteRequirementReady(data.invitesWriteRequirement === true);
-            renderCoverage(data.coverage);
+            renderCoverage(data.coverage, data.coverageStale === true);
             renderDecisions(data.decisions);
             renderFlowDiagram(bubble, data.flowDiagram);
 
