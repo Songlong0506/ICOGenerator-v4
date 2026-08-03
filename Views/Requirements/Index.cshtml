@@ -77,6 +77,12 @@
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer.ParseQuestions(lastItem.Conversation.Questions)
         : new List<ICOGenerator.Contracts.Requirements.BAChatQuestion>();
 
+    // Lượt SỞ HỮU thẻ hỏi sống ở trên. Mọi lượt gộp KHÁC hiện dấu vết chỉ-đọc ngay trong bong bóng của nó
+    // (xem .batchq-history bên dưới). Phải là đúng lượt này chứ không phải "lượt BA mới nhất": khi hội
+    // thoại đang kết thúc bằng lượt user (vừa trả lời xong, BA chưa kịp đáp), lượt BA mới nhất KHÔNG có
+    // thẻ sống — lấy nhầm mốc thì các câu hỏi của nó biến mất khỏi màn hình ở cả hai đường.
+    var liveQuestionTurnId = lastBaQuestions.Count > 0 ? lastItem?.Conversation?.Id : (Guid?)null;
+
     // Nút "Write Requirement" hiện "sẵn sàng" (nổi bật) khi lượt BA mới nhất MỜI người dùng bấm nút — tức
     // lời nhắn có nhắc tới "Write Requirement". Lời mời chỉ được LƯU sau khi cổng readiness tất định
     // (RequirementReadinessGate.Evaluate — mọi dòng áp dụng của bản đồ bao phủ đã [RÕ]) pass ngay trong
@@ -345,6 +351,13 @@
                           style="width:@(coverageApplicable == 0 ? 0 : coverageClear * 100 / coverageApplicable)%"></span>
                 </div>
                 <span class="coverage-progress-text" id="coverageProgressText">Đã rõ @coverageClear/@coverageApplicable nhóm</span>
+            </div>
+            @* Bản đồ không gộp được lượt vừa rồi (đã thử lại): danh sách bên dưới là bản CŨ và BA cũng vừa
+               dẫn lượt bằng bản cũ đó — nên nó có thể hỏi lại nhóm anh/chị vừa trả lời. Ẩn lúc tải trang
+               (cờ chỉ có ý nghĩa cho lượt vừa chạy); requirements.js bật khi frame done báo coverageStale. *@
+            <div class="coverage-stale" id="coverageStale" hidden>
+                ⚠️ Chưa cập nhật được tiến độ cho lượt vừa rồi — danh sách bên dưới đang là bản cũ.
+                Anh/chị cứ trả lời tiếp, lượt sau hệ thống gộp bù.
             </div>
             <ul class="coverage-list" id="coverageList">
                 @foreach (var item in coverage)
@@ -692,6 +705,33 @@
                         @if (isFailureTurn && isLastTurn)
                         {
                             <button type="button" class="btn outline small chat-retry-btn" title="Chạy lại lượt trả lời vừa lỗi — không cần gõ lại câu hỏi">↻ Thử lại</button>
+                        }
+
+                        @{
+                            // CÁC CÂU HỎI của một lượt hỏi GỘP CŨ, render CHỈ ĐỌC ngay trong bong bóng đã
+                            // hỏi chúng. Message của lượt gộp chỉ là câu dẫn ("mình hỏi 4 điểm sau"), nên
+                            // không có khối này thì lịch sử hội thoại nuốt mất chính các câu hỏi: người
+                            // dùng cuộn lên không đối chiếu được mình đã được hỏi gì và đã trả lời gì —
+                            // và khi BA lỡ hỏi lại, họ cũng không có bằng chứng nào để chỉ ra điều đó.
+                            // Lượt đang giữ thẻ hỏi SỐNG (#batchQuestions) không vào đây — chỉ mình nó.
+                            var pastQuestions = group.Conversation.Id == liveQuestionTurnId
+                                ? new List<ICOGenerator.Contracts.Requirements.BAChatQuestion>()
+                                : ICOGenerator.Services.Requirements.ConversationTurnRenderer.ParseQuestions(group.Conversation.Questions);
+                        }
+                        @if (pastQuestions.Any())
+                        {
+                            <ul class="batchq-history">
+                                @foreach (var q in pastQuestions)
+                                {
+                                    <li>
+                                        @if (!string.IsNullOrWhiteSpace(q.Group))
+                                        {
+                                            <span class="batchq-history-group">@q.Group</span>
+                                        }
+                                        <span class="batchq-history-question">@q.Question</span>
+                                    </li>
+                                }
+                            </ul>
                         }
 
                         @{

@@ -36,4 +36,11 @@ public class BAChatTurnResult
 
     /// <summary>Sơ đồ luồng nghiệp vụ để user xác nhận trực quan — CHỈ có ở lượt mời "Write Requirement", rỗng ở lượt hỏi.</summary>
     public List<FlowStep> FlowDiagram { get; set; } = new();
+
+    /// <summary>
+    /// True khi lượt chắt lọc "Bản đồ bao phủ" của lượt này THẤT BẠI (đã thử lại): <see cref="Coverage"/>
+    /// là bản CŨ, chưa gộp câu trả lời vừa rồi. Phải hiện cho người dùng thấy vì triệu chứng của nó —
+    /// tiến độ đứng im và BA hỏi lại nhóm vừa được trả lời — trông hệt như "BA không nghe mình nói".
+    /// </summary>
+    public bool CoverageStale { get; set; }
 }

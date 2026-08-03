@@ -334,8 +334,9 @@ public class BAChatService
         // Ba bước chuẩn bị (bộ nhớ hội thoại + hồ sơ user + bản đồ bao phủ) độc lập với nhau và là phần
         // chậm nhất trước khi BA "đặt bút" — chạy SONG SONG để độ chờ mỗi lượt bằng bước chậm nhất thay vì
         // tổng ba bước. Xem PrepareTurnContextAsync về cách cô lập DbContext.
-        var (memory, userMemory, coverageMap) = await PrepareTurnContextAsync(project, ba, model, cancellationToken);
+        var (memory, userMemory, coverageUpdate) = await PrepareTurnContextAsync(project, ba, model, cancellationToken);
         var recent = memory.RecentTurns;
+        var coverageMap = coverageUpdate.Map;
 
         // Ba nhánh (khi chạy song song) ghi cột bộ nhớ qua context riêng — đồng bộ lại giá trị bản đồ lên
         // entity đang track để các chỗ đọc phía dưới (BuildCoverageNote, kết quả trả về) thấy bản tươi.
@@ -392,12 +393,23 @@ public class BAChatService
                 + memory.Summary));
         }
         // Bản đồ bao phủ (nếu có): la bàn để BA chọn câu hỏi kế tiếp — ưu tiên nhóm ★ chưa rõ, không hỏi
-        // lại nhóm đã [RÕ]. Prompt requirement-chat.v3 hướng dẫn cách dùng heading này.
+        // lại nhóm đã [RÕ]. Prompt requirement-chat.v4 hướng dẫn cách dùng heading này.
         if (!string.IsNullOrWhiteSpace(coverageMap))
         {
             messages.Add(new ChatMessage(ChatRole.System,
-                "## Bản đồ bao phủ yêu cầu (trạng thái khai thác từng nhóm thông tin — dùng để chọn câu hỏi kế tiếp, KHÔNG hỏi lại nhóm đã [RÕ])\n"
+                "## Bản đồ bao phủ yêu cầu (trạng thái khai thác từng nhóm thông tin — dùng để chọn câu hỏi kế tiếp)\n"
+                + "Nhóm đã [RÕ]: KHÔNG hỏi lại. Nhóm [MỘT PHẦN]: chỉ hỏi ĐÚNG phần ghi sau \"còn thiếu:\", "
+                + "KHÔNG phát lại câu hỏi mở đầu của nhóm đó (người dùng đã trả lời phần còn lại rồi).\n"
                 + coverageMap));
+        }
+        // Sổ "đã hỏi rồi": bản đồ ở trên chỉ có độ phân giải theo NHÓM, nên một nhóm chưa [RÕ] dễ khiến
+        // model phát lại nguyên văn câu hỏi mở đầu của chính nhóm ấy. Danh sách câu hỏi thật là thứ duy
+        // nhất phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời".
+        var askedBefore = AskedQuestionHistory.Collect(recent);
+        var askedNote = AskedQuestionHistory.BuildNote(askedBefore);
+        if (!string.IsNullOrWhiteSpace(askedNote))
+        {
+            messages.Add(new ChatMessage(ChatRole.System, askedNote));
         }
         for (var i = 0; i < recent.Count; i++)
         {
@@ -470,6 +482,57 @@ public class BAChatService
             // sẽ xóa nếu lời mời bị thay bằng câu hỏi (khi đó chưa nên vẽ luồng vì còn thiếu thông tin).
             flowDiagram = parsedReply.FlowDiagram ?? new List<FlowStep>();
 
+            // PHANH CHỐNG HỎI LẠI (tất định). Prompt đã cấm phát lại câu cũ, nhưng bản đồ bao phủ — thứ
+            // dẫn dắt lượt hỏi — chỉ có độ phân giải theo NHÓM: một dòng chưa đạt chuẩn [RÕ] (hoặc một
+            // lượt chắt lọc bản đồ hỏng, giữ nguyên bản cũ) là đủ để model phát lại nguyên văn cả cụm câu
+            // hỏi của lượt trước, kèm chip gợi ý chính là câu trả lời người dùng vừa gõ. Ở đây câu trùng
+            // bị LOẠI khỏi lượt trả lời trước khi nó kịp lên màn hình.
+            var askedKeys = AskedQuestionHistory.Keys(askedBefore);
+            var reopenedGroups = AskedQuestionHistory.ReopenedGroups(CoverageMapParser.Parse(project.RequirementCoverageMap));
+            if (questions.Count > 0)
+            {
+                var kept = questions
+                    .Where(q => AskedQuestionHistory.IsExempt(q, reopenedGroups)
+                                || !AskedQuestionHistory.IsRepeat(q.Question, askedKeys))
+                    .ToList();
+
+                if (kept.Count < questions.Count)
+                {
+                    // Câu dẫn của lượt gộp thường tự đếm ("dưới đây là 4 câu xác nhận") nên bỏ bớt câu là
+                    // nó nói sai — thay bằng câu dẫn trung tính. Còn đúng một câu thì để Message rỗng cho
+                    // Normalize nâng chính câu hỏi lên làm nội dung lượt (đường một-câu).
+                    var trimmed = _replyParser.Normalize(new BAChatReply
+                    {
+                        Message = kept.Count >= 2 ? "Cảm ơn anh/chị. Mình hỏi thêm mấy điểm sau nhé:" : string.Empty,
+                        Questions = kept
+                    });
+
+                    // Không còn câu nào MỚI để hỏi: lượt này lẽ ra rỗng. Thay bằng bước kế tiếp TẤT ĐỊNH
+                    // suy từ bản đồ (hỏi đúng nhóm còn thiếu, hoặc mời bấm nút khi bản đồ đã đủ) — im lặng
+                    // hoặc để nguyên câu dẫn cụt đều tệ hơn.
+                    var (message, followUpSuggestions) = kept.Count == 0
+                        ? BuildFollowUpAfterRepeat(project.RequirementCoverageMap)
+                        : (trimmed.Message, trimmed.Suggestions);
+
+                    reply = message;
+                    questions = trimmed.Questions;
+                    suggestionsJson = followUpSuggestions.Count > 0 ? JsonSerializer.Serialize(followUpSuggestions) : null;
+                    suggestionsMultiSelect = trimmed.MultiSelect && followUpSuggestions.Count > 0;
+                    flowDiagram = new List<FlowStep>();
+                }
+            }
+            else if (parsedReply.Suggestions.Count > 0
+                     && !RequirementReadinessGate.IsWriteRequirementInvite(reply)
+                     && AskedQuestionHistory.IsRepeat(reply, askedKeys))
+            {
+                // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
+                var (message, followUpSuggestions) = BuildFollowUpAfterRepeat(project.RequirementCoverageMap);
+                reply = message;
+                suggestionsJson = followUpSuggestions.Count > 0 ? JsonSerializer.Serialize(followUpSuggestions) : null;
+                suggestionsMultiSelect = false;
+                flowDiagram = new List<FlowStep>();
+            }
+
             // Lượt MỜI bấm "Write Requirement" phải qua cổng readiness TẤT ĐỊNH ngay tại đây, trước khi
             // người dùng nhìn thấy lời mời: ready suy thẳng từ bản đồ bao phủ (đã gộp tới lượt user mới
             // nhất ở đầu lượt này) — cùng dữ liệu mà panel "Tiến độ khai thác" render, nên panel, lời mời
@@ -533,8 +596,34 @@ public class BAChatService
             // "Điều đã chốt" KHÔNG còn chặn đường trả về (một lời gọi LLM ~vài giây mỗi lượt): frame done
             // mang bản đang lưu, bản gộp lượt mới do UpdateDecisionsAsync đẩy ở frame phụ sau done.
             Decisions = DecisionLogService.ParseItems(project.DecisionLog).ToList(),
-            FlowDiagram = flowDiagram
+            FlowDiagram = flowDiagram,
+            // Bản đồ KHÔNG gộp được lượt này (đã thử lại): panel tiến độ đang hiển thị bản cũ và BA vừa
+            // dẫn lượt bằng bản cũ đó. Nói thẳng ra thay vì để người dùng tự đoán vì sao tiến độ đứng im.
+            CoverageStale = coverageUpdate.DistillFailed
         };
+    }
+
+    /// <summary>
+    /// Bước kế tiếp TẤT ĐỊNH khi mọi câu hỏi của lượt vừa rồi đều là câu đã hỏi: hỏi đúng nhóm mà bản đồ
+    /// bao phủ còn ghi thiếu, hoặc — khi bản đồ đã đủ theo cùng cổng readiness dùng ở mọi nơi khác — mời
+    /// bấm "Write Requirement". Không bao giờ trả về lượt rỗng: một lượt câm sau khi người dùng vừa trả
+    /// lời còn khó hiểu hơn cả việc bị hỏi lại.
+    /// </summary>
+    private static (string Message, List<string> Suggestions) BuildFollowUpAfterRepeat(string? coverageMap)
+    {
+        var readiness = RequirementReadinessGate.Evaluate(coverageMap);
+        if (!readiness.Ready)
+        {
+            return (string.IsNullOrWhiteSpace(readiness.Message)
+                ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
+                : readiness.Message, readiness.Suggestions.ToList());
+        }
+
+        // Bản đồ đã đủ ⇒ lời mời này đi qua đúng cổng mà nhánh dưới sẽ xét lại, nên không thể là lời mời
+        // sớm. Không kèm gợi ý: hành động duy nhất lúc này là bấm nút thật trên giao diện.
+        return ("Mình đã ghi nhận đủ các nhóm thông tin cần thiết và không còn câu hỏi nào mới. "
+                + "Nếu anh/chị không còn gì bổ sung, bấm nút \"Write Requirement\" để mình tạo tài liệu nhé.",
+            new List<string>());
     }
 
     /// <summary>
@@ -700,7 +789,7 @@ public class BAChatService
     }
 
     /// <summary>Kết quả 3 bước chuẩn bị ngữ cảnh của một lượt chat.</summary>
-    private async Task<(ConversationMemoryService.Memory Memory, string? UserMemory, string? CoverageMap)> PrepareTurnContextAsync(
+    private async Task<(ConversationMemoryService.Memory Memory, string? UserMemory, RequirementCoverageService.CoverageUpdate Coverage)> PrepareTurnContextAsync(
         Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
         // Không có scope factory (unit test dựng tay) ⇒ tuần tự trên scope hiện tại — hành vi cũ.

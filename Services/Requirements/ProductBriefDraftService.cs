@@ -116,8 +116,10 @@ public class ProductBriefDraftService
         else
         {
             Report("thinking", "Đang kiểm tra mức độ đầy đủ của yêu cầu…", conversationTranscript);
-            var coverageMap = await _coverage.UpdateAndLoadAsync(project, ba, model, cancellationToken);
-            var readiness = RequirementReadinessGate.Evaluate(coverageMap);
+            // Lượt gộp lỗi ⇒ bản đồ trả về là bản CŨ; cổng vẫn xét trên nó (fail-closed như cũ — thiếu
+            // thông tin thì chặn, không bao giờ nới ra vì một lời gọi hỏng).
+            var coverage = await _coverage.UpdateAndLoadAsync(project, ba, model, cancellationToken);
+            var readiness = RequirementReadinessGate.Evaluate(coverage.Map);
             if (!readiness.Ready)
             {
                 var question = string.IsNullOrWhiteSpace(readiness.Message)

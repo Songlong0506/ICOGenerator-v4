@@ -16,6 +16,14 @@ namespace ICOGenerator.Services.Requirements;
 public static partial class CoverageMapEditor
 {
     /// <summary>
+    /// Ghi chú đánh dấu một dòng do NGƯỜI DÙNG mở lại. Là hằng số dùng chung vì
+    /// <see cref="AskedQuestionHistory.ReopenedGroups"/> đọc nó để MIỄN phanh chống-hỏi-lại cho đúng
+    /// nhóm đó: người dùng vừa bảo "nhóm này BA hiểu chưa đúng, hỏi lại giúp tôi" thì câu hỏi cũ của
+    /// nhóm ấy phải được phép quay lại, dù nó trùng với câu đã hỏi.
+    /// </summary>
+    public const string ReopenNote = "người dùng báo phần này chưa đúng";
+
+    /// <summary>
     /// Hạ dòng có nhãn <paramref name="label"/> xuống [MỘT PHẦN] kèm ghi chú "người dùng báo chưa đúng".
     /// Trả về <c>null</c> khi không tìm thấy dòng nào khớp (bản đồ rỗng, nhãn lạ) để caller báo lỗi thay
     /// vì ghi đè bản đồ bằng một bản không đổi.
@@ -39,7 +47,7 @@ public static partial class CoverageMapEditor
             var previous = match.Groups["summary"].Value.Trim();
             // Giữ lại tóm tắt cũ trong ngoặc: lượt gộp sau (LLM) đọc được BA đã hiểu gì và người dùng phủ
             // nhận điều gì, thay vì mất trắng ngữ cảnh và hỏi lại từ số không.
-            var note = "còn thiếu: người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại.";
+            var note = $"còn thiếu: {ReopenNote} — cần hỏi lại và chốt lại.";
             if (previous.Length > 0)
                 note += $" (ghi nhận trước đó: {previous})";
 
