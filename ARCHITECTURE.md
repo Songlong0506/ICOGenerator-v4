@@ -42,7 +42,8 @@ Services/          # Hạ tầng & service nghiệp vụ tái dùng (gọi LLM, 
   Agents/          #   Vòng lặp agent tự động dùng tool + background runner
   Artifacts/       #   Lưu/đọc file sản phẩm trong workspace
   Evals/           #   Prompt eval harness: golden set + runner + LLM-judge + worker nền (xem 5.15)
-  Llm/             #   Client gọi LLM + model request/response + ghi log lời gọi model (IModelCallLogger)
+  Llm/             #   Hạ tầng gọi LLM dùng chung cho cả 3 đường (agent/chat/eval): client,
+                   #     middleware cắt ngang, đọc JSON model trả về, cấu hình, call log (xem 5.23)
   Prompts/         #   Nạp & render template prompt (file .md trong /Prompts)
   Requirements/    #   Biến hội thoại BA -> tài liệu requirement
     Templates/     #     Sinh file .docx
@@ -207,12 +208,14 @@ diễn tả được bằng attribute thì tự kiểm tra trong thân hàm và 
 schema sinh bằng `AIFunctionFactory` từ chữ ký method. Các mối quan tâm cắt ngang được tách thành
 **middleware**:
 
-- `ModelCallLoggingChatClient` (`DelegatingChatClient`): mỗi lần gọi model → đặt deadline, tính trần
-  completion-token, **dựng `LlmCallResult` + map lỗi API/timeout**, log request/response vào DB
-  (`IModelCallLogger`), đẩy progress "thinking" theo bước, và (khi `throwOnFailure`) biến một lời gọi
-  lỗi thành lỗi kết thúc run. (Token live do orchestrator đẩy từ `RunStreamingAsync` nên không emit ở
-  đây để khỏi lặp.) **Đây là middleware dùng chung** — `LlmClient` (đường chat thuần của BA) cũng
-  compose nó qua `ChatClientBuilder`, nên deadline/token-cap/log/dựng-result không bị viết lặp hai nơi.
+- `ModelCallLoggingChatClient` (`DelegatingChatClient`): mỗi lần gọi model → hỏi cầu dao ngân sách, đặt
+  deadline, tính trần completion-token, **dựng `LlmCallResult` + map lỗi API/timeout**, log
+  request/response vào DB (`IModelCallLogger`), đẩy progress "thinking" theo bước, và (khi
+  `ModelCallOptions.ThrowOnFailure`) biến một lời gọi lỗi thành lỗi kết thúc run. (Token live do
+  orchestrator đẩy từ `RunStreamingAsync` nên không emit ở đây để khỏi lặp.) **Đây là middleware dùng
+  chung** cho cả ba đường gọi model — agent, chat thuần của BA (`LlmClient`) và eval
+  (`EvalRunnerService`) — nên deadline/token-cap/log/dựng-result không bị viết lặp ba nơi. Các núm vặn
+  khác nhau giữa ba đường nằm trong record `ModelCallOptions` (xem 5.23).
 - `InvokerBackedAIFunction` (`DelegatingAIFunction`): bọc mỗi tool — schema/tên **và cả bind args +
   invoke** đều do `AIFunctionFactory` lo (wrapper gọi thẳng `base.InvokeCoreAsync`, không tự bind/reflect
   nữa); wrapper chỉ **chồng thêm** các mối quan tâm của app: report tiến độ, `ToolPolicyService` (policy
@@ -488,7 +491,35 @@ Rủi ro mới của dạng nhúng là hỏng **âm thầm** (quên khai báo `<
 file bị cắt) — app vẫn build, tới lúc chạy mới lộ. `HrPortalSeedDataTests` chốt số bản ghi và giá trị
 một bản ghi mốc để bắt cả ba trường hợp đó ở CI.
 
-### 5.23. Câu nghiệm thu của người dùng đi được tới POC (AC-n)
+### 5.23. Giải phẫu `Services/Llm` (một trách nhiệm một file)
+Có **ba** đường gọi model — agent (`AgentRunService`), chat/structured của BA (`LlmClient`), eval
+(`EvalRunnerService`) — và tất cả chạy qua **cùng một** chồng hạ tầng. Thư mục được cắt theo trách
+nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
+
+| File | Trách nhiệm | Sửa khi… |
+|---|---|---|
+| `ILlmClient` / `LlmClient` | Điều phối một lượt hỏi–đáp (không có vòng lặp tool): chọn mức structured output, thử lại khi endpoint từ chối | thêm một mức/chiến lược gọi mới |
+| `ModelCallPipeline` | Lắp `IChatClient` theo model + middleware, **giữ lại `LlmCallResult`** middleware dựng ra | (hiếm) |
+| `ModelCallLoggingChatClient` | Middleware cắt ngang: budget, deadline, trần token, dựng result, map lỗi, log DB, progress | thêm một mối quan tâm cắt ngang |
+| `ModelCallOptions` | Núm vặn của middleware theo từng đường gọi (record) | thêm một núm — **không phải sửa chỗ dựng nào cả** |
+| `ModelCallRequestPreview` | Dựng chuỗi JSON "request đã gửi" cho màn Call Log | đổi hiển thị call log |
+| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking`, bỏ `temperature`) | thêm quirk phía request |
+| `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |
+| `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |
+| `LlmSettings` | Toàn bộ section `"Llm"` của appsettings, đọc **một lần** | thêm một khoá cấu hình |
+| `IChatClientFactory` / `OpenAIChatClientFactory` | Dựng client theo `AiModel` (chọn proxy theo endpoint local/remote) | đổi nhà cung cấp/transport |
+| `IModelCallLogger` / `ModelCallLogger` | Ghi một dòng call log | đổi schema log |
+| `IModelConnectionTester` / `ModelConnectionTester` | Nút "Test Connection" — **không** log, **không** tính budget | đổi cách chẩn đoán lỗi cấu hình |
+| `LlmCost`, `TokenEstimator`, `MaxOutputTokenResolver` | Ba phép tính thuần (USD, ước lượng token, trần output) | đổi công thức |
+
+Hai quy ước giữ cho nó không rối lại:
+- **`LlmJson` là chỗ ĐỌC JSON model trả về duy nhất.** Trước đây gần chục service tự chép "bóc JSON rồi
+  `Deserialize` trong `try/catch`" nên hành vi biên (phản hồi bị cắt, JSON toàn field lạ) mỗi nơi một
+  kiểu. Parser dự phòng giờ là một dòng `LlmJson.TryDeserialize<T>(raw)`.
+- **`LlmSettings` là chỗ ĐỌC config `Llm:*` duy nhất.** Trước đây ba service tự đọc
+  `Llm:RequestTimeoutSeconds` kèm ba hằng mặc định riêng — sửa một chỗ là lệch ngay với hai chỗ kia.
+
+### 5.24. Câu nghiệm thu của người dùng đi được tới POC (AC-n)
 `Prompts/BusinessAnalyst/product-brief.v3.md` bắt mỗi tính năng chính phải kèm một dòng
 *"Hoàn thành khi: …"*. Đó là **tiêu chí nghiệm thu duy nhất do chính người dùng viết và đã bấm
 Approve** — nhưng trước đây nó chết ở Product Brief: prompt sinh AI Design Spec không có mục nào nhận
@@ -511,7 +542,7 @@ và hành vi y như trước):
 - **Chép, không diễn đạt lại**: `BriefAcceptanceCriteria.BuildPromptBlock` render sẵn đúng các dòng mà
   § 14 phải chứa. Bảo model "viết mục Acceptance Criteria" là mời nó viết lại câu của người dùng bằng
   chữ của nó — thứ đắt nhất ở đây là **nguyên văn**.
-- **`SpecBriefParityChecker` soát 3 tầng** thay vì chỉ màn hình (xem 5.24).
+- **`SpecBriefParityChecker` soát 3 tầng** thay vì chỉ màn hình (xem 5.25).
 - **Vòng bổ sung kịch bản**: sau khi sinh UAT, `FindUncoveredAcceptanceCriteria` đối chiếu tất định;
   còn AC nào chưa có kịch bản thì chạy đúng MỘT vòng xin bổ sung, và bản sửa chỉ được nhận khi nó phủ
   **nhiều hơn** bản cũ (model trả về bộ nghèo hơn thì giữ bộ đang có).
@@ -520,7 +551,7 @@ và hành vi y như trước):
 nhưng khác về bản chất: rule là câu BA phát biểu cho máy kiểm, AC là câu người nghiệp vụ đọc để nói
 "đạt / chưa đạt".
 
-### 5.24. Parity Brief ↔ Spec soát ba tầng, không chỉ màn hình
+### 5.25. Parity Brief ↔ Spec soát ba tầng, không chỉ màn hình
 Spec là **đầu vào duy nhất** của bước dựng POC, nên thứ gì rơi rụng ở biên Brief→Spec thì POC thiếu
 luôn và mọi cổng phía sau đều mù (chúng chỉ so POC với spec). `SpecBriefParityChecker` vốn chỉ so danh
 sách màn hình; nay ba tầng theo thứ tự "mất mát đắt dần": **màn hình** → **quy tắc nghiệp vụ**
@@ -532,7 +563,7 @@ ngắn, nên so bằng `TextSimilarity` (bằng nhau → chứa nhau → đủ t
 một quy tắc bằng từ ngữ kỹ thuật hơn là chuyện bình thường, và một cổng kêu ở mọi lượt là một cổng sẽ
 bị bỏ qua. `PocUatCoverage` nay dùng chung `TextSimilarity` thay vì bản sao riêng của nó.
 
-### 5.25. Mỗi vòng dựng POC được chụp lại (`PocSnapshots`)
+### 5.26. Mỗi vòng dựng POC được chụp lại (`PocSnapshots`)
 Vòng "Yêu cầu chỉnh sửa" **ghi đè thẳng** lên `poc-demo.html`, nên bản người nghiệm thu vừa xem biến
 mất. `PocVerification` giữ được lịch sử **kết quả kiểm** (rule pass/fail, hồi quy) nhưng không giữ
 chính bản demo: từ vòng thứ hai trở đi người review chỉ còn bản bàn giao bằng chữ của agent để tin, và

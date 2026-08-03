@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
@@ -182,24 +181,9 @@ public class GapProposalService
         return aligned;
     }
 
-    private static GapProposalSet? ParseFallback(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return null;
-        try
-        {
-            var json = JsonExtractor.Extract(raw);
-            return string.IsNullOrEmpty(json)
-                ? null
-                : JsonSerializer.Deserialize<GapProposalSet>(json, JsonDefaults.CaseInsensitive);
-        }
-        catch
-        {
-            // Model trả văn xuôi / JSON hỏng: coi như không có phương án nào — người dùng vẫn còn đường
-            // trả lời tiếp trong khung chat, y như trước khi có cổng này.
-            return null;
-        }
-    }
+    // Model trả văn xuôi / JSON hỏng: coi như không có phương án nào — người dùng vẫn còn đường trả lời
+    // tiếp trong khung chat, y như trước khi có cổng này.
+    private static GapProposalSet? ParseFallback(string? raw) => LlmJson.TryDeserialize<GapProposalSet>(raw);
 
     /// <summary>
     /// Ghép các mục model trả về vào ĐÚNG các nhóm đang thiếu: khớp nhãn đã chuẩn hoá (xem

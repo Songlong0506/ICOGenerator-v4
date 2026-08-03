@@ -35,8 +35,6 @@ public class RequirementConflictService
     /// <summary>Số lượt hội thoại gần nhất đưa vào ngữ cảnh soát (nhật ký + ví dụ đã là bản đúc kết rồi).</summary>
     private const int RecentTurns = 24;
 
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     private readonly AppDbContext _db;
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
@@ -107,7 +105,7 @@ public class RequirementConflictService
 
         try
         {
-            return JsonSerializer.Deserialize<List<RequirementConflict>>(json, JsonOptions) ?? new List<RequirementConflict>();
+            return JsonSerializer.Deserialize<List<RequirementConflict>>(json, LlmJson.Options) ?? new List<RequirementConflict>();
         }
         catch
         {
@@ -205,18 +203,7 @@ public class RequirementConflictService
         return decisions.Count == 0 && turns.Count == 0 ? string.Empty : sb.ToString();
     }
 
-    private static RequirementConflictSet? ParseFallback(string? raw)
-    {
-        try
-        {
-            var json = JsonExtractor.Extract(raw ?? string.Empty);
-            return json.Length == 0 ? null : JsonSerializer.Deserialize<RequirementConflictSet>(json, JsonOptions);
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static RequirementConflictSet? ParseFallback(string? raw) => LlmJson.TryDeserialize<RequirementConflictSet>(raw);
 
     // Bỏ mục thiếu nội dung để panel không hiện thẻ trống, và luôn có ít nhất hai phương án để bấm.
     private static List<RequirementConflict> Sanitize(RequirementConflictSet set)

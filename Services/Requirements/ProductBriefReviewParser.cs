@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Llm;
 
@@ -20,20 +19,9 @@ public class ProductBriefReviewParser
         if (text.Length == 0)
             return ProductBriefReview.PassDefault;
 
-        try
-        {
-            var json = JsonExtractor.Extract(text);
-            if (string.IsNullOrEmpty(json))
-                return ProductBriefReview.PassDefault;
-
-            var parsed = JsonSerializer.Deserialize<RawReview>(json, JsonDefaults.CaseInsensitive);
-            return parsed == null ? ProductBriefReview.PassDefault : Clean(parsed);
-        }
-        catch
-        {
-            // JSON hỏng → fail-open: coi như bản nháp đạt.
-            return ProductBriefReview.PassDefault;
-        }
+        // Không có JSON / JSON hỏng → fail-open: coi như bản nháp đạt.
+        var parsed = LlmJson.TryDeserialize<RawReview>(text);
+        return parsed == null ? ProductBriefReview.PassDefault : Clean(parsed);
     }
 
     /// <summary>Chuẩn hoá kết quả structured output về cùng giới hạn (số lượng/độ dài/trùng lặp) với đường parse text.</summary>

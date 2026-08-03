@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
@@ -66,35 +65,16 @@ public class RequirementResponseParser
     // đối không dùng fallback template ở đường này — nó sẽ ghi đè một bản nháp tốt bằng khung "Cần làm rõ".
     public BAProductBriefResult? TryParseProductBrief(string response)
     {
-        try
-        {
-            var json = JsonExtractor.Extract(response);
-            if (string.IsNullOrEmpty(json))
-                return null;
-
-            var result = JsonSerializer.Deserialize<BAProductBriefResult>(json, JsonDefaults.CaseInsensitive);
-            return result == null ? null : Normalize(result);
-        }
-        catch
-        {
-            return null;
-        }
+        var result = LlmJson.TryDeserialize<BAProductBriefResult>(response);
+        return result == null ? null : Normalize(result);
     }
 
     public BAProductBriefResult ParseProductBrief(string response, Project project, string userMessage)
     {
-        try
-        {
-            var json = JsonExtractor.Extract(response);
-            var result = JsonSerializer.Deserialize<BAProductBriefResult>(json, JsonDefaults.CaseInsensitive);
-
-            if (result != null)
-                return Normalize(result);
-        }
-        catch
-        {
-            // Conservative fallback so the chat still produces a draft Product Brief.
-        }
+        // Đọc được thì dùng; không đọc được thì rơi xuống khung dự phòng bên dưới để lượt chat vẫn ra được
+        // một bản nháp Product Brief.
+        if (LlmJson.TryDeserialize<BAProductBriefResult>(response) is { } result)
+            return Normalize(result);
 
         return new BAProductBriefResult
         {
@@ -133,18 +113,10 @@ Cần làm rõ
 
     public BAAiDesignSpecResult ParseAiDesignSpec(string response, string productBrief)
     {
-        try
-        {
-            var json = JsonExtractor.Extract(response);
-            var result = JsonSerializer.Deserialize<BAAiDesignSpecResult>(json, JsonDefaults.CaseInsensitive);
-
-            if (result != null)
-                return Normalize(result);
-        }
-        catch
-        {
-            // Conservative fallback so Approve still produces a usable AI Design Spec for the POC step.
-        }
+        // Không đọc được thì dùng khung dự phòng bên dưới, để Approve vẫn ra được AI Design Spec dùng được
+        // cho bước POC.
+        if (LlmJson.TryDeserialize<BAAiDesignSpecResult>(response) is { } result)
+            return Normalize(result);
 
         return new BAAiDesignSpecResult
         {
@@ -194,18 +166,9 @@ Cần làm rõ
 
     public BARequirementDocxResult Parse(string response, Project project, string userMessage)
     {
-        try
-        {
-            var json = JsonExtractor.Extract(response);
-            var result = JsonSerializer.Deserialize<BARequirementDocxResult>(json, JsonDefaults.CaseInsensitive);
-
-            if (result != null)
-                return Normalize(result);
-        }
-        catch
-        {
-            // Use a conservative fallback so the chat still produces draft documents.
-        }
+        // Không đọc được thì dùng khung dự phòng bên dưới, để lượt chat vẫn ra được bộ tài liệu nháp.
+        if (LlmJson.TryDeserialize<BARequirementDocxResult>(response) is { } result)
+            return Normalize(result);
 
         return new BARequirementDocxResult
         {
