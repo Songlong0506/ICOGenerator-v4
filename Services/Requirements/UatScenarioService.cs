@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Artifacts;
@@ -88,6 +89,11 @@ public class UatScenarioService
             if (set.Scenarios.Count == 0)
                 return;
 
+            // Cổng tất định: MỌI câu nghiệm thu người dùng đã duyệt (§ 14 của spec) phải có ít nhất một
+            // kịch bản chứng minh. Thiếu thì chạy ĐÚNG MỘT vòng bổ sung — cùng cách RequirementDocsService
+            // xử lý màn hình rơi rụng ở biên Brief↔Spec. Fail-open: vòng bổ sung lỗi ⇒ giữ bộ đang có.
+            set = await EnsureAcceptanceCoverageAsync(set, aiDesignSpec, prompt, projectId, ba, model, workflowRunId, cancellationToken);
+
             var path = GetScenarioPath(project.Id, project.Name);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             await File.WriteAllTextAsync(path, JsonSerializer.Serialize(set, WriteOptions), cancellationToken);
@@ -100,6 +106,88 @@ public class UatScenarioService
         {
             _logger.LogWarning(ex, "Could not generate UAT scenarios for project {ProjectId}.", projectId);
         }
+    }
+
+    /// <summary>
+    /// Các câu nghiệm thu (AC-n) chưa được kịch bản nào trỏ tới. Rỗng khi spec không có mục § 14 hoặc
+    /// mọi AC đã được phủ. Tách ra public static để trang POC Review và test dùng chung một định nghĩa
+    /// "đã phủ" với vòng bổ sung bên dưới.
+    /// </summary>
+    public static IReadOnlyList<PocAcceptanceCriterion> FindUncoveredAcceptanceCriteria(PocSpec spec, UatScenarioSet? set)
+    {
+        if (spec.AcceptanceCriteria.Count == 0)
+            return Array.Empty<PocAcceptanceCriterion>();
+
+        var covered = (set?.Scenarios ?? new List<UatScenario>())
+            .SelectMany(s => s.AcRefs)
+            .Select(NormalizeRef)
+            .Where(r => r.Length > 0)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return spec.AcceptanceCriteria
+            .Where(ac => !covered.Contains(NormalizeRef(ac.Ref)))
+            .ToList();
+    }
+
+    /// <summary>"ac 2" / "AC-2" / "AC2" → "AC-2": model viết mã theo nhiều kiểu, so khớp phải bỏ qua khác biệt đó.</summary>
+    private static string NormalizeRef(string? value)
+    {
+        var m = Regex.Match(value ?? string.Empty, @"AC[-\s_]?(\d+)", RegexOptions.IgnoreCase);
+        return m.Success ? "AC-" + m.Groups[1].Value : string.Empty;
+    }
+
+    // Một vòng bổ sung cho các AC chưa có kịch bản: gửi lại prompt gốc + bộ vừa sinh + danh sách AC còn
+    // thiếu, yêu cầu xuất lại TOÀN BỘ bộ kịch bản (giữ nguyên phần đã đạt). Xuất lại cả bộ thay vì xin
+    // phần thêm để tránh phải trộn hai bộ có thể mâu thuẫn nhau; MaxScenarios vẫn chặn ở Sanitize.
+    private async Task<UatScenarioSet> EnsureAcceptanceCoverageAsync(
+        UatScenarioSet set,
+        string aiDesignSpec,
+        string basePrompt,
+        Guid projectId,
+        Domain.Agent ba,
+        Domain.AiModel model,
+        Guid? workflowRunId,
+        CancellationToken cancellationToken)
+    {
+        var spec = PocSpec.Parse(aiDesignSpec);
+        var missing = FindUncoveredAcceptanceCriteria(spec, set);
+        if (missing.Count == 0)
+            return set;
+
+        var sb = new StringBuilder();
+        sb.AppendLine(basePrompt);
+        sb.AppendLine();
+        sb.AppendLine("# BỘ KỊCH BẢN BẠN VỪA SOẠN (chưa đạt)");
+        sb.AppendLine(JsonSerializer.Serialize(set, WriteOptions));
+        sb.AppendLine();
+        sb.AppendLine("# KẾT QUẢ ĐỐI CHIẾU TỰ ĐỘNG");
+        sb.AppendLine("Các câu nghiệm thu sau của mục \"## 14. Acceptance Criteria\" CHƯA có kịch bản nào chứng minh (không kịch bản nào ghi mã này trong `acRefs`):");
+        foreach (var ac in missing)
+            sb.AppendLine($"- {ac.Ref}: {ac.Text}");
+        sb.AppendLine();
+        sb.AppendLine("Hãy xuất lại TOÀN BỘ bộ kịch bản: GIỮ NGUYÊN các kịch bản đã có, BỔ SUNG kịch bản cho từng câu nghiệm thu còn thiếu ở trên (hoặc thêm mã AC đó vào `acRefs` của một kịch bản đã có nếu kịch bản đó thật sự chứng minh được nó). Vẫn trả JSON đúng format cũ.");
+
+        var (fixCall, fixStructured) = await _llm.ChatStructuredAsync<UatScenarioSet>(
+            model, [new ChatMessage(ChatRole.User, sb.ToString())], ba.Temperature,
+            new ModelCallLogContext(projectId, ba, "BAUatScenariosAcFix", workflowRunId),
+            cancellationToken: cancellationToken);
+
+        if (!fixCall.IsSuccess)
+        {
+            _logger.LogWarning("UAT acceptance-coverage round failed for project {ProjectId}: {Error}", projectId, fixCall.ErrorMessage ?? fixCall.Content);
+            return set;
+        }
+
+        var repaired = Sanitize(fixStructured ?? ParseFallback(fixCall.Content));
+        // Bộ sửa chỉ được nhận khi nó thật sự phủ nhiều hơn — một bản trả về nghèo hơn (model bỏ bớt
+        // kịch bản) sẽ làm bộ nghiệm thu tệ đi thay vì tốt lên.
+        if (repaired.Scenarios.Count == 0
+            || FindUncoveredAcceptanceCriteria(spec, repaired).Count >= missing.Count)
+        {
+            return set;
+        }
+
+        return repaired;
     }
 
     /// <summary>
@@ -129,7 +217,10 @@ public class UatScenarioService
             var s = scenarios[i];
             sb.AppendLine($"{i + 1}. **{s.Title}**"
                 + (string.IsNullOrWhiteSpace(s.Screen) ? "" : $" — màn hình: {s.Screen}")
-                + (s.RuleRefs.Count > 0 ? $" — kiểm rule: {string.Join(", ", s.RuleRefs)}" : ""));
+                + (s.RuleRefs.Count > 0 ? $" — kiểm rule: {string.Join(", ", s.RuleRefs)}" : "")
+                // Mã AC đi kèm để Developer agent biết bước nào đang chứng minh câu nghiệm thu nào của
+                // người dùng — bấm hỏng ở đây là hỏng đúng điều đã hứa, không phải một assertion nội bộ.
+                + (s.AcRefs.Count > 0 ? $" — chứng minh câu nghiệm thu: {string.Join(", ", s.AcRefs)}" : ""));
             foreach (var step in s.Steps)
                 sb.AppendLine($"   - {step}");
         }
@@ -178,6 +269,13 @@ public class UatScenarioService
             s.Screen = (s.Screen ?? string.Empty).Trim();
             s.Steps = s.Steps.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).ToList();
             s.RuleRefs = (s.RuleRefs ?? new List<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).ToList();
+            // Mã AC được chuẩn hoá ngay khi nhận ("ac 2" → "AC-2") để mọi nơi đối chiếu sau này — vòng bổ
+            // sung, trang review — không phải tự đoán lại cách model đã viết.
+            s.AcRefs = (s.AcRefs ?? new List<string>())
+                .Select(NormalizeRef)
+                .Where(x => x.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
         return set;
     }

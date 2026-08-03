@@ -88,6 +88,12 @@ public class RequirementDocsService
         // đúng danh mục của họ. Chỉ đọc, fail-open: không có file nào thì khối này rỗng và prompt như cũ.
         var realSampleData = await BuildRealSampleDataAsync(projectId, cancellationToken);
 
+        // Câu nghiệm thu người dùng đã duyệt ("Hoàn thành khi: …" trong Product Brief) — chép nguyên văn
+        // vào "## 14. Acceptance Criteria" của spec. Không có khối này thì tiêu chí nghiệm thu DUY NHẤT do
+        // chính người dùng viết ra dừng lại ở Brief, còn bộ UAT họ sắp bấm thử lại được suy diễn từ bản
+        // kỹ thuật. Fail-open: Brief cũ không có dòng nào ⇒ khối rỗng, prompt như trước.
+        var acceptanceCriteria = BriefAcceptanceCriteria.Parse(productBrief);
+
         var prompt = _promptBuilder.BuildAiDesignSpec(
             project,
             productBrief,
@@ -95,7 +101,8 @@ public class RequirementDocsService
             organizationContext ?? string.Empty,
             project.WorkedExamples,
             project.SpecAssumptionCorrections,
-            realSampleData);
+            realSampleData,
+            BriefAcceptanceCriteria.BuildPromptBlock(acceptanceCriteria));
 
         var messages = new List<ChatMessage>
         {
@@ -123,21 +130,21 @@ public class RequirementDocsService
             ? _responseParser.Normalize(structuredSpec)
             : _responseParser.ParseAiDesignSpec(callResult.Content, productBrief);
 
-        // Đối chiếu deterministic Brief ↔ Spec: màn hình nào của Brief bị rơi rụng khỏi "Screens To
-        // Generate" thì cho BA sửa lại ĐÚNG MỘT vòng (kèm báo cáo lệch), vì spec là đầu vào duy nhất
-        // của POC — thiếu ở đây là POC thiếu tính năng mà audit POC (chỉ so với spec) không thấy.
+        // Đối chiếu deterministic Brief ↔ Spec (màn hình, quy tắc nghiệp vụ, câu nghiệm thu): thứ gì của
+        // Brief rơi rụng khỏi spec thì cho BA sửa lại ĐÚNG MỘT vòng (kèm báo cáo lệch), vì spec là đầu vào
+        // duy nhất của POC — thiếu ở đây là POC thiếu luôn mà audit POC (chỉ so với spec) không thấy.
         // Fail-open: vòng sửa lỗi/vẫn lệch thì dùng bản tốt nhất đang có, không chặn pipeline.
         var parityReport = SpecBriefParityChecker.Check(productBrief, result.AiDesignSpec.Content);
         if (parityReport != null)
         {
-            Report("tool", "Phát hiện màn hình rơi rụng so với Product Brief — đang yêu cầu BA bổ sung…", parityReport);
+            Report("tool", "Phát hiện nội dung rơi rụng so với Product Brief — đang yêu cầu BA bổ sung…", parityReport);
 
             var fixPrompt = prompt
                 + "\n\n## BẢN AI DESIGN SPEC VỪA SINH (chưa đạt — cần sửa)\n"
                 + result.AiDesignSpec.Content
                 + "\n\n## KẾT QUẢ ĐỐI CHIẾU TỰ ĐỘNG VỚI PRODUCT BRIEF\n"
                 + parityReport
-                + "\n\nHãy xuất lại TOÀN BỘ AI Design Spec: BỔ SUNG heading `### 6.n. <Tên màn hình>` (kèm chi tiết) cho TỪNG màn hình bị thiếu nêu trên, giữ nguyên các phần đã đúng. Vẫn trả JSON đúng format cũ.";
+                + "\n\nHãy xuất lại TOÀN BỘ AI Design Spec: bổ sung ĐẦY ĐỦ mọi mục bị thiếu nêu trên theo đúng hướng dẫn của từng phần, giữ nguyên các phần đã đúng. Vẫn trả JSON đúng format cũ.";
 
             var fixMessages = new List<ChatMessage>
             {
@@ -159,7 +166,7 @@ public class RequirementDocsService
                     result = fixedResult;
                     var remaining = SpecBriefParityChecker.Check(productBrief, result.AiDesignSpec.Content);
                     Report("observation", remaining == null
-                        ? "Spec đã bổ sung đủ các màn hình của Product Brief."
+                        ? "Spec đã khớp Product Brief (màn hình, quy tắc nghiệp vụ, câu nghiệm thu)."
                         : "Spec sau vòng sửa vẫn còn lệch — tiếp tục với bản hiện có.", remaining);
                 }
             }

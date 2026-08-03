@@ -127,4 +127,66 @@ public class PocSpecTests
         Assert.DoesNotContain(spec.WorkedExamples, w => w.Ref == "WE-999"); // ở section khác
         Assert.DoesNotContain(spec.WorkedExamples, w => w.Description.Contains("Không có")); // placeholder không có "=>"
     }
+
+    // § 14 giữ chữ NGUYÊN VĂN của người dùng (dòng "Hoàn thành khi" của Product Brief). Bộ UAT được sinh
+    // để phủ hết danh sách này, nên parse hụt một mục là mất một câu người dùng sẽ dùng để nghiệm thu.
+    private const string SpecWithAcceptanceCriteria = """
+        # AI Design Spec
+        ## 10. Business Rules
+        - BR-1: Đơn đã duyệt thì khoá chỉnh sửa
+        ## 14. Acceptance Criteria
+        - AC-1 (Nhân viên gửi đơn nghỉ phép): gửi xong thì đơn hiện ở danh sách chờ duyệt của quản lý.
+        - **AC-2**: duyệt xong thì đơn chuyển sang trạng thái đã duyệt.
+        - AC-3 (Không có nội dung):
+        - Không có
+        """;
+
+    [Fact]
+    public void ParsesAcceptanceCriteria_RefFeatureAndText()
+    {
+        var spec = PocSpec.Parse(SpecWithAcceptanceCriteria);
+
+        Assert.Equal(2, spec.AcceptanceCriteria.Count);
+
+        var ac1 = spec.AcceptanceCriteria[0];
+        Assert.Equal("AC-1", ac1.Ref);
+        Assert.Equal("Nhân viên gửi đơn nghỉ phép", ac1.Feature);
+        Assert.StartsWith("gửi xong thì đơn hiện", ac1.Text);
+
+        // Tính năng là tùy chọn; nhấn mạnh markdown không được lọt vào mã.
+        Assert.Equal("AC-2", spec.AcceptanceCriteria[1].Ref);
+        Assert.Null(spec.AcceptanceCriteria[1].Feature);
+    }
+
+    [Fact]
+    public void AcceptanceCriteria_IgnorePlaceholderAndEmptyBody()
+    {
+        var spec = PocSpec.Parse(SpecWithAcceptanceCriteria);
+
+        Assert.DoesNotContain(spec.AcceptanceCriteria, a => a.Ref == "AC-3"); // không có câu sau dấu hai chấm
+        Assert.DoesNotContain(spec.AcceptanceCriteria, a => a.Text.Contains("Không có"));
+    }
+
+    // Bản tiếng Việt của mục này hay được viết kèm chữ "quy tắc", vốn là từ khoá của nhánh Business
+    // Rules — phân loại sai thì các câu nghiệm thu lặng lẽ chảy vào danh sách rule và § 14 rỗng.
+    [Fact]
+    public void VietnameseAcceptanceHeading_DoesNotFallIntoRules()
+    {
+        var spec = PocSpec.Parse("""
+            ## 14. Tiêu chí nghiệm thu (quy tắc chấp nhận)
+            - AC-1: gửi xong thì đơn hiện ở danh sách chờ duyệt.
+            """);
+
+        Assert.Single(spec.AcceptanceCriteria);
+        Assert.Empty(spec.Rules);
+    }
+
+    [Fact]
+    public void SpecWithOnlyAcceptanceCriteria_IsNotTreatedAsEmpty()
+    {
+        var spec = PocSpec.Parse("## 14. Acceptance Criteria\n- AC-1: xong thì thấy kết quả.");
+
+        Assert.NotSame(PocSpec.Empty, spec);
+        Assert.Single(spec.AcceptanceCriteria);
+    }
 }

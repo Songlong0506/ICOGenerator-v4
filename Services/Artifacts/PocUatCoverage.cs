@@ -19,10 +19,10 @@ namespace ICOGenerator.Services.Artifacts;
 public static class PocUatCoverage
 {
     /// <summary>Số ký tự tối thiểu để cho phép so khớp kiểu "chứa nhau" — nhãn quá ngắn dễ khớp nhầm.</summary>
-    private const int MinContainmentLength = 8;
+    private const int MinContainmentLength = TextSimilarity.DefaultMinContainmentLength;
 
     /// <summary>Tỷ lệ từ chung tối thiểu để coi hai tiêu đề là cùng một kịch bản.</summary>
-    private const double MinTokenOverlap = 0.6;
+    private const double MinTokenOverlap = TextSimilarity.DefaultMinTokenOverlap;
 
     /// <summary>
     /// Đối chiếu bộ UAT với kết quả <c>pocScenarios()</c> mà runtime vừa chạy.
@@ -137,25 +137,10 @@ public static class PocUatCoverage
         return dash >= 0 ? text[..dash] : text;
     }
 
-    private static double TokenOverlap(string a, string b)
-    {
-        var tokensA = a.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(t => t.Length > 2).ToHashSet(StringComparer.Ordinal);
-        var tokensB = b.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(t => t.Length > 2).ToHashSet(StringComparer.Ordinal);
-        if (tokensA.Count == 0 || tokensB.Count == 0)
-            return 0;
-        var common = tokensA.Count(t => tokensB.Contains(t));
-        return (double)common / Math.Min(tokensA.Count, tokensB.Count);
-    }
+    // Cùng phép chấm mà các cổng đối chiếu văn bản khác dùng (parity Brief↔Spec) — xem TextSimilarity.
+    private static double TokenOverlap(string a, string b) => TextSimilarity.TokenOverlap(a, b);
 
-    // Bỏ dấu câu + gộp khoảng trắng + thường hoá: hai tiêu đề chỉ khác dấu phẩy/nháy vẫn là một.
-    private static string Normalize(string text)
-    {
-        var cleaned = PunctuationRegex.Replace((text ?? string.Empty).ToLowerInvariant(), " ");
-        return WhitespaceRegex.Replace(cleaned, " ").Trim();
-    }
-
-    private static readonly Regex PunctuationRegex = new(@"[^\p{L}\p{N}\s]+", RegexOptions.Compiled);
-    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
+    private static string Normalize(string text) => TextSimilarity.Normalize(text);
 
     private static string FormatTitles(IReadOnlyList<UatScenario> scenarios) =>
         string.Join("; ", scenarios.Select(s => $"'{s.Title}'"));

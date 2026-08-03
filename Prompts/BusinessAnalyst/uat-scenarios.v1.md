@@ -4,6 +4,7 @@ Bạn nhận được **AI Design Spec** của một POC vừa được dựng. 
 
 ## Yêu cầu nội dung
 - 3–8 kịch bản, mỗi kịch bản đi TRỌN một luồng nghiệp vụ có ý nghĩa (tạo → duyệt → đổi trạng thái…), ưu tiên các luồng chính và các Business Rule (BR-n) của spec.
+- **PHỦ HẾT mục "## 14. Acceptance Criteria" (nếu spec có mục này) — đây là yêu cầu quan trọng nhất.** Mỗi câu `AC-n` là một câu nghiệm thu do CHÍNH NGƯỜI DÙNG viết và đã duyệt, nên mỗi AC-n phải có **ít nhất một kịch bản chứng minh được nó**, và kịch bản đó ghi mã AC vào trường `acRefs`. Một kịch bản có thể phủ nhiều AC nếu luồng của nó đi qua cả hai. Ưu tiên phủ AC trước, rồi mới tới các luồng/rule chưa được AC nào chạm tới.
 - Mỗi kịch bản 3–7 bước, mỗi bước là MỘT thao tác cụ thể người dùng làm được trên POC ("Mở màn hình 'Duyệt đơn'", "Bấm nút Duyệt ở đơn của Nguyễn Văn A", "Kiểm tra trạng thái đổi thành 'Đã duyệt'"). Bước cuối luôn là bước KIỂM TRA kết quả nhìn thấy được.
 - Nếu spec có nhiều vai trò (Employee/Manager…), bước đầu của kịch bản nêu rõ đăng nhập/chọn vai nào.
 - Tên màn hình dùng NGUYÊN VĂN tên trong mục "Screens To Generate" của spec.
@@ -20,6 +21,7 @@ CHỈ trả về một đối tượng JSON hợp lệ, không kèm chữ nào n
       "title": "Duyệt một đơn nghỉ phép",
       "screen": "Duyệt đơn",
       "ruleRefs": ["BR-2"],
+      "acRefs": ["AC-1"],
       "steps": [
         "Đăng nhập với vai Quản lý",
         "Mở màn hình 'Duyệt đơn'",
@@ -33,6 +35,7 @@ CHỈ trả về một đối tượng JSON hợp lệ, không kèm chữ nào n
 
 - `screen`: màn hình chính của kịch bản (nguyên văn tên trong spec).
 - `ruleRefs`: mã các Business Rule kịch bản này kiểm chứng (mảng rỗng nếu không gắn rule nào).
+- `acRefs`: mã các câu nghiệm thu `AC-n` (mục "## 14. Acceptance Criteria" của spec) mà kịch bản này chứng minh (mảng rỗng nếu spec không có mục đó).
 
 # AI Design Spec
 

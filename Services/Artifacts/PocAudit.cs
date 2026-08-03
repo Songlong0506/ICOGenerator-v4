@@ -271,6 +271,17 @@ public static partial class PocAudit
                 sb.AppendLine($"- {we.Ref}{(string.IsNullOrWhiteSpace(we.RuleRef) ? "" : $" ({we.RuleRef})")}: {we.Description} => expected {we.Expected}");
         }
 
+        // Acceptance criteria are the USER'S OWN wording, copied verbatim from the approved Product Brief
+        // ("Hoàn thành khi: …"). Unlike the rules above — which the BA phrased for machines — these are
+        // what a business reviewer reads to say "đạt / chưa đạt", so the agent gets them in front of it
+        // while it is still fixing things rather than discovering them at the acceptance meeting.
+        if (spec.AcceptanceCriteria.Count > 0)
+        {
+            sb.AppendLine("ACCEPTANCE CRITERIA from the AI Design Spec (§ 14) — these are the user's OWN acceptance sentences from the approved Product Brief, and the demo is signed off against them. Walk each one on the demo and make sure it is literally true there:");
+            foreach (var ac in spec.AcceptanceCriteria)
+                sb.AppendLine($"- {ac.Ref}{(string.IsNullOrWhiteSpace(ac.Feature) ? "" : $" ({ac.Feature})")}: {ac.Text}");
+        }
+
         sb.Append($"Summary: {navLeaves.Count} menu leaves, {sections.Count} screens, ");
         if (spec.Screens.Count > 0)
             sb.Append($"spec coverage: {coveredScreens}/{spec.Screens.Count} spec screens, ");

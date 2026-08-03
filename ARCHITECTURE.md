@@ -519,6 +519,65 @@ Hai quy ước giữ cho nó không rối lại:
 - **`LlmSettings` là chỗ ĐỌC config `Llm:*` duy nhất.** Trước đây ba service tự đọc
   `Llm:RequestTimeoutSeconds` kèm ba hằng mặc định riêng — sửa một chỗ là lệch ngay với hai chỗ kia.
 
+### 5.24. Câu nghiệm thu của người dùng đi được tới POC (AC-n)
+`Prompts/BusinessAnalyst/product-brief.v3.md` bắt mỗi tính năng chính phải kèm một dòng
+*"Hoàn thành khi: …"*. Đó là **tiêu chí nghiệm thu duy nhất do chính người dùng viết và đã bấm
+Approve** — nhưng trước đây nó chết ở Product Brief: prompt sinh AI Design Spec không có mục nào nhận
+nó, còn `UatScenarioService` lại sinh kịch bản nghiệm thu **từ spec**. Nghĩa là bộ kịch bản người dùng
+sắp bấm thử được suy diễn lại từ bản kỹ thuật thay vì bám câu họ đã duyệt; grep cả repo chỉ còn thấy
+chuỗi đó trong dữ liệu eval. Nay nó chạy suốt chuỗi:
+
+```
+Product Brief "Hoàn thành khi: …"   (BriefAcceptanceCriteria.Parse)
+        │  render sẵn thành các dòng "- AC-n (<tính năng>): <câu>"
+        ▼
+AI Design Spec § 14. Acceptance Criteria   (PocSpec.AcceptanceCriteria)
+        │  mỗi AC-n phải có ≥1 kịch bản trỏ về (UatScenario.AcRefs)
+        ▼
+Bộ UAT  ──► prompt dựng POC + cổng PocUatCoverage + checklist trang POC Review
+```
+
+Ba chốt giữ chuỗi không đứt, tất cả đều **fail-open** (Brief cũ không có dòng nào ⇒ mọi tầng im lặng
+và hành vi y như trước):
+- **Chép, không diễn đạt lại**: `BriefAcceptanceCriteria.BuildPromptBlock` render sẵn đúng các dòng mà
+  § 14 phải chứa. Bảo model "viết mục Acceptance Criteria" là mời nó viết lại câu của người dùng bằng
+  chữ của nó — thứ đắt nhất ở đây là **nguyên văn**.
+- **`SpecBriefParityChecker` soát 3 tầng** thay vì chỉ màn hình (xem 5.25).
+- **Vòng bổ sung kịch bản**: sau khi sinh UAT, `FindUncoveredAcceptanceCriteria` đối chiếu tất định;
+  còn AC nào chưa có kịch bản thì chạy đúng MỘT vòng xin bổ sung, và bản sửa chỉ được nhận khi nó phủ
+  **nhiều hơn** bản cũ (model trả về bộ nghèo hơn thì giữ bộ đang có).
+
+`PocAudit` cũng in danh sách AC vào báo cáo cho Developer agent — cùng chỗ nó đang in Business Rules,
+nhưng khác về bản chất: rule là câu BA phát biểu cho máy kiểm, AC là câu người nghiệp vụ đọc để nói
+"đạt / chưa đạt".
+
+### 5.25. Parity Brief ↔ Spec soát ba tầng, không chỉ màn hình
+Spec là **đầu vào duy nhất** của bước dựng POC, nên thứ gì rơi rụng ở biên Brief→Spec thì POC thiếu
+luôn và mọi cổng phía sau đều mù (chúng chỉ so POC với spec). `SpecBriefParityChecker` vốn chỉ so danh
+sách màn hình; nay ba tầng theo thứ tự "mất mát đắt dần": **màn hình** → **quy tắc nghiệp vụ**
+(`## Quy tắc cần nhớ` ↔ `§ 10`) → **câu nghiệm thu** (`Hoàn thành khi` ↔ `§ 14`). Rule bị mất là bản
+demo bấm được nhưng sai nghiệp vụ — đúng lớp lỗi mà audit POC không thể thấy vì nó chấm theo spec.
+
+Màn hình so bằng `PocSpec.Matches` (dùng chung với audit POC). Rule và AC là **câu**, không phải nhãn
+ngắn, nên so bằng `TextSimilarity` (bằng nhau → chứa nhau → đủ tỷ lệ từ chung): spec diễn đạt lại cùng
+một quy tắc bằng từ ngữ kỹ thuật hơn là chuyện bình thường, và một cổng kêu ở mọi lượt là một cổng sẽ
+bị bỏ qua. `PocUatCoverage` nay dùng chung `TextSimilarity` thay vì bản sao riêng của nó.
+
+### 5.26. Mỗi vòng dựng POC được chụp lại (`PocSnapshots`)
+Vòng "Yêu cầu chỉnh sửa" **ghi đè thẳng** lên `poc-demo.html`, nên bản người nghiệm thu vừa xem biến
+mất. `PocVerification` giữ được lịch sử **kết quả kiểm** (rule pass/fail, hồi quy) nhưng không giữ
+chính bản demo: từ vòng thứ hai trở đi người review chỉ còn bản bàn giao bằng chữ của agent để tin, và
+phải rà lại cả POC từ đầu.
+
+`PocSnapshots.TryCapture` chụp `poc-demo.html` thành `04_Implementation/poc-history/poc-demo.V{n}.html`
+ngay khi mỗi task `PocPreview` hoàn tất (giữ 10 bản mới nhất). Trang POC Review liệt kê các vòng, mở
+lại được từng bản qua `Mockup?version=n` — cùng quyền, cùng rào sandbox với bản hiện tại; số vòng chỉ
+dùng để **tra trong danh sách file có thật**, không bao giờ ghép vào đường dẫn. Kèm theo là diff cấu
+trúc với vòng liền trước: **màn hình thêm/bỏ** (`PocSnapshots.Diff`) — đơn vị mà người nghiệm thu nói
+được thành lời, khác diff từng dòng HTML vốn báo "khác nhau toàn bộ" ở mọi vòng. Khi POC được dựng lại
+từ đầu, `PocSnapshots.Reset` chạy cùng `PocVerification.Reset` vì cùng một lý do: các bản chụp của một
+POC không còn tồn tại chỉ tạo ra so sánh vô nghĩa.
+
 ---
 
 ## 6. Công thức thêm một tính năng mới
