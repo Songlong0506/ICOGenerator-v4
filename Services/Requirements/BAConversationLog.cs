@@ -18,7 +18,7 @@ public class BAConversationLog
         _db = db;
     }
 
-    public async Task AppendAsync(Guid projectId, Guid agentId, string role, string message, string? suggestionsJson = null, bool suggestionsMultiSelect = false, string? flowDiagramJson = null, string? attachmentsJson = null, CancellationToken cancellationToken = default)
+    public async Task AppendAsync(Guid projectId, Guid agentId, string role, string message, string? suggestionsJson = null, bool suggestionsMultiSelect = false, string? flowDiagramJson = null, string? attachmentsJson = null, string? questionsJson = null, CancellationToken cancellationToken = default)
     {
         _db.AgentConversations.Add(new AgentConversation
         {
@@ -28,6 +28,7 @@ public class BAConversationLog
             Message = message,
             Suggestions = suggestionsJson,
             SuggestionsMultiSelect = suggestionsMultiSelect,
+            Questions = questionsJson,
             FlowDiagram = flowDiagramJson,
             Attachments = attachmentsJson,
             TokenUsed = TokenEstimator.Estimate(message)

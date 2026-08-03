@@ -5,7 +5,7 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Đọc text "Bản đồ bao phủ yêu cầu" (12 dòng bullet do <see cref="RequirementCoverageService"/> duy trì,
-/// format ghim trong <c>Prompts/BusinessAnalyst/requirement-coverage.v1.md</c>) thành danh sách
+/// format ghim trong <c>Prompts/BusinessAnalyst/requirement-coverage.v3.md</c>) thành danh sách
 /// <see cref="CoverageMapItem"/> cho UI render panel tiến độ cạnh khung chat. Trước đây bản đồ chỉ dành
 /// cho BA/gate — user không biết cuộc phỏng vấn còn bao nhiêu nhóm chưa rõ; panel này là lý do parser
 /// tồn tại. Chịu lỗi: dòng không đúng dạng thì bỏ qua (model lỡ chèn lời dẫn), map rỗng → danh sách rỗng.

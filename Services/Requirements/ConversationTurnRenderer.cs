@@ -42,6 +42,23 @@ public static class ConversationTurnRenderer
             rendered += $"\n   (Các lựa chọn gợi ý đã đưa cho người dùng: {options})";
         }
 
+        // Lượt hỏi GỘP: Message chỉ là câu dẫn ngắn, các câu hỏi thật nằm ở cột riêng. Không render thì
+        // mọi reader transcript (bản đồ bao phủ, Product Brief, decision log) chỉ thấy câu trả lời mà
+        // không biết nó trả lời cho câu hỏi nào — đúng kiểu mất ngữ cảnh mà lớp này sinh ra để chặn.
+        var questions = ParseQuestions(turn.Questions);
+        if (questions.Count > 0)
+        {
+            var lines = questions.Select((q, i) =>
+            {
+                var group = q.Group.Trim();
+                var head = $"[{i + 1}] {(group.Length > 0 ? $"{group} — " : "")}{q.Question.Trim()}";
+                return q.Suggestions.Count > 0
+                    ? $"{head} (gợi ý: {string.Join(" / ", q.Suggestions)})"
+                    : head;
+            });
+            rendered += $"\n   (Các câu hỏi đã đặt trong lượt này: {string.Join("; ", lines)})";
+        }
+
         // Sơ đồ luồng BA đã VẼ cho người dùng xác nhận ở lượt mời "Write Requirement" nằm ở cột riêng
         // (FlowDiagram) — không render thì các reader transcript (bản đồ bao phủ, bước soạn Product
         // Brief) không hề thấy chuỗi bước mà người dùng đã duyệt bằng hình: tài liệu được soạn "mù"
@@ -81,6 +98,28 @@ public static class ConversationTurnRenderer
         {
             // Dữ liệu cũ/không hợp lệ: bỏ qua, coi như không có sơ đồ.
             return new List<FlowStep>();
+        }
+    }
+
+    /// <summary>
+    /// Giải mã cột <see cref="AgentConversation.Questions"/> (JSON array <see cref="BAChatQuestion"/>)
+    /// an toàn như <see cref="ParseSuggestions"/>: null/rỗng/hỏng đều trả mảng rỗng. Câu hỏi rỗng bị bỏ
+    /// (không có gì để hỏi).
+    /// </summary>
+    public static List<BAChatQuestion> ParseQuestions(string? questionsJson)
+    {
+        if (string.IsNullOrWhiteSpace(questionsJson))
+            return new List<BAChatQuestion>();
+
+        try
+        {
+            var questions = JsonSerializer.Deserialize<List<BAChatQuestion>>(questionsJson) ?? new List<BAChatQuestion>();
+            return questions.Where(q => !string.IsNullOrWhiteSpace(q.Question)).ToList();
+        }
+        catch
+        {
+            // Dữ liệu cũ/không hợp lệ: bỏ qua, coi như lượt hỏi thường.
+            return new List<BAChatQuestion>();
         }
     }
 

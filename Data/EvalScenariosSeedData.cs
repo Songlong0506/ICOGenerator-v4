@@ -38,18 +38,18 @@ public static class EvalScenariosSeedData
             scenarios.Add(new EvalScenario
             {
                 Name = name,
-                PromptKey = "BusinessAnalyst/requirement-chat.v3.md",
+                PromptKey = "BusinessAnalyst/requirement-chat.v4.md",
                 Kind = Domain.Enums.EvalScenarioKind.Interview,
                 UserInput = persona.Trim(),
                 Criteria = criteria.Trim(),
                 CreatedByUsername = "seed"
             });
 
-        // ================= BusinessAnalyst/requirement-chat.v3.md =================
+        // ================= BusinessAnalyst/requirement-chat.v4.md =================
 
         Add(
             "Chat BA — mở đầu mơ hồ: một câu hỏi nghiệp vụ + JSON đúng format",
-            "BusinessAnalyst/requirement-chat.v3.md",
+            "BusinessAnalyst/requirement-chat.v4.md",
             """
             Tôi muốn làm một ứng dụng quản lý kho vật tư cho phòng MFG.
             """,
@@ -65,7 +65,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Chat BA — người dùng nói 'sao cũng được': đề xuất MỘT phương án và xin chốt",
-            "BusinessAnalyst/requirement-chat.v3.md",
+            "BusinessAnalyst/requirement-chat.v4.md",
             """
             Hội thoại trước đó:
             BA: Nếu phiếu xuất kho bị quản lý từ chối thì xử lý tiếp thế nào?
@@ -82,7 +82,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Chat BA — mọi nhóm đã rõ: ready=true, mời Write Requirement, suggestions rỗng",
-            "BusinessAnalyst/requirement-chat.v3.md",
+            "BusinessAnalyst/requirement-chat.v4.md",
             """
             ## Bản đồ bao phủ yêu cầu
             - ★ Mục tiêu / bài toán: [RÕ] Đặt phòng họp nội bộ thay cho ghi sổ giấy, hết trùng lịch.
@@ -111,7 +111,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Chat BA — bị giục viết tài liệu khi còn thiếu: giữ ready=false và hỏi tiếp nhóm ★",
-            "BusinessAnalyst/requirement-chat.v3.md",
+            "BusinessAnalyst/requirement-chat.v4.md",
             """
             ## Bản đồ bao phủ yêu cầu
             - ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn đề nghị mua vật tư của phòng.
@@ -140,7 +140,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Chat BA — bẫy kỹ thuật: nhu cầu đăng nhập không được biến thành câu hỏi SSO/API",
-            "BusinessAnalyst/requirement-chat.v3.md",
+            "BusinessAnalyst/requirement-chat.v4.md",
             """
             Hội thoại trước đó:
             BA: Ứng dụng chấm công này dành cho những ai sử dụng?
@@ -155,7 +155,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Chat BA — bám bản đồ bao phủ: hỏi đúng chỗ thiếu, không hỏi lại nhóm đã [RÕ]",
-            "BusinessAnalyst/requirement-chat.v3.md",
+            "BusinessAnalyst/requirement-chat.v4.md",
             """
             ## Bản đồ bao phủ yêu cầu
             - ★ Mục tiêu / bài toán: [RÕ] Theo dõi đơn nghỉ phép thay cho form giấy.
@@ -182,14 +182,14 @@ public static class EvalScenariosSeedData
             - KHÔNG nhắc tới nút "Write Requirement".
             """);
 
-        // ================= BusinessAnalyst/requirement-coverage.v2.md =================
+        // ================= BusinessAnalyst/requirement-coverage.v3.md =================
         // Bản đồ bao phủ là NGUỒN CHÂN LÝ DUY NHẤT của cổng "Write Requirement" (ready suy tất định:
         // mọi dòng áp dụng [RÕ]/[KHÔNG ÁP DỤNG]) nên các scenario phủ cả hai chiều sai: chấm [RÕ] non
         // (suy diễn) và giữ [MỘT PHẦN]/[CHƯA HỎI] oan (tra khảo nhóm không áp dụng, bỏ qua điều đã chốt).
 
         Add(
             "Coverage map — dựng mới từ hội thoại: đúng 12 dòng, không suy diễn",
-            "BusinessAnalyst/requirement-coverage.v2.md",
+            "BusinessAnalyst/requirement-coverage.v3.md",
             """
             ## Các lượt hội thoại mới cần gộp vào bản đồ
             - BA: Anh/chị muốn ứng dụng giải quyết việc gì?
@@ -211,7 +211,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Coverage map — gộp lũy tiến khi người dùng đổi ý: ý mới nhất thắng",
-            "BusinessAnalyst/requirement-coverage.v2.md",
+            "BusinessAnalyst/requirement-coverage.v3.md",
             """
             ## Bản đồ hiện có (gộp/cập nhật cùng các lượt mới bên dưới)
             - ★ Mục tiêu / bài toán: [RÕ] Quản lý yêu cầu sửa chữa thiết bị trong nhà máy.
@@ -243,7 +243,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Coverage map — hội thoại đủ (kể cả phương án đã chốt): mọi dòng [RÕ]/[KHÔNG ÁP DỤNG] để mở cổng",
-            "BusinessAnalyst/requirement-coverage.v2.md",
+            "BusinessAnalyst/requirement-coverage.v3.md",
             """
             ## Các lượt hội thoại mới cần gộp vào bản đồ
             - BA: Anh/chị muốn ứng dụng giải quyết việc gì?
@@ -276,7 +276,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Coverage map — app cá nhân một người dùng: chủ động [KHÔNG ÁP DỤNG], không tra khảo",
-            "BusinessAnalyst/requirement-coverage.v2.md",
+            "BusinessAnalyst/requirement-coverage.v3.md",
             """
             ## Các lượt hội thoại mới cần gộp vào bản đồ
             - BA: Anh/chị muốn ứng dụng giải quyết việc gì?

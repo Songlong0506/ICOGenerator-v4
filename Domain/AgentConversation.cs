@@ -26,6 +26,15 @@ public class AgentConversation
     // Cờ do model trả trong JSON {multiSelect} và được lưu lại để reload trang vẫn render đúng chế độ.
     public bool SuggestionsMultiSelect { get; set; }
 
+    // JSON array (chuỗi) các câu hỏi của một lượt hỏi GỘP (BAChatQuestion[]: nhóm + câu hỏi + gợi ý +
+    // cờ chọn-nhiều). Chỉ có ở lượt BA hỏi từ 2 câu trở lên; lượt hỏi một câu vẫn dùng Message +
+    // Suggestions như cũ. Lưu lại (thay vì dựng lại từ Message) vì hai lý do:
+    //   • reload trang phải render lại đúng thẻ hỏi, nếu không người dùng mất luôn các câu chưa trả lời;
+    //   • Message của lượt gộp CHỈ là câu dẫn ngắn — không lưu cột này thì mọi reader transcript (bản đồ
+    //     bao phủ, Product Brief, decision log) không hề thấy BA đã hỏi những gì, chỉ thấy câu trả lời.
+    // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
+    public string? Questions { get; set; }
+
     // JSON array (chuỗi) các bước sơ đồ luồng nghiệp vụ (FlowStep[]) — CHỈ có ở lượt BA mời bấm "Write
     // Requirement" để user xác nhận luồng trực quan trước khi tạo tài liệu. Null với các lượt thường.
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
