@@ -20,6 +20,21 @@
     </div>
 </div>
 
+@* Command bar (mẫu Bosch): chỗ đứng của các hành động CẤP TRANG. "Chia sẻ bản demo" nằm ở đây thay vì
+   trong cột ghi chú bên phải — mời người khác vào xem là việc của người chủ trì buổi review, không phải
+   một mục để đọc lướt khi đang soát ghi chú, và trước đây nó bị chôn giữa các panel gập nên gần như
+   không ai thấy. Bấm nút mở hộp thoại; thanh chỉ hiện với người có quyền tạo/thu hồi link. *@
+@if (canManageRequirements)
+{
+    <div class="command-bar poc-command-bar">
+        <span class="cbar-hint muted">Mời sếp/người dùng cuối xem bản demo và ghim góp ý mà không cần tài khoản.</span>
+        <button type="button" class="cbar-primary" id="pocShareOpen" title="Chia sẻ bản demo" aria-label="Chia sẻ bản demo">
+            <i class="bi bi-share" aria-hidden="true"></i>
+            <span class="cbar-primary-label">Chia sẻ bản demo</span>
+        </button>
+    </div>
+}
+
 <div class="poc-review-layout"
      id="pocReviewRoot"
      data-project-id="@Model.ProjectId"
@@ -381,34 +396,6 @@
             </details>
         }
 
-        @* CHIA SẺ bản demo cho người không có tài khoản: nghiệm thu thật luôn có nhiều người, mà trang này
-           bị chặn theo quyền truy cập project. Link luôn có hạn dùng và thu hồi được; người xem chỉ mở
-           được đúng bản demo + ghim góp ý, không thấy gì khác của dự án. *@
-        @if (canManageRequirements)
-        {
-            <details class="uat-panel poc-share-panel" id="pocSharePanel"
-                     data-list-url="@Url.Action("PocShareLinks", "Projects", new { projectId = Model.ProjectId })"
-                     data-create-url="@Url.Action("CreatePocShareLink", "Projects")"
-                     data-revoke-url="@Url.Action("RevokePocShareLink", "Projects")">
-                <summary>🔗 Chia sẻ bản demo</summary>
-                <p class="muted poc-panel-hint">
-                    Tạo link cho người không có tài khoản (sếp, người dùng cuối) tự bấm thử và ghim góp ý.
-                    Link có hạn dùng và thu hồi được bất cứ lúc nào.
-                </p>
-                <div class="poc-share-form">
-                    <input type="text" id="pocShareLabel" maxlength="200" placeholder="Gửi cho ai? (vd: anh Hùng phòng NS)" />
-                    <select id="pocShareDays">
-                        <option value="7">7 ngày</option>
-                        <option value="14" selected>14 ngày</option>
-                        <option value="30">30 ngày</option>
-                    </select>
-                    <button type="button" class="btn primary small" id="pocShareCreate">Tạo link</button>
-                </div>
-                <div class="poc-share-msg" id="pocShareMsg"></div>
-                <div class="poc-share-list" id="pocShareList"></div>
-            </details>
-        }
-
         <h3>Ghi chú trên POC <span class="poc-count" id="pocCommentCount"></span></h3>
         <p class="muted poc-panel-hint">
             Ghim hết những chỗ chưa đúng rồi bấm <b>gửi</b> — hệ thống tự tách ghi chú nào là lỗi trình bày
@@ -523,6 +510,42 @@
         }
     </aside>
 </div>
+
+@* CHIA SẺ bản demo cho người không có tài khoản: nghiệm thu thật luôn có nhiều người, mà trang này bị
+   chặn theo quyền truy cập project. Link luôn có hạn dùng và thu hồi được; người xem chỉ mở được đúng
+   bản demo + ghim góp ý, không thấy gì khác của dự án. Hộp thoại mở từ nút trên command bar; đặt ngoài
+   layout hai cột vì backdrop là phần tử toàn màn hình, không thuộc cột ghi chú. *@
+@if (canManageRequirements)
+{
+    <div class="modal-backdrop hidden" id="pocShareModal">
+        <div class="modal poc-share-modal" id="pocSharePanel"
+             role="dialog" aria-modal="true" aria-labelledby="pocShareTitle"
+             data-list-url="@Url.Action("PocShareLinks", "Projects", new { projectId = Model.ProjectId })"
+             data-create-url="@Url.Action("CreatePocShareLink", "Projects")"
+             data-revoke-url="@Url.Action("RevokePocShareLink", "Projects")">
+            <button type="button" class="x" id="pocShareClose" aria-label="Đóng">&times;</button>
+            <h3 id="pocShareTitle">🔗 Chia sẻ bản demo</h3>
+            <p class="muted poc-panel-hint">
+                Tạo link cho người không có tài khoản (sếp, người dùng cuối) tự bấm thử và ghim góp ý.
+                Link có hạn dùng và thu hồi được bất cứ lúc nào.
+            </p>
+            <div class="poc-share-form">
+                <input type="text" id="pocShareLabel" maxlength="200" placeholder="Gửi cho ai? (vd: anh Hùng phòng NS)" />
+                <select id="pocShareDays">
+                    <option value="7">7 ngày</option>
+                    <option value="14" selected>14 ngày</option>
+                    <option value="30">30 ngày</option>
+                </select>
+                <button type="button" class="btn primary small" id="pocShareCreate">Tạo link</button>
+            </div>
+            <div class="poc-share-msg" id="pocShareMsg"></div>
+            <div class="poc-share-list" id="pocShareList"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn outline small" id="pocShareDone">Đóng</button>
+            </div>
+        </div>
+    </div>
+}
 
 @section Breadcrumb {
     Projects <span class="sep">&rsaquo;</span> @Model.ProjectName <span class="sep">&rsaquo;</span> <b>POC Review</b>

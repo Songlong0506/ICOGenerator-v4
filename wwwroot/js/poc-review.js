@@ -540,15 +540,17 @@
     loadComments();
 })();
 
-// ==== Panel "Chia sẻ bản demo" ====
-// Tạo/thu hồi link cho người KHÔNG có tài khoản. Tách IIFE riêng để phần review cốt lõi không phụ thuộc
-// vào panel này (panel chỉ hiện với người có quyền quản lý requirement).
+// ==== Hộp thoại "Chia sẻ bản demo" ====
+// Tạo/thu hồi link cho người KHÔNG có tài khoản. Mở từ nút trên command bar. Tách IIFE riêng để phần
+// review cốt lõi không phụ thuộc vào hộp thoại này (chỉ dựng cho người có quyền quản lý requirement).
 (function () {
     "use strict";
 
     const panel = document.getElementById("pocSharePanel");
     if (!panel) return;
 
+    const modal = document.getElementById("pocShareModal");
+    const openBtn = document.getElementById("pocShareOpen");
     const root = document.getElementById("pocReviewRoot");
     const listEl = document.getElementById("pocShareList");
     const msgEl = document.getElementById("pocShareMsg");
@@ -655,5 +657,24 @@
         }
     });
 
-    load();
+    // Danh sách nạp khi MỞ hộp thoại (không nạp lúc tải trang): người khác có thể vừa tạo/thu hồi link,
+    // và trang review vốn mở rất lâu nên bản nạp lúc đầu phiên gần như chắc chắn đã cũ.
+    function openShare() {
+        msgEl.textContent = "";
+        modal.classList.remove("hidden");
+        labelEl.focus();
+        load();
+    }
+
+    function closeShare() {
+        modal.classList.add("hidden");
+    }
+
+    openBtn.addEventListener("click", openShare);
+    document.getElementById("pocShareClose").addEventListener("click", closeShare);
+    document.getElementById("pocShareDone").addEventListener("click", closeShare);
+    modal.addEventListener("click", e => { if (e.target === modal) closeShare(); });
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape" && !modal.classList.contains("hidden")) closeShare();
+    });
 })();
