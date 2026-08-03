@@ -1,4 +1,5 @@
 using ICOGenerator.Data;
+using ICOGenerator.Services.Evals;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Evals;
@@ -17,7 +18,9 @@ public record EvalResultItemVm(
     decimal JudgeCost,
     long DurationMs,
     // Phiên bản prompt (Prompt Studio) đã dùng làm system prompt; null = nội dung file trong repo.
-    int? PromptVersionNumber);
+    int? PromptVersionNumber,
+    // Đối chiếu từng dòng tiêu chí của scenario; rỗng với kết quả cũ (trước khi judge trả phần này).
+    IReadOnlyList<EvalCriterionVerdict> Criteria);
 
 public record EvalRunDetailVm(
     Guid Id,
@@ -55,18 +58,26 @@ public class GetEvalRunDetailQuery
         if (run == null)
             return null;
 
+        // CriteriaJson bung ra thành danh sách ngay tại đây (không đẩy JSON thô cho JS tự đoán): parser đã
+        // là nơi biết định dạng của judge, và kết quả cũ không có phần này chỉ đơn giản ra danh sách rỗng.
         var results = await _db.EvalResults
             .AsNoTracking()
             .Where(x => x.EvalRunId == runId)
             .OrderBy(x => x.CreatedAt)
-            .Select(x => new EvalResultItemVm(
-                x.Id, x.ScenarioName, x.Score, x.IsSuccess, x.ErrorMessage,
-                x.Output, x.JudgeReasoning, x.TargetTokens, x.JudgeTokens, x.TargetCost, x.JudgeCost, x.DurationMs, x.PromptVersionNumber))
+            .Select(x => new
+            {
+                Item = new EvalResultItemVm(
+                    x.Id, x.ScenarioName, x.Score, x.IsSuccess, x.ErrorMessage,
+                    x.Output, x.JudgeReasoning, x.TargetTokens, x.JudgeTokens, x.TargetCost, x.JudgeCost,
+                    x.DurationMs, x.PromptVersionNumber, Array.Empty<EvalCriterionVerdict>()),
+                x.CriteriaJson
+            })
             .ToListAsync(cancellationToken);
 
         return new EvalRunDetailVm(
             run.Id, run.Note, run.PromptKey, run.TargetModelName, run.JudgeModelName, run.Status.ToString(),
             run.ScenarioCount, run.CompletedCount, run.AverageScore, run.TotalTokens, run.TotalCost, run.Error,
-            run.CreatedAt, run.FinishedAt, results);
+            run.CreatedAt, run.FinishedAt,
+            results.Select(x => x.Item with { Criteria = EvalJudgeParser.ReadCriteriaJson(x.CriteriaJson) }).ToList());
     }
 }

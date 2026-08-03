@@ -13,6 +13,16 @@ public class BAChatReply
     // nào?") — UI đổi chip sang chế độ toggle + nút gửi. Mặc định false (chọn một, gửi ngay).
     public bool MultiSelect { get; set; }
 
+    // Lượt hỏi GỘP: từ 2 tới 4 câu hỏi ĐỘC LẬP đặt cùng lúc, UI render thành một thẻ nhiều dòng (mỗi
+    // dòng một câu hỏi + gợi ý bấm + ô tự nhập) và người dùng gửi cả cụm trong MỘT lượt. Rỗng ở lượt
+    // hỏi một câu — khi đó Message chở câu hỏi và Suggestions chở gợi ý, đúng như trước.
+    //
+    // Hai đường tồn tại song song có chủ đích: lượt một câu là ca thường gặp nhất và cũng là ca BẮT
+    // BUỘC của mọi câu hỏi đào sâu, nên nó giữ nguyên đường cũ (không đổi UX, không thêm rủi ro); lượt
+    // gộp là đường mới. Parser tự gộp lại về đường một-câu nếu model chỉ trả đúng một câu trong
+    // Questions, để không bao giờ có thẻ nhiều dòng chỉ có một dòng.
+    public List<BAChatQuestion> Questions { get; set; } = new();
+
     // BA tự đánh giá đã khai thác đủ thông tin để soạn tài liệu hay chưa: true khi không còn câu hỏi
     // nào → UI bật nút "Write Requirement". Còn bất kỳ điểm nào cần hỏi thì để false (mặc định) để nút
     // ở trạng thái "chưa sẵn sàng". Đây là tín hiệu cho UI; bước sinh tài liệu vẫn có cổng readiness riêng.

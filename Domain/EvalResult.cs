@@ -33,6 +33,15 @@ public class EvalResult
     /// <summary>Giải thích của judge vì sao cho điểm đó.</summary>
     public string? JudgeReasoning { get; set; }
 
+    /// <summary>
+    /// Kết quả đối chiếu TỪNG dòng tiêu chí của scenario, JSON mảng <c>[{criterion, passed, note}]</c>;
+    /// null khi judge (model cũ / bản judge prompt cũ) không trả phần này. Một điểm tổng 1–5 nói "có vấn
+    /// đề", danh sách này nói "vấn đề nằm ở dòng tiêu chí nào" — nếu không có nó, mỗi lần điểm tụt lại
+    /// phải đọc <see cref="JudgeReasoning"/> rồi đoán. Lưu nguyên JSON của judge (không dựng bảng con):
+    /// đây là dữ liệu ĐỌC-KÈM-KẾT-QUẢ, không bao giờ bị truy vấn/lọc riêng.
+    /// </summary>
+    public string? CriteriaJson { get; set; }
+
     public bool IsSuccess { get; set; }
     public string? ErrorMessage { get; set; }
 

@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Evals;
@@ -9,7 +10,10 @@ public enum StartEvalRunResult
     Started,
     TargetModelNotFound,
     JudgeModelNotFound,
-    NoActiveScenarios
+    NoActiveScenarios,
+
+    /// <summary>Đã có run Queued/Running y hệt (cùng cặp model + cùng bộ lọc prompt) — chạy nữa là trả tiền hai lần cho cùng một câu trả lời.</summary>
+    DuplicateRunInProgress
 }
 
 /// <summary>
@@ -37,6 +41,18 @@ public class StartEvalRunUseCase
             return StartEvalRunResult.JudgeModelNotFound;
 
         promptKey = string.IsNullOrWhiteSpace(promptKey) ? null : promptKey.Trim();
+
+        // Nút "Chạy eval" nằm sau một modal và một redirect: bấm hai lần vì sốt ruột là chuyện thường, và
+        // mỗi lần bấm là N scenario × 2 lời gọi LLM tính tiền. Run Queued/Running CÙNG CẤU HÌNH thì lần
+        // thứ hai không cho ra thông tin gì mới — chặn ngay ở đây thay vì để người dùng tự phát hiện.
+        var duplicateExists = await _db.EvalRuns
+            .AsNoTracking()
+            .AnyAsync(x => (x.Status == EvalRunStatus.Queued || x.Status == EvalRunStatus.Running)
+                           && x.TargetModelId == targetModelId
+                           && x.JudgeModelId == judgeModelId
+                           && x.PromptKey == promptKey, cancellationToken);
+        if (duplicateExists)
+            return StartEvalRunResult.DuplicateRunInProgress;
 
         var scenarioQuery = _db.EvalScenarios.AsNoTracking().Where(x => x.IsActive);
         if (promptKey != null)

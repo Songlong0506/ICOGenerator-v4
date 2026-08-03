@@ -4,6 +4,7 @@ using ICOGenerator.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ICOGenerator.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260803035847_EvalCancelAndCriteriaBreakdown")]
+    partial class EvalCancelAndCriteriaBreakdown
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -96,9 +99,6 @@ namespace ICOGenerator.Migrations
 
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Questions")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -1128,9 +1128,6 @@ namespace ICOGenerator.Migrations
 
                     b.Property<bool>("ChecklistGapHarvested")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ConfirmedAssumptions")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("ConflictCheckedTurnCount")
                         .HasColumnType("int");

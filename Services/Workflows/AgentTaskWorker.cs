@@ -250,17 +250,29 @@ public class AgentTaskWorker : BackgroundService
                 // có giả định thì DỪNG tại đây: đánh dấu phiên bản đang chờ rà, trang Requirements hiện cổng
                 // "Xác nhận & dựng bản demo"; delivery chỉ khởi động khi user xác nhận
                 // (ConfirmSpecAssumptionsUseCase). Không có giả định nào ⇒ chạy thẳng như trước.
+                //
+                // Chỉ tính các giả định user CHƯA từng duyệt (AssumptionMemory): mỗi lần bác một điểm là
+                // sinh lại spec, và spec mới thường lặp lại gần như nguyên văn các giả định cũ — dựng cổng
+                // theo cả danh sách thì user bị hỏi lại chính những điều họ vừa bấm "Đúng". Còn đúng một
+                // giả định mới thì vẫn phải hỏi; không còn cái nào mới ⇒ tự xác nhận, chạy thẳng dựng POC.
                 var assumptions = SpecAssumptionsParser.Parse(specContent);
                 if (assumptions.Count > 0)
                 {
                     var gatedProject = await db.Projects.FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken);
-                    if (gatedProject != null)
-                        gatedProject.PendingAssumptionsVersion = task.Input;
-                    await db.SaveChangesAsync(cancellationToken);
+                    var unconfirmed = AssumptionMemory.SelectUnconfirmed(assumptions, gatedProject?.ConfirmedAssumptions);
+                    if (unconfirmed.Count > 0)
+                    {
+                        if (gatedProject != null)
+                            gatedProject.PendingAssumptionsVersion = task.Input;
+                        await db.SaveChangesAsync(cancellationToken);
 
-                    _progress.Report(task.WorkflowRunId, "completed",
-                        $"Đã sinh AI Design Spec — đang chờ anh/chị rà {assumptions.Count} giả định trước khi dựng bản demo.");
-                    return;
+                        _progress.Report(task.WorkflowRunId, "completed",
+                            $"Đã sinh AI Design Spec — đang chờ anh/chị rà {unconfirmed.Count} giả định trước khi dựng bản demo.");
+                        return;
+                    }
+
+                    _progress.Report(task.WorkflowRunId, "info",
+                        "Bản thiết kế mới không có giả định nào mới — dùng lại các điểm anh/chị đã xác nhận, đi thẳng sang dựng bản demo.");
                 }
 
                 await db.SaveChangesAsync(cancellationToken);

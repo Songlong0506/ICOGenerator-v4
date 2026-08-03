@@ -44,6 +44,14 @@ public class EvalRun
     /// <summary>Lỗi mức RUN (model bị xoá, worker gián đoạn...); lỗi từng scenario nằm trên EvalResult.</summary>
     public string? Error { get; set; }
 
+    /// <summary>
+    /// Thời điểm người dùng bấm huỷ; null = không ai huỷ. Đây là CỜ HỢP TÁC chứ không phải trạng thái:
+    /// controller chỉ đặt cờ, còn <c>EvalRunnerService</c> đọc lại giữa hai scenario rồi mới chốt
+    /// <see cref="EvalRunStatus.Cancelled"/>. Làm vậy vì huỷ giữa một lời gọi LLM đang bay không cứu được
+    /// đồng token nào của lời gọi đó — điểm cắt rẻ nhất là ranh giới giữa hai scenario.
+    /// </summary>
+    public DateTime? CancelRequestedAt { get; set; }
+
     public string? CreatedByUsername { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

@@ -354,7 +354,7 @@ public class BAChatService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/requirement-chat.v3.md"))
+            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/requirement-chat.v4.md"))
         };
         // Bối cảnh tổ chức Bosch render từ dữ liệu HR thật (OrgUnits/Associates, có cache) + đơn vị yêu cầu
         // của dự án (nếu đã gắn lúc tạo project): BA hiểu ngay tên phòng ban/chức danh người dùng nhắc tới,
@@ -435,6 +435,7 @@ public class BAChatService
         string reply;
         string? suggestionsJson = null;
         var suggestionsMultiSelect = false;
+        var questions = new List<BAChatQuestion>();
         var flowDiagram = new List<FlowStep>();
         if (!callResult.IsSuccess)
         {
@@ -444,7 +445,12 @@ public class BAChatService
         }
         else
         {
-            var parsedReply = structuredReply ?? _replyParser.Parse(callResult.Content);
+            // Đường structured output trả thẳng BAChatReply (không qua Parse), nên phải chuẩn hoá RIÊNG:
+            // trần "tối đa 4 câu hỏi một lượt" và việc hạ lượt-gộp-một-câu về đường một-câu sống trong
+            // Normalize. Bỏ bước này thì các model tốt (đường mặc định) là các model KHÔNG bị chặn.
+            var parsedReply = structuredReply != null
+                ? _replyParser.Normalize(structuredReply)
+                : _replyParser.Parse(callResult.Content);
             reply = string.IsNullOrWhiteSpace(parsedReply.Message)
                 ? "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu."
                 : parsedReply.Message;
@@ -455,6 +461,10 @@ public class BAChatService
                 suggestionsJson = JsonSerializer.Serialize(parsedReply.Suggestions);
                 suggestionsMultiSelect = parsedReply.MultiSelect;
             }
+
+            // Lượt hỏi GỘP (2–4 câu độc lập): Normalize đã đảm bảo hoặc có Questions, hoặc có
+            // Suggestions — không bao giờ cả hai.
+            questions = parsedReply.Questions;
 
             // Sơ đồ luồng chỉ có nghĩa ở lượt mời "Write Requirement"; giữ lại đây, nhánh gate bên dưới
             // sẽ xóa nếu lời mời bị thay bằng câu hỏi (khi đó chưa nên vẽ luồng vì còn thiếu thông tin).
@@ -480,8 +490,18 @@ public class BAChatService
                         : null;
                     // Câu hỏi của gate là câu hỏi đơn thông thường — không giữ cờ multi của lời mời bị thay.
                     suggestionsMultiSelect = false;
+                    // …và cũng không giữ thẻ hỏi gộp: nội dung hiển thị giờ là câu hỏi của gate, để lại
+                    // thẻ cũ thì màn hình có hai lượt hỏi khác nhau chồng lên nhau.
+                    questions = new List<BAChatQuestion>();
                     // Lời mời bị thay bằng câu hỏi ⇒ chưa đủ thông tin, không vẽ sơ đồ luồng nữa.
                     flowDiagram = new List<FlowStep>();
+                }
+                else
+                {
+                    // Lời mời ĐƯỢC GIỮ: lượt này là lời mời bấm nút, không phải lượt hỏi. Một lời mời kèm
+                    // thẻ hỏi là tự mâu thuẫn ("không còn gì để hỏi" + 3 câu hỏi), và ở đúng lượt mà cổng
+                    // vừa mở — người dùng sẽ trả lời thẻ đó rồi tự hỏi vì sao mình vẫn chưa được viết.
+                    questions = new List<BAChatQuestion>();
                 }
             }
             else
@@ -492,7 +512,8 @@ public class BAChatService
         }
 
         var flowDiagramJson = flowDiagram.Count > 0 ? JsonSerializer.Serialize(flowDiagram) : null;
-        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, flowDiagramJson, cancellationToken: cancellationToken);
+        var questionsJson = questions.Count > 0 ? JsonSerializer.Serialize(questions) : null;
+        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, flowDiagramJson, questionsJson: questionsJson, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -505,6 +526,7 @@ public class BAChatService
                 : JsonSerializer.Deserialize<List<string>>(suggestionsJson) ?? new List<string>(),
             InvitesWriteRequirement = RequirementReadinessGate.IsWriteRequirementInvite(reply),
             SuggestionsMultiSelect = suggestionsMultiSelect,
+            Questions = questions,
             // Bản đồ ở thời điểm này đã gộp tới lượt user mới nhất (cập nhật đầu lượt); lượt BA vừa trả
             // lời sẽ được gộp ở lượt sau — đủ tươi cho panel tiến độ.
             Coverage = CoverageMapParser.Parse(project.RequirementCoverageMap).ToList(),
@@ -731,6 +753,11 @@ public class BAChatService
         // dùng xác nhận — sửa đúng bước bị người dùng đính chính thay vì vẽ lại từ đầu một luồng khác.
         var flowDiagram = ConversationTurnRenderer.ParseFlowDiagram(c.FlowDiagram)
             .Select(s => new { actor = s.Actor, action = s.Action, outcome = s.Outcome });
-        return JsonSerializer.Serialize(new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, ready, flowDiagram });
+        // Echo cả các câu hỏi của lượt GỘP: đây là chỗ model học rằng gộp là hợp lệ VÀ học nhịp gộp của
+        // chính nó. Bỏ trường này thì mọi lượt cũ trông như lượt một-câu và model trượt về một-câu-một-lượt
+        // sau vài vòng — đúng kiểu trượt format mà hàm này sinh ra để chặn.
+        var questions = ConversationTurnRenderer.ParseQuestions(c.Questions)
+            .Select(q => new { group = q.Group, question = q.Question, suggestions = q.Suggestions, multiSelect = q.MultiSelect });
+        return JsonSerializer.Serialize(new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, questions, ready, flowDiagram });
     }
 }

@@ -4,6 +4,7 @@ using ICOGenerator.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ICOGenerator.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260803070503_ConfirmedAssumptionsMemory")]
+    partial class ConfirmedAssumptionsMemory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -96,9 +99,6 @@ namespace ICOGenerator.Migrations
 
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Questions")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -615,9 +615,6 @@ namespace ICOGenerator.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("CriteriaJson")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<long>("DurationMs")
                         .HasColumnType("bigint");
 
@@ -685,9 +682,6 @@ namespace ICOGenerator.Migrations
 
                     b.Property<double?>("AverageScore")
                         .HasColumnType("float");
-
-                    b.Property<DateTime?>("CancelRequestedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<int>("CompletedCount")
                         .HasColumnType("int");

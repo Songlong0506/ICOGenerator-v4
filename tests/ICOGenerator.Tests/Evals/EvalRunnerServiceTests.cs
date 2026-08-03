@@ -221,6 +221,137 @@ public class EvalRunnerServiceTests : IDisposable
         Assert.Equal(3, stamped.PromptVersionNumber);
     }
 
+    [Fact]
+    public async Task RunAsync_CancelRequestedBeforeStart_MarksCancelled_WithoutRunningAnyScenario()
+    {
+        Guid runId;
+        await using (var db = NewDb())
+        {
+            db.EvalScenarios.Add(new EvalScenario { Name = "S1", PromptKey = "BA/x.md", UserInput = "in", Criteria = "c" });
+            var run = NewRun();
+            run.CancelRequestedAt = DateTime.UtcNow;
+            db.EvalRuns.Add(run);
+            await db.SaveChangesAsync();
+            runId = run.Id;
+        }
+
+        await using (var db = NewDb())
+        {
+            await NewRunner(db, judgeReply: """{"score": 5, "reasoning": "ok"}""").RunAsync(runId);
+        }
+
+        await using var verify = NewDb();
+        var reloaded = await verify.EvalRuns.SingleAsync(x => x.Id == runId);
+        Assert.Equal(EvalRunStatus.Cancelled, reloaded.Status);
+        Assert.Equal(0, reloaded.CompletedCount);
+        Assert.NotNull(reloaded.FinishedAt);
+        Assert.Empty(await verify.EvalResults.Where(x => x.EvalRunId == runId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task RunAsync_CancelRequestedMidRun_KeepsFinishedResults_AndStopsAtScenarioBoundary()
+    {
+        Guid runId;
+        await using (var db = NewDb())
+        {
+            db.EvalScenarios.AddRange(
+                new EvalScenario { Name = "S1", PromptKey = "BA/x.md", UserInput = "in1", Criteria = "c", CreatedAt = DateTime.UtcNow.AddMinutes(-2) },
+                new EvalScenario { Name = "S2", PromptKey = "BA/x.md", UserInput = "in2", Criteria = "c", CreatedAt = DateTime.UtcNow.AddMinutes(-1) },
+                new EvalScenario { Name = "S3", PromptKey = "BA/x.md", UserInput = "in3", Criteria = "c" });
+            var run = NewRun();
+            db.EvalRuns.Add(run);
+            await db.SaveChangesAsync();
+            runId = run.Id;
+        }
+
+        // Bấm huỷ sau khi scenario ĐẦU TIÊN dùng hết 2 lời gọi (target + judge) của nó.
+        await using (var db = NewDb())
+        {
+            var runner = NewRunner(db, judgeReply: """{"score": 4, "reasoning": "ổn"}""", onModelCall: call =>
+            {
+                if (call != 2) return;
+                using var other = NewDb();
+                var live = other.EvalRuns.Single(x => x.Id == runId);
+                live.CancelRequestedAt = DateTime.UtcNow;
+                other.SaveChanges();
+            });
+            await runner.RunAsync(runId);
+        }
+
+        await using var verify = NewDb();
+        var reloaded = await verify.EvalRuns.SingleAsync(x => x.Id == runId);
+        var results = await verify.EvalResults.Where(x => x.EvalRunId == runId).ToListAsync();
+
+        Assert.Equal(EvalRunStatus.Cancelled, reloaded.Status);
+        // Dừng ở RANH GIỚI scenario: scenario đang chạy dở vẫn chạy nốt, các scenario sau thì không.
+        Assert.Equal(1, reloaded.CompletedCount);
+        Assert.Equal(3, reloaded.ScenarioCount);
+        // Kết quả đã trả tiền rồi thì giữ lại — kể cả điểm TB tính trên phần đã chạy.
+        var kept = Assert.Single(results);
+        Assert.Equal("S1", kept.ScenarioName);
+        Assert.Equal(4, reloaded.AverageScore);
+        Assert.Contains("1/3", reloaded.Error);
+    }
+
+    [Fact]
+    public async Task RunAsync_JudgeReturnsCriteriaBreakdown_IsStoredOnResult()
+    {
+        Guid runId;
+        await using (var db = NewDb())
+        {
+            db.EvalScenarios.Add(new EvalScenario { Name = "S1", PromptKey = "BA/x.md", UserInput = "in", Criteria = "c" });
+            var run = NewRun();
+            db.EvalRuns.Add(run);
+            await db.SaveChangesAsync();
+            runId = run.Id;
+        }
+
+        await using (var db = NewDb())
+        {
+            await NewRunner(db, judgeReply: """
+                {"score": 3, "reasoning": "Trượt định dạng.",
+                 "criteria": [{"criterion": "JSON hợp lệ", "passed": false, "note": "Có lời dẫn."},
+                              {"criterion": "Tiếng Việt", "passed": true}]}
+                """).RunAsync(runId);
+        }
+
+        await using var verify = NewDb();
+        var result = await verify.EvalResults.SingleAsync(x => x.EvalRunId == runId);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, result.Score);
+
+        var criteria = EvalJudgeParser.ReadCriteriaJson(result.CriteriaJson);
+        Assert.Equal(2, criteria.Count);
+        Assert.False(criteria[0].Passed);
+        Assert.Equal("Có lời dẫn.", criteria[0].Note);
+        Assert.True(criteria[1].Passed);
+    }
+
+    [Fact]
+    public async Task RunAsync_JudgeWithoutCriteria_StillScores_WithNullBreakdown()
+    {
+        Guid runId;
+        await using (var db = NewDb())
+        {
+            db.EvalScenarios.Add(new EvalScenario { Name = "S1", PromptKey = "BA/x.md", UserInput = "in", Criteria = "c" });
+            var run = NewRun();
+            db.EvalRuns.Add(run);
+            await db.SaveChangesAsync();
+            runId = run.Id;
+        }
+
+        await using (var db = NewDb())
+        {
+            await NewRunner(db, judgeReply: """{"score": 5, "reasoning": "ổn"}""").RunAsync(runId);
+        }
+
+        await using var verify = NewDb();
+        var result = await verify.EvalResults.SingleAsync(x => x.EvalRunId == runId);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(5, result.Score);
+        Assert.Null(result.CriteriaJson); // thiếu bảng đối chiếu KHÔNG bị coi là lỗi chấm
+    }
+
     private EvalRun NewRun() => new()
     {
         TargetModelId = _targetModelId,
@@ -229,9 +360,9 @@ public class EvalRunnerServiceTests : IDisposable
         JudgeModelName = "Judge"
     };
 
-    private EvalRunnerService NewRunner(AppDbContext db, string judgeReply, IPromptOverrideProvider? overrides = null) =>
+    private EvalRunnerService NewRunner(AppDbContext db, string judgeReply, IPromptOverrideProvider? overrides = null, Action<int>? onModelCall = null) =>
         new(db,
-            new FakeChatClientFactory("câu trả lời của target", judgeReply),
+            new FakeChatClientFactory("câu trả lời của target", judgeReply, onModelCall),
             new StubPromptTemplateService(),
             overrides ?? new NoPromptOverrideProvider(),
             new BAChatReplyParser(),
@@ -243,33 +374,47 @@ public class EvalRunnerServiceTests : IDisposable
     public void Dispose() => _connection.Dispose();
 
     // Trả lời cố định theo ModelId: model "target" → câu trả lời, model "judge" → verdict JSON (hoặc rác).
+    // onModelCall nhận số thứ tự của lời gọi — cách duy nhất để test tác động vào GIỮA một run đang chạy.
     private sealed class FakeChatClientFactory : IChatClientFactory
     {
         private readonly string _targetReply;
         private readonly string _judgeReply;
+        private readonly Action<int>? _onModelCall;
+        private int _callCount;
 
-        public FakeChatClientFactory(string targetReply, string judgeReply)
+        public FakeChatClientFactory(string targetReply, string judgeReply, Action<int>? onModelCall = null)
         {
             _targetReply = targetReply;
             _judgeReply = judgeReply;
+            _onModelCall = onModelCall;
         }
 
         public IChatClient Create(AiModel model) =>
-            new FakeChatClient(model.ModelId == "judge" ? _judgeReply : _targetReply);
+            new FakeChatClient(model.ModelId == "judge" ? _judgeReply : _targetReply,
+                () => _onModelCall?.Invoke(Interlocked.Increment(ref _callCount)));
     }
 
     private sealed class FakeChatClient : IChatClient
     {
         private readonly string _reply;
+        private readonly Action _onCall;
 
-        public FakeChatClient(string reply) => _reply = reply;
+        public FakeChatClient(string reply, Action onCall)
+        {
+            _reply = reply;
+            _onCall = onCall;
+        }
 
-        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, _reply)));
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            _onCall();
+            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, _reply)));
+        }
 
         public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
             IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            _onCall();
             await Task.CompletedTask;
             yield return new ChatResponseUpdate(ChatRole.Assistant, _reply);
         }
