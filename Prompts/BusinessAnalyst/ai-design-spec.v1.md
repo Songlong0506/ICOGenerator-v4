@@ -18,8 +18,9 @@ AI Design Spec phải MÔ TẢ CÙNG MỘT sản phẩm với Product Brief (s�
 ## 11. Developer Instructions (generate POC chạy được, chỉ MVP scope, kiến trúc đơn giản)
 ## 12. Assumptions            (các GIẢ ĐỊNH bạn đã tự đưa — xem định dạng bắt buộc bên dưới)
 ## 13. Worked Examples        (các VÍ DỤ TÍNH THỬ đã được xác nhận — xem định dạng bắt buộc bên dưới)
+## 14. Acceptance Criteria    (các CÂU NGHIỆM THU người dùng đã duyệt trong Product Brief — xem định dạng bắt buộc bên dưới)
 
-ĐỊNH DẠNG BẮT BUỘC cho 3 mục được hệ thống ĐỐI CHIẾU TỰ ĐỘNG với POC (sai định dạng là bước tự kiểm tra POC mất tác dụng):
+ĐỊNH DẠNG BẮT BUỘC cho 4 mục được hệ thống ĐỐI CHIẾU TỰ ĐỘNG với POC (sai định dạng là bước tự kiểm tra POC mất tác dụng):
 - Mục "## 6. Screens To Generate": MỖI màn hình là MỘT heading cấp 3 `### 6.n. <Tên màn hình>` — tên NGẮN GỌN (2–4 từ, không nhét route/ghi chú vào tên; route, mục đích, thành phần, field, nút, validation viết ở các bullet BÊN DƯỚI heading). Tên này được Developer dùng NGUYÊN VĂN làm nhãn menu + nhãn màn hình của POC.
 - Mục "## 10. Business Rules": MỖI rule là MỘT bullet đầu dòng `- BR-n: <phát biểu rule>` — một dòng, demo được (công thức tính, ràng buộc validate, chuyển trạng thái); chi tiết phụ thì thụt lề dưới bullet của rule đó, KHÔNG tách thành bullet đầu dòng mới.
 - Mục "## 13. Worked Examples": MỖI ví dụ là MỘT bullet đầu dòng `- WE-n (BR-m): <đầu vào cụ thể> => <kết quả kỳ vọng>` — với `BR-m` là rule mà ví dụ này minh hoạ, đầu vào là dữ liệu/hành động cụ thể, sau `=>` là DUY NHẤT kết quả kỳ vọng (một con số hoặc một nhãn trạng thái). Có HAI loại, đưa cả hai nếu có:
@@ -28,6 +29,11 @@ AI Design Spec phải MÔ TẢ CÙNG MỘT sản phẩm với Product Brief (s�
   Đây là ORACLE ĐỘC LẬP: POC tự tái hiện từng ví dụ và hệ thống đối chiếu kết quả POC ra với `<kết quả kỳ vọng>` này — kỳ vọng do NGƯỜI DÙNG chốt, KHÔNG do bạn đặt.
   - Nếu prompt có khối "Ví dụ tính thử người dùng ĐÃ XÁC NHẬN" (gồm cả ví dụ định lượng lẫn kịch bản luồng): đưa NGUYÊN các ví dụ đó vào đây, KHÔNG tự đổi. Có thể bổ sung thêm ví dụ cho các rule khác nếu suy ra chắc chắn từ Product Brief.
   - Ứng dụng KHÔNG có rule nào kiểm được bằng ví dụ (không công thức, không luồng trạng thái) thì ghi đúng một bullet `- Không có`.
+
+- Mục "## 14. Acceptance Criteria": MỖI câu nghiệm thu là MỘT bullet đầu dòng `- AC-n (<tên tính năng>): <câu nghiệm thu>`. Nguồn DUY NHẤT là các dòng "Hoàn thành khi: …" nằm dưới từng tính năng chính của Product Brief đã duyệt:
+  - Nếu prompt có khối "Câu nghiệm thu người dùng ĐÃ DUYỆT": **chép NGUYÊN VĂN** các dòng trong khối đó, giữ đúng mã AC-n và đúng thứ tự. TUYỆT ĐỐI không diễn đạt lại, không gộp hai câu thành một, không bỏ bớt câu nào, không tự thêm câu mới.
+  - Nếu Product Brief không có dòng "Hoàn thành khi" nào thì ghi đúng một bullet `- Không có`.
+  - Khác Business Rules (phát biểu quy tắc, cho máy) và Worked Examples (một con số/nhãn kỳ vọng, cho oracle): AC là **câu người dùng nghiệp vụ tự đọc để nói "đạt / chưa đạt"**. Hệ thống sinh kịch bản nghiệm thu (UAT) bám theo từng AC-n, và người dùng sẽ bấm thử đúng các kịch bản đó trên POC — nên một AC rơi rụng ở đây là một điều đã hứa với người dùng mà không cổng nào còn kiểm.
 
 - Mục "## 12. Assumptions": MỖI giả định bạn TỰ ĐƯA (điều Product Brief không nói mà bạn phải tự quyết để dựng được POC) là MỘT bullet `- <giả định>`, viết bằng **ngôn ngữ nghiệp vụ dễ hiểu** (mục này sẽ hiển thị cho người dùng thường xem lại): vd `- Mỗi nhân viên chỉ thuộc một phòng ban`, `- Đơn đã duyệt thì không sửa được nữa`. KHÔNG ghi giả định thuần kỹ thuật vô nghĩa với người dùng (chọn framework, cấu trúc API…). Không có giả định nào thì ghi đúng một bullet `- Không có`.
 

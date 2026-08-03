@@ -10,6 +10,14 @@ namespace ICOGenerator.Services.Artifacts;
 public sealed record PocWorkedExample(string Ref, string? RuleRef, string Description, string Expected);
 
 /// <summary>
+/// Một câu nghiệm thu của "## 14. Acceptance Criteria": mã <paramref name="Ref"/> (AC-n), tính năng nó
+/// thuộc về (có thể null) và chính câu người dùng đã duyệt trong Product Brief. Khác Business Rule (phát
+/// biểu quy tắc cho máy kiểm) và Worked Example (một con số kỳ vọng), đây là câu NGƯỜI DÙNG NGHIỆP VỤ tự
+/// đọc để nói "đạt / chưa đạt" — nên nó là đích mà bộ kịch bản UAT phải phủ hết.
+/// </summary>
+public sealed record PocAcceptanceCriterion(string Ref, string? Feature, string Text);
+
+/// <summary>
 /// Deterministic reading of the AI Design Spec (markdown) into the checklist PocAudit compares the
 /// generated demo against: the screen names of "Screens To Generate" and the bullets of
 /// "Business Rules". The BA prompt pins the shape (one "### 6.n. Tên màn hình" heading per screen,
@@ -19,12 +27,13 @@ public sealed record PocWorkedExample(string Ref, string? RuleRef, string Descri
 /// </summary>
 public sealed partial class PocSpec
 {
-    public static readonly PocSpec Empty = new([], [], []);
+    public static readonly PocSpec Empty = new([], [], [], []);
 
     // Defensive caps: a runaway spec must not turn the audit report into a novel.
     private const int MaxScreens = 30;
     private const int MaxRules = 40;
     private const int MaxWorkedExamples = 40;
+    private const int MaxAcceptanceCriteria = 30;
 
     public IReadOnlyList<string> Screens { get; }
     public IReadOnlyList<string> Rules { get; }
@@ -34,11 +43,21 @@ public sealed partial class PocSpec
     // chiếu giá trị POC tính ra với Expected ở đây (kỳ vọng do người dùng chốt, không phải agent tự đặt).
     public IReadOnlyList<PocWorkedExample> WorkedExamples { get; }
 
-    private PocSpec(IReadOnlyList<string> screens, IReadOnlyList<string> rules, IReadOnlyList<PocWorkedExample> workedExamples)
+    // Câu nghiệm thu người dùng đã duyệt (§ 14. Acceptance Criteria), chép nguyên văn từ các dòng
+    // "Hoàn thành khi: …" của Product Brief. Bộ kịch bản UAT phải phủ hết danh sách này — xem
+    // UatScenarioService; trang POC Review hiển thị AC nào đã có kịch bản kiểm.
+    public IReadOnlyList<PocAcceptanceCriterion> AcceptanceCriteria { get; }
+
+    private PocSpec(
+        IReadOnlyList<string> screens,
+        IReadOnlyList<string> rules,
+        IReadOnlyList<PocWorkedExample> workedExamples,
+        IReadOnlyList<PocAcceptanceCriterion> acceptanceCriteria)
     {
         Screens = screens;
         Rules = rules;
         WorkedExamples = workedExamples;
+        AcceptanceCriteria = acceptanceCriteria;
     }
 
     public static PocSpec Parse(string? specMarkdown)
@@ -51,6 +70,7 @@ public sealed partial class PocSpec
         var screens = new List<string>();
         var rules = new List<string>();
         var workedExamples = new List<PocWorkedExample>();
+        var acceptanceCriteria = new List<PocAcceptanceCriterion>();
         var section = CurrentSection.Other;
 
         foreach (var raw in lines)
@@ -89,12 +109,46 @@ public sealed partial class PocSpec
                             workedExamples.Add(parsed);
                     }
                     break;
+
+                case CurrentSection.AcceptanceCriteria:
+                    var ac = TopLevelBulletRegex().Match(line);
+                    if (ac.Success && acceptanceCriteria.Count < MaxAcceptanceCriteria)
+                    {
+                        var parsedAc = ParseAcceptanceCriterion(ac.Groups[1].Value);
+                        if (parsedAc != null && acceptanceCriteria.All(x => x.Ref != parsedAc.Ref))
+                            acceptanceCriteria.Add(parsedAc);
+                    }
+                    break;
             }
         }
 
-        return screens.Count == 0 && rules.Count == 0 && workedExamples.Count == 0
+        return screens.Count == 0 && rules.Count == 0 && workedExamples.Count == 0 && acceptanceCriteria.Count == 0
             ? Empty
-            : new PocSpec(screens, rules, workedExamples);
+            : new PocSpec(screens, rules, workedExamples, acceptanceCriteria);
+    }
+
+    // "AC-2 (Thủ thư xác nhận trả sách): xác nhận xong thì sách trở về trạng thái 'có sẵn'." → ref "AC-2",
+    // feature "Thủ thư xác nhận trả sách", text phần sau dấu hai chấm. Placeholder ("Không có") và dòng
+    // không có nội dung sau mã đều bị bỏ.
+    private static PocAcceptanceCriterion? ParseAcceptanceCriterion(string raw)
+    {
+        var text = StripMarkdownEmphasis(raw).Trim();
+        if (PlaceholderBulletRegex().IsMatch(text))
+            return null;
+
+        var m = AcceptanceCriterionRegex().Match(text);
+        if (!m.Success)
+            return null;
+
+        var body = m.Groups[3].Value.Trim();
+        if (body.Length == 0)
+            return null;
+
+        var feature = m.Groups[2].Success ? m.Groups[2].Value.Trim() : null;
+        return new PocAcceptanceCriterion(
+            "AC-" + m.Groups[1].Value,
+            string.IsNullOrWhiteSpace(feature) ? null : feature,
+            body);
     }
 
     // "WE-1 (BR-3): 3 mục tiêu 80/90/70, trọng số 50/30/20 => 81" → ref "WE-1", rule "BR-3",
@@ -138,7 +192,7 @@ public sealed partial class PocSpec
     public static string Key(string label) =>
         WhitespaceRegex().Replace((label ?? string.Empty).Trim(), " ").ToLowerInvariant();
 
-    private enum CurrentSection { Other, Screens, Rules, WorkedExamples }
+    private enum CurrentSection { Other, Screens, Rules, WorkedExamples, AcceptanceCriteria }
 
     // Headings come numbered ("## 6. Screens To Generate"); classification goes by the words so a
     // renumbered spec still parses. English names are pinned by the BA prompt; the Vietnamese
@@ -149,6 +203,10 @@ public sealed partial class PocSpec
         // "Worked Examples" / "ví dụ tính" checked FIRST: it must not fall through to the rules branch.
         if (text.Contains("worked example", StringComparison.Ordinal) || text.Contains("ví dụ tính", StringComparison.Ordinal))
             return CurrentSection.WorkedExamples;
+        // "Acceptance Criteria" / "tiêu chí nghiệm thu" — trước nhánh rule vì bản tiếng Việt hay được
+        // viết là "Tiêu chí nghiệm thu (quy tắc chấp nhận)", và chữ "quy tắc" ở đó sẽ kéo nhầm sang Rules.
+        if (text.Contains("acceptance criteri", StringComparison.Ordinal) || text.Contains("nghiệm thu", StringComparison.Ordinal))
+            return CurrentSection.AcceptanceCriteria;
         if (text.Contains("screen", StringComparison.Ordinal) || text.Contains("màn hình", StringComparison.Ordinal))
             return CurrentSection.Screens;
         if (text.Contains("business rule", StringComparison.Ordinal) || text.Contains("quy tắc", StringComparison.Ordinal))
@@ -220,6 +278,10 @@ public sealed partial class PocSpec
     // sau "=>" hoặc "→". Group1=ref số, Group2=rule (tùy chọn), Group3=input, Group4=expected.
     [GeneratedRegex("^WE[-\\s]?(\\d+)\\s*(?:\\(\\s*(BR[-\\s]?\\d+)\\s*\\))?\\s*:?\\s*(.*?)\\s*(?:=>|→)\\s*(.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex WorkedExampleRegex();
+
+    // "AC-2 (<tính năng>): <câu nghiệm thu>" — Group1=số, Group2=tính năng (tùy chọn), Group3=câu.
+    [GeneratedRegex("^AC[-\\s]?(\\d+)\\s*(?:\\(\\s*([^)]*?)\\s*\\))?\\s*[::]\\s*(.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex AcceptanceCriterionRegex();
 
     // Đánh số đầu dòng ("6.", "6.1.", "1)"…) cần cắt bỏ.
     [GeneratedRegex("^\\d{1,2}(?:\\.\\d{1,2})*[.)]?\\s*")]

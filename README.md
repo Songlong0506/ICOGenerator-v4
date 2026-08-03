@@ -580,7 +580,8 @@ Nghĩa là: sửa prompt qua Prompt Studio **có hiệu lực ngay không cần 
 | `BusinessAnalyst/requirement-chat.v3.md` | Lượt chat BA |
 | `BusinessAnalyst/product-brief.v3.md` | Sinh Product Brief (Write Requirement) |
 | `BusinessAnalyst/product-brief-review.v2.md` | Vòng tự soát Product Brief |
-| `BusinessAnalyst/ai-design-spec.v1.md` | Sinh AI Design Spec sau Approve |
+| `BusinessAnalyst/ai-design-spec.v1.md` | Sinh AI Design Spec sau Approve — gồm mục `## 14. Acceptance Criteria` chép NGUYÊN VĂN các dòng "Hoàn thành khi: …" của Product Brief đã duyệt (`BriefAcceptanceCriteria`); `SpecBriefParityChecker` soát ba tầng màn hình/quy tắc/câu nghiệm thu và cho BA sửa một vòng nếu lệch |
+| `BusinessAnalyst/uat-scenarios.v1.md` | Sinh kịch bản nghiệm thu (UAT) từ spec TRƯỚC khi dựng POC — mỗi `AC-n` phải có ≥1 kịch bản (`acRefs`), thiếu thì chạy một vòng bổ sung |
 | `BusinessAnalyst/technical-docs.v1.md` | Sinh BRD/SRS/FSD/UserStories (bước 2 pipeline) |
 | `BusinessAnalyst/conversation-summary.v1.md` | Gộp tóm tắt hội thoại (bộ nhớ dài hạn) |
 | `BusinessAnalyst/user-memory.v1.md` | Chắt lọc hồ sơ user |
@@ -630,6 +631,7 @@ Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-
   - **Không dùng gì từ tài liệu** ⇒ ISSUE (kèm vài giá trị thật để agent seed lại); dùng ít ⇒ WARNING; không có tài liệu nào ⇒ bỏ qua hẳn.
   - **Placeholder kinh điển** ("Nguyễn Văn A", "Product B", "Lorem ipsum", `@example.com`) ⇒ ISSUE khi ĐÃ có tài liệu thật để dùng, WARNING khi không.
   - **Spec tiếng Việt mà chữ HIỂN THỊ của POC không có lấy một dấu** ⇒ ISSUE. Chỉ tính chữ hiển thị: một `data-view="Đăng nhập"` không chứng minh nhãn là tiếng Việt.
+- **Lịch sử các vòng dựng** (`PocSnapshots`): mỗi task `PocPreview` xong thì `poc-demo.html` được chụp thành `04_Implementation/poc-history/poc-demo.V{n}.html` (giữ 10 bản mới nhất). Vòng "Yêu cầu chỉnh sửa" ghi đè thẳng lên bản hiện tại, nên không có bản chụp thì người nghiệm thu ở vòng sau chỉ còn bản bàn giao bằng chữ của agent để tin. Trang POC Review liệt kê các vòng (mở lại qua `Mockup?version=n` — cùng quyền + sandbox, số vòng chỉ dùng để tra trong danh sách file có thật) kèm diff **màn hình thêm/bỏ** so với vòng liền trước. Dựng lại POC từ đầu ⇒ `PocSnapshots.Reset` chạy cùng `PocVerification.Reset`.
 - **Chống hồi quy giữa các vòng sửa**: `poc-verification.json` giữ vòng kiểm mới nhất, các vòng cũ rơi vào `poc-verification-history.json`. Mỗi lượt audit so với vòng trước (`PocVerification.DetectRegressions`) và báo mục từng PASS mà nay FAIL **hoặc biến mất** (xoá assertion cũng bị tính là hồi quy) — mục `REGRESSIONS` trong báo cáo cho agent, và một khối riêng trên trang POC Review. Khi POC được dựng lại từ đầu, `PocVerification.Reset` xoá cả hai file để không so với một bản POC không còn tồn tại.
 - Xem POC: `GET /Projects/Mockup?projectId=` — endpoint **sandbox riêng** (HTML do LLM sinh không được thả vào layout chính).
 - **Review POC (ghim ghi chú lên phần tử)**: `GET /Projects/PocReview?projectId=` nhúng POC trong iframe ở chế độ review (`Mockup?review=True` tiêm `wwwroot/js/poc-annotator.js` lúc phục vụ — file trên đĩa không đổi). Người xem bật "chế độ ghim", click phần tử → annotator gửi mô tả (màn hình `data-view`, nhãn, CSS selector, vị trí %) lên trang cha qua postMessage → lưu bảng `PocComments`. Pin đánh số vẽ ngay trên phần tử. Sandbox giữ nguyên (origin opaque, không cookie) — mọi thao tác ghi đều từ trang cha. Các ghi chú `Open` được gom vào "Yêu cầu chỉnh sửa" tại cổng POC (xem §7.2).
@@ -848,6 +850,7 @@ Các công thức chuyên biệt: thêm **tool** (§8.2), thêm **bước pipeli
 | **UserRole** | Vai của người: Admin, TeamDev, User |
 | **Product Brief** | Tài liệu yêu cầu ngôn ngữ đời thường cho user duyệt (draft → V{n}) |
 | **AI Design Spec** | Bản đặc tả kỹ thuật sinh từ Product Brief đã duyệt — input của POC/Architecture |
+| **AC-n (câu nghiệm thu)** | Dòng "Hoàn thành khi: …" người dùng đã duyệt trong Product Brief, chép nguyên văn vào spec § 14 và là đích của bộ kịch bản UAT |
 | **POC** | Demo HTML một-file (`poc-demo.html`) có hành vi thật, để user "thấy" trước khi đầu tư code |
 | **Technical Docs** | Bộ BRD/SRS/FSD/UserStories — sinh ở bước 2 pipeline, không phải lúc Write Requirement |
 | **WorkflowRun / AgentTask** | "Vé" theo dõi một lần chạy quy trình / một đầu việc trong đó |

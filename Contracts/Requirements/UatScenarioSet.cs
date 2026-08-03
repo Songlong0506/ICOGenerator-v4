@@ -20,5 +20,13 @@ public class UatScenario
     /// <summary>Mã Business Rule (BR-n) kịch bản này kiểm chứng; rỗng nếu không gắn rule nào.</summary>
     public List<string> RuleRefs { get; set; } = new();
 
+    /// <summary>
+    /// Mã câu nghiệm thu (AC-n, § 14 của AI Design Spec) mà kịch bản này chứng minh. Khác
+    /// <see cref="RuleRefs"/> — vốn trỏ tới quy tắc do BA phát biểu cho máy kiểm — AC là câu người dùng đã
+    /// tự duyệt trong Product Brief, nên mọi AC đều phải có ít nhất một kịch bản trỏ về (xem
+    /// <c>UatScenarioService</c>: thiếu thì chạy một vòng bổ sung).
+    /// </summary>
+    public List<string> AcRefs { get; set; } = new();
+
     public List<string> Steps { get; set; } = new();
 }

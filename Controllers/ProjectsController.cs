@@ -143,10 +143,13 @@ public class ProjectsController : Controller
         return BackToList();
     }
 
+    // version (tùy chọn): mở lại BẢN CHỤP của một vòng dựng trước thay vì bản hiện tại — xem PocSnapshots.
+    // Chỉ đọc, cùng quyền và cùng rào sandbox với bản hiện tại; số vòng được tra trong danh sách file có
+    // thật nên không ghép được đường dẫn tùy ý.
     [RequireProjectAccess(Message = "Mockup file not found.")]
-    public async Task<IActionResult> Mockup(Guid projectId, bool review = false)
+    public async Task<IActionResult> Mockup(Guid projectId, bool review = false, int? version = null)
     {
-        var result = await _getMockupFileQuery.ExecuteAsync(projectId);
+        var result = await _getMockupFileQuery.ExecuteAsync(projectId, version);
         if (result == null)
             return NotFound("Mockup file not found.");
 

@@ -416,6 +416,16 @@ public class AgentTaskWorker : BackgroundService
             task.Output = output;
             task.FinishedAt = DateTime.UtcNow;
 
+            // Chụp lại bản POC vừa dựng xong. Vòng "Yêu cầu chỉnh sửa" kế tiếp GHI ĐÈ thẳng lên
+            // poc-demo.html, nên đây là lúc DUY NHẤT còn giữ được bản này — không có nó, người nghiệm thu
+            // ở vòng sau không mở lại được bản họ vừa xem để đối chiếu. Fail-open bên trong PocSnapshots.
+            if (task.Type == AgentTaskType.PocPreview)
+            {
+                var resolver = scope.ServiceProvider.GetRequiredService<WorkspacePathResolver>();
+                var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
+                PocSnapshots.TryCapture(resolver.GetProjectWorkspacePath(projectKey), resolver.GetMockupPath(projectKey));
+            }
+
             // Vòng CHỈNH SỬA POC vừa xong: các ghi chú ghim đã thật sự dẫn tới một lần sửa — chắt lọc
             // chúng thành bài học cho bộ câu hỏi của BA (Agent.LearnedChecklistNotes) để lỗi tương tự
             // được hỏi từ khâu phỏng vấn ở các dự án sau. Fail-open bên trong service.
@@ -748,9 +758,12 @@ public class AgentTaskWorker : BackgroundService
             // The marker region is collapsed to a SINGLE placeholder so one deterministic ReplaceInFile works, vs reproducing the ~160-line block verbatim (always failed "Old text not found").
             await SeedPocDemoAsync(templateSrc, resolver.GetMockupPath(projectKey));
 
-            // POC được dựng LẠI TỪ ĐẦU ⇒ kết quả tự kiểm của bản cũ không còn để so: giữ lại chỉ khiến
-            // vòng audit đầu tiên báo "hồi quy" cho những rule thuộc một bản POC không còn tồn tại.
-            PocVerification.Reset(resolver.GetProjectWorkspacePath(projectKey));
+            // POC được dựng LẠI TỪ ĐẦU ⇒ kết quả tự kiểm và các bản chụp của bản cũ không còn để so: giữ
+            // lại chỉ khiến vòng audit đầu tiên báo "hồi quy", và trang review liệt kê các vòng thuộc một
+            // bản POC không còn tồn tại.
+            var workspacePath = resolver.GetProjectWorkspacePath(projectKey);
+            PocVerification.Reset(workspacePath);
+            PocSnapshots.Reset(workspacePath);
         }
         catch (Exception ex)
         {

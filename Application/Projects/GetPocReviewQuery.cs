@@ -15,6 +15,13 @@ public record PocRevisionEntry(string Title, DateTime? FinishedAt, string Output
 public record PocRuleCoverage(string Rule, IReadOnlyList<string> ScenarioTitles);
 
 /// <summary>
+/// Một câu nghiệm thu người dùng đã duyệt (AC-n, § 14 của spec — nguyên văn dòng "Hoàn thành khi: …" của
+/// Product Brief) + các kịch bản UAT chứng minh nó. Đây là dòng truy vết ĐẦY ĐỦ nhất trên trang review:
+/// người nghiệm thu đọc lại đúng câu mình đã duyệt và thấy ngay có kịch bản nào chứng minh hay không.
+/// </summary>
+public record PocAcceptanceCoverage(string Ref, string? Feature, string Text, IReadOnlyList<string> ScenarioTitles);
+
+/// <summary>
 /// "Yêu cầu POC này bao phủ" — chắt từ AI Design Spec đã duyệt để người review thấy POC ĐÁNG LẼ phủ gì
 /// (màn hình, quy tắc nghiệp vụ, ví dụ tính thử đã chốt) và quy tắc nào có kịch bản UAT kiểm — không chỉ
 /// đi tìm lỗi mà còn biết độ phủ so với yêu cầu.
@@ -22,7 +29,18 @@ public record PocRuleCoverage(string Rule, IReadOnlyList<string> ScenarioTitles)
 public record PocReviewCoverage(
     IReadOnlyList<string> Screens,
     IReadOnlyList<PocRuleCoverage> Rules,
-    IReadOnlyList<string> WorkedExamples);
+    IReadOnlyList<string> WorkedExamples,
+    IReadOnlyList<PocAcceptanceCoverage> AcceptanceCriteria);
+
+/// <summary>
+/// Các vòng dựng POC đã được chụp lại + khác biệt màn hình giữa bản HIỆN TẠI và vòng liền trước.
+/// Đối trọng bằng BẰNG CHỨNG cho phần "đã sửa được gì" (vốn suy từ kết quả tự kiểm) và cho bản bàn giao
+/// bằng chữ của agent: người nghiệm thu mở lại đúng bản mình đã xem ở vòng trước để tự đối chiếu.
+/// </summary>
+public record PocVersionHistory(
+    IReadOnlyList<PocSnapshot> Snapshots,
+    PocSnapshotDiff DiffWithPrevious,
+    int? PreviousVersion);
 
 public record PocReviewPage(
     Guid ProjectId,
@@ -36,6 +54,8 @@ public record PocReviewPage(
     // Đối trọng của Verification.Regressions: người review vòng thứ hai trở đi cần biết lần sửa vừa rồi
     // đụng vào những gì để nhìn đúng chỗ, thay vì rà lại cả bản demo từ đầu.
     IReadOnlyList<string> VerificationFixes,
+    // Lịch sử các vòng dựng POC (bản chụp mở lại được) + màn hình thêm/bỏ so với vòng liền trước.
+    PocVersionHistory Versions,
     // Cổng POC đang mở (có run chờ duyệt ĐÚNG ở bước PocPreview) ⇒ trang này còn gửi được yêu cầu chỉnh
     // bản demo cho Developer; đã đi qua bước POC thì nút đó vô nghĩa và bị ẩn.
     bool PocGateOpen,
@@ -93,6 +113,10 @@ public class GetPocReviewQuery
             ? new List<string>()
             : PocVerification.DetectFixes(previousVerification, verification);
 
+        // Các vòng dựng đã chụp + diff màn hình giữa bản đang phục vụ và vòng liền TRƯỚC. Bản chụp mới
+        // nhất chính là bản hiện tại (chụp ngay khi vòng đó xong), nên "vòng trước" là bản áp chót.
+        var versions = BuildVersionHistory(workspacePath, mockupPath);
+
         var scenarios = await _uatScenarios.LoadAsync(project.Id, project.Name, cancellationToken);
 
         // Truy vết yêu cầu↔POC (U2): parse AI Design Spec (bản duyệt mới nhất) thành checklist — cùng
@@ -127,8 +151,25 @@ public class GetPocReviewQuery
 
         return new PocReviewPage(
             project.Id, project.Name, File.Exists(mockupPath), scenarios, revisions, coverage, verification, verificationFixes,
-            pocGateOpen, revisionsUsed, DeliveryPipeline.MaxRevisionRounds,
+            versions, pocGateOpen, revisionsUsed, DeliveryPipeline.MaxRevisionRounds,
             project.PocAcceptedAtUtc, project.PocAcceptedBy);
+    }
+
+    // Bản chụp của MỖI vòng dựng (xem PocSnapshots) + diff màn hình giữa bản đang phục vụ và vòng liền
+    // trước. Chưa có bản chụp nào (POC dựng trước khi có tính năng này, hoặc mới đúng một vòng) ⇒ lịch sử
+    // rỗng và view tự ẩn panel — fail-open, không đổi hành vi cũ.
+    private static PocVersionHistory BuildVersionHistory(string workspacePath, string mockupPath)
+    {
+        var snapshots = PocSnapshots.List(workspacePath);
+        if (snapshots.Count < 2)
+            return new PocVersionHistory(snapshots, PocSnapshotDiff.Empty, null);
+
+        var previous = snapshots[^2];
+        var diff = PocSnapshots.Diff(
+            PocSnapshots.TryReadContent(previous.FilePath),
+            PocSnapshots.TryReadContent(mockupPath));
+
+        return new PocVersionHistory(snapshots, diff, previous.Version);
     }
 
     // Nạp AI Design Spec mới nhất (mọi phiên bản), parse bằng chính PocSpec của audit, rồi cross-link mỗi
@@ -143,8 +184,9 @@ public class GetPocReviewQuery
             .FirstOrDefault();
 
         var spec = PocSpec.Parse(specContent);
-        if (spec.Screens.Count == 0 && spec.Rules.Count == 0 && spec.WorkedExamples.Count == 0)
-            return new PocReviewCoverage(Array.Empty<string>(), Array.Empty<PocRuleCoverage>(), Array.Empty<string>());
+        if (spec.Screens.Count == 0 && spec.Rules.Count == 0 && spec.WorkedExamples.Count == 0 && spec.AcceptanceCriteria.Count == 0)
+            return new PocReviewCoverage(
+                Array.Empty<string>(), Array.Empty<PocRuleCoverage>(), Array.Empty<string>(), Array.Empty<PocAcceptanceCoverage>());
 
         var rules = spec.Rules.Select(rule =>
         {
@@ -163,7 +205,19 @@ public class GetPocReviewQuery
             .Select(w => $"{w.Ref}{(string.IsNullOrWhiteSpace(w.RuleRef) ? "" : $" ({w.RuleRef})")}: {w.Description} ⇒ {w.Expected}")
             .ToList();
 
-        return new PocReviewCoverage(spec.Screens, rules, worked);
+        // Câu nghiệm thu ↔ kịch bản: cross-link qua AcRefs (đã được UatScenarioService chuẩn hoá về
+        // dạng "AC-n" lúc lưu, nên ở đây so khớp thẳng, không phải đoán lại cách model viết mã).
+        var acceptance = spec.AcceptanceCriteria.Select(ac =>
+        {
+            var titles = scenarios.Scenarios
+                .Where(s => s.AcRefs.Any(r => string.Equals(r, ac.Ref, StringComparison.OrdinalIgnoreCase)))
+                .Select(s => s.Title)
+                .Distinct()
+                .ToArray();
+            return new PocAcceptanceCoverage(ac.Ref, ac.Feature, ac.Text, titles);
+        }).ToList();
+
+        return new PocReviewCoverage(spec.Screens, rules, worked, acceptance);
     }
 
     // "BR-3: đơn đã duyệt thì khóa sửa" → "BR-3" (để cross-link với UatScenario.RuleRefs). Không khớp ⇒ "".

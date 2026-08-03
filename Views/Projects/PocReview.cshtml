@@ -55,13 +55,41 @@
            nào kiểm. Ẩn khi spec chưa parse được (bản cũ) — fail-open. *@
         @{
             var cov = Model.Coverage;
-            var hasCoverage = cov.Screens.Any() || cov.Rules.Any() || cov.WorkedExamples.Any();
+            var hasCoverage = cov.Screens.Any() || cov.Rules.Any() || cov.WorkedExamples.Any() || cov.AcceptanceCriteria.Any();
         }
         @if (hasCoverage)
         {
             <details class="uat-panel poc-coverage-panel" open>
                 <summary>🎯 Yêu cầu POC này bao phủ</summary>
                 <p class="muted poc-panel-hint">Đối chiếu bản demo với những gì AI Design Spec (đã duyệt) yêu cầu — để biết POC có phủ đúng yêu cầu chưa.</p>
+
+                @* Câu nghiệm thu (AC-n) đứng ĐẦU panel: đây là chữ của chính người dùng, chép nguyên văn từ
+                   dòng "Hoàn thành khi: …" họ đã duyệt trong Product Brief — thứ dễ đối chiếu nhất với bản
+                   demo, khác các mục dưới vốn là cách BA diễn đạt lại cho máy. *@
+                @if (cov.AcceptanceCriteria.Any())
+                {
+                    <div class="poc-cov-group">
+                        <div class="poc-cov-head">Câu nghiệm thu bạn đã duyệt <span class="poc-count">(@cov.AcceptanceCriteria.Count)</span></div>
+                        <ul class="poc-cov-rules">
+                            @foreach (var ac in cov.AcceptanceCriteria)
+                            {
+                                <li>
+                                    <span class="poc-cov-rule-text">
+                                        <b>@ac.Ref</b>@(string.IsNullOrWhiteSpace(ac.Feature) ? "" : $" ({ac.Feature})"): @ac.Text
+                                    </span>
+                                    @if (ac.ScenarioTitles.Any())
+                                    {
+                                        <span class="poc-cov-rule-tested" title="Kịch bản UAT chứng minh câu nghiệm thu này">✓ có kịch bản kiểm: @string.Join("; ", ac.ScenarioTitles)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="poc-cov-rule-untested" title="Chưa có kịch bản UAT nào chứng minh câu này — hãy tự thử trên bản demo">⚠ chưa có kịch bản kiểm — bạn nên tự thử điểm này</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
 
                 @if (cov.Screens.Any())
                 {
@@ -251,6 +279,60 @@
             </details>
         }
 
+        @* CÁC VÒNG ĐÃ DỰNG: mỗi vòng "Yêu cầu chỉnh sửa" ghi đè thẳng lên poc-demo.html, nên bản chụp ở
+           đây là đường DUY NHẤT để người nghiệm thu mở lại bản họ đã xem và tự đối chiếu — thay vì phải
+           tin vào bản bàn giao bằng chữ của agent. Ẩn khi chưa có bản chụp nào (POC dựng trước tính năng
+           này) hoặc mới đúng một vòng. *@
+        @if (Model.Versions.Snapshots.Count > 1)
+        {
+            var snapshots = Model.Versions.Snapshots;
+            var latest = snapshots[^1];
+            var diff = Model.Versions.DiffWithPrevious;
+            <details class="uat-panel poc-versions-panel" open>
+                <summary>🕘 Các vòng đã dựng <span class="poc-count">(@snapshots.Count)</span></summary>
+                <p class="muted poc-panel-hint">Bản đang xem là vòng @latest.Version. Mở lại vòng trước để so bằng mắt những gì đã đổi.</p>
+
+                @if (diff.HasChanges)
+                {
+                    <div class="poc-cov-group">
+                        <div class="poc-cov-head">Khác biệt màn hình so với vòng @Model.Versions.PreviousVersion:</div>
+                        <ul class="poc-cov-worked">
+                            @foreach (var screen in diff.AddedScreens)
+                            {
+                                <li class="poc-verif-ok">+ thêm màn hình «@screen»</li>
+                            }
+                            @foreach (var screen in diff.RemovedScreens)
+                            {
+                                <li class="poc-verif-bad">− bỏ màn hình «@screen» — kiểm tra xem đây có phải chủ ý không</li>
+                            }
+                        </ul>
+                    </div>
+                }
+                else if (Model.Versions.PreviousVersion is not null)
+                {
+                    <p class="muted">Vòng này không thêm/bỏ màn hình nào so với vòng @Model.Versions.PreviousVersion — thay đổi nằm bên trong các màn hình đã có.</p>
+                }
+
+                <ul class="poc-cov-worked poc-version-list">
+                    @foreach (var snapshot in snapshots.Reverse())
+                    {
+                        <li>
+                            <a asp-action="Mockup"
+                               asp-route-projectId="@Model.ProjectId"
+                               asp-route-version="@snapshot.Version"
+                               target="_blank"
+                               rel="noopener">Vòng @snapshot.Version ↗</a>
+                            <span class="muted"> — @snapshot.CapturedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                            @if (snapshot.Version == latest.Version)
+                            {
+                                <span class="poc-verif-ok"> (bản đang xem)</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            </details>
+        }
+
         @* Checklist UAT: kịch bản đi-từng-bước sinh từ AI Design Spec (UatScenarioService) — biến review
            từ khám phá tự do thành nghiệm thu có kịch bản. Tick từng bước (lưu localStorage); bước không
            đạt thì "Báo lỗi" mở form ghi chú prefill sẵn ngữ cảnh kịch bản. *@
@@ -269,6 +351,12 @@
                                 @if (scenario.RuleRefs.Any())
                                 {
                                     <span class="uat-rules" title="Business rule kịch bản này kiểm chứng">@string.Join(", ", scenario.RuleRefs)</span>
+                                }
+                                @* Mã AC: kịch bản này đang chứng minh câu nghiệm thu nào của chính người
+                                   dùng — bấm hỏng ở đây là hỏng đúng điều đã hứa, không phải một chi tiết kỹ thuật. *@
+                                @if (scenario.AcRefs.Any())
+                                {
+                                    <span class="uat-rules" title="Câu nghiệm thu bạn đã duyệt mà kịch bản này chứng minh">@string.Join(", ", scenario.AcRefs)</span>
                                 }
                                 <button type="button" class="btn outline small uat-tour" title="Đi lần lượt từng bước, POC sẽ chỉ chỗ">▶ Hướng dẫn</button>
                             </div>
