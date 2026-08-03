@@ -23,7 +23,6 @@ public class UatScenarioService
     private const int MaxScenarios = 8;
 
     private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
-    private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly AppDbContext _db;
     private readonly ILlmClient _llm;
@@ -148,7 +147,7 @@ public class UatScenarioService
                 return new UatScenarioSet();
 
             var json = await File.ReadAllTextAsync(path, cancellationToken);
-            return Sanitize(JsonSerializer.Deserialize<UatScenarioSet>(json, ReadOptions) ?? new UatScenarioSet());
+            return Sanitize(JsonSerializer.Deserialize<UatScenarioSet>(json, LlmJson.Options) ?? new UatScenarioSet());
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -163,20 +162,8 @@ public class UatScenarioService
         return Path.Combine(Path.GetDirectoryName(mockupPath)!, FileName);
     }
 
-    private static UatScenarioSet ParseFallback(string? raw)
-    {
-        try
-        {
-            var json = JsonExtractor.Extract(raw ?? string.Empty);
-            if (json.Length == 0)
-                return new UatScenarioSet();
-            return JsonSerializer.Deserialize<UatScenarioSet>(json, ReadOptions) ?? new UatScenarioSet();
-        }
-        catch
-        {
-            return new UatScenarioSet();
-        }
-    }
+    private static UatScenarioSet ParseFallback(string? raw) =>
+        LlmJson.TryDeserialize<UatScenarioSet>(raw) ?? new UatScenarioSet();
 
     // Chặn dữ liệu rác của model: bỏ kịch bản không tên/không bước, giới hạn số lượng.
     private static UatScenarioSet Sanitize(UatScenarioSet set)

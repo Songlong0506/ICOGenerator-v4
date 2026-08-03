@@ -26,9 +26,6 @@ public class AgentRunService
     // cứng vẫn cần để không đốt token vô hạn nếu agent không hội tụ; chạm trần mới chạy lượt salvage.
     private const int AutoContinueFactor = 3;
 
-    // Per-call deadline for a model turn (mirrors LlmClient's default); configurable via Llm:RequestTimeoutSeconds.
-    private const int DefaultRequestTimeoutSeconds = 600;
-
     private readonly AppDbContext _db;
     private readonly IToolRegistry _toolRegistry;
     private readonly ToolPolicyService _toolPolicy;
@@ -39,10 +36,10 @@ public class AgentRunService
     private readonly IChatClientFactory _chatClientFactory;
     private readonly ILoggerFactory _loggerFactory;
     private readonly IBudgetGuard _budgetGuard;
-    private readonly int _requestTimeoutSeconds;
+    private readonly LlmSettings _llmSettings;
 
-    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, ToolPolicyService toolPolicy, IToolExecutionLogger toolLogger, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, IChatClientFactory chatClientFactory, ILoggerFactory loggerFactory, IBudgetGuard budgetGuard, IConfiguration configuration)
-    { _db = db; _toolRegistry = toolRegistry; _toolPolicy = toolPolicy; _toolLogger = toolLogger; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _chatClientFactory = chatClientFactory; _loggerFactory = loggerFactory; _budgetGuard = budgetGuard; _requestTimeoutSeconds = configuration.GetValue("Llm:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds); }
+    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, ToolPolicyService toolPolicy, IToolExecutionLogger toolLogger, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, IChatClientFactory chatClientFactory, ILoggerFactory loggerFactory, IBudgetGuard budgetGuard, LlmSettings llmSettings)
+    { _db = db; _toolRegistry = toolRegistry; _toolPolicy = toolPolicy; _toolLogger = toolLogger; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _chatClientFactory = chatClientFactory; _loggerFactory = loggerFactory; _budgetGuard = budgetGuard; _llmSettings = llmSettings; }
 
     // ── Native function-calling path ─────────────────────────────────────────────────────────────────
     // Built on Microsoft Agent Framework: a ChatClientAgent + AgentSession own the ReAct tool loop, so
@@ -88,8 +85,13 @@ public class AgentRunService
         var modelClient = new ModelCallLoggingChatClient(
             _chatClientFactory.Create(model), model, _modelCallLogger,
             new ModelCallLogContext(projectId, agent, "AgentRun", workflowRunId),
-            _requestTimeoutSeconds, throwOnFailure: true,
-            onProgress: onProgress, maxSteps: maxSteps, hardCap: hardCap, budgetGuard: _budgetGuard);
+            new ModelCallOptions(_llmSettings.RequestTimeoutSeconds, ThrowOnFailure: true)
+            {
+                OnProgress = onProgress,
+                MaxSteps = maxSteps,
+                HardCap = hardCap,
+                BudgetGuard = _budgetGuard
+            });
         var functionInvoker = new FunctionInvokingChatClient(modelClient, _loggerFactory)
         {
             MaximumIterationsPerRequest = maxSteps

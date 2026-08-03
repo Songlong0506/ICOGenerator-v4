@@ -15,13 +15,16 @@ public class ModelCallLoggingChatClientTests
     private static ModelCallLogContext Ctx(int firstStep = 1) => new(Guid.NewGuid(), new Agent(), "TestPurpose", null, firstStep);
     private static ChatMessage[] Hi() => new[] { new ChatMessage(ChatRole.User, "hi") };
 
+    private static ModelCallOptions Opts(bool throwOnFailure, Action<LlmCallResult>? onCompleted = null, IBudgetGuard? budgetGuard = null) =>
+        new(RequestTimeoutSeconds: 600, throwOnFailure) { OnCompleted = onCompleted, BudgetGuard = budgetGuard };
+
     [Fact]
     public async Task Streaming_Success_BuildsResult_LogsOnce_AndReportsCompleted()
     {
         var inner = new FakeChatClient(streamChunks: new[] { "Hello ", "world" });
         var logger = new FakeModelCallLogger();
         LlmCallResult? completed = null;
-        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), 600, throwOnFailure: false, onCompleted: r => completed = r);
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false, onCompleted: r => completed = r));
 
         var text = "";
         await foreach (var u in client.GetStreamingResponseAsync(Hi()))
@@ -42,7 +45,7 @@ public class ModelCallLoggingChatClientTests
     {
         var inner = new FakeChatClient(streamError: new InvalidOperationException("boom"));
         var logger = new FakeModelCallLogger();
-        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), 600, throwOnFailure: true);
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: true));
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -60,7 +63,7 @@ public class ModelCallLoggingChatClientTests
         var inner = new FakeChatClient(streamError: new InvalidOperationException("boom"));
         var logger = new FakeModelCallLogger();
         LlmCallResult? completed = null;
-        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), 600, throwOnFailure: false, onCompleted: r => completed = r);
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false, onCompleted: r => completed = r));
 
         var count = 0;
         await foreach (var _ in client.GetStreamingResponseAsync(Hi()))
@@ -76,7 +79,7 @@ public class ModelCallLoggingChatClientTests
     public async Task AppliesTokenCap_ToInnerCallOptions()
     {
         var inner = new FakeChatClient(streamChunks: new[] { "x" });
-        var client = new ModelCallLoggingChatClient(inner, Model(), new FakeModelCallLogger(), Ctx(), 600, throwOnFailure: false);
+        var client = new ModelCallLoggingChatClient(inner, Model(), new FakeModelCallLogger(), Ctx(), Opts(throwOnFailure: false));
 
         await foreach (var _ in client.GetStreamingResponseAsync(Hi())) { }
 
@@ -90,7 +93,7 @@ public class ModelCallLoggingChatClientTests
     {
         var inner = new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "Typed")));
         var logger = new FakeModelCallLogger();
-        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), 600, throwOnFailure: false);
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false));
 
         var resp = await client.GetResponseAsync(Hi());
 
@@ -104,7 +107,7 @@ public class ModelCallLoggingChatClientTests
     {
         var inner = new FakeChatClient(streamChunks: new[] { "x" });
         var logger = new FakeModelCallLogger();
-        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(firstStep: 5), 600, throwOnFailure: false);
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(firstStep: 5), Opts(throwOnFailure: false));
 
         await foreach (var _ in client.GetStreamingResponseAsync(Hi())) { }
 
@@ -121,7 +124,7 @@ public class ModelCallLoggingChatClientTests
         var inner = new FakeChatClient(streamChunks: new[] { "Hello world this is a long answer" }, usage: usage);
         var logger = new FakeModelCallLogger();
         LlmCallResult? completed = null;
-        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), 600, throwOnFailure: false, onCompleted: r => completed = r);
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false, onCompleted: r => completed = r));
 
         await foreach (var _ in client.GetStreamingResponseAsync(Hi())) { }
 
@@ -140,7 +143,7 @@ public class ModelCallLoggingChatClientTests
         };
         var inner = new FakeChatClient(response: response);
         var logger = new FakeModelCallLogger();
-        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), 600, throwOnFailure: false);
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false));
 
         await client.GetResponseAsync(Hi());
 
@@ -156,7 +159,7 @@ public class ModelCallLoggingChatClientTests
         var inner = new FakeChatClient(streamChunks: new[] { "abcd" }); // no usage → estimate from text
         var logger = new FakeModelCallLogger();
         LlmCallResult? completed = null;
-        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), 600, throwOnFailure: false, onCompleted: r => completed = r);
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false, onCompleted: r => completed = r));
 
         await foreach (var _ in client.GetStreamingResponseAsync(Hi())) { }
 
@@ -171,8 +174,8 @@ public class ModelCallLoggingChatClientTests
     {
         var inner = new FakeChatClient(streamChunks: new[] { "x" });
         var logger = new FakeModelCallLogger();
-        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), 600, throwOnFailure: false,
-            budgetGuard: new ThrowingBudgetGuard());
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false,
+            budgetGuard: new ThrowingBudgetGuard()));
 
         await Assert.ThrowsAsync<BudgetExceededException>(async () =>
         {
@@ -189,8 +192,8 @@ public class ModelCallLoggingChatClientTests
     {
         var inner = new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "x")));
         var logger = new FakeModelCallLogger();
-        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), 600, throwOnFailure: false,
-            budgetGuard: new ThrowingBudgetGuard());
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false,
+            budgetGuard: new ThrowingBudgetGuard()));
 
         await Assert.ThrowsAsync<BudgetExceededException>(() => client.GetResponseAsync(Hi()));
 

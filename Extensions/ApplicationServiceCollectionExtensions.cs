@@ -554,10 +554,11 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddLlmServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Proxy is config-driven (Llm:Proxy:Enabled / :Address) so one build works both behind the
-        // office proxy and at home. Defaults preserve the office behaviour (proxy on, port 3128).
-        var proxyEnabled = configuration.GetValue("Llm:Proxy:Enabled", true);
-        var proxyAddress = configuration.GetValue("Llm:Proxy:Address", "http://127.0.0.1:3128");
+        // Toàn bộ section "Llm" đọc MỘT lần vào LlmSettings (deadline lời gọi, deadline Test Connection,
+        // proxy) — trước đây mỗi service tự đọc kèm hằng mặc định riêng nên rất dễ lệch nhau. Proxy phải
+        // có giá trị ngay tại đây để cấu hình handler, nên bind sớm rồi đăng ký chính đối tượng đó.
+        var llmSettings = new LlmSettings(configuration);
+        services.AddSingleton(llmSettings);
 
         // Patches outgoing LLM bodies per target API: the non-standard "thinking" field for OpenAI-compatible
         // endpoints, and dropping params the official OpenAI API rejects (thinking, reasoning-model temperature).
@@ -579,8 +580,8 @@ public static class ApplicationServiceCollectionExtensions
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
                 // When the proxy is disabled (e.g. at home) this client falls back to a direct connection.
-                UseProxy = proxyEnabled,
-                Proxy = proxyEnabled ? new WebProxy(proxyAddress) : null,
+                UseProxy = llmSettings.ProxyEnabled,
+                Proxy = llmSettings.ProxyEnabled ? new WebProxy(llmSettings.ProxyAddress) : null,
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5)
             })
             .AddHttpMessageHandler<LlmRequestCompatibilityHandler>();
@@ -589,7 +590,7 @@ public static class ApplicationServiceCollectionExtensions
         // IHttpClientFactory, so it is safe to register as a singleton.
         services.AddSingleton<IChatClientFactory, OpenAIChatClientFactory>();
         services.AddScoped<IModelCallLogger, ModelCallLogger>();
-        // Lời gọi thử của nút "Test Connection" (trang Models): chỉ cần factory + config nên là singleton.
+        // Lời gọi thử của nút "Test Connection" (trang Models): chỉ cần factory + settings nên là singleton.
         services.AddSingleton<IModelConnectionTester, ModelConnectionTester>();
         services.AddScoped<ILlmClient, LlmClient>();
         return services;

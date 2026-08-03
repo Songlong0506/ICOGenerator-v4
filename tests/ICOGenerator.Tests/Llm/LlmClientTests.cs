@@ -47,7 +47,7 @@ public class LlmClientTests
         factory,
         new FakeModelCallLogger(),
         new NoopBudgetGuard(),
-        new ConfigurationBuilder().Build(),
+        new LlmSettings(),
         NullLogger<LlmClient>.Instance);
 
     [Fact]

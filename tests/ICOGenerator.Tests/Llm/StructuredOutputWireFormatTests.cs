@@ -123,7 +123,7 @@ public class StructuredOutputWireFormatTests : IAsyncLifetime
             new OpenAIChatClientFactory(httpClientFactory),
             new NullModelCallLogger(),
             new NoBudgetLimit(),
-            new ConfigurationBuilder().Build(),
+            new LlmSettings(),
             NullLogger<LlmClient>.Instance);
     }
 
