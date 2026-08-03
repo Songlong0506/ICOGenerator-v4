@@ -77,6 +77,14 @@
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer.ParseQuestions(lastItem.Conversation.Questions)
         : new List<ICOGenerator.Contracts.Requirements.BAChatQuestion>();
 
+    // GỘP CÂU DẪN VÀO THẺ HỎI: ở lượt gộp, Message chỉ là câu dẫn ngắn ("mình hỏi nhanh mấy điểm sau")
+    // — render nó thành bong bóng riêng phía trên thẻ là hai khung liền nhau nói cùng một ý, vì bản thân
+    // thẻ đã có dòng dẫn của nó. Nên lượt BA này KHÔNG có bong bóng riêng: câu dẫn xuống làm dòng đầu
+    // của chính thẻ hỏi (xem #batchQuestions bên dưới + renderBatchQuestions trong requirements.js).
+    // Chỉ áp cho lượt gộp MỚI NHẤT — các lượt gộp cũ trong lịch sử không còn thẻ nên vẫn giữ bong bóng.
+    var batchLeadTurn = lastBaQuestions.Count > 0 ? lastItem?.Conversation : null;
+    var batchLead = (batchLeadTurn?.Message ?? "").Trim();
+
     // Nút "Write Requirement" hiện "sẵn sàng" (nổi bật) khi lượt BA mới nhất MỜI người dùng bấm nút — tức
     // lời nhắn có nhắc tới "Write Requirement". Lời mời chỉ được LƯU sau khi cổng readiness tất định
     // (RequirementReadinessGate.Evaluate — mọi dòng áp dụng của bản đồ bao phủ đã [RÕ]) pass ngay trong
@@ -673,6 +681,14 @@
                 }
                 else if (group.Conversation != null)
                 {
+                    // Lượt gộp mới nhất: bong bóng của nó CHÍNH LÀ thẻ hỏi ở cuối khung chat (câu dẫn đã
+                    // xuống làm dòng đầu của thẻ), nên bỏ qua ở đây. prevWasBaBubble giữ nguyên: nhãn "BA"
+                    // của lượt được in trước thẻ, theo đúng quy tắc gộp nhãn của chuỗi lượt BA liền kề.
+                    if (batchLeadTurn != null && group.Conversation.Id == batchLeadTurn.Id)
+                    {
+                        continue;
+                    }
+
                     // Lượt BA là THÔNG BÁO LỖI gọi AI (tiền tố ⚠️ dùng chung với transcript filter): tô đỏ
                     // như đường streaming, và nếu là lượt CUỐI của hội thoại thì kèm nút "Thử lại" — server
                     // xóa lượt lỗi rồi chạy lại, người dùng khỏi phải gõ lại câu vừa hỏi.
@@ -853,11 +869,21 @@
 
                Đặt SAU #suggestionList (không phải trước) vì quy tắc gộp "câu hỏi BA + chip gợi ý" dựa vào
                kề nhau (.req-msg.ba:has(+ .suggestion-list …)): chen một div vào giữa là hỏng, kể cả khi
-               div đó đang ẩn. *@
+               div đó đang ẩn. Đây cũng là lý do lượt gộp KHÔNG gộp bằng CSS như cặp "câu hỏi + chip" mà
+               gộp bằng nội dung (câu dẫn dọn hẳn vào trong thẻ): thẻ không bao giờ kề bong bóng câu dẫn. *@
+            @* Nhãn "BA" của lượt gộp đứng NGOÀI thẻ (như mọi bong bóng BA khác) vì thẻ giờ là bong bóng của
+               lượt đó. Bỏ qua khi lượt BA liền trước đã in nhãn — cùng quy tắc gộp nhãn với vòng lặp trên. *@
+            @if (lastBaQuestions.Count > 0 && !prevWasBaBubble)
+            {
+                <b class="req-who">BA</b>
+            }
             <div class="req-msg ba batchq" id="batchQuestions" @(lastBaQuestions.Count > 0 ? "" : "hidden")>
                 @if (lastBaQuestions.Count > 0)
                 {
-                    <div class="batchq-lead">Anh/chị trả lời giúp mình mấy điểm sau — bấm một gợi ý hoặc tự nhập; điểm nào chưa nghĩ tới thì để trống.</div>
+                    @* Câu dẫn = Message của chính lượt gộp (xem batchLead ở đầu file). Rỗng thì mới rơi về
+                       câu tĩnh — không có dòng dẫn nào thì thẻ mở đầu bằng câu hỏi trần, mất mạch hội thoại. *@
+                    <p class="batchq-lead">@(string.IsNullOrWhiteSpace(batchLead) ? "Anh/chị trả lời giúp mình mấy điểm sau nhé." : batchLead)</p>
+                    <div class="batchq-howto">Bấm một gợi ý hoặc tự nhập; điểm nào chưa nghĩ tới thì để trống.</div>
                     <ul class="batchq-list">
                         @foreach (var q in lastBaQuestions)
                         {
