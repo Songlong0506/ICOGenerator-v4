@@ -191,6 +191,22 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     function hideBatchQuestions() {
         if (!batchPanel || batchPanel.hidden) return;
+
+        // Thẻ giờ CHỞ LUÔN câu dẫn của lượt (xem renderBatchQuestions), nên xóa trắng thẻ là xóa luôn
+        // lượt BA đó khỏi màn hình — chưa kể nhãn "BA" phía trên thành mồ côi. Xếp thẻ lại thành một bong
+        // bóng BA thường mang đúng câu dẫn: đúng bằng thứ server render cho một lượt gộp CŨ sau khi F5.
+        const lead = batchPanel.querySelector(".batchq-lead");
+        const label = batchPanel.previousElementSibling;
+        if (lead) {
+            batchPanel.insertAdjacentHTML("beforebegin", `
+                <div class="req-msg ba">
+                    <p style="white-space: pre-wrap;">${escapeHtml((lead.textContent || "").trim())}</p>
+                </div>
+            `);
+        } else if (label && label.classList.contains("req-who")) {
+            label.remove();
+        }
+
         batchPanel.hidden = true;
         batchPanel.innerHTML = "";
     }
@@ -217,16 +233,36 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         btn.textContent = count === 0 ? "Chưa trả lời câu nào" : `Gửi ${count} câu trả lời`;
     }
 
+    // GỘP CÂU DẪN VÀO THẺ: ở lượt gộp, `message` chỉ là câu dẫn ngắn, nên bong bóng vừa stream xong và
+    // thẻ hỏi ngay dưới nó là hai khung liền nhau nói cùng một ý. Gỡ bong bóng đó và trả text về cho
+    // renderBatchQuestions đặt làm dòng đầu của thẻ — thẻ TRỞ THÀNH bong bóng của lượt, nên nhãn "BA"
+    // của lượt được dời xuống ngay trên thẻ (thay vì xóa theo bong bóng, rồi thẻ đứng trơ không nhãn).
+    function absorbLeadBubble(bubble) {
+        if (!bubble || bubble.classList.contains("chat-error")) return "";
+
+        const label = bubble.previousElementSibling;
+        const p = bubble.querySelector("p");
+        const text = p ? (p.textContent || "").trim() : "";
+        bubble.remove();
+        if (label && label.classList.contains("req-who")) thinkingBox.before(label);
+        return text;
+    }
+
     // Markup phải khớp bản server render trong Index.cshtml (đường tải lại trang).
-    function renderBatchQuestions(questions) {
+    function renderBatchQuestions(questions, leadBubble) {
         if (!batchPanel) return;
         if (!Array.isArray(questions) || questions.length === 0) {
             hideBatchQuestions();
             return;
         }
 
+        // Rỗng (lượt lỗi giữ bong bóng riêng, hoặc BA trả `message` trống) → rơi về câu dẫn tĩnh: thẻ mở
+        // đầu bằng câu hỏi trần thì mất mạch hội thoại.
+        const lead = absorbLeadBubble(leadBubble) || "Anh/chị trả lời giúp mình mấy điểm sau nhé.";
+
         batchPanel.innerHTML = `
-            <div class="batchq-lead">Anh/chị trả lời giúp mình mấy điểm sau — bấm một gợi ý hoặc tự nhập; điểm nào chưa nghĩ tới thì để trống.</div>
+            <p class="batchq-lead">${escapeHtml(lead)}</p>
+            <div class="batchq-howto">Bấm một gợi ý hoặc tự nhập; điểm nào chưa nghĩ tới thì để trống.</div>
             <ul class="batchq-list">
                 ${questions.map(q => `
                 <li class="batchq-item" data-question="${escapeHtml(q.question || "")}" data-multi="${q.multiSelect ? "true" : "false"}">
@@ -396,6 +432,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const label = next;
             next = next.nextElementSibling;
             label.remove();
+        }
+        // Câu trả lời cũ là THẺ HỎI GỘP (lượt gộp không có bong bóng riêng — câu dẫn nằm trong thẻ): thẻ
+        // là phần tử cố định của trang mà renderBatchQuestions dùng lại, gỡ khỏi DOM là mất luôn chỗ neo.
+        if (next === batchPanel) {
+            hideBatchQuestions();
+            return;
         }
         if (next && next.classList.contains("req-msg") && next.classList.contains("ba")) next.remove();
     }
@@ -609,7 +651,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // → luôn thay bằng bản chốt.
             p.textContent = data.reply || "";
             renderSuggestions(data.suggestions, data.suggestionsMultiSelect === true);
-            renderBatchQuestions(data.questions);
             setWriteRequirementReady(data.invitesWriteRequirement === true);
             renderCoverage(data.coverage);
             renderDecisions(data.decisions);
@@ -622,6 +663,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 bubble.insertAdjacentHTML("beforeend",
                     `<button type="button" class="btn outline small chat-retry-btn" title="Chạy lại lượt trả lời vừa lỗi — không cần gõ lại câu hỏi">↻ Thử lại</button>`);
             }
+
+            // SAU CÙNG vì thẻ hỏi NUỐT bong bóng vừa stream làm câu dẫn của nó (absorbLeadBubble): mọi
+            // thứ còn ghi vào `bubble` — sơ đồ luồng, nút "Thử lại" — phải xong trước, không thì ghi vào
+            // một node đã rời khỏi DOM.
+            renderBatchQuestions(data.questions, bubble);
         } else {
             bubble.classList.add("chat-error");
             p.textContent = data.error || "Có lỗi khi xử lý lượt chat. Vui lòng thử lại.";
