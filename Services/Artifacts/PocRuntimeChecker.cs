@@ -68,8 +68,9 @@ public interface IPocRuntimeChecker
 /// <c>Poc:RuntimeCheck:Enabled</c>) thì trả Skipped kèm lý do — audit POC vẫn chạy phần tĩnh như cũ,
 /// không bao giờ chặn pipeline vì thiếu browser. Đường tìm browser: cấu hình
 /// <c>Poc:RuntimeCheck:BrowserPath</c> → biến môi trường <c>POC_BROWSER_PATH</c> → bộ browser Playwright
-/// đã cài (PLAYWRIGHT_BROWSERS_PATH). Browser được giữ lại dùng chung (singleton) vì audit chạy tới 3
-/// vòng mỗi POC — mỗi lần launch lại tốn ~nửa giây.
+/// đã cài (PLAYWRIGHT_BROWSERS_PATH) → nếu chưa cài thì TỰ TẢI một lần (<c>Poc:RuntimeCheck:AutoInstall</c>,
+/// mặc định bật) để máy mới chỉ cần clone source là chạy được. Browser được giữ lại dùng chung (singleton)
+/// vì audit chạy tới 3 vòng mỗi POC — mỗi lần launch lại tốn ~nửa giây.
 /// </summary>
 public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisposable
 {
@@ -101,9 +102,14 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
     private readonly ILogger<PlaywrightPocRuntimeChecker> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
+    // Nhắc đúng lệnh cài trong log VÀ trong lý do skip hiện trên trang POC Review: người gặp dòng
+    // "không khởi động được Chromium headless" biết ngay phải gõ gì, khỏi đi tra tài liệu.
+    private const string InstallHint = "pwsh bin/Debug/net8.0/playwright.ps1 install chromium";
+
     private IPlaywright? _playwright;
     private IBrowser? _browser;
     private string? _launchFailure;
+    private bool _installAttempted;
 
     public PlaywrightPocRuntimeChecker(IConfiguration configuration, ILogger<PlaywrightPocRuntimeChecker> logger)
     {
@@ -800,18 +806,95 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             if (!string.IsNullOrWhiteSpace(executablePath))
                 options.ExecutablePath = executablePath;
 
-            _browser = await _playwright.Chromium.LaunchAsync(options);
+            try
+            {
+                _browser = await _playwright.Chromium.LaunchAsync(options);
+            }
+            catch (Exception ex) when (ShouldAttemptInstall(executablePath, ex.Message, AutoInstallEnabled))
+            {
+                // Máy mới clone source về: package NuGet có sẵn nhưng binary Chromium thì chưa (nằm ở
+                // cache dùng chung của máy, không nằm trong repo — xem README §3.6). Tải một lần rồi thử
+                // lại thay vì bắt người dùng đọc lý do skip trên trang review mới biết mình phải cài gì.
+                if (!await TryInstallChromiumAsync())
+                    throw;
+                _browser = await _playwright.Chromium.LaunchAsync(options);
+            }
+
             return _browser;
         }
         catch (Exception ex)
         {
             _launchFailure = FirstLine(ex.Message);
+            if (IsMissingBrowserError(ex.Message))
+                _launchFailure += $" — cài bằng: {InstallHint}";
             _logger.LogWarning(ex, "Chromium headless is not available — POC runtime checks will be skipped.");
             return null;
         }
         finally
         {
             _lock.Release();
+        }
+    }
+
+    private bool AutoInstallEnabled => _configuration.GetValue("Poc:RuntimeCheck:AutoInstall", true);
+
+    /// <summary>
+    /// Có nên tự tải bộ browser rồi thử lại không. Chỉ đúng khi CẢ BA điều kiện cùng đúng: bật cấu hình,
+    /// KHÔNG có đường dẫn browser chỉ định sẵn (đã chỉ đường mà sai thì tải về cũng không dùng tới), và
+    /// lỗi launch đúng dạng "chưa có binary". Lỗi khác — thiếu thư viện hệ điều hành, sandbox chặn — tải
+    /// 150MB về cũng không chữa được, nên fail-open ngay như cũ.
+    /// </summary>
+    internal static bool ShouldAttemptInstall(string? explicitExecutablePath, string launchError, bool autoInstallEnabled)
+        => autoInstallEnabled
+           && string.IsNullOrWhiteSpace(explicitExecutablePath)
+           && IsMissingBrowserError(launchError);
+
+    private static bool IsMissingBrowserError(string message)
+        => message.Contains("Executable doesn't exist", StringComparison.OrdinalIgnoreCase)
+           || message.Contains("playwright install", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Tải bộ Chromium của Playwright (tương đương <c>playwright.ps1 install chromium</c>) vào cache dùng
+    /// chung của máy. Chỉ thử MỘT lần mỗi process: hết hạn chờ hoặc lỗi mạng thì bỏ qua, audit chạy tiếp
+    /// phần tĩnh — không bao giờ chặn pipeline vì tải browser hỏng.
+    /// </summary>
+    private async Task<bool> TryInstallChromiumAsync()
+    {
+        if (_installAttempted)
+            return false;
+        _installAttempted = true;
+
+        var timeout = TimeSpan.FromSeconds(Math.Max(30, _configuration.GetValue("Poc:RuntimeCheck:AutoInstallTimeoutSeconds", 300)));
+        _logger.LogInformation(
+            "Chưa có Chromium headless — đang tải bộ browser Playwright (một lần cho mỗi máy, ~150MB, tối đa {Timeout}).",
+            timeout);
+
+        try
+        {
+            // Program.Main là API cài đặt chính thức của Microsoft.Playwright; nó chạy đồng bộ nên đẩy
+            // sang thread pool để không chặn caller. Quá hạn thì bỏ mặc lượt tải chạy nốt dưới nền — lần
+            // khởi động app sau sẽ thấy binary đã có sẵn.
+            var install = Task.Run(() => Microsoft.Playwright.Program.Main(new[] { "install", "chromium" }));
+            if (await Task.WhenAny(install, Task.Delay(timeout)) != install)
+            {
+                _logger.LogWarning("Tải Chromium quá {Timeout} — bỏ qua vòng này, POC chỉ được kiểm tĩnh.", timeout);
+                return false;
+            }
+
+            var exitCode = await install;
+            if (exitCode != 0)
+            {
+                _logger.LogWarning("Lệnh tải Chromium trả về mã lỗi {ExitCode}. Cài thủ công bằng: {Hint}", exitCode, InstallHint);
+                return false;
+            }
+
+            _logger.LogInformation("Đã tải xong Chromium headless — chạy lại kiểm tra runtime POC.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không tải được Chromium headless. Cài thủ công bằng: {Hint}", InstallHint);
+            return false;
         }
     }
 

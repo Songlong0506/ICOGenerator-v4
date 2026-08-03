@@ -92,6 +92,7 @@ Solution có 2 project: `ICOGenerator.csproj` (web app, ở root) và `tests/ICO
 
 - **.NET 8 SDK**.
 - **SQL Server** — *hoặc không cần gì cả* nếu chạy chế độ Sqlite (xem 3.3).
+- **Chromium headless** cho tầng kiểm POC — *không cần cài tay*, app tự tải lần đầu (xem [3.6](#36-chromium-cho-tầng-kiểm-poc)).
 - **Một endpoint LLM tương thích OpenAI.** Model seed mặc định trỏ LM Studio tại `http://127.0.0.1:1234/v1` và DeepSeek (`https://api.deepseek.com`, cần điền ApiKey). Bạn có thể thêm/sửa model ở màn hình **AI Models** sau khi đăng nhập.
 
 ### 3.2. Bí mật bắt buộc (app fail-fast nếu thiếu)
@@ -157,6 +158,23 @@ dotnet test
 ```
 
 xUnit, chạy trên Sqlite — không cần SQL Server hay LLM. Test nằm ở `tests/ICOGenerator.Tests/`, tổ chức theo đúng khu vực code (`Requirements/`, `Workflows/`, `Prompts/`, `Evals/`...).
+
+### 3.6. Chromium cho tầng kiểm POC
+
+Bước POC không chỉ quét chuỗi: `PlaywrightPocRuntimeChecker` **mở poc-demo.html trong Chromium headless** để chạy self-test business rule, lái kịch bản nghiệm thu bằng click thật, và chụp ảnh từng màn hình cho Visual QA (xem [§7](#7-delivery-pipeline-chi-tiết)). Package NuGet `Microsoft.Playwright` đã có sẵn trong `.csproj`, nhưng **binary Chromium thì không nằm trong repo** — nó ~300MB mỗi nền tảng, vượt trần 100MB/file của GitHub và sẽ nằm vĩnh viễn trong git history.
+
+**Máy mới chỉ cần clone rồi chạy.** Lần audit POC đầu tiên, nếu chưa có binary, app **tự tải một lần** vào cache dùng chung của máy (`%LOCALAPPDATA%\ms-playwright` trên Windows, `~/.cache/ms-playwright` trên Linux/macOS) rồi chạy tiếp — mất khoảng một phút, và mọi project Playwright khác trên máy dùng chung bộ đó.
+
+Muốn cài trước cho chủ động (hoặc máy chặn tải lúc runtime):
+
+```powershell
+dotnet build
+pwsh bin/Debug/net8.0/playwright.ps1 install chromium   # cần PowerShell 7: winget install Microsoft.PowerShell
+```
+
+**Máy không tải được** (mạng công ty chặn CDN Playwright): trỏ thẳng vào Chrome/Edge sẵn có bằng `Poc:RuntimeCheck:BrowserPath` hoặc biến môi trường `POC_BROWSER_PATH`. Có đường dẫn chỉ định sẵn thì app **không** tự tải nữa — đã chỉ đường mà sai thì tải về cũng không dùng tới.
+
+Toàn tầng này **fail-open**: không có browser, tải hỏng, hay tắt bằng `Poc:RuntimeCheck:Enabled=false` thì audit POC vẫn chạy phần kiểm tra tĩnh và pipeline không bao giờ bị chặn. Trang **POC Review** nói thẳng chuyện đó ở panel *"Máy đã tự kiểm"* — dòng *"Tầng chạy thử trong trình duyệt không hoạt động ở môi trường này (…)"* kèm lý do và lệnh cài. Panel đọc bản chụp của **vòng audit cuối**, nên cài browser xong phải **restart app** (lỗi launch được cache theo process) và chạy lại một vòng POC thì các dòng ✓ mới hiện.
 
 ---
 
@@ -743,6 +761,7 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 | `Notifications:Email:{Enabled,Host,Port,UseStartTls,Username,Password,From,To}` | tắt / 587 STARTTLS | SMTP. Password qua env. Fail-open |
 | `Notifications:BoschEmail:{Enabled,BaseUrl,SendMailApi,ApiKey,FromEmail,To,OnlySendToTesterEmail,TesterEmail}` | tắt / `api/Email` | Email Server API nội bộ Bosch (HTTP) thay SMTP. ApiKey qua env. `OnlySendToTesterEmail` = chốt an toàn non-prod. Fail-open |
 | `Llm:Proxy:{Enabled,Address}` | false / `http://127.0.0.1:3128` | Proxy công ty cho lời gọi LLM ra ngoài (client "proxied"); code mặc định coi Enabled=true nếu **thiếu key** — appsettings hiện đặt tường minh false |
+| `Poc:RuntimeCheck:{Enabled,BrowserPath,AutoInstall,AutoInstallTimeoutSeconds}` | true / trống / true / 300 | Tầng chạy POC trong Chromium headless ([§3.6](#36-chromium-cho-tầng-kiểm-poc)). `BrowserPath` trống ⇒ dùng bộ Playwright của máy, chưa có thì tự tải một lần (`AutoInstall`). Fail-open toàn phần |
 | `Budget:{Enabled,Period,SystemUsdLimit,PerProjectUsdLimit}` | true / Monthly / 0 / 0 | Trần chi phí USD. 0 = không giới hạn scope đó (opt-in thực tế) |
 | `Encryption:ApiKeyKey` | ⚠️ có giá trị commit sẵn | **Bắt buộc nạp qua env**; khóa cũ trong git history coi như đã lộ — xoay khóa trên môi trường thật |
 | `Serilog:*` | Console + File `Logs/ico-.log` xoay ngày, giữ 14 ngày, 50MB/ngày | Mức log/sink đổi không cần build |
