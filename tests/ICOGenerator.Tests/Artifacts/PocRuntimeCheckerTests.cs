@@ -272,6 +272,64 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
         Assert.Contains(report.Issues, i => i.Contains("Báo cáo"));
     }
 
+    // ---- Tự tải Chromium khi máy chưa có (ShouldAttemptInstall) ----
+    // Quyết định "có tải không" được tách ra thuần tuý để test được mà không phải tải thật 150MB.
+
+    private const string MissingBinaryError =
+        "Executable doesn't exist at C:\\Users\\x\\AppData\\Local\\ms-playwright\\chromium_headless_shell-1228\\chrome-headless-shell.exe";
+
+    [Fact]
+    public void ShouldAttemptInstall_WhenBinaryMissing_AndNoExplicitPath()
+    {
+        Assert.True(PlaywrightPocRuntimeChecker.ShouldAttemptInstall(null, MissingBinaryError, autoInstallEnabled: true));
+    }
+
+    [Fact]
+    public void ShouldAttemptInstall_IsFalse_WhenDisabledByConfig()
+    {
+        // Máy offline / CI có browser riêng: tắt cấu hình là không được tự ý tải gì về.
+        Assert.False(PlaywrightPocRuntimeChecker.ShouldAttemptInstall(null, MissingBinaryError, autoInstallEnabled: false));
+    }
+
+    [Fact]
+    public void ShouldAttemptInstall_IsFalse_WhenBrowserPathWasGiven()
+    {
+        // Đã chỉ đường dẫn browser mà vẫn fail ⇒ tải bộ Playwright về cũng không được dùng tới.
+        Assert.False(PlaywrightPocRuntimeChecker.ShouldAttemptInstall(
+            @"C:\Program Files\Edge\msedge.exe", MissingBinaryError, autoInstallEnabled: true));
+    }
+
+    [Fact]
+    public void ShouldAttemptInstall_IsFalse_ForOtherLaunchFailures()
+    {
+        // Thiếu thư viện hệ điều hành: tải browser không chữa được, fail-open ngay thay vì tốn 150MB.
+        Assert.False(PlaywrightPocRuntimeChecker.ShouldAttemptInstall(
+            null, "Host system is missing dependencies to run browsers: libnss3.so", autoInstallEnabled: true));
+    }
+
+    [Fact]
+    public async Task LaunchFailure_WithAutoInstallOff_StaysFailOpen()
+    {
+        // Đường dẫn browser trỏ vào file không tồn tại + tắt auto-install ⇒ SKIPPED kèm lý do, audit
+        // tĩnh vẫn chạy. Đây là hành vi cũ và nó không được đổi.
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Poc:RuntimeCheck:BrowserPath"] = Path.Combine(_dir, "khong-co-browser.exe"),
+                ["Poc:RuntimeCheck:AutoInstall"] = "false"
+            })
+            .Build();
+        await using var checker = new PlaywrightPocRuntimeChecker(config, NullLogger<PlaywrightPocRuntimeChecker>.Instance);
+
+        var path = Path.Combine(_dir, "poc-demo.html");
+        await File.WriteAllTextAsync(path, Shell.Replace("{SCRIPT}", ""));
+        var report = await checker.CheckAsync(path);
+
+        Assert.False(report.Ran);
+        Assert.NotNull(report.SkipReason);
+        Assert.Contains("Chromium", report.SkipReason);
+    }
+
     public Task InitializeAsync() => Task.CompletedTask;
 
     public async Task DisposeAsync()
