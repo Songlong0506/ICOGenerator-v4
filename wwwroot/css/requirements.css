@@ -1666,7 +1666,15 @@
     border-color: var(--bosch-blue-tint-strong, #cfe0fb);
 }
 
-.batchq-lead { font-size: 12.5px; line-height: 1.55; color: #555; margin: 0 0 10px; }
+/* Câu dẫn = `message` của chính lượt gộp, đã dọn vào trong thẻ thay vì đứng riêng thành một bong bóng
+   phía trên (hai khung liền nhau cùng nói "mình hỏi mấy điểm sau"). Vì nó LÀ lời BA nói — không phải chú
+   thích của thẻ — nên đọc như text bong bóng thường: cỡ chữ và màu mặc định, giữ pre-wrap để tôn trọng
+   xuống dòng, và KHÔNG dùng lại cỡ 12.5px/#555 của dòng hướng dẫn bên dưới. */
+.batchq-lead { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+
+/* Hướng dẫn thao tác, tách khỏi câu dẫn và hạ cỡ chữ. Giữ lại chứ không gộp vào câu dẫn: đây là chỗ DUY
+   NHẤT nói cho người dùng biết được phép bỏ trống câu chưa nghĩ ra, mà BA thì không nói câu đó mỗi lượt. */
+.batchq-howto { font-size: 11.5px; line-height: 1.55; color: #6b7280; margin: 6px 0 10px; }
 
 .batchq-list {
     list-style: none;

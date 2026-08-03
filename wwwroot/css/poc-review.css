@@ -441,7 +441,24 @@
     border-radius: 6px;
 }
 
-/* ==== Panel chia sẻ bản demo ==== */
+/* ==== Command bar của trang review ==== */
+
+/* Câu dẫn bên trái thanh; nút chính tự đẩy sang phải bằng margin-left:auto (command-bar.css). */
+.poc-command-bar .cbar-hint { font-size: 13px; }
+
+@media (max-width: 860px) {
+    .poc-command-bar .cbar-hint { display: none; }
+}
+
+/* ==== Hộp thoại chia sẻ bản demo ==== */
+
+/* Rộng hơn .modal mặc định (480px) vì mỗi link là một dòng URL đầy đủ + hai nút thao tác. */
+.poc-share-modal { width: 620px; text-align: left; }
+
+    .poc-share-modal h3 { margin: 0 0 6px; }
+
+    /* Nhiều link thì cuộn trong hộp thay vì đẩy hộp dài quá màn hình. */
+    .poc-share-modal .poc-share-list { max-height: 320px; overflow-y: auto; }
 
 .poc-share-form { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
 
@@ -462,6 +479,10 @@
         border: 1px solid var(--line, #e5e7eb);
         border-radius: 6px;
     }
+
+/* Nút trong hai hàng ngang (tạo link / copy / thu hồi) không được co lại thành hai dòng chữ. */
+.poc-share-form .btn,
+.poc-share-url-row .btn { flex: 0 0 auto; white-space: nowrap; }
 
 .poc-share-msg { font-size: 11.5px; color: #6b7280; margin-top: 5px; }
 
