@@ -16,7 +16,6 @@
 <div class="page-head">
     <div>
         <h1>POC Review</h1>
-        <p class="muted">Bật chế độ ghim rồi click vào phần tử trong POC để ghi chú cho đội Dev.</p>
     </div>
 </div>
 
@@ -27,7 +26,6 @@
 @if (canManageRequirements)
 {
     <div class="command-bar poc-command-bar">
-        <span class="cbar-hint muted">Mời sếp/người dùng cuối xem bản demo và ghim góp ý mà không cần tài khoản.</span>
         <button type="button" class="cbar-primary" id="pocShareOpen" title="Chia sẻ bản demo" aria-label="Chia sẻ bản demo">
             <i class="bi bi-share" aria-hidden="true"></i>
             <span class="cbar-primary-label">Chia sẻ bản demo</span>
@@ -51,7 +49,6 @@
     <section class="card poc-frame-panel">
         <div class="poc-toolbar">
             <button type="button" id="pinModeBtn" class="btn outline">📌 Bật chế độ ghim</button>
-            <span class="muted poc-toolbar-hint" id="pinModeHint">Chế độ ghim đang tắt — POC thao tác bình thường.</span>
             <a class="btn outline small poc-open-tab"
                asp-action="Mockup"
                asp-route-projectId="@Model.ProjectId"
@@ -397,10 +394,6 @@
         }
 
         <h3>Ghi chú trên POC <span class="poc-count" id="pocCommentCount"></span></h3>
-        <p class="muted poc-panel-hint">
-            Ghim hết những chỗ chưa đúng rồi bấm <b>gửi</b> — hệ thống tự tách ghi chú nào là lỗi trình bày
-            của bản demo, ghi chú nào là tài liệu yêu cầu hiểu sai, và cho anh/chị soát lại trước khi gửi.
-        </p>
         @* MỘT đường đóng vòng thay cho hai nút cũ ("nhờ Dev chỉnh bản demo" / "gửi về Requirement").
            Vì sao gộp: hai đường đó bắt người xem demo — dân nghiệp vụ — tự phân loại ghi chú của mình,
            trong khi chính hệ thống làm được phép phân loại ấy (poc-feedback-triage.v1.md). Tệ hơn, CẢ HAI
@@ -425,12 +418,8 @@
             <div class="poc-accept">
                 <button type="button" id="pocAcceptBtn" class="btn approve small full"
                         data-accept-url="@Url.Action("AcceptPoc", "Projects")">
-                    ✓ Bản demo đã đạt — tôi nghiệm thu
+                    ✓ Bản demo đã đạt
                 </button>
-                <p class="muted poc-panel-hint">
-                    Bấm khi anh/chị đã xem xong và thấy bản demo phản ánh đúng yêu cầu. Đội delivery nhận được
-                    thông báo và mới đi tiếp các bước sau — bấm nút này KHÔNG tự khởi động gì.
-                </p>
             </div>
         }
 
@@ -525,12 +514,8 @@
              data-revoke-url="@Url.Action("RevokePocShareLink", "Projects")">
             <button type="button" class="x" id="pocShareClose" aria-label="Đóng">&times;</button>
             <h3 id="pocShareTitle">🔗 Chia sẻ bản demo</h3>
-            <p class="muted poc-panel-hint">
-                Tạo link cho người không có tài khoản (sếp, người dùng cuối) tự bấm thử và ghim góp ý.
-                Link có hạn dùng và thu hồi được bất cứ lúc nào.
-            </p>
             <div class="poc-share-form">
-                <input type="text" id="pocShareLabel" maxlength="200" placeholder="Gửi cho ai? (vd: anh Hùng phòng NS)" />
+                <input type="text" id="pocShareLabel" maxlength="200" placeholder="Gửi cho ai?" />
                 <select id="pocShareDays">
                     <option value="7">7 ngày</option>
                     <option value="14" selected>14 ngày</option>
