@@ -95,6 +95,49 @@ public class StartEvalRunUseCaseTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_SameConfigAlreadyQueuedOrRunning_Rejected()
+    {
+        await using (var db = NewDb())
+        {
+            Assert.Equal(StartEvalRunResult.Started,
+                await new StartEvalRunUseCase(db).ExecuteAsync(_targetModelId, _judgeModelId, null, null, null));
+        }
+
+        // Bấm lần hai với ĐÚNG cấu hình đó: không cho ra thông tin mới, chỉ trả tiền LLM hai lần.
+        await using (var db = NewDb())
+        {
+            Assert.Equal(StartEvalRunResult.DuplicateRunInProgress,
+                await new StartEvalRunUseCase(db).ExecuteAsync(_targetModelId, _judgeModelId, null, null, null));
+            Assert.Equal(1, await db.EvalRuns.CountAsync());
+        }
+
+        // Bộ lọc prompt khác ⇒ là phép đo khác, vẫn cho chạy.
+        await using (var db = NewDb())
+        {
+            Assert.Equal(StartEvalRunResult.Started,
+                await new StartEvalRunUseCase(db).ExecuteAsync(_targetModelId, _judgeModelId, "BA/x.md", null, null));
+        }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_PreviousRunFinished_NoLongerBlocksTheSameConfig()
+    {
+        await using (var db = NewDb())
+        {
+            await new StartEvalRunUseCase(db).ExecuteAsync(_targetModelId, _judgeModelId, null, null, null);
+            var run = await db.EvalRuns.SingleAsync();
+            run.Status = EvalRunStatus.Completed;
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            Assert.Equal(StartEvalRunResult.Started,
+                await new StartEvalRunUseCase(db).ExecuteAsync(_targetModelId, _judgeModelId, null, null, null));
+        }
+    }
+
+    [Fact]
     public async Task ExecuteAsync_NoMatchingActiveScenarios_Rejected()
     {
         await using var db = NewDb();

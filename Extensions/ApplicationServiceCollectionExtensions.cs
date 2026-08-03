@@ -447,6 +447,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UpdateEvalScenarioUseCase>();
         services.AddScoped<DeleteEvalScenarioUseCase>();
         services.AddScoped<StartEvalRunUseCase>();
+        services.AddScoped<CancelEvalRunUseCase>();
+        services.AddScoped<DeleteEvalRunUseCase>();
         services.AddScoped<GetEvalRunStatusQuery>();
         services.AddScoped<GetEvalRunDetailQuery>();
         services.AddScoped<CompareEvalRunsQuery>();

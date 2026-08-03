@@ -100,7 +100,7 @@ public class EvalRunWorker : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var run = await db.EvalRuns.FirstOrDefaultAsync(x => x.Id == runId, cancellationToken);
-            if (run == null || run.Status is EvalRunStatus.Completed or EvalRunStatus.Failed)
+            if (run == null || run.Status is EvalRunStatus.Completed or EvalRunStatus.Failed or EvalRunStatus.Cancelled)
                 return;
 
             run.Status = EvalRunStatus.Failed;
@@ -128,8 +128,13 @@ public class EvalRunWorker : BackgroundService
         var now = DateTime.UtcNow;
         foreach (var run in orphaned)
         {
-            run.Status = EvalRunStatus.Failed;
-            run.Error = "Run bị gián đoạn bởi việc khởi động lại ứng dụng. Hãy chạy lại eval.";
+            // Ai đó đã bấm huỷ nhưng app restart trước khi runner kịp dừng: kết cục người dùng MUỐN vẫn là
+            // "đã huỷ" — báo Failed ở đây sẽ trông như hệ thống hỏng.
+            var cancelled = run.CancelRequestedAt != null;
+            run.Status = cancelled ? EvalRunStatus.Cancelled : EvalRunStatus.Failed;
+            run.Error = cancelled
+                ? $"Đã huỷ theo yêu cầu sau {run.CompletedCount}/{run.ScenarioCount} scenario."
+                : "Run bị gián đoạn bởi việc khởi động lại ứng dụng. Hãy chạy lại eval.";
             run.FinishedAt = now;
         }
 

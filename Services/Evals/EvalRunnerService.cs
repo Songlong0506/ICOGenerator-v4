@@ -104,6 +104,16 @@ public class EvalRunnerService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            // Người dùng bấm huỷ giữa chừng: dừng TRƯỚC khi mở scenario kế tiếp. Kết quả đã chạy xong giữ
+            // nguyên (chúng đã trả tiền rồi, vứt đi không lợi ai) — run chỉ mang trạng thái Cancelled kèm
+            // tiến độ dở dang để người xem biết điểm TB này tính trên bao nhiêu scenario.
+            if (await IsCancelRequestedAsync(run.Id, cancellationToken))
+            {
+                await FinishRunAsync(run, EvalRunStatus.Cancelled,
+                    $"Đã huỷ theo yêu cầu sau {run.CompletedCount}/{run.ScenarioCount} scenario.", cancellationToken);
+                return;
+            }
+
             var result = new EvalResult
             {
                 EvalRunId = run.Id,
@@ -138,10 +148,16 @@ public class EvalRunnerService
             await _db.SaveChangesAsync(cancellationToken);
         }
 
-        run.Status = EvalRunStatus.Completed;
-        run.FinishedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync(cancellationToken);
+        await FinishRunAsync(run, EvalRunStatus.Completed, null, cancellationToken);
     }
+
+    // Cờ huỷ do controller đặt trên MỘT DbContext khác — phải hỏi lại DB chứ không đọc entity đang track.
+    private async Task<bool> IsCancelRequestedAsync(Guid runId, CancellationToken cancellationToken) =>
+        await _db.EvalRuns
+            .AsNoTracking()
+            .Where(x => x.Id == runId)
+            .Select(x => x.CancelRequestedAt)
+            .FirstOrDefaultAsync(cancellationToken) != null;
 
     private Task EvaluateScenarioAsync(EvalScenario scenario, AiModel targetModel, AiModel judgeModel, EvalResult result, CancellationToken cancellationToken) =>
         scenario.Kind == EvalScenarioKind.Interview
@@ -233,15 +249,14 @@ public class EvalRunnerService
             return;
         }
 
-        if (!EvalJudgeParser.TryParse(judgeCall.Content, out var score, out var reasoning))
+        if (!EvalJudgeParser.TryParse(judgeCall.Content, out var verdict))
         {
             result.JudgeReasoning = judgeCall.Content;
             Finish(false, "Judge trả về không đúng định dạng JSON {score, reasoning}.");
             return;
         }
 
-        result.Score = score;
-        result.JudgeReasoning = reasoning;
+        ApplyVerdict(result, verdict);
         Finish(true, null);
 
         void Finish(bool success, string? error)
@@ -339,7 +354,7 @@ public class EvalRunnerService
             return;
         }
 
-        if (!EvalJudgeParser.TryParse(judgeResult.Content, out var score, out var reasoning))
+        if (!EvalJudgeParser.TryParse(judgeResult.Content, out var verdict))
         {
             result.IsSuccess = false;
             result.ErrorMessage = "Judge trả về không đúng định dạng JSON {score, reasoning}.";
@@ -347,9 +362,17 @@ public class EvalRunnerService
             return;
         }
 
-        result.Score = score;
-        result.JudgeReasoning = reasoning;
+        ApplyVerdict(result, verdict);
         result.IsSuccess = true;
+    }
+
+    // Bảng đối chiếu từng tiêu chí là phần MỞ RỘNG của judge: model không trả thì CriteriaJson = null và
+    // kết quả vẫn đủ dùng (điểm + lý do) — không coi đây là lỗi chấm.
+    private static void ApplyVerdict(EvalResult result, EvalJudgeVerdict verdict)
+    {
+        result.Score = verdict.Score;
+        result.JudgeReasoning = verdict.Reasoning;
+        result.CriteriaJson = EvalJudgeParser.ToJson(verdict.Criteria);
     }
 
     private static string BuildJudgeInput(EvalScenario scenario, string output) =>
@@ -396,9 +419,12 @@ public class EvalRunnerService
             .ToListAsync(cancellationToken);
     }
 
-    private async Task FailRunAsync(EvalRun run, string error, CancellationToken cancellationToken)
+    private Task FailRunAsync(EvalRun run, string error, CancellationToken cancellationToken) =>
+        FinishRunAsync(run, EvalRunStatus.Failed, error, cancellationToken);
+
+    private async Task FinishRunAsync(EvalRun run, EvalRunStatus status, string? error, CancellationToken cancellationToken)
     {
-        run.Status = EvalRunStatus.Failed;
+        run.Status = status;
         run.Error = error;
         run.FinishedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
