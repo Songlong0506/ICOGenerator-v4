@@ -1,6 +1,7 @@
 using System.Text;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
+using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,11 @@ public enum ReviseAssumptionsResult { Ok, ProjectNotFound, NothingPending, NoNot
 /// log, checklist-gap memory đều ăn theo transcript như mọi lượt khác), còn cột đính chính là đường TẤT
 /// ĐỊNH nạp thẳng vào prompt sinh spec — spec sinh từ Product Brief chứ không đọc transcript, nên nếu chỉ
 /// ghi vào hội thoại thì lượt sinh lại vẫn đẻ ra đúng giả định vừa bị bác.
+///
+/// Phần CÒN LẠI của danh sách (những điểm user để nguyên "Đúng") được ghi vào
+/// <c>Project.ConfirmedAssumptions</c>: cổng dựng lại ở lượt sinh mới, và không có trí nhớ này thì nó hỏi
+/// lại nguyên văn cả những điểm vừa được duyệt — xem <see cref="AssumptionMemory"/>. Danh sách lấy từ
+/// CHÍNH spec đang chờ (không phải từ payload client) để trí nhớ luôn khớp với thứ user thật sự nhìn thấy.
 /// </summary>
 public class ReviseSpecAssumptionsUseCase
 {
@@ -31,17 +37,20 @@ public class ReviseSpecAssumptionsUseCase
     private readonly AppDbContext _db;
     private readonly BAConversationLog _conversationLog;
     private readonly BAAgentResolver _agentResolver;
+    private readonly IProjectArtifactCatalog _artifactCatalog;
     private readonly IWorkflowOrchestrator _workflowOrchestrator;
 
     public ReviseSpecAssumptionsUseCase(
         AppDbContext db,
         BAConversationLog conversationLog,
         BAAgentResolver agentResolver,
+        IProjectArtifactCatalog artifactCatalog,
         IWorkflowOrchestrator workflowOrchestrator)
     {
         _db = db;
         _conversationLog = conversationLog;
         _agentResolver = agentResolver;
+        _artifactCatalog = artifactCatalog;
         _workflowOrchestrator = workflowOrchestrator;
     }
 
@@ -61,7 +70,9 @@ public class ReviseSpecAssumptionsUseCase
         if (clean.Count == 0)
             return ReviseAssumptionsResult.NoNotes;
 
-        var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
+        var project = await _db.Projects
+            .Include(x => x.Documents)
+            .FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
         if (project == null)
             return ReviseAssumptionsResult.ProjectNotFound;
 
@@ -82,6 +93,17 @@ public class ReviseSpecAssumptionsUseCase
         project.SpecAssumptionCorrections = merged.Length > MaxCorrectionChars
             ? merged[^MaxCorrectionChars..]
             : merged;
+
+        // Phần user KHÔNG bác trong danh sách đang chờ = phần họ đã duyệt đúng ⇒ nhớ lại để lượt sinh mới
+        // không hỏi lại. Đồng thời QUÊN các điểm vừa bị bác: một giả định từng được duyệt ở vòng trước mà
+        // nay user đổi ý thì phải rời trí nhớ, nếu không nó vĩnh viễn không được hỏi lại nữa.
+        var rejected = clean.Select(c => c.Assumption).ToList();
+        var rejectedKeys = rejected.Select(AssumptionMemory.Key).ToHashSet();
+        var specContent = ProjectDocumentLookup.GetContent(project, _artifactCatalog.AiDesignSpec.FileName, version);
+        var stillOk = SpecAssumptionsParser.Parse(specContent)
+            .Where(a => !rejectedKeys.Contains(AssumptionMemory.Key(a)))
+            .ToList();
+        project.ConfirmedAssumptions = AssumptionMemory.Remember(project.ConfirmedAssumptions, stillOk, rejected);
 
         // Gỡ cổng trước khi enqueue (như nhánh xác nhận): tránh hai lượt sinh lại chồng nhau.
         project.PendingAssumptionsVersion = null;

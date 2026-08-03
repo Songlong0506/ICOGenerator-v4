@@ -1571,6 +1571,24 @@
     resize: vertical;
 }
 
+/* Khối "đã xác nhận ở vòng trước": gấp lại và làm nhạt đi để mắt rơi vào phần MỚI trước — nó có mặt chỉ
+   để user đổi ý được, không phải để hỏi lại. */
+.assumption-reviewed { margin-top: 10px; }
+
+.assumption-reviewed > summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: #6b7280;
+    padding: 6px 2px;
+    user-select: none;
+}
+
+.assumption-reviewed > summary:hover { color: #374151; }
+
+.assumption-reviewed .assumption-list.gate { margin-top: 8px; }
+
+.assumption-reviewed .assumption-gate-item { background: #fafafa; opacity: .85; }
+
 .assumption-gate-bar {
     margin-top: 12px;
     display: flex;

@@ -148,6 +148,15 @@
     // danh sách giả định. Panel giả định lúc này đổi từ "để tham khảo" sang "cổng có nút bấm" — đây là
     // chặn cuối cùng trước lượt dựng POC (lượt đắt nhất tuyến).
     var pendingAssumptions = !string.IsNullOrEmpty(Model.PendingAssumptionsVersion);
+    // Tách danh sách giả định thành "mới" và "user đã duyệt ở vòng trước" (Project.ConfirmedAssumptions).
+    // Mỗi lần user bác một điểm là spec được sinh LẠI, và spec mới lặp lại gần như nguyên văn các giả
+    // định cũ — hỏi lại cả danh sách thì đúng nghĩa "tôi trả lời rồi mà BA cứ hỏi". Cổng chỉ đặt câu hỏi
+    // ở phần MỚI; phần đã duyệt vẫn hiện nhưng gấp lại (đổi ý được, chỉ là không bị bắt trả lời lại).
+    var confirmedAssumptionKeys = ICOGenerator.Services.Requirements.AssumptionMemory.KeySet(Model.ConfirmedAssumptions);
+    var newAssumptions = specAssumptions
+        .Where(a => !confirmedAssumptionKeys.Contains(ICOGenerator.Services.Requirements.AssumptionMemory.Key(a)))
+        .ToList();
+    var reviewedAssumptions = specAssumptions.Except(newAssumptions).ToList();
 
     // Stepper hành trình: user nghiệp vụ cần biết đang ở chặng nào và còn gì phía trước (trước đây trang
     // chỉ có tiêu đề "Requirements" nên "Write Requirement" khác "Approve" ra sao là phải đoán).
@@ -766,16 +775,29 @@
                         <span class="assumption-gate-title">
                             Giả định cần xác nhận @(string.IsNullOrEmpty(specVersion) ? "" : $"({specVersion})")
                         </span>
-                        <span class="assumption-gate-count">@specAssumptions.Count điểm</span>
+                        <span class="assumption-gate-count">@newAssumptions.Count điểm</span>
                     </div>
                     <div class="assumption-gate-hint">
                         <b>Bản demo chưa được dựng — đang chờ anh/chị ở bước này.</b>
-                        Bản mô tả không nói rõ mấy điểm dưới đây nên BA đã tự quyết. Rà nhanh giúp mình:
+                        @if (reviewedAssumptions.Any())
+                        {
+                            <text>
+                                Các điểm anh/chị đã xác nhận trước đó mình giữ nguyên, không hỏi lại.
+                                @if (newAssumptions.Any())
+                                {
+                                    <text>Chỉ còn <b>@newAssumptions.Count điểm mới</b> cần rà:</text>
+                                }
+                            </text>
+                        }
+                        else
+                        {
+                            <text>Bản mô tả không nói rõ mấy điểm dưới đây nên BA đã tự quyết. Rà nhanh giúp mình:</text>
+                        }
                         điểm nào <b>chưa đúng</b> thì đánh dấu và ghi ý đúng, xong bấm nút bên dưới —
                         sửa ở đây chỉ mất vài giây, phát hiện sau khi xem demo thì phải dựng lại cả bản.
                     </div>
                     <ul class="assumption-list gate">
-                        @foreach (var assumption in specAssumptions)
+                        @foreach (var assumption in newAssumptions)
                         {
                             <li class="assumption-gate-item" data-assumption="@assumption">
                                 <div class="assumption-gate-text">@assumption</div>
@@ -788,6 +810,28 @@
                             </li>
                         }
                     </ul>
+                    @* Phần user đã bấm "Đúng" ở vòng trước: gấp lại thay vì bỏ hẳn — không hỏi lại nhưng
+                       vẫn cho đổi ý (markup y hệt nên initAssumptionGate coi chúng như mọi mục khác). *@
+                    @if (reviewedAssumptions.Any())
+                    {
+                        <details class="assumption-reviewed">
+                            <summary>@reviewedAssumptions.Count điểm anh/chị đã xác nhận trước đó — bấm để xem/đổi ý</summary>
+                            <ul class="assumption-list gate">
+                                @foreach (var assumption in reviewedAssumptions)
+                                {
+                                    <li class="assumption-gate-item" data-assumption="@assumption">
+                                        <div class="assumption-gate-text">@assumption</div>
+                                        <div class="assumption-gate-actions">
+                                            <button type="button" class="assumption-vote ok is-on" data-vote="ok">Đúng</button>
+                                            <button type="button" class="assumption-vote bad" data-vote="bad">Chưa đúng</button>
+                                        </div>
+                                        <textarea class="assumption-fix" rows="2" hidden
+                                                  placeholder="Đúng ra là… (ghi ngắn gọn, có thể bỏ trống)"></textarea>
+                                    </li>
+                                }
+                            </ul>
+                        </details>
+                    }
                     <div class="assumption-gate-bar">
                         <button type="button" class="btn primary" id="assumptionConfirmBtn">
                             ✓ Tất cả đúng — dựng bản demo
