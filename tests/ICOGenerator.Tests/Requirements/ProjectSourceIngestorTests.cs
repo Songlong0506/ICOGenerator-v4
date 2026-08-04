@@ -1,3 +1,4 @@
+using DocumentFormat.OpenXml.Packaging;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Requirements;
@@ -152,6 +153,64 @@ public class ProjectSourceIngestorTests : IDisposable
     }
 
     [Fact]
+    public async Task IngestAsync_WordDocumentWithEmbeddedImage_ExtractsFigure_AndIsVisionSource()
+    {
+        // Tài liệu kỹ thuật hay nhét screenshot/sơ đồ vào ảnh nhúng — phải lấy ra figure-{n}.png cạnh file
+        // gốc cho model vision, thay vì chỉ bóc text rồi mất trắng phần hình.
+        var ingestor = NewIngestor();
+        var docx = BuildDocxWithLargeImage("Màn hình nhập kho như sau:");
+        using var ms = new MemoryStream(docx);
+
+        var entity = await ingestor.IngestAsync(
+            Guid.NewGuid(), "proj-key", "tai-lieu-ky-thuat.docx", null, docx.Length, ms, "tester");
+
+        Assert.Equal(SourceFileKind.Document, entity.Kind);
+        Assert.Equal(1, entity.ScannedPageImageCount);
+        Assert.True(entity.IsVisionSource);
+        Assert.NotNull(entity.ExtractedText);
+        Assert.Contains("[Hình 1", entity.ExtractedText);
+        Assert.True(File.Exists(Path.Combine(Path.GetDirectoryName(entity.StoredPath)!, "figure-1.png")));
+    }
+
+    [Fact]
+    public void SourceContextBuilder_WordWithFigures_AttachesThemInOrder_OnlyWhenVision()
+    {
+        // Hình bóc từ Word phải đi theo SỐ THỨ TỰ (figure-10 không nhảy lên trước figure-2) và chỉ khi
+        // model có vision — như ảnh trang PDF scan.
+        var dir = Path.Combine(_root, "word-src");
+        Directory.CreateDirectory(dir);
+        foreach (var n in new[] { 1, 2, 10 })
+            File.WriteAllBytes(Path.Combine(dir, $"figure-{n}.png"), OnePixelPng);
+
+        var source = new ICOGenerator.Domain.ProjectSourceFile
+        {
+            Kind = SourceFileKind.Document,
+            FileName = "tai-lieu.docx",
+            ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            StoredPath = Path.Combine(dir, "tai-lieu.docx"),
+            ExtractedText = "Quy trình nhập kho. [Hình 1 — trích từ tài liệu, gửi kèm dưới dạng ảnh]",
+            ScannedPageImageCount = 3,
+            IsVisionSource = true
+        };
+
+        var config = new ConfigurationBuilder().Build();
+        var builder = new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance);
+
+        var withVision = builder.Build(new[] { source }, modelSupportsVision: true);
+        var noVision = builder.Build(new[] { source }, modelSupportsVision: false);
+
+        Assert.Equal(3, withVision.OfType<Microsoft.Extensions.AI.DataContent>().Count());
+        Assert.DoesNotContain(noVision, c => c is Microsoft.Extensions.AI.DataContent);
+
+        // Vision: được mời xem ảnh đính kèm; không vision: phải nói thẳng hình không được gửi để model
+        // không bịa nội dung theo các mốc [Hình n] trong text.
+        var visionText = string.Concat(withVision.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        Assert.Contains("xem ảnh đính kèm", visionText);
+        var noVisionText = string.Concat(noVision.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        Assert.Contains("KHÔNG đọc được ảnh", noVisionText);
+    }
+
+    [Fact]
     public async Task IngestAsync_TextPdf_HasNoScannedPageImages()
     {
         // PDF bóc được text thì không có trang scan nào ⇒ không lấy ảnh trang, không thành nguồn vision.
@@ -222,6 +281,40 @@ public class ProjectSourceIngestorTests : IDisposable
                         new DocumentFormat.OpenXml.Wordprocessing.Run(
                             new DocumentFormat.OpenXml.Wordprocessing.Text(cell)))));
             body.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.Table(row));
+            main.Document.Save();
+        }
+        return ms.ToArray();
+    }
+
+    // Docx có một đoạn văn + một ảnh PNG lớn nhúng qua Drawing → Blip (extractor tìm Blip ở mọi độ sâu).
+    // PNG chỉ cần header hợp lệ với width/height đủ lớn — extractor không decode ảnh.
+    private static byte[] BuildDocxWithLargeImage(string paragraph)
+    {
+        var png = new byte[64];
+        new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }.CopyTo(png, 0);
+        png[11] = 13;
+        System.Text.Encoding.ASCII.GetBytes("IHDR").CopyTo(png, 12);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(png.AsSpan(16, 4), 800);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(png.AsSpan(20, 4), 600);
+
+        using var ms = new MemoryStream();
+        using (var doc = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Create(
+                   ms, DocumentFormat.OpenXml.WordprocessingDocumentType.Document))
+        {
+            var main = doc.AddMainDocumentPart();
+            main.Document = new DocumentFormat.OpenXml.Wordprocessing.Document();
+            var body = main.Document.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.Body());
+            body.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.Paragraph(
+                new DocumentFormat.OpenXml.Wordprocessing.Run(
+                    new DocumentFormat.OpenXml.Wordprocessing.Text(paragraph))));
+
+            var part = main.AddImagePart("image/png");
+            using (var stream = new MemoryStream(png))
+                part.FeedData(stream);
+            body.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.Paragraph(
+                new DocumentFormat.OpenXml.Wordprocessing.Run(
+                    new DocumentFormat.OpenXml.Wordprocessing.Drawing(
+                        new DocumentFormat.OpenXml.Drawing.Blip { Embed = main.GetIdOfPart(part) }))));
             main.Document.Save();
         }
         return ms.ToArray();
