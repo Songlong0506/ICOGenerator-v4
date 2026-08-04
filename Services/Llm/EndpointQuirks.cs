@@ -30,12 +30,30 @@ internal static class EndpointQuirks
     public static bool RejectedResponseFormat(LlmCallResult result) =>
         !result.IsSuccess && result.ResponseText.Contains("response_format", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Request KHÔNG tới được model: chết ở tầng truyền tải, không có mã HTTP nào (xem
+    /// <see cref="LlmCallResult.TransportFailure"/>). Với một lượt CÓ ẢNH, thủ phạm gần như luôn là KÍCH
+    /// THƯỚC body — ảnh đi trên dây dưới dạng base64 nên một tài liệu Word vài hình chụp màn hình đẩy
+    /// request lên hàng chục MB, vượt trần body của gateway/proxy đứng trước endpoint (nginx mặc định
+    /// 1MB); bên kia đóng thẳng kết nối nên không có phản hồi nào để đọc lý do. Lượt chat text thuần chỉ
+    /// vài chục KB nên vẫn chạy ngon — đó chính là hình dạng "gửi tin thì được, đính kèm file thì lỗi".
+    /// Bỏ ảnh gửi lại là cách duy nhất còn cứu được lượt đó.
+    /// </summary>
+    public static bool RequestNeverReachedModel(LlmCallResult result) =>
+        !result.IsSuccess && result.TransportFailure;
+
     public static bool ContainsImageContent(IEnumerable<ChatMessage> messages) =>
         messages.Any(HasImage);
 
     /// <summary>
     /// Bản sao hội thoại đã bỏ mọi phần ảnh, để thử lại trên NGỮ CẢNH TEXT thay vì hỏng cả lượt. Lượt nào
     /// chỉ có ảnh được thay bằng một dòng ghi chú, vì message rỗng content thì endpoint cũng từ chối.
+    ///
+    /// Message nào MẤT ảnh đều được đính thêm một dòng ĐÍNH CHÍNH. Bắt buộc, vì phần chữ do
+    /// <c>SourceContextBuilder</c> dựng đã trót nói "kèm 12 hình dưới dạng ẢNH — xem nội dung ảnh đính
+    /// kèm": để nguyên câu đó mà không gửi tấm nào là mời model bịa ra nội dung 12 hình không tồn tại, rồi
+    /// bản bịa ấy chảy thẳng vào Product Brief. Đính chính đứng CUỐI message để nó ghi đè ấn tượng của
+    /// những câu phía trên.
     /// </summary>
     public static List<ChatMessage> WithoutImageContent(IEnumerable<ChatMessage> messages) =>
         messages.Select(m =>
@@ -44,8 +62,12 @@ internal static class EndpointQuirks
                 return m;
 
             var kept = m.Contents.Where(c => c is not DataContent and not UriContent).ToList();
-            if (kept.Count == 0)
-                kept.Add(new TextContent("(ảnh đính kèm bị bỏ qua vì model không nhận ảnh)"));
+            kept.Add(new TextContent(
+                "\n\n[ĐÍNH CHÍNH — ĐỌC TRƯỚC KHI TRẢ LỜI] Các ẢNH nhắc tới ở trên rốt cuộc KHÔNG gửi kèm "
+                + "được lượt này (endpoint không nhận ảnh, hoặc gói tin quá lớn). Bạn KHÔNG nhìn thấy hình "
+                + "nào cả. TUYỆT ĐỐI không mô tả, không suy đoán nội dung bất kỳ hình nào: chỉ dùng phần "
+                + "CHỮ có ở trên, và nói thẳng với người dùng rằng phần hình chưa đọc được, mời họ gõ lại "
+                + "hoặc gửi từng ảnh riêng."));
             return new ChatMessage(m.Role, kept);
         }).ToList();
 

@@ -45,7 +45,13 @@ public class SourceContextBuilder
     {
         _logger = logger;
         _maxImages = configuration.GetValue("Llm:SourceUpload:MaxImagesPerCall", 12);
-        _maxTotalImageBytes = configuration.GetValue("Llm:SourceUpload:MaxTotalImageBytes", 20L * 1024 * 1024);
+        // Trần TỔNG dung lượng ảnh một lượt gọi. Đây KHÔNG phải trần tiết kiệm token (việc đó do
+        // MaxImagesPerCall + VisionSummary lo) mà là trần KÍCH THƯỚC GÓI TIN: ảnh đi trên dây dưới dạng
+        // base64 (+33%) trong MỘT request JSON, nên trần cao vô tội vạ không làm model kêu — nó làm
+        // gateway/proxy trước endpoint đóng thẳng kết nối giữa lúc đẩy body, và lời gọi chết mà không có
+        // mã HTTP nào để đọc lý do (xem EndpointQuirks.RequestNeverReachedModel). 4MB ⇒ body ~5.5MB, lọt
+        // qua hầu hết cấu hình mặc định; nâng lên khi biết chắc endpoint nhận body lớn hơn.
+        _maxTotalImageBytes = configuration.GetValue("Llm:SourceUpload:MaxTotalImageBytes", 4L * 1024 * 1024);
         _maxTextCharsPerFile = configuration.GetValue("Llm:SourceUpload:MaxTextCharsPerFile", 20000);
     }
 

@@ -58,14 +58,10 @@ public class LlmClient : ILlmClient
     {
         var result = await StreamOnceAsync(model, messages, temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
 
-        // A model configured SupportsVision=true whose endpoint is actually text-only (e.g. DeepSeek) rejects
-        // image parts with HTTP 400 "unknown variant `image_url`, expected `text`". Retry once without the
-        // images so the turn survives on the text context; the real fix is unticking SupportsVision on the
-        // Models page, which the warning points at.
-        if (EndpointQuirks.RejectedImageContent(result) && EndpointQuirks.ContainsImageContent(messages))
+        if (ShouldRetryWithoutImages(model, messages, result))
         {
-            LogVisionMisconfigured(model);
             result = await StreamOnceAsync(model, EndpointQuirks.WithoutImageContent(messages), temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
+            result.ImagesDropped = true;
         }
 
         return result;
@@ -126,16 +122,17 @@ public class LlmClient : ILlmClient
             // deadline-bounded, token-capped and logged identically.
             var response = await pipeline.Client.GetResponseAsync<T>(messages, options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            // Same text-only-endpoint fallback as ChatWithLogAsync (the middleware swallows the 400, so it
-            // surfaces here as a captured failure rather than an exception).
-            if (EndpointQuirks.RejectedImageContent(pipeline.Result) && EndpointQuirks.ContainsImageContent(messages))
+            // Same drop-the-images fallback as ChatWithLogAsync (the middleware swallows the failure, so it
+            // surfaces here as a captured result rather than an exception).
+            var droppedImages = ShouldRetryWithoutImages(model, messages, pipeline.Result);
+            if (droppedImages)
             {
-                LogVisionMisconfigured(model);
                 pipeline.Reset();
                 response = await pipeline.Client.GetResponseAsync<T>(EndpointQuirks.WithoutImageContent(messages), options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
 
             var result = pipeline.Result;
+            result.ImagesDropped = droppedImages;
 
             // Endpoint accepts chat but not json_schema — DeepSeek answers 400 "This response_format type is
             // unavailable now". The middleware swallows it into a failed result rather than throwing, so
@@ -161,12 +158,51 @@ public class LlmClient : ILlmClient
             // alive: reuse the captured result if the call reached the model, else do a plain call so the
             // caller can still parse text.
             _logger.LogWarning(ex, "Structured output for {ModelId} failed; falling back to manual parse.", model.ModelId);
-            // Don't hand back a captured image-rejection failure: the plain path below retries it text-only.
-            if (pipeline.HasResult && !(EndpointQuirks.RejectedImageContent(pipeline.Result) && EndpointQuirks.ContainsImageContent(messages)))
+            // Don't hand back a captured failure the images are to blame for: the plain path below retries
+            // it text-only (and flags ImagesDropped on the way).
+            if (pipeline.HasResult && ImageDropReason(messages, pipeline.Result) == null)
                 return (pipeline.Result, null);
 
             var plain = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
             return (plain, null);
+        }
+    }
+
+    // ── Gửi lại KHÔNG kèm ảnh ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Vì sao lượt CÓ ẢNH này đáng được gửi lại mà bỏ phần ảnh (null = không đáng). Hai lý do, và cả hai
+    /// đều KHÔNG cứu được bằng cách thử lại y nguyên:
+    /// <list type="bullet">
+    ///   <item>endpoint từ chối thẳng content ảnh (model bị tick nhầm SupportsVision);</item>
+    ///   <item>request chết ở tầng truyền tải, không có mã HTTP nào — với lượt mang ảnh thì gần như luôn là
+    ///         body base64 quá lớn so với trần của gateway/proxy (xem
+    ///         <see cref="EndpointQuirks.RequestNeverReachedModel"/>).</item>
+    /// </list>
+    /// Cả hai đều chỉ đáng thử lại khi lượt THẬT SỰ có ảnh — bỏ ảnh khỏi một lượt text thuần thì lần hai
+    /// giống hệt lần một, chỉ tốn thêm một round-trip.
+    /// </summary>
+    private static string? ImageDropReason(IEnumerable<ChatMessage> messages, LlmCallResult result)
+    {
+        if (!EndpointQuirks.ContainsImageContent(messages))
+            return null;
+        if (EndpointQuirks.RejectedImageContent(result))
+            return "vision";
+        return EndpointQuirks.RequestNeverReachedModel(result) ? "transport" : null;
+    }
+
+    private bool ShouldRetryWithoutImages(AiModel model, IEnumerable<ChatMessage> messages, LlmCallResult result)
+    {
+        switch (ImageDropReason(messages, result))
+        {
+            case "vision":
+                LogVisionMisconfigured(model);
+                return true;
+            case "transport":
+                LogPayloadUndeliverable(model, result);
+                return true;
+            default:
+                return false;
         }
     }
 
@@ -193,6 +229,14 @@ public class LlmClient : ILlmClient
             + "Hãy hạ mức Structured Output của model này ở trang Models để hết vòng gọi thừa. Lỗi: {Error}",
             model.ModelId, mode, result.ResponseText);
 
+    private void LogPayloadUndeliverable(AiModel model, LlmCallResult result) =>
+        _logger.LogWarning(
+            "Lời gọi có ẢNH tới {ModelId} không tới được endpoint (lỗi tầng truyền tải, không có mã HTTP) — "
+            + "gửi lại KHÔNG kèm ảnh. Ảnh đi trên dây dưới dạng base64 nên vài hình chụp màn hình đã đủ đẩy "
+            + "request lên hàng chục MB; nếu lỗi này lặp lại, hạ Llm:SourceUpload:MaxTotalImageBytes / "
+            + "MaxImagesPerCall cho khớp trần body của gateway trước endpoint. Lỗi: {Error}",
+            model.ModelId, result.ErrorMessage);
+
     private void LogVisionMisconfigured(AiModel model) =>
         _logger.LogWarning(
             "Model {ModelId} từ chối content ảnh (image_url) dù SupportsVision đang bật — thử lại không kèm ảnh. Tắt SupportsVision cho model này ở trang Models để hết cảnh báo.",
@@ -212,6 +256,23 @@ public class LlmCallResult
     public long DurationMs { get; set; }
     public int? HttpStatusCode { get; set; }
     public bool IsSuccess { get; set; }
+
+    /// <summary>
+    /// Lời gọi chết ở tầng TRUYỀN TẢI: request không hề tới được model (kết nối bị từ chối, bị đứt giữa lúc
+    /// đẩy body, DNS/TLS hỏng) nên KHÔNG có mã HTTP nào. Khác hẳn "model/endpoint trả lỗi" — chỗ đó có
+    /// <see cref="HttpStatusCode"/> và một thông điệp nói rõ tham số nào sai. Phân biệt được hai thứ này là
+    /// điều kiện để <see cref="LlmClient"/> biết khi nào nên gửi lại lượt mà BỎ phần ảnh: body vài chục MB
+    /// base64 bị proxy/gateway chặn cũng rơi vào đây, và đó là lượt duy nhất còn cứu được bằng cách bỏ ảnh.
+    /// </summary>
+    public bool TransportFailure { get; set; }
+
+    /// <summary>
+    /// Lượt này rốt cuộc đi ra KHÔNG kèm ảnh dù caller có gửi ảnh (endpoint từ chối content ảnh, hoặc body
+    /// quá lớn nên phải gửi lại bản text). Caller PHẢI xem cờ này trước khi "khóa" nội dung hình thành chữ
+    /// (<c>ProjectSourceFile.VisionSummary</c>): model chưa hề nhìn thấy tấm nào, mọi mô tả hình ở lượt này
+    /// là bịa — khóa lại là mất vĩnh viễn đường nhìn lại ảnh.
+    /// </summary>
+    public bool ImagesDropped { get; set; }
 
     /// <summary>
     /// Các ẢNH thực sự đi kèm lượt gọi này, theo đúng thứ tự chúng nằm trong <see cref="RequestJson"/>.

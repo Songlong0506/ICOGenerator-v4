@@ -795,7 +795,14 @@ public class BAChatService
             // kèm như trước — tốn token nhưng không mất nội dung, đó mới là thứ không được phép hỏng.
             var notes = parsed?.SourceNotes
                 ?? LlmJson.TryDeserialize<BASourceAckReply>(callResult?.Content, requireKnownProperty: true)?.SourceNotes;
-            await StoreVisionSummariesAsync(sourceContents.FullyAttachedSourceIds, sources, notes, cancellationToken);
+            // Lượt vừa rồi rốt cuộc đi ra KHÔNG kèm ảnh (endpoint chặn content ảnh, hoặc body quá lớn nên
+            // LlmClient gửi lại bản text) ⇒ model chưa hề nhìn thấy tấm nào, mọi "mô tả hình" nó viết ra là
+            // bịa. Khóa bản bịa đó vào VisionSummary là mất VĨNH VIỄN đường nhìn lại ảnh — thà để nguyên,
+            // lượt sau ảnh vẫn được ưu tiên hạn mức.
+            var attachedIds = callResult is { ImagesDropped: true }
+                ? Array.Empty<Guid>()
+                : sourceContents.FullyAttachedSourceIds;
+            await StoreVisionSummariesAsync(attachedIds, sources, notes, cancellationToken);
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

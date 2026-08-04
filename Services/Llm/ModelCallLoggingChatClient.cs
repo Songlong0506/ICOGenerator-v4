@@ -1,5 +1,6 @@
 using System.ClientModel;
 using System.Diagnostics;
+using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -241,6 +242,8 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
                 result.ErrorMessage = ex.Message;
                 result.Content = ex.Message;
                 result.ResponseText = ex.Message;
+                // Request không tới được model (kết nối đứt/bị chặn) — xem LlmCallResult.TransportFailure.
+                result.TransportFailure = IsTransportFailure(ex);
                 break;
         }
         result.CompletionTokens = TokenEstimator.Estimate(result.Content);
@@ -249,6 +252,18 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         _options.OnProgress?.Invoke("error", "Lời gọi LLM thất bại.", result.ErrorMessage);
         await CompleteAsync(result, step).ConfigureAwait(false);
     }
+
+    // Lỗi TẦNG TRUYỀN TẢI hay lỗi logic? Không có mã HTTP là chưa đủ để kết luận: hỏng khi dựng schema,
+    // SDK ném InvalidOperationException… cũng không có mã. Ở đây soi ĐÚNG họ exception của tầng mạng.
+    // Phải đi hết cây exception vì chính sách retry của System.ClientModel gói các lần thử vào một
+    // AggregateException ("Retry failed after 4 tries. (…) (…)") — đó là hình dạng thật của một endpoint
+    // đang chặn request, và nếu chỉ nhìn lớp ngoài thì không nhận ra.
+    private static bool IsTransportFailure(Exception ex) => ex switch
+    {
+        HttpRequestException or SocketException or IOException => true,
+        AggregateException aggregate => aggregate.InnerExceptions.Any(IsTransportFailure),
+        _ => ex.InnerException is { } inner && IsTransportFailure(inner),
+    };
 
     // A failed call ends the run on the agent path; the chat/eval paths keep the failure on the result and
     // let the caller decide (fallback parse, error turn in the UI).
