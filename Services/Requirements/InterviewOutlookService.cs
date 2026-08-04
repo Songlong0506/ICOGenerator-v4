@@ -12,8 +12,9 @@ namespace ICOGenerator.Services.Requirements;
 /// <summary>
 /// "Triển vọng phỏng vấn" của MỘT dự án — chắt lọc từ hội thoại trong MỘT lời gọi LLM (thay vì ba) ba danh
 /// sách bổ trợ cho <see cref="DecisionLogService"/> ("Điều đã chốt"):
-///  • <b>OpenQuestions</b> — điểm còn mơ hồ/mâu thuẫn chưa chốt: đối trọng với "Điều đã chốt", cho user thấy
-///    chỗ tài liệu còn mỏng (mục được chốt thì tự rời danh sách ở lượt sau).
+///  • <b>OpenQuestions</b> — điểm còn mơ hồ/mâu thuẫn chưa chốt: TỒN ĐỌNG câu hỏi được nạp vào ngữ cảnh lượt
+///    chat sau (<see cref="BAChatService"/>) để BA hỏi cho hết ngay trong khung chat, không hiện thành panel
+///    bắt user tự đọc (mục được chốt thì tự rời danh sách ở lượt sau).
 ///  • <b>PlannedScope</b> — các màn hình/tính năng dự kiến, dựng dần để user bắt hiểu nhầm sớm ("Sẽ xây gì").
 ///  • <b>WorkedExamples</b> — các ví dụ tính thử người dùng ĐÃ xác nhận cho quy tắc định lượng; nguồn để bước
 ///    sinh AI Design Spec đúc thành "## 13. Worked Examples" và POC tự kiểm (window.pocWorkedExamples) đối
