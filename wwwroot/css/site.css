@@ -692,7 +692,10 @@ input[readonly]:focus, textarea[readonly]:focus {
 label:has(+ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"])),
 label:has(+ textarea),
 label:has(+ select) {
-    margin: 16px 0 0;
+    /* Lead 16px tách field này với field phía trên khi form xếp dọc. Layout tự quản
+       khoảng cách bằng flex/gap (filter bar) đặt --field-caption-lead: 0 trên container
+       — biến kế thừa nên không phải đấu specificity với :has() ở rule này. */
+    margin: var(--field-caption-lead, 16px) 0 0;
     padding: 7px 12px 2px;
     font-size: 11px;
     font-weight: 400;
@@ -1157,9 +1160,8 @@ input[type="week"] {
 }
 
 /* ---------- Filter bar layout (used by list/log filters) ---------- */
-.filter-bar { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
-.filter-field { display: flex; flex-direction: column; gap: 0; min-width: 200px; }
-.filter-field > label { margin: 0; }
+.filter-bar { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; --field-caption-lead: 0; }
+.filter-field { display: flex; flex-direction: column; gap: 0; min-width: 200px; --field-caption-lead: 0; }
 .filter-actions { display: flex; align-items: center; gap: 8px; }
 
 /* ---------- Data table ---------- */
