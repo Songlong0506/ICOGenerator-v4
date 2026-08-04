@@ -23,11 +23,16 @@ public class GetRequirementWorkspaceQuery
 {
     private readonly AppDbContext _db;
     private readonly ICOGenerator.Services.Artifacts.IProjectArtifactCatalog _artifactCatalog;
+    private readonly CoverageChecklist _coverageChecklist;
 
-    public GetRequirementWorkspaceQuery(AppDbContext db, ICOGenerator.Services.Artifacts.IProjectArtifactCatalog artifactCatalog)
+    public GetRequirementWorkspaceQuery(
+        AppDbContext db,
+        ICOGenerator.Services.Artifacts.IProjectArtifactCatalog artifactCatalog,
+        CoverageChecklist coverageChecklist)
     {
         _db = db;
         _artifactCatalog = artifactCatalog;
+        _coverageChecklist = coverageChecklist;
     }
 
     public async Task<RequirementWorkspaceResult?> ExecuteAsync(Guid projectId, string? version = null)
@@ -109,11 +114,18 @@ public class GetRequirementWorkspaceQuery
 
         // Panel tiến độ khai thác + "Điều đã chốt" cạnh khung chat: parse từ hai cột text trên Project
         // (đã nạp sẵn ở query trên — không thêm round-trip DB nào).
+        // CHƯA CÓ BẢN ĐỒ (dự án vừa tạo, hoặc vừa "New Chat" nên cột bị xoá về null) ⇒ trả KHUNG RỖNG đủ
+        // 12 nhóm [CHƯA HỎI] thay vì danh sách rỗng: panel hiện ngay từ lượt đầu để người dùng thấy cuộc
+        // phỏng vấn gồm những nhóm gì và có điểm dừng. Xem CoverageChecklist.
+        var coverage = CoverageMapParser.Parse(project.RequirementCoverageMap);
+        if (coverage.Count == 0)
+            coverage = _coverageChecklist.Skeleton();
+
         return new RequirementWorkspaceResult(
             project,
             selectedVersion ?? "draft",
             baSupportsVision,
-            CoverageMapParser.Parse(project.RequirementCoverageMap),
+            coverage,
             DecisionLogService.ParseItems(project.DecisionLog),
             InterviewOutlookService.ParseItems(project.OpenQuestions),
             InterviewOutlookService.ParseItems(project.PlannedScope),

@@ -381,10 +381,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (staleBox) staleBox.hidden = stale !== true;
         if (stale === true) panel.hidden = false;
 
+        // Bản đồ rỗng (lượt distill hỏng ở ngay lượt đầu) ⇒ giữ nguyên thứ đang hiện: với dự án mới đó là
+        // KHUNG 12 nhóm [CHƯA HỎI] server đã render (CoverageChecklist), xoá đi thì panel trống trơn.
         if (!Array.isArray(items) || items.length === 0) return;
 
-        const applicable = items.filter(x => x.status !== "KHÔNG ÁP DỤNG").length;
+        // Mẫu số là TỔNG số nhóm và nhóm "KHÔNG ÁP DỤNG" tính là đã xong cho thanh — khớp CoverageProgress
+        // ở server (Index.cshtml render lần đầu bằng đúng công thức này).
+        const total = items.length;
         const clear = items.filter(x => x.status === "RÕ").length;
+        const notApplicable = items.filter(x => x.status === "KHÔNG ÁP DỤNG").length;
 
         list.innerHTML = items.map(x => `
             <li class="coverage-item ${x.status === "KHÔNG ÁP DỤNG" ? "na" : ""}" data-label="${escapeHtml(x.label)}" title="${escapeHtml(x.summary || "")}">
@@ -398,9 +403,20 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         `).join("");
 
         const fill = document.getElementById("coverageBarFill");
-        if (fill) fill.style.width = applicable === 0 ? "0%" : `${Math.round(clear * 100 / applicable)}%`;
+        if (fill) fill.style.width = total === 0 ? "0%" : `${Math.round((clear + notApplicable) * 100 / total)}%`;
         const text = document.getElementById("coverageProgressText");
-        if (text) text.textContent = `Đã rõ ${clear}/${applicable} nhóm`;
+        if (text) text.textContent = `Đã rõ ${clear}/${total} nhóm`;
+
+        // Dòng "N nhóm không áp dụng" (chú thích cho các dòng ➖ và cho việc thanh đầy khi clear < total).
+        const na = document.getElementById("coverageNa");
+        const naCount = document.getElementById("coverageNaCount");
+        if (naCount) naCount.textContent = notApplicable;
+        if (na) na.hidden = notApplicable === 0;
+
+        // Ghi chú của khung rỗng chỉ đúng khi CHƯA nhóm nào được khai thác.
+        const hint = document.getElementById("coverageHint");
+        if (hint) hint.hidden = !items.every(x => x.status === "CHƯA HỎI");
+
         panel.hidden = false;
     }
 

@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Requirements;
 using Xunit;
 
@@ -45,8 +46,10 @@ public class CoverageMapParserTests
         Assert.Single(items);
     }
 
+    // Mẫu số KHÔNG rút theo [KHÔNG ÁP DỤNG]: thước đo phải đứng yên suốt cuộc phỏng vấn, nếu không con số
+    // đang chạy tự nhảy mốc ("0/12" → "1/9") mà người dùng không hiểu vì sao.
     [Fact]
-    public void Progress_ExcludesNotApplicableFromDenominator()
+    public void Progress_KeepsTotalAsDenominatorAndCountsNotApplicable()
     {
         var items = CoverageMapParser.Parse("""
             - A: [RÕ] x
@@ -54,9 +57,35 @@ public class CoverageMapParserTests
             - C: [KHÔNG ÁP DỤNG] z
             """);
 
-        var (clear, applicable) = CoverageMapParser.Progress(items);
+        var progress = CoverageMapParser.Progress(items);
 
-        Assert.Equal(1, clear);
-        Assert.Equal(2, applicable);
+        Assert.Equal(1, progress.Clear);
+        Assert.Equal(2, progress.Applicable);
+        Assert.Equal(3, progress.Total);
+        Assert.Equal(1, progress.NotApplicable);
+    }
+
+    // Bất biến "thanh đầy ⇔ nút Write Requirement mở khoá": cổng readiness chỉ đòi mọi dòng ÁP DỤNG lên
+    // [RÕ], nên nhóm [KHÔNG ÁP DỤNG] phải tính là đã xong — không thì thanh mãi không đầy trong khi nút
+    // đã sáng, đúng kiểu lệch mà cả UI lẫn tài liệu đang khẳng định là không thể xảy ra.
+    [Fact]
+    public void Percent_FullWhenEveryApplicableGroupIsClear()
+    {
+        var map = """
+            - A: [RÕ] x
+            - B: [RÕ] y
+            - C: [KHÔNG ÁP DỤNG] z
+            """;
+        var items = CoverageMapParser.Parse(map);
+
+        Assert.Equal(100, CoverageMapParser.Progress(items).Percent);
+        Assert.True(RequirementReadinessGate.Evaluate(map).Ready);
+    }
+
+    [Fact]
+    public void Percent_ZeroForEmptyMapAndFreshChecklist()
+    {
+        Assert.Equal(0, CoverageMapParser.Progress(Array.Empty<CoverageMapItem>()).Percent);
+        Assert.Equal(0, CoverageMapParser.Progress(CoverageMapParser.Parse("- A: [CHƯA HỎI]")).Percent);
     }
 }

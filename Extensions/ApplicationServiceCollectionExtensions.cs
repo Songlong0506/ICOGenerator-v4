@@ -679,6 +679,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ChecklistNoteStore>();
         services.AddScoped<ProjectDomainClassifier>();
         services.AddScoped<RequirementCoverageService>();
+        // Khung 12 nhóm rỗng cho panel tiến độ lúc dự án chưa có bản đồ — scoped theo PromptTemplateService
+        // (bản prompt có thể bị Prompt Studio ghi đè trong DB, nên khung phải đọc lại mỗi request).
+        services.AddScoped<CoverageChecklist>();
         services.AddScoped<DecisionLogService>();
         services.AddScoped<InterviewOutlookService>();
         services.AddScoped<RequirementConflictService>();
