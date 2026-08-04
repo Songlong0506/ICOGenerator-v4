@@ -805,3 +805,63 @@
         if (e.key === "Escape" && !modal.classList.contains("hidden")) closeShare();
     });
 })();
+
+// ==== Hộp thoại "Chi tiết kỹ thuật" (2 tab: vòng tự kiểm / đối chiếu spec) ====
+// Nội dung đã được server dựng sẵn trong DOM — ở đây chỉ có đóng/mở và đổi tab, không gọi mạng.
+// IIFE riêng, thoát sớm khi không có markup: hộp thoại chỉ dựng cho người có quyền DeliveryAdvance,
+// còn phần review cốt lõi phải chạy bình thường với mọi người xem.
+(function () {
+    "use strict";
+
+    const modal = document.getElementById("pocTechModal");
+    const openBtn = document.getElementById("pocTechOpen");
+    if (!modal || !openBtn) return;
+
+    const tabs = Array.from(modal.querySelectorAll(".poc-tech-tab"));
+
+    function selectTab(tab) {
+        if (!tab || tab.disabled) return;
+        tabs.forEach(t => {
+            const on = t === tab;
+            t.classList.toggle("active", on);
+            t.setAttribute("aria-selected", on ? "true" : "false");
+            document.getElementById(t.dataset.panel).classList.toggle("hidden", !on);
+        });
+        tab.focus();
+    }
+
+    tabs.forEach(tab => tab.addEventListener("click", () => selectTab(tab)));
+
+    // Mũi tên trái/phải giữa các tab (mẫu tablist chuẩn), bỏ qua tab bị vô hiệu.
+    modal.querySelector(".poc-tech-tabs").addEventListener("keydown", e => {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        const enabled = tabs.filter(t => !t.disabled);
+        if (enabled.length < 2) return;
+        const at = enabled.indexOf(document.activeElement);
+        if (at < 0) return;
+        e.preventDefault();
+        const step = e.key === "ArrowRight" ? 1 : -1;
+        selectTab(enabled[(at + step + enabled.length) % enabled.length]);
+    });
+
+    function openTech() {
+        modal.classList.remove("hidden");
+        openBtn.setAttribute("aria-expanded", "true");
+        const active = tabs.find(t => t.classList.contains("active") && !t.disabled) || tabs.find(t => !t.disabled);
+        if (active) active.focus();
+    }
+
+    function closeTech() {
+        modal.classList.add("hidden");
+        openBtn.setAttribute("aria-expanded", "false");
+        openBtn.focus();
+    }
+
+    openBtn.addEventListener("click", openTech);
+    document.getElementById("pocTechClose").addEventListener("click", closeTech);
+    document.getElementById("pocTechDone").addEventListener("click", closeTech);
+    modal.addEventListener("click", e => { if (e.target === modal) closeTech(); });
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape" && !modal.classList.contains("hidden")) closeTech();
+    });
+})();

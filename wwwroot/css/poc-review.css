@@ -247,7 +247,8 @@
 .uat-tour { margin-left: auto; }
 
 /* ==== Truy vết yêu cầu↔POC (U2): "Yêu cầu POC này bao phủ" ==== */
-.poc-coverage-panel .poc-cov-group { margin: 10px 0 4px; }
+.poc-coverage-panel .poc-cov-group,
+.poc-tech-panel .poc-cov-group { margin: 10px 0 4px; }
 
 .poc-cov-head { font-weight: 600; font-size: 12.5px; margin-bottom: 6px; }
 
@@ -281,6 +282,80 @@
 .poc-verif-issues { margin: 4px 0 0; padding-left: 18px; }
 
     .poc-verif-issues li { font-size: 12.5px; line-height: 1.5; }
+
+/* ==== Hộp thoại "Chi tiết kỹ thuật" (command bar → 2 tab) ====
+   Chứa phần nội dung dành cho đội delivery: vòng tự kiểm + đối chiếu spec. Rộng hơn modal mặc định
+   (480px) vì các dòng issue/rule là câu dài, và cao có trần + cuộn trong THÂN tab — tiêu đề với hàng
+   tab phải đứng yên khi danh sách issue dài. */
+.poc-tech-modal {
+    width: 760px;
+    max-width: calc(100vw - 48px);
+    text-align: left;
+}
+
+    .poc-tech-modal h2 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 2px;
+        padding-right: 28px; /* chừa chỗ cho nút × ở góc */
+    }
+
+    .poc-tech-modal h2 i { color: var(--bosch-blue); }
+
+.poc-tech-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 12px; }
+
+.poc-tech-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--surface, #fff);
+    border: 1px solid var(--line, #e5e7eb);
+    cursor: pointer;
+    width: auto;
+}
+
+    .poc-tech-tab:hover:not(:disabled) { background: var(--surface-hover, #f2f4f6); }
+
+    .poc-tech-tab.active {
+        color: #fff;
+        background: var(--bosch-blue);
+        border-color: var(--bosch-blue);
+    }
+
+    /* Tab không có dữ liệu (POC dựng trước tính năng tương ứng): hiện nhưng chặn bấm, để người xem hiểu
+       phần đó tồn tại chứ không phải hộp thoại bị thiếu. */
+    .poc-tech-tab:disabled { opacity: .45; cursor: not-allowed; }
+
+    .poc-tech-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.poc-tech-panel { max-height: min(60vh, 520px); overflow-y: auto; }
+
+    .poc-tech-panel > .poc-panel-hint:first-child { margin-top: 0; }
+
+/* Số điểm chưa đạt, dùng chung cho nút trên command bar và nhãn tab — tín hiệu DUY NHẤT còn sót lại
+   bên ngoài hộp thoại, để đội delivery không phải mở ra mới biết có gì cần xem. */
+.poc-tech-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    background: #b91c1c;
+    border-radius: 999px;
+}
+
+.poc-tech-tab.active .poc-tech-badge { background: rgba(255, 255, 255, .28); }
 
 /* ==== Nhật ký vòng sửa (changelog) ==== */
 
