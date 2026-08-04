@@ -22,10 +22,17 @@ internal static class ModelCallRequestPreview
         var isOpenAi = OpenAiCompatibility.IsOpenAiHost(OpenAiCompatibility.HostOf(model.Endpoint));
         var dropTemperature = isOpenAi && OpenAiCompatibility.IsReasoningModel(model.ModelId);
 
+        // Số thứ tự ảnh chạy suốt CẢ REQUEST (không reset theo từng message) để khớp một-một với thứ tự
+        // ModelCallImageCollector lưu file — lệch đánh số là bấm xem ảnh này lại ra ảnh khác.
+        var imageIndex = 0;
+        var previewMessages = messages
+            .Select(m => new { role = m.Role.Value, content = Content(m, ref imageIndex) })
+            .ToList();
+
         var node = JsonSerializer.SerializeToNode(new
         {
             model = model.ModelId,
-            messages = messages.Select(m => new { role = m.Role.Value, content = m.Text }),
+            messages = previewMessages,
             temperature = options.Temperature,
             max_tokens = maxTokens,
             // Không phải lúc nào cũng true: mức json_schema của structured output là một round-trip đơn.
@@ -47,6 +54,52 @@ internal static class ModelCallRequestPreview
             node["thinking"] = new JsonObject { ["type"] = "disabled" };
 
         return node.ToJsonString(SerializeOptions);
+    }
+
+    /// <summary>
+    /// Phần <c>content</c> của một message. Message toàn chữ giữ nguyên dạng CHUỖI như trước (UI "Dễ đọc"
+    /// và mọi log cũ đều dựa vào dạng đó). Message có ảnh mới chuyển sang dạng MẢNG các part.
+    ///
+    /// Phần ảnh cố tình chỉ ghi mô tả (tên, media type, số byte, số thứ tự) chứ KHÔNG nhúng base64: 12
+    /// screenshot của một tài liệu là ~1MB thô, tức ~1.3MB base64 mỗi dòng log trong một bảng mà BudgetGuard
+    /// quét trước mỗi lời gọi model. Bytes đi ra đĩa (xem <see cref="ModelCallImageStore"/>), ở đây chỉ giữ
+    /// <c>index</c> để UI xin lại đúng tấm ảnh.
+    /// </summary>
+    private static object Content(ChatMessage message, ref int imageIndex)
+    {
+        var parts = new List<object>();
+        var hasNonText = false;
+
+        foreach (var content in message.Contents)
+        {
+            switch (content)
+            {
+                case TextContent text:
+                    parts.Add(new { type = "text", text = text.Text });
+                    break;
+                case DataContent data when data.HasTopLevelMediaType("image"):
+                    hasNonText = true;
+                    parts.Add(new
+                    {
+                        type = "image",
+                        index = ++imageIndex,
+                        name = string.IsNullOrWhiteSpace(data.Name) ? $"image-{imageIndex}" : data.Name,
+                        mediaType = data.MediaType ?? "image/png",
+                        bytes = data.Data.Length,
+                    });
+                    break;
+                case DataContent data:
+                    hasNonText = true;
+                    parts.Add(new { type = "data", mediaType = data.MediaType ?? "application/octet-stream", bytes = data.Data.Length });
+                    break;
+                case UriContent uri:
+                    hasNonText = true;
+                    parts.Add(new { type = "uri", uri = uri.Uri.ToString(), mediaType = uri.MediaType });
+                    break;
+            }
+        }
+
+        return hasNonText ? parts : message.Text;
     }
 
     private static JsonObject? ResponseFormat(ChatResponseFormat? format) => format switch

@@ -155,6 +155,22 @@
 .log-json { background: var(--code-bg); color: var(--code-ink); padding: 16px; white-space: pre-wrap; overflow: auto; max-height: 60vh; font-size: 13px; }
 .hidden { display: none !important; }
 
+/* ===== Tab Request: ảnh đã gửi kèm lượt gọi ===== */
+.log-attachments { margin-bottom: 12px; }
+.la-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--slate-400); margin: 0 0 8px; }
+.log-attachment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.log-attachment { margin: 0; border: 1px solid var(--slate-800); border-radius: 10px; overflow: hidden; background: var(--code-bg); }
+.log-attachment img { display: block; width: 100%; height: 110px; object-fit: cover; object-position: top; background: var(--slate-900); }
+/* Nền thẻ là --code-bg (tối) nên phần chữ phải dùng --code-ink như .log-json, không để màu chữ mặc định
+   của trang — chữ đen trên nền navy là không đọc được. */
+.log-attachment figcaption { padding: 6px 8px; font-size: 11px; line-height: 1.4; color: var(--code-ink); border-top: 1px solid var(--slate-800); }
+.la-name { display: block; font-weight: 600; word-break: break-word; }
+.la-meta { display: block; color: var(--slate-400); }
+/* Ảnh không mở được: giấu khung ảnh, hiện lời giải thích — "không xem lại được" khác hẳn "không gửi ảnh". */
+.la-missing { display: none; margin: 0; padding: 10px 8px; font-size: 11px; color: var(--slate-400); }
+.log-attachment.is-missing a { display: none; }
+.log-attachment.is-missing .la-missing { display: block; }
+
 /* ===== Tab Request: nút chuyển đổi + hiển thị dạng dễ đọc ===== */
 .log-format-toggle { margin-left: auto; font-size: 13px; }
 .log-readable { background: var(--slate-900); color: var(--slate-200); border-radius: 12px; padding: 16px; overflow: auto; max-height: 60vh; font-size: 13px; }

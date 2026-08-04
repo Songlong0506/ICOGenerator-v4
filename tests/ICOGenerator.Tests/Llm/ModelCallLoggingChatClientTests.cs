@@ -1,8 +1,11 @@
 using System.Runtime.CompilerServices;
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Llm;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace ICOGenerator.Tests.Llm;
@@ -199,6 +202,48 @@ public class ModelCallLoggingChatClientTests
 
         Assert.Empty(logger.Logged);
         Assert.Null(inner.LastOptions);
+    }
+
+    [Fact]
+    public async Task ImagesInRequest_AreCollectedForTheLog_OnlyWhenAnImageStoreIsWired()
+    {
+        // Ảnh phải được gom TRƯỚC lời gọi và đi cùng LlmCallResult tới chỗ ghi log — kể cả lượt hỏng, vì đó
+        // đúng là lượt người ta mở call log ra soi. Không có store (đường agent/eval, vốn không gửi ảnh)
+        // thì không gom gì để khỏi copy bytes vô ích.
+        var messages = new[]
+        {
+            new ChatMessage(ChatRole.User, new List<AIContent>
+            {
+                new TextContent("xem ảnh này"),
+                new DataContent(new byte[] { 1, 2, 3 }, "image/png") { Name = "a.png" },
+            })
+        };
+
+        LlmCallResult? withStore = null;
+        var client = new ModelCallLoggingChatClient(
+            new FakeChatClient(streamChunks: new[] { "ok" }), Model(), new FakeModelCallLogger(), Ctx(),
+            Opts(throwOnFailure: false, onCompleted: r => withStore = r), ImageStore());
+        await foreach (var _ in client.GetStreamingResponseAsync(messages)) { }
+
+        LlmCallResult? withoutStore = null;
+        var bare = new ModelCallLoggingChatClient(
+            new FakeChatClient(streamChunks: new[] { "ok" }), Model(), new FakeModelCallLogger(), Ctx(),
+            Opts(throwOnFailure: false, onCompleted: r => withoutStore = r));
+        await foreach (var _ in bare.GetStreamingResponseAsync(messages)) { }
+
+        var image = Assert.Single(withStore!.RequestImages);
+        Assert.Equal("a.png", image.Name);
+        Assert.Equal(new byte[] { 1, 2, 3 }, image.Bytes);
+        Assert.Empty(withoutStore!.RequestImages);
+    }
+
+    private static ModelCallImageStore ImageStore()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["AgentWorkspace:RootPath"] = Path.GetTempPath() })
+            .Build();
+        return new ModelCallImageStore(
+            new WorkspacePathResolver(config), config, NullLogger<ModelCallImageStore>.Instance);
     }
 
     private sealed class FakeChatClient : IChatClient

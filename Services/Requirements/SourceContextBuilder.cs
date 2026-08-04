@@ -107,7 +107,7 @@ public class SourceContextBuilder
     private List<DataContent> TakeImages(ProjectSourceFile s, ref int imageCount, ref long imageBytes)
     {
         var images = new List<DataContent>();
-        foreach (var (path, mediaType) in EnumerateImageAssets(s))
+        foreach (var (path, mediaType, name) in EnumerateImageAssets(s))
         {
             if (imageCount >= _maxImages)
                 break;
@@ -118,7 +118,9 @@ public class SourceContextBuilder
                 var bytes = File.ReadAllBytes(path);
                 if (imageBytes + bytes.Length > _maxTotalImageBytes)
                     continue;
-                images.Add(new DataContent(bytes, mediaType));
+                // Name không đi tới model (phần ảnh của OpenAI không có chỗ cho tên file) — nó để CALL LOG
+                // gọi được tên tấm ảnh, thay vì một danh sách "image-1, image-2" không truy được về file nào.
+                images.Add(new DataContent(bytes, mediaType) { Name = name });
                 imageCount++;
                 imageBytes += bytes.Length;
             }
@@ -203,11 +205,11 @@ public class SourceContextBuilder
     // page-{n}.png cạnh file gốc), VÀ hình nhúng bóc từ Word (WordDocumentTextExtractor ghi figure-{n}.*).
     // Ảnh xếp theo SỐ THỨ TỰ chứ không theo thứ tự chuỗi, để trang/hình 10 không nhảy lên trước 2 —
     // model đọc một biểu mẫu nhiều trang cần đúng trình tự.
-    private static IEnumerable<(string Path, string MediaType)> EnumerateImageAssets(ProjectSourceFile s)
+    private static IEnumerable<(string Path, string MediaType, string Name)> EnumerateImageAssets(ProjectSourceFile s)
     {
         if (s.Kind == SourceFileKind.Image)
         {
-            yield return (s.StoredPath, string.IsNullOrWhiteSpace(s.ContentType) ? "image/png" : s.ContentType);
+            yield return (s.StoredPath, string.IsNullOrWhiteSpace(s.ContentType) ? "image/png" : s.ContentType, s.FileName);
             yield break;
         }
 
@@ -227,7 +229,7 @@ public class SourceContextBuilder
                 .OrderBy(x => x.Page);
 
             foreach (var page in pages)
-                yield return (page.Path, "image/png");
+                yield return (page.Path, "image/png", $"{s.FileName} › trang {page.Page}");
             yield break;
         }
 
@@ -238,7 +240,10 @@ public class SourceContextBuilder
             .OrderBy(x => x.Number);
 
         foreach (var figure in figures)
-            yield return (figure.Path, WordDocumentTextExtractor.MediaTypeForFigureFile(figure.Path));
+            yield return (
+                figure.Path,
+                WordDocumentTextExtractor.MediaTypeForFigureFile(figure.Path),
+                $"{s.FileName} › Hình {figure.Number}");
     }
 
     private static int ParseAssetNumber(string path, string prefix)
