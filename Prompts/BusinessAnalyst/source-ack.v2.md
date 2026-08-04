@@ -18,8 +18,9 @@ Cấu trúc:
    - vai trò người dùng, phòng ban, ca/kíp liên quan;
    - quy tắc, điều kiện, công thức, con số, đơn vị, trạng thái;
    - màn hình / biểu mẫu / báo cáo xuất hiện trong tài liệu.
-3. **Chỗ chưa chắc**: phần mờ, thiếu, mâu thuẫn, hoặc bạn phải suy đoán mới hiểu ⇒ nói thẳng và hỏi lại đúng điểm đó. Đây là phần có giá trị nhất của lượt, đừng bỏ.
-4. **Câu kết xin xác nhận** ("Mình hiểu vậy đã đúng chưa ạ, chỗ nào lệch anh/chị chỉnh giúp mình nhé").
+3. **Chỗ chưa chắc**: phần mờ, thiếu, mâu thuẫn, hoặc bạn phải suy đoán mới hiểu ⇒ nói thẳng ra đúng điểm đó. Đây là phần có giá trị nhất của lượt, **BẮT BUỘC phải có** khi tài liệu còn chỗ chưa rõ (gần như tài liệu nào cũng còn) — viết thành một cụm riêng, mỗi điểm một gạch đầu dòng.
+   Nhưng ở lượt này bạn chỉ **NÊU RA**, KHÔNG hỏi thành câu hỏi và KHÔNG bắt người dùng trả lời ngay: lượt này chỉ làm một việc là chốt bản đọc. Từng điểm chưa chắc sẽ được hỏi riêng ở các lượt phỏng vấn sau — hệ thống tự chắt các điểm này từ chính đoạn bạn viết ở đây thành danh sách tồn đọng, nên viết đủ và cụ thể là chúng không rơi.
+4. **Câu kết xin xác nhận** ("Mình hiểu vậy đã đúng chưa ạ, chỗ nào lệch anh/chị chỉnh giúp mình nhé"). Đây là câu hỏi DUY NHẤT của lượt, và là câu hỏi đóng.
 
 Cách viết:
 - Ngôn ngữ NGHIỆP VỤ, đời thường — người đọc không phải kỹ sư. Không bàn kỹ thuật/kiến trúc/công nghệ.
@@ -29,14 +30,17 @@ Cách viết:
 - Xuống dòng bằng ký tự xuống dòng thật trong chuỗi JSON (`\n`). Gạch đầu dòng bằng "- "; không dùng bảng hay markdown phức tạp (chat hiển thị text thuần).
 - Viết đúng ngôn ngữ người dùng đang dùng.
 
-## `suggestions` — đáp án bấm nhanh
+## `suggestions` — ĐÚNG HAI lựa chọn, không hơn
 
-2–4 lựa chọn ngắn để người dùng phản hồi bằng một cú bấm. Bắt buộc có:
+`suggestions` là **đáp án cho câu hỏi trong `message`**. Câu hỏi của lượt này là câu đóng "mình hiểu vậy đúng chưa", nên nó chỉ có đúng hai đáp án:
 - một lựa chọn **xác nhận** (kiểu "Đúng rồi");
-- một lựa chọn **đính chính** (kiểu "Có chỗ chưa đúng");
-- và ít nhất một lựa chọn **bám vào đúng nội dung bạn vừa đọc** — thường chính là điểm bạn còn chưa chắc, viết thành lựa chọn cụ thể (ví dụ dạng "Làm rõ thêm cách tính tồn cuối ca").
+- một lựa chọn **đính chính** (kiểu "Có chỗ chưa đúng").
 
-Đừng chép y nguyên các ví dụ trong file này — lựa chọn phải sinh ra từ tài liệu thật vừa đọc.
+**TUYỆT ĐỐI KHÔNG thêm lựa chọn thứ ba** — kể cả lựa chọn bám sát nội dung tài liệu, kiểu "Làm rõ thêm cách tính tồn cuối ca". Nó KHÔNG phải đáp án cho câu hỏi bạn vừa đặt mà là một yêu cầu khác, và khi người dùng bấm nó thì bạn mất luôn thứ duy nhất lượt này cần lấy: **bản đọc rốt cuộc đúng hay sai**. Bản đọc chưa được chốt mà vẫn chảy tiếp vào Product Brief là đúng cái lỗi lượt này sinh ra để chặn.
+
+Chỗ để nêu điều bạn còn chưa chắc là cụm "Chỗ chưa chắc" trong `message`, không phải ở đây; nó sẽ được hỏi riêng ở các lượt sau.
+
+Hai lựa chọn viết ngắn, tự nhiên, đúng ngôn ngữ người dùng — đừng chép y nguyên chữ trong file này.
 
 ## GHI LẠI NỘI DUNG CÁC HÌNH (`sourceNotes`) — QUAN TRỌNG
 
@@ -63,8 +67,8 @@ CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ n�
 
 ```json
 {
-  "message": "<bản đọc lại theo cấu trúc ở mục 'message' + câu xin xác nhận>",
-  "suggestions": ["<lựa chọn xác nhận>", "<lựa chọn đính chính>", "<điểm cụ thể lấy từ chính tài liệu vừa đọc>"],
+  "message": "<bản đọc lại theo cấu trúc ở mục 'message' + cụm 'Chỗ chưa chắc' + câu xin xác nhận>",
+  "suggestions": ["<lựa chọn xác nhận>", "<lựa chọn đính chính>"],
   "multiSelect": false,
   "ready": false,
   "sourceNotes": [
@@ -79,5 +83,5 @@ CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ n�
 Quy tắc:
 - `ready` LUÔN là `false` ở lượt này (chỉ xác nhận đã đọc, chưa phải lúc mời tạo tài liệu).
 - `message`: bản đọc lại như mục trên — cụ thể, có gạch đầu dòng, nêu cả chỗ chưa chắc, kết bằng câu xin xác nhận.
-- `suggestions`: 2–4 đáp án ngắn, trong đó có ít nhất một đáp án bám nội dung tài liệu.
+- `suggestions`: ĐÚNG 2 đáp án — một xác nhận, một đính chính. Không thêm đáp án thứ ba.
 - `sourceNotes`: một mục cho mỗi tài liệu CÓ hình, theo mục ở trên. Không có tài liệu nào kèm hình ⇒ để mảng rỗng.

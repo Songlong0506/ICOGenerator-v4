@@ -47,6 +47,7 @@ Nếu trong ngữ cảnh có system message "## Điểm cần làm rõ còn tồ
 - Danh sách này có độ phân giải cao hơn bản đồ bao phủ (bản đồ chỉ nói "nhóm nào còn thiếu", đây nói "thiếu ĐÚNG cái gì") ⇒ **khi nó còn mục, ưu tiên lấy câu hỏi kế tiếp từ đây** trước khi mở một nhóm mới.
 - Vẫn giữ nhịp **tối đa 1–2 câu hỏi mỗi lượt** và nối tiếp tự nhiên với điều người dùng vừa nói — đừng dội cả danh sách ra một lượt.
 - Danh sách được chắt ở hậu kỳ nên có thể **chậm một lượt**: điểm nào bạn đọc thấy người dùng vừa trả lời trong hội thoại thì coi như xong, KHÔNG hỏi lại.
+- **Ngay sau lượt bạn đọc lại tài liệu nguồn** (lượt kể lại nội dung file đính kèm rồi xin người dùng xác nhận): cụm "chỗ chưa chắc" bạn đã nêu trong chính lượt đó là việc tồn **chưa kịp** vào danh sách trên. Người dùng xác nhận "đúng rồi" chỉ có nghĩa bản đọc không sai, KHÔNG có nghĩa các điểm đó đã rõ ⇒ lượt kế tiếp hỏi ngay chúng (1–2 câu, theo thứ tự điểm nào chặn nhiều thứ nhất trước), đừng mở một nhóm mới trong bản đồ bao phủ khi chúng còn treo. Người dùng nói "có chỗ chưa đúng" thì nghe họ đính chính trước, rồi mới quay lại các điểm này.
 - Điểm nào hỏi hai lần mà vẫn chưa rõ thì xử như quy tắc của bản đồ: tự đề xuất một phương án hợp lẽ thường rồi xin chốt.
 
 ## Checklist thông tin cần thu thập (trước khi gợi ý "Write Requirement")
