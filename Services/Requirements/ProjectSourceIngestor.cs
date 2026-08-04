@@ -18,8 +18,8 @@ public class SourceFileValidationException : Exception
 /// <see cref="ProjectSourceFile"/> (CHƯA add DB — caller tự add + SaveChanges). Với PDF: bóc text từng
 /// trang bằng PdfPig, và các trang KHÔNG có text (bản scan) được lấy ảnh nhúng ra PNG
 /// (<see cref="PdfScanPageRenderer"/>) để model vision đọc thay vì bỏ trắng. Với Word (.docx): bóc đoạn văn
-/// + bảng bằng <see cref="WordDocumentTextExtractor"/> — quy trình/biểu mẫu của phòng ban gần như luôn nằm
-/// ở đây. Với bảng tính (.xlsx/.csv): bóc thành text có cấu trúc (tiêu đề cột + vài dòng mẫu) bằng
+/// + bảng + hình nhúng đáng giá bằng <see cref="WordDocumentTextExtractor"/> — quy trình/biểu mẫu của phòng
+/// ban gần như luôn nằm ở đây. Với bảng tính (.xlsx/.csv): bóc thành text có cấu trúc (tiêu đề cột + vài dòng mẫu) bằng
 /// <see cref="SpreadsheetTextExtractor"/> — fidelity cao hơn hẳn ảnh chụp Excel.
 /// </summary>
 public class ProjectSourceIngestor
@@ -102,9 +102,13 @@ public class ProjectSourceIngestor
         else if (isWord)
         {
             entity.Kind = SourceFileKind.Document;
-            // Word không bao giờ là nguồn vision: bóc đoạn văn + bảng thành text; không đọc được ⇒ null
-            // (giữ nguyên file gốc), người dùng vẫn thấy file đã đính kèm.
-            entity.ExtractedText = WordDocumentTextExtractor.Extract(bytes);
+            // Bóc đoạn văn + bảng thành text, VÀ lấy các hình nhúng đáng giá (screenshot, sơ đồ) ra
+            // figure-{n}.png cạnh file gốc cho model vision — tài liệu kỹ thuật hay nhét thông tin quan
+            // trọng vào ảnh. Không đọc được ⇒ null/0 (giữ nguyên file gốc), người dùng vẫn thấy file đã đính kèm.
+            var extraction = WordDocumentTextExtractor.Extract(bytes, dir);
+            entity.ExtractedText = extraction.Text;
+            entity.ScannedPageImageCount = extraction.ImageCount;
+            entity.IsVisionSource = extraction.ImageCount > 0;
         }
         else
         {
