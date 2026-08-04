@@ -266,6 +266,17 @@
 
 .poc-cov-rule-untested { font-size: 11px; color: #b45309; }
 
+/* Câu nghiệm thu là XƯƠNG SỐNG của panel review: kịch bản kiểm nó lồng ngay bên dưới, nên mỗi mục cần
+   khoảng thở lớn hơn một dòng danh sách thường để hai câu liền nhau không dính vào nhau. */
+.poc-ac-list { gap: 14px; }
+
+.poc-ac-item > .uat-scenario { margin: 8px 0 0; }
+
+.poc-ac-item > .uat-scenario:last-child { margin-bottom: 2px; }
+
+/* Kịch bản chứng minh nhiều câu nghiệm thu: các câu sau chỉ trỏ về chỗ dựng thẻ đầy đủ. */
+.poc-ac-xref { font-size: 11.5px; color: #64748b; margin-top: 6px; }
+
 /* ==== Panel "Máy đã tự kiểm" (kết quả vòng audit cuối) ==== */
 
 .poc-verif-ok { color: #0a7d33; }
