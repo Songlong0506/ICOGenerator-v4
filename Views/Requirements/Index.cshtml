@@ -153,10 +153,10 @@
     var coverage = ViewBag.Coverage as IReadOnlyList<ICOGenerator.Contracts.Requirements.CoverageMapItem>
         ?? new List<ICOGenerator.Contracts.Requirements.CoverageMapItem>();
     var decisions = ViewBag.Decisions as IReadOnlyList<string> ?? new List<string>();
-    // "Triển vọng phỏng vấn" (InterviewOutlookService): màn hình dự kiến (G) và ví dụ tính thử đã xác nhận
-    // (A). Render lần đầu ở server; frame "outlook" của ChatStream cập nhật live. Danh sách thứ ba của
-    // outlook (OpenQuestions) KHÔNG lên màn hình nữa — nó đi vào ngữ cảnh chat của BA.
-    var plannedScope = ViewBag.PlannedScope as IReadOnlyList<string> ?? new List<string>();
+    // "Triển vọng phỏng vấn" (InterviewOutlookService): chỉ còn ví dụ tính thử đã xác nhận (A) lên màn
+    // hình. Render lần đầu ở server; frame "outlook" của ChatStream cập nhật live. Hai danh sách còn lại
+    // (OpenQuestions, PlannedScope) vẫn được chắt mỗi lượt nhưng KHÔNG có panel — chúng đi vào ngữ cảnh
+    // chat của BA và ngữ cảnh soát mâu thuẫn.
     var workedExamples = ViewBag.WorkedExamples as IReadOnlyList<string> ?? new List<string>();
     // Giả định BA tự đưa khi sinh AI Design Spec (mục ## 12. Assumptions) — hiển thị cho user rà lại.
     var specAssumptions = ViewBag.SpecAssumptions as IReadOnlyList<string> ?? new List<string>();
@@ -483,18 +483,10 @@
             </ul>
         </div>
 
-        @* "Sẽ xây gì" (G): các màn hình/tính năng dự kiến, dựng dần theo hội thoại — user bắt hiểu nhầm
-           sớm và thấy hình hài ứng dụng thay vì phỏng vấn "mù". Cập nhật live qua frame "outlook". *@
-        <div class="scope-panel" id="scopePanel" @(plannedScope.Count == 0 ? "hidden" : "")>
-            <h3>Sẽ xây gì <span class="scope-count" id="scopeCount">(@plannedScope.Count)</span></h3>
-            <div class="history-sub decision-hint">Các màn hình/tính năng dự kiến theo những gì anh/chị đã kể (dựng dần).</div>
-            <ul class="scope-list" id="scopeList">
-                @foreach (var item in plannedScope)
-                {
-                    <li class="scope-item">@item</li>
-                }
-            </ul>
-        </div>
+        @* KHÔNG có panel "Sẽ xây gì" ở đây: PlannedScope vẫn được chắt sau mỗi lượt, nhưng nó là danh
+           sách SUY ĐOÁN mà user không sửa được tại chỗ (khác "Điều đã chốt" bấm được và "Ví dụ đã xác
+           nhận" sửa được) — vòng "bắt hiểu nhầm sớm" không đóng lại được nên panel chỉ còn là nhiễu.
+           Dữ liệu vẫn giữ: nó đi vào ngữ cảnh soát mâu thuẫn (RequirementConflictService). *@
 
         @* KHÔNG có panel "Điểm cần làm rõ" ở đây: danh sách OpenQuestions vẫn được chắt sau mỗi lượt,
            nhưng nay đi thẳng vào ngữ cảnh chat của BA (BAChatService) thay vì thành một panel để user tự

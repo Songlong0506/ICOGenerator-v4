@@ -15,7 +15,9 @@ namespace ICOGenerator.Services.Requirements;
 ///  • <b>OpenQuestions</b> — điểm còn mơ hồ/mâu thuẫn chưa chốt: TỒN ĐỌNG câu hỏi được nạp vào ngữ cảnh lượt
 ///    chat sau (<see cref="BAChatService"/>) để BA hỏi cho hết ngay trong khung chat, không hiện thành panel
 ///    bắt user tự đọc (mục được chốt thì tự rời danh sách ở lượt sau).
-///  • <b>PlannedScope</b> — các màn hình/tính năng dự kiến, dựng dần để user bắt hiểu nhầm sớm ("Sẽ xây gì").
+///  • <b>PlannedScope</b> — các màn hình/tính năng dự kiến, dựng dần theo hội thoại; cũng KHÔNG có panel
+///    (danh sách suy đoán, user không sửa tại chỗ được), chỉ làm ngữ cảnh cho
+///    <see cref="RequirementConflictService"/> soát mâu thuẫn.
 ///  • <b>WorkedExamples</b> — các ví dụ tính thử người dùng ĐÃ xác nhận cho quy tắc định lượng; nguồn để bước
 ///    sinh AI Design Spec đúc thành "## 13. Worked Examples" và POC tự kiểm (window.pocWorkedExamples) đối
 ///    chiếu ĐỘC LẬP: kỳ vọng do user chốt (trong spec), giá trị do chính POC tính ra.
