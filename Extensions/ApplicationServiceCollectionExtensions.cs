@@ -411,6 +411,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetAgentActivityQuery>();
         services.AddScoped<GetAgentCallLogsQuery>();
         services.AddScoped<GetCallLogDetailQuery>();
+        services.AddScoped<GetCallLogImageQuery>();
         services.AddScoped<GetDocumentPreviewQuery>();
         services.AddScoped<GetAgentManagementPageQuery>();
         services.AddScoped<UpdateAgentUseCase>();
@@ -593,6 +594,10 @@ public static class ApplicationServiceCollectionExtensions
         // IHttpClientFactory, so it is safe to register as a singleton.
         services.AddSingleton<IChatClientFactory, OpenAIChatClientFactory>();
         services.AddScoped<IModelCallLogger, ModelCallLogger>();
+        // Lưu/tìm lại ảnh đã gửi kèm một lời gọi model (màn Model Invocation Detail). Không giữ trạng thái
+        // gì, nhưng phải Scoped vì WorkspacePathResolver là Scoped — singleton ở đây là captive dependency
+        // và ValidateScopes chặn ngay lúc khởi động.
+        services.AddScoped<ModelCallImageStore>();
         // Lời gọi thử của nút "Test Connection" (trang Models): chỉ cần factory + settings nên là singleton.
         services.AddSingleton<IModelConnectionTester, ModelConnectionTester>();
         services.AddScoped<ILlmClient, LlmClient>();

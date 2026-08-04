@@ -21,14 +21,14 @@ public sealed class ModelCallPipeline
     private LlmCallResult? _captured;
 
     public ModelCallPipeline(IChatClientFactory chatClientFactory, AiModel model, IModelCallLogger logger,
-        ModelCallLogContext context, ModelCallOptions options)
+        ModelCallLogContext context, ModelCallOptions options, ModelCallImageStore? imageStore = null)
     {
         // Chat client bọc HttpClient gộp sẵn (do IHttpClientFactory quản), nên client OpenAI cố tình nhẹ và
         // dựng theo từng lời gọi; middleware dùng chung được chồng lên qua ChatClientBuilder.
         Client = chatClientFactory.Create(model)
             .AsBuilder()
             .Use(inner => new ModelCallLoggingChatClient(
-                inner, model, logger, context, options with { OnCompleted = r => _captured = r }))
+                inner, model, logger, context, options with { OnCompleted = r => _captured = r }, imageStore))
             .Build();
     }
 

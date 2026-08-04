@@ -40,17 +40,24 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     private readonly IModelCallLogger _logger;
     private readonly ModelCallLogContext _context;
     private readonly ModelCallOptions _options;
+    private readonly ModelCallImageStore? _imageStore;
 
     private int _step;
 
+    /// <param name="imageStore">
+    /// Có mặt ⇒ ảnh đi kèm request được gom lại để lưu ra đĩa cho màn call-log xem lại. Null ⇒ không gom
+    /// (đường agent và eval: các lượt đó không bao giờ mang ảnh, gom chỉ tốn một bản copy bytes vô ích).
+    /// </param>
     public ModelCallLoggingChatClient(
         IChatClient inner, AiModel model, IModelCallLogger logger,
-        ModelCallLogContext context, ModelCallOptions options) : base(inner)
+        ModelCallLogContext context, ModelCallOptions options,
+        ModelCallImageStore? imageStore = null) : base(inner)
     {
         _model = model;
         _logger = logger;
         _context = context;
         _options = options;
+        _imageStore = imageStore;
         _step = context.FirstStep - 1;
     }
 
@@ -167,6 +174,10 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         var callOptions = options?.Clone() ?? new ChatOptions();
         callOptions.MaxOutputTokens = maxTokens;
         result.RequestJson = ModelCallRequestPreview.Build(_model, messageList, callOptions, maxTokens, streaming);
+        // Ảnh gom TẠI ĐÂY chứ không ở chỗ ghi log: đây là nơi duy nhất còn cầm messages, và phải gom TRƯỚC
+        // lời gọi vì lượt thất bại — đúng lượt người ta mở log ra soi — cũng cần xem lại ảnh đã gửi.
+        if (_imageStore is { Enabled: true })
+            result.RequestImages = ModelCallImageCollector.Collect(messageList, _imageStore.MaxBytesPerCall);
 
         _options.OnProgress?.Invoke("thinking", $"Agent {_context.Agent.RoleKey.GetTitle()} đang suy nghĩ… (bước {BudgetLabel(step)})", null);
         return new CallState(step, messageList, callOptions, result, Stopwatch.StartNew());

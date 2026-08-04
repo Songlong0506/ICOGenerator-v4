@@ -380,6 +380,7 @@ async function viewLogDetail(id) {
     document.getElementById('log-detail-meta').textContent = `${log.agentName} · ${log.modelId} · ${formatDateTime(log.createdAt)} · ${log.totalTokens || 0} tokens · ${log.durationMs || 0} ms`;
     document.getElementById('log-request').textContent = prettyJson(log.requestJson);
     document.getElementById('log-request-readable').innerHTML = buildReadableRequest(log.requestJson);
+    renderLogAttachments(log.id, log.requestJson);
     document.getElementById('log-response').textContent = prettyJson(log.responseText);
     document.getElementById('log-error').textContent = log.errorMessage || '';
     requestReadableMode = false;
@@ -479,6 +480,11 @@ function showLogTab(name, button) {
     document.getElementById('log-request-readable').classList.add('hidden');
     document.getElementById('log-request-toggle').classList.add('hidden');
 
+    // Ảnh đính kèm thuộc về REQUEST (thứ đã gửi ĐI), nên chỉ hiện ở tab đó — và chỉ khi lượt gọi thật sự
+    // có ảnh (renderLogAttachments để lại dấu trên dataset).
+    const attachments = document.getElementById('log-attachments');
+    if (attachments) attachments.classList.toggle('hidden', name !== 'request' || attachments.dataset.empty === '1');
+
     if (name === 'request') {
         document.getElementById('log-request-toggle').classList.remove('hidden');
         applyRequestFormat();
@@ -517,6 +523,67 @@ function applyReadableToggle(preId, readableId, toggleId, readableMode) {
 }
 
 // Dựng HTML dạng hội thoại, giải mã nội dung JSON lồng (unicode \uXXXX -> ký tự thật).
+// Ảnh đã gửi kèm lượt gọi. RequestJson chỉ chở phần MÔ TẢ ảnh (tên, kiểu, dung lượng, số thứ tự) —
+// bytes nằm trên đĩa server, lấy qua /AgentDashboard/CallLogImage. Trước đây ảnh biến mất hoàn toàn khỏi
+// log, nên "model không có vision", "ảnh bị cắt vì chạm trần" và "đọc file ảnh lỗi" nhìn giống hệt nhau.
+function renderLogAttachments(logId, requestJson) {
+    const box = document.getElementById('log-attachments');
+    if (!box) return;
+
+    const images = extractRequestImages(requestJson);
+    box.dataset.empty = images.length ? '0' : '1';
+    if (!images.length) {
+        box.innerHTML = '';
+        box.classList.add('hidden');
+        return;
+    }
+
+    const cards = images.map(img => {
+        const url = `/AgentDashboard/CallLogImage?id=${encodeURIComponent(logId)}&index=${img.index}`;
+        const label = escapeHtml(img.name || `image-${img.index}`);
+        const meta = `${escapeHtml(img.mediaType || '')} · ${formatBytes(img.bytes)}`;
+        // Log cũ (trước tính năng này) và workspace đã xóa ⇒ file không còn: onerror đổi sang ô báo thiếu
+        // thay vì để icon ảnh vỡ, vì "không xem được" là thông tin khác hẳn "không gửi ảnh nào".
+        return `<figure class="log-attachment">
+            <a href="${url}" target="_blank" rel="noopener">
+                <img src="${url}" alt="${label}" loading="lazy"
+                     onerror="this.closest('.log-attachment').classList.add('is-missing')">
+            </a>
+            <figcaption><span class="la-name">${label}</span><span class="la-meta">${meta}</span></figcaption>
+            <p class="la-missing">Ảnh không còn trên đĩa (log cũ hoặc workspace đã xóa).</p>
+        </figure>`;
+    }).join('');
+
+    box.innerHTML = `<p class="la-title">Ảnh đã gửi kèm (${images.length})</p>
+        <div class="log-attachment-grid">${cards}</div>`;
+}
+
+// Gom các part kiểu "image" trong mọi message của request. Message toàn chữ có content là CHUỖI (dạng cũ,
+// giữ nguyên) nên bị bỏ qua ở đây — chỉ message có phần không phải text mới ở dạng mảng part.
+function extractRequestImages(requestJson) {
+    let parsed;
+    try { parsed = JSON.parse(requestJson); }
+    catch { return []; }
+
+    const messages = (parsed && Array.isArray(parsed.messages)) ? parsed.messages : [];
+    const images = [];
+    messages.forEach(m => {
+        if (!m || !Array.isArray(m.content)) return;
+        m.content.forEach(part => {
+            if (part && part.type === 'image' && part.index > 0) images.push(part);
+        });
+    });
+    return images;
+}
+
+function formatBytes(bytes) {
+    const n = Number(bytes);
+    if (!Number.isFinite(n) || n <= 0) return '—';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
 function buildReadableRequest(requestJson) {
     let parsed;
     try { parsed = JSON.parse(requestJson); }

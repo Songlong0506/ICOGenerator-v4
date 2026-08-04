@@ -19,6 +19,7 @@ public class AgentDashboardController : Controller
     private readonly GetAgentActivityQuery _getAgentActivityQuery;
     private readonly GetAgentCallLogsQuery _getAgentCallLogsQuery;
     private readonly GetCallLogDetailQuery _getCallLogDetailQuery;
+    private readonly GetCallLogImageQuery _getCallLogImageQuery;
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
     private readonly ApproveStageUseCase _approveStageUseCase;
     private readonly RejectStageUseCase _rejectStageUseCase;
@@ -34,6 +35,7 @@ public class AgentDashboardController : Controller
         GetAgentActivityQuery getAgentActivityQuery,
         GetAgentCallLogsQuery getAgentCallLogsQuery,
         GetCallLogDetailQuery getCallLogDetailQuery,
+        GetCallLogImageQuery getCallLogImageQuery,
         GetDocumentPreviewQuery getDocumentPreviewQuery,
         ApproveStageUseCase approveStageUseCase,
         RejectStageUseCase rejectStageUseCase,
@@ -48,6 +50,7 @@ public class AgentDashboardController : Controller
         _getAgentActivityQuery = getAgentActivityQuery;
         _getAgentCallLogsQuery = getAgentCallLogsQuery;
         _getCallLogDetailQuery = getCallLogDetailQuery;
+        _getCallLogImageQuery = getCallLogImageQuery;
         _getDocumentPreviewQuery = getDocumentPreviewQuery;
         _approveStageUseCase = approveStageUseCase;
         _rejectStageUseCase = rejectStageUseCase;
@@ -134,6 +137,19 @@ public class AgentDashboardController : Controller
     {
         var result = await _getCallLogDetailQuery.ExecuteAsync(id);
         return result == null ? NotFound() : Json(result);
+    }
+
+    // Một tấm ảnh đã gửi kèm lời gọi model (RequestJson chỉ mô tả ảnh, bytes nằm trên đĩa — xem
+    // ModelCallImageStore). Cùng cổng quyền với CallLogDetail: xem được chi tiết lời gọi thì xem được ảnh
+    // của chính lời gọi đó. 'index' là số thứ tự trong RequestJson; đường dẫn thật do server tự dựng.
+    [HttpGet]
+    [RequireProjectAccess("id", ProjectResource.CallLog)]
+    public async Task<IActionResult> CallLogImage(Guid id, int index)
+    {
+        var image = await _getCallLogImageQuery.ExecuteAsync(id, index, HttpContext.RequestAborted);
+        // Không có file: log cũ (trước khi có tính năng), tính năng bị tắt, hoặc workspace đã bị xóa. UI
+        // hiện ô "ảnh không còn" thay vì vỡ layout.
+        return image == null ? NotFound() : PhysicalFile(image.Path, image.ContentType);
     }
 
     [HttpGet]

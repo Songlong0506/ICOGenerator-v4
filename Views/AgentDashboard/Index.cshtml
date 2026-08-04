@@ -403,6 +403,9 @@
             <button class="btn log-format-toggle hidden" id="log-request-toggle" type="button" onclick="toggleRequestFormat()">📖 Dễ đọc</button>
         </div>
 
+        @* Ảnh đã gửi kèm lượt gọi. RequestJson chỉ mô tả (tên/kiểu/dung lượng); bytes nằm trên đĩa và
+           được lấy qua /AgentDashboard/CallLogImage. Rỗng ⇒ khối này ẩn hẳn. *@
+        <div class="log-attachments hidden" id="log-attachments"></div>
         <pre class="log-json" id="log-request"></pre>
         <div class="log-readable hidden" id="log-request-readable"></div>
         <pre class="log-json hidden" id="log-response"></pre>

@@ -95,7 +95,10 @@ public class PocVisualReviewer
             foreach (var shot in shots)
             {
                 contents.Add(new TextContent($"\n### Màn hình: {shot.Screen}"));
-                contents.Add(new DataContent(shot.Png, "image/png"));
+                // Đặt tên để call log gọi được tên màn hình. Ảnh này Playwright chụp trong RAM rồi thả —
+                // không có bản nào trên đĩa, nên nếu không lưu lại từ đây thì sau này không cách nào xem
+                // lại agent đã nhìn thấy gì khi chấm màn hình đó.
+                contents.Add(new DataContent(shot.Png, "image/png") { Name = $"POC › {shot.Screen}" });
             }
 
             var messages = new List<ChatMessage>

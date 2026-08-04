@@ -18,14 +18,19 @@ public class LlmClient : ILlmClient
     private readonly IBudgetGuard _budgetGuard;
     private readonly LlmSettings _settings;
     private readonly ILogger<LlmClient> _logger;
+    private readonly ModelCallImageStore? _imageStore;
 
-    public LlmClient(IChatClientFactory chatClientFactory, IModelCallLogger modelCallLogger, IBudgetGuard budgetGuard, LlmSettings settings, ILogger<LlmClient> logger)
+    // imageStore không bắt buộc để các test dựng tay LlmClient khỏi phải quan tâm tới việc lưu ảnh; app
+    // thật luôn có (DI). Đây là đường DUY NHẤT hiện gửi ảnh cho model — tài liệu nguồn của BA chat và ảnh
+    // chụp POC của bước chấm giao diện đều đi qua ChatStructuredAsync ở đây.
+    public LlmClient(IChatClientFactory chatClientFactory, IModelCallLogger modelCallLogger, IBudgetGuard budgetGuard, LlmSettings settings, ILogger<LlmClient> logger, ModelCallImageStore? imageStore = null)
     {
         _chatClientFactory = chatClientFactory;
         _modelCallLogger = modelCallLogger;
         _budgetGuard = budgetGuard;
         _settings = settings;
         _logger = logger;
+        _imageStore = imageStore;
     }
 
     public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) =>
@@ -171,7 +176,8 @@ public class LlmClient : ILlmClient
     // giữ đúng số bước mà ModelCallLogContext.FirstStep khai báo cho call site này.
     private ModelCallPipeline NewPipeline(AiModel model, ModelCallLogContext logContext) =>
         new(_chatClientFactory, model, _modelCallLogger, logContext,
-            new ModelCallOptions(_settings.RequestTimeoutSeconds, ThrowOnFailure: false) { BudgetGuard = _budgetGuard });
+            new ModelCallOptions(_settings.RequestTimeoutSeconds, ThrowOnFailure: false) { BudgetGuard = _budgetGuard },
+            _imageStore);
 
     // Shared last step of the JSON levels: pull the object out of the reply text (tolerating a ```json fence
     // or chatter around it, which json_object already prevents but None/degraded replies don't) and read it
@@ -206,4 +212,11 @@ public class LlmCallResult
     public long DurationMs { get; set; }
     public int? HttpStatusCode { get; set; }
     public bool IsSuccess { get; set; }
+
+    /// <summary>
+    /// Các ẢNH thực sự đi kèm lượt gọi này, theo đúng thứ tự chúng nằm trong <see cref="RequestJson"/>.
+    /// Rỗng ở tuyệt đại đa số lời gọi (chỉ chat BA có tài liệu nguồn và lượt chấm giao diện POC mới có ảnh).
+    /// Bytes đi cùng kết quả tới <see cref="IModelCallLogger"/> để lưu ra đĩa rồi thôi — KHÔNG vào DB.
+    /// </summary>
+    public IReadOnlyList<ModelCallImage> RequestImages { get; set; } = Array.Empty<ModelCallImage>();
 }
