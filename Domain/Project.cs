@@ -58,8 +58,10 @@ public class Project
     public int DecisionHarvestedTurnCount { get; set; }
     // "Triển vọng phỏng vấn" — ba danh sách bullet (text) chắt lọc từ hội thoại trong CÙNG một lời gọi
     // (InterviewOutlookService), cập nhật ở hậu kỳ lượt chat như DecisionLog (không cộng vào độ chờ):
-    //  • OpenQuestions: điểm còn MƠ HỒ / MÂU THUẪN chưa chốt — panel "Điểm cần làm rõ" cạnh chat để user
-    //    thấy chỗ tài liệu còn mỏng (đối trọng với "Điều đã chốt"). Mục được chốt thì rời khỏi danh sách.
+    //  • OpenQuestions: điểm còn MƠ HỒ / MÂU THUẪN chưa chốt — TỒN ĐỌNG câu hỏi của BA. KHÔNG hiển thị
+    //    thành panel (user chỉ cần trò chuyện; hỏi cho hết là việc của BA): danh sách này được nạp vào
+    //    ngữ cảnh mỗi lượt chat làm la bàn ƯU TIÊN cạnh bản đồ bao phủ — bản đồ chỉ phân giải theo NHÓM,
+    //    còn đây giữ đúng điểm chưa chốt. Mục được chốt thì rời khỏi danh sách. Xem BAChatService.
     //  • PlannedScope: các MÀN HÌNH/TÍNH NĂNG dự kiến dựng dần theo hội thoại — panel "Sẽ xây gì" để user
     //    bắt hiểu nhầm sớm và giữ động lực thay vì phỏng vấn "mù" tới lúc Write Requirement.
     //  • WorkedExamples: các VÍ DỤ TÍNH THỬ người dùng ĐÃ XÁC NHẬN (input → kết quả kỳ vọng) cho quy tắc

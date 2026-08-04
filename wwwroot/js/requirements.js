@@ -553,8 +553,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
-    // "Triển vọng phỏng vấn" (frame "outlook"): điểm cần làm rõ (D), màn hình dự kiến (G), ví dụ tính
-    // thử đã xác nhận (A). Mỗi danh sách rỗng thì ẩn panel tương ứng (mục đã được chốt/giải quyết rời đi).
+    // "Triển vọng phỏng vấn" (frame "outlook"): màn hình dự kiến (G) và ví dụ tính thử đã xác nhận (A).
+    // Danh sách thứ ba (openQuestions) không còn panel — nó đi vào ngữ cảnh chat của BA ở lượt sau.
+    // Mỗi danh sách rỗng thì ẩn panel tương ứng (mục đã được chốt/giải quyết rời đi).
     function renderList(panelId, listId, countId, items, itemHtml) {
         const panel = document.getElementById(panelId);
         const list = document.getElementById(listId);
@@ -572,23 +573,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     function renderOutlook(data) {
         renderList("scopePanel", "scopeList", "scopeCount", data.plannedScope,
             s => `<li class="scope-item">${escapeHtml(s)}</li>`);
-        renderList("openQPanel", "openQList", "openQCount", data.openQuestions,
-            q => `<li><button type="button" class="open-q-item" data-question="${escapeHtml(q)}" title="Bấm để trả lời điểm này">${escapeHtml(q)}</button></li>`);
         renderList("workedPanel", "workedList", "workedCount", data.workedExamples,
             ex => `<li class="worked-item">${escapeHtml(ex)}</li>`);
-    }
-
-    // Bấm một "điểm cần làm rõ" → soạn sẵn tin nhắn trả lời điểm đó vào ô nhập.
-    const openQPanelEl = document.getElementById("openQPanel");
-    if (openQPanelEl) {
-        openQPanelEl.addEventListener("click", function (e) {
-            const item = e.target.closest(".open-q-item");
-            if (!item) return;
-            messageInput.value = `Về điểm "${item.dataset.question}": `;
-            resizeMessageInput();
-            messageInput.focus();
-            messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
-        });
     }
 
     // Bấm một "giả định của bản thiết kế" (E) → soạn sẵn tin nhắn đính chính; gửi đi sẽ soạn lại tài liệu

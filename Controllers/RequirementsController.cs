@@ -120,7 +120,6 @@ public class RequirementsController : Controller
         ViewBag.BaSupportsVision = result.BaModelSupportsVision;
         ViewBag.Coverage = result.Coverage;
         ViewBag.Decisions = result.Decisions;
-        ViewBag.OpenQuestions = result.OpenQuestions;
         ViewBag.PlannedScope = result.PlannedScope;
         ViewBag.WorkedExamples = result.WorkedExamples;
         ViewBag.SpecAssumptions = result.SpecAssumptions;
@@ -391,14 +390,14 @@ public class RequirementsController : Controller
 
                 // Cùng nhịp hậu kỳ: gộp "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ
                 // tính thử đã xác nhận) rồi đẩy frame phụ cập nhật các panel bên phải. Fail-open: lỗi thì
-                // giữ panel bản cũ.
+                // giữ panel bản cũ. OpenQuestions vẫn được gộp ở đây nhưng KHÔNG đi vào frame: nó không còn
+                // panel nào để vẽ, mà được nạp vào ngữ cảnh chat của BA ở lượt sau (xem BAChatService).
                 try
                 {
                     var outlook = await _chatWithBAUseCase.UpdateInterviewOutlookAsync(projectId, CancellationToken.None);
                     channel.Writer.TryWrite(new
                     {
                         type = "outlook",
-                        openQuestions = outlook.OpenQuestions,
                         plannedScope = outlook.PlannedScope,
                         workedExamples = outlook.WorkedExamples
                     });

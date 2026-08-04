@@ -153,9 +153,9 @@
     var coverage = ViewBag.Coverage as IReadOnlyList<ICOGenerator.Contracts.Requirements.CoverageMapItem>
         ?? new List<ICOGenerator.Contracts.Requirements.CoverageMapItem>();
     var decisions = ViewBag.Decisions as IReadOnlyList<string> ?? new List<string>();
-    // "Triển vọng phỏng vấn" (InterviewOutlookService): điểm cần làm rõ (D), màn hình dự kiến (G), ví dụ
-    // tính thử đã xác nhận (A). Render lần đầu ở server; frame "outlook" của ChatStream cập nhật live.
-    var openQuestions = ViewBag.OpenQuestions as IReadOnlyList<string> ?? new List<string>();
+    // "Triển vọng phỏng vấn" (InterviewOutlookService): màn hình dự kiến (G) và ví dụ tính thử đã xác nhận
+    // (A). Render lần đầu ở server; frame "outlook" của ChatStream cập nhật live. Danh sách thứ ba của
+    // outlook (OpenQuestions) KHÔNG lên màn hình nữa — nó đi vào ngữ cảnh chat của BA.
     var plannedScope = ViewBag.PlannedScope as IReadOnlyList<string> ?? new List<string>();
     var workedExamples = ViewBag.WorkedExamples as IReadOnlyList<string> ?? new List<string>();
     // Giả định BA tự đưa khi sinh AI Design Spec (mục ## 12. Assumptions) — hiển thị cho user rà lại.
@@ -496,20 +496,10 @@
             </ul>
         </div>
 
-        @* "Điểm cần làm rõ" (D): đối trọng với "Điều đã chốt" — chỗ tài liệu còn mỏng/mâu thuẫn. Bấm một
-           mục để soạn sẵn tin nhắn trả lời điểm đó. Cập nhật live qua frame "outlook". *@
-        <div class="open-q-panel" id="openQPanel" @(openQuestions.Count == 0 ? "hidden" : "")>
-            <h3>Điểm cần làm rõ <span class="open-q-count" id="openQCount">(@openQuestions.Count)</span></h3>
-            <div class="history-sub decision-hint">Bấm một mục để trả lời/làm rõ điểm đó ngay trong chat.</div>
-            <ul class="open-q-list" id="openQList">
-                @foreach (var q in openQuestions)
-                {
-                    <li>
-                        <button type="button" class="open-q-item" data-question="@q" title="Bấm để trả lời điểm này">@q</button>
-                    </li>
-                }
-            </ul>
-        </div>
+        @* KHÔNG có panel "Điểm cần làm rõ" ở đây: danh sách OpenQuestions vẫn được chắt sau mỗi lượt,
+           nhưng nay đi thẳng vào ngữ cảnh chat của BA (BAChatService) thay vì thành một panel để user tự
+           đọc. Người dùng chỉ cần trò chuyện — BA có thắc mắc gì thì hỏi ngay trong khung chat, và phần
+           "còn mâu thuẫn" đã có panel ⚠ riêng ở trên với lựa chọn thật để chốt. *@
 
         @* "Ví dụ tính thử đã xác nhận" (A): các con số user đã chốt cho quy tắc định lượng — cũng là chuẩn
            để POC tự kiểm đối chiếu độc lập. Hiển thị để user thấy hệ thống đã ghi nhận đúng cách tính. *@
@@ -546,7 +536,7 @@
 
         @* Giả định của bản thiết kế (AI Design Spec § 12): những điều BA tự quyết thay user.
            Ở SIDEBAR chỉ còn CHẾ ĐỘ THAM KHẢO (POC đã dựng): danh sách tra cứu nguội, bấm một giả định để
-           nhắn BA sửa qua khung chat — đúng chỗ, vì nó nằm cùng họ với "Điều đã chốt"/"Điểm cần làm rõ".
+           nhắn BA sửa qua khung chat — đúng chỗ, vì nó nằm cùng họ với panel "Điều đã chốt".
            CHẾ ĐỘ CỔNG (pendingAssumptions = true) đã CHUYỂN VÀO KHUNG CHAT: lúc đó quy trình đang ĐỨNG
            CHỜ người dùng, mà lời mời rà giả định lại do BA nói ở cuối chat ("đang chờ anh/chị rà N giả
            định"), trong khi nút bấm thì nằm lọt giữa một sidebar cuộn dài — người đọc phải tự đi tìm cổng.

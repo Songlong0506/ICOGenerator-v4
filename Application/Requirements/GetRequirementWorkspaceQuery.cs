@@ -13,7 +13,8 @@ public record RequirementWorkspaceResult(
     bool BaModelSupportsVision,
     IReadOnlyList<CoverageMapItem> Coverage,
     IReadOnlyList<string> Decisions,
-    IReadOnlyList<string> OpenQuestions,
+    // Không có OpenQuestions ở đây: danh sách đó vẫn được chắt sau mỗi lượt nhưng chỉ dùng làm ngữ cảnh
+    // chat của BA (BAChatService), không còn panel nào trên trang render nó.
     IReadOnlyList<string> PlannedScope,
     IReadOnlyList<string> WorkedExamples,
     IReadOnlyList<string> SpecAssumptions,
@@ -127,7 +128,6 @@ public class GetRequirementWorkspaceQuery
             baSupportsVision,
             coverage,
             DecisionLogService.ParseItems(project.DecisionLog),
-            InterviewOutlookService.ParseItems(project.OpenQuestions),
             InterviewOutlookService.ParseItems(project.PlannedScope),
             InterviewOutlookService.ParseItems(project.WorkedExamples),
             SpecAssumptionsParser.Parse(latestSpec?.Content),
