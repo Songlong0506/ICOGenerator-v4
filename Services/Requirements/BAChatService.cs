@@ -725,15 +725,15 @@ public class BAChatService
 
             // Ghi chú người dùng gõ cạnh ảnh (nếu có) → BA đọc đúng trọng tâm thay vì tóm tắt chung chung.
             var promptText = string.IsNullOrEmpty(trimmedNote)
-                ? "Đây là các tài liệu nguồn tôi vừa đính kèm. Bạn đọc giúp và tóm tắt lại cách hiểu để tôi xác nhận nhé."
-                : $"Đây là các tài liệu nguồn tôi vừa đính kèm, kèm ghi chú của tôi: \"{trimmedNote}\". Bạn đọc giúp và tóm tắt lại cách hiểu để tôi xác nhận nhé.";
+                ? "Đây là các tài liệu nguồn tôi vừa đính kèm. Bạn đọc kỹ và kể lại cụ thể những gì rút được từ chúng để tôi xác nhận nhé."
+                : $"Đây là các tài liệu nguồn tôi vừa đính kèm, kèm ghi chú của tôi: \"{trimmedNote}\". Bạn đọc kỹ và kể lại cụ thể những gì rút được từ chúng để tôi xác nhận nhé.";
 
             var userContent = new List<AIContent> { new TextContent(promptText) };
             userContent.AddRange(sourceContents.Contents);
 
             var messages = new List<ChatMessage>
             {
-                new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/source-ack.v1.md")),
+                new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/source-ack.v2.md")),
                 new(ChatRole.User, userContent)
             };
 
