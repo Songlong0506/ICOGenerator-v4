@@ -357,6 +357,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<RevokePocShareLinkUseCase>();
         services.AddScoped<ListPocShareLinksQuery>();
         services.AddScoped<ResolvePocShareTokenQuery>();
+        services.AddScoped<SearchAssociatesQuery>();
         services.AddScoped<AcceptPocUseCase>();
         return services;
     }

@@ -450,68 +450,185 @@
     .poc-command-bar .cbar-hint { display: none; }
 }
 
-/* ==== Hộp thoại chia sẻ bản demo ==== */
+/* ==== Hộp thoại chia sẻ bản demo ====
+   Dùng đúng bộ mặc định của app: .modal / .btn / trường nhập kiểu Bosch (nền xám + gạch chân, góc
+   vuông) khai báo ở site.css. Trước đây khối này tự vẽ lại input, nút và thẻ link bằng bo góc 6px,
+   viền #e5e7eb và cỡ chữ 10.5–12px — hộp thoại nhìn như của một app khác dán vào. */
 
-/* Rộng hơn .modal mặc định (480px) vì mỗi link là một dòng URL đầy đủ + hai nút thao tác. */
-.poc-share-modal { width: 620px; text-align: left; }
-
-    .poc-share-modal h3 { margin: 0 0 6px; }
-
-    /* Nhiều link thì cuộn trong hộp thay vì đẩy hộp dài quá màn hình. */
-    .poc-share-modal .poc-share-list { max-height: 320px; overflow-y: auto; }
-
-.poc-share-form { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
-
-    .poc-share-form input[type=text] {
-        flex: 1 1 auto;
-        min-width: 0;
-        font-family: inherit;
-        font-size: 12px;
-        padding: 5px 8px;
-        border: 1px solid var(--line, #e5e7eb);
-        border-radius: 6px;
-    }
-
-    .poc-share-form select {
-        font-family: inherit;
-        font-size: 12px;
-        padding: 5px 6px;
-        border: 1px solid var(--line, #e5e7eb);
-        border-radius: 6px;
-    }
-
-/* Nút trong hai hàng ngang (tạo link / copy / thu hồi) không được co lại thành hai dòng chữ. */
-.poc-share-form .btn,
-.poc-share-url-row .btn { flex: 0 0 auto; white-space: nowrap; }
-
-.poc-share-msg { font-size: 11.5px; color: #6b7280; margin-top: 5px; }
-
-.poc-share-list { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
-
-.poc-share-item {
-    padding: 6px 8px;
-    border: 1px solid var(--line, #e5e7eb);
-    border-radius: 6px;
-    background: #fff;
+/* Rộng hơn .modal mặc định (480px) vì mỗi link là một dòng URL đầy đủ + hai nút thao tác.
+   max-width tính theo 100vw (trừ padding của .modal-backdrop) chứ không theo % như .modal: ô lưới của
+   backdrop là `auto` nên nó nở ra vừa đúng bề rộng khai báo ở trên, và mọi max-width dạng % đều quy về
+   chính bề rộng đó — tức là không bao giờ kẹp được gì. Thiếu dòng này thì trên màn hẹp hộp thoại tràn
+   ra ngoài mép phải. */
+.poc-share-modal {
+    width: 660px;
+    max-width: calc(100vw - 48px);
+    text-align: left;
 }
 
-    .poc-share-item.dead { opacity: .55; }
+    .poc-share-modal h2 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 2px;
+        padding-right: 28px; /* chừa chỗ cho nút × ở góc */
+    }
 
-.poc-share-item-head { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; }
+    .poc-share-modal h2 i { color: var(--bosch-blue); }
 
-.poc-share-label { font-weight: 600; }
+/* Hàng tạo link: hai trường có caption tích hợp + nút. align-items:stretch cho cả ba cao bằng nhau —
+   ô nhập (caption + input) và combo (dropdown.js dựng lại <select> thành .ms-combo) vốn cao khác nhau
+   vài pixel, để mặc định thì hàng nhìn so le. */
+.poc-share-form {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    margin-top: 18px;
+}
 
-.poc-share-state { color: #6b7280; }
+.poc-share-field { display: flex; flex-direction: column; min-width: 0; }
 
-.poc-share-url-row { display: flex; gap: 4px; margin-top: 5px; }
+    /* label mặc định có margin-top 16px để tách các trường xếp dọc; ở hàng ngang này thì không cần. */
+    .poc-share-field label { margin-top: 0; }
+
+    /* Trường chiếm hết phần cao còn lại dưới caption; .ms-combo-trigger không phải flex item nên
+       phải kéo bằng height. */
+    .poc-share-field input[type=text],
+    .poc-share-field select,
+    .poc-share-field .ms-combo { flex: 1 1 auto; }
+
+    .poc-share-field .ms-combo-trigger { height: 100%; }
+
+.poc-share-who { position: relative; flex: 1 1 auto; }
+
+/* Bằng min-width của .ms-combo--single để combo không tràn khỏi cột của nó. */
+.poc-share-days { flex: 0 0 auto; min-width: 170px; }
+
+.poc-share-form .btn { flex: 0 0 auto; white-space: nowrap; }
+
+/* ---- Gợi ý người nhận lấy từ danh bạ nhân sự ---- */
+.poc-share-suggest {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    z-index: 5;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
+    max-height: 244px;
+    overflow-y: auto;
+}
+
+.poc-share-suggest-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--line);
+}
+
+    .poc-share-suggest-item:last-child { border-bottom: 0; }
+
+    /* .active = mục đang chọn bằng phím mũi tên; giữ cùng nền với hover để hai lối chọn nhìn như một. */
+    .poc-share-suggest-item:hover,
+    .poc-share-suggest-item.active { background: var(--bosch-blue-tint); }
+
+.poc-share-suggest-name { font-weight: 700; font-size: 14px; color: var(--ink); }
+
+/* Một dòng, cắt bằng "…": email + đơn vị đủ để phân biệt hai người trùng tên, còn chức danh dài thì
+   cho tràn ra ngoài — bọc dòng làm mỗi gợi ý cao gấp đôi và danh sách chỉ còn thấy được 3 người. */
+.poc-share-suggest-meta {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.poc-share-suggest-empty { padding: 10px 12px; font-size: 13px; color: var(--muted); }
+
+/* Chip xác nhận đã chọn ai trong danh bạ (gõ lại thì biến mất). */
+.poc-share-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--bosch-blue-dark);
+    background: var(--bosch-blue-tint);
+    border: 1px solid var(--bosch-blue);
+}
+
+.poc-share-msg { margin-top: 10px; font-size: 13px; color: var(--muted); }
+.poc-share-msg.error { color: var(--danger-ink); }
+
+/* ---- Danh sách link đã tạo ---- */
+.poc-share-list-head {
+    margin: 20px 0 8px;
+    padding-bottom: 6px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+}
+
+/* Nhiều link thì cuộn trong hộp thay vì đẩy hộp dài quá màn hình. */
+.poc-share-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.poc-share-item {
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--bosch-blue);
+    background: var(--surface);
+}
+
+    /* Link đã thu hồi/hết hạn: vẫn đọc được (biết ai từng được gửi) nhưng lùi hẳn về sau. */
+    .poc-share-item.dead {
+        border-left-color: var(--line);
+        background: var(--surface-alt);
+        color: var(--muted);
+    }
+
+.poc-share-item-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.poc-share-label { font-weight: 700; color: var(--ink); }
+.poc-share-item.dead .poc-share-label { color: var(--muted); }
+
+.poc-share-state { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
+
+.poc-share-url-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 
 .poc-share-url {
     flex: 1 1 auto;
     min-width: 0;
-    font-family: ui-monospace, monospace;
-    font-size: 10.5px;
-    padding: 3px 6px;
-    border: 1px solid var(--line, #e5e7eb);
-    border-radius: 5px;
-    background: var(--surface-alt, #f9fafb);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    padding: 6px 10px;
+}
+
+.poc-share-url-row .btn { flex: 0 0 auto; white-space: nowrap; }
+
+.poc-share-empty { padding: 14px 0; font-size: 13px; color: var(--muted); }
+
+/* Hộp thoại hẹp: xếp dọc để nhãn/hạn dùng/nút không bị bóp thành chữ hai dòng. */
+@media (max-width: 640px) {
+    .poc-share-form { flex-direction: column; align-items: stretch; }
+    .poc-share-days { flex: 1 1 auto; }
 }

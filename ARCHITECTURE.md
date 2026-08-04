@@ -487,6 +487,11 @@ oan là điểm mù kín — prompt cấm BA hỏi lại nhóm đã [RÕ].
   chỉ mở đúng ba thứ của MỘT project (trang xem, `poc-demo.html`, danh sách góp ý). Toàn bộ bề mặt
   cho khách gom trong một controller để đọc một file là thấy hết; sandbox CSP của bản demo giữ nguyên
   như đường có đăng nhập.
+- Ô "Gửi cho ai" của hộp thoại tạo link là autocomplete lấy gợi ý từ bảng `Associates`
+  (`SearchAssociatesQuery` + `Projects/SearchAssociates`) — nhãn link chỉ có ích khi cùng một người
+  luôn được ghi cùng một cách. Vẫn cho gõ tự do vì khách ngoài công ty không có trong danh bạ. Danh bạ
+  dùng chung cả công ty nhưng cửa vào kẹp theo project + `RequirementsManage`, và chỉ trả tên/email/
+  đơn vị/chức danh — không mở thêm một đường tra cứu hồ sơ nhân sự.
 
 ### 5.21. Eval tầng PHỎNG VẤN (EvalScenarioKind.Interview)
 Golden set cũ đo **một lượt**: một đầu vào → một câu trả lời → judge chấm. Chất lượng yêu cầu lại do

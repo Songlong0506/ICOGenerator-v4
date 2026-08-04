@@ -25,6 +25,7 @@ public class ProjectsController : Controller
     private readonly CreatePocShareLinkUseCase _createPocShareLinkUseCase;
     private readonly RevokePocShareLinkUseCase _revokePocShareLinkUseCase;
     private readonly ListPocShareLinksQuery _listPocShareLinksQuery;
+    private readonly SearchAssociatesQuery _searchAssociatesQuery;
     private readonly TriagePocFeedbackUseCase _triagePocFeedbackUseCase;
     private readonly DispatchPocFeedbackUseCase _dispatchPocFeedbackUseCase;
     private readonly AcceptPocUseCase _acceptPocUseCase;
@@ -44,6 +45,7 @@ public class ProjectsController : Controller
         CreatePocShareLinkUseCase createPocShareLinkUseCase,
         RevokePocShareLinkUseCase revokePocShareLinkUseCase,
         ListPocShareLinksQuery listPocShareLinksQuery,
+        SearchAssociatesQuery searchAssociatesQuery,
         TriagePocFeedbackUseCase triagePocFeedbackUseCase,
         DispatchPocFeedbackUseCase dispatchPocFeedbackUseCase,
         AcceptPocUseCase acceptPocUseCase,
@@ -62,6 +64,7 @@ public class ProjectsController : Controller
         _createPocShareLinkUseCase = createPocShareLinkUseCase;
         _revokePocShareLinkUseCase = revokePocShareLinkUseCase;
         _listPocShareLinksQuery = listPocShareLinksQuery;
+        _searchAssociatesQuery = searchAssociatesQuery;
         _triagePocFeedbackUseCase = triagePocFeedbackUseCase;
         _dispatchPocFeedbackUseCase = dispatchPocFeedbackUseCase;
         _acceptPocUseCase = acceptPocUseCase;
@@ -277,6 +280,17 @@ public class ProjectsController : Controller
     public async Task<IActionResult> PocShareLinks(Guid projectId)
     {
         return Json(await _listPocShareLinksQuery.ExecuteAsync(projectId, HttpContext.RequestAborted));
+    }
+
+    // Gợi ý người nhận cho ô "Gửi cho ai". Danh bạ nhân sự dùng chung cả công ty, nhưng cửa vào vẫn kẹp
+    // theo project + quyền tạo link: chỉ người ĐANG đứng ở một project mình được vào và có quyền chia sẻ
+    // mới tra được — không mở thêm một đường tra cứu nhân sự cho mọi tài khoản.
+    [HttpGet]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess]
+    public async Task<IActionResult> SearchAssociates(Guid projectId, string? q)
+    {
+        return Json(await _searchAssociatesQuery.ExecuteAsync(q, HttpContext.RequestAborted));
     }
 
     [HttpPost]

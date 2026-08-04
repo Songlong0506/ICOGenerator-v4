@@ -557,6 +557,8 @@
     const labelEl = document.getElementById("pocShareLabel");
     const daysEl = document.getElementById("pocShareDays");
     const createBtn = document.getElementById("pocShareCreate");
+    const suggestEl = document.getElementById("pocShareSuggest");
+    const pickEl = document.getElementById("pocSharePick");
     const projectId = root.dataset.projectId;
     const antiForgery = document.querySelector('#pocCommentForm input[name="__RequestVerificationToken"]');
 
@@ -566,9 +568,14 @@
         return `${location.origin}/poc-share/${token}`;
     }
 
+    function say(text, isError) {
+        msgEl.textContent = text;
+        msgEl.classList.toggle("error", !!isError);
+    }
+
     function render() {
         if (!links.length) {
-            listEl.innerHTML = '<p class="muted">Chưa có link nào.</p>';
+            listEl.innerHTML = '<p class="poc-share-empty">Chưa có link nào — tạo link đầu tiên ở trên.</p>';
             return;
         }
 
@@ -585,8 +592,10 @@
                     ${dead ? "" : `
                         <div class="poc-share-url-row">
                             <input type="text" class="poc-share-url" readonly value="${escapeHtml(shareUrl(l.token))}" />
-                            <button type="button" class="btn outline small poc-share-copy">Copy</button>
-                            <button type="button" class="btn outline small poc-share-revoke" data-id="${l.id}">Thu hồi</button>
+                            <button type="button" class="btn small poc-share-copy">
+                                <i class="bi bi-clipboard" aria-hidden="true"></i> Copy
+                            </button>
+                            <button type="button" class="btn danger small poc-share-revoke" data-id="${l.id}">Thu hồi</button>
                         </div>`}
                 </div>`;
         }).join("");
@@ -602,9 +611,121 @@
         render();
     }
 
+    // ---- Autocomplete "Gửi cho ai" (gợi ý từ danh bạ nhân sự) ----
+    // Nhãn link vẫn là text tự do — khách ngoài công ty không có trong danh bạ — nên gợi ý chỉ giúp gõ
+    // nhanh và ghi cùng một người theo cùng một cách, không phải ràng buộc bắt buộc chọn.
+    const MIN_KEYS = 2;
+    let suggestions = [];
+    let activeIndex = -1;
+    let searchTimer = null;
+    let searchSeq = 0;
+
+    function hideSuggest() {
+        suggestEl.classList.add("hidden");
+        suggestEl.innerHTML = "";
+        labelEl.setAttribute("aria-expanded", "false");
+        suggestions = [];
+        activeIndex = -1;
+    }
+
+    function clearPick() {
+        pickEl.classList.add("hidden");
+        pickEl.innerHTML = "";
+    }
+
+    function highlight(index) {
+        activeIndex = index;
+        Array.from(suggestEl.querySelectorAll(".poc-share-suggest-item")).forEach((el, i) => {
+            el.classList.toggle("active", i === index);
+            el.setAttribute("aria-selected", i === index ? "true" : "false");
+        });
+    }
+
+    function pick(person) {
+        labelEl.value = person.displayName;
+        const detail = [person.email, person.organizationUnit].filter(Boolean).join(" · ");
+        pickEl.innerHTML = `<i class="bi bi-person-check" aria-hidden="true"></i> ${escapeHtml(person.displayName)}` +
+            (detail ? ` <span class="poc-share-suggest-meta">${escapeHtml(detail)}</span>` : "");
+        pickEl.classList.remove("hidden");
+        hideSuggest();
+    }
+
+    function renderSuggest(people) {
+        suggestions = people;
+        activeIndex = -1;
+
+        if (!people.length) {
+            suggestEl.innerHTML = '<div class="poc-share-suggest-empty">Không có ai khớp — cứ gõ tên tự do cũng được.</div>';
+        } else {
+            suggestEl.innerHTML = people.map(p => {
+                const meta = [p.email, p.organizationUnit, p.position].filter(Boolean).join(" · ");
+                return `
+                    <div class="poc-share-suggest-item" role="option" aria-selected="false">
+                        <span class="poc-share-suggest-name">${escapeHtml(p.displayName)}</span>
+                        ${meta ? `<span class="poc-share-suggest-meta">${escapeHtml(meta)}</span>` : ""}
+                    </div>`;
+            }).join("");
+
+            Array.from(suggestEl.children).forEach((el, i) => {
+                // mousedown chứ không phải click: blur của ô nhập đóng danh sách trước khi click kịp bắn.
+                el.addEventListener("mousedown", ev => { ev.preventDefault(); pick(people[i]); });
+                el.addEventListener("mousemove", () => highlight(i));
+            });
+        }
+
+        suggestEl.classList.remove("hidden");
+        labelEl.setAttribute("aria-expanded", "true");
+    }
+
+    async function search(key) {
+        // Trả lời chậm của lượt gõ cũ không được đè lên kết quả của lượt mới.
+        const seq = ++searchSeq;
+        try {
+            const url = new URL(panel.dataset.associateUrl, location.origin);
+            url.searchParams.set("q", key);
+            const response = await fetch(url);
+            if (!response.ok) throw new Error();
+            const people = await response.json();
+            if (seq === searchSeq) renderSuggest(people);
+        } catch {
+            // Tra cứu danh bạ hỏng thì im lặng bỏ qua: ô này vẫn gõ tay được, không chặn việc tạo link.
+            if (seq === searchSeq) hideSuggest();
+        }
+    }
+
+    labelEl.addEventListener("input", function () {
+        clearPick();
+        say(""); // báo của lượt tạo link trước không còn đúng với thứ đang gõ.
+        const key = labelEl.value.trim();
+        if (searchTimer) clearTimeout(searchTimer);
+        if (key.length < MIN_KEYS) { hideSuggest(); return; }
+        searchTimer = setTimeout(() => search(key), 250);
+    });
+
+    labelEl.addEventListener("keydown", function (e) {
+        if (suggestEl.classList.contains("hidden")) return;
+
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            if (!suggestions.length) return;
+            e.preventDefault();
+            const step = e.key === "ArrowDown" ? 1 : -1;
+            highlight((activeIndex + step + suggestions.length) % suggestions.length);
+        } else if (e.key === "Enter" && activeIndex >= 0) {
+            e.preventDefault();
+            pick(suggestions[activeIndex]);
+        } else if (e.key === "Escape") {
+            // Escape đóng danh sách trước, chỉ lượt bấm sau mới đóng cả hộp thoại.
+            e.stopPropagation();
+            hideSuggest();
+        }
+    });
+
+    labelEl.addEventListener("blur", () => setTimeout(hideSuggest, 150));
+
     createBtn.addEventListener("click", async function () {
         createBtn.disabled = true;
-        msgEl.textContent = "";
+        say("");
+        hideSuggest();
         try {
             const fd = new FormData();
             fd.append("projectId", projectId);
@@ -614,13 +735,15 @@
 
             const response = await fetch(panel.dataset.createUrl, { method: "POST", body: fd });
             if (!response.ok) {
-                msgEl.textContent = await response.text() || "Không tạo được link.";
+                say(await response.text() || "Không tạo được link.", true);
             } else {
                 labelEl.value = "";
+                clearPick();
                 await load();
+                say("Đã tạo link — bấm Copy rồi gửi cho người nhận.");
             }
         } catch {
-            msgEl.textContent = "Không tạo được link — kiểm tra kết nối rồi thử lại.";
+            say("Không tạo được link — kiểm tra kết nối rồi thử lại.", true);
         }
         createBtn.disabled = false;
     });
@@ -632,10 +755,10 @@
             input.select();
             try {
                 await navigator.clipboard.writeText(input.value);
-                msgEl.textContent = "Đã copy link.";
+                say("Đã copy link.");
             } catch {
                 // Trình duyệt chặn clipboard API (http, quyền) — link đã được bôi đen sẵn để Ctrl+C.
-                msgEl.textContent = "Không copy tự động được — link đã được bôi đen, bấm Ctrl+C.";
+                say("Không copy tự động được — link đã được bôi đen, bấm Ctrl+C.", true);
             }
             return;
         }
@@ -652,21 +775,25 @@
             const response = await fetch(panel.dataset.revokeUrl, { method: "POST", body: fd });
             if (!response.ok) throw new Error();
             await load();
+            say("Đã thu hồi link.");
         } catch {
-            msgEl.textContent = "Không thu hồi được link.";
+            say("Không thu hồi được link.", true);
         }
     });
 
     // Danh sách nạp khi MỞ hộp thoại (không nạp lúc tải trang): người khác có thể vừa tạo/thu hồi link,
     // và trang review vốn mở rất lâu nên bản nạp lúc đầu phiên gần như chắc chắn đã cũ.
     function openShare() {
-        msgEl.textContent = "";
+        say("");
+        clearPick();
+        hideSuggest();
         modal.classList.remove("hidden");
         labelEl.focus();
         load();
     }
 
     function closeShare() {
+        hideSuggest();
         modal.classList.add("hidden");
     }
 

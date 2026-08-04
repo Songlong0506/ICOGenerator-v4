@@ -511,22 +511,43 @@
              role="dialog" aria-modal="true" aria-labelledby="pocShareTitle"
              data-list-url="@Url.Action("PocShareLinks", "Projects", new { projectId = Model.ProjectId })"
              data-create-url="@Url.Action("CreatePocShareLink", "Projects")"
-             data-revoke-url="@Url.Action("RevokePocShareLink", "Projects")">
+             data-revoke-url="@Url.Action("RevokePocShareLink", "Projects")"
+             data-associate-url="@Url.Action("SearchAssociates", "Projects", new { projectId = Model.ProjectId })">
             <button type="button" class="x" id="pocShareClose" aria-label="Đóng">&times;</button>
-            <h3 id="pocShareTitle">🔗 Chia sẻ bản demo</h3>
+            <h2 id="pocShareTitle"><i class="bi bi-link-45deg" aria-hidden="true"></i> Chia sẻ bản demo</h2>
+            <p class="modal-sub">Người nhận mở được đúng bản demo và ghim góp ý — không thấy gì khác của dự án.</p>
+
+            @* Ô "Gửi cho ai" là autocomplete lấy từ danh bạ nhân sự: nhãn link chỉ có ích khi cùng một
+               người luôn được ghi cùng một cách. Vẫn cho gõ tự do (khách ngoài công ty không có trong
+               danh bạ), gợi ý chỉ để chọn cho nhanh và cho đúng. *@
             <div class="poc-share-form">
-                <input type="text" id="pocShareLabel" maxlength="200" placeholder="Gửi cho ai?" />
-                <select id="pocShareDays">
-                    <option value="7">7 ngày</option>
-                    <option value="14" selected>14 ngày</option>
-                    <option value="30">30 ngày</option>
-                </select>
-                <button type="button" class="btn primary small" id="pocShareCreate">Tạo link</button>
+                <div class="poc-share-field poc-share-who">
+                    <label for="pocShareLabel">Gửi cho ai</label>
+                    <input type="text" id="pocShareLabel" maxlength="200" autocomplete="off"
+                           role="combobox" aria-autocomplete="list" aria-expanded="false"
+                           aria-controls="pocShareSuggest" placeholder="Gõ tên, email hoặc NTID…" />
+                    <div class="poc-share-suggest hidden" id="pocShareSuggest" role="listbox"
+                         aria-label="Gợi ý người nhận"></div>
+                </div>
+                <div class="poc-share-field poc-share-days">
+                    <label for="pocShareDays">Hạn dùng</label>
+                    <select id="pocShareDays">
+                        <option value="7">7 ngày</option>
+                        <option value="14" selected>14 ngày</option>
+                        <option value="30">30 ngày</option>
+                    </select>
+                </div>
+                <button type="button" class="btn primary" id="pocShareCreate">
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i> Tạo link
+                </button>
             </div>
-            <div class="poc-share-msg" id="pocShareMsg"></div>
+            <div class="poc-share-pick hidden" id="pocSharePick"></div>
+            <div class="poc-share-msg" id="pocShareMsg" role="status"></div>
+
+            <h3 class="poc-share-list-head">Link đã tạo</h3>
             <div class="poc-share-list" id="pocShareList"></div>
             <div class="modal-actions">
-                <button type="button" class="btn outline small" id="pocShareDone">Đóng</button>
+                <button type="button" class="btn" id="pocShareDone">Đóng</button>
             </div>
         </div>
     </div>
