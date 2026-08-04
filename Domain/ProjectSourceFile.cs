@@ -49,6 +49,19 @@ public class ProjectSourceFile
     /// </summary>
     public int ScannedPageImageCount { get; set; }
 
+    /// <summary>
+    /// Nội dung các HÌNH của nguồn này đã được BA đọc trực tiếp từ ảnh và ghi lại thành chữ (lượt xác nhận
+    /// tài liệu — xem <c>Prompts/BusinessAnalyst/source-ack.v1.md</c>). Null = chưa mô tả, ảnh vẫn phải gửi
+    /// kèm khi gọi model.
+    ///
+    /// Đây là thứ cắt chi phí vision của cả hội thoại: ảnh vốn được đính vào MỖI lượt chat (mỗi request là
+    /// một lần upload lại), nên một cuộc chat 20 lượt trả tiền 20 lần cho cùng bộ ảnh. Có bản mô tả rồi thì
+    /// ảnh đi đúng một lần, các lượt sau chỉ mang phần chữ này — xem <see cref="Services.Requirements.SourceContextBuilder"/>.
+    /// Chỉ được ghi khi TOÀN BỘ hình của nguồn thực sự đã đi kèm lượt đó; mô tả dựa trên nửa số hình rồi
+    /// khóa lại là mất trắng phần còn lại.
+    /// </summary>
+    public string? VisionSummary { get; set; }
+
     public string? UploadedByUserId { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

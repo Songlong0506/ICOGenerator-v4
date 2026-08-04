@@ -115,18 +115,18 @@ public class ProjectSourceIngestorTests : IDisposable
         var withVision = builder.Build(new[] { source }, modelSupportsVision: true);
         var noVision = builder.Build(new[] { source }, modelSupportsVision: false);
 
-        Assert.Contains(withVision, c => c is Microsoft.Extensions.AI.DataContent);
-        Assert.DoesNotContain(noVision, c => c is Microsoft.Extensions.AI.DataContent);
+        Assert.Contains(withVision.Contents, c => c is Microsoft.Extensions.AI.DataContent);
+        Assert.DoesNotContain(noVision.Contents, c => c is Microsoft.Extensions.AI.DataContent);
         // Cả hai đều phải có phần text (tiêu đề nguồn) để model biết có tài liệu đính kèm.
-        Assert.Contains(noVision, c => c is Microsoft.Extensions.AI.TextContent);
+        Assert.Contains(noVision.Contents, c => c is Microsoft.Extensions.AI.TextContent);
 
         // Text vision: được phép mời model "xem nội dung ảnh" vì ảnh THẬT SỰ được gửi kèm.
-        var visionText = string.Concat(withVision.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        var visionText = string.Concat(withVision.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
         Assert.Contains("xem nội dung ảnh", visionText);
 
         // Text không-vision KHÔNG được mời "xem nội dung ảnh" (ảnh không gửi kèm → model sẽ bịa); phải nói thẳng
         // là không đọc được để BA hỏi người dùng gõ lại thay vì tự suy đoán.
-        var noVisionText = string.Concat(noVision.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        var noVisionText = string.Concat(noVision.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
         Assert.DoesNotContain("xem nội dung ảnh", noVisionText);
         Assert.Contains("KHÔNG đọc được ảnh", noVisionText);
     }
@@ -199,16 +199,123 @@ public class ProjectSourceIngestorTests : IDisposable
         var withVision = builder.Build(new[] { source }, modelSupportsVision: true);
         var noVision = builder.Build(new[] { source }, modelSupportsVision: false);
 
-        Assert.Equal(3, withVision.OfType<Microsoft.Extensions.AI.DataContent>().Count());
-        Assert.DoesNotContain(noVision, c => c is Microsoft.Extensions.AI.DataContent);
+        Assert.Equal(3, withVision.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
+        Assert.DoesNotContain(noVision.Contents, c => c is Microsoft.Extensions.AI.DataContent);
 
         // Vision: được mời xem ảnh đính kèm; không vision: phải nói thẳng hình không được gửi để model
         // không bịa nội dung theo các mốc [Hình n] trong text.
-        var visionText = string.Concat(withVision.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
-        Assert.Contains("xem ảnh đính kèm", visionText);
-        var noVisionText = string.Concat(noVision.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        var visionText = string.Concat(withVision.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        Assert.Contains("xem nội dung ảnh đính kèm", visionText);
+        var noVisionText = string.Concat(noVision.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
         Assert.Contains("KHÔNG đọc được ảnh", noVisionText);
     }
+
+    [Fact]
+    public void SourceContextBuilder_DefaultCap_FitsEveryFigureAWordDocCanYield()
+    {
+        // Trần mặc định mỗi lượt gọi phải >= trần hình bóc ra từ MỘT file Word. Lệch nhau (trước đây 6 với
+        // 12) nghĩa là tài liệu nào cũng mất nửa số hình ngay ở cấu hình mặc định.
+        var dir = NewSourceDir("word-full", WordDocumentTextExtractor.MaxImages);
+        var source = WordSource(dir, WordDocumentTextExtractor.MaxImages);
+        var builder = NewBuilder();
+
+        var built = builder.Build(new[] { source }, modelSupportsVision: true);
+
+        Assert.Equal(WordDocumentTextExtractor.MaxImages,
+            built.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
+        Assert.Contains(source.Id, built.FullyAttachedSourceIds);
+    }
+
+    [Fact]
+    public void SourceContextBuilder_WhenCapCutsFigures_SaysHowManyActuallyWent()
+    {
+        // Đây là lỗi gốc: câu ghi chú nói "kèm 12 hình" trong khi chỉ 6 tấm đi kèm ⇒ model được mời đọc
+        // những tấm nó không hề nhận được và sẽ bịa nội dung cho các mốc [Hình n] còn lại.
+        var dir = NewSourceDir("word-capped", 3);
+        var source = WordSource(dir, 3);
+        var builder = NewBuilder(maxImagesPerCall: 2);
+
+        var built = builder.Build(new[] { source }, modelSupportsVision: true);
+        var text = string.Concat(built.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+
+        Assert.Equal(2, built.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
+        Assert.Contains("kèm 2/3", text);
+        Assert.DoesNotContain("kèm 3 hình", text);
+        // Chưa nhìn đủ hình thì KHÔNG được khóa lại thành mô tả chữ — lượt sau còn phải gửi nốt.
+        Assert.Empty(built.FullyAttachedSourceIds);
+    }
+
+    [Fact]
+    public void SourceContextBuilder_WithVisionSummary_SendsTextInsteadOfImages()
+    {
+        // Ảnh vốn đi kèm LẠI ở mọi lượt chat (mỗi lượt là một request mới). Có bản mô tả hình bằng chữ rồi
+        // thì ảnh phải ngừng đi — đây chính là chỗ cắt chi phí của cả cơ chế.
+        var dir = NewSourceDir("word-summarized", 3);
+        var source = WordSource(dir, 3);
+        source.VisionSummary = "[Hình 1] — Màn hình Belt Type: cột Belt Type, Belt Size, Action.";
+        var builder = NewBuilder();
+
+        var built = builder.Build(new[] { source }, modelSupportsVision: true);
+        var text = string.Concat(built.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+
+        Assert.Empty(built.Contents.OfType<Microsoft.Extensions.AI.DataContent>());
+        Assert.Contains("Màn hình Belt Type", text);
+        Assert.Contains("KHÔNG gửi lại", text);
+        // Không mời model "xem ảnh đính kèm" khi chẳng có ảnh nào đính kèm.
+        Assert.DoesNotContain("xem nội dung ảnh đính kèm", text);
+        // Đã có mô tả rồi thì không ghi đè bằng mô tả mới của lượt sau.
+        Assert.Empty(built.FullyAttachedSourceIds);
+    }
+
+    [Fact]
+    public void SourceContextBuilder_SummarizedSource_FreesImageBudgetForTheRest()
+    {
+        // Hệ quả có chủ đích: project nhiều tài liệu tự cuốn chiếu — file đã mô tả xong nhường hạn mức ảnh
+        // cho file chưa được nhìn, thay vì kẹt mãi ở mấy file upload trước.
+        var describedDir = NewSourceDir("first", 2);
+        var described = WordSource(describedDir, 2);
+        described.VisionSummary = "[Hình 1] — sơ đồ duyệt đơn.";
+        described.CreatedAt = DateTime.UtcNow.AddMinutes(-5);
+
+        var pendingDir = NewSourceDir("second", 2);
+        var pending = WordSource(pendingDir, 2);
+        pending.FileName = "tai-lieu-2.docx";
+
+        var builder = NewBuilder(maxImagesPerCall: 2);
+        var built = builder.Build(new[] { described, pending }, modelSupportsVision: true);
+
+        Assert.Equal(2, built.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
+        Assert.Equal(new[] { pending.Id }, built.FullyAttachedSourceIds);
+    }
+
+    private SourceContextBuilder NewBuilder(int? maxImagesPerCall = null)
+    {
+        var settings = new Dictionary<string, string?>();
+        if (maxImagesPerCall.HasValue)
+            settings["Llm:SourceUpload:MaxImagesPerCall"] = maxImagesPerCall.Value.ToString();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+        return new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance);
+    }
+
+    private string NewSourceDir(string name, int figureCount)
+    {
+        var dir = Path.Combine(_root, name);
+        Directory.CreateDirectory(dir);
+        for (var n = 1; n <= figureCount; n++)
+            File.WriteAllBytes(Path.Combine(dir, $"figure-{n}.png"), OnePixelPng);
+        return dir;
+    }
+
+    private static ICOGenerator.Domain.ProjectSourceFile WordSource(string dir, int figureCount) => new()
+    {
+        Kind = SourceFileKind.Document,
+        FileName = "tai-lieu.docx",
+        ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        StoredPath = Path.Combine(dir, "tai-lieu.docx"),
+        ExtractedText = "Quy trình nhập kho.",
+        ScannedPageImageCount = figureCount,
+        IsVisionSource = true,
+    };
 
     [Fact]
     public async Task IngestAsync_TextPdf_HasNoScannedPageImages()
@@ -252,12 +359,12 @@ public class ProjectSourceIngestorTests : IDisposable
         var withVision = builder.Build(new[] { source }, modelSupportsVision: true);
         var noVision = builder.Build(new[] { source }, modelSupportsVision: false);
 
-        Assert.Equal(3, withVision.OfType<Microsoft.Extensions.AI.DataContent>().Count());
-        Assert.DoesNotContain(noVision, c => c is Microsoft.Extensions.AI.DataContent);
+        Assert.Equal(3, withVision.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
+        Assert.DoesNotContain(noVision.Contents, c => c is Microsoft.Extensions.AI.DataContent);
 
         // Có ảnh gửi kèm ⇒ KHÔNG được nói "nội dung bị bỏ qua" (câu đó khiến BA đi hỏi lại thứ nó đang cầm).
-        var visionText = string.Concat(withVision.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
-        Assert.Contains("gửi kèm dưới dạng ẢNH", visionText);
+        var visionText = string.Concat(withVision.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        Assert.Contains("dưới dạng ẢNH", visionText);
         Assert.DoesNotContain("nội dung bị bỏ qua", visionText);
     }
 
