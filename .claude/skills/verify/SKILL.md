@@ -24,6 +24,8 @@ ASPNETCORE_ENVIRONMENT=Development Database__Provider=Sqlite Encryption__ApiKeyK
 Model seed trỏ endpoint không tồn tại (và một model có ApiKey rỗng → lỗi "Value cannot be an empty string (Parameter 'key')"). Dựng stub OpenAI-compatible rồi trỏ model vào:
 
 - Stub PHẢI hỗ trợ **SSE streaming** (`stream:true`) — trả JSON thường thì agent chạy "thành công" nhưng Output rỗng.
+- `created` trong mỗi chunk là Unix **giây** (`Math.floor(Date.now()/1000)`). Trả mili giây thì MỌI lời gọi fail với `Valid values are between -62135596800 and 253402300799, inclusive. (Parameter 'seconds')` — lỗi này bị mã hoá trong `AgentModelCallLogs.ErrorMessage` (AES-GCM, key = SHA-256 của `Encryption__ApiKeyKey`) nên UI chỉ hiện lượt hỏng chung chung.
+- Prompt chat của BA cũng **nhắc tới** "Bản đồ bao phủ yêu cầu" (bản đồ được nhét vào ngữ cảnh). Stub muốn trả nội dung khác nhau theo từng lượt thì phải khớp **dòng đầu** của system prompt (`# Vai trò: …`), khớp cả body là trả nhầm bản đồ vào chỗ lời thoại.
 - Ghi request body ra file để soi prompt app thực sự gửi.
 - Trỏ model: `UPDATE AiModels SET Endpoint='http://127.0.0.1:5098/v1', ApiKey='sk-stub'` (ApiKey plaintext trong DB vẫn đọc được — protector passthrough giá trị không có prefix mã hóa).
 

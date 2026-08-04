@@ -1207,6 +1207,16 @@
 
 .coverage-progress-text { font-size: 12px; color: #555; white-space: nowrap; }
 
+/* Chú thích nhóm bị loại khỏi phạm vi + ghi chú của khung rỗng: cùng tông phụ, đứng dưới thanh tiến độ
+   chứ không chen vào hàng flex của nó (chen vào là thanh bị bóp còn một mẩu). */
+.coverage-na,
+.coverage-hint {
+    margin: -2px 0 10px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #6b7280;
+}
+
 /* Bản đồ bao phủ không gộp được lượt vừa rồi: danh sách bên dưới là bản CŨ. Tông cảnh báo nhưng không đỏ
    — đây không phải lỗi người dùng gây ra và họ không cần làm gì, chỉ cần biết vì sao tiến độ đứng im
    (và vì sao BA có thể hỏi lại nhóm họ vừa trả lời). */

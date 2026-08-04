@@ -4,6 +4,28 @@ using ICOGenerator.Contracts.Requirements;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
+/// Tiến độ của panel "Tiến độ khai thác". MẪU SỐ LÀ TỔNG SỐ NHÓM, không phải số nhóm áp dụng: nhóm bị
+/// đánh [KHÔNG ÁP DỤNG] giữa chừng mà rút khỏi mẫu số thì con số đang chạy tự nhảy lùi mốc ("0/12" →
+/// "3/9") và người dùng không hiểu vì sao thước đo đổi.
+/// </summary>
+/// <param name="Clear">Số nhóm đã [RÕ] — tử số của dòng chữ.</param>
+/// <param name="Applicable">Số nhóm còn áp dụng (bỏ [KHÔNG ÁP DỤNG]).</param>
+/// <param name="Total">Tổng số nhóm của bản đồ (12 với bản đồ đủ) — mẫu số của dòng chữ.</param>
+public readonly record struct CoverageProgress(int Clear, int Applicable, int Total)
+{
+    /// <summary>Số nhóm đã được loại khỏi phạm vi dự án ([KHÔNG ÁP DỤNG]).</summary>
+    public int NotApplicable => Total - Applicable;
+
+    /// <summary>
+    /// Phần trăm cho thanh tiến độ. Nhóm [KHÔNG ÁP DỤNG] tính là ĐÃ XONG — chúng không bao giờ lên [RÕ]
+    /// được, nên nếu không tính thì thanh không bao giờ đầy trong khi cổng readiness (mọi dòng áp dụng
+    /// [RÕ] — xem <see cref="RequirementReadinessGate"/>) đã mở nút "Write Requirement". Bất biến
+    /// "thanh đầy ⇔ nút mở khoá" là thứ cả UI lẫn tài liệu đang dựa vào, phải giữ.
+    /// </summary>
+    public int Percent => Total == 0 ? 0 : (Clear + NotApplicable) * 100 / Total;
+}
+
+/// <summary>
 /// Đọc text "Bản đồ bao phủ yêu cầu" (12 dòng bullet do <see cref="RequirementCoverageService"/> duy trì,
 /// format ghim trong <c>Prompts/BusinessAnalyst/requirement-coverage.v3.md</c>) thành danh sách
 /// <see cref="CoverageMapItem"/> cho UI render panel tiến độ cạnh khung chat. Trước đây bản đồ chỉ dành
@@ -41,13 +63,11 @@ public static partial class CoverageMapParser
         return items;
     }
 
-    /// <summary>Số nhóm ÁP DỤNG đã [RÕ] và tổng số nhóm áp dụng (bỏ [KHÔNG ÁP DỤNG]) — cho dòng "đã rõ x/y".</summary>
-    public static (int Clear, int Applicable) Progress(IReadOnlyList<CoverageMapItem> items)
-    {
-        var applicable = items.Count(x => x.Status != "KHÔNG ÁP DỤNG");
-        var clear = items.Count(x => x.Status == "RÕ");
-        return (clear, applicable);
-    }
+    /// <summary>Tiến độ khai thác của bản đồ — cho thanh + dòng "Đã rõ x/y nhóm" của panel.</summary>
+    public static CoverageProgress Progress(IReadOnlyList<CoverageMapItem> items) => new(
+        Clear: items.Count(x => x.Status == "RÕ"),
+        Applicable: items.Count(x => x.Status != "KHÔNG ÁP DỤNG"),
+        Total: items.Count);
 
     /// <summary>
     /// Tách khối bằng chứng "{nguồn: …}" ở CUỐI tóm tắt. Không có khối ⇒ trả nguyên tóm tắt + bằng chứng
