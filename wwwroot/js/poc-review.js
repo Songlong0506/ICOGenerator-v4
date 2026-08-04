@@ -475,12 +475,25 @@
             box.checked = checked[box.dataset.key] === true;
         });
 
+        // Tiến độ ở tiêu đề panel: các kịch bản nay nằm rải dưới từng câu nghiệm thu nên không còn đọc
+        // được "còn bao nhiêu việc" bằng cách liếc một danh sách phẳng. Đếm từ DOM (không từ `checked`)
+        // vì localStorage còn giữ khóa của những kịch bản đã biến mất ở các vòng POC trước.
+        const progress = document.getElementById("uatProgress");
+        function renderProgress() {
+            if (!progress) return;
+            const boxes = uatList.querySelectorAll(".uat-step");
+            const done = uatList.querySelectorAll(".uat-step:checked").length;
+            progress.textContent = `(${done}/${boxes.length} bước)`;
+        }
+        renderProgress();
+
         uatList.addEventListener("change", function (e) {
             const box = e.target.closest(".uat-step");
             if (!box) return;
 
             checked[box.dataset.key] = box.checked;
             try { localStorage.setItem(storageKey, JSON.stringify(checked)); } catch { }
+            renderProgress();
         });
 
         // Guided tour: bấm một bước (hoặc "▶ Hướng dẫn" đi lần lượt) → POC mở đúng màn hình + tô sáng

@@ -26,9 +26,9 @@
    phải làm gì?). Gom vào một hộp thoại hai tab, mở từ command bar, chỉ hiện với DeliveryAdvance —
    ĐÚNG quyền đang gate quyền xóa ghi chú của người khác, tức phía delivery/dev, khác hẳn
    RequirementsManage vốn thuộc về chính người dùng nghiệp vụ.
-   Cái Ở LẠI cột phải là câu nghiệm thu + ví dụ tính thử: chữ của chính người dùng, và là thứ duy nhất
-   biến buổi review từ "mò lỗi tự do" thành "đối chiếu với điều tôi đã yêu cầu". Cũng vì thế nó không
-   vào modal được — modal che kín iframe nên không soi song song với bản demo. *@
+   Cái Ở LẠI cột phải là câu nghiệm thu + kịch bản kiểm + ví dụ tính thử: chữ của chính người dùng, và là
+   thứ duy nhất biến buổi review từ "mò lỗi tự do" thành "đối chiếu với điều tôi đã yêu cầu". Cũng vì thế
+   nó không vào modal được — modal che kín iframe nên không soi song song với bản demo. *@
 @{
     var cov = Model.Coverage;
     var hasUserCoverage = cov.AcceptanceCriteria.Any() || cov.WorkedExamples.Any();
@@ -36,6 +36,66 @@
     var untestedAc = cov.AcceptanceCriteria.Where(a => !a.ScenarioTitles.Any()).ToList();
     // Nút chỉ có nghĩa khi thật sự có gì để xem: POC dựng trước các tính năng này không có dữ liệu nào.
     var showTechButton = canManage && (Model.Verification is not null || hasSpecDetails);
+
+    // ---- Ghép câu nghiệm thu ↔ kịch bản kiểm cho panel gộp (xem comment ở panel bên dưới) ----
+    var scenarios = Model.Scenarios.Scenarios;
+    var acList = cov.AcceptanceCriteria;
+
+    // Chủ sở hữu của mỗi kịch bản = AC ĐẦU TIÊN (theo thứ tự trong spec) mà nó trỏ tới. Một kịch bản
+    // chứng minh nhiều AC chỉ được dựng ĐẦY ĐỦ một lần, dưới AC chủ; các AC còn lại chỉ nhắc bằng một
+    // dòng trỏ về. Lý do rất cụ thể: hai khối .uat-scenario sinh đôi sẽ mang CÙNG data-key, nên tick ở
+    // bản này không sang bản kia cho tới lúc tải lại trang — người review tưởng mình chưa tick.
+    // null ⇒ kịch bản không trỏ về AC nào (hoặc spec không parse ra AC nào) → xuống nhóm cuối.
+    var ownerAcOf = new string?[scenarios.Count];
+    for (var i = 0; i < scenarios.Count; i++)
+    {
+        var acRefs = scenarios[i].AcRefs;
+        ownerAcOf[i] = acList
+            .FirstOrDefault(ac => acRefs.Any(r => string.Equals(r, ac.Ref, StringComparison.OrdinalIgnoreCase)))
+            ?.Ref;
+    }
+
+    // CHỈ SỐ GỐC i phải đi theo kịch bản tới chỗ mới: data-key của checkbox là "@i-@j" và đó là khóa
+    // localStorage đã lưu tick của các buổi review trước. Đánh số lại theo thứ tự hiển thị mới sẽ làm
+    // lệch toàn bộ tick cũ, nên mọi nhóm bên dưới đều mang theo cặp (kịch bản, chỉ số gốc).
+    var scenariosByIndex = Enumerable.Range(0, scenarios.Count).ToList();
+    var orphanScenarios = scenariosByIndex.Where(i => ownerAcOf[i] is null).ToList();
+    var totalSteps = scenarios.Sum(s => s.Steps.Count);
+    var showReviewPanel = hasUserCoverage || scenarios.Any();
+
+    // Một thẻ kịch bản (tiêu đề + mã BR/AC + nút hướng dẫn + các bước tick được + nút báo lỗi). Dựng
+    // bằng templated delegate vì cùng một thẻ xuất hiện ở hai chỗ: lồng dưới AC nó chứng minh, và ở
+    // nhóm kịch bản chưa gắn AC. `item.Index` LUÔN là chỉ số gốc trong Model.Scenarios.Scenarios.
+    Func<(ICOGenerator.Contracts.Requirements.UatScenario Scenario, int Index), object> scenarioCard =
+    @<div class="uat-scenario" data-screen="@item.Scenario.Screen" data-title="@item.Scenario.Title">
+        <div class="uat-title">
+            @item.Scenario.Title
+            @if (item.Scenario.RuleRefs.Any())
+            {
+                <span class="uat-rules" title="Business rule kịch bản này kiểm chứng">@string.Join(", ", item.Scenario.RuleRefs)</span>
+            }
+            @* Mã AC chỉ còn cần khi thẻ KHÔNG nằm dưới AC của nó (spec không parse ra AC nào, hoặc kịch
+               bản trỏ về một mã đã biến mất khỏi spec): lúc đó đây là manh mối duy nhất về điều nó
+               chứng minh. Nằm dưới đúng AC rồi thì in lại mã ấy chỉ là nhiễu. *@
+            @if (ownerAcOf[item.Index] is null && item.Scenario.AcRefs.Any())
+            {
+                <span class="uat-rules" title="Câu nghiệm thu bạn đã duyệt mà kịch bản này chứng minh">@string.Join(", ", item.Scenario.AcRefs)</span>
+            }
+            <button type="button" class="btn outline small uat-tour" title="Đi lần lượt từng bước, POC sẽ chỉ chỗ">▶ Hướng dẫn</button>
+        </div>
+        <ol class="uat-steps">
+            @for (var j = 0; j < item.Scenario.Steps.Count; j++)
+            {
+                <li>
+                    <label>
+                        <input type="checkbox" class="uat-step" data-key="@(item.Index)-@(j)" />
+                        <span class="uat-step-text" data-step="@item.Scenario.Steps[j]" title="Bấm để POC chỉ chỗ thao tác này">@item.Scenario.Steps[j]</span>
+                    </label>
+                </li>
+            }
+        </ol>
+        <button type="button" class="btn outline small uat-fail">✗ Báo lỗi kịch bản này</button>
+    </div>;
 }
 
 @* Command bar (mẫu Bosch): chỗ đứng của các hành động CẤP TRANG. "Chia sẻ bản demo" nằm ở đây thay vì
@@ -100,42 +160,104 @@
     </section>
 
     <aside class="card poc-comments-panel">
-        @* Truy vết yêu cầu↔POC (U2), NỬA DÀNH CHO NGƯỜI DÙNG: hai nhóm dưới đây là chữ của chính họ —
-           câu nghiệm thu chép nguyên văn từ dòng "Hoàn thành khi: …" đã duyệt trong Product Brief, và
-           ví dụ tính thử họ đã chốt bằng số cụ thể. Đây là cái neo của buổi review: không có nó, người
-           nghiệm thu chỉ còn cách đi bắt lỗi cảm tính thay vì đối chiếu với điều mình đã yêu cầu.
-           Nửa còn lại (màn hình theo spec, business rule, nhãn có/chưa kịch bản kiểm) là cách BA diễn
-           đạt lại cho máy → đã chuyển sang hộp thoại "Chi tiết kỹ thuật". Ẩn khi spec chưa parse được
-           (bản cũ) — fail-open. *@
-        @if (hasUserCoverage)
+        @* Truy vết yêu cầu↔POC (U2), NỬA DÀNH CHO NGƯỜI DÙNG — MỘT panel duy nhất cho cả điều đã yêu cầu
+           lẫn cách kiểm nó. Trước đây đây là hai panel cạnh nhau ("Điều anh/chị đã yêu cầu" và "Kịch bản
+           kiểm thử"), nhưng chúng là HAI HƯỚNG CHIẾU CỦA CÙNG MỘT PHÉP JOIN: panel trên đi AC→kịch bản
+           qua PocAcceptanceCoverage.ScenarioTitles, panel dưới đi kịch bản→AC qua UatScenario.AcRefs
+           (xem GetPocReviewQuery). Tách ra thì phép join đó bị đẩy sang mắt người review: đọc "AC-3" ở
+           trên rồi cuộn xuống dò chip AC-3 giữa các thẻ kịch bản — việc máy đã làm sẵn nhưng không bày ra.
+           Nay lấy AC làm xương sống (chữ của chính người dùng) và lồng kịch bản dưới AC nó chứng minh:
+           mỗi câu nghiệm thu hoặc có đường kiểm ngay bên dưới, hoặc mang nhãn ⚠ "phải tự thử" — quét một
+           lượt là thấy cả cam kết lẫn độ phủ. Ví dụ tính thử (số cụ thể họ đã chốt) ở lại cuối panel.
+           Fail-open cho POC/spec cũ: không parse ra AC nào thì mọi kịch bản rơi xuống nhóm cuối và panel
+           thoái hóa về đúng danh sách kịch bản phẳng như trước. *@
+        @if (showReviewPanel)
         {
             <details class="uat-panel poc-coverage-panel" open>
-                <summary>📋 Điều anh/chị đã yêu cầu</summary>
-                <p class="muted poc-panel-hint">Những gì anh/chị đã duyệt ở bước trước — mở bản demo bên trái và đối chiếu từng dòng xem POC làm đúng chưa.</p>
+                <summary>
+                    📋 Điều anh/chị đã yêu cầu
+                    @if (totalSteps > 0)
+                    {
+                        @* Bộ đếm tiến độ thay cho số kịch bản: gộp xong thì danh sách hết dạng "checklist
+                           phẳng để cày tuần tự", nên phải trả lại tín hiệu "còn bao nhiêu việc". JS đổ số
+                           sau khi khôi phục tick từ localStorage. *@
+                        <span class="poc-count" id="uatProgress" data-total="@totalSteps"></span>
+                    }
+                </summary>
+                <p class="muted poc-panel-hint">Những gì anh/chị đã duyệt ở bước trước — mở bản demo bên trái và đối chiếu từng dòng xem POC làm đúng chưa. Dưới mỗi câu là kịch bản đi-từng-bước để kiểm chính câu đó.</p>
 
-                @if (cov.AcceptanceCriteria.Any())
-                {
-                    <div class="poc-cov-group">
-                        <div class="poc-cov-head">Câu nghiệm thu bạn đã duyệt <span class="poc-count">(@cov.AcceptanceCriteria.Count)</span></div>
-                        <ul class="poc-cov-rules">
-                            @foreach (var ac in cov.AcceptanceCriteria)
+                @* #uatList bọc toàn bộ phần có thẻ kịch bản: mọi handler trong poc-review.js đều delegate
+                   từ phần tử này và tìm ngược bằng closest(".uat-scenario"), nên lồng sâu thêm một cấp
+                   vào trong AC không ảnh hưởng gì. *@
+                <div id="uatList">
+                    @if (acList.Any())
+                    {
+                        <div class="poc-cov-group">
+                            <div class="poc-cov-head">Câu nghiệm thu bạn đã duyệt <span class="poc-count">(@acList.Count)</span></div>
+                            <ul class="poc-cov-rules poc-ac-list">
+                                @foreach (var ac in acList)
+                                {
+                                    var ownScenarios = scenariosByIndex
+                                        .Where(i => string.Equals(ownerAcOf[i], ac.Ref, StringComparison.OrdinalIgnoreCase))
+                                        .ToList();
+                                    // Kịch bản chứng minh AC này nhưng đã được dựng đầy đủ ở một AC TRƯỚC
+                                    // đó (nó trỏ về nhiều AC). Chỉ nhắc một dòng, kèm mã AC chủ để người
+                                    // review biết cuộn lên đâu — không dựng lại thẻ, xem lý do ở ownerAcOf.
+                                    var xrefScenarios = scenariosByIndex
+                                        .Where(i => !string.Equals(ownerAcOf[i], ac.Ref, StringComparison.OrdinalIgnoreCase)
+                                                    && scenarios[i].AcRefs.Any(r => string.Equals(r, ac.Ref, StringComparison.OrdinalIgnoreCase)))
+                                        .ToList();
+                                    <li class="poc-ac-item">
+                                        <span class="poc-cov-rule-text">
+                                            <b>@ac.Ref</b>@(string.IsNullOrWhiteSpace(ac.Feature) ? "" : $" ({ac.Feature})"): @ac.Text
+                                        </span>
+                                        @* Chỉ giữ vế CẢNH BÁO, bỏ vế "✓ có kịch bản kiểm: <danh sách title>": vế ✓ là
+                                           sổ sách QA (đã có tab kỹ thuật lo), còn vế ⚠ là một CHỈ DẪN cho chính người
+                                           đang ngồi review — không ai kiểm hộ điểm này, anh/chị phải tự bấm thử.
+                                           Gộp xong nhãn này còn đắt hơn: nó là một CHỖ TRỐNG ngay dưới câu nghiệm
+                                           thu, đúng nơi đáng lẽ phải có kịch bản. *@
+                                        @if (!ac.ScenarioTitles.Any())
+                                        {
+                                            <span class="poc-cov-rule-untested" title="Chưa có kịch bản UAT nào chứng minh câu này — hãy tự thử trên bản demo">⚠ chưa có kịch bản kiểm — anh/chị nên tự thử điểm này</span>
+                                        }
+                                        @foreach (var i in ownScenarios)
+                                        {
+                                            @scenarioCard((scenarios[i], i))
+                                        }
+                                        @foreach (var i in xrefScenarios)
+                                        {
+                                            <div class="poc-ac-xref" title="Kịch bản này chứng minh nhiều câu nghiệm thu — các bước của nó nằm ở câu nghiệm thu phía trên">
+                                                ↳ còn được kiểm bởi kịch bản «@scenarios[i].Title» (các bước ở @ownerAcOf[i])
+                                            </div>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @if (orphanScenarios.Any())
+                    {
+                        <div class="poc-cov-group">
+                            @if (acList.Any())
                             {
-                                <li>
-                                    <span class="poc-cov-rule-text">
-                                        <b>@ac.Ref</b>@(string.IsNullOrWhiteSpace(ac.Feature) ? "" : $" ({ac.Feature})"): @ac.Text
-                                    </span>
-                                    @* Chỉ giữ vế CẢNH BÁO, bỏ vế "✓ có kịch bản kiểm: <danh sách title>": vế ✓ là
-                                       sổ sách QA (đã có tab kỹ thuật lo), còn vế ⚠ là một CHỈ DẪN cho chính người
-                                       đang ngồi review — không ai kiểm hộ điểm này, anh/chị phải tự bấm thử. *@
-                                    @if (!ac.ScenarioTitles.Any())
-                                    {
-                                        <span class="poc-cov-rule-untested" title="Chưa có kịch bản UAT nào chứng minh câu này — hãy tự thử trên bản demo">⚠ chưa có kịch bản kiểm — anh/chị nên tự thử điểm này</span>
-                                    }
-                                </li>
+                                <div class="poc-cov-head">Kịch bản chưa gắn câu nghiệm thu nào <span class="poc-count">(@orphanScenarios.Count)</span></div>
+                                <p class="muted poc-panel-hint">Các kịch bản này không trỏ về câu nghiệm thu nào ở trên — vẫn nên đi thử một lượt.</p>
                             }
-                        </ul>
-                    </div>
-                }
+                            else
+                            {
+                                @* Không parse được AC nào (POC/spec bản cũ): panel thoái hóa về đúng danh
+                                   sách kịch bản phẳng của phiên bản trước, không để lại vùng trống. *@
+                                <div class="poc-cov-head">🧭 Kịch bản kiểm thử <span class="poc-count">(@orphanScenarios.Count)</span></div>
+                                <p class="muted poc-panel-hint">Đi theo từng kịch bản, tick các bước đã đạt; bấm vào một bước để POC <b>chỉ chỗ</b> cần thao tác; bước nào sai thì bấm "Báo lỗi".</p>
+                            }
+                            @foreach (var i in orphanScenarios)
+                            {
+                                @scenarioCard((scenarios[i], i))
+                            }
+                        </div>
+                    }
+                </div>
 
                 @if (cov.WorkedExamples.Any())
                 {
@@ -208,50 +330,9 @@
             </details>
         }
 
-        @* Checklist UAT: kịch bản đi-từng-bước sinh từ AI Design Spec (UatScenarioService) — biến review
-           từ khám phá tự do thành nghiệm thu có kịch bản. Tick từng bước (lưu localStorage); bước không
-           đạt thì "Báo lỗi" mở form ghi chú prefill sẵn ngữ cảnh kịch bản. *@
-        @if (Model.Scenarios.Scenarios.Any())
-        {
-            <details class="uat-panel" open>
-                <summary>🧭 Kịch bản kiểm thử <span class="poc-count">(@Model.Scenarios.Scenarios.Count)</span></summary>
-                <p class="muted poc-panel-hint">Đi theo từng kịch bản, tick các bước đã đạt; bấm vào một bước để POC <b>chỉ chỗ</b> cần thao tác; bước nào sai thì bấm "Báo lỗi".</p>
-                <div id="uatList">
-                    @for (var i = 0; i < Model.Scenarios.Scenarios.Count; i++)
-                    {
-                        var scenario = Model.Scenarios.Scenarios[i];
-                        <div class="uat-scenario" data-screen="@scenario.Screen" data-title="@scenario.Title">
-                            <div class="uat-title">
-                                @scenario.Title
-                                @if (scenario.RuleRefs.Any())
-                                {
-                                    <span class="uat-rules" title="Business rule kịch bản này kiểm chứng">@string.Join(", ", scenario.RuleRefs)</span>
-                                }
-                                @* Mã AC: kịch bản này đang chứng minh câu nghiệm thu nào của chính người
-                                   dùng — bấm hỏng ở đây là hỏng đúng điều đã hứa, không phải một chi tiết kỹ thuật. *@
-                                @if (scenario.AcRefs.Any())
-                                {
-                                    <span class="uat-rules" title="Câu nghiệm thu bạn đã duyệt mà kịch bản này chứng minh">@string.Join(", ", scenario.AcRefs)</span>
-                                }
-                                <button type="button" class="btn outline small uat-tour" title="Đi lần lượt từng bước, POC sẽ chỉ chỗ">▶ Hướng dẫn</button>
-                            </div>
-                            <ol class="uat-steps">
-                                @for (var j = 0; j < scenario.Steps.Count; j++)
-                                {
-                                    <li>
-                                        <label>
-                                            <input type="checkbox" class="uat-step" data-key="@(i)-@(j)" />
-                                            <span class="uat-step-text" data-step="@scenario.Steps[j]" title="Bấm để POC chỉ chỗ thao tác này">@scenario.Steps[j]</span>
-                                        </label>
-                                    </li>
-                                }
-                            </ol>
-                            <button type="button" class="btn outline small uat-fail">✗ Báo lỗi kịch bản này</button>
-                        </div>
-                    }
-                </div>
-            </details>
-        }
+        @* Checklist UAT (kịch bản đi-từng-bước sinh từ AI Design Spec) từng là một panel riêng ở đây —
+           nay lồng dưới chính câu nghiệm thu mà mỗi kịch bản chứng minh, trong panel "Điều anh/chị đã
+           yêu cầu" phía trên. *@
 
         <h3>Ghi chú trên POC <span class="poc-count" id="pocCommentCount"></span></h3>
         @* MỘT đường đóng vòng thay cho hai nút cũ ("nhờ Dev chỉnh bản demo" / "gửi về Requirement").
