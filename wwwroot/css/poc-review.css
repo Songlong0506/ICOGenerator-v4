@@ -488,8 +488,17 @@
 
 .poc-share-field { display: flex; flex-direction: column; min-width: 0; }
 
-    /* label mặc định có margin-top 16px để tách các trường xếp dọc; ở hàng ngang này thì không cần. */
-    .poc-share-field label { margin-top: 0; }
+    /* label mặc định có margin-top 16px để tách các trường xếp dọc; ở hàng ngang này thì không cần.
+       Bản caption tích hợp trong site.css (`label:has(+ input:not([type=...]):not(...)…)`) có độ ưu
+       tiên cao hơn `.poc-share-field label`, nên phải lặp lại đúng chuỗi :not đó mới đè được — thiếu
+       nó thì ô nhập tụt xuống 16px trong khi nút vẫn cao hết hàng, cả hàng nhìn so le. */
+    .poc-share-field label,
+    .poc-share-field label:has(+ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"])),
+    .poc-share-field label:has(+ select) { margin-top: 0; }
+
+    /* Cùng lý do, cho combo: dropdown.js ẩn <label> gốc và site.css trả lại 16px đó cho
+       `.ms-combo--single` bằng margin-top — ở hàng ngang này thì không cần. */
+    .poc-share-field label.cs-enhanced-hidden + .ms-combo--single { margin-top: 0; }
 
     /* Trường chiếm hết phần cao còn lại dưới caption; .ms-combo-trigger không phải flex item nên
        phải kéo bằng height. */
@@ -497,7 +506,17 @@
     .poc-share-field select,
     .poc-share-field .ms-combo { flex: 1 1 auto; }
 
-    .poc-share-field .ms-combo-trigger { height: 100%; }
+    /* Trigger mặc định canh giữa theo chiều dọc, còn ô nhập ghim caption ở đỉnh hộp — để mặc định
+       thì hai caption lệch nhau vài pixel. Ghim caption của combo lên đỉnh với đúng padding của
+       caption ô nhập (7px, trừ 1px viền trên mà ô nhập không có), riêng mũi tên vẫn canh giữa. */
+    .poc-share-field .ms-combo-trigger {
+        height: 100%;
+        align-items: flex-start;
+        padding-top: 6px;
+        padding-bottom: 4px;
+    }
+
+    .poc-share-field .ms-combo-caret { align-self: center; }
 
 .poc-share-who { position: relative; flex: 1 1 auto; }
 
