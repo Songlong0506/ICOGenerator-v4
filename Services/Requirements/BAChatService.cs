@@ -343,7 +343,10 @@ public class BAChatService
         project.RequirementCoverageMap = coverageMap;
 
         // Tài liệu nguồn (ảnh/PDF) của project: gắn vào ĐÚNG lượt user mới nhất (một lần) để BA "thấy" khi trả lời,
-        // tránh gửi lại ảnh ở mọi lượt (đốt token). Model không vision ⇒ builder chỉ trả phần text bóc từ PDF.
+        // thay vì lặp lại ở mọi message trong lịch sử. Model không vision ⇒ builder chỉ trả phần text bóc từ PDF.
+        // Lưu ý chi phí: mỗi lượt chat là một request MỚI, nên nguồn nào còn phải đi bằng ẢNH thì lượt nào
+        // cũng upload lại ảnh đó. Thứ chặn việc này là VisionSummary — nguồn đã được BA mô tả nội dung hình
+        // thành chữ ở lượt xác nhận tài liệu thì từ đây chỉ còn mang phần chữ (xem SourceContextBuilder).
         // Chỉ đọc (builder không ghi gì lên entity) ⇒ AsNoTracking, khỏi track cả ExtractedText dài.
         var sources = await _db.ProjectSourceFiles
             .AsNoTracking()
@@ -423,7 +426,7 @@ public class BAChatService
             if (!isAssistant && i == lastUserIndex && sourceContents.Count > 0)
             {
                 var contents = new List<AIContent> { new TextContent(text) };
-                contents.AddRange(sourceContents);
+                contents.AddRange(sourceContents.Contents);
                 messages.Add(new ChatMessage(ChatRole.User, contents));
             }
             else
@@ -726,7 +729,7 @@ public class BAChatService
                 : $"Đây là các tài liệu nguồn tôi vừa đính kèm, kèm ghi chú của tôi: \"{trimmedNote}\". Bạn đọc giúp và tóm tắt lại cách hiểu để tôi xác nhận nhé.";
 
             var userContent = new List<AIContent> { new TextContent(promptText) };
-            userContent.AddRange(sourceContents);
+            userContent.AddRange(sourceContents.Contents);
 
             var messages = new List<ChatMessage>
             {
@@ -738,11 +741,11 @@ public class BAChatService
             // ArgumentException) chứ không chỉ trả IsSuccess=false — bắt riêng tại đây để lỗi nào cũng
             // thành lượt ⚠️ hiển thị được, thay vì lọt xuống catch-all và BA "mất tích" không dấu vết.
             LlmCallResult? callResult = null;
-            BAChatReply? parsed = null;
+            BASourceAckReply? parsed = null;
             string? callError = null;
             try
             {
-                (callResult, parsed) = await _llm.ChatStructuredAsync<BAChatReply>(
+                (callResult, parsed) = await _llm.ChatStructuredAsync<BASourceAckReply>(
                     model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BASourceAck"),
                     cancellationToken: cancellationToken);
             }
@@ -770,6 +773,14 @@ public class BAChatService
 
             var suggestionsJson = reply.Suggestions.Count > 0 ? JsonSerializer.Serialize(reply.Suggestions) : null;
             await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply.Message.Trim(), suggestionsJson, reply.MultiSelect, cancellationToken: cancellationToken);
+
+            // Đây là lượt DUY NHẤT model nhìn thấy ảnh. Cất phần nó ghi lại được về từng hình để các lượt
+            // chat sau dùng chữ thay ảnh. Structured output tắt ⇒ parsed null ⇒ thử đọc lại từ raw content
+            // (model vẫn hay trả đúng JSON dù không được ép); vẫn không có ⇒ không cất gì, ảnh tiếp tục đi
+            // kèm như trước — tốn token nhưng không mất nội dung, đó mới là thứ không được phép hỏng.
+            var notes = parsed?.SourceNotes
+                ?? LlmJson.TryDeserialize<BASourceAckReply>(callResult?.Content, requireKnownProperty: true)?.SourceNotes;
+            await StoreVisionSummariesAsync(sourceContents.FullyAttachedSourceIds, sources, notes, cancellationToken);
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -786,6 +797,54 @@ public class BAChatService
                 await TryCloseTurnWithFailureAsync(projectId, baId.Value, ex);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Cất phần BA ghi lại được về nội dung các HÌNH vào <see cref="ProjectSourceFile.VisionSummary"/>, để từ
+    /// lượt sau ảnh không phải upload lại nữa. Chỉ ghi cho các nguồn có TOÀN BỘ ảnh thực sự đã đi kèm lượt
+    /// vừa rồi (<paramref name="fullyAttachedIds"/>): mô tả dựa trên nửa số hình rồi khóa lại là mất trắng
+    /// nửa còn lại, thà tốn thêm một lượt ảnh.
+    ///
+    /// Ghép ghi chú về nguồn theo TÊN FILE — model chép lại tên từ dòng "[Nguồn: ...]" nên khớp thẳng được;
+    /// nguồn không có ghi chú tương ứng thì để nguyên (ảnh vẫn đi kèm lượt sau) chứ KHÔNG lấy tạm ghi chú
+    /// của file khác hay lấy phần message tóm tắt: một mô tả sai chỗ còn tệ hơn không có, vì nó khóa luôn
+    /// đường nhìn lại ảnh.
+    /// </summary>
+    private async Task StoreVisionSummariesAsync(
+        IReadOnlyList<Guid> fullyAttachedIds, List<ProjectSourceFile> sources,
+        List<SourceVisionNote>? notes, CancellationToken cancellationToken)
+    {
+        if (fullyAttachedIds.Count == 0 || notes is not { Count: > 0 })
+            return;
+
+        var byName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var note in notes)
+        {
+            var name = note.FileName?.Trim();
+            var text = note.Note?.Trim();
+            if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(text))
+                byName[name] = text;
+        }
+
+        var updated = 0;
+        foreach (var id in fullyAttachedIds)
+        {
+            var source = sources.FirstOrDefault(s => s.Id == id);
+            if (source == null || !byName.TryGetValue(source.FileName.Trim(), out var summary))
+                continue;
+
+            // sources đọc bằng AsNoTracking ⇒ cập nhật qua entity đang track, không attach bản no-tracking
+            // (sẽ đụng cả ExtractedText dài).
+            var tracked = await _db.ProjectSourceFiles.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+            if (tracked == null || !string.IsNullOrWhiteSpace(tracked.VisionSummary))
+                continue;
+
+            tracked.VisionSummary = summary;
+            updated++;
+        }
+
+        if (updated > 0)
+            await _db.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>Kết quả 3 bước chuẩn bị ngữ cảnh của một lượt chat.</summary>

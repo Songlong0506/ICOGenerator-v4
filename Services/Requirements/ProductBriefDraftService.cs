@@ -152,7 +152,7 @@ public class ProductBriefDraftService
         // Lượt user mang prompt soạn tài liệu + tài liệu nguồn (text/ảnh) đính kèm. Không có nguồn ⇒ chỉ một
         // TextContent, tương đương đường cũ.
         var userContents = new List<AIContent> { new TextContent(prompt) };
-        userContents.AddRange(sourceContents);
+        userContents.AddRange(sourceContents.Contents);
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/product-brief.v3.md")),
