@@ -43,7 +43,7 @@ public class LlmClientTests
         new ChatMessage(ChatRole.User, text)
     };
 
-    private static LlmClient Client(FakeChatClientFactory factory) => new(
+    private static LlmClient Client(IChatClientFactory factory) => new(
         factory,
         new FakeModelCallLogger(),
         new NoopBudgetGuard(),
@@ -197,9 +197,124 @@ public class LlmClientTests
         Assert.Null(Assert.Single(factory.Options).ResponseFormat);
     }
 
+    // ── Lượt gánh ảnh chết ở tầng TRANSPORT (bug "đính kèm .docx thì lỗi, nhắn tin thì bình thường") ───
+    //
+    // Body của một lượt kèm cả chục screenshot là vài chục MB sau base64; endpoint/proxy đóng thẳng kết nối
+    // nên SDK OpenAI gói lại thành "Retry failed after 4 tries. (An error occurred while sending the
+    // request.) …" — KHÔNG có HTTP status nào để bám vào. Lượt đó phải được thử lại bằng ngữ cảnh text
+    // thay vì đẩy một bong bóng ⚠️ vào hội thoại.
+
+    /// <summary>Đúng hình dạng exception mà SDK ném ra sau khi tự thử lại: lỗi thật bị chôn dưới hai lớp.</summary>
+    private static Exception RetryExhaustedTransportFailure() =>
+        new AggregateException(
+            "Retry failed after 4 tries. (An error occurred while sending the request.) "
+            + "(An error occurred while sending the request.)",
+            new HttpRequestException("An error occurred while sending the request.",
+                new IOException("The response ended prematurely.")));
+
+    [Fact]
+    public async Task ChatWithLog_RetriesWithoutImages_WhenRequestDiesAtTransport()
+    {
+        var factory = new FakeChatClientFactory(imageTransportFailure: RetryExhaustedTransportFailure, replyText: "ok");
+        var client = Client(factory);
+
+        var result = await client.ChatWithLogAsync(Model(), MessagesWithImage(), 0.3, Ctx());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, factory.Calls.Count);
+        Assert.DoesNotContain(factory.Calls[1].SelectMany(m => m.Contents), c => c is DataContent);
+        // Lượt gỡ ảnh phải mang câu ghi đè, nếu không model đọc "kèm 12 hình dưới dạng ẢNH" trong phần text
+        // rồi bịa ra nội dung những tấm hình nó chưa từng thấy.
+        Assert.Contains(factory.Calls[1].SelectMany(m => m.Contents).OfType<TextContent>(),
+            t => t.Text.Contains(EndpointQuirks.ImagesDroppedNotice));
+        // Và lượt thành công đó KHÔNG có ảnh nào — caller dựa vào con số này để không khóa VisionSummary.
+        Assert.Equal(0, result.RequestImageCount);
+    }
+
+    [Fact]
+    public async Task ChatWithLog_DoesNotRetry_WhenTransportFailsWithoutImages()
+    {
+        var factory = new FakeChatClientFactory(alwaysFailWith: "boom");
+        var client = Client(factory);
+
+        var result = await client.ChatWithLogAsync(Model(), TextMessages("text only"), 0.3, Ctx());
+
+        Assert.False(result.IsSuccess);
+        Assert.Single(factory.Calls);
+    }
+
+    [Fact]
+    public async Task ChatStructured_RetriesWithoutImages_WhenRequestDiesAtTransport()
+    {
+        var factory = new FakeChatClientFactory(
+            imageTransportFailure: RetryExhaustedTransportFailure, replyText: """{"answer":"ok"}""");
+        var client = Client(factory);
+
+        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(
+            Model(StructuredOutputMode.JsonSchema), MessagesWithImage(), 0.3, Ctx());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ok", value?.Answer);
+        Assert.Equal(2, factory.Calls.Count);
+        Assert.DoesNotContain(factory.Calls[1].SelectMany(m => m.Contents), c => c is DataContent);
+    }
+
+    // Mạng hỏng thật thì lượt thứ hai cũng hỏng — chỉ được tốn ĐÚNG một lượt thử lại, và câu lỗi cuối cùng
+    // phải nói được nguyên nhân thay vì chép nguyên văn "Retry failed after 4 tries".
+    [Fact]
+    public async Task ChatWithLog_TransportFailure_RetriesOnce_ThenReportsAReadableError()
+    {
+        var factory = new AlwaysTransportFailureFactory();
+        var client = Client(factory);
+
+        var result = await client.ChatWithLogAsync(Model(), MessagesWithImage(), 0.3, Ctx());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(2, factory.Calls); // lượt gốc + đúng một lượt thử lại không kèm ảnh
+        Assert.Equal(LlmFailureKind.Transport, result.FailureKind);
+        Assert.Contains("Không kết nối được tới endpoint", result.ErrorMessage);
+        Assert.Contains("An error occurred while sending the request", result.ErrorMessage);
+        Assert.DoesNotContain("Retry failed after 4 tries", result.ErrorMessage);
+    }
+
     public class StructuredReply
     {
         public string Answer { get; set; } = string.Empty;
+    }
+
+    // Endpoint chết hẳn: mọi lượt (kể cả lượt đã gỡ ảnh) đều rơi ở tầng transport.
+    private sealed class AlwaysTransportFailureFactory : IChatClientFactory
+    {
+        public int Calls { get; private set; }
+
+        public IChatClient Create(AiModel model) => new Client(this);
+
+        private sealed class Client : IChatClient
+        {
+            private readonly AlwaysTransportFailureFactory _owner;
+            public Client(AlwaysTransportFailureFactory owner) => _owner = owner;
+
+            public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+            {
+                _owner.Calls++;
+                throw RetryExhaustedTransportFailure();
+            }
+
+            public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+                IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            {
+                _owner.Calls++;
+                await Task.CompletedTask;
+                throw RetryExhaustedTransportFailure();
+#pragma warning disable CS0162 // unreachable — iterator cần một yield để biên dịch
+                yield break;
+#pragma warning restore CS0162
+            }
+
+            public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+            public void Dispose() { }
+        }
     }
 
     // Factory + inner client that mimic a text-only OpenAI-compatible server: any request carrying an
@@ -209,6 +324,7 @@ public class LlmClientTests
         private readonly string? _rejectImagesWith;
         private readonly string? _rejectResponseFormatWith;
         private readonly string? _alwaysFailWith;
+        private readonly Func<Exception>? _imageTransportFailure;
         private readonly string _replyText;
 
         public List<List<ChatMessage>> Calls { get; } = new();
@@ -218,11 +334,12 @@ public class LlmClientTests
         public List<List<ChatMessage>> Streamed { get; } = new();
         public List<List<ChatMessage>> NonStreamed { get; } = new();
 
-        public FakeChatClientFactory(string? rejectImagesWith = null, string? rejectResponseFormatWith = null, string? alwaysFailWith = null, string replyText = "ok")
+        public FakeChatClientFactory(string? rejectImagesWith = null, string? rejectResponseFormatWith = null, string? alwaysFailWith = null, string replyText = "ok", Func<Exception>? imageTransportFailure = null)
         {
             _rejectImagesWith = rejectImagesWith;
             _rejectResponseFormatWith = rejectResponseFormatWith;
             _alwaysFailWith = alwaysFailWith;
+            _imageTransportFailure = imageTransportFailure;
             _replyText = replyText;
         }
 
@@ -235,10 +352,17 @@ public class LlmClientTests
             (streaming ? Streamed : NonStreamed).Add(messages);
         }
 
-        private string? FailureFor(List<ChatMessage> messages, ChatOptions? options) =>
-            _alwaysFailWith
-            ?? (options?.ResponseFormat is not null ? _rejectResponseFormatWith : null)
-            ?? (messages.Any(m => m.Contents.Any(c => c is DataContent)) ? _rejectImagesWith : null);
+        private Exception? FailureFor(List<ChatMessage> messages, ChatOptions? options)
+        {
+            var hasImages = messages.Any(m => m.Contents.Any(c => c is DataContent));
+            if (hasImages && _imageTransportFailure != null)
+                return _imageTransportFailure();
+
+            var message = _alwaysFailWith
+                ?? (options?.ResponseFormat is not null ? _rejectResponseFormatWith : null)
+                ?? (hasImages ? _rejectImagesWith : null);
+            return message == null ? null : new InvalidOperationException(message);
+        }
 
         private sealed class FakeChatClient : IChatClient
         {
@@ -252,7 +376,7 @@ public class LlmClientTests
                 _owner.Record(list, options, streaming: false);
                 var failure = _owner.FailureFor(list, options);
                 if (failure != null)
-                    throw new InvalidOperationException(failure);
+                    throw failure;
                 return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, _owner._replyText)));
             }
 
@@ -264,7 +388,7 @@ public class LlmClientTests
                 await Task.CompletedTask;
                 var failure = _owner.FailureFor(list, options);
                 if (failure != null)
-                    throw new InvalidOperationException(failure);
+                    throw failure;
                 yield return new ChatResponseUpdate(ChatRole.Assistant, _owner._replyText);
             }
 

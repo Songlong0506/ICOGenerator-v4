@@ -58,13 +58,11 @@ public class LlmClient : ILlmClient
     {
         var result = await StreamOnceAsync(model, messages, temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
 
-        // A model configured SupportsVision=true whose endpoint is actually text-only (e.g. DeepSeek) rejects
-        // image parts with HTTP 400 "unknown variant `image_url`, expected `text`". Retry once without the
-        // images so the turn survives on the text context; the real fix is unticking SupportsVision on the
-        // Models page, which the warning points at.
-        if (EndpointQuirks.RejectedImageContent(result) && EndpointQuirks.ContainsImageContent(messages))
+        // Hai lý do hỏng mà bỏ ảnh đi thì cứu được cả lượt (xem EndpointQuirks.ShouldRetryWithoutImages):
+        // endpoint text-only từ chối content ảnh, và request chết ở tầng transport vì body quá lớn.
+        if (EndpointQuirks.ShouldRetryWithoutImages(result, messages))
         {
-            LogVisionMisconfigured(model);
+            LogImageRetry(model, result);
             result = await StreamOnceAsync(model, EndpointQuirks.WithoutImageContent(messages), temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
         }
 
@@ -126,11 +124,11 @@ public class LlmClient : ILlmClient
             // deadline-bounded, token-capped and logged identically.
             var response = await pipeline.Client.GetResponseAsync<T>(messages, options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            // Same text-only-endpoint fallback as ChatWithLogAsync (the middleware swallows the 400, so it
-            // surfaces here as a captured failure rather than an exception).
-            if (EndpointQuirks.RejectedImageContent(pipeline.Result) && EndpointQuirks.ContainsImageContent(messages))
+            // Same image fallback as ChatWithLogAsync (the middleware swallows the failure, so it surfaces
+            // here as a captured result rather than an exception).
+            if (EndpointQuirks.ShouldRetryWithoutImages(pipeline.Result, messages))
             {
-                LogVisionMisconfigured(model);
+                LogImageRetry(model, pipeline.Result);
                 pipeline.Reset();
                 response = await pipeline.Client.GetResponseAsync<T>(EndpointQuirks.WithoutImageContent(messages), options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
@@ -161,8 +159,8 @@ public class LlmClient : ILlmClient
             // alive: reuse the captured result if the call reached the model, else do a plain call so the
             // caller can still parse text.
             _logger.LogWarning(ex, "Structured output for {ModelId} failed; falling back to manual parse.", model.ModelId);
-            // Don't hand back a captured image-rejection failure: the plain path below retries it text-only.
-            if (pipeline.HasResult && !(EndpointQuirks.RejectedImageContent(pipeline.Result) && EndpointQuirks.ContainsImageContent(messages)))
+            // Don't hand back a captured image failure: the plain path below retries it text-only.
+            if (pipeline.HasResult && !EndpointQuirks.ShouldRetryWithoutImages(pipeline.Result, messages))
                 return (pipeline.Result, null);
 
             var plain = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
@@ -193,10 +191,21 @@ public class LlmClient : ILlmClient
             + "Hãy hạ mức Structured Output của model này ở trang Models để hết vòng gọi thừa. Lỗi: {Error}",
             model.ModelId, mode, result.ResponseText);
 
-    private void LogVisionMisconfigured(AiModel model) =>
-        _logger.LogWarning(
-            "Model {ModelId} từ chối content ảnh (image_url) dù SupportsVision đang bật — thử lại không kèm ảnh. Tắt SupportsVision cho model này ở trang Models để hết cảnh báo.",
-            model.ModelId);
+    // Hai nguyên nhân, hai cách chữa khác hẳn nhau — nên log phải nói rõ nguyên nhân nào, thay vì một câu
+    // "thử lại không kèm ảnh" chung chung khiến người vận hành đi tắt nhầm SupportsVision.
+    private void LogImageRetry(AiModel model, LlmCallResult result)
+    {
+        if (EndpointQuirks.TransportFailed(result))
+            _logger.LogWarning(
+                "Lời gọi tới {ModelId} chết ở tầng transport khi đang gửi {ImageCount} ảnh (~{ImageBytes} bytes trước base64) "
+                + "— thử lại KHÔNG kèm ảnh. Nếu tái diễn, hạ Llm:SourceUpload:MaxImagesPerCall / MaxTotalImageBytes: "
+                + "nhiều endpoint và proxy đóng kết nối khi body vượt trần của chúng. Lỗi: {Error}",
+                model.ModelId, result.RequestImageCount, result.RequestImageBytes, result.ResponseText);
+        else
+            _logger.LogWarning(
+                "Model {ModelId} từ chối content ảnh (image_url) dù SupportsVision đang bật — thử lại không kèm ảnh. Tắt SupportsVision cho model này ở trang Models để hết cảnh báo.",
+                model.ModelId);
+    }
 }
 
 public class LlmCallResult
@@ -212,6 +221,24 @@ public class LlmCallResult
     public long DurationMs { get; set; }
     public int? HttpStatusCode { get; set; }
     public bool IsSuccess { get; set; }
+
+    /// <summary>
+    /// Lỗi thuộc loại nào (xem <see cref="LlmFailureDescriber"/>). Vô nghĩa khi <see cref="IsSuccess"/>.
+    /// Đây là thứ phân biệt "API từ chối" với "request chưa từng tới nơi" — hai thứ mà nguyên văn exception
+    /// của SDK gói chung thành một câu "Retry failed after 4 tries", và cách chữa thì khác hẳn nhau.
+    /// </summary>
+    public LlmFailureKind FailureKind { get; set; }
+
+    /// <summary>
+    /// Số ẢNH và tổng dung lượng ảnh THỰC SỰ đi trong request này (tính từ chính danh sách message đã gửi,
+    /// nên sau vòng thử lại không kèm ảnh thì cả hai về 0). Dùng để: (a) nói đúng nguyên nhân khi lời gọi
+    /// chết ở tầng transport — body vài chục MB base64 hay bị chính endpoint/proxy cắt kết nối; (b) chặn
+    /// việc khóa <see cref="ICOGenerator.Domain.ProjectSourceFile.VisionSummary"/> bằng một lượt mà model
+    /// chưa hề nhìn thấy tấm ảnh nào.
+    /// </summary>
+    public int RequestImageCount { get; set; }
+
+    public long RequestImageBytes { get; set; }
 
     /// <summary>
     /// Các ẢNH thực sự đi kèm lượt gọi này, theo đúng thứ tự chúng nằm trong <see cref="RequestJson"/>.
