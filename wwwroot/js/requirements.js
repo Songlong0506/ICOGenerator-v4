@@ -553,9 +553,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
-    // "Triển vọng phỏng vấn" (frame "outlook"): màn hình dự kiến (G) và ví dụ tính thử đã xác nhận (A).
-    // Danh sách thứ ba (openQuestions) không còn panel — nó đi vào ngữ cảnh chat của BA ở lượt sau.
-    // Mỗi danh sách rỗng thì ẩn panel tương ứng (mục đã được chốt/giải quyết rời đi).
+    // "Triển vọng phỏng vấn" (frame "outlook"): chỉ còn ví dụ tính thử đã xác nhận (A) có panel. Hai danh
+    // sách kia không được vẽ — openQuestions đi vào ngữ cảnh chat của BA ở lượt sau, plannedScope đi vào
+    // ngữ cảnh soát mâu thuẫn. Danh sách rỗng thì ẩn panel (mục đã được chốt/giải quyết rời đi).
     function renderList(panelId, listId, countId, items, itemHtml) {
         const panel = document.getElementById(panelId);
         const list = document.getElementById(listId);
@@ -571,8 +571,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     }
 
     function renderOutlook(data) {
-        renderList("scopePanel", "scopeList", "scopeCount", data.plannedScope,
-            s => `<li class="scope-item">${escapeHtml(s)}</li>`);
         renderList("workedPanel", "workedList", "workedCount", data.workedExamples,
             ex => `<li class="worked-item">${escapeHtml(ex)}</li>`);
     }

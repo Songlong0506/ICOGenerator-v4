@@ -62,8 +62,9 @@ public class Project
     //    thành panel (user chỉ cần trò chuyện; hỏi cho hết là việc của BA): danh sách này được nạp vào
     //    ngữ cảnh mỗi lượt chat làm la bàn ƯU TIÊN cạnh bản đồ bao phủ — bản đồ chỉ phân giải theo NHÓM,
     //    còn đây giữ đúng điểm chưa chốt. Mục được chốt thì rời khỏi danh sách. Xem BAChatService.
-    //  • PlannedScope: các MÀN HÌNH/TÍNH NĂNG dự kiến dựng dần theo hội thoại — panel "Sẽ xây gì" để user
-    //    bắt hiểu nhầm sớm và giữ động lực thay vì phỏng vấn "mù" tới lúc Write Requirement.
+    //  • PlannedScope: các MÀN HÌNH/TÍNH NĂNG dự kiến dựng dần theo hội thoại. KHÔNG hiển thị thành panel
+    //    (đây là danh sách SUY ĐOÁN mà user không sửa được tại chỗ, nên nó là nhiễu chứ không đóng được
+    //    vòng "bắt hiểu nhầm sớm"): dùng làm ngữ cảnh soát mâu thuẫn. Xem RequirementConflictService.
     //  • WorkedExamples: các VÍ DỤ TÍNH THỬ người dùng ĐÃ XÁC NHẬN (input → kết quả kỳ vọng) cho quy tắc
     //    định lượng — nguồn để bước sinh AI Design Spec đúc thành "## 13. Worked Examples" và POC tự kiểm
     //    (window.pocWorkedExamples) đối chiếu ĐỘC LẬP: kỳ vọng do user chốt, giá trị do POC tự tính.

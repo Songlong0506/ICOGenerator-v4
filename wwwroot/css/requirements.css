@@ -1405,17 +1405,17 @@
             outline: none;
         }
 
-/* ==== Panel "Sẽ xây gì" (G) / "Ví dụ tính thử đã xác nhận" (A) ==== */
+/* ==== Panel "Ví dụ tính thử đã xác nhận" (A) ==== */
 
-.scope-panel, .worked-panel {
+.worked-panel {
     margin-bottom: 18px;
     border-bottom: 1px solid #e5e7eb;
     padding-bottom: 14px;
 }
 
-.scope-count, .worked-count { font-weight: 400; font-size: 12px; color: #777; }
+.worked-count { font-weight: 400; font-size: 12px; color: #777; }
 
-.scope-list, .worked-list {
+.worked-list {
     list-style: none;
     padding: 0;
     margin: 0;
@@ -1426,16 +1426,15 @@
     overflow-y: auto;
 }
 
-    .scope-item, .worked-item {
+    .worked-item {
         font-size: 12px;
         line-height: 1.5;
         padding: 4px 8px;
-        border-left: 3px solid var(--bosch-blue, #3b82f6);
+        border-left: 3px solid #10b981;
         background: var(--surface-alt);
         border-radius: 0 6px 6px 0;
+        font-variant-numeric: tabular-nums;
     }
-
-    .worked-item { border-left-color: #10b981; font-variant-numeric: tabular-nums; }
 
 /* Banner "chào lại" (F) — biến thể info của req-alert. */
 .req-alert.info { background: var(--bosch-blue-tint, #eff6ff); border: 1px solid var(--bosch-blue, #3b82f6); color: var(--ink); }
