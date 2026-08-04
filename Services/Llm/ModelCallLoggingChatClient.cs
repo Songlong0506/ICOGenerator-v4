@@ -169,6 +169,10 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             // conversations — acceptable for an estimate used only for the cost/usage display.
             PromptTokens = TokenEstimator.Estimate(string.Join("\n", messageList.Select(m => m.Text)))
         };
+        // Đo phần ảnh của CHÍNH request này (không phụ thuộc _imageStore — chỗ đó có thể tắt bằng config):
+        // một lượt kèm cả chục screenshot base64 là request nặng gấp hàng nghìn lần lượt chat thường, và khi
+        // nó chết ở tầng transport thì đây là con số duy nhất giải thích được vì sao.
+        (result.RequestImageCount, result.RequestImageBytes) = MeasureImages(messageList);
 
         var maxTokens = MaxOutputTokenResolver.Resolve(_model, result.PromptTokens);
         var callOptions = options?.Clone() ?? new ChatOptions();
@@ -221,6 +225,10 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         stopwatch.Stop();
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.IsSuccess = false;
+        // Nguyên văn của SDK giữ nguyên ở ResponseText: EndpointQuirks dò tên tham số bị từ chối trong đó
+        // ("image_url", "response_format"), nên KHÔNG được thay bằng câu đã diễn giải.
+        var failure = LlmFailureDescriber.Describe(ex, _options.RequestTimeoutSeconds);
+        result.FailureKind = failure.Kind;
         switch (ex)
         {
             // Non-2xx from the API (incl. OpenAI-compatible servers). Keep the short message in the
@@ -238,8 +246,14 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
                 result.ResponseText = result.ErrorMessage;
                 break;
             default:
-                result.ErrorMessage = ex.Message;
-                result.Content = ex.Message;
+                // Lỗi transport bị SDK gói lại thành "Retry failed after 4 tries. (An error occurred while
+                // sending the request.) …" — câu đó chép thẳng vào bong bóng ⚠️ thì người dùng không biết
+                // đường nào mà lần. Diễn giải ra, và nếu lượt này có gánh ảnh thì nói luôn cỡ body: đó là
+                // khác biệt DUY NHẤT giữa "nhắn tin thì được" và "đính kèm tài liệu thì hỏng".
+                result.ErrorMessage = failure.Kind == LlmFailureKind.Unknown
+                    ? ex.Message
+                    : Join(failure.Message, ImagePayloadHint(result), failure.Detail);
+                result.Content = result.ErrorMessage;
                 result.ResponseText = ex.Message;
                 break;
         }
@@ -249,6 +263,40 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         _options.OnProgress?.Invoke("error", "Lời gọi LLM thất bại.", result.ErrorMessage);
         await CompleteAsync(result, step).ConfigureAwait(false);
     }
+
+    // Số ảnh + tổng bytes ảnh của request. Đếm theo DataContent có media type "image" — đúng thứ SDK sẽ
+    // base64 hóa vào body (base64 phình ~4/3, nên con số này là cận dưới của phần body do ảnh chiếm).
+    private static (int Count, long Bytes) MeasureImages(IList<ChatMessage> messages)
+    {
+        var count = 0;
+        long bytes = 0;
+        foreach (var content in messages.SelectMany(m => m.Contents))
+        {
+            if (content is DataContent data && data.HasTopLevelMediaType("image"))
+            {
+                count++;
+                bytes += data.Data.Length;
+            }
+        }
+        return (count, bytes);
+    }
+
+    // Câu nói thêm khi lời gọi CHẾT mà lượt đó có gánh ảnh: body ~4/3 dung lượng ảnh sau base64, và một
+    // endpoint/proxy cắt kết nối vì body quá lớn nổi lên đúng dạng "lỗi mạng" nên rất dễ đổ oan cho mạng.
+    private static string? ImagePayloadHint(LlmCallResult result)
+    {
+        if (result.RequestImageCount <= 0)
+            return null;
+
+        var bodyMb = result.RequestImageBytes * 4d / 3d / 1024 / 1024;
+        return $"Lượt này gửi kèm {result.RequestImageCount} ảnh (~{bodyMb:0.#}MB sau mã hóa base64) — "
+            + "nếu chỉ các lượt CÓ tài liệu đính kèm bị lỗi còn chat thường vẫn chạy thì gần như chắc chắn "
+            + "là request quá lớn với endpoint/proxy; hạ Llm:SourceUpload:MaxImagesPerCall và "
+            + "Llm:SourceUpload:MaxTotalImageBytes rồi thử lại.";
+    }
+
+    private static string Join(params string?[] parts) =>
+        string.Join(" ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
 
     // A failed call ends the run on the agent path; the chat/eval paths keep the failure on the result and
     // let the caller decide (fallback parse, error turn in the UI).

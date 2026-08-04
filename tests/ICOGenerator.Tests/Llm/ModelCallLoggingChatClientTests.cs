@@ -118,6 +118,64 @@ public class ModelCallLoggingChatClientTests
         Assert.Equal(5, client.StepCount);
     }
 
+    // ── Lỗi transport: diễn giải được, và nói luôn cỡ phần ảnh của request ─────────────────────────────
+    //
+    // Bug gốc: đính kèm .docx thì lượt gọi chết, chat thường vẫn chạy. Khác biệt DUY NHẤT là request có
+    // gánh ảnh — nên câu lỗi phải nói ra con số đó thay vì chép nguyên văn "Retry failed after 4 tries.
+    // (An error occurred while sending the request.) …" của SDK.
+
+    private static ChatMessage[] HiWithImages(int count, int bytesEach)
+    {
+        var contents = new List<AIContent> { new TextContent("hi") };
+        for (var i = 0; i < count; i++)
+            contents.Add(new DataContent(new byte[bytesEach], "image/png"));
+        return new[] { new ChatMessage(ChatRole.User, contents) };
+    }
+
+    private static Exception RetryExhaustedTransportFailure() =>
+        new AggregateException(
+            "Retry failed after 4 tries. (An error occurred while sending the request.) (An error occurred while sending the request.)",
+            new HttpRequestException("An error occurred while sending the request."));
+
+    [Fact]
+    public async Task Streaming_TransportFailure_ReportsUnwrappedCause_AndTheImagePayload()
+    {
+        var inner = new FakeChatClient(streamError: RetryExhaustedTransportFailure());
+        var logger = new FakeModelCallLogger();
+        LlmCallResult? completed = null;
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(),
+            Opts(throwOnFailure: false, onCompleted: r => completed = r));
+
+        await foreach (var _ in client.GetStreamingResponseAsync(HiWithImages(3, 1024 * 1024))) { }
+
+        Assert.NotNull(completed);
+        Assert.Equal(LlmFailureKind.Transport, completed!.FailureKind);
+        Assert.Null(completed.HttpStatusCode); // không có response nào ⇒ không có status để bám vào
+        Assert.Equal(3, completed.RequestImageCount);
+        Assert.Equal(3L * 1024 * 1024, completed.RequestImageBytes);
+        Assert.Contains("Không kết nối được tới endpoint", completed.ErrorMessage);
+        Assert.Contains("gửi kèm 3 ảnh", completed.ErrorMessage);
+        Assert.Contains("MaxImagesPerCall", completed.ErrorMessage);
+        Assert.DoesNotContain("Retry failed after 4 tries", completed.ErrorMessage);
+        // Nguyên văn vẫn phải còn ở ResponseText: EndpointQuirks dò tên tham số bị từ chối trong đó.
+        Assert.Contains("Retry failed after 4 tries", completed.ResponseText);
+    }
+
+    [Fact]
+    public async Task Streaming_TransportFailure_WithoutImages_SaysNothingAboutImages()
+    {
+        var inner = new FakeChatClient(streamError: RetryExhaustedTransportFailure());
+        var logger = new FakeModelCallLogger();
+        LlmCallResult? completed = null;
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(),
+            Opts(throwOnFailure: false, onCompleted: r => completed = r));
+
+        await foreach (var _ in client.GetStreamingResponseAsync(Hi())) { }
+
+        Assert.Equal(0, completed!.RequestImageCount);
+        Assert.DoesNotContain("ảnh", completed.ErrorMessage);
+    }
+
     // ── Real token usage: prefer the provider's UsageDetails over the ~4-chars/token estimate ──────────
 
     [Fact]

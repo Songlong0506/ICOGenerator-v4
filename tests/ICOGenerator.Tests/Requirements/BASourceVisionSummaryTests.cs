@@ -147,6 +147,30 @@ public class BASourceVisionSummaryTests : IDisposable
         Assert.Null((await verify.ProjectSourceFiles.FirstAsync(s => s.Id == _sourceId)).VisionSummary);
     }
 
+    // Ảnh có thể bị GỠ ở phút chót rồi gọi lại (endpoint không nhận ảnh, hoặc request quá lớn nên chết ở
+    // tầng transport — xem EndpointQuirks.ShouldRetryWithoutImages). Lượt cứu được đó model KHÔNG hề nhìn
+    // thấy hình nào, nên tuyệt đối không được lấy nó làm căn cứ khóa VisionSummary: khóa nhầm là mất vĩnh
+    // viễn đường nhìn lại ảnh, và mọi lượt sau đọc một mô tả bịa.
+    [Fact]
+    public async Task Acknowledge_WhenImagesWereDroppedBeforeSending_DoesNotLockInTheNotes()
+    {
+        var llm = new FakeLlm
+        {
+            DropsImagesBeforeSending = true,
+            AckReply = new BASourceAckReply
+            {
+                Message = "Mình đã đọc tài liệu.",
+                SourceNotes = { new SourceVisionNote { FileName = "technical-document.docx", Note = "[Hình 1] — bịa" } }
+            }
+        };
+
+        await using (var db = NewDb())
+            Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
+
+        await using var verify = NewDb();
+        Assert.Null((await verify.ProjectSourceFiles.FirstAsync(s => s.Id == _sourceId)).VisionSummary);
+    }
+
     private BAChatService NewSut(AppDbContext db, ILlmClient llm, int? maxImagesPerCall = null)
     {
         var settings = new Dictionary<string, string?>();
@@ -185,6 +209,9 @@ public class BASourceVisionSummaryTests : IDisposable
     {
         public BASourceAckReply AckReply = new() { Message = "Đã đọc." };
 
+        /// <summary>Mô phỏng vòng thử lại đã GỠ ảnh: lời gọi thành công nhưng không tấm ảnh nào đi trên dây.</summary>
+        public bool DropsImagesBeforeSending;
+
         /// <summary>Số ảnh THẬT SỰ đi trên dây ở lời gọi gần nhất — thứ duy nhất chứng minh được ảnh có gửi hay không.</summary>
         public int LastImageCount;
         public string LastText = string.Empty;
@@ -203,7 +230,12 @@ public class BASourceVisionSummaryTests : IDisposable
                 "BASourceAck" => AckReply,
                 _ => throw new InvalidOperationException($"Unexpected structured call: {logContext.Purpose}")
             };
-            return Task.FromResult((new LlmCallResult { IsSuccess = true, Content = "{}" }, (T?)value));
+            // Y như ModelCallLoggingChatClient thật: con số ảnh trên result phải tính từ CHÍNH các message đã
+            // gửi, vì đó là thứ caller dựa vào để quyết có được khóa VisionSummary hay không.
+            if (DropsImagesBeforeSending)
+                LastImageCount = 0;
+            var result = new LlmCallResult { IsSuccess = true, Content = "{}", RequestImageCount = LastImageCount };
+            return Task.FromResult((result, (T?)value));
         }
     }
 

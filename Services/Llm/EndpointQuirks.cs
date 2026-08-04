@@ -30,12 +30,34 @@ internal static class EndpointQuirks
     public static bool RejectedResponseFormat(LlmCallResult result) =>
         !result.IsSuccess && result.ResponseText.Contains("response_format", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Lời gọi chết TRƯỚC khi có bất kỳ HTTP response nào (DNS/TCP/TLS/proxy, hoặc phía kia đóng kết nối
+    /// giữa lúc app đang ghi body). Với một lượt gánh cả chục ảnh base64, nguyên nhân thường gặp nhất là
+    /// body quá lớn — nên nó đáng được thử lại một lần bằng ngữ cảnh text, y như quirk ảnh ở trên.
+    /// </summary>
+    public static bool TransportFailed(LlmCallResult result) =>
+        !result.IsSuccess && result.FailureKind == LlmFailureKind.Transport;
+
+    /// <summary>
+    /// Có nên thử lại lượt này mà KHÔNG kèm ảnh không: chỉ khi lượt đó thật sự có ảnh, và lý do hỏng là một
+    /// trong hai thứ mà bỏ ảnh đi thì cứu được — endpoint từ chối content ảnh, hoặc request chết ở tầng
+    /// transport (thường vì body quá lớn). Dùng chung cho cả đường stream lẫn đường json_schema để hai
+    /// đường không bao giờ lệch nhau về hành vi này.
+    /// </summary>
+    public static bool ShouldRetryWithoutImages(LlmCallResult result, IEnumerable<ChatMessage> messages) =>
+        (RejectedImageContent(result) || TransportFailed(result)) && ContainsImageContent(messages);
+
     public static bool ContainsImageContent(IEnumerable<ChatMessage> messages) =>
         messages.Any(HasImage);
 
     /// <summary>
-    /// Bản sao hội thoại đã bỏ mọi phần ảnh, để thử lại trên NGỮ CẢNH TEXT thay vì hỏng cả lượt. Lượt nào
-    /// chỉ có ảnh được thay bằng một dòng ghi chú, vì message rỗng content thì endpoint cũng từ chối.
+    /// Bản sao hội thoại đã bỏ mọi phần ảnh, để thử lại trên NGỮ CẢNH TEXT thay vì hỏng cả lượt.
+    ///
+    /// Mỗi lượt từng có ảnh được đính thêm một dòng GHI ĐÈ, không phải chỉ lượt bị rỗng content. Lý do:
+    /// phần text đi kèm ảnh do <see cref="ICOGenerator.Services.Requirements.SourceContextBuilder"/> dựng
+    /// đã nói thẳng "kèm 12 hình dưới dạng ẢNH — xem nội dung ảnh đính kèm"; bỏ ảnh đi mà để nguyên câu đó
+    /// là mời model bịa ra nội dung 12 tấm hình nó chưa từng thấy. Câu ghi đè phải đứng CUỐI để thắng
+    /// những gì nói trước đó.
     /// </summary>
     public static List<ChatMessage> WithoutImageContent(IEnumerable<ChatMessage> messages) =>
         messages.Select(m =>
@@ -44,10 +66,16 @@ internal static class EndpointQuirks
                 return m;
 
             var kept = m.Contents.Where(c => c is not DataContent and not UriContent).ToList();
-            if (kept.Count == 0)
-                kept.Add(new TextContent("(ảnh đính kèm bị bỏ qua vì model không nhận ảnh)"));
+            kept.Add(new TextContent(ImagesDroppedNotice));
             return new ChatMessage(m.Role, kept);
         }).ToList();
+
+    /// <summary>Dòng ghi đè đính vào lượt bị gỡ ảnh — xem <see cref="WithoutImageContent"/>.</summary>
+    public const string ImagesDroppedNotice =
+        "\n\n[GHI ĐÈ MỌI CÂU Ở TRÊN VỀ ẢNH] Các ẢNH nhắc tới phía trên KHÔNG được gửi kèm lượt này "
+        + "(endpoint không nhận ảnh, hoặc request quá lớn). Bạn CHƯA nhìn thấy tấm hình nào: tuyệt đối "
+        + "không mô tả, không suy đoán, không kể lại nội dung của chúng. Chỉ dựa vào phần CHỮ, và nói rõ "
+        + "với người dùng là phần hình chưa đọc được.";
 
     /// <summary>
     /// JSON mode bị từ chối thẳng nếu bản thân prompt không nhắc tới "json" (tài liệu của cả DeepSeek lẫn

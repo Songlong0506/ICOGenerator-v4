@@ -755,7 +755,9 @@ public class BAChatService
             }
             catch (Exception ex)
             {
-                callError = ex.Message;
+                // Bóc lớp bọc trước khi hiện: SDK gói lỗi thật xuống dưới vài tầng và câu ngoài cùng
+                // ("Retry failed after 4 tries…") không nói được gì. Xem LlmFailureDescriber.
+                callError = LlmFailureDescriber.Unwrap(ex).Message;
             }
 
             var reply = callResult is { IsSuccess: true } ? (parsed ?? _replyParser.Parse(callResult.Content)) : null;
@@ -780,7 +782,14 @@ public class BAChatService
             // kèm như trước — tốn token nhưng không mất nội dung, đó mới là thứ không được phép hỏng.
             var notes = parsed?.SourceNotes
                 ?? LlmJson.TryDeserialize<BASourceAckReply>(callResult?.Content, requireKnownProperty: true)?.SourceNotes;
-            await StoreVisionSummariesAsync(sourceContents.FullyAttachedSourceIds, sources, notes, cancellationToken);
+            // Ảnh có thể bị GỠ ở phút chót rồi gọi lại (endpoint không nhận ảnh, hoặc request quá lớn — xem
+            // EndpointQuirks.ShouldRetryWithoutImages). Lượt thành công đó model KHÔNG hề nhìn thấy hình nào,
+            // nên tuyệt đối không được khóa VisionSummary bằng nó: khóa nhầm là mất vĩnh viễn đường nhìn lại
+            // ảnh, và mọi lượt sau đọc một mô tả bịa.
+            var imagesActuallySent = callResult is { RequestImageCount: > 0 };
+            await StoreVisionSummariesAsync(
+                imagesActuallySent ? sourceContents.FullyAttachedSourceIds : Array.Empty<Guid>(),
+                sources, notes, cancellationToken);
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
