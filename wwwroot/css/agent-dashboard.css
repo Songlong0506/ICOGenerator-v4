@@ -109,14 +109,33 @@
 .muted { color: var(--muted); }
 .logs-header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 16px; padding-right: 32px; }
 .logs-header p { color: var(--muted); margin: 4px 0 0; }
-.logs-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding: 12px 14px; margin-bottom: 16px; background: var(--surface-alt); border: 1px solid var(--line); }
-.logs-filter { display: flex; flex-direction: column; gap: 4px; }
-.logs-filter label { font-size: 12px; font-weight: 600; color: var(--muted); }
-/* Date/select/number inputs inherit the shared flat input styling from site.css;
-   only pin the filter widths here. */
-.logs-filter-input { min-width: 150px; }
-input.logs-filter-input[type="number"] { min-width: 120px; }
-.logs-filter-actions { flex-direction: row; gap: 8px; align-items: center; }
+/* ---------- Thanh lọc popup Call Logs ----------
+   Cùng mẫu .filter-bar/.filter-field của site.css: mỗi ô là MỘT control liền khối
+   (caption xám nằm ngay trong field) và mọi ô cao bằng nhau — kể cả combo do
+   dropdown.js dựng thay <select> — nên hàng lọc thẳng hàng cả trên lẫn dưới. */
+.logs-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding: 12px 14px; margin-bottom: 16px; background: var(--surface-alt); border: 1px solid var(--line); --field-caption-lead: 0; }
+
+/* gap 0: caption phải DÍNH LIỀN field — hở ra là label thành một thanh xám trôi nổi
+   phía trên input. Chốt 52px = 23px caption + 29px field (chiều cao tự nhiên của cặp
+   label+input) để mọi ô — kể cả combo — bằng nhau. */
+.logs-filter { display: flex; flex-direction: column; gap: 0; flex: 0 0 auto; height: 52px; }
+/* Caption không co lại khi ô bị chốt chiều cao, nếu không chữ trong field bị cắt.
+   Font/màu caption lấy từ mẫu integrated label của site.css — không override ở đây. */
+.logs-filter > label { flex: 0 0 auto; }
+
+/* Bề rộng theo loại dữ liệu; date cần chỗ cho "mm/dd/yyyy --:-- --" + nút lịch. */
+.logs-filter:has(> input[type="datetime-local"]) { width: 185px; }
+.logs-filter:has(> input[type="number"]) { width: 125px; }
+.logs-filter:has(> select), .logs-filter:has(> .ms-combo) { width: 165px; }
+
+/* Field chiếm phần cao còn lại. min-height: 0 gỡ mức 40px mà site.css đặt cho
+   input[type=datetime-local] (khiến ô ngày cao hơn hẳn các ô khác trong thanh). */
+.logs-filter .logs-filter-input { width: 100%; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.logs-filter .ms-combo { height: 100%; min-width: 0; }
+.logs-filter .ms-combo-trigger { height: 100%; min-height: 0; }
+
+/* Ô nút: cao tự nhiên, đáy nút thẳng hàng với đáy các field (align-items: flex-end). */
+.logs-filter-actions { flex-direction: row; gap: 8px; align-items: center; height: auto; width: auto; }
 /* .logs-table look comes from the shared .data-table component in site.css. */
 .logs-table td { vertical-align: top; }
 /* Footer phân trang popup Call Logs dùng chung mẫu .pager (site.css); renderLogsPager thêm
