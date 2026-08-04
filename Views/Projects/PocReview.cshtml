@@ -19,17 +19,52 @@
     </div>
 </div>
 
+@* CHI TIẾT KỸ THUẬT: trang này phục vụ người dùng nghiệp vụ đi nghiệm thu bản demo, nên cột phải chỉ
+   được chứa thứ họ đối chiếu được bằng mắt với POC. Kết quả vòng tự kiểm (tỉ lệ PASS, headless runtime,
+   visual QA) và cách BA diễn đạt lại yêu cầu cho máy (business rule + nhãn có/chưa kịch bản kiểm) là
+   ngôn ngữ của đội delivery: với người dùng chúng vừa chiếm chỗ vừa gây hoang mang ("3/5 PASS" thì họ
+   phải làm gì?). Gom vào một hộp thoại hai tab, mở từ command bar, chỉ hiện với DeliveryAdvance —
+   ĐÚNG quyền đang gate quyền xóa ghi chú của người khác, tức phía delivery/dev, khác hẳn
+   RequirementsManage vốn thuộc về chính người dùng nghiệp vụ.
+   Cái Ở LẠI cột phải là câu nghiệm thu + ví dụ tính thử: chữ của chính người dùng, và là thứ duy nhất
+   biến buổi review từ "mò lỗi tự do" thành "đối chiếu với điều tôi đã yêu cầu". Cũng vì thế nó không
+   vào modal được — modal che kín iframe nên không soi song song với bản demo. *@
+@{
+    var cov = Model.Coverage;
+    var hasUserCoverage = cov.AcceptanceCriteria.Any() || cov.WorkedExamples.Any();
+    var hasSpecDetails = cov.Screens.Any() || cov.Rules.Any();
+    var untestedAc = cov.AcceptanceCriteria.Where(a => !a.ScenarioTitles.Any()).ToList();
+    // Nút chỉ có nghĩa khi thật sự có gì để xem: POC dựng trước các tính năng này không có dữ liệu nào.
+    var showTechButton = canManage && (Model.Verification is not null || hasSpecDetails);
+}
+
 @* Command bar (mẫu Bosch): chỗ đứng của các hành động CẤP TRANG. "Chia sẻ bản demo" nằm ở đây thay vì
    trong cột ghi chú bên phải — mời người khác vào xem là việc của người chủ trì buổi review, không phải
    một mục để đọc lướt khi đang soát ghi chú, và trước đây nó bị chôn giữa các panel gập nên gần như
-   không ai thấy. Bấm nút mở hộp thoại; thanh chỉ hiện với người có quyền tạo/thu hồi link. *@
-@if (canManageRequirements)
+   không ai thấy. Bấm nút mở hộp thoại; mỗi nút soi quyền riêng của nó nên thanh hiện khi có ít nhất một. *@
+@if (canManageRequirements || showTechButton)
 {
     <div class="command-bar poc-command-bar">
-        <button type="button" class="cbar-primary" id="pocShareOpen" title="Chia sẻ bản demo" aria-label="Chia sẻ bản demo">
-            <i class="bi bi-share" aria-hidden="true"></i>
-            <span class="cbar-primary-label">Chia sẻ bản demo</span>
-        </button>
+        @if (showTechButton)
+        {
+            <button type="button" class="cbar-btn" id="pocTechOpen"
+                    aria-haspopup="dialog" aria-expanded="false"
+                    title="Kết quả tự kiểm của hệ thống và đối chiếu spec — dành cho đội delivery">
+                <i class="bi bi-wrench-adjustable" aria-hidden="true"></i>
+                Chi tiết kỹ thuật
+                @if (Model.Verification is { } headVerif && headVerif.OpenIssues.Any())
+                {
+                    <span class="poc-tech-badge" title="Số điểm máy báo chưa đạt">@headVerif.OpenIssues.Count</span>
+                }
+            </button>
+        }
+        @if (canManageRequirements)
+        {
+            <button type="button" class="cbar-primary" id="pocShareOpen" title="Chia sẻ bản demo" aria-label="Chia sẻ bản demo">
+                <i class="bi bi-share" aria-hidden="true"></i>
+                <span class="cbar-primary-label">Chia sẻ bản demo</span>
+            </button>
+        }
     </div>
 }
 
@@ -65,22 +100,19 @@
     </section>
 
     <aside class="card poc-comments-panel">
-        @* Truy vết yêu cầu↔POC (U2): "POC này ĐÁNG LẼ phủ gì" — chắt từ AI Design Spec đã duyệt. Giúp
-           người review biết độ phủ so với yêu cầu (không chỉ đi tìm lỗi), và mỗi quy tắc có kịch bản UAT
-           nào kiểm. Ẩn khi spec chưa parse được (bản cũ) — fail-open. *@
-        @{
-            var cov = Model.Coverage;
-            var hasCoverage = cov.Screens.Any() || cov.Rules.Any() || cov.WorkedExamples.Any() || cov.AcceptanceCriteria.Any();
-        }
-        @if (hasCoverage)
+        @* Truy vết yêu cầu↔POC (U2), NỬA DÀNH CHO NGƯỜI DÙNG: hai nhóm dưới đây là chữ của chính họ —
+           câu nghiệm thu chép nguyên văn từ dòng "Hoàn thành khi: …" đã duyệt trong Product Brief, và
+           ví dụ tính thử họ đã chốt bằng số cụ thể. Đây là cái neo của buổi review: không có nó, người
+           nghiệm thu chỉ còn cách đi bắt lỗi cảm tính thay vì đối chiếu với điều mình đã yêu cầu.
+           Nửa còn lại (màn hình theo spec, business rule, nhãn có/chưa kịch bản kiểm) là cách BA diễn
+           đạt lại cho máy → đã chuyển sang hộp thoại "Chi tiết kỹ thuật". Ẩn khi spec chưa parse được
+           (bản cũ) — fail-open. *@
+        @if (hasUserCoverage)
         {
             <details class="uat-panel poc-coverage-panel" open>
-                <summary>🎯 Yêu cầu POC này bao phủ</summary>
-                <p class="muted poc-panel-hint">Đối chiếu bản demo với những gì AI Design Spec (đã duyệt) yêu cầu — để biết POC có phủ đúng yêu cầu chưa.</p>
+                <summary>📋 Điều anh/chị đã yêu cầu</summary>
+                <p class="muted poc-panel-hint">Những gì anh/chị đã duyệt ở bước trước — mở bản demo bên trái và đối chiếu từng dòng xem POC làm đúng chưa.</p>
 
-                @* Câu nghiệm thu (AC-n) đứng ĐẦU panel: đây là chữ của chính người dùng, chép nguyên văn từ
-                   dòng "Hoàn thành khi: …" họ đã duyệt trong Product Brief — thứ dễ đối chiếu nhất với bản
-                   demo, khác các mục dưới vốn là cách BA diễn đạt lại cho máy. *@
                 @if (cov.AcceptanceCriteria.Any())
                 {
                     <div class="poc-cov-group">
@@ -92,49 +124,12 @@
                                     <span class="poc-cov-rule-text">
                                         <b>@ac.Ref</b>@(string.IsNullOrWhiteSpace(ac.Feature) ? "" : $" ({ac.Feature})"): @ac.Text
                                     </span>
-                                    @if (ac.ScenarioTitles.Any())
+                                    @* Chỉ giữ vế CẢNH BÁO, bỏ vế "✓ có kịch bản kiểm: <danh sách title>": vế ✓ là
+                                       sổ sách QA (đã có tab kỹ thuật lo), còn vế ⚠ là một CHỈ DẪN cho chính người
+                                       đang ngồi review — không ai kiểm hộ điểm này, anh/chị phải tự bấm thử. *@
+                                    @if (!ac.ScenarioTitles.Any())
                                     {
-                                        <span class="poc-cov-rule-tested" title="Kịch bản UAT chứng minh câu nghiệm thu này">✓ có kịch bản kiểm: @string.Join("; ", ac.ScenarioTitles)</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="poc-cov-rule-untested" title="Chưa có kịch bản UAT nào chứng minh câu này — hãy tự thử trên bản demo">⚠ chưa có kịch bản kiểm — bạn nên tự thử điểm này</span>
-                                    }
-                                </li>
-                            }
-                        </ul>
-                    </div>
-                }
-
-                @if (cov.Screens.Any())
-                {
-                    <div class="poc-cov-group">
-                        <div class="poc-cov-head">Màn hình theo yêu cầu <span class="poc-count">(@cov.Screens.Count)</span></div>
-                        <div class="poc-cov-chips">
-                            @foreach (var screen in cov.Screens)
-                            {
-                                <span class="poc-cov-chip">@screen</span>
-                            }
-                        </div>
-                    </div>
-                }
-
-                @if (cov.Rules.Any())
-                {
-                    <div class="poc-cov-group">
-                        <div class="poc-cov-head">Quy tắc nghiệp vụ <span class="poc-count">(@cov.Rules.Count)</span></div>
-                        <ul class="poc-cov-rules">
-                            @foreach (var rule in cov.Rules)
-                            {
-                                <li>
-                                    <span class="poc-cov-rule-text">@rule.Rule</span>
-                                    @if (rule.ScenarioTitles.Any())
-                                    {
-                                        <span class="poc-cov-rule-tested" title="Kịch bản UAT kiểm quy tắc này">✓ có kịch bản kiểm: @string.Join("; ", rule.ScenarioTitles)</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="poc-cov-rule-untested" title="Chưa có kịch bản UAT nào tham chiếu quy tắc này">⚠ chưa có kịch bản kiểm</span>
+                                        <span class="poc-cov-rule-untested" title="Chưa có kịch bản UAT nào chứng minh câu này — hãy tự thử trên bản demo">⚠ chưa có kịch bản kiểm — anh/chị nên tự thử điểm này</span>
                                     }
                                 </li>
                             }
@@ -157,142 +152,7 @@
             </details>
         }
 
-        @* Kết quả VÒNG TỰ KIỂM CUỐI của hệ thống (audit tĩnh + headless browser + oracle ví dụ đã chốt +
-           visual QA) — người review thấy máy ĐÃ xác nhận gì (đỡ kiểm lại bằng tay) và còn issue nào agent
-           chưa xử lý được sau các vòng sửa (chỗ cần soi kỹ nhất). Ẩn khi chưa có dữ liệu (POC cũ). *@
-        @if (Model.Verification is { } verif)
-        {
-            var selfPass = verif.SelfTestResults.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
-            var scenarioPass = verif.ScenarioResults.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
-            var weOk = Math.Max(0, verif.WorkedExamplesTotal - verif.WorkedExampleIssues.Count);
-            <details class="uat-panel poc-verif-panel" open>
-                <summary>
-                    🧪 Máy đã tự kiểm
-                    @if (verif.OpenIssues.Any())
-                    {
-                        <span class="poc-verif-bad">✗ còn @verif.OpenIssues.Count điểm chưa đạt</span>
-                    }
-                    else
-                    {
-                        <span class="poc-verif-ok">✓ vòng kiểm cuối sạch</span>
-                    }
-                </summary>
-                <p class="muted poc-panel-hint">
-                    Kết quả vòng kiểm tự động cuối cùng trước khi bàn giao POC (@verif.CheckedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")) —
-                    những mục ✓ máy đã xác nhận chạy đúng; những mục ✗ là chỗ nên soi kỹ khi review.
-                </p>
-
-                <ul class="poc-verif-lines">
-                    @if (verif.RuntimeRan)
-                    {
-                        @if (verif.SelfTestResults.Any())
-                        {
-                            <li class="@(selfPass == verif.SelfTestResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
-                                Quy tắc nghiệp vụ tự kiểm: @selfPass/@verif.SelfTestResults.Count PASS
-                            </li>
-                        }
-                        @if (verif.ScenarioResults.Any())
-                        {
-                            <li class="@(scenarioPass == verif.ScenarioResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
-                                Kịch bản end-to-end: @scenarioPass/@verif.ScenarioResults.Count PASS
-                            </li>
-                        }
-                        @if (verif.WorkedExamplesTotal > 0)
-                        {
-                            <li class="@(verif.WorkedExampleIssues.Any() ? "poc-verif-bad" : "poc-verif-ok")">
-                                Ví dụ đã chốt với người dùng: POC tính đúng @weOk/@verif.WorkedExamplesTotal
-                            </li>
-                        }
-                        @if (verif.SpecScreens > 0)
-                        {
-                            <li class="@(verif.CoveredScreens >= verif.SpecScreens ? "poc-verif-ok" : "poc-verif-bad")">
-                                Độ phủ màn hình theo spec: @verif.CoveredScreens/@verif.SpecScreens
-                            </li>
-                        }
-                        @* Kịch bản nghiệm thu: sinh TRƯỚC khi POC được dựng, nên đây là thước đo độc lập
-                           với các assertion do chính agent dựng POC viết. Hai dòng: có mục tương ứng đang
-                           PASS không, và lượt lái THẬT bằng click có thao tác được không. *@
-                        @if (verif.UatTotal > 0)
-                        {
-                            <li class="@(verif.UatCovered >= verif.UatTotal ? "poc-verif-ok" : "poc-verif-bad")">
-                                Kịch bản nghiệm thu (checklist bên dưới) POC tự chạy đúng: @verif.UatCovered/@verif.UatTotal
-                            </li>
-                        }
-                        @if (verif.UatDriveResults.Any())
-                        {
-                            var drivePass = verif.UatDriveResults.Count(x => x.StartsWith("PASS", StringComparison.Ordinal));
-                            <li class="@(drivePass == verif.UatDriveResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
-                                Máy bấm thử theo kịch bản (click thật trên POC): @drivePass/@verif.UatDriveResults.Count kịch bản thao tác được
-                            </li>
-                        }
-                        @if (verif.CrossScreenIssues.Any())
-                        {
-                            <li class="poc-verif-bad">
-                                Dữ liệu mẫu lệch nhau giữa các màn hình: @verif.CrossScreenIssues.Count chỗ
-                            </li>
-                        }
-                        @if (verif.VisualRan)
-                        {
-                            <li class="@(verif.VisualWarnings.Any() ? "" : "poc-verif-ok")">
-                                UI/UX agent đã soát ảnh từng màn hình@(verif.VisualWarnings.Any() ? $" — {verif.VisualWarnings.Count} cảnh báo nhỏ" : "")
-                            </li>
-                        }
-                    }
-                    else
-                    {
-                        <li class="muted">Tầng chạy thử trong trình duyệt không hoạt động ở môi trường này (@verif.RuntimeSkipReason) — chỉ có kiểm tra tĩnh.</li>
-                    }
-                </ul>
-
-                @* ĐÃ SỬA ĐƯỢC so với vòng kiểm trước. Từ vòng review thứ hai trở đi, câu hỏi đầu tiên của
-                   người review luôn là "lần sửa vừa rồi đụng vào những gì?" — không có danh sách này họ
-                   phải rà lại cả bản demo từ đầu, dù hệ thống đã có sẵn dữ liệu để trả lời. *@
-                @if (Model.VerificationFixes.Any())
-                {
-                    <div class="poc-cov-group">
-                        <div class="poc-cov-head poc-verif-ok">✓ Đã sửa được so với vòng kiểm trước (@Model.VerificationFixes.Count):</div>
-                        <ul class="poc-verif-lines">
-                            @foreach (var fix in Model.VerificationFixes.Take(8))
-                            {
-                                <li class="poc-verif-ok">@fix</li>
-                            }
-                        </ul>
-                    </div>
-                }
-
-                @* HỒI QUY giữa các vòng sửa: thứ từng chạy đúng mà vòng sửa sau làm gãy. Tách riêng khỏi
-                   "điểm chưa đạt" vì đây là tín hiệu KHÁC hẳn — không phải "chưa làm xong" mà là "đã lùi". *@
-                @if (verif.Regressions.Any())
-                {
-                    <div class="poc-cov-group">
-                        <div class="poc-cov-head poc-verif-bad">⚠ Đã chạy đúng ở vòng trước nhưng vòng này hỏng lại (@verif.Regressions.Count):</div>
-                        <ul class="poc-verif-issues">
-                            @foreach (var regression in verif.Regressions.Take(6))
-                            {
-                                <li>@regression</li>
-                            }
-                        </ul>
-                    </div>
-                }
-
-                @if (verif.OpenIssues.Any())
-                {
-                    <div class="poc-cov-group">
-                        <div class="poc-cov-head poc-verif-bad">Điểm máy báo CHƯA ĐẠT mà agent chưa xử lý xong — ưu tiên xem khi review:</div>
-                        <ul class="poc-verif-issues">
-                            @foreach (var issue in verif.OpenIssues.Take(8))
-                            {
-                                <li>@issue</li>
-                            }
-                            @if (verif.OpenIssues.Count > 8)
-                            {
-                                <li class="muted">… và @(verif.OpenIssues.Count - 8) điểm khác.</li>
-                            }
-                        </ul>
-                    </div>
-                }
-            </details>
-        }
+        @* Panel "Máy đã tự kiểm" từng nằm ở đây — nay ở hộp thoại "Chi tiết kỹ thuật" trên command bar. *@
 
         @* CÁC VÒNG ĐÃ DỰNG: mỗi vòng "Yêu cầu chỉnh sửa" ghi đè thẳng lên poc-demo.html, nên bản chụp ở
            đây là đường DUY NHẤT để người nghiệm thu mở lại bản họ đã xem và tự đối chiếu — thay vì phải
@@ -499,6 +359,242 @@
         }
     </aside>
 </div>
+
+@* CHI TIẾT KỸ THUẬT (chỉ DeliveryAdvance): hai tab gom trọn phần nội dung mà người dùng nghiệp vụ
+   không đọc được — kết quả vòng tự kiểm cuối, và cách BA diễn đạt lại yêu cầu cho máy. Đặt ngoài
+   layout hai cột vì backdrop là phần tử toàn màn hình. *@
+@if (showTechButton)
+{
+    <div class="modal-backdrop hidden" id="pocTechModal">
+        <div class="modal poc-tech-modal" role="dialog" aria-modal="true" aria-labelledby="pocTechTitle">
+            <button type="button" class="x" id="pocTechClose" aria-label="Đóng">&times;</button>
+            <h2 id="pocTechTitle"><i class="bi bi-wrench-adjustable" aria-hidden="true"></i> Chi tiết kỹ thuật</h2>
+            <p class="modal-sub">Dành cho đội delivery — người dùng nghiệp vụ không thấy phần này.</p>
+
+            <div class="poc-tech-tabs" role="tablist" aria-label="Chi tiết kỹ thuật">
+                @* Tab mặc định là tab có tín hiệu HÀNH ĐỘNG: nếu chưa có dữ liệu tự kiểm (POC cũ) thì
+                   rơi về tab đối chiếu spec, để hộp thoại không bao giờ mở ra một panel rỗng. *@
+                <button type="button" class="poc-tech-tab@(Model.Verification is not null ? " active" : "")"
+                        role="tab" id="pocTechTabVerif" aria-controls="pocTechPanelVerif"
+                        aria-selected="@(Model.Verification is not null ? "true" : "false")"
+                        data-panel="pocTechPanelVerif" @(Model.Verification is null ? "disabled" : "")>
+                    🧪 Máy đã tự kiểm
+                    @if (Model.Verification is { } tabVerif && tabVerif.OpenIssues.Any())
+                    {
+                        <span class="poc-tech-badge">@tabVerif.OpenIssues.Count</span>
+                    }
+                </button>
+                <button type="button" class="poc-tech-tab@(Model.Verification is null ? " active" : "")"
+                        role="tab" id="pocTechTabSpec" aria-controls="pocTechPanelSpec"
+                        aria-selected="@(Model.Verification is null ? "true" : "false")"
+                        data-panel="pocTechPanelSpec" @(hasSpecDetails ? "" : "disabled")>
+                    🎯 Đối chiếu spec
+                </button>
+            </div>
+
+            @* ---- Tab 1: kết quả vòng tự kiểm cuối (audit tĩnh + headless browser + oracle ví dụ đã
+               chốt + visual QA): máy ĐÃ xác nhận gì (đỡ kiểm lại bằng tay) và còn issue nào agent chưa
+               xử lý được sau các vòng sửa (chỗ cần soi kỹ nhất). ---- *@
+            <div class="poc-tech-panel@(Model.Verification is null ? " hidden" : "")"
+                 id="pocTechPanelVerif" role="tabpanel" aria-labelledby="pocTechTabVerif" tabindex="0">
+                @if (Model.Verification is { } verif)
+                {
+                    var selfPass = verif.SelfTestResults.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
+                    var scenarioPass = verif.ScenarioResults.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
+                    var weOk = Math.Max(0, verif.WorkedExamplesTotal - verif.WorkedExampleIssues.Count);
+                    <p class="muted poc-panel-hint">
+                        Kết quả vòng kiểm tự động cuối cùng trước khi bàn giao POC (@verif.CheckedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")) —
+                        những mục ✓ máy đã xác nhận chạy đúng; những mục ✗ là chỗ nên soi kỹ khi review.
+                        @if (verif.OpenIssues.Any())
+                        {
+                            <b class="poc-verif-bad">Còn @verif.OpenIssues.Count điểm chưa đạt.</b>
+                        }
+                        else
+                        {
+                            <b class="poc-verif-ok">Vòng kiểm cuối sạch.</b>
+                        }
+                    </p>
+
+                    <ul class="poc-verif-lines">
+                        @if (verif.RuntimeRan)
+                        {
+                            @if (verif.SelfTestResults.Any())
+                            {
+                                <li class="@(selfPass == verif.SelfTestResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
+                                    Quy tắc nghiệp vụ tự kiểm: @selfPass/@verif.SelfTestResults.Count PASS
+                                </li>
+                            }
+                            @if (verif.ScenarioResults.Any())
+                            {
+                                <li class="@(scenarioPass == verif.ScenarioResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
+                                    Kịch bản end-to-end: @scenarioPass/@verif.ScenarioResults.Count PASS
+                                </li>
+                            }
+                            @if (verif.WorkedExamplesTotal > 0)
+                            {
+                                <li class="@(verif.WorkedExampleIssues.Any() ? "poc-verif-bad" : "poc-verif-ok")">
+                                    Ví dụ đã chốt với người dùng: POC tính đúng @weOk/@verif.WorkedExamplesTotal
+                                </li>
+                            }
+                            @if (verif.SpecScreens > 0)
+                            {
+                                <li class="@(verif.CoveredScreens >= verif.SpecScreens ? "poc-verif-ok" : "poc-verif-bad")">
+                                    Độ phủ màn hình theo spec: @verif.CoveredScreens/@verif.SpecScreens
+                                </li>
+                            }
+                            @* Kịch bản nghiệm thu: sinh TRƯỚC khi POC được dựng, nên đây là thước đo độc lập
+                               với các assertion do chính agent dựng POC viết. Hai dòng: có mục tương ứng đang
+                               PASS không, và lượt lái THẬT bằng click có thao tác được không. *@
+                            @if (verif.UatTotal > 0)
+                            {
+                                <li class="@(verif.UatCovered >= verif.UatTotal ? "poc-verif-ok" : "poc-verif-bad")">
+                                    Kịch bản nghiệm thu (checklist ở cột phải) POC tự chạy đúng: @verif.UatCovered/@verif.UatTotal
+                                </li>
+                            }
+                            @if (verif.UatDriveResults.Any())
+                            {
+                                var drivePass = verif.UatDriveResults.Count(x => x.StartsWith("PASS", StringComparison.Ordinal));
+                                <li class="@(drivePass == verif.UatDriveResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
+                                    Máy bấm thử theo kịch bản (click thật trên POC): @drivePass/@verif.UatDriveResults.Count kịch bản thao tác được
+                                </li>
+                            }
+                            @if (verif.CrossScreenIssues.Any())
+                            {
+                                <li class="poc-verif-bad">
+                                    Dữ liệu mẫu lệch nhau giữa các màn hình: @verif.CrossScreenIssues.Count chỗ
+                                </li>
+                            }
+                            @if (verif.VisualRan)
+                            {
+                                <li class="@(verif.VisualWarnings.Any() ? "" : "poc-verif-ok")">
+                                    UI/UX agent đã soát ảnh từng màn hình@(verif.VisualWarnings.Any() ? $" — {verif.VisualWarnings.Count} cảnh báo nhỏ" : "")
+                                </li>
+                            }
+                        }
+                        else
+                        {
+                            <li class="muted">Tầng chạy thử trong trình duyệt không hoạt động ở môi trường này (@verif.RuntimeSkipReason) — chỉ có kiểm tra tĩnh.</li>
+                        }
+                    </ul>
+
+                    @* ĐÃ SỬA ĐƯỢC so với vòng kiểm trước. Từ vòng review thứ hai trở đi, câu hỏi đầu tiên của
+                       người review luôn là "lần sửa vừa rồi đụng vào những gì?" — không có danh sách này họ
+                       phải rà lại cả bản demo từ đầu, dù hệ thống đã có sẵn dữ liệu để trả lời. *@
+                    @if (Model.VerificationFixes.Any())
+                    {
+                        <div class="poc-cov-group">
+                            <div class="poc-cov-head poc-verif-ok">✓ Đã sửa được so với vòng kiểm trước (@Model.VerificationFixes.Count):</div>
+                            <ul class="poc-verif-lines">
+                                @foreach (var fix in Model.VerificationFixes.Take(8))
+                                {
+                                    <li class="poc-verif-ok">@fix</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @* HỒI QUY giữa các vòng sửa: thứ từng chạy đúng mà vòng sửa sau làm gãy. Tách riêng khỏi
+                       "điểm chưa đạt" vì đây là tín hiệu KHÁC hẳn — không phải "chưa làm xong" mà là "đã lùi". *@
+                    @if (verif.Regressions.Any())
+                    {
+                        <div class="poc-cov-group">
+                            <div class="poc-cov-head poc-verif-bad">⚠ Đã chạy đúng ở vòng trước nhưng vòng này hỏng lại (@verif.Regressions.Count):</div>
+                            <ul class="poc-verif-issues">
+                                @foreach (var regression in verif.Regressions.Take(6))
+                                {
+                                    <li>@regression</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @if (verif.OpenIssues.Any())
+                    {
+                        <div class="poc-cov-group">
+                            <div class="poc-cov-head poc-verif-bad">Điểm máy báo CHƯA ĐẠT mà agent chưa xử lý xong — ưu tiên xem khi review:</div>
+                            <ul class="poc-verif-issues">
+                                @foreach (var issue in verif.OpenIssues.Take(8))
+                                {
+                                    <li>@issue</li>
+                                }
+                                @if (verif.OpenIssues.Count > 8)
+                                {
+                                    <li class="muted">… và @(verif.OpenIssues.Count - 8) điểm khác.</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                }
+            </div>
+
+            @* ---- Tab 2: đối chiếu spec — màn hình + business rule chắt từ AI Design Spec đã duyệt, kèm
+               kịch bản UAT nào kiểm quy tắc nào. Đây là cách BA diễn đạt lại yêu cầu cho máy, nên nó nói
+               chuyện với đội delivery chứ không với người nghiệm thu. ---- *@
+            <div class="poc-tech-panel@(Model.Verification is not null ? " hidden" : "")"
+                 id="pocTechPanelSpec" role="tabpanel" aria-labelledby="pocTechTabSpec" tabindex="0">
+                @if (hasSpecDetails)
+                {
+                    <p class="muted poc-panel-hint">Chắt từ AI Design Spec (đã duyệt) — POC đáng lẽ phải phủ những gì, và mỗi quy tắc có kịch bản UAT nào kiểm.</p>
+
+                    @if (cov.Screens.Any())
+                    {
+                        <div class="poc-cov-group">
+                            <div class="poc-cov-head">Màn hình theo yêu cầu <span class="poc-count">(@cov.Screens.Count)</span></div>
+                            <div class="poc-cov-chips">
+                                @foreach (var screen in cov.Screens)
+                                {
+                                    <span class="poc-cov-chip">@screen</span>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (cov.Rules.Any())
+                    {
+                        <div class="poc-cov-group">
+                            <div class="poc-cov-head">Quy tắc nghiệp vụ <span class="poc-count">(@cov.Rules.Count)</span></div>
+                            <ul class="poc-cov-rules">
+                                @foreach (var rule in cov.Rules)
+                                {
+                                    <li>
+                                        <span class="poc-cov-rule-text">@rule.Rule</span>
+                                        @if (rule.ScenarioTitles.Any())
+                                        {
+                                            <span class="poc-cov-rule-tested" title="Kịch bản UAT kiểm quy tắc này">✓ có kịch bản kiểm: @string.Join("; ", rule.ScenarioTitles)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="poc-cov-rule-untested" title="Chưa có kịch bản UAT nào tham chiếu quy tắc này">⚠ chưa có kịch bản kiểm</span>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @* Nhắc lại các câu nghiệm thu CHƯA có kịch bản kiểm: ở cột phải người dùng chỉ thấy cảnh
+                       báo rời từng dòng, còn đội delivery cần biết tổng cộng còn bao nhiêu điểm hở. *@
+                    @if (untestedAc.Any())
+                    {
+                        <div class="poc-cov-group">
+                            <div class="poc-cov-head poc-verif-bad">Câu nghiệm thu chưa có kịch bản UAT nào chứng minh (@untestedAc.Count):</div>
+                            <ul class="poc-cov-rules">
+                                @foreach (var ac in untestedAc)
+                                {
+                                    <li><span class="poc-cov-rule-text"><b>@ac.Ref</b>: @ac.Text</span></li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                }
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn" id="pocTechDone">Đóng</button>
+            </div>
+        </div>
+    </div>
+}
 
 @* CHIA SẺ bản demo cho người không có tài khoản: nghiệm thu thật luôn có nhiều người, mà trang này bị
    chặn theo quyền truy cập project. Link luôn có hạn dùng và thu hồi được; người xem chỉ mở được đúng
