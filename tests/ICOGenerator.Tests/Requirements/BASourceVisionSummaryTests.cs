@@ -147,6 +147,29 @@ public class BASourceVisionSummaryTests : IDisposable
         Assert.Null((await verify.ProjectSourceFiles.FirstAsync(s => s.Id == _sourceId)).VisionSummary);
     }
 
+    [Fact]
+    public async Task Acknowledge_WhenImagesWereStrippedOnRetry_DoesNotLockInNotes()
+    {
+        // LlmClient có thể đã bỏ ảnh rồi thử lại (endpoint từ chối image_url / body quá lớn làm request
+        // chết ở tầng gửi). Model chưa hề thấy hình nào nên mọi "ghi chú về hình" nó trả là bịa — cất lại
+        // là khóa vĩnh viễn đường gửi ảnh thật ở các lượt sau.
+        var llm = new FakeLlm
+        {
+            RetriedWithoutImages = true,
+            AckReply = new BASourceAckReply
+            {
+                Message = "Mình đã đọc tài liệu.",
+                SourceNotes = { new SourceVisionNote { FileName = "technical-document.docx", Note = "[Hình 1] — mô tả bịa." } }
+            }
+        };
+
+        await using (var db = NewDb())
+            Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
+
+        await using var verify = NewDb();
+        Assert.Null((await verify.ProjectSourceFiles.FirstAsync(s => s.Id == _sourceId)).VisionSummary);
+    }
+
     private BAChatService NewSut(AppDbContext db, ILlmClient llm, int? maxImagesPerCall = null)
     {
         var settings = new Dictionary<string, string?>();
@@ -185,6 +208,9 @@ public class BASourceVisionSummaryTests : IDisposable
     {
         public BASourceAckReply AckReply = new() { Message = "Đã đọc." };
 
+        /// <summary>Giả lập LlmClient đã bỏ ảnh rồi thử lại — kết quả trả về mang cờ tương ứng.</summary>
+        public bool RetriedWithoutImages;
+
         /// <summary>Số ảnh THẬT SỰ đi trên dây ở lời gọi gần nhất — thứ duy nhất chứng minh được ảnh có gửi hay không.</summary>
         public int LastImageCount;
         public string LastText = string.Empty;
@@ -203,7 +229,7 @@ public class BASourceVisionSummaryTests : IDisposable
                 "BASourceAck" => AckReply,
                 _ => throw new InvalidOperationException($"Unexpected structured call: {logContext.Purpose}")
             };
-            return Task.FromResult((new LlmCallResult { IsSuccess = true, Content = "{}" }, (T?)value));
+            return Task.FromResult((new LlmCallResult { IsSuccess = true, Content = "{}", RetriedWithoutImages = RetriedWithoutImages }, (T?)value));
         }
     }
 

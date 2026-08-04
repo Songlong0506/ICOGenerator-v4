@@ -238,8 +238,15 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
                 result.ResponseText = result.ErrorMessage;
                 break;
             default:
-                result.ErrorMessage = ex.Message;
-                result.Content = ex.Message;
+                // Lỗi không có HTTP status (kết nối bị reset giữa chừng…) trên một request MANG ẢNH: nói
+                // thẳng nghi phạm kích thước body ngay trong thông điệp — đây là dòng chữ hiện lên bong bóng
+                // lỗi của người dùng, nơi "An error occurred while sending the request" không giúp được gì.
+                // ResponseText giữ nguyên bản gốc vì EndpointQuirks khớp chuỗi trên đó.
+                var imageHint = result.RequestImages.Count > 0
+                    ? $" [Request này mang {result.RequestImages.Count} ảnh (~{result.RequestImages.Sum(i => i.Bytes.Length) / 1024} KB) — nếu chỉ lỗi khi đính kèm tài liệu có hình, nhiều khả năng body vượt giới hạn kích thước của endpoint/proxy.]"
+                    : string.Empty;
+                result.ErrorMessage = ex.Message + imageHint;
+                result.Content = result.ErrorMessage;
                 result.ResponseText = ex.Message;
                 break;
         }

@@ -23,6 +23,20 @@ internal static class EndpointQuirks
         !result.IsSuccess && result.ResponseText.Contains("image_url", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Lời gọi chết ở TẦNG VẬN CHUYỂN — không nhận được bất kỳ HTTP status nào: HttpClient ném
+    /// HttpRequestException ("An error occurred while sending the request"), SDK OpenAI tự thử lại rồi gom
+    /// thành AggregateException "Retry failed after N tries". Với request MANG ẢNH, nguyên nhân thường gặp
+    /// nhất là body base64 vượt giới hạn kích thước của endpoint hoặc proxy/gateway đứng trước nó (nginx
+    /// <c>client_max_body_size</c> mặc định 1MB, proxy công ty…) — chúng RESET kết nối thay vì trả 413 tử
+    /// tế, nên phía client chỉ còn dấu vết này để nhận ra. Phân biệt với timeout của chính app (deadline
+    /// <c>Llm:RequestTimeoutSeconds</c>) vốn được map thành thông điệp riêng kèm status null.
+    /// </summary>
+    public static bool TransportSendFailure(LlmCallResult result) =>
+        !result.IsSuccess && result.HttpStatusCode is null
+        && (result.ResponseText.Contains("while sending the request", StringComparison.OrdinalIgnoreCase)
+            || result.ResponseText.Contains("Retry failed after", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
     /// Endpoint không cài đặt mức <c>response_format</c> được xin sẽ trả 400 nêu đúng tên tham số —
     /// DeepSeek: <c>"This response_format type is unavailable now"</c>; server tự host thường là
     /// <c>"response_format is not supported"</c>.
