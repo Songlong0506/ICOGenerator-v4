@@ -481,9 +481,11 @@ public class BAChatService
             var parsedReply = structuredReply != null
                 ? _replyParser.Normalize(structuredReply)
                 : _replyParser.Parse(callResult.Content);
+            // Lượt phải gửi lại mà bỏ ảnh có kèm một dòng dặn dò NỘI BỘ cho model; model yếu hay chép
+            // nguyên văn dòng đó vào câu trả lời. Dọn trước khi nó thành một lượt hội thoại.
             reply = string.IsNullOrWhiteSpace(parsedReply.Message)
                 ? "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu."
-                : parsedReply.Message;
+                : EndpointQuirks.StripInternalNotices(parsedReply.Message);
 
             // Lưu suggestions tách riêng (JSON) để UI render chip; chỉ set khi thực sự có gợi ý.
             if (parsedReply.Suggestions.Count > 0)
@@ -774,6 +776,12 @@ public class BAChatService
             }
 
             var reply = callResult is { IsSuccess: true } ? (parsed ?? _replyParser.Parse(callResult.Content)) : null;
+            // Lượt phải gửi lại mà bỏ ảnh có kèm một dòng dặn dò NỘI BỘ cho model; model yếu hay chép nguyên
+            // văn dòng đó vào câu trả lời. Dọn TRƯỚC vòng kiểm tra rỗng bên dưới: một lượt mà nội dung chỉ
+            // gồm đúng dòng dặn dò ấy là lượt model chưa nói gì của riêng nó, phải rơi vào nhánh ⚠️ (có nút
+            // "Thử lại") chứ không phải hiện lên thành một bong bóng trống.
+            if (reply != null)
+                reply.Message = EndpointQuirks.StripInternalNotices(reply.Message);
             if (reply == null || string.IsNullOrWhiteSpace(reply.Message))
             {
                 // Trước đây chỗ này return false im lặng: ghi chú của user đã hiện trong hội thoại nhưng BA
