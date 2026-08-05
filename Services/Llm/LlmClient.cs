@@ -99,11 +99,8 @@ public class LlmClient : ILlmClient
 
         // Endpoint turned out not to accept response_format at all: retry once on the plain text path so a
         // wrong Models-page setting costs a round trip instead of the whole feature.
-        if (EndpointQuirks.RejectedResponseFormat(result))
-        {
-            LogStructuredOutputUnsupported(model, StructuredOutputMode.JsonObject, result);
+        if (ShouldRetryWithoutResponseFormat(model, StructuredOutputMode.JsonObject, result, logContext.Purpose))
             result = await StreamWithRetryAsync(model, messages, temperature, logContext, onToken, responseFormat: null, cancellationToken).ConfigureAwait(false);
-        }
 
         return (result, Deserialize<T>(result));
     }
@@ -138,10 +135,10 @@ public class LlmClient : ILlmClient
             // unavailable now". The middleware swallows it into a failed result rather than throwing, so
             // without this branch the whole feature would go dark on one wrong Models-page setting. Drop to
             // the plain streaming path (which also restores onToken) and let the caller's parser take over.
-            if (EndpointQuirks.RejectedResponseFormat(result))
+            if (ShouldRetryWithoutResponseFormat(model, StructuredOutputMode.JsonSchema, result, logContext.Purpose))
             {
-                LogStructuredOutputUnsupported(model, StructuredOutputMode.JsonSchema, result);
                 var degraded = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
+                degraded.ImagesDropped |= droppedImages;
                 return (degraded, Deserialize<T>(degraded));
             }
 
@@ -189,6 +186,42 @@ public class LlmClient : ILlmClient
         if (EndpointQuirks.RejectedImageContent(result))
             return "vision";
         return EndpointQuirks.RequestNeverReachedModel(result) ? "transport" : null;
+    }
+
+    /// <summary>
+    /// Có nên gọi lại mà BỎ <c>response_format</c> không. Hai hình dạng của cùng một chuyện "endpoint không
+    /// kham nổi mức structured output đang xin":
+    /// <list type="bullet">
+    ///   <item>nó NÓI RA bằng 400 nêu đúng tên tham số (DeepSeek: "This response_format type is unavailable
+    ///         now") — nhánh đã có từ trước;</item>
+    ///   <item>nó ĐỨT GÁNH GIỮA CHỪNG: nhận request rồi đóng kết nối mà không trả xong phản hồi
+    ///         (<c>HttpIOException: The response ended prematurely</c>). Xảy ra khi decoding bị ép theo
+    ///         grammar/schema kéo dài quá timeout của gateway đứng trước endpoint, hoặc server tự chết vì
+    ///         chính lượt sinh đó. Không có mã HTTP nào để mà đọc lý do, nên nếu chỉ bắt theo 400 thì lượt
+    ///         này rơi thẳng thành bong bóng ⚠️.</item>
+    /// </list>
+    /// Cả hai đều chỉ còn một đường cứu: bỏ <c>response_format</c> gọi lại — và ở mức json_schema, đường đó
+    /// còn quay về STREAM, tức là có byte chảy đều thay vì im lặng suốt lượt sinh, nên nó cũng gỡ luôn ca
+    /// bị timeout vì kết nối "trông như đã treo".
+    /// </summary>
+    private bool ShouldRetryWithoutResponseFormat(AiModel model, StructuredOutputMode mode, LlmCallResult result, string logContextPurpose)
+    {
+        if (EndpointQuirks.RejectedResponseFormat(result))
+        {
+            LogStructuredOutputUnsupported(model, mode, result);
+            return true;
+        }
+
+        if (!EndpointQuirks.RequestNeverReachedModel(result))
+            return false;
+
+        _logger.LogWarning(
+            "Lời gọi {Purpose} tới {ModelId} ở mức structured output {Mode} đứt giữa chừng (endpoint nhận "
+            + "request rồi đóng kết nối, không có mã HTTP) — gọi lại KHÔNG kèm response_format, trên đường "
+            + "stream. Nếu lỗi này chỉ xảy ra ở các lượt sinh câu trả lời DÀI, hãy hạ Structured Output của "
+            + "model này ở trang Models. Lỗi: {Error}",
+            logContextPurpose, model.ModelId, mode, result.ErrorMessage);
+        return true;
     }
 
     private bool ShouldRetryWithoutImages(AiModel model, IEnumerable<ChatMessage> messages, LlmCallResult result)

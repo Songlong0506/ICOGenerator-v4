@@ -143,6 +143,30 @@ public class LlmClientTests
         Assert.False(result.ImagesDropped);
     }
 
+    // Endpoint không kham nổi mức structured output đang xin có HAI cách biểu hiện. Cách "lịch sự" là 400
+    // nêu tên tham số — nhánh đã có. Cách còn lại là nhận request rồi ĐÓNG kết nối không trả xong phản hồi
+    // ("The response ended prematurely"), thường gặp khi decoding bị ép theo schema kéo dài quá timeout của
+    // gateway. Không có mã HTTP để bắt, nên nếu chỉ nhìn 400 thì cả tính năng tắt ngóm.
+    [Theory]
+    [InlineData(StructuredOutputMode.JsonSchema)]
+    [InlineData(StructuredOutputMode.JsonObject)]
+    public async Task ChatStructured_FallsBackToPlainText_WhenTheStructuredCallDiesMidResponse(StructuredOutputMode mode)
+    {
+        var factory = new FakeChatClientFactory(
+            rejectResponseFormatWith: TransportFailure, replyText: """{"answer":"ok"}""");
+        var client = Client(factory);
+
+        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(Model(mode), TextMessages(), 0.3, Ctx());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ok", value?.Answer);
+        Assert.Equal(2, factory.Options.Count);
+        Assert.Null(factory.Options[1].ResponseFormat);
+        // Lượt cứu phải chạy trên đường STREAM: mức json_schema vốn là một round-trip câm, mà kết nối im
+        // lặng suốt lượt sinh chính là thứ gateway cắt.
+        Assert.Same(factory.Calls[1], factory.Streamed[^1]);
+    }
+
     [Fact]
     public async Task ChatWithLog_DoesNotRetry_OnUnrelatedFailure()
     {
