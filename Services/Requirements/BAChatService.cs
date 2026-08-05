@@ -793,6 +793,13 @@ public class BAChatService
             // chat sau dùng chữ thay ảnh. Structured output tắt ⇒ parsed null ⇒ thử đọc lại từ raw content
             // (model vẫn hay trả đúng JSON dù không được ép); vẫn không có ⇒ không cất gì, ảnh tiếp tục đi
             // kèm như trước — tốn token nhưng không mất nội dung, đó mới là thứ không được phép hỏng.
+            // LlmClient có thể đã BỎ ẢNH rồi thử lại (endpoint từ chối image_url / request chết ở tầng gửi
+            // vì body quá lớn) — khi đó model chưa hề nhìn thấy hình nào, mọi "ghi chú về hình" nó trả về
+            // đều là bịa. Không cất gì cả: nguồn để nguyên, ảnh vẫn đi kèm các lượt sau cho tới khi tới
+            // được model thật sự.
+            if (callResult is { RetriedWithoutImages: true })
+                return true;
+
             var notes = parsed?.SourceNotes
                 ?? LlmJson.TryDeserialize<BASourceAckReply>(callResult?.Content, requireKnownProperty: true)?.SourceNotes;
             await StoreVisionSummariesAsync(sourceContents.FullyAttachedSourceIds, sources, notes, cancellationToken);

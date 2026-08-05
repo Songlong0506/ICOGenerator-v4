@@ -58,14 +58,15 @@ public class LlmClient : ILlmClient
     {
         var result = await StreamOnceAsync(model, messages, temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
 
-        // A model configured SupportsVision=true whose endpoint is actually text-only (e.g. DeepSeek) rejects
-        // image parts with HTTP 400 "unknown variant `image_url`, expected `text`". Retry once without the
-        // images so the turn survives on the text context; the real fix is unticking SupportsVision on the
-        // Models page, which the warning points at.
-        if (EndpointQuirks.RejectedImageContent(result) && EndpointQuirks.ContainsImageContent(messages))
+        // Hai kiểu hỏng cùng một thuốc — thử lại MỘT lần không kèm ảnh để lượt sống tiếp trên ngữ cảnh text:
+        //  • endpoint text-only trả 400 "unknown variant `image_url`" (SupportsVision tick nhầm ở trang Models);
+        //  • request chết ở tầng gửi không có HTTP status — body mang ảnh base64 thường là thủ phạm (vượt
+        //    giới hạn kích thước của endpoint/proxy, chúng reset kết nối thay vì trả 413).
+        if (ShouldRetryWithoutImages(result, messages))
         {
-            LogVisionMisconfigured(model);
+            LogRetryingWithoutImages(model, result);
             result = await StreamOnceAsync(model, EndpointQuirks.WithoutImageContent(messages), temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
+            result.RetriedWithoutImages = true;
         }
 
         return result;
@@ -126,13 +127,15 @@ public class LlmClient : ILlmClient
             // deadline-bounded, token-capped and logged identically.
             var response = await pipeline.Client.GetResponseAsync<T>(messages, options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            // Same text-only-endpoint fallback as ChatWithLogAsync (the middleware swallows the 400, so it
-            // surfaces here as a captured failure rather than an exception).
-            if (EndpointQuirks.RejectedImageContent(pipeline.Result) && EndpointQuirks.ContainsImageContent(messages))
+            // Same imageless retry as ChatWithLogAsync — endpoint rejected image parts OR the send died at
+            // the transport level (the middleware swallows both, so they surface here as a captured failure
+            // rather than an exception).
+            if (ShouldRetryWithoutImages(pipeline.Result, messages))
             {
-                LogVisionMisconfigured(model);
+                LogRetryingWithoutImages(model, pipeline.Result);
                 pipeline.Reset();
                 response = await pipeline.Client.GetResponseAsync<T>(EndpointQuirks.WithoutImageContent(messages), options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
+                pipeline.Result.RetriedWithoutImages = true;
             }
 
             var result = pipeline.Result;
@@ -161,8 +164,8 @@ public class LlmClient : ILlmClient
             // alive: reuse the captured result if the call reached the model, else do a plain call so the
             // caller can still parse text.
             _logger.LogWarning(ex, "Structured output for {ModelId} failed; falling back to manual parse.", model.ModelId);
-            // Don't hand back a captured image-rejection failure: the plain path below retries it text-only.
-            if (pipeline.HasResult && !(EndpointQuirks.RejectedImageContent(pipeline.Result) && EndpointQuirks.ContainsImageContent(messages)))
+            // Don't hand back a captured image-related failure: the plain path below retries it text-only.
+            if (pipeline.HasResult && !ShouldRetryWithoutImages(pipeline.Result, messages))
                 return (pipeline.Result, null);
 
             var plain = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
@@ -193,10 +196,26 @@ public class LlmClient : ILlmClient
             + "Hãy hạ mức Structured Output của model này ở trang Models để hết vòng gọi thừa. Lỗi: {Error}",
             model.ModelId, mode, result.ResponseText);
 
-    private void LogVisionMisconfigured(AiModel model) =>
-        _logger.LogWarning(
-            "Model {ModelId} từ chối content ảnh (image_url) dù SupportsVision đang bật — thử lại không kèm ảnh. Tắt SupportsVision cho model này ở trang Models để hết cảnh báo.",
-            model.ModelId);
+    // Quyết định chung của mọi đường gọi: lượt VỪA THẤT BẠI vì thứ liên quan tới ảnh (endpoint từ chối
+    // image_url, hoặc chết ở tầng gửi — với request mang ảnh thì kích thước body là nghi phạm số một) và
+    // hội thoại CÓ ảnh để mà bỏ ⇒ đáng thử lại một lần trên bản text-only.
+    private static bool ShouldRetryWithoutImages(LlmCallResult result, List<ChatMessage> messages) =>
+        (EndpointQuirks.RejectedImageContent(result) || EndpointQuirks.TransportSendFailure(result))
+        && EndpointQuirks.ContainsImageContent(messages);
+
+    private void LogRetryingWithoutImages(AiModel model, LlmCallResult result)
+    {
+        if (EndpointQuirks.RejectedImageContent(result))
+            _logger.LogWarning(
+                "Model {ModelId} từ chối content ảnh (image_url) dù SupportsVision đang bật — thử lại không kèm ảnh. Tắt SupportsVision cho model này ở trang Models để hết cảnh báo.",
+                model.ModelId);
+        else
+            _logger.LogWarning(
+                "Lời gọi kèm ảnh tới {ModelId} chết ở tầng gửi request, không nhận được HTTP status ({Error}) — "
+                + "thường do body (ảnh base64) vượt giới hạn kích thước của endpoint/proxy. Thử lại không kèm ảnh; "
+                + "nếu lặp lại hãy giảm Llm:SourceUpload:MaxImagesPerCall / MaxTotalImageBytes.",
+                model.ModelId, result.ErrorMessage);
+    }
 }
 
 public class LlmCallResult
@@ -212,6 +231,14 @@ public class LlmCallResult
     public long DurationMs { get; set; }
     public int? HttpStatusCode { get; set; }
     public bool IsSuccess { get; set; }
+
+    /// <summary>
+    /// Lượt này là bản THỬ LẠI KHÔNG KÈM ẢNH sau khi lời gọi nguyên bản (có ảnh) thất bại — endpoint từ
+    /// chối image_url, hoặc request chết ở tầng gửi vì body quá lớn. Model chưa hề nhìn thấy tấm ảnh nào,
+    /// nên caller tuyệt đối không được cất <c>VisionSummary</c> từ câu trả lời này: một mô tả bịa sẽ khóa
+    /// luôn đường gửi lại ảnh ở các lượt sau (xem <c>BAChatService.StoreVisionSummariesAsync</c>).
+    /// </summary>
+    public bool RetriedWithoutImages { get; set; }
 
     /// <summary>
     /// Các ẢNH thực sự đi kèm lượt gọi này, theo đúng thứ tự chúng nằm trong <see cref="RequestJson"/>.

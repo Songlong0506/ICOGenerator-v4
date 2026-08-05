@@ -26,6 +26,12 @@ public class LlmClientTests
     private const string ResponseFormatRejectedError =
         "HTTP 400 (invalid_request_error: invalid_request_error)\r\n\r\nThis response_format type is unavailable now";
 
+    // What the OpenAI SDK surfaces when the connection dies BEFORE any HTTP response — typically an
+    // endpoint/proxy resetting the connection because the base64-image body exceeds its size limit. The
+    // SDK's own retry policy wraps the HttpRequestExceptions into this aggregate message.
+    private const string TransportSendError =
+        "Retry failed after 4 tries. (An error occurred while sending the request.) (An error occurred while sending the request.) (An error occurred while sending the request.) (An error occurred while sending the request.)";
+
     private static List<ChatMessage> MessagesWithImage() => new()
     {
         // "json" in the prompt is what JSON mode requires, and every real prompt behind a structured call
@@ -65,6 +71,59 @@ public class LlmClientTests
         var retried = factory.Calls[1];
         Assert.DoesNotContain(retried.SelectMany(m => m.Contents), c => c is DataContent);
         Assert.Contains(retried.SelectMany(m => m.Contents).OfType<TextContent>(), t => t.Text.Contains("user turn with attachment"));
+        // Model never saw the images — callers must not lock in vision summaries from this reply.
+        Assert.True(result.RetriedWithoutImages);
+    }
+
+    // The docx-attachment bug: figures extracted from a Word file ride along as base64 images, the
+    // endpoint/proxy resets the connection on the oversized body, and the SDK surfaces "Retry failed after
+    // 4 tries" with no HTTP status. The turn must survive on the text context instead of a red error bubble.
+    [Fact]
+    public async Task ChatWithLog_RetriesWithoutImages_WhenSendDiesAtTransportLevel()
+    {
+        var factory = new FakeChatClientFactory(rejectImagesWith: TransportSendError, replyText: "ok");
+        var client = Client(factory);
+
+        var result = await client.ChatWithLogAsync(Model(), MessagesWithImage(), 0.3, Ctx());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ok", result.Content);
+        Assert.Equal(2, factory.Calls.Count);
+        Assert.DoesNotContain(factory.Calls[1].SelectMany(m => m.Contents), c => c is DataContent);
+        Assert.True(result.RetriedWithoutImages);
+    }
+
+    [Fact]
+    public async Task ChatWithLog_DoesNotRetryTransportFailure_WhenNoImagesWereSent()
+    {
+        // Endpoint unreachable / connection dying on a text-only call: nothing to strip, retrying the same
+        // request would just burn another round of SDK retries.
+        var factory = new FakeChatClientFactory(alwaysFailWith: TransportSendError);
+        var client = Client(factory);
+
+        var result = await client.ChatWithLogAsync(Model(), new List<ChatMessage> { new(ChatRole.User, "text only") }, 0.3, Ctx());
+
+        Assert.False(result.IsSuccess);
+        Assert.Single(factory.Calls);
+        Assert.False(result.RetriedWithoutImages);
+    }
+
+    [Fact]
+    public async Task ChatStructured_JsonSchema_RetriesWithoutImages_WhenSendDiesAtTransportLevel()
+    {
+        // Same transport failure on the non-streaming json_schema path (the one the source-ack turn uses
+        // when structured output is on): the middleware swallows the failure, so the retry must trigger off
+        // the captured result rather than an exception.
+        var factory = new FakeChatClientFactory(rejectImagesWith: TransportSendError, replyText: """{"answer":"ok"}""");
+        var client = Client(factory);
+
+        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(Model(StructuredOutputMode.JsonSchema), MessagesWithImage(), 0.3, Ctx());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ok", value?.Answer);
+        Assert.Equal(2, factory.Calls.Count);
+        Assert.DoesNotContain(factory.Calls[1].SelectMany(m => m.Contents), c => c is DataContent);
+        Assert.True(result.RetriedWithoutImages);
     }
 
     [Fact]
