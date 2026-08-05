@@ -57,7 +57,9 @@ public class ModelCallLoggingChatClientTests
 
         Assert.Single(logger.Logged);
         Assert.False(logger.Logged[0].Result.IsSuccess);
-        Assert.Equal("boom", logger.Logged[0].Result.ErrorMessage);
+        // Mọi thông điệp lỗi phải nói lời gọi vừa đi TỚI ĐÂU: một agent bị gắn nhầm model là ca gây tốn
+        // nhiều thời gian nhất ("chỗ này chạy, chỗ kia lỗi") và không thể lần ra nếu lỗi giấu đích đến.
+        Assert.Equal("boom (m @ localhost)", logger.Logged[0].Result.ErrorMessage);
     }
 
     [Fact]

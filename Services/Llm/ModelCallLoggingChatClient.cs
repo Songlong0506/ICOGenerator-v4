@@ -228,13 +228,13 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             // DB-persisted, UI-visible fields; the full exception is surfaced by the caller's logger.
             case ClientResultException api:
                 result.HttpStatusCode = api.Status;
-                result.ErrorMessage = $"API error: {api.Status}";
-                result.Content = $"API error: {api.Status}\n\n{api.Message}";
+                result.ErrorMessage = $"API error: {api.Status} ({Target})";
+                result.Content = $"API error: {api.Status} ({Target})\n\n{api.Message}";
                 result.ResponseText = api.Message;
                 break;
             // Our own deadline fired (stalled/slow stream).
             case OperationCanceledException:
-                result.ErrorMessage = $"LLM request timed out after {_options.RequestTimeoutSeconds}s.";
+                result.ErrorMessage = $"LLM request timed out after {_options.RequestTimeoutSeconds}s ({Target}).";
                 result.Content = result.ErrorMessage;
                 result.ResponseText = result.ErrorMessage;
                 break;
@@ -252,12 +252,12 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
                 // gói quá lớn so với trần của gateway/proxy là ca duy nhất trong ba ca mà chỉ số này phân
                 // biệt được ngay.
                 result.ErrorMessage = result.TransportFailure
-                    ? $"Không gửi được request tới endpoint AI — endpoint chưa từng trả lời (lỗi kết nối, "
+                    ? $"Không gửi được request tới {Target} — endpoint chưa từng trả lời (lỗi kết nối, "
                       + $"gói tin lượt này ~{FormatBytes(result.ApproxRequestBytes)}). Kiểm tra: endpoint có "
                       + "đang chạy không, cấu hình Llm:Proxy có đúng không, và gói tin có vượt trần body của "
                       + "gateway/proxy đứng trước endpoint không (hạ Llm:SourceUpload:MaxTotalImageBytes). "
                       + $"Nguyên nhân từ hệ thống: {detail}"
-                    : detail;
+                    : $"{detail} ({Target})";
                 result.Content = result.ErrorMessage;
                 result.ResponseText = detail;
                 break;
@@ -267,6 +267,21 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
 
         _options.OnProgress?.Invoke("error", "Lời gọi LLM thất bại.", result.ErrorMessage);
         await CompleteAsync(result, step).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// "model @ host" của lời gọi vừa hỏng. Bắt buộc phải có trong MỌI thông điệp lỗi: một agent có thể bị
+    /// gắn nhầm sang model khác trên trang Agents/Models, và khi đó triệu chứng là "chỗ này chạy, chỗ kia
+    /// lỗi" — không thể lần ra nếu thông báo không nói nó vừa gọi tới ĐÂU. Chỉ lấy host, không lấy nguyên
+    /// URL: bong bóng lỗi hiện cho mọi người dùng, còn đường dẫn/tham số của endpoint là chuyện quản trị.
+    /// </summary>
+    private string Target
+    {
+        get
+        {
+            var host = OpenAiCompatibility.HostOf(_model.Endpoint);
+            return string.IsNullOrWhiteSpace(host) ? _model.ModelId : $"{_model.ModelId} @ {host}";
+        }
     }
 
     private static string FormatBytes(long bytes) => bytes switch
