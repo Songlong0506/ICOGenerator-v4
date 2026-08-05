@@ -40,6 +40,7 @@ public class AppDbContext : DbContext
     public DbSet<PocComment> PocComments => Set<PocComment>();
     public DbSet<PocShareLink> PocShareLinks => Set<PocShareLink>();
     public DbSet<AgentDomainChecklistNote> AgentDomainChecklistNotes => Set<AgentDomainChecklistNote>();
+    public DbSet<AgentChecklistItem> AgentChecklistItems => Set<AgentChecklistItem>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -115,8 +116,24 @@ public class AppDbContext : DbContext
         // không đường đọc nào có thể quên lọc. Cần đọc bản lưu trữ thì dùng IgnoreQueryFilters().
         builder.Entity<AgentConversation>().HasQueryFilter(x => x.ArchivedAt == null);
 
-        // Checklist học được theo miền: mỗi (agent, miền) đúng MỘT bucket — index unique để hai vòng
-        // harvest song song không tạo bucket đôi. Xem ChecklistNoteStore.
+        // Checklist học được: mỗi BÀI HỌC là một dòng có Id bền (bật/tắt, sửa, truy nguồn được) — xem
+        // AgentChecklistItem. Index theo (agent, bucket, trạng thái) vì mọi đường đọc đều lọc đúng bộ ba
+        // đó: nạp prompt lấy mục Active của một bucket, trang quản trị liệt kê cả bucket.
+        builder.Entity<AgentChecklistItem>(b =>
+        {
+            b.Property(x => x.DomainKey).HasMaxLength(40);
+            b.Property(x => x.Text).HasMaxLength(400);
+            b.Property(x => x.Rationale).HasMaxLength(600);
+            b.Property(x => x.Evidence).HasMaxLength(600);
+            b.HasIndex(x => new { x.AgentId, x.DomainKey, x.Status });
+            b.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
+            // Xóa dự án nguồn KHÔNG được xóa bài học đã rút ra từ nó (bài học dùng chung cho mọi dự án
+            // sau); chỉ mất đường truy nguồn ⇒ SetNull.
+            b.HasOne<Project>().WithMany().HasForeignKey(x => x.SourceProjectId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // LEGACY (chỉ còn để nhập một lần sang AgentChecklistItem — xem ChecklistLegacyNotesImporter):
+        // checklist học được theo miền dạng blob, mỗi (agent, miền) đúng MỘT bucket.
         builder.Entity<AgentDomainChecklistNote>().Property(x => x.DomainKey).HasMaxLength(40);
         builder.Entity<AgentDomainChecklistNote>().HasIndex(x => new { x.AgentId, x.DomainKey }).IsUnique();
         builder.Entity<AgentDomainChecklistNote>().HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);

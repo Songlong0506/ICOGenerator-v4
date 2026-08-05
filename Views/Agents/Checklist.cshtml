@@ -1,3 +1,4 @@
+@using ICOGenerator.Domain.Enums
 @model IReadOnlyList<ICOGenerator.Application.Agents.LearnedChecklistBucket>
 @{
     ViewData["Title"] = "Checklist BA học được";
@@ -6,15 +7,19 @@
 
 @* Nội dung BA tự học được từ các dự án TRƯỚC (khoảng trống phỏng vấn + ghi chú người dùng ghim trên POC).
    Nó được nạp vào prompt ở MỌI lượt chat của các dự án cùng miền — tức là một bài học rút sai từ một dự
-   án cá biệt sẽ âm thầm làm nhiễu mọi cuộc phỏng vấn sau đó. Trang này là chỗ duy nhất nhìn thấy và gỡ
-   được nó. *@
+   án cá biệt sẽ âm thầm làm nhiễu mọi cuộc phỏng vấn sau đó. Trang này là chỗ duy nhất nhìn thấy, hiểu
+   VÌ SAO nó được rút ra, và tắt được nó.
+
+   Tắt (bỏ tick) chứ không xóa: mục đã tắt được gửi cho vòng harvest sau như danh sách cấm, nên bài học
+   sai không quay lại — điều mà thời checklist còn là một ô text tự do không làm được. *@
 
 <div class="page-head">
     <div>
         <h1>Checklist BA học được</h1>
         <p class="muted">
-            Những điều BA tự rút ra từ các dự án trước và tự hỏi thêm ở các dự án sau. Bài học nào không
-            đúng thì sửa hoặc gỡ — nó đang được dùng cho mọi dự án cùng nhóm nghiệp vụ.
+            Những điều BA tự rút ra từ các dự án trước và tự hỏi thêm ở các dự án sau. Mỗi mục có kèm
+            <b>vì sao rút ra được bài học đó</b> — đọc lý do rồi <b>bỏ tick</b> mục nào không đúng: BA
+            thôi hỏi điểm đó và <b>không học lại</b> nó ở các dự án sau.
         </p>
     </div>
     <a class="btn outline" asp-action="Index">← Về Agents</a>
@@ -45,7 +50,7 @@
         <div class="checklist-bucket-head">
             <h2>
                 @(bucket.DomainKey == null ? "Áp dụng cho mọi dự án" : $"Nhóm nghiệp vụ: {bucket.DomainKey}")
-                <span class="muted">· @bucket.ItemCount mục</span>
+                <span class="muted">· @bucket.ActiveCount/@bucket.Items.Count mục đang dùng</span>
             </h2>
             @if (bucket.UpdatedAt.HasValue)
             {
@@ -53,8 +58,8 @@
             }
         </div>
 
-        @* Truy nguồn: dự án nào đã đóng góp bài học vào nhóm này. Khi thấy một mục lạ/sai, câu hỏi đầu
-           tiên luôn là "cái này ở đâu ra" — không có dòng này thì không có cách nào trả lời. *@
+        @* Truy nguồn ở mức bucket: dự án nào đã đóng góp bài học vào nhóm này (từng mục còn có nguồn riêng
+           bên dưới). Khi thấy một mục lạ/sai, câu hỏi đầu tiên luôn là "cái này ở đâu ra". *@
         @if (bucket.Sources.Any())
         {
             <div class="checklist-sources">
@@ -62,29 +67,96 @@
                 @foreach (var source in bucket.Sources)
                 {
                     <a asp-controller="Requirements" asp-action="Index" asp-route-projectId="@source.ProjectId"
-                       class="checklist-source-chip" title="@source.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")">@source.Name</a>
+                       class="checklist-source-chip">@source.Name</a>
                 }
             </div>
         }
 
-        @if (canManage)
-        {
-            <form asp-action="SaveChecklist" method="post" class="checklist-form">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="domainKey" value="@bucket.DomainKey" />
-                <textarea name="notes" rows="@Math.Clamp(bucket.ItemCount + 2, 6, 24)" spellcheck="false">@bucket.Notes</textarea>
+        <form asp-action="SaveChecklist" method="post" class="checklist-form">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="domainKey" value="@bucket.DomainKey" />
+
+            @{ var index = 0; }
+            @foreach (var item in bucket.Items)
+            {
+                var rows = Math.Clamp(item.Text.Length / 90 + 1, 1, 4);
+                <div class="checklist-item @(item.IsActive ? "" : "is-off")">
+                    <div class="checklist-item-row">
+                        @if (canManage)
+                        {
+                            <input type="hidden" name="items[@index].Id" value="@item.Id" />
+                            <input type="checkbox" name="items[@index].Enabled" value="true" checked="@item.IsActive"
+                                   title="Bỏ tick để BA thôi hỏi điểm này (và không học lại)" />
+                            <input type="hidden" name="items[@index].Enabled" value="false" />
+                            <textarea name="items[@index].Text" rows="@rows" spellcheck="false" class="checklist-item-text">@item.Text</textarea>
+                            <button type="submit" name="deleteId" value="@item.Id" class="checklist-item-del"
+                                    title="Xóa hẳn mục này"
+                                    onclick="return confirm('Xóa HẲN mục này? BA có thể học lại đúng bài học đó từ một dự án sau. Muốn chặn vĩnh viễn thì bỏ tick thay vì xóa.');">✕</button>
+                        }
+                        else
+                        {
+                            <span class="checklist-item-mark">@(item.IsActive ? "✓" : "✕")</span>
+                            <span class="checklist-item-text-readonly">@item.Text</span>
+                        }
+                    </div>
+
+                    <div class="checklist-item-why">
+                        @if (!string.IsNullOrWhiteSpace(item.Rationale))
+                        {
+                            <div><span class="checklist-why-label">Vì sao:</span> @item.Rationale</div>
+                        }
+                        else
+                        {
+                            <div class="muted">Nhập từ checklist cũ — bản trước chưa lưu lý do rút ra.</div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(item.Evidence))
+                        {
+                            <div class="checklist-item-evidence">“@item.Evidence”</div>
+                        }
+
+                        <div class="checklist-item-meta">
+                            <span class="checklist-tag">
+                                @(item.SourceKind switch
+                                {
+                                    ChecklistItemSource.Conversation => "từ hội thoại phỏng vấn",
+                                    ChecklistItemSource.PocFeedback => "từ ghi chú trên POC",
+                                    _ => "từ checklist cũ"
+                                })
+                            </span>
+                            @if (item.SourceProjectId.HasValue && item.SourceProjectName != null)
+                            {
+                                <a asp-controller="Requirements" asp-action="Index" asp-route-projectId="@item.SourceProjectId"
+                                   class="checklist-source-chip">@item.SourceProjectName</a>
+                            }
+                            @if (item.IsRecent)
+                            {
+                                <span class="checklist-tag is-new">mới học</span>
+                            }
+                            @if (item.Status == ChecklistItemStatus.DisabledByUser)
+                            {
+                                <span class="checklist-tag is-off">đã tắt — BA không hỏi & không học lại</span>
+                            }
+                            else if (item.Status == ChecklistItemStatus.DisabledByOverflow)
+                            {
+                                <span class="checklist-tag is-off">tự tắt vì nhóm đã đủ @ICOGenerator.Services.Requirements.ChecklistNoteStore.MaxActiveItemsPerBucket mục</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+                index++;
+            }
+
+            @if (canManage)
+            {
                 <div class="checklist-form-actions">
                     <button type="submit" class="btn primary">Lưu</button>
-                    <button type="submit" class="btn outline danger"
-                            onclick="this.form.querySelector('textarea').value=''; return confirm('Gỡ toàn bộ checklist của nhóm này? BA sẽ thôi tự hỏi các điểm đó.');">
-                        Gỡ toàn bộ nhóm này
+                    <button type="submit" name="bucketAction" value="disableAll" class="btn outline danger"
+                            onclick="return confirm('Tắt toàn bộ checklist của nhóm này? BA sẽ thôi tự hỏi các điểm đó — bật lại bất cứ lúc nào.');">
+                        Tắt toàn bộ nhóm này
                     </button>
                 </div>
-            </form>
-        }
-        else
-        {
-            <pre class="checklist-readonly">@bucket.Notes</pre>
-        }
+            }
+        </form>
     </div>
 }

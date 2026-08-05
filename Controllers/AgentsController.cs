@@ -11,20 +11,20 @@ public class AgentsController : Controller
     private readonly GetAgentManagementPageQuery _getAgentManagementPageQuery;
     private readonly UpdateAgentUseCase _updateAgentUseCase;
     private readonly GetLearnedChecklistQuery _getLearnedChecklistQuery;
-    private readonly UpdateLearnedChecklistUseCase _updateLearnedChecklistUseCase;
+    private readonly SaveLearnedChecklistUseCase _saveLearnedChecklistUseCase;
     private readonly IPermissionService _permissions;
 
     public AgentsController(
         GetAgentManagementPageQuery getAgentManagementPageQuery,
         UpdateAgentUseCase updateAgentUseCase,
         GetLearnedChecklistQuery getLearnedChecklistQuery,
-        UpdateLearnedChecklistUseCase updateLearnedChecklistUseCase,
+        SaveLearnedChecklistUseCase saveLearnedChecklistUseCase,
         IPermissionService permissions)
     {
         _getAgentManagementPageQuery = getAgentManagementPageQuery;
         _updateAgentUseCase = updateAgentUseCase;
         _getLearnedChecklistQuery = getLearnedChecklistQuery;
-        _updateLearnedChecklistUseCase = updateLearnedChecklistUseCase;
+        _saveLearnedChecklistUseCase = saveLearnedChecklistUseCase;
         _permissions = permissions;
     }
 
@@ -69,18 +69,25 @@ public class AgentsController : Controller
         return View(await _getLearnedChecklistQuery.ExecuteAsync(HttpContext.RequestAborted));
     }
 
+    /// <summary>
+    /// Một form cho cả bucket, ba nút cùng post về đây: "Lưu" (áp tick bật/tắt + lời văn đã sửa), "Tắt cả
+    /// nhóm", và nút xóa hẳn của từng dòng (<paramref name="deleteId"/> — chỉ nút được bấm mới gửi giá trị).
+    /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.AgentsManage)]
-    public async Task<IActionResult> SaveChecklist(string? domainKey, string? notes)
+    public async Task<IActionResult> SaveChecklist(string? domainKey, List<ChecklistItemInput>? items, Guid? deleteId, string? bucketAction)
     {
-        var result = await _updateLearnedChecklistUseCase.ExecuteAsync(domainKey, notes, HttpContext.RequestAborted);
-        if (result == UpdateLearnedChecklistResult.BaNotConfigured)
+        var (result, message) = deleteId.HasValue
+            ? (await _saveLearnedChecklistUseCase.DeleteAsync(deleteId.Value, HttpContext.RequestAborted), "Đã xóa hẳn mục đó — lưu ý BA có thể học lại bài học này từ dự án sau.")
+            : bucketAction == "disableAll"
+                ? (await _saveLearnedChecklistUseCase.DisableBucketAsync(domainKey, HttpContext.RequestAborted), "Đã tắt toàn bộ nhóm này. BA thôi hỏi các điểm đó; bật lại bất cứ lúc nào.")
+                : (await _saveLearnedChecklistUseCase.SaveAsync(domainKey, items ?? new List<ChecklistItemInput>(), HttpContext.RequestAborted), "Đã lưu checklist.");
+
+        if (result == SaveLearnedChecklistResult.BaNotConfigured)
             TempData["Error"] = "Chưa cấu hình agent BA.";
         else
-            TempData["Success"] = string.IsNullOrWhiteSpace(notes)
-                ? "Đã gỡ toàn bộ checklist của nhóm này."
-                : "Đã lưu checklist.";
+            TempData["Success"] = message;
 
         return RedirectToAction(nameof(Checklist));
     }

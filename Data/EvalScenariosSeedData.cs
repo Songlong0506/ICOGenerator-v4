@@ -708,14 +708,17 @@ public static class EvalScenariosSeedData
             - KHÔNG đưa chi tiết đặc thù của dự án vào hồ sơ (app thiết bị đo, mã thiết bị, chu kỳ hiệu chuẩn, mức độ gấp).
             """);
 
-        // ================= BusinessAnalyst/checklist-gap.v1.md =================
+        // ================= BusinessAnalyst/checklist-gap.v2.md =================
 
         Add(
             "Checklist gap — phát hiện thông tin người dùng tự nêu và khái quát hoá",
-            "BusinessAnalyst/checklist-gap.v1.md",
+            "BusinessAnalyst/checklist-gap.v2.md",
             """
-            ## Checklist bổ sung hiện có (kết quả rút kinh nghiệm từ các dự án trước)
+            ## Checklist đang dùng (KHÔNG đề xuất lại các ý này)
             - Hỏi thêm về ràng buộc an toàn khi đăng nhập/tài khoản (khóa tài khoản, giới hạn số lần thử…) nếu ứng dụng có đăng nhập.
+
+            ## Bài học đã bị loại (người dùng đã tắt — TUYỆT ĐỐI không đề xuất lại)
+            - Hỏi về nhu cầu xuất dữ liệu ra Excel.
 
             ## Toàn bộ hội thoại của một dự án VỪA hoàn tất (đã sinh tài liệu thành công)
             BA: Anh/chị muốn ứng dụng giải quyết việc gì?
@@ -730,12 +733,12 @@ public static class EvalScenariosSeedData
             Người dùng: Tổng chi theo tháng và theo phòng.
             """,
             """
-            - Chỉ xuất phần văn bản checklist (gạch đầu dòng), không lời dẫn, không giải thích, không liệt kê lại hội thoại.
-            - Giữ nguyên mục checklist hiện có về an toàn đăng nhập/tài khoản.
-            - Bổ sung được ~2 khoảng trống mới đã KHÁI QUÁT HOÁ: (1) hỏi về quy tắc làm tròn/định dạng hiển thị số liệu (tiền tệ, số lượng) khi ứng dụng xử lý số liệu; (2) hỏi về nhu cầu lưu vết thao tác (ai làm, lúc nào, không xóa được) phục vụ kiểm tra/kiểm toán với nghiệp vụ duyệt/chi.
-            - Mục mới viết ở mức CHUNG áp dụng cho dự án khác — KHÔNG nhắc chi tiết đặc thù như "phòng kế toán", "đề nghị thanh toán", "nghìn đồng".
+            - Trả về DUY NHẤT một object JSON {"items":[{"text":..., "rationale":..., "evidence":...}]} — không lời dẫn, không markdown.
+            - Chỉ đề xuất bài học MỚI: KHÔNG lặp lại mục an toàn đăng nhập/tài khoản đang dùng, KHÔNG đề xuất lại mục "xuất dữ liệu ra Excel" đã bị loại.
+            - Bắt được ~2 khoảng trống mới đã KHÁI QUÁT HOÁ: (1) hỏi về quy tắc làm tròn/định dạng hiển thị số liệu (tiền tệ, số lượng) khi ứng dụng xử lý số liệu; (2) hỏi về nhu cầu lưu vết thao tác (ai làm, lúc nào, không xóa được) phục vụ kiểm tra/kiểm toán với nghiệp vụ duyệt/chi.
+            - `text` viết ở mức CHUNG áp dụng cho dự án khác — KHÔNG nhắc chi tiết đặc thù như "phòng kế toán", "đề nghị thanh toán", "nghìn đồng".
+            - `rationale` nêu rõ BA đã bỏ sót nhóm thông tin nào; `evidence` trích NGUYÊN VĂN đoạn người dùng tự nêu (làm tròn nghìn đồng / lưu lại ai làm lúc nào).
             - KHÔNG thêm mục cho thông tin mà BA ĐÃ hỏi trong hội thoại (luồng từ chối, báo cáo).
-            - Danh sách gọn, không lặp ý.
             """);
 
         // ================= Eval/judge.v1.md =================

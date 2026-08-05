@@ -224,7 +224,6 @@ erDiagram
         string Color
         double Temperature
         Guid AiModelId FK
-        string LearnedChecklistNotes
         string CreatedByUsername
         DateTime CreatedAt
     }
