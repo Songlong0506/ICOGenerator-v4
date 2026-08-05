@@ -247,17 +247,8 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
                 // Request không tới được model (kết nối đứt/bị chặn) — xem LlmCallResult.TransportFailure.
                 result.TransportFailure = LlmExceptionDetail.IsTransportFailure(ex);
                 // Lỗi mạng đứng một mình là câu đố: người dùng đọc "Retry failed after 4 tries" không biết
-                // phải làm gì, còn người sửa không biết nhìn vào đâu. Nói thẳng ĐÂY LÀ LỖI KẾT NỐI (endpoint
-                // chưa từng trả lời) và nêu ba chỗ thực sự gây ra nó, kèm cỡ gói tin của chính lượt này —
-                // gói quá lớn so với trần của gateway/proxy là ca duy nhất trong ba ca mà chỉ số này phân
-                // biệt được ngay.
-                result.ErrorMessage = result.TransportFailure
-                    ? $"Không gửi được request tới {Target} — endpoint chưa từng trả lời (lỗi kết nối, "
-                      + $"gói tin lượt này ~{FormatBytes(result.ApproxRequestBytes)}). Kiểm tra: endpoint có "
-                      + "đang chạy không, cấu hình Llm:Proxy có đúng không, và gói tin có vượt trần body của "
-                      + "gateway/proxy đứng trước endpoint không (hạ Llm:SourceUpload:MaxTotalImageBytes). "
-                      + $"Nguyên nhân từ hệ thống: {detail}"
-                    : $"{detail} ({Target})";
+                // phải làm gì, còn người sửa không biết nhìn vào đâu.
+                result.ErrorMessage = result.TransportFailure ? TransportFailureAdvice(result, detail) : $"{detail} ({Target})";
                 result.Content = result.ErrorMessage;
                 result.ResponseText = detail;
                 break;
@@ -267,6 +258,31 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
 
         _options.OnProgress?.Invoke("error", "Lời gọi LLM thất bại.", result.ErrorMessage);
         await CompleteAsync(result, step).ConfigureAwait(false);
+    }
+
+    // Gói tin nhỏ hơn ngần này thì KHÔNG thể là chuyện "vượt trần body của gateway" — đừng nhắc tới nó.
+    // Một dòng gợi ý sai hướng trong thông báo lỗi không phải là vô hại: nó là thứ người ta làm theo đầu
+    // tiên, và làm theo xong thì lỗi vẫn còn nguyên mà thời gian thì mất rồi.
+    private const long BodyLimitSuspicionBytes = 1024 * 1024;
+
+    /// <summary>
+    /// Câu chỉ đường cho một lời gọi chết ở tầng truyền tải. Việc ĐẦU TIÊN cần làm luôn là bấm "Test
+    /// Connection" ở trang Models: nó chạy đúng đường dây này với một request tí hon, nên nếu nó cũng hỏng
+    /// thì sự cố nằm ở CẤU HÌNH MODEL (endpoint chết, agent gắn nhầm model, mạng chặn host, proxy sai) chứ
+    /// không dính dáng gì tới nội dung lượt chat — cắt gọn được cả nhánh phỏng đoán sai.
+    /// </summary>
+    private string TransportFailureAdvice(LlmCallResult result, string detail)
+    {
+        var sizeNote = result.ApproxRequestBytes >= BodyLimitSuspicionBytes
+            ? $" Gói tin lượt này ~{FormatBytes(result.ApproxRequestBytes)} — cũng có thể đã vượt trần body "
+              + "của gateway/proxy đứng trước endpoint (hạ Llm:SourceUpload:MaxTotalImageBytes)."
+            : string.Empty;
+
+        return $"Không gửi được request tới {Target} — endpoint chưa từng trả lời (lỗi kết nối, gói tin lượt "
+            + $"này ~{FormatBytes(result.ApproxRequestBytes)}). Vào trang Models, bấm \"Test Connection\" cho "
+            + "model này: nếu nút đó cũng lỗi thì vấn đề nằm ở cấu hình model chứ không phải nội dung lượt "
+            + "chat — kiểm tra endpoint có đang chạy không, agent có đang gắn đúng model không, mạng có chặn "
+            + $"host đó không, và cấu hình Llm:Proxy có đúng không.{sizeNote} Nguyên nhân từ hệ thống: {detail}";
     }
 
     /// <summary>
