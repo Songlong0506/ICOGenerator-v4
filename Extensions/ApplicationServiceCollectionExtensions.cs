@@ -393,7 +393,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<DispatchPocFeedbackUseCase>();
         services.AddScoped<ConfirmSpecAssumptionsUseCase>();
         services.AddScoped<ReviseSpecAssumptionsUseCase>();
-        services.AddScoped<UpdateWorkedExamplesUseCase>();
         services.AddScoped<GetLearnedChecklistQuery>();
         services.AddScoped<UpdateLearnedChecklistUseCase>();
         services.AddScoped<CheckRequirementConflictsUseCase>();

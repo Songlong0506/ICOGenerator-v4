@@ -34,7 +34,6 @@ public class RequirementsController : Controller
     private readonly ReviseBriefFromNotesUseCase _reviseBriefFromNotesUseCase;
     private readonly ConfirmSpecAssumptionsUseCase _confirmSpecAssumptionsUseCase;
     private readonly ReviseSpecAssumptionsUseCase _reviseSpecAssumptionsUseCase;
-    private readonly UpdateWorkedExamplesUseCase _updateWorkedExamplesUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly CheckRequirementConflictsUseCase _checkRequirementConflictsUseCase;
     private readonly ReopenCoverageGroupUseCase _reopenCoverageGroupUseCase;
@@ -69,7 +68,6 @@ public class RequirementsController : Controller
        ReviseBriefFromNotesUseCase reviseBriefFromNotesUseCase,
        ConfirmSpecAssumptionsUseCase confirmSpecAssumptionsUseCase,
        ReviseSpecAssumptionsUseCase reviseSpecAssumptionsUseCase,
-       UpdateWorkedExamplesUseCase updateWorkedExamplesUseCase,
        RetryWorkflowUseCase retryWorkflowUseCase,
        CheckRequirementConflictsUseCase checkRequirementConflictsUseCase,
        ReopenCoverageGroupUseCase reopenCoverageGroupUseCase,
@@ -95,7 +93,6 @@ public class RequirementsController : Controller
         _reviseBriefFromNotesUseCase = reviseBriefFromNotesUseCase;
         _confirmSpecAssumptionsUseCase = confirmSpecAssumptionsUseCase;
         _reviseSpecAssumptionsUseCase = reviseSpecAssumptionsUseCase;
-        _updateWorkedExamplesUseCase = updateWorkedExamplesUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
         _checkRequirementConflictsUseCase = checkRequirementConflictsUseCase;
         _reopenCoverageGroupUseCase = reopenCoverageGroupUseCase;
@@ -120,7 +117,6 @@ public class RequirementsController : Controller
         ViewBag.BaSupportsVision = result.BaModelSupportsVision;
         ViewBag.Coverage = result.Coverage;
         ViewBag.Decisions = result.Decisions;
-        ViewBag.WorkedExamples = result.WorkedExamples;
         ViewBag.SpecAssumptions = result.SpecAssumptions;
         ViewBag.SpecVersion = result.SpecVersion;
         return View(result.Project);
@@ -388,19 +384,15 @@ public class RequirementsController : Controller
                 }
 
                 // Cùng nhịp hậu kỳ: gộp "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ
-                // tính thử đã xác nhận) rồi đẩy frame phụ cập nhật panel bên phải. Fail-open: lỗi thì giữ
-                // panel bản cũ. Chỉ WorkedExamples đi vào frame; hai danh sách kia vẫn được gộp ở đây
-                // nhưng không còn panel nào để vẽ — OpenQuestions nạp vào ngữ cảnh chat của BA ở lượt sau
-                // (xem BAChatService), PlannedScope nạp vào ngữ cảnh soát mâu thuẫn
-                // (xem RequirementConflictService).
+                // tính thử đã xác nhận). KHÔNG frame nào được đẩy về client: cả ba danh sách nay chỉ có
+                // đường tiêu thụ của máy — OpenQuestions nạp vào ngữ cảnh chat của BA ở lượt sau (xem
+                // BAChatService), PlannedScope nạp vào ngữ cảnh soát mâu thuẫn (xem
+                // RequirementConflictService), WorkedExamples đi vào "## 13. Worked Examples" của AI
+                // Design Spec rồi thành oracle chấm POC. Vẫn gộp ở đây (fail-open) để các đường đó có
+                // bản mới nhất ngay sau lượt chat.
                 try
                 {
-                    var outlook = await _chatWithBAUseCase.UpdateInterviewOutlookAsync(projectId, CancellationToken.None);
-                    channel.Writer.TryWrite(new
-                    {
-                        type = "outlook",
-                        workedExamples = outlook.WorkedExamples
-                    });
+                    await _chatWithBAUseCase.UpdateInterviewOutlookAsync(projectId, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
@@ -644,34 +636,6 @@ public class RequirementsController : Controller
             ReviseAssumptionsResult.NothingPending => Json(new { ok = false, error = "Không còn giả định nào đang chờ xác nhận — tải lại trang nhé." }),
             ReviseAssumptionsResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
             _ => Json(new { ok = false, error = "Không gửi được đính chính." })
-        };
-    }
-
-    // Sửa TAY panel "Ví dụ đã xác nhận" — oracle mà POC bị chấm theo, nên user phải chỉnh được trực tiếp
-    // thay vì nói lại trong chat rồi chờ lượt chắt lọc hiểu đúng ý.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> UpdateWorkedExamples(Guid projectId, [FromForm] string examplesJson)
-    {
-        List<string> examples;
-        try
-        {
-            examples = JsonSerializer.Deserialize<List<string>>(examplesJson ?? "[]") ?? new List<string>();
-        }
-        catch
-        {
-            return Json(new { ok = false, error = "Dữ liệu ví dụ không hợp lệ." });
-        }
-
-        var result = await _updateWorkedExamplesUseCase.ExecuteAsync(projectId, examples, HttpContext.RequestAborted);
-        return result switch
-        {
-            UpdateWorkedExamplesResult.Ok => Json(new { ok = true }),
-            UpdateWorkedExamplesResult.TooMany => Json(new { ok = false, error = "Quá nhiều ví dụ — giữ tối đa 30 ví dụ thôi nhé." }),
-            UpdateWorkedExamplesResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
-            _ => Json(new { ok = false, error = "Không lưu được danh sách ví dụ." })
         };
     }
 
