@@ -553,27 +553,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
-    // "Triển vọng phỏng vấn" (frame "outlook"): chỉ còn ví dụ tính thử đã xác nhận (A) có panel. Hai danh
-    // sách kia không được vẽ — openQuestions đi vào ngữ cảnh chat của BA ở lượt sau, plannedScope đi vào
-    // ngữ cảnh soát mâu thuẫn. Danh sách rỗng thì ẩn panel (mục đã được chốt/giải quyết rời đi).
-    function renderList(panelId, listId, countId, items, itemHtml) {
-        const panel = document.getElementById(panelId);
-        const list = document.getElementById(listId);
-        if (!panel || !list || !Array.isArray(items)) return;
-        // Người dùng đang SỬA TAY panel này (xem initWorkedExamplesEditor): đừng viết đè lên thứ họ đang
-        // gõ — bản chắt lọc của lượt chat sẽ được áp ở lần tải trang sau.
-        if (panel.dataset.editing === "true") return;
-        if (items.length === 0) { panel.hidden = true; return; }
-        list.innerHTML = items.map(itemHtml).join("");
-        const count = document.getElementById(countId);
-        if (count) count.textContent = `(${items.length})`;
-        panel.hidden = false;
-    }
-
-    function renderOutlook(data) {
-        renderList("workedPanel", "workedList", "workedCount", data.workedExamples,
-            ex => `<li class="worked-item">${escapeHtml(ex)}</li>`);
-    }
+    // KHÔNG có hàm render nào cho "triển vọng phỏng vấn" (InterviewOutlookService) nữa: cả ba danh sách
+    // đều không có panel — openQuestions đi vào ngữ cảnh chat của BA ở lượt sau, plannedScope đi vào ngữ
+    // cảnh soát mâu thuẫn, workedExamples đi vào "## 13. Worked Examples" của spec. Vì thế ChatStream
+    // cũng thôi gửi frame "outlook".
 
     // Bấm một "giả định của bản thiết kế" (E) → soạn sẵn tin nhắn đính chính; gửi đi sẽ soạn lại tài liệu
     // và dựng lại POC cho khớp giả định đã sửa (đóng vòng trước khi bản demo bị coi là chốt).
@@ -742,10 +725,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // Frame phụ SAU done: bản "Điều đã chốt" đã gộp lượt vừa rồi (server tách lời gọi LLM này
             // ra khỏi đường trả lời để lượt chat nhanh hơn — panel tự làm tươi trễ vài giây).
             renderDecisions(ev.decisions);
-        } else if (ev.type === "outlook") {
-            // Frame phụ SAU done: "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ
-            // tính thử đã xác nhận) đã gộp lượt vừa rồi — làm tươi ba panel bên phải.
-            renderOutlook(ev);
         }
         return true;
     }
@@ -1797,83 +1776,6 @@ function openLatestProductBrief() {
     window.addEventListener("load", () => requestAnimationFrame(scrollGateIntoView));
 
     syncButtons();
-})();
-
-// ==== Sửa tay panel "Ví dụ đã xác nhận" ====
-// Đây là oracle mà POC bị chấm theo (spec đúc thành "## 13. Worked Examples", POC phải tính lại ra đúng
-// kết quả), nên một ví dụ chép sai từ hội thoại làm cả tầng tự kiểm chấm theo chuẩn sai. Editor là một
-// textarea "mỗi dòng một ví dụ" — đơn giản nhất cho người nghiệp vụ và khớp đúng dạng lưu (bullet).
-(function initWorkedExamplesEditor() {
-    const panel = document.getElementById("workedPanel");
-    if (!panel) return;
-
-    const listEl = document.getElementById("workedList");
-    const editBtn = document.getElementById("workedEditBtn");
-    const editor = document.getElementById("workedEditor");
-    const textEl = document.getElementById("workedEditorText");
-    const saveBtn = document.getElementById("workedSaveBtn");
-    const cancelBtn = document.getElementById("workedCancelBtn");
-    const msgEl = document.getElementById("workedEditorMsg");
-    const countEl = document.getElementById("workedCount");
-    if (!listEl || !editBtn || !editor) return;
-
-    function currentItems() {
-        return Array.from(listEl.querySelectorAll(".worked-item")).map(li => li.textContent.trim());
-    }
-
-    function openEditor() {
-        textEl.value = currentItems().join("\n");
-        panel.dataset.editing = "true";
-        editor.hidden = false;
-        listEl.hidden = true;
-        editBtn.hidden = true;
-        msgEl.textContent = "";
-        textEl.focus();
-    }
-
-    function closeEditor() {
-        delete panel.dataset.editing;
-        editor.hidden = true;
-        listEl.hidden = false;
-        editBtn.hidden = false;
-    }
-
-    editBtn.addEventListener("click", openEditor);
-    cancelBtn.addEventListener("click", closeEditor);
-
-    saveBtn.addEventListener("click", async function () {
-        const examples = textEl.value.split("\n")
-            .map(l => l.replace(/^[-*]\s+/, "").trim())
-            .filter(l => l.length > 0);
-
-        const token = document.querySelector('input[name="__RequestVerificationToken"]');
-        const fd = new FormData();
-        fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
-        fd.append("examplesJson", JSON.stringify(examples));
-        if (token) fd.append("__RequestVerificationToken", token.value);
-
-        saveBtn.disabled = true;
-        msgEl.textContent = "Đang lưu…";
-        try {
-            const resp = await fetch(panel.dataset.updateUrl, { method: "POST", body: fd });
-            const data = await resp.json();
-            if (data.ok) {
-                // Render lại tại chỗ: lượt ghi cũng thêm một lượt hội thoại, nhưng nó chỉ là dấu vết cho
-                // bước chắt lọc sau — không có gì mới để user đọc nên khỏi reload cả trang.
-                listEl.innerHTML = examples
-                    .map(e => `<li class="worked-item">${escapeHtml(e)}</li>`).join("");
-                if (countEl) countEl.textContent = `(${examples.length})`;
-                panel.hidden = examples.length === 0;
-                msgEl.textContent = "";
-                closeEditor();
-            } else {
-                msgEl.textContent = data.error || "Không lưu được.";
-            }
-        } catch {
-            msgEl.textContent = "Không lưu được — kiểm tra kết nối rồi thử lại.";
-        }
-        saveBtn.disabled = false;
-    });
 })();
 
 // ==== Xác nhận TẠO LẠI tài liệu ====

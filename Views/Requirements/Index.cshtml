@@ -153,11 +153,10 @@
     var coverage = ViewBag.Coverage as IReadOnlyList<ICOGenerator.Contracts.Requirements.CoverageMapItem>
         ?? new List<ICOGenerator.Contracts.Requirements.CoverageMapItem>();
     var decisions = ViewBag.Decisions as IReadOnlyList<string> ?? new List<string>();
-    // "Triển vọng phỏng vấn" (InterviewOutlookService): chỉ còn ví dụ tính thử đã xác nhận (A) lên màn
-    // hình. Render lần đầu ở server; frame "outlook" của ChatStream cập nhật live. Hai danh sách còn lại
-    // (OpenQuestions, PlannedScope) vẫn được chắt mỗi lượt nhưng KHÔNG có panel — chúng đi vào ngữ cảnh
-    // chat của BA và ngữ cảnh soát mâu thuẫn.
-    var workedExamples = ViewBag.WorkedExamples as IReadOnlyList<string> ?? new List<string>();
+    // "Triển vọng phỏng vấn" (InterviewOutlookService) KHÔNG còn danh sách nào lên màn hình: cả ba
+    // (OpenQuestions, PlannedScope, WorkedExamples) vẫn được chắt sau mỗi lượt nhưng đi thẳng vào các
+    // đường tiêu thụ của máy — ngữ cảnh chat của BA, ngữ cảnh soát mâu thuẫn, và mục "## 13. Worked
+    // Examples" của AI Design Spec.
     // Giả định BA tự đưa khi sinh AI Design Spec (mục ## 12. Assumptions) — hiển thị cho user rà lại.
     var specAssumptions = ViewBag.SpecAssumptions as IReadOnlyList<string> ?? new List<string>();
     var specVersion = ViewBag.SpecVersion as string;
@@ -493,38 +492,15 @@
            đọc. Người dùng chỉ cần trò chuyện — BA có thắc mắc gì thì hỏi ngay trong khung chat, và phần
            "còn mâu thuẫn" đã có panel ⚠ riêng ở trên với lựa chọn thật để chốt. *@
 
-        @* "Ví dụ tính thử đã xác nhận" (A): các con số user đã chốt cho quy tắc định lượng — cũng là chuẩn
-           để POC tự kiểm đối chiếu độc lập. Hiển thị để user thấy hệ thống đã ghi nhận đúng cách tính. *@
-        @* Panel này là ORACLE mà POC bị chấm theo (spec đúc thành "## 13. Worked Examples", POC phải tính
-           lại ra đúng kết quả) — nên nó SỬA ĐƯỢC tại chỗ: chép sai một ví dụ là cả tầng tự kiểm chấm theo
-           chuẩn sai. Chế độ xem và chế độ sửa dùng chung khung, JS đổi qua lại. *@
-        <div class="worked-panel" id="workedPanel" @(workedExamples.Count == 0 ? "hidden" : "")
-             data-update-url="@Url.Action("UpdateWorkedExamples", "Requirements")">
-            <h3>
-                Ví dụ đã xác nhận <span class="worked-count" id="workedCount">(@workedExamples.Count)</span>
-                <button type="button" class="worked-edit-btn" id="workedEditBtn" title="Sửa lại danh sách ví dụ">✎ Sửa</button>
-            </h3>
-            <div class="history-sub decision-hint">Cách tính &amp; luồng anh/chị đã chốt — bản demo (POC) sẽ được kiểm tự động theo đúng các ví dụ này.</div>
-            <ul class="worked-list" id="workedList">
-                @foreach (var ex in workedExamples)
-                {
-                    <li class="worked-item">@ex</li>
-                }
-            </ul>
-            <div class="worked-editor" id="workedEditor" hidden>
-                <div class="worked-editor-hint">
-                    Mỗi dòng một ví dụ, dạng <b>đầu vào =&gt; kết quả kỳ vọng</b>
-                    (vd: <i>3 mục tiêu 80/90/70, trọng số 50/30/20 =&gt; 81</i>).
-                    Xoá hết dòng nghĩa là không có ví dụ nào để kiểm.
-                </div>
-                <textarea id="workedEditorText" rows="6" spellcheck="false"></textarea>
-                <div class="worked-editor-actions">
-                    <button type="button" class="btn primary small" id="workedSaveBtn">Lưu</button>
-                    <button type="button" class="btn outline small" id="workedCancelBtn">Hủy</button>
-                    <span class="worked-editor-msg" id="workedEditorMsg"></span>
-                </div>
-            </div>
-        </div>
+        @* KHÔNG có panel "Ví dụ đã xác nhận" ở đây: WorkedExamples vẫn được chắt sau mỗi lượt và vẫn là
+           ORACLE mà POC bị chấm theo (spec đúc thành "## 13. Worked Examples", POC phải tính lại ra đúng
+           kết quả), nhưng panel thì lặp lại đúng thứ BA vừa nói trong chat — các ví dụ định tính trùng
+           gần nguyên văn sơ đồ luồng ở cuối lượt (renderFlowDiagram, có nút "chưa đúng?" cho TỪNG bước),
+           còn ví dụ định lượng thì đến từ chính câu người dùng vừa chốt. Sidebar cuộn dài thêm một khối
+           mà không thêm thông tin.
+           Cái mất khi bỏ panel: đường SỬA TAY danh sách oracle (UpdateWorkedExamplesUseCase, đã gỡ theo).
+           Đính chính nay đi qua chat như mọi điều khác — nói lại trong khung chat, lượt chắt lọc kế tiếp
+           cập nhật danh sách. *@
 
         @* Giả định của bản thiết kế (AI Design Spec § 12): những điều BA tự quyết thay user.
            Ở SIDEBAR chỉ còn CHẾ ĐỘ THAM KHẢO (POC đã dựng): danh sách tra cứu nguội, bấm một giả định để

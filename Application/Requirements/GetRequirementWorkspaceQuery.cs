@@ -13,10 +13,11 @@ public record RequirementWorkspaceResult(
     bool BaModelSupportsVision,
     IReadOnlyList<CoverageMapItem> Coverage,
     IReadOnlyList<string> Decisions,
-    // Không có OpenQuestions và PlannedScope ở đây: hai danh sách đó vẫn được chắt sau mỗi lượt nhưng
-    // không còn panel nào trên trang render chúng — OpenQuestions chỉ dùng làm ngữ cảnh chat của BA
-    // (BAChatService), PlannedScope làm ngữ cảnh soát mâu thuẫn (RequirementConflictService).
-    IReadOnlyList<string> WorkedExamples,
+    // Không có danh sách nào của "triển vọng phỏng vấn" ở đây (OpenQuestions, PlannedScope,
+    // WorkedExamples): cả ba vẫn được chắt sau mỗi lượt nhưng không còn panel nào trên trang render
+    // chúng — OpenQuestions làm ngữ cảnh chat của BA (BAChatService), PlannedScope làm ngữ cảnh soát mâu
+    // thuẫn (RequirementConflictService), WorkedExamples đi thẳng vào "## 13. Worked Examples" của AI
+    // Design Spec (RequirementPromptBuilder đọc Project.WorkedExamples).
     IReadOnlyList<string> SpecAssumptions,
     string? SpecVersion);
 
@@ -128,7 +129,6 @@ public class GetRequirementWorkspaceQuery
             baSupportsVision,
             coverage,
             DecisionLogService.ParseItems(project.DecisionLog),
-            InterviewOutlookService.ParseItems(project.WorkedExamples),
             SpecAssumptionsParser.Parse(latestSpec?.Content),
             latestSpec?.VersionName);
     }
