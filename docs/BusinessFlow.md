@@ -99,7 +99,7 @@ BA không chỉ trả lời chat; service còn duy trì ngữ cảnh dài hạn:
 | Conversation transcript | `AgentConversation` | Lịch sử trao đổi chi tiết |
 | Conversation summary | `Project.ConversationSummary` | Rút gọn hội thoại dài |
 | User memory | `AppUser.UserMemory` | Ghi nhớ preference/đặc thù người dùng |
-| Checklist gap notes | `Agent.LearnedChecklistNotes` | Học các điểm BA thường hỏi thiếu |
+| Checklist học được | `AgentChecklistItem` | Học các điểm BA thường hỏi thiếu (mỗi bài học một dòng, kèm lý do + nguồn, bật/tắt được) |
 | Requirement coverage | `Project.RequirementCoverageMap` | Theo dõi coverage requirement |
 | Source files | `ProjectSourceFile` | Bối cảnh từ PDF/image user upload |
 

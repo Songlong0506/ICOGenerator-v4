@@ -21,6 +21,10 @@ public static class DbInitializer
         else
             await db.Database.EnsureCreatedAsync();
 
+        // Checklist học được của BA đã chuyển từ blob text sang từng dòng AgentChecklistItem — nhập nốt
+        // dữ liệu các bản cài cũ (một lần; nguồn bị xóa sau khi nhập nên lần sau là no-op).
+        await scope.ServiceProvider.GetRequiredService<Services.Requirements.ChecklistLegacyNotesImporter>().ImportAsync();
+
         await RecoverOrphanedTasksAsync(db);
         await SeedUsersAsync(db);
         await SeedRolePermissionsAsync(db);

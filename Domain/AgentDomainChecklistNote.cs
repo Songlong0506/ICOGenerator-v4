@@ -1,11 +1,11 @@
 namespace ICOGenerator.Domain;
 
 /// <summary>
-/// "Checklist học được" của một agent, TÁCH THEO MIỀN NGHIỆP VỤ (Project.DomainKey). Bucket chung
-/// (bài học áp dụng cho mọi miền) vẫn nằm ở <see cref="Agent.LearnedChecklistNotes"/> — bảng này chỉ
-/// chứa các bucket theo miền, để bài học của dự án kho không chiếm chỗ/không gây nhiễu khi BA phỏng
-/// vấn dự án nghỉ phép (mỗi bucket có trần ký tự riêng thay vì mọi miền chen trong một cột 4000 ký tự).
-/// Xem <see cref="Services.Requirements.ChecklistNoteStore"/>.
+/// LEGACY — kho cũ của "checklist học được" theo miền nghiệp vụ, dạng BLOB text một cột. Bộ nhớ này nay
+/// lưu theo từng bài học (<see cref="AgentChecklistItem"/>) để mỗi mục có định danh bền, có lý do và
+/// bật/tắt được; bảng này chỉ còn là NGUỒN NHẬP một lần lúc khởi động
+/// (<see cref="Services.Requirements.ChecklistLegacyNotesImporter"/> đọc rồi xóa dòng đã nhập), giữ lại
+/// để dữ liệu đã học của các bản cài cũ không mất. Không đường nào ghi mới vào đây nữa.
 /// </summary>
 public class AgentDomainChecklistNote
 {

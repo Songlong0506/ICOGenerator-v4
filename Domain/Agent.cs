@@ -9,10 +9,9 @@ public class Agent
     public double Temperature { get; set; }
     public Guid AiModelId { get; set; }
     public AiModel AiModel { get; set; } = null!;
-    // Checklist bổ sung mà BA tự rút kinh nghiệm XUYÊN SUỐT mọi dự án/mọi người dùng (khác AppUser.UserMemory
-    // vốn gắn theo TỪNG người dùng): mỗi khi một dự án hoàn tất mà người dùng phải tự nêu ra thông tin BA
-    // chưa từng hỏi tới, khoảng trống đó được khái quát hoá và gộp vào đây, rồi nạp lại cho MỌI dự án MỚI để
-    // BA hỏi kỹ hơn ngay từ đầu. null = chưa rút được kinh nghiệm nào. Xem ChecklistGapMemoryService.
+    // LEGACY — bucket CHUNG của "checklist học được" thời còn lưu dạng blob text. Bộ nhớ này nay nằm ở
+    // AgentChecklistItem (mỗi bài học một dòng, có lý do + bật/tắt được); cột này chỉ còn là nguồn nhập
+    // một lần lúc khởi động (ChecklistLegacyNotesImporter đọc rồi set null). Không ghi mới vào đây nữa.
     public string? LearnedChecklistNotes { get; set; }
     public string? CreatedByUsername { get; set; }
     public ICollection<AgentTool> AgentTools { get; set; } = new List<AgentTool>();

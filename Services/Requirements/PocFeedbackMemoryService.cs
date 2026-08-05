@@ -1,6 +1,8 @@
 using System.Text;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
@@ -12,10 +14,11 @@ namespace ICOGenerator.Services.Requirements;
 /// Đóng vòng học từ GHI CHÚ TRÊN POC: mỗi ghi chú kiểu "thiếu màn hình X"/"tính sai Y" là bằng chứng
 /// cuộc phỏng vấn yêu cầu đã bỏ sót — tín hiệu còn mạnh hơn khoảng trống hội thoại mà
 /// <see cref="ChecklistGapMemoryService"/> khai thác. Sau MỖI vòng chỉnh sửa POC hoàn tất (lúc đó ghi
-/// chú đã thật sự dẫn tới một lần sửa), service chắt lọc các ghi chú mới thành mục checklist khái quát
-/// và gộp vào bucket checklist học được của BA (theo miền nghiệp vụ của dự án — xem
+/// chú đã thật sự dẫn tới một lần sửa), service chắt lọc các ghi chú mới thành bài học khái quát và THÊM
+/// vào bucket checklist học được của BA (theo miền nghiệp vụ của dự án — xem
 /// <see cref="ChecklistNoteStore"/>) — BA sẽ hỏi tới điểm đó ngay từ phỏng vấn ở các dự án cùng miền sau,
-/// lỗi không lặp lại ở POC.
+/// lỗi không lặp lại ở POC. Mỗi bài học lưu kèm lý do rút ra + trích dẫn ghi chú gốc, vì đây là chỗ cuối
+/// cùng còn nhìn thấy ghi chú đó.
 /// <para>
 /// Con trỏ <see cref="Project.PocFeedbackHarvestedCount"/> (số ghi chú đã chắt lọc, xếp theo CreatedAt)
 /// cho phép harvest nhiều vòng mà không gộp lặp; <b>fail-open</b> như các bộ nhớ khác: lời gọi lỗi thì
@@ -24,9 +27,6 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public class PocFeedbackMemoryService
 {
-    // Cùng trần với ChecklistGapMemoryService — hai đường cùng ghi vào Agent.LearnedChecklistNotes.
-    private const int MaxNotesChars = 4000;
-
     private readonly AppDbContext _db;
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
@@ -74,12 +74,12 @@ public class PocFeedbackMemoryService
 
             // Bài học vào BUCKET đúng miền nghiệp vụ của dự án (bucket chung khi chưa phân loại) —
             // ghi chú POC của dự án kho không gây nhiễu phỏng vấn dự án nghỉ phép. Xem ChecklistNoteStore.
-            var existingNotes = await _noteStore.LoadBucketAsync(ba, project.DomainKey, cancellationToken);
-            var updated = await DistillAsync(existingNotes, delta, ba, ba.AiModel!, projectId, cancellationToken);
-            if (updated == null)
+            var existing = await _noteStore.LoadBucketAsync(ba, project.DomainKey, cancellationToken);
+            var lessons = await DistillAsync(existing, delta, ba, ba.AiModel!, projectId, cancellationToken);
+            if (lessons == null)
                 return; // fail-open: giữ checklist cũ + con trỏ đứng yên, vòng sau gộp bù.
 
-            await _noteStore.SetBucketAsync(ba, project.DomainKey, updated, cancellationToken);
+            _noteStore.MergeHarvest(ba, project.DomainKey, existing, lessons.Items, ChecklistItemSource.PocFeedback, projectId);
             project.PocFeedbackHarvestedCount += delta.Count;
             await _db.SaveChangesAsync(cancellationToken);
         }
@@ -93,13 +93,21 @@ public class PocFeedbackMemoryService
         }
     }
 
-    private async Task<string?> DistillAsync(string? existingNotes, List<PocComment> comments, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
+    // Rút bài học MỚI từ các ghi chú POC. Trả null khi lời gọi lỗi để caller fail-open (giữ checklist cũ,
+    // con trỏ đứng yên); danh sách RỖNG nghĩa là "không rút được gì" — vẫn là thành công, con trỏ tiến.
+    private async Task<ChecklistLessonSet?> DistillAsync(
+        List<AgentChecklistItem> existing,
+        List<PocComment> comments,
+        Agent ba,
+        AiModel model,
+        Guid projectId,
+        CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(existingNotes))
+        var context = ChecklistNoteStore.RenderContextForHarvest(existing);
+        if (context.Length > 0)
         {
-            sb.AppendLine("## Checklist bổ sung hiện có (gộp/cập nhật cùng bài học mới bên dưới)");
-            sb.AppendLine(existingNotes.Trim());
+            sb.AppendLine(context);
             sb.AppendLine();
         }
         sb.AppendLine("## Ghi chú người dùng ghim trên POC của một dự án (đã được gửi cho Developer sửa)");
@@ -115,18 +123,24 @@ public class PocFeedbackMemoryService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _prompts.Get("BusinessAnalyst/poc-feedback-gap.v1.md")),
+            new(ChatRole.System, _prompts.Get("BusinessAnalyst/poc-feedback-gap.v2.md")),
             new(ChatRole.User, sb.ToString())
         };
 
-        var result = await _llm.ChatWithLogAsync(
+        var (result, structured) = await _llm.ChatStructuredAsync<ChecklistLessonSet>(
             model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAPocFeedbackGap"),
             cancellationToken: cancellationToken);
 
-        if (!result.IsSuccess || result.Content == null)
+        if (!result.IsSuccess)
             return null;
 
-        var notes = result.Content.Trim();
-        return notes.Length > MaxNotesChars ? notes[..MaxNotesChars] : notes;
+        var lessons = structured ?? LlmJson.TryDeserialize<ChecklistLessonSet>(result.Content, requireKnownProperty: true);
+        if (lessons != null)
+            return lessons;
+
+        // Gọi được nhưng phản hồi không đọc nổi: coi như không rút được gì và VẪN dời con trỏ — các ghi
+        // chú này đã tiêu một lời gọi, gộp lại ở vòng sau chỉ tốn thêm mà không khá hơn.
+        _logger.LogWarning("POC feedback harvest for project {ProjectId} returned unparseable output.", projectId);
+        return new ChecklistLessonSet();
     }
 }

@@ -13,14 +13,18 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Đóng vòng học từ ghi chú POC → Agent.LearnedChecklistNotes. Các test chốt: (1) không có ghi chú Sent
-// mới thì không gọi LLM; (2) harvest bình thường ghi notes + dời con trỏ; (3) lỗi LLM thì fail-open
-// (giữ notes cũ, con trỏ đứng yên); (4) vòng sau chỉ gộp ghi chú MỚI kể từ con trỏ.
+// Đóng vòng học từ ghi chú POC → checklist học được của BA. Các test chốt: (1) không có ghi chú Sent
+// mới thì không gọi LLM; (2) harvest bình thường ghi bài học KÈM LÝ DO + nguồn, dời con trỏ; (3) lỗi LLM
+// thì fail-open (giữ bài học cũ, con trỏ đứng yên); (4) vòng sau chỉ gộp ghi chú MỚI kể từ con trỏ.
 public class PocFeedbackMemoryServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly DbContextOptions<AppDbContext> _options;
     private readonly AiModel _model = new() { Id = Guid.NewGuid(), ModelId = "test" };
+
+    private const string OneLesson = """
+        {"items":[{"text":"Hỏi đủ các cột của bảng tính tiền.","rationale":"POC thiếu cột phụ cấp vì phỏng vấn không hỏi hết các khoản thành phần của bảng tính.","evidence":"bảng lương thiếu cột phụ cấp"}]}
+        """;
 
     public PocFeedbackMemoryServiceTests()
     {
@@ -47,10 +51,10 @@ public class PocFeedbackMemoryServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task TryHarvestAsync_WithSentComments_WritesNotes_AndAdvancesCursor()
+    public async Task TryHarvestAsync_WithSentComments_StoresLessonWithReason_AndAdvancesCursor()
     {
         var project = await SeedAsync(sentComments: 3, openComments: 1);
-        var llm = new FakeLlm { Reply = "- Hỏi đủ các cột của bảng tính tiền." };
+        var llm = new FakeLlm { Reply = OneLesson };
 
         await using var db = NewDb();
         await NewSut(db, llm).TryHarvestAsync(project.Id);
@@ -58,14 +62,19 @@ public class PocFeedbackMemoryServiceTests : IDisposable
         Assert.Equal(1, llm.Calls);
         var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
         Assert.Equal(3, reloaded.PocFeedbackHarvestedCount);
-        var ba = await NewDb().Agents.FirstAsync();
-        Assert.Equal("- Hỏi đủ các cột của bảng tính tiền.", ba.LearnedChecklistNotes);
+
+        var item = await NewDb().AgentChecklistItems.SingleAsync();
+        Assert.Equal("Hỏi đủ các cột của bảng tính tiền.", item.Text);
+        Assert.StartsWith("POC thiếu cột phụ cấp", item.Rationale);
+        Assert.Equal("bảng lương thiếu cột phụ cấp", item.Evidence);
+        Assert.Equal(ChecklistItemSource.PocFeedback, item.SourceKind);
+        Assert.Equal(project.Id, item.SourceProjectId);
     }
 
     [Fact]
     public async Task TryHarvestAsync_LlmFails_FailsOpen()
     {
-        var project = await SeedAsync(sentComments: 2, openComments: 0, existingNotes: "checklist cũ");
+        var project = await SeedAsync(sentComments: 2, openComments: 0, existingLesson: "Bài học cũ.");
         var llm = new FakeLlm { Fail = true };
 
         await using var db = NewDb();
@@ -74,15 +83,14 @@ public class PocFeedbackMemoryServiceTests : IDisposable
         Assert.Equal(1, llm.Calls);
         var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
         Assert.Equal(0, reloaded.PocFeedbackHarvestedCount);
-        var ba = await NewDb().Agents.FirstAsync();
-        Assert.Equal("checklist cũ", ba.LearnedChecklistNotes);
+        Assert.Equal("Bài học cũ.", (await NewDb().AgentChecklistItems.SingleAsync()).Text);
     }
 
     [Fact]
     public async Task TryHarvestAsync_SecondRound_OnlyDistillsNewComments()
     {
         var project = await SeedAsync(sentComments: 2, openComments: 0);
-        var llm = new FakeLlm { Reply = "- bài học 1" };
+        var llm = new FakeLlm { Reply = OneLesson };
 
         await using (var db = NewDb())
         {
@@ -111,21 +119,22 @@ public class PocFeedbackMemoryServiceTests : IDisposable
     private PocFeedbackMemoryService NewSut(AppDbContext db, ILlmClient llm) =>
         new(db, llm, new StubPrompts(), new ChecklistNoteStore(db), NullLogger<PocFeedbackMemoryService>.Instance);
 
-    private async Task<Project> SeedAsync(int sentComments, int openComments, string? existingNotes = null)
+    private async Task<Project> SeedAsync(int sentComments, int openComments, string? existingLesson = null)
     {
         var ba = new Agent
         {
             Id = Guid.NewGuid(),
             RoleKey = AgentRoleKey.BusinessAnalyst,
             Temperature = 0.2,
-            AiModelId = _model.Id,
-            LearnedChecklistNotes = existingNotes
+            AiModelId = _model.Id
         };
         var project = new Project { Id = Guid.NewGuid(), Name = "P" };
 
         await using var db = NewDb();
         db.Agents.Add(ba);
         db.Projects.Add(project);
+        if (existingLesson != null)
+            db.AgentChecklistItems.Add(new AgentChecklistItem { AgentId = ba.Id, Text = existingLesson });
         for (var i = 0; i < sentComments; i++)
             db.PocComments.Add(NewComment(project.Id, $"ghi chú cũ {i}", PocCommentStatus.Sent, i));
         for (var i = 0; i < openComments; i++)
@@ -151,7 +160,7 @@ public class PocFeedbackMemoryServiceTests : IDisposable
     private sealed class FakeLlm : ILlmClient
     {
         public int Calls;
-        public string Reply = "checklist bổ sung";
+        public string Reply = OneLesson;
         public bool Fail;
         public string LastUserMessage = string.Empty;
 
@@ -167,8 +176,8 @@ public class PocFeedbackMemoryServiceTests : IDisposable
             });
         }
 
-        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
-            => throw new NotSupportedException();
+        public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+            => (await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken), null);
     }
 
     private sealed class StubPrompts : PromptTemplateService
