@@ -1408,63 +1408,6 @@
 /* Banner "chào lại" (F) — biến thể info của req-alert. */
 .req-alert.info { background: var(--bosch-blue-tint, #eff6ff); border: 1px solid var(--bosch-blue, #3b82f6); color: var(--ink); }
 
-/* ==== Stepper hành trình (5 chặng) trên đầu trang Requirements ==== */
-/* User nghiệp vụ cần biết đang ở đâu và còn gì phía trước — trước đây trang chỉ có tiêu đề "Requirements". */
-
-.journey-stepper {
-    list-style: none;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin: 0 0 16px;
-    padding: 10px 12px;
-    background: var(--surface, #fff);
-    border: 1px solid var(--line, #e5e7eb);
-    border-radius: 10px;
-}
-
-.journey-step {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1 1 150px;
-    min-width: 0;
-    padding: 4px 6px;
-    border-radius: 8px;
-}
-
-    .journey-step + .journey-step { border-left: 1px solid var(--line, #e5e7eb); }
-
-.journey-dot {
-    flex: 0 0 auto;
-    width: 22px;
-    height: 22px;
-    border-radius: 999px;
-    display: grid;
-    place-items: center;
-    font-size: 11px;
-    font-weight: 700;
-    background: var(--surface-alt, #f3f4f6);
-    color: #6b7280;
-    border: 1px solid var(--line, #e5e7eb);
-}
-
-.journey-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
-
-    .journey-text b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    .journey-text small { font-size: 11px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.journey-step.done .journey-dot { background: #10b981; border-color: #10b981; color: #fff; }
-
-.journey-step.current { background: var(--bosch-blue-tint, #eff6ff); }
-
-    .journey-step.current .journey-dot { background: var(--bosch-blue, #3b82f6); border-color: var(--bosch-blue, #3b82f6); color: #fff; }
-
-    .journey-step.current .journey-text b { color: var(--bosch-blue, #3b82f6); }
-
-.journey-step.todo { opacity: .55; }
-
 /* ==== Cổng xác nhận giả định (khối cuối KHUNG CHAT, POC chưa dựng) ====
    Cổng sống trong dòng hội thoại nên tạo hình như một bong bóng BA (cùng họ với .workflow-progress),
    chỉ đổi sang tông cảnh báo để tách khỏi các lượt chat thường: đây là chỗ quy trình đang ĐỨNG CHỜ.

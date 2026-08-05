@@ -174,37 +174,10 @@
         .ToList();
     var reviewedAssumptions = specAssumptions.Except(newAssumptions).ToList();
 
-    // Stepper hành trình: user nghiệp vụ cần biết đang ở chặng nào và còn gì phía trước (trước đây trang
-    // chỉ có tiêu đề "Requirements" nên "Write Requirement" khác "Approve" ra sao là phải đoán).
-    // Suy TẤT ĐỊNH từ dữ liệu đã có trên trang — không thêm cột trạng thái nào để không có nguồn thứ hai.
-    var hasApprovedVersion = Model.Documents.Any(d => d.IsApproved && d.VersionName.StartsWith("V"));
-    var deliveryRun = workflowRuns.LastOrDefault(r => r.Name.StartsWith("Delivery Workflow", StringComparison.Ordinal));
-    // POC đã dựng xong ⇔ run delivery đã đi qua bước POC: hoặc dừng ở cổng duyệt (WaitingForHuman) hoặc
-    // đã chạy tiếp sang bước sau. Đang Running ở bước PocPreview thì vẫn là "đang dựng".
-    var pocBuilt = deliveryRun != null
-        && (deliveryRun.Status == WorkflowRunStatus.WaitingForHuman
-            || deliveryRun.Status == WorkflowRunStatus.Completed
-            || deliveryRun.CurrentStage != WorkflowStageKey.PocPreview);
-    // Nghiệm thu (POST /Projects/AcceptPoc từ trang POC Review) là trạng thái KẾT: chặng cuối chuyển
-    // "done" thay vì đứng mãi ở "current". Không có nó, người dùng làm xong hết phần việc của mình mà
-    // thanh tiến trình vẫn trông như đang dở dang.
-    var pocAccepted = Model.PocAcceptedAtUtc.HasValue;
-    var journeyStep = pocAccepted ? 5
-        : pocBuilt ? 4
-        : deliveryRun != null ? 3
-        : hasApprovedVersion ? 2
-        : productBriefs.Any() ? 1
-        : 0;
-    var journeySteps = new[]
-    {
-        ("Trò chuyện", "Kể yêu cầu để BA hỏi cho đủ"),
-        ("Bản mô tả", "BA soạn Product Brief để anh/chị đọc lại"),
-        // Chặng này ôm cả cổng xác nhận giả định: khi cổng đang mở, nói thẳng rằng quy trình đang ĐỨNG
-        // CHỜ người dùng — nếu không, thanh tiến trình trông như đang chạy trong khi thực ra không ai chạy.
-        ("Duyệt yêu cầu", pendingAssumptions ? "Đang chờ anh/chị xác nhận các giả định →" : "Chốt bản mô tả rồi dựng bản thiết kế"),
-        ("Dựng bản demo", "Hệ thống tự tạo POC bấm được"),
-        ("Xem & góp ý", pocAccepted ? "Anh/chị đã nghiệm thu bản demo" : "Thử POC, ghim ghi chú, rồi nghiệm thu")
-    };
+    // ĐÃ BỎ stepper hành trình 5 chặng ở đầu trang: quy trình thực tế không đi một chiều — user sửa tới
+    // sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm
+    // chỗ vừa mô tả sai việc đang xảy ra. Trạng thái thật vẫn nằm đúng chỗ nó cần nằm: cổng xác nhận giả
+    // định và tiến trình workflow hiện ngay trong khung chat, danh sách bản mô tả nằm ở panel tài liệu.
     // Tiến độ panel: mẫu số là TỔNG số nhóm (không rút theo [KHÔNG ÁP DỤNG]) và nhóm không áp dụng tính
     // là đã xong cho thanh — xem CoverageProgress. Công thức nằm trong parser để bản server render đây và
     // bản JS cập nhật live (renderCoverage) không lệch nhau.
@@ -283,22 +256,6 @@
         <h1>Requirements</h1>
     </div>
 </div>
-
-@* Bản đồ hành trình: chặng đã qua (done) / đang ở (current) / còn tới (mờ). Suy tất định từ tài liệu +
-   workflow run của chính trang này, nên không thể lệch với nội dung bên dưới. *@
-<ol class="journey-stepper" aria-label="Các chặng của quy trình">
-    @for (var i = 0; i < journeySteps.Length; i++)
-    {
-        var state = i < journeyStep ? "done" : i == journeyStep ? "current" : "todo";
-        <li class="journey-step @state" aria-current="@(state == "current" ? "step" : null)">
-            <span class="journey-dot">@(state == "done" ? "✓" : (i + 1).ToString())</span>
-            <span class="journey-text">
-                <b>@journeySteps[i].Item1</b>
-                <small>@journeySteps[i].Item2</small>
-            </span>
-        </li>
-    }
-</ol>
 
 @if (TempData["SourceUploaded"] != null)
 {
