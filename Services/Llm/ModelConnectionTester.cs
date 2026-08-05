@@ -65,7 +65,7 @@ public sealed class ModelConnectionTester : IModelConnectionTester
     // nói được "sai ở đâu"; nguyên văn của SDK đẩy xuống dòng chi tiết.
     private (int? Status, string Message, string? Detail) Describe(Exception ex)
     {
-        var cause = Unwrap(ex);
+        var cause = LlmExceptionDetail.Unwrap(ex);
         return cause switch
         {
             // Status 0 = SDK không nhận được HTTP response nào (lỗi transport), không phải lỗi do API trả về.
@@ -73,29 +73,10 @@ public sealed class ModelConnectionTester : IModelConnectionTester
             OperationCanceledException => (null, $"Không có phản hồi trong {_timeoutSeconds}s (timeout).", null),
             HttpRequestException or SocketException => (null,
                 "Không kết nối được tới endpoint — kiểm tra địa chỉ/port và xem endpoint có đang chạy.",
-                Truncate(cause.Message)),
+                // Cả chuỗi nguyên nhân, không chỉ câu chung chung của lớp ngoài — xem LlmExceptionDetail.
+                Truncate(LlmExceptionDetail.Describe(ex))),
             _ => (null, cause.Message, ReferenceEquals(cause, ex) ? null : Truncate(ex.Message))
         };
-    }
-
-    // Lỗi mạng thường bị SDK gói lại sau vài lần retry ("Retry failed after 4 tries. (…) (…)"), nên đi xuống
-    // tới nguyên nhân thật; dừng ngay khi gặp một loại mình biết cách diễn giải.
-    private static Exception Unwrap(Exception ex)
-    {
-        while (true)
-        {
-            if (ex is ClientResultException { Status: > 0 } or OperationCanceledException
-                or HttpRequestException or SocketException)
-                return ex;
-
-            var inner = ex is AggregateException aggregate && aggregate.InnerExceptions.Count > 0
-                ? aggregate.Flatten().InnerExceptions[0]
-                : ex.InnerException;
-            if (inner is null)
-                return ex;
-
-            ex = inner;
-        }
     }
 
     private static string DescribeStatus(int status) => status switch

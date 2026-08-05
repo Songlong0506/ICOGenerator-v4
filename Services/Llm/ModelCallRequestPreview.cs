@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ICOGenerator.Domain;
@@ -53,6 +54,12 @@ internal static class ModelCallRequestPreview
         if (!isOpenAi)
             node["thinking"] = new JsonObject { ["type"] = "disabled" };
 
+        // Cỡ GÓI TIN thật sự đi trên dây, ước lượng. Không phải thông tin trang trí: một lời gọi mang ảnh
+        // vượt trần body của gateway/proxy trước endpoint sẽ chết mà KHÔNG có mã HTTP nào để đọc lý do
+        // (xem EndpointQuirks.RequestNeverReachedModel), và khi đó câu hỏi đầu tiên luôn là "request bao
+        // nhiêu MB". Không có con số này thì phải ngồi cộng tay từng part ảnh trong log.
+        node["_approxBodyBytes"] = ApproxBodyBytes(messages);
+
         return node.ToJsonString(SerializeOptions);
     }
 
@@ -100,6 +107,30 @@ internal static class ModelCallRequestPreview
         }
 
         return hasNonText ? parts : message.Text;
+    }
+
+    /// <summary>
+    /// Cỡ gói tin ước lượng: chữ tính theo byte UTF-8, ảnh tính theo cỡ SAU khi base64 hóa (4 byte cho mỗi
+    /// 3 byte thô) — ảnh không đi trên dây dưới dạng nhị phân mà nằm trong chuỗi JSON, nên 1MB ảnh là
+    /// ~1.33MB gói tin. Dùng chung với <see cref="ModelCallLoggingChatClient"/>: một lời gọi chết ở tầng
+    /// truyền tải cần nêu được con số này ngay trong thông báo lỗi.
+    /// </summary>
+    public static long ApproxBodyBytes(IList<ChatMessage> messages)
+    {
+        long total = 0;
+        foreach (var content in messages.SelectMany(m => m.Contents))
+        {
+            switch (content)
+            {
+                case TextContent text:
+                    total += Encoding.UTF8.GetByteCount(text.Text ?? string.Empty);
+                    break;
+                case DataContent data:
+                    total += (data.Data.Length + 2) / 3 * 4;
+                    break;
+            }
+        }
+        return total;
     }
 
     private static JsonObject? ResponseFormat(ChatResponseFormat? format) => format switch

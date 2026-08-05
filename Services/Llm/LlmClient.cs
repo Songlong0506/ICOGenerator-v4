@@ -266,6 +266,9 @@ public class LlmCallResult
     /// </summary>
     public bool TransportFailure { get; set; }
 
+    /// <summary>Cỡ gói tin ước lượng của request (byte) — xem <c>ModelCallRequestPreview.ApproxBodyBytes</c>.</summary>
+    public long ApproxRequestBytes { get; set; }
+
     /// <summary>
     /// Lượt này rốt cuộc đi ra KHÔNG kèm ảnh dù caller có gửi ảnh (endpoint từ chối content ảnh, hoặc body
     /// quá lớn nên phải gửi lại bản text). Caller PHẢI xem cờ này trước khi "khóa" nội dung hình thành chữ

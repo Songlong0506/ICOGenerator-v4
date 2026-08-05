@@ -1,6 +1,5 @@
 using System.ClientModel;
 using System.Diagnostics;
-using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -175,6 +174,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         var callOptions = options?.Clone() ?? new ChatOptions();
         callOptions.MaxOutputTokens = maxTokens;
         result.RequestJson = ModelCallRequestPreview.Build(_model, messageList, callOptions, maxTokens, streaming);
+        result.ApproxRequestBytes = ModelCallRequestPreview.ApproxBodyBytes(messageList);
         // Ảnh gom TẠI ĐÂY chứ không ở chỗ ghi log: đây là nơi duy nhất còn cầm messages, và phải gom TRƯỚC
         // lời gọi vì lượt thất bại — đúng lượt người ta mở log ra soi — cũng cần xem lại ảnh đã gửi.
         if (_imageStore is { Enabled: true })
@@ -239,11 +239,27 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
                 result.ResponseText = result.ErrorMessage;
                 break;
             default:
-                result.ErrorMessage = ex.Message;
-                result.Content = ex.Message;
-                result.ResponseText = ex.Message;
+                // Nguyên nhân THẬT nằm ở các lớp InnerException, không ở lớp ngoài: thông điệp lớp ngoài của
+                // một lỗi mạng luôn là câu chung chung "An error occurred while sending the request", nhân
+                // lên 4 lần bởi chính sách retry. In cả chuỗi ra đây vì đây là chỗ duy nhất còn cầm được
+                // exception — xuống tới bong bóng ⚠️ và call log thì chỉ còn lại chuỗi này.
+                var detail = LlmExceptionDetail.Describe(ex);
                 // Request không tới được model (kết nối đứt/bị chặn) — xem LlmCallResult.TransportFailure.
-                result.TransportFailure = IsTransportFailure(ex);
+                result.TransportFailure = LlmExceptionDetail.IsTransportFailure(ex);
+                // Lỗi mạng đứng một mình là câu đố: người dùng đọc "Retry failed after 4 tries" không biết
+                // phải làm gì, còn người sửa không biết nhìn vào đâu. Nói thẳng ĐÂY LÀ LỖI KẾT NỐI (endpoint
+                // chưa từng trả lời) và nêu ba chỗ thực sự gây ra nó, kèm cỡ gói tin của chính lượt này —
+                // gói quá lớn so với trần của gateway/proxy là ca duy nhất trong ba ca mà chỉ số này phân
+                // biệt được ngay.
+                result.ErrorMessage = result.TransportFailure
+                    ? $"Không gửi được request tới endpoint AI — endpoint chưa từng trả lời (lỗi kết nối, "
+                      + $"gói tin lượt này ~{FormatBytes(result.ApproxRequestBytes)}). Kiểm tra: endpoint có "
+                      + "đang chạy không, cấu hình Llm:Proxy có đúng không, và gói tin có vượt trần body của "
+                      + "gateway/proxy đứng trước endpoint không (hạ Llm:SourceUpload:MaxTotalImageBytes). "
+                      + $"Nguyên nhân từ hệ thống: {detail}"
+                    : detail;
+                result.Content = result.ErrorMessage;
+                result.ResponseText = detail;
                 break;
         }
         result.CompletionTokens = TokenEstimator.Estimate(result.Content);
@@ -253,16 +269,11 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         await CompleteAsync(result, step).ConfigureAwait(false);
     }
 
-    // Lỗi TẦNG TRUYỀN TẢI hay lỗi logic? Không có mã HTTP là chưa đủ để kết luận: hỏng khi dựng schema,
-    // SDK ném InvalidOperationException… cũng không có mã. Ở đây soi ĐÚNG họ exception của tầng mạng.
-    // Phải đi hết cây exception vì chính sách retry của System.ClientModel gói các lần thử vào một
-    // AggregateException ("Retry failed after 4 tries. (…) (…)") — đó là hình dạng thật của một endpoint
-    // đang chặn request, và nếu chỉ nhìn lớp ngoài thì không nhận ra.
-    private static bool IsTransportFailure(Exception ex) => ex switch
+    private static string FormatBytes(long bytes) => bytes switch
     {
-        HttpRequestException or SocketException or IOException => true,
-        AggregateException aggregate => aggregate.InnerExceptions.Any(IsTransportFailure),
-        _ => ex.InnerException is { } inner && IsTransportFailure(inner),
+        >= 1024 * 1024 => $"{bytes / 1024d / 1024d:0.#} MB",
+        >= 1024 => $"{bytes / 1024d:0.#} KB",
+        _ => $"{bytes} B",
     };
 
     // A failed call ends the run on the agent path; the chat/eval paths keep the failure on the result and
