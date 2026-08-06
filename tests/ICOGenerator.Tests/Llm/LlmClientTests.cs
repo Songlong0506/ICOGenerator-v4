@@ -26,6 +26,16 @@ public class LlmClientTests
     private const string ResponseFormatRejectedError =
         "HTTP 400 (invalid_request_error: invalid_request_error)\r\n\r\nThis response_format type is unavailable now";
 
+    /// <summary>
+    /// Lời gọi KHÔNG tới được endpoint: không có phản hồi nào để mà đọc mã lỗi, chỉ có bó lần-thử của
+    /// chính sách retry trong System.ClientModel. Đây đúng là chuỗi người dùng nhìn thấy trong bong bóng ⚠️
+    /// khi đính kèm .docx nhiều hình — xem <see cref="FakeChatClientFactory"/> để biết nó được dựng thành
+    /// exception hình dạng thật (AggregateException bọc HttpRequestException) chứ không phải chuỗi suông.
+    /// </summary>
+    private const string TransportFailure =
+        "Retry failed after 4 tries. (An error occurred while sending the request.) (An error occurred while sending the request.) "
+        + "(An error occurred while sending the request.) (An error occurred while sending the request.)";
+
     private static List<ChatMessage> MessagesWithImage() => new()
     {
         // "json" in the prompt is what JSON mode requires, and every real prompt behind a structured call
@@ -77,6 +87,84 @@ public class LlmClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Single(factory.Calls);
+    }
+
+    // Đính kèm .docx nhiều hình chụp màn hình ⇒ request phình lên hàng chục MB base64 và gateway trước
+    // endpoint đóng thẳng kết nối: lời gọi chết KHÔNG có mã HTTP, thông điệp là bó lần-thử của SDK
+    // ("Retry failed after 4 tries. (An error occurred while sending the request.) …"). Thử lại y nguyên
+    // thì lần nào cũng chết như nhau — chỉ bỏ ảnh mới cứu được lượt, và người dùng vẫn nhận được câu trả
+    // lời dựa trên phần chữ thay vì một bong bóng ⚠️.
+    [Fact]
+    public async Task ChatWithLog_RetriesWithoutImages_WhenRequestNeverReachesTheEndpoint()
+    {
+        var factory = new FakeChatClientFactory(rejectImagesWith: TransportFailure, replyText: "ok");
+        var client = Client(factory);
+
+        var result = await client.ChatWithLogAsync(Model(), MessagesWithImage(), 0.3, Ctx());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ok", result.Content);
+        Assert.Equal(2, factory.Calls.Count);
+        Assert.DoesNotContain(factory.Calls[1].SelectMany(m => m.Contents), c => c is DataContent);
+        // Caller PHẢI biết ảnh không hề đi ra: nó là điều kiện để KHÔNG khóa "nội dung hình" thành chữ.
+        Assert.True(result.ImagesDropped);
+        // Và model phải được đính chính, nếu không nó mô tả 12 tấm hình chưa từng nhìn thấy.
+        Assert.Contains(factory.Calls[1].SelectMany(m => m.Contents).OfType<TextContent>(),
+            t => t.Text.Contains("KHÔNG gửi kèm"));
+    }
+
+    [Fact]
+    public async Task ChatStructured_RetriesWithoutImages_WhenRequestNeverReachesTheEndpoint()
+    {
+        var factory = new FakeChatClientFactory(rejectImagesWith: TransportFailure, replyText: """{"answer":"ok"}""");
+        var client = Client(factory);
+
+        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(
+            Model(StructuredOutputMode.JsonSchema), MessagesWithImage(), 0.3, Ctx());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ok", value?.Answer);
+        Assert.True(result.ImagesDropped);
+        Assert.DoesNotContain(factory.Calls[1].SelectMany(m => m.Contents), c => c is DataContent);
+    }
+
+    // Lượt text thuần chết vì mạng thì bỏ ảnh chẳng cứu được gì (không có ảnh nào để bỏ) — đừng đốt thêm
+    // một round-trip, và đừng báo ImagesDropped khiến caller tưởng có ảnh bị bỏ.
+    [Fact]
+    public async Task ChatWithLog_DoesNotRetry_WhenTransportFailsOnATextOnlyTurn()
+    {
+        var factory = new FakeChatClientFactory(alwaysFailWith: TransportFailure);
+        var client = Client(factory);
+
+        var result = await client.ChatWithLogAsync(Model(), TextMessages(), 0.3, Ctx());
+
+        Assert.False(result.IsSuccess);
+        Assert.Single(factory.Calls);
+        Assert.False(result.ImagesDropped);
+    }
+
+    // Endpoint không kham nổi mức structured output đang xin có HAI cách biểu hiện. Cách "lịch sự" là 400
+    // nêu tên tham số — nhánh đã có. Cách còn lại là nhận request rồi ĐÓNG kết nối không trả xong phản hồi
+    // ("The response ended prematurely"), thường gặp khi decoding bị ép theo schema kéo dài quá timeout của
+    // gateway. Không có mã HTTP để bắt, nên nếu chỉ nhìn 400 thì cả tính năng tắt ngóm.
+    [Theory]
+    [InlineData(StructuredOutputMode.JsonSchema)]
+    [InlineData(StructuredOutputMode.JsonObject)]
+    public async Task ChatStructured_FallsBackToPlainText_WhenTheStructuredCallDiesMidResponse(StructuredOutputMode mode)
+    {
+        var factory = new FakeChatClientFactory(
+            rejectResponseFormatWith: TransportFailure, replyText: """{"answer":"ok"}""");
+        var client = Client(factory);
+
+        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(Model(mode), TextMessages(), 0.3, Ctx());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ok", value?.Answer);
+        Assert.Equal(2, factory.Options.Count);
+        Assert.Null(factory.Options[1].ResponseFormat);
+        // Lượt cứu phải chạy trên đường STREAM: mức json_schema vốn là một round-trip câm, mà kết nối im
+        // lặng suốt lượt sinh chính là thứ gateway cắt.
+        Assert.Same(factory.Calls[1], factory.Streamed[^1]);
     }
 
     [Fact]
@@ -235,10 +323,23 @@ public class LlmClientTests
             (streaming ? Streamed : NonStreamed).Add(messages);
         }
 
-        private string? FailureFor(List<ChatMessage> messages, ChatOptions? options) =>
-            _alwaysFailWith
-            ?? (options?.ResponseFormat is not null ? _rejectResponseFormatWith : null)
-            ?? (messages.Any(m => m.Contents.Any(c => c is DataContent)) ? _rejectImagesWith : null);
+        private Exception? FailureFor(List<ChatMessage> messages, ChatOptions? options)
+        {
+            var failure = _alwaysFailWith
+                ?? (options?.ResponseFormat is not null ? _rejectResponseFormatWith : null)
+                ?? (messages.Any(m => m.Contents.Any(c => c is DataContent)) ? _rejectImagesWith : null);
+            return failure == null ? null : AsException(failure);
+        }
+
+        // Lỗi TẦNG TRUYỀN TẢI phải mang đúng hình dạng thật, không thể giả bằng một exception bất kỳ có
+        // cùng nội dung chữ: LlmClient phân biệt "endpoint trả lỗi" với "request không tới nơi" bằng HỌ
+        // exception (HttpRequestException, có thể nằm trong AggregateException do chính sách retry của SDK
+        // gói lại), chứ không bằng cách so chuỗi — nếu không thì mọi lỗi lạ đều bị coi là lỗi mạng.
+        private static Exception AsException(string failure) =>
+            failure.StartsWith("Retry failed after", StringComparison.Ordinal)
+                ? new AggregateException(failure,
+                    Enumerable.Range(0, 4).Select(_ => (Exception)new HttpRequestException("An error occurred while sending the request.")))
+                : new InvalidOperationException(failure);
 
         private sealed class FakeChatClient : IChatClient
         {
@@ -252,7 +353,7 @@ public class LlmClientTests
                 _owner.Record(list, options, streaming: false);
                 var failure = _owner.FailureFor(list, options);
                 if (failure != null)
-                    throw new InvalidOperationException(failure);
+                    throw failure;
                 return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, _owner._replyText)));
             }
 
@@ -264,7 +365,7 @@ public class LlmClientTests
                 await Task.CompletedTask;
                 var failure = _owner.FailureFor(list, options);
                 if (failure != null)
-                    throw new InvalidOperationException(failure);
+                    throw failure;
                 yield return new ChatResponseUpdate(ChatRole.Assistant, _owner._replyText);
             }
 
