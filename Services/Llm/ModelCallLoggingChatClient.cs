@@ -85,7 +85,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         try
         {
             var response = await base.GetResponseAsync(call.Messages, call.Options, linkedCts.Token).ConfigureAwait(false);
-            FinalizeSuccess(call.Result, call.Stopwatch, response);
+            FinalizeSuccess(call.Result, call.Stopwatch, response, call.MaxTokens);
             await CompleteAsync(call.Result, call.Step).ConfigureAwait(false);
             return response;
         }
@@ -152,7 +152,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             yield break;
 
         var response = updates.ToChatResponse();
-        FinalizeSuccess(call.Result, call.Stopwatch, response);
+        FinalizeSuccess(call.Result, call.Stopwatch, response, call.MaxTokens);
         await CompleteAsync(call.Result, call.Step).ConfigureAwait(false);
     }
 
@@ -181,10 +181,10 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             result.RequestImages = ModelCallImageCollector.Collect(messageList, _imageStore.MaxBytesPerCall);
 
         _options.OnProgress?.Invoke("thinking", $"Agent {_context.Agent.RoleKey.GetTitle()} đang suy nghĩ… (bước {BudgetLabel(step)})", null);
-        return new CallState(step, messageList, callOptions, result, Stopwatch.StartNew());
+        return new CallState(step, messageList, callOptions, result, Stopwatch.StartNew(), maxTokens);
     }
 
-    private void FinalizeSuccess(LlmCallResult result, Stopwatch stopwatch, ChatResponse response)
+    private void FinalizeSuccess(LlmCallResult result, Stopwatch stopwatch, ChatResponse response, int maxTokens)
     {
         stopwatch.Stop();
         var text = response.Text ?? string.Empty;
@@ -196,9 +196,24 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         // finish_reason == "length" means the model hit its token cap mid-output (often truncated JSON);
         // flag it so a cut-off answer is distinguishable from a clean one.
         if (response.FinishReason == ChatFinishReason.Length)
-            result.ErrorMessage = "Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).";
+            result.ErrorMessage = TokenLimitMessage(text, maxTokens);
         ApplyTokenCounts(result, response.Usage, text);
     }
+
+    /// <summary>
+    /// Chạm trần token mà KHÔNG trả ra chữ nào là một sự cố khác hẳn "câu trả lời bị cắt giữa chừng", và
+    /// gần như luôn có đúng một thủ phạm: model REASONING tiêu sạch ngân sách output vào phần suy luận ẩn
+    /// (reasoning token cũng tính vào trần này nhưng không hiện ra chữ nào). Người dùng đọc "phản hồi có
+    /// thể bị cắt" rồi bấm "Thử lại" mãi cũng không thoát, vì lượt nào cũng cụt y như vậy — nên chỗ này
+    /// phải nói thẳng ra hai nút xoay được: nâng trần, hoặc đổi model.
+    /// </summary>
+    private static string TokenLimitMessage(string text, int maxTokens) =>
+        string.IsNullOrWhiteSpace(text)
+            ? $"Model dùng hết hạn mức {maxTokens} token output mà KHÔNG trả ra chữ nào (finish_reason=length). "
+              + "Model dạng reasoning tiêu ngân sách này vào phần suy luận ẩn, nên lượt cần câu trả lời dài "
+              + "thì hết token trước khi kịp viết. Nâng Context Window của model ở trang Models (trần output "
+              + "suy ra từ đó), hoặc chọn model khác cho agent này."
+            : "Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).";
 
     // Prefer the provider's REAL token usage (UsageDetails on the response) over the ~4-chars/token estimate
     // so cost and the budget guard reflect what's actually billed. Each field falls back INDEPENDENTLY to the
@@ -328,5 +343,6 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         : $"{step}/{_options.HardCap} (chạy thêm để hoàn tất)";
 
     private readonly record struct CallState(
-        int Step, IList<ChatMessage> Messages, ChatOptions Options, LlmCallResult Result, Stopwatch Stopwatch);
+        int Step, IList<ChatMessage> Messages, ChatOptions Options, LlmCallResult Result, Stopwatch Stopwatch,
+        int MaxTokens);
 }

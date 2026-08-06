@@ -248,6 +248,49 @@ public class ModelCallLoggingChatClientTests
             new WorkspacePathResolver(config), config, NullLogger<ModelCallImageStore>.Instance);
     }
 
+    // Model reasoning (gpt-5 family) tính cả token suy luận ẨN vào trần output. Lượt cần câu trả lời dài
+    // thì nó tiêu sạch ngân sách trước khi kịp viết chữ nào: HTTP 200, finish_reason=length, content RỖNG.
+    // Thông điệp "phản hồi có thể bị cắt" ở ca này là bẫy — người dùng bấm "Thử lại" mãi cũng cụt y hệt,
+    // nên nó phải nói ra hai nút xoay được: nâng Context Window, hoặc đổi model.
+    [Fact]
+    public async Task TokenLimitWithNoOutput_SaysTheBudgetWasSpentAndHowToFixIt()
+    {
+        var response = new ChatResponse(new ChatMessage(ChatRole.Assistant, string.Empty))
+        {
+            FinishReason = ChatFinishReason.Length
+        };
+        var inner = new FakeChatClient(response: response);
+        LlmCallResult? completed = null;
+        var client = new ModelCallLoggingChatClient(
+            inner, Model(), new FakeModelCallLogger(), Ctx(), Opts(throwOnFailure: false, onCompleted: r => completed = r));
+
+        await client.GetResponseAsync(Hi());
+
+        Assert.NotNull(completed);
+        Assert.Contains("KHÔNG trả ra chữ nào", completed!.ErrorMessage);
+        Assert.Contains("Context Window", completed.ErrorMessage);
+    }
+
+    // Ngược lại: có chữ mà bị cắt giữa chừng vẫn là ca cũ — câu trả lời cụt, không phải hết ngân sách vì
+    // suy luận. Đừng đổ cho model reasoning khi nó thật sự đã viết được gì đó.
+    [Fact]
+    public async Task TokenLimitWithPartialOutput_KeepsTheTruncatedAnswerWording()
+    {
+        var response = new ChatResponse(new ChatMessage(ChatRole.Assistant, "Câu trả lời dang d"))
+        {
+            FinishReason = ChatFinishReason.Length
+        };
+        var inner = new FakeChatClient(response: response);
+        LlmCallResult? completed = null;
+        var client = new ModelCallLoggingChatClient(
+            inner, Model(), new FakeModelCallLogger(), Ctx(), Opts(throwOnFailure: false, onCompleted: r => completed = r));
+
+        await client.GetResponseAsync(Hi());
+
+        Assert.Contains("có thể bị cắt", completed!.ErrorMessage);
+        Assert.DoesNotContain("KHÔNG trả ra chữ nào", completed.ErrorMessage);
+    }
+
     private sealed class FakeChatClient : IChatClient
     {
         private readonly string[]? _streamChunks;
