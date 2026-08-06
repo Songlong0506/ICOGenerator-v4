@@ -10,10 +10,21 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// "Nhật ký điều đã chốt" của MỘT dự án — danh sách bullet các quyết định người dùng đã xác nhận trong
-/// chat (vai trò, luồng, quy tắc, phương án đã "Đồng ý"), lưu trên <see cref="Project.DecisionLog"/> và
-/// hiển thị thành panel cạnh khung chat. Khác <see cref="RequirementCoverageService"/> (bản đồ trạng thái
-/// cho BA/gate đọc), nhật ký này dành cho CHÍNH NGƯỜI DÙNG: rà lại điều đã chốt để phát hiện sớm điểm bị
-/// hiểu sai và bấm sửa ngay, thay vì để lỗi "đóng băng" vào Product Brief rồi mới lộ ra ở POC.
+/// chat (vai trò, luồng, quy tắc, phương án đã "Đồng ý"), lưu trên <see cref="Project.DecisionLog"/>.
+/// Khác <see cref="RequirementCoverageService"/> (bản đồ trạng thái theo NHÓM: đã rõ hết chưa), nhật ký
+/// này giữ nguyên văn TỪNG điều đã chốt — thứ duy nhất đối chiếu được "lượt 3 nói A" với "lượt 12 nói B".
+/// <para>
+/// Ba đường tiêu thụ, không đường nào là panel để người dùng tự rà (panel sidebar đã gỡ):
+/// <list type="number">
+/// <item>Ngữ cảnh chat của BA (<see cref="BAChatService"/>) — BA đối chiếu câu vừa nghe với nhật ký và
+/// hỏi lại NGAY khi thấy chọi nhau. Cần thiết vì các lượt cũ bị <see cref="ConversationMemoryService"/>
+/// nén thành tóm tắt: chi tiết đã chốt bị bào mòn đúng ở hội thoại dài, nơi mâu thuẫn dễ xảy ra nhất.</item>
+/// <item>Ngữ cảnh soát mâu thuẫn trước lúc soạn tài liệu (<see cref="RequirementConflictService"/>) — lưới
+/// an toàn cho những gì lọt qua đường (1).</item>
+/// <item>Cổng tổng kết cuối khung chat (<c>#summaryGate</c>) — lần DUY NHẤT người dùng đọc lại danh sách
+/// này, khi phỏng vấn đã xong và họ rảnh trí để rà; sửa ở đó đi qua một lượt chat như mọi đính chính khác.</item>
+/// </list>
+/// </para>
 /// <para>
 /// Cùng pattern gộp-lũy-tiến theo con trỏ lượt (<see cref="Project.DecisionHarvestedTurnCount"/>) và
 /// <b>fail-open</b> như bản đồ bao phủ: lời gọi LLM lỗi thì giữ nhật ký cũ + không dời con trỏ, lượt sau
