@@ -147,11 +147,12 @@
     var sourceFiles = Model.SourceFiles.OrderByDescending(x => x.CreatedAt).ToList();
     var baSupportsVision = ViewBag.BaSupportsVision is bool bv && bv;
 
-    // Panel tiến độ khai thác (bản đồ bao phủ đã parse) + "Điều đã chốt" — render lần đầu ở server,
-    // sau đó frame done của ChatStream cập nhật live (markup phải khớp renderCoverage/renderDecisions
-    // trong requirements.js).
+    // Panel tiến độ khai thác (bản đồ bao phủ đã parse) — render lần đầu ở server, sau đó frame done của
+    // ChatStream cập nhật live (markup phải khớp renderCoverage trong requirements.js).
     var coverage = ViewBag.Coverage as IReadOnlyList<ICOGenerator.Contracts.Requirements.CoverageMapItem>
         ?? new List<ICOGenerator.Contracts.Requirements.CoverageMapItem>();
+    // Nhật ký "điều đã chốt": KHÔNG còn panel sidebar. Danh sách này giờ chỉ dùng cho CỔNG TỔNG KẾT CUỐI
+    // (#summaryGate) — bản rà soát một lần khi BA đã khai thác xong. Markup phải khớp renderSummaryGate.
     var decisions = ViewBag.Decisions as IReadOnlyList<string> ?? new List<string>();
     // "Triển vọng phỏng vấn" (InterviewOutlookService) KHÔNG còn danh sách nào lên màn hình: cả ba
     // (OpenQuestions, PlannedScope, WorkedExamples) vẫn được chắt sau mỗi lượt nhưng đi thẳng vào các
@@ -422,26 +423,24 @@
             </div>
         </div>
 
-        @* "Điều đã chốt": các quyết định user đã xác nhận trong chat — bấm một mục để soạn sẵn tin nhắn
-           yêu cầu sửa lại, bắt hiểu nhầm sớm thay vì để nó đóng băng vào tài liệu. *@
-        <div class="decision-panel" id="decisionPanel" @(decisions.Count == 0 ? "hidden" : "")>
-            <h3>Điều đã chốt <span class="decision-count" id="decisionCount">(@decisions.Count)</span></h3>
-            <div class="history-sub decision-hint">Bấm vào một mục nếu muốn sửa lại quyết định đó.</div>
-            <ul class="decision-list" id="decisionList">
-                @foreach (var decision in decisions)
-                {
-                    <li>
-                        <button type="button" class="decision-item" data-decision="@decision" title="Bấm để yêu cầu sửa lại">
-                            @decision
-                        </button>
-                    </li>
-                }
-            </ul>
-        </div>
+        @* KHÔNG còn panel "Điều đã chốt" ở đây — panel cuối cùng của sidebar bị gỡ, và vì đúng cái lý do
+           đã gỡ ba panel trước nó. Nhật ký quyết định (DecisionLogService) VẪN được chắt sau mỗi lượt;
+           chỉ có mặt UI biến mất, và người ĐỌC nó đổi từ user sang máy.
+           Vì sao gỡ: panel này bắt người dùng vừa kể chuyện nghiệp vụ vừa audit một danh sách tới 40 dòng
+           — hai chế độ tư duy chạy song song, đúng lúc họ cần tập trung nhất. Nó cũng đặt việc soát mâu
+           thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc
+           được cả hội thoại. Và "bấm để sửa" cũng không phải công cụ sửa thật — nó chỉ soạn sẵn một câu
+           vào ô chat, tức là vẫn quay về chat.
+           Nhật ký nay đi vào HAI đường tiêu thụ của máy:
+             1. Ngữ cảnh chat của BA (BAChatService) — BA đối chiếu câu vừa nghe với điều đã chốt và hỏi
+                lại NGAY khi thấy chọi nhau (prompt requirement-chat.v4 § "Soát mâu thuẫn với điều đã chốt").
+             2. Ngữ cảnh soát mâu thuẫn trước lúc soạn tài liệu (RequirementConflictService) — lưới an toàn.
+           Người dùng gặp lại chính danh sách này đúng MỘT lần, ở cổng tổng kết cuối khung chat (#summaryGate),
+           khi phỏng vấn đã xong và họ rảnh trí để rà. *@
 
         @* KHÔNG có panel "Sẽ xây gì" ở đây: PlannedScope vẫn được chắt sau mỗi lượt, nhưng nó là danh
-           sách SUY ĐOÁN mà user không sửa được tại chỗ (khác "Điều đã chốt" bấm được và "Ví dụ đã xác
-           nhận" sửa được) — vòng "bắt hiểu nhầm sớm" không đóng lại được nên panel chỉ còn là nhiễu.
+           sách SUY ĐOÁN mà user không sửa được tại chỗ — vòng "bắt hiểu nhầm sớm" không đóng lại được nên
+           panel chỉ còn là nhiễu.
            Dữ liệu vẫn giữ: nó đi vào ngữ cảnh soát mâu thuẫn (RequirementConflictService). *@
 
         @* KHÔNG có panel "Điểm cần làm rõ" ở đây: danh sách OpenQuestions vẫn được chắt sau mỗi lượt,
@@ -461,7 +460,9 @@
 
         @* Giả định của bản thiết kế (AI Design Spec § 12): những điều BA tự quyết thay user.
            Ở SIDEBAR chỉ còn CHẾ ĐỘ THAM KHẢO (POC đã dựng): danh sách tra cứu nguội, bấm một giả định để
-           nhắn BA sửa qua khung chat — đúng chỗ, vì nó nằm cùng họ với panel "Điều đã chốt".
+           nhắn BA sửa qua khung chat. Đây là panel DUY NHẤT còn sót lại kiểu "danh sách để user tự rà" —
+           nó ở lại được vì chỉ xuất hiện SAU khi POC đã dựng, tức không còn cuộc phỏng vấn nào đang diễn
+           ra để mà chia sự chú ý.
            CHẾ ĐỘ CỔNG (pendingAssumptions = true) đã CHUYỂN VÀO KHUNG CHAT: lúc đó quy trình đang ĐỨNG
            CHỜ người dùng, mà lời mời rà giả định lại do BA nói ở cuối chat ("đang chờ anh/chị rà N giả
            định"), trong khi nút bấm thì nằm lọt giữa một sidebar cuộn dài — người đọc phải tự đi tìm cổng.
@@ -879,6 +880,63 @@
                         <div class="batchq-hint">Không cần trả lời hết — gửi phần anh/chị đã rõ, BA hỏi tiếp các câu còn lại.</div>
                     </div>
                 }
+            </div>
+
+            @* CỔNG TỔNG KẾT CUỐI — khối cuối cùng của dòng hội thoại, mở đúng ở lượt BA mời bấm
+               "Write Requirement". Đây là chỗ DUY NHẤT người dùng còn gặp lại nhật ký "điều đã chốt" sau
+               khi panel sidebar bị gỡ: trong suốt cuộc phỏng vấn việc soát mâu thuẫn là của BA (nhật ký
+               nằm trong ngữ cảnh chat của BA), người dùng chỉ đội mũ kiểm duyệt đúng một lần — ở đây, khi
+               đã kể xong và còn rảnh trí để rà.
+
+               Đặt ở khung chat vì cùng lý do đã chuyển cổng xác nhận giả định vào đây: quy trình đang ĐỨNG
+               CHỜ người dùng, mà lời mời lại do BA nói ở cuối chat — câu hỏi và nút trả lời phải nằm cùng
+               một chỗ. Đặt SAU #suggestionList và #batchQuestions vì quy tắc gộp "câu hỏi BA + chip gợi ý"
+               dựa vào hai khối KỀ NHAU (.req-msg.ba:has(+ .suggestion-list …)); chen vào giữa là hỏng, kể
+               cả khi khối chen vào đang ẩn.
+
+               RANH GIỚI QUAN TRỌNG — cổng này KHÔNG phải cổng "chốt nhanh" đã bỏ đội lốt: mọi dòng ở đây
+               đều là điều người dùng ĐÃ nói hoặc đã bấm đồng ý (decision-log.v1.md cấm suy diễn). BA không
+               bao giờ được điền hộ một ý còn trống rồi ghi vào hội thoại như lời người dùng — chỗ trống
+               vẫn phải hỏi tiếp trong chat, và cổng readiness vẫn là thứ quyết định khi nào cổng này mở.
+
+               Markup phải khớp renderSummaryGate (requirements.js) để frame done render y hệt khi không reload. *@
+            @{
+                // Chỉ mở khi nút "Write Requirement" thật sự đang bấm được. Ở trạng thái "running" (đang
+                // soạn) hay "regenerate" (soạn xong, chưa có gì mới), một bản tổng kết kèm nút "tạo tài
+                // liệu" chỉ mời người dùng bấm lại đúng thứ vừa chạy.
+                var showSummaryGate = writeReqState == "ready" && decisions.Count > 0;
+            }
+            <div class="req-msg ba summary-gate" id="summaryGate" @(showSummaryGate ? "" : "hidden")>
+                <div class="summary-gate-head">
+                    <b>BA</b>
+                    <span class="summary-gate-title">Tổng kết trước khi tạo tài liệu</span>
+                    <span class="summary-gate-count">@decisions.Count ý</span>
+                </div>
+                <div class="summary-gate-hint">
+                    Đây là toàn bộ những gì mình đã hiểu được từ cuộc trao đổi. <b>Anh/chị rà nhanh giúp mình:</b>
+                    ý nào chưa đúng thì bấm <b>✎ Sửa</b> ở ý đó — hoặc bôi đen đúng đoạn sai — rồi ghi lại ý đúng.
+                    Sửa ở đây mất vài giây; để lọt tới lúc tài liệu và bản demo đã dựng thì phải làm lại cả tuyến.
+                </div>
+                <ul class="summary-gate-list">
+                    @foreach (var decision in decisions)
+                    {
+                        <li class="summary-gate-item" data-decision="@decision">
+                            <div class="summary-gate-text">@decision</div>
+                            <button type="button" class="summary-gate-fix" title="Ý này chưa đúng — ghi chú lại cho BA">✎ Sửa</button>
+                            <textarea class="summary-gate-note" rows="2" hidden
+                                      placeholder="Đúng ra là… (ghi ngắn gọn)"></textarea>
+                        </li>
+                    }
+                </ul>
+                <div class="summary-gate-bar">
+                    <button type="button" class="btn primary summary-gate-ok">✓ Đúng hết — tạo tài liệu</button>
+                    @* Hai nút loại trừ nhau: đã ghi chú thì "tạo tài liệu" không còn nghĩa — soạn tài liệu
+                       từ một bản tổng kết người dùng vừa nói là sai chính là điều cổng này sinh ra để chặn. *@
+                    <button type="button" class="btn primary summary-gate-send" hidden>Gửi đính chính cho BA</button>
+                    <div class="summary-gate-foot">
+                        Còn điều gì chưa nói tới, anh/chị cứ nhắn thêm trong khung chat như bình thường.
+                    </div>
+                </div>
             </div>
 
             <div id="thinkingBox"

@@ -51,9 +51,10 @@ public class Project
     public int CoverageHarvestedTurnCount { get; set; }
     // "Nhật ký điều đã chốt" của dự án: danh sách bullet (text) các QUYẾT ĐỊNH người dùng đã xác nhận
     // trong chat (vai trò, luồng, quy tắc, phương án đã "Đồng ý"), cập nhật sau mỗi lượt như bản đồ bao
-    // phủ. Hiển thị thành panel cạnh khung chat để user rà lại và bấm sửa một quyết định (gửi tin nhắn
-    // đính chính) thay vì phải lục scroll hội thoại. DecisionHarvestedTurnCount là con trỏ số lượt đã
-    // gộp (fail-open như CoverageHarvestedTurnCount). Xem DecisionLogService.
+    // phủ. KHÔNG còn panel sidebar: nhật ký nay là ngữ cảnh của MÁY (BA soát mâu thuẫn ngay trong lượt +
+    // cổng soát trước lúc soạn tài liệu), và người dùng chỉ đọc lại nó một lần ở cổng tổng kết cuối khung
+    // chat. DecisionHarvestedTurnCount là con trỏ số lượt đã gộp (fail-open như
+    // CoverageHarvestedTurnCount). Xem DecisionLogService.
     public string? DecisionLog { get; set; }
     public int DecisionHarvestedTurnCount { get; set; }
     // "Triển vọng phỏng vấn" — ba danh sách bullet (text) chắt lọc từ hội thoại trong CÙNG một lời gọi
