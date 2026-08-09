@@ -182,6 +182,57 @@ public static class EvalScenariosSeedData
             - KHÔNG nhắc tới nút "Write Requirement".
             """);
 
+        Add(
+            "Chat BA — hỏi bổ sung phải PHÁT LẠI danh sách đã ghi nhận, không tham chiếu suông",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Bản đồ bao phủ yêu cầu
+            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch các lớp học cả năm cho nhân viên và đánh giá kết quả học.
+            - ★ Đối tượng người dùng & vai trò: [RÕ] Assistant phòng HR lập kế hoạch; HoD HR duyệt; nhân viên đăng ký; quản lý trực tiếp duyệt ticket; admin xử lý waitlist; giáo viên chấm kết quả.
+            - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo project → upload Master List → tạo version plan → chốt số lớp theo tháng → generate training implement → HoD HR duyệt theo quý → nhân viên đăng ký → quản lý duyệt → enroll/waitlist.
+            - Quy trình hiện tại & điểm khó: [RÕ] Đang làm bằng file Excel gửi đầu năm.
+            - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] HoD HR reject thì assistant làm lại; lớp đầy thì ticket chuyển waitlist cho admin xét; quản lý có thể reject ticket.
+            - Dữ liệu / danh mục chính: [MỘT PHẦN] Đã rõ thông tin của LỚP HỌC; còn thiếu: mỗi KHÓA HỌC cần quản lý những thông tin nào.
+            - Quy tắc nghiệp vụ & ràng buộc: [RÕ] Mỗi lớp có sĩ số tối thiểu – tối đa; duyệt kế hoạch theo từng quý.
+            - Vòng đời & trạng thái: [RÕ] Ticket: pending → enroll / waitlist / reject.
+            - Thông báo / nhắc nhở: [CHƯA HỎI]
+            - Báo cáo / thống kê: [CHƯA HỎI]
+            - Phân quyền theo nghiệp vụ: [RÕ] Assistant lập kế hoạch, HoD HR duyệt, quản lý duyệt ticket nhân viên mình, admin xử lý waitlist.
+            - Quy mô sử dụng: [CHƯA HỎI]
+
+            Hội thoại trước đó:
+            BA: Anh/chị kể giúp mình một lần gần nhất lập kế hoạch các lớp học trong năm?
+            Người dùng: … từ trang training plan detail sẽ có 1 button generate training implement, khi click vào button này thì sẽ chuyển qua trang training implement và sẽ tự generate các khóa học và các lớp cần mở vào trang này, trang này sẽ có những thông tin chi tiết hơn như lớp dạy ngày nào, phòng nào, ai là người dạy, ngôn ngữ, dạy trong bao lâu, mã lớp học, link lớp học để cho nhân viên có thể vào đăng ký…
+            BA: Mình cần chốt chu kỳ duyệt: Assistant lập kế hoạch và gửi HoD HR duyệt theo từng quý, hay duyệt một lần cho toàn bộ năm?
+               (Các lựa chọn gợi ý đã đưa cho người dùng: [1] Duyệt theo từng quý; [2] Duyệt một lần cả năm)
+            Người dùng: Duyệt theo từng quý
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - message PHẢI CHÉP LẠI danh sách thông tin của LỚP HỌC mà người dùng đã kể (ngày học, phòng học, người dạy, ngôn ngữ, thời lượng, mã lớp, link đăng ký — đủ phần lớn các mục này) TRƯỚC khi hỏi tiếp.
+            - TUYỆT ĐỐI KHÔNG thay việc liệt kê đó bằng cụm tham chiếu suông: "đã nêu", "ở trên", "như đã đề cập", "những thông tin trên" — người dùng chỉ nhìn thấy ô chat cuối cùng, không nhìn thấy cuộn hội thoại.
+            - Hỏi ĐÚNG MỘT thứ: mỗi KHÓA HỌC cần quản lý thêm những thông tin nào. Không kèm vế thứ hai trong cùng message.
+            - KHÔNG bắt người dùng "mô tả các trường thông tin và mối liên hệ giữa khóa học, nhân viên, nhu cầu học và lớp học" — đó là vẽ mô hình dữ liệu, không phải câu hỏi nghiệp vụ.
+            - suggestions là các trường cụ thể của khóa học, mỗi chip ĐÚNG MỘT trường (vd "Mã khóa học", "Đối tượng áp dụng", "Thời lượng chuẩn", "Chi phí đào tạo"); không chip gói nhiều thứ, không chip kiểu "Tất cả các ý trên".
+            - Câu hỏi dạng liệt kê ⇒ multiSelect = true.
+            """);
+
+        Add(
+            "Chat BA — quy tắc tính số lớp: tự dựng ví dụ SỐ để chốt, không bắt người dùng mô tả công thức",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            Hội thoại trước đó:
+            BA: Ở trang Training Plan detail, số lớp gợi ý cho mỗi khóa học được tính ra từ đâu?
+            Người dùng: Dựa trên data từ master list, nó sẽ có 1 table chứa các khóa học cần được tổ chức và số lượng lớp cần mở cho mỗi khóa học — dựa trên nhu cầu học và số lượng học viên tối thiểu và tối đa của từng lớp. Assistant xem gợi ý đó hợp lý chưa, có thể chỉnh sửa lại, rồi chia số lớp đó ra các tháng trong năm.
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - Đây là quy tắc ĐỊNH LƯỢNG: message phải tự dựng MỘT ví dụ bằng SỐ cụ thể theo cách BA hiểu (một khóa học có N nhân viên phải học, sĩ số tối đa M mỗi lớp ⇒ gợi ý mở K lớp) rồi xin người dùng xác nhận.
+            - KHÔNG hỏi lại kiểu "công thức tính thế nào?", "anh/chị mô tả giúp mối liên hệ giữa nhu cầu học và số lớp" — người dùng vừa mô tả xong, việc còn lại là BA chốt cách hiểu bằng ví dụ.
+            - Chỉ MỘT câu hỏi trong lượt này; không gộp thêm câu nào khác (quy tắc định lượng phải hỏi một mình).
+            - suggestions dạng chốt đúng/sai, 2–3 mục (vd "Đúng rồi" / "Không, tính khác"); multiSelect = false.
+            """);
+
         // ================= BusinessAnalyst/requirement-coverage.v3.md =================
         // Bản đồ bao phủ là NGUỒN CHÂN LÝ DUY NHẤT của cổng "Write Requirement" (ready suy tất định:
         // mọi dòng áp dụng [RÕ]/[KHÔNG ÁP DỤNG]) nên các scenario phủ cả hai chiều sai: chấm [RÕ] non
