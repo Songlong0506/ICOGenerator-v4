@@ -1279,10 +1279,9 @@
 
     .coverage-item .cov-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Bằng chứng + nút đính chính: mục con của một dòng bản đồ, nên dòng chuyển sang xếp theo cột và phần
-   trích dẫn xuống hàng riêng (nó dài hơn nhãn nhiều). */
-.coverage-item { flex-wrap: wrap; }
-
+/* Nút đính chính: mục con của một dòng bản đồ, đứng cuối hàng và KHÔNG co (nhãn dài thì nhãn ellipsis,
+   không phải nút bị bóp). Câu bằng chứng từng chiếm một hàng riêng ngay dưới nhãn — nay nằm trong
+   tooltip của dòng, nên mỗi nhóm gọn lại đúng một hàng. */
     .coverage-item .cov-wrong {
         flex: 0 0 auto;
         font-family: inherit;
@@ -1302,18 +1301,6 @@
     .coverage-item .cov-wrong:focus-visible { opacity: 1; }
 
     .coverage-item .cov-wrong:hover { color: #dc2626; border-color: #fca5a5; }
-
-    .coverage-item .cov-evidence {
-        flex: 1 0 100%;
-        margin-left: 17px;
-        font-size: 10.5px;
-        line-height: 1.45;
-        color: #9ca3af;
-        font-style: italic;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
 
 /* .decision-hint dùng chung cho các dòng chú thích nhỏ dưới tiêu đề panel (panel "Điều đã chốt" từng là
    chủ sở hữu, nay đã gỡ — panel giả định ở sidebar vẫn dùng). */
