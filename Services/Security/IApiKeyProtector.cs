@@ -7,8 +7,6 @@ public interface IApiKeyProtector
 {
     string Protect(string? plainText);
 
-    /// <summary>Giải mã giá trị đã lưu. Giá trị plaintext cũ (chưa mã hóa) được trả về nguyên trạng.</summary>
+    /// <summary>Giải mã giá trị đã lưu. Giá trị plaintext (chưa mã hóa) được trả về nguyên trạng.</summary>
     string Unprotect(string? storedValue);
-
-    bool IsProtected(string? value);
 }

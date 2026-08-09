@@ -324,7 +324,6 @@ namespace ICOGenerator.Migrations
                     Color = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Temperature = table.Column<double>(type: "float", nullable: false),
                     AiModelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    LearnedChecklistNotes = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
@@ -591,27 +590,6 @@ namespace ICOGenerator.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "AgentDomainChecklistNotes",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    DomainKey = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    Notes = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AgentDomainChecklistNotes", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_AgentDomainChecklistNotes_Agents_AgentId",
-                        column: x => x.AgentId,
-                        principalTable: "Agents",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "AgentModelCallLogs",
                 columns: table => new
                 {
@@ -792,12 +770,6 @@ namespace ICOGenerator.Migrations
                 name: "IX_AgentConversations_ProjectId",
                 table: "AgentConversations",
                 column: "ProjectId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AgentDomainChecklistNotes_AgentId_DomainKey",
-                table: "AgentDomainChecklistNotes",
-                columns: new[] { "AgentId", "DomainKey" },
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_AgentModelCallLogs_AgentId",
@@ -1026,9 +998,6 @@ namespace ICOGenerator.Migrations
 
             migrationBuilder.DropTable(
                 name: "AgentConversations");
-
-            migrationBuilder.DropTable(
-                name: "AgentDomainChecklistNotes");
 
             migrationBuilder.DropTable(
                 name: "AgentModelCallLogs");

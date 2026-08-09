@@ -30,7 +30,7 @@ public class Project
     // nhớ tiến theo nhịp/độ trễ khác nhau. Xem UserMemoryService.
     public int UserMemoryHarvestedTurnCount { get; set; }
     // Đánh dấu dự án này ĐÃ được rà soát một lần để rút "khoảng trống checklist" (thông tin người dùng
-    // phải tự nêu ra mà BA chưa từng hỏi) vào Agent.LearnedChecklistNotes — dùng chung cho MỌI dự án sau
+    // phải tự nêu ra mà BA chưa từng hỏi) vào AgentChecklistItem — dùng chung cho MỌI dự án sau
     // này. Chỉ rà soát MỘT LẦN, ngay sau khi tài liệu được sinh thành công (lúc đó mới có bức tranh Q&A
     // đầy đủ). Xem ChecklistGapMemoryService.
     public bool ChecklistGapHarvested { get; set; }
@@ -101,7 +101,7 @@ public class Project
     // giả định mới nào sẽ tự xác nhận chạy thẳng sang dựng POC. Xem AssumptionMemory.
     public string? ConfirmedAssumptions { get; set; }
     // Con trỏ học từ ghi chú POC: số PocComment (xếp theo CreatedAt) của dự án đã được chắt lọc vào
-    // Agent.LearnedChecklistNotes sau mỗi vòng chỉnh sửa POC — ghi chú kiểu "thiếu màn hình X" chính là
+    // AgentChecklistItem sau mỗi vòng chỉnh sửa POC — ghi chú kiểu "thiếu màn hình X" chính là
     // câu hỏi BA lẽ ra phải hỏi từ lúc phỏng vấn. Xem PocFeedbackMemoryService.
     public int PocFeedbackHarvestedCount { get; set; }
     // NGHIỆM THU BẢN DEMO — trạng thái KẾT của hành trình phía người dùng nghiệp vụ. Trước đây người

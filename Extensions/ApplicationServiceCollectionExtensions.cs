@@ -676,7 +676,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UserMemoryService>();
         services.AddScoped<ChecklistGapMemoryService>();
         services.AddScoped<ChecklistNoteStore>();
-        services.AddScoped<ChecklistLegacyNotesImporter>();
         services.AddScoped<ProjectDomainClassifier>();
         services.AddScoped<RequirementCoverageService>();
         // Khung 12 nhóm rỗng cho panel tiến độ lúc dự án chưa có bản đồ — scoped theo PromptTemplateService

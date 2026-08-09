@@ -439,7 +439,7 @@ public class AgentTaskWorker : BackgroundService
             }
 
             // Vòng CHỈNH SỬA POC vừa xong: các ghi chú ghim đã thật sự dẫn tới một lần sửa — chắt lọc
-            // chúng thành bài học cho bộ câu hỏi của BA (Agent.LearnedChecklistNotes) để lỗi tương tự
+            // chúng thành bài học cho bộ câu hỏi của BA (AgentChecklistItem) để lỗi tương tự
             // được hỏi từ khâu phỏng vấn ở các dự án sau. Fail-open bên trong service.
             if (task.Type == AgentTaskType.PocPreview && task.RevisionFeedback != null)
             {

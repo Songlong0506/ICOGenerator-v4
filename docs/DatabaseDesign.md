@@ -330,7 +330,7 @@ erDiagram
 |---|---|
 | `AppUser.Username` unique | Không trùng tài khoản đăng nhập |
 | `AppUserRole(AppUserId, Role)` PK | Một user giữ NHIỀU vai trò, mỗi vai trò chỉ gán một lần. Xóa user cascade sang bảng này |
-| `AppUserRole.Role` index | Chiều ngược: "ai đang giữ vai trò X" (đăng nhập Local tìm SuperAdmin, backfill khi khởi động) |
+| `AppUserRole.Role` index | Chiều ngược: "ai đang giữ vai trò X" (đăng nhập Local tìm SuperAdmin) |
 | `RolePermission(Role, Permission)` unique | Một permission chỉ được cấp một lần cho role |
 | `AuditLog.CreatedAt`, `(Category, CreatedAt)` | Lọc/sắp xếp audit log |
 

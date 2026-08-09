@@ -48,8 +48,8 @@ public class AccountController : Controller
 
     // Đăng nhập cục bộ mặc định: phát cookie theo tài khoản SuperAdmin (nguồn của claim Name + Role, lái toàn
     // bộ phân quyền y như luồng SSO). SuperAdmin có toàn quyền và không thể tự khóa, nên dev cục bộ luôn đủ
-    // quyền. DbInitializer.BackfillSuperAdminAsync (chạy mỗi lần khởi động) luôn đảm bảo tồn tại một SuperAdmin,
-    // nên chỉ cần lấy đúng role này. Gọi khi cookie LoginPath redirect người dùng chưa đăng nhập tới.
+    // quyền. DbInitializer.SeedUsersAsync tạo sẵn tài khoản 'superadmin' khi DB còn trống, nên chỉ cần lấy
+    // đúng role này. Gọi khi cookie LoginPath redirect người dùng chưa đăng nhập tới.
     private async Task<IActionResult> SignInLocalAdminAsync(string? returnUrl)
     {
         var admin = await _db.AppUsers
