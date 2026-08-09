@@ -81,8 +81,8 @@ public class BAChatReplyParser
         if (reply.Message.Length == 0 && (reply.Suggestions.Count > 0 || reply.Questions.Count > 0))
             reply.Message = "Đã ghi nhận. Bạn có thể chọn một gợi ý bên dưới hoặc tự nhập thêm.";
 
-        // multiSelect chỉ có nghĩa khi thực sự có chip để chọn.
-        reply.MultiSelect = reply.Suggestions.Count > 0 && reply.MultiSelect;
+        // multiSelect chỉ có nghĩa khi thực sự có chip để chọn, VÀ bộ chip phải đúng hình dạng liệt kê.
+        reply.MultiSelect = reply.Suggestions.Count > 0 && reply.MultiSelect && IsEnumerationSet(reply.Suggestions);
 
         // Lượt GỘP không dùng chip lượt-đơn: mỗi câu hỏi đã có hàng gợi ý riêng trên thẻ. Để cả hai cùng
         // sống thì màn hình có hai chỗ trả lời cho cùng một lượt, và chip lượt-đơn (bấm là GỬI NGAY) sẽ
@@ -146,7 +146,7 @@ public class BAChatReplyParser
                 Group = (item.Group ?? string.Empty).Trim(),
                 Question = question,
                 Suggestions = suggestions,
-                MultiSelect = suggestions.Count > 0 && item.MultiSelect
+                MultiSelect = suggestions.Count > 0 && item.MultiSelect && IsEnumerationSet(suggestions)
             });
 
             if (result.Count >= MaxQuestions)
@@ -182,6 +182,63 @@ public class BAChatReplyParser
 
         return result;
     }
+
+    // ==== HÌNH DẠNG BỘ CHIP phải khớp với cờ multiSelect ====
+    // Một bộ gợi ý chỉ thuộc đúng MỘT trong hai kiểu, và cờ multiSelect là thứ nói người dùng đang ở kiểu
+    // nào:
+    //   - PHƯƠNG ÁN THAY THẾ — mỗi chip là một câu trả lời trọn vẹn, chọn cái này là loại cái kia
+    //     ("Nhân viên sửa rồi gửi lại" / "Hủy hẳn đơn") ⇒ chọn MỘT.
+    //   - LIỆT KÊ THÀNH PHẦN — câu trả lời thật là một danh sách, mỗi chip là MỘT MẢNH của danh sách đó
+    //     ("Nhân viên" / "Manager orgUnit" / "HoD phòng ban") ⇒ chọn NHIỀU.
+    //
+    // Lỗi model hay mắc là trộn hai kiểu: giữ chip dạng GÓI (kiểu một) nhưng bật multiSelect (kiểu hai) —
+    // vd hỏi "gồm những vai trò nào?" với chip ["Nhân viên và HR/đào tạo", "Nhân viên, quản lý và HR",
+    // "Thêm HoD phòng ban", "Chỉ bộ phận HR/đào tạo"]. Bốn chip đó là bốn gói LỒNG NHAU và phủ định nhau,
+    // nên UI cho tích ô 1 + ô 4 cùng lúc và cái gửi đi là một câu trả lời tự mâu thuẫn — rồi được chắt
+    // thẳng vào bản đồ bao phủ và "Điều đã chốt", nơi không tầng nào phía sau còn phân biệt được nữa.
+    //
+    // Ba dấu hiệu dưới đây đều nói "chip này là một PHƯƠNG ÁN, không phải một mảnh", và đều nhận diện
+    // được bằng máy. Prompt dạy cách viết chip nguyên tử; hàm này là cái phanh khi prompt bị trượt.
+    //
+    // Hướng sửa CHỈ MỘT CHIỀU — hạ multiSelect về false, không bao giờ tự bật lên. Hạ nhầm thì người dùng
+    // mất tiện ích tích nhiều ô (vẫn bấm được một chip, vẫn tự nhập được); bật nhầm thì sinh ra một câu
+    // trả lời vô nghĩa mà mọi bước sau tin là điều người dùng đã nói. Hai cái giá không cùng hạng.
+    private static bool IsEnumerationSet(IReadOnlyList<string> suggestions)
+    {
+        // Một chip thì không có gì để "chọn nhiều"; kiểu liệt kê cần ít nhất hai mảnh.
+        if (suggestions.Count < 2)
+            return false;
+
+        foreach (var suggestion in suggestions)
+        {
+            var text = suggestion.Trim().ToLowerInvariant();
+
+            // (1) Chip LOẠI TRỪ: tự nó đã bao hàm hoặc phủ định phần còn lại, nên tích kèm chip khác là
+            //     mâu thuẫn ("Chỉ bộ phận HR", "Tất cả nhân viên", "Không cần thông báo").
+            if (ExclusiveChipPrefixes.Any(p => text.StartsWith(p, StringComparison.Ordinal)))
+                return false;
+
+            // (2) Chip KHÔNG TỰ ĐỨNG: chỉ có nghĩa khi đọc kèm chip khác ("Thêm HoD phòng ban" — thêm vào
+            //     cái gì?). Tích riêng nó thì câu gửi đi không đủ nghĩa.
+            if (DependentChipPrefixes.Any(p => text.StartsWith(p, StringComparison.Ordinal)))
+                return false;
+
+            // (3) Chip GÓI: nêu từ hai thứ trở lên trong một dòng ⇒ đó là một phương án đã lắp sẵn, không
+            //     phải một mảnh. Dấu "/" KHÔNG tính (thường là một tên: "HR/đào tạo", "TEF3.3/LL06").
+            if (BundleSeparators.Any(s => text.Contains(s, StringComparison.Ordinal)))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static readonly string[] ExclusiveChipPrefixes =
+        { "chỉ ", "duy nhất ", "tất cả ", "toàn bộ ", "mọi ", "không ", "chưa " };
+
+    private static readonly string[] DependentChipPrefixes =
+        { "thêm ", "cả ", "kèm ", "ngoài ra", "như trên", "và ", "hoặc ", "vừa " };
+
+    private static readonly string[] BundleSeparators = { " và ", " & ", " + ", ", ", "; " };
 
     // Chấp nhận cả ["a","b"] lẫn [{"label":"a"},{"text":"b"}] để bền với cách model trả khác nhau.
     private static string? ExtractText(JsonElement element) => element.ValueKind switch
