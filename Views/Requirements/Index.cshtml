@@ -183,10 +183,7 @@
     // là đã xong cho thanh — xem CoverageProgress. Công thức nằm trong parser để bản server render đây và
     // bản JS cập nhật live (renderCoverage) không lệch nhau.
     var coverageProgress = ICOGenerator.Services.Requirements.CoverageMapParser.Progress(coverage);
-    // KHUNG RỖNG: chưa nhóm nào được khai thác (dự án vừa tạo / vừa New Chat — GetRequirementWorkspaceQuery
-    // trả khung 12 nhóm [CHƯA HỎI]). Panel lúc này chỉ là danh sách sắp được hỏi, nên cần một dòng nói rõ
-    // nó sẽ tự đầy dần — nếu không, một bảng 12 dấu ⚪ trông như thứ người dùng phải tự đi điền.
-    var coverageEmpty = coverage.Count > 0 && coverage.All(x => x.Status == "CHƯA HỎI");
+
     // "Chào lại" cho phỏng vấn dài (F): khi quay lại một dự án đang dở (đã có tiến độ nhưng chưa xong,
     // và requirement chưa được mời chốt), nói rõ còn bao nhiêu nhóm thông tin cần làm rõ.
 
@@ -324,13 +321,6 @@
                bên dưới, và giải thích vì sao thanh đầy được trong khi chỉ 9/12 nhóm [RÕ]. *@
             <p class="coverage-na" id="coverageNa" @(coverageProgress.NotApplicable > 0 ? "" : "hidden")>
                 ➖ <span id="coverageNaCount">@coverageProgress.NotApplicable</span> nhóm không áp dụng với dự án này
-            </p>
-            @* Khung rỗng lúc mới vào: nói rõ ai là người điền bảng này (BA, qua chính cuộc trò chuyện) và
-               nó tự đầy dần. Ẩn ngay khi có nhóm đầu tiên khác [CHƯA HỎI] — requirements.js làm điều
-               tương tự ở frame done. *@
-            <p class="coverage-hint" id="coverageHint" @(coverageEmpty ? "" : "hidden")>
-                Anh/chị cứ mô tả ý tưởng trong khung chat — BA sẽ hỏi dần và bảng này tự đầy theo. Nhóm nào
-                không liên quan tới dự án sẽ được đánh dấu bỏ qua.
             </p>
             @* Bản đồ không gộp được lượt vừa rồi (đã thử lại): danh sách bên dưới là bản CŨ và BA cũng vừa
                dẫn lượt bằng bản cũ đó — nên nó có thể hỏi lại nhóm anh/chị vừa trả lời. Ẩn lúc tải trang
@@ -980,15 +970,6 @@
                      Architecture/code/test. Trang này chỉ hiển thị tiến độ; banner bên dưới sẽ hướng
                      dẫn người có quyền sang dashboard. -->
 
-            </div>
-
-            <!-- Băng "đã phục hồi nháp": hiện khi mở lại trang mà còn nội dung gõ dở được lưu tự động
-                 (localStorage, xem requirements.js). Bắt buộc phải nói ra: một ô nhập tự dưng có chữ mà
-                 không giải thích thì người dùng tưởng mình đã gửi rồi, hoặc sợ gửi trùng. Nút bên phải xóa
-                 dứt điểm phần vừa phục hồi. -->
-            <div id="draftRestoredNote" class="draft-restored" hidden role="status">
-                <span class="draft-restored-text"></span>
-                <button type="button" id="draftDiscardBtn" class="btn outline small">Xóa nội dung này</button>
             </div>
 
             <!-- Khay xem trước ảnh đã đính kèm (chưa gửi): đính kèm/dán/kéo-thả ảnh sẽ hiện thumbnail nhỏ
