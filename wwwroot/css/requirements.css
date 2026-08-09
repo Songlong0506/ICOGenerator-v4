@@ -438,6 +438,44 @@
         margin: 6px 0 0;
     }
 
+    /* Băng "đã phục hồi nháp" ngay trên ô nhập: nội dung gõ dở được lưu tự động và đổ lại sau khi F5 / mở
+       lại trang. Màu nhắc (vàng nhạt) chứ không phải màu lỗi — đây là tin tốt, chỉ cần user để ý là chữ
+       trong ô nhập CHƯA được gửi. */
+    .draft-restored {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid #fcd34d;
+        border-left: 3px solid #f59e0b;
+        border-radius: 8px;
+        background: #fffbeb;
+        color: #78350f;
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+        /* Không có dòng này thì display:flex ở trên đè [hidden] (display:none của trình duyệt) và băng
+           rỗng luôn lộ ra dù chẳng có nháp nào để phục hồi. */
+        .draft-restored[hidden] {
+            display: none;
+        }
+
+        .draft-restored .draft-restored-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .draft-restored button {
+            flex: 0 0 auto;
+        }
+
+            /* .btn trong site.css là display:inline-flex — mạnh hơn thuộc tính [hidden] của trình duyệt,
+               nên nút vẫn lộ ra khi JS ẩn nó (lúc chỉ phục hồi các ô trên thẻ hỏi, không phục hồi ô nhập). */
+            .draft-restored button[hidden] {
+                display: none;
+            }
+
     /* Khay xem trước ảnh đã đính kèm (chưa gửi): hàng thumbnail nhỏ ngay trên ô nhập. User gõ ghi chú
        rồi mới bấm gửi. Ẩn (hidden) khi chưa có ảnh nào. */
     .attach-preview {
