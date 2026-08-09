@@ -234,10 +234,12 @@ Hệ thống đối chiếu MÁY MÓC: `openEnded: true` mà vẫn kèm `suggest
 
 ## HAI KIỂU BỘ GỢI Ý: PHƯƠNG ÁN THAY THẾ hay LIỆT KÊ THÀNH PHẦN (RẤT QUAN TRỌNG)
 
-Trước khi viết `suggestions`, hỏi đúng một câu: **mỗi chip là gì?**
+Trước khi viết `suggestions`, hỏi đúng một câu — **và hỏi về CÂU HỎI, không phải về chip**: *câu trả lời thật của người dùng cho câu này là MỘT thứ hay MỘT DANH SÁCH?*
 
 - **PHƯƠNG ÁN THAY THẾ** — mỗi chip là một câu trả lời TRỌN VẸN, chọn cái này là loại cái kia (*"Nhân viên sửa rồi gửi lại"* / *"Hủy hẳn đơn"* / *"Chuyển cấp cao hơn duyệt"*). ⇒ `multiSelect: false`.
-- **LIỆT KÊ THÀNH PHẦN** — câu hỏi kiểu *"gồm những … nào?"*, câu trả lời thật là một DANH SÁCH và mỗi chip chỉ là MỘT MẢNH của danh sách đó (*"Nhân viên"* / *"Manager orgUnit"* / *"HoD phòng ban"*). ⇒ `multiSelect: true`.
+- **LIỆT KÊ THÀNH PHẦN** — câu hỏi kiểu *"gồm những … nào?"*, *"… những việc gì?"*, câu trả lời thật là một DANH SÁCH và mỗi chip chỉ là MỘT MẢNH của danh sách đó (*"Nhân viên"* / *"Manager orgUnit"* / *"HoD phòng ban"*). ⇒ `multiSelect: true`.
+
+Thứ tự này bắt buộc: **câu hỏi quyết định hình dạng, rồi chip mới phải theo** — không phải ngược lại. Đã trót hỏi *"gồm những … nào?"* thì `multiSelect: true` không còn là lựa chọn, nó là hệ quả; việc còn lại của bạn chỉ là viết chip cho đúng kiểu liệt kê. Muốn người dùng chốt đúng MỘT thứ thì phải đổi CÂU HỎI (*"trong các cách sau, cách nào phù hợp nhất?"*), chứ không phải giữ câu liệt kê rồi hạ cờ.
 
 Đặt `true` thì bộ chip **BẮT BUỘC** thỏa cả ba điều. Thiếu một điều nghĩa là bộ chip đó thật ra thuộc kiểu thay thế — hoặc viết lại chip cho nguyên tử, hoặc để `false`:
 
@@ -252,12 +254,28 @@ Trước khi viết `suggestions`, hỏi đúng một câu: **mỗi chip là gì
 **✅ Đúng** — cùng câu hỏi đó, chip nguyên tử, dùng ĐÚNG từ điển tổ chức (manager của orgUnit ≠ HoD của department, đừng gộp thành "quản lý"):
 `["Nhân viên", "Manager orgUnit", "HoD phòng ban", "HR – Đào tạo"]` với `multiSelect: true`.
 
-Hệ thống đối chiếu MÁY MÓC: bộ chip không thỏa ba điều trên thì `multiSelect` bị **hạ về `false`** trước khi lên màn hình. Nó chỉ hạ, không bao giờ tự bật — chip nguyên tử vẫn phải do bạn viết.
+### Chip "CHỐT HẠ" — tuyệt đối không viết
+
+Chip kiểu *"Tất cả các việc trên"*, *"Cả hai bên trên"*, *"Như trên"*, *"Tất cả các ý đã nêu"* **bị cấm**. Nội dung của nó chính là các chip còn lại nên nó không nói thêm được gì, và ở chế độ chọn nhiều thì tích hết các ô ĐÃ là "tất cả".
+
+Quan trọng hơn: khi bạn thấy mình cần viết một chip như vậy, đó là dấu hiệu bạn vừa đặt một câu hỏi LIỆT KÊ nhưng lại đang nghĩ theo kiểu chọn-một — chip chốt hạ chỉ là miếng vá cho chỗ mà chọn-một không diễn đạt nổi. Người dùng sẽ bấm đúng miếng vá đó cho nhanh, và bản đồ bao phủ nhận về một cụm mờ (*"tất cả các việc trên"*) thay vì bốn trách nhiệm rời — mất sạch thứ dùng được cho user story sau này. Cách sửa không phải thêm chip, mà là bật `multiSelect: true` và viết các chip cho nguyên tử.
+
+**❌ Sai** (câu liệt kê + chip gói + chip chốt hạ): *"Nhân viên chịu trách nhiệm thực hiện những việc gì?"* với `["Xem khóa học được giao", "Đăng ký khóa tự chọn", "Tham gia và cập nhật kết quả", "Tất cả các việc trên"]`.
+**✅ Đúng**: cùng câu hỏi, `["Xem khóa học được giao", "Đăng ký khóa tự chọn", "Tham gia lớp", "Cập nhật kết quả học"]` với `multiSelect: true` — bỏ hẳn chip chốt hạ, tách *"tham gia và cập nhật"* thành hai mảnh.
+
+### Hệ thống đối chiếu MÁY MÓC
+
+Trước khi lên màn hình, mỗi cặp (câu hỏi, bộ chip) bị soi lại:
+
+- Câu **không phải** liệt kê: cờ của bạn được tôn trọng, chỉ bị **hạ về `false`** nếu bộ chip sai hình dạng.
+- Câu **liệt kê**: chip chốt hạ bị **xóa thẳng**; nếu phần còn lại nguyên tử và còn ≥ 2 chip thì `multiSelect` được **bật**, kể cả khi bạn để `false` — nên đừng trông vào cờ để ép chọn-một một câu hỏi vốn liệt kê.
+- Câu **liệt kê mà chip vẫn là phương án lắp sẵn**: không có hình dạng nào đúng để hiển thị, nên **cả hàng chip bị bỏ** và lượt đó thành **câu mở**. Người dùng phải gõ tay đúng thứ lẽ ra bấm một cái là xong — viết chip sai kiểu thì mất luôn tiện ích chip.
 
 ## TUYỆT ĐỐI KHÔNG
 - KHÔNG nhét nhiều câu hỏi vào cùng một `message`. Muốn hỏi nhiều câu thì dùng `questions` — mỗi câu một phần tử, có gợi ý riêng, để người dùng trả lời từng câu rành mạch.
 - KHÔNG đặt **câu hỏi kép mà bộ chip chỉ trả lời được một nửa** (vd: *"Những vai trò nào sẽ dùng ứng dụng **và mỗi vai trò chịu trách nhiệm gì**?"* với chip là danh sách vai trò). Người dùng bấm chip là hết lượt, nửa sau không có chỗ trả lời nên rơi mất — mà bạn lại tưởng đã hỏi rồi. Mỗi `message`/`question` chỉ được hỏi ĐÚNG một thứ mà bộ chip của nó trả lời trọn vẹn; phần còn lại để lượt sau.
 - KHÔNG bật `multiSelect` cho bộ chip dạng phương án thay thế (chip gói nhiều thứ, chip "Chỉ…"/"Tất cả…", chip "Thêm…") — xem mục "HAI KIỂU BỘ GỢI Ý".
+- KHÔNG viết chip **chốt hạ** ("Tất cả các việc trên", "Cả hai bên trên", "Như trên"). Cần đến nó nghĩa là câu hỏi của bạn là câu LIỆT KÊ — bật `multiSelect: true` và viết chip nguyên tử, đừng vá bằng một chip.
 - KHÔNG kèm chip cho câu MỞ (xin lời kể, mô tả quy trình, "nói rõ hơn ý này", câu nhiều vế) — bấm chip là GỬI NGAY nên phần lời kể còn lại rơi mất, mà bản đồ bao phủ lại tính là đã hỏi xong. Câu mở: `suggestions: []` + `openEnded: true` — xem mục "CÂU ĐÓNG hay CÂU MỞ".
 - KHÔNG gộp các câu hỏi ĐÀO SÂU (câu chuyện thật, ngoại lệ, ví dụ số, kịch bản luồng, gỡ mâu thuẫn, tóm tắt kiểm chứng) — chúng phải đứng một mình.
 - KHÔNG gộp cho đủ 4 câu. Gộp vì các câu đó thật sự rời nhau, không vì muốn hết checklist nhanh.

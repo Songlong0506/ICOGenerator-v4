@@ -18,13 +18,24 @@ namespace ICOGenerator.Tests.Requirements;
 // thuẫn — được chắt thẳng vào bản đồ bao phủ và "Điều đã chốt" như lời người dùng, nơi không tầng nào
 // phía sau (Product Brief, spec, POC) còn phân biệt được nữa.
 //
-// Ba bất biến giữ chỗ này:
-//  1. Chip mang dấu hiệu "phương án" (gói nhiều thứ, loại trừ, không tự đứng một mình) ⇒ multiSelect bị
-//     HẠ về false. Prompt dạy cách viết chip nguyên tử; parser là cái phanh khi prompt bị trượt.
-//  2. Sửa CHỈ MỘT CHIỀU — không bao giờ tự bật multiSelect. Hạ nhầm thì người dùng mất tiện ích tích
-//     nhiều ô (vẫn bấm được một chip, vẫn tự nhập); bật nhầm thì sinh ra dữ liệu sai. Không cùng hạng giá.
-//  3. Áp ở CẢ hai đường vào (Parse cho model trả text, Normalize cho structured output) và cho CẢ chip
+// Hạ cờ multiSelect chặn được câu trả lời tự mâu thuẫn, nhưng KHÔNG chặn được thiệt hại: câu hỏi liệt kê
+// vẫn lên màn hình dưới dạng chọn-một, và model vá chỗ đó bằng một chip CHỐT HẠ ("Tất cả các việc trên").
+// Người dùng bấm đúng cái chip ấy cho nhanh, bản đồ bao phủ ghi một cụm mờ thay vì bốn trách nhiệm rời —
+// cùng một thiệt hại, đi bằng cửa khác. Nên tín hiệu quyết định không phải cờ, mà là CÂU HỎI.
+//
+// Bốn bất biến giữ chỗ này:
+//  1. CÂU HỎI quyết định hình dạng. Câu liệt kê ("gồm những … nào?", "… những việc gì?") có đáp án là một
+//     DANH SÁCH; không cờ nào biến nó thành câu chọn-một.
+//  2. Ở câu liệt kê, chip chốt hạ bị XOÁ (nội dung của nó chính là các chip còn lại — xoá không mất gì),
+//     rồi nếu phần còn lại nguyên tử và còn ≥ 2 chip thì multiSelect được BẬT, kể cả khi model để false:
+//     trên bộ chip nguyên tử-rời nhau, mọi tổ hợp tích đều có nghĩa nên bật nhầm không sinh dữ liệu sai.
+//  3. Ở câu liệt kê mà chip vẫn là phương án lắp sẵn, KHÔNG có hình dạng nào đúng để render ⇒ bỏ chip,
+//     chuyển thành CÂU MỞ. Máy không được tự tách/viết lại chip (bịa từ thay BA) cũng không được xoá lẻ
+//     (mất một mảnh khỏi bản đồ bao phủ mà không ai biết). Bắt gõ tay chỉ mất tiện ích, không mất dữ liệu.
+//  4. Áp ở CẢ hai đường vào (Parse cho model trả text, Normalize cho structured output) và cho CẢ chip
 //     lượt-đơn lẫn chip của từng câu trong lượt gộp — sót một đường là guard vắng mặt đúng chỗ nó cần.
+//
+// Câu KHÔNG phải liệt kê giữ nguyên luật cũ: cờ do BA đặt, hạ nếu bộ chip sai hình dạng, chip giữ nguyên.
 public class BAChatSuggestionShapeTests
 {
     private readonly BAChatReplyParser _parser = new();
@@ -36,9 +47,11 @@ public class BAChatSuggestionShapeTests
         MultiSelect = multiSelect
     };
 
-    // Chính ca đã gặp trên màn hình.
+    // Chính ca đã gặp trên màn hình. Câu hỏi đòi một danh sách vai trò, nhưng bốn chip là bốn GÓI lồng
+    // nhau — không hình dạng nào render đúng được, kể cả chọn-một (bấm một gói là chốt một tổ hợp người
+    // dùng chưa từng ghép). Lối ra duy nhất không sinh dữ liệu sai: mời họ tự kể.
     [Fact]
-    public void Normalize_NestedRoleBundlesWithMultiSelect_IsDowngradedToSingleSelect()
+    public void Normalize_EnumerationQuestionWithBundledChips_BecomesAnOpenQuestion()
     {
         var reply = _parser.Normalize(Single(true,
             "Nhân viên và HR/đào tạo",
@@ -47,8 +60,78 @@ public class BAChatSuggestionShapeTests
             "Chỉ bộ phận HR/đào tạo"));
 
         Assert.False(reply.MultiSelect);
-        // Chip vẫn còn nguyên: guard chỉ đổi CÁCH trả lời, không bao giờ nuốt mất phương án của BA.
+        Assert.True(reply.OpenEnded);
+        Assert.Empty(reply.Suggestions);
+    }
+
+    // Ca trong ảnh chụp màn hình: "… chịu trách nhiệm những việc gì?" — câu liệt kê, nhưng bộ chip trộn
+    // một chip GÓI ("Tham gia và cập nhật kết quả") với một chip CHỐT HẠ ("Tất cả các việc trên"). Chính
+    // chip chốt hạ là dấu hiệu model đang nghĩ theo kiểu chọn-một cho một câu hỏi vốn không chọn-một.
+    [Fact]
+    public void Normalize_ResponsibilityListWithAllOfTheAboveChip_BecomesAnOpenQuestion()
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Trong ứng dụng, Nhân viên sẽ chịu trách nhiệm thực hiện những việc gì?",
+            Suggestions = new List<string>
+            {
+                "Xem khóa học được giao",
+                "Đăng ký khóa tự chọn",
+                "Tham gia và cập nhật kết quả",
+                "Tất cả các việc trên"
+            }
+        });
+
+        Assert.False(reply.MultiSelect);
+        Assert.True(reply.OpenEnded);
+        Assert.Empty(reply.Suggestions);
+    }
+
+    // Cùng câu hỏi đó với chip đã viết nguyên tử: chip chốt hạ bị xoá (tích hết các ô ĐÃ là "tất cả"),
+    // phần còn lại lên chọn nhiều — đây là màn hình đúng mà ca trên đang nhắm tới.
+    [Fact]
+    public void Normalize_AtomicChipsPlusAnAllOfTheAboveChip_DropsItAndEnablesMultiSelect()
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Trong ứng dụng, Nhân viên sẽ chịu trách nhiệm thực hiện những việc gì?",
+            Suggestions = new List<string>
+            {
+                "Xem khóa học được giao",
+                "Đăng ký khóa tự chọn",
+                "Tham gia lớp",
+                "Cập nhật kết quả học",
+                "Tất cả các việc trên"
+            }
+        });
+
+        Assert.True(reply.MultiSelect);
+        Assert.False(reply.OpenEnded);
         Assert.Equal(4, reply.Suggestions.Count);
+        Assert.DoesNotContain("Tất cả các việc trên", reply.Suggestions);
+    }
+
+    // Chip chốt hạ nhận diện bằng CẢ HAI đầu: mở đầu chỉ toàn thể VÀ kết bằng tham chiếu ngược. Hai test
+    // dưới đây khoá đúng hai kiểu xoá nhầm mà việc chỉ xét một đầu sẽ gây ra.
+    [Fact]
+    public void Normalize_ChipEndingInABackReferenceWord_IsARealRoleAndSurvives()
+    {
+        var reply = _parser.Normalize(Single(true, "Nhân viên", "HR – Đào tạo", "Cấp trên"));
+
+        Assert.True(reply.MultiSelect);
+        Assert.Contains("Cấp trên", reply.Suggestions);
+    }
+
+    // "Tất cả nhân viên nhà máy" mở đầu bằng "tất cả" nhưng là một nhóm người có thật, không tự tham chiếu
+    // ⇒ không được xoá. Nó vẫn là chip LOẠI TRỪ nên bộ chip sai hình dạng và câu chuyển sang mở — mất cả
+    // hàng chip thì rõ ràng, còn lặng lẽ nuốt đúng một chip mới là kiểu hỏng không ai phát hiện được.
+    [Fact]
+    public void Normalize_TotalityChipThatIsARealGroup_IsNeverSilentlyDropped()
+    {
+        var reply = _parser.Normalize(Single(true, "Nhân viên", "HR – Đào tạo", "Tất cả nhân viên nhà máy"));
+
+        Assert.True(reply.OpenEnded);
+        Assert.Empty(reply.Suggestions);
     }
 
     [Fact]
@@ -71,6 +154,9 @@ public class BAChatSuggestionShapeTests
         Assert.True(reply.MultiSelect);
     }
 
+    // Một chip sai hình dạng là đủ để cả bộ hỏng: ở câu liệt kê thì không có cách render nào đúng, nên
+    // lượt đó thành câu mở. (Chip "Cả hai bên trên" KHÔNG nằm ở đây — nó tự tham chiếu nên bị xoá rồi
+    // phần còn lại vẫn dùng được; xem test chip chốt hạ ở trên.)
     [Theory]
     // (1) chip LOẠI TRỪ: tự nó bao hàm hoặc phủ định phần còn lại.
     [InlineData("Chỉ bộ phận HR")]
@@ -78,15 +164,15 @@ public class BAChatSuggestionShapeTests
     [InlineData("Không cần thông báo cho ai")]
     // (2) chip KHÔNG TỰ ĐỨNG: chỉ có nghĩa khi đọc kèm chip khác.
     [InlineData("Thêm HoD phòng ban")]
-    [InlineData("Cả hai bên trên")]
     // (3) chip GÓI: nêu từ hai thứ trở lên trong một dòng.
     [InlineData("Nhân viên và HoD")]
     [InlineData("Nhân viên, HR")]
-    public void Normalize_AnySingleOffendingChip_DowngradesTheWholeSet(string offending)
+    public void Normalize_EnumerationQuestion_AnySingleOffendingChip_BecomesAnOpenQuestion(string offending)
     {
         var reply = _parser.Normalize(Single(true, "Nhân viên", "HR – Đào tạo", offending));
 
         Assert.False(reply.MultiSelect);
+        Assert.True(reply.OpenEnded);
     }
 
     // Dấu "/" thường là một cái TÊN ("HR/đào tạo", "TEF3.3/LL06"), không phải liệt kê hai thứ.
@@ -98,14 +184,47 @@ public class BAChatSuggestionShapeTests
         Assert.True(reply.MultiSelect);
     }
 
-    // Guard chỉ HẠ, không bao giờ NÂNG: BA để multiSelect=false có thể là cố ý (muốn người dùng chọn ra
-    // đúng một phương án quan trọng nhất). Tự bật lên là parser tự quyết thay BA.
+    // Model QUÊN cờ ở một câu liệt kê là ca hỏng phổ biến nhất, và cũng là ca đẻ ra chip chốt hạ. Câu hỏi
+    // đã nói rõ đáp án là một danh sách còn chip thì nguyên tử-rời nhau: hai tín hiệu độc lập cùng chỉ một
+    // hướng, mạnh hơn một cờ bị bỏ trống, nên bật. Ở bộ chip nguyên tử, mọi tổ hợp tích đều có nghĩa —
+    // bật nhầm không sinh ra được câu trả lời tự mâu thuẫn nào.
     [Fact]
-    public void Normalize_AtomicChipsWithoutTheFlag_StaySingleSelect()
+    public void Normalize_EnumerationQuestionWithAtomicChips_EnablesMultiSelectEvenWithoutTheFlag()
     {
         var reply = _parser.Normalize(Single(false, "Nhân viên", "Manager orgUnit", "HoD phòng ban"));
 
+        Assert.True(reply.MultiSelect);
+    }
+
+    // Ngược lại, câu KHÔNG phải liệt kê vẫn để BA toàn quyền: chọn-một trên một bộ chip nguyên tử là một
+    // phán đoán nghiệp vụ hợp lệ (bắt người dùng chốt đúng một phương án), không phải lỗi cần chữa.
+    [Fact]
+    public void Normalize_NonEnumerationQuestionWithAtomicChips_HonoursTheFlag()
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Nếu đơn bị quản lý từ chối thì tiếp theo xử lý thế nào?",
+            Suggestions = new List<string> { "Nhân viên sửa rồi gửi lại", "Hủy hẳn đơn", "Chuyển cấp cao hơn duyệt" }
+        });
+
         Assert.False(reply.MultiSelect);
+        Assert.False(reply.OpenEnded);
+        Assert.Equal(3, reply.Suggestions.Count);
+    }
+
+    // Câu ép chọn ĐÚNG MỘT vẫn mang dạng số nhiều ("trong những … nào phù hợp nhất?"). Bắt nhầm nó thành
+    // câu liệt kê là phá đúng cái nhịp chốt phương án mà BA đang cần.
+    [Fact]
+    public void Normalize_PluralPhrasedButSinglePickQuestion_IsNotTreatedAsEnumeration()
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Trong những cách sau, cách nào phù hợp nhất với anh/chị?",
+            Suggestions = new List<string> { "Nhập tay trên web", "Nhập từ file Excel", "Đồng bộ từ SAP" }
+        });
+
+        Assert.False(reply.MultiSelect);
+        Assert.False(reply.OpenEnded);
     }
 
     // Một chip thì không có gì để "chọn nhiều".
@@ -158,5 +277,38 @@ public class BAChatSuggestionShapeTests
 
         Assert.False(reply.Questions[0].MultiSelect);
         Assert.True(reply.Questions[1].MultiSelect);
+    }
+
+    // Cả hai nhánh mới cũng phải sống ở lượt gộp, nếu không thì đúng cùng một lỗi lại lọt qua đường kia.
+    [Fact]
+    public void Normalize_BatchTurn_AppliesTheQuestionDrivenShapeToEachRow()
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Mình hỏi nhanh mấy điểm sau nhé:",
+            Questions = new List<BAChatQuestion>
+            {
+                // Chip chốt hạ bị xoá, phần còn lại lên chọn nhiều dù model không đặt cờ.
+                new()
+                {
+                    Question = "Nhân viên chịu trách nhiệm những việc gì?",
+                    Suggestions = new List<string> { "Xem khóa học được giao", "Đăng ký khóa tự chọn", "Tất cả các việc trên" }
+                },
+                // Chip gói ở câu liệt kê ⇒ bỏ chip, dòng này thành câu mở.
+                new()
+                {
+                    Question = "Cần theo dõi những chỉ số nào?",
+                    Suggestions = new List<string> { "Tỉ lệ hoàn thành và chi phí", "Chỉ số hài lòng" },
+                    MultiSelect = true
+                }
+            }
+        });
+
+        Assert.True(reply.Questions[0].MultiSelect);
+        Assert.Equal(2, reply.Questions[0].Suggestions.Count);
+        Assert.DoesNotContain("Tất cả các việc trên", reply.Questions[0].Suggestions);
+
+        Assert.True(reply.Questions[1].OpenEnded);
+        Assert.Empty(reply.Questions[1].Suggestions);
     }
 }
