@@ -233,6 +233,61 @@ public static class EvalScenariosSeedData
             - suggestions dạng chốt đúng/sai, 2–3 mục (vd "Đúng rồi" / "Không, tính khác"); multiSelect = false.
             """);
 
+        // Hai scenario dưới đây đo cùng một ca hỏng thật: khối ranh giới phạm vi (hằng số của sản phẩm,
+        // OrganizationContextService đính vào MỌI lời gọi BA) bị BA đối xử như lời người dùng — trước là
+        // chèn "Đồng Nai" vào câu "mình ghi nhận", sau là đem chính câu đó ra chất vấn người dùng như một
+        // mâu thuẫn. UserInput vì vậy phải mang theo khối ranh giới đúng như runtime đính kèm.
+        Add(
+            "Chat BA — 'tất cả nhân viên Bosch' KHÔNG phải mâu thuẫn với ranh giới nhà máy",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Ranh giới phạm vi (BẮT BUỘC — áp cho câu hỏi, phương án gợi ý và tài liệu)
+
+            Mọi ứng dụng khai thác ở đây phục vụ DUY NHẤT nhà máy Bosch tại Đồng Nai, Việt Nam. Đây là điều ĐÃ CHỐT của sản phẩm, không phải điểm cần người dùng xác nhận: đừng hỏi ứng dụng có dùng cho nơi khác không. Phạm vi rộng nhất có thể của một ứng dụng là toàn nhà máy Đồng Nai.
+
+            ## Điều đã chốt
+            - Ứng dụng lập kế hoạch các lớp học cả năm và đánh giá kết quả học tập của nhân viên
+            - Gồm cả khóa học bắt buộc và khóa học tùy chọn
+
+            Hội thoại trước đó:
+            BA: Anh/chị cho mình biết những vai trò nào sẽ sử dụng ứng dụng và trách nhiệm chính của từng vai trò là gì?
+            Người dùng: Cứ mỗi đầu năm, các bạn có role Assistant trong phòng HR sẽ nhận được file excel chứa thông tin tất cả nhân viên trong Bosch cùng các khóa học mà tất cả nhân viên đó phải học trong năm. Đầu tiên Assistant sẽ tạo 1 project mới và upload file excel đó vào trang Master List, bước tiếp theo là qua trang Training Plan để tạo 1 version plan, rồi click vào plan để vào trang Training Plan detail — trang này dựa vào data từ master list để gợi ý số lớp cần mở cho mỗi khóa học, assistant xem hợp lý chưa, có thể chỉnh sửa lại, và sau đó chia chi tiết ra số lớp đó cần mở vào các tháng nào trong năm cho phù hợp, rồi bấm button generate training implement để sang trang training implement xem chi tiết lớp (dạy ngày nào, phòng nào, ai dạy, ngôn ngữ, dạy trong bao lâu, mã lớp học, link đăng ký). Làm xong training implement thì assistant submit lên cho HoD của phòng HR duyệt kế hoạch cho quý đó; HoD HR duyệt thì các lớp available và nhân viên click link đăng ký, HoD HR reject thì assistant phải làm lại. Nhân viên click link đăng ký thì ticket ở trạng thái pending, cần manager trực tiếp của nhân viên đó approve thì ticket mới chuyển qua enroll; mỗi lớp đều có min-max học viên nên khi manager approve, lớp chưa đầy thì ticket thành enroll, lớp đầy rồi thì ticket chuyển qua waitlist và admin xem xét để chuyển qua enroll hay reject. Manager cũng có thể reject ticket nếu muốn.
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - TUYỆT ĐỐI KHÔNG hỏi xác nhận phạm vi áp dụng. Người dùng nói "tất cả nhân viên trong Bosch" mà không gọi tên nơi nào khác ⇒ hiểu là toàn nhà máy Đồng Nai, ghi nhận và đi tiếp.
+            - KHÔNG được dựng câu kiểu "anh/chị vừa mô tả tất cả nhân viên Bosch, trong khi phạm vi đang được ghi nhận là nhà máy Đồng Nai — phạm vi nào đúng?": ranh giới phạm vi là hằng số của sản phẩm, không phải một vế mâu thuẫn do người dùng nói ra.
+            - KHÔNG đưa ra bất kỳ phương án phạm vi nào vượt khỏi nhà máy ("Toàn Bosch Việt Nam", "Các nhà máy Bosch khác", "Toàn tập đoàn"…), dù trong message hay trong suggestions.
+            - message PHẢI ghi nhận lại điều người dùng vừa kể (các vai trò Assistant HR / HoD HR / manager trực tiếp / admin / nhân viên, hoặc các bước chính của luồng) trước khi hỏi tiếp — không được bỏ trắng câu trả lời dài vừa nhận.
+            - Lượt này phải ĐI TỚI: hoặc chốt luồng ticket bằng MỘT kịch bản cụ thể (pending → manager approve → enroll nếu còn chỗ / waitlist nếu đầy → admin xét) để xin xác nhận, hoặc hỏi một điểm còn mờ khác. Không quay lại hỏi vai trò.
+            - suggestions 2–5 mục ngắn, sát câu hỏi thật sự được đặt ra.
+            """);
+
+        Add(
+            "Chat BA — câu 'mình ghi nhận' không được chèn dữ kiện từ khối ngữ cảnh hệ thống",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Ranh giới phạm vi (BẮT BUỘC — áp cho câu hỏi, phương án gợi ý và tài liệu)
+
+            Mọi ứng dụng khai thác ở đây phục vụ DUY NHẤT nhà máy Bosch tại Đồng Nai, Việt Nam. Đây là điều ĐÃ CHỐT của sản phẩm, không phải điểm cần người dùng xác nhận: đừng hỏi ứng dụng có dùng cho nơi khác không.
+
+            ## Bối cảnh tổ chức Bosch
+            - Department HcP/HRL — Human Resources Learning (HoD: Nguyễn Văn A), 3 orgUnit trực thuộc, 24 nhân sự.
+            - Department HcP/MFG1 — Manufacturing 1, 7 orgUnit trực thuộc, 410 nhân sự.
+
+            Hội thoại trước đó:
+            BA: Anh/chị cứ kể thoải mái một mạch mọi điều đang hình dung về ứng dụng.
+            Người dùng: Đây là app để lên kế hoạch các lớp học cần tổ chức và đánh giá kết quả học tập của tất cả nhân viên Bosch trong 1 năm, bao gồm cả khóa học bắt buộc và khóa học tùy chọn.
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - Nếu message có câu ghi nhận, câu đó chỉ được chứa điều người dùng THẬT SỰ đã nói (lập kế hoạch lớp học cả năm, đánh giá kết quả học tập, khóa bắt buộc + khóa tùy chọn).
+            - TUYỆT ĐỐI KHÔNG gán cho người dùng những dữ kiện chỉ có trong khối ngữ cảnh hệ thống: không viết "mình ghi nhận … nhân viên Bosch Đồng Nai", "… tại nhà máy Đồng Nai", không nhét tên department (HcP/HRL, HcP/MFG1) vào phần phát lại như thể họ đã nêu.
+            - KHÔNG hỏi ứng dụng có dùng cho nơi khác ngoài nhà máy không, và KHÔNG đưa phương án phạm vi vượt nhà máy vào suggestions.
+            - Hỏi tiếp ĐÚNG MỘT câu ở góc nhìn nghiệp vụ, nhắm nhóm ★ chưa khai thác (vd ai dùng và vai trò của họ, hoặc hiện tại việc này đang làm bằng gì).
+            - suggestions 2–5 đáp án ngắn sát câu hỏi đó.
+            """);
+
         // ================= BusinessAnalyst/requirement-coverage.v3.md =================
         // Bản đồ bao phủ là NGUỒN CHÂN LÝ DUY NHẤT của cổng "Write Requirement" (ready suy tất định:
         // mọi dòng áp dụng [RÕ]/[KHÔNG ÁP DỤNG]) nên các scenario phủ cả hai chiều sai: chấm [RÕ] non
