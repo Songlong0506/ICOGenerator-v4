@@ -1,52 +1,132 @@
 @using ICOGenerator.Application.Shared
 @model CommandBarModel
 @{
-    // Command bar dùng chung (mẫu Bosch). Tìm kiếm/sắp xếp chạy client-side qua command-bar.js
-    // trên Model.TargetSelector; nút "Filter" chỉ bật/tắt panel lọc server-side của màn hình.
+    // Command bar dùng chung (mẫu Bosch) — thanh lệnh cấp trang DUY NHẤT của app.
+    //
+    // Bố cục cố định, mọi màn hình như nhau:
+    //   [ bộ lọc · tìm kiếm · Lọc · Xóa lọc ] ⟵ co giãn ⟶ [ nút phụ ] [ NÚT CHÍNH ]
+    //           .cbar-left                                        .cbar-right
+    //
+    // Vùng trái = thu hẹp dữ liệu đang xem. Vùng phải = hành động, nút chính luôn sát mép phải.
+    // Nhờ hai vùng này, thứ tự nút không còn phụ thuộc thứ tự khai báo trong từng view — đó là
+    // nguyên nhân cũ khiến mỗi màn hình một kiểu.
+    //
+    // Tìm kiếm/sắp xếp chạy client-side qua command-bar.js trên Model.TargetSelector; nút "Lọc"
+    // hoặc submit form GET (bộ lọc nội tuyến), hoặc bật/tắt panel lọc server-side của màn hình.
 
     // SVG nội tuyến để ô tìm kiếm vẫn có kính lúp kể cả khi font icon (CDN) không tải được.
     var searchSvg = "<svg width=\"18\" height=\"18\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"7\" cy=\"7\" r=\"4.5\"/><line x1=\"10.5\" y1=\"10.5\" x2=\"14.5\" y2=\"14.5\"/></svg>";
 
-    void RenderButton(CommandBarButton b, string cls, string labelClass)
+    // Nội dung trong nút: icon (nếu có) + nhãn + badge (nếu có). Nhãn luôn bọc <span> để CSS thu
+    // gọn còn mỗi icon trên màn hẹp mà không cần biết nút thuộc loại nào.
+    void RenderButtonInner(CommandBarButton b)
     {
         <text>
-        <button type="button" class="@cls" title="@(b.Title ?? b.Label)" disabled="@b.Disabled" onclick="@b.OnClick" aria-label="@b.Label">
-            @if (b.Icon != null) { <i class="bi @b.Icon" aria-hidden="true"></i> }
-            <span class="@labelClass">@b.Label</span>
-        </button>
+        @if (b.Icon != null)
+        {
+            <i class="bi @b.Icon" aria-hidden="true"></i>
+        }
+        <span class="cbar-label">@b.Label</span>
+        @if (b.Badge != null)
+        {
+            <span class="cbar-badge" title="@b.BadgeTitle">@b.Badge</span>
+        }
+        </text>
+    }
+
+    // Một nút của thanh. `cls` quyết định kiểu dáng theo VỊ TRÍ (cbar-btn = phụ, cbar-primary =
+    // chính), không theo ý riêng của từng màn hình.
+    void RenderButton(CommandBarButton b, string cls)
+    {
+        <text>
+        @if (b.Href != null)
+        {
+            <a class="@cls" id="@b.Id" href="@b.Href" title="@(b.Title ?? b.Label)" aria-label="@b.Label">
+                @{ RenderButtonInner(b); }
+            </a>
+        }
+        else
+        {
+            <button type="button" class="@cls" id="@b.Id" title="@(b.Title ?? b.Label)"
+                    disabled="@b.Disabled" onclick="@b.OnClick" aria-label="@b.Label"
+                    aria-haspopup="@(b.OpensDialog ? "dialog" : null)"
+                    aria-expanded="@(b.OpensDialog ? "false" : null)">
+                @{ RenderButtonInner(b); }
+            </button>
+        }
+        </text>
+    }
+
+    void RenderZones()
+    {
+        <text>
+        <div class="cbar-left">
+            @if (Model.Filters != null)
+            {
+                @Model.Filters(null!)
+            }
+
+            @if (Model.HasSearch)
+            {
+                <label class="cbar-search">
+                    <span class="cbar-search-icon" aria-hidden="true">@Html.Raw(searchSvg)</span>
+                    <input type="search" data-cbar-search placeholder="@Model.SearchPlaceholder" autocomplete="off" aria-label="@Model.SearchPlaceholder" />
+                </label>
+            }
+
+            @* Hai dạng "Lọc": submit form GET (bộ lọc nội tuyến không tự submit) hoặc bật/tắt
+               panel lọc ẩn. Cùng nhãn, cùng icon, cùng chỗ — người dùng không phải học lại. *@
+            @if (Model.ShowApplyFilter)
+            {
+                <button type="submit" class="cbar-btn cbar-btn-accent">
+                    <i class="bi bi-funnel" aria-hidden="true"></i>
+                    <span class="cbar-label">Lọc</span>
+                </button>
+            }
+            else if (Model.FilterPanelId != null)
+            {
+                <button type="button" class="cbar-btn @(Model.FilterPanelOpen ? "open" : "")" data-cbar-filter-toggle="#@Model.FilterPanelId" aria-expanded="@(Model.FilterPanelOpen ? "true" : "false")">
+                    <i class="bi bi-funnel" aria-hidden="true"></i>
+                    <span class="cbar-label">Lọc</span>
+                    @if (Model.FilterActive)
+                    {
+                        <span class="cbar-dot" aria-hidden="true"></span>
+                    }
+                </button>
+            }
+
+            @if (Model.ClearFilterUrl != null)
+            {
+                <a class="cbar-btn" href="@Model.ClearFilterUrl">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    <span class="cbar-label">Xóa lọc</span>
+                </a>
+            }
+        </div>
+
+        <div class="cbar-right">
+            @foreach (var action in Model.Actions)
+            {
+                RenderButton(action, "cbar-btn cbar-btn-outline");
+            }
+            @if (Model.Primary != null)
+            {
+                RenderButton(Model.Primary, "cbar-primary");
+            }
+        </div>
         </text>
     }
 }
 
-<div class="command-bar" data-cbar data-cbar-target="@Model.TargetSelector">
-
-    @if (Model.HasSearch)
-    {
-        <label class="cbar-search">
-            <span class="cbar-search-icon" aria-hidden="true">@Html.Raw(searchSvg)</span>
-            <input type="search" data-cbar-search placeholder="@Model.SearchPlaceholder" autocomplete="off" aria-label="@Model.SearchPlaceholder" />
-        </label>
-    }
-
-    @if (Model.FilterPanelId != null)
-    {
-        <button type="button" class="cbar-btn @(Model.FilterPanelOpen ? "open" : "")" data-cbar-filter-toggle="#@Model.FilterPanelId" aria-expanded="@(Model.FilterPanelOpen ? "true" : "false")">
-            <i class="bi bi-funnel" aria-hidden="true"></i>
-            <span>Filter</span>
-            @if (Model.FilterActive)
-            {
-                <span class="cbar-dot" aria-hidden="true"></span>
-            }
-        </button>
-    }
-
-    @foreach (var pill in Model.Pills)
-    {
-        RenderButton(pill, "cbar-btn", "");
-    }
-
-    @if (Model.Primary != null)
-    {
-        RenderButton(Model.Primary, "cbar-primary", "cbar-primary-label");
-    }
-</div>
+@if (Model.IsForm)
+{
+    <form method="get" action="@Model.FormUrl" class="command-bar" data-cbar data-cbar-target="@Model.TargetSelector">
+        @{ RenderZones(); }
+    </form>
+}
+else
+{
+    <div class="command-bar" data-cbar data-cbar-target="@Model.TargetSelector">
+        @{ RenderZones(); }
+    </div>
+}

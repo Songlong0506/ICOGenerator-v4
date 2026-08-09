@@ -1141,6 +1141,11 @@ input[type="checkbox"], input[type="radio"], input[type="range"], input[type="fi
 
      • Button ......... .btn (+ .primary/.outline/.success/.danger)
                         and dash-aliases .btn-primary / .btn-outline …
+     • Command bar .... .command-bar — thanh lệnh cấp trang. KHÔNG tự dựng
+                        markup: render qua partial Shared/_CommandBar với
+                        CommandBarModel (bộ lọc + tìm kiếm bên trái, nút phụ
+                        rồi đúng MỘT nút chính bên phải). CSS ở command-bar.css.
+                        Hành động cấp trang thuộc về thanh này, không phải .page-head.
      • Table .......... .data-table (wrap with .table-wrap)
      • Datepicker ..... native date/time inputs via the global input
                         rule; lay out with .filter-bar / .filter-field
@@ -1594,7 +1599,6 @@ label.cs-enhanced-hidden + .ms-combo--single { margin-top: 16px; }
 .notif-foot-row { display: flex; border-top: 1px solid var(--line); }
 .notif-foot-row .notif-foot { flex: 1; border-top: none; }
 .notif-foot-row .notif-foot:last-child { flex: 0 0 auto; border-left: 1px solid var(--line); padding-left: 16px; padding-right: 16px; }
-.inbox-actions { display: flex; gap: 10px; align-items: center; }
 
 /* ==== Trang "Checklist BA học được" (Agents/Checklist) ==== */
 

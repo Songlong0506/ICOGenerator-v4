@@ -51,6 +51,26 @@
     </div>
 </div>
 
+@* Command bar chuẩn: năm là bộ lọc của CẢ trang (biểu đồ, tổng chi phí, bảng theo đơn vị) nên nó
+   thuộc về thanh lệnh đầu trang — giống hệt màn Delivery Quality — chứ không nằm lẫn trong đầu
+   một cái card biểu đồ như trước. *@
+@{
+    var usageBar = new CommandBarModel
+    {
+        FormUrl = Url.Action("Index"),
+        Filters = @<div class="cbar-field">
+            <label for="usage-year">Năm</label>
+            <select id="usage-year" name="year" data-caption="Năm" onchange="this.form.submit()" aria-label="Chọn năm">
+                @foreach (var y in Model.AvailableYears)
+                {
+                    <option value="@y" selected="@(Model.SelectedYear == y)">@y</option>
+                }
+            </select>
+        </div>
+    };
+}
+@await Html.PartialAsync("_CommandBar", usageBar)
+
 @if (!Model.HasAnyPricing)
 {
     <div class="pricing-hint">
@@ -71,14 +91,6 @@
             </div>
         </div>
         <div class="chart-tools">
-            <form method="get" asp-controller="Usage" asp-action="Index" class="year-filter">
-                <select id="usage-year" name="year" onchange="this.form.submit()">
-                    @foreach (var y in Model.AvailableYears)
-                    {
-                        <option value="@y" selected="@(Model.SelectedYear == y)">@y</option>
-                    }
-                </select>
-            </form>
             <div class="legend">
                 <span><i class="swatch-prompt"></i>Prompt</span>
                 <span><i class="swatch-completion"></i>Completion</span>

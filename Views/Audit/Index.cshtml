@@ -40,7 +40,10 @@
     TargetSelector = "#auditTable",
     FilterPanelId = "auditFilter",
     FilterPanelOpen = Model.CategoryFilter != null,
-    FilterActive = Model.CategoryFilter != null
+    FilterActive = Model.CategoryFilter != null,
+    // "Xóa lọc" đứng cạnh nút "Lọc" trên thanh như mọi màn hình khác, thay vì nằm trong panel —
+    // trước đây phải mở panel ra mới thấy đường thoát khỏi bộ lọc đang áp dụng.
+    ClearFilterUrl = Model.CategoryFilter != null ? Url.Action("Index") : null
 })
 
 <div id="auditFilter" class="card filter-card cbar-panel">
@@ -55,12 +58,6 @@
                 }
             </select>
         </div>
-        @if (Model.CategoryFilter != null)
-        {
-            <div class="filter-actions">
-                <a class="btn outline" asp-action="Index">Xóa lọc</a>
-            </div>
-        }
     </form>
 </div>
 

@@ -17,19 +17,33 @@
         <h1>Thông báo</h1>
         <p>Các sự kiện cần bạn để mắt tới: cổng chờ duyệt, workflow hoàn tất hoặc thất bại.</p>
     </div>
-    <div class="inbox-actions">
-        <a class="btn" asp-controller="Notifications" asp-action="Preferences"><i class="bi bi-gear"></i> Tùy chọn</a>
-        @if (Model.Items.Any(i => !i.IsRead))
-        {
-            <button type="button" class="btn" id="inboxMarkAll">Đánh dấu tất cả đã đọc</button>
-        }
-    </div>
 </div>
 
+@* Hành động cấp trang ("Tùy chọn", "Đánh dấu tất cả đã đọc") nằm ở vùng phải của command bar
+   như mọi màn hình khác, không còn rải trong .page-head. *@
+@{
+    var notifActions = new List<CommandBarButton>();
+    if (Model.Items.Any(i => !i.IsRead))
+    {
+        notifActions.Add(new CommandBarButton
+        {
+            Label = "Đánh dấu tất cả đã đọc",
+            Icon = "bi-check2-all",
+            Id = "inboxMarkAll"
+        });
+    }
+    notifActions.Add(new CommandBarButton
+    {
+        Label = "Tùy chọn",
+        Icon = "bi-gear",
+        Href = Url.Action("Preferences", "Notifications")
+    });
+}
 @await Html.PartialAsync("_CommandBar", new CommandBarModel
 {
     SearchPlaceholder = "Tìm thông báo…",
-    TargetSelector = "#inboxList"
+    TargetSelector = "#inboxList",
+    Actions = notifActions
 })
 
 <div class="notif-inbox">

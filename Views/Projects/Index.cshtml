@@ -29,11 +29,16 @@
 
     string PageUrl(int targetPage) => BuildUrl(targetPage, Model.PageSize);
 }
-@* Command bar (mẫu Bosch): bộ lọc Org Unit nằm ngay trên thanh, nút "Lọc" áp dụng
-   (form GET nên bộ lọc nằm trong URL — chia sẻ được và giữ nguyên khi phân trang), nút "New
-   Project" mở modal tạo dự án. *@
-<form method="get" asp-controller="Projects" asp-action="Index" class="command-bar cbar-filter-form">
-    <div class="cbar-field">
+@* Command bar chuẩn (Shared/_CommandBar): bộ lọc Org Unit + "Lọc"/"Xóa lọc" ở vùng trái,
+   "New Project" là hành động chính ở vùng phải. Form GET nên bộ lọc nằm trong URL —
+   chia sẻ được và giữ nguyên khi phân trang. *@
+@{
+    var projectsBar = new CommandBarModel
+    {
+        FormUrl = Url.Action("Index"),
+        ShowApplyFilter = true,
+        ClearFilterUrl = hasFilter ? Url.Action("Index") : null,
+        Filters = @<div class="cbar-field">
             @* Combo chọn NHIỀU đơn vị: mỗi lựa chọn là một checkbox name="orgUnit" nằm sẵn trong form GET,
                nên khi bấm "Lọc" toàn bộ mã đã tick được gửi lên (mảng). Không tự submit theo từng tick để
                người dùng chọn xong nhiều đơn vị rồi mới lọc. UI (nút, panel, tìm kiếm, chọn tất cả) do JS lái.
@@ -75,23 +80,11 @@
                     <div class="ms-combo-empty hidden" data-ms-empty>Không tìm thấy đơn vị</div>
                 </div>
             </div>
-        </div>
-    <button type="submit" class="cbar-btn emphasize">
-        <i class="bi bi-funnel" aria-hidden="true"></i>
-        <span>Lọc</span>
-    </button>
-    @if (hasFilter)
-    {
-        <a class="cbar-btn" asp-controller="Projects" asp-action="Index">
-            <i class="bi bi-x-lg" aria-hidden="true"></i>
-            <span>Xóa lọc</span>
-        </a>
-    }
-    <button type="button" class="cbar-primary" onclick="openModal('newProject')" title="New Project" aria-label="New Project">
-        <i class="bi bi-plus-lg" aria-hidden="true"></i>
-        <span class="cbar-primary-label">New Project</span>
-    </button>
-</form>
+        </div>,
+        Primary = new CommandBarButton { Label = "New Project", Icon = "bi-plus-lg", OnClick = "openModal('newProject')" }
+    };
+}
+@await Html.PartialAsync("_CommandBar", projectsBar)
 @{
     // Quyền sửa dự án tra MỘT LẦN cho cả trang (dùng ở từng dòng và ở modal bên dưới) thay vì mỗi dòng
     // một lượt gọi. Cấp quyền ở màn hình Roles & Permissions; ngoài ra ProjectsController.Update còn qua

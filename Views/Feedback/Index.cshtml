@@ -67,36 +67,39 @@
         @{
             var fbHasFilter = Model.StatusFilter != null || Model.TypeFilter != null;
         }
-        @* Command bar (mẫu Bosch): lọc phản hồi theo Loại + Trạng thái (form GET, tự submit khi đổi). *@
-        <form asp-action="Index" method="get" class="command-bar cbar-filter-form">
-            <div class="cbar-field">
-                <label for="fb-filter-type">Loại</label>
-                <select id="fb-filter-type" name="type" data-caption="Loại" onchange="this.form.submit()">
-                    <option value="">Tất cả loại</option>
-                    @foreach (var t in Enum.GetValues<FeedbackType>())
-                    {
-                        <option value="@t" selected="@(Model.TypeFilter == t)">@t.GetTitle()</option>
-                    }
-                </select>
-            </div>
-            <div class="cbar-field">
-                <label for="fb-filter-status">Trạng thái</label>
-                <select id="fb-filter-status" name="status" data-caption="Trạng thái" onchange="this.form.submit()">
-                    <option value="">Tất cả trạng thái</option>
-                    @foreach (var s in Enum.GetValues<FeedbackStatus>())
-                    {
-                        <option value="@s" selected="@(Model.StatusFilter == s)">@s.GetTitle()</option>
-                    }
-                </select>
-            </div>
-            @if (fbHasFilter)
+        @* Command bar chuẩn: lọc phản hồi theo Loại + Trạng thái (form GET, tự submit khi đổi)
+           nên không cần nút "Lọc"; màn hình này không có hành động cấp trang. *@
+        @{
+            var feedbackBar = new CommandBarModel
             {
-                <a class="cbar-btn" asp-action="Index">
-                    <i class="bi bi-x-lg" aria-hidden="true"></i>
-                    <span>Xóa lọc</span>
-                </a>
-            }
-        </form>
+                FormUrl = Url.Action("Index"),
+                ClearFilterUrl = fbHasFilter ? Url.Action("Index") : null,
+                Filters =
+                    @<text>
+                        <div class="cbar-field">
+                            <label for="fb-filter-type">Loại</label>
+                            <select id="fb-filter-type" name="type" data-caption="Loại" onchange="this.form.submit()">
+                                <option value="">Tất cả loại</option>
+                                @foreach (var t in Enum.GetValues<FeedbackType>())
+                                {
+                                    <option value="@t" selected="@(Model.TypeFilter == t)">@t.GetTitle()</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="cbar-field">
+                            <label for="fb-filter-status">Trạng thái</label>
+                            <select id="fb-filter-status" name="status" data-caption="Trạng thái" onchange="this.form.submit()">
+                                <option value="">Tất cả trạng thái</option>
+                                @foreach (var s in Enum.GetValues<FeedbackStatus>())
+                                {
+                                    <option value="@s" selected="@(Model.StatusFilter == s)">@s.GetTitle()</option>
+                                }
+                            </select>
+                        </div>
+                    </text>
+            };
+        }
+        @await Html.PartialAsync("_CommandBar", feedbackBar)
 
         @if (Model.Items.Count == 0)
         {

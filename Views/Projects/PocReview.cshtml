@@ -98,34 +98,37 @@
     </div>;
 }
 
-@* Command bar (mẫu Bosch): chỗ đứng của các hành động CẤP TRANG. "Chia sẻ bản demo" nằm ở đây thay vì
+@* Command bar chuẩn: chỗ đứng của các hành động CẤP TRANG. "Chia sẻ bản demo" nằm ở đây thay vì
    trong cột ghi chú bên phải — mời người khác vào xem là việc của người chủ trì buổi review, không phải
    một mục để đọc lướt khi đang soát ghi chú, và trước đây nó bị chôn giữa các panel gập nên gần như
    không ai thấy. Bấm nút mở hộp thoại; mỗi nút soi quyền riêng của nó nên thanh hiện khi có ít nhất một. *@
 @if (canManageRequirements || showTechButton)
 {
-    <div class="command-bar poc-command-bar">
-        @if (showTechButton)
+    var pocActions = new List<CommandBarButton>();
+    if (showTechButton)
+    {
+        var openIssueCount = Model.Verification is { } headVerif && headVerif.OpenIssues.Any()
+            ? headVerif.OpenIssues.Count.ToString()
+            : null;
+        pocActions.Add(new CommandBarButton
         {
-            <button type="button" class="cbar-btn" id="pocTechOpen"
-                    aria-haspopup="dialog" aria-expanded="false"
-                    title="Kết quả tự kiểm của hệ thống và đối chiếu spec — dành cho đội delivery">
-                <i class="bi bi-wrench-adjustable" aria-hidden="true"></i>
-                Chi tiết kỹ thuật
-                @if (Model.Verification is { } headVerif && headVerif.OpenIssues.Any())
-                {
-                    <span class="poc-tech-badge" title="Số điểm máy báo chưa đạt">@headVerif.OpenIssues.Count</span>
-                }
-            </button>
-        }
-        @if (canManageRequirements)
-        {
-            <button type="button" class="cbar-primary" id="pocShareOpen" title="Chia sẻ bản demo" aria-label="Chia sẻ bản demo">
-                <i class="bi bi-share" aria-hidden="true"></i>
-                <span class="cbar-primary-label">Chia sẻ bản demo</span>
-            </button>
-        }
-    </div>
+            Label = "Chi tiết kỹ thuật",
+            Icon = "bi-wrench-adjustable",
+            Id = "pocTechOpen",
+            OpensDialog = true,
+            Title = "Kết quả tự kiểm của hệ thống và đối chiếu spec — dành cho đội delivery",
+            Badge = openIssueCount,
+            BadgeTitle = "Số điểm máy báo chưa đạt"
+        });
+    }
+
+    @await Html.PartialAsync("_CommandBar", new CommandBarModel
+    {
+        Actions = pocActions,
+        Primary = canManageRequirements
+            ? new CommandBarButton { Label = "Chia sẻ bản demo", Icon = "bi-share", Id = "pocShareOpen" }
+            : null
+    })
 }
 
 <div class="poc-review-layout"

@@ -66,28 +66,10 @@
     gap: 22px;
 }
 
-.year-filter {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+/* Bộ chọn năm đã chuyển lên command bar đầu trang (Shared/_CommandBar) nên không còn style riêng
+   ở đây; .chart-tools giờ chỉ còn chú giải màu của biểu đồ. */
 
-    .year-filter label {
-        color: var(--muted);
-        font-weight: 700;
-        font-size: 13px;
-    }
-
-    /* Border / focus come from the shared input styling in site.css;
-       only the compact year-picker sizing lives here. */
-    .year-filter select {
-        padding: 6px 10px;
-        font-weight: 700;
-        font-size: 13px;
-        cursor: pointer;
-    }
-
-/* Nút toggle Org Unit / Department ở bảng "Usage by department" — gọn, cùng cỡ với year-picker. */
+/* Nút toggle Org Unit / Department ở bảng "Usage by department" — gọn, cùng cỡ với các nút nhỏ khác. */
 .dept-toggle {
     padding: 7px 14px;
     font-size: 13px;

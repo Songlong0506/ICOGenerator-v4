@@ -74,7 +74,7 @@
 {
     SearchPlaceholder = "Tìm scenario…",
     TargetSelector = "#evalScenarios",
-    Pills = canManage
+    Actions = canManage
         ? new[] { new CommandBarButton { Label = "Scenario", Icon = "bi-plus-lg", OnClick = "openCreateScenario()" } }
         : Array.Empty<CommandBarButton>(),
     Primary = canManage
