@@ -31,7 +31,7 @@ public class AesApiKeyProtector : IApiKeyProtector
         _key = SHA256.HashData(Encoding.UTF8.GetBytes(secret));
     }
 
-    public bool IsProtected(string? value) =>
+    private static bool IsProtected(string? value) =>
         !string.IsNullOrEmpty(value) && value.StartsWith(Prefix, StringComparison.Ordinal);
 
     public string Protect(string? plainText)

@@ -217,6 +217,5 @@ public class OrganizationContextServiceTests : IDisposable
     {
         public string Protect(string? plainText) => plainText ?? string.Empty;
         public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-        public bool IsProtected(string? value) => false;
     }
 }

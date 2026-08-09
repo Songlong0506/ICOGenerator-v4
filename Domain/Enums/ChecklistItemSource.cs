@@ -10,11 +10,5 @@ public enum ChecklistItemSource
     Conversation = 0,
 
     /// <summary>Rút từ ghi chú người dùng ghim trên POC và đã gửi cho Developer sửa (PocFeedbackMemoryService).</summary>
-    PocFeedback = 1,
-
-    /// <summary>
-    /// Nhập từ blob text cũ (thời checklist còn là một đoạn văn bản chung, chưa tách thành từng mục) —
-    /// không truy được bằng chứng gốc nên không có lý do đi kèm. Xem ChecklistLegacyNotesImporter.
-    /// </summary>
-    Legacy = 2
+    PocFeedback = 1
 }

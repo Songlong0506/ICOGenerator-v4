@@ -3,8 +3,7 @@ using ICOGenerator.Domain.Enums;
 namespace ICOGenerator.Domain;
 
 /// <summary>
-/// MỘT mục trong "checklist BA học được" — đơn vị lưu trữ thật của bộ nhớ này, thay cho blob text cũ
-/// (<see cref="Agent.LearnedChecklistNotes"/> / <see cref="AgentDomainChecklistNote"/>).
+/// MỘT mục trong "checklist BA học được" — đơn vị lưu trữ thật của bộ nhớ này.
 ///
 /// <para>
 /// Vì sao phải tách thành từng dòng: blob cũ được LLM VIẾT LẠI TOÀN BỘ sau mỗi vòng harvest, nên không
@@ -34,7 +33,7 @@ public class AgentChecklistItem
     /// <summary>
     /// Vì sao rút ra được bài học này (một câu, do vòng harvest ghi). Chỉ hiển thị trên trang quản trị,
     /// KHÔNG bao giờ đi vào prompt — nếu nhồi chung vào text thì mỗi lượt chat của mọi dự án cùng bucket
-    /// phải trả token cho phần chỉ con người cần đọc. null với mục nhập từ blob cũ.
+    /// phải trả token cho phần chỉ con người cần đọc. null khi vòng harvest không nêu được lý do.
     /// </summary>
     public string? Rationale { get; set; }
 
@@ -43,7 +42,7 @@ public class AgentChecklistItem
 
     public ChecklistItemSource SourceKind { get; set; } = ChecklistItemSource.Conversation;
 
-    /// <summary>Dự án đã sinh ra bài học này — null khi dự án đã bị xóa hoặc mục đến từ blob cũ.</summary>
+    /// <summary>Dự án đã sinh ra bài học này — null khi dự án đã bị xóa.</summary>
     public Guid? SourceProjectId { get; set; }
 
     public ChecklistItemStatus Status { get; set; } = ChecklistItemStatus.Active;

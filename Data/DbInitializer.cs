@@ -21,14 +21,9 @@ public static class DbInitializer
         else
             await db.Database.EnsureCreatedAsync();
 
-        // Checklist học được của BA đã chuyển từ blob text sang từng dòng AgentChecklistItem — nhập nốt
-        // dữ liệu các bản cài cũ (một lần; nguồn bị xóa sau khi nhập nên lần sau là no-op).
-        await scope.ServiceProvider.GetRequiredService<Services.Requirements.ChecklistLegacyNotesImporter>().ImportAsync();
-
         await RecoverOrphanedTasksAsync(db);
         await SeedUsersAsync(db);
         await SeedRolePermissionsAsync(db);
-        await BackfillSuperAdminAsync(db);
         await SeedOrgUnitsAndAssociatesAsync(db);
         await SeedEvalScenariosAsync(db);
 
@@ -139,38 +134,6 @@ public static class DbInitializer
 
 
         await db.SaveChangesAsync();
-    }
-
-    // Nâng cấp DB đã có dữ liệu (bảng AppUser/RolePermission không còn trống nên hai hàm seed ở trên bỏ qua):
-    // trước đây Admin là implicit-all nên KHÔNG có dòng RolePermission nào, và chưa hề có role SuperAdmin.
-    // Sau khi Admin chuyển sang "cấu hình được", nếu không xử lý thì Admin sẽ mất sạch quyền và không còn tài
-    // khoản toàn quyền. Backfill idempotent (chạy mỗi lần khởi động, an toàn khi lặp):
-    //  1) Chưa có user SuperAdmin ⇒ tạo 'superadmin' (luôn có một tài khoản toàn quyền không thể tự khóa).
-    //  2) Admin chưa có dòng quyền nào ⇒ cấp TOÀN BỘ quyền để giữ đúng hành vi cũ (giờ đã chỉnh được).
-    private static async Task BackfillSuperAdminAsync(AppDbContext db)
-    {
-        var changed = false;
-
-        if (!await db.AppUserRoles.AnyAsync(r => r.Role == UserRole.SuperAdmin))
-        {
-            db.AppUsers.Add(new AppUser
-            {
-                Username = "superadmin",
-                DisplayName = "Super Administrator",
-                Roles = { new AppUserRole { Role = UserRole.SuperAdmin } }
-            });
-            changed = true;
-        }
-
-        if (await db.AppUsers.AnyAsync() && !await db.RolePermissions.AnyAsync(x => x.Role == UserRole.Admin))
-        {
-            foreach (var permission in PermissionCatalog.AllPermissions)
-                db.RolePermissions.Add(new RolePermission { Role = UserRole.Admin, Permission = permission });
-            changed = true;
-        }
-
-        if (changed)
-            await db.SaveChangesAsync();
     }
 
     // Số lần một task được phép chạy lại sau khi bị gián đoạn bởi restart trước khi bị coi là Failed,

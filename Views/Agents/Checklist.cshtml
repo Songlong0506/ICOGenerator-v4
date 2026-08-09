@@ -107,7 +107,7 @@
                         }
                         else
                         {
-                            <div class="muted">Nhập từ checklist cũ — bản trước chưa lưu lý do rút ra.</div>
+                            <div class="muted">Chưa ghi lại lý do rút ra bài học này.</div>
                         }
 
                         @if (!string.IsNullOrWhiteSpace(item.Evidence))
@@ -117,12 +117,9 @@
 
                         <div class="checklist-item-meta">
                             <span class="checklist-tag">
-                                @(item.SourceKind switch
-                                {
-                                    ChecklistItemSource.Conversation => "từ hội thoại phỏng vấn",
-                                    ChecklistItemSource.PocFeedback => "từ ghi chú trên POC",
-                                    _ => "từ checklist cũ"
-                                })
+                                @(item.SourceKind == ChecklistItemSource.PocFeedback
+                                    ? "từ ghi chú trên POC"
+                                    : "từ hội thoại phỏng vấn")
                             </span>
                             @if (item.SourceProjectId.HasValue && item.SourceProjectName != null)
                             {

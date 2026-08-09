@@ -56,13 +56,6 @@ public enum AppPermission
     [Description("Manage scenarios & run evals (consumes real tokens)")]
     EvalManage,
 
-    // Đã nghỉ hưu: Prompt Studio gộp vào màn hình Agents, quyền đi theo AgentsView/AgentsManage.
-    // GIỮ giá trị (quyền lưu DB dạng chuỗi tên enum) để không "mồ côi" bản ghi cũ; không còn code nào đọc.
-    [Description("(Merged into Agents) View prompt")]
-    PromptView,
-    [Description("(Merged into Agents) Edit/activate/rollback prompt version")]
-    PromptManage,
-
     [Description("Read")]
     SettingsView,
     [Description("Update")]

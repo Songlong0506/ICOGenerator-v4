@@ -6,7 +6,6 @@ using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
@@ -197,49 +196,6 @@ public class ChecklistNoteStoreTests : IDisposable
         Assert.True(blockedAt > context.IndexOf("đã bị loại", StringComparison.Ordinal));
     }
 
-    // ==== Nhập dữ liệu từ kho blob cũ ====
-
-    [Fact]
-    public async Task LegacyImporter_MovesBothBucketsIntoItems_AndIsIdempotent()
-    {
-        await using (var seed = NewDb())
-        {
-            var ba = await seed.Agents.SingleAsync();
-            ba.LearnedChecklistNotes = "- Hỏi kỹ vòng đời dữ liệu cũ.\n\n- Hỏi về sao lưu.";
-            seed.AgentDomainChecklistNotes.Add(new AgentDomainChecklistNote
-            {
-                AgentId = ba.Id,
-                DomainKey = "leave-management",
-                Notes = "Checklist nghỉ phép:\n- Hỏi ai duyệt khi quản lý nghỉ."
-            });
-            await seed.SaveChangesAsync();
-        }
-
-        await using (var db = NewDb())
-        {
-            Assert.Equal(3, await NewImporter(db).ImportAsync());
-        }
-
-        var items = await NewDb().AgentChecklistItems.OrderBy(x => x.CreatedAt).ToListAsync();
-        Assert.Equal(3, items.Count);
-        Assert.Equal(2, items.Count(x => x.DomainKey == null));
-        Assert.Equal("Hỏi ai duyệt khi quản lý nghỉ.", items.Single(x => x.DomainKey == "leave-management").Text);
-        // Dòng "Checklist nghỉ phép:" không phải gạch đầu dòng ⇒ không phải một mục checklist.
-        Assert.DoesNotContain(items, x => x.Text.StartsWith("Checklist", StringComparison.Ordinal));
-        Assert.All(items, x => Assert.Equal(ChecklistItemSource.Legacy, x.SourceKind));
-
-        // Nguồn đã bị xóa nên lần khởi động sau là no-op — không nhân đôi bài học.
-        Assert.Null((await NewDb().Agents.SingleAsync()).LearnedChecklistNotes);
-        await using (var db = NewDb())
-        {
-            Assert.Equal(0, await NewImporter(db).ImportAsync());
-        }
-        Assert.Equal(3, await NewDb().AgentChecklistItems.CountAsync());
-    }
-
-    private static ChecklistLegacyNotesImporter NewImporter(AppDbContext db) =>
-        new(db, NullLogger<ChecklistLegacyNotesImporter>.Instance);
-
     private async Task SeedItemsAsync(params (string? DomainKey, string Text, ChecklistItemStatus Status)[] items)
     {
         await using var db = NewDb();
@@ -267,6 +223,5 @@ public class ChecklistNoteStoreTests : IDisposable
     {
         public string Protect(string? plainText) => plainText ?? string.Empty;
         public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-        public bool IsProtected(string? value) => false;
     }
 }

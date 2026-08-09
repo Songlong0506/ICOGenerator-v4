@@ -41,7 +41,7 @@ public class LearnedChecklistTests : IDisposable
             AgentId = _baId,
             DomainKey = null,
             Text = "Hỏi kỹ vòng đời dữ liệu cũ.",
-            SourceKind = ChecklistItemSource.Legacy
+            SourceKind = ChecklistItemSource.Conversation
         });
         db.AgentChecklistItems.Add(new AgentChecklistItem
         {
@@ -215,6 +215,5 @@ public class LearnedChecklistTests : IDisposable
     {
         public string Protect(string? plainText) => plainText ?? string.Empty;
         public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-        public bool IsProtected(string? value) => false;
     }
 }

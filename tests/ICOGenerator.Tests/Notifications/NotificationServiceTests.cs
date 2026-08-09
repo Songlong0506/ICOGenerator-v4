@@ -329,7 +329,6 @@ public class NotificationServiceTests : IDisposable
     {
         public string Protect(string? plainText) => plainText ?? string.Empty;
         public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-        public bool IsProtected(string? value) => false;
     }
 
     // Fake quyền: các role liệt kê được cấp DeliveryAdvance; role khác không có quyền nào.

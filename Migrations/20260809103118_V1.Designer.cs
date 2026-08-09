@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ICOGenerator.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260809100923_V1")]
+    [Migration("20260809103118_V1")]
     partial class V1
     {
         /// <inheritdoc />
@@ -50,9 +50,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("LearnedChecklistNotes")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("RoleKey")
                         .IsRequired()
@@ -174,35 +171,6 @@ namespace ICOGenerator.Migrations
                     b.HasIndex("ProjectId");
 
                     b.ToTable("AgentConversations");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.AgentDomainChecklistNote", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AgentId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("DomainKey")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
-
-                    b.Property<string>("Notes")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AgentId", "DomainKey")
-                        .IsUnique();
-
-                    b.ToTable("AgentDomainChecklistNotes");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.AgentModelCallLog", b =>
@@ -1620,17 +1588,6 @@ namespace ICOGenerator.Migrations
                     b.Navigation("Agent");
 
                     b.Navigation("Project");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.AgentDomainChecklistNote", b =>
-                {
-                    b.HasOne("ICOGenerator.Domain.Agent", "Agent")
-                        .WithMany()
-                        .HasForeignKey("AgentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Agent");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.AgentModelCallLog", b =>

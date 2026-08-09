@@ -39,7 +39,6 @@ public class AppDbContext : DbContext
     public DbSet<PromptTemplateVersion> PromptTemplateVersions => Set<PromptTemplateVersion>();
     public DbSet<PocComment> PocComments => Set<PocComment>();
     public DbSet<PocShareLink> PocShareLinks => Set<PocShareLink>();
-    public DbSet<AgentDomainChecklistNote> AgentDomainChecklistNotes => Set<AgentDomainChecklistNote>();
     public DbSet<AgentChecklistItem> AgentChecklistItems => Set<AgentChecklistItem>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -132,11 +131,6 @@ public class AppDbContext : DbContext
             b.HasOne<Project>().WithMany().HasForeignKey(x => x.SourceProjectId).OnDelete(DeleteBehavior.SetNull);
         });
 
-        // LEGACY (chỉ còn để nhập một lần sang AgentChecklistItem — xem ChecklistLegacyNotesImporter):
-        // checklist học được theo miền dạng blob, mỗi (agent, miền) đúng MỘT bucket.
-        builder.Entity<AgentDomainChecklistNote>().Property(x => x.DomainKey).HasMaxLength(40);
-        builder.Entity<AgentDomainChecklistNote>().HasIndex(x => new { x.AgentId, x.DomainKey }).IsUnique();
-        builder.Entity<AgentDomainChecklistNote>().HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
         builder.Entity<AgentConversation>().HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<AgentConversation>().Property(x => x.Role).HasMaxLength(50);
         // Message = text lượt chat; Suggestions = JSON các chip gợi ý (cũng là nội dung hội thoại). Mã hóa at rest

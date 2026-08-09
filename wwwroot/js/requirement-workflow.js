@@ -19,8 +19,6 @@
         Failed: '#DC2626',
         Canceled: '#64748B',
         WaitingForHuman: '#D97706',
-        Blocked: '#D97706',
-        NeedsReview: '#D97706',
         Retrying: '#2563EB'
     };
 
