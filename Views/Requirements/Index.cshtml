@@ -982,6 +982,15 @@
 
             </div>
 
+            <!-- Băng "đã phục hồi nháp": hiện khi mở lại trang mà còn nội dung gõ dở được lưu tự động
+                 (localStorage, xem requirements.js). Bắt buộc phải nói ra: một ô nhập tự dưng có chữ mà
+                 không giải thích thì người dùng tưởng mình đã gửi rồi, hoặc sợ gửi trùng. Nút bên phải xóa
+                 dứt điểm phần vừa phục hồi. -->
+            <div id="draftRestoredNote" class="draft-restored" hidden role="status">
+                <span class="draft-restored-text"></span>
+                <button type="button" id="draftDiscardBtn" class="btn outline small">Xóa nội dung này</button>
+            </div>
+
             <!-- Khay xem trước ảnh đã đính kèm (chưa gửi): đính kèm/dán/kéo-thả ảnh sẽ hiện thumbnail nhỏ
                  ở đây để user gõ thêm ghi chú vào ô nhập rồi mới bấm gửi. JS (requirements.js) dựng các
                  thumbnail và xử lý xóa từng ảnh; ẩn khi chưa có ảnh nào. -->

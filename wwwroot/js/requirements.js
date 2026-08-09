@@ -247,6 +247,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         batchPanel.hidden = true;
         batchPanel.innerHTML = "";
+
+        // Thẻ không còn trên màn hình ⇒ nháp các ô trả lời của nó cũng hết chỗ để đổ về (đã gửi, hoặc
+        // người dùng chọn đường gõ tay). Giữ lại thì lần mở trang sau nó đổ vào một thẻ hỏi KHÁC.
+        draftBatchClear();
     }
 
     // Các câu ĐÃ có câu trả lời, theo đúng thứ tự hỏi. Câu để trống đơn giản không có mặt — BA hỏi tiếp
@@ -293,6 +297,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             hideBatchQuestions();
             return;
         }
+
+        // Lượt gộp MỚI: các câu hỏi cũ biến mất nên nháp trả lời của chúng cũng phải đi theo.
+        draftBatchClear();
 
         // Rỗng (lượt lỗi giữ bong bóng riêng, hoặc BA trả `message` trống) → rơi về câu dẫn tĩnh: thẻ mở
         // đầu bằng câu hỏi trần thì mất mạch hội thoại.
@@ -348,6 +355,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     answer.focus();
                     answer.setSelectionRange(answer.value.length, answer.value.length);
                     updateBatchSendButton();
+                    draftBatchSaveSoon();
                     return;
                 }
 
@@ -363,6 +371,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     answer.value = choice.dataset.value || "";
                 }
                 updateBatchSendButton();
+                // Chọn bằng chip KHÔNG bắn sự kiện input (giá trị do JS gán) → phải tự hẹn lưu nháp.
+                draftBatchSaveSoon();
                 return;
             }
 
@@ -380,9 +390,290 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         // Ô "Ý khác" đang mở mà rỗng thì câu đó KHÔNG được tính, nên nhãn nút phải nhảy theo từng phím gõ.
         batchPanel.addEventListener("input", function (e) {
-            if (e.target.classList.contains("batchq-answer")) updateBatchSendButton();
+            if (!e.target.classList.contains("batchq-answer")) return;
+            updateBatchSendButton();
+            draftBatchSaveSoon();
         });
     }
+
+    // ==== NHÁP ĐANG GÕ: tự lưu để F5 / mất điện / bấm nhầm không cuốn mất một câu trả lời dài ====
+    // Ở trang này người dùng thường gõ những đoạn RẤT DÀI trong một lượt (cả quy trình nghiệp vụ, ai làm
+    // bước nào, ràng buộc gì…). Trước đây nội dung đó chỉ sống trong DOM: F5, đóng tab nhầm, máy sập hay
+    // một cú bấm vào link là gõ lại từ đầu — và đó đúng là kiểu mất mát khiến người dùng thôi kể chi tiết.
+    // Nháp được ghi vào localStorage theo TỪNG project (nhiều project mở song song không đè nhau) và đổ
+    // lại vào ô nhập khi mở lại trang.
+    //
+    // Vì sao KHÔNG xóa nháp ngay lúc bấm gửi: lượt gửi có thể chết dọc đường (stream đứt trước frame đầu,
+    // rồi postback dự phòng cũng trượt vì mạng rớt) — xóa sớm là mất bản gõ dở đúng vào lúc cần nó nhất.
+    // Nháp chỉ được ĐÁNH DẤU "đã gửi", và bị bỏ khi biết lượt đó tới đích: frame `done` về, hoặc mở lại
+    // trang thấy chính nó đã nằm ở lượt user cuối trong hội thoại.
+    const DRAFT_PREFIX = "req-chat-draft:";
+    const DRAFT_BATCH_PREFIX = "req-batch-draft:";
+    // Debounce ngắn: mỗi phím gõ hẹn lại một lần ghi, nên máy sập bất ngờ (không kịp bắn pagehide) cùng
+    // lắm mất khoảng này chứ không mất cả đoạn.
+    const DRAFT_DEBOUNCE_MS = 400;
+    const DRAFT_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+
+    const draftProjectId = (chatForm.querySelector('input[name="projectId"]') || {}).value || "";
+    const draftKey = DRAFT_PREFIX + draftProjectId;
+    const draftBatchKey = DRAFT_BATCH_PREFIX + draftProjectId;
+
+    // Chế độ riêng tư / storage bị chặn / quota đầy: mọi hàm dưới đây im lặng bỏ qua. Không lưu được nháp
+    // thì cùng lắm quay về hành vi cũ — tuyệt đối không được làm hỏng khung chat.
+    function draftRead(key) {
+        try {
+            const raw = localStorage.getItem(key || draftKey);
+            if (!raw) return null;
+            const obj = JSON.parse(raw);
+            return obj && typeof obj === "object" ? obj : null;
+        } catch { return null; }
+    }
+
+    function draftSave(text) {
+        try {
+            if (!(text || "").trim()) {
+                // Ô nhập rỗng KHÔNG luôn có nghĩa "không còn gì để giữ": ngay sau khi bấm gửi ô nhập được
+                // dọn trắng trong lúc dấu "đã gửi" vẫn phải nằm lại chờ xác nhận lượt tới đích — mà đường
+                // postback dự phòng thì điều hướng trang, kéo theo pagehide → chính hàm này. Chỉ xóa khi
+                // nháp đang giữ là nháp thường (người dùng tự xóa hết chữ).
+                const saved = draftRead();
+                if (!saved || !saved.submitted) localStorage.removeItem(draftKey);
+                return;
+            }
+            localStorage.setItem(draftKey, JSON.stringify({ text, at: Date.now(), submitted: false }));
+        } catch { }
+    }
+
+    function draftClear() {
+        try { localStorage.removeItem(draftKey); } catch { }
+    }
+
+    // Đánh dấu "đã gửi": giữ nguyên nội dung để phục hồi được nếu lượt gửi trượt, nhưng lần mở trang sau
+    // sẽ đối chiếu với hội thoại trước khi đổ lại (xem draftRestore).
+    function draftMarkSubmitted(text) {
+        clearTimeout(draftTimer); // lần ghi đang hẹn sẽ thấy ô nhập rỗng — đừng để nó chạy sau dấu này
+        try {
+            localStorage.setItem(draftKey, JSON.stringify({ text, at: Date.now(), submitted: true }));
+        } catch { }
+    }
+
+    // Lượt gửi đã tới đích (frame `done`) → bỏ dấu "đã gửi". Nếu trong lúc chờ người dùng đã gõ tiếp một
+    // câu MỚI thì autosave đã ghi đè bằng nháp thường (submitted = false) và nháp đó phải sống.
+    function draftClearIfSubmitted() {
+        const saved = draftRead();
+        if (saved && saved.submitted) draftClear();
+    }
+
+    let draftTimer = null;
+    function draftSaveSoon() {
+        clearTimeout(draftTimer);
+        draftTimer = setTimeout(() => draftSave(messageInput.value), DRAFT_DEBOUNCE_MS);
+    }
+
+    function draftFlush() {
+        clearTimeout(draftTimer);
+        draftSave(messageInput.value);
+        draftBatchFlush();
+    }
+
+    // Nháp của THẺ HỎI GỘP: các ô trả lời trên thẻ cũng là chỗ người dùng gõ dài (câu mở có ô 3 dòng mời
+    // "kể chi tiết"), và cũng bay sạch khi F5. Lưu theo map câu-hỏi → câu-trả-lời: thẻ được server render
+    // lại nguyên vẹn sau khi tải trang, nên khớp lại bằng chính nội dung câu hỏi là đủ và không phụ thuộc
+    // thứ tự.
+    function draftBatchAnswers() {
+        if (!batchPanel || batchPanel.hidden) return null;
+        const map = {};
+        batchPanel.querySelectorAll(".batchq-item").forEach(li => {
+            const question = li.dataset.question || "";
+            const box = li.querySelector(".batchq-answer");
+            const value = box ? (box.value || "").trim() : "";
+            if (question && value) map[question] = value;
+        });
+        return map;
+    }
+
+    function draftBatchSave() {
+        const map = draftBatchAnswers();
+        try {
+            if (!map || Object.keys(map).length === 0) {
+                localStorage.removeItem(draftBatchKey);
+                return;
+            }
+            localStorage.setItem(draftBatchKey, JSON.stringify({ at: Date.now(), answers: map }));
+        } catch { }
+    }
+
+    let draftBatchTimer = null;
+    function draftBatchSaveSoon() {
+        clearTimeout(draftBatchTimer);
+        draftBatchTimer = setTimeout(draftBatchSave, DRAFT_DEBOUNCE_MS);
+    }
+
+    function draftBatchFlush() {
+        clearTimeout(draftBatchTimer);
+        draftBatchSave();
+    }
+
+    // Thẻ đã gửi / đã xếp lại / bị thay bằng lượt gộp mới → nháp của thẻ cũ vô nghĩa.
+    function draftBatchClear() {
+        clearTimeout(draftBatchTimer);
+        try { localStorage.removeItem(draftBatchKey); } catch { }
+    }
+
+    // Nháp của các project khác đã quá cũ: dọn để localStorage không phình mãi theo số project từng mở.
+    function draftPruneStale() {
+        try {
+            const dead = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || (k.indexOf(DRAFT_PREFIX) !== 0 && k.indexOf(DRAFT_BATCH_PREFIX) !== 0)) continue;
+                let at = 0;
+                try { at = (JSON.parse(localStorage.getItem(k)) || {}).at || 0; } catch { at = 0; }
+                if (!at || Date.now() - at > DRAFT_TTL_MS) dead.push(k);
+            }
+            dead.forEach(k => localStorage.removeItem(k));
+        } catch { }
+    }
+
+    // Nội dung lượt USER cuối cùng đang hiển thị: dùng để biết một nháp "đã gửi" có thật sự tới đích chưa.
+    function lastUserMessageText() {
+        const bubbles = chatMessages.querySelectorAll(".req-msg.you > p");
+        const last = bubbles[bubbles.length - 1];
+        return last ? (last.textContent || "").trim() : "";
+    }
+
+    // Băng thông báo trên khung soạn: phải NÓI RA việc vừa phục hồi, không thì người dùng gặp một ô nhập
+    // tự dưng có chữ và không hiểu vì sao (tưởng đã gửi, hoặc gửi lại lần hai).
+    // Nút "Xóa nội dung này" chỉ dọn Ô NHẬP, nên chỉ hiện khi có nội dung được đổ vào đó — phục hồi các ô
+    // trên thẻ hỏi thì người dùng sửa/xóa ngay tại từng ô, một nút xóa chung ở đây sẽ mờ nghĩa.
+    function showDraftNote(message, withDiscard) {
+        const note = document.getElementById("draftRestoredNote");
+        if (!note) return;
+        const textEl = note.querySelector(".draft-restored-text");
+        if (textEl) textEl.textContent = message;
+        const discardBtn = note.querySelector("#draftDiscardBtn");
+        if (discardBtn) discardBtn.hidden = withDiscard !== true;
+        note.hidden = false;
+    }
+
+    function hideDraftNote() {
+        const note = document.getElementById("draftRestoredNote");
+        if (note) note.hidden = true;
+    }
+
+    function draftStampText(at) {
+        const when = at ? new Date(at) : null;
+        if (!when || isNaN(when.getTime())) return "";
+        return " (lưu lúc " + when.toLocaleString("vi-VN", {
+            hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit"
+        }) + ")";
+    }
+
+    function draftRestore() {
+        draftPruneStale();
+
+        let composerLead = "";
+        let stampAt = 0;
+
+        const saved = draftRead();
+        if (saved && typeof saved.text === "string" && saved.text.trim()) {
+            // Nháp "đã gửi" mà nội dung của nó ĐÃ nằm ở lượt user cuối ⇒ lượt gửi tới đích rồi (F5 giữa
+            // lúc BA đang trả lời cũng rơi vào đây) → bỏ đi, không đổ lại kẻo người dùng gửi trùng. Còn
+            // nếu KHÔNG khớp thì đúng là lượt gửi đã trượt: giữ lại chính là lý do cơ chế này tồn tại.
+            if (saved.submitted && lastUserMessageText() === saved.text.trim()) {
+                draftClear();
+            } else if (!messageInput.value.trim()) {
+                messageInput.value = saved.text;
+                resizeMessageInput();
+                stampAt = saved.at || 0;
+                composerLead = saved.submitted
+                    ? "Lượt gửi vừa rồi không tới được máy chủ nên nội dung anh/chị đã gõ được giữ lại"
+                    : "Đã phục hồi nội dung anh/chị đang gõ dở";
+            }
+        }
+
+        const restoredBatch = draftBatchRestore();
+        if (restoredBatch > 0 && !stampAt) {
+            const batchSaved = draftRead(draftBatchKey);
+            stampAt = batchSaved ? (batchSaved.at || 0) : 0;
+        }
+
+        if (!composerLead && restoredBatch === 0) return;
+
+        let message;
+        if (composerLead && restoredBatch > 0) {
+            message = `${composerLead}, kèm ${restoredBatch} câu trả lời trên thẻ hỏi`;
+        } else if (composerLead) {
+            message = composerLead;
+        } else {
+            message = `Đã phục hồi ${restoredBatch} câu trả lời anh/chị đang gõ dở trên thẻ hỏi`;
+        }
+
+        showDraftNote(message + draftStampText(stampAt) + ". Anh/chị xem lại rồi bấm gửi.",
+            composerLead !== "");
+    }
+
+    // Đổ nháp về các ô trả lời trên thẻ hỏi gộp. Trả về số câu đã phục hồi.
+    function draftBatchRestore() {
+        if (!batchPanel || batchPanel.hidden) return 0;
+
+        const saved = draftRead(draftBatchKey);
+        const answers = saved && saved.answers && typeof saved.answers === "object" ? saved.answers : null;
+        if (!answers) return 0;
+
+        let restored = 0;
+        batchPanel.querySelectorAll(".batchq-item").forEach(li => {
+            const answer = (answers[li.dataset.question || ""] || "").trim();
+            const box = li.querySelector(".batchq-answer");
+            if (!answer || !box || box.value.trim()) return;
+
+            box.value = answer;
+            restored++;
+
+            // Bật lại đúng trạng thái chip đã bấm: câu trả lời trùng KHÍT bộ giá trị chip nghĩa là họ chọn
+            // bằng chip (ô tự nhập giữ nguyên trạng thái ẩn); lệch dù một chữ là họ tự nhập → mở ô ra, không
+            // thì nội dung vừa phục hồi nằm trong một textarea [hidden] và chẳng ai thấy.
+            const picked = answer.split(",").map(s => s.trim()).filter(Boolean);
+            const chips = Array.from(li.querySelectorAll(".batchq-choice:not(.is-other)"));
+            const matched = chips.filter(c => picked.includes((c.dataset.value || "").trim()));
+            if (matched.length > 0 && matched.length === picked.length) {
+                matched.forEach(c => c.classList.add("is-on"));
+            } else {
+                box.hidden = false;
+                const other = li.querySelector(".batchq-choice.is-other");
+                if (other) other.classList.add("is-on");
+            }
+        });
+
+        if (restored > 0) updateBatchSendButton();
+        return restored;
+    }
+
+    messageInput.addEventListener("input", draftSaveSoon);
+
+    // Ghi NGAY khi trang có nguy cơ biến mất: debounce không kịp nếu người dùng bấm F5 / đóng tab ngay sau
+    // ký tự cuối. pagehide phủ cả điều hướng thường lẫn tab bị hệ điều hành thu hồi (Safari/iOS không bắn
+    // beforeunload); visibilitychange phủ trường hợp chuyển tab rồi máy sập sau đó.
+    window.addEventListener("pagehide", draftFlush);
+    document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "hidden") draftFlush();
+    });
+
+    // "Xóa nội dung này": người dùng có thể đã gõ lại câu khác ở nơi khác, hoặc chỉ muốn ô nhập sạch — cho
+    // họ một cú bấm để dứt điểm thay vì phải bôi đen xóa cả đoạn dài.
+    const draftNoteEl = document.getElementById("draftRestoredNote");
+    if (draftNoteEl) {
+        draftNoteEl.addEventListener("click", function (e) {
+            if (!e.target.closest("#draftDiscardBtn")) return;
+            messageInput.value = "";
+            resizeMessageInput();
+            draftClear();
+            hideDraftNote();
+            messageInput.focus();
+        });
+    }
+
+    draftRestore();
 
     // ==== Panel "Tiến độ khai thác" + "Điều đã chốt" (cột trái) — cập nhật live từ frame done ====
     // Markup phải khớp bản server render trong Index.cshtml.
@@ -923,6 +1214,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             scrollToBottom();
         } else if (ev.type === "done") {
             sawDone = true;
+            // Lượt đã được server lưu ⇒ bỏ nháp "đã gửi" (nếu trong lúc chờ người dùng đã gõ câu mới thì
+            // nháp mới đó không bị xóa — xem draftClearIfSubmitted).
+            draftClearIfSubmitted();
             finishTurn(ev);
         } else if (ev.type === "decisions") {
             // Frame phụ SAU done: nhật ký quyết định đã gộp lượt vừa rồi (server tách lời gọi LLM này ra
@@ -1013,6 +1307,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     chatForm.addEventListener("submit", function (e) {
         e.preventDefault();
 
+        // Băng "đã phục hồi nháp" nói về nội dung đang nằm trong ô nhập — bấm gửi là hết chuyện.
+        hideDraftNote();
+
         // Có ảnh đã đính kèm chờ gửi → gửi ảnh (kèm ghi chú đang gõ trong ô nhập, nếu có) qua luồng
         // UploadSource thay vì gửi tin nhắn chat. Ảnh có thể gửi mà không cần ghi chú.
         if (stagedImages.length > 0) {
@@ -1043,6 +1340,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         messageInput.value = "";
         resizeMessageInput();
+
+        // Giữ lại nội dung vừa gửi dưới dạng nháp "đã gửi" cho tới khi biết lượt tới đích (frame done, hoặc
+        // lần mở trang sau thấy nó đã nằm trong hội thoại): gửi trượt vì mạng thì vẫn còn đường lấy lại.
+        draftMarkSubmitted(text);
 
         // Lượt đã được trả lời → ẩn các gợi ý cũ ngay (gợi ý mới render lại ở frame done nếu có), và trả
         // ô nhập về placeholder mặc định: lời mời "kể tự do" là của câu hỏi vừa được trả lời xong.
@@ -1405,6 +1706,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 // Endpoint trả về redirect→trang Index; reload để hiện tài liệu mới + lượt tóm tắt của BA.
                 if (resp.ok || resp.redirected) {
                     clearStaged();
+                    // Ghi chú đã đi cùng tài liệu lên server → nháp của nó hết việc. Nhánh lỗi bên dưới thì
+                    // KHÔNG xóa: ghi chú được trả lại ô nhập để gửi lại, nháp phải còn đó nếu user F5.
+                    draftClear();
                     location.reload();
                     return;
                 }
