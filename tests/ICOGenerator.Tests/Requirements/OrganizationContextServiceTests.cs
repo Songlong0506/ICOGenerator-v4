@@ -16,7 +16,9 @@ namespace ICOGenerator.Tests.Requirements;
 // (2) nhân sự đã nghỉ (LeavingDate quá khứ) / bản ghi IsDelete không được đếm;
 // (3) dữ liệu cha-con có CHU TRÌNH không làm treo; (4) bảng trống ⇒ null (fail-open);
 // (5) bản render được cache — dữ liệu đổi sau đó không làm đổi kết quả trong cùng cache;
-// (6) ghi chú đơn vị yêu cầu: orgUnit con chỉ ra manager + department cha + HoD; mã lạ ⇒ null.
+// (6) ghi chú đơn vị yêu cầu: orgUnit con chỉ ra manager + department cha + HoD; mã lạ ⇒ null;
+// (7) khối ngữ cảnh gộp LUÔN mở đầu bằng ranh giới phạm vi (nhà máy Đồng Nai) — kể cả khi chưa có
+// dữ liệu HR — vì đó là thứ chặn BA gợi ý những phạm vi không có thật ("Toàn Bosch Việt Nam").
 public class OrganizationContextServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -138,6 +140,36 @@ public class OrganizationContextServiceTests : IDisposable
         Assert.Contains("HcP/TEF (mã 100) là một department — HoD: Tran Van Hod.", note);
     }
 
+    [Fact]
+    public async Task BuildCombinedContext_AlwaysCarriesScopeBoundary_EvenWithoutOrgData()
+    {
+        // Bảng OrgUnits trống ⇒ bức tranh tổ chức là null, nhưng ranh giới phạm vi (nhà máy Đồng Nai)
+        // là sự thật của sản phẩm nên vẫn phải tới được prompt BA — đây là thứ chặn các phương án kiểu
+        // "Toàn Bosch Việt Nam".
+        await using var db = NewDb();
+        var combined = await NewSut(db).BuildCombinedContextAsync(projectOrgUnitCode: null);
+
+        Assert.Contains(StubPrompts.ScopeText, combined);
+        // Comment HTML dành cho người sửa file không được lọt vào prompt.
+        Assert.DoesNotContain("ghi chú cho người sửa file", combined);
+    }
+
+    [Fact]
+    public async Task BuildCombinedContext_WithOrgData_PutsScopeBeforePicture_AndProjectUnitNote()
+    {
+        await SeedOrgTreeAsync();
+
+        await using var db = NewDb();
+        var combined = await NewSut(db).BuildCombinedContextAsync(LeafUnitCode);
+
+        var scopeIndex = combined.IndexOf(StubPrompts.ScopeText, StringComparison.Ordinal);
+        var pictureIndex = combined.IndexOf("HcP/TEF (mã 100)", StringComparison.Ordinal);
+        var unitNoteIndex = combined.IndexOf("Đơn vị yêu cầu của dự án này", StringComparison.Ordinal);
+
+        Assert.True(scopeIndex >= 0 && pictureIndex > scopeIndex && unitNoteIndex > pictureIndex,
+            $"Thứ tự khối ngữ cảnh sai: scope={scopeIndex}, picture={pictureIndex}, unitNote={unitNoteIndex}.");
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("   ")]
@@ -205,12 +237,19 @@ public class OrganizationContextServiceTests : IDisposable
 
     public void Dispose() => _connection.Dispose();
 
-    // Template thật nằm ở Prompts/BusinessAnalyst/organization-context.v2.md (không copy sang test project); stub giữ
-    // đúng ba placeholder để test khẳng định chúng được thay bằng dữ liệu render.
+    // Template thật nằm ở Prompts/BusinessAnalyst/ (không copy sang test project); stub giữ đúng ba
+    // placeholder để test khẳng định chúng được thay bằng dữ liệu render, và một khối "ranh giới phạm vi"
+    // riêng (kèm comment HTML) để test khẳng định khối đó luôn được ghép vào và bị cắt comment.
     private sealed class StubPrompts : PromptTemplateService
     {
+        public const string ScopeText = "## Ranh giới phạm vi\nChỉ nhà máy Bosch Đồng Nai.";
+
         public StubPrompts() : base(null!) { }
-        public override string Get(string relativePath) => "## Bối cảnh tổ chức\n\n{{DEPARTMENTS}}\n\n{{POSITIONS}}\n\n{{TOTALS}}";
+
+        public override string Get(string relativePath) =>
+            relativePath == "BusinessAnalyst/organization-scope.v1.md"
+                ? "<!-- ghi chú cho người sửa file -->\n" + ScopeText
+                : "## Bối cảnh tổ chức\n\n{{DEPARTMENTS}}\n\n{{POSITIONS}}\n\n{{TOTALS}}";
     }
 
     private sealed class PassthroughApiKeyProtector : IApiKeyProtector

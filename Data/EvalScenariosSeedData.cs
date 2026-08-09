@@ -8,8 +8,8 @@ namespace ICOGenerator.Data;
 //
 // KHÔNG seed scenario cho các template chỉ có nghĩa khi agent có tool/workspace thật (Developer/poc-preview,
 // bugfix, implementation*, pull-request; TechLead/code-review; Tester/testing; các instruction.md;
-// Shared/revision + tool-agent-native — file có placeholder {{...}}; organization-context — khối ngữ cảnh render
-// từ DB, không phải prompt độc lập): harness eval chạy text-only nên điểm số cho chúng sẽ gây hiểu lầm.
+// Shared/revision + tool-agent-native — file có placeholder {{...}}; organization-context/organization-scope —
+// khối ngữ cảnh đính kèm prompt khác, không phải prompt độc lập): harness eval chạy text-only nên điểm số cho chúng sẽ gây hiểu lầm.
 // Ngoại lệ: TechLead/architecture-design.v1 vẫn đo được vì sản phẩm chính là NỘI DUNG bản thiết kế.
 //
 // UserInput của từng scenario mô phỏng đúng ĐỊNH DẠNG đầu vào thật mà service dựng lúc runtime
