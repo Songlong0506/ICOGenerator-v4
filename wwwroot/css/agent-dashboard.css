@@ -292,9 +292,14 @@
 /* Ghi chú số vòng chỉnh sửa đã dùng, đặt cạnh các nút ở cổng duyệt. */
 .dg-revise-note { font-size: 12px; align-self: center; }
 
-.dc-form { display: flex; flex-direction: column; gap: 6px; }
-.dc-form > label { font-size: 13px; font-weight: 600; margin-top: 8px; }
-/* Git URL inputs inherit the shared flat input styling from site.css.
+/* gap: 0 — caption tích hợp kiểu Bosch (site.css) yêu cầu <label> nằm SÁT ngay trên
+   field của nó để cả cặp đọc như MỘT control; chỉ cần một flex gap (hoặc margin-top
+   thêm trên label) là caption và ô nhập tách thành hai hộp xám rời nhau. Khoảng cách
+   giữa các field do chính margin-top của caption (--field-caption-lead) lo. */
+.dc-form { display: flex; flex-direction: column; gap: 0; }
+/* Git URL inputs + caption "Backend Git"/"Frontend Git" dùng nguyên kiểu integrated
+   label/flat input dùng chung từ site.css — không override font-size/weight/margin ở
+   đây, nếu không caption sẽ lệch khỏi ô nhập.
    Generation-mode radios now use the shared .radio-group / .form-check component. */
 .dc-form .dg-actions { margin-top: 12px; justify-content: flex-end; }
 
