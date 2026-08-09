@@ -1734,6 +1734,10 @@
     resize: vertical;
 }
 
+/* Câu MỞ trên thẻ gộp: không có hàng gợi ý phía trên nên ô tự nhập là thứ ĐẦU TIÊN dưới câu hỏi — lấy
+   đúng khoảng cách của .batchq-choices để hai loại dòng (câu đóng / câu mở) đứng cạnh nhau không so le. */
+.batchq-item[data-open="true"] .batchq-answer { margin-top: 8px; }
+
 .batchq-bar {
     margin-top: 12px;
     display: flex;

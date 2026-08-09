@@ -334,6 +334,9 @@ public class RequirementsController : Controller
                             suggestions = result.Suggestions,
                             invitesWriteRequirement = result.InvitesWriteRequirement,
                             suggestionsMultiSelect = result.SuggestionsMultiSelect,
+                            // Lượt hỏi MỘT câu MỞ (xin lời kể): không có chip, client đổi gợi ý ở ô nhập
+                            // thành lời mời kể tự do.
+                            openEnded = result.OpenEnded,
                             // Lượt hỏi GỘP: rỗng ở lượt hỏi một câu. Client dựng thẻ hỏi từ đây, cùng
                             // markup với bản server render lúc tải trang.
                             questions = result.Questions.Select(q => new
@@ -341,7 +344,8 @@ public class RequirementsController : Controller
                                 group = q.Group,
                                 question = q.Question,
                                 suggestions = q.Suggestions,
-                                multiSelect = q.MultiSelect
+                                multiSelect = q.MultiSelect,
+                                openEnded = q.OpenEnded
                             }),
                             coverage = result.Coverage,
                             // Bản đồ bao phủ không gộp được lượt này (đã thử lại) ⇒ panel đang hiện bản

@@ -486,6 +486,10 @@ public class BAChatService
         string reply;
         string? suggestionsJson = null;
         var suggestionsMultiSelect = false;
+        // Lượt hỏi MỘT câu MỞ (xin lời kể): không có chip, UI mời gõ vào ô nhập. Các nhánh TẤT ĐỊNH bên
+        // dưới (phanh chống hỏi lại, cổng readiness) đều thay lượt bằng câu hỏi đóng có sẵn phương án,
+        // nên chúng phải hạ cờ này — để sót thì màn hình mời "kể tự do" ngay dưới một hàng chip.
+        var openEnded = false;
         var questions = new List<BAChatQuestion>();
         var flowDiagram = new List<FlowStep>();
         if (!callResult.IsSuccess)
@@ -514,6 +518,9 @@ public class BAChatService
                 suggestionsJson = JsonSerializer.Serialize(parsedReply.Suggestions);
                 suggestionsMultiSelect = parsedReply.MultiSelect;
             }
+
+            // Normalize đã đảm bảo OpenEnded ⇒ Suggestions rỗng, nên hai nhánh này loại trừ nhau.
+            openEnded = parsedReply.OpenEnded;
 
             // Lượt hỏi GỘP (2–4 câu độc lập): Normalize đã đảm bảo hoặc có Questions, hoặc có
             // Suggestions — không bao giờ cả hai.
@@ -559,10 +566,16 @@ public class BAChatService
                     questions = trimmed.Questions;
                     suggestionsJson = followUpSuggestions.Count > 0 ? JsonSerializer.Serialize(followUpSuggestions) : null;
                     suggestionsMultiSelect = trimmed.MultiSelect && followUpSuggestions.Count > 0;
+                    // kept.Count == 0 ⇒ lượt này là câu hỏi TẤT ĐỊNH của BuildFollowUpAfterRepeat (câu
+                    // đóng, có sẵn phương án); còn lại thì cờ đi theo câu hỏi thật sự được giữ.
+                    openEnded = kept.Count > 0 && trimmed.OpenEnded;
                     flowDiagram = new List<FlowStep>();
                 }
             }
-            else if (parsedReply.Suggestions.Count > 0
+            // "Có chip HOẶC là câu mở" = lượt này thật sự đang HỎI. Trước đây vế đầu là đủ vì mọi câu hỏi
+            // đều bắt buộc kèm chip; từ khi câu mở được phép bỏ chip, chỉ xét chip là để lọt đúng loại câu
+            // đắt nhất (xin lời kể) ra khỏi phanh chống hỏi lại.
+            else if ((parsedReply.Suggestions.Count > 0 || parsedReply.OpenEnded)
                      && !RequirementReadinessGate.IsWriteRequirementInvite(reply)
                      && AskedQuestionHistory.IsRepeat(reply, askedKeys))
             {
@@ -571,6 +584,7 @@ public class BAChatService
                 reply = message;
                 suggestionsJson = followUpSuggestions.Count > 0 ? JsonSerializer.Serialize(followUpSuggestions) : null;
                 suggestionsMultiSelect = false;
+                openEnded = false;
                 flowDiagram = new List<FlowStep>();
             }
 
@@ -592,8 +606,10 @@ public class BAChatService
                     suggestionsJson = readiness.Suggestions.Count > 0
                         ? JsonSerializer.Serialize(readiness.Suggestions)
                         : null;
-                    // Câu hỏi của gate là câu hỏi đơn thông thường — không giữ cờ multi của lời mời bị thay.
+                    // Câu hỏi của gate là câu hỏi đơn thông thường có sẵn phương án — không giữ cờ multi
+                    // của lời mời bị thay, và cũng không giữ cờ "câu mở".
                     suggestionsMultiSelect = false;
+                    openEnded = false;
                     // …và cũng không giữ thẻ hỏi gộp: nội dung hiển thị giờ là câu hỏi của gate, để lại
                     // thẻ cũ thì màn hình có hai lượt hỏi khác nhau chồng lên nhau.
                     questions = new List<BAChatQuestion>();
@@ -606,6 +622,8 @@ public class BAChatService
                     // thẻ hỏi là tự mâu thuẫn ("không còn gì để hỏi" + 3 câu hỏi), và ở đúng lượt mà cổng
                     // vừa mở — người dùng sẽ trả lời thẻ đó rồi tự hỏi vì sao mình vẫn chưa được viết.
                     questions = new List<BAChatQuestion>();
+                    // Lời mời không phải câu hỏi ⇒ không mời người dùng "kể tự do" ở ô nhập.
+                    openEnded = false;
                 }
             }
             else
@@ -630,6 +648,7 @@ public class BAChatService
                 : JsonSerializer.Deserialize<List<string>>(suggestionsJson) ?? new List<string>(),
             InvitesWriteRequirement = RequirementReadinessGate.IsWriteRequirementInvite(reply),
             SuggestionsMultiSelect = suggestionsMultiSelect,
+            OpenEnded = openEnded,
             Questions = questions,
             // Bản đồ ở thời điểm này đã gộp tới lượt user mới nhất (cập nhật đầu lượt); lượt BA vừa trả
             // lời sẽ được gộp ở lượt sau — đủ tươi cho panel tiến độ.
@@ -956,7 +975,7 @@ public class BAChatService
         // chính nó. Bỏ trường này thì mọi lượt cũ trông như lượt một-câu và model trượt về một-câu-một-lượt
         // sau vài vòng — đúng kiểu trượt format mà hàm này sinh ra để chặn.
         var questions = ConversationTurnRenderer.ParseQuestions(c.Questions)
-            .Select(q => new { group = q.Group, question = q.Question, suggestions = q.Suggestions, multiSelect = q.MultiSelect });
+            .Select(q => new { group = q.Group, question = q.Question, suggestions = q.Suggestions, multiSelect = q.MultiSelect, openEnded = q.OpenEnded });
         return JsonSerializer.Serialize(new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, questions, ready, flowDiagram });
     }
 }

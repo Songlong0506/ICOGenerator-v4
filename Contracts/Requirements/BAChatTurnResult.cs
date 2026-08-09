@@ -22,6 +22,15 @@ public class BAChatTurnResult
     public bool SuggestionsMultiSelect { get; set; }
 
     /// <summary>
+    /// True khi lượt hỏi MỘT câu này là câu MỞ (xin lời kể/mô tả): không có chip, UI đổi gợi ý ở ô nhập
+    /// thành lời mời kể tự do. Chỉ đi theo frame done của lượt vừa chạy — KHÔNG lưu xuống DB, nên sau khi
+    /// tải lại trang lời mời đó không còn. Cố tình dừng ở đây: thứ thật sự phải đúng là "không có chip
+    /// đánh lừa" và điều đó tự đúng khi hội thoại được render lại (lượt không có gợi ý thì không có chip);
+    /// phần còn lại chỉ là một dòng nhắc, không đáng một cột CSDL mới cùng migration đi kèm.
+    /// </summary>
+    public bool OpenEnded { get; set; }
+
+    /// <summary>
     /// Các câu hỏi của một lượt hỏi GỘP (2–4 câu độc lập) — UI dựng thẻ nhiều dòng, người dùng trả lời
     /// cả cụm rồi gửi trong MỘT lượt. Rỗng ở lượt hỏi một câu (khi đó <see cref="Suggestions"/> chở gợi ý).
     /// Hai danh sách này loại trừ nhau: BAChatReplyParser.Normalize đảm bảo không bao giờ có cả hai.
