@@ -713,8 +713,13 @@ label:has(+ select) + select {
     padding-top: 3px;
 }
 
-/* Focus: the caption adopts the same light-blue fill + Bosch-blue ink. */
-label:has(+ input:focus),
+/* Focus: the caption adopts the same light-blue fill + Bosch-blue ink.
+   LƯU Ý specificity: mỗi `:not([type=…])` cộng thêm một bậc *class* vào độ đặc hiệu
+   của `:has()`, nên rule nền ở trên nặng (0,5,2). `label:has(+ input:focus)` trần chỉ
+   (0,1,2) → THUA, caption kẹt nền xám trong khi ô nhập đã sang xanh nhạt. Vì vậy các
+   rule trạng thái dưới đây phải lặp lại y hệt chuỗi :not(...) để hoà specificity rồi
+   thắng nhờ đứng sau. (textarea/select không có chuỗi :not nên viết trần là đủ.) */
+label:has(+ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"]):focus),
 label:has(+ textarea:focus),
 label:has(+ select:focus) {
     background: var(--input-focus-bg);
@@ -722,7 +727,7 @@ label:has(+ select:focus) {
 }
 
 /* Read-only: caption matches the muted read-only fill. */
-label:has(+ input[readonly]),
+label:has(+ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"])[readonly]),
 label:has(+ textarea[readonly]) {
     background: var(--input-readonly-bg);
     cursor: not-allowed;
