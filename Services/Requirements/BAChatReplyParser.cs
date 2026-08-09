@@ -36,6 +36,7 @@ public class BAChatReplyParser
                 Message = (parsed.Message ?? string.Empty).Trim(),
                 Suggestions = CleanSuggestions(parsed.Suggestions),
                 MultiSelect = parsed.MultiSelect == true,
+                OpenEnded = parsed.OpenEnded == true,
                 Questions = ToQuestions(parsed.Questions),
                 FlowDiagram = parsed.FlowDiagram ?? new List<FlowStep>()
             };
@@ -74,9 +75,19 @@ public class BAChatReplyParser
             {
                 reply.Suggestions = only.Suggestions;
                 reply.MultiSelect = only.MultiSelect;
+                reply.OpenEnded = only.OpenEnded;
             }
             reply.Questions = new List<BAChatQuestion>();
         }
+
+        // CÂU MỞ ⇒ KHÔNG chip. Áp SAU bước hạ lượt-gộp-một-câu ở trên để cờ vừa thừa kế từ câu hỏi đó
+        // cũng đi qua đây, và TRƯỚC mọi xử lý multiSelect bên dưới (bộ chip đã rỗng thì không còn gì để
+        // xét hình dạng). Xem BAChatQuestion.OpenEnded: ở lượt một câu, bấm chip là GỬI NGAY, nên một
+        // hàng chip đặt dưới câu hỏi mở không phải lối tắt mà là lối cụt — người dùng bấm xong là mất
+        // lượt kể, còn hệ thống thì ghi mẩu bốn chữ đó vào bản đồ bao phủ như câu trả lời thật.
+        reply.OpenEnded = reply.Questions.Count == 0 && (reply.OpenEnded || LooksOpenEnded(reply.Message));
+        if (reply.OpenEnded)
+            reply.Suggestions = new List<string>();
 
         if (reply.Message.Length == 0 && (reply.Suggestions.Count > 0 || reply.Questions.Count > 0))
             reply.Message = "Đã ghi nhận. Bạn có thể chọn một gợi ý bên dưới hoặc tự nhập thêm.";
@@ -117,7 +128,8 @@ public class BAChatReplyParser
                 Group = q.Group ?? string.Empty,
                 Question = q.Question ?? string.Empty,
                 Suggestions = CleanSuggestions(q.Suggestions),
-                MultiSelect = q.MultiSelect == true
+                MultiSelect = q.MultiSelect == true,
+                OpenEnded = q.OpenEnded == true
             })
             .ToList();
 
@@ -140,13 +152,22 @@ public class BAChatReplyParser
             if (question.Length == 0 || question.Length > MaxQuestionLength || !seen.Add(question))
                 continue;
 
+            // Câu MỞ trên thẻ gộp: bỏ chip, để UI mở sẵn ô tự nhập cho riêng dòng đó. Ở đây bấm chip
+            // KHÔNG gửi ngay (thẻ gộp gom cả cụm rồi mới gửi) nên cái giá nhẹ hơn lượt một-câu, nhưng
+            // vẫn là cái giá cũ: chip trả lời được một mẩu thì người dùng bấm mẩu đó rồi đi tiếp, và
+            // phần còn lại của câu hỏi không bao giờ được hỏi lại — bản đồ bao phủ đã tính là đã hỏi.
             var suggestions = CleanSuggestionTexts(item.Suggestions);
+            var openEnded = item.OpenEnded || LooksOpenEnded(question);
+            if (openEnded)
+                suggestions = new List<string>();
+
             result.Add(new BAChatQuestion
             {
                 Group = (item.Group ?? string.Empty).Trim(),
                 Question = question,
                 Suggestions = suggestions,
-                MultiSelect = suggestions.Count > 0 && item.MultiSelect && IsEnumerationSet(suggestions)
+                MultiSelect = suggestions.Count > 0 && item.MultiSelect && IsEnumerationSet(suggestions),
+                OpenEnded = openEnded
             });
 
             if (result.Count >= MaxQuestions)
@@ -240,6 +261,42 @@ public class BAChatReplyParser
 
     private static readonly string[] BundleSeparators = { " và ", " & ", " + ", ", ", "; " };
 
+    // ==== CÂU HỎI MỞ: cái phanh khi prompt bị trượt ====
+    // Prompt dạy BA tự đánh dấu `openEnded` cho câu xin lời kể/mô tả. Hàm này bắt đúng ca mà model trượt
+    // nhiều nhất và cũng đắt nhất: nó XIN một câu chuyện rồi vẫn kèm hàng chip, vì luật cũ bắt "mọi câu
+    // hỏi đều phải có gợi ý". Chip lúc đó chỉ trả lời được một mẩu, mà bấm chip ở lượt một-câu là gửi
+    // ngay ⇒ câu chuyện không bao giờ được kể, còn bản đồ bao phủ thì tính là nhóm đó đã hỏi xong.
+    //
+    // Nhận diện bằng CỤM TỪ, không bằng từ đơn: "kể" đứng một mình còn nằm trong "kể cả", "kể từ", và
+    // "thế nào"/"ra sao" thì phần lớn là câu đóng có phương án rõ ("nếu đơn bị từ chối thì xử lý thế
+    // nào?" — chip ở đó là các phương án trọn vẹn, rất đáng giữ). Danh sách dưới đây cố tình HẸP: nó
+    // chặn ca chắc chắn sai, phần còn lại để prompt lo.
+    //
+    // Hướng sửa CHỈ MỘT CHIỀU — chỉ bật `openEnded` lên, không bao giờ tắt cờ BA đã đặt. Bật nhầm thì
+    // người dùng mất tiện ích bấm chip ở một câu (vẫn trả lời được, chỉ phải gõ); bỏ sót thì sinh ra một
+    // câu trả lời cụt mà mọi tầng sau tin là lời người dùng. Hai cái giá không cùng hạng — đúng cùng
+    // nguyên tắc với việc hạ `multiSelect` ở trên.
+    private static bool LooksOpenEnded(string? text)
+    {
+        var value = (text ?? string.Empty).ToLowerInvariant();
+        if (value.Length == 0)
+            return false;
+
+        // Không có dấu hỏi thì lượt này nhiều khả năng không phải câu hỏi (tóm tắt, lời mời bấm nút) —
+        // đánh dấu "câu mở" ở đó chỉ làm UI mời người dùng kể vào chỗ không ai hỏi gì.
+        if (!value.Contains('?', StringComparison.Ordinal))
+            return false;
+
+        return NarrativeCues.Any(cue => value.Contains(cue, StringComparison.Ordinal));
+    }
+
+    private static readonly string[] NarrativeCues =
+    {
+        "kể giúp", "kể cho", "kể lại", "kể một", "kể qua", "kể xem",
+        "mô tả", "nói rõ hơn", "giải thích giúp", "diễn giải",
+        "walk me through", "tell me about", "describe "
+    };
+
     // Chấp nhận cả ["a","b"] lẫn [{"label":"a"},{"text":"b"}] để bền với cách model trả khác nhau.
     private static string? ExtractText(JsonElement element) => element.ValueKind switch
     {
@@ -290,6 +347,7 @@ public class BAChatReplyParser
         public string? Message { get; set; }
         public List<JsonElement>? Suggestions { get; set; }
         public bool? MultiSelect { get; set; }
+        public bool? OpenEnded { get; set; }
         public List<RawQuestion>? Questions { get; set; }
         public List<FlowStep>? FlowDiagram { get; set; }
     }
@@ -302,5 +360,6 @@ public class BAChatReplyParser
         public string? Question { get; set; }
         public List<JsonElement>? Suggestions { get; set; }
         public bool? MultiSelect { get; set; }
+        public bool? OpenEnded { get; set; }
     }
 }

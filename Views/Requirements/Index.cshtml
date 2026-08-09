@@ -858,20 +858,31 @@
                     <ul class="batchq-list">
                         @foreach (var q in lastBaQuestions)
                         {
-                            <li class="batchq-item" data-question="@q.Question" data-multi="@(q.MultiSelect ? "true" : "false")">
+                            @* Câu MỞ: không có gợi ý nào để bấm nên ô tự nhập mở SẴN (không có nút "Ý khác"
+                               để bấm mở). Suy cả từ Suggestions rỗng, không chỉ từ cờ: lượt gộp cũ lưu
+                               trước khi có cờ này vẫn phải render ra một dòng trả lời được. *@
+                            var openQuestion = q.OpenEnded || q.Suggestions.Count == 0;
+                            <li class="batchq-item" data-question="@q.Question" data-multi="@(q.MultiSelect ? "true" : "false")" data-open="@(openQuestion ? "true" : "false")">
                                 @if (!string.IsNullOrWhiteSpace(q.Group))
                                 {
                                     <div class="batchq-group">@q.Group</div>
                                 }
                                 <div class="batchq-question">@q.Question</div>
-                                <div class="batchq-choices">
-                                    @foreach (var s in q.Suggestions)
-                                    {
-                                        <button type="button" class="batchq-choice" data-value="@s">@s</button>
-                                    }
-                                    <button type="button" class="batchq-choice is-other" data-other="1">Ý khác — tôi tự nhập</button>
-                                </div>
-                                <textarea class="batchq-answer" rows="2" hidden placeholder="Câu trả lời của anh/chị…"></textarea>
+                                @if (!openQuestion)
+                                {
+                                    <div class="batchq-choices">
+                                        @foreach (var s in q.Suggestions)
+                                        {
+                                            <button type="button" class="batchq-choice" data-value="@s">@s</button>
+                                        }
+                                        <button type="button" class="batchq-choice is-other" data-other="1">Ý khác — tôi tự nhập</button>
+                                    </div>
+                                    <textarea class="batchq-answer" rows="2" hidden placeholder="Câu trả lời của anh/chị…"></textarea>
+                                }
+                                else
+                                {
+                                    <textarea class="batchq-answer" rows="3" placeholder="Anh/chị kể giúp mình, càng chi tiết càng tốt…"></textarea>
+                                }
                             </li>
                         }
                     </ul>

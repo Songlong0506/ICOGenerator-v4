@@ -146,6 +146,19 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         return suggestionList && suggestionList.dataset.multi === "true";
     }
 
+    // Lượt hỏi MỘT câu MỞ (BA xin một lời kể): không có chip nào, nên ô nhập là chỗ trả lời DUY NHẤT —
+    // đổi placeholder thành lời mời kể để khoảng trắng dưới câu hỏi đọc như "tới lượt anh/chị nói", chứ
+    // không như một lượt BA quên đưa gợi ý. Chỉ là một dòng nhắc và KHÔNG được lưu (xem
+    // BAChatTurnResult.OpenEnded): tải lại trang thì placeholder về mặc định, câu hỏi vẫn còn nguyên
+    // trong hội thoại và vẫn không có chip nào để bấm nhầm.
+    const COMPOSER_PLACEHOLDER_DEFAULT = messageInput ? messageInput.placeholder : "";
+    function setComposerOpenEnded(openEnded) {
+        if (!messageInput) return;
+        messageInput.placeholder = openEnded
+            ? "Anh/chị kể tự do giúp mình, càng chi tiết càng tốt…"
+            : COMPOSER_PLACEHOLDER_DEFAULT;
+    }
+
     // Chế độ chọn nhiều: thêm nút gửi vào cuối danh sách chip (chỉ khi data-multi="true").
     // Checkbox ở đầu mỗi option (xem renderSuggestions + CSS) đã báo rõ đây là chọn nhiều,
     // nên không cần dòng chữ hint nữa.
@@ -289,17 +302,23 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <p class="batchq-lead">${escapeHtml(lead)}</p>
             <div class="batchq-howto">Bấm một gợi ý hoặc tự nhập; điểm nào chưa nghĩ tới thì để trống.</div>
             <ul class="batchq-list">
-                ${questions.map(q => `
-                <li class="batchq-item" data-question="${escapeHtml(q.question || "")}" data-multi="${q.multiSelect ? "true" : "false"}">
+                ${questions.map(q => {
+                    // Câu MỞ: không có gợi ý nào để bấm, nên ô tự nhập mở SẴN (không có nút "Ý khác" để
+                    // bấm mở) — một dòng chỉ có mỗi câu hỏi mà không có chỗ trả lời đọc như một dòng bị lỗi.
+                    const open = q.openEnded === true || !(Array.isArray(q.suggestions) && q.suggestions.length > 0);
+                    return `
+                <li class="batchq-item" data-question="${escapeHtml(q.question || "")}" data-multi="${q.multiSelect ? "true" : "false"}" data-open="${open ? "true" : "false"}">
                     ${q.group ? `<div class="batchq-group">${escapeHtml(q.group)}</div>` : ""}
                     <div class="batchq-question">${escapeHtml(q.question || "")}</div>
+                    ${open ? "" : `
                     <div class="batchq-choices">
                         ${(Array.isArray(q.suggestions) ? q.suggestions : []).map(s => `
                         <button type="button" class="batchq-choice" data-value="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join("")}
                         <button type="button" class="batchq-choice is-other" data-other="1">Ý khác — tôi tự nhập</button>
-                    </div>
-                    <textarea class="batchq-answer" rows="2" hidden placeholder="Câu trả lời của anh/chị…"></textarea>
-                </li>`).join("")}
+                    </div>`}
+                    <textarea class="batchq-answer" rows="${open ? 3 : 2}"${open ? "" : " hidden"} placeholder="${open ? "Anh/chị kể giúp mình, càng chi tiết càng tốt…" : "Câu trả lời của anh/chị…"}"></textarea>
+                </li>`;
+                }).join("")}
             </ul>
             <div class="batchq-bar">
                 <button type="button" class="btn primary" id="batchQuestionsSendBtn" disabled>Chưa trả lời câu nào</button>
@@ -848,6 +867,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // → luôn thay bằng bản chốt.
             p.textContent = data.reply || "";
             renderSuggestions(data.suggestions, data.suggestionsMultiSelect === true);
+            setComposerOpenEnded(data.openEnded === true);
             setWriteRequirementReady(data.invitesWriteRequirement === true);
             renderCoverage(data.coverage, data.coverageStale === true);
             // Cổng tổng kết chỉ mở ở lượt BA MỜI bấm "Write Requirement" — cùng một cờ điều khiển nút
@@ -1024,8 +1044,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         messageInput.value = "";
         resizeMessageInput();
 
-        // Lượt đã được trả lời → ẩn các gợi ý cũ ngay (gợi ý mới render lại ở frame done nếu có).
+        // Lượt đã được trả lời → ẩn các gợi ý cũ ngay (gợi ý mới render lại ở frame done nếu có), và trả
+        // ô nhập về placeholder mặc định: lời mời "kể tự do" là của câu hỏi vừa được trả lời xong.
         hideSuggestions();
+        setComposerOpenEnded(false);
 
         setThinkingText("BA is analyzing requirements...");
         thinkingBox.style.display = "block";
@@ -1077,6 +1099,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             failedBubble.remove();
         }
         hideSuggestions();
+        setComposerOpenEnded(false);
 
         setThinkingText("BA đang thử trả lời lại…");
         thinkingBox.style.display = "block";

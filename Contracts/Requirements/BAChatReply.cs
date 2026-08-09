@@ -23,6 +23,13 @@ public class BAChatReply
     // Questions, để không bao giờ có thẻ nhiều dòng chỉ có một dòng.
     public List<BAChatQuestion> Questions { get; set; } = new();
 
+    // Lượt hỏi MỘT câu và câu đó là câu MỞ (xin lời kể / mô tả / giải thích): Suggestions phải RỖNG và UI
+    // mời người dùng gõ vào ô nhập thay vì bấm chip. Xem BAChatQuestion.OpenEnded cho lý do đầy đủ — tóm
+    // tắt: chip trên một câu mở chỉ trả lời được một MẨU của câu hỏi, mà bấm chip ở lượt một-câu là GỬI
+    // NGAY, nên phần còn lại của câu chuyện rơi mất trong khi mọi tầng phía sau tin rằng câu đã được trả lời.
+    // Chỉ có nghĩa ở lượt một câu; lượt gộp mang cờ này trên TỪNG phần tử của Questions.
+    public bool OpenEnded { get; set; }
+
     // BA tự đánh giá đã khai thác đủ thông tin để soạn tài liệu hay chưa: true khi không còn câu hỏi
     // nào → UI bật nút "Write Requirement". Còn bất kỳ điểm nào cần hỏi thì để false (mặc định) để nút
     // ở trạng thái "chưa sẵn sàng". Đây là tín hiệu cho UI; bước sinh tài liệu vẫn có cổng readiness riêng.
