@@ -335,6 +335,10 @@ Hai bảng **`OrgUnits`/`Associates`** (đồng bộ từ HR_Portal, seed một 
   một department → vài department → toàn nhà máy) để gợi ý bằng tên đơn vị CÓ THẬT. Khối này là sự thật
   nghiệp vụ của sản phẩm chứ không suy ra từ dữ liệu HR ⇒ đính **kể cả khi `OrgUnits` còn trống**, và tách
   khỏi `organization-context.v2.md` để vẫn còn hiệu lực khi khối ngữ cảnh render bị override ở Prompt Studio.
+  Vì khối này là **hằng số của sản phẩm chứ không phải lời người dùng**, prompt chốt thêm hai chiều dùng
+  sai: người dùng nói *"toàn công ty"/"tất cả nhân viên Bosch"* thì hiểu ngầm là toàn nhà máy (ghi nhận rồi
+  đi tiếp, KHÔNG hỏi xác nhận điều đã chốt), và BA không được chèn *"Đồng Nai"* vào câu *"mình ghi nhận…"*
+  rồi lượt sau đem chính câu đó ra chất vấn như một mâu thuẫn — xem `BAChatScopeConflictRuleTests`.
 - **`BuildProjectUnitNoteAsync`** dựng ghi chú "đơn vị yêu cầu" từ **`Project.OrgUnitCode`** (chọn tùy chọn
   ở modal New Project; `CreateProjectUseCase` chỉ lưu mã có thật trong OrgUnits): orgUnit + manager +
   department cha + HoD.
@@ -480,7 +484,9 @@ cần biết cổng này tồn tại. Fail-open toàn phần (`Project.PendingCo
 Cùng tinh thần "người dùng phải kiểm chứng được": bản đồ bao phủ nay mang **bằng chứng**
 (`{nguồn: …}` cuối mỗi dòng, `CoverageMapParser.SplitEvidence`) và có nút "chưa đúng?" hạ nhóm xuống
 [MỘT PHẦN] bằng phép sửa tất định (`CoverageMapEditor`). Không có đường này thì một nhóm bị chấm [RÕ]
-oan là điểm mù kín — prompt cấm BA hỏi lại nhóm đã [RÕ].
+oan là điểm mù kín — prompt cấm BA hỏi lại nhóm đã [RÕ]. Bằng chứng hiện trong **tooltip** của dòng
+chứ không phải một hàng riêng dưới nhãn: ở bề rộng sidebar trích dẫn luôn bị cắt giữa chừng và hay lặp
+cùng một câu ở nhiều nhóm, làm panel cao gấp đôi mà vẫn không soát được gì.
 
 ### 5.20. Vòng phản hồi POC hai chiều + link chia sẻ cho người ngoài hệ thống
 - `PocComment` có thêm trạng thái `Addressed` (+ thời điểm + bàn giao của agent): vòng chỉnh sửa POC

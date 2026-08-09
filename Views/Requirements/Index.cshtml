@@ -199,6 +199,14 @@
         _ => "⚪"
     };
 
+    // Tooltip một dòng bản đồ = tóm tắt + câu của người dùng mà kết luận dựa vào. Trích dẫn TỪNG đứng
+    // thành dòng riêng dưới nhãn, nhưng ở bề rộng sidebar nó luôn bị cắt giữa chừng (một dòng, ellipsis)
+    // và hay lặp lại cùng một câu ở nhiều nhóm ⇒ chiếm gấp đôi chiều cao panel mà không soát được gì.
+    // Gộp vào tooltip: panel trở lại danh sách nhãn + trạng thái, ai nghi một nhóm bị chấm oan vẫn tra
+    // được căn cứ mà không cần mở lại nhóm. Markup phải khớp renderCoverage() trong requirements.js.
+    static string CoverageTooltip(ICOGenerator.Contracts.Requirements.CoverageMapItem item) =>
+        string.IsNullOrWhiteSpace(item.Evidence) ? item.Summary : $"{item.Summary}\nDựa vào: {item.Evidence}";
+
     static string FormatSize(long bytes) =>
         bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.#} MB" : $"{Math.Max(1, bytes / 1024)} KB";
 
@@ -334,22 +342,18 @@
                 {
                     <li class="coverage-item @(item.Status == "KHÔNG ÁP DỤNG" ? "na" : "")"
                         data-label="@item.Label"
-                        title="@item.Summary">
+                        title="@CoverageTooltip(item)">
                         <span class="cov-ico">@CoverageIcon(item.Status)</span>
                         @* IsCore (★) vẫn dùng để xếp thứ tự nhóm còn thiếu trong RequirementReadinessGate,
                            nhưng KHÔNG hiển thị: với user, "nhóm cốt lõi" là phân loại nội bộ của BA — mọi nhóm
                            áp dụng đều phải [RÕ] mới mở được Write Requirement, nên ★ chỉ gây nhiễu. *@
                         <span class="cov-label">@item.Label</span>
-                        @* BẰNG CHỨNG + đường đính chính: một nhóm bị chấm [RÕ] oan là điểm mù kín của hệ
-                           thống (BA bị cấm hỏi lại nhóm đã [RÕ]), nên người dùng phải thấy được kết luận
-                           dựa vào câu nào của mình VÀ có nút phản đối ngay tại đó. *@
+                        @* ĐƯỜNG ĐÍNH CHÍNH: một nhóm bị chấm [RÕ] oan là điểm mù kín của hệ thống (BA bị
+                           cấm hỏi lại nhóm đã [RÕ]), nên người dùng phải có nút phản đối ngay tại đó.
+                           Nút chỉ hiện khi hover dòng nên không tốn chỗ ở trạng thái nghỉ. *@
                         @if (item.Status is "RÕ" or "MỘT PHẦN")
                         {
                             <button type="button" class="cov-wrong" title="Nhóm này BA hiểu chưa đúng — hỏi lại giúp tôi">chưa đúng?</button>
-                        }
-                        @if (!string.IsNullOrWhiteSpace(item.Evidence))
-                        {
-                            <div class="cov-evidence" title="Câu mà kết luận này dựa vào">@item.Evidence</div>
                         }
                     </li>
                 }
