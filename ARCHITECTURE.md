@@ -480,7 +480,9 @@ cần biết cổng này tồn tại. Fail-open toàn phần (`Project.PendingCo
 Cùng tinh thần "người dùng phải kiểm chứng được": bản đồ bao phủ nay mang **bằng chứng**
 (`{nguồn: …}` cuối mỗi dòng, `CoverageMapParser.SplitEvidence`) và có nút "chưa đúng?" hạ nhóm xuống
 [MỘT PHẦN] bằng phép sửa tất định (`CoverageMapEditor`). Không có đường này thì một nhóm bị chấm [RÕ]
-oan là điểm mù kín — prompt cấm BA hỏi lại nhóm đã [RÕ].
+oan là điểm mù kín — prompt cấm BA hỏi lại nhóm đã [RÕ]. Bằng chứng hiện trong **tooltip** của dòng
+chứ không phải một hàng riêng dưới nhãn: ở bề rộng sidebar trích dẫn luôn bị cắt giữa chừng và hay lặp
+cùng một câu ở nhiều nhóm, làm panel cao gấp đôi mà vẫn không soát được gì.
 
 ### 5.20. Vòng phản hồi POC hai chiều + link chia sẻ cho người ngoài hệ thống
 - `PocComment` có thêm trạng thái `Addressed` (+ thời điểm + bàn giao của agent): vòng chỉnh sửa POC

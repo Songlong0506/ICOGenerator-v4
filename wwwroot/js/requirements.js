@@ -679,6 +679,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Markup phải khớp bản server render trong Index.cshtml.
     const coverageIcons = { "RÕ": "✅", "MỘT PHẦN": "🟡", "KHÔNG ÁP DỤNG": "➖" };
 
+    // Tóm tắt + câu của người dùng mà kết luận dựa vào, gộp vào tooltip của dòng (trước đây trích dẫn
+    // đứng thành dòng riêng dưới nhãn — ở bề rộng sidebar nó luôn bị cắt giữa chừng và hay lặp cùng một
+    // câu ở nhiều nhóm). Phải khớp CoverageTooltip() bên Index.cshtml.
+    const coverageTooltip = x => (x.evidence ? `${x.summary || ""}\nDựa vào: ${x.evidence}` : (x.summary || ""));
+
     // stale = lượt chắt lọc bản đồ của lượt vừa rồi đã lỗi (server đã thử lại): danh sách dưới đây là bản
     // CŨ, chưa gộp câu trả lời vừa gửi — và BA cũng vừa dẫn lượt bằng đúng bản cũ đó. Phải nói ra: triệu
     // chứng của nó (tiến độ đứng im + BA hỏi lại nhóm vừa trả lời) trông y hệt "BA không nghe mình nói".
@@ -702,13 +707,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const notApplicable = items.filter(x => x.status === "KHÔNG ÁP DỤNG").length;
 
         list.innerHTML = items.map(x => `
-            <li class="coverage-item ${x.status === "KHÔNG ÁP DỤNG" ? "na" : ""}" data-label="${escapeHtml(x.label)}" title="${escapeHtml(x.summary || "")}">
+            <li class="coverage-item ${x.status === "KHÔNG ÁP DỤNG" ? "na" : ""}" data-label="${escapeHtml(x.label)}" title="${escapeHtml(coverageTooltip(x))}">
                 <span class="cov-ico">${coverageIcons[x.status] || "⚪"}</span>
                 <span class="cov-label">${escapeHtml(x.label)}</span>
                 ${(x.status === "RÕ" || x.status === "MỘT PHẦN")
                     ? `<button type="button" class="cov-wrong" title="Nhóm này BA hiểu chưa đúng — hỏi lại giúp tôi">chưa đúng?</button>`
                     : ""}
-                ${x.evidence ? `<div class="cov-evidence" title="Câu mà kết luận này dựa vào">${escapeHtml(x.evidence)}</div>` : ""}
             </li>
         `).join("");
 
