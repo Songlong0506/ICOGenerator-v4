@@ -483,6 +483,7 @@ namespace ICOGenerator.Migrations
                     PageCount = table.Column<int>(type: "int", nullable: false),
                     IsVisionSource = table.Column<bool>(type: "bit", nullable: false),
                     ScannedPageImageCount = table.Column<int>(type: "int", nullable: false),
+                    VisionSummary = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     UploadedByUserId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
@@ -519,6 +520,39 @@ namespace ICOGenerator.Migrations
                         principalTable: "Projects",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AgentChecklistItems",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    DomainKey = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
+                    Text = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: false),
+                    Rationale = table.Column<string>(type: "nvarchar(600)", maxLength: 600, nullable: true),
+                    Evidence = table.Column<string>(type: "nvarchar(600)", maxLength: 600, nullable: true),
+                    SourceKind = table.Column<int>(type: "int", nullable: false),
+                    SourceProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AgentChecklistItems", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AgentChecklistItems_Agents_AgentId",
+                        column: x => x.AgentId,
+                        principalTable: "Agents",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AgentChecklistItems_Projects_SourceProjectId",
+                        column: x => x.SourceProjectId,
+                        principalTable: "Projects",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -738,6 +772,16 @@ namespace ICOGenerator.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AgentChecklistItems_AgentId_DomainKey_Status",
+                table: "AgentChecklistItems",
+                columns: new[] { "AgentId", "DomainKey", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AgentChecklistItems_SourceProjectId",
+                table: "AgentChecklistItems",
+                column: "SourceProjectId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AgentConversations_AgentId",
@@ -977,6 +1021,9 @@ namespace ICOGenerator.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "AgentChecklistItems");
+
             migrationBuilder.DropTable(
                 name: "AgentConversations");
 
