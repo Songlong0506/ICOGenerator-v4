@@ -1,12 +1,24 @@
 /* ============================================================
-   Command bar — mẫu Bosch dùng chung cho mọi màn hình danh sách/bảng.
-   Một thanh ngang ở đầu trang: đếm số mục · tìm kiếm · Filter · Sort ·
-   các nút pill tuỳ biến · menu tràn (⋮) · nút hành động chính "+".
+   Command bar — thanh lệnh cấp trang DUY NHẤT của app (mẫu Bosch).
    Markup do Shared/_CommandBar.cshtml dựng, hành vi do command-bar.js lái.
+
+   MỘT bố cục cho mọi màn hình:
+
+     ┌──────────────────────────────────────────────────────────────────────┐
+     │ [bộ lọc] [tìm kiếm] [Lọc] [Xóa lọc]      [nút phụ] [NÚT CHÍNH]       │
+     │ └────────────── .cbar-left ──────────┘   └──── .cbar-right ────┘     │
+     └──────────────────────────────────────────────────────────────────────┘
+
+   • Vùng trái: mọi thứ thu hẹp dữ liệu đang xem (dropdown lọc, ô tìm kiếm, Lọc, Xóa lọc).
+   • Vùng phải: hành động. Nút phụ (viền nhạt) rồi tới đúng MỘT nút chính (nền xanh) sát mép phải.
+   • Mọi control cao đúng --cbar-h nên thanh không bao giờ lởm chởm — trước đây nút chính 44px,
+     nút pill 40px, dropdown 46px nên ba loại lệch nhau trên cùng một hàng.
+
    Token màu/nét lấy từ site.css (:root) để đồng bộ toàn app.
    ============================================================ */
 
 .command-bar {
+    --cbar-h: 44px;                 /* chiều cao chuẩn cho MỌI control trên thanh */
     display: flex;
     align-items: center;
     gap: 8px;
@@ -15,34 +27,52 @@
     margin-bottom: 20px;
     background: var(--surface-alt);
     border: 1px solid var(--line);
-    min-height: 56px;
+    min-height: calc(var(--cbar-h) + 16px);
 }
 
-/* ---------- Bộ lọc dropdown nội tuyến (Org Unit, Status, Loại, Role…) ----------
-   Bọc mỗi <select>/combo để giới hạn bề rộng và ẩn nhãn (caption hiển thị bên
-   trong combo sau khi dropdown.js nâng cấp). */
+/* Hai vùng cố định. Vùng trái nuốt hết khoảng trống nên vùng phải luôn dính mép phải,
+   kể cả khi màn hình không có bộ lọc/tìm kiếm nào. */
+.cbar-left,
+.cbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.cbar-left { flex: 1 1 260px; flex-wrap: wrap; }
+.cbar-right { flex: 0 0 auto; margin-left: auto; }
+
+/* ---------- Bộ lọc dropdown nội tuyến (Org Unit, Status, Loại, Role, Năm…) ----------
+   Bọc mỗi <select>/combo để giới hạn bề rộng và ẩn nhãn (caption hiển thị bên trong combo sau
+   khi dropdown.js nâng cấp). */
 .cbar-field { display: flex; align-items: center; flex: 0 0 auto; }
 .cbar-field > label { display: none; }
 .cbar-field .ms-combo--single { min-width: 190px; }
 .cbar-field .ms-combo[data-ms-combo] { min-width: 220px; }
 /* Trước khi dropdown.js nâng cấp, ràng buộc bề rộng select thô để không kéo giãn thanh. */
-.cbar-field select:not(.cs-enhanced-select) { min-width: 170px; max-width: 230px; }
-.command-bar.cbar-filter-form { align-items: center; }
+.cbar-field select:not(.cs-enhanced-select) { min-width: 170px; max-width: 230px; height: var(--cbar-h); }
+
+/* Combo mặc định cao 46px (caption 11px trên giá trị 15px). Trên command bar hạ về đúng
+   --cbar-h bằng cách siết padding + cỡ chữ giá trị, để dropdown ngang hàng với nút và ô tìm kiếm. */
+.cbar-field .ms-combo-trigger { min-height: var(--cbar-h); padding: 4px 12px; }
+.cbar-field .ms-combo-text { font-size: 14px; line-height: 1.3; }
+.cbar-field .cs-enhanced-select { height: var(--cbar-h); }
 
 /* ---------- Ô tìm kiếm (lọc client-side) ---------- */
 .cbar-search {
     position: relative;
     display: flex;
     align-items: center;
-    flex: 1 1 220px;
+    flex: 1 1 240px;
     min-width: 180px;
-    max-width: 340px;
+    max-width: 320px;
     margin: 0;
 }
 
 .cbar-search input {
     width: 100%;
-    height: 40px;
+    height: var(--cbar-h);
     padding: 8px 38px 8px 12px;
     font-size: 14px;
     border: 0;
@@ -74,12 +104,13 @@
 /* search input clear (×) mặc định của trình duyệt để nguyên; ẩn cho đồng bộ. */
 .cbar-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
 
-/* ---------- Nút pill (Filter / Sort / toggle / hành động tuỳ biến) ---------- */
+/* ---------- Nút phụ (Lọc / Xóa lọc / hành động phụ) ---------- */
 .cbar-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 7px;
-    height: 40px;
+    height: var(--cbar-h);
     padding: 0 14px;
     font-family: inherit;
     font-size: 14px;
@@ -99,8 +130,26 @@
 .cbar-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .cbar-btn i { font-size: 16px; line-height: 1; color: var(--muted); }
 .cbar-btn:hover i { color: var(--ink); }
+.cbar-btn:disabled { opacity: .45; cursor: not-allowed; }
 
-/* Trạng thái mở (menu Sort / panel Filter đang bật). */
+/* Nút hành động PHỤ ở vùng phải: viền nhạt để đọc ra là "hành động", nhưng vẫn nhường
+   trọng lượng thị giác cho nút chính bên cạnh. */
+.cbar-btn-outline {
+    border-color: var(--line);
+    background: var(--surface);
+    border-radius: 0;
+}
+
+.cbar-btn-outline:hover { background: var(--surface-hover); border-color: var(--muted); }
+
+/* Nút "Lọc" dạng submit (bộ lọc nội tuyến không tự submit) — nhấn mạnh bằng màu chữ,
+   không dùng nền đặc để khỏi bị nhầm là hành động chính của trang. */
+.cbar-btn-accent,
+.cbar-btn-accent i { color: var(--bosch-blue); }
+.cbar-btn-accent:hover { background: var(--bosch-blue-tint); }
+.cbar-btn-accent:hover i { color: var(--bosch-blue); }
+
+/* Trạng thái mở (panel Filter đang bật). */
 .cbar-btn.open {
     background: var(--bosch-blue-tint);
     border-color: var(--bosch-blue-tint-strong);
@@ -109,11 +158,7 @@
 
 .cbar-btn.open i { color: var(--bosch-blue); }
 
-/* Nút nhấn mạnh (nút "Lọc" trên Projects). */
-.cbar-btn.emphasize,
-.cbar-btn.emphasize i { color: var(--bosch-blue); }
-
-/* Chấm nhấn mạnh khi đang có bộ lọc áp dụng (nút Filter trên Audit). */
+/* Chấm nhấn mạnh khi đang có bộ lọc áp dụng (nút Lọc trên Audit). */
 .cbar-dot {
     width: 7px;
     height: 7px;
@@ -121,6 +166,22 @@
     background: var(--bosch-blue);
     display: inline-block;
     margin-left: 1px;
+}
+
+/* Con số đính kèm nhãn nút (vd số điểm kỹ thuật chưa đạt ở màn POC review). */
+.cbar-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--bosch-blue);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 /* ---------- Menu thả (Sort) ---------- */
@@ -165,18 +226,15 @@
 .cbar-menu-item.active { color: var(--bosch-blue-dark); font-weight: 700; }
 .cbar-menu-item.active i { color: var(--bosch-blue); }
 
-/* Nút hành động chính luôn đẩy về sát phải thanh. */
-.command-bar > .cbar-primary { margin-left: auto; }
-
-/* ---------- Nút hành động chính "+" (ô vuông xanh) ---------- */
+/* ---------- Nút hành động chính (ô xanh, luôn sát mép phải) ---------- */
 .cbar-primary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    height: 44px;
-    min-width: 44px;
-    padding: 0 14px;
+    height: var(--cbar-h);
+    min-width: var(--cbar-h);
+    padding: 0 16px;
     font-family: inherit;
     font-size: 14px;
     font-weight: 700;
@@ -185,23 +243,22 @@
     border: 1px solid var(--bosch-blue);
     cursor: pointer;
     text-decoration: none;
+    white-space: nowrap;
 }
 
 .cbar-primary:hover { background: var(--bosch-blue-hover); border-color: var(--bosch-blue-hover); text-decoration: none; }
 .cbar-primary:active { background: var(--bosch-blue-active); border-color: var(--bosch-blue-active); }
 .cbar-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--bosch-blue); }
+.cbar-primary:disabled { opacity: .45; cursor: not-allowed; }
 .cbar-primary i { font-size: 18px; line-height: 1; }
-.cbar-primary-label { white-space: nowrap; }
-
-/* Chỉ có icon (không nhãn) → giữ hình vuông cân đối. */
-.cbar-primary:not(:has(.cbar-primary-label:not(:empty))) { padding: 0; }
+.cbar-primary .cbar-badge { background: #fff; color: var(--bosch-blue); }
 
 /* Ẩn dòng "không có kết quả" mặc định; command-bar.js bật khi tìm kiếm không ra gì. */
 .cbar-empty-row { display: none; }
 .cbar-empty-row.show { display: table-row; }
 .cbar-empty-row.show:not(tr) { display: block; }
 
-/* ---------- Panel lọc server-side (nút "Filter" bật/tắt) ----------
+/* ---------- Panel lọc server-side (nút "Lọc" bật/tắt) ----------
    Đặt ngay dưới command bar, kéo lề âm để "dính" vào thanh như một flyout. */
 .cbar-panel {
     margin-top: -20px;
@@ -213,9 +270,12 @@
 
 /* ---------- Thu gọn trên màn hình hẹp ---------- */
 @media (max-width: 860px) {
-    .cbar-btn span { display: none; }        /* chỉ còn icon cho Filter/Sort/pills */
-    .cbar-btn { padding: 0 11px; }
-    .cbar-primary-label { display: none; }
-    .cbar-primary { padding: 0; }
+    /* Chỉ giấu nhãn khi nút CÓ icon thay thế — nút không icon mà mất nhãn thì thành ô trống
+       không ai đoán được. Trình duyệt không hiểu :has() thì giữ nguyên nhãn, vẫn dùng được. */
+    .cbar-btn:has(i) .cbar-label,
+    .cbar-primary:has(i) .cbar-label { display: none; }
+    .cbar-btn:has(i) { padding: 0 12px; }
+    .cbar-primary:has(i) { padding: 0; }
     .cbar-search { max-width: none; }
+    .cbar-left { flex-basis: 100%; }
 }

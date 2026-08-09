@@ -527,14 +527,6 @@
     border-radius: 6px;
 }
 
-/* ==== Command bar của trang review ==== */
-
-/* Câu dẫn bên trái thanh; nút chính tự đẩy sang phải bằng margin-left:auto (command-bar.css). */
-.poc-command-bar .cbar-hint { font-size: 13px; }
-
-@media (max-width: 860px) {
-    .poc-command-bar .cbar-hint { display: none; }
-}
 
 /* ==== Hộp thoại chia sẻ bản demo ====
    Dùng đúng bộ mặc định của app: .modal / .btn / trường nhập kiểu Bosch (nền xám + gạch chân, góc
