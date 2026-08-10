@@ -255,22 +255,33 @@ public static class SpreadsheetTextExtractor
 
     // ---- Render ------------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Thống kê ĐI TRƯỚC các dòng mẫu, và đó là một quyết định về ngân sách chứ không phải thẩm mỹ:
+    /// <c>SourceContextBuilder.Truncate</c> cắt phần text của mỗi nguồn ở <c>Llm:SourceUpload:MaxTextCharsPerFile</c>
+    /// (mặc định 20.000 ký tự) và **giữ phần ĐẦU**. Một sheet rộng (tới 40 cột, ô dài tới 200 ký tự) đủ sức
+    /// ăn hết ngân sách đó chỉ bằng 29 dòng mẫu, và bảng nhiều sheet thì các sheet sau bị cắt sạch. Đặt
+    /// thống kê xuống dưới là để thứ ĐẮT NHẤT của cả lượt đọc file rơi ra ngoài đầu tiên — mất danh mục cột
+    /// còn tệ hơn mất vài dòng mẫu, vì dòng mẫu chỉ để thấy hình dạng còn danh mục thì không suy lại được.
+    /// </summary>
     private static void Render(StringBuilder sb, Table table)
     {
         var scope = table.Truncated ? $"{table.DataRows}+ dòng đầu" : $"{table.DataRows} dòng";
         sb.AppendLine($"Tổng: {(table.Truncated ? $"trên {table.DataRows}" : table.DataRows.ToString())} dòng dữ liệu, {table.Header.Length} cột.");
-        if (table.DataRows > table.Sample.Count)
-            sb.AppendLine($"Bảng dưới chỉ là {table.Sample.Count} DÒNG ĐẦU làm mẫu — ĐỪNG suy ra danh mục của cột từ nó; mục \"Thống kê cột\" mới tính trên {scope}.");
         sb.AppendLine();
+
+        sb.AppendLine($"#### Thống kê cột (trên {scope})");
+        foreach (var col in table.Columns)
+            sb.AppendLine("- " + DescribeColumn(col, table.DataRows));
+
+        sb.AppendLine();
+        if (table.DataRows > table.Sample.Count)
+            sb.AppendLine($"#### {table.Sample.Count} dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng \"Thống kê cột\" bên trên");
+        else
+            sb.AppendLine("#### Các dòng dữ liệu");
 
         sb.AppendLine(string.Join(" | ", table.Header));
         foreach (var row in table.Sample)
             sb.AppendLine(string.Join(" | ", row));
-
-        sb.AppendLine();
-        sb.AppendLine($"#### Thống kê cột (trên {scope})");
-        foreach (var col in table.Columns)
-            sb.AppendLine("- " + DescribeColumn(col, table.DataRows));
     }
 
     private static string DescribeColumn(ColumnProfile col, int dataRows)
