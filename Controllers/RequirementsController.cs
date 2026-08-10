@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
 using ICOGenerator.Application.Agents;
@@ -21,6 +22,7 @@ public class RequirementsController : Controller
     private readonly ChatWithBAUseCase _chatWithBAUseCase;
     private readonly ApproveRequirementUseCase _approveRequirementUseCase;
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
+    private readonly ExportChatTranscriptQuery _exportChatTranscriptQuery;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
     private readonly StreamWorkflowProgressQuery _streamWorkflowProgressQuery;
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
@@ -56,6 +58,7 @@ public class RequirementsController : Controller
        ChatWithBAUseCase chatWithBAUseCase,
        ApproveRequirementUseCase approveRequirementUseCase,
        GetDocumentDownloadQuery getDocumentDownloadQuery,
+       ExportChatTranscriptQuery exportChatTranscriptQuery,
        GetWorkflowStatusQuery getWorkflowStatusQuery,
        StreamWorkflowProgressQuery streamWorkflowProgressQuery,
        GetDocumentPreviewQuery getDocumentPreviewQuery,
@@ -82,6 +85,7 @@ public class RequirementsController : Controller
         _chatWithBAUseCase = chatWithBAUseCase;
         _approveRequirementUseCase = approveRequirementUseCase;
         _getDocumentDownloadQuery = getDocumentDownloadQuery;
+        _exportChatTranscriptQuery = exportChatTranscriptQuery;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
         _streamWorkflowProgressQuery = streamWorkflowProgressQuery;
         _getDocumentPreviewQuery = getDocumentPreviewQuery;
@@ -827,6 +831,20 @@ public class RequirementsController : Controller
             return NotFound("Document not found.");
 
         return PhysicalFile(result.FilePath, result.ContentType, result.FileName);
+    }
+
+    // Tải cuộc trò chuyện với BA về dưới dạng MỘT file Markdown tự chứa để đem sang một AI khác nhờ rà
+    // soát chất lượng buổi phỏng vấn. Chỉ ĐỌC (quyền xem là đủ, như DownloadDocument).
+    [HttpGet]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
+    public async Task<IActionResult> DownloadChat(Guid projectId)
+    {
+        var result = await _exportChatTranscriptQuery.ExecuteAsync(projectId, HttpContext.RequestAborted);
+        if (result == null)
+            return RedirectToAction("Index", "Projects");
+
+        // UTF-8 BOM: file chở tiếng Việt và người dùng hay mở lại bằng Notepad/Excel trước khi gửi đi.
+        return File(new UTF8Encoding(true).GetBytes(result.Content), "text/markdown; charset=utf-8", result.FileName);
     }
 
     // Nội dung một tài liệu nguồn (ProjectSourceFile) — bubble hội thoại dùng làm src cho ảnh đính kèm.

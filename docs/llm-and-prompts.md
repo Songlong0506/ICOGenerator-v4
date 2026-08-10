@@ -152,6 +152,7 @@ trôi lệch nhau (bản trong instruction thiếu hẳn tầng tự kiểm runt
 | `UiUx/poc-visual-review.v1.md` | Chấm HÌNH ẢNH của POC từ ảnh chụp từng màn hình — lớp bắt lỗi mà soát mã không thấy (màn trống, layout vỡ, chữ đè, sai ngôn ngữ, tương phản kém) |
 | `Eval/judge.v1.md` | LLM-judge chấm điểm eval 1–5 + đối chiếu ĐẠT/TRƯỢT từng dòng tiêu chí |
 | `Eval/persona.v1.md` | Model đóng vai NGƯỜI DÙNG NGHIỆP VỤ trong scenario eval kiểu `Interview` (đo cả cuộc phỏng vấn, không chỉ một lượt) |
+| `Eval/chat-review.v1.md` | Chỉ dẫn chấm đi kèm **bản xuất hội thoại** để người dùng nhờ một AI NGOÀI hệ thống rà soát buổi phỏng vấn — prompt duy nhất KHÔNG được gọi bởi hệ thống, nó được nhúng vào đầu file `.md` tải về (xem [requirement-flow.md](requirement-flow.md#tải-đoạn-chat-để-nhờ-một-ai-khác-rà-soát)) |
 | `Design/poc-template.html` | Shell HTML của POC (sidebar/topbar/Bootstrap + engine `data-crud-*`, hai vùng marker `POC_CONTENT`/`POC_SCRIPT`) |
 
 ### Prompt Studio — sửa runtime, rollback, gắn với eval

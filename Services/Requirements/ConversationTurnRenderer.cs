@@ -146,6 +146,32 @@ public static class ConversationTurnRenderer
         => SourceColumnMapBuilder.Parse(columnMapJson);
 
     /// <summary>
+    /// Giải mã cột <see cref="AgentConversation.Attachments"/> (JSON array <see cref="ChatAttachment"/>)
+    /// an toàn như <see cref="ParseSuggestions"/>. KHÔNG dùng khi render transcript gửi LLM (tên file đã
+    /// nằm trong khối ngữ cảnh nguồn), nhưng cần cho bản xuất hội thoại: người đọc bản xuất phải biết lượt
+    /// nào là lượt người dùng đính kèm file, nếu không thì lượt BA đọc file ngay sau đó trông như BA tự
+    /// nhiên biết nội dung một tài liệu chưa ai gửi.
+    /// </summary>
+    public static List<ChatAttachment> ParseAttachments(string? attachmentsJson)
+    {
+        if (string.IsNullOrWhiteSpace(attachmentsJson))
+            return new List<ChatAttachment>();
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<ChatAttachment>>(
+                       attachmentsJson,
+                       new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                   ?? new List<ChatAttachment>();
+        }
+        catch
+        {
+            // Dữ liệu cũ/không hợp lệ: bỏ qua, coi như lượt không đính kèm.
+            return new List<ChatAttachment>();
+        }
+    }
+
+    /// <summary>
     /// Giải mã cột <see cref="AgentConversation.Suggestions"/> (JSON array chuỗi) an toàn: null/rỗng/hỏng
     /// đều trả mảng rỗng. Dùng chung cho cả đường render transcript lẫn <c>BuildAssistantContext</c> (dựng
     /// lại lượt BA cũ đúng JSON để củng cố format) trong <see cref="BAChatService"/>.
