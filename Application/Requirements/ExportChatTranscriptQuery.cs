@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
@@ -101,7 +99,7 @@ public class ExportChatTranscriptQuery
             DateTime.UtcNow);
 
         return new ChatTranscriptExport(
-            BuildFileName(project.Name, snapshot.ExportedAtUtc),
+            ExportFileName.Build("chat-ba", project.Name, snapshot.ExportedAtUtc, ".md"),
             ChatExportBuilder.Build(snapshot));
     }
 
@@ -120,34 +118,5 @@ public class ExportChatTranscriptQuery
         {
             return null;
         }
-    }
-
-    // Tên file để người dùng nhận ra giữa các bản tải về: chỉ giữ chữ/số ASCII (bỏ dấu tiếng Việt) vì
-    // chuỗi này đi qua header Content-Disposition và tên file trên đĩa của mọi hệ điều hành.
-    private static string BuildFileName(string projectName, DateTime exportedAtUtc)
-    {
-        var slug = new StringBuilder();
-        foreach (var ch in projectName.Normalize(NormalizationForm.FormD))
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark)
-                continue;
-
-            // đ/Đ là chữ cái riêng, không phải "d + dấu" — FormD không tách nó ra, nên không xử tay thì
-            // "đào tạo" thành "ao-tao".
-            if (ch is 'đ' or 'Đ')
-                slug.Append('d');
-            else if (char.IsAsciiLetterOrDigit(ch))
-                slug.Append(char.ToLowerInvariant(ch));
-            else if (slug.Length > 0 && slug[^1] != '-')
-                slug.Append('-');
-        }
-
-        var name = slug.ToString().Trim('-');
-        if (name.Length > 60)
-            name = name[..60].TrimEnd('-');
-        if (name.Length == 0)
-            name = "du-an";
-
-        return $"chat-ba_{name}_{exportedAtUtc.ToLocalTime():yyyyMMdd-HHmm}.md";
     }
 }
