@@ -329,6 +329,17 @@
                 📎 Tài liệu nguồn
                 <span class="source-count-badge" id="sourceCountBadge" @(sourceFiles.Any() ? "" : "hidden")>@sourceFiles.Count</span>
             </button>
+
+            @* Tải cả cuộc trò chuyện về thành MỘT file .md tự chứa để nhờ một AI khác (Claude, ChatGPT…)
+               rà soát chất lượng buổi phỏng vấn. Là thẻ <a> chứ không phải form: đây là thao tác CHỈ ĐỌC,
+               và một link tải về không được phép làm mất nội dung đang gõ dở trong ô chat. *@
+            <a class="btn outline full"
+               asp-action="DownloadChat"
+               asp-route-projectId="@Model.Id"
+               download
+               title="Tải đoạn chat + bản đồ bao phủ + tài liệu nguồn + prompt của BA thành một file .md, để nhờ AI khác phân tích xem buổi phỏng vấn có ổn không">
+                ⬇️ Tải đoạn chat cho AI
+            </a>
         </div>
 
         @* Tiến độ khai thác yêu cầu: cho user thấy cuộc phỏng vấn đã rõ bao nhiêu nhóm thông tin và còn

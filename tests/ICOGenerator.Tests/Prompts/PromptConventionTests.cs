@@ -8,7 +8,7 @@ namespace ICOGenerator.Tests.Prompts;
 // "chạy" để thấy sai, và mỗi lần thêm một bước pipeline lại có thêm một file được chép từ file gần giống
 // nhất rồi sửa. Sau vài vòng như vậy thì mỗi file một kiểu mở đầu, một tên mục đầu ra, một cách đánh dấu
 // khối đầu vào — đúng tình trạng chắp vá mà đợt dọn này gỡ ra. Không có chốt chặn thì nó quay lại y hệt,
-// và lần sau người đọc lại phải mở cả 37 file mới biết đâu là chuẩn.
+// và lần sau người đọc lại phải mở cả 38 file mới biết đâu là chuẩn.
 //
 // Test này CHỈ soi hình thức (heading, placeholder, hàng rào code). Nội dung/hành vi của từng prompt do
 // các test riêng giữ (BAChatPlaybackRuleTests, BAChatScopeConflictRuleTests, CoverageChecklistTests…) và

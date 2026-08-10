@@ -1,0 +1,153 @@
+using System.Globalization;
+using System.Text;
+using ICOGenerator.Data;
+using ICOGenerator.Services.Prompts;
+using ICOGenerator.Services.Requirements;
+using Microsoft.EntityFrameworkCore;
+
+namespace ICOGenerator.Application.Requirements;
+
+public record ChatTranscriptExport(string FileName, string Content);
+
+/// <summary>
+/// Xuất cuộc trò chuyện với BA thành MỘT file Markdown tự chứa, để người dùng đem sang một AI khác nhờ
+/// rà soát chất lượng buổi phỏng vấn (xem <see cref="ChatExportBuilder"/> về việc file gồm những gì và
+/// vì sao chép riêng các bong bóng chat là không đủ).
+/// </summary>
+public class ExportChatTranscriptQuery
+{
+    /// <summary>Prompt hệ thống của BA — đính vào phụ lục làm chuẩn để chấm cuộc phỏng vấn.</summary>
+    private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
+
+    /// <summary>Chỉ dẫn cho AI đọc bản xuất. Là file prompt nên sửa được ở Prompt Studio, không cần deploy.</summary>
+    private const string ReviewBriefKey = "Eval/chat-review.v1.md";
+
+    private readonly AppDbContext _db;
+    private readonly PromptTemplateService _prompts;
+    private readonly OrganizationContextService _orgContext;
+    private readonly BAAgentResolver _baAgents;
+
+    public ExportChatTranscriptQuery(
+        AppDbContext db,
+        PromptTemplateService prompts,
+        OrganizationContextService orgContext,
+        BAAgentResolver baAgents)
+    {
+        _db = db;
+        _prompts = prompts;
+        _orgContext = orgContext;
+        _baAgents = baAgents;
+    }
+
+    public async Task<ChatTranscriptExport?> ExecuteAsync(Guid projectId, CancellationToken cancellationToken = default)
+    {
+        var project = await _db.Projects
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
+
+        if (project == null)
+            return null;
+
+        // Chỉ hội thoại ĐANG dùng — global query filter (ArchivedAt == null) đã lọc sẵn, như mọi đường
+        // đọc khác. Các lượt đã bị "New Chat" lưu trữ chỉ được nêu bằng CON SỐ trong bản xuất: đưa cả vào
+        // thì người chấm chấm một cuộc phỏng vấn mà chính BA không còn nhìn thấy.
+        var turns = await _db.AgentConversations
+            .AsNoTracking()
+            .Where(c => c.ProjectId == projectId)
+            .OrderBy(c => c.CreatedAt)
+            .ThenBy(c => c.Id)
+            .ToListAsync(cancellationToken);
+
+        // Đếm phần lưu trữ thì phải TẮT chính bộ lọc đó — không có IgnoreQueryFilters, con số này luôn 0
+        // và bản xuất im lặng nói dối rằng hội thoại này là tất cả những gì đã diễn ra.
+        var archivedTurnCount = await _db.AgentConversations
+            .IgnoreQueryFilters()
+            .CountAsync(c => c.ProjectId == projectId && c.ArchivedAt != null, cancellationToken);
+
+        var sources = await _db.ProjectSourceFiles
+            .AsNoTracking()
+            .Where(s => s.ProjectId == projectId)
+            .OrderBy(s => s.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        // Cùng đường tra agent BA với luồng chat (thứ tự ổn định) — bản xuất phải nói đúng model đã tạo ra
+        // các lượt này, nếu không thì mọi kết luận "model kém" chỉ tay nhầm chỗ.
+        var ba = await _baAgents.FindConfiguredAsync(cancellationToken);
+
+        // Hồ sơ người dùng gắn theo NGƯỜI TẠO dự án (như UserMemoryService) — nó được nạp vào mọi lượt
+        // chat nên là một phần lời giải thích cho cách BA hành xử.
+        string? userMemory = null;
+        if (!string.IsNullOrWhiteSpace(project.CreatedByUsername))
+        {
+            userMemory = await _db.AppUsers
+                .AsNoTracking()
+                .Where(u => u.Username == project.CreatedByUsername)
+                .Select(u => u.UserMemory)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        var snapshot = new ChatExportSnapshot(
+            project,
+            turns,
+            archivedTurnCount,
+            sources,
+            await BuildOrgUnitNoteAsync(project.OrgUnitCode, cancellationToken),
+            ba?.Description,
+            ba?.AiModel?.ModelId,
+            ba?.AiModel?.SupportsVision ?? false,
+            userMemory,
+            _prompts.Get(ReviewBriefKey),
+            _prompts.Get(ChatPromptKey),
+            DateTime.UtcNow);
+
+        return new ChatTranscriptExport(
+            BuildFileName(project.Name, snapshot.ExportedAtUtc),
+            ChatExportBuilder.Build(snapshot));
+    }
+
+    // Ghi chú "đơn vị yêu cầu" dựng từ dữ liệu HR như lúc chat. Fail-open toàn tuyến (bảng trống/lỗi ⇒
+    // bỏ trống dòng đó) — không đáng để hỏng cả bản xuất vì một dòng bối cảnh.
+    private async Task<string?> BuildOrgUnitNoteAsync(string? orgUnitCode, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(orgUnitCode))
+            return null;
+
+        try
+        {
+            return await _orgContext.BuildProjectUnitNoteAsync(orgUnitCode, cancellationToken);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // Tên file để người dùng nhận ra giữa các bản tải về: chỉ giữ chữ/số ASCII (bỏ dấu tiếng Việt) vì
+    // chuỗi này đi qua header Content-Disposition và tên file trên đĩa của mọi hệ điều hành.
+    private static string BuildFileName(string projectName, DateTime exportedAtUtc)
+    {
+        var slug = new StringBuilder();
+        foreach (var ch in projectName.Normalize(NormalizationForm.FormD))
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark)
+                continue;
+
+            // đ/Đ là chữ cái riêng, không phải "d + dấu" — FormD không tách nó ra, nên không xử tay thì
+            // "đào tạo" thành "ao-tao".
+            if (ch is 'đ' or 'Đ')
+                slug.Append('d');
+            else if (char.IsAsciiLetterOrDigit(ch))
+                slug.Append(char.ToLowerInvariant(ch));
+            else if (slug.Length > 0 && slug[^1] != '-')
+                slug.Append('-');
+        }
+
+        var name = slug.ToString().Trim('-');
+        if (name.Length > 60)
+            name = name[..60].TrimEnd('-');
+        if (name.Length == 0)
+            name = "du-an";
+
+        return $"chat-ba_{name}_{exportedAtUtc.ToLocalTime():yyyyMMdd-HHmm}.md";
+    }
+}
