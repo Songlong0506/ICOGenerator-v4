@@ -94,11 +94,43 @@ Prompt gốc là file `.md` dưới `/Prompts` (copy ra output khi build). `Prom
 
 Nghĩa là: sửa prompt qua Prompt Studio **có hiệu lực ngay không cần deploy**, và app không bao giờ hỏng vì bảng version.
 
+### Quy ước hình thức (chốt bằng `PromptConventionTests`)
+
+Prompt là file `.md` không được compiler soi, nên mỗi lần thêm một bước pipeline lại có thêm một file
+được chép từ file gần giống nhất rồi sửa — sau vài vòng thì mỗi file một kiểu. Bốn quy ước dưới đây được
+**test chốt lại**, sai là fail build chứ không âm thầm trôi:
+
+| Quy ước | Vì sao |
+|---|---|
+| Dòng đầu là `# Vai trò: <vai> — <việc>` | mở file ra biết ngay ai làm gì; 4 ngoại lệ khai báo trong `RoleHeadingExempt` kèm lý do (hai khối ngữ cảnh `organization-*`, `Shared/revision`, `Shared/tool-agent-native` — đều là khối ghép vào prompt khác chứ không phải prompt của một vai) |
+| Mục đầu ra tên **duy nhất** `## ĐỊNH DẠNG TRẢ LỜI (BẮT BUỘC)` | trước đây cùng một việc mang 4 tên khác nhau (`## ĐỊNH DẠNG ĐẦU RA`, `## Yêu cầu đầu ra`, `## Đầu ra`, `## Định dạng`), so hai prompt cạnh nhau phải dịch tên mục |
+| `{{input}}`/`{{persona}}` nằm dưới heading `# ĐẦU VÀO: <tên khối>` | đánh dấu rõ ranh giới CHỈ DẪN ↔ DỮ LIỆU |
+| Placeholder phải có trong bản đăng ký `KnownPlaceholders` | thêm `{{x}}` mà quên `.Replace(...)` thì chuỗi `{{x}}` đi thẳng tới model: không có exception, chỉ có câu trả lời tệ hơn |
+
+Hai điều **KHÔNG** làm khi dọn prompt:
+
+- **Đừng đổi tên file** (kể cả bump `.vN`). `PromptKey` là khoá của `PromptTemplateVersions` và của
+  `EvalScenario.PromptKey` — đổi tên là mồ côi toàn bộ lịch sử Prompt Studio và điểm eval của template đó.
+  Phiên bản nội dung đã có Prompt Studio lo.
+- **Đừng gộp phần trùng lặp mà chưa đọc test đi kèm.** Một số chỗ trùng là **cố ý**: khối ranh giới phạm vi
+  sống ở cả `organization-scope.v1.md` lẫn `requirement-chat.v4.md` vì Prompt Studio có thể override khối
+  ngữ cảnh, và vì eval chạy prompt chat một mình — `BAChatScopeConflictRuleTests` chốt cả hai bản.
+
+Ngược lại, **hành vi sâu theo vai thuộc `instruction.md`, việc của từng bước thuộc template bước**. Trước
+đây `Developer/instruction.md` chép lại nguyên giao thức dựng POC của `poc-preview.v1.md` rồi hai bản
+trôi lệch nhau (bản trong instruction thiếu hẳn tầng tự kiểm runtime, `pocSelfTest`/`pocScenarios`/
+`pocWorkedExamples`, và mục REGRESSIONS) — agent đọc được hai đặc tả khác nhau cho cùng một việc.
+
 ### Danh mục prompt
 
 | File | Dùng cho |
 |---|---|
 | `BusinessAnalyst/requirement-chat.v4.md` | Lượt chat BA |
+| `BusinessAnalyst/source-ack.v2.md` | Lượt đọc lại tài liệu nguồn (docx/xlsx/PDF/ảnh) để người dùng xác nhận; kiêm ghi `sourceNotes` cho các hình — lượt DUY NHẤT model nhìn thấy ảnh |
+| `BusinessAnalyst/project-domain.v1.md` | Xếp dự án vào một `domainKey` trong 13 miền nghiệp vụ cố định |
+| `BusinessAnalyst/decision-log.v1.md` | Nhật ký "Điều đã chốt" — các quyết định người dùng đã nói/đã xác nhận, gộp lũy tiến |
+| `BusinessAnalyst/interview-outlook.v1.md` | Ba danh sách "triển vọng phỏng vấn": `openQuestions` / `plannedScope` / `workedExamples` |
+| `BusinessAnalyst/conflict-check.v1.md` | Cổng soát MÂU THUẪN ngay trước khi soạn tài liệu (trả `conflicts[]` kèm hai vế + câu hỏi chốt) |
 | `BusinessAnalyst/product-brief.v3.md` | Sinh Product Brief (Write Requirement) |
 | `BusinessAnalyst/product-brief-review.v2.md` | Vòng tự soát Product Brief |
 | `BusinessAnalyst/ai-design-spec.v1.md` | Sinh AI Design Spec sau Approve — gồm mục `## 14. Acceptance Criteria` chép NGUYÊN VĂN các dòng "Hoàn thành khi: …" của Product Brief đã duyệt (`BriefAcceptanceCriteria`); `SpecBriefParityChecker` soát ba tầng màn hình/quy tắc/câu nghiệm thu và cho BA sửa một vòng nếu lệch |
@@ -108,14 +140,18 @@ Nghĩa là: sửa prompt qua Prompt Studio **có hiệu lực ngay không cần 
 | `BusinessAnalyst/user-memory.v1.md` | Chắt lọc hồ sơ user |
 | `BusinessAnalyst/checklist-gap.v2.md` | Rút "khoảng trống checklist" sau khi sinh tài liệu — trả JSON `{items:[{text,rationale,evidence}]}`, chỉ ĐỀ XUẤT THÊM bài học mới |
 | `BusinessAnalyst/poc-feedback-gap.v2.md` | Rút bài học từ ghi chú POC đã gửi Dev sửa (cùng dạng JSON như trên) |
+| `BusinessAnalyst/poc-feedback-triage.v1.md` | Phân loại MỖI ghi chú POC theo đường xử lý: sửa TÀI LIỆU (`isRequirementIssue`) hay Dev vá thẳng POC |
+| `BusinessAnalyst/poc-feedback-compose.v1.md` | Gom các ghi chú thuộc nhóm "tài liệu" thành MỘT tin nhắn ngôi thứ nhất gửi lại BA |
 | `BusinessAnalyst/requirement-coverage.v3.md` | Cập nhật bản đồ bao phủ yêu cầu — kiêm "giám khảo" của cổng "Write Requirement" (ready suy tất định từ bản đồ, không có prompt readiness riêng) |
 | `BusinessAnalyst/organization-context.v2.md` | Khung render bức tranh tổ chức |
 | `BusinessAnalyst/organization-scope.v1.md` | Ranh giới phạm vi: sản phẩm chỉ phục vụ nhà máy Bosch Đồng Nai — cấm BA gợi ý phạm vi vượt nhà máy ("Toàn Bosch Việt Nam"…), cho sẵn thang phạm vi hợp lệ (orgUnit → department → toàn nhà máy). Đính vào MỌI lời gọi BA, kể cả khi `OrgUnits` còn trống. Người dùng nói "toàn công ty"/"tất cả nhân viên Bosch" ⇒ hiểu ngầm là toàn nhà máy, ghi nhận và đi tiếp; khối này là hằng số sản phẩm nên KHÔNG được chèn vào câu "mình ghi nhận…" như lời người dùng, cũng không được làm một vế của mâu thuẫn |
 | `TechLead/architecture-design[-bosch].v1.md`, `TechLead/code-review.v1.md`, `Developer/poc-preview.v1.md`, `Developer/implementation[-bosch].v1.md`, `Developer/bugfix.v1.md`, `Developer/pull-request.v1.md`, `Tester/testing.v1.md` | Từng bước pipeline theo vai (`{{input}}` = nội dung theo `InputSource`); bản `-bosch` dùng khi `Project.IsUseBoschTemplate` |
 | `Shared/revision.v1.md` | Khối "Yêu cầu chỉnh sửa" nối sau prompt gốc của bước |
-| `{BusinessAnalyst,TechLead,Developer,Tester,UiUx}/instruction.md` | **System prompt theo vai** — hành vi sâu của agent nằm ở đây; template task theo vai chỉ mô tả *việc của bước* |
-| `Shared/tool-agent-native.v1.md` | Khung prompt chung cho agent chạy tool |
+| `{TechLead,Developer,Tester}/instruction.md` | **System prompt theo vai** — hành vi sâu của agent (loại task nhận được, quy tắc lưu kết quả, ngân sách bước, thứ không được đụng) nằm ở đây; template task chỉ mô tả *việc của bước*. Chỉ ba vai chạy tool nên chỉ ba file: `AgentInstructionProvider` giải `{RoleKey}/instruction.md` và **fail-open về chuỗi rỗng** khi vai không có file (BA và UiUx không chạy qua agent+tool) |
+| `Shared/tool-agent-native.v1.md` | Khung prompt chung cho agent chạy tool (bọc `{{instruction}}` của vai) |
+| `UiUx/poc-visual-review.v1.md` | Chấm HÌNH ẢNH của POC từ ảnh chụp từng màn hình — lớp bắt lỗi mà soát mã không thấy (màn trống, layout vỡ, chữ đè, sai ngôn ngữ, tương phản kém) |
 | `Eval/judge.v1.md` | LLM-judge chấm điểm eval 1–5 + đối chiếu ĐẠT/TRƯỢT từng dòng tiêu chí |
+| `Eval/persona.v1.md` | Model đóng vai NGƯỜI DÙNG NGHIỆP VỤ trong scenario eval kiểu `Interview` (đo cả cuộc phỏng vấn, không chỉ một lượt) |
 | `Design/poc-template.html` | Shell HTML của POC (sidebar/topbar/Bootstrap + engine `data-crud-*`, hai vùng marker `POC_CONTENT`/`POC_SCRIPT`) |
 
 ### Prompt Studio — sửa runtime, rollback, gắn với eval

@@ -45,6 +45,6 @@ Quy tắc từng trường:
 - Tối đa **5** mâu thuẫn, xếp theo mức nghiêm trọng (điều ảnh hưởng nhiều tính năng nhất lên trước).
 - Ngôn ngữ: dùng đúng ngôn ngữ người dùng đã dùng trong hội thoại.
 
-# Dữ liệu đã chốt được với người dùng
+# ĐẦU VÀO: Dữ liệu đã chốt được với người dùng
 
 {{input}}

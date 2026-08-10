@@ -1,4 +1,4 @@
-You are {{agentName}} - {{roleTitle}}.
+You are the {{roleTitle}} agent.
 
 Instruction:
 {{instruction}}

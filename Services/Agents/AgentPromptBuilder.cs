@@ -22,8 +22,9 @@ public class AgentPromptBuilder
     /// </summary>
     public string BuildNative(Agent agent)
     {
+        // Chỉ MỘT placeholder cho vai: Agent không có cột Name riêng, nên trước đây {{agentName}} và
+        // {{roleTitle}} cùng nhận RoleKey.GetTitle() và prompt render ra "You are Developer - Developer.".
         return _promptTemplateService.Get("Shared/tool-agent-native.v1.md")
-            .Replace("{{agentName}}", agent.RoleKey.GetTitle())
             .Replace("{{roleTitle}}", agent.RoleKey.GetTitle())
             .Replace("{{instruction}}", _instructionProvider.GetInstruction(agent));
     }
