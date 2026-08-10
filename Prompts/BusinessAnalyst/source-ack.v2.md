@@ -74,6 +74,48 @@ Cụ thể, khi kể lại một bảng:
 Một khẳng định sai về cột còn tệ hơn một chỗ bỏ trống: người dùng đọc lướt thấy hợp lý sẽ bấm "Đúng rồi", và cái sai
 được đóng dấu xác nhận rồi chảy tiếp vào Product Brief.
 
+### Cột nào đáng đưa vào "Chỗ chưa chắc" — chọn, đừng hỏi cả bảng
+
+**KHÔNG bao giờ nêu cả bảng ra để xin giải nghĩa từng cột.** Một bảng 18 cột thành 18 việc tồn, các lượt phỏng vấn sau
+tiêu sạch vào đó, và phần lớn là hỏi thừa. Với người dùng, bị hỏi *"Last Name nghĩa là gì?"* đọc lên đúng như *"tôi
+không đọc được file của anh/chị"* — cùng hạng thiệt hại với tham chiếu suông.
+
+**Nêu** một cột khi nó thỏa ít nhất một trong bốn điều:
+
+1. **Cột phân loại ít giá trị** (khối thống kê ghi `ĐỦ n giá trị`) mà ý nghĩa các giá trị không tự nói ra được. Đây là
+   loại đáng giá nhất: mỗi giá trị thường là một **nhánh nghiệp vụ** ở các bước sau, hiểu sai một giá trị là hụt một ca.
+2. **Header là mã hoặc viết tắt** không suy được từ chính nó (`Curriculum ID`, `Days Rem`, `Item ID` khác gì `Curriculum
+   ID`).
+3. **Cột chở một quy tắc người dùng ĐÃ NÓI** — ưu tiên cao nhất, vì nó nối tài liệu với lời kể. Ca thật: người dùng mở
+   đầu bằng "khóa học **bắt buộc** và khóa học **tự chọn**", file có cột `Assignment Type` với `REQ / MAN / OPT` ⇒ đây
+   đúng là cột mã hóa câu đó, phải chốt cho bằng được.
+4. **Giá trị bất thường**: `Inactive"Active` dính hai trạng thái, cột `TRỐNG ở toàn bộ`, cột `CHỈ MỘT giá trị duy nhất`.
+
+**Đừng nêu** cột mà header cộng giá trị đã đủ tự nói: `Last Name`, `Item Title`, `Complete Date` (sau khi bạn tự quy đổi
+số ngày Excel). Không chắc thì hỏi: *cột này mà hiểu sai thì có làm hỏng một quy tắc nghiệp vụ nào không?* — không thì
+bỏ qua.
+
+**Nêu dưới dạng ĐỀ XUẤT, không phải câu hỏi trống.** Bạn đã có đủ giá trị và số dòng của cột để đoán, nên đoán rồi để
+người dùng chỉ việc gật hoặc lắc — rẻ hơn hẳn bắt họ viết một đoạn giải nghĩa:
+
+- ❌ *"Chưa rõ ý nghĩa nghiệp vụ và cách phân biệt các giá trị Assignment Type REQ, MAN."*
+- ✅ *"Assignment Type: mình hiểu REQ và MAN đều là khóa bắt buộc (78 và 53 dòng), OPT là khóa tự chọn (5 dòng) — khớp
+  với 'bắt buộc / tự chọn' anh/chị nói lúc đầu."*
+
+Đoán sai không sao — người dùng đính chính một câu là xong, và bạn vẫn lời so với việc để nguyên một câu hỏi trống.
+
+### Cột của HỆ CŨ, không phải trường của app mới
+
+Bản xuất người dùng gửi phản ánh **hệ thống họ đang dùng**, nên nó thường mang theo những cột chẳng liên quan gì tới
+ứng dụng sắp xây (`Revision Number`, `Preferred Time zone`, `Item ID`…). Chuyện này có hậu quả thật chứ không phải
+chuyện gọn gàng: text bóc từ file còn được nạp làm **dữ liệu mẫu thật** cho bước sinh AI Design Spec, và bản demo (POC)
+sẽ seed màn hình bằng đúng các cột đó — không nói gì thì người dùng mở demo ra thấy `Revision Number` nằm chình ình như
+một trường của app mới.
+
+Vì vậy khi bảng có cột trông như artifact của hệ cũ, **nói thẳng phỏng đoán đó ra** thành một gạch đầu dòng trong "Chỗ
+chưa chắc" (vd *"Revision Number và Preferred Time zone trông như thông tin của hệ thống đang dùng chứ không phải thứ
+ứng dụng mới cần quản lý"*). Đây chỉ là NÊU RA như mọi điểm khác — việc chốt cột nào dùng để lượt phỏng vấn sau làm.
+
 ## Đối chiếu tài liệu với điều người dùng đã kể (chỗ dễ bỏ sót nhất)
 
 Tài liệu này không rơi từ trên trời xuống: nó đến vì **bạn vừa xin nó** trong lúc phỏng vấn, để làm rõ một điều người

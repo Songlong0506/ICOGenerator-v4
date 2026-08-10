@@ -366,6 +366,57 @@ public static class EvalScenariosSeedData
             - KHÔNG bịa thêm cột hay quy tắc không có trong tài liệu.
             """);
 
+        Add(
+            "Chat BA — hỏi về cột file: gom một lượt, đề xuất cách hiểu để chốt, không giải nghĩa cả bảng",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Điều đã chốt
+            - Ứng dụng lập kế hoạch lớp học cả năm cho nhân viên, gồm khóa bắt buộc và khóa tự chọn
+            - Các vai trò dùng ứng dụng: nhân viên, HR – Đào tạo, Manager orgUnit, Quản trị ứng dụng
+
+            ## Điểm cần làm rõ còn tồn đọng
+            - Assignment Type: mình hiểu REQ và MAN đều là khóa bắt buộc (78 và 53 dòng), OPT là khóa tự chọn (5 dòng) — chưa được xác nhận
+            - Curriculum ID xuất hiện ở 139/262 dòng, chưa rõ là mã chương trình đào tạo hay mã nhóm khóa học
+            - Revision Number và Preferred Time zone trông như thông tin của hệ thống đang dùng chứ không phải thứ ứng dụng mới cần quản lý
+
+            ## Hội thoại
+            BA: Mình đã đọc file KeHoachDaoTao.xlsx và kể lại nội dung, anh/chị đã xác nhận là đúng.
+            Người dùng: Đúng rồi
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - Phải hỏi các điểm tồn đọng về cột, KHÔNG mở một nhóm mới trong bản đồ bao phủ.
+            - Câu hỏi về Assignment Type phải là ĐỀ XUẤT cách hiểu để người dùng chốt (nêu REQ/MAN là bắt buộc, OPT là tự chọn) kèm gợi ý dạng xác nhận/đính chính — TRƯỢT nếu chỉ hỏi trống "Assignment Type nghĩa là gì?".
+            - TUYỆT ĐỐI KHÔNG hỏi giải nghĩa những cột đã tự nói ra được (Last Name, Item Title, Complete Date) và không liệt kê cả bảng ra để xin giải nghĩa từng cột.
+            - Nếu hỏi từ 2 câu trở lên thì dùng questions với suggestions riêng cho từng câu, và suggestions ở cấp ngoài phải rỗng.
+            - Tối đa 4 câu trong lượt này.
+            """);
+
+        Add(
+            "Chat BA — chốt phạm vi cột: một câu đóng multiSelect, chip là tên cột thật",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Điều đã chốt
+            - Ứng dụng lập kế hoạch lớp học cả năm cho nhân viên, gồm khóa bắt buộc và khóa tự chọn
+            - File KeHoachDaoTao.xlsx có các cột: Global ID, Active User, Last Name, First Name, Organization, Item ID, Item Type, Revision Date, Revision Number, Item Title, Item Status, Required Date, Preferred Time zone, Assignment Type, Curriculum ID, Complete Date
+            - REQ và MAN là khóa bắt buộc, OPT là khóa tự chọn
+
+            ## Điểm cần làm rõ còn tồn đọng
+            - Revision Number, Revision Date và Preferred Time zone trông như thông tin của hệ thống đang dùng chứ không phải thứ ứng dụng mới cần quản lý
+
+            ## Hội thoại
+            BA: Mình hiểu REQ và MAN là khóa bắt buộc, OPT là khóa tự chọn — đúng không ạ?
+            Người dùng: Đúng rồi
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false.
+            - Lượt này phải chốt PHẠM VI CỘT: hỏi cột nào người dùng thật sự nhìn vào khi làm việc.
+            - Câu hỏi phải là câu ĐÓNG với multiSelect = true, và suggestions là các TÊN CỘT THẬT lấy từ file (vd Item Type, Assignment Type, Required Date, Complete Date, Organization) — mỗi chip đúng MỘT cột.
+            - Chip phải nguyên tử: KHÔNG có chip gói nhiều cột, KHÔNG có chip chốt hạ kiểu "Tất cả các cột trên".
+            - Hỏi ở góc nhìn công việc của người dùng ("cột nào anh/chị nhìn vào khi lập kế hoạch"), KHÔNG hỏi "cột nào cần đưa vào ứng dụng/hệ thống".
+            - KHÔNG hỏi lại từng cột một để xác nhận cột nào bỏ đi.
+            """);
+
         // ================= BusinessAnalyst/decision-log.v1.md =================
         // Nhật ký "Điều đã chốt" là bộ nhớ dài hạn của cuộc phỏng vấn: BA đọc nó ở MỌI lượt sau để soát mâu
         // thuẫn, và bước soạn tài liệu — vốn bị CẤM tự giả định — coi mỗi dòng ở đây là điều người dùng đã
