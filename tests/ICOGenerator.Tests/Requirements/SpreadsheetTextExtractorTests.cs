@@ -45,7 +45,9 @@ public class SpreadsheetTextExtractorTests
         var text = SpreadsheetTextExtractor.Extract(bytes, "x.csv");
 
         Assert.NotNull(text);
-        Assert.StartsWith("Cột A | Cột B", text); // không còn ký tự BOM lẫn vào ô đầu
+        // Không còn ký tự BOM lẫn vào ô đầu — soi đúng dòng tiêu đề, vì trước nó còn khối "Tổng: …".
+        Assert.Contains(text!.Split('\n').Select(l => l.Trim()), l => l == "Cột A | Cột B");
+        Assert.DoesNotContain('﻿', text!);
     }
 
     [Fact]
@@ -67,6 +69,93 @@ public class SpreadsheetTextExtractorTests
     public void Extract_ReturnsNullForGarbage()
     {
         Assert.Null(SpreadsheetTextExtractor.Extract(new byte[] { 1, 2, 3, 4 }, "broken.xlsx"));
+    }
+
+    // Danh mục của một cột phải tính trên CẢ bảng, không phải trên mấy chục dòng đầu.
+    //
+    // Ca thật (file kế hoạch đào tạo 262 dòng): 29 dòng đầu chỉ chứa Assignment Type "REQ"/"MAN" nên bản
+    // đọc lại của BA bỏ sót "OPT" — đúng giá trị mã hóa "khóa học TỰ CHỌN" mà người dùng đã nói ngay câu
+    // đầu tiên. Cùng cửa sổ đó, cột Required Date trống sạch trong khi phía dưới có dòng mang hạn hoàn
+    // thành, nên bản đọc kết luận cột này "đang để trống" rồi dựng một mục "Chỗ chưa chắc" trên tiền đề sai.
+    [Fact]
+    public void ExtractXlsx_ProfilesEveryColumnOverTheWholeSheet_NotJustTheSampleRows()
+    {
+        var rows = new List<string[]> { new[] { "Nhân viên", "Loại", "Hạn" } };
+        for (var i = 0; i < 40; i++)                                   // 40 dòng đầu: chỉ REQ, Hạn trống
+            rows.Add(new[] { $"NV{i}", "REQ", "" });
+        rows.Add(new[] { "NV40", "OPT", "31/Dec/2025" });              // dòng thứ 41 — ngoài cửa sổ mẫu
+
+        var text = SpreadsheetTextExtractor.Extract(BuildXlsx("KH", rows.ToArray()), "kh.xlsx")!;
+
+        // OPT nằm ngoài các dòng mẫu nhưng vẫn phải có mặt trong thống kê, kèm số dòng.
+        Assert.Contains("Loại: có giá trị 41/41 · ĐỦ 2 giá trị: REQ (40), OPT (1)", text);
+        // Cột thưa không được phép bị kể thành "để trống".
+        Assert.Contains("Hạn: có giá trị 1/41", text);
+        // Và bản đọc phải được cảnh báo rằng phần bảng chỉ là dòng đầu.
+        Assert.Contains("DÒNG ĐẦU làm mẫu", text);
+    }
+
+    [Fact]
+    public void ExtractXlsx_FlagsColumnsThatCarryNoInformation()
+    {
+        var text = SpreadsheetTextExtractor.Extract(BuildXlsx("S",
+            new[] { "Tên", "Tên đệm", "Đang dùng" },
+            new[] { "An", "", "Yes" },
+            new[] { "Bình", "", "Yes" })!, "s.xlsx")!;
+
+        Assert.Contains("Tên đệm: TRỐNG ở toàn bộ 2 dòng", text);
+        Assert.Contains("Đang dùng: có giá trị 2/2 · CHỈ MỘT giá trị duy nhất: Yes", text);
+    }
+
+    // OpenXML BỎ HẲN phần tử của ô rỗng, nên đọc tuần tự row.Elements<Cell>() thì mọi ô sau một chỗ trống
+    // bị trượt sang trái. Ca thật: dòng thiếu ô "Active User" làm tên người rơi vào cột đó, và bản đọc lại
+    // của BA đi báo với người dùng rằng "dữ liệu bị lệch giữa hàng tiêu đề và các giá trị" — bảng gốc không
+    // lệch chút nào, chỉ phần text ta dựng ra mới lệch. Người dùng không có cách nào phân xử được điều đó.
+    [Fact]
+    public void ExtractXlsx_PlacesCellsByReference_SoSparseRowsDoNotShiftColumns()
+    {
+        var bytes = BuildXlsxWithGaps();
+
+        var text = SpreadsheetTextExtractor.Extract(bytes, "thua.xlsx")!;
+
+        // Dòng thiếu ô ở cột B: giá trị cột C phải ở lại cột C, không trượt vào chỗ của B.
+        Assert.Contains("An |  | Kỹ thuật", text);
+        Assert.Contains("Phòng: có giá trị 1/1", text);
+        Assert.Contains("Đang dùng: TRỐNG ở toàn bộ 1 dòng", text);
+    }
+
+    // Dựng .xlsx có ô rỗng bị LƯỢC BỎ (đúng cách Excel xuất file thật): hàng dữ liệu chỉ có ô A2 và C2.
+    private static byte[] BuildXlsxWithGaps()
+    {
+        using var ms = new MemoryStream();
+        using (var doc = SpreadsheetDocument.Create(ms, DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook))
+        {
+            var workbookPart = doc.AddWorkbookPart();
+            workbookPart.Workbook = new Workbook();
+
+            static Cell Text(string reference, string value) => new()
+            {
+                CellReference = reference,
+                DataType = CellValues.String,
+                CellValue = new CellValue(value)
+            };
+
+            var sheetData = new SheetData(
+                new Row(Text("A1", "Tên"), Text("B1", "Đang dùng"), Text("C1", "Phòng")),
+                new Row(Text("A2", "An"), Text("C2", "Kỹ thuật")));   // B2 bị lược bỏ
+
+            var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+            worksheetPart.Worksheet = new Worksheet(sheetData);
+
+            workbookPart.Workbook.AppendChild(new Sheets()).AppendChild(new Sheet
+            {
+                Id = workbookPart.GetIdOfPart(worksheetPart),
+                SheetId = 1,
+                Name = "Thưa"
+            });
+            workbookPart.Workbook.Save();
+        }
+        return ms.ToArray();
     }
 
     // Dựng một .xlsx tối giản (mọi ô là shared string) để test bám đúng đường đọc SharedStringTable.
