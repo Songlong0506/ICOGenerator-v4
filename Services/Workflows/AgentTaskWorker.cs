@@ -292,7 +292,7 @@ public class AgentTaskWorker : BackgroundService
             // rồi rơi về cổng duyệt tuyến tính như mọi bước — KHÔNG hoàn tất run.
             if (task.Type == AgentTaskType.TechnicalDocs)
             {
-                await RunTechnicalDocsAsync(scope, gateProgress, task, cancellationToken);
+                await RunTechnicalDocsAsync(scope, task, cancellationToken);
 
                 task.Status = AgentTaskStatus.Completed;
                 task.Output = "Technical documents generated.";
@@ -664,10 +664,13 @@ public class AgentTaskWorker : BackgroundService
             workflowRunId: task.WorkflowRunId,
             cancellationToken: cancellationToken);
 
+        // Mốc kết thúc của WORKER nói CHUYỂN TRẠNG THÁI (người dùng làm gì tiếp), KHÔNG lặp lại nội dung
+        // mà service vừa báo ở mốc "final" (xem ProductBriefDraftService: "Đã tạo/cập nhật tài liệu." /
+        // câu hỏi làm rõ). Trước đây hai tầng nói gần như y hệt nhau nên feed hiện hai dòng trùng liền kề.
         progress.Report("completed",
             outcome == RequirementDraftOutcome.NeedsMoreInfo
-                ? "Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat."
-                : "Đã tạo/cập nhật tài liệu requirement.");
+                ? "Đang chờ anh/chị trả lời câu hỏi của BA trong khung chat để viết tiếp tài liệu."
+                : "Mời anh/chị xem lại bản mô tả sản phẩm rồi bấm Approve để dựng bản demo.");
 
         return outcome;
     }
@@ -725,7 +728,10 @@ public class AgentTaskWorker : BackgroundService
         }
     }
 
-    private async Task RunTechnicalDocsAsync(IServiceScope scope, DeferredProgress progress, AgentTask task, CancellationToken cancellationToken)
+    // Không phát mốc "completed" ở đây: RequirementDocsService đã báo mốc "final" (đã tạo bộ tài liệu
+    // nào), còn AdvanceLinearPipelineAsync ngay sau lời gọi này phát mốc chuyển trạng thái (chờ duyệt
+    // sang bước nào / workflow hoàn tất). Thêm một mốc nữa là dòng thứ ba nói lại cùng một việc.
+    private async Task RunTechnicalDocsAsync(IServiceScope scope, AgentTask task, CancellationToken cancellationToken)
     {
         var docsService = scope.ServiceProvider.GetRequiredService<RequirementDocsService>();
 
@@ -738,8 +744,6 @@ public class AgentTaskWorker : BackgroundService
             workflowRunId: task.WorkflowRunId,
             revisionFeedback: task.RevisionFeedback,
             cancellationToken: cancellationToken);
-
-        progress.Report("completed", "Đã tạo tài liệu kỹ thuật (BRD/SRS/FSD/UserStories).");
     }
 
     private async Task EnsureDesignAssetsAsync(IServiceScope scope, AppDbContext db, Guid projectId)
