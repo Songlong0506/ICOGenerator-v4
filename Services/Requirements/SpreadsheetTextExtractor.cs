@@ -5,19 +5,35 @@ using DocumentFormat.OpenXml.Spreadsheet;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Bóc một file bảng tính (Excel .xlsx / .csv) thành TEXT CÓ CẤU TRÚC cho BA đọc: tên sheet, tiêu đề cột
-/// và vài dòng mẫu — thứ mà ảnh chụp Excel làm mất (cột/kiểu/giá trị mẫu). Người dùng nghiệp vụ sống trong
-/// Excel nên đây thường là nguồn fidelity cao nhất; chính prompt chat cũng mời họ "đính kèm ảnh chụp Excel".
+/// Bóc một file bảng tính (Excel .xlsx / .csv) thành TEXT CÓ CẤU TRÚC cho BA đọc: tên sheet, tiêu đề cột,
+/// vài chục dòng mẫu, và **thống kê từng cột tính trên TOÀN BỘ bảng** — thứ mà ảnh chụp Excel làm mất
+/// (cột/kiểu/giá trị mẫu). Người dùng nghiệp vụ sống trong Excel nên đây thường là nguồn fidelity cao nhất;
+/// chính prompt chat cũng mời họ "đính kèm ảnh chụp Excel".
 /// Đọc file .xlsx (chuẩn OpenXML — thư viện DocumentFormat.OpenXml đã có sẵn) hoặc .csv; giới hạn số sheet/
 /// dòng/cột để một file khổng lồ không thổi phồng ngữ cảnh. Best-effort: file hỏng/không đọc được ⇒ trả null,
 /// caller giữ nguyên file gốc và bỏ qua phần text (như PDF không bóc được).
+///
+/// Vì sao có mục "Thống kê cột" chứ không chỉ dòng mẫu: BA đọc bảng để rút ra DANH MỤC của từng cột (chúng
+/// thành enum/danh mục trong mô hình dữ liệu ở các bước sau), mà vài chục dòng đầu của một bản xuất thường
+/// được sắp theo người/đơn vị nên KHÔNG đại diện cho cả bảng. Ca thật: file 262 dòng, 29 dòng đầu chỉ chứa
+/// Assignment Type "REQ"/"MAN" nên bản đọc lại của BA bỏ sót "OPT" — đúng giá trị mã hóa "khóa học tự chọn"
+/// mà người dùng đã nói ngay câu đầu tiên; cột Required Date trống sạch trong 29 dòng đầu nhưng có 12 dòng
+/// mang hạn hoàn thành ở phía dưới. Thống kê quét cả bảng tốn vài trăm token và chặn đúng loại lỗi đó.
 /// </summary>
 public static class SpreadsheetTextExtractor
 {
     private const int MaxSheets = 8;
-    private const int MaxRowsPerSheet = 30;   // tiêu đề + tối đa 29 dòng mẫu — đủ để BA nắm cấu trúc, không đốt token.
+    private const int MaxSampleRows = 30;      // tiêu đề + tối đa 29 dòng mẫu — đủ để BA nắm hình dạng bảng.
+    private const int MaxProfiledRows = 50_000; // trần quét thống kê: file khổng lồ vẫn kết thúc trong chớp mắt.
     private const int MaxCols = 40;
     private const int MaxCellChars = 200;
+
+    // Cột ít giá trị ⇒ liệt kê HẾT (đó là một danh mục, thiếu một giá trị là thiếu một ca nghiệp vụ).
+    // Cột nhiều giá trị ⇒ chỉ vài giá trị hay gặp nhất, kèm tổng số giá trị phân biệt.
+    private const int ListAllValuesUpTo = 12;
+    private const int TopValuesWhenMany = 5;
+    private const int MaxTrackedDistinct = 2_000; // chặn cột dạng khóa (mọi dòng một giá trị) ăn hết bộ nhớ.
+    private const int MaxValueChars = 60;
 
     public static readonly string[] Extensions = { ".xlsx", ".xlsm", ".csv" };
 
@@ -64,21 +80,58 @@ public static class SpreadsheetTextExtractor
             if (sheet.Id?.Value is not { } relId || workbookPart.GetPartById(relId) is not WorksheetPart wsPart)
                 continue;
 
-            var rows = wsPart.Worksheet?.GetFirstChild<SheetData>()?.Elements<Row>().Take(MaxRowsPerSheet).ToList()
-                       ?? new List<Row>();
-            if (rows.Count == 0)
+            var rows = wsPart.Worksheet?.GetFirstChild<SheetData>()?.Elements<Row>() ?? Enumerable.Empty<Row>();
+            var table = Read(rows.Select(r => RowCells(r, sharedStrings)));
+            if (table.IsEmpty)
                 continue;
 
             sb.AppendLine($"### Sheet: {sheet.Name?.Value ?? "(không tên)"}");
-            foreach (var row in rows)
-            {
-                var cells = row.Elements<Cell>().Take(MaxCols)
-                    .Select(c => CellText(c, sharedStrings));
-                sb.AppendLine(string.Join(" | ", cells));
-            }
+            Render(sb, table);
             sb.AppendLine();
         }
         return sb.ToString().Trim();
+    }
+
+    /// <summary>
+    /// Trải một dòng OpenXML thành mảng ô ĐÚNG VỊ TRÍ CỘT. Bắt buộc phải đi qua <c>CellReference</c>: OpenXML
+    /// bỏ hẳn phần tử của ô rỗng, nên đọc tuần tự <c>row.Elements&lt;Cell&gt;()</c> thì mọi ô sau một chỗ
+    /// trống bị TRƯỢT sang trái. Ca thật: dòng thiếu ô "Active User" làm tên người rơi vào cột đó, và bản
+    /// đọc lại của BA báo với người dùng rằng "dữ liệu có vẻ bị lệch giữa hàng tiêu đề và các giá trị" —
+    /// bảng gốc không lệch chút nào, chỉ phần text ta dựng ra mới lệch.
+    /// Ô không có <c>CellReference</c> (một số bộ sinh file, và các .xlsx dựng trong test) ⇒ rơi về vị trí
+    /// tuần tự ngay sau ô trước đó.
+    /// </summary>
+    private static string[] RowCells(Row row, SharedStringTable? sharedStrings)
+    {
+        var cells = new string[MaxCols];
+        var next = 0;
+        foreach (var cell in row.Elements<Cell>())
+        {
+            var col = ColumnIndex(cell.CellReference?.Value) ?? next;
+            if (col >= MaxCols)
+                continue;
+            cells[col] = CellText(cell, sharedStrings);
+            next = col + 1;
+        }
+        return cells;
+    }
+
+    /// <summary>"AB12" ⇒ 27 (0-based). Trả null khi không có/không đọc được phần chữ cái.</summary>
+    private static int? ColumnIndex(string? cellReference)
+    {
+        if (string.IsNullOrEmpty(cellReference))
+            return null;
+
+        var index = 0;
+        var letters = 0;
+        foreach (var ch in cellReference)
+        {
+            if (ch is >= 'A' and <= 'Z') index = index * 26 + (ch - 'A' + 1);
+            else if (ch is >= 'a' and <= 'z') index = index * 26 + (ch - 'a' + 1);
+            else break;
+            letters++;
+        }
+        return letters == 0 ? null : index - 1;
     }
 
     private static string CellText(Cell cell, SharedStringTable? sharedStrings)
@@ -98,22 +151,154 @@ public static class SpreadsheetTextExtractor
     private static string ExtractCsv(byte[] bytes)
     {
         var content = DecodeText(bytes);
-        var lines = content.Replace("\r\n", "\n").Split('\n')
-            .Where(l => l.Trim().Length > 0)
-            .Take(MaxRowsPerSheet)
-            .ToList();
-        if (lines.Count == 0)
+        var lines = content.Replace("\r\n", "\n").Split('\n').Where(l => l.Trim().Length > 0);
+
+        var table = Read(lines.Select(l =>
+        {
+            var cells = new string[MaxCols];
+            var i = 0;
+            foreach (var field in SplitCsvLine(l))
+            {
+                if (i >= MaxCols) break;
+                cells[i++] = field.Length > MaxCellChars ? field[..MaxCellChars] + "…" : field;
+            }
+            return cells;
+        }));
+
+        if (table.IsEmpty)
             return string.Empty;
 
         var sb = new StringBuilder();
-        foreach (var line in lines)
-        {
-            var cells = SplitCsvLine(line).Take(MaxCols)
-                .Select(c => c.Length > MaxCellChars ? c[..MaxCellChars] + "…" : c);
-            sb.AppendLine(string.Join(" | ", cells));
-        }
+        Render(sb, table);
         return sb.ToString().Trim();
     }
+
+    // ---- Đọc một lượt: giữ dòng mẫu, đồng thời dồn thống kê cho TOÀN BỘ bảng (không giữ lại dòng nào khác) --
+
+    private sealed class Table
+    {
+        public string[] Header = Array.Empty<string>();
+        public List<string[]> Sample = new();
+        public List<ColumnProfile> Columns = new();
+        public int DataRows;
+        public bool Truncated;
+        public bool IsEmpty => Header.Length == 0;
+    }
+
+    private sealed class ColumnProfile
+    {
+        public string Name = string.Empty;
+        public int Filled;
+        public readonly Dictionary<string, int> Counts = new(StringComparer.Ordinal);
+        public bool CountsOverflowed;
+    }
+
+    private static Table Read(IEnumerable<string[]> rows)
+    {
+        var table = new Table();
+        var width = 0;
+
+        foreach (var cells in rows)
+        {
+            if (table.Header.Length == 0)
+            {
+                width = LastNonEmpty(cells) + 1;
+                if (width <= 0)
+                    continue; // bỏ qua các dòng trống ở đầu sheet cho tới khi gặp hàng tiêu đề.
+
+                table.Header = cells.Take(width).Select(c => c ?? string.Empty).ToArray();
+                for (var i = 0; i < width; i++)
+                    table.Columns.Add(new ColumnProfile { Name = ColumnName(table.Header[i], i) });
+                continue;
+            }
+
+            if (table.DataRows >= MaxProfiledRows)
+            {
+                table.Truncated = true;
+                break;
+            }
+
+            table.DataRows++;
+            if (table.Sample.Count < MaxSampleRows - 1)
+                table.Sample.Add(cells.Take(width).Select(c => c ?? string.Empty).ToArray());
+
+            for (var i = 0; i < width; i++)
+            {
+                var value = (cells[i] ?? string.Empty).Trim();
+                if (value.Length == 0)
+                    continue;
+
+                var col = table.Columns[i];
+                col.Filled++;
+                if (col.Counts.TryGetValue(value, out var n))
+                    col.Counts[value] = n + 1;
+                else if (col.Counts.Count < MaxTrackedDistinct)
+                    col.Counts[value] = 1;
+                else
+                    col.CountsOverflowed = true;
+            }
+        }
+
+        return table;
+    }
+
+    private static int LastNonEmpty(string[] cells)
+    {
+        for (var i = cells.Length - 1; i >= 0; i--)
+            if (!string.IsNullOrWhiteSpace(cells[i]))
+                return i;
+        return -1;
+    }
+
+    private static string ColumnName(string header, int index)
+        => string.IsNullOrWhiteSpace(header) ? $"(cột {index + 1})" : header.Trim();
+
+    // ---- Render ------------------------------------------------------------------------------------------
+
+    private static void Render(StringBuilder sb, Table table)
+    {
+        var scope = table.Truncated ? $"{table.DataRows}+ dòng đầu" : $"{table.DataRows} dòng";
+        sb.AppendLine($"Tổng: {(table.Truncated ? $"trên {table.DataRows}" : table.DataRows.ToString())} dòng dữ liệu, {table.Header.Length} cột.");
+        if (table.DataRows > table.Sample.Count)
+            sb.AppendLine($"Bảng dưới chỉ là {table.Sample.Count} DÒNG ĐẦU làm mẫu — ĐỪNG suy ra danh mục của cột từ nó; mục \"Thống kê cột\" mới tính trên {scope}.");
+        sb.AppendLine();
+
+        sb.AppendLine(string.Join(" | ", table.Header));
+        foreach (var row in table.Sample)
+            sb.AppendLine(string.Join(" | ", row));
+
+        sb.AppendLine();
+        sb.AppendLine($"#### Thống kê cột (trên {scope})");
+        foreach (var col in table.Columns)
+            sb.AppendLine("- " + DescribeColumn(col, table.DataRows));
+    }
+
+    private static string DescribeColumn(ColumnProfile col, int dataRows)
+    {
+        if (col.Filled == 0)
+            return $"{col.Name}: TRỐNG ở toàn bộ {dataRows} dòng";
+
+        var fill = $"có giá trị {col.Filled}/{dataRows}";
+        var distinct = col.Counts.Count;
+
+        if (!col.CountsOverflowed && distinct == 1)
+            return $"{col.Name}: {fill} · CHỈ MỘT giá trị duy nhất: {Clip(col.Counts.Keys.First())}";
+
+        var top = col.Counts.OrderByDescending(p => p.Value).ThenBy(p => p.Key, StringComparer.Ordinal);
+
+        if (!col.CountsOverflowed && distinct <= ListAllValuesUpTo)
+        {
+            var all = string.Join(", ", top.Select(p => $"{Clip(p.Key)} ({p.Value})"));
+            return $"{col.Name}: {fill} · ĐỦ {distinct} giá trị: {all}";
+        }
+
+        var some = string.Join(", ", top.Take(TopValuesWhenMany).Select(p => $"{Clip(p.Key)} ({p.Value})"));
+        var count = col.CountsOverflowed ? $"trên {MaxTrackedDistinct}" : distinct.ToString();
+        return $"{col.Name}: {fill} · {count} giá trị phân biệt · hay gặp nhất: {some}";
+    }
+
+    private static string Clip(string value)
+        => value.Length > MaxValueChars ? value[..MaxValueChars] + "…" : value;
 
     // Tách một dòng CSV có tôn trọng dấu nháy kép (RFC 4180 tối giản: "" là một dấu nháy escape).
     private static IEnumerable<string> SplitCsvLine(string line)

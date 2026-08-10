@@ -126,7 +126,7 @@ trôi lệch nhau (bản trong instruction thiếu hẳn tầng tự kiểm runt
 | File | Dùng cho |
 |---|---|
 | `BusinessAnalyst/requirement-chat.v4.md` | Lượt chat BA |
-| `BusinessAnalyst/source-ack.v2.md` | Lượt đọc lại tài liệu nguồn (docx/xlsx/PDF/ảnh) để người dùng xác nhận; kiêm ghi `sourceNotes` cho các hình — lượt DUY NHẤT model nhìn thấy ảnh |
+| `BusinessAnalyst/source-ack.v2.md` | Lượt đọc lại tài liệu nguồn (docx/xlsx/PDF/ảnh) để người dùng xác nhận; kiêm ghi `sourceNotes` cho các hình — lượt DUY NHẤT model nhìn thấy ảnh. Ba luật chốt bằng `SourceAckReadbackRuleTests`: danh mục của cột lấy từ khối `#### Thống kê cột` chứ không suy từ dòng mẫu, **đối chiếu tài liệu với điều người dùng đã kể** (đúng file đã xin chưa / thiếu gì so với lời kể / quy mô có khớp không), và "Chỗ chưa chắc" chỉ chứa thứ chỉ người dùng trả lời được |
 | `BusinessAnalyst/project-domain.v1.md` | Xếp dự án vào một `domainKey` trong 13 miền nghiệp vụ cố định |
 | `BusinessAnalyst/decision-log.v1.md` | Nhật ký "Điều đã chốt" — các quyết định người dùng đã nói/đã xác nhận, gộp lũy tiến |
 | `BusinessAnalyst/interview-outlook.v1.md` | Ba danh sách "triển vọng phỏng vấn": `openQuestions` / `plannedScope` / `workedExamples` |
