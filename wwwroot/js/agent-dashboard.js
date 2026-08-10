@@ -245,14 +245,16 @@ async function loadAgentLogsPage(page) {
         return;
     }
 
+    // Step = lượt gọi model thứ mấy TRONG một task agent (vòng lặp gọi tool). Chỉ đường agent mới đếm
+    // lên 2, 3, …; mọi lời gọi một-phát-một-lượt (BA*, review POC) luôn là 1 — in "Step 1" trên từng dòng
+    // của những agent đó chỉ là một hằng số lặp lại, nên chỉ hiện nhãn khi con số thực sự nói được điều gì.
     tbody.innerHTML = logs.map(x => `
         <tr>
             <td>${formatDateTime(x.createdAt)}</td>
 
             <td>
                 ${escapeHtml(x.purpose || '-')}
-                <br>
-                <small>Step ${x.step || 1}</small>
+                ${x.step > 1 ? `<br><small>Step ${x.step}</small>` : ''}
             </td>
 
             <td>

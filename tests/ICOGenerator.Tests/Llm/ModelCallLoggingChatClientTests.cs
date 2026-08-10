@@ -15,7 +15,7 @@ namespace ICOGenerator.Tests.Llm;
 public class ModelCallLoggingChatClientTests
 {
     private static AiModel Model() => new() { ModelId = "m", Endpoint = "http://localhost" };
-    private static ModelCallLogContext Ctx(int firstStep = 1) => new(Guid.NewGuid(), new Agent(), "TestPurpose", null, firstStep);
+    private static ModelCallLogContext Ctx() => new(Guid.NewGuid(), new Agent(), "TestPurpose");
     private static ChatMessage[] Hi() => new[] { new ChatMessage(ChatRole.User, "hi") };
 
     private static ModelCallOptions Opts(bool throwOnFailure, Action<LlmCallResult>? onCompleted = null, IBudgetGuard? budgetGuard = null) =>
@@ -107,17 +107,20 @@ public class ModelCallLoggingChatClientTests
         Assert.True(logger.Logged[0].Result.IsSuccess);
     }
 
+    // Số bước đếm từ 1 theo INSTANCE và tự tăng mỗi round-trip: đó là thứ làm cho cột Step ở call log có
+    // nghĩa với đường agent (một client dùng chung cho cả task) và luôn bằng 1 với lời gọi một-phát-một-lượt.
     [Fact]
-    public async Task FirstStep_FromContext_IsUsedForLoggingAndStepCount()
+    public async Task Step_StartsAtOne_AndIncrementsPerCall()
     {
         var inner = new FakeChatClient(streamChunks: new[] { "x" });
         var logger = new FakeModelCallLogger();
-        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(firstStep: 5), Opts(throwOnFailure: false));
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false));
 
         await foreach (var _ in client.GetStreamingResponseAsync(Hi())) { }
+        await foreach (var _ in client.GetStreamingResponseAsync(Hi())) { }
 
-        Assert.Equal(5, logger.Logged[0].Step);
-        Assert.Equal(5, client.StepCount);
+        Assert.Equal(new[] { 1, 2 }, logger.Logged.Select(x => x.Step));
+        Assert.Equal(2, client.StepCount);
     }
 
     // ── Real token usage: prefer the provider's UsageDetails over the ~4-chars/token estimate ──────────

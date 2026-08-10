@@ -241,8 +241,8 @@ public class LlmClient : ILlmClient
 
     // ── Hạ tầng dùng chung ───────────────────────────────────────────────────────────────────────────
 
-    // Mỗi lời gọi một đường ống mới: ModelCallLoggingChatClient đếm bước theo instance, nên client riêng
-    // giữ đúng số bước mà ModelCallLogContext.FirstStep khai báo cho call site này.
+    // Mỗi lời gọi một đường ống mới: ModelCallLoggingChatClient đếm bước theo instance, nên lời gọi một
+    // phát ăn ngay ở đây luôn là bước 1 — không lẫn số bước sang lời gọi kế tiếp.
     private ModelCallPipeline NewPipeline(AiModel model, ModelCallLogContext logContext) =>
         new(_chatClientFactory, model, _modelCallLogger, logContext,
             new ModelCallOptions(_settings.RequestTimeoutSeconds, ThrowOnFailure: false) { BudgetGuard = _budgetGuard },
