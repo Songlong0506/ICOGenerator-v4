@@ -37,6 +37,15 @@ public static class SpreadsheetTextExtractor
 
     public static readonly string[] Extensions = { ".xlsx", ".xlsm", ".csv" };
 
+    /// <summary>Tiêu đề khối thống kê cột — tính trên toàn bộ bảng. Đứng TRƯỚC khối dòng dữ liệu.</summary>
+    public const string ColumnStatsHeading = "#### Thống kê cột";
+
+    /// <summary>
+    /// Tiêu đề khối dòng dữ liệu (hàng tiêu đề + các dòng mẫu). Là hằng số vì có consumer đi TÌM đúng khối
+    /// này: <see cref="RealSampleDataReader"/> cần BẢN GHI THẬT chứ không cần thống kê — xem chú thích ở đó.
+    /// </summary>
+    public const string DataRowsHeading = "#### Dòng dữ liệu";
+
     public static bool IsSpreadsheet(string? contentType, string fileName)
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
@@ -269,15 +278,14 @@ public static class SpreadsheetTextExtractor
         sb.AppendLine($"Tổng: {(table.Truncated ? $"trên {table.DataRows}" : table.DataRows.ToString())} dòng dữ liệu, {table.Header.Length} cột.");
         sb.AppendLine();
 
-        sb.AppendLine($"#### Thống kê cột (trên {scope})");
+        sb.AppendLine($"{ColumnStatsHeading} (trên {scope})");
         foreach (var col in table.Columns)
             sb.AppendLine("- " + DescribeColumn(col, table.DataRows));
 
         sb.AppendLine();
-        if (table.DataRows > table.Sample.Count)
-            sb.AppendLine($"#### {table.Sample.Count} dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng \"Thống kê cột\" bên trên");
-        else
-            sb.AppendLine("#### Các dòng dữ liệu");
+        sb.AppendLine(table.DataRows > table.Sample.Count
+            ? $"{DataRowsHeading} ({table.Sample.Count} dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng \"Thống kê cột\" bên trên)"
+            : $"{DataRowsHeading} (toàn bộ {table.DataRows} dòng)");
 
         sb.AppendLine(string.Join(" | ", table.Header));
         foreach (var row in table.Sample)

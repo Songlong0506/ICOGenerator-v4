@@ -92,7 +92,7 @@ public class SpreadsheetTextExtractorTests
         // Cột thưa không được phép bị kể thành "để trống".
         Assert.Contains("Hạn: có giá trị 1/41", text);
         // Và bản đọc phải được cảnh báo rằng phần bảng chỉ là dòng đầu.
-        Assert.Contains("dòng đầu làm mẫu", text);
+        Assert.Contains(SpreadsheetTextExtractor.DataRowsHeading, text);
     }
 
     // SourceContextBuilder cắt text mỗi nguồn ở MaxTextCharsPerFile và GIỮ PHẦN ĐẦU, nên thứ đặt cuối là
@@ -107,8 +107,8 @@ public class SpreadsheetTextExtractorTests
 
         var text = SpreadsheetTextExtractor.Extract(BuildXlsx("S", rows.ToArray()), "s.xlsx")!;
 
-        Assert.True(text.IndexOf("Thống kê cột", StringComparison.Ordinal)
-                    < text.IndexOf("dòng đầu làm mẫu", StringComparison.Ordinal));
+        Assert.True(text.IndexOf(SpreadsheetTextExtractor.ColumnStatsHeading, StringComparison.Ordinal)
+                    < text.IndexOf(SpreadsheetTextExtractor.DataRowsHeading, StringComparison.Ordinal));
     }
 
     [Fact]
