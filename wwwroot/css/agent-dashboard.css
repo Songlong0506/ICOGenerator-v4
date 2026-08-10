@@ -275,6 +275,19 @@
 /* ===== Cấu hình delivery: form TeamDev điền Generation Mode + Backend/Frontend Git ===== */
 .delivery-config { margin-bottom: 18px; }
 
+/* Hàng đầu dashboard: "Cấu hình delivery" (co giãn) + "Total Tokens Used" (giữ bề rộng nội dung,
+   dính lề phải nhờ margin-left:auto nên vẫn nằm bên phải khi đứng một mình). */
+.dashboard-top-row { display: flex; align-items: stretch; gap: 18px; margin-bottom: 18px; }
+.dashboard-top-row > .card { margin-bottom: 0; }
+.dashboard-top-row > .delivery-config-summary { flex: 1 1 auto; min-width: 0; }
+.dashboard-top-row > .token { flex: 0 0 auto; margin-left: auto; min-width: 180px; }
+
+/* Màn hình hẹp: xếp chồng để card cấu hình không bị bóp mất chỗ. */
+@media (max-width: 900px) {
+    .dashboard-top-row { flex-direction: column; }
+    .dashboard-top-row > .token { margin-left: 0; }
+}
+
 /* Summary card thay cho form thường trực: chỉ hiện trạng thái gọn + nút mở popup. */
 .delivery-config-summary { margin-bottom: 18px; }
 .delivery-config-summary .dg-head { justify-content: space-between; margin-bottom: 8px; }

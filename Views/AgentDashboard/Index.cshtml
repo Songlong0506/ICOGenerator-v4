@@ -70,37 +70,43 @@
     <div>
         <h1>Agent Dashboard</h1>
     </div>
+</div>
+
+@* "Cấu hình delivery" và "Total Tokens Used" nằm chung MỘT hàng (.dashboard-top-row): card cấu hình
+   co giãn chiếm phần còn lại, card token giữ nguyên bề rộng theo nội dung và dính lề phải. Khi người
+   dùng không có quyền DeliveryAdvance thì chỉ còn card token, vẫn nằm bên phải như cũ. *@
+<div class="dashboard-top-row">
+    @if (canAdvance)
+    {
+        @* Cấu hình delivery chỉ cần set một lần nên không hiển thị form thường trực; chỉ hiện summary
+           gọn + nút mở popup (#delivery-config-modal) để giữ dashboard sạch sẽ. *@
+        <div class="card delivery-config-summary">
+            <div class="dg-head">
+                <h3>Cấu hình delivery</h3>
+                <button class="btn" type="button" onclick="openDeliveryConfig()">Chỉnh sửa</button>
+            </div>
+            <div class="dc-summary">
+                <span class="dc-summary-item">
+                    <span class="muted">Generation Mode:</span>
+                    <b>@(Model.IsUseBoschTemplate == false ? "Let TechLead Define" : "Use Bosch Template")</b>
+                </span>
+                <span class="dc-summary-item">
+                    <span class="muted">Backend Git:</span>
+                    <b>@(string.IsNullOrWhiteSpace(Model.BackendGitUrl) ? "—" : Model.BackendGitUrl)</b>
+                </span>
+                <span class="dc-summary-item">
+                    <span class="muted">Frontend Git:</span>
+                    <b>@(string.IsNullOrWhiteSpace(Model.FrontendGitUrl) ? "—" : Model.FrontendGitUrl)</b>
+                </span>
+            </div>
+        </div>
+    }
+
     <div class="card token">
         <span>Total Tokens Used</span>
         <b id="total-tokens">@totalTokens.ToString("N0")</b>
     </div>
 </div>
-
-@if (canAdvance)
-{
-    @* Cấu hình delivery chỉ cần set một lần nên không hiển thị form thường trực; chỉ hiện summary
-       gọn + nút mở popup (#delivery-config-modal) để giữ dashboard sạch sẽ. *@
-    <div class="card delivery-config-summary">
-        <div class="dg-head">
-            <h3>Cấu hình delivery</h3>
-            <button class="btn" type="button" onclick="openDeliveryConfig()">Chỉnh sửa</button>
-        </div>
-        <div class="dc-summary">
-            <span class="dc-summary-item">
-                <span class="muted">Generation Mode:</span>
-                <b>@(Model.IsUseBoschTemplate == false ? "Let TechLead Define" : "Use Bosch Template")</b>
-            </span>
-            <span class="dc-summary-item">
-                <span class="muted">Backend Git:</span>
-                <b>@(string.IsNullOrWhiteSpace(Model.BackendGitUrl) ? "—" : Model.BackendGitUrl)</b>
-            </span>
-            <span class="dc-summary-item">
-                <span class="muted">Frontend Git:</span>
-                <b>@(string.IsNullOrWhiteSpace(Model.FrontendGitUrl) ? "—" : Model.FrontendGitUrl)</b>
-            </span>
-        </div>
-    </div>
-}
 
 @* Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) nay là BƯỚC 2 của Delivery Pipeline (sau POC): chạy tự
    động sau khi duyệt POC thay vì có nút trigger riêng — theo dõi trong timeline "Delivery Pipeline". *@
