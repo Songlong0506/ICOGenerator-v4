@@ -288,6 +288,109 @@ public static class EvalScenariosSeedData
             - suggestions 2–5 đáp án ngắn sát câu hỏi đó.
             """);
 
+        // ================= BusinessAnalyst/source-ack.v2.md =================
+        // Lượt đọc lại tài liệu nguồn là CỬA VÀO của mọi thứ phía sau: đọc sai ở đây thì cái sai được người
+        // dùng bấm "Đúng rồi" đóng dấu, rồi chảy thẳng vào Product Brief. UserInput mô phỏng đúng khối mà
+        // SourceContextBuilder dựng lúc runtime ("=== TÀI LIỆU NGUỒN…", "[Nguồn: …]") với phần text bảng tính
+        // do SpreadsheetTextExtractor bóc ra — gồm "#### Thống kê cột" (cả bảng) và các dòng mẫu (29 dòng đầu).
+
+        Add(
+            "Source-ack — bảng tính: danh mục cột lấy từ thống kê, không suy từ dòng mẫu",
+            "BusinessAnalyst/source-ack.v2.md",
+            """
+            Đây là các tài liệu nguồn tôi vừa đính kèm. Bạn đọc kỹ và kể lại cụ thể những gì rút được từ chúng để tôi xác nhận nhé.
+
+            === TÀI LIỆU NGUỒN DO NGƯỜI DÙNG CUNG CẤP (tham khảo khi phân tích yêu cầu) ===
+
+            [Nguồn: KeHoachDaoTao.xlsx]
+            ### Sheet: Sheet1
+            Tổng: 262 dòng dữ liệu, 6 cột.
+
+            #### Thống kê cột (trên 262 dòng)
+            - Global ID: có giá trị 262/262 · 13 giá trị phân biệt · hay gặp nhất: 10151719 (60), 10540911 (54), 10150054 (50), 10481461 (49), 10504807 (38)
+            - Ten dem: TRỐNG ở toàn bộ 262 dòng
+            - Active User: có giá trị 262/262 · CHỈ MỘT giá trị duy nhất: Yes
+            - Item Type: có giá trị 257/262 · ĐỦ 5 giá trị: WBT (114), COURSE (91), DOC (41), WEBINAR (9), EUNIVERSITY (2)
+            - Assignment Type: có giá trị 136/262 · ĐỦ 3 giá trị: REQ (78), MAN (53), OPT (5)
+            - Required Date: có giá trị 12/262 · ĐỦ 7 giá trị: 31/Dec/2023 Asia/Saigon (4), 31/Oct/2023 Asia/Saigon (3), 15/Jan/2026 Asia/Saigon (1), 30/Apr/2023 Asia/Saigon (1), 30/Jun/2023 Asia/Saigon (1), 31/Dec/2025 CET (1), 31/Jul/2023 Asia/Saigon (1)
+
+            #### 3 dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng "Thống kê cột" bên trên
+            Global ID | Ten dem | Active User | Item Type | Assignment Type | Required Date
+            11054396 |  | Yes | DOC | REQ |
+            11227524 |  | Yes | COURSE |  |
+            11491067 |  | Yes | COURSE | MAN |
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ (message, suggestions, multiSelect, ready, sourceNotes) — không có chữ nào ngoài JSON.
+            - ready = false và message KHÔNG nhắc tới nút "Write Requirement".
+            - suggestions có ĐÚNG 2 đáp án: một xác nhận, một đính chính. Không có đáp án thứ ba.
+            - sourceNotes là mảng RỖNG (nguồn này không có hình nào).
+            - message phải nêu ĐỦ CẢ 5 giá trị của Item Type, gồm cả WEBINAR và EUNIVERSITY (chúng chỉ có trong "Thống kê cột", không xuất hiện ở các dòng mẫu).
+            - message phải nêu ĐỦ CẢ 3 giá trị của Assignment Type, gồm cả OPT — TRƯỢT nếu chỉ kể REQ và MAN.
+            - KHÔNG được kết luận Required Date "để trống"/"chưa có dữ liệu": thống kê ghi rõ 12/262 dòng có giá trị.
+            - Phải nêu ra hai cột không mang thông tin: "Ten dem" trống toàn bộ và "Active User" chỉ có một giá trị Yes.
+            - Phải nói được quy mô thật: 262 dòng nhưng chỉ 13 Global ID phân biệt.
+            - Có cụm "Chỗ chưa chắc" nêu điểm còn mờ, và KHÔNG hỏi thành câu hỏi bắt người dùng trả lời ngay.
+            """);
+
+        Add(
+            "Source-ack — đối chiếu tài liệu với điều người dùng đã kể (thiếu gì so với lời kể)",
+            "BusinessAnalyst/source-ack.v2.md",
+            """
+            Đây là các tài liệu nguồn tôi vừa đính kèm, kèm ghi chú của tôi: "đây là file Master List em nói lúc nãy — danh sách nhân viên và các khóa học họ phải học trong năm, tụi em dựa vào đó để tính số lớp cần mở". Bạn đọc kỹ và kể lại cụ thể những gì rút được từ chúng để tôi xác nhận nhé.
+
+            === TÀI LIỆU NGUỒN DO NGƯỜI DÙNG CUNG CẤP (tham khảo khi phân tích yêu cầu) ===
+
+            [Nguồn: MasterList.xlsx]
+            ### Sheet: Sheet1
+            Tổng: 262 dòng dữ liệu, 5 cột.
+
+            #### Thống kê cột (trên 262 dòng)
+            - Global ID: có giá trị 262/262 · 13 giá trị phân biệt · hay gặp nhất: 10151719 (60), 10540911 (54), 10150054 (50), 10481461 (49), 10504807 (38)
+            - Organization: có giá trị 262/262 · ĐỦ 3 giá trị: HcP/MSE2 (120), PS/QMM3-HcP (92), HcP/PC (50)
+            - Item Title: có giá trị 257/262 · 136 giá trị phân biệt · hay gặp nhất: [QM-QM001] Quality at Bosch-B (8), [LG-ATL] Compliance - Antitrust Law-A (7)
+            - Item Status: có giá trị 262/262 · ĐỦ 2 giá trị: Active (219), Inactive (43)
+            - Complete Date: có giá trị 219/262 · 161 giá trị phân biệt · hay gặp nhất: 44707 (6), 44700 (5), 44683 (4)
+
+            #### 2 dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng "Thống kê cột" bên trên
+            Global ID | Organization | Item Title | Item Status | Complete Date
+            11054396 | HcP/MSE2 | [QM-QM001] Quality at Bosch-B | Active | 44330
+            11227524 | PS/QMM3-HcP | [LG-ATL] Compliance - Antitrust Law-A | Active | 42506
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; suggestions có ĐÚNG 2 đáp án (một xác nhận, một đính chính).
+            - Cụm "Chỗ chưa chắc" PHẢI nêu được rằng file không có cột nào chở "số lượng lớp cần mở" hay "nhu cầu học" — thứ người dùng vừa nói là mục đích dùng file.
+            - PHẢI nêu chỗ lệch giữa file và lời kể: người dùng gọi đây là danh sách khóa học PHẢI HỌC trong năm, nhưng cột Complete Date (219/262 dòng đã có ngày hoàn thành) cho thấy đây là dữ liệu ĐÃ HỌC.
+            - PHẢI nêu quy mô đáng ngờ: 262 dòng nhưng chỉ 13 người, trong khi người dùng mô tả đây là danh sách nhân viên của cả đơn vị.
+            - Complete Date dạng số (44330, 42506): được phép nêu là số ngày kiểu Excel kèm cách hiểu để người dùng xác nhận; KHÔNG được để thành một câu hỏi trống bắt người dùng giải thích định dạng.
+            - KHÔNG bịa thêm cột hay quy tắc không có trong tài liệu.
+            """);
+
+        // ================= BusinessAnalyst/decision-log.v1.md =================
+        // Nhật ký "Điều đã chốt" là bộ nhớ dài hạn của cuộc phỏng vấn: BA đọc nó ở MỌI lượt sau để soát mâu
+        // thuẫn, và bước soạn tài liệu — vốn bị CẤM tự giả định — coi mỗi dòng ở đây là điều người dùng đã
+        // duyệt. Một dòng ghi dư vì BA gộp hai điều vào một lượt sẽ không còn cổng nào chặn lại.
+
+        Add(
+            "Decision log — BA gộp hai điều, người dùng chỉ trả lời một: chỉ ghi điều đã trả lời",
+            "BusinessAnalyst/decision-log.v1.md",
+            """
+            ## Nhật ký hiện có
+            - Ứng dụng lập kế hoạch lớp học và đánh giá kết quả học tập cho nhân viên, gồm khóa bắt buộc và tự chọn
+            - Các vai trò dùng ứng dụng: nhân viên, HR – Đào tạo, Manager orgUnit, Quản trị ứng dụng
+
+            ## Các lượt hội thoại MỚI
+            BA: Vậy giáo viên sẽ cập nhật trạng thái Complete/Not Complete/No Show, sau đó chấm điểm từ 1 đến 4 cho riêng học viên Complete. Mình chốt phạm vi duyệt như sau có đúng không: Assistant lập và submit kế hoạch theo từng quý → HoD phòng HR duyệt kế hoạch của quý đó → các lớp trong quý được mở đăng ký?
+            Người dùng: Đúng, duyệt theo quý
+            """,
+            """
+            - Xuất CHỈ danh sách bullet "- ", không lời dẫn, không heading, không giải thích.
+            - Giữ nguyên 2 dòng của nhật ký hiện có.
+            - PHẢI thêm một dòng ghi việc duyệt kế hoạch theo từng quý (Assistant submit → HoD phòng HR duyệt) — đó là điều người dùng đã xác nhận.
+            - TUYỆT ĐỐI KHÔNG thêm dòng nào về việc giáo viên cập nhật Complete/Not Complete/No Show hay chấm điểm 1–4: người dùng chỉ đáp "Đúng, duyệt theo quý", phần đó mới là cách BA hiểu và chưa được xác nhận.
+            - Không bịa thêm quyết định nào khác.
+            """);
+
         // ================= BusinessAnalyst/requirement-coverage.v3.md =================
         // Bản đồ bao phủ là NGUỒN CHÂN LÝ DUY NHẤT của cổng "Write Requirement" (ready suy tất định:
         // mọi dòng áp dụng [RÕ]/[KHÔNG ÁP DỤNG]) nên các scenario phủ cả hai chiều sai: chấm [RÕ] non

@@ -19,6 +19,14 @@ Xuất CHỈ một danh sách bullet, mỗi dòng một quyết định, không 
 - Mỗi dòng là MỘT quyết định độc lập, tự đứng được (người đọc không cần xem hội thoại): vd `- Ứng dụng quản lý đơn nghỉ phép cho ~50 nhân viên`, `- Quản lý duyệt xong thì đơn hoàn tất, không cần cấp cao hơn`, `- Đơn bị từ chối: nhân viên sửa rồi gửi lại`.
 - Nhật ký là **gộp lũy tiến**: giữ các quyết định cũ, thêm quyết định mới. Người dùng ĐỔI Ý về một điểm thì SỬA dòng cũ theo ý mới nhất (không giữ cả hai bản mâu thuẫn).
 - Câu chào hỏi, câu hỏi chưa được trả lời, ý còn mơ hồ ("chắc là", "để xem") → KHÔNG đưa vào.
+- **Câu tóm tắt / "mình ghi nhận…" / "vậy là…" của BA KHÔNG phải lời người dùng.** Nó chỉ thành quyết định khi người dùng đáp lại bằng một xác nhận, và **chỉ chốt đúng phần họ đáp**.
+- **BA gộp NHIỀU điều vào một lượt mà người dùng chỉ trả lời MỘT ⇒ chỉ ghi điều họ đã trả lời.** Dấu hiệu nhận biết: câu đáp chỉ nhắc tới một trong các vế BA vừa nêu. Ca thật:
+
+  > BA: *"Vậy giáo viên sẽ cập nhật trạng thái Complete/Not Complete/No Show, sau đó chấm điểm từ 1 đến 4 cho riêng học viên Complete. Mình chốt phạm vi duyệt như sau có đúng không: Assistant lập và submit kế hoạch theo từng quý → HoD phòng HR duyệt kế hoạch của quý đó?"*
+  > Người dùng: *"Đúng, duyệt theo quý"*
+
+  Câu đáp đó chốt **duy nhất** việc duyệt theo quý. Phần chấm điểm mới chỉ là **cách BA hiểu**, người dùng chưa hề xác nhận ⇒ TUYỆT ĐỐI không thành một dòng nhật ký. Ghi vào là hỏng kép: BA các lượt sau đọc nhật ký thấy điểm đó đã chốt nên không hỏi lại nữa, và bước soạn tài liệu — vốn bị CẤM tự giả định — chép thẳng nó vào tài liệu như một yêu cầu người dùng đã duyệt.
+- Chỉ khi người dùng đáp bằng một xác nhận **bao trùm** ("đúng hết", "chuẩn rồi", bấm "Đúng rồi") thì mọi vế trong câu tóm tắt của BA mới cùng thành quyết định.
 - Viết đúng ngôn ngữ của hội thoại (mặc định tiếng Việt), mỗi dòng tối đa ~25 từ.
 - Tối đa 40 dòng — quá nhiều thì gộp các quyết định cùng chủ đề.
 - Chưa có quyết định nào thì xuất đúng chuỗi rỗng (không xuất gì).

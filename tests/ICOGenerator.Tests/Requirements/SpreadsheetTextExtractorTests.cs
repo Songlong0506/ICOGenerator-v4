@@ -92,7 +92,23 @@ public class SpreadsheetTextExtractorTests
         // Cột thưa không được phép bị kể thành "để trống".
         Assert.Contains("Hạn: có giá trị 1/41", text);
         // Và bản đọc phải được cảnh báo rằng phần bảng chỉ là dòng đầu.
-        Assert.Contains("DÒNG ĐẦU làm mẫu", text);
+        Assert.Contains("dòng đầu làm mẫu", text);
+    }
+
+    // SourceContextBuilder cắt text mỗi nguồn ở MaxTextCharsPerFile và GIỮ PHẦN ĐẦU, nên thứ đặt cuối là
+    // thứ rơi ra trước. Danh mục cột không suy lại được từ dòng mẫu, còn dòng mẫu thì mất vài dòng vẫn còn
+    // dùng được — nên thống kê phải đứng trước, kể cả với bảng rộng ăn hết ngân sách bằng vài chục dòng.
+    [Fact]
+    public void ExtractXlsx_PutsColumnStatsBeforeSampleRows_SoTruncationDropsTheCheaperHalf()
+    {
+        var rows = new List<string[]> { new[] { "Mã", "Loại" } };
+        for (var i = 0; i < 35; i++)
+            rows.Add(new[] { $"M{i}", i % 2 == 0 ? "A" : "B" });
+
+        var text = SpreadsheetTextExtractor.Extract(BuildXlsx("S", rows.ToArray()), "s.xlsx")!;
+
+        Assert.True(text.IndexOf("Thống kê cột", StringComparison.Ordinal)
+                    < text.IndexOf("dòng đầu làm mẫu", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using ICOGenerator.Data;
 using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
@@ -101,6 +102,40 @@ public class SourceAckReadbackRuleTests
         var prompt = ReadPrompt(ChatPromptKey);
 
         Assert.Contains("NGAY TẠI LƯỢT ĐÓ", prompt, StringComparison.Ordinal);
+    }
+
+    // Nhật ký "Điều đã chốt" là bộ nhớ dài hạn của cuộc phỏng vấn, và bước soạn tài liệu — vốn bị CẤM tự
+    // giả định — coi mỗi dòng ở đây là điều người dùng đã duyệt. Nên một dòng ghi DƯ vì BA gộp hai điều vào
+    // một lượt không còn cổng nào chặn lại: BA các lượt sau thấy điểm đó đã chốt nên không hỏi lại, và tài
+    // liệu chép thẳng nó ra. Đó đúng là ca thật ở lượt chốt "duyệt theo quý".
+    [Fact]
+    public void DecisionLogPrompt_OnlyRecordsThePartTheUserActuallyAnswered()
+    {
+        var prompt = ReadPrompt("BusinessAnalyst/decision-log.v1.md");
+
+        Assert.Contains("chỉ ghi điều họ đã trả lời", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("KHÔNG phải lời người dùng", prompt, StringComparison.Ordinal);
+        Assert.Contains("bao trùm", prompt, StringComparison.Ordinal);
+    }
+
+    // Prompt chỉ định hướng; điểm eval mới là thứ đo được model có tuân hay không. Trước thay đổi này cả
+    // source-ack lẫn decision-log đều KHÔNG có scenario nào, dù comment đầu EvalScenariosSeedData nói mọi
+    // template đo được bằng text đều phải có — xoá chúng đi là các luật trên mất chỗ chấm điểm.
+    [Fact]
+    public void GoldenSet_CoversTheReadbackAndDecisionLogRules()
+    {
+        var scenarios = EvalScenariosSeedData.Build();
+
+        var sourceAck = scenarios.Where(s => s.PromptKey == SourceAckPromptKey).Select(s => s.Criteria).ToList();
+        Assert.NotEmpty(sourceAck);
+        // Giá trị chỉ có trong khối thống kê, không có trong dòng mẫu — đúng chỗ bản đọc thật đã trượt.
+        Assert.Contains(sourceAck, c => c.Contains("OPT", StringComparison.Ordinal));
+        Assert.Contains(sourceAck, c => c.Contains("Chỗ chưa chắc", StringComparison.Ordinal));
+
+        var decisionLog = scenarios.Where(s => s.PromptKey == "BusinessAnalyst/decision-log.v1.md")
+            .Select(s => s.Criteria).ToList();
+        Assert.NotEmpty(decisionLog);
+        Assert.Contains(decisionLog, c => c.Contains("chưa được xác nhận", StringComparison.OrdinalIgnoreCase));
     }
 
     // Cùng cách tìm Prompts/ như BAChatPlaybackRuleTests: ưu tiên bản copy trong bin, không có thì đi
