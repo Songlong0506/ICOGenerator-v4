@@ -1,0 +1,111 @@
+# Workspace & sản phẩm sinh ra
+
+## Bố cục
+
+Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-đã-chuẩn-hóa}-{8-ký-tự-đầu-của-Id}` (không đụng nhau khi hai tên chuẩn hóa giống nhau):
+
+```
+{RootPath}/{project-key}/
+  01_Requirement/     # Product Brief (draft/ + V1, V2...), BRD/SRS/FSD/UserStories
+  02_Design/          # AI Design Spec theo V{n}
+  03_Architecture/    # Đề xuất kiến trúc của Tech Lead
+  04_Implementation/  # poc-demo.html (POC) + src/ (code đa file) + code-review.md
+  05_Test/            # Test cases + báo cáo test
+```
+
+(Danh sách phase khai báo ở `Services/Artifacts/ProjectWorkspaceLayout.cs`; mỗi phase có `draft/` và các thư mục version `V{n}`.)
+
+## POC demo
+
+- File `04_Implementation/poc-demo.html` — seed từ `Prompts/Design/poc-template.html` ở bước PocPreview; hai vùng marker do `PocTemplate.cs` quản: `POC_CONTENT` (HTML) và `POC_SCRIPT` (JS; shell expose `window.pocToast`/`window.pocNavigate`).
+- Yêu cầu của bước POC: hiện thực **Business Rules của spec thành hành vi thật** (tính toán, validate, chuyển trạng thái, mô phỏng vai) chứ không chỉ màn hình tĩnh; agent tự soát bằng `AuditPocContent` (`PocAudit.cs` đối chiếu cả độ phủ với "Screens To Generate" + "BR-n" của spec, do `PocSpec.cs` parse).
+- **Kiểm ở hai bề rộng**: `PocRuntimeChecker` đi qua từng màn hình ở 1440px rồi mở lại toàn bộ ở **390px** (điện thoại) — tràn ngang ở bề rộng nào cũng thành ISSUE, và ảnh mobile cũng được đưa cho tầng Visual QA. Trước đây mọi thứ chỉ kiểm ở desktop nên lớp lỗi "vỡ trên màn hẹp" không cổng nào thấy.
+- **Lượt CLICK MENU** (`PocRuntimeChecker.CheckNavClickRoutingAsync`, chạy sau lượt lái UAT): bấm THẬT từng mục menu đang hiển thị và so màn hình đang mở với nhãn mục đó. Lượt đi màn hình ở trên gọi `window.pocNavigate()` bằng JS nên nó MÙ với lớp lỗi "click menu chết" — script nghiệp vụ dựng lại sidebar (mô phỏng vai) làm mất handler của shell, hoặc gắn handler riêng gọi `pocNavigate()` ngay trong lúc xử lý click của chính mục đó (click tổng hợp lồng nhau bị cờ *click in progress* của DOM nuốt). Người xem demo thấy breadcrumb đổi mà nội dung đứng yên; nay thành ISSUE. Bản thân shell cũng đã sửa: nav bắt click bằng **delegation** và `pocNavigate` gọi thẳng hàm mở màn thay vì `item.click()`.
+- **Dữ liệu mẫu THẬT + ngôn ngữ UI** (`PocSampleDataCheck`, chạy trong `PocAudit`): text bóc từ Excel/Word người dùng đính kèm vốn CHỈ được nạp vào prompt sinh spec (`RealSampleDataReader` — cùng hàm cho cả hai đầu) mà không có gì kiểm chứng, nên POC vẫn dễ demo bằng "Sản phẩm A / Nguyễn Văn B" — lớp lỗi rẻ nhất để sửa nhưng đắt nhất về niềm tin: người dùng nghiệp vụ mở demo thấy dữ liệu bịa là mất tin, dù mọi công thức đều đúng. Ba phép scan tất định trên vùng `POC_CONTENT` (không tính shell — shell có chữ mẫu riêng), và cố tình dè dặt (chỉ ISSUE khi bằng chứng rõ ràng):
+  - **Không dùng gì từ tài liệu** ⇒ ISSUE (kèm vài giá trị thật để agent seed lại); dùng ít ⇒ WARNING; không có tài liệu nào ⇒ bỏ qua hẳn.
+  - **Placeholder kinh điển** ("Nguyễn Văn A", "Product B", "Lorem ipsum", `@example.com`) ⇒ ISSUE khi ĐÃ có tài liệu thật để dùng, WARNING khi không.
+  - **Spec tiếng Việt mà chữ HIỂN THỊ của POC không có lấy một dấu** ⇒ ISSUE. Chỉ tính chữ hiển thị: một `data-view="Đăng nhập"` không chứng minh nhãn là tiếng Việt.
+- **Lịch sử các vòng dựng** (`PocSnapshots`): mỗi task `PocPreview` xong thì `poc-demo.html` được chụp thành `04_Implementation/poc-history/poc-demo.V{n}.html` (giữ 10 bản mới nhất). Vòng "Yêu cầu chỉnh sửa" ghi đè thẳng lên bản hiện tại, nên không có bản chụp thì người nghiệm thu ở vòng sau chỉ còn bản bàn giao bằng chữ của agent để tin. Trang POC Review liệt kê các vòng (mở lại qua `Mockup?version=n` — cùng quyền + sandbox, số vòng chỉ dùng để tra trong danh sách file có thật) kèm diff **màn hình thêm/bỏ** so với vòng liền trước. Dựng lại POC từ đầu ⇒ `PocSnapshots.Reset` chạy cùng `PocVerification.Reset`.
+- **Chống hồi quy giữa các vòng sửa**: `poc-verification.json` giữ vòng kiểm mới nhất, các vòng cũ rơi vào `poc-verification-history.json`. Mỗi lượt audit so với vòng trước (`PocVerification.DetectRegressions`) và báo mục từng PASS mà nay FAIL **hoặc biến mất** (xoá assertion cũng bị tính là hồi quy) — mục `REGRESSIONS` trong báo cáo cho agent, và một khối riêng trên trang POC Review. Khi POC được dựng lại từ đầu, `PocVerification.Reset` xoá cả hai file để không so với một bản POC không còn tồn tại.
+- Xem POC: `GET /Projects/Mockup?projectId=` — endpoint **sandbox riêng** (HTML do LLM sinh không được thả vào layout chính).
+- **Review POC (ghim ghi chú lên phần tử)**: `GET /Projects/PocReview?projectId=` nhúng POC trong iframe ở chế độ review (`Mockup?review=True` tiêm `wwwroot/js/poc-annotator.js` lúc phục vụ — file trên đĩa không đổi). Người xem bật "chế độ ghim", click phần tử → annotator gửi mô tả (màn hình `data-view`, nhãn, CSS selector, vị trí %) lên trang cha qua postMessage → lưu bảng `PocComments`. Pin đánh số vẽ ngay trên phần tử. Sandbox giữ nguyên (origin opaque, không cookie) — mọi thao tác ghi đều từ trang cha. Các ghi chú `Open` được gom vào "Yêu cầu chỉnh sửa" tại cổng POC (xem [delivery-pipeline.md](delivery-pipeline.md#cổng-duyệt-gates--trạng-thái-waitingforhuman)).
+- **Một đường đóng vòng cho người dùng nghiệp vụ** ngay tại trang POC Review (cần `RequirementsManage`), đi qua hai bước:
+  - `POST /Projects/TriagePocFeedback` — `TriagePocFeedbackUseCase` phân loại TỪNG ghi chú `Open` (`poc-feedback-triage.v1.md`) thành "lỗi trình bày của bản demo" hay "tài liệu yêu cầu hiểu sai", trả về bảng đề xuất cho hộp xác nhận. Chỉ đọc + gọi model, **không đổi trạng thái gì**; người dùng đổi nhóm được từng dòng. Model hỏng / chưa cấu hình BA ⇒ mọi ghi chú rơi về nhóm RẺ kèm cờ `classified = false` (fail-safe: không tự đề xuất đường đắt bằng một kết quả phân loại không có).
+  - `POST /Projects/DispatchPocFeedback` — `DispatchPocFeedbackUseCase` gửi theo đúng bảng người dùng vừa xác nhận: nhóm "chỉnh demo" đi `RequestStageRevisionUseCase` (`onlyStage: PocPreview`, đếm chung trần `MaxRevisionRounds`; rào `onlyStage` để quyền "sửa demo" không nới thành quyền điều khiển các bước kỹ thuật phía sau), nhóm "hiểu sai yêu cầu" đi `RoutePocFeedbackToRequirementUseCase` (soạn một lượt user gửi BA bằng `poc-feedback-compose.v1.md` rồi chạy lại workflow soạn draft). **Mỗi đường chỉ nhận ĐÚNG tập con của nó.**
+  - **Precedence** khi cả hai nhóm đều có ghi chú: chạy đường tài liệu, và GIỮ NGUYÊN `Open` các ghi chú nhóm chỉnh demo — POC sắp dựng lại từ tài liệu đã sửa nên vá HTML lúc đó vừa phí một lượt trong trần, vừa cho ra bản vá bị bỏ đi ngay. Hộp xác nhận nói rõ điều này trước khi gửi.
+  - Vì sao gộp từ hai nút: hai nút cũ (`RequestPocFix` / `RoutePocFeedbackToRequirement`) bắt người xem demo tự phân loại ghi chú của mình, và **cả hai đều nuốt trọn mọi ghi chú `Open`** — một buổi review lẫn hai loại thì không nút nào đúng. Nặng nhất là đường Requirement cũ: nó tự lọc bằng LLM nhưng vẫn đánh dấu TẤT CẢ ghi chú `Open` thành `RoutedToRequirement`, kể cả các ghi chú thẩm mỹ đã bị loại khỏi tin nhắn gửi BA — chúng biến mất khỏi đường vá POC và `ReopenPocCommentUseCase` cũng không mở lại được (chỉ nhận `Addressed`/`Sent`), tức là mất trắng.
+- **Nghiệm thu bản demo** (`POST /Projects/AcceptPoc`, quyền `RequirementsManage`): điểm DỪNG của hành trình phía người yêu cầu. Trước đây trang chỉ có các đường "còn sai chỗ này" (ghim ghi chú / nhờ Dev chỉnh / gửi về Requirement) mà không có đường nào nói "được rồi": cổng duyệt thật nằm ở Agent Dashboard sau quyền `DeliveryAdvance`, nên đội delivery phải đi hỏi miệng và người yêu cầu không có cách nào tự nói "xong". `AcceptPocUseCase` ghi `Project.PocAcceptedAtUtc/PocAcceptedBy` và báo cho người có quyền duyệt (`NotificationType.PocAccepted`) — **KHÔNG tự đẩy pipeline**: đi tiếp vẫn là quyết định ở cổng POC, để một cú bấm của người dùng nghiệp vụ không âm thầm khởi động các bước đắt tiền.
+- Khi task là revision, worker **bỏ qua re-seed** POC để không ghi đè sản phẩm cũ về placeholder.
+
+## Khung Bosch & tải source
+
+- `Project.IsUseBoschTemplate = true` (mặc định) ⇒ `BoschTemplateSeeder` clone repo khung chuẩn (backend .NET + Angular) từ `BoschTemplate:BackendRepoUrl/FrontendRepoUrl` vào workspace làm skeleton (idempotent; URL trống thì bỏ qua). Pipeline dùng prompt bản `-bosch`.
+- **Tải code sinh ra**: `GET /Projects/DownloadSource?projectId=` — `ImplementationSourcePackager` nén `04_Implementation/src/` thành zip.
+
+---
+
+### Sửa thông tin dự án (và bất biến "tên dự án = tên thư mục workspace")
+Trang Projects sửa được Name / Description / đơn vị yêu cầu ngay tại danh sách (modal, quyền
+`ProjectsEdit` + `IProjectAccessGuard` nên User thường chỉ sửa project của mình). Ba field kỹ thuật
+(Generation Mode, Backend/Frontend Git) **không** ở đây — chúng thuộc `UpdateDeliveryConfigUseCase` ở
+Agent Dashboard; mỗi màn hình sửa đúng phần của mình.
+
+Điểm cần biết trước khi đụng vào luồng này: **tên thư mục workspace dẫn xuất từ TÊN dự án**
+(`WorkspacePathResolver.GetWorkspaceFolder(id, name)` — mọi đường dẫn tài liệu/POC tính lại từ đó mỗi
+lần cần). Vì vậy đổi tên mà không đổi thư mục = mọi đường dẫn trỏ sang thư mục trống, tài liệu/POC đã
+sinh coi như mất. `UpdateProjectUseCase` giữ hai bên khớp nhau bằng ba chốt:
+
+- Đổi thư mục **TRƯỚC** khi lưu DB (`IArtifactStorage.TryRenameProjectWorkspace`); thất bại ⇒ trả
+  `WorkspaceRenameFailed` và **không lưu gì** (giữ tên cũ, dữ liệu còn nguyên chỗ). Lưu DB lỗi sau đó ⇒
+  đổi thư mục về tên cũ rồi mới ném lỗi.
+- Đang có workflow chạy (run mới nhất chưa Completed/Failed/Canceled) ⇒ **chặn đổi TÊN**
+  (`RenameBlockedByRunningWorkflow`): agent nền giải đường dẫn workspace một lần lúc bắt đầu task rồi
+  ghi file suốt run. Description/đơn vị yêu cầu vẫn sửa được bình thường (UI cũng khóa sẵn ô Name).
+- "Chưa có gì trên đĩa" / hai key trùng nhau / `RootPath` cấu hình sai ⇒ coi như **không có gì phải
+  đổi** (true), không chặn việc sửa — cùng tinh thần best-effort với lúc tạo project.
+
+### Vòng phản hồi POC hai chiều + link chia sẻ cho người ngoài hệ thống
+- `PocComment` có thêm trạng thái `Addressed` (+ thời điểm + bàn giao của agent): vòng chỉnh sửa POC
+  chạy xong thì các ghi chú đã gửi chuyển sang "đã sửa — mời kiểm lại", và người review mở lại được
+  đúng cái **chưa đạt** (`ReopenPocCommentUseCase`) thay vì ghim ghi chú mới trùng nội dung.
+- `PocVerification.DetectFixes` là chiều ngược của `DetectRegressions`: "đã sửa được gì so với vòng
+  trước" — thứ người review vòng thứ hai luôn hỏi đầu tiên.
+- `PocShareLink` + `PocShareController` (`[AllowAnonymous]`, route `poc-share/{token}`): người không
+  có tài khoản mở được bản demo và ghim góp ý bằng tên mình. Token luôn có hạn dùng, thu hồi được, và
+  chỉ mở đúng ba thứ của MỘT project (trang xem, `poc-demo.html`, danh sách góp ý). Toàn bộ bề mặt
+  cho khách gom trong một controller để đọc một file là thấy hết; sandbox CSP của bản demo giữ nguyên
+  như đường có đăng nhập.
+- Ô "Gửi cho ai" của hộp thoại tạo link là autocomplete lấy gợi ý từ bảng `Associates`
+  (`SearchAssociatesQuery` + `Projects/SearchAssociates`) — nhãn link chỉ có ích khi cùng một người
+  luôn được ghi cùng một cách. Vẫn cho gõ tự do vì khách ngoài công ty không có trong danh bạ. Danh bạ
+  dùng chung cả công ty nhưng cửa vào kẹp theo project + `RequirementsManage`, và chỉ trả tên/email/
+  đơn vị/chức danh — không mở thêm một đường tra cứu hồ sơ nhân sự.
+
+### Parity Brief ↔ Spec soát ba tầng, không chỉ màn hình
+Spec là **đầu vào duy nhất** của bước dựng POC, nên thứ gì rơi rụng ở biên Brief→Spec thì POC thiếu
+luôn và mọi cổng phía sau đều mù (chúng chỉ so POC với spec). `SpecBriefParityChecker` vốn chỉ so danh
+sách màn hình; nay ba tầng theo thứ tự "mất mát đắt dần": **màn hình** → **quy tắc nghiệp vụ**
+(`## Quy tắc cần nhớ` ↔ `§ 10`) → **câu nghiệm thu** (`Hoàn thành khi` ↔ `§ 14`). Rule bị mất là bản
+demo bấm được nhưng sai nghiệp vụ — đúng lớp lỗi mà audit POC không thể thấy vì nó chấm theo spec.
+
+Màn hình so bằng `PocSpec.Matches` (dùng chung với audit POC). Rule và AC là **câu**, không phải nhãn
+ngắn, nên so bằng `TextSimilarity` (bằng nhau → chứa nhau → đủ tỷ lệ từ chung): spec diễn đạt lại cùng
+một quy tắc bằng từ ngữ kỹ thuật hơn là chuyện bình thường, và một cổng kêu ở mọi lượt là một cổng sẽ
+bị bỏ qua. `PocUatCoverage` nay dùng chung `TextSimilarity` thay vì bản sao riêng của nó.
+
+### Mỗi vòng dựng POC được chụp lại (`PocSnapshots`)
+Vòng "Yêu cầu chỉnh sửa" **ghi đè thẳng** lên `poc-demo.html`, nên bản người nghiệm thu vừa xem biến
+mất. `PocVerification` giữ được lịch sử **kết quả kiểm** (rule pass/fail, hồi quy) nhưng không giữ
+chính bản demo: từ vòng thứ hai trở đi người review chỉ còn bản bàn giao bằng chữ của agent để tin, và
+phải rà lại cả POC từ đầu.
+
+`PocSnapshots.TryCapture` chụp `poc-demo.html` thành `04_Implementation/poc-history/poc-demo.V{n}.html`
+ngay khi mỗi task `PocPreview` hoàn tất (giữ 10 bản mới nhất). Trang POC Review liệt kê các vòng, mở
+lại được từng bản qua `Mockup?version=n` — cùng quyền, cùng rào sandbox với bản hiện tại; số vòng chỉ
+dùng để **tra trong danh sách file có thật**, không bao giờ ghép vào đường dẫn. Kèm theo là diff cấu
+trúc với vòng liền trước: **màn hình thêm/bỏ** (`PocSnapshots.Diff`) — đơn vị mà người nghiệm thu nói
+được thành lời, khác diff từng dòng HTML vốn báo "khác nhau toàn bộ" ở mọi vòng. Khi POC được dựng lại
+từ đầu, `PocSnapshots.Reset` chạy cùng `PocVerification.Reset` vì cùng một lý do: các bản chụp của một
+POC không còn tồn tại chỉ tạo ra so sánh vô nghĩa.
+
+---

@@ -1,34 +1,71 @@
-# Database Design — ICOGenerator v4
+# Mô hình dữ liệu
 
-## 1. Tổng quan database
+`Data/AppDbContext.cs` khai báo **28 DbSet**. Điểm chung cần biết trước:
 
-Database được quản lý bằng Entity Framework Core qua `AppDbContext`. Provider mặc định là SQL Server; SQLite được hỗ trợ để chạy end-to-end trong môi trường không có SQL Server.
+- **Mọi cột `DateTime` được chuẩn hóa `Kind=Utc` khi đọc** (`UtcDateTimeConverter`) để JSON trả ra có hậu tố `Z` — tránh lệch múi giờ trên client.
+- **Hầu hết enum lưu dạng chuỗi** (tên enum, ví dụ `'WaitingForHuman'`) — dễ đọc trong DB và bền khi chèn giá trị enum mới. ⚠️ Vì vậy **đừng đổi tên giá trị enum đã có dữ liệu**.
+- **`AiModel.ApiKey` được mã hóa AES** bằng value-converter gắn `AesApiKeyProtector`. Protector **bắt buộc là Singleton** (EF cache model toàn cục, converter capture instance đầu tiên) — đừng đổi lifetime, đừng bật `AddDbContextPool`.
 
-```mermaid
-flowchart TB
-    DB[(ICOGenerator DB)]
-    DB --> Core[Project & Documents]
-    DB --> Workflow[Workflow & Agent Tasks]
-    DB --> AI[Agents, Models, Tools, LLM Logs]
-    DB --> Security[Users, Roles, Audit]
-    DB --> Ops[Notifications, Feedback]
-    DB --> Eval[Prompt Versions & Evals]
-    DB --> Org[OrgUnits & Associates]
-```
+## Bản đồ các bảng
 
-## 2. Entity groups
+### Nhóm lõi: Project & Agent
 
-| Group | Tables | Mục đích |
+| Bảng | Vai trò | Điểm đáng chú ý |
 |---|---|---|
-| Project core | `Projects`, `ProjectDocuments`, `ProjectDocumentRevisions`, `ProjectSourceFiles`, `AgentConversations` | Dữ liệu project, tài liệu, upload, chat BA |
-| Workflow | `WorkflowRuns`, `AgentTasks` | Điều phối các run/task nền |
-| AI config/runtime | `Agents`, `AiModels`, `ToolDefinitions`, `AgentTools`, `AgentModelCallLogs` | Cấu hình agent/model/tool và log LLM |
-| Security | `AppUsers`, `AppUserRoles`, `RolePermissions`, `AuditLogs` | Login, RBAC (một user nhiều role), audit cấu hình |
-| Notifications/Feedback | `Notifications`, `Feedbacks`, `FeedbackAttachments` | Thông báo và phản hồi người dùng |
-| Prompt/eval | `PromptTemplateVersions`, `EvalScenarios`, `EvalRuns`, `EvalResults` | Prompt override và benchmark prompt/model |
-| Organization | `OrgUnits`, `Associates` | Dữ liệu tổ chức seed từ HR_Portal |
+| `AgentChecklistItem` | Một bài học trong "checklist BA học được": `DomainKey` (null = mọi dự án), `Text` (phần duy nhất vào prompt), `Rationale`/`Evidence` (vì sao rút ra — chỉ cho trang quản trị), `SourceKind`/`SourceProjectId`, `Status` (Active/DisabledByUser/DisabledByOverflow) | Trần 25 mục đang dùng mỗi bucket; vượt thì mục cũ nhất tự chuyển `DisabledByOverflow` (vẫn thấy, bật lại được). FK dự án nguồn là `SetNull` — xóa dự án không xóa bài học |
+| `Projects` | Dự án — gốc nối tới tài liệu, hội thoại, workflow | Ngoài metadata còn mang **bộ nhớ của luồng BA**: `ConversationSummary` + `SummarizedTurnCount` (tóm tắt hội thoại dài), `UserMemoryHarvestedTurnCount`, `RequirementCoverageMap` + `CoverageHarvestedTurnCount` (bản đồ bao phủ 12 nhóm thông tin), `ChecklistGapHarvested`; và **nghiệm thu bản demo** `PocAcceptedAtUtc` + `PocAcceptedBy` (null = người yêu cầu chưa xác nhận POC đạt). `CreatedByUsername` để lọc "chỉ thấy project mình tạo"; `OrgUnitCode` (không FK) gắn đơn vị yêu cầu; `IsUseBoschTemplate` (mặc định true) do TeamDev đổi ở Agent Dashboard |
+| `Agents` | "Nhân sự AI": `RoleKey` (BusinessAnalyst/TechLead/Developer/Tester/UiUx), `AiModelId`, `Temperature`, `Color` | System prompt **không lưu DB** — nạp từ `Prompts/{RoleKey}/instruction.md` qua `AgentInstructionProvider`. FK sang AiModel là `Restrict` (không xóa được model đang dùng) |
+| `AiModels` | Danh mục model LLM: `ModelId`, `Endpoint`, `ApiKey` (mã hóa), `ContextWindow`, đơn giá Input/Output per-1M-token (decimal 18,6) | Đơn giá là đầu vào của trang Usage + Budget guard. Model tự host giá 0 ⇒ chi phí 0 |
+| `ToolDefinitions` | Danh mục tool (đồng bộ từ code khi khởi động) | Unique index `(ServiceType, MethodName)` |
+| `AgentTools` | Bảng nối agent ↔ tool được phép dùng | Khóa chính kép `(AgentId, ToolDefinitionId)` |
 
-## 3. ERD mức cao
+### Nhóm tài liệu & hội thoại
+
+| Bảng | Vai trò | Điểm đáng chú ý |
+|---|---|---|
+| `ProjectDocuments` | Tài liệu sinh ra (ProductBrief/AIDesignSpec/BRD/SRS/FSD/UserStories...): `Folder`, `VersionName`, `FileName`, `FilePath`, `Content`, `IsApproved` | Cascade theo Project |
+| `ProjectDocumentRevisions` | **Lịch sử nội dung** mỗi lần document bị ghi đè CÓ thay đổi — snapshot đầy đủ + `ChangeNote` nguồn gốc | Chốt chặn duy nhất tạo revision là `RequirementDocumentGenerator.UpsertDocument`. Diff tính lúc xem bằng `DocumentDiffService` (LCS theo dòng). Unique `(DocumentId, RevisionNumber)` |
+| `ProjectSourceFiles` | Tài liệu nguồn user upload cho BA đọc (ảnh / PDF / Word .docx / Excel-CSV) — `ExtractedText` do `ProjectSourceIngestor` trích; PDF **scan** không có text thì lấy ảnh nhúng từng trang ra `page-{n}.png`, Word có **hình nhúng** (screenshot, sơ đồ) thì lấy các hình đủ lớn ra `figure-{n}.png` cạnh file gốc (`ScannedPageImageCount`) cho model vision | Cascade theo Project |
+| `AgentConversations` | Từng lượt hội thoại user ↔ agent trong project | Project FK Cascade, Agent FK **Restrict** (xóa agent không wipe lịch sử) |
+| `AgentModelCallLogs` | Log **mỗi lời gọi model**: request/response JSON, token, thời lượng, `Purpose`, `WorkflowRunId` (cột nhóm, cố ý không FK). Ảnh đã gửi kèm chỉ được **mô tả** trong `RequestJson` (tên/kiểu/dung lượng/số thứ tự), bytes nằm trên đĩa — xem ["Ảnh trong call log"](requirement-flow.md#tài-liệu-nguồn-ảnh-và-call-log) | Nguồn dữ liệu của trang Usage, popup AI Call Logs, Delivery Quality |
+
+### Nhóm workflow
+
+| Bảng | Vai trò | Điểm đáng chú ý |
+|---|---|---|
+| `WorkflowRuns` | Một lần chạy quy trình cho project: `Status` (Queued/Running/WaitingForHuman/Completed/Failed/Canceled), `CurrentStage` (`WorkflowStageKey`) | Cascade theo Project; index `(ProjectId, Status, CreatedAt)` |
+| `AgentTasks` | Một đầu việc giao cho một agent trong run: `Type`, `Status`, `Input`, `Output`, `Error`, `Attempt`, `RevisionFeedback` (null = task thường) | Agent FK `SetNull`, Project FK `Restrict`. **Index `(Status, CreatedAt)` phục vụ worker poll mỗi 2s** — đừng xóa |
+
+### Nhóm người dùng & bảo mật
+
+| Bảng | Vai trò | Điểm đáng chú ý |
+|---|---|---|
+| `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `DisplayName`, `OrgUnitName` (đồng bộ từ claim `department` của SSO), `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | **Không có cột mật khẩu** — đăng nhập do provider ngoài quyết định (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-provider-không-có-mật-khẩu-trong-app)). Chưa có UI tạo user — seed 4 tài khoản cố định |
+| `AppUserRoles` | Bảng nối user ↔ vai trò — **một user giữ NHIỀU `UserRole`** | Khóa chính kép `(AppUserId, Role)`; index trên `Role` cho chiều "ai đang giữ vai trò X". Quyền hiệu lực = HỢP quyền của mọi vai trò |
+| `RolePermissions` | Cấp quyền `(Role, Permission)` — cấu hình runtime ở màn Roles | Unique `(Role, Permission)`. SuperAdmin implicit-all, không có dòng nào |
+| `AuditLogs` | Nhật ký thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt): actor, before/after JSON | Ghi qua `IAuditLogger` |
+
+### Nhóm vệ tinh
+
+| Bảng | Vai trò |
+|---|---|
+| `Feedbacks` + `FeedbackAttachments` | Phản hồi người dùng toàn app (bug/góp ý/trải nghiệm) kèm file đính kèm; file gốc lưu đĩa (`Feedback:UploadRootPath`), DB chỉ giữ metadata |
+| `OrgUnits` + `Associates` | Dữ liệu tổ chức đồng bộ từ HR_Portal (phòng ban, nhân sự) — nguyên liệu cho `OrganizationContextService` |
+| `Notifications` | Thông báo in-app (chuông): index `(RecipientUsername, IsRead, CreatedAt)` |
+| `EvalScenarios` / `EvalRuns` / `EvalResults` | Prompt eval harness (golden set + LLM-judge). Model/scenario tham chiếu bằng **Guid + snapshot tên, không FK** — xóa không mất lịch sử điểm |
+| `PromptTemplateVersions` | Phiên bản prompt chỉnh runtime (Prompt Studio): snapshot đầy đủ, unique `(PromptKey, VersionNumber)`, tối đa một `IsActive` mỗi key |
+| `PocComments` | Ghi chú GHIM trực tiếp lên phần tử trong POC (trang POC Review): màn hình + nhãn + CSS selector + vị trí. `Open` → gom vào "Yêu cầu chỉnh sửa" ở cổng POC → `Sent` (không gửi lặp) |
+| `PocShareLinks` | Link chia sẻ bản demo cho người **không có tài khoản** (sếp, người dùng cuối): `Token` (base64url 32 byte, unique), `Label`, `ExpiresAtUtc` (**bắt buộc**), `RevokedAtUtc`. Ba lớp giới hạn: chỉ mở đúng demo của một project, luôn có hạn dùng, thu hồi được. Token lưu nguyên văn để copy lại link — đánh đổi có chủ ý, chấp nhận được vì thứ nó mở ra là demo dữ liệu giả |
+
+## Migration
+
+- Đổi entity ⇒ `dotnet ef migrations add <Tên>`; `DbInitializer` tự `MigrateAsync` lúc khởi động (SqlServer).
+- Migration hiện tại là một **baseline `V1` duy nhất** (đã gộp toàn bộ lịch sử; các migration tiến lẻ tẻ trước đây không còn). Khi cần sinh migration, để `Database:Provider` là `SqlServer` (mặc định) — **đừng** đặt `Database__Provider=Sqlite` — để nó sinh theo provider SqlServer (không phải Sqlite).
+- Sqlite **không chạy migration** (dùng `EnsureCreated`) ⇒ đổi schema khi dev Sqlite = xóa file `ICOGenerator.db*` để dựng lại.
+
+---
+
+## ERD mức cao
 
 ```mermaid
 erDiagram
@@ -53,7 +90,7 @@ erDiagram
     EvalRun ||--o{ EvalResult : has
 ```
 
-## 4. Core project schema
+## Core project schema
 
 ```mermaid
 erDiagram
@@ -138,7 +175,7 @@ erDiagram
 - `ProjectDocumentRevision` có unique index `(ProjectDocumentId, RevisionNumber)` để bảo toàn thứ tự version.
 - `ProjectSourceFile.ExtractedText` và `PageImagePaths` là LOB, dùng cho context BA/vision.
 
-## 5. Workflow schema
+## Workflow schema
 
 ```mermaid
 erDiagram
@@ -198,7 +235,7 @@ stateDiagram-v2
 | `AgentTask` | `(ProjectId, Status, CreatedAt)` | Query task theo project/status |
 | `AgentTask` | `(Status, CreatedAt)` | Worker poll task queued cũ nhất mỗi ~2 giây |
 
-## 6. AI config/runtime schema
+## AI config/runtime schema
 
 ```mermaid
 erDiagram
@@ -279,14 +316,13 @@ erDiagram
 - `ToolDefinition` unique theo `(ServiceType, MethodName)` để đồng bộ discovery không tạo trùng.
 - `Agent.RoleKey` là unique: mỗi role đúng một agent — mọi lookup agent trong hệ thống đều theo `RoleKey`.
 
-## 7. Security/RBAC/Audit schema
+## Security/RBAC/Audit schema
 
 ```mermaid
 erDiagram
     AppUser {
         Guid Id PK
         string Username UK
-        string PasswordHash
         string DisplayName
         string OrgUnitName
         string UserMemory
@@ -334,7 +370,7 @@ erDiagram
 | `RolePermission(Role, Permission)` unique | Một permission chỉ được cấp một lần cho role |
 | `AuditLog.CreatedAt`, `(Category, CreatedAt)` | Lọc/sắp xếp audit log |
 
-## 8. Notifications và Feedback schema
+## Notifications và Feedback schema
 
 ```mermaid
 erDiagram
@@ -381,7 +417,7 @@ erDiagram
 
 `Notification` index `(RecipientUsername, IsRead, CreatedAt)` phục vụ chuông thông báo: đếm unread và lấy danh sách mới nhất.
 
-## 9. Prompt/eval schema
+## Prompt/eval schema
 
 ```mermaid
 erDiagram
@@ -459,7 +495,7 @@ erDiagram
 | `EvalRun` | `(Status, CreatedAt)` | Worker poll queued + UI list |
 | `EvalResult` | `EvalRunId`, `EvalScenarioId` | Chi tiết run và so sánh scenario |
 
-## 10. Organization schema
+## Organization schema
 
 ```mermaid
 erDiagram
@@ -496,7 +532,7 @@ Hai bảng này được seed từ dữ liệu HR_Portal mẫu. Index chính:
 - `Associate.OrgUnitCode`
 - `Associate.GlobalId`
 
-## 11. Cascade/delete behavior
+## Cascade/delete behavior
 
 | Relationship | Delete behavior | Lý do |
 |---|---|---|
@@ -515,7 +551,7 @@ Hai bảng này được seed từ dữ liệu HR_Portal mẫu. Index chính:
 | `Feedback -> FeedbackAttachment` | Cascade | Xóa feedback dọn attachment metadata |
 | `EvalRun -> EvalResult` | Cascade | Xóa run dọn result |
 
-## 12. Seed data
+## Seed data
 
 Khi DB khởi tạo rỗng, `DbInitializer` seed:
 
