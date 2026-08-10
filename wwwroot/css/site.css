@@ -96,6 +96,15 @@
     --input-focus-bg: #d7e6f7;
     --input-readonly-bg: #eceef0;
 
+    /* ---- Radio (đúng chuẩn Bosch) ----
+       Chưa chọn: đĩa xám ĐẶC. Đã chọn: vành xanh Bosch + khe trắng + tâm xanh.
+       Kích thước và bán kính tâm để ở đây để mọi radio trong app đổi cùng lúc. */
+    --radio-size: 20px;
+    --radio-dot: 5px;
+    --radio-fill: #a4abb3;
+    --radio-fill-hover: #8b9299;
+    --radio-fill-disabled: #d0d4d8;
+
     /* Back-compat aliases used by inline view styles */
     --primary: #007bc0;
     --primary2: #00629a;
@@ -1409,14 +1418,62 @@ label.cs-enhanced-hidden + .ms-combo--single { margin-top: 16px; }
     cursor: pointer;
 }
 
+/* Dấu radio vẽ tay theo chuẩn Bosch — KHÔNG dùng `accent-color`: trình duyệt chỉ
+   tô màu dấu tích mặc định (vòng rỗng viền mảnh, tâm nhỏ), không ra được đĩa xám
+   đặc lúc chưa chọn. `appearance: none` bỏ hẳn dấu mặc định rồi tự vẽ:
+     • chưa chọn — đĩa xám đặc, không viền;
+     • đã chọn  — viền 2px xanh Bosch, nền trắng, tâm xanh bằng radial-gradient.
+   `* { box-sizing: border-box }` toàn cục nên viền 2px lúc chọn nằm TRONG khung
+   --radio-size: control giữ nguyên kích thước, nhãn bên cạnh không nhảy khi
+   người dùng chuyển lựa chọn. */
 .radio-option input[type="radio"],
 .form-check .form-check-input {
+    appearance: none;
+    -webkit-appearance: none;
     flex: 0 0 auto;
-    width: 16px;
-    height: 16px;
+    width: var(--radio-size);
+    height: var(--radio-size);
     margin: 0;
-    accent-color: var(--bosch-blue);
+    /* padding: 0 là BẮT BUỘC — rule input chung ở trên đặt padding 9px 12px, mà padding
+       không co lại dưới width/height nên dấu radio phình thành hình bầu dục 24×20. */
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--radio-fill);
     cursor: pointer;
+    transition: background-color .12s ease, border-color .12s ease;
+}
+
+/* Hover chỉ làm đậm đĩa xám của lựa chọn CHƯA chọn — ô đang chọn giữ nguyên vành xanh. */
+.radio-option:hover input[type="radio"]:not(:checked):not(:disabled),
+.form-check:hover .form-check-input:not(:checked):not(:disabled) { background: var(--radio-fill-hover); }
+
+/* Nền vẽ hết khung (background-clip mặc định là border-box) nên viền xanh đặc phủ
+   vòng ngoài, còn gradient lo phần trong: tâm xanh bán kính --radio-dot rồi khe
+   trắng. Cộng .5px để biên tâm không bị răng cưa. */
+.radio-option input[type="radio"]:checked,
+.form-check .form-check-input:checked {
+    border: 2px solid var(--bosch-blue);
+    background: radial-gradient(circle at 50% 50%,
+        var(--bosch-blue) 0 var(--radio-dot),
+        #fff calc(var(--radio-dot) + .5px));
+}
+
+.radio-option input[type="radio"]:focus-visible,
+.form-check .form-check-input:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.radio-option input[type="radio"]:disabled,
+.form-check .form-check-input:disabled { background: var(--radio-fill-disabled); cursor: not-allowed; }
+
+.radio-option input[type="radio"]:disabled:checked,
+.form-check .form-check-input:disabled:checked {
+    border-color: var(--radio-fill);
+    background: radial-gradient(circle at 50% 50%,
+        var(--radio-fill) 0 var(--radio-dot),
+        #fff calc(var(--radio-dot) + .5px));
 }
 
 .radio-option .radio-option-label,
