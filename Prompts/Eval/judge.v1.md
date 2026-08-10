@@ -20,8 +20,8 @@ Nhiệm vụ: đối chiếu câu trả lời với TỪNG tiêu chí, ghi rõ *
 - Nếu tiêu chí yêu cầu định dạng (JSON, bảng, mục lục...), sai định dạng là trượt tiêu chí đó.
 - Không thiên vị văn phong: câu trả lời tiếng Việt hay tiếng Anh đều chấm như nhau nếu tiêu chí không quy định.
 
-## Đầu ra (BẮT BUỘC)
-Chỉ xuất **MỘT object JSON** đúng dạng sau, không thêm lời dẫn, không markdown, không giải thích ngoài JSON:
+## ĐỊNH DẠNG TRẢ LỜI (BẮT BUỘC)
+CHỈ trả về **một đối tượng JSON hợp lệ** đúng dạng sau, không kèm chữ nào ngoài JSON:
 
 ```json
 {

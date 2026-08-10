@@ -9,12 +9,6 @@ Bạn nhận **danh sách ghi chú người dùng ghim trên POC** (bản demo d
 
 Khi phân vân, chọn `false`. Đường chỉnh bản demo rẻ và đảo ngược được; đường sửa tài liệu kéo theo soạn lại tài liệu và dựng lại toàn bộ POC.
 
-## Đầu ra
-
-- Đúng **một phần tử cho MỖI ghi chú** đầu vào — không bỏ sót, không gộp, không thêm.
-- `index` chép nguyên số thứ tự của ghi chú trong danh sách đầu vào.
-- `reason`: MỘT câu ngắn (tối đa ~20 từ), tiếng Việt, nói vì sao xếp vào nhóm đó. Người dùng đọc đúng câu này để soát lại trước khi bấm gửi, nên phải cụ thể — không viết chung chung kiểu "thuộc về yêu cầu".
-
 ## ĐỊNH DẠNG TRẢ LỜI (BẮT BUỘC)
 
 CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ nào ngoài JSON:
@@ -27,3 +21,8 @@ CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ n�
   ]
 }
 ```
+
+Quy tắc từng trường:
+- Đúng **một phần tử cho MỖI ghi chú** đầu vào — không bỏ sót, không gộp, không thêm.
+- `index` chép nguyên số thứ tự của ghi chú trong danh sách đầu vào.
+- `reason`: MỘT câu ngắn (tối đa ~20 từ), tiếng Việt, nói vì sao xếp vào nhóm đó. Người dùng đọc đúng câu này để soát lại trước khi bấm gửi, nên phải cụ thể — không viết chung chung kiểu "thuộc về yêu cầu".

@@ -20,4 +20,6 @@ thoại đã dài, mà không phải đọc lại toàn bộ lịch sử (tiết
   - Những điểm còn **mơ hồ / đang chờ người dùng trả lời**.
 - Ưu tiên **sự thật do người dùng cung cấp**; bỏ các câu xã giao, lời chào, nội dung không mang thông tin.
 - Viết bằng **đúng ngôn ngữ của hội thoại** (mặc định tiếng Việt), văn phong gạch ý súc tích.
-- **Chỉ xuất phần văn bản tóm tắt** — không thêm lời mở đầu, không giải thích, không markdown thừa.
+
+## ĐỊNH DẠNG TRẢ LỜI (BẮT BUỘC)
+**Chỉ xuất phần văn bản tóm tắt** — không thêm lời mở đầu, không giải thích, không markdown thừa.

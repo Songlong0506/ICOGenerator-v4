@@ -21,7 +21,7 @@ không phải hỏi lại từ con số 0.
 - Câu xã giao, lời chào, nội dung nhất thời không phản ánh đặc điểm bền của người dùng.
 - Suy đoán không có căn cứ — chỉ ghi điều người dùng **thực sự thể hiện**.
 
-## Yêu cầu đầu ra
+## ĐỊNH DẠNG TRẢ LỜI (BẮT BUỘC)
 - **Hợp nhất** hồ sơ hiện có (nếu có) với các lượt mới thành **MỘT** hồ sơ duy nhất, mạch lạc — KHÔNG lặp ý,
   KHÔNG liệt kê lại từng lượt. Nếu thông tin mới mâu thuẫn với hồ sơ cũ, ưu tiên thông tin **mới hơn**.
 - Văn phong gạch ý súc tích, viết bằng **đúng ngôn ngữ của hội thoại** (mặc định tiếng Việt).

@@ -37,6 +37,6 @@ CHỈ trả về một đối tượng JSON hợp lệ, không kèm chữ nào n
 - `ruleRefs`: mã các Business Rule kịch bản này kiểm chứng (mảng rỗng nếu không gắn rule nào).
 - `acRefs`: mã các câu nghiệm thu `AC-n` (mục "## 14. Acceptance Criteria" của spec) mà kịch bản này chứng minh (mảng rỗng nếu spec không có mục đó).
 
-# AI Design Spec
+# ĐẦU VÀO: AI Design Spec
 
 {{input}}

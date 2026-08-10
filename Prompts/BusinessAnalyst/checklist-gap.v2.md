@@ -35,18 +35,19 @@ lần thử…) nếu ứng dụng có đăng nhập."*
 - Câu hỏi **thiên về kỹ thuật** (SSO, API, database, hạ tầng…) — checklist của BA chỉ hỏi ở góc nhìn nghiệp vụ.
 - Suy đoán không có căn cứ, hoặc thông tin mà thực ra BA **đã hỏi** trước đó trong hội thoại.
 
-## Yêu cầu đầu ra
-Trả về **DUY NHẤT một object JSON**, không lời dẫn, không markdown, không hàng rào ```:
+## ĐỊNH DẠNG TRẢ LỜI (BẮT BUỘC)
+CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ nào ngoài JSON:
 
-```
-{"items":[{"text":"...","rationale":"...","evidence":"..."}]}
+```json
+{ "items": [{ "text": "...", "rationale": "...", "evidence": "..." }] }
 ```
 
+Quy tắc từng trường:
 - `text` — mục checklist đã khái quát hoá, một câu, không có dấu gạch đầu dòng. Đây là phần BA thật sự đọc
   ở các dự án sau.
 - `rationale` — **một câu giải thích vì sao rút ra được bài học này**: BA đã bỏ sót nhóm thông tin nào và
   vì sao điều đó lặp lại được ở dự án khác. Viết cho NGƯỜI QUẢN TRỊ đọc để phán đoán bài học đúng hay sai.
 - `evidence` — **trích ngắn (≤ 200 ký tự) nguyên văn** đoạn người dùng tự nêu đã dẫn tới bài học. Không
   diễn giải lại; đây là bằng chứng để truy nguồn.
-- Chỉ đề xuất bài học **thật sự mới**, tối đa **5 mục** một vòng; không có gì mới thì trả `{"items":[]}`.
+- Chỉ đề xuất bài học **thật sự mới**, tối đa **5 mục** một vòng; không có gì mới thì trả `{ "items": [] }`.
 - Viết bằng **đúng ngôn ngữ của hội thoại** (mặc định tiếng Việt).
