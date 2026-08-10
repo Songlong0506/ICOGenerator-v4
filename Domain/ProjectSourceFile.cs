@@ -35,6 +35,26 @@ public class ProjectSourceFile
     public int PageCount { get; set; }
 
     /// <summary>
+    /// BẢNG CỘT đã được người dùng chốt cho nguồn dạng bảng tính: JSON array
+    /// <see cref="Contracts.Requirements.SourceColumnNote"/> (tên cột + ý nghĩa + có dùng hay không).
+    /// Null = chưa chốt (nguồn không phải bảng tính, hoặc người dùng chưa gửi bảng).
+    ///
+    /// <para>
+    /// Đây là thứ biến bảng cột từ một màn bấm đẹp thành dữ liệu thật: <see cref="Services.Requirements.SourceContextBuilder"/>
+    /// gắn nó vào ngữ cảnh mọi lượt chat sau (BA thôi hỏi lại nghĩa các cột đã chốt), còn
+    /// <see cref="Services.Requirements.RealSampleDataReader"/> LỌC các dòng dữ liệu mẫu theo đúng tập cột
+    /// này trước khi chúng đi vào prompt AI Design Spec và POC seed — không có bước lọc đó thì người dùng
+    /// mở demo ra vẫn thấy <c>Revision Number</c> nằm như một trường của app mới.
+    /// </para>
+    ///
+    /// <para>
+    /// KHÔNG mã hóa at rest, khác các cột hội thoại: <see cref="ExtractedText"/> — toàn bộ nội dung file —
+    /// nằm ngay cạnh dưới dạng plaintext, nên mã hóa riêng bản đồ cột không che thêm được gì.
+    /// </para>
+    /// </summary>
+    public string? ColumnMap { get; set; }
+
+    /// <summary>
     /// True nếu nguồn này có phần ẢNH cần model vision: file ảnh upload trực tiếp, PDF scan đã lấy được
     /// ảnh trang, hoặc Word có hình nhúng đã lấy ra (<see cref="ScannedPageImageCount"/> &gt; 0).
     /// </summary>

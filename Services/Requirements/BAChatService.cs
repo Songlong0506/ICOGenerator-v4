@@ -2,6 +2,7 @@ using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
@@ -834,8 +835,21 @@ public class BAChatService
                 return false;
             }
 
-            var suggestionsJson = reply.Suggestions.Count > 0 ? JsonSerializer.Serialize(reply.Suggestions) : null;
-            await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply.Message.Trim(), suggestionsJson, reply.MultiSelect, cancellationToken: cancellationToken);
+            // BẢNG CỘT cho các nguồn dạng bảng tính (xem SourceColumnMapBuilder). Structured output tắt ⇒
+            // parsed null ⇒ thử đọc lại từ raw content, đúng như phần SourceNotes bên dưới.
+            var proposedColumns = parsed?.Columns
+                ?? LlmJson.TryDeserialize<BASourceAckReply>(callResult?.Content, requireKnownProperty: true)?.Columns;
+            var columnMapJson = BuildColumnMapJson(sources, proposedColumns);
+
+            // Có bảng cột ⇒ BỎ hàng chip của lượt này. Chip của lượt đọc file là câu chốt bản đọc lại
+            // ("Đúng rồi" / "Chưa đúng"), mà bấm chip là GỬI NGAY — để cả hai cùng sống thì một cú bấm
+            // nhầm gửi mất lượt trước khi người dùng kịp tích xong bảng, và bảng thì không bao giờ được
+            // chốt. Cùng luật với "lượt gộp có Questions ⇒ bỏ Suggestions" trong BAChatReplyParser.Normalize.
+            var suggestionsJson = columnMapJson == null && reply.Suggestions.Count > 0
+                ? JsonSerializer.Serialize(reply.Suggestions)
+                : null;
+            await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply.Message.Trim(), suggestionsJson,
+                columnMapJson == null && reply.MultiSelect, columnMapJson: columnMapJson, cancellationToken: cancellationToken);
 
             // Đây là lượt DUY NHẤT model nhìn thấy ảnh. Cất phần nó ghi lại được về từng hình để các lượt
             // chat sau dùng chữ thay ảnh. Structured output tắt ⇒ parsed null ⇒ thử đọc lại từ raw content
@@ -867,6 +881,45 @@ public class BAChatService
                 await TryCloseTurnWithFailureAsync(projectId, baId.Value, ex);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Dựng bảng cột cho các nguồn BẢNG TÍNH của project từ đề xuất của model. Trả null khi không có gì để
+    /// hỏi — khi đó lượt đọc file chạy đúng như trước (chỉ bản đọc lại + chip xác nhận).
+    ///
+    /// <para>
+    /// Bỏ qua file ĐÃ chốt bảng cột (<see cref="ProjectSourceFile.ColumnMap"/> khác null): lượt đọc file
+    /// nạp lại TOÀN BỘ nguồn của project, nên không có bộ lọc này thì mỗi lần người dùng đính thêm một file
+    /// mới là các bảng đã chốt trước đó hiện lại y nguyên để tích lần nữa.
+    /// </para>
+    /// </summary>
+    private static string? BuildColumnMapJson(List<ProjectSourceFile> sources, List<SourceColumnNote>? proposed)
+    {
+        if (proposed is not { Count: > 0 })
+            return null;
+
+        var pending = sources
+            .Where(s => s.Kind == SourceFileKind.Spreadsheet && s.ExtractedText != null && s.ColumnMap == null)
+            .ToList();
+        if (pending.Count == 0)
+            return null;
+
+        // Chỉ có MỘT bảng tính đang chờ ⇒ mọi dòng đều thuộc về nó, bất kể model ghi fileName thế nào.
+        // Không có nhánh này thì cả bảng bị vứt vì một chi tiết hình thức: model bỏ trống trường này khi
+        // lượt chỉ có một file, hoặc chép tên "đẹp" mà người dùng gọi thay vì tên đã lưu (file upload được
+        // gắn tiền tố chống trùng, nên "LearningPlan.xlsx" và "74a9af7d-LearningPlan.xlsx" là chuyện thường).
+        // Nhiều file thì KHÔNG đoán: gán nhầm bảng còn tệ hơn không có bảng.
+        if (pending.Count == 1)
+        {
+            foreach (var note in proposed.Where(n => n != null))
+                note.FileName = pending[0].FileName;
+        }
+
+        var rows = new List<SourceColumnNote>();
+        foreach (var source in pending)
+            rows.AddRange(SourceColumnMapBuilder.Build(source.FileName, proposed, SourceColumnMapBuilder.ReadColumnNames(source.ExtractedText)));
+
+        return rows.Count > 0 ? JsonSerializer.Serialize(rows) : null;
     }
 
     /// <summary>

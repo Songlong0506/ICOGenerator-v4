@@ -30,4 +30,23 @@ public class BASourceAckReply : BAChatReply
     /// nguồn không có hình nào) — khi đó ảnh tiếp tục được gửi kèm ở các lượt sau như trước.
     /// </summary>
     public List<SourceVisionNote> SourceNotes { get; set; } = new();
+
+    /// <summary>
+    /// BẢNG CỘT đề xuất cho các nguồn dạng BẢNG TÍNH của lượt này: mỗi cột một dòng, kèm cách hiểu của BA
+    /// và đề xuất cột đó có thuộc ứng dụng mới hay không. Người dùng tích lại rồi gửi — xem
+    /// <see cref="SourceColumnNote"/>.
+    ///
+    /// <para>
+    /// Gộp vào chính lượt này thay vì hỏi ở một lượt chat sau, vì đây là lượt DUY NHẤT model đã cầm trên
+    /// tay khối "Thống kê cột" của cả bảng (mọi giá trị phân biệt kèm số dòng) — thứ cần để đoán nghĩa
+    /// từng cột. Hỏi ở lượt sau thì phần lớn dữ liệu đó đã bị nén khỏi ngữ cảnh và BA chỉ còn đoán bằng
+    /// tên cột.
+    /// </para>
+    ///
+    /// <para>
+    /// Rỗng là hợp lệ (nguồn không có bảng tính nào, hoặc model không bật structured output): khi đó không
+    /// có bảng nào hiện ra và luồng chạy đúng như trước.
+    /// </para>
+    /// </summary>
+    public List<SourceColumnNote> Columns { get; set; } = new();
 }

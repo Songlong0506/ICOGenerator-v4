@@ -145,6 +145,7 @@ erDiagram
         long SizeBytes
         string StoredPath
         string ExtractedText
+        string ColumnMap
         string PageImagePaths
         int PageCount
         bool IsVisionSource
@@ -159,6 +160,8 @@ erDiagram
         string Role
         string Message
         string Suggestions
+        string Questions
+        string ColumnMap
         int TokenUsed
         DateTime CreatedAt
     }
@@ -174,6 +177,8 @@ erDiagram
 - `Project.OrgUnitCode` không FK tới `OrgUnits` để project cũ vẫn giữ nhãn lịch sử nếu dữ liệu HR bị đồng bộ lại/xóa.
 - `ProjectDocumentRevision` có unique index `(ProjectDocumentId, RevisionNumber)` để bảo toàn thứ tự version.
 - `ProjectSourceFile.ExtractedText` và `PageImagePaths` là LOB, dùng cho context BA/vision.
+- `ProjectSourceFile.ColumnMap` (JSON `SourceColumnNote[]`) là **bảng cột đã được người dùng chốt** cho nguồn bảng tính: cột nào ứng dụng mới dùng và nghĩa của nó. `SourceContextBuilder` gắn nó vào ngữ cảnh mọi lượt chat, `RealSampleDataReader` lọc dữ liệu mẫu theo nó — xem [requirement-flow.md](requirement-flow.md#bảng-cột-chốt-phạm-vi-cột-của-file-bảng-tính). **Không** mã hóa at rest, cùng lý do với `ExtractedText` nằm cạnh nó dưới dạng plaintext.
+- `AgentConversation.ColumnMap` giữ **bản đề xuất** của BA ở lượt đọc file (để F5 không mất bảng chưa tích); nó là nội dung hội thoại nên **có** mã hóa at rest như `Message`/`Suggestions`/`Questions`.
 
 ## Workflow schema
 

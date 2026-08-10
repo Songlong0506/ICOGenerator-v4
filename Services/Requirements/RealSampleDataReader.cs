@@ -31,7 +31,7 @@ public static class RealSampleDataReader
                         && s.ExtractedText != null)
             .OrderBy(s => s.CreatedAt)
             .Take(MaxFiles)
-            .Select(s => new { s.FileName, s.ExtractedText })
+            .Select(s => new { s.FileName, s.ExtractedText, s.ColumnMap })
             .ToListAsync(cancellationToken);
 
         if (sources.Count == 0)
@@ -40,7 +40,7 @@ public static class RealSampleDataReader
         var sb = new StringBuilder();
         foreach (var s in sources)
         {
-            var text = DataRowsOnly(s.ExtractedText!).Trim();
+            var text = KeepConfirmedColumns(DataRowsOnly(s.ExtractedText!), s.ColumnMap).Trim();
             if (text.Length > MaxCharsPerFile)
                 text = text[..MaxCharsPerFile] + "\n…(đã cắt bớt)";
             sb.AppendLine($"[Trích từ {s.FileName}]");
@@ -64,6 +64,61 @@ public static class RealSampleDataReader
     /// </para>
     /// Không tìm thấy mốc (text từ Word, hoặc bảng tính bóc bởi phiên bản cũ) ⇒ giữ nguyên toàn bộ text.
     /// </summary>
+    /// <summary>
+    /// Giữ lại ĐÚNG các cột người dùng đã chốt là dùng trong ứng dụng mới (bảng cột — xem
+    /// <see cref="SourceColumnMapBuilder"/>). Chưa chốt bảng nào ⇒ giữ nguyên toàn bộ, đúng hành vi cũ.
+    ///
+    /// <para>
+    /// Đây là chỗ bảng cột trả tiền cho chính nó. Chuỗi này là "dữ liệu mẫu thật" nạp vào prompt AI Design
+    /// Spec, và POC seed màn hình bằng đúng những cột có mặt ở đây: không lọc thì người dùng đã bỏ tích
+    /// <c>Revision Number</c> ở bảng cột vẫn mở demo ra và thấy nó nằm như một trường của app mới — cùng
+    /// mất niềm tin ấy, chỉ đi bằng cửa sau. <c>PocSampleDataCheck</c> đọc cùng chuỗi này làm chuẩn đối
+    /// chiếu nên cổng kiểm cũng siết theo đúng tập cột đã chốt.
+    /// </para>
+    ///
+    /// <para>
+    /// Chỉ đụng tới các dòng có ĐÚNG số ô như hàng tiêu đề. Bảng nhiều sheet để lại phần text của các sheet
+    /// sau (kể cả khối thống kê của chúng) trong cùng chuỗi này, và những dòng đó không cùng số cột —
+    /// cắt chúng theo chỉ số cột của sheet đầu là băm nát dữ liệu của sheet khác.
+    /// </para>
+    /// </summary>
+    private static string KeepConfirmedColumns(string dataRows, string? columnMapJson)
+    {
+        var used = SourceColumnMapBuilder.UsedColumns(columnMapJson);
+        if (used.Count == 0)
+            return dataRows;
+
+        var lines = dataRows.Replace("\r\n", "\n").Split('\n');
+        var header = Array.FindIndex(lines, l => l.Contains(CellSeparator, StringComparison.Ordinal));
+        if (header < 0)
+            return dataRows;
+
+        var headerCells = SplitCells(lines[header]);
+        var keep = Enumerable.Range(0, headerCells.Length)
+            .Where(i => used.Any(u => string.Equals(u, headerCells[i], StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        // Không cột nào của bảng cột khớp hàng tiêu đề (file đã bị thay bằng bản khác, hoặc bảng cột thuộc
+        // sheet khác) ⇒ giữ nguyên. Cắt sạch dữ liệu mẫu tệ hơn nhiều so với để lọt vài cột thừa.
+        if (keep.Count == 0)
+            return dataRows;
+
+        var sb = new StringBuilder();
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var cells = SplitCells(lines[i]);
+            sb.AppendLine(i >= header && cells.Length == headerCells.Length
+                ? string.Join(CellSeparator, keep.Select(k => cells[k]))
+                : lines[i]);
+        }
+        return sb.ToString();
+    }
+
+    private const string CellSeparator = " | ";
+
+    private static string[] SplitCells(string line)
+        => line.Split(CellSeparator).Select(c => c.Trim()).ToArray();
+
     private static string DataRowsOnly(string extractedText)
     {
         var at = extractedText.IndexOf(SpreadsheetTextExtractor.DataRowsHeading, StringComparison.Ordinal);
