@@ -1400,10 +1400,12 @@ label.cs-enhanced-hidden + .ms-combo--single { margin-top: 16px; }
     pointer-events: none;
 }
 
-/* ---------- Radio group (card-style options) ----------
-   `.form-check`/`.form-check-input`/`.form-check-label` are provided as
-   aliases so existing Bootstrap-style markup renders with the Bosch look
-   even though Bootstrap CSS is not loaded. */
+/* ---------- Radio group ----------
+   Chuẩn Bosch: mỗi lựa chọn là dấu radio + nhãn ĐẶT TRẦN trên nền form, KHÔNG bọc
+   khung thẻ (không viền, không nền tô) — trạng thái chọn đã đọc được từ chính dấu
+   radio, thêm viền/nền chỉ làm nặng khối và lệch mẫu.
+   `.form-check`/`.form-check-input`/`.form-check-label` là alias để markup kiểu
+   Bootstrap sẵn có vẫn ra đúng kiểu Bosch dù không nạp CSS của Bootstrap. */
 .radio-group { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 8px; }
 
 .radio-option,
@@ -1411,10 +1413,7 @@ label.cs-enhanced-hidden + .ms-combo--single { margin-top: 16px; }
     display: flex;
     align-items: center;
     gap: 10px;
-    min-height: 42px;
-    padding: 10px 12px;
-    border: 1px solid var(--line);
-    background: var(--surface);
+    min-height: var(--radio-size);
     cursor: pointer;
 }
 
@@ -1476,6 +1475,8 @@ label.cs-enhanced-hidden + .ms-combo--single { margin-top: 16px; }
         #fff calc(var(--radio-dot) + .5px));
 }
 
+/* Nhãn giữ nguyên mực đen ở CẢ hai trạng thái — mẫu Bosch không tô xanh nhãn của
+   lựa chọn đang chọn, dấu radio đã là tín hiệu duy nhất cần thiết. */
 .radio-option .radio-option-label,
 .form-check .form-check-label {
     color: var(--ink);
@@ -1485,14 +1486,11 @@ label.cs-enhanced-hidden + .ms-combo--single { margin-top: 16px; }
     cursor: pointer;
 }
 
-.radio-option:has(input:checked),
-.form-check:has(.form-check-input:checked) {
-    border-color: var(--bosch-blue);
-    background: var(--bosch-blue-tint);
-}
+.radio-option:has(input:disabled),
+.form-check:has(.form-check-input:disabled) { cursor: not-allowed; }
 
-.radio-option:has(input:checked) .radio-option-label,
-.form-check:has(.form-check-input:checked) .form-check-label { color: var(--bosch-blue-dark); }
+.radio-option:has(input:disabled) .radio-option-label,
+.form-check:has(.form-check-input:disabled) .form-check-label { color: var(--muted); cursor: not-allowed; }
 
 /* Màu icon feed hoạt động (Bootstrap Icons từ eventIconHtml trong site.js). Icon là monochrome nên
    tô màu theo loại event để giữ tín hiệu trực quan như emoji cũ. Scope trong 2 container feed
