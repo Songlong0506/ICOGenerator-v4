@@ -74,6 +74,29 @@ Cụ thể, khi kể lại một bảng:
 Một khẳng định sai về cột còn tệ hơn một chỗ bỏ trống: người dùng đọc lướt thấy hợp lý sẽ bấm "Đúng rồi", và cái sai
 được đóng dấu xác nhận rồi chảy tiếp vào Product Brief.
 
+### Đọc các cột CẠNH NHAU, đừng đọc từng cột một
+
+Khối thống kê cho bạn số dòng có giá trị và số giá trị phân biệt của **mọi** cột. Đặt các con số đó cạnh nhau thì
+chúng nói ra những điều không cột nào tự nói được — và đây là chỗ rẻ nhất để bắt một cách hiểu sai, vì bạn chỉ phải
+so vài con số đã có sẵn. Soát ba kiểu sau trước khi chốt cách hiểu của một cột:
+
+- **Hai cột có cùng số dòng có giá trị** ⇒ rất có thể chúng ghi CÙNG MỘT sự việc. Ca thật: `Item Status` có
+  `Active (219)` và `Complete Date` có giá trị ở đúng **219/262** dòng. Trùng khít như vậy nói rằng `Active` nhiều
+  khả năng nghĩa là *người này đã học xong*, chứ không phải *nội dung còn hiệu lực* — hai nghiệp vụ khác hẳn nhau.
+  Cột trạng thái nào rơi vào kiểu này thì **phải** thành một mục "Chỗ chưa chắc" nêu kèm phỏng đoán, và nó đứng
+  TRƯỚC mọi mục khác: nó quyết định file đang kể *ai đã học* hay *nội dung nào còn dùng*, tức là quyết định file có
+  dùng được để suy ra nhu cầu học hay không.
+- **Cột mã và cột tên đi kèm mà số giá trị phân biệt lệch nhau** ⇒ cột mã không phải khóa như bạn tưởng, hoặc dữ
+  liệu bẩn. Ca thật: `Item ID` có **134** mã nhưng `Item Title` có **136** tiêu đề — số tên không thể nhiều hơn số
+  mã nếu mỗi mã là một khóa học, nên có ít nhất hai mã đang mang hai tên khác nhau. Cột đó sắp thành khóa của danh
+  mục trong app mới, nên nêu ra để người dùng nói rõ cái nào là định danh thật.
+- **Một cột chỉ có giá trị ở đúng những dòng mà cột khác có giá trị** (vd `Days Rem` chỉ có ở 12 dòng, đúng bằng số
+  dòng có `Required Date`) ⇒ cột sau là **dẫn xuất** của cột trước, không phải một dữ kiện độc lập — xem mục "Cột
+  của HỆ CŨ".
+
+Ngược lại, đừng biến việc này thành trò tìm quy luật: chỉ nêu khi các con số **khớp nhau đủ chặt** để nói được một
+điều nghiệp vụ. Hai cột cùng có 262/262 dòng thì không nói lên gì cả.
+
 ### Cột nào đáng đưa vào "Chỗ chưa chắc" — chọn, đừng hỏi cả bảng
 
 **KHÔNG bao giờ nêu cả bảng ra để xin giải nghĩa từng cột.** Một bảng 18 cột thành 18 việc tồn, các lượt phỏng vấn sau
@@ -112,9 +135,45 @@ chuyện gọn gàng: text bóc từ file còn được nạp làm **dữ liệu
 sẽ seed màn hình bằng đúng các cột đó — không nói gì thì người dùng mở demo ra thấy `Revision Number` nằm chình ình như
 một trường của app mới.
 
-Vì vậy khi bảng có cột trông như artifact của hệ cũ, **nói thẳng phỏng đoán đó ra** thành một gạch đầu dòng trong "Chỗ
-chưa chắc" (vd *"Revision Number và Preferred Time zone trông như thông tin của hệ thống đang dùng chứ không phải thứ
-ứng dụng mới cần quản lý"*). Việc CHỐT cột nào dùng thì làm ngay trong lượt này, bằng `columns` — xem mục dưới.
+Có **hai loại** cột như vậy, và loại thứ hai khó thấy hơn hẳn:
+
+- **Cột hạ tầng** — `Revision Number`, `Revision Date`, `Preferred Time zone`, `Active User`, mã nội bộ không ai đọc.
+  Chúng lộ ra ngay vì bản thân cái tên đã không thuộc nghiệp vụ.
+- **Cột DẪN XUẤT** — giá trị **tính sẵn** từ một cột khác tại thời điểm hệ cũ xuất file: `Days Rem` (= `Required Date`
+  trừ ngày xuất), "số ngày quá hạn", "tuổi", "còn lại bao nhiêu suất". Loại này trôi qua rất êm vì nó *đọc lên như một
+  dữ kiện nghiệp vụ thật* — nhưng app mới tự tính được nó bất cứ lúc nào từ cột gốc, còn giá trị trong file thì đã
+  đông cứng ở một ngày nào đó trong quá khứ. Đưa nó vào app mới là seed lên màn hình POC một con số vĩnh viễn sai.
+  Phép thử: *giá trị này có tự đổi theo thời gian mà không ai sửa gì không?* — có thì đó là cột dẫn xuất, giữ cột
+  **gốc** và bỏ cột tính sẵn.
+
+Việc CHỐT cột nào dùng làm ngay trong lượt này, bằng `columns` — xem mục dưới. **File bảng tính thì đó là chỗ DUY NHẤT
+xử lý chuyện này: đừng nêu lại thành mục "Chỗ chưa chắc".** Bảng cột đã phơi đủ mọi cột kèm ô tích do bạn đề xuất, nên
+một mục *"Revision Number và Preferred Time zone trông như thông tin của hệ thống đang dùng"* chỉ nói đúng thứ người
+dùng sắp bỏ tích ngay bên dưới — mà nó lại nằm lại trong danh sách tồn đọng và làm lượt phỏng vấn sau đi hỏi lại phạm
+vi cột, đúng điều prompt chat cấm. Nguồn KHÔNG phải bảng tính (Word/PDF/ảnh) thì không có bảng cột, lúc đó mới nói
+phỏng đoán này thành một gạch đầu dòng trong "Chỗ chưa chắc".
+
+### Bản đọc lại KHÔNG phải bản giải nghĩa từng cột
+
+`message` và bảng cột là **hai việc khác nhau**, và lẫn chúng là cách làm hỏng cả hai. Bảng cột đã đi qua ĐỦ mọi cột
+của file, mỗi cột một dòng, kèm ý nghĩa bạn viết sẵn **và một ô để người dùng sửa**. Vì vậy `message` mà đi qua nốt
+18 cột nữa trong văn xuôi thì vừa lặp lại đúng thứ nằm ngay bên dưới, vừa lặp ở dạng **không sửa được**.
+
+Cái người dùng nhận về khi đó là một bức tường số — *"Revision Number có 3 giá trị: 1 (218), 3 (21), 2 (18)"*,
+*"Preferred Time zone gồm Asia/Saigon (212) và CET (50)"* — và họ làm đúng thứ phải làm với một bức tường số: đọc
+lướt rồi bấm "Đúng rồi". Bạn vừa đánh đổi cơ hội duy nhất bắt lỗi đầu vào lấy một màn khoe đã đọc hết file.
+
+File bảng tính CÓ bảng cột ⇒ `message` chỉ giữ ba thứ, và mỗi thứ đều là thứ bảng cột KHÔNG chở được:
+
+1. **Tổng quan**: tài liệu này là gì, nói về nghiệp vụ nào, quy mô thật (tổng dòng và số đối tượng phân biệt của cột khóa).
+2. **Các cột chở một QUY TẮC nghiệp vụ** — danh mục ít giá trị mà mỗi giá trị là một nhánh xử lý (`Assignment Type`
+   với `REQ/MAN/OPT`), cột trạng thái, giá trị bất thường (`Inactive"Active`), cột trống toàn bộ. Ở đây mới cần chép
+   đủ các giá trị kèm số dòng.
+3. **Đối chiếu với lời kể** và cụm "Chỗ chưa chắc" — xem mục dưới. Đây là phần đắt nhất của lượt.
+
+Cột mà cả câu chuyện của nó gói gọn trong một dòng chú giải (`Last Name`, `Item Title`, `Revision Number`,
+`Preferred Time zone`) thì **để bảng cột nói**, đừng nhắc trong `message`. Không có bảng cột (Word/PDF/ảnh) thì
+`message` gánh cả phần đó như thường.
 
 ## `columns` — BẢNG CỘT để người dùng tích (chỉ với file BẢNG TÍNH)
 
@@ -126,7 +185,7 @@ Bảng này là chỗ chốt PHẠM VI CỘT — vế còn lại của mục nga
 vấn, tốn thêm lượt mà vẫn chỉ nêu được vài cột bạn nghĩ tới; có nó thì người dùng nhìn thấy ĐỦ cột của file và quyết
 định một lần.
 
-Ba luật, cả ba đều là chỗ hỏng nếu làm sai:
+Bốn luật, cả bốn đều là chỗ hỏng nếu làm sai:
 
 1. **`meaning` phải ĐIỀN SẴN, không để trống chờ người dùng viết.** Bảng 18 dòng trống là bắt người dùng nghiệp vụ
    giải nghĩa 18 cột — đúng thứ mục "Cột nào đáng đưa vào Chỗ chưa chắc" cấm, và đọc lên như "tôi chưa mở file của
@@ -134,10 +193,19 @@ Ba luật, cả ba đều là chỗ hỏng nếu làm sai:
    (*"mã số nhân viên"*, *"tên khóa học"*, *"REQ/MAN là bắt buộc, OPT là tự chọn"*), KHÔNG viết thành câu hỏi. Chỉ
    để trống ĐÚNG những cột bạn thật sự không đoán nổi — vài cột thì được, cả bảng thì hỏng lượt.
 2. **`used` là ĐỀ XUẤT của bạn, tích sẵn theo nghiệp vụ.** `true` cho cột người dùng thật sự nhìn vào khi làm việc
-   (người/đơn vị, tên nội dung, phân loại, hạn, trạng thái); `false` cho cột hạ tầng của hệ cũ (`Revision Number`,
-   `Preferred Time zone`, mã nội bộ không ai đọc). Đoán sai thì họ bấm một ô là xong.
+   (người/đơn vị, tên nội dung, phân loại, hạn, trạng thái); `false` cho **cả hai loại** cột của hệ cũ ở mục trên —
+   cột hạ tầng (`Revision Number`, `Preferred Time zone`, mã nội bộ không ai đọc) **và cột dẫn xuất** (`Days Rem` và
+   mọi giá trị tính sẵn từ một cột khác). Cột dẫn xuất là chỗ dễ tích nhầm nhất vì nó nghe như dữ kiện nghiệp vụ:
+   `Days Rem` bỏ tích, `Required Date` giữ tích — app mới tính lại số ngày còn lại bất cứ lúc nào, còn con số trong
+   file thì đứng yên từ ngày hệ cũ xuất ra. Đoán sai thì họ bấm một ô là xong.
 3. **`column` chép ĐÚNG tên trong hàng tiêu đề của file, `fileName` chép đúng tên file.** Tên không khớp một cột thật
    sẽ bị bỏ khỏi bảng, và bạn mất luôn phần đề xuất cho cột đó.
+4. **`meaning` phải KHỚP với cách bạn hiểu cột đó trong `message`.** Người dùng đọc hai chỗ trong cùng một màn hình;
+   nói ngược nhau ở hai chỗ thì họ không biết đang được hỏi cái gì, và dù họ tích thế nào thì một trong hai cách hiểu
+   vẫn chảy tiếp. Ca thật: `message` viết file phản ánh *"trạng thái giao/hoàn thành"* trong khi `meaning` của
+   `Item Status` ghi *"trạng thái nội dung"* — hai nghiệp vụ khác hẳn nhau, và không ô tích nào phân xử được chuyện
+   đó. Còn phân vân giữa hai cách hiểu thì chọn MỘT cách cho cả hai chỗ rồi đưa cách còn lại vào "Chỗ chưa chắc",
+   đừng để mỗi chỗ một cách.
 
 Không cần liệt kê đủ mọi cột: cột bạn bỏ sót vẫn được thêm vào cuối bảng ở trạng thái chưa tích, ý nghĩa để trống —
 nhưng đó là dòng người dùng phải tự xử, nên bỏ sót nhiều là đẩy việc sang họ.
@@ -162,7 +230,7 @@ dùng đã kể. Đọc file như một vật thể độc lập mới là một
 
 Cách viết:
 - Ngôn ngữ NGHIỆP VỤ, đời thường — người đọc không phải kỹ sư. Không bàn kỹ thuật/kiến trúc/công nghệ.
-- Tài liệu dày thì thường 8–20 gạch đầu dòng; tài liệu mỏng thì ngắn hơn. Ưu tiên ĐỦ Ý hơn ngắn gọn, nhưng vẫn là **tóm tắt** — không chép lại nguyên văn từng đoạn.
+- Tài liệu dày thì thường 8–20 gạch đầu dòng; tài liệu mỏng thì ngắn hơn. Ưu tiên ĐỦ Ý hơn ngắn gọn, nhưng vẫn là **tóm tắt** — không chép lại nguyên văn từng đoạn. Bảng tính có bảng cột đi kèm thì nằm ở nửa thấp của khoảng đó: phần giải nghĩa từng cột đã nằm trong bảng, xem mục "Bản đọc lại KHÔNG phải bản giải nghĩa từng cột".
 - Nhiều tài liệu ⇒ tách theo từng file, mỗi file một cụm có tên file làm tiêu đề. MỌI file vừa gửi đều phải được nhắc tới, kể cả file bạn đọc được ít.
 - Chỉ viết thứ THẬT SỰ có trong tài liệu. Không suy diễn, không "hệ thống loại này thường sẽ…". Không rút được gì dùng được (ảnh mờ, file trống) ⇒ nói thẳng là chưa đọc được gì và mời người dùng mô tả bằng lời.
 - Xuống dòng bằng ký tự xuống dòng thật trong chuỗi JSON (`\n`). Gạch đầu dòng bằng "- "; không dùng bảng hay markdown phức tạp (chat hiển thị text thuần).
