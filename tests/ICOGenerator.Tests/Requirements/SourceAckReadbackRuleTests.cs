@@ -104,6 +104,43 @@ public class SourceAckReadbackRuleTests
         Assert.Contains("NGAY TẠI LƯỢT ĐÓ", prompt, StringComparison.Ordinal);
     }
 
+    // Giữa hai thái cực đều hỏng: hỏi giải nghĩa CẢ BẢNG (18 cột thành 18 việc tồn, người dùng bỏ dở, và
+    // bị hỏi "Last Name nghĩa là gì" đọc lên đúng như "tôi không đọc được file của anh/chị"), và KHÔNG hỏi
+    // gì — đúng chuyện đã xảy ra với Assignment Type REQ/MAN/OPT, cột mã hóa "bắt buộc / tự chọn" mà người
+    // dùng nói ngay câu đầu tiên. Luật là CHỌN cột, rồi nêu dưới dạng đề xuất để họ gật/lắc.
+    [Fact]
+    public void SourceAckPrompt_SelectsWhichColumnsAreWorthAsking_AndProposesAReading()
+    {
+        var prompt = ReadPrompt(SourceAckPromptKey);
+
+        Assert.Contains("KHÔNG bao giờ nêu cả bảng", prompt, StringComparison.Ordinal);
+        Assert.Contains("Cột chở một quy tắc người dùng ĐÃ NÓI", prompt, StringComparison.Ordinal);
+        Assert.Contains("dưới dạng ĐỀ XUẤT, không phải câu hỏi trống", prompt, StringComparison.Ordinal);
+    }
+
+    // Text bóc từ file được nạp làm "dữ liệu mẫu thật" cho bước sinh spec, và POC seed màn hình bằng đúng
+    // các cột đó (RealSampleDataReader → PocSampleDataCheck). Không gọi tên các cột của HỆ CŨ thì người dùng
+    // mở demo ra thấy "Revision Number" nằm như một trường của app mới.
+    [Fact]
+    public void Prompts_SeparateLegacyExportColumnsFromTheNewApp()
+    {
+        Assert.Contains("Cột của HỆ CŨ", ReadPrompt(SourceAckPromptKey), StringComparison.Ordinal);
+
+        var chat = ReadPrompt(ChatPromptKey);
+        Assert.Contains("Chốt PHẠM VI CỘT", chat, StringComparison.Ordinal);
+        // Hỏi ở góc nhìn công việc của người dùng, không bắt họ đoán hộ phạm vi kỹ thuật.
+        Assert.Contains("cột nào anh/chị thật sự nhìn vào", chat, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ChatPrompt_BansColumnByColumnInterrogation()
+    {
+        var chat = ReadPrompt(ChatPromptKey);
+
+        Assert.Contains("TUYỆT ĐỐI KHÔNG đi từng cột một", chat, StringComparison.Ordinal);
+        Assert.Contains("giải nghĩa từng cột", chat, StringComparison.Ordinal);
+    }
+
     // Nhật ký "Điều đã chốt" là bộ nhớ dài hạn của cuộc phỏng vấn, và bước soạn tài liệu — vốn bị CẤM tự
     // giả định — coi mỗi dòng ở đây là điều người dùng đã duyệt. Nên một dòng ghi DƯ vì BA gộp hai điều vào
     // một lượt không còn cổng nào chặn lại: BA các lượt sau thấy điểm đó đã chốt nên không hỏi lại, và tài
@@ -136,6 +173,12 @@ public class SourceAckReadbackRuleTests
             .Select(s => s.Criteria).ToList();
         Assert.NotEmpty(decisionLog);
         Assert.Contains(decisionLog, c => c.Contains("chưa được xác nhận", StringComparison.OrdinalIgnoreCase));
+
+        // Hai thái cực của việc hỏi về cột đều phải có chỗ chấm điểm: hỏi trống thay vì đề xuất, và hỏi
+        // "cột nào cần đưa vào ứng dụng" thay vì "cột nào anh/chị nhìn vào".
+        var chat = scenarios.Where(s => s.PromptKey == ChatPromptKey).Select(s => s.Criteria).ToList();
+        Assert.Contains(chat, c => c.Contains("Assignment Type nghĩa là gì?", StringComparison.Ordinal));
+        Assert.Contains(chat, c => c.Contains("TÊN CỘT THẬT", StringComparison.Ordinal));
     }
 
     // Cùng cách tìm Prompts/ như BAChatPlaybackRuleTests: ưu tiên bản copy trong bin, không có thì đi

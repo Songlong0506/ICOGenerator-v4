@@ -314,7 +314,7 @@ public static class EvalScenariosSeedData
             - Assignment Type: có giá trị 136/262 · ĐỦ 3 giá trị: REQ (78), MAN (53), OPT (5)
             - Required Date: có giá trị 12/262 · ĐỦ 7 giá trị: 31/Dec/2023 Asia/Saigon (4), 31/Oct/2023 Asia/Saigon (3), 15/Jan/2026 Asia/Saigon (1), 30/Apr/2023 Asia/Saigon (1), 30/Jun/2023 Asia/Saigon (1), 31/Dec/2025 CET (1), 31/Jul/2023 Asia/Saigon (1)
 
-            #### 3 dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng "Thống kê cột" bên trên
+            #### Dòng dữ liệu (3 dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng "Thống kê cột" bên trên)
             Global ID | Ten dem | Active User | Item Type | Assignment Type | Required Date
             11054396 |  | Yes | DOC | REQ |
             11227524 |  | Yes | COURSE |  |
@@ -352,7 +352,7 @@ public static class EvalScenariosSeedData
             - Item Status: có giá trị 262/262 · ĐỦ 2 giá trị: Active (219), Inactive (43)
             - Complete Date: có giá trị 219/262 · 161 giá trị phân biệt · hay gặp nhất: 44707 (6), 44700 (5), 44683 (4)
 
-            #### 2 dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng "Thống kê cột" bên trên
+            #### Dòng dữ liệu (2 dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng "Thống kê cột" bên trên)
             Global ID | Organization | Item Title | Item Status | Complete Date
             11054396 | HcP/MSE2 | [QM-QM001] Quality at Bosch-B | Active | 44330
             11227524 | PS/QMM3-HcP | [LG-ATL] Compliance - Antitrust Law-A | Active | 42506
@@ -364,6 +364,57 @@ public static class EvalScenariosSeedData
             - PHẢI nêu quy mô đáng ngờ: 262 dòng nhưng chỉ 13 người, trong khi người dùng mô tả đây là danh sách nhân viên của cả đơn vị.
             - Complete Date dạng số (44330, 42506): được phép nêu là số ngày kiểu Excel kèm cách hiểu để người dùng xác nhận; KHÔNG được để thành một câu hỏi trống bắt người dùng giải thích định dạng.
             - KHÔNG bịa thêm cột hay quy tắc không có trong tài liệu.
+            """);
+
+        Add(
+            "Chat BA — hỏi về cột file: gom một lượt, đề xuất cách hiểu để chốt, không giải nghĩa cả bảng",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Điều đã chốt
+            - Ứng dụng lập kế hoạch lớp học cả năm cho nhân viên, gồm khóa bắt buộc và khóa tự chọn
+            - Các vai trò dùng ứng dụng: nhân viên, HR – Đào tạo, Manager orgUnit, Quản trị ứng dụng
+
+            ## Điểm cần làm rõ còn tồn đọng
+            - Assignment Type: mình hiểu REQ và MAN đều là khóa bắt buộc (78 và 53 dòng), OPT là khóa tự chọn (5 dòng) — chưa được xác nhận
+            - Curriculum ID xuất hiện ở 139/262 dòng, chưa rõ là mã chương trình đào tạo hay mã nhóm khóa học
+            - Revision Number và Preferred Time zone trông như thông tin của hệ thống đang dùng chứ không phải thứ ứng dụng mới cần quản lý
+
+            ## Hội thoại
+            BA: Mình đã đọc file KeHoachDaoTao.xlsx và kể lại nội dung, anh/chị đã xác nhận là đúng.
+            Người dùng: Đúng rồi
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - Phải hỏi các điểm tồn đọng về cột, KHÔNG mở một nhóm mới trong bản đồ bao phủ.
+            - Câu hỏi về Assignment Type phải là ĐỀ XUẤT cách hiểu để người dùng chốt (nêu REQ/MAN là bắt buộc, OPT là tự chọn) kèm gợi ý dạng xác nhận/đính chính — TRƯỢT nếu chỉ hỏi trống "Assignment Type nghĩa là gì?".
+            - TUYỆT ĐỐI KHÔNG hỏi giải nghĩa những cột đã tự nói ra được (Last Name, Item Title, Complete Date) và không liệt kê cả bảng ra để xin giải nghĩa từng cột.
+            - Nếu hỏi từ 2 câu trở lên thì dùng questions với suggestions riêng cho từng câu, và suggestions ở cấp ngoài phải rỗng.
+            - Tối đa 4 câu trong lượt này.
+            """);
+
+        Add(
+            "Chat BA — chốt phạm vi cột: một câu đóng multiSelect, chip là tên cột thật",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Điều đã chốt
+            - Ứng dụng lập kế hoạch lớp học cả năm cho nhân viên, gồm khóa bắt buộc và khóa tự chọn
+            - File KeHoachDaoTao.xlsx có các cột: Global ID, Active User, Last Name, First Name, Organization, Item ID, Item Type, Revision Date, Revision Number, Item Title, Item Status, Required Date, Preferred Time zone, Assignment Type, Curriculum ID, Complete Date
+            - REQ và MAN là khóa bắt buộc, OPT là khóa tự chọn
+
+            ## Điểm cần làm rõ còn tồn đọng
+            - Revision Number, Revision Date và Preferred Time zone trông như thông tin của hệ thống đang dùng chứ không phải thứ ứng dụng mới cần quản lý
+
+            ## Hội thoại
+            BA: Mình hiểu REQ và MAN là khóa bắt buộc, OPT là khóa tự chọn — đúng không ạ?
+            Người dùng: Đúng rồi
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false.
+            - Lượt này phải chốt PHẠM VI CỘT: hỏi cột nào người dùng thật sự nhìn vào khi làm việc.
+            - Câu hỏi phải là câu ĐÓNG với multiSelect = true, và suggestions là các TÊN CỘT THẬT lấy từ file (vd Item Type, Assignment Type, Required Date, Complete Date, Organization) — mỗi chip đúng MỘT cột.
+            - Chip phải nguyên tử: KHÔNG có chip gói nhiều cột, KHÔNG có chip chốt hạ kiểu "Tất cả các cột trên".
+            - Hỏi ở góc nhìn công việc của người dùng ("cột nào anh/chị nhìn vào khi lập kế hoạch"), KHÔNG hỏi "cột nào cần đưa vào ứng dụng/hệ thống".
+            - KHÔNG hỏi lại từng cột một để xác nhận cột nào bỏ đi.
             """);
 
         // ================= BusinessAnalyst/decision-log.v1.md =================

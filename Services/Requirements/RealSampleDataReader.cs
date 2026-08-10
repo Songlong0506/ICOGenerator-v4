@@ -40,7 +40,7 @@ public static class RealSampleDataReader
         var sb = new StringBuilder();
         foreach (var s in sources)
         {
-            var text = s.ExtractedText!.Trim();
+            var text = DataRowsOnly(s.ExtractedText!).Trim();
             if (text.Length > MaxCharsPerFile)
                 text = text[..MaxCharsPerFile] + "\n…(đã cắt bớt)";
             sb.AppendLine($"[Trích từ {s.FileName}]");
@@ -48,5 +48,30 @@ public static class RealSampleDataReader
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Với text bóc từ bảng tính, chỉ lấy khối <see cref="SpreadsheetTextExtractor.DataRowsHeading"/> trở đi.
+    /// <para>
+    /// Hai consumer của cùng một chuỗi text muốn hai nửa NGƯỢC NHAU, và đó là lý do cần cắt ở đây:
+    /// <see cref="SourceContextBuilder"/> gửi text cho BA đọc nên cần khối <c>Thống kê cột</c> đứng trước để
+    /// nó sống sót qua trần 20.000 ký tự; còn chỗ này cần **bản ghi thật** — tên danh mục, mã, giá trị mà POC
+    /// sẽ seed lên màn hình, và mà <c>PocSampleDataCheck</c> lấy token ra để kiểm POC có dùng dữ liệu thật
+    /// không. Trần ở đây chỉ 3.000 ký tự, nên nếu để nguyên thì với một bảng nhiều cột phần thống kê ăn gần
+    /// hết ngân sách và cái đi tới POC là mấy dòng "có giá trị 262/262 · ĐỦ 5 giá trị" — token đặc trưng rút
+    /// ra được sẽ là từ vựng thống kê chứ không phải danh mục của đơn vị yêu cầu, tức là POC seed sai mà cổng
+    /// kiểm cũng mù theo.
+    /// </para>
+    /// Không tìm thấy mốc (text từ Word, hoặc bảng tính bóc bởi phiên bản cũ) ⇒ giữ nguyên toàn bộ text.
+    /// </summary>
+    private static string DataRowsOnly(string extractedText)
+    {
+        var at = extractedText.IndexOf(SpreadsheetTextExtractor.DataRowsHeading, StringComparison.Ordinal);
+        if (at < 0)
+            return extractedText;
+
+        // Bỏ chính dòng tiêu đề khối: nó là chỉ dẫn cho BA, không phải dữ liệu.
+        var lineEnd = extractedText.IndexOf('\n', at);
+        return lineEnd < 0 ? extractedText : extractedText[(lineEnd + 1)..];
     }
 }
