@@ -153,6 +153,82 @@ public class SourceAckReadbackRuleTests
         Assert.Contains("\"columns\"", prompt, StringComparison.Ordinal);
     }
 
+    // Khối thống kê cho số dòng có giá trị của MỌI cột, nên đặt vài con số cạnh nhau là bắt được cách hiểu
+    // sai với giá gần bằng không. Ca thật: Item Status có Active (219) và Complete Date có giá trị ở đúng
+    // 219/262 dòng — trùng khít như vậy nói rằng "Active" nhiều khả năng là ĐÃ HỌC XONG chứ không phải "nội
+    // dung còn hiệu lực". Bản đọc thật nêu cả hai con số cách nhau ba dòng mà không nối chúng lại, rồi chốt
+    // nhầm sang nghĩa thứ hai. Cột đó quyết định file kể "ai đã học" hay "nội dung nào còn dùng", tức quyết
+    // định file có suy ra được nhu cầu học hay không — đầu vào của toàn bộ việc tính số lớp.
+    [Fact]
+    public void SourceAckPrompt_ReadsColumnsAgainstEachOther_BeforeSettlingOnAMeaning()
+    {
+        var prompt = ReadPrompt(SourceAckPromptKey);
+
+        Assert.Contains("Đọc các cột CẠNH NHAU", prompt, StringComparison.Ordinal);
+        Assert.Contains("cùng số dòng có giá trị", prompt, StringComparison.Ordinal);
+        // Cột mã và cột tên lệch số giá trị phân biệt (134 mã / 136 tiêu đề) ⇒ mã không phải khóa như tưởng.
+        Assert.Contains("số giá trị phân biệt lệch nhau", prompt, StringComparison.Ordinal);
+    }
+
+    // Hai chỗ cùng hiển thị trên một màn hình nói ngược nhau thì không ô tích nào phân xử được: bản đọc ghi
+    // "trạng thái giao/hoàn thành" trong khi meaning của Item Status ghi "trạng thái nội dung", và dù người
+    // dùng tích thế nào thì một trong hai cách hiểu vẫn chảy tiếp vào Product Brief.
+    [Fact]
+    public void SourceAckPrompt_KeepsTheColumnTableConsistentWithTheReadback()
+    {
+        var prompt = ReadPrompt(SourceAckPromptKey);
+
+        Assert.Contains("KHỚP với cách bạn hiểu cột đó trong `message`", prompt, StringComparison.Ordinal);
+    }
+
+    // Cột hệ cũ không chỉ là cột hạ tầng. `Days Rem` (= Required Date trừ ngày hệ cũ xuất file) đọc lên như
+    // một dữ kiện nghiệp vụ thật nên trôi qua rất êm — nhưng app mới tính lại được bất cứ lúc nào, còn con số
+    // trong file thì đứng yên từ ngày xuất. Tích nó là seed lên màn hình POC một con số vĩnh viễn sai, cùng
+    // hạng thiệt hại với Revision Number nhưng khó thấy hơn hẳn.
+    [Fact]
+    public void SourceAckPrompt_TreatsDerivedColumnsAsLegacyToo()
+    {
+        var prompt = ReadPrompt(SourceAckPromptKey);
+
+        Assert.Contains("Cột DẪN XUẤT", prompt, StringComparison.Ordinal);
+        Assert.Contains("Days Rem", prompt, StringComparison.Ordinal);
+    }
+
+    // Bảng cột đã đi qua ĐỦ mọi cột kèm ô ý nghĩa SỬA ĐƯỢC, nên một bản đọc đi qua nốt 18 cột trong văn xuôi
+    // là lặp lại cùng nội dung ở dạng không sửa được. Ca thật: bản đọc trải cả "Revision Number có 3 giá trị:
+    // 1 (218), 3 (21), 2 (18)" và "Preferred Time zone gồm Asia/Saigon (212), CET (50)" — người dùng nghiệp
+    // vụ làm đúng thứ phải làm với một bức tường số là đọc lướt rồi bấm "Đúng rồi", và lượt bắt lỗi đầu vào
+    // mất trắng. Luật này KHÔNG cho phép bỏ bớt bản đọc: nó chỉ chuyển phần giải nghĩa cột sang bảng, còn
+    // tổng quan, cột chở quy tắc và phần đối chiếu với lời kể vẫn phải nguyên.
+    [Fact]
+    public void SourceAckPrompt_DoesNotRepeatTheColumnTableInsideTheReadback()
+    {
+        var prompt = ReadPrompt(SourceAckPromptKey);
+
+        Assert.Contains("Bản đọc lại KHÔNG phải bản giải nghĩa từng cột", prompt, StringComparison.Ordinal);
+        // Vẫn phải giữ ba thứ bảng cột không chở được — nếu không, luật này biến thành cái cớ đọc qua loa.
+        Assert.Contains("Các cột chở một QUY TẮC nghiệp vụ", prompt, StringComparison.Ordinal);
+
+        // Và phạm vi cột chỉ được xử lý ở MỘT chỗ: nêu lại trong "Chỗ chưa chắc" thì nó thành việc tồn, rồi
+        // lượt phỏng vấn sau đi hỏi lại đúng thứ người dùng vừa tích từng dòng.
+        Assert.Contains("đừng nêu lại thành mục \"Chỗ chưa chắc\"", prompt, StringComparison.Ordinal);
+    }
+
+    // Xin file là lời nhờ HÀNH ĐỘNG, không phải câu hỏi: người dùng đọc xong thì đi tìm file, và mọi thứ khác
+    // trong lượt bị nuốt mất. Ca thật đã gặp trên màn hình: BA vừa xin file Master List vừa hỏi "hiện nay
+    // việc lập kế hoạch và tính số lớp được thực hiện như thế nào và điểm khó chịu nhất là gì?" — người dùng
+    // đính kèm file rồi đáp đúng một dòng ("làm thủ công, tự tính tay thường bị sai sót, data không đồng
+    // bộ"), tức chỉ chạm vế điểm khó chịu. Các BƯỚC của quy trình hiện tại không bao giờ được kể, mà nhóm
+    // "Quy trình hiện tại & điểm khó" vẫn được tính là đã hỏi xong nên BA không quay lại nữa.
+    [Fact]
+    public void ChatPrompt_AsksForTheFileOnATurnOfItsOwn()
+    {
+        var chat = ReadPrompt(ChatPromptKey);
+
+        Assert.Contains("lượt xin file phải ĐỨNG MỘT MÌNH", chat, StringComparison.Ordinal);
+        Assert.Contains("KHÔNG gộp lời **xin file** với một câu hỏi khác", chat, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ChatPrompt_BansColumnByColumnInterrogation()
     {
@@ -203,6 +279,14 @@ public class SourceAckReadbackRuleTests
         var chat = scenarios.Where(s => s.PromptKey == ChatPromptKey).Select(s => s.Criteria).ToList();
         Assert.Contains(chat, c => c.Contains("Assignment Type nghĩa là gì?", StringComparison.Ordinal));
         Assert.Contains(chat, c => c.Contains("hỏi lại phạm vi cột", StringComparison.Ordinal));
+
+        // Ba luật thêm sau khi soát lại một cuộc phỏng vấn thật, cả ba đều là chỗ prompt định hướng được mà
+        // máy không chặn được — nên chúng chỉ tồn tại nếu có điểm chấm.
+        Assert.Contains(chat, c => c.Contains("Lượt xin file phải ĐỨNG MỘT MÌNH", StringComparison.Ordinal));
+        Assert.Contains(sourceAck, c => c.Contains("Days Rem", StringComparison.Ordinal)
+                                        && c.Contains("DẪN XUẤT", StringComparison.Ordinal));
+        Assert.Contains(sourceAck, c => c.Contains("219", StringComparison.Ordinal)
+                                        && c.Contains("ĐÃ HỌC XONG", StringComparison.Ordinal));
     }
 
     // Cùng cách tìm Prompts/ như BAChatPlaybackRuleTests: ưu tiên bản copy trong bin, không có thì đi

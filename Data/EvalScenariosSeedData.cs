@@ -288,6 +288,25 @@ public static class EvalScenariosSeedData
             - suggestions 2–5 đáp án ngắn sát câu hỏi đó.
             """);
 
+        // Xin file là lời nhờ HÀNH ĐỘNG, không phải câu hỏi: người dùng đọc xong thì đi tìm file, nên mọi thứ
+        // khác trong lượt bị nuốt mất. Ca thật: BA vừa xin Master List vừa hỏi quy trình hiện tại và điểm đau
+        // — người dùng đính kèm file rồi đáp đúng một dòng về điểm đau, còn CÁC BƯỚC của quy trình hiện tại
+        // không bao giờ được kể, mà nhóm đó vẫn được tính là đã hỏi xong.
+        Add(
+            "Chat BA — xin file phải đứng một mình, không kèm câu hỏi khai thác",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            Người dùng: Đây là app để lên kế hoạch các lớp học cần tổ chức cho nhân viên trong 1 năm, gồm khóa bắt buộc và khóa tự chọn. Mỗi năm bên HR nhận được file excel chứa thông tin tất cả nhân viên cùng các khóa học mà từng người phải học trong năm, tụi mình gọi là Master List. Assistant sẽ tạo project mới rồi upload file đó lên, dựa vào đó tính ra số lớp cần mở cho mỗi khóa.
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - Người dùng vừa nhắc tới file Master List đang dùng ⇒ lượt này PHẢI xin họ đính kèm file đó ngay (nút 📎 dưới ô nhập / kéo thả vào khung chat). TRƯỢT nếu để dành việc xin file sang lượt sau.
+            - Lượt xin file phải ĐỨNG MỘT MÌNH: message KHÔNG được chứa thêm câu hỏi khai thác nào. TRƯỢT nếu vừa xin file vừa hỏi quy trình hiện tại đang làm thế nào, điểm khó chịu nhất là gì, ai dùng ứng dụng, hay bất kỳ câu hỏi nghiệp vụ nào khác — người dùng đi tìm file thì vế còn lại rơi mất, nhưng bản đồ bao phủ vẫn tính là đã hỏi.
+            - questions là mảng rỗng (không phải lượt hỏi gộp).
+            - Không có câu hỏi đóng nào để bấm ⇒ suggestions là mảng RỖNG và openEnded = true. TRƯỢT nếu kèm chip kiểu ["Đang theo dõi bằng Excel", "Chưa có quy trình cố định"].
+            - Nếu message có câu ghi nhận thì chỉ được chứa điều người dùng THẬT SỰ đã nói, và KHÔNG nhét "Đồng Nai" hay tên department từ khối ngữ cảnh hệ thống vào đó.
+            """);
+
         // ================= BusinessAnalyst/source-ack.v2.md =================
         // Lượt đọc lại tài liệu nguồn là CỬA VÀO của mọi thứ phía sau: đọc sai ở đây thì cái sai được người
         // dùng bấm "Đúng rồi" đóng dấu, rồi chảy thẳng vào Product Brief. UserInput mô phỏng đúng khối mà
@@ -356,21 +375,26 @@ public static class EvalScenariosSeedData
             - Organization: có giá trị 262/262 · ĐỦ 3 giá trị: HcP/MSE2 (120), PS/QMM3-HcP (92), HcP/PC (50)
             - Item Title: có giá trị 257/262 · 136 giá trị phân biệt · hay gặp nhất: [QM-QM001] Quality at Bosch-B (8)
             - Assignment Type: có giá trị 136/262 · ĐỦ 3 giá trị: REQ (78), MAN (53), OPT (5)
+            - Required Date: có giá trị 12/262 · ĐỦ 7 giá trị: 31/Dec/2023 (4), 31/Oct/2023 (3), 15/Jan/2026 (1), 30/Apr/2023 (1), 30/Jun/2023 (1), 31/Dec/2025 (1), 31/Jul/2023 (1)
+            - Days Rem: có giá trị 12/262 · ĐỦ 8 giá trị: 0 (5), 61 (1), 92 (1), 184 (1), 245 (1), 976 (1), 991 (1), 1204 (1)
             - Revision Number: có giá trị 262/262 · ĐỦ 3 giá trị: 1 (218), 3 (21), 2 (18)
             - Preferred Time zone: có giá trị 262/262 · ĐỦ 2 giá trị: Asia/Saigon (212), CET (50)
 
             #### Dòng dữ liệu (2 dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng "Thống kê cột" bên trên)
-            Global ID | Organization | Item Title | Assignment Type | Revision Number | Preferred Time zone
-            11054396 | HcP/MSE2 | [QM-QM001] Quality at Bosch-B | REQ | 1 | Asia/Saigon
-            11227524 | PS/QMM3-HcP | [LG-ATL] Compliance - Antitrust Law-A | MAN | 1 | CET
+            Global ID | Organization | Item Title | Assignment Type | Required Date | Days Rem | Revision Number | Preferred Time zone
+            11054396 | HcP/MSE2 | [QM-QM001] Quality at Bosch-B | REQ |  |  | 1 | Asia/Saigon
+            11227524 | PS/QMM3-HcP | [LG-ATL] Compliance - Antitrust Law-A | MAN |  |  | 1 | CET
             """,
             """
             - Trả về DUY NHẤT một object JSON hợp lệ; ready = false.
-            - columns có ĐÚNG 6 dòng, mỗi cột của file một dòng, fileName = "LearningPlan.xlsx" và column chép đúng tên cột trong hàng tiêu đề.
+            - columns có ĐÚNG 8 dòng, mỗi cột của file một dòng, fileName = "LearningPlan.xlsx" và column chép đúng tên cột trong hàng tiêu đề.
             - TRƯỢT nếu bỏ sót cột nào, hoặc bịa thêm cột không có trong hàng tiêu đề.
             - Mọi dòng đều phải có meaning viết sẵn dạng chú giải ngắn (vd "mã số nhân viên", "tên khóa học", "REQ/MAN là bắt buộc, OPT là tự chọn"). TRƯỢT nếu meaning để trống ở phần lớn các dòng, hoặc viết thành câu hỏi.
-            - used = true cho Global ID, Organization, Item Title, Assignment Type; used = false cho Revision Number và Preferred Time zone (artifact của hệ thống cũ).
-            - message vẫn là bản đọc lại đầy đủ như mọi lượt đọc file — bảng cột KHÔNG thay thế nó.
+            - used = true cho Global ID, Organization, Item Title, Assignment Type, Required Date; used = false cho Revision Number và Preferred Time zone (artifact của hệ thống cũ).
+            - used = false cho "Days Rem": nó là cột DẪN XUẤT (số ngày còn lại tính sẵn từ Required Date lúc hệ cũ xuất file, có giá trị ở đúng 12 dòng như Required Date), app mới tính lại được. TRƯỢT nếu tích nó là cột của ứng dụng mới.
+            - message vẫn phải là bản đọc lại thật sự: nêu được nghiệp vụ của file, quy mô thật (262 dòng nhưng chỉ 13 người), ĐỦ 3 giá trị của Assignment Type kèm OPT, và cụm "Chỗ chưa chắc".
+            - Nhưng message KHÔNG được đi qua lần lượt mọi cột như một bản thống kê: TRƯỢT nếu nó liệt kê phân bố giá trị của Revision Number hay Preferred Time zone — các cột đó chỉ có nghĩa trong bảng cột, nhắc lại trong message là lặp ở dạng người dùng không sửa được.
+            - Cũng TRƯỢT nếu "Chỗ chưa chắc" có một mục kiểu "Revision Number / Preferred Time zone trông như cột của hệ thống cũ, có nên đưa vào ứng dụng mới không": phạm vi cột đã được chốt bằng bảng cột ngay dưới, nêu lại là tạo một việc tồn trùng.
             """);
 
         Add(
@@ -401,6 +425,8 @@ public static class EvalScenariosSeedData
             - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; suggestions có ĐÚNG 2 đáp án (một xác nhận, một đính chính).
             - Cụm "Chỗ chưa chắc" PHẢI nêu được rằng file không có cột nào chở "số lượng lớp cần mở" hay "nhu cầu học" — thứ người dùng vừa nói là mục đích dùng file.
             - PHẢI nêu chỗ lệch giữa file và lời kể: người dùng gọi đây là danh sách khóa học PHẢI HỌC trong năm, nhưng cột Complete Date (219/262 dòng đã có ngày hoàn thành) cho thấy đây là dữ liệu ĐÃ HỌC.
+            - PHẢI nối hai cột lại với nhau: Item Status có Active (219) và Complete Date có giá trị ở đúng 219/262 dòng, nên "Active" nhiều khả năng nghĩa là ĐÃ HỌC XONG chứ không phải "nội dung còn hiệu lực" — nêu kèm phỏng đoán đó để người dùng gật/lắc. TRƯỢT nếu chỉ kể rời hai con số, hoặc chốt Item Status là "trạng thái nội dung" mà không nhắc tới chỗ trùng khít này.
+            - Cách hiểu Item Status trong message và meaning của nó trong columns phải NHẤT QUÁN — TRƯỢT nếu một chỗ ghi "trạng thái hoàn thành của người học" còn chỗ kia ghi "trạng thái nội dung".
             - PHẢI nêu quy mô đáng ngờ: 262 dòng nhưng chỉ 13 người, trong khi người dùng mô tả đây là danh sách nhân viên của cả đơn vị.
             - Complete Date dạng số (44330, 42506): được phép nêu là số ngày kiểu Excel kèm cách hiểu để người dùng xác nhận; KHÔNG được để thành một câu hỏi trống bắt người dùng giải thích định dạng.
             - KHÔNG bịa thêm cột hay quy tắc không có trong tài liệu.
