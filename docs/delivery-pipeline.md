@@ -33,6 +33,23 @@ AgentTaskWorker : BackgroundService                    — dispatch mỗi 2 GIÂ
 
 Vì reporter là in-memory, **restart app là mất tiến độ live** (trạng thái bền vẫn nằm trong DB).
 
+### Ai nói gì ở mốc kết thúc
+
+Một lượt chạy có nhiều tầng cùng chạm tới thời điểm "xong", và mỗi tầng chỉ được nói **phần của
+mình** — nếu không, feed hiện mấy dòng liền kề nói lại đúng một việc:
+
+| Tầng | Kind | Nói về |
+|---|---|---|
+| Service (`ProductBriefDraftService`, `RequirementDocsService`) | `final` | **Vừa tạo ra cái gì**; `detail` mang lời nhắn của agent |
+| `AgentTaskWorker` / `AdvanceLinearPipelineAsync` | `completed` | **Run chuyển sang trạng thái gì** — chờ duyệt bước nào, người dùng làm gì tiếp, hay workflow đã hết bước |
+| Banner ở `requirement-workflow.js` | (không phải event) | Dải trạng thái cuối — giữ phần CTA (link mở tài liệu / dashboard) |
+
+Hệ quả thực tế: bước nào đã đi qua `AdvanceLinearPipelineAsync` thì **không** tự phát thêm mốc
+`completed` của riêng nó, vì hàm đó đã phát mốc chuyển trạng thái rồi.
+
+Bản đồ `kind` → icon dùng chung ở `wwwroot/js/site.js` (`EVENT_ICON_CLASS`); `final` và `completed`
+cùng là dấu tích nhưng khác nét (viền / đặc) để phân biệt hai tầng.
+
 ---
 
 Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.cs` — thêm/chèn vai = thêm một dòng, không sửa worker.

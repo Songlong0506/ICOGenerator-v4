@@ -253,7 +253,9 @@
                     ? `<div class="wf-banner wf-wait">❓ Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi BA trong khung chat.</div>`
                     : isSpec
                         ? `<div class="wf-banner wf-ok">✓ Đã tạo AI Design Spec — đang khởi động quy trình dựng POC…</div>`
-                        : `<div class="wf-banner wf-ok">✓ Đã tạo/cập nhật tài liệu requirement.` +
+                        // Banner là dải trạng thái cuối, nằm ngay dưới feed đã có mốc "final" + mốc chuyển
+                        // trạng thái ⇒ chỉ giữ phần CTA, không kể lại lần thứ ba việc vừa xong.
+                        : `<div class="wf-banner wf-ok">✓ Tài liệu đã sẵn sàng.` +
                           ` <a href="#" class="wf-brief-link">Xem Product Brief</a></div>`;
 
                 wireBriefLink(panel, slot);
