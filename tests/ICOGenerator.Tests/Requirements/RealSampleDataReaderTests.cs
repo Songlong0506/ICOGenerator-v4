@@ -76,7 +76,69 @@ public class RealSampleDataReaderTests : IDisposable
         Assert.Contains("Vòng bi 6205", text);
     }
 
-    private async Task AddSpreadsheetAsync(string extractedText)
+    // BẢNG CỘT đã chốt ⇒ dữ liệu mẫu đi tới POC chỉ còn các cột người dùng thật sự dùng. Đây là chỗ bảng
+    // cột trả tiền cho chính nó: người dùng bỏ tích "Revision Number" mà vẫn thấy nó nằm như một trường
+    // trên bản demo thì mất niềm tin y hệt như khi không hỏi gì — chỉ đi bằng cửa sau.
+    [Fact]
+    public async Task ReadAsync_KeepsOnlyTheColumnsTheUserConfirmed()
+    {
+        await AddSpreadsheetAsync($"""
+            {SpreadsheetTextExtractor.DataRowsHeading} (2 dòng đầu làm mẫu)
+            Global ID | Item Title | Revision Number
+            11054396 | Quality at Bosch-B | 1
+            11227524 | Compliance - Antitrust Law-A | 3
+            """,
+            """
+            [{"FileName":"KeHoach.xlsx","Column":"Global ID","Meaning":"mã nhân viên","Used":true},
+             {"FileName":"KeHoach.xlsx","Column":"Item Title","Meaning":"tên lớp học","Used":true},
+             {"FileName":"KeHoach.xlsx","Column":"Revision Number","Meaning":"phiên bản nội dung","Used":false}]
+            """);
+
+        var text = await RealSampleDataReader.ReadAsync(NewDb(), _projectId);
+
+        Assert.NotNull(text);
+        Assert.Contains("Global ID | Item Title", text);
+        Assert.Contains("11054396 | Quality at Bosch-B", text);
+        // Cột của hệ cũ biến mất khỏi cả hàng tiêu đề lẫn các dòng dữ liệu.
+        Assert.DoesNotContain("Revision Number", text);
+        Assert.DoesNotContain("| 3", text);
+    }
+
+    // Chưa chốt bảng nào (file cũ, hoặc người dùng chưa gửi bảng) ⇒ giữ nguyên hành vi trước đây. Cắt bớt
+    // dữ liệu mẫu vì một bảng chưa ai duyệt là tự ý thu hẹp thứ POC được phép seed.
+    [Fact]
+    public async Task ReadAsync_KeepsEveryColumn_WhenTheColumnMapIsNotConfirmedYet()
+    {
+        await AddSpreadsheetAsync($"""
+            {SpreadsheetTextExtractor.DataRowsHeading} (1 dòng đầu làm mẫu)
+            Global ID | Item Title | Revision Number
+            11054396 | Quality at Bosch-B | 1
+            """, columnMap: null);
+
+        var text = await RealSampleDataReader.ReadAsync(NewDb(), _projectId);
+
+        Assert.Contains("Revision Number", text!);
+    }
+
+    // Bảng cột không khớp hàng tiêu đề nào (file đã bị thay bằng bản khác) ⇒ giữ nguyên. Cắt sạch dữ liệu
+    // mẫu tệ hơn nhiều so với để lọt vài cột thừa: POC mất hẳn danh mục thật để seed.
+    [Fact]
+    public async Task ReadAsync_KeepsEveryColumn_WhenNoConfirmedColumnMatchesTheHeader()
+    {
+        await AddSpreadsheetAsync($"""
+            {SpreadsheetTextExtractor.DataRowsHeading} (1 dòng đầu làm mẫu)
+            Global ID | Item Title
+            11054396 | Quality at Bosch-B
+            """,
+            """[{"Column":"Ma phong","Used":true}]""");
+
+        var text = await RealSampleDataReader.ReadAsync(NewDb(), _projectId);
+
+        Assert.Contains("Global ID | Item Title", text!);
+        Assert.Contains("Quality at Bosch-B", text);
+    }
+
+    private async Task AddSpreadsheetAsync(string extractedText, string? columnMap = null)
     {
         await using var db = NewDb();
         db.ProjectSourceFiles.Add(new ProjectSourceFile
@@ -86,7 +148,8 @@ public class RealSampleDataReaderTests : IDisposable
             FileName = "KeHoach.xlsx",
             StoredPath = "/tmp/KeHoach.xlsx",
             Kind = SourceFileKind.Spreadsheet,
-            ExtractedText = extractedText
+            ExtractedText = extractedText,
+            ColumnMap = columnMap
         });
         await db.SaveChangesAsync();
     }

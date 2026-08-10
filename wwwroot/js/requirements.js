@@ -396,6 +396,96 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
+    // ==== BẢNG CỘT của file bảng tính người dùng vừa gửi ====
+    // Bảng do server render (lượt đọc file luôn tới sau một lần upload → tải lại trang), nên ở đây chỉ có
+    // phần GỬI. Gửi đi hai bước, và thứ tự là điểm mấu chốt:
+    //   1. lưu bảng vào chính file nguồn (ConfirmColumnMap) — đây là thứ SourceContextBuilder và
+    //      RealSampleDataReader đọc, tức là thứ quyết định POC seed bằng cột nào;
+    //   2. rồi mới soạn các dòng đã tích thành MỘT tin nhắn người dùng và gửi qua đúng đường chat thường.
+    // Bước 2 đi đường chat thường (không có endpoint riêng) nên hội thoại vẫn chỉ có một đường ghi, và mọi
+    // thứ đã đúng ở lượt chat (cổng readiness, chắt lọc bản đồ bao phủ, nhật ký điều đã chốt) tự khắc đúng
+    // ở đây — cùng lý do với thẻ hỏi gộp bên trên.
+    const columnMapPanel = document.getElementById("columnMap");
+
+    function columnMapRows() {
+        if (!columnMapPanel || columnMapPanel.hidden) return [];
+        return Array.from(columnMapPanel.querySelectorAll(".colmap-row")).map(tr => ({
+            fileName: tr.dataset.file || "",
+            column: tr.dataset.column || "",
+            meaning: ((tr.querySelector(".colmap-meaning") || {}).value || "").trim(),
+            used: !!(tr.querySelector(".colmap-check") || {}).checked
+        }));
+    }
+
+    // Tin nhắn gửi vào hội thoại. Kèm CẢ ý nghĩa từng cột (không chỉ tên cột) vì mọi tầng chắt lọc đọc hội
+    // thoại: một dòng "Global ID" trơ trọi thì bản đồ bao phủ và bước soạn tài liệu không biết cột đó là gì.
+    // Các cột KHÔNG tích cũng được gọi tên — im lặng bỏ chúng thì người dùng không có bằng chứng nào cho
+    // thấy mình vừa loại đúng những cột định loại.
+    function columnMapMessage(rows) {
+        const files = [];
+        rows.forEach(r => { if (files.indexOf(r.fileName) < 0) files.push(r.fileName); });
+
+        return files.map(file => {
+            const mine = rows.filter(r => r.fileName === file);
+            const used = mine.filter(r => r.used);
+            const dropped = mine.filter(r => !r.used).map(r => r.column);
+            const lines = [`Trong file ${file}, các cột mình thật sự dùng khi làm việc:`];
+            if (used.length === 0) {
+                lines.push("- (mình không dùng cột nào trong file này)");
+            } else {
+                used.forEach(r => lines.push(r.meaning ? `- ${r.column}: ${r.meaning}` : `- ${r.column}`));
+            }
+            if (dropped.length > 0) {
+                lines.push(`Các cột còn lại mình không dùng, đó là dữ liệu của hệ thống cũ: ${dropped.join(", ")}`);
+            }
+            return lines.join("\n");
+        }).join("\n\n");
+    }
+
+    function hideColumnMap() {
+        if (!columnMapPanel || columnMapPanel.hidden) return;
+        columnMapPanel.hidden = true;
+        columnMapPanel.innerHTML = "";
+    }
+
+    if (columnMapPanel) {
+        columnMapPanel.addEventListener("click", async function (e) {
+            if (!e.target.closest("#columnMapSendBtn") || chatBusy) return;
+
+            const btn = document.getElementById("columnMapSendBtn");
+            const msgEl = document.getElementById("columnMapMsg");
+            const rows = columnMapRows();
+            if (rows.length === 0) return;
+
+            btn.disabled = true;
+            msgEl.textContent = "Đang lưu bảng cột…";
+
+            try {
+                const fd = new FormData();
+                fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
+                const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                fd.append("__RequestVerificationToken", tokenEl ? tokenEl.value : "");
+                fd.append("mapJson", JSON.stringify(rows));
+
+                const resp = await fetch(columnMapPanel.dataset.confirmUrl, { method: "POST", body: fd });
+                const data = await resp.json();
+                if (!data.ok) throw new Error(data.error || "");
+            } catch (err) {
+                // Lưu hỏng thì DỪNG hẳn, không gửi tin nhắn: gửi mà chưa lưu là trạng thái tệ nhất — hội
+                // thoại ghi nhận đã chốt phạm vi cột, còn file nguồn thì vẫn trống nên POC vẫn seed bằng
+                // đủ cả cột của hệ cũ, và không ai còn thấy bảng đâu để tích lại.
+                btn.disabled = false;
+                msgEl.textContent = "Chưa lưu được bảng cột — anh/chị bấm gửi lại giúp mình nhé.";
+                return;
+            }
+
+            const message = columnMapMessage(rows);
+            hideColumnMap();
+            messageInput.value = message;
+            chatForm.requestSubmit();
+        });
+    }
+
     // ==== NHÁP ĐANG GÕ: tự lưu để F5 / mất điện / bấm nhầm không cuốn mất một câu trả lời dài ====
     // Ở trang này người dùng thường gõ những đoạn RẤT DÀI trong một lượt (cả quy trình nghiệp vụ, ai làm
     // bước nào, ràng buộc gì…). Trước đây nội dung đó chỉ sống trong DOM: F5, đóng tab nhầm, máy sập hay
@@ -983,6 +1073,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             hideBatchQuestions();
             return;
         }
+        // Bảng cột cũng là một .req-msg.ba nhưng KHÔNG phải câu trả lời của lượt nào: nó treo cho tới khi
+        // file được chốt. Gỡ nó ở đây là vừa mất bảng vừa mất chỗ neo cố định của trang.
+        if (next === columnMapPanel) return;
         if (next && next.classList.contains("req-msg") && next.classList.contains("ba")) next.remove();
     }
 
@@ -1328,6 +1421,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // Người dùng quay ra gõ tay trong khi thẻ hỏi gộp còn mở nghĩa là họ đã chọn đường kia — gỡ thẻ,
         // vì để cả hai cùng sống thì một cú bấm "Gửi" sau đó sẽ gửi lại các câu họ vừa trả lời bằng tay.
         hideBatchQuestions();
+
+        // BẢNG CỘT thì NGƯỢC LẠI: gõ một câu đính chính bản đọc lại ("Item Type mình cũng dùng") không hề
+        // thay thế việc chốt phạm vi cột, nên bảng phải sống tiếp — chỉ dời xuống cuối dòng hội thoại để
+        // các lượt mới (chèn trước thinkingBox) không đẩy nó trôi lên trên. Server cũng giữ bảng theo đúng
+        // luật này: nó treo tới khi FILE được chốt, không phải tới lượt kế tiếp.
+        if (columnMapPanel && !columnMapPanel.hidden) thinkingBox.before(columnMapPanel);
 
         // Đang SỬA lượt vừa gửi: không thêm bong bóng mới — ghi đè bong bóng cũ và gỡ câu trả lời cũ
         // (server cũng xóa đúng lượt assistant đó), rồi gửi kèm cờ edit.

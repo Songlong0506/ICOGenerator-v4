@@ -92,6 +92,13 @@ public class SourceContextBuilder
                     $"\n--- Nội dung {expected} {Unit(s.Kind)} trong \"{s.FileName}\" (BA đã đọc trực tiếp từ ảnh và "
                     + "ghi lại; coi đây là thứ duy nhất biết được về chúng) ---\n" + summary));
 
+            // BẢNG CỘT người dùng đã chốt cho nguồn này (xem SourceColumnMapBuilder). Đặt NGAY SAU phần text
+            // của chính nguồn đó để nó đọc như một chú giải của bảng vừa đọc — và để BA thôi hỏi lại nghĩa
+            // các cột người dùng vừa duyệt, thôi dựng yêu cầu trên các cột đã bị loại bỏ.
+            var confirmedColumns = SourceColumnMapBuilder.RenderConfirmedBlock(s.FileName, s.ColumnMap);
+            if (confirmedColumns != null)
+                contents.Add(new TextContent("\n" + confirmedColumns));
+
             contents.AddRange(images);
 
             // Chỉ nguồn đi kèm ĐỦ ảnh mới được phép khóa lại thành mô tả chữ. Thiếu dù một hình thì để

@@ -288,6 +288,53 @@ public class ProjectSourceIngestorTests : IDisposable
         Assert.Equal(new[] { pending.Id }, built.FullyAttachedSourceIds);
     }
 
+    // BẢNG CỘT đã chốt phải đi kèm nguồn ở MỌI lượt chat sau. Không có khối này thì bảng chỉ là một màn
+    // bấm đẹp: BA vẫn hỏi lại đúng các cột người dùng vừa ngồi giải nghĩa, và vẫn dựng yêu cầu trên những
+    // cột họ đã bỏ tích.
+    [Fact]
+    public void SourceContextBuilder_AttachesTheConfirmedColumnMap_NextToTheFileItBelongsTo()
+    {
+        var source = new ICOGenerator.Domain.ProjectSourceFile
+        {
+            Id = Guid.NewGuid(),
+            FileName = "KeHoach.xlsx",
+            Kind = SourceFileKind.Spreadsheet,
+            ExtractedText = "Global ID | Item Title | Revision Number",
+            ColumnMap = """
+                [{"FileName":"KeHoach.xlsx","Column":"Global ID","Meaning":"mã số nhân viên","Used":true},
+                 {"FileName":"KeHoach.xlsx","Column":"Revision Number","Meaning":"phiên bản nội dung","Used":false}]
+                """
+        };
+
+        var built = NewBuilder().Build(new[] { source }, modelSupportsVision: false);
+        var text = string.Concat(built.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+
+        Assert.Contains("đã được NGƯỜI DÙNG CHỐT", text);
+        Assert.Contains("Global ID: mã số nhân viên", text);
+        // Vế "không dùng" cũng phải đi kèm — đó là thứ chặn BA hỏi thêm về cột của hệ cũ.
+        Assert.Contains("Cột KHÔNG dùng", text);
+        Assert.Contains("Revision Number", text);
+    }
+
+    // Chưa chốt bảng nào ⇒ không thêm khối nào. Một dòng "chưa chốt bảng cột" trong ngữ cảnh chỉ mời model
+    // đi giục người dùng đi tích bảng, giữa lúc nó đang phải phỏng vấn.
+    [Fact]
+    public void SourceContextBuilder_SaysNothingAboutColumns_WhenTheMapIsNotConfirmedYet()
+    {
+        var source = new ICOGenerator.Domain.ProjectSourceFile
+        {
+            Id = Guid.NewGuid(),
+            FileName = "KeHoach.xlsx",
+            Kind = SourceFileKind.Spreadsheet,
+            ExtractedText = "Global ID | Item Title"
+        };
+
+        var built = NewBuilder().Build(new[] { source }, modelSupportsVision: false);
+        var text = string.Concat(built.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+
+        Assert.DoesNotContain("NGƯỜI DÙNG CHỐT", text);
+    }
+
     private SourceContextBuilder NewBuilder(int? maxImagesPerCall = null)
     {
         var settings = new Dictionary<string, string?>();

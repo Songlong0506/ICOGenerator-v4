@@ -331,6 +331,46 @@ public static class EvalScenariosSeedData
             - Phải nêu ra hai cột không mang thông tin: "Ten dem" trống toàn bộ và "Active User" chỉ có một giá trị Yes.
             - Phải nói được quy mô thật: 262 dòng nhưng chỉ 13 Global ID phân biệt.
             - Có cụm "Chỗ chưa chắc" nêu điểm còn mờ, và KHÔNG hỏi thành câu hỏi bắt người dùng trả lời ngay.
+            - columns có MỘT dòng cho mỗi cột của file (Global ID, Ten dem, Active User, Item Type, Assignment Type, Required Date), tên cột chép đúng hàng tiêu đề.
+            - Mỗi dòng columns phải có meaning ĐIỀN SẴN như một chú giải ngắn — TRƯỢT nếu để trống hàng loạt hoặc viết meaning thành câu hỏi ("cột này là gì?").
+            - used = true cho các cột nghiệp vụ (Item Type, Assignment Type, Required Date) và false cho cột hạ tầng của bản xuất (Active User, Ten dem).
+            """);
+
+        // BẢNG CỘT là chỗ chốt PHẠM VI CỘT, và nó chỉ hoạt động khi model ĐIỀN SẴN cột ý nghĩa: bảng 18
+        // dòng trống là bắt người dùng nghiệp vụ giải nghĩa 18 cột — đúng thái cực mà cả hai prompt đều
+        // cấm, chỉ khác là lần này nó nằm gọn trong một cái bảng nên trông có vẻ vô hại.
+        Add(
+            "Source-ack — bảng cột: mỗi cột một dòng, ý nghĩa điền sẵn, tích sẵn cột nghiệp vụ",
+            "BusinessAnalyst/source-ack.v2.md",
+            """
+            Đây là các tài liệu nguồn tôi vừa đính kèm. Bạn đọc kỹ và kể lại cụ thể những gì rút được từ chúng để tôi xác nhận nhé.
+
+            === TÀI LIỆU NGUỒN DO NGƯỜI DÙNG CUNG CẤP (tham khảo khi phân tích yêu cầu) ===
+
+            [Nguồn: LearningPlan.xlsx]
+            ### Sheet: Sheet1
+            Tổng: 262 dòng dữ liệu, 6 cột.
+
+            #### Thống kê cột (trên 262 dòng)
+            - Global ID: có giá trị 262/262 · 13 giá trị phân biệt · hay gặp nhất: 10151719 (60), 10540911 (54)
+            - Organization: có giá trị 262/262 · ĐỦ 3 giá trị: HcP/MSE2 (120), PS/QMM3-HcP (92), HcP/PC (50)
+            - Item Title: có giá trị 257/262 · 136 giá trị phân biệt · hay gặp nhất: [QM-QM001] Quality at Bosch-B (8)
+            - Assignment Type: có giá trị 136/262 · ĐỦ 3 giá trị: REQ (78), MAN (53), OPT (5)
+            - Revision Number: có giá trị 262/262 · ĐỦ 3 giá trị: 1 (218), 3 (21), 2 (18)
+            - Preferred Time zone: có giá trị 262/262 · ĐỦ 2 giá trị: Asia/Saigon (212), CET (50)
+
+            #### Dòng dữ liệu (2 dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng "Thống kê cột" bên trên)
+            Global ID | Organization | Item Title | Assignment Type | Revision Number | Preferred Time zone
+            11054396 | HcP/MSE2 | [QM-QM001] Quality at Bosch-B | REQ | 1 | Asia/Saigon
+            11227524 | PS/QMM3-HcP | [LG-ATL] Compliance - Antitrust Law-A | MAN | 1 | CET
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false.
+            - columns có ĐÚNG 6 dòng, mỗi cột của file một dòng, fileName = "LearningPlan.xlsx" và column chép đúng tên cột trong hàng tiêu đề.
+            - TRƯỢT nếu bỏ sót cột nào, hoặc bịa thêm cột không có trong hàng tiêu đề.
+            - Mọi dòng đều phải có meaning viết sẵn dạng chú giải ngắn (vd "mã số nhân viên", "tên khóa học", "REQ/MAN là bắt buộc, OPT là tự chọn"). TRƯỢT nếu meaning để trống ở phần lớn các dòng, hoặc viết thành câu hỏi.
+            - used = true cho Global ID, Organization, Item Title, Assignment Type; used = false cho Revision Number và Preferred Time zone (artifact của hệ thống cũ).
+            - message vẫn là bản đọc lại đầy đủ như mọi lượt đọc file — bảng cột KHÔNG thay thế nó.
             """);
 
         Add(
@@ -392,29 +432,40 @@ public static class EvalScenariosSeedData
             - Tối đa 4 câu trong lượt này.
             """);
 
+        // PHẠM VI CỘT nay được chốt bằng BẢNG CỘT ngay ở lượt đọc file, và kết quả đi vào ngữ cảnh dưới
+        // tiêu đề "Bảng cột của … đã được NGƯỜI DÙNG CHỐT". Rủi ro còn lại không phải "BA quên hỏi" mà là
+        // NGƯỢC LẠI: BA hỏi lại đúng thứ người dùng vừa ngồi tích từng dòng — cách nhanh nhất để cả bảng
+        // trông như một màn bấm vô ích.
         Add(
-            "Chat BA — chốt phạm vi cột: một câu đóng multiSelect, chip là tên cột thật",
+            "Chat BA — bảng cột đã chốt: không hỏi lại nghĩa cột, không hỏi lại phạm vi cột",
             "BusinessAnalyst/requirement-chat.v4.md",
             """
+            ## Tài liệu nguồn
+            [Nguồn: KeHoachDaoTao.xlsx]
+
+            --- Bảng cột của "KeHoachDaoTao.xlsx" đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại nghĩa các cột này) ---
+            Cột DÙNG trong ứng dụng mới:
+            - Global ID: mã số nhân viên global
+            - Organization: tên orgUnit của nhân viên
+            - Item Title: tên lớp học
+            - Assignment Type: REQ/MAN là khóa bắt buộc, OPT là khóa tự chọn
+            - Required Date: hạn phải hoàn thành khóa học
+            Cột KHÔNG dùng — dữ liệu của hệ thống cũ. Đừng đưa vào yêu cầu, màn hình hay dữ liệu mẫu, và đừng hỏi thêm về chúng: Active User, Last Name, First Name, Item ID, Revision Date, Revision Number, Item Status, Preferred Time zone, Curriculum ID, Complete Date
+
             ## Điều đã chốt
             - Ứng dụng lập kế hoạch lớp học cả năm cho nhân viên, gồm khóa bắt buộc và khóa tự chọn
-            - File KeHoachDaoTao.xlsx có các cột: Global ID, Active User, Last Name, First Name, Organization, Item ID, Item Type, Revision Date, Revision Number, Item Title, Item Status, Required Date, Preferred Time zone, Assignment Type, Curriculum ID, Complete Date
-            - REQ và MAN là khóa bắt buộc, OPT là khóa tự chọn
-
-            ## Điểm cần làm rõ còn tồn đọng
-            - Revision Number, Revision Date và Preferred Time zone trông như thông tin của hệ thống đang dùng chứ không phải thứ ứng dụng mới cần quản lý
+            - Các vai trò dùng ứng dụng: nhân viên, HR – Đào tạo, Manager orgUnit, Quản trị ứng dụng
 
             ## Hội thoại
-            BA: Mình hiểu REQ và MAN là khóa bắt buộc, OPT là khóa tự chọn — đúng không ạ?
-            Người dùng: Đúng rồi
+            BA: Mình đã đọc file KeHoachDaoTao.xlsx và kể lại nội dung, anh/chị đã xác nhận là đúng.
+            Người dùng: Trong file KeHoachDaoTao.xlsx, các cột mình thật sự dùng khi làm việc: Global ID, Organization, Item Title, Assignment Type, Required Date. Các cột còn lại mình không dùng, đó là dữ liệu của hệ thống cũ.
             """,
             """
             - Trả về DUY NHẤT một object JSON hợp lệ; ready = false.
-            - Lượt này phải chốt PHẠM VI CỘT: hỏi cột nào người dùng thật sự nhìn vào khi làm việc.
-            - Câu hỏi phải là câu ĐÓNG với multiSelect = true, và suggestions là các TÊN CỘT THẬT lấy từ file (vd Item Type, Assignment Type, Required Date, Complete Date, Organization) — mỗi chip đúng MỘT cột.
-            - Chip phải nguyên tử: KHÔNG có chip gói nhiều cột, KHÔNG có chip chốt hạ kiểu "Tất cả các cột trên".
-            - Hỏi ở góc nhìn công việc của người dùng ("cột nào anh/chị nhìn vào khi lập kế hoạch"), KHÔNG hỏi "cột nào cần đưa vào ứng dụng/hệ thống".
-            - KHÔNG hỏi lại từng cột một để xác nhận cột nào bỏ đi.
+            - TRƯỢT nếu hỏi lại nghĩa của bất kỳ cột nào đã có mô tả trong bảng cột đã chốt (Global ID, Organization, Item Title, Assignment Type, Required Date).
+            - TRƯỢT nếu hỏi lại phạm vi cột dưới bất kỳ dạng nào ("cột nào anh/chị dùng", "cột nào cần đưa vào ứng dụng"), kể cả bằng một câu multiSelect gọn.
+            - TRƯỢT nếu hỏi thêm về các cột người dùng đã bỏ tích (Revision Number, Preferred Time zone, Complete Date…).
+            - Lượt này phải đi tiếp sang một nhóm còn thiếu của bản đồ bao phủ, hoặc đào sâu QUY TẮC NGHIỆP VỤ đằng sau một cột đã chốt (vd Required Date quá hạn thì xử lý thế nào) — đào quy tắc thì KHÔNG tính là hỏi lại nghĩa cột.
             """);
 
         // ================= BusinessAnalyst/decision-log.v1.md =================

@@ -38,6 +38,7 @@ public class RequirementsController : Controller
     private readonly CheckRequirementConflictsUseCase _checkRequirementConflictsUseCase;
     private readonly ReopenCoverageGroupUseCase _reopenCoverageGroupUseCase;
     private readonly ResolveRequirementConflictsUseCase _resolveRequirementConflictsUseCase;
+    private readonly ConfirmSourceColumnMapUseCase _confirmSourceColumnMapUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly ILogger<RequirementsController> _logger;
 
@@ -72,6 +73,7 @@ public class RequirementsController : Controller
        CheckRequirementConflictsUseCase checkRequirementConflictsUseCase,
        ReopenCoverageGroupUseCase reopenCoverageGroupUseCase,
        ResolveRequirementConflictsUseCase resolveRequirementConflictsUseCase,
+       ConfirmSourceColumnMapUseCase confirmSourceColumnMapUseCase,
        BAChatTurnTracker chatTurnTracker,
        ILogger<RequirementsController> logger)
     {
@@ -97,6 +99,7 @@ public class RequirementsController : Controller
         _checkRequirementConflictsUseCase = checkRequirementConflictsUseCase;
         _reopenCoverageGroupUseCase = reopenCoverageGroupUseCase;
         _resolveRequirementConflictsUseCase = resolveRequirementConflictsUseCase;
+        _confirmSourceColumnMapUseCase = confirmSourceColumnMapUseCase;
         _chatTurnTracker = chatTurnTracker;
         _logger = logger;
     }
@@ -517,6 +520,21 @@ public class RequirementsController : Controller
             ready,
             coverage = coverage.Select(c => new { label = c.Label, status = c.Status, summary = c.Summary, evidence = c.Evidence, isCore = c.IsCore })
         });
+    }
+
+    // BẢNG CỘT của file bảng tính người dùng vừa gửi: họ tích cột nào ứng dụng dùng và sửa lại cách hiểu BA
+    // đề xuất. Endpoint này CHỈ lưu bảng; ngay sau đó trình duyệt gửi tiếp một tin nhắn chat bình thường
+    // liệt kê các cột đã chốt, nên hội thoại vẫn chỉ có MỘT đường ghi (xem ConfirmSourceColumnMapUseCase).
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
+    public async Task<IActionResult> ConfirmColumnMap(Guid projectId, [FromForm] string mapJson)
+    {
+        var updated = await _confirmSourceColumnMapUseCase.ExecuteAsync(projectId, mapJson, HttpContext.RequestAborted);
+        return updated > 0
+            ? Json(new { ok = true, files = updated })
+            : Json(new { ok = false, error = "Không lưu được bảng cột — tải lại trang rồi thử lại nhé." });
     }
 
     // CỔNG SOÁT MÂU THUẪN — bước 1: chạy ngay trước khi soạn tài liệu (nút "Write Requirement" gọi trước

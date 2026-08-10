@@ -126,10 +126,31 @@ public class SourceAckReadbackRuleTests
     {
         Assert.Contains("Cột của HỆ CŨ", ReadPrompt(SourceAckPromptKey), StringComparison.Ordinal);
 
+        // Phạm vi cột nay chốt bằng BẢNG CỘT ở lượt đọc file, nên việc của prompt chat đổi chiều: không
+        // phải "nhớ hỏi" mà là "đừng hỏi lại thứ người dùng vừa tích từng dòng".
         var chat = ReadPrompt(ChatPromptKey);
-        Assert.Contains("Chốt PHẠM VI CỘT", chat, StringComparison.Ordinal);
-        // Hỏi ở góc nhìn công việc của người dùng, không bắt họ đoán hộ phạm vi kỹ thuật.
-        Assert.Contains("cột nào anh/chị thật sự nhìn vào", chat, StringComparison.Ordinal);
+        Assert.Contains("PHẠM VI CỘT đã chốt bằng BẢNG CỘT", chat, StringComparison.Ordinal);
+        Assert.Contains("đã được NGƯỜI DÙNG CHỐT", chat, StringComparison.Ordinal);
+        Assert.Contains("KHÔNG hỏi lại \"cột nào anh/chị dùng\"", chat, StringComparison.Ordinal);
+    }
+
+    // BẢNG CỘT chỉ chữa được khiếm khuyết của hàng chip (chip chỉ nêu tập con do BA chọn, cột không lên
+    // chip bị loại mà người dùng không thấy để phản đối) nếu nó KHÔNG rơi vào thái cực bên kia: một bảng
+    // 18 dòng với ô ý nghĩa để trống là bắt người dùng nghiệp vụ giải nghĩa 18 cột — đúng thứ mục "Cột nào
+    // đáng đưa vào Chỗ chưa chắc" cấm, và đọc lên đúng như "tôi chưa mở file của anh/chị".
+    [Fact]
+    public void SourceAckPrompt_PreFillsTheColumnTable_InsteadOfAskingUserToExplainEveryColumn()
+    {
+        var prompt = ReadPrompt(SourceAckPromptKey);
+
+        Assert.Contains("BẢNG CỘT để người dùng tích", prompt, StringComparison.Ordinal);
+        Assert.Contains("`meaning` phải ĐIỀN SẴN", prompt, StringComparison.Ordinal);
+        // Ô tích cũng do BA đề xuất: bảng toàn ô trống bắt người dùng tự quyết phạm vi kỹ thuật.
+        Assert.Contains("`used` là ĐỀ XUẤT của bạn", prompt, StringComparison.Ordinal);
+        // Tên cột phải chép đúng file — tên lệch bị bộ chuẩn hoá loại khỏi bảng.
+        Assert.Contains("chép ĐÚNG tên trong hàng tiêu đề", prompt, StringComparison.Ordinal);
+        // Và bảng phải có mặt trong khối định dạng, nếu không model không bao giờ xuất trường này.
+        Assert.Contains("\"columns\"", prompt, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -174,11 +195,14 @@ public class SourceAckReadbackRuleTests
         Assert.NotEmpty(decisionLog);
         Assert.Contains(decisionLog, c => c.Contains("chưa được xác nhận", StringComparison.OrdinalIgnoreCase));
 
-        // Hai thái cực của việc hỏi về cột đều phải có chỗ chấm điểm: hỏi trống thay vì đề xuất, và hỏi
-        // "cột nào cần đưa vào ứng dụng" thay vì "cột nào anh/chị nhìn vào".
+        // Bảng cột phải có chỗ chấm điểm ở CẢ HAI đầu của nó, vì hỏng ở đầu nào cũng mất trắng:
+        // model điền bảng (ý nghĩa phải viết sẵn), và model chat KHÔNG hỏi lại bảng đã chốt.
+        Assert.Contains(sourceAck, c => c.Contains("meaning ĐIỀN SẴN", StringComparison.Ordinal)
+                                        || c.Contains("meaning viết sẵn", StringComparison.Ordinal));
+
         var chat = scenarios.Where(s => s.PromptKey == ChatPromptKey).Select(s => s.Criteria).ToList();
         Assert.Contains(chat, c => c.Contains("Assignment Type nghĩa là gì?", StringComparison.Ordinal));
-        Assert.Contains(chat, c => c.Contains("TÊN CỘT THẬT", StringComparison.Ordinal));
+        Assert.Contains(chat, c => c.Contains("hỏi lại phạm vi cột", StringComparison.Ordinal));
     }
 
     // Cùng cách tìm Prompts/ như BAChatPlaybackRuleTests: ưu tiên bản copy trong bin, không có thì đi

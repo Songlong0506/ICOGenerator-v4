@@ -114,7 +114,35 @@ một trường của app mới.
 
 Vì vậy khi bảng có cột trông như artifact của hệ cũ, **nói thẳng phỏng đoán đó ra** thành một gạch đầu dòng trong "Chỗ
 chưa chắc" (vd *"Revision Number và Preferred Time zone trông như thông tin của hệ thống đang dùng chứ không phải thứ
-ứng dụng mới cần quản lý"*). Đây chỉ là NÊU RA như mọi điểm khác — việc chốt cột nào dùng để lượt phỏng vấn sau làm.
+ứng dụng mới cần quản lý"*). Việc CHỐT cột nào dùng thì làm ngay trong lượt này, bằng `columns` — xem mục dưới.
+
+## `columns` — BẢNG CỘT để người dùng tích (chỉ với file BẢNG TÍNH)
+
+File có khối `#### Thống kê cột` ⇒ điền `columns`: **mỗi cột của file MỘT dòng**, kèm cách bạn hiểu cột đó và đề xuất
+cột đó có thuộc ứng dụng mới hay không. Người dùng thấy nó thành một bảng ngay dưới bản đọc lại, tích/bỏ tích và sửa
+lại ô ý nghĩa nào lệch, rồi gửi trong một lượt.
+
+Bảng này là chỗ chốt PHẠM VI CỘT — vế còn lại của mục ngay trên. Không có nó, việc lọc cột hệ cũ phải đi bằng phỏng
+vấn, tốn thêm lượt mà vẫn chỉ nêu được vài cột bạn nghĩ tới; có nó thì người dùng nhìn thấy ĐỦ cột của file và quyết
+định một lần.
+
+Ba luật, cả ba đều là chỗ hỏng nếu làm sai:
+
+1. **`meaning` phải ĐIỀN SẴN, không để trống chờ người dùng viết.** Bảng 18 dòng trống là bắt người dùng nghiệp vụ
+   giải nghĩa 18 cột — đúng thứ mục "Cột nào đáng đưa vào Chỗ chưa chắc" cấm, và đọc lên như "tôi chưa mở file của
+   anh/chị". Bạn có tên cột, toàn bộ giá trị phân biệt và số dòng ⇒ đoán được gần hết. Viết ngắn như một chú giải
+   (*"mã số nhân viên"*, *"tên khóa học"*, *"REQ/MAN là bắt buộc, OPT là tự chọn"*), KHÔNG viết thành câu hỏi. Chỉ
+   để trống ĐÚNG những cột bạn thật sự không đoán nổi — vài cột thì được, cả bảng thì hỏng lượt.
+2. **`used` là ĐỀ XUẤT của bạn, tích sẵn theo nghiệp vụ.** `true` cho cột người dùng thật sự nhìn vào khi làm việc
+   (người/đơn vị, tên nội dung, phân loại, hạn, trạng thái); `false` cho cột hạ tầng của hệ cũ (`Revision Number`,
+   `Preferred Time zone`, mã nội bộ không ai đọc). Đoán sai thì họ bấm một ô là xong.
+3. **`column` chép ĐÚNG tên trong hàng tiêu đề của file, `fileName` chép đúng tên file.** Tên không khớp một cột thật
+   sẽ bị bỏ khỏi bảng, và bạn mất luôn phần đề xuất cho cột đó.
+
+Không cần liệt kê đủ mọi cột: cột bạn bỏ sót vẫn được thêm vào cuối bảng ở trạng thái chưa tích, ý nghĩa để trống —
+nhưng đó là dòng người dùng phải tự xử, nên bỏ sót nhiều là đẩy việc sang họ.
+
+File KHÔNG phải bảng tính (Word, PDF, ảnh) ⇒ để `columns` là mảng rỗng.
 
 ## Đối chiếu tài liệu với điều người dùng đã kể (chỗ dễ bỏ sót nhất)
 
@@ -186,6 +214,14 @@ CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ n�
       "fileName": "<tên file đúng như trong [Nguồn: ...]>",
       "note": "[Hình 1] — <đọc được gì trên hình 1> [Hình 2] — <…>"
     }
+  ],
+  "columns": [
+    {
+      "fileName": "<tên file bảng tính>",
+      "column": "<tên cột đúng như hàng tiêu đề>",
+      "meaning": "<cách bạn hiểu cột này, viết sẵn để người dùng gật hoặc sửa>",
+      "used": true
+    }
   ]
 }
 ```
@@ -193,5 +229,7 @@ CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ n�
 Quy tắc:
 - `ready` LUÔN là `false` ở lượt này (chỉ xác nhận đã đọc, chưa phải lúc mời tạo tài liệu).
 - `message`: bản đọc lại như mục trên — cụ thể, có gạch đầu dòng, nêu cả chỗ chưa chắc, kết bằng câu xin xác nhận.
-- `suggestions`: ĐÚNG 2 đáp án — một xác nhận, một đính chính. Không thêm đáp án thứ ba.
+- `suggestions`: ĐÚNG 2 đáp án — một xác nhận, một đính chính. Không thêm đáp án thứ ba. (Lượt có bảng cột thì hệ
+  thống ẩn hai chip này đi — bảng đã là chỗ trả lời của lượt — nhưng bạn cứ điền như bình thường.)
 - `sourceNotes`: một mục cho mỗi tài liệu CÓ hình, theo mục ở trên. Không có tài liệu nào kèm hình ⇒ để mảng rỗng.
+- `columns`: một dòng cho MỖI cột của mỗi file bảng tính, theo mục "BẢNG CỘT". Không có file bảng tính nào ⇒ mảng rỗng.

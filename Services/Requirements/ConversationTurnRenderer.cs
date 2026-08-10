@@ -59,6 +59,20 @@ public static class ConversationTurnRenderer
             rendered += $"\n   (Các câu hỏi đã đặt trong lượt này: {string.Join("; ", lines)})";
         }
 
+        // BẢNG CỘT BA đã đưa ra ở lượt đọc bảng tính nằm ở cột riêng (ColumnMap). Render GỌN — chỉ tên các
+        // cột đã bày ra và các cột BA đề xuất là "có dùng" — vì bản đầy đủ (kèm nghĩa từng cột) sẽ quay lại
+        // transcript ngay ở lượt sau dưới dạng câu trả lời của người dùng; in cả hai là chép đôi một bảng
+        // 18 dòng vào mọi ngữ cảnh đọc hội thoại. Cái mà reader thật sự cần ở đây là biết một câu "Đúng rồi"
+        // của người dùng đang gật với danh sách nào.
+        var columnMap = ParseColumnMap(turn.ColumnMap);
+        if (columnMap.Count > 0)
+        {
+            var proposed = columnMap.Where(c => c.Used).Select(c => c.Column).ToList();
+            var offered = string.Join(", ", columnMap.Select(c => c.Column));
+            rendered += $"\n   (Bảng cột đã đưa cho người dùng tích: {offered}"
+                + (proposed.Count > 0 ? $"; BA đề xuất DÙNG: {string.Join(", ", proposed)})" : ")");
+        }
+
         // Sơ đồ luồng BA đã VẼ cho người dùng xác nhận ở lượt mời "Write Requirement" nằm ở cột riêng
         // (FlowDiagram) — không render thì các reader transcript (bản đồ bao phủ, bước soạn Product
         // Brief) không hề thấy chuỗi bước mà người dùng đã duyệt bằng hình: tài liệu được soạn "mù"
@@ -122,6 +136,14 @@ public static class ConversationTurnRenderer
             return new List<BAChatQuestion>();
         }
     }
+
+    /// <summary>
+    /// Giải mã cột <see cref="AgentConversation.ColumnMap"/> (JSON array <see cref="SourceColumnNote"/>)
+    /// an toàn như <see cref="ParseSuggestions"/>. Dùng chung cho đường render transcript và đường render
+    /// lại bảng cột sau khi tải lại trang (Views/Requirements/Index.cshtml).
+    /// </summary>
+    public static List<SourceColumnNote> ParseColumnMap(string? columnMapJson)
+        => SourceColumnMapBuilder.Parse(columnMapJson);
 
     /// <summary>
     /// Giải mã cột <see cref="AgentConversation.Suggestions"/> (JSON array chuỗi) an toàn: null/rỗng/hỏng
