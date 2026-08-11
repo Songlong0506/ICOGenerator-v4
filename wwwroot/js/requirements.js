@@ -958,10 +958,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     //
     // TRẠNG THÁI đến từ hai frame khác nhau, ở hai thời điểm khác nhau, nên phải giữ lại cả hai thay vì đọc
     // ngược ra từ DOM:
-    //   gateState — "waiting" | "ready" | "running" | "regenerate". Suy từ cờ mời của lượt BA mới nhất
+    //   gateState — "waiting" | "ready" | "running" | "done". Suy từ cờ mời của lượt BA mới nhất
     //               (frame done). Giá trị đầu lấy thẳng từ bản server vừa render (data-state) chứ không
-    //               đoán qua "khối đang ẩn hay hiện": F5 ngay ở trạng thái "regenerate" thì cổng vẫn mở,
-    //               mà đó KHÔNG phải lượt mời.
+    //               đoán qua "khối đang ẩn hay hiện": server có những trạng thái mà JS không tự suy lại
+    //               được ("done" — vừa soạn xong và hội thoại chưa có gì mới), và F5 phải giữ nguyên chúng.
     //   gateItems — nhật ký quyết định, tới ở frame "decisions" SAU frame done và KHÔNG mang theo cờ mời
     //               (bản ở frame done còn thiếu đúng lượt cuối — thiếu chính điều người dùng vừa chốt).
     // Cả hai chỉ được sửa qua setWriteReqInvited/setWriteReqDecisions rồi cùng gọi syncWriteReqGate(), để
@@ -969,10 +969,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     const writeReqZone = document.getElementById("writeReqZone");
     let gateState = writeReqZone?.dataset.state || "waiting";
     let gateItems = null; // null = chưa có frame nào ⇒ giữ nguyên danh sách server đã render
+    // Bản Brief đã tồn tại chưa (server render). Chỉ đổi khi một vòng soạn chạy xong, mà lúc đó
+    // requirement-workflow.js tải lại trang ⇒ đọc một lần là đủ.
+    const draftExists = writeReqZone?.dataset.draftExists === "true";
 
     // Lời dẫn của cổng, phải khớp bản server render trong Index.cshtml. Chỉ có hai biến thể ở đây: JS chỉ
-    // đưa cổng về "ready"/"waiting" được — "regenerate" chỉ tồn tại ở bản server render, vì đã có lượt chat
-    // mới thì hội thoại không còn "chưa có gì mới kể từ lần soạn gần nhất" nữa.
+    // đưa cổng về "ready"/"waiting" được — "done" chỉ tồn tại ở bản server render, vì đã có lượt chat mới
+    // thì hội thoại không còn "chưa có gì mới kể từ lần soạn gần nhất" nữa.
     const GATE_HINT_REVIEW = 'Đây là toàn bộ những gì mình đã hiểu được từ cuộc trao đổi. <b>Anh/chị rà nhanh giúp mình:</b> '
         + 'ý nào chưa đúng thì bấm <b>✎ Sửa</b> ở ý đó — hoặc bôi đen đúng đoạn sai — rồi ghi lại ý đúng. '
         + 'Sửa ở đây mất vài giây; để lọt tới lúc tài liệu và bản demo đã dựng thì phải làm lại cả tuyến.';
@@ -980,17 +983,23 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         + 'Lần này mình chưa dựng được bản tổng kết để anh/chị rà trước — cứ tạo tài liệu rồi '
         + '<b>rà thẳng trên bản mô tả</b>, chỗ nào chưa đúng thì nhắn lại cho mình trong khung chat.';
 
-    // Cờ mời của lượt BA mới nhất.
-    function setWriteReqInvited(invited) {
+    // Cờ mời của lượt BA mới nhất + cờ readiness của bản đồ bao phủ (cả hai từ frame done).
+    function setWriteReqInvited(invited, coverageReady) {
         // VÒNG SOẠN ĐANG CHẠY ⇒ giữ nguyên "running", bất kể lượt chat vừa rồi có mời hay không: người dùng
         // vẫn chat được trong lúc tài liệu đang soạn, và mở cổng ở đây sẽ mở lại đúng cửa spam mà trạng thái
         // "running" của server vừa đóng. Run xong thì requirement-workflow.js tải lại trang và server render
         // lại cổng theo trạng thái mới.
         if (gateState === "running") return;
 
-        // Đã có lượt chat mới ⇒ hội thoại không còn "chưa có gì mới kể từ lần soạn gần nhất", nên cổng thôi
-        // đóng vai "Tạo lại tài liệu" (kèm hộp xác nhận ghi đè) và quay về đúng cờ mời của lượt vừa rồi.
-        gateState = invited === true ? "ready" : "waiting";
+        // Đã có lượt chat mới ⇒ hội thoại không còn "chưa có gì mới kể từ lần soạn gần nhất", nên cổng rời
+        // trạng thái "done" và đi theo lượt vừa rồi.
+        //
+        // ĐƯỜNG LÙI KHI BẢN BRIEF ĐÃ CŨ (khớp nhánh cùng tên ở Index.cshtml): bản Brief đã có, người dùng
+        // vừa nhắn một lời đính chính, BA đáp bằng một CÂU HỎI thay vì lời mời ⇒ chỉ xét cờ mời thì cổng
+        // đóng và không còn đường nào soạn lại bản Brief đang cũ dần so với hội thoại. Cờ readiness do
+        // SERVER tính (BAChatTurnResult.CoverageReady) — luật "mọi dòng áp dụng đã [RÕ]" không được phép
+        // có bản sao trong JS. Chưa có draft thì cổng vẫn đi theo đúng lời mời của BA như cũ.
+        gateState = (invited === true || (draftExists && coverageReady === true)) ? "ready" : "waiting";
         syncWriteReqGate();
     }
 
@@ -1026,7 +1035,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // nó thành thứ phụ thuộc vào lịch sử các lượt trước — thêm một khối thấy được vào cụm là lộ ra ngay.
         thinkingBox.before(writeReqZone);
 
-        if (gateState !== "ready" && gateState !== "regenerate") {
+        if (gateState !== "ready") {
             // BA quay lại hỏi tiếp (vd vừa phát hiện mâu thuẫn từ chính đính chính user vừa gửi) ⇒ bản tổng
             // kết cũ không còn đúng nữa, để lại là nói dối. Panel mâu thuẫn đóng theo: nó là câu hỏi phát
             // sinh từ một cú bấm nay đã hết hiệu lực.
@@ -1038,7 +1047,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const list = gate.querySelector(".summary-gate-list");
         const count = gate.querySelector(".summary-gate-count");
         const hint = gate.querySelector(".summary-gate-hint");
-        const regenerate = gateState === "regenerate";
 
         if (list && Array.isArray(gateItems)) {
             // Giữ nguyên ghi chú người dùng đang gõ dở khi frame "decisions" tới sau done và vẽ lại danh sách.
@@ -1066,7 +1074,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 count.hidden = !hasItems;
                 count.textContent = `${gateItems.length} ý`;
             }
-            if (hint && !regenerate && hint.dataset.hintReview !== String(hasItems)) {
+            if (hint && hint.dataset.hintReview !== String(hasItems)) {
                 hint.innerHTML = hasItems ? GATE_HINT_REVIEW : GATE_HINT_NO_SUMMARY;
                 hint.dataset.hintReview = String(hasItems);
             }
@@ -1075,8 +1083,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // khi tạo tài liệu" là hứa một bản rà soát rồi không đưa ra. Cùng logic ở Index.cshtml.
             const title = gate.querySelector(".summary-gate-title");
             if (title) {
-                title.textContent = regenerate ? "Tài liệu đã tạo xong"
-                    : hasItems ? "Tổng kết trước khi tạo tài liệu"
+                title.textContent = hasItems ? "Tổng kết trước khi tạo tài liệu"
                     : "Sẵn sàng tạo tài liệu";
             }
         }
@@ -1089,15 +1096,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         const btn = gate.querySelector(".write-req-btn");
         if (btn) {
-            // Nhãn/tooltip phải đi theo trạng thái: rời "Tạo lại tài liệu" mà giữ nguyên chữ cũ thì nút hứa
-            // một đằng làm một nẻo. data-idle-label là nhãn "nghỉ" hiện hành — cổng soát mâu thuẫn đọc lại
-            // nó để khôi phục sau khi soát xong.
+            // Dựng lại nhãn "nghỉ" từ bản gốc server render: lúc này nhãn có thể đang là "Đang tạo tài
+            // liệu…" (submit vừa rồi bị cổng mâu thuẫn chặn) hay "Đang soát…". data-idle-label là nhãn
+            // nghỉ hiện hành — cổng soát mâu thuẫn đọc lại nó để khôi phục sau khi soát xong.
             btn.disabled = false;
-            btn.classList.toggle("primary", !regenerate);
-            btn.classList.toggle("outline", regenerate);
-            btn.textContent = (regenerate ? btn.dataset.regenerateLabel : btn.dataset.readyLabel) || "✓ Đúng hết — tạo tài liệu";
+            btn.textContent = btn.dataset.readyLabel || "✓ Đúng hết — tạo tài liệu";
             btn.dataset.idleLabel = btn.textContent;
-            btn.title = (regenerate ? btn.dataset.regenerateTitle : btn.dataset.readyTitle) || "";
+            btn.title = btn.dataset.readyTitle || "";
         }
 
         gate.hidden = false;
@@ -1402,7 +1407,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // Cổng tạo tài liệu chỉ mở ở lượt BA MỜI tạo tài liệu — cùng cờ mời điều khiển cả việc mở cổng
             // lẫn nhãn nút bên trong, nên hai thứ không thể vênh nhau. Đặt cờ TRƯỚC danh sách: bản tổng kết
             // ở frame done còn thiếu đúng lượt cuối, frame "decisions" ngay sau đó sẽ vá lại.
-            setWriteReqInvited(data.invitesWriteRequirement === true);
+            setWriteReqInvited(data.invitesWriteRequirement === true, data.coverageReady === true);
             setWriteReqDecisions(data.decisions);
             renderFlowDiagram(bubble, data.flowDiagram);
 
@@ -2578,35 +2583,10 @@ function openLatestProductBrief() {
     syncButtons();
 })();
 
-// ==== Xác nhận TẠO LẠI tài liệu ====
-// Server đặt lớp write-req-regenerate khi bản draft đã có và hội thoại CHƯA có gì mới kể từ lần soạn gần
-// nhất. Bấm lúc đó tốn 2–3 lời gọi LLM để ra gần đúng bản cũ, lại GHI ĐÈ bản đang có — và vì model chạy ở
-// temperature > 0, bản mới có thể tệ hơn bản người dùng đang hài lòng. Không cấm (họ có quyền muốn bản
-// khác), chỉ bắt xác nhận để nó không còn là cú bấm vô thức.
-//
-// Chặn ở sự kiện CLICK chứ không phải submit: huỷ ở đây thì form không submit nên cả handler onsubmit lẫn
-// cổng soát mâu thuẫn bên dưới đều không chạy. Huỷ ở submit thì cổng mâu thuẫn (một listener khác trên
-// cùng form) vẫn nghe thấy và tự gọi form.submit() — tức bấm "Huỷ" mà tài liệu vẫn bị soạn lại.
-(function initRegenerateConfirm() {
-    const form = document.querySelector("form.write-req");
-    if (!form) return;
-
-    const btn = form.querySelector(".write-req-btn");
-    if (!btn) return;
-
-    btn.addEventListener("click", function (e) {
-        if (!form.classList.contains("write-req-regenerate")) return;
-
-        const ok = confirm(
-            "Soạn lại bản mô tả sản phẩm và GHI ĐÈ bản hiện tại?\n\n" +
-            "Anh/chị chưa bổ sung thông tin nào kể từ lần tạo trước, nên bản mới sẽ dựa trên đúng những gì " +
-            "đã trao đổi — nội dung có thể khác đi mà không chắc tốt hơn.\n\n" +
-            "Muốn tài liệu đổi theo ý mình, cách chắc ăn hơn là nhắn thêm cho BA trong khung chat rồi tạo lại.\n\n" +
-            "Bản cũ vẫn xem lại được trong Lịch sử phiên bản.");
-
-        if (!ok) e.preventDefault();
-    });
-})();
+// KHÔNG còn hộp xác nhận "tạo lại tài liệu" ở đây. Trạng thái sinh ra nó — draft đã có mà hội thoại chưa
+// có gì mới — nay ĐÓNG cổng hẳn (trạng thái "done" ở Index.cshtml) thay vì bày ra một nút ghi đè kèm lời
+// khuyên đừng bấm. Muốn bản khác thì nhắn thêm trong khung chat: cổng mở lại ở "ready" và nút lúc đó soạn
+// từ hội thoại ĐÃ có thông tin mới, không còn là cú ghi đè bằng một bản gần y hệt.
 
 // ==== Cổng soát MÂU THUẪN (chạy khi bấm "Write Requirement") ====
 // Panel "Tiến độ khai thác" chỉ trả lời *đã rõ hết chưa*. Cổng này trả lời *những điều đã rõ có chọi nhau
