@@ -40,6 +40,17 @@ public class BAChatTurnResult
     /// <summary>Bản đồ bao phủ yêu cầu đã parse (rỗng khi chưa có) — UI cập nhật panel tiến độ không cần reload.</summary>
     public List<CoverageMapItem> Coverage { get; set; } = new();
 
+    /// <summary>
+    /// Cổng readiness TẤT ĐỊNH (<see cref="ICOGenerator.Services.Requirements.RequirementReadinessGate"/>)
+    /// xét trên <see cref="Coverage"/>: đã đủ vốn để soạn tài liệu chưa. Khác
+    /// <see cref="InvitesWriteRequirement"/> ở chỗ nó KHÔNG phụ thuộc lượt vừa rồi có phải lời mời hay
+    /// không — cần đúng cho một ca: bản Brief đã tồn tại, người dùng nhắn một lời đính chính, BA đáp lại
+    /// bằng một câu hỏi thay vì lời mời ⇒ cổng đóng và không còn đường nào soạn lại bản Brief đã cũ.
+    /// Client chỉ dùng cờ này KHI ĐÃ CÓ bản draft (data-draft-exists ở #writeReqZone); luật readiness
+    /// vẫn chỉ sống ở server nên UI không có "giám khảo" thứ hai.
+    /// </summary>
+    public bool CoverageReady { get; set; }
+
     /// <summary>"Điều đã chốt" — các quyết định người dùng đã xác nhận, cập nhật tới hết lượt này.</summary>
     public List<string> Decisions { get; set; } = new();
 

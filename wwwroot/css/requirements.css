@@ -410,12 +410,6 @@
         cursor: progress;
     }
 
-    /* "Tạo lại tài liệu": bấm được nhưng cố ý KHÔNG dùng .primary — đây là hành động ghi đè bản đang có,
-       không phải bước tiếp theo của hành trình, nên không được mời gọi như nút sẵn sàng. */
-    .write-req-regenerate .write-req-btn {
-        font-weight: 500;
-    }
-
     /* Dòng ở cuối panel "Tiến độ khai thác" thay cho nút mờ-và-khóa ngày trước: nói còn thiếu gì thì việc
        gì sẽ xảy ra, thay vì bày ra một nút bấm không được. Chỉ hiện ở trạng thái "waiting". */
     .write-req-waiting-hint {

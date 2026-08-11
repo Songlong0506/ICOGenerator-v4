@@ -354,6 +354,9 @@ public class RequirementsController : Controller
                                 openEnded = q.OpenEnded
                             }),
                             coverage = result.Coverage,
+                            // Cổng readiness xét trên bản đồ, KHÔNG phụ thuộc lượt này có mời hay không.
+                            // Client chỉ dùng khi bản draft đã tồn tại — xem BAChatTurnResult.CoverageReady.
+                            coverageReady = result.CoverageReady,
                             // Bản đồ bao phủ không gộp được lượt này (đã thử lại) ⇒ panel đang hiện bản
                             // cũ và BA cũng vừa dẫn lượt bằng bản cũ đó. Client cảnh báo ngay trên panel.
                             coverageStale = result.CoverageStale,
