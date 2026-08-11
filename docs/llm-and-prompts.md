@@ -27,6 +27,16 @@ Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `End
 
 Modal Add/Edit có nút **Test Connection**: gọi thử một request chat cực nhỏ (prompt `"ping"`, chặn ở 16 token đầu ra) tới endpoint đang gõ và hiện ngay kết quả (OK + thời gian phản hồi, hoặc lỗi kèm status/nguyên nhân) — không cần lưu model rồi đi chạy agent mới biết cấu hình sai. Lời gọi thử KHÔNG ghi call log, không tính vào budget; trên form Edit để trống `ApiKey` thì nó dùng key đã lưu. Deadline riêng: `Llm:TestConnectionTimeoutSeconds` (mặc định 30s).
 
+Lời gọi thử đi đúng đường dây thật, **kể cả khâu chọn proxy** — nên khi bật `Llm:Proxy` mà proxy chết thì lỗi hiện ra không phải lỗi của endpoint. `ModelConnectionTester` tách riêng hai trường hợp đó, vì triệu chứng giống hệt nhau còn việc phải làm thì ngược nhau:
+
+| Lỗi | Câu hiện trong modal |
+|---|---|
+| Proxy từ chối mở tunnel (503/407) — nhận theo `HttpRequestError.ProxyTunnelError`, dò cả cây exception vì nó nằm dưới lớp bọc retry | gọi tên proxy và nói endpoint có thể vẫn khỏe (kèm gợi ý `Llm:Proxy:Enabled=false`) |
+| Lỗi kết nối trơ (proxy tắt hẳn thì không phân biệt được với endpoint chết) | câu "kiểm tra endpoint" như cũ, **cộng** một dòng nói request này đi qua proxy nào |
+| Endpoint local, hoặc proxy đang tắt | câu "kiểm tra endpoint" trần — không nhắc proxy, vì nhắc là chỉ sai chỗ |
+
+Luật "endpoint nào đi thẳng, endpoint nào qua proxy" chỉ được viết một lần ở `OpenAIChatClientFactory.IsLocalEndpoint` và cả hai bên cùng hỏi nó.
+
 ### Structured output cho các lời gọi BA (opt-in, 3 mức)
 Các lời gọi của BA trả JSON (soạn 5 tài liệu, cổng kiểm tra đầy đủ, gợi ý chat) có thể xin API ép định dạng
 JSON thay vì chỉ nhắc model trả JSON rồi parse văn xuôi. `ILlmClient.ChatStructuredAsync<T>` lo việc này.

@@ -19,7 +19,7 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 | `Notifications:Teams:{Enabled,WebhookUrl}` | tắt | Incoming Webhook Teams. Fail-open |
 | `Notifications:Email:{Enabled,Host,Port,UseStartTls,Username,Password,From,To}` | tắt / 587 STARTTLS | SMTP. Password qua env. Fail-open |
 | `Notifications:BoschEmail:{Enabled,BaseUrl,SendMailApi,ApiKey,FromEmail,To,OnlySendToTesterEmail,TesterEmail}` | tắt / `api/Email` | Email Server API nội bộ Bosch (HTTP) thay SMTP. ApiKey qua env. `OnlySendToTesterEmail` = chốt an toàn non-prod. Fail-open |
-| `Llm:Proxy:{Enabled,Address}` | false / `http://127.0.0.1:3128` | Proxy công ty cho lời gọi LLM ra ngoài (client "proxied"); code mặc định coi Enabled=true nếu **thiếu key** — appsettings hiện đặt tường minh false |
+| `Llm:Proxy:{Enabled,Address}` | false / `http://127.0.0.1:3128` | Proxy công ty cho lời gọi LLM ra ngoài (client "proxied"); code mặc định coi Enabled=true nếu **thiếu key** — appsettings hiện đặt tường minh false. Proxy chết thì "Test Connection" gọi tên proxy thay vì đổ cho endpoint ([llm-and-prompts.md](llm-and-prompts.md#thêm-một-model-mới)) |
 | `Poc:RuntimeCheck:{Enabled,BrowserPath,AutoInstall,AutoInstallTimeoutSeconds}` | true / trống / true / 300 | Tầng chạy POC trong Chromium headless ([getting-started.md](getting-started.md#chromium-cho-tầng-kiểm-poc)). `BrowserPath` trống ⇒ dùng bộ Playwright của máy, chưa có thì tự tải một lần (`AutoInstall`). Fail-open toàn phần |
 | `Budget:{Enabled,Period,SystemUsdLimit,PerProjectUsdLimit}` | true / Monthly / 0 / 0 | Trần chi phí USD. 0 = không giới hạn scope đó (opt-in thực tế) |
 | `Encryption:ApiKeyKey` | ⚠️ có giá trị commit sẵn | **Bắt buộc nạp qua env**; khóa cũ trong git history coi như đã lộ — xoay khóa trên môi trường thật |
