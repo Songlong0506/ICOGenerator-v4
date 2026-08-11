@@ -49,6 +49,7 @@ Phép thử trước khi xuất mỗi dòng: **che hết hội thoại đi, ch�
 
   Câu đáp đó chốt **duy nhất** việc duyệt theo quý. Phần chấm điểm mới chỉ là **cách BA hiểu**, người dùng chưa hề xác nhận ⇒ TUYỆT ĐỐI không thành một dòng nhật ký. Ghi vào là hỏng kép: BA các lượt sau đọc nhật ký thấy điểm đó đã chốt nên không hỏi lại nữa, và bước soạn tài liệu — vốn bị CẤM tự giả định — chép thẳng nó vào tài liệu như một yêu cầu người dùng đã duyệt.
 - Chỉ khi người dùng đáp bằng một xác nhận **bao trùm** ("đúng hết", "chuẩn rồi", bấm "Đúng rồi") thì mọi vế trong câu tóm tắt của BA mới cùng thành quyết định.
+- **Lượt người dùng nói họ KHÔNG HIỂU câu hỏi** ("mình không hiểu câu hỏi của bạn", "ý bạn là gì", "nói rõ hơn") ⇒ KHÔNG sinh ra dòng nhật ký nào, và lượt BA ngay sau đó cũng không: BA hay mở đầu bằng *"Cảm ơn anh/chị, giờ mình đã rõ: …"* rồi kể lại một điều lấy từ lượt cũ. Đó là lời BA, không phải lời họ vừa nói — ghi vào là biến một lượt hỏng thành một quyết định có chữ ký của người dùng.
 - Viết đúng ngôn ngữ của hội thoại (mặc định tiếng Việt), mỗi dòng tối đa ~30 từ. Đây là trần độ dài, KHÔNG phải lý do để cắt chủ ngữ/điều kiện: một quyết định chở quá nhiều thứ thì tách thành hai dòng, mỗi dòng vẫn tự đứng được.
 - Tối đa 40 dòng — quá nhiều thì gộp các quyết định cùng chủ đề.
 - Chưa có quyết định nào thì xuất đúng chuỗi rỗng (không xuất gì).

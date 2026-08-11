@@ -142,6 +142,14 @@ public class RequirementCoverageService
 
     // Tóm tắt (text) tài liệu nguồn cho lượt distill — call text-only nên KHÔNG kèm ảnh được; bù lại
     // nêu tên file + trích text (bóc từ PDF) có giới hạn, để bản đồ ghi nhận được thứ tài liệu đã có.
+    //
+    // Kèm luôn BẢNG CỘT đã được người dùng chốt (SourceColumnMapBuilder.RenderConfirmedBlock) — đây là
+    // câu trả lời của người dùng cho nhóm "Dữ liệu / danh mục chính", chỉ khác là họ trả lời bằng cách
+    // tích một bảng chứ không gõ vào khung chat. Thiếu khối này thì distiller không thấy nó ở đâu cả:
+    // dòng "Dữ liệu / danh mục chính" kẹt [MỘT PHẦN] với "còn thiếu: chốt bộ cột chính thức", cổng
+    // readiness thay lời mời "Write Requirement" của BA bằng câu hỏi dựng sẵn (RequirementReadinessGate),
+    // và người dùng bị hỏi lại đúng thứ họ vừa tự tay duyệt từng dòng — lặp mãi vì mỗi vòng lại không
+    // sinh ra bằng chứng mới nào cho distiller.
     private static string BuildSourceBriefNote(List<ProjectSourceFile> sources)
     {
         if (sources.Count == 0)
@@ -153,13 +161,18 @@ public class RequirementCoverageService
         sb.AppendLine($"## Tài liệu nguồn (người dùng đã đính kèm {sources.Count} tài liệu: {string.Join(", ", sources.Select(s => s.FileName))})");
         foreach (var s in sources)
         {
-            if (string.IsNullOrWhiteSpace(s.ExtractedText))
-                continue;
-            var text = s.ExtractedText!.Length > maxCharsPerFile
-                ? s.ExtractedText[..maxCharsPerFile] + "…(đã cắt bớt)"
-                : s.ExtractedText;
-            sb.AppendLine($"[Nội dung trích từ {s.FileName}]");
-            sb.AppendLine(text);
+            if (!string.IsNullOrWhiteSpace(s.ExtractedText))
+            {
+                var text = s.ExtractedText!.Length > maxCharsPerFile
+                    ? s.ExtractedText[..maxCharsPerFile] + "…(đã cắt bớt)"
+                    : s.ExtractedText;
+                sb.AppendLine($"[Nội dung trích từ {s.FileName}]");
+                sb.AppendLine(text);
+            }
+
+            var confirmedColumns = SourceColumnMapBuilder.RenderConfirmedBlock(s.FileName, s.ColumnMap);
+            if (!string.IsNullOrWhiteSpace(confirmedColumns))
+                sb.AppendLine(confirmedColumns);
         }
         return sb.ToString();
     }

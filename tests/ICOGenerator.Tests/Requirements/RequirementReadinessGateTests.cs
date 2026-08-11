@@ -77,10 +77,12 @@ public class RequirementReadinessGateTests : IDisposable
         var readiness = RequirementReadinessGate.Evaluate(MapMissingRules);
 
         Assert.False(readiness.Ready);
-        // Câu hỏi dựng sẵn phải nêu đúng nhóm thiếu kèm phần "còn thiếu" distiller đã ghi, và không
-        // được chứa "Write Requirement" (chuỗi đó là tín hiệu làm nổi nút trên UI).
+        // Câu hỏi dựng sẵn phải nêu đúng nhóm thiếu và hỏi ĐÚNG nội dung phần "còn thiếu" distiller đã
+        // ghi — nhưng hỏi thành câu, không bê nguyên cụm bookkeeping "còn thiếu:" ra cho người dùng đọc.
+        // Không được chứa "Write Requirement" (chuỗi đó là tín hiệu làm nổi nút trên UI).
         Assert.Contains("Quy tắc nghiệp vụ & ràng buộc", readiness.Message);
-        Assert.Contains("còn thiếu: hạn mức ngày phép", readiness.Message);
+        Assert.Contains("hạn mức ngày phép", readiness.Message);
+        Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
         Assert.DoesNotContain("Write Requirement", readiness.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -95,8 +97,11 @@ public class RequirementReadinessGateTests : IDisposable
         var readiness = RequirementReadinessGate.Evaluate(map);
 
         Assert.False(readiness.Ready);
-        // Nhóm ★ cốt lõi được hỏi trước dù đứng sau trong bản đồ.
-        Assert.Contains("Trước tiên về «Chức năng & luồng nghiệp vụ chính»", readiness.Message);
+        // Nhóm ★ cốt lõi được hỏi trước dù đứng sau trong bản đồ — và chỉ hỏi MỘT nhóm, nhóm phụ chỉ
+        // được đếm vào con số "còn n nhóm" chứ không bị hỏi dồn trong cùng lượt.
+        Assert.Contains("«Chức năng & luồng nghiệp vụ chính»", readiness.Message);
+        Assert.Contains("luồng duyệt", readiness.Message);
+        Assert.DoesNotContain("«Quy mô sử dụng»", readiness.Message);
     }
 
     [Theory]

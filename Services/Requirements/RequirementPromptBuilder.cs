@@ -13,7 +13,8 @@ public class RequirementPromptBuilder
         Project project,
         string conversationTranscript,
         string currentProductBrief,
-        string organizationContext = "")
+        string organizationContext = "",
+        string distilledState = "")
     {
         return $$"""
 Project:
@@ -24,7 +25,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
-
+{{DistilledStateSection(distilledState)}}
 Current Product Brief preview:
 {{currentProductBrief}}
 
@@ -42,7 +43,8 @@ Your task:
         Project project,
         string conversationTranscript,
         string draftProductBrief,
-        string organizationContext = "")
+        string organizationContext = "",
+        string distilledState = "")
     {
         return $$"""
 Project:
@@ -53,7 +55,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
-
+{{DistilledStateSection(distilledState)}}
 Bản nháp Product Brief cần soát:
 {{draftProductBrief}}
 
@@ -71,7 +73,8 @@ Your task:
         string conversationTranscript,
         string draftProductBrief,
         IReadOnlyList<string> reviewIssues,
-        string organizationContext = "")
+        string organizationContext = "",
+        string distilledState = "")
     {
         return $$"""
 Project:
@@ -82,7 +85,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
-
+{{DistilledStateSection(distilledState)}}
 Bản nháp Product Brief trước (cần sửa):
 {{draftProductBrief}}
 
@@ -280,6 +283,31 @@ Reviewer change request (bản "Current ... preview" ở trên là kết quả l
 
     // Khối "bối cảnh tổ chức" chèn vào giữa prompt: rỗng thì biến mất không để lại dòng thừa; có nội dung
     // thì tự mang đúng một dòng trống đệm trên/dưới để khớp nhịp các section xung quanh.
+    // Trạng thái máy đã chắt từ chính hội thoại này — "Điều đã chốt", "Ví dụ đã xác nhận" và "Điểm cần
+    // làm rõ còn tồn đọng" (xem DecisionLogService, InterviewOutlookService). Transcript thô KHÔNG thay
+    // được cho khối này ở bước soạn/soát Brief:
+    //
+    // - Một quyết định được chốt ở lượt 38 rồi không ai nhắc lại tới lượt 71 vẫn là yêu cầu phải có trong
+    //   tài liệu, nhưng đọc transcript dài thì nó chìm. Ca thật: người dùng chốt nhân viên được HỦY ĐĂNG
+    //   KÝ, Brief bỏ hẳn tính năng đó trong khi vẫn giữ hai quy tắc phụ thuộc vào nó (Admin reject ticket
+    //   waitlist "khi nhân viên đã hủy đăng ký"), và vòng tự soát không bắt được vì nó cũng chỉ có
+    //   transcript để đối chiếu.
+    // - "Điểm cần làm rõ còn tồn đọng" là thứ cổng readiness KHÔNG xét (cổng suy tất định từ bản đồ bao
+    //   phủ). Đưa nó vào đây để van "không giả định" của bước soạn (needsClarification) có cơ sở dừng lại
+    //   thay vì tự lấp chỗ trống.
+    private static string DistilledStateSection(string distilledState)
+    {
+        if (string.IsNullOrWhiteSpace(distilledState))
+            return string.Empty;
+
+        return $"""
+
+Trạng thái đã chắt từ hội thoại trên (đối chiếu MÁY MÓC với tài liệu: mỗi mục ở đây phải tìm được chỗ tương ứng trong tài liệu; đây KHÔNG phải nguồn thông tin mới, chỉ là chỉ mục của chính hội thoại):
+{distilledState.Trim()}
+
+""";
+    }
+
     private static string OrganizationSection(string organizationContext)
     {
         if (string.IsNullOrWhiteSpace(organizationContext))
