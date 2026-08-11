@@ -29,7 +29,8 @@ public class ChatExportBuilderTests
         IReadOnlyList<AgentConversation>? turns = null,
         IReadOnlyList<ProjectSourceFile>? sources = null,
         int archivedTurnCount = 0,
-        string? userMemory = null) =>
+        string? userMemory = null,
+        string? organizationContext = "## Ranh giới phạm vi\nDUY NHẤT nhà máy Bosch tại Đồng Nai.") =>
         new(
             project ?? new Project { Name = "Quản lý đào tạo", Description = "Xếp lịch lớp học" },
             turns ?? new List<AgentConversation>(),
@@ -42,6 +43,7 @@ public class ChatExportBuilderTests
             UserMemory: userMemory,
             ReviewBrief: "# Vai trò: Chuyên gia rà soát chất lượng buổi phỏng vấn",
             SystemPrompt: "# Vai trò: Business Analyst\nHỏi mỗi lượt một câu.",
+            OrganizationContext: organizationContext,
             ExportedAtUtc: new DateTime(2026, 8, 10, 4, 0, 0, DateTimeKind.Utc));
 
     // Chỉ dẫn cho AI đọc file phải đứng TRƯỚC dữ liệu: file này sinh ra để được dán vào một cuộc chat,
@@ -64,6 +66,32 @@ public class ChatExportBuilderTests
 
         Assert.Contains("## Phụ lục A. Prompt hệ thống của BA", markdown, StringComparison.Ordinal);
         Assert.Contains("Hỏi mỗi lượt một câu.", markdown, StringComparison.Ordinal);
+    }
+
+    // Khối bối cảnh tổ chức đi kèm MỌI lời gọi BA (kể cả bước soạn Product Brief) và là NGUỒN của những dữ
+    // kiện không ai nói ra trong transcript: phạm vi nhà máy, kênh thông báo, tên department/HoD. Bỏ nó ra
+    // khỏi bản xuất là ca đã xảy ra thật: AI rà soát chấm "nhà máy Bosch Đồng Nai" và "email là kênh duy
+    // nhất" trong bản mô tả là BỊA THÊM mức NẶNG — cả hai đều là hằng số của sản phẩm và đều ĐÚNG. Người
+    // đọc báo cáo đó sẽ đi "sửa" một dữ kiện đang đúng thành sai.
+    [Fact]
+    public void Build_AttachsTheOrganizationContextGivenToEveryBaCall()
+    {
+        var markdown = ChatExportBuilder.Build(Snapshot());
+
+        Assert.Contains("## Phụ lục B. Bối cảnh tổ chức", markdown, StringComparison.Ordinal);
+        Assert.Contains("DUY NHẤT nhà máy Bosch tại Đồng Nai.", markdown, StringComparison.Ordinal);
+    }
+
+    // Không có khối ngữ cảnh thì phải NÓI là không có: bỏ trắng mục thì người chấm không phân biệt được
+    // "dự án này BA chạy trần" với "bản xuất quên chở phần này đi" — mà hai thứ đó dẫn tới hai kết luận
+    // trái ngược về cùng một dữ kiện trong tài liệu.
+    [Fact]
+    public void Build_SaysSoWhenThereIsNoOrganizationContext()
+    {
+        var markdown = ChatExportBuilder.Build(Snapshot(organizationContext: null));
+
+        Assert.Contains("## Phụ lục B. Bối cảnh tổ chức", markdown, StringComparison.Ordinal);
+        Assert.Contains("không dựng được khối ngữ cảnh nào", markdown, StringComparison.Ordinal);
     }
 
     // Bản đồ bao phủ đi NGUYÊN VĂN (kèm khối {nguồn: …}): đây là thứ hệ thống TIN, và lỗi nặng nhất —

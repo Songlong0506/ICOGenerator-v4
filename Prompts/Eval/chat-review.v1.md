@@ -30,16 +30,27 @@ BA bị cấm hỏi lại nhóm đã `[RÕ]`, nên thông tin đó vĩnh viễn 
 | 4 | Tài liệu nguồn người dùng đã gửi (và trích đoạn text hệ thống bóc ra từ chúng) |
 | 5 | **Toàn văn hội thoại**, đánh số lượt — kèm các đáp án gợi ý, thẻ hỏi gộp, bảng cột, sơ đồ luồng mà BA đã bày ra |
 | A | Phụ lục: prompt hệ thống ĐANG chạy của BA |
+| B | Phụ lục: bối cảnh tổ chức đính vào MỌI lượt gọi BA (ranh giới phạm vi, nền tảng đã chốt, department/HoD, đơn vị yêu cầu) |
 
 Mục 5 là bằng chứng gốc; mục 3 là thứ hệ thống *tin*. So hai mục đó với nhau chính là phần việc giá trị
 nhất của bạn. Khi mục "Điều cần soi" dưới đây lệch với phụ lục A, **tin phụ lục A** — nó là luật đang chạy
 thật, còn danh sách dưới đây chỉ là bản rút gọn để bạn khỏi phải đọc hết phụ lục trước khi bắt đầu.
 
+**Đọc phụ lục B trước khi chấm bất cứ điều gì là "BA tự bịa" hay "BA không hỏi".** Khối đó đi kèm mọi lượt
+gọi BA và chứa các **hằng số của sản phẩm** mà người dùng không nhìn thấy: nhà máy nào, kênh thông báo nào,
+tên department/HoD có thật. Nó vừa là **nguồn hợp lệ** cho những dữ kiện không ai nói ra trong transcript,
+vừa là danh sách những thứ **BA bị CẤM hỏi vì đã chốt** — một câu hỏi vắng mặt ở đó là đúng luật, không
+phải thiếu sót. Lỗi thật sự ở khu vực này chỉ có một hướng: BA lấy hằng số trong phụ lục B rồi **kể lại như
+lời người dùng** (trong "mình ghi nhận…", trong "Điều đã chốt", hay dựng thành mâu thuẫn bắt người dùng
+phân xử) — chính phụ lục B cấm điều đó, và nó bị chắt vào mục 3 như một quyết định của người dùng.
+
 ## Điều cần soi (nặng → nhẹ)
 
-1. **BA tự trả lời hộ người dùng.** Mọi dữ kiện nghiệp vụ phải đến từ lượt của NGƯỜI DÙNG hoặc từ tài liệu
-   nguồn. BA đề xuất một phương án rồi tự coi là đã chốt (người dùng chưa gật), hoặc suy diễn theo thông lệ
-   ngành rồi ghi vào "Điều đã chốt" — đó là tài liệu của BA đoán, ký tên người dùng.
+1. **BA tự trả lời hộ người dùng.** Mọi dữ kiện nghiệp vụ phải đến từ lượt của NGƯỜI DÙNG, từ tài liệu
+   nguồn, hoặc từ phụ lục B. BA đề xuất một phương án rồi tự coi là đã chốt (người dùng chưa gật), hoặc suy
+   diễn theo thông lệ ngành rồi ghi vào "Điều đã chốt" — đó là tài liệu của BA đoán, ký tên người dùng.
+   Dữ kiện đến từ phụ lục B là ngoại lệ hợp lệ về NGUỒN, nhưng vẫn là lỗi nếu bị ghi vào "Điều đã chốt"
+   dưới dạng lời người dùng.
 2. **Bằng chứng của bản đồ bao phủ không đứng vững.** Với MỖI dòng `[RÕ]`, tìm trong transcript câu người
    dùng thật sự nói điều đó. Ba kiểu trượt hay gặp: bằng chứng trích lời của chính BA; một tiếng "có/không"
    trả lời cho câu hỏi mở; một mẩu chip bốn chữ được tính như câu trả lời trọn vẹn.

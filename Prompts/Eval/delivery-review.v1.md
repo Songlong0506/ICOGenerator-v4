@@ -32,7 +32,7 @@ sai lệch ở các mối nối. Đừng chấm lại từng tầng một cách 
 | File | Nội dung |
 |---|---|
 | `00-README.md` | Chính file bạn đang đọc, cộng phần khai báo phiên bản và những phần vắng mặt |
-| `01-chat-ba.md` | Toàn văn buổi phỏng vấn, bản đồ bao phủ yêu cầu, tài liệu nguồn, prompt hệ thống của BA |
+| `01-chat-ba.md` | Toàn văn buổi phỏng vấn, bản đồ bao phủ yêu cầu, tài liệu nguồn, prompt hệ thống của BA (phụ lục A), **bối cảnh tổ chức đính vào mọi lượt gọi BA (phụ lục B)** |
 | `02-product-brief.md` | Bản mô tả sản phẩm cho người dùng nghiệp vụ — thứ người dùng đọc và duyệt |
 | `03-ai-design-spec.md` | Bản kỹ thuật súc tích: màn hình cần dựng, quy tắc nghiệp vụ `BR-n` |
 | `04-poc-demo.html` | Bản demo chạy được, mở bằng trình duyệt xem trực tiếp được |
@@ -41,7 +41,14 @@ Một file vắng mặt luôn được `00-README.md` nói rõ lý do. **Đừng
 "tài liệu này thiếu quy tắc X" là kết luận sai nếu X nằm trong file bạn không có.
 
 `01-chat-ba.md` là **bằng chứng gốc**: mọi dữ kiện nghiệp vụ ở ba tầng sau đều phải truy ngược được về
-một câu người dùng thật sự nói, hoặc về một tài liệu nguồn họ gửi.
+một trong BA nguồn hợp lệ — (a) một câu người dùng thật sự nói, (b) một tài liệu nguồn họ gửi, hoặc
+(c) **khối bối cảnh tổ chức ở phụ lục B** của chính file đó.
+
+Nguồn (c) là chỗ dễ chấm oan nhất, nên đọc phụ lục B TRƯỚC khi mở `02-product-brief.md`. Hệ thống đính
+khối đó vào mọi lời gọi BA — cả lượt chat lẫn bước soạn Product Brief — và nó chứa những **hằng số của sản
+phẩm** mà người dùng không nhìn thấy và không bao giờ nói ra: nhà máy nào, kênh thông báo nào, tên
+department và HoD nào có thật. Một dữ kiện trong Brief đến từ đây là **có nguồn hợp lệ và đúng hành vi**,
+dù bạn lục hết transcript cũng không thấy người dùng nói câu nào như vậy.
 
 Trong `04-poc-demo.html`, phần do agent sinh nằm giữa hai cặp mốc `POC_CONTENT_START`/`POC_CONTENT_END`
 (giao diện) và `POC_SCRIPT_START`/`POC_SCRIPT_END` (logic nghiệp vụ). Toàn bộ phần còn lại là khung dùng
@@ -56,6 +63,12 @@ chung của mọi POC — **đừng chấm khung đó**, nó không phản ánh 
 2. **Bịa thêm không có nguồn.** Một màn hình, một trường dữ liệu, một quy tắc, một trạng thái xuất hiện ở
    tầng sau mà không truy ngược được về tầng trước. Đây là loại lỗi nguy hiểm nhất vì nó đi kèm vẻ ngoài
    hoàn chỉnh: người nghiệm thu thấy demo có tính năng đó thì mặc nhiên tin là mình đã yêu cầu.
+   **Trước khi báo một phát hiện loại này, đối chiếu với phụ lục B.** Thứ đến từ khối bối cảnh tổ chức
+   KHÔNG phải bịa thêm — nó là hằng số của sản phẩm và Brief buộc phải nói đúng như vậy. Báo nhầm ở đây
+   đắt gấp đôi: người đọc sẽ đi "sửa" một dữ kiện vốn đang đúng, thành một dữ kiện sai.
+   Điều **đáng báo** ở cùng chỗ đó là hướng ngược lại: BA lấy một hằng số trong phụ lục B rồi **kể lại như
+   thể người dùng đã nói ra** — nhét nó vào câu "mình ghi nhận…", vào "Điều đã chốt", hay dựng nó thành một
+   mâu thuẫn bắt người dùng phân xử. Chính phụ lục B cấm điều đó.
 3. **Diễn dịch lệch một cách âm thầm.** Cùng một khái niệm mang nghĩa khác đi giữa hai tầng: đơn vị tính
    đổi, chiều làm tròn đổi, "duyệt" từ một cấp thành hai cấp, một danh sách mở bị đóng cứng thành enum,
    một quy tắc có điều kiện bị rút thành vô điều kiện. Không tầng nào báo lỗi, kết quả vẫn chạy — chỉ sai.
@@ -65,6 +78,9 @@ chung của mọi POC — **đừng chấm khung đó**, nó không phản ánh 
 5. **Bằng chứng của bản đồ bao phủ không đứng vững.** Với mỗi nhóm được chấm `[RÕ]`, tìm trong transcript
    câu người dùng thật sự nói điều đó. Một nhóm `[RÕ]` oan là điểm mù kín: BA bị cấm hỏi lại nhóm đã `[RÕ]`
    nên thông tin đó vĩnh viễn không được lấy, và cả ba tầng sau dựng trên một khoảng trống.
+   Lưu ý phần đã bị phụ lục B chốt sẵn: ở những nhóm đó, một phần câu hỏi là **ĐÃ CHỐT, BA bị cấm hỏi**,
+   nên bằng chứng của người dùng chỉ cần đỡ phần CÒN LẠI. Đừng đòi transcript phải chứng minh cả phần mà
+   sản phẩm đã quyết thay — và đừng báo "BA không hỏi X" khi phụ lục B chính là chỗ cấm hỏi X.
 6. **Dữ liệu mẫu của demo.** Người dùng có gửi tài liệu thật (mục "Tài liệu nguồn" của `01-chat-ba.md`)
    mà demo vẫn chạy bằng "Nguyễn Văn A / Sản phẩm B"? Mọi công thức đúng cũng không cứu được niềm tin của
    người xem demo.

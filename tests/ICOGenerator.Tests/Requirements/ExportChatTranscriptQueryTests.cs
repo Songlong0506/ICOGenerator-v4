@@ -32,6 +32,28 @@ public class ExportChatTranscriptQueryTests : IDisposable
         db.Database.EnsureCreated();
     }
 
+    // Hai khối hằng số (ranh giới phạm vi, nền tảng đã chốt) đi kèm MỌI lời gọi BA kể cả khi OrgUnits còn
+    // trống — nên chúng phải có mặt trong bản xuất kể cả ở dự án chưa gắn đơn vị. Đây là phần từng bị bỏ
+    // sót: người chấm không thấy chúng thì đọc mọi dữ kiện đến từ đây ("nhà máy Đồng Nai", "chỉ có email")
+    // thành BỊA THÊM, và báo là lỗi NẶNG đúng vào chỗ hệ thống đang chạy đúng.
+    [Fact]
+    public async Task ExecuteAsync_CarriesTheOrganizationContextGivenToEveryBaCall()
+    {
+        var projectId = await SeedAsync();
+
+        await using var db = NewDb();
+        var export = await NewSut(db).ExecuteAsync(projectId);
+
+        Assert.NotNull(export);
+        Assert.Contains("## Phụ lục B. Bối cảnh tổ chức", export!.Content, StringComparison.Ordinal);
+        Assert.Contains("RANH GIỚI PHẠM VI: nhà máy Đồng Nai", export.Content, StringComparison.Ordinal);
+        Assert.Contains("NỀN TẢNG ĐÃ CHỐT: chỉ có email", export.Content, StringComparison.Ordinal);
+
+        // Khối comment HTML là ghi chú cho người sửa file, model không thấy nó — bản xuất phải chở đúng
+        // chuỗi model nhận, không phải nguyên văn file template.
+        Assert.DoesNotContain("ghi chú cho người sửa file", export.Content, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task ExecuteAsync_ExportsCurrentConversation_AndOnlyCountsArchivedTurns()
     {
@@ -153,6 +175,8 @@ public class ExportChatTranscriptQueryTests : IDisposable
         public override string Get(string relativePath) => relativePath switch
         {
             "Eval/chat-review.v1.md" => "CHỈ DẪN CHẤM",
+            "BusinessAnalyst/organization-scope.v1.md" => "<!-- ghi chú cho người sửa file -->\nRANH GIỚI PHẠM VI: nhà máy Đồng Nai",
+            "BusinessAnalyst/organization-platform.v1.md" => "<!-- ghi chú cho người sửa file -->\nNỀN TẢNG ĐÃ CHỐT: chỉ có email",
             _ => "PROMPT BA"
         };
     }

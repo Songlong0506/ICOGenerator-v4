@@ -96,11 +96,37 @@ public class ExportChatTranscriptQuery
             userMemory,
             _prompts.Get(ReviewBriefKey),
             _prompts.Get(ChatPromptKey),
+            await BuildOrganizationContextAsync(project.OrgUnitCode, cancellationToken),
             DateTime.UtcNow);
 
         return new ChatTranscriptExport(
             ExportFileName.Build("chat-ba", project.Name, snapshot.ExportedAtUtc, ".md"),
             ChatExportBuilder.Build(snapshot));
+    }
+
+    /// <summary>
+    /// Đúng khối ngữ cảnh mà <c>BAChatService</c> / <c>ProductBriefDraftService</c> đính vào mọi lời gọi BA
+    /// — ranh giới phạm vi, nền tảng đã chốt, danh sách department/HoD, đơn vị yêu cầu.
+    ///
+    /// <para>
+    /// Không phải "cho đầy đủ": đây là NGUỒN của các dữ kiện mà người chấm sẽ soi. Bỏ nó ra thì "nhà máy
+    /// Bosch Đồng Nai" hay "email là kênh thông báo duy nhất" trong Product Brief trông y hệt một câu bịa
+    /// thêm không truy được nguồn — trong khi chúng là hằng số của sản phẩm và BA dùng chúng là ĐÚNG.
+    /// </para>
+    ///
+    /// <para>Fail-open như mọi đường ngữ cảnh khác: dựng lỗi ⇒ null, phụ lục B nói rõ là không có.</para>
+    /// </summary>
+    private async Task<string?> BuildOrganizationContextAsync(string? orgUnitCode, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var context = await _orgContext.BuildCombinedContextAsync(orgUnitCode, cancellationToken);
+            return string.IsNullOrWhiteSpace(context) ? null : context;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     // Ghi chú "đơn vị yêu cầu" dựng từ dữ liệu HR như lúc chat. Fail-open toàn tuyến (bảng trống/lỗi ⇒

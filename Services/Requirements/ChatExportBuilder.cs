@@ -13,6 +13,12 @@ namespace ICOGenerator.Services.Requirements;
 /// <param name="ArchivedTurnCount">Số lượt đã bị "New Chat" lưu trữ — chỉ nêu con số để người đọc biết bản xuất này không phải toàn bộ lịch sử.</param>
 /// <param name="ReviewBrief">Chỉ dẫn cho AI sẽ đọc bản xuất (prompt <c>Eval/chat-review.v1.md</c>).</param>
 /// <param name="SystemPrompt">Prompt hệ thống ĐANG chạy của BA — luật mà cuộc phỏng vấn phải bị chấm theo.</param>
+/// <param name="OrganizationContext">
+/// Khối bối cảnh tổ chức <see cref="OrganizationContextService.BuildCombinedContextAsync"/> đính vào MỌI
+/// lời gọi BA (ranh giới phạm vi + nền tảng đã chốt + danh sách department/HoD + đơn vị yêu cầu). Đây là
+/// NGUỒN THỨ HAI của mọi dữ kiện trong tài liệu, ngang hàng với lời người dùng — thiếu nó thì người chấm
+/// đọc mọi dữ kiện đến từ đây thành "bịa thêm không có nguồn". Null khi không dựng được (fail-open).
+/// </param>
 public record ChatExportSnapshot(
     Project Project,
     IReadOnlyList<AgentConversation> Turns,
@@ -25,6 +31,7 @@ public record ChatExportSnapshot(
     string? UserMemory,
     string ReviewBrief,
     string SystemPrompt,
+    string? OrganizationContext,
     DateTime ExportedAtUtc);
 
 /// <summary>
@@ -39,6 +46,12 @@ public record ChatExportSnapshot(
 /// chấm [RÕ] oan ⇒ BA vĩnh viễn không hỏi lại) chỉ lộ ra khi đặt bản đồ CẠNH transcript. Bản xuất vì vậy
 /// chở cả ba tầng: chỉ dẫn cho người chấm, trạng thái máy, và toàn văn hội thoại — cộng prompt hệ thống ở
 /// phụ lục, vì "BA làm vậy có sai không" là câu hỏi không trả lời được nếu không biết BA được dặn gì.
+/// </para>
+///
+/// <para>
+/// Cùng lý do đó, phụ lục B chở <b>khối bối cảnh tổ chức</b> (xem <see cref="AppendOrganizationContext"/>):
+/// nó là nguồn thứ hai của các dữ kiện trong tài liệu, và bỏ nó ra thì người chấm — vốn được dặn "mọi dữ
+/// kiện phải truy ngược về lời người dùng hoặc tài liệu nguồn" — kết luận NGƯỢC HẲN với sự thật.
 /// </para>
 ///
 /// <para>Markdown (không phải JSON): đây là file để DÁN vào một cuộc chat, và người dùng cũng đọc được.</para>
@@ -77,6 +90,7 @@ public static class ChatExportBuilder
         AppendSources(sb, snapshot);
         AppendTranscript(sb, snapshot);
         AppendSystemPrompt(sb, snapshot);
+        AppendOrganizationContext(sb, snapshot);
 
         return sb.ToString();
     }
@@ -323,9 +337,57 @@ public static class ChatExportBuilder
         sb.AppendLine("## Phụ lục A. Prompt hệ thống của BA (bản ĐANG chạy)");
         sb.AppendLine();
         sb.AppendLine("Đây là luật mà cuộc phỏng vấn ở mục 5 phải bị chấm theo. Bản này đã tính cả chỉnh sửa "
-            + "runtime ở Prompt Studio (nếu có), tức đúng chuỗi đã gửi cho model.");
+            + "runtime ở Prompt Studio (nếu có). BA còn nhận thêm khối ngữ cảnh ở phụ lục B — hai phụ lục "
+            + "này CỘNG LẠI mới là chuỗi đã gửi cho model.");
         sb.AppendLine();
         AppendFenced(sb, snapshot.SystemPrompt);
+        sb.AppendLine();
+    }
+
+    /// <summary>
+    /// Khối bối cảnh tổ chức — phần bản xuất KHÔNG được phép bỏ, dù nó chỉ là "ngữ cảnh nền".
+    ///
+    /// <para>
+    /// Người chấm được dặn rằng mọi dữ kiện trong tài liệu phải truy ngược được về một câu người dùng thật
+    /// sự nói hoặc một tài liệu nguồn họ gửi. Nhưng BA còn một nguồn thứ ba mà bản xuất trước đây không hề
+    /// nhắc tới: khối này, đính vào MỌI lời gọi BA kể cả bước soạn Product Brief. Hệ quả đã gặp thật: một
+    /// AI rà soát chấm "nhà máy Bosch Đồng Nai", "email là kênh thông báo duy nhất" và tên HoD trong bản mô
+    /// tả là BỊA THÊM ở mức NẶNG — cả ba đều là hằng số của sản phẩm, đến từ đây, và đều là hành vi ĐÚNG.
+    /// Một bản xuất khiến người chấm kết luận ngược hẳn với sự thật thì tệ hơn là không có bản xuất.
+    /// </para>
+    /// </summary>
+    private static void AppendOrganizationContext(StringBuilder sb, ChatExportSnapshot snapshot)
+    {
+        sb.AppendLine("## Phụ lục B. Bối cảnh tổ chức đính vào MỌI lượt gọi BA");
+        sb.AppendLine();
+
+        if (string.IsNullOrWhiteSpace(snapshot.OrganizationContext))
+        {
+            // Nói rõ "không có" thay vì bỏ trắng mục: im lặng thì người chấm không phân biệt được giữa
+            // "dự án này BA chạy trần" và "bản xuất quên chở phần này đi".
+            sb.AppendLine("(không dựng được khối ngữ cảnh nào — dữ liệu tổ chức trống hoặc đọc template lỗi; "
+                + "lượt chat cũng chạy không có phần này)");
+            sb.AppendLine();
+            return;
+        }
+
+        sb.AppendLine("**Đọc kỹ trước khi kết luận điều gì là \"bịa thêm\".** Khối dưới đây được hệ thống đính "
+            + "vào mọi lời gọi BA — cả các lượt hỏi ở mục 5 lẫn bước soạn Product Brief từ hội thoại này. Nó "
+            + "là **hằng số của SẢN PHẨM và của môi trường nhà máy**, không phải lời người dùng, và người dùng "
+            + "không nhìn thấy nó.");
+        sb.AppendLine();
+        sb.AppendLine("Vì vậy khi chấm:");
+        sb.AppendLine();
+        sb.AppendLine("- Một dữ kiện trong tài liệu truy ngược được về khối này là **có nguồn hợp lệ** — "
+            + "ĐỪNG báo nó là bịa thêm chỉ vì không tìm thấy người dùng nói câu đó. Phạm vi nhà máy, kênh "
+            + "thông báo, tên department/HoD là các ví dụ điển hình.");
+        sb.AppendLine("- Ngược lại, BA bị CẤM kể lại khối này **như thể người dùng đã nói ra** (trong câu "
+            + "\"mình ghi nhận…\", trong \"Điều đã chốt\", hay như một vế của mâu thuẫn bắt người dùng phân "
+            + "xử). Vi phạm điều đó mới là lỗi — và là lỗi đáng báo.");
+        sb.AppendLine("- Khối này cũng liệt kê những thứ BA bị cấm hỏi vì ĐÃ CHỐT. Một câu hỏi vắng mặt trong "
+            + "buổi phỏng vấn có thể là **đúng luật**, không phải thiếu sót.");
+        sb.AppendLine();
+        AppendFenced(sb, snapshot.OrganizationContext!);
         sb.AppendLine();
     }
 

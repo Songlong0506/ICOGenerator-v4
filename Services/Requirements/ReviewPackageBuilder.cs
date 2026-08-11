@@ -93,7 +93,11 @@ public static class ReviewPackageBuilder
     private const string ProductBriefIntro =
         "Bản mô tả sản phẩm dành cho NGƯỜI DÙNG NGHIỆP VỤ — sinh tự động từ buổi phỏng vấn ở "
         + ChatEntry + ", và là thứ người dùng đọc rồi duyệt. Mọi dữ kiện ở đây phải truy ngược được về "
-        + "một câu người dùng thật sự nói trong hội thoại đó.";
+        + "một câu người dùng thật sự nói trong hội thoại đó, về một tài liệu nguồn họ gửi, HOẶC về khối "
+        + "bối cảnh tổ chức ở phụ lục B của " + ChatEntry + " — khối đó đi kèm cả bước soạn bản mô tả này "
+        + "và chở các hằng số của sản phẩm (phạm vi nhà máy, kênh thông báo, tên department/HoD) mà người "
+        + "dùng không nhìn thấy nên không bao giờ nói ra. Đối chiếu phụ lục B trước khi kết luận một dữ "
+        + "kiện là bịa thêm.";
 
     private const string AiDesignSpecIntro =
         "Bản kỹ thuật súc tích dành cho agent dựng bản demo — sinh từ Product Brief đã duyệt, và là đầu vào "
@@ -129,7 +133,7 @@ public static class ReviewPackageBuilder
         sb.AppendLine();
         sb.AppendLine("| File | Trạng thái |");
         sb.AppendLine("|---|---|");
-        sb.AppendLine($"| `{ChatEntry}` | có — buổi phỏng vấn, bản đồ bao phủ, tài liệu nguồn, prompt hệ thống của BA |");
+        sb.AppendLine($"| `{ChatEntry}` | có — buổi phỏng vấn, bản đồ bao phủ, tài liệu nguồn, prompt hệ thống của BA, bối cảnh tổ chức (phụ lục B) |");
         sb.AppendLine($"| `{ProductBriefEntry}` | {DocStatus(snapshot.ProductBrief, "chưa bấm \"Write Requirement\" nên chưa có bản mô tả nào")} |");
         sb.AppendLine($"| `{AiDesignSpecEntry}` | {DocStatus(snapshot.AiDesignSpec, "chưa duyệt yêu cầu nên chưa sinh bản kỹ thuật")} |");
         sb.AppendLine($"| `{PocEntry}` | {PocStatus(snapshot.Poc)} |");
