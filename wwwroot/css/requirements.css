@@ -1468,6 +1468,64 @@
 
 .suggestion-multi-send { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
 
+/* ==== Ô "Ý khác" của hàng chip lượt-đơn ==== */
+/* Cùng lối với .batchq-choice.is-other trên thẻ hỏi gộp: đây là LỐI THOÁT, không phải một đáp án ngang
+   hàng — viền đứt, chữ nhạt, không badge số, để mắt lướt qua nó khi một gợi ý đã đúng. Nhưng nó phải LUÔN
+   có mặt: hàng chip đọc như một tập đáp án đóng, và không có dòng này thì người dùng có ý riêng chỉ còn
+   cách bỏ qua chip rồi gõ xuống khung chat — thao tác mà phần lớn người dùng nghiệp vụ không nghĩ ra. */
+.suggestion-other { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+
+.suggestion-other-btn {
+    font-family: inherit;
+    font-size: 12.5px;
+    line-height: 1.5;
+    text-align: left;
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+
+    .suggestion-other-btn:hover,
+    .suggestion-other-btn:focus-visible {
+        border-color: var(--bosch-blue);
+        color: var(--bosch-blue);
+        background: var(--bosch-blue-tint);
+        outline: none;
+    }
+
+/* Ô nhập nối liền chỗ nút vừa mở nó, nền trắng như các đáp án: nó là NỘI DUNG của lựa chọn vừa bấm, không
+   phải một ô nhập rời nằm cạnh danh sách. */
+.suggestion-other-input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    padding: 9px 12px;
+    border: 1px solid var(--bosch-blue);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--ink);
+    resize: vertical;
+}
+
+.suggestion-other-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+/* Câu "để trống rồi gửi = gửi nguyên «…»" phải đứng ngay cạnh nút gửi: nó là thứ duy nhất nói cho người
+   dùng biết ô này KHÔNG bắt buộc. Thiếu nó, ô nhập đọc như một biểu mẫu chắn đường và một phần người dùng
+   sẽ quay ra bấm "Đúng rồi" cho xong — đổi một lượt cụt lấy một xác nhận giả. */
+.suggestion-other-hint { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+
+/* Như các khối `[hidden]` khác trong file: `hidden` là quy tắc display ưu tiên thấp nhất nên mọi khai báo
+   display của ta ghi đè nó và phần tử vẫn lộ ra dù JS đã ẩn. */
+.suggestion-other-btn[hidden],
+.suggestion-other-input[hidden],
+.suggestion-other-bar[hidden] { display: none; }
+
 /* ==== Panel "Giả định của bản thiết kế" (AI Design Spec § Assumptions) ==== */
 
 .assumption-panel { margin-bottom: 18px; border-bottom: 1px solid #e5e7eb; padding-bottom: 14px; }

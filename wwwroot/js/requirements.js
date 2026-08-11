@@ -137,6 +137,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 <span class="suggestion-option-key">${i + 1}</span>
             </button>
         `).join("");
+        ensureOtherControls();
         ensureMultiControls();
         thinkingBox.before(suggestionList);
         suggestionList.style.display = "";
@@ -187,7 +188,130 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     function updateMultiSendState() {
         const btn = document.getElementById("suggestionMultiSendBtn");
-        if (btn) btn.disabled = selectedSuggestionValues().length === 0;
+        if (btn) btn.disabled = selectedSuggestionValues().length === 0 && otherAnswerText().length === 0;
+    }
+
+    // ==== Ô "Ý khác" của hàng chip lượt-đơn ====
+    // Ở lượt hỏi MỘT câu, bấm chip là GỬI NGAY (selectSuggestion) — không có bước xác nhận, không có chỗ
+    // viết thêm. Với chip BẤT ĐỒNG ("Không, tính khác", "Tôi muốn khác", "Tôi muốn sửa lại" — prompt
+    // requirement-chat.v4.md kê sẵn cả ba, ở đúng các lượt đắt nhất: chốt ví dụ số, chốt kịch bản luồng,
+    // nhịp tóm tắt kiểm chứng) thì cú bấm đó gửi đi một lượt user RỖNG NỘI DUNG: phủ định mà không kèm cái
+    // đúng. Người dùng phải chờ hết một vòng LLM chỉ để được hỏi "vậy anh/chị tính thế nào?", trong khi câu
+    // trả lời đã có sẵn trong đầu họ đúng giây bấm "Không". Nhóm bị đụng tới cũng rớt khỏi [RÕ] mà không có
+    // thông tin nào thay thế, nên BA phải quay lại — tiêu mất lượt quay lại DUY NHẤT mà prompt cho phép mỗi
+    // nhóm.
+    //
+    // Thẻ hỏi GỘP đã có đúng lối thoát này từ trước (.batchq-choice.is-other); phần dưới đây mang nó sang
+    // hàng chip lượt-đơn. Không có endpoint mới: thứ gửi đi vẫn là một tin nhắn user bình thường.
+    const OTHER_PLACEHOLDER = "Anh/chị nói rõ giúp mình — càng cụ thể càng tốt…";
+
+    // Dựng khối "Ý khác" bằng JS cho CẢ HAI đường render (server lúc tải trang, JS ở frame done) thay vì
+    // nhân đôi markup sang Index.cshtml như thẻ gộp phải làm: khối này không mang dữ liệu của lượt nào nên
+    // không có gì để server render. Chỉ gắn khi hàng chip THỰC SỰ có chip — lượt câu MỞ không có chip, và ở
+    // đó ô nhập của khung chat đã là chỗ trả lời duy nhất (setComposerOpenEnded), thêm một ô thứ hai là tạo
+    // hai chỗ trả lời cho cùng một câu.
+    function ensureOtherControls() {
+        if (!suggestionList) return;
+        if (!suggestionList.querySelector(".suggestion-option")) return;
+        if (suggestionList.querySelector(".suggestion-other")) return;
+
+        suggestionList.insertAdjacentHTML("beforeend", `
+            <div class="suggestion-other">
+                <button type="button" class="suggestion-other-btn">✎ Ý khác — tôi tự nhập</button>
+                <textarea class="suggestion-other-input" rows="2" hidden placeholder="${OTHER_PLACEHOLDER}"></textarea>
+                <div class="suggestion-other-bar" hidden>
+                    <button type="button" class="btn primary small suggestion-other-send">Gửi câu trả lời</button>
+                    <span class="suggestion-other-hint"></span>
+                </div>
+            </div>
+        `);
+    }
+
+    function otherInput() {
+        return suggestionList ? suggestionList.querySelector(".suggestion-other-input") : null;
+    }
+
+    function otherAnswerText() {
+        const box = otherInput();
+        return box && !box.hidden ? (box.value || "").trim() : "";
+    }
+
+    // Mở ô tự nhập. `chipText` rỗng = người dùng tự bấm "Ý khác"; khác rỗng = họ vừa bấm một chip bất đồng,
+    // và chip đó thành LƯỚI AN TOÀN: để trống ô rồi bấm gửi thì tin nhắn đi ra đúng bằng chip như hôm nay.
+    // Ô KHÔNG được là bắt buộc — bắt gõ mới đi tiếp được sẽ đẩy một phần người dùng sang bấm "Đúng rồi" cho
+    // xong, tức đổi một lượt cụt lấy một xác nhận GIẢ, thứ đắt hơn nhiều vì mọi tầng sau tin là thật.
+    function openOtherInput(chipText) {
+        const box = otherInput();
+        if (!box) return;
+
+        const wrap = box.closest(".suggestion-other");
+        const btn = wrap.querySelector(".suggestion-other-btn");
+        const bar = wrap.querySelector(".suggestion-other-bar");
+        const hint = wrap.querySelector(".suggestion-other-hint");
+
+        box.dataset.fallback = chipText || "";
+        box.hidden = false;
+        btn.hidden = true;
+        // Chế độ chọn NHIỀU đã có nút "Gửi các lựa chọn" ở cuối danh sách và text tự nhập được gộp vào đó
+        // như một lựa chọn nữa — thêm nút gửi thứ hai là hai nút cùng một việc, cách nhau hai dòng.
+        bar.hidden = isMultiSelect();
+        hint.textContent = chipText ? `Để trống rồi gửi = gửi nguyên “${chipText}”.` : "";
+
+        box.focus();
+        box.setSelectionRange(box.value.length, box.value.length);
+        updateOtherSendState();
+        updateMultiSendState();
+        scrollToBottom();
+    }
+
+    function updateOtherSendState() {
+        const box = otherInput();
+        if (!box) return;
+        const btn = box.closest(".suggestion-other").querySelector(".suggestion-other-send");
+        btn.disabled = chatBusy || (otherAnswerText().length === 0 && !(box.dataset.fallback || ""));
+    }
+
+    // Tin nhắn gửi đi = chip đã bấm + lời người dùng viết thêm. Giữ lại chip vì nó là VẾ PHỦ ĐỊNH: bỏ đi
+    // thì "làm tròn xuống" đứng trơ trọi, và các tầng chắt lọc phía sau không còn biết nó đang bác lại cách
+    // tính nào. Người dùng không gõ gì ⇒ đúng hành vi hôm nay, không hơn không kém.
+    function otherAnswerMessage() {
+        const box = otherInput();
+        if (!box) return "";
+        const typed = otherAnswerText();
+        const fallback = box.dataset.fallback || "";
+        if (!typed) return fallback;
+        return fallback ? `${fallback} — ${typed}` : typed;
+    }
+
+    function sendOtherAnswer() {
+        if (chatBusy) return;
+        const text = otherAnswerMessage();
+        if (!text) return;
+
+        messageInput.value = text;
+        chatForm.requestSubmit();
+    }
+
+    // ==== Nhận diện chip BẤT ĐỒNG ====
+    // Thuần giao diện: nó chỉ quyết định cú bấm MỞ Ô NHẬP hay GỬI NGAY, không đụng gì tới nội dung được
+    // lưu — nên nó ở đây (một chỗ, dùng chung cho cả hai đường render) chứ không phải ở BAChatReplyParser,
+    // nơi dành cho các chốt chặn làm ĐỔI câu trả lời trước khi nó lên màn hình.
+    //
+    // Sửa MỘT CHIỀU, và giá của hai kiểu sai lệch nhau hẳn: nhận nhầm ⇒ người dùng tốn thêm một cú bấm
+    // "Gửi" (ô để trống vẫn gửi nguyên chip); bỏ sót ⇒ đúng bằng hành vi hôm nay. Không có chiều ngược lại
+    // nào — không cú bấm nào bị chặn, không chip nào bị xoá.
+    const DISSENT_CHIP_CUES = [
+        "tính khác", "cách khác", "cách tính khác", "phương án khác", "phương án nào khác",
+        "muốn khác", "làm khác", "ý khác", "khác cơ", "khác với",
+        "sửa lại", "chỉnh lại", "tính lại", "chưa đúng", "không đúng", "không phải vậy", "chưa chính xác"
+    ];
+
+    function isDissentChip(text) {
+        const t = (text || "").trim().toLowerCase();
+        if (!t) return false;
+        // "Không, tính khác" / "Không, khác" — bắt cả các biến thể mà cụm cố định ở trên không phủ hết.
+        if (t.startsWith("không") && t.includes("khác")) return true;
+        return DISSENT_CHIP_CUES.some(cue => t.includes(cue));
     }
 
     // ==== Thẻ hỏi GỘP (2–4 câu hỏi độc lập trong cùng một lượt BA) ====
@@ -1629,12 +1753,24 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const text = (option?.dataset.suggestion || "").trim();
         if (!text) return;
 
+        // Chip BẤT ĐỒNG: mở ô nhập ngay tại chỗ thay vì gửi đi một lượt "Không, tính khác" trần. Xem khối
+        // "Ô Ý khác" phía trên cho lý do đầy đủ.
+        if (isDissentChip(text)) {
+            openOtherInput(text);
+            return;
+        }
+
         messageInput.value = text;
         chatForm.requestSubmit();
     }
 
+    // Chế độ chọn NHIỀU: text tự nhập là một lựa chọn nữa, nối vào cuối các ô đã tích. Đây là lý do ô này
+    // KHÔNG có nút gửi riêng ở chế độ đó — "Gửi các lựa chọn" phải gửi đi trọn vẹn thứ đang hiện trên màn
+    // hình, chứ không bỏ rơi ô người dùng vừa gõ.
     function sendSelectedSuggestions() {
         const values = selectedSuggestionValues();
+        const typed = otherAnswerText();
+        if (typed) values.push(typed);
         if (values.length === 0) return;
 
         messageInput.value = values.join(", ");
@@ -1642,7 +1778,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     }
 
     if (suggestionList) {
-        // Trang vừa tải với lượt hỏi multi-select (server render) → gắn nút gửi cho danh sách có sẵn.
+        // Trang vừa tải với lượt hỏi có chip (server render) → gắn ô "Ý khác" + nút gửi cho danh sách có sẵn.
+        ensureOtherControls();
         ensureMultiControls();
 
         suggestionList.addEventListener("click", function (e) {
@@ -1651,10 +1788,38 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 return;
             }
 
+            if (e.target.closest(".suggestion-other-btn")) {
+                openOtherInput("");
+                return;
+            }
+
+            if (e.target.closest(".suggestion-other-send")) {
+                sendOtherAnswer();
+                return;
+            }
+
             const option = e.target.closest(".suggestion-option");
             if (!option) return;
 
             selectSuggestion(option);
+        });
+
+        // Ô để trống vẫn gửi được (rơi về chip đã bấm) nên nút chỉ khoá khi KHÔNG có chip nào đỡ phía sau;
+        // ở chế độ chọn nhiều thì từng phím gõ còn mở/khoá nút "Gửi các lựa chọn".
+        suggestionList.addEventListener("input", function (e) {
+            if (!e.target.classList.contains("suggestion-other-input")) return;
+            updateOtherSendState();
+            updateMultiSendState();
+        });
+
+        // Enter gửi luôn (Shift+Enter xuống dòng) — cùng phím tắt với ô nhập của khung chat, vì đây đang là
+        // chỗ trả lời của lượt. Ở chế độ chọn nhiều thì Enter để dành cho nút "Gửi các lựa chọn".
+        suggestionList.addEventListener("keydown", function (e) {
+            if (!e.target.classList.contains("suggestion-other-input")) return;
+            if (e.key !== "Enter" || e.shiftKey || e.isComposing) return;
+            e.preventDefault();
+            if (isMultiSelect()) sendSelectedSuggestions();
+            else sendOtherAnswer();
         });
 
         // Phím tắt số (1–9) chọn nhanh đáp án — giống option-select của Claude. Chỉ bắt khi
