@@ -116,11 +116,14 @@ public class BAChatRepeatedQuestionTests : IDisposable
         var result = await NewSut(db, llm).ChatAsync(_projectId, "Phòng bảo vệ xem dashboard, phòng nhân sự xem history");
 
         // Không im lặng và không để lại câu dẫn cụt ("Mình xác nhận lại mấy điểm sau:" mà chẳng có điểm
-        // nào): lượt được thay bằng bước kế tiếp suy TẤT ĐỊNH từ bản đồ — nêu đúng nhóm còn thiếu.
+        // nào): lượt được thay bằng bước kế tiếp suy TẤT ĐỊNH từ bản đồ — hỏi ĐÚNG phần còn thiếu của
+        // nhóm ★ cốt lõi đang treo, và chỉ MỘT nhóm (nhóm còn lại chỉ được đếm, không hỏi dồn cùng lượt).
         Assert.Empty(result.Questions);
         Assert.DoesNotContain("xác nhận lại mấy điểm sau", result.Reply);
         Assert.Contains("Đối tượng người dùng & vai trò", result.Reply);
-        Assert.Contains("Thông báo / nhắc nhở", result.Reply);
+        Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply);
+        Assert.DoesNotContain("«Thông báo / nhắc nhở»", result.Reply);
+        Assert.Contains("còn 2 nhóm", result.Reply);
 
         var saved = await LastAssistantTurnAsync();
         Assert.Equal(result.Reply, saved.Message);

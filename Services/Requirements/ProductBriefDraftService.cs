@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
@@ -143,11 +144,16 @@ public class ProductBriefDraftService
         // để reviewer không coi các tên thật đó là chi tiết "tự thêm ngoài hội thoại".
         var organizationContext = await _orgContext.BuildCombinedContextAsync(project.OrgUnitCode, cancellationToken);
 
+        // Chỉ mục của chính hội thoại (điều đã chốt / ví dụ đã xác nhận / điểm còn tồn đọng) — đi kèm cả
+        // lượt soạn, lượt tự soát và lượt sửa. Xem RequirementPromptBuilder.DistilledStateSection.
+        var distilledState = BuildDistilledState(project);
+
         var prompt = _promptBuilder.BuildProductBrief(
             project,
             conversationTranscript,
             ProjectDocumentLookup.GetContent(project, _artifactCatalog.ProductBrief.FileName, "draft"),
-            organizationContext);
+            organizationContext,
+            distilledState);
 
         // Lượt user mang prompt soạn tài liệu + tài liệu nguồn (text/ảnh) đính kèm. Không có nguồn ⇒ chỉ một
         // TextContent, tương đương đường cũ.
@@ -201,7 +207,7 @@ public class ProductBriefDraftService
 
         // Vòng TỰ SOÁT (đúng một vòng): reviewer đối chiếu bản nháp với hội thoại (bỏ sót/sai lệch/tự
         // thêm/giả định còn sót/thiếu mục) rồi sửa nếu có vấn đề. Fail-open toàn tuyến — soát/sửa lỗi thì dùng bản nháp đầu.
-        result = await ReviewAndReviseDraftAsync(project, ba, model, conversationTranscript, organizationContext, result, Report, onToken, workflowRunId, cancellationToken);
+        result = await ReviewAndReviseDraftAsync(project, ba, model, conversationTranscript, organizationContext, distilledState, result, Report, onToken, workflowRunId, cancellationToken);
 
         Report("tool", "Đang tạo/cập nhật file tài liệu (.docx)…");
 
@@ -233,6 +239,7 @@ public class ProductBriefDraftService
         AiModel model,
         string conversationTranscript,
         string organizationContext,
+        string distilledState,
         BAProductBriefResult draft,
         Action<string, string, string?> report,
         Action<string>? onToken,
@@ -248,7 +255,7 @@ public class ProductBriefDraftService
         var reviewMessages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/product-brief-review.v2.md")),
-            new(ChatRole.User, _promptBuilder.BuildProductBriefReview(project, conversationTranscript, draft.ProductBrief.Content, organizationContext))
+            new(ChatRole.User, _promptBuilder.BuildProductBriefReview(project, conversationTranscript, draft.ProductBrief.Content, organizationContext, distilledState))
         };
 
         var (reviewCall, structuredReview) = await _llm.ChatStructuredAsync<ProductBriefReview>(
@@ -276,7 +283,7 @@ public class ProductBriefDraftService
         var revisionMessages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/product-brief.v3.md")),
-            new(ChatRole.User, _promptBuilder.BuildProductBriefRevision(project, conversationTranscript, draft.ProductBrief.Content, review.Issues, organizationContext))
+            new(ChatRole.User, _promptBuilder.BuildProductBriefRevision(project, conversationTranscript, draft.ProductBrief.Content, review.Issues, organizationContext, distilledState))
         };
 
         var (revisionCall, structuredRevision) = await _llm.ChatStructuredAsync<BAProductBriefResult>(
@@ -305,5 +312,35 @@ public class ProductBriefDraftService
 
         report("observation", "Đã sửa bản nháp theo kết quả tự soát.", null);
         return revised;
+    }
+
+    // Chỉ mục của chính hội thoại cho lượt soạn/soát/sửa Brief: các danh sách máy đã chắt sau mỗi lượt
+    // chat (DecisionLogService, InterviewOutlookService). KHÔNG phải nguồn thông tin mới — mọi dòng ở đây
+    // đều đã có trong transcript — nhưng là thứ biến "đừng bỏ sót yêu cầu nào" từ một lời dặn thành một
+    // phép đối chiếu đếm được: mỗi mục phải tìm được chỗ tương ứng trong tài liệu.
+    // Rỗng (dự án chưa chắt được gì) ⇒ chuỗi rỗng, prompt trở về đúng hình dạng cũ.
+    private static string BuildDistilledState(Project project)
+    {
+        var sb = new StringBuilder();
+
+        AppendBlock(sb, "Điều đã chốt (mỗi dòng là một quyết định của người dùng — tài liệu phải phản ánh hết)", project.DecisionLog);
+        AppendBlock(sb, "Ví dụ đã xác nhận (input → kết quả kỳ vọng do người dùng chốt — quy tắc tương ứng phải có trong tài liệu)", project.WorkedExamples);
+        // Danh sách tồn đọng KHÔNG chặn cổng readiness (cổng suy tất định từ bản đồ bao phủ). Ở đây nó có
+        // tác dụng ngược lại và đúng chỗ: mục nào còn treo mà tài liệu buộc phải nói tới thì bước soạn
+        // phải dùng van needsClarification, thay vì tự chọn một cách hiểu rồi viết ra như điều đã chốt.
+        AppendBlock(sb, "Điểm cần làm rõ còn tồn đọng (CHƯA ai chốt — không được tự chọn một cách hiểu; cần tới mà chưa có thì dùng van needsClarification)", project.OpenQuestions);
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static void AppendBlock(StringBuilder sb, string heading, string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return;
+
+        if (sb.Length > 0)
+            sb.AppendLine();
+        sb.AppendLine($"### {heading}");
+        sb.AppendLine(content.Trim());
     }
 }
