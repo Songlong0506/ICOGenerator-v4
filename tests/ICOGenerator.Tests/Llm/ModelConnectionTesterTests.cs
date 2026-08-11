@@ -46,7 +46,7 @@ public class ModelConnectionTesterTests
         Assert.False(outcome.IsSuccess);
         Assert.Contains("Proxy", outcome.ErrorMessage);
         Assert.Contains(ProxyAddress, outcome.ErrorMessage);
-        Assert.Contains("Llm:Proxy:Enabled", outcome.ErrorMessage);
+        Assert.Contains("Llm:Proxy:UseDefaultCredentials", outcome.ErrorMessage);
         // Đây mới là điều quan trọng: KHÔNG được sai khiến người dùng đi kiểm tra endpoint.
         Assert.DoesNotContain("endpoint có đang chạy", outcome.ErrorMessage);
         // Nguyên văn của SDK vẫn phải xuống được dòng chi tiết để người sửa còn thấy mã 503.

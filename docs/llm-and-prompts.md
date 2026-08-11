@@ -8,7 +8,7 @@
 LlmClient / AgentRunService
   └► IChatClientFactory (OpenAIChatClientFactory) — dựng IChatClient theo AiModel
        ├► HttpClient "direct"  (UseProxy=false)        — cho endpoint localhost
-       ├► HttpClient "proxied" (Llm:Proxy — mặc định tắt trong appsettings) — khi ngồi sau proxy công ty
+       ├► HttpClient "proxied" (Llm:Proxy — mặc định tắt trong appsettings; proxy dựng ở LlmProxy) — khi ngồi sau proxy công ty
        │     cả hai: Timeout = Infinite (deadline per-call do CancellationToken lo)
        │     + LlmRequestCompatibilityHandler (chèn field "thinking" cho endpoint tương thích; với OpenAI chính thức thì bỏ "thinking" và bỏ "temperature" cho reasoning model o-series/gpt-5)
        └► ChatClientBuilder compose ModelCallLoggingChatClient (middleware chung):
@@ -36,6 +36,15 @@ Lời gọi thử đi đúng đường dây thật, **kể cả khâu chọn pro
 | Endpoint local, hoặc proxy đang tắt | câu "kiểm tra endpoint" trần — không nhắc proxy, vì nhắc là chỉ sai chỗ |
 
 Luật "endpoint nào đi thẳng, endpoint nào qua proxy" chỉ được viết một lần ở `OpenAIChatClientFactory.IsLocalEndpoint` và cả hai bên cùng hỏi nó.
+
+### Đi qua proxy công ty
+
+`LlmProxy.Create` là chỗ duy nhất biến cấu hình `Llm:Proxy` thành `IWebProxy` cho HttpClient "proxied". Hai lựa chọn triển khai, cả hai đều hợp lệ:
+
+- **Qua relay local** (px/CNTLM ở `127.0.0.1:3128`): relay tự xác thực lên proxy công ty, app không gửi credential nào. Đây là mặc định — `UseDefaultCredentials` để `false`.
+- **Trỏ thẳng vào proxy công ty**: đặt `Address` là proxy thật và bật `Llm:Proxy:UseDefaultCredentials` để app trả lời `407 Proxy Authentication Required` bằng tài khoản Windows đang chạy app (Negotiate/Kerberos hoặc NTLM). Bỏ được relay, đổi lại chỉ chạy trên Windows và nếu app chạy như service thì **tài khoản service** phải có quyền qua proxy — `LocalSystem` thường không có.
+
+`Llm:Proxy:BypassList` khai các host đi thẳng (host đầy đủ, hoặc hậu tố kiểu `.bosch.com`). Cần thiết vì proxy công ty thường từ chối chính các đích nội bộ: không khai thì bật proxy đồng nghĩa với việc mọi model tự host trong mạng nội bộ chết theo. Đây **không phải regex** dù `WebProxy.BypassList` nhận regex — `LlmProxy` escape rồi tự neo hai đầu, nếu không thì dấu chấm trong `.bosch.com` sẽ khớp cả `evil-bosch.com` và lỗi kiểu đó không ai phát hiện ra (lời gọi vẫn chạy, chỉ là đi sai đường).
 
 ### Structured output cho các lời gọi BA (opt-in, 3 mức)
 Các lời gọi của BA trả JSON (soạn 5 tài liệu, cổng kiểm tra đầy đủ, gợi ý chat) có thể xin API ép định dạng
@@ -80,6 +89,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |
 | `LlmSettings` | Toàn bộ section `"Llm"` của appsettings, đọc **một lần** | thêm một khoá cấu hình |
 | `IChatClientFactory` / `OpenAIChatClientFactory` | Dựng client theo `AiModel` (chọn proxy theo endpoint local/remote) | đổi nhà cung cấp/transport |
+| `LlmProxy` | Dựng `IWebProxy` từ `Llm:Proxy` (địa chỉ, credential Windows, bypass list) | đổi cách app đi qua proxy công ty |
 | `IModelCallLogger` / `ModelCallLogger` | Ghi một dòng call log | đổi schema log |
 | `IModelConnectionTester` / `ModelConnectionTester` | Nút "Test Connection" — **không** log, **không** tính budget | đổi cách chẩn đoán lỗi cấu hình |
 | `LlmCost`, `TokenEstimator`, `MaxOutputTokenResolver` | Ba phép tính thuần (USD, ước lượng token, trần output) | đổi công thức |

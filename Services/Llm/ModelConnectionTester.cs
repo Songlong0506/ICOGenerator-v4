@@ -73,8 +73,9 @@ public sealed class ModelConnectionTester : IModelConnectionTester
         // ở lớp đầu tiên nó nhận ra — cứ để nó chạy trước thì câu trả lời luôn là "endpoint không chạy".
         if (LlmExceptionDetail.IsProxyFailure(ex))
             return (null,
-                $"Proxy {_proxyAddress} không mở được đường ra endpoint — endpoint có thể vẫn khỏe. "
-                + "Kiểm tra proxy có đang chạy không, hoặc đặt Llm:Proxy:Enabled=false nếu máy này ra thẳng Internet.",
+                $"Proxy {_proxyAddress} không mở được đường ra endpoint — endpoint có thể vẫn khỏe. Xem mã ở "
+                + "dòng chi tiết: 502/503 = proxy không ra được Internet (kiểm tra proxy và mạng), 407 = proxy "
+                + "đòi xác thực (bật Llm:Proxy:UseDefaultCredentials để app trả lời bằng tài khoản Windows).",
                 Truncate(LlmExceptionDetail.Describe(ex)));
 
         var cause = LlmExceptionDetail.Unwrap(ex);

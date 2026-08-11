@@ -29,12 +29,31 @@ public sealed class LlmSettings
 
     public string ProxyAddress { get; }
 
+    /// <summary>
+    /// Trả lời <c>407 Proxy Authentication Required</c> bằng tài khoản Windows đang chạy app
+    /// (Negotiate/Kerberos hoặc NTLM). Cần khi trỏ THẲNG vào proxy công ty; để tắt thì app không gửi
+    /// credential nào — đúng cho relay local kiểu px/CNTLM (chúng tự xác thực hộ) và cho mọi máy không
+    /// phải Windows. Mặc định TẮT: bật ngầm là lặng lẽ đem danh tính người dùng gửi ra một máy chủ mà
+    /// người vận hành chưa chủ động khai.
+    /// </summary>
+    public bool ProxyUseDefaultCredentials { get; }
+
+    /// <summary>
+    /// Các host KHÔNG đi qua proxy — mỗi mục là một host đầy đủ (<c>llm.corp.local</c>) hoặc hậu tố tên
+    /// miền (<c>.bosch.com</c>, <c>*.bosch.com</c>), KHÔNG phải regex. Cần vì proxy công ty thường từ chối
+    /// chính các đích nội bộ: không có danh sách này thì bật proxy đồng nghĩa với việc mọi model tự host
+    /// trong mạng nội bộ chết theo. Tương đương biến môi trường <c>no_proxy</c>.
+    /// </summary>
+    public IReadOnlyList<string> ProxyBypassList { get; }
+
     public LlmSettings(IConfiguration configuration)
         : this(
             configuration.GetValue($"{SectionName}:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds),
             configuration.GetValue($"{SectionName}:TestConnectionTimeoutSeconds", DefaultTestConnectionTimeoutSeconds),
             configuration.GetValue($"{SectionName}:Proxy:Enabled", true),
-            configuration.GetValue($"{SectionName}:Proxy:Address", DefaultProxyAddress) ?? DefaultProxyAddress)
+            configuration.GetValue($"{SectionName}:Proxy:Address", DefaultProxyAddress) ?? DefaultProxyAddress,
+            configuration.GetValue($"{SectionName}:Proxy:UseDefaultCredentials", false),
+            configuration.GetSection($"{SectionName}:Proxy:BypassList").Get<string[]>())
     {
     }
 
@@ -42,13 +61,20 @@ public sealed class LlmSettings
         int requestTimeoutSeconds = DefaultRequestTimeoutSeconds,
         int testConnectionTimeoutSeconds = DefaultTestConnectionTimeoutSeconds,
         bool proxyEnabled = true,
-        string proxyAddress = DefaultProxyAddress)
+        string proxyAddress = DefaultProxyAddress,
+        bool proxyUseDefaultCredentials = false,
+        IEnumerable<string>? proxyBypassList = null)
     {
         // Deadline <= 0 sẽ khiến mọi lời gọi hủy ngay lập tức — coi cấu hình xấu như "dùng mặc định".
         RequestTimeoutSeconds = requestTimeoutSeconds > 0 ? requestTimeoutSeconds : DefaultRequestTimeoutSeconds;
         TestConnectionTimeoutSeconds = testConnectionTimeoutSeconds > 0 ? testConnectionTimeoutSeconds : DefaultTestConnectionTimeoutSeconds;
         ProxyEnabled = proxyEnabled;
         ProxyAddress = proxyAddress;
+        ProxyUseDefaultCredentials = proxyUseDefaultCredentials;
+        ProxyBypassList = (proxyBypassList ?? Enumerable.Empty<string>())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .ToArray();
     }
 
     private const int DefaultRequestTimeoutSeconds = 600;
