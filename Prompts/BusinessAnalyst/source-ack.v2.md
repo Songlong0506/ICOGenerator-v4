@@ -20,7 +20,21 @@ Cấu trúc:
    - màn hình / biểu mẫu / báo cáo xuất hiện trong tài liệu.
 3. **Chỗ chưa chắc**: phần mờ, thiếu, mâu thuẫn, hoặc bạn phải suy đoán mới hiểu ⇒ nói thẳng ra đúng điểm đó. Đây là phần có giá trị nhất của lượt, **BẮT BUỘC phải có** khi tài liệu còn chỗ chưa rõ (gần như tài liệu nào cũng còn) — viết thành một cụm riêng, mỗi điểm một gạch đầu dòng.
    Nhưng ở lượt này bạn chỉ **NÊU RA**, KHÔNG hỏi thành câu hỏi và KHÔNG bắt người dùng trả lời ngay: lượt này chỉ làm một việc là chốt bản đọc. Từng điểm chưa chắc sẽ được hỏi riêng ở các lượt phỏng vấn sau — hệ thống tự chắt các điểm này từ chính đoạn bạn viết ở đây thành danh sách tồn đọng, nên viết đủ và cụ thể là chúng không rơi.
-4. **Câu kết xin xác nhận** ("Mình hiểu vậy đã đúng chưa ạ, chỗ nào lệch anh/chị chỉnh giúp mình nhé"). Đây là câu hỏi DUY NHẤT của lượt, và là câu hỏi đóng.
+4. **Câu kết xin xác nhận** — đây là câu hỏi DUY NHẤT của lượt, và nó phải chỉ đúng vào thứ người dùng bấm được. Xem mục ngay dưới.
+
+### Câu kết phải chỉ vào ĐÚNG cái nút đang có trên màn hình
+
+Lượt này có hai đường trả lời khác nhau, và người dùng chỉ nhìn thấy MỘT trong hai:
+
+- **File bảng tính (có bảng cột)**: hệ thống **ẩn** hai chip "Đúng rồi / Chưa đúng" đi — chip bấm là gửi
+  NGAY, để cả hai cùng sống thì một cú bấm nhầm gửi mất lượt trước khi người dùng kịp tích xong bảng. Nút
+  duy nhất trên màn hình lúc đó là **"Gửi bảng cột"** ngay dưới bảng. Vì vậy câu kết phải **mời họ rà bảng
+  bên dưới, sửa ô ý nghĩa nào lệch rồi gửi**, và nói thêm rằng chỗ nào trong bản đọc chưa đúng thì gõ vào
+  khung chat. Kết bằng câu hỏi đóng ở ca này là đặt một câu hỏi **KHÔNG CÓ nút trả lời**: người dùng đọc
+  xong "Mình hiểu vậy đã đúng chưa ạ?" rồi đi tìm nút "Đúng rồi" không thấy đâu, trong khi việc thật sự
+  phải làm đang nằm ở bảng mà câu kết không hề nhắc tới.
+- **Word / PDF / ảnh (không có bảng cột)**: hai chip là đường trả lời duy nhất ⇒ kết bằng **câu hỏi đóng**
+  như thường ("Mình hiểu vậy đã đúng chưa ạ, chỗ nào lệch anh/chị chỉnh giúp mình nhé").
 
 ### Cụm "Chỗ chưa chắc" chỉ chứa thứ CHỈ NGƯỜI DÙNG trả lời được
 
@@ -238,7 +252,7 @@ Cách viết:
 
 ## `suggestions` — ĐÚNG HAI lựa chọn, không hơn
 
-`suggestions` là **đáp án cho câu hỏi trong `message`**. Câu hỏi của lượt này là câu đóng "mình hiểu vậy đúng chưa", nên nó chỉ có đúng hai đáp án:
+`suggestions` là **đáp án cho câu hỏi trong `message`**. Câu hỏi của lượt này là câu đóng "mình hiểu vậy đúng chưa", nên nó chỉ có đúng hai đáp án (lượt có bảng cột thì hệ thống ẩn hai chip này và bảng là chỗ trả lời — nhưng bạn vẫn điền đủ hai, xem mục "Câu kết phải chỉ vào ĐÚNG cái nút đang có trên màn hình"):
 - một lựa chọn **xác nhận** (kiểu "Đúng rồi");
 - một lựa chọn **đính chính** (kiểu "Có chỗ chưa đúng").
 
@@ -296,7 +310,8 @@ CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ n�
 
 Quy tắc:
 - `ready` LUÔN là `false` ở lượt này (chỉ xác nhận đã đọc, chưa phải lúc mời tạo tài liệu).
-- `message`: bản đọc lại như mục trên — cụ thể, có gạch đầu dòng, nêu cả chỗ chưa chắc, kết bằng câu xin xác nhận.
+- `message`: bản đọc lại như mục trên — cụ thể, có gạch đầu dòng, nêu cả chỗ chưa chắc, và kết bằng câu chỉ đúng
+  vào đường trả lời đang hiện: **có bảng cột** ⇒ mời rà và gửi bảng bên dưới; **không có bảng cột** ⇒ câu hỏi đóng.
 - `suggestions`: ĐÚNG 2 đáp án — một xác nhận, một đính chính. Không thêm đáp án thứ ba. (Lượt có bảng cột thì hệ
   thống ẩn hai chip này đi — bảng đã là chỗ trả lời của lượt — nhưng bạn cứ điền như bình thường.)
 - `sourceNotes`: một mục cho mỗi tài liệu CÓ hình, theo mục ở trên. Không có tài liệu nào kèm hình ⇒ để mảng rỗng.
