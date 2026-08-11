@@ -118,7 +118,7 @@ Chưa chốt (file không phải bảng tính, model không đề xuất đượ
 
 Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spec làm **dữ liệu mẫu THẬT** (`RequirementDocsService.BuildRealSampleDataAsync`), để POC demo bằng đúng danh mục/tên của đơn vị yêu cầu thay vì "Sản phẩm A / Nguyễn Văn B".
 
-## Sidebar đã gỡ: soát mâu thuẫn và cổng tổng kết chuyển vào khung chat
+## Sidebar đã gỡ: mọi cổng chờ người dùng chuyển vào khung chat
 
 **Sidebar không còn panel nào của `InterviewOutlookService`.** Ba danh sách chắt sau mỗi lượt chat — `OpenQuestions`, `PlannedScope`, `WorkedExamples` — nay đều đi thẳng vào đường tiêu thụ của máy: ngữ cảnh chat của BA (`BAChatService`), ngữ cảnh soát mâu thuẫn (`RequirementConflictService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **sơ đồ luồng** ở cuối lượt (có nút "chưa đúng?" cho từng bước — đúng chỗ để đính chính), ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
 **Stepper 5 chặng ở đầu trang đã bỏ.** Quy trình thực tế không chạy một chiều — người dùng sửa tới sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm chỗ đầu trang vừa mô tả sai việc đang diễn ra. Trạng thái thật vẫn ở đúng chỗ cần đọc: cổng xác nhận giả định và tiến trình workflow nằm trong khung chat, các bản mô tả nằm ở panel tài liệu.
@@ -127,9 +127,26 @@ Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spe
 
 Nhật ký **vẫn được chắt sau mỗi lượt** (không đổi chi phí: lời gọi `BADecisionLog` vốn đã chạy), chỉ đổi người đọc. Nó nay đi vào **ngữ cảnh chat của BA** (`BAChatService`) kèm chỉ dẫn bắt buộc: trước khi soạn câu hỏi kế tiếp, đối chiếu câu người dùng vừa trả lời với danh sách; chọi nhau ⇒ lượt này PHẢI là lượt gỡ mâu thuẫn (nêu cả hai vế, hỏi vế nào đúng, tối đa một mâu thuẫn mỗi lượt, hỏi MỘT MÌNH); không chọi nhau ⇒ coi là điều đã biết, không hỏi lại. Trước đây prompt đã dặn "mâu thuẫn thì nêu lại" nhưng BA **không có gì để đối chiếu**: ngữ cảnh không nạp nhật ký, mà các lượt cũ thì bị `ConversationMemoryService` nén thành tóm tắt — chi tiết đã chốt bị bào mòn đúng ở hội thoại dài, nơi mâu thuẫn dễ xảy ra nhất. `RequirementConflictService` (soát một cục lúc bấm "Write Requirement") **vẫn giữ** làm lưới an toàn, nhưng nay hiếm khi bắt được gì — bắt tại lượt rẻ hơn nhiều so với bắt ở cuối, khi người dùng phải chọn A/B cho một câu đã nói từ rất lâu trước.
 
-**CỔNG TỔNG KẾT CUỐI (`#summaryGate`) — người dùng đội mũ kiểm duyệt đúng MỘT lần.** Chỗ duy nhất còn hiển thị nhật ký cho người dùng: khối cuối khung chat, mở đúng ở lượt BA mời bấm "Write Requirement" (cùng cờ điều khiển nút đó nên không thể vênh nhau), đóng lại ngay khi BA quay lại hỏi tiếp. Đặt trong chat vì cùng lý do đã chuyển cổng xác nhận giả định vào đây: quy trình đang ĐỨNG CHỜ người dùng, câu hỏi và nút trả lời phải nằm cùng chỗ mắt đang nhìn. Mỗi ý có nút **✎ Sửa** mở ô ghi chú; **bôi đen** một đoạn trong ý thì hiện nút nổi "✎ Ghi chú đoạn này" và đoạn đó thành chip gắn kèm ghi chú (tiện ích phụ — các ý là câu ngắn ~25 từ, bôi đen chỉ để nói rõ chỗ sai). Hai nút loại trừ nhau: chưa ghi chú gì ⇒ "✓ Đúng hết — tạo tài liệu" (bấm hộ nút "Write Requirement" thật, nên cổng soát mâu thuẫn và hộp xác nhận "tạo lại" vẫn chạy); đã ghi chú ⇒ nút đổi thành "Gửi N đính chính cho BA", vì soạn tài liệu từ một bản tổng kết người dùng vừa nói là sai chính là điều cổng này sinh ra để chặn.
+**CỔNG TẠO TÀI LIỆU (`#writeReqZone`) — chỗ DUY NHẤT có nút sinh Product Brief.** Cụm cuối khung chat, gồm ba nhịp của cùng một quyết định: **bản tổng kết** để rà → **nút tạo tài liệu** → **cổng soát mâu thuẫn** (nếu có). Đặt trong chat vì cùng lý do đã chuyển cổng xác nhận giả định vào đây: quy trình đang ĐỨNG CHỜ người dùng, câu hỏi và nút trả lời phải nằm cùng chỗ mắt đang nhìn. Là **một wrapper** chứ không phải ba khối rời vì `syncWriteReqGate` phải dời cả cụm xuống cuối dòng hội thoại sau mỗi lượt (các bong bóng mới chèn vào trước `#thinkingBox`) — dời lẻ thì panel mâu thuẫn lạc khỏi cái nút vừa bật nó lên; wrapper cũng giữ cụm không kề trực tiếp bong bóng BA nên quy tắc gộp "câu hỏi + chip gợi ý" (`.req-msg.ba:has(+ .suggestion-list …)`) không bị chen vào giữa.
 
-Đính chính đi qua **một lượt chat bình thường**, không qua endpoint riêng: BA đọc và xác nhận lại cách hiểu mới, nhật ký gộp lượt đó, cổng tự mở lại ở lượt mời kế tiếp với bản đã sửa. Đây cũng là điều kiện để bước soạn tài liệu (vốn đọc transcript) thấy được ghi chú — ghi chú nằm ngoài transcript thì chỉ là trang trí. **Ranh giới với cổng "chốt nhanh" đã bỏ:** mọi dòng trong bản tổng kết đều là điều người dùng ĐÃ nói hoặc đã bấm đồng ý (`decision-log.v1.md` cấm suy diễn); BA không bao giờ điền hộ ô trống rồi ghi vào hội thoại như lời người dùng — chỗ trống vẫn phải hỏi tiếp trong chat, và cổng readiness vẫn là thứ quyết định khi nào cổng tổng kết mở.
+Bản tổng kết là chỗ duy nhất còn hiển thị nhật ký cho người dùng — họ đội mũ kiểm duyệt đúng MỘT lần. Mỗi ý có nút **✎ Sửa** mở ô ghi chú; **bôi đen** một đoạn trong ý thì hiện nút nổi "✎ Ghi chú đoạn này" và đoạn đó thành chip gắn kèm ghi chú (tiện ích phụ — các ý là câu ngắn ~25 từ, bôi đen chỉ để nói rõ chỗ sai). Hai nút loại trừ nhau: chưa ghi chú gì ⇒ nút tạo tài liệu; đã ghi chú ⇒ **cả form bị ẩn** và nút đổi thành "Gửi N đính chính cho BA", vì soạn tài liệu từ một bản tổng kết người dùng vừa nói là sai chính là điều cổng này sinh ra để chặn (ẩn cả form chứ không riêng cái nút — một form còn submit được sau lưng giao diện là đúng thứ đang chặn).
+
+**Bốn trạng thái, chỉ HAI trạng thái có nút** (`writeReqState`, suy tất định ở đầu `Index.cshtml`, ghi vào `data-state` của wrapper để `requirements.js` khởi tạo từ đúng bản server render):
+
+| trạng thái | điều kiện | trên màn hình |
+|---|---|---|
+| `waiting` | lượt BA mới nhất chưa mời | cổng ĐÓNG, không có nút nào; panel "Tiến độ khai thác" nói còn thiếu gì và việc gì sẽ xảy ra khi đủ (`#writeReqWaitingHint`) |
+| `ready` | lượt BA mới nhất mời tạo tài liệu | cổng MỞ, nút "✓ Đúng hết — tạo tài liệu" |
+| `running` | vòng soạn đang xếp hàng/đang chạy | cổng ĐÓNG; tiến độ đã có panel `.workflow-progress` trong chat, xong thì `requirement-workflow.js` tải lại trang |
+| `regenerate` | draft đã có và hội thoại chưa có gì mới | cổng MỞ, nút "🔄 Tạo lại tài liệu" + hộp xác nhận GHI ĐÈ |
+
+**Không có nút mờ-và-khóa nào nữa.** Nút "Write Requirement" từng sống ở sidebar với cả bốn trạng thái, trong đó ba là nhiễu: `waiting` bày ra một nút mời bấm mà bấm không được, `running` lặp lại đúng điều panel tiến độ workflow đang nói, và ở `ready` thì người dùng đã có nút thật ngay dưới câu BA vừa mời — hai nút cùng một việc, cách nhau nửa màn hình. Nút nay là **nút submit thật** của `form.write-req` nằm trong cổng, nên không còn đường "bấm hộ" nào: cả hộp xác nhận ghi đè (`initRegenerateConfirm`) lẫn cổng soát mâu thuẫn (`initConflictGate`) đều là listener trên chính nút/form đó, và mọi cú bấm đều đi qua chúng.
+
+**Nhật ký rỗng KHÔNG đóng cổng.** Danh sách do LLM chắt nên rỗng là chuyện có thật (gộp lỗi, hoặc phỏng vấn ngắn chưa kịp có bản nào). Trói cổng vào "có ý để rà" thì đúng lúc đó người dùng không còn đường nào tạo tài liệu — sidebar không có nút, cổng không mở. Cổng vẫn mở, chỉ bỏ phần rà và đổi tiêu đề/lời dẫn cho khớp ("Sẵn sàng tạo tài liệu" thay vì "Tổng kết trước khi tạo tài liệu"): hứa một bản rà soát rồi không đưa ra cũng là nói sai.
+
+Trạng thái cổng đến từ **hai frame SSE khác nhau** nên `requirements.js` giữ lại cả hai (`gateState` từ cờ mời ở frame `done`, `gateItems` từ frame `decisions` tới sau và không mang cờ mời), rồi mọi thay đổi đi qua một hàm `syncWriteReqGate()` viết dạng toàn phần. Cổng bị điều khiển từ ba chỗ — hai frame đó cộng nút "chưa đúng?" của bản đồ bao phủ (hạ một nhóm khỏi `[RÕ]` phải đóng cổng NGAY, không đợi lượt sau) — nên mỗi chỗ chỉ vá một mẩu trạng thái thì kiểu gì cũng có tổ hợp không ai vẽ đúng.
+
+Đính chính đi qua **một lượt chat bình thường**, không qua endpoint riêng: BA đọc và xác nhận lại cách hiểu mới, nhật ký gộp lượt đó, cổng tự mở lại ở lượt mời kế tiếp với bản đã sửa. Đây cũng là điều kiện để bước soạn tài liệu (vốn đọc transcript) thấy được ghi chú — ghi chú nằm ngoài transcript thì chỉ là trang trí. **Ranh giới với cổng "chốt nhanh" đã bỏ:** mọi dòng trong bản tổng kết đều là điều người dùng ĐÃ nói hoặc đã bấm đồng ý (`decision-log.v1.md` cấm suy diễn); BA không bao giờ điền hộ ô trống rồi ghi vào hội thoại như lời người dùng — chỗ trống vẫn phải hỏi tiếp trong chat, và cổng readiness vẫn là thứ quyết định khi nào cổng mở.
 
 ## Lượt hỏi GỘP, chuẩn `[RÕ]` và phanh chống hỏi lại
 
@@ -314,12 +331,14 @@ Hai bảng **`OrgUnits`/`Associates`** (đồng bộ từ HR_Portal, seed một 
 
 ### Hai cổng chất lượng phía yêu cầu: ĐỦ và KHÔNG MÂU THUẪN
 `RequirementReadinessGate` (đã có) chỉ trả lời *đã rõ hết chưa*. `RequirementConflictService` trả lời
-*những điều đã rõ có chọi nhau không* — chạy khi bấm "Write Requirement", trước khi tài liệu được
+*những điều đã rõ có chọi nhau không* — chạy khi bấm nút tạo tài liệu, trước khi tài liệu được
 soạn. Người dùng nói ở lượt 3 rằng quản lý duyệt xong là hết, lượt 12 lại kể thêm HR duyệt: bản đồ
 bao phủ đánh dấu [RÕ] cả hai lần, còn bước soạn tài liệu (bị cấm tự giả định) sẽ chọn bừa một bên.
 Lựa chọn của người dùng được ghi vào **chính hội thoại** nên mọi thứ đọc transcript đều thấy, không
 cần biết cổng này tồn tại. Fail-open toàn phần (`Project.PendingConflicts` + con trỏ
-`ConflictCheckedTurnCount` để không gọi lại LLM khi hội thoại chưa đổi).
+`ConflictCheckedTurnCount` để không gọi lại LLM khi hội thoại chưa đổi). Panel `#conflictPanel` nằm
+**ngay dưới cái nút đã bật nó lên** (trong `#writeReqZone`), không ở sidebar: nó là câu hỏi phát sinh
+từ cú bấm đó, hiện ở nửa màn hình bên kia thì người dùng chỉ thấy nút mình vừa bấm không phản ứng gì.
 
 Cùng tinh thần "người dùng phải kiểm chứng được": bản đồ bao phủ nay mang **bằng chứng**
 (`{nguồn: …}` cuối mỗi dòng, `CoverageMapParser.SplitEvidence`) và có nút "chưa đúng?" hạ nhóm xuống

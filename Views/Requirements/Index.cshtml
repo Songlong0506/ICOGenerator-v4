@@ -106,12 +106,12 @@
     var batchLeadTurn = lastBaQuestions.Count > 0 ? lastItem?.Conversation : null;
     var batchLead = (batchLeadTurn?.Message ?? "").Trim();
 
-    // Nút "Write Requirement" hiện "sẵn sàng" (nổi bật) khi lượt BA mới nhất MỜI người dùng bấm nút — tức
-    // lời nhắn có nhắc tới "Write Requirement". Lời mời chỉ được LƯU sau khi cổng readiness tất định
+    // Cổng tạo tài liệu MỞ khi lượt BA mới nhất MỜI người dùng tạo tài liệu — tức lời nhắn có nhắc tới
+    // "Write Requirement". Lời mời chỉ được LƯU sau khi cổng readiness tất định
     // (RequirementReadinessGate.Evaluate — mọi dòng áp dụng của bản đồ bao phủ đã [RÕ]) pass ngay trong
-    // lượt chat, nên nút nổi ⇔ panel "Tiến độ khai thác" bên cạnh cũng đã đầy — cùng một nguồn dữ liệu,
-    // không thể vênh nhau. Khi chưa mời — kể cả lúc workspace còn trống — nút ở trạng thái "mờ" và KHÓA:
-    // BA vẫn đang hỏi thêm, hoàn tất các nhóm còn lại trong panel tiến độ thì nút tự mở.
+    // lượt chat, nên cổng mở ⇔ panel "Tiến độ khai thác" cũng đã đầy — cùng một nguồn dữ liệu, không thể
+    // vênh nhau. Khi chưa mời — kể cả lúc workspace còn trống — KHÔNG có nút nào trên màn hình: BA vẫn
+    // đang hỏi thêm, và một nút khóa sẵn chỉ mời người ta bấm vào thứ không bấm được.
     var lastBaTurn = conversations.LastOrDefault(c => c.Role == "assistant");
     var requirementReady = lastBaTurn?.Message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
 
@@ -143,25 +143,23 @@
         && (lastUserTurnAt == null || lastUserTurnAt <= lastFinishedDraftRunAt.Value);
 
     // Bốn trạng thái loại trừ nhau, xét theo đúng thứ tự ưu tiên: đang chạy > đã xong & chưa có gì mới >
-    // sẵn sàng > còn phải khai thác thêm.
+    // sẵn sàng > còn phải khai thác thêm. Chỉ HAI trạng thái sau cùng có nút trên màn hình (cổng
+    // #writeReqZone trong khung chat mở ở "ready" và "regenerate"); hai trạng thái kia không dựng nút nào:
+    //   waiting — chưa đủ thông tin. Thay cho một nút mờ-và-khóa, panel "Tiến độ khai thác" nói thẳng
+    //             điều còn thiếu và việc gì sẽ xảy ra khi đủ (#writeReqWaitingHint).
+    //   running — vòng soạn đang chạy. Tiến độ đã có panel .workflow-progress ngay trong khung chat, và
+    //             requirement-workflow.js tải lại trang khi run xong.
     var writeReqState = draftRunInFlight ? "running"
         : requirementRegenerateOnly ? "regenerate"
         : requirementReady ? "ready"
         : "waiting";
-    var writeReqEnabled = writeReqState is "ready" or "regenerate";
-    var writeReqLabel = writeReqState switch
-    {
-        "running" => "⏳ Đang tạo tài liệu…",
-        "regenerate" => "🔄 Tạo lại tài liệu",
-        _ => "📝 Write Requirement"
-    };
-    var writeReqTitle = writeReqState switch
-    {
-        "running" => "Tài liệu đang được soạn — theo dõi tiến độ trong khung chat. Nút mở lại khi soạn xong.",
-        "regenerate" => "Tài liệu đã soạn xong và anh/chị chưa bổ sung gì thêm. Bấm để soạn lại và GHI ĐÈ bản hiện tại.",
-        "ready" => "BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm.",
-        _ => "BA vẫn đang hỏi thêm thông tin. Hoàn tất các nhóm còn lại trong 'Tiến độ khai thác' để mở khóa nút này."
-    };
+    var writeReqOpen = writeReqState is "ready" or "regenerate";
+    var writeReqLabel = writeReqState == "regenerate"
+        ? "🔄 Tạo lại tài liệu"
+        : "✓ Đúng hết — tạo tài liệu";
+    var writeReqTitle = writeReqState == "regenerate"
+        ? "Tài liệu đã soạn xong và anh/chị chưa bổ sung gì thêm. Bấm để soạn lại và GHI ĐÈ bản hiện tại."
+        : "BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm.";
 
     // Tài liệu nguồn (ảnh/PDF) người dùng upload cho project + cờ vision của model BA (để cảnh báo).
     var sourceFiles = Model.SourceFiles.OrderByDescending(x => x.CreatedAt).ToList();
@@ -394,62 +392,19 @@
                 }
             </ul>
 
-            <!-- WRITE REQUIREMENT: sinh bản mô tả sản phẩm (Product Brief) DỄ HIỂU cho user.
-                 Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) do team dev trigger ở Agent Dashboard.
-                 Đặt ngay cuối panel "Tiến độ khai thác" như phần thưởng khi thanh tiến độ đầy. BỐN trạng
-                 thái (writeReqState, suy tất định ở đầu file):
-                   waiting    — BA còn câu hỏi (panel chưa đầy): mờ + KHÓA. Dùng chung cờ requirementReady
-                                với panel tiến độ (cùng bản đồ bao phủ) nên nút mở khóa ⇔ panel đầy.
-                   ready      — mọi nhóm áp dụng đã [RÕ]: nổi bật, bấm được.
-                   running    — vòng soạn đang xếp hàng/đang chạy: KHÓA cho tới khi run xong (trang tự tải
-                                lại lúc đó). Chặn kiểu spam bấm liên tục, mỗi lần một run sinh lại cùng bản.
-                   regenerate — đã soạn xong và hội thoại chưa có gì mới: vẫn bấm được nhưng đổi nhãn thành
-                                "Tạo lại tài liệu" + hỏi xác nhận ở JS, vì lượt này GHI ĐÈ bản đang có.
-                 data-* dưới đây là hợp đồng với requirements.js: nó cần biết run có đang bay không (để
-                 không mở khóa nút sau một lượt chat) và nhãn/tooltip gốc để khôi phục. -->
-            <form asp-action="WriteRequirement"
-                  method="post"
-                  class="write-req write-req-@writeReqState"
-                  data-run-in-flight="@(draftRunInFlight ? "true" : "false")"
-                  onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="projectId" value="@Model.Id" />
-                <button class="btn write-req-btn @(writeReqState == "ready" ? "primary" : "outline")"
-                        type="submit"
-                        disabled="@(writeReqEnabled ? null : "disabled")"
-                        data-idle-label="@writeReqLabel"
-                        data-ready-label="📝 Write Requirement"
-                        data-ready-title="BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm."
-                        data-waiting-title="BA vẫn đang hỏi thêm thông tin. Hoàn tất các nhóm còn lại trong 'Tiến độ khai thác' để mở khóa nút này."
-                        title="@writeReqTitle">
-                    @writeReqLabel
-                </button>
-                @* Ghi chú hiện ngay dưới nút cho hai trạng thái mới: tooltip không thấy được trên cảm ứng
-                   và rất dễ bỏ sót, mà đây đúng là hai lúc người dùng hay bấm đi bấm lại vì không hiểu nút
-                   đang làm gì. Lớp riêng (không phải .write-req-hint) để requirements.js xoá thẳng khi có
-                   lượt chat mới, khỏi lẫn với ghi chú của trạng thái "chưa đủ thông tin". *@
-                @if (writeReqState == "running")
-                {
-                    <small class="write-req-hint write-req-state-hint">Đang soạn tài liệu — theo dõi tiến độ trong khung chat. Nút mở lại khi xong.</small>
-                }
-                else if (writeReqState == "regenerate")
-                {
-                    <small class="write-req-hint write-req-state-hint">Tài liệu đã tạo xong. Muốn sửa nội dung, nhắn thêm cho BA trong khung chat rồi tạo lại.</small>
-                }
-            </form>
-
-            @* CỔNG SOÁT MÂU THUẪN: chạy khi bấm "Write Requirement", TRƯỚC khi tài liệu được soạn. Panel
-               tiến độ chỉ trả lời "đã rõ hết chưa"; cổng này trả lời "những điều đã rõ có chọi nhau
-               không" — và một mâu thuẫn lọt qua đây sẽ đóng băng thành yêu cầu sai rồi kéo cả POC theo.
-               Không có mâu thuẫn ⇒ panel không bao giờ hiện, form submit như trước. *@
-            <div class="conflict-panel" id="conflictPanel" hidden
-                 data-check-url="@Url.Action("CheckConflicts", "Requirements")"
-                 data-resolve-url="@Url.Action("ResolveConflicts", "Requirements")">
-                <h3>⚠ Có điểm đang mâu thuẫn</h3>
-                <div class="history-sub">Mấy điểm dưới đây anh/chị đã nói theo hai cách khác nhau. Chọn giúp phương án đúng để tài liệu không ghi nhầm.</div>
-                <div class="conflict-body" id="conflictBody"></div>
-                <div class="conflict-msg" id="conflictMsg"></div>
-            </div>
+            @* KHÔNG có nút "Write Requirement" ở đây nữa — nút thật đã chuyển hẳn vào cổng tạo tài liệu
+               trong khung chat (#writeReqZone), cùng chỗ với lời mời sinh ra nó.
+               Vì sao gỡ: nút sống ở sidebar thì ba trong bốn trạng thái của nó chỉ là nhiễu. "waiting" là
+               một nút mờ-và-khóa mời người ta bấm vào thứ không bấm được; "running" lặp lại đúng điều panel
+               tiến độ workflow trong chat đang nói; và ở "ready" thì người dùng đã có nút thật ngay dưới
+               câu BA vừa mời — hai nút cùng một việc, cách nhau nửa màn hình.
+               Cái còn lại ở đây là thứ sidebar làm tốt hơn chat: nói cho người dùng biết còn thiếu gì và
+               điều gì sẽ xảy ra khi đủ. Dòng dưới chỉ hiện ở trạng thái "waiting" (requirements.js bật/tắt
+               theo cờ mời của lượt BA mới nhất) — đủ thông tin rồi thì lời mời nằm trong chat, nhắc lại ở
+               đây là thừa. *@
+            <p class="write-req-waiting-hint" id="writeReqWaitingHint" @(writeReqState == "waiting" ? "" : "hidden")>
+                Khi mọi nhóm áp dụng đã <b>✅ rõ</b>, BA sẽ mời anh/chị tạo bản mô tả sản phẩm ngay trong khung chat.
+            </p>
         </div>
 
         @* KHÔNG còn panel "Điều đã chốt" ở đây — panel cuối cùng của sidebar bị gỡ, và vì đúng cái lý do
@@ -987,60 +942,144 @@
                 }
             </div>
 
-            @* CỔNG TỔNG KẾT CUỐI — khối cuối cùng của dòng hội thoại, mở đúng ở lượt BA mời bấm
-               "Write Requirement". Đây là chỗ DUY NHẤT người dùng còn gặp lại nhật ký "điều đã chốt" sau
-               khi panel sidebar bị gỡ: trong suốt cuộc phỏng vấn việc soát mâu thuẫn là của BA (nhật ký
-               nằm trong ngữ cảnh chat của BA), người dùng chỉ đội mũ kiểm duyệt đúng một lần — ở đây, khi
-               đã kể xong và còn rảnh trí để rà.
+            @* CỔNG TẠO TÀI LIỆU (#writeReqZone) — khối cuối cùng của dòng hội thoại, và là chỗ DUY NHẤT
+               trên màn hình có nút sinh Product Brief. Gồm ba phần dính liền nhau vì chúng là ba nhịp của
+               CÙNG một quyết định: bản tổng kết để rà → nút tạo tài liệu → cổng soát mâu thuẫn (nếu có).
 
-               Đặt ở khung chat vì cùng lý do đã chuyển cổng xác nhận giả định vào đây: quy trình đang ĐỨNG
-               CHỜ người dùng, mà lời mời lại do BA nói ở cuối chat — câu hỏi và nút trả lời phải nằm cùng
-               một chỗ. Đặt SAU #suggestionList và #batchQuestions vì quy tắc gộp "câu hỏi BA + chip gợi ý"
-               dựa vào hai khối KỀ NHAU (.req-msg.ba:has(+ .suggestion-list …)); chen vào giữa là hỏng, kể
-               cả khi khối chen vào đang ẩn.
+               Vì sao cả cụm nằm trong khung chat chứ không ở sidebar: quy trình đang ĐỨNG CHỜ người dùng,
+               mà lời mời lại do BA nói ở cuối chat — câu hỏi và nút trả lời phải nằm cùng một chỗ mắt đang
+               nhìn (chat tự cuộn đáy). Cùng lý do đã chuyển cổng xác nhận giả định vào đây.
+
+               Là MỘT wrapper chứ không phải ba khối rời vì requirements.js phải dời cả cụm xuống cuối dòng
+               hội thoại sau mỗi lượt (các bong bóng mới chèn vào trước #thinkingBox): dời lẻ từng khối thì
+               panel mâu thuẫn có thể lạc lên giữa các lượt cũ. Wrapper cũng giữ cụm này KHÔNG kề trực tiếp
+               các bong bóng BA, nên quy tắc gộp "câu hỏi BA + chip gợi ý" (.req-msg.ba:has(+ .suggestion-list
+               …)) không bị chen vào giữa.
+
+               Bản tổng kết là chỗ DUY NHẤT người dùng còn gặp lại nhật ký "điều đã chốt" sau khi panel
+               sidebar bị gỡ: trong suốt cuộc phỏng vấn việc soát mâu thuẫn là của BA (nhật ký nằm trong
+               ngữ cảnh chat của BA), người dùng chỉ đội mũ kiểm duyệt đúng một lần — ở đây, khi đã kể xong.
 
                RANH GIỚI QUAN TRỌNG — cổng này KHÔNG phải cổng "chốt nhanh" đã bỏ đội lốt: mọi dòng ở đây
                đều là điều người dùng ĐÃ nói hoặc đã bấm đồng ý (decision-log.v1.md cấm suy diễn). BA không
                bao giờ được điền hộ một ý còn trống rồi ghi vào hội thoại như lời người dùng — chỗ trống
                vẫn phải hỏi tiếp trong chat, và cổng readiness vẫn là thứ quyết định khi nào cổng này mở.
 
-               Markup phải khớp renderSummaryGate (requirements.js) để frame done render y hệt khi không reload. *@
+               data-state là hợp đồng với requirements.js: nó khởi tạo trạng thái cổng từ đúng bản server
+               vừa render thay vì đoán qua việc khối đang ẩn hay hiện.
+               Markup phải khớp syncWriteReqGate (requirements.js) để frame done render y hệt khi không reload. *@
             @{
-                // Chỉ mở khi nút "Write Requirement" thật sự đang bấm được. Ở trạng thái "running" (đang
-                // soạn) hay "regenerate" (soạn xong, chưa có gì mới), một bản tổng kết kèm nút "tạo tài
-                // liệu" chỉ mời người dùng bấm lại đúng thứ vừa chạy.
-                var showSummaryGate = writeReqState == "ready" && decisions.Count > 0;
+                // Bản tổng kết là PHẦN TÙY CHỌN của cổng, không phải điều kiện mở cổng. Nhật ký quyết định
+                // do LLM chắt (DecisionLogService) nên rỗng là chuyện có thật — gộp lỗi, hoặc phỏng vấn
+                // ngắn chưa kịp có bản nào. Trói cổng vào "có ý để rà" thì đúng lúc đó người dùng không
+                // còn đường nào tạo tài liệu: nút sidebar đã gỡ, cổng thì không mở.
+                var hasDecisions = decisions.Count > 0;
+                // Tiêu đề phải khớp thứ THẬT SỰ có trong cổng: không có ý nào để rà mà vẫn đề "Tổng kết
+                // trước khi tạo tài liệu" là hứa một bản rà soát rồi không đưa ra. Cùng logic ở
+                // syncWriteReqGate (requirements.js).
+                var gateTitle = writeReqState == "regenerate" ? "Tài liệu đã tạo xong"
+                    : hasDecisions ? "Tổng kết trước khi tạo tài liệu"
+                    : "Sẵn sàng tạo tài liệu";
             }
-            <div class="req-msg ba summary-gate" id="summaryGate" @(showSummaryGate ? "" : "hidden")>
-                <div class="summary-gate-head">
-                    <b>BA</b>
-                    <span class="summary-gate-title">Tổng kết trước khi tạo tài liệu</span>
-                    <span class="summary-gate-count">@decisions.Count ý</span>
-                </div>
-                <div class="summary-gate-hint">
-                    Đây là toàn bộ những gì mình đã hiểu được từ cuộc trao đổi. <b>Anh/chị rà nhanh giúp mình:</b>
-                    ý nào chưa đúng thì bấm <b>✎ Sửa</b> ở ý đó — hoặc bôi đen đúng đoạn sai — rồi ghi lại ý đúng.
-                    Sửa ở đây mất vài giây; để lọt tới lúc tài liệu và bản demo đã dựng thì phải làm lại cả tuyến.
-                </div>
-                <ul class="summary-gate-list">
-                    @foreach (var decision in decisions)
-                    {
-                        <li class="summary-gate-item" data-decision="@decision">
-                            <div class="summary-gate-text">@decision</div>
-                            <button type="button" class="summary-gate-fix" title="Ý này chưa đúng — ghi chú lại cho BA">✎ Sửa</button>
-                            <textarea class="summary-gate-note" rows="2" hidden
-                                      placeholder="Đúng ra là… (ghi ngắn gọn)"></textarea>
-                        </li>
-                    }
-                </ul>
-                <div class="summary-gate-bar">
-                    <button type="button" class="btn primary summary-gate-ok">✓ Đúng hết — tạo tài liệu</button>
-                    @* Hai nút loại trừ nhau: đã ghi chú thì "tạo tài liệu" không còn nghĩa — soạn tài liệu
-                       từ một bản tổng kết người dùng vừa nói là sai chính là điều cổng này sinh ra để chặn. *@
-                    <button type="button" class="btn primary summary-gate-send" hidden>Gửi đính chính cho BA</button>
-                    <div class="summary-gate-foot">
-                        Còn điều gì chưa nói tới, anh/chị cứ nhắn thêm trong khung chat như bình thường.
+            <div class="write-req-zone" id="writeReqZone" data-state="@writeReqState">
+                <div class="req-msg ba summary-gate" id="summaryGate" @(writeReqOpen ? "" : "hidden")>
+                    <div class="summary-gate-head">
+                        <b>BA</b>
+                        <span class="summary-gate-title">@gateTitle</span>
+                        <span class="summary-gate-count" @(hasDecisions ? "" : "hidden")>@decisions.Count ý</span>
                     </div>
+                    @* Ba lời dẫn cho ba tình huống — cùng một cổng nhưng người dùng đang ở ba chỗ khác nhau
+                       của hành trình, và một câu dẫn chung sẽ nói sai với ít nhất hai trong ba.
+                       data-hint-review ghi biến thể ĐANG hiển thị để requirements.js chỉ viết lại khi thật
+                       sự đổi. Trạng thái "regenerate" mang giá trị riêng chứ không dùng chung true/false:
+                       rời regenerate sang ready là luôn phải viết lại, kể cả khi số ý không đổi. *@
+                    <div class="summary-gate-hint"
+                         data-hint-review="@(writeReqState == "regenerate" ? "regenerate" : hasDecisions ? "true" : "false")">
+                        @if (writeReqState == "regenerate")
+                        {
+                            <text>
+                                Bản mô tả sản phẩm đã tạo xong và anh/chị chưa bổ sung gì thêm kể từ đó.
+                                Muốn nội dung khác đi, cách chắc ăn là <b>nhắn thêm cho mình trong khung chat</b> rồi tạo lại —
+                                bấm tạo lại ngay bây giờ sẽ <b>GHI ĐÈ</b> bản hiện tại bằng một bản dựng từ đúng những gì đã trao đổi.
+                            </text>
+                        }
+                        else if (hasDecisions)
+                        {
+                            <text>
+                                Đây là toàn bộ những gì mình đã hiểu được từ cuộc trao đổi. <b>Anh/chị rà nhanh giúp mình:</b>
+                                ý nào chưa đúng thì bấm <b>✎ Sửa</b> ở ý đó — hoặc bôi đen đúng đoạn sai — rồi ghi lại ý đúng.
+                                Sửa ở đây mất vài giây; để lọt tới lúc tài liệu và bản demo đã dựng thì phải làm lại cả tuyến.
+                            </text>
+                        }
+                        else
+                        {
+                            <text>
+                                Mình đã thu thập đủ thông tin để soạn bản mô tả sản phẩm.
+                                Lần này mình chưa dựng được bản tổng kết để anh/chị rà trước — cứ tạo tài liệu rồi
+                                <b>rà thẳng trên bản mô tả</b>, chỗ nào chưa đúng thì nhắn lại cho mình trong khung chat.
+                            </text>
+                        }
+                    </div>
+                    <ul class="summary-gate-list" @(hasDecisions ? "" : "hidden")>
+                        @foreach (var decision in decisions)
+                        {
+                            <li class="summary-gate-item" data-decision="@decision">
+                                <div class="summary-gate-text">@decision</div>
+                                <button type="button" class="summary-gate-fix" title="Ý này chưa đúng — ghi chú lại cho BA">✎ Sửa</button>
+                                <textarea class="summary-gate-note" rows="2" hidden
+                                          placeholder="Đúng ra là… (ghi ngắn gọn)"></textarea>
+                            </li>
+                        }
+                    </ul>
+                    <div class="summary-gate-bar">
+                        @* NÚT THẬT — không còn nút trung gian "bấm hộ" một form ở sidebar. Cả hai chốt chặn
+                           trước lúc soạn (cổng soát mâu thuẫn initConflictGate, hộp xác nhận ghi đè
+                           initRegenerateConfirm) đều là listener trên chính nút này, nên mọi đường bấm đều
+                           đi qua chúng — không có cửa sau nào submit thẳng form.
+                           data-*-label/title là hợp đồng với requirements.js: nó dựng lại nhãn/tooltip theo
+                           trạng thái sau mỗi lượt chat, còn cổng soát mâu thuẫn đọc data-idle-label để khôi
+                           phục nhãn sau khi soát xong. Cờ "run đang bay" KHÔNG lặp lại ở đây — nó đã nằm
+                           trong data-state của #writeReqZone, và hai nguồn sự thật cho cùng một điều là
+                           đúng thứ sinh ra vênh trạng thái. *@
+                        <form asp-action="WriteRequirement"
+                              method="post"
+                              class="write-req write-req-@writeReqState"
+                              onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="projectId" value="@Model.Id" />
+                            <button class="btn write-req-btn @(writeReqState == "regenerate" ? "outline" : "primary")"
+                                    type="submit"
+                                    data-idle-label="@writeReqLabel"
+                                    data-ready-label="✓ Đúng hết — tạo tài liệu"
+                                    data-ready-title="BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm."
+                                    data-regenerate-label="🔄 Tạo lại tài liệu"
+                                    data-regenerate-title="Tài liệu đã soạn xong và anh/chị chưa bổ sung gì thêm. Bấm để soạn lại và GHI ĐÈ bản hiện tại."
+                                    title="@writeReqTitle">
+                                @writeReqLabel
+                            </button>
+                        </form>
+                        @* Hai nút loại trừ nhau: đã ghi chú thì "tạo tài liệu" không còn nghĩa — soạn tài liệu
+                           từ một bản tổng kết người dùng vừa nói là sai chính là điều cổng này sinh ra để chặn. *@
+                        <button type="button" class="btn primary summary-gate-send" hidden>Gửi đính chính cho BA</button>
+                        <div class="summary-gate-foot">
+                            Còn điều gì chưa nói tới, anh/chị cứ nhắn thêm trong khung chat như bình thường.
+                        </div>
+                    </div>
+                </div>
+
+                @* CỔNG SOÁT MÂU THUẪN: chạy khi bấm nút ở trên, TRƯỚC khi tài liệu được soạn. Panel tiến độ
+                   chỉ trả lời "đã rõ hết chưa"; cổng này trả lời "những điều đã rõ có chọi nhau không" — và
+                   một mâu thuẫn lọt qua đây sẽ đóng băng thành yêu cầu sai rồi kéo cả POC theo. Không có mâu
+                   thuẫn ⇒ panel không bao giờ hiện, form submit như trước.
+                   Đứng ngay dưới nút chứ không ở sidebar: nó là CÂU HỎI PHÁT SINH TỪ CÚ BẤM đó, hiện lên ở
+                   nửa màn hình bên kia thì người dùng chỉ thấy nút mình vừa bấm không phản ứng gì. *@
+                <div class="conflict-panel" id="conflictPanel" hidden
+                     data-check-url="@Url.Action("CheckConflicts", "Requirements")"
+                     data-resolve-url="@Url.Action("ResolveConflicts", "Requirements")">
+                    <h3>⚠ Có điểm đang mâu thuẫn</h3>
+                    <div class="history-sub">Mấy điểm dưới đây anh/chị đã nói theo hai cách khác nhau. Chọn giúp phương án đúng để tài liệu không ghi nhầm.</div>
+                    <div class="conflict-body" id="conflictBody"></div>
+                    <div class="conflict-msg" id="conflictMsg"></div>
                 </div>
             </div>
 
@@ -1065,9 +1104,10 @@
 
             <div class="composer-actions">
 
-                <!-- WRITE REQUIREMENT đã CHUYỂN lên cuối panel "Tiến độ khai thác" (cột trái): nút mở khóa
-                     đúng khi thanh tiến độ đầy nên đặt ở đó tạo mạch "lấp đầy → nút sáng ngay đây", đồng
-                     thời gọn khu vực soạn chat. -->
+                <!-- WRITE REQUIREMENT không có nút ở đây, và cũng không còn ở sidebar: nút thật nằm trong
+                     cổng tạo tài liệu (#writeReqZone) ở cuối dòng hội thoại, ngay dưới lượt BA mời tạo tài
+                     liệu. Một nút đứng thường trực cạnh ô nhập lại quay về đúng vấn đề cũ — nó phải bịa ra
+                     trạng thái "khóa" cho phần lớn thời gian nó tồn tại. -->
 
                 <!-- Cổng "Duyệt & tiếp tục" (và Retry/Reject) ĐÃ CHUYỂN sang Agent Dashboard: user thường
                      dừng ở bước POC, chỉ TeamDev/Admin (quyền DeliveryAdvance) mới đẩy tiếp các bước
