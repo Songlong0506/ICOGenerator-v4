@@ -29,13 +29,24 @@ namespace ICOGenerator.Services.Requirements;
 /// Cùng pattern gộp-lũy-tiến theo con trỏ lượt (<see cref="Project.DecisionHarvestedTurnCount"/>) và
 /// <b>fail-open</b> như bản đồ bao phủ: lời gọi LLM lỗi thì giữ nhật ký cũ + không dời con trỏ, lượt sau
 /// gộp bù. Được gọi CUỐI lượt chat (sau khi đã lưu lượt trả lời của BA) để quyết định vừa chốt trong lượt
-/// này vào ngay nhật ký của frame done.
+/// này vào ngay nhật ký của frame done. Khác bản đồ một điểm: lô gộp được CHỜM về trước con trỏ vài lượt
+/// để câu trả lời mở đầu lô không mất câu hỏi của nó (xem <see cref="ContextTurnCount"/>).
 /// </para>
 /// </summary>
 public class DecisionLogService
 {
     // Chặn trên độ dài nhật ký để không tự phình vô hạn (prompt đã giới hạn 40 dòng; model trả dài hơn thì cắt).
     private const int MaxDecisionChars = 6000;
+
+    // Số lượt ĐÃ GỘP được kéo lại làm ngữ cảnh cho lô mới (không chắt lại, không dời con trỏ). Lý do phải
+    // có: hàm này chạy CUỐI lượt chat, sau khi lượt trả lời của BA đã lưu, nên mỗi lô là
+    // [câu trả lời của người dùng, câu hỏi MỚI của BA] — còn câu hỏi mà người dùng ĐANG trả lời thì nằm ở
+    // lô TRƯỚC. Người dùng nghiệp vụ trả lời chủ yếu bằng cách bấm chip, mà chip vốn chỉ có nghĩa khi dán
+    // vào câu hỏi ("Chỉ Assistant HR", "Trên 100 người"). Thiếu câu hỏi đó, model không có gì để dựng thành
+    // câu tự đứng được: nhật ký sinh ra một dòng cụt, và tệ hơn là dòng ĐỔI NGHĨA (câu trả lời cho "vai trò
+    // nào nhận email" bị ghi thành "các vai trò gồm…" — đủ để RequirementConflictService bắt nhầm mâu thuẫn
+    // rồi chất vấn người dùng một câu thừa). Hai lượt là đủ phủ [lượt user trước, câu hỏi của BA].
+    private const int ContextTurnCount = 2;
 
     private readonly AppDbContext _db;
     private readonly ILlmClient _llm;
@@ -55,18 +66,26 @@ public class DecisionLogService
     public async Task<string?> UpdateAndLoadAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken = default)
     {
         var harvested = project.DecisionHarvestedTurnCount;
+        var contextStart = Math.Max(0, harvested - ContextTurnCount);
 
-        var delta = await _db.AgentConversations
+        // Lấy một cửa sổ CHỜM về trước con trỏ rồi mới cắt: các lượt trước con trỏ chỉ để đọc hiểu, phần
+        // delta mới là phần được chắt và được con trỏ tính. Min với window.Count để đường "sửa lượt cuối"
+        // (xoá lượt, con trỏ có thể lớn hơn số lượt còn lại) không cắt âm.
+        var window = await _db.AgentConversations
             .Where(c => c.ProjectId == project.Id)
             .OrderBy(c => c.CreatedAt)
             .ThenBy(c => c.Id)
-            .Skip(harvested)
+            .Skip(contextStart)
             .ToListAsync(cancellationToken);
+
+        var contextCount = Math.Min(harvested - contextStart, window.Count);
+        var context = window.Take(contextCount).ToList();
+        var delta = window.Skip(contextCount).ToList();
 
         if (delta.Count == 0)
             return project.DecisionLog;
 
-        var updated = await DistillAsync(project.DecisionLog, delta, ba, model, project.Id, cancellationToken);
+        var updated = await DistillAsync(project.DecisionLog, context, delta, ba, model, project.Id, cancellationToken);
         if (updated != null)
         {
             project.DecisionLog = string.IsNullOrWhiteSpace(updated) ? null : updated;
@@ -92,13 +111,22 @@ public class DecisionLogService
             .ToList();
     }
 
-    private async Task<string?> DistillAsync(string? existingLog, List<AgentConversation> turns, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
+    private async Task<string?> DistillAsync(string? existingLog, List<AgentConversation> context, List<AgentConversation> turns, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(existingLog))
         {
             sb.AppendLine("## Nhật ký hiện có (gộp/cập nhật cùng các lượt mới bên dưới)");
             sb.AppendLine(existingLog.Trim());
+            sb.AppendLine();
+        }
+        if (context.Count > 0)
+        {
+            // Nói rõ đây KHÔNG phải phần cần chắt: chắt lại lượt cũ là ghi trùng một quyết định đã có
+            // trong nhật ký, còn bỏ hẳn thì mất câu hỏi mà lượt user đầu lô đang trả lời.
+            sb.AppendLine("## Ngữ cảnh — các lượt TRƯỚC đó, đã gộp rồi (chỉ để hiểu câu trả lời mở đầu lô mới; KHÔNG chắt lại)");
+            foreach (var t in context)
+                sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
             sb.AppendLine();
         }
         sb.AppendLine("## Các lượt hội thoại mới cần gộp vào nhật ký");
