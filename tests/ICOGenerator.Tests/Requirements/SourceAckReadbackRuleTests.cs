@@ -214,6 +214,26 @@ public class SourceAckReadbackRuleTests
         Assert.Contains("đừng nêu lại thành mục \"Chỗ chưa chắc\"", prompt, StringComparison.Ordinal);
     }
 
+    // Lượt có BẢNG CỘT thì BAChatService bỏ hàng chip "Đúng rồi / Chưa đúng" (chip bấm là gửi ngay, để cả
+    // hai cùng sống thì một cú bấm nhầm gửi mất lượt trước khi người dùng kịp tích xong bảng). Nhưng prompt
+    // vẫn bắt kết bằng câu hỏi đóng "Mình hiểu vậy đã đúng chưa ạ?" ⇒ trên màn hình là một câu hỏi KHÔNG CÓ
+    // nút trả lời: người dùng đi tìm nút "Đúng rồi" không thấy, còn việc thật sự phải làm — rà bảng rồi bấm
+    // "Gửi bảng cột" — thì câu kết không hề nhắc tới. Câu kết phải đổi theo đường trả lời đang hiện, nên hai
+    // ca phải cùng nằm trong prompt: bỏ ca Word/PDF/ảnh đi thì lượt không có bảng mất luôn câu hỏi đóng, mà
+    // đó mới là chỗ hai chip là đường trả lời DUY NHẤT.
+    [Fact]
+    public void SourceAckPrompt_ClosesTheReadbackWithWhicheverAnswerControlIsOnScreen()
+    {
+        var prompt = ReadPrompt(SourceAckPromptKey);
+
+        Assert.Contains("Câu kết phải chỉ vào ĐÚNG cái nút đang có trên màn hình", prompt, StringComparison.Ordinal);
+        // Ca có bảng: câu kết mời rà và gửi bảng, không phải hỏi đóng.
+        Assert.Contains("Gửi bảng cột", prompt, StringComparison.Ordinal);
+        Assert.Contains("KHÔNG CÓ nút trả lời", prompt, StringComparison.Ordinal);
+        // Ca không có bảng: câu hỏi đóng giữ nguyên.
+        Assert.Contains("không có bảng cột", prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
     // Xin file là lời nhờ HÀNH ĐỘNG, không phải câu hỏi: người dùng đọc xong thì đi tìm file, và mọi thứ khác
     // trong lượt bị nuốt mất. Ca thật đã gặp trên màn hình: BA vừa xin file Master List vừa hỏi "hiện nay
     // việc lập kế hoạch và tính số lớp được thực hiện như thế nào và điểm khó chịu nhất là gì?" — người dùng
