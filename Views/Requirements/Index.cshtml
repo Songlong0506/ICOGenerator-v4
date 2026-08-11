@@ -127,39 +127,51 @@
     var draftRunInFlight = draftRuns.Any(r => r.Status is WorkflowRunStatus.Queued or WorkflowRunStatus.Running);
 
     // ĐÃ SOẠN XONG VÀ CHƯA CÓ GÌ MỚI: bản draft đã tồn tại, vòng soạn gần nhất đã kết thúc, và người dùng
-    // chưa nói thêm câu nào kể từ đó. Bấm lại lúc này tốn 2–3 lời gọi LLM để ra gần đúng bản cũ, lại GHI ĐÈ
-    // bản đang có — và vì model chạy ở temperature > 0, bản mới có thể tệ hơn. Vẫn cho bấm (người dùng có
-    // quyền muốn bản khác) nhưng đổi sang nút "Tạo lại tài liệu" kèm xác nhận, không còn là hành động một chạm.
-    // Đây cũng là chỗ sửa một lời nói dối cũ của UI: sau khi soạn xong, lượt cuối là thông báo "đã tạo xong"
-    // nên requirementReady hoá false và nút hiện tooltip "BA vẫn đang hỏi thêm thông tin" trong khi panel
-    // "Tiến độ khai thác" đầy 100%.
+    // chưa nói thêm câu nào kể từ đó. Đây là lúc cổng phải ĐÓNG HẲN. Trước đây chỗ này bày ra bản tổng kết
+    // kèm nút "🔄 Tạo lại tài liệu", và cả cụm đó là nhiễu ở đúng chỗ người dùng cần tập trung nhất:
+    //   - panel workflow ngay phía trên đã nói "Tài liệu đã sẵn sàng · Xem Product Brief" và BA cũng vừa
+    //     mời xem lại rồi bấm Approve ⇒ bong bóng này là lần thứ ba nói cùng một điều, mà lại đẩy hành
+    //     động thật (đọc Brief → Approve) xuống dưới hàng chục dòng tổng kết;
+    //   - bản tổng kết là cổng rà TRƯỚC khi soạn; soạn xong rồi thì thứ đáng rà là chính Product Brief —
+    //     và đường đó đã có, chính xác hơn hẳn: ghim ghi chú ngay trên bản xem trước (ReviseBriefFromNotes)
+    //     hoặc nhắn thẳng trong khung chat;
+    //   - bấm lại khi chưa bổ sung gì tốn 2–3 lời gọi LLM để ra gần đúng bản cũ rồi GHI ĐÈ bản đang có, mà
+    //     model chạy ở temperature > 0 nên bản mới có thể tệ hơn. Chính lời dẫn cũ của cổng cũng khuyên
+    //     "nhắn thêm trong khung chat rồi tạo lại" — một cái nút mà dòng chữ trên nó bảo hãy làm việc khác.
+    // Đường soạn lại KHÔNG mất: người dùng nhắn một câu là cổng mở lại ở "ready" (xem nhánh dưới).
     var lastFinishedDraftRunAt = draftRuns
         .Where(r => r.Status == WorkflowRunStatus.Completed && r.FinishedAt.HasValue)
         .Max(r => (DateTime?)r.FinishedAt!.Value);
     var lastUserTurnAt = conversations.LastOrDefault(x => x.Role == "user")?.CreatedAt;
     var draftExists = productBriefs.Any(d => d.VersionName == "draft");
-    var requirementRegenerateOnly = draftExists
+    var draftSettled = draftExists
         && lastFinishedDraftRunAt.HasValue
         && (lastUserTurnAt == null || lastUserTurnAt <= lastFinishedDraftRunAt.Value);
 
-    // Bốn trạng thái loại trừ nhau, xét theo đúng thứ tự ưu tiên: đang chạy > đã xong & chưa có gì mới >
-    // sẵn sàng > còn phải khai thác thêm. Chỉ HAI trạng thái sau cùng có nút trên màn hình (cổng
-    // #writeReqZone trong khung chat mở ở "ready" và "regenerate"); hai trạng thái kia không dựng nút nào:
+    // ĐƯỜNG LÙI KHI BẢN BRIEF ĐÃ CŨ. Cờ mời ở trên đọc chữ trong lượt BA mới nhất, nên có một ca kẹt: bản
+    // Brief đã tồn tại, người dùng nhắn một lời đính chính, BA đáp bằng một CÂU HỎI thay vì lời mời ⇒ cổng
+    // đóng và không còn đường nào soạn lại bản Brief đang cũ dần so với hội thoại. Xét thêm cổng readiness
+    // tất định (cùng hàm mà lượt chat và bước soạn tài liệu dùng — không có giám khảo thứ hai) và CHỈ khi
+    // đã có draft: trước lần soạn đầu tiên, cổng vẫn đi theo đúng lời mời của BA như cũ.
+    var coverageReady = ICOGenerator.Services.Requirements.RequirementReadinessGate
+        .Evaluate(Model.RequirementCoverageMap).Ready;
+
+    // Năm trạng thái loại trừ nhau, xét theo đúng thứ tự ưu tiên: đang chạy > đã xong & chưa có gì mới >
+    // sẵn sàng > còn phải khai thác thêm. Chỉ MỘT trạng thái có nút trên màn hình (cổng #writeReqZone
+    // trong khung chat mở ở "ready"); ba trạng thái kia không dựng nút nào:
     //   waiting — chưa đủ thông tin. Thay cho một nút mờ-và-khóa, panel "Tiến độ khai thác" nói thẳng
     //             điều còn thiếu và việc gì sẽ xảy ra khi đủ (#writeReqWaitingHint).
     //   running — vòng soạn đang chạy. Tiến độ đã có panel .workflow-progress ngay trong khung chat, và
     //             requirement-workflow.js tải lại trang khi run xong.
+    //   done    — vừa soạn xong, chưa có gì mới. Cổng đóng và #writeReqWaitingHint cũng phải TẮT: nói
+    //             "BA sẽ mời khi mọi nhóm đã rõ" trong lúc Tiến độ khai thác đầy 100% là nói sai.
     var writeReqState = draftRunInFlight ? "running"
-        : requirementRegenerateOnly ? "regenerate"
-        : requirementReady ? "ready"
+        : draftSettled ? "done"
+        : (requirementReady || (draftExists && coverageReady)) ? "ready"
         : "waiting";
-    var writeReqOpen = writeReqState is "ready" or "regenerate";
-    var writeReqLabel = writeReqState == "regenerate"
-        ? "🔄 Tạo lại tài liệu"
-        : "✓ Đúng hết — tạo tài liệu";
-    var writeReqTitle = writeReqState == "regenerate"
-        ? "Tài liệu đã soạn xong và anh/chị chưa bổ sung gì thêm. Bấm để soạn lại và GHI ĐÈ bản hiện tại."
-        : "BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm.";
+    var writeReqOpen = writeReqState == "ready";
+    var writeReqLabel = "✓ Đúng hết — tạo tài liệu";
+    var writeReqTitle = "BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm.";
 
     // Tài liệu nguồn (ảnh/PDF) người dùng upload cho project + cờ vision của model BA (để cảnh báo).
     var sourceFiles = Model.SourceFiles.OrderByDescending(x => x.CreatedAt).ToList();
@@ -982,33 +994,27 @@
                 // Tiêu đề phải khớp thứ THẬT SỰ có trong cổng: không có ý nào để rà mà vẫn đề "Tổng kết
                 // trước khi tạo tài liệu" là hứa một bản rà soát rồi không đưa ra. Cùng logic ở
                 // syncWriteReqGate (requirements.js).
-                var gateTitle = writeReqState == "regenerate" ? "Tài liệu đã tạo xong"
-                    : hasDecisions ? "Tổng kết trước khi tạo tài liệu"
+                var gateTitle = hasDecisions ? "Tổng kết trước khi tạo tài liệu"
                     : "Sẵn sàng tạo tài liệu";
             }
-            <div class="write-req-zone" id="writeReqZone" data-state="@writeReqState">
+            @* data-draft-exists: bản Brief đã có hay chưa. requirements.js cần nó để quyết định có được
+               dùng cờ readiness của frame done hay không (đường lùi khi BA đáp bằng câu hỏi thay vì lời
+               mời — xem BAChatTurnResult.CoverageReady). Chỉ đổi khi vòng soạn chạy xong, mà lúc đó
+               requirement-workflow.js tải lại trang, nên một thuộc tính render sẵn là đủ. *@
+            <div class="write-req-zone" id="writeReqZone" data-state="@writeReqState"
+                 data-draft-exists="@(draftExists ? "true" : "false")">
                 <div class="req-msg ba summary-gate" id="summaryGate" @(writeReqOpen ? "" : "hidden")>
                     <div class="summary-gate-head">
                         <b>BA</b>
                         <span class="summary-gate-title">@gateTitle</span>
                         <span class="summary-gate-count" @(hasDecisions ? "" : "hidden")>@decisions.Count ý</span>
                     </div>
-                    @* Ba lời dẫn cho ba tình huống — cùng một cổng nhưng người dùng đang ở ba chỗ khác nhau
-                       của hành trình, và một câu dẫn chung sẽ nói sai với ít nhất hai trong ba.
+                    @* Hai lời dẫn cho hai tình huống — có bản tổng kết để rà, hay không có.
                        data-hint-review ghi biến thể ĐANG hiển thị để requirements.js chỉ viết lại khi thật
-                       sự đổi. Trạng thái "regenerate" mang giá trị riêng chứ không dùng chung true/false:
-                       rời regenerate sang ready là luôn phải viết lại, kể cả khi số ý không đổi. *@
+                       sự đổi. *@
                     <div class="summary-gate-hint"
-                         data-hint-review="@(writeReqState == "regenerate" ? "regenerate" : hasDecisions ? "true" : "false")">
-                        @if (writeReqState == "regenerate")
-                        {
-                            <text>
-                                Bản mô tả sản phẩm đã tạo xong và anh/chị chưa bổ sung gì thêm kể từ đó.
-                                Muốn nội dung khác đi, cách chắc ăn là <b>nhắn thêm cho mình trong khung chat</b> rồi tạo lại —
-                                bấm tạo lại ngay bây giờ sẽ <b>GHI ĐÈ</b> bản hiện tại bằng một bản dựng từ đúng những gì đã trao đổi.
-                            </text>
-                        }
-                        else if (hasDecisions)
+                         data-hint-review="@(hasDecisions ? "true" : "false")">
+                        @if (hasDecisions)
                         {
                             <text>
                                 Đây là toàn bộ những gì mình đã hiểu được từ cuộc trao đổi. <b>Anh/chị rà nhanh giúp mình:</b>
@@ -1037,28 +1043,27 @@
                         }
                     </ul>
                     <div class="summary-gate-bar">
-                        @* NÚT THẬT — không còn nút trung gian "bấm hộ" một form ở sidebar. Cả hai chốt chặn
-                           trước lúc soạn (cổng soát mâu thuẫn initConflictGate, hộp xác nhận ghi đè
-                           initRegenerateConfirm) đều là listener trên chính nút này, nên mọi đường bấm đều
-                           đi qua chúng — không có cửa sau nào submit thẳng form.
-                           data-*-label/title là hợp đồng với requirements.js: nó dựng lại nhãn/tooltip theo
-                           trạng thái sau mỗi lượt chat, còn cổng soát mâu thuẫn đọc data-idle-label để khôi
-                           phục nhãn sau khi soát xong. Cờ "run đang bay" KHÔNG lặp lại ở đây — nó đã nằm
-                           trong data-state của #writeReqZone, và hai nguồn sự thật cho cùng một điều là
-                           đúng thứ sinh ra vênh trạng thái. *@
+                        @* NÚT THẬT — không còn nút trung gian "bấm hộ" một form ở sidebar. Chốt chặn trước
+                           lúc soạn (cổng soát mâu thuẫn initConflictGate) là listener trên chính nút này,
+                           nên mọi đường bấm đều đi qua nó — không có cửa sau nào submit thẳng form.
+                           data-*-label/title là hợp đồng với requirements.js: cổng soát mâu thuẫn đọc
+                           data-idle-label để khôi phục nhãn sau khi soát xong, còn data-ready-* là bản
+                           gốc để syncWriteReqGate dựng lại nhãn sau mỗi lượt chat (nhãn có thể đang là
+                           "Đang tạo tài liệu…"/"Đang soát…"). Nút chỉ còn MỘT nhãn vì cổng chỉ còn MỘT
+                           trạng thái mở ("ready"); các trạng thái khác không dựng nút nào. Cờ "run đang
+                           bay" KHÔNG lặp lại ở đây — nó đã nằm trong data-state của #writeReqZone, và hai
+                           nguồn sự thật cho cùng một điều là đúng thứ sinh ra vênh trạng thái. *@
                         <form asp-action="WriteRequirement"
                               method="post"
                               class="write-req write-req-@writeReqState"
                               onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang tạo tài liệu…';">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="projectId" value="@Model.Id" />
-                            <button class="btn write-req-btn @(writeReqState == "regenerate" ? "outline" : "primary")"
+                            <button class="btn write-req-btn primary"
                                     type="submit"
                                     data-idle-label="@writeReqLabel"
-                                    data-ready-label="✓ Đúng hết — tạo tài liệu"
-                                    data-ready-title="BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm."
-                                    data-regenerate-label="🔄 Tạo lại tài liệu"
-                                    data-regenerate-title="Tài liệu đã soạn xong và anh/chị chưa bổ sung gì thêm. Bấm để soạn lại và GHI ĐÈ bản hiện tại."
+                                    data-ready-label="@writeReqLabel"
+                                    data-ready-title="@writeReqTitle"
                                     title="@writeReqTitle">
                                 @writeReqLabel
                             </button>
