@@ -105,10 +105,10 @@ public class AskedQuestionHistoryTests
     [Fact]
     public void ReopenedGroups_ExemptsTheGroupTheUserJustFlaggedAsWrong()
     {
-        // Người dùng bấm "chưa đúng?" trên panel tiến độ ⇒ CoverageMapEditor hạ dòng đó xuống [MỘT PHẦN]
-        // kèm ghi chú. Không có ngoại lệ này, phanh sẽ chặn đúng cái đường thoát mà họ vừa mở ra.
+        // Người dùng nói trong chat "nhóm này BA hiểu chưa đúng" ⇒ lượt chắt lọc hạ dòng đó xuống
+        // [MỘT PHẦN] kèm ghi chú. Không có ngoại lệ này, phanh sẽ chặn đúng cái đường thoát vừa mở ra.
         var map = "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: "
-                  + CoverageMapEditor.ReopenNote + " — cần hỏi lại và chốt lại.\n"
+                  + AskedQuestionHistory.ReopenNote + " — cần hỏi lại và chốt lại.\n"
                   + "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: khi nào gửi";
 
         var reopened = AskedQuestionHistory.ReopenedGroups(CoverageMapParser.Parse(map));

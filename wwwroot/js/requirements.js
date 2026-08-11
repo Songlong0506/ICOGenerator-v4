@@ -796,13 +796,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const clear = items.filter(x => x.status === "RÕ").length;
         const notApplicable = items.filter(x => x.status === "KHÔNG ÁP DỤNG").length;
 
+        // Dòng CHỈ ĐỌC — không còn nút "chưa đúng?" cho từng nhóm (xem chú thích ở Index.cshtml): đính
+        // chính đi qua chat, lượt chắt lọc kế tiếp hạ nhóm tương ứng xuống [MỘT PHẦN].
         list.innerHTML = items.map(x => `
-            <li class="coverage-item ${x.status === "KHÔNG ÁP DỤNG" ? "na" : ""}" data-label="${escapeHtml(x.label)}" title="${escapeHtml(coverageTooltip(x))}">
+            <li class="coverage-item ${x.status === "KHÔNG ÁP DỤNG" ? "na" : ""}" title="${escapeHtml(coverageTooltip(x))}">
                 <span class="cov-ico">${coverageIcons[x.status] || "⚪"}</span>
                 <span class="cov-label">${escapeHtml(x.label)}</span>
-                ${(x.status === "RÕ" || x.status === "MỘT PHẦN")
-                    ? `<button type="button" class="cov-wrong" title="Nhóm này BA hiểu chưa đúng — hỏi lại giúp tôi">chưa đúng?</button>`
-                    : ""}
             </li>
         `).join("");
 
@@ -817,9 +816,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (naCount) naCount.textContent = notApplicable;
         if (na) na.hidden = notApplicable === 0;
 
-        // Ghi chú của khung rỗng chỉ đúng khi CHƯA nhóm nào được khai thác.
-        const hint = document.getElementById("coverageHint");
-        if (hint) hint.hidden = !items.every(x => x.status === "CHƯA HỎI");
+        // Dòng .coverage-hint ("chỗ nào chưa đúng thì nói trong chat") do server render và đúng ở MỌI
+        // trạng thái bản đồ, nên hàm này không đụng tới nó.
 
         panel.hidden = false;
     }
@@ -880,8 +878,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     }
 
     // Nguồn duy nhất vẽ ra cổng. Viết dạng TOÀN PHẦN (mọi trạng thái đều có nhánh) chứ không vá từng phần:
-    // cổng bị điều khiển từ ba chỗ (hai frame SSE + nút "chưa đúng?" của bản đồ bao phủ), và mỗi chỗ chỉ
-    // sửa một mẩu trạng thái thì kiểu gì cũng có tổ hợp không ai vẽ đúng.
+    // cổng bị điều khiển từ hai frame SSE khác nhau (`done` mang cờ mời, `decisions` tới sau và không mang
+    // cờ), và mỗi chỗ chỉ sửa một mẩu trạng thái thì kiểu gì cũng có tổ hợp không ai vẽ đúng.
     function syncWriteReqGate() {
         const gate = document.getElementById("summaryGate");
         if (!gate || !writeReqZone) return;
@@ -1197,46 +1195,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
     });
 
-    // Bấm "chưa đúng?" trên một nhóm của bản đồ bao phủ → hạ nhóm xuống [MỘT PHẦN] NGAY (server sửa bản
-    // đồ tất định, không chờ lượt chat) rồi soạn sẵn tin nhắn để user nói lại cho đúng. Không có đường
-    // này thì một nhóm bị chấm [RÕ] oan sẽ không bao giờ được hỏi lại — BA bị cấm hỏi lại nhóm đã [RÕ].
-    const coveragePanelEl = document.getElementById("coveragePanel");
-    if (coveragePanelEl) {
-        coveragePanelEl.addEventListener("click", async function (e) {
-            const btn = e.target.closest(".cov-wrong");
-            if (!btn) return;
-
-            const item = btn.closest(".coverage-item");
-            const label = item ? item.dataset.label : "";
-            if (!label) return;
-
-            btn.disabled = true;
-            try {
-                const fd = new FormData();
-                fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
-                fd.append("label", label);
-                const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
-                fd.append("__RequestVerificationToken", tokenEl ? tokenEl.value : "");
-                const resp = await fetch(coveragePanelEl.dataset.reopenUrl, { method: "POST", body: fd });
-                const data = await resp.json();
-                if (data.ok) {
-                    renderCoverage(data.coverage);
-                    // Hạ một nhóm khỏi [RÕ] ⇒ bản đồ không còn đủ ⇒ cổng tạo tài liệu phải đóng ngay, chứ
-                    // không đợi tới lượt chat kế tiếp: nút vẫn bấm được lúc này là mời soạn tài liệu từ
-                    // đúng cách hiểu người dùng vừa nói là sai.
-                    setWriteReqInvited(!!data.ready);
-                }
-            } catch {
-                // Mất mạng: không sửa được bản đồ thì thôi, người dùng vẫn gõ được đính chính vào chat
-                // bên dưới — lượt gộp kế tiếp sẽ hạ nhóm đó xuống.
-            }
-
-            messageInput.value = `Nhóm "${label}" BA hiểu chưa đúng. Ý đúng của tôi là: `;
-            resizeMessageInput();
-            messageInput.focus();
-            messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
-        });
-    }
+    // KHÔNG còn handler cho nút "chưa đúng?" của panel bản đồ bao phủ — nút đã gỡ (xem Index.cshtml).
+    // Người dùng đính chính bằng câu của họ trong chat; lượt chắt lọc bản đồ hạ nhóm tương ứng xuống
+    // [MỘT PHẦN] và cổng tạo tài liệu đóng theo frame `done` của lượt đó, không cần đường riêng.
 
     // KHÔNG có hàm render nào cho "triển vọng phỏng vấn" (InterviewOutlookService) nữa: cả ba danh sách
     // đều không có panel — openQuestions đi vào ngữ cảnh chat của BA ở lượt sau, plannedScope đi vào ngữ

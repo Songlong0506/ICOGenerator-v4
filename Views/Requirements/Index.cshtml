@@ -348,8 +348,7 @@
            thiếu gì — thay vì cảm giác "bị hỏi vô tận". Dự án mới CŨNG hiện panel, ở dạng khung 12 nhóm
            [CHƯA HỎI] (CoverageChecklist): đó chính là lúc "cuộc phỏng vấn này dài bao nhiêu" đáng nói
            nhất. Chỉ ẩn khi không dựng nổi cả khung (prompt coverage bị sửa hỏng) — fail-open như cũ. *@
-        <div class="coverage-panel" id="coveragePanel" @(coverage.Count == 0 ? "hidden" : "")
-             data-reopen-url="@Url.Action("ReopenCoverage", "Requirements")">
+        <div class="coverage-panel" id="coveragePanel" @(coverage.Count == 0 ? "hidden" : "")>
             <h3>Tiến độ khai thác</h3>
             <div class="coverage-progress">
                 <div class="coverage-bar">
@@ -373,24 +372,30 @@
             <ul class="coverage-list" id="coverageList">
                 @foreach (var item in coverage)
                 {
+                    @* Dòng CHỈ ĐỌC. Nút "chưa đúng?" hiện khi hover từng nhóm đã bị gỡ: nhãn nhóm là từ
+                       vựng nội bộ của BA ("Vòng đời & trạng thái", "Phân quyền theo nghiệp vụ") — người
+                       dùng nghiệp vụ không đọc được chúng để biết mình đang phản đối cái gì, nên cái nút
+                       ấy mời họ bấm vào một thứ họ không hiểu. Việc xác nhận "BA hiểu đúng chưa" thuộc về
+                       khung chat, nơi BA đọc lại bằng lời của người dùng và hỏi lại (nhịp tóm tắt kiểm
+                       chứng trong requirement-chat.v4.md); nói "chỗ này chưa đúng" ở đó thì lượt chắt lọc
+                       hạ nhóm tương ứng xuống [MỘT PHẦN] và cổng tạo tài liệu tự đóng. *@
                     <li class="coverage-item @(item.Status == "KHÔNG ÁP DỤNG" ? "na" : "")"
-                        data-label="@item.Label"
                         title="@CoverageTooltip(item)">
                         <span class="cov-ico">@CoverageIcon(item.Status)</span>
                         @* IsCore (★) vẫn dùng để xếp thứ tự nhóm còn thiếu trong RequirementReadinessGate,
                            nhưng KHÔNG hiển thị: với user, "nhóm cốt lõi" là phân loại nội bộ của BA — mọi nhóm
                            áp dụng đều phải [RÕ] mới mở được Write Requirement, nên ★ chỉ gây nhiễu. *@
                         <span class="cov-label">@item.Label</span>
-                        @* ĐƯỜNG ĐÍNH CHÍNH: một nhóm bị chấm [RÕ] oan là điểm mù kín của hệ thống (BA bị
-                           cấm hỏi lại nhóm đã [RÕ]), nên người dùng phải có nút phản đối ngay tại đó.
-                           Nút chỉ hiện khi hover dòng nên không tốn chỗ ở trạng thái nghỉ. *@
-                        @if (item.Status is "RÕ" or "MỘT PHẦN")
-                        {
-                            <button type="button" class="cov-wrong" title="Nhóm này BA hiểu chưa đúng — hỏi lại giúp tôi">chưa đúng?</button>
-                        }
                     </li>
                 }
             </ul>
+
+            @* Panel này CHỈ ĐỌC nên phải nói ra đường đính chính, nếu không việc gỡ nút "chưa đúng?" biến
+               nó thành một danh sách người dùng thấy sai mà không biết kêu ở đâu. Câu này cố ý KHÔNG nhắc
+               tên nhóm: người dùng mô tả bằng lời của họ, việc quy nó về nhóm nào là của lượt chắt lọc. *@
+            <p class="coverage-hint">
+                Thấy chỗ nào mình hiểu chưa đúng? Anh/chị cứ nói lại trong khung chat — mình sẽ hỏi lại cho rõ.
+            </p>
 
             @* KHÔNG có nút "Write Requirement" ở đây nữa — nút thật đã chuyển hẳn vào cổng tạo tài liệu
                trong khung chat (#writeReqZone), cùng chỗ với lời mời sinh ra nó.

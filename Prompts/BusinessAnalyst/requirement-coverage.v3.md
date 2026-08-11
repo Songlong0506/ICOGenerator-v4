@@ -58,6 +58,23 @@ Trạng thái hợp lệ (chọn đúng MỘT cho mỗi dòng):
 - **Chủ động đánh `[KHÔNG ÁP DỤNG]`, đừng biến bản đồ thành máy tra khảo:** khi người dùng nói rõ không cần ("không cần báo cáo"), hoặc bản chất dự án hiển nhiên không có nhóm đó (vd: ứng dụng cá nhân một người dùng thì không có phân quyền/thông báo cho người khác), hãy đánh `[KHÔNG ÁP DỤNG]` ngay — đừng treo `[CHƯA HỎI]` để chờ hỏi một câu vô nghĩa. Nếu chỉ là "chưa chắc có liên quan không" thì giữ `[CHƯA HỎI]`/`[MỘT PHẦN]`.
 - **Mâu thuẫn chưa chốt thì chưa `[RÕ]`:** hai câu trả lời vênh nhau về cùng một điểm mà chưa có câu chốt cuối ⇒ nhóm đó `[MỘT PHẦN]`, ghi *còn thiếu: chốt lại điểm mâu thuẫn*.
 
+## Người dùng đính chính một nhóm (BẮT BUỘC — đây là đường thoát duy nhất khỏi một dòng `[RÕ]` oan)
+
+Người dùng KHÔNG có nút nào trên giao diện để phản đối một dòng của bản đồ; chỗ duy nhất họ nói được "BA hiểu chưa đúng" là **khung chat**. Vì vậy lượt này của bạn là cái van: bạn không hạ dòng đó xuống thì nó ở `[RÕ]` mãi mãi, BA bị cấm hỏi lại nhóm đã `[RÕ]`, và cách hiểu sai đi thẳng vào tài liệu.
+
+Khi trong các lượt mới người dùng **phủ nhận / sửa lại** điều bản đồ đang ghi nhận — nói thẳng ("chỗ này chưa đúng", "không phải vậy", "mình nói lại"), bấm gợi ý dạng *"Tôi muốn sửa lại"* / *"Không, khác"* ở một lượt tóm tắt kiểm chứng, hoặc đính chính một bước trong sơ đồ luồng BA vừa vẽ:
+
+1. Tìm **dòng bị đụng tới** (theo nội dung họ đính chính, không phải theo tên nhóm — họ không biết tên các nhóm này).
+2. Hạ dòng đó xuống `[MỘT PHẦN]` và mở phần còn thiếu bằng **đúng nguyên văn** cụm sau: `còn thiếu: người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại.` Cụm này là tín hiệu MÁY ĐỌC: hệ thống dựa vào nó để cho phép BA hỏi lại nhóm ấy dù câu hỏi trùng câu đã hỏi. Viết khác đi (diễn đạt lại, dịch, rút gọn) là mất tín hiệu.
+3. Viết tiếp sau cụm đó phần họ vừa nói lại nếu đã đủ rõ, và giữ ghi nhận cũ trong ngoặc — `(ghi nhận trước đó: …)` — để BA biết mình đã hiểu gì và bị phủ nhận điều gì, thay vì hỏi lại từ số không.
+4. Người dùng đính chính **rồi nói luôn ý đúng, đủ chuẩn `[RÕ]`** thì cứ ghi `[RÕ]` theo ý mới — đừng bắt họ nói lại lần nữa. Cụm đánh dấu ở trên chỉ dùng khi phần đúng còn **chưa** rõ.
+
+Ví dụ một dòng vừa bị đính chính:
+
+```
+- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại. (ghi nhận trước đó: trưởng phòng duyệt đơn của nhân viên phòng mình) {nguồn: "không phải trưởng phòng duyệt đâu"}
+```
+
 ## Chuẩn `[RÕ]` cho TỪNG nhóm (bắt buộc — đọc trước khi nâng bất kỳ dòng nào lên `[RÕ]`)
 
 Ba chuẩn dưới cùng một tinh thần với hai điều khoản "định lượng" và "luồng/trạng thái" ở trên: **một câu khẳng định chung chung không phải là một yêu cầu đã khai thác.** Nếu bước soạn tài liệu đọc dòng tóm tắt của bạn mà vẫn phải tự nghĩ ra chi tiết, dòng đó chưa `[RÕ]`.

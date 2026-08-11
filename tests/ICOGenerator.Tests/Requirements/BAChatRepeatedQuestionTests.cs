@@ -152,10 +152,11 @@ public class BAChatRepeatedQuestionTests : IDisposable
     {
         await SeedAnsweredBatchAsync();
 
-        // Người dùng vừa bấm "chưa đúng?" trên nhóm vai trò ⇒ họ CHỦ ĐỘNG xin được hỏi lại. Phanh phải
-        // nhường, nếu không nút "chưa đúng?" trở thành nút không làm gì cả.
+        // Người dùng vừa nói trong chat "nhóm vai trò chưa đúng" và lượt chắt lọc đã đánh dấu dòng đó ⇒ họ
+        // CHỦ ĐỘNG xin được hỏi lại. Phanh phải nhường, nếu không lời đính chính của họ rơi vào im lặng:
+        // bản đồ đã hạ nhóm xuống nhưng câu hỏi của BA lại bị lọc mất vì trùng câu cũ.
         var reopenedMap =
-            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: " + CoverageMapEditor.ReopenNote + " — cần hỏi lại và chốt lại.\n"
+            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: " + AskedQuestionHistory.ReopenNote + " — cần hỏi lại và chốt lại.\n"
             + "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: khi nào thì gọi";
 
         var llm = new FakeLlm(reopenedMap)

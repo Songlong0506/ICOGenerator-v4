@@ -38,7 +38,6 @@ public class RequirementsController : Controller
     private readonly ReviseSpecAssumptionsUseCase _reviseSpecAssumptionsUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly CheckRequirementConflictsUseCase _checkRequirementConflictsUseCase;
-    private readonly ReopenCoverageGroupUseCase _reopenCoverageGroupUseCase;
     private readonly ResolveRequirementConflictsUseCase _resolveRequirementConflictsUseCase;
     private readonly ConfirmSourceColumnMapUseCase _confirmSourceColumnMapUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
@@ -75,7 +74,6 @@ public class RequirementsController : Controller
        ReviseSpecAssumptionsUseCase reviseSpecAssumptionsUseCase,
        RetryWorkflowUseCase retryWorkflowUseCase,
        CheckRequirementConflictsUseCase checkRequirementConflictsUseCase,
-       ReopenCoverageGroupUseCase reopenCoverageGroupUseCase,
        ResolveRequirementConflictsUseCase resolveRequirementConflictsUseCase,
        ConfirmSourceColumnMapUseCase confirmSourceColumnMapUseCase,
        BAChatTurnTracker chatTurnTracker,
@@ -103,7 +101,6 @@ public class RequirementsController : Controller
         _reviseSpecAssumptionsUseCase = reviseSpecAssumptionsUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
         _checkRequirementConflictsUseCase = checkRequirementConflictsUseCase;
-        _reopenCoverageGroupUseCase = reopenCoverageGroupUseCase;
         _resolveRequirementConflictsUseCase = resolveRequirementConflictsUseCase;
         _confirmSourceColumnMapUseCase = confirmSourceColumnMapUseCase;
         _chatTurnTracker = chatTurnTracker;
@@ -507,26 +504,11 @@ public class RequirementsController : Controller
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
-    // "Chỗ này chưa đúng" trên một nhóm của panel Tiến độ khai thác: hạ nhóm xuống [MỘT PHẦN] để BA hỏi
-    // lại và cổng Write Requirement đóng lại. Sửa TẤT ĐỊNH trên bản đồ (không gọi LLM) nên người dùng
-    // thấy thanh tiến độ lùi ngay lập tức.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> ReopenCoverage(Guid projectId, [FromForm] string label)
-    {
-        var (result, coverage, ready) = await _reopenCoverageGroupUseCase.ExecuteAsync(projectId, label, HttpContext.RequestAborted);
-        if (result != ReopenCoverageResult.Ok)
-            return Json(new { ok = false, error = "Không tìm thấy nhóm này trong bản đồ — tải lại trang nhé." });
-
-        return Json(new
-        {
-            ok = true,
-            ready,
-            coverage = coverage.Select(c => new { label = c.Label, status = c.Status, summary = c.Summary, evidence = c.Evidence, isCore = c.IsCore })
-        });
-    }
+    // KHÔNG còn endpoint "ReopenCoverage" (nút "chưa đúng?" cạnh mỗi nhóm của panel Tiến độ khai thác đã
+    // gỡ): panel là bảng thuật ngữ NỘI BỘ của BA, người dùng nghiệp vụ không đọc được "Vòng đời & trạng
+    // thái" để biết mình có bấm đúng nhóm hay không. Đính chính nay đi qua chat như mọi điều khác — lượt
+    // chắt lọc bản đồ hạ đúng nhóm xuống [MỘT PHẦN] kèm ghi chú AskedQuestionHistory.ReopenNote (miễn
+    // phanh chống-hỏi-lại cho nhóm đó), và cổng Write Requirement đóng theo ở lượt kế tiếp.
 
     // BẢNG CỘT của file bảng tính người dùng vừa gửi: họ tích cột nào ứng dụng dùng và sửa lại cách hiểu BA
     // đề xuất. Endpoint này CHỈ lưu bảng; ngay sau đó trình duyệt gửi tiếp một tin nhắn chat bình thường
