@@ -13,6 +13,7 @@ Yêu cầu hiện thực:
 - QUAN TRỌNG — chỉ tạo file có phần mở rộng được phép ghi: `.cs .csproj .sln .json .js .html .css .md .sql .yml .yaml .txt`. KHÔNG dùng TypeScript (`.ts/.tsx`) hay đuôi ngoài danh sách này vì hệ thống sẽ chặn ghi file. Ưu tiên một trong hai stack: **.NET/C#** (ASP.NET Core, file `.cs/.csproj`) hoặc **Node.js thuần bằng JavaScript** (`.js`, Express + HTML/CSS), tránh framework cần biên dịch TypeScript.
 - Ghi `04_Implementation/src/README.md` mô tả: stack, cấu trúc thư mục, cách cài đặt và cách chạy.
 - Hiện thực các tính năng cốt lõi theo kiến trúc (không chỉ khung rỗng): model, logic, và UI/endpoint chính.
+- **Thông báo: CHỈ CÓ EMAIL.** Nhà máy chỉ có duy nhất một kênh thông báo là email (Email Server nội bộ) — mọi yêu cầu kiểu *"báo cho quản lý biết"* đều hiện thực bằng gửi email, kể cả khi tài liệu chỉ viết chung chung *"gửi thông báo"*. KHÔNG dựng tích hợp Microsoft Teams, SMS, Zalo, push notification hay app di động.
 - Nếu môi trường cho phép, dùng tool chạy lệnh build để xác nhận biên dịch được; sửa lỗi nếu có.
 
 Khi xong, ở câu trả lời cuối (final) tóm tắt: stack đã dùng, danh sách file chính đã tạo, cách chạy, và những phần còn hạn chế. Bản tóm tắt này sẽ được chuyển cho Tester.

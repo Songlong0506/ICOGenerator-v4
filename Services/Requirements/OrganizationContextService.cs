@@ -11,8 +11,9 @@ namespace ICOGenerator.Services.Requirements;
 /// Render "bối cảnh tổ chức Bosch" (~nửa trang) từ dữ liệu HR thật (bảng <c>OrgUnits</c>/<c>Associates</c>,
 /// đồng bộ từ HR_Portal) để đính vào prompt BA — cả lượt chat lẫn bước soạn tài liệu: danh sách department
 /// + HoD, quy mô nhân sự, chức danh phổ biến, cùng ghi chú "đơn vị yêu cầu" của từng project. Đi kèm là
-/// khối "ranh giới phạm vi" tĩnh (<see cref="BuildScopeNote"/>) — thứ chặn BA gợi ý những phạm vi không
-/// có thật với sản phẩm này ("Toàn Bosch Việt Nam", "toàn tập đoàn"…).
+/// hai khối TĨNH cùng loại "hằng số của sản phẩm": "ranh giới phạm vi" (<see cref="BuildScopeNote"/>) chặn
+/// BA gợi ý những phạm vi không có thật ("Toàn Bosch Việt Nam", "toàn tập đoàn"…), và "nền tảng đã chốt"
+/// (<see cref="BuildPlatformNote"/>) chặn BA gợi ý những kênh thông báo không có thật (Teams, SMS, Zalo…).
 ///
 /// Nguyên tắc dữ liệu: prompt CHỈ nhận dữ liệu GỘP (tên đơn vị, số lượng, chức danh) — KHÔNG bao giờ đưa
 /// thông tin cá nhân nhạy cảm của Associates (ngày sinh, điện thoại, email, địa chỉ đón) vào prompt. Tên
@@ -26,6 +27,7 @@ public partial class OrganizationContextService
 {
     private const string TemplatePath = "BusinessAnalyst/organization-context.v2.md";
     private const string ScopeTemplatePath = "BusinessAnalyst/organization-scope.v1.md";
+    private const string PlatformTemplatePath = "BusinessAnalyst/organization-platform.v1.md";
     private const string CacheKey = "OrganizationContext.BaContext";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(1);
     // Đủ để BA nhận diện các nhóm nghề chính trong nhà máy mà phần chức danh vẫn gọn một đoạn.
@@ -78,18 +80,33 @@ public partial class OrganizationContextService
     /// gọi BA — kể cả khi <c>OrgUnits</c> còn trống và <see cref="BuildBaContextAsync"/> trả null. Nội dung
     /// nằm ở template tĩnh; đọc lỗi ⇒ null (fail-open) như các phần ngữ cảnh khác.
     /// </summary>
-    public virtual string? BuildScopeNote()
+    public virtual string? BuildScopeNote() => ReadStaticBlock(ScopeTemplatePath, "ranh giới phạm vi");
+
+    /// <summary>
+    /// Nền tảng đã chốt của môi trường nhà máy: mọi ứng dụng ở đây chỉ có DUY NHẤT kênh thông báo EMAIL,
+    /// nên BA bị CẤM hỏi "muốn báo qua kênh nào" và cấm gợi ý những kênh không tồn tại (Teams, SMS, Zalo,
+    /// thông báo đẩy…) — nhóm "Thông báo / nhắc nhở" chỉ còn hỏi AI nhận và KHI NÀO.
+    ///
+    /// Cùng hạng với <see cref="BuildScopeNote"/>: sự thật của môi trường chứ không suy ra từ dữ liệu HR,
+    /// nên đi kèm MỌI lời gọi BA kể cả khi <c>OrgUnits</c> còn trống; đọc lỗi ⇒ null (fail-open). Tách
+    /// thành template riêng vì hai khối được sửa vì hai lý do khác nhau.
+    /// </summary>
+    public virtual string? BuildPlatformNote() => ReadStaticBlock(PlatformTemplatePath, "nền tảng đã chốt");
+
+    /// <summary>
+    /// Đọc một khối ngữ cảnh TĨNH từ template và cắt khối comment HTML đầu file (ghi chú dành cho người
+    /// sửa file, không phải chỉ dẫn cho model). Trả null khi rỗng hoặc đọc lỗi — caller cứ bỏ qua khối này.
+    /// </summary>
+    private string? ReadStaticBlock(string templatePath, string blockName)
     {
         try
         {
-            // Cùng quy ước với template bối cảnh: khối comment HTML đầu file là ghi chú cho người sửa,
-            // cắt bỏ trước khi gửi model.
-            var scope = HtmlCommentRegex().Replace(_prompts.Get(ScopeTemplatePath), string.Empty).Trim();
-            return scope.Length == 0 ? null : scope;
+            var block = HtmlCommentRegex().Replace(_prompts.Get(templatePath), string.Empty).Trim();
+            return block.Length == 0 ? null : block;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không đọc được khối ranh giới phạm vi {TemplatePath} — tiếp tục không có phần ngữ cảnh này.", ScopeTemplatePath);
+            _logger.LogWarning(ex, "Không đọc được khối {BlockName} {TemplatePath} — tiếp tục không có phần ngữ cảnh này.", blockName, templatePath);
             return null;
         }
     }
@@ -151,13 +168,15 @@ public partial class OrganizationContextService
     }
 
     /// <summary>
-    /// Khối ngữ cảnh tổ chức hoàn chỉnh cho một project: ranh giới phạm vi (luôn có) + bức tranh chung
-    /// (cache) + ghi chú "đơn vị yêu cầu" nếu project đã gắn <c>OrgUnitCode</c>. Trả chuỗi rỗng khi không
-    /// dựng được phần nào (fail-open) — caller cứ bỏ qua phần ngữ cảnh này.
+    /// Khối ngữ cảnh tổ chức hoàn chỉnh cho một project: ranh giới phạm vi + nền tảng đã chốt (hai khối
+    /// hằng số, luôn có) + bức tranh chung (cache) + ghi chú "đơn vị yêu cầu" nếu project đã gắn
+    /// <c>OrgUnitCode</c>. Trả chuỗi rỗng khi không dựng được phần nào (fail-open) — caller cứ bỏ qua
+    /// phần ngữ cảnh này.
     /// </summary>
     public async Task<string> BuildCombinedContextAsync(string? projectOrgUnitCode, CancellationToken cancellationToken = default)
         => Combine(
             BuildScopeNote(),
+            BuildPlatformNote(),
             await BuildBaContextAsync(cancellationToken),
             await BuildProjectUnitNoteAsync(projectOrgUnitCode, cancellationToken));
 

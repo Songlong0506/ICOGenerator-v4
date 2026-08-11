@@ -8,16 +8,17 @@ namespace ICOGenerator.Tests.Prompts;
 // "chạy" để thấy sai, và mỗi lần thêm một bước pipeline lại có thêm một file được chép từ file gần giống
 // nhất rồi sửa. Sau vài vòng như vậy thì mỗi file một kiểu mở đầu, một tên mục đầu ra, một cách đánh dấu
 // khối đầu vào — đúng tình trạng chắp vá mà đợt dọn này gỡ ra. Không có chốt chặn thì nó quay lại y hệt,
-// và lần sau người đọc lại phải mở cả 38 file mới biết đâu là chuẩn.
+// và lần sau người đọc lại phải mở cả 40 file mới biết đâu là chuẩn.
 //
 // Test này CHỈ soi hình thức (heading, placeholder, hàng rào code). Nội dung/hành vi của từng prompt do
 // các test riêng giữ (BAChatPlaybackRuleTests, BAChatScopeConflictRuleTests, CoverageChecklistTests…) và
 // do golden set eval chấm.
 public class PromptConventionTests
 {
-    // Bốn file KHÔNG mở đầu bằng "# Vai trò:" — có lý do, không phải sót:
-    //  - organization-context/organization-scope: KHỐI NGỮ CẢNH được OrganizationContextService đính vào
-    //    THÂN một prompt khác. Thêm H1 ở đây là chèn một tiêu đề cấp 1 vào giữa prompt của vai khác.
+    // Năm file KHÔNG mở đầu bằng "# Vai trò:" — có lý do, không phải sót:
+    //  - organization-context/organization-scope/organization-platform: KHỐI NGỮ CẢNH được
+    //    OrganizationContextService đính vào THÂN một prompt khác. Thêm H1 ở đây là chèn một tiêu đề cấp 1
+    //    vào giữa prompt của vai khác.
     //  - Shared/revision: khối NỐI SAU prompt gốc của bước, đã có H1 riêng của nó.
     //  - Shared/tool-agent-native: khung system prompt bọc quanh {{instruction}} của vai, bản thân nó
     //    không phải một vai.
@@ -25,6 +26,7 @@ public class PromptConventionTests
     {
         "BusinessAnalyst/organization-context.v2.md",
         "BusinessAnalyst/organization-scope.v1.md",
+        "BusinessAnalyst/organization-platform.v1.md",
         "Shared/revision.v1.md",
         "Shared/tool-agent-native.v1.md",
     };

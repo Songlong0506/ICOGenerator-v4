@@ -5,6 +5,7 @@ User đã duyệt POC. Dự án này dùng **BỘ KHUNG CHUẨN BOSCH** (đã ch
 ## Stack BẮT BUỘC (không thay đổi, không bàn lại)
 - Backend: **.NET 8**, kiến trúc phân lớp (Domain → Application → Infrastructure → RestApi, kèm BuildingBlocks). EF Core, Mapster để map, AutoWrapper `ApiResponse` cho response. Skeleton đã được clone sẵn vào `04_Implementation/src/backend`.
 - Frontend: **Angular**. Skeleton đã được clone sẵn vào `04_Implementation/src/frontend`.
+- **Thông báo: CHỈ CÓ EMAIL.** Nhà máy chỉ có duy nhất một kênh thông báo là email (Email Server nội bộ) — mọi yêu cầu kiểu *"báo cho quản lý biết khi đơn được duyệt"* đều thiết kế thành gửi email, kể cả khi tài liệu chỉ viết chung chung *"gửi thông báo"*. KHÔNG đề xuất tích hợp Microsoft Teams, SMS, Zalo, push notification hay app di động: những kênh đó không tồn tại ở đây.
 
 Nhiệm vụ: từ AI Design Spec bên dưới, viết bản **thiết kế kỹ thuật** ÁNH XẠ yêu cầu vào ĐÚNG bộ khung Bosch để Developer hiện thực ở bước sau. KHÔNG redesign kiến trúc, KHÔNG đổi authentication hay database provider.
 
