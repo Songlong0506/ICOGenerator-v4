@@ -1238,15 +1238,21 @@
 
 .coverage-progress-text { font-size: 12px; color: #555; white-space: nowrap; }
 
-/* Chú thích nhóm bị loại khỏi phạm vi + ghi chú của khung rỗng: cùng tông phụ, đứng dưới thanh tiến độ
-   chứ không chen vào hàng flex của nó (chen vào là thanh bị bóp còn một mẩu). */
+/* Hai dòng chú thích của panel: cùng tông phụ, khác chỗ đứng nên khác lề. */
 .coverage-na,
 .coverage-hint {
-    margin: -2px 0 10px;
     font-size: 11.5px;
     line-height: 1.5;
     color: #6b7280;
 }
+
+/* Nhóm bị loại khỏi phạm vi: nép ngay dưới thanh tiến độ chứ không chen vào hàng flex của nó (chen vào
+   là thanh bị bóp còn một mẩu). */
+.coverage-na { margin: -2px 0 10px; }
+
+/* Đường đính chính ("chỗ nào chưa đúng thì nói trong chat"): đứng SAU danh sách nên cần khoảng thở phía
+   trên, nếu không nó dính vào nhóm cuối và đọc như một dòng thứ 13 của bản đồ. */
+.coverage-hint { margin: 10px 0 0; }
 
 /* Bản đồ bao phủ không gộp được lượt vừa rồi: danh sách bên dưới là bản CŨ. Tông cảnh báo nhưng không đỏ
    — đây không phải lỗi người dùng gây ra và họ không cần làm gì, chỉ cần biết vì sao tiến độ đứng im
@@ -1272,28 +1278,8 @@
 
     .coverage-item .cov-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Nút đính chính: mục con của một dòng bản đồ, đứng cuối hàng và KHÔNG co (nhãn dài thì nhãn ellipsis,
-   không phải nút bị bóp). Câu bằng chứng từng chiếm một hàng riêng ngay dưới nhãn — nay nằm trong
-   tooltip của dòng, nên mỗi nhóm gọn lại đúng một hàng. */
-    .coverage-item .cov-wrong {
-        flex: 0 0 auto;
-        font-family: inherit;
-        font-size: 10.5px;
-        padding: 0 6px;
-        border-radius: 999px;
-        border: 1px solid var(--line, #e5e7eb);
-        background: transparent;
-        color: #9ca3af;
-        cursor: pointer;
-        width: auto;
-        opacity: 0;
-        transition: opacity .12s ease;
-    }
-
-    .coverage-item:hover .cov-wrong,
-    .coverage-item .cov-wrong:focus-visible { opacity: 1; }
-
-    .coverage-item .cov-wrong:hover { color: #dc2626; border-color: #fca5a5; }
+/* Dòng bản đồ không có nút nào — nút ".cov-wrong" hiện-khi-hover đã gỡ (đính chính đi qua chat). Câu bằng
+   chứng cũng nằm trong tooltip của dòng chứ không chiếm hàng riêng, nên mỗi nhóm gọn đúng một hàng. */
 
 /* .decision-hint dùng chung cho các dòng chú thích nhỏ dưới tiêu đề panel (panel "Điều đã chốt" từng là
    chủ sở hữu, nay đã gỡ — panel giả định ở sidebar vẫn dùng). */

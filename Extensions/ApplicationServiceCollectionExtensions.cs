@@ -398,7 +398,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetLearnedChecklistQuery>();
         services.AddScoped<SaveLearnedChecklistUseCase>();
         services.AddScoped<CheckRequirementConflictsUseCase>();
-        services.AddScoped<ReopenCoverageGroupUseCase>();
         services.AddScoped<ResolveRequirementConflictsUseCase>();
         services.AddScoped<ConfirmSourceColumnMapUseCase>();
         return services;

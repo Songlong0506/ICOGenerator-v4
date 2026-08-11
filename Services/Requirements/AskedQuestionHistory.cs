@@ -151,8 +151,17 @@ public static class AskedQuestionHistory
     }
 
     /// <summary>
-    /// Các nhãn nhóm ĐƯỢC PHÉP hỏi lại: nhóm người dùng vừa bấm "chưa đúng?" trên panel tiến độ
-    /// (<see cref="CoverageMapEditor.Reopen"/> đánh dấu bằng <see cref="CoverageMapEditor.ReopenNote"/>).
+    /// Ghi chú đánh dấu một dòng bản đồ mà NGƯỜI DÙNG vừa nói là BA hiểu chưa đúng. Lượt chắt lọc bản đồ
+    /// ghi nguyên văn cụm này vào phần <c>còn thiếu:</c> của dòng đó — xem
+    /// <c>Prompts/BusinessAnalyst/requirement-coverage.v3.md</c> § "Người dùng đính chính một nhóm".
+    /// Là hằng số dùng chung vì <see cref="ReopenedGroups"/> đọc nó để MIỄN phanh chống-hỏi-lại cho đúng
+    /// nhóm đó. <c>PromptReopenNoteRuleTests</c> giữ prompt và hằng số này không trôi khỏi nhau.
+    /// </summary>
+    public const string ReopenNote = "người dùng báo phần này chưa đúng";
+
+    /// <summary>
+    /// Các nhãn nhóm ĐƯỢC PHÉP hỏi lại: nhóm người dùng vừa đính chính trong chat ("nhóm này BA hiểu
+    /// chưa đúng"), nhận ra qua <see cref="ReopenNote"/> trong tóm tắt dòng.
     /// Không có ngoại lệ này thì phanh chống-hỏi-lại sẽ chặn đúng cái đường mà người dùng vừa chủ động
     /// mở ra — họ bảo "nhóm này BA hiểu sai, hỏi lại giúp tôi" mà BA không được phép hỏi lại.
     /// </summary>
@@ -161,7 +170,7 @@ public static class AskedQuestionHistory
         var groups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in coverage)
         {
-            if (item.Summary.Contains(CoverageMapEditor.ReopenNote, StringComparison.OrdinalIgnoreCase))
+            if (item.Summary.Contains(ReopenNote, StringComparison.OrdinalIgnoreCase))
                 groups.Add(Key(item.Label));
         }
         return groups;

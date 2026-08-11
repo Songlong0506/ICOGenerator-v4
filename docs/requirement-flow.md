@@ -144,7 +144,7 @@ Bản tổng kết là chỗ duy nhất còn hiển thị nhật ký cho ngườ
 
 **Nhật ký rỗng KHÔNG đóng cổng.** Danh sách do LLM chắt nên rỗng là chuyện có thật (gộp lỗi, hoặc phỏng vấn ngắn chưa kịp có bản nào). Trói cổng vào "có ý để rà" thì đúng lúc đó người dùng không còn đường nào tạo tài liệu — sidebar không có nút, cổng không mở. Cổng vẫn mở, chỉ bỏ phần rà và đổi tiêu đề/lời dẫn cho khớp ("Sẵn sàng tạo tài liệu" thay vì "Tổng kết trước khi tạo tài liệu"): hứa một bản rà soát rồi không đưa ra cũng là nói sai.
 
-Trạng thái cổng đến từ **hai frame SSE khác nhau** nên `requirements.js` giữ lại cả hai (`gateState` từ cờ mời ở frame `done`, `gateItems` từ frame `decisions` tới sau và không mang cờ mời), rồi mọi thay đổi đi qua một hàm `syncWriteReqGate()` viết dạng toàn phần. Cổng bị điều khiển từ ba chỗ — hai frame đó cộng nút "chưa đúng?" của bản đồ bao phủ (hạ một nhóm khỏi `[RÕ]` phải đóng cổng NGAY, không đợi lượt sau) — nên mỗi chỗ chỉ vá một mẩu trạng thái thì kiểu gì cũng có tổ hợp không ai vẽ đúng.
+Trạng thái cổng đến từ **hai frame SSE khác nhau** nên `requirements.js` giữ lại cả hai (`gateState` từ cờ mời ở frame `done`, `gateItems` từ frame `decisions` tới sau và không mang cờ mời), rồi mọi thay đổi đi qua một hàm `syncWriteReqGate()` viết dạng toàn phần — mỗi frame chỉ vá một mẩu trạng thái thì kiểu gì cũng có tổ hợp không ai vẽ đúng.
 
 Đính chính đi qua **một lượt chat bình thường**, không qua endpoint riêng: BA đọc và xác nhận lại cách hiểu mới, nhật ký gộp lượt đó, cổng tự mở lại ở lượt mời kế tiếp với bản đã sửa. Đây cũng là điều kiện để bước soạn tài liệu (vốn đọc transcript) thấy được ghi chú — ghi chú nằm ngoài transcript thì chỉ là trang trí. **Ranh giới với cổng "chốt nhanh" đã bỏ:** mọi dòng trong bản tổng kết đều là điều người dùng ĐÃ nói hoặc đã bấm đồng ý (`decision-log.v1.md` cấm suy diễn); BA không bao giờ điền hộ ô trống rồi ghi vào hội thoại như lời người dùng — chỗ trống vẫn phải hỏi tiếp trong chat, và cổng readiness vẫn là thứ quyết định khi nào cổng mở.
 
@@ -170,7 +170,7 @@ Nay thứ được rút ngắn là **số vòng đi-về**, không phải độ 
 
 - **Ngữ cảnh**: system message *"Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước"* dựng từ chính hội thoại (câu của lượt gộp + `message` của lượt hỏi một câu), nạp cạnh bản đồ. Đây là thứ duy nhất phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời" — bản đồ theo nhóm thì không.
 - **Chặn tất định**: câu hỏi trùng (khoá chuẩn hoá, hoặc bao phủ tập từ ≥ 0.8 **và** Jaccard ≥ 0.5 — bắt được câu cũ sửa vài chữ mà không chặn oan câu đào sâu mới) bị **loại khỏi lượt trả lời trước khi nó lên màn hình**. Còn ≥ 2 câu ⇒ thẻ hỏi rút gọn; còn 1 ⇒ hạ về đường một-câu; còn 0 ⇒ thay bằng bước kế tiếp suy tất định từ bản đồ (`RequirementReadinessGate`) — nêu đúng nhóm còn thiếu, hoặc mời bấm "Write Requirement" khi bản đồ đã đủ. Không bao giờ để lại một lượt câm hay một câu dẫn cụt.
-- **Ngoại lệ đúng chỗ**: nhóm mà người dùng vừa bấm **"chưa đúng?"** (`CoverageMapEditor.ReopenNote`) được MIỄN phanh — họ vừa chủ động xin được hỏi lại, chặn nó là biến nút đó thành nút không làm gì.
+- **Ngoại lệ đúng chỗ**: nhóm mà người dùng vừa **đính chính trong chat** được MIỄN phanh. Nhận diện qua cụm `AskedQuestionHistory.ReopenNote` (*"người dùng báo phần này chưa đúng"*) mà lượt chắt lọc ghi vào phần `còn thiếu:` của dòng bị đụng tới — xem [Đính chính một nhóm](#đính-chính-một-nhóm-đường-thoát-khỏi-một-dòng-rõ-oan). Không có ngoại lệ này thì lời đính chính rơi vào im lặng: bản đồ đã hạ nhóm xuống nhưng câu hỏi của BA lại bị lọc mất vì trùng câu cũ.
 
 Prompt `requirement-chat.v4.md` cũng tách rõ hai việc mà trước đây bị gộp làm một: `[CHƯA HỎI]` ⇒ hỏi câu mở đầu của nhóm; `[MỘT PHẦN]` ⇒ hỏi **đúng phần ghi sau `còn thiếu:`**, bằng câu hỏi khác hẳn, và mỗi nhóm chỉ được quay lại **tối đa một lần** trước khi phải đề xuất phương án xin chốt.
 
@@ -341,11 +341,37 @@ cần biết cổng này tồn tại. Fail-open toàn phần (`Project.PendingCo
 từ cú bấm đó, hiện ở nửa màn hình bên kia thì người dùng chỉ thấy nút mình vừa bấm không phản ứng gì.
 
 Cùng tinh thần "người dùng phải kiểm chứng được": bản đồ bao phủ nay mang **bằng chứng**
-(`{nguồn: …}` cuối mỗi dòng, `CoverageMapParser.SplitEvidence`) và có nút "chưa đúng?" hạ nhóm xuống
-[MỘT PHẦN] bằng phép sửa tất định (`CoverageMapEditor`). Không có đường này thì một nhóm bị chấm [RÕ]
-oan là điểm mù kín — prompt cấm BA hỏi lại nhóm đã [RÕ]. Bằng chứng hiện trong **tooltip** của dòng
-chứ không phải một hàng riêng dưới nhãn: ở bề rộng sidebar trích dẫn luôn bị cắt giữa chừng và hay lặp
+(`{nguồn: …}` cuối mỗi dòng, `CoverageMapParser.SplitEvidence`), hiện trong **tooltip** của dòng chứ
+không phải một hàng riêng dưới nhãn — ở bề rộng sidebar trích dẫn luôn bị cắt giữa chừng và hay lặp
 cùng một câu ở nhiều nhóm, làm panel cao gấp đôi mà vẫn không soát được gì.
+
+### Đính chính một nhóm: đường thoát khỏi một dòng [RÕ] oan
+
+Một nhóm bị chấm `[RÕ]` oan là **điểm mù kín** của hệ thống — prompt cấm BA hỏi lại nhóm đã `[RÕ]`, nên
+nhóm đó không bao giờ được nhắc tới nữa và cách hiểu sai đi thẳng vào tài liệu. Đường thoát duy nhất là
+**chat**, và nó gồm ba mảnh:
+
+1. **BA chủ động đọc lại** — nhịp tóm tắt kiểm chứng sau mỗi ~5–7 câu đã trả lời, cộng sơ đồ luồng ở lượt
+   mời tạo tài liệu (`requirement-chat.v4.md`). Người dùng nói "chưa đúng" bằng lời của họ, không phải bằng
+   tên nhóm.
+2. **Lượt chắt lọc hạ dòng bị đụng tới xuống `[MỘT PHẦN]`** kèm **đúng nguyên văn** cụm
+   `còn thiếu: người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại.`, giữ ghi nhận cũ trong ngoặc
+   (`requirement-coverage.v3.md` § *"Người dùng đính chính một nhóm"*). Cổng "Write Requirement" đóng theo,
+   vì nó suy tất định từ chính bản đồ.
+3. **Phanh chống hỏi lại nhường đường** cho nhóm mang cụm đó (`AskedQuestionHistory.ReopenNote`), nếu không
+   BA hỏi lại mà câu hỏi bị lọc mất vì trùng câu cũ.
+
+Cụm ở bước 2 là một giao ước prompt↔code mà compiler không kiểm được, nên `CoverageReopenNoteRuleTests`
+giữ hai bên không trôi khỏi nhau.
+
+**Panel "Tiến độ khai thác" KHÔNG có nút "chưa đúng?" nữa** (endpoint `ReopenCoverage` và
+`CoverageMapEditor` đã gỡ). Nút cũ hạ nhóm xuống `[MỘT PHẦN]` bằng phép sửa chuỗi tất định ngay khi bấm —
+nhanh hơn đường chat một lượt — nhưng nó bắt người dùng **tự quy lời phàn nàn của mình về một trong 12
+nhãn**: *"Vòng đời & trạng thái"*, *"Phân quyền theo nghiệp vụ"* là từ vựng nội bộ của BA, người dùng
+nghiệp vụ không đọc được chúng để biết mình đang phản đối cái gì. Bấm nhầm nhóm thì họ mở lại một nhóm
+đang đúng và nhóm sai vẫn `[RÕ]` — tệ hơn không bấm. Panel nay **chỉ đọc**, và mang một dòng chỉ đường
+(`.coverage-hint`) về khung chat: panel người dùng thấy sai mà không biết kêu ở đâu còn tệ hơn panel
+không có nút.
 
 ---
 
