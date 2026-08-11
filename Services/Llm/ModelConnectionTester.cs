@@ -22,11 +22,15 @@ public sealed class ModelConnectionTester : IModelConnectionTester
 
     private readonly IChatClientFactory _chatClientFactory;
     private readonly int _timeoutSeconds;
+    private readonly bool _proxyEnabled;
+    private readonly string _proxyAddress;
 
     public ModelConnectionTester(IChatClientFactory chatClientFactory, LlmSettings settings)
     {
         _chatClientFactory = chatClientFactory;
         _timeoutSeconds = settings.TestConnectionTimeoutSeconds;
+        _proxyEnabled = settings.ProxyEnabled;
+        _proxyAddress = settings.ProxyAddress;
     }
 
     public async Task<ModelConnectionTestOutcome> TestAsync(AiModel model, CancellationToken cancellationToken = default)
@@ -55,7 +59,7 @@ public sealed class ModelConnectionTester : IModelConnectionTester
         catch (Exception ex)
         {
             stopwatch.Stop();
-            var (status, message, detail) = Describe(ex);
+            var (status, message, detail) = Describe(ex, model);
             return new ModelConnectionTestOutcome(false, stopwatch.ElapsedMilliseconds, status, detail, message);
         }
     }
@@ -63,8 +67,17 @@ public sealed class ModelConnectionTester : IModelConnectionTester
     // Cùng cách phân loại lỗi như ModelCallLoggingChatClient: non-2xx từ API mang theo status code, deadline
     // của chính mình là timeout, còn lại là lỗi mạng/DNS/URL. Người dùng đang sửa cấu hình nên câu chính phải
     // nói được "sai ở đâu"; nguyên văn của SDK đẩy xuống dòng chi tiết.
-    private (int? Status, string Message, string? Detail) Describe(Exception ex)
+    private (int? Status, string Message, string? Detail) Describe(Exception ex, AiModel model)
     {
+        // Hỏi trước cả Unwrap: lỗi proxy nằm DƯỚI một HttpRequestException chung chung, mà Unwrap thì dừng
+        // ở lớp đầu tiên nó nhận ra — cứ để nó chạy trước thì câu trả lời luôn là "endpoint không chạy".
+        if (LlmExceptionDetail.IsProxyFailure(ex))
+            return (null,
+                $"Proxy {_proxyAddress} không mở được đường ra endpoint — endpoint có thể vẫn khỏe. Xem mã ở "
+                + "dòng chi tiết: 502/503 = proxy không ra được Internet (kiểm tra proxy và mạng), 407 = proxy "
+                + "đòi xác thực (bật Llm:Proxy:UseDefaultCredentials để app trả lời bằng tài khoản Windows).",
+                Truncate(LlmExceptionDetail.Describe(ex)));
+
         var cause = LlmExceptionDetail.Unwrap(ex);
         return cause switch
         {
@@ -72,12 +85,23 @@ public sealed class ModelConnectionTester : IModelConnectionTester
             ClientResultException { Status: > 0 } api => (api.Status, DescribeStatus(api.Status), Truncate(api.Message)),
             OperationCanceledException => (null, $"Không có phản hồi trong {_timeoutSeconds}s (timeout).", null),
             HttpRequestException or SocketException => (null,
-                "Không kết nối được tới endpoint — kiểm tra địa chỉ/port và xem endpoint có đang chạy.",
+                "Không kết nối được tới endpoint — kiểm tra địa chỉ/port và xem endpoint có đang chạy."
+                    + ProxyNote(model),
                 // Cả chuỗi nguyên nhân, không chỉ câu chung chung của lớp ngoài — xem LlmExceptionDetail.
                 Truncate(LlmExceptionDetail.Describe(ex))),
             _ => (null, cause.Message, ReferenceEquals(cause, ex) ? null : Truncate(ex.Message))
         };
     }
+
+    /// <summary>
+    /// Lưới đỡ cho các lỗi proxy KHÔNG tự nhận diện được (proxy tắt hẳn thì chỉ còn một lỗi kết nối trơ,
+    /// không nói được nó đang nối tới proxy hay tới endpoint). Không khẳng định proxy là thủ phạm — chỉ nói
+    /// ra sự thật mà người đứng trước modal không có cách nào biết: request này không đi thẳng.
+    /// </summary>
+    private string ProxyNote(AiModel model) =>
+        _proxyEnabled && !OpenAIChatClientFactory.IsLocalEndpoint(model.Endpoint)
+            ? $" Lời gọi này đi qua proxy {_proxyAddress} (Llm:Proxy), nên proxy chết cũng cho ra lỗi y hệt."
+            : string.Empty;
 
     private static string DescribeStatus(int status) => status switch
     {

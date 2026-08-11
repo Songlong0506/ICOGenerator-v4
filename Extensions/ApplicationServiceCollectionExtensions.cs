@@ -586,7 +586,9 @@ public static class ApplicationServiceCollectionExtensions
             {
                 // When the proxy is disabled (e.g. at home) this client falls back to a direct connection.
                 UseProxy = llmSettings.ProxyEnabled,
-                Proxy = llmSettings.ProxyEnabled ? new WebProxy(llmSettings.ProxyAddress) : null,
+                // Địa chỉ + credential + danh sách bypass dựng ở LlmProxy (có test) — xem file đó để biết
+                // vì sao hai thứ sau không thể là một dòng khởi tạo ở đây.
+                Proxy = LlmProxy.Create(llmSettings),
                 PooledConnectionLifetime = TimeSpan.FromMinutes(5)
             })
             .AddHttpMessageHandler<LlmRequestCompatibilityHandler>();

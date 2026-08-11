@@ -24,12 +24,21 @@ public class OpenAIChatClientFactory : IChatClientFactory
     public OpenAIChatClientFactory(IHttpClientFactory httpClientFactory)
         => _httpClientFactory = httpClientFactory;
 
+    /// <summary>
+    /// True khi endpoint trỏ về chính máy đang chạy app ⇒ đi thẳng, không qua proxy. Là chỗ DUY NHẤT
+    /// định nghĩa "local" cho lời gọi LLM: <see cref="ModelConnectionTester"/> phải trả lời được câu
+    /// "lời gọi vừa rồi có đi qua proxy không" để chỉ đúng chỗ hỏng, và nếu nó tự chép lại luật này thì
+    /// hai bên sẽ lệch nhau ngay lần đầu ai đó thêm một dạng địa chỉ loopback.
+    /// </summary>
+    public static bool IsLocalEndpoint(string? endpoint) =>
+        endpoint is not null
+        && (endpoint.Contains("localhost")
+            || endpoint.Contains("127.0.0.1")
+            || endpoint.Contains("::1")); // IPv6 loopback, incl. the [::1] URL form
+
     public IChatClient Create(AiModel model)
     {
-        var isLocal = model.Endpoint.Contains("localhost")
-            || model.Endpoint.Contains("127.0.0.1")
-            || model.Endpoint.Contains("::1"); // IPv6 loopback, incl. the [::1] URL form
-        var http = _httpClientFactory.CreateClient(isLocal ? DirectClientName : ProxiedClientName);
+        var http = _httpClientFactory.CreateClient(IsLocalEndpoint(model.Endpoint) ? DirectClientName : ProxiedClientName);
 
         var options = new OpenAIClientOptions
         {

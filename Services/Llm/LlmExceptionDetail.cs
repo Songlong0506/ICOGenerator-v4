@@ -108,4 +108,19 @@ internal static class LlmExceptionDetail
         AggregateException aggregate => aggregate.InnerExceptions.Any(IsTransportFailure),
         _ => ex.InnerException is { } inner && IsTransportFailure(inner),
     };
+
+    /// <summary>
+    /// Lời gọi chết ở PROXY chứ không ở endpoint: proxy nhận được request nhưng từ chối mở tunnel (503 khi
+    /// proxy sập/quá tải, 407 khi thiếu xác thực). Phân biệt được chuyện này là quan trọng vì triệu chứng
+    /// nhìn y hệt "endpoint không chạy", trong khi việc phải làm thì ngược nhau hoàn toàn — người dùng sẽ
+    /// đi soi endpoint và ApiKey của một endpoint hoàn toàn khỏe mạnh. Nhận theo
+    /// <see cref="HttpRequestError.ProxyTunnelError"/> chứ không so chuỗi, và đi hết cây vì lỗi này nằm
+    /// dưới vài lớp bọc của chính sách retry.
+    /// </summary>
+    public static bool IsProxyFailure(Exception ex) => ex switch
+    {
+        HttpRequestException { HttpRequestError: HttpRequestError.ProxyTunnelError } => true,
+        AggregateException aggregate => aggregate.InnerExceptions.Any(IsProxyFailure),
+        _ => ex.InnerException is { } inner && IsProxyFailure(inner),
+    };
 }
