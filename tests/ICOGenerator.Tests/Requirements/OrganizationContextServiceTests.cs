@@ -141,21 +141,23 @@ public class OrganizationContextServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task BuildCombinedContext_AlwaysCarriesScopeBoundary_EvenWithoutOrgData()
+    public async Task BuildCombinedContext_AlwaysCarriesProductConstants_EvenWithoutOrgData()
     {
-        // Bảng OrgUnits trống ⇒ bức tranh tổ chức là null, nhưng ranh giới phạm vi (nhà máy Đồng Nai)
-        // là sự thật của sản phẩm nên vẫn phải tới được prompt BA — đây là thứ chặn các phương án kiểu
-        // "Toàn Bosch Việt Nam".
+        // Bảng OrgUnits trống ⇒ bức tranh tổ chức là null, nhưng hai khối hằng số — ranh giới phạm vi
+        // (nhà máy Đồng Nai) và nền tảng đã chốt (chỉ có kênh email) — là sự thật của sản phẩm nên vẫn
+        // phải tới được prompt BA: đây là thứ chặn các phương án không có thật kiểu "Toàn Bosch Việt Nam"
+        // hay "Thông báo qua Teams".
         await using var db = NewDb();
         var combined = await NewSut(db).BuildCombinedContextAsync(projectOrgUnitCode: null);
 
         Assert.Contains(StubPrompts.ScopeText, combined);
+        Assert.Contains(StubPrompts.PlatformText, combined);
         // Comment HTML dành cho người sửa file không được lọt vào prompt.
         Assert.DoesNotContain("ghi chú cho người sửa file", combined);
     }
 
     [Fact]
-    public async Task BuildCombinedContext_WithOrgData_PutsScopeBeforePicture_AndProjectUnitNote()
+    public async Task BuildCombinedContext_WithOrgData_PutsConstantsBeforePicture_AndProjectUnitNote()
     {
         await SeedOrgTreeAsync();
 
@@ -163,11 +165,12 @@ public class OrganizationContextServiceTests : IDisposable
         var combined = await NewSut(db).BuildCombinedContextAsync(LeafUnitCode);
 
         var scopeIndex = combined.IndexOf(StubPrompts.ScopeText, StringComparison.Ordinal);
+        var platformIndex = combined.IndexOf(StubPrompts.PlatformText, StringComparison.Ordinal);
         var pictureIndex = combined.IndexOf("HcP/TEF (mã 100)", StringComparison.Ordinal);
         var unitNoteIndex = combined.IndexOf("Đơn vị yêu cầu của dự án này", StringComparison.Ordinal);
 
-        Assert.True(scopeIndex >= 0 && pictureIndex > scopeIndex && unitNoteIndex > pictureIndex,
-            $"Thứ tự khối ngữ cảnh sai: scope={scopeIndex}, picture={pictureIndex}, unitNote={unitNoteIndex}.");
+        Assert.True(scopeIndex >= 0 && platformIndex > scopeIndex && pictureIndex > platformIndex && unitNoteIndex > pictureIndex,
+            $"Thứ tự khối ngữ cảnh sai: scope={scopeIndex}, platform={platformIndex}, picture={pictureIndex}, unitNote={unitNoteIndex}.");
     }
 
     [Theory]
@@ -238,18 +241,21 @@ public class OrganizationContextServiceTests : IDisposable
     public void Dispose() => _connection.Dispose();
 
     // Template thật nằm ở Prompts/BusinessAnalyst/ (không copy sang test project); stub giữ đúng ba
-    // placeholder để test khẳng định chúng được thay bằng dữ liệu render, và một khối "ranh giới phạm vi"
-    // riêng (kèm comment HTML) để test khẳng định khối đó luôn được ghép vào và bị cắt comment.
+    // placeholder để test khẳng định chúng được thay bằng dữ liệu render, và hai khối HẰNG SỐ riêng
+    // (kèm comment HTML) để test khẳng định chúng luôn được ghép vào và bị cắt comment.
     private sealed class StubPrompts : PromptTemplateService
     {
         public const string ScopeText = "## Ranh giới phạm vi\nChỉ nhà máy Bosch Đồng Nai.";
+        public const string PlatformText = "## Nền tảng đã chốt\nChỉ có kênh email.";
 
         public StubPrompts() : base(null!) { }
 
-        public override string Get(string relativePath) =>
-            relativePath == "BusinessAnalyst/organization-scope.v1.md"
-                ? "<!-- ghi chú cho người sửa file -->\n" + ScopeText
-                : "## Bối cảnh tổ chức\n\n{{DEPARTMENTS}}\n\n{{POSITIONS}}\n\n{{TOTALS}}";
+        public override string Get(string relativePath) => relativePath switch
+        {
+            "BusinessAnalyst/organization-scope.v1.md" => "<!-- ghi chú cho người sửa file -->\n" + ScopeText,
+            "BusinessAnalyst/organization-platform.v1.md" => "<!-- ghi chú cho người sửa file -->\n" + PlatformText,
+            _ => "## Bối cảnh tổ chức\n\n{{DEPARTMENTS}}\n\n{{POSITIONS}}\n\n{{TOTALS}}"
+        };
     }
 
     private sealed class PassthroughApiKeyProtector : IApiKeyProtector

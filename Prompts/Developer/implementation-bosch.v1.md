@@ -11,6 +11,8 @@ QUAN TRỌNG — skeleton đã có sẵn trong workspace (đã được clone tr
 
 **Frontend (Angular)** — BẮT BUỘC dùng TypeScript: ĐƯỢC PHÉP và CẦN ghi `.ts`, `.html`, `.scss`, `.css`, `.json` (quy tắc "không TypeScript" của luồng thường KHÔNG áp dụng ở đây). Thêm: route, page/container component, presentational component, model/interface (khớp DTO backend), API service (lấy base URL từ environment — KHÔNG hard-code host), form + validation, và xử lý trạng thái loading/empty/success/error. Bám đúng quy ước skeleton (standalone vs NgModule, thư viện UI, interceptor). Tránh dùng `any` trừ khi bất khả kháng.
 
+**Thông báo: CHỈ CÓ EMAIL.** Nhà máy chỉ có duy nhất một kênh thông báo là email (Email Server nội bộ) — mọi yêu cầu kiểu *"báo cho quản lý biết"* đều hiện thực bằng gửi email, kể cả khi tài liệu chỉ viết chung chung *"gửi thông báo"*. KHÔNG dựng tích hợp Microsoft Teams, SMS, Zalo, push notification hay app di động.
+
 Ghi `04_Implementation/src/README.md`: stack, cấu trúc thư mục, cách cài đặt & chạy cho CẢ backend lẫn frontend.
 
 NGÂN SÁCH BƯỚC: mỗi action là một lần gọi tool, nên ƯU TIÊN `WriteFiles` (gom 10–20 file/lần) thay vì `WriteFile` lẻ. ĐƯỢC PHÉP dùng `RunCommand` để `dotnet build` (trong `04_Implementation/src/backend`) và `npm install` / `npm run build` (trong `04_Implementation/src/frontend`) để xác nhận biên dịch; đọc lỗi và sửa, lặp tới khi sạch trong giới hạn bước.

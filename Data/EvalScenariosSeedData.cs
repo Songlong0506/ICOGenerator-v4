@@ -8,8 +8,9 @@ namespace ICOGenerator.Data;
 //
 // KHÔNG seed scenario cho các template chỉ có nghĩa khi agent có tool/workspace thật (Developer/poc-preview,
 // bugfix, implementation*, pull-request; TechLead/code-review; Tester/testing; các instruction.md;
-// Shared/revision + tool-agent-native — file có placeholder {{...}}; organization-context/organization-scope —
-// khối ngữ cảnh đính kèm prompt khác, không phải prompt độc lập): harness eval chạy text-only nên điểm số cho chúng sẽ gây hiểu lầm.
+// Shared/revision + tool-agent-native — file có placeholder {{...}};
+// organization-context/organization-scope/organization-platform — khối ngữ cảnh đính kèm prompt khác, không
+// phải prompt độc lập): harness eval chạy text-only nên điểm số cho chúng sẽ gây hiểu lầm.
 // Ngoại lệ: TechLead/architecture-design.v1 vẫn đo được vì sản phẩm chính là NỘI DUNG bản thiết kế.
 //
 // UserInput của từng scenario mô phỏng đúng ĐỊNH DẠNG đầu vào thật mà service dựng lúc runtime
@@ -286,6 +287,38 @@ public static class EvalScenariosSeedData
             - KHÔNG hỏi ứng dụng có dùng cho nơi khác ngoài nhà máy không, và KHÔNG đưa phương án phạm vi vượt nhà máy vào suggestions.
             - Hỏi tiếp ĐÚNG MỘT câu ở góc nhìn nghiệp vụ, nhắm nhóm ★ chưa khai thác (vd ai dùng và vai trò của họ, hoặc hiện tại việc này đang làm bằng gì).
             - suggestions 2–5 đáp án ngắn sát câu hỏi đó.
+            """);
+
+        // Cùng loại chốt chặn với hai scenario trên, cho khối hằng số thứ hai: nhà máy chỉ có DUY NHẤT kênh
+        // thông báo email (Prompts/BusinessAnalyst/organization-platform.v1.md). Nhóm "Thông báo / nhắc nhở"
+        // là chỗ BA hay tự đẻ ra phương án không có thật — một chip "Thông báo qua Teams" người dùng bấm nhầm
+        // là yêu cầu ghi sai kênh từ lượt đầu, rồi chảy thẳng vào tài liệu và bản thiết kế.
+        Add(
+            "Chat BA — hỏi thông báo: chỉ hỏi AI nhận/KHI NÀO, không gợi ý kênh ngoài email",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Nền tảng đã chốt của nhà máy (BẮT BUỘC — áp cho câu hỏi, phương án gợi ý và tài liệu)
+
+            ### Kênh thông báo: CHỈ CÓ EMAIL
+
+            Mọi ứng dụng chạy ở nhà máy này đều chỉ có DUY NHẤT một kênh thông báo: EMAIL. KHÔNG có Microsoft Teams, KHÔNG SMS, KHÔNG Zalo, KHÔNG thông báo đẩy / app di động. Đây là điều ĐÃ CHỐT của sản phẩm, không phải điểm cần người dùng chọn: đừng hỏi họ muốn nhận thông báo qua kênh nào. Nhóm "Thông báo / nhắc nhở" chỉ còn hai điều cần làm rõ: AI nhận và KHI NÀO.
+
+            ## Điều đã chốt
+            - Ứng dụng quản lý đơn xin nghỉ phép của công nhân xưởng
+            - Nhân viên tạo đơn, quản lý trực tiếp duyệt hoặc từ chối
+
+            Hội thoại trước đó:
+            BA: Sau khi nhân viên gửi đơn thì ai là người xử lý tiếp, và các trạng thái của đơn gồm những gì?
+            Người dùng: Đơn gửi lên là ở trạng thái chờ duyệt, quản lý trực tiếp vào duyệt hoặc từ chối. Nếu nghỉ quá 3 ngày thì sau quản lý trực tiếp còn phải qua HR duyệt nữa mới xong. Ai cũng cần được báo khi đơn của mình được duyệt hay bị từ chối.
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - Người dùng vừa mở nhóm "Thông báo / nhắc nhở" ⇒ lượt này được phép đào tiếp nhóm đó, nhưng CHỈ ở hai chiều: AI nhận (người tạo đơn, quản lý trực tiếp, HR…) và KHI NÀO (đơn được duyệt, bị từ chối, chờ duyệt quá lâu…).
+            - TUYỆT ĐỐI KHÔNG hỏi muốn nhận thông báo qua KÊNH nào: kênh đã chốt là email, hỏi lại là hỏi đúng điều ĐÃ CHỐT.
+            - TUYỆT ĐỐI KHÔNG đưa vào message/questions/suggestions bất kỳ kênh nào ngoài email — "Thông báo qua Teams", "Nhắn tin SMS", "Gửi Zalo", "Thông báo đẩy trên điện thoại", "Thông báo trong ứng dụng di động" đều là phương án không có thật.
+            - KHÔNG hỏi chuyện kỹ thuật của email (SMTP, máy chủ mail, tài khoản gửi, template HTML).
+            - Nếu message có câu ghi nhận, câu đó chỉ được chứa điều người dùng THẬT SỰ đã nói — KHÔNG chèn "qua email" vào như thể họ đã nói ra, và KHÔNG đem ràng buộc kênh ra chất vấn họ như một mâu thuẫn.
+            - suggestions 2–5 mục ngắn, sát câu hỏi thật sự được đặt ra (vd các nhóm người nhận, hoặc các mốc sự kiện) — không phải danh sách kênh.
             """);
 
         // Xin file là lời nhờ HÀNH ĐỘNG, không phải câu hỏi: người dùng đọc xong thì đi tìm file, nên mọi thứ

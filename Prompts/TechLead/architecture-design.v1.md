@@ -11,6 +11,9 @@ Nhiệm vụ: từ AI Design Spec bên dưới, đề xuất một bản **kiế
 - Quy ước UI bám theo template POC có sẵn (shell layout, các class card/table/btn…).
 - Rủi ro / điểm cần lưu ý cho bước Implementation.
 
+## Ràng buộc nền tảng (ĐÃ CHỐT, không bàn lại)
+- **Thông báo: CHỈ CÓ EMAIL.** Nhà máy chỉ có duy nhất một kênh thông báo là email (Email Server nội bộ) — mọi yêu cầu kiểu *"báo cho quản lý biết khi đơn được duyệt"* đều thiết kế thành gửi email, kể cả khi tài liệu chỉ viết chung chung *"gửi thông báo"*. KHÔNG đề xuất tích hợp Microsoft Teams, SMS, Zalo, push notification hay app di động: những kênh đó không tồn tại ở đây.
+
 ## Bàn giao
 - File output (relative): `03_Architecture/architecture-design.md` — ghi bằng `WriteFile` theo quy tắc lưu kết quả của vai.
 - Câu trả lời cuối kèm nội dung kiến trúc: nó được chuyển cho Developer làm đầu vào của bước sau.
