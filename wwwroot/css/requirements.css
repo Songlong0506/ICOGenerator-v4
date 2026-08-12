@@ -1923,6 +1923,139 @@
 /* Như .batchq[hidden]: `hidden` thua mọi khai báo display của ta nên phải nói lại tường minh. */
 .colmap[hidden] { display: none; }
 
+/* ==== BẢNG PHÂN QUYỀN (lượt chốt nhóm «Phân quyền theo nghiệp vụ», cuối buổi phỏng vấn) ====
+
+   Cùng lối với bảng cột (bong bóng BA, tông xanh rất nhạt) vì cũng là một khối BA bày ra để người dùng
+   quyết ngay trong dòng hội thoại. Rộng hết mức cho phép: bảng này có một cột chức năng + N cột vai trò +
+   một cột điều kiện, bóp lại thì tên vai trò xuống dòng thành từng chữ một và không ai đọc nổi mình đang
+   cấp quyền cho ai. Cuộn NGANG trong khung riêng thay vì để cả trang trượt. */
+.req-msg.ba.permmap {
+    max-width: 98%;
+    background: #f7fbff;
+    border-color: var(--bosch-blue-tint-strong, #cfe0fb);
+}
+
+.permmap-howto { font-size: 11.5px; line-height: 1.55; color: #6b7280; margin: 0 0 10px; }
+
+/* Tên màn hình đứng trên bảng của nó — bảng gom theo màn hình vì đó là cách người dùng nghĩ về sản phẩm
+   ("ở màn hình kế hoạch thì ai làm gì"), không phải theo vai trò. */
+.permmap-screen {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bosch-blue, #2563eb);
+    margin: 12px 0 5px;
+    line-height: 1.5;
+}
+
+.permmap-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 10px;
+    display: block;
+    overflow-x: auto;
+}
+
+    .permmap-table th,
+    .permmap-table td {
+        border-bottom: 1px solid var(--line, #e5e7eb);
+        padding: 6px 9px;
+        text-align: left;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .permmap-table tr:last-child td { border-bottom: 0; }
+
+    .permmap-table th {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: #6b7280;
+        background: #fafbfc;
+    }
+
+.permmap-th-fn { min-width: 130px; }
+.permmap-th-role { min-width: 110px; }
+/* Cột điều kiện NUỐT phần thừa: bảng là display:block để cuộn ngang được, nên nếu không cột nào giãn ra
+   thì các cột co lại và chừa một khoảng trống bên phải trông như bảng bị vỡ. */
+.permmap-th-cond { min-width: 180px; width: 100%; }
+
+.permmap-fn { font-size: 12.5px; font-weight: 600; color: #374151; }
+
+/* Ô ĐÃ CÓ BẰNG CHỨNG: hiện thành dấu ✓ cố định, không phải ô chọn. Đây là chỗ thể hiện bằng thị giác ranh
+   giới mà cả tính năng dựa vào — người dùng nhìn một cái là biết ô nào đã là lời của chính mình và ô nào
+   còn phải quyết, thay vì đối diện một bảng điền sẵn trông như đã xong (rồi bấm gửi trong ba giây). */
+.permmap-locked {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #15803d;
+    cursor: help;
+    border-bottom: 1px dotted #86efac;
+}
+
+.permmap-scope {
+    font-family: inherit;
+    font-size: 12.5px;
+    padding: 3px 5px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 6px;
+    background: #fff;
+    color: #374151;
+    max-width: 130px;
+}
+
+    /* Ô chưa cấp quyền mờ đi: nhìn lướt là thấy ngay mình đang để trống những ô nào — vế mà một phương án
+       BA tự soạn rồi xin gật không bao giờ nói ra. */
+    .permmap-cell:has(.permmap-scope option[value=""]:checked) .permmap-scope { color: #9aa3af; }
+
+    .permmap-scope:focus {
+        outline: none;
+        border-color: var(--bosch-blue-tint-strong, #cfe0fb);
+    }
+
+/* Ô điều kiện — chỗ duy nhất chở được ràng buộc mà ba nấc phạm vi không diễn đạt nổi ("chỉ đăng ký được
+   khóa trong danh sách bắt buộc của mình"). Trông như text đọc được, viền chỉ hiện khi hover/focus, cùng
+   lối với ô ý nghĩa của bảng cột. */
+.permmap-condition {
+    width: 100%;
+    min-width: 170px;
+    font-family: inherit;
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #374151;
+}
+
+    .permmap-condition:hover { border-color: var(--line, #e5e7eb); }
+
+    .permmap-condition:focus {
+        outline: none;
+        border-color: var(--bosch-blue-tint-strong, #cfe0fb);
+        background: #fff;
+    }
+
+    .permmap-condition::placeholder { color: #b6bcc6; font-style: italic; }
+
+.permmap-bar {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.permmap-hint { font-size: 11.5px; color: #6b7280; line-height: 1.5; }
+
+.permmap-msg { font-size: 11.5px; color: #b45309; line-height: 1.5; flex-basis: 100%; }
+
+/* Như .colmap[hidden]: `hidden` thua mọi khai báo display của ta nên phải nói lại tường minh. */
+.permmap[hidden] { display: none; }
+
 /* ==== Cổng soát MÂU THUẪN (bấm nút tạo tài liệu mới hiện, và chỉ khi thật sự có mâu thuẫn) ====
    Nằm trong #writeReqZone ở khung chat, ngay dưới nút đã bật nó lên — không còn bản nào ở sidebar. Vì thế
    được ăn theo bề rộng khung chat: cỡ chữ nhích lên so với hồi ở cột hẹp, các lựa chọn không còn bị bó. */

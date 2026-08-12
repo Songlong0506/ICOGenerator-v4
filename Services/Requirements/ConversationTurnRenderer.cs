@@ -73,6 +73,19 @@ public static class ConversationTurnRenderer
                 + (proposed.Count > 0 ? $"; BA đề xuất DÙNG: {string.Join(", ", proposed)})" : ")");
         }
 
+        // BẢNG PHÂN QUYỀN BA đã bày ra ở lượt chốt quyền nằm ở cột riêng (PermissionMatrix). Render GỌN —
+        // chỉ các màn hình/chức năng đã bày ra — vì bản đầy đủ quay lại transcript ngay ở lượt sau dưới
+        // dạng tin nhắn của người dùng (PermissionMatrixBuilder.RenderUserMessage). Cái reader cần ở đây
+        // chỉ là biết lượt trả lời kế tiếp đang trả lời cho bảng nào.
+        var permissionMatrix = ParsePermissionMatrix(turn.PermissionMatrix);
+        if (permissionMatrix.Count > 0)
+        {
+            var screens = permissionMatrix
+                .GroupBy(r => r.Screen, StringComparer.Ordinal)
+                .Select(g => $"{g.Key} ({string.Join("/", g.Select(r => r.Function))})");
+            rendered += $"\n   (Bảng phân quyền đã đưa cho người dùng chọn: {string.Join("; ", screens)})";
+        }
+
         // Sơ đồ luồng BA đã VẼ cho người dùng xác nhận ở lượt mời "Write Requirement" nằm ở cột riêng
         // (FlowDiagram) — không render thì các reader transcript (bản đồ bao phủ, bước soạn Product
         // Brief) không hề thấy chuỗi bước mà người dùng đã duyệt bằng hình: tài liệu được soạn "mù"
@@ -144,6 +157,14 @@ public static class ConversationTurnRenderer
     /// </summary>
     public static List<SourceColumnNote> ParseColumnMap(string? columnMapJson)
         => SourceColumnMapBuilder.Parse(columnMapJson);
+
+    /// <summary>
+    /// Giải mã cột <see cref="AgentConversation.PermissionMatrix"/> (JSON array
+    /// <see cref="PermissionMatrixRow"/>) an toàn như <see cref="ParseColumnMap"/>. Dùng chung cho đường
+    /// render transcript và đường render lại bảng sau khi tải lại trang (Views/Requirements/Index.cshtml).
+    /// </summary>
+    public static List<PermissionMatrixRow> ParsePermissionMatrix(string? permissionMatrixJson)
+        => PermissionMatrixBuilder.Parse(permissionMatrixJson);
 
     /// <summary>
     /// Giải mã cột <see cref="AgentConversation.Attachments"/> (JSON array <see cref="ChatAttachment"/>)

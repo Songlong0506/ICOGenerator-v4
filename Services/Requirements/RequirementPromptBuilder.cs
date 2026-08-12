@@ -122,7 +122,8 @@ Your task:
         string? workedExamples = null,
         string? assumptionCorrections = null,
         string? realSampleData = null,
-        string? acceptanceCriteria = null)
+        string? acceptanceCriteria = null,
+        string? permissionMatrix = null)
     {
         return $$"""
 Project:
@@ -133,7 +134,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{AssumptionCorrectionsSection(assumptionCorrections)}}{{RealSampleDataSection(realSampleData)}}
+{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{AssumptionCorrectionsSection(assumptionCorrections)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -173,6 +174,28 @@ Ví dụ tính thử người dùng ĐÃ XÁC NHẬN trong lúc phỏng vấn (�
 
 Giả định người dùng đã BÁC ở các lượt trước (BẮT BUỘC tuân theo — TUYỆT ĐỐI không đưa lại giả định đã bị bác vào mục "## 12. Assumptions" hay vào bất kỳ mục nào của spec; điều đã có ý đúng kèm theo thì coi như yêu cầu ĐÃ CHỐT của người dùng, không phải giả định nữa):
 {assumptionCorrections.Trim()}
+
+""";
+    }
+
+    // Khối "bảng phân quyền đã chốt": người dùng đã tự chọn từng ô (vai trò × chức năng × màn hình, kèm
+    // PHẠM VI DỮ LIỆU) ở cuối buổi phỏng vấn. Rỗng thì biến mất (dự án cũ, hoặc chưa chốt bảng).
+    //
+    // Đây là đường DUY NHẤT để phân quyền tới được POC ở dạng máy đọc được. Không có nó, phân quyền tan
+    // vào văn xuôi của Product Brief và bản demo hiện đúng một bộ màn hình cho mọi vai — người xem demo
+    // không có cách nào nghiệm thu "manager chỉ thấy nhân viên thuộc quyền", mà đó thường lại là ràng
+    // buộc họ quan tâm nhất.
+    private static string PermissionMatrixSection(string? permissionMatrix)
+    {
+        if (string.IsNullOrWhiteSpace(permissionMatrix))
+            return string.Empty;
+
+        return $"""
+
+Bảng phân quyền người dùng ĐÃ CHỐT (họ tự chọn từng ô ở cuối buổi phỏng vấn — đây là YÊU CẦU, không phải giả định):
+{permissionMatrix.Trim()}
+
+Bắt buộc với bảng này: đưa nguyên nó vào mục "## 6b. Permission Matrix" của spec; ở mục "## 6. Screens To Generate" ghi rõ mỗi màn hình vai nào vào được và nút/hành động nào ẩn với vai nào; và PHẠM VI DỮ LIỆU ("của mình"/"của đơn vị"/"tất cả") phải thành điều kiện lọc thật trong "## 9. API Expectations" chứ không chỉ là một câu mô tả. TUYỆT ĐỐI không thêm vai trò hay quyền nào ngoài bảng.
 
 """;
     }

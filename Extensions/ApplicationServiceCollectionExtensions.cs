@@ -400,6 +400,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<CheckRequirementConflictsUseCase>();
         services.AddScoped<ResolveRequirementConflictsUseCase>();
         services.AddScoped<ConfirmSourceColumnMapUseCase>();
+        services.AddScoped<ConfirmPermissionMatrixUseCase>();
         return services;
     }
 

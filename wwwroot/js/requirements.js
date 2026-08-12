@@ -610,6 +610,135 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
+    // ==== BẢNG PHÂN QUYỀN (lượt chốt nhóm «Phân quyền theo nghiệp vụ», cuối buổi phỏng vấn) ====
+    // Khác bảng cột ở một điểm mấu chốt về đường đi: lượt đọc file luôn tới sau một lần upload (redirect ⇒
+    // tải lại trang) nên bảng cột chỉ cần bản server render, còn bảng này tới trong MỘT LƯỢT CHAT bình
+    // thường qua SSE — nên phải có cả đường JS dựng bảng ở frame done, và markup hai bên phải khớp nhau.
+    //
+    // Phần gửi thì cùng khuôn hai bước với bảng cột: (1) lưu vào Project.PermissionMatrix, (2) gửi tin nhắn
+    // do SERVER soạn qua đúng đường chat thường. Tin nhắn lấy từ response chứ không ghép ở đây, vì nó phải
+    // khớp đúng bảng đã được server chuẩn hoá và lưu — hai bản lệch nhau thì hội thoại kể một đằng còn dữ
+    // liệu dự án ghi một nẻo, và mọi tầng đọc transcript tin vào bản kể.
+    const permMapPanel = document.getElementById("permissionMatrix");
+    const PERM_SCOPES = ["của mình", "của đơn vị", "tất cả"];
+
+    function permMapRows() {
+        if (!permMapPanel || permMapPanel.hidden) return [];
+        return Array.from(permMapPanel.querySelectorAll(".permmap-row")).map(tr => ({
+            screen: tr.dataset.screen || "",
+            function: tr.dataset.function || "",
+            condition: ((tr.querySelector(".permmap-condition") || {}).value || "").trim(),
+            grants: Array.from(tr.querySelectorAll(".permmap-cell")).map(td => ({
+                role: td.dataset.role || "",
+                scope: ((td.querySelector(".permmap-scope") || {}).value || "").trim()
+            }))
+        }));
+    }
+
+    function hidePermissionMatrix() {
+        if (!permMapPanel || permMapPanel.hidden) return;
+        permMapPanel.hidden = true;
+        permMapPanel.innerHTML = "";
+    }
+
+    // Dựng bảng từ frame done. Markup khớp bản server render trong Index.cshtml — hai đường lệch nhau thì
+    // người dùng chọn xong bảng vừa hiện ra rồi F5 và thấy một bảng khác.
+    function renderPermissionMatrix(rows) {
+        if (!permMapPanel || !Array.isArray(rows) || rows.length === 0) return;
+
+        const roles = (rows[0].grants || []).map(g => g.role);
+        const screens = [];
+        rows.forEach(r => { if (screens.indexOf(r.screen) < 0) screens.push(r.screen); });
+
+        const tables = screens.map(screen => {
+            const body = rows.filter(r => r.screen === screen).map(r => `
+                <tr class="permmap-row" data-screen="${escapeHtml(r.screen)}" data-function="${escapeHtml(r.function)}">
+                    <td class="permmap-fn">${escapeHtml(r.function)}</td>
+                    ${(r.grants || []).map(g => `
+                        <td class="permmap-cell" data-role="${escapeHtml(g.role)}">
+                            ${g.locked
+                                ? `<span class="permmap-locked" title="${escapeHtml(g.evidence || "")}">✓ ${escapeHtml(g.scope || "")}</span>
+                                   <input type="hidden" class="permmap-scope" value="${escapeHtml(g.scope || "")}" />`
+                                : `<select class="permmap-scope" aria-label="${escapeHtml(g.role)} — ${escapeHtml(r.function)}">
+                                       <option value=""${g.scope ? "" : " selected"}>—</option>
+                                       ${PERM_SCOPES.map(s => `<option value="${s}"${g.scope === s ? " selected" : ""}>${s}</option>`).join("")}
+                                   </select>`}
+                        </td>`).join("")}
+                    <td><input type="text" class="permmap-condition" value="${escapeHtml(r.condition || "")}" placeholder="vd: chỉ sửa khi chưa submit" /></td>
+                </tr>`).join("");
+
+            return `
+                <div class="permmap-screen">${escapeHtml(screen)}</div>
+                <table class="permmap-table">
+                    <thead>
+                        <tr>
+                            <th class="permmap-th-fn">Chức năng</th>
+                            ${roles.map(role => `<th class="permmap-th-role">${escapeHtml(role)}</th>`).join("")}
+                            <th class="permmap-th-cond">Điều kiện thêm (nếu có)</th>
+                        </tr>
+                    </thead>
+                    <tbody>${body}</tbody>
+                </table>`;
+        }).join("");
+
+        permMapPanel.innerHTML = `
+            <div class="permmap-howto">
+                Ô <b>✓</b> là quyền anh/chị đã nói trong lúc trao đổi (rê chuột để xem lại câu gốc) — mình khóa
+                lại, không cần chọn nữa. Các ô còn lại là <b>phỏng đoán của mình</b>: anh/chị chọn phạm vi dữ
+                liệu cho đúng, và <b>để trống</b> nghĩa là vai đó không có quyền này.
+            </div>
+            ${tables}
+            <div class="permmap-bar">
+                <button type="button" class="btn primary" id="permissionMatrixSendBtn">Gửi bảng phân quyền</button>
+                <div class="permmap-hint">
+                    Thiếu màn hình nào hoặc thiếu một vai trò, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                </div>
+                <div class="permmap-msg" id="permissionMatrixMsg"></div>
+            </div>`;
+        permMapPanel.hidden = false;
+        thinkingBox.before(permMapPanel);
+    }
+
+    if (permMapPanel) {
+        permMapPanel.addEventListener("click", async function (e) {
+            if (!e.target.closest("#permissionMatrixSendBtn") || chatBusy) return;
+
+            const btn = document.getElementById("permissionMatrixSendBtn");
+            const msgEl = document.getElementById("permissionMatrixMsg");
+            const rows = permMapRows();
+            if (rows.length === 0) return;
+
+            btn.disabled = true;
+            msgEl.textContent = "Đang lưu bảng phân quyền…";
+
+            let message = "";
+            try {
+                const fd = new FormData();
+                fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
+                const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                fd.append("__RequestVerificationToken", tokenEl ? tokenEl.value : "");
+                fd.append("matrixJson", JSON.stringify(rows));
+
+                const resp = await fetch(permMapPanel.dataset.confirmUrl, { method: "POST", body: fd });
+                const data = await resp.json();
+                if (!data.ok || !data.message) throw new Error(data.error || "");
+                message = data.message;
+            } catch (err) {
+                // Lưu hỏng thì DỪNG hẳn, không gửi tin nhắn — cùng lý do với bảng cột: hội thoại ghi nhận
+                // "đã chốt phân quyền" trong khi dự án vẫn trống là trạng thái tệ nhất, vì bản đồ bao phủ
+                // sẽ nâng nhóm này lên [RÕ] dựa trên tin nhắn đó rồi cấm hỏi lại, còn bảng thì không ai
+                // còn thấy đâu để chọn lại.
+                btn.disabled = false;
+                msgEl.textContent = "Chưa lưu được bảng phân quyền — anh/chị bấm gửi lại giúp mình nhé.";
+                return;
+            }
+
+            hidePermissionMatrix();
+            messageInput.value = message;
+            chatForm.requestSubmit();
+        });
+    }
+
     // ==== NHÁP ĐANG GÕ: tự lưu để F5 / mất điện / bấm nhầm không cuốn mất một câu trả lời dài ====
     // Ở trang này người dùng thường gõ những đoạn RẤT DÀI trong một lượt (cả quy trình nghiệp vụ, ai làm
     // bước nào, ràng buộc gì…). Trước đây nội dung đó chỉ sống trong DOM: F5, đóng tab nhầm, máy sập hay
@@ -1298,6 +1427,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // Bảng cột cũng là một .req-msg.ba nhưng KHÔNG phải câu trả lời của lượt nào: nó treo cho tới khi
         // file được chốt. Gỡ nó ở đây là vừa mất bảng vừa mất chỗ neo cố định của trang.
         if (next === columnMapPanel) return;
+        // Bảng phân quyền: y hệt: treo cho tới khi dự án chốt bảng, và là chỗ neo cố định của trang.
+        if (next === permMapPanel) return;
         if (next && next.classList.contains("req-msg") && next.classList.contains("ba")) next.remove();
     }
 
@@ -1410,6 +1541,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             setWriteReqInvited(data.invitesWriteRequirement === true, data.coverageReady === true);
             setWriteReqDecisions(data.decisions);
             renderFlowDiagram(bubble, data.flowDiagram);
+            // Bảng phân quyền: lượt chốt nhóm phân quyền. Không dựng trong `bubble` mà vào panel cố định
+            // của trang (như bảng cột) — bảng treo tới khi dự án chốt nó, sống lâu hơn lượt sinh ra nó.
+            renderPermissionMatrix(data.permissionMatrix);
 
             // Lượt lỗi LLM: tô đỏ + nút "Thử lại" (server xóa lượt lỗi rồi chạy lại, khỏi gõ lại câu hỏi)
             // — markup khớp bản server render trong Index.cshtml.
@@ -1572,6 +1706,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // các lượt mới (chèn trước thinkingBox) không đẩy nó trôi lên trên. Server cũng giữ bảng theo đúng
         // luật này: nó treo tới khi FILE được chốt, không phải tới lượt kế tiếp.
         if (columnMapPanel && !columnMapPanel.hidden) thinkingBox.before(columnMapPanel);
+        // Bảng phân quyền cùng luật: gõ thêm một câu ("thiếu vai trò Admin") không thay thế việc chốt bảng,
+        // nên bảng sống tiếp và chỉ dời xuống cuối dòng hội thoại.
+        if (permMapPanel && !permMapPanel.hidden) thinkingBox.before(permMapPanel);
 
         // Đang SỬA lượt vừa gửi: không thêm bong bóng mới — ghi đè bong bóng cũ và gỡ câu trả lời cũ
         // (server cũng xóa đúng lượt assistant đó), rồi gửi kèm cờ edit.

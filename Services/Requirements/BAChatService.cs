@@ -44,6 +44,17 @@ public class BAChatService
     /// </summary>
     public static readonly TimeSpan ReplyStaleAfter = TimeSpan.FromMinutes(3);
 
+    /// <summary>
+    /// Câu dẫn dự phòng cho lượt bày bảng phân quyền, dùng khi model không viết được câu dẫn dùng được.
+    /// Nó phải CHỈ VÀO BẢNG chứ không kết bằng một câu hỏi đóng: lượt này không có chip, nên một câu hỏi
+    /// ở đây là câu hỏi KHÔNG CÓ NÚT TRẢ LỜI — người dùng đi tìm nút "Đúng rồi" không thấy trong khi việc
+    /// thật sự phải làm nằm ngay dưới. Đúng lỗi mà lượt đọc bảng tính đã vấp một lần.
+    /// </summary>
+    public const string PermissionMatrixIntro =
+        "Các nhóm thông tin khác mình đã ghi nhận đủ, còn lại phần phân quyền. Mình đã dựng sẵn bảng bên dưới "
+        + "theo các màn hình đã chốt: anh/chị chọn phạm vi cho từng vai trò (ô để trống là vai đó không có quyền), "
+        + "rồi bấm \"Gửi bảng phân quyền\" giúp mình nhé.";
+
     public BAChatService(
         AppDbContext db,
         ILlmClient llm,
@@ -442,6 +453,62 @@ public class BAChatService
                 + "bản đồ bao phủ. Điểm nào người dùng đã trả lời ở lượt gần đây thì coi như xong, KHÔNG hỏi lại.\n"
                 + string.Join("\n", openQuestions.Select(q => "- " + q))));
         }
+        // PHÂN QUYỀN — nhóm DUY NHẤT không được hỏi bằng câu hỏi. Xem PermissionMatrixGate cho lý do đầy
+        // đủ; tóm tắt: hỏi "mỗi vai trò được xem và làm những gì?" là bắt người dùng nghiệp vụ tự dựng cả
+        // ma trận trong đầu, nên câu trả lời thật gần như luôn là "cứ vậy đã, có gì tôi bổ sung sau" — rồi
+        // BA tự soạn phương án và một chip "Đồng ý" đóng dấu [RÕ] cho cả nhóm. Ba trạng thái, ba lệnh khác
+        // nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model tự đoán đang ở trạng thái nào.
+        var plannedScope = InterviewOutlookService.ParseItems(project.PlannedScope);
+        var askPermissionMatrix = PermissionMatrixGate.ShouldAsk(project);
+        var confirmedMatrix = PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix);
+        if (!string.IsNullOrWhiteSpace(confirmedMatrix))
+        {
+            messages.Add(new ChatMessage(ChatRole.System,
+                "## Bảng phân quyền người dùng ĐÃ CHỐT (tự tay chọn từng ô — coi như điều đã biết)\n"
+                + "KHÔNG hỏi lại bất kỳ quyền nào dưới đây, KHÔNG bắt xác nhận lần nữa, và KHÔNG dựng yêu cầu "
+                + "trái với bảng này.\n"
+                + confirmedMatrix));
+        }
+        else if (askPermissionMatrix)
+        {
+            messages.Add(new ChatMessage(ChatRole.System,
+                "## LƯỢT NÀY: BÀY BẢNG PHÂN QUYỀN (bắt buộc)\n"
+                + "Mọi nhóm khác của bản đồ bao phủ đã [RÕ]. Lượt này là lượt chốt nhóm «Phân quyền theo "
+                + "nghiệp vụ», và nó được chốt bằng BẢNG chứ không bằng câu hỏi.\n"
+                + "Trả về trường `permissionMatrix`: mỗi dòng là MỘT chức năng của MỘT màn hình, kèm quyền của "
+                + "từng vai trò. Ràng buộc:\n"
+                + "- `screen` phải CHÉP ĐÚNG một mục trong danh sách phạm vi bên dưới — không thêm màn hình mới, "
+                + "không gộp hai mục làm một. Mục nào bạn không nêu, hệ thống tự bổ sung vào bảng ở trạng thái "
+                + "chưa ai có quyền.\n"
+                + "- `function`: động từ nghiệp vụ ngắn (\"Xem\", \"Tạo\", \"Sửa\", \"Xóa\", \"Duyệt/Từ chối\", "
+                + "\"Cập nhật kết quả\"). Chỉ nêu chức năng màn hình đó THẬT SỰ có theo hội thoại.\n"
+                + "- `grants`: mỗi vai trò một mục, `scope` là MỘT trong \"của mình\" / \"của đơn vị\" / \"tất cả\", "
+                + "hoặc để rỗng nếu vai đó không có quyền. Phạm vi là phần quan trọng nhất của bảng — "
+                + "\"xem Training Plan\" và \"xem Training Plan do mình lập\" là hai yêu cầu khác hẳn nhau.\n"
+                + "- `evidence`: CHỈ điền khi người dùng đã tự nói điều đó trong hội thoại, và điền đúng trích dẫn "
+                + "của họ. Ô có trích dẫn được khóa lại như điều đã chốt; ô bạn suy đoán thì để trống trường này "
+                + "và người dùng sẽ tự chọn. TUYỆT ĐỐI không bịa trích dẫn để ô trông như đã chốt.\n"
+                + "- `condition`: điều kiện dữ liệu mà bốn nấc phạm vi không chở nổi (\"chỉ đăng ký được khóa nằm "
+                + "trong danh sách bắt buộc của mình\", \"chỉ sửa khi chưa submit\"). Không có thì để rỗng.\n"
+                + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng phân quyền\" — không đặt "
+                + "câu hỏi, không kèm `suggestions`, không kèm `questions`, không kèm `flowDiagram`: bảng là chỗ "
+                + "trả lời DUY NHẤT của lượt này.\n\n"
+                + "### Phạm vi dự kiến (mỗi mục là MỘT dòng nhóm của bảng — chép nguyên văn vào `screen`)\n"
+                + string.Join("\n", plannedScope.Select(s => "- " + s))));
+        }
+        else
+        {
+            messages.Add(new ChatMessage(ChatRole.System,
+                "## Nhóm «Phân quyền theo nghiệp vụ» — ĐỂ CUỐI, đừng hỏi lẻ\n"
+                + "KHÔNG hỏi các câu kiểu \"mỗi vai trò được xem và thao tác những gì\", \"vai X còn được làm gì "
+                + "nữa không\", và KHÔNG tự soạn một phương án phân quyền rồi xin người dùng gật. Quyền xem/tạo/"
+                + "sửa/xóa theo từng màn hình sẽ được chốt bằng MỘT BẢNG ở cuối buổi, khi phạm vi màn hình đã "
+                + "đứng yên — hỏi bây giờ chỉ nhận về \"cứ vậy đã, có gì tôi bổ sung sau\".\n"
+                + "Vẫn PHẢI hỏi như thường: vai trò nào làm bước nào trong LUỒNG (ai gửi, ai duyệt, ai bị từ "
+                + "chối thì làm gì), vì câu trả lời đó đổi luôn câu hỏi kế tiếp của bạn; và ai QUẢN LÝ từng danh "
+                + "mục dữ liệu. Đó là nhóm «Chức năng & luồng nghiệp vụ chính» và «Dữ liệu / danh mục chính», "
+                + "không phải nhóm phân quyền."));
+        }
         // Sổ "đã hỏi rồi": bản đồ ở trên chỉ có độ phân giải theo NHÓM, nên một nhóm chưa [RÕ] dễ khiến
         // model phát lại nguyên văn câu hỏi mở đầu của chính nhóm ấy. Danh sách câu hỏi thật là thứ duy
         // nhất phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời".
@@ -493,6 +560,7 @@ public class BAChatService
         var openEnded = false;
         var questions = new List<BAChatQuestion>();
         var flowDiagram = new List<FlowStep>();
+        var permissionMatrix = new List<PermissionMatrixRow>();
         if (!callResult.IsSuccess)
         {
             // Tiền tố dùng chung với ConversationTranscriptBuilder để transcript tổng hợp yêu cầu lọc
@@ -632,11 +700,43 @@ public class BAChatService
                 // Sơ đồ luồng chỉ dành cho lượt MỜI bấm nút; lượt hỏi thường mà model lỡ kèm luồng thì bỏ.
                 flowDiagram = new List<FlowStep>();
             }
+
+            // BẢNG PHÂN QUYỀN — lượt chốt nhóm «Phân quyền theo nghiệp vụ». Chỉ dựng khi CỔNG đã mở
+            // (PermissionMatrixGate: mọi nhóm áp dụng khác đã [RÕ]), nên không lượt nào giữa buổi bị thay
+            // bằng một bảng dựng trên phạm vi mới có một nửa.
+            //
+            // Bảng dựng được ⇒ nó là chỗ trả lời DUY NHẤT của lượt: dọn sạch chip, thẻ hỏi gộp và sơ đồ
+            // luồng. Cùng luật với lượt có bảng cột, và cùng lý do — chip bấm là GỬI NGAY, nên một cú bấm
+            // nhầm cuốn mất lượt trước khi người dùng kịp chọn xong bảng, và bảng thì không bao giờ được chốt.
+            //
+            // Model không trả bảng dùng được (structured output tắt, hoặc mọi dòng đều trỏ vào màn hình
+            // không có trong phạm vi) ⇒ FAIL-OPEN: lượt chạy y như một lượt chat thường và cổng sẽ mở lại ở
+            // lượt sau. Một lượt hỏi thừa rẻ hơn nhiều so với một lượt câm.
+            if (askPermissionMatrix)
+            {
+                permissionMatrix = PermissionMatrixBuilder.Build(parsedReply.PermissionMatrix, plannedScope);
+                if (permissionMatrix.Count > 0)
+                {
+                    // Câu dẫn của model chỉ được dùng khi nó KHÔNG phải lời mời bấm "Write Requirement":
+                    // một lời mời đặt trên đầu bảng bảo người dùng bấm nút, trong khi việc thật sự phải làm
+                    // nằm ở bảng ngay dưới — đúng kiểu "câu hỏi không có nút trả lời" mà lượt đọc file đã vấp.
+                    reply = string.IsNullOrWhiteSpace(parsedReply.Message)
+                            || RequirementReadinessGate.IsWriteRequirementInvite(parsedReply.Message)
+                        ? PermissionMatrixIntro
+                        : EndpointQuirks.StripInternalNotices(parsedReply.Message);
+                    suggestionsJson = null;
+                    suggestionsMultiSelect = false;
+                    openEnded = false;
+                    questions = new List<BAChatQuestion>();
+                    flowDiagram = new List<FlowStep>();
+                }
+            }
         }
 
         var flowDiagramJson = flowDiagram.Count > 0 ? JsonSerializer.Serialize(flowDiagram) : null;
         var questionsJson = questions.Count > 0 ? JsonSerializer.Serialize(questions) : null;
-        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, flowDiagramJson, questionsJson: questionsJson, cancellationToken: cancellationToken);
+        var permissionMatrixJson = permissionMatrix.Count > 0 ? JsonSerializer.Serialize(permissionMatrix) : null;
+        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, flowDiagramJson, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -662,6 +762,7 @@ public class BAChatService
             // mang bản đang lưu, bản gộp lượt mới do UpdateDecisionsAsync đẩy ở frame phụ sau done.
             Decisions = DecisionLogService.ParseItems(project.DecisionLog).ToList(),
             FlowDiagram = flowDiagram,
+            PermissionMatrix = permissionMatrix,
             // Bản đồ KHÔNG gộp được lượt này (đã thử lại): panel tiến độ đang hiển thị bản cũ và BA vừa
             // dẫn lượt bằng bản cũ đó. Nói thẳng ra thay vì để người dùng tự đoán vì sao tiến độ đứng im.
             CoverageStale = coverageUpdate.DistillFailed

@@ -17,6 +17,7 @@ AI Design Spec phải MÔ TẢ CÙNG MỘT sản phẩm với Product Brief (s�
 ## 4. Out of Scope
 ## 5. Navigation Structure   (sidebar / menu / tab con — liệt kê dạng cây)
 ## 6. Screens To Generate    (mỗi màn hình: tên, route, mục đích, thành phần chính, cột bảng, field form, nút/hành động, validation, trạng thái empty/loading/error)
+## 6b. Permission Matrix     (vai trò nào làm được gì trên màn hình nào, kèm phạm vi dữ liệu — xem định dạng bắt buộc bên dưới)
 ## 7. UI/UX Direction        (enterprise dashboard, sidebar trái, card, table, modal create/edit, status badge, responsive)
 ## 8. Data Model Summary     (các entity chính + field quan trọng)
 ## 9. API Expectations       (các endpoint mức cao, đừng over-engineer)
@@ -29,6 +30,7 @@ AI Design Spec phải MÔ TẢ CÙNG MỘT sản phẩm với Product Brief (s�
 
 ĐỊNH DẠNG BẮT BUỘC cho 4 mục được hệ thống ĐỐI CHIẾU TỰ ĐỘNG với POC (sai định dạng là bước tự kiểm tra POC mất tác dụng):
 - Mục "## 6. Screens To Generate": MỖI màn hình là MỘT heading cấp 3 `### 6.n. <Tên màn hình>` — tên NGẮN GỌN (2–4 từ, không nhét route/ghi chú vào tên; route, mục đích, thành phần, field, nút, validation viết ở các bullet BÊN DƯỚI heading). Tên này được Developer dùng NGUYÊN VĂN làm nhãn menu + nhãn màn hình của POC.
+- Mục "## 6b. Permission Matrix": MỖI ô có quyền là MỘT bullet đầu dòng `- PM-n (<Tên màn hình>): <chức năng> — <vai trò> (<phạm vi>)`, với `<phạm vi>` là một trong "của mình" / "của đơn vị" / "tất cả". Nguồn DUY NHẤT của mục này là khối "Bảng phân quyền người dùng ĐÃ CHỐT" trong prompt: chép đúng, không thêm vai trò, không thêm quyền, không nới phạm vi. Vai trò không có mặt ở một dòng nghĩa là vai đó KHÔNG được làm việc đó — mô tả nó thành hành vi thật của POC (nút bị ẩn, route trả 403, danh sách lọc theo người đăng nhập), chứ không phải một câu ghi chú. Không có khối đó trong prompt thì ghi đúng một bullet `- Không có`.
 - Mục "## 10. Business Rules": MỖI rule là MỘT bullet đầu dòng `- BR-n: <phát biểu rule>` — một dòng, demo được (công thức tính, ràng buộc validate, chuyển trạng thái); chi tiết phụ thì thụt lề dưới bullet của rule đó, KHÔNG tách thành bullet đầu dòng mới.
 - Mục "## 13. Worked Examples": MỖI ví dụ là MỘT bullet đầu dòng `- WE-n (BR-m): <đầu vào cụ thể> => <kết quả kỳ vọng>` — với `BR-m` là rule mà ví dụ này minh hoạ, đầu vào là dữ liệu/hành động cụ thể, sau `=>` là DUY NHẤT kết quả kỳ vọng (một con số hoặc một nhãn trạng thái). Có HAI loại, đưa cả hai nếu có:
   - **Định lượng** (công thức/con số): `- WE-1 (BR-3): 3 mục tiêu 80/90/70, trọng số 50%/30%/20% => 81`.

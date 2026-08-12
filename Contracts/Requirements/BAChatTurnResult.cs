@@ -58,6 +58,14 @@ public class BAChatTurnResult
     public List<FlowStep> FlowDiagram { get; set; } = new();
 
     /// <summary>
+    /// Bảng phân quyền để user chọn từng ô — CHỈ có ở lượt chốt nhóm «Phân quyền theo nghiệp vụ» (khi
+    /// <see cref="ICOGenerator.Services.Requirements.PermissionMatrixGate"/> mở), rỗng ở mọi lượt khác.
+    /// Đi kèm frame done để client dựng bảng tại chỗ; bản lưu trong <c>AgentConversation.PermissionMatrix</c>
+    /// là thứ sống sót qua F5.
+    /// </summary>
+    public List<PermissionMatrixRow> PermissionMatrix { get; set; } = new();
+
+    /// <summary>
     /// True khi lượt chắt lọc "Bản đồ bao phủ" của lượt này THẤT BẠI (đã thử lại): <see cref="Coverage"/>
     /// là bản CŨ, chưa gộp câu trả lời vừa rồi. Phải hiện cho người dùng thấy vì triệu chứng của nó —
     /// tiến độ đứng im và BA hỏi lại nhóm vừa được trả lời — trông hệt như "BA không nghe mình nói".
