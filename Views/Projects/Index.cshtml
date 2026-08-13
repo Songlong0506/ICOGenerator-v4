@@ -81,7 +81,7 @@
                 </div>
             </div>
         </div>,
-        Primary = new CommandBarButton { Label = "Add", Icon = "bi-plus-lg", OnClick = "openModal('newProject')" }
+        Primary = new CommandBarButton { Label = "New", Icon = "bi-plus-lg", OnClick = "openModal('newProject')" }
     };
 }
 @await Html.PartialAsync("_CommandBar", projectsBar)
@@ -288,7 +288,7 @@
                vô nghĩa, và trạng thái nút cho người dùng biết ngay là mình đã sửa gì chưa. *@
             <div class="modal-actions">
                 <button type="button" class="btn" onclick="closeModal('editProject')">Cancel</button>
-                <button class="btn primary" data-edit-save disabled>Lưu thay đổi</button>
+                <button class="btn primary" data-edit-save disabled>Save</button>
             </div>
         </form>
     </div>

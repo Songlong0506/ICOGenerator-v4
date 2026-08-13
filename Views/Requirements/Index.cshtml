@@ -438,27 +438,6 @@
                     </li>
                 }
             </ul>
-
-            @* Panel này CHỈ ĐỌC nên phải nói ra đường đính chính, nếu không việc gỡ nút "chưa đúng?" biến
-               nó thành một danh sách người dùng thấy sai mà không biết kêu ở đâu. Câu này cố ý KHÔNG nhắc
-               tên nhóm: người dùng mô tả bằng lời của họ, việc quy nó về nhóm nào là của lượt chắt lọc. *@
-            <p class="coverage-hint">
-                Thấy chỗ nào mình hiểu chưa đúng? Anh/chị cứ nói lại trong khung chat — mình sẽ hỏi lại cho rõ.
-            </p>
-
-            @* KHÔNG có nút "Write Requirement" ở đây nữa — nút thật đã chuyển hẳn vào cổng tạo tài liệu
-               trong khung chat (#writeReqZone), cùng chỗ với lời mời sinh ra nó.
-               Vì sao gỡ: nút sống ở sidebar thì ba trong bốn trạng thái của nó chỉ là nhiễu. "waiting" là
-               một nút mờ-và-khóa mời người ta bấm vào thứ không bấm được; "running" lặp lại đúng điều panel
-               tiến độ workflow trong chat đang nói; và ở "ready" thì người dùng đã có nút thật ngay dưới
-               câu BA vừa mời — hai nút cùng một việc, cách nhau nửa màn hình.
-               Cái còn lại ở đây là thứ sidebar làm tốt hơn chat: nói cho người dùng biết còn thiếu gì và
-               điều gì sẽ xảy ra khi đủ. Dòng dưới chỉ hiện ở trạng thái "waiting" (requirements.js bật/tắt
-               theo cờ mời của lượt BA mới nhất) — đủ thông tin rồi thì lời mời nằm trong chat, nhắc lại ở
-               đây là thừa. *@
-            <p class="write-req-waiting-hint" id="writeReqWaitingHint" @(writeReqState == "waiting" ? "" : "hidden")>
-                Khi mọi nhóm áp dụng đã <b>✅ rõ</b>, BA sẽ mời anh/chị tạo bản mô tả sản phẩm ngay trong khung chat.
-            </p>
         </div>
 
         @* KHÔNG còn panel "Điều đã chốt" ở đây — panel cuối cùng của sidebar bị gỡ, và vì đúng cái lý do
@@ -913,7 +892,7 @@
                                         {
                                             <button type="button" class="batchq-choice" data-value="@s">@s</button>
                                         }
-                                        <button type="button" class="batchq-choice is-other" data-other="1">Ý khác — tôi tự nhập</button>
+                                        <button type="button" class="batchq-choice is-other" data-other="1">Ý khác</button>
                                     </div>
                                     <textarea class="batchq-answer" rows="2" hidden placeholder="Câu trả lời của anh/chị…"></textarea>
                                 }

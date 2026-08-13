@@ -75,12 +75,12 @@
     SearchPlaceholder = "Tìm scenario…",
     TargetSelector = "#evalScenarios",
     Actions = canManage
-        ? new[] { new CommandBarButton { Label = "Add", Icon = "bi-plus-lg", OnClick = "openCreateScenario()" } }
+        ? new[] { new CommandBarButton { Label = "New", Icon = "bi-plus-lg", OnClick = "openCreateScenario()" } }
         : Array.Empty<CommandBarButton>(),
     Primary = canManage
         ? new CommandBarButton
         {
-            Label = "Chạy eval",
+            Label = "Run eval",
             Icon = "bi-play-fill",
             OnClick = "openRunModal()",
             Disabled = !Model.Scenarios.Any(s => s.IsActive),
