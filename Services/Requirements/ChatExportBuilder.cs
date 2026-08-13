@@ -1,4 +1,5 @@
 using System.Text;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 
@@ -180,11 +181,18 @@ public static class ChatExportBuilder
             InterviewOutlookService.ParseItems(project.WorkedExamples),
             "(chưa chốt ví dụ nào — mọi quy tắc định lượng đang thiếu ví dụ số)");
 
-        AppendText(sb, "3.7. Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược khỏi cửa sổ nguyên văn)",
+        // Bảng phân quyền ĐÃ CHỐT là bằng chứng DUY NHẤT được chấp nhận cho dòng «Phân quyền theo nghiệp
+        // vụ» của bản đồ. Người chấm phải thấy nó ở đây để phân biệt hai ca trông giống hệt nhau trên
+        // transcript: dòng đó [RÕ] vì người dùng đã tự chọn từng ô, hay [RÕ] oan vì một chip "Đồng ý".
+        AppendText(sb, "3.7. Bảng phân quyền người dùng đã chốt (bằng chứng của dòng «Phân quyền theo nghiệp vụ»)",
+            PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix),
+            "(chưa chốt — dòng phân quyền của bản đồ KHÔNG được phép [RÕ] khi mục này còn trống)");
+
+        AppendText(sb, "3.8. Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược khỏi cửa sổ nguyên văn)",
             project.ConversationSummary,
             "(chưa có — hội thoại còn ngắn, mọi lượt vẫn được gửi nguyên văn)");
 
-        AppendText(sb, "3.8. Hồ sơ người dùng (đúc kết xuyên dự án, nạp vào mọi lượt chat)",
+        AppendText(sb, "3.9. Hồ sơ người dùng (đúc kết xuyên dự án, nạp vào mọi lượt chat)",
             snapshot.UserMemory,
             "(chưa có hồ sơ)");
     }
@@ -311,6 +319,26 @@ public static class ChatExportBuilder
             {
                 sb.AppendLine("> 🧾 **Bảng cột BA bày ra cho người dùng tích** (dấu ✓ = BA đề xuất dùng trong app mới): "
                     + string.Join(" · ", columns.Select(c => $"{(c.Used ? "✓" : "✗")} {OneLineSafe(c.Column)}")));
+            }
+
+            // Bảng phân quyền BA bày ra: người rà soát bản xuất phải thấy ĐỀ XUẤT của BA thì mới chấm được
+            // tin nhắn "đây là quyền của từng vai" ngay sau đó — nó là người dùng tự chọn từng ô, hay chỉ là
+            // bảng BA điền sẵn được gửi lại nguyên trạng. Dấu ✓ đánh đúng các ô BA đã KHÓA vì có trích dẫn.
+            var permissions = ConversationTurnRenderer.ParsePermissionMatrix(turn.PermissionMatrix);
+            if (permissions.Count > 0)
+            {
+                sb.AppendLine("> 🔐 **Bảng phân quyền BA bày ra cho người dùng chọn** (✓ = ô BA khóa vì đã có trích dẫn trong hội thoại):");
+                foreach (var screen in permissions.GroupBy(r => r.Screen, StringComparer.Ordinal))
+                {
+                    sb.AppendLine($"> - {OneLineSafe(screen.Key)}");
+                    foreach (var row in screen)
+                    {
+                        var cells = row.Grants.Select(g =>
+                            $"{(g.Locked ? "✓" : "")}{OneLineSafe(g.Role)}: {(PermissionScope.IsGranted(g.Scope) ? g.Scope : "—")}");
+                        sb.AppendLine($">   · {OneLineSafe(row.Function)}: {string.Join(" | ", cells)}"
+                            + (string.IsNullOrWhiteSpace(row.Condition) ? "" : $" [điều kiện: {OneLineSafe(row.Condition)}]"));
+                    }
+                }
             }
 
             var flow = ConversationTurnRenderer.ParseFlowDiagram(turn.FlowDiagram);

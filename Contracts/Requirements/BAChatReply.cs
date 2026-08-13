@@ -38,4 +38,10 @@ public class BAChatReply
     // Sơ đồ luồng nghiệp vụ chính (vai trò → hành động → kết quả) — CHỈ điền ở lượt mời bấm "Write
     // Requirement" (Ready = true) để user xác nhận trực quan trước khi tạo tài liệu. Rỗng ở các lượt hỏi.
     public List<FlowStep> FlowDiagram { get; set; } = new();
+
+    // BẢNG PHÂN QUYỀN (màn hình × chức năng × vai trò) — CHỈ điền ở đúng lượt hệ thống yêu cầu, tức khi
+    // PermissionMatrixGate đã mở (mọi nhóm khác của bản đồ bao phủ đã [RÕ]); mọi lượt khác để rỗng.
+    // Đây là cách nhóm «Phân quyền theo nghiệp vụ» được trả lời: không hỏi lẻ trong hội thoại mà bày một
+    // bảng cho người dùng chọn từng ô — xem PermissionMatrixRow cho lý do đầy đủ.
+    public List<PermissionMatrixRow> PermissionMatrix { get; set; } = new();
 }

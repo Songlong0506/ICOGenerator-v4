@@ -102,7 +102,11 @@ public class RequirementDocsService
             project.WorkedExamples,
             project.SpecAssumptionCorrections,
             realSampleData,
-            BriefAcceptanceCriteria.BuildPromptBlock(acceptanceCriteria));
+            BriefAcceptanceCriteria.BuildPromptBlock(acceptanceCriteria),
+            // Bảng phân quyền người dùng đã chốt từng ô. Không có khối này thì phân quyền chỉ tồn tại dưới
+            // dạng văn xuôi trong Product Brief, và POC dựng ra một bộ màn hình không phân biệt vai — thứ
+            // mà người xem demo không có cách nào nghiệm thu. Fail-open: chưa chốt ⇒ khối rỗng, prompt như cũ.
+            PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix));
 
         var messages = new List<ChatMessage>
         {

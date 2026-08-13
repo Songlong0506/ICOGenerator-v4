@@ -40,6 +40,7 @@ public class RequirementsController : Controller
     private readonly CheckRequirementConflictsUseCase _checkRequirementConflictsUseCase;
     private readonly ResolveRequirementConflictsUseCase _resolveRequirementConflictsUseCase;
     private readonly ConfirmSourceColumnMapUseCase _confirmSourceColumnMapUseCase;
+    private readonly ConfirmPermissionMatrixUseCase _confirmPermissionMatrixUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly ILogger<RequirementsController> _logger;
 
@@ -76,6 +77,7 @@ public class RequirementsController : Controller
        CheckRequirementConflictsUseCase checkRequirementConflictsUseCase,
        ResolveRequirementConflictsUseCase resolveRequirementConflictsUseCase,
        ConfirmSourceColumnMapUseCase confirmSourceColumnMapUseCase,
+       ConfirmPermissionMatrixUseCase confirmPermissionMatrixUseCase,
        BAChatTurnTracker chatTurnTracker,
        ILogger<RequirementsController> logger)
     {
@@ -103,6 +105,7 @@ public class RequirementsController : Controller
         _checkRequirementConflictsUseCase = checkRequirementConflictsUseCase;
         _resolveRequirementConflictsUseCase = resolveRequirementConflictsUseCase;
         _confirmSourceColumnMapUseCase = confirmSourceColumnMapUseCase;
+        _confirmPermissionMatrixUseCase = confirmPermissionMatrixUseCase;
         _chatTurnTracker = chatTurnTracker;
         _logger = logger;
     }
@@ -361,7 +364,22 @@ public class RequirementsController : Controller
                             // cũ và BA cũng vừa dẫn lượt bằng bản cũ đó. Client cảnh báo ngay trên panel.
                             coverageStale = result.CoverageStale,
                             decisions = result.Decisions,
-                            flowDiagram = result.FlowDiagram
+                            flowDiagram = result.FlowDiagram,
+                            // Bảng phân quyền: chỉ có ở lượt chốt nhóm phân quyền, rỗng ở mọi lượt khác.
+                            // Client dựng bảng từ đây, cùng markup với bản server render lúc tải trang.
+                            permissionMatrix = result.PermissionMatrix.Select(r => new
+                            {
+                                screen = r.Screen,
+                                function = r.Function,
+                                condition = r.Condition,
+                                grants = r.Grants.Select(g => new
+                                {
+                                    role = g.Role,
+                                    scope = g.Scope,
+                                    locked = g.Locked,
+                                    evidence = g.Evidence
+                                })
+                            })
                         }
                     };
                 }
@@ -526,6 +544,21 @@ public class RequirementsController : Controller
         return updated > 0
             ? Json(new { ok = true, files = updated })
             : Json(new { ok = false, error = "Không lưu được bảng cột — tải lại trang rồi thử lại nhé." });
+    }
+
+    // BẢNG PHÂN QUYỀN — nhóm «Phân quyền theo nghiệp vụ» được chốt bằng bảng ở cuối buổi phỏng vấn thay vì
+    // bằng câu hỏi giữa chừng (xem PermissionMatrixGate). Như ConfirmColumnMap: endpoint này CHỈ lưu, rồi
+    // trình duyệt gửi tiếp tin nhắn mà server soạn ra vào khung chat, nên hội thoại vẫn chỉ có một đường ghi.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
+    public async Task<IActionResult> ConfirmPermissionMatrix(Guid projectId, [FromForm] string matrixJson)
+    {
+        var result = await _confirmPermissionMatrixUseCase.ExecuteAsync(projectId, matrixJson, HttpContext.RequestAborted);
+        return result.Rows > 0
+            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
+            : Json(new { ok = false, error = "Không lưu được bảng phân quyền — tải lại trang rồi thử lại nhé." });
     }
 
     // CỔNG SOÁT MÂU THUẪN — bước 1: chạy ngay trước khi soạn tài liệu (nút "Write Requirement" gọi trước

@@ -43,6 +43,14 @@ public class AgentConversation
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? ColumnMap { get; set; }
 
+    // JSON array (chuỗi) BẢNG PHÂN QUYỀN do BA đề xuất ở lượt chốt quyền cuối buổi (PermissionMatrixRow[]:
+    // màn hình + chức năng + quyền của từng vai trò). Chỉ có ở đúng lượt đó; null với mọi lượt khác.
+    // Lưu lại vì cùng hai lý do của cột ColumnMap: F5 giữa chừng mà bảng biến mất thì người dùng mất luôn
+    // các ô chưa chọn (bảng này dài hơn bảng cột nhiều lần, mất là mất cả buổi tích), và Message của lượt
+    // đó chỉ là câu dẫn — không có cột này thì mọi reader transcript không biết BA đã đề xuất quyền nào.
+    // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
+    public string? PermissionMatrix { get; set; }
+
     // JSON array (chuỗi) các bước sơ đồ luồng nghiệp vụ (FlowStep[]) — CHỈ có ở lượt BA mời bấm "Write
     // Requirement" để user xác nhận luồng trực quan trước khi tạo tài liệu. Null với các lượt thường.
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.

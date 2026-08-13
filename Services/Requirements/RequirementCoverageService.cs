@@ -80,7 +80,7 @@ public class RequirementCoverageService
             .OrderBy(s => s.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        var updated = await DistillAsync(project.RequirementCoverageMap, delta, sources, ba, model, project.Id, cancellationToken);
+        var updated = await DistillAsync(project.RequirementCoverageMap, delta, sources, project.PermissionMatrix, ba, model, project.Id, cancellationToken);
 
         // THỬ LẠI MỘT LẦN. Bản đồ là la bàn của lượt hỏi kế tiếp, nên một lời gọi hỏng không chỉ làm trễ
         // panel: BA sẽ dẫn lượt sau bằng bản đồ CHƯA có câu trả lời vừa rồi và hỏi lại đúng nhóm đó. Một
@@ -89,7 +89,7 @@ public class RequirementCoverageService
         // vào phần SDK không lo — lời gọi "thành công" nhưng trả về rỗng/không dùng được. Nó chỉ chạy
         // trên đường đã hỏng nên không cộng độ trễ vào lượt bình thường.
         if (updated == null && !cancellationToken.IsCancellationRequested)
-            updated = await DistillAsync(project.RequirementCoverageMap, delta, sources, ba, model, project.Id, cancellationToken);
+            updated = await DistillAsync(project.RequirementCoverageMap, delta, sources, project.PermissionMatrix, ba, model, project.Id, cancellationToken);
 
         if (updated != null)
         {
@@ -105,7 +105,7 @@ public class RequirementCoverageService
 
     // Gộp bản đồ hiện có + các lượt mới (+ text tài liệu nguồn) thành MỘT bản đồ duy nhất. Trả về null
     // khi lời gọi lỗi/rỗng để caller fail-open (giữ bản đồ cũ, không dời con trỏ).
-    private async Task<string?> DistillAsync(string? existingMap, List<AgentConversation> turns, List<ProjectSourceFile> sources, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
+    private async Task<string?> DistillAsync(string? existingMap, List<AgentConversation> turns, List<ProjectSourceFile> sources, string? permissionMatrixJson, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(existingMap))
@@ -122,6 +122,19 @@ public class RequirementCoverageService
             sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
         }
         sb.Append(BuildSourceBriefNote(sources));
+
+        // BẢNG PHÂN QUYỀN đã chốt — nguồn bằng chứng RIÊNG của dòng «Phân quyền theo nghiệp vụ», cùng vai
+        // trò với bảng cột ở dòng «Dữ liệu / danh mục chính»: người dùng đã trả lời bằng cách chọn từng ô
+        // chứ không gõ vào khung chat. Thiếu khối này thì distiller không thấy câu trả lời ở đâu cả — dòng
+        // phân quyền kẹt lại, cổng readiness thay lời mời "Write Requirement" bằng một câu hỏi về đúng thứ
+        // người dùng vừa tự tay chọn từng ô, và mỗi vòng lặp lại không sinh ra bằng chứng mới nào.
+        var confirmedMatrix = PermissionMatrixBuilder.RenderConfirmedBlock(permissionMatrixJson);
+        if (!string.IsNullOrWhiteSpace(confirmedMatrix))
+        {
+            sb.AppendLine();
+            sb.AppendLine("## Bảng phân quyền (người dùng đã chốt bằng cách chọn từng ô — bằng chứng cho dòng «Phân quyền theo nghiệp vụ»)");
+            sb.AppendLine(confirmedMatrix);
+        }
 
         var messages = new List<ChatMessage>
         {

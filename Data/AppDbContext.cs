@@ -148,6 +148,9 @@ public class AppDbContext : DbContext
         builder.Entity<AgentConversation>().Property(x => x.ColumnMap).HasConversion(
             plain => _apiKeyProtector.Protect(plain),
             stored => _apiKeyProtector.Unprotect(stored));
+        builder.Entity<AgentConversation>().Property(x => x.PermissionMatrix).HasConversion(
+            plain => _apiKeyProtector.Protect(plain),
+            stored => _apiKeyProtector.Unprotect(stored));
         builder.Entity<AgentConversation>().Property(x => x.FlowDiagram).HasConversion(
             plain => _apiKeyProtector.Protect(plain),
             stored => _apiKeyProtector.Unprotect(stored));

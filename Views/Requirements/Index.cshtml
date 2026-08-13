@@ -97,6 +97,22 @@
         .Where(c => unconfirmedColumnFiles.Contains((c.FileName ?? "").Trim()))
         .ToList();
 
+    // BẢNG PHÂN QUYỀN của lượt BA chốt nhóm «Phân quyền theo nghiệp vụ»: mỗi dòng một chức năng của một
+    // màn hình, mỗi cột một vai trò, ô là PHẠM VI DỮ LIỆU chứ không phải dấu tích (xem PermissionMatrixRow).
+    //
+    // Bảng treo theo DỰ ÁN (Project.PermissionMatrix == null) chứ không theo lượt, cùng lý do với bảng cột:
+    // người dùng hoàn toàn có thể gõ một câu hỏi lại trước khi ngồi chọn, và mất bảng vì lý do đó là mất
+    // luôn đường chốt phân quyền — thứ mà cả bản đồ bao phủ, cổng Write Requirement lẫn POC đều đọc.
+    // Chốt xong thì cột trên project khác null nên bảng tự đóng, không cần cột trạng thái nào khác.
+    var lastPermissionMatrix = Model.PermissionMatrix == null
+        ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
+            .ParsePermissionMatrix(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.PermissionMatrix))?.PermissionMatrix)
+        : new List<ICOGenerator.Contracts.Requirements.PermissionMatrixRow>();
+    // Các vai trò = CỘT của bảng. PermissionMatrixBuilder đảm bảo mọi dòng có đủ mọi vai theo cùng thứ tự,
+    // nên dòng đầu là đủ để dựng hàng tiêu đề.
+    var permissionRoles = lastPermissionMatrix.FirstOrDefault()?.Grants.Select(g => g.Role).ToList()
+        ?? new List<string>();
+
     // GỘP CÂU DẪN VÀO THẺ HỎI: ở lượt gộp, Message chỉ là câu dẫn ngắn ("mình hỏi nhanh mấy điểm sau")
     // — render nó thành bong bóng riêng phía trên thẻ là hai khung liền nhau nói cùng một ý, vì bản thân
     // thẻ đã có dòng dẫn của nó. Nên lượt BA này KHÔNG có bong bóng riêng: câu dẫn xuống làm dòng đầu
@@ -958,6 +974,93 @@
                             Bản đọc lại của BA có chỗ nào chưa đúng thì anh/chị cứ gõ thêm vào khung chat nhé.
                         </div>
                         <div class="colmap-msg" id="columnMapMsg"></div>
+                    </div>
+                }
+            </div>
+
+            @* BẢNG PHÂN QUYỀN — nhóm «Phân quyền theo nghiệp vụ» là nhóm DUY NHẤT không được chốt bằng câu
+               hỏi. Hỏi "mỗi vai trò được xem và làm những gì?" là bắt người dùng nghiệp vụ tự dựng cả ma
+               trận trong đầu, nên câu trả lời thật gần như luôn là "cứ vậy đã, có gì tôi bổ sung sau" — rồi
+               BA tự soạn phương án và một chip "Đồng ý" đóng dấu [RÕ] cho cả nhóm, khóa luôn đường hỏi lại.
+
+               Vì sao ô là DROPDOWN PHẠM VI chứ không phải checkbox: quyết định thật gần như luôn có mệnh đề
+               phạm vi ("xem Plan DO MÌNH LẬP", "xem ticket CỦA NHÂN VIÊN THUỘC QUYỀN"). Một dấu tích chỉ ghi
+               được "có xem" và bước soạn tài liệu phải tự đoán xem của ai — đúng chỗ trống cần lấp.
+
+               Vì sao ô có bằng chứng thì KHÓA (dấu ✓ + tooltip trích dẫn) còn ô còn lại thì chọn được: nếu
+               mọi ô đều điền sẵn và trông như đã chốt thì người dùng bấm gửi trong ba giây, và ta quay về
+               đúng cái chip "Đồng ý phương án này" — chỉ khác là to hơn.
+
+               Đặt SAU #columnMap và TRƯỚC #writeReqZone: hai bảng không bao giờ cùng sống (bảng cột thuộc
+               lượt đọc file đầu buổi, bảng này thuộc lượt cuối buổi), nhưng thứ tự DOM vẫn phải cố định để
+               requirements.js dời cả cụm xuống cuối dòng hội thoại sau mỗi lượt. *@
+            <div class="req-msg ba permmap" id="permissionMatrix"
+                 data-confirm-url="@Url.Action("ConfirmPermissionMatrix", "Requirements")"
+                 @(lastPermissionMatrix.Count > 0 ? "" : "hidden")>
+                @if (lastPermissionMatrix.Count > 0)
+                {
+                    <div class="permmap-howto">
+                        Ô <b>✓</b> là quyền anh/chị đã nói trong lúc trao đổi (rê chuột để xem lại câu gốc) — mình khóa
+                        lại, không cần chọn nữa. Các ô còn lại là <b>phỏng đoán của mình</b>: anh/chị chọn phạm vi dữ
+                        liệu cho đúng, và <b>để trống</b> nghĩa là vai đó không có quyền này.
+                    </div>
+                    @foreach (var screen in lastPermissionMatrix.GroupBy(r => r.Screen))
+                    {
+                        <div class="permmap-screen">@screen.Key</div>
+                        <table class="permmap-table">
+                            <thead>
+                                <tr>
+                                    <th class="permmap-th-fn">Chức năng</th>
+                                    @foreach (var role in permissionRoles)
+                                    {
+                                        <th class="permmap-th-role">@role</th>
+                                    }
+                                    <th class="permmap-th-cond">Điều kiện thêm (nếu có)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in screen)
+                                {
+                                    <tr class="permmap-row" data-screen="@row.Screen" data-function="@row.Function">
+                                        <td class="permmap-fn">@row.Function</td>
+                                        @foreach (var grant in row.Grants)
+                                        {
+                                            <td class="permmap-cell" data-role="@grant.Role">
+                                                @if (grant.Locked)
+                                                {
+                                                    @* Ô đã có bằng chứng: hiện ✓ cố định + input ẩn giữ phạm vi, đúng
+                                                       lối của cột "Super Administrator" trong bảng phân quyền giấy —
+                                                       nhìn là biết ngay ô nào đã chốt, ô nào còn phải quyết. *@
+                                                    <span class="permmap-locked" title="@grant.Evidence">✓ @grant.Scope</span>
+                                                    <input type="hidden" class="permmap-scope" value="@grant.Scope" />
+                                                }
+                                                else
+                                                {
+                                                    <select class="permmap-scope" aria-label="@grant.Role — @row.Function">
+                                                        <option value="" selected="@(!ICOGenerator.Contracts.Requirements.PermissionScope.IsGranted(grant.Scope))">—</option>
+                                                        @foreach (var scope in ICOGenerator.Contracts.Requirements.PermissionScope.Granted)
+                                                        {
+                                                            <option value="@scope" selected="@(grant.Scope == scope)">@scope</option>
+                                                        }
+                                                    </select>
+                                                }
+                                            </td>
+                                        }
+                                        <td>
+                                            <input type="text" class="permmap-condition" value="@row.Condition"
+                                                   placeholder="vd: chỉ sửa khi chưa submit" />
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    <div class="permmap-bar">
+                        <button type="button" class="btn primary" id="permissionMatrixSendBtn">Gửi bảng phân quyền</button>
+                        <div class="permmap-hint">
+                            Thiếu màn hình nào hoặc thiếu một vai trò, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                        </div>
+                        <div class="permmap-msg" id="permissionMatrixMsg"></div>
                     </div>
                 }
             </div>

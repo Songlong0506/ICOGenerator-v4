@@ -38,7 +38,11 @@ public class BAChatReplyParser
                 MultiSelect = parsed.MultiSelect == true,
                 OpenEnded = parsed.OpenEnded == true,
                 Questions = ToQuestions(parsed.Questions),
-                FlowDiagram = parsed.FlowDiagram ?? new List<FlowStep>()
+                FlowDiagram = parsed.FlowDiagram ?? new List<FlowStep>(),
+                // Bảng phân quyền đi thẳng, KHÔNG cắt gọt ở đây: bản chuẩn hoá của nó cần biết phạm vi đã
+                // chắt của dự án (để loại màn hình bịa và bù màn hình bị bỏ quên) mà parser thì không có —
+                // xem PermissionMatrixBuilder.Build, gọi từ BAChatService.
+                PermissionMatrix = parsed.PermissionMatrix ?? new List<PermissionMatrixRow>()
             };
 
             // Có cấu trúc rõ ràng (message, suggestions hoặc questions) → dùng kết quả parse.
@@ -471,6 +475,7 @@ public class BAChatReplyParser
         public bool? OpenEnded { get; set; }
         public List<RawQuestion>? Questions { get; set; }
         public List<FlowStep>? FlowDiagram { get; set; }
+        public List<PermissionMatrixRow>? PermissionMatrix { get; set; }
     }
 
     // Shape thô của một câu hỏi trong lượt gộp. Suggestions để JsonElement như RawReply để dùng chung

@@ -74,6 +74,21 @@ public class Project
     public string? PlannedScope { get; set; }
     public string? WorkedExamples { get; set; }
     public int InterviewOutlookHarvestedTurnCount { get; set; }
+    // BẢNG PHÂN QUYỀN người dùng ĐÃ CHỐT (JSON PermissionMatrixRow[]) — màn hình × chức năng × vai trò,
+    // mỗi ô kèm PHẠM VI DỮ LIỆU ("của mình" / "của đơn vị" / "tất cả"). null = chưa chốt.
+    //
+    // Vì sao phân quyền có đường riêng thay vì nằm chung trong hội thoại như mọi điều khác: câu hỏi "mỗi
+    // vai trò được xem và làm những gì" bắt người dùng nghiệp vụ tự dựng cả ma trận trong đầu, nên nó gần
+    // như luôn nhận về một câu đóng cửa ("cứ vậy đã, có gì tôi bổ sung sau") — rồi BA tự soạn phương án,
+    // người dùng bấm một chip "Đồng ý", và nhóm «Phân quyền theo nghiệp vụ» của bản đồ bao phủ được chấm
+    // [RÕ] với bằng chứng đúng bằng bốn chữ ấy. Đó là kiểu [RÕ] oan tệ nhất hệ thống mắc được: BA bị cấm
+    // hỏi lại nhóm đã [RÕ] nên thông tin đó vĩnh viễn không được lấy. Bảng đảo chiều chi phí (tích ô rẻ
+    // hơn kể) và để lại bằng chứng trên TỪNG ô.
+    //
+    // Non-null ⇒ khối đã chốt được nạp vào ngữ cảnh chat (BA thôi hỏi lại), vào lượt distill bản đồ bao
+    // phủ (nhóm phân quyền [RÕ] có căn cứ thật), và vào prompt sinh AI Design Spec (POC dựng UI theo vai
+    // thay vì để phân quyền tan vào văn xuôi). Xem PermissionMatrixBuilder + PermissionMatrixGate.
+    public string? PermissionMatrix { get; set; }
     // CỔNG XÁC NHẬN GIẢ ĐỊNH (giữa "sinh AI Design Spec" và "dựng POC"). Spec được phép tự đưa giả định
     // (mục "## 12. Assumptions") cho những điều Product Brief không nói; trước đây các giả định đó đi
     // THẲNG vào POC và user chỉ phát hiện sai sau khi ngồi chờ cả lượt dựng POC. Nay spec sinh xong mà
