@@ -15,10 +15,13 @@ namespace ICOGenerator.Tests.Prompts;
 // do golden set eval chấm.
 public class PromptConventionTests
 {
-    // Năm file KHÔNG mở đầu bằng "# Vai trò:" — có lý do, không phải sót:
+    // Sáu file KHÔNG mở đầu bằng "# Vai trò:" — có lý do, không phải sót:
     //  - organization-context/organization-scope/organization-platform: KHỐI NGỮ CẢNH được
     //    OrganizationContextService đính vào THÂN một prompt khác. Thêm H1 ở đây là chèn một tiêu đề cấp 1
     //    vào giữa prompt của vai khác.
+    //  - source-readback: khối "LƯỢT NÀY:" mà BAChatService đính thêm vào ĐÚNG lượt chat sau khi người dùng
+    //    chốt bảng cột — cùng dạng với các khối lệnh theo lượt trong requirement-chat, chỉ khác là nó dài
+    //    nên nằm ở file riêng để đo được ở Prompt Evals và sửa được ở Prompt Studio.
     //  - Shared/revision: khối NỐI SAU prompt gốc của bước, đã có H1 riêng của nó.
     //  - Shared/tool-agent-native: khung system prompt bọc quanh {{instruction}} của vai, bản thân nó
     //    không phải một vai.
@@ -27,6 +30,7 @@ public class PromptConventionTests
         "BusinessAnalyst/organization-context.v2.md",
         "BusinessAnalyst/organization-scope.v1.md",
         "BusinessAnalyst/organization-platform.v1.md",
+        "BusinessAnalyst/source-readback.v1.md",
         "Shared/revision.v1.md",
         "Shared/tool-agent-native.v1.md",
     };

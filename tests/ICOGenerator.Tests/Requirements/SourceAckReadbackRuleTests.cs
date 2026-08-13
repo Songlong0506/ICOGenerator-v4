@@ -34,34 +34,65 @@ namespace ICOGenerator.Tests.Requirements;
 // thật là prompt, và test này giữ cho các luật đó không âm thầm rơi mất qua một lần dọn prompt.
 public class SourceAckReadbackRuleTests
 {
-    private const string SourceAckPromptKey = "BusinessAnalyst/source-ack.v2.md";
+    private const string SourceAckPromptKey = "BusinessAnalyst/source-ack.v3.md";
+    private const string ReadbackPromptKey = "BusinessAnalyst/source-readback.v1.md";
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
 
     [Fact]
-    public void SourceAckPrompt_RequiresExhaustiveColumnReading()
+    public void ReadbackPrompt_RequiresExhaustiveColumnReading()
     {
-        var prompt = ReadPrompt(SourceAckPromptKey);
+        var prompt = ReadPrompt(ReadbackPromptKey);
 
         // Luật lõi: danh mục của cột lấy từ khối thống kê, không suy từ các dòng mẫu.
         Assert.Contains("Thống kê cột", prompt, StringComparison.Ordinal);
-        Assert.Contains("KHÔNG từ các dòng mẫu", prompt, StringComparison.Ordinal);
-        Assert.Contains("chép **hết** các giá trị", prompt, StringComparison.Ordinal);
+        Assert.Contains("KHÔNG suy từ các dòng mẫu", prompt, StringComparison.Ordinal);
+        Assert.Contains("chép ĐỦ các giá trị kèm số dòng", prompt, StringComparison.Ordinal);
 
-        // Cột trống 100% / một giá trị duy nhất là dữ kiện, không phải chuyện vặt được phép bỏ qua.
-        Assert.Contains("Cột không mang thông tin", prompt, StringComparison.Ordinal);
+        // Cột trống 100% / một giá trị duy nhất là dữ kiện, không phải chuyện vặt được phép bỏ qua —
+        // luật này sống ở lượt dựng bảng, nơi cột đó phải có một dòng và một ô ý nghĩa nói thẳng ra.
+        Assert.Contains("Cột không mang thông tin", ReadPrompt(SourceAckPromptKey), StringComparison.Ordinal);
     }
 
     [Fact]
-    public void SourceAckPrompt_RequiresCrossCheckAgainstWhatTheUserSaid()
+    public void BothPrompts_RequireCrossCheckAgainstWhatTheUserSaid()
     {
-        var prompt = ReadPrompt(SourceAckPromptKey);
+        // Bảng tính: phần đối chiếu nằm ở lượt KỂ LẠI (sau khi chốt cột) — ba câu hỏi đối chiếu đủ cả.
+        var readback = ReadPrompt(ReadbackPromptKey);
+        Assert.Contains("Đối chiếu file với điều người dùng đã kể", readback, StringComparison.Ordinal);
+        Assert.Contains("file bạn đã xin", readback, StringComparison.Ordinal);
+        Assert.Contains("file KHÔNG có", readback, StringComparison.Ordinal);
+        Assert.Contains("Quy mô có khớp lời kể", readback, StringComparison.Ordinal);
 
-        Assert.Contains("Đối chiếu tài liệu với điều người dùng đã kể", prompt, StringComparison.Ordinal);
+        // Word/PDF/ảnh không có bảng cột nên bản đọc lại của chúng vẫn nằm ở lượt mở tài liệu — phần đối
+        // chiếu phải đi theo, nếu không loại nguồn đó mất trắng chốt chặn này.
+        var ack = ReadPrompt(SourceAckPromptKey);
+        Assert.Contains("Đối chiếu tài liệu với điều người dùng đã kể", ack, StringComparison.Ordinal);
+        Assert.Contains("file bạn đã xin", ack, StringComparison.Ordinal);
+        Assert.Contains("Quy mô có khớp lời kể", ack, StringComparison.Ordinal);
+    }
 
-        // Ba câu hỏi đối chiếu: đúng file đã xin chưa, thiếu gì so với lời kể, quy mô có khớp không.
-        Assert.Contains("file bạn đã xin", prompt, StringComparison.Ordinal);
-        Assert.Contains("file KHÔNG có", prompt, StringComparison.Ordinal);
-        Assert.Contains("Quy mô có khớp lời kể", prompt, StringComparison.Ordinal);
+    // THỨ TỰ là toàn bộ điểm của thay đổi này: bảng cột trước, bản đọc lại sau. Lượt upload vừa bày bảng
+    // vừa kể lại cả file là dựng "Chỗ chưa chắc" trên những cột người dùng sắp bỏ tích ngay bên dưới — mỗi
+    // mục thừa ở đó đốt một lượt phỏng vấn thật — và nếu họ gửi nhầm file thì cả bản đọc là công cốc, mà
+    // vẫn đủ hợp lý để được bấm "Đúng rồi".
+    [Fact]
+    public void SourceAckPrompt_DefersTheSpreadsheetReadbackUntilTheColumnScopeIsSettled()
+    {
+        var ack = ReadPrompt(SourceAckPromptKey);
+
+        Assert.Contains("Vì sao bản đọc lại của BẢNG TÍNH phải đứng SAU bảng cột", ack, StringComparison.Ordinal);
+        // Hai hình dạng của lượt, và luật "hình dạng do hệ thống chọn" — model không tự đoán được file nào
+        // đang chờ chốt cột vì nó thấy text của MỌI nguồn trong project.
+        Assert.Contains("## LƯỢT NÀY: CHỐT PHẠM VI CỘT", ack, StringComparison.Ordinal);
+        Assert.Contains("## LƯỢT NÀY: BẢN ĐỌC LẠI", ack, StringComparison.Ordinal);
+        Assert.Contains("CẤM trong lượt này", ack, StringComparison.Ordinal);
+
+        // Và nửa sau phải nói rõ nó LÀ bản đọc lại bị dời tới, nếu không nó thành một lượt chào hỏi.
+        var readback = ReadPrompt(ReadbackPromptKey);
+        Assert.Contains("KỂ LẠI", readback, StringComparison.Ordinal);
+        Assert.Contains("Chỗ chưa chắc", readback, StringComparison.Ordinal);
+        // Lượt này không hỏi khai thác: thẻ hỏi gộp nuốt mất hai chip xác nhận.
+        Assert.Contains("`questions`: mảng RỖNG", readback, StringComparison.Ordinal);
     }
 
     // "Chỗ chưa chắc" là hàng đợi câu hỏi cho các lượt phỏng vấn sau, nên mỗi mục thừa ở đây đốt một lượt
@@ -70,12 +101,16 @@ public class SourceAckReadbackRuleTests
     // Organization trông như dính liền tên). Cả hai đều tự kiểm được, và cả hai đều là câu hỏi kỹ thuật
     // mà mục "Đối tượng người dùng" của prompt chat cấm đặt ra.
     [Fact]
-    public void SourceAckPrompt_KeepsSelfCheckableItemsOutOfTheOpenQuestionList()
+    public void Prompts_KeepSelfCheckableItemsOutOfTheOpenQuestionList()
     {
-        var prompt = ReadPrompt(SourceAckPromptKey);
+        Assert.Contains("CHỈ NGƯỜI DÙNG trả lời được", ReadPrompt(SourceAckPromptKey), StringComparison.Ordinal);
+        Assert.Contains("tự kiểm được hoặc tự suy ra được", ReadPrompt(SourceAckPromptKey), StringComparison.Ordinal);
 
-        Assert.Contains("CHỈ NGƯỜI DÙNG trả lời được", prompt, StringComparison.Ordinal);
-        Assert.Contains("tự kiểm được hoặc tự suy ra được", prompt, StringComparison.Ordinal);
+        // Cùng luật ở lượt kể lại bảng tính, kèm đúng ca thật đã trượt: hỏi người dùng nghiệp vụ xem 44330
+        // là định dạng ngày gì, trong khi đó là số ngày kiểu Excel và tự quy đổi được.
+        var readback = ReadPrompt(ReadbackPromptKey);
+        Assert.Contains("CHỈ NGƯỜI DÙNG trả lời được", readback, StringComparison.Ordinal);
+        Assert.Contains("44330", readback, StringComparison.Ordinal);
     }
 
     // Câu trả lời rỗng khác "sao cũng được" ở chỗ nó có chủ ngữ và động từ, nên trôi qua rất êm. Ca thật:
@@ -109,13 +144,17 @@ public class SourceAckReadbackRuleTests
     // gì — đúng chuyện đã xảy ra với Assignment Type REQ/MAN/OPT, cột mã hóa "bắt buộc / tự chọn" mà người
     // dùng nói ngay câu đầu tiên. Luật là CHỌN cột, rồi nêu dưới dạng đề xuất để họ gật/lắc.
     [Fact]
-    public void SourceAckPrompt_SelectsWhichColumnsAreWorthAsking_AndProposesAReading()
+    public void ReadbackPrompt_SelectsWhichColumnsAreWorthAsking_AndProposesAReading()
     {
-        var prompt = ReadPrompt(SourceAckPromptKey);
+        var readback = ReadPrompt(ReadbackPromptKey);
 
-        Assert.Contains("KHÔNG bao giờ nêu cả bảng", prompt, StringComparison.Ordinal);
-        Assert.Contains("Cột chở một quy tắc người dùng ĐÃ NÓI", prompt, StringComparison.Ordinal);
-        Assert.Contains("dưới dạng ĐỀ XUẤT, không phải câu hỏi trống", prompt, StringComparison.Ordinal);
+        Assert.Contains("đừng đi qua từng cột giải nghĩa lại", readback, StringComparison.Ordinal);
+        Assert.Contains("Cột chở một quy tắc người dùng ĐÃ NÓI", readback, StringComparison.Ordinal);
+        Assert.Contains("dưới dạng ĐỀ XUẤT, không phải câu hỏi trống", readback, StringComparison.Ordinal);
+
+        // Cùng mối nối đó phải có ở lượt dựng bảng, vì nó quyết định ô ý nghĩa và ô tích của đúng cột chở
+        // yêu cầu lõi ("bắt buộc / tự chọn" → Assignment Type REQ/MAN/OPT).
+        Assert.Contains("Cột chở một quy tắc người dùng ĐÃ NÓI", ReadPrompt(SourceAckPromptKey), StringComparison.Ordinal);
     }
 
     // Text bóc từ file được nạp làm "dữ liệu mẫu thật" cho bước sinh spec, và POC seed màn hình bằng đúng
@@ -160,9 +199,9 @@ public class SourceAckReadbackRuleTests
     // nhầm sang nghĩa thứ hai. Cột đó quyết định file kể "ai đã học" hay "nội dung nào còn dùng", tức quyết
     // định file có suy ra được nhu cầu học hay không — đầu vào của toàn bộ việc tính số lớp.
     [Fact]
-    public void SourceAckPrompt_ReadsColumnsAgainstEachOther_BeforeSettlingOnAMeaning()
+    public void ReadbackPrompt_ReadsColumnsAgainstEachOther_BeforeSettlingOnAMeaning()
     {
-        var prompt = ReadPrompt(SourceAckPromptKey);
+        var prompt = ReadPrompt(ReadbackPromptKey);
 
         Assert.Contains("Đọc các cột CẠNH NHAU", prompt, StringComparison.Ordinal);
         Assert.Contains("cùng số dòng có giá trị", prompt, StringComparison.Ordinal);
@@ -178,7 +217,7 @@ public class SourceAckReadbackRuleTests
     {
         var prompt = ReadPrompt(SourceAckPromptKey);
 
-        Assert.Contains("KHỚP với cách bạn hiểu cột đó trong `message`", prompt, StringComparison.Ordinal);
+        Assert.Contains("KHỚP với cách bạn hiểu cột đó ở mọi chỗ khác", prompt, StringComparison.Ordinal);
     }
 
     // Cột hệ cũ không chỉ là cột hạ tầng. `Days Rem` (= Required Date trừ ngày hệ cũ xuất file) đọc lên như
@@ -201,17 +240,18 @@ public class SourceAckReadbackRuleTests
     // mất trắng. Luật này KHÔNG cho phép bỏ bớt bản đọc: nó chỉ chuyển phần giải nghĩa cột sang bảng, còn
     // tổng quan, cột chở quy tắc và phần đối chiếu với lời kể vẫn phải nguyên.
     [Fact]
-    public void SourceAckPrompt_DoesNotRepeatTheColumnTableInsideTheReadback()
+    public void ReadbackPrompt_DoesNotRepeatTheColumnTableInsideTheReadback()
     {
-        var prompt = ReadPrompt(SourceAckPromptKey);
+        var readback = ReadPrompt(ReadbackPromptKey);
 
-        Assert.Contains("Bản đọc lại KHÔNG phải bản giải nghĩa từng cột", prompt, StringComparison.Ordinal);
-        // Vẫn phải giữ ba thứ bảng cột không chở được — nếu không, luật này biến thành cái cớ đọc qua loa.
-        Assert.Contains("Các cột chở một QUY TẮC nghiệp vụ", prompt, StringComparison.Ordinal);
+        Assert.Contains("Chỉ nói về CỘT ĐÃ TÍCH", readback, StringComparison.Ordinal);
+        // Vẫn phải giữ những thứ bảng cột không chở được — nếu không, luật này biến thành cái cớ đọc qua loa.
+        Assert.Contains("Các cột chở một QUY TẮC nghiệp vụ", readback, StringComparison.Ordinal);
 
-        // Và phạm vi cột chỉ được xử lý ở MỘT chỗ: nêu lại trong "Chỗ chưa chắc" thì nó thành việc tồn, rồi
-        // lượt phỏng vấn sau đi hỏi lại đúng thứ người dùng vừa tích từng dòng.
-        Assert.Contains("đừng nêu lại thành mục \"Chỗ chưa chắc\"", prompt, StringComparison.Ordinal);
+        // Và phạm vi cột chỉ được xử lý ở MỘT chỗ — chính cái bảng người dùng vừa tích từng dòng. Nêu lại
+        // trong "Chỗ chưa chắc" thì nó thành việc tồn, rồi lượt phỏng vấn sau đi hỏi lại đúng thứ đó.
+        Assert.Contains("KHÔNG** nêu lại chuyện **phạm vi cột**", readback, StringComparison.Ordinal);
+        Assert.Contains("đây là chỗ DUY NHẤT xử lý chuyện đó", ReadPrompt(SourceAckPromptKey), StringComparison.Ordinal);
     }
 
     // Lượt có BẢNG CỘT thì BAChatService bỏ hàng chip "Đúng rồi / Chưa đúng" (chip bấm là gửi ngay, để cả
@@ -222,7 +262,7 @@ public class SourceAckReadbackRuleTests
     // ca phải cùng nằm trong prompt: bỏ ca Word/PDF/ảnh đi thì lượt không có bảng mất luôn câu hỏi đóng, mà
     // đó mới là chỗ hai chip là đường trả lời DUY NHẤT.
     [Fact]
-    public void SourceAckPrompt_ClosesTheReadbackWithWhicheverAnswerControlIsOnScreen()
+    public void SourceAckPrompt_ClosesTheTurnWithWhicheverAnswerControlIsOnScreen()
     {
         var prompt = ReadPrompt(SourceAckPromptKey);
 
@@ -230,8 +270,9 @@ public class SourceAckReadbackRuleTests
         // Ca có bảng: câu kết mời rà và gửi bảng, không phải hỏi đóng.
         Assert.Contains("Gửi bảng cột", prompt, StringComparison.Ordinal);
         Assert.Contains("KHÔNG CÓ nút trả lời", prompt, StringComparison.Ordinal);
-        // Ca không có bảng: câu hỏi đóng giữ nguyên.
-        Assert.Contains("không có bảng cột", prompt, StringComparison.OrdinalIgnoreCase);
+        // Ca không có bảng (Word/PDF/ảnh): câu hỏi đóng + hai chip giữ nguyên.
+        Assert.Contains("BẢN ĐỌC LẠI (Word / PDF / ảnh)", prompt, StringComparison.Ordinal);
+        Assert.Contains("câu hỏi đóng", prompt, StringComparison.Ordinal);
     }
 
     // Xin file là lời nhờ HÀNH ĐỘNG, không phải câu hỏi: người dùng đọc xong thì đi tìm file, và mọi thứ khác
@@ -281,10 +322,17 @@ public class SourceAckReadbackRuleTests
         var scenarios = EvalScenariosSeedData.Build();
 
         var sourceAck = scenarios.Where(s => s.PromptKey == SourceAckPromptKey).Select(s => s.Criteria).ToList();
+        var readback = scenarios.Where(s => s.PromptKey == ReadbackPromptKey).Select(s => s.Criteria).ToList();
         Assert.NotEmpty(sourceAck);
+        Assert.NotEmpty(readback);
         // Giá trị chỉ có trong khối thống kê, không có trong dòng mẫu — đúng chỗ bản đọc thật đã trượt.
-        Assert.Contains(sourceAck, c => c.Contains("OPT", StringComparison.Ordinal));
-        Assert.Contains(sourceAck, c => c.Contains("Chỗ chưa chắc", StringComparison.Ordinal));
+        Assert.Contains(readback, c => c.Contains("OPT", StringComparison.Ordinal));
+        Assert.Contains(readback, c => c.Contains("Chỗ chưa chắc", StringComparison.Ordinal));
+        // Hai lượt có hai cái bẫy NGƯỢC NHAU, nên cả hai chiều đều phải có điểm chấm: lượt bày bảng trượt
+        // vì kể quá nhiều (bản đọc lại + "Chỗ chưa chắc" dựng trên cột người dùng sắp bỏ tích), lượt kể
+        // lại trượt vì kể quá ít hoặc kể lại chính những cột vừa bị bỏ.
+        Assert.Contains(sourceAck, c => c.Contains("TRƯỢT nếu message có cụm \"Chỗ chưa chắc\"", StringComparison.Ordinal));
+        Assert.Contains(readback, c => c.Contains("TRƯỢT nếu message nhắc tới Days Rem", StringComparison.Ordinal));
 
         var decisionLog = scenarios.Where(s => s.PromptKey == "BusinessAnalyst/decision-log.v1.md")
             .Select(s => s.Criteria).ToList();
@@ -303,10 +351,12 @@ public class SourceAckReadbackRuleTests
         // Ba luật thêm sau khi soát lại một cuộc phỏng vấn thật, cả ba đều là chỗ prompt định hướng được mà
         // máy không chặn được — nên chúng chỉ tồn tại nếu có điểm chấm.
         Assert.Contains(chat, c => c.Contains("Lượt xin file phải ĐỨNG MỘT MÌNH", StringComparison.Ordinal));
+        // Cột dẫn xuất được quyết ở lượt bày bảng (ô tích), còn chỗ trùng khít 219/262 là chuyện của lượt
+        // kể lại — mỗi luật nằm ở đúng lượt mà nó thật sự chi phối.
         Assert.Contains(sourceAck, c => c.Contains("Days Rem", StringComparison.Ordinal)
                                         && c.Contains("DẪN XUẤT", StringComparison.Ordinal));
-        Assert.Contains(sourceAck, c => c.Contains("219", StringComparison.Ordinal)
-                                        && c.Contains("ĐÃ HỌC XONG", StringComparison.Ordinal));
+        Assert.Contains(readback, c => c.Contains("219", StringComparison.Ordinal)
+                                       && c.Contains("ĐÃ HỌC XONG", StringComparison.Ordinal));
     }
 
     // Cùng cách tìm Prompts/ như BAChatPlaybackRuleTests: ưu tiên bản copy trong bin, không có thì đi

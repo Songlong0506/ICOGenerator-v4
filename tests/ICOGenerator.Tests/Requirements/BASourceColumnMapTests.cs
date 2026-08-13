@@ -20,6 +20,12 @@ namespace ICOGenerator.Tests.Requirements;
 // cột" của cả bảng (mọi giá trị phân biệt kèm số dòng) — thứ cần để đoán nghĩa từng cột. Test này khóa cái
 // vòng đó lại: đề xuất của model biến thành bảng phủ ĐỦ cột thật của file, dòng bịa bị loại, và lượt đó
 // không đồng thời bày ra hai chỗ trả lời.
+//
+// Và khóa luôn THỨ TỰ của hai việc: bảng cột trước, bản đọc lại sau. Trước đây lượt upload vừa bày bảng
+// vừa kể lại cả file kèm cụm "Chỗ chưa chắc" — tức là dựng việc tồn trên những cột người dùng sắp bỏ tích
+// ngay bên dưới, và đọc nhầm cả file khi họ gửi nhầm file. Nay lượt upload chỉ giới thiệu ngắn + bảng, còn
+// bản đọc lại dời sang đúng lượt chat kế tiếp (tin nhắn chốt bảng do server soạn nên nhận ra được chắc
+// chắn). Cả hai đầu của cơ chế đó đều phải có chốt chặn, vì hỏng đầu nào cũng im lặng.
 public class BASourceColumnMapTests : IDisposable
 {
     private const string ExtractedText = """
@@ -163,6 +169,128 @@ public class BASourceColumnMapTests : IDisposable
         Assert.Null(turn.ColumnMap);
     }
 
+    // HÌNH DẠNG của lượt đọc file do CƠ CHẾ chọn: còn bảng tính chưa chốt cột ⇒ lượt này chỉ bày bảng kèm
+    // lời giới thiệu ngắn. Model nhìn thấy text của MỌI nguồn trong project nên nó không tự biết file nào
+    // đang chờ — để nó đoán là quay lại đúng lượt cũ: một bản đọc lại 18 cột đặt ngay trên cái bảng chở
+    // cùng nội dung ở dạng sửa được.
+    [Fact]
+    public async Task Acknowledge_WithAPendingSpreadsheet_OrdersTheModelToDeferTheReadback()
+    {
+        var llm = new FakeLlm
+        {
+            AckReply = Ack(new SourceColumnNote { FileName = "74a9af7d-KeHoach.xlsx", Column = "Global ID", Meaning = "mã nhân viên", Used = true })
+        };
+
+        await using (var db = NewDb())
+            Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
+
+        var shape = Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## LƯỢT NÀY:", StringComparison.Ordinal));
+        Assert.StartsWith("## LƯỢT NÀY: CHỐT PHẠM VI CỘT", shape, StringComparison.Ordinal);
+        // Gọi ĐÍCH DANH file đang chờ: lô upload lẫn cả Excel lẫn Word thì Word vẫn được đọc lại đầy đủ.
+        Assert.Contains("74a9af7d-KeHoach.xlsx", shape, StringComparison.Ordinal);
+        Assert.Contains("Chỗ chưa chắc", shape, StringComparison.Ordinal);
+    }
+
+    // Mọi bảng tính đã chốt cột ⇒ không còn bảng nào để tích, lượt đọc file quay về đúng hình dạng cũ (bản
+    // đọc lại + hai chip). Chọn sai chiều này là lượt câm: giới thiệu ngắn rồi mời rà một cái bảng không có.
+    [Fact]
+    public async Task Acknowledge_WithNothingLeftToTick_AsksForTheFullReadback()
+    {
+        await using (var seed = NewDb())
+        {
+            var source = await seed.ProjectSourceFiles.FirstAsync(s => s.Id == _sourceId);
+            source.ColumnMap = """[{"FileName":"74a9af7d-KeHoach.xlsx","Column":"Global ID","Meaning":"mã nhân viên","Used":true}]""";
+            await seed.SaveChangesAsync();
+        }
+
+        var llm = new FakeLlm { AckReply = Ack() };
+
+        await using (var db = NewDb())
+            Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
+
+        var shape = Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## LƯỢT NÀY:", StringComparison.Ordinal));
+        Assert.StartsWith("## LƯỢT NÀY: BẢN ĐỌC LẠI", shape, StringComparison.Ordinal);
+    }
+
+    // Model được lệnh "mời người dùng rà bảng bên dưới" nhưng rốt cuộc không trả nổi dòng `columns` nào
+    // dùng được ⇒ câu mời đó trỏ vào một cái bảng KHÔNG tồn tại, và người dùng đi tìm một cái nút không có
+    // trên màn hình. Nói thẳng ra và mở đường khác, thay vì để họ tự đoán.
+    [Fact]
+    public async Task Acknowledge_WhenTheTableCouldNotBeBuilt_SaysSoInsteadOfPointingAtNothing()
+    {
+        var llm = new FakeLlm { AckReply = Ack() };
+
+        await using (var db = NewDb())
+            Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
+
+        await using var verify = NewDb();
+        var turn = await verify.AgentConversations.Where(c => c.Role == "assistant").OrderBy(c => c.CreatedAt).LastAsync();
+        Assert.Null(turn.ColumnMap);
+        Assert.Contains(BAChatService.ColumnMapMissingNotice.Trim(), turn.Message, StringComparison.Ordinal);
+    }
+
+    // NỬA SAU của cơ chế: người dùng gửi bảng đi ⇒ lượt chat kế tiếp là lượt BA KỂ LẠI cách hiểu file theo
+    // đúng bộ cột vừa chốt. Nhận diện bằng tin nhắn do SERVER soạn, không phải bằng một cờ client gửi lên.
+    // Mất lượt này thì bản đọc lại không bao giờ diễn ra: cái sai duy nhất còn lại ở đầu vào (BA hiểu file
+    // kể chuyện gì) chảy thẳng vào Product Brief mà người dùng không có chỗ nào để bác.
+    [Fact]
+    public async Task Chat_RightAfterTheColumnTableIsConfirmed_IsAReadbackTurn()
+    {
+        var confirmed = await ConfirmColumnMapAsync();
+
+        var llm = new FakeLlm { ChatReply = ReplyWithQuestions() };
+        await using (var db = NewDb())
+            Assert.Equal(ChatWithBAResult.Ok, (await NewSut(db, llm).ChatAsync(_projectId, confirmed)).Status);
+
+        Assert.Contains(llm.LastChatSystemMessages, m => m.Contains("source-readback.v1.md", StringComparison.Ordinal));
+
+        // …và lượt đó chỉ có MỘT chỗ trả lời: hai chip xác nhận. Một thẻ hỏi gộp ở đây nuốt mất chúng
+        // (thẻ hỏi và chip loại trừ nhau trên màn hình), tức nuốt mất thứ duy nhất lượt này cần lấy.
+        await using var verify = NewDb();
+        var turn = await verify.AgentConversations.Where(c => c.Role == "assistant").OrderBy(c => c.CreatedAt).LastAsync();
+        Assert.Null(turn.Questions);
+        Assert.NotNull(turn.Suggestions);
+    }
+
+    [Fact]
+    public async Task Chat_OnAnOrdinaryMessage_HasNoReadbackBlock()
+    {
+        await ConfirmColumnMapAsync();
+
+        var llm = new FakeLlm();
+        await using (var db = NewDb())
+            await NewSut(db, llm).ChatAsync(_projectId, "Mỗi lớp có sĩ số tối thiểu 8 người.");
+
+        Assert.DoesNotContain(llm.LastChatSystemMessages, m => m.Contains("source-readback.v1.md", StringComparison.Ordinal));
+    }
+
+    // Chốt bảng qua đúng use case thật để test không tự dựng một tin nhắn "gần giống" — chính câu mở đầu
+    // của tin nhắn ĐÓ là thứ mở cổng lượt kể lại.
+    private async Task<string> ConfirmColumnMapAsync()
+    {
+        await using var db = NewDb();
+        var result = await new ICOGenerator.Application.Requirements.ConfirmSourceColumnMapUseCase(db).ExecuteAsync(
+            _projectId,
+            """
+            [{"fileName":"74a9af7d-KeHoach.xlsx","column":"Global ID","meaning":"mã số nhân viên","used":true},
+             {"fileName":"74a9af7d-KeHoach.xlsx","column":"Revision Number","meaning":"phiên bản nội dung","used":false}]
+            """);
+
+        Assert.Equal(1, result.Files);
+        return result.Message;
+    }
+
+    private static BAChatReply ReplyWithQuestions() => new()
+    {
+        Message = "Mình đọc file theo các cột anh/chị vừa chốt: …\nMình hiểu vậy đã đúng chưa ạ?",
+        Suggestions = { "Đúng rồi", "Có chỗ chưa đúng" },
+        Questions =
+        {
+            new BAChatQuestion { Question = "Mỗi lớp tối đa bao nhiêu người?" },
+            new BAChatQuestion { Question = "Ai duyệt kế hoạch từng quý?" }
+        }
+    };
+
     private static BASourceAckReply Ack(params SourceColumnNote[] columns) => new()
     {
         Message = "Mình đọc được file kế hoạch đào tạo. Mình hiểu vậy đúng chưa ạ?",
@@ -215,28 +343,50 @@ public class BASourceColumnMapTests : IDisposable
 
     public void Dispose() => _connection.Dispose();
 
+    // Các lời gọi phụ trợ (bộ nhớ, hồ sơ user, bản đồ bao phủ, nhật ký) đều fail-open nên để hỏng hết;
+    // test này chỉ quan tâm hai lượt có thật: lượt đọc file và lượt chat ngay sau khi chốt bảng.
     private sealed class FakeLlm : ILlmClient
     {
         public BASourceAckReply AckReply = new() { Message = "Đã đọc." };
+        public BAChatReply ChatReply = new() { Message = "Đã ghi nhận." };
+        public List<string> LastAckSystemMessages = new();
+        public List<string> LastChatSystemMessages = new();
 
         public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
             => Task.FromResult(new LlmCallResult { IsSuccess = false, ErrorMessage = "not used in this test" });
 
         public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
         {
-            object value = logContext.Purpose switch
+            var systemMessages = messages
+                .Where(m => m.Role == ChatRole.System)
+                .Select(m => m.Text ?? string.Empty)
+                .ToList();
+
+            object? value;
+            switch (logContext.Purpose)
             {
-                "BASourceAck" => AckReply,
-                _ => throw new InvalidOperationException($"Unexpected structured call: {logContext.Purpose}")
-            };
+                case "BASourceAck":
+                    LastAckSystemMessages = systemMessages;
+                    value = AckReply;
+                    break;
+                case "BAChat":
+                    LastChatSystemMessages = systemMessages;
+                    value = ChatReply;
+                    break;
+                default:
+                    return Task.FromResult((new LlmCallResult { IsSuccess = false, ErrorMessage = "not used in this test" }, (T?)null));
+            }
+
             return Task.FromResult((new LlmCallResult { IsSuccess = true, Content = "{}" }, (T?)value));
         }
     }
 
+    // Nhả lại ĐƯỜNG DẪN prompt thay vì một chuỗi cố định: đó là cách duy nhất để test thấy được lượt nào
+    // được đính thêm khối source-readback mà không phải chép nội dung prompt thật vào test.
     private sealed class StubPrompts : PromptTemplateService
     {
         public StubPrompts() : base(null!) { }
-        public override string Get(string relativePath) => "## prompt stub";
+        public override string Get(string relativePath) => "## prompt stub: " + relativePath;
     }
 
     private sealed class PassthroughApiKeyProtector : IApiKeyProtector

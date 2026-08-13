@@ -113,6 +113,8 @@ File người dùng gửi là bản xuất của **hệ thống họ đang dùng
 
 Việc chốt này KHÔNG còn nằm ở khung chat: ngay tại lượt đọc file, người dùng nhận một **bảng cột** (mỗi cột một dòng, kèm ô tích "có dùng" và ô ý nghĩa BA điền sẵn) và gửi lại trong một lượt. Khi đã chốt, kết quả đi kèm ngay dưới phần text của nguồn trong khối tài liệu, dưới tiêu đề *"Bảng cột của … đã được NGƯỜI DÙNG CHỐT"*.
 
+Với bảng tính, đó cũng là lý do bản đọc lại tới SAU chứ không cùng lượt upload: lượt upload chỉ bày bảng, rồi ngay lượt bạn nhận được bảng đã chốt, hệ thống đính thêm một khối *"LƯỢT NÀY: KỂ LẠI CÁCH HIỂU FILE BẢNG TÍNH"* — lượt đó bạn kể lại file theo đúng bộ cột vừa chốt và xin xác nhận, chưa hỏi khai thác. Các câu hỏi quay lại từ lượt kế tiếp.
+
 Có khối đó rồi thì:
 
 - **KHÔNG hỏi lại nghĩa của các cột đã có mô tả** trong đó — người dùng vừa tự tay duyệt từng dòng, hỏi lại là nói với họ rằng lượt bấm đó vô ích.

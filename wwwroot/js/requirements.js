@@ -525,10 +525,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // phần GỬI. Gửi đi hai bước, và thứ tự là điểm mấu chốt:
     //   1. lưu bảng vào chính file nguồn (ConfirmColumnMap) — đây là thứ SourceContextBuilder và
     //      RealSampleDataReader đọc, tức là thứ quyết định POC seed bằng cột nào;
-    //   2. rồi mới soạn các dòng đã tích thành MỘT tin nhắn người dùng và gửi qua đúng đường chat thường.
+    //   2. rồi mới gửi tin nhắn người dùng mà SERVER vừa soạn từ bảng đã lưu qua đúng đường chat thường.
     // Bước 2 đi đường chat thường (không có endpoint riêng) nên hội thoại vẫn chỉ có một đường ghi, và mọi
     // thứ đã đúng ở lượt chat (cổng readiness, chắt lọc bản đồ bao phủ, nhật ký điều đã chốt) tự khắc đúng
     // ở đây — cùng lý do với thẻ hỏi gộp bên trên.
+    //
+    // Tin nhắn lấy từ RESPONSE chứ không ghép ở đây (như bảng phân quyền), vì nó gánh thêm một việc thứ hai:
+    // câu mở đầu cố định của nó là dấu hiệu để lượt chat kế tiếp biết mình là lượt BA KỂ LẠI cách hiểu file
+    // theo bộ cột vừa chốt (SourceColumnMapBuilder.IsSubmissionMessage). Một bản JS ghép riêng thì chỉ cần
+    // lệch một chữ là lượt kể lại không bao giờ diễn ra.
     const columnMapPanel = document.getElementById("columnMap");
 
     function columnMapRows() {
@@ -539,31 +544,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             meaning: ((tr.querySelector(".colmap-meaning") || {}).value || "").trim(),
             used: !!(tr.querySelector(".colmap-check") || {}).checked
         }));
-    }
-
-    // Tin nhắn gửi vào hội thoại. Kèm CẢ ý nghĩa từng cột (không chỉ tên cột) vì mọi tầng chắt lọc đọc hội
-    // thoại: một dòng "Global ID" trơ trọi thì bản đồ bao phủ và bước soạn tài liệu không biết cột đó là gì.
-    // Các cột KHÔNG tích cũng được gọi tên — im lặng bỏ chúng thì người dùng không có bằng chứng nào cho
-    // thấy mình vừa loại đúng những cột định loại.
-    function columnMapMessage(rows) {
-        const files = [];
-        rows.forEach(r => { if (files.indexOf(r.fileName) < 0) files.push(r.fileName); });
-
-        return files.map(file => {
-            const mine = rows.filter(r => r.fileName === file);
-            const used = mine.filter(r => r.used);
-            const dropped = mine.filter(r => !r.used).map(r => r.column);
-            const lines = [`Trong file ${file}, các cột mình thật sự dùng khi làm việc:`];
-            if (used.length === 0) {
-                lines.push("- (mình không dùng cột nào trong file này)");
-            } else {
-                used.forEach(r => lines.push(r.meaning ? `- ${r.column}: ${r.meaning}` : `- ${r.column}`));
-            }
-            if (dropped.length > 0) {
-                lines.push(`Các cột còn lại mình không dùng, đó là dữ liệu của hệ thống cũ: ${dropped.join(", ")}`);
-            }
-            return lines.join("\n");
-        }).join("\n\n");
     }
 
     function hideColumnMap() {
@@ -584,6 +564,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             btn.disabled = true;
             msgEl.textContent = "Đang lưu bảng cột…";
 
+            let message;
             try {
                 const fd = new FormData();
                 fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
@@ -593,7 +574,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
                 const resp = await fetch(columnMapPanel.dataset.confirmUrl, { method: "POST", body: fd });
                 const data = await resp.json();
-                if (!data.ok) throw new Error(data.error || "");
+                if (!data.ok || !data.message) throw new Error(data.error || "");
+                message = data.message;
             } catch (err) {
                 // Lưu hỏng thì DỪNG hẳn, không gửi tin nhắn: gửi mà chưa lưu là trạng thái tệ nhất — hội
                 // thoại ghi nhận đã chốt phạm vi cột, còn file nguồn thì vẫn trống nên POC vẫn seed bằng
@@ -603,7 +585,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 return;
             }
 
-            const message = columnMapMessage(rows);
             hideColumnMap();
             messageInput.value = message;
             chatForm.requestSubmit();

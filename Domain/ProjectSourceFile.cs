@@ -71,7 +71,7 @@ public class ProjectSourceFile
 
     /// <summary>
     /// Nội dung các HÌNH của nguồn này đã được BA đọc trực tiếp từ ảnh và ghi lại thành chữ (lượt xác nhận
-    /// tài liệu — xem <c>Prompts/BusinessAnalyst/source-ack.v2.md</c>). Null = chưa mô tả, ảnh vẫn phải gửi
+    /// tài liệu — xem <c>Prompts/BusinessAnalyst/source-ack.v3.md</c>). Null = chưa mô tả, ảnh vẫn phải gửi
     /// kèm khi gọi model.
     ///
     /// Đây là thứ cắt chi phí vision của cả hội thoại: ảnh vốn được đính vào MỖI lượt chat (mỗi request là
