@@ -126,11 +126,9 @@ public class ProductBriefDraftService
                 var question = string.IsNullOrWhiteSpace(readiness.Message)
                     ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
                     : readiness.Message;
-                var pendingSuggestions = readiness.Suggestions.Count > 0
-                    ? JsonSerializer.Serialize(readiness.Suggestions)
-                    : null;
-
-                await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", question, pendingSuggestions, cancellationToken: cancellationToken);
+                // Không kèm chip: câu chặn của cổng là câu MỞ (xin mẩu thông tin còn thiếu), ô nhập của
+                // khung chat là chỗ trả lời — xem RequirementReadiness.OpenEnded.
+                await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", question, cancellationToken: cancellationToken);
 
                 Report("final", "Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat.", question);
                 return RequirementDraftOutcome.NeedsMoreInfo;

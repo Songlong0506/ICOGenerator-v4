@@ -772,20 +772,27 @@ public class BAChatService
                         Questions = kept
                     });
 
-                    // Không còn câu nào MỚI để hỏi: lượt này lẽ ra rỗng. Thay bằng bước kế tiếp TẤT ĐỊNH
-                    // suy từ bản đồ (hỏi đúng nhóm còn thiếu, hoặc mời bấm nút khi bản đồ đã đủ) — im lặng
-                    // hoặc để nguyên câu dẫn cụt đều tệ hơn.
-                    var (message, followUpSuggestions) = kept.Count == 0
-                        ? BuildFollowUpAfterRepeat(project.RequirementCoverageMap)
-                        : (trimmed.Message, trimmed.Suggestions);
+                    if (kept.Count == 0)
+                    {
+                        // Không còn câu nào MỚI để hỏi: lượt này lẽ ra rỗng. Thay bằng bước kế tiếp TẤT
+                        // ĐỊNH suy từ bản đồ (hỏi đúng nhóm còn thiếu, hoặc mời bấm nút khi bản đồ đã đủ)
+                        // — im lặng hoặc để nguyên câu dẫn cụt đều tệ hơn. Câu đó không có chip, nên cờ
+                        // "câu mở" đi theo nó để ô nhập nhận vai chỗ trả lời.
+                        var followUp = BuildFollowUpAfterRepeat(project.RequirementCoverageMap);
+                        reply = followUp.Message;
+                        suggestionsJson = null;
+                        suggestionsMultiSelect = false;
+                        openEnded = followUp.OpenEnded;
+                    }
+                    else
+                    {
+                        reply = trimmed.Message;
+                        suggestionsJson = trimmed.Suggestions.Count > 0 ? JsonSerializer.Serialize(trimmed.Suggestions) : null;
+                        suggestionsMultiSelect = trimmed.MultiSelect && trimmed.Suggestions.Count > 0;
+                        openEnded = trimmed.OpenEnded;
+                    }
 
-                    reply = message;
                     questions = trimmed.Questions;
-                    suggestionsJson = followUpSuggestions.Count > 0 ? JsonSerializer.Serialize(followUpSuggestions) : null;
-                    suggestionsMultiSelect = trimmed.MultiSelect && followUpSuggestions.Count > 0;
-                    // kept.Count == 0 ⇒ lượt này là câu hỏi TẤT ĐỊNH của BuildFollowUpAfterRepeat (câu
-                    // đóng, có sẵn phương án); còn lại thì cờ đi theo câu hỏi thật sự được giữ.
-                    openEnded = kept.Count > 0 && trimmed.OpenEnded;
                     flowDiagram = new List<FlowStep>();
                 }
             }
@@ -797,11 +804,11 @@ public class BAChatService
                      && AskedQuestionHistory.IsRepeat(reply, askedKeys))
             {
                 // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
-                var (message, followUpSuggestions) = BuildFollowUpAfterRepeat(project.RequirementCoverageMap);
-                reply = message;
-                suggestionsJson = followUpSuggestions.Count > 0 ? JsonSerializer.Serialize(followUpSuggestions) : null;
+                var followUp = BuildFollowUpAfterRepeat(project.RequirementCoverageMap);
+                reply = followUp.Message;
+                suggestionsJson = null;
                 suggestionsMultiSelect = false;
-                openEnded = false;
+                openEnded = followUp.OpenEnded;
                 flowDiagram = new List<FlowStep>();
             }
 
@@ -820,13 +827,12 @@ public class BAChatService
                     reply = string.IsNullOrWhiteSpace(readiness.Message)
                         ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
                         : readiness.Message;
-                    suggestionsJson = readiness.Suggestions.Count > 0
-                        ? JsonSerializer.Serialize(readiness.Suggestions)
-                        : null;
-                    // Câu hỏi của gate là câu hỏi đơn thông thường có sẵn phương án — không giữ cờ multi
-                    // của lời mời bị thay, và cũng không giữ cờ "câu mở".
+                    // Câu hỏi của gate xin một mẩu thông tin còn thiếu và không kèm chip nào ⇒ ô nhập là
+                    // chỗ trả lời DUY NHẤT: bỏ cờ multi của lời mời bị thay, và bật cờ "câu mở" để khung
+                    // chat mời người dùng gõ thay vì để họ nhìn một câu hỏi không có nút nào.
+                    suggestionsJson = null;
                     suggestionsMultiSelect = false;
-                    openEnded = false;
+                    openEnded = readiness.OpenEnded;
                     // …và cũng không giữ thẻ hỏi gộp: nội dung hiển thị giờ là câu hỏi của gate, để lại
                     // thẻ cũ thì màn hình có hai lượt hỏi khác nhau chồng lên nhau.
                     questions = new List<BAChatQuestion>();
@@ -1011,21 +1017,21 @@ public class BAChatService
     /// bấm "Write Requirement". Không bao giờ trả về lượt rỗng: một lượt câm sau khi người dùng vừa trả
     /// lời còn khó hiểu hơn cả việc bị hỏi lại.
     /// </summary>
-    private static (string Message, List<string> Suggestions) BuildFollowUpAfterRepeat(string? coverageMap)
+    private static (string Message, bool OpenEnded) BuildFollowUpAfterRepeat(string? coverageMap)
     {
         var readiness = RequirementReadinessGate.Evaluate(coverageMap);
         if (!readiness.Ready)
         {
             return (string.IsNullOrWhiteSpace(readiness.Message)
                 ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
-                : readiness.Message, readiness.Suggestions.ToList());
+                : readiness.Message, readiness.OpenEnded);
         }
 
         // Bản đồ đã đủ ⇒ lời mời này đi qua đúng cổng mà nhánh dưới sẽ xét lại, nên không thể là lời mời
-        // sớm. Không kèm gợi ý: hành động duy nhất lúc này là bấm nút thật trên giao diện.
+        // sớm. Không phải câu hỏi nên cũng không mở ô nhập: hành động duy nhất lúc này là bấm nút thật.
         return ("Mình đã ghi nhận đủ các nhóm thông tin cần thiết và không còn câu hỏi nào mới. "
                 + "Nếu anh/chị không còn gì bổ sung, bấm nút \"Write Requirement\" để mình tạo tài liệu nhé.",
-            new List<string>());
+            false);
     }
 
     /// <summary>

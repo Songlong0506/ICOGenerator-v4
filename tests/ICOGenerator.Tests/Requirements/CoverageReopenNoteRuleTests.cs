@@ -40,6 +40,44 @@ public class CoverageReopenNoteRuleTests
         Assert.Contains("ghi nhận trước đó", prompt, StringComparison.Ordinal);
     }
 
+    // Cụm tín hiệu tự nó KHÔNG hỏi gì cả, mà RequirementReadinessGate lấy nguyên phần sau "còn thiếu:"
+    // làm câu hỏi hiển thị. Prompt vì thế phải bắt distiller viết tiếp mẩu cần hỏi ngay sau cụm — code chỉ
+    // cắt được cụm tín hiệu ra, nó không tự nghĩ hộ được nội dung câu hỏi. Ca thật (JD Library, lượt 34):
+    // dòng chỉ có cụm đánh dấu ⇒ người dùng nhận đúng cụm đó dưới dạng một câu hỏi.
+    [Fact]
+    public void CoveragePrompt_RequiresAConcreteGapAfterTheMarker()
+    {
+        var prompt = ReadPrompt(CoveragePromptKey);
+
+        Assert.Contains("MẨU CÒN PHẢI HỎI", prompt, StringComparison.Ordinal);
+
+        // Và ví dụ mẫu của chính mục đó phải có đủ ba mảnh — cụm tín hiệu, mẩu cần hỏi, ghi chép cũ —
+        // vì một ví dụ thiếu mảnh giữa dạy distiller đúng cái lỗi mà luật vừa cấm.
+        var example = prompt
+            .Split('\n')
+            .FirstOrDefault(line => line.Contains(AskedQuestionHistory.ReopenNote, StringComparison.Ordinal)
+                                    && line.Contains("ghi nhận trước đó", StringComparison.Ordinal));
+
+        Assert.NotNull(example);
+        var betweenMarkerAndNote = example!
+            [(example.IndexOf(AskedQuestionHistory.ReopenNote, StringComparison.Ordinal) + AskedQuestionHistory.ReopenNote.Length)
+             ..example.IndexOf("(ghi nhận trước đó", StringComparison.Ordinal)];
+        // Bỏ phần đuôi cố định của cụm tín hiệu ("— cần hỏi lại và chốt lại.") rồi xem còn lại gì không.
+        var gap = betweenMarkerAndNote.Split('.', 2).ElementAtOrDefault(1)?.Trim();
+        Assert.False(string.IsNullOrWhiteSpace(gap), "Ví dụ dòng đính chính phải kèm mẩu còn phải hỏi.");
+    }
+
+    // Bằng chứng {nguồn: …} chỉ được trích lời người dùng/tài liệu. Ca thật: dòng «Chức năng & luồng
+    // nghiệp vụ chính» của JD Library mang bằng chứng là câu dẫn của BẢNG MÀN HÌNH ("Đây là TOÀN BỘ màn
+    // hình của ứng dụng…") — câu của hệ thống, ký tên người dùng.
+    [Fact]
+    public void CoveragePrompt_ForbidsQuotingSystemBlocksAsEvidence()
+    {
+        var prompt = ReadPrompt(CoveragePromptKey);
+
+        Assert.Contains("không bao giờ trích một khối của HỆ THỐNG", prompt, StringComparison.Ordinal);
+    }
+
     // Cùng cách tìm Prompts/ như BAChatScopeConflictRuleTests: ưu tiên bản copy trong bin, không có thì đi
     // ngược lên repo root.
     private static string ReadPrompt(string promptKey)

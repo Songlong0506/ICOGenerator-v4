@@ -133,9 +133,11 @@ public class RequirementReadinessGateTests : IDisposable
         var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
 
         await using var db = NewDb();
-        await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+        var result = await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
 
         Assert.Equal(InviteMessage, (await LastAssistantTurnAsync()).Message);
+        // Lời mời KHÔNG phải câu hỏi: không mở ô nhập thành "kể tự do", hành động lúc này là bấm nút.
+        Assert.False(result.OpenEnded);
     }
 
     [Fact]
@@ -161,6 +163,10 @@ public class RequirementReadinessGateTests : IDisposable
         // thiếu và nút mờ giờ kể CÙNG một câu chuyện vì đọc cùng bản đồ.
         Assert.Contains("Quy tắc nghiệp vụ & ràng buộc", lastBaTurn.Message);
         Assert.DoesNotContain("Write Requirement", lastBaTurn.Message, StringComparison.OrdinalIgnoreCase);
+        // Câu của cổng không kèm chip ⇒ phải là câu MỞ, để khung chat mời người dùng gõ vào ô nhập thay
+        // vì bày ra một câu hỏi không có chỗ trả lời.
+        Assert.True(result.OpenEnded);
+        Assert.Null(lastBaTurn.Suggestions);
         // Chưa đủ thông tin ⇒ không vẽ/không lưu sơ đồ luồng.
         Assert.Empty(result.FlowDiagram);
         Assert.Null(lastBaTurn.FlowDiagram);
