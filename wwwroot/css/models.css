@@ -11,17 +11,7 @@
     width: auto;
 }
 
-.checkbox-line {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-    .checkbox-line input {
-        width: auto;
-    }
-
-/* .alert.error is shared in site.css */
+/* .checkbox-line và .alert.error dùng chung — định nghĩa ở site.css. */
 
 /* Đẩy nút "Test Connection" sang trái, để Cancel/Save vẫn nằm bên phải như các modal khác. */
 .modal-actions-spacer {

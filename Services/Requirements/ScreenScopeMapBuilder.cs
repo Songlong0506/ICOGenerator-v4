@@ -13,8 +13,10 @@ namespace ICOGenerator.Services.Requirements;
 /// vì bảng này là thứ bảng phân quyền sẽ đứng lên:
 /// </para>
 /// <list type="bullet">
-///   <item><b>Màn hình bịa.</b> Mọi dòng phải khớp một mục <c>Project.PlannedScope</c>, và luôn lấy lại
-///   đúng chữ của PlannedScope chứ không chữ của model.</item>
+///   <item><b>Màn hình bịa.</b> Mọi dòng phải khớp một mục của danh sách cho phép, và luôn lấy lại đúng chữ
+///   của danh sách đó chứ không chữ của model. Lượt BÀY BẢNG đối chiếu với phạm vi đã chắt
+///   (<see cref="Build"/>); đường GỬI đối chiếu với chính bảng server đã render (<see cref="Sanitize"/>) —
+///   hai danh sách khác nhau, và trộn chúng là lỗi câm, xem <c>ConfirmScreenScopeUseCase</c>.</item>
 ///   <item><b>Màn hình bị bỏ quên.</b> Mục phạm vi model không nhắc tới vẫn được BỔ SUNG vào cuối bảng —
 ///   ở trạng thái TÍCH SẴN như mọi dòng khác, vì "BA quên nêu" không phải "người dùng đã loại". Bỏ nó đi
 ///   là ra một quyết định thay người dùng ở đúng chỗ họ không nhìn thấy để phản đối.</item>
@@ -52,12 +54,23 @@ public static class ScreenScopeMapBuilder
 
     /// <summary>
     /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT. Server không tin bảng client gửi kể cả khi chính nó
-    /// vừa render ra: tên màn hình vẫn phải khớp lại phạm vi đã chắt. Khác <see cref="Build"/>: giữ đúng
-    /// lựa chọn tích/bỏ tích của người dùng, và xoá cờ khóa (bảng đã gửi thì mọi dòng là quyết định của họ).
+    /// vừa render ra: tên màn hình vẫn phải khớp lại <paramref name="allowedScreens"/>. Khác
+    /// <see cref="Build"/>: giữ đúng lựa chọn tích/bỏ tích của người dùng, và xoá cờ khóa (bảng đã gửi thì
+    /// mọi dòng là quyết định của họ).
+    ///
+    /// <para>
+    /// <paramref name="allowedScreens"/> phải là danh sách màn hình của CHÍNH BẢNG SERVER ĐÃ RENDER, không
+    /// phải <c>Project.PlannedScope</c> đọc lại lúc gửi. Hai thứ đó KHÔNG bằng nhau: lượt chắt lọc
+    /// <c>PlannedScope</c> chạy ở hậu kỳ ngay lượt bày bảng (xem <c>InterviewOutlookService</c>), nên tới
+    /// lúc người dùng bấm gửi thì danh sách đã bị viết lại — chỉ cần model diễn đạt khác đi một chữ là mọi
+    /// dòng trượt khỏi <see cref="MatchScreen"/>, cả bảng người dùng vừa rà bị bỏ, và chỗ của nó là các mục
+    /// phạm vi mới bù vào ở dạng TRẮNG. Người dùng thấy mình gửi một bảng đã điền và nhận lại một danh sách
+    /// tên suông. Xem <c>ConfirmScreenScopeUseCase</c>.
+    /// </para>
     /// </summary>
-    public static List<ScreenScopeRow> Sanitize(IEnumerable<ScreenScopeRow>? submitted, IReadOnlyList<string> plannedScope)
+    public static List<ScreenScopeRow> Sanitize(IEnumerable<ScreenScopeRow>? submitted, IReadOnlyList<string> allowedScreens)
     {
-        var rows = BuildCore(submitted, plannedScope, respectIncluded: true);
+        var rows = BuildCore(submitted, allowedScreens, respectIncluded: true);
         foreach (var row in rows)
         {
             row.Locked = false;
@@ -68,10 +81,10 @@ public static class ScreenScopeMapBuilder
 
     private static List<ScreenScopeRow> BuildCore(
         IEnumerable<ScreenScopeRow>? proposed,
-        IReadOnlyList<string> plannedScope,
+        IReadOnlyList<string> allowedScreens,
         bool respectIncluded)
     {
-        var screens = CleanScreens(plannedScope);
+        var screens = CleanScreens(allowedScreens);
         if (screens.Count == 0)
             return new List<ScreenScopeRow>();
 
@@ -88,7 +101,7 @@ public static class ScreenScopeMapBuilder
             var evidence = Clip((row.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
             byScreen[screen] = new ScreenScopeRow
             {
-                Screen = screen, // chữ của PHẠM VI ĐÃ CHẮT, không phải chữ của model
+                Screen = screen, // chữ của DANH SÁCH CHO PHÉP, không phải chữ của model
                 Purpose = Clip((row.Purpose ?? string.Empty).Trim(), MaxTextChars),
                 Functions = Clip((row.Functions ?? string.Empty).Trim(), MaxTextChars),
                 FlowSteps = CleanFlowSteps(row.FlowSteps),
@@ -144,9 +157,10 @@ public static class ScreenScopeMapBuilder
     /// tính năng này. Đã chốt ⇒ các dòng người dùng GIỮ, cộng những mục phạm vi mới lộ ra SAU lúc chốt.
     /// Mục mới phải được thêm vào (buổi phỏng vấn còn tiếp tục sau khi bảng đã chốt, và một màn hình lộ ra
     /// ở lượt sau mà không vào được bảng phân quyền thì mặc nhiên "không ai được xem"); còn mục người dùng
-    /// đã BỎ TÍCH thì không bao giờ quay lại, kể cả khi nó vẫn nằm trong PlannedScope — lượt chắt lọc
-    /// PlannedScope không đọc bảng, nên nó sẽ giữ nguyên mục đó mãi, và mở lại thứ họ vừa đóng là đúng lỗi
-    /// mà bảng cột đã cấm.
+    /// đã BỎ TÍCH thì không bao giờ quay lại, kể cả khi nó vẫn nằm trong PlannedScope — mở lại thứ họ vừa
+    /// đóng là đúng lỗi mà bảng cột đã cấm. <c>ConfirmScreenScopeUseCase</c> ghi ngược phạm vi đã duyệt lên
+    /// PlannedScope nên lượt chắt lọc kế tiếp không còn mang mục đã đóng theo nữa, nhưng phép lọc ở đây vẫn
+    /// là thứ BẢO ĐẢM điều đó: lượt chắt lọc là một lời gọi LLM, và một lời gọi LLM không phải một bất biến.
     /// </para>
     /// </summary>
     public static List<string> EffectiveScreens(string? screenScopeJson, IReadOnlyList<string> plannedScope)
@@ -285,14 +299,14 @@ public static class ScreenScopeMapBuilder
 
     // ==== chuẩn hoá từng phần ====
 
-    private static List<string> CleanScreens(IReadOnlyList<string>? plannedScope)
+    private static List<string> CleanScreens(IReadOnlyList<string>? screens)
     {
         var result = new List<string>();
-        if (plannedScope == null)
+        if (screens == null)
             return result;
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var raw in plannedScope)
+        foreach (var raw in screens)
         {
             var screen = (raw ?? string.Empty).Trim();
             if (screen.Length == 0 || !seen.Add(Normalize(screen)))

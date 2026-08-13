@@ -750,6 +750,17 @@ input[type="checkbox"], input[type="radio"], input[type="range"], input[type="fi
     background: transparent;
 }
 
+/* Dòng checkbox có nhãn đi kèm: <label class="checkbox-line"><input type="checkbox"> Chữ</label>.
+   Ô tick nằm TRONG label nên không dính rule caption tích hợp ở trên — nhãn giữ kiểu block thường,
+   flex chỉ để ô tick và chữ thẳng hàng giữa. Dùng chung nhiều màn hình nên ở đây, không ở css trang. */
+.checkbox-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkbox-line input { width: auto; }
+
 .choice {
     border: 1px solid var(--line);
     padding: 14px;

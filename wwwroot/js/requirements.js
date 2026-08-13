@@ -782,7 +782,47 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         return el.type === "checkbox" ? el.checked : (el.value || "") === "1";
     }
 
+    // Ô sửa của ba bảng chốt là TEXTAREA cao theo nội dung, không phải input một dòng — lý do ở
+    // requirements.css, mục .permmap-cellinput. Phải tính lại chiều cao SAU khi panel hiện ra: lúc còn
+    // `hidden` thì scrollHeight bằng 0 và mọi ô sẽ dẹt lại thành một dòng.
+    function autoGrowCell(el) {
+        el.style.height = "auto";
+        // Cộng bề dày hai viền: scrollHeight KHÔNG tính viền, mà box-sizing của ô là border-box nên gán
+        // thẳng scrollHeight là ô luôn hụt đúng 2px và dòng cuối bị cắt mất một vệt chân chữ.
+        el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+    }
+
+    function autoGrowCells(root) {
+        (root || document).querySelectorAll(".permmap-cellinput").forEach(autoGrowCell);
+    }
+
+    document.addEventListener("input", function (e) {
+        if (e.target.classList && e.target.classList.contains("permmap-cellinput")) autoGrowCell(e.target);
+    });
+
+    // Bảng hẹp lại thì chữ xuống thêm dòng, mà chiều cao thì vẫn là chiều cao tính ở bề rộng cũ — tức là
+    // chữ bị cắt đúng như hồi còn dùng input. Gom vào một khung hình để kéo cạnh cửa sổ không tính lại
+    // hàng chục ô mỗi pixel.
+    let autoGrowFrame = 0;
+    window.addEventListener("resize", function () {
+        if (autoGrowFrame) return;
+        autoGrowFrame = requestAnimationFrame(function () {
+            autoGrowFrame = 0;
+            autoGrowCells();
+        });
+    });
+
+    autoGrowCells(); // bản server render đã có sẵn trong DOM lúc nạp trang
+
+    // Ô là textarea nên người dùng gõ được xuống dòng, nhưng mọi ô ở đây (trừ "phục vụ bước", xem chỗ gom
+    // bảng màn hình) là MỘT giá trị: textarea chỉ để chữ tự xuống dòng cho dễ đọc, không phải để soạn đoạn
+    // văn. Nuốt xuống dòng ngay lúc gom để tin nhắn kể lại và tài liệu không lĩnh một đoạn xuống dòng giữa
+    // câu.
     function tableValue(root, selector) {
+        return tableRawValue(root, selector).replace(/\s*\n\s*/g, " ");
+    }
+
+    function tableRawValue(root, selector) {
         const el = root.querySelector(selector);
         return ((el || {}).value || "").trim();
     }
@@ -819,9 +859,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                                <input type="hidden" class="flowmap-check" value="1" />`
                             : `<input type="checkbox" class="flowmap-check" aria-label="Bước ${escapeHtml(s.action || "")} đúng"${s.included ? " checked" : ""} />`}
                     </td>
-                    <td><input type="text" class="flowmap-actor" value="${escapeHtml(s.actor || "")}" placeholder="ai làm bước này?" /></td>
-                    <td><input type="text" class="flowmap-action" value="${escapeHtml(s.action || "")}" /></td>
-                    <td><input type="text" class="flowmap-outcome" value="${escapeHtml(s.outcome || "")}" placeholder="trạng thái sau bước (nếu có)" /></td>
+                    <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">${escapeHtml(s.actor || "")}</textarea></td>
+                    <td><textarea rows="1" class="permmap-cellinput flowmap-action">${escapeHtml(s.action || "")}</textarea></td>
+                    <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">${escapeHtml(s.outcome || "")}</textarea></td>
                 </tr>`).join("");
 
             const role = flow.role ? `<span class="flowmap-role">· ${escapeHtml(flow.role)}</span>` : "";
@@ -857,6 +897,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </div>`;
         flowMapPanel.hidden = false;
         thinkingBox.before(flowMapPanel);
+        autoGrowCells(flowMapPanel);
     }
 
     // ---- BẢNG MÀN HÌNH ----
@@ -868,8 +909,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             functions: tableValue(tr, ".screenmap-functions"),
             // Ô "phục vụ bước" là MỘT ô text ngăn bằng dấu chấm phẩy, không phải danh sách con: người dùng
             // gõ tiếp vào đó dễ hơn nhiều so với bấm thêm dòng, và phép kiểm phía server so khớp theo cụm
-            // chứa-nhau nên không cần từng bước là một phần tử riêng.
-            flowSteps: tableValue(tr, ".screenmap-steps").split(";").map(s => s.trim()).filter(Boolean),
+            // chứa-nhau nên không cần từng bước là một phần tử riêng. Ô là textarea nên XUỐNG DÒNG cũng là
+            // dấu ngăn: đó là cách gõ danh sách tự nhiên nhất khi ô cao được, và nếu chỉ tách theo dấu
+            // chấm phẩy thì mấy bước gõ mỗi dòng một cái sẽ dính thành một bước dài vô nghĩa.
+            flowSteps: tableRawValue(tr, ".screenmap-steps").split(/[;\n]/).map(s => s.trim()).filter(Boolean),
             included: tableChecked(tr.querySelector(".screenmap-check"))
         })),
         "Đang lưu bảng màn hình…",
@@ -887,9 +930,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                         : `<input type="checkbox" class="screenmap-check" aria-label="Cần màn hình ${escapeHtml(r.screen || "")}"${r.included ? " checked" : ""} />`}
                 </td>
                 <td class="permmap-fn">${escapeHtml(r.screen || "")}</td>
-                <td><input type="text" class="screenmap-purpose" value="${escapeHtml(r.purpose || "")}" placeholder="màn này để làm gì?" /></td>
-                <td><input type="text" class="screenmap-functions" value="${escapeHtml(r.functions || "")}" placeholder="vd: Xem danh sách, Tạo mới, Gửi duyệt" /></td>
-                <td><input type="text" class="screenmap-steps" value="${escapeHtml((r.flowSteps || []).join("; "))}" placeholder="bước luồng màn này phụ trách" /></td>
+                <td><textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="màn này để làm gì?">${escapeHtml(r.purpose || "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput screenmap-functions" placeholder="vd: Xem danh sách, Tạo mới, Gửi duyệt">${escapeHtml(r.functions || "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput screenmap-steps" placeholder="bước luồng màn này phụ trách">${escapeHtml((r.flowSteps || []).join("; "))}</textarea></td>
             </tr>`).join("");
 
         const steps = Array.isArray(uncovered) ? uncovered : [];
@@ -923,6 +966,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </div>`;
         screenScopePanel.hidden = false;
         thinkingBox.before(screenScopePanel);
+        autoGrowCells(screenScopePanel);
     }
 
     // ---- BẢNG ĐỐI TƯỢNG NGHIỆP VỤ ----
@@ -953,15 +997,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const fields = (r.fields || []).map(f => `
                 <tr class="entitymap-field">
                     <td class="flowmap-use"><input type="checkbox" class="entityfield-check" aria-label="Lưu ${escapeHtml(f.name || "")}"${f.used ? " checked" : ""} /></td>
-                    <td class="permmap-fn"><input type="text" class="entityfield-name" value="${escapeHtml(f.name || "")}" /></td>
-                    <td><input type="text" class="entityfield-meaning" value="${escapeHtml(f.meaning || "")}" placeholder="thông tin này là gì?" /></td>
+                    <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entityfield-name">${escapeHtml(f.name || "")}</textarea></td>
+                    <td><textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="thông tin này là gì?">${escapeHtml(f.meaning || "")}</textarea></td>
                 </tr>`).join("");
 
             const states = (r.states || []).map(s => `
                 <tr class="entitymap-state">
-                    <td class="permmap-fn"><input type="text" class="entitystate-name" value="${escapeHtml(s.state || "")}" /></td>
-                    <td><input type="text" class="entitystate-entry" value="${escapeHtml(s.entryCondition || "")}" placeholder="điều kiện/hành động đưa vào trạng thái này" /></td>
-                    <td><input type="text" class="entitystate-notify" value="${escapeHtml(s.notify || "")}" placeholder="để trống = không báo cho ai" /></td>
+                    <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name">${escapeHtml(s.state || "")}</textarea></td>
+                    <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="điều kiện/hành động đưa vào trạng thái này">${escapeHtml(s.entryCondition || "")}</textarea></td>
+                    <td><textarea rows="1" class="permmap-cellinput entitystate-notify" placeholder="để trống = không báo cho ai">${escapeHtml(s.notify || "")}</textarea></td>
                 </tr>`).join("");
 
             const fieldTable = fields ? `
@@ -984,7 +1028,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                                <input type="hidden" class="entitymap-check" value="1" />`
                             : `<input type="checkbox" class="entitymap-check" aria-label="Cần đối tượng ${escapeHtml(r.entity || "")}"${r.included ? " checked" : ""} />`}
                         <span class="entitymap-name">${escapeHtml(r.entity || "")}</span>
-                        <input type="text" class="entitymap-desc" value="${escapeHtml(r.description || "")}" placeholder="đối tượng này là gì?" />
+                        <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="đối tượng này là gì?">${escapeHtml(r.description || "")}</textarea>
                     </div>
                     ${fieldTable}${stateTable}
                 </div>`;
@@ -1006,6 +1050,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </div>`;
         entityMapPanel.hidden = false;
         thinkingBox.before(entityMapPanel);
+        autoGrowCells(entityMapPanel);
     }
 
     // ==== NHÁP ĐANG GÕ: tự lưu để F5 / mất điện / bấm nhầm không cuốn mất một câu trả lời dài ====

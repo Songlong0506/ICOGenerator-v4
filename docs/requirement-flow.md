@@ -242,9 +242,30 @@ nhầm sẽ được người dùng tích quyền cho, còn một màn hình b�
 Chốt xong, `PermissionMatrixGate.EffectiveScreens` đọc bảng thay cho `PlannedScope` thô: các dòng người dùng
 GIỮ, cộng những mục phạm vi mới lộ ra SAU lúc chốt. Mục mới phải được thêm vào (buổi phỏng vấn còn tiếp tục,
 và một màn hình lộ ra ở lượt sau mà không vào được bảng phân quyền thì mặc nhiên "không ai được xem"); còn
-mục đã BỎ TÍCH thì không bao giờ quay lại, kể cả khi nó vẫn nằm trong `PlannedScope` — lượt chắt lọc
-`PlannedScope` không đọc bảng nên nó giữ nguyên mục đó mãi, và mở lại thứ họ vừa đóng là đúng lỗi bảng cột
-đã cấm.
+mục đã BỎ TÍCH thì không bao giờ quay lại, và mở lại thứ họ vừa đóng là đúng lỗi bảng cột đã cấm.
+
+**Đường GỬI đối chiếu với BẢNG SERVER ĐÃ RENDER, không với `PlannedScope` đọc lại lúc gửi.** Hai thứ đó
+không bằng nhau, và chỗ lệch là một lỗi câm: lượt chắt lọc "triển vọng phỏng vấn" chạy ở HẬU KỲ ngay chính
+lượt bày bảng (`RequirementsController` gọi `UpdateInterviewOutlookAsync` sau frame done) và nó **ghi đè cả
+danh sách**. Tới lúc người dùng bấm gửi, bảng trên màn hình đã dựng từ một bản `PlannedScope` không còn tồn
+tại. Chỉ cần lượt chắt lọc diễn đạt lại một mục — *"…trong nhà máy"* thành *"…theo orgUnit"* — là
+`MatchScreen` trượt, chốt chặn "màn hình bịa" quay ra bắn vào chính bảng của server: mọi dòng người dùng vừa
+điền bị bỏ, chỗ của chúng là các mục phạm vi mới bù vào ở dạng **trắng**. Họ gửi một bảng đã rà và nhận lại
+một danh sách tên suông — không việc, không chức năng, không bước luồng — trong khi khối ngữ cảnh của bảng
+đã chốt lại cấm BA hỏi lại việc của từng màn. Không nút nào báo lỗi, và lượt chắt lọc thì **luôn** chạy giữa
+lúc bày bảng và lúc bấm gửi. Vì vậy `ConfirmScreenScopeUseCase` lấy danh sách đối chiếu từ
+`AgentConversation.ScreenScopeMap` của lượt BA bày bảng — đúng lượt mà view dùng để dựng lại panel sau F5 —
+và chỉ quay về `PlannedScope` khi không còn lượt nào (fail-open: mất chốt chặn tên màn hình rẻ hơn nhiều so
+với một nút gửi không bao giờ lưu được gì).
+
+Chốt xong, use case **ghi ngược** phạm vi đã duyệt lên `Project.PlannedScope`. Người dùng vừa tự tay rà, nên
+bản đó thay cho bản LLM đoán: lượt chắt lọc kế tiếp nhận nó làm gốc để gộp tiếp thay vì diễn đạt lại từ đầu,
+và `EffectiveScreens` không còn bù vào những mục chỉ khác CHỮ so với dòng vừa giữ — nếu không, bảng phân
+quyền ngay sau đó mọc thêm một loạt dòng trùng nghĩa mà không dòng nào có việc của màn hình. Ghi ngược cũng
+là chỗ vá nốt nửa còn lại của luật "mục đã bỏ tích không bao giờ quay lại": trước đây lượt chắt lọc không
+đọc bảng nên nó giữ mãi mục người dùng đã đóng, và `EffectiveScreens` phải một mình chắn. Bỏ tích SẠCH bảng
+thì **không** ghi ngược — một `PlannedScope` rỗng cắt luôn đường fail-open của `EffectiveScreens` và khóa
+chết cổng phân quyền trong im lặng.
 
 **Ô "phục vụ bước" cho một phép kiểm TẤT ĐỊNH chạy bằng code, không cần lời gọi LLM nào**
 (`ScreenScopeMapBuilder.UncoveredActions`): mọi bước của bảng luồng đã chốt phải được ít nhất một màn hình
@@ -253,7 +274,10 @@ nằm ở **mối nối**, đúng loại lỗi đắt nhất của cả dây chu
 hoặc người dùng sẽ không có chỗ nào để làm bước đó, hoặc bước đó không có thật; cả hai đều phải hỏi, và hỏi
 lúc bảng còn trên màn hình rẻ hơn hẳn hỏi lại ở POC. Dòng nhắc **không chặn** nút gửi: đó là một câu hỏi,
 không phải một lỗi. So khớp bằng CHỨA-NHAU sau chuẩn hoá chứ không nguyên văn — người dùng sửa ô bằng lời
-của họ, và một cảnh báo luôn sai thì lần thứ hai không ai đọc nữa.
+của họ, và một cảnh báo luôn sai thì lần thứ hai không ai đọc nữa. Ô là MỘT ô text ngăn bằng dấu chấm phẩy
+**hoặc xuống dòng** (ô cao theo nội dung nên gõ mỗi bước một dòng là cách tự nhiên nhất), không phải một
+danh sách con — người dùng gõ tiếp vào đó dễ hơn bấm thêm dòng, và phép so khớp chứa-nhau ở trên không cần
+từng bước là một phần tử riêng.
 
 ### Bảng đối tượng: mô hình dữ liệu, và chỗ duy nhất thông báo gắn được vào một chuyển trạng thái
 

@@ -95,7 +95,13 @@ public class InterviewOutlookService
             .ToList();
     }
 
-    private static string? Store(List<string> items)
+    /// <summary>
+    /// Đóng gói một danh sách thành đúng khuôn bullet mà <see cref="ParseItems"/> đọc lại được; rỗng → null.
+    /// Công khai vì <c>ConfirmScreenScopeUseCase</c> ghi ngược <c>PlannedScope</c> sau khi người dùng chốt
+    /// bảng màn hình — hai chỗ ghi cùng một cột phải dùng chung một khuôn, nếu không bản ghi tay không đọc
+    /// lại được và cả phạm vi biến mất trong im lặng.
+    /// </summary>
+    public static string? Store(IReadOnlyList<string> items)
     {
         if (items.Count == 0)
             return null;

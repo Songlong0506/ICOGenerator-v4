@@ -1043,9 +1043,9 @@
                                                 <input type="checkbox" class="flowmap-check" aria-label="Bước @step.Action đúng" @(step.Included ? "checked" : "") />
                                             }
                                         </td>
-                                        <td><input type="text" class="flowmap-actor" value="@step.Actor" placeholder="ai làm bước này?" /></td>
-                                        <td><input type="text" class="flowmap-action" value="@step.Action" /></td>
-                                        <td><input type="text" class="flowmap-outcome" value="@step.Outcome" placeholder="trạng thái sau bước (nếu có)" /></td>
+                                        <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">@step.Actor</textarea></td>
+                                        <td><textarea rows="1" class="permmap-cellinput flowmap-action">@step.Action</textarea></td>
+                                        <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">@step.Outcome</textarea></td>
                                     </tr>
                                 }
                             </tbody>
@@ -1099,9 +1099,9 @@
                                         }
                                     </td>
                                     <td class="permmap-fn">@row.Screen</td>
-                                    <td><input type="text" class="screenmap-purpose" value="@row.Purpose" placeholder="màn này để làm gì?" /></td>
-                                    <td><input type="text" class="screenmap-functions" value="@row.Functions" placeholder="vd: Xem danh sách, Tạo mới, Gửi duyệt" /></td>
-                                    <td><input type="text" class="screenmap-steps" value="@string.Join("; ", row.FlowSteps)" placeholder="bước luồng màn này phụ trách" /></td>
+                                    <td><textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="màn này để làm gì?">@row.Purpose</textarea></td>
+                                    <td><textarea rows="1" class="permmap-cellinput screenmap-functions" placeholder="vd: Xem danh sách, Tạo mới, Gửi duyệt">@row.Functions</textarea></td>
+                                    <td><textarea rows="1" class="permmap-cellinput screenmap-steps" placeholder="bước luồng màn này phụ trách">@string.Join("; ", row.FlowSteps)</textarea></td>
                                 </tr>
                             }
                         </tbody>
@@ -1152,7 +1152,7 @@
                                     <input type="checkbox" class="entitymap-check" aria-label="Cần đối tượng @entity.Entity" @(entity.Included ? "checked" : "") />
                                 }
                                 <span class="entitymap-name">@entity.Entity</span>
-                                <input type="text" class="entitymap-desc" value="@entity.Description" placeholder="đối tượng này là gì?" />
+                                <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="đối tượng này là gì?">@entity.Description</textarea>
                             </div>
                             @if (entity.Fields.Count > 0)
                             {
@@ -1171,8 +1171,8 @@
                                                 <td class="flowmap-use">
                                                     <input type="checkbox" class="entityfield-check" aria-label="Lưu @field.Name" @(field.Used ? "checked" : "") />
                                                 </td>
-                                                <td class="permmap-fn"><input type="text" class="entityfield-name" value="@field.Name" /></td>
-                                                <td><input type="text" class="entityfield-meaning" value="@field.Meaning" placeholder="thông tin này là gì?" /></td>
+                                                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entityfield-name">@field.Name</textarea></td>
+                                                <td><textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="thông tin này là gì?">@field.Meaning</textarea></td>
                                             </tr>
                                         }
                                     </tbody>
@@ -1192,9 +1192,9 @@
                                         @foreach (var state in entity.States)
                                         {
                                             <tr class="entitymap-state">
-                                                <td class="permmap-fn"><input type="text" class="entitystate-name" value="@state.State" /></td>
-                                                <td><input type="text" class="entitystate-entry" value="@state.EntryCondition" placeholder="điều kiện/hành động đưa vào trạng thái này" /></td>
-                                                <td><input type="text" class="entitystate-notify" value="@state.Notify" placeholder="để trống = không báo cho ai" /></td>
+                                                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name">@state.State</textarea></td>
+                                                <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="điều kiện/hành động đưa vào trạng thái này">@state.EntryCondition</textarea></td>
+                                                <td><textarea rows="1" class="permmap-cellinput entitystate-notify" placeholder="để trống = không báo cho ai">@state.Notify</textarea></td>
                                             </tr>
                                         }
                                     </tbody>

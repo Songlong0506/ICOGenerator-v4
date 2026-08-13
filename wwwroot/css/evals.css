@@ -52,11 +52,13 @@
 .eval-score.score-mid { color: var(--warning); }
 .eval-score.score-bad { color: var(--danger-ink); }
 
-/* ----- Modals ----- */
+/* ----- Modals -----
+   KHÔNG khai báo `.eval-modal label` (hay bất kỳ `.lớp label` nào) ở đây: label đứng ngay trước
+   input/textarea/select là *caption tích hợp* của site.css — nó phải giữ nguyên margin/font/nền để
+   dính liền vào ô nhập thành một khối. Một rule lớp như vậy thắng specificity của
+   `label:has(+ textarea)` và làm caption của textarea bung ra thành nhãn đậm rời rạc. Chi tiết ở chú
+   thích "Bosch integrated label" trong site.css. Kích thước ô nhập cũng đã là 100% từ site.css. */
 .eval-modal { width: 560px; }
-.eval-modal label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 13px; }
-.eval-modal input[type="text"], .eval-modal input:not([type]), .eval-modal select, .eval-modal textarea { width: 100%; }
-.eval-modal textarea { resize: vertical; }
 .eval-modal-hint { margin: 6px 0 0; font-size: 12.5px; }
 .eval-form-hint { margin-top: 5px; font-size: 11.5px; }
 
