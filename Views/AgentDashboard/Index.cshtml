@@ -83,7 +83,16 @@
         <div class="card delivery-config-summary">
             <div class="dg-head">
                 <h3>Cấu hình delivery</h3>
-                <button class="btn" type="button" onclick="openDeliveryConfig()">Chỉnh sửa</button>
+                @* Nút biểu tượng (không phải nút chữ) cho đồng bộ với thao tác "sửa tại chỗ" ở
+                   trang Projects / AI Models. SVG nội tuyến chứ không dùng font bootstrap-icons
+                   từ CDN: nút CHỈ có biểu tượng, CDN không tới được là nút thành ô trống không ai
+                   thấy — cùng lý do nút bút chì ở Views/Projects/Index.cshtml. *@
+                <button class="icon-btn" type="button"
+                        title="Chỉnh sửa cấu hình delivery"
+                        aria-label="Chỉnh sửa cấu hình delivery"
+                        onclick="openDeliveryConfig()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                </button>
             </div>
             <div class="dc-summary">
                 <span class="dc-summary-item">
