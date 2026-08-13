@@ -131,6 +131,150 @@ Chốt xong, bản đồ cột được **tiêu thụ ở hai đầu** — đây
 
 Chưa chốt (file không phải bảng tính, model không đề xuất được dòng nào, hoặc người dùng chưa gửi) ⇒ không có bảng, không có khối ngữ cảnh, không lọc gì — luồng chạy đúng như trước. Bảng cột không khớp hàng tiêu đề nào cũng không lọc: cắt sạch dữ liệu mẫu tệ hơn nhiều so với để lọt vài cột thừa.
 
+## Bốn bảng chốt của buổi phỏng vấn
+
+Buổi phỏng vấn kết thúc bằng **bốn bảng**, không phải một. Cả bốn cùng một cơ chế, và cơ chế đó sinh ra từ
+cùng một quan sát: có những thứ **BA ráp lại từ hội thoại** mà người dùng chưa bao giờ nhìn thấy để bác —
+chuỗi bước của một luồng, danh sách màn hình, mô hình dữ liệu, ma trận quyền. Chúng vẫn đi thẳng vào tài
+liệu, mang chữ ký của người dùng. Bảng là chỗ họ nhìn thấy và sửa được, và bằng chứng thu về là **một thao
+tác trên từng dòng** thay vì một chip trả lời thay cho tất cả.
+
+| Bảng | Cột trên `Project` | Chốt cái gì | Đường tiêu thụ ngoài chat |
+|---|---|---|---|
+| Luồng nghiệp vụ | `FlowMap` | luồng chính + 1–2 ngoại lệ, mỗi luồng là chuỗi bước *ai làm → làm gì → trạng thái sau đó* | `## 13. Worked Examples` định tính (oracle chấm POC) + `## 10. Business Rules` |
+| Màn hình | `ScreenScopeMap` | phạm vi màn hình, việc của từng màn, **bước luồng** màn đó phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
+| Đối tượng nghiệp vụ | `EntityMap` | thông tin cần lưu + vòng đời trạng thái + **ai được báo** ở mỗi chuyển trạng thái | `## 8. Data Model Summary` + `## 10. Business Rules` |
+| Phân quyền | `PermissionMatrix` | quyền CRUD theo màn hình, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + điều kiện lọc ở `## 9. API Expectations` |
+
+### Một cổng, đúng một bảng mỗi lượt
+
+`InterviewTableGate.Select` là chỗ DUY NHẤT quyết định lượt này bày bảng nào. Không thể để mỗi cổng tự
+quyết: mỗi cổng bơm một khối `## LƯỢT NÀY:` vào ngữ cảnh, và hai khối như thế cùng lúc là hai mệnh lệnh
+chọi nhau — model trả một bảng lai hoặc bỏ cả hai. Repo đã gặp đúng chuyện này ở quy mô nhỏ hơn (cổng bảng
+phân quyền phải nhường một lượt cho lượt kể lại file bảng tính); với bốn bảng thì việc nhường không còn
+viết tay được nữa.
+
+**Thứ tự là thứ tự PHỤ THUỘC, không phải thứ tự tiện tay:**
+
+```
+luồng → màn hình → đối tượng → phân quyền
+```
+
+Luồng trước, vì bảng màn hình có một ô hỏi thẳng *"màn này phục vụ bước nào"*. Màn hình trước đối tượng, vì
+cái người dùng nhìn thấy trên màn hình quyết định thông tin nào thật sự cần lưu. Phân quyền cuối cùng, vì
+các DÒNG của nó là màn hình — hỏi trước khi phạm vi màn hình đứng yên thì bảng thiếu nửa số dòng, mà quyền
+của một màn hình chưa tồn tại thì không ai trả lời được.
+
+Điều kiện mở của từng cổng suy từ chính bản đồ bao phủ, và **cố ý rải ra chứ không dồn xuống cuối buổi**:
+cổng luồng mở khi «Chức năng & luồng nghiệp vụ chính» + «Đối tượng người dùng & vai trò» đã `[RÕ]` và
+«Luồng ngoại lệ» đã được chạm tới; cổng màn hình mở khi «Chức năng & luồng» `[RÕ]` và `PlannedScope` có
+mục; cổng đối tượng mở khi «Dữ liệu / danh mục chính» `[RÕ]` và «Vòng đời & trạng thái» + «Thông báo /
+nhắc nhở» đã được chạm tới; cổng phân quyền giữ nguyên điều kiện cũ (mọi nhóm áp dụng KHÁC đã `[RÕ]`).
+Bốn bảng điền sẵn nối đuôi nhau ở cuối buổi chính là cái chip *"Đồng ý phương án này"* phóng to gấp bốn —
+người dùng nghiệp vụ bận sẽ bấm "Đúng rồi" cho xong từ bảng thứ hai.
+
+Hệ quả cần biết: khi cổng phân quyền mở thì điều kiện của cả ba cổng kia đương nhiên cũng đúng, nên bảng
+nào chưa chốt sẽ lần lượt được hỏi TRƯỚC nó — và cổng phân quyền lại là thứ duy nhất mở nút "Write
+Requirement". Không có đường nào soạn tài liệu mà bỏ qua ba bảng đầu. `InterviewTableGateTests` giữ bất
+biến này.
+
+### Vì sao ba bảng mới KHÔNG được là điều kiện để một nhóm lên `[RÕ]`
+
+Nhóm «Phân quyền theo nghiệp vụ» có luật khắt khe một chiều — chưa có bảng thì không bao giờ `[RÕ]` — và
+luật đó đúng vì nhóm ấy **không được hỏi bằng câu hỏi**. Ba nhóm còn lại thì có: chúng được hỏi suốt buổi,
+và ba bảng mới chỉ **xác nhận lại** thứ hội thoại đã trả lời.
+
+Áp luật một chiều cho chúng là dựng một vòng khóa kín: cổng đòi nhóm `[RÕ]` mới mở, bản đồ đòi có bảng mới
+`[RÕ]`, không bên nào đi trước được. Đó chính là cái bẫy mà `PermissionMatrixGate` đã phải né bằng cách cố
+ý **bỏ qua đúng dòng phân quyền** khi xét — và nó chỉ né được vì lúc đó chỉ có MỘT bảng. Triệu chứng nếu
+làm sai rất khó truy: nút "Write Requirement" không bao giờ sáng, panel tiến độ đứng ở 11/12 vĩnh viễn.
+
+### Ba chốt chặn tất định dùng chung
+
+Cả bốn builder áp cùng bộ luật, vì cả bốn hỏng theo cùng một kiểu:
+
+- **Luật bằng chứng.** Server chỉ khóa một ô/dòng/bước khi model kèm được TRÍCH DẪN. Cờ suông bị bỏ. Không
+  có ranh giới này thì một bảng điền sẵn toàn bộ trông như đã chốt, và người dùng bấm gửi trong ba giây.
+- **Cờ tích ở lượt BÀY BẢNG luôn là TÍCH SẴN**, bất kể model trả gì. Cờ đó là chỗ NGƯỜI DÙNG loại bớt,
+  không phải chỗ model tự phủ nhận đề xuất của mình — mà structured output buộc điền đủ trường, nên một
+  model điền `false` cho có sẽ âm thầm bỏ tích sạch bảng và người dùng gửi đi một phạm vi RỖNG trong khi
+  tưởng mình vừa xác nhận cả ứng dụng. Chỉ đường GỬI (`Sanitize`) mới tôn trọng lựa chọn của họ.
+- **Dòng bịa bị loại, dòng bị bỏ quên vẫn phải có mặt** — và có mặt ở trạng thái TÍCH SẴN. "BA quên nêu"
+  không phải "người dùng đã loại"; đưa vào ở trạng thái bỏ tích là ra quyết định thay họ ở đúng chỗ họ
+  không nhìn thấy để phản đối.
+
+Gửi đi vẫn **hai bước** như bảng cột và bảng phân quyền: `POST Requirements/ConfirmFlowMap` /
+`ConfirmScreenScope` / `ConfirmEntityMap` lưu vào cột tương ứng (không gọi LLM), rồi trình duyệt gửi tiếp
+**một tin nhắn người dùng** do SERVER soạn qua đúng đường chat thường — hội thoại vẫn chỉ có một đường ghi.
+Lưu hỏng thì dừng hẳn, không gửi tin nhắn. Fail-open toàn tuyến: model không trả bảng dùng được ⇒ lượt chạy
+như một lượt chat thường và cổng mở lại ở lượt sau.
+
+Ba bảng đều **treo theo DỰ ÁN** (cột còn null) chứ không theo lượt, và lượt có bảng thì **bỏ** chip, thẻ hỏi
+gộp và sơ đồ luồng — chip bấm là GỬI NGAY, để cả hai cùng sống thì một cú bấm nhầm cuốn mất lượt trước khi
+người dùng rà xong. Cùng luật với bảng cột và bảng phân quyền.
+
+### Bảng luồng: chuỗi bước người dùng tự tay duyệt, và đường của nó tới POC
+
+`flowDiagram` (sơ đồ ở lượt mời "Write Requirement") vẫn còn, nhưng nó chỉ **vẽ ra để nhìn**: một luồng
+chính, không ngoại lệ, đính chính bằng lời trong khung chat rồi chờ BA vẽ lại. Bảng luồng khác ở chỗ quyết
+định — bước **sửa được và bỏ được** tại chỗ.
+
+Phần trả tiền lớn nhất nằm ở đường ra: mỗi luồng đã chốt trở thành một ví dụ ĐỊNH TÍNH của
+`## 13. Worked Examples`, tức **POC bị chấm theo đúng chuỗi bước người dùng gật**. Trước đó `WorkedExamples`
+là danh sách do LLM chắt từ transcript, không ai duyệt và cũng không còn đường sửa tay
+(`UpdateWorkedExamplesUseCase` đã gỡ) — nghĩa là oracle chấm POC đang là bản BA hiểu, không phải bản người
+dùng xác nhận.
+
+Bảng bắt buộc chở NGOẠI LỆ vì chuẩn `[RÕ]` của nhóm «Luồng ngoại lệ» đòi một tình huống hỏng cụ thể kèm
+cách xử lý, mà đó là loại thông tin không bao giờ tự nhiên xuất hiện trong phỏng vấn — người dùng kể đường
+đi thuận, còn đường hỏng thì họ coi là hiển nhiên. `FlowMapBuilder.Build` vì vậy **không bao giờ cắt ngoại
+lệ trước** khi chạm trần: prompt xin ngoại lệ đứng sau luồng chính, nên cắt tuần tự sẽ luôn vứt đúng phần
+khó lấy nhất đi đầu tiên. Luồng một bước bị loại — đó là một câu mô tả, không kiểm được bằng oracle và cũng
+không cho người dùng chỗ nào để bắt lỗi thứ tự.
+
+### Bảng màn hình: vá cái nền mà bảng phân quyền đang đứng lên
+
+Các DÒNG của bảng phân quyền lấy từ `Project.PlannedScope` — một danh sách do LLM chắt sau mỗi lượt chat mà
+**người dùng chưa bao giờ nhìn thấy** kể từ khi panel sidebar bị gỡ. Tức toàn bộ phần phân quyền, thứ đã
+được dựng cẩn thận để có bằng chứng trên từng ô, lại đứng trên một nền chưa ai duyệt: một màn hình LLM chắt
+nhầm sẽ được người dùng tích quyền cho, còn một màn hình bị bỏ quên thì không bao giờ có mặt để họ phản đối.
+
+Chốt xong, `PermissionMatrixGate.EffectiveScreens` đọc bảng thay cho `PlannedScope` thô: các dòng người dùng
+GIỮ, cộng những mục phạm vi mới lộ ra SAU lúc chốt. Mục mới phải được thêm vào (buổi phỏng vấn còn tiếp tục,
+và một màn hình lộ ra ở lượt sau mà không vào được bảng phân quyền thì mặc nhiên "không ai được xem"); còn
+mục đã BỎ TÍCH thì không bao giờ quay lại, kể cả khi nó vẫn nằm trong `PlannedScope` — lượt chắt lọc
+`PlannedScope` không đọc bảng nên nó giữ nguyên mục đó mãi, và mở lại thứ họ vừa đóng là đúng lỗi bảng cột
+đã cấm.
+
+**Ô "phục vụ bước" cho một phép kiểm TẤT ĐỊNH chạy bằng code, không cần lời gọi LLM nào**
+(`ScreenScopeMapBuilder.UncoveredActions`): mọi bước của bảng luồng đã chốt phải được ít nhất một màn hình
+nhận phụ trách. Hai danh sách đọc riêng đều "đạt" — bảng luồng đầy đủ, bảng màn hình đầy đủ — còn chỗ hỏng
+nằm ở **mối nối**, đúng loại lỗi đắt nhất của cả dây chuyền. Một bước không màn hình nào phụ trách nghĩa là
+hoặc người dùng sẽ không có chỗ nào để làm bước đó, hoặc bước đó không có thật; cả hai đều phải hỏi, và hỏi
+lúc bảng còn trên màn hình rẻ hơn hẳn hỏi lại ở POC. Dòng nhắc **không chặn** nút gửi: đó là một câu hỏi,
+không phải một lỗi. So khớp bằng CHỨA-NHAU sau chuẩn hoá chứ không nguyên văn — người dùng sửa ô bằng lời
+của họ, và một cảnh báo luôn sai thì lần thứ hai không ai đọc nữa.
+
+### Bảng đối tượng: mô hình dữ liệu, và chỗ duy nhất thông báo gắn được vào một chuyển trạng thái
+
+Bảng này đứng SAU hai bảng kia chứ không mở đầu chuỗi như trực giác mách bảo, vì ba lý do: người dùng nghiệp
+vụ **kể được quy trình, không kể được đối tượng nào có thông tin nào**; vòng đời trạng thái phụ thuộc luồng
+(chuẩn `[RÕ]` của nhóm «Vòng đời & trạng thái» đòi gọi tên trạng thái VÀ điều kiện chuyển, mà điều kiện
+chuyển chính là "ai làm bước nào"); và phần lớn thông tin đắt giá đã được chốt ở **bảng cột** nếu người dùng
+có gửi file — `EntityMapBuilder` vì vậy đánh dấu các thông tin trùng cột đã tích là đã có nguồn, thay vì bày
+ra như đề xuất mới chờ duyệt lần hai (bắt duyệt lại đúng thứ họ vừa tự tay tích là hình dạng vòng lặp câu
+hỏi chết mà `CoverageDeadQuestionLoopTests` đã phải dựng lưới một lần).
+
+Cột **"báo cho ai"** nằm cạnh từng trạng thái chứ không thành một bảng riêng, vì thông báo chỉ có nghĩa khi
+gắn vào một chuyển trạng thái cụ thể. Hỏi nhóm «Thông báo / nhắc nhở» bằng một câu chung chung cho ra đúng
+loại câu trả lời mà chuẩn `[RÕ]` đã phải cấm — một danh sách vai trò trần — rồi tài liệu đóng băng thành
+*"mọi thay đổi trạng thái gửi cho cả bốn nhóm"*, tức mỗi lần một bản kế hoạch đổi trạng thái thì toàn bộ
+nhân viên nhà máy nhận email. Ô để TRỐNG là một quyết định ("không báo cho ai") và khối ngữ cảnh nói thẳng
+điều đó ra, vì mặc định im lặng của các tầng sau là gửi cho tất cả.
+
+Vòng đời một trạng thái bị cắt sạch (đối tượng vẫn giữ — nó là đối tượng danh mục): "vòng đời" một trạng
+thái là không có vòng đời, và giữ lại là mời người dùng xác nhận một điều vô nghĩa.
+
 ## Bảng phân quyền: chốt nhóm phân quyền ở cuối buổi
 
 «Phân quyền theo nghiệp vụ» là nhóm **duy nhất** của bản đồ bao phủ không được hỏi bằng câu hỏi. Lý do nằm ở một
@@ -152,8 +296,10 @@ nào cũng cho ra cùng một câu trả lời.
 
 **Thời điểm do CƠ CHẾ chọn, không để model tự đoán** (`PermissionMatrixGate`). Bản đồ bao phủ ghi nhóm phân
 quyền là `[CHƯA HỎI]` suốt cả buổi, nên một câu dặn "để cuối" trong prompt không đủ: model vẫn thấy một nhóm
-chưa hỏi nằm đó và sớm muộn cũng hỏi. Cổng mở khi cả ba điều kiện cùng đúng — chưa chốt bảng nào, `PlannedScope`
-đã có mục (các DÒNG của bảng chính là màn hình đã chắt từ hội thoại), và **mọi nhóm áp dụng KHÁC** đã `[RÕ]`.
+chưa hỏi nằm đó và sớm muộn cũng hỏi. Cổng mở khi cả ba điều kiện cùng đúng — chưa chốt bảng nào, phạm vi màn hình
+đã có mục, và **mọi nhóm áp dụng KHÁC** đã `[RÕ]`. Phạm vi đó nay lấy từ **bảng màn hình đã chốt**
+(`PermissionMatrixGate.EffectiveScreens`) chứ không từ `PlannedScope` thô — xem
+[Bốn bảng chốt của buổi phỏng vấn](#bốn-bảng-chốt-của-buổi-phỏng-vấn).
 Cổng cố tình **bỏ qua đúng dòng phân quyền** khi xét: `RequirementReadinessGate` đòi mọi dòng `[RÕ]` mới mở nút
 "Write Requirement", mà dòng phân quyền chỉ lên `[RÕ]` sau khi bảng được chốt — không bỏ qua thì hai cổng khóa
 lẫn nhau và không cổng nào mở được. Ba trạng thái của cổng thành ba khối lệnh khác nhau trong ngữ cảnh chat:
@@ -222,7 +368,7 @@ Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spe
 
 ## Sidebar đã gỡ: mọi cổng chờ người dùng chuyển vào khung chat
 
-**Sidebar không còn panel nào của `InterviewOutlookService`.** Ba danh sách chắt sau mỗi lượt chat — `OpenQuestions`, `PlannedScope`, `WorkedExamples` — nay đều đi thẳng vào đường tiêu thụ của máy: ngữ cảnh chat của BA (`BAChatService`), ngữ cảnh soát mâu thuẫn (`RequirementConflictService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **sơ đồ luồng** ở cuối lượt (có nút "chưa đúng?" cho từng bước — đúng chỗ để đính chính), ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
+**Sidebar không còn panel nào của `InterviewOutlookService`.** Ba danh sách chắt sau mỗi lượt chat — `OpenQuestions`, `PlannedScope`, `WorkedExamples` — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — `PlannedScope` thành bảng màn hình, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Bốn bảng chốt](#bốn-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), ngữ cảnh soát mâu thuẫn (`RequirementConflictService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **sơ đồ luồng** ở cuối lượt (có nút "chưa đúng?" cho từng bước — đúng chỗ để đính chính), ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
 **Stepper 5 chặng ở đầu trang đã bỏ.** Quy trình thực tế không chạy một chiều — người dùng sửa tới sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm chỗ đầu trang vừa mô tả sai việc đang diễn ra. Trạng thái thật vẫn ở đúng chỗ cần đọc: cổng xác nhận giả định và tiến trình workflow nằm trong khung chat, các bản mô tả nằm ở panel tài liệu.
 
 **Sidebar không còn panel "Điều đã chốt" — soát mâu thuẫn chuyển từ NGƯỜI DÙNG sang BA.** Đây là panel cuối cùng của sidebar bị gỡ, và vì đúng cái lý do đã gỡ ba panel trước nó. Panel hiển thị nhật ký `DecisionLogService` (tới 40 dòng) cạnh khung chat để người dùng tự rà, tức bắt họ **vừa kể chuyện nghiệp vụ vừa làm QA cho BA** — hai chế độ tư duy song song, đúng lúc cần tập trung nhất. Nó cũng đặt việc soát mâu thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc được cả hội thoại. Và "bấm để sửa" không phải công cụ sửa thật — nó chỉ soạn sẵn một câu vào ô chat.

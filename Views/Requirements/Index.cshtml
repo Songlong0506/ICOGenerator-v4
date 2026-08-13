@@ -113,6 +113,27 @@
     var permissionRoles = lastPermissionMatrix.FirstOrDefault()?.Grants.Select(g => g.Role).ToList()
         ?? new List<string>();
 
+    // BA BẢNG CHỐT còn lại, dựng theo đúng khuôn của bảng phân quyền ngay trên: bảng treo theo DỰ ÁN (cột
+    // tương ứng trên Project còn null) chứ không theo lượt, nên người dùng gõ thêm một câu hỏi lại rồi mới
+    // ngồi rà cũng không mất bảng. Chốt xong thì cột khác null nên bảng tự đóng.
+    var lastFlowMap = Model.FlowMap == null
+        ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
+            .ParseFlowMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.FlowMap))?.FlowMap)
+        : new List<ICOGenerator.Contracts.Requirements.FlowMapRow>();
+    var lastScreenScope = Model.ScreenScopeMap == null
+        ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
+            .ParseScreenScopeMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.ScreenScopeMap))?.ScreenScopeMap)
+        : new List<ICOGenerator.Contracts.Requirements.ScreenScopeRow>();
+    var lastEntityMap = Model.EntityMap == null
+        ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
+            .ParseEntityMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.EntityMap))?.EntityMap)
+        : new List<ICOGenerator.Contracts.Requirements.EntityMapRow>();
+    // Bước luồng chưa có màn hình nào phụ trách — phép kiểm TẤT ĐỊNH của mối nối luồng ⇄ màn hình, tính
+    // lại ở đây thay vì chở qua SSE: sau F5 thì frame done đã đi mất, mà dòng nhắc thì phải còn.
+    var uncoveredFlowSteps = lastScreenScope.Count > 0
+        ? ICOGenerator.Services.Requirements.ScreenScopeMapBuilder.UncoveredActions(lastScreenScope, Model.FlowMap)
+        : new List<string>();
+
     // GỘP CÂU DẪN VÀO THẺ HỎI: ở lượt gộp, Message chỉ là câu dẫn ngắn ("mình hỏi nhanh mấy điểm sau")
     // — render nó thành bong bóng riêng phía trên thẻ là hai khung liền nhau nói cùng một ý, vì bản thân
     // thẻ đã có dòng dẫn của nó. Nên lượt BA này KHÔNG có bong bóng riêng: câu dẫn xuống làm dòng đầu
@@ -980,6 +1001,234 @@
                             Gửi nhầm file hay còn điều gì muốn nói thêm thì anh/chị cứ gõ vào khung chat nhé.
                         </div>
                         <div class="colmap-msg" id="columnMapMsg"></div>
+                    </div>
+                }
+            </div>
+
+            @* BA BẢNG CHỐT của buổi phỏng vấn, theo đúng thứ tự chúng được bày ra (InterviewTableGate):
+               LUỒNG → MÀN HÌNH → ĐỐI TƯỢNG, rồi tới bảng phân quyền ngay dưới. Thứ tự DOM cố định vì
+               requirements.js dời cả cụm xuống cuối dòng hội thoại sau mỗi lượt; không bao giờ có hai bảng
+               cùng sống, nhưng thứ tự vẫn phải xác định.
+
+               Cả ba treo theo DỰ ÁN (cột trên Project còn null) chứ không theo lượt, cùng lý do với bảng
+               cột và bảng phân quyền: người dùng hoàn toàn có thể gõ một câu hỏi lại trước khi ngồi rà, và
+               mất bảng vì lý do đó là mất luôn đường chốt. *@
+
+            @* BẢNG LUỒNG — người dùng rà từng bước của từng luồng. Bước có bằng chứng thì KHÓA (✓ + tooltip
+               trích dẫn), bước BA suy ra thì sửa/bỏ tích được: cùng ranh giới đã tách bảng phân quyền khỏi
+               một cái chip "Đồng ý phương án này". *@
+            <div class="req-msg ba permmap flowmap" id="flowMapPanel"
+                 data-confirm-url="@Url.Action("ConfirmFlowMap", "Requirements")"
+                 @(lastFlowMap.Count > 0 ? "" : "hidden")>
+                @if (lastFlowMap.Count > 0)
+                {
+                    <div class="permmap-howto">
+                        Bước có dấu <b>✓</b> là điều anh/chị đã nói (rê chuột để xem lại câu gốc). Các bước còn lại là
+                        <b>mình ráp lại</b> — bước nào sai thì sửa thẳng vào ô, bước nào không có thật thì <b>bỏ tích</b>.
+                    </div>
+                    @foreach (var flow in lastFlowMap)
+                    {
+                        <div class="permmap-screen">
+                            @flow.Name <span class="flowmap-kind">@flow.Kind</span>
+                            @if (!string.IsNullOrWhiteSpace(flow.Role))
+                            {
+                                <span class="flowmap-role">· @flow.Role</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(flow.Trigger))
+                            {
+                                <span class="flowmap-role">· khi @flow.Trigger</span>
+                            }
+                        </div>
+                        <table class="permmap-table flowmap-table" data-flow="@flow.Name" data-kind="@flow.Kind"
+                               data-role="@flow.Role" data-trigger="@flow.Trigger">
+                            <thead>
+                                <tr>
+                                    <th class="flowmap-th-use">Đúng</th>
+                                    <th class="flowmap-th-actor">Ai làm</th>
+                                    <th class="flowmap-th-action">Làm gì</th>
+                                    <th class="flowmap-th-outcome">Sau đó</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var step in flow.Steps)
+                                {
+                                    <tr class="flowmap-row">
+                                        <td class="flowmap-use">
+                                            @if (step.Locked)
+                                            {
+                                                <span class="permmap-locked" title="@step.Evidence">✓</span>
+                                                <input type="hidden" class="flowmap-check" value="1" />
+                                            }
+                                            else
+                                            {
+                                                <input type="checkbox" class="flowmap-check" aria-label="Bước @step.Action đúng" @(step.Included ? "checked" : "") />
+                                            }
+                                        </td>
+                                        <td><input type="text" class="flowmap-actor" value="@step.Actor" placeholder="ai làm bước này?" /></td>
+                                        <td><input type="text" class="flowmap-action" value="@step.Action" /></td>
+                                        <td><input type="text" class="flowmap-outcome" value="@step.Outcome" placeholder="trạng thái sau bước (nếu có)" /></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    <div class="permmap-bar">
+                        <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
+                        <div class="permmap-hint">
+                            Thiếu hẳn một luồng, hoặc thiếu một tình huống hỏng nào đó, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                        </div>
+                        <div class="permmap-msg" id="flowMapMsg"></div>
+                    </div>
+                }
+            </div>
+
+            @* BẢNG MÀN HÌNH — phạm vi màn hình của ứng dụng. Cột "Phục vụ bước" là chỗ phép kiểm tất định
+               chạy: bước luồng nào không màn hình nào nhận thì hiện thành dòng nhắc dưới bảng, vì hai danh
+               sách đọc riêng đều "đạt" còn chỗ hỏng nằm ở mối nối. *@
+            <div class="req-msg ba permmap screenmap" id="screenScopePanel"
+                 data-confirm-url="@Url.Action("ConfirmScreenScope", "Requirements")"
+                 @(lastScreenScope.Count > 0 ? "" : "hidden")>
+                @if (lastScreenScope.Count > 0)
+                {
+                    <div class="permmap-howto">
+                        Đây là các màn hình mình dự kiến dựng. Màn nào <b>không cần</b> thì bỏ tích; phần việc và các
+                        bước màn đó phụ trách thì sửa thẳng vào ô. Dòng có <b>✓</b> là màn hình chính anh/chị đã nêu.
+                    </div>
+                    <table class="permmap-table screenmap-table">
+                        <thead>
+                            <tr>
+                                <th class="flowmap-th-use">Cần</th>
+                                <th class="screenmap-th-name">Màn hình</th>
+                                <th class="screenmap-th-purpose">Để làm gì</th>
+                                <th class="screenmap-th-fn">Chức năng chính</th>
+                                <th class="screenmap-th-steps">Phục vụ bước</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in lastScreenScope)
+                            {
+                                <tr class="screenmap-row" data-screen="@row.Screen">
+                                    <td class="flowmap-use">
+                                        @if (row.Locked)
+                                        {
+                                            <span class="permmap-locked" title="@row.Evidence">✓</span>
+                                            <input type="hidden" class="screenmap-check" value="1" />
+                                        }
+                                        else
+                                        {
+                                            <input type="checkbox" class="screenmap-check" aria-label="Cần màn hình @row.Screen" @(row.Included ? "checked" : "") />
+                                        }
+                                    </td>
+                                    <td class="permmap-fn">@row.Screen</td>
+                                    <td><input type="text" class="screenmap-purpose" value="@row.Purpose" placeholder="màn này để làm gì?" /></td>
+                                    <td><input type="text" class="screenmap-functions" value="@row.Functions" placeholder="vd: Xem danh sách, Tạo mới, Gửi duyệt" /></td>
+                                    <td><input type="text" class="screenmap-steps" value="@string.Join("; ", row.FlowSteps)" placeholder="bước luồng màn này phụ trách" /></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    @* Dòng nhắc của phép kiểm tất định. Nó KHÔNG chặn gửi: một bước không màn hình nào
+                       phụ trách có thể là bước thừa, có thể là màn hình thiếu — cả hai đều là câu hỏi cho
+                       người dùng, không phải lỗi để khóa nút. *@
+                    <div class="screenmap-warn" id="screenScopeWarn" @(uncoveredFlowSteps.Count > 0 ? "" : "hidden")>
+                        Chưa màn hình nào phụ trách các bước: <b>@string.Join("; ", uncoveredFlowSteps)</b>.
+                        Anh/chị điền bước đó vào cột “Phục vụ bước” của màn hình phù hợp, hoặc nhắn cho mình biết nếu thiếu hẳn một màn hình.
+                    </div>
+                    <div class="permmap-bar">
+                        <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
+                        <div class="permmap-hint">
+                            Thiếu màn hình nào, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                        </div>
+                        <div class="permmap-msg" id="screenScopeMsg"></div>
+                    </div>
+                }
+            </div>
+
+            @* BẢNG ĐỐI TƯỢNG NGHIỆP VỤ — thông tin cần lưu + vòng đời trạng thái. Cột "Báo cho ai" nằm ngay
+               cạnh từng trạng thái chứ không thành một câu hỏi riêng: hỏi "ai cần nhận thông báo?" chung
+               chung cho ra một danh sách vai trò trần, rồi tài liệu đóng băng thành "mọi thay đổi trạng
+               thái gửi cho cả bốn nhóm" — tức mỗi lần một bản kế hoạch đổi trạng thái là cả nhà máy nhận
+               email. Gắn ô vào từng chuyển trạng thái biến câu hỏi đó thành vài ô có sẵn ngữ cảnh. *@
+            <div class="req-msg ba permmap entitymap" id="entityMapPanel"
+                 data-confirm-url="@Url.Action("ConfirmEntityMap", "Requirements")"
+                 @(lastEntityMap.Count > 0 ? "" : "hidden")>
+                @if (lastEntityMap.Count > 0)
+                {
+                    <div class="permmap-howto">
+                        Đây là những thứ ứng dụng cần lưu hồ sơ riêng. Đối tượng nào <b>không cần</b> thì bỏ tích ở tiêu
+                        đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Ô <b>báo cho ai</b> để trống nghĩa là
+                        không gửi thông báo ở bước đó.
+                    </div>
+                    @foreach (var entity in lastEntityMap)
+                    {
+                        <div class="entitymap-block" data-entity="@entity.Entity">
+                            <div class="permmap-screen entitymap-head">
+                                @if (entity.Locked)
+                                {
+                                    <span class="permmap-locked" title="@entity.Evidence">✓</span>
+                                    <input type="hidden" class="entitymap-check" value="1" />
+                                }
+                                else
+                                {
+                                    <input type="checkbox" class="entitymap-check" aria-label="Cần đối tượng @entity.Entity" @(entity.Included ? "checked" : "") />
+                                }
+                                <span class="entitymap-name">@entity.Entity</span>
+                                <input type="text" class="entitymap-desc" value="@entity.Description" placeholder="đối tượng này là gì?" />
+                            </div>
+                            @if (entity.Fields.Count > 0)
+                            {
+                                <table class="permmap-table entitymap-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="flowmap-th-use">Lưu</th>
+                                            <th class="screenmap-th-name">Thông tin</th>
+                                            <th class="screenmap-th-purpose">Là gì</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var field in entity.Fields)
+                                        {
+                                            <tr class="entitymap-field">
+                                                <td class="flowmap-use">
+                                                    <input type="checkbox" class="entityfield-check" aria-label="Lưu @field.Name" @(field.Used ? "checked" : "") />
+                                                </td>
+                                                <td class="permmap-fn"><input type="text" class="entityfield-name" value="@field.Name" /></td>
+                                                <td><input type="text" class="entityfield-meaning" value="@field.Meaning" placeholder="thông tin này là gì?" /></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                            @if (entity.States.Count > 0)
+                            {
+                                <table class="permmap-table entitymap-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="screenmap-th-name">Trạng thái</th>
+                                            <th class="screenmap-th-purpose">Khi nào chuyển vào</th>
+                                            <th class="screenmap-th-fn">Báo cho ai</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var state in entity.States)
+                                        {
+                                            <tr class="entitymap-state">
+                                                <td class="permmap-fn"><input type="text" class="entitystate-name" value="@state.State" /></td>
+                                                <td><input type="text" class="entitystate-entry" value="@state.EntryCondition" placeholder="điều kiện/hành động đưa vào trạng thái này" /></td>
+                                                <td><input type="text" class="entitystate-notify" value="@state.Notify" placeholder="để trống = không báo cho ai" /></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        </div>
+                    }
+                    <div class="permmap-bar">
+                        <button type="button" class="btn primary" id="entityMapSendBtn">Gửi bảng đối tượng</button>
+                        <div class="permmap-hint">
+                            Thiếu đối tượng nào hoặc thiếu một trạng thái, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                        </div>
+                        <div class="permmap-msg" id="entityMapMsg"></div>
                     </div>
                 }
             </div>

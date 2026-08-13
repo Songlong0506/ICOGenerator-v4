@@ -44,4 +44,17 @@ public class BAChatReply
     // Đây là cách nhóm «Phân quyền theo nghiệp vụ» được trả lời: không hỏi lẻ trong hội thoại mà bày một
     // bảng cho người dùng chọn từng ô — xem PermissionMatrixRow cho lý do đầy đủ.
     public List<PermissionMatrixRow> PermissionMatrix { get; set; } = new();
+
+    // BA BẢNG CHỐT còn lại — mỗi bảng CHỈ được điền ở đúng lượt mà cổng tất định của nó yêu cầu, và không
+    // bao giờ có hai bảng cùng lúc: InterviewTableGate chọn ĐÚNG MỘT bảng cho mỗi lượt, vì hai khối
+    // "## LƯỢT NÀY:" cùng lúc là hai mệnh lệnh chọi nhau và model sẽ trả một bảng lai. Mọi lượt khác để rỗng.
+    //
+    //  • FlowMap — các luồng nghiệp vụ theo vai trò (luồng chính + 1–2 ngoại lệ), mỗi luồng là chuỗi bước.
+    //  • ScreenScopeMap — các màn hình dự kiến, kèm bước luồng mà mỗi màn phục vụ.
+    //  • EntityMap — các đối tượng nghiệp vụ: thông tin cần lưu + vòng đời trạng thái + ai được báo.
+    public List<FlowMapRow> FlowMap { get; set; } = new();
+
+    public List<ScreenScopeRow> ScreenScopeMap { get; set; } = new();
+
+    public List<EntityMapRow> EntityMap { get; set; } = new();
 }

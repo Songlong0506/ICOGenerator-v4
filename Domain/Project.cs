@@ -63,9 +63,11 @@ public class Project
     //    thành panel (user chỉ cần trò chuyện; hỏi cho hết là việc của BA): danh sách này được nạp vào
     //    ngữ cảnh mỗi lượt chat làm la bàn ƯU TIÊN cạnh bản đồ bao phủ — bản đồ chỉ phân giải theo NHÓM,
     //    còn đây giữ đúng điểm chưa chốt. Mục được chốt thì rời khỏi danh sách. Xem BAChatService.
-    //  • PlannedScope: các MÀN HÌNH/TÍNH NĂNG dự kiến dựng dần theo hội thoại. KHÔNG hiển thị thành panel
-    //    (đây là danh sách SUY ĐOÁN mà user không sửa được tại chỗ, nên nó là nhiễu chứ không đóng được
-    //    vòng "bắt hiểu nhầm sớm"): dùng làm ngữ cảnh soát mâu thuẫn. Xem RequirementConflictService.
+    //  • PlannedScope: các MÀN HÌNH/TÍNH NĂNG dự kiến dựng dần theo hội thoại. Không có panel sidebar nào
+    //    hiển thị nó (một danh sách SUY ĐOÁN mà user không sửa được tại chỗ là nhiễu, không đóng được vòng
+    //    "bắt hiểu nhầm sớm"). Nó tới tay người dùng ở dạng SỬA ĐƯỢC — bảng màn hình (ScreenScopeMap) —
+    //    rồi từ đó thành DÒNG của bảng phân quyền; ngoài ra vẫn dùng làm ngữ cảnh soát mâu thuẫn. Xem
+    //    ScreenScopeGate + RequirementConflictService.
     //  • WorkedExamples: các VÍ DỤ TÍNH THỬ người dùng ĐÃ XÁC NHẬN (input → kết quả kỳ vọng) cho quy tắc
     //    định lượng — nguồn để bước sinh AI Design Spec đúc thành "## 13. Worked Examples" và POC tự kiểm
     //    (window.pocWorkedExamples) đối chiếu ĐỘC LẬP: kỳ vọng do user chốt, giá trị do POC tự tính.
@@ -89,6 +91,32 @@ public class Project
     // phủ (nhóm phân quyền [RÕ] có căn cứ thật), và vào prompt sinh AI Design Spec (POC dựng UI theo vai
     // thay vì để phân quyền tan vào văn xuôi). Xem PermissionMatrixBuilder + PermissionMatrixGate.
     public string? PermissionMatrix { get; set; }
+    // BA BẢNG CHỐT còn lại của buổi phỏng vấn (JSON), cùng khuôn với PermissionMatrix ở trên: BA điền sẵn
+    // theo hội thoại → người dùng sửa/bỏ tích → chốt một lần → khối "đã chốt" đi vào ngữ cảnh chat, lượt
+    // distill bản đồ bao phủ và prompt sinh AI Design Spec. null = chưa chốt.
+    //
+    // KHÁC PermissionMatrix ở một điểm sống còn, và điểm đó là thứ giữ cho hệ thống không tự khóa: nhóm
+    // «Phân quyền theo nghiệp vụ» KHÔNG BAO GIỜ được [RÕ] khi chưa có bảng, còn ba bảng dưới đây chỉ XÁC
+    // NHẬN LẠI thứ đã [RÕ] từ hội thoại. Nếu bắt các nhóm tương ứng phụ thuộc vào bảng thì cổng mở bảng
+    // (đòi nhóm đó [RÕ]) và bản đồ (chỉ [RÕ] khi có bảng) khóa chặt lẫn nhau — đúng cái bẫy mà
+    // PermissionMatrixGate đã phải né bằng cách bỏ qua chính dòng phân quyền khi xét.
+    //
+    //  • FlowMap (FlowMapRow[]) — các LUỒNG nghiệp vụ theo vai trò: luồng chính + 1–2 ngoại lệ, mỗi luồng
+    //    là chuỗi bước (ai làm → làm gì → trạng thái sau đó) sửa được và bỏ được. Đây là đường DUY NHẤT để
+    //    chuỗi bước người dùng tự tay duyệt tới được oracle chấm POC ("## 13. Worked Examples" định tính) —
+    //    trước đó nó là bản LLM chắt từ transcript, không ai duyệt và cũng không sửa tay được nữa.
+    //  • ScreenScopeMap (ScreenScopeRow[]) — các MÀN HÌNH dự kiến, kèm việc của từng màn và các BƯỚC LUỒNG
+    //    nó phục vụ. Vá một lỗ hổng đang mở: các DÒNG của bảng phân quyền lấy từ PlannedScope, một danh
+    //    sách do LLM chắt mà người dùng chưa bao giờ nhìn thấy (panel sidebar đã gỡ) — tức cả phần phân
+    //    quyền đang đứng trên một nền chưa ai duyệt.
+    //  • EntityMap (EntityMapRow[]) — các ĐỐI TƯỢNG nghiệp vụ: thông tin cần lưu + vòng đời trạng thái +
+    //    ai được báo ở mỗi chuyển trạng thái. Đi vào "## 8. Data Model Summary" của spec, mục mà bước sinh
+    //    spec vốn phải TỰ NGHĨ RA từ văn xuôi Product Brief.
+    //
+    // Thứ tự bày là TẤT ĐỊNH và mỗi lượt chỉ có ĐÚNG MỘT bảng — xem InterviewTableGate.
+    public string? FlowMap { get; set; }
+    public string? ScreenScopeMap { get; set; }
+    public string? EntityMap { get; set; }
     // CỔNG XÁC NHẬN GIẢ ĐỊNH (giữa "sinh AI Design Spec" và "dựng POC"). Spec được phép tự đưa giả định
     // (mục "## 12. Assumptions") cho những điều Product Brief không nói; trước đây các giả định đó đi
     // THẲNG vào POC và user chỉ phát hiện sai sau khi ngồi chờ cả lượt dựng POC. Nay spec sinh xong mà

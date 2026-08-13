@@ -163,6 +163,9 @@ erDiagram
         string Questions
         string ColumnMap
         string PermissionMatrix
+        string FlowMap
+        string ScreenScopeMap
+        string EntityMap
         int TokenUsed
         DateTime CreatedAt
     }
@@ -181,6 +184,11 @@ erDiagram
 - `ProjectSourceFile.ColumnMap` (JSON `SourceColumnNote[]`) là **bảng cột đã được người dùng chốt** cho nguồn bảng tính: cột nào ứng dụng mới dùng và nghĩa của nó. `SourceContextBuilder` gắn nó vào ngữ cảnh mọi lượt chat, `RealSampleDataReader` lọc dữ liệu mẫu theo nó — xem [requirement-flow.md](requirement-flow.md#bảng-cột-chốt-phạm-vi-cột-của-file-bảng-tính). **Không** mã hóa at rest, cùng lý do với `ExtractedText` nằm cạnh nó dưới dạng plaintext.
 - `AgentConversation.ColumnMap` giữ **bản đề xuất** của BA ở lượt đọc file (để F5 không mất bảng chưa tích); nó là nội dung hội thoại nên **có** mã hóa at rest như `Message`/`Suggestions`/`Questions`.
 - `Project.PermissionMatrix` (JSON `PermissionMatrixRow[]`) là **bảng phân quyền đã được người dùng chốt**: màn hình × chức năng × vai trò, mỗi ô mang **phạm vi dữ liệu** (`của mình` / `của đơn vị` / `tất cả`, rỗng = không có quyền). Nó là nguồn bằng chứng RIÊNG của nhóm «Phân quyền theo nghiệp vụ» trong bản đồ bao phủ, và là đường duy nhất đưa phân quyền tới POC ở dạng máy đọc được — xem [requirement-flow.md](requirement-flow.md#bảng-phân-quyền-chốt-nhóm-phân-quyền-ở-cuối-buổi). `AgentConversation.PermissionMatrix` giữ **bản đề xuất** của BA ở lượt bày bảng (để F5 không mất các ô chưa chọn), mã hóa at rest như `ColumnMap`.
+- `Project.FlowMap` / `ScreenScopeMap` / `EntityMap` là **ba bảng chốt còn lại của buổi phỏng vấn**, cùng khuôn với `PermissionMatrix` (BA điền sẵn → người dùng sửa/bỏ tích → chốt một lần → khối "đã chốt" đi vào ngữ cảnh chat, lượt distill bản đồ bao phủ và prompt sinh AI Design Spec). Cột tương ứng trên `AgentConversation` giữ bản đề xuất của lượt bày bảng, mã hóa at rest như `ColumnMap`. Xem [requirement-flow.md](requirement-flow.md#bốn-bảng-chốt-của-buổi-phỏng-vấn).
+  - `FlowMap` (JSON `FlowMapRow[]`): luồng nghiệp vụ theo vai trò, luồng chính + ngoại lệ, mỗi luồng là chuỗi bước `{actor, action, outcome}`.
+  - `ScreenScopeMap` (JSON `ScreenScopeRow[]`): màn hình dự kiến + việc của từng màn + các **bước luồng** màn đó phục vụ. Là nguồn DÒNG của bảng phân quyền (`PermissionMatrixGate.EffectiveScreens`) thay cho `PlannedScope` thô.
+  - `EntityMap` (JSON `EntityMapRow[]`): đối tượng nghiệp vụ + thông tin cần lưu + vòng đời trạng thái, mỗi trạng thái kèm **ai được báo**.
+  - Khác `PermissionMatrix` ở một điểm sống còn: nhóm «Phân quyền theo nghiệp vụ» KHÔNG BAO GIỜ `[RÕ]` khi chưa có bảng, còn ba bảng này chỉ **xác nhận lại** thứ hội thoại đã trả lời. Áp luật một chiều cho chúng là dựng một vòng khóa kín — cổng bày bảng đòi nhóm `[RÕ]`, bản đồ đòi có bảng.
 
 ## Workflow schema
 

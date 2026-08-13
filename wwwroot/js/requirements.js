@@ -720,6 +720,294 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
+    // ==== BA BẢNG CHỐT còn lại: LUỒNG → MÀN HÌNH → ĐỐI TƯỢNG ====
+    // Cùng khuôn hai bước với bảng cột và bảng phân quyền: (1) POST lưu bảng, (2) gửi tin nhắn mà SERVER
+    // soạn qua đúng đường chat thường. Tin nhắn lấy từ response chứ không ghép ở đây, vì nó phải khớp bảng
+    // đã được server chuẩn hoá VÀ lưu — hai bản lệch nhau thì hội thoại kể một đằng còn dữ liệu dự án ghi
+    // một nẻo, mà mọi tầng chắt lọc tin vào bản kể.
+    //
+    // Phần gửi giống nhau ở cả ba nên nó là MỘT hàm: ba bản sao của cùng đoạn xử lý lỗi là ba chỗ để một
+    // bản quên mất luật "lưu hỏng thì DỪNG hẳn, không gửi tin nhắn".
+    function initTablePanel(panelId, btnId, msgId, field, collect, savingText, errorText) {
+        const panel = document.getElementById(panelId);
+        if (!panel) return null;
+
+        panel.addEventListener("click", async function (e) {
+            if (!e.target.closest("#" + btnId) || chatBusy) return;
+
+            const btn = document.getElementById(btnId);
+            const msgEl = document.getElementById(msgId);
+            const rows = panel.hidden ? [] : collect(panel);
+            if (rows.length === 0) return;
+
+            btn.disabled = true;
+            msgEl.textContent = savingText;
+
+            let message = "";
+            try {
+                const fd = new FormData();
+                fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
+                const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                fd.append("__RequestVerificationToken", tokenEl ? tokenEl.value : "");
+                fd.append(field, JSON.stringify(rows));
+
+                const resp = await fetch(panel.dataset.confirmUrl, { method: "POST", body: fd });
+                const data = await resp.json();
+                if (!data.ok || !data.message) throw new Error(data.error || "");
+                message = data.message;
+            } catch (err) {
+                // Lưu hỏng thì DỪNG hẳn, không gửi tin nhắn — cùng lý do với bảng cột và bảng phân quyền:
+                // hội thoại ghi nhận "đã chốt" trong khi dự án vẫn trống là trạng thái tệ nhất, vì bản đồ
+                // bao phủ nâng nhóm lên [RÕ] dựa trên tin nhắn đó rồi cấm hỏi lại, còn bảng thì không ai
+                // còn thấy đâu để rà lại.
+                btn.disabled = false;
+                msgEl.textContent = errorText;
+                return;
+            }
+
+            panel.hidden = true;
+            panel.innerHTML = "";
+            messageInput.value = message;
+            chatForm.requestSubmit();
+        });
+
+        return panel;
+    }
+
+    // Ô checkbox của dòng ĐÃ KHÓA được render thành input hidden value="1" (chỗ của nó là dấu ✓), nên phép
+    // đọc phải nhận cả hai dạng — đọc mỗi `.checked` thì mọi dòng có bằng chứng gửi đi ở trạng thái BỎ
+    // TÍCH, tức người dùng vô tình loại sạch đúng những dòng chắc chắn nhất.
+    function tableChecked(el) {
+        if (!el) return false;
+        return el.type === "checkbox" ? el.checked : (el.value || "") === "1";
+    }
+
+    function tableValue(root, selector) {
+        const el = root.querySelector(selector);
+        return ((el || {}).value || "").trim();
+    }
+
+    // ---- BẢNG LUỒNG ----
+    const flowMapPanel = initTablePanel(
+        "flowMapPanel", "flowMapSendBtn", "flowMapMsg", "flowJson",
+        panel => Array.from(panel.querySelectorAll(".flowmap-table")).map(table => ({
+            name: table.dataset.flow || "",
+            kind: table.dataset.kind || "",
+            role: table.dataset.role || "",
+            trigger: table.dataset.trigger || "",
+            steps: Array.from(table.querySelectorAll(".flowmap-row")).map(tr => ({
+                actor: tableValue(tr, ".flowmap-actor"),
+                action: tableValue(tr, ".flowmap-action"),
+                outcome: tableValue(tr, ".flowmap-outcome"),
+                included: tableChecked(tr.querySelector(".flowmap-check"))
+            }))
+        })),
+        "Đang lưu bảng luồng…",
+        "Chưa lưu được bảng luồng — anh/chị bấm gửi lại giúp mình nhé.");
+
+    // Markup khớp bản server render trong Index.cshtml — hai đường lệch nhau thì người dùng rà xong bảng
+    // vừa hiện ra rồi F5 và thấy một bảng khác.
+    function renderFlowMap(rows) {
+        if (!flowMapPanel || !Array.isArray(rows) || rows.length === 0) return;
+
+        const tables = rows.map(flow => {
+            const body = (flow.steps || []).map(s => `
+                <tr class="flowmap-row">
+                    <td class="flowmap-use">
+                        ${s.locked
+                            ? `<span class="permmap-locked" title="${escapeHtml(s.evidence || "")}">✓</span>
+                               <input type="hidden" class="flowmap-check" value="1" />`
+                            : `<input type="checkbox" class="flowmap-check" aria-label="Bước ${escapeHtml(s.action || "")} đúng"${s.included ? " checked" : ""} />`}
+                    </td>
+                    <td><input type="text" class="flowmap-actor" value="${escapeHtml(s.actor || "")}" placeholder="ai làm bước này?" /></td>
+                    <td><input type="text" class="flowmap-action" value="${escapeHtml(s.action || "")}" /></td>
+                    <td><input type="text" class="flowmap-outcome" value="${escapeHtml(s.outcome || "")}" placeholder="trạng thái sau bước (nếu có)" /></td>
+                </tr>`).join("");
+
+            const role = flow.role ? `<span class="flowmap-role">· ${escapeHtml(flow.role)}</span>` : "";
+            const trigger = flow.trigger ? `<span class="flowmap-role">· khi ${escapeHtml(flow.trigger)}</span>` : "";
+            return `
+                <div class="permmap-screen">${escapeHtml(flow.name || "")} <span class="flowmap-kind">${escapeHtml(flow.kind || "")}</span>${role}${trigger}</div>
+                <table class="permmap-table flowmap-table" data-flow="${escapeHtml(flow.name || "")}" data-kind="${escapeHtml(flow.kind || "")}"
+                       data-role="${escapeHtml(flow.role || "")}" data-trigger="${escapeHtml(flow.trigger || "")}">
+                    <thead>
+                        <tr>
+                            <th class="flowmap-th-use">Đúng</th>
+                            <th class="flowmap-th-actor">Ai làm</th>
+                            <th class="flowmap-th-action">Làm gì</th>
+                            <th class="flowmap-th-outcome">Sau đó</th>
+                        </tr>
+                    </thead>
+                    <tbody>${body}</tbody>
+                </table>`;
+        }).join("");
+
+        flowMapPanel.innerHTML = `
+            <div class="permmap-howto">
+                Bước có dấu <b>✓</b> là điều anh/chị đã nói (rê chuột để xem lại câu gốc). Các bước còn lại là
+                <b>mình ráp lại</b> — bước nào sai thì sửa thẳng vào ô, bước nào không có thật thì <b>bỏ tích</b>.
+            </div>
+            ${tables}
+            <div class="permmap-bar">
+                <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
+                <div class="permmap-hint">
+                    Thiếu hẳn một luồng, hoặc thiếu một tình huống hỏng nào đó, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                </div>
+                <div class="permmap-msg" id="flowMapMsg"></div>
+            </div>`;
+        flowMapPanel.hidden = false;
+        thinkingBox.before(flowMapPanel);
+    }
+
+    // ---- BẢNG MÀN HÌNH ----
+    const screenScopePanel = initTablePanel(
+        "screenScopePanel", "screenScopeSendBtn", "screenScopeMsg", "screensJson",
+        panel => Array.from(panel.querySelectorAll(".screenmap-row")).map(tr => ({
+            screen: tr.dataset.screen || "",
+            purpose: tableValue(tr, ".screenmap-purpose"),
+            functions: tableValue(tr, ".screenmap-functions"),
+            // Ô "phục vụ bước" là MỘT ô text ngăn bằng dấu chấm phẩy, không phải danh sách con: người dùng
+            // gõ tiếp vào đó dễ hơn nhiều so với bấm thêm dòng, và phép kiểm phía server so khớp theo cụm
+            // chứa-nhau nên không cần từng bước là một phần tử riêng.
+            flowSteps: tableValue(tr, ".screenmap-steps").split(";").map(s => s.trim()).filter(Boolean),
+            included: tableChecked(tr.querySelector(".screenmap-check"))
+        })),
+        "Đang lưu bảng màn hình…",
+        "Chưa lưu được bảng màn hình — anh/chị bấm gửi lại giúp mình nhé.");
+
+    function renderScreenScope(rows, uncovered) {
+        if (!screenScopePanel || !Array.isArray(rows) || rows.length === 0) return;
+
+        const body = rows.map(r => `
+            <tr class="screenmap-row" data-screen="${escapeHtml(r.screen || "")}">
+                <td class="flowmap-use">
+                    ${r.locked
+                        ? `<span class="permmap-locked" title="${escapeHtml(r.evidence || "")}">✓</span>
+                           <input type="hidden" class="screenmap-check" value="1" />`
+                        : `<input type="checkbox" class="screenmap-check" aria-label="Cần màn hình ${escapeHtml(r.screen || "")}"${r.included ? " checked" : ""} />`}
+                </td>
+                <td class="permmap-fn">${escapeHtml(r.screen || "")}</td>
+                <td><input type="text" class="screenmap-purpose" value="${escapeHtml(r.purpose || "")}" placeholder="màn này để làm gì?" /></td>
+                <td><input type="text" class="screenmap-functions" value="${escapeHtml(r.functions || "")}" placeholder="vd: Xem danh sách, Tạo mới, Gửi duyệt" /></td>
+                <td><input type="text" class="screenmap-steps" value="${escapeHtml((r.flowSteps || []).join("; "))}" placeholder="bước luồng màn này phụ trách" /></td>
+            </tr>`).join("");
+
+        const steps = Array.isArray(uncovered) ? uncovered : [];
+        screenScopePanel.innerHTML = `
+            <div class="permmap-howto">
+                Đây là các màn hình mình dự kiến dựng. Màn nào <b>không cần</b> thì bỏ tích; phần việc và các
+                bước màn đó phụ trách thì sửa thẳng vào ô. Dòng có <b>✓</b> là màn hình chính anh/chị đã nêu.
+            </div>
+            <table class="permmap-table screenmap-table">
+                <thead>
+                    <tr>
+                        <th class="flowmap-th-use">Cần</th>
+                        <th class="screenmap-th-name">Màn hình</th>
+                        <th class="screenmap-th-purpose">Để làm gì</th>
+                        <th class="screenmap-th-fn">Chức năng chính</th>
+                        <th class="screenmap-th-steps">Phục vụ bước</th>
+                    </tr>
+                </thead>
+                <tbody>${body}</tbody>
+            </table>
+            <div class="screenmap-warn" id="screenScopeWarn"${steps.length > 0 ? "" : " hidden"}>
+                Chưa màn hình nào phụ trách các bước: <b>${escapeHtml(steps.join("; "))}</b>.
+                Anh/chị điền bước đó vào cột “Phục vụ bước” của màn hình phù hợp, hoặc nhắn cho mình biết nếu thiếu hẳn một màn hình.
+            </div>
+            <div class="permmap-bar">
+                <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
+                <div class="permmap-hint">
+                    Thiếu màn hình nào, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                </div>
+                <div class="permmap-msg" id="screenScopeMsg"></div>
+            </div>`;
+        screenScopePanel.hidden = false;
+        thinkingBox.before(screenScopePanel);
+    }
+
+    // ---- BẢNG ĐỐI TƯỢNG NGHIỆP VỤ ----
+    const entityMapPanel = initTablePanel(
+        "entityMapPanel", "entityMapSendBtn", "entityMapMsg", "entitiesJson",
+        panel => Array.from(panel.querySelectorAll(".entitymap-block")).map(block => ({
+            entity: block.dataset.entity || "",
+            description: tableValue(block, ".entitymap-desc"),
+            fields: Array.from(block.querySelectorAll(".entitymap-field")).map(tr => ({
+                name: tableValue(tr, ".entityfield-name"),
+                meaning: tableValue(tr, ".entityfield-meaning"),
+                used: tableChecked(tr.querySelector(".entityfield-check"))
+            })),
+            states: Array.from(block.querySelectorAll(".entitymap-state")).map(tr => ({
+                state: tableValue(tr, ".entitystate-name"),
+                entryCondition: tableValue(tr, ".entitystate-entry"),
+                notify: tableValue(tr, ".entitystate-notify")
+            })),
+            included: tableChecked(block.querySelector(".entitymap-check"))
+        })),
+        "Đang lưu bảng đối tượng…",
+        "Chưa lưu được bảng đối tượng — anh/chị bấm gửi lại giúp mình nhé.");
+
+    function renderEntityMap(rows) {
+        if (!entityMapPanel || !Array.isArray(rows) || rows.length === 0) return;
+
+        const blocks = rows.map(r => {
+            const fields = (r.fields || []).map(f => `
+                <tr class="entitymap-field">
+                    <td class="flowmap-use"><input type="checkbox" class="entityfield-check" aria-label="Lưu ${escapeHtml(f.name || "")}"${f.used ? " checked" : ""} /></td>
+                    <td class="permmap-fn"><input type="text" class="entityfield-name" value="${escapeHtml(f.name || "")}" /></td>
+                    <td><input type="text" class="entityfield-meaning" value="${escapeHtml(f.meaning || "")}" placeholder="thông tin này là gì?" /></td>
+                </tr>`).join("");
+
+            const states = (r.states || []).map(s => `
+                <tr class="entitymap-state">
+                    <td class="permmap-fn"><input type="text" class="entitystate-name" value="${escapeHtml(s.state || "")}" /></td>
+                    <td><input type="text" class="entitystate-entry" value="${escapeHtml(s.entryCondition || "")}" placeholder="điều kiện/hành động đưa vào trạng thái này" /></td>
+                    <td><input type="text" class="entitystate-notify" value="${escapeHtml(s.notify || "")}" placeholder="để trống = không báo cho ai" /></td>
+                </tr>`).join("");
+
+            const fieldTable = fields ? `
+                <table class="permmap-table entitymap-table">
+                    <thead><tr><th class="flowmap-th-use">Lưu</th><th class="screenmap-th-name">Thông tin</th><th class="screenmap-th-purpose">Là gì</th></tr></thead>
+                    <tbody>${fields}</tbody>
+                </table>` : "";
+
+            const stateTable = states ? `
+                <table class="permmap-table entitymap-table">
+                    <thead><tr><th class="screenmap-th-name">Trạng thái</th><th class="screenmap-th-purpose">Khi nào chuyển vào</th><th class="screenmap-th-fn">Báo cho ai</th></tr></thead>
+                    <tbody>${states}</tbody>
+                </table>` : "";
+
+            return `
+                <div class="entitymap-block" data-entity="${escapeHtml(r.entity || "")}">
+                    <div class="permmap-screen entitymap-head">
+                        ${r.locked
+                            ? `<span class="permmap-locked" title="${escapeHtml(r.evidence || "")}">✓</span>
+                               <input type="hidden" class="entitymap-check" value="1" />`
+                            : `<input type="checkbox" class="entitymap-check" aria-label="Cần đối tượng ${escapeHtml(r.entity || "")}"${r.included ? " checked" : ""} />`}
+                        <span class="entitymap-name">${escapeHtml(r.entity || "")}</span>
+                        <input type="text" class="entitymap-desc" value="${escapeHtml(r.description || "")}" placeholder="đối tượng này là gì?" />
+                    </div>
+                    ${fieldTable}${stateTable}
+                </div>`;
+        }).join("");
+
+        entityMapPanel.innerHTML = `
+            <div class="permmap-howto">
+                Đây là những thứ ứng dụng cần lưu hồ sơ riêng. Đối tượng nào <b>không cần</b> thì bỏ tích ở tiêu
+                đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Ô <b>báo cho ai</b> để trống nghĩa là
+                không gửi thông báo ở bước đó.
+            </div>
+            ${blocks}
+            <div class="permmap-bar">
+                <button type="button" class="btn primary" id="entityMapSendBtn">Gửi bảng đối tượng</button>
+                <div class="permmap-hint">
+                    Thiếu đối tượng nào hoặc thiếu một trạng thái, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                </div>
+                <div class="permmap-msg" id="entityMapMsg"></div>
+            </div>`;
+        entityMapPanel.hidden = false;
+        thinkingBox.before(entityMapPanel);
+    }
+
     // ==== NHÁP ĐANG GÕ: tự lưu để F5 / mất điện / bấm nhầm không cuốn mất một câu trả lời dài ====
     // Ở trang này người dùng thường gõ những đoạn RẤT DÀI trong một lượt (cả quy trình nghiệp vụ, ai làm
     // bước nào, ràng buộc gì…). Trước đây nội dung đó chỉ sống trong DOM: F5, đóng tab nhầm, máy sập hay
@@ -1525,6 +1813,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // Bảng phân quyền: lượt chốt nhóm phân quyền. Không dựng trong `bubble` mà vào panel cố định
             // của trang (như bảng cột) — bảng treo tới khi dự án chốt nó, sống lâu hơn lượt sinh ra nó.
             renderPermissionMatrix(data.permissionMatrix);
+            // Ba bảng còn lại, cùng luật: InterviewTableGate đảm bảo mỗi lượt nhiều nhất MỘT trong bốn
+            // danh sách này có nội dung, nên bốn lời gọi liên tiếp không bao giờ dựng hai bảng cùng lúc.
+            renderFlowMap(data.flowMap);
+            renderScreenScope(data.screenScopeMap, data.uncoveredFlowSteps);
+            renderEntityMap(data.entityMap);
 
             // Lượt lỗi LLM: tô đỏ + nút "Thử lại" (server xóa lượt lỗi rồi chạy lại, khỏi gõ lại câu hỏi)
             // — markup khớp bản server render trong Index.cshtml.

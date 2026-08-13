@@ -123,7 +123,10 @@ Your task:
         string? assumptionCorrections = null,
         string? realSampleData = null,
         string? acceptanceCriteria = null,
-        string? permissionMatrix = null)
+        string? permissionMatrix = null,
+        string? flowMap = null,
+        string? screenScopeMap = null,
+        string? entityMap = null)
     {
         return $$"""
 Project:
@@ -134,7 +137,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{AssumptionCorrectionsSection(assumptionCorrections)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
+{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{AssumptionCorrectionsSection(assumptionCorrections)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{EntityMapSection(entityMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -196,6 +199,70 @@ Bảng phân quyền người dùng ĐÃ CHỐT (họ tự chọn từng ô ở 
 {permissionMatrix.Trim()}
 
 Bắt buộc với bảng này: đưa nguyên nó vào mục "## 6b. Permission Matrix" của spec; ở mục "## 6. Screens To Generate" ghi rõ mỗi màn hình vai nào vào được và nút/hành động nào ẩn với vai nào; và PHẠM VI DỮ LIỆU ("của mình"/"của đơn vị"/"tất cả") phải thành điều kiện lọc thật trong "## 9. API Expectations" chứ không chỉ là một câu mô tả. TUYỆT ĐỐI không thêm vai trò hay quyền nào ngoài bảng.
+
+""";
+    }
+
+    // Khối "bảng luồng nghiệp vụ đã chốt": người dùng đã rà từng bước của từng luồng (chính + ngoại lệ).
+    // Rỗng thì biến mất (dự án cũ, hoặc chưa chốt bảng).
+    //
+    // Đây là đường DUY NHẤT để chuỗi bước người dùng TỰ TAY duyệt tới được oracle chấm POC. Trước bước
+    // này, mục "## 13. Worked Examples" định tính được dựng từ Project.WorkedExamples — một danh sách do
+    // LLM chắt từ transcript, không ai duyệt và cũng không còn đường sửa tay (UpdateWorkedExamplesUseCase
+    // đã gỡ). Nghĩa là POC đang bị chấm theo bản BA hiểu, không theo bản người dùng xác nhận.
+    private static string FlowMapSection(string? flowMap)
+    {
+        if (string.IsNullOrWhiteSpace(flowMap))
+            return string.Empty;
+
+        return $"""
+
+Bảng luồng nghiệp vụ người dùng ĐÃ CHỐT (họ rà từng bước — đây là YÊU CẦU, không phải giả định):
+{flowMap.Trim()}
+
+Bắt buộc với bảng này: mỗi luồng ở trên phải thành MỘT ví dụ ĐỊNH TÍNH của mục "## 13. Worked Examples" theo đúng dạng "- WE-n (BR-m): <chuỗi hành động> => <trạng thái/nhãn cuối>", lấy chuỗi hành động từ các bước và kết quả từ `outcome` của bước cuối. Các luồng NGOẠI LỆ cũng phải có ví dụ riêng — đó là phần POC hay bỏ sót nhất. Điều kiện chuyển trạng thái trong các bước phải xuất hiện ở "## 10. Business Rules". TUYỆT ĐỐI không thêm bước nào ngoài bảng.
+
+""";
+    }
+
+    // Khối "bảng màn hình đã chốt": phạm vi màn hình người dùng đã tự rà. Rỗng thì biến mất.
+    //
+    // Vì sao nó cần ở đây dù mục "## 6. Screens To Generate" vẫn sinh được từ Product Brief: Brief là văn
+    // xuôi, nên số màn hình của spec là thứ model tự đếm lại mỗi lần sinh (SpecBriefParityChecker tồn tại
+    // đúng vì việc đếm đó hay lệch). Bảng này là danh sách có ranh giới, do người dùng chốt.
+    private static string ScreenScopeSection(string? screenScopeMap)
+    {
+        if (string.IsNullOrWhiteSpace(screenScopeMap))
+            return string.Empty;
+
+        return $"""
+
+Bảng màn hình người dùng ĐÃ CHỐT (phạm vi màn hình của ứng dụng — đây là YÊU CẦU):
+{screenScopeMap.Trim()}
+
+Bắt buộc với bảng này: mục "## 6. Screens To Generate" phải có ĐÚNG các màn hình trên, mỗi màn một heading "### 6.n." — không thêm màn hình nào khác, không bỏ màn hình nào. Màn hình người dùng đã LOẠI thì TUYỆT ĐỐI không dựng lại.
+
+""";
+    }
+
+    // Khối "bảng đối tượng nghiệp vụ đã chốt": thông tin cần lưu + vòng đời + người nhận thông báo.
+    // Rỗng thì biến mất.
+    //
+    // Mục "## 8. Data Model Summary" vốn là mục spec TỰ NGHĨ RA từ văn xuôi Brief, không có gì đối chiếu —
+    // và mô hình dữ liệu sai thì mọi màn hình của POC sai theo. Cột "ai được báo" của bảng còn là chỗ duy
+    // nhất thông báo được gắn vào một CHUYỂN TRẠNG THÁI cụ thể thay vì một câu chung chung, thứ đã từng
+    // đóng băng thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm".
+    private static string EntityMapSection(string? entityMap)
+    {
+        if (string.IsNullOrWhiteSpace(entityMap))
+            return string.Empty;
+
+        return $"""
+
+Bảng đối tượng nghiệp vụ người dùng ĐÃ CHỐT (đây là YÊU CẦU, không phải giả định):
+{entityMap.Trim()}
+
+Bắt buộc với bảng này: mục "## 8. Data Model Summary" phải dựng từ đúng các đối tượng và thông tin trên — không thêm entity nào chưa có ở đây, không bỏ thông tin nào đã tích. Vòng đời trạng thái phải thành các quy tắc chuyển trạng thái ở "## 10. Business Rules". Ô "báo cho" để trống nghĩa là KHÔNG gửi thông báo ở chuyển trạng thái đó — không được tự thêm người nhận.
 
 """;
     }

@@ -401,6 +401,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ResolveRequirementConflictsUseCase>();
         services.AddScoped<ConfirmSourceColumnMapUseCase>();
         services.AddScoped<ConfirmPermissionMatrixUseCase>();
+        services.AddScoped<ConfirmFlowMapUseCase>();
+        services.AddScoped<ConfirmScreenScopeUseCase>();
+        services.AddScoped<ConfirmEntityMapUseCase>();
         return services;
     }
 

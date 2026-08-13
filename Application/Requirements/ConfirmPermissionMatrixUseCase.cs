@@ -42,9 +42,11 @@ public class ConfirmPermissionMatrixUseCase
             return new Result(0, string.Empty);
 
         // Server KHÔNG tin bảng client gửi, kể cả khi chính server vừa render nó ra: tên màn hình phải khớp
-        // lại phạm vi đã chắt của dự án, và mọi dòng phải đủ vai trò (xem PermissionMatrixBuilder).
-        var plannedScope = InterviewOutlookService.ParseItems(project.PlannedScope);
-        var rows = PermissionMatrixBuilder.Sanitize(PermissionMatrixBuilder.Parse(matrixJson), plannedScope);
+        // lại phạm vi đã chắt của dự án, và mọi dòng phải đủ vai trò (xem PermissionMatrixBuilder). Phạm vi
+        // đối chiếu là phạm vi ĐÃ RÀ nếu bảng màn hình đã chốt — nếu dùng PlannedScope thô ở đây thì một
+        // màn hình người dùng vừa bỏ tích vẫn khớp được, và quyền của nó đi thẳng vào tài liệu.
+        var rows = PermissionMatrixBuilder.Sanitize(
+            PermissionMatrixBuilder.Parse(matrixJson), PermissionMatrixGate.EffectiveScreens(project));
         if (rows.Count == 0)
             return new Result(0, string.Empty);
 

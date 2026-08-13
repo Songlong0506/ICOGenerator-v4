@@ -41,6 +41,9 @@ public class RequirementsController : Controller
     private readonly ResolveRequirementConflictsUseCase _resolveRequirementConflictsUseCase;
     private readonly ConfirmSourceColumnMapUseCase _confirmSourceColumnMapUseCase;
     private readonly ConfirmPermissionMatrixUseCase _confirmPermissionMatrixUseCase;
+    private readonly ConfirmFlowMapUseCase _confirmFlowMapUseCase;
+    private readonly ConfirmScreenScopeUseCase _confirmScreenScopeUseCase;
+    private readonly ConfirmEntityMapUseCase _confirmEntityMapUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly ILogger<RequirementsController> _logger;
 
@@ -78,6 +81,9 @@ public class RequirementsController : Controller
        ResolveRequirementConflictsUseCase resolveRequirementConflictsUseCase,
        ConfirmSourceColumnMapUseCase confirmSourceColumnMapUseCase,
        ConfirmPermissionMatrixUseCase confirmPermissionMatrixUseCase,
+       ConfirmFlowMapUseCase confirmFlowMapUseCase,
+       ConfirmScreenScopeUseCase confirmScreenScopeUseCase,
+       ConfirmEntityMapUseCase confirmEntityMapUseCase,
        BAChatTurnTracker chatTurnTracker,
        ILogger<RequirementsController> logger)
     {
@@ -106,6 +112,9 @@ public class RequirementsController : Controller
         _resolveRequirementConflictsUseCase = resolveRequirementConflictsUseCase;
         _confirmSourceColumnMapUseCase = confirmSourceColumnMapUseCase;
         _confirmPermissionMatrixUseCase = confirmPermissionMatrixUseCase;
+        _confirmFlowMapUseCase = confirmFlowMapUseCase;
+        _confirmScreenScopeUseCase = confirmScreenScopeUseCase;
+        _confirmEntityMapUseCase = confirmEntityMapUseCase;
         _chatTurnTracker = chatTurnTracker;
         _logger = logger;
     }
@@ -379,6 +388,55 @@ public class RequirementsController : Controller
                                     locked = g.Locked,
                                     evidence = g.Evidence
                                 })
+                            }),
+                            // BA BẢNG CHỐT còn lại — cùng luật với permissionMatrix: chỉ có ở đúng lượt
+                            // cổng của nó mở, rỗng ở mọi lượt khác, và markup client dựng phải khớp bản
+                            // server render lúc tải trang (lệch nhau thì người dùng rà xong một bảng rồi
+                            // F5 và thấy một bảng khác). Không bao giờ có hai bảng cùng lúc —
+                            // InterviewTableGate chọn đúng một.
+                            flowMap = result.FlowMap.Select(r => new
+                            {
+                                name = r.Name,
+                                kind = r.Kind,
+                                role = r.Role,
+                                trigger = r.Trigger,
+                                steps = r.Steps.Select(s => new
+                                {
+                                    actor = s.Actor,
+                                    action = s.Action,
+                                    outcome = s.Outcome,
+                                    included = s.Included,
+                                    locked = s.Locked,
+                                    evidence = s.Evidence
+                                })
+                            }),
+                            screenScopeMap = result.ScreenScopeMap.Select(r => new
+                            {
+                                screen = r.Screen,
+                                purpose = r.Purpose,
+                                functions = r.Functions,
+                                flowSteps = r.FlowSteps,
+                                included = r.Included,
+                                locked = r.Locked,
+                                evidence = r.Evidence
+                            }),
+                            // Bước luồng chưa có màn hình nào phụ trách — phép kiểm tất định của mối nối
+                            // luồng ⇄ màn hình, hiện thành một dòng nhắc dưới bảng màn hình.
+                            uncoveredFlowSteps = result.UncoveredFlowSteps,
+                            entityMap = result.EntityMap.Select(r => new
+                            {
+                                entity = r.Entity,
+                                description = r.Description,
+                                fields = r.Fields.Select(f => new { name = f.Name, meaning = f.Meaning, used = f.Used }),
+                                states = r.States.Select(s => new
+                                {
+                                    state = s.State,
+                                    entryCondition = s.EntryCondition,
+                                    notify = s.Notify
+                                }),
+                                included = r.Included,
+                                locked = r.Locked,
+                                evidence = r.Evidence
                             })
                         }
                     };
@@ -561,6 +619,50 @@ public class RequirementsController : Controller
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
             : Json(new { ok = false, error = "Không lưu được bảng phân quyền — tải lại trang rồi thử lại nhé." });
+    }
+
+    // BA BẢNG CHỐT còn lại của buổi phỏng vấn — cùng khuôn HAI BƯỚC với ConfirmColumnMap/
+    // ConfirmPermissionMatrix: endpoint CHỈ lưu, rồi trình duyệt gửi tiếp tin nhắn mà SERVER soạn vào khung
+    // chat, nên hội thoại vẫn chỉ có MỘT đường ghi. Thứ tự bày các bảng do InterviewTableGate quyết định
+    // (mỗi lượt đúng một bảng); endpoint không cần biết thứ tự đó.
+
+    // BẢNG LUỒNG NGHIỆP VỤ — người dùng rà từng bước của từng luồng (chính + ngoại lệ).
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
+    public async Task<IActionResult> ConfirmFlowMap(Guid projectId, [FromForm] string flowJson)
+    {
+        var result = await _confirmFlowMapUseCase.ExecuteAsync(projectId, flowJson, HttpContext.RequestAborted);
+        return result.Rows > 0
+            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
+            : Json(new { ok = false, error = "Không lưu được bảng luồng — tải lại trang rồi thử lại nhé." });
+    }
+
+    // BẢNG MÀN HÌNH — phạm vi màn hình của ứng dụng, và là nguồn DÒNG của bảng phân quyền ngay sau đó.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
+    public async Task<IActionResult> ConfirmScreenScope(Guid projectId, [FromForm] string screensJson)
+    {
+        var result = await _confirmScreenScopeUseCase.ExecuteAsync(projectId, screensJson, HttpContext.RequestAborted);
+        return result.Rows > 0
+            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
+            : Json(new { ok = false, error = "Không lưu được bảng màn hình — tải lại trang rồi thử lại nhé." });
+    }
+
+    // BẢNG ĐỐI TƯỢNG NGHIỆP VỤ — thông tin cần lưu + vòng đời trạng thái + ai được báo ở mỗi chuyển trạng thái.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
+    public async Task<IActionResult> ConfirmEntityMap(Guid projectId, [FromForm] string entitiesJson)
+    {
+        var result = await _confirmEntityMapUseCase.ExecuteAsync(projectId, entitiesJson, HttpContext.RequestAborted);
+        return result.Rows > 0
+            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
+            : Json(new { ok = false, error = "Không lưu được bảng đối tượng — tải lại trang rồi thử lại nhé." });
     }
 
     // CỔNG SOÁT MÂU THUẪN — bước 1: chạy ngay trước khi soạn tài liệu (nút "Write Requirement" gọi trước
