@@ -23,9 +23,11 @@ namespace ICOGenerator.Contracts.Requirements;
 public class ScreenScopeRow
 {
     /// <summary>
-    /// Tên màn hình. Bản chuẩn hoá luôn lấy lại đúng chữ của <c>Project.PlannedScope</c> chứ không lấy chữ
-    /// của model — cùng luật với <see cref="PermissionMatrixRow.Screen"/> và với bảng cột, và cùng lý do:
-    /// một dòng bịa lọt qua là một tính năng ngoài phạm vi đi vào tài liệu mang chữ ký người dùng.
+    /// Tên màn hình. Bản chuẩn hoá luôn lấy lại đúng chữ của danh sách cho phép chứ không lấy chữ của model
+    /// — cùng luật với <see cref="PermissionMatrixRow.Screen"/> và với bảng cột, và cùng lý do: một dòng bịa
+    /// lọt qua là một tính năng ngoài phạm vi đi vào tài liệu mang chữ ký người dùng. Danh sách cho phép là
+    /// <c>Project.PlannedScope</c> ở lượt BÀY BẢNG, nhưng là chính bảng server đã render ở đường GỬI — xem
+    /// <c>ScreenScopeMapBuilder.Sanitize</c>.
     /// </summary>
     public string Screen { get; set; } = "";
 
