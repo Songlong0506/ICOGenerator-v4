@@ -35,8 +35,9 @@ public class BAChatLoginRuleTests
     }
 
     // Đối xứng với "email là KÊNH, không phải toàn bộ câu chuyện": chốt cách đăng nhập không được đọc thành
-    // "khỏi hỏi gì quanh chuyện ai vào được app nữa". Vế bị mất đắt nhất là nhân viên external — chính chỗ
-    // SSO ngừng phủ hết người dùng, và organization-scope.v1.md đã khẳng định đó là câu hỏi hợp lệ.
+    // "khỏi hỏi gì quanh chuyện ai vào được app nữa". Vế bị mất đắt nhất là nhân viên external — không phải
+    // vì SSO bỏ sót họ (SSO phủ cả internal lẫn external, xem test dưới), mà vì họ KHÔNG có bản ghi trong dữ
+    // liệu HR, nên organization-scope.v1.md khẳng định phạm vi người dùng của nhóm đó là câu hỏi hợp lệ.
     [Fact]
     public void PlatformPrompt_KeepsTheBusinessQuestionsThatSurviveTheConstant()
     {
@@ -50,6 +51,25 @@ public class BAChatLoginRuleTests
 
         // Đăng nhập dựa trên tài khoản Bosch ⇒ danh tính nhân viên đã có nguồn, đừng hỏi lấy từ đâu.
         Assert.Contains("danh sách nhân viên lấy từ đâu", prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Khối này từng nói ngược sự thật: "external là chỗ SSO ngừng phủ hết người dùng". Sai — external cũng
+    // được cấp tài khoản Bosch và đăng nhập bằng chính SSO đó. Nói ngược thì hỏng theo đúng kiểu mà cả khối
+    // sinh ra để chặn: BA thấy một nhóm người dùng "không đăng nhập được" nên tự đẻ ra đường vào riêng cho
+    // họ (tài khoản nội bộ, mã khách…) — phương án không có thật, lại nằm sẵn trong tài liệu.
+    [Fact]
+    public void PlatformPrompt_SaysSsoCoversExternalToo_NotOnlyInternal()
+    {
+        var prompt = ReadPrompt(PlatformPromptKey);
+
+        Assert.DoesNotContain("SSO ngừng phủ", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("cũng đăng nhập bằng chính SSO đó", prompt, StringComparison.OrdinalIgnoreCase);
+
+        // Vế còn lại của cùng một sự thật: cái external thiếu là bản ghi HR, không phải tài khoản.
+        Assert.Contains("dữ liệu HR", prompt, StringComparison.OrdinalIgnoreCase);
+
+        // Hệ quả trực tiếp phải bị gọi tên, cùng lý do như danh sách Teams/SMS/Zalo ở khối kênh thông báo.
+        Assert.Contains("tài khoản riêng cho nhân viên external", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     // Cùng bài học đã phải học ở khối ranh giới phạm vi và khối kênh thông báo.

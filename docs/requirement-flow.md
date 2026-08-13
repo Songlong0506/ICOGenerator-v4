@@ -476,9 +476,11 @@ Hai bảng **`OrgUnits`/`Associates`** (đồng bộ từ HR_Portal, seed một 
   nêu *"Người dùng cần đăng nhập riêng cho mỗi người không?"* làm **ví dụ mẫu của câu hỏi đúng tầm nghiệp
   vụ**, tức BA được chính prompt mời đi hỏi — mà một tiếng *"cả tổ dùng chung một tài khoản"* thì không hiện
   thực được và vẫn chảy thẳng vào tài liệu. Chốt được cách đăng nhập KHÔNG đóng luôn nhóm này: **ai được vào
-  ứng dụng** (nhất là nhân viên **external** — người của công ty khác được Bosch thuê, chính chỗ SSO ngừng
-  phủ hết người dùng) và **vai trò được gán từ đâu** (suy từ dữ liệu HR hay admin gán tay) vẫn là câu hỏi
-  nghiệp vụ phải hỏi. Chốt bằng `BAChatLoginRuleTests`.
+  ứng dụng** (nhất là nhân viên **external** — người của công ty khác được Bosch thuê) và **vai trò được gán
+  từ đâu** (suy từ dữ liệu HR hay admin gán tay) vẫn là câu hỏi nghiệp vụ phải hỏi. Lưu ý đúng chỗ hay bị
+  hiểu ngược: SSO phủ **cả internal lẫn external** — external có tài khoản Bosch và đăng nhập y hệt, nên BA
+  không được dựng họ thành ngoại lệ của đăng nhập; thứ họ thiếu là **bản ghi trong dữ liệu HR**, nên phạm vi
+  người dùng và nguồn vai trò của riêng nhóm đó phải hỏi. Chốt bằng `BAChatLoginRuleTests`.
 - **`BuildProjectUnitNoteAsync`** dựng ghi chú "đơn vị yêu cầu" từ **`Project.OrgUnitCode`** (chọn tùy chọn
   ở modal New Project; `CreateProjectUseCase` chỉ lưu mã có thật trong OrgUnits): orgUnit + manager +
   department cha + HoD.

@@ -333,7 +333,7 @@ public static class EvalScenariosSeedData
 
             ### Đăng nhập: CHỈ CÓ SSO qua IdentityServer
 
-            Mọi ứng dụng chạy ở nhà máy này đều đăng nhập bằng SSO qua IdentityServer, dùng tài khoản Bosch sẵn có của nhân viên. KHÔNG có màn hình đăng ký tài khoản, KHÔNG username/password riêng của ứng dụng, KHÔNG đăng nhập bằng Google, KHÔNG tài khoản dùng chung. Đây là điều ĐÃ CHỐT của sản phẩm: đừng hỏi họ muốn đăng nhập kiểu gì, và đừng hỏi "mỗi người có cần tài khoản riêng không?". Vẫn phải hỏi: AI được vào ứng dụng (kể cả nhân viên external), và vào rồi thì hệ thống biết họ là vai nào bằng cách gì.
+            Mọi ứng dụng chạy ở nhà máy này đều đăng nhập bằng SSO qua IdentityServer, dùng tài khoản Bosch sẵn có của nhân viên. Nhân viên external (người của công ty khác được Bosch thuê) cũng đăng nhập bằng chính SSO đó — họ có tài khoản Bosch y như internal, chỉ khác là KHÔNG nằm trong dữ liệu HR. KHÔNG có màn hình đăng ký tài khoản, KHÔNG username/password riêng của ứng dụng, KHÔNG đăng nhập bằng Google, KHÔNG tài khoản dùng chung, KHÔNG cấp tài khoản riêng cho nhóm external. Đây là điều ĐÃ CHỐT của sản phẩm: đừng hỏi họ muốn đăng nhập kiểu gì, và đừng hỏi "mỗi người có cần tài khoản riêng không?". Vẫn phải hỏi: AI được vào ứng dụng (kể cả nhân viên external), và vào rồi thì hệ thống biết họ là vai nào bằng cách gì.
 
             ## Điều đã chốt
             - Ứng dụng đặt suất ăn ca cho công nhân xưởng
@@ -348,6 +348,7 @@ public static class EvalScenariosSeedData
             - TUYỆT ĐỐI KHÔNG đưa vào message/questions/suggestions bất kỳ phương án đăng nhập nào — "Tài khoản nội bộ", "Đăng ký tài khoản mới", "Đăng nhập bằng Google", "Tài khoản dùng chung cho cả tổ", "Nhập mã nhân viên để vào" đều là phương án không có thật.
             - KHÔNG hỏi chuyện kỹ thuật của đăng nhập (OAuth/SAML/LDAP, client id, token, đồng bộ tài khoản).
             - Người dùng vừa tự nêu nhân viên external (nhà thầu vệ sinh, bảo vệ không thuộc biên chế Bosch) ⇒ đây là câu hỏi HỢP LỆ và đáng hỏi: họ có dùng ứng dụng này không / suất của họ ai đặt. ĐẠT nếu lượt này đào đúng vế đó hoặc một nhóm ★ chưa khai thác; TRƯỢT nếu coi external là chuyện kỹ thuật của đăng nhập rồi bỏ qua.
+            - TRƯỢT nếu dựng nhóm external thành ngoại lệ của ĐĂNG NHẬP — hỏi "nhóm này vào ứng dụng bằng cách nào", nói họ "không đăng nhập được", hay gợi ý cấp tài khoản riêng cho họ. External cũng đăng nhập bằng SSO như internal; thứ họ thiếu là bản ghi trong dữ liệu HR, không phải tài khoản.
             - Nếu message có câu ghi nhận, câu đó chỉ được chứa điều người dùng THẬT SỰ đã nói — KHÔNG chèn "đăng nhập bằng SSO" vào như thể họ đã nói ra.
             """);
 
