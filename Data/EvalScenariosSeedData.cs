@@ -321,6 +321,61 @@ public static class EvalScenariosSeedData
             - suggestions 2–5 mục ngắn, sát câu hỏi thật sự được đặt ra (vd các nhóm người nhận, hoặc các mốc sự kiện) — không phải danh sách kênh.
             """);
 
+        // Khối hằng số thứ ba: mọi app đăng nhập bằng SSO qua IdentityServer. Chỗ này hỏng khác hai khối
+        // trên — prompt chat từng nêu "Người dùng cần đăng nhập riêng cho mỗi người không?" như VÍ DỤ MẪU
+        // của câu hỏi đúng tầm nghiệp vụ, nên BA không phải tự nghĩ ra mà được mời hỏi. Một tiếng "cả tổ
+        // dùng chung một tài khoản" là yêu cầu không hiện thực được, và không cổng nào bắt lại.
+        Add(
+            "Chat BA — không hỏi cách đăng nhập, nhưng vẫn hỏi ai được vào app",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Nền tảng đã chốt của nhà máy (BẮT BUỘC — áp cho câu hỏi, phương án gợi ý và tài liệu)
+
+            ### Đăng nhập: CHỈ CÓ SSO qua IdentityServer
+
+            Mọi ứng dụng chạy ở nhà máy này đều đăng nhập bằng SSO qua IdentityServer, dùng tài khoản Bosch sẵn có của nhân viên. KHÔNG có màn hình đăng ký tài khoản, KHÔNG username/password riêng của ứng dụng, KHÔNG đăng nhập bằng Google, KHÔNG tài khoản dùng chung. Đây là điều ĐÃ CHỐT của sản phẩm: đừng hỏi họ muốn đăng nhập kiểu gì, và đừng hỏi "mỗi người có cần tài khoản riêng không?". Vẫn phải hỏi: AI được vào ứng dụng (kể cả nhân viên external), và vào rồi thì hệ thống biết họ là vai nào bằng cách gì.
+
+            ## Điều đã chốt
+            - Ứng dụng đặt suất ăn ca cho công nhân xưởng
+
+            Hội thoại trước đó:
+            BA: Anh/chị kể giúp mình việc đặt suất ăn hiện nay đang làm thế nào.
+            Người dùng: Mỗi tổ có một người tổng hợp số suất rồi báo xuống bếp trước 9 giờ sáng. Bên nhà thầu vệ sinh với bảo vệ cũng ăn chung căng tin nhưng họ không thuộc biên chế Bosch.
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - TUYỆT ĐỐI KHÔNG hỏi bất cứ điều gì về cách đăng nhập — kể cả câu nghe rất nghiệp vụ "mỗi người có cần tài khoản riêng không?", "nhân viên đăng nhập bằng gì". Đăng nhập đã chốt là SSO, hỏi lại là hỏi đúng điều ĐÃ CHỐT.
+            - TUYỆT ĐỐI KHÔNG đưa vào message/questions/suggestions bất kỳ phương án đăng nhập nào — "Tài khoản nội bộ", "Đăng ký tài khoản mới", "Đăng nhập bằng Google", "Tài khoản dùng chung cho cả tổ", "Nhập mã nhân viên để vào" đều là phương án không có thật.
+            - KHÔNG hỏi chuyện kỹ thuật của đăng nhập (OAuth/SAML/LDAP, client id, token, đồng bộ tài khoản).
+            - Người dùng vừa tự nêu nhân viên external (nhà thầu vệ sinh, bảo vệ không thuộc biên chế Bosch) ⇒ đây là câu hỏi HỢP LỆ và đáng hỏi: họ có dùng ứng dụng này không / suất của họ ai đặt. ĐẠT nếu lượt này đào đúng vế đó hoặc một nhóm ★ chưa khai thác; TRƯỢT nếu coi external là chuyện kỹ thuật của đăng nhập rồi bỏ qua.
+            - Nếu message có câu ghi nhận, câu đó chỉ được chứa điều người dùng THẬT SỰ đã nói — KHÔNG chèn "đăng nhập bằng SSO" vào như thể họ đã nói ra.
+            """);
+
+        // Nguồn dữ liệu: hỏi DỮ LIỆU TỪ ĐÂU RA là nghiệp vụ, hỏi HAI HỆ THỐNG NỐI NHAU BẰNG GÌ là kỹ thuật.
+        // Ranh giới này mảnh, và trượt về phía nào cũng đắt: cấm quá tay thì tài liệu im lặng về nguồn và
+        // POC dựng màn hình nhập tay cho dữ liệu do nơi khác đổ sang; nới quá tay thì BA hỏi người dùng
+        // nghiệp vụ về webhook. Kịch bản đặt BA vào đúng lượt SAU khi đã có file, tức lượt được phép hỏi.
+        Add(
+            "Chat BA — hỏi dữ liệu từ đâu ra, không hỏi hai hệ thống nối nhau bằng gì",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Điều đã chốt
+            - Ứng dụng lập kế hoạch lớp học cho nhân viên trong năm
+            - Người dùng đã đính kèm file MasterList.xlsx ở lượt trước
+
+            Hội thoại trước đó:
+            BA: Anh/chị gửi giúp mình file Master List đang dùng nhé, mình đọc rồi hỏi tiếp cho đỡ mất công gõ lại.
+            Người dùng: [đã đính kèm MasterList.xlsx] Đây, file này bên HR bên em xuất từ hệ thống SAP ra rồi gửi qua cho tụi em hằng tháng, trong đó có danh sách nhân viên và các khóa học mà từng người phải học trong năm.
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - Người dùng vừa tự nêu một nguồn dữ liệu nằm ngoài ứng dụng (HR xuất từ SAP, gửi qua hằng tháng) và file đã có ⇒ lượt này ĐƯỢC hỏi nguồn, ở góc nhìn nghiệp vụ: dữ liệu đó vào ứng dụng bằng đường nào (có người tải file lên / nhập tay / ứng dụng tự lấy về), và cập nhật khi nào (một lần, mỗi lần HR gửi bản mới, định kỳ hằng tháng).
+            - TUYỆT ĐỐI KHÔNG hỏi cách hai hệ thống NỐI với nhau: không hỏi tích hợp qua API hay đọc thẳng database của SAP, không hỏi webhook, không hỏi đồng bộ real-time hay chạy lô, không hỏi định dạng file trao đổi hay lịch chạy job. Người dùng nghiệp vụ không trả lời được, và đó là việc của bước sinh tài liệu.
+            - group của câu hỏi (nếu dùng questions) phải là "Dữ liệu / danh mục chính", chép đúng nhãn.
+            - Câu hỏi này là câu ĐÓNG ⇒ phải kèm suggestions 2–5 mục ngắn, sát nhịp người dùng vừa kể (vd "Có người tải file lên", "Hằng tháng khi HR gửi bản mới").
+            - KHÔNG hỏi lại nghĩa từng cột của file vừa gửi, và KHÔNG hỏi người dùng có cần tài khoản riêng để đăng nhập không.
+            """);
+
         // Xin file là lời nhờ HÀNH ĐỘNG, không phải câu hỏi: người dùng đọc xong thì đi tìm file, nên mọi thứ
         // khác trong lượt bị nuốt mất. Ca thật: BA vừa xin Master List vừa hỏi quy trình hiện tại và điểm đau
         // — người dùng đính kèm file rồi đáp đúng một dòng về điểm đau, còn CÁC BƯỚC của quy trình hiện tại
