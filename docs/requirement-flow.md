@@ -274,7 +274,10 @@ nằm ở **mối nối**, đúng loại lỗi đắt nhất của cả dây chu
 hoặc người dùng sẽ không có chỗ nào để làm bước đó, hoặc bước đó không có thật; cả hai đều phải hỏi, và hỏi
 lúc bảng còn trên màn hình rẻ hơn hẳn hỏi lại ở POC. Dòng nhắc **không chặn** nút gửi: đó là một câu hỏi,
 không phải một lỗi. So khớp bằng CHỨA-NHAU sau chuẩn hoá chứ không nguyên văn — người dùng sửa ô bằng lời
-của họ, và một cảnh báo luôn sai thì lần thứ hai không ai đọc nữa.
+của họ, và một cảnh báo luôn sai thì lần thứ hai không ai đọc nữa. Ô là MỘT ô text ngăn bằng dấu chấm phẩy
+**hoặc xuống dòng** (ô cao theo nội dung nên gõ mỗi bước một dòng là cách tự nhiên nhất), không phải một
+danh sách con — người dùng gõ tiếp vào đó dễ hơn bấm thêm dòng, và phép so khớp chứa-nhau ở trên không cần
+từng bước là một phần tử riêng.
 
 ### Bảng đối tượng: mô hình dữ liệu, và chỗ duy nhất thông báo gắn được vào một chuyển trạng thái
 

@@ -2064,11 +2064,18 @@
 /* Bảng luồng/màn hình/đối tượng có nhiều ô TEXT hơn hẳn bảng phân quyền (vốn chủ yếu là dropdown), nên ô
    text ở đây mặc định trông như chữ đọc được, viền chỉ hiện khi hover/focus — cùng lối với ô ý nghĩa của
    bảng cột. Một bảng đầy khung input trông như biểu mẫu phải điền, mà việc thật sự cần là ĐỌC rồi sửa
-   chỗ sai. */
-.flowmap-table input[type="text"],
-.screenmap-table input[type="text"],
-.entitymap-table input[type="text"],
-.entitymap-desc {
+   chỗ sai.
+
+   Vì thế ô là TEXTAREA cao theo nội dung (autoGrowCell ở requirements.js) chứ không phải input một dòng:
+   cột hẹp mà nội dung dài — nhất là ô "phục vụ bước", vốn cố ý chứa cả danh sách ngăn bằng dấu chấm phẩy
+   trong MỘT ô — thì input cắt mất chữ, và muốn đọc hết phải bấm vào từng ô rồi kéo ngang. Chữ bị cắt là
+   đúng cái làm hỏng vế ĐỌC ở trên: người dùng không phản đối được thứ mình không nhìn thấy.
+
+   `resize: none` + `overflow: hidden` vì chiều cao đã do JS tính; để user kéo tay thì mỗi lần gõ thêm chữ
+   JS lại ghi đè, thành ra nút kéo lừa người dùng. */
+.permmap-cellinput {
+    display: block;
+    box-sizing: border-box;
     width: 100%;
     min-width: 120px;
     font-family: inherit;
@@ -2079,36 +2086,47 @@
     border-radius: 6px;
     background: transparent;
     color: #374151;
+    resize: none;
+    overflow: hidden;
 }
 
-    .flowmap-table input[type="text"]:hover,
-    .screenmap-table input[type="text"]:hover,
-    .entitymap-table input[type="text"]:hover,
-    .entitymap-desc:hover { border-color: var(--line, #e5e7eb); }
+    .permmap-cellinput:hover { border-color: var(--line, #e5e7eb); }
 
-    .flowmap-table input[type="text"]:focus,
-    .screenmap-table input[type="text"]:focus,
-    .entitymap-table input[type="text"]:focus,
-    .entitymap-desc:focus {
+    .permmap-cellinput:focus {
         outline: none;
         border-color: var(--bosch-blue-tint-strong, #cfe0fb);
         background: #fff;
     }
 
-    .flowmap-table input::placeholder,
-    .screenmap-table input::placeholder,
-    .entitymap-table input::placeholder,
-    .entitymap-desc::placeholder { color: #b6bcc6; font-style: italic; }
+    .permmap-cellinput::placeholder { color: #b6bcc6; font-style: italic; }
+
+/* Ô nhiều dòng thì nội dung phải bắt đầu từ MÉP TRÊN của dòng: canh giữa (mặc định của .permmap-table)
+   làm dấu tích và tên màn hình trôi xuống giữa một ô ba dòng, mắt mất chỗ bám khi rà từng dòng. */
+.flowmap-table td,
+.screenmap-table td,
+.entitymap-table td { vertical-align: top; }
+
+/* Cột TÊN của ba bảng này cũng xuống dòng được, khác luật nowrap chung của .permmap-table. Nowrap ở bảng
+   phân quyền là để tên vai trò trên đầu cột không vỡ thành từng chữ; ở đây ô là một câu tên màn hình
+   ("Màn hình quản lý danh sách JD trong nhà máy") nên nowrap chỉ làm bảng rộng hơn khung và đẩy cột cuối
+   ra ngoài vùng nhìn thấy — tức là vẫn giấu chữ đi, chỗ khác thôi. */
+.flowmap-table .permmap-fn,
+.screenmap-table .permmap-fn,
+.entitymap-table .permmap-fn { white-space: normal; }
 
 /* Ô tích/bỏ tích của dòng. Hẹp và canh giữa để cột đầu không ăn chỗ của nội dung. */
 .flowmap-use { text-align: center; }
 .flowmap-th-use { min-width: 44px; width: 44px; text-align: center; }
 
 /* Dòng BỎ TÍCH mờ đi: nhìn lướt là thấy ngay mình vừa loại những gì — vế mà một danh sách BA tự soạn rồi
-   xin gật không bao giờ nói ra. */
-.flowmap-row:has(.flowmap-check:not(:checked)) input[type="text"],
-.screenmap-row:has(.screenmap-check:not(:checked)) input[type="text"],
-.entitymap-field:has(.entityfield-check:not(:checked)) input[type="text"] { color: #9aa3af; text-decoration: line-through; }
+   xin gật không bao giờ nói ra.
+
+   Phải chỉ đích danh `input[type="checkbox"]`: dòng ĐÃ CÓ BẰNG CHỨNG không có ô tích mà có input ẩn giữ
+   cờ, mà input ẩn thì không bao giờ `:checked` — bắt theo class trần là mọi dòng ✓ (đúng những dòng là
+   lời của chính người dùng) hiện ra như vừa bị gạch bỏ. */
+.flowmap-row:has(input[type="checkbox"].flowmap-check:not(:checked)) .permmap-cellinput,
+.screenmap-row:has(input[type="checkbox"].screenmap-check:not(:checked)) .permmap-cellinput,
+.entitymap-field:has(input[type="checkbox"].entityfield-check:not(:checked)) .permmap-cellinput { color: #9aa3af; text-decoration: line-through; }
 
 /* Nhãn loại luồng: "ngoại lệ" phải nhìn khác "luồng chính" ngay từ xa. Ngoại lệ là phần người dùng không
    bao giờ tự kể, nên nó cũng là phần họ dễ lướt qua nhất. */
@@ -2186,7 +2204,7 @@
 
 /* Đối tượng bị bỏ tích: mờ cả khối, kể cả hai bảng con. Bỏ tích ở tiêu đề là loại cả đối tượng, và điều
    đó phải nhìn thấy được ngay chứ không chỉ ở một ô vuông nhỏ. */
-.entitymap-block:has(.entitymap-check:not(:checked)) { opacity: .55; }
+.entitymap-block:has(input[type="checkbox"].entitymap-check:not(:checked)) { opacity: .55; }
 
 /* ==== Cổng soát MÂU THUẪN (bấm nút tạo tài liệu mới hiện, và chỉ khi thật sự có mâu thuẫn) ====
    Nằm trong #writeReqZone ở khung chat, ngay dưới nút đã bật nó lên — không còn bản nào ở sidebar. Vì thế
