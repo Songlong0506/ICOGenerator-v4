@@ -212,6 +212,87 @@ public class BASourceColumnMapTests : IDisposable
         Assert.StartsWith("## LƯỢT NÀY: BẢN ĐỌC LẠI", shape, StringComparison.Ordinal);
     }
 
+    // PHẠM VI KỂ LẠI. Lượt đọc file nạp lại TOÀN BỘ nguồn của project — cố ý, vì nguồn cũ là thứ duy nhất
+    // để đối chiếu — nhưng "đính kèm để đối chiếu" khác hẳn "phải kể lại". Ca thật: người dùng chốt bảng
+    // cột cho file Excel ở đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu để trả lời một câu hỏi, và
+    // BA kể lại CẢ HAI — mở đầu lượt bằng gần nửa số dòng nói lại đúng bộ cột họ đã tích tay. Model không
+    // sai luật nào nó được cho: nó thấy mọi nguồn nằm dưới cùng một câu "tôi vừa đính kèm". Chỗ hỏng là cơ
+    // chế nói dối về chữ "vừa gửi", nên chốt chặn phải nằm ở cơ chế.
+    [Fact]
+    public async Task Acknowledge_ScopesTheReadbackToTheFilesJustSent()
+    {
+        var imageId = await AddConfirmedSpreadsheetAndNewImageAsync();
+
+        var llm = new FakeLlm { AckReply = Ack() };
+        await using (var db = NewDb())
+            Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(
+                _projectId, "đây là các field của biểu mẫu", new[] { new ChatAttachment(imageId, "bieu-mau.png", true) }));
+
+        var shape = Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## LƯỢT NÀY:", StringComparison.Ordinal));
+        Assert.Contains("## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY", shape, StringComparison.Ordinal);
+        Assert.Contains("VỪA GỬI ở lượt này: bieu-mau.png", shape, StringComparison.Ordinal);
+        Assert.Contains("74a9af7d-KeHoach.xlsx", shape, StringComparison.Ordinal);
+        Assert.Contains("TUYỆT ĐỐI KHÔNG kể lại chúng", shape, StringComparison.Ordinal);
+        // Chỗ NỐI giữa file mới và nguồn cũ vẫn phải hỏi được — đó thường là điểm chưa rõ đắt nhất của cả
+        // lô upload ("biểu mẫu này lấy người học từ file danh sách hay tự nhập?"). Cấm nhắc tên nguồn cũ
+        // là cắt luôn câu hỏi đó, tức vá một lỗi bằng cách mở một lỗi nặng hơn.
+        Assert.Contains("chỗ NỐI", shape, StringComparison.Ordinal);
+
+        // Và câu của lượt user không được khai man rằng file cũ cũng vừa được gửi — đó là câu đứng ngay
+        // trên text của mọi nguồn, nên nó quyết định model hiểu "vừa đính kèm" là những file nào.
+        Assert.Contains("Tôi vừa đính kèm: bieu-mau.png", llm.LastAckUserText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Tôi vừa đính kèm: 74a9af7d-KeHoach.xlsx", llm.LastAckUserText, StringComparison.Ordinal);
+    }
+
+    // Nguồn cũ mà lượt này VẪN còn việc với nó không bị cấm nhắc tới: bảng tính cũ chưa chốt cột được bày
+    // bảng lại ngay lượt này, nên nó phải có lời dẫn. Xếp nhầm nó vào "chỉ để đối chiếu" là mời người dùng
+    // rà một cái bảng không câu nào giới thiệu.
+    [Fact]
+    public async Task Acknowledge_DoesNotSilenceAnOlderSpreadsheetThatStillNeedsItsColumnTable()
+    {
+        var imageId = Guid.NewGuid();
+        await using (var seed = NewDb())
+        {
+            seed.ProjectSourceFiles.Add(new ProjectSourceFile
+            {
+                Id = imageId,
+                ProjectId = _projectId,
+                FileName = "bieu-mau.png",
+                Kind = SourceFileKind.Image,
+                ContentType = "image/png",
+                StoredPath = Path.Combine(Path.GetTempPath(), "bieu-mau.png"),
+                IsVisionSource = true
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        var llm = new FakeLlm { AckReply = Ack() };
+        await using (var db = NewDb())
+            Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(
+                _projectId, null, new[] { new ChatAttachment(imageId, "bieu-mau.png", true) }));
+
+        var shape = Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## LƯỢT NÀY:", StringComparison.Ordinal));
+        Assert.StartsWith("## LƯỢT NÀY: CHỐT PHẠM VI CỘT", shape, StringComparison.Ordinal);
+        Assert.DoesNotContain("Các nguồn còn lại", shape, StringComparison.Ordinal);
+    }
+
+    // Không biết lô nào vừa gửi (caller không truyền danh sách file) ⇒ giữ nguyên hành vi cũ: kể lại tất.
+    // Đoán bừa một tập con nguy hiểm hơn hẳn kể lại thừa — file vừa gửi mà rơi khỏi phạm vi kể lại thì lượt
+    // bắt lỗi đọc-nhầm-file của chính nó biến mất, im lặng.
+    [Fact]
+    public async Task Acknowledge_WithoutAnAttachmentList_KeepsReadingBackEverything()
+    {
+        await AddConfirmedSpreadsheetAndNewImageAsync();
+
+        var llm = new FakeLlm { AckReply = Ack() };
+        await using (var db = NewDb())
+            Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
+
+        var shape = Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## LƯỢT NÀY:", StringComparison.Ordinal));
+        Assert.Contains("VỪA GỬI ở lượt này: 74a9af7d-KeHoach.xlsx, bieu-mau.png", shape, StringComparison.Ordinal);
+        Assert.DoesNotContain("TUYỆT ĐỐI KHÔNG kể lại chúng", shape, StringComparison.Ordinal);
+    }
+
     // Model được lệnh "mời người dùng rà bảng bên dưới" nhưng rốt cuộc không trả nổi dòng `columns` nào
     // dùng được ⇒ câu mời đó trỏ vào một cái bảng KHÔNG tồn tại, và người dùng đi tìm một cái nút không có
     // trên màn hình. Nói thẳng ra và mở đường khác, thay vì để họ tự đoán.
@@ -298,6 +379,32 @@ public class BASourceColumnMapTests : IDisposable
         Columns = columns.ToList()
     };
 
+    // Dựng đúng thế trận của ca thật: một bảng tính đã chốt bảng cột từ đầu buổi, rồi người dùng gửi thêm
+    // một ảnh ở lượt này. Trả về id của ảnh để test đóng vai lượt upload chỉ đính kèm đúng nó.
+    private async Task<Guid> AddConfirmedSpreadsheetAndNewImageAsync()
+    {
+        var imageId = Guid.NewGuid();
+        await using var seed = NewDb();
+
+        var spreadsheet = await seed.ProjectSourceFiles.FirstAsync(s => s.Id == _sourceId);
+        spreadsheet.ColumnMap = """[{"FileName":"74a9af7d-KeHoach.xlsx","Column":"Global ID","Meaning":"mã nhân viên","Used":true}]""";
+
+        seed.ProjectSourceFiles.Add(new ProjectSourceFile
+        {
+            Id = imageId,
+            ProjectId = _projectId,
+            FileName = "bieu-mau.png",
+            Kind = SourceFileKind.Image,
+            ContentType = "image/png",
+            StoredPath = Path.Combine(Path.GetTempPath(), "bieu-mau.png"),
+            IsVisionSource = true,
+            CreatedAt = spreadsheet.CreatedAt.AddMinutes(30)
+        });
+
+        await seed.SaveChangesAsync();
+        return imageId;
+    }
+
     private static ProjectSourceFile NewSpreadsheet(Guid id, Guid projectId, string fileName) => new()
     {
         Id = id,
@@ -351,6 +458,7 @@ public class BASourceColumnMapTests : IDisposable
         public BAChatReply ChatReply = new() { Message = "Đã ghi nhận." };
         public List<string> LastAckSystemMessages = new();
         public List<string> LastChatSystemMessages = new();
+        public string LastAckUserText = string.Empty;
 
         public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
             => Task.FromResult(new LlmCallResult { IsSuccess = false, ErrorMessage = "not used in this test" });
@@ -367,6 +475,11 @@ public class BASourceColumnMapTests : IDisposable
             {
                 case "BASourceAck":
                     LastAckSystemMessages = systemMessages;
+                    // Chỉ khối text ĐẦU của lượt user — phần text các nguồn nối ngay sau nó, mà thứ đang
+                    // xét là câu dẫn đứng trên chúng: chính câu đó nói cho model biết "vừa đính kèm" là
+                    // những file nào.
+                    LastAckUserText = messages.Last(m => m.Role == ChatRole.User).Contents
+                        .OfType<TextContent>().First().Text;
                     value = AckReply;
                     break;
                 case "BAChat":

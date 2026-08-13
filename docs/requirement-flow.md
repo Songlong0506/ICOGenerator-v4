@@ -90,6 +90,15 @@ Cách chốt: ở **chính lượt BA đọc file** (`source-ack.v3.md`), BA tr�
 
 Hình dạng của lượt do **cơ chế** chọn chứ không để model đoán (`BAChatService.BuildSourceAckTurnShape`, cùng khuôn với cổng bảng phân quyền): còn bảng tính nào `ColumnMap == null` ⇒ khối `## LƯỢT NÀY: CHỐT PHẠM VI CỘT` gọi đích danh các file đó; không còn ⇒ khối `## LƯỢT NÀY: BẢN ĐỌC LẠI`. Model nhìn thấy text của **mọi** nguồn trong project (kể cả file đã chốt cột từ lần upload trước) nên nó không tự suy ra được file nào đang chờ.
 
+**Cùng lý do đó, phạm vi KỂ LẠI cũng phải do cơ chế nói ra** (`BAChatService.BuildReadbackScope` → khối `## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY`). Lượt đọc file nạp lại **toàn bộ** nguồn của project và điều đó là cố ý — nguồn cũ là thứ duy nhất để **đối chiếu**, mà chỗ **nối** giữa file mới và file cũ thường là điểm chưa rõ đắt nhất của cả lô upload (*"biểu mẫu vừa gửi lấy danh sách người học từ file kia, hay người dùng tự nhập?"*). Nhưng "đính kèm để đối chiếu" khác hẳn "phải kể lại", và trước đây không có gì phân biệt hai việc đó: câu dẫn của lượt user nói *"đây là các tài liệu nguồn tôi vừa đính kèm"* rồi đứng trên text của **mọi** nguồn, còn `source-ack.v3.md` bắt *"MỌI file vừa gửi đều phải được nhắc tới"*. Ca thật: người dùng chốt bảng cột cho một file Excel ở đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu để trả lời một câu hỏi — bản đọc lại mở đầu bằng gần nửa số dòng nói lại đúng bộ cột họ đã tích tay (chép từ chính khối *"Bảng cột … đã được NGƯỜI DÙNG CHỐT"*), rồi mới tới cái ảnh. Model không sai luật nào nó được cho; cơ chế nói dối về chữ "vừa gửi". Nay lô vừa upload đi từ controller xuống dưới dạng `attachments`, và:
+
+- câu dẫn của lượt user **gọi tên** đúng các file vừa gửi thay vì gộp chung;
+- khối phạm vi liệt kê file vừa gửi, liệt kê các nguồn cũ và cấm kể lại chúng — trừ đúng một chỗ: một điểm chưa rõ nằm ở chỗ **nối** giữa hai nguồn;
+- bảng tính cũ **chưa chốt cột** không nằm trong danh sách bị cấm đó: bảng của nó được bày lại ngay lượt này, nên nó vẫn cần lời dẫn — cấm nhắc tới nó là mời rà một cái bảng không câu nào giới thiệu;
+- không biết lô nào vừa gửi (`attachments` rỗng) ⇒ giữ nguyên hành vi cũ, coi mọi nguồn là vừa gửi. Kể lại thừa còn đỡ hơn để một file vừa gửi rơi khỏi phạm vi — lượt bắt lỗi đọc-nhầm-file của chính nó sẽ biến mất trong im lặng.
+
+`sourceNotes` **không** bị bó theo phạm vi này: nguồn nào có ảnh thật sự đi kèm lượt này đều phải có một mục, kể cả nguồn cũ lần đầu được gửi ảnh — đó là chỗ cất ảnh thành chữ (`VisionSummary`), không phải chỗ người dùng đọc.
+
 Sáu quyết định của thiết kế này, mỗi cái vá một đường hỏng đã gặp:
 
 - **Bảng chứ không phải hàng chip.** Chip chỉ nêu được tập con do BA tự chọn; các cột không lên chip bị coi là "của hệ cũ" mà người dùng không bao giờ nhìn thấy để phản đối. Bảng phơi **đủ** cột của file — `SourceColumnMapBuilder.Build` luôn bổ sung các cột model bỏ sót vào cuối, ở trạng thái chưa tích.
