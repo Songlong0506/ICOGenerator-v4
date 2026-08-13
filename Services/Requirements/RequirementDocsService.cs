@@ -106,7 +106,14 @@ public class RequirementDocsService
             // Bảng phân quyền người dùng đã chốt từng ô. Không có khối này thì phân quyền chỉ tồn tại dưới
             // dạng văn xuôi trong Product Brief, và POC dựng ra một bộ màn hình không phân biệt vai — thứ
             // mà người xem demo không có cách nào nghiệm thu. Fail-open: chưa chốt ⇒ khối rỗng, prompt như cũ.
-            PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix));
+            PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix),
+            // Ba bảng chốt còn lại của buổi phỏng vấn. Mỗi bảng vá đúng một mục mà spec vốn phải TỰ NGHĨ
+            // RA: luồng → "## 13. Worked Examples" định tính (oracle chấm POC), màn hình → "## 6. Screens
+            // To Generate" (phạm vi có ranh giới thay vì đếm lại từ văn xuôi), đối tượng → "## 8. Data
+            // Model Summary". Fail-open như trên: chưa chốt ⇒ khối rỗng, prompt như cũ.
+            FlowMapBuilder.RenderConfirmedBlock(project.FlowMap),
+            ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
+            EntityMapBuilder.RenderConfirmedBlock(project.EntityMap));
 
         var messages = new List<ChatMessage>
         {

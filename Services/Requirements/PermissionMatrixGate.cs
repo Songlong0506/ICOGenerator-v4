@@ -44,8 +44,17 @@ public static class PermissionMatrixGate
 
     /// <summary>Đã tới lúc bày bảng cho dự án này chưa. Xem điều kiện ở ghi chú class.</summary>
     public static bool ShouldAsk(Project project)
-        => ShouldAsk(project.RequirementCoverageMap, project.PermissionMatrix,
-            InterviewOutlookService.ParseItems(project.PlannedScope));
+        => ShouldAsk(project.RequirementCoverageMap, project.PermissionMatrix, EffectiveScreens(project));
+
+    /// <summary>
+    /// Các DÒNG của bảng phân quyền. Bảng màn hình đã chốt là nguồn ưu tiên — nó chính là
+    /// <c>Project.PlannedScope</c> sau khi người dùng đã tự tay rà (xem
+    /// <see cref="ScreenScopeMapBuilder.EffectiveScreens"/>). Chưa chốt ⇒ về đúng hành vi cũ: phạm vi thô
+    /// do LLM chắt.
+    /// </summary>
+    public static IReadOnlyList<string> EffectiveScreens(Project project)
+        => ScreenScopeMapBuilder.EffectiveScreens(
+            project.ScreenScopeMap, InterviewOutlookService.ParseItems(project.PlannedScope));
 
     /// <summary>Bản thuần dữ liệu của <see cref="ShouldAsk(Project)"/> — để test và để gọi từ nơi không có entity.</summary>
     public static bool ShouldAsk(string? coverageMap, string? permissionMatrixJson, IReadOnlyList<string> plannedScope)

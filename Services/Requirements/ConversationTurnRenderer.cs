@@ -166,6 +166,18 @@ public static class ConversationTurnRenderer
     public static List<PermissionMatrixRow> ParsePermissionMatrix(string? permissionMatrixJson)
         => PermissionMatrixBuilder.Parse(permissionMatrixJson);
 
+    /// <summary>Giải mã cột <see cref="AgentConversation.FlowMap"/> — như <see cref="ParsePermissionMatrix"/>.</summary>
+    public static List<FlowMapRow> ParseFlowMap(string? flowMapJson)
+        => FlowMapBuilder.Parse(flowMapJson);
+
+    /// <summary>Giải mã cột <see cref="AgentConversation.ScreenScopeMap"/> — như <see cref="ParsePermissionMatrix"/>.</summary>
+    public static List<ScreenScopeRow> ParseScreenScopeMap(string? screenScopeJson)
+        => ScreenScopeMapBuilder.Parse(screenScopeJson);
+
+    /// <summary>Giải mã cột <see cref="AgentConversation.EntityMap"/> — như <see cref="ParsePermissionMatrix"/>.</summary>
+    public static List<EntityMapRow> ParseEntityMap(string? entityMapJson)
+        => EntityMapBuilder.Parse(entityMapJson);
+
     /// <summary>
     /// Giải mã cột <see cref="AgentConversation.Attachments"/> (JSON array <see cref="ChatAttachment"/>)
     /// an toàn như <see cref="ParseSuggestions"/>. KHÔNG dùng khi render transcript gửi LLM (tên file đã

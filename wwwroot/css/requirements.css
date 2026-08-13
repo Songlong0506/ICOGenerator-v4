@@ -2056,6 +2056,138 @@
 /* Như .colmap[hidden]: `hidden` thua mọi khai báo display của ta nên phải nói lại tường minh. */
 .permmap[hidden] { display: none; }
 
+/* ==== BA BẢNG CHỐT còn lại: LUỒNG · MÀN HÌNH · ĐỐI TƯỢNG ====
+   Dùng chung khung .permmap (nền, bảng, thanh nút, dấu ✓ của ô đã có bằng chứng) vì chúng là BỐN NHỊP của
+   cùng một cơ chế — người dùng nhận ra "lại một bảng để rà" ngay từ hình dạng, không phải học lại bốn
+   giao diện. Chỉ các ô riêng của từng bảng mới cần luật mới. */
+
+/* Bảng luồng/màn hình/đối tượng có nhiều ô TEXT hơn hẳn bảng phân quyền (vốn chủ yếu là dropdown), nên ô
+   text ở đây mặc định trông như chữ đọc được, viền chỉ hiện khi hover/focus — cùng lối với ô ý nghĩa của
+   bảng cột. Một bảng đầy khung input trông như biểu mẫu phải điền, mà việc thật sự cần là ĐỌC rồi sửa
+   chỗ sai. */
+.flowmap-table input[type="text"],
+.screenmap-table input[type="text"],
+.entitymap-table input[type="text"],
+.entitymap-desc {
+    width: 100%;
+    min-width: 120px;
+    font-family: inherit;
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #374151;
+}
+
+    .flowmap-table input[type="text"]:hover,
+    .screenmap-table input[type="text"]:hover,
+    .entitymap-table input[type="text"]:hover,
+    .entitymap-desc:hover { border-color: var(--line, #e5e7eb); }
+
+    .flowmap-table input[type="text"]:focus,
+    .screenmap-table input[type="text"]:focus,
+    .entitymap-table input[type="text"]:focus,
+    .entitymap-desc:focus {
+        outline: none;
+        border-color: var(--bosch-blue-tint-strong, #cfe0fb);
+        background: #fff;
+    }
+
+    .flowmap-table input::placeholder,
+    .screenmap-table input::placeholder,
+    .entitymap-table input::placeholder,
+    .entitymap-desc::placeholder { color: #b6bcc6; font-style: italic; }
+
+/* Ô tích/bỏ tích của dòng. Hẹp và canh giữa để cột đầu không ăn chỗ của nội dung. */
+.flowmap-use { text-align: center; }
+.flowmap-th-use { min-width: 44px; width: 44px; text-align: center; }
+
+/* Dòng BỎ TÍCH mờ đi: nhìn lướt là thấy ngay mình vừa loại những gì — vế mà một danh sách BA tự soạn rồi
+   xin gật không bao giờ nói ra. */
+.flowmap-row:has(.flowmap-check:not(:checked)) input[type="text"],
+.screenmap-row:has(.screenmap-check:not(:checked)) input[type="text"],
+.entitymap-field:has(.entityfield-check:not(:checked)) input[type="text"] { color: #9aa3af; text-decoration: line-through; }
+
+/* Nhãn loại luồng: "ngoại lệ" phải nhìn khác "luồng chính" ngay từ xa. Ngoại lệ là phần người dùng không
+   bao giờ tự kể, nên nó cũng là phần họ dễ lướt qua nhất. */
+.flowmap-kind {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #4338ca;
+    vertical-align: middle;
+}
+
+.flowmap-table[data-kind="ngoại lệ"] { border-color: #fcd34d; }
+.permmap-screen:has(+ .flowmap-table[data-kind="ngoại lệ"]) .flowmap-kind { background: #fef3c7; color: #b45309; }
+
+.flowmap-role { font-size: 11.5px; font-weight: 400; color: #6b7280; }
+
+.flowmap-th-actor { min-width: 120px; }
+.flowmap-th-action { min-width: 220px; }
+.flowmap-th-outcome { min-width: 200px; width: 100%; }
+
+.screenmap-th-name { min-width: 150px; }
+.screenmap-th-purpose { min-width: 200px; }
+.screenmap-th-fn { min-width: 190px; }
+/* Cột cuối NUỐT phần thừa — bảng là display:block để cuộn ngang được, không cột nào giãn thì các cột co
+   lại và chừa một khoảng trống bên phải trông như bảng bị vỡ. Cùng luật với .permmap-th-cond. */
+.screenmap-th-steps { min-width: 200px; width: 100%; }
+
+/* Dòng nhắc của phép kiểm TẤT ĐỊNH luồng ⇄ màn hình. Màu cảnh báo chứ không màu lỗi: một bước chưa có màn
+   hình phụ trách là một CÂU HỎI (bước thừa, hay màn hình thiếu?), không phải một lỗi để khóa nút gửi. */
+.screenmap-warn {
+    margin-top: 12px;
+    padding: 9px 11px;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    background: #fffbeb;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: #92400e;
+}
+
+.screenmap-warn[hidden] { display: none; }
+
+/* Đối tượng nghiệp vụ: mỗi đối tượng là một KHỐI gồm tiêu đề + bảng thông tin + bảng vòng đời. Khối có
+   viền riêng vì hai bảng con liền nhau mà không có ranh giới thì người đọc không biết bảng nào thuộc đối
+   tượng nào — và bảng này là bảng dài nhất trong bốn bảng. */
+.entitymap-block {
+    margin: 14px 0 0;
+    padding: 10px 12px 12px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 10px;
+    background: #fff;
+}
+
+.entitymap-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+}
+
+.entitymap-name { flex: 0 0 auto; }
+
+.entitymap-desc {
+    flex: 1 1 auto;
+    font-weight: 400;
+    color: #6b7280;
+}
+
+.entitymap-table { margin-top: 8px; }
+
+/* Đối tượng bị bỏ tích: mờ cả khối, kể cả hai bảng con. Bỏ tích ở tiêu đề là loại cả đối tượng, và điều
+   đó phải nhìn thấy được ngay chứ không chỉ ở một ô vuông nhỏ. */
+.entitymap-block:has(.entitymap-check:not(:checked)) { opacity: .55; }
+
 /* ==== Cổng soát MÂU THUẪN (bấm nút tạo tài liệu mới hiện, và chỉ khi thật sự có mâu thuẫn) ====
    Nằm trong #writeReqZone ở khung chat, ngay dưới nút đã bật nó lên — không còn bản nào ở sidebar. Vì thế
    được ăn theo bề rộng khung chat: cỡ chữ nhích lên so với hồi ở cột hẹp, các lựa chọn không còn bị bó. */
