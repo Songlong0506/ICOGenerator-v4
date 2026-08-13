@@ -532,17 +532,19 @@ public class RequirementsController : Controller
     // phanh chống-hỏi-lại cho nhóm đó), và cổng Write Requirement đóng theo ở lượt kế tiếp.
 
     // BẢNG CỘT của file bảng tính người dùng vừa gửi: họ tích cột nào ứng dụng dùng và sửa lại cách hiểu BA
-    // đề xuất. Endpoint này CHỈ lưu bảng; ngay sau đó trình duyệt gửi tiếp một tin nhắn chat bình thường
-    // liệt kê các cột đã chốt, nên hội thoại vẫn chỉ có MỘT đường ghi (xem ConfirmSourceColumnMapUseCase).
+    // đề xuất. Endpoint này CHỈ lưu bảng; ngay sau đó trình duyệt gửi tiếp tin nhắn mà SERVER soạn ra vào
+    // khung chat, nên hội thoại vẫn chỉ có MỘT đường ghi (xem ConfirmSourceColumnMapUseCase). Tin nhắn lấy
+    // từ response chứ không do JS ghép, vì chính nó là dấu hiệu để lượt chat kế tiếp biết mình là lượt BA
+    // kể lại cách hiểu file — như bảng phân quyền.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
     [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> ConfirmColumnMap(Guid projectId, [FromForm] string mapJson)
     {
-        var updated = await _confirmSourceColumnMapUseCase.ExecuteAsync(projectId, mapJson, HttpContext.RequestAborted);
-        return updated > 0
-            ? Json(new { ok = true, files = updated })
+        var result = await _confirmSourceColumnMapUseCase.ExecuteAsync(projectId, mapJson, HttpContext.RequestAborted);
+        return result.Files > 0
+            ? Json(new { ok = true, files = result.Files, message = result.Message })
             : Json(new { ok = false, error = "Không lưu được bảng cột — tải lại trang rồi thử lại nhé." });
     }
 

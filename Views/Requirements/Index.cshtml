@@ -924,6 +924,11 @@
                nghĩa 18 cột — bị hỏi "Last Name nghĩa là gì" thì họ hiểu là BA chưa mở file. BA có tên cột,
                mọi giá trị phân biệt và số dòng nên đoán được gần hết; đoán sai thì họ sửa một dòng là xong.
 
+               Vì sao bảng này là thứ ĐẦU TIÊN người dùng thấy sau khi upload, trước cả bản đọc lại: kể lại
+               cả file khi chưa biết họ dùng cột nào là dựng việc tồn trên những cột sắp bị bỏ tích, và nếu
+               họ gửi nhầm file thì cả bản đọc là công cốc — nhưng vẫn đủ hợp lý để được bấm "Đúng rồi".
+               Bản đọc lại chuyển sang lượt chat ngay sau khi bảng được gửi (xem source-readback.v1.md).
+
                Đặt SAU #suggestionList và #batchQuestions vì quy tắc gộp "câu hỏi BA + chip gợi ý" dựa vào
                hai khối KỀ NHAU (.req-msg.ba:has(+ .suggestion-list …)) — chen vào giữa là hỏng, kể cả khi
                khối chen vào đang ẩn. *@
@@ -935,7 +940,8 @@
                     <div class="colmap-howto">
                         Mình đã tích sẵn các cột mình nghĩ là dùng cho ứng dụng mới và ghi cách hiểu của mình vào
                         cột <b>Ý nghĩa</b> — anh/chị chỉ cần sửa những chỗ lệch. Cột <b>không tích</b> mình coi là
-                        dữ liệu của hệ thống cũ và sẽ không đưa vào ứng dụng.
+                        dữ liệu của hệ thống cũ và sẽ không đưa vào ứng dụng. Chốt xong bảng này mình mới kể lại
+                        cách hiểu file để anh/chị soát, rồi hỏi tiếp những chỗ còn chưa rõ.
                     </div>
                     @foreach (var file in lastColumnMap.GroupBy(c => c.FileName))
                     {
@@ -967,11 +973,11 @@
                     }
                     <div class="colmap-bar">
                         <button type="button" class="btn primary" id="columnMapSendBtn">Gửi bảng cột</button>
-                        @* KHÔNG viết "bản đọc lại PHÍA TRÊN": bảng treo theo FILE chứ không theo lượt, và
+                        @* KHÔNG viết "lời giới thiệu PHÍA TRÊN": bảng treo theo FILE chứ không theo lượt, và
                            requirements.js dời nó xuống cuối dòng hội thoại sau mỗi lượt — gõ vài câu là
-                           bản đọc lại đã nằm cách đó mấy lượt, lúc đó "phía trên" chỉ vào nhầm bong bóng. *@
+                           lượt đọc file đã nằm cách đó mấy lượt, lúc đó "phía trên" chỉ vào nhầm bong bóng. *@
                         <div class="colmap-hint">
-                            Bản đọc lại của BA có chỗ nào chưa đúng thì anh/chị cứ gõ thêm vào khung chat nhé.
+                            Gửi nhầm file hay còn điều gì muốn nói thêm thì anh/chị cứ gõ vào khung chat nhé.
                         </div>
                         <div class="colmap-msg" id="columnMapMsg"></div>
                     </div>

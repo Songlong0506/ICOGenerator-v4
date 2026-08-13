@@ -45,6 +45,23 @@ public class BAChatService
     public static readonly TimeSpan ReplyStaleAfter = TimeSpan.FromMinutes(3);
 
     /// <summary>
+    /// Câu nói thêm khi lượt đọc file LẼ RA có bảng cột mà rốt cuộc không dựng được (model không trả
+    /// <c>columns</c> dùng được). Không có nó, <c>message</c> của lượt — vốn đã được viết theo hình dạng
+    /// "mời anh/chị rà bảng bên dưới" — trỏ vào một cái bảng không tồn tại, và người dùng đi tìm một cái
+    /// nút không có trên màn hình. Đúng lỗi "câu hỏi không có nút trả lời", chỉ khác chiều.
+    /// </summary>
+    public const string ColumnMapMissingNotice =
+        "\n\n(Mình chưa dựng được bảng cột cho file bảng tính vừa gửi. Anh/chị gõ giúp mình các cột thật sự "
+        + "dùng khi làm việc nhé — mình sẽ chỉ dựng ứng dụng trên đúng những cột đó.)";
+
+    /// <summary>
+    /// Hai chip dự phòng của lượt KỂ LẠI file bảng tính (sau khi người dùng chốt bảng cột): lượt đó kết
+    /// bằng một câu hỏi đóng nên phải có đúng hai đáp án để bấm — một xác nhận, một đính chính.
+    /// </summary>
+    public static readonly IReadOnlyList<string> SourceReadbackSuggestions =
+        new[] { "Đúng rồi", "Có chỗ chưa đúng" };
+
+    /// <summary>
     /// Câu dẫn dự phòng cho lượt bày bảng phân quyền, dùng khi model không viết được câu dẫn dùng được.
     /// Nó phải CHỈ VÀO BẢNG chứ không kết bằng một câu hỏi đóng: lượt này không có chip, nên một câu hỏi
     /// ở đây là câu hỏi KHÔNG CÓ NÚT TRẢ LỜI — người dùng đi tìm nút "Đúng rồi" không thấy trong khi việc
@@ -368,6 +385,15 @@ public class BAChatService
         var sourceContents = _sourceContextBuilder.Build(sources, model.SupportsVision);
         var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
 
+        // LƯỢT KỂ LẠI FILE BẢNG TÍNH: người dùng vừa gửi bảng cột đã tích, và tin nhắn đó do server soạn
+        // nên nhận ra được chắc chắn (SourceColumnMapBuilder.IsSubmissionMessage). Bản đọc lại của bảng
+        // tính bị cố ý dời từ lượt upload xuống đây — xem BuildSourceAckTurnShape. Không có lượt này thì
+        // chốt cột xong là BA hỏi thẳng câu tiếp theo, và cái sai duy nhất còn lại ở đầu vào (BA hiểu file
+        // kể chuyện gì) không bao giờ được người dùng nhìn thấy để bác.
+        var columnReadbackTurn = lastUserIndex >= 0
+            && SourceColumnMapBuilder.IsSubmissionMessage(recent[lastUserIndex].Message)
+            && sources.Any(s => s.Kind == SourceFileKind.Spreadsheet && !string.IsNullOrWhiteSpace(s.ColumnMap));
+
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/requirement-chat.v4.md"))
@@ -459,7 +485,10 @@ public class BAChatService
         // BA tự soạn phương án và một chip "Đồng ý" đóng dấu [RÕ] cho cả nhóm. Ba trạng thái, ba lệnh khác
         // nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model tự đoán đang ở trạng thái nào.
         var plannedScope = InterviewOutlookService.ParseItems(project.PlannedScope);
-        var askPermissionMatrix = PermissionMatrixGate.ShouldAsk(project);
+        // Lượt kể lại file đã có việc riêng và chỉ có MỘT chỗ trả lời (hai chip xác nhận) — cổng phân quyền
+        // nhường một lượt. Hai khối "LƯỢT NÀY" cùng lúc là hai mệnh lệnh chọi nhau, và cổng sẽ mở lại ngay
+        // lượt sau.
+        var askPermissionMatrix = !columnReadbackTurn && PermissionMatrixGate.ShouldAsk(project);
         var confirmedMatrix = PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix);
         if (!string.IsNullOrWhiteSpace(confirmedMatrix))
         {
@@ -508,6 +537,14 @@ public class BAChatService
                 + "chối thì làm gì), vì câu trả lời đó đổi luôn câu hỏi kế tiếp của bạn; và ai QUẢN LÝ từng danh "
                 + "mục dữ liệu. Đó là nhóm «Chức năng & luồng nghiệp vụ chính» và «Dữ liệu / danh mục chính», "
                 + "không phải nhóm phân quyền."));
+        }
+        // LƯỢT KỂ LẠI FILE BẢNG TÍNH — nửa sau của cơ chế "bảng cột trước, bản đọc lại sau". Luật viết bản
+        // đọc lại nằm trong prompt riêng (đo được ở Prompt Evals, sửa được ở Prompt Studio) chứ không nhét
+        // thành chuỗi ở đây; khối này chỉ chọn ĐÚNG lượt để đính nó vào.
+        if (columnReadbackTurn)
+        {
+            messages.Add(new ChatMessage(ChatRole.System,
+                _promptTemplateService.Get("BusinessAnalyst/source-readback.v1.md")));
         }
         // Sổ "đã hỏi rồi": bản đồ ở trên chỉ có độ phân giải theo NHÓM, nên một nhóm chưa [RÕ] dễ khiến
         // model phát lại nguyên văn câu hỏi mở đầu của chính nhóm ấy. Danh sách câu hỏi thật là thứ duy
@@ -731,6 +768,25 @@ public class BAChatService
                     flowDiagram = new List<FlowStep>();
                 }
             }
+
+            // Lượt KỂ LẠI file: chỗ trả lời là hai chip xác nhận, nên không được có thẻ hỏi gộp — thẻ hỏi
+            // và chip loại trừ nhau trên màn hình (BAChatReplyParser.Normalize), và một thẻ hỏi ở đây nuốt
+            // mất đúng thứ lượt này cần lấy: bản đọc rốt cuộc đúng hay sai. Các câu hỏi khai thác quay lại
+            // từ lượt sau.
+            if (columnReadbackTurn)
+            {
+                questions = new List<BAChatQuestion>();
+                flowDiagram = new List<FlowStep>();
+                // …và bỏ thẻ hỏi thì phải TRẢ LẠI chip: chính vì model kèm thẻ hỏi mà Normalize đã dọn
+                // sạch Suggestions của lượt. Để nguyên là bày ra một câu hỏi đóng KHÔNG CÓ nút trả lời —
+                // đúng lỗi mà lượt đọc bảng tính đã vấp một lần, chỉ khác chỗ phát sinh.
+                if (string.IsNullOrEmpty(suggestionsJson))
+                {
+                    suggestionsJson = JsonSerializer.Serialize(SourceReadbackSuggestions);
+                    suggestionsMultiSelect = false;
+                    openEnded = false;
+                }
+            }
         }
 
         var flowDiagramJson = flowDiagram.Count > 0 ? JsonSerializer.Serialize(flowDiagram) : null;
@@ -894,9 +950,19 @@ public class BAChatService
             var userContent = new List<AIContent> { new TextContent(promptText) };
             userContent.AddRange(sourceContents.Contents);
 
+            // HÌNH DẠNG của lượt do CƠ CHẾ chọn, không để model tự đoán (cùng luật với cổng bảng phân
+            // quyền): còn bảng tính chưa chốt cột ⇒ lượt CHỐT PHẠM VI CỘT (bảng + lời giới thiệu ngắn);
+            // không còn ⇒ lượt BẢN ĐỌC LẠI như cũ. Model nhìn thấy text của MỌI nguồn trong project (kể cả
+            // file đã chốt cột từ lần upload trước) nên nó không tự suy ra được file nào đang chờ.
+            var pendingColumnFiles = sources
+                .Where(s => s.Kind == SourceFileKind.Spreadsheet && s.ExtractedText != null && s.ColumnMap == null)
+                .Select(s => s.FileName)
+                .ToList();
+
             var messages = new List<ChatMessage>
             {
-                new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/source-ack.v2.md")),
+                new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/source-ack.v3.md")),
+                new(ChatRole.System, BuildSourceAckTurnShape(pendingColumnFiles)),
                 new(ChatRole.User, userContent)
             };
 
@@ -946,6 +1012,13 @@ public class BAChatService
                 ?? LlmJson.TryDeserialize<BASourceAckReply>(callResult?.Content, requireKnownProperty: true)?.Columns;
             var columnMapJson = BuildColumnMapJson(sources, proposedColumns);
 
+            // Lượt lẽ ra phải có bảng mà rốt cuộc không dựng được (model không trả `columns` dùng được):
+            // message đã được viết theo hình dạng "mời rà bảng bên dưới" nên nó đang trỏ vào một cái bảng
+            // KHÔNG tồn tại. Nói thẳng ra và mở đường khác, thay vì để người dùng đi tìm một cái bảng không
+            // có — phạm vi cột lúc này quay về đường phỏng vấn như trước khi có bảng.
+            if (pendingColumnFiles.Count > 0 && columnMapJson == null)
+                reply.Message = reply.Message.TrimEnd() + ColumnMapMissingNotice;
+
             // Có bảng cột ⇒ BỎ hàng chip của lượt này. Chip của lượt đọc file là câu chốt bản đọc lại
             // ("Đúng rồi" / "Chưa đúng"), mà bấm chip là GỬI NGAY — để cả hai cùng sống thì một cú bấm
             // nhầm gửi mất lượt trước khi người dùng kịp tích xong bảng, và bảng thì không bao giờ được
@@ -987,6 +1060,33 @@ public class BAChatService
             return false;
         }
     }
+
+    /// <summary>
+    /// Khối chọn HÌNH DẠNG của lượt đọc file, dựng từ dữ liệu chứ không để model tự đoán.
+    ///
+    /// <para>
+    /// Còn bảng tính chưa chốt cột ⇒ lượt này chỉ bày BẢNG CỘT kèm một lời giới thiệu ngắn. Bản đọc lại chi
+    /// tiết của bảng tính (và cụm "Chỗ chưa chắc" của nó) bị đẩy sang lượt sau — lượt mà người dùng đã chốt
+    /// xong phạm vi cột — vì kể lại cả file trước khi biết họ dùng cột nào là: dựng việc tồn trên những cột
+    /// sắp bị bỏ tích, đọc nhầm cả file khi người dùng gửi nhầm file, và bày ra một bức tường chữ ngay trên
+    /// đúng cái bảng chở cùng nội dung ở dạng sửa được. Xem <c>source-readback.v1.md</c> cho nửa còn lại.
+    /// </para>
+    /// </summary>
+    private static string BuildSourceAckTurnShape(IReadOnlyList<string> pendingColumnFiles)
+        => pendingColumnFiles.Count > 0
+            ? "## LƯỢT NÀY: CHỐT PHẠM VI CỘT (bắt buộc)\n"
+              + "File bảng tính CHƯA chốt bảng cột: " + string.Join(", ", pendingColumnFiles) + ".\n"
+              + "Với các file đó, lượt này CHỈ làm hai việc: điền `columns` phủ đủ mọi cột của file (ý nghĩa "
+              + "viết sẵn, tích sẵn cột nghiệp vụ), và viết `message` NGẮN — tối đa năm câu: file này là gì, "
+              + "quy mô thật, rồi mời người dùng rà bảng bên dưới và bấm \"Gửi bảng cột\".\n"
+              + "TUYỆT ĐỐI KHÔNG kể lại chi tiết từng cột và KHÔNG viết cụm \"Chỗ chưa chắc\" cho các file "
+              + "đó: bản đọc lại của bảng tính là lượt SAU, sau khi người dùng chốt xong cột. Ngoại lệ duy "
+              + "nhất là MỘT câu khi file rõ ràng không phải thứ bạn vừa xin — họ cần biết ngay để gửi lại.\n"
+              + "Nguồn khác trong cùng lô (Word/PDF/ảnh) vẫn được đọc lại đầy đủ như thường."
+            : "## LƯỢT NÀY: BẢN ĐỌC LẠI\n"
+              + "Không có file bảng tính nào đang chờ chốt bảng cột ⇒ `columns` là mảng RỖNG, và lượt này là "
+              + "bản đọc lại đầy đủ: kể lại thứ bạn đọc được, nêu cụm \"Chỗ chưa chắc\", kết bằng câu hỏi "
+              + "đóng để người dùng bấm một trong hai chip.";
 
     /// <summary>
     /// Dựng bảng cột cho các nguồn BẢNG TÍNH của project từ đề xuất của model. Trả null khi không có gì để

@@ -32,6 +32,21 @@ public static class SourceColumnMapBuilder
     /// <summary>Trần số dòng của bảng — bằng trần số cột của <see cref="SpreadsheetTextExtractor"/>.</summary>
     public const int MaxColumns = 40;
 
+    /// <summary>
+    /// Câu mở đầu CỐ ĐỊNH của tin nhắn "đã rà xong bảng cột" (<see cref="RenderUserMessage"/>). Nó vừa là
+    /// câu người dùng đọc trong hội thoại, vừa là DẤU HIỆU tất định để
+    /// <see cref="BAChatService"/> nhận ra lượt chat kế tiếp chính là lượt BA phải KỂ LẠI cách hiểu file
+    /// theo bộ cột vừa chốt (prompt <c>source-readback.v1.md</c>).
+    ///
+    /// <para>
+    /// Vì vậy tin nhắn phải do SERVER soạn từ bảng đã chuẩn hoá và đã lưu, chứ không do trình duyệt ghép từ
+    /// payload nó đang giữ: hai bản lệch nhau thì hội thoại kể một đằng còn dữ liệu nguồn ghi một nẻo, mà
+    /// mọi tầng đọc transcript đều tin vào bản kể. Cùng luật với
+    /// <see cref="PermissionMatrixBuilder.RenderUserMessage"/>.
+    /// </para>
+    /// </summary>
+    public const string SubmissionLead = "Mình đã rà xong bảng cột.";
+
     private const int MaxMeaningChars = 200;
     private const int MaxColumnNameChars = 200;
 
@@ -161,6 +176,63 @@ public static class SourceColumnMapBuilder
     /// <summary>Tên các cột người dùng đã chốt là DÙNG trong ứng dụng mới. Rỗng khi chưa chốt bảng nào.</summary>
     public static List<string> UsedColumns(string? columnMapJson)
         => Parse(columnMapJson).Where(n => n.Used).Select(n => n.Column.Trim()).ToList();
+
+    /// <summary>
+    /// Tin nhắn NGƯỜI DÙNG gửi vào hội thoại sau khi chốt bảng cột, soạn từ chính bảng đã lưu (xem
+    /// <see cref="SubmissionLead"/> về việc vì sao server soạn chứ không phải trình duyệt).
+    ///
+    /// <para>
+    /// Kèm CẢ ý nghĩa từng cột chứ không chỉ tên cột, vì mọi tầng chắt lọc đọc hội thoại: một dòng
+    /// "Global ID" trơ trọi thì bản đồ bao phủ và bước soạn tài liệu không biết cột đó là gì. Các cột KHÔNG
+    /// tích cũng được gọi tên — im lặng bỏ chúng thì người dùng không có bằng chứng nào cho thấy mình vừa
+    /// loại đúng những cột định loại.
+    /// </para>
+    /// </summary>
+    public static string RenderUserMessage(IEnumerable<SourceColumnNote>? notes)
+    {
+        var rows = (notes ?? Enumerable.Empty<SourceColumnNote>()).Where(n => n != null).ToList();
+        if (rows.Count == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        sb.Append(SubmissionLead);
+
+        foreach (var file in rows.GroupBy(n => n.FileName.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            var used = file.Where(n => n.Used).ToList();
+            var dropped = file.Where(n => !n.Used).Select(n => n.Column.Trim()).Where(c => c.Length > 0).ToList();
+
+            sb.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine($"Trong file {file.Key}, các cột mình thật sự dùng khi làm việc:");
+            if (used.Count == 0)
+            {
+                sb.AppendLine("- (mình không dùng cột nào trong file này)");
+            }
+            else
+            {
+                foreach (var note in used)
+                {
+                    var meaning = note.Meaning.Trim();
+                    sb.AppendLine(meaning.Length > 0 ? $"- {note.Column}: {meaning}" : $"- {note.Column}");
+                }
+            }
+
+            if (dropped.Count > 0)
+                sb.Append("Các cột còn lại mình không dùng, đó là dữ liệu của hệ thống cũ: " + string.Join(", ", dropped));
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Tin nhắn này có phải bản chốt bảng cột do <see cref="RenderUserMessage"/> soạn không — tức lượt chat
+    /// kế tiếp là lượt BA KỂ LẠI cách hiểu file theo bộ cột vừa chốt. Nhận nhầm chỉ khiến BA kể lại một
+    /// lượt thừa; bỏ sót mới là thứ đắt (bản đọc lại không bao giờ diễn ra, và cái sai ở đầu vào chảy thẳng
+    /// vào Product Brief).
+    /// </summary>
+    public static bool IsSubmissionMessage(string? message)
+        => message != null && message.TrimStart().StartsWith(SubmissionLead, StringComparison.Ordinal);
 
     /// <summary>
     /// Khối ngữ cảnh gửi kèm nguồn ở MỌI lượt chat sau: cột nào đã chốt là dùng (kèm nghĩa người dùng đã

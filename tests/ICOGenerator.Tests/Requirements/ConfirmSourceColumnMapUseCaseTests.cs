@@ -124,7 +124,33 @@ public class ConfirmSourceColumnMapUseCaseTests : IDisposable
         Assert.Equal(0, await ExecuteAsync("""[{"column":"Item Title","meaning":"tên lớp","used":true}]"""));
     }
 
-    private async Task<int> ExecuteAsync(string? mapJson)
+    // Tin nhắn gửi tiếp vào hội thoại do SERVER soạn từ bảng ĐÃ CHUẨN HOÁ, không phải do trình duyệt ghép
+    // từ payload nó đang giữ. Hai lý do, và lý do thứ hai mới là thứ mới: (1) hai bản lệch nhau thì hội
+    // thoại kể một đằng còn file nguồn ghi một nẻo, mà mọi tầng chắt lọc tin vào bản kể; (2) câu mở đầu cố
+    // định của nó chính là dấu hiệu để lượt chat kế tiếp biết mình là lượt BA KỂ LẠI cách hiểu file.
+    [Fact]
+    public async Task ExecuteAsync_ComposesTheChatMessage_FromWhatWasActuallySaved()
+    {
+        var result = await ConfirmAsync("""
+            [{"fileName":"KeHoach.xlsx","column":"Global ID","meaning":"mã số nhân viên","used":true},
+             {"fileName":"KeHoach.xlsx","column":"Item Title","meaning":"tên lớp học","used":true},
+             {"fileName":"KeHoach.xlsx","column":"Revision Number","meaning":"phiên bản nội dung","used":false},
+             {"fileName":"KeHoach.xlsx","column":"Sức chứa phòng","meaning":"bịa","used":true}]
+            """);
+
+        Assert.Equal(1, result.Files);
+        Assert.True(SourceColumnMapBuilder.IsSubmissionMessage(result.Message));
+        Assert.Contains("Global ID: mã số nhân viên", result.Message, StringComparison.Ordinal);
+        // Cột bỏ tích được GỌI TÊN: im lặng bỏ chúng thì người dùng không có bằng chứng nào cho thấy mình
+        // vừa loại đúng những cột định loại.
+        Assert.Contains("Revision Number", result.Message, StringComparison.Ordinal);
+        // …còn dòng bịa thì không được kể lại như một điều người dùng vừa chốt.
+        Assert.DoesNotContain("Sức chứa phòng", result.Message, StringComparison.Ordinal);
+    }
+
+    private async Task<int> ExecuteAsync(string? mapJson) => (await ConfirmAsync(mapJson)).Files;
+
+    private async Task<ConfirmColumnMapResult> ConfirmAsync(string? mapJson)
     {
         await using var db = NewDb();
         return await new ConfirmSourceColumnMapUseCase(db).ExecuteAsync(_projectId, mapJson);

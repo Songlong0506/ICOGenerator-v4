@@ -340,101 +340,141 @@ public static class EvalScenariosSeedData
             - Nếu message có câu ghi nhận thì chỉ được chứa điều người dùng THẬT SỰ đã nói, và KHÔNG nhét "Đồng Nai" hay tên department từ khối ngữ cảnh hệ thống vào đó.
             """);
 
-        // ================= BusinessAnalyst/source-ack.v2.md =================
-        // Lượt đọc lại tài liệu nguồn là CỬA VÀO của mọi thứ phía sau: đọc sai ở đây thì cái sai được người
-        // dùng bấm "Đúng rồi" đóng dấu, rồi chảy thẳng vào Product Brief. UserInput mô phỏng đúng khối mà
-        // SourceContextBuilder dựng lúc runtime ("=== TÀI LIỆU NGUỒN…", "[Nguồn: …]") với phần text bảng tính
-        // do SpreadsheetTextExtractor bóc ra — gồm "#### Thống kê cột" (cả bảng) và các dòng mẫu (29 dòng đầu).
+        // ================= BusinessAnalyst/source-ack.v3.md + source-readback.v1.md =================
+        // Đường vào tài liệu nguồn là CỬA VÀO của mọi thứ phía sau: đọc sai ở đây thì cái sai được người
+        // dùng bấm "Đúng rồi" đóng dấu, rồi chảy thẳng vào Product Brief. Với BẢNG TÍNH nó đi HAI lượt —
+        // lượt upload chỉ bày BẢNG CỘT kèm lời giới thiệu ngắn, lượt sau (khi người dùng đã chốt cột) mới
+        // kể lại cách hiểu file — nên mỗi lượt có scenario riêng, và cái bẫy của hai lượt ngược nhau: lượt
+        // đầu TRƯỢT vì kể quá nhiều, lượt sau TRƯỢT vì kể quá ít.
+        //
+        // UserInput mô phỏng đúng khối mà runtime dựng: SourceContextBuilder ("=== TÀI LIỆU NGUỒN…",
+        // "[Nguồn: …]", khối bảng cột đã chốt) + phần text bảng tính do SpreadsheetTextExtractor bóc ra
+        // ("#### Thống kê cột" trên cả bảng, rồi các dòng mẫu) + khối "## LƯỢT NÀY:" do BAChatService chọn.
 
         Add(
-            "Source-ack — bảng tính: danh mục cột lấy từ thống kê, không suy từ dòng mẫu",
-            "BusinessAnalyst/source-ack.v2.md",
+            "Source-ack — bảng cột: mỗi cột một dòng, ý nghĩa điền sẵn; message CHƯA kể lại file",
+            "BusinessAnalyst/source-ack.v3.md",
             """
-            Đây là các tài liệu nguồn tôi vừa đính kèm. Bạn đọc kỹ và kể lại cụ thể những gì rút được từ chúng để tôi xác nhận nhé.
+            ## LƯỢT NÀY: CHỐT PHẠM VI CỘT (bắt buộc)
+            File bảng tính CHƯA chốt bảng cột: LearningPlan.xlsx.
+            Với các file đó, lượt này CHỈ làm hai việc: điền `columns` phủ đủ mọi cột của file (ý nghĩa viết sẵn, tích sẵn cột nghiệp vụ), và viết `message` NGẮN — tối đa năm câu: file này là gì, quy mô thật, rồi mời người dùng rà bảng bên dưới và bấm "Gửi bảng cột".
+            TUYỆT ĐỐI KHÔNG kể lại chi tiết từng cột và KHÔNG viết cụm "Chỗ chưa chắc" cho các file đó: bản đọc lại của bảng tính là lượt SAU, sau khi người dùng chốt xong cột.
 
-            === TÀI LIỆU NGUỒN DO NGƯỜI DÙNG CUNG CẤP (tham khảo khi phân tích yêu cầu) ===
-
-            [Nguồn: KeHoachDaoTao.xlsx]
-            ### Sheet: Sheet1
-            Tổng: 262 dòng dữ liệu, 6 cột.
-
-            #### Thống kê cột (trên 262 dòng)
-            - Global ID: có giá trị 262/262 · 13 giá trị phân biệt · hay gặp nhất: 10151719 (60), 10540911 (54), 10150054 (50), 10481461 (49), 10504807 (38)
-            - Ten dem: TRỐNG ở toàn bộ 262 dòng
-            - Active User: có giá trị 262/262 · CHỈ MỘT giá trị duy nhất: Yes
-            - Item Type: có giá trị 257/262 · ĐỦ 5 giá trị: WBT (114), COURSE (91), DOC (41), WEBINAR (9), EUNIVERSITY (2)
-            - Assignment Type: có giá trị 136/262 · ĐỦ 3 giá trị: REQ (78), MAN (53), OPT (5)
-            - Required Date: có giá trị 12/262 · ĐỦ 7 giá trị: 31/Dec/2023 Asia/Saigon (4), 31/Oct/2023 Asia/Saigon (3), 15/Jan/2026 Asia/Saigon (1), 30/Apr/2023 Asia/Saigon (1), 30/Jun/2023 Asia/Saigon (1), 31/Dec/2025 CET (1), 31/Jul/2023 Asia/Saigon (1)
-
-            #### Dòng dữ liệu (3 dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng "Thống kê cột" bên trên)
-            Global ID | Ten dem | Active User | Item Type | Assignment Type | Required Date
-            11054396 |  | Yes | DOC | REQ |
-            11227524 |  | Yes | COURSE |  |
-            11491067 |  | Yes | COURSE | MAN |
-            """,
-            """
-            - Trả về DUY NHẤT một object JSON hợp lệ (message, suggestions, multiSelect, ready, sourceNotes) — không có chữ nào ngoài JSON.
-            - ready = false và message KHÔNG nhắc tới nút "Write Requirement".
-            - suggestions có ĐÚNG 2 đáp án: một xác nhận, một đính chính. Không có đáp án thứ ba.
-            - sourceNotes là mảng RỖNG (nguồn này không có hình nào).
-            - message phải nêu ĐỦ CẢ 5 giá trị của Item Type, gồm cả WEBINAR và EUNIVERSITY (chúng chỉ có trong "Thống kê cột", không xuất hiện ở các dòng mẫu).
-            - message phải nêu ĐỦ CẢ 3 giá trị của Assignment Type, gồm cả OPT — TRƯỢT nếu chỉ kể REQ và MAN.
-            - KHÔNG được kết luận Required Date "để trống"/"chưa có dữ liệu": thống kê ghi rõ 12/262 dòng có giá trị.
-            - Phải nêu ra hai cột không mang thông tin: "Ten dem" trống toàn bộ và "Active User" chỉ có một giá trị Yes.
-            - Phải nói được quy mô thật: 262 dòng nhưng chỉ 13 Global ID phân biệt.
-            - Có cụm "Chỗ chưa chắc" nêu điểm còn mờ, và KHÔNG hỏi thành câu hỏi bắt người dùng trả lời ngay.
-            - columns có MỘT dòng cho mỗi cột của file (Global ID, Ten dem, Active User, Item Type, Assignment Type, Required Date), tên cột chép đúng hàng tiêu đề.
-            - Mỗi dòng columns phải có meaning ĐIỀN SẴN như một chú giải ngắn — TRƯỢT nếu để trống hàng loạt hoặc viết meaning thành câu hỏi ("cột này là gì?").
-            - used = true cho các cột nghiệp vụ (Item Type, Assignment Type, Required Date) và false cho cột hạ tầng của bản xuất (Active User, Ten dem).
-            """);
-
-        // BẢNG CỘT là chỗ chốt PHẠM VI CỘT, và nó chỉ hoạt động khi model ĐIỀN SẴN cột ý nghĩa: bảng 18
-        // dòng trống là bắt người dùng nghiệp vụ giải nghĩa 18 cột — đúng thái cực mà cả hai prompt đều
-        // cấm, chỉ khác là lần này nó nằm gọn trong một cái bảng nên trông có vẻ vô hại.
-        Add(
-            "Source-ack — bảng cột: mỗi cột một dòng, ý nghĩa điền sẵn, tích sẵn cột nghiệp vụ",
-            "BusinessAnalyst/source-ack.v2.md",
-            """
             Đây là các tài liệu nguồn tôi vừa đính kèm. Bạn đọc kỹ và kể lại cụ thể những gì rút được từ chúng để tôi xác nhận nhé.
 
             === TÀI LIỆU NGUỒN DO NGƯỜI DÙNG CUNG CẤP (tham khảo khi phân tích yêu cầu) ===
 
             [Nguồn: LearningPlan.xlsx]
             ### Sheet: Sheet1
-            Tổng: 262 dòng dữ liệu, 6 cột.
+            Tổng: 262 dòng dữ liệu, 10 cột.
 
             #### Thống kê cột (trên 262 dòng)
             - Global ID: có giá trị 262/262 · 13 giá trị phân biệt · hay gặp nhất: 10151719 (60), 10540911 (54)
+            - Ten dem: TRỐNG ở toàn bộ 262 dòng
+            - Active User: có giá trị 262/262 · CHỈ MỘT giá trị duy nhất: Yes
             - Organization: có giá trị 262/262 · ĐỦ 3 giá trị: HcP/MSE2 (120), PS/QMM3-HcP (92), HcP/PC (50)
             - Item Title: có giá trị 257/262 · 136 giá trị phân biệt · hay gặp nhất: [QM-QM001] Quality at Bosch-B (8)
+            - Item Type: có giá trị 257/262 · ĐỦ 5 giá trị: WBT (114), COURSE (91), DOC (41), WEBINAR (9), EUNIVERSITY (2)
             - Assignment Type: có giá trị 136/262 · ĐỦ 3 giá trị: REQ (78), MAN (53), OPT (5)
             - Required Date: có giá trị 12/262 · ĐỦ 7 giá trị: 31/Dec/2023 (4), 31/Oct/2023 (3), 15/Jan/2026 (1), 30/Apr/2023 (1), 30/Jun/2023 (1), 31/Dec/2025 (1), 31/Jul/2023 (1)
             - Days Rem: có giá trị 12/262 · ĐỦ 8 giá trị: 0 (5), 61 (1), 92 (1), 184 (1), 245 (1), 976 (1), 991 (1), 1204 (1)
             - Revision Number: có giá trị 262/262 · ĐỦ 3 giá trị: 1 (218), 3 (21), 2 (18)
-            - Preferred Time zone: có giá trị 262/262 · ĐỦ 2 giá trị: Asia/Saigon (212), CET (50)
 
             #### Dòng dữ liệu (2 dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng "Thống kê cột" bên trên)
-            Global ID | Organization | Item Title | Assignment Type | Required Date | Days Rem | Revision Number | Preferred Time zone
-            11054396 | HcP/MSE2 | [QM-QM001] Quality at Bosch-B | REQ |  |  | 1 | Asia/Saigon
-            11227524 | PS/QMM3-HcP | [LG-ATL] Compliance - Antitrust Law-A | MAN |  |  | 1 | CET
+            Global ID | Ten dem | Active User | Organization | Item Title | Item Type | Assignment Type | Required Date | Days Rem | Revision Number
+            11054396 |  | Yes | HcP/MSE2 | [QM-QM001] Quality at Bosch-B | DOC | REQ |  |  | 1
+            11227524 |  | Yes | PS/QMM3-HcP | [LG-ATL] Compliance - Antitrust Law-A | COURSE | MAN |  |  | 1
             """,
             """
-            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false.
-            - columns có ĐÚNG 8 dòng, mỗi cột của file một dòng, fileName = "LearningPlan.xlsx" và column chép đúng tên cột trong hàng tiêu đề.
-            - TRƯỢT nếu bỏ sót cột nào, hoặc bịa thêm cột không có trong hàng tiêu đề.
-            - Mọi dòng đều phải có meaning viết sẵn dạng chú giải ngắn (vd "mã số nhân viên", "tên khóa học", "REQ/MAN là bắt buộc, OPT là tự chọn"). TRƯỢT nếu meaning để trống ở phần lớn các dòng, hoặc viết thành câu hỏi.
-            - used = true cho Global ID, Organization, Item Title, Assignment Type, Required Date; used = false cho Revision Number và Preferred Time zone (artifact của hệ thống cũ).
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; message KHÔNG nhắc tới nút "Write Requirement".
+            - columns có ĐÚNG 10 dòng, mỗi cột của file một dòng, fileName = "LearningPlan.xlsx" và column chép đúng tên cột trong hàng tiêu đề. TRƯỢT nếu bỏ sót cột nào, hoặc bịa thêm cột không có trong hàng tiêu đề.
+            - Mọi dòng đều phải có meaning ĐIỀN SẴN dạng chú giải ngắn (vd "mã số nhân viên", "tên khóa học", "REQ/MAN là bắt buộc, OPT là tự chọn"). TRƯỢT nếu meaning để trống ở phần lớn các dòng, hoặc viết thành câu hỏi ("cột này là gì?").
+            - meaning của Assignment Type phải gọi đủ CẢ 3 giá trị kèm cả OPT (chỉ có trong "Thống kê cột", không xuất hiện ở dòng mẫu) — đây là cột mã hóa "khóa bắt buộc / khóa tự chọn".
+            - meaning của "Ten dem" và "Active User" phải nói thẳng cột đang trống toàn bộ / chỉ có một giá trị, và used = false cho cả hai.
+            - used = true cho Global ID, Organization, Item Title, Item Type, Assignment Type, Required Date; used = false cho Revision Number.
             - used = false cho "Days Rem": nó là cột DẪN XUẤT (số ngày còn lại tính sẵn từ Required Date lúc hệ cũ xuất file, có giá trị ở đúng 12 dòng như Required Date), app mới tính lại được. TRƯỢT nếu tích nó là cột của ứng dụng mới.
-            - message vẫn phải là bản đọc lại thật sự: nêu được nghiệp vụ của file, quy mô thật (262 dòng nhưng chỉ 13 người), ĐỦ 3 giá trị của Assignment Type kèm OPT, và cụm "Chỗ chưa chắc".
-            - Nhưng message KHÔNG được đi qua lần lượt mọi cột như một bản thống kê: TRƯỢT nếu nó liệt kê phân bố giá trị của Revision Number hay Preferred Time zone — các cột đó chỉ có nghĩa trong bảng cột, nhắc lại trong message là lặp ở dạng người dùng không sửa được.
-            - Cũng TRƯỢT nếu "Chỗ chưa chắc" có một mục kiểu "Revision Number / Preferred Time zone trông như cột của hệ thống cũ, có nên đưa vào ứng dụng mới không": phạm vi cột đã được chốt bằng bảng cột ngay dưới, nêu lại là tạo một việc tồn trùng.
+            - message phải NGẮN (tối đa năm câu, viết liền mạch): file này là gì, quy mô thật (262 dòng nhưng chỉ 13 người), rồi mời rà bảng và bấm "Gửi bảng cột".
+            - TRƯỢT nếu message có gạch đầu dòng kể lại nội dung file, hoặc đi qua từng cột, hoặc liệt kê phân bố giá trị của các cột — bảng cột ngay bên dưới đã chở đúng nội dung đó ở dạng người dùng SỬA ĐƯỢC.
+            - TRƯỢT nếu message có cụm "Chỗ chưa chắc": lượt này chưa biết người dùng dùng cột nào, nên mỗi mục ở đó là một việc tồn dựng trên cột họ sắp bỏ tích.
+            - TRƯỢT nếu message kết bằng câu hỏi đóng kiểu "mình hiểu vậy đúng chưa ạ": lượt này hệ thống ẩn hai chip đi, nút duy nhất trên màn hình là "Gửi bảng cột".
+            """);
+
+        // NỬA SAU: người dùng đã chốt bảng cột, giờ mới tới lượt BA kể lại cách hiểu file. Bẫy ngược lại
+        // với lượt trên — kể quá ít, hoặc kể lại chính những cột người dùng vừa bỏ tích.
+        Add(
+            "Source-readback — kể lại file theo ĐÚNG bộ cột đã chốt, không đụng cột đã bỏ",
+            "BusinessAnalyst/source-readback.v1.md",
+            """
+            Mình đã rà xong bảng cột.
+
+            Trong file LearningPlan.xlsx, các cột mình thật sự dùng khi làm việc:
+            - Global ID: mã số nhân viên
+            - Organization: đơn vị của nhân viên
+            - Item Title: tên khóa học
+            - Item Type: hình thức học
+            - Assignment Type: REQ/MAN là bắt buộc, OPT là tự chọn
+            - Required Date: hạn phải hoàn thành
+            Các cột còn lại mình không dùng, đó là dữ liệu của hệ thống cũ: Ten dem, Active User, Days Rem, Revision Number
+
+            === TÀI LIỆU NGUỒN DO NGƯỜI DÙNG CUNG CẤP (tham khảo khi phân tích yêu cầu) ===
+
+            [Nguồn: LearningPlan.xlsx]
+            ### Sheet: Sheet1
+            Tổng: 262 dòng dữ liệu, 10 cột.
+
+            #### Thống kê cột (trên 262 dòng)
+            - Global ID: có giá trị 262/262 · 13 giá trị phân biệt · hay gặp nhất: 10151719 (60), 10540911 (54)
+            - Ten dem: TRỐNG ở toàn bộ 262 dòng
+            - Active User: có giá trị 262/262 · CHỈ MỘT giá trị duy nhất: Yes
+            - Organization: có giá trị 262/262 · ĐỦ 3 giá trị: HcP/MSE2 (120), PS/QMM3-HcP (92), HcP/PC (50)
+            - Item Title: có giá trị 257/262 · 136 giá trị phân biệt · hay gặp nhất: [QM-QM001] Quality at Bosch-B (8)
+            - Item Type: có giá trị 257/262 · ĐỦ 5 giá trị: WBT (114), COURSE (91), DOC (41), WEBINAR (9), EUNIVERSITY (2)
+            - Assignment Type: có giá trị 136/262 · ĐỦ 3 giá trị: REQ (78), MAN (53), OPT (5)
+            - Required Date: có giá trị 12/262 · ĐỦ 7 giá trị: 31/Dec/2023 (4), 31/Oct/2023 (3), 15/Jan/2026 (1), 30/Apr/2023 (1), 30/Jun/2023 (1), 31/Dec/2025 (1), 31/Jul/2023 (1)
+            - Days Rem: có giá trị 12/262 · ĐỦ 8 giá trị: 0 (5), 61 (1), 92 (1), 184 (1), 245 (1), 976 (1), 991 (1), 1204 (1)
+            - Revision Number: có giá trị 262/262 · ĐỦ 3 giá trị: 1 (218), 3 (21), 2 (18)
+
+            #### Dòng dữ liệu (2 dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng "Thống kê cột" bên trên)
+            Global ID | Ten dem | Active User | Organization | Item Title | Item Type | Assignment Type | Required Date | Days Rem | Revision Number
+            11054396 |  | Yes | HcP/MSE2 | [QM-QM001] Quality at Bosch-B | DOC | REQ |  |  | 1
+            11227524 |  | Yes | PS/QMM3-HcP | [LG-ATL] Compliance - Antitrust Law-A | COURSE | MAN |  |  | 1
+
+            --- Bảng cột của "LearningPlan.xlsx" đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại nghĩa các cột này) ---
+            Cột DÙNG trong ứng dụng mới:
+            - Global ID: mã số nhân viên
+            - Organization: đơn vị của nhân viên
+            - Item Title: tên khóa học
+            - Item Type: hình thức học
+            - Assignment Type: REQ/MAN là bắt buộc, OPT là tự chọn
+            - Required Date: hạn phải hoàn thành
+            Cột KHÔNG dùng — dữ liệu của hệ thống cũ. Đừng đưa vào yêu cầu, màn hình hay dữ liệu mẫu, và đừng hỏi thêm về chúng: Ten dem, Active User, Days Rem, Revision Number
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; message KHÔNG nhắc tới nút "Write Requirement".
+            - message phải là bản KỂ LẠI thật sự: file này kể chuyện gì, và quy mô thật (262 dòng nhưng chỉ 13 người).
+            - message phải nêu ĐỦ CẢ 3 giá trị của Assignment Type, gồm cả OPT — TRƯỢT nếu chỉ kể REQ và MAN (OPT chỉ có trong "Thống kê cột", không xuất hiện ở các dòng mẫu).
+            - message phải nêu ĐỦ CẢ 5 giá trị của Item Type, gồm cả WEBINAR và EUNIVERSITY.
+            - KHÔNG được kết luận Required Date "để trống"/"chưa có dữ liệu": thống kê ghi rõ 12/262 dòng có giá trị.
+            - TRƯỢT nếu message nhắc tới Days Rem, Revision Number, Ten dem hay Active User: người dùng vừa bỏ tích chúng, nhắc lại là mở lại thứ họ vừa đóng.
+            - TRƯỢT nếu có bất kỳ mục nào hỏi lại phạm vi cột ("cột này có nên đưa vào ứng dụng mới không").
+            - Có cụm "Chỗ chưa chắc" nêu điểm còn mờ trong các cột ĐÃ TÍCH, kèm cách hiểu của BA để người dùng gật/lắc; chỉ NÊU RA, không hỏi thành câu hỏi bắt trả lời ngay.
+            - Kết bằng câu hỏi đóng xin xác nhận, suggestions có ĐÚNG 2 đáp án (một xác nhận, một đính chính), questions là mảng RỖNG.
             """);
 
         Add(
-            "Source-ack — đối chiếu tài liệu với điều người dùng đã kể (thiếu gì so với lời kể)",
-            "BusinessAnalyst/source-ack.v2.md",
+            "Source-readback — đối chiếu file với điều người dùng đã kể (thiếu gì so với lời kể)",
+            "BusinessAnalyst/source-readback.v1.md",
             """
-            Đây là các tài liệu nguồn tôi vừa đính kèm, kèm ghi chú của tôi: "đây là file Master List em nói lúc nãy — danh sách nhân viên và các khóa học họ phải học trong năm, tụi em dựa vào đó để tính số lớp cần mở". Bạn đọc kỹ và kể lại cụ thể những gì rút được từ chúng để tôi xác nhận nhé.
+            Người dùng đã nói lúc đầu: "đây là file Master List — danh sách nhân viên và các khóa học họ phải học trong năm, tụi em dựa vào đó để tính số lớp cần mở".
+
+            Mình đã rà xong bảng cột.
+
+            Trong file MasterList.xlsx, các cột mình thật sự dùng khi làm việc:
+            - Global ID: mã số nhân viên
+            - Organization: đơn vị của nhân viên
+            - Item Title: tên khóa học
+            - Item Status: trạng thái
+            - Complete Date: ngày hoàn thành
 
             === TÀI LIỆU NGUỒN DO NGƯỜI DÙNG CUNG CẤP (tham khảo khi phân tích yêu cầu) ===
 
@@ -453,15 +493,22 @@ public static class EvalScenariosSeedData
             Global ID | Organization | Item Title | Item Status | Complete Date
             11054396 | HcP/MSE2 | [QM-QM001] Quality at Bosch-B | Active | 44330
             11227524 | PS/QMM3-HcP | [LG-ATL] Compliance - Antitrust Law-A | Active | 42506
+
+            --- Bảng cột của "MasterList.xlsx" đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại nghĩa các cột này) ---
+            Cột DÙNG trong ứng dụng mới:
+            - Global ID: mã số nhân viên
+            - Organization: đơn vị của nhân viên
+            - Item Title: tên khóa học
+            - Item Status: trạng thái
+            - Complete Date: ngày hoàn thành
             """,
             """
-            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; suggestions có ĐÚNG 2 đáp án (một xác nhận, một đính chính).
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; suggestions có ĐÚNG 2 đáp án (một xác nhận, một đính chính); questions là mảng RỖNG.
             - Cụm "Chỗ chưa chắc" PHẢI nêu được rằng file không có cột nào chở "số lượng lớp cần mở" hay "nhu cầu học" — thứ người dùng vừa nói là mục đích dùng file.
             - PHẢI nêu chỗ lệch giữa file và lời kể: người dùng gọi đây là danh sách khóa học PHẢI HỌC trong năm, nhưng cột Complete Date (219/262 dòng đã có ngày hoàn thành) cho thấy đây là dữ liệu ĐÃ HỌC.
             - PHẢI nối hai cột lại với nhau: Item Status có Active (219) và Complete Date có giá trị ở đúng 219/262 dòng, nên "Active" nhiều khả năng nghĩa là ĐÃ HỌC XONG chứ không phải "nội dung còn hiệu lực" — nêu kèm phỏng đoán đó để người dùng gật/lắc. TRƯỢT nếu chỉ kể rời hai con số, hoặc chốt Item Status là "trạng thái nội dung" mà không nhắc tới chỗ trùng khít này.
-            - Cách hiểu Item Status trong message và meaning của nó trong columns phải NHẤT QUÁN — TRƯỢT nếu một chỗ ghi "trạng thái hoàn thành của người học" còn chỗ kia ghi "trạng thái nội dung".
             - PHẢI nêu quy mô đáng ngờ: 262 dòng nhưng chỉ 13 người, trong khi người dùng mô tả đây là danh sách nhân viên của cả đơn vị.
-            - Complete Date dạng số (44330, 42506): được phép nêu là số ngày kiểu Excel kèm cách hiểu để người dùng xác nhận; KHÔNG được để thành một câu hỏi trống bắt người dùng giải thích định dạng.
+            - Complete Date dạng số (44330, 42506): PHẢI tự quy đổi thành ngày kiểu Excel rồi nêu kèm cách hiểu để người dùng xác nhận; TRƯỢT nếu để thành một câu hỏi trống bắt người dùng nghiệp vụ giải thích định dạng.
             - KHÔNG bịa thêm cột hay quy tắc không có trong tài liệu.
             """);
 
