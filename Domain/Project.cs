@@ -67,7 +67,9 @@ public class Project
     //    hiển thị nó (một danh sách SUY ĐOÁN mà user không sửa được tại chỗ là nhiễu, không đóng được vòng
     //    "bắt hiểu nhầm sớm"). Nó tới tay người dùng ở dạng SỬA ĐƯỢC — bảng màn hình (ScreenScopeMap) —
     //    rồi từ đó thành DÒNG của bảng phân quyền; ngoài ra vẫn dùng làm ngữ cảnh soát mâu thuẫn. Xem
-    //    ScreenScopeGate + RequirementConflictService.
+    //    ScreenScopeGate + RequirementConflictService. Đây là cột DUY NHẤT của ba cột này có chỗ ghi thứ
+    //    hai ngoài lượt chắt lọc: chốt xong bảng màn hình, ConfirmScreenScopeUseCase ghi ngược phạm vi đã
+    //    duyệt lên đây để lượt chắt lọc sau gộp tiếp từ bản người dùng gật, không diễn đạt lại từ đầu.
     //  • WorkedExamples: các VÍ DỤ TÍNH THỬ người dùng ĐÃ XÁC NHẬN (input → kết quả kỳ vọng) cho quy tắc
     //    định lượng — nguồn để bước sinh AI Design Spec đúc thành "## 13. Worked Examples" và POC tự kiểm
     //    (window.pocWorkedExamples) đối chiếu ĐỘC LẬP: kỳ vọng do user chốt, giá trị do POC tự tính.
