@@ -95,6 +95,32 @@ public class SourceAckReadbackRuleTests
         Assert.Contains("`questions`: mảng RỖNG", readback, StringComparison.Ordinal);
     }
 
+    // Lượt đọc file nạp lại TOÀN BỘ nguồn của project — cố ý, vì nguồn cũ là thứ duy nhất để đối chiếu —
+    // nên "kể lại tài liệu vừa gửi" chỉ có nghĩa nếu ai đó nói cho model biết file nào vừa gửi. Ca thật:
+    // người dùng chốt bảng cột cho một file Excel ở đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu
+    // để trả lời một câu hỏi — BA kể lại CẢ HAI, mở đầu bằng gần nửa số dòng nói lại đúng bộ cột họ đã tích
+    // tay. Cơ chế gọi đích danh file vừa gửi (BAChatService.BuildReadbackScope); prompt phải dạy model đọc
+    // khối đó, nếu không nó vẫn đi theo luật "MỌI file vừa gửi đều phải được nhắc tới" với chữ "vừa gửi"
+    // hiểu là tất cả.
+    [Fact]
+    public void SourceAckPrompt_ReadsBackOnlyTheFilesJustSent()
+    {
+        var prompt = ReadPrompt(SourceAckPromptKey);
+
+        Assert.Contains("Phạm vi kể lại: CHỈ các file vừa gửi ở lượt này", prompt, StringComparison.Ordinal);
+        Assert.Contains("## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY", prompt, StringComparison.Ordinal);
+        Assert.Contains("toàn bộ** tài liệu nguồn của dự án", prompt, StringComparison.Ordinal);
+
+        // Nhưng KHÔNG được biến thành "cấm nhìn nguồn cũ": điểm chưa rõ đắt nhất của một lô upload thường
+        // nằm đúng ở chỗ NỐI giữa file mới và file cũ (biểu mẫu vừa gửi lấy người học từ file danh sách hay
+        // tự nhập?). Vá một lỗi bằng cách cắt mất câu hỏi đó là đổi lỗi nhẹ lấy lỗi nặng.
+        Assert.Contains("nối** giữa file vừa gửi và nguồn cũ", prompt, StringComparison.Ordinal);
+
+        // Và `sourceNotes` KHÔNG bị bó theo phạm vi đó — nó là chỗ cất ảnh thành chữ, không phải chỗ người
+        // dùng đọc. Bó theo là mất VĨNH VIỄN nội dung ảnh của một nguồn cũ vừa được gửi kèm lần đầu.
+        Assert.Contains("KHÔNG bị bó theo phạm vi kể lại", prompt, StringComparison.Ordinal);
+    }
+
     // "Chỗ chưa chắc" là hàng đợi câu hỏi cho các lượt phỏng vấn sau, nên mỗi mục thừa ở đây đốt một lượt
     // thật. Ca thật: BA hỏi người dùng nghiệp vụ xem 44330 là định dạng ngày gì (số ngày kiểu Excel, tự
     // quy đổi được) và xem bảng có bị lệch cột không (không lệch — cột Middle Name trống 100% nên
@@ -332,6 +358,10 @@ public class SourceAckReadbackRuleTests
         // vì kể quá nhiều (bản đọc lại + "Chỗ chưa chắc" dựng trên cột người dùng sắp bỏ tích), lượt kể
         // lại trượt vì kể quá ít hoặc kể lại chính những cột vừa bị bỏ.
         Assert.Contains(sourceAck, c => c.Contains("TRƯỢT nếu message có cụm \"Chỗ chưa chắc\"", StringComparison.Ordinal));
+        // Và phạm vi kể lại: nguồn cũ nằm ngay trong ngữ cảnh, nên chỉ prompt thôi không chứng minh được
+        // model chịu bỏ qua chúng — chỗ đo là đây.
+        Assert.Contains(sourceAck, c => c.Contains("chỉ kể lại", StringComparison.OrdinalIgnoreCase)
+                                        && c.Contains("chỗ NỐI", StringComparison.Ordinal));
         Assert.Contains(readback, c => c.Contains("TRƯỢT nếu message nhắc tới Days Rem", StringComparison.Ordinal));
 
         var decisionLog = scenarios.Where(s => s.PromptKey == "BusinessAnalyst/decision-log.v1.md")

@@ -416,7 +416,10 @@ public static class EvalScenariosSeedData
             Với các file đó, lượt này CHỈ làm hai việc: điền `columns` phủ đủ mọi cột của file (ý nghĩa viết sẵn, tích sẵn cột nghiệp vụ), và viết `message` NGẮN — tối đa năm câu: file này là gì, quy mô thật, rồi mời người dùng rà bảng bên dưới và bấm "Gửi bảng cột".
             TUYỆT ĐỐI KHÔNG kể lại chi tiết từng cột và KHÔNG viết cụm "Chỗ chưa chắc" cho các file đó: bản đọc lại của bảng tính là lượt SAU, sau khi người dùng chốt xong cột.
 
-            Đây là các tài liệu nguồn tôi vừa đính kèm. Bạn đọc kỹ và kể lại cụ thể những gì rút được từ chúng để tôi xác nhận nhé.
+            ## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY
+            File người dùng VỪA GỬI ở lượt này: LearningPlan.xlsx. Chỉ những file này mới là thứ lượt này phải kể lại và xin xác nhận.
+
+            Tôi vừa đính kèm: LearningPlan.xlsx. Bạn đọc kỹ và kể lại cụ thể những gì rút được từ đó để tôi xác nhận nhé.
 
             === TÀI LIỆU NGUỒN DO NGƯỜI DÙNG CUNG CẤP (tham khảo khi phân tích yêu cầu) ===
 
@@ -453,6 +456,55 @@ public static class EvalScenariosSeedData
             - TRƯỢT nếu message có gạch đầu dòng kể lại nội dung file, hoặc đi qua từng cột, hoặc liệt kê phân bố giá trị của các cột — bảng cột ngay bên dưới đã chở đúng nội dung đó ở dạng người dùng SỬA ĐƯỢC.
             - TRƯỢT nếu message có cụm "Chỗ chưa chắc": lượt này chưa biết người dùng dùng cột nào, nên mỗi mục ở đó là một việc tồn dựng trên cột họ sắp bỏ tích.
             - TRƯỢT nếu message kết bằng câu hỏi đóng kiểu "mình hiểu vậy đúng chưa ạ": lượt này hệ thống ẩn hai chip đi, nút duy nhất trên màn hình là "Gửi bảng cột".
+            """);
+
+        // PHẠM VI KỂ LẠI. Lượt đọc file nạp lại TOÀN BỘ nguồn của project (nguồn cũ là thứ duy nhất để đối
+        // chiếu), nhưng chỉ file VỪA GỬI mới phải kể lại. Ca thật: người dùng chốt bảng cột cho file Excel ở
+        // đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu để trả lời một câu hỏi — bản đọc lại mở đầu
+        // bằng gần nửa số dòng nói lại đúng bộ cột họ đã tích tay, rồi mới tới cái ảnh. Cơ chế đã gọi đích
+        // danh file vừa gửi; scenario này chấm xem model có tuân hay không, kể cả khi nguồn cũ nằm ngay đó.
+        Add(
+            "Source-ack — chỉ kể lại file VỪA GỬI, nguồn cũ chỉ để đối chiếu",
+            "BusinessAnalyst/source-ack.v3.md",
+            """
+            ## LƯỢT NÀY: BẢN ĐỌC LẠI
+            Không có file bảng tính nào đang chờ chốt bảng cột ⇒ `columns` là mảng RỖNG, và lượt này là bản đọc lại đầy đủ: kể lại thứ bạn đọc được, nêu cụm "Chỗ chưa chắc", kết bằng câu hỏi đóng để người dùng bấm một trong hai chip.
+
+            ## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY
+            File người dùng VỪA GỬI ở lượt này: bieu-mau-lop.png. Chỉ những file này mới là thứ lượt này phải kể lại và xin xác nhận.
+            Các nguồn còn lại — LearningPlan.xlsx — đã gửi từ TRƯỚC và người dùng đã xác nhận cách bạn hiểu chúng rồi; chúng đính kèm ở đây CHỈ để bạn đối chiếu. TUYỆT ĐỐI KHÔNG kể lại chúng: không mô tả lại nội dung/cột/quy mô của chúng, không dựng cụm "Chỗ chưa chắc" cho riêng chúng.
+            Được phép nhắc tên chúng đúng MỘT trường hợp: nêu một điểm chưa rõ nằm ở chỗ NỐI giữa file vừa gửi và chúng (dữ liệu bên này lấy từ bên kia hay nhập tay?).
+
+            Tôi vừa đính kèm: bieu-mau-lop.png, kèm ghi chú của tôi: "tôi có gửi cho bạn 1 hình ảnh những field cần có của 1 lớp học". Bạn đọc kỹ và kể lại cụ thể những gì rút được từ đó để tôi xác nhận nhé.
+
+            === TÀI LIỆU NGUỒN DO NGƯỜI DÙNG CUNG CẤP (tham khảo khi phân tích yêu cầu) ===
+
+            [Nguồn: LearningPlan.xlsx]
+            ### Sheet: Sheet1
+            Tổng: 262 dòng dữ liệu, 4 cột.
+
+            #### Thống kê cột (trên 262 dòng)
+            - Global ID: có giá trị 262/262 · 13 giá trị phân biệt · hay gặp nhất: 10151719 (60), 10540911 (54)
+            - Organization: có giá trị 262/262 · ĐỦ 3 giá trị: HcP/MSE2 (120), PS/QMM3-HcP (92), HcP/PC (50)
+            - Item ID: có giá trị 257/262 · 134 giá trị phân biệt
+            - Item Title: có giá trị 257/262 · 136 giá trị phân biệt · hay gặp nhất: [QM-QM001] Quality at Bosch-B (8)
+
+            --- Bảng cột của "LearningPlan.xlsx" đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại nghĩa các cột này) ---
+            Cột DÙNG trong ứng dụng mới:
+            - Global ID: mã số nhân viên
+            - Organization: đơn vị của nhân viên
+            - Item ID: mã khóa học
+            - Item Title: tên khóa học
+
+            [Nguồn: bieu-mau-lop.png] (kèm 1 ảnh dưới dạng ẢNH — xem nội dung ảnh đính kèm)
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; columns là mảng RỖNG; message KHÔNG nhắc tới nút "Write Requirement".
+            - message chỉ kể lại bieu-mau-lop.png — biểu mẫu vừa gửi. TRƯỢT nếu có một cụm riêng kể lại LearningPlan.xlsx: quy mô 262 dòng / 13 nhân viên, danh sách cột đã chốt, hay danh sách cột không dùng. Người dùng đã tích tay bảng cột đó ở lượt trước; kể lại là bắt họ duyệt lần thứ hai đúng thứ vừa duyệt, còn thứ họ thật sự vừa gửi bị đẩy xuống nửa dưới của lượt.
+            - TRƯỢT nếu message mở đầu bằng kiểu "Mình đọc được 2 nguồn: …" rồi tách hai cụm ngang hàng cho hai file.
+            - Vẫn ĐƯỢC nhắc tên LearningPlan.xlsx ở "Chỗ chưa chắc" khi điểm chưa rõ nằm ở chỗ NỐI giữa hai nguồn (biểu mẫu lấy danh sách người học từ file kia hay người dùng tự nhập) — đó là câu hỏi chỉ lộ ra khi đặt hai nguồn cạnh nhau.
+            - Ảnh KHÔNG đọc được nội dung ⇒ nói thẳng là chưa đọc được gì và mời người dùng mô tả bằng lời; TUYỆT ĐỐI không bịa tên trường của biểu mẫu.
+            - Kết bằng câu hỏi đóng xin xác nhận, suggestions có ĐÚNG 2 đáp án (một xác nhận, một đính chính).
             """);
 
         // NỬA SAU: người dùng đã chốt bảng cột, giờ mới tới lượt BA kể lại cách hiểu file. Bẫy ngược lại

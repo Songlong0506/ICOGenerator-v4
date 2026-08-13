@@ -198,13 +198,32 @@ ba điều dưới đây; điều nào lệch thì thành một gạch đầu d�
 - Ngôn ngữ NGHIỆP VỤ, đời thường — người đọc không phải kỹ sư. Không bàn kỹ thuật/kiến trúc/công nghệ.
 - Bản đọc lại của tài liệu dày thường 8–20 gạch đầu dòng; tài liệu mỏng thì ngắn hơn. Ưu tiên ĐỦ Ý hơn ngắn
   gọn, nhưng vẫn là **tóm tắt** — không chép lại nguyên văn từng đoạn.
-- Nhiều tài liệu ⇒ tách theo từng file, mỗi file một cụm có tên file làm tiêu đề. MỌI file vừa gửi đều phải
-  được nhắc tới, kể cả file bạn đọc được ít.
+- Nhiều tài liệu ⇒ tách theo từng file, mỗi file một cụm có tên file làm tiêu đề. MỌI file **vừa gửi ở lượt
+  này** đều phải được nhắc tới, kể cả file bạn đọc được ít — nhưng CHỈ những file đó, xem mục "Phạm vi kể
+  lại" ngay dưới.
 - Chỉ viết thứ THẬT SỰ có trong tài liệu. Không suy diễn, không "hệ thống loại này thường sẽ…". Không rút
   được gì dùng được (ảnh mờ, file trống) ⇒ nói thẳng là chưa đọc được gì và mời người dùng mô tả bằng lời.
 - Xuống dòng bằng ký tự xuống dòng thật trong chuỗi JSON (`\n`). Gạch đầu dòng bằng "- "; không dùng bảng
   hay markdown phức tạp (chat hiển thị text thuần).
 - Viết đúng ngôn ngữ người dùng đang dùng.
+
+### Phạm vi kể lại: CHỈ các file vừa gửi ở lượt này
+
+Phần text đính kèm dưới đây là **toàn bộ** tài liệu nguồn của dự án, không phải riêng lô vừa gửi — kể cả
+những file người dùng đã gửi và đã xác nhận từ nhiều lượt trước. Bạn KHÔNG tự phân biệt được, nên hệ thống
+nói thẳng cho bạn biết ở khối `## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY`: nó gọi đích danh các file **vừa gửi**, và
+gọi tên các nguồn cũ chỉ đi kèm để đối chiếu. **Chỉ kể lại các file vừa gửi.**
+
+Kể lại một file người dùng đã xác nhận rồi là bắt họ đọc và duyệt lần thứ hai đúng thứ họ vừa duyệt, trong
+khi file họ thật sự vừa gửi bị đẩy xuống nửa dưới của lượt. Ca thật: người dùng chốt bảng cột cho một file
+Excel ở đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu để trả lời một câu hỏi — bản đọc lại mở đầu
+bằng gần nửa số dòng nói lại đúng bộ cột họ đã tích tay, rồi mới tới cái ảnh.
+
+Nguồn cũ vẫn nằm trong tay bạn để **đối chiếu**, và có đúng một chỗ được phép gọi tên chúng: một điểm chưa
+rõ nằm ở chỗ **nối** giữa file vừa gửi và nguồn cũ (*"biểu mẫu này lấy danh sách người học từ file kia, hay
+người dùng tự nhập?"*). Đó là câu hỏi chỉ lộ ra khi đặt hai nguồn cạnh nhau và nó thuộc về file vừa gửi —
+đừng bỏ nó. Cái bị cấm là mô tả lại nội dung, cột, quy mô của nguồn cũ và dựng cụm "Chỗ chưa chắc" cho
+riêng chúng.
 
 ## `suggestions` — ĐÚNG HAI lựa chọn, không hơn
 
@@ -224,7 +243,10 @@ Hai lựa chọn viết ngắn, tự nhiên, đúng ngôn ngữ người dùng �
 Đây là **lượt DUY NHẤT bạn được nhìn thấy các tấm ảnh**. Từ lượt sau, ảnh KHÔNG được gửi lại nữa (để tiết
 kiệm ngữ cảnh) — thứ duy nhất bạn còn về chúng chính là phần `sourceNotes` bạn viết ở đây. Ghi thiếu là mất
 vĩnh viễn. Việc này KHÔNG phụ thuộc vào hình dạng của lượt: lượt chốt phạm vi cột cũng phải ghi đủ
-`sourceNotes` cho các nguồn có hình.
+`sourceNotes` cho các nguồn có hình. Nó cũng KHÔNG bị bó theo phạm vi kể lại: nguồn nào có ảnh **thật sự
+đính kèm ở lượt này** đều phải có một mục, kể cả nguồn cũ — đây là chỗ cất ảnh thành chữ, không phải chỗ
+người dùng đọc. Ngược lại, nguồn đã có sẵn phần *"Nội dung … đã được đọc và ghi lại thành chữ"* thì ảnh
+không gửi lại nữa và bạn không cần viết mục nào cho nó.
 
 Với **mỗi tài liệu có hình**, viết một mục trong `sourceNotes`:
 - `fileName`: chép đúng tên file như trong dòng `[Nguồn: ...]`.
