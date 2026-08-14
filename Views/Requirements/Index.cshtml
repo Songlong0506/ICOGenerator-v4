@@ -1072,7 +1072,8 @@
                     <div class="permmap-howto">
                         Đây là các màn hình mình dự kiến dựng và các chức năng trên từng màn. Màn nào <b>không cần</b>
                         thì bỏ tích ở cột đầu; chức năng nào không cần thì bỏ tích ngay dòng của nó. Thiếu chức năng
-                        nào thì gõ vào dòng trống cuối mỗi màn. Dấu <b>✓</b> là phần chính anh/chị đã nêu.
+                        nào thì bấm <b>+ thêm chức năng</b> ở cuối màn đó, thiếu cả một màn hình thì bấm
+                        <b>+ thêm màn hình</b> ở cuối bảng. Dấu <b>✓</b> là phần chính anh/chị đã nêu.
                     </div>
                     <table class="permmap-table screenmap-table">
                         <thead>
@@ -1080,6 +1081,9 @@
                                 <th class="flowmap-th-use">Cần</th>
                                 <th class="screenmap-th-name">Màn hình</th>
                                 <th class="screenmap-th-fn">Chức năng <span class="screenmap-th-note">· cột phải: bước luồng chức năng đó phụ trách</span></th>
+                                @* Cột nút xóa. Trống ở mọi dòng BA bày ra — chúng BỎ TÍCH chứ không xóa, xem
+                                   screenFunctionRow ở requirements.js. *@
+                                <th class="screenmap-th-del"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1118,20 +1122,29 @@
                                                         </td>
                                                         <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="chức năng">@fn.Name</textarea></td>
                                                         <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="chức năng này phụ trách bước nào?">@string.Join("; ", fn.FlowSteps)</textarea></td>
+                                                        <td class="screenmap-delcell"></td>
                                                     </tr>
                                                 }
-                                                @* Dòng TRỐNG cuối mỗi màn: chỗ gõ thêm một chức năng còn thiếu. Không gõ
-                                                   gì thì server bỏ nó đi (tên rỗng = không phải một chức năng). *@
-                                                <tr class="screenmap-fn-row">
-                                                    <td class="flowmap-use"><input type="checkbox" class="screenfn-check" aria-label="Thêm chức năng cho @row.Screen" checked /></td>
-                                                    <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="+ thêm chức năng…"></textarea></td>
-                                                    <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="chức năng này phụ trách bước nào?"></textarea></td>
+                                                @* Dòng cuối mỗi màn: nút thêm chức năng còn thiếu. Dòng thêm ra mà
+                                                   không gõ gì thì server bỏ nó đi (tên rỗng = không phải một chức
+                                                   năng). Chỉ dòng người dùng tự thêm mới có nút xóa. *@
+                                                <tr class="screenmap-fn-add">
+                                                    <td colspan="4">
+                                                        <button type="button" class="screenmap-add screenmap-addfn" aria-label="Thêm chức năng cho @row.Screen">+ thêm chức năng</button>
+                                                    </td>
                                                 </tr>
                                             </tbody>
                                         </table>
                                     </td>
+                                    <td class="screenmap-delcell"></td>
                                 </tr>
                             }
+                            @* Dòng cuối bảng: nút thêm một màn hình BA chưa nghĩ tới. Dòng thêm ra có ô tên gõ được
+                               và cờ `addedByUser` để đi qua chốt chặn "màn hình bịa" ở server — chốt chặn đó dựng
+                               để chặn model, không phải để chặn người dùng. Xem ScreenScopeRow.AddedByUser. *@
+                            <tr class="screenmap-addrow">
+                                <td colspan="4"><button type="button" class="screenmap-add screenmap-addscreen">+ thêm màn hình</button></td>
+                            </tr>
                         </tbody>
                     </table>
                     @* Dòng nhắc của phép kiểm tất định. Nó KHÔNG chặn gửi: một bước không chức năng nào
@@ -1144,7 +1157,7 @@
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
                         <div class="permmap-hint">
-                            Thiếu màn hình nào, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                            Muốn mô tả kỹ hơn một màn hình còn thiếu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
                         </div>
                         <div class="permmap-msg" id="screenScopeMsg"></div>
                     </div>

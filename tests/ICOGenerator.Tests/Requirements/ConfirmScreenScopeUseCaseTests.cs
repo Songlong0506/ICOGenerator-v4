@@ -157,6 +157,60 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
         Assert.DoesNotContain(stored, r => r.Screen.Contains("quản trị hệ thống"));
     }
 
+    // …nhưng chốt chặn đó dựng để chặn MODEL, nên nó phải nhường đúng một chỗ: dòng người dùng TỰ THÊM bằng
+    // nút "thêm màn hình". Không có ngoại lệ này thì cái nút chỉ là một trò đùa — họ gõ tên màn hình, bấm
+    // gửi, và dòng ấy biến mất trong im lặng đúng như mọi dòng bịa khác.
+    [Fact]
+    public async Task ExecuteAsync_KeepsScreensTheUserAddedToTheTableThemselves()
+    {
+        await SeedRenderedTableAsync(ScreenList, ScreenCreate);
+
+        var result = await ExecuteAsync($$"""
+            [{"screen":"{{ScreenList}}","included":true},
+             {"screen":"{{ScreenCreate}}","included":true},
+             {"screen":"Màn hình báo cáo JD theo phòng ban","purpose":"Xem thống kê JD đã gán",
+              "functions":[{"name":"Xem báo cáo","included":true}],
+              "addedByUser":true,"included":true}]
+            """);
+
+        Assert.Equal(3, result.Rows);
+
+        // Dòng tự thêm xếp SAU CÙNG — đúng chỗ nó đứng trên bảng — và chở theo mọi ô người dùng đã điền.
+        var stored = ScreenScopeMapBuilder.Parse(await LoadScreenScopeAsync());
+        var added = stored.Last();
+        Assert.Equal("Màn hình báo cáo JD theo phòng ban", added.Screen);
+        Assert.Equal("Xem thống kê JD đã gán", added.Purpose);
+        Assert.Equal("Xem báo cáo", Assert.Single(added.Functions).Name);
+        Assert.True(added.AddedByUser);
+
+        // Một màn hình chưa từng có trong đề xuất mà lặng lẽ đi vào phạm vi là đúng loại thay đổi phải nói
+        // ra: mọi tầng chắt lọc phía sau đọc bản kể này chứ không đọc cột DB.
+        Assert.Contains("Các màn hình mình tự bổ sung vào bảng: Màn hình báo cáo JD theo phòng ban.", result.Message);
+
+        // Và nó phải vào được phạm vi hiệu dụng, nếu không thì bảng phân quyền ngay sau đó không có dòng nào
+        // cho màn hình vừa thêm — tức mặc nhiên "không ai được xem".
+        await using var db = NewDb();
+        var project = await db.Projects.FirstAsync(p => p.Id == _projectId);
+        Assert.Contains("Màn hình báo cáo JD theo phòng ban", PermissionMatrixGate.EffectiveScreens(project));
+    }
+
+    // Cờ tự thêm KHÔNG phải một cửa sau cho mọi dòng: bấm "thêm màn hình" rồi bỏ trống ô tên thì không có
+    // màn hình nào cả, và hai dòng tự thêm cùng tên chỉ là một.
+    [Fact]
+    public async Task ExecuteAsync_DropsBlankAndDuplicateRowsTheUserAdded()
+    {
+        await SeedRenderedTableAsync(ScreenList);
+
+        var result = await ExecuteAsync($$"""
+            [{"screen":"{{ScreenList}}","included":true},
+             {"screen":"   ","addedByUser":true,"included":true},
+             {"screen":"Màn hình báo cáo JD theo phòng ban","addedByUser":true,"included":true},
+             {"screen":"Màn hình báo cáo JD theo phòng ban","addedByUser":true,"included":true}]
+            """);
+
+        Assert.Equal(2, result.Rows);
+    }
+
     // Bỏ tích SẠCH bảng: vẫn lưu bảng (đó là quyết định của họ) nhưng KHÔNG ghi ngược một phạm vi rỗng.
     // Ghi null vào PlannedScope là cắt luôn đường fail-open của EffectiveScreens và khóa chết cổng phân
     // quyền trong im lặng — nút "Write Requirement" không bao giờ sáng, không gì trên màn hình nói vì sao.

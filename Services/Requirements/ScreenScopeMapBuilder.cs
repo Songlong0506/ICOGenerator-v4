@@ -17,7 +17,9 @@ namespace ICOGenerator.Services.Requirements;
 ///   <item><b>Màn hình bịa.</b> Mọi dòng phải khớp một mục của danh sách cho phép, và luôn lấy lại đúng chữ
 ///   của danh sách đó chứ không chữ của model. Lượt BÀY BẢNG đối chiếu với phạm vi đã chắt
 ///   (<see cref="Build"/>); đường GỬI đối chiếu với chính bảng server đã render (<see cref="Sanitize"/>) —
-///   hai danh sách khác nhau, và trộn chúng là lỗi câm, xem <c>ConfirmScreenScopeUseCase</c>.</item>
+///   hai danh sách khác nhau, và trộn chúng là lỗi câm, xem <c>ConfirmScreenScopeUseCase</c>. Ngoại lệ DUY
+///   NHẤT: dòng người dùng TỰ THÊM bằng nút "thêm màn hình" — chốt chặn này dựng để chặn model, không phải
+///   để chặn người dùng, xem <see cref="ScreenScopeRow.AddedByUser"/>.</item>
 ///   <item><b>Màn hình bị bỏ quên.</b> Mục phạm vi model không nhắc tới vẫn được BỔ SUNG vào cuối bảng —
 ///   ở trạng thái TÍCH SẴN như mọi dòng khác, vì "BA quên nêu" không phải "người dùng đã loại". Bỏ nó đi
 ///   là ra một quyết định thay người dùng ở đúng chỗ họ không nhìn thấy để phản đối. Ngoại lệ DUY NHẤT:
@@ -65,13 +67,15 @@ public static class ScreenScopeMapBuilder
     /// </para>
     /// </summary>
     public static List<ScreenScopeRow> Build(IEnumerable<ScreenScopeRow>? proposed, IReadOnlyList<string> plannedScope)
-        => BuildCore(proposed, plannedScope, respectIncluded: false);
+        => BuildCore(proposed, plannedScope, respectIncluded: false, acceptUserAdded: false);
 
     /// <summary>
     /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT. Server không tin bảng client gửi kể cả khi chính nó
     /// vừa render ra: tên màn hình vẫn phải khớp lại <paramref name="allowedScreens"/>. Khác
     /// <see cref="Build"/>: giữ đúng lựa chọn tích/bỏ tích của người dùng ở CẢ hai cấp (màn hình và chức
-    /// năng), và xoá cờ khóa (bảng đã gửi thì mọi dòng là quyết định của họ).
+    /// năng), xoá cờ khóa (bảng đã gửi thì mọi dòng là quyết định của họ), và NHẬN các dòng người dùng TỰ
+    /// THÊM dù chúng không có trong <paramref name="allowedScreens"/> — xem
+    /// <see cref="ScreenScopeRow.AddedByUser"/>. Dòng tự thêm xếp SAU CÙNG, đúng chỗ chúng đứng trên bảng.
     ///
     /// <para>
     /// <paramref name="allowedScreens"/> phải là danh sách màn hình của CHÍNH BẢNG SERVER ĐÃ RENDER, không
@@ -85,9 +89,12 @@ public static class ScreenScopeMapBuilder
     /// </summary>
     public static List<ScreenScopeRow> Sanitize(IEnumerable<ScreenScopeRow>? submitted, IReadOnlyList<string> allowedScreens)
     {
-        var rows = BuildCore(submitted, allowedScreens, respectIncluded: true);
+        var rows = BuildCore(submitted, allowedScreens, respectIncluded: true, acceptUserAdded: true);
         foreach (var row in rows)
         {
+            // Cờ khóa bị xoá, cờ TỰ THÊM thì không: cái trước là lời khai của model về hội thoại (hết ý
+            // nghĩa khi người dùng đã tự tay duyệt), cái sau là một sự thật về nguồn gốc của dòng mà
+            // RenderUserMessage còn phải kể lại.
             row.Locked = false;
             row.Evidence = string.Empty;
             foreach (var function in row.Functions)
@@ -102,37 +109,51 @@ public static class ScreenScopeMapBuilder
     private static List<ScreenScopeRow> BuildCore(
         IEnumerable<ScreenScopeRow>? proposed,
         IReadOnlyList<string> allowedScreens,
-        bool respectIncluded)
+        bool respectIncluded,
+        bool acceptUserAdded)
     {
         var screens = CleanScreens(allowedScreens);
-        if (screens.Count == 0)
+        // Danh sách cho phép rỗng ⇒ không có gì để hỏi. Trừ khi payload chở dòng người dùng TỰ THÊM: lúc đó
+        // bảng vẫn có nội dung thật, và trả rỗng ở đây là nuốt đúng phần họ vừa gõ.
+        if (screens.Count == 0 && !acceptUserAdded)
             return new List<ScreenScopeRow>();
 
         var byScreen = new Dictionary<string, ScreenScopeRow>(StringComparer.Ordinal);
+        var added = new List<ScreenScopeRow>();
+        var addedKeys = new HashSet<string>(StringComparer.Ordinal);
+
         foreach (var row in proposed ?? Enumerable.Empty<ScreenScopeRow>())
         {
             if (row == null)
                 continue;
 
             var screen = MatchScreen(row.Screen, screens);
-            if (screen == null || byScreen.ContainsKey(screen))
+            if (screen == null)
+            {
+                // MÀN HÌNH NGƯỜI DÙNG TỰ THÊM. Chốt chặn "màn hình bịa" dựng để chặn MODEL, nên nó phải
+                // nhường ở đúng chỗ này: người dùng là người có thẩm quyền về phạm vi, và một dòng họ vừa
+                // tự gõ rồi bấm gửi mà biến mất trong im lặng là đúng loại quyết định thay họ mà cả bảng
+                // sinh ra để chặn. Mọi giới hạn khác vẫn áp: tên bị cắt theo trần, trùng thì bỏ, và cả bảng
+                // vẫn không vượt MaxRows.
+                if (!acceptUserAdded || !row.AddedByUser)
+                    continue;
+
+                var name = Clip((row.Screen ?? string.Empty).Trim(), MaxTextChars);
+                if (name.Length == 0 || !addedKeys.Add(Normalize(name)))
+                    continue;
+
+                added.Add(NewRow(row, name, respectIncluded, addedByUser: true));
+                continue;
+            }
+
+            if (byScreen.ContainsKey(screen))
                 continue;
 
-            var evidence = Clip((row.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
-            byScreen[screen] = new ScreenScopeRow
-            {
-                Screen = screen, // chữ của DANH SÁCH CHO PHÉP, không phải chữ của model
-                Purpose = Clip((row.Purpose ?? string.Empty).Trim(), MaxTextChars),
-                Functions = CleanFunctions(row.Functions, respectIncluded),
-                Covers = CleanCovers(row.Covers, screen),
-                Included = !respectIncluded || row.Included,
-                // LUẬT BẰNG CHỨNG — cờ suông không khóa được dòng nào. Xem PermissionGrant.Locked.
-                Locked = evidence.Length > 0,
-                Evidence = evidence
-            };
+            // chữ của DANH SÁCH CHO PHÉP, không phải chữ của model
+            byScreen[screen] = NewRow(row, screen, respectIncluded, addedByUser: false);
         }
 
-        var covered = CoveredScopeItems(byScreen.Values, screens);
+        var covered = CoveredScopeItems(byScreen.Values.Concat(added), screens);
 
         var result = new List<ScreenScopeRow>();
         foreach (var screen in screens)
@@ -150,7 +171,34 @@ public static class ScreenScopeMapBuilder
                 break;
         }
 
+        // Dòng tự thêm xếp SAU CÙNG — đúng chỗ chúng đứng trên bảng, và cũng là thứ tự đọc dễ nhất khi
+        // người dùng đối chiếu tin nhắn kể lại với cái họ vừa gõ.
+        foreach (var row in added)
+        {
+            if (result.Count >= MaxRows)
+                break;
+            result.Add(row);
+        }
+
         return result;
+    }
+
+    /// <summary>Một dòng đã chuẩn hoá, dùng chung cho dòng khớp danh sách cho phép và dòng người dùng tự thêm.</summary>
+    private static ScreenScopeRow NewRow(ScreenScopeRow source, string screen, bool respectIncluded, bool addedByUser)
+    {
+        var evidence = Clip((source.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
+        return new ScreenScopeRow
+        {
+            Screen = screen,
+            Purpose = Clip((source.Purpose ?? string.Empty).Trim(), MaxTextChars),
+            Functions = CleanFunctions(source.Functions, respectIncluded),
+            Covers = CleanCovers(source.Covers, screen),
+            Included = !respectIncluded || source.Included,
+            // LUẬT BẰNG CHỨNG — cờ suông không khóa được dòng nào. Xem PermissionGrant.Locked.
+            Locked = evidence.Length > 0,
+            Evidence = evidence,
+            AddedByUser = addedByUser
+        };
     }
 
     /// <summary>
@@ -461,6 +509,17 @@ public static class ScreenScopeMapBuilder
                 sb.AppendLine($"  (mình gộp vào màn này: {string.Join(", ", row.Covers)})");
         }
 
+        // Màn hình TỰ THÊM cũng phải được gọi tên, cùng lý do với các dòng bị loại: đây là chỗ bảng khác đi
+        // so với thứ BA vừa bày ra, và mọi tầng chắt lọc phía sau đọc bản kể này chứ không đọc cột DB. Nói
+        // rõ nguồn gốc còn giữ cho BA khỏi hỏi lại "màn này ở đâu ra" ở lượt kế.
+        var addedByUser = rows.Where(r => r.Included && r.AddedByUser).ToList();
+        if (addedByUser.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Các màn hình mình tự bổ sung vào bảng: "
+                + string.Join(", ", addedByUser.Select(r => r.Screen)) + ".");
+        }
+
         // Màn hình và chức năng bị loại phải được NÓI RA — cùng lý do bảng cột gọi tên cả cột bị bỏ tích:
         // im lặng thì người dùng không có bằng chứng nào cho thấy mình vừa loại đúng thứ định loại.
         var dropped = rows.Where(r => !r.Included).ToList();
@@ -505,8 +564,8 @@ public static class ScreenScopeMapBuilder
         return result;
     }
 
-    // Chức năng KHÔNG có tên thì không có gì để tích: bỏ. Đây cũng là đường mà dòng trống "thêm chức năng…"
-    // của giao diện đi ra — người dùng không gõ gì vào nó thì nó không thành một chức năng.
+    // Chức năng KHÔNG có tên thì không có gì để tích: bỏ. Đây cũng là đường mà dòng người dùng thêm bằng nút
+    // "+ thêm chức năng" rồi bỏ trống đi ra — bấm thêm mà không gõ gì thì nó không thành một chức năng.
     private static List<ScreenFunction> CleanFunctions(IEnumerable<ScreenFunction>? proposed, bool respectIncluded)
     {
         var result = new List<ScreenFunction>();
