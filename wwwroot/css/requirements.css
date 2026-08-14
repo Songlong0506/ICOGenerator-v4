@@ -2152,12 +2152,56 @@
 .flowmap-th-action { min-width: 220px; }
 .flowmap-th-outcome { min-width: 200px; width: 100%; }
 
-.screenmap-th-name { min-width: 150px; }
+.screenmap-th-name { min-width: 180px; }
 .screenmap-th-purpose { min-width: 200px; }
-.screenmap-th-fn { min-width: 190px; }
 /* Cột cuối NUỐT phần thừa — bảng là display:block để cuộn ngang được, không cột nào giãn thì các cột co
    lại và chừa một khoảng trống bên phải trông như bảng bị vỡ. Cùng luật với .permmap-th-cond. */
-.screenmap-th-steps { min-width: 200px; width: 100%; }
+.screenmap-th-fn { min-width: 340px; width: 100%; }
+.screenmap-th-steps { min-width: 200px; }
+
+/* Chú thích cột: nói cho người dùng ô bên phải của bảng con là gì mà không phải đẻ thêm một hàng tiêu đề
+   lặp lại ở mỗi màn hình. */
+.screenmap-th-note { font-weight: 400; color: #6b7280; }
+
+/* Tên màn hình đứng trên ô "để làm gì" thay vì chiếm một CỘT riêng: bảng chỉ còn ba cột (Cần · Màn hình ·
+   Chức năng) nên phần chức năng — thứ người dùng phải rà kỹ nhất — được cả nửa bảng bên phải. */
+.screenmap-name { font-weight: 600; margin-bottom: 4px; }
+
+/* Các mục phạm vi đã GỘP vào màn này. Phải hiện ra: một mục rời khỏi danh sách màn hình mà người dùng không
+   nhìn thấy là đúng loại quyết định thay họ mà cả bảng này sinh ra để chặn. */
+.screenmap-covers { margin-top: 4px; font-size: 11px; line-height: 1.5; color: #6b7280; font-style: italic; }
+
+/* BẢNG CON CHỨC NĂNG: mỗi chức năng một dòng, mỗi dòng một ô tích. Không viền ngoài, không nền — nó nằm
+   trong một ô của bảng cha, nên thêm một khung nữa chỉ làm mắt phải phân biệt hai lớp bảng. */
+.screenmap-fncell { padding: 4px 6px !important; }
+
+.screenmap-fntable {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+    .screenmap-fntable td {
+        padding: 2px 4px;
+        border: 0;
+        vertical-align: top;
+    }
+
+    /* Dòng chức năng cách nhau bằng một vạch mảnh: không có nó thì mấy ô nhập liền nhau trông như một khối
+       và người dùng không thấy ô tích nào đi với ô chữ nào. */
+    .screenmap-fntable tr + tr td { border-top: 1px dashed #eef1f5; }
+
+    .screenmap-fntable .flowmap-use { width: 44px; white-space: nowrap; }
+
+/* Dấu ✓ của chức năng đứng CẠNH ô tích (không thay nó, khác bảng phân quyền): người dùng vẫn phải bỏ tích
+   được một việc chính họ từng kể ra. Thu nhỏ để cột đầu không nở ra vì một cái nhãn. */
+.screenfn-proof { margin-left: 2px; padding: 0 3px; font-size: 10px; }
+
+/* Chức năng bị bỏ tích mờ đi ngay tại dòng của nó — cùng luật với dòng bỏ tích của các bảng khác. */
+.screenmap-fn-row:has(input[type="checkbox"].screenfn-check:not(:checked)) .permmap-cellinput {
+    color: #9aa3af;
+    text-decoration: line-through;
+}
 
 /* Dòng nhắc của phép kiểm TẤT ĐỊNH luồng ⇄ màn hình. Màu cảnh báo chứ không màu lỗi: một bước chưa có màn
    hình phụ trách là một CÂU HỎI (bước thừa, hay màn hình thiếu?), không phải một lỗi để khóa nút gửi. */

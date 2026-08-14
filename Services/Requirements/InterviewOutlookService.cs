@@ -15,9 +15,13 @@ namespace ICOGenerator.Services.Requirements;
 ///  • <b>OpenQuestions</b> — điểm còn mơ hồ/mâu thuẫn chưa chốt: TỒN ĐỌNG câu hỏi được nạp vào ngữ cảnh lượt
 ///    chat sau (<see cref="BAChatService"/>) để BA hỏi cho hết ngay trong khung chat, không hiện thành panel
 ///    bắt user tự đọc (mục được chốt thì tự rời danh sách ở lượt sau).
-///  • <b>PlannedScope</b> — các màn hình/tính năng dự kiến, dựng dần theo hội thoại; cũng KHÔNG có panel
-///    (danh sách suy đoán, user không sửa tại chỗ được), chỉ làm ngữ cảnh cho
-///    <see cref="RequirementConflictService"/> soát mâu thuẫn.
+///  • <b>PlannedScope</b> — các MÀN HÌNH dự kiến, dựng dần theo hội thoại; cũng KHÔNG có panel (danh sách suy
+///    đoán, user không sửa tại chỗ được), làm ngữ cảnh cho <see cref="RequirementConflictService"/> soát mâu
+///    thuẫn và làm nguồn DÒNG cho bảng màn hình (<see cref="ScreenScopeMapBuilder"/>) rồi bảng phân quyền.
+///    Vì là nguồn dòng nên danh sách này CHỈ được chứa màn hình: một mục kiểu "Tính năng X từ màn Y" lọt vào
+///    sẽ thành một dòng phân quyền và một màn hình của bản demo, trong khi nó vốn là một cái nút trên màn Y.
+///    Luật đó sống trong prompt <c>interview-outlook.v1.md</c>; ở tầng bảng, thứ dọn nốt phần lọt lưới là
+///    <see cref="ScreenScopeRow.Covers"/>.
 ///  • <b>WorkedExamples</b> — các ví dụ tính thử người dùng ĐÃ xác nhận cho quy tắc định lượng; nguồn để bước
 ///    sinh AI Design Spec đúc thành "## 13. Worked Examples" và POC tự kiểm (window.pocWorkedExamples) đối
 ///    chiếu ĐỘC LẬP: kỳ vọng do user chốt (trong spec), giá trị do chính POC tính ra.
@@ -115,7 +119,7 @@ public class InterviewOutlookService
         sb.AppendLine("## Ba danh sách hiện có (cập nhật cùng các lượt mới bên dưới; mục đã được chốt/giải quyết thì BỎ khỏi OpenQuestions)");
         sb.AppendLine("### Điểm cần làm rõ hiện có");
         sb.AppendLine(string.IsNullOrWhiteSpace(project.OpenQuestions) ? "(chưa có)" : project.OpenQuestions.Trim());
-        sb.AppendLine("### Màn hình/tính năng dự kiến hiện có");
+        sb.AppendLine("### Màn hình dự kiến hiện có (danh sách này CHỈ chứa màn hình — mục nào đang là chức năng/luồng thì gộp lại)");
         sb.AppendLine(string.IsNullOrWhiteSpace(project.PlannedScope) ? "(chưa có)" : project.PlannedScope.Trim());
         sb.AppendLine("### Ví dụ tính thử đã xác nhận hiện có");
         sb.AppendLine(string.IsNullOrWhiteSpace(project.WorkedExamples) ? "(chưa có)" : project.WorkedExamples.Trim());

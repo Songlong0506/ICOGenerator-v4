@@ -414,8 +414,15 @@ public class RequirementsController : Controller
                             {
                                 screen = r.Screen,
                                 purpose = r.Purpose,
-                                functions = r.Functions,
-                                flowSteps = r.FlowSteps,
+                                functions = r.Functions.Select(f => new
+                                {
+                                    name = f.Name,
+                                    flowSteps = f.FlowSteps,
+                                    included = f.Included,
+                                    locked = f.Locked,
+                                    evidence = f.Evidence
+                                }),
+                                covers = r.Covers,
                                 included = r.Included,
                                 locked = r.Locked,
                                 evidence = r.Evidence

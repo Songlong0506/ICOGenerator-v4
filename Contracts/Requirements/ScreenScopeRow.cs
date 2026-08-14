@@ -1,8 +1,62 @@
 namespace ICOGenerator.Contracts.Requirements;
 
 /// <summary>
-/// MỘT dòng của "bảng màn hình": một màn hình/tính năng dự kiến của ứng dụng, việc nó làm, các chức năng
-/// trên đó, và các BƯỚC LUỒNG mà nó phục vụ.
+/// MỘT chức năng trên một màn hình — dòng con của <see cref="ScreenScopeRow"/>, và là đơn vị mà người dùng
+/// tích / bỏ tích.
+///
+/// <para>
+/// Trước đây mọi chức năng của một màn hình nằm chung trong MỘT ô text ngăn bằng dấu phẩy. Ô đó đọc thì
+/// được, nhưng nó chở một quyết định mà không ai bấm được: muốn loại đúng một chức năng, người dùng phải
+/// sửa tay giữa một chuỗi chữ — thao tác đó không để lại dấu vết nào máy đọc được — còn bỏ tích cả màn hình
+/// thì mất luôn những chức năng họ vẫn cần. Tách thành dòng con là để mỗi chức năng có ô tích của riêng nó,
+/// đúng đơn vị người dùng thật sự muốn giữ hay bỏ.
+/// </para>
+///
+/// <para>
+/// <see cref="FlowSteps"/> nằm ở ĐÂY chứ không ở cấp màn hình, vì một bước luồng được thực hiện bởi một
+/// CHỨC NĂNG chứ không phải bởi cả màn hình: "Submit kế hoạch cho HoD HR duyệt" là việc của nút gửi duyệt
+/// trên Training Implement, không phải của cả trang. Gắn đúng cấp làm phép kiểm ở
+/// <c>ScreenScopeMapBuilder.UncoveredActions</c> chặt hơn hẳn bản cũ: bỏ tích một chức năng thì bước nó
+/// phụ trách lập tức thành bước chưa ai làm, và người dùng thấy điều đó ngay lúc bảng còn trên màn hình.
+/// </para>
+/// </summary>
+public class ScreenFunction
+{
+    /// <summary>Tên chức năng theo góc nhìn nghiệp vụ ("Xem danh sách lớp", "Chỉnh số lớp", "Gửi duyệt").</summary>
+    public string Name { get; set; } = "";
+
+    /// <summary>
+    /// Các BƯỚC của bảng luồng đã chốt mà chức năng này phụ trách (chép phần <c>action</c> của bước). Rỗng
+    /// là hợp lệ với chức năng tra cứu/báo cáo không nằm trong luồng nào.
+    /// </summary>
+    public List<string> FlowSteps { get; set; } = new();
+
+    /// <summary>
+    /// Chức năng này có thuộc ứng dụng không. BA TÍCH SẴN theo đề xuất của mình; người dùng bỏ tích thứ họ
+    /// không cần. Bỏ tích chứ không xóa: dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi.
+    /// </summary>
+    public bool Included { get; set; } = true;
+
+    /// <summary>
+    /// Chức năng này có BẰNG CHỨNG trong hội thoại ⇒ hiện dấu ✓ kèm trích dẫn. Cùng luật bằng chứng với
+    /// <see cref="PermissionGrant.Locked"/>: không có trích dẫn thì không có cờ.
+    ///
+    /// <para>
+    /// Khác một điểm với ô khóa của bảng phân quyền, và đây là chủ ý: bằng chứng ở đây KHÔNG khóa ô tích.
+    /// "Người dùng từng nhắc tới chức năng này" và "người dùng muốn ứng dụng có chức năng này" là hai điều
+    /// khác nhau — họ hoàn toàn có thể kể ra một việc rồi quyết định không đưa vào bản này. Khóa ô tích ở đó
+    /// là biến một câu kể thành một quyết định không rút lại được, đúng lỗi mà cả bảng sinh ra để chữa.
+    /// Bằng chứng vì vậy chỉ làm hai việc: tích sẵn, và nói cho người dùng biết vì sao nó được tích sẵn.
+    /// </para>
+    /// </summary>
+    public bool Locked { get; set; }
+
+    /// <summary>Trích dẫn ngắn từ hội thoại — chỉ có nghĩa khi <see cref="Locked"/>.</summary>
+    public string Evidence { get; set; } = "";
+}
+
+/// <summary>
+/// MỘT dòng của "bảng màn hình": một MÀN HÌNH dự kiến của ứng dụng, việc nó làm, và các chức năng trên đó.
 ///
 /// <para>
 /// Vì sao bảng này tồn tại, và vì sao nó phải đứng TRƯỚC bảng phân quyền: các DÒNG của bảng phân quyền lấy
@@ -14,10 +68,12 @@ namespace ICOGenerator.Contracts.Requirements;
 /// </para>
 ///
 /// <para>
-/// <see cref="FlowSteps"/> là phần trả tiền nhiều nhất của dòng này. Nó cho một phép kiểm TẤT ĐỊNH mà
-/// không cần lời gọi LLM nào: mọi bước của bảng luồng đã chốt phải được ít nhất một màn hình phụ trách, và
-/// một màn hình không phục vụ bước nào là dấu hiệu hoặc nó thừa, hoặc còn một luồng chưa được hỏi. Cả hai
-/// đều là lỗi mà đọc riêng từng danh sách không thấy được.
+/// Dòng của bảng là MÀN HÌNH, không phải "màn hình hoặc tính năng". Ranh giới đó là chốt chặn chứ không
+/// phải chuyện chữ nghĩa: cột <see cref="Screen"/> là khóa nối sang bảng phân quyền và sang các màn của bản
+/// demo, nên một mục kiểu "Tính năng Generate Training Implement từ Training Plan Detail" hay "Luồng đăng ký
+/// khóa học với trạng thái pending/enroll/waitlist" lọt vào đây sẽ thành một dòng phân quyền và một màn
+/// hình POC — trong khi nó vốn là CHỨC NĂNG của một màn hình đã có. Chỗ đúng của chúng là
+/// <see cref="Functions"/>, và <see cref="Covers"/> là cách nói ra rằng chúng đã được gộp vào đâu.
 /// </para>
 /// </summary>
 public class ScreenScopeRow
@@ -38,19 +94,24 @@ public class ScreenScopeRow
     public string Purpose { get; set; } = "";
 
     /// <summary>
-    /// Các chức năng chính trên màn hình, viết liền một dòng ngăn bằng dấu phẩy ("Xem danh sách, Tạo mới,
-    /// Duyệt"). Cố ý là MỘT ô text sửa được chứ không phải một danh sách con: đây là bảng để rà PHẠM VI,
-    /// còn quyền của từng chức năng theo từng vai là việc của bảng phân quyền ngay sau đó — tách hai việc
-    /// ra là điều kiện để cả hai bảng còn đọc được trên một màn hình.
+    /// Các chức năng trên màn hình, MỖI CHỨC NĂNG MỘT DÒNG có ô tích riêng — xem <see cref="ScreenFunction"/>
+    /// cho lý do tách khỏi ô text cũ, và vì sao bước luồng nằm ở cấp này.
     /// </summary>
-    public string Functions { get; set; } = "";
+    public List<ScreenFunction> Functions { get; set; } = new();
 
     /// <summary>
-    /// Các BƯỚC của bảng luồng mà màn hình này phục vụ, mỗi bước một mục (chép phần <c>action</c> của bước).
-    /// Rỗng là hợp lệ với màn hình tra cứu/báo cáo không nằm trong luồng nào — nhưng khi bảng luồng đã chốt
-    /// mà một bước không được màn hình nào nhắc tới thì UI nói thẳng ra, xem <c>ScreenScopeMapBuilder</c>.
+    /// Các MỤC PHẠM VI đã được gộp vào màn hình này thay vì đứng thành dòng riêng — thứ mà lượt chắt lọc trả
+    /// về dưới dạng "Tính năng …" / "Luồng …" nhưng thực chất là chức năng của màn hình này.
+    ///
+    /// <para>
+    /// Không có trường này thì việc gộp không thể xảy ra: <c>ScreenScopeMapBuilder</c> BỔ SUNG mọi mục phạm
+    /// vi mà không dòng nào nhắc tới (chốt chặn "màn hình bị bỏ quên"), nên một mục vừa được gộp vào cột
+    /// chức năng sẽ lập tức mọc lại thành một dòng trắng ngay bên dưới. <see cref="Covers"/> là lời khai
+    /// tất định "mục này đã có chỗ rồi", và nó phải hiện trên bảng: một mục biến mất khỏi phạm vi mà người
+    /// dùng không nhìn thấy là đúng loại quyết định thay họ mà cả bảng này sinh ra để chặn.
+    /// </para>
     /// </summary>
-    public List<string> FlowSteps { get; set; } = new();
+    public List<string> Covers { get; set; } = new();
 
     /// <summary>
     /// Màn hình này có thuộc ứng dụng không. BA TÍCH SẴN theo đề xuất của mình; người dùng bỏ tích thứ họ
@@ -60,9 +121,10 @@ public class ScreenScopeRow
     public bool Included { get; set; } = true;
 
     /// <summary>
-    /// Dòng có BẰNG CHỨNG trong hội thoại ⇒ khóa (hiện ✓ + tooltip trích dẫn). Cùng luật bằng chứng với
+    /// Dòng có BẰNG CHỨNG trong hội thoại ⇒ hiện ✓ + tooltip trích dẫn. Cùng luật bằng chứng với
     /// <see cref="PermissionGrant.Locked"/>: server không nhận lời tuyên bố "người dùng đã nói điều này" từ
-    /// một lá cờ, phải có trích dẫn đi kèm.
+    /// một lá cờ, phải có trích dẫn đi kèm. Và cùng luật với <see cref="ScreenFunction.Locked"/>, cờ này
+    /// KHÔNG khóa ô tích — người dùng vẫn phải loại được một màn hình chính họ từng nhắc tới.
     /// </summary>
     public bool Locked { get; set; }
 

@@ -194,6 +194,116 @@ public class InterviewTableBuilderTests
         Assert.False(rows.Single(r => r.Screen == "Màn hình Training Plan").Locked);
     }
 
+    // Cờ `included` là chỗ NGƯỜI DÙNG loại một chức năng, không phải chỗ model tự phủ nhận đề xuất của
+    // mình. Structured output buộc điền đủ trường, nên một model điền false cho có sẽ bày ra một bảng bỏ
+    // tích sạch và người dùng gửi đi một phạm vi rỗng trong khi tưởng vừa xác nhận cả ứng dụng.
+    [Fact]
+    public void ScreenScope_TicksEveryFunctionOnTheProposalPath()
+    {
+        var rows = ScreenScopeMapBuilder.Build(new[]
+        {
+            new ScreenScopeRow
+            {
+                Screen = "Màn hình Training Plan",
+                Functions = new List<ScreenFunction>
+                {
+                    new() { Name = "Xem danh sách", Included = false },
+                    new() { Name = "Tạo version plan", Included = false }
+                }
+            }
+        }, Scope);
+
+        Assert.All(rows.Single(r => r.Screen == "Màn hình Training Plan").Functions, f => Assert.True(f.Included));
+    }
+
+    // Đường GỬI thì ngược lại: bỏ tích là quyết định của người dùng và phải được giữ nguyên. Dòng chức năng
+    // TRỐNG (chỗ "thêm chức năng…" của giao diện) không có tên nên không phải một chức năng — bỏ đi.
+    [Fact]
+    public void ScreenScope_KeepsFunctionChoicesAndDropsBlankRowsOnTheSubmitPath()
+    {
+        var rows = ScreenScopeMapBuilder.Sanitize(new[]
+        {
+            new ScreenScopeRow
+            {
+                Screen = "Màn hình Training Plan",
+                Included = true,
+                Functions = new List<ScreenFunction>
+                {
+                    new() { Name = "Xem danh sách", Included = true },
+                    new() { Name = "Xóa version plan", Included = false },
+                    new() { Name = "   ", Included = true }
+                }
+            }
+        }, Scope);
+
+        var functions = rows.Single(r => r.Screen == "Màn hình Training Plan").Functions;
+        Assert.Equal(2, functions.Count);
+        Assert.True(functions.Single(f => f.Name == "Xem danh sách").Included);
+        Assert.False(functions.Single(f => f.Name == "Xóa version plan").Included);
+    }
+
+    // GỘP: mục phạm vi thực ra là một chức năng của màn hình khác thì nó nằm ở cột chức năng, KHÔNG mọc
+    // thành một dòng riêng. Không có `covers` thì chốt chặn "màn hình bị bỏ quên" bổ sung nó lại ngay bên
+    // dưới — và cột "Màn hình" quay về đúng cái mớ lẫn màn hình/tính năng/luồng mà bảng này phải dọn.
+    [Fact]
+    public void ScreenScope_FoldsScopeItemsAnotherRowClaimedToCover()
+    {
+        var scope = new List<string>
+        {
+            "Trang Training Plan Detail",
+            "Tính năng Generate Training Implement từ Training Plan Detail"
+        };
+
+        var rows = ScreenScopeMapBuilder.Build(new[]
+        {
+            new ScreenScopeRow
+            {
+                Screen = "Trang Training Plan Detail",
+                Functions = new List<ScreenFunction> { new() { Name = "Generate Training Implement" } },
+                Covers = new List<string> { "Tính năng Generate Training Implement từ Training Plan Detail" }
+            }
+        }, scope);
+
+        Assert.Equal(new[] { "Trang Training Plan Detail" }, rows.Select(r => r.Screen));
+        Assert.Equal("Generate Training Implement", Assert.Single(rows[0].Functions).Name);
+    }
+
+    // Lời khai gộp KHÔNG được làm biến mất một màn hình có dòng của chính nó: dòng luôn thắng. Nếu không,
+    // model chỉ cần khai bừa một tên vào `covers` là cả một màn hình rời khỏi phạm vi trong im lặng.
+    [Fact]
+    public void ScreenScope_KeepsAScreenThatOwnsItsRow_EvenWhenAnotherRowClaimsToCoverIt()
+    {
+        var rows = ScreenScopeMapBuilder.Build(new[]
+        {
+            new ScreenScopeRow { Screen = "Màn hình Training Plan", Covers = new List<string> { "Trang duyệt của HOD" } },
+            new ScreenScopeRow { Screen = "Trang duyệt của HOD" }
+        }, Scope);
+
+        Assert.Equal(Scope, rows.Select(r => r.Screen));
+    }
+
+    // Mục đã gộp không được QUAY LẠI ở lượt sau. Lượt chắt lọc PlannedScope là một lời gọi LLM chạy độc
+    // lập với bảng, nên nó vẫn giữ mãi mục cũ; phép lọc này là thứ bảo đảm nó không mọc lại thành một dòng
+    // của bảng phân quyền và một màn hình của bản demo.
+    [Fact]
+    public void ScreenScope_EffectiveScreensDoesNotResurrectCoveredItems()
+    {
+        const string confirmed = """
+            [{"screen":"Trang Training Plan Detail","included":true,
+              "covers":["Tính năng Generate Training Implement từ Training Plan Detail"]}]
+            """;
+        var laterScope = new List<string>
+        {
+            "Trang Training Plan Detail",
+            "Tính năng Generate Training Implement từ Training Plan Detail",
+            "Báo cáo tổng hợp"
+        };
+
+        var screens = ScreenScopeMapBuilder.EffectiveScreens(confirmed, laterScope);
+
+        Assert.Equal(new[] { "Trang Training Plan Detail", "Báo cáo tổng hợp" }, screens);
+    }
+
     // Phạm vi HIỆU LỰC sau khi bảng chốt: các dòng người dùng GIỮ, cộng mục mới lộ ra sau đó. Mục họ đã
     // bỏ tích không bao giờ quay lại — lượt chắt lọc PlannedScope không đọc bảng nên nó vẫn giữ mục đó
     // mãi, và mở lại thứ họ vừa đóng là đúng lỗi mà bảng cột đã cấm.
@@ -252,10 +362,10 @@ public class InterviewTableBuilderTests
         Assert.Null(FlowMapBuilder.RenderConfirmedBlock(System.Text.Json.JsonSerializer.Serialize(rows)));
     }
 
-    // PHÉP KIỂM MỐI NỐI: hai bảng đọc riêng đều "đạt", chỗ hỏng nằm ở chỗ nối. Một bước không màn hình nào
+    // PHÉP KIỂM MỐI NỐI: hai bảng đọc riêng đều "đạt", chỗ hỏng nằm ở chỗ nối. Một bước không chức năng nào
     // phụ trách nghĩa là hoặc người dùng không có chỗ nào để làm bước đó, hoặc bước đó không có thật.
     [Fact]
-    public void ScreenScope_ReportsFlowStepsNoScreenCovers()
+    public void ScreenScope_ReportsFlowStepsNoFunctionCovers()
     {
         const string flowMap = """
             [{"name":"Đăng ký","kind":"luồng chính","steps":[
@@ -264,12 +374,45 @@ public class InterviewTableBuilderTests
             """;
         var rows = new List<ScreenScopeRow>
         {
-            new() { Screen = "Màn hình Training Plan", Included = true, FlowSteps = new List<string> { "Gửi đơn đăng ký" } }
+            new()
+            {
+                Screen = "Màn hình Training Plan",
+                Included = true,
+                Functions = new List<ScreenFunction> { Fn("Gửi đơn", "Gửi đơn đăng ký") }
+            }
         };
 
         var uncovered = ScreenScopeMapBuilder.UncoveredActions(rows, flowMap);
 
         Assert.Equal(new[] { "Duyệt đơn đăng ký" }, uncovered);
+    }
+
+    // Vì sao bước phải nằm ở CẤP CHỨC NĂNG: bỏ tích một chức năng là bỏ luôn phần việc nó gánh, nên bước
+    // của nó phải lập tức hiện ra là chưa ai làm. Bản cũ gắn bước ở cấp màn hình nên người dùng bỏ đúng
+    // chức năng chở bước đó mà cả bảng vẫn báo "đủ".
+    [Fact]
+    public void ScreenScope_ReportsStepsOfFunctionsTheUserUnticked()
+    {
+        const string flowMap = """
+            [{"name":"Đăng ký","kind":"luồng chính","steps":[
+              {"action":"Gửi đơn đăng ký","included":true},
+              {"action":"Duyệt đơn đăng ký","included":true}]}]
+            """;
+        var rows = new List<ScreenScopeRow>
+        {
+            new()
+            {
+                Screen = "Màn hình Training Plan",
+                Included = true,
+                Functions = new List<ScreenFunction>
+                {
+                    Fn("Gửi đơn", "Gửi đơn đăng ký"),
+                    new() { Name = "Duyệt đơn", Included = false, FlowSteps = new List<string> { "Duyệt đơn đăng ký" } }
+                }
+            }
+        };
+
+        Assert.Equal(new[] { "Duyệt đơn đăng ký" }, ScreenScopeMapBuilder.UncoveredActions(rows, flowMap));
     }
 
     // So khớp bằng CHỨA-NHAU sau chuẩn hoá: người dùng sửa ô "phục vụ bước" bằng lời của họ, và một phép
@@ -284,8 +427,8 @@ public class InterviewTableBuilderTests
             """;
         var rows = new List<ScreenScopeRow>
         {
-            new() { Screen = "A", Included = true, FlowSteps = new List<string> { "nhân viên gửi đơn đăng ký khóa học" } },
-            new() { Screen = "B", Included = true, FlowSteps = new List<string> { "duyệt đơn" } }
+            new() { Screen = "A", Included = true, Functions = new List<ScreenFunction> { Fn("Đăng ký", "nhân viên gửi đơn đăng ký khóa học") } },
+            new() { Screen = "B", Included = true, Functions = new List<ScreenFunction> { Fn("Duyệt", "duyệt đơn") } }
         };
 
         Assert.Empty(ScreenScopeMapBuilder.UncoveredActions(rows, flowMap));
@@ -303,11 +446,36 @@ public class InterviewTableBuilderTests
             """;
         var rows = new List<ScreenScopeRow>
         {
-            new() { Screen = "A", Included = true, FlowSteps = new List<string> { "Gửi đơn" } }
+            new() { Screen = "A", Included = true, Functions = new List<ScreenFunction> { Fn("Gửi đơn", "Gửi đơn") } }
         };
 
         Assert.Empty(ScreenScopeMapBuilder.UncoveredActions(rows, flowMap));
     }
+
+    // BẢN CŨ ĐỌC LẠI ĐƯỢC. Hồi cột chức năng còn là một ô text, dòng được lưu dạng "Functions": "Xem, Tạo"
+    // kèm "FlowSteps" ở cấp màn hình (và ở PascalCase, vì cột DB serialize bằng options mặc định).
+    // Deserialize thẳng thì kiểu không khớp ⇒ trả mảng rỗng ⇒ một dự án ĐÃ chốt bảng bỗng bị coi như chưa
+    // chốt: cổng bảng phân quyền mở lại và khối "bảng đã chốt" biến khỏi ngữ cảnh, tất cả trong im lặng.
+    [Fact]
+    public void ScreenScope_ParsesRowsWrittenBeforeFunctionsBecameRows()
+    {
+        const string legacy = """
+            [{"Screen":"Màn hình Training Plan","Purpose":"Lập kế hoạch",
+              "Functions":"Xem danh sách, Tạo version plan",
+              "FlowSteps":["Tạo một version plan"],"Included":true}]
+            """;
+
+        var row = Assert.Single(ScreenScopeMapBuilder.Parse(legacy));
+
+        Assert.Equal("Lập kế hoạch", row.Purpose);
+        Assert.Equal(new[] { "Xem danh sách", "Tạo version plan" }, row.Functions.Select(f => f.Name));
+        // Bước ở cấp màn hình gắn xuống chức năng đầu tiên: phép kiểm phủ bước so khớp trên cả bảng nên vị
+        // trí không đổi kết quả, thứ duy nhất phải giữ là đừng để nó rơi mất.
+        Assert.Equal("Tạo một version plan", Assert.Single(row.Functions[0].FlowSteps));
+    }
+
+    private static ScreenFunction Fn(string name, params string[] steps)
+        => new() { Name = name, Included = true, FlowSteps = steps.ToList() };
 
     // ==== BẢNG ĐỐI TƯỢNG ====
 
