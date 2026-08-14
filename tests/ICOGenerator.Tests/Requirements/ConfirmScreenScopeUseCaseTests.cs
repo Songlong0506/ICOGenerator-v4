@@ -65,25 +65,54 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
 
         var result = await ExecuteAsync($$"""
             [{"screen":"{{ScreenList}}","purpose":"Quản lý và tra cứu danh sách",
-              "functions":"Xem danh sách JD","flowSteps":["JD được chuyển sang trạng thái có thể gán"],"included":true},
+              "functions":[{"name":"Xem danh sách JD","flowSteps":["JD được chuyển sang trạng thái có thể gán"],"included":true}],
+              "included":true},
              {"screen":"{{ScreenCreate}}","purpose":"Cho manager tạo JD cho orgUnit của mình",
-              "functions":"Tạo JD, Cập nhật JD, Gửi duyệt","flowSteps":["Manager submit JD"],"included":true},
+              "functions":[{"name":"Tạo JD","included":true},{"name":"Cập nhật JD","included":true},
+                           {"name":"Gửi duyệt","flowSteps":["Manager submit JD"],"included":true}],
+              "included":true},
              {"screen":"{{ScreenAssign}}","purpose":"Cho manager gán JD đã được duyệt",
-              "functions":"Chọn JD, Gán JD cho nhân viên","flowSteps":["Manager gán JD cho nhân viên"],"included":true}]
+              "functions":[{"name":"Chọn JD","included":true},
+                           {"name":"Gán JD cho nhân viên","flowSteps":["Manager gán JD cho nhân viên"],"included":true}],
+              "included":true}]
             """);
 
         Assert.Equal(3, result.Rows);
 
         var stored = ScreenScopeMapBuilder.Parse(await LoadScreenScopeAsync());
         Assert.Equal(3, stored.Count);
-        // Phần đắt nhất của bảng là ba cột người dùng tự điền — mất chúng thì bảng chỉ còn là danh sách tên.
+        // Phần đắt nhất của bảng là những ô người dùng tự điền — mất chúng thì bảng chỉ còn là danh sách tên.
         Assert.Equal("Quản lý và tra cứu danh sách", stored.Single(r => r.Screen == ScreenList).Purpose);
-        Assert.Equal("Tạo JD, Cập nhật JD, Gửi duyệt", stored.Single(r => r.Screen == ScreenCreate).Functions);
-        Assert.Equal("Manager gán JD cho nhân viên", Assert.Single(stored.Single(r => r.Screen == ScreenAssign).FlowSteps));
+        Assert.Equal(new[] { "Tạo JD", "Cập nhật JD", "Gửi duyệt" },
+            stored.Single(r => r.Screen == ScreenCreate).Functions.Select(f => f.Name));
+        Assert.Equal("Manager gán JD cho nhân viên", Assert.Single(
+            stored.Single(r => r.Screen == ScreenAssign).Functions.Single(f => f.Name == "Gán JD cho nhân viên").FlowSteps));
 
         // Và tin nhắn kể lại phải chở đúng chừng đó, vì mọi tầng chắt lọc đọc bản kể chứ không đọc cột DB.
         Assert.Contains($"- {ScreenCreate} — Cho manager tạo JD cho orgUnit của mình [chức năng: Tạo JD, Cập nhật JD, Gửi duyệt]", result.Message);
         Assert.DoesNotContain("theo orgUnit", result.Message);
+    }
+
+    // Bỏ tích một CHỨC NĂNG là một quyết định nhỏ hơn hẳn bỏ cả màn hình, và trước đây người dùng không có
+    // cách nào ra quyết định đó: cột chức năng là một ô text, sửa tay thì không để lại dấu vết máy đọc
+    // được. Nó phải sống sót qua đường lưu VÀ phải được kể lại — im lặng thì họ không có bằng chứng nào
+    // cho thấy mình vừa loại đúng thứ định loại.
+    [Fact]
+    public async Task ExecuteAsync_KeepsFunctionLevelChoices_AndNamesTheOnesDropped()
+    {
+        await SeedRenderedTableAsync(ScreenList, ScreenCreate);
+
+        var result = await ExecuteAsync($$"""
+            [{"screen":"{{ScreenList}}","functions":[{"name":"Xem danh sách JD","included":true}],"included":true},
+             {"screen":"{{ScreenCreate}}","functions":[{"name":"Tạo JD","included":true},
+                                                       {"name":"Xóa JD","included":false}],"included":true}]
+            """);
+
+        var stored = ScreenScopeMapBuilder.Parse(await LoadScreenScopeAsync());
+        var functions = stored.Single(r => r.Screen == ScreenCreate).Functions;
+        Assert.True(functions.Single(f => f.Name == "Tạo JD").Included);
+        Assert.False(functions.Single(f => f.Name == "Xóa JD").Included);
+        Assert.Contains($"Các chức năng mình KHÔNG cần: Xóa JD (ở {ScreenCreate})", result.Message);
     }
 
     // Người dùng vừa tự tay duyệt phạm vi ⇒ bản duyệt thay cho bản LLM đoán. Không ghi ngược thì

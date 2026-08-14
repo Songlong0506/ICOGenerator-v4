@@ -142,7 +142,7 @@ tác trên từng dòng** thay vì một chip trả lời thay cho tất cả.
 | Bảng | Cột trên `Project` | Chốt cái gì | Đường tiêu thụ ngoài chat |
 |---|---|---|---|
 | Luồng nghiệp vụ | `FlowMap` | luồng chính + 1–2 ngoại lệ, mỗi luồng là chuỗi bước *ai làm → làm gì → trạng thái sau đó* | `## 13. Worked Examples` định tính (oracle chấm POC) + `## 10. Business Rules` |
-| Màn hình | `ScreenScopeMap` | phạm vi màn hình, việc của từng màn, **bước luồng** màn đó phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
+| Màn hình | `ScreenScopeMap` | phạm vi màn hình, việc của từng màn, **các chức năng** trên màn (mỗi chức năng một dòng tích riêng) và **bước luồng** từng chức năng phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
 | Đối tượng nghiệp vụ | `EntityMap` | thông tin cần lưu + vòng đời trạng thái + **ai được báo** ở mỗi chuyển trạng thái | `## 8. Data Model Summary` + `## 10. Business Rules` |
 | Phân quyền | `PermissionMatrix` | quyền CRUD theo màn hình, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + điều kiện lọc ở `## 9. API Expectations` |
 
@@ -160,7 +160,7 @@ viết tay được nữa.
 luồng → màn hình → đối tượng → phân quyền
 ```
 
-Luồng trước, vì bảng màn hình có một ô hỏi thẳng *"màn này phục vụ bước nào"*. Màn hình trước đối tượng, vì
+Luồng trước, vì bảng màn hình có một ô hỏi thẳng *"chức năng này phục vụ bước nào"*. Màn hình trước đối tượng, vì
 cái người dùng nhìn thấy trên màn hình quyết định thông tin nào thật sự cần lưu. Phân quyền cuối cùng, vì
 các DÒNG của nó là màn hình — hỏi trước khi phạm vi màn hình đứng yên thì bảng thiếu nửa số dòng, mà quyền
 của một màn hình chưa tồn tại thì không ai trả lời được.
@@ -268,16 +268,44 @@ thì **không** ghi ngược — một `PlannedScope` rỗng cắt luôn đườ
 chết cổng phân quyền trong im lặng.
 
 **Ô "phục vụ bước" cho một phép kiểm TẤT ĐỊNH chạy bằng code, không cần lời gọi LLM nào**
-(`ScreenScopeMapBuilder.UncoveredActions`): mọi bước của bảng luồng đã chốt phải được ít nhất một màn hình
-nhận phụ trách. Hai danh sách đọc riêng đều "đạt" — bảng luồng đầy đủ, bảng màn hình đầy đủ — còn chỗ hỏng
-nằm ở **mối nối**, đúng loại lỗi đắt nhất của cả dây chuyền. Một bước không màn hình nào phụ trách nghĩa là
-hoặc người dùng sẽ không có chỗ nào để làm bước đó, hoặc bước đó không có thật; cả hai đều phải hỏi, và hỏi
-lúc bảng còn trên màn hình rẻ hơn hẳn hỏi lại ở POC. Dòng nhắc **không chặn** nút gửi: đó là một câu hỏi,
-không phải một lỗi. So khớp bằng CHỨA-NHAU sau chuẩn hoá chứ không nguyên văn — người dùng sửa ô bằng lời
-của họ, và một cảnh báo luôn sai thì lần thứ hai không ai đọc nữa. Ô là MỘT ô text ngăn bằng dấu chấm phẩy
-**hoặc xuống dòng** (ô cao theo nội dung nên gõ mỗi bước một dòng là cách tự nhiên nhất), không phải một
-danh sách con — người dùng gõ tiếp vào đó dễ hơn bấm thêm dòng, và phép so khớp chứa-nhau ở trên không cần
-từng bước là một phần tử riêng.
+(`ScreenScopeMapBuilder.UncoveredActions`): mọi bước của bảng luồng đã chốt phải được ít nhất một **chức
+năng còn tích** nhận phụ trách. Hai danh sách đọc riêng đều "đạt" — bảng luồng đầy đủ, bảng màn hình đầy đủ
+— còn chỗ hỏng nằm ở **mối nối**, đúng loại lỗi đắt nhất của cả dây chuyền. Một bước không ai phụ trách
+nghĩa là hoặc người dùng sẽ không có chỗ nào để làm bước đó, hoặc bước đó không có thật; cả hai đều phải
+hỏi, và hỏi lúc bảng còn trên màn hình rẻ hơn hẳn hỏi lại ở POC. Dòng nhắc **không chặn** nút gửi: đó là
+một câu hỏi, không phải một lỗi. So khớp bằng CHỨA-NHAU sau chuẩn hoá chứ không nguyên văn — người dùng sửa
+ô bằng lời của họ, và một cảnh báo luôn sai thì lần thứ hai không ai đọc nữa. Ô là MỘT ô text ngăn bằng dấu
+chấm phẩy **hoặc xuống dòng** (ô cao theo nội dung nên gõ mỗi bước một dòng là cách tự nhiên nhất), không
+phải một danh sách con — người dùng gõ tiếp vào đó dễ hơn bấm thêm dòng, và phép so khớp chứa-nhau ở trên
+không cần từng bước là một phần tử riêng.
+
+Bước gắn ở **cấp chức năng**, không phải cấp màn hình, và đó là điều kiện để phép kiểm còn nói được sự
+thật: bỏ tích một chức năng là bỏ luôn phần việc nó gánh, nên bước của nó phải lập tức hiện ra là chưa ai
+làm. Bản gắn ở cấp màn hình không nói được điều đó — người dùng bỏ đúng chức năng chở bước ấy mà cả bảng
+vẫn báo "đủ".
+
+### Ba cột của bảng màn hình, và vì sao cột "Màn hình" chỉ được chứa màn hình
+
+Bảng có đúng ba cột: **Cần · Màn hình · Chức năng**. Việc của màn (`Purpose`) là dòng phụ dưới tên màn chứ
+không chiếm một cột, để nửa bảng bên phải dành cho phần người dùng phải rà kỹ nhất. Mỗi chức năng là **một
+dòng con có ô tích riêng** kèm ô "phục vụ bước"; dòng trống cuối mỗi màn là chỗ gõ thêm chức năng còn thiếu
+(tên rỗng ⇒ server bỏ). Trước đây cả cụm chức năng nằm trong MỘT ô text: muốn loại đúng một chức năng thì
+phải sửa tay giữa một chuỗi chữ, và thao tác đó không để lại quyết định nào máy đọc được — còn bỏ tích cả
+màn hình thì mất luôn những chức năng vẫn cần. Danh sách chức năng đã chốt cũng là thứ bảng phân quyền lấy
+làm vế `function`, thay vì để model tự nghĩ ra một danh sách khác ngay tại lượt bày bảng.
+
+**Dòng của bảng là MÀN HÌNH — không phải tính năng, không phải luồng.** Ranh giới này là chốt chặn: cột
+`Screen` là khóa nối sang bảng phân quyền và sang các màn của bản demo, nên một mục kiểu *"Tính năng
+Generate Training Implement từ Training Plan Detail"* lọt vào sẽ thành một dòng phân quyền và một trang
+trống trong POC, trong khi nó vốn là **một cái nút trên Training Plan Detail**. Nguồn của lỗi này nằm ở
+lượt chắt lọc `PlannedScope` (prompt `interview-outlook.v1.md`), nên luật "chỉ màn hình, chức năng thì gộp
+vào màn chứa nó" sống ở đó. Tầng bảng dọn nốt phần lọt lưới bằng `ScreenScopeRow.Covers`: dòng khai nguyên
+văn các mục phạm vi mà nó đã gộp vào mình, và chốt chặn "màn hình bị bỏ quên" thôi bổ sung đúng những mục
+ấy — không có `Covers` thì mục vừa gộp vào cột chức năng sẽ mọc lại thành một dòng trắng ngay bên dưới.
+Hai điều kiện đi kèm, cả hai đều tất định: mục đã gộp **hiện trên bảng** (dòng *"gộp vào màn này: …"*) vì
+một mục rời khỏi phạm vi mà người dùng không nhìn thấy là đúng loại quyết định thay họ mà cả bảng sinh ra
+để chặn; và **dòng luôn thắng lời khai gộp** — một màn hình có dòng của chính nó thì không lời khai nào làm
+nó biến mất được, nếu không thì chỉ cần model khai bừa một tên là mất trắng một màn hình.
 
 ### Bảng đối tượng: mô hình dữ liệu, và chỗ duy nhất thông báo gắn được vào một chuyển trạng thái
 

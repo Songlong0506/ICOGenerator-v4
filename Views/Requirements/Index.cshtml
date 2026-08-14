@@ -1061,57 +1061,85 @@
                 }
             </div>
 
-            @* BẢNG MÀN HÌNH — phạm vi màn hình của ứng dụng. Cột "Phục vụ bước" là chỗ phép kiểm tất định
-               chạy: bước luồng nào không màn hình nào nhận thì hiện thành dòng nhắc dưới bảng, vì hai danh
-               sách đọc riêng đều "đạt" còn chỗ hỏng nằm ở mối nối. *@
+            @* BẢNG MÀN HÌNH — phạm vi màn hình của ứng dụng. Ô "phục vụ bước" của TỪNG CHỨC NĂNG là chỗ phép
+               kiểm tất định chạy: bước luồng nào không chức năng nào nhận thì hiện thành dòng nhắc dưới bảng,
+               vì hai danh sách đọc riêng đều "đạt" còn chỗ hỏng nằm ở mối nối. *@
             <div class="req-msg ba permmap screenmap" id="screenScopePanel"
                  data-confirm-url="@Url.Action("ConfirmScreenScope", "Requirements")"
                  @(lastScreenScope.Count > 0 ? "" : "hidden")>
                 @if (lastScreenScope.Count > 0)
                 {
                     <div class="permmap-howto">
-                        Đây là các màn hình mình dự kiến dựng. Màn nào <b>không cần</b> thì bỏ tích; phần việc và các
-                        bước màn đó phụ trách thì sửa thẳng vào ô. Dòng có <b>✓</b> là màn hình chính anh/chị đã nêu.
+                        Đây là các màn hình mình dự kiến dựng và các chức năng trên từng màn. Màn nào <b>không cần</b>
+                        thì bỏ tích ở cột đầu; chức năng nào không cần thì bỏ tích ngay dòng của nó. Thiếu chức năng
+                        nào thì gõ vào dòng trống cuối mỗi màn. Dấu <b>✓</b> là phần chính anh/chị đã nêu.
                     </div>
                     <table class="permmap-table screenmap-table">
                         <thead>
                             <tr>
                                 <th class="flowmap-th-use">Cần</th>
                                 <th class="screenmap-th-name">Màn hình</th>
-                                <th class="screenmap-th-purpose">Để làm gì</th>
-                                <th class="screenmap-th-fn">Chức năng chính</th>
-                                <th class="screenmap-th-steps">Phục vụ bước</th>
+                                <th class="screenmap-th-fn">Chức năng <span class="screenmap-th-note">· cột phải: bước luồng chức năng đó phụ trách</span></th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var row in lastScreenScope)
                             {
-                                <tr class="screenmap-row" data-screen="@row.Screen">
+                                <tr class="screenmap-row" data-screen="@row.Screen" data-covers="@string.Join("|", row.Covers)">
                                     <td class="flowmap-use">
+                                        @* Dấu ✓ đứng CẠNH ô tích chứ không thay nó: "anh/chị từng nhắc tới màn này"
+                                           không đồng nghĩa "màn này phải có trong bản đầu". *@
+                                        <input type="checkbox" class="screenmap-check" aria-label="Cần màn hình @row.Screen" @(row.Included ? "checked" : "") />
                                         @if (row.Locked)
                                         {
                                             <span class="permmap-locked" title="@row.Evidence">✓</span>
-                                            <input type="hidden" class="screenmap-check" value="1" />
-                                        }
-                                        else
-                                        {
-                                            <input type="checkbox" class="screenmap-check" aria-label="Cần màn hình @row.Screen" @(row.Included ? "checked" : "") />
                                         }
                                     </td>
-                                    <td class="permmap-fn">@row.Screen</td>
-                                    <td><textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="màn này để làm gì?">@row.Purpose</textarea></td>
-                                    <td><textarea rows="1" class="permmap-cellinput screenmap-functions" placeholder="vd: Xem danh sách, Tạo mới, Gửi duyệt">@row.Functions</textarea></td>
-                                    <td><textarea rows="1" class="permmap-cellinput screenmap-steps" placeholder="bước luồng màn này phụ trách">@string.Join("; ", row.FlowSteps)</textarea></td>
+                                    <td class="permmap-fn">
+                                        <div class="screenmap-name">@row.Screen</div>
+                                        <textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="màn này để làm gì?">@row.Purpose</textarea>
+                                        @if (row.Covers.Count > 0)
+                                        {
+                                            <div class="screenmap-covers">gộp vào màn này: @string.Join(", ", row.Covers)</div>
+                                        }
+                                    </td>
+                                    <td class="screenmap-fncell">
+                                        <table class="screenmap-fntable">
+                                            <tbody>
+                                                @foreach (var fn in row.Functions)
+                                                {
+                                                    <tr class="screenmap-fn-row">
+                                                        <td class="flowmap-use">
+                                                            <input type="checkbox" class="screenfn-check" aria-label="Cần chức năng @fn.Name" @(fn.Included ? "checked" : "") />
+                                                            @if (fn.Locked)
+                                                            {
+                                                                <span class="permmap-locked screenfn-proof" title="@fn.Evidence">✓</span>
+                                                            }
+                                                        </td>
+                                                        <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="chức năng">@fn.Name</textarea></td>
+                                                        <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="chức năng này phụ trách bước nào?">@string.Join("; ", fn.FlowSteps)</textarea></td>
+                                                    </tr>
+                                                }
+                                                @* Dòng TRỐNG cuối mỗi màn: chỗ gõ thêm một chức năng còn thiếu. Không gõ
+                                                   gì thì server bỏ nó đi (tên rỗng = không phải một chức năng). *@
+                                                <tr class="screenmap-fn-row">
+                                                    <td class="flowmap-use"><input type="checkbox" class="screenfn-check" aria-label="Thêm chức năng cho @row.Screen" checked /></td>
+                                                    <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="+ thêm chức năng…"></textarea></td>
+                                                    <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="chức năng này phụ trách bước nào?"></textarea></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
                     </table>
-                    @* Dòng nhắc của phép kiểm tất định. Nó KHÔNG chặn gửi: một bước không màn hình nào
+                    @* Dòng nhắc của phép kiểm tất định. Nó KHÔNG chặn gửi: một bước không chức năng nào
                        phụ trách có thể là bước thừa, có thể là màn hình thiếu — cả hai đều là câu hỏi cho
                        người dùng, không phải lỗi để khóa nút. *@
                     <div class="screenmap-warn" id="screenScopeWarn" @(uncoveredFlowSteps.Count > 0 ? "" : "hidden")>
-                        Chưa màn hình nào phụ trách các bước: <b>@string.Join("; ", uncoveredFlowSteps)</b>.
-                        Anh/chị điền bước đó vào cột “Phục vụ bước” của màn hình phù hợp, hoặc nhắn cho mình biết nếu thiếu hẳn một màn hình.
+                        Chưa chức năng nào phụ trách các bước: <b>@string.Join("; ", uncoveredFlowSteps)</b>.
+                        Anh/chị điền bước đó vào ô bên phải của chức năng phù hợp, hoặc nhắn cho mình biết nếu thiếu hẳn một màn hình.
                     </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
