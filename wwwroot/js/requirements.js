@@ -1125,87 +1125,205 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     }
 
     // ---- BẢNG ĐỐI TƯỢNG NGHIỆP VỤ ----
+    // Trần dòng, chép từ EntityMapBuilder. Chặn ở đây chứ không để server cắt — cùng lý do với bảng màn hình.
+    const MAX_ENTITY_ROWS = 12;      // = EntityMapBuilder.MaxRows
+    const MAX_ENTITY_FIELDS = 12;    // = EntityMapBuilder.MaxFieldsPerEntity
+    const MAX_ENTITY_STATES = 8;     // = EntityMapBuilder.MaxStatesPerEntity
+
     const entityMapPanel = initTablePanel(
         "entityMapPanel", "entityMapSendBtn", "entityMapMsg", "entitiesJson",
-        panel => Array.from(panel.querySelectorAll(".entitymap-block")).map(block => ({
-            entity: block.dataset.entity || "",
-            description: tableValue(block, ".entitymap-desc"),
-            fields: Array.from(block.querySelectorAll(".entitymap-field")).map(tr => ({
-                name: tableValue(tr, ".entityfield-name"),
-                meaning: tableValue(tr, ".entityfield-meaning"),
-                used: tableChecked(tr.querySelector(".entityfield-check"))
-            })),
-            states: Array.from(block.querySelectorAll(".entitymap-state")).map(tr => ({
-                state: tableValue(tr, ".entitystate-name"),
-                entryCondition: tableValue(tr, ".entitystate-entry"),
-                notify: tableValue(tr, ".entitystate-notify")
-            })),
-            included: tableChecked(block.querySelector(".entitymap-check"))
-        })),
+        panel => Array.from(panel.querySelectorAll(".entitymap-block")).map(block => {
+            // Đối tượng BA bày ra có tên nằm ở `data-entity` và không sửa được: tên ấy đã đi vào khối ngữ
+            // cảnh của các lượt sau, sửa chữ ở đây là làm hội thoại kể một đằng còn bảng ghi một nẻo. Đối
+            // tượng người dùng TỰ THÊM thì ô tên là ô gõ, và cờ `addedByUser` là thứ cho phép nó đi qua luật
+            // "đối tượng rỗng ruột" ở server (xem EntityMapRow.AddedByUser).
+            const nameInput = block.querySelector(".entitymap-nameinput");
+            return {
+                entity: nameInput ? tableValue(block, ".entitymap-nameinput") : (block.dataset.entity || ""),
+                addedByUser: !!nameInput,
+                description: tableValue(block, ".entitymap-desc"),
+                // Dòng thêm bằng nút "+ thêm thông tin" mà không gõ tên thì không phải một thông tin — server
+                // bỏ nó đi, và bỏ luôn ở đây cho payload sạch.
+                fields: Array.from(block.querySelectorAll(".entitymap-field")).map(tr => ({
+                    name: tableValue(tr, ".entityfield-name"),
+                    meaning: tableValue(tr, ".entityfield-meaning"),
+                    used: tableChecked(tr.querySelector(".entityfield-check"))
+                })).filter(f => f.name.length > 0),
+                states: Array.from(block.querySelectorAll(".entitymap-state")).map(tr => ({
+                    state: tableValue(tr, ".entitystate-name"),
+                    entryCondition: tableValue(tr, ".entitystate-entry"),
+                    notify: tableValue(tr, ".entitystate-notify")
+                })).filter(s => s.state.length > 0),
+                included: tableChecked(block.querySelector(".entitymap-check"))
+            };
+        }).filter(r => r.entity.length > 0),
         "Đang lưu bảng đối tượng…",
         "Chưa lưu được bảng đối tượng — anh/chị bấm gửi lại giúp mình nhé.");
+
+    function entityDeleteButton(label) {
+        return `<button type="button" class="entitymap-del" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">×</button>`;
+    }
+
+    // Một dòng thông tin. `f` null = dòng TRỐNG người dùng vừa thêm bằng nút "+ thêm thông tin".
+    //
+    // `removable` theo đúng ranh giới của bảng màn hình: thông tin BA đề xuất thì BỎ TÍCH chứ không xóa —
+    // dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi ("không cần lưu: …"), nếu không người dùng
+    // không có bằng chứng nào cho thấy mình vừa loại đúng thứ định loại. Dòng do CHÍNH HỌ vừa thêm thì không
+    // có gì để kể: nó chưa bao giờ là một đề xuất.
+    function entityFieldRow(f, removable) {
+        const name = f ? (f.name || "") : "";
+        return `
+            <tr class="entitymap-field">
+                <td class="flowmap-use"><input type="checkbox" class="entityfield-check" aria-label="Lưu ${escapeHtml(name)}"${!f || f.used ? " checked" : ""} /></td>
+                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entityfield-name" placeholder="thông tin cần lưu">${escapeHtml(name)}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="thông tin này là gì?">${escapeHtml(f ? (f.meaning || "") : "")}</textarea></td>
+                <td class="entitymap-delcell">${removable ? entityDeleteButton("Xóa thông tin này") : ""}</td>
+            </tr>`;
+    }
+
+    // Một dòng trạng thái. `s` null = dòng TRỐNG vừa thêm. Trạng thái KHÔNG có ô tích (khác dòng thông tin):
+    // một trạng thái không đúng thì sửa hoặc xóa, chứ "có trạng thái này nhưng bỏ tích" không có nghĩa gì
+    // trong một vòng đời — nên ở đây MỌI dòng đều xóa được, kể cả dòng BA đề xuất.
+    function entityStateRow(s) {
+        return `
+            <tr class="entitymap-state">
+                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name" placeholder="tên trạng thái">${escapeHtml(s ? (s.state || "") : "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="điều kiện/hành động đưa vào trạng thái này">${escapeHtml(s ? (s.entryCondition || "") : "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput entitystate-notify" placeholder="để trống = không báo cho ai">${escapeHtml(s ? (s.notify || "") : "")}</textarea></td>
+                <td class="entitymap-delcell">${entityDeleteButton("Xóa trạng thái này")}</td>
+            </tr>`;
+    }
+
+    // MỘT khối đối tượng. `r` null = khối TRỐNG người dùng vừa thêm bằng nút "+ thêm đối tượng".
+    //
+    // Hai bảng con LUÔN được render, kể cả khi rỗng — khác bản trước, và đó là điều kiện để hai nút thêm có
+    // chỗ đứng. Một bảng trạng thái rỗng không phải "mời xác nhận một vòng đời vô nghĩa" (thứ mà luật cắt
+    // vòng đời một trạng thái đang chặn); nó là chỗ người dùng nói ra rằng đối tượng này CÓ vòng đời mà BA
+    // tưởng là danh mục — trường hợp mà trước đây họ phải rời bảng, gõ vào khung chat và chờ BA bày lại.
+    function entityMapBlock(r) {
+        const entity = r ? (r.entity || "") : "";
+        const nameCell = r
+            ? `<span class="entitymap-name">${escapeHtml(entity)}</span>`
+            : `<textarea rows="1" class="permmap-cellinput entitymap-nameinput" placeholder="tên đối tượng…"></textarea>`;
+        const check = r && r.locked
+            ? `<span class="permmap-locked" title="${escapeHtml(r.evidence || "")}">✓</span>
+               <input type="hidden" class="entitymap-check" value="1" />`
+            : `<input type="checkbox" class="entitymap-check" aria-label="Cần đối tượng ${r ? escapeHtml(entity) : "vừa thêm"}"${!r || r.included ? " checked" : ""} />`;
+
+        const fields = r ? (r.fields || []).map(f => entityFieldRow(f, false)).join("") : "";
+        const states = r ? (r.states || []).map(entityStateRow).join("") : "";
+        // Tên đối tượng chỉ nằm ở `aria-label`, không nằm trong chữ của nút — cùng lý do với nút thêm chức
+        // năng của bảng màn hình: ô của .permmap-table là nowrap, một nhãn dài bằng cả tên đối tượng sẽ nong
+        // bảng con ra và đẩy cột cuối ra ngoài vùng nhìn thấy.
+        const forEntity = entity ? ` cho ${entity}` : " cho đối tượng vừa thêm";
+
+        return `
+            <div class="entitymap-block" data-entity="${escapeHtml(entity)}">
+                <div class="permmap-screen entitymap-head">
+                    ${check}
+                    ${nameCell}
+                    <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="đối tượng này là gì?">${escapeHtml(r ? (r.description || "") : "")}</textarea>
+                    ${r ? "" : entityDeleteButton("Xóa đối tượng này")}
+                </div>
+                <table class="permmap-table entitymap-table entitymap-fieldtable">
+                    <thead><tr><th class="flowmap-th-use">Lưu</th><th class="screenmap-th-name">Thông tin</th><th class="screenmap-th-purpose">Là gì</th><th class="screenmap-th-del"></th></tr></thead>
+                    <tbody>${fields}
+                        <tr class="entitymap-addfieldrow">
+                            <td colspan="4"><button type="button" class="entitymap-add entitymap-addfield" aria-label="Thêm thông tin${escapeHtml(forEntity)}">+ thêm thông tin</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table class="permmap-table entitymap-table entitymap-statetable">
+                    <thead><tr><th class="screenmap-th-name">Trạng thái</th><th class="screenmap-th-purpose">Khi nào chuyển vào</th><th class="screenmap-th-fn">Báo cho ai</th><th class="screenmap-th-del"></th></tr></thead>
+                    <tbody>${states}
+                        <tr class="entitymap-addstaterow">
+                            <td colspan="4"><button type="button" class="entitymap-add entitymap-addstate" aria-label="Thêm trạng thái${escapeHtml(forEntity)}">+ thêm trạng thái</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>`;
+    }
 
     function renderEntityMap(rows) {
         if (!entityMapPanel || !Array.isArray(rows) || rows.length === 0) return;
 
-        const blocks = rows.map(r => {
-            const fields = (r.fields || []).map(f => `
-                <tr class="entitymap-field">
-                    <td class="flowmap-use"><input type="checkbox" class="entityfield-check" aria-label="Lưu ${escapeHtml(f.name || "")}"${f.used ? " checked" : ""} /></td>
-                    <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entityfield-name">${escapeHtml(f.name || "")}</textarea></td>
-                    <td><textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="thông tin này là gì?">${escapeHtml(f.meaning || "")}</textarea></td>
-                </tr>`).join("");
-
-            const states = (r.states || []).map(s => `
-                <tr class="entitymap-state">
-                    <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name">${escapeHtml(s.state || "")}</textarea></td>
-                    <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="điều kiện/hành động đưa vào trạng thái này">${escapeHtml(s.entryCondition || "")}</textarea></td>
-                    <td><textarea rows="1" class="permmap-cellinput entitystate-notify" placeholder="để trống = không báo cho ai">${escapeHtml(s.notify || "")}</textarea></td>
-                </tr>`).join("");
-
-            const fieldTable = fields ? `
-                <table class="permmap-table entitymap-table">
-                    <thead><tr><th class="flowmap-th-use">Lưu</th><th class="screenmap-th-name">Thông tin</th><th class="screenmap-th-purpose">Là gì</th></tr></thead>
-                    <tbody>${fields}</tbody>
-                </table>` : "";
-
-            const stateTable = states ? `
-                <table class="permmap-table entitymap-table">
-                    <thead><tr><th class="screenmap-th-name">Trạng thái</th><th class="screenmap-th-purpose">Khi nào chuyển vào</th><th class="screenmap-th-fn">Báo cho ai</th></tr></thead>
-                    <tbody>${states}</tbody>
-                </table>` : "";
-
-            return `
-                <div class="entitymap-block" data-entity="${escapeHtml(r.entity || "")}">
-                    <div class="permmap-screen entitymap-head">
-                        ${r.locked
-                            ? `<span class="permmap-locked" title="${escapeHtml(r.evidence || "")}">✓</span>
-                               <input type="hidden" class="entitymap-check" value="1" />`
-                            : `<input type="checkbox" class="entitymap-check" aria-label="Cần đối tượng ${escapeHtml(r.entity || "")}"${r.included ? " checked" : ""} />`}
-                        <span class="entitymap-name">${escapeHtml(r.entity || "")}</span>
-                        <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="đối tượng này là gì?">${escapeHtml(r.description || "")}</textarea>
-                    </div>
-                    ${fieldTable}${stateTable}
-                </div>`;
-        }).join("");
-
         entityMapPanel.innerHTML = `
             <div class="permmap-howto">
                 Đây là những thứ ứng dụng cần lưu hồ sơ riêng. Đối tượng nào <b>không cần</b> thì bỏ tích ở tiêu
-                đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Ô <b>báo cho ai</b> để trống nghĩa là
-                không gửi thông báo ở bước đó.
+                đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
+                thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
+                cuối. Ô <b>báo cho ai</b> để trống nghĩa là không gửi thông báo ở bước đó.
             </div>
-            ${blocks}
+            <div class="entitymap-blocks">${rows.map(entityMapBlock).join("")}</div>
+            <div class="entitymap-addrow">
+                <button type="button" class="entitymap-add entitymap-addentity">+ thêm đối tượng</button>
+            </div>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="entityMapSendBtn">Gửi bảng đối tượng</button>
                 <div class="permmap-hint">
-                    Thiếu đối tượng nào hoặc thiếu một trạng thái, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                    Muốn mô tả kỹ hơn một đối tượng còn thiếu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
                 </div>
                 <div class="permmap-msg" id="entityMapMsg"></div>
             </div>`;
         entityMapPanel.hidden = false;
         thinkingBox.before(entityMapPanel);
         autoGrowCells(entityMapPanel);
+    }
+
+    // THÊM/XÓA DÒNG NGAY TRÊN BẢNG ĐỐI TƯỢNG — cùng lý do và cùng khuôn với bảng màn hình: ủy quyền trên
+    // PANEL chứ không gắn vào từng nút, vì renderEntityMap thay sạch innerHTML mỗi lượt BA bày bảng.
+    if (entityMapPanel) {
+        entityMapPanel.addEventListener("click", function (e) {
+            const addEntity = e.target.closest(".entitymap-addentity");
+            const addField = e.target.closest(".entitymap-addfield");
+            const addState = e.target.closest(".entitymap-addstate");
+            const remove = e.target.closest(".entitymap-del");
+            if (!addEntity && !addField && !addState && !remove) return;
+
+            const msgEl = document.getElementById("entityMapMsg");
+            const note = text => { if (msgEl) msgEl.textContent = text; };
+
+            if (remove) {
+                // Nút xóa của dòng con nằm TRONG khối đối tượng chứa nó, nên phải hỏi dòng con trước.
+                const target = remove.closest(".entitymap-field")
+                    || remove.closest(".entitymap-state")
+                    || remove.closest(".entitymap-block");
+                if (target) target.remove();
+                note("");
+                return;
+            }
+
+            if (addEntity) {
+                const blocks = entityMapPanel.querySelector(".entitymap-blocks");
+                if (!blocks) return;
+
+                if (blocks.querySelectorAll(".entitymap-block").length >= MAX_ENTITY_ROWS) {
+                    note(`Bảng đã tới trần ${MAX_ENTITY_ROWS} đối tượng — nhiều hơn thì không rà nổi trong một lượt, anh/chị bỏ tích bớt một đối tượng không cần trước khi thêm giúp mình nhé.`);
+                    return;
+                }
+
+                blocks.insertAdjacentHTML("beforeend", entityMapBlock(null));
+                focusNewRow(blocks.lastElementChild, ".entitymap-nameinput");
+                note("");
+                return;
+            }
+
+            const add = addField || addState;
+            const anchor = add.closest("tr");
+            const body = anchor.parentElement;
+            const cap = addField ? MAX_ENTITY_FIELDS : MAX_ENTITY_STATES;
+            const rowClass = addField ? ".entitymap-field" : ".entitymap-state";
+            if (body.querySelectorAll(rowClass).length >= cap) {
+                note(addField
+                    ? `Một đối tượng chỉ nhận tối đa ${cap} thông tin — quá số đó thường là dấu hiệu đây là hai đối tượng bị gộp làm một.`
+                    : `Một vòng đời chỉ nhận tối đa ${cap} trạng thái.`);
+                return;
+            }
+
+            anchor.insertAdjacentHTML("beforebegin", addField ? entityFieldRow(null, true) : entityStateRow(null));
+            focusNewRow(anchor.previousElementSibling, addField ? ".entityfield-name" : ".entitystate-name");
+            note("");
+        });
     }
 
     // ==== NHÁP ĐANG GÕ: tự lưu để F5 / mất điện / bấm nhầm không cuốn mất một câu trả lời dài ====

@@ -97,4 +97,26 @@ public class EntityMapRow
 
     /// <summary>Trích dẫn ngắn từ hội thoại — chỉ có nghĩa khi <see cref="Locked"/>.</summary>
     public string Evidence { get; set; } = "";
+
+    /// <summary>
+    /// Đối tượng này do CHÍNH NGƯỜI DÙNG thêm vào bảng bằng nút "thêm đối tượng", không phải do BA đề xuất
+    /// — cùng cờ và cùng luật với <see cref="ScreenScopeRow.AddedByUser"/>.
+    ///
+    /// <para>
+    /// Cờ chỉ được đọc ở đường GỬI (<c>EntityMapBuilder.Sanitize</c>). Ở lượt BÀY BẢNG mọi dòng đều do model
+    /// soạn, nên đọc cờ ở đó là dựng cho model một cửa sau đi vòng các chốt chặn bằng cách tự khai là người
+    /// dùng.
+    /// </para>
+    ///
+    /// <para>
+    /// Nó làm hai việc, và cả hai đều là chỗ chốt chặn của bảng phải NHƯỜNG cho người dùng. Một: đối tượng
+    /// "rỗng ruột" (không thông tin, không trạng thái) bị loại vì đó là một danh từ model nhặt trong hội
+    /// thoại — nhưng một dòng người dùng vừa tự gõ tên thì là một câu nói *"ứng dụng còn phải lưu thứ này"*,
+    /// và nuốt nó đi là bắt họ gõ lại vào khung chat đúng thứ vừa gõ trên bảng. Hai:
+    /// <c>EntityMapBuilder.RenderUserMessage</c> phải GỌI TÊN chúng, vì một đối tượng chưa từng có trong đề
+    /// xuất mà lặng lẽ đi vào mô hình dữ liệu là đúng loại thay đổi phải nói ra — cùng luật với các dòng bị
+    /// bỏ tích. Vì vậy cờ được GIỮ qua đường lưu chứ không xoá như <see cref="Locked"/>.
+    /// </para>
+    /// </summary>
+    public bool AddedByUser { get; set; }
 }

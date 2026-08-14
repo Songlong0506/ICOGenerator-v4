@@ -1176,33 +1176,45 @@
                 {
                     <div class="permmap-howto">
                         Đây là những thứ ứng dụng cần lưu hồ sơ riêng. Đối tượng nào <b>không cần</b> thì bỏ tích ở tiêu
-                        đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Ô <b>báo cho ai</b> để trống nghĩa là
-                        không gửi thông báo ở bước đó.
+                        đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
+                        thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
+                        cuối. Ô <b>báo cho ai</b> để trống nghĩa là không gửi thông báo ở bước đó.
                     </div>
-                    @foreach (var entity in lastEntityMap)
-                    {
-                        <div class="entitymap-block" data-entity="@entity.Entity">
-                            <div class="permmap-screen entitymap-head">
-                                @if (entity.Locked)
-                                {
-                                    <span class="permmap-locked" title="@entity.Evidence">✓</span>
-                                    <input type="hidden" class="entitymap-check" value="1" />
-                                }
-                                else
-                                {
-                                    <input type="checkbox" class="entitymap-check" aria-label="Cần đối tượng @entity.Entity" @(entity.Included ? "checked" : "") />
-                                }
-                                <span class="entitymap-name">@entity.Entity</span>
-                                <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="đối tượng này là gì?">@entity.Description</textarea>
-                            </div>
-                            @if (entity.Fields.Count > 0)
-                            {
-                                <table class="permmap-table entitymap-table">
+                    @* Bọc các khối trong một div riêng: nút "+ thêm đối tượng" chèn khối mới vào CUỐI div này,
+                       nên nó phải là một hộp chứa chỉ có khối đối tượng — không có nó thì khối mới rơi xuống
+                       sau cả thanh nút gửi. *@
+                    <div class="entitymap-blocks">
+                        @foreach (var entity in lastEntityMap)
+                        {
+                            <div class="entitymap-block" data-entity="@entity.Entity">
+                                <div class="permmap-screen entitymap-head">
+                                    @if (entity.Locked)
+                                    {
+                                        <span class="permmap-locked" title="@entity.Evidence">✓</span>
+                                        <input type="hidden" class="entitymap-check" value="1" />
+                                    }
+                                    else
+                                    {
+                                        <input type="checkbox" class="entitymap-check" aria-label="Cần đối tượng @entity.Entity" @(entity.Included ? "checked" : "") />
+                                    }
+                                    @* Đối tượng BA bày ra: tên là chữ TĨNH. Chỉ đối tượng người dùng tự thêm
+                                       mới có ô tên gõ được và nút xóa — xem entityMapBlock ở requirements.js. *@
+                                    <span class="entitymap-name">@entity.Entity</span>
+                                    <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="đối tượng này là gì?">@entity.Description</textarea>
+                                </div>
+                                @* Hai bảng con LUÔN hiện, kể cả khi rỗng: đó là chỗ đứng của hai nút thêm. Một
+                                   bảng trạng thái rỗng không phải "mời xác nhận một vòng đời vô nghĩa" (thứ mà
+                                   luật cắt vòng đời một trạng thái đang chặn) — nó là chỗ người dùng nói ra
+                                   rằng đối tượng này CÓ vòng đời mà BA tưởng là danh mục. *@
+                                <table class="permmap-table entitymap-table entitymap-fieldtable">
                                     <thead>
                                         <tr>
                                             <th class="flowmap-th-use">Lưu</th>
                                             <th class="screenmap-th-name">Thông tin</th>
                                             <th class="screenmap-th-purpose">Là gì</th>
+                                            @* Cột nút xóa. Trống ở mọi dòng BA bày ra — chúng BỎ TÍCH chứ không
+                                               xóa, vì dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi. *@
+                                            <th class="screenmap-th-del"></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1212,41 +1224,60 @@
                                                 <td class="flowmap-use">
                                                     <input type="checkbox" class="entityfield-check" aria-label="Lưu @field.Name" @(field.Used ? "checked" : "") />
                                                 </td>
-                                                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entityfield-name">@field.Name</textarea></td>
+                                                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entityfield-name" placeholder="thông tin cần lưu">@field.Name</textarea></td>
                                                 <td><textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="thông tin này là gì?">@field.Meaning</textarea></td>
+                                                <td class="entitymap-delcell"></td>
                                             </tr>
                                         }
+                                        <tr class="entitymap-addfieldrow">
+                                            <td colspan="4"><button type="button" class="entitymap-add entitymap-addfield" aria-label="Thêm thông tin cho @entity.Entity">+ thêm thông tin</button></td>
+                                        </tr>
                                     </tbody>
                                 </table>
-                            }
-                            @if (entity.States.Count > 0)
-                            {
-                                <table class="permmap-table entitymap-table">
+                                <table class="permmap-table entitymap-table entitymap-statetable">
                                     <thead>
                                         <tr>
                                             <th class="screenmap-th-name">Trạng thái</th>
                                             <th class="screenmap-th-purpose">Khi nào chuyển vào</th>
                                             <th class="screenmap-th-fn">Báo cho ai</th>
+                                            <th class="screenmap-th-del"></th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach (var state in entity.States)
                                         {
+                                            @* Dòng trạng thái KHÔNG có ô tích, nên MỌI dòng đều xóa được — kể cả
+                                               dòng BA đề xuất. "Có trạng thái này nhưng bỏ tích" không có nghĩa
+                                               gì trong một vòng đời, và trước đây cách duy nhất để loại một
+                                               trạng thái sai là xóa trắng ô tên (server bỏ dòng không tên) —
+                                               tức đúng việc này, chỉ khác là không ai nhìn ra để làm. *@
                                             <tr class="entitymap-state">
-                                                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name">@state.State</textarea></td>
+                                                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name" placeholder="tên trạng thái">@state.State</textarea></td>
                                                 <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="điều kiện/hành động đưa vào trạng thái này">@state.EntryCondition</textarea></td>
                                                 <td><textarea rows="1" class="permmap-cellinput entitystate-notify" placeholder="để trống = không báo cho ai">@state.Notify</textarea></td>
+                                                <td class="entitymap-delcell">
+                                                    <button type="button" class="entitymap-del" title="Xóa trạng thái này" aria-label="Xóa trạng thái này">×</button>
+                                                </td>
                                             </tr>
                                         }
+                                        <tr class="entitymap-addstaterow">
+                                            <td colspan="4"><button type="button" class="entitymap-add entitymap-addstate" aria-label="Thêm trạng thái cho @entity.Entity">+ thêm trạng thái</button></td>
+                                        </tr>
                                     </tbody>
                                 </table>
-                            }
-                        </div>
-                    }
+                            </div>
+                        }
+                    </div>
+                    @* Nút thêm một đối tượng BA chưa nghĩ tới. Khối thêm ra có ô tên gõ được và cờ `addedByUser`
+                       để đi qua luật "đối tượng rỗng ruột" ở server — luật đó dựng để chặn model, không phải để
+                       chặn người dùng. Xem EntityMapRow.AddedByUser. *@
+                    <div class="entitymap-addrow">
+                        <button type="button" class="entitymap-add entitymap-addentity">+ thêm đối tượng</button>
+                    </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="entityMapSendBtn">Gửi bảng đối tượng</button>
                         <div class="permmap-hint">
-                            Thiếu đối tượng nào hoặc thiếu một trạng thái, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                            Muốn mô tả kỹ hơn một đối tượng còn thiếu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
                         </div>
                         <div class="permmap-msg" id="entityMapMsg"></div>
                     </div>

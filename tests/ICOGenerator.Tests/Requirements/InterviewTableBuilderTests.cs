@@ -597,4 +597,97 @@ public class InterviewTableBuilderTests
         Assert.Contains("không báo cho ai", block);
         Assert.Contains("báo cho người gửi", block);
     }
+
+    // ==== BẢNG ĐỐI TƯỢNG: dòng NGƯỜI DÙNG TỰ THÊM ====
+    // Cùng ranh giới với bảng màn hình: hai chốt chặn "đối tượng rỗng ruột" và "vòng đời một trạng thái"
+    // dựng để chặn MODEL, nên chúng phải nhường ở đường GỬI — nhưng chỉ ở đó.
+
+    // Ở lượt BÀY BẢNG mọi dòng đều do model soạn, nên đọc cờ ở đó là dựng cho model một cửa sau đi vòng chốt
+    // chặn bằng cách tự khai là người dùng.
+    [Fact]
+    public void EntityMap_IgnoresTheUserAddedFlagOnTheProposalPath()
+    {
+        var rows = EntityMapBuilder.Build(new[]
+        {
+            new EntityMapRow { Entity = "Hệ thống", AddedByUser = true }
+        });
+
+        Assert.Empty(rows);
+    }
+
+    // Đường GỬI thì ngược lại: họ vừa gõ tên đối tượng vào bảng, tức đã nói "ứng dụng còn phải lưu thứ này".
+    // Nuốt nó đi là bắt họ gõ lại vào khung chat đúng thứ vừa gõ trên bảng.
+    [Fact]
+    public void EntityMap_KeepsAnEmptyEntityTheUserAddedOnTheSubmitPath()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "Kế hoạch đào tạo",
+                Included = true,
+                Fields = new List<EntityFieldNote> { new() { Name = "Quý", Used = true } }
+            },
+            new EntityMapRow { Entity = "Hồ sơ giảng viên", Included = true, AddedByUser = true }
+        });
+
+        var added = rows.Last();
+        Assert.Equal("Hồ sơ giảng viên", added.Entity);
+        Assert.True(added.AddedByUser);
+        Assert.Contains("Các đối tượng mình tự bổ sung vào bảng: Hồ sơ giảng viên.",
+            EntityMapBuilder.RenderUserMessage(rows));
+    }
+
+    // Đối tượng rỗng KHÔNG mang cờ tự thêm vẫn bị loại ở đường gửi: cờ là ngoại lệ duy nhất, không phải một
+    // cái cửa mở sẵn cho mọi payload.
+    [Fact]
+    public void EntityMap_StillDropsEmptyEntitiesWithoutTheFlagOnTheSubmitPath()
+    {
+        Assert.Empty(EntityMapBuilder.Sanitize(new[] { new EntityMapRow { Entity = "Hệ thống", Included = true } }));
+    }
+
+    // Khối ngữ cảnh đứng dưới lệnh "đừng hỏi lại", nên đối tượng người dùng tự thêm mà chưa điền gì phải
+    // được gọi tên ra là chỗ CẦN hỏi — không nói ra thì nó vĩnh viễn không ai hỏi cần lưu thông tin gì.
+    [Fact]
+    public void EntityMap_ConfirmedBlockAsksAboutEmptyEntitiesTheUserAdded()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            new EntityMapRow { Entity = "Hồ sơ giảng viên", Included = true, AddedByUser = true }
+        });
+
+        var block = EntityMapBuilder.RenderConfirmedBlock(System.Text.Json.JsonSerializer.Serialize(rows));
+
+        Assert.Contains("CHƯA nêu thông tin cần lưu", block);
+    }
+
+    // Một trạng thái người dùng tự gõ (hoặc còn lại sau khi họ xóa bớt) là một QUYẾT ĐỊNH. Cắt nó ở đường gửi
+    // vừa mất chữ họ vừa gõ, vừa làm cả dòng rơi khỏi bảng theo luật "rỗng ruột" khi đó là đối tượng danh mục
+    // vừa được thêm đúng một trạng thái.
+    [Fact]
+    public void EntityMap_KeepsASingleStateOnTheSubmitPath()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "Khóa học",
+                Included = true,
+                States = new List<EntityLifecycleState> { new() { State = "Ngừng sử dụng", EntryCondition = "Admin ngừng khóa" } }
+            }
+        });
+
+        Assert.Equal("Ngừng sử dụng", Assert.Single(Assert.Single(rows).States).State);
+    }
+
+    // Trần vẫn áp cho cả dòng tự thêm — trình duyệt chặn ngay tại nút bấm, đây là lưới thứ hai.
+    [Fact]
+    public void EntityMap_KeepsTheCapsForRowsTheUserAdded()
+    {
+        var rows = EntityMapBuilder.Sanitize(Enumerable.Range(1, EntityMapBuilder.MaxRows + 3)
+            .Select(i => new EntityMapRow { Entity = $"Đối tượng {i}", Included = true, AddedByUser = true })
+            .ToList());
+
+        Assert.Equal(EntityMapBuilder.MaxRows, rows.Count);
+    }
 }

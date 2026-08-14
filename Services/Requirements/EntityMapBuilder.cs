@@ -23,6 +23,13 @@ namespace ICOGenerator.Services.Requirements;
 ///   đánh dấu là đã có bằng chứng — xem <see cref="Build"/>. Bắt người dùng duyệt lại đúng thứ họ vừa tự
 ///   tay tích là hình dạng vòng lặp câu hỏi chết mà repo đã phải dựng lưới một lần.</item>
 /// </list>
+///
+/// <para>
+/// Hai chốt chặn đầu nhắm vào MODEL, nên cả hai đều NHƯỜNG ở đường GỬI: người dùng thêm/xóa được dòng ngay
+/// trên bảng (nút "+ thêm đối tượng", "+ thêm thông tin", "+ thêm trạng thái"), và một dòng họ vừa tự gõ mà
+/// biến mất lúc lưu là đúng loại quyết định câm mà cả bảng này sinh ra để chặn. Xem
+/// <see cref="EntityMapRow.AddedByUser"/> và <see cref="Sanitize"/>.
+/// </para>
 /// </summary>
 public static class EntityMapBuilder
 {
@@ -60,12 +67,21 @@ public static class EntityMapBuilder
     /// <summary>
     /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT: giữ đúng lựa chọn tích/bỏ tích của người dùng, xoá cờ
     /// khóa (bảng đã gửi thì mọi dòng là quyết định của họ), còn lại áp cùng luật với <see cref="Build"/>.
+    ///
+    /// <para>
+    /// Khác <see cref="Build"/> ở hai chỗ nữa, và cả hai là chốt chặn nhắm vào model phải nhường cho NGƯỜI
+    /// DÙNG: dòng mang cờ <see cref="EntityMapRow.AddedByUser"/> đi qua được cả khi nó chưa có thông tin hay
+    /// trạng thái nào, và vòng đời MỘT trạng thái không bị cắt. Xem <see cref="NormalizeStates"/>.
+    /// </para>
     /// </summary>
     public static List<EntityMapRow> Sanitize(IEnumerable<EntityMapRow>? submitted)
     {
         var rows = BuildCore(submitted, confirmedColumns: null, respectSelection: true);
         foreach (var row in rows)
         {
+            // Cờ khóa bị xoá, cờ TỰ THÊM thì không: cái trước là lời khai của model về hội thoại (hết ý
+            // nghĩa khi người dùng đã tự tay duyệt), cái sau là một sự thật về nguồn gốc của dòng mà
+            // RenderUserMessage còn phải kể lại. Cùng luật với ScreenScopeMapBuilder.Sanitize.
             row.Locked = false;
             row.Evidence = string.Empty;
         }
@@ -94,11 +110,17 @@ public static class EntityMapBuilder
             if (!seen.Add(Normalize(entity)))
                 continue;
 
+            // Cờ tự thêm chỉ có nghĩa ở đường GỬI — xem EntityMapRow.AddedByUser.
+            var addedByUser = respectSelection && row.AddedByUser;
+
             var fields = NormalizeFields(row.Fields, columnKeys, respectSelection);
-            var states = NormalizeStates(row.States);
+            var states = NormalizeStates(row.States, respectSelection);
             // Không thông tin nào, không trạng thái nào ⇒ đây là một danh từ model nhặt được, không phải
-            // đối tượng nghiệp vụ. Bày nó ra là mời người dùng xác nhận một dòng rỗng.
-            if (fields.Count == 0 && states.Count == 0)
+            // đối tượng nghiệp vụ. Bày nó ra là mời người dùng xác nhận một dòng rỗng. Dòng NGƯỜI DÙNG tự
+            // thêm thì ngược lại: họ vừa gõ tên nó vào bảng, tức là đã nói "ứng dụng còn phải lưu thứ này"
+            // — nuốt nó đi là bắt họ gõ lại vào khung chat đúng thứ vừa gõ trên bảng, và BA sẽ hỏi tiếp
+            // xem đối tượng đó cần lưu gì.
+            if (fields.Count == 0 && states.Count == 0 && !addedByUser)
                 continue;
 
             var evidence = Clip((row.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
@@ -111,7 +133,8 @@ public static class EntityMapBuilder
                 Included = !respectSelection || row.Included,
                 // LUẬT BẰNG CHỨNG — cờ suông không khóa được dòng nào. Xem PermissionGrant.Locked.
                 Locked = evidence.Length > 0,
-                Evidence = evidence
+                Evidence = evidence,
+                AddedByUser = addedByUser
             });
 
             if (result.Count >= MaxRows)
@@ -168,6 +191,14 @@ public static class EntityMapBuilder
 
             foreach (var state in row.States)
                 sb.AppendLine("  - trạng thái " + RenderState(state));
+
+            // Đối tượng người dùng TỰ THÊM mà chưa điền gì: khối này đứng dưới lệnh "đừng hỏi lại", nên
+            // không nói ra thì đối tượng ấy vĩnh viễn không ai hỏi cần lưu thông tin gì — đúng cái lỗ mà
+            // bảng sinh ra để bịt, chỉ khác là lần này do chính người dùng mở ra. Ngoại lệ của "đừng hỏi
+            // lại" phải nằm ngay tại dòng của nó, không phải trong một câu dặn chung ở đầu khối.
+            if (fields.Count == 0 && row.States.Count == 0)
+                sb.AppendLine("  - người dùng tự thêm đối tượng này và CHƯA nêu thông tin cần lưu ⇒ hỏi họ "
+                    + "đối tượng này cần lưu những gì (đây là ngoại lệ duy nhất của luật \"đừng hỏi lại\").");
         }
 
         return sb.ToString().TrimEnd();
@@ -201,6 +232,23 @@ public static class EntityMapBuilder
 
             foreach (var state in row.States)
                 sb.AppendLine("- " + RenderState(state));
+
+            // Dòng người dùng vừa thêm mà chưa điền gì: nói thẳng ra thay vì để một cái tên đứng trơ. Đây là
+            // câu mở đường cho lượt kế của BA — họ thêm đối tượng vì biết nó cần có, phần "lưu gì" thì chính
+            // là thứ họ đang chờ được hỏi.
+            if (fields.Count == 0 && row.States.Count == 0)
+                sb.AppendLine("- mình chưa rõ cần lưu những gì cho đối tượng này.");
+        }
+
+        // Đối tượng TỰ THÊM phải được gọi tên, cùng lý do với các dòng bị bỏ tích: đây là chỗ bảng khác đi so
+        // với thứ BA vừa bày ra, và mọi tầng chắt lọc phía sau đọc bản kể này chứ không đọc cột DB. Nói rõ
+        // nguồn gốc còn giữ cho BA khỏi hỏi lại "đối tượng này ở đâu ra" ở lượt kế.
+        var addedByUser = rows.Where(r => r.Included && r.AddedByUser).ToList();
+        if (addedByUser.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Các đối tượng mình tự bổ sung vào bảng: "
+                + string.Join(", ", addedByUser.Select(r => r.Entity)) + ".");
         }
 
         var dropped = rows.Where(r => !r.Included).ToList();
@@ -262,7 +310,15 @@ public static class EntityMapBuilder
         return result;
     }
 
-    private static List<EntityLifecycleState> NormalizeStates(IEnumerable<EntityLifecycleState>? proposed)
+    /// <summary>
+    /// Vòng đời của một đối tượng. <paramref name="respectSelection"/> = đường GỬI, và ở đó luật "một trạng
+    /// thái không phải vòng đời" KHÔNG áp: nó dựng để chặn model bơm một vòng đời ra từ một danh từ, còn một
+    /// dòng trạng thái người dùng vừa tự gõ (hoặc còn lại sau khi họ xóa bớt) là một quyết định. Cắt nó ở
+    /// đường này gây đúng hai thiệt hại mà bảng sinh ra để chặn: mất chữ họ vừa gõ, và — với đối tượng danh
+    /// mục vừa được thêm một trạng thái duy nhất — làm cả dòng rơi khỏi bảng theo luật "rỗng ruột".
+    /// </summary>
+    private static List<EntityLifecycleState> NormalizeStates(
+        IEnumerable<EntityLifecycleState>? proposed, bool respectSelection = false)
     {
         var result = new List<EntityLifecycleState>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -288,7 +344,9 @@ public static class EntityMapBuilder
         }
 
         // Một trạng thái không phải vòng đời — xem ghi chú class. Đối tượng vẫn giữ (nó là danh mục).
-        return result.Count >= MinStatesForLifecycle ? result : new List<EntityLifecycleState>();
+        return respectSelection || result.Count >= MinStatesForLifecycle
+            ? result
+            : new List<EntityLifecycleState>();
     }
 
     private static string Normalize(string value)
