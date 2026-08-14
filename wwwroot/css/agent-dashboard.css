@@ -291,6 +291,9 @@
 /* Summary card thay cho form thường trực: chỉ hiện trạng thái gọn + nút mở popup. */
 .delivery-config-summary { margin-bottom: 18px; }
 .delivery-config-summary .dg-head { justify-content: space-between; margin-bottom: 8px; }
+/* Nút bút chì không có viền: kéo lệch phải/lên vài px để nét vẽ thẳng hàng quang học với
+   mép phải và dòng tiêu đề của card, thay vì thụt vào do vùng bấm 32px rộng hơn icon 16px. */
+.delivery-config-summary .dg-head .icon-btn { margin: -4px -6px -4px 0; }
 .dc-summary { display: flex; flex-wrap: wrap; gap: 6px 24px; font-size: 13px; }
 .dc-summary-item { display: inline-flex; align-items: baseline; gap: 6px; }
 .dc-summary-item b { word-break: break-all; }
