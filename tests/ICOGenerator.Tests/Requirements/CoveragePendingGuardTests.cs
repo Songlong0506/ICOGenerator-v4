@@ -1,0 +1,164 @@
+using ICOGenerator.Services.Requirements;
+using Xunit;
+
+namespace ICOGenerator.Tests.Requirements;
+
+// Bản đồ bao phủ và "Điểm cần làm rõ còn tồn đọng" do HAI lời gọi LLM khác nhau chắt ra từ cùng một hội
+// thoại, và chúng không bao giờ nhìn thấy nhau — nên chúng nói ngược nhau mà không tầng nào biết.
+//
+// Ca thật (dự án Learning and Development 7, 42 lượt): bản đồ ghi «Luồng ngoại lệ & trường hợp đặc biệt»,
+// «Vòng đời & trạng thái» và «Dữ liệu / danh mục chính» đều [RÕ], trong khi cùng lúc đó hệ thống đang giữ
+// bảy điểm tồn đọng thuộc đúng ba nhóm ấy:
+//
+//   - "Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không"      → Luồng ngoại lệ
+//   - "Chưa rõ kết quả Complete/Not Complete/No Show dùng để xử lý bước nào tiếp theo" → Vòng đời & trạng thái
+//   - "Chưa rõ xử lý khi Item ID và Item Title không tạo thành cặp mã–tên duy nhất"    → Dữ liệu / danh mục
+//
+// [RÕ] không phải một nhãn trạng thái mà là một LỆNH CẤM: requirement-chat.v4.md cấm BA hỏi lại nhóm đã
+// [RÕ]. Nên bảy điểm đó vĩnh viễn không bao giờ được lấy, và bước soạn tài liệu — vốn bị cấm giả định —
+// nhận một khoảng trống mà không cổng nào báo.
+public class CoveragePendingGuardTests
+{
+    [Fact]
+    public void ClearRow_IsDowngraded_WhenItsGroupStillHasAPendingItem()
+    {
+        var map = CoveragePendingGuard.Apply(
+            """
+            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học cả năm. {nguồn: "lên kế hoạch các lớp học"}
+            - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì ticket sang Waitlist. {nguồn: "Tiếp tục giữ Waitlist"}
+            """,
+            new[] { "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không" });
+
+        Assert.NotNull(map);
+        // Dòng có điểm tồn đọng bị hạ…
+        Assert.Contains("Luồng ngoại lệ & trường hợp đặc biệt: [MỘT PHẦN]", map, StringComparison.Ordinal);
+        Assert.Contains("còn thiếu: Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không", map, StringComparison.Ordinal);
+        // …còn dòng không liên quan thì không bị đụng tới.
+        Assert.Contains("Mục tiêu / bài toán: [RÕ]", map, StringComparison.Ordinal);
+    }
+
+    // Phần "còn thiếu:" không phải một ghi chú nội bộ: RequirementReadinessGate lấy NGUYÊN nó làm câu hỏi
+    // hiển thị khi cổng chặn. Nhờ vậy điểm tồn đọng thật sự trở thành câu chặn của cổng, thay vì cổng chặn
+    // bằng một dòng khác còn điểm này thì nằm im.
+    [Fact]
+    public void TheDowngradedRow_BecomesTheQuestionTheGateAsks()
+    {
+        var map = CoveragePendingGuard.Apply(
+            "- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll/Waitlist → Complete. {nguồn: bảng luồng đã chốt}",
+            new[] { "[Vòng đời & trạng thái] Chưa rõ kết quả Complete/Not Complete/No Show được dùng để xử lý bước nào tiếp theo" });
+
+        var readiness = RequirementReadinessGate.Evaluate(map);
+
+        Assert.False(readiness.Ready);
+        Assert.Contains("kết quả Complete/Not Complete/No Show được dùng để xử lý bước nào tiếp theo",
+            readiness.Message, StringComparison.Ordinal);
+        Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
+    }
+
+    // Khối {nguồn: …} phải sống sót và phải ở lại CUỐI dòng — CoverageMapParser.SplitEvidence chỉ nhận nó ở
+    // đó. Ghép mẩu "còn thiếu" ra sau khối bằng chứng là làm panel tiến độ mất phần trích dẫn của dòng, tức
+    // người dùng mất cách duy nhất để kiểm chứng một dòng bản đồ.
+    [Fact]
+    public void Downgrade_KeepsTheEvidenceBlockAtTheEnd()
+    {
+        var map = CoveragePendingGuard.Apply(
+            "- Dữ liệu / danh mục chính: [RÕ] Dùng 6 cột Master List đã chốt. {nguồn: bảng cột người dùng đã chốt}",
+            new[] { "[Dữ liệu / danh mục chính] Chưa rõ xử lý khi Item ID và Item Title không tạo thành cặp duy nhất" });
+
+        var item = Assert.Single(CoverageMapParser.Parse(map));
+
+        Assert.Equal("MỘT PHẦN", item.Status);
+        Assert.Equal("bảng cột người dùng đã chốt", item.Evidence);
+        Assert.Contains("Dùng 6 cột Master List đã chốt", item.Summary, StringComparison.Ordinal);
+        Assert.Contains("còn thiếu: Chưa rõ xử lý khi Item ID", item.Summary, StringComparison.Ordinal);
+    }
+
+    // Lượt chắt lọc viết "Luồng ngoại lệ" còn bản đồ ghi "Luồng ngoại lệ & trường hợp đặc biệt" — vẫn là
+    // một nhóm. So khớp nguyên văn ở đây là để guard câm trong im lặng, cùng lý do mà InterviewTableGate
+    // và PermissionMatrixGate đều so bằng tiền tố.
+    [Theory]
+    [InlineData("Luồng ngoại lệ")]
+    [InlineData("Luồng ngoại lệ & trường hợp đặc biệt")]
+    public void GroupTag_MatchesTheMapLabelByPrefix_InBothDirections(string tag)
+    {
+        var map = CoveragePendingGuard.Apply(
+            "- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist.",
+            new[] { $"[{tag}] Chưa rõ ticket Waitlist còn treo khi lớp đã kết thúc" });
+
+        Assert.Contains("[MỘT PHẦN]", map, StringComparison.Ordinal);
+    }
+
+    // Guard chạy MỘT CHIỀU. Hạ nhầm thì BA hỏi thêm một câu; nâng nhầm thì sinh ra một khoảng trống mà mọi
+    // tầng sau tin là đã đủ — hai cái giá không cùng hạng, nên nó không bao giờ được nâng cấp hộ distiller.
+    [Fact]
+    public void Guard_NeverUpgrades_AndNeverTouchesOtherStatuses()
+    {
+        const string map = """
+            - Thông báo / nhắc nhở: [CHƯA HỎI]
+            - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Người dùng nói không cần báo cáo.
+            - Quy mô sử dụng: [MỘT PHẦN] Toàn nhà máy. còn thiếu: bao nhiêu lớp mỗi năm.
+            """;
+
+        var guarded = CoveragePendingGuard.Apply(map, new[]
+        {
+            "[Thông báo / nhắc nhở] Chưa rõ ai nhận email khi ticket chờ duyệt",
+            "[Báo cáo / thống kê] Chưa rõ cấp quản lý cần xem báo cáo nào",
+            "[Quy mô sử dụng] Chưa rõ mỗi năm mở bao nhiêu lớp"
+        });
+
+        Assert.Equal(map, guarded);
+    }
+
+    // Thẻ model tự nghĩ ra (không khớp nhãn nào) và mục không gắn thẻ đều bị BỎ QUA: guard fail-open, nó
+    // không được phép hạ nhầm một dòng vì một cái thẻ vô nghĩa.
+    [Theory]
+    [InlineData("[Tích hợp hệ thống ngoài] Chưa rõ nối với SAP kiểu gì")]
+    [InlineData("[—] Chưa rõ một điểm không thuộc nhóm nào")]
+    [InlineData("Chưa rõ điểm này thuộc nhóm nào — mục không gắn thẻ")]
+    public void UnknownOrMissingTag_LeavesTheMapAlone(string pendingItem)
+    {
+        const string map = "- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll → Complete.";
+
+        Assert.Equal(map, CoveragePendingGuard.Apply(map, new[] { pendingItem }));
+    }
+
+    // Thẻ nhóm được gắn cho GUARD đối chiếu, không phải cho BA đọc ra. Nhãn nhóm là từ vựng nội bộ của bản
+    // đồ; requirement-chat.v4.md cấm ném nó vào mặt người dùng nghiệp vụ, và
+    // CoverageDeadQuestionLoopTests đã phải dựng lưới một lần cho đúng lỗi đó.
+    [Fact]
+    public void StripGroupTag_RemovesTheInternalLabelBeforeItReachesTheBA()
+    {
+        Assert.Equal("Chưa rõ ai nhận email khi ticket chờ duyệt",
+            CoveragePendingGuard.StripGroupTag("[Thông báo / nhắc nhở] Chưa rõ ai nhận email khi ticket chờ duyệt"));
+
+        // Mục chưa gắn thẻ (bản chắt lọc cũ, hoặc model bỏ quên) đi qua nguyên vẹn — không được nuốt mất.
+        Assert.Equal("Chưa rõ ai nhận email", CoveragePendingGuard.StripGroupTag("Chưa rõ ai nhận email"));
+    }
+
+    // Nhiều mục cùng một nhóm ⇒ chỉ mục ĐẦU TIÊN thành câu chặn. BA hỏi 1–2 câu mỗi lượt, nên dội cả cụm
+    // vào một dòng chỉ làm câu hỏi của cổng thành một danh sách không trả lời được; các mục còn lại vẫn
+    // nằm nguyên trong khối "Điểm cần làm rõ còn tồn đọng" của ngữ cảnh chat.
+    [Fact]
+    public void OnlyTheFirstPendingItemOfAGroup_BecomesTheGap()
+    {
+        var map = CoveragePendingGuard.Apply(
+            "- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist.",
+            new[]
+            {
+                "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký lại sau khi bị Reject",
+                "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký trùng lịch"
+            });
+
+        Assert.Contains("còn thiếu: Chưa rõ đăng ký lại sau khi bị Reject", map, StringComparison.Ordinal);
+        Assert.DoesNotContain("trùng lịch", map, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NoPendingItems_LeavesTheMapUntouched()
+    {
+        const string map = "- ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học.";
+
+        Assert.Equal(map, CoveragePendingGuard.Apply(map, Array.Empty<string>()));
+        Assert.Null(CoveragePendingGuard.Apply(null, new[] { "[Vòng đời & trạng thái] Chưa rõ gì đó" }));
+    }
+}

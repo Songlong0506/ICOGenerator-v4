@@ -93,7 +93,14 @@ public class RequirementCoverageService
 
         if (updated != null)
         {
-            project.RequirementCoverageMap = string.IsNullOrWhiteSpace(updated) ? null : updated;
+            // CHỐT CHẶN CUỐI, chạy bằng code: một nhóm không được đứng [RÕ] khi "Điểm cần làm rõ còn tồn
+            // đọng" vẫn giữ một mục thuộc đúng nhóm đó. Hai danh sách này do hai lời gọi LLM khác nhau
+            // chắt ra và không bao giờ nhìn thấy nhau, nên chúng nói ngược nhau mà không tầng nào biết —
+            // và [RÕ] là lệnh cấm BA hỏi lại, tức mục tồn đọng ấy vĩnh viễn không được lấy. Xem
+            // CoveragePendingGuard cho ca thật và cho lý do guard chạy ở đường GHI chứ không ở đường đọc.
+            var guarded = CoveragePendingGuard.Apply(updated, InterviewOutlookService.ParseItems(project.OpenQuestions));
+
+            project.RequirementCoverageMap = string.IsNullOrWhiteSpace(guarded) ? null : guarded;
             project.CoverageHarvestedTurnCount = harvested + delta.Count;
             await _db.SaveChangesAsync(cancellationToken);
         }

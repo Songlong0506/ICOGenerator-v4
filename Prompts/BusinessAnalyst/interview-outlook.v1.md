@@ -6,9 +6,21 @@ Bạn nhận (1) **ba danh sách hiện có** và (2) **các lượt hội tho�
 
 ### 1. `openQuestions` — Điểm CẦN LÀM RÕ / mâu thuẫn
 - Những điểm còn **mơ hồ, chưa chốt, hoặc mâu thuẫn** giữa các câu trả lời — thứ mà nếu để nguyên thì bước soạn tài liệu sẽ phải tự đoán.
-- Mỗi mục là một câu ngắn, đúng ngôn ngữ người dùng, nêu RÕ điều còn thiếu (vd: *"Chưa rõ cách tính điểm xếp loại khi tổng bằng đúng ngưỡng"*, *"Vai trò 'trưởng nhóm' có được duyệt đơn không — mâu thuẫn giữa hai câu trả lời"*).
+- Mỗi mục là một câu ngắn, đúng ngôn ngữ người dùng, nêu RÕ điều còn thiếu.
 - **Mục đã được chốt/giải quyết ở các lượt mới thì BỎ khỏi danh sách** (nó chuyển sang "đã chốt", không còn là câu hỏi mở).
 - Không có điểm nào còn mơ hồ ⇒ trả mảng rỗng.
+
+**Mỗi mục PHẢI mở đầu bằng THẺ NHÓM `[…]`** — chép **đúng một** trong 12 nhãn dưới đây, rồi mới tới câu hỏi:
+
+```
+[Vòng đời & trạng thái] Chưa rõ kết quả Complete/Not Complete/No Show được dùng để chuyển bước nào tiếp theo
+[Quy tắc nghiệp vụ & ràng buộc] Chưa rõ cách tính điểm xếp loại khi tổng bằng đúng ngưỡng
+[Đối tượng người dùng & vai trò] Vai trò "trưởng nhóm" có được duyệt đơn không — mâu thuẫn giữa hai câu trả lời
+```
+
+12 nhãn hợp lệ: `Mục tiêu / bài toán` · `Đối tượng người dùng & vai trò` · `Chức năng & luồng nghiệp vụ chính` · `Quy trình hiện tại & điểm khó` · `Luồng ngoại lệ & trường hợp đặc biệt` · `Dữ liệu / danh mục chính` · `Quy tắc nghiệp vụ & ràng buộc` · `Vòng đời & trạng thái` · `Thông báo / nhắc nhở` · `Báo cáo / thống kê` · `Phân quyền theo nghiệp vụ` · `Quy mô sử dụng`.
+
+**Vì sao cái thẻ đó quan trọng hơn nó trông có vẻ.** Danh sách này và **bản đồ bao phủ** được chắt bởi hai lời gọi khác nhau, đọc cùng một hội thoại nhưng không nhìn thấy nhau — nên chúng nói ngược nhau mà không tầng nào biết. Ca thật: bản đồ ghi «Luồng ngoại lệ», «Vòng đời & trạng thái» và «Dữ liệu / danh mục chính» là `[RÕ]` trong khi danh sách này đang giữ đúng bảy điểm thuộc ba nhóm ấy. `[RÕ]` là lệnh **cấm BA hỏi lại** nhóm đó, nên bảy điểm ấy vĩnh viễn không bao giờ được lấy. Có thẻ thì hệ thống đối chiếu được TẤT ĐỊNH và tự hạ dòng bản đồ xuống `[MỘT PHẦN]` — nhưng nó chỉ làm được khi thẻ **khớp đúng nhãn**; viết chệch một nhãn là mất chốt chặn cho đúng mục đó. Không mục nào thuộc nhóm nào thì dùng `[—]`.
 
 ### 2. `plannedScope` — MÀN HÌNH dự kiến (chỉ màn hình)
 
@@ -29,6 +41,7 @@ Bạn nhận (1) **ba danh sách hiện có** và (2) **các lượt hội tho�
   - **Định lượng** (công thức/con số): tính tổng/điểm/trung bình có trọng số, xếp loại, hạn mức, cách cộng ngày phép… vd: *"Tính tổng điểm: 3 mục tiêu 80/90/70 với trọng số 50%/30%/20% → tổng 81 điểm"*, *"Cộng ngày phép: nhân viên vào làm 1/7, tính tới 31/12 → được 7.5 ngày"*.
   - **Định tính** (LUỒNG / CHUYỂN TRẠNG THÁI / PHÂN QUYỀN đã chốt): một chuỗi hành động → trạng thái/kết quả kỳ vọng, vd: *"Duyệt đơn: nhân viên gửi đơn nghỉ phép → đơn ở 'Chờ duyệt'; quản lý duyệt → đơn chuyển 'Đã duyệt' và không sửa được nữa"*, *"Phân quyền: nhân viên thường mở trang duyệt đơn → bị chặn (chỉ quản lý mới thấy)"*. Đây là "ví dụ vàng" cho luồng — bản demo (POC) sẽ mô phỏng lại đúng chuỗi này để kiểm.
 - **KHÔNG** ghi mô tả chung chung chưa có ví dụ cụ thể ("tính theo trọng số", "quản lý duyệt đơn") — cái đó thuộc `openQuestions` cho tới khi có một ví dụ ĐẦU VÀO → KẾT QUẢ được chốt.
+- **Ví dụ bị lượt sau BÁC BỎ thì XÓA khỏi danh sách, không giữ song song với bản mới.** Đây là danh sách lũy tiến, nên một ví dụ đã chốt sẽ nằm lại mãi trừ khi bạn chủ động gỡ. Ca thật: BA dựng ví dụ *"23 người, sĩ số 8–12 ⇒ mở 2 lớp, phân bổ 12 và 11 người"*, người dùng gật; hai mươi lượt sau họ nói *"việc 1 lớp có bao nhiêu học viên thì không cần quan tâm, nhân viên tự đăng ký"* — tức vế **phân bổ học viên** đã bị bác, chỉ vế **số lớp** còn đúng. Giữ nguyên cả ví dụ cũ là để một quy tắc người dùng vừa bỏ đi chảy tiếp vào `## 13. Worked Examples`, và POC bị chấm theo đúng cái oracle sai đó. Cách xử: viết lại ví dụ chỉ còn phần **chưa bị bác** (*"23 người, sĩ số 8–12 ⇒ hệ thống gợi ý mở 2 lớp"*), phần bị bác thành một quyết định mới hoặc một mục `openQuestions` nếu chưa rõ.
 - Không có ví dụ nào được chốt ⇒ mảng rỗng.
 
 ## Nguyên tắc

@@ -93,6 +93,12 @@ public static partial class CoverageMapParser
         };
     }
 
+    /// <summary>
+    /// Cùng regex dòng bản đồ, mở cho <see cref="CoveragePendingGuard"/> — nó phải VIẾT LẠI một dòng chứ
+    /// không chỉ đọc, và hai bản sao của cùng một format là cách nhanh nhất để chúng trôi lệch nhau.
+    /// </summary>
+    internal static Regex LineRegex() => CoverageLineRegex();
+
     // "- ★ Mục tiêu / bài toán: [RÕ] tóm tắt…" — ★ tùy chọn, nhãn tới dấu ':' cuối cùng trước '[',
     // trạng thái trong ngoặc vuông, phần còn lại là tóm tắt.
     [GeneratedRegex(@"^-\s*(?<core>★)?\s*(?<label>[^:\[\]]+):\s*\[(?<status>[^\]]+)\]\s*(?<summary>.*)$")]

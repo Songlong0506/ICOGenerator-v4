@@ -170,7 +170,7 @@ public static class FlowMapGate
 /// Điều kiện mở:
 /// </para>
 /// <list type="number">
-///   <item><b>Chưa chốt bảng nào.</b></item>
+///   <item><b>Chưa chốt bảng — HOẶC đã chốt mà có màn hình MỚI lộ ra sau đó.</b> Xem mục dưới.</item>
 ///   <item><b>Phạm vi đã có mục</b> (<c>Project.PlannedScope</c>) — các DÒNG của bảng chính là nó.</item>
 ///   <item><b>«Chức năng &amp; luồng nghiệp vụ chính» đã <c>[RÕ]</c>.</b></item>
 /// </list>
@@ -181,10 +181,29 @@ public static class FlowMapGate
 /// phần còn lại của chuỗi. Thứ tự vẫn được giữ ở <see cref="InterviewTableGate.Select"/>, nơi cổng luồng
 /// được xét trước; ở đây fail-open là lựa chọn đúng.
 /// </para>
+///
+/// <para>
+/// <b>Cổng DUY NHẤT trong bốn cổng mở lại được sau khi đã chốt</b> — vì nó là cổng duy nhất mà phạm vi có
+/// thể trôi tiếp sau lượt chốt. Ca thật (dự án Learning and Development 7): bảng chốt ở lượt 23; tới lượt
+/// 33 người dùng nói sĩ số tối thiểu/tối đa lấy từ *"danh sách khóa học được quản lý ở một màn hình
+/// riêng"*, và Admin đã được chốt là người quản lý cả phòng học lẫn người dạy. Ba màn hình đó có mặt trong
+/// <c>PlannedScope</c> nhưng không bao giờ đi qua bảng: <see cref="ScreenScopeMapBuilder.EffectiveScreens"/>
+/// bù chúng vào bảng phân quyền ở dạng TRẮNG (không việc, không chức năng, không bước luồng), trong khi
+/// khối ngữ cảnh của bảng đã chốt CẤM BA hỏi lại việc của từng màn — nên chúng đi vào tài liệu và vào bản
+/// demo mà không ai biết chúng để làm gì.
+/// </para>
+///
+/// <para>
+/// Mở lại KHÔNG phải rà lại từ đầu: lượt bày lại được gieo bằng
+/// <see cref="ScreenScopeMapBuilder.SeedRows"/> nên các dòng người dùng đã duyệt giữ nguyên việc, chức
+/// năng và ô "phục vụ bước nào"; phần tươi chỉ là các màn hình mới. Vòng lặp có đáy: người dùng giữ màn
+/// hình mới ⇒ nó thành một dòng của bảng ⇒ hết "mới"; bỏ tích ⇒ <c>ConfirmScreenScopeUseCase</c> ghi ngược
+/// <c>PlannedScope</c> nên nó rời phạm vi ⇒ cũng hết "mới". Cả hai đường đều đóng cổng.
+/// </para>
 /// </summary>
 public static class ScreenScopeGate
 {
-    /// <summary>Đã tới lúc bày bảng màn hình cho dự án này chưa.</summary>
+    /// <summary>Đã tới lúc bày (hoặc bày LẠI) bảng màn hình cho dự án này chưa.</summary>
     public static bool ShouldAsk(Project project)
         => ShouldAsk(project.RequirementCoverageMap, project.ScreenScopeMap,
             InterviewOutlookService.ParseItems(project.PlannedScope));
@@ -192,9 +211,13 @@ public static class ScreenScopeGate
     /// <summary>Bản thuần dữ liệu — để test và để gọi từ nơi không có entity.</summary>
     public static bool ShouldAsk(string? coverageMap, string? screenScopeJson, IReadOnlyList<string> plannedScope)
     {
-        if (ScreenScopeMapBuilder.IsConfirmed(screenScopeJson))
-            return false;
         if (plannedScope.Count == 0)
+            return false;
+
+        // Đã chốt ⇒ chỉ mở lại khi có màn hình MỚI lộ ra sau lúc chốt. Không có mục mới nào thì bảng đã là
+        // câu trả lời của người dùng, và bày lại một bảng y hệt là bắt họ làm lại việc vừa làm.
+        if (ScreenScopeMapBuilder.IsConfirmed(screenScopeJson)
+            && ScreenScopeMapBuilder.NewScreens(screenScopeJson, plannedScope).Count == 0)
             return false;
 
         var items = CoverageMapParser.Parse(coverageMap);
