@@ -377,6 +377,41 @@ public static class EvalScenariosSeedData
             - KHÔNG hỏi lại nghĩa từng cột của file vừa gửi, và KHÔNG hỏi người dùng có cần tài khoản riêng để đăng nhập không.
             """);
 
+        // Mặt kia của cùng ranh giới, và là chỗ luật "hỏi nguồn" quay ra cắn chính nó: orgUnit + nhân sự
+        // đồng bộ tự động từ COMPAS cho MỌI ứng dụng trong nhà máy (organization-platform.v1.md), nên hỏi
+        // nguồn/ai cập nhật cho hai danh mục đó là hỏi đúng điều ĐÃ CHỐT. Ca thật đã gặp trên màn hình: ba
+        // lượt liền hỏi "ai quản lý danh sách orgUnit", "ai cập nhật thông tin nhân viên", "danh sách orgUnit
+        // đưa vào ứng dụng bằng cách nào" — người dùng phải tự gõ vào ô "Ý khác" rằng app tự đồng bộ từ
+        // COMPAS. Ai bấm chip cho xong thì tài liệu ghi một quy trình nhập tay không có thật, và POC dựng
+        // một màn hình "Quản lý OrgUnit" đầy nút Thêm/Sửa/Xóa.
+        Add(
+            "Chat BA — không hỏi nguồn/người quản lý của orgUnit và nhân sự (đã đồng bộ từ COMPAS)",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Nền tảng đã chốt của nhà máy (BẮT BUỘC — áp cho câu hỏi, phương án gợi ý và tài liệu)
+
+            ### Dữ liệu tổ chức: orgUnit và nhân sự ĐỀU lấy từ hệ thống COMPAS
+
+            Danh sách orgUnit (cây tổ chức, ai là HoD/manager) và danh sách nhân sự (họ tên, mã nhân viên, chức danh, thuộc orgUnit nào, quản lý trực tiếp là ai) của MỌI ứng dụng trong nhà máy đều được đồng bộ tự động từ hệ thống COMPAS. Ứng dụng tự lấy về; không ai tải file lên, không ai nhập tay, và không ứng dụng nào được sửa hai danh mục đó. Đây là điều ĐÃ CHỐT của sản phẩm: đừng hỏi ai quản lý/cập nhật chúng, đừng hỏi chúng vào ứng dụng bằng đường nào, và đừng dựng màn hình quản lý orgUnit/nhân viên. Thứ ứng dụng TỰ gắn thêm lên một orgUnit hay một con người (JD của orgUnit do ai soạn, ai duyệt…) thì vẫn phải hỏi như thường.
+
+            ## Điều đã chốt
+            - Ứng dụng quản lý JD (bản mô tả công việc) cho các vị trí trong nhà máy
+            - Manager tạo JD cho vị trí thuộc orgUnit của mình
+
+            Hội thoại trước đó:
+            BA: Anh/chị kể giúp mình một lần gần nhất cần tới bản JD thì làm những bước nào.
+            Người dùng: Manager vào chọn orgUnit của mình rồi tạo JD cho vị trí cần tuyển, xong gửi HRBP xem lại. JD duyệt rồi thì gán cho nhân viên đang giữ vị trí đó.
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - TUYỆT ĐỐI KHÔNG hỏi ai quản lý / ai cập nhật danh sách orgUnit, ai quản lý thông tin nhân viên, danh sách orgUnit được đưa vào ứng dụng bằng cách nào, hay dữ liệu nhân sự cập nhật khi nào. Hai danh mục đó đồng bộ từ COMPAS — hỏi lại là hỏi đúng điều ĐÃ CHỐT.
+            - TUYỆT ĐỐI KHÔNG đưa vào message/questions/suggestions các phương án không có thật cho hai danh mục đó: "HR", "HRBP", "HR và manager orgUnit", "Manager trực tiếp", "Có người tải file lên", "Nhập tay trong ứng dụng", "Ứng dụng tự lấy về".
+            - KHÔNG đề xuất màn hình quản lý orgUnit / quản lý nhân viên / quản lý người dùng.
+            - KHÔNG hỏi chuyện kỹ thuật của việc đồng bộ (API, webhook, đọc thẳng database COMPAS, lịch chạy job, tần suất).
+            - ĐẠT khi lượt này đào đúng phần dữ liệu của CHÍNH ứng dụng hoặc một nhóm ★ chưa khai thác — vd JD gồm những thông tin gì, HRBP xem lại rồi có được sửa không, JD bị trả về thì manager làm gì, một vị trí có nhiều bản JD theo thời gian không.
+            - Nếu message có câu ghi nhận, câu đó chỉ được chứa điều người dùng THẬT SỰ đã nói — KHÔNG chèn "đồng bộ từ COMPAS" vào như thể họ đã nói ra.
+            """);
+
         // Xin file là lời nhờ HÀNH ĐỘNG, không phải câu hỏi: người dùng đọc xong thì đi tìm file, nên mọi thứ
         // khác trong lượt bị nuốt mất. Ca thật: BA vừa xin Master List vừa hỏi quy trình hiện tại và điểm đau
         // — người dùng đính kèm file rồi đáp đúng một dòng về điểm đau, còn CÁC BƯỚC của quy trình hiện tại
