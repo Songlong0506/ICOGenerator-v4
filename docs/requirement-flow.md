@@ -372,7 +372,47 @@ nhân viên nhà máy nhận email. Ô để TRỐNG là một quyết định (
 điều đó ra, vì mặc định im lặng của các tầng sau là gửi cho tất cả.
 
 Vòng đời một trạng thái bị cắt sạch (đối tượng vẫn giữ — nó là đối tượng danh mục): "vòng đời" một trạng
-thái là không có vòng đời, và giữ lại là mời người dùng xác nhận một điều vô nghĩa.
+thái là không có vòng đời, và giữ lại là mời người dùng xác nhận một điều vô nghĩa. Luật này chỉ áp ở lượt
+BÀY BẢNG — xem ngay dưới.
+
+#### Thêm/xóa dòng ngay trên bảng, và hai chốt chặn phải nhường
+
+Ba nút, cùng lý do với bảng màn hình (một vòng gọi LLM cho một dòng người dùng đã biết chính xác mình muốn
+gì, và bảng bày lại thì không có gì bảo đảm giữ nguyên những ô họ vừa điền): **+ thêm đối tượng** ở cuối
+bảng, **+ thêm thông tin** ở cuối bảng thông tin của mỗi đối tượng, **+ thêm trạng thái** ở cuối bảng vòng
+đời. Trần vẫn là trần của builder (12 đối tượng · 12 thông tin · 8 trạng thái) và bị chặn **tại nút bấm** ở
+trình duyệt chứ không để server cắt lặng.
+
+Ranh giới xóa giống bảng màn hình ở phần thông tin: dòng BA đề xuất thì **bỏ tích chứ không xóa** (dòng bị
+loại còn phải kể lại được trong tin nhắn gửi đi — *"không cần lưu: …"*), chỉ dòng người dùng tự thêm mới có
+nút xóa. **Dòng trạng thái là ngoại lệ: mọi dòng đều xóa được**, vì bảng vòng đời không có cột tích — "có
+trạng thái này nhưng bỏ tích" không có nghĩa gì trong một vòng đời, và trước đây cách duy nhất để loại một
+trạng thái sai là xóa trắng ô tên (server bỏ dòng không có tên), tức đúng việc này chỉ khác là không ai nhìn
+ra để làm.
+
+**Hai bảng con luôn hiện, kể cả khi rỗng** — đó là chỗ đứng của hai nút thêm, và một bảng trạng thái rỗng
+không phải cái mà luật cắt vòng đời một trạng thái đang chặn: nó là chỗ người dùng nói ra rằng đối tượng này
+CÓ vòng đời mà BA tưởng là danh mục.
+
+Phần đắt nhất nằm ở server: **hai chốt chặn tất định của bảng này đều nhắm vào MODEL, nên cả hai phải nhường
+ở đường GỬI** — không phân biệt được nguồn thì chúng chặn luôn thứ người dùng vừa tự gõ, và dòng ấy biến mất
+không một lời nào nói vì sao (`EntityMapRow.AddedByUser`, ngoại lệ duy nhất, chỉ đọc ở `Sanitize` — ở lượt
+bày bảng mọi dòng đều do model soạn nên đọc cờ ở đó là dựng cho model một cửa sau tự cấp phép):
+
+- **"Đối tượng rỗng ruột"** loại dòng không có thông tin nào và cũng không có trạng thái nào. Một dòng người
+  dùng vừa gõ tên thì lại là một câu nói *"ứng dụng còn phải lưu thứ này"* — họ thêm đối tượng vì biết nó cần
+  có, phần "lưu gì" chính là thứ họ đang chờ được hỏi. Vì vậy nó đi qua, và **cả hai bản kể phải nói ra rằng
+  nó còn trống**: tin nhắn gửi đi thêm dòng *"mình chưa rõ cần lưu những gì cho đối tượng này"*, còn khối ngữ
+  cảnh — thứ đứng dưới lệnh *"đừng hỏi lại"* — mang một **ngoại lệ ghi ngay tại dòng của nó** bảo BA hỏi tiếp.
+  Thiếu chỗ này thì tính năng tự mở đúng cái lỗ mà cả bảng sinh ra để bịt, chỉ khác là lần này do người dùng
+  mở ra.
+- **"Vòng đời một trạng thái"** không cắt ở đường gửi. Một trạng thái người dùng tự gõ (hoặc còn lại sau khi
+  họ xóa bớt) là một quyết định; cắt nó vừa mất chữ họ vừa gõ, vừa làm **cả dòng rơi khỏi bảng** theo luật
+  "rỗng ruột" khi đó là đối tượng danh mục vừa được thêm đúng một trạng thái.
+
+Cờ `AddedByUser` **không** bị xoá lúc lưu (khác cờ khóa) vì `RenderUserMessage` phải gọi tên chúng: *"Các đối
+tượng mình tự bổ sung vào bảng: …"*. Một đối tượng chưa từng có trong đề xuất mà lặng lẽ đi vào mô hình dữ
+liệu là đúng loại thay đổi phải nói ra, cùng luật với các dòng bị bỏ tích.
 
 ## Bảng phân quyền: chốt nhóm phân quyền ở cuối buổi
 
