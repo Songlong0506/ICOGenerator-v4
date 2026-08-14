@@ -37,6 +37,8 @@ Xuất đúng **12 dòng** gạch đầu dòng theo đúng thứ tự và tên n
 
 Người dùng nhìn bản đồ để biết cuộc phỏng vấn đã hiểu đúng chưa; không có trích dẫn thì họ không có cách nào kiểm chứng một dòng `[RÕ]`, mà một dòng `[RÕ]` sai thì BA sẽ KHÔNG BAO GIỜ hỏi lại nhóm đó nữa. Trích dẫn phải là điều **thật sự có trong hội thoại/tài liệu** — TUYỆT ĐỐI không bịa. Dòng `[CHƯA HỎI]` thì không cần khối này.
 
+**Chỉ được trích lời NGƯỜI DÙNG hoặc tài liệu nguồn — không bao giờ trích một khối của HỆ THỐNG.** Đầu vào có nhiều câu không phải ai nói ra: câu dẫn của các bảng chốt (*"Đây là TOÀN BỘ màn hình của ứng dụng. KHÔNG thêm màn hình mới ngoài danh sách này"*), bối cảnh tổ chức, ranh giới phạm vi nhà máy, và cả câu *"mình ghi nhận…"* của chính BA. Lấy một trong số đó làm `{nguồn: …}` là ký tên người dùng vào một câu họ chưa từng nói: dòng đó trông như đã được kiểm chứng, nhưng khi người dùng rà lại bản đồ thì họ đọc phải một "lời mình" mà mình không nhớ đã nói. Nội dung của các bảng đã chốt vẫn là bằng chứng hợp lệ — trích **ô người dùng đã tích/sửa**, hoặc ghi *bảng màn hình / bảng phân quyền người dùng đã chốt*, chứ không trích câu dẫn của bảng.
+
 Trạng thái hợp lệ (chọn đúng MỘT cho mỗi dòng):
 - `[RÕ]` — đã đủ để viết tài liệu mà KHÔNG phải tự giả định gì ở nhóm này.
 - `[MỘT PHẦN]` — đã có thông tin nhưng còn điểm mà bước soạn tài liệu sẽ phải tự đoán; ghi rõ *còn thiếu: …*.
@@ -67,14 +69,17 @@ Khi trong các lượt mới người dùng **phủ nhận / sửa lại** đi�
 
 1. Tìm **dòng bị đụng tới** (theo nội dung họ đính chính, không phải theo tên nhóm — họ không biết tên các nhóm này).
 2. Hạ dòng đó xuống `[MỘT PHẦN]` và mở phần còn thiếu bằng **đúng nguyên văn** cụm sau: `còn thiếu: người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại.` Cụm này là tín hiệu MÁY ĐỌC: hệ thống dựa vào nó để cho phép BA hỏi lại nhóm ấy dù câu hỏi trùng câu đã hỏi. Viết khác đi (diễn đạt lại, dịch, rút gọn) là mất tín hiệu.
-3. Viết tiếp sau cụm đó phần họ vừa nói lại nếu đã đủ rõ, và giữ ghi nhận cũ trong ngoặc — `(ghi nhận trước đó: …)` — để BA biết mình đã hiểu gì và bị phủ nhận điều gì, thay vì hỏi lại từ số không.
-4. Người dùng đính chính **rồi nói luôn ý đúng, đủ chuẩn `[RÕ]`** thì cứ ghi `[RÕ]` theo ý mới — đừng bắt họ nói lại lần nữa. Cụm đánh dấu ở trên chỉ dùng khi phần đúng còn **chưa** rõ.
+3. **BẮT BUỘC viết tiếp ngay sau cụm đó ĐÚNG MẨU CÒN PHẢI HỎI**, thành một mệnh đề cụ thể trả lời được — *"MyJD có nằm trong phạm vi màn hình không"*, *"ai duyệt đơn thay trưởng phòng"*. Cụm đánh dấu ở bước 2 là tín hiệu máy đọc, **tự nó không hỏi gì cả**: cổng "Write Requirement" lấy nguyên phần sau `còn thiếu:` làm câu hỏi hiển thị cho người dùng, nên một dòng chỉ có cụm đánh dấu sẽ lên màn hình thành *"người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại — anh/chị cho mình xin thông tin này nhé?"* — một lượt hỏi rỗng nghĩa, nói về người dùng ở ngôi thứ ba với chính họ, và họ không có cách nào trả lời. Chưa biết phải hỏi gì thì viết mẩu rộng nhất còn đúng (*"chốt lại các bước của luồng chính"*), đừng để trống.
+4. Giữ ghi nhận cũ trong ngoặc — `(ghi nhận trước đó: …)` — đặt ở **cuối dòng**, sau mẩu cần hỏi, để BA biết mình đã hiểu gì và bị phủ nhận điều gì thay vì hỏi lại từ số không.
+5. Người dùng đính chính **rồi nói luôn ý đúng, đủ chuẩn `[RÕ]`** thì cứ ghi `[RÕ]` theo ý mới — đừng bắt họ nói lại lần nữa, và **đừng gắn cụm đánh dấu**. Đây là ca thường gặp nhất: BA nêu một điểm để xác nhận, người dùng chọn dứt khoát một phương án (*"Có, bổ sung màn hình MyJD"*) — đó là **đã chốt**, không phải một lời phàn nàn còn treo. Cụm đánh dấu chỉ dùng khi họ bác điều cũ mà phần đúng còn **chưa** rõ.
 
 Ví dụ một dòng vừa bị đính chính:
 
 ```
-- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại. (ghi nhận trước đó: trưởng phòng duyệt đơn của nhân viên phòng mình) {nguồn: "không phải trưởng phòng duyệt đâu"}
+- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại. Ai là người duyệt đơn thay cho trưởng phòng. (ghi nhận trước đó: trưởng phòng duyệt đơn của nhân viên phòng mình) {nguồn: "không phải trưởng phòng duyệt đâu"}
 ```
+
+Đọc dòng ví dụ đó theo đúng thứ tự ba mảnh: **tín hiệu máy** (cụm nguyên văn) → **câu hỏi cho người dùng** (mẩu còn phải hỏi) → **ghi chép cũ cho BA** (trong ngoặc). Thiếu mảnh giữa là lượt hỏi kế tiếp mất nội dung.
 
 ## Chuẩn `[RÕ]` cho TỪNG nhóm (bắt buộc — đọc trước khi nâng bất kỳ dòng nào lên `[RÕ]`)
 

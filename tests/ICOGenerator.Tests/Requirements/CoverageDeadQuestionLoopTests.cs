@@ -82,16 +82,54 @@ public class CoverageDeadQuestionLoopTests
     }
 
     // Ghi chú tái mở "(ghi nhận trước đó: …)" là ghi chép CŨ của hệ thống dành cho BA, không phải điều
-    // cần hỏi — đọc nguyên khối vào câu hỏi là kể lại chính lời người dùng rồi bắt họ nghe lại.
+    // cần hỏi — đọc nguyên khối vào câu hỏi là kể lại chính lời người dùng rồi bắt họ nghe lại. Cụm
+    // ReopenNote đứng ngay trước nó cũng vậy, và còn tệ hơn: nó là TÍN HIỆU MÁY (mở phanh chống-hỏi-lại)
+    // nên đọc lên là một lượt hỏi rỗng nghĩa, xưng "người dùng" ở ngôi thứ ba với chính người đang đọc.
+    // Ca thật: dự án JD Library lượt 34 — "Anh/chị cho mình hỏi thêm: người dùng báo phần này chưa đúng
+    // — cần hỏi lại và chốt lại — anh/chị cho mình xin thông tin này nhé?".
     [Fact]
     public void PendingQuestion_DropsTheReopenBookkeeping()
     {
         var readiness = RequirementReadinessGate.Evaluate($"""
-            - ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: {AskedQuestionHistory.ReopenNote} (ghi nhận trước đó: trưởng phòng duyệt đơn)
+            - ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: {AskedQuestionHistory.ReopenNote} — cần hỏi lại và chốt lại. (ghi nhận trước đó: trưởng phòng duyệt đơn)
             """);
 
         Assert.False(readiness.Ready);
         Assert.DoesNotContain("ghi nhận trước đó", readiness.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(AskedQuestionHistory.ReopenNote, readiness.Message, StringComparison.OrdinalIgnoreCase);
+        // Không còn mẩu nào để hỏi ⇒ rơi về câu mở đầu của nhóm: một câu hỏi rộng vẫn trả lời được, còn
+        // cụm tín hiệu thì không.
+        Assert.Contains("Đối tượng người dùng & vai trò", readiness.Message, StringComparison.Ordinal);
+        Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
+    }
+
+    // Distiller viết ĐÚNG theo prompt: cụm tín hiệu, rồi mẩu còn phải hỏi, rồi ghi chép cũ trong ngoặc.
+    // Câu hỏi phải lấy mảnh GIỮA — đó là thứ duy nhất người dùng trả lời được.
+    [Fact]
+    public void PendingQuestion_AsksTheGapWrittenAfterTheReopenMarker()
+    {
+        var readiness = RequirementReadinessGate.Evaluate($"""
+            - ★ Chức năng & luồng nghiệp vụ chính: [MỘT PHẦN] còn thiếu: {AskedQuestionHistory.ReopenNote} — cần hỏi lại và chốt lại. MyJD có nằm trong phạm vi màn hình không. (ghi nhận trước đó: phạm vi không có MyJD)
+            """);
+
+        Assert.False(readiness.Ready);
+        Assert.Contains("MyJD có nằm trong phạm vi màn hình không", readiness.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(AskedQuestionHistory.ReopenNote, readiness.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ghi nhận trước đó", readiness.Message, StringComparison.Ordinal);
+    }
+
+    // Lượt chặn của cổng không có chip nào (Evaluate không dựng phương án), nên nó PHẢI là câu mở — nếu
+    // không, người dùng nhận một câu hỏi vừa không có nút bấm vừa không mời gõ.
+    [Theory]
+    [InlineData("- ★ Mục tiêu / bài toán: [MỘT PHẦN] còn thiếu: ứng dụng giải quyết việc gì.")]
+    [InlineData("- Thông báo / nhắc nhở: [CHƯA HỎI]")]
+    [InlineData(null)]
+    public void PendingTurn_IsAlwaysAnOpenQuestion(string? map)
+    {
+        var readiness = RequirementReadinessGate.Evaluate(map);
+
+        Assert.False(readiness.Ready);
+        Assert.True(readiness.OpenEnded);
     }
 
     // Bản đồ chưa có/hỏng ⇒ fail-closed, và câu chặn vẫn phải nói được cho người dùng biết làm gì tiếp.

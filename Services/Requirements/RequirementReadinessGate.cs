@@ -31,7 +31,8 @@ public static class RequirementReadinessGate
             return new RequirementReadiness
             {
                 Ready = false,
-                Message = "Mình chưa tổng hợp được bản đồ khai thác yêu cầu cho dự án này, nên chưa thể viết tài liệu. Bạn trao đổi thêm một lượt trong khung chat rồi thử lại nhé."
+                Message = "Mình chưa tổng hợp được bản đồ khai thác yêu cầu cho dự án này, nên chưa thể viết tài liệu. Bạn trao đổi thêm một lượt trong khung chat rồi thử lại nhé.",
+                OpenEnded = true
             };
         }
 
@@ -47,7 +48,8 @@ public static class RequirementReadinessGate
         return new RequirementReadiness
         {
             Ready = false,
-            Message = BuildPendingQuestion(pending)
+            Message = BuildPendingQuestion(pending),
+            OpenEnded = true
         };
     }
 
@@ -102,7 +104,28 @@ public static class RequirementReadinessGate
         if (note >= 0)
             missing = missing[..note].Trim();
 
-        return missing.TrimEnd('.', ';', ',');
+        return StripReopenMarker(missing).TrimEnd('.', ';', ',');
+    }
+
+    // Cụm <see cref="AskedQuestionHistory.ReopenNote"/> mở đầu phần "còn thiếu" của một dòng vừa bị người
+    // dùng đính chính. Nó là TÍN HIỆU MÁY ĐỌC (miễn phanh chống-hỏi-lại cho nhóm đó), KHÔNG phải điều cần
+    // hỏi — đọc nguyên văn ra màn hình thì lượt gate thành một câu rỗng nghĩa: *"người dùng báo phần này
+    // chưa đúng — cần hỏi lại và chốt lại — anh/chị cho mình xin thông tin này nhé?"*, xưng "người dùng" ở
+    // ngôi thứ ba với chính người đang đọc và không hỏi gì cả. Ca thật đã gặp trên màn hình (dự án
+    // JD Library, lượt 34).
+    //
+    // Cắt trọn CÂU chứa cụm đó và giữ phần distiller viết thêm sau nó — prompt requirement-coverage.v3
+    // § "Người dùng đính chính một nhóm" bắt buộc viết tiếp đúng mẩu cần hỏi lại. Không còn gì ⇒ trả rỗng
+    // để caller rơi về câu mở đầu của nhóm: một câu hỏi rộng vẫn trả lời được, còn cụm tín hiệu thì không.
+    private static string StripReopenMarker(string missing)
+    {
+        var at = missing.IndexOf(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase);
+        if (at < 0)
+            return missing;
+
+        var sentenceEnd = missing.IndexOf('.', at);
+        var tail = sentenceEnd >= 0 ? missing[(sentenceEnd + 1)..] : string.Empty;
+        return (missing[..at] + " " + tail).Trim();
     }
 
     private static string ToQuestion(string missing)

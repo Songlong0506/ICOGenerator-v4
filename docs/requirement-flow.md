@@ -691,7 +691,16 @@ từ cú bấm đó, hiện ở nửa màn hình bên kia thì người dùng ch
 Cùng tinh thần "người dùng phải kiểm chứng được": bản đồ bao phủ nay mang **bằng chứng**
 (`{nguồn: …}` cuối mỗi dòng, `CoverageMapParser.SplitEvidence`), hiện trong **tooltip** của dòng chứ
 không phải một hàng riêng dưới nhãn — ở bề rộng sidebar trích dẫn luôn bị cắt giữa chừng và hay lặp
-cùng một câu ở nhiều nhóm, làm panel cao gấp đôi mà vẫn không soát được gì.
+cùng một câu ở nhiều nhóm, làm panel cao gấp đôi mà vẫn không soát được gì. Trích dẫn chỉ được lấy từ
+**lời người dùng hoặc tài liệu nguồn**: một câu của hệ thống đem làm bằng chứng (câu dẫn của các bảng
+chốt, bối cảnh tổ chức, chính câu "mình ghi nhận…" của BA) khiến dòng đó trông như đã kiểm chứng trong
+khi người dùng đọc lại thấy một "lời mình" mình không nhớ đã nói.
+
+**Lượt chặn của cổng là một câu MỞ.** Khi chưa đủ, `Evaluate` trả về `Message` + `OpenEnded = true`, và
+cờ đó đi tiếp ra `BAChatTurnResult.OpenEnded` để khung chat đổi placeholder thành lời mời kể. Cổng
+không dựng chip: chip phải là đáp án TRỌN VẸN cho đúng câu đang hỏi, thứ chỉ BA viết ra được. Không có
+cờ này, lượt gate lên màn hình vừa không có nút bấm vừa không mời gõ — đúng thứ `requirement-chat.v4.md`
+gọi là "một lượt hỏi thiếu chỗ trả lời".
 
 ### Đính chính một nhóm: đường thoát khỏi một dòng [RÕ] oan
 
@@ -708,6 +717,15 @@ nhóm đó không bao giờ được nhắc tới nữa và cách hiểu sai đi
    vì nó suy tất định từ chính bản đồ.
 3. **Phanh chống hỏi lại nhường đường** cho nhóm mang cụm đó (`AskedQuestionHistory.ReopenNote`), nếu không
    BA hỏi lại mà câu hỏi bị lọc mất vì trùng câu cũ.
+
+Phần `còn thiếu:` của một dòng vừa đính chính vì thế có **ba mảnh, đúng thứ tự**: cụm tín hiệu (cho máy) →
+**mẩu còn phải hỏi** (cho người dùng) → `(ghi nhận trước đó: …)` (cho BA). Mảnh giữa là bắt buộc và không
+mảnh nào thay được nó: cổng lấy nguyên phần sau `còn thiếu:` làm câu hỏi hiển thị, nên một dòng chỉ có cụm
+tín hiệu sẽ lên màn hình thành *"người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại — anh/chị cho
+mình xin thông tin này nhé?"* — một lượt hỏi rỗng nghĩa mà người dùng không có cách nào trả lời, và nhóm đó
+đứng yên ở `[MỘT PHẦN]` mãi. `RequirementReadinessGate.ExtractMissingPart` cắt hai mảnh dành cho máy/BA ra
+khỏi câu hỏi; hết mảnh giữa thì nó rơi về **câu mở đầu của nhóm** thay vì đọc cụm tín hiệu lên — một câu
+hỏi rộng vẫn trả lời được, còn cụm tín hiệu thì không.
 
 Cụm ở bước 2 là một giao ước prompt↔code mà compiler không kiểm được, nên `CoverageReopenNoteRuleTests`
 giữ hai bên không trôi khỏi nhau.
