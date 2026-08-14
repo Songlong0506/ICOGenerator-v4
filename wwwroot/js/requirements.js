@@ -953,15 +953,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const name = f ? (f.name || "") : "";
         const steps = f ? (f.flowSteps || []).join("; ") : "";
         const checked = f ? (f.included ? " checked" : "") : " checked";
-        // Dấu ✓ ở đây KHÔNG thay ô tích như bên bảng phân quyền, nó đứng cạnh: "anh/chị từng nhắc tới việc
-        // này" không đồng nghĩa "việc này phải có trong bản đầu", nên người dùng vẫn phải bỏ tích được.
-        const proof = f && f.locked
-            ? `<span class="permmap-locked screenfn-proof" title="${escapeHtml(f.evidence || "")}">✓</span>`
-            : "";
+        // Cột đầu CHỈ có ô tích. Bảng này không mang dấu ✓ bằng chứng như bảng phân quyền — xem
+        // requirement-flow.md, mục "Vì sao bảng màn hình không có dấu ✓ bằng chứng".
         return `
             <tr class="screenmap-fn-row">
                 <td class="flowmap-use">
-                    <input type="checkbox" class="screenfn-check" aria-label="Cần chức năng ${escapeHtml(name)}"${checked} />${proof}
+                    <input type="checkbox" class="screenfn-check" aria-label="Cần chức năng ${escapeHtml(name)}"${checked} />
                 </td>
                 <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="chức năng">${escapeHtml(name)}</textarea></td>
                 <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="chức năng này phụ trách bước nào?">${escapeHtml(steps)}</textarea></td>
@@ -1000,7 +997,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <tr class="screenmap-row" data-screen="${escapeHtml(screen)}" data-covers="${escapeHtml(covers.join("|"))}">
                 <td class="flowmap-use">
                     <input type="checkbox" class="screenmap-check" aria-label="Cần màn hình ${r ? escapeHtml(screen) : "vừa thêm"}"${!r || r.included ? " checked" : ""} />
-                    ${r && r.locked ? `<span class="permmap-locked" title="${escapeHtml(r.evidence || "")}">✓</span>` : ""}
                 </td>
                 <td class="permmap-fn">
                     ${nameCell}
@@ -1027,7 +1023,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 Đây là các màn hình mình dự kiến dựng và các chức năng trên từng màn. Màn nào <b>không cần</b>
                 thì bỏ tích ở cột đầu; chức năng nào không cần thì bỏ tích ngay dòng của nó. Thiếu chức năng
                 nào thì bấm <b>+ thêm chức năng</b> ở cuối màn đó, thiếu cả một màn hình thì bấm
-                <b>+ thêm màn hình</b> ở cuối bảng. Dấu <b>✓</b> là phần chính anh/chị đã nêu.
+                <b>+ thêm màn hình</b> ở cuối bảng.
             </div>
             <table class="permmap-table screenmap-table">
                 <thead>

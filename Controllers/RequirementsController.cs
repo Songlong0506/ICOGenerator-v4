@@ -418,14 +418,10 @@ public class RequirementsController : Controller
                                 {
                                     name = f.Name,
                                     flowSteps = f.FlowSteps,
-                                    included = f.Included,
-                                    locked = f.Locked,
-                                    evidence = f.Evidence
+                                    included = f.Included
                                 }),
                                 covers = r.Covers,
-                                included = r.Included,
-                                locked = r.Locked,
-                                evidence = r.Evidence
+                                included = r.Included
                             }),
                             // Bước luồng chưa có màn hình nào phụ trách — phép kiểm tất định của mối nối
                             // luồng ⇄ màn hình, hiện thành một dòng nhắc dưới bảng màn hình.

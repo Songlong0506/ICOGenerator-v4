@@ -214,17 +214,6 @@ public class InterviewTableBuilderTests
             ScreenScopeMapBuilder.RenderUserMessage(rows));
     }
 
-    [Fact]
-    public void ScreenScope_LocksOnlyRowsThatCarryEvidence()
-    {
-        var rows = ScreenScopeMapBuilder.Build(new[]
-        {
-            new ScreenScopeRow { Screen = "Màn hình Training Plan", Locked = true, Evidence = "" }
-        }, Scope);
-
-        Assert.False(rows.Single(r => r.Screen == "Màn hình Training Plan").Locked);
-    }
-
     // Cờ `included` là chỗ NGƯỜI DÙNG loại một chức năng, không phải chỗ model tự phủ nhận đề xuất của
     // mình. Structured output buộc điền đủ trường, nên một model điền false cho có sẽ bày ra một bảng bỏ
     // tích sạch và người dùng gửi đi một phạm vi rỗng trong khi tưởng vừa xác nhận cả ứng dụng.
