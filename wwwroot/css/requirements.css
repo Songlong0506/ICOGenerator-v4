@@ -2191,11 +2191,9 @@
        và người dùng không thấy ô tích nào đi với ô chữ nào. */
     .screenmap-fntable tr + tr td { border-top: 1px dashed #eef1f5; }
 
-    .screenmap-fntable .flowmap-use { width: 44px; white-space: nowrap; }
-
-/* Dấu ✓ của chức năng đứng CẠNH ô tích (không thay nó, khác bảng phân quyền): người dùng vẫn phải bỏ tích
-   được một việc chính họ từng kể ra. Thu nhỏ để cột đầu không nở ra vì một cái nhãn. */
-.screenfn-proof { margin-left: 2px; padding: 0 3px; font-size: 10px; }
+    /* Cột này chỉ còn ô tích (dấu ✓ bằng chứng đã bỏ, xem requirement-flow.md) nên thu lại vừa đúng ô —
+       phần rộng trả về cho hai ô chữ, thứ người dùng phải đọc kỹ nhất trên bảng con. */
+    .screenmap-fntable .flowmap-use { width: 28px; white-space: nowrap; }
 
 /* Chức năng bị bỏ tích mờ đi ngay tại dòng của nó — cùng luật với dòng bỏ tích của các bảng khác. */
 .screenmap-fn-row:has(input[type="checkbox"].screenfn-check:not(:checked)) .permmap-cellinput {

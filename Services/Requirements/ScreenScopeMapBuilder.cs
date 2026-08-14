@@ -48,7 +48,6 @@ public static class ScreenScopeMapBuilder
     public const int MaxCoversPerScreen = 8;
 
     private const int MaxTextChars = 200;
-    private const int MaxEvidenceChars = 300;
 
     private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -73,7 +72,7 @@ public static class ScreenScopeMapBuilder
     /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT. Server không tin bảng client gửi kể cả khi chính nó
     /// vừa render ra: tên màn hình vẫn phải khớp lại <paramref name="allowedScreens"/>. Khác
     /// <see cref="Build"/>: giữ đúng lựa chọn tích/bỏ tích của người dùng ở CẢ hai cấp (màn hình và chức
-    /// năng), xoá cờ khóa (bảng đã gửi thì mọi dòng là quyết định của họ), và NHẬN các dòng người dùng TỰ
+    /// năng), và NHẬN các dòng người dùng TỰ
     /// THÊM dù chúng không có trong <paramref name="allowedScreens"/> — xem
     /// <see cref="ScreenScopeRow.AddedByUser"/>. Dòng tự thêm xếp SAU CÙNG, đúng chỗ chúng đứng trên bảng.
     ///
@@ -89,21 +88,9 @@ public static class ScreenScopeMapBuilder
     /// </summary>
     public static List<ScreenScopeRow> Sanitize(IEnumerable<ScreenScopeRow>? submitted, IReadOnlyList<string> allowedScreens)
     {
-        var rows = BuildCore(submitted, allowedScreens, respectIncluded: true, acceptUserAdded: true);
-        foreach (var row in rows)
-        {
-            // Cờ khóa bị xoá, cờ TỰ THÊM thì không: cái trước là lời khai của model về hội thoại (hết ý
-            // nghĩa khi người dùng đã tự tay duyệt), cái sau là một sự thật về nguồn gốc của dòng mà
-            // RenderUserMessage còn phải kể lại.
-            row.Locked = false;
-            row.Evidence = string.Empty;
-            foreach (var function in row.Functions)
-            {
-                function.Locked = false;
-                function.Evidence = string.Empty;
-            }
-        }
-        return rows;
+        // Cờ TỰ THÊM là thứ DUY NHẤT của dòng còn sống qua đường gửi ngoài phần người dùng tự điền: nó là
+        // một sự thật về nguồn gốc của dòng mà RenderUserMessage còn phải kể lại.
+        return BuildCore(submitted, allowedScreens, respectIncluded: true, acceptUserAdded: true);
     }
 
     private static List<ScreenScopeRow> BuildCore(
@@ -186,7 +173,6 @@ public static class ScreenScopeMapBuilder
     /// <summary>Một dòng đã chuẩn hoá, dùng chung cho dòng khớp danh sách cho phép và dòng người dùng tự thêm.</summary>
     private static ScreenScopeRow NewRow(ScreenScopeRow source, string screen, bool respectIncluded, bool addedByUser)
     {
-        var evidence = Clip((source.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
         return new ScreenScopeRow
         {
             Screen = screen,
@@ -194,9 +180,6 @@ public static class ScreenScopeMapBuilder
             Functions = CleanFunctions(source.Functions, respectIncluded),
             Covers = CleanCovers(source.Covers, screen),
             Included = !respectIncluded || source.Included,
-            // LUẬT BẰNG CHỨNG — cờ suông không khóa được dòng nào. Xem PermissionGrant.Locked.
-            Locked = evidence.Length > 0,
-            Evidence = evidence,
             AddedByUser = addedByUser
         };
     }
@@ -643,14 +626,11 @@ public static class ScreenScopeMapBuilder
             if (name.Length == 0 || !seen.Add(Normalize(name)))
                 continue;
 
-            var evidence = Clip((function.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
             result.Add(new ScreenFunction
             {
                 Name = name,
                 FlowSteps = CleanFlowSteps(function.FlowSteps),
-                Included = !respectIncluded || function.Included,
-                Locked = evidence.Length > 0,
-                Evidence = evidence
+                Included = !respectIncluded || function.Included
             });
 
             if (result.Count >= MaxFunctionsPerScreen)

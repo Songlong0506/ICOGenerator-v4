@@ -1073,7 +1073,7 @@
                         Đây là các màn hình mình dự kiến dựng và các chức năng trên từng màn. Màn nào <b>không cần</b>
                         thì bỏ tích ở cột đầu; chức năng nào không cần thì bỏ tích ngay dòng của nó. Thiếu chức năng
                         nào thì bấm <b>+ thêm chức năng</b> ở cuối màn đó, thiếu cả một màn hình thì bấm
-                        <b>+ thêm màn hình</b> ở cuối bảng. Dấu <b>✓</b> là phần chính anh/chị đã nêu.
+                        <b>+ thêm màn hình</b> ở cuối bảng.
                     </div>
                     <table class="permmap-table screenmap-table">
                         <thead>
@@ -1091,13 +1091,9 @@
                             {
                                 <tr class="screenmap-row" data-screen="@row.Screen" data-covers="@string.Join("|", row.Covers)">
                                     <td class="flowmap-use">
-                                        @* Dấu ✓ đứng CẠNH ô tích chứ không thay nó: "anh/chị từng nhắc tới màn này"
-                                           không đồng nghĩa "màn này phải có trong bản đầu". *@
+                                        @* Chỉ có ô tích. Bảng này KHÔNG có dấu ✓ bằng chứng — xem requirement-flow.md,
+                                           mục "Vì sao bảng màn hình không có dấu ✓ bằng chứng". *@
                                         <input type="checkbox" class="screenmap-check" aria-label="Cần màn hình @row.Screen" @(row.Included ? "checked" : "") />
-                                        @if (row.Locked)
-                                        {
-                                            <span class="permmap-locked" title="@row.Evidence">✓</span>
-                                        }
                                     </td>
                                     <td class="permmap-fn">
                                         <div class="screenmap-name">@row.Screen</div>
@@ -1115,10 +1111,6 @@
                                                     <tr class="screenmap-fn-row">
                                                         <td class="flowmap-use">
                                                             <input type="checkbox" class="screenfn-check" aria-label="Cần chức năng @fn.Name" @(fn.Included ? "checked" : "") />
-                                                            @if (fn.Locked)
-                                                            {
-                                                                <span class="permmap-locked screenfn-proof" title="@fn.Evidence">✓</span>
-                                                            }
                                                         </td>
                                                         <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="chức năng">@fn.Name</textarea></td>
                                                         <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="chức năng này phụ trách bước nào?">@string.Join("; ", fn.FlowSteps)</textarea></td>

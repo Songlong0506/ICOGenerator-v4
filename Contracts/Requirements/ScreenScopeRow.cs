@@ -36,23 +36,6 @@ public class ScreenFunction
     /// không cần. Bỏ tích chứ không xóa: dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi.
     /// </summary>
     public bool Included { get; set; } = true;
-
-    /// <summary>
-    /// Chức năng này có BẰNG CHỨNG trong hội thoại ⇒ hiện dấu ✓ kèm trích dẫn. Cùng luật bằng chứng với
-    /// <see cref="PermissionGrant.Locked"/>: không có trích dẫn thì không có cờ.
-    ///
-    /// <para>
-    /// Khác một điểm với ô khóa của bảng phân quyền, và đây là chủ ý: bằng chứng ở đây KHÔNG khóa ô tích.
-    /// "Người dùng từng nhắc tới chức năng này" và "người dùng muốn ứng dụng có chức năng này" là hai điều
-    /// khác nhau — họ hoàn toàn có thể kể ra một việc rồi quyết định không đưa vào bản này. Khóa ô tích ở đó
-    /// là biến một câu kể thành một quyết định không rút lại được, đúng lỗi mà cả bảng sinh ra để chữa.
-    /// Bằng chứng vì vậy chỉ làm hai việc: tích sẵn, và nói cho người dùng biết vì sao nó được tích sẵn.
-    /// </para>
-    /// </summary>
-    public bool Locked { get; set; }
-
-    /// <summary>Trích dẫn ngắn từ hội thoại — chỉ có nghĩa khi <see cref="Locked"/>.</summary>
-    public string Evidence { get; set; } = "";
 }
 
 /// <summary>
@@ -74,6 +57,13 @@ public class ScreenFunction
 /// khóa học với trạng thái pending/enroll/waitlist" lọt vào đây sẽ thành một dòng phân quyền và một màn
 /// hình POC — trong khi nó vốn là CHỨC NĂNG của một màn hình đã có. Chỗ đúng của chúng là
 /// <see cref="Functions"/>, và <see cref="Covers"/> là cách nói ra rằng chúng đã được gộp vào đâu.
+/// </para>
+///
+/// <para>
+/// Dòng KHÔNG mang cờ bằng chứng (<c>locked</c>/<c>evidence</c>) như <see cref="PermissionMatrixRow"/>: ở
+/// bảng này mọi dòng đều tích sẵn nên cờ ấy không đổi được trạng thái ô nào, nó chỉ vẽ thêm một dấu ✓ có
+/// tooltip trích dẫn. Lý do gỡ nằm ở <c>docs/requirement-flow.md</c>, mục
+/// "Vì sao bảng màn hình không có dấu ✓ bằng chứng".
 /// </para>
 /// </summary>
 public class ScreenScopeRow
@@ -121,17 +111,6 @@ public class ScreenScopeRow
     public bool Included { get; set; } = true;
 
     /// <summary>
-    /// Dòng có BẰNG CHỨNG trong hội thoại ⇒ hiện ✓ + tooltip trích dẫn. Cùng luật bằng chứng với
-    /// <see cref="PermissionGrant.Locked"/>: server không nhận lời tuyên bố "người dùng đã nói điều này" từ
-    /// một lá cờ, phải có trích dẫn đi kèm. Và cùng luật với <see cref="ScreenFunction.Locked"/>, cờ này
-    /// KHÔNG khóa ô tích — người dùng vẫn phải loại được một màn hình chính họ từng nhắc tới.
-    /// </summary>
-    public bool Locked { get; set; }
-
-    /// <summary>Trích dẫn ngắn từ hội thoại — chỉ có nghĩa khi <see cref="Locked"/>.</summary>
-    public string Evidence { get; set; } = "";
-
-    /// <summary>
     /// Dòng này do CHÍNH NGƯỜI DÙNG thêm vào bảng bằng nút "thêm màn hình", không phải do BA đề xuất.
     ///
     /// <para>
@@ -144,7 +123,7 @@ public class ScreenScopeRow
     /// </para>
     ///
     /// <para>
-    /// Cờ được GIỮ qua đường lưu chứ không xoá như <see cref="Locked"/>, vì
+    /// Cờ được GIỮ qua đường lưu, vì
     /// <c>ScreenScopeMapBuilder.RenderUserMessage</c> dùng nó để kể lại "các màn hình mình tự bổ sung": một
     /// màn hình chưa từng có trong đề xuất mà lặng lẽ đi vào phạm vi là đúng loại thay đổi phải nói ra, cùng
     /// luật với các dòng bị bỏ tích.

@@ -195,6 +195,8 @@ Cả bốn builder áp cùng bộ luật, vì cả bốn hỏng theo cùng một
 
 - **Luật bằng chứng.** Server chỉ khóa một ô/dòng/bước khi model kèm được TRÍCH DẪN. Cờ suông bị bỏ. Không
   có ranh giới này thì một bảng điền sẵn toàn bộ trông như đã chốt, và người dùng bấm gửi trong ba giây.
+  Luật áp cho ba bảng có ô KHÓA được; bảng màn hình không nằm trong đó vì mọi dòng của nó đều tích sẵn —
+  xem [Vì sao bảng màn hình không có dấu ✓ bằng chứng](#vì-sao-bảng-màn-hình-không-có-dấu--bằng-chứng).
 - **Cờ tích ở lượt BÀY BẢNG luôn là TÍCH SẴN**, bất kể model trả gì. Cờ đó là chỗ NGƯỜI DÙNG loại bớt,
   không phải chỗ model tự phủ nhận đề xuất của mình — mà structured output buộc điền đủ trường, nên một
   model điền `false` cho có sẽ âm thầm bỏ tích sạch bảng và người dùng gửi đi một phạm vi RỖNG trong khi
@@ -326,6 +328,22 @@ Hai điều kiện đi kèm, cả hai đều tất định: mục đã gộp **h
 một mục rời khỏi phạm vi mà người dùng không nhìn thấy là đúng loại quyết định thay họ mà cả bảng sinh ra
 để chặn; và **dòng luôn thắng lời khai gộp** — một màn hình có dòng của chính nó thì không lời khai nào làm
 nó biến mất được, nếu không thì chỉ cần model khai bừa một tên là mất trắng một màn hình.
+
+### Vì sao bảng màn hình không có dấu ✓ bằng chứng
+
+Bảng phân quyền, bảng luồng và bảng đối tượng đều có dấu **✓** cho phần người dùng đã tự nói: ở đó nó
+**thay** ô tích, tức là một trạng thái thật — ô ấy đã chốt, không phải đề xuất còn phải chọn. Bảng màn hình
+từng chép lại dấu ✓ ấy nhưng **đặt cạnh** ô tích chứ không thay, vì "anh/chị từng nhắc tới màn này" không
+đồng nghĩa "màn này phải có trong bản đầu". Hệ quả là ở bảng này dấu ✓ không đổi trạng thái của ô nào:
+`Build` **tích sẵn mọi dòng và mọi chức năng** bất kể có trích dẫn hay không, nên phần duy nhất nó còn làm
+là một tooltip chở câu gốc.
+
+Tooltip đó không kiểm được thứ nó hứa. Người dùng rê chuột và gặp lại đúng câu của chính mình từ mấy chục
+lượt trước — thường là không nhớ đã nói trong ngữ cảnh nào, và muốn xác nhận thì phải rời bảng lăn ngược
+hội thoại đi tìm. Một dấu hiệu đòi rời màn hình mới hiểu được, trên một cột mà mọi dòng đều đã tích sẵn,
+là nhiễu chứ không phải bằng chứng. Nên bảng màn hình **bỏ hẳn** cờ `locked`/`evidence`: prompt không sinh,
+contract không chở, cột đầu chỉ còn ô tích. Ranh giới dừng ở đúng bảng này — ba bảng kia giữ nguyên dấu ✓
+vì ở đó nó là trạng thái ô, không phải chú thích.
 
 ### Thêm dòng ngay trên bảng, và chỗ chốt chặn "màn hình bịa" phải nhường
 
