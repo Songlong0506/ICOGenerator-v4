@@ -49,6 +49,20 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
   [architecture.md](architecture.md#dữ-liệu-seed-lớn-là-resource-không-phải-code)).
 - **Prompt đổi được runtime** — nhưng bản "chín" nên export đồng bộ ngược về repo.
 
+### Icon: font bootstrap-icons, trừ nút chỉ-có-icon
+
+Mặc định dùng `<i class="bi bi-*">` (font tải qua `<link>` CDN ở `_Layout`/`_GuestLayout`). Menu sidebar
+thêm class `.nav-ico` để có hộp 20×20 cố định — glyph font rộng hẹp khác nhau, không ghim hộp thì nhãn
+chữ so le và sidebar thu gọn canh giữa lệch từng dòng. Hộp phải ghi thẳng `width`/`height`, đừng để
+`line-height` suy ra: hỏng CDN là `::before` rỗng và hộp tụt về 0.
+
+Ngoại lệ — **giữ SVG nội tuyến** (`<svg class="ico">`) cho điều khiển **không có nhãn chữ đi kèm**: nút
+thu gọn sidebar, nút đóng modal, bút chì sửa tại chỗ (`Views/Projects/Index.cshtml`,
+`Views/AgentDashboard/Index.cshtml`), caret/kính lúp do JS dựng (`wwwroot/js/dropdown.js`,
+`Views/Shared/_CommandBar.cshtml`). CDN không tới được thì icon có nhãn chữ vẫn dùng được, còn nút
+chỉ-có-icon biến thành ô trống không ai bấm. Cùng lý do, chevron của `PocTemplate` giữ SVG vì animation
+xoay bám `.nav-chevron`.
+
 ### Chỗ đặt DTO quyết định bởi ai đọc nó
 
 Không phải bởi "nó là DTO":
