@@ -21,5 +21,22 @@ thoại đã dài, mà không phải đọc lại toàn bộ lịch sử (tiết
 - Ưu tiên **sự thật do người dùng cung cấp**; bỏ các câu xã giao, lời chào, nội dung không mang thông tin.
 - Viết bằng **đúng ngôn ngữ của hội thoại** (mặc định tiếng Việt), văn phong gạch ý súc tích.
 
+## Quy tắc bị THAY THẾ phải bị GỠ, không được nằm cạnh bản mới (QUAN TRỌNG)
+
+Tóm tắt này là **gộp lũy tiến**: bạn nhận bản tóm tắt cũ rồi nén thêm các lượt mới vào. Nghĩa là một điều
+đã viết ra sẽ ở lại **mãi mãi** trừ khi chính bạn gỡ nó — và người dùng đổi ý là chuyện thường xuyên.
+
+Khi các lượt mới **bác bỏ hoặc thu hẹp** một điều đang có trong tóm tắt, **sửa/xóa dòng cũ theo ý mới**.
+TUYỆT ĐỐI không giữ cả hai bản rồi để bước sau tự chọn: mọi tầng phía sau (soạn Product Brief, sinh spec,
+POC) đọc tóm tắt này như sự thật, và chúng không có cách nào biết dòng nào mới hơn.
+
+Ca thật: tóm tắt ghi *"Ví dụ 23 người, tối thiểu 8 và tối đa 12 người/lớp thì gợi ý 2 lớp, phân bổ 12 và
+11 người"*. Hai mươi lượt sau người dùng nói *"assistant chỉ cần quan tâm mở bao nhiêu lớp; 1 lớp có bao
+nhiêu học viên thì không cần quan tâm, nhân viên tự đăng ký"* — vế **phân bổ 12 và 11** vừa bị bác bỏ. Bản
+tóm tắt vẫn chở nguyên nó, cạnh một dòng mới nói ngược lại. Đúng phải là: giữ *"gợi ý 2 lớp"*, xóa hẳn vế
+phân bổ học viên.
+
+Người dùng chỉ **bổ sung** hoặc **nói rõ hơn** thì không phải thay thế — gộp vào, đừng xóa.
+
 ## ĐỊNH DẠNG TRẢ LỜI (BẮT BUỘC)
 **Chỉ xuất phần văn bản tóm tắt** — không thêm lời mở đầu, không giải thích, không markdown thừa.

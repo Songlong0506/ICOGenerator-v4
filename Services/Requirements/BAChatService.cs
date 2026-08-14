@@ -497,7 +497,12 @@ public class BAChatService
                 "## Điểm cần làm rõ còn tồn đọng (chắt từ các lượt trước — hỏi cho hết trong khung chat)\n"
                 + "Chọn câu hỏi kế tiếp ƯU TIÊN từ danh sách này khi nó còn mục, trước khi mở nhóm mới trong "
                 + "bản đồ bao phủ. Điểm nào người dùng đã trả lời ở lượt gần đây thì coi như xong, KHÔNG hỏi lại.\n"
-                + string.Join("\n", openQuestions.Select(q => "- " + q))));
+                // Thẻ nhóm "[Vòng đời & trạng thái] …" bị GỠ trước khi vào ngữ cảnh: nó được gắn cho
+                // CoveragePendingGuard đối chiếu tất định với bản đồ, không phải cho BA đọc ra. Nhãn nhóm là
+                // từ vựng nội bộ của bản đồ và prompt chat cấm ném nó vào mặt người dùng nghiệp vụ — để
+                // nguyên thì thẻ đi thẳng vào câu hỏi kế tiếp, đúng lỗi mà CoverageDeadQuestionLoopTests
+                // đã phải dựng lưới một lần.
+                + string.Join("\n", openQuestions.Select(q => "- " + CoveragePendingGuard.StripGroupTag(q)))));
         }
         // PHÂN QUYỀN — nhóm DUY NHẤT không được hỏi bằng câu hỏi. Xem PermissionMatrixGate cho lý do đầy
         // đủ; tóm tắt: hỏi "mỗi vai trò được xem và làm những gì?" là bắt người dùng nghiệp vụ tự dựng cả
@@ -898,7 +903,15 @@ public class BAChatService
                     break;
 
                 case InterviewTableKind.ScreenScope:
-                    screenScopeMap = ScreenScopeMapBuilder.Build(parsedReply.ScreenScopeMap, effectiveScreens);
+                    // GIEO bằng bảng đã chốt (rỗng ở lần bày đầu tiên). Cổng này mở lại được khi có màn
+                    // hình mới lộ ra sau lúc chốt — xem ScreenScopeGate — và Build dựng bảng từ đề xuất
+                    // TƯƠI của model, nên không gieo thì lần bày lại thay sạch phần người dùng đã tự tay
+                    // rà bằng bản model vừa đoán lại. Hạt giống đứng TRƯỚC: Build giữ dòng đầu tiên của mỗi
+                    // màn hình, nên bản đã duyệt luôn thắng, và phần tươi chỉ lấp vào các màn hình mới.
+                    screenScopeMap = ScreenScopeMapBuilder.Build(
+                        ScreenScopeMapBuilder.SeedRows(project.ScreenScopeMap)
+                            .Concat(parsedReply.ScreenScopeMap ?? Enumerable.Empty<ScreenScopeRow>()),
+                        effectiveScreens);
                     if (screenScopeMap.Count > 0)
                     {
                         TakeOverTurn(ScreenScopeIntro);

@@ -245,6 +245,25 @@ GIỮ, cộng những mục phạm vi mới lộ ra SAU lúc chốt. Mục mới
 và một màn hình lộ ra ở lượt sau mà không vào được bảng phân quyền thì mặc nhiên "không ai được xem"); còn
 mục đã BỎ TÍCH thì không bao giờ quay lại, và mở lại thứ họ vừa đóng là đúng lỗi bảng cột đã cấm.
 
+**Bảng màn hình là cổng DUY NHẤT mở lại được sau khi đã chốt** — vì nó là cổng duy nhất mà phạm vi còn trôi
+tiếp sau lượt chốt. `ScreenScopeGate` mở lại khi `ScreenScopeMapBuilder.NewScreens` còn mục: màn hình có
+trong `PlannedScope` mà bảng đã chốt không đứng tên và cũng không khai là đã gộp vào một dòng nào. Ca thật:
+bảng chốt ở lượt 23, tới lượt 33 người dùng mới nói sĩ số tối thiểu/tối đa lấy từ *"danh sách khóa học được
+quản lý ở một màn hình riêng"*, và Admin đã được chốt là người quản lý cả phòng học lẫn người dạy — ba màn
+hình vào `PlannedScope` mà không bao giờ đi qua bảng. Đường duy nhất còn lại cho chúng là bù vào bảng phân
+quyền ở dạng **trắng** (không việc, không chức năng, không bước luồng), trong khi khối ngữ cảnh của bảng đã
+chốt lại **cấm** BA hỏi lại việc của từng màn; chúng đi thẳng vào tài liệu và vào bản demo mà không ai biết
+để làm gì. Hai điều kiện đi kèm, cả hai đều bắt buộc:
+
+- **Bày lại không được xóa phần đã duyệt.** `Build` dựng bảng từ đề xuất TƯƠI của model, nên lượt bày lại
+  được **gieo** bằng `ScreenScopeMapBuilder.SeedRows` (chỉ màn hình còn tích, trong mỗi màn chỉ chức năng
+  còn tích) đứng TRƯỚC phần model đề xuất — `Build` giữ dòng đầu tiên của mỗi màn hình nên bản người dùng
+  đã rà luôn thắng, và phần tươi chỉ lấp vào màn hình mới. Không gieo thì lần bày lại thay sạch việc của
+  từng màn, danh sách chức năng và ô "phục vụ bước nào" bằng bản model vừa đoán lại.
+- **Vòng lặp có đáy.** Giữ màn hình mới ⇒ nó thành một dòng của bảng ⇒ hết "mới". Bỏ tích ⇒
+  `ConfirmScreenScopeUseCase` ghi ngược `PlannedScope` nên nó rời phạm vi ⇒ cũng hết "mới". Bảng chốt mà
+  không dòng nào được giữ (bảng hỏng) ⇒ `NewScreens` trả rỗng, cùng luật fail-open với `EffectiveScreens`.
+
 **Đường GỬI đối chiếu với BẢNG SERVER ĐÃ RENDER, không với `PlannedScope` đọc lại lúc gửi.** Hai thứ đó
 không bằng nhau, và chỗ lệch là một lỗi câm: lượt chắt lọc "triển vọng phỏng vấn" chạy ở HẬU KỲ ngay chính
 lượt bày bảng (`RequirementsController` gọi `UpdateInterviewOutlookAsync` sau frame done) và nó **ghi đè cả
@@ -512,6 +531,39 @@ Nay thứ được rút ngắn là **số vòng đi-về**, không phải độ 
 
 **Ba chuẩn cắt ngang** (áp cho mọi dòng, không riêng nhóm nào) chặn đúng loại lỗ hổng mà tài liệu vẫn trông đầy đủ: **tham số của một quy tắc phải có nguồn** (biết công thức mà không biết sĩ số tối đa được nhập ở đâu ⇒ bản kỹ thuật tự đẻ ra một màn hình cấu hình chưa ai yêu cầu); **danh mục dùng để kiểm tra dữ liệu phải có người quản lý** (bộ cột của file upload KHÔNG thay được cho câu hỏi này); **dữ kiện mồ côi thì chưa xong** — một trường/tham số được nhắc tới mà không quy tắc nào dùng tới là dấu hiệu còn một luật chưa được hỏi, không phải chi tiết thừa.
 
+**Chốt chặn `[RÕ]` ⇄ điểm tồn đọng (`CoveragePendingGuard`).** Bản đồ bao phủ và "Điểm cần làm rõ còn tồn
+đọng" được chắt bởi **hai** lời gọi LLM khác nhau, đọc cùng một hội thoại nhưng không bao giờ nhìn thấy
+nhau — nên chúng nói ngược nhau mà không tầng nào biết. Ca thật: bản đồ ghi «Luồng ngoại lệ», «Vòng đời &
+trạng thái» và «Dữ liệu / danh mục chính» là `[RÕ]` trong khi hệ thống đang giữ đúng bảy điểm tồn đọng
+thuộc ba nhóm ấy (*"đăng ký lại được sau khi ticket bị Reject không"*, *"kết quả Complete/Not Complete/No
+Show dùng để xử lý bước nào"*, *"Item ID và Item Title có tạo thành cặp duy nhất không"*). `[RÕ]` không
+phải một nhãn trạng thái mà là một **lệnh cấm BA hỏi lại**, nên bảy điểm đó vĩnh viễn không được lấy, và
+bước soạn tài liệu — vốn bị cấm giả định — nhận một khoảng trống mà không cổng nào báo. Nay
+`interview-outlook.v1.md` gắn mỗi mục tồn đọng một **thẻ nhóm** (`[Vòng đời & trạng thái] …`, chép đúng
+một trong 12 nhãn), và guard chạy ngay sau lượt distill hạ mọi dòng `[RÕ]` còn mục của nhóm đó xuống
+`[MỘT PHẦN]`, ghi chính mục ấy vào phần `còn thiếu:` — tức điểm tồn đọng trở thành câu chặn của cổng
+readiness thay vì một ghi chú không ai đọc. Bốn ràng buộc của thiết kế:
+
+- **Một chiều, chỉ hạ không nâng.** Hạ nhầm thì BA hỏi thêm một câu; bỏ sót thì sinh ra một khoảng trống
+  mà mọi tầng sau tin là đã đủ — cùng cách cân giá với các chốt chặn của `BAChatReplyParser`.
+- **Chạy ở đường GHI, không ở đường đọc.** Bản đồ là nguồn chân lý mà cổng readiness, panel tiến độ và bốn
+  cổng bảng cùng đọc; lọc lúc đọc ở một chỗ là dựng lại đúng cảnh hai giám khảo lệch nhau mà thiết kế này
+  đã bỏ đi.
+- **Thẻ nhóm bị GỠ trước khi vào ngữ cảnh chat** (`CoveragePendingGuard.StripGroupTag`) — nhãn nhóm là từ
+  vựng nội bộ, để nguyên là mời BA chép nó vào câu hỏi kế tiếp.
+- **Trễ một lượt, có chủ ý.** Bản đồ gộp ngay trong lượt chat còn danh sách tồn đọng chắt ở hậu kỳ, nên
+  guard của lượt N đọc danh sách tính tới lượt N−1: điểm vừa được trả lời vẫn hạ dòng một lượt rồi tự lên
+  lại. Lưới đỡ đã có sẵn — prompt chat bắt BA tin HỘI THOẠI khi bản đồ chưa kịp cập nhật, và
+  `AskedQuestionHistory` loại thẳng câu hỏi trùng. Đồng bộ hai nhịp thì phải dời distill xuống hậu kỳ, tức
+  bản đồ dẫn lượt hỏi kế tiếp luôn cũ một lượt — đắt hơn nhiều.
+
+Cùng họ với nó, `requirement-coverage.v3.md` thêm một điều **không được tính là căn cứ để `[RÕ]`**: câu trả
+lời chỉ chạm được MỘT VẾ của một câu hỏi NHIỀU VẾ. BA bị cấm hỏi câu nhiều vế nhưng luật đó chỉ định
+hướng, nên việc của distiller là **đếm vế**. Ca thật: *"từ lúc nhận file đến lúc lập kế hoạch, anh/chị làm
+bằng công cụ nào, và điểm khó chịu nhất ở đâu?"* — ba vế, câu đáp 32 token chạm hai vế, **các bước** của
+quy trình Excel không bao giờ được kể, mà dòng *Quy trình hiện tại & điểm khó* vẫn lên `[RÕ]` với đúng câu
+đó làm bằng chứng.
+
 **Phanh chống HỎI LẠI (`AskedQuestionHistory`).** Chuẩn `[RÕ]` càng khắt khe thì càng lộ ra một lỗ hổng của thiết kế: thứ DUY NHẤT ngăn BA hỏi lại là bản đồ bao phủ, mà bản đồ chỉ có độ phân giải theo **NHÓM** (12 dòng). Một dòng chưa `[RÕ]` nghĩa là "ưu tiên hỏi nhóm này", và vì mỗi câu hỏi của lượt gộp được gắn `group` = tên dòng bản đồ, model sinh lại đúng **câu hỏi mở đầu** của nhóm đó — người dùng vừa trả lời xong đã bị hỏi lại nguyên văn, chip gợi ý chính là câu họ vừa gõ. Cùng triệu chứng khi lượt chắt lọc bản đồ hỏng (fail-open giữ bản cũ): cả cụm câu hỏi lượt trước được phát lại y nguyên. Prompt đã cấm, nhưng prompt chỉ định hướng — nên có ba lớp:
 
 - **Ngữ cảnh**: system message *"Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước"* dựng từ chính hội thoại (câu của lượt gộp + `message` của lượt hỏi một câu), nạp cạnh bản đồ. Đây là thứ duy nhất phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời" — bản đồ theo nhóm thì không.
@@ -660,6 +712,21 @@ gộp — nên KHÔNG tóm tắt trên mỗi lượt chat (đây mới là chỗ
 đó vẫn gửi nguyên văn nên **không mất ngữ cảnh**; cửa sổ verbatim chỉ phình tạm tới `20 + (10-1)` rồi co lại
 sau mỗi lần gộp. **Fail-open:** lời gọi tóm tắt lỗi ⇒ giữ nguyên summary cũ, KHÔNG dời con trỏ (các lượt
 chưa gộp vẫn được gửi nguyên văn) — không bao giờ fail trắng, không mất lượt nào.
+
+**Gộp lũy tiến ⇒ thứ đã viết ra ở lại MÃI trừ khi lượt chắt lọc chủ động gỡ nó**, và luật đó áp cho cả ba
+tầng cùng hình dạng: bộ nhớ hội thoại, "Điều đã chốt" (`decision-log.v1.md`), ví dụ vàng
+(`interview-outlook.v1.md`). Người dùng đổi ý bằng cách nói một câu MỚI, không bằng cách chỉ vào dòng cũ —
+nên cả ba prompt đều phải **thu hồi vế đã bị bác**, không để nó nằm cạnh bản mới cho bước sau tự chọn. Ca
+thật: BA dựng ví dụ *"23 người, sĩ số 8–12 ⇒ mở 2 lớp, phân bổ 12 và 11 người"*, người dùng gật bằng một
+chip 4 token ở lượt 15; tới lượt 35 họ nói *"1 lớp có bao nhiêu học viên thì không cần quan tâm, nhân viên
+tự đăng ký"* — vế phân bổ vừa bị bác, nhưng bộ nhớ vẫn chở nguyên nó cạnh một dòng mới nói ngược lại, và
+ví dụ vàng là **oracle chấm POC** nên bản demo bị chấm theo đúng cái sai đó. Gốc của nó nằm ở lượt 14 và
+được chặn ở đó: `requirement-chat.v4.md` nay bắt **mỗi ví dụ tính thử chốt ĐÚNG MỘT quy tắc** — một cú bấm
+"Đúng rồi" là **một** chữ ký, nên hai quy tắc trong một ví dụ là xin chữ ký cho cả hai bằng bằng chứng của
+một. Phép thử: *bỏ đi một nửa ví dụ thì nửa còn lại có còn hỏi trọn vẹn một điều không?* Cùng họ, nhật ký
+"Điều đã chốt" bị cấm để một câu đáp **bao trùm** cho câu hỏi gộp nhiều đối tượng ghi đè lên một dòng đã
+chốt trước đó (ca thật: lượt 19 chốt *Assistant* chấm điểm, lượt 25 một tiếng *"admin sẽ quản lý"* trả lời
+cho câu hỏi gộp bốn danh mục — trong đó BA nhét sẵn *"kết quả học tập"* — và nhật ký nhận về cả hai dòng).
 
 ### Bộ nhớ cấp người dùng (personalization — "càng nói càng hiểu user")
 Song song với bộ nhớ theo dự án ở 5.11, `UserMemoryService` lo một tầng nhớ **gắn theo NGƯỜI DÙNG** chứ

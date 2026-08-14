@@ -371,10 +371,51 @@ public static class ScreenScopeMapBuilder
             return CleanScreens(plannedScope);
 
         var result = kept.Select(r => r.Screen.Trim()).ToList();
+        result.AddRange(NewScreens(rows, plannedScope));
+        return result;
+    }
+
+    /// <summary>
+    /// Các màn hình LỘ RA SAU lúc bảng được chốt: mục của <paramref name="plannedScope"/> mà bảng đã chốt
+    /// không đứng tên và cũng không khai là đã gộp vào một dòng nào.
+    ///
+    /// <para>
+    /// <b>Vì sao nó phải là một hàm công khai chứ chỉ nằm trong <see cref="EffectiveScreens"/>.</b> Buổi
+    /// phỏng vấn còn tiếp tục sau khi bảng đã chốt, và phạm vi vẫn trôi: ca thật (dự án Learning and
+    /// Development 7) người dùng chốt bảng ở lượt 23 rồi tới lượt 33 mới nói *"sĩ số tối thiểu và tối đa lấy
+    /// từ danh sách khóa học được quản lý ở một màn hình riêng"* — một màn hình mới, cùng với hai danh mục
+    /// nữa (phòng học, người dạy) mà Admin được chốt là người quản lý. Trước đây
+    /// <see cref="EffectiveScreens"/> bù chúng vào bảng phân quyền ở dạng TRẮNG: không việc, không chức
+    /// năng, không bước luồng — trong khi khối ngữ cảnh của bảng đã chốt lại CẤM BA hỏi lại việc của từng
+    /// màn. Kết quả là ba màn hình đi vào tài liệu và vào bản demo mà không ai biết chúng để làm gì.
+    /// <see cref="ScreenScopeGate"/> dùng hàm này để mở lại bảng đúng lúc đó.
+    /// </para>
+    ///
+    /// <para>
+    /// Bảng chưa chốt, hoặc chốt mà không dòng nào được giữ (bảng hỏng — xem
+    /// <see cref="EffectiveScreens"/>) ⇒ rỗng: lúc đó không có "sau lúc chốt" nào để so, và mở lại một bảng
+    /// dựng trên một bản chốt hỏng chỉ làm người dùng rà lại từ đầu.
+    /// </para>
+    /// </summary>
+    public static List<string> NewScreens(string? screenScopeJson, IReadOnlyList<string> plannedScope)
+    {
+        var rows = Parse(screenScopeJson);
+        if (rows.Count == 0 || !rows.Any(r => r.Included))
+            return new List<string>();
+
+        return NewScreens(rows, plannedScope);
+    }
+
+    private static List<string> NewScreens(IReadOnlyList<ScreenScopeRow> rows, IReadOnlyList<string> plannedScope)
+    {
+        // Mục đã BỎ TÍCH hoặc đã được GỘP vào một màn hình khác thì không bao giờ quay lại, kể cả khi nó
+        // vẫn nằm trong PlannedScope — mở lại thứ người dùng vừa đóng là đúng lỗi mà bảng cột đã cấm. Vì
+        // vậy "đã biết" gồm MỌI dòng của bảng (cả dòng bỏ tích) cộng mọi lời khai gộp.
         var known = new HashSet<string>(rows.Select(r => Normalize(r.Screen)), StringComparer.Ordinal);
         foreach (var item in rows.SelectMany(r => r.Covers))
             known.Add(Normalize(item));
 
+        var result = new List<string>();
         foreach (var raw in CleanScreens(plannedScope))
         {
             if (known.Add(Normalize(raw)))
@@ -382,6 +423,29 @@ public static class ScreenScopeMapBuilder
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Các dòng để BÀY LẠI một bảng đã chốt: chỉ màn hình CÒN TÍCH, và trong mỗi màn chỉ chức năng CÒN
+    /// TÍCH. Dùng làm hạt giống cho <see cref="Build"/> khi <see cref="ScreenScopeGate"/> mở lại bảng vì có
+    /// màn hình mới (<see cref="NewScreens(string?, IReadOnlyList{string})"/>).
+    ///
+    /// <para>
+    /// Không có hạt giống này thì lần bày lại là một lượt phá hoại: <see cref="Build"/> dựng bảng từ đề
+    /// xuất TƯƠI của model, nên mọi thứ người dùng đã tự tay rà ở lần chốt trước — việc của từng màn, danh
+    /// sách chức năng, ô "phục vụ bước nào" — bị thay bằng bản model vừa đoán lại, và họ phải rà lần thứ
+    /// hai từ số không cho những màn hình chẳng liên quan gì tới thứ vừa lộ ra. Lọc theo cờ tích là phần
+    /// còn lại của cùng một luật: <see cref="Build"/> cố ý trả mọi dòng ở trạng thái TÍCH SẴN, nên đưa cả
+    /// dòng/chức năng đã bỏ tích vào hạt giống là bật lại đúng thứ họ vừa tắt.
+    /// </para>
+    /// </summary>
+    public static List<ScreenScopeRow> SeedRows(string? screenScopeJson)
+    {
+        var rows = Parse(screenScopeJson).Where(r => r.Included).ToList();
+        foreach (var row in rows)
+            row.Functions = row.Functions.Where(f => f.Included).ToList();
+
+        return rows;
     }
 
     /// <summary>
