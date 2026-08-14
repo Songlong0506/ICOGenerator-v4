@@ -13,7 +13,8 @@ namespace ICOGenerator.Services.Requirements;
 /// + HoD, quy mô nhân sự, chức danh phổ biến, cùng ghi chú "đơn vị yêu cầu" của từng project. Đi kèm là
 /// hai khối TĨNH cùng loại "hằng số của sản phẩm": "ranh giới phạm vi" (<see cref="BuildScopeNote"/>) chặn
 /// BA gợi ý những phạm vi không có thật ("Toàn Bosch Việt Nam", "toàn tập đoàn"…), và "nền tảng đã chốt"
-/// (<see cref="BuildPlatformNote"/>) chặn BA gợi ý những kênh thông báo không có thật (Teams, SMS, Zalo…).
+/// (<see cref="BuildPlatformNote"/>) chặn BA hỏi/gợi ý những thứ nhà máy đã chốt sẵn (kênh thông báo, cách
+/// đăng nhập, nguồn của dữ liệu orgUnit/nhân sự).
 ///
 /// Nguyên tắc dữ liệu: prompt CHỈ nhận dữ liệu GỘP (tên đơn vị, số lượng, chức danh) — KHÔNG bao giờ đưa
 /// thông tin cá nhân nhạy cảm của Associates (ngày sinh, điện thoại, email, địa chỉ đón) vào prompt. Tên
@@ -83,9 +84,12 @@ public partial class OrganizationContextService
     public virtual string? BuildScopeNote() => ReadStaticBlock(ScopeTemplatePath, "ranh giới phạm vi");
 
     /// <summary>
-    /// Nền tảng đã chốt của môi trường nhà máy: mọi ứng dụng ở đây chỉ có DUY NHẤT kênh thông báo EMAIL,
-    /// nên BA bị CẤM hỏi "muốn báo qua kênh nào" và cấm gợi ý những kênh không tồn tại (Teams, SMS, Zalo,
-    /// thông báo đẩy…) — nhóm "Thông báo / nhắc nhở" chỉ còn hỏi AI nhận và KHI NÀO.
+    /// Nền tảng đã chốt của môi trường nhà máy, ba ràng buộc cùng hạng: (1) chỉ có DUY NHẤT kênh thông báo
+    /// EMAIL, nên BA bị CẤM hỏi "muốn báo qua kênh nào" và cấm gợi ý những kênh không tồn tại (Teams, SMS,
+    /// Zalo, thông báo đẩy…) — nhóm "Thông báo / nhắc nhở" chỉ còn hỏi AI nhận và KHI NÀO; (2) chỉ đăng
+    /// nhập bằng SSO qua IdentityServer; (3) danh sách orgUnit và nhân sự của MỌI ứng dụng trong nhà máy
+    /// đồng bộ tự động từ hệ thống COMPAS, nên cấm hỏi ai quản lý/cập nhật hai danh mục đó và cấm dựng màn
+    /// hình quản lý chúng.
     ///
     /// Cùng hạng với <see cref="BuildScopeNote"/>: sự thật của môi trường chứ không suy ra từ dữ liệu HR,
     /// nên đi kèm MỌI lời gọi BA kể cả khi <c>OrgUnits</c> còn trống; đọc lỗi ⇒ null (fail-open). Tách

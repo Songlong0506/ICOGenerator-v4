@@ -49,8 +49,9 @@ public class BAChatLoginRuleTests
         // Vai trò được gán từ đâu là câu hỏi về NGUỒN, khác câu "mỗi vai được làm gì" (chốt bằng bảng).
         Assert.Contains("vai nào", prompt, StringComparison.OrdinalIgnoreCase);
 
-        // Đăng nhập dựa trên tài khoản Bosch ⇒ danh tính nhân viên đã có nguồn, đừng hỏi lấy từ đâu.
-        Assert.Contains("danh sách nhân viên lấy từ đâu", prompt, StringComparison.OrdinalIgnoreCase);
+        // Đăng nhập dựa trên tài khoản Bosch ⇒ danh tính nhân viên đã có nguồn sẵn. Danh sách câu bị cấm
+        // theo đó thuộc H3 "Dữ liệu tổ chức" (BAChatOrgDirectoryRuleTests giữ) — ở đây chỉ giữ đường trỏ.
+        Assert.Contains("Danh tính nhân viên đã có nguồn sẵn", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     // Khối này từng nói ngược sự thật: "external là chỗ SSO ngừng phủ hết người dùng". Sai — external cũng
