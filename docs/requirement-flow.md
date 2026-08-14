@@ -201,7 +201,8 @@ Cả bốn builder áp cùng bộ luật, vì cả bốn hỏng theo cùng một
   tưởng mình vừa xác nhận cả ứng dụng. Chỉ đường GỬI (`Sanitize`) mới tôn trọng lựa chọn của họ.
 - **Dòng bịa bị loại, dòng bị bỏ quên vẫn phải có mặt** — và có mặt ở trạng thái TÍCH SẴN. "BA quên nêu"
   không phải "người dùng đã loại"; đưa vào ở trạng thái bỏ tích là ra quyết định thay họ ở đúng chỗ họ
-  không nhìn thấy để phản đối.
+  không nhìn thấy để phản đối. Chốt chặn này chặn MODEL, nên bảng màn hình có đúng một ngoại lệ cho dòng
+  người dùng TỰ THÊM — xem [dưới](#thêm-dòng-ngay-trên-bảng-và-chỗ-chốt-chặn-màn-hình-bịa-phải-nhường).
 
 Gửi đi vẫn **hai bước** như bảng cột và bảng phân quyền: `POST Requirements/ConfirmFlowMap` /
 `ConfirmScreenScope` / `ConfirmEntityMap` lưu vào cột tương ứng (không gọi LLM), rồi trình duyệt gửi tiếp
@@ -286,10 +287,10 @@ vẫn báo "đủ".
 
 ### Ba cột của bảng màn hình, và vì sao cột "Màn hình" chỉ được chứa màn hình
 
-Bảng có đúng ba cột: **Cần · Màn hình · Chức năng**. Việc của màn (`Purpose`) là dòng phụ dưới tên màn chứ
+Bảng có đúng ba cột: **Cần · Màn hình · Chức năng** (cột thứ tư chỉ chứa nút xóa của các dòng người dùng tự
+thêm, xem dưới). Việc của màn (`Purpose`) là dòng phụ dưới tên màn chứ
 không chiếm một cột, để nửa bảng bên phải dành cho phần người dùng phải rà kỹ nhất. Mỗi chức năng là **một
-dòng con có ô tích riêng** kèm ô "phục vụ bước"; dòng trống cuối mỗi màn là chỗ gõ thêm chức năng còn thiếu
-(tên rỗng ⇒ server bỏ). Trước đây cả cụm chức năng nằm trong MỘT ô text: muốn loại đúng một chức năng thì
+dòng con có ô tích riêng** kèm ô "phục vụ bước". Trước đây cả cụm chức năng nằm trong MỘT ô text: muốn loại đúng một chức năng thì
 phải sửa tay giữa một chuỗi chữ, và thao tác đó không để lại quyết định nào máy đọc được — còn bỏ tích cả
 màn hình thì mất luôn những chức năng vẫn cần. Danh sách chức năng đã chốt cũng là thứ bảng phân quyền lấy
 làm vế `function`, thay vì để model tự nghĩ ra một danh sách khác ngay tại lượt bày bảng.
@@ -306,6 +307,33 @@ Hai điều kiện đi kèm, cả hai đều tất định: mục đã gộp **h
 một mục rời khỏi phạm vi mà người dùng không nhìn thấy là đúng loại quyết định thay họ mà cả bảng sinh ra
 để chặn; và **dòng luôn thắng lời khai gộp** — một màn hình có dòng của chính nó thì không lời khai nào làm
 nó biến mất được, nếu không thì chỉ cần model khai bừa một tên là mất trắng một màn hình.
+
+### Thêm dòng ngay trên bảng, và chỗ chốt chặn "màn hình bịa" phải nhường
+
+Nút **+ thêm màn hình** ở cuối bảng và **+ thêm chức năng** ở cuối mỗi màn cho người dùng bổ sung thứ BA
+không nghĩ tới mà không phải rời bảng. Trước đó đường duy nhất là gõ vào khung chat rồi chờ BA bày lại bảng
+— một vòng gọi LLM cho một dòng họ đã biết chính xác mình muốn gì, và bảng bày lại thì không có gì bảo đảm
+giữ nguyên những ô họ vừa điền.
+
+Thêm được thì phải **xóa** được, nhưng chỉ đúng những dòng người dùng tự thêm. Dòng BA đề xuất vẫn **bỏ
+tích chứ không xóa**: dòng bị loại còn phải kể lại được trong tin nhắn gửi đi, nếu không họ không có bằng
+chứng nào cho thấy mình vừa loại đúng thứ định loại. Dòng do chính họ vừa gõ thì không có gì để kể — nó
+chưa bao giờ là một đề xuất — nên xóa hẳn mới là thao tác đúng.
+
+Phần đắt nhất nằm ở server: chốt chặn **"màn hình bịa"** loại mọi dòng không khớp danh sách cho phép, nên
+nếu không phân biệt được nguồn thì nó chặn luôn màn hình người dùng vừa tự gõ — họ thêm một dòng, bấm gửi,
+và dòng ấy biến mất không một lời nào nói vì sao. `ScreenScopeRow.AddedByUser` là ngoại lệ **duy nhất** của
+chốt chặn đó, và nó hẹp có chủ ý:
+
+- chỉ đường **GỬI** (`Sanitize`) đọc cờ. Ở lượt **BÀY BẢNG** (`Build`) mọi dòng đều do model soạn, nên đọc
+  cờ ở đó là dựng cho model một cửa sau đi vòng chốt chặn bằng cách tự khai là người dùng;
+- mọi giới hạn khác vẫn áp: tên rỗng bị bỏ, trùng tên bị bỏ, và cả bảng vẫn không vượt `MaxRows`. Trần được
+  chặn ngay **tại nút bấm** ở trình duyệt chứ không để server cắt lặng — một dòng vừa gõ mà bị nuốt lúc lưu
+  là đúng loại quyết định câm mà cả bảng này sinh ra để chặn;
+- cờ **không** bị xoá lúc lưu (khác cờ khóa), vì tin nhắn kể lại phải gọi tên chúng: *"Các màn hình mình tự
+  bổ sung vào bảng: …"*. Một màn hình chưa từng có trong đề xuất mà lặng lẽ đi vào phạm vi — rồi từ đó vào
+  `PlannedScope`, vào bảng phân quyền, vào POC — là đúng loại thay đổi phải nói ra, cùng luật với các dòng
+  bị bỏ tích.
 
 ### Bảng đối tượng: mô hình dữ liệu, và chỗ duy nhất thông báo gắn được vào một chuyển trạng thái
 

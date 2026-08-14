@@ -130,4 +130,25 @@ public class ScreenScopeRow
 
     /// <summary>Trích dẫn ngắn từ hội thoại — chỉ có nghĩa khi <see cref="Locked"/>.</summary>
     public string Evidence { get; set; } = "";
+
+    /// <summary>
+    /// Dòng này do CHÍNH NGƯỜI DÙNG thêm vào bảng bằng nút "thêm màn hình", không phải do BA đề xuất.
+    ///
+    /// <para>
+    /// Cờ tồn tại vì chốt chặn "màn hình bịa" (<c>ScreenScopeMapBuilder.MatchScreen</c>) loại mọi dòng không
+    /// khớp danh sách cho phép — nó được dựng để chặn MODEL, và nếu không phân biệt được nguồn thì nó chặn
+    /// luôn màn hình người dùng vừa tự gõ: họ thêm một dòng, bấm gửi, và dòng ấy biến mất không một lời nào
+    /// nói vì sao. Chốt chặn giữ nguyên với mọi dòng còn lại; chỉ dòng mang cờ này mới đi vòng, và chỉ ở
+    /// đường GỬI (<c>ScreenScopeMapBuilder.Sanitize</c>) — lượt BÀY BẢNG là đề xuất của model, ở đó một cờ
+    /// "người dùng tự thêm" chỉ là chỗ để model tự cấp phép cho mình.
+    /// </para>
+    ///
+    /// <para>
+    /// Cờ được GIỮ qua đường lưu chứ không xoá như <see cref="Locked"/>, vì
+    /// <c>ScreenScopeMapBuilder.RenderUserMessage</c> dùng nó để kể lại "các màn hình mình tự bổ sung": một
+    /// màn hình chưa từng có trong đề xuất mà lặng lẽ đi vào phạm vi là đúng loại thay đổi phải nói ra, cùng
+    /// luật với các dòng bị bỏ tích.
+    /// </para>
+    /// </summary>
+    public bool AddedByUser { get; set; }
 }

@@ -901,34 +901,55 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     }
 
     // ---- BẢNG MÀN HÌNH ----
+    // Trần dòng, chép từ ScreenScopeMapBuilder. Chặn ở đây chứ không để server cắt: một dòng người dùng vừa
+    // gõ mà bị nuốt lúc lưu là đúng loại quyết định câm mà cả bảng này sinh ra để chặn — chặn tại nút bấm
+    // thì họ đọc được lý do ngay lúc bấm.
+    const MAX_SCREEN_ROWS = 40;           // = ScreenScopeMapBuilder.MaxRows
+    const MAX_SCREEN_FUNCTIONS = 12;      // = ScreenScopeMapBuilder.MaxFunctionsPerScreen
+
     const screenScopePanel = initTablePanel(
         "screenScopePanel", "screenScopeSendBtn", "screenScopeMsg", "screensJson",
-        panel => Array.from(panel.querySelectorAll(".screenmap-row")).map(tr => ({
-            screen: tr.dataset.screen || "",
-            purpose: tableValue(tr, ".screenmap-purpose"),
-            // MỖI CHỨC NĂNG MỘT DÒNG CON, mỗi dòng một ô tích. Dòng cuối của mỗi màn là dòng TRỐNG để người
-            // dùng gõ thêm một chức năng còn thiếu; không gõ gì thì `name` rỗng và server bỏ nó đi.
-            functions: Array.from(tr.querySelectorAll(".screenmap-fn-row")).map(fn => ({
-                name: tableValue(fn, ".screenfn-name"),
-                // Ô "phục vụ bước" là MỘT ô text ngăn bằng dấu chấm phẩy, không phải danh sách con: người
-                // dùng gõ tiếp vào đó dễ hơn nhiều so với bấm thêm dòng, và phép kiểm phía server so khớp
-                // theo cụm chứa-nhau nên không cần từng bước là một phần tử riêng. Ô là textarea nên XUỐNG
-                // DÒNG cũng là dấu ngăn: đó là cách gõ danh sách tự nhiên nhất khi ô cao được, và nếu chỉ
-                // tách theo dấu chấm phẩy thì mấy bước gõ mỗi dòng một cái sẽ dính thành một bước dài vô nghĩa.
-                flowSteps: tableRawValue(fn, ".screenfn-steps").split(/[;\n]/).map(s => s.trim()).filter(Boolean),
-                included: tableChecked(fn.querySelector(".screenfn-check"))
-            })).filter(fn => fn.name.length > 0),
-            // Các mục phạm vi đã được gộp vào màn này. Người dùng không sửa được chúng ở đây (chúng đã hiện
-            // thành dòng chú thích dưới tên màn), nhưng payload vẫn phải chở đi: mất chúng là mục đã gộp
-            // mọc lại thành một màn hình riêng ở lượt sau. Xem ScreenScopeMapBuilder.EffectiveScreens.
-            covers: (tr.dataset.covers || "").split("|").map(s => s.trim()).filter(Boolean),
-            included: tableChecked(tr.querySelector(".screenmap-check"))
-        })),
+        panel => Array.from(panel.querySelectorAll(".screenmap-row")).map(tr => {
+            // Dòng BA bày ra có tên nằm ở `data-screen` và KHÔNG sửa được: tên là khóa nối sang bảng phân
+            // quyền và sang các màn của bản demo, sửa chữ ở đây là làm dòng trượt khỏi chốt chặn ở server.
+            // Dòng người dùng TỰ THÊM thì ngược lại — nó chưa có tên nào để nối, nên ô tên là ô gõ, và cờ
+            // `addedByUser` là thứ cho phép nó đi qua chốt chặn đó (xem ScreenScopeRow.AddedByUser).
+            const nameInput = tr.querySelector(".screenmap-nameinput");
+            return {
+                screen: nameInput ? tableValue(tr, ".screenmap-nameinput") : (tr.dataset.screen || ""),
+                addedByUser: !!nameInput,
+                purpose: tableValue(tr, ".screenmap-purpose"),
+                // MỖI CHỨC NĂNG MỘT DÒNG CON, mỗi dòng một ô tích. Dòng thêm bằng nút "+ thêm chức năng" mà
+                // không gõ gì thì `name` rỗng và server bỏ nó đi.
+                functions: Array.from(tr.querySelectorAll(".screenmap-fn-row")).map(fn => ({
+                    name: tableValue(fn, ".screenfn-name"),
+                    // Ô "phục vụ bước" là MỘT ô text ngăn bằng dấu chấm phẩy, không phải danh sách con: người
+                    // dùng gõ tiếp vào đó dễ hơn nhiều so với bấm thêm dòng, và phép kiểm phía server so khớp
+                    // theo cụm chứa-nhau nên không cần từng bước là một phần tử riêng. Ô là textarea nên XUỐNG
+                    // DÒNG cũng là dấu ngăn: đó là cách gõ danh sách tự nhiên nhất khi ô cao được, và nếu chỉ
+                    // tách theo dấu chấm phẩy thì mấy bước gõ mỗi dòng một cái sẽ dính thành một bước dài vô nghĩa.
+                    flowSteps: tableRawValue(fn, ".screenfn-steps").split(/[;\n]/).map(s => s.trim()).filter(Boolean),
+                    included: tableChecked(fn.querySelector(".screenfn-check"))
+                })).filter(fn => fn.name.length > 0),
+                // Các mục phạm vi đã được gộp vào màn này. Người dùng không sửa được chúng ở đây (chúng đã
+                // hiện thành dòng chú thích dưới tên màn), nhưng payload vẫn phải chở đi: mất chúng là mục đã
+                // gộp mọc lại thành một màn hình riêng ở lượt sau. Xem ScreenScopeMapBuilder.EffectiveScreens.
+                covers: (tr.dataset.covers || "").split("|").map(s => s.trim()).filter(Boolean),
+                included: tableChecked(tr.querySelector(".screenmap-check"))
+            };
+        // Dòng tự thêm mà bỏ trống tên không phải một màn hình — bỏ ngay ở đây cho payload sạch (server
+        // cũng bỏ, nhưng để nó đi hết một vòng chỉ làm khó việc đọc lỗi khi có gì đó lệch).
+        }).filter(r => r.screen.length > 0),
         "Đang lưu bảng màn hình…",
         "Chưa lưu được bảng màn hình — anh/chị bấm gửi lại giúp mình nhé.");
 
-    // Một dòng chức năng. `f` null = dòng TRỐNG cuối bảng con (chỗ thêm chức năng còn thiếu).
-    function screenFunctionRow(f) {
+    // Một dòng chức năng. `f` null = dòng TRỐNG người dùng vừa thêm bằng nút "+ thêm chức năng".
+    //
+    // `removable` quyết định dòng có nút xóa hay không, và ranh giới đó là chủ ý: chức năng BA đề xuất thì
+    // BỎ TÍCH chứ không xóa — dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi, nếu không người dùng
+    // không có bằng chứng nào cho thấy mình vừa loại đúng thứ định loại. Dòng do CHÍNH HỌ vừa thêm thì
+    // không có gì để kể lại: nó chưa bao giờ là một đề xuất, nên xóa hẳn mới là thao tác đúng.
+    function screenFunctionRow(f, removable) {
         const name = f ? (f.name || "") : "";
         const steps = f ? (f.flowSteps || []).join("; ") : "";
         const checked = f ? (f.included ? " checked" : "") : " checked";
@@ -942,41 +963,71 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 <td class="flowmap-use">
                     <input type="checkbox" class="screenfn-check" aria-label="Cần chức năng ${escapeHtml(name)}"${checked} />${proof}
                 </td>
-                <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="${f ? "chức năng" : "+ thêm chức năng…"}">${escapeHtml(name)}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="chức năng">${escapeHtml(name)}</textarea></td>
                 <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="chức năng này phụ trách bước nào?">${escapeHtml(steps)}</textarea></td>
+                <td class="screenmap-delcell">${removable ? screenScopeDeleteButton("Xóa chức năng này") : ""}</td>
+            </tr>`;
+    }
+
+    // Dòng cuối của mỗi bảng con: nút thêm chức năng. `colspan` phủ cả bốn cột để nút bám mép trái, thẳng
+    // hàng với ô tích của các dòng chức năng bên trên.
+    //
+    // Tên màn hình chỉ nằm ở `aria-label`, không nằm trong chữ của nút: mọi ô của .permmap-table là nowrap,
+    // nên một nhãn dài bằng cả tên màn hình sẽ nong bảng con ra và đẩy cả bảng lớn ra ngoài vùng nhìn thấy.
+    function screenFunctionAddRow(screen) {
+        const label = screen ? `Thêm chức năng cho ${screen}` : "Thêm chức năng cho màn hình vừa thêm";
+        return `
+            <tr class="screenmap-fn-add">
+                <td colspan="4">
+                    <button type="button" class="screenmap-add screenmap-addfn" aria-label="${escapeHtml(label)}">+ thêm chức năng</button>
+                </td>
+            </tr>`;
+    }
+
+    function screenScopeDeleteButton(label) {
+        return `<button type="button" class="screenmap-del" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">×</button>`;
+    }
+
+    // MỘT dòng màn hình. `r` null = dòng TRỐNG người dùng vừa thêm bằng nút "+ thêm màn hình" — nó có ô tên
+    // gõ được (dòng BA bày ra thì không, xem phần gom bảng) và nút xóa.
+    function screenScopeRow(r) {
+        const covers = r ? (r.covers || []).filter(Boolean) : [];
+        const screen = r ? (r.screen || "") : "";
+        const nameCell = r
+            ? `<div class="screenmap-name">${escapeHtml(screen)}</div>`
+            : `<textarea rows="1" class="permmap-cellinput screenmap-nameinput" placeholder="tên màn hình…"></textarea>`;
+        return `
+            <tr class="screenmap-row" data-screen="${escapeHtml(screen)}" data-covers="${escapeHtml(covers.join("|"))}">
+                <td class="flowmap-use">
+                    <input type="checkbox" class="screenmap-check" aria-label="Cần màn hình ${r ? escapeHtml(screen) : "vừa thêm"}"${!r || r.included ? " checked" : ""} />
+                    ${r && r.locked ? `<span class="permmap-locked" title="${escapeHtml(r.evidence || "")}">✓</span>` : ""}
+                </td>
+                <td class="permmap-fn">
+                    ${nameCell}
+                    <textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="màn này để làm gì?">${escapeHtml(r ? (r.purpose || "") : "")}</textarea>
+                    ${covers.length > 0 ? `<div class="screenmap-covers">gộp vào màn này: ${escapeHtml(covers.join(", "))}</div>` : ""}
+                </td>
+                <td class="screenmap-fncell">
+                    <table class="screenmap-fntable">
+                        <tbody>${r ? (r.functions || []).map(f => screenFunctionRow(f, false)).join("") : ""}${screenFunctionAddRow(screen)}</tbody>
+                    </table>
+                </td>
+                <td class="screenmap-delcell">${r ? "" : screenScopeDeleteButton("Xóa màn hình này")}</td>
             </tr>`;
     }
 
     function renderScreenScope(rows, uncovered) {
         if (!screenScopePanel || !Array.isArray(rows) || rows.length === 0) return;
 
-        const body = rows.map(r => {
-            const covers = (r.covers || []).filter(Boolean);
-            return `
-            <tr class="screenmap-row" data-screen="${escapeHtml(r.screen || "")}" data-covers="${escapeHtml(covers.join("|"))}">
-                <td class="flowmap-use">
-                    <input type="checkbox" class="screenmap-check" aria-label="Cần màn hình ${escapeHtml(r.screen || "")}"${r.included ? " checked" : ""} />
-                    ${r.locked ? `<span class="permmap-locked" title="${escapeHtml(r.evidence || "")}">✓</span>` : ""}
-                </td>
-                <td class="permmap-fn">
-                    <div class="screenmap-name">${escapeHtml(r.screen || "")}</div>
-                    <textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="màn này để làm gì?">${escapeHtml(r.purpose || "")}</textarea>
-                    ${covers.length > 0 ? `<div class="screenmap-covers">gộp vào màn này: ${escapeHtml(covers.join(", "))}</div>` : ""}
-                </td>
-                <td class="screenmap-fncell">
-                    <table class="screenmap-fntable">
-                        <tbody>${(r.functions || []).map(screenFunctionRow).join("")}${screenFunctionRow(null)}</tbody>
-                    </table>
-                </td>
-            </tr>`;
-        }).join("");
+        const body = rows.map(screenScopeRow).join("");
 
         const steps = Array.isArray(uncovered) ? uncovered : [];
         screenScopePanel.innerHTML = `
             <div class="permmap-howto">
                 Đây là các màn hình mình dự kiến dựng và các chức năng trên từng màn. Màn nào <b>không cần</b>
                 thì bỏ tích ở cột đầu; chức năng nào không cần thì bỏ tích ngay dòng của nó. Thiếu chức năng
-                nào thì gõ vào dòng trống cuối mỗi màn. Dấu <b>✓</b> là phần chính anh/chị đã nêu.
+                nào thì bấm <b>+ thêm chức năng</b> ở cuối màn đó, thiếu cả một màn hình thì bấm
+                <b>+ thêm màn hình</b> ở cuối bảng. Dấu <b>✓</b> là phần chính anh/chị đã nêu.
             </div>
             <table class="permmap-table screenmap-table">
                 <thead>
@@ -984,9 +1035,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                         <th class="flowmap-th-use">Cần</th>
                         <th class="screenmap-th-name">Màn hình</th>
                         <th class="screenmap-th-fn">Chức năng <span class="screenmap-th-note">· cột phải: bước luồng chức năng đó phụ trách</span></th>
+                        <th class="screenmap-th-del"></th>
                     </tr>
                 </thead>
-                <tbody>${body}</tbody>
+                <tbody>${body}
+                    <tr class="screenmap-addrow">
+                        <td colspan="4"><button type="button" class="screenmap-add screenmap-addscreen">+ thêm màn hình</button></td>
+                    </tr>
+                </tbody>
             </table>
             <div class="screenmap-warn" id="screenScopeWarn"${steps.length > 0 ? "" : " hidden"}>
                 Chưa chức năng nào phụ trách các bước: <b>${escapeHtml(steps.join("; "))}</b>.
@@ -995,13 +1051,77 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
                 <div class="permmap-hint">
-                    Thiếu màn hình nào, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                    Muốn mô tả kỹ hơn một màn hình còn thiếu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
                 </div>
                 <div class="permmap-msg" id="screenScopeMsg"></div>
             </div>`;
         screenScopePanel.hidden = false;
         thinkingBox.before(screenScopePanel);
         autoGrowCells(screenScopePanel);
+    }
+
+    // THÊM/XÓA DÒNG NGAY TRÊN BẢNG. Trước đây bảng chỉ sửa được thứ BA đã bày ra: thiếu hẳn một màn hình thì
+    // người dùng phải bỏ bảng đó lại, gõ vào khung chat, rồi chờ BA bày lại bảng khác — một vòng gọi LLM cho
+    // một dòng họ đã biết chính xác mình muốn gì, và bảng bày lại thì không chắc giữ nguyên những ô họ vừa
+    // điền. Hai nút này cắt vòng đó đi.
+    //
+    // Ủy quyền trên PANEL chứ không gắn vào từng nút: renderScreenScope thay sạch innerHTML mỗi lượt BA bày
+    // bảng, nên listener gắn vào nút sẽ chết ngay lần render kế. Panel thì sống suốt phiên.
+    if (screenScopePanel) {
+        screenScopePanel.addEventListener("click", function (e) {
+            const addScreen = e.target.closest(".screenmap-addscreen");
+            const addFunction = e.target.closest(".screenmap-addfn");
+            const remove = e.target.closest(".screenmap-del");
+            if (!addScreen && !addFunction && !remove) return;
+
+            const msgEl = document.getElementById("screenScopeMsg");
+            const note = text => { if (msgEl) msgEl.textContent = text; };
+
+            if (remove) {
+                // Nút xóa của dòng chức năng nằm TRONG dòng màn hình chứa nó, nên phải hỏi dòng con trước.
+                const row = remove.closest(".screenmap-fn-row") || remove.closest(".screenmap-row");
+                if (row) row.remove();
+                note("");
+                return;
+            }
+
+            if (addScreen) {
+                const tbody = screenScopePanel.querySelector(".screenmap-table tbody");
+                const anchor = tbody && tbody.querySelector(".screenmap-addrow");
+                if (!anchor) return;
+
+                if (tbody.querySelectorAll(".screenmap-row").length >= MAX_SCREEN_ROWS) {
+                    note(`Bảng đã tới trần ${MAX_SCREEN_ROWS} màn hình — anh/chị bỏ tích bớt một màn không cần trước khi thêm giúp mình nhé.`);
+                    return;
+                }
+
+                anchor.insertAdjacentHTML("beforebegin", screenScopeRow(null));
+                focusNewRow(anchor.previousElementSibling, ".screenmap-nameinput");
+                note("");
+                return;
+            }
+
+            const fnBody = addFunction.closest(".screenmap-fntable").querySelector("tbody");
+            const fnAnchor = addFunction.closest(".screenmap-fn-add");
+            if (fnBody.querySelectorAll(".screenmap-fn-row").length >= MAX_SCREEN_FUNCTIONS) {
+                note(`Một màn hình chỉ nhận tối đa ${MAX_SCREEN_FUNCTIONS} chức năng — quá số đó thường là dấu hiệu đây là hai màn hình bị gộp làm một.`);
+                return;
+            }
+
+            fnAnchor.insertAdjacentHTML("beforebegin", screenFunctionRow(null, true));
+            focusNewRow(fnAnchor.previousElementSibling, ".screenfn-name");
+            note("");
+        });
+    }
+
+    // Ô của dòng vừa chèn chưa qua autoGrowCell nào (chiều cao do JS tính, xem autoGrowCells), và con trỏ
+    // phải nhảy thẳng vào ô tên: bấm "thêm" rồi phải đi tìm chỗ gõ là một nhịp thừa ở đúng chỗ người dùng
+    // đang gõ liên tục.
+    function focusNewRow(row, selector) {
+        if (!row) return;
+        autoGrowCells(row);
+        const field = row.querySelector(selector);
+        if (field) field.focus();
     }
 
     // ---- BẢNG ĐỐI TƯỢNG NGHIỆP VỤ ----

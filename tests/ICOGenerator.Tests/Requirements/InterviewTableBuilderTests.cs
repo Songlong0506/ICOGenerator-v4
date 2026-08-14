@@ -183,6 +183,37 @@ public class InterviewTableBuilderTests
         Assert.DoesNotContain(rows, r => r.Screen == "Màn hình quản trị hệ thống");
     }
 
+    // Cờ "người dùng tự thêm" chỉ có nghĩa ở đường GỬI. Ở lượt BÀY BẢNG mọi dòng đều do model soạn, nên đọc
+    // cờ ở đây là dựng cho model một cửa sau đi vòng chốt chặn "màn hình bịa" bằng cách tự khai là người
+    // dùng — mà đó đúng là thứ chốt chặn này sinh ra để chặn.
+    [Fact]
+    public void ScreenScope_IgnoresTheUserAddedFlagOnTheProposalPath()
+    {
+        var rows = ScreenScopeMapBuilder.Build(
+            new[] { new ScreenScopeRow { Screen = "Màn hình quản trị hệ thống", AddedByUser = true } }, Scope);
+
+        Assert.DoesNotContain(rows, r => r.Screen == "Màn hình quản trị hệ thống");
+    }
+
+    // Đường GỬI thì ngược lại: người dùng là người có thẩm quyền về phạm vi. Dòng họ tự gõ đi qua được, và
+    // giữ cờ để tin nhắn kể lại còn gọi tên được nó.
+    [Fact]
+    public void ScreenScope_AcceptsScreensTheUserAddedOnTheSubmitPath()
+    {
+        var rows = ScreenScopeMapBuilder.Sanitize(new[]
+        {
+            new ScreenScopeRow { Screen = "Màn hình Training Plan", Included = true },
+            new ScreenScopeRow { Screen = "Trang duyệt của HOD", Included = true },
+            new ScreenScopeRow { Screen = "Báo cáo tổng hợp cuối năm", AddedByUser = true, Included = true }
+        }, Scope);
+
+        var added = rows.Last();
+        Assert.Equal("Báo cáo tổng hợp cuối năm", added.Screen);
+        Assert.True(added.AddedByUser);
+        Assert.Contains("Các màn hình mình tự bổ sung vào bảng: Báo cáo tổng hợp cuối năm.",
+            ScreenScopeMapBuilder.RenderUserMessage(rows));
+    }
+
     [Fact]
     public void ScreenScope_LocksOnlyRowsThatCarryEvidence()
     {
