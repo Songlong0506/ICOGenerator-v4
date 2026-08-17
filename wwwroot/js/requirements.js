@@ -21,18 +21,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     messageInput.addEventListener("input", resizeMessageInput);
 
-    // ==== Ô tự nhập "Ý khác" TỰ CAO theo nội dung ====
-    // Ô này (cả trên thẻ hỏi gộp lẫn hàng chip lượt-đơn) nằm trong khung nhãn-nổi gọn, mở ra chỉ cao chừng
-    // một dòng. Nhưng câu trả lời thật ở đây thường dài hơn thế — "tầm 1500 người, và tần suất sử dụng
-    // không cố định" — và ô cố định bắt người dùng cuộn để đọc lại chính thứ mình sắp gửi, đúng lúc họ cần
-    // thấy nó trọn vẹn nhất. Nó cũng là ô được MỒI SẴN nội dung chip đang chọn để sửa vài chữ (xem
-    // handler .batchq-choice), nên vừa mở ra đã có thể có sẵn một câu dài.
+    // ==== Ô tự nhập TỰ CAO theo nội dung ====
+    // Ô này (cả trên thẻ hỏi gộp lẫn hàng chip lượt-đơn) nằm trong khung nhãn-nổi gọn, khởi điểm chỉ cao
+    // chừng một dòng. Nhưng câu trả lời thật ở đây thường dài hơn thế — "tầm 1500 người, và tần suất sử
+    // dụng không cố định" — và ô cố định bắt người dùng cuộn để đọc lại chính thứ mình sắp gửi, đúng lúc họ
+    // cần thấy nó trọn vẹn nhất. Trên thẻ hỏi gộp nó còn được MỒI SẴN nội dung chip vừa bấm để sửa vài chữ
+    // (xem handler .batchq-choice), nên có thể mang sẵn một câu dài ngay khi người dùng chưa gõ gì.
     // Trần chiều cao là bắt buộc: không có nó, một câu trả lời dài đẩy nút "Gửi N câu trả lời" ra khỏi màn
     // hình và thẻ hỏi gộp thành cụt đường.
     const OTHER_BOX_MAX_HEIGHT = 200;
 
     function autoGrowOtherBox(box) {
-        // Ô đang ẩn có scrollHeight = 0 → đo lúc này sẽ ghim height 0px và lần mở sau ra một ô dẹt.
+        // Ô nằm trong khối chưa hiện có scrollHeight = 0 → đo lúc này sẽ ghim height 0px thành một ô dẹt.
         if (!box || box.hidden) return;
 
         box.style.height = "auto";
@@ -160,6 +160,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         `).join("");
         ensureOtherControls();
         ensureMultiControls();
+        updateOtherSendState();
         thinkingBox.before(suggestionList);
         suggestionList.style.display = "";
     }
@@ -222,8 +223,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // thông tin nào thay thế, nên BA phải quay lại — tiêu mất lượt quay lại DUY NHẤT mà prompt cho phép mỗi
     // nhóm.
     //
-    // Thẻ hỏi GỘP đã có đúng lối thoát này từ trước (.batchq-choice.is-other); phần dưới đây mang nó sang
-    // hàng chip lượt-đơn. Không có endpoint mới: thứ gửi đi vẫn là một tin nhắn user bình thường.
+    // Thẻ hỏi GỘP đã có đúng lối thoát này từ trước (ô .batchq-answer dưới mỗi hàng gợi ý); phần dưới đây
+    // mang nó sang hàng chip lượt-đơn. Không có endpoint mới: thứ gửi đi vẫn là một tin nhắn user bình
+    // thường.
     const OTHER_PLACEHOLDER = "Anh/chị nói rõ giúp mình — càng cụ thể càng tốt…";
 
     // Dựng khối "Ý khác" bằng JS cho CẢ HAI đường render (server lúc tải trang, JS ở frame done) thay vì
@@ -231,24 +233,30 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // không có gì để server render. Chỉ gắn khi hàng chip THỰC SỰ có chip — lượt câu MỞ không có chip, và ở
     // đó ô nhập của khung chat đã là chỗ trả lời duy nhất (setComposerOpenEnded), thêm một ô thứ hai là tạo
     // hai chỗ trả lời cho cùng một câu.
+    //
+    // Ô MỞ SẴN, không còn nút "✎ Ý khác" phải bấm mới ra. Nút là một bước thừa đứng đúng chỗ đắt nhất: nó
+    // KHÔNG nói được gì mà cái ô mở sẵn không tự nói (một ô nhập kèm nhãn "Ý khác" đã là lời mời rõ ràng),
+    // nhưng nó bắt người dùng phải NGHĨ RA rằng còn lối thoát ở đó rồi mới bấm — và người dùng nghiệp vụ
+    // đang rà một hàng đáp án thì đọc lướt chứ không đi tìm nút. Bỏ nút đi thì lối thoát luôn hiện diện
+    // bằng đúng thứ nó là: chỗ để gõ.
     function ensureOtherControls() {
         if (!suggestionList) return;
         if (!suggestionList.querySelector(".suggestion-option")) return;
         if (suggestionList.querySelector(".suggestion-other")) return;
 
-        // Nhãn "Ý khác" xuất hiện HAI LẦN theo hai trạng thái, không bao giờ cùng lúc: trên viên nút lúc
-        // đóng, rồi thành nhãn nổi khoét trên viền ô lúc mở (nút tự ẩn đi). Nhãn nổi giữ lại danh tính của ô
-        // sau khi nút biến mất — không có nó, cái mở ra chỉ là một ô nhập trống chẳng gắn với câu hỏi nào.
-        // Nó là bản sao hình ảnh của nút nên `aria-hidden`; chỗ trình đọc màn hình lấy tên ô là `aria-label`.
+        // Nhãn nổi khoét trên viền ô là thứ nói cho người dùng biết ô này là gì (trước đây việc đó do viên
+        // nút gánh). Nó là nhãn NHÌN nên `aria-hidden`; chỗ trình đọc màn hình lấy tên ô là `aria-label`.
+        //
+        // Chế độ chọn NHIỀU đã có nút "Gửi các lựa chọn" ở cuối danh sách và text tự nhập được gộp vào đó
+        // như một lựa chọn nữa — thêm nút gửi thứ hai là hai nút cùng một việc, cách nhau hai dòng.
         suggestionList.insertAdjacentHTML("beforeend", `
             <div class="suggestion-other">
-                <button type="button" class="suggestion-other-btn">✎ Ý khác</button>
                 <div class="suggestion-other-field">
-                    <textarea class="suggestion-other-input" rows="1" hidden aria-label="Ý khác — câu trả lời anh/chị tự nhập" placeholder="${OTHER_PLACEHOLDER}"></textarea>
+                    <textarea class="suggestion-other-input" rows="1" aria-label="Ý khác — câu trả lời anh/chị tự nhập" placeholder="${OTHER_PLACEHOLDER}"></textarea>
                     <span class="suggestion-other-cap" aria-hidden="true">Ý khác</span>
                 </div>
-                <div class="suggestion-other-bar" hidden>
-                    <button type="button" class="btn primary small suggestion-other-send">Gửi câu trả lời</button>
+                <div class="suggestion-other-bar"${isMultiSelect() ? " hidden" : ""}>
+                    <button type="button" class="btn primary small suggestion-other-send" disabled>Gửi câu trả lời</button>
                     <span class="suggestion-other-hint"></span>
                 </div>
             </div>
@@ -261,28 +269,21 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     function otherAnswerText() {
         const box = otherInput();
-        return box && !box.hidden ? (box.value || "").trim() : "";
+        return box ? (box.value || "").trim() : "";
     }
 
-    // Mở ô tự nhập. `chipText` rỗng = người dùng tự bấm "Ý khác"; khác rỗng = họ vừa bấm một chip bất đồng,
-    // và chip đó thành LƯỚI AN TOÀN: để trống ô rồi bấm gửi thì tin nhắn đi ra đúng bằng chip như hôm nay.
-    // Ô KHÔNG được là bắt buộc — bắt gõ mới đi tiếp được sẽ đẩy một phần người dùng sang bấm "Đúng rồi" cho
-    // xong, tức đổi một lượt cụt lấy một xác nhận GIẢ, thứ đắt hơn nhiều vì mọi tầng sau tin là thật.
-    function openOtherInput(chipText) {
+    // Mồi ô tự nhập cho một chip BẤT ĐỒNG vừa bấm: chip đó thành LƯỚI AN TOÀN — để trống ô rồi bấm gửi thì
+    // tin nhắn đi ra đúng bằng chip như hôm nay. Ô KHÔNG được là bắt buộc: bắt gõ mới đi tiếp được sẽ đẩy
+    // một phần người dùng sang bấm "Đúng rồi" cho xong, tức đổi một lượt cụt lấy một xác nhận GIẢ, thứ đắt
+    // hơn nhiều vì mọi tầng sau tin là thật.
+    function primeOtherInput(chipText) {
         const box = otherInput();
         if (!box) return;
 
         const wrap = box.closest(".suggestion-other");
-        const btn = wrap.querySelector(".suggestion-other-btn");
-        const bar = wrap.querySelector(".suggestion-other-bar");
         const hint = wrap.querySelector(".suggestion-other-hint");
 
         box.dataset.fallback = chipText || "";
-        box.hidden = false;
-        btn.hidden = true;
-        // Chế độ chọn NHIỀU đã có nút "Gửi các lựa chọn" ở cuối danh sách và text tự nhập được gộp vào đó
-        // như một lựa chọn nữa — thêm nút gửi thứ hai là hai nút cùng một việc, cách nhau hai dòng.
-        bar.hidden = isMultiSelect();
         hint.textContent = chipText ? `Để trống rồi gửi = gửi nguyên “${chipText}”.` : "";
 
         box.focus();
@@ -322,7 +323,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     }
 
     // ==== Nhận diện chip BẤT ĐỒNG ====
-    // Thuần giao diện: nó chỉ quyết định cú bấm MỞ Ô NHẬP hay GỬI NGAY, không đụng gì tới nội dung được
+    // Thuần giao diện: nó chỉ quyết định cú bấm MỒI Ô NHẬP hay GỬI NGAY, không đụng gì tới nội dung được
     // lưu — nên nó ở đây (một chỗ, dùng chung cho cả hai đường render) chứ không phải ở BAChatReplyParser,
     // nơi dành cho các chốt chặn làm ĐỔI câu trả lời trước khi nó lên màn hình.
     //
@@ -354,6 +355,39 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // requestSubmit) — không có endpoint riêng, nên không có đường ghi thứ hai nào lệch khỏi luồng chính
     // và mọi thứ đã đúng ở lượt chat (cổng readiness, chắt lọc bản đồ, decision log) tự khắc đúng ở đây.
     const batchPanel = document.getElementById("batchQuestions");
+
+    // Ô trả lời của MỘT câu trên thẻ luôn MỞ, kể cả câu có hàng gợi ý. Trước đây nó nấp sau một viên nút
+    // "✎ Ý khác" và chỉ ra mặt khi bấm — mà chính cái ô đó lại là NƠI LƯU câu trả lời của cả hàng gợi ý
+    // (bấm chip = ghi giá trị chip vào ô). Hai vai trong một ô cộng với một cái nút bật/tắt sinh ra đúng
+    // trạng thái sai đã thấy trên màn hình: chip đang sáng, nút "✎ Ý khác" vẫn nằm đó, VÀ ô nhập mở ra
+    // mang sẵn nguyên văn chip vừa bấm — ba thứ nói cùng một điều, người dùng không biết cái nào mới là
+    // thứ sắp gửi đi.
+    //
+    // Nay ô là chỗ DUY NHẤT thể hiện câu trả lời: hàng gợi ý chỉ còn là lối điền nhanh (bấm chip = điền ô),
+    // ô luôn hiện nên người dùng đọc được thứ mình sắp gửi và sửa ngay tại chỗ. Vì thế nhãn của ô cũng
+    // không còn là "Ý khác" — nó là "Câu trả lời", đúng thứ nó chứa dù nội dung tới từ chip hay tự gõ.
+    const BATCH_ANSWER_LABEL = "Câu trả lời anh/chị gửi cho câu này";
+    const BATCH_ANSWER_PLACEHOLDER = "Bấm một gợi ý ở trên, hoặc tự nhập câu trả lời…";
+
+    // Chip là DẪN XUẤT của nội dung ô, không phải một trạng thái song song: chip sáng khi giá trị của nó
+    // đang có mặt trong ô. Nhờ vậy người dùng sửa tay một chữ trong ô thì chip tự tắt (không còn ca "chip
+    // sáng nhưng thứ gửi đi là câu khác"), và bản phục hồi nháp không cần đoán lại trạng thái nút nào.
+    function batchAnswerParts(box) {
+        return (box.value || "").split(",").map(s => s.trim()).filter(Boolean);
+    }
+
+    function syncBatchChips(li) {
+        const box = li.querySelector(".batchq-answer");
+        if (!box) return;
+
+        const multi = li.dataset.multi === "true";
+        const whole = (box.value || "").trim();
+        const parts = batchAnswerParts(box);
+        li.querySelectorAll(".batchq-choice").forEach(chip => {
+            const value = (chip.dataset.value || "").trim();
+            chip.classList.toggle("is-on", multi ? parts.includes(value) : value === whole);
+        });
+    }
 
     // Các câu hỏi đang nằm trên thẻ, dựng thành dấu vết CHỈ-ĐỌC. Không có phần này, các câu hỏi biến mất
     // ngay khi người dùng trả lời (câu dẫn của lượt gộp không chứa câu hỏi nào), nên lịch sử chat còn lại
@@ -463,8 +497,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <div class="batchq-howto">Bấm một gợi ý hoặc tự nhập; điểm nào chưa nghĩ tới thì để trống.</div>
             <ul class="batchq-list">
                 ${questions.map(q => {
-                    // Câu MỞ: không có gợi ý nào để bấm, nên ô tự nhập mở SẴN (không có nút "Ý khác" để
-                    // bấm mở) — một dòng chỉ có mỗi câu hỏi mà không có chỗ trả lời đọc như một dòng bị lỗi.
+                    // Câu MỞ: không có gợi ý nào để bấm, nên chỉ còn ô tự nhập — một dòng chỉ có mỗi câu
+                    // hỏi mà không có chỗ trả lời đọc như một dòng bị lỗi.
                     const open = q.openEnded === true || !(Array.isArray(q.suggestions) && q.suggestions.length > 0);
                     return `
                 <li class="batchq-item" data-question="${escapeHtml(q.question || "")}" data-multi="${q.multiSelect ? "true" : "false"}" data-open="${open ? "true" : "false"}">
@@ -474,11 +508,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     <div class="batchq-choices">
                         ${(Array.isArray(q.suggestions) ? q.suggestions : []).map(s => `
                         <button type="button" class="batchq-choice" data-value="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join("")}
-                        <button type="button" class="batchq-choice is-other" data-other="1">✎ Ý khác</button>
                     </div>
                     <div class="batchq-other-field">
-                        <textarea class="batchq-answer" rows="1" hidden aria-label="Ý khác — câu trả lời anh/chị tự nhập" placeholder="Câu trả lời của anh/chị…"></textarea>
-                        <span class="batchq-other-cap" aria-hidden="true">Ý khác</span>
+                        <textarea class="batchq-answer" rows="1" aria-label="${BATCH_ANSWER_LABEL}" placeholder="${BATCH_ANSWER_PLACEHOLDER}"></textarea>
+                        <span class="batchq-other-cap" aria-hidden="true">Câu trả lời</span>
                     </div>`}
                     ${open ? `<textarea class="batchq-answer" rows="3" placeholder="Anh/chị kể giúp mình, càng chi tiết càng tốt…"></textarea>` : ""}
                 </li>`;
@@ -502,32 +535,29 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             if (choice) {
                 const li = choice.closest(".batchq-item");
                 const answer = li.querySelector(".batchq-answer");
-                const multi = li.dataset.multi === "true";
+                const value = (choice.dataset.value || "").trim();
 
-                if (choice.dataset.other) {
-                    // "Ý khác" mồi sẵn nội dung đang chọn: phần lớn lượt tự nhập là CHỈNH vài chữ của một
-                    // gợi ý, bắt gõ lại cả câu là thao tác thừa.
-                    choice.classList.add("is-on");
-                    answer.hidden = false;
-                    answer.focus();
-                    answer.setSelectionRange(answer.value.length, answer.value.length);
-                    autoGrowOtherBox(answer);
-                    updateBatchSendButton();
-                    draftBatchSaveSoon();
-                    return;
-                }
-
-                if (multi) {
-                    // Câu chọn-nhiều: chip là toggle, câu trả lời là các lựa chọn nối bằng dấu phẩy.
-                    choice.classList.toggle("is-on");
-                    const picked = Array.from(li.querySelectorAll(".batchq-choice.is-on:not(.is-other)"))
-                        .map(b => b.dataset.value);
-                    answer.value = picked.join(", ");
+                if (li.dataset.multi === "true") {
+                    // Câu chọn-nhiều: chip là toggle, câu trả lời là các lựa chọn nối bằng dấu phẩy. Chỉ
+                    // thêm/bớt ĐÚNG giá trị chip vừa bấm thay vì dựng lại cả ô từ bộ chip đang sáng — dựng
+                    // lại sẽ xoá luôn phần người dùng tự gõ thêm, mà ô thì đang mở ngay trước mắt họ.
+                    const parts = batchAnswerParts(answer);
+                    const at = parts.indexOf(value);
+                    if (at >= 0) parts.splice(at, 1);
+                    else parts.push(value);
+                    answer.value = parts.join(", ");
                 } else {
-                    li.querySelectorAll(".batchq-choice").forEach(b => b.classList.toggle("is-on", b === choice));
-                    answer.hidden = true;
-                    answer.value = choice.dataset.value || "";
+                    // Câu chọn-một: chip là lối điền nhanh, bấm cái nào thì ô mang đúng câu đó. Bấm lại
+                    // chính chip đang chọn = bỏ chọn, nếu không thì một cú bấm nhầm không có đường lùi nào
+                    // ngoài việc bôi đen xoá tay.
+                    answer.value = (answer.value || "").trim() === value ? "" : value;
                 }
+
+                syncBatchChips(li);
+                autoGrowOtherBox(answer);
+                // KHÔNG focus vào ô sau cú bấm: bấm gợi ý là thao tác "câu này xong rồi", mà focus thì trên
+                // điện thoại bật bàn phím lên che mất các câu còn lại của thẻ. Ô nằm ngay dưới hàng gợi ý và
+                // đã hiện nguyên văn thứ vừa chọn — ai muốn sửa chỉ việc bấm vào đó.
                 updateBatchSendButton();
                 // Chọn bằng chip KHÔNG bắn sự kiện input (giá trị do JS gán) → phải tự hẹn lưu nháp.
                 draftBatchSaveSoon();
@@ -546,12 +576,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             chatForm.requestSubmit();
         });
 
-        // Ô "Ý khác" đang mở mà rỗng thì câu đó KHÔNG được tính, nên nhãn nút phải nhảy theo từng phím gõ.
+        // Ô trả lời rỗng thì câu đó KHÔNG được tính, nên nhãn nút phải nhảy theo từng phím gõ.
         batchPanel.addEventListener("input", function (e) {
             if (!e.target.classList.contains("batchq-answer")) return;
             // Chỉ ô trong khung nhãn-nổi mới tự cao: ô của câu MỞ đứng riêng, đã có sẵn 3 dòng và
             // `resize: vertical` để người dùng tự kéo.
             if (e.target.closest(".batchq-other-field")) autoGrowOtherBox(e.target);
+            // Sửa tay làm nội dung ô lệch khỏi chip đang sáng → chip phải tắt theo, không thì màn hình nói
+            // người dùng đã chọn một đằng trong khi thứ sắp gửi là một nẻo.
+            syncBatchChips(e.target.closest(".batchq-item"));
             updateBatchSendButton();
             draftBatchSaveSoon();
         });
@@ -2227,23 +2260,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             box.value = answer;
             restored++;
 
-            // Bật lại đúng trạng thái chip đã bấm: câu trả lời trùng KHÍT bộ giá trị chip nghĩa là họ chọn
-            // bằng chip (ô tự nhập giữ nguyên trạng thái ẩn); lệch dù một chữ là họ tự nhập → mở ô ra, không
-            // thì nội dung vừa phục hồi nằm trong một textarea [hidden] và chẳng ai thấy.
-            const picked = answer.split(",").map(s => s.trim()).filter(Boolean);
-            const chips = Array.from(li.querySelectorAll(".batchq-choice:not(.is-other)"));
-            const matched = chips.filter(c => picked.includes((c.dataset.value || "").trim()));
-            if (matched.length > 0 && matched.length === picked.length) {
-                matched.forEach(c => c.classList.add("is-on"));
-            } else {
-                box.hidden = false;
-                // Câu MỞ cũng rơi vào nhánh này (không có chip nào để khớp) nhưng ô của nó không nằm trong
-                // khung nhãn-nổi: nó đã sẵn 3 dòng mời "kể chi tiết", tự co lại theo một câu ngắn vừa phục
-                // hồi là thu hẹp đúng cái ô đang mời người dùng viết dài.
-                if (box.closest(".batchq-other-field")) autoGrowOtherBox(box);
-                const other = li.querySelector(".batchq-choice.is-other");
-                if (other) other.classList.add("is-on");
-            }
+            // Chip sáng lại theo đúng nội dung vừa đổ về (xem syncBatchChips): họ chọn bằng chip thì chip
+            // sáng, họ tự gõ thì không chip nào sáng — không cần đoán lại "họ đã bấm nút nào".
+            syncBatchChips(li);
+
+            // Câu MỞ không nằm trong khung nhãn-nổi: ô của nó đã sẵn 3 dòng mời "kể chi tiết", tự co lại
+            // theo một câu ngắn vừa phục hồi là thu hẹp đúng cái ô đang mời người dùng viết dài.
+            if (box.closest(".batchq-other-field")) autoGrowOtherBox(box);
         });
 
         if (restored > 0) updateBatchSendButton();
@@ -3155,7 +3178,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // Chip BẤT ĐỒNG: mở ô nhập ngay tại chỗ thay vì gửi đi một lượt "Không, tính khác" trần. Xem khối
         // "Ô Ý khác" phía trên cho lý do đầy đủ.
         if (isDissentChip(text)) {
-            openOtherInput(text);
+            primeOtherInput(text);
             return;
         }
 
@@ -3180,15 +3203,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // Trang vừa tải với lượt hỏi có chip (server render) → gắn ô "Ý khác" + nút gửi cho danh sách có sẵn.
         ensureOtherControls();
         ensureMultiControls();
+        // Ô mở sẵn ⇒ nút "Gửi câu trả lời" của nó cũng có mặt ngay từ đầu: phải khoá đúng trạng thái (ô
+        // rỗng, chưa có chip nào đỡ phía sau) chứ không để một nút bấm được mà bấm vào thì không gửi gì.
+        updateOtherSendState();
 
         suggestionList.addEventListener("click", function (e) {
             if (e.target.closest("#suggestionMultiSendBtn")) {
                 sendSelectedSuggestions();
-                return;
-            }
-
-            if (e.target.closest(".suggestion-other-btn")) {
-                openOtherInput("");
                 return;
             }
 
