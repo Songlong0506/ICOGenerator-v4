@@ -9,10 +9,17 @@
 **Server-Sent Events**: frame `status` ("BA đang soạn câu trả lời…"), frame `token` (BA "đang gõ" —
 đã lọc cú pháp JSON qua `BAChatTokenFilter`, chỉ phần `message` hiển thị được stream), và frame `done`
 mang bản chốt (reply + suggestions + cờ mời Write Requirement) để client render tại chỗ **không reload
-trang**. Client dùng `fetch` + đọc `ReadableStream` (EventSource không POST được); stream hỏng trước khi
-nhận frame nào thì `requirements.js` tự rơi về `POST /Requirements/Chat` (postback cổ điển, reload trang).
+trang**. Client dùng `fetch` + đọc `ReadableStream` (EventSource không POST được).
 Lượt chat chạy với `CancellationToken.None` — người dùng đóng tab giữa chừng thì turn vẫn hoàn tất và lưu
 DB, chỉ việc ghi response dừng lại.
+
+Đây là **đường ghi duy nhất** của khung chat, và stream hỏng kiểu gì `requirements.js` cũng **reload chứ
+không gửi lại**. Chính vì lượt chạy với `CancellationToken.None`: khi client không nghe thấy gì (proxy đệm
+cả response nên không frame nào về, đồng hồ canh bắn abort sau 45s) thì server **vẫn đang chạy trọn lượt
+đó** — POST lần hai cho cùng câu hỏi sẽ nhân đôi lượt user lẫn lời gọi LLM, vì `BAChatService.ChatAsync`
+ghi lượt user vô điều kiện và `BAChatTurnTracker` chỉ loại trừ nhánh `retry`. Reload phủ trọn cả hai khả
+năng: lượt đã tới đích thì trang hiện bản đã lưu (và `ChatReplyStatus` lo phần còn lại), lượt chưa tới thì
+nháp "đã gửi" không khớp lượt user cuối nên `draftRestore` đổ lại nội dung vào ô nhập kèm lời giải thích.
 
 **Không lượt nào được phép "treo"** — hội thoại luôn kết thúc bằng một lượt assistant, và UI luôn có
 đường thoát. Lượt user được lưu TRƯỚC khi gọi LLM, nên nếu phần sau vỡ mà không ai đóng lượt thì hội
@@ -31,7 +38,7 @@ thoát, không gửi được tin mới). Bốn chốt chặn:
   lại đúng lượt user còn "cụt" (`RetryLastTurnAsync`) nên người dùng không phải gõ lại câu hỏi.
 
 ```
-Browser POST /Requirements/ChatStream (SSE)  [hoặc POST /Requirements/Chat — fallback]
+Browser POST /Requirements/ChatStream (SSE)
   └► RequirementsController.ChatStream               [Controllers]
        └► ChatWithBAUseCase.ExecuteAsync             [Application/Requirements]
             └► BAChatService.ChatAsync               [Services/Requirements]

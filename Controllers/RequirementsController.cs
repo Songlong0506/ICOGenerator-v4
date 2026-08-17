@@ -143,56 +143,22 @@ public class RequirementsController : Controller
         return View(result.Project);
     }
 
-    // Đường postback cổ điển (reload cả trang) — giữ làm FALLBACK khi trình duyệt không stream được
-    // (fetch/ReadableStream lỗi): requirements.js chỉ submit form này khi ChatStream thất bại từ sớm.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
-    public async Task<IActionResult> Chat(Guid projectId, string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return RedirectToAction(nameof(Index), new { projectId });
-
-        try
-        {
-            var result = await _chatWithBAUseCase.ExecuteAsync(projectId, message);
-
-            if (result.Status == ChatWithBAResult.ProjectNotFound)
-                return RedirectToAction("Index", "Projects");
-
-            if (result.Status == ChatWithBAResult.BaNotConfigured)
-                TempData["Error"] = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent.";
-            else
-            {
-                // Đường postback reload cả trang nên các panel render từ server — gộp lượt mới trước khi
-                // redirect (ở đường streaming việc này chạy sau frame done).
-                await _chatWithBAUseCase.UpdateDecisionsAsync(projectId);
-                await _chatWithBAUseCase.UpdateInterviewOutlookAsync(projectId);
-                await _chatWithBAUseCase.EnsureProjectDomainAsync(projectId);
-            }
-        }
-        catch (BudgetExceededException ex)
-        {
-            // Đã chạm trần ngân sách: đừng để văng thành lỗi 500 — báo lý do để người dùng biết vì sao BA không trả lời.
-            TempData["Error"] = ex.Message;
-        }
-
-        return RedirectToAction(nameof(Index), new { projectId });
-    }
-
-    // Chat BA dạng STREAMING: một request POST xử lý trọn lượt chat và trả Server-Sent Events —
-    // trạng thái ("BA đang soạn…"), token "đang gõ" (đã lọc cú pháp JSON), và frame done mang bản chốt
-    // (reply + suggestions + cờ mời Write Requirement) để client render tại chỗ, không reload trang.
+    // Chat BA dạng STREAMING — đường ghi DUY NHẤT của khung chat: một request POST xử lý trọn lượt chat
+    // và trả Server-Sent Events — trạng thái ("BA đang soạn…"), token "đang gõ" (đã lọc cú pháp JSON),
+    // và frame done mang bản chốt (reply + suggestions + cờ mời Write Requirement) để client render tại
+    // chỗ, không reload trang.
     // Dùng fetch + đọc ReadableStream phía client (EventSource không POST được); antiforgery đi theo
     // FormData như postback thường nên AutoValidateAntiforgeryToken toàn cục vẫn phủ.
+    // KHÔNG có đường postback song song: lượt chat chạy với CancellationToken.None nên một cú POST thứ
+    // hai cho cùng câu hỏi (client bỏ cuộc vì proxy đệm response) sẽ nhân đôi lượt user + lời gọi LLM.
+    // Client hỏng stream thì reload — nháp "đã gửi" và ChatReplyStatus lo phần phục hồi.
     // retry=true: "thử lại" lượt BA vừa lỗi LLM — xóa lượt lỗi cuối rồi chạy lại trên transcript hiện
     // có (message bị bỏ qua, KHÔNG ghi thêm lượt user). Cùng một đường SSE để mọi frame (status/token/
     // done/decisions/outlook) hành xử y hệt một lượt chat thường.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
-    // Chặn trước khi mở stream: client thấy !response.ok và tự rơi về đường postback (vốn cũng chặn).
+    // Chặn trước khi mở stream: client thấy !response.ok, reload rồi rơi vào đúng cổng duyệt của Index.
     [RequireProjectAccess]
     public async Task ChatStream(Guid projectId, string message, bool retry = false, bool edit = false)
     {

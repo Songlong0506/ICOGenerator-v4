@@ -32,7 +32,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Submit được chặn lại và gửi qua POST /Requirements/ChatStream (Server-Sent Events): trạng thái
     // ("BA đang soạn…") cập nhật dòng thinking, token "đang gõ" đổ dần vào một bubble BA, frame done
     // mang bản chốt (reply + suggestions + cờ mời Write Requirement) để render tại chỗ — KHÔNG reload.
-    // Stream hỏng trước khi nhận được frame nào → fallback postback cổ điển (hành vi cũ, reload trang).
+    // Đây là đường ghi DUY NHẤT của khung chat — stream hỏng kiểu gì cũng reload, không gửi lại (gửi
+    // lại sẽ nhân đôi lượt vì server vẫn chạy trọn lượt đã nhận).
     const STREAM_URL = "/Requirements/ChatStream";
     // Ngưỡng coi stream là ĐÃ CHẾT: server gửi frame "ping" mỗi 10s trong suốt lượt (xem
     // HeartbeatInterval ở RequirementsController), nên im lặng quá lâu nghĩa là kết nối đứt chứ không
@@ -2455,9 +2456,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Do initSourceDropPaste gán: upload các file đang staged kèm ghi chú (text) rồi reload.
     let sendStagedImages = null;
 
-    // true khi lượt đang gửi đã nhận ĐƯỢC ít nhất một frame SSE — quyết định cách phục hồi khi lỗi:
-    // đã nhận frame nghĩa là server ĐANG xử lý lượt này (và sẽ lưu DB dù stream đứt) → chỉ reload;
-    // chưa nhận frame nào mới được phép re-submit theo đường postback cổ điển.
+    // true khi lượt đang gửi đã nhận ĐƯỢC ít nhất một frame SSE. Không nhận frame nào mà stream vẫn
+    // "kết thúc bình thường" là một kiểu đứt im lặng nữa (proxy đệm rồi đóng, response rỗng): fetch
+    // không báo lỗi, nên phải tự coi là hỏng để rơi vào nhánh phục hồi thay vì đứng im.
+    // KHÔNG dùng để quyết định có gửi lại hay không — không lượt nào được gửi lại, xem nhánh catch.
     let sawFrame = false;
     // true khi đã nhận frame "done" — tức lượt đã CHỐT. Stream kết thúc mà thiếu nó (proxy đóng kết nối
     // im lặng, server bị kill giữa chừng) là kết thúc GIẢ: đọc xong không lỗi, không exception, nhưng
@@ -2585,22 +2587,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }).catch(function () {
             if (!chatBusy) return; // done đã xử lý xong, lỗi chỉ là đuôi stream — bỏ qua
 
-            if (sawFrame) {
-                // Stream đứt giữa chừng NHƯNG server đã nhận lượt này và vẫn chạy trọn
-                // (CancellationToken.None) → reload để hiển thị bản đã lưu; re-submit sẽ nhân đôi lượt.
-                location.reload();
-                return;
-            }
-
-            // Hỏng từ trước khi nhận frame nào (mạng/proxy không stream được):
-            // quay về postback cổ điển — submit native để không đi lại listener này. Trừ lượt SỬA:
-            // postback chỉ biết thêm lượt mới, gửi qua đó sẽ nhân đôi câu vừa sửa.
-            if (editing) {
-                location.reload();
-                return;
-            }
-            document.getElementById("hiddenMessage").value = text;
-            HTMLFormElement.prototype.submit.call(chatForm);
+            // Stream hỏng kiểu gì cũng RELOAD, không bao giờ gửi lại: lượt chat chạy với
+            // CancellationToken.None nên server có thể đã nhận và đang chạy trọn lượt này dù client
+            // không nghe thấy gì (proxy đệm cả response ⇒ không frame nào về, đồng hồ canh bắn abort
+            // sau STREAM_IDLE_TIMEOUT_MS). Gửi lại lúc đó là nhân đôi lượt user + lời gọi LLM.
+            // Reload phủ trọn cả hai khả năng: lượt ĐÃ tới đích thì trang hiện bản đã lưu (và
+            // ChatReplyStatus lo phần "BA đang soạn…" / mời Thử lại nếu lượt chết); lượt CHƯA tới thì
+            // nháp "đã gửi" không khớp lượt user cuối nên draftRestore đổ lại nội dung vào ô nhập.
+            location.reload();
         });
     });
 

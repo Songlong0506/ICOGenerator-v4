@@ -1660,8 +1660,13 @@
                  thumbnail và xử lý xóa từng ảnh; ẩn khi chưa có ảnh nào. -->
             <div id="attachPreview" class="attach-preview" hidden aria-label="Ảnh đính kèm chờ gửi"></div>
 
+            <!-- Form này KHÔNG bao giờ postback: requirements.js chặn submit và gửi lượt chat qua
+                 POST /Requirements/ChatStream (SSE) — đường ghi duy nhất của khung chat. Nó tồn tại để
+                 requestSubmit() có chỗ bám (Enter, các nút gửi trên thẻ hỏi/gợi ý) và để giữ sẵn hai
+                 giá trị streamChat cần đọc ra FormData: projectId và antiforgery token. asp-action trỏ
+                 đúng ChatStream để không còn endpoint ghi thứ hai nào lệch khỏi luồng chính. -->
             <form id="chatForm"
-                  asp-action="Chat"
+                  asp-action="ChatStream"
                   method="post"
                   class="req-chatbox">
 
@@ -1670,10 +1675,6 @@
                 <input type="hidden"
                        name="projectId"
                        value="@Model.Id" />
-
-                <input type="hidden"
-                       id="hiddenMessage"
-                       name="message" />
 
               <textarea id="messageInput"
                           rows="1"
