@@ -12,7 +12,7 @@ public class CoverageChecklistTests
     [Fact]
     public void Parse_RealCoveragePrompt_YieldsTwelveUnaskedGroups()
     {
-        var items = CoverageChecklist.Parse(ReadCoveragePrompt());
+        var items = CoverageChecklist.Parse(CoveragePromptFixture.Read());
 
         Assert.Equal(12, items.Count);
         Assert.All(items, x =>
@@ -36,7 +36,7 @@ public class CoverageChecklistTests
     [Fact]
     public void Parse_LabelsMatchWhatTheDistillerIsToldToEmit()
     {
-        var prompt = ReadCoveragePrompt();
+        var prompt = CoveragePromptFixture.Read();
         var skeleton = CoverageChecklist.Parse(prompt);
 
         // Bản đồ "thật" mô phỏng: cùng khối template nhưng đã điền trạng thái, như model sẽ trả về.
@@ -63,29 +63,4 @@ public class CoverageChecklistTests
         Assert.Empty(CoverageChecklist.Parse("```\n- ★ Mục tiêu / bài toán: [RÕ] ví dụ\n```"));
     }
 
-    private static string ReadCoveragePrompt()
-    {
-        var path = Path.Combine(
-            FindPromptsRoot(),
-            CoverageChecklist.CoveragePromptPath.Replace('/', Path.DirectorySeparatorChar));
-        return File.ReadAllText(path);
-    }
-
-    // Prompts/ được copy vào output của app và flow sang bin của test qua ProjectReference; nếu môi
-    // trường build không copy transitives thì đi ngược từ BaseDirectory lên repo root.
-    private static string FindPromptsRoot()
-    {
-        var fromBin = Path.Combine(AppContext.BaseDirectory, "Prompts");
-        if (Directory.Exists(Path.Combine(fromBin, "BusinessAnalyst")))
-            return fromBin;
-
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
-        {
-            var candidate = Path.Combine(dir.FullName, "Prompts");
-            if (Directory.Exists(Path.Combine(candidate, "BusinessAnalyst")))
-                return candidate;
-        }
-
-        throw new DirectoryNotFoundException("Không tìm thấy thư mục Prompts từ " + AppContext.BaseDirectory);
-    }
 }

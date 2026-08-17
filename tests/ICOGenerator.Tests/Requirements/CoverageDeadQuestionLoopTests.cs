@@ -141,4 +141,88 @@ public class CoverageDeadQuestionLoopTests
         Assert.False(readiness.Ready);
         Assert.False(string.IsNullOrWhiteSpace(readiness.Message));
     }
+
+    // ==== NHÁNH DỰ PHÒNG: không nhóm nào được rơi vào một lượt trống nghĩa ====
+    //
+    // Ca thật thứ hai của cùng lớp lỗi — dự án JD Library, lượt 76. Người dùng vừa trả lời xong người nhận
+    // của một sự kiện thông báo; BA mời bấm "Write Requirement" quá sớm; cổng thay lời mời bằng câu dựng
+    // sẵn, và vì dòng «Thông báo / nhắc nhở» lúc đó không có cụm "còn thiếu:" nào, câu phát ra là
+    // *"…(nhóm «Thông báo / nhắc nhở»). Anh/chị kể giúp mình phần này trong công việc thực tế hiện đang diễn
+    // ra thế nào?"*. Người dùng đáp *"mình chưa hiểu câu hỏi, hãy hỏi rõ hơn"*.
+    //
+    // Nhánh đó reachable với BẤT KỲ nhóm nào: cụm "còn thiếu:" là định dạng do LLM xuất, không phải bất
+    // biến của code.
+
+    // Dòng [CHƯA HỎI] ⇒ câu mở đầu THẬT của nhóm, không phải câu dùng chung cho cả 12 nhóm.
+    [Fact]
+    public void PendingQuestion_AsksTheGroupsOwnOpeningQuestion_WhenNothingWasAskedYet()
+    {
+        var readiness = RequirementReadinessGate.Evaluate("""
+            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học. {nguồn: "lên kế hoạch các lớp học"}
+            - Quy mô sử dụng: [CHƯA HỎI]
+            """);
+
+        Assert.Contains(CoverageGroupOpeners.Find("Quy mô sử dụng")!, readiness.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("phần này", readiness.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Dòng [MỘT PHẦN] mà distiller không viết được mẩu còn hụt ⇒ PHÁT LẠI phần đã ghi nhận rồi hỏi còn
+    // thiếu gì. KHÔNG được phát lại câu mở đầu của nhóm ở ca này: người dùng đã kể phần đó rồi, nghe lại
+    // đúng câu cũ là mất lòng tin vào cả buổi phỏng vấn (prompt chat cấm tuyệt đối).
+    [Fact]
+    public void PendingQuestion_PlaysBackWhatWasRecorded_WhenTheDistillerWroteNoGap()
+    {
+        var readiness = RequirementReadinessGate.Evaluate("""
+            - Thông báo / nhắc nhở: [MỘT PHẦN] Đã chốt To HOD của đơn vị, CC người tạo khi JD chờ HRBP verify.
+            """);
+
+        Assert.False(readiness.Ready);
+        Assert.Contains("Đã chốt To HOD của đơn vị, CC người tạo khi JD chờ HRBP verify", readiness.Message, StringComparison.Ordinal);
+        Assert.Contains("còn chỗ nào chưa đúng hoặc còn thiếu", readiness.Message, StringComparison.Ordinal);
+        Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
+        Assert.DoesNotContain(CoverageGroupOpeners.Find("Thông báo / nhắc nhở")!, readiness.Message, StringComparison.Ordinal);
+    }
+
+    // Phần phát lại phải sạch ghi chú MÁY: cụm ReopenNote và "(ghi nhận trước đó: …)" là ghi chép của hệ
+    // thống dành cho BA, đọc lên là xưng "người dùng" ở ngôi thứ ba với chính người đang đọc.
+    [Fact]
+    public void PlaybackDropsTheMachineBookkeeping()
+    {
+        var readiness = RequirementReadinessGate.Evaluate($"""
+            - Vòng đời & trạng thái: [MỘT PHẦN] Đơn đi qua Chờ duyệt và Đã duyệt. {AskedQuestionHistory.ReopenNote} (ghi nhận trước đó: chỉ có hai trạng thái)
+            """);
+
+        Assert.Contains("Đơn đi qua Chờ duyệt và Đã duyệt", readiness.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("ghi nhận trước đó", readiness.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(AskedQuestionHistory.ReopenNote, readiness.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Không nhóm nào của bản đồ THẬT còn phát ra câu dùng chung — cả ở [CHƯA HỎI] lẫn [MỘT PHẦN] rỗng ruột
+    // (dòng chỉ còn ghi chú máy, đã bị lược sạch trước khi phát lại).
+    [Theory]
+    [InlineData("[CHƯA HỎI]")]
+    [InlineData("[MỘT PHẦN]")]
+    public void NoRealGroupFallsBackToTheSharedSentence(string status)
+    {
+        foreach (var group in CoverageChecklist.Parse(CoveragePromptFixture.Read()))
+        {
+            var readiness = RequirementReadinessGate.Evaluate($"- {group.Label}: {status}");
+
+            Assert.False(readiness.Ready);
+            Assert.Contains(CoverageGroupOpeners.Find(group.Label)!, readiness.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain("phần này", readiness.Message, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    // Nhãn model tự nghĩ ra: không có câu mở đầu nào, và cổng KHÔNG được bịa một câu hỏi về một nhóm không
+    // có trong checklist. Câu dẫn vẫn chở nhãn nên lượt đó còn chủ đề để bám.
+    [Fact]
+    public void AnUnknownGroupLabelStillGetsAnAnswerableTurn()
+    {
+        var readiness = RequirementReadinessGate.Evaluate("- Tích hợp hệ thống ngoài: [CHƯA HỎI]");
+
+        Assert.False(readiness.Ready);
+        Assert.Contains("«Tích hợp hệ thống ngoài»", readiness.Message, StringComparison.Ordinal);
+        Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
+    }
 }

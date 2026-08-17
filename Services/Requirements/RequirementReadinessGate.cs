@@ -57,15 +57,24 @@ public static class RequirementReadinessGate
     // là một câu hỏi TRẢ LỜI ĐƯỢC, không phải một bản tin trạng thái:
     //
     // - Hỏi ĐÚNG phần "còn thiếu: …" mà distiller ghi trên dòng [MỘT PHẦN] — đó là thứ duy nhất bước soạn
-    //   tài liệu còn phải tự đoán. Không có phần đó (dòng [CHƯA HỎI]) thì mới hỏi câu mở đầu của nhóm.
-    // - KHÔNG đọc cả tóm tắt máy vào câu hỏi: tóm tắt là ghi chép của hệ thống về điều người dùng đã nói,
-    //   phát lại nguyên khối chỉ làm người đọc tưởng bị hỏi lại điều họ vừa trả lời.
+    //   tài liệu còn phải tự đoán.
+    // - KHÔNG đọc cả tóm tắt máy vào câu hỏi khi đã có mẩu "còn thiếu": tóm tắt là ghi chép của hệ thống về
+    //   điều người dùng đã nói, phát lại nguyên khối trong khi đã hỏi được đúng chỗ hụt chỉ làm người đọc
+    //   tưởng bị hỏi lại điều họ vừa trả lời.
     // - Nhãn nhóm chỉ được đứng làm CHỦ ĐỀ trong ngoặc, không được làm chính câu hỏi. «Dữ liệu / danh mục
     //   chính» là từ vựng nội bộ của bản đồ; người dùng nghiệp vụ chưa từng thấy nó. Ca thật đã gặp: câu
     //   này phát ba lần liên tiếp cho cùng một nhóm, người dùng đáp "mình không hiểu câu hỏi của bạn" hai
     //   lần rồi tự dán lại câu trả lời họ đã gõ từ 60 lượt trước.
     // - Kết thúc bằng dấu hỏi và chỉ hỏi MỘT nhóm; các nhóm còn lại chỉ được đếm để người dùng biết còn
     //   bao nhiêu việc, không hỏi dồn.
+    //
+    // BỐN NHÁNH, hẹp dần theo lượng thông tin bản đồ cho — và không nhánh nào được rơi về một câu trống
+    // nghĩa. Bản trước chỉ có hai nhánh, nhánh dự phòng phát MỘT câu duy nhất cho cả 12 nhóm
+    // (*"Anh/chị kể giúp mình phần này…"*): nó không nói được đang hỏi cái gì và trỏ tới "phần này" — đúng
+    // cụm tham chiếu suông mà prompt cấm BA dùng. Ca thật ở dự án JD Library lượt 76: người dùng đáp
+    // *"mình chưa hiểu câu hỏi, hãy hỏi rõ hơn"*, mất trắng một vòng ở cuối buổi phỏng vấn thứ 78. Nhánh đó
+    // reachable với BẤT KỲ nhóm nào, chỉ cần lượt distill quên viết cụm "còn thiếu:" đúng một lần — nó là
+    // định dạng do LLM xuất, không phải bất biến của code.
     private static string BuildPendingQuestion(List<CoverageMapItem> pending)
     {
         // pending rỗng chỉ xảy ra khi bản đồ toàn [KHÔNG ÁP DỤNG] — bản đồ hỏng, không có gì để hỏi cụ thể.
@@ -73,17 +82,45 @@ public static class RequirementReadinessGate
             return "Bản đồ khai thác yêu cầu đang trống thông tin đã rõ, nên chưa thể viết tài liệu. Bạn mô tả thêm về dự án trong khung chat giúp mình nhé.";
 
         var first = pending[0];
-        var missing = ExtractMissingPart(first.Summary);
 
         var sb = new StringBuilder();
         sb.Append($"Trước khi viết tài liệu, mình còn một chỗ chưa đủ thông tin để khỏi phải tự đoán (nhóm «{first.Label}»");
         sb.Append(pending.Count == 1 ? "). " : $", còn {pending.Count} nhóm — mình hỏi từng nhóm một). ");
-
-        sb.Append(string.IsNullOrWhiteSpace(missing)
-            ? "Anh/chị kể giúp mình phần này trong công việc thực tế hiện đang diễn ra thế nào?"
-            : $"Anh/chị cho mình hỏi thêm: {ToQuestion(missing)}");
+        sb.Append(AskFor(first));
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Vế câu hỏi thật cho một dòng còn thiếu, thử bốn nhánh theo đúng thứ tự thông tin đáng tin cậy giảm
+    /// dần. Tách khỏi <see cref="BuildPendingQuestion"/> để câu dẫn (nhãn nhóm + số nhóm còn lại) chỉ được
+    /// dựng ở MỘT chỗ: bốn nhánh mà mỗi nhánh tự ghép lại câu dẫn là bốn chỗ để một nhánh quên nhãn nhóm.
+    /// </summary>
+    private static string AskFor(CoverageMapItem item)
+    {
+        // 1. Mẩu "còn thiếu: …" — thứ duy nhất bước soạn tài liệu còn phải tự đoán, nên hỏi thẳng nó.
+        var missing = ExtractMissingPart(item.Summary);
+        if (!string.IsNullOrWhiteSpace(missing))
+            return $"Anh/chị cho mình hỏi thêm: {ToQuestion(missing)}";
+
+        // 2. [MỘT PHẦN] mà không có mẩu nào ⇒ PHÁT LẠI phần đã ghi nhận rồi hỏi còn hụt gì. Không được rơi
+        //    xuống câu mở đầu của nhóm ở ca này: prompt chat cấm tuyệt đối việc phát lại câu mở đầu cho một
+        //    nhóm [MỘT PHẦN] — người dùng đã kể phần đó rồi, nghe lại đúng câu cũ là mất lòng tin vào cả
+        //    buổi phỏng vấn. Phát lại lời họ thì ngược lại: nó miễn cho họ việc phải cuộn ngược lên tìm.
+        var recorded = ExtractRecordedPart(item.Summary);
+        if (recorded.Length > 0)
+            return $"Mình đang ghi nhận: {recorded}. Phần này còn chỗ nào chưa đúng hoặc còn thiếu mà "
+                + "anh/chị muốn bổ sung không?";
+
+        // 3. [CHƯA HỎI] (và [MỘT PHẦN] rỗng ruột — dòng chỉ còn ghi chú máy đã bị lược sạch) ⇒ câu mở đầu
+        //    THẬT của nhóm, bằng ngôn ngữ công việc của người dùng.
+        var opener = CoverageGroupOpeners.Find(item.Label);
+        if (opener != null)
+            return opener;
+
+        // 4. Nhãn không khớp nhóm nào (model tự nghĩ ra một tên) ⇒ không bịa câu hỏi về một nhóm không có
+        //    trong checklist. Nhãn đã nằm trong câu dẫn nên câu này vẫn có chủ đề để bám.
+        return "Anh/chị kể giúp mình phần này trong công việc thực tế hiện đang diễn ra thế nào?";
     }
 
     // Phần "còn thiếu: …" trên một dòng [MỘT PHẦN] — ghi chú của distiller về đúng mẩu còn hụt. Định dạng
@@ -105,6 +142,34 @@ public static class RequirementReadinessGate
             missing = missing[..note].Trim();
 
         return StripReopenMarker(missing).TrimEnd('.', ';', ',');
+    }
+
+    /// <summary>Trần độ dài phần phát lại — câu hỏi, không phải biên bản. Cùng hạng với
+    /// <c>CoveragePendingGuard.MaxGapChars</c>.</summary>
+    private const int MaxRecordedChars = 200;
+
+    // Phần ĐÃ GHI NHẬN của một dòng [MỘT PHẦN]: mọi thứ đứng TRƯỚC cụm "còn thiếu:". Dùng để phát lại theo
+    // "QUY TẮC PHÁT LẠI" của prompt chat khi distiller không viết được mẩu còn hụt — người dùng chỉ thấy ô
+    // chat cuối trên màn hình, nên một câu hỏi bổ sung không kèm phần phát lại là câu hỏi họ phải cuộn
+    // ngược lên mới trả lời được, và phần lớn sẽ không cuộn.
+    //
+    // Ghi chú máy bị lược SẠCH trước khi phát: cụm ReopenNote và mẩu "(ghi nhận trước đó: …)" là ghi chép
+    // của hệ thống dành cho BA, đọc lên là xưng "người dùng" ở ngôi thứ ba với chính người đang đọc. Lược
+    // hết mà không còn gì ⇒ trả rỗng để caller rơi về câu mở đầu của nhóm.
+    private static string ExtractRecordedPart(string? summary)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+            return string.Empty;
+
+        var at = summary.IndexOf("còn thiếu:", StringComparison.OrdinalIgnoreCase);
+        var recorded = (at < 0 ? summary : summary[..at]).Trim();
+
+        var note = recorded.IndexOf("(ghi nhận trước đó:", StringComparison.OrdinalIgnoreCase);
+        if (note >= 0)
+            recorded = recorded[..note].Trim();
+
+        recorded = StripReopenMarker(recorded).Trim().TrimEnd('.', ';', ',', '—', '-');
+        return recorded.Length > MaxRecordedChars ? recorded[..MaxRecordedChars].TrimEnd() + "…" : recorded;
     }
 
     // Cụm <see cref="AskedQuestionHistory.ReopenNote"/> mở đầu phần "còn thiếu" của một dòng vừa bị người
