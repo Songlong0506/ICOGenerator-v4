@@ -886,9 +886,9 @@
                     <ul class="batchq-list">
                         @foreach (var q in lastBaQuestions)
                         {
-                            @* Câu MỞ: không có gợi ý nào để bấm nên ô tự nhập mở SẴN (không có nút "Ý khác"
-                               để bấm mở). Suy cả từ Suggestions rỗng, không chỉ từ cờ: lượt gộp cũ lưu
-                               trước khi có cờ này vẫn phải render ra một dòng trả lời được. *@
+                            @* Câu MỞ: không có gợi ý nào để bấm nên chỉ còn ô tự nhập. Suy cả từ Suggestions
+                               rỗng, không chỉ từ cờ: lượt gộp cũ lưu trước khi có cờ này vẫn phải render ra
+                               một dòng trả lời được. *@
                             var openQuestion = q.OpenEnded || q.Suggestions.Count == 0;
                             <li class="batchq-item" data-question="@q.Question" data-multi="@(q.MultiSelect ? "true" : "false")" data-open="@(openQuestion ? "true" : "false")">
                                 @if (!string.IsNullOrWhiteSpace(q.Group))
@@ -903,15 +903,16 @@
                                         {
                                             <button type="button" class="batchq-choice" data-value="@s">@s</button>
                                         }
-                                        <button type="button" class="batchq-choice is-other" data-other="1">✎ Ý khác</button>
                                     </div>
-                                    @* Nhãn "Ý khác" xuất hiện hai lần theo hai trạng thái, không bao giờ cùng
-                                       lúc: trên viên nút lúc đóng, rồi thành nhãn nổi khoét trên viền ô lúc
-                                       mở. Nó là bản sao hình ảnh của nút nên `aria-hidden`; chỗ trình đọc màn
-                                       hình lấy tên ô là `aria-label`. *@
+                                    @* Ô trả lời LUÔN MỞ, kể cả khi câu này có hàng gợi ý: nó là nơi duy nhất
+                                       chứa câu trả lời sẽ được gửi (bấm gợi ý = điền vào ô), nên giấu nó sau
+                                       một nút "Ý khác" là giấu đúng thứ người dùng cần đọc lại trước khi gửi
+                                       — xem chú thích ở requirements.js, mục BATCH_ANSWER_LABEL. Nhãn nổi
+                                       khoét trên viền là nhãn NHÌN nên `aria-hidden`; chỗ trình đọc màn hình
+                                       lấy tên ô là `aria-label`. *@
                                     <div class="batchq-other-field">
-                                        <textarea class="batchq-answer" rows="1" hidden aria-label="Ý khác — câu trả lời anh/chị tự nhập" placeholder="Câu trả lời của anh/chị…"></textarea>
-                                        <span class="batchq-other-cap" aria-hidden="true">Ý khác</span>
+                                        <textarea class="batchq-answer" rows="1" aria-label="Câu trả lời anh/chị gửi cho câu này" placeholder="Bấm một gợi ý ở trên, hoặc tự nhập câu trả lời…"></textarea>
+                                        <span class="batchq-other-cap" aria-hidden="true">Câu trả lời</span>
                                     </div>
                                 }
                                 else

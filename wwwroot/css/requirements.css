@@ -1463,44 +1463,17 @@
 .suggestion-multi-send { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
 
 /* ==== Ô "Ý khác" của hàng chip lượt-đơn ==== */
-/* Cùng lối với .batchq-choice.is-other trên thẻ hỏi gộp: đây là LỐI THOÁT, không phải một đáp án ngang
-   hàng — viền đứt, chữ nhạt, không badge số, để mắt lướt qua nó khi một gợi ý đã đúng. Nhưng nó phải LUÔN
-   có mặt: hàng chip đọc như một tập đáp án đóng, và không có dòng này thì người dùng có ý riêng chỉ còn
-   cách bỏ qua chip rồi gõ xuống khung chat — thao tác mà phần lớn người dùng nghiệp vụ không nghĩ ra. */
+/* Đây là LỐI THOÁT của hàng chip, và nó phải LUÔN CÓ MẶT — MỞ SẴN, không nấp sau một cái nút: hàng chip
+   đọc như một tập đáp án ĐÓNG, nên người dùng có ý riêng mà không thấy chỗ gõ thì chỉ còn cách bỏ qua chip
+   rồi tự tìm xuống khung chat, thao tác mà phần lớn người dùng nghiệp vụ không nghĩ ra. Một viên nút "Ý
+   khác" cũng không sửa được điều đó: nó vẫn bắt người ta NGHĨ RA là còn lối thoát rồi mới bấm, trong khi
+   một ô nhập kèm nhãn thì tự nó đã là lời mời. */
 .suggestion-other { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
 
-/* Cùng lý do với .batchq-choice.is-other: viên pill nhỏ căn trái, để HÌNH DẠNG nói "khác loại" thay vì
-   một hàng full-width nét đứt vẫn đọc như đáp án cuối danh sách. */
-.suggestion-other-btn {
-    font-family: inherit;
-    font-size: 12.5px;
-    line-height: 1.5;
-    text-align: left;
-    align-self: flex-start;
-    min-height: 34px; /* Pill nhỏ vẫn phải đủ lớn để bấm trúng trên màn hình cảm ứng. */
-    padding: 6px 14px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    transition: background .15s ease, border-color .15s ease, color .15s ease;
-}
-
-    .suggestion-other-btn:hover,
-    .suggestion-other-btn:focus-visible {
-        border-color: var(--bosch-blue);
-        color: var(--bosch-blue);
-        background: var(--bosch-blue-tint);
-        outline: none;
-    }
-
-/* Ô nhập nối liền chỗ nút vừa mở nó, nền trắng như các đáp án: nó là NỘI DUNG của lựa chọn vừa bấm, không
-   phải một ô nhập rời nằm cạnh danh sách. Ở đây nút TỰ ẨN khi ô mở (openOtherInput), nên nhãn nổi là thứ
-   duy nhất còn nói cho người dùng biết ô vừa mở ra là ô gì. */
+/* Ô nhập nối liền ngay dưới hàng đáp án và cùng tông với chúng: nó là một lối trả lời của CÙNG câu hỏi,
+   không phải một ô nhập rời nằm cạnh danh sách. Nhãn nổi khoét trên viền nói cho người dùng biết ô này là
+   gì mà không tốn thêm một dòng chữ nào phía trên. */
 .suggestion-other-field { position: relative; }
-
-.suggestion-other-field:has(> .suggestion-other-input[hidden]) { display: none; }
 
 /* Viết qua thẻ bọc để nền ô đứng yên qua hover/focus — xem chú thích ở .batchq-other-field > .batchq-answer. */
 .suggestion-other-field > .suggestion-other-input {
@@ -1539,10 +1512,6 @@
     pointer-events: none;
 }
 
-/* Không dùng `:has()` cho chính cái nhãn: trình duyệt cũ mà bỏ qua luật này thì chữ "Ý khác" nổi lềnh
-   bềnh giữa hàng chip lúc ô đang đóng. Bộ chọn anh-em thì ở đâu cũng hiểu. */
-.suggestion-other-input[hidden] ~ .suggestion-other-cap { display: none; }
-
 .suggestion-other-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
 /* Câu "để trống rồi gửi = gửi nguyên «…»" phải đứng ngay cạnh nút gửi: nó là thứ duy nhất nói cho người
@@ -1551,9 +1520,8 @@
 .suggestion-other-hint { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
 
 /* Như các khối `[hidden]` khác trong file: `hidden` là quy tắc display ưu tiên thấp nhất nên mọi khai báo
-   display của ta ghi đè nó và phần tử vẫn lộ ra dù JS đã ẩn. */
-.suggestion-other-btn[hidden],
-.suggestion-other-input[hidden],
+   display của ta ghi đè nó và phần tử vẫn lộ ra dù JS đã ẩn. Hàng gửi là thứ DUY NHẤT còn ẩn/hiện ở khối
+   này: chế độ chọn NHIỀU gửi bằng nút "Gửi các lựa chọn" ở cuối danh sách. */
 .suggestion-other-bar[hidden] { display: none; }
 
 /* ==== Panel "Giả định của bản thiết kế" (AI Design Spec § Assumptions) ==== */
@@ -1813,32 +1781,8 @@
         font-weight: 600;
     }
 
-    /* "Ý khác" là lối thoát, không phải một phương án ngang hàng. Trước đây nó chỉ khác các gợi ý mỗi nét
-       viền đứt, mà vẫn full-width, vẫn cùng bo góc, cùng padding — nên mắt vẫn đọc nó như ĐÁP ÁN CUỐI của
-       danh sách. Thu về một viên pill nhỏ căn trái là để HÌNH DẠNG nói hộ điều đó: khác loại thì trông
-       khác loại, không cần thêm chữ và không cần nét đứt. */
-    .batchq-choice.is-other {
-        width: auto;
-        align-self: flex-start;
-        min-height: 34px; /* Pill nhỏ vẫn phải đủ lớn để bấm trúng trên màn hình cảm ứng. */
-        padding: 6px 13px;
-        margin-top: 3px;
-        border-radius: 999px;
-        color: #6b7280;
-        font-size: 12px;
-    }
-
-        /* Lúc ô đã mở, nhãn nổi "Ý khác" ngay dưới đã là dấu hiệu xanh của trạng thái này. Viên pill giữ
-           nguyên nền trắng, chỉ đổi màu chữ/viền — để nguyên `.is-on` đầy nền đậm chữ là hai khối xanh
-           chồng nhau nói cùng một điều. Pill KHÔNG ẩn đi như ở hàng chip lượt-đơn: ở đây bấm một gợi ý sẽ
-           đóng ô lại, nên phải còn chỗ bấm để mở ra lần nữa. */
-        .batchq-choice.is-other.is-on {
-            background: #fff;
-            font-weight: 500;
-        }
-
-/* Ô tự nhập nối liền ngay dưới nút mở nó, nền trắng như các gợi ý — nó là NỘI DUNG của lựa chọn vừa bấm,
-   không phải một ô nhập rời nằm cạnh danh sách. */
+/* Ô trả lời nối liền ngay dưới hàng gợi ý, nền trắng như chúng — nó là NƠI CHỨA câu trả lời của câu hỏi
+   này, dù nội dung tới từ một cú bấm gợi ý hay từ tay người dùng gõ. */
 .batchq-answer {
     width: 100%;
     margin-top: 5px;
@@ -1852,14 +1796,10 @@
     resize: vertical;
 }
 
-/* ==== Khung nhãn-nổi của ô "Ý khác" ==== */
-/* Viên pill nhỏ mất chữ "tôi tự nhập", và khi ô mở ra thì mắt cần biết ô này thuộc về lựa chọn nào. Nhãn
-   khoét trên viền giữ lại danh tính đó mà không tốn thêm một dòng chữ nào bên trên ô.
-   `:has()` gom cả khung lại khi ô còn ẩn — không thì `margin-top` của khung vẫn chiếm một khoảng trống
-   giữa hàng gợi ý và mục kế. Trình duyệt không hiểu `:has()` chỉ thừa vài pixel, không lộ gì ra. */
+/* ==== Khung nhãn-nổi của ô trả lời ==== */
+/* Ô luôn mở, ngay dưới hàng gợi ý, nên mắt cần một chữ nói nó là gì — nhãn "Câu trả lời" khoét trên viền
+   giữ danh tính đó mà không tốn thêm một dòng chữ nào bên trên ô. */
 .batchq-other-field { position: relative; margin-top: 5px; }
-
-.batchq-other-field:has(> .batchq-answer[hidden]) { display: none; }
 
     /* Nền ô phải ĐỨNG YÊN qua mọi trạng thái. site.css đổi nền textarea khi hover (`--input-bg-hover`) và
        khi focus (`--input-focus-bg`), mà nền của nhãn nổi chính là chỗ khoét đường viền phía sau nó: nền ô
@@ -1899,10 +1839,6 @@
     pointer-events: none;
 }
 
-/* Không dùng `:has()` cho chính cái nhãn: trình duyệt cũ mà bỏ qua luật này thì chữ "Ý khác" nổi lềnh
-   bềnh giữa thẻ hỏi lúc ô đang đóng. Bộ chọn anh-em thì ở đâu cũng hiểu. */
-.batchq-answer[hidden] ~ .batchq-other-cap { display: none; }
-
 /* Câu MỞ trên thẻ gộp: không có hàng gợi ý phía trên nên ô tự nhập là thứ ĐẦU TIÊN dưới câu hỏi — lấy
    đúng khoảng cách của .batchq-choices để hai loại dòng (câu đóng / câu mở) đứng cạnh nhau không so le. */
 .batchq-item[data-open="true"] .batchq-answer { margin-top: 8px; }
@@ -1921,8 +1857,7 @@
 
 /* Như khối `[hidden]` ở trên: `hidden` là quy tắc display ưu tiên thấp nhất, nên mọi khai báo display
    của ta (nút .btn inline-flex, panel/khu vực flex) ghi đè nó và phần tử vẫn lộ ra dù JS đã ẩn. */
-.batchq[hidden],
-.batchq-answer[hidden] { display: none; }
+.batchq[hidden] { display: none; }
 
 /* ==== BẢNG CỘT của file bảng tính người dùng vừa gửi ==== */
 
