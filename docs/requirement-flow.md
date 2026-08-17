@@ -171,8 +171,9 @@ chúng (`AppUserRole` là vai trò của chính ICOGenerator, không liên quan)
 
 Điều kiện mở của từng cổng suy từ chính bản đồ bao phủ, và **cố ý rải ra chứ không dồn xuống cuối buổi**:
 cổng luồng mở khi «Chức năng & luồng nghiệp vụ chính» + «Đối tượng người dùng & vai trò» đã `[RÕ]` và
-«Luồng ngoại lệ» đã được chạm tới; cổng màn hình mở khi «Chức năng & luồng» `[RÕ]` và `PlannedScope` có
-mục; cổng đối tượng mở khi «Dữ liệu / danh mục chính» `[RÕ]` và «Vòng đời & trạng thái» đã được chạm tới; cổng
+«Luồng ngoại lệ» đã được chạm tới; cổng màn hình mở khi `PlannedScope` có mục và — ở **lần bày đầu** — cổng
+luồng đã đủ điều kiện mở (`FlowMapGate.CoverageReady`, xem [dưới](#thứ-tự-ưu-tiên-không-thay-được-điều-kiện-mở));
+cổng đối tượng mở khi «Dữ liệu / danh mục chính» `[RÕ]` và «Vòng đời & trạng thái» đã được chạm tới; cổng
 phân quyền giữ nguyên điều kiện cũ (mọi nhóm áp dụng KHÁC đã `[RÕ]`); cổng thông báo mở khi **bảng phân
 quyền đã chốt** và bảng đối tượng gieo ra được ít nhất một sự kiện. Các bảng điền sẵn nối đuôi nhau ở cuối
 buổi chính là cái chip *"Đồng ý phương án này"* phóng to nhiều lần — người dùng nghiệp vụ bận sẽ bấm "Đúng
@@ -187,6 +188,32 @@ Hệ quả cần biết: khi cổng phân quyền mở thì điều kiện của
 nào chưa chốt sẽ lần lượt được hỏi TRƯỚC nó — và cổng phân quyền lại là thứ duy nhất mở nút "Write
 Requirement". Không có đường nào soạn tài liệu mà bỏ qua ba bảng đầu. `InterviewTableGateTests` giữ bất
 biến này.
+
+#### Thứ tự ưu tiên không thay được điều kiện mở
+
+Danh sách ưu tiên ở `Select` chỉ phân xử được khi **hai cổng cùng mở**; nó không nói gì về ca cổng đứng
+trước còn ĐÓNG vì bản đồ chưa đủ. Điều kiện cũ của cổng màn hình chỉ đòi «Chức năng & luồng nghiệp vụ
+chính» `[RÕ]` — nhóm lên `[RÕ]` ngay ở lượt người dùng kể luồng, trong khi vai trò và ngoại lệ còn phải hỏi
+thêm vài lượt — nên cổng màn hình mở TRƯỚC cổng luồng và thứ tự phụ thuộc bị đảo trong im lặng.
+
+Ca thật (dự án JD Libary 1): bảng màn hình bày ở lượt 12, bảng luồng mãi lượt 20. Thiệt hại nằm đúng ở ô
+*"chức năng này phục vụ bước nào"* — lượt 12 chưa có bước nào tồn tại để gắn nên cả cột ra rỗng; luồng chốt
+xong thì `UncoveredActions` báo gần như MỌI bước chưa ai phụ trách, và người dùng phải rà bảng màn hình lần
+thứ hai chỉ vì lần đầu bày quá sớm. Vì vậy lần bày đầu của cổng màn hình **mượn nguyên điều kiện bản đồ của
+cổng luồng** (`FlowMapGate.CoverageReady`): hai cổng cùng mở một lượt, rồi để `Select` phân xử.
+
+Hai ranh giới của cách vá này:
+
+- **Không đòi bảng luồng đã CHỐT**, chỉ đòi điều kiện bản đồ. Treo cổng này vào một artifact do model sinh
+  ra là biến một lượt bày bảng hỏng thành chuỗi kẹt vĩnh viễn.
+- **Chỉ áp cho lần bày ĐẦU.** Đường mở lại (phạm vi trôi sau lúc chốt) giữ điều kiện cũ: tới đó thì mọi điều
+  kiện của lần bày đầu đã từng đúng, và đòi lại cả bộ là để một nhóm bị lượt distill hạ xuống `[MỘT PHẦN]`
+  chặn mất đường thu hồi phần phạm vi trôi.
+
+Khoảng hở còn lại, chưa vá: `EntityMapGate` vẫn có thể mở khi cổng luồng và cổng màn hình còn đóng (nó chỉ
+đòi «Dữ liệu / danh mục chính» + «Vòng đời & trạng thái»), tức bảng đối tượng vẫn có đường đi trước bảng màn
+hình. Hiếm hơn nhiều so với ca trên — cần dữ liệu và vòng đời rõ trong khi vai trò còn mờ — và cách vá thì
+y hệt một dòng ở trên.
 
 ### Vì sao ba bảng GIỮA không được là điều kiện để một nhóm lên `[RÕ]`
 
@@ -281,6 +308,15 @@ chốt lại **cấm** BA hỏi lại việc của từng màn; chúng đi thẳ
 - **Vòng lặp có đáy.** Giữ màn hình mới ⇒ nó thành một dòng của bảng ⇒ hết "mới". Bỏ tích ⇒
   `ConfirmScreenScopeUseCase` ghi ngược `PlannedScope` nên nó rời phạm vi ⇒ cũng hết "mới". Bảng chốt mà
   không dòng nào được giữ (bảng hỏng) ⇒ `NewScreens` trả rỗng, cùng luật fail-open với `EffectiveScreens`.
+- **Lượt bày lại phải NÓI RA rằng nó là lượt bổ sung.** Hai điều kiện trên đúng ở tầng dữ liệu nhưng người
+  dùng không nhìn thấy tầng đó: họ thấy một bảng màn hình hiện ra lần thứ hai. Model không có cách nào biết
+  lượt này khác lượt trước — nó nhận cùng khối lệnh và viết ra cùng một câu dẫn — nên ca thật (JD Libary 1,
+  lượt 22) là *"anh/chị rà soát bảng màn hình dưới đây rồi bấm Gửi bảng màn hình"*, đọc lên đúng như BA quên
+  mất bảng vừa gửi. Vì vậy lượt bày lại là **ngoại lệ duy nhất** của luật "câu dẫn model thắng":
+  `BAChatService.ScreenScopeReshowIntro` ép câu dẫn của cơ chế, gọi tên các màn hình mới (quá 4 thì gộp
+  phần dư thành *"và N mục khác"*) và nói rõ phần đã chốt được giữ nguyên. Khối `## LƯỢT NÀY:` cũng đổi
+  theo: đầu khối nói rõ đây là lượt BỔ SUNG và thêm mục *"Màn hình MỚI"*, để model khỏi mô tả lại những
+  dòng mà `SeedRows` sẽ bỏ đi.
 
 **Đường GỬI đối chiếu với BẢNG SERVER ĐÃ RENDER, không với `PlannedScope` đọc lại lúc gửi.** Hai thứ đó
 không bằng nhau, và chỗ lệch là một lỗi câm: lượt chắt lọc "triển vọng phỏng vấn" chạy ở HẬU KỲ ngay chính
