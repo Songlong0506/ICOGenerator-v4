@@ -19,9 +19,10 @@ namespace ICOGenerator.Tests.Requirements;
 // SOÁT MÂU THUẪN LÀ VIỆC CỦA BA, KHÔNG PHẢI CỦA NGƯỜI DÙNG.
 //
 // Project.DecisionLog từng có đúng hai chỗ tiêu thụ: panel "Điều đã chốt" cạnh khung chat (người dùng tự
-// đọc, tự đối chiếu) và cổng soát mâu thuẫn chạy lúc bấm "Write Requirement" (soát MỘT CỤC ở cuối). Panel
-// đã bị gỡ — người dùng chỉ còn gặp nhật ký một lần ở cổng tổng kết cuối — nên nhật ký phải đi vào NGỮ
-// CẢNH của lượt chat, nếu không BA mất khả năng bắt mâu thuẫn ngay tại lượt nó xuất hiện.
+// đọc, tự đối chiếu) và cổng soát mâu thuẫn chạy lúc bấm "Write Requirement" (soát MỘT CỤC ở cuối). Cả hai
+// mặt UI của nhật ký nay đã gỡ (panel sidebar, rồi bản tổng kết ở cổng tạo tài liệu) — người dùng không
+// còn đọc nhật ký ở đâu nữa — nên nhật ký phải đi vào NGỮ CẢNH của lượt chat, nếu không BA mất khả năng
+// bắt mâu thuẫn ngay tại lượt nó xuất hiện.
 //
 // Đường này KHÔNG tự lộ ra khi hỏng: BA vẫn trả lời trôi chảy, chỉ là không bao giờ hỏi lại khi người dùng
 // nói ngược điều đã chốt — và triệu chứng chỉ xuất hiện mãi tới lúc xem bản demo. Vì thế bất biến phải có

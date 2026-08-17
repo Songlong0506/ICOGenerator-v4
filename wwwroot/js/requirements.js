@@ -2357,41 +2357,26 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     }
 
     // ==== CỔNG TẠO TÀI LIỆU (#writeReqZone) ====
-    // Cụm cuối khung chat: bản tổng kết "điều đã chốt" → nút tạo tài liệu → cổng soát mâu thuẫn. Đây là
-    // chỗ DUY NHẤT có nút sinh Product Brief (sidebar không còn nút nào), và cũng là chỗ duy nhất người
-    // dùng còn gặp lại nhật ký quyết định — trong lúc phỏng vấn, soát mâu thuẫn là việc của BA (nhật ký
-    // nằm trong ngữ cảnh chat của BA); người dùng chỉ đội mũ kiểm duyệt ở đây, khi họ rảnh trí.
+    // Cụm cuối khung chat: nút tạo tài liệu → cổng soát mâu thuẫn. Đây là chỗ DUY NHẤT có nút sinh Product
+    // Brief (sidebar không còn nút nào).
+    //
+    // KHÔNG còn "bản tổng kết trước khi tạo tài liệu" (danh sách nhật ký quyết định kèm ✎ Sửa / "Gửi đính
+    // chính") — xem lý do ở Index.cshtml. Nhật ký vẫn được chắt sau mỗi lượt nhưng chỉ còn người đọc là
+    // máy, nên client không nhận frame "decisions" nữa và cổng chỉ còn MỘT thứ để vẽ: trạng thái.
     //
     // Đặt làm khối CUỐI khung chat, cùng chỗ với cổng xác nhận giả định, vì cùng một lý do: quy trình đang
     // đứng chờ người dùng, nên câu hỏi và nút trả lời phải nằm cùng chỗ mắt đang nhìn (chat tự cuộn đáy).
     // Markup phải khớp bản server render trong Index.cshtml.
     //
-    // TRẠNG THÁI đến từ hai frame khác nhau, ở hai thời điểm khác nhau, nên phải giữ lại cả hai thay vì đọc
-    // ngược ra từ DOM:
-    //   gateState — "waiting" | "ready" | "running" | "done". Suy từ cờ mời của lượt BA mới nhất
-    //               (frame done). Giá trị đầu lấy thẳng từ bản server vừa render (data-state) chứ không
-    //               đoán qua "khối đang ẩn hay hiện": server có những trạng thái mà JS không tự suy lại
-    //               được ("done" — vừa soạn xong và hội thoại chưa có gì mới), và F5 phải giữ nguyên chúng.
-    //   gateItems — nhật ký quyết định, tới ở frame "decisions" SAU frame done và KHÔNG mang theo cờ mời
-    //               (bản ở frame done còn thiếu đúng lượt cuối — thiếu chính điều người dùng vừa chốt).
-    // Cả hai chỉ được sửa qua setWriteReqInvited/setWriteReqDecisions rồi cùng gọi syncWriteReqGate(), để
-    // hai frame nối đuôi nhau không ghi đè kết quả của nhau.
+    // gateState — "waiting" | "ready" | "running" | "done". Suy từ cờ mời của lượt BA mới nhất (frame done),
+    // chỉ được sửa qua setWriteReqInvited rồi gọi syncWriteReqGate(). Giá trị đầu lấy thẳng từ bản server
+    // vừa render (data-state) chứ không đoán qua "khối đang ẩn hay hiện": server có những trạng thái mà JS
+    // không tự suy lại được ("done" — vừa soạn xong và hội thoại chưa có gì mới), và F5 phải giữ nguyên chúng.
     const writeReqZone = document.getElementById("writeReqZone");
     let gateState = writeReqZone?.dataset.state || "waiting";
-    let gateItems = null; // null = chưa có frame nào ⇒ giữ nguyên danh sách server đã render
     // Bản Brief đã tồn tại chưa (server render). Chỉ đổi khi một vòng soạn chạy xong, mà lúc đó
     // requirement-workflow.js tải lại trang ⇒ đọc một lần là đủ.
     const draftExists = writeReqZone?.dataset.draftExists === "true";
-
-    // Lời dẫn của cổng, phải khớp bản server render trong Index.cshtml. Chỉ có hai biến thể ở đây: JS chỉ
-    // đưa cổng về "ready"/"waiting" được — "done" chỉ tồn tại ở bản server render, vì đã có lượt chat mới
-    // thì hội thoại không còn "chưa có gì mới kể từ lần soạn gần nhất" nữa.
-    const GATE_HINT_REVIEW = 'Đây là toàn bộ những gì mình đã hiểu được từ cuộc trao đổi. <b>Anh/chị rà nhanh giúp mình:</b> '
-        + 'ý nào chưa đúng thì bấm <b>✎ Sửa</b> ở ý đó — hoặc bôi đen đúng đoạn sai — rồi ghi lại ý đúng. '
-        + 'Sửa ở đây mất vài giây; để lọt tới lúc tài liệu và bản demo đã dựng thì phải làm lại cả tuyến.';
-    const GATE_HINT_NO_SUMMARY = 'Mình đã thu thập đủ thông tin để soạn bản mô tả sản phẩm. '
-        + 'Lần này mình chưa dựng được bản tổng kết để anh/chị rà trước — cứ tạo tài liệu rồi '
-        + '<b>rà thẳng trên bản mô tả</b>, chỗ nào chưa đúng thì nhắn lại cho mình trong khung chat.';
 
     // Cờ mời của lượt BA mới nhất + cờ readiness của bản đồ bao phủ (cả hai từ frame done).
     function setWriteReqInvited(invited, coverageReady) {
@@ -2413,16 +2398,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         syncWriteReqGate();
     }
 
-    // Nhật ký quyết định của lượt vừa rồi. Không mang thông tin trạng thái: một frame decisions không bao
-    // giờ được tự mở hay tự đóng cổng — chỉ frame done biết lượt đó có phải lượt mời hay không.
-    function setWriteReqDecisions(items) {
-        if (Array.isArray(items)) gateItems = items;
-        syncWriteReqGate();
-    }
-
     // Nguồn duy nhất vẽ ra cổng. Viết dạng TOÀN PHẦN (mọi trạng thái đều có nhánh) chứ không vá từng phần:
-    // cổng bị điều khiển từ hai frame SSE khác nhau (`done` mang cờ mời, `decisions` tới sau và không mang
-    // cờ), và mỗi chỗ chỉ sửa một mẩu trạng thái thì kiểu gì cũng có tổ hợp không ai vẽ đúng.
+    // một hàm chỉ vá mẩu trạng thái nó vừa đổi thì kiểu gì cũng có tổ hợp không ai vẽ đúng.
     function syncWriteReqGate() {
         const gate = document.getElementById("summaryGate");
         if (!gate || !writeReqZone) return;
@@ -2438,71 +2415,24 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         // Dời CẢ CỤM xuống cuối dòng hội thoại (cùng cách renderSuggestions dời khay chip): các bong bóng
         // mới được chèn vào ngay trước #thinkingBox, nên một khối đứng yên ở vị trí tĩnh sẽ bị các lượt sau
-        // vượt qua — bản tổng kết nổi lên phía trên chính câu trả lời vừa sinh ra nó. Dời wrapper chứ không
-        // dời từng khối, để panel mâu thuẫn không lạc khỏi nút đã bật nó lên.
+        // vượt qua — lời mời tạo tài liệu nổi lên phía trên chính câu trả lời vừa sinh ra nó. Dời wrapper
+        // chứ không dời từng khối, để panel mâu thuẫn không lạc khỏi nút đã bật nó lên.
         // Dời KỂ CẢ khi cổng đang đóng: "cụm này luôn là khối cuối" phải đúng ở mọi lượt, không chỉ ở lượt
         // mời. Cụm đóng nằm lại giữa hội thoại thì hôm nay vô hại (cả hai con đều ẩn) nhưng biến vị trí của
         // nó thành thứ phụ thuộc vào lịch sử các lượt trước — thêm một khối thấy được vào cụm là lộ ra ngay.
         thinkingBox.before(writeReqZone);
 
         if (gateState !== "ready") {
-            // BA quay lại hỏi tiếp (vd vừa phát hiện mâu thuẫn từ chính đính chính user vừa gửi) ⇒ bản tổng
-            // kết cũ không còn đúng nữa, để lại là nói dối. Panel mâu thuẫn đóng theo: nó là câu hỏi phát
-            // sinh từ một cú bấm nay đã hết hiệu lực.
+            // BA quay lại hỏi tiếp (vd vừa phát hiện mâu thuẫn từ chính đính chính user vừa gửi) ⇒ lời mời
+            // cũ không còn đúng nữa, để lại là nói dối. Panel mâu thuẫn đóng theo: nó là câu hỏi phát sinh
+            // từ một cú bấm nay đã hết hiệu lực.
             gate.hidden = true;
             if (conflictPanel) conflictPanel.hidden = true;
             return;
         }
 
-        const list = gate.querySelector(".summary-gate-list");
-        const count = gate.querySelector(".summary-gate-count");
-        const hint = gate.querySelector(".summary-gate-hint");
-
-        if (list && Array.isArray(gateItems)) {
-            // Giữ nguyên ghi chú người dùng đang gõ dở khi frame "decisions" tới sau done và vẽ lại danh sách.
-            const kept = {};
-            list.querySelectorAll(".summary-gate-item").forEach(li => {
-                const note = li.querySelector(".summary-gate-note");
-                if (note && note.value.trim().length > 0) kept[li.dataset.decision] = note.value;
-            });
-
-            list.innerHTML = gateItems.map(d => `
-                <li class="summary-gate-item" data-decision="${escapeHtml(d)}">
-                    <div class="summary-gate-text">${escapeHtml(d)}</div>
-                    <button type="button" class="summary-gate-fix" title="Ý này chưa đúng — ghi chú lại cho BA">✎ Sửa</button>
-                    <textarea class="summary-gate-note" rows="2" ${kept[d] === undefined ? "hidden" : ""}
-                              placeholder="Đúng ra là… (ghi ngắn gọn)">${kept[d] === undefined ? "" : escapeHtml(kept[d])}</textarea>
-                </li>
-            `).join("");
-
-            // NHẬT KÝ RỖNG KHÔNG ĐÓNG CỔNG. Danh sách do LLM chắt nên rỗng là chuyện có thật (gộp lỗi, hoặc
-            // phỏng vấn ngắn chưa kịp có bản nào); trói cổng vào "có ý để rà" thì đúng lúc đó người dùng
-            // không còn đường nào tạo tài liệu. Cổng vẫn mở, chỉ bỏ phần rà và đổi lời dẫn cho khớp.
-            const hasItems = gateItems.length > 0;
-            list.hidden = !hasItems;
-            if (count) {
-                count.hidden = !hasItems;
-                count.textContent = `${gateItems.length} ý`;
-            }
-            if (hint && hint.dataset.hintReview !== String(hasItems)) {
-                hint.innerHTML = hasItems ? GATE_HINT_REVIEW : GATE_HINT_NO_SUMMARY;
-                hint.dataset.hintReview = String(hasItems);
-            }
-
-            // Tiêu đề phải khớp thứ THẬT SỰ có trong cổng: không có ý nào để rà mà vẫn đề "Tổng kết trước
-            // khi tạo tài liệu" là hứa một bản rà soát rồi không đưa ra. Cùng logic ở Index.cshtml.
-            const title = gate.querySelector(".summary-gate-title");
-            if (title) {
-                title.textContent = hasItems ? "Tổng kết trước khi tạo tài liệu"
-                    : "Sẵn sàng tạo tài liệu";
-            }
-        }
-
         const form = gate.querySelector("form.write-req");
-        if (form) {
-            form.className = `write-req write-req-${gateState}`;
-            form.hidden = false;
-        }
+        if (form) form.className = `write-req write-req-${gateState}`;
 
         const btn = gate.querySelector(".write-req-btn");
         if (btn) {
@@ -2510,162 +2440,21 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // liệu…" (submit vừa rồi bị cổng mâu thuẫn chặn) hay "Đang soát…". data-idle-label là nhãn
             // nghỉ hiện hành — cổng soát mâu thuẫn đọc lại nó để khôi phục sau khi soát xong.
             btn.disabled = false;
-            btn.textContent = btn.dataset.readyLabel || "✓ Đúng hết — tạo tài liệu";
+            btn.textContent = btn.dataset.readyLabel || "Tạo bản mô tả sản phẩm";
             btn.dataset.idleLabel = btn.textContent;
             btn.title = btn.dataset.readyTitle || "";
         }
 
         gate.hidden = false;
-        syncSummaryGateBar();
     }
 
-    // Nút chính đổi nghĩa theo việc user đã ghi chú hay chưa: chưa ghi gì ⇒ nút tạo tài liệu (submit thật);
-    // đã ghi ⇒ "gửi đính chính" (tạo tài liệu từ một bản tổng kết user vừa nói là sai thì vô nghĩa). Ẩn cả
-    // FORM chứ không riêng cái nút: một form còn submit được sau lưng giao diện là đúng thứ cổng này chặn.
-    function syncSummaryGateBar() {
-        const gate = document.getElementById("summaryGate");
-        if (!gate || gate.hidden) return;
-
-        const notes = summaryGateNotes();
-        const form = gate.querySelector("form.write-req");
-        const fixBtn = gate.querySelector(".summary-gate-send");
-        if (form) form.hidden = notes.length > 0;
-        if (fixBtn) {
-            fixBtn.hidden = notes.length === 0;
-            fixBtn.textContent = `Gửi ${notes.length} đính chính cho BA`;
-        }
-    }
-
-    // Các ghi chú đã gõ, kèm đoạn user bôi đen (nếu có) để BA biết sửa đúng chỗ trong ý đó.
-    function summaryGateNotes() {
-        const gate = document.getElementById("summaryGate");
-        if (!gate) return [];
-        return Array.from(gate.querySelectorAll(".summary-gate-item"))
-            .map(li => ({
-                decision: li.dataset.decision,
-                quote: (li.dataset.quote || "").trim(),
-                note: (li.querySelector(".summary-gate-note")?.value || "").trim()
-            }))
-            .filter(n => n.note.length > 0);
-    }
-
-    const summaryGateEl = document.getElementById("summaryGate");
-    if (summaryGateEl) {
-        summaryGateEl.addEventListener("click", function (e) {
-            const fix = e.target.closest(".summary-gate-fix");
-            if (fix) {
-                openSummaryGateNote(fix.closest(".summary-gate-item"));
-                return;
-            }
-
-            // Nút "tạo tài liệu" KHÔNG có nhánh ở đây: nó là nút submit thật của form.write-req ngay trong
-            // cổng, nên cú bấm đi thẳng qua hộp xác nhận ghi đè (initRegenerateConfirm) rồi cổng soát mâu
-            // thuẫn (initConflictGate) — cả hai đều là listener trên chính nút/form đó.
-            if (e.target.closest(".summary-gate-send")) sendSummaryGateNotes();
-        });
-
-        // Nhãn nút chính đổi theo việc đã có ghi chú hay chưa — phải nhảy theo từng phím gõ, vì một ô mở
-        // ra mà bỏ trống thì không tính là đính chính.
-        summaryGateEl.addEventListener("input", function (e) {
-            if (e.target.classList.contains("summary-gate-note")) syncSummaryGateBar();
-        });
-
-        // BÔI ĐEN một đoạn trong bản tổng kết → hiện nút ghi chú ngay cạnh con trỏ. Đây là tiện ích phụ
-        // chứ không phải đường chính: các ý trong bản tổng kết là câu ngắn (~25 từ), nên bôi một cụm
-        // trong đó chỉ giúp NÓI RÕ chỗ sai chứ không thay được nút "✎ Sửa" của cả ý. Cùng ý tưởng với
-        // popover ghi chú trên bản xem trước Product Brief (initBriefNotes), nơi đoạn văn thật sự dài.
-        document.addEventListener("selectionchange", function () {
-            const sel = window.getSelection();
-            if (!sel || sel.isCollapsed || sel.rangeCount === 0) return hideSummaryQuoteBtn();
-
-            const text = sel.toString().trim();
-            const item = sel.anchorNode
-                ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest(".summary-gate-text")
-                : null;
-            if (!item || text.length < 3) return hideSummaryQuoteBtn();
-
-            showSummaryQuoteBtn(sel.getRangeAt(0).getBoundingClientRect(), item.closest(".summary-gate-item"), text);
-        });
-        window.addEventListener("scroll", hideSummaryQuoteBtn, true);
-    }
-
-    let summaryQuoteBtn = null;
-
-    function hideSummaryQuoteBtn() {
-        if (summaryQuoteBtn) summaryQuoteBtn.hidden = true;
-    }
-
-    function showSummaryQuoteBtn(rect, item, quote) {
-        if (!summaryQuoteBtn) {
-            summaryQuoteBtn = document.createElement("button");
-            summaryQuoteBtn.type = "button";
-            summaryQuoteBtn.className = "summary-quote-btn";
-            summaryQuoteBtn.textContent = "✎ Ghi chú đoạn này";
-            // mousedown (không phải click): click tới sau khi trình duyệt đã xoá vùng chọn, nên nút biến
-            // mất ngay dưới ngón tay người dùng trước khi kịp nhận cú bấm.
-            summaryQuoteBtn.addEventListener("mousedown", function (e) {
-                e.preventDefault();
-                const target = summaryQuoteBtn.targetItem;
-                if (!target) return;
-                target.dataset.quote = summaryQuoteBtn.quoteText || "";
-                openSummaryGateNote(target);
-                hideSummaryQuoteBtn();
-                window.getSelection().removeAllRanges();
-            });
-            document.body.appendChild(summaryQuoteBtn);
-        }
-        summaryQuoteBtn.targetItem = item;
-        summaryQuoteBtn.quoteText = quote;
-        summaryQuoteBtn.hidden = false;
-        summaryQuoteBtn.style.top = `${rect.top + window.scrollY - 38}px`;
-        summaryQuoteBtn.style.left = `${rect.left + window.scrollX}px`;
-    }
-
-    // Mở ô ghi chú của một ý (và hiện chip đoạn đã bôi, nếu có).
-    function openSummaryGateNote(item) {
-        if (!item) return;
-        const note = item.querySelector(".summary-gate-note");
-        if (!note) return;
-
-        const quote = (item.dataset.quote || "").trim();
-        let chip = item.querySelector(".summary-gate-quote");
-        if (quote.length > 0) {
-            if (!chip) {
-                chip = document.createElement("div");
-                chip.className = "summary-gate-quote";
-                note.insertAdjacentElement("beforebegin", chip);
-            }
-            chip.textContent = `Đoạn cần sửa: “${quote}”`;
-        } else if (chip) {
-            chip.remove();
-        }
-
-        note.hidden = false;
-        note.focus();
-        syncSummaryGateBar();
-    }
-
-    // Gửi các đính chính thành MỘT lượt chat bình thường, thay vì một endpoint riêng: BA đọc, xác nhận
-    // lại cách hiểu mới, nhật ký quyết định gộp lượt này, và cổng tự mở lại ở lượt mời bấm nút kế tiếp
-    // với bản tổng kết đã sửa. Ghi chú đi qua hội thoại cũng là điều kiện để bước soạn tài liệu (vốn đọc
-    // transcript) thấy được chúng — ghi chú nằm ngoài transcript thì chỉ là trang trí.
-    function sendSummaryGateNotes() {
-        const notes = summaryGateNotes();
-        if (notes.length === 0 || chatBusy) return;
-
-        const lines = notes.map(n => n.quote.length > 0
-            ? `- Ở ý “${n.decision}”, đoạn “${n.quote}” chưa đúng: ${n.note}`
-            : `- Ý “${n.decision}” chưa đúng: ${n.note}`);
-
-        messageInput.value = "Tôi đã xem bản tổng kết. Mấy ý sau cần chỉnh lại:\n"
-            + lines.join("\n")
-            + "\nCác ý còn lại thì đúng rồi nhé.";
-        resizeMessageInput();
-
-        const gate = document.getElementById("summaryGate");
-        if (gate) gate.hidden = true;
-        chatForm.requestSubmit();
-    }
+    // KHÔNG còn cơ chế ghi chú/đính chính trên bản tổng kết ở đây (syncSummaryGateBar, summaryGateNotes,
+    // nút nổi "✎ Ghi chú đoạn này" khi bôi đen, sendSummaryGateNotes): bản tổng kết đã gỡ, xem lý do ở
+    // Index.cshtml. Cổng nay chỉ có MỘT nút và nó là nút submit thật của form.write-req, nên cú bấm đi
+    // thẳng qua hộp xác nhận ghi đè (initRegenerateConfirm) rồi cổng soát mâu thuẫn (initConflictGate) —
+    // cả hai đều là listener trên chính nút/form đó, không cần listener nào của riêng cổng.
+    // Đính chính đi qua khung chat như mọi điều khác; đường ghi chú trên bản xem trước Product Brief
+    // (initBriefNotes) vẫn còn và đó mới là chỗ đoạn văn thật sự dài.
 
     // ==== SỬA lượt vừa gửi ====
     // Bong bóng user CUỐI CÙNG có nút "✎ sửa": nội dung được nạp vào ô nhập, gửi lại sẽ GHI ĐÈ lượt đó
@@ -2817,10 +2606,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             setComposerOpenEnded(data.openEnded === true);
             renderCoverage(data.coverage, data.coverageStale === true);
             // Cổng tạo tài liệu chỉ mở ở lượt BA MỜI tạo tài liệu — cùng cờ mời điều khiển cả việc mở cổng
-            // lẫn nhãn nút bên trong, nên hai thứ không thể vênh nhau. Đặt cờ TRƯỚC danh sách: bản tổng kết
-            // ở frame done còn thiếu đúng lượt cuối, frame "decisions" ngay sau đó sẽ vá lại.
+            // lẫn nhãn nút bên trong, nên hai thứ không thể vênh nhau.
             setWriteReqInvited(data.invitesWriteRequirement === true, data.coverageReady === true);
-            setWriteReqDecisions(data.decisions);
             renderFlowDiagram(bubble, data.flowDiagram);
             // Bảng phân quyền: lượt chốt nhóm phân quyền. Không dựng trong `bubble` mà vào panel cố định
             // của trang (như bảng cột) — bảng treo tới khi dự án chốt nó, sống lâu hơn lượt sinh ra nó.
@@ -2883,15 +2670,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // nháp mới đó không bị xóa — xem draftClearIfSubmitted).
             draftClearIfSubmitted();
             finishTurn(ev);
-        } else if (ev.type === "decisions") {
-            // Frame phụ SAU done: nhật ký quyết định đã gộp lượt vừa rồi (server tách lời gọi LLM này ra
-            // khỏi đường trả lời để lượt chat nhanh hơn), tức bản ở frame done còn THIẾU đúng lượt cuối —
-            // thiếu chính điều người dùng vừa chốt. Vá lại danh sách bằng bản đầy đủ.
-            //
-            // Frame này KHÔNG động tới trạng thái cổng: việc mở/đóng do cờ mời ở frame done quyết định, và
-            // một danh sách rỗng cũng không được phép đóng cổng — xem syncWriteReqGate.
-            setWriteReqDecisions(ev.decisions);
         }
+        // KHÔNG còn nhánh cho frame "decisions": nhật ký quyết định vẫn được gộp ở hậu kỳ lượt chat nhưng
+        // không còn mặt UI nào để vá (bản tổng kết đã gỡ), nên server cũng không đẩy frame đó về nữa.
         return true;
     }
 
