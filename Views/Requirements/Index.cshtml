@@ -902,9 +902,16 @@
                                         {
                                             <button type="button" class="batchq-choice" data-value="@s">@s</button>
                                         }
-                                        <button type="button" class="batchq-choice is-other" data-other="1">Ý khác</button>
+                                        <button type="button" class="batchq-choice is-other" data-other="1">✎ Ý khác</button>
                                     </div>
-                                    <textarea class="batchq-answer" rows="2" hidden placeholder="Câu trả lời của anh/chị…"></textarea>
+                                    @* Nhãn "Ý khác" xuất hiện hai lần theo hai trạng thái, không bao giờ cùng
+                                       lúc: trên viên nút lúc đóng, rồi thành nhãn nổi khoét trên viền ô lúc
+                                       mở. Nó là bản sao hình ảnh của nút nên `aria-hidden`; chỗ trình đọc màn
+                                       hình lấy tên ô là `aria-label`. *@
+                                    <div class="batchq-other-field">
+                                        <textarea class="batchq-answer" rows="1" hidden aria-label="Ý khác — câu trả lời anh/chị tự nhập" placeholder="Câu trả lời của anh/chị…"></textarea>
+                                        <span class="batchq-other-cap" aria-hidden="true">Ý khác</span>
+                                    </div>
                                 }
                                 else
                                 {
