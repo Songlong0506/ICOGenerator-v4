@@ -1161,9 +1161,6 @@ public class BAChatService
             // phải lời mời không". UI cần cả hai vì sau khi bản Brief đã tồn tại, một lượt BA không mời
             // (BA hỏi thêm một câu) không được phép cắt mất đường soạn lại bản Brief đang cũ dần.
             CoverageReady = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap).Ready,
-            // "Điều đã chốt" KHÔNG còn chặn đường trả về (một lời gọi LLM ~vài giây mỗi lượt): frame done
-            // mang bản đang lưu, bản gộp lượt mới do UpdateDecisionsAsync đẩy ở frame phụ sau done.
-            Decisions = DecisionLogService.ParseItems(project.DecisionLog).ToList(),
             FlowDiagram = flowDiagram,
             PermissionMatrix = permissionMatrix,
             FlowMap = flowMap,
