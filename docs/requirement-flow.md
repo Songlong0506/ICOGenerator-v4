@@ -866,7 +866,7 @@ BA vĩnh viễn không hỏi lại) chỉ lộ ra khi đặt bản đồ CẠNH 
 | 1–2 | Dự án + agent/model BA đang chạy | Model KHÔNG vision đổi hẳn cách chấm: BA "không thấy" ảnh trong tài liệu nguồn nên một câu hỏi trông như hỏi lại điều file đã nói lại là bắt buộc |
 | 3 | Bản đồ bao phủ (nguyên văn, kèm `{nguồn: …}`), cổng sẵn sàng, "Điều đã chốt", điểm còn tồn đọng, phạm vi dự kiến, ví dụ đã chốt, bộ nhớ hội thoại, hồ sơ user | Đây là thứ hệ thống tin — đối chiếu với mục 5 để bắt kết luận không có căn cứ |
 | 4 | Tài liệu nguồn: loại, bảng cột đã chốt, mô tả hình, trích text (cắt ở `ChatExportBuilder.SourceExcerptChars`) | Nhiều lỗi nặng nằm ở chỗ BA hỏi lại đúng thứ file đã trả lời |
-| 5 | Toàn văn hội thoại, ĐÁNH SỐ LƯỢT, kèm chip + cờ chọn-một/chọn-nhiều, thẻ hỏi gộp + cờ `openEnded`, bảng cột, sơ đồ luồng, file đính kèm | Các cột phụ chở đúng phần mà `Message` cố ý không chứa; thiếu chúng thì bản xuất trông vẫn bình thường nhưng người chấm mất chính cái để đối chiếu |
+| 5 | Toàn văn hội thoại, ĐÁNH SỐ LƯỢT, kèm chip + cờ chọn-một/chọn-nhiều, thẻ hỏi gộp + cờ `openEnded`, **cả năm bảng chốt BA bày ra** + bảng phân quyền, sơ đồ luồng, file đính kèm | Các cột phụ chở đúng phần mà `Message` cố ý không chứa; thiếu chúng thì bản xuất trông vẫn bình thường nhưng người chấm mất chính cái để đối chiếu |
 | A | Prompt hệ thống của BA (bản đang chạy, đã tính override Prompt Studio) | "BA làm vậy có sai không" không trả lời được nếu không biết BA được dặn gì |
 | B | Khối bối cảnh tổ chức `OrganizationContextService.BuildCombinedContextAsync` đính vào mọi lượt gọi BA | Xem ngay bên dưới — đây là NGUỒN THỨ HAI của mọi dữ kiện trong tài liệu |
 
@@ -882,6 +882,24 @@ B như nguồn hợp lệ thứ ba, kèm hướng lỗi thật sự đáng báo 
 dùng** (chèn vào "mình ghi nhận…", vào "Điều đã chốt", hay dựng thành mâu thuẫn bắt người dùng phân xử).
 Khối không dựng được thì mục vẫn in kèm câu "không dựng được khối ngữ cảnh nào" — im lặng thì người chấm
 không phân biệt được "BA chạy trần" với "bản xuất quên chở phần này đi".
+
+**Lượt BÀY BẢNG phải in cả BẢNG, không chỉ câu dẫn.** Cả sáu bảng của một lượt được in ra (🧾 cột · 🔐 phân
+quyền · 🧭 luồng · 🗂 màn hình · 🧱 đối tượng · 🔔 thông báo), vì `Message` của lượt đó cố ý chỉ là một câu
+mời rà bảng — không in bảng thì tin nhắn *"mình đã rà bảng…"* ở lượt ngay sau **không chấm được**: người dùng
+tự chọn từng dòng, hay chỉ bấm gửi một bảng BA điền sẵn? Ca thật (dự án JD Library, lượt 68): bản xuất không
+có dòng nào cho bảng thông báo, nên không cách nào phân biệt hai thứ đó — mà dòng *"To: HOD của đơn vị"* đã
+vào "Điều đã chốt" như một quyết định của người dùng, và về nghiệp vụ nó còn đáng ngờ (JD chờ **HRBP** verify
+mà email lại gửi cho HOD).
+
+Ba dấu chở đúng ba trạng thái người chấm cần: **✓** = dòng BA khóa vì khai có trích dẫn — in kèm luôn chính
+trích dẫn đó dưới dạng `{nguồn: …}` để soi được nó có thật trong hội thoại hay là bịa cho ô trông như đã
+chốt; **✗** = dòng bị bỏ tích (im lặng bỏ nó khỏi bản xuất là xoá đúng bằng chứng cho thấy người dùng vừa
+loại một thứ); *(người dùng tự thêm)* = dòng chưa từng có trong đề xuất của BA. Riêng bảng thông báo còn in
+`To: *chưa chọn*` — ở lượt BÀY thì ô To trống là trạng thái **thật** và là thứ đáng soi nhất, nó nói rằng BA
+không có trích dẫn nào để điền nên người dùng phải tự chọn (đường GỬI mới là chỗ không cho lưu ô trống, xem
+[bất biến của bảng thông báo](#bảng-thông-báo-bảng-cuối-cùng)). Bảng luồng và bảng màn hình không có dấu ✓ vì
+chúng không có ô khóa được — xem
+[Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng chứng](#vì-sao-bảng-luồng-và-bảng-màn-hình-không-có-dấu--bằng-chứng).
 
 Ba chi tiết đi kèm:
 
@@ -1078,6 +1096,61 @@ không dựng chip: chip phải là đáp án TRỌN VẸN cho đúng câu đang
 cờ này, lượt gate lên màn hình vừa không có nút bấm vừa không mời gõ — đúng thứ `requirement-chat.v4.md`
 gọi là "một lượt hỏi thiếu chỗ trả lời".
 
+**Bốn nhánh dựng câu chặn, và không nhánh nào được rỗng nghĩa.** Câu dẫn (nhãn nhóm trong ngoặc + số nhóm
+còn lại) dựng ở một chỗ; vế câu hỏi thì thử bốn nhánh theo lượng thông tin bản đồ cho, hẹp dần:
+
+1. **Có mẩu `còn thiếu: …`** ⇒ hỏi thẳng nó — thứ duy nhất bước soạn tài liệu còn phải tự đoán.
+2. **`[MỘT PHẦN]` mà distiller không viết được mẩu nào** ⇒ **phát lại** phần đã ghi nhận (mọi thứ trước cụm
+   `còn thiếu:`, đã lược sạch ghi chú máy) rồi hỏi còn chỗ nào chưa đúng. KHÔNG được rơi xuống nhánh 3 ở ca
+   này: `requirement-chat.v4.md` cấm tuyệt đối việc phát lại **câu mở đầu** cho một nhóm `[MỘT PHẦN]` —
+   người dùng đã kể phần đó rồi, nghe lại đúng câu cũ là mất lòng tin vào cả buổi phỏng vấn.
+3. **`[CHƯA HỎI]`** (và `[MỘT PHẦN]` rỗng ruột) ⇒ **câu mở đầu THẬT của nhóm** — `CoverageGroupOpeners`,
+   một câu cho mỗi nhóm, bằng ngôn ngữ công việc của người dùng.
+4. **Nhãn không khớp nhóm nào** (distiller tự nghĩ ra một tên) ⇒ câu dẫn chung. Không bịa câu hỏi về một
+   nhóm không có trong checklist.
+
+Nhánh 3 là chỗ đã trả giá. Trước đây nó phát **một câu duy nhất cho cả 12 nhóm** — *"Anh/chị kể giúp mình
+phần này trong công việc thực tế hiện đang diễn ra thế nào?"* — không nói được đang hỏi cái gì và trỏ tới
+*"phần này"*, đúng cụm **tham chiếu suông** mà prompt cấm BA dùng vì người dùng chỉ thấy ô chat cuối trên
+màn hình. Ca thật (dự án JD Library, lượt 76): người dùng vừa trả lời xong người nhận của một sự kiện thông
+báo, BA mời bấm "Write Requirement" quá sớm, cổng thay lời mời bằng câu đó, và người dùng đáp *"mình chưa
+hiểu câu hỏi, hãy hỏi rõ hơn"* — mất trắng một vòng ở cuối một buổi phỏng vấn đã 78 lượt. Nhánh này
+**reachable với bất kỳ nhóm nào**: cụm `còn thiếu:` là định dạng do LLM xuất, không phải bất biến của code,
+nên chỉ cần lượt distill quên viết nó đúng một lần.
+
+Hai nhóm chốt bằng **BẢNG** (`Thông báo / nhắc nhở`, `Phân quyền theo nghiệp vụ`) có câu mở đầu đọc khác
+hẳn: chúng chỉ **mời người dùng nhắn một tiếng** để phần đó được đưa ra rà, chứ không khai thác bằng câu
+hỏi — phát cho chúng một câu hỏi là cổng tự phá đúng chốt chặn mà hai cái bảng sinh ra để dựng (xem
+[Bảng phân quyền](#bảng-phân-quyền-chốt-nhóm-phân-quyền-ở-cuối-buổi)). Câu của chúng cũng cố tình **không
+hứa hẹn một cái bảng**: dự án không có vòng đời trạng thái nào thì bảng thông báo không bao giờ được bày và
+nhóm quay về đường hỏi bằng câu hỏi, mà cổng chỉ có bản đồ bao phủ trong tay nên nó không phân biệt được hai
+ca đó.
+
+`CoverageGroupOpenersTests` chốt bảng câu mở đầu khớp **danh sách nhóm của prompt thật**: thêm một nhóm vào
+`requirement-coverage.v3.md` mà quên viết câu cho nó thì fail ở test, chứ không âm thầm rơi về nhánh 4 trên
+màn hình người dùng.
+
+**Cổng giữ SỔ RIÊNG "đã hỏi nhóm nào"** (`RequirementReadinessGate.AskedGroups`), vì phanh chống hỏi lại
+dùng chung **không thấy** câu của nó: `AskedQuestionHistory.Collect` chỉ nhận một lượt assistant là câu hỏi
+khi lượt đó có **gợi ý**, mà lượt chặn cố tình không có chip nào. Nới luật của `Collect` thì mọi lượt tóm
+tắt/thông báo cũng thành "câu hỏi" và chặn oan các lượt xác nhận về sau — nên cổng nhận diện lượt chặn của
+chính mình bằng câu dẫn nó viết ra (`PendingMarker`) rồi đọc nhãn nhóm trong cặp `«…»`.
+
+Sổ đó lái việc **chọn nhóm**: nhóm cổng chưa hỏi đi trước, rồi tới nhóm bị hỏi lâu nhất; trong cùng một bậc
+thì ★ cốt lõi trước. Cờ "đã hỏi" **thắng cả cờ ★** — bản đồ không nhúc nhích thì mọi lượt chặn tiếp theo chọn
+lại đúng dòng cốt lõi đó và phát lại nguyên văn một câu người dùng vừa không trả lời được (ca thật: ba lượt
+liên tiếp giống hệt nhau, người dùng đáp *"mình không hiểu câu hỏi của bạn"* hai lần rồi tự dán lại câu trả
+lời họ đã gõ từ 60 lượt trước). Đổi nhóm thì lượt sau còn cơ hội gỡ, mà nhóm cũ không mất đi đâu: nó quay lại
+ngay khi các nhóm khác đã được hỏi một vòng — và khi quay lại, câu dẫn **nói ra** rằng cổng đang quay lại
+(*"Mình quay lại một chỗ vẫn…"*) nên hai lượt không bao giờ giống hệt nhau, kể cả khi chỉ còn đúng một nhóm
+thiếu để hỏi.
+
+Câu chặn phát ra ở **ba đường**, và cả ba đều phải chở hội thoại vào cổng: lượt BA mời bấm nút quá sớm bị
+thay (`BAChatService`), lượt mà **mọi câu hỏi của BA đều là câu đã hỏi** (`BuildFollowUpAfterRepeat` — đường
+dễ lặp nhất, vì lượt nào cũng rơi vào đó khi bản đồ đứng yên), và cú bấm "Write Requirement" thật
+(`ProductBriefDraftService`). `ChatExportBuilder` cũng truyền hội thoại, nếu không bản xuất in ra một câu chặn
+khác với câu người dùng sẽ thấy.
+
 ### Đính chính một nhóm: đường thoát khỏi một dòng [RÕ] oan
 
 Một nhóm bị chấm `[RÕ]` oan là **điểm mù kín** của hệ thống — prompt cấm BA hỏi lại nhóm đã `[RÕ]`, nên
@@ -1100,8 +1173,10 @@ mảnh nào thay được nó: cổng lấy nguyên phần sau `còn thiếu:` l
 tín hiệu sẽ lên màn hình thành *"người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại — anh/chị cho
 mình xin thông tin này nhé?"* — một lượt hỏi rỗng nghĩa mà người dùng không có cách nào trả lời, và nhóm đó
 đứng yên ở `[MỘT PHẦN]` mãi. `RequirementReadinessGate.ExtractMissingPart` cắt hai mảnh dành cho máy/BA ra
-khỏi câu hỏi; hết mảnh giữa thì nó rơi về **câu mở đầu của nhóm** thay vì đọc cụm tín hiệu lên — một câu
-hỏi rộng vẫn trả lời được, còn cụm tín hiệu thì không.
+khỏi câu hỏi; hết mảnh giữa thì cổng đi tiếp xuống các nhánh dự phòng (phát lại phần đã ghi nhận, rồi câu
+mở đầu của nhóm — xem [bốn nhánh dựng câu chặn](#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn))
+thay vì đọc cụm tín hiệu lên. Phần phát lại cũng bị lược sạch hai mảnh đó, cùng một lý do: chúng là ghi chép
+của hệ thống dành cho BA, đọc lên là xưng "người dùng" ở ngôi thứ ba với chính người đang đọc.
 
 Cụm ở bước 2 là một giao ước prompt↔code mà compiler không kiểm được, nên `CoverageReopenNoteRuleTests`
 giữ hai bên không trôi khỏi nhau.

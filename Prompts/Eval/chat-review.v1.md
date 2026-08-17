@@ -28,7 +28,7 @@ BA bị cấm hỏi lại nhóm đã `[RÕ]`, nên thông tin đó vĩnh viễn 
 | 2 | Cấu hình agent BA đang chạy (agent, model, khả năng đọc ảnh) |
 | 3 | Trạng thái máy chắt từ hội thoại: bản đồ bao phủ, cổng sẵn sàng, điều đã chốt, điểm còn tồn đọng, phạm vi dự kiến, ví dụ đã chốt, bộ nhớ hội thoại, hồ sơ người dùng |
 | 4 | Tài liệu nguồn người dùng đã gửi (và trích đoạn text hệ thống bóc ra từ chúng) |
-| 5 | **Toàn văn hội thoại**, đánh số lượt — kèm các đáp án gợi ý, thẻ hỏi gộp, bảng cột, sơ đồ luồng mà BA đã bày ra |
+| 5 | **Toàn văn hội thoại**, đánh số lượt — kèm các đáp án gợi ý, thẻ hỏi gộp, sơ đồ luồng, và **cả năm bảng chốt BA đã bày ra** (cột, luồng, màn hình, đối tượng, thông báo) cùng bảng phân quyền |
 | A | Phụ lục: prompt hệ thống ĐANG chạy của BA |
 | B | Phụ lục: bối cảnh tổ chức đính vào MỌI lượt gọi BA (ranh giới phạm vi, nền tảng đã chốt, department/HoD, đơn vị yêu cầu) |
 
@@ -54,6 +54,13 @@ phân xử) — chính phụ lục B cấm điều đó, và nó bị chắt và
 2. **Bằng chứng của bản đồ bao phủ không đứng vững.** Với MỖI dòng `[RÕ]`, tìm trong transcript câu người
    dùng thật sự nói điều đó. Ba kiểu trượt hay gặp: bằng chứng trích lời của chính BA; một tiếng "có/không"
    trả lời cho câu hỏi mở; một mẩu chip bốn chữ được tính như câu trả lời trọn vẹn.
+   - **Lượt BÀY BẢNG là chỗ soi riêng.** Mục 5 in cả bảng BA bày ra (🧾 cột · 🔐 phân quyền · 🧭 luồng ·
+     🗂 màn hình · 🧱 đối tượng · 🔔 thông báo) rồi tin nhắn "mình đã rà bảng…" của người dùng ở lượt ngay
+     sau. So hai lượt đó: dòng nào **giống hệt** đề xuất của BA thì người dùng chỉ bấm gửi, không phải họ
+     tự chọn — mà mọi tầng sau đọc nó như một quyết định của họ. Dấu **✓** là dòng BA khóa vì khai có
+     trích dẫn: đọc chính trích dẫn in kèm `{nguồn: …}` và tìm nó trong hội thoại; không thấy thì đó là
+     bịa trích dẫn để ô trông như đã chốt — lỗi nặng nhất của vai BA. Dấu **✗** là dòng người dùng đã bỏ:
+     nó phải KHỚP với thứ họ nói, không phải thứ BA tự tắt.
 3. **Hỏi lại điều đã được trả lời** — nguyên văn hoặc chỉ sửa vài chữ. Ngược lại cũng là lỗi: người dùng nêu
    một chi tiết quan trọng mà BA đi tiếp không đào.
 4. **Câu hỏi chết.** Câu MỞ (xin một lời kể) mà vẫn kèm chip bấm-là-gửi ⇒ người dùng bấm chip và cả câu
