@@ -209,10 +209,12 @@ Bỏ sót một trong hai là khóa chết cả ba bảng cuối.
 
 Cả bốn builder áp cùng bộ luật, vì cả bốn hỏng theo cùng một kiểu:
 
-- **Luật bằng chứng.** Server chỉ khóa một ô/dòng/bước khi model kèm được TRÍCH DẪN. Cờ suông bị bỏ. Không
+- **Luật bằng chứng.** Server chỉ khóa một ô/dòng khi model kèm được TRÍCH DẪN. Cờ suông bị bỏ. Không
   có ranh giới này thì một bảng điền sẵn toàn bộ trông như đã chốt, và người dùng bấm gửi trong ba giây.
-  Luật áp cho ba bảng có ô KHÓA được; bảng màn hình không nằm trong đó vì mọi dòng của nó đều tích sẵn —
-  xem [Vì sao bảng màn hình không có dấu ✓ bằng chứng](#vì-sao-bảng-màn-hình-không-có-dấu--bằng-chứng).
+  Luật áp cho các bảng có ô KHÓA được — bảng phân quyền, bảng đối tượng, bảng thông báo. Bảng luồng và
+  bảng màn hình **không** nằm trong đó vì mọi dòng của chúng đều ra ở trạng thái được giữ, nên một trích
+  dẫn ở đó không đổi được trạng thái nào — xem
+  [Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng chứng](#vì-sao-bảng-luồng-và-bảng-màn-hình-không-có-dấu--bằng-chứng).
 - **Cờ tích ở lượt BÀY BẢNG luôn là TÍCH SẴN**, bất kể model trả gì. Cờ đó là chỗ NGƯỜI DÙNG loại bớt,
   không phải chỗ model tự phủ nhận đề xuất của mình — mà structured output buộc điền đủ trường, nên một
   model điền `false` cho có sẽ âm thầm bỏ tích sạch bảng và người dùng gửi đi một phạm vi RỖNG trong khi
@@ -250,6 +252,18 @@ cách xử lý, mà đó là loại thông tin không bao giờ tự nhiên xu�
 lệ trước** khi chạm trần: prompt xin ngoại lệ đứng sau luồng chính, nên cắt tuần tự sẽ luôn vứt đúng phần
 khó lấy nhất đi đầu tiên. Luồng một bước bị loại — đó là một câu mô tả, không kiểm được bằng oracle và cũng
 không cho người dùng chỗ nào để bắt lỗi thứ tự.
+
+**Bỏ bước bằng nút ×, không bằng cột tích.** Bảng từng có một cột đầu tên *"Đúng"*: bước có bằng chứng hiện
+dấu ✓ khóa cứng, bước còn lại là một ô tích để bỏ. Cột ấy chết trên bảng thật — model kèm trích dẫn cho mọi
+bước nên **mọi dòng đều ra dấu ✓**, không dòng nào bấm được, và một cột 44px chỉ để bày ra một hàng ✓ giống
+hệt nhau thì người dùng đọc nó là trang trí (lý do đầy đủ ở [mục dưới](#vì-sao-bảng-luồng-và-bảng-màn-hình-không-có-dấu--bằng-chứng)).
+Nay mỗi dòng có nút **×** ở cột cuối, và nó là một cái LẬT chứ không phải xóa thật: dòng bị bỏ vẫn nằm
+nguyên trên bảng — mờ đi, gạch ngang, nút đổi thành **↩** để lấy về — và vẫn đi trong payload gửi lên. Hai
+điều kiện đó không phải chi tiết trình bày. Dòng còn nằm đó là cách người dùng nhìn lướt thấy ngay mình vừa
+loại những gì; còn dòng còn trong payload là cách `RenderUserMessage` gọi tên được nó (`- (bỏ: …)`) trong
+tin nhắn đi vào hội thoại — im lặng bỏ đi thì họ không có bằng chứng nào cho thấy mình vừa loại đúng thứ
+định loại, đúng lỗi mà bảng cột đã cấm. Cờ đi theo dòng nằm ở một `input` ẩn chứ không ở class, để phép gom
+bảng của trình duyệt vẫn đọc đúng một chỗ (`tableChecked`) cho cả năm bảng.
 
 ### Bảng màn hình: vá cái nền mà bảng phân quyền đang đứng lên
 
@@ -345,21 +359,31 @@ một mục rời khỏi phạm vi mà người dùng không nhìn thấy là đ
 để chặn; và **dòng luôn thắng lời khai gộp** — một màn hình có dòng của chính nó thì không lời khai nào làm
 nó biến mất được, nếu không thì chỉ cần model khai bừa một tên là mất trắng một màn hình.
 
-### Vì sao bảng màn hình không có dấu ✓ bằng chứng
+### Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng chứng
 
-Bảng phân quyền, bảng luồng và bảng đối tượng đều có dấu **✓** cho phần người dùng đã tự nói: ở đó nó
-**thay** ô tích, tức là một trạng thái thật — ô ấy đã chốt, không phải đề xuất còn phải chọn. Bảng màn hình
-từng chép lại dấu ✓ ấy nhưng **đặt cạnh** ô tích chứ không thay, vì "anh/chị từng nhắc tới màn này" không
-đồng nghĩa "màn này phải có trong bản đầu". Hệ quả là ở bảng này dấu ✓ không đổi trạng thái của ô nào:
-`Build` **tích sẵn mọi dòng và mọi chức năng** bất kể có trích dẫn hay không, nên phần duy nhất nó còn làm
-là một tooltip chở câu gốc.
+Bảng phân quyền, bảng đối tượng và bảng thông báo đều có dấu **✓** cho phần người dùng đã tự nói: ở đó nó
+**thay** ô tích, tức là một trạng thái thật — ô ấy đã chốt, không phải đề xuất còn phải chọn. Hai bảng còn
+lại chép dấu ✓ ấy về mà **không** có trạng thái nào cho nó thay, mỗi bảng hỏng một kiểu.
 
-Tooltip đó không kiểm được thứ nó hứa. Người dùng rê chuột và gặp lại đúng câu của chính mình từ mấy chục
-lượt trước — thường là không nhớ đã nói trong ngữ cảnh nào, và muốn xác nhận thì phải rời bảng lăn ngược
-hội thoại đi tìm. Một dấu hiệu đòi rời màn hình mới hiểu được, trên một cột mà mọi dòng đều đã tích sẵn,
-là nhiễu chứ không phải bằng chứng. Nên bảng màn hình **bỏ hẳn** cờ `locked`/`evidence`: prompt không sinh,
-contract không chở, cột đầu chỉ còn ô tích. Ranh giới dừng ở đúng bảng này — ba bảng kia giữ nguyên dấu ✓
-vì ở đó nó là trạng thái ô, không phải chú thích.
+Bảng màn hình đặt nó **cạnh** ô tích chứ không thay, vì "anh/chị từng nhắc tới màn này" không đồng nghĩa
+"màn này phải có trong bản đầu". Hệ quả là ở bảng này dấu ✓ không đổi trạng thái của ô nào: `Build`
+**tích sẵn mọi dòng và mọi chức năng** bất kể có trích dẫn hay không, nên phần duy nhất nó còn làm là một
+tooltip chở câu gốc.
+
+Bảng luồng thì hỏng nặng hơn, vì ở đó dấu ✓ **thay** ô tích thật — và ô nó thay là ô KHÓA. Mọi bước ra khỏi
+`FlowMapBuilder.Build` đều được giữ sẵn, nên trích dẫn không thêm được trạng thái nào mà chỉ lấy đi một
+thao tác: bước có ✓ không còn bỏ được nữa. Mà model thì luôn kèm được trích dẫn cho mọi bước, và nó làm
+đúng thế — bảng thật chạy ra **toàn dấu ✓**, tức cả bảng thành chỉ-đọc ở đúng chiều người dùng cần bác.
+Một chốt chặn sinh ra để chặn cái chip "Đồng ý phương án này" tự biến thành chính nó.
+
+Tooltip cũng không kiểm được thứ nó hứa, ở cả hai bảng. Người dùng rê chuột và gặp lại đúng câu của chính
+mình từ mấy chục lượt trước — thường là không nhớ đã nói trong ngữ cảnh nào, và muốn xác nhận thì phải rời
+bảng lăn ngược hội thoại đi tìm. Một dấu hiệu đòi rời màn hình mới hiểu được, trên một cột mà mọi dòng đều
+đã ở trạng thái được giữ, là nhiễu chứ không phải bằng chứng.
+
+Nên **cả hai bảng bỏ hẳn** cờ `locked`/`evidence`: prompt không sinh, contract không chở. Bảng màn hình còn
+lại cột ô tích; bảng luồng bỏ luôn cột đó — xem [Bỏ bước bằng nút ×](#bảng-luồng-chuỗi-bước-người-dùng-tự-tay-duyệt-và-đường-của-nó-tới-poc).
+Ranh giới dừng ở hai bảng này — ba bảng kia giữ nguyên dấu ✓ vì ở đó nó là trạng thái ô, không phải chú thích.
 
 ### Thêm dòng ngay trên bảng, và chỗ chốt chặn "màn hình bịa" phải nhường
 

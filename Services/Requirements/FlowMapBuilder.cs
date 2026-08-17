@@ -25,9 +25,12 @@ namespace ICOGenerator.Services.Requirements;
 /// </list>
 ///
 /// <para>
-/// <b>Luật bằng chứng</b> (<see cref="FlowMapStep.Locked"/>): giống hệt bảng phân quyền — server chỉ khóa
-/// một bước khi model kèm được trích dẫn. Một bảng điền sẵn toàn bộ và trông như đã chốt chính là cái chip
-/// "Đồng ý phương án này" phóng to, chỉ khác là to hơn và ở đúng chỗ đắt nhất của buổi phỏng vấn.
+/// <b>Không có luật bằng chứng ở bảng này.</b> Bước từng khóa được bằng trích dẫn như bảng phân quyền, và
+/// đó là một đường hỏng: mọi bước ra khỏi đây đều được GIỮ sẵn, nên trích dẫn không đổi trạng thái nào mà
+/// chỉ khóa cứng ô — model kèm trích dẫn cho tất cả (nó luôn kèm được) là cả bảng thành chỉ-đọc ở đúng
+/// chiều người dùng cần bác, tức đúng cái chip "Đồng ý phương án này" phóng to mà luật ấy sinh ra để chặn.
+/// Bỏ bước sai nay là nút <b>×</b> trên từng dòng, không cửa nào khóa được. Xem
+/// <c>docs/requirement-flow.md</c>, mục "Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng chứng".
 /// </para>
 /// </summary>
 public static class FlowMapBuilder
@@ -45,7 +48,6 @@ public static class FlowMapBuilder
     public const int MinStepsPerFlow = 2;
 
     private const int MaxTextChars = 200;
-    private const int MaxEvidenceChars = 300;
 
     private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -56,9 +58,9 @@ public static class FlowMapBuilder
     /// lại ở lượt sau.
     ///
     /// <para>
-    /// Mọi bước ra khỏi đây đều ở trạng thái TÍCH SẴN, bất kể model trả gì: cờ <c>included</c> là chỗ
+    /// Mọi bước ra khỏi đây đều ở trạng thái ĐƯỢC GIỮ, bất kể model trả gì: cờ <c>included</c> là chỗ
     /// NGƯỜI DÙNG nói "bước này sai", không phải chỗ model tự phủ nhận đề xuất của chính nó — mà structured
-    /// output thì luôn phải điền đủ trường, nên một model điền <c>false</c> cho có sẽ âm thầm bỏ tích sạch
+    /// output thì luôn phải điền đủ trường, nên một model điền <c>false</c> cho có sẽ âm thầm loại sạch
     /// bảng và người dùng gửi đi một bảng rỗng nghĩ rằng mình vừa xác nhận cả luồng.
     /// </para>
     /// </summary>
@@ -121,24 +123,16 @@ public static class FlowMapBuilder
 
     /// <summary>
     /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT. Cùng luật với <see cref="Build"/> — server không tin
-    /// bảng client gửi kể cả khi chính nó vừa render ra — khác đúng một điểm: bước người dùng đã duyệt
-    /// không mang bằng chứng nào và cũng không cần, nên cờ khóa được xoá sạch.
+    /// bảng client gửi kể cả khi chính nó vừa render ra — khác đúng một điểm: đường này TÔN TRỌNG cờ
+    /// <c>included</c>, vì ở đây nó là lựa chọn của người dùng chứ không phải của model.
     ///
     /// <para>
-    /// Bước bị BỎ TÍCH vẫn được giữ lại ở đây (không lọc): tin nhắn gửi vào hội thoại phải kể được rằng
+    /// Bước người dùng BỎ vẫn được giữ lại ở đây (không lọc): tin nhắn gửi vào hội thoại phải kể được rằng
     /// bước đó đã bị loại. Các đường tiêu thụ phía sau (khối ngữ cảnh, spec) mới là chỗ lọc.
     /// </para>
     /// </summary>
     public static List<FlowMapRow> Sanitize(IEnumerable<FlowMapRow>? submitted)
-    {
-        var rows = BuildCore(submitted, respectIncluded: true);
-        foreach (var step in rows.SelectMany(r => r.Steps))
-        {
-            step.Locked = false;
-            step.Evidence = string.Empty;
-        }
-        return rows;
-    }
+        => BuildCore(submitted, respectIncluded: true);
 
     /// <summary>Đọc JSON bảng luồng đã lưu (cột DB hoặc payload client). null/rỗng/hỏng ⇒ mảng rỗng.</summary>
     public static List<FlowMapRow> Parse(string? json)
@@ -184,7 +178,7 @@ public static class FlowMapBuilder
         var rows = Parse(json)
             .Where(r => r.Steps.Any(s => s.Included))
             .ToList();
-        // Mọi bước đều bị bỏ tích ⇒ không có gì để khẳng định. Trả về một khối chỉ gồm hai dòng tiêu đề là
+        // Mọi bước đều bị bỏ ⇒ không có gì để khẳng định. Trả về một khối chỉ gồm hai dòng tiêu đề là
         // nói dối cả hai chiều: BA đọc thấy "đã chốt" nên thôi hỏi lại luồng, còn nội dung thì trống.
         if (rows.Count == 0)
             return null;
@@ -192,7 +186,7 @@ public static class FlowMapBuilder
         var sb = new StringBuilder();
         sb.AppendLine("\n--- Bảng luồng nghiệp vụ đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại các bước này) ---");
         sb.AppendLine("Mỗi luồng: tên · loại · vai trò khởi xướng, rồi các bước theo đúng thứ tự. Bước người dùng "
-            + "BỎ TÍCH đã bị loại khỏi danh sách dưới đây — KHÔNG nhắc lại chúng, đó là thứ họ vừa đóng.");
+            + "ĐÃ BỎ không có trong danh sách dưới đây — KHÔNG nhắc lại chúng, đó là thứ họ vừa đóng.");
 
         foreach (var row in rows)
         {
@@ -235,7 +229,8 @@ public static class FlowMapBuilder
                 sb.AppendLine("- " + RenderStep(step));
 
             // Bước bị loại phải được NÓI RA. Im lặng bỏ đi thì người dùng không có bằng chứng nào cho thấy
-            // mình vừa loại đúng thứ định loại — cùng lý do bảng cột gọi tên cả cột bị bỏ tích.
+            // mình vừa loại đúng thứ định loại — cùng lý do bảng cột gọi tên cả cột bị bỏ tích. Đây cũng là
+            // lý do nút × chỉ ĐÁNH DẤU bỏ chứ không xóa dòng khỏi payload.
             var dropped = row.Steps.Where(s => !s.Included && !string.IsNullOrWhiteSpace(s.Action)).ToList();
             if (dropped.Count > 0)
                 sb.AppendLine("- (bỏ: " + string.Join("; ", dropped.Select(s => s.Action.Trim())) + ")");
@@ -261,7 +256,6 @@ public static class FlowMapBuilder
             if (step == null || string.IsNullOrWhiteSpace(step.Action))
                 continue;
 
-            var evidence = Clip((step.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
             result.Add(new FlowMapStep
             {
                 // Bước thiếu vai đọc lên như một sự kiện tự xảy ra, và phần "ai làm bước nào" — thứ quyết
@@ -269,13 +263,10 @@ public static class FlowMapBuilder
                 Actor = Clip(string.IsNullOrWhiteSpace(step.Actor) ? flowRole : step.Actor.Trim(), MaxTextChars),
                 Action = Clip(step.Action.Trim(), MaxTextChars),
                 Outcome = Clip((step.Outcome ?? string.Empty).Trim(), MaxTextChars),
-                // Lượt BÀY BẢNG: mọi bước tích sẵn (người dùng BỎ tích bước sai — bắt họ tích từng bước
-                // đúng là đổi một thao tác đính chính lấy mười thao tác xác nhận). Lượt GỬI: giữ đúng thứ
-                // họ đã chọn. Xem ghi chú của Build.
-                Included = !respectIncluded || step.Included,
-                // LUẬT BẰNG CHỨNG — xem ghi chú class. Cờ suông không khóa được ô nào.
-                Locked = evidence.Length > 0,
-                Evidence = evidence
+                // Lượt BÀY BẢNG: mọi bước được giữ (người dùng bấm × để BỎ bước sai — bắt họ tích từng
+                // bước đúng là đổi một thao tác đính chính lấy mười thao tác xác nhận). Lượt GỬI: giữ đúng
+                // thứ họ đã chọn. Xem ghi chú của Build.
+                Included = !respectIncluded || step.Included
             });
 
             if (result.Count >= MaxStepsPerFlow)

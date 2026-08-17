@@ -55,21 +55,20 @@ public class FlowMapStep
     public string Outcome { get; set; } = "";
 
     /// <summary>
-    /// Bước này có đúng không. BA TÍCH SẴN mọi bước nó đề xuất; người dùng bỏ tích bước sai. Bỏ tích chứ
-    /// không xóa hẳn để lượt gửi còn kể lại được rằng bước đó đã bị loại — im lặng bỏ đi thì người dùng
-    /// không có bằng chứng nào cho thấy mình vừa loại đúng thứ định loại (cùng luật với bảng cột).
+    /// Bước này có đúng không. BA để MỌI bước nó đề xuất ở trạng thái được giữ; người dùng bấm <b>×</b> để
+    /// bỏ bước sai. Bỏ chứ không xóa hẳn khỏi dữ liệu để lượt gửi còn kể lại được rằng bước đó đã bị loại —
+    /// im lặng bỏ đi thì người dùng không có bằng chứng nào cho thấy mình vừa loại đúng thứ định loại (cùng
+    /// luật với bảng cột).
+    ///
+    /// <para>
+    /// Bảng này KHÔNG có cờ <c>locked</c>/<c>evidence</c> như bảng phân quyền, vì cùng lý do đã bỏ chúng ở
+    /// bảng màn hình: mọi bước ra khỏi builder đều ở trạng thái được giữ, nên một trích dẫn ở đây không đổi
+    /// được trạng thái nào — nó chỉ khóa cứng cột đầu và biến cả bảng thành chỉ-đọc ở đúng chiều mà người
+    /// dùng cần bác. Xem <c>docs/requirement-flow.md</c>, mục "Vì sao bảng luồng và bảng màn hình không có
+    /// dấu ✓ bằng chứng".
+    /// </para>
     /// </summary>
     public bool Included { get; set; } = true;
-
-    /// <summary>
-    /// Bước này đã có BẰNG CHỨNG trong hội thoại nên được khóa lại (hiện ✓ + tooltip trích dẫn). Luật bằng
-    /// chứng giống hệt <see cref="PermissionGrant.Locked"/>: server chỉ khóa khi model kèm được trích dẫn,
-    /// vì một bảng điền sẵn toàn bộ và trông như đã chốt chính là cái chip "Đồng ý phương án này" phóng to.
-    /// </summary>
-    public bool Locked { get; set; }
-
-    /// <summary>Trích dẫn ngắn từ hội thoại — chỉ có nghĩa khi <see cref="Locked"/>.</summary>
-    public string Evidence { get; set; } = "";
 }
 
 /// <summary>
