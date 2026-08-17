@@ -693,9 +693,18 @@ public class RequirementsController : Controller
     public async Task<IActionResult> ConfirmNotificationMap(Guid projectId, [FromForm] string notificationsJson)
     {
         var result = await _confirmNotificationMapUseCase.ExecuteAsync(projectId, notificationsJson, HttpContext.RequestAborted);
-        return result.Rows > 0
-            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
-            : Json(new { ok = false, error = "Không lưu được bảng thông báo — tải lại trang rồi thử lại nhé." });
+        if (result.Rows > 0)
+            return Json(new { ok = true, rows = result.Rows, message = result.Message });
+
+        // Bảng vi phạm BẤT BIẾN (còn dòng tích "Cần" mà chưa chọn người nhận) ⇒ câu của use case đã gọi tên
+        // đúng các sự kiện còn thiếu; in nguyên nó thay vì câu "tải lại trang" vô nghĩa ở ca này.
+        return Json(new
+        {
+            ok = false,
+            error = string.IsNullOrWhiteSpace(result.Error)
+                ? "Không lưu được bảng thông báo — tải lại trang rồi thử lại nhé."
+                : result.Error
+        });
     }
 
     // CỔNG SOÁT MÂU THUẪN — bước 1: chạy ngay trước khi soạn tài liệu (nút "Write Requirement" gọi trước

@@ -244,6 +244,8 @@ Cả bốn builder áp cùng bộ luật, vì cả bốn hỏng theo cùng một
 
 - **Luật bằng chứng.** Server chỉ khóa một ô/dòng khi model kèm được TRÍCH DẪN. Cờ suông bị bỏ. Không
   có ranh giới này thì một bảng điền sẵn toàn bộ trông như đã chốt, và người dùng bấm gửi trong ba giây.
+  Ở **bảng thông báo**, khóa còn đòi thêm một điều kiện — dòng phải CÓ người nhận — vì dòng khóa không có
+  checkbox: xem [ngõ chết của dòng khóa](#bảng-thông-báo-bảng-cuối-cùng).
   Luật áp cho các bảng có ô KHÓA được — bảng phân quyền, bảng đối tượng, bảng thông báo. Bảng luồng và
   bảng màn hình **không** nằm trong đó vì mọi dòng của chúng đều ra ở trạng thái được giữ, nên một trích
   dẫn ở đó không đổi được trạng thái nào — xem
@@ -262,6 +264,10 @@ Gửi đi vẫn **hai bước** như bảng cột và bảng phân quyền: `POS
 **một tin nhắn người dùng** do SERVER soạn qua đúng đường chat thường — hội thoại vẫn chỉ có một đường ghi.
 Lưu hỏng thì dừng hẳn, không gửi tin nhắn. Fail-open toàn tuyến: model không trả bảng dùng được ⇒ lượt chạy
 như một lượt chat thường và cổng mở lại ở lượt sau.
+
+`ConfirmNotificationMap` là đường gửi duy nhất còn **từ chối** một bảng người dùng đã bấm gửi: bảng còn dòng
+tích "Cần" mà chưa chọn người nhận thì không lưu gì, và câu lỗi (gọi tên đúng các sự kiện còn thiếu) hiện
+ngay cạnh nút — xem [bất biến của bảng thông báo](#bảng-thông-báo-bảng-cuối-cùng).
 
 Ba bảng đều **treo theo DỰ ÁN** (cột còn null) chứ không theo lượt, và lượt có bảng thì **bỏ** chip, thẻ hỏi
 gộp và sơ đồ luồng — chip bấm là GỬI NGAY, để cả hai cùng sống thì một cú bấm nhầm cuốn mất lượt trước khi
@@ -552,12 +558,40 @@ ba nấc hẹp dần — khớp chính xác → khớp phần tên vai của m�
 `Toàn bộ Manager`) → khớp chứa-nhau và chỉ khi có đúng một mục dài nhất khớp — còn lại thì BỎ. Server dựng
 lại danh sách này từ `Project.PermissionMatrix` ở đường GỬI chứ không tin bộ tùy chọn trình duyệt gửi kèm.
 
-**Ba trạng thái của một dòng, và chỉ một trong ba được hỏi lại.** Bỏ tích cột "Cần" = KHÔNG gửi thông báo ở
-sự kiện đó (một quyết định hợp lệ, và khối ngữ cảnh gọi tên chúng ra vì mặc định im lặng của các tầng sau
-là gửi cho tất cả). Còn tích mà To rỗng = *"cần báo nhưng chưa chốt được ai"* — khối "đã chốt" liệt kê
-riêng các dòng này kèm một **ngoại lệ của chính luật "đừng hỏi lại"**, và lượt distill bản đồ hạ nhóm xuống
-`[MỘT PHẦN]` khi thấy chúng. Lẫn hai thứ đó là hoặc bỏ quên một câu hỏi thật, hoặc hỏi lại đúng thứ người
-dùng vừa tắt.
+**HAI trạng thái của một dòng, và không trạng thái nào được hỏi lại.** Bỏ tích cột "Cần" = KHÔNG gửi thông
+báo ở sự kiện đó (một quyết định hợp lệ, và khối ngữ cảnh gọi tên chúng ra vì mặc định im lặng của các tầng
+sau là gửi cho tất cả). Còn tích ⇒ **bắt buộc có người nhận chính (To)**; CC vẫn tùy chọn. Nhóm coi như
+xong ngay khi bảng được chốt, và khối "đã chốt" là một lệnh cấm hỏi **tuyệt đối**, không ngoại lệ.
+
+Trạng thái thứ ba — *"cần báo nhưng chưa chốt được ai"* — từng được cho phép, và nó dẫn ngược về đúng vòng
+hỏi lẻ mà cả cái bảng này sinh ra để thay thế. Ca thật ở dự án JD Library: bảng 8 dòng gửi đi với **7 dòng
+trống người nhận**, nhóm xuống `[MỘT PHẦN]`, nút "Write Requirement" khóa, và BA — đúng luật, theo ngoại lệ
+mà khối "đã chốt" tự chở — phải đi hỏi lại từng sự kiện trong khung chat, mỗi sự kiện hai lượt (To rồi CC):
+**14 lượt**, ở cuối một buổi phỏng vấn đã 78 lượt. Tệ hơn: tin nhắn kể lại mở đầu bằng *"đây là các sự kiện
+cần gửi email và người nhận"* rồi mới đính chính ở đoạn dưới, nên người dùng đọc tiêu đề, tin là mình đã trả
+lời xong, và mọi câu BA hỏi tiếp trông như hỏi lại điều vừa nói.
+
+**Bất biến được chặn ở đường GỬI, không ở trình duyệt.** `ConfirmNotificationMapUseCase` gọi
+`NotificationMapBuilder.MissingRecipients` và **không lưu gì** khi còn một dòng tích "Cần" mà To rỗng; câu
+trả về gọi tên đúng các sự kiện còn thiếu. Lưu một phần thì tệ hơn không lưu: cột có dữ liệu ⇒
+`NotificationMapGate` coi như đã chốt và không bao giờ bày lại bảng, nên các dòng còn dở **không còn màn
+hình nào để sửa**. Trình duyệt là phanh phụ — nó không thấy được payload sửa tay, tab mở từ trước bản này,
+hay lần bấm gửi lại sau khi mất mạng.
+
+**Popup của trình duyệt bày HAI lối đi, và cả hai đều là câu trả lời thật.** Bấm "Gửi bảng thông báo" khi
+còn dòng trống thì một popup liệt kê đúng các sự kiện đó, mỗi dòng hai nút: *Chọn người nhận* (đóng popup,
+cuộn tới đúng dòng, tô sáng và mở sẵn ô To — bảng tới 24 dòng nên ô trống thường nằm ngoài màn hình) và
+*Không cần gửi* (bỏ tích ngay tại popup). Lý do không chỉ nhắc một câu "vui lòng chọn người nhận": ở hệ này
+một người nhận **sai** hại hơn một ô trống — ô trống còn bị hỏi lại, còn giá trị sai được chấm `[RÕ]` rồi
+vĩnh viễn không ai soát nữa. Một popup chặn cứng mà chỉ có một đường ra sẽ đẩy người dùng đang mệt tới cú
+bấm nhanh nhất trong danh sách, và mục nhanh nhất lại là *"Toàn bộ &lt;vai&gt;"*: cả nhà máy nhận email ở sự
+kiện đó. Có lối thứ hai thì *"tôi không biết ai"* đổ về một quyết định hiển thị, không về một người nhận bịa.
+
+**Một ngõ chết đi kèm phải đóng cùng lúc.** Dòng có trích dẫn được KHÓA (`Locked`), và dòng khóa không có
+checkbox — ô "Cần" là một input hidden. Nếu chỉ cần có `evidence` là khóa thì ca *model kèm trích dẫn thật
+nhưng viết người nhận không khớp mục nào của danh sách chọn* (⇒ `NormalizeRecipients` bỏ sạch To) sinh ra
+một dòng người dùng **không được bỏ tích mà cũng chẳng có ai để gửi** — kẹt vĩnh viễn dưới chốt chặn mới.
+Vì vậy `Locked` đòi **cả** trích dẫn **và** To không rỗng.
 
 Không có cột **kênh gửi**: hằng số nền tảng đã chốt chỉ có email (xem `organization-platform.v1.md`), nên
 thêm cột đó là mời người dùng chọn một thứ không tồn tại.

@@ -2504,3 +2504,35 @@
 .notifmap-row:has(input[type="checkbox"].notifmap-check:not(:checked)) .notifmap-name,
 .notifmap-row:has(input[type="checkbox"].notifmap-check:not(:checked)) .notifmap-entity { color: #9aa3af; text-decoration: line-through; }
 .notifmap-row:has(input[type="checkbox"].notifmap-check:not(:checked)) .notifmap-pick { opacity: .45; }
+
+/* POPUP "còn sự kiện chưa có người nhận" — chặn lượt gửi khi bảng còn dòng tích "Cần" mà To rỗng. Dùng
+   .modal-backdrop/.modal dùng chung (site.css); ở đây chỉ là danh sách sự kiện còn thiếu kèm hai lối đi.
+   Rộng hơn modal mặc định vì mỗi dòng chở một tên sự kiện dài cộng hai nút. */
+.notifmap-missing .modal { width: 560px; }
+
+.notifmap-missing-list {
+    list-style: none;
+    margin: 18px 0 0;
+    padding: 0;
+    max-height: 46vh;
+    overflow-y: auto;
+    border-top: 1px solid var(--line);
+}
+
+    .notifmap-missing-list li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        justify-content: space-between;
+        padding: 10px 2px;
+        border-bottom: 1px solid var(--line);
+    }
+
+.notifmap-missing-event { font-size: 13px; line-height: 1.45; }
+.notifmap-missing-acts { display: flex; gap: 8px; flex: 0 0 auto; }
+
+/* Vệt sáng trên dòng mà popup vừa trỏ tới: người dùng bấm "Chọn người nhận" ở popup thì bảng cuộn tới đúng
+   dòng đó, và không có vệt này thì giữa hai chục dòng giống nhau họ vẫn phải tự tìm lại. Tự tắt khi chạm
+   vào dòng — nó là chỉ đường, không phải một trạng thái lỗi đọng lại trên bảng. */
+.notifmap-row.is-missing > td { background: var(--warning-tint); }
+.notifmap-row.is-missing > td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
