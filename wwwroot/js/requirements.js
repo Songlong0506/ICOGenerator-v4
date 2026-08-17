@@ -21,6 +21,26 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     messageInput.addEventListener("input", resizeMessageInput);
 
+    // ==== Ô tự nhập "Ý khác" TỰ CAO theo nội dung ====
+    // Ô này (cả trên thẻ hỏi gộp lẫn hàng chip lượt-đơn) nằm trong khung nhãn-nổi gọn, mở ra chỉ cao chừng
+    // một dòng. Nhưng câu trả lời thật ở đây thường dài hơn thế — "tầm 1500 người, và tần suất sử dụng
+    // không cố định" — và ô cố định bắt người dùng cuộn để đọc lại chính thứ mình sắp gửi, đúng lúc họ cần
+    // thấy nó trọn vẹn nhất. Nó cũng là ô được MỒI SẴN nội dung chip đang chọn để sửa vài chữ (xem
+    // handler .batchq-choice), nên vừa mở ra đã có thể có sẵn một câu dài.
+    // Trần chiều cao là bắt buộc: không có nó, một câu trả lời dài đẩy nút "Gửi N câu trả lời" ra khỏi màn
+    // hình và thẻ hỏi gộp thành cụt đường.
+    const OTHER_BOX_MAX_HEIGHT = 200;
+
+    function autoGrowOtherBox(box) {
+        // Ô đang ẩn có scrollHeight = 0 → đo lúc này sẽ ghim height 0px và lần mở sau ra một ô dẹt.
+        if (!box || box.hidden) return;
+
+        box.style.height = "auto";
+        const next = Math.min(box.scrollHeight, OTHER_BOX_MAX_HEIGHT);
+        box.style.height = `${next}px`;
+        box.style.overflowY = box.scrollHeight > OTHER_BOX_MAX_HEIGHT ? "auto" : "hidden";
+    }
+
     messageInput.addEventListener("keydown", function (e) {
         if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
             e.preventDefault();
@@ -215,10 +235,17 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (!suggestionList.querySelector(".suggestion-option")) return;
         if (suggestionList.querySelector(".suggestion-other")) return;
 
+        // Nhãn "Ý khác" xuất hiện HAI LẦN theo hai trạng thái, không bao giờ cùng lúc: trên viên nút lúc
+        // đóng, rồi thành nhãn nổi khoét trên viền ô lúc mở (nút tự ẩn đi). Nhãn nổi giữ lại danh tính của ô
+        // sau khi nút biến mất — không có nó, cái mở ra chỉ là một ô nhập trống chẳng gắn với câu hỏi nào.
+        // Nó là bản sao hình ảnh của nút nên `aria-hidden`; chỗ trình đọc màn hình lấy tên ô là `aria-label`.
         suggestionList.insertAdjacentHTML("beforeend", `
             <div class="suggestion-other">
-                <button type="button" class="suggestion-other-btn">✎ Ý khác — tôi tự nhập</button>
-                <textarea class="suggestion-other-input" rows="2" hidden placeholder="${OTHER_PLACEHOLDER}"></textarea>
+                <button type="button" class="suggestion-other-btn">✎ Ý khác</button>
+                <div class="suggestion-other-field">
+                    <textarea class="suggestion-other-input" rows="1" hidden aria-label="Ý khác — câu trả lời anh/chị tự nhập" placeholder="${OTHER_PLACEHOLDER}"></textarea>
+                    <span class="suggestion-other-cap" aria-hidden="true">Ý khác</span>
+                </div>
                 <div class="suggestion-other-bar" hidden>
                     <button type="button" class="btn primary small suggestion-other-send">Gửi câu trả lời</button>
                     <span class="suggestion-other-hint"></span>
@@ -259,6 +286,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         box.focus();
         box.setSelectionRange(box.value.length, box.value.length);
+        autoGrowOtherBox(box);
         updateOtherSendState();
         updateMultiSendState();
         scrollToBottom();
@@ -445,9 +473,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     <div class="batchq-choices">
                         ${(Array.isArray(q.suggestions) ? q.suggestions : []).map(s => `
                         <button type="button" class="batchq-choice" data-value="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join("")}
-                        <button type="button" class="batchq-choice is-other" data-other="1">Ý khác — tôi tự nhập</button>
+                        <button type="button" class="batchq-choice is-other" data-other="1">✎ Ý khác</button>
+                    </div>
+                    <div class="batchq-other-field">
+                        <textarea class="batchq-answer" rows="1" hidden aria-label="Ý khác — câu trả lời anh/chị tự nhập" placeholder="Câu trả lời của anh/chị…"></textarea>
+                        <span class="batchq-other-cap" aria-hidden="true">Ý khác</span>
                     </div>`}
-                    <textarea class="batchq-answer" rows="${open ? 3 : 2}"${open ? "" : " hidden"} placeholder="${open ? "Anh/chị kể giúp mình, càng chi tiết càng tốt…" : "Câu trả lời của anh/chị…"}"></textarea>
+                    ${open ? `<textarea class="batchq-answer" rows="3" placeholder="Anh/chị kể giúp mình, càng chi tiết càng tốt…"></textarea>` : ""}
                 </li>`;
                 }).join("")}
             </ul>
@@ -478,6 +510,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     answer.hidden = false;
                     answer.focus();
                     answer.setSelectionRange(answer.value.length, answer.value.length);
+                    autoGrowOtherBox(answer);
                     updateBatchSendButton();
                     draftBatchSaveSoon();
                     return;
@@ -515,6 +548,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // Ô "Ý khác" đang mở mà rỗng thì câu đó KHÔNG được tính, nên nhãn nút phải nhảy theo từng phím gõ.
         batchPanel.addEventListener("input", function (e) {
             if (!e.target.classList.contains("batchq-answer")) return;
+            // Chỉ ô trong khung nhãn-nổi mới tự cao: ô của câu MỞ đứng riêng, đã có sẵn 3 dòng và
+            // `resize: vertical` để người dùng tự kéo.
+            if (e.target.closest(".batchq-other-field")) autoGrowOtherBox(e.target);
             updateBatchSendButton();
             draftBatchSaveSoon();
         });
@@ -1817,6 +1853,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 matched.forEach(c => c.classList.add("is-on"));
             } else {
                 box.hidden = false;
+                // Câu MỞ cũng rơi vào nhánh này (không có chip nào để khớp) nhưng ô của nó không nằm trong
+                // khung nhãn-nổi: nó đã sẵn 3 dòng mời "kể chi tiết", tự co lại theo một câu ngắn vừa phục
+                // hồi là thu hẹp đúng cái ô đang mời người dùng viết dài.
+                if (box.closest(".batchq-other-field")) autoGrowOtherBox(box);
                 const other = li.querySelector(".batchq-choice.is-other");
                 if (other) other.classList.add("is-on");
             }
@@ -2790,6 +2830,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // ở chế độ chọn nhiều thì từng phím gõ còn mở/khoá nút "Gửi các lựa chọn".
         suggestionList.addEventListener("input", function (e) {
             if (!e.target.classList.contains("suggestion-other-input")) return;
+            autoGrowOtherBox(e.target);
             updateOtherSendState();
             updateMultiSendState();
         });
