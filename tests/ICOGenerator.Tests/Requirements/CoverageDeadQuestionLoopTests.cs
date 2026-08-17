@@ -1,4 +1,5 @@
 using ICOGenerator.Contracts.Requirements;
+using ICOGenerator.Domain;
 using ICOGenerator.Services.Requirements;
 using Xunit;
 
@@ -224,5 +225,103 @@ public class CoverageDeadQuestionLoopTests
         Assert.False(readiness.Ready);
         Assert.Contains("«Tích hợp hệ thống ngoài»", readiness.Message, StringComparison.Ordinal);
         Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
+    }
+
+    // ==== SỔ RIÊNG CỦA CỔNG: không phát lại đúng câu vừa phát ====
+    //
+    // Đây là nửa còn lại của vòng lặp câu hỏi chết ở đầu file — ba lượt liên tiếp GIỐNG HỆT nhau. Nguồn của
+    // nó là một lỗ trong cơ chế: AskedQuestionHistory.Collect chỉ nhận một lượt assistant là "câu hỏi" khi
+    // lượt đó có GỢI Ý, mà lượt chặn của cổng cố tình không có chip nào — nên câu của cổng vô hình với đúng
+    // cái phanh dựng ra để chặn hỏi lại. Cổng vì thế giữ sổ riêng, nhận diện bằng chính câu dẫn nó viết ra.
+
+    private const string TwoPendingGroups = """
+        - ★ Chức năng & luồng nghiệp vụ chính: [CHƯA HỎI]
+        - Quy mô sử dụng: [CHƯA HỎI]
+        """;
+
+    private static AgentConversation BaTurn(string message) => new() { Role = "assistant", Message = message };
+
+    // Không có hội thoại ⇒ thứ tự cũ: ★ cốt lõi trước.
+    [Fact]
+    public void WithoutHistory_TheCoreGroupGoesFirst()
+    {
+        var readiness = RequirementReadinessGate.Evaluate(TwoPendingGroups);
+
+        Assert.Contains("«Chức năng & luồng nghiệp vụ chính»", readiness.Message, StringComparison.Ordinal);
+    }
+
+    // Đã hỏi nhóm cốt lõi mà bản đồ không nhúc nhích ⇒ chuyển sang nhóm CHƯA hỏi, kể cả khi nó không phải ★.
+    // Cờ "đã hỏi" thắng cả cờ cốt lõi: phát lại đúng câu người dùng vừa không trả lời được thì lượt sau cũng
+    // không trả lời được, còn đổi nhóm thì còn cơ hội gỡ — mà nhóm cũ không mất đi đâu.
+    [Fact]
+    public void AfterAskingTheCoreGroup_ItMovesOnToTheOneNotAskedYet()
+    {
+        var first = RequirementReadinessGate.Evaluate(TwoPendingGroups);
+
+        var second = RequirementReadinessGate.Evaluate(TwoPendingGroups, new[] { BaTurn(first.Message) });
+
+        Assert.Contains("«Quy mô sử dụng»", second.Message, StringComparison.Ordinal);
+        Assert.NotEqual(first.Message, second.Message);
+    }
+
+    // Hỏi hết một vòng ⇒ quay lại nhóm bị hỏi LÂU NHẤT, và phải NÓI RA rằng mình đang quay lại. Phát lại y
+    // nguyên câu dẫn cũ đọc lên như thể hệ thống không nhớ mình vừa hỏi gì.
+    [Fact]
+    public void AfterAFullRound_ItComesBackToTheOldestAskAndSaysSo()
+    {
+        var first = RequirementReadinessGate.Evaluate(TwoPendingGroups);
+        var second = RequirementReadinessGate.Evaluate(TwoPendingGroups, new[] { BaTurn(first.Message) });
+
+        var third = RequirementReadinessGate.Evaluate(
+            TwoPendingGroups, new[] { BaTurn(first.Message), BaTurn(second.Message) });
+
+        Assert.Contains("«Chức năng & luồng nghiệp vụ chính»", third.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Mình quay lại", third.Message, StringComparison.Ordinal);
+        Assert.NotEqual(first.Message, third.Message);
+    }
+
+    // Chỉ còn MỘT nhóm thiếu thì không có nhóm nào để đổi sang — lượt sau vẫn phải khác lượt trước, nếu
+    // không người dùng nhận đúng hai tin nhắn giống nhau và thôi trả lời.
+    [Fact]
+    public void WithASinglePendingGroup_TheSecondAskIsStillWordedDifferently()
+    {
+        const string oneGroup = "- Quy mô sử dụng: [CHƯA HỎI]";
+        var first = RequirementReadinessGate.Evaluate(oneGroup);
+
+        var second = RequirementReadinessGate.Evaluate(oneGroup, new[] { BaTurn(first.Message) });
+
+        Assert.NotEqual(first.Message, second.Message);
+        Assert.Contains("«Quy mô sử dụng»", second.Message, StringComparison.Ordinal);
+        Assert.EndsWith("?", second.Message.Trim(), StringComparison.Ordinal);
+    }
+
+    // Nhận diện lượt chặn là giao ước code↔code mà compiler không kiểm được: CẢ HAI biến thể câu dẫn phải
+    // đọc ra được nhãn nhóm. Sửa một biến thể mà quên cụm nhận diện thì cổng mất sổ và lặng lẽ quay về phát
+    // lại một câu ba lượt liền — không test nào khác bắt được.
+    [Fact]
+    public void AskedGroups_ReadsBothWordingsOfTheGateTurn()
+    {
+        var firstAsk = RequirementReadinessGate.Evaluate(TwoPendingGroups).Message;
+        var comingBack = RequirementReadinessGate.Evaluate(
+            "- Quy mô sử dụng: [CHƯA HỎI]",
+            new[] { BaTurn(RequirementReadinessGate.Evaluate("- Quy mô sử dụng: [CHƯA HỎI]").Message) }).Message;
+
+        Assert.StartsWith("Mình quay lại", comingBack, StringComparison.Ordinal);
+        Assert.Equal(
+            new[] { "Chức năng & luồng nghiệp vụ chính", "Quy mô sử dụng" },
+            RequirementReadinessGate.AskedGroups(new[] { BaTurn(firstAsk), BaTurn(comingBack) }));
+    }
+
+    // Sổ chỉ đếm lượt của CỔNG. Lượt của người dùng, lượt BA hỏi bình thường và lượt ⚠️ báo lỗi gọi AI
+    // không phải câu chặn — tính chúng vào là cổng bỏ qua một nhóm chưa ai hỏi.
+    [Fact]
+    public void AskedGroups_IgnoresEverythingThatIsNotAGateTurn()
+    {
+        Assert.Empty(RequirementReadinessGate.AskedGroups(new[]
+        {
+            new AgentConversation { Role = "user", Message = RequirementReadinessGate.Evaluate(TwoPendingGroups).Message },
+            BaTurn("Anh/chị cho mình hỏi thêm về nhóm «Quy mô sử dụng» nhé?"),
+            BaTurn("⚠️ Lời gọi AI thất bại, lượt trả lời bị gián đoạn."),
+        }));
     }
 }

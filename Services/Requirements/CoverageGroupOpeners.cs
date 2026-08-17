@@ -74,7 +74,7 @@ public static class CoverageGroupOpeners
 
         // Nhóm chốt bằng BẢNG — xem phần "Hai nhóm đọc khác hẳn" ở doc của class.
         ("Thông báo / nhắc nhở",
-            "Việc còn lại là chốt xem mỗi lần có việc gì xảy ra trong ứng dụng thì ai cần được báo — anh/chị "
+            "Còn việc chốt xem mỗi lần có việc gì xảy ra trong ứng dụng thì ai cần được báo — anh/chị "
             + "nhắn cho mình một tiếng để mình đưa phần đó ra rà cùng nhé?"),
 
         ("Báo cáo / thống kê",
@@ -83,7 +83,7 @@ public static class CoverageGroupOpeners
 
         // Nhóm chốt bằng BẢNG — xem phần "Hai nhóm đọc khác hẳn" ở doc của class.
         ("Phân quyền theo nghiệp vụ",
-            "Việc còn lại là chốt xem mỗi vai trò được xem và làm những gì trên từng màn hình — anh/chị nhắn "
+            "Còn việc chốt xem mỗi vai trò được xem và làm những gì trên từng màn hình — anh/chị nhắn "
             + "cho mình một tiếng để mình đưa phần đó ra rà cùng nhé?"),
 
         ("Quy mô sử dụng",

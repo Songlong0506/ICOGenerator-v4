@@ -932,7 +932,7 @@ public class BAChatService
                         // ĐỊNH suy từ bản đồ (hỏi đúng nhóm còn thiếu, hoặc mời bấm nút khi bản đồ đã đủ)
                         // — im lặng hoặc để nguyên câu dẫn cụt đều tệ hơn. Câu đó không có chip, nên cờ
                         // "câu mở" đi theo nó để ô nhập nhận vai chỗ trả lời.
-                        var followUp = BuildFollowUpAfterRepeat(project.RequirementCoverageMap);
+                        var followUp = BuildFollowUpAfterRepeat(project.RequirementCoverageMap, recent);
                         reply = followUp.Message;
                         suggestionsJson = null;
                         suggestionsMultiSelect = false;
@@ -958,7 +958,7 @@ public class BAChatService
                      && AskedQuestionHistory.IsRepeat(reply, askedKeys))
             {
                 // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
-                var followUp = BuildFollowUpAfterRepeat(project.RequirementCoverageMap);
+                var followUp = BuildFollowUpAfterRepeat(project.RequirementCoverageMap, recent);
                 reply = followUp.Message;
                 suggestionsJson = null;
                 suggestionsMultiSelect = false;
@@ -975,7 +975,9 @@ public class BAChatService
             // ProductBriefDraftService.GenerateOrUpdateDraftAsync). Một nguồn chân lý, một tiêu chuẩn.
             if (RequirementReadinessGate.IsWriteRequirementInvite(reply))
             {
-                var readiness = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap);
+                // `recent` đi kèm để cổng không phát lại đúng câu chặn nó vừa phát: câu của cổng không có
+                // chip nên phanh chống hỏi lại dùng chung không thấy nó — xem RequirementReadinessGate.
+                var readiness = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap, recent);
                 if (!readiness.Ready)
                 {
                     reply = string.IsNullOrWhiteSpace(readiness.Message)
@@ -1207,9 +1209,12 @@ public class BAChatService
     /// bấm "Write Requirement". Không bao giờ trả về lượt rỗng: một lượt câm sau khi người dùng vừa trả
     /// lời còn khó hiểu hơn cả việc bị hỏi lại.
     /// </summary>
-    private static (string Message, bool OpenEnded) BuildFollowUpAfterRepeat(string? coverageMap)
+    private static (string Message, bool OpenEnded) BuildFollowUpAfterRepeat(
+        string? coverageMap, IReadOnlyList<AgentConversation> turns)
     {
-        var readiness = RequirementReadinessGate.Evaluate(coverageMap);
+        // Đường này là chỗ câu chặn của cổng dễ lặp nhất: lượt của BA toàn câu đã hỏi thì lượt nào cũng rơi
+        // vào đây, và nếu bản đồ chưa nhúc nhích thì cổng lại chọn đúng nhóm cũ. `turns` cho cổng đổi nhóm.
+        var readiness = RequirementReadinessGate.Evaluate(coverageMap, turns);
         if (!readiness.Ready)
         {
             return (string.IsNullOrWhiteSpace(readiness.Message)

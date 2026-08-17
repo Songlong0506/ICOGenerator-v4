@@ -1104,6 +1104,27 @@ ca đó.
 `requirement-coverage.v3.md` mà quên viết câu cho nó thì fail ở test, chứ không âm thầm rơi về nhánh 4 trên
 màn hình người dùng.
 
+**Cổng giữ SỔ RIÊNG "đã hỏi nhóm nào"** (`RequirementReadinessGate.AskedGroups`), vì phanh chống hỏi lại
+dùng chung **không thấy** câu của nó: `AskedQuestionHistory.Collect` chỉ nhận một lượt assistant là câu hỏi
+khi lượt đó có **gợi ý**, mà lượt chặn cố tình không có chip nào. Nới luật của `Collect` thì mọi lượt tóm
+tắt/thông báo cũng thành "câu hỏi" và chặn oan các lượt xác nhận về sau — nên cổng nhận diện lượt chặn của
+chính mình bằng câu dẫn nó viết ra (`PendingMarker`) rồi đọc nhãn nhóm trong cặp `«…»`.
+
+Sổ đó lái việc **chọn nhóm**: nhóm cổng chưa hỏi đi trước, rồi tới nhóm bị hỏi lâu nhất; trong cùng một bậc
+thì ★ cốt lõi trước. Cờ "đã hỏi" **thắng cả cờ ★** — bản đồ không nhúc nhích thì mọi lượt chặn tiếp theo chọn
+lại đúng dòng cốt lõi đó và phát lại nguyên văn một câu người dùng vừa không trả lời được (ca thật: ba lượt
+liên tiếp giống hệt nhau, người dùng đáp *"mình không hiểu câu hỏi của bạn"* hai lần rồi tự dán lại câu trả
+lời họ đã gõ từ 60 lượt trước). Đổi nhóm thì lượt sau còn cơ hội gỡ, mà nhóm cũ không mất đi đâu: nó quay lại
+ngay khi các nhóm khác đã được hỏi một vòng — và khi quay lại, câu dẫn **nói ra** rằng cổng đang quay lại
+(*"Mình quay lại một chỗ vẫn…"*) nên hai lượt không bao giờ giống hệt nhau, kể cả khi chỉ còn đúng một nhóm
+thiếu để hỏi.
+
+Câu chặn phát ra ở **ba đường**, và cả ba đều phải chở hội thoại vào cổng: lượt BA mời bấm nút quá sớm bị
+thay (`BAChatService`), lượt mà **mọi câu hỏi của BA đều là câu đã hỏi** (`BuildFollowUpAfterRepeat` — đường
+dễ lặp nhất, vì lượt nào cũng rơi vào đó khi bản đồ đứng yên), và cú bấm "Write Requirement" thật
+(`ProductBriefDraftService`). `ChatExportBuilder` cũng truyền hội thoại, nếu không bản xuất in ra một câu chặn
+khác với câu người dùng sẽ thấy.
+
 ### Đính chính một nhóm: đường thoát khỏi một dòng [RÕ] oan
 
 Một nhóm bị chấm `[RÕ]` oan là **điểm mù kín** của hệ thống — prompt cấm BA hỏi lại nhóm đã `[RÕ]`, nên

@@ -120,7 +120,10 @@ public class ProductBriefDraftService
             // Lượt gộp lỗi ⇒ bản đồ trả về là bản CŨ; cổng vẫn xét trên nó (fail-closed như cũ — thiếu
             // thông tin thì chặn, không bao giờ nới ra vì một lời gọi hỏng).
             var coverage = await _coverage.UpdateAndLoadAsync(project, ba, model, cancellationToken);
-            var readiness = RequirementReadinessGate.Evaluate(coverage.Map);
+            // Hội thoại đi kèm để cổng không phát lại đúng câu chặn của lần bấm nút trước: người dùng bấm
+            // "Write Requirement" hai lần mà chưa bổ sung gì là ca thường, và hai lượt giống hệt nhau đọc
+            // lên như thể hệ thống không nhớ mình vừa hỏi gì.
+            var readiness = RequirementReadinessGate.Evaluate(coverage.Map, project.Conversations);
             if (!readiness.Ready)
             {
                 var question = string.IsNullOrWhiteSpace(readiness.Message)

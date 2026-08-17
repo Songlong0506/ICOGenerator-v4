@@ -22,8 +22,24 @@ public static class RequirementReadinessGate
     /// [CHƯA HỎI]/[MỘT PHẦN], và có ít nhất một dòng [RÕ] (bản đồ toàn [KHÔNG ÁP DỤNG] là bản đồ hỏng,
     /// không phải dự án đã rõ). Khi chưa sẵn sàng, Message là câu hỏi dựng sẵn nêu nhóm còn thiếu —
     /// dùng được ngay như một lượt BA trong khung chat.
+    ///
+    /// <para>
+    /// <paramref name="turns"/> là các lượt hội thoại gần đây, dùng để KHÔNG phát lại đúng câu chặn vừa
+    /// phát: cổng nhận ra các lượt chặn CỦA CHÍNH NÓ (xem <see cref="AskedGroups"/>) rồi chuyển sang một
+    /// nhóm còn thiếu khác trước khi quay lại nhóm cũ. Bỏ trống ⇒ giữ nguyên thứ tự cũ (★ cốt lõi trước) —
+    /// đúng cho những caller chỉ cần cờ <c>Ready</c>.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Vì sao cổng phải tự nhớ.</b> Phanh chống hỏi lại dùng chung
+    /// (<see cref="AskedQuestionHistory.Collect"/>) chỉ nhận một lượt assistant là "câu hỏi" khi lượt đó có
+    /// GỢI Ý — mà lượt chặn của cổng cố tình không có chip nào (nó là câu MỞ). Nghĩa là câu của cổng vô hình
+    /// với đúng cái phanh dựng ra để chặn hỏi lại. Nới luật của <c>Collect</c> thì mọi lượt tóm tắt/thông
+    /// báo cũng thành "câu hỏi" và chặn oan các lượt xác nhận về sau, nên cổng giữ sổ RIÊNG của mình, nhận
+    /// diện bằng chính câu dẫn nó viết ra.
+    /// </para>
     /// </summary>
-    public static RequirementReadiness Evaluate(string? coverageMap)
+    public static RequirementReadiness Evaluate(string? coverageMap, IEnumerable<AgentConversation>? turns = null)
     {
         var items = CoverageMapParser.Parse(coverageMap);
         if (items.Count == 0)
@@ -36,21 +52,100 @@ public static class RequirementReadinessGate
             };
         }
 
-        // ★ cốt lõi hỏi trước — cùng thứ tự ưu tiên mà prompt chat hướng dẫn BA chọn câu hỏi kế tiếp.
-        var pending = items
-            .Where(x => x.Status is "MỘT PHẦN" or "CHƯA HỎI")
-            .OrderByDescending(x => x.IsCore)
-            .ToList();
+        var pending = items.Where(x => x.Status is "MỘT PHẦN" or "CHƯA HỎI").ToList();
 
-        if (pending.Count == 0 && items.Any(x => x.Status == "RÕ"))
-            return new RequirementReadiness { Ready = true };
+        if (pending.Count == 0)
+            return items.Any(x => x.Status == "RÕ")
+                ? new RequirementReadiness { Ready = true }
+                // Bản đồ toàn [KHÔNG ÁP DỤNG] — bản đồ hỏng, không có nhóm nào để hỏi cụ thể.
+                : new RequirementReadiness
+                {
+                    Ready = false,
+                    Message = "Bản đồ khai thác yêu cầu đang trống thông tin đã rõ, nên chưa thể viết tài liệu. Bạn mô tả thêm về dự án trong khung chat giúp mình nhé.",
+                    OpenEnded = true
+                };
+
+        // Nhóm CHƯA từng bị cổng hỏi đi trước, rồi mới tới nhóm bị hỏi lâu nhất; trong cùng một bậc thì ★
+        // cốt lõi trước — đúng thứ tự ưu tiên mà prompt chat hướng dẫn BA chọn câu hỏi kế tiếp.
+        //
+        // Vì sao "đã hỏi" thắng cả cờ ★: bản đồ không nhúc nhích thì mọi lượt chặn tiếp theo chọn lại đúng
+        // dòng cốt lõi đó và phát lại nguyên văn một câu người dùng vừa không trả lời được. Ca thật đã ghi ở
+        // CoverageDeadQuestionLoopTests: ba lượt liên tiếp giống hệt nhau, người dùng đáp "mình không hiểu
+        // câu hỏi của bạn" hai lần. Đổi nhóm thì lượt sau còn cơ hội gỡ, mà nhóm cũ không mất đi đâu — nó
+        // quay lại ngay khi các nhóm khác đã được hỏi một vòng.
+        var askedGroups = AskedGroups(turns);
+        var chosen = pending
+            .OrderBy(x => LastAskedAt(askedGroups, x.Label))
+            .ThenByDescending(x => x.IsCore)
+            .First();
 
         return new RequirementReadiness
         {
             Ready = false,
-            Message = BuildPendingQuestion(pending),
+            Message = BuildPendingQuestion(chosen, pending.Count, LastAskedAt(askedGroups, chosen.Label) >= 0),
             OpenEnded = true
         };
+    }
+
+    /// <summary>
+    /// Vị trí lần CUỐI cổng hỏi nhóm này, hoặc <c>-1</c> khi chưa hỏi lần nào. Sắp TĂNG theo giá trị này cho
+    /// ra đúng thứ tự cần: chưa hỏi (-1) trước, rồi tới nhóm bị hỏi lâu nhất.
+    /// </summary>
+    private static int LastAskedAt(List<string> askedGroups, string label)
+    {
+        for (var i = askedGroups.Count - 1; i >= 0; i--)
+        {
+            if (SameGroup(askedGroups[i], label))
+                return i;
+        }
+
+        return -1;
+    }
+
+    // So khớp hai chiều bằng TIỀN TỐ, cùng lý do với CoveragePendingGuard.FindGap: nhãn trong bản đồ và
+    // nhãn cổng đã in ra ở lượt trước có thể dài ngắn khác nhau ("Luồng ngoại lệ" / "Luồng ngoại lệ & trường
+    // hợp đặc biệt"), và một phép so nguyên văn sẽ làm cái sổ này câm trong im lặng.
+    private static bool SameGroup(string asked, string label)
+        => asked.Length > 0 && label.Length > 0
+           && (asked.StartsWith(label, StringComparison.OrdinalIgnoreCase)
+               || label.StartsWith(asked, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Các nhóm mà CỔNG đã hỏi trong <paramref name="turns"/>, theo đúng thứ tự hỏi (một nhóm bị hỏi hai
+    /// lần thì có mặt hai lần). Nhận diện bằng <see cref="PendingMarker"/> — cụm chữ mà mọi câu chặn của
+    /// cổng đều chở — rồi lấy nhãn trong cặp «…» ngay sau nó.
+    ///
+    /// <para>
+    /// Đây là sổ RIÊNG của cổng, không dùng <see cref="AskedQuestionHistory.Collect"/>: lượt chặn không có
+    /// chip nào nên <c>Collect</c> cố tình bỏ qua nó (xem <see cref="Evaluate"/>). Nhận diện bằng câu chữ là
+    /// một giao ước code↔code mà compiler không kiểm được, nên <c>CoverageDeadQuestionLoopTests</c> chốt
+    /// rằng CẢ HAI biến thể câu dẫn (hỏi lần đầu và quay lại) đều được đọc ra.
+    /// </para>
+    /// </summary>
+    public static List<string> AskedGroups(IEnumerable<AgentConversation>? turns)
+    {
+        var groups = new List<string>();
+        foreach (var turn in turns ?? Enumerable.Empty<AgentConversation>())
+        {
+            if (!ConversationTurnRenderer.IsAssistant(turn))
+                continue;
+
+            var message = turn.Message ?? string.Empty;
+            var at = message.IndexOf(PendingMarker, StringComparison.Ordinal);
+            if (at < 0)
+                continue;
+
+            var open = message.IndexOf('«', at);
+            var close = open < 0 ? -1 : message.IndexOf('»', open);
+            if (close < 0)
+                continue;
+
+            var label = message[(open + 1)..close].Trim();
+            if (label.Length > 0)
+                groups.Add(label);
+        }
+
+        return groups;
     }
 
     // Câu hỏi dựng sẵn khi chưa đủ. Đây là lượt BA mà người dùng THẬT SỰ đọc trên màn hình, nên nó phải
@@ -75,18 +170,24 @@ public static class RequirementReadinessGate
     // *"mình chưa hiểu câu hỏi, hãy hỏi rõ hơn"*, mất trắng một vòng ở cuối buổi phỏng vấn thứ 78. Nhánh đó
     // reachable với BẤT KỲ nhóm nào, chỉ cần lượt distill quên viết cụm "còn thiếu:" đúng một lần — nó là
     // định dạng do LLM xuất, không phải bất biến của code.
-    private static string BuildPendingQuestion(List<CoverageMapItem> pending)
+    /// <summary>
+    /// Cụm chữ mà MỌI câu chặn của cổng đều chở, ở cả hai biến thể câu dẫn — đây là thứ
+    /// <see cref="AskedGroups"/> dò để nhận ra lượt chặn của chính cổng. Sửa câu dẫn thì phải giữ nguyên cụm
+    /// này, nếu không cổng mất sổ và quay về phát lại một câu ba lượt liền.
+    /// </summary>
+    private const string PendingMarker = "chưa đủ thông tin để khỏi phải tự đoán (nhóm «";
+
+    private static string BuildPendingQuestion(CoverageMapItem item, int pendingCount, bool askedBefore)
     {
-        // pending rỗng chỉ xảy ra khi bản đồ toàn [KHÔNG ÁP DỤNG] — bản đồ hỏng, không có gì để hỏi cụ thể.
-        if (pending.Count == 0)
-            return "Bản đồ khai thác yêu cầu đang trống thông tin đã rõ, nên chưa thể viết tài liệu. Bạn mô tả thêm về dự án trong khung chat giúp mình nhé.";
-
-        var first = pending[0];
-
         var sb = new StringBuilder();
-        sb.Append($"Trước khi viết tài liệu, mình còn một chỗ chưa đủ thông tin để khỏi phải tự đoán (nhóm «{first.Label}»");
-        sb.Append(pending.Count == 1 ? "). " : $", còn {pending.Count} nhóm — mình hỏi từng nhóm một). ");
-        sb.Append(AskFor(first));
+        // Quay lại một nhóm đã hỏi thì phải NÓI RA. Phát lại y nguyên câu dẫn cũ đọc lên như thể cổng không
+        // nhớ mình vừa hỏi gì — mà đúng cái đó là thứ làm người dùng thôi trả lời.
+        sb.Append(askedBefore
+            ? "Mình quay lại một chỗ vẫn "
+            : "Trước khi viết tài liệu, mình còn một chỗ ");
+        sb.Append($"{PendingMarker}{item.Label}»");
+        sb.Append(pendingCount == 1 ? "). " : $", còn {pendingCount} nhóm — mình hỏi từng nhóm một). ");
+        sb.Append(AskFor(item));
 
         return sb.ToString();
     }

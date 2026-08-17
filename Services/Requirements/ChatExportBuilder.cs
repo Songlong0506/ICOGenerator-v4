@@ -155,7 +155,9 @@ public static class ChatExportBuilder
         }
         sb.AppendLine();
 
-        var readiness = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap);
+        // Hội thoại đi kèm để bản xuất in ra ĐÚNG câu cổng sẽ phát lượt tới: cổng đổi nhóm khi nó đã hỏi
+        // nhóm đó rồi, nên bỏ tham số này là bản xuất kể một câu chặn khác với câu người dùng sẽ thấy.
+        var readiness = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap, project.Conversations);
         sb.AppendLine("### 3.2. Cổng sẵn sàng soạn tài liệu (suy tất định từ bản đồ trên)");
         sb.AppendLine();
         sb.AppendLine(readiness.Ready
