@@ -128,6 +128,16 @@
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseEntityMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.EntityMap))?.EntityMap)
         : new List<ICOGenerator.Contracts.Requirements.EntityMapRow>();
+    var lastNotificationMap = Model.NotificationMap == null
+        ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
+            .ParseNotificationMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.NotificationMap))?.NotificationMap)
+        : new List<ICOGenerator.Contracts.Requirements.NotificationMapRow>();
+    // Danh sách chọn của hai ô To/CC — dựng LẠI ở đây từ bảng phân quyền đã chốt, đúng bộ mà
+    // ConfirmNotificationMapUseCase sẽ đối chiếu lúc gửi lên. Chở qua `data-options` để JS dùng chung một
+    // bộ cho cả dòng người dùng tự thêm.
+    var recipientOptions = ICOGenerator.Services.Requirements.NotificationMapBuilder.RecipientOptions(
+        ICOGenerator.Services.Requirements.PermissionMatrixBuilder.Roles(Model.PermissionMatrix));
+    var recipientOptionsJson = System.Text.Json.JsonSerializer.Serialize(recipientOptions);
     // Bước luồng chưa có màn hình nào phụ trách — phép kiểm TẤT ĐỊNH của mối nối luồng ⇄ màn hình, tính
     // lại ở đây thay vì chở qua SSE: sau F5 thì frame done đã đi mất, mà dòng nhắc thì phải còn.
     var uncoveredFlowSteps = lastScreenScope.Count > 0
@@ -1156,11 +1166,11 @@
                 }
             </div>
 
-            @* BẢNG ĐỐI TƯỢNG NGHIỆP VỤ — thông tin cần lưu + vòng đời trạng thái. Cột "Báo cho ai" nằm ngay
-               cạnh từng trạng thái chứ không thành một câu hỏi riêng: hỏi "ai cần nhận thông báo?" chung
-               chung cho ra một danh sách vai trò trần, rồi tài liệu đóng băng thành "mọi thay đổi trạng
-               thái gửi cho cả bốn nhóm" — tức mỗi lần một bản kế hoạch đổi trạng thái là cả nhà máy nhận
-               email. Gắn ô vào từng chuyển trạng thái biến câu hỏi đó thành vài ô có sẵn ngữ cảnh. *@
+            @* BẢNG ĐỐI TƯỢNG NGHIỆP VỤ — thông tin cần lưu + vòng đời trạng thái. Vòng đời ở đây là nguồn
+               DÒNG của bảng thông báo bên dưới: mỗi trạng thái thành một sự kiện cần trả lời "ai được báo".
+               Hai bảng tách nhau vì người nhận thật gần như luôn là một QUAN HỆ với bản ghi ("người gửi
+               đơn", "sếp của người đó"), mà muốn bày ra danh sách quan hệ/vai trò đóng thì phải có bảng
+               phân quyền đã chốt trước. *@
             <div class="req-msg ba permmap entitymap" id="entityMapPanel"
                  data-confirm-url="@Url.Action("ConfirmEntityMap", "Requirements")"
                  @(lastEntityMap.Count > 0 ? "" : "hidden")>
@@ -1170,7 +1180,7 @@
                         Đây là những thứ ứng dụng cần lưu hồ sơ riêng. Đối tượng nào <b>không cần</b> thì bỏ tích ở tiêu
                         đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
                         thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
-                        cuối. Ô <b>báo cho ai</b> để trống nghĩa là không gửi thông báo ở bước đó.
+                        cuối. Ai được báo ở mỗi trạng thái thì mình hỏi ở bảng cuối buổi.
                     </div>
                     @* Bọc các khối trong một div riêng: nút "+ thêm đối tượng" chèn khối mới vào CUỐI div này,
                        nên nó phải là một hộp chứa chỉ có khối đối tượng — không có nó thì khối mới rơi xuống
@@ -1231,7 +1241,6 @@
                                         <tr>
                                             <th class="screenmap-th-name">Trạng thái</th>
                                             <th class="screenmap-th-purpose">Khi nào chuyển vào</th>
-                                            <th class="screenmap-th-fn">Báo cho ai</th>
                                             <th class="screenmap-th-del"></th>
                                         </tr>
                                     </thead>
@@ -1246,14 +1255,13 @@
                                             <tr class="entitymap-state">
                                                 <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name" placeholder="tên trạng thái">@state.State</textarea></td>
                                                 <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="điều kiện/hành động đưa vào trạng thái này">@state.EntryCondition</textarea></td>
-                                                <td><textarea rows="1" class="permmap-cellinput entitystate-notify" placeholder="để trống = không báo cho ai">@state.Notify</textarea></td>
                                                 <td class="entitymap-delcell">
                                                     <button type="button" class="entitymap-del" title="Xóa trạng thái này" aria-label="Xóa trạng thái này">×</button>
                                                 </td>
                                             </tr>
                                         }
                                         <tr class="entitymap-addstaterow">
-                                            <td colspan="4"><button type="button" class="entitymap-add entitymap-addstate" aria-label="Thêm trạng thái cho @entity.Entity">+ thêm trạng thái</button></td>
+                                            <td colspan="3"><button type="button" class="entitymap-add entitymap-addstate" aria-label="Thêm trạng thái cho @entity.Entity">+ thêm trạng thái</button></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -1276,7 +1284,127 @@
                 }
             </div>
 
-            @* BẢNG PHÂN QUYỀN — nhóm «Phân quyền theo nghiệp vụ» là nhóm DUY NHẤT không được chốt bằng câu
+            @* BẢNG THÔNG BÁO / NHẮC NHỞ — bảng CUỐI CÙNG của buổi phỏng vấn, và là nhóm THỨ HAI (sau phân
+               quyền) không được chốt bằng câu hỏi.
+
+               Vì sao không hỏi bằng chip: chuẩn [RÕ] của nhóm đòi hai vế GHÉP ĐƯỢC với nhau — mỗi loại sự
+               kiện biết ai là người nhận của RIÊNG nó — trong khi hình dạng tự nhiên của câu hỏi lại tách
+               chúng làm hai câu rời ("vai trò nào cần nhận email?" + "sự kiện nào cần gửi?"). Ca thật: người
+               dùng bấm bốn chip vai trò, dòng lên [RÕ], và tài liệu đóng băng thành "mọi thay đổi trạng thái
+               gửi cho cả bốn nhóm" — tức mỗi lần một bản ghi đổi trạng thái là cả nhà máy nhận email.
+
+               Vì sao ô là CHỌN NHIỀU từ danh sách đóng chứ không phải ô gõ: người nhận thật gần như luôn là
+               một QUAN HỆ với bản ghi ("người gửi đơn", "sếp của người đó"), còn một vai trò trần như "Nhân
+               viên" nghĩa là TOÀN BỘ nhân viên. Danh sách vì vậy có bốn mục quan hệ trước, rồi mỗi vai trò đã
+               chốt thành mục "Toàn bộ <vai>" — chữ "toàn bộ" nằm ngay trên mặt tùy chọn nên chọn nó là một
+               quyết định có ý thức. Bảng treo theo DỰ ÁN (Project.NotificationMap còn null) như bốn bảng kia. *@
+            <div class="req-msg ba permmap notifmap" id="notificationMapPanel"
+                 data-confirm-url="@Url.Action("ConfirmNotificationMap", "Requirements")"
+                 data-options='@Html.Raw(recipientOptionsJson)'
+                 @(lastNotificationMap.Count > 0 ? "" : "hidden")>
+                @if (lastNotificationMap.Count > 0)
+                {
+                    <div class="permmap-howto">
+                        Đây là các sự kiện của ứng dụng. Sự kiện nào <b>không cần gửi email</b> thì bỏ tích cột đầu; sự
+                        kiện còn lại thì chọn <b>người nhận</b> — để trống nghĩa là mình chưa chốt được ai và sẽ hỏi lại
+                        anh/chị. Thiếu một lời nhắc theo thời hạn thì bấm <b>+ thêm lời nhắc</b> ở cuối bảng.
+                    </div>
+                    <table class="permmap-table notifmap-table">
+                        <thead>
+                            <tr>
+                                <th class="flowmap-th-use">Cần</th>
+                                <th class="notifmap-th-event">Sự kiện</th>
+                                <th class="notifmap-th-who">Gửi cho (To)</th>
+                                <th class="notifmap-th-cc">Đồng gửi (CC)</th>
+                                @* Cột nút xóa: TRỐNG ở mọi dòng BA gieo ra — chúng bỏ tích chứ không xóa, vì
+                                   sự kiện bị tắt vẫn phải kể lại được trong tin nhắn gửi đi. *@
+                                <th class="screenmap-th-del"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in lastNotificationMap)
+                            {
+                                <tr class="notifmap-row" data-entity="@row.Entity" data-event="@row.Event" data-trigger="@row.Trigger">
+                                    <td class="flowmap-use">
+                                        @if (row.Locked)
+                                        {
+                                            <span class="permmap-locked" title="@row.Evidence">✓</span>
+                                            <input type="hidden" class="notifmap-check" value="1" />
+                                        }
+                                        else
+                                        {
+                                            <input type="checkbox" class="notifmap-check" aria-label="Cần báo khi @row.Event" @(row.Needed ? "checked" : "") />
+                                        }
+                                    </td>
+                                    <td class="permmap-fn">
+                                        @if (!string.IsNullOrWhiteSpace(row.Entity))
+                                        {
+                                            <span class="notifmap-entity">@row.Entity</span>
+                                        }
+                                        <span class="notifmap-name">@row.Event</span>
+                                        @if (!string.IsNullOrWhiteSpace(row.Trigger))
+                                        {
+                                            <span class="notifmap-trigger">khi @row.Trigger</span>
+                                        }
+                                    </td>
+                                    @* Hai ô chọn dùng markup .ms-combo dùng chung của app; phần điều khiển
+                                       (mở/đóng, cập nhật nhãn) ở requirements.js — xem recipientPicker, bản
+                                       này phải khớp đúng nó, lệch nhau thì người dùng rà một bảng rồi F5 và
+                                       thấy một bảng khác. *@
+                                    @foreach (var kind in new[] { "to", "cc" })
+                                    {
+                                        var chosen = kind == "to" ? row.To : row.Cc;
+                                        <td>
+                                            <div class="ms-combo notifmap-pick" data-kind="@kind">
+                                                <button type="button" class="ms-combo-trigger" aria-label="@(kind == "to" ? "Người nhận chính" : "Người đồng gửi") của @row.Event">
+                                                    <span class="ms-combo-trigger-main">
+                                                        <span class="ms-combo-text @(chosen.Count == 0 ? "is-placeholder" : "")">
+                                                            @(chosen.Count > 0 ? string.Join(", ", chosen) : (kind == "to" ? "Chọn người nhận" : "Không đồng gửi"))
+                                                        </span>
+                                                    </span>
+                                                    <span class="ms-combo-caret">▾</span>
+                                                </button>
+                                                <div class="ms-combo-panel" hidden>
+                                                    <ul class="ms-combo-list">
+                                                        @foreach (var option in recipientOptions)
+                                                        {
+                                                            <li class="ms-combo-option @(chosen.Contains(option) ? "selected" : "")">
+                                                                <label class="ms-combo-checkbox">
+                                                                    <input type="checkbox" value="@option" @(chosen.Contains(option) ? "checked" : "") />
+                                                                    <span class="ms-combo-box"></span>
+                                                                    <span class="ms-combo-option-text">@option</span>
+                                                                </label>
+                                                            </li>
+                                                        }
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    }
+                                    <td class="entitymap-delcell"></td>
+                                </tr>
+                            }
+                            @* Nửa "NHẮC NHỞ" của nhóm không phải chuyển trạng thái nào ("trước hạn 3 ngày"),
+                               nên không có nút này thì nó biến mất trong im lặng ngay tại bảng sinh ra để
+                               chốt nó. Dòng thêm ra mang cờ addedByUser để đi qua chốt chặn "sự kiện bịa" ở
+                               server — chốt chặn đó dựng để chặn model, không phải để chặn người dùng. *@
+                            <tr class="notifmap-addrow">
+                                <td colspan="5"><button type="button" class="entitymap-add notifmap-add">+ thêm lời nhắc</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="permmap-bar">
+                        <button type="button" class="btn primary" id="notificationMapSendBtn">Gửi bảng thông báo</button>
+                        <div class="permmap-hint">
+                            Người nhận là quan hệ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") hoặc cả một
+                            vai trò ("Toàn bộ …" — nghĩa là MỌI người mang vai đó đều nhận email).
+                        </div>
+                        <div class="permmap-msg" id="notificationMapMsg"></div>
+                    </div>
+                }
+            </div>
+
+            @* BẢNG PHÂN QUYỀN — nhóm «Phân quyền theo nghiệp vụ» là một trong HAI nhóm không được chốt bằng câu
                hỏi. Hỏi "mỗi vai trò được xem và làm những gì?" là bắt người dùng nghiệp vụ tự dựng cả ma
                trận trong đầu, nên câu trả lời thật gần như luôn là "cứ vậy đã, có gì tôi bổ sung sau" — rồi
                BA tự soạn phương án và một chip "Đồng ý" đóng dấu [RÕ] cho cả nhóm, khóa luôn đường hỏi lại.

@@ -143,6 +143,18 @@ public class RequirementCoverageService
             sb.AppendLine(confirmedMatrix);
         }
 
+        // BẢNG THÔNG BÁO đã chốt — nguồn bằng chứng RIÊNG của dòng «Thông báo / nhắc nhở», cùng LUẬT MỘT
+        // CHIỀU với bảng phân quyền ngay trên: nhóm này cũng không còn được hỏi bằng câu hỏi, nên không có
+        // khối này thì không có gì để distiller chấm [RÕ]. Khối tự chở phần "còn trống người nhận" nên một
+        // bảng gửi đi mà bỏ dở vẫn chỉ lên [MỘT PHẦN] — xem NotificationMapBuilder.RenderConfirmedBlock.
+        var confirmedNotifications = NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap);
+        if (!string.IsNullOrWhiteSpace(confirmedNotifications))
+        {
+            sb.AppendLine();
+            sb.AppendLine("## Bảng thông báo (người dùng đã chốt từng sự kiện — bằng chứng cho dòng «Thông báo / nhắc nhở»)");
+            sb.AppendLine(confirmedNotifications);
+        }
+
         // BA BẢNG CHỐT còn lại, cùng vai trò bằng chứng nhưng KHÔNG cùng luật: dòng phân quyền ở trên có
         // luật một chiều "chưa có bảng ⇒ không bao giờ [RÕ]", ba bảng này thì KHÔNG — chúng chỉ xác nhận
         // lại thứ hội thoại đã trả lời. Áp luật một chiều cho chúng là dựng một vòng khóa kín: cổng bày
@@ -152,7 +164,7 @@ public class RequirementCoverageService
         AppendTableEvidence(sb, ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
             "## Bảng màn hình (người dùng đã chốt phạm vi màn hình)");
         AppendTableEvidence(sb, EntityMapBuilder.RenderConfirmedBlock(project.EntityMap),
-            "## Bảng đối tượng nghiệp vụ (người dùng đã rà — bằng chứng cho «Dữ liệu / danh mục chính», «Vòng đời & trạng thái» và «Thông báo / nhắc nhở»)");
+            "## Bảng đối tượng nghiệp vụ (người dùng đã rà — bằng chứng cho «Dữ liệu / danh mục chính» và «Vòng đời & trạng thái»)");
 
         var messages = new List<ChatMessage>
         {

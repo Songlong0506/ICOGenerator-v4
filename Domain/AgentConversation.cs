@@ -51,10 +51,11 @@ public class AgentConversation
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? PermissionMatrix { get; set; }
 
-    // JSON array (chuỗi) BA BẢNG CHỐT còn lại của buổi phỏng vấn, mỗi bảng ở đúng lượt BA bày nó ra:
+    // JSON array (chuỗi) BỐN BẢNG CHỐT còn lại của buổi phỏng vấn, mỗi bảng ở đúng lượt BA bày nó ra:
     // FlowMap (FlowMapRow[] — luồng nghiệp vụ theo vai trò), ScreenScopeMap (ScreenScopeRow[] — màn hình
-    // dự kiến), EntityMap (EntityMapRow[] — đối tượng nghiệp vụ + vòng đời). null với mọi lượt khác.
-    // Ba cột riêng chứ không một cột chung: cùng khuôn với ColumnMap/PermissionMatrix, và một cột chung
+    // dự kiến), EntityMap (EntityMapRow[] — đối tượng nghiệp vụ + vòng đời), NotificationMap
+    // (NotificationMapRow[] — sự kiện × người nhận). null với mọi lượt khác.
+    // Bốn cột riêng chứ không một cột chung: cùng khuôn với ColumnMap/PermissionMatrix, và một cột chung
     // sẽ bắt mọi reader tự phân loại payload trước khi đọc được gì.
     // Lưu lại vì đúng hai lý do của cột ColumnMap: F5 giữa chừng mà bảng biến mất thì người dùng mất luôn
     // các dòng chưa sửa, và Message của lượt đó chỉ là câu dẫn — không có các cột này thì mọi reader
@@ -63,6 +64,7 @@ public class AgentConversation
     public string? FlowMap { get; set; }
     public string? ScreenScopeMap { get; set; }
     public string? EntityMap { get; set; }
+    public string? NotificationMap { get; set; }
 
     // JSON array (chuỗi) các bước sơ đồ luồng nghiệp vụ (FlowStep[]) — CHỈ có ở lượt BA mời bấm "Write
     // Requirement" để user xác nhận luồng trực quan trước khi tạo tài liệu. Null với các lượt thường.

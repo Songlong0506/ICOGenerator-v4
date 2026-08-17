@@ -2056,9 +2056,9 @@
 /* Như .colmap[hidden]: `hidden` thua mọi khai báo display của ta nên phải nói lại tường minh. */
 .permmap[hidden] { display: none; }
 
-/* ==== BA BẢNG CHỐT còn lại: LUỒNG · MÀN HÌNH · ĐỐI TƯỢNG ====
-   Dùng chung khung .permmap (nền, bảng, thanh nút, dấu ✓ của ô đã có bằng chứng) vì chúng là BỐN NHỊP của
-   cùng một cơ chế — người dùng nhận ra "lại một bảng để rà" ngay từ hình dạng, không phải học lại bốn
+/* ==== BỐN BẢNG CHỐT còn lại: LUỒNG · MÀN HÌNH · ĐỐI TƯỢNG · THÔNG BÁO ====
+   Dùng chung khung .permmap (nền, bảng, thanh nút, dấu ✓ của ô đã có bằng chứng) vì chúng là NĂM NHỊP của
+   cùng một cơ chế — người dùng nhận ra "lại một bảng để rà" ngay từ hình dạng, không phải học lại năm
    giao diện. Chỉ các ô riêng của từng bảng mới cần luật mới. */
 
 /* Bảng luồng/màn hình/đối tượng có nhiều ô TEXT hơn hẳn bảng phân quyền (vốn chủ yếu là dropdown), nên ô
@@ -2434,3 +2434,57 @@
 
 /* Đang sửa: ô nhập đổi viền để không ai gõ tiếp mà tưởng mình đang gửi lượt mới. */
 .chat-editing #messageInput { border-color: var(--bosch-blue, #2563eb); }
+
+
+/* ==== BẢNG THÔNG BÁO / NHẮC NHỞ ====
+   Bảng cuối cùng của buổi phỏng vấn. Hai cột người nhận là ô CHỌN NHIỀU dựng bằng markup .ms-combo dùng
+   chung (site.css) nên nó trông y hệt mọi dropdown khác của app; ở đây chỉ chỉnh những gì một ô trong
+   BẢNG cần mà một ô trong biểu mẫu không cần. */
+/* Năm cột phải LỌT trong khung chat: .permmap-table cuộn ngang được (bảng phân quyền cần thế), nhưng ở
+   đây cột CC là ô người dùng phải điền — nằm ngoài vùng nhìn thấy thì nó coi như không tồn tại, và bảng
+   gửi đi thiếu đúng phần "đồng gửi" mà bảng sinh ra để hỏi. Cột CC nuốt phần thừa để bảng không chừa một
+   khoảng trống bên phải, cùng luật với .permmap-th-cond. */
+.notifmap-th-event { width: 140px; min-width: 140px; }
+.notifmap-th-who { width: 150px; min-width: 150px; }
+.notifmap-th-cc { width: 150px; min-width: 150px; }
+
+/* Ô trong bảng thấp hơn hẳn ô trong biểu mẫu (min-height 46px của .ms-combo-trigger): một bảng hai chục
+   dòng mà mỗi dòng cao 46px thì phần người dùng phải rà không lọt nổi một màn hình. */
+.notifmap-pick { min-width: 0; }
+
+    .notifmap-pick .ms-combo-trigger {
+        min-height: 0;
+        padding: 5px 8px;
+        gap: 4px;
+        border-radius: 6px;
+        font-size: 12px;
+    }
+
+    .notifmap-pick .ms-combo-text { font-size: 12.5px; line-height: 1.4; white-space: normal; }
+    .notifmap-pick .ms-combo-option > .ms-combo-checkbox { padding: 7px 10px; }
+    .notifmap-pick .ms-combo-option-text { font-size: 12.5px; }
+
+    /* Panel bung ra phải ĐÈ LÊN các dòng dưới chứ không nong ô cao lên: nong ra thì cả bảng nhảy chỗ ngay
+       lúc người dùng đang so hai dòng cạnh nhau. */
+    .notifmap-pick .ms-combo-panel { min-width: 240px; max-width: 320px; }
+
+    /* Cột CC là cột CUỐI: panel rộng hơn ô nên neo trái sẽ đẩy nó tràn ra ngoài mép phải của khung chat.
+       Neo phải để nó bung vào trong bảng. */
+    .notifmap-pick[data-kind="cc"] .ms-combo-panel { left: auto; right: 0; }
+
+/* Cột sự kiện: tên đứng trên, đối tượng và thời điểm là dòng phụ nhỏ hơn — cùng lối với việc-của-màn ở
+   bảng màn hình. Ba mẩu này chỉ để ĐỌC (chúng phải khớp đúng bảng đối tượng đã chốt), nên chúng không phải
+   ô gõ; chỉ dòng NHẮC NHỞ người dùng tự thêm mới có ô gõ. */
+/* Ô sự kiện XUỐNG DÒNG được, khác luật nowrap chung của .permmap-table (cùng ngoại lệ với ba bảng kia):
+   dòng "khi …" thường dài hơn tên sự kiện, để nowrap thì một mình nó nong cột ra và đẩy cột CC — ô người
+   dùng phải điền — ra ngoài vùng nhìn thấy. */
+.notifmap-table .permmap-fn { display: flex; flex-direction: column; gap: 2px; white-space: normal; }
+.notifmap-entity { font-size: 11px; font-weight: 400; color: #6b7280; }
+.notifmap-name { font-size: 12.5px; font-weight: 600; color: #374151; }
+.notifmap-trigger { font-size: 11px; font-weight: 400; color: #6b7280; font-style: italic; }
+
+/* Dòng bị bỏ tích = KHÔNG gửi thông báo. Mờ đi cả hai ô chọn để trạng thái đó đọc được từ xa, giống cách
+   dòng bỏ tích của các bảng kia gạch ngang chữ. Vẫn bấm được: bỏ tích rồi tích lại là chuyện thường. */
+.notifmap-row:has(input[type="checkbox"].notifmap-check:not(:checked)) .notifmap-name,
+.notifmap-row:has(input[type="checkbox"].notifmap-check:not(:checked)) .notifmap-entity { color: #9aa3af; text-decoration: line-through; }
+.notifmap-row:has(input[type="checkbox"].notifmap-check:not(:checked)) .notifmap-pick { opacity: .45; }

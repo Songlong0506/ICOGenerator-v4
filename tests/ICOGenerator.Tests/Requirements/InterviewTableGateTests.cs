@@ -7,14 +7,16 @@ namespace ICOGenerator.Tests.Requirements;
 // Cổng chọn ĐÚNG MỘT bảng cho mỗi lượt chat. Ba điều phải giữ bằng test, và cả ba là những chỗ mà một lần
 // sửa vô ý sẽ làm hỏng cả buổi phỏng vấn chứ không chỉ một lượt:
 //
-//  1. THỨ TỰ là thứ tự phụ thuộc — luồng → màn hình → đối tượng → phân quyền. Bảng màn hình có ô "màn này
-//     phục vụ bước nào", và các DÒNG của bảng phân quyền chính là màn hình. Hỏi ngược là bày ra một bảng
-//     mà chính BA cũng chưa đủ dữ kiện để điền sẵn.
+//  1. THỨ TỰ là thứ tự phụ thuộc — luồng → màn hình → đối tượng → phân quyền → thông báo. Bảng màn hình
+//     có ô "màn này phục vụ bước nào", các DÒNG của bảng phân quyền chính là màn hình, và bảng thông báo
+//     vay cả hai chiều (dòng = chuyển trạng thái của bảng đối tượng, mục chọn = vai trò của bảng phân
+//     quyền). Hỏi ngược là bày ra một bảng mà chính BA cũng chưa đủ dữ kiện để điền sẵn.
 //  2. KHÔNG BAO GIỜ hai bảng cùng lượt: hai khối "## LƯỢT NÀY:" là hai mệnh lệnh chọi nhau.
-//  3. KHÔNG KHÓA CHÉO. Đây là cái bẫy đắt nhất: PermissionMatrixGate phải bỏ qua chính dòng phân quyền vì
-//     dòng đó chỉ [RÕ] sau khi bảng chốt. Nếu ba bảng mới cũng được cho luật "chưa có bảng ⇒ không bao
-//     giờ [RÕ]" thì cổng (đòi nhóm [RÕ]) và bản đồ (đòi có bảng) khóa chặt nhau. Test dưới đây chốt rằng
-//     khi cổng phân quyền mở thì cả ba cổng kia cũng mở được — tức chúng luôn được hỏi TRƯỚC nó.
+//  3. KHÔNG KHÓA CHÉO. Đây là cái bẫy đắt nhất: PermissionMatrixGate phải bỏ qua CẢ HAI dòng chốt-bằng-bảng
+//     (phân quyền và thông báo) vì chúng chỉ [RÕ] sau khi bảng của chúng chốt. Nếu ba bảng giữa cũng được
+//     cho luật "chưa có bảng ⇒ không bao giờ [RÕ]" thì cổng (đòi nhóm [RÕ]) và bản đồ (đòi có bảng) khóa
+//     chặt nhau. Test dưới đây chốt rằng khi cổng phân quyền mở thì cả ba cổng kia cũng mở được — tức
+//     chúng luôn được hỏi TRƯỚC nó — và rằng nhóm thông báo ở [CHƯA HỎI] KHÔNG chặn cổng nào.
 public class InterviewTableGateTests
 {
     private static readonly List<string> Scope = new() { "Màn hình Training Plan" };
@@ -40,7 +42,8 @@ public class InterviewTableGateTests
         string? flowMap = null,
         string? screenScope = null,
         string? entityMap = null,
-        string? permissionMatrix = null)
+        string? permissionMatrix = null,
+        string? notificationMap = null)
         => new()
         {
             RequirementCoverageMap = coverage,
@@ -50,7 +53,8 @@ public class InterviewTableGateTests
             FlowMap = flowMap,
             ScreenScopeMap = screenScope,
             EntityMap = entityMap,
-            PermissionMatrix = permissionMatrix
+            PermissionMatrix = permissionMatrix,
+            NotificationMap = notificationMap
         };
 
     private const string ConfirmedFlow = """
@@ -66,10 +70,16 @@ public class InterviewTableGateTests
     private const string ConfirmedEntities = """
         [{"entity":"Kế hoạch đào tạo","description":"Kế hoạch lớp học theo quý",
           "fields":[{"name":"Quý","meaning":"Quý áp dụng","used":true}],
-          "states":[{"state":"Nháp","entryCondition":"vừa tạo","notify":""},
-                    {"state":"Đã duyệt","entryCondition":"HOD duyệt","notify":"HR Assistant"}],
+          "states":[{"state":"Nháp","entryCondition":"vừa tạo"},
+                    {"state":"Đã duyệt","entryCondition":"HOD duyệt"}],
           "included":true}]
         """;
+
+    private const string ConfirmedPermissions =
+        """[{"screen":"Màn hình Training Plan","function":"Xem","grants":[{"role":"HOD HR","scope":"tất cả"}]}]""";
+
+    private const string ConfirmedNotifications =
+        """[{"entity":"Kế hoạch đào tạo","event":"Đã duyệt","to":["Người tạo"],"needed":true}]""";
 
     // ==== THỨ TỰ ====
 
@@ -93,14 +103,26 @@ public class InterviewTableGateTests
             InterviewTableGate.Select(ProjectWith(flowMap: ConfirmedFlow, screenScope: ConfirmedScreens)));
     }
 
-    // Bảng phân quyền là cổng CUỐI CÙNG — nó cũng là cổng duy nhất mở nút "Write Requirement" (dòng phân
-    // quyền chỉ [RÕ] khi bảng chốt), nên không có đường nào soạn tài liệu mà bỏ qua ba bảng trước.
+    // Bảng phân quyền là cổng ÁP CHÓT. Dòng phân quyền chỉ [RÕ] khi bảng chốt, nên không có đường nào
+    // soạn tài liệu mà bỏ qua ba bảng trước.
     [Fact]
-    public void Select_AsksPermissionMatrixLast()
+    public void Select_AsksPermissionMatrixAfterTheEntityMap()
     {
         Assert.Equal(InterviewTableKind.PermissionMatrix,
             InterviewTableGate.Select(ProjectWith(
                 flowMap: ConfirmedFlow, screenScope: ConfirmedScreens, entityMap: ConfirmedEntities)));
+    }
+
+    // Bảng THÔNG BÁO là cổng cuối cùng, và nó xét theo BẢNG PHÂN QUYỀN ĐÃ CHỐT chứ không theo thứ tự ưu
+    // tiên: một lượt bày bảng phân quyền hỏng không được phép để bảng này chen lên trước với danh sách vai
+    // trò rỗng.
+    [Fact]
+    public void Select_AsksNotificationMapLast()
+    {
+        Assert.Equal(InterviewTableKind.NotificationMap,
+            InterviewTableGate.Select(ProjectWith(
+                flowMap: ConfirmedFlow, screenScope: ConfirmedScreens, entityMap: ConfirmedEntities,
+                permissionMatrix: ConfirmedPermissions)));
     }
 
     [Fact]
@@ -109,7 +131,31 @@ public class InterviewTableGateTests
         Assert.Equal(InterviewTableKind.None,
             InterviewTableGate.Select(ProjectWith(
                 flowMap: ConfirmedFlow, screenScope: ConfirmedScreens, entityMap: ConfirmedEntities,
-                permissionMatrix: """[{"screen":"Màn hình Training Plan","function":"Xem","grants":[{"role":"HOD HR","scope":"tất cả"}]}]""")));
+                permissionMatrix: ConfirmedPermissions, notificationMap: ConfirmedNotifications)));
+    }
+
+    // Dự án KHÔNG có vòng đời trạng thái nào (ứng dụng danh mục thuần): không dòng nào gieo được ⇒ bảng
+    // này không bao giờ bày ra, và nhóm «Thông báo / nhắc nhở» quay về đường hỏi bằng câu hỏi. Thiếu lối
+    // thoát này thì cả buổi kẹt: không bảng nào bày, không câu hỏi nào được phép, nút "Write Requirement"
+    // không bao giờ sáng.
+    [Fact]
+    public void NotificationMapGate_StaysClosedWithoutAnyLifecycleState()
+    {
+        var catalogOnly = """
+            [{"entity":"Khóa học","description":"Danh mục khóa học",
+              "fields":[{"name":"Tên khóa","meaning":"Tên hiển thị","used":true}],
+              "states":[],"included":true}]
+            """;
+
+        Assert.False(NotificationMapGate.ShouldAsk(null, ConfirmedPermissions, catalogOnly));
+    }
+
+    // …và nó cũng đóng khi bảng phân quyền chưa chốt: không có bảng đó thì danh sách người nhận chỉ còn
+    // bốn mục quan hệ, thiếu hẳn phần "Toàn bộ <vai>".
+    [Fact]
+    public void NotificationMapGate_StaysClosedUntilPermissionsAreConfirmed()
+    {
+        Assert.False(NotificationMapGate.ShouldAsk(null, null, ConfirmedEntities));
     }
 
     // ==== KHÔNG BAO GIỜ HAI BẢNG CÙNG LƯỢT ====
@@ -170,28 +216,31 @@ public class InterviewTableGateTests
         Assert.False(ScreenScopeGate.ShouldAsk(EverythingClear, null, new List<string>()));
     }
 
-    // Bảng đối tượng có cột "báo cho ai" ở từng chuyển trạng thái — chưa ai chạm tới nhóm thông báo thì cả
-    // cột đó là phỏng đoán.
+    // BẤT BIẾN CHỐNG KHÓA CHÉO của chuỗi hai bảng cuối. Nhóm «Thông báo / nhắc nhở» không còn được hỏi
+    // bằng câu hỏi nên nó nằm ở [CHƯA HỎI] suốt buổi; nếu cổng đối tượng vẫn đòi nhóm đó chạm tới thì cả
+    // ba khóa nhau — bảng đối tượng chờ nhóm thông báo, nhóm thông báo chờ bảng thông báo, bảng thông báo
+    // chờ bảng phân quyền (mà cổng phân quyền lại chờ bảng đối tượng qua chuỗi ưu tiên).
     [Fact]
-    public void EntityMapGate_StaysClosedWhileNotificationsAreUnasked()
+    public void EntityMapGate_OpensWhileNotificationsAreStillUnasked()
     {
         var coverage = EverythingClear.Replace(
             "- Thông báo / nhắc nhở: [RÕ] Báo HOD khi submit. {nguồn: \"gửi mail cho HOD\"}",
             "- Thông báo / nhắc nhở: [CHƯA HỎI]");
 
-        Assert.False(EntityMapGate.ShouldAsk(coverage, null));
+        Assert.True(EntityMapGate.ShouldAsk(coverage, null));
     }
 
-    // Nhóm bị đánh [KHÔNG ÁP DỤNG] là đã CHẠM TỚI, không phải còn treo: dự án không gửi thông báo cho ai
-    // vẫn phải chốt được bảng đối tượng, nếu không cổng đứng im vĩnh viễn.
+    // Nửa còn lại của cùng bất biến: cổng phân quyền phải BỎ QUA dòng thông báo khi xét "cuối buổi", nếu
+    // không nó đứng im chờ một nhóm chỉ [RÕ] sau bảng của chính nó — mà bảng ấy lại đứng sau bảng phân
+    // quyền.
     [Fact]
-    public void EntityMapGate_TreatsNotApplicableAsSettled()
+    public void PermissionMatrixGate_OpensWhileNotificationsAreStillUnasked()
     {
         var coverage = EverythingClear.Replace(
             "- Thông báo / nhắc nhở: [RÕ] Báo HOD khi submit. {nguồn: \"gửi mail cho HOD\"}",
-            "- Thông báo / nhắc nhở: [KHÔNG ÁP DỤNG] Không gửi thông báo. {nguồn: \"không cần báo ai\"}");
+            "- Thông báo / nhắc nhở: [CHƯA HỎI]");
 
-        Assert.True(EntityMapGate.ShouldAsk(coverage, null));
+        Assert.True(PermissionMatrixGate.ShouldAsk(coverage, null, Scope));
     }
 
     // Bản đồ trống (dự án vừa tạo, hoặc vừa "New Chat") ⇒ mọi cổng đóng. Fail-closed: bày một bảng dựng

@@ -51,10 +51,15 @@ public class BAChatReply
     //
     //  • FlowMap — các luồng nghiệp vụ theo vai trò (luồng chính + 1–2 ngoại lệ), mỗi luồng là chuỗi bước.
     //  • ScreenScopeMap — các màn hình dự kiến, kèm bước luồng mà mỗi màn phục vụ.
-    //  • EntityMap — các đối tượng nghiệp vụ: thông tin cần lưu + vòng đời trạng thái + ai được báo.
+    //  • EntityMap — các đối tượng nghiệp vụ: thông tin cần lưu + vòng đời trạng thái.
+    //  • NotificationMap — bảng CUỐI CÙNG: mỗi sự kiện một dòng, ai nhận email (To) và ai đồng gửi (CC).
+    //    Như nhóm phân quyền, nhóm «Thông báo / nhắc nhở» KHÔNG được hỏi bằng câu hỏi nữa — xem
+    //    NotificationMapRow cho lý do đầy đủ.
     public List<FlowMapRow> FlowMap { get; set; } = new();
 
     public List<ScreenScopeRow> ScreenScopeMap { get; set; } = new();
 
     public List<EntityMapRow> EntityMap { get; set; } = new();
+
+    public List<NotificationMapRow> NotificationMap { get; set; } = new();
 }

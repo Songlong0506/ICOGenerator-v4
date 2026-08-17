@@ -111,14 +111,23 @@ public class Project
     //    nó phục vụ. Vá một lỗ hổng đang mở: các DÒNG của bảng phân quyền lấy từ PlannedScope, một danh
     //    sách do LLM chắt mà người dùng chưa bao giờ nhìn thấy (panel sidebar đã gỡ) — tức cả phần phân
     //    quyền đang đứng trên một nền chưa ai duyệt.
-    //  • EntityMap (EntityMapRow[]) — các ĐỐI TƯỢNG nghiệp vụ: thông tin cần lưu + vòng đời trạng thái +
-    //    ai được báo ở mỗi chuyển trạng thái. Đi vào "## 8. Data Model Summary" của spec, mục mà bước sinh
-    //    spec vốn phải TỰ NGHĨ RA từ văn xuôi Product Brief.
+    //  • EntityMap (EntityMapRow[]) — các ĐỐI TƯỢNG nghiệp vụ: thông tin cần lưu + vòng đời trạng thái.
+    //    Đi vào "## 8. Data Model Summary" của spec, mục mà bước sinh spec vốn phải TỰ NGHĨ RA từ văn xuôi
+    //    Product Brief. Vòng đời của nó còn là nguồn DÒNG của bảng thông báo ngay dưới.
     //
     // Thứ tự bày là TẤT ĐỊNH và mỗi lượt chỉ có ĐÚNG MỘT bảng — xem InterviewTableGate.
     public string? FlowMap { get; set; }
     public string? ScreenScopeMap { get; set; }
     public string? EntityMap { get; set; }
+    // BẢNG THÔNG BÁO / NHẮC NHỞ (JSON NotificationMapRow[]) — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự
+    // kiện một dòng, người nhận chính (To) và đồng gửi (CC) chọn từ một danh sách đóng. null = chưa chốt.
+    //
+    // Cùng luật KHẮT KHE MỘT CHIỀU với PermissionMatrix, và vì cùng lý do: nhóm «Thông báo / nhắc nhở»
+    // KHÔNG được hỏi bằng câu hỏi nữa nên nó không bao giờ [RÕ] khi chưa có bảng. Chuẩn [RÕ] của nhóm đòi
+    // hai vế GHÉP ĐƯỢC với nhau (mỗi sự kiện biết người nhận của riêng nó), trong khi câu hỏi tự nhiên lại
+    // tách chúng làm hai câu rời — người dùng bấm bốn chip vai trò là tài liệu đóng băng thành "mọi thay
+    // đổi trạng thái gửi cho cả bốn nhóm". Xem NotificationMapBuilder + NotificationMapGate.
+    public string? NotificationMap { get; set; }
     // CỔNG XÁC NHẬN GIẢ ĐỊNH (giữa "sinh AI Design Spec" và "dựng POC"). Spec được phép tự đưa giả định
     // (mục "## 12. Assumptions") cho những điều Product Brief không nói; trước đây các giả định đó đi
     // THẲNG vào POC và user chỉ phát hiện sai sau khi ngồi chờ cả lượt dựng POC. Nay spec sinh xong mà

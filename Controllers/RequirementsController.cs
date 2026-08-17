@@ -44,6 +44,7 @@ public class RequirementsController : Controller
     private readonly ConfirmFlowMapUseCase _confirmFlowMapUseCase;
     private readonly ConfirmScreenScopeUseCase _confirmScreenScopeUseCase;
     private readonly ConfirmEntityMapUseCase _confirmEntityMapUseCase;
+    private readonly ConfirmNotificationMapUseCase _confirmNotificationMapUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly ILogger<RequirementsController> _logger;
 
@@ -84,6 +85,7 @@ public class RequirementsController : Controller
        ConfirmFlowMapUseCase confirmFlowMapUseCase,
        ConfirmScreenScopeUseCase confirmScreenScopeUseCase,
        ConfirmEntityMapUseCase confirmEntityMapUseCase,
+       ConfirmNotificationMapUseCase confirmNotificationMapUseCase,
        BAChatTurnTracker chatTurnTracker,
        ILogger<RequirementsController> logger)
     {
@@ -115,6 +117,7 @@ public class RequirementsController : Controller
         _confirmFlowMapUseCase = confirmFlowMapUseCase;
         _confirmScreenScopeUseCase = confirmScreenScopeUseCase;
         _confirmEntityMapUseCase = confirmEntityMapUseCase;
+        _confirmNotificationMapUseCase = confirmNotificationMapUseCase;
         _chatTurnTracker = chatTurnTracker;
         _logger = logger;
     }
@@ -434,13 +437,26 @@ public class RequirementsController : Controller
                                 states = r.States.Select(s => new
                                 {
                                     state = s.State,
-                                    entryCondition = s.EntryCondition,
-                                    notify = s.Notify
+                                    entryCondition = s.EntryCondition
                                 }),
                                 included = r.Included,
                                 locked = r.Locked,
                                 evidence = r.Evidence
-                            })
+                            }),
+                            // BẢNG THÔNG BÁO — bảng cuối cùng. Kèm luôn danh sách người nhận vì client
+                            // phải dựng đúng bộ tùy chọn mà server sẽ đối chiếu lúc gửi lên.
+                            notificationMap = result.NotificationMap.Select(r => new
+                            {
+                                entity = r.Entity,
+                                @event = r.Event,
+                                trigger = r.Trigger,
+                                to = r.To,
+                                cc = r.Cc,
+                                needed = r.Needed,
+                                locked = r.Locked,
+                                evidence = r.Evidence
+                            }),
+                            recipientOptions = result.RecipientOptions
                         }
                     };
                 }
@@ -655,7 +671,8 @@ public class RequirementsController : Controller
             : Json(new { ok = false, error = "Không lưu được bảng màn hình — tải lại trang rồi thử lại nhé." });
     }
 
-    // BẢNG ĐỐI TƯỢNG NGHIỆP VỤ — thông tin cần lưu + vòng đời trạng thái + ai được báo ở mỗi chuyển trạng thái.
+    // BẢNG ĐỐI TƯỢNG NGHIỆP VỤ — thông tin cần lưu + vòng đời trạng thái. Vòng đời đó là nguồn DÒNG của
+    // bảng thông báo ngay dưới.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
@@ -666,6 +683,21 @@ public class RequirementsController : Controller
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
             : Json(new { ok = false, error = "Không lưu được bảng đối tượng — tải lại trang rồi thử lại nhé." });
+    }
+
+    // BẢNG THÔNG BÁO / NHẮC NHỞ — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một dòng, người nhận
+    // chính (To) và đồng gửi (CC) chọn từ một danh sách đóng. Như nhóm phân quyền, nhóm «Thông báo / nhắc
+    // nhở» không được hỏi bằng câu hỏi nữa — xem NotificationMapGate.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
+    public async Task<IActionResult> ConfirmNotificationMap(Guid projectId, [FromForm] string notificationsJson)
+    {
+        var result = await _confirmNotificationMapUseCase.ExecuteAsync(projectId, notificationsJson, HttpContext.RequestAborted);
+        return result.Rows > 0
+            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
+            : Json(new { ok = false, error = "Không lưu được bảng thông báo — tải lại trang rồi thử lại nhé." });
     }
 
     // CỔNG SOÁT MÂU THUẪN — bước 1: chạy ngay trước khi soạn tài liệu (nút "Write Requirement" gọi trước

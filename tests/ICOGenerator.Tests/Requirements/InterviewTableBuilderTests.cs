@@ -561,10 +561,11 @@ public class InterviewTableBuilderTests
         Assert.Contains("bảng cột", rows.Single().Fields.Single().Meaning);
     }
 
-    // Ô "báo cho ai" để trống là một QUYẾT ĐỊNH (không gửi cho ai), không phải chỗ còn thiếu — và khối
-    // ngữ cảnh phải nói ra điều đó, vì mặc định im lặng của các tầng sau là gửi cho tất cả.
+    // Người nhận thông báo đã chuyển hẳn sang bảng THÔNG BÁO, nên khối ngữ cảnh của bảng đối tượng không
+    // được nhắc tới nó nữa — kể cả với dữ liệu cũ còn mang ô `notify`. Hai khối cùng nói về một quyết định
+    // là cách chắc chắn nhất để BA hỏi lại thứ người dùng vừa chốt ở bảng kia.
     [Fact]
-    public void EntityMap_ConfirmedBlockSpellsOutSilentTransitions()
+    public void EntityMap_ConfirmedBlockNoLongerMentionsRecipients()
     {
         var rows = EntityMapBuilder.Sanitize(new[]
         {
@@ -575,7 +576,7 @@ public class InterviewTableBuilderTests
                 Fields = new List<EntityFieldNote> { new() { Name = "Người gửi", Used = true } },
                 States = new List<EntityLifecycleState>
                 {
-                    new() { State = "Nháp", EntryCondition = "vừa tạo", Notify = "" },
+                    new() { State = "Nháp", EntryCondition = "vừa tạo" },
                     new() { State = "Đã duyệt", EntryCondition = "quản lý duyệt", Notify = "người gửi" }
                 }
             }
@@ -583,8 +584,8 @@ public class InterviewTableBuilderTests
 
         var block = EntityMapBuilder.RenderConfirmedBlock(System.Text.Json.JsonSerializer.Serialize(rows));
 
-        Assert.Contains("không báo cho ai", block);
-        Assert.Contains("báo cho người gửi", block);
+        Assert.Contains("\"Đã duyệt\" khi quản lý duyệt", block);
+        Assert.DoesNotContain("báo cho", block);
     }
 
     // ==== BẢNG ĐỐI TƯỢNG: dòng NGƯỜI DÙNG TỰ THÊM ====
