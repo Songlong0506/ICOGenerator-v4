@@ -266,7 +266,7 @@ Bắt buộc với bảng này: mục "## 8. Data Model Summary" phải dựng t
     }
 
     // Khối "bảng thông báo đã chốt": mỗi sự kiện một dòng, người nhận chính (To) và đồng gửi (CC) do người
-    // dùng tự chọn từ một danh sách đóng. Rỗng thì biến mất (dự án cũ, hoặc chưa chốt bảng).
+    // dùng tự chọn từ danh sách người nhận của dự án. Rỗng thì biến mất (dự án cũ, hoặc chưa chốt bảng).
     //
     // Đây là đường DUY NHẤT để "ai được báo khi nào" tới được spec ở dạng máy đọc được. Không có nó, thông
     // báo tan vào văn xuôi của Product Brief và bước sinh spec tự viết ra một quy tắc gửi mail — mà mặc

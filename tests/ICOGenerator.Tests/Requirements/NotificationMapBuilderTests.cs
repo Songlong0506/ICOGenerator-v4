@@ -10,8 +10,8 @@ namespace ICOGenerator.Tests.Requirements;
 //
 //  • DÒNG do cơ chế gieo từ bảng đối tượng, không do model liệt kê — sự kiện model quên nêu vẫn phải có
 //    mặt, còn sự kiện model nghĩ thêm thì phải có TRÍCH DẪN mới đi qua;
-//  • NGƯỜI NHẬN phải nằm trong danh sách chọn đóng: một người nhận bịa đi thẳng vào spec rồi vào POC mà
-//    không ai đọc lại bảng nhận ra được;
+//  • NGƯỜI NHẬN phải nằm trong DANH SÁCH NGƯỜI NHẬN của dự án — danh sách đó người dùng sửa được, model
+//    thì không: một người nhận model bịa đi thẳng vào spec rồi vào POC mà không ai đọc lại bảng nhận ra;
 //  • cờ "Cần" ở lượt BÀY BẢNG luôn TÍCH SẴN bất kể model trả gì;
 //  • BẤT BIẾN của bảng đã lưu: một dòng chỉ có HAI trạng thái — bỏ tích ("không gửi") hoặc còn tích KÈM
 //    người nhận. Cả hai đều phải được GỌI TÊN ở khối ngữ cảnh và tin nhắn gửi đi, vì mặc định im lặng của
@@ -30,7 +30,7 @@ public class NotificationMapBuilderTests
         """;
 
     private static readonly List<string> Options =
-        NotificationMapBuilder.RecipientOptions(new List<string> { "Manager", "HRBP" });
+        NotificationMapBuilder.RecipientOptions(null, new List<string> { "Manager", "HRBP" });
 
     private static List<NotificationMapRow> Seeds() => NotificationMapBuilder.SeedRows(ConfirmedEntities);
 
@@ -70,7 +70,7 @@ public class NotificationMapBuilderTests
 
         var rows = NotificationMapBuilder.Build(null, NotificationMapBuilder.SeedRows(legacy), Options);
 
-        Assert.Equal(new[] { "Toàn bộ Manager" }, rows[0].To);
+        Assert.Equal(new[] { "Manager" }, rows[0].To);
         Assert.Empty(rows[1].To);
     }
 
@@ -117,7 +117,7 @@ public class NotificationMapBuilderTests
                 To = { "Người được phân công" },
                 Evidence = "quá 3 ngày chưa duyệt thì nhắc lại"
             },
-            new NotificationMapRow { Event = "Nhắc hàng tuần", To = { "Toàn bộ HRBP" } }
+            new NotificationMapRow { Event = "Nhắc hàng tuần", To = { "HRBP" } }
         }, Seeds(), Options);
 
         Assert.Equal(4, rows.Count);
@@ -160,29 +160,54 @@ public class NotificationMapBuilderTests
         Assert.False(row.Locked);
     }
 
-    // ==== NGƯỜI NHẬN: danh sách chọn ĐÓNG ====
+    // ==== NGƯỜI NHẬN: DANH SÁCH của dự án ====
 
+    // Bản GIEO cho dự án chưa từng sửa danh sách: bốn quan hệ trước (ca thường gặp), rồi các vai trò của
+    // bảng phân quyền đã chốt, nguyên tên.
     [Fact]
-    public void RecipientOptions_PutsRelationsFirstThenWholeRoles()
+    public void RecipientOptions_SeedsRelationsFirstThenTheConfirmedRoles()
     {
         Assert.Equal(new[]
         {
             "Người tạo", "Người được phân công", "Quản lý trực tiếp của người tạo", "HOD của đơn vị liên quan",
-            "Toàn bộ Manager", "Toàn bộ HRBP"
+            "Manager", "HRBP"
         }, Options);
     }
 
-    // Model hay viết tên vai trần ("Manager") thay vì mục đầy đủ. Kéo về đúng mục thay vì bỏ — nhưng chỉ
-    // theo đúng phần TÊN VAI, không đoán mò.
+    // Bộ ĐÃ LƯU thắng bản gieo, kể cả khi bảng phân quyền sau đó đổi: nó là thứ người dùng đã tự tay rà
+    // (thêm "Ban giám đốc", xóa các vai họ không gửi email), còn bản gieo chỉ là phỏng đoán.
     [Fact]
-    public void Build_SnapsABareRoleNameOntoTheWholeRoleOption()
+    public void RecipientOptions_PrefersTheSavedListOverTheSeed()
+    {
+        var options = NotificationMapBuilder.RecipientOptions(
+            """["Người tạo","Ban giám đốc"]""", new List<string> { "Manager", "HRBP" });
+
+        Assert.Equal(new[] { "Người tạo", "Ban giám đốc" }, options);
+    }
+
+    // Danh sách đến từ trình duyệt: bỏ mục rỗng và bỏ TRÙNG theo cùng phép so khớp mà MatchRecipient dùng —
+    // "HRBP" với " hrbp " là hai dòng khác nhau trên bảng nhưng cùng một mục lúc chọn, nên để cả hai lọt
+    // vào là dựng ra hai tùy chọn không phân biệt được mà cùng đích.
+    [Fact]
+    public void SanitizeRecipients_DropsBlanksAndCaseOnlyDuplicates()
+    {
+        var list = NotificationMapBuilder.SanitizeRecipients(
+            new[] { "Người tạo", "  ", " hrbp ", "HRBP", "Ban giám đốc" });
+
+        Assert.Equal(new[] { "Người tạo", "hrbp", "Ban giám đốc" }, list);
+    }
+
+    // Dự án đã chốt bảng từ bản CÓ tiền tố "Toàn bộ " mang giá trị cũ lên: nấc khớp chứa-nhau kéo nó về
+    // đúng mục vai trò trần thay vì bỏ sạch người nhận của cả bảng.
+    [Fact]
+    public void Build_SnapsALegacyWholeRoleValueOntoTheRoleOption()
     {
         var rows = NotificationMapBuilder.Build(new[]
         {
-            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", To = { "Manager" } }
+            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", To = { "Toàn bộ Manager" } }
         }, Seeds(), Options);
 
-        Assert.Equal(new[] { "Toàn bộ Manager" }, rows.Single(r => r.Event == "Đã duyệt").To);
+        Assert.Equal(new[] { "Manager" }, rows.Single(r => r.Event == "Đã duyệt").To);
     }
 
     // Người nhận không khớp mục nào bị BỎ. Ô hiện ít lựa chọn sẵn hơn thì người dùng tự chọn nốt; một
@@ -209,11 +234,11 @@ public class NotificationMapBuilderTests
                 Entity = "Đơn đăng ký",
                 Event = "Đã duyệt",
                 To = { "Người tạo" },
-                Cc = { "Người tạo", "Toàn bộ HRBP" }
+                Cc = { "Người tạo", "HRBP" }
             }
         }, Seeds(), Options);
 
-        Assert.Equal(new[] { "Toàn bộ HRBP" }, rows.Single(r => r.Event == "Đã duyệt").Cc);
+        Assert.Equal(new[] { "HRBP" }, rows.Single(r => r.Event == "Đã duyệt").Cc);
     }
 
     // ==== ĐƯỜNG GỬI ====
@@ -257,7 +282,7 @@ public class NotificationMapBuilderTests
                 Event = "Chờ duyệt",
                 Needed = false,
                 To = { "Người tạo" },
-                Cc = { "Toàn bộ HRBP" }
+                Cc = { "HRBP" }
             }
         }, Options);
 
@@ -330,14 +355,14 @@ public class NotificationMapBuilderTests
     {
         var rows = NotificationMapBuilder.Sanitize(new[]
         {
-            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", Needed = true, To = { "Người tạo" }, Cc = { "Toàn bộ HRBP" } },
+            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", Needed = true, To = { "Người tạo" }, Cc = { "HRBP" } },
             new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Chờ duyệt", Needed = false }
         }, Options);
 
         var message = NotificationMapBuilder.RenderUserMessage(rows);
 
         Assert.Contains("đây là các sự kiện cần gửi email và người nhận", message);
-        Assert.Contains("To: Người tạo; CC: Toàn bộ HRBP", message);
+        Assert.Contains("To: Người tạo; CC: HRBP", message);
         Assert.Contains("KHÔNG cần gửi thông báo", message);
         Assert.Contains("Chờ duyệt", message);
     }

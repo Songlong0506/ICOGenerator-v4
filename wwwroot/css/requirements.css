@@ -2567,6 +2567,15 @@
 .notifmap-th-who { width: 150px; min-width: 150px; }
 .notifmap-th-cc { width: 150px; min-width: 150px; }
 
+/* DANH SÁCH NGƯỜI NHẬN — bảng một cột đứng trên bảng thông báo, và là nguồn của mọi ô To/CC dưới nó. Hẹp
+   hơn hẳn bảng chính: một cột chữ kéo hết bề ngang khung chat trông như bảng chính thứ hai, trong khi việc
+   của nó chỉ là một danh sách ngắn để rà. */
+/* `fit-content` chứ không phải `auto`: .permmap-table là display:block, nên `auto` = trọn bề ngang khung
+   chat và khung viền chạy dài quá phần ô có chữ — trông như một cột bị hụt chứ không như một danh sách. */
+.notifrecip-table { width: fit-content; min-width: 260px; max-width: 420px; margin-bottom: 14px; }
+
+    .notifrecip-table .notifrecip-name { font-weight: 600; }
+
 /* Ô trong bảng thấp hơn hẳn ô trong biểu mẫu (min-height 46px của .ms-combo-trigger): một bảng hai chục
    dòng mà mỗi dòng cao 46px thì phần người dùng phải rà không lọt nổi một màn hình. */
 .notifmap-pick { min-width: 0; }

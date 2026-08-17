@@ -17,9 +17,20 @@ namespace ICOGenerator.Application.Requirements;
 /// </para>
 ///
 /// <para>
-/// Danh sách người nhận hợp lệ được dựng LẠI ở đây từ bảng phân quyền đã chốt chứ không lấy từ payload:
-/// server không tin bộ tùy chọn mà trình duyệt gửi kèm, kể cả khi chính server vừa render nó ra vài phút
-/// trước — nếu không thì một payload sửa tay đưa được người nhận bất kỳ vào tài liệu và vào POC.
+/// <b>Danh sách người nhận được LƯU CÙNG LƯỢT với bảng.</b> Nó là một bảng người dùng sửa trực tiếp (thêm /
+/// sửa chữ / xóa), nên nó phải tới server ở chính lượt gửi này: giữ nó ở riêng trình duyệt thì mọi mục
+/// người dùng tự thêm bị <c>NormalizeRecipients</c> bỏ sạch ngay lúc lưu — bảng hiện rõ tên người nhận ở
+/// từng dòng mà server lại trả về "còn N sự kiện chưa chọn người nhận", một ca không ai gỡ được. Bộ đối
+/// chiếu vì vậy là danh sách VỪA GỬI LÊN đã chuẩn hoá (<see cref="NotificationMapBuilder.SanitizeRecipients"/>)
+/// chứ không phải bộ tùy chọn thô trong payload, và nó được ghi xuống cột cùng một
+/// <c>SaveChangesAsync</c> với bảng — hai thứ lệch nhau thì lần mở lại nào cũng thấy một bảng chọn từ một
+/// danh sách khác.
+/// </para>
+///
+/// <para>
+/// Danh sách rỗng (payload cũ từ tab mở trước bản này, hoặc người dùng xóa sạch) KHÔNG được hiểu là "dự án
+/// không còn người nhận nào": nó rơi về đúng bộ mà lượt bày bảng đã dùng — cột đã lưu, hoặc bản gieo từ
+/// bảng phân quyền.
 /// </para>
 ///
 /// <para>
@@ -47,14 +58,21 @@ public class ConfirmNotificationMapUseCase
     /// </summary>
     public sealed record Result(int Rows, string Message, string Error = "");
 
-    public async Task<Result> ExecuteAsync(Guid projectId, string? notificationsJson, CancellationToken cancellationToken = default)
+    public async Task<Result> ExecuteAsync(
+        Guid projectId,
+        string? notificationsJson,
+        string? recipientsJson,
+        CancellationToken cancellationToken = default)
     {
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
         if (project == null)
             return new Result(0, string.Empty);
 
-        var options = NotificationMapBuilder.RecipientOptions(
-            PermissionMatrixBuilder.Roles(project.PermissionMatrix));
+        var options = NotificationMapBuilder.SanitizeRecipients(
+            NotificationMapBuilder.ParseRecipients(recipientsJson));
+        if (options.Count == 0)
+            options = NotificationMapBuilder.RecipientOptions(
+                project.NotificationRecipients, PermissionMatrixBuilder.Roles(project.PermissionMatrix));
 
         var rows = NotificationMapBuilder.Sanitize(NotificationMapBuilder.Parse(notificationsJson), options);
         if (rows.Count == 0)
@@ -68,6 +86,7 @@ public class ConfirmNotificationMapUseCase
                 + ". Anh/chị chọn người nhận, hoặc bỏ tích nếu sự kiện đó không cần gửi email, rồi gửi lại nhé.");
 
         project.NotificationMap = JsonSerializer.Serialize(rows);
+        project.NotificationRecipients = JsonSerializer.Serialize(options);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new Result(rows.Count, NotificationMapBuilder.RenderUserMessage(rows));

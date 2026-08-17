@@ -650,15 +650,20 @@ public class RequirementsController : Controller
     }
 
     // BẢNG THÔNG BÁO / NHẮC NHỞ — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một dòng, người nhận
-    // chính (To) và đồng gửi (CC) chọn từ một danh sách đóng. Như nhóm phân quyền, nhóm «Thông báo / nhắc
-    // nhở» không được hỏi bằng câu hỏi nữa — xem NotificationMapGate.
+    // chính (To) và đồng gửi (CC) chọn từ danh sách người nhận của dự án. Như nhóm phân quyền, nhóm «Thông
+    // báo / nhắc nhở» không được hỏi bằng câu hỏi nữa — xem NotificationMapGate.
+    //
+    // HAI payload trong MỘT lượt: `recipientsJson` là bảng "Danh sách người nhận" người dùng vừa sửa, và nó
+    // phải đi cùng chuyến với bảng — nó vừa là thứ được lưu, vừa là bộ mà server đối chiếu hai ô To/CC.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
     [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> ConfirmNotificationMap(Guid projectId, [FromForm] string notificationsJson)
+    public async Task<IActionResult> ConfirmNotificationMap(
+        Guid projectId, [FromForm] string notificationsJson, [FromForm] string? recipientsJson)
     {
-        var result = await _confirmNotificationMapUseCase.ExecuteAsync(projectId, notificationsJson, HttpContext.RequestAborted);
+        var result = await _confirmNotificationMapUseCase.ExecuteAsync(
+            projectId, notificationsJson, recipientsJson, HttpContext.RequestAborted);
         if (result.Rows > 0)
             return Json(new { ok = true, rows = result.Rows, message = result.Message });
 

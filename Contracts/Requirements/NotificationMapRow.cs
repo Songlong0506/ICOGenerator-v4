@@ -4,19 +4,27 @@ namespace ICOGenerator.Contracts.Requirements;
 /// NGƯỜI NHẬN một thông báo — vế mà một danh sách vai trò phẳng KHÔNG chở được.
 ///
 /// <para>
-/// Đây là chốt chặn của cả bảng thông báo. Câu trả lời thật của người dùng gần như luôn là một người có
-/// QUAN HỆ với bản ghi ("báo cho người gửi đơn", "báo cho sếp của người đó"), chứ không phải một vai trò:
-/// "Nhân viên" hiểu theo nghĩa vai trò là TOÀN BỘ nhân viên nhà máy. Ca thật đã ghi lại ở
+/// Câu trả lời thật của người dùng gần như luôn là một người có QUAN HỆ với bản ghi ("báo cho người gửi
+/// đơn", "báo cho sếp của người đó"), chứ không phải một vai trò. Ca thật đã ghi lại ở
 /// <c>requirement-coverage.v3.md</c>: BA hỏi "vai trò nào cần nhận email?", người dùng bấm bốn chip vai
 /// trò, và tài liệu đóng băng thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm" — mỗi lần một bản kế
-/// hoạch đổi trạng thái là cả nhà máy nhận email. Không ai nói thế, và không cổng nào bắt được nữa.
+/// hoạch đổi trạng thái là cả nhà máy nhận email. Vì vậy bốn mục QUAN HỆ ở đây luôn đứng ĐẦU danh sách:
+/// đó là ca thường gặp, và là hình dạng câu trả lời mà một hàng chip vai trò không bao giờ chở được.
 /// </para>
 ///
 /// <para>
-/// Nên danh sách chọn có HAI PHẦN, và phần nguy hiểm được GỌI ĐÚNG TÊN: bốn mục quan hệ ở đây (ca thường
-/// gặp), rồi mỗi vai trò đã chốt thành một mục "<c>Toàn bộ &lt;vai&gt;</c>". Chữ "toàn bộ" nằm ngay trên
-/// mặt tùy chọn, nên chọn nó là một quyết định có ý thức chứ không phải một cú bấm cho xong — đó là toàn
-/// bộ khác biệt giữa bảng này và hàng chip nó thay thế.
+/// Phần còn lại của danh sách do NGƯỜI DÙNG chốt: bảng "Danh sách người nhận" đứng ngay trên bảng thông
+/// báo cho thêm / sửa / xóa từng mục, và bộ mục đó được lưu ở
+/// <c>Project.NotificationRecipients</c> — xem <see cref="NotificationMapBuilder.SeedRecipients"/> cho bản
+/// gieo lần đầu và <see cref="NotificationMapBuilder.SanitizeRecipients"/> cho luật chuẩn hoá.
+/// </para>
+///
+/// <para>
+/// <b>Một mục KHÔNG bao giờ được suy rộng thành "mọi người mang vai đó".</b> Danh sách không còn tiền tố
+/// "Toàn bộ …", nên chữ trên mặt tùy chọn ("HRBP") tự nó không phân biệt được một người với cả nhóm —
+/// mọi tầng đọc sau (khối ngữ cảnh, prompt sinh spec, POC) phải hiểu đúng một điều: đây là tên người nhận
+/// mà người dùng tự viết ra, không phải một phép truy vấn theo vai trò. Tự mở rộng nó là dựng lại đúng ca
+/// "cả nhà máy nhận email" ở một tầng không ai soát.
 /// </para>
 /// </summary>
 public static class NotificationRecipient
@@ -33,14 +41,8 @@ public static class NotificationRecipient
     /// <summary>Trưởng đơn vị liên quan tới bản ghi (HOD của phòng/ban đứng tên).</summary>
     public const string OrgUnitHead = "HOD của đơn vị liên quan";
 
-    /// <summary>Bốn mục QUAN HỆ, luôn đứng đầu danh sách chọn vì đây là ca thường gặp.</summary>
+    /// <summary>Bốn mục QUAN HỆ, luôn đứng đầu danh sách gieo vì đây là ca thường gặp.</summary>
     public static readonly string[] Related = { Creator, Assignee, CreatorManager, OrgUnitHead };
-
-    /// <summary>Tiền tố của mục "cả vai trò" — xem ghi chú class.</summary>
-    public const string AllOfRolePrefix = "Toàn bộ ";
-
-    /// <summary>Mục "gửi cho MỌI người mang vai này".</summary>
-    public static string AllOfRole(string role) => AllOfRolePrefix + (role ?? string.Empty).Trim();
 }
 
 /// <summary>

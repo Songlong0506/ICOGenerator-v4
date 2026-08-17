@@ -152,7 +152,7 @@ tác trên từng dòng** thay vì một chip trả lời thay cho tất cả.
 | Màn hình | `ScreenScopeMap` | phạm vi màn hình, việc của từng màn, **các chức năng** trên màn (mỗi chức năng một dòng tích riêng) và **bước luồng** từng chức năng phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
 | Đối tượng nghiệp vụ | `EntityMap` | thông tin cần lưu + vòng đời trạng thái | `## 8. Data Model Summary` + `## 10. Business Rules` |
 | Phân quyền | `PermissionMatrix` | quyền CRUD theo màn hình, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + điều kiện lọc ở `## 9. API Expectations` |
-| Thông báo / nhắc nhở | `NotificationMap` | mỗi **sự kiện** một dòng: có gửi email không, **To** và **CC** chọn từ một danh sách đóng | quy tắc gửi mail ở `## 10. Business Rules` |
+| Thông báo / nhắc nhở | `NotificationMap` | mỗi **sự kiện** một dòng: có gửi email không, **To** và **CC** chọn từ danh sách người nhận của dự án | quy tắc gửi mail ở `## 10. Business Rules` |
 
 ### Một cổng, đúng một bảng mỗi lượt
 
@@ -189,8 +189,8 @@ rồi" cho xong từ bảng thứ hai.
 
 Hai cổng cuối xét theo **bảng đã chốt** chứ không theo bản đồ, và với cổng thông báo đó là chủ ý: nó phải
 đứng sau bảng phân quyền THẬT SỰ, không chỉ đứng sau trong danh sách ưu tiên — một lượt bày bảng phân quyền
-hỏng (model không trả nổi bảng dùng được) mà để bảng thông báo chen lên trước thì danh sách người nhận mất
-sạch phần *"Toàn bộ &lt;vai&gt;"*.
+hỏng (model không trả nổi bảng dùng được) mà để bảng thông báo chen lên trước thì danh sách người nhận gieo
+ra mất sạch phần vai trò, chỉ còn bốn mục quan hệ.
 
 Hệ quả cần biết: khi cổng phân quyền mở thì điều kiện của cả ba cổng kia đương nhiên cũng đúng, nên bảng
 nào chưa chốt sẽ lần lượt được hỏi TRƯỚC nó — và cổng phân quyền lại là thứ duy nhất mở nút "Write
@@ -550,20 +550,39 @@ model tự nghĩ thêm chỉ đi qua khi có **trích dẫn**, và đó là đư
 tượng không gieo ra được. Người dùng còn có nút **+ thêm lời nhắc** cho đúng phần đó; không có nó thì nửa
 "nhắc nhở" biến mất trong im lặng ngay tại cái bảng sinh ra để chốt nó.
 
-**Người nhận là một danh sách ĐÓNG, và mục nguy hiểm được gọi đúng tên.** Ô To/CC là ô chọn nhiều, không
-phải ô gõ: một người nhận gõ tay không nối được về vai trò hay quan hệ nào, nên nó đi vào spec rồi vào POC
-dưới dạng một chuỗi chữ mà không tầng nào kiểm được. Danh sách có hai phần
-(`NotificationMapBuilder.RecipientOptions`):
+**Người nhận chọn từ DANH SÁCH NGƯỜI NHẬN của dự án — một bảng người dùng tự sửa, đứng ngay trên bảng
+thông báo.** Ô To/CC là ô chọn nhiều, không phải ô gõ: gõ thẳng vào từng dòng thì mỗi dòng một cách viết
+cùng một người, và không tầng nào ghép chúng lại được. Chỗ gõ có đúng **một**, và sửa ở đó thì mọi ô chọn
+đổi theo — đó là toàn bộ lý do bảng danh sách tồn tại.
 
-- **bốn mục QUAN HỆ với bản ghi**, đứng trước vì đây là ca thường gặp: *Người tạo* · *Người được phân công*
-  · *Quản lý trực tiếp của người tạo* · *HOD của đơn vị liên quan*;
-- rồi mỗi vai trò của **bảng phân quyền đã chốt** thành một mục **"Toàn bộ &lt;vai&gt;"**.
+- Dự án chưa chốt lần nào ⇒ danh sách là bản **gieo** tất định (`NotificationMapBuilder.SeedRecipients`):
+  **bốn mục QUAN HỆ với bản ghi** trước, vì đây là ca thường gặp — *Người tạo* · *Người được phân công* ·
+  *Quản lý trực tiếp của người tạo* · *HOD của đơn vị liên quan* — rồi mỗi vai trò của **bảng phân quyền đã
+  chốt**, nguyên tên.
+- Đã chốt ⇒ bộ đã lưu ở `Project.NotificationRecipients` **thắng** bản gieo, kể cả khi bảng phân quyền sau
+  đó đổi: nó là thứ người dùng đã tự tay rà, bản gieo chỉ là phỏng đoán.
 
-Chữ "Toàn bộ" nằm ngay trên mặt tùy chọn là chủ ý: chọn nó nghĩa là MỌI người mang vai đó nhận email, và đó
-đúng là quyết định đã hỏng một lần. Giá trị model (hoặc trình duyệt) đưa lên được kéo về đúng một mục theo
-ba nấc hẹp dần — khớp chính xác → khớp phần tên vai của mục *"Toàn bộ …"* (model hay viết `Manager` thay vì
-`Toàn bộ Manager`) → khớp chứa-nhau và chỉ khi có đúng một mục dài nhất khớp — còn lại thì BỎ. Server dựng
-lại danh sách này từ `Project.PermissionMatrix` ở đường GỬI chứ không tin bộ tùy chọn trình duyệt gửi kèm.
+Danh sách **mở cho người dùng, không mở cho model**: giá trị model (hoặc payload) đưa lên vẫn phải kéo về
+đúng một mục theo hai nấc hẹp dần — khớp chính xác → khớp chứa-nhau và chỉ khi có đúng một mục dài nhất
+khớp — còn lại thì BỎ. Nấc thứ hai còn gánh thêm việc kéo các giá trị `"Toàn bộ <vai>"` của bản trước về
+đúng mục vai trò trần.
+
+Không còn tiền tố **"Toàn bộ …"** trong danh sách: không thao tác nào của các ứng dụng ở đây cần gửi email
+cho cả một vai trò, nên mục đó chỉ là một cái bẫy bấm nhầm. Đổi lại, một mục vai trò trần (`HRBP`) tự nó
+không phân biệt được *một người* với *cả nhóm*, nên khối "đã chốt" (`RenderConfirmedBlock`) mang theo một
+lệnh **cấm mọi tầng sau tự suy rộng** một mục thành "mọi người mang vai đó" — đó là chỗ ca "cả nhà máy nhận
+email" có thể sống lại nếu để trống.
+
+**Danh sách đi CÙNG CHUYẾN với bảng lúc gửi** (`recipientsJson` cạnh `notificationsJson`), và bộ server đối
+chiếu hai ô To/CC chính là danh sách vừa gửi lên đã chuẩn hoá. Giữ nó ở riêng trình duyệt thì mọi mục người
+dùng tự thêm bị bỏ sạch ngay lúc lưu — bảng hiện đủ tên người nhận ở từng dòng mà server lại trả về *"còn N
+sự kiện chưa chọn người nhận"*. Danh sách rỗng (tab mở từ trước bản này, hoặc người dùng xóa sạch) rơi về
+đúng bộ mà lượt bày bảng đã dùng, chứ không được hiểu là "dự án không còn người nhận nào".
+
+Trên trình duyệt, hai thao tác phá được mối nối giữa hai bảng nên bị chặn tại chỗ: **đổi tên** một mục kéo
+theo mọi ô đang chọn nó (và tên rỗng / trùng một dòng khác thì trả lại chữ cũ kèm câu giải thích), còn
+**xóa** một mục đang được dùng thì đòi một cú bấm **thứ hai** sau khi nói rõ nó đang nằm ở mấy ô — im lặng
+xóa là đẩy các dòng đó vào đúng trạng thái mà bất biến của bảng cấm.
 
 **HAI trạng thái của một dòng, và không trạng thái nào được hỏi lại.** Bỏ tích cột "Cần" = KHÔNG gửi thông
 báo ở sự kiện đó (một quyết định hợp lệ, và khối ngữ cảnh gọi tên chúng ra vì mặc định im lặng của các tầng
@@ -591,8 +610,8 @@ cuộn tới đúng dòng, tô sáng và mở sẵn ô To — bảng tới 24 d�
 *Không cần gửi* (bỏ tích ngay tại popup). Lý do không chỉ nhắc một câu "vui lòng chọn người nhận": ở hệ này
 một người nhận **sai** hại hơn một ô trống — ô trống còn bị hỏi lại, còn giá trị sai được chấm `[RÕ]` rồi
 vĩnh viễn không ai soát nữa. Một popup chặn cứng mà chỉ có một đường ra sẽ đẩy người dùng đang mệt tới cú
-bấm nhanh nhất trong danh sách, và mục nhanh nhất lại là *"Toàn bộ &lt;vai&gt;"*: cả nhà máy nhận email ở sự
-kiện đó. Có lối thứ hai thì *"tôi không biết ai"* đổ về một quyết định hiển thị, không về một người nhận bịa.
+bấm nhanh nhất trong danh sách, mà cú bấm nhanh nhất thì chẳng liên quan gì tới sự kiện đang hỏi. Có lối
+thứ hai thì *"tôi không biết ai"* đổ về một quyết định hiển thị, không về một người nhận bịa.
 
 **Một ngõ chết đi kèm phải đóng cùng lúc.** Dòng có trích dẫn được KHÓA (`Locked`), và dòng khóa không có
 checkbox — ô "Cần" là một input hidden. Nếu chỉ cần có `evidence` là khóa thì ca *model kèm trích dẫn thật

@@ -128,6 +128,17 @@ public class Project
     // tách chúng làm hai câu rời — người dùng bấm bốn chip vai trò là tài liệu đóng băng thành "mọi thay
     // đổi trạng thái gửi cho cả bốn nhóm". Xem NotificationMapBuilder + NotificationMapGate.
     public string? NotificationMap { get; set; }
+    // DANH SÁCH NGƯỜI NHẬN của dự án (JSON string[]) — nguồn DUY NHẤT của hai ô To/CC ở bảng thông báo,
+    // và là một bảng người dùng tự sửa được ngay trên bảng đó (thêm / sửa chữ / xóa). null = chưa chốt
+    // lần nào ⇒ danh sách bày ra là bản gieo tất định (NotificationMapBuilder.SeedRecipients: bốn quan hệ
+    // với bản ghi + các vai trò của bảng phân quyền đã chốt).
+    //
+    // Vì sao là một CỘT chứ không phải dựng lại từ bảng phân quyền mỗi lần: đường gửi cố ý không tin bộ
+    // tùy chọn trình duyệt gửi kèm (xem ConfirmNotificationMapUseCase), nên một người nhận người dùng tự
+    // thêm mà không được lưu ở đâu cả sẽ bị NormalizeRecipients bỏ sạch ngay lúc bấm gửi — bảng hiện rõ
+    // tên người nhận ở từng dòng mà server lại báo "chưa chọn người nhận", và không ai gỡ được ca đó.
+    // Lưu cùng lượt với NotificationMap, trong cùng một SaveChanges.
+    public string? NotificationRecipients { get; set; }
     // CỔNG XÁC NHẬN GIẢ ĐỊNH (giữa "sinh AI Design Spec" và "dựng POC"). Spec được phép tự đưa giả định
     // (mục "## 12. Assumptions") cho những điều Product Brief không nói; trước đây các giả định đó đi
     // THẲNG vào POC và user chỉ phát hiện sai sau khi ngồi chờ cả lượt dựng POC. Nay spec sinh xong mà

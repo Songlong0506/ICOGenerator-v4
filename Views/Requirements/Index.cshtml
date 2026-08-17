@@ -132,10 +132,11 @@
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseNotificationMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.NotificationMap))?.NotificationMap)
         : new List<ICOGenerator.Contracts.Requirements.NotificationMapRow>();
-    // Danh sách chọn của hai ô To/CC — dựng LẠI ở đây từ bảng phân quyền đã chốt, đúng bộ mà
-    // ConfirmNotificationMapUseCase sẽ đối chiếu lúc gửi lên. Chở qua `data-options` để JS dùng chung một
-    // bộ cho cả dòng người dùng tự thêm.
+    // DANH SÁCH NGƯỜI NHẬN của dự án — nguồn của cả bảng "Danh sách người nhận" lẫn hai ô To/CC: bộ người
+    // dùng đã tự tay rà (cột NotificationRecipients) nếu có, còn không thì bản gieo từ bảng phân quyền đã
+    // chốt. Chở qua `data-options` để JS dùng chung một bộ cho cả dòng người dùng tự thêm.
     var recipientOptions = ICOGenerator.Services.Requirements.NotificationMapBuilder.RecipientOptions(
+        Model.NotificationRecipients,
         ICOGenerator.Services.Requirements.PermissionMatrixBuilder.Roles(Model.PermissionMatrix));
     var recipientOptionsJson = System.Text.Json.JsonSerializer.Serialize(recipientOptions);
     // Bước luồng chưa có màn hình nào phụ trách — phép kiểm TẤT ĐỊNH của mối nối luồng ⇄ màn hình, tính
@@ -1297,17 +1298,47 @@
                dùng bấm bốn chip vai trò, dòng lên [RÕ], và tài liệu đóng băng thành "mọi thay đổi trạng thái
                gửi cho cả bốn nhóm" — tức mỗi lần một bản ghi đổi trạng thái là cả nhà máy nhận email.
 
-               Vì sao ô là CHỌN NHIỀU từ danh sách đóng chứ không phải ô gõ: người nhận thật gần như luôn là
-               một QUAN HỆ với bản ghi ("người gửi đơn", "sếp của người đó"), còn một vai trò trần như "Nhân
-               viên" nghĩa là TOÀN BỘ nhân viên. Danh sách vì vậy có bốn mục quan hệ trước, rồi mỗi vai trò đã
-               chốt thành mục "Toàn bộ <vai>" — chữ "toàn bộ" nằm ngay trên mặt tùy chọn nên chọn nó là một
-               quyết định có ý thức. Bảng treo theo DỰ ÁN (Project.NotificationMap còn null) như bốn bảng kia. *@
+               Vì sao ô là CHỌN NHIỀU chứ không phải ô gõ: người nhận thật gần như luôn là một QUAN HỆ với
+               bản ghi ("người gửi đơn", "sếp của người đó"), và một người nhận gõ thẳng vào từng dòng thì
+               mỗi dòng lại một cách viết — không tầng nào ghép chúng lại được. Chọn thì chọn từ DANH SÁCH
+               NGƯỜI NHẬN ngay trên đầu panel: đó mới là chỗ người dùng thêm/sửa/xóa, và sửa một lần thì mọi
+               ô To/CC đổi theo. Bảng treo theo DỰ ÁN (Project.NotificationMap còn null) như bốn bảng kia. *@
             <div class="req-msg ba permmap notifmap" id="notificationMapPanel"
                  data-confirm-url="@Url.Action("ConfirmNotificationMap", "Requirements")"
                  data-options='@Html.Raw(recipientOptionsJson)'
                  @(lastNotificationMap.Count > 0 ? "" : "hidden")>
                 @if (lastNotificationMap.Count > 0)
                 {
+                    @* DANH SÁCH NGƯỜI NHẬN — bảng đứng TRƯỚC vì nó là nguồn của hai ô To/CC ở bảng dưới:
+                       sửa một mục ở đây là mọi ô chọn đổi theo (requirements.js, syncRecipientOptions).
+                       Markup phải khớp bản JS dựng ở renderRecipientList. *@
+                    <div class="permmap-howto">
+                        Đây là <b>danh sách người nhận</b> của dự án — mình gom từ những gì anh/chị đã kể. Hai ô
+                        <b>Gửi cho (To)</b> và <b>Đồng gửi (CC)</b> ở bảng dưới chỉ chọn được trong danh sách này,
+                        nên thiếu ai thì thêm ngay ở đây, sửa chữ hoặc xóa cũng được.
+                    </div>
+                    <table class="permmap-table notifrecip-table">
+                        <thead>
+                            <tr>
+                                <th>Người nhận</th>
+                                <th class="screenmap-th-del"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var recipient in recipientOptions)
+                            {
+                                <tr class="notifrecip-row">
+                                    <td><textarea rows="1" class="permmap-cellinput notifrecip-name" aria-label="Tên người nhận">@recipient</textarea></td>
+                                    <td class="entitymap-delcell">
+                                        <button type="button" class="entitymap-del notifrecip-del" title="Xóa người nhận này" aria-label="Xóa người nhận này">×</button>
+                                    </td>
+                                </tr>
+                            }
+                            <tr class="notifrecip-addrow">
+                                <td colspan="2"><button type="button" class="entitymap-add notifrecip-add">+ thêm người nhận</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
                     <div class="permmap-howto">
                         Đây là các sự kiện của ứng dụng. Sự kiện nào <b>không cần gửi email</b> thì bỏ tích cột đầu; sự
                         kiện còn tích thì <b>bắt buộc chọn người nhận (To)</b>, còn <b>đồng gửi (CC)</b> có thì chọn,
@@ -1400,8 +1431,8 @@
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="notificationMapSendBtn">Gửi bảng thông báo</button>
                         <div class="permmap-hint">
-                            Người nhận là quan hệ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") hoặc cả một
-                            vai trò ("Toàn bộ …" — nghĩa là MỌI người mang vai đó đều nhận email).
+                            Người nhận là một quan hệ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") hoặc một
+                            người/nhóm anh/chị tự thêm ở bảng danh sách người nhận phía trên.
                         </div>
                         <div class="permmap-msg" id="notificationMapMsg"></div>
                     </div>
