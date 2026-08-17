@@ -216,6 +216,54 @@ public class InterviewTableGateTests
         Assert.False(ScreenScopeGate.ShouldAsk(EverythingClear, null, new List<string>()));
     }
 
+    // LẦN BÀY ĐẦU của bảng màn hình phải NHƯỜNG bảng luồng, và thứ tự ưu tiên ở Select KHÔNG đủ để bảo đảm
+    // điều đó: nó chỉ phân xử được khi hai cổng cùng mở. Ca thật (dự án JD Libary 1): người dùng kể luồng
+    // ngay lượt 3 nên «Chức năng & luồng nghiệp vụ chính» lên [RÕ] rất sớm, trong khi vai trò còn phải hỏi
+    // thêm mấy lượt — cổng luồng ĐÓNG, cổng màn hình mở, và bảng màn hình bày ở lượt 12 còn bảng luồng mãi
+    // lượt 20. Cột "màn này phục vụ bước nào" của lượt 12 ra rỗng vì chưa có bước nào tồn tại để gắn, nên
+    // khi luồng chốt xong thì UncoveredActions báo gần như MỌI bước chưa ai phụ trách và người dùng phải rà
+    // bảng màn hình lần thứ hai — chỉ vì lần đầu bày quá sớm.
+    [Fact]
+    public void ScreenScopeGate_StaysClosedUntilTheFlowGateCouldOpen()
+    {
+        var coverage = EverythingClear.Replace(
+            "- ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt. {nguồn: \"Assistant lập, HOD duyệt\"}",
+            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: ai được xem.");
+
+        Assert.False(FlowMapGate.ShouldAsk(coverage, null));
+        Assert.False(ScreenScopeGate.ShouldAsk(coverage, null, Scope));
+        // Và hệ quả phải thấy được ở đúng chỗ người dùng thấy: lượt này KHÔNG có bảng nào, BA hỏi tiếp như
+        // một lượt chat thường thay vì bày ra một bảng không gắn được bước nào. Bản đồ ở đây cho MỌI nhóm
+        // khác [RÕ], nên khẳng định `None` cũng là khẳng định không cổng nào khác chen vào chỗ trống.
+        Assert.Equal(InterviewTableKind.None,
+            InterviewTableGate.Select(ProjectWith(coverage: coverage)));
+    }
+
+    // NỬA THỨ HAI của cùng lỗ hổng, ở cổng đối tượng. Hai nhóm của nó rời hẳn nhóm vai trò nên có ca dữ
+    // liệu + vòng đời đã rõ trong khi vai trò còn [MỘT PHẦN]: cổng luồng và cổng màn hình đều đóng, và bảng
+    // ĐỐI TƯỢNG bày ra đầu tiên. Thứ tự phụ thuộc bảo màn hình phải đứng trước — cái người dùng nhìn thấy
+    // trên màn hình mới quyết định thông tin nào thật sự cần lưu.
+    [Fact]
+    public void EntityMapGate_StaysClosedUntilTheFlowGateCouldOpen()
+    {
+        var coverage = EverythingClear.Replace(
+            "- ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt. {nguồn: \"Assistant lập, HOD duyệt\"}",
+            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: ai được xem.");
+
+        Assert.False(EntityMapGate.ShouldAsk(coverage, null));
+    }
+
+    // Nửa còn lại của cùng một luật: đủ điều kiện rồi thì HAI cổng cùng mở, và Select mới là chỗ quyết định
+    // bảng luồng đi trước. Điều kiện mới KHÔNG được siết tới mức đòi bảng luồng đã CHỐT — làm vậy là biến
+    // một lượt bày bảng hỏng (model không trả nổi bảng dùng được) thành chuỗi kẹt vĩnh viễn.
+    [Fact]
+    public void ScreenScopeGate_OpensAlongsideTheFlowGate_NotAfterTheFlowTableIsConfirmed()
+    {
+        Assert.True(FlowMapGate.ShouldAsk(EverythingClear, null));
+        Assert.True(ScreenScopeGate.ShouldAsk(EverythingClear, null, Scope));
+        Assert.Equal(InterviewTableKind.FlowMap, InterviewTableGate.Select(ProjectWith()));
+    }
+
     // BẤT BIẾN CHỐNG KHÓA CHÉO của chuỗi hai bảng cuối. Nhóm «Thông báo / nhắc nhở» không còn được hỏi
     // bằng câu hỏi nên nó nằm ở [CHƯA HỎI] suốt buổi; nếu cổng đối tượng vẫn đòi nhóm đó chạm tới thì cả
     // ba khóa nhau — bảng đối tượng chờ nhóm thông báo, nhóm thông báo chờ bảng thông báo, bảng thông báo

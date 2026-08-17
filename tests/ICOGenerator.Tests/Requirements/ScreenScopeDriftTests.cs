@@ -148,4 +148,35 @@ public class ScreenScopeDriftTests
     {
         Assert.Empty(ScreenScopeMapBuilder.NewScreens(null, new List<string> { "Trang Training Plan" }));
     }
+
+    // NỬA THỨ BA của chốt chặn, và nó nằm ở chỗ người dùng thật sự nhìn: câu dẫn. Cơ chế đã làm đúng —
+    // SeedRows giữ nguyên phần đã rà, NewScreens biết chính xác cái gì mới — nhưng nếu câu dẫn vẫn là lời
+    // mời rà bảng như lần đầu thì với người dùng, một bảng màn hình hiện ra lần thứ hai đọc lên là "BA quên
+    // mình vừa gửi bảng này rồi". Ca thật (JD Libary 1, lượt 22): model tự viết "anh/chị rà soát bảng màn
+    // hình dưới đây rồi bấm Gửi bảng màn hình" — không một chữ nào nói phần cũ được giữ hay màn hình nào
+    // mới.
+    [Fact]
+    public void ReshowIntro_NamesTheNewScreens_AndSaysTheConfirmedPartIsKept()
+    {
+        var intro = BAChatService.ScreenScopeReshowIntro(new List<string> { "Trang danh sách khóa học" });
+
+        Assert.Contains("giữ nguyên", intro);
+        Assert.Contains("Trang danh sách khóa học", intro);
+        Assert.Contains("một màn hình", intro);
+        // Lượt có bảng không có chip, nên câu dẫn phải CHỈ VÀO nút gửi — cùng luật với bốn câu dẫn kia.
+        Assert.Contains("Gửi bảng màn hình", intro);
+    }
+
+    // Danh sách dài thì gọi tên vài mục rồi gộp phần dư: một câu dẫn liệt kê 12 tên không ai đọc hết, mà
+    // con số tổng mới là thứ nói cho người dùng biết lượt này tốn bao nhiêu công.
+    [Fact]
+    public void ReshowIntro_CapsTheNamesAndCountsTheRest()
+    {
+        var intro = BAChatService.ScreenScopeReshowIntro(
+            new List<string> { "Màn A", "Màn B", "Màn C", "Màn D", "Màn E", "Màn F" });
+
+        Assert.Contains("6 màn hình", intro);
+        Assert.Contains("và 2 mục khác", intro);
+        Assert.DoesNotContain("Màn E", intro);
+    }
 }
