@@ -408,9 +408,7 @@ public class RequirementsController : Controller
                                     actor = s.Actor,
                                     action = s.Action,
                                     outcome = s.Outcome,
-                                    included = s.Included,
-                                    locked = s.Locked,
-                                    evidence = s.Evidence
+                                    included = s.Included
                                 })
                             }),
                             screenScopeMap = result.ScreenScopeMap.Select(r => new

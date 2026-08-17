@@ -1003,17 +1003,17 @@
                cột và bảng phân quyền: người dùng hoàn toàn có thể gõ một câu hỏi lại trước khi ngồi rà, và
                mất bảng vì lý do đó là mất luôn đường chốt. *@
 
-            @* BẢNG LUỒNG — người dùng rà từng bước của từng luồng. Bước có bằng chứng thì KHÓA (✓ + tooltip
-               trích dẫn), bước BA suy ra thì sửa/bỏ tích được: cùng ranh giới đã tách bảng phân quyền khỏi
-               một cái chip "Đồng ý phương án này". *@
+            @* BẢNG LUỒNG — người dùng rà từng bước của từng luồng: sửa thẳng vào ô, hoặc bấm × để bỏ bước
+               không có thật. Không cột "Đúng" và không dấu ✓ bằng chứng — xem docs/requirement-flow.md,
+               mục "Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng chứng". *@
             <div class="req-msg ba permmap flowmap" id="flowMapPanel"
                  data-confirm-url="@Url.Action("ConfirmFlowMap", "Requirements")"
                  @(lastFlowMap.Count > 0 ? "" : "hidden")>
                 @if (lastFlowMap.Count > 0)
                 {
                     <div class="permmap-howto">
-                        Bước có dấu <b>✓</b> là điều anh/chị đã nói (rê chuột để xem lại câu gốc). Các bước còn lại là
-                        <b>mình ráp lại</b> — bước nào sai thì sửa thẳng vào ô, bước nào không có thật thì <b>bỏ tích</b>.
+                        Đây là các luồng <b>mình ráp lại</b> từ những gì anh/chị đã kể — bước nào sai thì sửa thẳng vào ô,
+                        bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về).
                     </div>
                     @foreach (var flow in lastFlowMap)
                     {
@@ -1032,30 +1032,27 @@
                                data-role="@flow.Role" data-trigger="@flow.Trigger">
                             <thead>
                                 <tr>
-                                    <th class="flowmap-th-use">Đúng</th>
                                     <th class="flowmap-th-actor">Ai làm</th>
                                     <th class="flowmap-th-action">Làm gì</th>
                                     <th class="flowmap-th-outcome">Sau đó</th>
+                                    <th class="flowmap-th-del"></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var step in flow.Steps)
                                 {
-                                    <tr class="flowmap-row">
-                                        <td class="flowmap-use">
-                                            @if (step.Locked)
-                                            {
-                                                <span class="permmap-locked" title="@step.Evidence">✓</span>
-                                                <input type="hidden" class="flowmap-check" value="1" />
-                                            }
-                                            else
-                                            {
-                                                <input type="checkbox" class="flowmap-check" aria-label="Bước @step.Action đúng" @(step.Included ? "checked" : "") />
-                                            }
-                                        </td>
+                                    <tr class="flowmap-row @(step.Included ? "" : "flowmap-row-dropped")">
                                         <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">@step.Actor</textarea></td>
                                         <td><textarea rows="1" class="permmap-cellinput flowmap-action">@step.Action</textarea></td>
                                         <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">@step.Outcome</textarea></td>
+                                        @* Cờ đi theo payload nằm ở input ẩn, không ở class của dòng: JS gom bảng đọc đúng
+                                           một chỗ (tableChecked) cho cả năm bảng, và một dòng bị bỏ vẫn phải có mặt trong
+                                           payload để tin nhắn gửi đi còn gọi tên được nó. *@
+                                        <td class="flowmap-delcell">
+                                            <input type="hidden" class="flowmap-check" value="@(step.Included ? "1" : "0")" />
+                                            <button type="button" class="flowmap-del" title="@(step.Included ? "Bỏ bước này" : "Lấy lại bước này")"
+                                                    aria-label="@(step.Included ? $"Bỏ bước {step.Action}" : $"Lấy lại bước {step.Action}")">@(step.Included ? "×" : "↩")</button>
+                                        </td>
                                     </tr>
                                 }
                             </tbody>

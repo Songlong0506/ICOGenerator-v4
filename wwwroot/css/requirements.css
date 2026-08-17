@@ -2118,13 +2118,14 @@
 .flowmap-use { text-align: center; }
 .flowmap-th-use { min-width: 44px; width: 44px; text-align: center; }
 
-/* Dòng BỎ TÍCH mờ đi: nhìn lướt là thấy ngay mình vừa loại những gì — vế mà một danh sách BA tự soạn rồi
+/* Dòng BỊ LOẠI mờ đi: nhìn lướt là thấy ngay mình vừa loại những gì — vế mà một danh sách BA tự soạn rồi
    xin gật không bao giờ nói ra.
 
-   Phải chỉ đích danh `input[type="checkbox"]`: dòng ĐÃ CÓ BẰNG CHỨNG không có ô tích mà có input ẩn giữ
-   cờ, mà input ẩn thì không bao giờ `:checked` — bắt theo class trần là mọi dòng ✓ (đúng những dòng là
-   lời của chính người dùng) hiện ra như vừa bị gạch bỏ. */
-.flowmap-row:has(input[type="checkbox"].flowmap-check:not(:checked)) .permmap-cellinput,
+   Hai bảng dưới phải chỉ đích danh `input[type="checkbox"]`: dòng ĐÃ CÓ BẰNG CHỨNG không có ô tích mà có
+   input ẩn giữ cờ, mà input ẩn thì không bao giờ `:checked` — bắt theo class trần là mọi dòng ✓ (đúng
+   những dòng là lời của chính người dùng) hiện ra như vừa bị gạch bỏ. Bảng luồng không vướng chuyện đó:
+   nó bỏ hẳn dấu ✓ và cột tích, cờ nằm ở input ẩn nên trạng thái đi theo class của dòng. */
+.flowmap-row-dropped .permmap-cellinput,
 .screenmap-row:has(input[type="checkbox"].screenmap-check:not(:checked)) .permmap-cellinput,
 .entitymap-field:has(input[type="checkbox"].entityfield-check:not(:checked)) .permmap-cellinput { color: #9aa3af; text-decoration: line-through; }
 
@@ -2151,6 +2152,7 @@
 .flowmap-th-actor { min-width: 120px; }
 .flowmap-th-action { min-width: 220px; }
 .flowmap-th-outcome { min-width: 200px; width: 100%; }
+.flowmap-th-del { min-width: 34px; width: 34px; }
 
 .screenmap-th-name { min-width: 180px; }
 .screenmap-th-purpose { min-width: 200px; }
@@ -2206,14 +2208,19 @@
    Giữ nguyên độ đậm của .screenmap-name để hai loại dòng đọc như một bảng, không phải hai. */
 .screenmap-nameinput { font-weight: 600; margin-bottom: 4px; }
 
-/* CỘT NÚT XÓA: hẹp nhất có thể, và TRỐNG ở mọi dòng BA bày ra. Ranh giới "thêm thì xóa được, BA đề xuất thì
-   chỉ bỏ tích" là chủ ý — dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi, còn dòng người dùng vừa
-   tự gõ thì chưa bao giờ là một đề xuất nên không có gì để kể. */
+/* CỘT NÚT XÓA: hẹp nhất có thể, và ở hai bảng màn hình / đối tượng thì TRỐNG ở mọi dòng BA bày ra. Ranh
+   giới "thêm thì xóa được, BA đề xuất thì chỉ bỏ tích" là chủ ý — dòng bị loại vẫn phải kể lại được trong
+   tin nhắn gửi đi, còn dòng người dùng vừa tự gõ thì chưa bao giờ là một đề xuất nên không có gì để kể.
+
+   Bảng LUỒNG thì mọi dòng đều có nút, và nút ở đó là một cái LẬT (×/↩) chứ không phải xóa thật: nó thay
+   cho cột tích cũ, nên dòng bị bỏ vẫn nằm nguyên trong payload đúng như một dòng bỏ tích. */
 .screenmap-th-del { min-width: 34px; width: 34px; }
 .screenmap-delcell,
+.flowmap-delcell,
 .entitymap-delcell { width: 34px; text-align: center; }
 
 .screenmap-del,
+.flowmap-del,
 .entitymap-del {
     padding: 0 6px;
     border: 1px solid transparent;
@@ -2228,10 +2235,19 @@
     /* Đỏ chỉ khi rê tới: nút xóa đứng sẵn ở màu cảnh báo trên vài chục dòng thì cả bảng trông như đang báo
        lỗi, mà việc chính của bảng là ĐỌC rồi sửa chỗ sai. */
     .screenmap-del:hover,
+    .flowmap-del:hover,
     .entitymap-del:hover {
         border-color: #fecaca;
         background: #fef2f2;
         color: #b91c1c;
+    }
+
+    /* Dòng ĐÃ BỎ: nút là đường lấy về, không phải một cảnh báo nữa — giữ nó ở màu đỏ khi rê tới sẽ đọc
+       ngược hẳn việc nó làm. */
+    .flowmap-row-dropped .flowmap-del:hover {
+        border-color: #bfdbfe;
+        background: #eff6ff;
+        color: #1d4ed8;
     }
 
 /* NÚT THÊM DÒNG (cuối bảng con chức năng và cuối cả bảng). Trông như một dòng chữ bấm được chứ không như

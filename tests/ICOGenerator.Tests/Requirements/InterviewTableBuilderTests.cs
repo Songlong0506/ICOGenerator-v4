@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Requirements;
 using Xunit;
@@ -9,7 +10,9 @@ namespace ICOGenerator.Tests.Requirements;
 //
 //  • cờ tích/bỏ tích ở lượt BÀY BẢNG phải luôn là TÍCH SẴN bất kể model trả gì (structured output buộc
 //    điền đủ trường, nên một model điền false cho có sẽ âm thầm bỏ tích sạch bảng);
-//  • LUẬT BẰNG CHỨNG: không có trích dẫn thì không khóa được ô nào;
+//  • LUẬT BẰNG CHỨNG: không có trích dẫn thì không khóa được ô nào (bảng luồng và bảng màn hình không
+//    nằm trong đó — cả hai đã bỏ hẳn cờ locked/evidence, xem docs/requirement-flow.md);
+//  • bước/dòng NGƯỜI DÙNG BỎ vẫn có mặt trong tin nhắn gửi đi nhưng không lọt sang đường tiêu thụ nào;
 //  • dòng bịa bị loại, dòng bị bỏ quên vẫn phải có mặt;
 //  • phép kiểm mối nối luồng ⇄ màn hình.
 public class InterviewTableBuilderTests
@@ -56,27 +59,29 @@ public class InterviewTableBuilderTests
         Assert.False(steps[1].Included);
     }
 
-    // Cờ suông không khóa được bước nào — cùng luật với PermissionGrant.Locked. Không có ranh giới này thì
-    // bảng điền sẵn trông như đã chốt, và người dùng bấm gửi trong ba giây.
+    // Bước bị BỎ vẫn phải đi tới các đường tiêu thụ ở trạng thái đã loại — không lọt vào khối ngữ cảnh gắn
+    // vào mọi lượt chat sau, cũng không lọt vào danh sách bước mà bảng màn hình phải phủ. Lọt một bước bịa
+    // vào đó là BA hỏi lại đúng thứ người dùng vừa đóng, và spec chấm POC theo một bước không có thật.
     [Fact]
-    public void FlowMap_LocksOnlyStepsThatCarryEvidence()
+    public void FlowMap_DroppedStepsNeverReachTheConsumers()
     {
-        var rows = FlowMapBuilder.Build(new[]
+        var rows = FlowMapBuilder.Sanitize(new[]
         {
             new FlowMapRow
             {
                 Name = "Đăng ký khóa học",
                 Steps = new List<FlowMapStep>
                 {
-                    new() { Action = "Gửi đơn", Locked = true, Evidence = "" },
-                    new() { Action = "Duyệt đơn", Evidence = "quản lý duyệt xong là khóa" }
+                    new() { Action = "Gửi đơn", Included = true },
+                    new() { Action = "Kế toán ghi sổ", Included = false }
                 }
             }
         });
+        var json = JsonSerializer.Serialize(rows);
 
-        var steps = rows.Single().Steps;
-        Assert.False(steps[0].Locked);
-        Assert.True(steps[1].Locked);
+        Assert.DoesNotContain("Kế toán ghi sổ", FlowMapBuilder.RenderConfirmedBlock(json));
+        Assert.DoesNotContain("Kế toán ghi sổ", FlowMapBuilder.IncludedActions(json));
+        Assert.Contains("Gửi đơn", FlowMapBuilder.IncludedActions(json));
     }
 
     // Một "luồng" một bước là một câu mô tả, không phải luồng: nó không kiểm được bằng oracle và cũng

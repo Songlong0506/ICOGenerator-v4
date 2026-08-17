@@ -774,9 +774,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         return panel;
     }
 
-    // Ô checkbox của dòng ĐÃ KHÓA được render thành input hidden value="1" (chỗ của nó là dấu ✓), nên phép
-    // đọc phải nhận cả hai dạng — đọc mỗi `.checked` thì mọi dòng có bằng chứng gửi đi ở trạng thái BỎ
-    // TÍCH, tức người dùng vô tình loại sạch đúng những dòng chắc chắn nhất.
+    // Cờ giữ/bỏ của một dòng không phải lúc nào cũng là checkbox: dòng ĐÃ KHÓA của bảng phân quyền / đối
+    // tượng render thành input hidden value="1" (chỗ của ô tích là dấu ✓), và cả bảng LUỒNG cũng dùng input
+    // ẩn vì cột tích ở đó đã được thay bằng nút ×. Đọc mỗi `.checked` thì đúng những dòng ấy gửi đi ở trạng
+    // thái BỊ LOẠI — tức người dùng vô tình loại sạch thứ họ chưa đụng tới.
     function tableChecked(el) {
         if (!el) return false;
         return el.type === "checkbox" ? el.checked : (el.value || "") === "1";
@@ -845,6 +846,24 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         "Đang lưu bảng luồng…",
         "Chưa lưu được bảng luồng — anh/chị bấm gửi lại giúp mình nhé.");
 
+    // Nút BỎ/LẤY LẠI của một bước. Hai trạng thái dùng chung MỘT nút vì chúng là một thao tác lật; mọc
+    // thêm một nút "hoàn tác" riêng ở dòng đã bỏ sẽ làm cột cuối đổi bề rộng theo từng cú bấm.
+    function applyFlowStepDropState(btn, included, action) {
+        btn.textContent = included ? "×" : "↩";
+        btn.title = included ? "Bỏ bước này" : "Lấy lại bước này";
+        btn.setAttribute("aria-label", `${included ? "Bỏ" : "Lấy lại"} bước ${action}`);
+    }
+
+    // Dựng qua DOM rồi lấy outerHTML: `action` là chữ người dùng gõ, ghép thẳng vào chuỗi HTML là mở đúng
+    // cái lỗ mà escapeHtml sinh ra để bịt, mà ở đây nó còn nằm trong cả `aria-label` lẫn nội dung nút.
+    function flowStepDropCell(included, action) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "flowmap-del";
+        applyFlowStepDropState(btn, included, action);
+        return `<input type="hidden" class="flowmap-check" value="${included ? "1" : "0"}" />${btn.outerHTML}`;
+    }
+
     // Markup khớp bản server render trong Index.cshtml — hai đường lệch nhau thì người dùng rà xong bảng
     // vừa hiện ra rồi F5 và thấy một bảng khác.
     function renderFlowMap(rows) {
@@ -852,16 +871,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         const tables = rows.map(flow => {
             const body = (flow.steps || []).map(s => `
-                <tr class="flowmap-row">
-                    <td class="flowmap-use">
-                        ${s.locked
-                            ? `<span class="permmap-locked" title="${escapeHtml(s.evidence || "")}">✓</span>
-                               <input type="hidden" class="flowmap-check" value="1" />`
-                            : `<input type="checkbox" class="flowmap-check" aria-label="Bước ${escapeHtml(s.action || "")} đúng"${s.included ? " checked" : ""} />`}
-                    </td>
+                <tr class="flowmap-row${s.included ? "" : " flowmap-row-dropped"}">
                     <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">${escapeHtml(s.actor || "")}</textarea></td>
                     <td><textarea rows="1" class="permmap-cellinput flowmap-action">${escapeHtml(s.action || "")}</textarea></td>
                     <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">${escapeHtml(s.outcome || "")}</textarea></td>
+                    <td class="flowmap-delcell">${flowStepDropCell(s.included !== false, s.action || "")}</td>
                 </tr>`).join("");
 
             const role = flow.role ? `<span class="flowmap-role">· ${escapeHtml(flow.role)}</span>` : "";
@@ -872,10 +886,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                        data-role="${escapeHtml(flow.role || "")}" data-trigger="${escapeHtml(flow.trigger || "")}">
                     <thead>
                         <tr>
-                            <th class="flowmap-th-use">Đúng</th>
                             <th class="flowmap-th-actor">Ai làm</th>
                             <th class="flowmap-th-action">Làm gì</th>
                             <th class="flowmap-th-outcome">Sau đó</th>
+                            <th class="flowmap-th-del"></th>
                         </tr>
                     </thead>
                     <tbody>${body}</tbody>
@@ -884,8 +898,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         flowMapPanel.innerHTML = `
             <div class="permmap-howto">
-                Bước có dấu <b>✓</b> là điều anh/chị đã nói (rê chuột để xem lại câu gốc). Các bước còn lại là
-                <b>mình ráp lại</b> — bước nào sai thì sửa thẳng vào ô, bước nào không có thật thì <b>bỏ tích</b>.
+                Đây là các luồng <b>mình ráp lại</b> từ những gì anh/chị đã kể — bước nào sai thì sửa thẳng vào ô,
+                bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về).
             </div>
             ${tables}
             <div class="permmap-bar">
@@ -898,6 +912,24 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         flowMapPanel.hidden = false;
         thinkingBox.before(flowMapPanel);
         autoGrowCells(flowMapPanel);
+    }
+
+    // Bấm × là ĐÁNH DẤU bỏ chứ không xóa dòng khỏi bảng: payload vẫn phải chở bước đó thì tin nhắn server
+    // soạn mới gọi tên được nó ("(bỏ: …)"), và dòng còn nằm đó — mờ đi, gạch ngang — mới cho người dùng
+    // nhìn lướt thấy ngay mình vừa loại những gì. Bấm lần nữa lấy về: một thao tác loại mà không hoàn tác
+    // được tại chỗ thì cú bấm nhầm chỉ sửa được bằng cách gõ tay lại cả bước.
+    if (flowMapPanel) {
+        flowMapPanel.addEventListener("click", function (e) {
+            const btn = e.target.closest(".flowmap-del");
+            if (!btn) return;
+
+            const row = btn.closest(".flowmap-row");
+            const flag = row.querySelector(".flowmap-check");
+            const included = flag.value !== "1";
+            flag.value = included ? "1" : "0";
+            row.classList.toggle("flowmap-row-dropped", !included);
+            applyFlowStepDropState(btn, included, tableValue(row, ".flowmap-action"));
+        });
     }
 
     // ---- BẢNG MÀN HÌNH ----
