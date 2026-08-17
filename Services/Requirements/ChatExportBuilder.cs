@@ -188,11 +188,19 @@ public static class ChatExportBuilder
             PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix),
             "(chưa chốt — dòng phân quyền của bản đồ KHÔNG được phép [RÕ] khi mục này còn trống)");
 
-        AppendText(sb, "3.8. Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược khỏi cửa sổ nguyên văn)",
+        // Bảng thông báo ĐÃ CHỐT có cùng luật một chiều với bảng phân quyền ngay trên: dòng «Thông báo /
+        // nhắc nhở» của bản đồ không bao giờ được [RÕ] khi chưa có bảng này. Người chấm phải thấy nó ở đây
+        // vì hai ca vẫn trông giống hệt nhau trên transcript — và ở bảng này còn ca thứ ba: bảng đã gửi
+        // nhưng người dùng bỏ trống người nhận ở vài dòng, lúc đó dòng bản đồ chỉ được [MỘT PHẦN].
+        AppendText(sb, "3.8. Bảng thông báo người dùng đã chốt (bằng chứng của dòng «Thông báo / nhắc nhở»)",
+            NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap),
+            "(chưa chốt — dòng thông báo của bản đồ KHÔNG được phép [RÕ] khi mục này còn trống)");
+
+        AppendText(sb, "3.9. Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược khỏi cửa sổ nguyên văn)",
             project.ConversationSummary,
             "(chưa có — hội thoại còn ngắn, mọi lượt vẫn được gửi nguyên văn)");
 
-        AppendText(sb, "3.9. Hồ sơ người dùng (đúc kết xuyên dự án, nạp vào mọi lượt chat)",
+        AppendText(sb, "3.10. Hồ sơ người dùng (đúc kết xuyên dự án, nạp vào mọi lượt chat)",
             snapshot.UserMemory,
             "(chưa có hồ sơ)");
     }

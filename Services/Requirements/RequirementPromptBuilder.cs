@@ -126,7 +126,8 @@ Your task:
         string? permissionMatrix = null,
         string? flowMap = null,
         string? screenScopeMap = null,
-        string? entityMap = null)
+        string? entityMap = null,
+        string? notificationMap = null)
     {
         return $$"""
 Project:
@@ -137,7 +138,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{AssumptionCorrectionsSection(assumptionCorrections)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{EntityMapSection(entityMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
+{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{AssumptionCorrectionsSection(assumptionCorrections)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{EntityMapSection(entityMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -245,13 +246,10 @@ Bắt buộc với bảng này: mục "## 6. Screens To Generate" phải có Đ�
 """;
     }
 
-    // Khối "bảng đối tượng nghiệp vụ đã chốt": thông tin cần lưu + vòng đời + người nhận thông báo.
-    // Rỗng thì biến mất.
+    // Khối "bảng đối tượng nghiệp vụ đã chốt": thông tin cần lưu + vòng đời trạng thái. Rỗng thì biến mất.
     //
     // Mục "## 8. Data Model Summary" vốn là mục spec TỰ NGHĨ RA từ văn xuôi Brief, không có gì đối chiếu —
-    // và mô hình dữ liệu sai thì mọi màn hình của POC sai theo. Cột "ai được báo" của bảng còn là chỗ duy
-    // nhất thông báo được gắn vào một CHUYỂN TRẠNG THÁI cụ thể thay vì một câu chung chung, thứ đã từng
-    // đóng băng thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm".
+    // và mô hình dữ liệu sai thì mọi màn hình của POC sai theo.
     private static string EntityMapSection(string? entityMap)
     {
         if (string.IsNullOrWhiteSpace(entityMap))
@@ -262,7 +260,28 @@ Bắt buộc với bảng này: mục "## 6. Screens To Generate" phải có Đ�
 Bảng đối tượng nghiệp vụ người dùng ĐÃ CHỐT (đây là YÊU CẦU, không phải giả định):
 {entityMap.Trim()}
 
-Bắt buộc với bảng này: mục "## 8. Data Model Summary" phải dựng từ đúng các đối tượng và thông tin trên — không thêm entity nào chưa có ở đây, không bỏ thông tin nào đã tích. Vòng đời trạng thái phải thành các quy tắc chuyển trạng thái ở "## 10. Business Rules". Ô "báo cho" để trống nghĩa là KHÔNG gửi thông báo ở chuyển trạng thái đó — không được tự thêm người nhận.
+Bắt buộc với bảng này: mục "## 8. Data Model Summary" phải dựng từ đúng các đối tượng và thông tin trên — không thêm entity nào chưa có ở đây, không bỏ thông tin nào đã tích. Vòng đời trạng thái phải thành các quy tắc chuyển trạng thái ở "## 10. Business Rules".
+
+""";
+    }
+
+    // Khối "bảng thông báo đã chốt": mỗi sự kiện một dòng, người nhận chính (To) và đồng gửi (CC) do người
+    // dùng tự chọn từ một danh sách đóng. Rỗng thì biến mất (dự án cũ, hoặc chưa chốt bảng).
+    //
+    // Đây là đường DUY NHẤT để "ai được báo khi nào" tới được spec ở dạng máy đọc được. Không có nó, thông
+    // báo tan vào văn xuôi của Product Brief và bước sinh spec tự viết ra một quy tắc gửi mail — mà mặc
+    // định im lặng của mọi tầng phía sau là gửi cho tất cả, đúng thứ bảng này sinh ra để chặn.
+    private static string NotificationMapSection(string? notificationMap)
+    {
+        if (string.IsNullOrWhiteSpace(notificationMap))
+            return string.Empty;
+
+        return $"""
+
+Bảng thông báo / nhắc nhở người dùng ĐÃ CHỐT (họ tự chọn người nhận cho từng sự kiện — đây là YÊU CẦU, không phải giả định):
+{notificationMap.Trim()}
+
+Bắt buộc với bảng này: mỗi dòng "gửi" ở trên phải thành MỘT quy tắc ở "## 10. Business Rules" theo dạng "khi <sự kiện> ⇒ gửi email cho <To>, CC <CC>". Người nhận là một QUAN HỆ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") thì quy tắc phải nói rõ quan hệ đó được tra ra từ trường nào của đối tượng. Sự kiện nằm trong danh sách "KHÔNG gửi" thì TUYỆT ĐỐI không sinh thông báo nào, và không được tự thêm người nhận hay sự kiện nào ngoài bảng. Kênh gửi duy nhất là email.
 
 """;
     }

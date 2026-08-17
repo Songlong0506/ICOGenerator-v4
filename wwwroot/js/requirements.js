@@ -1147,8 +1147,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 })).filter(f => f.name.length > 0),
                 states: Array.from(block.querySelectorAll(".entitymap-state")).map(tr => ({
                     state: tableValue(tr, ".entitystate-name"),
-                    entryCondition: tableValue(tr, ".entitystate-entry"),
-                    notify: tableValue(tr, ".entitystate-notify")
+                    entryCondition: tableValue(tr, ".entitystate-entry")
                 })).filter(s => s.state.length > 0),
                 included: tableChecked(block.querySelector(".entitymap-check"))
             };
@@ -1185,7 +1184,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <tr class="entitymap-state">
                 <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name" placeholder="tên trạng thái">${escapeHtml(s ? (s.state || "") : "")}</textarea></td>
                 <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="điều kiện/hành động đưa vào trạng thái này">${escapeHtml(s ? (s.entryCondition || "") : "")}</textarea></td>
-                <td><textarea rows="1" class="permmap-cellinput entitystate-notify" placeholder="để trống = không báo cho ai">${escapeHtml(s ? (s.notify || "") : "")}</textarea></td>
                 <td class="entitymap-delcell">${entityDeleteButton("Xóa trạng thái này")}</td>
             </tr>`;
     }
@@ -1230,10 +1228,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     </tbody>
                 </table>
                 <table class="permmap-table entitymap-table entitymap-statetable">
-                    <thead><tr><th class="screenmap-th-name">Trạng thái</th><th class="screenmap-th-purpose">Khi nào chuyển vào</th><th class="screenmap-th-fn">Báo cho ai</th><th class="screenmap-th-del"></th></tr></thead>
+                    <thead><tr><th class="screenmap-th-name">Trạng thái</th><th class="screenmap-th-purpose">Khi nào chuyển vào</th><th class="screenmap-th-del"></th></tr></thead>
                     <tbody>${states}
                         <tr class="entitymap-addstaterow">
-                            <td colspan="4"><button type="button" class="entitymap-add entitymap-addstate" aria-label="Thêm trạng thái${escapeHtml(forEntity)}">+ thêm trạng thái</button></td>
+                            <td colspan="3"><button type="button" class="entitymap-add entitymap-addstate" aria-label="Thêm trạng thái${escapeHtml(forEntity)}">+ thêm trạng thái</button></td>
                         </tr>
                     </tbody>
                 </table>
@@ -1248,7 +1246,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 Đây là những thứ ứng dụng cần lưu hồ sơ riêng. Đối tượng nào <b>không cần</b> thì bỏ tích ở tiêu
                 đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
                 thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
-                cuối. Ô <b>báo cho ai</b> để trống nghĩa là không gửi thông báo ở bước đó.
+                cuối. Ai được báo ở mỗi trạng thái thì mình hỏi ở bảng cuối buổi.
             </div>
             <div class="entitymap-blocks">${rows.map(entityMapBlock).join("")}</div>
             <div class="entitymap-addrow">
@@ -1321,6 +1319,227 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             note("");
         });
     }
+
+    // ---- BẢNG THÔNG BÁO / NHẮC NHỞ ----
+    // Bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một dòng, To/CC chọn từ một danh sách ĐÓNG (bốn quan
+    // hệ với bản ghi + "Toàn bộ <vai>" của từng vai trò đã chốt ở bảng phân quyền). Ô là ô CHỌN NHIỀU chứ
+    // không phải ô gõ: một người nhận gõ tay không nối được về vai trò/quan hệ nào, nên nó đi vào spec rồi
+    // vào POC dưới dạng một chuỗi chữ mà không tầng nào kiểm được.
+    const MAX_NOTIF_ROWS = 24;        // = NotificationMapBuilder.MaxRows
+    const MAX_NOTIF_RECIPIENTS = 8;   // = NotificationMapBuilder.MaxRecipientsPerCell
+
+    const notificationMapPanel = initTablePanel(
+        "notificationMapPanel", "notificationMapSendBtn", "notificationMapMsg", "notificationsJson",
+        panel => Array.from(panel.querySelectorAll(".notifmap-row")).map(row => {
+            // Dòng gieo từ bảng đối tượng có tên nằm ở `data-event` và KHÔNG sửa được: nó phải khớp đúng
+            // chuyển trạng thái người dùng vừa chốt ở bảng kia, sửa chữ ở đây là cắt luôn mối nối giữa hai
+            // bảng ở bước sinh spec. Dòng NHẮC NHỞ người dùng tự thêm thì ô tên là ô gõ.
+            const nameInput = row.querySelector(".notifmap-nameinput");
+            return {
+                entity: row.dataset.entity || "",
+                event: nameInput ? tableValue(row, ".notifmap-nameinput") : (row.dataset.event || ""),
+                trigger: tableValue(row, ".notifmap-trigger-input") || (row.dataset.trigger || ""),
+                to: pickedRecipients(row, "to"),
+                cc: pickedRecipients(row, "cc"),
+                needed: tableChecked(row.querySelector(".notifmap-check")),
+                addedByUser: !!nameInput
+            };
+        }).filter(r => r.event.length > 0),
+        "Đang lưu bảng thông báo…",
+        "Chưa lưu được bảng thông báo — anh/chị bấm gửi lại giúp mình nhé.");
+
+    function pickedRecipients(row, kind) {
+        const pick = row.querySelector('.notifmap-pick[data-kind="' + kind + '"]');
+        if (!pick) return [];
+        return Array.from(pick.querySelectorAll("input[type=checkbox]:checked")).map(i => i.value);
+    }
+
+    // Danh sách chọn của lượt đang bày. Server gửi kèm ở frame done và render sẵn vào `data-options` khi
+    // tải lại trang — hai đường phải cho ra CÙNG một bộ, vì đó chính là bộ server đối chiếu lúc gửi lên.
+    function recipientOptions() {
+        if (!notificationMapPanel) return [];
+        try {
+            const parsed = JSON.parse(notificationMapPanel.dataset.options || "[]");
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    // MỘT ô chọn nhiều. Dùng đúng markup .ms-combo dùng chung của app (site.css) nên nó trông y hệt mọi
+    // dropdown khác; phần điều khiển nằm ngay dưới vì .ms-combo nhiều-lựa-chọn chưa có driver dùng chung.
+    function recipientPicker(kind, selected, options, label) {
+        const chosen = Array.isArray(selected) ? selected : [];
+        const items = options.map(o => `
+            <li class="ms-combo-option${chosen.indexOf(o) >= 0 ? " selected" : ""}">
+                <label class="ms-combo-checkbox">
+                    <input type="checkbox" value="${escapeHtml(o)}"${chosen.indexOf(o) >= 0 ? " checked" : ""} />
+                    <span class="ms-combo-box"></span>
+                    <span class="ms-combo-option-text">${escapeHtml(o)}</span>
+                </label>
+            </li>`).join("");
+
+        return `
+            <div class="ms-combo notifmap-pick" data-kind="${kind}">
+                <button type="button" class="ms-combo-trigger" aria-label="${escapeHtml(label)}">
+                    <span class="ms-combo-trigger-main">
+                        <span class="ms-combo-text${chosen.length === 0 ? " is-placeholder" : ""}">${chosen.length === 0 ? (kind === "to" ? "Chọn người nhận" : "Không đồng gửi") : escapeHtml(chosen.join(", "))}</span>
+                    </span>
+                    <span class="ms-combo-caret">▾</span>
+                </button>
+                <div class="ms-combo-panel" hidden><ul class="ms-combo-list">${items}</ul></div>
+            </div>`;
+    }
+
+    // MỘT dòng. `r` null = dòng NHẮC NHỞ trống người dùng vừa thêm — nửa "nhắc nhở" của nhóm không phải
+    // chuyển trạng thái nào ("trước hạn 3 ngày"), nên không có nút này thì nó biến mất trong im lặng ngay
+    // tại cái bảng sinh ra để chốt nó.
+    function notificationRow(r, options) {
+        const entity = r ? (r.entity || "") : "";
+        const evt = r ? (r.event || "") : "";
+        const trigger = r ? (r.trigger || "") : "";
+        const check = r && r.locked
+            ? `<span class="permmap-locked" title="${escapeHtml(r.evidence || "")}">✓</span>
+               <input type="hidden" class="notifmap-check" value="1" />`
+            : `<input type="checkbox" class="notifmap-check" aria-label="Cần báo khi ${r ? escapeHtml(evt) : "sự kiện vừa thêm"}"${!r || r.needed ? " checked" : ""} />`;
+
+        const nameCell = r
+            ? `${entity ? `<span class="notifmap-entity">${escapeHtml(entity)}</span>` : ""}
+               <span class="notifmap-name">${escapeHtml(evt)}</span>
+               ${trigger ? `<span class="notifmap-trigger">khi ${escapeHtml(trigger)}</span>` : ""}`
+            : `<textarea rows="1" class="permmap-cellinput notifmap-nameinput" placeholder="sự kiện / lời nhắc…"></textarea>
+               <textarea rows="1" class="permmap-cellinput notifmap-trigger-input" placeholder="khi nào? (vd: trước hạn 3 ngày)"></textarea>`;
+
+        return `
+            <tr class="notifmap-row" data-entity="${escapeHtml(entity)}" data-event="${escapeHtml(evt)}" data-trigger="${escapeHtml(trigger)}">
+                <td class="flowmap-use">${check}</td>
+                <td class="permmap-fn">${nameCell}</td>
+                <td>${recipientPicker("to", r ? r.to : [], options, `Người nhận chính của ${evt || "sự kiện vừa thêm"}`)}</td>
+                <td>${recipientPicker("cc", r ? r.cc : [], options, `Người đồng gửi của ${evt || "sự kiện vừa thêm"}`)}</td>
+                <td class="entitymap-delcell">${r ? "" : `<button type="button" class="entitymap-del" title="Xóa dòng này" aria-label="Xóa dòng này">×</button>`}</td>
+            </tr>`;
+    }
+
+    function renderNotificationMap(rows, options) {
+        if (!notificationMapPanel || !Array.isArray(rows) || rows.length === 0) return;
+
+        const opts = Array.isArray(options) && options.length > 0 ? options : recipientOptions();
+        notificationMapPanel.dataset.options = JSON.stringify(opts);
+        notificationMapPanel.innerHTML = `
+            <div class="permmap-howto">
+                Đây là các sự kiện của ứng dụng. Sự kiện nào <b>không cần gửi email</b> thì bỏ tích cột đầu; sự
+                kiện còn lại thì chọn <b>người nhận</b> — để trống nghĩa là mình chưa chốt được ai và sẽ hỏi lại
+                anh/chị. Thiếu một lời nhắc theo thời hạn thì bấm <b>+ thêm lời nhắc</b> ở cuối bảng.
+            </div>
+            <table class="permmap-table notifmap-table">
+                <thead>
+                    <tr>
+                        <th class="flowmap-th-use">Cần</th>
+                        <th class="notifmap-th-event">Sự kiện</th>
+                        <th class="notifmap-th-who">Gửi cho (To)</th>
+                        <th class="notifmap-th-cc">Đồng gửi (CC)</th>
+                        <th class="screenmap-th-del"></th>
+                    </tr>
+                </thead>
+                <tbody>${rows.map(r => notificationRow(r, opts)).join("")}
+                    <tr class="notifmap-addrow">
+                        <td colspan="5"><button type="button" class="entitymap-add notifmap-add">+ thêm lời nhắc</button></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="permmap-bar">
+                <button type="button" class="btn primary" id="notificationMapSendBtn">Gửi bảng thông báo</button>
+                <div class="permmap-hint">
+                    Người nhận là quan hệ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") hoặc cả một
+                    vai trò ("Toàn bộ …" — nghĩa là MỌI người mang vai đó đều nhận email).
+                </div>
+                <div class="permmap-msg" id="notificationMapMsg"></div>
+            </div>`;
+        notificationMapPanel.hidden = false;
+        thinkingBox.before(notificationMapPanel);
+        autoGrowCells(notificationMapPanel);
+    }
+
+    // THÊM/XÓA DÒNG + ĐÓNG/MỞ ô chọn — ủy quyền trên PANEL vì renderNotificationMap thay sạch innerHTML.
+    if (notificationMapPanel) {
+        notificationMapPanel.addEventListener("click", function (e) {
+            const trigger = e.target.closest(".ms-combo-trigger");
+            const add = e.target.closest(".notifmap-add");
+            const remove = e.target.closest(".entitymap-del");
+            const msgEl = document.getElementById("notificationMapMsg");
+            const note = text => { if (msgEl) msgEl.textContent = text; };
+
+            if (trigger) {
+                const combo = trigger.closest(".notifmap-pick");
+                const wasOpen = combo.classList.contains("open");
+                closeRecipientPickers();
+                if (!wasOpen) {
+                    combo.classList.add("open");
+                    combo.querySelector(".ms-combo-panel").hidden = false;
+                }
+                return;
+            }
+
+            if (remove) {
+                const row = remove.closest(".notifmap-row");
+                if (row) row.remove();
+                note("");
+                return;
+            }
+
+            if (!add) return;
+
+            const body = notificationMapPanel.querySelector(".notifmap-table tbody");
+            const anchor = notificationMapPanel.querySelector(".notifmap-addrow");
+            if (!body || !anchor) return;
+
+            if (body.querySelectorAll(".notifmap-row").length >= MAX_NOTIF_ROWS) {
+                note(`Bảng đã tới trần ${MAX_NOTIF_ROWS} sự kiện — nhiều hơn thì không rà nổi trong một lượt.`);
+                return;
+            }
+
+            anchor.insertAdjacentHTML("beforebegin", notificationRow(null, recipientOptions()));
+            focusNewRow(anchor.previousElementSibling, ".notifmap-nameinput");
+            note("");
+        });
+
+        // Nhãn của ô chọn phải kể đúng thứ đang được chọn: đây là dòng chữ DUY NHẤT người dùng đọc khi rà
+        // lại cả bảng (panel đóng), nên để nó lệch là để họ gửi đi một bảng khác với bảng họ tưởng.
+        notificationMapPanel.addEventListener("change", function (e) {
+            const box = e.target.closest(".notifmap-pick input[type=checkbox]");
+            if (!box) return;
+
+            const pick = box.closest(".notifmap-pick");
+            const boxes = Array.from(pick.querySelectorAll("input[type=checkbox]"));
+            if (box.checked && boxes.filter(b => b.checked).length > MAX_NOTIF_RECIPIENTS) {
+                box.checked = false;
+                const msgEl = document.getElementById("notificationMapMsg");
+                if (msgEl) msgEl.textContent = `Một ô chỉ nhận tối đa ${MAX_NOTIF_RECIPIENTS} người nhận.`;
+            }
+
+            boxes.forEach(b => b.closest(".ms-combo-option").classList.toggle("selected", b.checked));
+            const chosen = boxes.filter(b => b.checked).map(b => b.value);
+            const text = pick.querySelector(".ms-combo-text");
+            text.classList.toggle("is-placeholder", chosen.length === 0);
+            text.textContent = chosen.length > 0
+                ? chosen.join(", ")
+                : (pick.dataset.kind === "to" ? "Chọn người nhận" : "Không đồng gửi");
+        });
+    }
+
+    // Bấm ra ngoài thì đóng: ô chọn mở đè lên các dòng dưới nó, để mở là che mất đúng phần bảng người dùng
+    // đang rà.
+    function closeRecipientPickers() {
+        if (!notificationMapPanel) return;
+        notificationMapPanel.querySelectorAll(".notifmap-pick.open").forEach(c => {
+            c.classList.remove("open");
+            c.querySelector(".ms-combo-panel").hidden = true;
+        });
+    }
+
+    document.addEventListener("click", function (e) {
+        if (!e.target.closest(".notifmap-pick")) closeRecipientPickers();
+    });
 
     // ==== NHÁP ĐANG GÕ: tự lưu để F5 / mất điện / bấm nhầm không cuốn mất một câu trả lời dài ====
     // Ở trang này người dùng thường gõ những đoạn RẤT DÀI trong một lượt (cả quy trình nghiệp vụ, ai làm
@@ -2127,11 +2346,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // Bảng phân quyền: lượt chốt nhóm phân quyền. Không dựng trong `bubble` mà vào panel cố định
             // của trang (như bảng cột) — bảng treo tới khi dự án chốt nó, sống lâu hơn lượt sinh ra nó.
             renderPermissionMatrix(data.permissionMatrix);
-            // Ba bảng còn lại, cùng luật: InterviewTableGate đảm bảo mỗi lượt nhiều nhất MỘT trong bốn
-            // danh sách này có nội dung, nên bốn lời gọi liên tiếp không bao giờ dựng hai bảng cùng lúc.
+            // Bốn bảng còn lại, cùng luật: InterviewTableGate đảm bảo mỗi lượt nhiều nhất MỘT trong năm
+            // danh sách này có nội dung, nên năm lời gọi liên tiếp không bao giờ dựng hai bảng cùng lúc.
             renderFlowMap(data.flowMap);
             renderScreenScope(data.screenScopeMap, data.uncoveredFlowSteps);
             renderEntityMap(data.entityMap);
+            renderNotificationMap(data.notificationMap, data.recipientOptions);
 
             // Lượt lỗi LLM: tô đỏ + nút "Thử lại" (server xóa lượt lỗi rồi chạy lại, khỏi gõ lại câu hỏi)
             // — markup khớp bản server render trong Index.cshtml.

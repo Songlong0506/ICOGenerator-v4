@@ -6,8 +6,8 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Dựng và chuẩn hoá "bảng đối tượng nghiệp vụ" — các thứ có hồ sơ riêng trong ứng dụng, thông tin cần lưu
-/// về chúng, và vòng đời trạng thái kèm người nhận thông báo ở mỗi chuyển trạng thái (xem
-/// <see cref="EntityMapRow"/>).
+/// về chúng, và vòng đời trạng thái chúng đi qua (xem <see cref="EntityMapRow"/>). Người nhận thông báo ở
+/// mỗi chuyển trạng thái được chốt ở bảng RIÊNG đứng sau — xem <see cref="NotificationMapBuilder"/>.
 ///
 /// <para>
 /// Ba chốt chặn tất định, và cả ba đều nhắm vào cùng một rủi ro: đây là bảng DỄ ĐỌC LƯỚT NHẤT trong bốn
@@ -176,9 +176,7 @@ public static class EntityMapBuilder
 
         var sb = new StringBuilder();
         sb.AppendLine("\n--- Bảng đối tượng nghiệp vụ đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại) ---");
-        sb.AppendLine("Mỗi đối tượng: thông tin cần lưu, rồi vòng đời trạng thái kèm ĐIỀU KIỆN chuyển và AI ĐƯỢC "
-            + "BÁO. Ô \"báo\" để trống nghĩa là KHÔNG gửi thông báo cho ai ở chuyển trạng thái đó — đó là quyết "
-            + "định của người dùng, không phải chỗ còn thiếu.");
+        sb.AppendLine("Mỗi đối tượng: thông tin cần lưu, rồi vòng đời trạng thái kèm ĐIỀU KIỆN chuyển vào.");
 
         foreach (var row in rows)
         {
@@ -268,11 +266,13 @@ public static class EntityMapBuilder
             ? field.Name.Trim()
             : $"{field.Name.Trim()} ({field.Meaning.Trim()})";
 
+    // Ô "báo cho ai" KHÔNG được kể ở đây nữa, kể cả với dữ liệu cũ còn mang nó (xem
+    // EntityLifecycleState.Notify): người nhận thông báo có bảng riêng, và hai khối ngữ cảnh cùng nói về
+    // một quyết định là cách chắc chắn nhất để BA hỏi lại thứ người dùng vừa chốt ở bảng kia.
     private static string RenderState(EntityLifecycleState state)
     {
         var entry = string.IsNullOrWhiteSpace(state.EntryCondition) ? string.Empty : $" khi {state.EntryCondition.Trim()}";
-        var notify = string.IsNullOrWhiteSpace(state.Notify) ? "không báo cho ai" : $"báo cho {state.Notify.Trim()}";
-        return $"\"{state.State.Trim()}\"{entry} ⇒ {notify}";
+        return $"\"{state.State.Trim()}\"{entry}";
     }
 
     private static List<EntityFieldNote> NormalizeFields(

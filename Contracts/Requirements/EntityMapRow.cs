@@ -21,15 +21,13 @@ public class EntityFieldNote
 }
 
 /// <summary>
-/// MỘT trạng thái trong vòng đời của một đối tượng, kèm điều kiện chuyển vào và AI ĐƯỢC BÁO khi nó xảy ra.
+/// MỘT trạng thái trong vòng đời của một đối tượng, kèm điều kiện chuyển vào nó.
 ///
 /// <para>
-/// Cột <see cref="Notify"/> nằm ở đây chứ không ở một bảng riêng vì thông báo là thứ chỉ có nghĩa khi gắn
-/// vào một chuyển trạng thái cụ thể. Hỏi nhóm «Thông báo / nhắc nhở» bằng một câu chung chung cho ra đúng
-/// loại câu trả lời mà chuẩn <c>[RÕ]</c> đã phải cấm — một danh sách vai trò trần, rồi tài liệu đóng băng
-/// thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm", tức mỗi lần một bản kế hoạch đổi trạng thái thì
-/// toàn bộ nhân viên nhà máy nhận email. Đặt ô nhận-thông-báo ngay cạnh từng trạng thái biến câu hỏi mơ hồ
-/// đó thành vài ô cụ thể có sẵn ngữ cảnh.
+/// Mỗi trạng thái ở đây là MỘT DÒNG của bảng thông báo (<see cref="NotificationMapRow"/>) — đó là chỗ
+/// "ai được báo" được chốt, và nó cố tình nằm ở một bảng RIÊNG ĐỨNG SAU chứ không phải một ô cạnh trạng
+/// thái này: người nhận thật gần như luôn là một QUAN HỆ với bản ghi ("người gửi đơn", "sếp của người
+/// đó"), mà muốn bày ra một danh sách quan hệ/vai trò đóng thì phải có bảng phân quyền đã chốt trước.
 /// </para>
 /// </summary>
 public class EntityLifecycleState
@@ -41,15 +39,18 @@ public class EntityLifecycleState
     public string EntryCondition { get; set; } = "";
 
     /// <summary>
-    /// Ai được báo khi đối tượng vào trạng thái này. Rỗng = KHÔNG báo cho ai — một quyết định hợp lệ và
-    /// phải nói ra được, vì mặc định im lặng của các tầng sau là gửi cho tất cả.
+    /// DI SẢN — ô "báo cho ai" của bản trước, khi thông báo còn là một ô text tự do cạnh từng trạng thái.
+    /// KHÔNG còn được hỏi: bảng không render nó nữa, prompt không xin nó nữa, và các khối ngữ cảnh không
+    /// kể nó nữa. Trường vẫn còn đúng một việc — <c>NotificationMapBuilder.SeedRows</c> kéo nó qua thành
+    /// giá trị điền sẵn cột To của bảng thông báo, để các dự án đã chốt bảng đối tượng TRƯỚC khi bảng
+    /// thông báo tồn tại không phải trả lời lại đúng câu họ đã trả lời.
     /// </summary>
     public string Notify { get; set; } = "";
 }
 
 /// <summary>
 /// MỘT dòng của "bảng đối tượng nghiệp vụ": một thứ có hồ sơ riêng trong ứng dụng, các thông tin cần lưu
-/// về nó, và vòng đời trạng thái nó đi qua.
+/// về nó, và vòng đời trạng thái nó đi qua — vòng đời ấy còn là nguồn DÒNG của bảng thông báo ngay sau đó.
 ///
 /// <para>
 /// Vì sao bảng này đứng SAU bảng luồng và bảng màn hình, chứ không mở đầu chuỗi như trực giác mách bảo:

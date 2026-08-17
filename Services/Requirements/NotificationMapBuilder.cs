@@ -1,0 +1,483 @@
+using System.Text;
+using System.Text.Json;
+using ICOGenerator.Contracts.Requirements;
+
+namespace ICOGenerator.Services.Requirements;
+
+/// <summary>
+/// Dựng và chuẩn hoá "bảng thông báo / nhắc nhở" — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một
+/// dòng, người nhận chính (To) và người nhận đồng gửi (CC) chọn từ một danh sách đóng
+/// (<see cref="RecipientOptions"/>). Xem <see cref="NotificationMapRow"/> cho lý do đầy đủ.
+///
+/// <para>
+/// <b>Dòng và cột đều VAY từ hai bảng trước, và đó là lý do bảng này đứng cuối.</b> Dòng gieo từ vòng đời
+/// trạng thái của bảng đối tượng đã chốt (<see cref="SeedRows"/>) — người dùng vừa tự tay rà chúng, nên
+/// không có dòng nào phải hỏi lại "sự kiện này có thật không". Danh sách người nhận cần các VAI TRÒ của
+/// bảng phân quyền đã chốt: vai trò của ứng dụng ĐANG THIẾT KẾ chỉ tồn tại trong hội thoại, không bảng
+/// nào trong DB liệt kê chúng (<c>AppUserRole</c> là vai trò của chính ICOGenerator, không liên quan).
+/// </para>
+///
+/// <para>
+/// Ba chốt chặn tất định, cùng bộ luật với bốn bảng trước:
+/// </para>
+/// <list type="bullet">
+///   <item><b>Sự kiện bịa bị loại.</b> Dòng model đề xuất mà không khớp một chuyển trạng thái nào của bảng
+///   đối tượng chỉ đi qua được khi nó có TRÍCH DẪN — đó là đường cho các dòng NHẮC NHỞ thật ("trước hạn 3
+///   ngày") mà bảng đối tượng không gieo ra được, không phải cửa cho model nghĩ thêm sự kiện.</item>
+///   <item><b>Sự kiện bị bỏ quên vẫn phải có mặt, và ở trạng thái TÍCH SẴN.</b> Model chỉ nêu vài chuyển
+///   trạng thái nó nhớ thì các chuyển trạng thái còn lại biến mất khỏi bảng và mặc nhiên thành "không báo
+///   cho ai" mà người dùng không bao giờ nhìn thấy để phản đối — đúng khiếm khuyết của hàng chip mà bảng
+///   sinh ra để chữa.</item>
+///   <item><b>Người nhận phải nằm trong danh sách chọn.</b> Giá trị không khớp mục nào bị bỏ. Một người
+///   nhận bịa ("Phòng Nhân sự" ở dự án không có vai đó) đi thẳng vào spec rồi vào POC, và không ai đọc lại
+///   bảng mà nhận ra được.</item>
+/// </list>
+/// </summary>
+public static class NotificationMapBuilder
+{
+    /// <summary>Trần số dòng. Nhiều hơn thì bảng không rà nổi trong một lượt.</summary>
+    public const int MaxRows = 24;
+
+    /// <summary>Trần số người nhận của MỘT ô (To hoặc CC).</summary>
+    public const int MaxRecipientsPerCell = 8;
+
+    /// <summary>Trần số mục của danh sách chọn = 4 mục quan hệ + tối đa 8 vai trò của bảng phân quyền.</summary>
+    public const int MaxRecipientOptions = 12;
+
+    private const int MaxTextChars = 200;
+    private const int MaxEvidenceChars = 300;
+
+    private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
+
+    /// <summary>
+    /// Các DÒNG của bảng, gieo từ vòng đời trạng thái của bảng đối tượng ĐÃ CHỐT: mỗi trạng thái của mỗi
+    /// đối tượng còn tích là một sự kiện. Rỗng ⇒ dự án không có vòng đời nào (ứng dụng danh mục thuần) và
+    /// bảng này KHÔNG bao giờ được bày — xem <see cref="NotificationMapGate"/>.
+    ///
+    /// <para>
+    /// <paramref name="entityMapJson"/> của dự án chốt bảng đối tượng TRƯỚC khi bảng thông báo tồn tại còn
+    /// mang ô <c>notify</c> cũ (một ô text tự do cạnh từng trạng thái). Nó được kéo qua đây thành giá trị
+    /// điền sẵn của cột To — người dùng đã trả lời đúng câu hỏi đó rồi, chỉ khác là trả lời bằng cách gõ.
+    /// Bắt họ chọn lại từ đầu là hình dạng vòng lặp câu hỏi chết mà repo đã phải dựng lưới một lần.
+    /// </para>
+    /// </summary>
+    public static List<NotificationMapRow> SeedRows(string? entityMapJson)
+    {
+        var rows = new List<NotificationMapRow>();
+
+        foreach (var entity in EntityMapBuilder.Parse(entityMapJson).Where(e => e.Included))
+        {
+            foreach (var state in entity.States)
+            {
+                if (string.IsNullOrWhiteSpace(state.State))
+                    continue;
+
+                rows.Add(new NotificationMapRow
+                {
+                    Entity = Clip(entity.Entity.Trim(), MaxTextChars),
+                    Event = Clip(state.State.Trim(), MaxTextChars),
+                    Trigger = Clip((state.EntryCondition ?? string.Empty).Trim(), MaxTextChars),
+                    // Ô notify cũ — xem ghi chú method. Chưa lọc theo danh sách chọn ở đây; Build làm việc đó.
+                    To = string.IsNullOrWhiteSpace(state.Notify)
+                        ? new List<string>()
+                        : new List<string> { state.Notify.Trim() }
+                });
+
+                if (rows.Count >= MaxRows)
+                    return rows;
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Danh sách chọn của hai ô To/CC: bốn mục QUAN HỆ trước (ca thường gặp), rồi mỗi vai trò đã chốt thành
+    /// một mục "Toàn bộ &lt;vai&gt;". Xem <see cref="NotificationRecipient"/> cho lý do phải gọi đúng tên
+    /// mục nguy hiểm.
+    /// </summary>
+    public static List<string> RecipientOptions(IReadOnlyList<string>? roles)
+    {
+        var options = new List<string>(NotificationRecipient.Related);
+        var seen = options.Select(Normalize).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var raw in roles ?? Array.Empty<string>())
+        {
+            var role = (raw ?? string.Empty).Trim();
+            if (role.Length == 0 || role.Length > MaxTextChars)
+                continue;
+
+            var option = NotificationRecipient.AllOfRole(role);
+            if (!seen.Add(Normalize(option)))
+                continue;
+
+            options.Add(option);
+            if (options.Count >= MaxRecipientOptions)
+                break;
+        }
+
+        return options;
+    }
+
+    /// <summary>
+    /// Bảng cuối cùng cho lượt BA BÀY BẢNG: các dòng gieo sẵn theo đúng thứ tự
+    /// (<paramref name="seedRows"/>), người nhận lấy từ đề xuất của model đã kéo về
+    /// <paramref name="options"/>, cộng các dòng NHẮC NHỞ có trích dẫn mà model nêu thêm.
+    ///
+    /// <para>
+    /// Mọi dòng ra khỏi đây đều TÍCH SẴN bất kể model trả gì: cờ tích là chỗ NGƯỜI DÙNG loại bớt, không
+    /// phải chỗ model tự phủ nhận đề xuất của mình — structured output buộc điền đủ trường, nên một model
+    /// điền <c>false</c> cho có sẽ âm thầm bỏ tích sạch bảng và người dùng gửi đi "không sự kiện nào cần
+    /// báo" trong khi tưởng mình vừa xác nhận cả danh sách.
+    /// </para>
+    /// </summary>
+    public static List<NotificationMapRow> Build(
+        IEnumerable<NotificationMapRow>? proposed,
+        IReadOnlyList<NotificationMapRow> seedRows,
+        IReadOnlyList<string> options)
+    {
+        var result = new List<NotificationMapRow>();
+        if (seedRows.Count == 0 || options.Count == 0)
+            return result;
+
+        var byKey = new Dictionary<string, NotificationMapRow>(StringComparer.Ordinal);
+        var extras = new List<NotificationMapRow>();
+        foreach (var row in proposed ?? Enumerable.Empty<NotificationMapRow>())
+        {
+            if (row == null || string.IsNullOrWhiteSpace(row.Event))
+                continue;
+
+            var key = Key(row.Entity, row.Event);
+            if (seedRows.Any(s => Key(s.Entity, s.Event) == key))
+            {
+                if (!byKey.ContainsKey(key))
+                    byKey[key] = row;
+            }
+            else
+            {
+                extras.Add(row);
+            }
+        }
+
+        foreach (var seed in seedRows)
+        {
+            byKey.TryGetValue(Key(seed.Entity, seed.Event), out var match);
+
+            // Ô notify cũ của bảng đối tượng (nếu có) là điền sẵn NỀN; đề xuất tươi của model thắng khi nó
+            // nói được điều gì. Cả hai đều đi qua MatchRecipient nên không giá trị nào ngoài danh sách chọn
+            // lọt vào bảng.
+            var to = NormalizeRecipients(match?.To?.Count > 0 ? match.To : seed.To, options, Array.Empty<string>());
+            var cc = NormalizeRecipients(match?.Cc, options, to);
+            var evidence = Clip((match?.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
+
+            result.Add(new NotificationMapRow
+            {
+                Entity = seed.Entity,
+                Event = seed.Event,
+                Trigger = seed.Trigger,
+                To = to,
+                Cc = cc,
+                Needed = true,
+                // LUẬT BẰNG CHỨNG — cờ suông không khóa được dòng nào. Xem PermissionGrant.Locked.
+                Locked = evidence.Length > 0,
+                Evidence = evidence
+            });
+        }
+
+        // Dòng NHẮC NHỞ model nêu thêm: chỉ đi qua khi có TRÍCH DẪN. Đây là đường cho "trước hạn 3 ngày",
+        // "quá hạn mà chưa ai duyệt" — những thứ không phải chuyển trạng thái nên bảng đối tượng không gieo
+        // ra được. Không có trích dẫn thì đó là một sự kiện model nghĩ thêm, và một dòng như vậy được người
+        // dùng tích sẵn hộ rồi đi thẳng vào spec.
+        foreach (var extra in extras)
+        {
+            if (result.Count >= MaxRows)
+                break;
+
+            var evidence = Clip((extra.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
+            if (evidence.Length == 0)
+                continue;
+
+            var eventName = Clip(extra.Event.Trim(), MaxTextChars);
+            if (result.Any(r => Key(r.Entity, r.Event) == Key(extra.Entity, eventName)))
+                continue;
+
+            var to = NormalizeRecipients(extra.To, options, Array.Empty<string>());
+            result.Add(new NotificationMapRow
+            {
+                Entity = Clip((extra.Entity ?? string.Empty).Trim(), MaxTextChars),
+                Event = eventName,
+                Trigger = Clip((extra.Trigger ?? string.Empty).Trim(), MaxTextChars),
+                To = to,
+                Cc = NormalizeRecipients(extra.Cc, options, to),
+                Needed = true,
+                Locked = true,
+                Evidence = evidence
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT: giữ đúng lựa chọn tích/bỏ tích của người dùng, xoá cờ
+    /// khóa (bảng đã gửi thì mọi dòng là quyết định của họ), và vẫn kéo mọi người nhận về
+    /// <paramref name="options"/> — server không tin payload nó vừa render ra vài giây trước.
+    ///
+    /// <para>
+    /// Khác <see cref="Build"/> ở chỗ KHÔNG cần dòng gieo: dòng của bảng đã nằm trong payload, và dòng mang
+    /// cờ <see cref="NotificationMapRow.AddedByUser"/> đi qua được dù không khớp chuyển trạng thái nào —
+    /// chốt chặn "sự kiện bịa" dựng để chặn MODEL, không phải để chặn người dùng vừa tự gõ một lời nhắc.
+    /// </para>
+    /// </summary>
+    public static List<NotificationMapRow> Sanitize(
+        IEnumerable<NotificationMapRow>? submitted,
+        IReadOnlyList<string> options)
+    {
+        var result = new List<NotificationMapRow>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var row in submitted ?? Enumerable.Empty<NotificationMapRow>())
+        {
+            if (row == null || string.IsNullOrWhiteSpace(row.Event))
+                continue;
+
+            var eventName = Clip(row.Event.Trim(), MaxTextChars);
+            var entity = Clip((row.Entity ?? string.Empty).Trim(), MaxTextChars);
+            if (!seen.Add(Key(entity, eventName)))
+                continue;
+
+            var to = NormalizeRecipients(row.To, options, Array.Empty<string>());
+            result.Add(new NotificationMapRow
+            {
+                Entity = entity,
+                Event = eventName,
+                Trigger = Clip((row.Trigger ?? string.Empty).Trim(), MaxTextChars),
+                To = to,
+                Cc = NormalizeRecipients(row.Cc, options, to),
+                Needed = row.Needed,
+                // Cờ khóa bị xoá, cờ TỰ THÊM thì không: cái trước là lời khai của model về hội thoại (hết ý
+                // nghĩa khi người dùng đã tự tay duyệt), cái sau là một sự thật về nguồn gốc của dòng mà
+                // RenderUserMessage còn phải kể lại. Cùng luật với EntityMapBuilder.Sanitize.
+                Locked = false,
+                Evidence = string.Empty,
+                AddedByUser = row.AddedByUser
+            });
+
+            if (result.Count >= MaxRows)
+                break;
+        }
+
+        return result;
+    }
+
+    /// <summary>Đọc JSON bảng thông báo đã lưu (cột DB hoặc payload client). null/rỗng/hỏng ⇒ mảng rỗng.</summary>
+    public static List<NotificationMapRow> Parse(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new List<NotificationMapRow>();
+
+        try
+        {
+            var rows = JsonSerializer.Deserialize<List<NotificationMapRow>>(json, ReadOptions)
+                ?? new List<NotificationMapRow>();
+            return rows.Where(r => r != null && !string.IsNullOrWhiteSpace(r.Event)).ToList();
+        }
+        catch
+        {
+            return new List<NotificationMapRow>();
+        }
+    }
+
+    /// <summary>Dự án này đã chốt bảng thông báo chưa.</summary>
+    public static bool IsConfirmed(string? json) => Parse(json).Count > 0;
+
+    /// <summary>
+    /// Khối ngữ cảnh gắn vào MỌI lượt chat sau khi bảng đã chốt, vào lượt distill bản đồ bao phủ, và vào
+    /// prompt sinh AI Design Spec. Trả null khi chưa chốt.
+    ///
+    /// <para>
+    /// Khối tự chở NGOẠI LỆ của chính luật "đừng hỏi lại": các dòng người dùng còn để trống người nhận. Đó
+    /// là chỗ DUY NHẤT của nhóm này còn được hỏi bằng câu hỏi sau khi bảng đã chốt — không nói ra thì một
+    /// sự kiện "cần báo nhưng chưa biết báo cho ai" nằm im dưới một câu lệnh cấm hỏi, và nhóm «Thông báo /
+    /// nhắc nhở» được chấm <c>[RÕ]</c> với đúng cái lỗ mà cả bảng sinh ra để bịt.
+    /// </para>
+    /// </summary>
+    public static string? RenderConfirmedBlock(string? json)
+    {
+        var rows = Parse(json);
+        if (rows.Count == 0)
+            return null;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("\n--- Bảng thông báo / nhắc nhở đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại) ---");
+        sb.AppendLine("Mỗi dòng: sự kiện · người nhận chính (To) · người nhận đồng gửi (CC). Kênh gửi duy nhất "
+            + "của nền tảng là EMAIL nên không có cột kênh. Người nhận là một QUAN HỆ với bản ghi (\"Người "
+            + "tạo\", \"Quản lý trực tiếp của người tạo\") hoặc cả một vai trò (\"Toàn bộ …\").");
+
+        foreach (var row in rows.Where(r => r.Needed && r.To.Count > 0))
+            sb.AppendLine("* " + RenderRow(row));
+
+        var silent = rows.Where(r => !r.Needed).ToList();
+        if (silent.Count > 0)
+            sb.AppendLine("* KHÔNG gửi thông báo ở các sự kiện sau — đây là quyết định của người dùng, không "
+                + "phải chỗ còn thiếu: " + string.Join("; ", silent.Select(RenderEvent)));
+
+        var pending = rows.Where(r => r.Needed && r.To.Count == 0).ToList();
+        if (pending.Count > 0)
+            sb.AppendLine("* CẦN gửi nhưng người dùng CHƯA chọn người nhận: "
+                + string.Join("; ", pending.Select(RenderEvent))
+                + ". Đây là ngoại lệ DUY NHẤT của luật \"đừng hỏi lại\" — hỏi cho hết các sự kiện này (mỗi "
+                + "sự kiện: ai là người nhận chính, có ai cần đồng gửi không).");
+
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Tin nhắn mà TRÌNH DUYỆT gửi tiếp vào khung chat sau khi bảng đã lưu — cùng khuôn hai bước với các
+    /// bảng khác, và soạn ở server vì cùng lý do: bản kể phải khớp đúng bản đã lưu.
+    /// </summary>
+    public static string RenderUserMessage(IReadOnlyList<NotificationMapRow> rows)
+    {
+        if (rows.Count == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Mình đã rà bảng thông báo — đây là các sự kiện cần gửi email và người nhận:");
+
+        var sending = rows.Where(r => r.Needed && r.To.Count > 0).ToList();
+        foreach (var row in sending)
+            sb.AppendLine("- " + RenderRow(row));
+
+        if (sending.Count == 0)
+            sb.AppendLine("- (không sự kiện nào có người nhận)");
+
+        // Sự kiện bị bỏ tích phải được GỌI TÊN, cùng lý do với dòng bị bỏ tích của các bảng khác: im lặng bỏ
+        // nó đi thì người dùng không có bằng chứng nào cho thấy mình vừa tắt đúng thứ định tắt, mà mặc định
+        // im lặng của mọi tầng phía sau lại là "có thay đổi thì báo".
+        var silent = rows.Where(r => !r.Needed).ToList();
+        if (silent.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Các sự kiện KHÔNG cần gửi thông báo: " + string.Join("; ", silent.Select(RenderEvent)) + ".");
+        }
+
+        var pending = rows.Where(r => r.Needed && r.To.Count == 0).ToList();
+        if (pending.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Các sự kiện mình cần báo nhưng chưa chốt được người nhận: "
+                + string.Join("; ", pending.Select(RenderEvent)) + ".");
+        }
+
+        var addedByUser = rows.Where(r => r.AddedByUser).ToList();
+        if (addedByUser.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Các sự kiện/lời nhắc mình tự bổ sung vào bảng: "
+                + string.Join("; ", addedByUser.Select(RenderEvent)) + ".");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    // ==== chuẩn hoá từng phần ====
+
+    private static string RenderEvent(NotificationMapRow row)
+    {
+        var entity = string.IsNullOrWhiteSpace(row.Entity) ? string.Empty : $"{row.Entity.Trim()} — ";
+        var trigger = string.IsNullOrWhiteSpace(row.Trigger) ? string.Empty : $" (khi {row.Trigger.Trim()})";
+        return $"{entity}\"{row.Event.Trim()}\"{trigger}";
+    }
+
+    private static string RenderRow(NotificationMapRow row)
+    {
+        var to = row.To.Count > 0 ? string.Join(", ", row.To) : "chưa chọn";
+        var cc = row.Cc.Count > 0 ? $"; CC: {string.Join(", ", row.Cc)}" : string.Empty;
+        return $"{RenderEvent(row)} ⇒ To: {to}{cc}";
+    }
+
+    private static string Key(string? entity, string? eventName)
+        => Normalize(entity ?? string.Empty) + "|" + Normalize(eventName ?? string.Empty);
+
+    /// <summary>
+    /// Kéo các giá trị đề xuất về đúng danh sách chọn, bỏ trùng, bỏ những mục đã có ở
+    /// <paramref name="exclude"/> (một người vừa To vừa CC là một người nhận hai email của cùng một sự kiện)
+    /// và chặn ở trần <see cref="MaxRecipientsPerCell"/>.
+    /// </summary>
+    private static List<string> NormalizeRecipients(
+        IEnumerable<string>? proposed, IReadOnlyList<string> options, IReadOnlyList<string> exclude)
+    {
+        var result = new List<string>();
+        var seen = exclude.Select(Normalize).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var raw in proposed ?? Enumerable.Empty<string>())
+        {
+            var option = MatchRecipient(raw, options);
+            if (option == null || !seen.Add(Normalize(option)))
+                continue;
+
+            result.Add(option);
+            if (result.Count >= MaxRecipientsPerCell)
+                break;
+        }
+
+        return result;
+    }
+
+    /// <summary>Ngưỡng độ dài cho phép so khớp CHỨA-NHAU — mẩu ngắn hơn dính vào quá nhiều mục.</summary>
+    private const int MinContainsLength = 5;
+
+    /// <summary>
+    /// Ghép một giá trị model (hoặc trình duyệt) đưa lên về đúng một mục của danh sách chọn. Ba nấc, hẹp
+    /// dần: khớp CHÍNH XÁC → khớp đúng phần TÊN VAI của mục "Toàn bộ …" (model hay viết "Manager" thay vì
+    /// "Toàn bộ Manager") → khớp chứa-nhau và chỉ khi có ĐÚNG MỘT mục dài nhất khớp. Không khớp ⇒ null và
+    /// giá trị bị bỏ: ô hiện ít lựa chọn sẵn hơn thì người dùng tự chọn nốt, còn một người nhận bịa thì đi
+    /// thẳng vào spec mà không ai đọc lại bảng nhận ra được.
+    /// </summary>
+    private static string? MatchRecipient(string? proposed, IReadOnlyList<string> options)
+    {
+        var value = Normalize(proposed ?? string.Empty);
+        if (value.Length == 0)
+            return null;
+
+        foreach (var option in options)
+        {
+            if (Normalize(option) == value)
+                return option;
+        }
+
+        foreach (var option in options)
+        {
+            if (!option.StartsWith(NotificationRecipient.AllOfRolePrefix, StringComparison.Ordinal))
+                continue;
+            if (Normalize(option[NotificationRecipient.AllOfRolePrefix.Length..]) == value)
+                return option;
+        }
+
+        if (value.Length < MinContainsLength)
+            return null;
+
+        var matches = options.Where(o =>
+        {
+            var normalized = Normalize(o);
+            return normalized.Contains(value, StringComparison.Ordinal)
+                || (normalized.Length >= MinContainsLength && value.Contains(normalized, StringComparison.Ordinal));
+        }).OrderByDescending(o => Normalize(o).Length).ToList();
+
+        // Hai mục dài bằng nhau cùng khớp ⇒ mơ hồ, bỏ hẳn. Gán bừa vào mục đầu tiên là gửi email cho nhầm
+        // người, thứ không ai phát hiện được khi đọc lại bảng.
+        if (matches.Count == 0)
+            return null;
+        if (matches.Count > 1 && Normalize(matches[0]).Length == Normalize(matches[1]).Length)
+            return null;
+
+        return matches[0];
+    }
+
+    private static string Normalize(string value)
+        => string.Join(' ', (value ?? string.Empty).ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            .Trim(' ', '.', ',', ':', ';', '-', '–');
+
+    private static string Clip(string value, int max)
+        => value.Length > max ? value[..max] : value;
+}

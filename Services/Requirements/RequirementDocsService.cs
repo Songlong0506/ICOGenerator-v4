@@ -113,7 +113,9 @@ public class RequirementDocsService
             // Model Summary". Fail-open như trên: chưa chốt ⇒ khối rỗng, prompt như cũ.
             FlowMapBuilder.RenderConfirmedBlock(project.FlowMap),
             ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
-            EntityMapBuilder.RenderConfirmedBlock(project.EntityMap));
+            EntityMapBuilder.RenderConfirmedBlock(project.EntityMap),
+            // Bảng thông báo — đường duy nhất để "ai được báo khi nào" tới được spec ở dạng máy đọc được.
+            NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap));
 
         var messages = new List<ChatMessage>
         {

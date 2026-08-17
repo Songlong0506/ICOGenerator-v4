@@ -89,8 +89,14 @@ public class BAChatService
 
     /// <inheritdoc cref="FlowMapIntro"/>
     public const string EntityMapIntro =
-        "Mình tổng hợp các đối tượng nghiệp vụ mà ứng dụng cần lưu, kèm các trạng thái chúng đi qua và ai được "
-        + "báo ở mỗi bước. Anh/chị rà giúp bảng bên dưới rồi bấm \"Gửi bảng đối tượng\" nhé.";
+        "Mình tổng hợp các đối tượng nghiệp vụ mà ứng dụng cần lưu, kèm các trạng thái chúng đi qua. Anh/chị rà "
+        + "giúp bảng bên dưới rồi bấm \"Gửi bảng đối tượng\" nhé.";
+
+    /// <inheritdoc cref="FlowMapIntro"/>
+    public const string NotificationMapIntro =
+        "Còn đúng một việc cuối: ai cần nhận email khi có việc gì xảy ra. Mình liệt kê sẵn các sự kiện bên dưới — "
+        + "anh/chị bỏ tích sự kiện không cần báo, chọn người nhận cho các sự kiện còn lại, rồi bấm "
+        + "\"Gửi bảng thông báo\" giúp mình nhé.";
 
     public BAChatService(
         AppDbContext db,
@@ -504,8 +510,8 @@ public class BAChatService
                 // đã phải dựng lưới một lần.
                 + string.Join("\n", openQuestions.Select(q => "- " + CoveragePendingGuard.StripGroupTag(q)))));
         }
-        // PHÂN QUYỀN — nhóm DUY NHẤT không được hỏi bằng câu hỏi. Xem PermissionMatrixGate cho lý do đầy
-        // đủ; tóm tắt: hỏi "mỗi vai trò được xem và làm những gì?" là bắt người dùng nghiệp vụ tự dựng cả
+        // PHÂN QUYỀN — một trong HAI nhóm không được hỏi bằng câu hỏi (nhóm kia là «Thông báo / nhắc nhở»,
+        // khối của nó nằm ngay dưới). Xem PermissionMatrixGate cho lý do đầy đủ; tóm tắt: hỏi "mỗi vai trò được xem và làm những gì?" là bắt người dùng nghiệp vụ tự dựng cả
         // ma trận trong đầu, nên câu trả lời thật gần như luôn là "cứ vậy đã, có gì tôi bổ sung sau" — rồi
         // BA tự soạn phương án và một chip "Đồng ý" đóng dấu [RÕ] cho cả nhóm. Ba trạng thái, ba lệnh khác
         // nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model tự đoán đang ở trạng thái nào.
@@ -518,6 +524,13 @@ public class BAChatService
         // việc riêng và chỉ có MỘT chỗ trả lời (hai chip xác nhận) nên mọi cổng nhường nó một lượt — chúng
         // mở lại ngay lượt sau. Xem InterviewTableGate cho thứ tự ưu tiên và lý do.
         var table = InterviewTableGate.Select(project, suppressed: columnReadbackTurn);
+        // Hai đầu vào của bảng THÔNG BÁO, cả hai đều vay từ bảng đã chốt trước đó: DÒNG là chuyển trạng
+        // thái của bảng đối tượng, MỤC CHỌN của hai ô To/CC là bốn quan hệ + các vai trò của bảng phân
+        // quyền. Tính ở đây vì cả khối "LƯỢT NÀY" lẫn nhánh dựng bảng phía dưới đều đọc chúng, và cả lệnh
+        // cấm hỏi lẻ cũng phải biết có dòng nào gieo được không.
+        var notificationSeedRows = NotificationMapBuilder.SeedRows(project.EntityMap);
+        var recipientOptions = NotificationMapBuilder.RecipientOptions(
+            PermissionMatrixBuilder.Roles(project.PermissionMatrix));
         // BA BẢNG ĐÃ CHỐT còn lại: khối ngữ cảnh đính vào MỌI lượt sau, không phụ thuộc cổng nào đang mở.
         // Thiếu chúng thì mỗi bảng chỉ là một màn bấm đẹp — BA vẫn hỏi lại đúng thứ người dùng vừa duyệt.
         AppendConfirmedTable(messages, FlowMapBuilder.RenderConfirmedBlock(project.FlowMap),
@@ -530,7 +543,7 @@ public class BAChatService
             + "khi chính người dùng nêu ra một nhu cầu mới.");
         AppendConfirmedTable(messages, EntityMapBuilder.RenderConfirmedBlock(project.EntityMap),
             "## Bảng đối tượng nghiệp vụ người dùng ĐÃ CHỐT (coi như điều đã biết)",
-            "KHÔNG hỏi lại thông tin nào cần lưu, các trạng thái đi qua, hay ai được báo ở mỗi chuyển trạng thái.");
+            "KHÔNG hỏi lại thông tin nào cần lưu hay các trạng thái đi qua.");
         var confirmedMatrix = PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix);
         if (!string.IsNullOrWhiteSpace(confirmedMatrix))
         {
@@ -664,6 +677,71 @@ public class BAChatService
                 + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng đối tượng\" — không đặt "
                 + "câu hỏi, không kèm `suggestions`, không kèm `questions`, không kèm `flowDiagram`."));
         }
+        // THÔNG BÁO / NHẮC NHỞ — nhóm THỨ HAI không được hỏi bằng câu hỏi, và vì cùng lý do với nhóm phân
+        // quyền: chuẩn [RÕ] đòi hai vế GHÉP ĐƯỢC với nhau (mỗi sự kiện biết người nhận của riêng nó) trong
+        // khi câu hỏi tự nhiên lại tách chúng làm hai câu rời, rồi bốn chip vai trò đóng dấu [RÕ] cho cả
+        // nhóm với nội dung "mọi thay đổi trạng thái gửi cho cả bốn nhóm". Bốn ca: đã chốt / lượt bày bảng
+        // / còn phải chờ (cấm hỏi lẻ) / dự án không có vòng đời nào (không lệnh nào, nhóm quay về đường hỏi
+        // bằng câu hỏi) — và ca nào cũng do CƠ CHẾ chọn, không để model tự đoán mình đang ở đâu.
+        var confirmedNotifications = NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap);
+        if (!string.IsNullOrWhiteSpace(confirmedNotifications))
+        {
+            // Khối tự chở NGOẠI LỆ của chính nó (các sự kiện còn trống người nhận), nên câu luật ở đây
+            // không được cấm tuyệt đối — xem NotificationMapBuilder.RenderConfirmedBlock.
+            messages.Add(new ChatMessage(ChatRole.System,
+                "## Bảng thông báo người dùng ĐÃ CHỐT (tự tay chọn từng dòng — coi như điều đã biết)\n"
+                + "KHÔNG hỏi lại sự kiện nào cần báo hay ai là người nhận, TRỪ đúng các dòng mà chính khối này "
+                + "nói là còn trống người nhận.\n"
+                + confirmedNotifications));
+        }
+        else if (table == InterviewTableKind.NotificationMap)
+        {
+            messages.Add(new ChatMessage(ChatRole.System,
+                "## LƯỢT NÀY: BÀY BẢNG THÔNG BÁO (bắt buộc)\n"
+                + "Đây là việc CUỐI CÙNG của buổi phỏng vấn: chốt nhóm «Thông báo / nhắc nhở», và nó được chốt "
+                + "bằng BẢNG chứ không bằng câu hỏi.\n"
+                + "Trả về trường `notificationMap`: mỗi dòng là MỘT sự kiện. Ràng buộc:\n"
+                + "- `entity` + `event` phải CHÉP ĐÚNG một dòng trong danh sách sự kiện bên dưới (chúng là các "
+                + "chuyển trạng thái người dùng vừa tự tay chốt ở bảng đối tượng). Dòng nào bạn không nêu, hệ "
+                + "thống tự bổ sung vào bảng ở trạng thái chưa chọn người nhận.\n"
+                + "- `to` và `cc` là MẢNG, mỗi phần tử phải CHÉP ĐÚNG NGUYÊN VĂN một mục trong danh sách người "
+                + "nhận bên dưới. Giá trị không khớp mục nào sẽ bị bỏ. `cc` thường rỗng.\n"
+                + "- CHỈ điền `to`/`cc` cho những sự kiện mà hội thoại ĐÃ nói ai nhận, và khi đó `evidence` là "
+                + "đúng trích dẫn của người dùng. Sự kiện bạn chỉ suy đoán thì để `to`/`cc` RỖNG và không "
+                + "`evidence` — người dùng sẽ tự chọn. TUYỆT ĐỐI không bịa trích dẫn, và TUYỆT ĐỐI không rải "
+                + "\"Toàn bộ …\" cho đủ: mỗi mục \"Toàn bộ\" nghĩa là cả nhà máy nhận email ở sự kiện đó.\n"
+                + "- Được thêm dòng NHẮC NHỞ ngoài danh sách (\"trước hạn 3 ngày\", \"quá hạn mà chưa ai duyệt\") "
+                + "CHỈ khi người dùng đã tự nói tới nó — dòng thêm bắt buộc có `evidence`, không có thì hệ thống "
+                + "bỏ. Ghi mốc thời gian vào `trigger`.\n"
+                + "- Kênh gửi duy nhất của nền tảng là EMAIL nên KHÔNG hỏi và KHÔNG nêu kênh nào khác.\n"
+                + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng thông báo\" — không đặt "
+                + "câu hỏi, không kèm `suggestions`, không kèm `questions`, không kèm `flowDiagram`: bảng là chỗ "
+                + "trả lời DUY NHẤT của lượt này.\n\n"
+                + "### Các sự kiện (mỗi dòng là MỘT dòng của bảng — chép nguyên văn vào `entity` + `event`)\n"
+                + string.Join("\n", notificationSeedRows.Select(r =>
+                    $"- entity: {r.Entity} | event: {r.Event}"
+                    + (string.IsNullOrWhiteSpace(r.Trigger) ? string.Empty : $" | khi: {r.Trigger}")))
+                + "\n\n### Danh sách người nhận (chép NGUYÊN VĂN vào `to`/`cc`)\n"
+                + string.Join("\n", recipientOptions.Select(o => "- " + o))));
+        }
+        // Không có dòng nào gieo được (dự án không có vòng đời trạng thái nào) VÀ buổi phỏng vấn đã tới cuối
+        // ⇒ bảng này sẽ KHÔNG BAO GIỜ được bày, nên lệnh cấm phải tự tắt: giữ nó là khóa chết nhóm ở
+        // [CHƯA HỎI] và nút "Write Requirement" không bao giờ sáng. Đây là đường thoát duy nhất của ca đó,
+        // và nó khớp đúng điều kiện thứ ba của NotificationMapGate.
+        else if (notificationSeedRows.Count > 0 || !PermissionMatrixGate.IsConfirmed(project.PermissionMatrix))
+        {
+            messages.Add(new ChatMessage(ChatRole.System,
+                "## Nhóm «Thông báo / nhắc nhở» — ĐỂ CUỐI, đừng hỏi lẻ\n"
+                + "KHÔNG hỏi các câu kiểu \"vai trò nào cần nhận email?\", \"sự kiện nào cần gửi thông báo?\", và "
+                + "KHÔNG tự soạn một danh sách người nhận rồi xin người dùng gật. Nhóm này được chốt bằng MỘT "
+                + "BẢNG ở cuối buổi (mỗi sự kiện một dòng, người nhận chọn từ danh sách) — hỏi bây giờ chỉ nhận "
+                + "về một danh sách vai trò trần không gắn với sự kiện nào, và tài liệu sẽ đóng băng thành \"mọi "
+                + "thay đổi trạng thái gửi cho cả bốn nhóm\", tức mỗi lần một bản ghi đổi trạng thái là cả nhà "
+                + "máy nhận email.\n"
+                + "Vẫn PHẢI hỏi như thường: các TRẠNG THÁI một đối tượng đi qua và ĐIỀU KIỆN chuyển giữa chúng "
+                + "(nhóm «Vòng đời & trạng thái») — đó là nguồn các dòng của bảng thông báo, không có nó thì "
+                + "bảng ấy trống. Cũng KHÔNG hỏi về cấu hình email/SMTP: kênh gửi duy nhất đã chốt là email."));
+        }
         // LƯỢT KỂ LẠI FILE BẢNG TÍNH — nửa sau của cơ chế "bảng cột trước, bản đọc lại sau". Luật viết bản
         // đọc lại nằm trong prompt riêng (đo được ở Prompt Evals, sửa được ở Prompt Studio) chứ không nhét
         // thành chuỗi ở đây; khối này chỉ chọn ĐÚNG lượt để đính nó vào.
@@ -727,6 +805,7 @@ public class BAChatService
         var flowMap = new List<FlowMapRow>();
         var screenScopeMap = new List<ScreenScopeRow>();
         var entityMap = new List<EntityMapRow>();
+        var notificationMap = new List<NotificationMapRow>();
         var uncoveredFlowSteps = new List<string>();
         if (!callResult.IsSuccess)
         {
@@ -927,6 +1006,16 @@ public class BAChatService
                     if (entityMap.Count > 0)
                         TakeOverTurn(EntityMapIntro);
                     break;
+
+                case InterviewTableKind.NotificationMap:
+                    // Dòng do CƠ CHẾ gieo, không do model liệt kê: model chỉ điền người nhận vào các dòng
+                    // có sẵn. Một sự kiện model quên nêu vẫn có mặt ở trạng thái chưa chọn người nhận —
+                    // im lặng bỏ nó đi là biến "chưa hỏi" thành "không báo cho ai".
+                    notificationMap = NotificationMapBuilder.Build(
+                        parsedReply.NotificationMap, notificationSeedRows, recipientOptions);
+                    if (notificationMap.Count > 0)
+                        TakeOverTurn(NotificationMapIntro);
+                    break;
             }
 
             // Bảng dựng được thì nó là chỗ trả lời DUY NHẤT của lượt: dọn chip, thẻ hỏi gộp và sơ đồ luồng.
@@ -975,7 +1064,8 @@ public class BAChatService
         var flowMapJson = flowMap.Count > 0 ? JsonSerializer.Serialize(flowMap) : null;
         var screenScopeMapJson = screenScopeMap.Count > 0 ? JsonSerializer.Serialize(screenScopeMap) : null;
         var entityMapJson = entityMap.Count > 0 ? JsonSerializer.Serialize(entityMap) : null;
-        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, flowDiagramJson, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, cancellationToken: cancellationToken);
+        var notificationMapJson = notificationMap.Count > 0 ? JsonSerializer.Serialize(notificationMap) : null;
+        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, flowDiagramJson, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, notificationMapJson: notificationMapJson, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -1005,6 +1095,10 @@ public class BAChatService
             FlowMap = flowMap,
             ScreenScopeMap = screenScopeMap,
             EntityMap = entityMap,
+            NotificationMap = notificationMap,
+            // Danh sách chọn chỉ có nghĩa khi lượt này thật sự bày bảng: client dựng ô chọn từ đây, và
+            // server đối chiếu đúng bộ này lúc gửi lên.
+            RecipientOptions = notificationMap.Count > 0 ? recipientOptions : new List<string>(),
             UncoveredFlowSteps = uncoveredFlowSteps,
             // Bản đồ KHÔNG gộp được lượt này (đã thử lại): panel tiến độ đang hiển thị bản cũ và BA vừa
             // dẫn lượt bằng bản cũ đó. Nói thẳng ra thay vì để người dùng tự đoán vì sao tiến độ đứng im.

@@ -78,6 +78,17 @@ public class BAChatTurnResult
     /// <summary>Bảng ĐỐI TƯỢNG nghiệp vụ — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.EntityMapGate"/> mở.</summary>
     public List<EntityMapRow> EntityMap { get; set; } = new();
 
+    /// <summary>Bảng THÔNG BÁO / NHẮC NHỞ — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.NotificationMapGate"/> mở (bảng cuối cùng của buổi phỏng vấn).</summary>
+    public List<NotificationMapRow> NotificationMap { get; set; } = new();
+
+    /// <summary>
+    /// Danh sách chọn của hai ô To/CC ở lượt bày bảng thông báo — bốn mục quan hệ + các vai trò của bảng
+    /// phân quyền đã chốt (<see cref="ICOGenerator.Services.Requirements.NotificationMapBuilder.RecipientOptions"/>).
+    /// Đi kèm frame done vì client phải dựng đúng bộ tùy chọn mà server sẽ đối chiếu lúc gửi; rỗng ở mọi
+    /// lượt khác.
+    /// </summary>
+    public List<string> RecipientOptions { get; set; } = new();
+
     /// <summary>
     /// Các BƯỚC LUỒNG đã chốt mà không màn hình nào trong bảng màn hình nhận phụ trách — phép kiểm tất
     /// định chạy bằng code (<see cref="ICOGenerator.Services.Requirements.ScreenScopeMapBuilder.UncoveredActions"/>).

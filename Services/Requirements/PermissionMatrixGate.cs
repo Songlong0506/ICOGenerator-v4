@@ -32,6 +32,14 @@ namespace ICOGenerator.Services.Requirements;
 /// "Write Requirement", mà nhóm phân quyền chỉ lên <c>[RÕ]</c> sau khi bảng được chốt. Nên cổng này cố tình
 /// BỎ QUA đúng dòng phân quyền khi xét — nếu không, hai cổng khóa lẫn nhau và không cổng nào mở được.
 /// </para>
+///
+/// <para>
+/// <b>Nhóm «Thông báo / nhắc nhở» được bỏ qua theo ĐÚNG lý do đó</b> (xem <see cref="IsDeferredGroup"/>).
+/// Từ khi nhóm ấy chuyển sang chốt bằng <see cref="NotificationMapGate"/>, nó cũng không còn được hỏi bằng
+/// câu hỏi và cũng chỉ <c>[RÕ]</c> sau khi bảng của nó được chốt — mà bảng đó lại đứng SAU bảng phân
+/// quyền. Không bỏ qua thì hai bảng cuối khóa nhau: cổng này chờ nhóm thông báo <c>[RÕ]</c>, nhóm thông
+/// báo chờ bảng thông báo, bảng thông báo chờ bảng phân quyền.
+/// </para>
 /// </summary>
 public static class PermissionMatrixGate
 {
@@ -68,8 +76,9 @@ public static class PermissionMatrixGate
         if (items.Count == 0)
             return false;
 
-        // Các nhóm KHÁC nhóm phân quyền: còn dòng áp dụng nào chưa [RÕ] thì buổi phỏng vấn chưa tới cuối.
-        var others = items.Where(x => !IsPermissionGroup(x)).ToList();
+        // Các nhóm KHÁC hai nhóm chốt-bằng-bảng: còn dòng áp dụng nào chưa [RÕ] thì buổi phỏng vấn chưa
+        // tới cuối.
+        var others = items.Where(x => !IsDeferredGroup(x)).ToList();
         if (others.Count == 0)
             return false;
         if (others.Any(x => x.Status is "MỘT PHẦN" or "CHƯA HỎI"))
@@ -84,6 +93,15 @@ public static class PermissionMatrixGate
     public static bool IsConfirmed(string? permissionMatrixJson)
         => PermissionMatrixBuilder.Parse(permissionMatrixJson).Count > 0;
 
-    private static bool IsPermissionGroup(CoverageMapItem item)
-        => (item.Label ?? string.Empty).Trim().StartsWith("Phân quyền", StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// Hai nhóm được HOÃN tới cuối buổi và chỉ <c>[RÕ]</c> sau khi bảng của chúng được chốt — xem ghi chú
+    /// class. So khớp bằng TIỀN TỐ vì cùng lý do với <see cref="PermissionGroupLabel"/>: một lượt distill
+    /// viết chệch phần đuôi nhãn không được phép làm cổng câm vĩnh viễn.
+    /// </summary>
+    private static bool IsDeferredGroup(CoverageMapItem item)
+    {
+        var label = (item.Label ?? string.Empty).Trim();
+        return label.StartsWith("Phân quyền", StringComparison.OrdinalIgnoreCase)
+               || label.StartsWith("Thông báo", StringComparison.OrdinalIgnoreCase);
+    }
 }

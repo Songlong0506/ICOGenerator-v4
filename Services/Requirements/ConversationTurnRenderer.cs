@@ -178,6 +178,10 @@ public static class ConversationTurnRenderer
     public static List<EntityMapRow> ParseEntityMap(string? entityMapJson)
         => EntityMapBuilder.Parse(entityMapJson);
 
+    /// <summary>Giải mã cột <see cref="AgentConversation.NotificationMap"/> — như <see cref="ParsePermissionMatrix"/>.</summary>
+    public static List<NotificationMapRow> ParseNotificationMap(string? notificationMapJson)
+        => NotificationMapBuilder.Parse(notificationMapJson);
+
     /// <summary>
     /// Giải mã cột <see cref="AgentConversation.Attachments"/> (JSON array <see cref="ChatAttachment"/>)
     /// an toàn như <see cref="ParseSuggestions"/>. KHÔNG dùng khi render transcript gửi LLM (tên file đã
