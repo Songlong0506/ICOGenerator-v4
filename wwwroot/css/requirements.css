@@ -2086,6 +2086,14 @@
 
 .permmap-fn { font-size: 12.5px; font-weight: 600; color: #374151; }
 
+/* BẢNG VAI TRÒ — bảng một cột đứng trên các bảng màn hình, và là nguồn của mọi CỘT dưới nó. Hẹp hơn hẳn
+   bảng chính (cùng luật với .notifrecip-table): một cột chữ kéo hết bề ngang khung chat trông như bảng
+   chính thứ hai, trong khi việc của nó chỉ là một danh sách ngắn để rà. `fit-content` chứ không phải
+   `auto` vì .permmap-table là display:block, nên `auto` = trọn bề ngang khung chat. */
+.permrole-table { width: fit-content; min-width: 240px; max-width: 380px; margin-bottom: 14px; }
+
+    .permrole-table .permrole-name { font-weight: 600; }
+
 /* Ô ĐÃ CÓ BẰNG CHỨNG: hiện thành dấu ✓ cố định, không phải ô chọn. Đây là chỗ thể hiện bằng thị giác ranh
    giới mà cả tính năng dựa vào — người dùng nhìn một cái là biết ô nào đã là lời của chính mình và ô nào
    còn phải quyết, thay vì đối diện một bảng điền sẵn trông như đã xong (rồi bấm gửi trong ba giây). */

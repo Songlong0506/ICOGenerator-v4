@@ -1460,6 +1460,37 @@
                  @(lastPermissionMatrix.Count > 0 ? "" : "hidden")>
                 @if (lastPermissionMatrix.Count > 0)
                 {
+                    @* BẢNG VAI TRÒ — nguồn của MỌI cột bên dưới, cùng khuôn với "Danh sách người nhận" của bảng
+                       thông báo. Trước đó cột được chắt ngầm từ đề xuất của model, nên vai bị quên chỉ thêm lại
+                       được bằng cách gõ vào khung chat cho BA bày lại cả bảng — một lượt LLM cho một việc tất
+                       định. Markup khớp bản JS dựng ở frame done (renderPermissionRoles). *@
+                    <div class="permmap-howto">
+                        Đây là các <b>vai trò</b> mình gom được từ những gì anh/chị đã kể — cũng chính là các
+                        <b>cột</b> của bảng dưới. Thiếu vai nào thì thêm ngay ở đây, sửa chữ hoặc xóa cũng được;
+                        các bảng dưới đổi cột theo.
+                    </div>
+                    <table class="permmap-table permrole-table">
+                        <thead>
+                            <tr>
+                                <th>Vai trò</th>
+                                <th class="screenmap-th-del"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var role in permissionRoles)
+                            {
+                                <tr class="permrole-row">
+                                    <td><textarea rows="1" class="permmap-cellinput permrole-name" aria-label="Tên vai trò">@role</textarea></td>
+                                    <td class="entitymap-delcell">
+                                        <button type="button" class="entitymap-del permrole-del" title="Xóa vai trò này" aria-label="Xóa vai trò này">×</button>
+                                    </td>
+                                </tr>
+                            }
+                            <tr class="permrole-addrow">
+                                <td colspan="2"><button type="button" class="entitymap-add permrole-add">+ thêm vai trò</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
                     <div class="permmap-howto">
                         Ô <b>✓</b> là quyền anh/chị đã nói trong lúc trao đổi (rê chuột để xem lại câu gốc) — mình khóa
                         lại, không cần chọn nữa. Các ô còn lại là <b>phỏng đoán của mình</b>: anh/chị chọn phạm vi dữ
@@ -1519,7 +1550,7 @@
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="permissionMatrixSendBtn">Gửi bảng phân quyền</button>
                         <div class="permmap-hint">
-                            Thiếu màn hình nào hoặc thiếu một vai trò, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                            Thiếu màn hình nào thì anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
                         </div>
                         <div class="permmap-msg" id="permissionMatrixMsg"></div>
                     </div>

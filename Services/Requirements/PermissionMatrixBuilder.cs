@@ -26,6 +26,16 @@ namespace ICOGenerator.Services.Requirements;
 /// </list>
 ///
 /// <para>
+/// <b>Bộ vai trò (= CỘT) là một BẢNG người dùng tự sửa được, không phải thứ suy ra từ đề xuất của model.</b>
+/// Bảng "Vai trò" đứng ngay trên các bảng màn hình cho thêm / sửa chữ / xóa từng vai, và bộ đó là nguồn của
+/// MỌI cột bên dưới. Trước đó cột được chắt ngầm từ chính grants model trả về (<see cref="CollectRoles"/>),
+/// nên người dùng không có đường nào thêm một vai có thật mà model quên — lối thoát duy nhất là gõ vào khung
+/// chat để BA bày lại bảng, tức một lượt LLM cho một việc tất định. Vì vậy <see cref="Build"/> nhận danh
+/// sách vai TƯỜNG MINH: có thì nó thắng, không thì rơi về bản chắt cũ (lượt BA bày bảng, và các tab mở từ
+/// trước bản này).
+/// </para>
+///
+/// <para>
 /// <b>Luật bằng chứng</b> (<see cref="PermissionGrant.Locked"/>): server chỉ khóa một ô khi model kèm được
 /// TRÍCH DẪN cho nó. Không có trích dẫn thì ô vẫn hiện đề xuất của BA nhưng ở dạng sửa được và được đánh
 /// dấu là phỏng đoán. Đây là ranh giới giữ cho bảng khỏi thành một cái chip "Đồng ý phương án này" phóng
@@ -57,10 +67,18 @@ public static class PermissionMatrixBuilder
     /// bỏ dòng bịa/trùng, bổ sung mọi màn hình chưa được nhắc tới, rồi bơm đủ vai trò vào mọi dòng. Thứ tự
     /// luôn theo thứ tự của <paramref name="plannedScope"/> — người dùng đang đối chiếu với phạm vi họ vừa
     /// đọc trong bản tổng kết. Trả rỗng khi phạm vi trống hoặc không đề xuất nào dùng được.
+    ///
+    /// <para>
+    /// <paramref name="roles"/> là bộ CỘT do người dùng rà trên bảng "Vai trò". Có mục nào thì nó quyết định
+    /// trọn vẹn: vai không nằm trong đó bị bỏ khỏi mọi dòng (người dùng vừa xóa nó), còn vai nằm trong đó mà
+    /// chưa dòng nào nhắc tới vẫn thành một cột rỗng để họ điền. Rỗng/null ⇒ chắt từ chính grants như trước —
+    /// đó là đường của lượt BA BÀY bảng, khi bảng vai trò chưa tồn tại.
+    /// </para>
     /// </summary>
     public static List<PermissionMatrixRow> Build(
         IEnumerable<PermissionMatrixRow>? proposed,
-        IReadOnlyList<string> plannedScope)
+        IReadOnlyList<string> plannedScope,
+        IReadOnlyList<string>? roles = null)
     {
         var result = new List<PermissionMatrixRow>();
         var screens = CleanScreens(plannedScope);
@@ -73,10 +91,13 @@ public static class PermissionMatrixBuilder
         if (rows.Count == 0)
             return result;
 
-        // Vai trò của CẢ bảng, theo thứ tự model nêu lần đầu. Một bảng không có vai nào là bảng vô nghĩa —
-        // trả rỗng để caller fail-open (lượt chạy như hội thoại thường) thay vì dựng một bảng không có cột.
-        var roles = CollectRoles(rows);
-        if (roles.Count == 0)
+        // Vai trò của CẢ bảng: bộ người dùng đã rà nếu có, không thì thứ tự model nêu lần đầu. Một bảng
+        // không có vai nào là bảng vô nghĩa — trả rỗng để caller fail-open (lượt chạy như hội thoại thường,
+        // hoặc đường GỬI từ chối lưu) thay vì dựng một bảng không có cột.
+        var columns = SanitizeRoles(roles);
+        if (columns.Count == 0)
+            columns = CollectRoles(rows);
+        if (columns.Count == 0)
             return result;
 
         // Gom đề xuất về đúng màn hình THẬT. Dòng không khớp mục phạm vi nào bị bỏ ở đây.
@@ -100,7 +121,7 @@ public static class PermissionMatrixBuilder
                 Screen = screen, // chữ của PHẠM VI ĐÃ CHẮT, không phải chữ của model
                 Function = function,
                 Condition = Clip((row.Condition ?? string.Empty).Trim(), MaxTextChars),
-                Grants = NormalizeGrants(row.Grants, roles)
+                Grants = NormalizeGrants(row.Grants, columns)
             });
         }
 
@@ -116,7 +137,7 @@ public static class PermissionMatrixBuilder
                     {
                         Screen = screen,
                         Function = DefaultFunction,
-                        Grants = NormalizeGrants(null, roles)
+                        Grants = NormalizeGrants(null, columns)
                     }
                 };
 
@@ -144,9 +165,10 @@ public static class PermissionMatrixBuilder
     /// </summary>
     public static List<PermissionMatrixRow> Sanitize(
         IEnumerable<PermissionMatrixRow>? submitted,
-        IReadOnlyList<string> plannedScope)
+        IReadOnlyList<string> plannedScope,
+        IReadOnlyList<string>? roles = null)
     {
-        var rows = Build(submitted, plannedScope);
+        var rows = Build(submitted, plannedScope, roles);
         foreach (var grant in rows.SelectMany(r => r.Grants))
         {
             grant.Locked = false;
@@ -172,6 +194,52 @@ public static class PermissionMatrixBuilder
         catch
         {
             return new List<PermissionMatrixRow>();
+        }
+    }
+
+    /// <summary>
+    /// Chuẩn hoá một danh sách vai trò ĐẾN TỪ TRÌNH DUYỆT (bảng "Vai trò" người dùng vừa rà): bỏ mục rỗng,
+    /// cắt theo trần độ dài, bỏ trùng theo cùng phép so khớp mà cả builder dùng, chặn ở
+    /// <see cref="MaxRoles"/>. Giữ nguyên THỨ TỰ người dùng sắp — đó là thứ tự cột họ đang nhìn.
+    ///
+    /// <para>
+    /// Bỏ trùng theo <see cref="Normalize"/> chứ không theo chuỗi thô là bắt buộc: "HRBP" và "hrbp " là hai
+    /// dòng khác nhau trên bảng nhưng cùng một cột lúc so khớp, nên để cả hai lọt vào là dựng ra hai cột
+    /// không phân biệt được mà quyền thì rơi vào cùng một vai.
+    /// </para>
+    /// </summary>
+    public static List<string> SanitizeRoles(IEnumerable<string>? roles)
+    {
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var raw in roles ?? Enumerable.Empty<string>())
+        {
+            var value = Clip((raw ?? string.Empty).Trim(), MaxTextChars);
+            if (value.Length == 0 || !seen.Add(Normalize(value)))
+                continue;
+
+            result.Add(value);
+            if (result.Count >= MaxRoles)
+                break;
+        }
+
+        return result;
+    }
+
+    /// <summary>Đọc JSON danh sách vai trò do trình duyệt gửi kèm bảng. null/rỗng/hỏng ⇒ mảng rỗng.</summary>
+    public static List<string> ParseRoles(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new List<string>();
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json, ReadOptions) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
         }
     }
 

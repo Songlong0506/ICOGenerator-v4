@@ -658,7 +658,7 @@ Cổng cố tình **bỏ qua đúng dòng phân quyền** khi xét: `Requirement
 lẫn nhau và không cổng nào mở được. Ba trạng thái của cổng thành ba khối lệnh khác nhau trong ngữ cảnh chat:
 chưa mở ⇒ *cấm hỏi lẻ quyền CRUD*; mở ⇒ *lượt này bày bảng*; đã chốt ⇒ *khối bảng đã chốt, đừng hỏi lại*.
 
-Sáu quyết định của thiết kế này:
+Bảy quyết định của thiết kế này:
 
 - **Ô là PHẠM VI DỮ LIỆU, không phải dấu tích.** Quyết định thật gần như luôn có mệnh đề phạm vi —
   *"Assistant xem và chỉnh Training Plan **do mình lập**"*, *"manager xem ticket **của nhân viên thuộc quyền**"*.
@@ -677,17 +677,29 @@ Sáu quyết định của thiết kế này:
   nó mặc nhiên "không ai được xem" mà người dùng không bao giờ nhìn thấy để phản đối. Cùng luật với bảng cột.
 - **Mọi dòng có ĐỦ mọi vai trò.** Vai chỉ được model nêu ở vài dòng thì các dòng còn lại không có ô cho vai đó —
   và trên màn hình, "không có quyền" với "không hỏi" trông giống hệt nhau.
+- **Bộ CỘT là một bảng người dùng tự sửa được** (bảng *"Vai trò"* đứng ngay trên các bảng màn hình, cùng khuôn
+  với danh sách người nhận của [bảng thông báo](#bảng-thông-báo-bảng-cuối-cùng)).
+  Thêm / sửa chữ / xóa một dòng ở đó là thêm / đổi tên / bỏ **một cột trên MỌI bảng màn hình**, và ô đã chọn đi
+  theo tên mới — không thì sửa một chữ trong tên vai là xóa sạch phạm vi vừa chọn cho vai đó, ở mọi màn hình.
+  Trước đó cột được chắt ngầm từ chính grants model trả về, nên một vai có thật mà model quên chỉ thêm lại được
+  bằng cách gõ vào khung chat cho BA bày lại cả bảng: một lượt LLM cho một việc tất định, và bảng đang tích dở
+  thì bị thay bằng bảng mới. Trần **8 vai** (`PermissionMatrixBuilder.MaxRoles`) là giới hạn đọc được, không
+  phải guard suông — mỗi vai là một cột trên mọi bảng. Xóa một vai đang có quyền đòi **cú bấm × thứ hai** kèm số
+  ô sẽ mất; xóa vai cuối cùng bị chặn, và đường gửi cũng **từ chối lưu** một bảng không còn cột nào (`PermissionMatrix`
+  có dữ liệu ⇒ cổng coi như đã chốt và không bao giờ bày lại bảng, tức mất luôn đường sửa).
 - **Có cột ĐIỀU KIỆN.** Ràng buộc mà bốn nấc phạm vi không chở nổi (*"chỉ đăng ký được khóa nằm trong danh sách
   bắt buộc của mình"*, *"chỉ sửa khi chưa submit"*) có chỗ riêng ở mức dòng. Đây là loại ràng buộc đổi ngược lại
   cả luồng: ca thật là nhu cầu mở lớp được tính từ danh sách "ai phải học khóa nào" nhưng không ai hỏi nhân viên
   có bị giới hạn chỉ đăng ký khóa của mình không ⇒ tài liệu để đăng ký mở tự do, và con số kế hoạch không còn
   liên quan gì tới người thật sự vào lớp.
 - **Bảng treo theo DỰ ÁN, không theo lượt.** Nó còn đó tới khi `Project.PermissionMatrix` được ghi, nên người
-  dùng gõ thêm một câu (*"thiếu vai trò Admin"*) rồi mới ngồi chọn cũng không mất bảng. Lượt có bảng thì **bỏ**
+  dùng gõ thêm một câu (*"thiếu màn hình đăng ký khóa học"*) rồi mới ngồi chọn cũng không mất bảng. Lượt có bảng thì **bỏ**
   hàng chip, thẻ hỏi gộp và sơ đồ luồng — chip bấm là gửi NGAY, để cả hai cùng sống thì một cú bấm nhầm cuốn mất
   lượt trước khi người dùng chọn xong. Cùng luật với lượt có bảng cột.
 
-Gửi bảng đi **hai bước**, như bảng cột: `POST Requirements/ConfirmPermissionMatrix` lưu vào
+Gửi bảng đi **hai bước**, như bảng cột: `POST Requirements/ConfirmPermissionMatrix` (payload mang **cả bảng vai
+trò**, `rolesJson` — để riêng thì server lại chắt cột từ grants và một vai vừa thêm nhưng chưa cấp quyền ở dòng
+nào sẽ biến mất khỏi bảng đã lưu; payload không có trường đó — tab mở từ trước — rơi về đúng hành vi cũ) lưu vào
 `Project.PermissionMatrix` (`ConfirmPermissionMatrixUseCase`, không gọi LLM), rồi trình duyệt gửi tiếp **một tin
 nhắn người dùng** qua đúng đường chat thường — hội thoại vẫn chỉ có một đường ghi. Tin nhắn do **server** soạn
 (`PermissionMatrixBuilder.RenderUserMessage`) từ bảng đã chuẩn hoá chứ không do JS ghép từ payload: hai bản lệch
