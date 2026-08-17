@@ -351,6 +351,8 @@ public static class ChatExportBuilder
                 }
             }
 
+            AppendProposedTables(sb, turn);
+
             var flow = ConversationTurnRenderer.ParseFlowDiagram(turn.FlowDiagram);
             if (flow.Count > 0)
             {
@@ -368,6 +370,119 @@ public static class ChatExportBuilder
             if (sb.Length > extrasStart + Environment.NewLine.Length)
                 sb.AppendLine();
         }
+    }
+
+    /// <summary>
+    /// BỐN bảng chốt còn lại mà BA bày ra ở một lượt — luồng, màn hình, đối tượng nghiệp vụ, thông báo. Cùng
+    /// một lý do tồn tại với khối bảng phân quyền ngay trên: người rà soát phải thấy ĐỀ XUẤT của BA thì mới
+    /// chấm được tin nhắn "mình đã rà bảng…" ở lượt sau — nó là người dùng tự chọn từng dòng, hay chỉ là bảng
+    /// BA điền sẵn được gửi lại nguyên trạng.
+    ///
+    /// <para>
+    /// Không in bốn bảng này là để người chấm mù đúng ở chỗ dễ ký tên hộ người dùng nhất. Ca thật (dự án JD
+    /// Library, lượt 68): bản xuất không có dòng nào cho bảng thông báo, nên không cách nào phân biệt "người
+    /// dùng tự chọn To: HOD của đơn vị" với "BA điền sẵn rồi người dùng bấm gửi" — mà dòng ấy đã vào "Điều đã
+    /// chốt" như một quyết định của người dùng, và về nghiệp vụ nó còn đáng ngờ (JD chờ HRBP verify mà email
+    /// lại gửi cho HOD).
+    /// </para>
+    ///
+    /// <para>
+    /// Dấu <b>✓</b> chỉ đánh ở hai bảng CÓ ô khóa được (đối tượng, thông báo) — đúng chỗ một trích dẫn đổi
+    /// được trạng thái dòng. Bảng luồng và bảng màn hình ra với mọi dòng đã tích sẵn nên chúng không có dấu
+    /// đó (xem <c>docs/requirement-flow.md</c> § *"Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng
+    /// chứng"*); ở đây in <b>✗</b> cho dòng bị bỏ tích thay vì im lặng bỏ nó khỏi bản xuất.
+    /// </para>
+    /// </summary>
+    private static void AppendProposedTables(StringBuilder sb, AgentConversation turn)
+    {
+        var flows = ConversationTurnRenderer.ParseFlowMap(turn.FlowMap);
+        if (flows.Count > 0)
+        {
+            sb.AppendLine("> 🧭 **Bảng luồng BA bày ra cho người dùng sửa** (✗ = bước bị bỏ):");
+            foreach (var row in flows)
+            {
+                var trigger = row.Trigger.Trim();
+                sb.AppendLine($"> - {OneLineSafe(row.Name)} · {OneLineSafe(FlowKind.Normalize(row.Kind))}"
+                    + (row.Role.Trim().Length > 0 ? $" · vai: {OneLineSafe(row.Role)}" : "")
+                    + (trigger.Length > 0 ? $" · kích hoạt khi: {OneLineSafe(trigger)}" : ""));
+                for (var s = 0; s < row.Steps.Count; s++)
+                {
+                    var step = row.Steps[s];
+                    var outcome = step.Outcome.Trim();
+                    sb.AppendLine($">   {s + 1}. {(step.Included ? "" : "✗ ")}"
+                        + (step.Actor.Trim().Length > 0 ? $"**{OneLineSafe(step.Actor)}**: " : "")
+                        + OneLineSafe(step.Action)
+                        + (outcome.Length > 0 ? $" → {OneLineSafe(outcome)}" : ""));
+                }
+            }
+        }
+
+        var screens = ConversationTurnRenderer.ParseScreenScopeMap(turn.ScreenScopeMap);
+        if (screens.Count > 0)
+        {
+            sb.AppendLine("> 🗂 **Bảng màn hình BA bày ra cho người dùng rà** (✗ = mục bị bỏ):");
+            foreach (var row in screens)
+            {
+                sb.AppendLine($"> - {(row.Included ? "" : "✗ ")}{OneLineSafe(row.Screen)}"
+                    + (row.Purpose.Trim().Length > 0 ? $" — {OneLineSafe(row.Purpose)}" : "")
+                    + (row.AddedByUser ? " *(người dùng tự thêm)*" : ""));
+                if (row.Functions.Count > 0)
+                    sb.AppendLine(">   · chức năng: " + string.Join(" | ", row.Functions.Select(f =>
+                        $"{(f.Included ? "" : "✗ ")}{OneLineSafe(f.Name)}"
+                        + (f.FlowSteps.Count > 0 ? $" [bước: {string.Join(", ", f.FlowSteps.Select(OneLineSafe))}]" : ""))));
+                if (row.Covers.Count > 0)
+                    sb.AppendLine(">   · gộp mục phạm vi: " + string.Join(" | ", row.Covers.Select(OneLineSafe)));
+            }
+        }
+
+        var entities = ConversationTurnRenderer.ParseEntityMap(turn.EntityMap);
+        if (entities.Count > 0)
+        {
+            sb.AppendLine("> 🧱 **Bảng đối tượng BA bày ra cho người dùng rà** (✓ = dòng BA khóa vì đã có trích dẫn trong hội thoại; ✗ = dòng bị bỏ):");
+            foreach (var row in entities)
+            {
+                sb.AppendLine($"> - {Mark(row.Locked, row.Included)}{OneLineSafe(row.Entity)}"
+                    + (row.Description.Trim().Length > 0 ? $" — {OneLineSafe(row.Description)}" : "")
+                    + (row.AddedByUser ? " *(người dùng tự thêm)*" : "")
+                    + Quote(row.Evidence));
+                if (row.Fields.Count > 0)
+                    sb.AppendLine(">   · thông tin: " + string.Join(" | ", row.Fields.Select(f =>
+                        $"{(f.Used ? "" : "✗ ")}{OneLineSafe(f.Name)}"
+                        + (f.Meaning.Trim().Length > 0 ? $" ({OneLineSafe(f.Meaning)})" : ""))));
+                if (row.States.Count > 0)
+                    sb.AppendLine(">   · trạng thái: " + string.Join(" → ", row.States.Select(s =>
+                        OneLineSafe(s.State)
+                        + (s.EntryCondition.Trim().Length > 0 ? $" (khi {OneLineSafe(s.EntryCondition)})" : ""))));
+            }
+        }
+
+        var notifications = ConversationTurnRenderer.ParseNotificationMap(turn.NotificationMap);
+        if (notifications.Count > 0)
+        {
+            sb.AppendLine("> 🔔 **Bảng thông báo BA bày ra cho người dùng chọn** (✓ = dòng BA khóa vì đã có trích dẫn trong hội thoại; ✗ = dòng bị bỏ tích):");
+            foreach (var row in notifications)
+            {
+                // "chưa chọn" là trạng thái THẬT và là thứ đáng soi nhất của bảng này ở lượt BÀY: ô To trống
+                // nghĩa là BA không có trích dẫn nào để điền, nên người dùng phải tự chọn. Đường GỬI mới là
+                // chỗ không cho lưu ô trống (xem ConfirmNotificationMapUseCase).
+                sb.AppendLine($"> - {Mark(row.Locked, row.Needed)}{OneLineSafe(NotificationMapBuilder.EventLabel(row))}"
+                    + $" ⇒ To: {(row.To.Count > 0 ? string.Join(", ", row.To.Select(OneLineSafe)) : "*chưa chọn*")}"
+                    + (row.Cc.Count > 0 ? $"; CC: {string.Join(", ", row.Cc.Select(OneLineSafe))}" : "")
+                    + (row.AddedByUser ? " *(người dùng tự thêm)*" : "")
+                    + Quote(row.Evidence));
+            }
+        }
+    }
+
+    /// <summary>Dấu đầu dòng của một dòng bảng: khóa vì có trích dẫn (✓), bị bỏ tích (✗), hay bình thường.</summary>
+    private static string Mark(bool locked, bool kept)
+        => !kept ? "✗ " : locked ? "✓ " : string.Empty;
+
+    /// <summary>Trích dẫn BA khai để khóa một dòng — in ra để người chấm soi được nó có thật trong hội thoại.</summary>
+    private static string Quote(string? evidence)
+    {
+        var text = (evidence ?? string.Empty).Trim();
+        return text.Length == 0 ? string.Empty : $" {{nguồn: \"{OneLineSafe(text)}\"}}";
     }
 
     private static void AppendSystemPrompt(StringBuilder sb, ChatExportSnapshot snapshot)

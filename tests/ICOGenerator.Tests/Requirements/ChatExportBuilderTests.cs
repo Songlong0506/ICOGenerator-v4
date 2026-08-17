@@ -186,6 +186,100 @@ public class ChatExportBuilderTests
         Assert.Contains("**Nhân viên**: Đăng ký lớp → Chờ duyệt", markdown, StringComparison.Ordinal);
     }
 
+    // BỐN bảng chốt còn lại (luồng, màn hình, đối tượng, thông báo) phải có mặt như bảng phân quyền, và vì
+    // đúng lý do đó: không thấy ĐỀ XUẤT của BA thì tin nhắn "mình đã rà bảng…" ở lượt sau không chấm được —
+    // người dùng tự chọn từng dòng, hay chỉ bấm gửi một bảng BA điền sẵn?
+    //
+    // Ca thật (JD Library, lượt 68): bản xuất không có dòng nào cho bảng thông báo, nên không cách nào phân
+    // biệt hai thứ đó — mà dòng "To: HOD của đơn vị" đã vào "Điều đã chốt" như quyết định của người dùng.
+    [Fact]
+    public void Build_RendersTheFourRemainingTablesOfferedInATurn()
+    {
+        var turn = Turn("assistant", "Anh/chị rà soát bảng dưới đây giúp mình nhé.");
+        turn.FlowMap = JsonSerializer.Serialize(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Đăng ký lớp", Kind = FlowKind.Exception, Role = "Nhân viên", Trigger = "hết chỗ",
+                Steps =
+                {
+                    new FlowMapStep { Actor = "Nhân viên", Action = "Gửi đơn", Outcome = "Chờ duyệt" },
+                    new FlowMapStep { Actor = "HR", Action = "Xếp vào waitlist", Included = false }
+                }
+            }
+        });
+        turn.ScreenScopeMap = JsonSerializer.Serialize(new[]
+        {
+            new ScreenScopeRow
+            {
+                Screen = "Màn hình đăng ký", Purpose = "Nhân viên tự đăng ký lớp",
+                Functions = { new ScreenFunction { Name = "Đăng ký", FlowSteps = { "Gửi đơn" } } },
+                Covers = { "Tính năng nhắc hạn đăng ký" }
+            }
+        });
+        turn.EntityMap = JsonSerializer.Serialize(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "Đơn đăng ký", Description = "Đơn của nhân viên",
+                Fields = { new EntityFieldNote { Name = "Người gửi", Meaning = "Người lập đơn" } },
+                States = { new EntityLifecycleState { State = "Chờ duyệt", EntryCondition = "nhân viên gửi đơn" } },
+                Locked = true, Evidence = "nhân viên gửi đơn xong thì chờ quản lý duyệt"
+            }
+        });
+        turn.NotificationMap = JsonSerializer.Serialize(new[]
+        {
+            new NotificationMapRow
+            {
+                Entity = "Đơn đăng ký", Event = "Chờ duyệt", Trigger = "nhân viên gửi đơn",
+                To = { "Quản lý trực tiếp của người tạo" }, Needed = true,
+                Locked = true, Evidence = "gửi cho quản lý của người đó"
+            },
+            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", Needed = true }
+        });
+
+        var markdown = ChatExportBuilder.Build(Snapshot(turns: new[] { turn }));
+
+        // Bảng luồng: loại luồng, vai, kích hoạt, và bước người dùng đã BỎ (im lặng bỏ nó khỏi bản xuất là
+        // xoá đúng bằng chứng cho thấy họ vừa loại một bước).
+        Assert.Contains("Đăng ký lớp · ngoại lệ · vai: Nhân viên · kích hoạt khi: hết chỗ", markdown, StringComparison.Ordinal);
+        Assert.Contains("**Nhân viên**: Gửi đơn → Chờ duyệt", markdown, StringComparison.Ordinal);
+        Assert.Contains("✗ **HR**: Xếp vào waitlist", markdown, StringComparison.Ordinal);
+
+        // Bảng màn hình: chức năng gắn với bước của luồng, và mục phạm vi được gộp vào màn hình nào.
+        Assert.Contains("Màn hình đăng ký — Nhân viên tự đăng ký lớp", markdown, StringComparison.Ordinal);
+        Assert.Contains("Đăng ký [bước: Gửi đơn]", markdown, StringComparison.Ordinal);
+        Assert.Contains("gộp mục phạm vi: Tính năng nhắc hạn đăng ký", markdown, StringComparison.Ordinal);
+
+        // Bảng đối tượng: dòng khóa mang dấu ✓ KÈM chính trích dẫn BA khai — người chấm phải soi được nó có
+        // thật trong hội thoại hay là bịa để ô trông như đã chốt.
+        Assert.Contains("✓ Đơn đăng ký — Đơn của nhân viên", markdown, StringComparison.Ordinal);
+        Assert.Contains("{nguồn: \"nhân viên gửi đơn xong thì chờ quản lý duyệt\"}", markdown, StringComparison.Ordinal);
+        Assert.Contains("Người gửi (Người lập đơn)", markdown, StringComparison.Ordinal);
+        Assert.Contains("Chờ duyệt (khi nhân viên gửi đơn)", markdown, StringComparison.Ordinal);
+
+        // Bảng thông báo: ô To TRỐNG là trạng thái thật và là thứ đáng soi nhất ở lượt bày — nó nói rằng BA
+        // không có trích dẫn nào để điền, nên người dùng phải tự chọn.
+        Assert.Contains("✓ Đơn đăng ký — \"Chờ duyệt\" (khi nhân viên gửi đơn) ⇒ To: Quản lý trực tiếp của người tạo", markdown, StringComparison.Ordinal);
+        Assert.Contains("\"Đã duyệt\" ⇒ To: *chưa chọn*", markdown, StringComparison.Ordinal);
+    }
+
+    // Dòng người dùng TỰ THÊM phải được gọi tên: một đối tượng/sự kiện chưa từng có trong đề xuất của BA mà
+    // lặng lẽ đi vào mô hình dữ liệu là đúng loại thay đổi người chấm cần thấy.
+    [Fact]
+    public void Build_NamesTheRowsTheUserAddedThemselves()
+    {
+        var turn = Turn("assistant", "Anh/chị rà soát bảng dưới đây giúp mình nhé.");
+        turn.EntityMap = JsonSerializer.Serialize(new[]
+        {
+            new EntityMapRow { Entity = "Ngân sách đào tạo", Included = false, AddedByUser = true }
+        });
+
+        var markdown = ChatExportBuilder.Build(Snapshot(turns: new[] { turn }));
+
+        Assert.Contains("✗ Ngân sách đào tạo *(người dùng tự thêm)*", markdown, StringComparison.Ordinal);
+    }
+
     // Không nói ra thì lượt BA "đọc file" ngay sau đó trông như BA tự nhiên biết nội dung một tài liệu
     // chưa ai gửi — người chấm sẽ ghi đó là "BA bịa".
     [Fact]
