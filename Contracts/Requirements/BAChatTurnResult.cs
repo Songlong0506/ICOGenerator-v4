@@ -82,9 +82,10 @@ public class BAChatTurnResult
     public List<NotificationMapRow> NotificationMap { get; set; } = new();
 
     /// <summary>
-    /// Danh sách chọn của hai ô To/CC ở lượt bày bảng thông báo — bốn mục quan hệ + các vai trò của bảng
-    /// phân quyền đã chốt (<see cref="ICOGenerator.Services.Requirements.NotificationMapBuilder.RecipientOptions"/>).
-    /// Đi kèm frame done vì client phải dựng đúng bộ tùy chọn mà server sẽ đối chiếu lúc gửi; rỗng ở mọi
+    /// DANH SÁCH NGƯỜI NHẬN của dự án ở lượt bày bảng thông báo — bộ đã lưu, hoặc bản gieo từ bốn mục quan
+    /// hệ + các vai trò của bảng phân quyền đã chốt
+    /// (<see cref="ICOGenerator.Services.Requirements.NotificationMapBuilder.RecipientOptions"/>). Đi kèm
+    /// frame done vì client dựng cả bảng "Danh sách người nhận" lẫn hai ô To/CC từ đúng bộ này; rỗng ở mọi
     /// lượt khác.
     /// </summary>
     public List<string> RecipientOptions { get; set; } = new();

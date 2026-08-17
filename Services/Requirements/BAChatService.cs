@@ -559,13 +559,14 @@ public class BAChatService
         var newScreens = table == InterviewTableKind.ScreenScope
             ? ScreenScopeMapBuilder.NewScreens(project.ScreenScopeMap, plannedScope)
             : new List<string>();
-        // Hai đầu vào của bảng THÔNG BÁO, cả hai đều vay từ bảng đã chốt trước đó: DÒNG là chuyển trạng
-        // thái của bảng đối tượng, MỤC CHỌN của hai ô To/CC là bốn quan hệ + các vai trò của bảng phân
-        // quyền. Tính ở đây vì cả khối "LƯỢT NÀY" lẫn nhánh dựng bảng phía dưới đều đọc chúng, và cả lệnh
-        // cấm hỏi lẻ cũng phải biết có dòng nào gieo được không.
+        // Hai đầu vào của bảng THÔNG BÁO: DÒNG là chuyển trạng thái của bảng đối tượng đã chốt, còn MỤC CHỌN
+        // của hai ô To/CC là danh sách người nhận của dự án — bộ người dùng đã tự tay rà nếu có, còn không
+        // thì bản gieo từ bốn quan hệ + các vai trò của bảng phân quyền. Tính ở đây vì cả khối "LƯỢT NÀY"
+        // lẫn nhánh dựng bảng phía dưới đều đọc chúng, và cả lệnh cấm hỏi lẻ cũng phải biết có dòng nào gieo
+        // được không.
         var notificationSeedRows = NotificationMapBuilder.SeedRows(project.EntityMap);
         var recipientOptions = NotificationMapBuilder.RecipientOptions(
-            PermissionMatrixBuilder.Roles(project.PermissionMatrix));
+            project.NotificationRecipients, PermissionMatrixBuilder.Roles(project.PermissionMatrix));
         // BA BẢNG ĐÃ CHỐT còn lại: khối ngữ cảnh đính vào MỌI lượt sau, không phụ thuộc cổng nào đang mở.
         // Thiếu chúng thì mỗi bảng chỉ là một màn bấm đẹp — BA vẫn hỏi lại đúng thứ người dùng vừa duyệt.
         AppendConfirmedTable(messages, FlowMapBuilder.RenderConfirmedBlock(project.FlowMap),
@@ -765,7 +766,7 @@ public class BAChatService
                 + "- CHỈ điền `to`/`cc` cho những sự kiện mà hội thoại ĐÃ nói ai nhận, và khi đó `evidence` là "
                 + "đúng trích dẫn của người dùng. Sự kiện bạn chỉ suy đoán thì để `to`/`cc` RỖNG và không "
                 + "`evidence` — người dùng sẽ tự chọn. TUYỆT ĐỐI không bịa trích dẫn, và TUYỆT ĐỐI không rải "
-                + "\"Toàn bộ …\" cho đủ: mỗi mục \"Toàn bộ\" nghĩa là cả nhà máy nhận email ở sự kiện đó.\n"
+                + "người nhận cho đủ: mỗi mục thừa là một người nhận email mà không ai yêu cầu.\n"
                 + "- Được thêm dòng NHẮC NHỞ ngoài danh sách (\"trước hạn 3 ngày\", \"quá hạn mà chưa ai duyệt\") "
                 + "CHỈ khi người dùng đã tự nói tới nó — dòng thêm bắt buộc có `evidence`, không có thì hệ thống "
                 + "bỏ. Ghi mốc thời gian vào `trigger`.\n"
@@ -778,6 +779,8 @@ public class BAChatService
                     $"- entity: {r.Entity} | event: {r.Event}"
                     + (string.IsNullOrWhiteSpace(r.Trigger) ? string.Empty : $" | khi: {r.Trigger}")))
                 + "\n\n### Danh sách người nhận (chép NGUYÊN VĂN vào `to`/`cc`)\n"
+                + "Đây là bảng \"Danh sách người nhận\" mà người dùng thấy ngay trên bảng thông báo và tự "
+                + "thêm/sửa/xóa được. Bạn thì KHÔNG: mục bạn tự nghĩ ra sẽ bị hệ thống bỏ.\n"
                 + string.Join("\n", recipientOptions.Select(o => "- " + o))));
         }
         // Không có dòng nào gieo được (dự án không có vòng đời trạng thái nào) VÀ buổi phỏng vấn đã tới cuối

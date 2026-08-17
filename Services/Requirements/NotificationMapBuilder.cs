@@ -6,15 +6,25 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Dựng và chuẩn hoá "bảng thông báo / nhắc nhở" — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một
-/// dòng, người nhận chính (To) và người nhận đồng gửi (CC) chọn từ một danh sách đóng
+/// dòng, người nhận chính (To) và người nhận đồng gửi (CC) chọn từ DANH SÁCH NGƯỜI NHẬN của dự án
 /// (<see cref="RecipientOptions"/>). Xem <see cref="NotificationMapRow"/> cho lý do đầy đủ.
 ///
 /// <para>
 /// <b>Dòng và cột đều VAY từ hai bảng trước, và đó là lý do bảng này đứng cuối.</b> Dòng gieo từ vòng đời
 /// trạng thái của bảng đối tượng đã chốt (<see cref="SeedRows"/>) — người dùng vừa tự tay rà chúng, nên
-/// không có dòng nào phải hỏi lại "sự kiện này có thật không". Danh sách người nhận cần các VAI TRÒ của
-/// bảng phân quyền đã chốt: vai trò của ứng dụng ĐANG THIẾT KẾ chỉ tồn tại trong hội thoại, không bảng
-/// nào trong DB liệt kê chúng (<c>AppUserRole</c> là vai trò của chính ICOGenerator, không liên quan).
+/// không có dòng nào phải hỏi lại "sự kiện này có thật không". Danh sách người nhận gieo từ các VAI TRÒ của
+/// bảng phân quyền đã chốt (<see cref="SeedRecipients"/>): vai trò của ứng dụng ĐANG THIẾT KẾ chỉ tồn tại
+/// trong hội thoại, không bảng nào trong DB liệt kê chúng (<c>AppUserRole</c> là vai trò của chính
+/// ICOGenerator, không liên quan).
+/// </para>
+///
+/// <para>
+/// <b>Danh sách người nhận là một BẢNG người dùng tự sửa được, không phải một hằng số của cơ chế.</b> Bản
+/// gieo chỉ là điểm xuất phát: bảng "Danh sách người nhận" đứng ngay trên bảng thông báo cho thêm / sửa chữ
+/// / xóa từng mục, và bộ mục đó được lưu ở <c>Project.NotificationRecipients</c> rồi trở thành nguồn của
+/// MỌI ô To/CC. Trước đó danh sách là tất định và người dùng không có đường nào thêm một người nhận thật
+/// không nằm trong bảng phân quyền — lối thoát duy nhất của họ là bỏ tích "Cần", tức ghi vào tài liệu "sự
+/// kiện này không cần email" chỉ vì thiếu một tùy chọn.
 /// </para>
 ///
 /// <para>
@@ -28,9 +38,11 @@ namespace ICOGenerator.Services.Requirements;
 ///   trạng thái nó nhớ thì các chuyển trạng thái còn lại biến mất khỏi bảng và mặc nhiên thành "không báo
 ///   cho ai" mà người dùng không bao giờ nhìn thấy để phản đối — đúng khiếm khuyết của hàng chip mà bảng
 ///   sinh ra để chữa.</item>
-///   <item><b>Người nhận phải nằm trong danh sách chọn.</b> Giá trị không khớp mục nào bị bỏ. Một người
-///   nhận bịa ("Phòng Nhân sự" ở dự án không có vai đó) đi thẳng vào spec rồi vào POC, và không ai đọc lại
-///   bảng mà nhận ra được.</item>
+///   <item><b>Người nhận phải nằm trong danh sách của dự án.</b> Giá trị không khớp mục nào bị bỏ — kể cả
+///   khi MODEL viết ra nó. Người dùng thêm được người nhận mới, model thì không: một người nhận model bịa
+///   ("Phòng Nhân sự" ở dự án không có bộ phận đó) đi thẳng vào spec rồi vào POC, và không ai đọc lại bảng
+///   mà nhận ra được. Vì cùng lý do, danh sách đối chiếu ở đường GỬI được đọc từ cột của dự án chứ không
+///   lấy từ payload — xem <c>ConfirmNotificationMapUseCase</c>.</item>
 /// </list>
 ///
 /// <para>
@@ -53,8 +65,12 @@ public static class NotificationMapBuilder
     /// <summary>Trần số người nhận của MỘT ô (To hoặc CC).</summary>
     public const int MaxRecipientsPerCell = 8;
 
-    /// <summary>Trần số mục của danh sách chọn = 4 mục quan hệ + tối đa 8 vai trò của bảng phân quyền.</summary>
-    public const int MaxRecipientOptions = 12;
+    /// <summary>
+    /// Trần số mục của danh sách người nhận. Rộng hơn bản gieo (4 quan hệ + tối đa 8 vai trò) vì người dùng
+    /// còn tự thêm được, nhưng vẫn phải có trần: MỖI ô To/CC render đủ cả danh sách, nên 24 dòng × 2 ô ×
+    /// từng mục là số checkbox thật nằm trong DOM.
+    /// </summary>
+    public const int MaxRecipientOptions = 20;
 
     private const int MaxTextChars = 200;
     private const int MaxEvidenceChars = 300;
@@ -104,31 +120,83 @@ public static class NotificationMapBuilder
     }
 
     /// <summary>
-    /// Danh sách chọn của hai ô To/CC: bốn mục QUAN HỆ trước (ca thường gặp), rồi mỗi vai trò đã chốt thành
-    /// một mục "Toàn bộ &lt;vai&gt;". Xem <see cref="NotificationRecipient"/> cho lý do phải gọi đúng tên
-    /// mục nguy hiểm.
+    /// DANH SÁCH NGƯỜI NHẬN của dự án — nguồn của mọi ô To/CC, và của bảng "Danh sách người nhận" mà người
+    /// dùng sửa trực tiếp. Đã chốt lần nào (<paramref name="recipientsJson"/> có mục) thì dùng đúng bộ đã
+    /// lưu; chưa thì gieo tất định từ <paramref name="roles"/>.
+    ///
+    /// <para>
+    /// Bộ đã lưu THẮNG bản gieo, kể cả khi bảng phân quyền sau đó đổi: nó là thứ người dùng đã tự tay rà,
+    /// còn bản gieo chỉ là phỏng đoán. Đây cũng là bộ mà đường GỬI đối chiếu, nên hai đường (bày bảng và
+    /// lưu bảng) phải gọi cùng hàm này với cùng đầu vào — lệch nhau là người dùng chọn được một mục rồi bị
+    /// server bỏ đúng mục đó.
+    /// </para>
     /// </summary>
-    public static List<string> RecipientOptions(IReadOnlyList<string>? roles)
+    public static List<string> RecipientOptions(string? recipientsJson, IReadOnlyList<string>? roles)
     {
-        var options = new List<string>(NotificationRecipient.Related);
-        var seen = options.Select(Normalize).ToHashSet(StringComparer.Ordinal);
+        var saved = SanitizeRecipients(ParseRecipients(recipientsJson));
+        return saved.Count > 0 ? saved : SeedRecipients(roles);
+    }
 
-        foreach (var raw in roles ?? Array.Empty<string>())
+    /// <summary>
+    /// Bản GIEO của danh sách người nhận, dùng khi dự án chưa chốt bảng thông báo lần nào: bốn mục QUAN HỆ
+    /// trước (ca thường gặp — xem <see cref="NotificationRecipient"/>), rồi mỗi vai trò của bảng phân quyền
+    /// đã chốt.
+    ///
+    /// <para>
+    /// Vai trò được gieo NGUYÊN TÊN, không còn tiền tố "Toàn bộ ". Đó là quyết định của người dùng sản
+    /// phẩm: không thao tác nào ở đây cần gửi email cho cả một vai trò, nên mục "Toàn bộ …" chỉ là một cái
+    /// bẫy bấm nhầm. Đổi lại, một mục vai trò trần không tự nói được nó là một người hay cả nhóm — bảng
+    /// danh sách người nhận là chỗ người dùng viết lại nó cho đúng, và
+    /// <see cref="RenderConfirmedBlock"/> cấm các tầng sau tự suy rộng.
+    /// </para>
+    /// </summary>
+    public static List<string> SeedRecipients(IReadOnlyList<string>? roles)
+        => SanitizeRecipients(NotificationRecipient.Related.Concat(roles ?? Array.Empty<string>()));
+
+    /// <summary>
+    /// Chuẩn hoá một danh sách người nhận ĐẾN TỪ TRÌNH DUYỆT (hoặc từ cột đã lưu): bỏ mục rỗng, cắt theo
+    /// trần độ dài, bỏ trùng theo cùng phép so khớp mà <see cref="MatchRecipient"/> dùng, chặn ở
+    /// <see cref="MaxRecipientOptions"/>. Giữ nguyên THỨ TỰ người dùng sắp.
+    ///
+    /// <para>
+    /// Bỏ trùng theo <see cref="Normalize"/> chứ không theo chuỗi thô là bắt buộc: "HRBP" và "hrbp " là hai
+    /// dòng khác nhau trên bảng nhưng cùng một mục lúc so khớp, nên để cả hai lọt vào là dựng ra hai ô chọn
+    /// không phân biệt được, mà giá trị chọn ra thì cùng đích.
+    /// </para>
+    /// </summary>
+    public static List<string> SanitizeRecipients(IEnumerable<string>? recipients)
+    {
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var raw in recipients ?? Enumerable.Empty<string>())
         {
-            var role = (raw ?? string.Empty).Trim();
-            if (role.Length == 0 || role.Length > MaxTextChars)
+            var value = Clip((raw ?? string.Empty).Trim(), MaxTextChars);
+            if (value.Length == 0 || !seen.Add(Normalize(value)))
                 continue;
 
-            var option = NotificationRecipient.AllOfRole(role);
-            if (!seen.Add(Normalize(option)))
-                continue;
-
-            options.Add(option);
-            if (options.Count >= MaxRecipientOptions)
+            result.Add(value);
+            if (result.Count >= MaxRecipientOptions)
                 break;
         }
 
-        return options;
+        return result;
+    }
+
+    /// <summary>Đọc JSON danh sách người nhận đã lưu (cột DB hoặc payload client). null/rỗng/hỏng ⇒ mảng rỗng.</summary>
+    public static List<string> ParseRecipients(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new List<string>();
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json, ReadOptions) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
     }
 
     /// <summary>
@@ -358,8 +426,10 @@ public static class NotificationMapBuilder
         var sb = new StringBuilder();
         sb.AppendLine("\n--- Bảng thông báo / nhắc nhở đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại) ---");
         sb.AppendLine("Mỗi dòng: sự kiện · người nhận chính (To) · người nhận đồng gửi (CC). Kênh gửi duy nhất "
-            + "của nền tảng là EMAIL nên không có cột kênh. Người nhận là một QUAN HỆ với bản ghi (\"Người "
-            + "tạo\", \"Quản lý trực tiếp của người tạo\") hoặc cả một vai trò (\"Toàn bộ …\").");
+            + "của nền tảng là EMAIL nên không có cột kênh. Người nhận là các mục của DANH SÁCH NGƯỜI NHẬN do "
+            + "chính người dùng chốt: hoặc một QUAN HỆ với bản ghi (\"Người tạo\", \"Quản lý trực tiếp của "
+            + "người tạo\"), hoặc tên một người/nhóm họ tự viết ra. TUYỆT ĐỐI không tự suy rộng một mục thành "
+            + "\"mọi người mang vai đó\" — không sự kiện nào ở đây gửi email cho cả một vai trò.");
 
         foreach (var row in rows.Where(r => r.Needed && r.To.Count > 0))
             sb.AppendLine("* " + RenderRow(row));
@@ -473,11 +543,17 @@ public static class NotificationMapBuilder
     private const int MinContainsLength = 5;
 
     /// <summary>
-    /// Ghép một giá trị model (hoặc trình duyệt) đưa lên về đúng một mục của danh sách chọn. Ba nấc, hẹp
-    /// dần: khớp CHÍNH XÁC → khớp đúng phần TÊN VAI của mục "Toàn bộ …" (model hay viết "Manager" thay vì
-    /// "Toàn bộ Manager") → khớp chứa-nhau và chỉ khi có ĐÚNG MỘT mục dài nhất khớp. Không khớp ⇒ null và
-    /// giá trị bị bỏ: ô hiện ít lựa chọn sẵn hơn thì người dùng tự chọn nốt, còn một người nhận bịa thì đi
-    /// thẳng vào spec mà không ai đọc lại bảng nhận ra được.
+    /// Ghép một giá trị model (hoặc trình duyệt) đưa lên về đúng một mục của danh sách người nhận. Hai nấc,
+    /// hẹp dần: khớp CHÍNH XÁC → khớp chứa-nhau và chỉ khi có ĐÚNG MỘT mục dài nhất khớp. Không khớp ⇒ null
+    /// và giá trị bị bỏ: ô hiện ít lựa chọn sẵn hơn thì người dùng tự chọn nốt (hoặc tự thêm mục vào bảng
+    /// danh sách người nhận), còn một người nhận model bịa thì đi thẳng vào spec mà không ai đọc lại bảng
+    /// nhận ra được.
+    ///
+    /// <para>
+    /// Nấc chứa-nhau còn đang gánh thêm một việc: các dự án chốt bảng đối tượng/thông báo từ bản có tiền tố
+    /// "Toàn bộ " mang giá trị cũ ("Toàn bộ Manager") lên đây, và nấc này kéo chúng về đúng mục vai trò
+    /// trần ("Manager") thay vì bỏ sạch người nhận của cả bảng.
+    /// </para>
     /// </summary>
     private static string? MatchRecipient(string? proposed, IReadOnlyList<string> options)
     {
@@ -488,14 +564,6 @@ public static class NotificationMapBuilder
         foreach (var option in options)
         {
             if (Normalize(option) == value)
-                return option;
-        }
-
-        foreach (var option in options)
-        {
-            if (!option.StartsWith(NotificationRecipient.AllOfRolePrefix, StringComparison.Ordinal))
-                continue;
-            if (Normalize(option[NotificationRecipient.AllOfRolePrefix.Length..]) == value)
                 return option;
         }
 

@@ -769,7 +769,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // `validate` (tùy chọn) chạy TRƯỚC khi gửi và trả false để chặn lượt gửi. Nó tự lo phần giao diện của
     // mình (bảng thông báo mở một popup bắt chọn người nhận), vì một câu chữ nhỏ cạnh nút thì người dùng
     // đang rà 24 dòng không thấy. Chốt chặn THẬT vẫn ở server — xem ConfirmNotificationMapUseCase.
-    function initTablePanel(panelId, btnId, msgId, field, collect, savingText, errorText, validate) {
+    // `extras` (tùy chọn): các trường form ĐI CÙNG CHUYẾN với bảng, trả về dạng { tên: chuỗi }. Sinh ra cho
+    // bảng thông báo, nơi danh sách người nhận vừa là thứ được lưu vừa là bộ mà server đối chiếu hai ô
+    // To/CC — gửi ở một lượt riêng thì có đúng một khoảnh khắc bảng đã lưu mà danh sách thì chưa.
+    function initTablePanel(panelId, btnId, msgId, field, collect, savingText, errorText, validate, extras) {
         const panel = document.getElementById(panelId);
         if (!panel) return null;
 
@@ -793,6 +796,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
                 fd.append("__RequestVerificationToken", tokenEl ? tokenEl.value : "");
                 fd.append(field, JSON.stringify(rows));
+                const extraFields = extras ? extras(panel) : null;
+                Object.keys(extraFields || {}).forEach(name => fd.append(name, extraFields[name]));
 
                 const resp = await fetch(panel.dataset.confirmUrl, { method: "POST", body: fd });
                 const data = await resp.json();
@@ -1399,12 +1404,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     }
 
     // ---- BẢNG THÔNG BÁO / NHẮC NHỞ ----
-    // Bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một dòng, To/CC chọn từ một danh sách ĐÓNG (bốn quan
-    // hệ với bản ghi + "Toàn bộ <vai>" của từng vai trò đã chốt ở bảng phân quyền). Ô là ô CHỌN NHIỀU chứ
-    // không phải ô gõ: một người nhận gõ tay không nối được về vai trò/quan hệ nào, nên nó đi vào spec rồi
-    // vào POC dưới dạng một chuỗi chữ mà không tầng nào kiểm được.
+    // Bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một dòng, To/CC chọn từ DANH SÁCH NGƯỜI NHẬN của dự án
+    // (bảng nhỏ ngay trên đầu panel — thêm/sửa/xóa được). Ô là ô CHỌN NHIỀU chứ không phải ô gõ: gõ thẳng
+    // vào từng dòng thì mỗi dòng một cách viết cùng một người, và không tầng nào ghép chúng lại được. Chỗ
+    // gõ có đúng MỘT: bảng danh sách người nhận, và sửa ở đó thì mọi ô chọn đổi theo.
     const MAX_NOTIF_ROWS = 24;        // = NotificationMapBuilder.MaxRows
     const MAX_NOTIF_RECIPIENTS = 8;   // = NotificationMapBuilder.MaxRecipientsPerCell
+    const MAX_RECIPIENT_OPTIONS = 20; // = NotificationMapBuilder.MaxRecipientOptions
 
     const notificationMapPanel = initTablePanel(
         "notificationMapPanel", "notificationMapSendBtn", "notificationMapMsg", "notificationsJson",
@@ -1425,7 +1431,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }).filter(r => r.event.length > 0),
         "Đang lưu bảng thông báo…",
         "Chưa lưu được bảng thông báo — anh/chị bấm gửi lại giúp mình nhé.",
-        panel => askMissingRecipients(missingRecipientRows(panel)));
+        panel => askMissingRecipients(missingRecipientRows(panel)),
+        // Danh sách người nhận đi CÙNG CHUYẾN với bảng: server lưu nó và đối chiếu hai ô To/CC theo đúng nó.
+        // Gửi ở lượt riêng thì có một khoảnh khắc bảng đã lưu mà danh sách chưa, và ở khoảnh khắc đó mọi
+        // người nhận người dùng vừa tự thêm bị bỏ sạch — bảng hiện đủ tên mà server báo "chưa chọn ai".
+        () => ({ recipientsJson: JSON.stringify(recipientOptions()) }));
 
     // Tên sự kiện của MỘT dòng, đúng cách `collect` đọc nó: dòng gieo mang tên ở `data-event` (không sửa
     // được), dòng NHẮC NHỞ người dùng tự thêm thì có ô gõ.
@@ -1585,10 +1595,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         return Array.from(pick.querySelectorAll("input[type=checkbox]:checked")).map(i => i.value);
     }
 
-    // Danh sách chọn của lượt đang bày. Server gửi kèm ở frame done và render sẵn vào `data-options` khi
-    // tải lại trang — hai đường phải cho ra CÙNG một bộ, vì đó chính là bộ server đối chiếu lúc gửi lên.
+    // DANH SÁCH NGƯỜI NHẬN đang có hiệu lực. Bảng danh sách (nếu đã dựng) là bản DUY NHẤT đáng tin — nó là
+    // thứ người dùng vừa gõ; `data-options` chỉ là bản mồi của server (frame done hoặc lượt render lại sau
+    // F5) và bản gương được `syncRecipientOptions` giữ cho khớp, để các dòng thêm sau đọc được cùng một bộ.
     function recipientOptions() {
         if (!notificationMapPanel) return [];
+
+        const table = notificationMapPanel.querySelector(".notifrecip-table");
+        if (table) return recipientListValues(table);
+
         try {
             const parsed = JSON.parse(notificationMapPanel.dataset.options || "[]");
             return Array.isArray(parsed) ? parsed : [];
@@ -1597,18 +1612,116 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
     }
 
+    // Các mục của bảng danh sách người nhận, theo đúng thứ tự trên bảng: bỏ dòng chưa gõ, bỏ trùng, chặn ở
+    // trần. Cùng luật với NotificationMapBuilder.SanitizeRecipients — server chạy lại y hệt trên payload,
+    // nên hai bên lệch nhau là người dùng chọn được một mục rồi bị server bỏ đúng mục đó.
+    function recipientListValues(root) {
+        const table = root || (notificationMapPanel && notificationMapPanel.querySelector(".notifrecip-table"));
+        if (!table) return [];
+
+        const values = [];
+        const seen = Object.create(null);
+        Array.from(table.querySelectorAll(".notifrecip-row")).forEach(row => {
+            const value = tableValue(row, ".notifrecip-name");
+            const key = normalizeRecipient(value);
+            if (value.length === 0 || seen[key] || values.length >= MAX_RECIPIENT_OPTIONS) return;
+            seen[key] = true;
+            values.push(value);
+        });
+        return values;
+    }
+
+    // Chép phép chuẩn hoá của server (NotificationMapBuilder.Normalize) vì nó quyết định thứ TRÙNG NHAU:
+    // "HRBP" và "hrbp " là hai dòng khác nhau trên bảng nhưng cùng một mục lúc so khớp, và để cả hai lọt
+    // vào là dựng ra hai tùy chọn không phân biệt được mà cùng đích.
+    function normalizeRecipient(value) {
+        return (value || "").toLowerCase().split(/\s+/).filter(Boolean).join(" ")
+            .replace(/^[.,:;–-]+/, "").replace(/[.,:;–-]+$/, "");
+    }
+
+    // MỘT dòng của bảng danh sách người nhận. Markup khớp bản server render trong Index.cshtml — hai đường
+    // lệch nhau thì người dùng rà bảng vừa hiện ra rồi F5 và thấy một bảng khác.
+    function recipientListRow(value) {
+        return `
+            <tr class="notifrecip-row">
+                <td><textarea rows="1" class="permmap-cellinput notifrecip-name" aria-label="Tên người nhận">${escapeHtml(value || "")}</textarea></td>
+                <td class="entitymap-delcell">
+                    <button type="button" class="entitymap-del notifrecip-del" title="Xóa người nhận này" aria-label="Xóa người nhận này">×</button>
+                </td>
+            </tr>`;
+    }
+
+    function renderRecipientList(options) {
+        return `
+            <div class="permmap-howto">
+                Đây là <b>danh sách người nhận</b> của dự án — mình gom từ những gì anh/chị đã kể. Hai ô
+                <b>Gửi cho (To)</b> và <b>Đồng gửi (CC)</b> ở bảng dưới chỉ chọn được trong danh sách này,
+                nên thiếu ai thì thêm ngay ở đây, sửa chữ hoặc xóa cũng được.
+            </div>
+            <table class="permmap-table notifrecip-table">
+                <thead>
+                    <tr>
+                        <th>Người nhận</th>
+                        <th class="screenmap-th-del"></th>
+                    </tr>
+                </thead>
+                <tbody>${options.map(recipientListRow).join("")}
+                    <tr class="notifrecip-addrow">
+                        <td colspan="2"><button type="button" class="entitymap-add notifrecip-add">+ thêm người nhận</button></td>
+                    </tr>
+                </tbody>
+            </table>`;
+    }
+
+    // Số ô To/CC đang chọn một người nhận — câu hỏi phải trả lời được TRƯỚC khi xóa hay đổi tên một mục.
+    function recipientUsage(value) {
+        if (!notificationMapPanel || !value) return 0;
+        return Array.from(notificationMapPanel.querySelectorAll(".notifmap-pick input[type=checkbox]:checked"))
+            .filter(box => box.value === value).length;
+    }
+
+    // Bảng danh sách vừa đổi ⇒ dựng lại danh mục của MỌI ô chọn. Đây là chỗ giữ lời hứa của cả tính năng
+    // ("sửa một chỗ, mọi dropdown đổi theo"), và nó phải làm đủ ba việc, thiếu việc nào cũng là mất dữ liệu
+    // im lặng:
+    //  • ĐỔI TÊN thì kéo theo các ô đang chọn mục cũ (`renameFrom` → `renameTo`) — không thì ô giữ một chuỗi
+    //    không còn trong danh sách, và server bỏ nó lúc gửi ⇒ dòng thành "cần gửi mà chưa chọn ai";
+    //  • XÓA thì bỏ mục đó khỏi các ô đang chọn nó (lọc theo danh sách mới);
+    //  • giữ nguyên trạng thái ĐANG MỞ của ô người dùng đang thao tác, nên chỉ thay phần danh mục bên trong
+    //    chứ không dựng lại cả ô.
+    function syncRecipientOptions(renameFrom, renameTo) {
+        if (!notificationMapPanel) return;
+
+        const opts = recipientOptions();
+        notificationMapPanel.dataset.options = JSON.stringify(opts);
+
+        notificationMapPanel.querySelectorAll(".notifmap-pick").forEach(pick => {
+            const chosen = Array.from(pick.querySelectorAll("input[type=checkbox]:checked"))
+                .map(box => (renameFrom && box.value === renameFrom) ? renameTo : box.value)
+                .filter(value => opts.indexOf(value) >= 0);
+
+            const list = pick.querySelector(".ms-combo-list");
+            if (list) list.innerHTML = recipientOptionItems(opts, chosen);
+            updateRecipientPickLabel(pick);
+        });
+    }
+
+    // Nhãn của một ô chọn. Đây là dòng chữ DUY NHẤT người dùng đọc khi rà lại cả bảng (panel đóng), nên để
+    // nó lệch với thứ đang được chọn là để họ gửi đi một bảng khác với bảng họ tưởng.
+    function updateRecipientPickLabel(pick) {
+        const chosen = Array.from(pick.querySelectorAll("input[type=checkbox]:checked")).map(box => box.value);
+        const text = pick.querySelector(".ms-combo-text");
+        if (!text) return;
+        text.classList.toggle("is-placeholder", chosen.length === 0);
+        text.textContent = chosen.length > 0
+            ? chosen.join(", ")
+            : (pick.dataset.kind === "to" ? "Chọn người nhận" : "Không đồng gửi");
+    }
+
     // MỘT ô chọn nhiều. Dùng đúng markup .ms-combo dùng chung của app (site.css) nên nó trông y hệt mọi
     // dropdown khác; phần điều khiển nằm ngay dưới vì .ms-combo nhiều-lựa-chọn chưa có driver dùng chung.
     function recipientPicker(kind, selected, options, label) {
         const chosen = Array.isArray(selected) ? selected : [];
-        const items = options.map(o => `
-            <li class="ms-combo-option${chosen.indexOf(o) >= 0 ? " selected" : ""}">
-                <label class="ms-combo-checkbox">
-                    <input type="checkbox" value="${escapeHtml(o)}"${chosen.indexOf(o) >= 0 ? " checked" : ""} />
-                    <span class="ms-combo-box"></span>
-                    <span class="ms-combo-option-text">${escapeHtml(o)}</span>
-                </label>
-            </li>`).join("");
+        const items = recipientOptionItems(options, chosen);
 
         return `
             <div class="ms-combo notifmap-pick" data-kind="${kind}">
@@ -1620,6 +1733,20 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 </button>
                 <div class="ms-combo-panel" hidden><ul class="ms-combo-list">${items}</ul></div>
             </div>`;
+    }
+
+    // Danh mục BÊN TRONG một ô chọn. Tách riêng vì `syncRecipientOptions` thay đúng phần này khi bảng danh
+    // sách người nhận đổi — dựng lại cả ô thì ô đang mở bị đóng sập ngay dưới tay người dùng.
+    function recipientOptionItems(options, chosen) {
+        const picked = Array.isArray(chosen) ? chosen : [];
+        return options.map(o => `
+            <li class="ms-combo-option${picked.indexOf(o) >= 0 ? " selected" : ""}">
+                <label class="ms-combo-checkbox">
+                    <input type="checkbox" value="${escapeHtml(o)}"${picked.indexOf(o) >= 0 ? " checked" : ""} />
+                    <span class="ms-combo-box"></span>
+                    <span class="ms-combo-option-text">${escapeHtml(o)}</span>
+                </label>
+            </li>`).join("");
     }
 
     // MỘT dòng. `r` null = dòng NHẮC NHỞ trống người dùng vừa thêm — nửa "nhắc nhở" của nhóm không phải
@@ -1657,6 +1784,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const opts = Array.isArray(options) && options.length > 0 ? options : recipientOptions();
         notificationMapPanel.dataset.options = JSON.stringify(opts);
         notificationMapPanel.innerHTML = `
+            ${renderRecipientList(opts)}
             <div class="permmap-howto">
                 Đây là các sự kiện của ứng dụng. Sự kiện nào <b>không cần gửi email</b> thì bỏ tích cột đầu; sự
                 kiện còn tích thì <b>bắt buộc chọn người nhận (To)</b>, còn <b>đồng gửi (CC)</b> có thì chọn,
@@ -1681,8 +1809,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="notificationMapSendBtn">Gửi bảng thông báo</button>
                 <div class="permmap-hint">
-                    Người nhận là quan hệ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") hoặc cả một
-                    vai trò ("Toàn bộ …" — nghĩa là MỌI người mang vai đó đều nhận email).
+                    Người nhận là một quan hệ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") hoặc một
+                    người/nhóm anh/chị tự thêm ở bảng danh sách người nhận phía trên.
                 </div>
                 <div class="permmap-msg" id="notificationMapMsg"></div>
             </div>`;
@@ -1696,9 +1824,57 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         notificationMapPanel.addEventListener("click", function (e) {
             const trigger = e.target.closest(".ms-combo-trigger");
             const add = e.target.closest(".notifmap-add");
+            const recipientAdd = e.target.closest(".notifrecip-add");
+            // Nút xóa của bảng danh sách người nhận phải xét TRƯỚC: nó dùng chung class .entitymap-del với
+            // nút xóa dòng của bảng thông báo, nên nhánh dưới sẽ nuốt cú bấm (không tìm ra .notifmap-row rồi
+            // lặng lẽ return) nếu nó chạy trước.
+            const recipientRemove = e.target.closest(".notifrecip-del");
             const remove = e.target.closest(".entitymap-del");
             const msgEl = document.getElementById("notificationMapMsg");
             const note = text => { if (msgEl) msgEl.textContent = text; };
+
+            // Lời hỏi lại "bấm × lần nữa" chỉ sống tới thao tác kế tiếp: người dùng bỏ ngang rồi vài phút
+            // sau bấm × một cái là xóa ngay, trong khi họ tưởng cú bấm đó mới là cú thứ nhất.
+            notificationMapPanel.querySelectorAll('.notifrecip-del[data-confirm="1"]').forEach(btn => {
+                if (btn !== recipientRemove) delete btn.dataset.confirm;
+            });
+
+            if (recipientAdd) {
+                const anchor = notificationMapPanel.querySelector(".notifrecip-addrow");
+                if (!anchor) return;
+
+                if (recipientListValues().length >= MAX_RECIPIENT_OPTIONS) {
+                    note(`Danh sách đã tới trần ${MAX_RECIPIENT_OPTIONS} người nhận.`);
+                    return;
+                }
+
+                anchor.insertAdjacentHTML("beforebegin", recipientListRow(""));
+                focusNewRow(anchor.previousElementSibling, ".notifrecip-name");
+                note("");
+                return;
+            }
+
+            // XÓA một người nhận đang được dùng là xóa nó khỏi cả các ô To/CC đang chọn nó — và một dòng
+            // mất người nhận cuối cùng sẽ rơi vào đúng trạng thái mà bất biến của bảng cấm ("cần gửi mà
+            // chưa chọn ai"). Nên ca đó phải nói ra trước và đòi một cú bấm THỨ HAI, thay vì lặng lẽ làm
+            // rồi để người dùng gặp lại nó ở popup lúc bấm gửi.
+            if (recipientRemove) {
+                const row = recipientRemove.closest(".notifrecip-row");
+                if (!row) return;
+
+                const value = tableValue(row, ".notifrecip-name");
+                const used = recipientUsage(value);
+                if (used > 0 && recipientRemove.dataset.confirm !== "1") {
+                    recipientRemove.dataset.confirm = "1";
+                    note(`“${value}” đang được chọn ở ${used} ô người nhận — bấm × lần nữa để xóa khỏi cả các ô đó.`);
+                    return;
+                }
+
+                row.remove();
+                syncRecipientOptions();
+                note("");
+                return;
+            }
 
             if (trigger) {
                 const combo = trigger.closest(".notifmap-pick");
@@ -1734,9 +1910,22 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             note("");
         });
 
+        // Giá trị TRƯỚC khi sửa của một ô tên người nhận — phải chụp lúc con trỏ vào ô, vì lúc `change` bắn
+        // ra thì ô đã mang chữ mới và không còn gì để nối các lựa chọn cũ về mục mới.
+        notificationMapPanel.addEventListener("focusin", function (e) {
+            const nameCell = e.target.closest(".notifrecip-name");
+            if (nameCell) nameCell.dataset.prev = tableValue(nameCell.closest(".notifrecip-row"), ".notifrecip-name");
+        });
+
         // Nhãn của ô chọn phải kể đúng thứ đang được chọn: đây là dòng chữ DUY NHẤT người dùng đọc khi rà
         // lại cả bảng (panel đóng), nên để nó lệch là để họ gửi đi một bảng khác với bảng họ tưởng.
         notificationMapPanel.addEventListener("change", function (e) {
+            const nameCell = e.target.closest(".notifrecip-name");
+            if (nameCell) {
+                renameRecipient(nameCell);
+                return;
+            }
+
             const box = e.target.closest(".notifmap-pick input[type=checkbox]");
             if (!box) return;
 
@@ -1749,13 +1938,45 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
 
             boxes.forEach(b => b.closest(".ms-combo-option").classList.toggle("selected", b.checked));
-            const chosen = boxes.filter(b => b.checked).map(b => b.value);
-            const text = pick.querySelector(".ms-combo-text");
-            text.classList.toggle("is-placeholder", chosen.length === 0);
-            text.textContent = chosen.length > 0
-                ? chosen.join(", ")
-                : (pick.dataset.kind === "to" ? "Chọn người nhận" : "Không đồng gửi");
+            updateRecipientPickLabel(pick);
         });
+    }
+
+    // SỬA CHỮ một người nhận. Hai giá trị bị từ chối và cùng trả ô về chữ cũ, vì cả hai đều làm hỏng đúng
+    // mối nối mà bảng danh sách sinh ra để giữ:
+    //  • RỖNG — các ô đang chọn mục này mất người nhận trong im lặng; muốn bỏ hẳn thì có nút × (nó còn hỏi
+    //    lại khi mục đang được dùng);
+    //  • TRÙNG một dòng khác — hai dòng cùng một mục lúc so khớp, nên một trong hai biến mất khỏi danh sách
+    //    và người dùng không biết dòng nào còn hiệu lực.
+    function renameRecipient(nameCell) {
+        const row = nameCell.closest(".notifrecip-row");
+        const msgEl = document.getElementById("notificationMapMsg");
+        const note = text => { if (msgEl) msgEl.textContent = text; };
+
+        const previous = (nameCell.dataset.prev || "").trim();
+        let value = tableValue(row, ".notifrecip-name");
+
+        const duplicated = value.length > 0
+            && Array.from(notificationMapPanel.querySelectorAll(".notifrecip-row")).some(other =>
+                other !== row && normalizeRecipient(tableValue(other, ".notifrecip-name")) === normalizeRecipient(value));
+
+        if (duplicated) {
+            note(`“${value}” đã có trong danh sách rồi.`);
+            value = previous;
+        } else if (value.length === 0 && previous.length > 0) {
+            note("Tên người nhận không được để trống — muốn bỏ hẳn thì bấm × ở cuối dòng.");
+            value = previous;
+        } else {
+            note("");
+        }
+
+        if (nameCell.value !== value) {
+            nameCell.value = value;
+            autoGrowCell(nameCell);
+        }
+        nameCell.dataset.prev = value;
+
+        if (value !== previous) syncRecipientOptions(previous, value);
     }
 
     // Bấm ra ngoài thì đóng: ô chọn mở đè lên các dòng dưới nó, để mở là che mất đúng phần bảng người dùng
