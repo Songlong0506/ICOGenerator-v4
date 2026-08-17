@@ -285,12 +285,31 @@ public static class ScreenScopeGate
 /// </para>
 /// <list type="number">
 ///   <item><b>Chưa chốt bảng nào.</b></item>
+///   <item><b>Cổng luồng đã ĐỦ ĐIỀU KIỆN MỞ</b> (<see cref="FlowMapGate.CoverageReady"/>) — cùng luật
+///   nhường-thứ-tự với <see cref="ScreenScopeGate"/>, xem đoạn dưới.</item>
 ///   <item><b>«Dữ liệu / danh mục chính» đã <c>[RÕ]</c></b> — đây là nhóm chở phần lớn nội dung bảng.</item>
 ///   <item><b>«Vòng đời &amp; trạng thái» đã được CHẠM TỚI</b> — cột trạng thái của bảng. Chỉ đòi chạm tới
 ///   chứ không đòi <c>[RÕ]</c>: chuẩn <c>[RÕ]</c> của nhóm này khắt khe (gọi tên trạng thái + điều kiện
 ///   chuyển) và bảng chính là chỗ rẻ nhất để lấy nốt phần thiếu — bắt hội thoại làm xong việc đó trước rồi
 ///   mới bày bảng là bỏ đúng lý do bảng tồn tại.</item>
 /// </list>
+///
+/// <para>
+/// <b>Vì sao cổng này cũng phải mượn điều kiện của cổng luồng.</b> Cùng lỗ hổng mà
+/// <see cref="ScreenScopeGate"/> vừa vá, chỉ khác chỗ: hai nhóm của cổng này («Dữ liệu / danh mục chính»,
+/// «Vòng đời &amp; trạng thái») rời hẳn nhóm vai trò, nên có ca dữ liệu và vòng đời đã rõ trong khi vai trò
+/// còn <c>[MỘT PHẦN]</c> — lúc đó cổng luồng lẫn cổng màn hình đều ĐÓNG, và bảng đối tượng bày ra đầu tiên.
+/// Thứ tự phụ thuộc bảo màn hình phải đứng trước: cái người dùng nhìn thấy trên màn hình mới quyết định
+/// thông tin nào thật sự cần lưu, còn hỏi ngược thì bảng đối tượng chở đúng bản BA đoán. Điều kiện này khép
+/// nốt khoảng hở đó — khi cổng đối tượng mở thì cổng màn hình hoặc cũng mở (và thắng theo thứ tự ưu tiên ở
+/// <see cref="InterviewTableGate.Select"/>), hoặc đã đóng vì bảng chốt rồi.
+/// </para>
+///
+/// <para>
+/// Ngoại lệ còn lại, cố ý không chặn: <c>PlannedScope</c> rỗng thì cổng màn hình đóng và bảng đối tượng đi
+/// trước thật. Không có phạm vi thì bảng màn hình không có DÒNG nào để hỏi, và bắt cổng này chờ một danh
+/// sách có thể không bao giờ đến là dựng thêm một chỗ kẹt để đổi lấy một thứ tự đẹp.
+/// </para>
 ///
 /// <para>
 /// <b>KHÔNG đòi «Thông báo / nhắc nhở» chạm tới</b> — điều kiện này đã bị gỡ khi nhóm ấy chuyển sang được
@@ -316,7 +335,11 @@ public static class EntityMapGate
         if (items.Count == 0)
             return false;
 
-        return InterviewTableGate.IsClear(items, InterviewTableGate.Groups.Data)
+        // Nhường bảng luồng rồi bảng màn hình: mượn nguyên điều kiện bản đồ của cổng luồng, đúng cách
+        // ScreenScopeGate làm. Vẫn thuần bản đồ bao phủ — không cổng nào trong ba cổng đầu treo vào một
+        // bảng do model sinh ra.
+        return FlowMapGate.CoverageReady(items)
+               && InterviewTableGate.IsClear(items, InterviewTableGate.Groups.Data)
                && InterviewTableGate.IsSettled(items, InterviewTableGate.Groups.Lifecycle);
     }
 }

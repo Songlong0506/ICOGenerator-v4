@@ -232,14 +232,25 @@ public class InterviewTableGateTests
 
         Assert.False(FlowMapGate.ShouldAsk(coverage, null));
         Assert.False(ScreenScopeGate.ShouldAsk(coverage, null, Scope));
-        // Và hệ quả phải thấy được ở đúng chỗ người dùng thấy: lượt này KHÔNG bày bảng màn hình.
-        //
-        // Cố ý KHÔNG khẳng định là `None`: bản đồ giả lập ở đây cho mọi nhóm khác [RÕ] nên cổng ĐỐI TƯỢNG
-        // (chỉ đòi «Dữ liệu / danh mục chính» + «Vòng đời & trạng thái») vẫn mở và thắng lượt này. Đó là
-        // hành vi có sẵn của EntityMapGate, không phải thứ test này chốt — xem ghi chú ở docs về khoảng hở
-        // thứ tự còn lại của cổng đối tượng.
-        Assert.NotEqual(InterviewTableKind.ScreenScope,
+        // Và hệ quả phải thấy được ở đúng chỗ người dùng thấy: lượt này KHÔNG có bảng nào, BA hỏi tiếp như
+        // một lượt chat thường thay vì bày ra một bảng không gắn được bước nào. Bản đồ ở đây cho MỌI nhóm
+        // khác [RÕ], nên khẳng định `None` cũng là khẳng định không cổng nào khác chen vào chỗ trống.
+        Assert.Equal(InterviewTableKind.None,
             InterviewTableGate.Select(ProjectWith(coverage: coverage)));
+    }
+
+    // NỬA THỨ HAI của cùng lỗ hổng, ở cổng đối tượng. Hai nhóm của nó rời hẳn nhóm vai trò nên có ca dữ
+    // liệu + vòng đời đã rõ trong khi vai trò còn [MỘT PHẦN]: cổng luồng và cổng màn hình đều đóng, và bảng
+    // ĐỐI TƯỢNG bày ra đầu tiên. Thứ tự phụ thuộc bảo màn hình phải đứng trước — cái người dùng nhìn thấy
+    // trên màn hình mới quyết định thông tin nào thật sự cần lưu.
+    [Fact]
+    public void EntityMapGate_StaysClosedUntilTheFlowGateCouldOpen()
+    {
+        var coverage = EverythingClear.Replace(
+            "- ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt. {nguồn: \"Assistant lập, HOD duyệt\"}",
+            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: ai được xem.");
+
+        Assert.False(EntityMapGate.ShouldAsk(coverage, null));
     }
 
     // Nửa còn lại của cùng một luật: đủ điều kiện rồi thì HAI cổng cùng mở, và Select mới là chỗ quyết định

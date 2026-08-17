@@ -172,10 +172,11 @@ chúng (`AppUserRole` là vai trò của chính ICOGenerator, không liên quan)
 Điều kiện mở của từng cổng suy từ chính bản đồ bao phủ, và **cố ý rải ra chứ không dồn xuống cuối buổi**:
 cổng luồng mở khi «Chức năng & luồng nghiệp vụ chính» + «Đối tượng người dùng & vai trò» đã `[RÕ]` và
 «Luồng ngoại lệ» đã được chạm tới; cổng màn hình mở khi `PlannedScope` có mục và — ở **lần bày đầu** — cổng
-luồng đã đủ điều kiện mở (`FlowMapGate.CoverageReady`, xem [dưới](#thứ-tự-ưu-tiên-không-thay-được-điều-kiện-mở));
-cổng đối tượng mở khi «Dữ liệu / danh mục chính» `[RÕ]` và «Vòng đời & trạng thái» đã được chạm tới; cổng
-phân quyền giữ nguyên điều kiện cũ (mọi nhóm áp dụng KHÁC đã `[RÕ]`); cổng thông báo mở khi **bảng phân
-quyền đã chốt** và bảng đối tượng gieo ra được ít nhất một sự kiện. Các bảng điền sẵn nối đuôi nhau ở cuối
+luồng đã đủ điều kiện mở; cổng đối tượng mở khi «Dữ liệu / danh mục chính» `[RÕ]`, «Vòng đời & trạng thái»
+đã được chạm tới và cổng luồng đã đủ điều kiện mở; cổng phân quyền giữ nguyên điều kiện cũ (mọi nhóm áp
+dụng KHÁC đã `[RÕ]`); cổng thông báo mở khi **bảng phân quyền đã chốt** và bảng đối tượng gieo ra được ít
+nhất một sự kiện. Vế *"cổng luồng đã đủ điều kiện mở"* dùng chung một hàm — `FlowMapGate.CoverageReady`,
+xem [dưới](#thứ-tự-ưu-tiên-không-thay-được-điều-kiện-mở). Các bảng điền sẵn nối đuôi nhau ở cuối
 buổi chính là cái chip *"Đồng ý phương án này"* phóng to nhiều lần — người dùng nghiệp vụ bận sẽ bấm "Đúng
 rồi" cho xong từ bảng thứ hai.
 
@@ -210,10 +211,15 @@ Hai ranh giới của cách vá này:
   kiện của lần bày đầu đã từng đúng, và đòi lại cả bộ là để một nhóm bị lượt distill hạ xuống `[MỘT PHẦN]`
   chặn mất đường thu hồi phần phạm vi trôi.
 
-Khoảng hở còn lại, chưa vá: `EntityMapGate` vẫn có thể mở khi cổng luồng và cổng màn hình còn đóng (nó chỉ
-đòi «Dữ liệu / danh mục chính» + «Vòng đời & trạng thái»), tức bảng đối tượng vẫn có đường đi trước bảng màn
-hình. Hiếm hơn nhiều so với ca trên — cần dữ liệu và vòng đời rõ trong khi vai trò còn mờ — và cách vá thì
-y hệt một dòng ở trên.
+**Cổng đối tượng mượn cùng điều kiện đó**, vì nó hở theo cùng một kiểu: hai nhóm của nó («Dữ liệu / danh mục
+chính», «Vòng đời & trạng thái») rời hẳn nhóm vai trò, nên có ca dữ liệu và vòng đời đã rõ trong khi vai trò
+còn `[MỘT PHẦN]` — cổng luồng lẫn cổng màn hình đều đóng, và bảng ĐỐI TƯỢNG bày ra đầu tiên. Thứ tự phụ
+thuộc bảo màn hình phải đứng trước: cái người dùng nhìn thấy trên màn hình mới quyết định thông tin nào thật
+sự cần lưu, hỏi ngược thì bảng đối tượng chở đúng bản BA đoán.
+
+Ngoại lệ duy nhất còn lại, cố ý không chặn: `PlannedScope` rỗng ⇒ cổng màn hình đóng vì không có DÒNG nào để
+hỏi, và bảng đối tượng đi trước thật. Bắt cổng đối tượng chờ một danh sách có thể không bao giờ đến là dựng
+thêm một chỗ kẹt để đổi lấy một thứ tự đẹp.
 
 ### Vì sao ba bảng GIỮA không được là điều kiện để một nhóm lên `[RÕ]`
 
