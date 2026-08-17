@@ -740,12 +740,14 @@ public class BAChatService
         var confirmedNotifications = NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap);
         if (!string.IsNullOrWhiteSpace(confirmedNotifications))
         {
-            // Khối tự chở NGOẠI LỆ của chính nó (các sự kiện còn trống người nhận), nên câu luật ở đây
-            // không được cấm tuyệt đối — xem NotificationMapBuilder.RenderConfirmedBlock.
+            // Cấm TUYỆT ĐỐI, không ngoại lệ: bất biến của bảng (xem NotificationMapBuilder) bảo đảm mọi dòng
+            // đã lưu đều trả lời xong — hoặc "không gửi", hoặc có người nhận. Bản trước còn một ngoại lệ cho
+            // các dòng để trống người nhận, và nó là đường dẫn tới đúng vòng hỏi lẻ mà cả cái bảng sinh ra
+            // để thay thế: một bảng 8 dòng gửi đi với 7 dòng trống ⇒ 14 lượt chat để hỏi lại từng sự kiện.
             messages.Add(new ChatMessage(ChatRole.System,
                 "## Bảng thông báo người dùng ĐÃ CHỐT (tự tay chọn từng dòng — coi như điều đã biết)\n"
-                + "KHÔNG hỏi lại sự kiện nào cần báo hay ai là người nhận, TRỪ đúng các dòng mà chính khối này "
-                + "nói là còn trống người nhận.\n"
+                + "KHÔNG hỏi lại sự kiện nào cần báo, cũng KHÔNG hỏi lại ai là người nhận — cả nhóm «Thông báo "
+                + "/ nhắc nhở» đã xong.\n"
                 + confirmedNotifications));
         }
         else if (table == InterviewTableKind.NotificationMap)

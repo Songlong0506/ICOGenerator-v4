@@ -765,7 +765,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     //
     // Phần gửi giống nhau ở cả ba nên nó là MỘT hàm: ba bản sao của cùng đoạn xử lý lỗi là ba chỗ để một
     // bản quên mất luật "lưu hỏng thì DỪNG hẳn, không gửi tin nhắn".
-    function initTablePanel(panelId, btnId, msgId, field, collect, savingText, errorText) {
+    //
+    // `validate` (tùy chọn) chạy TRƯỚC khi gửi và trả false để chặn lượt gửi. Nó tự lo phần giao diện của
+    // mình (bảng thông báo mở một popup bắt chọn người nhận), vì một câu chữ nhỏ cạnh nút thì người dùng
+    // đang rà 24 dòng không thấy. Chốt chặn THẬT vẫn ở server — xem ConfirmNotificationMapUseCase.
+    function initTablePanel(panelId, btnId, msgId, field, collect, savingText, errorText, validate) {
         const panel = document.getElementById(panelId);
         if (!panel) return null;
 
@@ -776,6 +780,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const msgEl = document.getElementById(msgId);
             const rows = panel.hidden ? [] : collect(panel);
             if (rows.length === 0) return;
+
+            if (validate && !validate(panel, rows)) return;
 
             btn.disabled = true;
             msgEl.textContent = savingText;
@@ -797,8 +803,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 // hội thoại ghi nhận "đã chốt" trong khi dự án vẫn trống là trạng thái tệ nhất, vì bản đồ
                 // bao phủ nâng nhóm lên [RÕ] dựa trên tin nhắn đó rồi cấm hỏi lại, còn bảng thì không ai
                 // còn thấy đâu để rà lại.
+                //
+                // Server GỌI TÊN được chỗ hỏng (bảng vi phạm bất biến, không phải mạng chập) thì in đúng câu
+                // đó: câu "bấm gửi lại giúp mình" ở ca ấy mời người dùng bấm lại đúng cái vừa bị từ chối.
                 btn.disabled = false;
-                msgEl.textContent = errorText;
+                msgEl.textContent = (err && err.message) ? err.message : errorText;
                 return;
             }
 
@@ -1415,7 +1424,160 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             };
         }).filter(r => r.event.length > 0),
         "Đang lưu bảng thông báo…",
-        "Chưa lưu được bảng thông báo — anh/chị bấm gửi lại giúp mình nhé.");
+        "Chưa lưu được bảng thông báo — anh/chị bấm gửi lại giúp mình nhé.",
+        panel => askMissingRecipients(missingRecipientRows(panel)));
+
+    // Tên sự kiện của MỘT dòng, đúng cách `collect` đọc nó: dòng gieo mang tên ở `data-event` (không sửa
+    // được), dòng NHẮC NHỞ người dùng tự thêm thì có ô gõ.
+    function notificationRowEvent(row) {
+        return row.querySelector(".notifmap-nameinput")
+            ? tableValue(row, ".notifmap-nameinput")
+            : (row.dataset.event || "");
+    }
+
+    // BẤT BIẾN của bảng: một dòng chỉ có HAI trạng thái — bỏ tích ("không gửi email", một quyết định hợp
+    // lệ) hoặc còn tích KÈM người nhận chính. Trạng thái thứ ba, "cần gửi mà chưa chọn ai", từng được cho
+    // qua và trả giá đúng bằng thứ cái bảng này sinh ra để thay thế: nhóm «Thông báo / nhắc nhở» xuống
+    // [MỘT PHẦN], nút "Write Requirement" khóa, và BA phải đi hỏi lại TỪNG sự kiện trong khung chat, mỗi sự
+    // kiện hai lượt (To rồi CC). Ca thật: bảng 8 dòng gửi đi với 7 dòng trống ⇒ 14 lượt chat, ở cuối một
+    // buổi phỏng vấn đã 78 lượt.
+    //
+    // Bỏ qua dòng chưa gõ tên đúng như `collect` bỏ qua: nó không được gửi đi, nên chặn vì nó là chặn oan.
+    function missingRecipientRows(panel) {
+        return Array.from(panel.querySelectorAll(".notifmap-row")).filter(row =>
+            notificationRowEvent(row).length > 0
+            && tableChecked(row.querySelector(".notifmap-check"))
+            && pickedRecipients(row, "to").length === 0);
+    }
+
+    // Nhãn người dùng đọc thấy trên bảng — khớp NotificationMapBuilder.EventLabel để popup và câu lỗi của
+    // server gọi cùng một sự kiện bằng cùng một tên.
+    function notificationRowLabel(row) {
+        const entity = (row.dataset.entity || "").trim();
+        const trigger = (row.querySelector(".notifmap-trigger-input")
+            ? tableValue(row, ".notifmap-trigger-input")
+            : (row.dataset.trigger || "")).trim();
+        return (entity ? entity + " — " : "") + `"${notificationRowEvent(row)}"`
+            + (trigger ? ` (khi ${trigger})` : "");
+    }
+
+    // POPUP chặn lượt gửi khi còn dòng trống người nhận. Trả true = bảng hợp lệ, gửi tiếp.
+    //
+    // Vì sao KHÔNG chỉ nhắc "vui lòng chọn người nhận": ở hệ này một người nhận SAI hại hơn một ô trống —
+    // ô trống còn bị hỏi lại, còn giá trị sai được chấm [RÕ] rồi vĩnh viễn không ai soát nữa. Một popup
+    // chặn cứng mà chỉ có một đường ra sẽ đẩy người dùng đang mệt tới cú bấm nhanh nhất trong danh sách, và
+    // mục nhanh nhất lại là "Toàn bộ <vai>" — nghĩa là cả nhà máy nhận email ở sự kiện đó. Nên popup bày
+    // HAI lối đi, và cả hai đều là câu trả lời thật: chọn người nhận, hoặc nói rằng sự kiện này không cần
+    // gửi email. "Không biết ai" được đổ về một quyết định hiển thị, không về một người nhận bịa.
+    function askMissingRecipients(rows) {
+        if (rows.length === 0) return true;
+
+        closeRecipientPickers();
+        const backdrop = document.createElement("div");
+        backdrop.className = "modal-backdrop notifmap-missing";
+        backdrop.innerHTML = `
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="notifmapMissingTitle">
+                <button type="button" class="x" aria-label="Quay lại bảng">×</button>
+                <h2 id="notifmapMissingTitle">Còn ${rows.length} sự kiện chưa có người nhận</h2>
+                <p class="modal-sub">
+                    Mỗi sự kiện dưới đây đang tích <b>Cần</b> nhưng chưa chọn <b>Gửi cho (To)</b>. Anh/chị chọn
+                    người nhận, hoặc cho mình biết sự kiện đó <b>không cần gửi email</b>.
+                </p>
+                <ul class="notifmap-missing-list">
+                    ${rows.map((row, i) => `
+                        <li data-idx="${i}">
+                            <span class="notifmap-missing-event">${escapeHtml(notificationRowLabel(row))}</span>
+                            <span class="notifmap-missing-acts">
+                                <button type="button" class="btn small" data-act="pick">Chọn người nhận</button>
+                                ${row.querySelector("input[type=checkbox].notifmap-check")
+                                    ? `<button type="button" class="btn small" data-act="off">Không cần gửi</button>`
+                                    : ""}
+                            </span>
+                        </li>`).join("")}
+                </ul>
+                <div class="modal-actions"><button type="button" class="btn" data-act="close">Quay lại bảng</button></div>
+            </div>`;
+
+        const close = () => {
+            backdrop.remove();
+            document.removeEventListener("keydown", onKey);
+        };
+        const onKey = e => { if (e.key === "Escape") close(); };
+
+        backdrop.addEventListener("click", function (e) {
+            // Chặn lan lên `document`: handler "bấm ra ngoài thì đóng ô chọn" ở cuối file sẽ chạy SAU handler
+            // này và đóng lại đúng ô mà nút "Chọn người nhận" vừa mở — nút nằm trong popup nên nó không thỏa
+            // `closest(".notifmap-pick")`. Không có dòng này thì lối đi chính của popup im lặng không làm gì.
+            e.stopPropagation();
+
+            if (e.target === backdrop || e.target.closest('.x, [data-act="close"]')) {
+                close();
+                return;
+            }
+
+            const btn = e.target.closest('[data-act="pick"], [data-act="off"]');
+            if (!btn) return;
+
+            const item = btn.closest("li");
+            const row = rows[Number(item.dataset.idx)];
+            if (!row) return;
+
+            // "Chọn người nhận" đóng popup và mở sẵn đúng ô của đúng dòng: bảng tới 24 dòng nên ô trống
+            // thường nằm ngoài màn hình, và một popup bảo "hàng nào đó còn thiếu" thì bắt người dùng tự đi
+            // tìm — đúng việc mà popup đang thay họ làm.
+            if (btn.dataset.act === "pick") {
+                close();
+                highlightNotificationRow(row);
+                const pick = row.querySelector('.notifmap-pick[data-kind="to"]');
+                if (pick) {
+                    pick.classList.add("open");
+                    pick.querySelector(".ms-combo-panel").hidden = false;
+                    const first = pick.querySelector("input[type=checkbox]");
+                    if (first) first.focus();
+                }
+                return;
+            }
+
+            // "Không cần gửi" = bỏ tích ngay tại đây. Đi qua đúng đường `change` của bảng để nhãn ô chọn và
+            // trạng thái dòng không lệch với thứ sẽ được gửi lên.
+            const check = row.querySelector("input[type=checkbox].notifmap-check");
+            if (check) {
+                check.checked = false;
+                check.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            item.remove();
+
+            const left = backdrop.querySelectorAll(".notifmap-missing-list li").length;
+            if (left === 0) {
+                close();
+                const msgEl = document.getElementById("notificationMapMsg");
+                if (msgEl) msgEl.textContent = "Xong — anh/chị bấm “Gửi bảng thông báo” lần nữa nhé.";
+                return;
+            }
+            backdrop.querySelector("#notifmapMissingTitle").textContent =
+                `Còn ${left} sự kiện chưa có người nhận`;
+        });
+
+        document.addEventListener("keydown", onKey);
+        document.body.appendChild(backdrop);
+        const firstAction = backdrop.querySelector('[data-act="pick"]');
+        if (firstAction) firstAction.focus();
+        return false;
+    }
+
+    // Vệt sáng tạm trên dòng vừa được popup trỏ tới. Tự tắt khi người dùng chạm vào dòng đó — nó là chỉ
+    // đường, không phải trạng thái lỗi cần đọng lại trên bảng.
+    function highlightNotificationRow(row) {
+        row.scrollIntoView({ block: "center", behavior: "smooth" });
+        row.classList.add("is-missing");
+        const clear = () => {
+            row.classList.remove("is-missing");
+            row.removeEventListener("change", clear);
+            row.removeEventListener("click", clear);
+        };
+        row.addEventListener("change", clear);
+        row.addEventListener("click", clear);
+    }
 
     function pickedRecipients(row, kind) {
         const pick = row.querySelector('.notifmap-pick[data-kind="' + kind + '"]');
@@ -1497,8 +1659,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         notificationMapPanel.innerHTML = `
             <div class="permmap-howto">
                 Đây là các sự kiện của ứng dụng. Sự kiện nào <b>không cần gửi email</b> thì bỏ tích cột đầu; sự
-                kiện còn lại thì chọn <b>người nhận</b> — để trống nghĩa là mình chưa chốt được ai và sẽ hỏi lại
-                anh/chị. Thiếu một lời nhắc theo thời hạn thì bấm <b>+ thêm lời nhắc</b> ở cuối bảng.
+                kiện còn tích thì <b>bắt buộc chọn người nhận (To)</b>, còn <b>đồng gửi (CC)</b> có thì chọn,
+                không có thì để trống. Thiếu một lời nhắc theo thời hạn thì bấm <b>+ thêm lời nhắc</b> ở cuối bảng.
             </div>
             <table class="permmap-table notifmap-table">
                 <thead>

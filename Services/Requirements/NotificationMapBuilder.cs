@@ -32,6 +32,18 @@ namespace ICOGenerator.Services.Requirements;
 ///   nhận bịa ("Phòng Nhân sự" ở dự án không có vai đó) đi thẳng vào spec rồi vào POC, và không ai đọc lại
 ///   bảng mà nhận ra được.</item>
 /// </list>
+///
+/// <para>
+/// <b>BẤT BIẾN của một bảng ĐÃ LƯU: mỗi dòng chỉ có HAI trạng thái</b> — bỏ tích (<c>Needed = false</c>:
+/// không gửi email, một quyết định hợp lệ) hoặc còn tích kèm <c>To</c> KHÔNG RỖNG. Trạng thái thứ ba —
+/// "cần gửi nhưng chưa chọn ai" — từng được cho phép và trả giá đắt: nó hạ nhóm «Thông báo / nhắc nhở»
+/// xuống <c>[MỘT PHẦN]</c>, khóa nút "Write Requirement", rồi bắt BA đi hỏi lại từng sự kiện trong khung
+/// chat (mỗi sự kiện hai lượt: To rồi CC) — đúng vòng hỏi lẻ mà cả cái bảng này sinh ra để thay thế. Ca
+/// thật: một bảng 8 dòng gửi đi với 7 dòng trống người nhận ⇒ 14 lượt chat ở cuối một buổi 78 lượt.
+/// Bất biến được chặn ở <b>đường GỬI</b> (<see cref="MissingRecipients"/>, gọi từ
+/// <c>ConfirmNotificationMapUseCase</c> — không hợp lệ thì KHÔNG lưu gì cả), còn trình duyệt chỉ là phanh
+/// phụ: người dùng bấm gửi khi còn dòng trống thì popup bắt họ chọn người nhận hoặc bỏ tích.
+/// </para>
 /// </summary>
 public static class NotificationMapBuilder
 {
@@ -179,7 +191,13 @@ public static class NotificationMapBuilder
                 Cc = cc,
                 Needed = true,
                 // LUẬT BẰNG CHỨNG — cờ suông không khóa được dòng nào. Xem PermissionGrant.Locked.
-                Locked = evidence.Length > 0,
+                //
+                // …và phải có CẢ người nhận. Dòng khóa không có checkbox trên giao diện (ô "Cần" là một
+                // input hidden), nên "khóa mà To rỗng" là một ngõ chết: người dùng không được nói "sự kiện
+                // này không cần gửi", mà cũng chẳng có ai để gửi. Ca sinh ra nó rất thường: model kèm
+                // trích dẫn thật nhưng viết người nhận không khớp mục nào của danh sách chọn ⇒
+                // NormalizeRecipients bỏ sạch To, evidence thì còn lại.
+                Locked = evidence.Length > 0 && to.Count > 0,
                 Evidence = evidence
             });
         }
@@ -246,14 +264,18 @@ public static class NotificationMapBuilder
             if (!seen.Add(Key(entity, eventName)))
                 continue;
 
-            var to = NormalizeRecipients(row.To, options, Array.Empty<string>());
+            // Dòng BỎ TÍCH không mang người nhận theo. Người dùng bỏ tích sau khi đã chọn vài mục là một
+            // câu "sự kiện này không gửi cho ai cả" — giữ lại To/CC là lưu vào DB đúng cái danh sách họ
+            // vừa hủy, rồi mọi tầng đọc sau phải tự nhớ lọc theo `Needed` mới không gửi thừa. Hai khối kể
+            // lại đang lọc đúng, nhưng đó là thứ không nên phải đúng ở ba nơi.
+            var to = row.Needed ? NormalizeRecipients(row.To, options, Array.Empty<string>()) : new List<string>();
             result.Add(new NotificationMapRow
             {
                 Entity = entity,
                 Event = eventName,
                 Trigger = Clip((row.Trigger ?? string.Empty).Trim(), MaxTextChars),
                 To = to,
-                Cc = NormalizeRecipients(row.Cc, options, to),
+                Cc = row.Needed ? NormalizeRecipients(row.Cc, options, to) : new List<string>(),
                 Needed = row.Needed,
                 // Cờ khóa bị xoá, cờ TỰ THÊM thì không: cái trước là lời khai của model về hội thoại (hết ý
                 // nghĩa khi người dùng đã tự tay duyệt), cái sau là một sự thật về nguồn gốc của dòng mà
@@ -292,14 +314,39 @@ public static class NotificationMapBuilder
     public static bool IsConfirmed(string? json) => Parse(json).Count > 0;
 
     /// <summary>
+    /// Các dòng VI PHẠM bất biến của bảng: còn tích "Cần" mà chưa chọn người nhận chính. Rỗng ⇒ bảng lưu
+    /// được. Đây là chốt chặn THẬT của bất biến (xem phần <b>BẤT BIẾN</b> ở doc của class): popup trên
+    /// trình duyệt chỉ là phanh phụ, còn một payload sửa tay, một tab cũ mở từ trước bản này, hay một lần
+    /// thử lại sau khi mất mạng đều đi vào đúng đây.
+    ///
+    /// <para>
+    /// Cố tình KHÔNG "tự chữa" bằng cách hạ <c>Needed = false</c>: bỏ tích là một quyết định nghiệp vụ
+    /// ("sự kiện này không cần email"), và tự quyết hộ nó là ghi vào tài liệu một điều người dùng chưa nói
+    /// — đúng loại lỗi nặng nhất của cả tầng phỏng vấn này. Không hợp lệ thì KHÔNG lưu, và nói ra thiếu ở
+    /// đâu.
+    /// </para>
+    /// </summary>
+    public static List<NotificationMapRow> MissingRecipients(IEnumerable<NotificationMapRow>? rows)
+        => (rows ?? Enumerable.Empty<NotificationMapRow>())
+            .Where(r => r != null && r.Needed && r.To.Count == 0)
+            .ToList();
+
+    /// <summary>
+    /// Tên một sự kiện như người dùng đọc thấy trên bảng ("Đơn đăng ký — "Chờ duyệt" (khi nhân viên gửi
+    /// đơn)"). Dùng cho thông điệp lỗi của đường gửi: gọi tên đúng dòng còn thiếu thì người dùng biết phải
+    /// sửa ở đâu, còn một câu "bảng chưa hợp lệ" thì bắt họ tự rà lại 24 dòng.
+    /// </summary>
+    public static string EventLabel(NotificationMapRow row) => RenderEvent(row);
+
+    /// <summary>
     /// Khối ngữ cảnh gắn vào MỌI lượt chat sau khi bảng đã chốt, vào lượt distill bản đồ bao phủ, và vào
     /// prompt sinh AI Design Spec. Trả null khi chưa chốt.
     ///
     /// <para>
-    /// Khối tự chở NGOẠI LỆ của chính luật "đừng hỏi lại": các dòng người dùng còn để trống người nhận. Đó
-    /// là chỗ DUY NHẤT của nhóm này còn được hỏi bằng câu hỏi sau khi bảng đã chốt — không nói ra thì một
-    /// sự kiện "cần báo nhưng chưa biết báo cho ai" nằm im dưới một câu lệnh cấm hỏi, và nhóm «Thông báo /
-    /// nhắc nhở» được chấm <c>[RÕ]</c> với đúng cái lỗ mà cả bảng sinh ra để bịt.
+    /// Khối này là một lệnh CẤM HỎI TUYỆT ĐỐI cho cả nhóm, không còn ngoại lệ nào: bất biến của bảng (xem
+    /// doc của class) bảo đảm mọi dòng đã lưu đều đã trả lời xong — hoặc "không gửi", hoặc có người nhận.
+    /// Hai loại đều được GỌI TÊN ở đây, vì mặc định im lặng của mọi tầng phía sau là "có thay đổi thì báo":
+    /// một sự kiện người dùng vừa tắt mà khối này không nhắc tới sẽ được bước soạn tài liệu bật lại.
     /// </para>
     /// </summary>
     public static string? RenderConfirmedBlock(string? json)
@@ -322,19 +369,20 @@ public static class NotificationMapBuilder
             sb.AppendLine("* KHÔNG gửi thông báo ở các sự kiện sau — đây là quyết định của người dùng, không "
                 + "phải chỗ còn thiếu: " + string.Join("; ", silent.Select(RenderEvent)));
 
-        var pending = rows.Where(r => r.Needed && r.To.Count == 0).ToList();
-        if (pending.Count > 0)
-            sb.AppendLine("* CẦN gửi nhưng người dùng CHƯA chọn người nhận: "
-                + string.Join("; ", pending.Select(RenderEvent))
-                + ". Đây là ngoại lệ DUY NHẤT của luật \"đừng hỏi lại\" — hỏi cho hết các sự kiện này (mỗi "
-                + "sự kiện: ai là người nhận chính, có ai cần đồng gửi không).");
-
         return sb.ToString().TrimEnd();
     }
 
     /// <summary>
     /// Tin nhắn mà TRÌNH DUYỆT gửi tiếp vào khung chat sau khi bảng đã lưu — cùng khuôn hai bước với các
     /// bảng khác, và soạn ở server vì cùng lý do: bản kể phải khớp đúng bản đã lưu.
+    ///
+    /// <para>
+    /// Câu mở đầu phải nói đúng thứ bảng thật sự chở. Bản trước mở bằng <i>"đây là các sự kiện cần gửi email
+    /// và người nhận"</i> rồi mới đính chính ở đoạn thứ ba rằng 7/8 sự kiện chưa có người nhận — người dùng
+    /// đọc cái tiêu đề và tin là mình đã trả lời xong, nên mọi câu BA hỏi tiếp (đúng luật) trông như hỏi lại
+    /// điều vừa nói. Bất biến mới xóa hẳn ca đó, nhưng câu mở đầu vẫn phải phân biệt "có sự kiện cần gửi"
+    /// với "người dùng tắt sạch".
+    /// </para>
     /// </summary>
     public static string RenderUserMessage(IReadOnlyList<NotificationMapRow> rows)
     {
@@ -342,14 +390,18 @@ public static class NotificationMapBuilder
             return string.Empty;
 
         var sb = new StringBuilder();
-        sb.AppendLine("Mình đã rà bảng thông báo — đây là các sự kiện cần gửi email và người nhận:");
-
         var sending = rows.Where(r => r.Needed && r.To.Count > 0).ToList();
-        foreach (var row in sending)
-            sb.AppendLine("- " + RenderRow(row));
 
-        if (sending.Count == 0)
-            sb.AppendLine("- (không sự kiện nào có người nhận)");
+        if (sending.Count > 0)
+        {
+            sb.AppendLine("Mình đã rà bảng thông báo — đây là các sự kiện cần gửi email và người nhận:");
+            foreach (var row in sending)
+                sb.AppendLine("- " + RenderRow(row));
+        }
+        else
+        {
+            sb.AppendLine("Mình đã rà bảng thông báo — không sự kiện nào cần gửi email.");
+        }
 
         // Sự kiện bị bỏ tích phải được GỌI TÊN, cùng lý do với dòng bị bỏ tích của các bảng khác: im lặng bỏ
         // nó đi thì người dùng không có bằng chứng nào cho thấy mình vừa tắt đúng thứ định tắt, mà mặc định
@@ -359,14 +411,6 @@ public static class NotificationMapBuilder
         {
             sb.AppendLine();
             sb.AppendLine("Các sự kiện KHÔNG cần gửi thông báo: " + string.Join("; ", silent.Select(RenderEvent)) + ".");
-        }
-
-        var pending = rows.Where(r => r.Needed && r.To.Count == 0).ToList();
-        if (pending.Count > 0)
-        {
-            sb.AppendLine();
-            sb.AppendLine("Các sự kiện mình cần báo nhưng chưa chốt được người nhận: "
-                + string.Join("; ", pending.Select(RenderEvent)) + ".");
         }
 
         var addedByUser = rows.Where(r => r.AddedByUser).ToList();
@@ -389,11 +433,12 @@ public static class NotificationMapBuilder
         return $"{entity}\"{row.Event.Trim()}\"{trigger}";
     }
 
+    // Chỉ gọi cho dòng CÓ người nhận (cả hai bản kể đều lọc trước) — bất biến của bảng bảo đảm không còn
+    // dòng "cần gửi mà To rỗng" nào để phải kể.
     private static string RenderRow(NotificationMapRow row)
     {
-        var to = row.To.Count > 0 ? string.Join(", ", row.To) : "chưa chọn";
         var cc = row.Cc.Count > 0 ? $"; CC: {string.Join(", ", row.Cc)}" : string.Empty;
-        return $"{RenderEvent(row)} ⇒ To: {to}{cc}";
+        return $"{RenderEvent(row)} ⇒ To: {string.Join(", ", row.To)}{cc}";
     }
 
     private static string Key(string? entity, string? eventName)

@@ -21,6 +21,15 @@ namespace ICOGenerator.Application.Requirements;
 /// server không tin bộ tùy chọn mà trình duyệt gửi kèm, kể cả khi chính server vừa render nó ra vài phút
 /// trước — nếu không thì một payload sửa tay đưa được người nhận bất kỳ vào tài liệu và vào POC.
 /// </para>
+///
+/// <para>
+/// <b>Chốt chặn BẤT BIẾN của bảng nằm ở đây, không ở trình duyệt</b> (xem
+/// <see cref="NotificationMapBuilder.MissingRecipients"/>): còn một dòng tích "Cần" mà chưa chọn người nhận
+/// thì KHÔNG lưu gì cả và trả về đúng tên các sự kiện còn thiếu. Popup của trình duyệt là phanh phụ — nó
+/// không thấy được payload sửa tay, tab mở từ trước bản này, hay lần bấm gửi lại sau khi mất mạng. Và lưu
+/// một phần thì tệ hơn không lưu: cột <c>NotificationMap</c> có dữ liệu ⇒ <c>NotificationMapGate</c> coi
+/// như đã chốt và không bao giờ bày lại bảng, nên các dòng còn dở không còn màn hình nào để sửa.
+/// </para>
 /// </summary>
 public class ConfirmNotificationMapUseCase
 {
@@ -31,8 +40,12 @@ public class ConfirmNotificationMapUseCase
         _db = db;
     }
 
-    /// <summary>Số sự kiện đã lưu + tin nhắn mà trình duyệt phải gửi tiếp vào khung chat.</summary>
-    public sealed record Result(int Rows, string Message);
+    /// <summary>
+    /// Số sự kiện đã lưu + tin nhắn mà trình duyệt phải gửi tiếp vào khung chat. <paramref name="Error"/>
+    /// khác rỗng ⇒ KHÔNG lưu gì, và chuỗi đó là câu hiện ngay cạnh nút gửi (đã gọi tên các sự kiện còn
+    /// thiếu, nên trình duyệt chỉ việc in ra).
+    /// </summary>
+    public sealed record Result(int Rows, string Message, string Error = "");
 
     public async Task<Result> ExecuteAsync(Guid projectId, string? notificationsJson, CancellationToken cancellationToken = default)
     {
@@ -46,6 +59,13 @@ public class ConfirmNotificationMapUseCase
         var rows = NotificationMapBuilder.Sanitize(NotificationMapBuilder.Parse(notificationsJson), options);
         if (rows.Count == 0)
             return new Result(0, string.Empty);
+
+        var missing = NotificationMapBuilder.MissingRecipients(rows);
+        if (missing.Count > 0)
+            return new Result(0, string.Empty,
+                $"Còn {missing.Count} sự kiện đã tích \"Cần\" nhưng chưa chọn người nhận: "
+                + string.Join("; ", missing.Select(NotificationMapBuilder.EventLabel))
+                + ". Anh/chị chọn người nhận, hoặc bỏ tích nếu sự kiện đó không cần gửi email, rồi gửi lại nhé.");
 
         project.NotificationMap = JsonSerializer.Serialize(rows);
         await _db.SaveChangesAsync(cancellationToken);

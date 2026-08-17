@@ -13,8 +13,10 @@ namespace ICOGenerator.Tests.Requirements;
 //  • NGƯỜI NHẬN phải nằm trong danh sách chọn đóng: một người nhận bịa đi thẳng vào spec rồi vào POC mà
 //    không ai đọc lại bảng nhận ra được;
 //  • cờ "Cần" ở lượt BÀY BẢNG luôn TÍCH SẴN bất kể model trả gì;
-//  • ba trạng thái của một dòng — gửi / không gửi / cần gửi mà chưa chọn ai — phải phân biệt được ở cả
-//    khối ngữ cảnh lẫn tin nhắn gửi đi, vì mặc định im lặng của mọi tầng phía sau là "có thay đổi thì báo".
+//  • BẤT BIẾN của bảng đã lưu: một dòng chỉ có HAI trạng thái — bỏ tích ("không gửi") hoặc còn tích KÈM
+//    người nhận. Cả hai đều phải được GỌI TÊN ở khối ngữ cảnh và tin nhắn gửi đi, vì mặc định im lặng của
+//    mọi tầng phía sau là "có thay đổi thì báo"; còn trạng thái thứ ba ("cần gửi mà chưa chọn ai") bị chặn
+//    ở đường gửi thay vì được lưu rồi đem đi hỏi lại từng sự kiện trong khung chat.
 public class NotificationMapBuilderTests
 {
     private const string ConfirmedEntities = """
@@ -135,6 +137,29 @@ public class NotificationMapBuilderTests
         Assert.False(rows.Single(r => r.Event == "Đã duyệt").Locked);
     }
 
+    // NGÕ CHẾT đã gặp thật: model kèm trích dẫn NHƯNG viết người nhận không khớp mục nào ⇒ To bị bỏ sạch,
+    // evidence còn lại. Dòng khóa không có checkbox trên giao diện, nên nếu vẫn khóa thì người dùng vừa
+    // không được nói "sự kiện này không cần gửi", vừa chẳng có ai để gửi — mà giờ đường gửi lại đòi mọi
+    // dòng còn tích phải có người nhận.
+    [Fact]
+    public void Build_DoesNotLockARowWhoseRecipientWasDropped()
+    {
+        var rows = NotificationMapBuilder.Build(new[]
+        {
+            new NotificationMapRow
+            {
+                Entity = "Đơn đăng ký",
+                Event = "Đã duyệt",
+                To = { "Phòng Nhân sự" },
+                Evidence = "gửi cho phòng nhân sự"
+            }
+        }, Seeds(), Options);
+
+        var row = rows.Single(r => r.Event == "Đã duyệt");
+        Assert.Empty(row.To);
+        Assert.False(row.Locked);
+    }
+
     // ==== NGƯỜI NHẬN: danh sách chọn ĐÓNG ====
 
     [Fact]
@@ -219,6 +244,28 @@ public class NotificationMapBuilderTests
         Assert.Empty(rows[1].Evidence);
     }
 
+    // Bỏ tích sau khi đã chọn vài mục là một câu "sự kiện này không gửi cho ai cả". Giữ lại To/CC là lưu
+    // đúng cái danh sách người dùng vừa hủy, rồi bắt mọi tầng đọc sau tự nhớ lọc theo `Needed`.
+    [Fact]
+    public void Sanitize_ClearsTheRecipientsOfAnUntickedRow()
+    {
+        var rows = NotificationMapBuilder.Sanitize(new[]
+        {
+            new NotificationMapRow
+            {
+                Entity = "Đơn đăng ký",
+                Event = "Chờ duyệt",
+                Needed = false,
+                To = { "Người tạo" },
+                Cc = { "Toàn bộ HRBP" }
+            }
+        }, Options);
+
+        var row = Assert.Single(rows);
+        Assert.Empty(row.To);
+        Assert.Empty(row.Cc);
+    }
+
     // Chốt chặn "sự kiện bịa" dựng để chặn MODEL, không phải để chặn người dùng vừa tự gõ một lời nhắc.
     [Fact]
     public void Sanitize_KeepsAReminderTheUserAddedWithoutAnyEvidence()
@@ -231,27 +278,51 @@ public class NotificationMapBuilderTests
         Assert.True(Assert.Single(rows).AddedByUser);
     }
 
-    // ==== BA TRẠNG THÁI CỦA MỘT DÒNG ====
+    // ==== BẤT BIẾN: HAI TRẠNG THÁI CỦA MỘT DÒNG ====
 
-    // "Không gửi" là một QUYẾT ĐỊNH và phải nói ra được; "cần gửi nhưng chưa chọn ai" là chỗ DUY NHẤT BA
-    // còn được phép hỏi lại sau khi bảng đã chốt. Lẫn hai thứ đó là hoặc bỏ quên một câu hỏi thật, hoặc
-    // hỏi lại đúng thứ người dùng vừa tắt.
+    // Chốt chặn THẬT của bất biến, ở đường gửi. Trạng thái thứ ba từng được lưu và trả giá đúng bằng thứ
+    // cái bảng sinh ra để thay thế: nhóm xuống [MỘT PHẦN], nút "Write Requirement" khóa, BA đi hỏi lại từng
+    // sự kiện trong chat — 14 lượt cho một bảng 8 dòng gửi đi với 7 dòng trống.
     [Fact]
-    public void ConfirmedBlock_SeparatesSilentEventsFromUnansweredOnes()
+    public void MissingRecipients_FindsTickedRowsWithoutARecipient()
+    {
+        var rows = NotificationMapBuilder.Sanitize(new[]
+        {
+            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", Needed = true, To = { "Người tạo" } },
+            new NotificationMapRow
+            {
+                Entity = "Đơn đăng ký", Event = "Bị từ chối", Trigger = "quản lý từ chối", Needed = true
+            },
+            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Chờ duyệt", Needed = false }
+        }, Options);
+
+        var missing = NotificationMapBuilder.MissingRecipients(rows);
+
+        // Dòng bỏ tích KHÔNG phải chỗ còn thiếu — nó là một quyết định.
+        Assert.Equal(new[] { "Bị từ chối" }, missing.Select(r => r.Event));
+        Assert.Equal("Đơn đăng ký — \"Bị từ chối\" (khi quản lý từ chối)",
+            NotificationMapBuilder.EventLabel(missing[0]));
+    }
+
+    // "Không gửi" là một QUYẾT ĐỊNH và phải nói ra được: mặc định im lặng của mọi tầng phía sau là "có thay
+    // đổi thì báo", nên một sự kiện người dùng vừa tắt mà khối này không nhắc tới sẽ được bật lại ở bước
+    // soạn tài liệu.
+    [Fact]
+    public void ConfirmedBlock_NamesTheEventsTheUserTurnedOff()
     {
         var json = JsonSerializer.Serialize(NotificationMapBuilder.Sanitize(new[]
         {
             new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", Needed = true, To = { "Người tạo" } },
-            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Chờ duyệt", Needed = false },
-            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Bị từ chối", Needed = true }
+            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Chờ duyệt", Needed = false }
         }, Options));
 
         var block = NotificationMapBuilder.RenderConfirmedBlock(json);
 
         Assert.Contains("To: Người tạo", block);
         Assert.Contains("KHÔNG gửi thông báo ở các sự kiện sau", block);
-        Assert.Contains("CHƯA chọn người nhận", block);
-        Assert.Contains("Bị từ chối", block);
+        Assert.Contains("Chờ duyệt", block);
+        // Khối là một lệnh cấm hỏi TUYỆT ĐỐI: không còn ngoại lệ nào mời BA hỏi lại nhóm này.
+        Assert.DoesNotContain("CHƯA chọn người nhận", block);
     }
 
     [Fact]
@@ -265,9 +336,28 @@ public class NotificationMapBuilderTests
 
         var message = NotificationMapBuilder.RenderUserMessage(rows);
 
+        Assert.Contains("đây là các sự kiện cần gửi email và người nhận", message);
         Assert.Contains("To: Người tạo; CC: Toàn bộ HRBP", message);
         Assert.Contains("KHÔNG cần gửi thông báo", message);
         Assert.Contains("Chờ duyệt", message);
+    }
+
+    // Người dùng tắt sạch bảng: câu mở đầu phải nói đúng điều đó. Bản trước mở bằng "đây là các sự kiện cần
+    // gửi email và người nhận" ở MỌI ca rồi mới đính chính ở đoạn dưới — người dùng đọc tiêu đề và tin là
+    // mình đã trả lời xong, nên mọi câu BA hỏi tiếp (đúng luật) trông như hỏi lại điều vừa nói.
+    [Fact]
+    public void UserMessage_SaysSoWhenTheUserTurnedEveryEventOff()
+    {
+        var rows = NotificationMapBuilder.Sanitize(new[]
+        {
+            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", Needed = false },
+            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Chờ duyệt", Needed = false }
+        }, Options);
+
+        var message = NotificationMapBuilder.RenderUserMessage(rows);
+
+        Assert.Contains("không sự kiện nào cần gửi email", message);
+        Assert.DoesNotContain("và người nhận:", message);
     }
 
     // Chưa chốt ⇒ không khối nào, và luồng chạy đúng như trước.
