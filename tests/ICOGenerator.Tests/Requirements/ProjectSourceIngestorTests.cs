@@ -474,6 +474,229 @@ public class ProjectSourceIngestorTests : IDisposable
         return ms.ToArray();
     }
 
+    [Fact]
+    public async Task IngestAsync_TextPdfWithFigure_ExtractsImage_AndMarksItInText()
+    {
+        // Trang CÓ chữ vẫn có thể chứa sơ đồ/ảnh màn hình — trước đây phần hình bị bỏ trắng vì chỉ trang
+        // scan mới được lấy ảnh. Hình phải ra file figure-{n}.png VÀ có mốc [Hình n] đúng trang trong text.
+        var pdf = BuildPdfWithFigures("Quy trinh duyet de nghi mua hang.", (600, 400));
+        var ingestor = NewIngestor();
+        using var ms = new MemoryStream(pdf);
+
+        var entity = await ingestor.IngestAsync(
+            Guid.NewGuid(), "proj-key", "quy-trinh.pdf", "application/pdf", pdf.Length, ms, "tester");
+
+        Assert.Equal(SourceFileKind.Pdf, entity.Kind);
+        Assert.Equal(1, entity.ScannedPageImageCount);
+        Assert.True(entity.IsVisionSource);
+
+        var dir = Path.GetDirectoryName(entity.StoredPath)!;
+        Assert.True(File.Exists(Path.Combine(dir, "figure-1.png")));
+
+        Assert.NotNull(entity.ExtractedText);
+        Assert.Contains("--- Trang 1 ---", entity.ExtractedText);
+        Assert.Contains("[Hình 1 — ảnh nhúng trong trang 1", entity.ExtractedText);
+    }
+
+    [Fact]
+    public async Task IngestAsync_TextPdfWithTinyImage_SkipsDecoration()
+    {
+        // Logo/icon nhỏ không phải nội dung: lấy ra chỉ tổ đốt hạn mức ảnh của lượt gọi.
+        var pdf = BuildPdfWithFigures("Bien ban hop giao ban dau tuan.", (60, 40));
+        var ingestor = NewIngestor();
+        using var ms = new MemoryStream(pdf);
+
+        var entity = await ingestor.IngestAsync(
+            Guid.NewGuid(), "proj-key", "bien-ban.pdf", "application/pdf", pdf.Length, ms, "tester");
+
+        Assert.Equal(0, entity.ScannedPageImageCount);
+        Assert.False(entity.IsVisionSource);
+        Assert.DoesNotContain("[Hình", entity.ExtractedText);
+    }
+
+    [Fact]
+    public async Task IngestAsync_PdfWithSameFigureOnEveryPage_ExtractsItOnce()
+    {
+        // Header/logo lặp trên mọi trang là ảnh giống hệt nhau: gửi 5 bản của cùng một tấm là ném hạn mức
+        // ảnh đi, nên bản lặp bị loại theo nội dung bytes.
+        var pdf = BuildPdfWithRepeatedFigure("Chinh sach cong tac phi.", pageCount: 3, width: 600, height: 400);
+        var ingestor = NewIngestor();
+        using var ms = new MemoryStream(pdf);
+
+        var entity = await ingestor.IngestAsync(
+            Guid.NewGuid(), "proj-key", "chinh-sach.pdf", "application/pdf", pdf.Length, ms, "tester");
+
+        Assert.Equal(3, entity.PageCount);
+        Assert.Equal(1, entity.ScannedPageImageCount);
+
+        var dir = Path.GetDirectoryName(entity.StoredPath)!;
+        Assert.False(File.Exists(Path.Combine(dir, "figure-2.png")));
+    }
+
+    [Fact]
+    public void SourceContextBuilder_PdfWithScanPagesAndFigures_AttachesBoth_AndCountsThemTogether()
+    {
+        // Một PDF có thể vừa có trang bản scan vừa có hình nhúng trong trang có chữ. Câu ghi chú mang MỘT
+        // con số tổng, nên nó phải đếm đủ cả hai — nói thiếu là mời model bịa phần nó tưởng không có.
+        var dir = Path.Combine(_root, "mixed-pdf-src");
+        Directory.CreateDirectory(dir);
+        File.WriteAllBytes(Path.Combine(dir, "page-2.png"), OnePixelPng);
+        foreach (var n in new[] { 1, 2 })
+            File.WriteAllBytes(Path.Combine(dir, $"figure-{n}.png"), OnePixelPng);
+
+        var source = new ICOGenerator.Domain.ProjectSourceFile
+        {
+            Kind = SourceFileKind.Pdf,
+            FileName = "ho-so.pdf",
+            ContentType = "application/pdf",
+            StoredPath = Path.Combine(dir, "ho-so.pdf"),
+            ExtractedText = "--- Trang 1 ---\nMo ta quy trinh.\n[Hình 1 — ảnh nhúng trong trang 1, gửi kèm dưới dạng ảnh]",
+            ScannedPageImageCount = 3,
+            IsVisionSource = true,
+        };
+
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
+        var builder = new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance);
+
+        var context = builder.Build(new[] { source }, modelSupportsVision: true);
+
+        Assert.Equal(3, context.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
+        var text = string.Concat(context.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        Assert.Contains("kèm 3 hình dưới dạng ẢNH", text);
+        Assert.Contains("[Hình n]", text);
+    }
+
+    [Fact]
+    public void SourceContextBuilder_SourceFileNamedLikeAnAsset_IsNotSentAsImage()
+    {
+        // File gốc nằm CHUNG thư mục với ảnh lấy ra, nên một file người dùng đặt tên "figure-1.pdf" lọt đúng
+        // vào mẫu tìm ảnh. Gửi nguyên file PDF đi dưới media type image/png thì lời gọi model hỏng mà không
+        // có gì chỉ ra vì sao.
+        var dir = Path.Combine(_root, "trap-name-src");
+        Directory.CreateDirectory(dir);
+        var storedPath = Path.Combine(dir, "figure-1.pdf");
+        File.WriteAllBytes(storedPath, new byte[] { 0x25, 0x50, 0x44, 0x46 }); // "%PDF"
+        File.WriteAllBytes(Path.Combine(dir, "figure-2.png"), OnePixelPng);
+
+        var source = new ICOGenerator.Domain.ProjectSourceFile
+        {
+            Kind = SourceFileKind.Pdf,
+            FileName = "figure-1.pdf",
+            ContentType = "application/pdf",
+            StoredPath = storedPath,
+            ExtractedText = "Noi dung tai lieu.",
+            ScannedPageImageCount = 1,
+            IsVisionSource = true,
+        };
+
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
+        var builder = new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance);
+
+        var images = builder.Build(new[] { source }, modelSupportsVision: true)
+            .Contents.OfType<Microsoft.Extensions.AI.DataContent>().ToList();
+
+        Assert.Single(images);
+        Assert.Equal(OnePixelPng.Length, images[0].Data.Length);
+    }
+
+    // PDF một trang: có chữ (⇒ trang CÓ text, không phải trang scan) và các hình PNG với kích thước cho trước.
+    private static byte[] BuildPdfWithFigures(string text, params (int Width, int Height)[] figures)
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+        var page = builder.AddPage(595, 842);
+        page.AddText(text, 12, new PdfPoint(50, 780), font);
+
+        var y = 600.0;
+        foreach (var (width, height) in figures)
+        {
+            page.AddPng(BuildPng(width, height), new PdfRectangle(50, y, 350, y + 150));
+            y -= 200;
+        }
+        return builder.Build();
+    }
+
+    // PDF nhiều trang, mỗi trang có chữ + ĐÚNG MỘT hình giống hệt nhau (bytes như nhau) — mô phỏng logo/header lặp.
+    private static byte[] BuildPdfWithRepeatedFigure(string text, int pageCount, int width, int height)
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+        var png = BuildPng(width, height);
+        for (var i = 1; i <= pageCount; i++)
+        {
+            var page = builder.AddPage(595, 842);
+            page.AddText($"{text} Trang {i}.", 12, new PdfPoint(50, 780), font);
+            page.AddPng(png, new PdfRectangle(50, 500, 350, 650));
+        }
+        return builder.Build();
+    }
+
+    // PNG THẬT (PdfPig phải giải mã được để nhúng vào PDF, nên header giả như ở test Word là không đủ):
+    // RGB 8-bit, không interlace, IDAT nén bằng ZLibStream có sẵn trong .NET — không kéo thêm thư viện ảnh.
+    // Vẽ gradient theo cột để ảnh không phải một vùng phẳng.
+    private static byte[] BuildPng(int width, int height)
+    {
+        var raw = new byte[height * (1 + width * 3)];
+        var i = 0;
+        for (var y = 0; y < height; y++)
+        {
+            raw[i++] = 0; // filter type None
+            for (var x = 0; x < width; x++)
+            {
+                raw[i++] = (byte)(x % 256);
+                raw[i++] = (byte)(y % 256);
+                raw[i++] = 90;
+            }
+        }
+
+        using var idat = new MemoryStream();
+        using (var zlib = new System.IO.Compression.ZLibStream(
+                   idat, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+            zlib.Write(raw, 0, raw.Length);
+
+        var header = new byte[13];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(0, 4), (uint)width);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4, 4), (uint)height);
+        header[8] = 8;  // bit depth
+        header[9] = 2;  // color type: truecolour RGB
+        // [10] compression, [11] filter, [12] interlace = 0
+
+        using var png = new MemoryStream();
+        png.Write(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A });
+        WritePngChunk(png, "IHDR", header);
+        WritePngChunk(png, "IDAT", idat.ToArray());
+        WritePngChunk(png, "IEND", Array.Empty<byte>());
+        return png.ToArray();
+    }
+
+    private static void WritePngChunk(Stream target, string type, byte[] data)
+    {
+        var length = new byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(length, (uint)data.Length);
+        target.Write(length);
+
+        var typeAndData = new byte[4 + data.Length];
+        System.Text.Encoding.ASCII.GetBytes(type).CopyTo(typeAndData, 0);
+        data.CopyTo(typeAndData, 4);
+        target.Write(typeAndData);
+
+        var crc = new byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(crc, Crc32(typeAndData));
+        target.Write(crc);
+    }
+
+    private static uint Crc32(byte[] bytes)
+    {
+        var crc = 0xFFFFFFFFu;
+        foreach (var b in bytes)
+        {
+            crc ^= b;
+            for (var k = 0; k < 8; k++)
+                crc = (crc & 1) != 0 ? 0xEDB88320u ^ (crc >> 1) : crc >> 1;
+        }
+        return crc ^ 0xFFFFFFFFu;
+    }
+
     private static byte[] BuildTextPdf(string text)
     {
         var builder = new PdfDocumentBuilder();
