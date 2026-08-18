@@ -672,6 +672,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // liệu dự án ghi một nẻo, và mọi tầng đọc transcript tin vào bản kể.
     const permMapPanel = document.getElementById("permissionMatrix");
     const PERM_SCOPES = ["của mình", "của đơn vị", "tất cả"];
+    const MAX_PERM_ROLES = 8; // = PermissionMatrixBuilder.MaxRoles
 
     function permMapRows() {
         if (!permMapPanel || permMapPanel.hidden) return [];
@@ -692,6 +693,148 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         permMapPanel.innerHTML = "";
     }
 
+    // MỘT ô quyền. Dùng chung cho lượt dựng cả bảng và cho lúc bảng vai trò thêm một cột — hai bản sao là
+    // hai chỗ để một bản quên mất luật "ô có bằng chứng thì khóa".
+    function permissionCell(role, fn, grant) {
+        const g = grant || {};
+        const scope = g.scope || "";
+        const inner = g.locked
+            ? `<span class="permmap-locked" title="${escapeHtml(g.evidence || "")}">✓ ${escapeHtml(scope)}</span>
+               <input type="hidden" class="permmap-scope" value="${escapeHtml(scope)}" />`
+            : `<select class="permmap-scope" aria-label="${escapeHtml(role)} — ${escapeHtml(fn)}">
+                   <option value=""${scope ? "" : " selected"}>—</option>
+                   ${PERM_SCOPES.map(s => `<option value="${s}"${scope === s ? " selected" : ""}>${s}</option>`).join("")}
+               </select>`;
+        return `<td class="permmap-cell" data-role="${escapeHtml(role)}">${inner}</td>`;
+    }
+
+    // MỘT dòng của bảng vai trò. Markup khớp bản server render trong Index.cshtml.
+    function permissionRoleRow(value) {
+        return `
+            <tr class="permrole-row">
+                <td><textarea rows="1" class="permmap-cellinput permrole-name" aria-label="Tên vai trò">${escapeHtml(value || "")}</textarea></td>
+                <td class="entitymap-delcell">
+                    <button type="button" class="entitymap-del permrole-del" title="Xóa vai trò này" aria-label="Xóa vai trò này">×</button>
+                </td>
+            </tr>`;
+    }
+
+    function renderPermissionRoles(roles) {
+        return `
+            <div class="permmap-howto">
+                Đây là các <b>vai trò</b> mình gom được từ những gì anh/chị đã kể — cũng chính là các <b>cột</b>
+                của bảng dưới. Thiếu vai nào thì thêm ngay ở đây, sửa chữ hoặc xóa cũng được; các bảng dưới đổi
+                cột theo.
+            </div>
+            <table class="permmap-table permrole-table">
+                <thead>
+                    <tr>
+                        <th>Vai trò</th>
+                        <th class="screenmap-th-del"></th>
+                    </tr>
+                </thead>
+                <tbody>${roles.map(permissionRoleRow).join("")}
+                    <tr class="permrole-addrow">
+                        <td colspan="2"><button type="button" class="entitymap-add permrole-add">+ thêm vai trò</button></td>
+                    </tr>
+                </tbody>
+            </table>`;
+    }
+
+    // CỘT của bảng đang có hiệu lực. Bảng vai trò là bản DUY NHẤT đáng tin — nó là thứ người dùng vừa gõ;
+    // hàng ô của dòng đầu chỉ là bản dự phòng cho payload/tab dựng từ trước bản này.
+    function permissionRoles() {
+        if (!permMapPanel) return [];
+
+        const table = permMapPanel.querySelector(".permrole-table");
+        if (table) return permRoleValues(table);
+
+        const first = permMapPanel.querySelector(".permmap-row");
+        return first ? Array.from(first.querySelectorAll(".permmap-cell")).map(td => td.dataset.role || "") : [];
+    }
+
+    // Các mục của bảng vai trò, theo đúng thứ tự trên bảng: bỏ dòng chưa gõ, bỏ trùng, chặn ở trần. Cùng
+    // luật với PermissionMatrixBuilder.SanitizeRoles — server chạy lại y hệt trên payload, nên hai bên lệch
+    // nhau là người dùng thấy một cột trên màn hình rồi bị server bỏ đúng cột đó.
+    function permRoleValues(root) {
+        const table = root || (permMapPanel && permMapPanel.querySelector(".permrole-table"));
+        if (!table) return [];
+
+        const values = [];
+        const seen = Object.create(null);
+        Array.from(table.querySelectorAll(".permrole-row")).forEach(row => {
+            const value = tableValue(row, ".permrole-name");
+            const key = normalizePermRole(value);
+            if (value.length === 0 || seen[key] || values.length >= MAX_PERM_ROLES) return;
+            seen[key] = true;
+            values.push(value);
+        });
+        return values;
+    }
+
+    // Chép phép chuẩn hoá của server (PermissionMatrixBuilder.Normalize) vì nó quyết định thứ TRÙNG NHAU:
+    // "HRBP" và "hrbp " là hai dòng khác nhau trên bảng nhưng cùng một cột lúc so khớp.
+    function normalizePermRole(value) {
+        return (value || "").toLowerCase().split(/\s+/).filter(Boolean).join(" ")
+            .replace(/^[.,:;–-]+/, "").replace(/[.,:;–-]+$/, "");
+    }
+
+    // Số ô đang CẤP quyền cho một vai — câu hỏi phải trả lời được TRƯỚC khi xóa vai đó.
+    function permRoleUsage(value) {
+        if (!permMapPanel || !value) return 0;
+        return Array.from(permMapPanel.querySelectorAll(".permmap-cell"))
+            .filter(td => td.dataset.role === value
+                && ((td.querySelector(".permmap-scope") || {}).value || "").trim().length > 0)
+            .length;
+    }
+
+    // Bảng vai trò vừa đổi ⇒ dựng lại CỘT của mọi bảng màn hình. Đây là chỗ giữ lời hứa của cả tính năng
+    // ("sửa một chỗ, mọi bảng đổi theo"), và nó phải làm đủ ba việc, thiếu việc nào cũng là mất dữ liệu im
+    // lặng:
+    //  • ĐỔI TÊN thì mang theo cả ô đã chọn (`renameFrom` → `renameTo`) — dựng lại ô rỗng là xóa sạch phạm
+    //    vi người dùng vừa chọn cho vai đó, ở mọi màn hình, chỉ vì họ sửa một chữ trong tên;
+    //  • XÓA thì bỏ hẳn cột đó khỏi mọi bảng;
+    //  • THÊM thì chèn một cột rỗng vào mọi dòng, không phải chỉ dòng đầu — cột lỗ chỗ là đúng khiếm khuyết
+    //    mà PermissionMatrixBuilder.NormalizeGrants sinh ra để chữa.
+    function syncPermissionRoles(renameFrom, renameTo) {
+        if (!permMapPanel) return;
+
+        const roles = permRoleValues();
+
+        permMapPanel.querySelectorAll(".permmap-table:not(.permrole-table)").forEach(table => {
+            const head = table.querySelector("thead tr");
+            const cond = head ? head.querySelector(".permmap-th-cond") : null;
+            if (cond) {
+                head.querySelectorAll(".permmap-th-role").forEach(th => th.remove());
+                roles.forEach(role => cond.insertAdjacentHTML("beforebegin",
+                    `<th class="permmap-th-role">${escapeHtml(role)}</th>`));
+            }
+
+            table.querySelectorAll(".permmap-row").forEach(row => {
+                const fn = row.dataset.function || "";
+                const kept = Object.create(null);
+                row.querySelectorAll(".permmap-cell").forEach(cell => {
+                    const role = (renameFrom && cell.dataset.role === renameFrom) ? renameTo : (cell.dataset.role || "");
+                    cell.remove();
+                    if (kept[role]) return;
+                    cell.dataset.role = role;
+                    // Nhãn trợ năng phải đi theo tên mới: nó là thứ DUY NHẤT đọc màn hình đọc ra ở một ô
+                    // chọn, nên để nó giữ tên cũ là kể sai cột người dùng đang điền.
+                    const select = cell.querySelector("select.permmap-scope");
+                    if (select) select.setAttribute("aria-label", `${role} — ${fn}`);
+                    kept[role] = cell;
+                });
+
+                // Ô điều kiện luôn là ô CUỐI dòng — các cột quyền chèn vào trước nó.
+                const anchor = row.lastElementChild;
+                roles.forEach(role => {
+                    if (kept[role]) row.insertBefore(kept[role], anchor);
+                    else anchor.insertAdjacentHTML("beforebegin", permissionCell(role, fn, null));
+                });
+            });
+        });
+    }
+
     // Dựng bảng từ frame done. Markup khớp bản server render trong Index.cshtml — hai đường lệch nhau thì
     // người dùng chọn xong bảng vừa hiện ra rồi F5 và thấy một bảng khác.
     function renderPermissionMatrix(rows) {
@@ -705,16 +848,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const body = rows.filter(r => r.screen === screen).map(r => `
                 <tr class="permmap-row" data-screen="${escapeHtml(r.screen)}" data-function="${escapeHtml(r.function)}">
                     <td class="permmap-fn">${escapeHtml(r.function)}</td>
-                    ${(r.grants || []).map(g => `
-                        <td class="permmap-cell" data-role="${escapeHtml(g.role)}">
-                            ${g.locked
-                                ? `<span class="permmap-locked" title="${escapeHtml(g.evidence || "")}">✓ ${escapeHtml(g.scope || "")}</span>
-                                   <input type="hidden" class="permmap-scope" value="${escapeHtml(g.scope || "")}" />`
-                                : `<select class="permmap-scope" aria-label="${escapeHtml(g.role)} — ${escapeHtml(r.function)}">
-                                       <option value=""${g.scope ? "" : " selected"}>—</option>
-                                       ${PERM_SCOPES.map(s => `<option value="${s}"${g.scope === s ? " selected" : ""}>${s}</option>`).join("")}
-                                   </select>`}
-                        </td>`).join("")}
+                    ${(r.grants || []).map(g => permissionCell(g.role, r.function, g)).join("")}
                     <td><input type="text" class="permmap-condition" value="${escapeHtml(r.condition || "")}" placeholder="vd: chỉ sửa khi chưa submit" /></td>
                 </tr>`).join("");
 
@@ -733,6 +867,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }).join("");
 
         permMapPanel.innerHTML = `
+            ${renderPermissionRoles(roles)}
             <div class="permmap-howto">
                 Ô <b>✓</b> là quyền anh/chị đã nói trong lúc trao đổi (rê chuột để xem lại câu gốc) — mình khóa
                 lại, không cần chọn nữa. Các ô còn lại là <b>phỏng đoán của mình</b>: anh/chị chọn phạm vi dữ
@@ -742,22 +877,96 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="permissionMatrixSendBtn">Gửi bảng phân quyền</button>
                 <div class="permmap-hint">
-                    Thiếu màn hình nào hoặc thiếu một vai trò, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                    Thiếu màn hình nào thì anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
                 </div>
                 <div class="permmap-msg" id="permissionMatrixMsg"></div>
             </div>`;
         permMapPanel.hidden = false;
+        autoGrowCells(permMapPanel);
         thinkingBox.before(permMapPanel);
     }
 
     if (permMapPanel) {
+        // THÊM / XÓA một vai trò. Ủy quyền trên PANEL vì renderPermissionMatrix thay sạch innerHTML.
+        permMapPanel.addEventListener("click", function (e) {
+            const add = e.target.closest(".permrole-add");
+            const remove = e.target.closest(".permrole-del");
+            if (!add && !remove) return;
+
+            const msgEl = document.getElementById("permissionMatrixMsg");
+            const note = text => { if (msgEl) msgEl.textContent = text; };
+
+            // Lời hỏi lại "bấm × lần nữa" chỉ sống tới thao tác kế tiếp: người dùng bỏ ngang rồi vài phút
+            // sau bấm × một cái là xóa ngay, trong khi họ tưởng cú bấm đó mới là cú thứ nhất.
+            permMapPanel.querySelectorAll('.permrole-del[data-confirm="1"]').forEach(el => {
+                if (el !== remove) delete el.dataset.confirm;
+            });
+
+            if (add) {
+                const anchor = permMapPanel.querySelector(".permrole-addrow");
+                if (!anchor) return;
+
+                // Trần là giới hạn ĐỌC ĐƯỢC, không phải guard suông: mỗi vai là một cột trên MỌI bảng màn
+                // hình, và quá số này thì bảng không rà nổi trên một màn hình thường.
+                if (permRoleValues().length >= MAX_PERM_ROLES) {
+                    note(`Bảng chỉ hiện được tối đa ${MAX_PERM_ROLES} vai trò.`);
+                    return;
+                }
+
+                anchor.insertAdjacentHTML("beforebegin", permissionRoleRow(""));
+                focusNewRow(anchor.previousElementSibling, ".permrole-name");
+                note("");
+                return;
+            }
+
+            const row = remove.closest(".permrole-row");
+            if (!row) return;
+
+            // Bảng không còn cột nào thì không còn ô quyền nào để chọn, và server cũng từ chối lưu — chặn
+            // ngay ở đây để người dùng không phải rà cả bảng rồi mới biết lúc bấm gửi.
+            if (permRoleValues().length <= 1) {
+                note("Bảng cần ít nhất một vai trò — anh/chị sửa chữ dòng này thay vì xóa nhé.");
+                return;
+            }
+
+            const value = tableValue(row, ".permrole-name");
+            const used = permRoleUsage(value);
+            if (used > 0 && remove.dataset.confirm !== "1") {
+                remove.dataset.confirm = "1";
+                note(`“${value}” đang được cấp quyền ở ${used} ô — bấm × lần nữa để xóa cả cột đó.`);
+                return;
+            }
+
+            row.remove();
+            syncPermissionRoles();
+            note("");
+        });
+
+        // Giá trị TRƯỚC khi sửa của một ô tên vai trò — phải chụp lúc con trỏ vào ô, vì lúc `change` bắn ra
+        // thì ô đã mang chữ mới và không còn gì để nối cột cũ về cột mới.
+        permMapPanel.addEventListener("focusin", function (e) {
+            const nameCell = e.target.closest(".permrole-name");
+            if (nameCell) nameCell.dataset.prev = tableValue(nameCell.closest(".permrole-row"), ".permrole-name");
+        });
+
+        permMapPanel.addEventListener("change", function (e) {
+            const nameCell = e.target.closest(".permrole-name");
+            if (nameCell) renamePermissionRole(nameCell);
+        });
+
         permMapPanel.addEventListener("click", async function (e) {
             if (!e.target.closest("#permissionMatrixSendBtn") || chatBusy) return;
 
             const btn = document.getElementById("permissionMatrixSendBtn");
             const msgEl = document.getElementById("permissionMatrixMsg");
             const rows = permMapRows();
+            const roles = permissionRoles();
             if (rows.length === 0) return;
+
+            if (roles.length === 0) {
+                msgEl.textContent = "Bảng phải có ít nhất một vai trò — anh/chị thêm một dòng ở bảng Vai trò rồi gửi nhé.";
+                return;
+            }
 
             btn.disabled = true;
             msgEl.textContent = "Đang lưu bảng phân quyền…";
@@ -769,10 +978,19 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
                 fd.append("__RequestVerificationToken", tokenEl ? tokenEl.value : "");
                 fd.append("matrixJson", JSON.stringify(rows));
+                // Bộ CỘT đi CÙNG CHUYẾN với bảng: để riêng thì server lại chắt cột từ grants như trước, và
+                // một vai người dùng vừa thêm nhưng chưa cấp quyền ở dòng nào biến mất khỏi bảng đã lưu.
+                fd.append("rolesJson", JSON.stringify(roles));
 
                 const resp = await fetch(permMapPanel.dataset.confirmUrl, { method: "POST", body: fd });
                 const data = await resp.json();
-                if (!data.ok || !data.message) throw new Error(data.error || "");
+                if (!data.ok || !data.message) {
+                    // Câu do SERVER soạn đã gọi tên đúng thứ phải sửa — in nguyên văn, vì câu chung chung
+                    // "bấm gửi lại" sẽ dẫn người dùng bấm lại đúng cái bảng vừa bị từ chối.
+                    btn.disabled = false;
+                    msgEl.textContent = data.error || "Chưa lưu được bảng phân quyền — anh/chị bấm gửi lại giúp mình nhé.";
+                    return;
+                }
                 message = data.message;
             } catch (err) {
                 // Lưu hỏng thì DỪNG hẳn, không gửi tin nhắn — cùng lý do với bảng cột: hội thoại ghi nhận
@@ -788,6 +1006,43 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             messageInput.value = message;
             chatForm.requestSubmit();
         });
+    }
+
+    // SỬA CHỮ một vai trò. Hai giá trị bị từ chối và cùng trả ô về chữ cũ, vì cả hai đều làm hỏng đúng mối
+    // nối mà bảng vai trò sinh ra để giữ:
+    //  • RỖNG — cột mất tên thì mọi ô của nó bị server bỏ lúc lưu, trong im lặng; muốn bỏ hẳn thì có nút ×
+    //    (nó còn hỏi lại khi cột đang có quyền);
+    //  • TRÙNG một dòng khác — hai dòng cùng một cột lúc so khớp, nên một trong hai biến mất khỏi bảng và
+    //    người dùng không biết cột nào còn hiệu lực.
+    function renamePermissionRole(nameCell) {
+        const row = nameCell.closest(".permrole-row");
+        const msgEl = document.getElementById("permissionMatrixMsg");
+        const note = text => { if (msgEl) msgEl.textContent = text; };
+
+        const previous = (nameCell.dataset.prev || "").trim();
+        let value = tableValue(row, ".permrole-name");
+
+        const duplicated = value.length > 0
+            && Array.from(permMapPanel.querySelectorAll(".permrole-row")).some(other =>
+                other !== row && normalizePermRole(tableValue(other, ".permrole-name")) === normalizePermRole(value));
+
+        if (duplicated) {
+            note(`“${value}” đã có trong bảng vai trò rồi.`);
+            value = previous;
+        } else if (value.length === 0 && previous.length > 0) {
+            note("Tên vai trò không được để trống — muốn bỏ hẳn thì bấm × ở cuối dòng.");
+            value = previous;
+        } else {
+            note("");
+        }
+
+        if (nameCell.value !== value) {
+            nameCell.value = value;
+            autoGrowCell(nameCell);
+        }
+        nameCell.dataset.prev = value;
+
+        if (value !== previous) syncPermissionRoles(previous, value);
     }
 
     // ==== BA BẢNG CHỐT còn lại: LUỒNG → MÀN HÌNH → ĐỐI TƯỢNG ====

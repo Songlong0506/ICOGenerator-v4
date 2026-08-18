@@ -1,4 +1,5 @@
 using ICOGenerator.Application.Requirements;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Requirements;
@@ -109,10 +110,64 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
         Assert.Null(await LoadMatrixAsync());
     }
 
-    private async Task<ConfirmPermissionMatrixUseCase.Result> ExecuteAsync(string? matrixJson)
+    // BẢNG VAI TRÒ đi cùng chuyến với bảng quyền. Vai người dùng THÊM mà chưa cấp quyền ở dòng nào vẫn phải
+    // thành một cột trong bảng đã lưu: cột đó là câu trả lời "vai này không có quyền gì ở đây" — một quyết
+    // định — chứ không phải một dòng trống để bỏ đi. Vai họ XÓA thì biến mất khỏi mọi dòng, kể cả khi
+    // payload còn mang grants cũ của nó (bảng cũ trong một tab mở song song).
+    [Fact]
+    public async Task ExecuteAsync_TakesTheColumnsFromTheRoleTable_NotFromTheGrants()
+    {
+        var result = await ExecuteAsync("""
+            [{"screen":"Màn hình Training Plan để tạo và quản lý kế hoạch cho cả năm","function":"Xem","condition":"",
+              "grants":[{"role":"HR Assistant","scope":"của mình"},{"role":"HOD HR","scope":"tất cả"}]}]
+            """, """["HR Assistant","Admin"]""");
+
+        Assert.True(result.Rows > 0);
+
+        var stored = PermissionMatrixBuilder.Parse(await LoadMatrixAsync());
+        Assert.All(stored, r => Assert.Equal(new[] { "HR Assistant", "Admin" }, r.Grants.Select(g => g.Role)));
+        // Cột vừa thêm có mặt ở MỌI dòng, ở trạng thái chưa có quyền.
+        Assert.All(stored, r => Assert.False(PermissionScope.IsGranted(r.Grants.Single(g => g.Role == "Admin").Scope)));
+        // Quyền của cột còn lại không bị bản đồng bộ cột làm rơi.
+        Assert.Equal("của mình", stored
+            .Single(r => r.Function == "Xem" && r.Screen.Contains("Training Plan"))
+            .Grants.Single(g => g.Role == "HR Assistant").Scope);
+    }
+
+    // Bảng vai trò gửi lên mà TRỐNG TRƠN là người dùng vừa xóa hết vai: không lưu gì, và trả về câu nói rõ
+    // phải sửa gì. Lưu một bảng không có cột nào là tệ nhất — cột PermissionMatrix có dữ liệu ⇒
+    // PermissionMatrixGate coi như đã chốt và không bao giờ bày lại bảng, nên không còn đường sửa.
+    [Fact]
+    public async Task ExecuteAsync_StoresNothing_WhenTheRoleTableCameBackEmpty()
+    {
+        var result = await ExecuteAsync("""
+            [{"screen":"Màn hình Training Plan để tạo và quản lý kế hoạch cho cả năm","function":"Xem",
+              "grants":[{"role":"HR Assistant","scope":"tất cả"}]}]
+            """, """["", "   "]""");
+
+        Assert.Equal(0, result.Rows);
+        Assert.Contains("ít nhất một vai trò", result.Error);
+        Assert.Null(await LoadMatrixAsync());
+    }
+
+    // Tab mở từ TRƯỚC bản có bảng vai trò không gửi trường nào: rơi về đúng hành vi cũ (cột chắt từ grants),
+    // không phải bị từ chối lưu.
+    [Fact]
+    public async Task ExecuteAsync_FallsBackToTheGrants_WhenNoRoleTableWasSent()
+    {
+        var result = await ExecuteAsync("""
+            [{"screen":"Màn hình Training Plan để tạo và quản lý kế hoạch cho cả năm","function":"Xem",
+              "grants":[{"role":"HR Assistant","scope":"tất cả"}]}]
+            """);
+
+        Assert.True(result.Rows > 0);
+        Assert.Equal(new[] { "HR Assistant" }, PermissionMatrixBuilder.Roles(await LoadMatrixAsync()));
+    }
+
+    private async Task<ConfirmPermissionMatrixUseCase.Result> ExecuteAsync(string? matrixJson, string? rolesJson = null)
     {
         await using var db = NewDb();
-        return await new ConfirmPermissionMatrixUseCase(db).ExecuteAsync(_projectId, matrixJson);
+        return await new ConfirmPermissionMatrixUseCase(db).ExecuteAsync(_projectId, matrixJson, rolesJson);
     }
 
     private async Task<string?> LoadMatrixAsync()

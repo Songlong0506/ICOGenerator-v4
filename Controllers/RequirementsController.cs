@@ -596,12 +596,20 @@ public class RequirementsController : Controller
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
     [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> ConfirmPermissionMatrix(Guid projectId, [FromForm] string matrixJson)
+    public async Task<IActionResult> ConfirmPermissionMatrix(
+        Guid projectId, [FromForm] string matrixJson, [FromForm] string? rolesJson = null)
     {
-        var result = await _confirmPermissionMatrixUseCase.ExecuteAsync(projectId, matrixJson, HttpContext.RequestAborted);
+        var result = await _confirmPermissionMatrixUseCase.ExecuteAsync(
+            projectId, matrixJson, rolesJson, HttpContext.RequestAborted);
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
-            : Json(new { ok = false, error = "Không lưu được bảng phân quyền — tải lại trang rồi thử lại nhé." });
+            : Json(new
+            {
+                ok = false,
+                error = string.IsNullOrEmpty(result.Error)
+                    ? "Không lưu được bảng phân quyền — tải lại trang rồi thử lại nhé."
+                    : result.Error
+            });
     }
 
     // BA BẢNG CHỐT còn lại của buổi phỏng vấn — cùng khuôn HAI BƯỚC với ConfirmColumnMap/
