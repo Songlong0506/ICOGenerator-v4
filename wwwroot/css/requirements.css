@@ -1685,8 +1685,8 @@
         font-weight: 600;
     }
 
-/* Ô trả lời nối liền ngay dưới hàng gợi ý, nền trắng như chúng — nó là NƠI CHỨA câu trả lời của câu hỏi
-   này, dù nội dung tới từ một cú bấm gợi ý hay từ tay người dùng gõ. */
+/* Ô tự nhập nối liền ngay dưới hàng gợi ý, nền trắng như chúng — nó là vế "Ý khác" của câu trả lời, phần
+   người dùng tự nói thêm bên cạnh gợi ý họ đã bấm. */
 .batchq-answer {
     width: 100%;
     margin-top: 5px;
@@ -1700,9 +1700,9 @@
     resize: vertical;
 }
 
-/* ==== Khung nhãn-nổi của ô trả lời ==== */
-/* Ô luôn mở, ngay dưới hàng gợi ý, nên mắt cần một chữ nói nó là gì — nhãn "Câu trả lời" khoét trên viền
-   giữ danh tính đó mà không tốn thêm một dòng chữ nào bên trên ô. */
+/* ==== Khung nhãn-nổi của ô "Ý khác" ==== */
+/* Ô luôn mở, ngay dưới hàng gợi ý, nên mắt cần một chữ nói nó là gì — nhãn "Ý khác" khoét trên viền giữ
+   danh tính đó mà không tốn thêm một dòng chữ nào bên trên ô (cùng nhãn với ô ở hàng chip lượt-đơn). */
 .batchq-other-field { position: relative; margin-top: 5px; }
 
     /* Nền ô phải ĐỨNG YÊN qua mọi trạng thái. site.css đổi nền textarea khi hover (`--input-bg-hover`) và
