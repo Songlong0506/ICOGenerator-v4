@@ -63,6 +63,26 @@ thu gọn sidebar, nút đóng modal, bút chì sửa tại chỗ (`Views/Projec
 chỉ-có-icon biến thành ô trống không ai bấm. Cùng lý do, chevron của `PocTemplate` giữ SVG vì animation
 xoay bám `.nav-chevron`.
 
+### Bộ lọc áp dụng ngay, không có nút "Lọc"
+
+Command bar (`Views/Shared/_CommandBar.cshtml`) **không có** nút "Lọc". Bộ lọc ăn ngay khi người dùng
+chốt lựa chọn:
+
+| Loại điều khiển | Chốt lúc nào |
+|---|---|
+| Dropdown đơn (Loại, Trạng thái, Năm…) | ngay lúc đổi giá trị — `onchange="this.form.submit()"` |
+| Combo chọn nhiều (Org Unit ở Projects) | lúc **đóng panel**: nút "Áp dụng" trong panel, bấm ra ngoài, hoặc Enter. Escape = hủy |
+| Ô tìm kiếm trên thanh | lọc client-side theo từng ký tự, không submit |
+
+Lý do không dùng nút "Lọc" rời trên thanh: nó tạo ra trạng thái "đã chọn nhưng chưa áp dụng" — dropdown
+hiện *2026* trong khi bảng bên dưới vẫn là *2025*. Nút commit chỉ cần cho combo chọn nhiều (submit theo
+từng tick sẽ nạp lại trang giữa lúc đang tick), và chỗ của nó là **trong panel**, cạnh nơi phát sinh
+lựa chọn. Combo chỉ submit khi lựa chọn khác lúc mở panel — mở ra xem rồi đóng thì không nạp lại trang.
+
+Bộ lọc đang áp dụng hiện thành **chip** ở hàng dưới cùng của thanh (`CommandBarModel.FilterChips`), mỗi
+chip gỡ được riêng một giá trị; `ClearFilterUrl` ("Xóa tất cả") chỉ render khi có từ 2 chip trở lên.
+Thêm bộ lọc mới cho một màn hình ⇒ dựng chip cho nó, đừng để bộ lọc chỉ nằm trong URL.
+
 ### Chỗ đặt DTO quyết định bởi ai đọc nó
 
 Không phải bởi "nó là DTO":

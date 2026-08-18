@@ -66,13 +66,45 @@
     <div>
         @{
             var fbHasFilter = Model.StatusFilter != null || Model.TypeFilter != null;
+
+            // URL cho dấu ✕ của chip: gỡ ĐÚNG một tiêu chí, tiêu chí còn lại giữ nguyên — nếu ✕ nào
+            // cũng xóa sạch bộ lọc thì hai chip hóa ra cùng một nút.
+            string FbUrl(FeedbackType? type, FeedbackStatus? status)
+            {
+                var qs = new List<string>();
+                if (type != null) qs.Add($"type={type}");
+                if (status != null) qs.Add($"status={status}");
+                return qs.Count == 0 ? Url.Action("Index")! : $"{Url.Action("Index")}?{string.Join("&", qs)}";
+            }
+
+            var feedbackChips = new List<CommandBarChip>();
+            if (Model.TypeFilter is { } fbType)
+            {
+                feedbackChips.Add(new CommandBarChip
+                {
+                    Caption = "Loại",
+                    Value = fbType.GetTitle(),
+                    RemoveUrl = FbUrl(null, Model.StatusFilter)
+                });
+            }
+            if (Model.StatusFilter is { } fbStatus)
+            {
+                feedbackChips.Add(new CommandBarChip
+                {
+                    Caption = "Trạng thái",
+                    Value = fbStatus.GetTitle(),
+                    RemoveUrl = FbUrl(Model.TypeFilter, null)
+                });
+            }
         }
         @* Command bar chuẩn: lọc phản hồi theo Loại + Trạng thái (form GET, tự submit khi đổi)
-           nên không cần nút "Lọc"; màn hình này không có hành động cấp trang. *@
+           nên không có nút "Lọc"; màn hình này không có hành động cấp trang. Bộ lọc đang áp dụng
+           hiện thành chip ở hàng dưới. *@
         @{
             var feedbackBar = new CommandBarModel
             {
                 FormUrl = Url.Action("Index"),
+                FilterChips = feedbackChips,
                 ClearFilterUrl = fbHasFilter ? Url.Action("Index") : null,
                 Filters =
                     @<text>
