@@ -21,7 +21,8 @@ public sealed record SourceContext(List<AIContent> Contents, IReadOnlyList<Guid>
 /// <summary>
 /// Biến các <see cref="ProjectSourceFile"/> của một project thành danh sách <see cref="AIContent"/> để gắn kèm
 /// lượt user khi gọi LLM: <see cref="TextContent"/> cho text đã bóc, <see cref="DataContent"/> cho phần ảnh —
-/// ảnh người dùng upload trực tiếp, ảnh trang PDF scan (page-{n}.png) và hình nhúng bóc từ Word (figure-{n}.*).
+/// ảnh người dùng upload trực tiếp, ảnh trang PDF scan (page-{n}.png), và hình nhúng bóc từ PDF hoặc Word
+/// (figure-{n}.*).
 /// Phần ảnh CHỈ được thêm khi model hỗ trợ vision; model text-only chỉ nhận text. Áp trần số ảnh + tổng dung
 /// lượng ảnh ngay tại đây để chặn đốt token ngoài kiểm soát.
 ///
@@ -157,7 +158,7 @@ public class SourceContextBuilder
         // Mốc trong phần text để model ghép mỗi ảnh với đoạn mô tả quanh nó — mỗi loại nguồn một kiểu mốc.
         var marker = kind switch
         {
-            SourceFileKind.Pdf => ", khớp với các mốc \"--- Trang n ---\" trong text nếu có",
+            SourceFileKind.Pdf => ", đối chiếu các mốc [Hình n] và \"--- Trang n ---\" trong text nếu có",
             SourceFileKind.Document => ", đối chiếu các mốc [Hình n] trong text nếu có",
             _ => string.Empty,
         };
@@ -184,10 +185,12 @@ public class SourceContextBuilder
         return $" (kèm {expected} {unit} dưới dạng ẢNH — xem nội dung ảnh đính kèm{marker})";
     }
 
+    // Đơn vị đếm phần ảnh của một nguồn. PDF cố tình dùng "hình" chung chứ không phải "trang scan": một PDF
+    // có thể vừa có ảnh của trang bản scan vừa có hình nhúng bóc từ trang có chữ, và câu ghi chú chỉ mang
+    // MỘT con số tổng — gọi tất cả là "trang scan" là nói sai về phần hình.
     private static string Unit(SourceFileKind kind) => kind switch
     {
         SourceFileKind.Image => "ảnh",
-        SourceFileKind.Pdf => "trang scan",
         _ => "hình",
     };
 
@@ -215,7 +218,8 @@ public class SourceContextBuilder
     }
 
     // Nguồn vision gồm: ảnh user upload trực tiếp, ảnh trang của PDF scan (PdfScanPageRenderer ghi
-    // page-{n}.png cạnh file gốc), VÀ hình nhúng bóc từ Word (WordDocumentTextExtractor ghi figure-{n}.*).
+    // page-{n}.png cạnh file gốc), VÀ hình nhúng bóc từ trang có chữ của PDF (PdfFigureExtractor) hay từ
+    // Word (WordDocumentTextExtractor) — cả hai ghi figure-{n}.*.
     // Ảnh xếp theo SỐ THỨ TỰ chứ không theo thứ tự chuỗi, để trang/hình 10 không nhảy lên trước 2 —
     // model đọc một biểu mẫu nhiều trang cần đúng trình tự.
     private static IEnumerable<(string Path, string MediaType, string Name)> EnumerateImageAssets(ProjectSourceFile s)
@@ -235,29 +239,34 @@ public class SourceContextBuilder
 
         if (s.Kind == SourceFileKind.Pdf)
         {
-            var pages = Directory
-                .EnumerateFiles(dir, PdfScanPageRenderer.PageImagePrefix + "*.png")
-                .Select(path => (Path: path, Page: ParseAssetNumber(path, PdfScanPageRenderer.PageImagePrefix)))
-                .Where(x => x.Page > 0)
-                .OrderBy(x => x.Page);
+            // Ảnh của các trang BẢN SCAN trước (theo số trang), rồi tới hình nhúng bóc từ các trang CÓ chữ
+            // (theo số hình). Hai tập trang rời nhau nên thứ tự này chỉ khác thứ tự trang ở tài liệu vừa có
+            // trang scan vừa có hình — và ở đó mỗi mốc [Hình n] đã tự nói ra nó thuộc trang nào.
+            foreach (var page in EnumerateAssets(dir, PdfScanPageRenderer.PageImagePrefix, s.StoredPath))
+                yield return (page.Path, "image/png", $"{s.FileName} › trang {page.Number}");
 
-            foreach (var page in pages)
-                yield return (page.Path, "image/png", $"{s.FileName} › trang {page.Page}");
+            foreach (var figure in EnumerateAssets(dir, PdfFigureExtractor.FigureImagePrefix, s.StoredPath))
+                yield return (figure.Path, "image/png", $"{s.FileName} › Hình {figure.Number}");
             yield break;
         }
 
-        var figures = Directory
-            .EnumerateFiles(dir, WordDocumentTextExtractor.FigureImagePrefix + "*.*")
-            .Select(path => (Path: path, Number: ParseAssetNumber(path, WordDocumentTextExtractor.FigureImagePrefix)))
-            .Where(x => x.Number > 0)
-            .OrderBy(x => x.Number);
-
-        foreach (var figure in figures)
+        foreach (var figure in EnumerateAssets(dir, WordDocumentTextExtractor.FigureImagePrefix, s.StoredPath))
             yield return (
                 figure.Path,
                 WordDocumentTextExtractor.MediaTypeForFigureFile(figure.Path),
                 $"{s.FileName} › Hình {figure.Number}");
     }
+
+    // Các file ảnh đã lấy ra (page-{n}.* / figure-{n}.*) trong thư mục nguồn, theo SỐ THỨ TỰ chứ không theo
+    // thứ tự chuỗi. FILE GỐC bị loại trừ: người dùng hoàn toàn có thể upload một file tên "figure-1.pdf", và
+    // nó nằm chung thư mục với các ảnh lấy ra — gửi nguyên file PDF/Word đi dưới media type image/png thì
+    // lời gọi model hỏng mà không có gì chỉ ra vì sao.
+    private static IEnumerable<(string Path, int Number)> EnumerateAssets(string dir, string prefix, string storedPath) => Directory
+        .EnumerateFiles(dir, prefix + "*.*")
+        .Where(path => !string.Equals(path, storedPath, StringComparison.Ordinal))
+        .Select(path => (Path: path, Number: ParseAssetNumber(path, prefix)))
+        .Where(x => x.Number > 0)
+        .OrderBy(x => x.Number);
 
     private static int ParseAssetNumber(string path, string prefix)
     {
