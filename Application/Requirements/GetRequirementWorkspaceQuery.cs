@@ -12,7 +12,11 @@ public record RequirementWorkspaceResult(
     string SelectedVersion,
     bool BaModelSupportsVision,
     IReadOnlyList<CoverageMapItem> Coverage,
-    IReadOnlyList<string> Decisions,
+    // Không có "Điều đã chốt" (Project.DecisionLog) ở đây: nhật ký vẫn được chắt sau mỗi lượt nhưng không
+    // còn mặt UI nào — panel sidebar đã gỡ, và bản tổng kết ở cổng tạo tài liệu cũng vậy (xem
+    // Views/Requirements/Index.cshtml). Người đọc nó nay là máy: ngữ cảnh chat của BA (BAChatService),
+    // ngữ cảnh soát mâu thuẫn (RequirementConflictService), bước soạn Product Brief
+    // (ProductBriefDraftService) và bản xuất hội thoại (ChatExportBuilder).
     // Không có danh sách nào của "triển vọng phỏng vấn" ở đây (OpenQuestions, PlannedScope,
     // WorkedExamples): cả ba vẫn được chắt sau mỗi lượt nhưng không còn panel nào trên trang render
     // chúng — OpenQuestions làm ngữ cảnh chat của BA (BAChatService), PlannedScope làm ngữ cảnh soát mâu
@@ -128,7 +132,6 @@ public class GetRequirementWorkspaceQuery
             selectedVersion ?? "draft",
             baSupportsVision,
             coverage,
-            DecisionLogService.ParseItems(project.DecisionLog),
             SpecAssumptionsParser.Parse(latestSpec?.Content),
             latestSpec?.VersionName);
     }

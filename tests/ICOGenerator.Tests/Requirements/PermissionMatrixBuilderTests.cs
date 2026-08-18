@@ -49,8 +49,8 @@ public class PermissionMatrixBuilderTests
     }
 
     // Model hay rút gọn tên màn hình ("Màn hình Training Plan") thay vì chép nguyên mục phạm vi. Vẫn ghép
-    // được, nhưng tên đi vào bảng luôn là chữ của PHẠM VI — người dùng đang đối chiếu với bản tổng kết họ
-    // vừa đọc, và bước sinh tài liệu sau đó ghép màn hình theo đúng tên đó.
+    // được, nhưng tên đi vào bảng luôn là chữ của PHẠM VI — người dùng đang đối chiếu với bảng màn hình họ
+    // vừa chốt, và bước sinh tài liệu sau đó ghép màn hình theo đúng tên đó.
     [Fact]
     public void Build_MatchesAShortenedScreenName_ButKeepsTheScopeWording()
     {

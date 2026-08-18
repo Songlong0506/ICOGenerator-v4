@@ -51,8 +51,9 @@ public class BAChatTurnResult
     /// </summary>
     public bool CoverageReady { get; set; }
 
-    /// <summary>"Điều đã chốt" — các quyết định người dùng đã xác nhận, cập nhật tới hết lượt này.</summary>
-    public List<string> Decisions { get; set; } = new();
+    // KHÔNG có "Điều đã chốt" (Decisions) ở đây: nhật ký quyết định vẫn được gộp ở hậu kỳ mỗi lượt
+    // (BAChatService.UpdateDecisionsAsync) nhưng không còn mặt UI nào để đẩy về — bản tổng kết ở cổng tạo
+    // tài liệu đã gỡ, xem Views/Requirements/Index.cshtml. Người đọc nhật ký nay chỉ còn là máy.
 
     /// <summary>Sơ đồ luồng nghiệp vụ để user xác nhận trực quan — CHỈ có ở lượt mời "Write Requirement", rỗng ở lượt hỏi.</summary>
     public List<FlowStep> FlowDiagram { get; set; } = new();

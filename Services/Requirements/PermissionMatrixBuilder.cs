@@ -66,7 +66,7 @@ public static class PermissionMatrixBuilder
     /// Bảng cuối cùng: giữ các dòng khớp phạm vi đã chắt (lấy lại đúng chữ của <paramref name="plannedScope"/>),
     /// bỏ dòng bịa/trùng, bổ sung mọi màn hình chưa được nhắc tới, rồi bơm đủ vai trò vào mọi dòng. Thứ tự
     /// luôn theo thứ tự của <paramref name="plannedScope"/> — người dùng đang đối chiếu với phạm vi họ vừa
-    /// đọc trong bản tổng kết. Trả rỗng khi phạm vi trống hoặc không đề xuất nào dùng được.
+    /// chốt ở bảng màn hình. Trả rỗng khi phạm vi trống hoặc không đề xuất nào dùng được.
     ///
     /// <para>
     /// <paramref name="roles"/> là bộ CỘT do người dùng rà trên bảng "Vai trò". Có mục nào thì nó quyết định

@@ -137,7 +137,6 @@ public class RequirementsController : Controller
         ViewBag.SelectedVersion = result.SelectedVersion;
         ViewBag.BaSupportsVision = result.BaModelSupportsVision;
         ViewBag.Coverage = result.Coverage;
-        ViewBag.Decisions = result.Decisions;
         ViewBag.SpecAssumptions = result.SpecAssumptions;
         ViewBag.SpecVersion = result.SpecVersion;
         return View(result.Project);
@@ -154,7 +153,7 @@ public class RequirementsController : Controller
     // Client hỏng stream thì reload — nháp "đã gửi" và ChatReplyStatus lo phần phục hồi.
     // retry=true: "thử lại" lượt BA vừa lỗi LLM — xóa lượt lỗi cuối rồi chạy lại trên transcript hiện
     // có (message bị bỏ qua, KHÔNG ghi thêm lượt user). Cùng một đường SSE để mọi frame (status/token/
-    // done/decisions/outlook) hành xử y hệt một lượt chat thường.
+    // done) hành xử y hệt một lượt chat thường.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
@@ -341,7 +340,6 @@ public class RequirementsController : Controller
                             // Bản đồ bao phủ không gộp được lượt này (đã thử lại) ⇒ panel đang hiện bản
                             // cũ và BA cũng vừa dẫn lượt bằng bản cũ đó. Client cảnh báo ngay trên panel.
                             coverageStale = result.CoverageStale,
-                            decisions = result.Decisions,
                             flowDiagram = result.FlowDiagram,
                             // Bảng phân quyền: chỉ có ở lượt chốt nhóm phân quyền, rỗng ở mọi lượt khác.
                             // Client dựng bảng từ đây, cùng markup với bản server render lúc tải trang.
@@ -440,15 +438,17 @@ public class RequirementsController : Controller
 
             channel.Writer.TryWrite(done);
 
-            // "Điều đã chốt" cập nhật SAU frame done: user đã đọc được câu trả lời, lời gọi LLM gộp
-            // quyết định không còn cộng vào độ chờ cảm nhận — panel tự thay bằng frame phụ này.
-            // Fail-open: lỗi thì giữ panel bản cũ (done đã mang bản đang lưu).
+            // "Điều đã chốt" cập nhật SAU frame done: user đã đọc được câu trả lời, nên lời gọi LLM gộp
+            // quyết định không cộng vào độ chờ cảm nhận. KHÔNG frame nào được đẩy về client — nhật ký
+            // không còn mặt UI nào (bản tổng kết ở cổng tạo tài liệu đã gỡ), người đọc nó nay chỉ còn là
+            // máy: ngữ cảnh chat của BA ở lượt sau, ngữ cảnh soát mâu thuẫn, bước soạn Product Brief và
+            // bản xuất hội thoại. Cùng nhịp và cùng lý do với UpdateInterviewOutlookAsync ngay dưới.
+            // Fail-open: lỗi thì giữ bản đang lưu.
             if (turnSucceeded)
             {
                 try
                 {
-                    var decisions = await _chatWithBAUseCase.UpdateDecisionsAsync(projectId, CancellationToken.None);
-                    channel.Writer.TryWrite(new { type = "decisions", decisions });
+                    await _chatWithBAUseCase.UpdateDecisionsAsync(projectId, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {

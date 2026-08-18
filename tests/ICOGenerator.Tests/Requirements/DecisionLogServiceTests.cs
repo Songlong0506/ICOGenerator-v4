@@ -12,10 +12,11 @@ using Xunit;
 namespace ICOGenerator.Tests.Requirements;
 
 // "Điều đã chốt" per project: gộp các lượt chat MỚI (kể từ con trỏ) vào nhật ký bullet trên
-// Project.DecisionLog. Ngoài phần tách dòng cho UI, các test ở đây chốt điều kiện để nhật ký ghi được câu
+// Project.DecisionLog. Ngoài phần tách dòng, các test ở đây chốt điều kiện để nhật ký ghi được câu
 // TỰ ĐỨNG ĐƯỢC: khối gộp phải CHỜM về trước con trỏ, vì hàm chạy cuối lượt chat nên câu hỏi mà lượt user
 // đầu lô đang trả lời luôn nằm ở lô TRƯỚC. Thiếu nó, một cú bấm chip ("Chỉ Assistant HR") vào nhật ký
-// thành đúng bấy nhiêu chữ — người dùng đọc bản tổng kết cuối không hiểu, còn soát mâu thuẫn thì bắt nhầm.
+// thành đúng bấy nhiêu chữ — BA ở lượt sau không hiểu, còn soát mâu thuẫn thì bắt nhầm. Nhật ký không còn
+// mặt UI nào (bản tổng kết ở cổng tạo tài liệu đã gỡ) nên đây là tầng chặn duy nhất.
 public class DecisionLogServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
