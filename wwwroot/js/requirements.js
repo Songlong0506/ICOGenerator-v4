@@ -25,8 +25,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Ô này (cả trên thẻ hỏi gộp lẫn hàng chip lượt-đơn) nằm trong khung nhãn-nổi gọn, khởi điểm chỉ cao
     // chừng một dòng. Nhưng câu trả lời thật ở đây thường dài hơn thế — "tầm 1500 người, và tần suất sử
     // dụng không cố định" — và ô cố định bắt người dùng cuộn để đọc lại chính thứ mình sắp gửi, đúng lúc họ
-    // cần thấy nó trọn vẹn nhất. Trên thẻ hỏi gộp nó còn được MỒI SẴN nội dung chip vừa bấm để sửa vài chữ
-    // (xem handler .batchq-choice), nên có thể mang sẵn một câu dài ngay khi người dùng chưa gõ gì.
+    // cần thấy nó trọn vẹn nhất. Bản phục hồi nháp cũng đổ thẳng vào đây, nên ô có thể mang sẵn một câu dài
+    // ngay khi người dùng chưa gõ chữ nào trong phiên này.
     // Trần chiều cao là bắt buộc: không có nó, một câu trả lời dài đẩy nút "Gửi N câu trả lời" ra khỏi màn
     // hình và thẻ hỏi gộp thành cụt đường.
     const OTHER_BOX_MAX_HEIGHT = 200;
@@ -356,37 +356,53 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // và mọi thứ đã đúng ở lượt chat (cổng readiness, chắt lọc bản đồ, decision log) tự khắc đúng ở đây.
     const batchPanel = document.getElementById("batchQuestions");
 
-    // Ô trả lời của MỘT câu trên thẻ luôn MỞ, kể cả câu có hàng gợi ý. Trước đây nó nấp sau một viên nút
-    // "✎ Ý khác" và chỉ ra mặt khi bấm — mà chính cái ô đó lại là NƠI LƯU câu trả lời của cả hàng gợi ý
-    // (bấm chip = ghi giá trị chip vào ô). Hai vai trong một ô cộng với một cái nút bật/tắt sinh ra đúng
-    // trạng thái sai đã thấy trên màn hình: chip đang sáng, nút "✎ Ý khác" vẫn nằm đó, VÀ ô nhập mở ra
-    // mang sẵn nguyên văn chip vừa bấm — ba thứ nói cùng một điều, người dùng không biết cái nào mới là
-    // thứ sắp gửi đi.
+    // Ô tự nhập của MỘT câu trên thẻ luôn MỞ, kể cả câu có hàng gợi ý, và nó là ô "Ý KHÁC" — đúng bằng ô
+    // cùng tên ở hàng chip lượt-đơn, cùng nhãn, cùng cách gộp vào tin nhắn gửi đi.
     //
-    // Nay ô là chỗ DUY NHẤT thể hiện câu trả lời: hàng gợi ý chỉ còn là lối điền nhanh (bấm chip = điền ô),
-    // ô luôn hiện nên người dùng đọc được thứ mình sắp gửi và sửa ngay tại chỗ. Vì thế nhãn của ô cũng
-    // không còn là "Ý khác" — nó là "Câu trả lời", đúng thứ nó chứa dù nội dung tới từ chip hay tự gõ.
-    const BATCH_ANSWER_LABEL = "Câu trả lời anh/chị gửi cho câu này";
-    const BATCH_ANSWER_PLACEHOLDER = "Bấm một gợi ý ở trên, hoặc tự nhập câu trả lời…";
+    // Trước đây ô này bị dùng làm NƠI LƯU câu trả lời của cả hàng gợi ý: bấm chip = chép nguyên văn chip
+    // vào ô. Màn hình vì thế nói một điều HAI LẦN — chip sáng ngay trên, y hệt câu chữ đó lại nằm trong ô
+    // ngay dưới — mà chẳng thêm được gì: người dùng không sửa được câu gợi ý bằng cách đó (sửa một chữ là
+    // chip tắt, thành một câu tự nhập khác hẳn), chỉ còn cảm giác mình phải xoá đi thứ vừa được điền hộ.
+    // Nó cũng chiếm mất chỗ của việc mà ô này sinh ra để làm: nói thêm một ý mà không gợi ý nào phủ.
+    //
+    // Nay hai vai tách hẳn: CHIP giữ lựa chọn (trạng thái nằm trên chính chip, `.is-on`), Ô giữ phần người
+    // dùng tự nói. Câu trả lời gửi đi là hai vế ghép lại (batchAnswerOf) — bấm chip rồi gõ thêm thì cả hai
+    // cùng đi, đúng như hàng chip lượt-đơn ghép "chip — lời viết thêm".
+    const BATCH_ANSWER_LABEL = "Ý khác — câu trả lời anh/chị tự nhập";
+    const BATCH_ANSWER_PLACEHOLDER = "Không gợi ý nào đúng, hoặc muốn nói thêm? Anh/chị gõ vào đây…";
 
-    // Chip là DẪN XUẤT của nội dung ô, không phải một trạng thái song song: chip sáng khi giá trị của nó
-    // đang có mặt trong ô. Nhờ vậy người dùng sửa tay một chữ trong ô thì chip tự tắt (không còn ca "chip
-    // sáng nhưng thứ gửi đi là câu khác"), và bản phục hồi nháp không cần đoán lại trạng thái nút nào.
-    function batchAnswerParts(box) {
-        return (box.value || "").split(",").map(s => s.trim()).filter(Boolean);
+    // Lựa chọn của một câu = các chip đang sáng, theo đúng thứ tự chúng nằm trên thẻ (không theo thứ tự
+    // bấm): thứ tự hiển thị là thứ tự người dùng vừa đọc, nên tin nhắn gửi đi khớp với thứ họ thấy.
+    function batchPicks(li) {
+        return Array.from(li.querySelectorAll(".batchq-choice.is-on"))
+            .map(chip => (chip.dataset.value || "").trim())
+            .filter(Boolean);
     }
 
-    function syncBatchChips(li) {
+    function batchOtherText(li) {
         const box = li.querySelector(".batchq-answer");
-        if (!box) return;
+        return box ? (box.value || "").trim() : "";
+    }
 
-        const multi = li.dataset.multi === "true";
-        const whole = (box.value || "").trim();
-        const parts = batchAnswerParts(box);
-        li.querySelectorAll(".batchq-choice").forEach(chip => {
-            const value = (chip.dataset.value || "").trim();
-            chip.classList.toggle("is-on", multi ? parts.includes(value) : value === whole);
-        });
+    // Câu trả lời THẬT của một dòng = chip đã bấm + lời tự nhập. Giữ CẢ HAI vế: bỏ chip đi thì phần viết
+    // thêm ("nhưng chỉ với đơn trên 10 triệu") đứng trơ trọi, các tầng chắt lọc phía sau không còn biết nó
+    // đang nói thêm cho lựa chọn nào; bỏ phần tự nhập đi thì ô "Ý khác" thành ô trang trí.
+    // Câu MỞ không có chip nào ⇒ rơi về đúng nội dung ô, như trước.
+    function batchAnswerOf(li) {
+        const picks = batchPicks(li).join(", ");
+        const typed = batchOtherText(li);
+        if (!typed) return picks;
+        return picks ? `${picks} — ${typed}` : typed;
+    }
+
+    // Bấm chip: chọn-nhiều thì mỗi chip là một công tắc riêng; chọn-một thì chip vừa bấm sáng và tắt các
+    // chip còn lại, bấm lại chính nó = bỏ chọn (một cú bấm nhầm luôn có đường lùi).
+    function toggleBatchChip(li, chip) {
+        const on = !chip.classList.contains("is-on");
+        if (li.dataset.multi !== "true") {
+            li.querySelectorAll(".batchq-choice").forEach(c => c.classList.remove("is-on"));
+        }
+        chip.classList.toggle("is-on", on);
     }
 
     // Các câu hỏi đang nằm trên thẻ, dựng thành dấu vết CHỈ-ĐỌC. Không có phần này, các câu hỏi biến mất
@@ -447,7 +463,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         return Array.from(batchPanel.querySelectorAll(".batchq-item"))
             .map(li => ({
                 question: li.dataset.question || "",
-                answer: (li.querySelector(".batchq-answer").value || "").trim()
+                answer: batchAnswerOf(li)
             }))
             .filter(x => x.answer.length > 0);
     }
@@ -494,7 +510,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         batchPanel.innerHTML = `
             <p class="batchq-lead">${escapeHtml(lead)}</p>
-            <div class="batchq-howto">Bấm một gợi ý hoặc tự nhập; điểm nào chưa nghĩ tới thì để trống.</div>
+            <div class="batchq-howto">Bấm gợi ý, muốn nói thêm thì gõ vào ô "Ý khác"; điểm nào chưa nghĩ tới thì để trống.</div>
             <ul class="batchq-list">
                 ${questions.map(q => {
                     // Câu MỞ: không có gợi ý nào để bấm, nên chỉ còn ô tự nhập — một dòng chỉ có mỗi câu
@@ -511,7 +527,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     </div>
                     <div class="batchq-other-field">
                         <textarea class="batchq-answer" rows="1" aria-label="${BATCH_ANSWER_LABEL}" placeholder="${BATCH_ANSWER_PLACEHOLDER}"></textarea>
-                        <span class="batchq-other-cap" aria-hidden="true">Câu trả lời</span>
+                        <span class="batchq-other-cap" aria-hidden="true">Ý khác</span>
                     </div>`}
                     ${open ? `<textarea class="batchq-answer" rows="3" placeholder="Anh/chị kể giúp mình, càng chi tiết càng tốt…"></textarea>` : ""}
                 </li>`;
@@ -534,32 +550,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const choice = e.target.closest(".batchq-choice");
             if (choice) {
                 const li = choice.closest(".batchq-item");
-                const answer = li.querySelector(".batchq-answer");
-                const value = (choice.dataset.value || "").trim();
 
-                if (li.dataset.multi === "true") {
-                    // Câu chọn-nhiều: chip là toggle, câu trả lời là các lựa chọn nối bằng dấu phẩy. Chỉ
-                    // thêm/bớt ĐÚNG giá trị chip vừa bấm thay vì dựng lại cả ô từ bộ chip đang sáng — dựng
-                    // lại sẽ xoá luôn phần người dùng tự gõ thêm, mà ô thì đang mở ngay trước mắt họ.
-                    const parts = batchAnswerParts(answer);
-                    const at = parts.indexOf(value);
-                    if (at >= 0) parts.splice(at, 1);
-                    else parts.push(value);
-                    answer.value = parts.join(", ");
-                } else {
-                    // Câu chọn-một: chip là lối điền nhanh, bấm cái nào thì ô mang đúng câu đó. Bấm lại
-                    // chính chip đang chọn = bỏ chọn, nếu không thì một cú bấm nhầm không có đường lùi nào
-                    // ngoài việc bôi đen xoá tay.
-                    answer.value = (answer.value || "").trim() === value ? "" : value;
-                }
+                // Chip KHÔNG đụng tới ô "Ý khác": ô đó chở phần người dùng tự nói, chép lựa chọn vào đó là
+                // nói một điều hai lần rồi bắt họ tự xoá (xem chú thích ở BATCH_ANSWER_LABEL).
+                toggleBatchChip(li, choice);
 
-                syncBatchChips(li);
-                autoGrowOtherBox(answer);
                 // KHÔNG focus vào ô sau cú bấm: bấm gợi ý là thao tác "câu này xong rồi", mà focus thì trên
-                // điện thoại bật bàn phím lên che mất các câu còn lại của thẻ. Ô nằm ngay dưới hàng gợi ý và
-                // đã hiện nguyên văn thứ vừa chọn — ai muốn sửa chỉ việc bấm vào đó.
+                // điện thoại bật bàn phím lên che mất các câu còn lại của thẻ.
                 updateBatchSendButton();
-                // Chọn bằng chip KHÔNG bắn sự kiện input (giá trị do JS gán) → phải tự hẹn lưu nháp.
+                // Bấm chip không đụng vào ô nào nên không có sự kiện input → phải tự hẹn lưu nháp.
                 draftBatchSaveSoon();
                 return;
             }
@@ -576,15 +575,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             chatForm.requestSubmit();
         });
 
-        // Ô trả lời rỗng thì câu đó KHÔNG được tính, nên nhãn nút phải nhảy theo từng phím gõ.
+        // Câu không chip nào sáng và ô cũng rỗng thì KHÔNG được tính, nên nhãn nút phải nhảy theo từng
+        // phím gõ.
         batchPanel.addEventListener("input", function (e) {
             if (!e.target.classList.contains("batchq-answer")) return;
             // Chỉ ô trong khung nhãn-nổi mới tự cao: ô của câu MỞ đứng riêng, đã có sẵn 3 dòng và
             // `resize: vertical` để người dùng tự kéo.
             if (e.target.closest(".batchq-other-field")) autoGrowOtherBox(e.target);
-            // Sửa tay làm nội dung ô lệch khỏi chip đang sáng → chip phải tắt theo, không thì màn hình nói
-            // người dùng đã chọn một đằng trong khi thứ sắp gửi là một nẻo.
-            syncBatchChips(e.target.closest(".batchq-item"));
             updateBatchSendButton();
             draftBatchSaveSoon();
         });
@@ -2365,14 +2362,19 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // "kể chi tiết"), và cũng bay sạch khi F5. Lưu theo map câu-hỏi → câu-trả-lời: thẻ được server render
     // lại nguyên vẹn sau khi tải trang, nên khớp lại bằng chính nội dung câu hỏi là đủ và không phụ thuộc
     // thứ tự.
+    //
+    // Mỗi câu lưu HAI vế riêng (`picks` = chip đang sáng, `other` = lời tự nhập) chứ không lưu câu trả lời
+    // đã ghép: ghép rồi thì lúc đổ về không tách lại được đâu là chip đâu là lời viết thêm, và bản phục hồi
+    // sẽ đẩy cả cụm vào ô "Ý khác" — người dùng thấy nguyên văn gợi ý nằm trong ô mình chưa từng gõ.
     function draftBatchAnswers() {
         if (!batchPanel || batchPanel.hidden) return null;
         const map = {};
         batchPanel.querySelectorAll(".batchq-item").forEach(li => {
             const question = li.dataset.question || "";
-            const box = li.querySelector(".batchq-answer");
-            const value = box ? (box.value || "").trim() : "";
-            if (question && value) map[question] = value;
+            if (!question) return;
+            const picks = batchPicks(li);
+            const other = batchOtherText(li);
+            if (picks.length > 0 || other) map[question] = { picks, other };
         });
         return map;
     }
@@ -2498,6 +2500,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             composerLead !== "");
     }
 
+    // Một mục nháp, đọc về dạng {picks, other}. Nháp lưu TRƯỚC khi chip tách khỏi ô là một chuỗi câu trả
+    // lời đã ghép — đổ nó về ô "Ý khác" là bản phục hồi trung thực nhất còn có thể: chữ người dùng đã gõ
+    // không mất, và không có chip nào bị bật lên thay họ.
+    function draftBatchEntry(raw) {
+        if (typeof raw === "string") return { picks: [], other: raw.trim() };
+        if (!raw || typeof raw !== "object") return { picks: [], other: "" };
+        return {
+            picks: Array.isArray(raw.picks) ? raw.picks.map(x => String(x).trim()).filter(Boolean) : [],
+            other: typeof raw.other === "string" ? raw.other.trim() : ""
+        };
+    }
+
     // Đổ nháp về các ô trả lời trên thẻ hỏi gộp. Trả về số câu đã phục hồi.
     function draftBatchRestore() {
         if (!batchPanel || batchPanel.hidden) return 0;
@@ -2508,16 +2522,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         let restored = 0;
         batchPanel.querySelectorAll(".batchq-item").forEach(li => {
-            const answer = (answers[li.dataset.question || ""] || "").trim();
+            const saved = draftBatchEntry(answers[li.dataset.question || ""]);
             const box = li.querySelector(".batchq-answer");
-            if (!answer || !box || box.value.trim()) return;
+            if (!box || (saved.picks.length === 0 && !saved.other)) return;
 
-            box.value = answer;
+            // Câu người dùng đã đụng vào trong phiên NÀY thắng nháp cũ — kể cả khi họ mới chỉ bấm chip.
+            if (box.value.trim() || batchPicks(li).length > 0) return;
+
+            li.querySelectorAll(".batchq-choice").forEach(chip => {
+                chip.classList.toggle("is-on", saved.picks.includes((chip.dataset.value || "").trim()));
+            });
+            box.value = saved.other;
             restored++;
-
-            // Chip sáng lại theo đúng nội dung vừa đổ về (xem syncBatchChips): họ chọn bằng chip thì chip
-            // sáng, họ tự gõ thì không chip nào sáng — không cần đoán lại "họ đã bấm nút nào".
-            syncBatchChips(li);
 
             // Câu MỞ không nằm trong khung nhãn-nổi: ô của nó đã sẵn 3 dòng mời "kể chi tiết", tự co lại
             // theo một câu ngắn vừa phục hồi là thu hẹp đúng cái ô đang mời người dùng viết dài.

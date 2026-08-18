@@ -886,7 +886,7 @@
                     @* Câu dẫn = Message của chính lượt gộp (xem batchLead ở đầu file). Rỗng thì mới rơi về
                        câu tĩnh — không có dòng dẫn nào thì thẻ mở đầu bằng câu hỏi trần, mất mạch hội thoại. *@
                     <p class="batchq-lead">@(string.IsNullOrWhiteSpace(batchLead) ? "Anh/chị trả lời giúp mình mấy điểm sau nhé." : batchLead)</p>
-                    <div class="batchq-howto">Bấm một gợi ý hoặc tự nhập; điểm nào chưa nghĩ tới thì để trống.</div>
+                    <div class="batchq-howto">Bấm gợi ý, muốn nói thêm thì gõ vào ô "Ý khác"; điểm nào chưa nghĩ tới thì để trống.</div>
                     <ul class="batchq-list">
                         @foreach (var q in lastBaQuestions)
                         {
@@ -908,15 +908,15 @@
                                             <button type="button" class="batchq-choice" data-value="@s">@s</button>
                                         }
                                     </div>
-                                    @* Ô trả lời LUÔN MỞ, kể cả khi câu này có hàng gợi ý: nó là nơi duy nhất
-                                       chứa câu trả lời sẽ được gửi (bấm gợi ý = điền vào ô), nên giấu nó sau
-                                       một nút "Ý khác" là giấu đúng thứ người dùng cần đọc lại trước khi gửi
-                                       — xem chú thích ở requirements.js, mục BATCH_ANSWER_LABEL. Nhãn nổi
-                                       khoét trên viền là nhãn NHÌN nên `aria-hidden`; chỗ trình đọc màn hình
-                                       lấy tên ô là `aria-label`. *@
+                                    @* Ô "Ý khác" LUÔN MỞ, kể cả khi câu này có hàng gợi ý: giấu nó sau một
+                                       nút là giấu mất lối thoát duy nhất của người có ý riêng. Nó chở phần
+                                       người dùng TỰ NÓI — lựa chọn nằm trên chính chip, không chép vào đây —
+                                       xem chú thích ở requirements.js, mục BATCH_ANSWER_LABEL. Nhãn nổi khoét
+                                       trên viền là nhãn NHÌN nên `aria-hidden`; chỗ trình đọc màn hình lấy
+                                       tên ô là `aria-label`. *@
                                     <div class="batchq-other-field">
-                                        <textarea class="batchq-answer" rows="1" aria-label="Câu trả lời anh/chị gửi cho câu này" placeholder="Bấm một gợi ý ở trên, hoặc tự nhập câu trả lời…"></textarea>
-                                        <span class="batchq-other-cap" aria-hidden="true">Câu trả lời</span>
+                                        <textarea class="batchq-answer" rows="1" aria-label="Ý khác — câu trả lời anh/chị tự nhập" placeholder="Không gợi ý nào đúng, hoặc muốn nói thêm? Anh/chị gõ vào đây…"></textarea>
+                                        <span class="batchq-other-cap" aria-hidden="true">Ý khác</span>
                                     </div>
                                 }
                                 else
