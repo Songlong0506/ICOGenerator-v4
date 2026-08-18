@@ -100,6 +100,12 @@
         var search = bar.querySelector('[data-cbar-search]');
         if (search && target) {
             search.addEventListener('input', function () { applyFilter(search.value); });
+            // Thanh vừa có bộ lọc server (thẻ <form method="get">) vừa có ô tìm kiếm client
+            // (vd Audit Log): Enter trong ô này sẽ submit form và nạp lại trang, xoá sạch từ khoá
+            // vừa gõ. Tìm kiếm đã lọc ngay theo từng ký tự nên Enter không còn việc gì để làm.
+            search.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') e.preventDefault();
+            });
         }
 
         // ---- Sắp xếp ----

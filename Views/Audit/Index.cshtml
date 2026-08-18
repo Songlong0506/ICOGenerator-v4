@@ -34,23 +34,20 @@
     </div>
 </div>
 
-@await Html.PartialAsync("_CommandBar", new CommandBarModel
-{
-    SearchPlaceholder = "Tìm trong nhật ký…",
-    TargetSelector = "#auditTable",
-    FilterPanelId = "auditFilter",
-    FilterPanelOpen = Model.CategoryFilter != null,
-    FilterActive = Model.CategoryFilter != null,
-    // "Xóa lọc" đứng cạnh nút "Lọc" trên thanh như mọi màn hình khác, thay vì nằm trong panel —
-    // trước đây phải mở panel ra mới thấy đường thoát khỏi bộ lọc đang áp dụng.
-    ClearFilterUrl = Model.CategoryFilter != null ? Url.Action("Index") : null
-})
-
-<div id="auditFilter" class="card filter-card cbar-panel">
-    <form asp-action="Index" method="get" class="filter-bar">
-        <div class="filter-field">
+@* Command bar chuẩn: dropdown "Loại" nằm THẲNG trên thanh (form GET, tự submit khi đổi) như
+   Feedback/Usage/Delivery Quality, thay vì giấu sau nút "Lọc" trong một panel riêng — chỉ có
+   đúng một bộ lọc thì bắt người dùng mở panel ra mới thấy nó là thừa một cú bấm và làm màn này
+   lệch với phần còn lại của app. *@
+@{
+    var auditBar = new CommandBarModel
+    {
+        FormUrl = Url.Action("Index"),
+        ClearFilterUrl = Model.CategoryFilter != null ? Url.Action("Index") : null,
+        SearchPlaceholder = "Tìm trong nhật ký…",
+        TargetSelector = "#auditTable",
+        Filters = @<div class="cbar-field">
             <label for="audit-category">Loại</label>
-            <select id="audit-category" name="category" onchange="this.form.submit()">
+            <select id="audit-category" name="category" data-caption="Loại" onchange="this.form.submit()">
                 <option value="">Tất cả loại</option>
                 @foreach (var c in Enum.GetValues<AuditCategory>())
                 {
@@ -58,8 +55,9 @@
                 }
             </select>
         </div>
-    </form>
-</div>
+    };
+}
+@await Html.PartialAsync("_CommandBar", auditBar)
 
 @if (Model.Items.Count == 0)
 {
