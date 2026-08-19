@@ -323,6 +323,43 @@ public static class ScreenScopeMapBuilder
     public static bool IsConfirmed(string? json) => Parse(json).Count > 0;
 
     /// <summary>
+    /// Các dòng bảng màn hình CÒN ĐANG CHỜ người dùng gửi — thứ mà view dựng lại sau F5.
+    /// <paramref name="confirmedJson"/> là <see cref="ICOGenerator.Domain.Project.ScreenScopeMap"/>,
+    /// <paramref name="renderedJson"/> là <c>ScreenScopeMap</c> của lượt BA bày bảng gần nhất (cùng lượt mà
+    /// <c>ConfirmScreenScopeUseCase</c> lấy danh sách đối chiếu).
+    ///
+    /// <para>
+    /// <b>Vì sao không thể hỏi mỗi "dự án đã chốt bảng chưa".</b> Ba bảng kia treo theo DỰ ÁN được vì chúng
+    /// chốt đúng một lần: cột trên <c>Project</c> khác null ⇔ bảng đã trả lời xong. Bảng màn hình là cổng
+    /// DUY NHẤT mở lại được (<see cref="ScreenScopeGate"/>), nên ở lượt bày LẠI cột đó đã khác null từ lần
+    /// chốt trước — hỏi nó là kết luận "đã trả lời rồi" cho một bảng người dùng còn chưa kịp nhìn. Bảng
+    /// hiện ra ở lượt bày lại, F5 một cái là mất, và không có đường nào khác để gửi: các màn hình mới lại
+    /// rơi vào bảng phân quyền ở dạng TRẮNG — đúng lỗ hổng mà đường mở lại sinh ra để bịt.
+    /// </para>
+    ///
+    /// <para>
+    /// Nên phép so là bảng ĐÃ CHỐT với chính bảng SERVER VỪA BÀY, không phải với
+    /// <c>Project.PlannedScope</c>: <c>PlannedScope</c> bị lượt chắt lọc "triển vọng phỏng vấn" ghi đè ngay
+    /// ở hậu kỳ lượt bày bảng, nên treo panel vào nó là để một lời gọi LLM chạy sau lưng quyết định bảng
+    /// còn hay mất — cùng lý do <c>ConfirmScreenScopeUseCase</c> lấy danh sách đối chiếu từ lượt hội thoại.
+    /// Vòng lặp vẫn có đáy: gửi xong thì mọi màn hình của bảng vừa bày đều có mặt trong bản chốt (kể cả
+    /// dòng bỏ tích và mục khai gộp — xem <see cref="NewScreens(string?, IReadOnlyList{string})"/>), nên
+    /// panel tự đóng.
+    /// </para>
+    /// </summary>
+    public static List<ScreenScopeRow> PendingRows(string? confirmedJson, string? renderedJson)
+    {
+        var rendered = Parse(renderedJson);
+        if (rendered.Count == 0 || !IsConfirmed(confirmedJson))
+            return rendered;
+
+        // Bảng vừa bày chỉ còn chờ khi nó mang màn hình mà bản đã chốt chưa biết — tức đúng lượt bày LẠI.
+        return NewScreens(confirmedJson, rendered.Select(r => r.Screen).ToList()).Count > 0
+            ? rendered
+            : new List<ScreenScopeRow>();
+    }
+
+    /// <summary>
     /// PHẠM VI MÀN HÌNH THẬT SỰ của dự án — nguồn dòng cho bảng phân quyền và cho mục
     /// <c>## 6. Screens To Generate</c> của spec.
     ///
