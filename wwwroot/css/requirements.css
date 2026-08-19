@@ -2277,6 +2277,46 @@
     color: #6b7280;
 }
 
+/* ==== QUAN HỆ CHA-CON ====
+   Đứng thành MỘT DÒNG RIÊNG ngay dưới tiêu đề khối, không chen vào hàng tên+mô tả: nó đổi nghĩa của cả hai
+   bảng con phía dưới (các "thông tin" thành cột của MỘT DÒNG con), nên nó phải đọc được trước chúng. Rỗng
+   thì biến mất hẳn — khối đầu tiên của bảng chưa có đối tượng nào để làm cha. */
+.entitymap-rel:empty { display: none; }
+
+.entitymap-rel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: #4b5563;
+}
+
+    /* Dropdown quan hệ KHÔNG kéo hết bề ngang như hai dropdown trong bảng thông tin: nó đứng ngoài bảng nên
+       không có cột nào bó nó lại, và một ô chọn dài bằng cả khối đọc như ô nhập chính của khối. */
+    .entitymap-rel .entityfield-select { width: auto; min-width: 190px; }
+
+.entityrel-count {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+}
+
+    /* Hai ô số hẹp đúng bằng chỗ một con số cần: rộng hơn thì cụm "mỗi X có … đến … dòng" giãn ra thành một
+       hàng rời rạc và không còn đọc như một câu. */
+    .entityrel-count input {
+        width: 58px;
+        padding: 3px 6px;
+        border: 1px solid #d5dae1;
+        border-radius: 4px;
+        background: #fff;
+        font: inherit;
+        color: #1f2937;
+        text-align: center;
+    }
+
 .entitymap-table { margin-top: 8px; }
 
 /* Cột NUỐT phần thừa của bảng thông tin là cột "Thông tin" (xem .entityfield-th-name dưới) — cùng luật với

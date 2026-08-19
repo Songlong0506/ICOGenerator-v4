@@ -1614,7 +1614,74 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         (root || document).querySelectorAll(".entitymap-field").forEach(hydrateEntityField);
     }
 
-    hydrateEntityFields(); // bản server render đã có sẵn trong DOM lúc nạp trang
+    // ---- QUAN HỆ CHA-CON ----
+    // Một "thông tin" mà thật ra là nhiều dòng (5 trách nhiệm, mỗi dòng kèm tỷ trọng %) không có chỗ nào
+    // trong một ô để đứng — ô đó chở đúng MỘT giá trị. Nó được tách thành một ĐỐI TƯỢNG có cha, và khi đó
+    // các cột của một dòng con dùng lại nguyên vẹn hai trục của một thông tin bình thường.
+    const MAX_CHILD_ROW_COUNT = 100; // = EntityMapBuilder.MaxChildRowCount
+
+    function entityBlockName(block) {
+        const input = block.querySelector(".entitymap-nameinput");
+        return (input ? tableValue(block, ".entitymap-nameinput") : (block.dataset.entity || "")).trim();
+    }
+
+    // Các đối tượng được phép làm CHA của `block`: mọi khối khác, trừ khối tự nó và trừ những khối ĐÃ CÓ
+    // cha — luật "tối đa một cấp" của server, áp luôn ở đây để người dùng không chọn được một thứ sẽ bị hạ
+    // xuống lúc lưu mà không lời nào nói vì sao.
+    function entityParentChoices(panel, block) {
+        return Array.from(panel.querySelectorAll(".entitymap-block"))
+            .filter(other => other !== block && !(other.dataset.parent || "").trim())
+            .map(entityBlockName)
+            .filter(name => name.length > 0);
+    }
+
+    function renderEntityRelation(panel, block) {
+        const cell = block.querySelector(".entitymap-rel");
+        if (!cell) return;
+
+        const choices = entityParentChoices(panel, block);
+        // Cha đã chọn mà không còn trong danh sách (bị xóa, bị đổi tên, hoặc vừa nhận cha của chính nó) ⇒
+        // rơi về hồ sơ độc lập, đúng như server sẽ làm. Giữ lại một lựa chọn không còn tồn tại là bày ra
+        // một quan hệ mà bảng đã lưu không có.
+        let parent = (block.dataset.parent || "").trim();
+        if (parent && !choices.some(c => c.toLowerCase() === parent.toLowerCase())) {
+            parent = "";
+            block.dataset.parent = "";
+        }
+
+        const options = [{ value: "", label: "Hồ sơ độc lập" }]
+            .concat(choices.map(c => ({ value: c, label: `Là các dòng của ${c}` })));
+
+        // Không có đối tượng nào khác để làm cha ⇒ không bày ô: một dropdown chỉ có đúng một lựa chọn là
+        // một câu hỏi không có câu trả lời thứ hai.
+        if (choices.length === 0 && !parent) {
+            cell.innerHTML = "";
+            return;
+        }
+
+        let html = entitySelect("entityfield-parent", options, parent, "Đối tượng này là gì trong ứng dụng");
+        if (parent) {
+            html += `<span class="entityrel-count">mỗi <b>${escapeHtml(parent)}</b> có
+                <input type="number" min="0" max="${MAX_CHILD_ROW_COUNT}" class="entityrel-min" aria-label="Số dòng tối thiểu" placeholder="—" value="${escapeHtml(block.dataset.min || "")}" />
+                đến
+                <input type="number" min="0" max="${MAX_CHILD_ROW_COUNT}" class="entityrel-max" aria-label="Số dòng tối đa" placeholder="—" value="${escapeHtml(block.dataset.max || "")}" />
+                dòng</span>`;
+        }
+        cell.innerHTML = html;
+    }
+
+    // Dropdown của MỘT khối phụ thuộc tên và quan hệ của MỌI khối khác, nên đổi một chỗ là dựng lại cả cụm.
+    function refreshEntityRelations(panel) {
+        if (!panel) return;
+        panel.querySelectorAll(".entitymap-block").forEach(block => renderEntityRelation(panel, block));
+    }
+
+    function hydrateEntityBlocks(root) {
+        hydrateEntityFields(root);
+        refreshEntityRelations(root);
+    }
+
+    hydrateEntityBlocks(document); // bản server render đã có sẵn trong DOM lúc nạp trang
 
     const entityMapPanel = initTablePanel(
         "entityMapPanel", "entityMapSendBtn", "entityMapMsg", "entitiesJson",
@@ -1624,10 +1691,17 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // tượng người dùng TỰ THÊM thì ô tên là ô gõ, và cờ `addedByUser` là thứ cho phép nó đi qua luật
             // "đối tượng rỗng ruột" ở server (xem EntityMapRow.AddedByUser).
             const nameInput = block.querySelector(".entitymap-nameinput");
+            // Quan hệ đọc từ dataset chứ không từ ô đang hiển thị, cùng lý do với hai trục của một thông
+            // tin: cả cụm bị dựng lại mỗi khi một khối khác đổi tên hoặc đổi quan hệ.
+            const parent = (block.dataset.parent || "").trim();
             return {
                 entity: nameInput ? tableValue(block, ".entitymap-nameinput") : (block.dataset.entity || ""),
                 addedByUser: !!nameInput,
                 description: tableValue(block, ".entitymap-desc"),
+                parentEntity: parent,
+                // Số dòng chỉ có nghĩa dưới một quan hệ — server cắt lại y hệt.
+                minRows: parent ? entityRowCount(block.dataset.min) : null,
+                maxRows: parent ? entityRowCount(block.dataset.max) : null,
                 // Dòng thêm bằng nút "+ thêm thông tin" mà không gõ tên thì không phải một thông tin — server
                 // bỏ nó đi, và bỏ luôn ở đây cho payload sạch.
                 fields: Array.from(block.querySelectorAll(".entitymap-field")).map(tr => {
@@ -1660,6 +1734,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }).filter(r => r.entity.length > 0),
         "Đang lưu bảng đối tượng…",
         "Chưa lưu được bảng đối tượng — anh/chị bấm gửi lại giúp mình nhé.");
+
+    // Ô số dòng để trống là HỢP LỆ và có nghĩa "không ràng buộc" — khác hẳn số 0. Chuỗi không đọc được ra
+    // số cũng về null: gửi lên một giá trị rác để server tự cắt là làm payload nói dối về màn hình.
+    function entityRowCount(raw) {
+        const value = parseInt((raw || "").trim(), 10);
+        return Number.isInteger(value) && value >= 0 && value <= MAX_CHILD_ROW_COUNT ? value : null;
+    }
 
     function entityDeleteButton(label) {
         return `<button type="button" class="entitymap-del" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">×</button>`;
@@ -1729,13 +1810,17 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const forEntity = entity ? ` cho ${entity}` : " cho đối tượng vừa thêm";
 
         return `
-            <div class="entitymap-block" data-entity="${escapeHtml(entity)}">
+            <div class="entitymap-block" data-entity="${escapeHtml(entity)}"
+                 data-parent="${escapeHtml(r && r.parentEntity ? r.parentEntity : "")}"
+                 data-min="${escapeHtml(r && r.minRows !== null && r.minRows !== undefined ? String(r.minRows) : "")}"
+                 data-max="${escapeHtml(r && r.maxRows !== null && r.maxRows !== undefined ? String(r.maxRows) : "")}">
                 <div class="permmap-screen entitymap-head">
                     ${check}
                     ${nameCell}
                     <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="đối tượng này là gì?">${escapeHtml(r ? (r.description || "") : "")}</textarea>
                     ${r ? "" : entityDeleteButton("Xóa đối tượng này")}
                 </div>
+                <div class="entitymap-rel"></div>
                 <table class="permmap-table entitymap-table entitymap-fieldtable">
                     <thead><tr><th class="flowmap-th-use">Lưu</th><th class="entityfield-th-name">Thông tin</th><th class="flowmap-th-use entityfield-th-req">Bắt buộc</th><th class="entityfield-th-input">Nhập thế nào</th><th class="entityfield-th-src">Danh sách lấy ở đâu</th><th class="screenmap-th-del"></th></tr></thead>
                     <tbody>${fields}
@@ -1781,7 +1866,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </div>`;
         entityMapPanel.hidden = false;
         thinkingBox.before(entityMapPanel);
-        hydrateEntityFields(entityMapPanel);
+        hydrateEntityBlocks(entityMapPanel);
         autoGrowCells(entityMapPanel);
     }
 
@@ -1804,6 +1889,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     || remove.closest(".entitymap-state")
                     || remove.closest(".entitymap-block");
                 if (target) target.remove();
+                // Xóa một đối tượng là rút một lựa chọn khỏi mọi dropdown cha, và có thể làm một khối khác
+                // rơi về hồ sơ độc lập — dựng lại cả cụm thay vì để một quan hệ trỏ vào khoảng không.
+                refreshEntityRelations(entityMapPanel);
                 note("");
                 return;
             }
@@ -1818,6 +1906,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 }
 
                 blocks.insertAdjacentHTML("beforeend", entityMapBlock(null));
+                refreshEntityRelations(entityMapPanel);
                 focusNewRow(blocks.lastElementChild, ".entitymap-nameinput");
                 note("");
                 return;
@@ -1845,6 +1934,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // HAI TRỤC + danh sách giá trị. Tất cả ủy quyền trên panel vì cùng lý do với khối trên: cả bảng bị
         // thay sạch mỗi lượt BA bày bảng, và riêng ô nguồn còn tự dựng lại mỗi lần đổi dropdown.
         entityMapPanel.addEventListener("change", function (e) {
+            // Đổi CHA: luật "tối đa một cấp" nghĩa là khối vừa nhận cha không còn được làm cha của ai nữa,
+            // nên cả cụm phải dựng lại chứ không riêng khối này.
+            if (e.target.classList.contains("entityfield-parent")) {
+                const block = e.target.closest(".entitymap-block");
+                if (block) {
+                    block.dataset.parent = e.target.value;
+                    if (!e.target.value) { block.dataset.min = ""; block.dataset.max = ""; }
+                    refreshEntityRelations(entityMapPanel);
+                }
+                return;
+            }
+
             const tr = e.target.closest(".entitymap-field");
             if (!tr) return;
 
@@ -1863,6 +1964,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // Ô gõ của nhánh đang chọn ghi ngược vào dataset ngay từng ký tự: dataset là nguồn sự thật mà lúc gom
         // payload đọc, và chính ô này có thể bị gỡ khỏi DOM ngay khi người dùng đổi dropdown.
         entityMapPanel.addEventListener("input", function (e) {
+            const block = e.target.closest(".entitymap-block");
+
+            // Hai ô số dòng ghi thẳng vào dataset — chúng bị dựng lại mỗi lần cụm quan hệ đổi.
+            if (block && e.target.classList.contains("entityrel-min")) block.dataset.min = e.target.value;
+            if (block && e.target.classList.contains("entityrel-max")) block.dataset.max = e.target.value;
+
+            // Đổi TÊN một đối tượng người dùng tự thêm là đổi nhãn của nó trong mọi dropdown cha. Dựng lại
+            // sau mỗi ký tự nghe phí, nhưng cụm này chỉ vài phần tử, và để nhãn cũ nằm lại là mời người dùng
+            // chọn một cái tên không còn tồn tại.
+            if (block && e.target.classList.contains("entitymap-nameinput"))
+                refreshEntityRelations(entityMapPanel);
+
             const tr = e.target.closest(".entitymap-field");
             if (!tr) return;
 

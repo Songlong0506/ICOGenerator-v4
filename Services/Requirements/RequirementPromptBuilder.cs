@@ -271,6 +271,11 @@ Phần trong ngoặc vuông sau mỗi thông tin là RÀNG BUỘC người dùng
 - "ứng dụng tự sinh theo quy tắc …" ⇒ KHÔNG dựng ô nhập cho nó; quy tắc sinh thành một dòng ở "## 10. Business Rules".
 - "CHƯA rõ …" ⇒ đây là chỗ người dùng chưa chốt: xử như một GIẢ ĐỊNH ở "## 12. Assumptions" thay vì im lặng chọn thay họ.
 
+Đối tượng ghi "là các DÒNG của X" là một QUAN HỆ MỘT-NHIỀU, không phải một hồ sơ độc lập:
+- "## 8. Data Model Summary" phải nêu quan hệ đó tường minh (khóa ngoại trỏ về X), và số dòng mỗi cha — nếu có nêu — thành một quy tắc validate ở "## 10. Business Rules".
+- "## 6. Screens To Generate": KHÔNG dựng màn hình CRUD riêng cho nó. Nó là một BẢNG NHÚNG ngay trong màn hình của X, thêm/xóa dòng tại chỗ, lưu cùng lúc với bản ghi cha. Dựng cho nó một màn hình riêng là bắt người dùng rời hồ sơ đang nhập để đi tạo từng dòng một.
+- "## 9. API Expectations": các dòng con đi cùng payload của bản ghi cha, không cần bộ endpoint riêng.
+
 """;
     }
 
