@@ -42,6 +42,7 @@ public class InterviewTableGateTests
         string? flowMap = null,
         string? screenScope = null,
         string? entityMap = null,
+        string? reportMap = null,
         string? permissionMatrix = null,
         string? notificationMap = null)
         => new()
@@ -53,6 +54,7 @@ public class InterviewTableGateTests
             FlowMap = flowMap,
             ScreenScopeMap = screenScope,
             EntityMap = entityMap,
+            ReportMap = reportMap,
             PermissionMatrix = permissionMatrix,
             NotificationMap = notificationMap
         };
@@ -74,6 +76,15 @@ public class InterviewTableGateTests
                     {"state":"Đã duyệt","entryCondition":"HOD duyệt"}],
           "included":true}]
         """;
+
+    private const string ConfirmedReports =
+        """[{"report":"Báo cáo tiến độ đào tạo","question":"để biết đơn vị nào chưa đạt","source":"Kế hoạch đào tạo","included":true}]""";
+
+    // Bản đồ CUỐI BUỔI của một dự án CÓ báo cáo. EverythingClear để nhóm này ở [KHÔNG ÁP DỤNG] — đó là ca
+    // "dự án không cần báo cáo nào", ca duy nhất mà bảng báo cáo không bao giờ được bày.
+    private static readonly string ReportsClear = EverythingClear.Replace(
+        "- Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: \"hiện tại chưa cần\"}",
+        "- Báo cáo / thống kê: [RÕ] Tiến độ đào tạo theo quý cho HOD. {nguồn: \"cuối quý xem đơn vị nào chưa đạt\"}");
 
     private const string ConfirmedPermissions =
         """[{"screen":"Màn hình Training Plan","function":"Xem","grants":[{"role":"HOD HR","scope":"tất cả"}]}]""";
@@ -101,6 +112,29 @@ public class InterviewTableGateTests
     {
         Assert.Equal(InterviewTableKind.EntityMap,
             InterviewTableGate.Select(ProjectWith(flowMap: ConfirmedFlow, screenScope: ConfirmedScreens)));
+    }
+
+    // Bảng BÁO CÁO đứng giữa bảng đối tượng và bảng phân quyền, và thứ tự đó là thứ tự PHỤ THUỘC ở cả hai
+    // đầu: sau đối tượng vì ô "lấy số từ" trỏ về một đối tượng đã chốt; TRƯỚC phân quyền vì mỗi báo cáo còn
+    // tích là một MÀN HÌNH mới, mà các DÒNG của bảng phân quyền chính là màn hình — hỏi sau thì mọi báo cáo
+    // vừa chốt không có dòng quyền nào và không có mục nào ở "## 6. Screens To Generate".
+    [Fact]
+    public void Select_AsksReportMapAfterTheEntityMap()
+    {
+        Assert.Equal(InterviewTableKind.ReportMap,
+            InterviewTableGate.Select(ProjectWith(
+                coverage: ReportsClear,
+                flowMap: ConfirmedFlow, screenScope: ConfirmedScreens, entityMap: ConfirmedEntities)));
+    }
+
+    [Fact]
+    public void Select_AsksPermissionMatrixAfterTheReportMap()
+    {
+        Assert.Equal(InterviewTableKind.PermissionMatrix,
+            InterviewTableGate.Select(ProjectWith(
+                coverage: ReportsClear,
+                flowMap: ConfirmedFlow, screenScope: ConfirmedScreens, entityMap: ConfirmedEntities,
+                reportMap: ConfirmedReports)));
     }
 
     // Bảng phân quyền là cổng ÁP CHÓT. Dòng phân quyền chỉ [RÕ] khi bảng chốt, nên không có đường nào
@@ -156,6 +190,41 @@ public class InterviewTableGateTests
     public void NotificationMapGate_StaysClosedUntilPermissionsAreConfirmed()
     {
         Assert.False(NotificationMapGate.ShouldAsk(null, null, ConfirmedEntities));
+    }
+
+    // ==== CỔNG BẢNG BÁO CÁO ====
+
+    // Ca "dự án không cần báo cáo nào": [KHÔNG ÁP DỤNG] KHÔNG phải [RÕ] ⇒ cổng không bao giờ mở. Thiếu lối
+    // thoát này thì một ứng dụng thuần nhập liệu vẫn bị bày ra một bảng báo cáo rỗng ở cuối buổi.
+    [Fact]
+    public void ReportMapGate_StaysClosedWhenTheGroupIsNotApplicable()
+    {
+        Assert.False(ReportMapGate.ShouldAsk(EverythingClear, null, ConfirmedEntities));
+    }
+
+    // Và nó cũng đóng khi nhóm mới ở [MỘT PHẦN]: bảng này KHÔNG đi khai thác thay hội thoại. Bày sớm là bày
+    // một bảng trống, tức bắt người dùng nghiệp vụ tự chẻ câu chuyện của họ thành bốn cột trước khi gõ được
+    // chữ nào — thu về ít hơn cả cái ô kể tự do mà bảng thay thế.
+    [Fact]
+    public void ReportMapGate_StaysClosedWhileTheGroupIsOnlyPartlyAnswered()
+    {
+        var partial = EverythingClear.Replace(
+            "- Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: \"hiện tại chưa cần\"}",
+            "- Báo cáo / thống kê: [MỘT PHẦN] Có cần báo cáo. {còn thiếu: gồm những báo cáo nào}");
+
+        Assert.False(ReportMapGate.ShouldAsk(partial, null, ConfirmedEntities));
+    }
+
+    // Chưa chốt bảng đối tượng thì ô "lấy số từ" không có gì để trỏ về. Vế này treo vào một artifact, nhưng
+    // nó không mở thêm đường vòng nào: lúc đó EntityMapGate đang mở và thắng ưu tiên, nên lượt ấy vẫn là
+    // một lượt bày bảng chứ không phải một lượt câm.
+    [Fact]
+    public void ReportMapGate_StaysClosedUntilTheEntityMapIsConfirmed()
+    {
+        Assert.False(ReportMapGate.ShouldAsk(ReportsClear, null, null));
+        Assert.Equal(InterviewTableKind.EntityMap,
+            InterviewTableGate.Select(ProjectWith(
+                coverage: ReportsClear, flowMap: ConfirmedFlow, screenScope: ConfirmedScreens)));
     }
 
     // ==== KHÔNG BAO GIỜ HAI BẢNG CÙNG LƯỢT ====

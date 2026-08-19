@@ -127,6 +127,7 @@ Your task:
         string? flowMap = null,
         string? screenScopeMap = null,
         string? entityMap = null,
+        string? reportMap = null,
         string? notificationMap = null)
     {
         return $$"""
@@ -138,7 +139,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{AssumptionCorrectionsSection(assumptionCorrections)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{EntityMapSection(entityMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
+{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{AssumptionCorrectionsSection(assumptionCorrections)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{EntityMapSection(entityMap)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -270,6 +271,28 @@ Phần trong ngoặc vuông sau mỗi thông tin là RÀNG BUỘC người dùng
 - "lấy từ <hệ thống>" ⇒ ghi thành một nguồn dữ liệu ngoài ở "## 9. API Expectations"; POC dùng dữ liệu mẫu tĩnh và nói rõ điều đó.
 - "ứng dụng tự sinh theo quy tắc …" ⇒ KHÔNG dựng ô nhập cho nó; quy tắc sinh thành một dòng ở "## 10. Business Rules".
 - "CHƯA rõ …" ⇒ đây là chỗ người dùng chưa chốt: xử như một GIẢ ĐỊNH ở "## 12. Assumptions" thay vì im lặng chọn thay họ.
+
+""";
+    }
+
+    // Khối "bảng báo cáo đã chốt": mỗi báo cáo một dòng, kèm câu hỏi nó trả lời, đối tượng nó lấy số và các
+    // chiều gộp/lọc. Rỗng thì biến mất (dự án cũ, dự án không cần báo cáo, hoặc chưa chốt bảng).
+    //
+    // Vì sao nó cần ở đây dù các màn hình báo cáo đã có mặt ở phạm vi: PlannedScope chỉ chở được cái TÊN.
+    // Phần quyết định một màn hình báo cáo có dùng được hay không — nó trả lời câu hỏi gì, lấy số từ đối
+    // tượng nào, gộp/lọc theo chiều nào — nằm ở đây, và nếu không nạp vào thì bước sinh spec dựng ra một
+    // bảng đổ toàn bộ dữ liệu ra màn hình rồi gọi đó là báo cáo.
+    private static string ReportMapSection(string? reportMap)
+    {
+        if (string.IsNullOrWhiteSpace(reportMap))
+            return string.Empty;
+
+        return $"""
+
+Bảng báo cáo / thống kê người dùng ĐÃ CHỐT (họ tự rà từng dòng — đây là YÊU CẦU, không phải giả định):
+{reportMap.Trim()}
+
+Bắt buộc với bảng này: mỗi báo cáo ở trên phải có MỘT màn hình riêng ở mục "## 6. Screens To Generate" (chúng đã nằm trong phạm vi màn hình, không được gộp hai báo cáo làm một và không được bỏ báo cáo nào). Phần "lấy số từ" phải trỏ về đúng entity đó ở "## 8. Data Model Summary" — TUYỆT ĐỐI không dựng thêm bảng dữ liệu riêng cho báo cáo. Phần "gộp/lọc theo" phải thành BỘ LỌC THẬT của màn hình và thành tham số truy vấn ở "## 9. API Expectations", không chỉ là một câu mô tả. Quyền xem của từng báo cáo lấy theo bảng phân quyền, không tự suy ra từ tên báo cáo. Báo cáo nào người dùng đã BỎ thì TUYỆT ĐỐI không dựng lại.
 
 """;
     }

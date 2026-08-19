@@ -44,6 +44,7 @@ public class RequirementsController : Controller
     private readonly ConfirmFlowMapUseCase _confirmFlowMapUseCase;
     private readonly ConfirmScreenScopeUseCase _confirmScreenScopeUseCase;
     private readonly ConfirmEntityMapUseCase _confirmEntityMapUseCase;
+    private readonly ConfirmReportMapUseCase _confirmReportMapUseCase;
     private readonly ConfirmNotificationMapUseCase _confirmNotificationMapUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly ILogger<RequirementsController> _logger;
@@ -85,6 +86,7 @@ public class RequirementsController : Controller
        ConfirmFlowMapUseCase confirmFlowMapUseCase,
        ConfirmScreenScopeUseCase confirmScreenScopeUseCase,
        ConfirmEntityMapUseCase confirmEntityMapUseCase,
+       ConfirmReportMapUseCase confirmReportMapUseCase,
        ConfirmNotificationMapUseCase confirmNotificationMapUseCase,
        BAChatTurnTracker chatTurnTracker,
        ILogger<RequirementsController> logger)
@@ -117,6 +119,7 @@ public class RequirementsController : Controller
         _confirmFlowMapUseCase = confirmFlowMapUseCase;
         _confirmScreenScopeUseCase = confirmScreenScopeUseCase;
         _confirmEntityMapUseCase = confirmEntityMapUseCase;
+        _confirmReportMapUseCase = confirmReportMapUseCase;
         _confirmNotificationMapUseCase = confirmNotificationMapUseCase;
         _chatTurnTracker = chatTurnTracker;
         _logger = logger;
@@ -668,6 +671,20 @@ public class RequirementsController : Controller
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
             : Json(new { ok = false, error = "Không lưu được bảng đối tượng — tải lại trang rồi thử lại nhé." });
+    }
+
+    // BẢNG BÁO CÁO / THỐNG KÊ — mỗi báo cáo một dòng, và mỗi dòng còn tích là một MÀN HÌNH: use case gieo
+    // nó vào PlannedScope nên nó đi tiếp vào bảng màn hình rồi thành DÒNG của bảng phân quyền.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
+    public async Task<IActionResult> ConfirmReportMap(Guid projectId, [FromForm] string reportsJson)
+    {
+        var result = await _confirmReportMapUseCase.ExecuteAsync(projectId, reportsJson, HttpContext.RequestAborted);
+        return result.Rows > 0
+            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
+            : Json(new { ok = false, error = "Không lưu được bảng báo cáo — tải lại trang rồi thử lại nhé." });
     }
 
     // BẢNG THÔNG BÁO / NHẮC NHỞ — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một dòng, người nhận

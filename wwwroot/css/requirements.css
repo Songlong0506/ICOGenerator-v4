@@ -2547,6 +2547,52 @@
 .chat-editing #messageInput { border-color: var(--bosch-blue, #2563eb); }
 
 
+/* ==== BẢNG BÁO CÁO / THỐNG KÊ ====
+   Bảng thứ tư của buổi phỏng vấn. Bốn cột nội dung phải LỌT trong khung chat (cùng lý do với bảng thông
+   báo): mọi cột ở đây đều là ô người dùng phải rà, mà một cột nằm ngoài vùng nhìn thấy thì coi như không
+   tồn tại. Cột "để trả lời câu hỏi gì" nuốt phần thừa vì nó là ô dài nhất và cũng là ô đáng đọc nhất —
+   đó là chỗ duy nhất chở lời của chính người dùng. */
+.reportmap-th-name { width: 135px; min-width: 135px; }
+.reportmap-th-source { width: 140px; min-width: 140px; }
+.reportmap-th-breakdown { width: 120px; min-width: 120px; }
+
+/* `.ms-combo--single` mang `min-width: 170px` (bề rộng của một dropdown trong biểu mẫu), và trong bảng thì
+   nó THẮNG bề rộng cột: cột "lấy số từ" nong ra 188px, đẩy cột cuối — nút xóa dòng người dùng vừa thêm —
+   ra ngoài vùng nhìn thấy. Ô trong bảng lấy bề rộng từ cột, không từ chính nó. */
+.reportmap-table .ms-combo--single { min-width: 0; width: 100%; }
+
+/* Ô "lấy số từ" được dropdown.js nâng thành .ms-combo dùng chung của app, nên nó mang sẵn caption (lặp lại
+   đúng tiêu đề cột) và chiều cao của một field trong biểu mẫu. Trong một BẢNG thì cả hai đều sai chỗ: caption
+   nói lại điều cột đã nói, còn 46px chiều cao nong mọi dòng cao thêm hẳn một dòng chữ. Vẫn giữ `aria-label`
+   trên thẻ select — nó là tên khả truy cập của ô, thứ tiêu đề cột không thay được. */
+.reportmap-table .ms-combo-caption { display: none; }
+
+.reportmap-table .ms-combo-trigger {
+    min-height: 34px;
+    padding: 4px 10px;
+}
+
+/* `max-width` chứ không chỉ `font-size`: `.permmap-table` là `display: block` (nó cuộn ngang được) nên
+   `table-layout: fixed` KHÔNG áp dụng, và bề rộng cột được tính theo nội dung tối thiểu. Chữ trong ô chọn
+   không xuống dòng ⇒ nội dung tối thiểu của cả cột là tên đối tượng DÀI NHẤT, và cột cuối — nút xóa dòng
+   người dùng vừa thêm — bị đẩy ra ngoài vùng nhìn thấy. Trần này cho phép cắt bằng "…" (tên đầy đủ vẫn còn
+   trong danh sách khi mở ra), đúng cách cột CC của bảng thông báo giữ mình trong khung. */
+.reportmap-table .ms-combo-text { font-size: 13px; max-width: 88px; }
+
+/* Ô "lấy số từ" là danh sách ĐÓNG. Để nó co theo bề rộng cột thay vì theo mục dài nhất: tên đối tượng dài
+   ("Đơn đăng ký khóa học bắt buộc") sẽ nong cột ra và đẩy cột câu hỏi ra ngoài khung chat. */
+.reportmap-source {
+    width: 100%;
+    max-width: 100%;
+    padding: 5px 6px;
+    border: 1px solid #d7dde5;
+    border-radius: 6px;
+    background: #fff;
+    font: inherit;
+    font-size: 12.5px;
+    color: #2c3e50;
+}
+
 /* ==== BẢNG THÔNG BÁO / NHẮC NHỞ ====
    Bảng cuối cùng của buổi phỏng vấn. Hai cột người nhận là ô CHỌN NHIỀU dựng bằng markup .ms-combo dùng
    chung (site.css) nên nó trông y hệt mọi dropdown khác của app; ở đây chỉ chỉnh những gì một ô trong

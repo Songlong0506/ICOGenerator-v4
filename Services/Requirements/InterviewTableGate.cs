@@ -18,6 +18,9 @@ public enum InterviewTableKind
     /// <summary>Bảng ĐỐI TƯỢNG nghiệp vụ: thông tin cần lưu + vòng đời trạng thái.</summary>
     EntityMap,
 
+    /// <summary>Bảng BÁO CÁO / THỐNG KÊ: mỗi báo cáo một dòng, và mỗi dòng còn tích là một MÀN HÌNH.</summary>
+    ReportMap,
+
     /// <summary>Bảng PHÂN QUYỀN (màn hình × chức năng × vai trò).</summary>
     PermissionMatrix,
 
@@ -32,15 +35,17 @@ public enum InterviewTableKind
 /// <b>Vì sao phải có một chỗ chọn duy nhất.</b> Mỗi cổng bơm một khối <c>## LƯỢT NÀY:</c> vào ngữ cảnh, và
 /// hai khối như thế cùng lúc là hai mệnh lệnh chọi nhau — model sẽ trả một bảng lai hoặc bỏ cả hai. Repo đã
 /// gặp đúng chuyện này ở quy mô nhỏ hơn: cổng bảng phân quyền phải NHƯỜNG một lượt cho lượt kể lại file
-/// bảng tính vì cùng lý do. Với năm bảng thì việc nhường không còn là một ngoại lệ viết tay được nữa, nên
+/// bảng tính vì cùng lý do. Với sáu bảng thì việc nhường không còn là một ngoại lệ viết tay được nữa, nên
 /// nó thành một hàm.
 /// </para>
 ///
 /// <para>
 /// <b>Thứ tự ưu tiên là thứ tự PHỤ THUỘC, không phải thứ tự tiện tay.</b> Luồng trước, vì màn hình được
 /// suy ra từ bước luồng và bảng màn hình có một ô hỏi thẳng "màn này phục vụ bước nào". Màn hình trước đối
-/// tượng, vì cái người dùng nhìn thấy trên màn hình quyết định thông tin nào thật sự cần lưu. Phân quyền
-/// gần cuối, vì các DÒNG của nó là màn hình — hỏi trước khi phạm vi màn hình đứng yên thì bảng thiếu nửa
+/// tượng, vì cái người dùng nhìn thấy trên màn hình quyết định thông tin nào thật sự cần lưu. Báo cáo sau
+/// đối tượng (số liệu của một báo cáo lấy từ một đối tượng) nhưng TRƯỚC phân quyền, vì mỗi báo cáo còn tích
+/// là một MÀN HÌNH mới — hỏi sau thì các màn hình ấy không có dòng quyền nào và không có mục nào ở
+/// <c>## 6. Screens To Generate</c>. Phân quyền gần cuối, vì các DÒNG của nó là màn hình — hỏi trước khi phạm vi màn hình đứng yên thì bảng thiếu nửa
 /// số dòng, mà quyền của một màn hình chưa tồn tại thì không ai trả lời được. Thông báo CUỐI CÙNG, vì nó
 /// vay cả hai chiều: các DÒNG là chuyển trạng thái của bảng đối tượng, còn danh sách người nhận cần các
 /// VAI TRÒ của bảng phân quyền — vai trò của ứng dụng đang thiết kế chỉ tồn tại trong hội thoại, không có
@@ -48,19 +53,24 @@ public enum InterviewTableKind
 /// </para>
 ///
 /// <para>
-/// <b>Vì sao ba bảng GIỮA không được là điều kiện để một nhóm lên <c>[RÕ]</c>.</b> Hai nhóm cuối («Phân
+/// <b>Vì sao BỐN bảng GIỮA không được là điều kiện để một nhóm lên <c>[RÕ]</c>.</b> Hai nhóm cuối («Phân
 /// quyền theo nghiệp vụ» và «Thông báo / nhắc nhở») có luật khắt khe một chiều — chưa có bảng thì không
-/// bao giờ <c>[RÕ]</c> — và luật đó đúng vì cả hai KHÔNG được hỏi bằng câu hỏi. Ba nhóm của các bảng giữa
-/// thì có: chúng được hỏi suốt buổi, và bảng chỉ XÁC NHẬN LẠI thứ hội thoại đã trả lời. Áp luật một chiều
+/// bao giờ <c>[RÕ]</c> — và luật đó đúng vì cả hai KHÔNG được hỏi bằng câu hỏi. Bốn nhóm của các bảng giữa
+/// (luồng, màn hình, đối tượng, báo cáo) thì có: chúng được hỏi suốt buổi, và bảng chỉ XÁC NHẬN LẠI thứ
+/// hội thoại đã trả lời. Với bảng BÁO CÁO điều đó còn là điều kiện MỞ CỔNG chứ không chỉ là một lựa chọn
+/// thiết kế — xem <see cref="ReportMapGate"/>: bảng chỉ bày ra khi nhóm đã <c>[RÕ]</c>, vì một bảng báo cáo
+/// TRỐNG bắt người dùng nghiệp vụ tự chẻ câu chuyện của họ thành bốn cột trước khi gõ được chữ nào. Áp luật một chiều
 /// cho chúng là dựng một vòng khóa kín — cổng đòi nhóm <c>[RÕ]</c> mới mở, bản đồ đòi có bảng mới
 /// <c>[RÕ]</c>, và không bên nào đi trước được. Đó chính là cái bẫy mà <see cref="PermissionMatrixGate"/>
 /// né bằng cách cố ý BỎ QUA hai dòng đó khi xét.
 /// </para>
 ///
 /// <para>
-/// Hệ quả: khi <see cref="PermissionMatrixGate"/> mở (mọi nhóm áp dụng khác đã <c>[RÕ]</c>), điều kiện của
-/// cả ba cổng kia đương nhiên cũng đã đúng — nên bảng nào chưa chốt sẽ lần lượt được hỏi TRƯỚC nó, và
-/// không cổng nào cần biết cổng khác tồn tại. Bảng phân quyền rồi bảng thông báo là hai bảng cuối, và
+/// Hệ quả: khi <see cref="PermissionMatrixGate"/> mở (mọi nhóm áp dụng khác đã <c>[RÕ]</c>), điều kiện bản
+/// đồ của cả bốn cổng kia đương nhiên cũng đã đúng — nên bảng nào chưa chốt sẽ lần lượt được hỏi TRƯỚC nó,
+/// và không cổng nào cần biết cổng khác tồn tại. Riêng <see cref="ReportMapGate"/> còn một vế thứ hai
+/// (bảng đối tượng đã CHỐT) nhưng vế đó không mở thêm đường vòng nào: bảng đối tượng chưa chốt thì
+/// <see cref="EntityMapGate"/> đang mở và thắng ưu tiên, nên lượt ấy vẫn là một lượt bày bảng. Bảng phân quyền rồi bảng thông báo là hai bảng cuối, và
 /// nhóm của cả hai chỉ <c>[RÕ]</c> sau khi bảng được chốt, nên không có đường nào soạn tài liệu mà bỏ qua
 /// các bảng này.
 /// </para>
@@ -82,6 +92,8 @@ public static class InterviewTableGate
             return InterviewTableKind.ScreenScope;
         if (EntityMapGate.ShouldAsk(project))
             return InterviewTableKind.EntityMap;
+        if (ReportMapGate.ShouldAsk(project))
+            return InterviewTableKind.ReportMap;
         if (PermissionMatrixGate.ShouldAsk(project))
             return InterviewTableKind.PermissionMatrix;
         if (NotificationMapGate.ShouldAsk(project))
@@ -99,6 +111,7 @@ public static class InterviewTableGate
         public const string Data = "Dữ liệu / danh mục chính";
         public const string Lifecycle = "Vòng đời & trạng thái";
         public const string Notification = "Thông báo / nhắc nhở";
+        public const string Report = "Báo cáo / thống kê";
     }
 
     /// <summary>
@@ -341,6 +354,60 @@ public static class EntityMapGate
         return FlowMapGate.CoverageReady(items)
                && InterviewTableGate.IsClear(items, InterviewTableGate.Groups.Data)
                && InterviewTableGate.IsSettled(items, InterviewTableGate.Groups.Lifecycle);
+    }
+}
+
+/// <summary>
+/// Cổng TẤT ĐỊNH cho BẢNG BÁO CÁO / THỐNG KÊ — bảng THỨ TƯ, đứng giữa bảng đối tượng và bảng phân quyền.
+///
+/// <para>
+/// Điều kiện mở, cả ba đều bắt buộc:
+/// </para>
+/// <list type="number">
+///   <item><b>Chưa chốt bảng.</b></item>
+///   <item><b>Bảng ĐỐI TƯỢNG đã chốt</b> — ô "lấy số từ" của mỗi báo cáo phải trỏ về một đối tượng người
+///   dùng vừa tự tay rà (<see cref="EntityMapBuilder.EntityNames"/>). Đây là vế treo vào một artifact, thứ
+///   ba cổng đầu cố tình tránh; ở đây nó an toàn vì nó không mở thêm đường vòng nào: bảng đối tượng chưa
+///   chốt thì <see cref="EntityMapGate"/> đang mở và thắng ưu tiên, nên lượt ấy vẫn là một lượt bày bảng
+///   chứ không phải một lượt câm. Cùng khuôn với <see cref="NotificationMapGate"/>, cổng cũng xét theo
+///   bảng đã chốt.</item>
+///   <item><b>Nhóm «Báo cáo / thống kê» đã <c>[RÕ]</c></b> — và đây là điều kiện QUAN TRỌNG NHẤT của cổng
+///   này, không phải một chi tiết về nhịp. Bảng của các nhóm khác được bày ra để BA <i>ráp lại</i> thứ hội
+///   thoại đã kể; bảng báo cáo cũng vậy, nhưng nó là bảng duy nhất mà cám dỗ "bày sớm cho người dùng tự
+///   điền" là có thật, vì hình dạng câu trả lời (một danh sách) trông như đã sẵn sàng cho một cái bảng
+///   trống. Bày trống là bắt người dùng nghiệp vụ tự chẻ câu chuyện của họ thành bốn cột trước khi gõ được
+///   chữ nào — khó hơn hẳn kể tự do, nên thứ thu về ÍT hơn cả cái ô text nó thay thế, và đó là đúng thái
+///   cực mà luật "ô ý nghĩa do BA điền sẵn" của bảng cột đã bỏ đi một lần rồi.</item>
+/// </list>
+///
+/// <para>
+/// <b>Nhóm này vẫn được hỏi bằng CÂU HỎI</b>, khác hẳn hai nhóm chốt-bằng-bảng ở cuối — nên điều kiện thứ
+/// ba không phải một vòng khóa kín: câu mở đầu của nhóm vẫn nằm ở
+/// <see cref="CoverageGroupOpeners"/> và hội thoại vẫn là đường đưa nhóm lên <c>[RÕ]</c>. Bảng chỉ CHỐT
+/// LẠI cho có ranh giới. Cùng lý do, <c>[KHÔNG ÁP DỤNG]</c> (người dùng nói rõ không cần báo cáo nào) KHÔNG
+/// phải <c>[RÕ]</c> ⇒ cổng không bao giờ mở, và đó là đường thoát cho dự án không có báo cáo: không có nó
+/// thì một ứng dụng thuần nhập liệu vẫn bị bày ra một bảng báo cáo rỗng ở cuối buổi.
+/// </para>
+/// </summary>
+public static class ReportMapGate
+{
+    /// <summary>Đã tới lúc bày bảng báo cáo cho dự án này chưa.</summary>
+    public static bool ShouldAsk(Project project)
+        => ShouldAsk(project.RequirementCoverageMap, project.ReportMap, project.EntityMap);
+
+    /// <summary>Bản thuần dữ liệu — để test và để gọi từ nơi không có entity.</summary>
+    public static bool ShouldAsk(string? coverageMap, string? reportMapJson, string? entityMapJson)
+    {
+        if (ReportMapBuilder.IsConfirmed(reportMapJson))
+            return false;
+        if (!EntityMapBuilder.IsConfirmed(entityMapJson))
+            return false;
+
+        var items = CoverageMapParser.Parse(coverageMap);
+        if (items.Count == 0)
+            return false;
+
+        return InterviewTableGate.IsClear(items, InterviewTableGate.Groups.Report);
     }
 }
 
