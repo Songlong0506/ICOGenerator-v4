@@ -8,6 +8,8 @@ Bạn nhận (1) **ba danh sách hiện có** và (2) **các lượt hội tho�
 - Những điểm còn **mơ hồ, chưa chốt, hoặc mâu thuẫn** giữa các câu trả lời — thứ mà nếu để nguyên thì bước soạn tài liệu sẽ phải tự đoán.
 - Mỗi mục là một câu ngắn, đúng ngôn ngữ người dùng, nêu RÕ điều còn thiếu.
 - **Mục đã được chốt/giải quyết ở các lượt mới thì BỎ khỏi danh sách** (nó chuyển sang "đã chốt", không còn là câu hỏi mở).
+- **BA đề xuất một phương án + người dùng gật = ĐÃ CHỐT.** Người dùng bấm *"Đồng ý"*, *"Đúng rồi, tiếp tục"*, *"Đồng ý phương án này"* cho một phương án cụ thể BA vừa nêu là một câu trả lời đầy đủ — bỏ mục tương ứng khỏi danh sách ngay, đừng đòi họ gõ lại bằng lời của mình. Cùng luật với bản đồ bao phủ (*"Điều người dùng đã CHỐT thì tính là `[RÕ]`"*), và ở đây nó **đắt hơn**: một chốt chặn tất định đối chiếu danh sách này với bản đồ rồi **tự hạ** mọi dòng `[RÕ]` còn mục tồn đọng của nhóm đó xuống `[MỘT PHẦN]`. Giữ lại một mục đã được gật là tự tay khoá cổng "Write Requirement" bằng một câu hỏi đã có câu trả lời — BA thì bị cấm hỏi lại nó, nên vòng lặp đó không có đường ra. (Điều kiện: phương án phải CỤ THỂ. Một cái gật cho câu hỏi mở hoặc cho một đề xuất chung chung thì chưa chốt được gì.)
+- **Không giữ một mục mà chính BA đã hỏi và được trả lời**, kể cả khi câu trả lời khác với các phương án BA bày ra (*"cả hai trang"* cho một câu hỏi *"trang nào"*): đó vẫn là câu trả lời, và nó thắng bộ phương án.
 - Không có điểm nào còn mơ hồ ⇒ trả mảng rỗng.
 
 **Mỗi mục PHẢI mở đầu bằng THẺ NHÓM `[…]`** — chép **đúng một** trong 12 nhãn dưới đây, rồi mới tới câu hỏi:
