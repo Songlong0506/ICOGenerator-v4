@@ -17,13 +17,33 @@ LlmClient / AgentRunService
 ```
 
 - **`ILlmClient.ChatAsync`** — đường chat thuần (BA). **`ChatStructuredAsync<T>`** — xin API ép JSON, opt-in theo từng model (xem [Structured output](#structured-output-cho-các-lời-gọi-ba-opt-in-3-mức)).
-- **`LlmCost`** tính chi phí = token × đơn giá model — cùng công thức cho trang Usage và Budget guard.
+- **`LlmCost`** tính chi phí = token × đơn giá model — cùng công thức cho trang Usage và Budget guard. Xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache).
 - **`IBudgetGuard`** kiểm tra **trước mỗi lời gọi** (cả agent lẫn BA chat): chạm trần (`Budget:*`) ⇒ từ chối gọi, ném `BudgetExceededException` với lý do.
 - **`JsonExtractor`/`JsonDefaults`** — tiện ích bóc JSON từ trả lời văn xuôi.
 
+### Cached input (token prompt đọc lại từ cache)
+
+Provider tính token prompt **đọc lại từ cache** rẻ hơn hẳn token input thường (OpenAI/DeepSeek: ~1/10). App **không bật** cache bằng tham số nào cả — với OpenAI đây là cơ chế **tự động** (prompt đủ dài, prefix trùng lượt trước), nên việc của app chỉ là **đo và tính đúng**:
+
+| Khâu | Ở đâu |
+|---|---|
+| Đọc số token cache của một lượt | `ModelCallLoggingChatClient.ApplyTokenCounts` → `UsageDetails.CachedInputTokenCount` (Microsoft.Extensions.AI ánh xạ từ `prompt_tokens_details.cached_tokens`) |
+| Lưu lại | `AgentModelCallLog.CachedPromptTokens` |
+| Đơn giá | `AiModel.CachedInputPricePerMillionTokens` (màn hình **AI Models**) |
+| Quy ra USD | `LlmCost.Usd(prompt, cached, completion, LlmPrice)` |
+
+Bốn điều dễ hiểu ngược:
+
+- **`CachedPromptTokens` nằm TRONG `PromptTokens`**, không cộng thêm. Chi phí = `(prompt − cached) × giá input + cached × giá cache + completion × giá output`.
+- **Đơn giá cache để 0 nghĩa là "chưa khai báo", không phải "miễn phí"** — khi đó phần cache tính theo **giá input đầy đủ** (`LlmPrice.EffectiveCachedInput`). Mọi model đã có trong DB trước khi có cột này đều là 0, nên mặc định này giữ nguyên cách tính cũ thay vì làm mọi báo cáo tụt xuống.
+- **Không có ước lượng thay thế.** Endpoint không trả `cached_tokens` ⇒ 0. Cache là chuyện phía provider; đoán ra một con số là bịa ra một khoản giảm giá không có thật.
+- **Lượt streaming chỉ có `usage` khi server tự gửi** (OpenAI: `stream_options.include_usage`) — app **không ép** tham số này vì nhiều server OpenAI-compatible từ chối tham số lạ. Không có `usage` thì cả token lẫn cache đều rơi về ước lượng/0. Vì vậy cột "Cached prompt" ở trang Usage hiện `–` chứ không hiện `0%`: hai chuyện "endpoint không báo" và "không lượt nào trúng cache" app không phân biệt được.
+
+`CachedInputWireFormatTests` lái **SDK OpenAI thật** trên một endpoint loopback trả `usage` đúng hình dạng OpenAI: ánh xạ `cached_tokens` → `CachedInputTokenCount` nằm trong hai gói ngoài repo, đổi phiên bản mà ánh xạ hỏng thì số cache im lặng về 0 và chi phí chỉ *đắt hơn* chứ không sai kiểu nổ ra lỗi.
+
 ### Thêm một model mới
 
-Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible), `ApiKey`, `ContextWindow`, đơn giá (0 nếu tự host). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
+Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
 
 Modal Add/Edit có nút **Test Connection**: gọi thử một request chat cực nhỏ (prompt `"ping"`, chặn ở 16 token đầu ra) tới endpoint đang gõ và hiện ngay kết quả (OK + thời gian phản hồi, hoặc lỗi kèm status/nguyên nhân) — không cần lưu model rồi đi chạy agent mới biết cấu hình sai. Lời gọi thử KHÔNG ghi call log, không tính vào budget; trên form Edit để trống `ApiKey` thì nó dùng key đã lưu. Deadline riêng: `Llm:TestConnectionTimeoutSeconds` (mặc định 30s).
 
@@ -92,7 +112,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `LlmProxy` | Dựng `IWebProxy` từ `Llm:Proxy` (địa chỉ, credential Windows, bypass list) | đổi cách app đi qua proxy công ty |
 | `IModelCallLogger` / `ModelCallLogger` | Ghi một dòng call log | đổi schema log |
 | `IModelConnectionTester` / `ModelConnectionTester` | Nút "Test Connection" — **không** log, **không** tính budget | đổi cách chẩn đoán lỗi cấu hình |
-| `LlmCost`, `TokenEstimator`, `MaxOutputTokenResolver` | Ba phép tính thuần (USD, ước lượng token, trần output) | đổi công thức |
+| `LlmCost` + `LlmPrice`, `TokenEstimator`, `MaxOutputTokenResolver` | Ba phép tính thuần (USD kể cả phần cached input, ước lượng token, trần output) | đổi công thức |
 
 Hai quy ước giữ cho nó không rối lại:
 - **`LlmJson` là chỗ ĐỌC JSON model trả về duy nhất.** Trước đây gần chục service tự chép "bóc JSON rồi

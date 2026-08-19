@@ -10,6 +10,7 @@ function openEditModel(
     endpoint,
     contextWindow,
     inputPrice,
+    cachedInputPrice,
     outputPrice,
     isActive,
     supportsVision,
@@ -25,6 +26,7 @@ function openEditModel(
     document.getElementById('edit-api-key-preview').textContent = apiKeyMask || '(chưa cấu hình)';
     document.getElementById('edit-context-window').value = contextWindow;
     document.getElementById('edit-input-price').value = inputPrice;
+    document.getElementById('edit-cached-input-price').value = cachedInputPrice;
     document.getElementById('edit-output-price').value = outputPrice;
 
     document.getElementById('edit-is-active').checked = isActive === 'true';

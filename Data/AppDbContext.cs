@@ -70,6 +70,7 @@ public class AppDbContext : DbContext
         // decimal(18,6): đủ chỗ cho đơn giá lẻ kiểu $0.075/1M token mà không bị làm tròn về 2 chữ số như mặc định.
         builder.Entity<AiModel>().Property(x => x.InputPricePerMillionTokens).HasPrecision(18, 6);
         builder.Entity<AiModel>().Property(x => x.OutputPricePerMillionTokens).HasPrecision(18, 6);
+        builder.Entity<AiModel>().Property(x => x.CachedInputPricePerMillionTokens).HasPrecision(18, 6);
         builder.Entity<AiModel>().Property(x => x.StructuredOutputMode).HasConversion<string>().HasMaxLength(20);
         builder.Entity<Agent>().Property(x => x.RoleKey).HasConversion<string>().HasMaxLength(100);
         // RoleKey là danh tính của agent: mọi lookup (BAAgentResolver, WorkflowOrchestrator, AgentTaskWorker,

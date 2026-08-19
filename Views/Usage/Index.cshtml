@@ -170,9 +170,10 @@
             <thead>
                 <tr>
                     <th>Model</th>
-                    <th>Unit price (in / out, $/1M)</th>
+                    <th>Unit price (in / cached / out, $/1M)</th>
                     <th>Total Tokens</th>
                     <th>Prompt</th>
+                    <th>Cached prompt</th>
                     <th>Completion</th>
                     <th>Calls</th>
                     <th>Cost</th>
@@ -188,7 +189,14 @@
                         <td>
                             @if (m.HasPrice)
                             {
-                                <span>@Unit(m.InputPricePerMillionTokens) / @Unit(m.OutputPricePerMillionTokens)</span>
+                                @* Giá cache để 0 = CHƯA KHAI BÁO ở màn hình AI Models; khi đó token cache
+                                   vẫn được tính theo giá input đầy đủ (xem LlmPrice), nên chi phí ở cột
+                                   Cost là chặn TRÊN của hóa đơn thật chứ không phải con số đã giảm giá. *@
+                                <span>
+                                    @Unit(m.InputPricePerMillionTokens) /
+                                    @(m.CachedInputPricePerMillionTokens > 0 ? Unit(m.CachedInputPricePerMillionTokens) : "—") /
+                                    @Unit(m.OutputPricePerMillionTokens)
+                                </span>
                             }
                             else
                             {
@@ -197,6 +205,22 @@
                         </td>
                         <td><b>@m.TotalTokens.ToString("N0")</b></td>
                         <td>@m.PromptTokens.ToString("N0")</td>
+                        <td>
+                            @if (m.CachedPromptTokens > 0)
+                            {
+                                <span title="Phần prompt được provider đọc lại từ cache — đã nằm trong cột Prompt, không cộng thêm.">
+                                    @m.CachedPromptTokens.ToString("N0")
+                                    <span class="muted">(@m.CacheHitPercent.ToString("0.#")%)</span>
+                                </span>
+                            }
+                            else
+                            {
+                                @* 0 gộp hai chuyện khác hẳn nhau: endpoint KHÔNG trả cached_tokens (server
+                                   local, hoặc lượt streaming không có usage), và có trả nhưng không hit lần nào.
+                                   App không phân biệt được, nên đừng hiện "0%" như một kết luận. *@
+                                <span class="muted" title="Endpoint không trả prompt_tokens_details.cached_tokens, hoặc chưa có lượt nào trúng cache.">–</span>
+                            }
+                        </td>
                         <td>@m.CompletionTokens.ToString("N0")</td>
                         <td>@m.CallCount.ToString("N0")</td>
                         <td class="cost-cell">@(m.HasPrice ? Money(m.Cost) : "–")</td>

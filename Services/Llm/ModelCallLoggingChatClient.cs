@@ -224,7 +224,21 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         result.PromptTokens = (int?)usage?.InputTokenCount ?? result.PromptTokens;
         result.CompletionTokens = (int?)usage?.OutputTokenCount ?? TokenEstimator.Estimate(text);
         result.TotalTokens = (int?)usage?.TotalTokenCount ?? (result.PromptTokens + result.CompletionTokens);
+        result.CachedPromptTokens = ReadCachedPromptTokens(usage, result.PromptTokens);
     }
+
+    /// <summary>
+    /// Số token prompt được phục vụ từ cache (<c>prompt_tokens_details.cached_tokens</c> phía OpenAI).
+    /// KHÔNG có ước lượng thay thế: cache là chuyện phía provider, đoán ra một con số là bịa ra một khoản
+    /// giảm giá không tồn tại — không có số thì 0, và chi phí tính theo giá input đầy đủ (đúng bằng hành vi
+    /// trước khi có cột này).
+    /// Kẹp trong [0, PromptTokens] vì phần cache nằm TRONG prompt: một endpoint lạ trả số lớn hơn sẽ đẩy
+    /// phần input phải trả tiền xuống ÂM và làm lệch mọi bản tổng cộng dồn từ đó.
+    /// </summary>
+    private static int ReadCachedPromptTokens(UsageDetails? usage, int promptTokens)
+        // Math.Clamp NÉM khi min > max, nên cận trên phải tự kẹp về >= 0 trước: một promptTokens âm (endpoint
+        // trả usage vô lý) sẽ biến một dòng thống kê thành exception giữa đường ống gọi model.
+        => usage?.CachedInputTokenCount is { } cached ? (int)Math.Clamp(cached, 0, Math.Max(promptTokens, 0)) : 0;
 
     // Single place the budget breaker is consulted (both overrides call this first). No-op when no guard is
     // wired (eval, unit tests) so behaviour is unchanged unless enabled.

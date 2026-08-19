@@ -6,10 +6,10 @@
 - **Tùy chọn theo user**: `/Notifications/Preferences` — bật/tắt kênh, chọn loại sự kiện, email cá nhân.
 
 ## Budget guard
-`IBudgetGuard` chặn **trước** mỗi lời gọi model khi tổng chi phí trong kỳ (`Monthly`/`Daily`/`Total`) chạm trần hệ thống hoặc trần mỗi-project. Chi phí tính y hệt trang Usage. Chỉ chính xác khi model khai báo đơn giá. Bản tổng chi phí được **cache 15 giây** (IMemoryCache) và query tổng đi qua index `AgentModelCallLogs(CreatedAt)` — một agent run 40 bước không còn quét bảng log 40 lần; đổi lại trần có thể bị vượt thêm đúng lượng chi tiêu của cửa sổ cache đó (chấp nhận được cho một chốt chặn đo theo kỳ).
+`IBudgetGuard` chặn **trước** mỗi lời gọi model khi tổng chi phí trong kỳ (`Monthly`/`Daily`/`Total`) chạm trần hệ thống hoặc trần mỗi-project. Chi phí tính y hệt trang Usage (cùng `LlmCost`, kể cả phần token đọc từ cache). Chỉ chính xác khi model khai báo đơn giá. Bản tổng chi phí được **cache 15 giây** (IMemoryCache) và query tổng đi qua index `AgentModelCallLogs(CreatedAt)` — một agent run 40 bước không còn quét bảng log 40 lần; đổi lại trần có thể bị vượt thêm đúng lượng chi tiêu của cửa sổ cache đó (chấp nhận được cho một chốt chặn đo theo kỳ).
 
 ## Usage & Delivery Quality
-- **Usage**: token & USD theo model/project/tháng, kèm "Usage by department" (roll-up `OrgUnitCode` về department gần nhất).
+- **Usage**: token & USD theo model/project/tháng, kèm "Usage by department" (roll-up `OrgUnitCode` về department gần nhất). Bảng "Cost by model" tách thêm cột **Cached prompt** (số token + % prompt được provider đọc lại từ cache) và đơn giá cache — xem [cached input](llm-and-prompts.md#cached-input-token-prompt-đọc-lại-từ-cache).
 - **Delivery Quality**: thông lượng pipeline, tỉ lệ rework (revision/bugfix), độ tin cậy model; có card trỏ sang Prompt Evals.
 
 ## Feedback

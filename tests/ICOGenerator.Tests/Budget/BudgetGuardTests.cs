@@ -132,12 +132,47 @@ public class BudgetGuardTests : IDisposable
         await Assert.ThrowsAsync<BudgetExceededException>(() => guard.EnsureWithinBudgetAsync(project));
     }
 
+    // Trần ngân sách phải đo cùng số tiền mà provider thật sự tính: bỏ qua phần prompt đọc từ cache là
+    // chặn sớm hơn thực tế, và người đặt trần không hiểu vì sao pipeline dừng khi hóa đơn còn xa mức đó.
+    [Fact]
+    public async Task CachedPromptTokens_AreBilledAtTheCachedRate()
+    {
+        await using (var db = NewDb())
+        {
+            var model = await db.AiModels.FirstAsync();
+            model.CachedInputPricePerMillionTokens = 1m; // 1/10 giá input
+            await db.SaveChangesAsync();
+        }
+
+        // 100k prompt, 90k trong đó từ cache: 10k @ $10 + 90k @ $1 = $0.10 + $0.09 = $0.19 (thay vì $1).
+        var project = await SeedProjectWithSpendAsync(promptTokens: 100_000, completionTokens: 0, cachedPromptTokens: 90_000);
+
+        var guard = Guard(systemUsd: 0.5m, perProjectUsd: 0m);
+        await guard.EnsureWithinBudgetAsync(project); // $0.19 < $0.50 → qua; nếu tính giá input đầy đủ ($1) sẽ chặn nhầm
+
+        var ex = await Assert.ThrowsAsync<BudgetExceededException>(
+            () => Guard(systemUsd: 0.15m, perProjectUsd: 0m).EnsureWithinBudgetAsync(project));
+        Assert.Equal(0.19m, ex.SpentUsd);
+    }
+
+    // Model chưa khai báo giá cache (mọi model đã có trong DB trước khi có cột này) phải giữ NGUYÊN cách
+    // tính cũ — token cache tính theo giá input đầy đủ, không tự nhiên rẻ đi sau một lần migrate.
+    [Fact]
+    public async Task UndeclaredCachedPrice_KeepsChargingFullInputRate()
+    {
+        var project = await SeedProjectWithSpendAsync(promptTokens: 100_000, completionTokens: 100_000, cachedPromptTokens: 90_000);
+
+        var ex = await Assert.ThrowsAsync<BudgetExceededException>(
+            () => Guard(systemUsd: 3m, perProjectUsd: 0m).EnsureWithinBudgetAsync(project));
+        Assert.Equal(4m, ex.SpentUsd); // đúng bằng con số của các test khác: $1 input + $3 output
+    }
+
     // Mỗi guard một MemoryCache riêng để test không dây dưa số liệu cache của nhau; hành vi cache
     // được kiểm tường minh ở SpendSnapshotIsCached_WithinTtl.
     private BudgetGuard Guard(decimal systemUsd, decimal perProjectUsd, BudgetPeriod period = BudgetPeriod.Monthly)
         => new(NewDb(), new BudgetPolicy(enabled: true, period, systemUsd, perProjectUsd), new MemoryCache(new MemoryCacheOptions()));
 
-    private async Task<Guid> SeedProjectWithSpendAsync(int promptTokens, int completionTokens, DateTime? createdAt = null)
+    private async Task<Guid> SeedProjectWithSpendAsync(int promptTokens, int completionTokens, DateTime? createdAt = null, int cachedPromptTokens = 0)
     {
         var projectId = Guid.NewGuid();
         await using (var db = NewDb())
@@ -145,12 +180,12 @@ public class BudgetGuardTests : IDisposable
             db.Projects.Add(new Project { Id = projectId, Name = "P" });
             await db.SaveChangesAsync();
         }
-        await SeedSpendForProjectAsync(projectId, promptTokens, completionTokens, createdAt);
+        await SeedSpendForProjectAsync(projectId, promptTokens, completionTokens, createdAt, cachedPromptTokens);
         return projectId;
     }
 
     // Ghi thêm một dòng chi tiêu cho project ĐÃ có — dùng để mô phỏng chi tiêu phát sinh sau lần kiểm đầu.
-    private async Task SeedSpendForProjectAsync(Guid projectId, int promptTokens, int completionTokens, DateTime? createdAt = null)
+    private async Task SeedSpendForProjectAsync(Guid projectId, int promptTokens, int completionTokens, DateTime? createdAt = null, int cachedPromptTokens = 0)
     {
         await using var db = NewDb();
         db.AgentModelCallLogs.Add(new AgentModelCallLog
@@ -159,6 +194,7 @@ public class BudgetGuardTests : IDisposable
             AgentId = _agentId,
             ModelId = ModelId,
             PromptTokens = promptTokens,
+            CachedPromptTokens = cachedPromptTokens,
             CompletionTokens = completionTokens,
             TotalTokens = promptTokens + completionTokens,
             IsSuccess = true,
