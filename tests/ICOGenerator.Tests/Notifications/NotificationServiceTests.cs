@@ -12,9 +12,10 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Notifications;
 
-// NotificationService tạo thông báo cho MỌI user trong bảng (lọc theo tùy chọn của từng người), và chỉ Add
-// (không SaveChanges) — người gọi lưu. Không còn lọc theo quyền DeliveryAdvance: vai trò chỉ tồn tại trong
-// claim của phiên đăng nhập, mà người nhận thì đang offline. Đọc/đánh dấu ràng theo chủ sở hữu.
+// NotificationService ĐANG TẮT TẠM THỜI (NotificationService.Enabled = false): cách chọn người nhận cũ lọc
+// theo quyền DeliveryAdvance, mà quyền suy ra từ vai trò, còn vai trò nay chỉ tồn tại trong claim của phiên
+// đăng nhập — người cần được báo thì đang offline. Test ở đây ghim trạng thái "không gửi gì cả"; phần
+// đọc/đánh dấu đã đọc (ràng theo chủ sở hữu) vẫn chạy bình thường vì nó không phụ thuộc đường gửi.
 // Chạy trên AppDbContext thật (Sqlite).
 public class NotificationServiceTests : IDisposable
 {
@@ -29,77 +30,6 @@ public class NotificationServiceTests : IDisposable
 
         using var db = NewDb();
         db.Database.EnsureCreated();
-    }
-
-    [Fact]
-    public async Task NotifyGateOpened_CreatesForEveryUser()
-    {
-        var projectId = Guid.NewGuid();
-        var runId = Guid.NewGuid();
-
-        await using (var db = NewDb())
-        {
-            db.AppUsers.AddRange(
-                new AppUser { Username = "admin" },
-                new AppUser { Username = "teamdev" },
-                new AppUser { Username = "user" });
-            db.Projects.Add(new Project { Id = projectId, Name = "Cổng thanh toán" });
-            db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId, Status = WorkflowRunStatus.WaitingForHuman });
-            await db.SaveChangesAsync();
-        }
-
-        await using (var db = NewDb())
-        {
-            var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
-            var svc = new NotificationService(db, Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
-
-            await svc.NotifyGateOpenedAsync(run, "Đề xuất kiến trúc");
-            // Service chỉ Add — người gọi lưu.
-            await db.SaveChangesAsync();
-        }
-
-        await using (var db = NewDb())
-        {
-            var rows = await db.Notifications.OrderBy(n => n.RecipientUsername).ToListAsync();
-            // Mọi user đều nhận: không còn nguồn nào cho biết ai có quyền duyệt cổng khi họ đang offline.
-            Assert.Equal(new[] { "admin", "teamdev", "user" }, rows.Select(r => r.RecipientUsername).ToArray());
-            Assert.All(rows, r =>
-            {
-                Assert.Equal(NotificationType.GateAwaitingApproval, r.Type);
-                Assert.Equal("Cổng thanh toán", r.ProjectName);
-                Assert.Equal(projectId, r.ProjectId);
-                Assert.Equal(runId, r.WorkflowRunId);
-                Assert.False(r.IsRead);
-                Assert.Contains(projectId.ToString(), r.Link);
-                Assert.Contains("Đề xuất kiến trúc", r.Message);
-            });
-        }
-    }
-
-    [Fact]
-    public async Task NotifyGateOpened_AddsOnly_DoesNotSaveByItself()
-    {
-        var projectId = Guid.NewGuid();
-        var runId = Guid.NewGuid();
-
-        await using (var db = NewDb())
-        {
-            db.AppUsers.Add(new AppUser { Username = "teamdev" });
-            db.Projects.Add(new Project { Id = projectId, Name = "P" });
-            db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
-            await db.SaveChangesAsync();
-        }
-
-        await using (var db = NewDb())
-        {
-            var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
-            var svc = new NotificationService(db, Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
-            await svc.NotifyGateOpenedAsync(run, "X");
-            // KHÔNG SaveChanges ⇒ không có dòng nào được persist.
-        }
-
-        await using (var db = NewDb())
-            Assert.Equal(0, await db.Notifications.CountAsync());
     }
 
     [Fact]
@@ -182,8 +112,44 @@ public class NotificationServiceTests : IDisposable
         }
     }
 
+    // Hợp đồng hiện tại: NotificationService ĐANG TẮT (NotificationService.Enabled = false) nên không đường
+    // vào nào ghi dòng Notifications hay gọi kênh ngoài. Hai test dưới GHIM đúng trạng thái đó — khi bật lại,
+    // chúng phải fail và được thay bằng test cho tiêu chí chọn người nhận mới.
     [Fact]
-    public async Task NotifyGateOpened_DispatchesToEnabledChannelsOnly_AndIsFailOpen()
+    public async Task AllNotifyMethods_CreateNothing_WhileDisabled()
+    {
+        var projectId = Guid.NewGuid();
+        var runId = Guid.NewGuid();
+
+        await using (var db = NewDb())
+        {
+            db.AppUsers.AddRange(
+                new AppUser { Username = "admin" },
+                new AppUser { Username = "teamdev", NotifyInApp = true, NotifyByEmail = true, Email = "e@bosch.com" },
+                new AppUser { Username = "user" });
+            db.Projects.Add(new Project { Id = projectId, Name = "Cổng thanh toán" });
+            db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId, Status = WorkflowRunStatus.WaitingForHuman });
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
+            var svc = new NotificationService(db, Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
+
+            await svc.NotifyGateOpenedAsync(run, "Đề xuất kiến trúc");
+            await svc.NotifyRunCompletedAsync(run);
+            await svc.NotifyRunFailedAsync(run, "boom");
+            await svc.NotifyPocAcceptedAsync(run, "teamdev");
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+            Assert.Equal(0, await db.Notifications.CountAsync());
+    }
+
+    [Fact]
+    public async Task Disabled_DoesNotTouchExternalChannels()
     {
         var projectId = Guid.NewGuid();
         var runId = Guid.NewGuid();
@@ -197,107 +163,23 @@ public class NotificationServiceTests : IDisposable
         }
 
         var enabled = new RecordingChannel(isEnabled: true);
-        var disabled = new RecordingChannel(isEnabled: false);
         var throwing = new ThrowingChannel();
 
         await using (var db = NewDb())
         {
             var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
-            var options = new NotificationOptions { BaseUrl = "https://app.example/" };
             var svc = new NotificationService(
                 db,
-                new INotificationChannel[] { enabled, disabled, throwing },
-                options,
+                new INotificationChannel[] { enabled, throwing },
+                new NotificationOptions { BaseUrl = "https://app.example/" },
                 NullLogger<NotificationService>.Instance);
 
+            // Kênh ném lỗi có mặt: nếu đường gửi còn chạy, nó đã ném ra ở đây.
             await svc.NotifyGateOpenedAsync(run, "Đề xuất kiến trúc");
             await db.SaveChangesAsync();
         }
 
-        // Kênh bật nhận đúng thông điệp với URL TUYỆT ĐỐI (đã ghép BaseUrl, không nhân đôi dấu /).
-        Assert.NotNull(enabled.Last);
-        Assert.Equal(NotificationType.GateAwaitingApproval, enabled.Last!.Type);
-        Assert.Equal($"https://app.example/AgentDashboard?projectId={projectId}", enabled.Last.Url);
-        Assert.Equal("Cổng thanh toán", enabled.Last.ProjectName);
-
-        // Kênh tắt không được gọi; kênh ném lỗi không làm gãy (fail-open) và in-app vẫn ghi.
-        Assert.Null(disabled.Last);
-        await using (var db = NewDb())
-            Assert.Equal(1, await db.Notifications.CountAsync(n => n.RecipientUsername == "teamdev"));
-    }
-
-    [Fact]
-    public async Task Dispatch_RespectsInAppToggle_AndCollectsPerUserEmailRecipients()
-    {
-        var projectId = Guid.NewGuid();
-        var runId = Guid.NewGuid();
-
-        await using (var db = NewDb())
-        {
-            db.AppUsers.AddRange(
-                new AppUser { Username = "bell_all", NotifyInApp = true, NotifyByEmail = false },
-                new AppUser { Username = "email_opt", NotifyInApp = true, NotifyByEmail = true, Email = "e@bosch.com" },
-                new AppUser { Username = "muted_inapp", NotifyInApp = false, NotifyByEmail = false },
-                new AppUser { Username = "opt_no_addr", NotifyInApp = true, NotifyByEmail = true, Email = null });
-            db.Projects.Add(new Project { Id = projectId, Name = "P" });
-            db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
-            await db.SaveChangesAsync();
-        }
-
-        var channel = new RecordingChannel(isEnabled: true);
-        await using (var db = NewDb())
-        {
-            var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
-            var svc = new NotificationService(
-                db, new INotificationChannel[] { channel }, new NotificationOptions(),
-                NullLogger<NotificationService>.Instance);
-            await svc.NotifyGateOpenedAsync(run, "X");
-            await db.SaveChangesAsync();
-        }
-
-        // In-app: chỉ 3 user bật chuông (muted_inapp bị loại).
-        await using (var db = NewDb())
-        {
-            var users = await db.Notifications.Select(n => n.RecipientUsername).OrderBy(x => x).ToListAsync();
-            Assert.Equal(new[] { "bell_all", "email_opt", "opt_no_addr" }, users);
-        }
-
-        // Email cá nhân: chỉ email_opt (opt-in + có địa chỉ). opt_no_addr opt-in nhưng thiếu email ⇒ loại.
-        Assert.NotNull(channel.Last);
-        Assert.Equal(new[] { "e@bosch.com" }, channel.Last!.EmailRecipients);
-    }
-
-    [Fact]
-    public async Task Dispatch_SkipsEventType_WhenUserMutedIt()
-    {
-        var projectId = Guid.NewGuid();
-        var runId = Guid.NewGuid();
-
-        await using (var db = NewDb())
-        {
-            db.AppUsers.Add(new AppUser { Username = "gate_only", NotifyInApp = true, NotifyOnCompleted = false });
-            db.Projects.Add(new Project { Id = projectId, Name = "P" });
-            db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
-            await db.SaveChangesAsync();
-        }
-
-        async Task Fire(Func<NotificationService, WorkflowRun, Task> act)
-        {
-            await using var db = NewDb();
-            var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
-            var svc = new NotificationService(db, Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
-            await act(svc, run);
-            await db.SaveChangesAsync();
-        }
-
-        await Fire((svc, run) => svc.NotifyRunCompletedAsync(run));   // đã tắt ⇒ không tạo
-        await Fire((svc, run) => svc.NotifyGateOpenedAsync(run, "X")); // vẫn bật ⇒ tạo
-
-        await using (var db = NewDb())
-        {
-            var types = await db.Notifications.Select(n => n.Type).ToListAsync();
-            Assert.Equal(new[] { NotificationType.GateAwaitingApproval }, types);
-        }
+        Assert.Null(enabled.Last);
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());

@@ -9,15 +9,28 @@ namespace ICOGenerator.Services.Notifications;
 /// Hiện thực <see cref="INotificationService"/>: xác định người nhận rồi <c>Add</c> một
 /// <see cref="Notification"/> cho mỗi người vào DbContext hiện hành. Không SaveChanges (xem hợp đồng ở
 /// interface). Toàn bộ bọc try/catch fail-open.
-/// Người nhận = MỌI user trong bảng, lọc theo tùy chọn thông báo của chính họ. Trước đây còn lọc thêm theo
-/// quyền <see cref="AppPermission.DeliveryAdvance"/>, nhưng quyền đó suy ra từ vai trò mà vai trò nay chỉ
-/// tồn tại trong claim của phiên đăng nhập (xem <see cref="Domain.AppUser"/>) — người nhận thông báo thì
-/// đang OFFLINE, không có phiên nào để đọc. Hệ quả: người không có quyền duyệt cổng cũng nhận được chuông;
-/// bấm vào vẫn bị <c>ProjectAccessGuard</c>/<c>[RequirePermission]</c> chặn ở màn hình đích, nên đây là
-/// nhiễu chứ không phải lỗ hổng. Ai không muốn nhận thì tự tắt ở trang Preferences.
+/// <para>
+/// <b>ĐANG TẮT TẠM THỜI — xem <see cref="Enabled"/>.</b> Bốn đường vào đều trả về ngay: không dòng
+/// <c>Notifications</c> nào được ghi, không kênh ngoài nào được gọi. Bộ máy bên dưới giữ nguyên để bật lại
+/// chỉ là đổi một hằng số.
+/// </para>
 /// </summary>
 public class NotificationService : INotificationService
 {
+    /// <summary>
+    /// Công tắc TẠM THỜI của toàn bộ việc gửi thông báo. Đặt <c>false</c> vì cách chọn người nhận cũ đã hỏng:
+    /// nó lọc theo quyền <see cref="AppPermission.DeliveryAdvance"/>, mà quyền suy ra từ vai trò, còn vai trò
+    /// nay chỉ tồn tại trong claim của phiên đăng nhập (xem <see cref="Domain.AppUser"/>) — người cần được
+    /// báo thì đang OFFLINE, không có phiên nào để đọc. Cách duy nhất còn lại là gửi cho MỌI user, tức là
+    /// làm phiền cả những người không có quyền duyệt cổng, nên thà im còn hơn.
+    /// <para>
+    /// Bật lại: đổi thành <c>true</c> SAU KHI đã có tiêu chí chọn người nhận không phụ thuộc vai trò — ví dụ
+    /// một bảng đăng ký người theo dõi từng project, hoặc cột người phụ trách trên <c>Project</c>. Chỉ đổi
+    /// hằng số này mà không sửa <see cref="ResolveRecipientsAsync"/> thì mọi user sẽ nhận mọi thông báo.
+    /// </para>
+    /// </summary>
+    private const bool Enabled = false;
+
     private readonly AppDbContext _db;
     private readonly IEnumerable<INotificationChannel> _channels;
     private readonly NotificationOptions _options;
@@ -36,28 +49,36 @@ public class NotificationService : INotificationService
     }
 
     public Task NotifyGateOpenedAsync(WorkflowRun run, string nextStepTitle, CancellationToken cancellationToken = default) =>
-        CreateForEligibleAsync(run, NotificationType.GateAwaitingApproval,
-            "Chờ duyệt bước delivery",
-            $"Một bước đã xong — chờ bạn duyệt để sang: {nextStepTitle}.",
-            cancellationToken);
+        Enabled
+            ? CreateForEligibleAsync(run, NotificationType.GateAwaitingApproval,
+                "Chờ duyệt bước delivery",
+                $"Một bước đã xong — chờ bạn duyệt để sang: {nextStepTitle}.",
+                cancellationToken)
+            : Task.CompletedTask;
 
     public Task NotifyRunCompletedAsync(WorkflowRun run, CancellationToken cancellationToken = default) =>
-        CreateForEligibleAsync(run, NotificationType.WorkflowCompleted,
-            "Workflow hoàn tất",
-            "Quy trình giao hàng đã chạy xong tất cả các bước.",
-            cancellationToken);
+        Enabled
+            ? CreateForEligibleAsync(run, NotificationType.WorkflowCompleted,
+                "Workflow hoàn tất",
+                "Quy trình giao hàng đã chạy xong tất cả các bước.",
+                cancellationToken)
+            : Task.CompletedTask;
 
     public Task NotifyRunFailedAsync(WorkflowRun run, string? error, CancellationToken cancellationToken = default) =>
-        CreateForEligibleAsync(run, NotificationType.WorkflowFailed,
-            "Workflow thất bại",
-            string.IsNullOrWhiteSpace(error) ? "Quy trình giao hàng đã dừng vì lỗi — cần xem lại." : $"Quy trình dừng vì lỗi: {Truncate(error, 300)}",
-            cancellationToken);
+        Enabled
+            ? CreateForEligibleAsync(run, NotificationType.WorkflowFailed,
+                "Workflow thất bại",
+                string.IsNullOrWhiteSpace(error) ? "Quy trình giao hàng đã dừng vì lỗi — cần xem lại." : $"Quy trình dừng vì lỗi: {Truncate(error, 300)}",
+                cancellationToken)
+            : Task.CompletedTask;
 
     public Task NotifyPocAcceptedAsync(WorkflowRun run, string acceptedBy, CancellationToken cancellationToken = default) =>
-        CreateForEligibleAsync(run, NotificationType.PocAccepted,
-            "Bản demo đã được nghiệm thu",
-            $"{acceptedBy} xác nhận bản demo (POC) đã đạt — có thể duyệt cổng POC để đi tiếp các bước sau.",
-            cancellationToken);
+        Enabled
+            ? CreateForEligibleAsync(run, NotificationType.PocAccepted,
+                "Bản demo đã được nghiệm thu",
+                $"{acceptedBy} xác nhận bản demo (POC) đã đạt — có thể duyệt cổng POC để đi tiếp các bước sau.",
+                cancellationToken)
+            : Task.CompletedTask;
 
     private async Task CreateForEligibleAsync(WorkflowRun run, NotificationType type, string title, string message, CancellationToken cancellationToken)
     {
@@ -148,8 +169,9 @@ public class NotificationService : INotificationService
     }
 
     // Người nhận = mọi user có username, kèm tùy chọn thông báo của họ (việc lọc theo tùy chọn nằm ở bên
-    // gọi). Không lọc theo quyền được nữa — xem chú thích đầu class. Bảng user nhỏ (seed vài tài khoản, cộng
-    // các user SSO tự tạo) nên nạp thẳng một lượt.
+    // gọi). CHÍNH CHỖ NÀY là lý do Enabled đang false: không còn cách nào lọc ra "ai nên được báo", nên bật
+    // lại mà không thay tiêu chí ở đây thì mọi user sẽ nhận mọi thông báo. Bảng user nhỏ (seed vài tài
+    // khoản, cộng các user SSO tự tạo) nên nạp thẳng một lượt.
     private async Task<IReadOnlyList<Recipient>> ResolveRecipientsAsync(CancellationToken cancellationToken) =>
         await _db.AppUsers
             .Where(u => u.Username != "")

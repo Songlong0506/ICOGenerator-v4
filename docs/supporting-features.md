@@ -1,8 +1,11 @@
 # Các tính năng vệ tinh
 
 ## Notifications
-- **In-app (chuông)**: luôn chạy. `NotificationService` ghi bảng `Notifications` tại các sự kiện workflow (cổng chờ duyệt / hoàn tất / thất bại); client poll `GET /Notifications/Feed`.
-- **Người nhận = MỌI user trong bảng `AppUsers`**, lọc theo tùy chọn của chính họ. Không lọc theo quyền `DeliveryAdvance` được, vì quyền suy ra từ vai trò mà vai trò chỉ tồn tại trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#phân-quyền-chiều-dọc--role--quyền-mức-hành-động)) — người nhận thông báo thì đang offline, không có phiên nào để đọc. Người không có quyền duyệt cổng vẫn nhận chuông; bấm vào thì bị chặn ở màn hình đích, nên đây là nhiễu chứ không phải lỗ hổng, và ai không muốn nhận thì tắt ở Preferences.
+> ⚠️ **Đường GỬI đang tắt tạm thời** (`NotificationService.Enabled = false`): không dòng `Notifications` nào được ghi, không kênh ngoài nào được gọi. Lý do: cách chọn người nhận cũ lọc theo quyền `DeliveryAdvance`, mà quyền suy ra từ vai trò, còn vai trò nay chỉ tồn tại trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#phân-quyền-chiều-dọc--role--quyền-mức-hành-động)) — người cần được báo thì đang offline, không có phiên nào để đọc. Lựa chọn còn lại là gửi cho mọi user, tức làm phiền cả người không có quyền duyệt cổng, nên tạm im. **Bật lại** = đổi hằng số đó thành `true` SAU KHI đã có tiêu chí chọn người nhận không phụ thuộc vai trò. Phần đọc/đánh dấu đã đọc và trang Preferences vẫn chạy bình thường.
+
+Bộ máy bên dưới giữ nguyên, mô tả dưới đây là hành vi khi bật lại:
+
+- **In-app (chuông)**: `NotificationService` ghi bảng `Notifications` tại các sự kiện workflow (cổng chờ duyệt / hoàn tất / thất bại); client poll `GET /Notifications/Feed`.
 - **Kênh ngoài (Teams webhook, SMTP email, Bosch Email Server API)**: opt-in qua config, fail-open (lỗi gửi chỉ log warning, không gãy workflow). Kiến trúc plugin: hiện thực `INotificationChannel` mới + đăng ký DI là xong. `BoschEmailServerNotificationChannel` gửi qua Email Server API nội bộ (HTTP + header `ApiKey`, giống các app Bosch khác) — dùng khi hạ tầng chỉ mở API thay vì SMTP; kèm chốt an toàn `OnlySendToTesterEmail` lọc người nhận về danh sách tester cho môi trường non-prod.
 - **Tùy chọn theo user**: `/Notifications/Preferences` — bật/tắt kênh, chọn loại sự kiện, email cá nhân.
 
