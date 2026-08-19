@@ -175,6 +175,69 @@ public class ModelCallLoggingChatClientTests
         Assert.True(completed.TotalTokens > 0);
     }
 
+    // ── Cached input tokens: đọc phần prompt provider phục vụ từ cache (rẻ hơn ~10 lần) ────────────────
+
+    [Fact]
+    public async Task NonStreaming_ReadsCachedPromptTokens_FromAdditionalCounts()
+    {
+        var usage = new UsageDetails { InputTokenCount = 1000, OutputTokenCount = 50, TotalTokenCount = 1050, CachedInputTokenCount = 768 };
+        var inner = new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")) { Usage = usage });
+        var logger = new FakeModelCallLogger();
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false));
+
+        await client.GetResponseAsync(Hi());
+
+        var r = logger.Logged[0].Result;
+        Assert.Equal(768, r.CachedPromptTokens);
+        // Phần cache nằm TRONG prompt, không cộng thêm — nếu chỗ nào đó cộng dồn hai cột này thì hỏng ở đây.
+        Assert.Equal(1000, r.PromptTokens);
+    }
+
+    [Fact]
+    public async Task Streaming_ReadsCachedPromptTokens_FromAdditionalCounts()
+    {
+        var usage = new UsageDetails { InputTokenCount = 400, OutputTokenCount = 10, TotalTokenCount = 410, CachedInputTokenCount = 128 };
+        var inner = new FakeChatClient(streamChunks: new[] { "hi" }, usage: usage);
+        var logger = new FakeModelCallLogger();
+        LlmCallResult? completed = null;
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false, onCompleted: r => completed = r));
+
+        await foreach (var _ in client.GetStreamingResponseAsync(Hi())) { }
+
+        Assert.Equal(128, completed!.CachedPromptTokens);
+        Assert.Equal(128, logger.Logged[0].Result.CachedPromptTokens);
+    }
+
+    // Cache là chuyện phía provider: không có số thì để 0 chứ KHÔNG ước lượng — đoán ra một con số là bịa
+    // ra một khoản giảm giá không tồn tại, và mọi báo cáo chi phí sẽ thấp hơn hóa đơn thật.
+    [Fact]
+    public async Task CachedPromptTokens_IsZero_WhenProviderOmitsTheCount()
+    {
+        var usage = new UsageDetails { InputTokenCount = 1000, OutputTokenCount = 50, TotalTokenCount = 1050 };
+        var inner = new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")) { Usage = usage });
+        var logger = new FakeModelCallLogger();
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false));
+
+        await client.GetResponseAsync(Hi());
+
+        Assert.Equal(0, logger.Logged[0].Result.CachedPromptTokens);
+    }
+
+    // Endpoint lạ trả cached > prompt sẽ đẩy phần input phải trả tiền xuống ÂM và ăn bớt chi phí của các
+    // dòng khác khi cộng dồn — kẹp ngay tại chỗ đọc, đừng để con số vô lý đi tiếp vào DB.
+    [Fact]
+    public async Task CachedPromptTokens_IsClampedToPromptTokens()
+    {
+        var usage = new UsageDetails { InputTokenCount = 100, OutputTokenCount = 5, TotalTokenCount = 105, CachedInputTokenCount = 999_999 };
+        var inner = new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")) { Usage = usage });
+        var logger = new FakeModelCallLogger();
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false));
+
+        await client.GetResponseAsync(Hi());
+
+        Assert.Equal(100, logger.Logged[0].Result.CachedPromptTokens);
+    }
+
     // ── Budget circuit breaker: refuse BEFORE the round-trip and before any logging ─────────────────────
 
     [Fact]

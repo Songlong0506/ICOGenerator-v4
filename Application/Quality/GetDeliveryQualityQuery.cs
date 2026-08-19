@@ -101,17 +101,17 @@ public class GetDeliveryQualityQuery
         // Bảng giá theo ModelId (giống GetUsageOverviewQuery) — quy token ra USD bằng cùng công thức LlmCost.
         var priceByModelId = (await _db.AiModels
                 .AsNoTracking()
-                .Select(m => new { m.ModelId, m.InputPricePerMillionTokens, m.OutputPricePerMillionTokens })
+                .Select(m => new { m.ModelId, m.InputPricePerMillionTokens, m.CachedInputPricePerMillionTokens, m.OutputPricePerMillionTokens })
                 .ToListAsync(cancellationToken))
             .GroupBy(m => m.ModelId)
             .ToDictionary(
                 g => g.Key ?? string.Empty,
-                g => (Input: g.First().InputPricePerMillionTokens, Output: g.First().OutputPricePerMillionTokens),
+                g => new LlmPrice(g.First().InputPricePerMillionTokens, g.First().CachedInputPricePerMillionTokens, g.First().OutputPricePerMillionTokens),
                 StringComparer.OrdinalIgnoreCase);
 
-        decimal CostFor(string? modelId, long prompt, long completion)
+        decimal CostFor(string? modelId, long prompt, long cached, long completion)
             => modelId != null && priceByModelId.TryGetValue(modelId, out var p)
-                ? LlmCost.Usd(prompt, completion, p.Input, p.Output)
+                ? LlmCost.Usd(prompt, cached, completion, p)
                 : 0m;
 
         bool HasPrice(string? modelId)
@@ -170,6 +170,7 @@ public class GetDeliveryQualityQuery
                     g.Key.WorkflowRunId,
                     g.Key.ModelId,
                     Prompt = g.Sum(x => (long)x.PromptTokens),
+                    Cached = g.Sum(x => (long)x.CachedPromptTokens),
                     Completion = g.Sum(x => (long)x.CompletionTokens)
                 })
                 .ToListAsync(cancellationToken);
@@ -177,7 +178,7 @@ public class GetDeliveryQualityQuery
             foreach (var row in callRows)
             {
                 if (row.WorkflowRunId is not Guid rid) continue;
-                var cost = CostFor(row.ModelId, row.Prompt, row.Completion);
+                var cost = CostFor(row.ModelId, row.Prompt, row.Cached, row.Completion);
                 costByRun[rid] = costByRun.TryGetValue(rid, out var c) ? c + cost : cost;
             }
         }
@@ -194,6 +195,7 @@ public class GetDeliveryQualityQuery
                 SuccessCount = g.Sum(x => x.IsSuccess ? 1 : 0),
                 DurationSum = g.Sum(x => x.DurationMs),
                 Prompt = g.Sum(x => (long)x.PromptTokens),
+                Cached = g.Sum(x => (long)x.CachedPromptTokens),
                 Completion = g.Sum(x => (long)x.CompletionTokens),
                 TotalTokens = g.Sum(x => (long)x.TotalTokens)
             })
@@ -207,7 +209,7 @@ public class GetDeliveryQualityQuery
                 m.Calls == 0 ? 0 : Math.Round(m.SuccessCount * 100d / m.Calls, 1),
                 m.Calls == 0 ? 0 : Math.Round((double)m.DurationSum / m.Calls, 0),
                 m.TotalTokens,
-                CostFor(m.ModelId, m.Prompt, m.Completion),
+                CostFor(m.ModelId, m.Prompt, m.Cached, m.Completion),
                 HasPrice(m.ModelId)))
             .OrderByDescending(m => m.Calls)
             .ToList();

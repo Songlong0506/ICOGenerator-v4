@@ -198,8 +198,8 @@ public class EvalRunnerService
             conversation.Add(new ChatMessage(ChatRole.User, userMessage));
             var baCall = await CallModelWithHistoryAsync(targetModel, conversation, TargetTemperature, cancellationToken);
             result.TargetTokens += baCall.TotalTokens;
-            result.TargetCost += LlmCost.Usd(baCall.PromptTokens, baCall.CompletionTokens,
-                targetModel.InputPricePerMillionTokens, targetModel.OutputPricePerMillionTokens);
+            result.TargetCost += LlmCost.Usd(baCall.PromptTokens, baCall.CachedPromptTokens, baCall.CompletionTokens,
+                PriceOf(targetModel));
 
             if (!baCall.IsSuccess)
             {
@@ -215,8 +215,8 @@ public class EvalRunnerService
 
             var personaCall = await CallModelAsync(targetModel, personaPrompt, BuildPersonaInput(turns, baMessage, reply.Suggestions), PersonaTemperature, cancellationToken);
             result.TargetTokens += personaCall.TotalTokens;
-            result.TargetCost += LlmCost.Usd(personaCall.PromptTokens, personaCall.CompletionTokens,
-                targetModel.InputPricePerMillionTokens, targetModel.OutputPricePerMillionTokens);
+            result.TargetCost += LlmCost.Usd(personaCall.PromptTokens, personaCall.CachedPromptTokens, personaCall.CompletionTokens,
+                PriceOf(targetModel));
 
             if (!personaCall.IsSuccess)
             {
@@ -240,8 +240,8 @@ public class EvalRunnerService
             judgeModel, _prompts.Get("Eval/judge.v1.md"), BuildInterviewJudgeInput(scenario, metrics, transcript), JudgeTemperature, cancellationToken);
 
         result.JudgeTokens = judgeCall.TotalTokens;
-        result.JudgeCost = LlmCost.Usd(judgeCall.PromptTokens, judgeCall.CompletionTokens,
-            judgeModel.InputPricePerMillionTokens, judgeModel.OutputPricePerMillionTokens);
+        result.JudgeCost = LlmCost.Usd(judgeCall.PromptTokens, judgeCall.CachedPromptTokens, judgeCall.CompletionTokens,
+            PriceOf(judgeModel));
 
         if (!judgeCall.IsSuccess)
         {
@@ -324,8 +324,8 @@ public class EvalRunnerService
         result.Output = targetResult.Content;
         result.TargetTokens = targetResult.TotalTokens;
         result.TargetCost = LlmCost.Usd(
-            targetResult.PromptTokens, targetResult.CompletionTokens,
-            targetModel.InputPricePerMillionTokens, targetModel.OutputPricePerMillionTokens);
+            targetResult.PromptTokens, targetResult.CachedPromptTokens, targetResult.CompletionTokens,
+            PriceOf(targetModel));
 
         if (!targetResult.IsSuccess)
         {
@@ -344,8 +344,8 @@ public class EvalRunnerService
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.JudgeTokens = judgeResult.TotalTokens;
         result.JudgeCost = LlmCost.Usd(
-            judgeResult.PromptTokens, judgeResult.CompletionTokens,
-            judgeModel.InputPricePerMillionTokens, judgeModel.OutputPricePerMillionTokens);
+            judgeResult.PromptTokens, judgeResult.CachedPromptTokens, judgeResult.CompletionTokens,
+            PriceOf(judgeModel));
 
         if (!judgeResult.IsSuccess)
         {
@@ -386,6 +386,13 @@ public class EvalRunnerService
          ## Câu trả lời của AI cần chấm
          {output}
          """;
+
+    // Đơn giá của model dưới dạng LlmCost đọc được. Eval cầm thẳng entity AiModel (khác Usage/BudgetGuard
+    // vốn phải tra theo ModelId trong log), nên chỉ cần gói lại.
+    private static LlmPrice PriceOf(AiModel model) => new(
+        model.InputPricePerMillionTokens,
+        model.CachedInputPricePerMillionTokens,
+        model.OutputPricePerMillionTokens);
 
     private Task<LlmCallResult> CallModelAsync(AiModel model, string systemPrompt, string userPrompt, double temperature, CancellationToken cancellationToken) =>
         CallModelWithHistoryAsync(model, new List<ChatMessage>

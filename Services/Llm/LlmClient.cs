@@ -284,6 +284,15 @@ public class LlmCallResult
     public string? ErrorMessage { get; set; }
     public string ModelId { get; set; } = string.Empty;
     public int PromptTokens { get; set; }
+
+    /// <summary>
+    /// Phần của <see cref="PromptTokens"/> mà provider phục vụ từ CACHE prompt (đã nằm trong PromptTokens,
+    /// không cộng thêm). Chỉ có khi endpoint trả <c>prompt_tokens_details.cached_tokens</c> — server
+    /// OpenAI-compatible/local không trả thì để 0. Đơn giá của phần này rẻ hơn hẳn phần input thường
+    /// (OpenAI/DeepSeek: ~1/10), nên bỏ qua nó là báo chi phí đắt hơn hóa đơn thật — xem <see cref="LlmCost"/>.
+    /// </summary>
+    public int CachedPromptTokens { get; set; }
+
     public int CompletionTokens { get; set; }
     public int TotalTokens { get; set; }
     public long DurationMs { get; set; }

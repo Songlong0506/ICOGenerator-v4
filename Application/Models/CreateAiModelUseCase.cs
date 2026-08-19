@@ -39,6 +39,7 @@ public class CreateAiModelUseCase
         m.ContextWindow,
         m.InputPricePerMillionTokens,
         m.OutputPricePerMillionTokens,
+        m.CachedInputPricePerMillionTokens,
         m.IsActive,
         m.SupportsVision,
         m.StructuredOutputMode,
