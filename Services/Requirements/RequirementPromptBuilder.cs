@@ -262,6 +262,15 @@ Bảng đối tượng nghiệp vụ người dùng ĐÃ CHỐT (đây là YÊU 
 
 Bắt buộc với bảng này: mục "## 8. Data Model Summary" phải dựng từ đúng các đối tượng và thông tin trên — không thêm entity nào chưa có ở đây, không bỏ thông tin nào đã tích. Vòng đời trạng thái phải thành các quy tắc chuyển trạng thái ở "## 10. Business Rules".
 
+Phần trong ngoặc vuông sau mỗi thông tin là RÀNG BUỘC người dùng đã tự tay chọn, mỗi loại có chỗ đi riêng:
+- "bắt buộc" ⇒ một quy tắc validation ở "## 10. Business Rules"; các thông tin còn lại để trống được.
+- "chọn 1 giá trị" / "chọn nhiều giá trị" ⇒ ô nhập là dropdown (đơn/đa trị), không phải ô gõ tay.
+- "danh sách cố định: …" ⇒ dùng ĐÚNG các giá trị đó, không tự thêm.
+- "danh sách do ứng dụng tự quản lý" ⇒ danh mục ấy cần một MÀN HÌNH CRUD riêng ở "## 6. Screens To Generate" và các endpoint tương ứng ở "## 9. API Expectations".
+- "lấy từ <hệ thống>" ⇒ ghi thành một nguồn dữ liệu ngoài ở "## 9. API Expectations"; POC dùng dữ liệu mẫu tĩnh và nói rõ điều đó.
+- "ứng dụng tự sinh theo quy tắc …" ⇒ KHÔNG dựng ô nhập cho nó; quy tắc sinh thành một dòng ở "## 10. Business Rules".
+- "CHƯA rõ …" ⇒ đây là chỗ người dùng chưa chốt: xử như một GIẢ ĐỊNH ở "## 12. Assumptions" thay vì im lặng chọn thay họ.
+
 """;
     }
 

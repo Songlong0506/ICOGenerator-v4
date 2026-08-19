@@ -152,7 +152,7 @@ tác trên từng dòng** thay vì một chip trả lời thay cho tất cả.
 |---|---|---|---|
 | Luồng nghiệp vụ | `FlowMap` | luồng chính + 1–2 ngoại lệ, mỗi luồng là chuỗi bước *ai làm → làm gì → trạng thái sau đó* | `## 13. Worked Examples` định tính (oracle chấm POC) + `## 10. Business Rules` |
 | Màn hình | `ScreenScopeMap` | phạm vi màn hình, việc của từng màn, **các chức năng** trên màn (mỗi chức năng một dòng tích riêng) và **bước luồng** từng chức năng phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
-| Đối tượng nghiệp vụ | `EntityMap` | thông tin cần lưu + vòng đời trạng thái | `## 8. Data Model Summary` + `## 10. Business Rules` |
+| Đối tượng nghiệp vụ | `EntityMap` | thông tin cần lưu (kèm **cách nhập** và **danh sách lấy ở đâu**) + vòng đời trạng thái | `## 8. Data Model Summary` + `## 10. Business Rules` + **màn hình danh mục** gieo vào `PlannedScope` |
 | Phân quyền | `PermissionMatrix` | quyền CRUD theo màn hình, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + điều kiện lọc ở `## 9. API Expectations` |
 | Thông báo / nhắc nhở | `NotificationMap` | mỗi **sự kiện** một dòng: có gửi email không, **To** và **CC** chọn từ danh sách người nhận của dự án | quy tắc gửi mail ở `## 10. Business Rules` |
 
@@ -490,6 +490,71 @@ không phải trả lời lại đúng câu họ đã trả lời.
 Vòng đời một trạng thái bị cắt sạch (đối tượng vẫn giữ — nó là đối tượng danh mục): "vòng đời" một trạng
 thái là không có vòng đời, và giữ lại là mời người dùng xác nhận một điều vô nghĩa. Luật này chỉ áp ở lượt
 BÀY BẢNG — xem ngay dưới.
+
+#### Hai TRỤC của một thông tin, và vì sao không gộp làm một
+
+Mỗi thông tin có thêm ba ô, và chúng trả lời đúng những gì `## 8. Data Model Summary` trước đây phải TỰ ĐOÁN
+từ một cái tên: **bắt buộc nhập hay không**, **người dùng nhập thế nào**, và — chỉ với ô chọn — **danh sách
+lấy ở đâu**.
+
+| Trục | Giá trị | Ô kèm theo |
+|---|---|---|
+| `Input` — nhập thế nào | `text` (mặc định) · `number` · `date` · `choice-one` · `choice-many` · `auto` | `auto` ⇒ ô **quy tắc sinh** (*"HcP-JD-XXX"*) |
+| `Source` — danh sách lấy ở đâu (**chỉ** với `choice-*`) | `inline` · `app` · `external` | `inline` ⇒ các **giá trị** gõ tại chỗ; `external` ⇒ **tên hệ thống** nguồn |
+
+**Hai trục chứ không phải một dropdown sáu giá trị.** Trực giác đầu tiên là gộp: *Text / List / Single Select
+/ MultiSelect*. Nhưng "List" không cùng loại với hai cái sau — một danh sách tự nhập **vẫn** phải nói rõ chọn
+MỘT hay chọn NHIỀU, và đó chính là thứ quyết định hình dạng ô nhập trong bản demo. Gộp lại là đẻ ra một ô mà
+không ai trả lời được, rồi POC dựng bừa một trong hai.
+
+**Ba luật tất định**, cùng họ với các chốt chặn khác của bảng và đều nằm ở `EntityMapBuilder.NormalizeFields`:
+
+- **Ô ngoài nhánh đang chọn bị CẮT**, không phải chỉ ẩn đi ở UI. Người dùng đổi *"chọn nhiều"* sang *"gõ
+  tay"* thì các giá trị họ gõ lúc trước vẫn còn trong payload, và một danh sách treo dưới một ô gõ tay sẽ
+  được cả spec lẫn POC đọc như thật.
+- **`Required` ép về `false`** khi thông tin bị bỏ tích *"cần lưu"* hoặc khi kiểu là `auto`. Cả hai là "ô này
+  không có nghĩa" chứ không phải một lựa chọn bị bác: bắt buộc nhập một ô người dùng **không hề nhập** là một
+  ràng buộc mà POC dựng ra sẽ chặn đúng cái biểu mẫu nó vừa dựng. UI khóa ô ngay lúc bấm để họ nhìn thấy điều
+  đó, server ép lại vì payload không đáng tin.
+- **Giá trị lạ rơi về MẶC ĐỊNH AN TOÀN** (`text` / nguồn rỗng), không rơi về một giá trị nào đó cho có.
+
+**Nguồn rỗng là HỢP LỆ và có nghĩa "chưa chốt" — và nó KHÔNG chặn nút gửi.** Đây là chỗ bảng này cố tình khác
+[bảng thông báo](#bảng-thông-báo-bảng-cuối-cùng), đường gửi duy nhất được phép từ chối một bảng đã bấm gửi: ở
+đó dòng khóa không có checkbox nên người dùng không có đường nào thoát ra ngoài việc điền, còn ở đây họ luôn
+bỏ tích được cả dòng. Đổi lại, **cả hai bản kể phải gọi tên đúng các ô còn thiếu** — tin nhắn gửi đi và khối
+ngữ cảnh (nơi ghi *"⇒ hỏi nốt"*, cùng hình dạng ngoại lệ với đối tượng rỗng ruột) — vì im lặng ở đây là để
+một dropdown không ai dựng được đi thẳng vào spec. Ba ca được gọi tên: chưa chọn nguồn, `external` mà chưa
+nói hệ thống nào, `inline` mà chưa nêu giá trị nào.
+
+**Từ vựng của hai trục là của HỆ THỐNG, không phải của người dùng.** Prompt vẫn cấm từ vựng kỹ thuật ở `entity`
+và `meaning` như cũ; hai trục chỉ sống trong JSON và trong hai dropdown có nhãn nghiệp vụ (*"Gõ tay"*, *"Chọn
+1"* — không phải *"Text"*, *"Single Select"*). BA **không** được hỏi *"trường này kiểu gì"* trong khung chat:
+bảng đã là chỗ họ chọn.
+
+#### `app` đẻ ra một MÀN HÌNH, và nó phải chảy ngược lên phạm vi
+
+Chọn *"ứng dụng tự quản lý"* nghĩa là ứng dụng phải có một màn hình CRUD riêng cho danh mục đó. Nhưng
+[thứ tự phụ thuộc](#một-cổng-đúng-một-bảng-mỗi-lượt) đặt bảng màn hình **trước** bảng này, nên tới lúc người
+dùng tích ô ấy thì phạm vi màn hình đã chốt xong từ mấy lượt trước. Để quyết định nằm lại trong cột
+`EntityMap` là để một màn hình không có mục nào ở `## 6. Screens To Generate` và không có DÒNG nào trong bảng
+phân quyền — tức **mặc nhiên "không ai được xem"** một màn hình người dùng vừa đặt hàng, và không có gì trên
+màn hình nói vì sao.
+
+`ConfirmEntityMapUseCase` vì vậy gieo mỗi danh mục `app` thành một mục `Màn hình quản lý danh mục <tên>` vào
+`Project.PlannedScope`. Không cổng nào phải sửa: `ScreenScopeGate` đã có sẵn đường **mở lại** bảng màn hình
+khi phạm vi trôi sau lúc chốt ([trên](#bảng-màn-hình-vá-cái-nền-mà-bảng-phân-quyền-đang-đứng-lên)), nên các
+mục này đi đúng đường mà ba màn hình danh mục của dự án *Learning and Development 7* đã đi. Ba ràng buộc:
+
+- **Ghép thêm, không ghi đè.** `PlannedScope` lúc này là danh sách người dùng đã tự tay rà ở bảng màn hình
+  (`ConfirmScreenScopeUseCase` ghi ngược lên đây); thay nó bằng mấy dòng danh mục là xoá sạch phạm vi đã duyệt.
+- **Mục trùng bị bỏ**, theo cùng phép chuẩn hoá mà `ScreenScopeMapBuilder` dùng để nhận ra "màn hình mới" —
+  nếu không, mỗi lần gửi lại bảng là thêm một dòng trùng nghĩa mà không dòng nào có việc của màn hình.
+- **Tên gieo ra phải đọc được như một MÀN HÌNH**, vì cột "Màn hình" chỉ được chứa màn hình: một mục tên
+  `OrgUnit` trần sẽ được rà như một màn hình mà không ai biết nó để làm gì.
+
+Người dùng chỉ tích một ô nhỏ trong một bảng dài, nên `RenderUserMessage` **gọi tên** các danh mục ấy ở cuối
+tin nhắn — cùng luật với các dòng bị bỏ tích và các đối tượng tự thêm: bản kể là thứ mọi tầng chắt lọc phía
+sau đọc, không phải cột DB.
 
 #### Thêm/xóa dòng ngay trên bảng, và hai chốt chặn phải nhường
 

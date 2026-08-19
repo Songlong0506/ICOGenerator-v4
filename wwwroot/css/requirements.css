@@ -2279,11 +2279,10 @@
 
 .entitymap-table { margin-top: 8px; }
 
-/* Cột "Là gì" NUỐT phần thừa của bảng thông tin — cùng luật với .screenmap-th-fn ở bảng vòng đời bên dưới
-   nó. Không cột nào giãn thì các cột co lại, chừa một dải trống bên phải và đẩy cột nút xóa vào giữa dòng,
-   trong khi bảng vòng đời ngay dưới lại có nút xóa sát mép: hai bảng con của cùng một khối đọc như hai
-   bảng lệch nhau. */
-.entitymap-fieldtable .screenmap-th-purpose { width: 100%; }
+/* Cột NUỐT phần thừa của bảng thông tin là cột "Thông tin" (xem .entityfield-th-name dưới) — cùng luật với
+   .screenmap-th-fn ở bảng vòng đời bên dưới nó. Không cột nào giãn thì các cột co lại, chừa một dải trống
+   bên phải và đẩy cột nút xóa vào giữa dòng, trong khi bảng vòng đời ngay dưới lại có nút xóa sát mép: hai
+   bảng con của cùng một khối đọc như hai bảng lệch nhau. */
 
 /* Dòng chứa nút thêm dòng con: tách khỏi dòng cuối cùng như .screenmap-addrow, không có nó thì nút trông như
    thuộc về dòng bên trên. */
@@ -2297,6 +2296,108 @@
 /* Đối tượng bị bỏ tích: mờ cả khối, kể cả hai bảng con. Bỏ tích ở tiêu đề là loại cả đối tượng, và điều
    đó phải nhìn thấy được ngay chứ không chỉ ở một ô vuông nhỏ. */
 .entitymap-block:has(input[type="checkbox"].entitymap-check:not(:checked)) { opacity: .55; }
+
+/* ==== Hai TRỤC của một thông tin: kiểu nhập, và (chỉ với kiểu chọn) danh sách lấy ở đâu ====
+   Ô nguồn tự dựng lại mỗi lần đổi dropdown — xem renderEntityFieldSource ở requirements.js. */
+
+/* SÁU cột phải LỌT trong khung chat — cùng luật với bảng thông báo: .permmap-table cuộn ngang được, nhưng
+   hai cột mới ở đây là cột người dùng phải điền, và một cột nằm ngoài vùng nhìn thấy thì coi như không tồn
+   tại. Đó là lý do "Là gì" xuống làm dòng phụ dưới tên (xem .entityfield-namecell) thay vì giữ một cột
+   riêng: bảy cột không lọt nổi, và cột đáng hy sinh là cột BA đã điền sẵn chứ không phải cột còn trống.
+   Hai cột dropdown giữ bề rộng CỐ ĐỊNH: để chúng co theo nội dung thì cả cột nhảy ngang mỗi lần người dùng
+   chọn một giá trị dài hơn, và việc rà dọc theo cột thành bất khả. */
+.entitymap-fieldtable th,
+.entitymap-fieldtable td { padding: 6px; }
+
+.entityfield-th-name { min-width: 170px; width: 100%; }
+.entityfield-th-req { width: 58px; min-width: 58px; white-space: normal; text-align: center; }
+.entityfield-th-input { width: 122px; min-width: 122px; }
+.entityfield-th-src { width: 200px; min-width: 200px; }
+
+/* Ô "Là gì" là dòng phụ: nhạt hơn và nhỏ hơn tên, để một cột chở hai vế mà mắt vẫn tách được chúng ra. */
+.entityfield-namecell .entityfield-meaning {
+    margin-top: 3px;
+    font-weight: 400;
+    font-size: .95em;
+    color: #6b7280;
+}
+
+.entityfield-select {
+    width: 100%;
+    padding: 3px 4px;
+    border: 1px solid #d5dae1;
+    border-radius: 4px;
+    background: #fff;
+    font: inherit;
+    color: #1f2937;
+}
+
+/* Ô "bắt buộc" đã khóa (thông tin bị bỏ tích, hoặc kiểu tự sinh): phải MỜ ĐI chứ không chỉ trơ ra khi bấm —
+   một ô tích không phản ứng mà trông vẫn bình thường đọc như giao diện hỏng. */
+.entityfield-required:disabled { opacity: .35; }
+
+/* Gạch ngang của ô nguồn không áp dụng. Nói "ô này không có gì để trả lời", khác hẳn một ô trống — thứ đọc
+   lên như một câu hỏi chưa ai đụng tới. */
+.entityfield-na { color: #b6bcc5; }
+
+/* Danh sách giá trị nhập tại chỗ. Chip xuống dòng tự do: một danh sách 10 giá trị mà cuộn ngang trong một ô
+   hẹp thì người dùng không bao giờ thấy giá trị cuối để bỏ nó đi. */
+.entityfield-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+
+.entityfield-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 4px 2px 8px;
+    border-radius: 999px;
+    background: #eef2f7;
+    color: #374151;
+    font-size: .92em;
+    white-space: normal;
+}
+
+.entityfield-optdel {
+    border: 0;
+    background: transparent;
+    padding: 0 2px;
+    line-height: 1;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 1.05em;
+}
+
+    .entityfield-optdel:hover { color: #b42318; }
+
+/* Ô thêm giá trị: viền ĐỨT để nó đọc như một chỗ trống chờ điền chứ không như một chip đã có. Nó chốt cả khi
+   người dùng bấm Enter lẫn khi rời ô — xem commitEntityOption. */
+.entityfield-optadd {
+    flex: 1 1 90px;
+    min-width: 90px;
+    padding: 2px 8px;
+    border: 1px dashed #c3cad3;
+    border-radius: 999px;
+    background: #fff;
+    font: inherit;
+    color: #1f2937;
+}
+
+    .entityfield-optadd::placeholder { color: #9aa3af; }
+
+.entityfield-optfull {
+    color: #6b7280;
+    font-size: .9em;
+    white-space: normal;
+}
+
+/* Ô gõ của hai nhánh còn lại (tên hệ thống nguồn, quy tắc sinh mã) đứng NGAY DƯỚI dropdown chứ không cạnh
+   nó: cột này đã hẹp, xếp ngang thì cả hai đều cụt. */
+.entityfield-system,
+.entityfield-rule { margin-top: 5px; }
 
 /* ==== Cổng soát MÂU THUẪN (bấm nút tạo tài liệu mới hiện, và chỉ khi thật sự có mâu thuẫn) ====
    Nằm trong #writeReqZone ở khung chat, ngay dưới nút đã bật nó lên — không còn bản nào ở sidebar. Vì thế

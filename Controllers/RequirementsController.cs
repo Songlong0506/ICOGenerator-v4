@@ -395,7 +395,20 @@ public class RequirementsController : Controller
                             {
                                 entity = r.Entity,
                                 description = r.Description,
-                                fields = r.Fields.Select(f => new { name = f.Name, meaning = f.Meaning, used = f.Used }),
+                                fields = r.Fields.Select(f => new
+                                {
+                                    name = f.Name,
+                                    meaning = f.Meaning,
+                                    used = f.Used,
+                                    // Hai TRỤC của ô nhập (xem EntityFieldNote): kiểu nhập, và — chỉ với kiểu
+                                    // chọn — danh sách lấy ở đâu, kèm ba ô của ba nhánh nguồn.
+                                    required = f.Required,
+                                    input = f.Input,
+                                    source = f.Source,
+                                    options = f.Options,
+                                    sourceSystem = f.SourceSystem,
+                                    rule = f.Rule
+                                }),
                                 states = r.States.Select(s => new
                                 {
                                     state = s.State,

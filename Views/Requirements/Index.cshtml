@@ -1191,6 +1191,9 @@
                         đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
                         thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
                         cuối. Ai được báo ở mỗi trạng thái thì mình hỏi ở bảng cuối buổi.
+                        <br />Cột <b>Nhập thế nào</b> quyết định hình dạng ô trên màn hình; chọn <b>Chọn 1</b> hay
+                        <b>Chọn nhiều</b> thì nói thêm giúp mình danh sách lấy ở đâu — <b>ứng dụng tự quản lý</b> nghĩa là
+                        app sẽ có thêm một màn hình riêng để quản lý danh mục đó.
                     </div>
                     @* Bọc các khối trong một div riêng: nút "+ thêm đối tượng" chèn khối mới vào CUỐI div này,
                        nên nó phải là một hộp chứa chỉ có khối đối tượng — không có nó thì khối mới rơi xuống
@@ -1222,8 +1225,14 @@
                                     <thead>
                                         <tr>
                                             <th class="flowmap-th-use">Lưu</th>
-                                            <th class="screenmap-th-name">Thông tin</th>
-                                            <th class="screenmap-th-purpose">Là gì</th>
+                                            @* "Là gì" là DÒNG PHỤ dưới tên chứ không chiếm một cột, cùng luật
+                                               với việc-của-màn ở bảng màn hình: bảng này đã có hai cột mới, và
+                                               cột người dùng phải điền mà bị đẩy ra ngoài vùng nhìn thấy thì
+                                               coi như không tồn tại. *@
+                                            <th class="entityfield-th-name">Thông tin</th>
+                                            <th class="flowmap-th-use entityfield-th-req">Bắt buộc</th>
+                                            <th class="entityfield-th-input">Nhập thế nào</th>
+                                            <th class="entityfield-th-src">Danh sách lấy ở đâu</th>
                                             @* Cột nút xóa. Trống ở mọi dòng BA bày ra — chúng BỎ TÍCH chứ không
                                                xóa, vì dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi. *@
                                             <th class="screenmap-th-del"></th>
@@ -1232,17 +1241,34 @@
                                     <tbody>
                                         @foreach (var field in entity.Fields)
                                         {
-                                            <tr class="entitymap-field">
+                                            @* Hai ô cuối (kiểu nhập, nguồn danh sách) để RỖNG: chúng đổi hình theo
+                                               nhau, và dựng chúng ở đây nữa là nuôi hai bản của cùng một luật ở hai
+                                               ngôn ngữ. Razor chỉ chở dữ liệu xuống bằng data-attribute, còn
+                                               hydrateEntityField ở requirements.js dựng cho CẢ HAI đường render —
+                                               cùng khuôn với khối "Ý khác" của hàng chip. *@
+                                            <tr class="entitymap-field"
+                                                data-input="@field.Input"
+                                                data-source="@field.Source"
+                                                data-options="@System.Text.Json.JsonSerializer.Serialize(field.Options)"
+                                                data-system="@field.SourceSystem"
+                                                data-rule="@field.Rule">
                                                 <td class="flowmap-use">
                                                     <input type="checkbox" class="entityfield-check" aria-label="Lưu @field.Name" @(field.Used ? "checked" : "") />
                                                 </td>
-                                                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entityfield-name" placeholder="thông tin cần lưu">@field.Name</textarea></td>
-                                                <td><textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="thông tin này là gì?">@field.Meaning</textarea></td>
+                                                <td class="permmap-fn entityfield-namecell">
+                                                    <textarea rows="1" class="permmap-cellinput entityfield-name" placeholder="thông tin cần lưu">@field.Name</textarea>
+                                                    <textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="thông tin này là gì?">@field.Meaning</textarea>
+                                                </td>
+                                                <td class="flowmap-use">
+                                                    <input type="checkbox" class="entityfield-required" aria-label="Bắt buộc nhập @field.Name" @(field.Required ? "checked" : "") />
+                                                </td>
+                                                <td class="entityfield-inputcell"></td>
+                                                <td class="entityfield-srccell"></td>
                                                 <td class="entitymap-delcell"></td>
                                             </tr>
                                         }
                                         <tr class="entitymap-addfieldrow">
-                                            <td colspan="4"><button type="button" class="entitymap-add entitymap-addfield" aria-label="Thêm thông tin cho @entity.Entity">+ thêm thông tin</button></td>
+                                            <td colspan="6"><button type="button" class="entitymap-add entitymap-addfield" aria-label="Thêm thông tin cho @entity.Entity">+ thêm thông tin</button></td>
                                         </tr>
                                     </tbody>
                                 </table>
