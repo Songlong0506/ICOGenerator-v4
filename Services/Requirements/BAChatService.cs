@@ -1200,6 +1200,54 @@ public class BAChatService
                     openEnded = false;
                 }
             }
+
+            // LƯỢT CÂM — chốt chặn cuối cùng của lượt chat, chạy SAU mọi nhánh trên vì nó xét HÌNH DẠNG
+            // của lượt đã chốt chứ không xét ý định của model.
+            //
+            // Hai phanh tất định phía trên chỉ soi các lượt CÓ hỏi: lượt mà mọi câu hỏi đều là câu đã hỏi
+            // (AskedQuestionHistory), và lượt mời bấm "Write Requirement" quá sớm (cổng readiness). Còn một
+            // hình dạng thứ ba lọt qua cả hai — lượt KHÔNG hỏi gì cả: không chip, không câu mở, không thẻ
+            // hỏi, không bảng, không dấu hỏi, không nhắc tới nút. Người dùng không có chỗ nào để trả lời, và
+            // vì lượt đó không chở câu hỏi nào nên phanh chống hỏi lại (so theo nội dung CÂU HỎI) cũng
+            // không nhìn thấy nó.
+            //
+            // Ca thật (dự án JD Libary 5, các lượt 82/84/90): bản đồ kẹt [MỘT PHẦN] ở một dòng mà người
+            // dùng ĐÃ trả lời, nên BA hết đường hợp lệ — prompt cấm hỏi lại điều vừa được trả lời, và cấm
+            // nhắc tới nút khi bản đồ chưa đủ — rồi rơi vào "mình tiếp tục bước rà soát cuối", một bước
+            // không hề tồn tại ở chế độ chat. Người dùng đáp "ok", "tiếp tục đi" và nhận lại đúng một lượt
+            // như thế: ba lượt bị đốt, bản đồ không nhúc nhích, cuộc phỏng vấn đứng hẳn ở lượt cuối. Đây
+            // đúng là ca mà bản đồ KHÔNG tự lành được: nó chỉ nhúc nhích khi có thông tin mới, mà lượt câm
+            // thì không hỏi được gì để lấy thông tin mới.
+            //
+            // Thay bằng đúng bước kế tiếp tất định của đường lượt-trùng: bản đồ còn thiếu ⇒ câu chặn của
+            // cổng (đường phát thứ tư của nó), bản đồ đã đủ ⇒ lời mời bấm nút. Cả hai đều là thứ người dùng
+            // trả lời được.
+            //
+            // Dấu hỏi là ranh giới, cùng một phép thử mà BAChatReplyParser.LooksOpenEnded đang dùng: một
+            // lượt CÓ hỏi mà quên chip vẫn trả lời được bằng ô nhập (luôn mở), nên nó không phải lượt câm —
+            // và thay nó đi là cướp mất câu hỏi thật của BA để phát một câu khô cứng hơn.
+            if (IsSilentTurn())
+            {
+                var followUp = BuildFollowUpAfterRepeat(project.RequirementCoverageMap, recent);
+                reply = followUp.Message;
+                openEnded = followUp.OpenEnded;
+            }
+
+            bool IsSilentTurn()
+                => string.IsNullOrEmpty(suggestionsJson)
+                   && !openEnded
+                   && questions.Count == 0
+                   && !reply.Contains('?', StringComparison.Ordinal)
+                   && !reply.Contains('\uff1f', StringComparison.Ordinal)
+                   && !RequirementReadinessGate.IsWriteRequirementInvite(reply)
+                   // Lượt có BẢNG không câm: bảng chính là chỗ trả lời DUY NHẤT của lượt, và câu dẫn của
+                   // nó cố tình không phải câu hỏi (xem TakeOverTurn).
+                   && permissionMatrix.Count == 0
+                   && flowMap.Count == 0
+                   && screenScopeMap.Count == 0
+                   && entityMap.Count == 0
+                   && reportMap.Count == 0
+                   && notificationMap.Count == 0;
         }
 
         var flowDiagramJson = flowDiagram.Count > 0 ? JsonSerializer.Serialize(flowDiagram) : null;
