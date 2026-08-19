@@ -687,7 +687,16 @@ public class BAChatService
                 : "## LƯỢT NÀY: BÀY BẢNG MÀN HÌNH (bắt buộc)\n"
                     + "Lượt này chốt PHẠM VI MÀN HÌNH của ứng dụng. Danh sách dưới đây được chắt ra từ hội "
                     + "thoại nhưng người dùng chưa bao giờ nhìn thấy nó — mà mọi thứ phía sau (bảng phân "
-                    + "quyền, các màn hình của bản demo) đều đứng trên đúng danh sách này.\n";
+                    + "quyền, các màn hình của bản demo) đều đứng trên đúng danh sách này.\n"
+                    // Bảng này đứng SAU bảng đối tượng và bảng báo cáo đúng để hai loại màn hình ấy có mặt
+                    // ngay ở lần bày đầu. Model không được phép coi chúng là mục lạc: bỏ một màn hình quản
+                    // lý danh mục ra khỏi bảng là xoá một quyết định người dùng vừa tự tay chốt ở bảng
+                    // trước, và người dùng sẽ đọc bảng này như thể danh mục đó không cần màn hình nào.
+                    + "Phạm vi này đã GỒM CẢ các màn hình do hai bảng người dùng vừa chốt sinh ra: màn hình "
+                    + "quản lý từng danh mục mà ứng dụng tự quản lý (từ bảng đối tượng) và mỗi báo cáo còn "
+                    + "giữ (từ bảng báo cáo). Chúng là quyết định NGƯỜI DÙNG vừa chốt, không phải mục bạn "
+                    + "chắt ra — phải có dòng riêng, và phần `purpose`/`functions` viết đúng như một màn hình "
+                    + "quản lý danh mục (xem, thêm, sửa, bỏ) hoặc một màn hình báo cáo (xem, lọc, xuất).\n";
 
             messages.Add(new ChatMessage(ChatRole.System,
                 screenScopeIntro
@@ -758,7 +767,7 @@ public class BAChatService
                 + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng đối tượng\" — không đặt "
                 + "câu hỏi, không kèm `suggestions`, không kèm `questions`, không kèm `flowDiagram`."));
         }
-        // BÁO CÁO / THỐNG KÊ — bảng thứ tư. Khác ba bảng trên ở chỗ nhóm của nó VẪN được hỏi bằng câu hỏi
+        // BÁO CÁO / THỐNG KÊ — bảng thứ ba. Khác các bảng kia ở chỗ nhóm của nó VẪN được hỏi bằng câu hỏi
         // suốt buổi (xem ReportMapGate): cổng chỉ mở khi nhóm đã [RÕ], nên tới lượt này BA đã có lời kể để
         // ráp thành các dòng. Không có vế đó thì bảng bày ra trống và người dùng phải tự chẻ câu chuyện của
         // họ thành bốn cột — ít hơn cả cái ô kể tự do mà bảng thay thế.

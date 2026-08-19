@@ -14,10 +14,11 @@ namespace ICOGenerator.Tests.Requirements;
 // MỘT QUYẾT ĐỊNH CHỐT Ở BẢNG NÀY ĐẺ RA MỘT MÀN HÌNH Ở BẢNG KHÁC.
 //
 // Thông tin có nguồn "ứng dụng tự quản lý" nghĩa là ứng dụng phải có một màn hình CRUD riêng cho danh mục
-// đó. Nhưng thứ tự phụ thuộc của buổi phỏng vấn là luồng → màn hình → đối tượng → phân quyền → thông báo,
-// nên tới lúc bảng đối tượng bày ra thì bảng MÀN HÌNH đã chốt xong từ mấy lượt trước.
+// đó. Chính hàm gieo này là lý do thứ tự phụ thuộc của buổi phỏng vấn đặt bảng đối tượng TRƯỚC bảng màn
+// hình: luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo. Gieo trước lần bày đầu thì các màn
+// hình danh mục là những dòng bình thường của bảng màn hình, người dùng tích/bỏ tích ngay tại đó.
 //
-// Không gieo ngược lên Project.PlannedScope thì màn hình ấy không có mục nào ở "## 6. Screens To Generate"
+// Không gieo lên Project.PlannedScope thì màn hình ấy không có mục nào ở "## 6. Screens To Generate"
 // và không có DÒNG nào trong bảng phân quyền — tức mặc nhiên "không ai được xem" một màn hình mà người dùng
 // vừa đặt hàng. Và hỏng kiểu này không báo lỗi ở đâu: bảng vẫn lưu, tin nhắn vẫn gửi, chỉ có màn hình là
 // không bao giờ tồn tại.
@@ -25,6 +26,23 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
 {
     private const string ScreenList = "Màn hình quản lý danh sách JD trong nhà máy";
     private const string ScreenCreate = "Tính năng tạo và cập nhật JD";
+
+    private const string Coverage = """
+        - ★ Mục tiêu / bài toán: [RÕ] Quản lý JD. {nguồn: "quản lý JD trong nhà máy"}
+        - ★ Đối tượng người dùng & vai trò: [RÕ] Manager lập, HRBP verify. {nguồn: "Manager lập, HRBP verify"}
+        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo JD, submit, duyệt. {nguồn: "Đúng luồng này"}
+        - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] HOD từ chối thì Manager sửa lại. {nguồn: "trả về sửa lại"}
+        - Dữ liệu / danh mục chính: [RÕ] OrgUnit, JobTitle, PC Level. {nguồn: "các danh mục này"}
+        - Vòng đời & trạng thái: [RÕ] Draft → Chờ duyệt → Available. {nguồn: "duyệt xong là dùng được"}
+        - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: "hiện tại chưa cần"}
+        - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
+        """;
+
+    private const string ConfirmedFlow = """
+        [{"name":"Tạo JD","kind":"luồng chính","role":"Manager","steps":[
+          {"actor":"Manager","action":"Tạo JD","outcome":"Draft","included":true},
+          {"actor":"HRBP","action":"Verify JD","outcome":"Chờ HOD duyệt","included":true}]}]
+        """;
 
     private readonly SqliteConnection _connection;
     private readonly DbContextOptions<AppDbContext> _options;
@@ -42,13 +60,17 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
         {
             Id = _projectId,
             Name = "Quản lý JD",
-            PlannedScope = Bullets(ScreenList, ScreenCreate)
+            PlannedScope = Bullets(ScreenList, ScreenCreate),
+            // Trạng thái của một dự án vừa chốt bảng luồng: đủ để cổng bảng màn hình mở ngay sau lượt chốt
+            // bảng đối tượng — xem ExecuteAsync_PutsTheSeededScreenIntoTheFirstScreenScopeTable.
+            RequirementCoverageMap = Coverage,
+            FlowMap = ConfirmedFlow
         });
         db.SaveChanges();
     }
 
     // Ca gốc: người dùng chọn "ứng dụng tự quản lý" cho OrgUnit ⇒ phạm vi phải mọc thêm đúng một mục, và
-    // ScreenScopeGate sẽ mở lại bảng màn hình từ chính mục đó.
+    // bảng màn hình (bày SAU bảng này) sẽ có nó ngay ở lần bày đầu.
     [Fact]
     public async Task ExecuteAsync_AddsAScreenForEveryAppManagedList()
     {
@@ -90,6 +112,25 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
         Assert.Equal(
             new[] { ScreenList, ScreenCreate, "Màn hình quản lý danh mục OrgUnit" },
             InterviewOutlookService.ParseItems(await LoadPlannedScopeAsync()));
+    }
+
+    // CẢ CHUỖI, không chỉ một cột: sau khi bảng đối tượng chốt, bảng kế tiếp phải là bảng MÀN HÌNH và màn
+    // hình danh mục vừa gieo phải nằm trong danh sách DÒNG mà lượt bày ra dùng — tức nó đi vào LẦN BÀY ĐẦU
+    // chứ không phải qua đường mở lại. Đây là bất biến mà thứ tự cũ (màn hình trước đối tượng) không giữ
+    // được: ở đó người dùng đã chốt "đây là toàn bộ màn hình" từ mấy lượt trước rồi mới thấy danh sách dài
+    // thêm, và cổng KHÔNG MÂU THUẪN bắn một mâu thuẫn cho đúng cái phạm vi vừa đổi.
+    [Fact]
+    public async Task ExecuteAsync_PutsTheSeededScreenIntoTheFirstScreenScopeTable()
+    {
+        await ExecuteAsync(Table(Field("OrgUnit", EntityFieldInput.ChoiceOne, EntityFieldSource.App)));
+
+        await using var db = NewDb();
+        var project = await db.Projects.FirstAsync(p => p.Id == _projectId);
+
+        Assert.Equal(InterviewTableKind.ScreenScope, InterviewTableGate.Select(project));
+        Assert.Contains("Màn hình quản lý danh mục OrgUnit", PermissionMatrixGate.EffectiveScreens(project));
+        // Bảng màn hình chưa chốt ⇒ đây là lần bày ĐẦU, không phải lượt "BỔ SUNG BẢNG MÀN HÌNH ĐÃ CHỐT".
+        Assert.False(ScreenScopeMapBuilder.IsConfirmed(project.ScreenScopeMap));
     }
 
     // Payload rỗng/hỏng ⇒ không ghi gì, kể cả phạm vi. Nửa vời ở đây là trạng thái tệ nhất: phạm vi mọc thêm

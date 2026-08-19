@@ -13,7 +13,7 @@ namespace ICOGenerator.Contracts.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Vì sao bảng này KHÔNG bày ra trống.</b> Nó là bảng thứ tư trong sáu bảng, và cùng luật với ba bảng
+/// <b>Vì sao bảng này KHÔNG bày ra trống.</b> Nó là bảng thứ ba trong sáu bảng, và cùng luật với ba bảng
 /// giữa: BA điền sẵn từ hội thoại, người dùng bỏ tích / sửa chữ / thêm dòng. Một bảng trống là bắt người
 /// dùng nghiệp vụ tự chẻ câu chuyện của họ thành bốn cột trước khi gõ được chữ nào — khó hơn hẳn kể tự do,
 /// nên thứ thu về sẽ ít hơn cả cái ô text nó thay thế. Vì vậy cổng của bảng
@@ -23,11 +23,11 @@ namespace ICOGenerator.Contracts.Requirements;
 ///
 /// <para>
 /// <b>Không có cột "ai xem".</b> Đó là chủ ý, không phải thiếu sót: một báo cáo LÀ một màn hình
-/// (<c>ReportMapBuilder.ReportScreens</c> gieo nó vào <c>Project.PlannedScope</c>), nên nó đi qua bảng màn
-/// hình rồi thành DÒNG của bảng phân quyền — nơi "ai xem" đã có cột riêng kèm PHẠM VI DỮ LIỆU ("của mình"
+/// (<c>ReportMapBuilder.ReportScreens</c> gieo nó vào <c>Project.PlannedScope</c> TRƯỚC lần bày đầu của
+/// bảng màn hình), nên nó đi qua bảng màn hình rồi thành DÒNG của bảng phân quyền — nơi "ai xem" đã có cột riêng kèm PHẠM VI DỮ LIỆU ("của mình"
 /// / "của đơn vị" / "tất cả"). Thêm một cột vai trò ở đây là dựng danh sách vai trò thứ hai trong cùng một
 /// buổi phỏng vấn, và hai danh sách lệch nhau thì không tầng nào phía sau biết tin bên nào. Đó cũng là lý
-/// do bảng này đứng TRƯỚC bảng phân quyền chứ không phải sau.
+/// do bảng này đứng TRƯỚC bảng màn hình rồi bảng phân quyền chứ không phải sau.
 /// </para>
 /// </summary>
 public class ReportMapRow

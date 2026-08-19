@@ -20,15 +20,17 @@ namespace ICOGenerator.Application.Requirements;
 /// một chỗ người dùng mở ra và nhìn thấy, tức một màn hình; nằm lại trong cột <c>ReportMap</c> thì nó không
 /// có DÒNG nào trong bảng phân quyền và không có mục nào ở <c>## 6. Screens To Generate</c> — mặc nhiên
 /// "không ai được xem" một màn hình người dùng vừa đặt hàng. Đường ra là <c>Project.PlannedScope</c>, đúng
-/// như màn hình danh mục của <see cref="ConfirmEntityMapUseCase"/>: không cổng nào phải sửa, vì
-/// <c>ScreenScopeGate</c> đã có sẵn đường MỞ LẠI bảng màn hình khi phạm vi trôi sau lúc chốt, và bảng phân
-/// quyền (đứng SAU bảng này trong thứ tự phụ thuộc) lấy dòng từ chính phạm vi đó.
+/// như màn hình danh mục của <see cref="ConfirmEntityMapUseCase"/>: không cổng nào phải sửa, vì bảng MÀN
+/// HÌNH đứng SAU bảng này trong thứ tự phụ thuộc (<c>luồng → đối tượng → báo cáo → màn hình</c>) nên các
+/// mục vừa gieo có mặt ngay ở lần bày ĐẦU của nó, rồi đi tiếp thành DÒNG của bảng phân quyền.
 /// </para>
 ///
 /// <para>
-/// GHÉP THÊM chứ không ghi đè, và giữ nguyên thứ tự cũ: <c>PlannedScope</c> là danh sách người dùng đã rà ở
-/// bảng màn hình (<c>ConfirmScreenScopeUseCase</c> ghi ngược lên đây), nên thay nó bằng mấy dòng báo cáo là
-/// xoá sạch phạm vi đã duyệt. Mục trùng bị bỏ.
+/// GHÉP THÊM chứ không ghi đè, và giữ nguyên thứ tự cũ: <c>PlannedScope</c> có thể đã là danh sách người
+/// dùng tự tay rà ở bảng màn hình (<c>ConfirmScreenScopeUseCase</c> ghi ngược lên đây) — ca đó hiếm sau khi
+/// thứ tự được sửa, nhưng vẫn tới được qua đường MỞ LẠI của <c>ScreenScopeGate</c> khi nhóm «Báo cáo /
+/// thống kê» chỉ lên <c>[RÕ]</c> sau lúc bảng màn hình đã chốt. Thay cả danh sách bằng mấy dòng báo cáo ở
+/// ca đó là xoá sạch phạm vi đã duyệt. Mục trùng bị bỏ.
 /// </para>
 /// </summary>
 public class ConfirmReportMapUseCase
