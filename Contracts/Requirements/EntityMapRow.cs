@@ -18,6 +18,168 @@ public class EntityFieldNote
 
     /// <summary>Thông tin này có cần lưu không. BA tích sẵn; người dùng bỏ tích thứ thừa.</summary>
     public bool Used { get; set; } = true;
+
+    /// <summary>
+    /// Người dùng có BẮT BUỘC phải điền thông tin này không.
+    ///
+    /// <para>
+    /// Khác hẳn <see cref="Used"/> và đó là chỗ dễ nhầm nhất của bảng: <see cref="Used"/> là "ứng dụng có
+    /// lưu thứ này không" — chỗ người dùng LOẠI BỚT đề xuất của BA; còn cờ này là "để trống có được không".
+    /// Bỏ tích <see cref="Used"/> ⇒ cả dòng mờ đi và ô này khóa lại, vì bắt buộc nhập một thứ không được lưu
+    /// là một ô không có nghĩa.
+    /// </para>
+    ///
+    /// <para>
+    /// Mặc định <b>false</b>, ngược chiều với <see cref="Used"/>: mọi thông tin đều tích sẵn "cần lưu" vì đó
+    /// là đề xuất của BA chờ bị loại, nhưng "bắt buộc nhập" là một RÀNG BUỘC — POC dựng ra một biểu mẫu
+    /// không gửi đi được khi thiếu ô, nên tích sẵn cả loạt là ra quyết định thay người dùng ở đúng chỗ họ
+    /// đọc lướt nhất. BA chỉ tích những ô hội thoại đã nói là bắt buộc.
+    /// </para>
+    /// </summary>
+    public bool Required { get; set; }
+
+    /// <summary>
+    /// NGƯỜI DÙNG NHẬP THẾ NÀO — một trong <see cref="EntityFieldInput"/>.
+    ///
+    /// <para>
+    /// Giá trị KHỞI TẠO là <see cref="EntityFieldInput.Text"/> chứ không phải chuỗi rỗng, và đó là điều kiện
+    /// để mọi bảng đối tượng đã lưu TRƯỚC khi có cột này đọc ra đúng thứ nó vẫn kể: JSON cũ không có trường
+    /// <c>input</c> nên deserializer giữ nguyên giá trị khởi tạo. Rỗng ở đây sẽ đi thẳng ra
+    /// <c>ChatExportBuilder</c> và các khối ngữ cảnh dưới dạng một ô "không rõ kiểu" mà chưa ai từng hỏi.
+    /// </para>
+    ///
+    /// <para>
+    /// Đây là MỘT trong hai trục, và tách hai trục là chủ ý: một danh sách chọn còn phải nói rõ chọn MỘT hay
+    /// chọn NHIỀU, nên gộp "danh sách tự nhập" vào cùng dropdown với "chọn một / chọn nhiều" sẽ đẻ ra đúng
+    /// một ô không ai trả lời — trục còn lại là <see cref="Source"/>.
+    /// </para>
+    /// </summary>
+    public string Input { get; set; } = EntityFieldInput.Text;
+
+    /// <summary>
+    /// DANH SÁCH LẤY Ở ĐÂU — một trong <see cref="EntityFieldSource"/>. Chỉ có nghĩa khi
+    /// <see cref="Input"/> là <c>choice-one</c>/<c>choice-many</c>; các kiểu khác bị chuẩn hoá về rỗng
+    /// (<c>EntityMapBuilder</c>), vì một nguồn danh sách gắn vào một ô gõ tay là ô người dùng phải đọc để
+    /// rồi bỏ qua.
+    ///
+    /// <para>
+    /// Rỗng là HỢP LỆ và có nghĩa riêng: "chưa chốt". Không chặn nút gửi ở ca này — cả hai bản kể
+    /// (<c>RenderUserMessage</c> và khối ngữ cảnh) gọi tên đúng các ô còn thiếu để BA hỏi nốt ở lượt sau,
+    /// và đó là đường thu hồi rẻ hơn hẳn một cổng gửi từ chối. Bảng thông báo là bảng DUY NHẤT được phép từ
+    /// chối một bảng người dùng đã bấm gửi, và nó phải như vậy vì dòng khóa ở đó không có checkbox nào để
+    /// người dùng thoát ra.
+    /// </para>
+    /// </summary>
+    public string Source { get; set; } = "";
+
+    /// <summary>
+    /// Các giá trị của danh sách khi <see cref="Source"/> là <see cref="EntityFieldSource.Inline"/> —
+    /// người dùng tự gõ ngay trên bảng, vì danh sách chỉ có vài giá trị và dựng cho nó một màn hình quản lý
+    /// riêng là đắt hơn giá trị nó mang lại.
+    /// </summary>
+    public List<string> Options { get; set; } = new();
+
+    /// <summary>
+    /// Tên hệ thống nguồn khi <see cref="Source"/> là <see cref="EntityFieldSource.External"/>.
+    ///
+    /// <para>
+    /// Bắt buộc phải hỏi cho ra, và đó là lý do ô này tồn tại chứ không để "lấy từ hệ thống khác" đứng một
+    /// mình: một tích hợp không gọi được tên là một tích hợp KHÔNG CÓ THẬT — spec ghi một đường dữ liệu mà
+    /// không ai dựng được, còn POC thì không biết lấy dữ liệu mẫu ở đâu. Repo đã trả giá đúng kiểu này một
+    /// lần với các kênh thông báo mà hội thoại chưa bao giờ xác nhận là có.
+    /// </para>
+    /// </summary>
+    public string SourceSystem { get; set; } = "";
+
+    /// <summary>
+    /// Quy tắc sinh khi <see cref="Input"/> là <see cref="EntityFieldInput.Auto"/> ("HcP-JD-XXX").
+    ///
+    /// <para>
+    /// Một mã tự sinh mà không nói quy tắc thì POC dựng cho nó một Ô NHẬP — đúng thứ người dùng vừa nói là
+    /// họ không phải nhập. Vì vậy kiểu <c>auto</c> còn kéo theo một luật nữa ở
+    /// <c>EntityMapBuilder</c>: <see cref="Required"/> bị ép về <c>false</c>, vì "bắt buộc nhập" một ô
+    /// người dùng không hề nhập là một ràng buộc vô nghĩa.
+    /// </para>
+    /// </summary>
+    public string Rule { get; set; } = "";
+}
+
+/// <summary>
+/// NGƯỜI DÙNG NHẬP THẾ NÀO — trục thứ nhất của một thông tin (<see cref="EntityFieldNote.Input"/>).
+///
+/// <para>
+/// Giá trị lưu xuống DB dưới dạng CHUỖI (trong JSON của <c>Project.EntityMap</c>) nên các chuỗi ở đây
+/// không được đổi — đúng luật enum-lưu-chuỗi của repo. Đây cố ý là hằng chuỗi chứ không phải <c>enum</c>:
+/// dữ liệu đến từ model và từ trình duyệt, và một giá trị lạ phải chuẩn hoá được về mặc định an toàn thay
+/// vì làm hỏng cả lượt deserialize.
+/// </para>
+/// </summary>
+public static class EntityFieldInput
+{
+    /// <summary>Gõ tay. Mặc định, và là giá trị mà mọi bản chốt CŨ đọc ra.</summary>
+    public const string Text = "text";
+
+    /// <summary>Con số (số lượng, %, tiền).</summary>
+    public const string Number = "number";
+
+    /// <summary>Ngày/tháng.</summary>
+    public const string Date = "date";
+
+    /// <summary>Chọn MỘT giá trị trong một danh sách.</summary>
+    public const string ChoiceOne = "choice-one";
+
+    /// <summary>Chọn NHIỀU giá trị trong một danh sách.</summary>
+    public const string ChoiceMany = "choice-many";
+
+    /// <summary>Ứng dụng TỰ SINH, người dùng không nhập — xem <see cref="EntityFieldNote.Rule"/>.</summary>
+    public const string Auto = "auto";
+
+    /// <summary>Hai kiểu cần một danh sách, tức hai kiểu duy nhất mà <see cref="EntityFieldNote.Source"/> có nghĩa.</summary>
+    public static bool IsChoice(string? value) => value == ChoiceOne || value == ChoiceMany;
+
+    /// <summary>Giá trị lạ (model bịa, payload cũ, chuỗi rỗng) ⇒ <see cref="Text"/>.</summary>
+    public static string Normalize(string? value) => value switch
+    {
+        Number => Number,
+        Date => Date,
+        ChoiceOne => ChoiceOne,
+        ChoiceMany => ChoiceMany,
+        Auto => Auto,
+        _ => Text
+    };
+}
+
+/// <summary>
+/// DANH SÁCH LẤY Ở ĐÂU — trục thứ hai (<see cref="EntityFieldNote.Source"/>), chỉ có nghĩa khi kiểu nhập là
+/// một trong hai kiểu chọn. Hằng chuỗi vì cùng lý do với <see cref="EntityFieldInput"/>.
+/// </summary>
+public static class EntityFieldSource
+{
+    /// <summary>Danh sách chỉ có vài giá trị, người dùng gõ thẳng vào bảng — xem <see cref="EntityFieldNote.Options"/>.</summary>
+    public const string Inline = "inline";
+
+    /// <summary>
+    /// Ứng dụng tự quản lý danh sách ⇒ nó cần MỘT MÀN HÌNH quản lý riêng. Đây là giá trị đắt nhất của cả
+    /// hai trục: nó không dừng ở mô hình dữ liệu mà đẻ ra một màn hình, nên <c>EntityMapBuilder</c> gieo nó
+    /// vào phạm vi màn hình của dự án — xem <c>EntityMapBuilder.ManagedListScreens</c>.
+    /// </summary>
+    public const string App = "app";
+
+    /// <summary>Lấy từ một hệ thống khác — bắt buộc kèm <see cref="EntityFieldNote.SourceSystem"/>.</summary>
+    public const string External = "external";
+
+    /// <summary>
+    /// Giá trị lạ ⇒ rỗng, tức "CHƯA CHỐT" — không phải một mặc định đoán bừa. Đoán "app tự quản lý" cho một
+    /// ô còn trống là âm thầm đẻ thêm một màn hình vào phạm vi dự án; đoán "nhập tại chỗ" là khai rằng danh
+    /// sách chỉ có vài giá trị mà chưa ai nói thế. Rỗng thì hai bản kể gọi tên nó ra và BA hỏi nốt.
+    /// </summary>
+    public static string Normalize(string? value) => value switch
+    {
+        Inline => Inline,
+        App => App,
+        External => External,
+        _ => ""
+    };
 }
 
 /// <summary>

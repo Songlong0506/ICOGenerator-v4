@@ -447,8 +447,15 @@ public static class ChatExportBuilder
                     + Quote(row.Evidence));
                 if (row.Fields.Count > 0)
                     sb.AppendLine(">   · thông tin: " + string.Join(" | ", row.Fields.Select(f =>
-                        $"{(f.Used ? "" : "✗ ")}{OneLineSafe(f.Name)}"
-                        + (f.Meaning.Trim().Length > 0 ? $" ({OneLineSafe(f.Meaning)})" : ""))));
+                    {
+                        // Ràng buộc lấy từ CHÍNH hàm mà các khối ngữ cảnh dùng: người chấm đối chiếu bản
+                        // xuất này với tài liệu, và hai cách diễn đạt cho cùng một ô là đúng thứ khiến họ
+                        // đi tìm một khác biệt không tồn tại.
+                        var constraints = EntityMapBuilder.ConstraintLabel(f);
+                        return $"{(f.Used ? "" : "✗ ")}{OneLineSafe(f.Name)}"
+                            + (f.Meaning.Trim().Length > 0 ? $" ({OneLineSafe(f.Meaning)})" : "")
+                            + (constraints.Length > 0 ? $" [{OneLineSafe(constraints)}]" : "");
+                    })));
                 if (row.States.Count > 0)
                     sb.AppendLine(">   · trạng thái: " + string.Join(" → ", row.States.Select(s =>
                         OneLineSafe(s.State)
