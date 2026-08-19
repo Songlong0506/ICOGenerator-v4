@@ -337,10 +337,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     ];
 
     function isDissentChip(text) {
-        const t = (text || "").trim().toLowerCase();
+        const t = (text || "").trim().toLowerCase().replace(/[.…!?,;:\s]+$/, "");
         if (!t) return false;
         // "Không, tính khác" / "Không, khác" — bắt cả các biến thể mà cụm cố định ở trên không phủ hết.
         if (t.startsWith("không") && t.includes("khác")) return true;
+        // Chip KẾT BẰNG "khác" — bắt theo HÌNH DẠNG, vì "Quy tắc khác", "Trạng thái khác", "Cách xử lý
+        // khác" là cùng một chip đội ba cái tên và danh sách cụm cố định ở trên không bao giờ phủ hết.
+        // BAChatReplyParser.DropBareOtherChips đã xoá phần lớn chúng, nhưng nó CỐ Ý dừng lại khi xoá xong
+        // còn dưới 2 chip — tức bộ hai chip prompt kê sẵn ở lượt xin chốt (["Đồng ý", "Tôi muốn khác"])
+        // lên màn hình nguyên vẹn, và đó đúng là bộ mà cú bấm "khác" tốn kém nhất. Ở đây bắt RỘNG hơn
+        // parser được: nhận nhầm một chip có nội dung thật ("Chuyển sang phòng ban khác") chỉ tốn thêm một
+        // cú bấm "Gửi", còn parser thì xoá hẳn chip nên phải hẹp.
+        if (/(^|\s)khác$/.test(t)) return true;
         return DISSENT_CHIP_CUES.some(cue => t.includes(cue));
     }
 
