@@ -16,8 +16,10 @@ public class SourceFileValidationException : Exception
 /// <summary>
 /// Nhận một file upload (ảnh / PDF / Word / bảng tính Excel-CSV), lưu xuống workspace project và dựng
 /// <see cref="ProjectSourceFile"/> (CHƯA add DB — caller tự add + SaveChanges). Với PDF: bóc text từng
-/// trang bằng PdfPig, và các trang KHÔNG có text (bản scan) được lấy ảnh nhúng ra PNG
-/// (<see cref="PdfScanPageRenderer"/>) để model vision đọc thay vì bỏ trắng. Với Word (.docx): bóc đoạn văn
+/// trang bằng PdfPig; trang KHÔNG có text (bản scan) được lấy ảnh nhúng cả trang ra PNG
+/// (<see cref="PdfScanPageRenderer"/>) thay vì bỏ trắng, còn trang CÓ text thì lấy các hình nhúng đủ lớn
+/// (sơ đồ, ảnh màn hình) ra <c>figure-{n}.png</c> kèm mốc <c>[Hình n]</c> trong text
+/// (<see cref="PdfFigureExtractor"/>) — cùng cách xử lý với Word. Với Word (.docx): bóc đoạn văn
 /// + bảng + hình nhúng đáng giá bằng <see cref="WordDocumentTextExtractor"/> — quy trình/biểu mẫu của phòng
 /// ban gần như luôn nằm ở đây. Với bảng tính (.xlsx/.csv): bóc thành text có cấu trúc (tiêu đề cột + vài dòng mẫu) bằng
 /// <see cref="SpreadsheetTextExtractor"/> — fidelity cao hơn hẳn ảnh chụp Excel.
@@ -121,14 +123,22 @@ public class ProjectSourceIngestor
         return entity;
     }
 
-    // Bóc text từng trang bằng PdfPig. Trang gần như không có text là trang SCAN: thay vì bỏ trắng như
-    // trước, lấy ảnh nhúng của trang ra PNG (PdfScanPageRenderer) để model có vision đọc được — người dùng
-    // nghiệp vụ hay đính kèm đúng thứ quý nhất (biểu mẫu, quy định đã ký) dưới dạng scan.
-    // Best-effort: PDF hỏng/khóa ⇒ giữ nguyên file gốc, bỏ qua cả text lẫn ảnh trang.
+    // Bóc text từng trang bằng PdfPig, VÀ lấy phần hình ra cho model vision — hai đường khác nhau cho hai
+    // loại trang rời nhau:
+    //   • Trang gần như không có text là trang SCAN: lấy ảnh nhúng của cả trang ra (PdfScanPageRenderer),
+    //     vì chữ nằm trong ảnh nên không còn đường nào khác.
+    //   • Trang CÓ text vẫn có thể chứa sơ đồ/ảnh màn hình/biểu mẫu chụp lại: lấy các hình đủ lớn ra
+    //     (PdfFigureExtractor) và cắm mốc "[Hình n]" vào đúng trang, đúng cách Word đã làm từ lâu — nếu chỉ
+    //     bóc chữ thì cùng một tài liệu lưu .docx được gửi kèm hình còn xuất .pdf thì mất trắng phần đó.
+    // Best-effort: PDF hỏng/khóa ⇒ giữ nguyên file gốc, bỏ qua cả text lẫn ảnh.
     private void ProcessPdf(byte[] bytes, ProjectSourceFile entity, string sourceDir, CancellationToken cancellationToken)
     {
-        var sb = new StringBuilder();
+        var textPages = new List<(int Number, string Text)>();
         var scannedPages = new List<int>();
+        var figureCandidates = new List<PdfFigureExtractor.Candidate>();
+        var seenFigureHashes = new HashSet<string>(StringComparer.Ordinal);
+        IReadOnlyList<PdfFigure> figures = Array.Empty<PdfFigure>();
+        var scanPageImages = 0;
 
         try
         {
@@ -148,18 +158,17 @@ public class ProjectSourceIngestor
                 var trimmed = (text ?? string.Empty).Trim();
                 if (trimmed.Length < MinCharsForTextPage)
                 {
-                    scannedPages.Add(pageNumber); // trang scan/ảnh: thử lấy ảnh trang ở lượt dưới.
+                    scannedPages.Add(pageNumber); // trang scan/ảnh: lấy ảnh cả trang ở lượt dưới.
                     continue;
                 }
 
-                sb.AppendLine($"--- Trang {pageNumber} ---");
-                sb.AppendLine(trimmed);
-                sb.AppendLine();
+                textPages.Add((pageNumber, trimmed));
+                PdfFigureExtractor.CollectPageFigures(page, figureCandidates, seenFigureHashes);
             }
 
-            // Ảnh trang phải lấy khi document còn mở (PdfPig đọc lười từ stream gốc).
-            entity.ScannedPageImageCount =
-                PdfScanPageRenderer.TryRenderScannedPages(doc, scannedPages, sourceDir, cancellationToken);
+            // Cả hai đường đều phải chạy khi document còn mở (PdfPig đọc lười từ stream gốc).
+            scanPageImages = PdfScanPageRenderer.TryRenderScannedPages(doc, scannedPages, sourceDir, cancellationToken);
+            figures = PdfFigureExtractor.WriteFigures(figureCandidates, sourceDir, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -170,9 +179,33 @@ public class ProjectSourceIngestor
             _logger.LogWarning(ex, "Không đọc được PDF {File}; giữ nguyên file gốc, bỏ qua bóc text.", entity.FileName);
         }
 
-        entity.ExtractedText = sb.Length > 0 ? sb.ToString() : null;
-        // Có ảnh trang ⇒ nguồn này CÓ phần cần model vision (SourceContextBuilder sẽ đính kèm các PNG đó).
+        entity.ExtractedText = RenderPdfText(textPages, figures);
+        // Một con số cho CẢ hai loại ảnh: SourceContextBuilder chỉ cần biết nguồn này đáng lẽ gửi kèm bao
+        // nhiêu ảnh để nói đúng số trong câu ghi chú (tên cột giữ nguyên vì đã có dữ liệu trong DB).
+        entity.ScannedPageImageCount = scanPageImages + figures.Count;
         entity.IsVisionSource = entity.ScannedPageImageCount > 0;
+    }
+
+    // Ghép text các trang, chèn mốc "[Hình n]" ngay dưới trang chứa hình đó để model ghép được hình với đoạn
+    // mô tả quanh nó. Mốc tự nói ra số trang: tên file ảnh KHÔNG đi tới model (xem SourceContextBuilder), nên
+    // đây là thứ duy nhất neo một tấm ảnh vào một chỗ trong tài liệu.
+    private static string? RenderPdfText(
+        IReadOnlyList<(int Number, string Text)> textPages, IReadOnlyList<PdfFigure> figures)
+    {
+        if (textPages.Count == 0)
+            return null;
+
+        var sb = new StringBuilder();
+        foreach (var (number, text) in textPages)
+        {
+            sb.AppendLine($"--- Trang {number} ---");
+            sb.AppendLine(text);
+            foreach (var figure in figures.Where(f => f.PageNumber == number))
+                sb.AppendLine($"[Hình {figure.Number} — ảnh nhúng trong trang {number}, gửi kèm dưới dạng ảnh]");
+            sb.AppendLine();
+        }
+
+        return sb.Length > 0 ? sb.ToString() : null;
     }
 
     private static string NormalizeImageType(string contentType, string ext)

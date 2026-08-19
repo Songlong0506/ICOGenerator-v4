@@ -55,17 +55,19 @@ public class ProjectSourceFile
     public string? ColumnMap { get; set; }
 
     /// <summary>
-    /// True nếu nguồn này có phần ẢNH cần model vision: file ảnh upload trực tiếp, PDF scan đã lấy được
-    /// ảnh trang, hoặc Word có hình nhúng đã lấy ra (<see cref="ScannedPageImageCount"/> &gt; 0).
+    /// True nếu nguồn này có phần ẢNH cần model vision: file ảnh upload trực tiếp, PDF đã lấy được ảnh trang
+    /// scan hoặc hình nhúng, hoặc Word có hình nhúng đã lấy ra (<see cref="ScannedPageImageCount"/> &gt; 0).
     /// </summary>
     public bool IsVisionSource { get; set; }
 
     /// <summary>
-    /// Số ảnh PNG đã lấy ra từ nguồn, nằm cạnh file gốc: trang SCAN của PDF (tên <c>page-{n}.png</c> —
-    /// xem <see cref="Services.Requirements.PdfScanPageRenderer"/>) hoặc hình nhúng trong Word (tên
-    /// <c>figure-{n}.png</c> — xem <see cref="Services.Requirements.WordDocumentTextExtractor"/>; tên cột
-    /// giữ nguyên vì đã có trong DB). 0 = không có ảnh nào lấy được — với PDF scan khi đó nội dung thực sự
-    /// bị bỏ qua và người dùng được cảnh báo.
+    /// TỔNG số ảnh PNG đã lấy ra từ nguồn, nằm cạnh file gốc: trang SCAN của PDF (tên <c>page-{n}.png</c> —
+    /// xem <see cref="Services.Requirements.PdfScanPageRenderer"/>), hình nhúng trong trang PDF CÓ chữ (tên
+    /// <c>figure-{n}.png</c> — xem <see cref="Services.Requirements.PdfFigureExtractor"/>), hoặc hình nhúng
+    /// trong Word (cũng <c>figure-{n}.png</c> — xem <see cref="Services.Requirements.WordDocumentTextExtractor"/>).
+    /// Tên cột giữ nguyên vì đã có dữ liệu trong DB, và một PDF có thể góp cả hai loại vào cùng con số này —
+    /// <see cref="Services.Requirements.SourceContextBuilder"/> chỉ cần biết TỔNG để nói đúng số ảnh gửi kèm.
+    /// 0 = không có ảnh nào lấy được — với PDF scan khi đó nội dung thực sự bị bỏ qua và người dùng được cảnh báo.
     /// </summary>
     public int ScannedPageImageCount { get; set; }
 

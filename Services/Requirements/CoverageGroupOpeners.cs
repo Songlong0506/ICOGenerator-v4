@@ -77,9 +77,12 @@ public static class CoverageGroupOpeners
             "Còn việc chốt xem mỗi lần có việc gì xảy ra trong ứng dụng thì ai cần được báo — anh/chị "
             + "nhắn cho mình một tiếng để mình đưa phần đó ra rà cùng nhé?"),
 
+        // KHÔNG hỏi kèm "ai là người xem" nữa: mỗi báo cáo là một MÀN HÌNH (xem ReportMapBuilder), nên quyền
+        // xem của nó thuộc bảng phân quyền — hỏi ở đây là bắt người dùng trả lời hai lần cho cùng một điều,
+        // và nó cũng phá luật "hỏi ĐÚNG MỘT thứ" ở đầu file (câu mở nhiều vế thì chỉ vế cuối được trả lời).
         ("Báo cáo / thống kê",
             "Cuối tháng hoặc cuối kỳ, anh/chị cần xem lại những con số hay danh sách tổng hợp nào từ ứng dụng, "
-            + "và ai là người xem?"),
+            + "và mỗi cái giúp anh/chị quyết định việc gì?"),
 
         // Nhóm chốt bằng BẢNG — xem phần "Hai nhóm đọc khác hẳn" ở doc của class.
         ("Phân quyền theo nghiệp vụ",

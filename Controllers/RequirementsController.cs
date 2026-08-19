@@ -44,6 +44,7 @@ public class RequirementsController : Controller
     private readonly ConfirmFlowMapUseCase _confirmFlowMapUseCase;
     private readonly ConfirmScreenScopeUseCase _confirmScreenScopeUseCase;
     private readonly ConfirmEntityMapUseCase _confirmEntityMapUseCase;
+    private readonly ConfirmReportMapUseCase _confirmReportMapUseCase;
     private readonly ConfirmNotificationMapUseCase _confirmNotificationMapUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly ILogger<RequirementsController> _logger;
@@ -85,6 +86,7 @@ public class RequirementsController : Controller
        ConfirmFlowMapUseCase confirmFlowMapUseCase,
        ConfirmScreenScopeUseCase confirmScreenScopeUseCase,
        ConfirmEntityMapUseCase confirmEntityMapUseCase,
+       ConfirmReportMapUseCase confirmReportMapUseCase,
        ConfirmNotificationMapUseCase confirmNotificationMapUseCase,
        BAChatTurnTracker chatTurnTracker,
        ILogger<RequirementsController> logger)
@@ -117,6 +119,7 @@ public class RequirementsController : Controller
         _confirmFlowMapUseCase = confirmFlowMapUseCase;
         _confirmScreenScopeUseCase = confirmScreenScopeUseCase;
         _confirmEntityMapUseCase = confirmEntityMapUseCase;
+        _confirmReportMapUseCase = confirmReportMapUseCase;
         _confirmNotificationMapUseCase = confirmNotificationMapUseCase;
         _chatTurnTracker = chatTurnTracker;
         _logger = logger;
@@ -395,7 +398,20 @@ public class RequirementsController : Controller
                             {
                                 entity = r.Entity,
                                 description = r.Description,
-                                fields = r.Fields.Select(f => new { name = f.Name, meaning = f.Meaning, used = f.Used }),
+                                fields = r.Fields.Select(f => new
+                                {
+                                    name = f.Name,
+                                    meaning = f.Meaning,
+                                    used = f.Used,
+                                    // Hai TRỤC của ô nhập (xem EntityFieldNote): kiểu nhập, và — chỉ với kiểu
+                                    // chọn — danh sách lấy ở đâu, kèm ba ô của ba nhánh nguồn.
+                                    required = f.Required,
+                                    input = f.Input,
+                                    source = f.Source,
+                                    options = f.Options,
+                                    sourceSystem = f.SourceSystem,
+                                    rule = f.Rule
+                                }),
                                 states = r.States.Select(s => new
                                 {
                                     state = s.State,
@@ -596,12 +612,20 @@ public class RequirementsController : Controller
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
     [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> ConfirmPermissionMatrix(Guid projectId, [FromForm] string matrixJson)
+    public async Task<IActionResult> ConfirmPermissionMatrix(
+        Guid projectId, [FromForm] string matrixJson, [FromForm] string? rolesJson = null)
     {
-        var result = await _confirmPermissionMatrixUseCase.ExecuteAsync(projectId, matrixJson, HttpContext.RequestAborted);
+        var result = await _confirmPermissionMatrixUseCase.ExecuteAsync(
+            projectId, matrixJson, rolesJson, HttpContext.RequestAborted);
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
-            : Json(new { ok = false, error = "Không lưu được bảng phân quyền — tải lại trang rồi thử lại nhé." });
+            : Json(new
+            {
+                ok = false,
+                error = string.IsNullOrEmpty(result.Error)
+                    ? "Không lưu được bảng phân quyền — tải lại trang rồi thử lại nhé."
+                    : result.Error
+            });
     }
 
     // BA BẢNG CHỐT còn lại của buổi phỏng vấn — cùng khuôn HAI BƯỚC với ConfirmColumnMap/
@@ -647,6 +671,20 @@ public class RequirementsController : Controller
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
             : Json(new { ok = false, error = "Không lưu được bảng đối tượng — tải lại trang rồi thử lại nhé." });
+    }
+
+    // BẢNG BÁO CÁO / THỐNG KÊ — mỗi báo cáo một dòng, và mỗi dòng còn tích là một MÀN HÌNH: use case gieo
+    // nó vào PlannedScope nên nó đi tiếp vào bảng màn hình rồi thành DÒNG của bảng phân quyền.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
+    public async Task<IActionResult> ConfirmReportMap(Guid projectId, [FromForm] string reportsJson)
+    {
+        var result = await _confirmReportMapUseCase.ExecuteAsync(projectId, reportsJson, HttpContext.RequestAborted);
+        return result.Rows > 0
+            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
+            : Json(new { ok = false, error = "Không lưu được bảng báo cáo — tải lại trang rồi thử lại nhé." });
     }
 
     // BẢNG THÔNG BÁO / NHẮC NHỞ — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một dòng, người nhận

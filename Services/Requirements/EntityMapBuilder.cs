@@ -22,7 +22,18 @@ namespace ICOGenerator.Services.Requirements;
 ///   <item><b>Hỏi lại thứ bảng cột đã chốt.</b> Thông tin trùng tên một CỘT ĐÃ TÍCH của tài liệu nguồn được
 ///   đánh dấu là đã có bằng chứng — xem <see cref="Build"/>. Bắt người dùng duyệt lại đúng thứ họ vừa tự
 ///   tay tích là hình dạng vòng lặp câu hỏi chết mà repo đã phải dựng lưới một lần.</item>
+///   <item><b>Ô ngoài nhánh của hai trục.</b> Mỗi thông tin có hai trục độc lập — <c>Input</c> (nhập thế
+///   nào) và <c>Source</c> (danh sách lấy ở đâu, chỉ có nghĩa với hai kiểu chọn). Ô của nhánh KHÔNG được
+///   chọn bị cắt hẳn chứ không chỉ ẩn đi ở giao diện: người dùng đổi "chọn nhiều" sang "gõ tay" thì các giá
+///   trị họ gõ lúc trước vẫn nằm trong payload, và một danh sách treo dưới một ô gõ tay sẽ được cả spec lẫn
+///   POC đọc như thật. Cùng luật ép <c>Required</c> về false ở hai ca nó vô nghĩa (thông tin không lưu, và
+///   ô ứng dụng tự sinh) — xem <see cref="NormalizeFields"/>.</item>
 /// </list>
+///
+/// <para>
+/// Một giá trị của trục thứ hai đi XA hơn mô hình dữ liệu: <c>app</c> ("ứng dụng tự quản lý danh mục này")
+/// nghĩa là dự án cần thêm một MÀN HÌNH. Xem <see cref="ManagedListScreens(IEnumerable{EntityMapRow})"/>.
+/// </para>
 ///
 /// <para>
 /// Hai chốt chặn đầu nhắm vào MODEL, nên cả hai đều NHƯỜNG ở đường GỬI: người dùng thêm/xóa được dòng ngay
@@ -41,6 +52,13 @@ public static class EntityMapBuilder
 
     /// <summary>Trần số trạng thái của MỘT đối tượng.</summary>
     public const int MaxStatesPerEntity = 8;
+
+    /// <summary>
+    /// Trần số giá trị của một danh sách NHẬP TẠI CHỖ. Ý nghĩa của "nhập tại chỗ" là danh sách chỉ có vài
+    /// giá trị cố định — dài hơn ngần này thì nó là một danh mục thật, tức thuộc về "ứng dụng tự quản lý"
+    /// với một màn hình riêng, chứ không phải một ô người dùng ngồi gõ lại mỗi lần bảng bày ra.
+    /// </summary>
+    public const int MaxOptionsPerField = 10;
 
     /// <summary>Ít hơn ngần này trạng thái thì không phải vòng đời — xem ghi chú class.</summary>
     public const int MinStatesForLifecycle = 2;
@@ -197,6 +215,13 @@ public static class EntityMapBuilder
             if (fields.Count == 0 && row.States.Count == 0)
                 sb.AppendLine("  - người dùng tự thêm đối tượng này và CHƯA nêu thông tin cần lưu ⇒ hỏi họ "
                     + "đối tượng này cần lưu những gì (đây là ngoại lệ duy nhất của luật \"đừng hỏi lại\").");
+
+            // Ô chọn chưa chốt được nguồn: CÙNG hình dạng ngoại lệ và cùng lý do. Bảng đã chốt không có
+            // nghĩa là mọi ô trong nó đã có câu trả lời, và một ô chọn không nói được danh sách lấy ở đâu
+            // sẽ đi thẳng vào spec dưới dạng một dropdown không ai dựng được. Ngoại lệ ghi ngay tại dòng
+            // của đối tượng chứ không gom xuống cuối khối, để BA hỏi đúng chỗ.
+            foreach (var pending in PendingFieldNotes(row))
+                sb.AppendLine($"  - {pending} ⇒ hỏi nốt (ngoại lệ của luật \"đừng hỏi lại\").");
         }
 
         return sb.ToString().TrimEnd();
@@ -236,6 +261,9 @@ public static class EntityMapBuilder
             // là thứ họ đang chờ được hỏi.
             if (fields.Count == 0 && row.States.Count == 0)
                 sb.AppendLine("- mình chưa rõ cần lưu những gì cho đối tượng này.");
+
+            foreach (var pending in PendingFieldNotes(row))
+                sb.AppendLine($"- {pending}.");
         }
 
         // Đối tượng TỰ THÊM phải được gọi tên, cùng lý do với các dòng bị bỏ tích: đây là chỗ bảng khác đi so
@@ -256,15 +284,212 @@ public static class EntityMapBuilder
             sb.AppendLine("Các đối tượng mình KHÔNG cần: " + string.Join(", ", dropped.Select(r => r.Entity)) + ".");
         }
 
+        // Các danh mục "ứng dụng tự quản lý" phải được GỌI TÊN, vì đây là chỗ bảng đối tượng đẻ ra thứ
+        // không thuộc về nó: mỗi danh mục như vậy là một MÀN HÌNH nữa của ứng dụng. Người dùng chỉ chọn
+        // "app tự quản lý" trong một ô nhỏ ở bảng này, nên nếu bản kể không nói ra thì họ không có cách nào
+        // biết mình vừa đặt hàng thêm ba màn hình — mà chính bản kể này là thứ mọi tầng chắt lọc phía sau
+        // đọc. Việc đưa chúng vào phạm vi màn hình do ConfirmEntityMapUseCase làm.
+        var managed = ManagedListScreens(rows);
+        if (managed.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Các danh mục ứng dụng tự quản lý (mỗi danh mục cần một màn hình quản lý riêng): "
+                + string.Join(", ", managed) + ".");
+        }
+
         return sb.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Các MÀN HÌNH mà bảng đối tượng đẻ ra: mỗi thông tin còn tích, kiểu CHỌN, nguồn "ứng dụng tự quản lý"
+    /// là một danh mục mà ứng dụng phải có màn hình CRUD riêng để quản lý.
+    ///
+    /// <para>
+    /// <b>Vì sao nó phải chảy ra khỏi bảng này.</b> Một quyết định "danh sách này do ứng dụng tự quản lý"
+    /// nằm lại trong cột <c>EntityMap</c> sẽ không có màn hình nào trong <c>## 6. Screens To Generate</c> và
+    /// không có DÒNG nào trong bảng phân quyền — tức mặc nhiên "không ai được xem" một màn hình mà người
+    /// dùng vừa đặt hàng. Đường ra là <c>Project.PlannedScope</c>, và chính hàm này là lý do thứ tự phụ
+    /// thuộc của buổi phỏng vấn đặt bảng đối tượng TRƯỚC bảng màn hình
+    /// (<c>luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo</c>): gieo trước lần bày đầu thì
+    /// các màn hình danh mục là những dòng bình thường của bảng màn hình, người dùng tích/bỏ tích ngay tại
+    /// đó. Thứ tự cũ (màn hình trước) buộc chúng đi vào bằng đường MỞ LẠI của <c>ScreenScopeGate</c> —
+    /// người dùng đã chốt "đây là toàn bộ màn hình" rồi mới thấy danh sách dài thêm, và
+    /// <c>RequirementConflictService</c> bắn một mâu thuẫn cho đúng cái phạm vi vừa đổi. Xem
+    /// <c>InterviewTableGate</c> và <c>ConfirmEntityMapUseCase</c>.
+    /// </para>
+    ///
+    /// <para>
+    /// Tên gieo ra phải đọc được như MỘT MÀN HÌNH, vì cột "Màn hình" của bảng màn hình chỉ được chứa màn
+    /// hình — một mục tên là "OrgUnit" trần sẽ được rà như một màn hình mà không ai biết nó làm gì.
+    /// </para>
+    /// </summary>
+    public static List<string> ManagedListScreens(IEnumerable<EntityMapRow>? rows)
+    {
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var field in (rows ?? Enumerable.Empty<EntityMapRow>())
+                     .Where(r => r != null && r.Included)
+                     .SelectMany(r => r.Fields)
+                     .Where(f => f != null && f.Used
+                         && EntityFieldInput.IsChoice(f.Input)
+                         && f.Source == EntityFieldSource.App
+                         && !string.IsNullOrWhiteSpace(f.Name)))
+        {
+            // Cùng một danh mục thường xuất hiện ở nhiều đối tượng (OrgUnit của JD và của nhân viên) —
+            // gieo hai lần là bắt người dùng rà hai dòng cho cùng một màn hình.
+            if (seen.Add(Normalize(field.Name)))
+                result.Add($"Màn hình quản lý danh mục {field.Name.Trim()}");
+        }
+
+        return result;
+    }
+
+    /// <summary>Bản đọc từ JSON đã lưu của <see cref="ManagedListScreens(IEnumerable{EntityMapRow})"/>.</summary>
+    public static List<string> ManagedListScreens(string? entityMapJson) => ManagedListScreens(Parse(entityMapJson));
+
+    /// <summary>
+    /// Tên các đối tượng người dùng đã GIỮ ở bảng đã chốt — bộ đối chiếu cho mọi bảng sau muốn trỏ về một
+    /// đối tượng (<see cref="ReportMapBuilder"/> dùng nó cho ô "lấy số từ"). Đối tượng đã bỏ tích KHÔNG có
+    /// mặt: trỏ một báo cáo vào thứ người dùng vừa loại là dựng lại đúng thứ họ vừa đóng.
+    /// </summary>
+    public static List<string> EntityNames(string? entityMapJson)
+        => Parse(entityMapJson)
+            .Where(r => r.Included && !string.IsNullOrWhiteSpace(r.Entity))
+            .Select(r => r.Entity.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
     // ==== chuẩn hoá từng phần ====
 
+    /// <summary>
+    /// MỘT thông tin, ở dạng cả người dùng lẫn model đọc được. Phần trong ngoặc vuông chỉ xuất hiện khi có
+    /// gì để nói: một ô gõ tay không bắt buộc là ca THƯỜNG GẶP NHẤT, và dán "gõ tay" vào từng dòng của một
+    /// bảng mười hai dòng chỉ làm loãng đúng những dòng có ràng buộc thật.
+    /// </summary>
     private static string RenderField(EntityFieldNote field)
-        => string.IsNullOrWhiteSpace(field.Meaning)
+    {
+        var head = string.IsNullOrWhiteSpace(field.Meaning)
             ? field.Name.Trim()
             : $"{field.Name.Trim()} ({field.Meaning.Trim()})";
+
+        var constraints = ConstraintLabel(field);
+        return constraints.Length > 0 ? $"{head} [{constraints}]" : head;
+    }
+
+    /// <summary>
+    /// Các RÀNG BUỘC của một thông tin, gộp thành một chuỗi — rỗng khi chẳng có gì để nói (ô gõ tay không
+    /// bắt buộc, ca thường gặp nhất). Công khai vì bản xuất hội thoại phải kể đúng bộ ràng buộc mà các khối
+    /// ngữ cảnh kể: người chấm đối chiếu hai bản đó với nhau, và hai cách diễn đạt cho cùng một ô là đúng
+    /// thứ khiến họ đi tìm một khác biệt không tồn tại.
+    /// </summary>
+    public static string ConstraintLabel(EntityFieldNote field)
+    {
+        var notes = new List<string>();
+        if (field.Required)
+            notes.Add("bắt buộc");
+
+        switch (field.Input)
+        {
+            case EntityFieldInput.Number:
+                notes.Add("nhập số");
+                break;
+            case EntityFieldInput.Date:
+                notes.Add("nhập ngày");
+                break;
+            case EntityFieldInput.Auto:
+                notes.Add(string.IsNullOrWhiteSpace(field.Rule)
+                    ? "ứng dụng tự sinh, người dùng không nhập"
+                    : $"ứng dụng tự sinh theo quy tắc {field.Rule.Trim()}, người dùng không nhập");
+                break;
+            case EntityFieldInput.ChoiceOne:
+            case EntityFieldInput.ChoiceMany:
+                notes.Add(field.Input == EntityFieldInput.ChoiceOne
+                    ? "chọn 1 giá trị"
+                    : "chọn nhiều giá trị");
+                notes.Add(RenderFieldSource(field));
+                break;
+        }
+
+        return string.Join(" · ", notes);
+    }
+
+    /// <summary>
+    /// Vế "danh sách lấy ở đâu" của một ô chọn. Ba ca CHƯA CHỐT được gọi tên thẳng thay vì bỏ trống, vì đây
+    /// là chuỗi chữ mà cả hội thoại lẫn spec đọc: một ô chọn không nói được danh sách lấy ở đâu thì POC
+    /// không dựng nổi cái dropdown ấy, và im lặng ở đây là cách chắc chắn nhất để không ai hỏi nốt.
+    /// </summary>
+    private static string RenderFieldSource(EntityFieldNote field) => field.Source switch
+    {
+        EntityFieldSource.Inline when field.Options.Count > 0
+            => "danh sách cố định: " + string.Join(", ", field.Options),
+        EntityFieldSource.Inline => "danh sách cố định nhưng CHƯA nêu giá trị nào",
+        EntityFieldSource.App => "danh sách do ứng dụng tự quản lý (cần một màn hình quản lý riêng)",
+        EntityFieldSource.External when !string.IsNullOrWhiteSpace(field.SourceSystem)
+            => $"lấy từ {field.SourceSystem.Trim()}",
+        EntityFieldSource.External => "lấy từ hệ thống khác nhưng CHƯA rõ hệ thống nào",
+        _ => "CHƯA rõ danh sách lấy ở đâu"
+    };
+
+    /// <summary>
+    /// Các ô CHƯA CHỐT của một đối tượng, mỗi ca một câu — nguyên liệu cho ngoại lệ của luật "đừng hỏi lại"
+    /// ở <see cref="RenderConfirmedBlock"/> và cho phần tự khai của <see cref="RenderUserMessage"/>.
+    ///
+    /// <para>
+    /// Vì sao chúng KHÔNG chặn nút gửi, khác bảng thông báo: ở đó dòng khóa không có checkbox nên người
+    /// dùng không có đường nào thoát ra ngoài việc điền, còn ở đây họ luôn bỏ tích được cả dòng. Dựng thêm
+    /// một cổng từ chối để đổi lấy một câu hỏi mà BA hỏi được ở lượt sau là dựng thêm một chỗ kẹt.
+    /// </para>
+    /// </summary>
+    private static List<string> PendingFieldNotes(EntityMapRow row)
+    {
+        var notes = new List<string>();
+        var fields = row.Fields.Where(f => f.Used && EntityFieldInput.IsChoice(f.Input)).ToList();
+
+        var noSource = fields.Where(f => f.Source.Length == 0).Select(f => f.Name.Trim()).ToList();
+        if (noSource.Count > 0)
+            notes.Add("chưa rõ danh sách lấy ở đâu: " + string.Join(", ", noSource));
+
+        var noSystem = fields
+            .Where(f => f.Source == EntityFieldSource.External && string.IsNullOrWhiteSpace(f.SourceSystem))
+            .Select(f => f.Name.Trim()).ToList();
+        if (noSystem.Count > 0)
+            notes.Add("chưa rõ lấy từ hệ thống nào: " + string.Join(", ", noSystem));
+
+        var noOptions = fields
+            .Where(f => f.Source == EntityFieldSource.Inline && f.Options.Count == 0)
+            .Select(f => f.Name.Trim()).ToList();
+        if (noOptions.Count > 0)
+            notes.Add("chưa nêu các giá trị của danh sách: " + string.Join(", ", noOptions));
+
+        return notes;
+    }
+
+    /// <summary>
+    /// Chuẩn hoá danh sách giá trị nhập tại chỗ: bỏ rỗng, bỏ trùng (theo bản chuẩn hoá, nhưng GIỮ chính tả
+    /// người dùng gõ — chữ ấy lên thẳng dropdown của POC), cắt theo <see cref="MaxOptionsPerField"/>.
+    /// </summary>
+    private static List<string> NormalizeOptions(IEnumerable<string>? proposed)
+    {
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var option in proposed ?? Enumerable.Empty<string>())
+        {
+            if (string.IsNullOrWhiteSpace(option))
+                continue;
+
+            var value = Clip(option.Trim(), MaxTextChars);
+            if (!seen.Add(Normalize(value)))
+                continue;
+
+            result.Add(value);
+            if (result.Count >= MaxOptionsPerField)
+                break;
+        }
+
+        return result;
+    }
 
     // Ô "báo cho ai" KHÔNG được kể ở đây nữa, kể cả với dữ liệu cũ còn mang nó (xem
     // EntityLifecycleState.Notify): người nhận thông báo có bảng riêng, và hai khối ngữ cảnh cùng nói về
@@ -296,11 +521,36 @@ public static class EntityMapBuilder
             if (columnKeys.Contains(Normalize(name)) && meaning.Length == 0)
                 meaning = "đã chốt ở bảng cột của tài liệu nguồn";
 
+            var used = !respectSelection || field.Used;
+            var input = EntityFieldInput.Normalize(field.Input);
+            var isChoice = EntityFieldInput.IsChoice(input);
+            var source = isChoice ? EntityFieldSource.Normalize(field.Source) : string.Empty;
+
             result.Add(new EntityFieldNote
             {
                 Name = name,
                 Meaning = meaning,
-                Used = !respectSelection || field.Used
+                Used = used,
+                // Ba luật ép cờ bắt buộc về false, và cả ba là "ô này không có nghĩa" chứ không phải một
+                // lựa chọn bị bác: thông tin KHÔNG lưu thì không có ô nào để bắt buộc, và thông tin ứng
+                // dụng TỰ SINH thì người dùng không hề nhập — bắt buộc nhập nó là một ràng buộc mà POC
+                // dựng ra sẽ chặn đúng cái biểu mẫu nó vừa dựng.
+                Required = used && input != EntityFieldInput.Auto && field.Required,
+                Input = input,
+                Source = source,
+                // Ba ô phụ chỉ sống dưới đúng một nhánh của hai trục. Cắt ở đây chứ không để UI ẩn đi:
+                // người dùng đổi kiểu từ "chọn nhiều" sang "gõ tay" thì các giá trị họ gõ lúc trước còn
+                // nằm trong payload, và một danh sách treo dưới một ô gõ tay sẽ được cả spec lẫn POC đọc
+                // như thật.
+                Options = source == EntityFieldSource.Inline
+                    ? NormalizeOptions(field.Options)
+                    : new List<string>(),
+                SourceSystem = source == EntityFieldSource.External
+                    ? Clip((field.SourceSystem ?? string.Empty).Trim(), MaxTextChars)
+                    : string.Empty,
+                Rule = input == EntityFieldInput.Auto
+                    ? Clip((field.Rule ?? string.Empty).Trim(), MaxTextChars)
+                    : string.Empty
             });
 
             if (result.Count >= MaxFieldsPerEntity)

@@ -25,8 +25,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Ô này (cả trên thẻ hỏi gộp lẫn hàng chip lượt-đơn) nằm trong khung nhãn-nổi gọn, khởi điểm chỉ cao
     // chừng một dòng. Nhưng câu trả lời thật ở đây thường dài hơn thế — "tầm 1500 người, và tần suất sử
     // dụng không cố định" — và ô cố định bắt người dùng cuộn để đọc lại chính thứ mình sắp gửi, đúng lúc họ
-    // cần thấy nó trọn vẹn nhất. Trên thẻ hỏi gộp nó còn được MỒI SẴN nội dung chip vừa bấm để sửa vài chữ
-    // (xem handler .batchq-choice), nên có thể mang sẵn một câu dài ngay khi người dùng chưa gõ gì.
+    // cần thấy nó trọn vẹn nhất. Bản phục hồi nháp cũng đổ thẳng vào đây, nên ô có thể mang sẵn một câu dài
+    // ngay khi người dùng chưa gõ chữ nào trong phiên này.
     // Trần chiều cao là bắt buộc: không có nó, một câu trả lời dài đẩy nút "Gửi N câu trả lời" ra khỏi màn
     // hình và thẻ hỏi gộp thành cụt đường.
     const OTHER_BOX_MAX_HEIGHT = 200;
@@ -337,10 +337,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     ];
 
     function isDissentChip(text) {
-        const t = (text || "").trim().toLowerCase();
+        const t = (text || "").trim().toLowerCase().replace(/[.…!?,;:\s]+$/, "");
         if (!t) return false;
         // "Không, tính khác" / "Không, khác" — bắt cả các biến thể mà cụm cố định ở trên không phủ hết.
         if (t.startsWith("không") && t.includes("khác")) return true;
+        // Chip KẾT BẰNG "khác" — bắt theo HÌNH DẠNG, vì "Quy tắc khác", "Trạng thái khác", "Cách xử lý
+        // khác" là cùng một chip đội ba cái tên và danh sách cụm cố định ở trên không bao giờ phủ hết.
+        // BAChatReplyParser.DropBareOtherChips đã xoá phần lớn chúng, nhưng nó CỐ Ý dừng lại khi xoá xong
+        // còn dưới 2 chip — tức bộ hai chip prompt kê sẵn ở lượt xin chốt (["Đồng ý", "Tôi muốn khác"])
+        // lên màn hình nguyên vẹn, và đó đúng là bộ mà cú bấm "khác" tốn kém nhất. Ở đây bắt RỘNG hơn
+        // parser được: nhận nhầm một chip có nội dung thật ("Chuyển sang phòng ban khác") chỉ tốn thêm một
+        // cú bấm "Gửi", còn parser thì xoá hẳn chip nên phải hẹp.
+        if (/(^|\s)khác$/.test(t)) return true;
         return DISSENT_CHIP_CUES.some(cue => t.includes(cue));
     }
 
@@ -356,37 +364,53 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // và mọi thứ đã đúng ở lượt chat (cổng readiness, chắt lọc bản đồ, decision log) tự khắc đúng ở đây.
     const batchPanel = document.getElementById("batchQuestions");
 
-    // Ô trả lời của MỘT câu trên thẻ luôn MỞ, kể cả câu có hàng gợi ý. Trước đây nó nấp sau một viên nút
-    // "✎ Ý khác" và chỉ ra mặt khi bấm — mà chính cái ô đó lại là NƠI LƯU câu trả lời của cả hàng gợi ý
-    // (bấm chip = ghi giá trị chip vào ô). Hai vai trong một ô cộng với một cái nút bật/tắt sinh ra đúng
-    // trạng thái sai đã thấy trên màn hình: chip đang sáng, nút "✎ Ý khác" vẫn nằm đó, VÀ ô nhập mở ra
-    // mang sẵn nguyên văn chip vừa bấm — ba thứ nói cùng một điều, người dùng không biết cái nào mới là
-    // thứ sắp gửi đi.
+    // Ô tự nhập của MỘT câu trên thẻ luôn MỞ, kể cả câu có hàng gợi ý, và nó là ô "Ý KHÁC" — đúng bằng ô
+    // cùng tên ở hàng chip lượt-đơn, cùng nhãn, cùng cách gộp vào tin nhắn gửi đi.
     //
-    // Nay ô là chỗ DUY NHẤT thể hiện câu trả lời: hàng gợi ý chỉ còn là lối điền nhanh (bấm chip = điền ô),
-    // ô luôn hiện nên người dùng đọc được thứ mình sắp gửi và sửa ngay tại chỗ. Vì thế nhãn của ô cũng
-    // không còn là "Ý khác" — nó là "Câu trả lời", đúng thứ nó chứa dù nội dung tới từ chip hay tự gõ.
-    const BATCH_ANSWER_LABEL = "Câu trả lời anh/chị gửi cho câu này";
-    const BATCH_ANSWER_PLACEHOLDER = "Bấm một gợi ý ở trên, hoặc tự nhập câu trả lời…";
+    // Trước đây ô này bị dùng làm NƠI LƯU câu trả lời của cả hàng gợi ý: bấm chip = chép nguyên văn chip
+    // vào ô. Màn hình vì thế nói một điều HAI LẦN — chip sáng ngay trên, y hệt câu chữ đó lại nằm trong ô
+    // ngay dưới — mà chẳng thêm được gì: người dùng không sửa được câu gợi ý bằng cách đó (sửa một chữ là
+    // chip tắt, thành một câu tự nhập khác hẳn), chỉ còn cảm giác mình phải xoá đi thứ vừa được điền hộ.
+    // Nó cũng chiếm mất chỗ của việc mà ô này sinh ra để làm: nói thêm một ý mà không gợi ý nào phủ.
+    //
+    // Nay hai vai tách hẳn: CHIP giữ lựa chọn (trạng thái nằm trên chính chip, `.is-on`), Ô giữ phần người
+    // dùng tự nói. Câu trả lời gửi đi là hai vế ghép lại (batchAnswerOf) — bấm chip rồi gõ thêm thì cả hai
+    // cùng đi, đúng như hàng chip lượt-đơn ghép "chip — lời viết thêm".
+    const BATCH_ANSWER_LABEL = "Ý khác — câu trả lời anh/chị tự nhập";
+    const BATCH_ANSWER_PLACEHOLDER = "Không gợi ý nào đúng, hoặc muốn nói thêm? Anh/chị gõ vào đây…";
 
-    // Chip là DẪN XUẤT của nội dung ô, không phải một trạng thái song song: chip sáng khi giá trị của nó
-    // đang có mặt trong ô. Nhờ vậy người dùng sửa tay một chữ trong ô thì chip tự tắt (không còn ca "chip
-    // sáng nhưng thứ gửi đi là câu khác"), và bản phục hồi nháp không cần đoán lại trạng thái nút nào.
-    function batchAnswerParts(box) {
-        return (box.value || "").split(",").map(s => s.trim()).filter(Boolean);
+    // Lựa chọn của một câu = các chip đang sáng, theo đúng thứ tự chúng nằm trên thẻ (không theo thứ tự
+    // bấm): thứ tự hiển thị là thứ tự người dùng vừa đọc, nên tin nhắn gửi đi khớp với thứ họ thấy.
+    function batchPicks(li) {
+        return Array.from(li.querySelectorAll(".batchq-choice.is-on"))
+            .map(chip => (chip.dataset.value || "").trim())
+            .filter(Boolean);
     }
 
-    function syncBatchChips(li) {
+    function batchOtherText(li) {
         const box = li.querySelector(".batchq-answer");
-        if (!box) return;
+        return box ? (box.value || "").trim() : "";
+    }
 
-        const multi = li.dataset.multi === "true";
-        const whole = (box.value || "").trim();
-        const parts = batchAnswerParts(box);
-        li.querySelectorAll(".batchq-choice").forEach(chip => {
-            const value = (chip.dataset.value || "").trim();
-            chip.classList.toggle("is-on", multi ? parts.includes(value) : value === whole);
-        });
+    // Câu trả lời THẬT của một dòng = chip đã bấm + lời tự nhập. Giữ CẢ HAI vế: bỏ chip đi thì phần viết
+    // thêm ("nhưng chỉ với đơn trên 10 triệu") đứng trơ trọi, các tầng chắt lọc phía sau không còn biết nó
+    // đang nói thêm cho lựa chọn nào; bỏ phần tự nhập đi thì ô "Ý khác" thành ô trang trí.
+    // Câu MỞ không có chip nào ⇒ rơi về đúng nội dung ô, như trước.
+    function batchAnswerOf(li) {
+        const picks = batchPicks(li).join(", ");
+        const typed = batchOtherText(li);
+        if (!typed) return picks;
+        return picks ? `${picks} — ${typed}` : typed;
+    }
+
+    // Bấm chip: chọn-nhiều thì mỗi chip là một công tắc riêng; chọn-một thì chip vừa bấm sáng và tắt các
+    // chip còn lại, bấm lại chính nó = bỏ chọn (một cú bấm nhầm luôn có đường lùi).
+    function toggleBatchChip(li, chip) {
+        const on = !chip.classList.contains("is-on");
+        if (li.dataset.multi !== "true") {
+            li.querySelectorAll(".batchq-choice").forEach(c => c.classList.remove("is-on"));
+        }
+        chip.classList.toggle("is-on", on);
     }
 
     // Các câu hỏi đang nằm trên thẻ, dựng thành dấu vết CHỈ-ĐỌC. Không có phần này, các câu hỏi biến mất
@@ -447,7 +471,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         return Array.from(batchPanel.querySelectorAll(".batchq-item"))
             .map(li => ({
                 question: li.dataset.question || "",
-                answer: (li.querySelector(".batchq-answer").value || "").trim()
+                answer: batchAnswerOf(li)
             }))
             .filter(x => x.answer.length > 0);
     }
@@ -494,7 +518,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         batchPanel.innerHTML = `
             <p class="batchq-lead">${escapeHtml(lead)}</p>
-            <div class="batchq-howto">Bấm một gợi ý hoặc tự nhập; điểm nào chưa nghĩ tới thì để trống.</div>
+            <div class="batchq-howto">Bấm gợi ý, muốn nói thêm thì gõ vào ô "Ý khác"; điểm nào chưa nghĩ tới thì để trống.</div>
             <ul class="batchq-list">
                 ${questions.map(q => {
                     // Câu MỞ: không có gợi ý nào để bấm, nên chỉ còn ô tự nhập — một dòng chỉ có mỗi câu
@@ -511,7 +535,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     </div>
                     <div class="batchq-other-field">
                         <textarea class="batchq-answer" rows="1" aria-label="${BATCH_ANSWER_LABEL}" placeholder="${BATCH_ANSWER_PLACEHOLDER}"></textarea>
-                        <span class="batchq-other-cap" aria-hidden="true">Câu trả lời</span>
+                        <span class="batchq-other-cap" aria-hidden="true">Ý khác</span>
                     </div>`}
                     ${open ? `<textarea class="batchq-answer" rows="3" placeholder="Anh/chị kể giúp mình, càng chi tiết càng tốt…"></textarea>` : ""}
                 </li>`;
@@ -534,32 +558,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const choice = e.target.closest(".batchq-choice");
             if (choice) {
                 const li = choice.closest(".batchq-item");
-                const answer = li.querySelector(".batchq-answer");
-                const value = (choice.dataset.value || "").trim();
 
-                if (li.dataset.multi === "true") {
-                    // Câu chọn-nhiều: chip là toggle, câu trả lời là các lựa chọn nối bằng dấu phẩy. Chỉ
-                    // thêm/bớt ĐÚNG giá trị chip vừa bấm thay vì dựng lại cả ô từ bộ chip đang sáng — dựng
-                    // lại sẽ xoá luôn phần người dùng tự gõ thêm, mà ô thì đang mở ngay trước mắt họ.
-                    const parts = batchAnswerParts(answer);
-                    const at = parts.indexOf(value);
-                    if (at >= 0) parts.splice(at, 1);
-                    else parts.push(value);
-                    answer.value = parts.join(", ");
-                } else {
-                    // Câu chọn-một: chip là lối điền nhanh, bấm cái nào thì ô mang đúng câu đó. Bấm lại
-                    // chính chip đang chọn = bỏ chọn, nếu không thì một cú bấm nhầm không có đường lùi nào
-                    // ngoài việc bôi đen xoá tay.
-                    answer.value = (answer.value || "").trim() === value ? "" : value;
-                }
+                // Chip KHÔNG đụng tới ô "Ý khác": ô đó chở phần người dùng tự nói, chép lựa chọn vào đó là
+                // nói một điều hai lần rồi bắt họ tự xoá (xem chú thích ở BATCH_ANSWER_LABEL).
+                toggleBatchChip(li, choice);
 
-                syncBatchChips(li);
-                autoGrowOtherBox(answer);
                 // KHÔNG focus vào ô sau cú bấm: bấm gợi ý là thao tác "câu này xong rồi", mà focus thì trên
-                // điện thoại bật bàn phím lên che mất các câu còn lại của thẻ. Ô nằm ngay dưới hàng gợi ý và
-                // đã hiện nguyên văn thứ vừa chọn — ai muốn sửa chỉ việc bấm vào đó.
+                // điện thoại bật bàn phím lên che mất các câu còn lại của thẻ.
                 updateBatchSendButton();
-                // Chọn bằng chip KHÔNG bắn sự kiện input (giá trị do JS gán) → phải tự hẹn lưu nháp.
+                // Bấm chip không đụng vào ô nào nên không có sự kiện input → phải tự hẹn lưu nháp.
                 draftBatchSaveSoon();
                 return;
             }
@@ -576,15 +583,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             chatForm.requestSubmit();
         });
 
-        // Ô trả lời rỗng thì câu đó KHÔNG được tính, nên nhãn nút phải nhảy theo từng phím gõ.
+        // Câu không chip nào sáng và ô cũng rỗng thì KHÔNG được tính, nên nhãn nút phải nhảy theo từng
+        // phím gõ.
         batchPanel.addEventListener("input", function (e) {
             if (!e.target.classList.contains("batchq-answer")) return;
             // Chỉ ô trong khung nhãn-nổi mới tự cao: ô của câu MỞ đứng riêng, đã có sẵn 3 dòng và
             // `resize: vertical` để người dùng tự kéo.
             if (e.target.closest(".batchq-other-field")) autoGrowOtherBox(e.target);
-            // Sửa tay làm nội dung ô lệch khỏi chip đang sáng → chip phải tắt theo, không thì màn hình nói
-            // người dùng đã chọn một đằng trong khi thứ sắp gửi là một nẻo.
-            syncBatchChips(e.target.closest(".batchq-item"));
             updateBatchSendButton();
             draftBatchSaveSoon();
         });
@@ -672,6 +677,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // liệu dự án ghi một nẻo, và mọi tầng đọc transcript tin vào bản kể.
     const permMapPanel = document.getElementById("permissionMatrix");
     const PERM_SCOPES = ["của mình", "của đơn vị", "tất cả"];
+    const MAX_PERM_ROLES = 8; // = PermissionMatrixBuilder.MaxRoles
 
     function permMapRows() {
         if (!permMapPanel || permMapPanel.hidden) return [];
@@ -692,6 +698,148 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         permMapPanel.innerHTML = "";
     }
 
+    // MỘT ô quyền. Dùng chung cho lượt dựng cả bảng và cho lúc bảng vai trò thêm một cột — hai bản sao là
+    // hai chỗ để một bản quên mất luật "ô có bằng chứng thì khóa".
+    function permissionCell(role, fn, grant) {
+        const g = grant || {};
+        const scope = g.scope || "";
+        const inner = g.locked
+            ? `<span class="permmap-locked" title="${escapeHtml(g.evidence || "")}">✓ ${escapeHtml(scope)}</span>
+               <input type="hidden" class="permmap-scope" value="${escapeHtml(scope)}" />`
+            : `<select class="permmap-scope" aria-label="${escapeHtml(role)} — ${escapeHtml(fn)}">
+                   <option value=""${scope ? "" : " selected"}>—</option>
+                   ${PERM_SCOPES.map(s => `<option value="${s}"${scope === s ? " selected" : ""}>${s}</option>`).join("")}
+               </select>`;
+        return `<td class="permmap-cell" data-role="${escapeHtml(role)}">${inner}</td>`;
+    }
+
+    // MỘT dòng của bảng vai trò. Markup khớp bản server render trong Index.cshtml.
+    function permissionRoleRow(value) {
+        return `
+            <tr class="permrole-row">
+                <td><textarea rows="1" class="permmap-cellinput permrole-name" aria-label="Tên vai trò">${escapeHtml(value || "")}</textarea></td>
+                <td class="entitymap-delcell">
+                    <button type="button" class="entitymap-del permrole-del" title="Xóa vai trò này" aria-label="Xóa vai trò này">×</button>
+                </td>
+            </tr>`;
+    }
+
+    function renderPermissionRoles(roles) {
+        return `
+            <div class="permmap-howto">
+                Đây là các <b>vai trò</b> mình gom được từ những gì anh/chị đã kể — cũng chính là các <b>cột</b>
+                của bảng dưới. Thiếu vai nào thì thêm ngay ở đây, sửa chữ hoặc xóa cũng được; các bảng dưới đổi
+                cột theo.
+            </div>
+            <table class="permmap-table permrole-table">
+                <thead>
+                    <tr>
+                        <th>Vai trò</th>
+                        <th class="screenmap-th-del"></th>
+                    </tr>
+                </thead>
+                <tbody>${roles.map(permissionRoleRow).join("")}
+                    <tr class="permrole-addrow">
+                        <td colspan="2"><button type="button" class="entitymap-add permrole-add">+ thêm vai trò</button></td>
+                    </tr>
+                </tbody>
+            </table>`;
+    }
+
+    // CỘT của bảng đang có hiệu lực. Bảng vai trò là bản DUY NHẤT đáng tin — nó là thứ người dùng vừa gõ;
+    // hàng ô của dòng đầu chỉ là bản dự phòng cho payload/tab dựng từ trước bản này.
+    function permissionRoles() {
+        if (!permMapPanel) return [];
+
+        const table = permMapPanel.querySelector(".permrole-table");
+        if (table) return permRoleValues(table);
+
+        const first = permMapPanel.querySelector(".permmap-row");
+        return first ? Array.from(first.querySelectorAll(".permmap-cell")).map(td => td.dataset.role || "") : [];
+    }
+
+    // Các mục của bảng vai trò, theo đúng thứ tự trên bảng: bỏ dòng chưa gõ, bỏ trùng, chặn ở trần. Cùng
+    // luật với PermissionMatrixBuilder.SanitizeRoles — server chạy lại y hệt trên payload, nên hai bên lệch
+    // nhau là người dùng thấy một cột trên màn hình rồi bị server bỏ đúng cột đó.
+    function permRoleValues(root) {
+        const table = root || (permMapPanel && permMapPanel.querySelector(".permrole-table"));
+        if (!table) return [];
+
+        const values = [];
+        const seen = Object.create(null);
+        Array.from(table.querySelectorAll(".permrole-row")).forEach(row => {
+            const value = tableValue(row, ".permrole-name");
+            const key = normalizePermRole(value);
+            if (value.length === 0 || seen[key] || values.length >= MAX_PERM_ROLES) return;
+            seen[key] = true;
+            values.push(value);
+        });
+        return values;
+    }
+
+    // Chép phép chuẩn hoá của server (PermissionMatrixBuilder.Normalize) vì nó quyết định thứ TRÙNG NHAU:
+    // "HRBP" và "hrbp " là hai dòng khác nhau trên bảng nhưng cùng một cột lúc so khớp.
+    function normalizePermRole(value) {
+        return (value || "").toLowerCase().split(/\s+/).filter(Boolean).join(" ")
+            .replace(/^[.,:;–-]+/, "").replace(/[.,:;–-]+$/, "");
+    }
+
+    // Số ô đang CẤP quyền cho một vai — câu hỏi phải trả lời được TRƯỚC khi xóa vai đó.
+    function permRoleUsage(value) {
+        if (!permMapPanel || !value) return 0;
+        return Array.from(permMapPanel.querySelectorAll(".permmap-cell"))
+            .filter(td => td.dataset.role === value
+                && ((td.querySelector(".permmap-scope") || {}).value || "").trim().length > 0)
+            .length;
+    }
+
+    // Bảng vai trò vừa đổi ⇒ dựng lại CỘT của mọi bảng màn hình. Đây là chỗ giữ lời hứa của cả tính năng
+    // ("sửa một chỗ, mọi bảng đổi theo"), và nó phải làm đủ ba việc, thiếu việc nào cũng là mất dữ liệu im
+    // lặng:
+    //  • ĐỔI TÊN thì mang theo cả ô đã chọn (`renameFrom` → `renameTo`) — dựng lại ô rỗng là xóa sạch phạm
+    //    vi người dùng vừa chọn cho vai đó, ở mọi màn hình, chỉ vì họ sửa một chữ trong tên;
+    //  • XÓA thì bỏ hẳn cột đó khỏi mọi bảng;
+    //  • THÊM thì chèn một cột rỗng vào mọi dòng, không phải chỉ dòng đầu — cột lỗ chỗ là đúng khiếm khuyết
+    //    mà PermissionMatrixBuilder.NormalizeGrants sinh ra để chữa.
+    function syncPermissionRoles(renameFrom, renameTo) {
+        if (!permMapPanel) return;
+
+        const roles = permRoleValues();
+
+        permMapPanel.querySelectorAll(".permmap-table:not(.permrole-table)").forEach(table => {
+            const head = table.querySelector("thead tr");
+            const cond = head ? head.querySelector(".permmap-th-cond") : null;
+            if (cond) {
+                head.querySelectorAll(".permmap-th-role").forEach(th => th.remove());
+                roles.forEach(role => cond.insertAdjacentHTML("beforebegin",
+                    `<th class="permmap-th-role">${escapeHtml(role)}</th>`));
+            }
+
+            table.querySelectorAll(".permmap-row").forEach(row => {
+                const fn = row.dataset.function || "";
+                const kept = Object.create(null);
+                row.querySelectorAll(".permmap-cell").forEach(cell => {
+                    const role = (renameFrom && cell.dataset.role === renameFrom) ? renameTo : (cell.dataset.role || "");
+                    cell.remove();
+                    if (kept[role]) return;
+                    cell.dataset.role = role;
+                    // Nhãn trợ năng phải đi theo tên mới: nó là thứ DUY NHẤT đọc màn hình đọc ra ở một ô
+                    // chọn, nên để nó giữ tên cũ là kể sai cột người dùng đang điền.
+                    const select = cell.querySelector("select.permmap-scope");
+                    if (select) select.setAttribute("aria-label", `${role} — ${fn}`);
+                    kept[role] = cell;
+                });
+
+                // Ô điều kiện luôn là ô CUỐI dòng — các cột quyền chèn vào trước nó.
+                const anchor = row.lastElementChild;
+                roles.forEach(role => {
+                    if (kept[role]) row.insertBefore(kept[role], anchor);
+                    else anchor.insertAdjacentHTML("beforebegin", permissionCell(role, fn, null));
+                });
+            });
+        });
+    }
+
     // Dựng bảng từ frame done. Markup khớp bản server render trong Index.cshtml — hai đường lệch nhau thì
     // người dùng chọn xong bảng vừa hiện ra rồi F5 và thấy một bảng khác.
     function renderPermissionMatrix(rows) {
@@ -705,16 +853,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const body = rows.filter(r => r.screen === screen).map(r => `
                 <tr class="permmap-row" data-screen="${escapeHtml(r.screen)}" data-function="${escapeHtml(r.function)}">
                     <td class="permmap-fn">${escapeHtml(r.function)}</td>
-                    ${(r.grants || []).map(g => `
-                        <td class="permmap-cell" data-role="${escapeHtml(g.role)}">
-                            ${g.locked
-                                ? `<span class="permmap-locked" title="${escapeHtml(g.evidence || "")}">✓ ${escapeHtml(g.scope || "")}</span>
-                                   <input type="hidden" class="permmap-scope" value="${escapeHtml(g.scope || "")}" />`
-                                : `<select class="permmap-scope" aria-label="${escapeHtml(g.role)} — ${escapeHtml(r.function)}">
-                                       <option value=""${g.scope ? "" : " selected"}>—</option>
-                                       ${PERM_SCOPES.map(s => `<option value="${s}"${g.scope === s ? " selected" : ""}>${s}</option>`).join("")}
-                                   </select>`}
-                        </td>`).join("")}
+                    ${(r.grants || []).map(g => permissionCell(g.role, r.function, g)).join("")}
                     <td><input type="text" class="permmap-condition" value="${escapeHtml(r.condition || "")}" placeholder="vd: chỉ sửa khi chưa submit" /></td>
                 </tr>`).join("");
 
@@ -733,6 +872,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }).join("");
 
         permMapPanel.innerHTML = `
+            ${renderPermissionRoles(roles)}
             <div class="permmap-howto">
                 Ô <b>✓</b> là quyền anh/chị đã nói trong lúc trao đổi (rê chuột để xem lại câu gốc) — mình khóa
                 lại, không cần chọn nữa. Các ô còn lại là <b>phỏng đoán của mình</b>: anh/chị chọn phạm vi dữ
@@ -742,22 +882,96 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="permissionMatrixSendBtn">Gửi bảng phân quyền</button>
                 <div class="permmap-hint">
-                    Thiếu màn hình nào hoặc thiếu một vai trò, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                    Thiếu màn hình nào thì anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
                 </div>
                 <div class="permmap-msg" id="permissionMatrixMsg"></div>
             </div>`;
         permMapPanel.hidden = false;
+        autoGrowCells(permMapPanel);
         thinkingBox.before(permMapPanel);
     }
 
     if (permMapPanel) {
+        // THÊM / XÓA một vai trò. Ủy quyền trên PANEL vì renderPermissionMatrix thay sạch innerHTML.
+        permMapPanel.addEventListener("click", function (e) {
+            const add = e.target.closest(".permrole-add");
+            const remove = e.target.closest(".permrole-del");
+            if (!add && !remove) return;
+
+            const msgEl = document.getElementById("permissionMatrixMsg");
+            const note = text => { if (msgEl) msgEl.textContent = text; };
+
+            // Lời hỏi lại "bấm × lần nữa" chỉ sống tới thao tác kế tiếp: người dùng bỏ ngang rồi vài phút
+            // sau bấm × một cái là xóa ngay, trong khi họ tưởng cú bấm đó mới là cú thứ nhất.
+            permMapPanel.querySelectorAll('.permrole-del[data-confirm="1"]').forEach(el => {
+                if (el !== remove) delete el.dataset.confirm;
+            });
+
+            if (add) {
+                const anchor = permMapPanel.querySelector(".permrole-addrow");
+                if (!anchor) return;
+
+                // Trần là giới hạn ĐỌC ĐƯỢC, không phải guard suông: mỗi vai là một cột trên MỌI bảng màn
+                // hình, và quá số này thì bảng không rà nổi trên một màn hình thường.
+                if (permRoleValues().length >= MAX_PERM_ROLES) {
+                    note(`Bảng chỉ hiện được tối đa ${MAX_PERM_ROLES} vai trò.`);
+                    return;
+                }
+
+                anchor.insertAdjacentHTML("beforebegin", permissionRoleRow(""));
+                focusNewRow(anchor.previousElementSibling, ".permrole-name");
+                note("");
+                return;
+            }
+
+            const row = remove.closest(".permrole-row");
+            if (!row) return;
+
+            // Bảng không còn cột nào thì không còn ô quyền nào để chọn, và server cũng từ chối lưu — chặn
+            // ngay ở đây để người dùng không phải rà cả bảng rồi mới biết lúc bấm gửi.
+            if (permRoleValues().length <= 1) {
+                note("Bảng cần ít nhất một vai trò — anh/chị sửa chữ dòng này thay vì xóa nhé.");
+                return;
+            }
+
+            const value = tableValue(row, ".permrole-name");
+            const used = permRoleUsage(value);
+            if (used > 0 && remove.dataset.confirm !== "1") {
+                remove.dataset.confirm = "1";
+                note(`“${value}” đang được cấp quyền ở ${used} ô — bấm × lần nữa để xóa cả cột đó.`);
+                return;
+            }
+
+            row.remove();
+            syncPermissionRoles();
+            note("");
+        });
+
+        // Giá trị TRƯỚC khi sửa của một ô tên vai trò — phải chụp lúc con trỏ vào ô, vì lúc `change` bắn ra
+        // thì ô đã mang chữ mới và không còn gì để nối cột cũ về cột mới.
+        permMapPanel.addEventListener("focusin", function (e) {
+            const nameCell = e.target.closest(".permrole-name");
+            if (nameCell) nameCell.dataset.prev = tableValue(nameCell.closest(".permrole-row"), ".permrole-name");
+        });
+
+        permMapPanel.addEventListener("change", function (e) {
+            const nameCell = e.target.closest(".permrole-name");
+            if (nameCell) renamePermissionRole(nameCell);
+        });
+
         permMapPanel.addEventListener("click", async function (e) {
             if (!e.target.closest("#permissionMatrixSendBtn") || chatBusy) return;
 
             const btn = document.getElementById("permissionMatrixSendBtn");
             const msgEl = document.getElementById("permissionMatrixMsg");
             const rows = permMapRows();
+            const roles = permissionRoles();
             if (rows.length === 0) return;
+
+            if (roles.length === 0) {
+                msgEl.textContent = "Bảng phải có ít nhất một vai trò — anh/chị thêm một dòng ở bảng Vai trò rồi gửi nhé.";
+                return;
+            }
 
             btn.disabled = true;
             msgEl.textContent = "Đang lưu bảng phân quyền…";
@@ -769,10 +983,19 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
                 fd.append("__RequestVerificationToken", tokenEl ? tokenEl.value : "");
                 fd.append("matrixJson", JSON.stringify(rows));
+                // Bộ CỘT đi CÙNG CHUYẾN với bảng: để riêng thì server lại chắt cột từ grants như trước, và
+                // một vai người dùng vừa thêm nhưng chưa cấp quyền ở dòng nào biến mất khỏi bảng đã lưu.
+                fd.append("rolesJson", JSON.stringify(roles));
 
                 const resp = await fetch(permMapPanel.dataset.confirmUrl, { method: "POST", body: fd });
                 const data = await resp.json();
-                if (!data.ok || !data.message) throw new Error(data.error || "");
+                if (!data.ok || !data.message) {
+                    // Câu do SERVER soạn đã gọi tên đúng thứ phải sửa — in nguyên văn, vì câu chung chung
+                    // "bấm gửi lại" sẽ dẫn người dùng bấm lại đúng cái bảng vừa bị từ chối.
+                    btn.disabled = false;
+                    msgEl.textContent = data.error || "Chưa lưu được bảng phân quyền — anh/chị bấm gửi lại giúp mình nhé.";
+                    return;
+                }
                 message = data.message;
             } catch (err) {
                 // Lưu hỏng thì DỪNG hẳn, không gửi tin nhắn — cùng lý do với bảng cột: hội thoại ghi nhận
@@ -788,6 +1011,43 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             messageInput.value = message;
             chatForm.requestSubmit();
         });
+    }
+
+    // SỬA CHỮ một vai trò. Hai giá trị bị từ chối và cùng trả ô về chữ cũ, vì cả hai đều làm hỏng đúng mối
+    // nối mà bảng vai trò sinh ra để giữ:
+    //  • RỖNG — cột mất tên thì mọi ô của nó bị server bỏ lúc lưu, trong im lặng; muốn bỏ hẳn thì có nút ×
+    //    (nó còn hỏi lại khi cột đang có quyền);
+    //  • TRÙNG một dòng khác — hai dòng cùng một cột lúc so khớp, nên một trong hai biến mất khỏi bảng và
+    //    người dùng không biết cột nào còn hiệu lực.
+    function renamePermissionRole(nameCell) {
+        const row = nameCell.closest(".permrole-row");
+        const msgEl = document.getElementById("permissionMatrixMsg");
+        const note = text => { if (msgEl) msgEl.textContent = text; };
+
+        const previous = (nameCell.dataset.prev || "").trim();
+        let value = tableValue(row, ".permrole-name");
+
+        const duplicated = value.length > 0
+            && Array.from(permMapPanel.querySelectorAll(".permrole-row")).some(other =>
+                other !== row && normalizePermRole(tableValue(other, ".permrole-name")) === normalizePermRole(value));
+
+        if (duplicated) {
+            note(`“${value}” đã có trong bảng vai trò rồi.`);
+            value = previous;
+        } else if (value.length === 0 && previous.length > 0) {
+            note("Tên vai trò không được để trống — muốn bỏ hẳn thì bấm × ở cuối dòng.");
+            value = previous;
+        } else {
+            note("");
+        }
+
+        if (nameCell.value !== value) {
+            nameCell.value = value;
+            autoGrowCell(nameCell);
+        }
+        nameCell.dataset.prev = value;
+
+        if (value !== previous) syncPermissionRoles(previous, value);
     }
 
     // ==== BA BẢNG CHỐT còn lại: LUỒNG → MÀN HÌNH → ĐỐI TƯỢNG ====
@@ -1241,6 +1501,128 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     const MAX_ENTITY_ROWS = 12;      // = EntityMapBuilder.MaxRows
     const MAX_ENTITY_FIELDS = 12;    // = EntityMapBuilder.MaxFieldsPerEntity
     const MAX_ENTITY_STATES = 8;     // = EntityMapBuilder.MaxStatesPerEntity
+    const MAX_ENTITY_OPTIONS = 10;   // = EntityMapBuilder.MaxOptionsPerField
+
+    // HAI TRỤC của một thông tin, tách hẳn nhau — xem EntityFieldInput / EntityFieldSource. Gộp chúng vào
+    // một dropdown là đẻ ra đúng một ô không ai trả lời: "một danh sách" chưa nói được chọn MỘT hay chọn
+    // NHIỀU, mà đó lại là thứ quyết định hình dạng ô nhập của bản demo.
+    //
+    // Nhãn viết bằng lời NGHIỆP VỤ chứ không phải từ vựng mô hình dữ liệu ("Gõ tay" chứ không phải "Text",
+    // "Chọn 1" chứ không phải "Single Select"): cả bảng này dựng ra để người dùng nghiệp vụ rà được, và một
+    // dropdown bằng tiếng kỹ thuật là chỗ họ chọn bừa nhanh nhất.
+    const ENTITY_INPUTS = [
+        { value: "text", label: "Gõ tay" },
+        { value: "number", label: "Số" },
+        { value: "date", label: "Ngày" },
+        { value: "choice-one", label: "Chọn 1" },
+        { value: "choice-many", label: "Chọn nhiều" },
+        { value: "auto", label: "Ứng dụng tự sinh" }
+    ];
+
+    // Ô nguồn bỏ trống là HỢP LỆ và có nghĩa "chưa chốt" — server kể nó ra để BA hỏi nốt thay vì đoán thay
+    // người dùng, nên mục đầu KHÔNG phải một giá trị mặc định trá hình.
+    const ENTITY_SOURCES = [
+        { value: "", label: "— chưa chọn —" },
+        { value: "inline", label: "Nhập tại chỗ" },
+        { value: "app", label: "Ứng dụng tự quản lý" },
+        { value: "external", label: "Lấy từ hệ thống khác" }
+    ];
+
+    const isEntityChoice = input => input === "choice-one" || input === "choice-many";
+
+    function entitySelect(cls, items, value, label) {
+        const options = items.map(o =>
+            `<option value="${escapeHtml(o.value)}"${o.value === value ? " selected" : ""}>${escapeHtml(o.label)}</option>`).join("");
+        return `<select class="entityfield-select ${cls}" aria-label="${escapeHtml(label)}">${options}</select>`;
+    }
+
+    function entityOptionList(tr) {
+        try {
+            const parsed = JSON.parse(tr.dataset.options || "[]");
+            return Array.isArray(parsed) ? parsed.filter(v => typeof v === "string" && v.trim().length > 0) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function setEntityOptionList(tr, values) {
+        tr.dataset.options = JSON.stringify(values.slice(0, MAX_ENTITY_OPTIONS));
+    }
+
+    // Ô "danh sách lấy ở đâu" ĐỔI HÌNH theo kiểu nhập, vì phần lớn tổ hợp của hai trục không tồn tại: một
+    // nguồn danh sách gắn vào ô gõ tay là ô người dùng phải đọc rồi bỏ qua, còn quy tắc sinh mã chỉ có nghĩa
+    // với kiểu tự sinh. Ẩn thứ vô nghĩa đi là cách duy nhất giữ bảng này rà được: nó vốn đã là bảng dài nhất
+    // và dễ đọc lướt nhất trong năm bảng.
+    //
+    // NGUỒN SỰ THẬT nằm ở `tr.dataset`, không ở các ô đang hiển thị: ô nào cũng có thể bị chính hàm này gỡ
+    // khỏi DOM khi người dùng đổi dropdown, và đọc giá trị từ một ô vừa bị gỡ là mất đúng chữ họ vừa gõ. Các
+    // ô chỉ ghi ngược vào dataset khi người dùng gõ/chọn.
+    function renderEntityFieldSource(tr) {
+        const cell = tr.querySelector(".entityfield-srccell");
+        if (!cell) return;
+
+        const input = tr.dataset.input || "text";
+        if (input === "auto") {
+            cell.innerHTML = `<textarea rows="1" class="permmap-cellinput entityfield-rule" aria-label="Quy tắc sinh" placeholder="quy tắc sinh, vd HcP-JD-XXX">${escapeHtml(tr.dataset.rule || "")}</textarea>`;
+        } else if (!isEntityChoice(input)) {
+            // Không phải ô chọn ⇒ không có danh sách nào để hỏi. Một gạch ngang mờ nói rõ "ô này không áp
+            // dụng", khác hẳn một ô trống — thứ đọc lên như một câu hỏi chưa ai trả lời.
+            cell.innerHTML = `<span class="entityfield-na" aria-hidden="true">—</span>`;
+        } else {
+            const source = tr.dataset.source || "";
+            let html = entitySelect("entityfield-source", ENTITY_SOURCES, source, "Danh sách lấy ở đâu");
+
+            if (source === "inline") {
+                const values = entityOptionList(tr);
+                const chips = values.map(v =>
+                    `<span class="entityfield-chip">${escapeHtml(v)}<button type="button" class="entityfield-optdel" data-value="${escapeHtml(v)}" title="Bỏ giá trị này" aria-label="Bỏ giá trị ${escapeHtml(v)}">×</button></span>`).join("");
+                html += `<div class="entityfield-options">${chips}`
+                    + (values.length >= MAX_ENTITY_OPTIONS
+                        ? `<span class="entityfield-optfull">Dài hơn ${MAX_ENTITY_OPTIONS} giá trị thì nên để ứng dụng tự quản lý.</span>`
+                        : `<input type="text" class="entityfield-optadd" aria-label="Thêm một giá trị" placeholder="gõ giá trị rồi Enter…" />`)
+                    + `</div>`;
+            } else if (source === "external") {
+                html += `<textarea rows="1" class="permmap-cellinput entityfield-system" aria-label="Tên hệ thống nguồn" placeholder="lấy từ hệ thống nào?">${escapeHtml(tr.dataset.system || "")}</textarea>`;
+            }
+
+            cell.innerHTML = html;
+        }
+
+        autoGrowCells(cell);
+    }
+
+    // Ô "bắt buộc" KHÓA LẠI khi thông tin bị bỏ tích "Lưu": hai ô tích cạnh nhau với nghĩa khác hẳn là chỗ
+    // nhầm rẻ nhất của bảng, và "bắt buộc nhập một thứ ứng dụng không lưu" thì không có nghĩa gì. Cùng lý do
+    // với kiểu tự sinh — người dùng không hề nhập ô đó. Server ép lại cả hai luật (EntityMapBuilder), đây
+    // chỉ là để họ nhìn thấy điều đó ngay lúc bấm.
+    function syncEntityRequired(tr) {
+        const used = tr.querySelector(".entityfield-check");
+        const required = tr.querySelector(".entityfield-required");
+        if (!used || !required) return;
+
+        const off = !tableChecked(used) || (tr.dataset.input || "text") === "auto";
+        required.disabled = off;
+        if (off) required.checked = false;
+    }
+
+    // Dựng phần động của MỘT dòng thông tin. Chạy cho CẢ HAI đường render (bản server dựng lúc nạp trang và
+    // bản JS dựng mỗi lượt BA bày bảng) nên logic của hai ô này chỉ tồn tại đúng một chỗ — Razor chỉ chở dữ
+    // liệu xuống bằng data-attribute, cùng khuôn với khối "Ý khác" của hàng chip.
+    function hydrateEntityField(tr) {
+        const inputCell = tr.querySelector(".entityfield-inputcell");
+        if (inputCell && !inputCell.querySelector("select")) {
+            inputCell.innerHTML = entitySelect(
+                "entityfield-input", ENTITY_INPUTS, tr.dataset.input || "text", "Người dùng nhập thế nào");
+        }
+        renderEntityFieldSource(tr);
+        syncEntityRequired(tr);
+    }
+
+    function hydrateEntityFields(root) {
+        (root || document).querySelectorAll(".entitymap-field").forEach(hydrateEntityField);
+    }
+
+    hydrateEntityFields(); // bản server render đã có sẵn trong DOM lúc nạp trang
 
     const entityMapPanel = initTablePanel(
         "entityMapPanel", "entityMapSendBtn", "entityMapMsg", "entitiesJson",
@@ -1256,11 +1638,27 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 description: tableValue(block, ".entitymap-desc"),
                 // Dòng thêm bằng nút "+ thêm thông tin" mà không gõ tên thì không phải một thông tin — server
                 // bỏ nó đi, và bỏ luôn ở đây cho payload sạch.
-                fields: Array.from(block.querySelectorAll(".entitymap-field")).map(tr => ({
-                    name: tableValue(tr, ".entityfield-name"),
-                    meaning: tableValue(tr, ".entityfield-meaning"),
-                    used: tableChecked(tr.querySelector(".entityfield-check"))
-                })).filter(f => f.name.length > 0),
+                fields: Array.from(block.querySelectorAll(".entitymap-field")).map(tr => {
+                    // Hai trục đọc từ `tr.dataset` chứ không từ các ô đang hiển thị — xem
+                    // renderEntityFieldSource: ô của nhánh không được chọn đã bị gỡ khỏi DOM.
+                    const input = tr.dataset.input || "text";
+                    const source = isEntityChoice(input) ? (tr.dataset.source || "") : "";
+                    return {
+                        name: tableValue(tr, ".entityfield-name"),
+                        meaning: tableValue(tr, ".entityfield-meaning"),
+                        used: tableChecked(tr.querySelector(".entityfield-check")),
+                        // Kiểu tự sinh thì người dùng không nhập ô đó, nên "bắt buộc nhập" không có nghĩa —
+                        // server ép lại luật này, đây chỉ là để payload nói đúng thứ màn hình đang bày.
+                        required: input !== "auto" && tableChecked(tr.querySelector(".entityfield-required")),
+                        input: input,
+                        source: source,
+                        // Các ô ngoài nhánh đang chọn bị cắt cho payload sạch, cùng lý do với dòng thông tin
+                        // chưa gõ tên ở trên: server cắt lại y hệt, gửi lên chỉ tổ làm khó đọc lúc soi mạng.
+                        options: source === "inline" ? entityOptionList(tr) : [],
+                        sourceSystem: source === "external" ? (tr.dataset.system || "").trim() : "",
+                        rule: input === "auto" ? (tr.dataset.rule || "").trim() : ""
+                    };
+                }).filter(f => f.name.length > 0),
                 states: Array.from(block.querySelectorAll(".entitymap-state")).map(tr => ({
                     state: tableValue(tr, ".entitystate-name"),
                     entryCondition: tableValue(tr, ".entitystate-entry")
@@ -1283,11 +1681,22 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // có gì để kể: nó chưa bao giờ là một đề xuất.
     function entityFieldRow(f, removable) {
         const name = f ? (f.name || "") : "";
+        // Hai ô cuối để RỖNG và do hydrateEntityField dựng, đúng như bản Razor — xem hàm đó.
         return `
-            <tr class="entitymap-field">
+            <tr class="entitymap-field"
+                data-input="${escapeHtml(f && f.input ? f.input : "text")}"
+                data-source="${escapeHtml(f && f.source ? f.source : "")}"
+                data-options="${escapeHtml(JSON.stringify(f && Array.isArray(f.options) ? f.options : []))}"
+                data-system="${escapeHtml(f && f.sourceSystem ? f.sourceSystem : "")}"
+                data-rule="${escapeHtml(f && f.rule ? f.rule : "")}">
                 <td class="flowmap-use"><input type="checkbox" class="entityfield-check" aria-label="Lưu ${escapeHtml(name)}"${!f || f.used ? " checked" : ""} /></td>
-                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entityfield-name" placeholder="thông tin cần lưu">${escapeHtml(name)}</textarea></td>
-                <td><textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="thông tin này là gì?">${escapeHtml(f ? (f.meaning || "") : "")}</textarea></td>
+                <td class="permmap-fn entityfield-namecell">
+                    <textarea rows="1" class="permmap-cellinput entityfield-name" placeholder="thông tin cần lưu">${escapeHtml(name)}</textarea>
+                    <textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="thông tin này là gì?">${escapeHtml(f ? (f.meaning || "") : "")}</textarea>
+                </td>
+                <td class="flowmap-use"><input type="checkbox" class="entityfield-required" aria-label="Bắt buộc nhập ${escapeHtml(name)}"${f && f.required ? " checked" : ""} /></td>
+                <td class="entityfield-inputcell"></td>
+                <td class="entityfield-srccell"></td>
                 <td class="entitymap-delcell">${removable ? entityDeleteButton("Xóa thông tin này") : ""}</td>
             </tr>`;
     }
@@ -1336,10 +1745,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     ${r ? "" : entityDeleteButton("Xóa đối tượng này")}
                 </div>
                 <table class="permmap-table entitymap-table entitymap-fieldtable">
-                    <thead><tr><th class="flowmap-th-use">Lưu</th><th class="screenmap-th-name">Thông tin</th><th class="screenmap-th-purpose">Là gì</th><th class="screenmap-th-del"></th></tr></thead>
+                    <thead><tr><th class="flowmap-th-use">Lưu</th><th class="entityfield-th-name">Thông tin</th><th class="flowmap-th-use entityfield-th-req">Bắt buộc</th><th class="entityfield-th-input">Nhập thế nào</th><th class="entityfield-th-src">Danh sách lấy ở đâu</th><th class="screenmap-th-del"></th></tr></thead>
                     <tbody>${fields}
                         <tr class="entitymap-addfieldrow">
-                            <td colspan="4"><button type="button" class="entitymap-add entitymap-addfield" aria-label="Thêm thông tin${escapeHtml(forEntity)}">+ thêm thông tin</button></td>
+                            <td colspan="6"><button type="button" class="entitymap-add entitymap-addfield" aria-label="Thêm thông tin${escapeHtml(forEntity)}">+ thêm thông tin</button></td>
                         </tr>
                     </tbody>
                 </table>
@@ -1363,6 +1772,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
                 thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
                 cuối. Ai được báo ở mỗi trạng thái thì mình hỏi ở bảng cuối buổi.
+                <br />Cột <b>Nhập thế nào</b> quyết định hình dạng ô trên màn hình; chọn <b>Chọn 1</b> hay
+                <b>Chọn nhiều</b> thì nói thêm giúp mình danh sách lấy ở đâu — <b>ứng dụng tự quản lý</b> nghĩa là
+                app sẽ có thêm một màn hình riêng để quản lý danh mục đó.
             </div>
             <div class="entitymap-blocks">${rows.map(entityMapBlock).join("")}</div>
             <div class="entitymap-addrow">
@@ -1377,6 +1789,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </div>`;
         entityMapPanel.hidden = false;
         thinkingBox.before(entityMapPanel);
+        hydrateEntityFields(entityMapPanel);
         autoGrowCells(entityMapPanel);
     }
 
@@ -1431,9 +1844,85 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
 
             anchor.insertAdjacentHTML("beforebegin", addField ? entityFieldRow(null, true) : entityStateRow(null));
-            focusNewRow(anchor.previousElementSibling, addField ? ".entityfield-name" : ".entitystate-name");
+            const added = anchor.previousElementSibling;
+            if (addField) hydrateEntityField(added);
+            focusNewRow(added, addField ? ".entityfield-name" : ".entitystate-name");
             note("");
         });
+
+        // HAI TRỤC + danh sách giá trị. Tất cả ủy quyền trên panel vì cùng lý do với khối trên: cả bảng bị
+        // thay sạch mỗi lượt BA bày bảng, và riêng ô nguồn còn tự dựng lại mỗi lần đổi dropdown.
+        entityMapPanel.addEventListener("change", function (e) {
+            const tr = e.target.closest(".entitymap-field");
+            if (!tr) return;
+
+            if (e.target.classList.contains("entityfield-input")) {
+                tr.dataset.input = e.target.value;
+                renderEntityFieldSource(tr);
+                syncEntityRequired(tr);
+            } else if (e.target.classList.contains("entityfield-source")) {
+                tr.dataset.source = e.target.value;
+                renderEntityFieldSource(tr);
+            } else if (e.target.classList.contains("entityfield-check")) {
+                syncEntityRequired(tr);
+            }
+        });
+
+        // Ô gõ của nhánh đang chọn ghi ngược vào dataset ngay từng ký tự: dataset là nguồn sự thật mà lúc gom
+        // payload đọc, và chính ô này có thể bị gỡ khỏi DOM ngay khi người dùng đổi dropdown.
+        entityMapPanel.addEventListener("input", function (e) {
+            const tr = e.target.closest(".entitymap-field");
+            if (!tr) return;
+
+            if (e.target.classList.contains("entityfield-system")) tr.dataset.system = e.target.value;
+            else if (e.target.classList.contains("entityfield-rule")) tr.dataset.rule = e.target.value;
+        });
+
+        // Thêm một giá trị bằng Enter. Ô KHÔNG có nút "thêm" riêng: nó nằm ngay sau các chip nên hình dạng đã
+        // nói rõ việc phải làm, và một cái nút nữa trong ô hẹp này chỉ chen chỗ của chính danh sách.
+        entityMapPanel.addEventListener("keydown", function (e) {
+            if (e.key !== "Enter" || !e.target.classList.contains("entityfield-optadd")) return;
+            e.preventDefault();
+            commitEntityOption(e.target, true);
+        });
+
+        // Gõ xong rồi bấm thẳng "Gửi bảng đối tượng" mà không Enter là ca THƯỜNG GẶP, và mất đúng giá trị vừa
+        // gõ ở đó là mất im lặng — không dòng nào trên màn hình nói rằng nó đã rơi. Vì vậy rời ô cũng chốt.
+        entityMapPanel.addEventListener("focusout", function (e) {
+            if (e.target.classList && e.target.classList.contains("entityfield-optadd"))
+                commitEntityOption(e.target, false);
+        });
+
+        entityMapPanel.addEventListener("click", function (e) {
+            const del = e.target.closest(".entityfield-optdel");
+            if (!del) return;
+
+            const tr = del.closest(".entitymap-field");
+            // Xóa theo GIÁ TRỊ chứ không theo vị trí: ô "thêm giá trị" chốt lúc rời ô, nên một cú bấm vào dấu
+            // × vừa kịp chèn thêm một chip trước khi tới đây và mọi chỉ số đã lệch đi một.
+            setEntityOptionList(tr, entityOptionList(tr).filter(v => v !== del.dataset.value));
+            renderEntityFieldSource(tr);
+        });
+    }
+
+    // Chốt chữ đang nằm trong ô "thêm giá trị" thành một chip. Trùng thì bỏ qua chứ không báo lỗi: người dùng
+    // gõ lại một giá trị đã có là muốn nó có mặt, và nó đang có mặt.
+    function commitEntityOption(input, refocus) {
+        const tr = input.closest(".entitymap-field");
+        const value = (input.value || "").trim();
+        if (!tr || value.length === 0) return;
+
+        const values = entityOptionList(tr);
+        if (!values.some(v => v.toLowerCase() === value.toLowerCase()) && values.length < MAX_ENTITY_OPTIONS)
+            values.push(value);
+
+        setEntityOptionList(tr, values);
+        input.value = "";
+        renderEntityFieldSource(tr);
+        if (refocus) {
+            const next = tr.querySelector(".entityfield-optadd");
+            if (next) next.focus();
+        }
     }
 
     // ---- BẢNG THÔNG BÁO / NHẮC NHỞ ----
@@ -1444,6 +1933,162 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     const MAX_NOTIF_ROWS = 24;        // = NotificationMapBuilder.MaxRows
     const MAX_NOTIF_RECIPIENTS = 8;   // = NotificationMapBuilder.MaxRecipientsPerCell
     const MAX_RECIPIENT_OPTIONS = 20; // = NotificationMapBuilder.MaxRecipientOptions
+
+    // ---- BẢNG BÁO CÁO / THỐNG KÊ ----
+    // Trần dòng, chép từ ReportMapBuilder. Chặn ở đây chứ không để server cắt — cùng lý do với bảng màn hình:
+    // một dòng người dùng vừa gõ mà bị nuốt lúc lưu là đúng loại quyết định câm mà cả bảng này sinh ra để chặn.
+    const MAX_REPORT_ROWS = 12;   // = ReportMapBuilder.MaxRows
+
+    const reportMapPanel = initTablePanel(
+        "reportMapPanel", "reportMapSendBtn", "reportMapMsg", "reportsJson",
+        panel => Array.from(panel.querySelectorAll(".reportmap-row")).map(tr => ({
+            report: tableValue(tr, ".reportmap-name"),
+            question: tableValue(tr, ".reportmap-question"),
+            // Ô "lấy số từ" là danh sách ĐÓNG (các đối tượng đã chốt): server xoá mọi giá trị không khớp
+            // đối tượng nào, nên một ô gõ tay là ô mà chữ vừa gõ biến mất lúc lưu, không câu nào giải thích.
+            source: tableValue(tr, ".reportmap-source"),
+            breakdown: tableValue(tr, ".reportmap-breakdown"),
+            included: tableChecked(tr.querySelector(".reportmap-check")),
+            // Cờ nằm ở data-attribute chứ không suy ra từ "ô tên có phải input không" như các bảng kia: ở
+            // bảng này MỌI dòng đều có ô tên gõ được (tên báo cáo không phải khóa nối sang bảng nào, mà đặt
+            // lại tên lại là chỗ người dùng sửa nhiều nhất), nên sự hiện diện của ô không phân biệt được gì.
+            addedByUser: tr.dataset.added === "true"
+        // Dòng bỏ trống tên không phải một báo cáo — bỏ ngay ở đây cho payload sạch (server cũng bỏ).
+        })).filter(r => r.report.length > 0),
+        "Đang lưu bảng báo cáo…",
+        "Chưa lưu được bảng báo cáo — anh/chị bấm gửi lại giúp mình nhé.");
+
+    // Các ĐỐI TƯỢNG đã chốt đang có hiệu lực — mục chọn của ô "lấy số từ", kể cả ở dòng người dùng vừa thêm.
+    // `data-entities` là bản mồi của server (frame done hoặc lượt render lại sau F5).
+    function reportEntityOptions() {
+        if (!reportMapPanel) return [];
+        try {
+            const parsed = JSON.parse(reportMapPanel.dataset.entities || "[]");
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (err) {
+            return [];
+        }
+    }
+
+    function reportSourceCell(selected, options) {
+        const chosen = selected || "";
+        return `
+            <select class="reportmap-source" aria-label="Số liệu lấy từ đối tượng nào">
+                <option value=""${chosen ? "" : " selected"}>— chưa rõ —</option>
+                ${options.map(o => `<option value="${escapeHtml(o)}"${o === chosen ? " selected" : ""}>${escapeHtml(o)}</option>`).join("")}
+            </select>`;
+    }
+
+    // MỘT dòng. `r` null = dòng TRỐNG người dùng vừa thêm bằng nút "+ thêm báo cáo" — nút đó tồn tại vì BA
+    // chỉ gom được những báo cáo hội thoại đã nhắc tới, còn thứ người dùng chợt nhớ ra khi nhìn danh sách
+    // thì không có dòng nào để gieo. Không có chỗ tự thêm thì nó biến mất trong im lặng ngay tại cái bảng
+    // sinh ra để chốt nó.
+    //
+    // `data-added` quyết định dòng có nút xóa hay không, và ranh giới đó là chủ ý: báo cáo BA đề xuất thì
+    // BỎ TÍCH chứ không xóa — dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi, nếu không người dùng
+    // không có bằng chứng nào cho thấy mình vừa loại đúng thứ định loại. Dòng do CHÍNH HỌ vừa thêm thì
+    // không có gì để kể lại: nó chưa bao giờ là một đề xuất, nên xóa hẳn mới là thao tác đúng.
+    function reportRow(r, options) {
+        const added = !r;
+        return `
+            <tr class="reportmap-row" data-added="${added ? "true" : "false"}">
+                <td class="flowmap-use">
+                    <input type="checkbox" class="reportmap-check" aria-label="Cần báo cáo ${r ? escapeHtml(r.report || "") : "vừa thêm"}"${!r || r.included !== false ? " checked" : ""} />
+                </td>
+                <td><textarea rows="1" class="permmap-cellinput reportmap-name" aria-label="Tên báo cáo" placeholder="tên báo cáo…">${r ? escapeHtml(r.report || "") : ""}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="Báo cáo này trả lời câu hỏi gì" placeholder="để biết điều gì?">${r ? escapeHtml(r.question || "") : ""}</textarea></td>
+                <td>${reportSourceCell(r ? r.source : "", options)}</td>
+                <td><textarea rows="1" class="permmap-cellinput reportmap-breakdown" aria-label="Gộp hoặc lọc theo" placeholder="kỳ, đơn vị, trạng thái…">${r ? escapeHtml(r.breakdown || "") : ""}</textarea></td>
+                <td class="entitymap-delcell">${added ? `<button type="button" class="entitymap-del reportmap-del" title="Xóa dòng này" aria-label="Xóa dòng này">×</button>` : ""}</td>
+            </tr>`;
+    }
+
+    // Markup khớp bản server render trong Index.cshtml — hai đường lệch nhau thì người dùng rà xong bảng
+    // vừa hiện ra rồi F5 và thấy một bảng khác.
+    function renderReportMap(rows, entities) {
+        if (!reportMapPanel || !Array.isArray(rows) || rows.length === 0) return;
+
+        const opts = Array.isArray(entities) && entities.length > 0 ? entities : reportEntityOptions();
+        reportMapPanel.dataset.entities = JSON.stringify(opts);
+        reportMapPanel.innerHTML = `
+            <div class="permmap-howto">
+                Đây là các báo cáo <b>mình gom lại</b> từ những gì anh/chị đã kể. Báo cáo nào không cần thì
+                <b>bỏ tích</b> cột đầu; ô nào mình hiểu chưa đúng thì sửa thẳng vào ô; thiếu báo cáo nào thì
+                bấm <b>+ thêm báo cáo</b> ở cuối bảng. Mỗi báo cáo còn giữ sẽ thành <b>một màn hình</b> của
+                ứng dụng, nên ai được xem báo cáo nào sẽ hỏi ở bảng phân quyền ngay sau đây.
+            </div>
+            <table class="permmap-table reportmap-table">
+                <thead>
+                    <tr>
+                        <th class="flowmap-th-use">Cần</th>
+                        <th class="reportmap-th-name">Báo cáo / thống kê</th>
+                        <th class="reportmap-th-question">Để trả lời câu hỏi gì</th>
+                        <th class="reportmap-th-source">Lấy số từ</th>
+                        <th class="reportmap-th-breakdown">Gộp / lọc theo</th>
+                        <th class="screenmap-th-del"></th>
+                    </tr>
+                </thead>
+                <tbody>${rows.map(r => reportRow(r, opts)).join("")}
+                    <tr class="reportmap-addrow">
+                        <td colspan="6"><button type="button" class="entitymap-add reportmap-add">+ thêm báo cáo</button></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="permmap-bar">
+                <button type="button" class="btn primary" id="reportMapSendBtn">Gửi bảng báo cáo</button>
+                <div class="permmap-hint">
+                    Không cần báo cáo nào thì cứ bỏ tích hết rồi gửi — mình ghi lại là ứng dụng không có
+                    phần báo cáo, không hỏi lại nữa.
+                </div>
+                <div class="permmap-msg" id="reportMapMsg"></div>
+            </div>`;
+        reportMapPanel.hidden = false;
+        thinkingBox.before(reportMapPanel);
+        autoGrowCells(reportMapPanel);
+        enhanceReportSelects(reportMapPanel);
+    }
+
+    // Ô "lấy số từ" là một <select> thường; driver dropdown dùng chung của app (dropdown.js) nâng nó thành
+    // .ms-combo để nó trông giống mọi dropdown khác. Driver chỉ quét MỘT LẦN lúc nạp trang, nên bản server
+    // render thì đẹp còn bảng do JS dựng (và mọi dòng vừa thêm) lại là select trần — hai đường lệch nhau ngay
+    // trên cùng một bảng. Fail-open: chưa có driver thì select trần vẫn gửi đúng giá trị.
+    function enhanceReportSelects(root) {
+        if (window.CsDropdown && root) window.CsDropdown.enhanceAll(root);
+    }
+
+    // THÊM/XÓA DÒNG — ủy quyền trên PANEL vì renderReportMap thay sạch innerHTML.
+    if (reportMapPanel) {
+        reportMapPanel.addEventListener("click", function (e) {
+            const note = text => {
+                const msgEl = document.getElementById("reportMapMsg");
+                if (msgEl) msgEl.textContent = text;
+            };
+
+            const remove = e.target.closest(".reportmap-del");
+            if (remove) {
+                const row = remove.closest(".reportmap-row");
+                if (row) row.remove();
+                note("");
+                return;
+            }
+
+            if (!e.target.closest(".reportmap-add")) return;
+
+            const body = reportMapPanel.querySelector(".reportmap-table tbody");
+            const anchor = reportMapPanel.querySelector(".reportmap-addrow");
+            if (!body || !anchor) return;
+
+            if (body.querySelectorAll(".reportmap-row").length >= MAX_REPORT_ROWS) {
+                note(`Bảng đã tới trần ${MAX_REPORT_ROWS} báo cáo — nhiều hơn thì không rà nổi trong một lượt.`);
+                return;
+            }
+
+            anchor.insertAdjacentHTML("beforebegin", reportRow(null, reportEntityOptions()));
+            enhanceReportSelects(anchor.previousElementSibling);
+            focusNewRow(anchor.previousElementSibling, ".reportmap-name");
+            note("");
+        });
+    }
 
     const notificationMapPanel = initTablePanel(
         "notificationMapPanel", "notificationMapSendBtn", "notificationMapMsg", "notificationsJson",
@@ -2110,14 +2755,19 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // "kể chi tiết"), và cũng bay sạch khi F5. Lưu theo map câu-hỏi → câu-trả-lời: thẻ được server render
     // lại nguyên vẹn sau khi tải trang, nên khớp lại bằng chính nội dung câu hỏi là đủ và không phụ thuộc
     // thứ tự.
+    //
+    // Mỗi câu lưu HAI vế riêng (`picks` = chip đang sáng, `other` = lời tự nhập) chứ không lưu câu trả lời
+    // đã ghép: ghép rồi thì lúc đổ về không tách lại được đâu là chip đâu là lời viết thêm, và bản phục hồi
+    // sẽ đẩy cả cụm vào ô "Ý khác" — người dùng thấy nguyên văn gợi ý nằm trong ô mình chưa từng gõ.
     function draftBatchAnswers() {
         if (!batchPanel || batchPanel.hidden) return null;
         const map = {};
         batchPanel.querySelectorAll(".batchq-item").forEach(li => {
             const question = li.dataset.question || "";
-            const box = li.querySelector(".batchq-answer");
-            const value = box ? (box.value || "").trim() : "";
-            if (question && value) map[question] = value;
+            if (!question) return;
+            const picks = batchPicks(li);
+            const other = batchOtherText(li);
+            if (picks.length > 0 || other) map[question] = { picks, other };
         });
         return map;
     }
@@ -2243,6 +2893,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             composerLead !== "");
     }
 
+    // Một mục nháp, đọc về dạng {picks, other}. Nháp lưu TRƯỚC khi chip tách khỏi ô là một chuỗi câu trả
+    // lời đã ghép — đổ nó về ô "Ý khác" là bản phục hồi trung thực nhất còn có thể: chữ người dùng đã gõ
+    // không mất, và không có chip nào bị bật lên thay họ.
+    function draftBatchEntry(raw) {
+        if (typeof raw === "string") return { picks: [], other: raw.trim() };
+        if (!raw || typeof raw !== "object") return { picks: [], other: "" };
+        return {
+            picks: Array.isArray(raw.picks) ? raw.picks.map(x => String(x).trim()).filter(Boolean) : [],
+            other: typeof raw.other === "string" ? raw.other.trim() : ""
+        };
+    }
+
     // Đổ nháp về các ô trả lời trên thẻ hỏi gộp. Trả về số câu đã phục hồi.
     function draftBatchRestore() {
         if (!batchPanel || batchPanel.hidden) return 0;
@@ -2253,16 +2915,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         let restored = 0;
         batchPanel.querySelectorAll(".batchq-item").forEach(li => {
-            const answer = (answers[li.dataset.question || ""] || "").trim();
+            const saved = draftBatchEntry(answers[li.dataset.question || ""]);
             const box = li.querySelector(".batchq-answer");
-            if (!answer || !box || box.value.trim()) return;
+            if (!box || (saved.picks.length === 0 && !saved.other)) return;
 
-            box.value = answer;
+            // Câu người dùng đã đụng vào trong phiên NÀY thắng nháp cũ — kể cả khi họ mới chỉ bấm chip.
+            if (box.value.trim() || batchPicks(li).length > 0) return;
+
+            li.querySelectorAll(".batchq-choice").forEach(chip => {
+                chip.classList.toggle("is-on", saved.picks.includes((chip.dataset.value || "").trim()));
+            });
+            box.value = saved.other;
             restored++;
-
-            // Chip sáng lại theo đúng nội dung vừa đổ về (xem syncBatchChips): họ chọn bằng chip thì chip
-            // sáng, họ tự gõ thì không chip nào sáng — không cần đoán lại "họ đã bấm nút nào".
-            syncBatchChips(li);
 
             // Câu MỞ không nằm trong khung nhãn-nổi: ô của nó đã sẵn 3 dòng mời "kể chi tiết", tự co lại
             // theo một câu ngắn vừa phục hồi là thu hẹp đúng cái ô đang mời người dùng viết dài.
@@ -2612,11 +3276,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // Bảng phân quyền: lượt chốt nhóm phân quyền. Không dựng trong `bubble` mà vào panel cố định
             // của trang (như bảng cột) — bảng treo tới khi dự án chốt nó, sống lâu hơn lượt sinh ra nó.
             renderPermissionMatrix(data.permissionMatrix);
-            // Bốn bảng còn lại, cùng luật: InterviewTableGate đảm bảo mỗi lượt nhiều nhất MỘT trong năm
-            // danh sách này có nội dung, nên năm lời gọi liên tiếp không bao giờ dựng hai bảng cùng lúc.
+            // Năm bảng còn lại, cùng luật: InterviewTableGate đảm bảo mỗi lượt nhiều nhất MỘT trong sáu
+            // danh sách này có nội dung, nên sáu lời gọi liên tiếp không bao giờ dựng hai bảng cùng lúc.
             renderFlowMap(data.flowMap);
             renderScreenScope(data.screenScopeMap, data.uncoveredFlowSteps);
             renderEntityMap(data.entityMap);
+            renderReportMap(data.reportMap, data.reportEntityOptions);
             renderNotificationMap(data.notificationMap, data.recipientOptions);
 
             // Lượt lỗi LLM: tô đỏ + nút "Thử lại" (server xóa lượt lỗi rồi chạy lại, khỏi gõ lại câu hỏi)

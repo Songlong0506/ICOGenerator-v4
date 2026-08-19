@@ -108,6 +108,53 @@ public class PermissionMatrixBuilderTests
             r.Grants.Select(g => g.Role)));
     }
 
+    // BỘ CỘT do người dùng rà trên bảng "Vai trò" THẮNG bộ chắt từ grants. Không có luật này thì bảng vai
+    // trò chỉ là một màn bấm đẹp: vai vừa thêm mà chưa cấp quyền ở dòng nào sẽ không có cột nào, còn vai vừa
+    // xóa vẫn sống tiếp nhờ grants cũ trong payload.
+    [Fact]
+    public void Build_TakesTheColumnsFromTheRoleList_WhenOneIsGiven()
+    {
+        var rows = PermissionMatrixBuilder.Build(new[]
+        {
+            Row(Scope[0], "Xem", ("HR Assistant", "của mình", ""), ("HOD HR", "tất cả", ""))
+        }, Scope, new[] { "HR Assistant", "Admin" });
+
+        Assert.All(rows, r => Assert.Equal(new[] { "HR Assistant", "Admin" }, r.Grants.Select(g => g.Role)));
+
+        var view = rows.Single(r => r.Screen == Scope[0] && r.Function == "Xem");
+        // Vai người dùng thêm: có cột ở mọi dòng, chưa có quyền. Vai người dùng xóa: không còn ô nào.
+        Assert.False(PermissionScope.IsGranted(view.Grants.Single(g => g.Role == "Admin").Scope));
+        Assert.Equal("của mình", view.Grants.Single(g => g.Role == "HR Assistant").Scope);
+    }
+
+    // Danh sách rỗng KHÔNG có nghĩa "bảng không có cột" — đó là lượt BA bày bảng (bảng vai trò chưa tồn
+    // tại) và các tab mở từ trước bản này. Rơi về bản chắt từ grants như cũ.
+    [Fact]
+    public void Build_FallsBackToTheProposedRoles_WhenTheRoleListIsEmpty()
+    {
+        var rows = PermissionMatrixBuilder.Build(new[]
+        {
+            Row(Scope[0], "Xem", ("HR Assistant", "của mình", ""))
+        }, Scope, Array.Empty<string>());
+
+        Assert.Equal(new[] { "HR Assistant" }, rows.First().Grants.Select(g => g.Role));
+    }
+
+    // Cùng luật với bản JS đọc bảng vai trò (permRoleValues): lệch nhau là người dùng thấy một cột trên màn
+    // hình rồi bị server bỏ đúng cột đó.
+    [Fact]
+    public void SanitizeRoles_DropsBlanksAndDuplicates_AndStopsAtTheColumnCap()
+    {
+        Assert.Equal(
+            new[] { "HRBP", "Manager" },
+            PermissionMatrixBuilder.SanitizeRoles(new[] { "  ", "HRBP", "hrbp ", "Manager", "" }));
+
+        // "HRBP" và "hrbp " là hai dòng khác nhau trên bảng nhưng cùng MỘT cột lúc so khớp.
+        Assert.Equal(
+            PermissionMatrixBuilder.MaxRoles,
+            PermissionMatrixBuilder.SanitizeRoles(Enumerable.Range(1, 20).Select(i => $"Vai {i}")).Count);
+    }
+
     // LUẬT BẰNG CHỨNG. Khóa một ô là tuyên bố "người dùng đã tự nói điều này" — server không nhận tuyên bố
     // đó từ một lá cờ, phải có trích dẫn kèm theo. Đây là thứ giữ cho bảng khỏi biến thành một cái chip
     // "Đồng ý phương án này" to hơn.

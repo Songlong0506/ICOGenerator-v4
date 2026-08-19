@@ -1387,7 +1387,9 @@
     line-height: 1.4;
     /* Chừa chỗ cho nhãn đè lên viền trên, và tắt tay kéo vì JS đã tự cao theo nội dung (autoGrowOtherBox). */
     padding: 13px 12px 9px;
-    border: 1px solid var(--bosch-blue);
+    /* Chưa dùng thì mang viền xám của đáp án chưa chọn (.suggestion-option) — xanh ở đây là dấu hiệu ĐANG
+       chọn, xem chú thích ở .batchq-other-field > .batchq-answer. */
+    border: 1px solid var(--line);
     border-radius: 10px;
     background: var(--surface);
     color: var(--ink);
@@ -1395,8 +1397,20 @@
     display: block;
 }
 
-    .suggestion-other-field > .suggestion-other-input:focus {
+    .suggestion-other-field > .suggestion-other-input:not(:placeholder-shown) {
+        border-color: var(--bosch-blue);
+    }
+
+    .suggestion-other-field > .suggestion-other-input:hover {
+        border-color: var(--bosch-blue-tint-strong);
+    }
+
+    .suggestion-other-field > .suggestion-other-input:focus,
+    .suggestion-other-field > .suggestion-other-input:not(:placeholder-shown):hover {
         border: 1px solid var(--bosch-blue);
+    }
+
+    .suggestion-other-field > .suggestion-other-input:focus {
         padding-bottom: 9px;
         box-shadow: 0 0 0 3px var(--bosch-blue-tint);
     }
@@ -1412,9 +1426,14 @@
     font-size: 11px;
     font-weight: 600;
     line-height: 1.2;
-    color: var(--bosch-blue);
+    color: var(--muted);
     pointer-events: none;
 }
+
+    .suggestion-other-input:focus + .suggestion-other-cap,
+    .suggestion-other-input:not(:placeholder-shown) + .suggestion-other-cap {
+        color: var(--bosch-blue);
+    }
 
 .suggestion-other-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
@@ -1685,8 +1704,8 @@
         font-weight: 600;
     }
 
-/* Ô trả lời nối liền ngay dưới hàng gợi ý, nền trắng như chúng — nó là NƠI CHỨA câu trả lời của câu hỏi
-   này, dù nội dung tới từ một cú bấm gợi ý hay từ tay người dùng gõ. */
+/* Ô tự nhập nối liền ngay dưới hàng gợi ý, nền trắng như chúng — nó là vế "Ý khác" của câu trả lời, phần
+   người dùng tự nói thêm bên cạnh gợi ý họ đã bấm. */
 .batchq-answer {
     width: 100%;
     margin-top: 5px;
@@ -1700,9 +1719,9 @@
     resize: vertical;
 }
 
-/* ==== Khung nhãn-nổi của ô trả lời ==== */
-/* Ô luôn mở, ngay dưới hàng gợi ý, nên mắt cần một chữ nói nó là gì — nhãn "Câu trả lời" khoét trên viền
-   giữ danh tính đó mà không tốn thêm một dòng chữ nào bên trên ô. */
+/* ==== Khung nhãn-nổi của ô "Ý khác" ==== */
+/* Ô luôn mở, ngay dưới hàng gợi ý, nên mắt cần một chữ nói nó là gì — nhãn "Ý khác" khoét trên viền giữ
+   danh tính đó mà không tốn thêm một dòng chữ nào bên trên ô (cùng nhãn với ô ở hàng chip lượt-đơn). */
 .batchq-other-field { position: relative; margin-top: 5px; }
 
     /* Nền ô phải ĐỨNG YÊN qua mọi trạng thái. site.css đổi nền textarea khi hover (`--input-bg-hover`) và
@@ -1715,16 +1734,34 @@
         /* Chừa chỗ cho nhãn đè lên viền trên, và tắt tay kéo vì JS đã tự cao theo nội dung
            (autoGrowOtherBox) — hai cơ chế cùng chỉnh chiều cao thì cú kéo tay bị xoá ở phím gõ kế tiếp. */
         padding-top: 11px;
-        border-color: var(--bosch-blue, #2563eb);
+        /* Lúc CHƯA dùng, ô này là một lựa chọn NGANG HÀNG với các gợi ý phía trên nên nó mang đúng viền xám
+           của gợi ý chưa chọn (.batchq-choice). Tô xanh sẵn thì nó đọc như gợi ý ĐANG được chọn, và người
+           dùng bấm một gợi ý xong vẫn thấy hai thứ cùng xanh — không còn nhìn ra mình đã chọn cái nào. */
+        border-color: var(--line, #e5e7eb);
         resize: none;
     }
+
+        /* Xanh = ĐANG chọn ô này: hoặc con trỏ đang ở trong ô, hoặc trong ô đã có chữ. `:placeholder-shown`
+           là cách đọc "ô còn rỗng" ngay trong CSS, khỏi cần JS gắn class theo từng phím gõ — và nếu markup
+           nào lỡ thiếu placeholder thì nó chỉ rơi về trạng thái xanh như trước, không mất viền. */
+        .batchq-other-field > .batchq-answer:not(:placeholder-shown) {
+            border-color: var(--bosch-blue, #2563eb);
+        }
+
+        .batchq-other-field > .batchq-answer:hover {
+            border-color: var(--bosch-blue-tint-strong, #cfe0fb);
+        }
 
         /* Viền xanh kín bốn cạnh + nhãn xanh đã là dấu hiệu focus rõ hơn hẳn một mảng nền đổi màu; thêm một
            vòng sáng cho đủ, và vòng đó nằm NGOÀI viền nên không đụng tới chỗ khoét.
            Cũng chặn luôn `border-bottom: 2px` + tụt `padding-bottom` của site.css: ô này bo tròn kín bốn
            cạnh, dày mỗi cạnh đáy là lệch, và đổi padding lúc focus làm chữ nhảy một pixel. */
-        .batchq-other-field > .batchq-answer:focus {
+        .batchq-other-field > .batchq-answer:focus,
+        .batchq-other-field > .batchq-answer:not(:placeholder-shown):hover {
             border: 1px solid var(--bosch-blue, #2563eb);
+        }
+
+        .batchq-other-field > .batchq-answer:focus {
             padding-bottom: 7px;
             box-shadow: 0 0 0 3px var(--bosch-blue-tint, #eff6ff);
         }
@@ -1739,9 +1776,16 @@
     font-size: 10.5px;
     font-weight: 600;
     line-height: 1.2;
-    color: var(--bosch-blue, #2563eb);
+    /* Nhãn đi cùng viền: xám khi ô chưa được chọn, xanh khi đang chọn — hai thứ lệch màu thì cái ô nửa xám
+       nửa xanh lại thành trạng thái thứ ba không có thật. */
+    color: #6b7280;
     pointer-events: none;
 }
+
+    .batchq-answer:focus + .batchq-other-cap,
+    .batchq-answer:not(:placeholder-shown) + .batchq-other-cap {
+        color: var(--bosch-blue, #2563eb);
+    }
 
 /* Câu MỞ trên thẻ gộp: không có hàng gợi ý phía trên nên ô tự nhập là thứ ĐẦU TIÊN dưới câu hỏi — lấy
    đúng khoảng cách của .batchq-choices để hai loại dòng (câu đóng / câu mở) đứng cạnh nhau không so le. */
@@ -1924,6 +1968,14 @@
 .permmap-th-cond { min-width: 180px; width: 100%; }
 
 .permmap-fn { font-size: 12.5px; font-weight: 600; color: #374151; }
+
+/* BẢNG VAI TRÒ — bảng một cột đứng trên các bảng màn hình, và là nguồn của mọi CỘT dưới nó. Hẹp hơn hẳn
+   bảng chính (cùng luật với .notifrecip-table): một cột chữ kéo hết bề ngang khung chat trông như bảng
+   chính thứ hai, trong khi việc của nó chỉ là một danh sách ngắn để rà. `fit-content` chứ không phải
+   `auto` vì .permmap-table là display:block, nên `auto` = trọn bề ngang khung chat. */
+.permrole-table { width: fit-content; min-width: 240px; max-width: 380px; margin-bottom: 14px; }
+
+    .permrole-table .permrole-name { font-weight: 600; }
 
 /* Ô ĐÃ CÓ BẰNG CHỨNG: hiện thành dấu ✓ cố định, không phải ô chọn. Đây là chỗ thể hiện bằng thị giác ranh
    giới mà cả tính năng dựa vào — người dùng nhìn một cái là biết ô nào đã là lời của chính mình và ô nào
@@ -2271,11 +2323,10 @@
 
 .entitymap-table { margin-top: 8px; }
 
-/* Cột "Là gì" NUỐT phần thừa của bảng thông tin — cùng luật với .screenmap-th-fn ở bảng vòng đời bên dưới
-   nó. Không cột nào giãn thì các cột co lại, chừa một dải trống bên phải và đẩy cột nút xóa vào giữa dòng,
-   trong khi bảng vòng đời ngay dưới lại có nút xóa sát mép: hai bảng con của cùng một khối đọc như hai
-   bảng lệch nhau. */
-.entitymap-fieldtable .screenmap-th-purpose { width: 100%; }
+/* Cột NUỐT phần thừa của bảng thông tin là cột "Thông tin" (xem .entityfield-th-name dưới) — cùng luật với
+   .screenmap-th-fn ở bảng vòng đời bên dưới nó. Không cột nào giãn thì các cột co lại, chừa một dải trống
+   bên phải và đẩy cột nút xóa vào giữa dòng, trong khi bảng vòng đời ngay dưới lại có nút xóa sát mép: hai
+   bảng con của cùng một khối đọc như hai bảng lệch nhau. */
 
 /* Dòng chứa nút thêm dòng con: tách khỏi dòng cuối cùng như .screenmap-addrow, không có nó thì nút trông như
    thuộc về dòng bên trên. */
@@ -2289,6 +2340,108 @@
 /* Đối tượng bị bỏ tích: mờ cả khối, kể cả hai bảng con. Bỏ tích ở tiêu đề là loại cả đối tượng, và điều
    đó phải nhìn thấy được ngay chứ không chỉ ở một ô vuông nhỏ. */
 .entitymap-block:has(input[type="checkbox"].entitymap-check:not(:checked)) { opacity: .55; }
+
+/* ==== Hai TRỤC của một thông tin: kiểu nhập, và (chỉ với kiểu chọn) danh sách lấy ở đâu ====
+   Ô nguồn tự dựng lại mỗi lần đổi dropdown — xem renderEntityFieldSource ở requirements.js. */
+
+/* SÁU cột phải LỌT trong khung chat — cùng luật với bảng thông báo: .permmap-table cuộn ngang được, nhưng
+   hai cột mới ở đây là cột người dùng phải điền, và một cột nằm ngoài vùng nhìn thấy thì coi như không tồn
+   tại. Đó là lý do "Là gì" xuống làm dòng phụ dưới tên (xem .entityfield-namecell) thay vì giữ một cột
+   riêng: bảy cột không lọt nổi, và cột đáng hy sinh là cột BA đã điền sẵn chứ không phải cột còn trống.
+   Hai cột dropdown giữ bề rộng CỐ ĐỊNH: để chúng co theo nội dung thì cả cột nhảy ngang mỗi lần người dùng
+   chọn một giá trị dài hơn, và việc rà dọc theo cột thành bất khả. */
+.entitymap-fieldtable th,
+.entitymap-fieldtable td { padding: 6px; }
+
+.entityfield-th-name { min-width: 170px; width: 100%; }
+.entityfield-th-req { width: 58px; min-width: 58px; white-space: normal; text-align: center; }
+.entityfield-th-input { width: 122px; min-width: 122px; }
+.entityfield-th-src { width: 200px; min-width: 200px; }
+
+/* Ô "Là gì" là dòng phụ: nhạt hơn và nhỏ hơn tên, để một cột chở hai vế mà mắt vẫn tách được chúng ra. */
+.entityfield-namecell .entityfield-meaning {
+    margin-top: 3px;
+    font-weight: 400;
+    font-size: .95em;
+    color: #6b7280;
+}
+
+.entityfield-select {
+    width: 100%;
+    padding: 3px 4px;
+    border: 1px solid #d5dae1;
+    border-radius: 4px;
+    background: #fff;
+    font: inherit;
+    color: #1f2937;
+}
+
+/* Ô "bắt buộc" đã khóa (thông tin bị bỏ tích, hoặc kiểu tự sinh): phải MỜ ĐI chứ không chỉ trơ ra khi bấm —
+   một ô tích không phản ứng mà trông vẫn bình thường đọc như giao diện hỏng. */
+.entityfield-required:disabled { opacity: .35; }
+
+/* Gạch ngang của ô nguồn không áp dụng. Nói "ô này không có gì để trả lời", khác hẳn một ô trống — thứ đọc
+   lên như một câu hỏi chưa ai đụng tới. */
+.entityfield-na { color: #b6bcc5; }
+
+/* Danh sách giá trị nhập tại chỗ. Chip xuống dòng tự do: một danh sách 10 giá trị mà cuộn ngang trong một ô
+   hẹp thì người dùng không bao giờ thấy giá trị cuối để bỏ nó đi. */
+.entityfield-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+
+.entityfield-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 4px 2px 8px;
+    border-radius: 999px;
+    background: #eef2f7;
+    color: #374151;
+    font-size: .92em;
+    white-space: normal;
+}
+
+.entityfield-optdel {
+    border: 0;
+    background: transparent;
+    padding: 0 2px;
+    line-height: 1;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 1.05em;
+}
+
+    .entityfield-optdel:hover { color: #b42318; }
+
+/* Ô thêm giá trị: viền ĐỨT để nó đọc như một chỗ trống chờ điền chứ không như một chip đã có. Nó chốt cả khi
+   người dùng bấm Enter lẫn khi rời ô — xem commitEntityOption. */
+.entityfield-optadd {
+    flex: 1 1 90px;
+    min-width: 90px;
+    padding: 2px 8px;
+    border: 1px dashed #c3cad3;
+    border-radius: 999px;
+    background: #fff;
+    font: inherit;
+    color: #1f2937;
+}
+
+    .entityfield-optadd::placeholder { color: #9aa3af; }
+
+.entityfield-optfull {
+    color: #6b7280;
+    font-size: .9em;
+    white-space: normal;
+}
+
+/* Ô gõ của hai nhánh còn lại (tên hệ thống nguồn, quy tắc sinh mã) đứng NGAY DƯỚI dropdown chứ không cạnh
+   nó: cột này đã hẹp, xếp ngang thì cả hai đều cụt. */
+.entityfield-system,
+.entityfield-rule { margin-top: 5px; }
 
 /* ==== Cổng soát MÂU THUẪN (bấm nút tạo tài liệu mới hiện, và chỉ khi thật sự có mâu thuẫn) ====
    Nằm trong #writeReqZone ở khung chat, ngay dưới nút đã bật nó lên — không còn bản nào ở sidebar. Vì thế
@@ -2393,6 +2546,52 @@
 /* Đang sửa: ô nhập đổi viền để không ai gõ tiếp mà tưởng mình đang gửi lượt mới. */
 .chat-editing #messageInput { border-color: var(--bosch-blue, #2563eb); }
 
+
+/* ==== BẢNG BÁO CÁO / THỐNG KÊ ====
+   Bảng thứ tư của buổi phỏng vấn. Bốn cột nội dung phải LỌT trong khung chat (cùng lý do với bảng thông
+   báo): mọi cột ở đây đều là ô người dùng phải rà, mà một cột nằm ngoài vùng nhìn thấy thì coi như không
+   tồn tại. Cột "để trả lời câu hỏi gì" nuốt phần thừa vì nó là ô dài nhất và cũng là ô đáng đọc nhất —
+   đó là chỗ duy nhất chở lời của chính người dùng. */
+.reportmap-th-name { width: 135px; min-width: 135px; }
+.reportmap-th-source { width: 140px; min-width: 140px; }
+.reportmap-th-breakdown { width: 120px; min-width: 120px; }
+
+/* `.ms-combo--single` mang `min-width: 170px` (bề rộng của một dropdown trong biểu mẫu), và trong bảng thì
+   nó THẮNG bề rộng cột: cột "lấy số từ" nong ra 188px, đẩy cột cuối — nút xóa dòng người dùng vừa thêm —
+   ra ngoài vùng nhìn thấy. Ô trong bảng lấy bề rộng từ cột, không từ chính nó. */
+.reportmap-table .ms-combo--single { min-width: 0; width: 100%; }
+
+/* Ô "lấy số từ" được dropdown.js nâng thành .ms-combo dùng chung của app, nên nó mang sẵn caption (lặp lại
+   đúng tiêu đề cột) và chiều cao của một field trong biểu mẫu. Trong một BẢNG thì cả hai đều sai chỗ: caption
+   nói lại điều cột đã nói, còn 46px chiều cao nong mọi dòng cao thêm hẳn một dòng chữ. Vẫn giữ `aria-label`
+   trên thẻ select — nó là tên khả truy cập của ô, thứ tiêu đề cột không thay được. */
+.reportmap-table .ms-combo-caption { display: none; }
+
+.reportmap-table .ms-combo-trigger {
+    min-height: 34px;
+    padding: 4px 10px;
+}
+
+/* `max-width` chứ không chỉ `font-size`: `.permmap-table` là `display: block` (nó cuộn ngang được) nên
+   `table-layout: fixed` KHÔNG áp dụng, và bề rộng cột được tính theo nội dung tối thiểu. Chữ trong ô chọn
+   không xuống dòng ⇒ nội dung tối thiểu của cả cột là tên đối tượng DÀI NHẤT, và cột cuối — nút xóa dòng
+   người dùng vừa thêm — bị đẩy ra ngoài vùng nhìn thấy. Trần này cho phép cắt bằng "…" (tên đầy đủ vẫn còn
+   trong danh sách khi mở ra), đúng cách cột CC của bảng thông báo giữ mình trong khung. */
+.reportmap-table .ms-combo-text { font-size: 13px; max-width: 88px; }
+
+/* Ô "lấy số từ" là danh sách ĐÓNG. Để nó co theo bề rộng cột thay vì theo mục dài nhất: tên đối tượng dài
+   ("Đơn đăng ký khóa học bắt buộc") sẽ nong cột ra và đẩy cột câu hỏi ra ngoài khung chat. */
+.reportmap-source {
+    width: 100%;
+    max-width: 100%;
+    padding: 5px 6px;
+    border: 1px solid #d7dde5;
+    border-radius: 6px;
+    background: #fff;
+    font: inherit;
+    font-size: 12.5px;
+    color: #2c3e50;
+}
 
 /* ==== BẢNG THÔNG BÁO / NHẮC NHỞ ====
    Bảng cuối cùng của buổi phỏng vấn. Hai cột người nhận là ô CHỌN NHIỀU dựng bằng markup .ms-combo dùng
