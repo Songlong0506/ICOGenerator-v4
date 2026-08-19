@@ -165,6 +165,8 @@ public class RequirementCoverageService
             "## Bảng màn hình (người dùng đã chốt phạm vi màn hình)");
         AppendTableEvidence(sb, EntityMapBuilder.RenderConfirmedBlock(project.EntityMap),
             "## Bảng đối tượng nghiệp vụ (người dùng đã rà — bằng chứng cho «Dữ liệu / danh mục chính» và «Vòng đời & trạng thái»)");
+        AppendTableEvidence(sb, ReportMapBuilder.RenderConfirmedBlock(project.ReportMap),
+            "## Bảng báo cáo / thống kê (người dùng đã rà từng dòng — bằng chứng cho «Báo cáo / thống kê»)");
 
         var messages = new List<ChatMessage>
         {

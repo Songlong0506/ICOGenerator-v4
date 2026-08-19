@@ -345,6 +345,18 @@ public static class EntityMapBuilder
     /// <summary>Bản đọc từ JSON đã lưu của <see cref="ManagedListScreens(IEnumerable{EntityMapRow})"/>.</summary>
     public static List<string> ManagedListScreens(string? entityMapJson) => ManagedListScreens(Parse(entityMapJson));
 
+    /// <summary>
+    /// Tên các đối tượng người dùng đã GIỮ ở bảng đã chốt — bộ đối chiếu cho mọi bảng sau muốn trỏ về một
+    /// đối tượng (<see cref="ReportMapBuilder"/> dùng nó cho ô "lấy số từ"). Đối tượng đã bỏ tích KHÔNG có
+    /// mặt: trỏ một báo cáo vào thứ người dùng vừa loại là dựng lại đúng thứ họ vừa đóng.
+    /// </summary>
+    public static List<string> EntityNames(string? entityMapJson)
+        => Parse(entityMapJson)
+            .Where(r => r.Included && !string.IsNullOrWhiteSpace(r.Entity))
+            .Select(r => r.Entity.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
     // ==== chuẩn hoá từng phần ====
 
     /// <summary>

@@ -132,6 +132,15 @@
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseEntityMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.EntityMap))?.EntityMap)
         : new List<ICOGenerator.Contracts.Requirements.EntityMapRow>();
+    var lastReportMap = Model.ReportMap == null
+        ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
+            .ParseReportMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.ReportMap))?.ReportMap)
+        : new List<ICOGenerator.Contracts.Requirements.ReportMapRow>();
+    // Mục chọn của ô "lấy số từ": các đối tượng người dùng đã GIỮ ở bảng đối tượng. Ô là danh sách đóng vì
+    // server xoá mọi giá trị không khớp đối tượng nào — để ô gõ tay là dựng một ô mà chữ vừa gõ biến mất
+    // lúc lưu. Chở qua `data-entities` để JS dùng chung một bộ cho cả dòng người dùng tự thêm.
+    var reportEntityOptions = ICOGenerator.Services.Requirements.EntityMapBuilder.EntityNames(Model.EntityMap);
+    var reportEntityOptionsJson = System.Text.Json.JsonSerializer.Serialize(reportEntityOptions);
     var lastNotificationMap = Model.NotificationMap == null
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseNotificationMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.NotificationMap))?.NotificationMap)
@@ -1320,6 +1329,92 @@
                             Muốn mô tả kỹ hơn một đối tượng còn thiếu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
                         </div>
                         <div class="permmap-msg" id="entityMapMsg"></div>
+                    </div>
+                }
+            </div>
+
+            @* BẢNG BÁO CÁO / THỐNG KÊ — bảng thứ tư, đứng giữa bảng đối tượng và bảng phân quyền.
+
+               Vì sao là bảng chứ không phải ô kể tự do: câu trả lời của nhóm này luôn là một DANH SÁCH, mà
+               một ô text gom cả danh sách vào một đoạn — mỗi báo cáo mất phần "lấy số từ đâu" và "gộp theo
+               gì", rồi bước sinh spec phải đoán lại cả hai.
+
+               Vì sao bảng KHÔNG bao giờ bày ra trống: cổng của nó (ReportMapGate) đòi nhóm «Báo cáo / thống
+               kê» đã [RÕ] — hội thoại kể xong thì BA mới có gì để điền sẵn. Một bảng trống là bắt người
+               dùng nghiệp vụ tự chẻ câu chuyện của họ thành bốn cột trước khi gõ được chữ nào, tức thu về
+               ít hơn cả cái ô text nó thay thế.
+
+               Vì sao KHÔNG có cột "ai xem": mỗi dòng còn tích là một MÀN HÌNH (ConfirmReportMapUseCase gieo
+               vào PlannedScope), nên nó đi tiếp vào bảng màn hình rồi thành DÒNG của bảng phân quyền — nơi
+               "ai xem" đã có cột riêng kèm phạm vi dữ liệu. Đó cũng là lý do bảng này đứng TRƯỚC bảng phân
+               quyền. Bảng treo theo DỰ ÁN (Project.ReportMap còn null) như các bảng kia. *@
+            <div class="req-msg ba permmap reportmap" id="reportMapPanel"
+                 data-confirm-url="@Url.Action("ConfirmReportMap", "Requirements")"
+                 data-entities='@Html.Raw(reportEntityOptionsJson)'
+                 @(lastReportMap.Count > 0 ? "" : "hidden")>
+                @if (lastReportMap.Count > 0)
+                {
+                    <div class="permmap-howto">
+                        Đây là các báo cáo <b>mình gom lại</b> từ những gì anh/chị đã kể. Báo cáo nào không cần thì
+                        <b>bỏ tích</b> cột đầu; ô nào mình hiểu chưa đúng thì sửa thẳng vào ô; thiếu báo cáo nào thì
+                        bấm <b>+ thêm báo cáo</b> ở cuối bảng. Mỗi báo cáo còn giữ sẽ thành <b>một màn hình</b> của
+                        ứng dụng, nên ai được xem báo cáo nào sẽ hỏi ở bảng phân quyền ngay sau đây.
+                    </div>
+                    <table class="permmap-table reportmap-table">
+                        <thead>
+                            <tr>
+                                <th class="flowmap-th-use">Cần</th>
+                                <th class="reportmap-th-name">Báo cáo / thống kê</th>
+                                <th class="reportmap-th-question">Để trả lời câu hỏi gì</th>
+                                <th class="reportmap-th-source">Lấy số từ</th>
+                                <th class="reportmap-th-breakdown">Gộp / lọc theo</th>
+                                @* Cột nút xóa: TRỐNG ở mọi dòng BA gieo ra — chúng bỏ tích chứ không xóa, vì
+                                   báo cáo bị loại vẫn phải kể lại được trong tin nhắn gửi đi. *@
+                                <th class="screenmap-th-del"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in lastReportMap)
+                            {
+                                <tr class="reportmap-row" data-added="@(row.AddedByUser ? "true" : "false")">
+                                    <td class="flowmap-use">
+                                        <input type="checkbox" class="reportmap-check" aria-label="Cần báo cáo @row.Report" @(row.Included ? "checked" : "") />
+                                    </td>
+                                    @* Khác ba bảng kia, tên ở đây SỬA ĐƯỢC kể cả ở dòng BA đề xuất: nó không
+                                       phải khóa nối sang bảng nào (mục phạm vi được gieo từ chính giá trị vừa
+                                       gửi lên), mà đặt lại tên một báo cáo lại là chỗ người dùng hay sửa nhất. *@
+                                    <td><textarea rows="1" class="permmap-cellinput reportmap-name" aria-label="Tên báo cáo" placeholder="tên báo cáo…">@row.Report</textarea></td>
+                                    <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="Báo cáo này trả lời câu hỏi gì" placeholder="để biết điều gì?">@row.Question</textarea></td>
+                                    <td>
+                                        <select class="reportmap-source" aria-label="Số liệu lấy từ đối tượng nào">
+                                            <option value="" selected="@(string.IsNullOrWhiteSpace(row.Source))">— chưa rõ —</option>
+                                            @foreach (var entity in reportEntityOptions)
+                                            {
+                                                <option value="@entity" selected="@(string.Equals(entity, row.Source, StringComparison.OrdinalIgnoreCase))">@entity</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td><textarea rows="1" class="permmap-cellinput reportmap-breakdown" aria-label="Gộp hoặc lọc theo" placeholder="kỳ, đơn vị, trạng thái…">@row.Breakdown</textarea></td>
+                                    <td class="entitymap-delcell">
+                                        @if (row.AddedByUser)
+                                        {
+                                            <button type="button" class="entitymap-del reportmap-del" title="Xóa dòng này" aria-label="Xóa dòng này">×</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            <tr class="reportmap-addrow">
+                                <td colspan="6"><button type="button" class="entitymap-add reportmap-add">+ thêm báo cáo</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="permmap-bar">
+                        <button type="button" class="btn primary" id="reportMapSendBtn">Gửi bảng báo cáo</button>
+                        <div class="permmap-hint">
+                            Không cần báo cáo nào thì cứ bỏ tích hết rồi gửi — mình ghi lại là ứng dụng không có
+                            phần báo cáo, không hỏi lại nữa.
+                        </div>
+                        <div class="permmap-msg" id="reportMapMsg"></div>
                     </div>
                 }
             </div>

@@ -107,13 +107,16 @@ public class RequirementDocsService
             // dạng văn xuôi trong Product Brief, và POC dựng ra một bộ màn hình không phân biệt vai — thứ
             // mà người xem demo không có cách nào nghiệm thu. Fail-open: chưa chốt ⇒ khối rỗng, prompt như cũ.
             PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix),
-            // Ba bảng chốt còn lại của buổi phỏng vấn. Mỗi bảng vá đúng một mục mà spec vốn phải TỰ NGHĨ
+            // Các bảng chốt còn lại của buổi phỏng vấn. Mỗi bảng vá đúng một mục mà spec vốn phải TỰ NGHĨ
             // RA: luồng → "## 13. Worked Examples" định tính (oracle chấm POC), màn hình → "## 6. Screens
             // To Generate" (phạm vi có ranh giới thay vì đếm lại từ văn xuôi), đối tượng → "## 8. Data
             // Model Summary". Fail-open như trên: chưa chốt ⇒ khối rỗng, prompt như cũ.
             FlowMapBuilder.RenderConfirmedBlock(project.FlowMap),
             ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
             EntityMapBuilder.RenderConfirmedBlock(project.EntityMap),
+            // Bảng báo cáo — các màn hình báo cáo đã có tên trong phạm vi, nhưng chỉ khối này chở được
+            // chúng lấy số từ đâu và gộp/lọc theo chiều nào.
+            ReportMapBuilder.RenderConfirmedBlock(project.ReportMap),
             // Bảng thông báo — đường duy nhất để "ai được báo khi nào" tới được spec ở dạng máy đọc được.
             NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap));
 
