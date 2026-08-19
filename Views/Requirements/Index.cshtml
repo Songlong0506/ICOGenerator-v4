@@ -120,10 +120,14 @@
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseFlowMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.FlowMap))?.FlowMap)
         : new List<ICOGenerator.Contracts.Requirements.FlowMapRow>();
-    var lastScreenScope = Model.ScreenScopeMap == null
-        ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
-            .ParseScreenScopeMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.ScreenScopeMap))?.ScreenScopeMap)
-        : new List<ICOGenerator.Contracts.Requirements.ScreenScopeRow>();
+    // BẢNG MÀN HÌNH là ngoại lệ của khuôn "treo theo DỰ ÁN" ngay trên, vì nó là cổng DUY NHẤT MỞ LẠI được
+    // (ScreenScopeGate): ở lượt bày LẠI thì Project.ScreenScopeMap đã khác null từ lần chốt trước, nên hỏi
+    // nó là kết luận "bảng đã trả lời xong" cho một bảng người dùng còn chưa kịp rà — bảng hiện ra rồi F5
+    // một cái là mất, và các màn hình mới lại rơi vào bảng phân quyền ở dạng TRẮNG. Phép so đúng là bản ĐÃ
+    // CHỐT với chính bảng server vừa bày; xem ScreenScopeMapBuilder.PendingRows.
+    var lastScreenScope = ICOGenerator.Services.Requirements.ScreenScopeMapBuilder.PendingRows(
+        Model.ScreenScopeMap,
+        conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.ScreenScopeMap))?.ScreenScopeMap);
     var lastEntityMap = Model.EntityMap == null
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseEntityMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.EntityMap))?.EntityMap)

@@ -278,7 +278,8 @@ như một lượt chat thường và cổng mở lại ở lượt sau.
 tích "Cần" mà chưa chọn người nhận thì không lưu gì, và câu lỗi (gọi tên đúng các sự kiện còn thiếu) hiện
 ngay cạnh nút — xem [bất biến của bảng thông báo](#bảng-thông-báo-bảng-cuối-cùng).
 
-Ba bảng đều **treo theo DỰ ÁN** (cột còn null) chứ không theo lượt, và lượt có bảng thì **bỏ** chip, thẻ hỏi
+Ba bảng đều **treo theo DỰ ÁN** (cột còn null) chứ không theo lượt — riêng bảng màn hình treo theo **bảng
+server vừa bày** vì nó mở lại được sau khi đã chốt (xem [Bảng màn hình](#bảng-màn-hình-vá-cái-nền-mà-bảng-phân-quyền-đang-đứng-lên)) — và lượt có bảng thì **bỏ** chip, thẻ hỏi
 gộp và sơ đồ luồng — chip bấm là GỬI NGAY, để cả hai cùng sống thì một cú bấm nhầm cuốn mất lượt trước khi
 người dùng rà xong. Cùng luật với bảng cột và bảng phân quyền.
 
@@ -352,6 +353,17 @@ chốt lại **cấm** BA hỏi lại việc của từng màn; chúng đi thẳ
   phần dư thành *"và N mục khác"*) và nói rõ phần đã chốt được giữ nguyên. Khối `## LƯỢT NÀY:` cũng đổi
   theo: đầu khối nói rõ đây là lượt BỔ SUNG và thêm mục *"Màn hình MỚI"*, để model khỏi mô tả lại những
   dòng mà `SeedRows` sẽ bỏ đi.
+- **Bảng bày lại phải sống sót qua F5.** Panel được view dựng lại từ lượt hội thoại, và điều kiện treo của
+  ba bảng kia là *"cột tương ứng trên `Project` còn null"* — đúng với bảng chốt MỘT lần, sai với đúng bảng
+  này: ở lượt bày lại thì `Project.ScreenScopeMap` đã khác null từ lần chốt trước, nên điều kiện ấy kết
+  luận "bảng đã trả lời xong" cho một bảng người dùng còn chưa kịp rà. Ca thật: BA bày bảng bổ sung 8 màn
+  hình, người dùng F5 rồi bảng biến mất — và không còn đường nào để gửi, tức 8 màn hình đó quay lại đúng
+  chỗ mà đường mở lại sinh ra để dọn: một dòng **trắng** trong bảng phân quyền. `ScreenScopeMapBuilder`
+  `.PendingRows` vì vậy so bản ĐÃ CHỐT với **chính bảng server vừa bày** (`AgentConversation.ScreenScopeMap`
+  của lượt gần nhất) chứ không với `PlannedScope` — cùng lý do với đường GỬI ngay dưới: `PlannedScope` bị
+  lượt chắt lọc ghi đè ở hậu kỳ, treo panel vào nó là để một lời gọi LLM chạy sau lưng quyết định bảng còn
+  hay mất. Vòng lặp vẫn có đáy: gửi xong thì mọi màn hình của bảng vừa bày đều có mặt trong bản chốt (kể cả
+  dòng bỏ tích và mục khai gộp), nên panel tự đóng.
 
 **Đường GỬI đối chiếu với BẢNG SERVER ĐÃ RENDER, không với `PlannedScope` đọc lại lúc gửi.** Hai thứ đó
 không bằng nhau, và chỗ lệch là một lỗi câm: lượt chắt lọc "triển vọng phỏng vấn" chạy ở HẬU KỲ ngay chính
