@@ -4,6 +4,9 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 
 | Key | Mặc định | Ý nghĩa |
 |---|---|---|
+| `Authentication:Provider` | `Local` | `Local` (tự đăng nhập, dev/nội bộ) hoặc `IdentityServer` (bắt buộc SSO). Đổi **không cần build lại** — xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-provider-không-có-mật-khẩu-trong-app) |
+| `Authentication:LocalUsername` | `superadmin` | Tài khoản `AppUser` mà chế độ `Local` tự đăng nhập vào (khớp không phân biệt hoa/thường). Không tìm thấy ⇒ trả 500 kèm tên đang tìm, thay vì phát cookie trống. Bị bỏ qua ở chế độ `IdentityServer` |
+| `Authentication:LocalRole` | `SuperAdmin` | Vai trò phát cho phiên `Local`. **Nguồn duy nhất của vai trò ở chế độ này** — DB không lưu vai trò. Đặt thấp hơn để thử màn hình dưới góc nhìn quyền hạn chế. Bị bỏ qua ở chế độ `IdentityServer` (vai trò lấy từ role claim) |
 | `Database:Provider` | `SqlServer` | `SqlServer` hoặc `Sqlite`. Chạy Sqlite bằng env var `Database__Provider=Sqlite`. Sqlite mà connection string vẫn dạng SQL Server ⇒ tự fallback file `ICOGenerator.db` |
 | `ConnectionStrings:DefaultConnection` | `Server=SONGLONG;...` | Chuỗi kết nối. SqlServer bật `EnableRetryOnFailure` |
 | `AgentWorkspace:RootPath` | `C:\Study App\ICOGeneratorWorkspaces` | Thư mục gốc workspace agent. **Phải đổi theo máy** |

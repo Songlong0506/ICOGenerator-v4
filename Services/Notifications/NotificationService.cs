@@ -1,61 +1,84 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Notifications;
 
 /// <summary>
-/// Hiện thực <see cref="INotificationService"/>: xác định người nhận đủ điều kiện (user hoạt động có quyền
-/// <see cref="AppPermission.DeliveryAdvance"/>) rồi <c>Add</c> một <see cref="Notification"/> cho mỗi người
-/// vào DbContext hiện hành. Không SaveChanges (xem hợp đồng ở interface). Toàn bộ bọc try/catch fail-open.
+/// Hiện thực <see cref="INotificationService"/>: xác định người nhận rồi <c>Add</c> một
+/// <see cref="Notification"/> cho mỗi người vào DbContext hiện hành. Không SaveChanges (xem hợp đồng ở
+/// interface). Toàn bộ bọc try/catch fail-open.
+/// <para>
+/// <b>ĐANG TẮT TẠM THỜI — xem <see cref="Enabled"/>.</b> Bốn đường vào đều trả về ngay: không dòng
+/// <c>Notifications</c> nào được ghi, không kênh ngoài nào được gọi. Bộ máy bên dưới giữ nguyên để bật lại
+/// chỉ là đổi một hằng số.
+/// </para>
 /// </summary>
 public class NotificationService : INotificationService
 {
+    /// <summary>
+    /// Công tắc TẠM THỜI của toàn bộ việc gửi thông báo. Đặt <c>false</c> vì cách chọn người nhận cũ đã hỏng:
+    /// nó lọc theo quyền <see cref="AppPermission.DeliveryAdvance"/>, mà quyền suy ra từ vai trò, còn vai trò
+    /// nay chỉ tồn tại trong claim của phiên đăng nhập (xem <see cref="Domain.AppUser"/>) — người cần được
+    /// báo thì đang OFFLINE, không có phiên nào để đọc. Cách duy nhất còn lại là gửi cho MỌI user, tức là
+    /// làm phiền cả những người không có quyền duyệt cổng, nên thà im còn hơn.
+    /// <para>
+    /// Bật lại: đổi thành <c>true</c> SAU KHI đã có tiêu chí chọn người nhận không phụ thuộc vai trò — ví dụ
+    /// một bảng đăng ký người theo dõi từng project, hoặc cột người phụ trách trên <c>Project</c>. Chỉ đổi
+    /// hằng số này mà không sửa <see cref="ResolveRecipientsAsync"/> thì mọi user sẽ nhận mọi thông báo.
+    /// </para>
+    /// </summary>
+    private const bool Enabled = false;
+
     private readonly AppDbContext _db;
-    private readonly IPermissionService _permissions;
     private readonly IEnumerable<INotificationChannel> _channels;
     private readonly NotificationOptions _options;
     private readonly ILogger<NotificationService> _logger;
 
     public NotificationService(
         AppDbContext db,
-        IPermissionService permissions,
         IEnumerable<INotificationChannel> channels,
         NotificationOptions options,
         ILogger<NotificationService> logger)
     {
         _db = db;
-        _permissions = permissions;
         _channels = channels;
         _options = options;
         _logger = logger;
     }
 
     public Task NotifyGateOpenedAsync(WorkflowRun run, string nextStepTitle, CancellationToken cancellationToken = default) =>
-        CreateForEligibleAsync(run, NotificationType.GateAwaitingApproval,
-            "Chờ duyệt bước delivery",
-            $"Một bước đã xong — chờ bạn duyệt để sang: {nextStepTitle}.",
-            cancellationToken);
+        Enabled
+            ? CreateForEligibleAsync(run, NotificationType.GateAwaitingApproval,
+                "Chờ duyệt bước delivery",
+                $"Một bước đã xong — chờ bạn duyệt để sang: {nextStepTitle}.",
+                cancellationToken)
+            : Task.CompletedTask;
 
     public Task NotifyRunCompletedAsync(WorkflowRun run, CancellationToken cancellationToken = default) =>
-        CreateForEligibleAsync(run, NotificationType.WorkflowCompleted,
-            "Workflow hoàn tất",
-            "Quy trình giao hàng đã chạy xong tất cả các bước.",
-            cancellationToken);
+        Enabled
+            ? CreateForEligibleAsync(run, NotificationType.WorkflowCompleted,
+                "Workflow hoàn tất",
+                "Quy trình giao hàng đã chạy xong tất cả các bước.",
+                cancellationToken)
+            : Task.CompletedTask;
 
     public Task NotifyRunFailedAsync(WorkflowRun run, string? error, CancellationToken cancellationToken = default) =>
-        CreateForEligibleAsync(run, NotificationType.WorkflowFailed,
-            "Workflow thất bại",
-            string.IsNullOrWhiteSpace(error) ? "Quy trình giao hàng đã dừng vì lỗi — cần xem lại." : $"Quy trình dừng vì lỗi: {Truncate(error, 300)}",
-            cancellationToken);
+        Enabled
+            ? CreateForEligibleAsync(run, NotificationType.WorkflowFailed,
+                "Workflow thất bại",
+                string.IsNullOrWhiteSpace(error) ? "Quy trình giao hàng đã dừng vì lỗi — cần xem lại." : $"Quy trình dừng vì lỗi: {Truncate(error, 300)}",
+                cancellationToken)
+            : Task.CompletedTask;
 
     public Task NotifyPocAcceptedAsync(WorkflowRun run, string acceptedBy, CancellationToken cancellationToken = default) =>
-        CreateForEligibleAsync(run, NotificationType.PocAccepted,
-            "Bản demo đã được nghiệm thu",
-            $"{acceptedBy} xác nhận bản demo (POC) đã đạt — có thể duyệt cổng POC để đi tiếp các bước sau.",
-            cancellationToken);
+        Enabled
+            ? CreateForEligibleAsync(run, NotificationType.PocAccepted,
+                "Bản demo đã được nghiệm thu",
+                $"{acceptedBy} xác nhận bản demo (POC) đã đạt — có thể duyệt cổng POC để đi tiếp các bước sau.",
+                cancellationToken)
+            : Task.CompletedTask;
 
     private async Task CreateForEligibleAsync(WorkflowRun run, NotificationType type, string title, string message, CancellationToken cancellationToken)
     {
@@ -71,7 +94,7 @@ public class NotificationService : INotificationService
                 .Select(p => p.Name)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            var eligible = await ResolveEligibleUsersAsync(cancellationToken);
+            var eligible = await ResolveRecipientsAsync(cancellationToken);
 
             // In-app: chỉ ghi cho user bật chuông VÀ chưa tắt loại sự kiện này. Chỉ Add, người gọi lưu.
             foreach (var user in eligible.Where(u => u.NotifyInApp && WantsType(u, type)))
@@ -110,7 +133,7 @@ public class NotificationService : INotificationService
     }
 
     // Loại sự kiện này có nằm trong các loại user muốn nhận không.
-    private static bool WantsType(EligibleUser user, NotificationType type) => type switch
+    private static bool WantsType(Recipient user, NotificationType type) => type switch
     {
         NotificationType.GateAwaitingApproval => user.NotifyOnGate,
         NotificationType.WorkflowCompleted => user.NotifyOnCompleted,
@@ -145,32 +168,20 @@ public class NotificationService : INotificationService
         return string.IsNullOrWhiteSpace(baseUrl) ? null : baseUrl.TrimEnd('/') + relativeLink;
     }
 
-    // Người nhận đủ điều kiện = user đang hoạt động có quyền DeliveryAdvance ở BẤT KỲ vai trò nào họ giữ
-    // (một người có thể giữ nhiều vai trò, quyền là hợp của chúng), kèm tùy chọn thông báo của họ. Bảng user
-    // nhỏ (seed vài tài khoản) nên duyệt trực tiếp; kết quả kiểm tra quyền được cache theo role.
-    private async Task<IReadOnlyList<EligibleUser>> ResolveEligibleUsersAsync(CancellationToken cancellationToken)
-    {
-        var activeUsers = await _db.AppUsers
+    // Người nhận = mọi user có username, kèm tùy chọn thông báo của họ (việc lọc theo tùy chọn nằm ở bên
+    // gọi). CHÍNH CHỖ NÀY là lý do Enabled đang false: không còn cách nào lọc ra "ai nên được báo", nên bật
+    // lại mà không thay tiêu chí ở đây thì mọi user sẽ nhận mọi thông báo. Bảng user nhỏ (seed vài tài
+    // khoản, cộng các user SSO tự tạo) nên nạp thẳng một lượt.
+    private async Task<IReadOnlyList<Recipient>> ResolveRecipientsAsync(CancellationToken cancellationToken) =>
+        await _db.AppUsers
             .Where(u => u.Username != "")
-            .Select(u => new EligibleUser(
-                u.Username, u.Roles.Select(r => r.Role).ToList(), u.Email,
+            .Select(u => new Recipient(
+                u.Username, u.Email,
                 u.NotifyInApp, u.NotifyByEmail, u.NotifyOnGate, u.NotifyOnCompleted, u.NotifyOnFailed))
             .ToListAsync(cancellationToken);
 
-        var qualifyingRoles = new HashSet<UserRole>();
-        foreach (var role in activeUsers.SelectMany(u => u.Roles).Distinct())
-        {
-            var granted = await _permissions.GetGrantedAsync(role, cancellationToken);
-            if (granted.Contains(AppPermission.DeliveryAdvance))
-                qualifyingRoles.Add(role);
-        }
-
-        return activeUsers.Where(u => u.Roles.Any(qualifyingRoles.Contains)).ToList();
-    }
-
-    private sealed record EligibleUser(
+    private sealed record Recipient(
         string Username,
-        IReadOnlyList<UserRole> Roles,
         string? Email,
         bool NotifyInApp,
         bool NotifyByEmail,

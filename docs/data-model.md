@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-`Data/AppDbContext.cs` khai báo **28 DbSet**. Điểm chung cần biết trước:
+`Data/AppDbContext.cs` khai báo **27 DbSet**. Điểm chung cần biết trước:
 
 - **Mọi cột `DateTime` được chuẩn hóa `Kind=Utc` khi đọc** (`UtcDateTimeConverter`) để JSON trả ra có hậu tố `Z` — tránh lệch múi giờ trên client.
 - **Hầu hết enum lưu dạng chuỗi** (tên enum, ví dụ `'WaitingForHuman'`) — dễ đọc trong DB và bền khi chèn giá trị enum mới. ⚠️ Vì vậy **đừng đổi tên giá trị enum đã có dữ liệu**.
@@ -40,8 +40,7 @@
 
 | Bảng | Vai trò | Điểm đáng chú ý |
 |---|---|---|
-| `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `DisplayName`, `OrgUnitName` (đồng bộ từ claim `department` của SSO), `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | **Không có cột mật khẩu** — đăng nhập do provider ngoài quyết định (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-provider-không-có-mật-khẩu-trong-app)). Chưa có UI tạo user — seed 4 tài khoản cố định |
-| `AppUserRoles` | Bảng nối user ↔ vai trò — **một user giữ NHIỀU `UserRole`** | Khóa chính kép `(AppUserId, Role)`; index trên `Role` cho chiều "ai đang giữ vai trò X". Quyền hiệu lực = HỢP quyền của mọi vai trò |
+| `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `DisplayName`, `OrgUnitName` (đồng bộ từ claim `department` của SSO), `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | **Không có cột mật khẩu và không có cột vai trò** — cả hai do provider ngoài quyết định: vai trò chỉ sống trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-provider-không-có-mật-khẩu-trong-app)). Chưa có UI tạo user — seed 4 tài khoản cố định |
 | `RolePermissions` | Cấp quyền `(Role, Permission)` — cấu hình runtime ở màn Roles | Unique `(Role, Permission)`. SuperAdmin implicit-all, không có dòng nào |
 | `AuditLogs` | Nhật ký thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt): actor, before/after JSON | Ghi qua `IAuditLogger` |
 
@@ -362,12 +361,6 @@ erDiagram
         DateTime CreatedAt
     }
 
-    AppUserRole {
-        Guid AppUserId PK_FK
-        UserRole Role PK
-    }
-
-    AppUser ||--o{ AppUserRole : "giữ"
 
     RolePermission {
         Guid Id PK
@@ -392,8 +385,6 @@ erDiagram
 | Constraint/index | Ý nghĩa |
 |---|---|
 | `AppUser.Username` unique | Không trùng tài khoản đăng nhập |
-| `AppUserRole(AppUserId, Role)` PK | Một user giữ NHIỀU vai trò, mỗi vai trò chỉ gán một lần. Xóa user cascade sang bảng này |
-| `AppUserRole.Role` index | Chiều ngược: "ai đang giữ vai trò X" (đăng nhập Local tìm SuperAdmin) |
 | `RolePermission(Role, Permission)` unique | Một permission chỉ được cấp một lần cho role |
 | `AuditLog.CreatedAt`, `(Category, CreatedAt)` | Lọc/sắp xếp audit log |
 
@@ -584,7 +575,7 @@ Khi DB khởi tạo rỗng, `DbInitializer` seed:
 
 | Data | Nội dung |
 |---|---|
-| Users | `superadmin`, `admin`, `teamdev`, `user` — mỗi tài khoản seed một dòng `AppUserRoles` tương ứng (không mật khẩu: Local tự đăng nhập bằng SuperAdmin, SSO đồng bộ từ IdentityServer) |
+| Users | `superadmin`, `admin`, `teamdev`, `user` — chỉ danh tính, **không kèm vai trò** (không mật khẩu: Local tự đăng nhập bằng tài khoản ở `Authentication:LocalUsername` với vai trò `Authentication:LocalRole`, SSO đồng bộ user từ IdentityServer và lấy vai trò từ role claim) |
 | Role permissions | SuperAdmin implicit-all; Admin mặc định toàn bộ quyền (cấu hình được); TeamDev gần đủ quyền vận hành; User quyền project/requirement/feedback cơ bản |
 | Org/Associates | Dữ liệu mẫu HR_Portal |
 | Tool definitions | Đồng bộ từ tool discovery |
