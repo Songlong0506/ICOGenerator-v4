@@ -38,8 +38,8 @@ username/password. Đăng nhập rẽ theo cờ `Authentication:Provider` (đổ
 
 | Provider | Hành vi |
 |---|---|
-| `Local` (mặc định) | `GET /Account/Login` **tự phát cookie** theo tài khoản `superadmin` seed sẵn — dành cho dev/nội bộ. SuperAdmin có toàn quyền và không tự khóa được nên máy dev luôn đủ quyền |
-| `IdentityServer` | Challenge sang SSO OpenID Connect của Bosch. Sau khi IdP xác thực, `SsoUserProvisioner` tra user theo claim `username` (≈ NTID) rồi **đồng bộ nguyên tập vai trò** từ role claim mỗi lần đăng nhập (IdP là nguồn sự thật). Đơn vị tổ chức lấy từ claim `department` vào `AppUser.OrgUnitName`. Ánh xạ claim → `UserRole` khai báo bằng attribute `[SsoRoleClaim]` ngay trên enum `UserRole`, không còn bảng mapping trong appsettings |
+| `Local` (mặc định) | `GET /Account/Login` **tự phát cookie** theo tài khoản `Authentication:LocalUsername` (mặc định `superadmin`, seed sẵn) với vai trò `Authentication:LocalRole` (mặc định SuperAdmin) — dành cho dev/nội bộ. Không có IdP nên **config là nguồn duy nhất của vai trò** ở chế độ này; SuperAdmin có toàn quyền và không tự khóa được nên máy dev luôn đủ quyền |
+| `IdentityServer` | Challenge sang SSO OpenID Connect của Bosch. Sau khi IdP xác thực, `SsoUserProvisioner` tra user theo claim `username` (≈ NTID) và đồng bộ đơn vị tổ chức từ claim `department` vào `AppUser.OrgUnitName`. **Vai trò không đi qua DB**: role claim được ánh xạ thẳng thành claim `ClaimTypes.Role` của phiên. Ánh xạ claim → `UserRole` khai báo bằng attribute `[SsoRoleClaim]` ngay trên enum `UserRole`, không còn bảng mapping trong appsettings |
 
 Rào chắn chung của tầng web:
 
@@ -56,10 +56,15 @@ Rào chắn chung của tầng web:
 ### Phân quyền chiều DỌC — role × quyền mức hành động
 
 - `UserRole`: **SuperAdmin / Admin / TeamDev / User** — *khác hẳn* `AgentRoleKey` (vai của AI).
-- **Một người giữ nhiều role** (bảng nối `AppUserRole`, mỗi vai trò phát một claim `ClaimTypes.Role`);
-  quyền hiệu lực = **HỢP quyền** của tất cả vai trò, vì quyền giữa các vai trò *giao nhau* chứ không
-  lồng nhau — **không được** rút gọn về vai trò "cao nhất". Claim rỗng khi đăng nhập SSO thì **giữ
-  nguyên** vai trò cũ, để một mapping thiếu không vô tình hạ quyền.
+- **Vai trò KHÔNG được lưu ở DB** — không bảng, không cột. Chúng chỉ tồn tại trong claim của phiên đăng
+  nhập, dựng lại từ đầu ở mỗi lần đăng nhập. Hệ quả phải nhớ: **không truy vấn được "ai đang giữ vai trò
+  X"** cho người đang offline, nên mọi thứ cần biết vai trò của người vắng mặt phải dùng tiêu chí khác
+  (xem `NotificationService`).
+- **Một người giữ nhiều role** (mỗi vai trò phát một claim `ClaimTypes.Role`); quyền hiệu lực = **HỢP
+  quyền** của tất cả vai trò, vì quyền giữa các vai trò *giao nhau* chứ không lồng nhau — **không được**
+  rút gọn về vai trò "cao nhất". Không role claim nào khớp mapping khi đăng nhập SSO ⇒ rơi về vai trò
+  thấp nhất (`User`) kèm một **log cảnh báo** có chuỗi role thô, vì không còn vai trò cũ nào để giữ:
+  mapping `[SsoRoleClaim]` thiếu sẽ hạ quyền cả loạt người cho tới khi được sửa.
 - Quyền mức hành động: enum `AppPermission` (28 quyền — xem cột "Quyền" ở bảng trên). `PermissionCatalog`
   (`Domain/Security`) gom quyền theo màn hình để render ma trận + lọc menu sidebar.
 - **Một nguồn sự thật**: `IPermissionService` (cache MemoryCache; **SuperAdmin implicit-all** nên không

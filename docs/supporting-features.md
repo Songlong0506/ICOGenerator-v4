@@ -2,6 +2,7 @@
 
 ## Notifications
 - **In-app (chuông)**: luôn chạy. `NotificationService` ghi bảng `Notifications` tại các sự kiện workflow (cổng chờ duyệt / hoàn tất / thất bại); client poll `GET /Notifications/Feed`.
+- **Người nhận = MỌI user trong bảng `AppUsers`**, lọc theo tùy chọn của chính họ. Không lọc theo quyền `DeliveryAdvance` được, vì quyền suy ra từ vai trò mà vai trò chỉ tồn tại trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#phân-quyền-chiều-dọc--role--quyền-mức-hành-động)) — người nhận thông báo thì đang offline, không có phiên nào để đọc. Người không có quyền duyệt cổng vẫn nhận chuông; bấm vào thì bị chặn ở màn hình đích, nên đây là nhiễu chứ không phải lỗ hổng, và ai không muốn nhận thì tắt ở Preferences.
 - **Kênh ngoài (Teams webhook, SMTP email, Bosch Email Server API)**: opt-in qua config, fail-open (lỗi gửi chỉ log warning, không gãy workflow). Kiến trúc plugin: hiện thực `INotificationChannel` mới + đăng ký DI là xong. `BoschEmailServerNotificationChannel` gửi qua Email Server API nội bộ (HTTP + header `ApiKey`, giống các app Bosch khác) — dùng khi hạ tầng chỉ mở API thay vì SMTP; kèm chốt an toàn `OnlySendToTesterEmail` lọc người nhận về danh sách tester cho môi trường non-prod.
 - **Tùy chọn theo user**: `/Notifications/Preferences` — bật/tắt kênh, chọn loại sự kiện, email cá nhân.
 

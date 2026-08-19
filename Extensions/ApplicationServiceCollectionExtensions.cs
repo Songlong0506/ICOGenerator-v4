@@ -14,6 +14,7 @@ using ICOGenerator.Application.Usage;
 using ICOGenerator.Application.Settings;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Budget;
@@ -235,6 +236,12 @@ public static class ApplicationServiceCollectionExtensions
             });
     }
 
+    // Vai trò cho phiên SSO khi KHÔNG role claim nào khớp mapping. Chọn vai trò thấp nhất: tự cấp quyền cho
+    // người lạ nguy hiểm hơn nhiều so với việc họ phải xin cấp thêm. Trước đây user cũ được giữ nguyên tập vai
+    // trò đã lưu trong trường hợp này; nay DB không lưu vai trò nữa nên không còn gì để giữ — một mapping
+    // thiếu sẽ hạ mọi người xuống vai trò này cho tới khi mapping được sửa (xem log cảnh báo bên dưới).
+    private const UserRole DefaultSsoRole = UserRole.User;
+
     // Bắc cầu danh tính IdentityServer về AppUser rồi phát lại claim Name (username) + Role của app. Chạy
     // trong OnTokenValidated nên claim id_token (preferred_username/email/name/sub) đã sẵn sàng; claim từ
     // userinfo tới sau vẫn được ghép vào cookie nhưng không cần cho bước tra AppUser (mặc định theo NTID).
@@ -252,14 +259,14 @@ public static class ApplicationServiceCollectionExtensions
         var orgUnitName = context.Principal.FindFirstValue("department");
 
         // Vai trò do IdentityServer phát (claim "role", có thể nhiều) → TẬP UserRole của app; giữ tất cả
-        // vai trò khớp vì quyền của chúng giao nhau. Tập rỗng = không claim nào khớp mapping ⇒ provisioner
-        // dùng vai trò mặc định cho user mới, giữ nguyên vai trò cho user cũ.
-        var ssoRoles = context.Principal.FindAll("role").Select(c => c.Value);
+        // vai trò khớp vì quyền của chúng giao nhau. Đây là NGUỒN DUY NHẤT của vai trò cho phiên này: không
+        // có bản sao nào trong DB để đối chiếu hay để rơi về. Tập rỗng = không claim nào khớp mapping.
+        var ssoRoles = context.Principal.FindAll("role").Select(c => c.Value).ToList();
         var rolesFromClaims = ids.MapRoles(ssoRoles);
 
         var provisioner = context.HttpContext.RequestServices.GetRequiredService<SsoUserProvisioner>();
         var appUser = await provisioner.ResolveOrProvisionAsync(
-            username, displayName, email, rolesFromClaims.ToList(), orgUnitName, context.HttpContext.RequestAborted);
+            username, displayName, email, orgUnitName, context.HttpContext.RequestAborted);
 
         // Provisioner trả null = từ chối truy cập (user bị khóa / username rỗng). Fail rõ ràng để rơi vào
         // OnRemoteFailure → trang AccessDenied, thay vì NRE khi phát lại claim bên dưới.
@@ -269,8 +276,10 @@ public static class ApplicationServiceCollectionExtensions
             return;
         }
 
-        // AppUser là nguồn sự thật cho Name (quyền sở hữu) + Role (phân quyền): bỏ mọi claim cùng loại đến
-        // từ IdP rồi phát lại theo AppUser để PermissionService/ProjectAccessGuard đọc đúng.
+        // Phát lại claim của app: Name (quyền sở hữu) lấy từ AppUser, Role (phân quyền) lấy từ role claim của
+        // IdP. Dọn trước mọi claim CÙNG KIỂU do IdP phát để PermissionService/ProjectAccessGuard chỉ đọc đúng
+        // các claim ta vừa dựng. (Chuỗi role thô của IdP nằm ở claim kiểu "role" — MapInboundClaims=false giữ
+        // nguyên tên — nên nó không bị dọn ở đây và cũng không được đọc như vai trò của app.)
         foreach (var claim in identity.FindAll(ClaimTypes.Name).ToList())
             identity.RemoveClaim(claim);
         foreach (var claim in identity.FindAll(ClaimTypes.Role).ToList())
@@ -278,8 +287,24 @@ public static class ApplicationServiceCollectionExtensions
         foreach (var claim in identity.FindAll("display_name").ToList())
             identity.RemoveClaim(claim);
         identity.AddClaim(new Claim(ClaimTypes.Name, appUser.Username));
-        // Một claim Role cho MỖI vai trò của user — quyền hiệu lực là hợp quyền của cả tập.
-        foreach (var role in appUser.Roles.Select(r => r.Role).Distinct())
+
+        // Một claim Role cho MỖI vai trò ánh xạ được — quyền hiệu lực là hợp quyền của cả tập. Không khớp
+        // được vai trò nào là chuyện đáng ngờ (mapping [SsoRoleClaim] thiếu, hoặc IdP đổi tên role): ghi
+        // cảnh báo kèm chuỗi role thô để sửa mapping, rồi rơi về vai trò thấp nhất thay vì phát phiên không
+        // có quyền gì — người dùng sẽ đụng AccessDenied ở mọi trang mà không ai biết vì sao.
+        var effectiveRoles = rolesFromClaims.Count > 0
+            ? (IReadOnlyCollection<UserRole>)rolesFromClaims
+            : new[] { DefaultSsoRole };
+        if (rolesFromClaims.Count == 0)
+        {
+            context.HttpContext.RequestServices
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("ICOGenerator.Sso")
+                .LogWarning(
+                    "SSO user {Username} không có role claim nào khớp mapping (claim thô: {SsoRoles}) — dùng vai trò mặc định {DefaultRole}.",
+                    appUser.Username, string.Join(", ", ssoRoles), DefaultSsoRole);
+        }
+        foreach (var role in effectiveRoles)
             identity.AddClaim(new Claim(ClaimTypes.Role, role.ToString()));
         // Tên hiển thị cho UI (left menu…); tách khỏi claim Name vì Name là NTID lái quyền sở hữu.
         identity.AddClaim(new Claim("display_name",

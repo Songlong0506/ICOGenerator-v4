@@ -185,7 +185,7 @@ các DÒNG của nó là màn hình — hỏi trước khi phạm vi màn hình 
 của một màn hình chưa tồn tại thì không ai trả lời được. **Thông báo cuối cùng**, vì nó vay cả hai chiều:
 các DÒNG là chuyển trạng thái của bảng đối tượng, còn danh sách người nhận cần các VAI TRÒ của bảng phân
 quyền — vai trò của ứng dụng đang thiết kế chỉ tồn tại trong hội thoại, không bảng nào trong DB liệt kê
-chúng (`AppUserRole` là vai trò của chính ICOGenerator, không liên quan).
+chúng (vai trò của chính ICOGenerator không nằm trong DB, và cũng không liên quan).
 
 #### Vì sao thứ tự cũ (màn hình trước đối tượng) là một lỗi
 

@@ -1,33 +1,35 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Notifications;
 
 /// <summary>
-/// Hiện thực <see cref="INotificationService"/>: xác định người nhận đủ điều kiện (user hoạt động có quyền
-/// <see cref="AppPermission.DeliveryAdvance"/>) rồi <c>Add</c> một <see cref="Notification"/> cho mỗi người
-/// vào DbContext hiện hành. Không SaveChanges (xem hợp đồng ở interface). Toàn bộ bọc try/catch fail-open.
+/// Hiện thực <see cref="INotificationService"/>: xác định người nhận rồi <c>Add</c> một
+/// <see cref="Notification"/> cho mỗi người vào DbContext hiện hành. Không SaveChanges (xem hợp đồng ở
+/// interface). Toàn bộ bọc try/catch fail-open.
+/// Người nhận = MỌI user trong bảng, lọc theo tùy chọn thông báo của chính họ. Trước đây còn lọc thêm theo
+/// quyền <see cref="AppPermission.DeliveryAdvance"/>, nhưng quyền đó suy ra từ vai trò mà vai trò nay chỉ
+/// tồn tại trong claim của phiên đăng nhập (xem <see cref="Domain.AppUser"/>) — người nhận thông báo thì
+/// đang OFFLINE, không có phiên nào để đọc. Hệ quả: người không có quyền duyệt cổng cũng nhận được chuông;
+/// bấm vào vẫn bị <c>ProjectAccessGuard</c>/<c>[RequirePermission]</c> chặn ở màn hình đích, nên đây là
+/// nhiễu chứ không phải lỗ hổng. Ai không muốn nhận thì tự tắt ở trang Preferences.
 /// </summary>
 public class NotificationService : INotificationService
 {
     private readonly AppDbContext _db;
-    private readonly IPermissionService _permissions;
     private readonly IEnumerable<INotificationChannel> _channels;
     private readonly NotificationOptions _options;
     private readonly ILogger<NotificationService> _logger;
 
     public NotificationService(
         AppDbContext db,
-        IPermissionService permissions,
         IEnumerable<INotificationChannel> channels,
         NotificationOptions options,
         ILogger<NotificationService> logger)
     {
         _db = db;
-        _permissions = permissions;
         _channels = channels;
         _options = options;
         _logger = logger;
@@ -71,7 +73,7 @@ public class NotificationService : INotificationService
                 .Select(p => p.Name)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            var eligible = await ResolveEligibleUsersAsync(cancellationToken);
+            var eligible = await ResolveRecipientsAsync(cancellationToken);
 
             // In-app: chỉ ghi cho user bật chuông VÀ chưa tắt loại sự kiện này. Chỉ Add, người gọi lưu.
             foreach (var user in eligible.Where(u => u.NotifyInApp && WantsType(u, type)))
@@ -110,7 +112,7 @@ public class NotificationService : INotificationService
     }
 
     // Loại sự kiện này có nằm trong các loại user muốn nhận không.
-    private static bool WantsType(EligibleUser user, NotificationType type) => type switch
+    private static bool WantsType(Recipient user, NotificationType type) => type switch
     {
         NotificationType.GateAwaitingApproval => user.NotifyOnGate,
         NotificationType.WorkflowCompleted => user.NotifyOnCompleted,
@@ -145,32 +147,19 @@ public class NotificationService : INotificationService
         return string.IsNullOrWhiteSpace(baseUrl) ? null : baseUrl.TrimEnd('/') + relativeLink;
     }
 
-    // Người nhận đủ điều kiện = user đang hoạt động có quyền DeliveryAdvance ở BẤT KỲ vai trò nào họ giữ
-    // (một người có thể giữ nhiều vai trò, quyền là hợp của chúng), kèm tùy chọn thông báo của họ. Bảng user
-    // nhỏ (seed vài tài khoản) nên duyệt trực tiếp; kết quả kiểm tra quyền được cache theo role.
-    private async Task<IReadOnlyList<EligibleUser>> ResolveEligibleUsersAsync(CancellationToken cancellationToken)
-    {
-        var activeUsers = await _db.AppUsers
+    // Người nhận = mọi user có username, kèm tùy chọn thông báo của họ (việc lọc theo tùy chọn nằm ở bên
+    // gọi). Không lọc theo quyền được nữa — xem chú thích đầu class. Bảng user nhỏ (seed vài tài khoản, cộng
+    // các user SSO tự tạo) nên nạp thẳng một lượt.
+    private async Task<IReadOnlyList<Recipient>> ResolveRecipientsAsync(CancellationToken cancellationToken) =>
+        await _db.AppUsers
             .Where(u => u.Username != "")
-            .Select(u => new EligibleUser(
-                u.Username, u.Roles.Select(r => r.Role).ToList(), u.Email,
+            .Select(u => new Recipient(
+                u.Username, u.Email,
                 u.NotifyInApp, u.NotifyByEmail, u.NotifyOnGate, u.NotifyOnCompleted, u.NotifyOnFailed))
             .ToListAsync(cancellationToken);
 
-        var qualifyingRoles = new HashSet<UserRole>();
-        foreach (var role in activeUsers.SelectMany(u => u.Roles).Distinct())
-        {
-            var granted = await _permissions.GetGrantedAsync(role, cancellationToken);
-            if (granted.Contains(AppPermission.DeliveryAdvance))
-                qualifyingRoles.Add(role);
-        }
-
-        return activeUsers.Where(u => u.Roles.Any(qualifyingRoles.Contains)).ToList();
-    }
-
-    private sealed record EligibleUser(
+    private sealed record Recipient(
         string Username,
-        IReadOnlyList<UserRole> Roles,
         string? Email,
         bool NotifyInApp,
         bool NotifyByEmail,

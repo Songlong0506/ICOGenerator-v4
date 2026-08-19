@@ -12,8 +12,10 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Notifications;
 
-// NotificationService chỉ tạo thông báo cho user ĐANG HOẠT ĐỘNG có quyền DeliveryAdvance, và chỉ Add
-// (không SaveChanges) — người gọi lưu. Đọc/đánh dấu ràng theo chủ sở hữu. Chạy trên AppDbContext thật (Sqlite).
+// NotificationService tạo thông báo cho MỌI user trong bảng (lọc theo tùy chọn của từng người), và chỉ Add
+// (không SaveChanges) — người gọi lưu. Không còn lọc theo quyền DeliveryAdvance: vai trò chỉ tồn tại trong
+// claim của phiên đăng nhập, mà người nhận thì đang offline. Đọc/đánh dấu ràng theo chủ sở hữu.
+// Chạy trên AppDbContext thật (Sqlite).
 public class NotificationServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -30,7 +32,7 @@ public class NotificationServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task NotifyGateOpened_CreatesForDeliveryAdvanceUsersOnly()
+    public async Task NotifyGateOpened_CreatesForEveryUser()
     {
         var projectId = Guid.NewGuid();
         var runId = Guid.NewGuid();
@@ -38,9 +40,9 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             db.AppUsers.AddRange(
-                new AppUser { Username = "admin", Roles = { new AppUserRole { Role = UserRole.Admin } } },
-                new AppUser { Username = "teamdev", Roles = { new AppUserRole { Role = UserRole.TeamDev } } },
-                new AppUser { Username = "user", Roles = { new AppUserRole { Role = UserRole.User } } });
+                new AppUser { Username = "admin" },
+                new AppUser { Username = "teamdev" },
+                new AppUser { Username = "user" });
             db.Projects.Add(new Project { Id = projectId, Name = "Cổng thanh toán" });
             db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId, Status = WorkflowRunStatus.WaitingForHuman });
             await db.SaveChangesAsync();
@@ -49,7 +51,7 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
-            var svc = new NotificationService(db, FakePermissions.WithDeliveryAdvanceFor(UserRole.Admin, UserRole.TeamDev), Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
+            var svc = new NotificationService(db, Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
 
             await svc.NotifyGateOpenedAsync(run, "Đề xuất kiến trúc");
             // Service chỉ Add — người gọi lưu.
@@ -59,7 +61,8 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             var rows = await db.Notifications.OrderBy(n => n.RecipientUsername).ToListAsync();
-            Assert.Equal(new[] { "admin", "teamdev" }, rows.Select(r => r.RecipientUsername).ToArray());
+            // Mọi user đều nhận: không còn nguồn nào cho biết ai có quyền duyệt cổng khi họ đang offline.
+            Assert.Equal(new[] { "admin", "teamdev", "user" }, rows.Select(r => r.RecipientUsername).ToArray());
             Assert.All(rows, r =>
             {
                 Assert.Equal(NotificationType.GateAwaitingApproval, r.Type);
@@ -81,7 +84,7 @@ public class NotificationServiceTests : IDisposable
 
         await using (var db = NewDb())
         {
-            db.AppUsers.Add(new AppUser { Username = "teamdev", Roles = { new AppUserRole { Role = UserRole.TeamDev } } });
+            db.AppUsers.Add(new AppUser { Username = "teamdev" });
             db.Projects.Add(new Project { Id = projectId, Name = "P" });
             db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
             await db.SaveChangesAsync();
@@ -90,7 +93,7 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
-            var svc = new NotificationService(db, FakePermissions.WithDeliveryAdvanceFor(UserRole.TeamDev), Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
+            var svc = new NotificationService(db, Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
             await svc.NotifyGateOpenedAsync(run, "X");
             // KHÔNG SaveChanges ⇒ không có dòng nào được persist.
         }
@@ -187,7 +190,7 @@ public class NotificationServiceTests : IDisposable
 
         await using (var db = NewDb())
         {
-            db.AppUsers.Add(new AppUser { Username = "teamdev", Roles = { new AppUserRole { Role = UserRole.TeamDev } } });
+            db.AppUsers.Add(new AppUser { Username = "teamdev" });
             db.Projects.Add(new Project { Id = projectId, Name = "Cổng thanh toán" });
             db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
             await db.SaveChangesAsync();
@@ -203,7 +206,6 @@ public class NotificationServiceTests : IDisposable
             var options = new NotificationOptions { BaseUrl = "https://app.example/" };
             var svc = new NotificationService(
                 db,
-                FakePermissions.WithDeliveryAdvanceFor(UserRole.TeamDev),
                 new INotificationChannel[] { enabled, disabled, throwing },
                 options,
                 NullLogger<NotificationService>.Instance);
@@ -233,10 +235,10 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             db.AppUsers.AddRange(
-                new AppUser { Username = "bell_all", Roles = { new AppUserRole { Role = UserRole.TeamDev } }, NotifyInApp = true, NotifyByEmail = false },
-                new AppUser { Username = "email_opt", Roles = { new AppUserRole { Role = UserRole.TeamDev } }, NotifyInApp = true, NotifyByEmail = true, Email = "e@bosch.com" },
-                new AppUser { Username = "muted_inapp", Roles = { new AppUserRole { Role = UserRole.TeamDev } }, NotifyInApp = false, NotifyByEmail = false },
-                new AppUser { Username = "opt_no_addr", Roles = { new AppUserRole { Role = UserRole.TeamDev } }, NotifyInApp = true, NotifyByEmail = true, Email = null });
+                new AppUser { Username = "bell_all", NotifyInApp = true, NotifyByEmail = false },
+                new AppUser { Username = "email_opt", NotifyInApp = true, NotifyByEmail = true, Email = "e@bosch.com" },
+                new AppUser { Username = "muted_inapp", NotifyInApp = false, NotifyByEmail = false },
+                new AppUser { Username = "opt_no_addr", NotifyInApp = true, NotifyByEmail = true, Email = null });
             db.Projects.Add(new Project { Id = projectId, Name = "P" });
             db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
             await db.SaveChangesAsync();
@@ -247,8 +249,7 @@ public class NotificationServiceTests : IDisposable
         {
             var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
             var svc = new NotificationService(
-                db, FakePermissions.WithDeliveryAdvanceFor(UserRole.TeamDev),
-                new INotificationChannel[] { channel }, new NotificationOptions(),
+                db, new INotificationChannel[] { channel }, new NotificationOptions(),
                 NullLogger<NotificationService>.Instance);
             await svc.NotifyGateOpenedAsync(run, "X");
             await db.SaveChangesAsync();
@@ -274,7 +275,7 @@ public class NotificationServiceTests : IDisposable
 
         await using (var db = NewDb())
         {
-            db.AppUsers.Add(new AppUser { Username = "gate_only", Roles = { new AppUserRole { Role = UserRole.TeamDev } }, NotifyInApp = true, NotifyOnCompleted = false });
+            db.AppUsers.Add(new AppUser { Username = "gate_only", NotifyInApp = true, NotifyOnCompleted = false });
             db.Projects.Add(new Project { Id = projectId, Name = "P" });
             db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = projectId });
             await db.SaveChangesAsync();
@@ -284,8 +285,7 @@ public class NotificationServiceTests : IDisposable
         {
             await using var db = NewDb();
             var run = await db.WorkflowRuns.FirstAsync(r => r.Id == runId);
-            var svc = new NotificationService(db, FakePermissions.WithDeliveryAdvanceFor(UserRole.TeamDev),
-                Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
+            var svc = new NotificationService(db, Array.Empty<INotificationChannel>(), new NotificationOptions(), NullLogger<NotificationService>.Instance);
             await act(svc, run);
             await db.SaveChangesAsync();
         }
@@ -329,36 +329,5 @@ public class NotificationServiceTests : IDisposable
     {
         public string Protect(string? plainText) => plainText ?? string.Empty;
         public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-    }
-
-    // Fake quyền: các role liệt kê được cấp DeliveryAdvance; role khác không có quyền nào.
-    private sealed class FakePermissions : IPermissionService
-    {
-        private readonly HashSet<UserRole> _withDeliveryAdvance;
-
-        private FakePermissions(HashSet<UserRole> roles) => _withDeliveryAdvance = roles;
-
-        public static FakePermissions WithDeliveryAdvanceFor(params UserRole[] roles) => new(new HashSet<UserRole>(roles));
-
-        public Task<IReadOnlySet<AppPermission>> GetGrantedAsync(UserRole role, CancellationToken cancellationToken = default)
-        {
-            var set = _withDeliveryAdvance.Contains(role)
-                ? new HashSet<AppPermission> { AppPermission.DeliveryAdvance }
-                : new HashSet<AppPermission>();
-            return Task.FromResult<IReadOnlySet<AppPermission>>(set);
-        }
-
-        public Task<IReadOnlySet<AppPermission>> GetGrantedAsync(IEnumerable<UserRole> roles, CancellationToken cancellationToken = default)
-        {
-            var set = roles.Any(_withDeliveryAdvance.Contains)
-                ? new HashSet<AppPermission> { AppPermission.DeliveryAdvance }
-                : new HashSet<AppPermission>();
-            return Task.FromResult<IReadOnlySet<AppPermission>>(set);
-        }
-
-        public Task<bool> HasPermissionAsync(ClaimsPrincipal user, AppPermission permission, CancellationToken cancellationToken = default) =>
-            Task.FromResult(false);
-
-        public void InvalidateCache() { }
     }
 }

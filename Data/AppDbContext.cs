@@ -25,7 +25,6 @@ public class AppDbContext : DbContext
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
     public DbSet<AgentTask> AgentTasks => Set<AgentTask>();
     public DbSet<AppUser> AppUsers => Set<AppUser>();
-    public DbSet<AppUserRole> AppUserRoles => Set<AppUserRole>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<FeedbackAttachment> FeedbackAttachments => Set<FeedbackAttachment>();
@@ -278,7 +277,8 @@ public class AppDbContext : DbContext
                 .IncludeProperties(x => new { x.ProjectId, x.ModelId, x.PromptTokens, x.CompletionTokens });
         });
 
-        // Người dùng đăng nhập: Username là duy nhất. Vai trò nằm ở bảng nối AppUserRoles (một user nhiều vai trò).
+        // Người dùng đăng nhập: Username là duy nhất. KHÔNG có cột/bảng vai trò — vai trò chỉ sống trong
+        // claim của phiên đăng nhập (xem AppUser).
         builder.Entity<AppUser>(b =>
         {
             b.Property(x => x.Username).HasMaxLength(100);
@@ -293,18 +293,6 @@ public class AppDbContext : DbContext
             b.Property(x => x.NotifyOnCompleted).HasDefaultValue(true);
             b.Property(x => x.NotifyOnFailed).HasDefaultValue(true);
             b.HasIndex(x => x.Username).IsUnique();
-        });
-
-        // Vai trò của user (nhiều-nhiều): khóa chính (AppUserId, Role) vừa chặn gán trùng, vừa là index
-        // cho truy vấn nóng "các vai trò của một user". Cascade: xóa user ⇒ dọn luôn các dòng vai trò.
-        // Index phụ theo Role cho chiều ngược lại ("ai đang giữ vai trò X" — đăng nhập Local tìm SuperAdmin,
-        // DbInitializer backfill). Role lưu dạng chuỗi như mọi enum khác.
-        builder.Entity<AppUserRole>(b =>
-        {
-            b.HasKey(x => new { x.AppUserId, x.Role });
-            b.HasOne(x => x.AppUser).WithMany(x => x.Roles).HasForeignKey(x => x.AppUserId).OnDelete(DeleteBehavior.Cascade);
-            b.Property(x => x.Role).HasConversion<string>().HasMaxLength(50);
-            b.HasIndex(x => x.Role);
         });
 
         // Bảng cấp quyền: cặp (Role, Permission) là duy nhất; cả hai cột enum lưu dạng chuỗi.
