@@ -4,7 +4,7 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Bảng BÁO CÁO / THỐNG KÊ — bảng thứ tư của buổi phỏng vấn. Ba thứ phải giữ bằng test, và cả ba đều là chỗ
+// Bảng BÁO CÁO / THỐNG KÊ — bảng thứ ba của buổi phỏng vấn. Ba thứ phải giữ bằng test, và cả ba đều là chỗ
 // mà một lần sửa vô ý làm hỏng một tuyến chứ không chỉ một ô:
 //
 //  1. Ô "lấy số từ" phải NỐI được về bảng đối tượng. Đây là mối nối duy nhất giữ cho bước sinh spec khỏi tự

@@ -142,7 +142,7 @@ Chưa chốt (file không phải bảng tính, model không đề xuất đượ
 
 ## Sáu bảng chốt của buổi phỏng vấn
 
-Buổi phỏng vấn kết thúc bằng **sáu bảng**, không phải một. Cả năm cùng một cơ chế, và cơ chế đó sinh ra từ
+Buổi phỏng vấn kết thúc bằng **sáu bảng**, không phải một. Cả sáu cùng một cơ chế, và cơ chế đó sinh ra từ
 cùng một quan sát: có những thứ **BA ráp lại từ hội thoại** mà người dùng chưa bao giờ nhìn thấy để bác —
 chuỗi bước của một luồng, danh sách màn hình, mô hình dữ liệu, ma trận quyền. Chúng vẫn đi thẳng vào tài
 liệu, mang chữ ký của người dùng. Bảng là chỗ họ nhìn thấy và sửa được, và bằng chứng thu về là **một thao
@@ -151,9 +151,9 @@ tác trên từng dòng** thay vì một chip trả lời thay cho tất cả.
 | Bảng | Cột trên `Project` | Chốt cái gì | Đường tiêu thụ ngoài chat |
 |---|---|---|---|
 | Luồng nghiệp vụ | `FlowMap` | luồng chính + 1–2 ngoại lệ, mỗi luồng là chuỗi bước *ai làm → làm gì → trạng thái sau đó* | `## 13. Worked Examples` định tính (oracle chấm POC) + `## 10. Business Rules` |
-| Màn hình | `ScreenScopeMap` | phạm vi màn hình, việc của từng màn, **các chức năng** trên màn (mỗi chức năng một dòng tích riêng) và **bước luồng** từng chức năng phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
 | Đối tượng nghiệp vụ | `EntityMap` | thông tin cần lưu (kèm **cách nhập** và **danh sách lấy ở đâu**) + vòng đời trạng thái | `## 8. Data Model Summary` + `## 10. Business Rules` + **màn hình danh mục** gieo vào `PlannedScope` |
 | Báo cáo / thống kê | `ReportMap` | mỗi báo cáo một dòng: tên, nó **trả lời câu hỏi gì** (lời người dùng), **lấy số từ** đối tượng nào, **gộp/lọc** theo gì | mỗi dòng còn giữ gieo một MÀN HÌNH vào `PlannedScope` ⇒ `## 6. Screens To Generate` + `## 9. API Expectations` (bộ lọc thật) |
+| Màn hình | `ScreenScopeMap` | phạm vi màn hình, việc của từng màn, **các chức năng** trên màn (mỗi chức năng một dòng tích riêng) và **bước luồng** từng chức năng phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
 | Phân quyền | `PermissionMatrix` | quyền CRUD theo màn hình, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + điều kiện lọc ở `## 9. API Expectations` |
 | Thông báo / nhắc nhở | `NotificationMap` | mỗi **sự kiện** một dòng: có gửi email không, **To** và **CC** chọn từ danh sách người nhận của dự án | quy tắc gửi mail ở `## 10. Business Rules` |
 
@@ -168,29 +168,53 @@ viết tay được nữa.
 **Thứ tự là thứ tự PHỤ THUỘC, không phải thứ tự tiện tay:**
 
 ```
-luồng → màn hình → đối tượng → báo cáo → phân quyền → thông báo
+luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo
 ```
 
-Luồng trước, vì bảng màn hình có một ô hỏi thẳng *"chức năng này phục vụ bước nào"*. Màn hình trước đối tượng, vì
-cái người dùng nhìn thấy trên màn hình quyết định thông tin nào thật sự cần lưu. **Báo cáo sau đối tượng**
-(ô "lấy số từ" của mỗi báo cáo trỏ về một đối tượng đã chốt) **nhưng TRƯỚC phân quyền**, vì mỗi báo cáo còn
-giữ là một MÀN HÌNH mới — hỏi sau thì các màn hình ấy không có dòng quyền nào và không có mục nào ở
-`## 6. Screens To Generate`. Phân quyền gần cuối, vì
+Câu hỏi xếp ra thứ tự này chỉ có một: **bảng nào ĐẺ RA màn hình thì phải đứng trước bảng chốt phạm vi màn
+hình.**
+
+Luồng trước, vì mọi bảng sau đều trỏ về bước luồng — bảng màn hình có ô *"chức năng này phục vụ bước nào"*,
+còn cột *"khi nào chuyển vào"* của bảng đối tượng lấy điều kiện từ chính các bước. **Đối tượng rồi báo cáo
+đứng TRƯỚC màn hình**, vì cả hai là NGUỒN màn hình: mỗi thông tin kiểu chọn có nguồn *"ứng dụng tự quản lý"*
+đẻ ra một màn hình quản lý danh mục (`EntityMapBuilder.ManagedListScreens`), và mỗi báo cáo còn giữ là một
+màn hình (`ReportMapBuilder.ReportScreens`) — cả hai gieo thẳng vào `PlannedScope` lúc chốt, tức vào chính
+các DÒNG của bảng màn hình. Báo cáo sau đối tượng vì ô *"lấy số từ"* của nó trỏ về một đối tượng đã chốt.
+**Màn hình sau đó là chỗ người dùng rà TRỌN phạm vi đúng một lần.** Phân quyền gần cuối, vì
 các DÒNG của nó là màn hình — hỏi trước khi phạm vi màn hình đứng yên thì bảng thiếu nửa số dòng, mà quyền
 của một màn hình chưa tồn tại thì không ai trả lời được. **Thông báo cuối cùng**, vì nó vay cả hai chiều:
 các DÒNG là chuyển trạng thái của bảng đối tượng, còn danh sách người nhận cần các VAI TRÒ của bảng phân
 quyền — vai trò của ứng dụng đang thiết kế chỉ tồn tại trong hội thoại, không bảng nào trong DB liệt kê
 chúng (`AppUserRole` là vai trò của chính ICOGenerator, không liên quan).
 
+#### Vì sao thứ tự cũ (màn hình trước đối tượng) là một lỗi
+
+Lý do cũ ghi ở đây là *"cái người dùng nhìn thấy trên màn hình quyết định thông tin nào thật sự cần lưu"* —
+nhưng chiều đó chưa bao giờ tồn tại trong code: `ScreenScopeMapBuilder` không đọc `EntityMap`, khối
+`## LƯỢT NÀY` của bảng đối tượng không nhắc tới bảng màn hình, và một dòng của bảng màn hình còn không chở
+nổi một trường thông tin nào để mà quyết định. Chiều CÓ THẬT chạy ngược lại, và chạy tất định qua hai hàm
+gieo màn hình nêu trên.
+
+Cái giá của thứ tự cũ, đo được trên dự án thật (JD Libary): người dùng chốt bảng màn hình như một phạm vi
+trọn vẹn — bảng tự giới thiệu đúng như vậy (*"thiếu cả một màn hình thì bấm + thêm màn hình"*) — rồi mấy
+lượt sau bảng đối tượng gieo thêm năm màn hình quản lý danh mục, bảng màn hình phải mở lại, và cổng
+[KHÔNG MÂU THUẪN](#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn) bắn một mâu thuẫn
+(*"trước đây anh/chị xác nhận đây là toàn bộ màn hình…"*). Tức một suất trong tối đa 5 mâu thuẫn tiêu cho
+một xung đột do chính thứ tự đẻ ra, cộng một lượt rà lặp. Đường mở lại của cổng màn hình vẫn còn nguyên,
+nhưng nay nó lùi về đúng vai **lưới an toàn** cho phần phạm vi trôi THẬT (một màn hình lộ ra từ hội thoại
+sau lượt chốt), thay vì là đường chính của một luồng biết trước là sẽ trôi.
+
 Điều kiện mở của từng cổng suy từ chính bản đồ bao phủ, và **cố ý rải ra chứ không dồn xuống cuối buổi**:
 cổng luồng mở khi «Chức năng & luồng nghiệp vụ chính» + «Đối tượng người dùng & vai trò» đã `[RÕ]` và
-«Luồng ngoại lệ» đã được chạm tới; cổng màn hình mở khi `PlannedScope` có mục và — ở **lần bày đầu** — cổng
-luồng đã đủ điều kiện mở; cổng đối tượng mở khi «Dữ liệu / danh mục chính» `[RÕ]`, «Vòng đời & trạng thái»
-đã được chạm tới và cổng luồng đã đủ điều kiện mở; cổng báo cáo mở khi **bảng đối tượng đã chốt** và
-nhóm «Báo cáo / thống kê» đã `[RÕ]`; cổng phân quyền giữ nguyên điều kiện cũ (mọi nhóm áp
-dụng KHÁC đã `[RÕ]`); cổng thông báo mở khi **bảng phân quyền đã chốt** và bảng đối tượng gieo ra được ít
-nhất một sự kiện. Vế *"cổng luồng đã đủ điều kiện mở"* dùng chung một hàm — `FlowMapGate.CoverageReady`,
-xem [dưới](#thứ-tự-ưu-tiên-không-thay-được-điều-kiện-mở). Các bảng điền sẵn nối đuôi nhau ở cuối
+«Luồng ngoại lệ» đã được chạm tới; cổng đối tượng mở khi «Dữ liệu / danh mục chính» `[RÕ]`, «Vòng đời &
+trạng thái» đã được chạm tới và cổng luồng đã đủ điều kiện mở; cổng báo cáo mở khi **bảng đối tượng đã
+chốt** và nhóm «Báo cáo / thống kê» đã `[RÕ]`; cổng màn hình mở khi `PlannedScope` có mục và — ở **lần bày
+đầu** — cổng luồng đã đủ điều kiện mở, hai nhóm của cổng đối tượng («Dữ liệu / danh mục chính», «Vòng đời &
+trạng thái») đã được chạm tới, và nhóm «Báo cáo / thống kê» cũng đã được chạm tới; cổng phân quyền giữ
+nguyên điều kiện cũ (mọi nhóm áp dụng KHÁC đã `[RÕ]`); cổng thông báo mở khi **bảng phân quyền đã chốt** và
+bảng đối tượng gieo ra được ít nhất một sự kiện. Hai vế mượn dùng chung hai hàm —
+`FlowMapGate.CoverageReady` và `EntityMapGate.CoverageDecided` (hàm sau đã bao hàm hàm trước), xem
+[dưới](#thứ-tự-ưu-tiên-không-thay-được-điều-kiện-mở). Các bảng điền sẵn nối đuôi nhau ở cuối
 buổi chính là cái chip *"Đồng ý phương án này"* phóng to nhiều lần — người dùng nghiệp vụ bận sẽ bấm "Đúng
 rồi" cho xong từ bảng thứ hai.
 
@@ -199,15 +223,15 @@ Hai cổng cuối xét theo **bảng đã chốt** chứ không theo bản đồ
 hỏng (model không trả nổi bảng dùng được) mà để bảng thông báo chen lên trước thì danh sách người nhận gieo
 ra mất sạch phần vai trò, chỉ còn bốn mục quan hệ.
 
-Hệ quả cần biết: khi cổng phân quyền mở thì điều kiện của cả ba cổng kia đương nhiên cũng đúng, nên bảng
-nào chưa chốt sẽ lần lượt được hỏi TRƯỚC nó — và cổng phân quyền lại là thứ duy nhất mở nút "Write
-Requirement". Không có đường nào soạn tài liệu mà bỏ qua ba bảng đầu. `InterviewTableGateTests` giữ bất
-biến này.
+Hệ quả cần biết: khi cổng phân quyền mở thì điều kiện của các cổng kia đương nhiên cũng đúng (điều kiện của
+chúng là tập CON — cổng phân quyền đòi mọi nhóm áp dụng khác `[RÕ]`), nên bảng nào chưa chốt sẽ lần lượt
+được hỏi TRƯỚC nó — và cổng phân quyền lại là thứ duy nhất mở nút "Write Requirement". Không có đường nào
+soạn tài liệu mà bỏ qua bốn bảng đầu. `InterviewTableGateTests` giữ bất biến này.
 
 #### Thứ tự ưu tiên không thay được điều kiện mở
 
 Danh sách ưu tiên ở `Select` chỉ phân xử được khi **hai cổng cùng mở**; nó không nói gì về ca cổng đứng
-trước còn ĐÓNG vì bản đồ chưa đủ. Điều kiện cũ của cổng màn hình chỉ đòi «Chức năng & luồng nghiệp vụ
+trước còn ĐÓNG vì bản đồ chưa đủ. Điều kiện đời đầu của cổng màn hình chỉ đòi «Chức năng & luồng nghiệp vụ
 chính» `[RÕ]` — nhóm lên `[RÕ]` ngay ở lượt người dùng kể luồng, trong khi vai trò và ngoại lệ còn phải hỏi
 thêm vài lượt — nên cổng màn hình mở TRƯỚC cổng luồng và thứ tự phụ thuộc bị đảo trong im lặng.
 
@@ -215,25 +239,31 @@ Ca thật (dự án JD Libary 1): bảng màn hình bày ở lượt 12, bảng 
 *"chức năng này phục vụ bước nào"* — lượt 12 chưa có bước nào tồn tại để gắn nên cả cột ra rỗng; luồng chốt
 xong thì `UncoveredActions` báo gần như MỌI bước chưa ai phụ trách, và người dùng phải rà bảng màn hình lần
 thứ hai chỉ vì lần đầu bày quá sớm. Vì vậy lần bày đầu của cổng màn hình **mượn nguyên điều kiện bản đồ của
-cổng luồng** (`FlowMapGate.CoverageReady`): hai cổng cùng mở một lượt, rồi để `Select` phân xử.
+cổng đứng trước**: nay là `EntityMapGate.CoverageDecided` (chính nó đã bao `FlowMapGate.CoverageReady`) cộng
+vế nhóm «Báo cáo / thống kê» đã được CHẠM TỚI. Các cổng cùng mở một lượt, rồi để `Select` phân xử.
 
-Hai ranh giới của cách vá này:
+Ba ranh giới của cách vá này:
 
-- **Không đòi bảng luồng đã CHỐT**, chỉ đòi điều kiện bản đồ. Treo cổng này vào một artifact do model sinh
-  ra là biến một lượt bày bảng hỏng thành chuỗi kẹt vĩnh viễn.
+- **Không đòi bảng đứng trước đã CHỐT**, chỉ đòi điều kiện bản đồ. Treo cổng này vào một artifact do model
+  sinh ra là biến một lượt bày bảng hỏng thành chuỗi kẹt vĩnh viễn.
+- **Chờ cổng đứng trước NGÃ NGŨ, không chờ nó SẴN SÀNG** — mọi vế mượn chỉ đòi *chạm tới*
+  (`[RÕ]` hoặc `[KHÔNG ÁP DỤNG]`), không đòi `[RÕ]`. Một nhóm ở `[KHÔNG ÁP DỤNG]` nghĩa là bảng của nó sẽ
+  KHÔNG BAO GIỜ tới (dự án không có danh mục nào, hoặc không cần báo cáo nào); chờ nó là xoá luôn bảng màn
+  hình khỏi buổi phỏng vấn — trong khi cổng phân quyền vẫn coi `[KHÔNG ÁP DỤNG]` là đã trả lời và cứ thế
+  mở, nên bảng phân quyền quay về đứng trên `PlannedScope` thô. Nhóm còn `[MỘT PHẦN]`/`[CHƯA HỎI]` thì bảng
+  màn hình chờ thật — nhưng đó không phải chỗ kẹt MỚI: cổng phân quyền vốn đã đòi mọi nhóm áp dụng ngã ngũ.
 - **Chỉ áp cho lần bày ĐẦU.** Đường mở lại (phạm vi trôi sau lúc chốt) giữ điều kiện cũ: tới đó thì mọi điều
   kiện của lần bày đầu đã từng đúng, và đòi lại cả bộ là để một nhóm bị lượt distill hạ xuống `[MỘT PHẦN]`
   chặn mất đường thu hồi phần phạm vi trôi.
 
-**Cổng đối tượng mượn cùng điều kiện đó**, vì nó hở theo cùng một kiểu: hai nhóm của nó («Dữ liệu / danh mục
-chính», «Vòng đời & trạng thái») rời hẳn nhóm vai trò, nên có ca dữ liệu và vòng đời đã rõ trong khi vai trò
-còn `[MỘT PHẦN]` — cổng luồng lẫn cổng màn hình đều đóng, và bảng ĐỐI TƯỢNG bày ra đầu tiên. Thứ tự phụ
-thuộc bảo màn hình phải đứng trước: cái người dùng nhìn thấy trên màn hình mới quyết định thông tin nào thật
-sự cần lưu, hỏi ngược thì bảng đối tượng chở đúng bản BA đoán.
+**Cổng đối tượng mượn điều kiện của cổng luồng** theo đúng khuôn đó, vì nó hở theo cùng một kiểu: hai nhóm
+của nó («Dữ liệu / danh mục chính», «Vòng đời & trạng thái») rời hẳn nhóm vai trò, nên có ca dữ liệu và vòng
+đời đã rõ trong khi vai trò còn `[MỘT PHẦN]` — cổng luồng đóng, và bảng ĐỐI TƯỢNG bày ra đầu tiên trong khi
+cột *"khi nào chuyển vào"* của nó lấy điều kiện từ chính các bước luồng chưa tồn tại.
 
-Ngoại lệ duy nhất còn lại, cố ý không chặn: `PlannedScope` rỗng ⇒ cổng màn hình đóng vì không có DÒNG nào để
-hỏi, và bảng đối tượng đi trước thật. Bắt cổng đối tượng chờ một danh sách có thể không bao giờ đến là dựng
-thêm một chỗ kẹt để đổi lấy một thứ tự đẹp.
+Chỗ hai cổng tách nhau, cố ý không chặn: `PlannedScope` rỗng ⇒ cổng màn hình đóng vì không có DÒNG nào để
+hỏi, còn cổng đối tượng vẫn mở (nó không lấy dòng từ phạm vi màn hình). Bắt cổng đối tượng chờ một danh sách
+có thể không bao giờ đến là dựng thêm một chỗ kẹt để đổi lấy một thứ tự đẹp — mà thứ tự ở đây vốn đã đúng.
 
 ### Vì sao bốn bảng GIỮA không được là điều kiện để một nhóm lên `[RÕ]`
 
@@ -332,6 +362,9 @@ Chốt xong, `PermissionMatrixGate.EffectiveScreens` đọc bảng thay cho `Pla
 GIỮ, cộng những mục phạm vi mới lộ ra SAU lúc chốt. Mục mới phải được thêm vào (buổi phỏng vấn còn tiếp tục,
 và một màn hình lộ ra ở lượt sau mà không vào được bảng phân quyền thì mặc nhiên "không ai được xem"); còn
 mục đã BỎ TÍCH thì không bao giờ quay lại, và mở lại thứ họ vừa đóng là đúng lỗi bảng cột đã cấm.
+
+Bảng đứng **thứ tư** trong chuỗi, sau cả hai bảng gieo ra màn hình (đối tượng và báo cáo), đúng để nó là
+chỗ rà TRỌN phạm vi một lần duy nhất — xem [thứ tự phụ thuộc](#một-cổng-đúng-một-bảng-mỗi-lượt).
 
 **Bảng màn hình là cổng DUY NHẤT mở lại được sau khi đã chốt** — vì nó là cổng duy nhất mà phạm vi còn trôi
 tiếp sau lượt chốt. `ScreenScopeGate` mở lại khi `ScreenScopeMapBuilder.NewScreens` còn mục: màn hình có
@@ -552,20 +585,23 @@ bảng đã là chỗ họ chọn.
 
 #### `app` đẻ ra một MÀN HÌNH, và nó phải chảy ngược lên phạm vi
 
-Chọn *"ứng dụng tự quản lý"* nghĩa là ứng dụng phải có một màn hình CRUD riêng cho danh mục đó. Nhưng
-[thứ tự phụ thuộc](#một-cổng-đúng-một-bảng-mỗi-lượt) đặt bảng màn hình **trước** bảng này, nên tới lúc người
-dùng tích ô ấy thì phạm vi màn hình đã chốt xong từ mấy lượt trước. Để quyết định nằm lại trong cột
-`EntityMap` là để một màn hình không có mục nào ở `## 6. Screens To Generate` và không có DÒNG nào trong bảng
-phân quyền — tức **mặc nhiên "không ai được xem"** một màn hình người dùng vừa đặt hàng, và không có gì trên
-màn hình nói vì sao.
+Chọn *"ứng dụng tự quản lý"* nghĩa là ứng dụng phải có một màn hình CRUD riêng cho danh mục đó. Để quyết
+định nằm lại trong cột `EntityMap` là để một màn hình không có mục nào ở `## 6. Screens To Generate` và không
+có DÒNG nào trong bảng phân quyền — tức **mặc nhiên "không ai được xem"** một màn hình người dùng vừa đặt
+hàng, và không có gì trên màn hình nói vì sao.
 
 `ConfirmEntityMapUseCase` vì vậy gieo mỗi danh mục `app` thành một mục `Màn hình quản lý danh mục <tên>` vào
-`Project.PlannedScope`. Không cổng nào phải sửa: `ScreenScopeGate` đã có sẵn đường **mở lại** bảng màn hình
-khi phạm vi trôi sau lúc chốt ([trên](#bảng-màn-hình-vá-cái-nền-mà-bảng-phân-quyền-đang-đứng-lên)), nên các
-mục này đi đúng đường mà ba màn hình danh mục của dự án *Learning and Development 7* đã đi. Ba ràng buộc:
+`Project.PlannedScope`. **Chính hàm gieo này là lý do
+[thứ tự phụ thuộc](#một-cổng-đúng-một-bảng-mỗi-lượt) đặt bảng đối tượng TRƯỚC bảng màn hình:** gieo trước
+lần bày đầu thì các màn hình danh mục là những dòng bình thường của bảng màn hình, người dùng tích/bỏ tích
+ngay tại đó. Đường **mở lại** của `ScreenScopeGate`
+([trên](#bảng-màn-hình-vá-cái-nền-mà-bảng-phân-quyền-đang-đứng-lên)) vẫn là lưới an toàn cho ca bảng màn
+hình chốt trước bảng này — sau khi sửa thứ tự thì ca đó chỉ còn tới được khi cổng đối tượng mở muộn (nhóm
+«Dữ liệu / danh mục chính» lên `[RÕ]` sau lúc bảng màn hình đã chốt). Ba ràng buộc:
 
-- **Ghép thêm, không ghi đè.** `PlannedScope` lúc này là danh sách người dùng đã tự tay rà ở bảng màn hình
-  (`ConfirmScreenScopeUseCase` ghi ngược lên đây); thay nó bằng mấy dòng danh mục là xoá sạch phạm vi đã duyệt.
+- **Ghép thêm, không ghi đè.** Ở ca mở muộn ấy `PlannedScope` chính là danh sách người dùng đã tự tay rà ở
+  bảng màn hình (`ConfirmScreenScopeUseCase` ghi ngược lên đây); thay nó bằng mấy dòng danh mục là xoá sạch
+  phạm vi đã duyệt.
 - **Mục trùng bị bỏ**, theo cùng phép chuẩn hoá mà `ScreenScopeMapBuilder` dùng để nhận ra "màn hình mới" —
   nếu không, mỗi lần gửi lại bảng là thêm một dòng trùng nghĩa mà không dòng nào có việc của màn hình.
 - **Tên gieo ra phải đọc được như một MÀN HÌNH**, vì cột "Màn hình" chỉ được chứa màn hình: một mục tên
@@ -647,14 +683,17 @@ Bảng có bốn cột, và mỗi cột có một đường đi riêng ngoài ch
   cùng với mọi màn hình khác, kèm cả PHẠM VI DỮ LIỆU (*"của mình"* / *"của đơn vị"* / *"tất cả"*) — thứ mà
   một cột vai trò ở đây không chở nổi. Thêm cột đó là dựng danh sách vai trò **thứ hai** trong cùng một buổi
   phỏng vấn, và hai danh sách lệch nhau thì không tầng nào phía sau biết tin bên nào. Đây cũng chính là lý
-  do bảng báo cáo phải đứng **trước** bảng phân quyền chứ không phải sau.
+  do bảng báo cáo phải đứng **trước** bảng màn hình rồi bảng phân quyền chứ không phải sau.
 
 **Đường ra `PlannedScope` là chỗ bảng trả tiền cho chính nó** (`ConfirmReportMapUseCase`, cùng khuôn với màn
 hình danh mục của bảng đối tượng): nằm lại trong cột `ReportMap` thì báo cáo không có DÒNG nào ở bảng phân
 quyền và không có mục nào ở `## 6` — mặc nhiên *"không ai được xem"* một màn hình người dùng vừa đặt hàng.
-Ghép **thêm** chứ không ghi đè, và bỏ mục trùng: `PlannedScope` là danh sách người dùng đã rà ở bảng màn
-hình. Không cổng nào phải sửa — `ScreenScopeGate` đã có sẵn đường mở lại khi phạm vi trôi sau lúc chốt, nên
-các màn hình báo cáo đi qua bảng màn hình ở lượt kế rồi mới tới bảng phân quyền.
+Và đó là lý do thứ hai bảng này đứng **trước** bảng màn hình chứ không chỉ trước bảng phân quyền: gieo trước
+lần bày đầu thì mỗi báo cáo là một dòng bình thường của bảng màn hình, không phải một mục lộ ra sau lưng một
+phạm vi vừa được chốt là *"toàn bộ"*. Ghép **thêm** chứ không ghi đè, và bỏ mục trùng — ở ca cổng báo cáo mở
+muộn (nhóm chỉ `[RÕ]` sau lúc bảng màn hình đã chốt) thì `PlannedScope` chính là danh sách người dùng đã rà,
+và đường **mở lại** của `ScreenScopeGate` là lưới an toàn đưa các màn hình báo cáo qua bảng màn hình ở lượt
+kế rồi mới tới bảng phân quyền.
 
 **Bỏ tích SẠCH vẫn được lưu, và vẫn ra khối "đã chốt".** *"Ứng dụng không cần báo cáo nào"* là một quyết
 định, không phải một bảng rỗng: không lưu thì cổng mở lại và người dùng bị bày đúng cái bảng vừa tắt ở lượt

@@ -887,9 +887,9 @@ public class InterviewTableBuilderTests
 
     // ==== MÀN HÌNH DANH MỤC mà bảng này đẻ ra ====
 
-    // "Ứng dụng tự quản lý" nghĩa là ứng dụng phải có một màn hình CRUD cho danh mục đó. Bảng MÀN HÌNH đứng
-    // TRƯỚC bảng này trong thứ tự phụ thuộc nên nó đã chốt xong — không gieo ra thì màn hình ấy không có
-    // dòng nào trong bảng phân quyền và không có mục nào ở "## 6. Screens To Generate".
+    // "Ứng dụng tự quản lý" nghĩa là ứng dụng phải có một màn hình CRUD cho danh mục đó, và chính hàm này
+    // là lý do bảng đối tượng đứng TRƯỚC bảng màn hình trong thứ tự phụ thuộc — không gieo ra thì màn hình
+    // ấy không có dòng nào trong bảng phân quyền và không có mục nào ở "## 6. Screens To Generate".
     [Fact]
     public void EntityMap_TurnsAppManagedListsIntoScreens()
     {
