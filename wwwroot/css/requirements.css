@@ -1387,7 +1387,9 @@
     line-height: 1.4;
     /* Chừa chỗ cho nhãn đè lên viền trên, và tắt tay kéo vì JS đã tự cao theo nội dung (autoGrowOtherBox). */
     padding: 13px 12px 9px;
-    border: 1px solid var(--bosch-blue);
+    /* Chưa dùng thì mang viền xám của đáp án chưa chọn (.suggestion-option) — xanh ở đây là dấu hiệu ĐANG
+       chọn, xem chú thích ở .batchq-other-field > .batchq-answer. */
+    border: 1px solid var(--line);
     border-radius: 10px;
     background: var(--surface);
     color: var(--ink);
@@ -1395,8 +1397,20 @@
     display: block;
 }
 
-    .suggestion-other-field > .suggestion-other-input:focus {
+    .suggestion-other-field > .suggestion-other-input:not(:placeholder-shown) {
+        border-color: var(--bosch-blue);
+    }
+
+    .suggestion-other-field > .suggestion-other-input:hover {
+        border-color: var(--bosch-blue-tint-strong);
+    }
+
+    .suggestion-other-field > .suggestion-other-input:focus,
+    .suggestion-other-field > .suggestion-other-input:not(:placeholder-shown):hover {
         border: 1px solid var(--bosch-blue);
+    }
+
+    .suggestion-other-field > .suggestion-other-input:focus {
         padding-bottom: 9px;
         box-shadow: 0 0 0 3px var(--bosch-blue-tint);
     }
@@ -1412,9 +1426,14 @@
     font-size: 11px;
     font-weight: 600;
     line-height: 1.2;
-    color: var(--bosch-blue);
+    color: var(--muted);
     pointer-events: none;
 }
+
+    .suggestion-other-input:focus + .suggestion-other-cap,
+    .suggestion-other-input:not(:placeholder-shown) + .suggestion-other-cap {
+        color: var(--bosch-blue);
+    }
 
 .suggestion-other-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
@@ -1715,16 +1734,34 @@
         /* Chừa chỗ cho nhãn đè lên viền trên, và tắt tay kéo vì JS đã tự cao theo nội dung
            (autoGrowOtherBox) — hai cơ chế cùng chỉnh chiều cao thì cú kéo tay bị xoá ở phím gõ kế tiếp. */
         padding-top: 11px;
-        border-color: var(--bosch-blue, #2563eb);
+        /* Lúc CHƯA dùng, ô này là một lựa chọn NGANG HÀNG với các gợi ý phía trên nên nó mang đúng viền xám
+           của gợi ý chưa chọn (.batchq-choice). Tô xanh sẵn thì nó đọc như gợi ý ĐANG được chọn, và người
+           dùng bấm một gợi ý xong vẫn thấy hai thứ cùng xanh — không còn nhìn ra mình đã chọn cái nào. */
+        border-color: var(--line, #e5e7eb);
         resize: none;
     }
+
+        /* Xanh = ĐANG chọn ô này: hoặc con trỏ đang ở trong ô, hoặc trong ô đã có chữ. `:placeholder-shown`
+           là cách đọc "ô còn rỗng" ngay trong CSS, khỏi cần JS gắn class theo từng phím gõ — và nếu markup
+           nào lỡ thiếu placeholder thì nó chỉ rơi về trạng thái xanh như trước, không mất viền. */
+        .batchq-other-field > .batchq-answer:not(:placeholder-shown) {
+            border-color: var(--bosch-blue, #2563eb);
+        }
+
+        .batchq-other-field > .batchq-answer:hover {
+            border-color: var(--bosch-blue-tint-strong, #cfe0fb);
+        }
 
         /* Viền xanh kín bốn cạnh + nhãn xanh đã là dấu hiệu focus rõ hơn hẳn một mảng nền đổi màu; thêm một
            vòng sáng cho đủ, và vòng đó nằm NGOÀI viền nên không đụng tới chỗ khoét.
            Cũng chặn luôn `border-bottom: 2px` + tụt `padding-bottom` của site.css: ô này bo tròn kín bốn
            cạnh, dày mỗi cạnh đáy là lệch, và đổi padding lúc focus làm chữ nhảy một pixel. */
-        .batchq-other-field > .batchq-answer:focus {
+        .batchq-other-field > .batchq-answer:focus,
+        .batchq-other-field > .batchq-answer:not(:placeholder-shown):hover {
             border: 1px solid var(--bosch-blue, #2563eb);
+        }
+
+        .batchq-other-field > .batchq-answer:focus {
             padding-bottom: 7px;
             box-shadow: 0 0 0 3px var(--bosch-blue-tint, #eff6ff);
         }
@@ -1739,9 +1776,16 @@
     font-size: 10.5px;
     font-weight: 600;
     line-height: 1.2;
-    color: var(--bosch-blue, #2563eb);
+    /* Nhãn đi cùng viền: xám khi ô chưa được chọn, xanh khi đang chọn — hai thứ lệch màu thì cái ô nửa xám
+       nửa xanh lại thành trạng thái thứ ba không có thật. */
+    color: #6b7280;
     pointer-events: none;
 }
+
+    .batchq-answer:focus + .batchq-other-cap,
+    .batchq-answer:not(:placeholder-shown) + .batchq-other-cap {
+        color: var(--bosch-blue, #2563eb);
+    }
 
 /* Câu MỞ trên thẻ gộp: không có hàng gợi ý phía trên nên ô tự nhập là thứ ĐẦU TIÊN dưới câu hỏi — lấy
    đúng khoảng cách của .batchq-choices để hai loại dòng (câu đóng / câu mở) đứng cạnh nhau không so le. */
