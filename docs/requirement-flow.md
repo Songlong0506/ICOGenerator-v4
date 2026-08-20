@@ -520,11 +520,6 @@ lập (dòng bảng phân quyền, `Covers`, `PocSpec.Matches`, danh sách cho p
 hai cái tên nghĩa là hai khóa phải đồng bộ ở cả bốn — và một cột thứ tư cho bảng này đi ngược đúng lý do nó
 chỉ có ba cột. Một chuỗi thoả cả hai đầu rẻ hơn hẳn.
 
-**Dự án chốt bảng TRƯỚC khi đổi luật giữ nguyên tên cũ**: tên nằm trong `PlannedScope`/`ScreenScopeMap` đã
-lưu, hai hàm gieo chỉ chạy lúc CHỐT bảng nên không có bản ghi nào được tính lại, và không có migration. Đó
-cũng là lý do `ReportMapBuilder` còn giữ danh sách tiền tố tiếng Việt cũ: gắn hậu tố cho một tên cũ sẽ ra
-*"Báo cáo tổng hợp ngày phép còn lại Report"*.
-
 ### Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng chứng
 
 Bảng phân quyền, bảng đối tượng và bảng thông báo đều có dấu **✓** cho phần người dùng đã tự nói: ở đó nó

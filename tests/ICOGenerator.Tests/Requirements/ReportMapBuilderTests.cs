@@ -117,20 +117,6 @@ public class ReportMapBuilderTests
             screens);
     }
 
-    // Dự án chốt bảng TRƯỚC khi phạm vi màn hình chuyển sang tiếng Anh vẫn còn tên tiếng Việt trong
-    // ReportMap đã lưu — gắn hậu tố cho chúng thì ra "Báo cáo tổng hợp ngày phép Report".
-    [Fact]
-    public void ReportScreens_LeavesLegacyVietnameseNamesAlone()
-    {
-        var screens = ReportMapBuilder.ReportScreens(new[]
-        {
-            Row("Báo cáo tổng hợp ngày phép"),
-            Row("Thống kê chi phí đào tạo")
-        });
-
-        Assert.Equal(new[] { "Báo cáo tổng hợp ngày phép", "Thống kê chi phí đào tạo" }, screens);
-    }
-
     [Fact]
     public void ReportScreens_SkipsRowsTheUserDropped()
     {

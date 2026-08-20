@@ -48,19 +48,11 @@ public static class ReportMapBuilder
 
     /// <summary>
     /// Các từ khiến một cái tên tự đọc được như MỘT MÀN HÌNH — tra ở BẤT KỲ đâu trong tên, vì hình dạng
-    /// tên màn hình là hậu tố ("Headcount Report") chứ không còn là tiền tố. Tên không chứa từ nào ở đây
-    /// được <see cref="ReportScreens"/> gắn thêm hậu tố — xem hàm đó.
+    /// tên màn hình là hậu tố ("Headcount Report"). Tên không chứa từ nào ở đây được
+    /// <see cref="ReportScreens"/> gắn thêm hậu tố — xem hàm đó.
     /// </summary>
     private static readonly string[] ScreenLikeWords =
         { "report", "dashboard", "statistics", "analytics", "overview" };
-
-    /// <summary>
-    /// Các tiền tố tiếng Việt của những cái tên có TRƯỚC khi phạm vi màn hình chuyển sang tiếng Anh: dự án
-    /// cũ vẫn còn chúng trong <c>ReportMap</c> đã lưu, và gắn hậu tố cho chúng thì ra "Báo cáo tổng hợp
-    /// ngày phép còn lại Report".
-    /// </summary>
-    private static readonly string[] LegacyScreenLikePrefixes =
-        { "báo cáo", "thống kê", "màn hình", "trang", "bảng điều khiển" };
 
     /// <summary>
     /// Bảng cuối cùng cho lượt BA BÀY BẢNG: bỏ dòng không tên/trùng tên, cắt ở trần, và xoá ô nguồn không
@@ -173,8 +165,7 @@ public static class ReportMapBuilder
 
     /// <summary>Tên đã tự đọc được như một màn hình — xem <see cref="ScreenLikeWords"/>.</summary>
     private static bool ReadsAsScreen(string name) =>
-        ScreenLikeWords.Any(w => name.Contains(w, StringComparison.OrdinalIgnoreCase))
-        || LegacyScreenLikePrefixes.Any(p => name.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+        ScreenLikeWords.Any(w => name.Contains(w, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Khối ngữ cảnh gắn vào MỌI lượt chat sau khi bảng đã chốt, vào lượt distill bản đồ bao phủ, và vào
