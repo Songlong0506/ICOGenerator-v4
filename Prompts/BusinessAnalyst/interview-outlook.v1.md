@@ -27,14 +27,19 @@ Bạn nhận (1) **ba danh sách hiện có** và (2) **các lượt hội tho�
 ### 2. `plannedScope` — MÀN HÌNH dự kiến (chỉ màn hình)
 
 - Các **màn hình** mà ứng dụng sẽ có, suy ra từ điều người dùng đã mô tả — để họ thấy trực quan "sẽ xây gì" và bắt hiểu nhầm sớm.
-- Mỗi mục là **MỘT CHỖ NGƯỜI DÙNG MỞ RA VÀ NHÌN THẤY**: một trang, một màn hình, một bảng danh sách. Đặt tên bằng danh từ chỉ nơi chốn (vd: *"Màn hình gửi đơn nghỉ phép"*, *"Trang duyệt đơn của quản lý"*, *"Báo cáo tổng hợp ngày phép còn lại"*).
+- Mỗi mục là **MỘT CHỖ NGƯỜI DÙNG MỞ RA VÀ NHÌN THẤY**: một trang, một màn hình, một bảng danh sách.
+- **Tên viết bằng TIẾNG ANH, 2–4 từ, là một DANH TỪ CHỈ NƠI CHỐN — không phải một câu mô tả.** Đây là danh sách DUY NHẤT trong ba danh sách này không dùng tiếng Việt, và lý do rất cụ thể: cái tên ở đây đi thẳng ra mục `## 6. Screens To Generate` của spec rồi thành **nhãn mục menu trên sidebar của bản demo** — bước sinh POC chép NGUYÊN VĂN, không dịch, không rút gọn. Một mục viết là *"Trang tạo và chỉnh sửa JD của Manager"* sẽ hiện lên sidebar đúng như thế. Phần *màn này để làm gì* đã có ô riêng ("Việc của màn") ở bảng màn hình ngay dưới tên, nên tên KHÔNG cần mô tả.
+  - ❌ *"Trang danh sách JD"*, *"Trang tạo và chỉnh sửa JD của Manager"*, *"Trang duyệt JD của HRBP"*, *"Màn hình quản lý danh mục Skill"*.
+  - ✅ *"JD Library"*, *"Standard JD"*, *"HRBP Approval"*, *"Skill Catalog"*.
+- **Hậu tố là thứ giữ cho tên còn đọc được như một NƠI CHỐN**: `… Library` · `… List` · `… Approval` · `… Assignment` · `… Detail` · `… Catalog` (màn quản lý một danh mục) · `… Report` · `… Dashboard`. Một tên TRẦN trùng nguyên văn tên một đối tượng ở bảng đối tượng (*"Skill"*, *"Degree"*, *"OrgUnit"*) là lỗi: trong cùng một tài liệu sẽ có "Skill" là thực thể và "Skill" là màn hình, và không chốt chặn nào phân biệt nổi hai thứ đó.
+- **Giữ nguyên vốn từ nghiệp vụ của người dùng.** Họ gọi là *"PC Level"*, *"HRBP"*, *"JD"* thì tên màn hình dùng đúng chữ đó — đừng dịch sang thuật ngữ khác cho "chuẩn". Chỉ phần dẫn (*Trang…*, *Màn hình…*, *quản lý danh mục…*) mới bị bỏ đi.
 - **TUYỆT ĐỐI KHÔNG đưa một CHỨC NĂNG hay một LUỒNG thành một mục.** Đây là lỗi hay gặp nhất của danh sách này, và nó không dừng ở chuyện chữ nghĩa: danh sách này là **nguồn DÒNG** cho bảng màn hình, cho bảng phân quyền và cho các màn của bản demo — nên *"Tính năng Generate Training Implement từ Training Plan Detail"* lọt vào đây sẽ thành một màn hình riêng để người dùng tích quyền, rồi thành một trang trống trong bản demo, trong khi nó vốn là **một cái nút trên Training Plan Detail**.
   - ❌ *"Chỉnh sửa số lượng lớp cần mở cho từng khóa học"*, *"Phân bổ số lớp theo từng tháng"*, *"Tính năng Generate Training Implement từ Training Plan Detail"* — ba mục này là **ba chức năng của MỘT màn hình**.
-  - ✅ *"Trang Training Plan Detail"* — một mục, và ba việc trên là chức năng của nó.
+  - ✅ *"Training Plan Detail"* — một mục, và ba việc trên là chức năng của nó.
   - ❌ *"Luồng đăng ký khóa học với trạng thái pending, enroll, waitlist và reject"*, *"Luồng Manager duyệt ticket đăng ký"* — luồng đi qua nhiều màn hình; nó thuộc bảng luồng, không phải danh sách này.
-  - ✅ *"Trang danh sách lớp available để nhân viên đăng ký"*, *"Trang duyệt ticket đăng ký của Manager"* — các MÀN HÌNH mà luồng đó đi qua.
+  - ✅ *"Class Registration"*, *"Registration Approval"* — các MÀN HÌNH mà luồng đó đi qua.
 - Phép thử trước khi thêm một mục: **người dùng MỞ nó ra hay BẤM nó?** Mở ra được thì là màn hình; bấm/làm thì là chức năng của một màn hình khác — không thêm mục mới, để bước sau gắn nó vào đúng màn.
-- Một màn hình chỉ xuất hiện **một lần**. Hai cách gọi của cùng một chỗ (*"Trang Training Implement"* và *"Màn hình hoàn thiện thông tin lớp"*) là MỘT mục, giữ cách gọi gần lời người dùng nhất.
+- Một màn hình chỉ xuất hiện **một lần**. Hai cách gọi của cùng một chỗ (*"Trang Training Implement"* và *"Màn hình hoàn thiện thông tin lớp"*) là MỘT mục — giữ cách gọi gần lời người dùng nhất rồi đặt tên theo luật trên (*"Training Implement"*).
 - Dựng DẦN: giữ các mục đã có còn đúng, thêm mục mới lộ ra từ lượt mới, bỏ mục người dùng đã nói không cần. **Danh sách hiện có mà đang lẫn chức năng/luồng thì gộp lại cho đúng** ngay ở lượt này — đừng chép lại nguyên trạng.
 - Chưa đủ thông tin để hình dung màn hình nào ⇒ mảng rỗng.
 
@@ -47,7 +52,7 @@ Bạn nhận (1) **ba danh sách hiện có** và (2) **các lượt hội tho�
 - Không có ví dụ nào được chốt ⇒ mảng rỗng.
 
 ## Nguyên tắc
-- Ngắn gọn, mỗi mục một dòng; đúng ngôn ngữ của người dùng (mặc định tiếng Việt).
+- Ngắn gọn, mỗi mục một dòng; đúng ngôn ngữ của người dùng (mặc định tiếng Việt) — **trừ `plannedScope`, luôn tiếng Anh** vì mỗi mục của nó là một nhãn menu của bản demo, xem luật đặt tên ở trên.
 - KHÔNG trùng lặp trong cùng một danh sách; một ý chỉ nằm ở đúng một danh sách hợp lý nhất.
 - Giữ tổng số mục mỗi danh sách hợp lý (tối đa ~15).
 
