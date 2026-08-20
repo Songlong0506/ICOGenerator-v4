@@ -28,20 +28,46 @@
     }
 
     string PageUrl(int targetPage) => BuildUrl(targetPage, Model.PageSize);
+
+    // URL cho dấu ✕ của một chip: giữ các đơn vị còn lại, bỏ đúng đơn vị này. Về trang 1 vì tập kết
+    // quả đổi — giữ nguyên page cũ dễ rơi vào trang trống.
+    string RemoveOrgUnitUrl(string code)
+    {
+        var remaining = selectedOrgUnits
+            .Where(c => !string.Equals(c, code, StringComparison.OrdinalIgnoreCase))
+            .Select(c => $"orgUnit={Uri.EscapeDataString(c)}")
+            .ToList();
+        return remaining.Count == 0
+            ? Url.Action("Index")!
+            : $"{Url.Action("Index")}?{string.Join("&", remaining)}";
+    }
+
+    // Chip cho từng đơn vị đang lọc. Tên lấy từ OrgUnitOptions; mã không còn trong dữ liệu HR thì
+    // hiển thị mã thô (như cột Org Unit của bảng) để chip không biến mất một cách khó hiểu.
+    var orgUnitChips = selectedOrgUnits
+        .Select(code => new CommandBarChip
+        {
+            Caption = "Org Unit",
+            Value = Model.OrgUnitOptions.FirstOrDefault(o => string.Equals(o.Code, code, StringComparison.OrdinalIgnoreCase))?.Name ?? code,
+            RemoveUrl = RemoveOrgUnitUrl(code)
+        })
+        .ToList();
 }
-@* Command bar chuẩn (Shared/_CommandBar): bộ lọc Org Unit + "Lọc"/"Xóa lọc" ở vùng trái,
-   "New Project" là hành động chính ở vùng phải. Form GET nên bộ lọc nằm trong URL —
+@* Command bar chuẩn (Shared/_CommandBar): bộ lọc Org Unit ở vùng trái, "New Project" là hành động
+   chính ở vùng phải, chip các đơn vị đang lọc ở hàng dưới. Form GET nên bộ lọc nằm trong URL —
    chia sẻ được và giữ nguyên khi phân trang. *@
 @{
     var projectsBar = new CommandBarModel
     {
         FormUrl = Url.Action("Index"),
-        ShowApplyFilter = true,
+        FilterChips = orgUnitChips,
         ClearFilterUrl = hasFilter ? Url.Action("Index") : null,
         Filters = @<div class="cbar-field">
             @* Combo chọn NHIỀU đơn vị: mỗi lựa chọn là một checkbox name="orgUnit" nằm sẵn trong form GET,
-               nên khi bấm "Lọc" toàn bộ mã đã tick được gửi lên (mảng). Không tự submit theo từng tick để
-               người dùng chọn xong nhiều đơn vị rồi mới lọc. UI (nút, panel, tìm kiếm, chọn tất cả) do JS lái.
+               nên khi submit toàn bộ mã đã tick được gửi lên (mảng). Không submit theo từng tick — chọn
+               nhiều đơn vị mà mỗi tick một lần nạp trang thì panel đóng sập giữa chừng; thay vào đó chốt
+               MỘT lần lúc đóng panel (nút "Áp dụng" hoặc bấm ra ngoài), và chỉ khi lựa chọn có đổi thật.
+               UI (nút, panel, tìm kiếm, chọn tất cả, chốt) do wwwroot/js/projects.js lái.
                Nhãn "Org Unit" hiển thị bên trong nút bấm để đồng bộ với các dropdown khác trong app. *@
             <div class="ms-combo ms-combo--has-caption" data-ms-combo>
                 <button type="button" class="ms-combo-trigger" data-ms-trigger aria-haspopup="listbox" aria-expanded="false">
@@ -78,6 +104,13 @@
                         }
                     </ul>
                     <div class="ms-combo-empty hidden" data-ms-empty>Không tìm thấy đơn vị</div>
+                    @* Chốt lựa chọn ngay trong panel. type="button" (không phải submit) vì JS quyết
+                       định có submit hay không — tick rồi bỏ tick về như cũ thì đóng panel là xong,
+                       không nạp lại trang cho một bộ lọc y hệt. *@
+                    <div class="ms-combo-actions">
+                        <span class="ms-combo-actions-hint" data-ms-hint></span>
+                        <button type="button" class="ms-combo-apply" data-ms-apply>Áp dụng</button>
+                    </div>
                 </div>
             </div>
         </div>,

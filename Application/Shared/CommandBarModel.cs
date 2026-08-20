@@ -10,15 +10,24 @@ namespace ICOGenerator.Application.Shared;
 ///
 /// <para><b>Bố cục chuẩn — hai vùng, không có ngoại lệ:</b></para>
 /// <code>
-/// [ bộ lọc · tìm kiếm · Lọc · Xóa lọc ] ······khoảng trống co giãn······ [ nút phụ ] [ NÚT CHÍNH ]
-///                 vùng trái (.cbar-left)                                   vùng phải (.cbar-right)
+/// [ bộ lọc · tìm kiếm ] ···········khoảng trống co giãn··········· [ nút phụ ] [ NÚT CHÍNH ]
+///         vùng trái (.cbar-left)                                    vùng phải (.cbar-right)
+/// [ chip: Org Unit: PS-EC ✕ ] [ Xóa tất cả ]                        hàng chip (.cbar-chips)
 /// </code>
 /// <list type="bullet">
 ///   <item>Vùng trái chỉ chứa thứ <i>thu hẹp dữ liệu đang xem</i>: dropdown lọc, ô tìm kiếm,
-///         nút "Lọc"/"Xóa lọc", nút bật panel lọc.</item>
+///         nút bật panel lọc.</item>
 ///   <item>Vùng phải chỉ chứa <i>hành động</i>: các nút phụ rồi tới đúng <b>một</b> nút chính sát mép phải.</item>
 ///   <item>Nút hành động cấp trang không được nằm trong <c>.page-head</c> nữa — chỗ của chúng là vùng phải.</item>
+///   <item>Hàng chip nằm dưới cùng, chỉ hiện khi đang có bộ lọc áp dụng.</item>
 /// </list>
+///
+/// <para><b>Không có nút "Lọc" trên thanh.</b> Bộ lọc áp dụng ngay khi người dùng chốt lựa chọn:
+/// dropdown đơn tự submit form GET (<c>onchange="this.form.submit()"</c>), combo chọn nhiều tự submit
+/// khi đóng panel (nút "Áp dụng" trong chính panel — xem <c>wwwroot/js/projects.js</c>). Lý do: một
+/// lựa chọn đã là một ý định trọn vẹn, bắt bấm thêm một nút chỉ tạo ra trạng thái "đã chọn nhưng chưa
+/// áp dụng" — lúc đó dropdown và bảng dữ liệu nói hai điều khác nhau. Nút commit, khi cần, phải nằm
+/// cạnh nơi phát sinh lựa chọn chứ không nằm rời trên thanh.</para>
 ///
 /// <para>Tìm kiếm chạy phía client trên <see cref="TargetSelector"/> (một bảng/danh sách) do
 /// <c>command-bar.js</c> điều khiển — không đụng tới bộ lọc phía server. Bộ lọc server hoặc đặt thẳng
@@ -43,12 +52,16 @@ public sealed class CommandBarModel
     public string? FormUrl { get; init; }
 
     /// <summary>
-    /// Hiện nút submit "Lọc" (chỉ dùng khi bộ lọc <b>không</b> tự submit lúc đổi giá trị,
-    /// vd combo chọn nhiều đơn vị ở Projects). Cần <see cref="FormUrl"/>.
+    /// Chip mô tả bộ lọc <b>đang</b> áp dụng, mỗi chip gỡ được riêng một giá trị. Rỗng thì không
+    /// render hàng chip. Chip trả lời câu hỏi <i>tôi đang xem tập dữ liệu nào</i> — thứ mà một nút
+    /// "xóa hết" không nói được — và cho gỡ từng tiêu chí thay vì xóa sạch cả cụm.
     /// </summary>
-    public bool ShowApplyFilter { get; init; }
+    public IReadOnlyList<CommandBarChip> FilterChips { get; init; } = Array.Empty<CommandBarChip>();
 
-    /// <summary>URL "Xóa lọc" (thường là chính trang không kèm query). Null thì ẩn nút.</summary>
+    /// <summary>
+    /// URL xóa sạch bộ lọc (thường là chính trang không kèm query). Chỉ render khi có <b>từ 2 chip
+    /// trở lên</b> — một chip thì dấu ✕ của chính nó đã đủ, thêm "Xóa tất cả" chỉ là hai nút cùng việc.
+    /// </summary>
     public string? ClearFilterUrl { get; init; }
 
     /// <summary>Placeholder ô tìm kiếm.</summary>
@@ -91,11 +104,33 @@ public sealed class CommandBarModel
     public bool IsForm => FormUrl != null;
 
     /// <summary>Vùng trái có gì để render không (không thì vẫn giữ để đẩy vùng phải sang mép phải).</summary>
-    public bool HasLeftZone =>
-        Filters != null || HasSearch || FilterPanelId != null || ShowApplyFilter || ClearFilterUrl != null;
+    public bool HasLeftZone => Filters != null || HasSearch || FilterPanelId != null;
+
+    /// <summary>Có hàng chip bộ lọc để render không.</summary>
+    public bool HasFilterChips => FilterChips.Count > 0;
+
+    /// <summary>Hiện link "Xóa tất cả" — chỉ khi nhiều hơn một chip (xem <see cref="ClearFilterUrl"/>).</summary>
+    public bool ShowClearAll => ClearFilterUrl != null && FilterChips.Count > 1;
 
     /// <summary>Vùng phải có gì để render không.</summary>
     public bool HasRightZone => Actions.Count > 0 || Primary != null;
+}
+
+/// <summary>
+/// Một chip bộ lọc đang áp dụng, render ở hàng dưới cùng của command bar dạng
+/// <c>Org Unit: PS-EC ✕</c>. Bấm ✕ đi tới <see cref="RemoveUrl"/> — URL của chính trang với giá trị
+/// đó đã bị gỡ khỏi query, các giá trị còn lại giữ nguyên.
+/// </summary>
+public sealed class CommandBarChip
+{
+    /// <summary>Tên trường lọc (vd "Org Unit", "Loại"). Hiện mờ phía trước giá trị.</summary>
+    public required string Caption { get; init; }
+
+    /// <summary>Giá trị đang lọc (vd tên đơn vị).</summary>
+    public required string Value { get; init; }
+
+    /// <summary>URL của trang sau khi gỡ riêng giá trị này khỏi bộ lọc.</summary>
+    public required string RemoveUrl { get; init; }
 }
 
 /// <summary>

@@ -1402,6 +1402,41 @@ input[type="week"] {
 
 .ms-combo-empty { padding: 14px 12px; font-size: 13px; color: var(--muted); text-align: center; }
 
+/* Chân panel của combo CHỌN NHIỀU: nút chốt lựa chọn ("Áp dụng"). Chỉ combo chọn nhiều mới có —
+   combo đơn chốt ngay lúc bấm một option nên không cần. Nút nằm TRONG panel, cạnh nơi phát sinh
+   lựa chọn, chứ không phải một nút "Lọc" rời trên command bar: người dùng tick xong nhìn xuống là
+   thấy chỗ chốt, không phải rê chuột ra ngoài và cũng không có trạng thái "đã tick nhưng chưa lọc"
+   kéo dài. Xem wwwroot/js/projects.js. */
+.ms-combo-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-alt);
+}
+
+.ms-combo-actions-hint { font-size: 12px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Đang có thay đổi chưa chốt — tô đậm để nó đọc ra là một lời nhắc, không phải một con số thống kê. */
+.ms-combo-actions-hint.is-dirty { color: var(--bosch-blue-dark); font-weight: 700; }
+
+.ms-combo-apply {
+    flex: 0 0 auto;
+    height: 32px;
+    padding: 0 16px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--bosch-blue);
+    border: 1px solid var(--bosch-blue);
+    cursor: pointer;
+}
+
+.ms-combo-apply:hover { background: var(--bosch-blue-hover); border-color: var(--bosch-blue-hover); }
+.ms-combo-apply:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--bosch-blue); }
+
 /* External <label> hidden by dropdown.js once its text moves into the trigger. */
 .cs-enhanced-hidden { display: none !important; }
 

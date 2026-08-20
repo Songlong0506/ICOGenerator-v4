@@ -5,12 +5,15 @@
    MỘT bố cục cho mọi màn hình:
 
      ┌──────────────────────────────────────────────────────────────────────┐
-     │ [bộ lọc] [tìm kiếm] [Lọc] [Xóa lọc]      [nút phụ] [NÚT CHÍNH]       │
-     │ └────────────── .cbar-left ──────────┘   └──── .cbar-right ────┘     │
+     │ [bộ lọc] [tìm kiếm]                      [nút phụ] [NÚT CHÍNH]       │
+     │ └──────── .cbar-left ────────┘           └──── .cbar-right ────┘     │
+     │ Đang lọc: [Org Unit: PS-EC ✕] [Xóa tất cả]        .cbar-chips        │
      └──────────────────────────────────────────────────────────────────────┘
 
-   • Vùng trái: mọi thứ thu hẹp dữ liệu đang xem (dropdown lọc, ô tìm kiếm, Lọc, Xóa lọc).
+   • Vùng trái: mọi thứ thu hẹp dữ liệu đang xem (dropdown lọc, ô tìm kiếm).
    • Vùng phải: hành động. Nút phụ (viền nhạt) rồi tới đúng MỘT nút chính (nền xanh) sát mép phải.
+   • Hàng chip: bộ lọc ĐANG áp dụng, chỉ hiện khi có. Không có nút "Lọc" trên thanh — bộ lọc áp dụng
+     ngay lúc chốt lựa chọn (xem Application/Shared/CommandBarModel.cs).
    • Mọi control cao đúng --cbar-h nên thanh không bao giờ lởm chởm — trước đây nút chính 44px,
      nút pill 40px, dropdown 46px nên ba loại lệch nhau trên cùng một hàng.
 
@@ -104,7 +107,7 @@
 /* search input clear (×) mặc định của trình duyệt để nguyên; ẩn cho đồng bộ. */
 .cbar-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
 
-/* ---------- Nút phụ (Lọc / Xóa lọc / hành động phụ) ---------- */
+/* ---------- Nút phụ (bật panel lọc / hành động phụ) ---------- */
 .cbar-btn {
     display: inline-flex;
     align-items: center;
@@ -142,13 +145,6 @@
 
 .cbar-btn-outline:hover { background: var(--surface-hover); border-color: var(--muted); }
 
-/* Nút "Lọc" dạng submit (bộ lọc nội tuyến không tự submit) — nhấn mạnh bằng màu chữ,
-   không dùng nền đặc để khỏi bị nhầm là hành động chính của trang. */
-.cbar-btn-accent,
-.cbar-btn-accent i { color: var(--bosch-blue); }
-.cbar-btn-accent:hover { background: var(--bosch-blue-tint); }
-.cbar-btn-accent:hover i { color: var(--bosch-blue); }
-
 /* Trạng thái mở (panel Filter đang bật). */
 .cbar-btn.open {
     background: var(--bosch-blue-tint);
@@ -183,6 +179,65 @@
     font-weight: 700;
     line-height: 1;
 }
+
+/* ---------- Hàng chip: bộ lọc ĐANG áp dụng ----------
+   Chiếm trọn bề ngang (thanh là flex-wrap) nên luôn xuống dòng riêng dưới hai vùng, kể cả khi
+   vùng trái còn chỗ trống — chip là "trạng thái", không phải "điều khiển", trộn lẫn hai thứ trên
+   cùng một hàng là lý do người dùng bấm nhầm. */
+.cbar-chips {
+    flex: 1 0 100%;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+}
+
+.cbar-chips-label { font-size: 13px; color: var(--muted); margin-right: 2px; }
+
+.cbar-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 4px 0 10px;
+    border: 1px solid var(--bosch-blue-tint-strong);
+    border-radius: var(--radius-pill);
+    background: var(--bosch-blue-tint);
+    font-size: 13px;
+    color: var(--bosch-blue-dark);
+    max-width: 280px;
+}
+
+.cbar-chip-caption { color: var(--muted); flex: 0 0 auto; }
+.cbar-chip-value { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Vùng bấm ✕ để đúng 20×20 — chip cao 28px, nhỏ hơn nữa là quá bé để trúng trên màn cảm ứng. */
+.cbar-chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    color: var(--bosch-blue-dark);
+    text-decoration: none;
+}
+
+.cbar-chip-remove:hover { background: var(--bosch-blue); color: #fff; text-decoration: none; }
+.cbar-chip-remove:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.cbar-chips-clear {
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: underline;
+    margin-left: 4px;
+}
+
+.cbar-chips-clear:hover { color: var(--ink); }
 
 /* ---------- Menu thả (Sort) ---------- */
 .cbar-menu-wrap { position: relative; }

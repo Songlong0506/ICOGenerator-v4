@@ -39,10 +39,19 @@
    đúng một bộ lọc thì bắt người dùng mở panel ra mới thấy nó là thừa một cú bấm và làm màn này
    lệch với phần còn lại của app. *@
 @{
+    // Dropdown đơn đã tự submit nên chỉ có đúng MỘT giá trị đang lọc — một chip, và chip tự mang
+    // dấu ✕ nên không cần ClearFilterUrl (xem CommandBarModel.ShowClearAll).
+    var auditChips = Model.CategoryFilter is { } auditCategory
+        ? new List<CommandBarChip>
+        {
+            new() { Caption = "Loại", Value = auditCategory.GetTitle(), RemoveUrl = Url.Action("Index")! }
+        }
+        : new List<CommandBarChip>();
+
     var auditBar = new CommandBarModel
     {
         FormUrl = Url.Action("Index"),
-        ClearFilterUrl = Model.CategoryFilter != null ? Url.Action("Index") : null,
+        FilterChips = auditChips,
         SearchPlaceholder = "Tìm trong nhật ký…",
         TargetSelector = "#auditTable",
         Filters = @<div class="cbar-field">

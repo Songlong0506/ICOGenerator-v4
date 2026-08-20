@@ -1,10 +1,19 @@
 // Combo "Đơn vị yêu cầu" ở thanh lọc — chọn NHIỀU. Mỗi option là 1 checkbox name="orgUnit" sẵn trong
-// form GET; JS chỉ lo giao diện (nhãn nút, mở/đóng panel, tìm kiếm, chọn tất cả) và đồng bộ lớp
-// .selected. Không tự submit theo từng tick — người dùng chọn xong rồi bấm "Lọc".
+// form GET; JS lo giao diện (nhãn nút, mở/đóng panel, tìm kiếm, chọn tất cả, đồng bộ lớp .selected)
+// và CHỐT bộ lọc.
+//
+// Chốt lúc nào: khi ĐÓNG panel — bấm "Áp dụng", bấm ra ngoài, hoặc bấm lại nút mở. Không chốt theo
+// từng tick (mỗi tick một lần nạp trang thì panel đóng sập giữa chừng, chọn nhiều đơn vị thành không
+// làm được), cũng không để một nút "Lọc" rời trên command bar (sinh ra trạng thái "đã tick nhưng chưa
+// lọc" kéo dài, lúc đó nút combo và bảng dữ liệu nói hai điều khác nhau).
+//
+// Chỉ submit khi lựa chọn KHÁC lúc mở panel — mở ra xem rồi đóng lại thì không nạp lại trang cho một
+// bộ lọc y hệt. Escape = hủy: trả lại đúng trạng thái lúc mở.
 (function () {
     var combo = document.querySelector('[data-ms-combo]');
     if (!combo) return;
 
+    var form = combo.closest('form');
     var trigger = combo.querySelector('[data-ms-trigger]');
     var panel = combo.querySelector('[data-ms-panel]');
     var label = combo.querySelector('[data-ms-label]');
@@ -13,11 +22,42 @@
     var allBox = combo.querySelector('[data-ms-all]');
     var allText = combo.querySelector('[data-ms-all-text]');
     var clearBtn = combo.querySelector('[data-ms-clear]');
+    var applyBtn = combo.querySelector('[data-ms-apply]');
+    var hint = combo.querySelector('[data-ms-hint]');
     var placeholder = label.getAttribute('data-ms-placeholder') || '';
     var options = Array.prototype.slice.call(combo.querySelectorAll('.ms-combo-option'));
 
+    // Ảnh chụp lựa chọn lúc mở panel — mốc để biết có gì đổi (submit) hay không (đóng suông),
+    // và để Escape trả về.
+    var snapshot = null;
+    var submitting = false;
+
     function checkboxOf(opt) { return opt.querySelector('[data-ms-option]'); }
     function isVisible(opt) { return !opt.classList.contains('hidden'); }
+
+    function selection() {
+        return options.filter(function (opt) { return checkboxOf(opt).checked; })
+                      .map(function (opt) { return checkboxOf(opt).value; });
+    }
+
+    function changed() {
+        if (!snapshot) return false;
+        var now = selection();
+        if (now.length !== snapshot.length) return true;
+        return now.some(function (v, i) { return v !== snapshot[i]; });
+    }
+
+    // Dòng gợi ý ở chân panel. Panel chỉ rộng bằng nút combo (~220px) và nút "Áp dụng" đã chiếm một
+    // nửa, nên chữ phải NGẮN — dài là bị cắt cụt bằng dấu ba chấm, đúng chỗ cần đọc nhất. Khi có thay
+    // đổi chưa chốt thì "Chưa áp dụng" là thông tin duy nhất đáng nói (số đang tick đã thấy ngay trên
+    // danh sách và trên nút combo rồi).
+    function renderHint() {
+        if (!hint) return;
+        var dirty = changed();
+        var n = selection().length;
+        hint.textContent = dirty ? 'Chưa áp dụng' : (n === 0 ? 'Chưa chọn' : 'Đã chọn ' + n);
+        hint.classList.toggle('is-dirty', dirty);
+    }
 
     // Nhãn nút: 0 chọn → placeholder; 1–2 → ghép tên; >2 → "N mục đã chọn".
     function renderLabel() {
@@ -49,11 +89,13 @@
     }
 
     function open() {
+        snapshot = selection();
         combo.classList.add('open');
         panel.classList.remove('hidden');
         trigger.setAttribute('aria-expanded', 'true');
         search.value = '';
         filter();
+        renderHint();
         search.focus();
     }
 
@@ -61,6 +103,36 @@
         combo.classList.remove('open');
         panel.classList.add('hidden');
         trigger.setAttribute('aria-expanded', 'false');
+    }
+
+    // Đóng panel = chốt bộ lọc. Có đổi thì submit form GET (bộ lọc nằm trong URL nên chia sẻ được và
+    // sống qua phân trang); không đổi thì chỉ đóng.
+    function commit() {
+        if (!combo.classList.contains('open')) return;
+        var dirty = changed();
+        close();
+        if (dirty && form && !submitting) {
+            submitting = true;
+            form.submit();
+        }
+    }
+
+    // Hủy: trả lựa chọn về đúng lúc mở panel rồi đóng, không submit.
+    function cancel() {
+        if (snapshot) {
+            var keep = snapshot;
+            options.forEach(function (opt) {
+                var cb = checkboxOf(opt);
+                var on = keep.indexOf(cb.value) !== -1;
+                if (cb.checked !== on) {
+                    cb.checked = on;
+                    syncOption(opt);
+                }
+            });
+            renderLabel();
+            renderAll();
+        }
+        close();
     }
 
     function filter() {
@@ -76,8 +148,9 @@
         renderAll();
     }
 
+    // Bấm lại nút mở khi panel đang mở = đóng = chốt, giống hệt bấm ra ngoài.
     trigger.addEventListener('click', function () {
-        if (combo.classList.contains('open')) close(); else open();
+        if (combo.classList.contains('open')) commit(); else open();
     });
 
     options.forEach(function (opt) {
@@ -85,6 +158,7 @@
             syncOption(opt);
             renderLabel();
             renderAll();
+            renderHint();
         });
     });
 
@@ -99,12 +173,29 @@
         });
         renderLabel();
         renderAll();
+        renderHint();
     });
 
     search.addEventListener('input', filter);
 
+    // Enter trong ô tìm kiếm đơn vị: form GET này không còn nút submit nào, nên trình duyệt sẽ tự
+    // submit ngầm (ô text duy nhất của form) — bỏ qua cả bước kiểm "có đổi gì không". Chặn lại và
+    // đi đúng đường chốt như nút "Áp dụng".
     search.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { close(); trigger.focus(); }
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        commit();
+    });
+
+    if (applyBtn) applyBtn.addEventListener('click', commit);
+
+    // Escape ở bất kỳ đâu trong panel = hủy (không chỉ khi con trỏ đang ở ô tìm kiếm — sau khi tick
+    // vài đơn vị thì focus nằm trên checkbox, lúc đó Escape vẫn phải hủy được).
+    combo.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' || !combo.classList.contains('open')) return;
+        e.stopPropagation();
+        cancel();
+        trigger.focus();
     });
 
     if (clearBtn) {
@@ -116,7 +207,7 @@
     }
 
     document.addEventListener('click', function (e) {
-        if (!combo.contains(e.target)) close();
+        if (!combo.contains(e.target)) commit();
     });
 
     renderLabel();
