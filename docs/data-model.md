@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-`Data/AppDbContext.cs` khai báo **28 DbSet**. Điểm chung cần biết trước:
+`Data/AppDbContext.cs` khai báo **27 DbSet**. Điểm chung cần biết trước:
 
 - **Mọi cột `DateTime` được chuẩn hóa `Kind=Utc` khi đọc** (`UtcDateTimeConverter`) để JSON trả ra có hậu tố `Z` — tránh lệch múi giờ trên client.
 - **Hầu hết enum lưu dạng chuỗi** (tên enum, ví dụ `'WaitingForHuman'`) — dễ đọc trong DB và bền khi chèn giá trị enum mới. ⚠️ Vì vậy **đừng đổi tên giá trị enum đã có dữ liệu**.
@@ -15,7 +15,7 @@
 | `AgentChecklistItem` | Một bài học trong "checklist BA học được": `DomainKey` (null = mọi dự án), `Text` (phần duy nhất vào prompt), `Rationale`/`Evidence` (vì sao rút ra — chỉ cho trang quản trị), `SourceKind`/`SourceProjectId`, `Status` (Active/DisabledByUser/DisabledByOverflow) | Trần 25 mục đang dùng mỗi bucket; vượt thì mục cũ nhất tự chuyển `DisabledByOverflow` (vẫn thấy, bật lại được). FK dự án nguồn là `SetNull` — xóa dự án không xóa bài học |
 | `Projects` | Dự án — gốc nối tới tài liệu, hội thoại, workflow | Ngoài metadata còn mang **bộ nhớ của luồng BA**: `ConversationSummary` + `SummarizedTurnCount` (tóm tắt hội thoại dài), `UserMemoryHarvestedTurnCount`, `RequirementCoverageMap` + `CoverageHarvestedTurnCount` (bản đồ bao phủ 12 nhóm thông tin), `ChecklistGapHarvested`; và **nghiệm thu bản demo** `PocAcceptedAtUtc` + `PocAcceptedBy` (null = người yêu cầu chưa xác nhận POC đạt). `CreatedByUsername` để lọc "chỉ thấy project mình tạo"; `OrgUnitCode` (không FK) gắn đơn vị yêu cầu; `IsUseBoschTemplate` (mặc định true) do TeamDev đổi ở Agent Dashboard |
 | `Agents` | "Nhân sự AI": `RoleKey` (BusinessAnalyst/TechLead/Developer/Tester/UiUx), `AiModelId`, `Temperature`, `Color` | System prompt **không lưu DB** — nạp từ `Prompts/{RoleKey}/instruction.md` qua `AgentInstructionProvider`. FK sang AiModel là `Restrict` (không xóa được model đang dùng) |
-| `AiModels` | Danh mục model LLM: `ModelId`, `Endpoint`, `ApiKey` (mã hóa), `ContextWindow`, đơn giá Input/Output per-1M-token (decimal 18,6) | Đơn giá là đầu vào của trang Usage + Budget guard. Model tự host giá 0 ⇒ chi phí 0 |
+| `AiModels` | Danh mục model LLM: `ModelId`, `Endpoint`, `ApiKey` (mã hóa), `ContextWindow`, đơn giá Input/**CachedInput**/Output per-1M-token (decimal 18,6) | Đơn giá là đầu vào của trang Usage + Budget guard. Model tự host giá 0 ⇒ chi phí 0. `CachedInputPricePerMillionTokens` = 0 nghĩa là **chưa khai báo** ⇒ token cache tính theo giá input đầy đủ ([cached input](llm-and-prompts.md#cached-input-token-prompt-đọc-lại-từ-cache)) |
 | `ToolDefinitions` | Danh mục tool (đồng bộ từ code khi khởi động) | Unique index `(ServiceType, MethodName)` |
 | `AgentTools` | Bảng nối agent ↔ tool được phép dùng | Khóa chính kép `(AgentId, ToolDefinitionId)` |
 
@@ -27,7 +27,7 @@
 | `ProjectDocumentRevisions` | **Lịch sử nội dung** mỗi lần document bị ghi đè CÓ thay đổi — snapshot đầy đủ + `ChangeNote` nguồn gốc | Chốt chặn duy nhất tạo revision là `RequirementDocumentGenerator.UpsertDocument`. Diff tính lúc xem bằng `DocumentDiffService` (LCS theo dòng). Unique `(DocumentId, RevisionNumber)` |
 | `ProjectSourceFiles` | Tài liệu nguồn user upload cho BA đọc (ảnh / PDF / Word .docx / Excel-CSV) — `ExtractedText` do `ProjectSourceIngestor` trích; PDF **scan** không có text thì lấy ảnh nhúng từng trang ra `page-{n}.png`, còn trang PDF **có text** cũng như Word có **hình nhúng** (screenshot, sơ đồ) thì lấy các hình đủ lớn ra `figure-{n}.png` cạnh file gốc (`ScannedPageImageCount` đếm TỔNG cả hai loại) cho model vision | Cascade theo Project |
 | `AgentConversations` | Từng lượt hội thoại user ↔ agent trong project | Project FK Cascade, Agent FK **Restrict** (xóa agent không wipe lịch sử) |
-| `AgentModelCallLogs` | Log **mỗi lời gọi model**: request/response JSON, token, thời lượng, `Purpose`, `WorkflowRunId` (cột nhóm, cố ý không FK). Ảnh đã gửi kèm chỉ được **mô tả** trong `RequestJson` (tên/kiểu/dung lượng/số thứ tự), bytes nằm trên đĩa — xem ["Ảnh trong call log"](requirement-flow.md#tài-liệu-nguồn-ảnh-và-call-log) | Nguồn dữ liệu của trang Usage, popup AI Call Logs, Delivery Quality |
+| `AgentModelCallLogs` | Log **mỗi lời gọi model**: request/response JSON, token (kể cả `CachedPromptTokens` — phần prompt provider đọc lại từ cache, nằm **trong** `PromptTokens`), thời lượng, `Purpose`, `WorkflowRunId` (cột nhóm, cố ý không FK). Ảnh đã gửi kèm chỉ được **mô tả** trong `RequestJson` (tên/kiểu/dung lượng/số thứ tự), bytes nằm trên đĩa — xem ["Ảnh trong call log"](requirement-flow.md#tài-liệu-nguồn-ảnh-và-call-log) | Nguồn dữ liệu của trang Usage, popup AI Call Logs, Delivery Quality |
 
 ### Nhóm workflow
 
@@ -40,8 +40,7 @@
 
 | Bảng | Vai trò | Điểm đáng chú ý |
 |---|---|---|
-| `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `DisplayName`, `OrgUnitName` (đồng bộ từ claim `department` của SSO), `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | **Không có cột mật khẩu** — đăng nhập do provider ngoài quyết định (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-provider-không-có-mật-khẩu-trong-app)). Chưa có UI tạo user — seed 4 tài khoản cố định |
-| `AppUserRoles` | Bảng nối user ↔ vai trò — **một user giữ NHIỀU `UserRole`** | Khóa chính kép `(AppUserId, Role)`; index trên `Role` cho chiều "ai đang giữ vai trò X". Quyền hiệu lực = HỢP quyền của mọi vai trò |
+| `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `DisplayName`, `OrgUnitName` (đồng bộ từ claim `department` của SSO), `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | **Không có cột mật khẩu và không có cột vai trò** — cả hai do provider ngoài quyết định: vai trò chỉ sống trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-provider-không-có-mật-khẩu-trong-app)). Chưa có UI tạo user — seed 4 tài khoản cố định |
 | `RolePermissions` | Cấp quyền `(Role, Permission)` — cấu hình runtime ở màn Roles | Unique `(Role, Permission)`. SuperAdmin implicit-all, không có dòng nào |
 | `AuditLogs` | Nhật ký thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt): actor, before/after JSON | Ghi qua `IAuditLogger` |
 
@@ -166,6 +165,7 @@ erDiagram
         string FlowMap
         string ScreenScopeMap
         string EntityMap
+        string ReportMap
         string NotificationMap
         int TokenUsed
         DateTime CreatedAt
@@ -185,13 +185,14 @@ erDiagram
 - `ProjectSourceFile.ColumnMap` (JSON `SourceColumnNote[]`) là **bảng cột đã được người dùng chốt** cho nguồn bảng tính: cột nào ứng dụng mới dùng và nghĩa của nó. `SourceContextBuilder` gắn nó vào ngữ cảnh mọi lượt chat, `RealSampleDataReader` lọc dữ liệu mẫu theo nó — xem [requirement-flow.md](requirement-flow.md#bảng-cột-chốt-phạm-vi-cột-của-file-bảng-tính). **Không** mã hóa at rest, cùng lý do với `ExtractedText` nằm cạnh nó dưới dạng plaintext.
 - `AgentConversation.ColumnMap` giữ **bản đề xuất** của BA ở lượt đọc file (để F5 không mất bảng chưa tích); nó là nội dung hội thoại nên **có** mã hóa at rest như `Message`/`Suggestions`/`Questions`.
 - `Project.PermissionMatrix` (JSON `PermissionMatrixRow[]`) là **bảng phân quyền đã được người dùng chốt**: màn hình × chức năng × vai trò, mỗi ô mang **phạm vi dữ liệu** (`của mình` / `của đơn vị` / `tất cả`, rỗng = không có quyền). Nó là nguồn bằng chứng RIÊNG của nhóm «Phân quyền theo nghiệp vụ» trong bản đồ bao phủ, và là đường duy nhất đưa phân quyền tới POC ở dạng máy đọc được — xem [requirement-flow.md](requirement-flow.md#bảng-phân-quyền-chốt-nhóm-phân-quyền-ở-cuối-buổi). `AgentConversation.PermissionMatrix` giữ **bản đề xuất** của BA ở lượt bày bảng (để F5 không mất các ô chưa chọn), mã hóa at rest như `ColumnMap`.
-- `Project.FlowMap` / `ScreenScopeMap` / `EntityMap` / `NotificationMap` là **bốn bảng chốt còn lại của buổi phỏng vấn** (cùng `PermissionMatrix` là năm), cùng khuôn với `PermissionMatrix` (BA điền sẵn → người dùng sửa/bỏ tích → chốt một lần → khối "đã chốt" đi vào ngữ cảnh chat, lượt distill bản đồ bao phủ và prompt sinh AI Design Spec). Cột tương ứng trên `AgentConversation` giữ bản đề xuất của lượt bày bảng, mã hóa at rest như `ColumnMap`. Xem [requirement-flow.md](requirement-flow.md#năm-bảng-chốt-của-buổi-phỏng-vấn).
+- `Project.FlowMap` / `ScreenScopeMap` / `EntityMap` / `ReportMap` / `NotificationMap` là **năm bảng chốt còn lại của buổi phỏng vấn** (cùng `PermissionMatrix` là sáu), cùng khuôn với `PermissionMatrix` (BA điền sẵn → người dùng sửa/bỏ tích → chốt một lần → khối "đã chốt" đi vào ngữ cảnh chat, lượt distill bản đồ bao phủ và prompt sinh AI Design Spec). Cột tương ứng trên `AgentConversation` giữ bản đề xuất của lượt bày bảng, mã hóa at rest như `ColumnMap`. Xem [requirement-flow.md](requirement-flow.md#sáu-bảng-chốt-của-buổi-phỏng-vấn).
   - `FlowMap` (JSON `FlowMapRow[]`): luồng nghiệp vụ theo vai trò, luồng chính + ngoại lệ, mỗi luồng là chuỗi bước `{actor, action, outcome}`.
   - `ScreenScopeMap` (JSON `ScreenScopeRow[]`): màn hình dự kiến + việc của từng màn + **các chức năng trên màn** (`ScreenFunction[]`, mỗi chức năng có cờ tích riêng và các **bước luồng** nó phục vụ) + `Covers` (các mục `PlannedScope` đã được gộp vào màn này thay vì đứng thành dòng riêng). Là nguồn DÒNG của bảng phân quyền (`PermissionMatrixGate.EffectiveScreens`) thay cho `PlannedScope` thô, nên dòng của nó chỉ được là MÀN HÌNH — xem [requirement-flow.md](requirement-flow.md#ba-cột-của-bảng-màn-hình-và-vì-sao-cột-màn-hình-chỉ-được-chứa-màn-hình). Bản cũ (`Functions` là một chuỗi ngăn phẩy, `FlowSteps` ở cấp màn hình) vẫn đọc lại được: `ScreenScopeMapBuilder.Parse` nâng cấp tại chỗ.
   - `EntityMap` (JSON `EntityMapRow[]`): đối tượng nghiệp vụ + thông tin cần lưu + vòng đời trạng thái. Mỗi thông tin chở thêm HAI TRỤC — `Input` (nhập thế nào: `text`/`number`/`date`/`choice-one`/`choice-many`/`auto`) và `Source` (danh sách lấy ở đâu, chỉ có nghĩa với hai kiểu chọn: `inline`/`app`/`external`) — cùng `Required` và ba ô của ba nhánh nguồn (`Options`, `SourceSystem`, `Rule`). Chuỗi, không phải enum: dữ liệu đến từ model và từ trình duyệt nên giá trị lạ phải chuẩn hoá được về mặc định an toàn thay vì làm hỏng cả lượt deserialize; bản ghi lưu TRƯỚC khi hai trục tồn tại đọc ra `Input = text` nhờ giá trị khởi tạo của contract. Thông tin có `Source = app` còn gieo một mục màn hình vào `Project.PlannedScope` lúc chốt. Một dòng có `ParentEntity` (kèm `MinRows`/`MaxRows`) không phải hồ sơ độc lập mà là các DÒNG của một đối tượng khác trong cùng bảng — quan hệ 1-n, tối đa một cấp, tên cha phải khớp một dòng khác còn được giữ. Vòng đời của nó là nguồn DÒNG của bảng thông báo ngay dưới. Trường `EntityLifecycleState.Notify` là DI SẢN của bản trước (khi thông báo còn là một ô text cạnh từng trạng thái): không còn được hỏi, không còn được render, chỉ được `NotificationMapBuilder.SeedRows` kéo qua làm giá trị điền sẵn cột To cho các dự án đã chốt bảng đối tượng trước khi bảng thông báo tồn tại.
+  - `ReportMap` (JSON `ReportMapRow[]`): **bảng báo cáo / thống kê** — mỗi báo cáo một dòng: `Report` (tên, đọc được như một màn hình), `Question` (báo cáo đó trả lời câu hỏi gì, bằng lời người dùng), `Source` (lấy số từ đối tượng nào — chỉ giữ khi khớp một tên trong `EntityMap` đã chốt, so khớp theo cụm chứa nhau), `Breakdown` (gộp/lọc theo gì), `Included`. Mỗi dòng còn `Included` gieo một mục màn hình vào `Project.PlannedScope` lúc chốt (`ReportMapBuilder.ReportScreens`) — đó là lý do bảng này đứng TRƯỚC bảng phân quyền và **không có cột "ai xem"**: quyền xem của một báo cáo được chốt ở bảng phân quyền như mọi màn hình khác. Không có `Locked`/`Evidence`, cùng lý do với `FlowMap`/`ScreenScopeMap`. Xem [requirement-flow.md](requirement-flow.md#bảng-báo-cáo-mỗi-báo-cáo-là-một-màn-hình).
   - `NotificationMap` (JSON `NotificationMapRow[]`): **bảng cuối cùng** — mỗi sự kiện một dòng (`Entity` + `Event` + `Trigger`), người nhận chính `To` và đồng gửi `Cc` là mảng các mục của **danh sách người nhận** của dự án (`NotificationRecipients` ngay dưới). Cờ `Needed` phân biệt "không gửi" với "có gửi": một dòng đã lưu chỉ có HAI trạng thái đó, vì đường gửi (`ConfirmNotificationMapUseCase`) **không lưu** bảng nào còn dòng `Needed = true` mà `To` rỗng. Xem [requirement-flow.md](requirement-flow.md#bảng-thông-báo-bảng-cuối-cùng).
   - `NotificationRecipients` (JSON `string[]`): **danh sách người nhận** của dự án — nguồn DUY NHẤT của hai ô `To`/`Cc`, và là một bảng người dùng thêm/sửa/xóa ngay trên panel bảng thông báo. `null` = chưa chốt lần nào ⇒ danh sách bày ra là bản gieo tất định (`NotificationMapBuilder.SeedRecipients`: bốn quan hệ với bản ghi + các vai trò của bảng phân quyền đã chốt, nguyên tên). Lưu **cùng lượt** với `NotificationMap` (cùng một `SaveChangesAsync`) vì đường gửi đối chiếu `To`/`Cc` theo đúng nó — xem [requirement-flow.md](requirement-flow.md#bảng-thông-báo-bảng-cuối-cùng).
-  - `NotificationMap` theo luật KHẮT KHE MỘT CHIỀU của `PermissionMatrix` (nhóm của nó KHÔNG BAO GIỜ `[RÕ]` khi chưa có bảng, vì nó cũng không còn được hỏi bằng câu hỏi); ba bảng còn lại thì chỉ **xác nhận lại** thứ hội thoại đã trả lời. Áp luật một chiều cho ba bảng đó là dựng một vòng khóa kín — cổng bày bảng đòi nhóm `[RÕ]`, bản đồ đòi có bảng.
+  - `NotificationMap` theo luật KHẮT KHE MỘT CHIỀU của `PermissionMatrix` (nhóm của nó KHÔNG BAO GIỜ `[RÕ]` khi chưa có bảng, vì nó cũng không còn được hỏi bằng câu hỏi); **bốn** bảng còn lại thì chỉ **xác nhận lại** thứ hội thoại đã trả lời. Áp luật một chiều cho bốn bảng đó là dựng một vòng khóa kín — cổng bày bảng đòi nhóm `[RÕ]`, bản đồ đòi có bảng. Với `ReportMap` điều đó còn là điều kiện MỞ CỔNG: bảng chỉ bày ra khi nhóm «Báo cáo / thống kê» đã `[RÕ]`, vì một bảng báo cáo trống thu về ít hơn cả ô kể tự do nó thay thế.
 
 ## Workflow schema
 
@@ -264,6 +265,7 @@ erDiagram
         string ApiKey_encrypted
         int ContextWindow
         decimal InputPricePerMillionTokens
+        decimal CachedInputPricePerMillionTokens
         decimal OutputPricePerMillionTokens
         bool IsActive
         bool SupportsVision
@@ -309,6 +311,7 @@ erDiagram
         string ResponseText
         string ErrorMessage
         int PromptTokens
+        int CachedPromptTokens
         int CompletionTokens
         int TotalTokens
         long DurationMs
@@ -358,12 +361,6 @@ erDiagram
         DateTime CreatedAt
     }
 
-    AppUserRole {
-        Guid AppUserId PK_FK
-        UserRole Role PK
-    }
-
-    AppUser ||--o{ AppUserRole : "giữ"
 
     RolePermission {
         Guid Id PK
@@ -388,8 +385,6 @@ erDiagram
 | Constraint/index | Ý nghĩa |
 |---|---|
 | `AppUser.Username` unique | Không trùng tài khoản đăng nhập |
-| `AppUserRole(AppUserId, Role)` PK | Một user giữ NHIỀU vai trò, mỗi vai trò chỉ gán một lần. Xóa user cascade sang bảng này |
-| `AppUserRole.Role` index | Chiều ngược: "ai đang giữ vai trò X" (đăng nhập Local tìm SuperAdmin) |
 | `RolePermission(Role, Permission)` unique | Một permission chỉ được cấp một lần cho role |
 | `AuditLog.CreatedAt`, `(Category, CreatedAt)` | Lọc/sắp xếp audit log |
 
@@ -580,7 +575,7 @@ Khi DB khởi tạo rỗng, `DbInitializer` seed:
 
 | Data | Nội dung |
 |---|---|
-| Users | `superadmin`, `admin`, `teamdev`, `user` — mỗi tài khoản seed một dòng `AppUserRoles` tương ứng (không mật khẩu: Local tự đăng nhập bằng SuperAdmin, SSO đồng bộ từ IdentityServer) |
+| Users | `superadmin`, `admin`, `teamdev`, `user` — chỉ danh tính, **không kèm vai trò** (không mật khẩu: Local tự đăng nhập bằng tài khoản ở `Authentication:LocalUsername` với vai trò `Authentication:LocalRole`, SSO đồng bộ user từ IdentityServer và lấy vai trò từ role claim) |
 | Role permissions | SuperAdmin implicit-all; Admin mặc định toàn bộ quyền (cấu hình được); TeamDev gần đủ quyền vận hành; User quyền project/requirement/feedback cơ bản |
 | Org/Associates | Dữ liệu mẫu HR_Portal |
 | Tool definitions | Đồng bộ từ tool discovery |

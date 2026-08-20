@@ -337,10 +337,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     ];
 
     function isDissentChip(text) {
-        const t = (text || "").trim().toLowerCase();
+        const t = (text || "").trim().toLowerCase().replace(/[.…!?,;:\s]+$/, "");
         if (!t) return false;
         // "Không, tính khác" / "Không, khác" — bắt cả các biến thể mà cụm cố định ở trên không phủ hết.
         if (t.startsWith("không") && t.includes("khác")) return true;
+        // Chip KẾT BẰNG "khác" — bắt theo HÌNH DẠNG, vì "Quy tắc khác", "Trạng thái khác", "Cách xử lý
+        // khác" là cùng một chip đội ba cái tên và danh sách cụm cố định ở trên không bao giờ phủ hết.
+        // BAChatReplyParser.DropBareOtherChips đã xoá phần lớn chúng, nhưng nó CỐ Ý dừng lại khi xoá xong
+        // còn dưới 2 chip — tức bộ hai chip prompt kê sẵn ở lượt xin chốt (["Đồng ý", "Tôi muốn khác"])
+        // lên màn hình nguyên vẹn, và đó đúng là bộ mà cú bấm "khác" tốn kém nhất. Ở đây bắt RỘNG hơn
+        // parser được: nhận nhầm một chip có nội dung thật ("Chuyển sang phòng ban khác") chỉ tốn thêm một
+        // cú bấm "Gửi", còn parser thì xoá hẳn chip nên phải hẹp.
+        if (/(^|\s)khác$/.test(t)) return true;
         return DISSENT_CHIP_CUES.some(cue => t.includes(cue));
     }
 
@@ -2039,6 +2047,162 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     const MAX_NOTIF_RECIPIENTS = 8;   // = NotificationMapBuilder.MaxRecipientsPerCell
     const MAX_RECIPIENT_OPTIONS = 20; // = NotificationMapBuilder.MaxRecipientOptions
 
+    // ---- BẢNG BÁO CÁO / THỐNG KÊ ----
+    // Trần dòng, chép từ ReportMapBuilder. Chặn ở đây chứ không để server cắt — cùng lý do với bảng màn hình:
+    // một dòng người dùng vừa gõ mà bị nuốt lúc lưu là đúng loại quyết định câm mà cả bảng này sinh ra để chặn.
+    const MAX_REPORT_ROWS = 12;   // = ReportMapBuilder.MaxRows
+
+    const reportMapPanel = initTablePanel(
+        "reportMapPanel", "reportMapSendBtn", "reportMapMsg", "reportsJson",
+        panel => Array.from(panel.querySelectorAll(".reportmap-row")).map(tr => ({
+            report: tableValue(tr, ".reportmap-name"),
+            question: tableValue(tr, ".reportmap-question"),
+            // Ô "lấy số từ" là danh sách ĐÓNG (các đối tượng đã chốt): server xoá mọi giá trị không khớp
+            // đối tượng nào, nên một ô gõ tay là ô mà chữ vừa gõ biến mất lúc lưu, không câu nào giải thích.
+            source: tableValue(tr, ".reportmap-source"),
+            breakdown: tableValue(tr, ".reportmap-breakdown"),
+            included: tableChecked(tr.querySelector(".reportmap-check")),
+            // Cờ nằm ở data-attribute chứ không suy ra từ "ô tên có phải input không" như các bảng kia: ở
+            // bảng này MỌI dòng đều có ô tên gõ được (tên báo cáo không phải khóa nối sang bảng nào, mà đặt
+            // lại tên lại là chỗ người dùng sửa nhiều nhất), nên sự hiện diện của ô không phân biệt được gì.
+            addedByUser: tr.dataset.added === "true"
+        // Dòng bỏ trống tên không phải một báo cáo — bỏ ngay ở đây cho payload sạch (server cũng bỏ).
+        })).filter(r => r.report.length > 0),
+        "Đang lưu bảng báo cáo…",
+        "Chưa lưu được bảng báo cáo — anh/chị bấm gửi lại giúp mình nhé.");
+
+    // Các ĐỐI TƯỢNG đã chốt đang có hiệu lực — mục chọn của ô "lấy số từ", kể cả ở dòng người dùng vừa thêm.
+    // `data-entities` là bản mồi của server (frame done hoặc lượt render lại sau F5).
+    function reportEntityOptions() {
+        if (!reportMapPanel) return [];
+        try {
+            const parsed = JSON.parse(reportMapPanel.dataset.entities || "[]");
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (err) {
+            return [];
+        }
+    }
+
+    function reportSourceCell(selected, options) {
+        const chosen = selected || "";
+        return `
+            <select class="reportmap-source" aria-label="Số liệu lấy từ đối tượng nào">
+                <option value=""${chosen ? "" : " selected"}>— chưa rõ —</option>
+                ${options.map(o => `<option value="${escapeHtml(o)}"${o === chosen ? " selected" : ""}>${escapeHtml(o)}</option>`).join("")}
+            </select>`;
+    }
+
+    // MỘT dòng. `r` null = dòng TRỐNG người dùng vừa thêm bằng nút "+ thêm báo cáo" — nút đó tồn tại vì BA
+    // chỉ gom được những báo cáo hội thoại đã nhắc tới, còn thứ người dùng chợt nhớ ra khi nhìn danh sách
+    // thì không có dòng nào để gieo. Không có chỗ tự thêm thì nó biến mất trong im lặng ngay tại cái bảng
+    // sinh ra để chốt nó.
+    //
+    // `data-added` quyết định dòng có nút xóa hay không, và ranh giới đó là chủ ý: báo cáo BA đề xuất thì
+    // BỎ TÍCH chứ không xóa — dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi, nếu không người dùng
+    // không có bằng chứng nào cho thấy mình vừa loại đúng thứ định loại. Dòng do CHÍNH HỌ vừa thêm thì
+    // không có gì để kể lại: nó chưa bao giờ là một đề xuất, nên xóa hẳn mới là thao tác đúng.
+    function reportRow(r, options) {
+        const added = !r;
+        return `
+            <tr class="reportmap-row" data-added="${added ? "true" : "false"}">
+                <td class="flowmap-use">
+                    <input type="checkbox" class="reportmap-check" aria-label="Cần báo cáo ${r ? escapeHtml(r.report || "") : "vừa thêm"}"${!r || r.included !== false ? " checked" : ""} />
+                </td>
+                <td><textarea rows="1" class="permmap-cellinput reportmap-name" aria-label="Tên báo cáo" placeholder="tên báo cáo…">${r ? escapeHtml(r.report || "") : ""}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="Báo cáo này trả lời câu hỏi gì" placeholder="để biết điều gì?">${r ? escapeHtml(r.question || "") : ""}</textarea></td>
+                <td>${reportSourceCell(r ? r.source : "", options)}</td>
+                <td><textarea rows="1" class="permmap-cellinput reportmap-breakdown" aria-label="Gộp hoặc lọc theo" placeholder="kỳ, đơn vị, trạng thái…">${r ? escapeHtml(r.breakdown || "") : ""}</textarea></td>
+                <td class="entitymap-delcell">${added ? `<button type="button" class="entitymap-del reportmap-del" title="Xóa dòng này" aria-label="Xóa dòng này">×</button>` : ""}</td>
+            </tr>`;
+    }
+
+    // Markup khớp bản server render trong Index.cshtml — hai đường lệch nhau thì người dùng rà xong bảng
+    // vừa hiện ra rồi F5 và thấy một bảng khác.
+    function renderReportMap(rows, entities) {
+        if (!reportMapPanel || !Array.isArray(rows) || rows.length === 0) return;
+
+        const opts = Array.isArray(entities) && entities.length > 0 ? entities : reportEntityOptions();
+        reportMapPanel.dataset.entities = JSON.stringify(opts);
+        reportMapPanel.innerHTML = `
+            <div class="permmap-howto">
+                Đây là các báo cáo <b>mình gom lại</b> từ những gì anh/chị đã kể. Báo cáo nào không cần thì
+                <b>bỏ tích</b> cột đầu; ô nào mình hiểu chưa đúng thì sửa thẳng vào ô; thiếu báo cáo nào thì
+                bấm <b>+ thêm báo cáo</b> ở cuối bảng. Mỗi báo cáo còn giữ sẽ thành <b>một màn hình</b> của
+                ứng dụng, nên ai được xem báo cáo nào sẽ hỏi ở bảng phân quyền ngay sau đây.
+            </div>
+            <table class="permmap-table reportmap-table">
+                <thead>
+                    <tr>
+                        <th class="flowmap-th-use">Cần</th>
+                        <th class="reportmap-th-name">Báo cáo / thống kê</th>
+                        <th class="reportmap-th-question">Để trả lời câu hỏi gì</th>
+                        <th class="reportmap-th-source">Lấy số từ</th>
+                        <th class="reportmap-th-breakdown">Gộp / lọc theo</th>
+                        <th class="screenmap-th-del"></th>
+                    </tr>
+                </thead>
+                <tbody>${rows.map(r => reportRow(r, opts)).join("")}
+                    <tr class="reportmap-addrow">
+                        <td colspan="6"><button type="button" class="entitymap-add reportmap-add">+ thêm báo cáo</button></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="permmap-bar">
+                <button type="button" class="btn primary" id="reportMapSendBtn">Gửi bảng báo cáo</button>
+                <div class="permmap-hint">
+                    Không cần báo cáo nào thì cứ bỏ tích hết rồi gửi — mình ghi lại là ứng dụng không có
+                    phần báo cáo, không hỏi lại nữa.
+                </div>
+                <div class="permmap-msg" id="reportMapMsg"></div>
+            </div>`;
+        reportMapPanel.hidden = false;
+        thinkingBox.before(reportMapPanel);
+        autoGrowCells(reportMapPanel);
+        enhanceReportSelects(reportMapPanel);
+    }
+
+    // Ô "lấy số từ" là một <select> thường; driver dropdown dùng chung của app (dropdown.js) nâng nó thành
+    // .ms-combo để nó trông giống mọi dropdown khác. Driver chỉ quét MỘT LẦN lúc nạp trang, nên bản server
+    // render thì đẹp còn bảng do JS dựng (và mọi dòng vừa thêm) lại là select trần — hai đường lệch nhau ngay
+    // trên cùng một bảng. Fail-open: chưa có driver thì select trần vẫn gửi đúng giá trị.
+    function enhanceReportSelects(root) {
+        if (window.CsDropdown && root) window.CsDropdown.enhanceAll(root);
+    }
+
+    // THÊM/XÓA DÒNG — ủy quyền trên PANEL vì renderReportMap thay sạch innerHTML.
+    if (reportMapPanel) {
+        reportMapPanel.addEventListener("click", function (e) {
+            const note = text => {
+                const msgEl = document.getElementById("reportMapMsg");
+                if (msgEl) msgEl.textContent = text;
+            };
+
+            const remove = e.target.closest(".reportmap-del");
+            if (remove) {
+                const row = remove.closest(".reportmap-row");
+                if (row) row.remove();
+                note("");
+                return;
+            }
+
+            if (!e.target.closest(".reportmap-add")) return;
+
+            const body = reportMapPanel.querySelector(".reportmap-table tbody");
+            const anchor = reportMapPanel.querySelector(".reportmap-addrow");
+            if (!body || !anchor) return;
+
+            if (body.querySelectorAll(".reportmap-row").length >= MAX_REPORT_ROWS) {
+                note(`Bảng đã tới trần ${MAX_REPORT_ROWS} báo cáo — nhiều hơn thì không rà nổi trong một lượt.`);
+                return;
+            }
+
+            anchor.insertAdjacentHTML("beforebegin", reportRow(null, reportEntityOptions()));
+            enhanceReportSelects(anchor.previousElementSibling);
+            focusNewRow(anchor.previousElementSibling, ".reportmap-name");
+            note("");
+        });
+    }
+
     const notificationMapPanel = initTablePanel(
         "notificationMapPanel", "notificationMapSendBtn", "notificationMapMsg", "notificationsJson",
         panel => Array.from(panel.querySelectorAll(".notifmap-row")).map(row => {
@@ -3225,11 +3389,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // Bảng phân quyền: lượt chốt nhóm phân quyền. Không dựng trong `bubble` mà vào panel cố định
             // của trang (như bảng cột) — bảng treo tới khi dự án chốt nó, sống lâu hơn lượt sinh ra nó.
             renderPermissionMatrix(data.permissionMatrix);
-            // Bốn bảng còn lại, cùng luật: InterviewTableGate đảm bảo mỗi lượt nhiều nhất MỘT trong năm
-            // danh sách này có nội dung, nên năm lời gọi liên tiếp không bao giờ dựng hai bảng cùng lúc.
+            // Năm bảng còn lại, cùng luật: InterviewTableGate đảm bảo mỗi lượt nhiều nhất MỘT trong sáu
+            // danh sách này có nội dung, nên sáu lời gọi liên tiếp không bao giờ dựng hai bảng cùng lúc.
             renderFlowMap(data.flowMap);
             renderScreenScope(data.screenScopeMap, data.uncoveredFlowSteps);
             renderEntityMap(data.entityMap);
+            renderReportMap(data.reportMap, data.reportEntityOptions);
             renderNotificationMap(data.notificationMap, data.recipientOptions);
 
             // Lượt lỗi LLM: tô đỏ + nút "Thử lại" (server xóa lượt lỗi rồi chạy lại, khỏi gõ lại câu hỏi)

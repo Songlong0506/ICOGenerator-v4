@@ -22,6 +22,11 @@ public class AgentModelCallLog
     public string? ErrorMessage { get; set; }
 
     public int PromptTokens { get; set; }
+
+    // Phần của PromptTokens được provider phục vụ từ cache prompt (nằm TRONG PromptTokens, không cộng thêm).
+    // 0 khi endpoint không trả prompt_tokens_details.cached_tokens — xem LlmCallResult.CachedPromptTokens.
+    public int CachedPromptTokens { get; set; }
+
     public int CompletionTokens { get; set; }
     public int TotalTokens { get; set; }
 

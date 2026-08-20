@@ -398,14 +398,17 @@ public static class EntityMapBuilder
     /// là một danh mục mà ứng dụng phải có màn hình CRUD riêng để quản lý.
     ///
     /// <para>
-    /// <b>Vì sao nó phải chảy ra khỏi bảng này.</b> Thứ tự phụ thuộc của buổi phỏng vấn là
-    /// <c>luồng → màn hình → đối tượng → phân quyền → thông báo</c>, nên tới lúc bảng đối tượng bày ra thì
-    /// bảng màn hình ĐÃ chốt xong. Một quyết định "danh sách này do ứng dụng tự quản lý" nằm lại trong cột
-    /// <c>EntityMap</c> sẽ không có màn hình nào trong <c>## 6. Screens To Generate</c> và không có DÒNG nào
-    /// trong bảng phân quyền — tức mặc nhiên "không ai được xem" một màn hình mà người dùng vừa đặt hàng.
-    /// Đường ra là <c>Project.PlannedScope</c>: <c>ScreenScopeGate</c> đã có sẵn cơ chế MỞ LẠI bảng màn hình
-    /// khi phạm vi trôi sau lúc chốt (<c>ScreenScopeMapBuilder.NewScreens</c>), nên gieo vào đó là đủ để cả
-    /// tuyến phía sau nhận được — không cổng nào phải sửa. Xem <c>ConfirmEntityMapUseCase</c>.
+    /// <b>Vì sao nó phải chảy ra khỏi bảng này.</b> Một quyết định "danh sách này do ứng dụng tự quản lý"
+    /// nằm lại trong cột <c>EntityMap</c> sẽ không có màn hình nào trong <c>## 6. Screens To Generate</c> và
+    /// không có DÒNG nào trong bảng phân quyền — tức mặc nhiên "không ai được xem" một màn hình mà người
+    /// dùng vừa đặt hàng. Đường ra là <c>Project.PlannedScope</c>, và chính hàm này là lý do thứ tự phụ
+    /// thuộc của buổi phỏng vấn đặt bảng đối tượng TRƯỚC bảng màn hình
+    /// (<c>luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo</c>): gieo trước lần bày đầu thì
+    /// các màn hình danh mục là những dòng bình thường của bảng màn hình, người dùng tích/bỏ tích ngay tại
+    /// đó. Thứ tự cũ (màn hình trước) buộc chúng đi vào bằng đường MỞ LẠI của <c>ScreenScopeGate</c> —
+    /// người dùng đã chốt "đây là toàn bộ màn hình" rồi mới thấy danh sách dài thêm, và
+    /// <c>RequirementConflictService</c> bắn một mâu thuẫn cho đúng cái phạm vi vừa đổi. Xem
+    /// <c>InterviewTableGate</c> và <c>ConfirmEntityMapUseCase</c>.
     /// </para>
     ///
     /// <para>
@@ -437,6 +440,18 @@ public static class EntityMapBuilder
 
     /// <summary>Bản đọc từ JSON đã lưu của <see cref="ManagedListScreens(IEnumerable{EntityMapRow})"/>.</summary>
     public static List<string> ManagedListScreens(string? entityMapJson) => ManagedListScreens(Parse(entityMapJson));
+
+    /// <summary>
+    /// Tên các đối tượng người dùng đã GIỮ ở bảng đã chốt — bộ đối chiếu cho mọi bảng sau muốn trỏ về một
+    /// đối tượng (<see cref="ReportMapBuilder"/> dùng nó cho ô "lấy số từ"). Đối tượng đã bỏ tích KHÔNG có
+    /// mặt: trỏ một báo cáo vào thứ người dùng vừa loại là dựng lại đúng thứ họ vừa đóng.
+    /// </summary>
+    public static List<string> EntityNames(string? entityMapJson)
+        => Parse(entityMapJson)
+            .Where(r => r.Included && !string.IsNullOrWhiteSpace(r.Entity))
+            .Select(r => r.Entity.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     // ==== chuẩn hoá từng phần ====
 

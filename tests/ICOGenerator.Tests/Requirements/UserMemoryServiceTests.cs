@@ -36,7 +36,7 @@ public class UserMemoryServiceTests : IDisposable
         db.Database.EnsureCreated();
         db.AiModels.Add(_model);
         db.Agents.Add(_ba);
-        db.AppUsers.Add(new AppUser { Username = Owner, Roles = { new AppUserRole { Role = UserRole.User } } });
+        db.AppUsers.Add(new AppUser { Username = Owner });
         db.SaveChanges();
     }
 

@@ -79,6 +79,21 @@ public class BAChatTurnResult
     /// <summary>Bảng ĐỐI TƯỢNG nghiệp vụ — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.EntityMapGate"/> mở.</summary>
     public List<EntityMapRow> EntityMap { get; set; } = new();
 
+    /// <summary>
+    /// Bảng BÁO CÁO / THỐNG KÊ — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.ReportMapGate"/>
+    /// mở. Như các bảng khác: đi kèm frame done để client dựng tại chỗ, bản sống sót qua F5 nằm ở
+    /// <c>AgentConversation.ReportMap</c>.
+    /// </summary>
+    public List<ReportMapRow> ReportMap { get; set; } = new();
+
+    /// <summary>
+    /// Các ĐỐI TƯỢNG đã chốt, làm mục chọn cho ô "lấy số từ" của bảng báo cáo — cùng vai trò với
+    /// <see cref="RecipientOptions"/> ở bảng thông báo. Ô là một danh sách đóng chứ không phải ô gõ vì
+    /// server XOÁ mọi giá trị không khớp đối tượng nào (<c>ReportMapBuilder.Sanitize</c>): để người dùng gõ
+    /// tay là dựng một ô mà chữ họ vừa gõ biến mất lúc lưu, không câu nào giải thích. Rỗng ở mọi lượt khác.
+    /// </summary>
+    public List<string> ReportEntityOptions { get; set; } = new();
+
     /// <summary>Bảng THÔNG BÁO / NHẮC NHỞ — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.NotificationMapGate"/> mở (bảng cuối cùng của buổi phỏng vấn).</summary>
     public List<NotificationMapRow> NotificationMap { get; set; } = new();
 

@@ -162,6 +162,9 @@ namespace ICOGenerator.Migrations
                     b.Property<string>("Questions")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ReportMap")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -201,6 +204,9 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("CachedPromptTokens")
+                        .HasColumnType("int");
 
                     b.Property<int>("CompletionTokens")
                         .HasColumnType("int");
@@ -362,6 +368,10 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<decimal>("CachedInputPricePerMillionTokens")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
                     b.Property<int>("ContextWindow")
                         .HasColumnType("int");
 
@@ -469,22 +479,6 @@ namespace ICOGenerator.Migrations
                         .IsUnique();
 
                     b.ToTable("AppUsers");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.AppUserRole", b =>
-                {
-                    b.Property<Guid>("AppUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Role")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.HasKey("AppUserId", "Role");
-
-                    b.HasIndex("Role");
-
-                    b.ToTable("AppUserRoles");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.Associate", b =>
@@ -1253,6 +1247,9 @@ namespace ICOGenerator.Migrations
                     b.Property<int>("PocFeedbackHarvestedCount")
                         .HasColumnType("int");
 
+                    b.Property<string>("ReportMap")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("RequirementCoverageMap")
                         .HasColumnType("nvarchar(max)");
 
@@ -1690,17 +1687,6 @@ namespace ICOGenerator.Migrations
                     b.Navigation("ToolDefinition");
                 });
 
-            modelBuilder.Entity("ICOGenerator.Domain.AppUserRole", b =>
-                {
-                    b.HasOne("ICOGenerator.Domain.AppUser", "AppUser")
-                        .WithMany("Roles")
-                        .HasForeignKey("AppUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("AppUser");
-                });
-
             modelBuilder.Entity("ICOGenerator.Domain.EvalResult", b =>
                 {
                     b.HasOne("ICOGenerator.Domain.EvalRun", "EvalRun")
@@ -1800,11 +1786,6 @@ namespace ICOGenerator.Migrations
                     b.Navigation("AgentTools");
 
                     b.Navigation("ModelCallLogs");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.AppUser", b =>
-                {
-                    b.Navigation("Roles");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.EvalRun", b =>

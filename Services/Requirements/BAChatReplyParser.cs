@@ -266,6 +266,9 @@ public class BAChatReplyParser
         if (suggestions.Count == 0)
             return (suggestions, false, false);
 
+        // Chip "khác" trần thừa ở MỌI câu, không riêng câu liệt kê ⇒ lọc trước khi xét hình dạng.
+        suggestions = DropBareOtherChips(suggestions);
+
         // Câu không phải liệt kê: luật cũ nguyên vẹn — cờ do BA đặt, hạ nếu bộ chip không đúng hình dạng.
         if (!LooksEnumerationQuestion(question))
             return (suggestions, modelFlag && IsEnumerationSet(suggestions), false);
@@ -346,6 +349,69 @@ public class BAChatReplyParser
 
     private static readonly string[] BackReferenceSuffixes =
         { " trên", " đã nêu", " vừa nêu", " đã kể", " above" };
+
+    // ==== CHIP "KHÁC" TRẦN ====
+    // "Khác", "Tự nhập", "Quy tắc khác", "Trạng thái khác", "Cách xử lý khác" — chip mà toàn bộ nội dung
+    // chỉ là "không phải mấy cái kia". Nó nói ĐÚNG BẰNG ô "Ý khác" nằm ngay dưới mọi hàng chip (mở sẵn ở
+    // cả hàng chip lượt-đơn lẫn từng dòng của thẻ gộp), chỉ thiếu đúng phần đắt nhất: NỘI DUNG. Mà ở lượt
+    // một câu, bấm chip là GỬI NGAY — nên cú bấm đó gửi đi một lượt user rỗng ("Quy tắc khác", quy tắc gì
+    // thì không ai biết), trong khi bản đồ bao phủ vẫn tính là nhóm đó đã được hỏi VÀ đã trả lời. Đúng ca
+    // "câu trả lời rỗng" mà prompt cảnh báo, chỉ khác là lần này chính bộ chip bày sẵn cái bẫy.
+    //
+    // Prompt cấm chip này từ lâu, nhưng cấm theo MẶT CHỮ ("Khác", "Tự nhập") nên model né được chỉ bằng
+    // cách thêm một danh từ vào trước — "Quy tắc khác" lọt qua sạch sẽ, và đó là ca đã gặp trên màn hình.
+    // Hàm này cấm theo HÌNH DẠNG: đuôi là "khác" và phần đầu là một danh từ MÊ-TA (không chở nội dung
+    // nghiệp vụ nào). Prompt vẫn là chỗ dạy viết chip cho đúng; đây là cái phanh khi prompt bị trượt.
+    //
+    // Xoá được vì không mất gì — cùng lý lẽ với chip chốt hạ, và đây là chip THỨ HAI cũng là cuối cùng
+    // được phép xoá. Hai chốt giữ cho nó không xoá quá tay:
+    //   - Danh sách đầu MÊ-TA cố tình HẸP. "Chuyển sang phòng ban khác", "Theo quy trình khác" chở nội
+    //     dung thật ⇒ giữ. Lọt lưới thì mất tiện ích, không mất dữ liệu — cùng chiều đánh đổi với
+    //     NarrativeCues và ListingCues.
+    //   - Xoá xong phải còn ≥ 2 chip. Bộ HAI chip mà prompt kê sẵn ở lượt xin chốt (["Đồng ý", "Tôi muốn
+    //     khác"], ["Đúng rồi", "Không, tính khác"]) thì vế "khác" KHÔNG phải lối thoát mà là một trong hai
+    //     nhánh trả lời của chính câu hỏi; xoá nó đi là biến một câu hỏi thành cái gật bắt buộc. Ở đúng bộ
+    //     đó, việc mở ô nhập tại chỗ là của giao diện (requirements.js: isDissentChip), không phải của
+    //     parser — hai tầng chia nhau đúng một bài toán, ai không xử lý được thì tầng kia đỡ.
+    private static List<string> DropBareOtherChips(List<string> suggestions)
+    {
+        var kept = suggestions.Where(s => !IsBareOtherChip(s)).ToList();
+        return kept.Count >= 2 ? kept : suggestions;
+    }
+
+    private static bool IsBareOtherChip(string suggestion)
+    {
+        var text = suggestion.Trim().ToLowerInvariant();
+
+        // Bỏ phần chú trong ngoặc trước khi so: "Khác (tự nhập)" là đúng một chip đó, viết dài ra thôi.
+        var paren = text.IndexOf('(');
+        if (paren >= 0)
+            text = text[..paren];
+
+        text = text.Trim(ChipTrimChars);
+        if (StandaloneOtherChips.Contains(text))
+            return true;
+
+        if (!text.EndsWith("khác", StringComparison.Ordinal))
+            return false;
+
+        return MetaChipHeads.Contains(text[..^"khác".Length].Trim(ChipTrimChars));
+    }
+
+    private static readonly char[] ChipTrimChars = { ' ', '.', ',', ';', ':', '!', '?', '…', '-', '–', '"', '\'' };
+
+    private static readonly HashSet<string> StandaloneOtherChips = new(StringComparer.Ordinal)
+        { "khác", "tự nhập", "nhập tay", "tự điền", "tự ghi" };
+
+    // Đầu MÊ-TA: danh từ chỉ CHỖ của câu trả lời chứ không chở câu trả lời nào. Thêm vào đây thì phải chắc
+    // rằng "<đầu> khác" đứng một mình vẫn không nói được điều gì người dùng chưa nói.
+    private static readonly HashSet<string> MetaChipHeads = new(StringComparer.Ordinal)
+    {
+        "ý", "ý kiến", "quy tắc", "quy định", "quy trình", "trạng thái", "cách", "cách xử lý",
+        "cách làm", "hướng xử lý", "phương án", "lựa chọn", "tùy chọn", "tuỳ chọn", "đáp án",
+        "câu trả lời", "trường hợp", "tình huống", "hình thức", "kiểu", "loại", "mục",
+        "tôi muốn", "muốn", "cái"
+    };
 
     // Hàm này chỉ trả lời ĐÚNG MỘT câu — "bộ chip này có đúng hình dạng danh sách không?" — và không tự ý
     // quyết định gì thêm. Việc dùng câu trả lời đó ra sao là của ShapeAnswer, nơi có thêm tín hiệu câu hỏi.

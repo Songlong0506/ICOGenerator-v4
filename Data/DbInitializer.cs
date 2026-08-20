@@ -36,8 +36,8 @@ public static class DbInitializer
                 new AiModel { ModelId = "qwen3.6-27b@q3_k_s", Endpoint = "http://127.0.0.1:1234/v1", ApiKey = "lm-studio", SupportsVision = false, ContextWindow = 128000 },
                 // DeepSeek nhận json_object nhưng 400 với json_schema; OpenAI nhận cả hai — seed đúng mức mà
                 // mỗi endpoint thật sự chấp nhận, model local để None cho an toàn.
-                new AiModel { ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "", SupportsVision = false, ContextWindow = 1000000, InputPricePerMillionTokens = 0.14m, OutputPricePerMillionTokens = 0.28m, StructuredOutputMode = StructuredOutputMode.JsonObject },
-                new AiModel { ModelId = "gpt-5-nano", Endpoint = "https://api.openai.com/v1", ApiKey = "", SupportsVision = true, ContextWindow = 400000, InputPricePerMillionTokens = 0.05m, OutputPricePerMillionTokens = 0.4m, StructuredOutputMode = StructuredOutputMode.JsonSchema }
+                new AiModel { ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "", SupportsVision = false, ContextWindow = 1000000, InputPricePerMillionTokens = 0.14m, CachedInputPricePerMillionTokens = 0.014m, OutputPricePerMillionTokens = 0.28m, StructuredOutputMode = StructuredOutputMode.JsonObject },
+                new AiModel { ModelId = "gpt-5-nano", Endpoint = "https://api.openai.com/v1", ApiKey = "", SupportsVision = true, ContextWindow = 400000, InputPricePerMillionTokens = 0.05m, CachedInputPricePerMillionTokens = 0.005m, OutputPricePerMillionTokens = 0.4m, StructuredOutputMode = StructuredOutputMode.JsonSchema }
             );
             await db.SaveChangesAsync();
         }
@@ -65,18 +65,21 @@ public static class DbInitializer
 
     }
 
-    // Bộ tài khoản seed cố định (superadmin/admin/teamdev/user). Không còn mật khẩu: chế độ Local tự đăng nhập
-    // bằng tài khoản SuperAdmin (toàn quyền), chế độ IdentityServer đồng bộ user từ SSO. Bốn vai trò seed sẵn
-    // để phân quyền chạy ngay.
-    private static readonly (string Username, string DisplayName, UserRole Role)[] SeedUsers =
+    // Bộ tài khoản seed cố định (superadmin/admin/teamdev/user). Không còn mật khẩu VÀ KHÔNG còn vai trò:
+    // vai trò chỉ sống trong claim của phiên đăng nhập (xem AppUser). Chế độ IdentityServer đồng bộ user từ
+    // SSO và lấy vai trò từ role claim; chế độ Local tự đăng nhập bằng tài khoản có tên ở
+    // AuthenticationSettings.LocalUsername (mặc định "superadmin") với vai trò lấy từ
+    // AuthenticationSettings.LocalRole. Bốn tên dưới đây giữ nguyên để đổi LocalUsername là đổi được vai trò
+    // đang thử ở máy dev mà không phải tạo tài khoản.
+    private static readonly (string Username, string DisplayName)[] SeedUsers =
     {
-        ("superadmin", "Super Administrator", UserRole.SuperAdmin),
-        ("admin",      "Administrator",       UserRole.Admin),
-        ("teamdev",    "Team Developer",      UserRole.TeamDev),
-        ("user",       "User",                UserRole.User),
+        ("superadmin", "Super Administrator"),
+        ("admin",      "Administrator"),
+        ("teamdev",    "Team Developer"),
+        ("user",       "User"),
     };
 
-    // Seed bộ tài khoản cố định (admin/teamdev/user) nếu DB chưa có user nào.
+    // Seed bộ tài khoản cố định nếu DB chưa có user nào.
     private static async Task SeedUsersAsync(AppDbContext db)
     {
         if (await db.AppUsers.AnyAsync())
@@ -87,8 +90,7 @@ public static class DbInitializer
             db.AppUsers.Add(new AppUser
             {
                 Username = seed.Username,
-                DisplayName = seed.DisplayName,
-                Roles = { new AppUserRole { Role = seed.Role } }
+                DisplayName = seed.DisplayName
             });
         }
 

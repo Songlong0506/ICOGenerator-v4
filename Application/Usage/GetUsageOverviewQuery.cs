@@ -6,7 +6,7 @@ namespace ICOGenerator.Application.Usage;
 
 // PromptCost / CompletionCost: chi phí tách riêng phần input (prompt) và output (completion) để biểu đồ
 // "Tokens per month" xếp chồng theo trục $ (PromptCost + CompletionCost = Cost).
-public record MonthlyUsageItem(int Year, int Month, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal PromptCost, decimal CompletionCost, decimal Cost);
+public record MonthlyUsageItem(int Year, int Month, long PromptTokens, long CachedPromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal PromptCost, decimal CompletionCost, decimal Cost);
 
 // OrgUnitName: đơn vị (orgUnit) mà project gắn trực tiếp — KHÔNG roll-up lên phòng ban.
 // Project chưa gắn đơn vị → "(Chưa gắn đơn vị)".
@@ -21,7 +21,24 @@ public record DepartmentUsageItem(string? DepartmentCode, string DepartmentName,
 // view render chung một bảng, chỉ khác cách gom nhóm.
 public record OrgUnitUsageItem(string? OrgUnitCode, string OrgUnitName, int ProjectCount, long TotalTokens, int CallCount, decimal Cost);
 
-public record ModelUsageItem(string ModelId, long PromptTokens, long CompletionTokens, long TotalTokens, int CallCount, decimal InputPricePerMillionTokens, decimal OutputPricePerMillionTokens, bool HasPrice, decimal Cost);
+// CachedPromptTokens: phần PromptTokens được provider đọc lại từ cache (đã NẰM TRONG PromptTokens).
+// CacheHitPercent là thước đo đáng nhìn nhất của tối ưu prompt: prefix ổn định thì số này lên, chi phí xuống.
+// CachedInputPricePerMillionTokens = 0 ⇒ chưa khai báo giá cache ⇒ Cost tính phần cache theo giá input đầy đủ.
+public record ModelUsageItem(
+    string ModelId,
+    long PromptTokens,
+    long CachedPromptTokens,
+    long CompletionTokens,
+    long TotalTokens,
+    int CallCount,
+    decimal InputPricePerMillionTokens,
+    decimal CachedInputPricePerMillionTokens,
+    decimal OutputPricePerMillionTokens,
+    bool HasPrice,
+    decimal Cost)
+{
+    public double CacheHitPercent => PromptTokens <= 0 ? 0 : Math.Round(CachedPromptTokens * 100d / PromptTokens, 1);
+}
 
 // TotalTokens: chỉ dùng làm mẫu số cho các % ở bảng project/department. Các tổng khác (prompt/completion/
 // calls/cost, token & chi phí tháng hiện tại) từng có ở đây nhưng không section nào của view đọc tới — bỏ đi.
@@ -57,25 +74,26 @@ public class GetUsageOverviewQuery
         // ModelId. Cùng một ModelId có thể có nhiều bản ghi AiModel (khác endpoint) → gộp lại, lấy bản đầu.
         var priceByModelId = (await _db.AiModels
                 .AsNoTracking()
-                .Select(m => new { m.ModelId, m.InputPricePerMillionTokens, m.OutputPricePerMillionTokens })
+                .Select(m => new { m.ModelId, m.InputPricePerMillionTokens, m.CachedInputPricePerMillionTokens, m.OutputPricePerMillionTokens })
                 .ToListAsync())
             .GroupBy(m => m.ModelId)
             .ToDictionary(
                 g => g.Key ?? string.Empty,
-                g => (Input: g.First().InputPricePerMillionTokens, Output: g.First().OutputPricePerMillionTokens),
+                g => new LlmPrice(g.First().InputPricePerMillionTokens, g.First().CachedInputPricePerMillionTokens, g.First().OutputPricePerMillionTokens),
                 StringComparer.OrdinalIgnoreCase);
 
         // Quy token ra USD theo đơn giá của model (cùng công thức LlmCost mà BudgetGuard dùng → trần khớp số
         // hiển thị ở đây). Model không có giá (đã xóa / tự host để 0) → chi phí 0.
-        decimal CostFor(string? modelId, long prompt, long completion)
+        decimal CostFor(string? modelId, long prompt, long cached, long completion)
             => modelId != null && priceByModelId.TryGetValue(modelId, out var p)
-                ? LlmCost.Usd(prompt, completion, p.Input, p.Output)
+                ? LlmCost.Usd(prompt, cached, completion, p)
                 : 0m;
 
         // Chi phí chỉ tính riêng phần prompt / completion (dùng cho biểu đồ theo tháng, trục $).
-        // LlmCost.Usd tuyến tính & tách được nên PromptCostFor + CompletionCostFor == CostFor.
-        decimal PromptCostFor(string? modelId, long prompt) => CostFor(modelId, prompt, 0);
-        decimal CompletionCostFor(string? modelId, long completion) => CostFor(modelId, 0, completion);
+        // LlmCost.Usd tuyến tính & tách được nên PromptCostFor + CompletionCostFor == CostFor — kể cả khi
+        // phần cache có đơn giá riêng, vì cache chỉ chia nhỏ VẾ prompt chứ không đụng tới vế completion.
+        decimal PromptCostFor(string? modelId, long prompt, long cached) => CostFor(modelId, prompt, cached, 0);
+        decimal CompletionCostFor(string? modelId, long completion) => CostFor(modelId, 0, 0, completion);
 
         bool HasPrice(string? modelId)
             => modelId != null && priceByModelId.TryGetValue(modelId, out var p) && (p.Input > 0 || p.Output > 0);
@@ -109,6 +127,7 @@ public class GetUsageOverviewQuery
                 g.Key.Month,
                 g.Key.ModelId,
                 PromptTokens = g.Sum(x => (long)x.PromptTokens),
+                CachedPromptTokens = g.Sum(x => (long)x.CachedPromptTokens),
                 CompletionTokens = g.Sum(x => (long)x.CompletionTokens),
                 TotalTokens = g.Sum(x => (long)x.TotalTokens),
                 CallCount = g.Count(),
@@ -123,20 +142,23 @@ public class GetUsageOverviewQuery
             {
                 var modelId = g.Key.ModelId;
                 var promptTokens = g.Sum(x => x.PromptTokens);
+                var cachedPromptTokens = g.Sum(x => x.CachedPromptTokens);
                 var completionTokens = g.Sum(x => x.CompletionTokens);
                 var totalTokens = g.Sum(x => x.TotalTokens);
                 var callCount = g.Sum(x => x.CallCount);
-                var price = priceByModelId.TryGetValue(modelId ?? string.Empty, out var p) ? p : (Input: 0m, Output: 0m);
+                var price = priceByModelId.TryGetValue(modelId ?? string.Empty, out var p) ? p : default;
                 return new ModelUsageItem(
                     string.IsNullOrWhiteSpace(modelId) ? "(unknown)" : modelId,
                     promptTokens,
+                    cachedPromptTokens,
                     completionTokens,
                     totalTokens,
                     callCount,
                     price.Input,
+                    price.CachedInput,
                     price.Output,
                     HasPrice(modelId),
-                    CostFor(modelId, promptTokens, completionTokens));
+                    CostFor(modelId, promptTokens, cachedPromptTokens, completionTokens));
             })
             .OrderByDescending(x => x.Cost)
             .ThenByDescending(x => x.TotalTokens)
@@ -164,12 +186,13 @@ public class GetUsageOverviewQuery
             {
                 var month = firstMonth.AddMonths(offset);
                 var rows = logRaw.Where(x => x.Year == month.Year && x.Month == month.Month).ToList();
-                var promptCost = rows.Sum(x => PromptCostFor(x.ModelId, x.PromptTokens));
+                var promptCost = rows.Sum(x => PromptCostFor(x.ModelId, x.PromptTokens, x.CachedPromptTokens));
                 var completionCost = rows.Sum(x => CompletionCostFor(x.ModelId, x.CompletionTokens));
                 return new MonthlyUsageItem(
                     month.Year,
                     month.Month,
                     rows.Sum(x => x.PromptTokens),
+                    rows.Sum(x => x.CachedPromptTokens),
                     rows.Sum(x => x.CompletionTokens),
                     rows.Sum(x => x.TotalTokens),
                     rows.Sum(x => x.CallCount),
@@ -202,13 +225,13 @@ public class GetUsageOverviewQuery
                 g.Sum(x => x.TotalTokens),
                 g.Sum(x => x.CallCount),
                 g.Max(x => x.LastCalledAt),
-                g.Sum(x => CostFor(x.ModelId, x.PromptTokens, x.CompletionTokens))))
+                g.Sum(x => CostFor(x.ModelId, x.PromptTokens, x.CachedPromptTokens, x.CompletionTokens))))
             .OrderByDescending(x => x.TotalTokens)
             .ToList();
 
         // Chi phí đã quy đổi ở mức project + orgUnit — chung cho cả hai cách gom nhóm (phòng ban / đơn vị).
         var costRows = logRaw
-            .Select(x => (x.ProjectId, x.ProjectOrgUnitCode, x.TotalTokens, x.CallCount, Cost: CostFor(x.ModelId, x.PromptTokens, x.CompletionTokens)))
+            .Select(x => (x.ProjectId, x.ProjectOrgUnitCode, x.TotalTokens, x.CallCount, Cost: CostFor(x.ModelId, x.PromptTokens, x.CachedPromptTokens, x.CompletionTokens)))
             .ToList();
 
         // ----- Theo phòng ban: roll-up orgUnit con của project về department gần nhất -----

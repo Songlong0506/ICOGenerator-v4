@@ -468,6 +468,20 @@ public static class ChatExportBuilder
             }
         }
 
+        var reports = ConversationTurnRenderer.ParseReportMap(turn.ReportMap);
+        if (reports.Count > 0)
+        {
+            sb.AppendLine("> 📊 **Bảng báo cáo BA bày ra cho người dùng rà** (✗ = dòng bị bỏ tích):");
+            foreach (var row in reports)
+            {
+                sb.AppendLine($"> - {Mark(false, row.Included)}{OneLineSafe(row.Report)}"
+                    + (row.Question.Trim().Length > 0 ? $" — để {OneLineSafe(row.Question)}" : "")
+                    + (row.Source.Trim().Length > 0 ? $" [lấy số từ: {OneLineSafe(row.Source)}]" : "")
+                    + (row.Breakdown.Trim().Length > 0 ? $" [gộp/lọc: {OneLineSafe(row.Breakdown)}]" : "")
+                    + (row.AddedByUser ? " *(người dùng tự thêm)*" : ""));
+            }
+        }
+
         var notifications = ConversationTurnRenderer.ParseNotificationMap(turn.NotificationMap);
         if (notifications.Count > 0)
         {

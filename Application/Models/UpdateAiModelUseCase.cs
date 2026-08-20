@@ -35,6 +35,7 @@ public class UpdateAiModelUseCase
         model.ContextWindow = input.ContextWindow;
         model.InputPricePerMillionTokens = input.InputPricePerMillionTokens;
         model.OutputPricePerMillionTokens = input.OutputPricePerMillionTokens;
+        model.CachedInputPricePerMillionTokens = input.CachedInputPricePerMillionTokens;
         model.IsActive = input.IsActive;
         model.SupportsVision = input.SupportsVision;
         model.StructuredOutputMode = input.StructuredOutputMode;

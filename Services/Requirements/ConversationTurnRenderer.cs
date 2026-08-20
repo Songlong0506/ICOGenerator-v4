@@ -178,6 +178,10 @@ public static class ConversationTurnRenderer
     public static List<EntityMapRow> ParseEntityMap(string? entityMapJson)
         => EntityMapBuilder.Parse(entityMapJson);
 
+    /// <summary>Giải mã cột <see cref="AgentConversation.ReportMap"/> — như <see cref="ParsePermissionMatrix"/>.</summary>
+    public static List<ReportMapRow> ParseReportMap(string? reportMapJson)
+        => ReportMapBuilder.Parse(reportMapJson);
+
     /// <summary>Giải mã cột <see cref="AgentConversation.NotificationMap"/> — như <see cref="ParsePermissionMatrix"/>.</summary>
     public static List<NotificationMapRow> ParseNotificationMap(string? notificationMapJson)
         => NotificationMapBuilder.Parse(notificationMapJson);

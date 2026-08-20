@@ -13,7 +13,7 @@
 | Logging | **Serilog** (Console + File xoay ngày) | Cấu hình hoàn toàn qua `appsettings.json` |
 | Tracing/Metrics | **OpenTelemetry** (OTLP) | OPT-IN qua `Otel:Enabled`, mặc định tắt |
 | Test | **xUnit** (`tests/ICOGenerator.Tests`) | Chạy trên EF Sqlite — không cần SQL Server |
-| Auth | Cookie + **SSO OpenID Connect** (IdentityServer) hoặc **Local** (tự đăng nhập), phân quyền tự xây (`AppUserRole` + `RolePermission`) | Không dùng ASP.NET Identity; app **không lưu mật khẩu** |
+| Auth | Cookie + **SSO OpenID Connect** (IdentityServer) hoặc **Local** (tự đăng nhập), phân quyền tự xây (claim `ClaimTypes.Role` của phiên + `RolePermission`) | Không dùng ASP.NET Identity; app **không lưu mật khẩu, cũng không lưu vai trò** |
 
 Solution có 2 project: `ICOGenerator.csproj` (web app, ở root) và `tests/ICOGenerator.Tests/ICOGenerator.Tests.csproj`.
 
@@ -73,7 +73,7 @@ dotnet bin/Debug/net8.0/ICOGenerator.dll
 
 1. **Schema**: SqlServer → `MigrateAsync()` (chạy migrations); Sqlite → `EnsureCreatedAsync()` (dựng thẳng từ model, vì migration sinh ra là SQL-Server-specific).
 2. **Cứu task mồ côi**: task còn `Running` sau restart được re-queue (tối đa 3 lần thử — quá thì đánh `Failed` cả task lẫn run).
-3. **Seed users + vai trò** (khi bảng trống): `superadmin`, `admin`, `teamdev`, `user`, mỗi tài khoản kèm một dòng `AppUserRoles`. **Không có mật khẩu** — chế độ `Local` tự đăng nhập bằng `superadmin`, chế độ `IdentityServer` đồng bộ user từ SSO (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-provider-không-có-mật-khẩu-trong-app)).
+3. **Seed users** (khi bảng trống): `superadmin`, `admin`, `teamdev`, `user` — chỉ danh tính, **không kèm vai trò** (vai trò không nằm trong DB). **Không có mật khẩu** — chế độ `Local` tự đăng nhập bằng tài khoản `Authentication:LocalUsername` với vai trò `Authentication:LocalRole`, chế độ `IdentityServer` đồng bộ user từ SSO và lấy vai trò từ role claim (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-provider-không-có-mật-khẩu-trong-app)).
 4. **Seed ma trận quyền** (khi bảng trống): Admin = toàn bộ quyền (cấu hình được); TeamDev = mọi thứ trừ Settings/Roles; User = xem Projects/Requirements + gửi Feedback. SuperAdmin không cần dòng nào (implicit-all).
 5. **Seed OrgUnits/Associates** (dữ liệu tổ chức mẫu từ HR_Portal, chỉ khi trống).
 6. **Seed golden set Prompt Evals** (khi bảng `EvalScenarios` trống): bộ scenario mặc định phủ các prompt đánh-giá-được (xem `Data/EvalScenariosSeedData.cs`) — sửa/tắt thoải mái, không bị ghi đè ở lần khởi động sau.

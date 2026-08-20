@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using ICOGenerator.Configuration;
 using ICOGenerator.Data;
-using ICOGenerator.Domain.Enums;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -12,8 +11,9 @@ using Microsoft.EntityFrameworkCore;
 namespace ICOGenerator.Controllers;
 
 // Đăng nhập của app rẽ theo cờ Authentication:Provider (appsettings): 'IdentityServer' bắt buộc đăng nhập
-// SSO qua OpenID Connect; 'Local' KHÔNG có form username/password — tự đăng nhập bằng tài khoản Admin
-// seed sẵn. Đăng nhập/đăng xuất bằng mật khẩu tự viết đã bị bỏ (cùng với cột AppUser.PasswordHash).
+// SSO qua OpenID Connect; 'Local' KHÔNG có form username/password — tự đăng nhập bằng tài khoản seed sẵn
+// (Authentication:LocalUsername) với vai trò lấy từ Authentication:LocalRole. Đăng nhập/đăng xuất bằng mật
+// khẩu tự viết đã bị bỏ (cùng với cột AppUser.PasswordHash).
 public class AccountController : Controller
 {
     private readonly AuthenticationSettings _authSettings;
@@ -46,31 +46,42 @@ public class AccountController : Controller
         return await SignInLocalAdminAsync(returnUrl);
     }
 
-    // Đăng nhập cục bộ mặc định: phát cookie theo tài khoản SuperAdmin (nguồn của claim Name + Role, lái toàn
-    // bộ phân quyền y như luồng SSO). SuperAdmin có toàn quyền và không thể tự khóa, nên dev cục bộ luôn đủ
-    // quyền. DbInitializer.SeedUsersAsync tạo sẵn tài khoản 'superadmin' khi DB còn trống, nên chỉ cần lấy
-    // đúng role này. Gọi khi cookie LoginPath redirect người dùng chưa đăng nhập tới.
+    // Đăng nhập cục bộ mặc định: phát cookie theo tài khoản cấu hình ở Authentication:LocalUsername
+    // (mặc định 'superadmin', DbInitializer.SeedUsersAsync tạo sẵn khi DB còn trống). Vai trò KHÔNG tra từ
+    // DB — DB không lưu vai trò của ai cả — mà lấy thẳng từ Authentication:LocalRole (mặc định SuperAdmin,
+    // toàn quyền và không tự khóa được, nên dev cục bộ luôn đủ quyền). Đây là chỗ thay thế cho role claim của
+    // IdP ở chế độ không có IdP. Gọi khi cookie LoginPath redirect người dùng chưa đăng nhập tới.
     private async Task<IActionResult> SignInLocalAdminAsync(string? returnUrl)
     {
+        // Cấu hình để trống ⇒ dừng ngay: đi tiếp sẽ khớp phải một user tên rỗng hoặc phát cookie vô danh.
+        var configured = _authSettings.LocalUsername?.Trim();
+        if (string.IsNullOrEmpty(configured))
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                "Chưa cấu hình Authentication:LocalUsername để đăng nhập cục bộ.");
+
+        // So khớp không phân biệt hoa/thường như luồng SSO (Sqlite mặc định phân biệt, SQL Server thì không).
+        var lowered = configured.ToLower();
         var admin = await _db.AppUsers
             .AsNoTracking()
-            .Where(u => u.Roles.Any(r => r.Role == UserRole.SuperAdmin))
-            .OrderBy(u => u.CreatedAt) // deterministic nếu lỡ có nhiều hơn một SuperAdmin
-            .Select(u => new { u.Username, u.DisplayName, Roles = u.Roles.Select(r => r.Role).ToList() })
+            .Where(u => u.Username.ToLower() == lowered)
+            .OrderBy(u => u.CreatedAt) // deterministic nếu index unique bị mất ở install cũ
+            .Select(u => new { u.Username, u.DisplayName })
             .FirstOrDefaultAsync(HttpContext.RequestAborted);
 
-        // Không có tài khoản quản trị nào (DB rỗng bất thường) ⇒ báo lỗi rõ thay vì phát cookie trống.
+        // Không có tài khoản nào mang tên đó (DB rỗng bất thường / cấu hình sai) ⇒ báo lỗi rõ thay vì phát
+        // cookie trống, vì cookie trống sẽ biến thành AccessDenied ở mọi trang mà không nói vì sao.
         if (admin is null)
-            return StatusCode(StatusCodes.Status500InternalServerError, "Chưa có tài khoản quản trị để đăng nhập cục bộ.");
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                $"Không tìm thấy tài khoản '{configured}' để đăng nhập cục bộ (Authentication:LocalUsername).");
 
         var claims = new List<Claim>
         {
             new(ClaimTypes.Name, admin.Username),
             // Tên hiển thị cho UI (left menu…); tách khỏi claim Name vì Name là NTID lái quyền sở hữu.
-            new("display_name", string.IsNullOrWhiteSpace(admin.DisplayName) ? admin.Username : admin.DisplayName)
+            new("display_name", string.IsNullOrWhiteSpace(admin.DisplayName) ? admin.Username : admin.DisplayName),
+            // Vai trò của phiên: PermissionService đọc đúng các claim này (xem AppUser — không có bản sao DB).
+            new(ClaimTypes.Role, _authSettings.LocalRole.ToString())
         };
-        // Một claim Role cho MỖI vai trò: PermissionService lấy hợp quyền của tất cả (xem AppUserRole).
-        claims.AddRange(admin.Roles.Select(role => new Claim(ClaimTypes.Role, role.ToString())));
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 
         await HttpContext.SignInAsync(

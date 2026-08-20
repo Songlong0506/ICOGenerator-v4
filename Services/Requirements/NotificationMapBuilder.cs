@@ -14,8 +14,8 @@ namespace ICOGenerator.Services.Requirements;
 /// trạng thái của bảng đối tượng đã chốt (<see cref="SeedRows"/>) — người dùng vừa tự tay rà chúng, nên
 /// không có dòng nào phải hỏi lại "sự kiện này có thật không". Danh sách người nhận gieo từ các VAI TRÒ của
 /// bảng phân quyền đã chốt (<see cref="SeedRecipients"/>): vai trò của ứng dụng ĐANG THIẾT KẾ chỉ tồn tại
-/// trong hội thoại, không bảng nào trong DB liệt kê chúng (<c>AppUserRole</c> là vai trò của chính
-/// ICOGenerator, không liên quan).
+/// trong hội thoại, không bảng nào trong DB liệt kê chúng (vai trò của chính ICOGenerator cũng không nằm
+/// trong DB — chúng chỉ tồn tại trong claim của phiên đăng nhập — và dù có cũng không liên quan).
 /// </para>
 ///
 /// <para>

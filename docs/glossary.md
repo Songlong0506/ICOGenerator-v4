@@ -4,7 +4,7 @@
 |---|---|
 | **Agent** | Một "nhân sự AI" (bản ghi bảng `Agents`): vai + model + tools. Khác **AppUser** (người thật) |
 | **AgentRoleKey** | Vai của AI: BusinessAnalyst, TechLead, Developer, Tester, UiUx |
-| **UserRole** | Vai của người: Admin, TeamDev, User |
+| **UserRole** | Vai của người: SuperAdmin, Admin, TeamDev, User. **Không lưu ở DB** — chỉ tồn tại trong claim của phiên đăng nhập |
 | **Product Brief** | Tài liệu yêu cầu ngôn ngữ đời thường cho user duyệt (draft → V{n}) |
 | **AI Design Spec** | Bản đặc tả kỹ thuật sinh từ Product Brief đã duyệt — input của POC/Architecture |
 | **AC-n (câu nghiệm thu)** | Dòng "Hoàn thành khi: …" người dùng đã duyệt trong Product Brief, chép nguyên văn vào spec § 14 và là đích của bộ kịch bản UAT |

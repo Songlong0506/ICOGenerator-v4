@@ -80,6 +80,7 @@
                 <th>Model ID</th>
                 <th>Context Window</th>
                 <th>Input $/1M</th>
+                <th>Cached input $/1M</th>
                 <th>Output $/1M</th>
                 <th>Vision</th>
                 <th>Structured Output</th>
@@ -95,6 +96,18 @@
                     <td><b>@m.ModelId</b></td>
                     <td>@m.ContextWindow.ToString("N0")</td>
                     <td>@Price(m.InputPricePerMillionTokens)</td>
+                    @* Giá cache để 0 nghĩa là CHƯA KHAI BÁO — chi phí vẫn tính theo giá input đầy đủ (xem
+                       LlmPrice). Nói thẳng ra ở đây, vì "0" đọc nhầm thành "miễn phí" là hiểu ngược. *@
+                    <td>
+                        @if (m.CachedInputPricePerMillionTokens > 0)
+                        {
+                            <span>@Price(m.CachedInputPricePerMillionTokens)</span>
+                        }
+                        else
+                        {
+                            <span class="badge gray" title="Chưa khai báo giá cache — token đọc từ cache prompt vẫn được tính theo giá input đầy đủ, nên chi phí báo cáo có thể CAO hơn hóa đơn thật.">chưa khai báo</span>
+                        }
+                    </td>
                     <td>@Price(m.OutputPricePerMillionTokens)</td>
                     <td>
                         <span class="badge @(m.SupportsVision ? "green" : "gray")"
@@ -126,6 +139,7 @@
                                         '@JavaScriptEncoder.Default.Encode(m.Endpoint)',
                                         '@m.ContextWindow',
                                         '@PriceValue(m.InputPricePerMillionTokens)',
+                                        '@PriceValue(m.CachedInputPricePerMillionTokens)',
                                         '@PriceValue(m.OutputPricePerMillionTokens)',
                                         '@m.IsActive.ToString().ToLower()',
                                         '@m.SupportsVision.ToString().ToLower()',
@@ -180,6 +194,10 @@
 
         <label>Input price ($ / 1M tokens)</label>
         <input name="InputPricePerMillionTokens" type="number" step="0.001" min="0" value="0" />
+
+        <label>Cached input price ($ / 1M tokens)</label>
+        <input name="CachedInputPricePerMillionTokens" type="number" step="0.001" min="0" value="0" />
+        <small class="hint">Giá token prompt được provider đọc lại từ cache (OpenAI/DeepSeek rẻ hơn giá input ~10 lần). Để 0 nếu chưa biết — khi đó token cache vẫn tính theo giá input đầy đủ.</small>
 
         <label>Output price ($ / 1M tokens)</label>
         <input name="OutputPricePerMillionTokens" type="number" step="0.001" min="0" value="0" />
@@ -243,6 +261,10 @@
 
         <label>Input price ($ / 1M tokens)</label>
         <input id="edit-input-price" name="InputPricePerMillionTokens" type="number" step="0.001" min="0" />
+
+        <label>Cached input price ($ / 1M tokens)</label>
+        <input id="edit-cached-input-price" name="CachedInputPricePerMillionTokens" type="number" step="0.001" min="0" />
+        <small class="hint">Giá token prompt được provider đọc lại từ cache (OpenAI/DeepSeek rẻ hơn giá input ~10 lần). Để 0 nếu chưa biết — khi đó token cache vẫn tính theo giá input đầy đủ.</small>
 
         <label>Output price ($ / 1M tokens)</label>
         <input id="edit-output-price" name="OutputPricePerMillionTokens" type="number" step="0.001" min="0" />

@@ -149,6 +149,53 @@ public class ScreenScopeDriftTests
         Assert.Empty(ScreenScopeMapBuilder.NewScreens(null, new List<string> { "Trang Training Plan" }));
     }
 
+    // NỬA THỨ TƯ, và nó ở tầng cuối cùng: bảng bày lại phải SỐNG SÓT QUA F5. Trang Requirements dựng lại
+    // panel từ lượt hội thoại, nhưng điều kiện cũ là "Project.ScreenScopeMap còn null" — đúng cho ba bảng
+    // chốt-một-lần kia, sai cho đúng bảng này vì ở lượt bày lại cột đó đã khác null từ lần chốt trước. Ca
+    // thật: BA bày bảng bổ sung 8 màn hình, người dùng F5 rồi bảng biến mất, và không còn đường nào để gửi
+    // — các màn hình mới quay lại đúng chỗ cũ: một dòng TRẮNG trong bảng phân quyền.
+    [Fact]
+    public void PendingRows_KeepsTheReshownTable_AfterARefresh()
+    {
+        const string reshownTurn = """
+            [{"screen":"Trang Training Plan","purpose":"Lập kế hoạch cả năm",
+              "functions":[{"name":"Tạo version plan","flowSteps":["Tạo một version plan"],"included":true}],
+              "covers":["Tính năng Generate Training Implement từ Training Plan Detail"],"included":true},
+             {"screen":"Trang danh sách khóa học","purpose":"Quản lý khóa học","functions":[],"included":true}]
+            """;
+
+        var pending = ScreenScopeMapBuilder.PendingRows(ConfirmedScreens, reshownTurn);
+
+        Assert.Equal(2, pending.Count);
+        Assert.Contains(pending, r => r.Screen == "Trang danh sách khóa học");
+    }
+
+    // Vòng lặp có đáy: gửi xong thì mọi màn hình của bảng vừa bày đều nằm trong bản chốt — kể cả dòng người
+    // dùng BỎ TÍCH và mục khai gộp — nên panel tự đóng. Không có đáy này thì bảng ở lì trên màn hình sau
+    // khi đã được trả lời, đúng thứ luật "không hỏi lại điều đã trả lời" cấm.
+    [Fact]
+    public void PendingRows_ClosesThePanel_OnceThatTableHasBeenSubmitted()
+    {
+        const string renderedTurn = """
+            [{"screen":"Trang Training Plan","purpose":"","functions":[],"included":true},
+             {"screen":"Trang Master List","purpose":"","functions":[],"included":true}]
+            """;
+
+        Assert.Empty(ScreenScopeMapBuilder.PendingRows(ConfirmedScreens, renderedTurn));
+    }
+
+    // Lần bày ĐẦU giữ nguyên hành vi cũ: chưa chốt gì thì bảng treo tới lúc được gửi.
+    [Fact]
+    public void PendingRows_KeepsTheFirstTable_WhileNothingIsConfirmedYet()
+    {
+        const string firstTurn = """
+            [{"screen":"Trang Training Plan","purpose":"","functions":[],"included":true}]
+            """;
+
+        Assert.Single(ScreenScopeMapBuilder.PendingRows(null, firstTurn));
+        Assert.Empty(ScreenScopeMapBuilder.PendingRows(ConfirmedScreens, null));
+    }
+
     // NỬA THỨ BA của chốt chặn, và nó nằm ở chỗ người dùng thật sự nhìn: câu dẫn. Cơ chế đã làm đúng —
     // SeedRows giữ nguyên phần đã rà, NewScreens biết chính xác cái gì mới — nhưng nếu câu dẫn vẫn là lời
     // mời rà bảng như lần đầu thì với người dùng, một bảng màn hình hiện ra lần thứ hai đọc lên là "BA quên

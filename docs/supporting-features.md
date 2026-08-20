@@ -1,15 +1,19 @@
 # Các tính năng vệ tinh
 
 ## Notifications
-- **In-app (chuông)**: luôn chạy. `NotificationService` ghi bảng `Notifications` tại các sự kiện workflow (cổng chờ duyệt / hoàn tất / thất bại); client poll `GET /Notifications/Feed`.
+> ⚠️ **Đường GỬI đang tắt tạm thời** (`NotificationService.Enabled = false`): không dòng `Notifications` nào được ghi, không kênh ngoài nào được gọi. Lý do: cách chọn người nhận cũ lọc theo quyền `DeliveryAdvance`, mà quyền suy ra từ vai trò, còn vai trò nay chỉ tồn tại trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#phân-quyền-chiều-dọc--role--quyền-mức-hành-động)) — người cần được báo thì đang offline, không có phiên nào để đọc. Lựa chọn còn lại là gửi cho mọi user, tức làm phiền cả người không có quyền duyệt cổng, nên tạm im. **Bật lại** = đổi hằng số đó thành `true` SAU KHI đã có tiêu chí chọn người nhận không phụ thuộc vai trò. Phần đọc/đánh dấu đã đọc và trang Preferences vẫn chạy bình thường.
+
+Bộ máy bên dưới giữ nguyên, mô tả dưới đây là hành vi khi bật lại:
+
+- **In-app (chuông)**: `NotificationService` ghi bảng `Notifications` tại các sự kiện workflow (cổng chờ duyệt / hoàn tất / thất bại); client poll `GET /Notifications/Feed`.
 - **Kênh ngoài (Teams webhook, SMTP email, Bosch Email Server API)**: opt-in qua config, fail-open (lỗi gửi chỉ log warning, không gãy workflow). Kiến trúc plugin: hiện thực `INotificationChannel` mới + đăng ký DI là xong. `BoschEmailServerNotificationChannel` gửi qua Email Server API nội bộ (HTTP + header `ApiKey`, giống các app Bosch khác) — dùng khi hạ tầng chỉ mở API thay vì SMTP; kèm chốt an toàn `OnlySendToTesterEmail` lọc người nhận về danh sách tester cho môi trường non-prod.
 - **Tùy chọn theo user**: `/Notifications/Preferences` — bật/tắt kênh, chọn loại sự kiện, email cá nhân.
 
 ## Budget guard
-`IBudgetGuard` chặn **trước** mỗi lời gọi model khi tổng chi phí trong kỳ (`Monthly`/`Daily`/`Total`) chạm trần hệ thống hoặc trần mỗi-project. Chi phí tính y hệt trang Usage. Chỉ chính xác khi model khai báo đơn giá. Bản tổng chi phí được **cache 15 giây** (IMemoryCache) và query tổng đi qua index `AgentModelCallLogs(CreatedAt)` — một agent run 40 bước không còn quét bảng log 40 lần; đổi lại trần có thể bị vượt thêm đúng lượng chi tiêu của cửa sổ cache đó (chấp nhận được cho một chốt chặn đo theo kỳ).
+`IBudgetGuard` chặn **trước** mỗi lời gọi model khi tổng chi phí trong kỳ (`Monthly`/`Daily`/`Total`) chạm trần hệ thống hoặc trần mỗi-project. Chi phí tính y hệt trang Usage (cùng `LlmCost`, kể cả phần token đọc từ cache). Chỉ chính xác khi model khai báo đơn giá. Bản tổng chi phí được **cache 15 giây** (IMemoryCache) và query tổng đi qua index `AgentModelCallLogs(CreatedAt)` — một agent run 40 bước không còn quét bảng log 40 lần; đổi lại trần có thể bị vượt thêm đúng lượng chi tiêu của cửa sổ cache đó (chấp nhận được cho một chốt chặn đo theo kỳ).
 
 ## Usage & Delivery Quality
-- **Usage**: token & USD theo model/project/tháng, kèm "Usage by department" (roll-up `OrgUnitCode` về department gần nhất).
+- **Usage**: token & USD theo model/project/tháng, kèm "Usage by department" (roll-up `OrgUnitCode` về department gần nhất). Bảng "Cost by model" tách thêm cột **Cached prompt** (số token + % prompt được provider đọc lại từ cache) và đơn giá cache — xem [cached input](llm-and-prompts.md#cached-input-token-prompt-đọc-lại-từ-cache).
 - **Delivery Quality**: thông lượng pipeline, tỉ lệ rework (revision/bugfix), độ tin cậy model; có card trỏ sang Prompt Evals.
 
 ## Feedback

@@ -29,6 +29,7 @@ public class ModelCallLogger : IModelCallLogger
             ResponseText = callResult.ResponseText,
             ErrorMessage = callResult.ErrorMessage,
             PromptTokens = callResult.PromptTokens,
+            CachedPromptTokens = callResult.CachedPromptTokens,
             CompletionTokens = callResult.CompletionTokens,
             TotalTokens = callResult.TotalTokens,
             DurationMs = callResult.DurationMs,
