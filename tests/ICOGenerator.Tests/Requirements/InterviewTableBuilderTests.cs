@@ -477,27 +477,6 @@ public class InterviewTableBuilderTests
         Assert.Empty(ScreenScopeMapBuilder.UncoveredActions(rows, flowMap));
     }
 
-    // BẢN CŨ ĐỌC LẠI ĐƯỢC. Hồi cột chức năng còn là một ô text, dòng được lưu dạng "Functions": "Xem, Tạo"
-    // kèm "FlowSteps" ở cấp màn hình (và ở PascalCase, vì cột DB serialize bằng options mặc định).
-    // Deserialize thẳng thì kiểu không khớp ⇒ trả mảng rỗng ⇒ một dự án ĐÃ chốt bảng bỗng bị coi như chưa
-    // chốt: cổng bảng phân quyền mở lại và khối "bảng đã chốt" biến khỏi ngữ cảnh, tất cả trong im lặng.
-    [Fact]
-    public void ScreenScope_ParsesRowsWrittenBeforeFunctionsBecameRows()
-    {
-        const string legacy = """
-            [{"Screen":"Màn hình Training Plan","Purpose":"Lập kế hoạch",
-              "Functions":"Xem danh sách, Tạo version plan",
-              "FlowSteps":["Tạo một version plan"],"Included":true}]
-            """;
-
-        var row = Assert.Single(ScreenScopeMapBuilder.Parse(legacy));
-
-        Assert.Equal("Lập kế hoạch", row.Purpose);
-        Assert.Equal(new[] { "Xem danh sách", "Tạo version plan" }, row.Functions.Select(f => f.Name));
-        // Bước ở cấp màn hình gắn xuống chức năng đầu tiên: phép kiểm phủ bước so khớp trên cả bảng nên vị
-        // trí không đổi kết quả, thứ duy nhất phải giữ là đừng để nó rơi mất.
-        Assert.Equal("Tạo một version plan", Assert.Single(row.Functions[0].FlowSteps));
-    }
 
     private static ScreenFunction Fn(string name, params string[] steps)
         => new() { Name = name, Included = true, FlowSteps = steps.ToList() };
@@ -566,9 +545,9 @@ public class InterviewTableBuilderTests
         Assert.Contains("bảng cột", rows.Single().Fields.Single().Meaning);
     }
 
-    // Người nhận thông báo đã chuyển hẳn sang bảng THÔNG BÁO, nên khối ngữ cảnh của bảng đối tượng không
-    // được nhắc tới nó nữa — kể cả với dữ liệu cũ còn mang ô `notify`. Hai khối cùng nói về một quyết định
-    // là cách chắc chắn nhất để BA hỏi lại thứ người dùng vừa chốt ở bảng kia.
+    // Người nhận thông báo thuộc hẳn bảng THÔNG BÁO, nên khối ngữ cảnh của bảng đối tượng không được nhắc
+    // tới nó. Hai khối cùng nói về một quyết định là cách chắc chắn nhất để BA hỏi lại thứ người dùng vừa
+    // chốt ở bảng kia.
     [Fact]
     public void EntityMap_ConfirmedBlockNoLongerMentionsRecipients()
     {
@@ -582,7 +561,7 @@ public class InterviewTableBuilderTests
                 States = new List<EntityLifecycleState>
                 {
                     new() { State = "Nháp", EntryCondition = "vừa tạo" },
-                    new() { State = "Đã duyệt", EntryCondition = "quản lý duyệt", Notify = "người gửi" }
+                    new() { State = "Đã duyệt", EntryCondition = "quản lý duyệt" }
                 }
             }
         });

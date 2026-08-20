@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using ICOGenerator.Contracts.Requirements;
 
 namespace ICOGenerator.Services.Requirements;
@@ -216,17 +215,7 @@ public static class ScreenScopeMapBuilder
         return claimed;
     }
 
-    /// <summary>
-    /// Đọc JSON bảng màn hình đã lưu (cột DB hoặc payload client). null/rỗng/hỏng ⇒ mảng rỗng.
-    ///
-    /// <para>
-    /// Đọc qua <see cref="JsonNode"/> chứ không deserialize thẳng vì phải nuốt được BẢN CŨ: hồi cột chức
-    /// năng còn là một ô text, dòng được lưu dạng <c>"functions": "Xem, Tạo"</c> kèm <c>"flowSteps"</c> ở
-    /// cấp màn hình. Deserialize thẳng thì kiểu không khớp ⇒ ném ⇒ <c>catch</c> ⇒ trả mảng rỗng, và một dự
-    /// án ĐÃ chốt bảng bỗng bị coi như chưa chốt: cổng bảng phân quyền mở lại, khối "bảng đã chốt" biến khỏi
-    /// ngữ cảnh, tất cả trong im lặng. Nâng cấp tại chỗ rẻ hơn nhiều so với việc đi dò xem hỏng ở đâu.
-    /// </para>
-    /// </summary>
+    /// <summary>Đọc JSON bảng màn hình đã lưu (cột DB hoặc payload client). null/rỗng/hỏng ⇒ mảng rỗng.</summary>
     public static List<ScreenScopeRow> Parse(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -234,13 +223,8 @@ public static class ScreenScopeMapBuilder
 
         try
         {
-            if (JsonNode.Parse(json) is not JsonArray array)
-                return new List<ScreenScopeRow>();
-
-            foreach (var item in array.OfType<JsonObject>())
-                UpgradeLegacyRow(item);
-
-            var rows = array.Deserialize<List<ScreenScopeRow>>(ReadOptions) ?? new List<ScreenScopeRow>();
+            var rows = JsonSerializer.Deserialize<List<ScreenScopeRow>>(json, ReadOptions)
+                ?? new List<ScreenScopeRow>();
             return rows.Where(r => r != null && !string.IsNullOrWhiteSpace(r.Screen)).ToList();
         }
         catch
@@ -248,76 +232,6 @@ public static class ScreenScopeMapBuilder
             return new List<ScreenScopeRow>();
         }
     }
-
-    /// <summary>
-    /// Đưa MỘT dòng của bản cũ về hình dạng hiện tại: ô text chức năng thành các dòng con, và bước luồng ở
-    /// cấp màn hình gắn xuống chức năng ĐẦU TIÊN.
-    ///
-    /// <para>
-    /// Vì sao gắn vào chức năng đầu tiên chứ không rải đều: phép kiểm ở <see cref="UncoveredActions"/> so
-    /// khớp theo cụm CHỨA-NHAU trên toàn bộ bảng, nên bước nằm ở chức năng nào cũng cho cùng kết quả "đã có
-    /// người phụ trách" — thứ duy nhất phải giữ là đừng để nó rơi mất. Dòng cũ không có chức năng nào thì
-    /// bước rơi thật, và nó rơi ra ĐÚNG CHỖ ồn ào nhất: dòng nhắc "chưa màn hình nào phụ trách bước…" hiện
-    /// ngay dưới bảng để người dùng điền lại. Mất tiếng còn hơn mất im lặng.
-    /// </para>
-    /// </summary>
-    private static void UpgradeLegacyRow(JsonObject row)
-    {
-        var functionsKey = FindKey(row, "functions");
-        if (functionsKey != null && row[functionsKey] is JsonValue or JsonArray)
-        {
-            var upgraded = LegacyFunctions(row[functionsKey]);
-            if (upgraded != null)
-                row[functionsKey] = upgraded;
-        }
-
-        var stepsKey = FindKey(row, "flowSteps");
-        if (stepsKey == null)
-            return;
-
-        var steps = row[stepsKey] as JsonArray;
-        row.Remove(stepsKey);
-        if (steps == null || steps.Count == 0)
-            return;
-
-        if (row[functionsKey ?? "functions"] is not JsonArray functions || functions.FirstOrDefault() is not JsonObject first)
-            return;
-
-        var target = first[FindKey(first, "flowSteps") ?? "flowSteps"] as JsonArray;
-        if (target == null)
-        {
-            target = new JsonArray();
-            first["flowSteps"] = target;
-        }
-
-        foreach (var step in steps.OfType<JsonValue>().ToList())
-            target.Add(JsonValue.Create(step.ToString()));
-    }
-
-    /// <summary>Bản cũ của cột chức năng: một chuỗi ngăn bằng dấu phẩy, hoặc một mảng chuỗi. Đã đúng dạng ⇒ null.</summary>
-    private static JsonArray? LegacyFunctions(JsonNode? node)
-    {
-        var names = new List<string>();
-        switch (node)
-        {
-            case JsonValue value when value.TryGetValue<string>(out var text):
-                names.AddRange(text.Split(new[] { ',', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries));
-                break;
-            case JsonArray array when array.All(i => i is JsonValue):
-                names.AddRange(array.OfType<JsonValue>().Select(i => i.ToString()));
-                break;
-            default:
-                return null; // mảng object = đã đúng dạng hiện tại
-        }
-
-        var result = new JsonArray();
-        foreach (var name in names.Select(n => n.Trim()).Where(n => n.Length > 0))
-            result.Add(new JsonObject { ["name"] = name, ["included"] = true });
-        return result;
-    }
-
-    private static string? FindKey(JsonObject obj, string name)
-        => obj.Select(p => p.Key).FirstOrDefault(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Dự án này đã chốt bảng màn hình chưa.</summary>
     public static bool IsConfirmed(string? json) => Parse(json).Count > 0;
