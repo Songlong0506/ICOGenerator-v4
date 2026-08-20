@@ -1397,22 +1397,23 @@
     display: block;
 }
 
-    .suggestion-other-field > .suggestion-other-input:not(:placeholder-shown) {
-        border-color: var(--bosch-blue);
-    }
-
     .suggestion-other-field > .suggestion-other-input:hover {
         border-color: var(--bosch-blue-tint-strong);
     }
 
-    .suggestion-other-field > .suggestion-other-input:focus,
-    .suggestion-other-field > .suggestion-other-input:not(:placeholder-shown):hover {
-        border: 1px solid var(--bosch-blue);
+    /* Con trỏ ở trong ô ≠ đã chọn ô — cùng luật với ô "Ý khác" của thẻ hỏi gộp, xem chú thích dài ở
+       .batchq-other-field > .batchq-answer:focus. Focus mang viền nhạt + vòng sáng; xanh đậm để dành cho
+       ô ĐÃ CÓ CHỮ, nếu không thì bấm một đáp án rồi bấm vào ô là thấy hai thứ cùng xanh. */
+    .suggestion-other-field > .suggestion-other-input:focus {
+        border: 1px solid var(--line);
+        padding-bottom: 9px;
+        box-shadow: 0 0 0 3px var(--bosch-blue-tint-strong);
     }
 
-    .suggestion-other-field > .suggestion-other-input:focus {
-        padding-bottom: 9px;
-        box-shadow: 0 0 0 3px var(--bosch-blue-tint);
+    /* Đứng SAU khối focus để ô vừa có chữ vừa đang focus giữ viền xanh đậm (cùng độ ưu tiên ⇒ luật sau
+       thắng). */
+    .suggestion-other-field > .suggestion-other-input:not(:placeholder-shown) {
+        border: 1px solid var(--bosch-blue);
     }
 
 /* Nền của nhãn chính là chỗ "khoét" đường viền phía sau nó, nên nó phải là NỀN CỦA Ô (--surface), không
@@ -1430,7 +1431,7 @@
     pointer-events: none;
 }
 
-    .suggestion-other-input:focus + .suggestion-other-cap,
+    /* Nhãn xanh theo đúng luật của viền: chỉ khi ô ĐÃ CÓ CHỮ. */
     .suggestion-other-input:not(:placeholder-shown) + .suggestion-other-cap {
         color: var(--bosch-blue);
     }
@@ -1741,29 +1742,34 @@
         resize: none;
     }
 
-        /* Xanh = ĐANG chọn ô này: hoặc con trỏ đang ở trong ô, hoặc trong ô đã có chữ. `:placeholder-shown`
-           là cách đọc "ô còn rỗng" ngay trong CSS, khỏi cần JS gắn class theo từng phím gõ — và nếu markup
-           nào lỡ thiếu placeholder thì nó chỉ rơi về trạng thái xanh như trước, không mất viền. */
-        .batchq-other-field > .batchq-answer:not(:placeholder-shown) {
-            border-color: var(--bosch-blue, #2563eb);
-        }
-
         .batchq-other-field > .batchq-answer:hover {
             border-color: var(--bosch-blue-tint-strong, #cfe0fb);
         }
 
-        /* Viền xanh kín bốn cạnh + nhãn xanh đã là dấu hiệu focus rõ hơn hẳn một mảng nền đổi màu; thêm một
-           vòng sáng cho đủ, và vòng đó nằm NGOÀI viền nên không đụng tới chỗ khoét.
-           Cũng chặn luôn `border-bottom: 2px` + tụt `padding-bottom` của site.css: ô này bo tròn kín bốn
-           cạnh, dày mỗi cạnh đáy là lệch, và đổi padding lúc focus làm chữ nhảy một pixel. */
-        .batchq-other-field > .batchq-answer:focus,
-        .batchq-other-field > .batchq-answer:not(:placeholder-shown):hover {
-            border: 1px solid var(--bosch-blue, #2563eb);
+        /* CON TRỎ ĐANG Ở TRONG Ô ≠ ĐÃ CHỌN Ô. Đây là chỗ trước đây tự phá luật ngay bên trên: ô rỗng chỉ
+           mới được bấm vào đã mang đúng viền xanh đậm của lựa chọn, nên người vừa bấm một gợi ý rồi bấm
+           tiếp vào ô lại thấy HAI thứ cùng xanh — đúng cái nhập nhằng mà viền xám mặc định sinh ra để
+           tránh, chỉ dời sang một trạng thái khác. Focus vì vậy chỉ mang viền nhạt + vòng sáng ("con trỏ
+           ở đây"); xanh đậm để dành cho trạng thái ĐÃ CHỌN bên dưới. Dấu hiệu focus dồn hết vào VÒNG SÁNG
+           — đúng vòng `--focus-ring` mà cả site dùng — chứ không đổi màu viền: `--bosch-blue-tint-strong`
+           là màu 18% alpha, NHẠT hơn cả viền xám lúc nghỉ, nên tô nó lên viền vừa không nói được "đang
+           chọn" vừa làm ô trông mờ đi đúng lúc người dùng bấm vào.
+           Vẫn viết `border` dạng rút gọn để chặn `border-bottom: 2px` + tụt `padding-bottom` của site.css:
+           ô này bo tròn kín bốn cạnh, dày mỗi cạnh đáy là lệch, và đổi padding lúc focus làm chữ nhảy một
+           pixel. */
+        .batchq-other-field > .batchq-answer:focus {
+            border: 1px solid var(--line, #e5e7eb);
+            padding-bottom: 7px;
+            box-shadow: 0 0 0 3px var(--bosch-blue-tint-strong, #cfe0fb);
         }
 
-        .batchq-other-field > .batchq-answer:focus {
-            padding-bottom: 7px;
-            box-shadow: 0 0 0 3px var(--bosch-blue-tint, #eff6ff);
+        /* ĐÃ CHỌN ô = trong ô ĐÃ CÓ CHỮ. `:placeholder-shown` là cách đọc "ô còn rỗng" ngay trong CSS, khỏi
+           cần JS gắn class theo từng phím gõ — và nếu markup nào lỡ thiếu placeholder thì nó chỉ rơi về
+           trạng thái xanh như trước, không mất viền. Phải đứng SAU khối focus: cả hai cùng độ ưu tiên
+           (0,3,0) nên luật đứng sau thắng, nhờ đó ô vừa có chữ vừa đang focus giữ được viền xanh đậm (và
+           vẫn nhận vòng sáng của focus). Rút gọn `border` vì nó phải thắng `border` rút gọn ở trên. */
+        .batchq-other-field > .batchq-answer:not(:placeholder-shown) {
+            border: 1px solid var(--bosch-blue, #2563eb);
         }
 
 /* Nền trắng của nhãn chính là chỗ "khoét" đường viền phía sau nó. */
@@ -1782,7 +1788,8 @@
     pointer-events: none;
 }
 
-    .batchq-answer:focus + .batchq-other-cap,
+    /* Nhãn xanh theo đúng luật của viền: chỉ khi ô ĐÃ CÓ CHỮ. Cho nó xanh ngay lúc focus thì cái nhãn lại
+       tự nhận là "đang được chọn" thay cho viền vừa được sửa. */
     .batchq-answer:not(:placeholder-shown) + .batchq-other-cap {
         color: var(--bosch-blue, #2563eb);
     }
