@@ -72,7 +72,10 @@ public class InterviewTableGateTests
         """;
 
     private const string ConfirmedScreens = """
-        [{"screen":"Màn hình Training Plan","purpose":"Lập kế hoạch","functions":"Xem, Tạo","flowSteps":["Tạo kế hoạch quý"],"included":true}]
+        [{"screen":"Màn hình Training Plan","purpose":"Lập kế hoạch",
+          "functions":[{"name":"Xem","included":true},
+                       {"name":"Tạo","flowSteps":["Tạo kế hoạch quý"],"included":true}],
+          "included":true}]
         """;
 
     private const string ConfirmedEntities = """

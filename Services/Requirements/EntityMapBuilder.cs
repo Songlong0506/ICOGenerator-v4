@@ -497,9 +497,8 @@ public static class EntityMapBuilder
         return result;
     }
 
-    // Ô "báo cho ai" KHÔNG được kể ở đây nữa, kể cả với dữ liệu cũ còn mang nó (xem
-    // EntityLifecycleState.Notify): người nhận thông báo có bảng riêng, và hai khối ngữ cảnh cùng nói về
-    // một quyết định là cách chắc chắn nhất để BA hỏi lại thứ người dùng vừa chốt ở bảng kia.
+    // Ô "báo cho ai" KHÔNG có mặt ở đây: người nhận thông báo có bảng riêng, và hai khối ngữ cảnh cùng
+    // nói về một quyết định là cách chắc chắn nhất để BA hỏi lại thứ người dùng vừa chốt ở bảng kia.
     private static string RenderState(EntityLifecycleState state)
     {
         var entry = string.IsNullOrWhiteSpace(state.EntryCondition) ? string.Empty : $" khi {state.EntryCondition.Trim()}";
@@ -591,8 +590,7 @@ public static class EntityMapBuilder
             result.Add(new EntityLifecycleState
             {
                 State = name,
-                EntryCondition = Clip((state.EntryCondition ?? string.Empty).Trim(), MaxTextChars),
-                Notify = Clip((state.Notify ?? string.Empty).Trim(), MaxTextChars)
+                EntryCondition = Clip((state.EntryCondition ?? string.Empty).Trim(), MaxTextChars)
             });
 
             if (result.Count >= MaxStatesPerEntity)

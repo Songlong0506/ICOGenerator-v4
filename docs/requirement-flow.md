@@ -583,13 +583,11 @@ có gửi file — `EntityMapBuilder` vì vậy đánh dấu các thông tin tr�
 ra như đề xuất mới chờ duyệt lần hai (bắt duyệt lại đúng thứ họ vừa tự tay tích là hình dạng vòng lặp câu
 hỏi chết mà `CoverageDeadQuestionLoopTests` đã phải dựng lưới một lần).
 
-**Mỗi trạng thái ở đây là một DÒNG của bảng thông báo** ngay sau đó — đó là chỗ "ai được báo" được chốt.
-Bản trước để câu hỏi ấy thành một ô text cạnh từng trạng thái; ô đó đã gỡ, vì người nhận thật gần như luôn
-là một QUAN HỆ với bản ghi (*"người gửi đơn"*, *"sếp của người đó"*) chứ không phải một vai trò, mà muốn
-bày ra một danh sách quan hệ/vai trò ĐÓNG thì phải có bảng phân quyền đã chốt trước. Trường
-`EntityLifecycleState.Notify` vẫn còn trong contract nhưng chỉ làm đúng một việc: `NotificationMapBuilder.SeedRows`
-kéo nó qua thành giá trị điền sẵn cột To, để dự án đã chốt bảng đối tượng TRƯỚC khi bảng thông báo tồn tại
-không phải trả lời lại đúng câu họ đã trả lời.
+**Mỗi trạng thái ở đây là một DÒNG của bảng thông báo** ngay sau đó — đó là chỗ "ai được báo" được chốt, và
+bảng đối tượng **không** hỏi nó: người nhận thật gần như luôn là một QUAN HỆ với bản ghi (*"người gửi đơn"*,
+*"sếp của người đó"*) chứ không phải một vai trò, mà muốn bày ra một danh sách quan hệ/vai trò ĐÓNG thì phải
+có bảng phân quyền đã chốt trước. Vì vậy dòng `SeedRows` gieo ra có cột To/CC **rỗng**: một phỏng đoán điền
+sẵn ở đó là ký tên người dùng vào danh sách người nhận mà họ chưa chọn.
 
 Vòng đời một trạng thái bị cắt sạch (đối tượng vẫn giữ — nó là đối tượng danh mục): "vòng đời" một trạng
 thái là không có vòng đời, và giữ lại là mời người dùng xác nhận một điều vô nghĩa. Luật này chỉ áp ở lượt

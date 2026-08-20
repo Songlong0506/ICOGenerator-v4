@@ -57,21 +57,20 @@ public class NotificationMapBuilderTests
         Assert.Empty(NotificationMapBuilder.SeedRows(catalogOnly));
     }
 
-    // Ô "báo cho ai" của bản TRƯỚC (khi thông báo còn là một ô text cạnh từng trạng thái) được kéo qua
-    // thành giá trị điền sẵn: người dùng đã trả lời đúng câu đó rồi, chỉ khác là trả lời bằng cách gõ.
+    // Dòng gieo ra để cột To RỖNG: "ai được báo" là câu hỏi của chính bảng này, nên một phỏng đoán điền sẵn
+    // ở đây là ký tên người dùng vào danh sách người nhận mà họ chưa chọn.
     [Fact]
-    public void Build_CarriesTheLegacyNotifyColumnIntoTheToCell()
+    public void SeedRows_LeavesTheToCellEmpty()
     {
-        var legacy = """
+        var json = """
             [{"entity":"Đơn đăng ký","included":true,
-              "states":[{"state":"Chờ duyệt","entryCondition":"gửi đơn","notify":"Manager"},
-                        {"state":"Đã duyệt","entryCondition":"duyệt","notify":""}]}]
+              "states":[{"state":"Chờ duyệt","entryCondition":"gửi đơn"},
+                        {"state":"Đã duyệt","entryCondition":"duyệt"}]}]
             """;
 
-        var rows = NotificationMapBuilder.Build(null, NotificationMapBuilder.SeedRows(legacy), Options);
+        var rows = NotificationMapBuilder.Build(null, NotificationMapBuilder.SeedRows(json), Options);
 
-        Assert.Equal(new[] { "Manager" }, rows[0].To);
-        Assert.Empty(rows[1].To);
+        Assert.All(rows, r => Assert.Empty(r.To));
     }
 
     // Model chỉ nêu một sự kiện nó nhớ ⇒ hai sự kiện còn lại VẪN phải có mặt, ở trạng thái chưa chọn người
