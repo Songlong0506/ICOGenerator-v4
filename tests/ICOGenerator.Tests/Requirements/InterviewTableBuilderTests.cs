@@ -908,7 +908,7 @@ public class InterviewTableBuilderTests
             }
         });
 
-        Assert.Equal(new[] { "Màn hình quản lý danh mục OrgUnit" }, screens);
+        Assert.Equal(new[] { "OrgUnit Catalog" }, screens);
     }
 
     // Cùng một danh mục dùng ở nhiều đối tượng vẫn chỉ là MỘT màn hình — gieo hai lần là bắt người dùng rà
@@ -939,7 +939,7 @@ public class InterviewTableBuilderTests
             }
         });
 
-        Assert.Equal(new[] { "Màn hình quản lý danh mục OrgUnit" }, screens);
+        Assert.Equal(new[] { "OrgUnit Catalog" }, screens);
     }
 
     // Người dùng chỉ tích một ô nhỏ trong bảng này, nên bản kể phải NÓI RA rằng họ vừa đặt hàng thêm màn
@@ -955,6 +955,6 @@ public class InterviewTableBuilderTests
             Source = EntityFieldSource.App
         });
 
-        Assert.Contains("Màn hình quản lý danh mục OrgUnit", EntityMapBuilder.RenderUserMessage(rows));
+        Assert.Contains("OrgUnit Catalog", EntityMapBuilder.RenderUserMessage(rows));
     }
 }

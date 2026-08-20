@@ -702,7 +702,9 @@ public class BAChatService
                 screenScopeIntro
                 + "Trả về trường `screenScopeMap`: mỗi phần tử là MỘT MÀN HÌNH. Ràng buộc:\n"
                 + "- `screen` phải CHÉP ĐÚNG một mục trong danh sách phạm vi bên dưới — không thêm màn hình mới, "
-                + "không tự đặt tên khác. Mục nào bạn không nêu, hệ thống tự bổ sung vào bảng.\n"
+                + "không tự đặt tên khác, không dịch tên tiếng Anh sang tiếng Việt, không thêm chữ dẫn kiểu "
+                + "\"Màn hình …\"/\"… Screen\" (tên màn hình là nhãn menu của bản demo, và tên ngắn thì phép "
+                + "so khớp bù chỉ chạy khi bạn chép đúng). Mục nào bạn không nêu, hệ thống tự bổ sung vào bảng.\n"
                 + "- MỘT DÒNG = MỘT MÀN HÌNH, không phải một tính năng và không phải một luồng. Danh sách phạm "
                 + "vi bên dưới được chắt theo lượt nên hay lẫn cả ba loại: mục nào đọc lên là một CHỨC NĂNG "
                 + "(\"Tính năng Generate Training Implement từ Training Plan Detail\", \"Chỉnh sửa số lượng "

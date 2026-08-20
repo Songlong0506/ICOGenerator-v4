@@ -80,7 +80,7 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
 
         Assert.Equal(1, result.Rows);
         Assert.Equal(
-            new[] { ScreenList, ScreenCreate, "Màn hình quản lý danh mục OrgUnit" },
+            new[] { ScreenList, ScreenCreate, "OrgUnit Catalog" },
             InterviewOutlookService.ParseItems(await LoadPlannedScopeAsync()));
     }
 
@@ -110,7 +110,7 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
         await ExecuteAsync(table);
 
         Assert.Equal(
-            new[] { ScreenList, ScreenCreate, "Màn hình quản lý danh mục OrgUnit" },
+            new[] { ScreenList, ScreenCreate, "OrgUnit Catalog" },
             InterviewOutlookService.ParseItems(await LoadPlannedScopeAsync()));
     }
 
@@ -128,7 +128,7 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
         var project = await db.Projects.FirstAsync(p => p.Id == _projectId);
 
         Assert.Equal(InterviewTableKind.ScreenScope, InterviewTableGate.Select(project));
-        Assert.Contains("Màn hình quản lý danh mục OrgUnit", PermissionMatrixGate.EffectiveScreens(project));
+        Assert.Contains("OrgUnit Catalog", PermissionMatrixGate.EffectiveScreens(project));
         // Bảng màn hình chưa chốt ⇒ đây là lần bày ĐẦU, không phải lượt "BỔ SUNG BẢNG MÀN HÌNH ĐÃ CHỐT".
         Assert.False(ScreenScopeMapBuilder.IsConfirmed(project.ScreenScopeMap));
     }
