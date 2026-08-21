@@ -32,6 +32,17 @@ file chủ quản. Đây là luật giữ cho bộ tài liệu không quay lại
 | [contributing.md](contributing.md) | Công thức thêm tính năng/tool/bước pipeline/quyền, quy ước, cạm bẫy |
 | [glossary.md](glossary.md) | Từ điển thuật ngữ trong dự án |
 
+## Slide thuyết trình
+
+Nằm ở [`presentation/`](presentation/) — HTML tự chứa, mở thẳng bằng trình duyệt, mũi tên để chuyển slide,
+in ra PDF được. Slide chỉ **kể lại** cơ chế; nguồn chân lý vẫn là các file `.md` ở trên.
+
+| Deck | Trả lời câu hỏi |
+|---|---|
+| [ico-generator-v4-slides.html](presentation/ico-generator-v4-slides.html) | Cả sản phẩm làm được gì: 5 agent, pipeline ý tưởng → Pull Request, cổng duyệt, chi phí/chất lượng |
+| [ba-requirement-to-product-brief.html](presentation/ba-requirement-to-product-brief.html) | Riêng phía yêu cầu: BA khai thác thế nào và bằng cơ chế nào một buổi chat thành Product Brief đã duyệt — chi tiết ở [requirement-flow.md](requirement-flow.md) |
+| [ai-design-spec-to-poc.html](presentation/ai-design-spec-to-poc.html) | Riêng bước POC: từ AI Design Spec, một file `poc-demo.html` chạy được ra đời qua những bước nào và được máy kiểm bằng gì — chi tiết ở [workspace-and-poc.md](workspace-and-poc.md) + [delivery-pipeline.md](delivery-pipeline.md) |
+
 ## Sửa gì thì sửa ở đâu
 
 | Bạn vừa đổi | Cập nhật |
