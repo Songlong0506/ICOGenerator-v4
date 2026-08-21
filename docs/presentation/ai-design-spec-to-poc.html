@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Từ buổi phỏng vấn tới Product Brief — ICOGenerator v4</title>
+<style>
+  :root{
+    --bg:#0d141d;
+    --surface:#16202c;
+    --surface-2:#1c2836;
+    --line:#263444;
+    --text:#e8eef5;
+    --muted:#8fa1b3;
+    --ai:#43d6c0;
+    --ai-dim:rgba(67,214,192,.14);
+    --human:#f0b454;
+    --human-dim:rgba(240,180,84,.14);
+    --display:"Segoe UI Variable Display","Segoe UI",-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --body:"Segoe UI",-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --mono:"Cascadia Code",ui-monospace,"SF Mono",Consolas,"Liberation Mono",monospace;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--body);overflow:hidden;height:100%}
+  *{box-sizing:border-box}
+
+  #viewport{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg)}
+  #deck{width:1280px;height:720px;position:relative;flex:none}
+
+  .slide{
+    position:absolute;inset:0;padding:52px 84px 84px;
+    display:flex;flex-direction:column;
+    opacity:0;visibility:hidden;transition:opacity .35s ease;
+    background:
+      radial-gradient(1100px 600px at 85% -10%, rgba(67,214,192,.06), transparent 60%),
+      var(--bg);
+  }
+  .slide.on{opacity:1;visibility:visible}
+  @media (prefers-reduced-motion: reduce){ .slide{transition:none} }
+
+  .eyebrow{
+    font-family:var(--mono);font-size:14px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--ai);margin:0 0 16px;display:flex;align-items:center;gap:12px;
+  }
+  .eyebrow::before{content:"";width:26px;height:2px;background:var(--ai);flex:none}
+  .eyebrow.warm{color:var(--human)} .eyebrow.warm::before{background:var(--human)}
+
+  h1{font-family:var(--display);font-size:78px;line-height:1.04;font-weight:800;
+     letter-spacing:-0.02em;margin:0;text-wrap:balance}
+  h2{font-family:var(--display);font-size:42px;line-height:1.12;font-weight:800;
+     letter-spacing:-0.015em;margin:0 0 12px;text-wrap:balance;max-width:24ch}
+  h2.wide{max-width:34ch}
+  h2.sm{font-size:34px;margin-bottom:10px}
+  .lede{font-size:20px;line-height:1.55;color:var(--muted);margin:0 0 22px;max-width:66ch}
+  .lede.tight{margin-bottom:14px}
+  .lede strong{color:var(--text);font-weight:600}
+  .accent{color:var(--ai)}
+  .warmtext{color:var(--human)}
+
+  .foot{
+    position:absolute;left:84px;right:84px;bottom:28px;
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-family:var(--mono);font-size:12.5px;color:var(--muted);letter-spacing:.08em;
+  }
+  .foot .n{color:var(--text)}
+
+  /* ---------- title slide ---------- */
+  .title-slide{justify-content:center}
+  .title-sub{font-size:23px;line-height:1.5;color:var(--muted);max-width:50ch;margin:24px 0 0}
+  .title-sub strong{color:var(--text);font-weight:600}
+  .agent-row{display:flex;gap:10px;margin-top:40px;flex-wrap:wrap}
+  .agent-chip{
+    font-family:var(--mono);font-size:15px;padding:9px 16px;border:1px solid var(--line);
+    border-radius:999px;background:var(--surface);color:var(--text)
+  }
+  .agent-chip b{color:var(--ai);font-weight:600;margin-right:8px}
+  .hint{margin-top:44px;font-family:var(--mono);font-size:13px;color:var(--muted)}
+
+  /* ---------- generic building blocks ---------- */
+  .cols{display:grid;gap:18px;flex:1;align-content:start}
+  .cols.c2{grid-template-columns:1fr 1fr}
+  .cols.c3{grid-template-columns:1fr 1fr 1fr}
+
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:20px 22px;display:flex;flex-direction:column;gap:8px;min-width:0;
+  }
+  .card h3{font-family:var(--display);font-size:20px;font-weight:700;margin:0;letter-spacing:-.01em}
+  .card p{font-size:15.5px;line-height:1.5;color:var(--muted);margin:0}
+  .card p b{color:var(--text);font-weight:600}
+  .card .k{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ai)}
+  .card .k.warm{color:var(--human)}
+  .card.warm{border-color:rgba(240,180,84,.4)}
+
+  ul.big{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:16px}
+  ul.big li{display:flex;gap:16px;font-size:19px;line-height:1.5;max-width:80ch}
+  ul.big li::before{content:"";flex:none;width:9px;height:9px;border-radius:2px;background:var(--ai);margin-top:10px}
+  ul.big.warm li::before{background:var(--human)}
+  ul.big li b{font-weight:600}
+  ul.big li .mut{color:var(--muted)}
+
+  .feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 34px;flex:1;align-content:start}
+  .feature{display:flex;flex-direction:column;gap:4px;padding:13px 0 11px;border-top:1px solid var(--line)}
+  .feature h3{font-family:var(--display);font-size:19px;font-weight:700;margin:0}
+  .feature h3 .tick{color:var(--ai);margin-right:10px;font-family:var(--mono);font-weight:600}
+  .feature p{font-size:15px;line-height:1.45;color:var(--muted);margin:0}
+  .feature p b{color:var(--text);font-weight:600}
+
+  /* ---------- flow strip ---------- */
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 6px;margin-top:6px}
+  .stage{
+    display:flex;align-items:center;gap:9px;background:var(--surface);
+    border:1px solid var(--line);border-radius:9px;padding:11px 14px;
+    font-size:16.5px;font-weight:600;white-space:nowrap;
+  }
+  .stage .dot{width:8px;height:8px;border-radius:50%;background:var(--ai);flex:none}
+  .stage.start{background:transparent;border-style:dashed;font-weight:400;color:var(--muted)}
+  .stage.start .dot{background:var(--muted)}
+  .stage.final{border-color:var(--ai);background:var(--ai-dim)}
+  .stage.human{border-color:rgba(240,180,84,.5);background:var(--human-dim)}
+  .stage.human .dot{background:var(--human)}
+  .gate{
+    font-family:var(--mono);font-size:13px;color:var(--human);flex:none;
+    display:flex;align-items:center;gap:5px;padding:0 2px;
+  }
+  .gate::before{content:"◆";font-size:11px}
+  .arrow{color:var(--muted);font-size:17px;flex:none;opacity:.7}
+  .loop-note{
+    display:inline-flex;align-items:flex-start;gap:8px;margin-top:18px;
+    font-size:15.5px;line-height:1.5;color:var(--muted);background:var(--surface);border:1px solid var(--line);
+    border-radius:9px;padding:10px 16px;
+  }
+  .loop-note b{color:var(--text)}
+  .loop-note.warm{border-color:rgba(240,180,84,.35)}
+  .legend{display:flex;gap:28px;margin-top:14px;font-family:var(--mono);font-size:13px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:9px}
+  .legend .d-ai{width:9px;height:9px;border-radius:50%;background:var(--ai)}
+  .legend .d-h{color:var(--human);font-size:11px}
+  .legend .d-d{width:14px;height:0;border-top:2px dashed var(--human)}
+
+  /* ---------- rows (2 cột nhãn + mô tả) ---------- */
+  .tech-rows{display:flex;flex-direction:column;flex:1}
+  .tech-row{
+    display:grid;grid-template-columns:290px 1fr;gap:24px;align-items:baseline;
+    padding:12px 0;border-top:1px solid var(--line);
+  }
+  .tech-row .t{font-family:var(--mono);font-size:15px;color:var(--text);font-weight:600}
+  .tech-row .t.warm{color:var(--human)}
+  .tech-row .d{font-size:16px;line-height:1.45;color:var(--muted)}
+  .tech-row .d b{color:var(--text);font-weight:600}
+
+  /* ---------- diagram (inline SVG) ---------- */
+  .svg-wrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+  .svg-wrap svg{width:100%;height:100%}
+  .d-box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+  .d-box.ai{stroke:rgba(67,214,192,.55)}
+  .d-box.fill-ai{fill:var(--ai-dim);stroke:var(--ai)}
+  .d-box.human{fill:var(--human-dim);stroke:rgba(240,180,84,.75)}
+  .d-box.dash{fill:none;stroke:var(--line);stroke-dasharray:6 5}
+  .d-box.inner{fill:var(--surface-2);stroke:var(--line)}
+  .d-t{fill:var(--text);font-family:var(--body);font-size:14px;font-weight:600}
+  .d-s{fill:var(--muted);font-family:var(--body);font-size:12.5px;font-weight:400}
+  .d-k{fill:var(--ai);font-family:var(--mono);font-size:11.5px;letter-spacing:.14em}
+  .d-k.warm{fill:var(--human)}
+  .d-line{stroke:var(--muted);stroke-width:1.6;fill:none;opacity:.85}
+  .d-line.back{stroke:var(--human);stroke-dasharray:6 5;opacity:.9}
+
+  /* ---------- bản đồ bao phủ ---------- */
+  .cov{display:grid;grid-template-columns:1fr 1fr;gap:0 36px;align-content:start}
+  .cov-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:16px}
+  .pill{
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;padding:3px 0;border-radius:5px;
+    flex:none;width:112px;text-align:center;border:1px solid transparent;
+  }
+  .pill.ok{color:var(--ai);background:var(--ai-dim);border-color:rgba(67,214,192,.4)}
+  .pill.part{color:var(--human);background:var(--human-dim);border-color:rgba(240,180,84,.4)}
+  .pill.none{color:var(--muted);background:var(--surface);border-color:var(--line)}
+  .cov-note{margin-top:16px;font-size:15.5px;line-height:1.5;color:var(--muted)}
+  .cov-note b{color:var(--text)}
+
+  /* ---------- tài liệu mẫu ---------- */
+  .doc{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 24px;
+    display:flex;flex-direction:column;gap:9px;flex:1;
+  }
+  .doc-row{display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line)}
+  .doc-row:first-of-type{border-top:0}
+  .doc-row .h{font-family:var(--display);font-size:17.5px;font-weight:700}
+  .doc-row .h span{color:var(--ai);font-family:var(--mono);font-size:13px;margin-right:9px}
+  .doc-row .x{font-size:15px;line-height:1.45;color:var(--muted)}
+
+  /* ---------- closing ---------- */
+  .closing{justify-content:center;align-items:flex-start}
+  .closing h1{font-size:66px}
+  .closing .lede{font-size:22px;margin-top:22px}
+
+  /* ---------- HUD ---------- */
+  #bar{position:fixed;top:0;left:0;height:3px;background:var(--ai);width:0;z-index:10;transition:width .25s ease}
+  @media (prefers-reduced-motion: reduce){ #bar{transition:none} }
+  .zone{position:fixed;top:0;bottom:0;width:18%;z-index:5;cursor:pointer}
+  .zone:focus-visible{outline:2px solid var(--ai);outline-offset:-4px}
+  #zPrev{left:0}#zNext{right:0}
+
+  /* ---------- print: mỗi slide một trang ---------- */
+  @media print{
+    html,body{overflow:visible;background:#fff}
+    #viewport{position:static;display:block}
+    #deck{transform:none !important;width:1280px;height:auto;margin:0 auto}
+    .slide{position:relative;opacity:1;visibility:visible;height:720px;page-break-after:always;break-after:page}
+    #bar,.zone{display:none}
+  }
+
+  /* ---------- chồng cổng kiểm (slide 09) ---------- */
+  .stack{display:flex;flex-direction:column;gap:5px;flex:1;align-content:start}
+  .layer{
+    display:grid;grid-template-columns:26px 250px 1fr;gap:16px;align-items:center;
+    background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--ai);
+    border-radius:8px;padding:7px 16px;
+  }
+  .layer .lv{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .layer .ln{font-size:16px;font-weight:600}
+  .layer .ld{font-size:14.5px;line-height:1.4;color:var(--muted)}
+  .layer .ld b{color:var(--text);font-weight:600}
+  .layer.warm{border-left-color:var(--human)}
+  .layer.warm .ln{color:var(--human)}
+  .stack-head{display:grid;grid-template-columns:26px 250px 1fr;gap:16px;padding:0 16px 4px;
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+  /* ---------- thẻ tool (slide 07) ---------- */
+  .tool-rows{display:flex;flex-direction:column;gap:8px}
+  .tool-row{
+    display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:baseline;
+    background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:12px 18px;
+  }
+  .tool-row .t{font-family:var(--mono);font-size:15px;color:var(--ai);font-weight:600}
+  .tool-row .d{font-size:15.5px;line-height:1.45;color:var(--muted)}
+  .tool-row .d b{color:var(--text);font-weight:600}
+</style>
+</head>
+<body>
+
+<div id="viewport">
+  <div id="deck">
+
+    <!-- 01 · TITLE -->
+    <section class="slide title-slide on">
+      <p class="eyebrow">ICOGenerator v4 · Bước POC Preview</p>
+      <h1>Từ AI Design Spec<br>tới <span class="accent">bản demo chạy được</span></h1>
+      <p class="title-sub">Một lượt dựng POC không phải một lời gọi AI. Nó là bốn việc chuẩn bị,
+        một vòng agent ⇄ công cụ, và <strong>mười tầng kiểm chạy trong trình duyệt thật</strong>.</p>
+      <div class="agent-row">
+        <span class="agent-chip"><b>01</b>Chuẩn bị</span>
+        <span class="agent-chip"><b>02</b>Dựng qua nhiều call nhỏ</span>
+        <span class="agent-chip"><b>03</b>Tự soát</span>
+        <span class="agent-chip"><b>04</b>Sửa &amp; audit lại</span>
+        <span class="agent-chip"><b>05</b>File sạch</span>
+      </div>
+      <p class="hint">→ Dùng phím mũi tên hoặc bấm mép phải màn hình để chuyển slide</p>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">01</span> / 19</span></div>
+    </section>
+
+    <!-- 02 · SPEC LÀ ĐIỂM TỰA DUY NHẤT -->
+    <section class="slide">
+      <p class="eyebrow warm">Điểm xuất phát</p>
+      <h2 class="wide">Spec là đầu vào <span class="warmtext">duy nhất</span> của bước dựng POC</h2>
+      <p class="lede tight">Developer agent bị cấm đọc BRD/SRS/FSD và cấm sửa tài liệu yêu cầu. Hệ quả:
+        thứ gì rơi rụng ở biên Brief → Spec thì <strong>POC thiếu luôn</strong>, mà mọi cổng kiểm phía sau đều mù —
+        vì chúng chỉ so POC với spec.</p>
+      <div class="cols c2">
+        <div class="card">
+          <span class="k">Chốt 1</span>
+          <h3>Parity Brief ↔ Spec soát ba tầng</h3>
+          <p>Theo thứ tự "mất mát đắt dần": <b>màn hình</b> → <b>quy tắc nghiệp vụ</b> → <b>câu nghiệm thu</b>.
+            Rule bị mất là bản demo bấm được nhưng sai nghiệp vụ — đúng lớp lỗi mà audit POC không thể thấy.</p>
+          <p>Lệch ⇒ BA được sửa <b>đúng một vòng</b> kèm báo cáo lệch. Fail-open: vẫn lệch thì dùng bản tốt nhất đang có, không chặn pipeline.</p>
+        </div>
+        <div class="card warm">
+          <span class="k warm">Chốt 2</span>
+          <h3>Cổng xác nhận giả định</h3>
+          <p>Spec được phép tự quyết những điều Brief không nói — nhưng phải khai ở mục <b>§ 12 Assumptions</b>.
+            Có giả định nào thì pipeline <b>dừng lại</b> để người dùng rà trước.</p>
+          <p>Vì sao đặt ở đây chứ không sau POC: một giả định sai chỉ lộ ra khi xem demo là đã tốn trọn lượt dựng đắt nhất tuyến (5–15 phút), trong khi rà vài dòng chữ mất vài giây. Cổng chỉ hỏi phần <b>MỚI</b>, không hỏi lại điều đã gật.</p>
+        </div>
+      </div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">02</span> / 19</span></div>
+    </section>
+
+    <!-- 03 · DIAGRAM TỔNG THỂ -->
+    <section class="slide">
+      <p class="eyebrow">Toàn cảnh</p>
+      <h2 class="sm wide">Chuẩn bị → dựng qua nhiều call nhỏ → audit → sửa → file sạch</h2>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 1120 420" preserveAspectRatio="xMidYMid meet" role="img"
+             aria-label="Sơ đồ: AI Design Spec đi vào bốn việc chuẩn bị, rồi vòng dựng của Developer agent với bốn tool POC ghi ra poc-demo.html, rồi AuditPocContent với các tầng kiểm, còn issue thì quay lại sửa tối đa ba vòng, xong thì chụp bản V n và tới cổng duyệt POC">
+          <defs>
+            <marker id="ah2" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+              <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#8fa1b3"/>
+            </marker>
+            <marker id="ahw2" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+              <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#f0b454"/>
+            </marker>
+          </defs>
+
+          <text x="830" y="20" class="d-s" text-anchor="middle" fill="#f0b454">còn ISSUE ⇒ sửa rồi audit lại — tối đa 3 vòng</text>
+          <path d="M983 64 V32 H670 V56" class="d-line back" marker-end="url(#ahw2)"/>
+
+          <rect x="8" y="142" width="152" height="64" rx="9" class="d-box"/>
+          <text x="84" y="168" class="d-t" text-anchor="middle">AI Design Spec</text>
+          <text x="84" y="186" class="d-s" text-anchor="middle">giả định đã chốt</text>
+          <path d="M164 174 H181" class="d-line" marker-end="url(#ah2)"/>
+
+          <rect x="185" y="64" width="300" height="220" rx="14" class="d-box dash"/>
+          <text x="201" y="88" class="d-k">CHUẨN BỊ</text>
+          <rect x="200" y="100" width="270" height="34" rx="7" class="d-box inner"/>
+          <text x="335" y="122" class="d-t" text-anchor="middle">Sinh bộ kịch bản nghiệm thu</text>
+          <rect x="200" y="142" width="270" height="34" rx="7" class="d-box inner"/>
+          <text x="335" y="164" class="d-t" text-anchor="middle">Seed shell template</text>
+          <rect x="200" y="184" width="270" height="34" rx="7" class="d-box inner"/>
+          <text x="335" y="206" class="d-t" text-anchor="middle">Nạp spec + dữ liệu mẫu thật</text>
+          <rect x="200" y="226" width="270" height="34" rx="7" class="d-box inner"/>
+          <text x="335" y="248" class="d-t" text-anchor="middle">Cấp ngân sách bước</text>
+          <path d="M489 174 H521" class="d-line" marker-end="url(#ah2)"/>
+
+          <rect x="525" y="64" width="290" height="220" rx="14" class="d-box dash"/>
+          <text x="541" y="88" class="d-k">VÒNG DỰNG</text>
+          <rect x="545" y="100" width="250" height="46" rx="8" class="d-box ai"/>
+          <text x="670" y="128" class="d-t" text-anchor="middle">Developer agent</text>
+          <path d="M670 146 V156" class="d-line" marker-end="url(#ah2)"/>
+          <rect x="545" y="162" width="250" height="46" rx="8" class="d-box ai"/>
+          <text x="670" y="190" class="d-t" text-anchor="middle">4 tool POC</text>
+          <path d="M670 208 V218" class="d-line" marker-end="url(#ah2)"/>
+          <rect x="545" y="224" width="250" height="46" rx="8" class="d-box fill-ai"/>
+          <text x="670" y="245" class="d-t" text-anchor="middle">poc-demo.html</text>
+          <text x="670" y="262" class="d-s" text-anchor="middle">mỗi call ghi thẳng ra đĩa</text>
+          <path d="M819 174 H851" class="d-line" marker-end="url(#ah2)"/>
+
+          <rect x="855" y="64" width="257" height="220" rx="12" class="d-box ai"/>
+          <text x="871" y="88" class="d-k">AUDITPOCCONTENT</text>
+          <rect x="871" y="100" width="225" height="38" rx="7" class="d-box inner"/>
+          <text x="983" y="124" class="d-t" text-anchor="middle">Tĩnh + runtime</text>
+          <rect x="871" y="146" width="225" height="38" rx="7" class="d-box inner"/>
+          <text x="983" y="170" class="d-t" text-anchor="middle">Ba oracle độc lập</text>
+          <rect x="871" y="192" width="225" height="38" rx="7" class="d-box inner"/>
+          <text x="983" y="216" class="d-t" text-anchor="middle">Visual QA + hồi quy</text>
+          <text x="983" y="256" class="d-s" text-anchor="middle">báo cáo ISSUES cho agent</text>
+          <path d="M983 284 V326" class="d-line" marker-end="url(#ah2)"/>
+
+          <rect x="800" y="334" width="312" height="62" rx="10" class="d-box fill-ai"/>
+          <text x="956" y="358" class="d-t" text-anchor="middle">poc-demo.html — sạch ISSUE</text>
+          <text x="956" y="376" class="d-s" text-anchor="middle">đã kiểm bằng máy, không phải lời tự khai</text>
+          <path d="M796 365 H770" class="d-line" marker-end="url(#ah2)"/>
+          <rect x="555" y="334" width="210" height="62" rx="10" class="d-box"/>
+          <text x="660" y="358" class="d-t" text-anchor="middle">Chụp bản V{n}</text>
+          <text x="660" y="376" class="d-s" text-anchor="middle">giữ 10 vòng gần nhất</text>
+          <path d="M551 365 H525" class="d-line" marker-end="url(#ah2)"/>
+          <rect x="310" y="334" width="210" height="62" rx="10" class="d-box human"/>
+          <text x="415" y="358" class="d-t" text-anchor="middle">Cổng duyệt POC</text>
+          <text x="415" y="376" class="d-s" text-anchor="middle">trang POC Review</text>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><span class="d-ai"></span>Agent / máy làm — cả chặng này không cần người</span>
+        <span><span class="d-h">◆</span>Chỗ con người quyết định</span>
+        <span><span class="d-d"></span>Vòng sửa</span>
+      </div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">03</span> / 19</span></div>
+    </section>
+
+    <!-- 04 · SPEC MÁY ĐỌC ĐƯỢC -->
+    <section class="slide">
+      <p class="eyebrow">Đầu vào</p>
+      <h2 class="wide">Spec có 14 mục, nhưng bốn mục là hợp đồng máy đọc được</h2>
+      <p class="lede tight">Prompt của BA ghim sẵn <strong>hình dạng</strong> của bốn mục này, chính là để bộ đọc ở bước sau
+        chỉ cần một phép quét đơn giản mà không bao giờ phải đoán.</p>
+      <div class="tech-rows">
+        <div class="tech-row"><span class="t">§ 6. Screens To Generate</span><span class="d">Tên từng màn hình. POC phải có <b>đúng nhãn đó</b> ở menu và ở section — đặt tên khác đi là bị báo <b>thiếu màn hình</b>.</span></div>
+        <div class="tech-row"><span class="t">§ 10. Business Rules</span><span class="d">Mỗi rule một mã <b>BR-n</b>. POC phải có một assertion chạy được cho từng mã.</span></div>
+        <div class="tech-row"><span class="t">§ 13. Worked Examples</span><span class="d">Các <b>ví dụ tính thử người dùng đã chốt</b> trong buổi phỏng vấn — con số kỳ vọng nằm NGOÀI tầm agent.</span></div>
+        <div class="tech-row"><span class="t">§ 14. Acceptance Criteria</span><span class="d">Chép <b>nguyên văn</b> các dòng "Hoàn thành khi: …" người dùng đã duyệt ở Product Brief — không diễn đạt lại.</span></div>
+        <div class="tech-row"><span class="t warm">Các mục còn lại</span><span class="d">Mục tiêu, actor, phạm vi, điều hướng, phân quyền, hướng UI/UX, mô hình dữ liệu, API, giả định.</span></div>
+      </div>
+      <p class="loop-note">⇄&nbsp;<span>Bốn mục trên không chỉ để đọc: mỗi mục sau này biến thành <b>một cổng kiểm tất định</b> — độ phủ màn hình, self-test từng rule, oracle con số, và cổng nghiệm thu UAT.</span></p>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">04</span> / 19</span></div>
+    </section>
+
+    <!-- 05 · CHUẨN BỊ -->
+    <section class="slide">
+      <p class="eyebrow">Bước 1 · Chuẩn bị</p>
+      <h2 class="wide">Bốn việc chạy trước khi agent đặt bút</h2>
+      <div class="feature-grid">
+        <div class="feature"><h3><span class="tick">01</span>Sinh bộ kịch bản nghiệm thu TRƯỚC</h3><p>Trước đây bộ UAT sinh <b>sau</b> khi POC dựng xong, chỉ để người đọc — nghĩa là agent dựng POC mà không biết mình sẽ bị nghiệm thu bằng đường đi nào. Sinh trước biến nó từ tài liệu thành <b>đích</b>: nó vào thẳng prompt, và thành cổng đối chiếu độc lập.</p></div>
+        <div class="feature"><h3><span class="tick">02</span>Seed shell template</h3><p>Chép <b>poc-template.html</b> thành <b>04_Implementation/poc-demo.html</b>. Lượt <b>chỉnh sửa</b> thì bỏ qua hẳn bước này — re-seed sẽ ghi đè sản phẩm lần trước về placeholder.</p></div>
+        <div class="feature"><h3><span class="tick">03</span>Nạp chuẩn đối chiếu cho tool audit</h3><p>Spec của chính run này + <b>dữ liệu mẫu thật</b> bóc từ file người dùng đính kèm + bộ UAT. Không có bước này, audit chỉ soát được wiring nội bộ rồi báo "OK" trên một POC mới phủ nửa spec.</p></div>
+        <div class="feature"><h3><span class="tick">04</span>Cấp ngân sách bước theo số màn hình</h3><p><b>10 + 1,5 × số màn hình</b>, trần 30 — chỉ nới, không siết. Một con số cứng vừa cho spec ~10 màn sẽ làm spec 15 màn <b>cạn bước giữa chừng</b>, và audit báo thiếu màn hình mà không còn lượt nào để sửa.</p></div>
+      </div>
+      <p class="loop-note">⇄&nbsp;<span>Cả bốn việc chạy trong worker, <b>trước bất kỳ lời gọi model nào</b> của bước POC — và đều fail-open:
+        sinh kịch bản lỗi ⇒ bộ rỗng và mọi tầng UAT tự bỏ qua; spec không đọc được số màn hình ⇒ giữ nguyên ngân sách khai báo sẵn.</span></p>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">05</span> / 19</span></div>
+    </section>
+
+    <!-- 06 · SHELL TEMPLATE -->
+    <section class="slide">
+      <p class="eyebrow">Bước 2 · Cái khung</p>
+      <h2 class="wide">Agent chỉ điền hai vùng, phần còn lại của file là khung có sẵn</h2>
+      <div class="cols c2">
+        <div class="card">
+          <span class="k">Shell lo sẵn</span>
+          <h3>Thứ không dự án nào phải dựng lại</h3>
+          <p>Sidebar + topbar + breadcrumb, <b>điều hướng menu</b> (bắt click bằng delegation), toast cho mọi nút, hai popup User/Imprint, Bootstrap 5.3 đã theme màu, bộ icon.</p>
+          <p>Cộng một <b>engine CRUD không cần JS</b>: gắn vài thuộc tính <b>data-crud-*</b> lên bảng và form là có thêm/sửa/xóa thật, lưu localStorage.</p>
+          <p>Hai hook cho script nghiệp vụ: <b>pocToast()</b> và <b>pocNavigate()</b>.</p>
+        </div>
+        <div class="card">
+          <span class="k">Agent điền</span>
+          <h3>Hai vùng, đánh dấu bằng marker</h3>
+          <p><b>POC_CONTENT</b> — HTML tính năng: mỗi màn hình một <b>&lt;section class="page-view" data-view="NHÃN"&gt;</b>, cộng các modal.</p>
+          <p><b>POC_SCRIPT</b> — JavaScript thuần hiện thực nghiệp vụ.</p>
+          <p>Cả đường seed workspace lẫn đường agent ghi tại chỗ đều đi qua <b>một chỗ duy nhất</b> quản hai marker này — hai bên trôi khỏi nhau chính là nguyên nhân của lỗi "poc-demo.html y hệt template" ngày trước.</p>
+        </div>
+      </div>
+      <p class="loop-note">⇄&nbsp;<span>Nhãn menu và <b>data-view</b> phải TRÙNG nhau, và trùng nguyên văn tên màn hình ở <b>§ 6</b> của spec. Lệch một chữ là click menu chỉ đổi breadcrumb còn nội dung đứng yên — cổng kiểm bắt đúng chỗ đó.</span></p>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">06</span> / 19</span></div>
+    </section>
+
+    <!-- 07 · BỐN TOOL -->
+    <section class="slide">
+      <p class="eyebrow">Bước 3 · Dựng</p>
+      <h2 class="sm wide">Bốn công cụ, một trình tự bắt buộc</h2>
+      <div class="flow">
+        <span class="stage"><span class="dot"></span>SetPocContent</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>AppendPocContent × mỗi màn / modal</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>SetPocScript</span>
+        <span class="arrow">›</span>
+        <span class="stage final"><span class="dot"></span>AuditPocContent</span>
+      </div>
+      <div class="tool-rows" style="margin-top:20px">
+        <div class="tool-row"><span class="t">SetPocContent</span><span class="d">Đúng <b>một lần, đầu tiên</b>: tên ứng dụng + breadcrumb + menu sidebar + <b>chỉ màn hình đầu tiên</b>. Nó GHI ĐÈ cả vùng nội dung — gọi lại là xoá sạch những gì đã nối.</span></div>
+        <div class="tool-row"><span class="t">AppendPocContent</span><span class="d">Một call cho <b>mỗi</b> section và <b>mỗi</b> modal còn lại, nội dung được nối vào cuối vùng.</span></div>
+        <div class="tool-row"><span class="t">SetPocScript / Append</span><span class="d">JavaScript nghiệp vụ. Script dài thì gửi phần lõi rồi nối tiếp, <b>cắt theo ranh giới hàm</b>.</span></div>
+        <div class="tool-row"><span class="t">AuditPocContent</span><span class="d">Tự soát: mười tầng kiểm, trả về một báo cáo <b>ISSUES / WARNINGS / REGRESSIONS</b> — chi tiết ở các slide sau.</span></div>
+      </div>
+      <p class="loop-note">⇄&nbsp;<span>Vì sao chia nhỏ thay vì một lần ghi cả trang: mỗi lượt trả lời của model có <b>giới hạn token</b>, nhồi cả trang vào một call là bị cắt giữa chừng. Chia nhỏ còn có tác dụng thứ hai — <b>mỗi call ghi thẳng ra đĩa</b>, nên phần đã dựng vẫn còn nguyên kể cả khi agent chạm trần ngân sách bước.</span></p>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">07</span> / 19</span></div>
+    </section>
+
+    <!-- 08 · NGHIỆP VỤ PHẢI CHẠY -->
+    <section class="slide">
+      <p class="eyebrow">Bước 3 · Thước đo</p>
+      <h2 class="wide">POC chỉ đạt khi nó mô phỏng được nghiệp vụ, không phải khi có đủ màn hình</h2>
+      <div class="cols c2">
+        <div class="card">
+          <span class="k">Phải chạy thật</span>
+          <h3>Bấm được · tính được · đổi trạng thái được</h3>
+          <p><b>Công thức</b> do script tính từ dữ liệu đang hiển thị — tuyệt đối không hard-code con số dẫn xuất.</p>
+          <p><b>Ràng buộc</b> validate live khi nhập và chặn nút khi không hợp lệ.</p>
+          <p><b>Vòng đời trạng thái</b> chuyển thật trên UI khi bấm: đổi badge, khoá/mở control, cập nhật danh sách.</p>
+          <p><b>Nhiều vai</b> ⇒ mô phỏng đăng nhập: mỗi vai chỉ thấy menu và màn hình của mình.</p>
+        </div>
+        <div class="card">
+          <span class="k">Ba hàm bắt buộc</span>
+          <h3>Agent tự nộp bằng chứng chạy được</h3>
+          <p><b>pocSelfTest()</b> — mỗi BR-n một mục, <b>pass</b> tính bằng cách gọi chính hàm nghiệp vụ của POC, không được hard-code <b>true</b>.</p>
+          <p><b>pocWorkedExamples()</b> — mỗi WE-n một mục, chỉ nộp <b>con số POC tính ra</b>; kỳ vọng nằm ở phía hệ thống.</p>
+          <p><b>pocScenarios()</b> — mỗi luồng end-to-end một mục, đi qua <b>nhiều màn / nhiều vai</b> rồi kiểm trạng thái cuối.</p>
+        </div>
+      </div>
+      <p class="loop-note warm">◆&nbsp;<span>Cộng một luật về <b>dữ liệu mẫu</b>: seed bằng chính tên/danh mục/mã trong tài liệu người dùng gửi. Chức năng đúng mà dữ liệu bịa vẫn bị người xem demo đọc là "chưa hiểu nghiệp vụ" — lớp lỗi rẻ nhất để sửa nhưng đắt nhất về niềm tin.</span></p>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">08</span> / 19</span></div>
+    </section>
+
+    <!-- 09 · CHỒNG CỔNG KIỂM -->
+    <section class="slide">
+      <p class="eyebrow">Bước 4 · Tự soát</p>
+      <h2 class="sm wide" style="max-width:48ch">Một lời gọi AuditPocContent = mười tầng kiểm</h2>
+      <div class="stack-head"><span></span><span>Tầng</span><span>Bắt được lớp lỗi mà các tầng trên nó không thấy</span></div>
+      <div class="stack">
+        <div class="layer"><span class="lv">01</span><span class="ln">Wiring tĩnh</span><span class="ld">Menu không có section · id trùng · nút mở hộp thoại trỏ vào id không tồn tại · bảng CRUD lệch tên trường với form · <b>script rỗng</b></span></div>
+        <div class="layer"><span class="lv">02</span><span class="ln">Độ phủ spec</span><span class="ld">Màn hình có trong <b>§ 6</b> mà POC không có — "wiring đúng" trên một POC mới phủ nửa spec</span></div>
+        <div class="layer"><span class="lv">03</span><span class="ln">Dữ liệu &amp; ngôn ngữ</span><span class="ld">Demo bằng <b>"Nguyễn Văn A"</b> trong khi đã có tài liệu thật để dùng · spec tiếng Việt mà UI không một dấu</span></div>
+        <div class="layer"><span class="lv">04</span><span class="ln">Runtime — mở thật</span><span class="ld">Một <b>TypeError</b> giết cả trang nhưng markup vẫn "đúng" · màn hình trống trơn · tràn ngang ở 1440px</span></div>
+        <div class="layer"><span class="lv">05</span><span class="ln">Runtime — assertion</span><span class="ld">Chạy <b>pocSelfTest()</b> và <b>pocScenarios()</b> trong trình duyệt: rule fail thành ISSUE cụ thể thay vì lời tự khai</span></div>
+        <div class="layer"><span class="lv">06</span><span class="ln">Oracle · con số</span><span class="ld">So <b>WE-n</b> người dùng đã chốt với số POC tự tính — sai công thức là lộ ngay, vì kỳ vọng agent không đặt được</span></div>
+        <div class="layer"><span class="lv">07</span><span class="ln">Oracle · nghiệm thu</span><span class="ld">Mỗi kịch bản UAT phải có mục PASS, và hệ thống <b>lái thật bằng click</b> · bấm thật từng mục menu</span></div>
+        <div class="layer"><span class="lv">08</span><span class="ln">Oracle · chéo màn</span><span class="ld">Cùng một bản ghi hiện ở hai màn với con số khác nhau — mỗi màn xét riêng thì màn nào cũng hợp lệ</span></div>
+        <div class="layer"><span class="lv">09</span><span class="ln">Visual QA</span><span class="ld">Ảnh từng màn cho agent UI/UX có vision chấm: bố cục vỡ, bảng tràn, màn trống — thứ chữ nghĩa không tả được</span></div>
+        <div class="layer warm"><span class="lv">10</span><span class="ln">Hồi quy</span><span class="ld">Mục từng PASS ở vòng trước mà nay FAIL <b>hoặc biến mất</b> — bản sửa vừa rồi làm gãy thứ đang chạy</span></div>
+      </div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">09</span> / 19</span></div>
+    </section>
+
+    <!-- 10 · TẦNG TĨNH -->
+    <section class="slide">
+      <p class="eyebrow">Tầng 1–3</p>
+      <h2 class="wide">Tầng tĩnh: quét chuỗi, bắt đúng những khuyết tật làm demo "trông như hỏng"</h2>
+      <p class="lede tight">Markup ở đây là <strong>do máy sinh theo khuôn</strong> (shell template + section Bootstrap), nên một phép quét chuỗi là đủ —
+        không đáng kéo về một bộ parse HTML.</p>
+      <div class="tech-rows">
+        <div class="tech-row"><span class="t">Menu ↔ section</span><span class="d">Mục menu không có section cùng nhãn ⇒ <b>click vào không đổi gì</b>. Đây là khiếu nại số một của mọi bản demo bị chê "chết".</span></div>
+        <div class="tech-row"><span class="t">id &amp; hộp thoại</span><span class="d">id trùng nhau, hoặc nút mở trỏ vào một id <b>không tồn tại</b> ⇒ hộp thoại không bao giờ mở được.</span></div>
+        <div class="tech-row"><span class="t">CRUD nửa vời</span><span class="d">Bảng khai <b>data-field</b> mà form không có control cùng <b>name</b> ⇒ lưu xong ô đó rỗng; bảng CRUD không có form ⇒ nút Thêm/Sửa không lưu được.</span></div>
+        <div class="tech-row"><span class="t">Script rỗng</span><span class="d">Spec có business rule mà vùng script trống ⇒ đây là <b>bộ màn hình tĩnh</b>, không phải POC.</span></div>
+        <div class="tech-row"><span class="t">Độ phủ § 6</span><span class="d">Đối chiếu từng tên màn hình của spec với menu + section của POC.</span></div>
+        <div class="tech-row"><span class="t">Dữ liệu &amp; ngôn ngữ</span><span class="d">Ba phép quét <b>cố tình dè dặt</b>, chỉ báo ISSUE khi bằng chứng rõ ràng: không dùng gì từ tài liệu · placeholder kinh điển · UI không đúng ngôn ngữ spec.</span></div>
+      </div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">10</span> / 19</span></div>
+    </section>
+
+    <!-- 11 · TẦNG RUNTIME -->
+    <section class="slide">
+      <p class="eyebrow">Tầng 4–5</p>
+      <h2 class="wide">Tầng runtime: mở file thật trong Chromium headless</h2>
+      <div class="feature-grid">
+        <div class="feature"><h3><span class="tick">01</span>Gom lỗi JS thật</h3><p>Exception chưa bắt + console error. Một <b>TypeError</b> làm chết toàn bộ tương tác nhưng audit tĩnh vẫn báo "OK".</p></div>
+        <div class="feature"><h3><span class="tick">02</span>Đi qua từng màn ở 1440×900</h3><p>Bằng chính cơ chế điều hướng của shell. Đo luôn <b>độ đầy</b> của màn: mở được mà không có phần tử nội dung nào cũng là ISSUE.</p></div>
+        <div class="feature"><h3><span class="tick">03</span>Chạy assertion của agent</h3><p><b>pocSelfTest()</b> từng rule và <b>pocScenarios()</b> từng luồng — fail thành ISSUE cụ thể. Cấm sửa assertion cho pass giả; phải sửa logic.</p></div>
+        <div class="feature"><h3><span class="tick">04</span>Bấm THẬT từng mục menu</h3><p>Lượt đi màn hình ở trên gọi hàm điều hướng bằng JS nên nó <b>mù</b> với lỗi "click menu chết" — script nghiệp vụ dựng lại sidebar làm mất handler của shell. Người xem thấy breadcrumb đổi mà nội dung đứng yên.</p></div>
+        <div class="feature"><h3><span class="tick">05</span>Mở lại toàn bộ ở 390px</h3><p>Bề rộng điện thoại. Tràn ngang ở bề rộng nào cũng là ISSUE — người được gửi link demo rất hay mở trên điện thoại.</p></div>
+        <div class="feature"><h3><span class="tick">06</span>Fail-open toàn phần</h3><p>Máy không có Chromium ⇒ ghi <b>SKIPPED</b> kèm đúng lệnh cài, phần tĩnh chạy như thường. Một lỗi hạ tầng browser không được làm hỏng lượt audit của agent.</p></div>
+      </div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">11</span> / 19</span></div>
+    </section>
+
+    <!-- 12 · BA ORACLE -->
+    <section class="slide">
+      <p class="eyebrow warm">Tầng 6–8</p>
+      <h2 class="wide">Ba oracle <span class="warmtext">độc lập</span> — vì mọi assertion khác đều do chính agent viết</h2>
+      <p class="lede tight">Đây là điểm mấu chốt của cả thiết kế: <strong>pocSelfTest pass đúng những gì agent đã hiểu — kể cả khi nó hiểu sai</strong>.
+        Ba tầng dưới đây lấy chuẩn từ <strong>ngoài tầm agent</strong>.</p>
+      <div class="cols c3">
+        <div class="card warm"><span class="k warm">Con số</span><h3>Worked Examples</h3><p>Kỳ vọng là con số <b>người dùng đã chốt</b> trong buổi phỏng vấn và hệ thống giữ sẵn. Agent chỉ nộp con số POC tính ra từ đầu vào của ví dụ đó.</p><p>Sai công thức ⇒ hai con số lệch nhau ⇒ ISSUE, kèm lệnh <b>sửa logic, đừng sửa kỳ vọng</b>.</p></div>
+        <div class="card warm"><span class="k warm">Hành trình</span><h3>Kịch bản nghiệm thu</h3><p>Do BA sinh từ spec <b>trước khi</b> POC tồn tại, và chính là thứ người dùng sẽ bấm thử. Hai lớp: mỗi kịch bản phải có mục PASS, và hệ thống <b>lái thật</b> — tìm nút theo nhãn ghi trong bước rồi click.</p><p>Chỉ kết luận hai khuyết tật không thể chối cãi: <b>nhãn không tồn tại</b>, và <b>bấm mà màn hình không đổi gì</b>.</p></div>
+        <div class="card warm"><span class="k warm">Nhất quán</span><h3>Đối chiếu chéo màn hình</h3><p>Đọc các bảng dữ liệu của từng màn rồi so: cùng một bản ghi, cùng một cột, hai màn hai giá trị.</p><p>Mọi cổng khác đều mù ở đây vì cổng nào cũng xét <b>từng màn riêng</b> — còn người xem demo thì thấy ngay.</p></div>
+      </div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">12</span> / 19</span></div>
+    </section>
+
+    <!-- 13 · VISUAL QA -->
+    <section class="slide">
+      <p class="eyebrow">Tầng 9</p>
+      <h2 class="wide">Visual QA: một agent UI/UX nhìn ảnh chụp và chấm</h2>
+      <p class="lede tight">Lớp khiếm khuyết mà <strong>cả quét chuỗi lẫn self-test đều mù</strong>: một màn hình trống trơn, layout vỡ,
+        bảng tràn ra ngoài, chữ sai ngôn ngữ — tất cả vẫn pass mọi kiểm tra hiện có.</p>
+      <div class="cols c3">
+        <div class="card"><span class="k">Đầu vào</span><h3>Ảnh từng màn + ảnh trạng thái mở</h3><p>Runtime checker chụp mỗi màn hình một ảnh, và còn <b>mở một hộp thoại</b> của màn đó rồi chụp tiếp — bố cục hỏng hay gặp nhất nằm trong modal, thứ mà ảnh màn tĩnh không bao giờ thấy.</p></div>
+        <div class="card"><span class="k">Người chấm</span><h3>Agent UI/UX có vision</h3><p>Chấm bố cục và dữ liệu mẫu theo spec gốc. Kết quả nối vào báo cáo audit như ISSUES/WARNINGS bình thường để Developer sửa <b>trong cùng vòng lặp</b>.</p></div>
+        <div class="card"><span class="k">Ranh giới</span><h3>Không bao giờ chặn</h3><p>Chưa cấu hình agent UI/UX, model không có vision, tắt qua cấu hình, hoặc không chụp được ảnh nào ⇒ <b>SKIPPED</b>, audit chạy phần còn lại như trước. Cũng chỉ chụp ảnh khi tầng này thật sự chạy được — không thì khỏi tốn.</p></div>
+      </div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">13</span> / 19</span></div>
+    </section>
+
+    <!-- 14 · HỒI QUY -->
+    <section class="slide">
+      <p class="eyebrow warm">Tầng 10</p>
+      <h2 class="wide">Chống hồi quy: bản sửa vòng này có làm gãy thứ đang chạy không</h2>
+      <p class="lede tight">Không có tầng này thì một bản sửa làm gãy thứ đang chạy <strong>vẫn trông như đang khá lên</strong> —
+        cả agent lẫn người review đều chỉ nhìn thấy vòng cuối.</p>
+      <ul class="big warm">
+        <li><span><b>Kết quả mỗi vòng kiểm được ghi lại.</b> <span class="mut">Một file giữ vòng mới nhất, các vòng cũ rơi vào file lịch sử — nên vòng sau luôn có cái để so.</span></span></li>
+        <li><span><b>Mục từng PASS mà nay FAIL <em>hoặc biến mất</em> đều bị tính là hồi quy.</b> <span class="mut">Vế "biến mất" là chủ ý: xoá một assertion đi cũng bị báo, nếu không thì cách rẻ nhất để "sửa" một rule fail là xoá nó.</span></span></li>
+        <li><span><b>Hồi quy có ưu tiên cao nhất trong báo cáo.</b> <span class="mut">Một bản POC lùi lại còn tệ hơn bản còn issue cũ.</span></span></li>
+        <li><span><b>Dựng POC lại từ đầu thì xoá cả lịch sử.</b> <span class="mut">So với kết quả kiểm của một bản POC không còn tồn tại chỉ tạo ra báo động giả.</span></span></li>
+      </ul>
+      <p class="loop-note">⇄&nbsp;<span>Cùng bản ghi đó còn phục vụ người: trang POC Review có panel <b>"máy đã tự kiểm"</b> — rule / ví dụ / kịch bản nào đã xác nhận pass, và issue nào còn lại nếu agent hết vòng sửa mà chưa sạch.</span></p>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">14</span> / 19</span></div>
+    </section>
+
+    <!-- 15 · VÒNG SỬA -->
+    <section class="slide">
+      <p class="eyebrow">Bước 5 · Sửa</p>
+      <h2 class="wide">Vòng sửa có trần, và cạn ngân sách thì báo hỏng chứ không báo xong</h2>
+      <div class="cols c2">
+        <div class="card">
+          <span class="k">Vòng audit</span>
+          <h3>Tối đa 3 vòng</h3>
+          <p>Mỗi vòng: đọc báo cáo → sửa <b>mọi mục trong ISSUES</b> (thiếu section thì nối thêm, logic sai thì ghi lại script, chữ nhỏ thì thay tại chỗ) → audit lại. WARNINGS thì tự cân nhắc.</p>
+          <p>Vòng cuối vẫn còn issue không xử lý được ⇒ phải <b>nêu rõ trong câu trả lời cuối</b>, không được im lặng.</p>
+          <p>Audit sạch ⇒ trả kết quả <b>ngay</b>: không gọi thêm tool, không đọc lại file.</p>
+        </div>
+        <div class="card warm">
+          <span class="k warm">Ngân sách bước</span>
+          <h3>Chạm trần = task Failed</h3>
+          <p>Agent đạt giới hạn số bước mà chưa dựng được POC ⇒ đánh dấu <b>hỏng, nói rõ lý do</b>, chứ không ghi nhận Completed sai lệch — người duyệt mở ra thấy một bản demo dở dang mà hệ thống báo "xong" là mất niềm tin vào mọi con số khác.</p>
+          <p>Phần đã dựng vẫn nằm trên đĩa (mỗi call ghi thẳng), nên chạy lại không mất trắng.</p>
+          <p>Ngoài ra mỗi cổng còn <b>3 vòng "Yêu cầu chỉnh sửa"</b> của con người — vòng đó giữ nguyên POC hiện có để agent sửa tiếp.</p>
+        </div>
+      </div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">15</span> / 19</span></div>
+    </section>
+
+    <!-- 16 · SẢN PHẨM -->
+    <section class="slide">
+      <p class="eyebrow">Kết quả</p>
+      <h2 class="sm wide">Cái còn lại trên đĩa, và điều xảy ra tiếp theo</h2>
+      <div class="tech-rows">
+        <div class="tech-row"><span class="t">poc-demo.html</span><span class="d">Bản demo hiện tại — <b>một file duy nhất, tự chứa</b>, mở bằng trình duyệt là chạy.</span></div>
+        <div class="tech-row"><span class="t">poc-history/V{n}.html</span><span class="d">Bản chụp <b>mỗi vòng dựng</b>, giữ 10 bản mới nhất. Vòng chỉnh sửa ghi đè thẳng lên bản hiện tại, nên không có ảnh chụp thì người nghiệm thu vòng sau <b>không mở lại được bản họ vừa xem</b>.</span></div>
+        <div class="tech-row"><span class="t">poc-verification.json</span><span class="d">Kết quả vòng kiểm cuối + lịch sử: rule nào pass, kịch bản nào pass, issue nào còn lại, hồi quy nào.</span></div>
+        <div class="tech-row warm"><span class="t warm">Xem bằng cách nào</span><span class="d">Một <b>endpoint sandbox riêng</b> — HTML do LLM sinh không được thả vào layout chính. Trang POC Review nhúng nó trong iframe kèm chế độ <b>ghim ghi chú lên phần tử</b>, và có link chia sẻ cho người ngoài hệ thống.</span></div>
+        <div class="tech-row warm"><span class="t warm">Cổng duyệt POC</span><span class="d">Duyệt để đi tiếp, hoặc "Yêu cầu chỉnh sửa" kèm các ghi chú đã ghim. <b>Không Reject được ở cổng này</b>: POC sai nghĩa là yêu cầu sai — đường sửa nằm ở chat với BA, không phải huỷ cả run.</span></div>
+      </div>
+      <p class="loop-note warm">◆&nbsp;<span>Triết lý của cả pipeline nằm gọn ở đây: <b>xem trước rẻ → chốt từng cổng → mới đầu tư bước đắt</b>. POC là bản rẻ nhất mà người dùng nghiệp vụ vẫn nghiệm thu được, nên nó đứng trước toàn bộ phần code thật.</span></p>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">16</span> / 19</span></div>
+    </section>
+
+    <!-- 17 · PHỤ LỤC A -->
+    <section class="slide">
+      <p class="eyebrow">Phụ lục A · Cho người đọc code</p>
+      <h2 class="sm wide">Mỗi tầng trên slide nằm ở đúng một file</h2>
+      <div class="tech-rows">
+        <div class="tech-row"><span class="t">AgentTaskWorker</span><span class="d">Nhánh <b>PocPreview</b>: seed, sinh UAT, nạp chuẩn đối chiếu, cấp ngân sách bước, chụp bản V{n} sau khi xong.</span></div>
+        <div class="tech-row"><span class="t">PocTemplate</span><span class="d">Nguồn chân lý duy nhất của hai vùng marker — cả seed lẫn ghi tại chỗ đều đi qua đây.</span></div>
+        <div class="tech-row"><span class="t">WorkspaceTools</span><span class="d">Bốn tool POC + <b>AuditPocContent</b> — chỗ ráp mười tầng lại thành một báo cáo.</span></div>
+        <div class="tech-row"><span class="t">PocAudit · PocSpec</span><span class="d">Quét tĩnh + đọc spec thành checklist (màn hình, BR-n, WE-n, AC-n).</span></div>
+        <div class="tech-row"><span class="t">PocRuntimeChecker</span><span class="d">Chromium headless: mở từng màn, gom lỗi JS, chạy assertion, lái UAT, click menu, lượt 390px, chụp ảnh.</span></div>
+        <div class="tech-row"><span class="t">PocWorkedExampleOracle<br>PocUatCoverage · PocCrossScreenConsistency</span><span class="d">Ba oracle độc lập: con số người dùng đã chốt · kịch bản nghiệm thu · nhất quán chéo màn.</span></div>
+        <div class="tech-row"><span class="t">PocVisualReviewer</span><span class="d">Tầng Visual QA (agent UI/UX vision).</span></div>
+        <div class="tech-row"><span class="t">PocVerification · PocSnapshots</span><span class="d">Lịch sử kết quả kiểm (hồi quy) và lịch sử bản demo.</span></div>
+      </div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">17</span> / 19</span></div>
+    </section>
+
+    <!-- 18 · PHỤ LỤC B -->
+    <section class="slide">
+      <p class="eyebrow">Phụ lục B · Prompt &amp; núm vặn</p>
+      <h2 class="sm wide">Thứ sửa được mà không cần deploy</h2>
+      <div class="tech-rows">
+        <div class="tech-row"><span class="t">Developer/poc-preview.v1</span><span class="d">Trình tự bắt buộc, luật nghiệp vụ phải chạy được, ba hàm global, luật giao diện và dữ liệu mẫu. Sửa ở <b>Prompt Studio</b>, hiệu lực tức thì.</span></div>
+        <div class="tech-row"><span class="t">Design/poc-template.html</span><span class="d">Chính cái shell: sidebar, điều hướng, toast, engine CRUD, theme. Đổi khung demo = sửa file này.</span></div>
+        <div class="tech-row"><span class="t">BusinessAnalyst/ai-design-spec.v1</span><span class="d">Hình dạng 14 mục của spec — <b>đổi khuôn ở đây là đổi hợp đồng</b> với mọi bộ parse phía sau.</span></div>
+        <div class="tech-row"><span class="t">BusinessAnalyst/uat-scenarios.v1</span><span class="d">Bộ kịch bản nghiệm thu sinh từ spec.</span></div>
+        <div class="tech-row"><span class="t warm">DeliveryPipeline</span><span class="d">Ngân sách bước của bước POC (<b>10 + 1,5 × số màn hình</b>, trần 30) và trần vòng chỉnh sửa.</span></div>
+        <div class="tech-row"><span class="t warm">Cấu hình Poc:RuntimeCheck</span><span class="d">Bật/tắt lượt runtime, đường dẫn Chromium, và tuỳ chọn <b>tự tải browser một lần</b> trên máy chưa cài.</span></div>
+      </div>
+      <p class="cov-note">Tài liệu chủ quản: <b>docs/workspace-and-poc.md</b> và <b>docs/delivery-pipeline.md</b>. Khi tài liệu và code lệch nhau — <b>tin code</b>.</p>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">18</span> / 19</span></div>
+    </section>
+
+    <!-- 19 · CLOSING -->
+    <section class="slide closing">
+      <p class="eyebrow">Tóm lại</p>
+      <h1>Bản demo không được<br><span class="accent">tự khai là mình chạy được.</span></h1>
+      <p class="lede">Spec cho bốn hợp đồng máy đọc được · agent dựng file qua nhiều call nhỏ, mỗi call ghi thẳng ra đĩa ·
+        mười tầng kiểm mở file thật trong trình duyệt, ba tầng lấy chuẩn từ ngoài tầm agent · sửa tối đa ba vòng, hồi quy bị bắt ngay.<br>
+        Thứ tới tay người xem là một bản demo <strong>đã được máy chứng minh là bấm được</strong>.</p>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">19</span> / 19</span></div>
+    </section>
+
+  </div>
+</div>
+
+<div id="bar"></div>
+<div class="zone" id="zPrev" tabindex="0" aria-label="Slide trước"></div>
+<div class="zone" id="zNext" tabindex="0" aria-label="Slide sau"></div>
+
+<script>
+(function(){
+  var deck = document.getElementById('deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll('.slide'));
+  var bar = document.getElementById('bar');
+  var i = 0;
+
+  function fit(){
+    var s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    deck.style.transform = 'scale(' + s + ')';
+  }
+
+  function go(n){
+    n = Math.max(0, Math.min(slides.length - 1, n));
+    slides[i].classList.remove('on');
+    i = n;
+    slides[i].classList.add('on');
+    bar.style.width = ((i + 1) / slides.length * 100) + '%';
+    if (history.replaceState) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(i + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); go(i - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+  });
+
+  document.getElementById('zNext').addEventListener('click', function(){ go(i + 1); });
+  document.getElementById('zPrev').addEventListener('click', function(){ go(i - 1); });
+
+  var tx = null;
+  document.addEventListener('touchstart', function(e){ tx = e.changedTouches[0].clientX; }, {passive:true});
+  document.addEventListener('touchend', function(e){
+    if (tx === null) return;
+    var dx = e.changedTouches[0].clientX - tx;
+    if (dx < -40) go(i + 1); else if (dx > 40) go(i - 1);
+    tx = null;
+  }, {passive:true});
+
+  window.addEventListener('resize', fit);
+
+  var h = parseInt((location.hash || '').replace('#',''), 10);
+  fit();
+  if (h >= 1 && h <= slides.length) go(h - 1); else go(0);
+})();
+</script>
+</body>
+</html>
