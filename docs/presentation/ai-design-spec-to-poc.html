@@ -209,7 +209,7 @@
     #bar,.zone{display:none}
   }
 
-  /* ---------- chồng cổng kiểm (slide 09) ---------- */
+  /* ---------- chồng cổng kiểm (slide 10) ---------- */
   .stack{display:flex;flex-direction:column;gap:5px;flex:1;align-content:start}
   .layer{
     display:grid;grid-template-columns:26px 250px 1fr;gap:16px;align-items:center;
@@ -225,7 +225,7 @@
   .stack-head{display:grid;grid-template-columns:26px 250px 1fr;gap:16px;padding:0 16px 4px;
     font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 
-  /* ---------- thẻ tool (slide 07) ---------- */
+  /* ---------- thẻ tool (slide 08) ---------- */
   .tool-rows{display:flex;flex-direction:column;gap:8px}
   .tool-row{
     display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:baseline;
@@ -255,7 +255,7 @@
         <span class="agent-chip"><b>05</b>File sạch</span>
       </div>
       <p class="hint">→ Dùng phím mũi tên hoặc bấm mép phải màn hình để chuyển slide</p>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">01</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">01</span> / 20</span></div>
     </section>
 
     <!-- 02 · SPEC LÀ ĐIỂM TỰA DUY NHẤT -->
@@ -281,12 +281,70 @@
           <p>Vì sao đặt ở đây chứ không sau POC: một giả định sai chỉ lộ ra khi xem demo là đã tốn trọn lượt dựng đắt nhất tuyến (5–15 phút), trong khi rà vài dòng chữ mất vài giây. Cổng chỉ hỏi phần <b>MỚI</b>, không hỏi lại điều đã gật.</p>
         </div>
       </div>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">02</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">02</span> / 20</span></div>
     </section>
 
-    <!-- 03 · DIAGRAM TỔNG THỂ -->
+    <!-- 03 · TOÀN CẢNH RÚT GỌN -->
     <section class="slide">
-      <p class="eyebrow">Toàn cảnh</p>
+      <p class="eyebrow">Toàn cảnh · bản rút gọn</p>
+      <h2 class="sm wide">Cả quy trình trong một hình</h2>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 960 300" preserveAspectRatio="xMidYMid meet" role="img"
+             aria-label="Sơ đồ rút gọn: AI Design Spec đi vào bước dựng bản demo, rồi máy tự bấm thử; còn lỗi thì quay lại sửa, tối đa ba vòng; xong thì ra bản demo chạy được cho người dùng xem">
+          <defs>
+            <marker id="ah3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 z" fill="#8fa1b3"/>
+            </marker>
+            <marker id="ahw3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 z" fill="#f0b454"/>
+            </marker>
+          </defs>
+
+          <path d="M198 34 H366" class="d-line" opacity=".3"/>
+          <text x="480" y="39" class="d-s" text-anchor="middle">không cần người can thiệp</text>
+          <path d="M594 34 H762" class="d-line" opacity=".3"/>
+
+          <rect x="0" y="70" width="168" height="104" rx="12" class="d-box"/>
+          <text x="84" y="112" class="d-t" text-anchor="middle">AI Design Spec</text>
+          <text x="84" y="136" class="d-s" text-anchor="middle">bản kỹ thuật</text>
+          <text x="84" y="154" class="d-s" text-anchor="middle">đã được duyệt</text>
+          <path d="M172 122 H194" class="d-line" marker-end="url(#ah3)"/>
+
+          <rect x="198" y="70" width="168" height="104" rx="12" class="d-box ai"/>
+          <text x="282" y="112" class="d-t" text-anchor="middle">Dựng bản demo</text>
+          <text x="282" y="136" class="d-s" text-anchor="middle">viết từng màn hình</text>
+          <text x="282" y="154" class="d-s" text-anchor="middle">và cách nó chạy</text>
+          <path d="M370 122 H392" class="d-line" marker-end="url(#ah3)"/>
+
+          <rect x="396" y="70" width="168" height="104" rx="12" class="d-box ai"/>
+          <text x="480" y="112" class="d-t" text-anchor="middle">Máy tự bấm thử</text>
+          <text x="480" y="136" class="d-s" text-anchor="middle">mở bản demo lên</text>
+          <text x="480" y="154" class="d-s" text-anchor="middle">bấm như người dùng</text>
+          <path d="M568 122 H590" class="d-line" marker-end="url(#ah3)"/>
+
+          <rect x="594" y="70" width="168" height="104" rx="12" class="d-box fill-ai"/>
+          <text x="678" y="112" class="d-t" text-anchor="middle">Bản demo chạy được</text>
+          <text x="678" y="136" class="d-s" text-anchor="middle">một file duy nhất,</text>
+          <text x="678" y="154" class="d-s" text-anchor="middle">mở bằng trình duyệt</text>
+          <path d="M766 122 H788" class="d-line" marker-end="url(#ah3)"/>
+
+          <rect x="792" y="70" width="168" height="104" rx="12" class="d-box human"/>
+          <text x="876" y="112" class="d-t" text-anchor="middle">Người dùng xem</text>
+          <text x="876" y="136" class="d-s" text-anchor="middle">và nói được rồi</text>
+          <text x="876" y="154" class="d-s" text-anchor="middle">hay còn sai chỗ nào</text>
+
+          <path d="M480 178 V228 H282 V178" class="d-line back" marker-end="url(#ahw3)"/>
+          <text x="381" y="256" class="d-s" text-anchor="middle" fill="#f0b454">còn lỗi ⇒ sửa rồi bấm thử lại — tối đa 3 vòng</text>
+        </svg>
+      </div>
+      <p class="loop-note">⇄&nbsp;<span>Điều đáng nhớ nhất nằm ở ô giữa: <b>bản demo không được tự khai là mình chạy được</b>.
+        Máy mở nó lên bấm thử trước, sửa cho hết lỗi, rồi mới đưa tới tay người xem.</span></p>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">03</span> / 20</span></div>
+    </section>
+
+    <!-- 04 · DIAGRAM TỔNG THỂ -->
+    <section class="slide">
+      <p class="eyebrow">Toàn cảnh · bản đầy đủ</p>
       <h2 class="sm wide">Chuẩn bị → dựng qua nhiều call nhỏ → audit → sửa → file sạch</h2>
       <div class="svg-wrap">
         <svg viewBox="0 0 1120 420" preserveAspectRatio="xMidYMid meet" role="img"
@@ -362,7 +420,7 @@
         <span><span class="d-h">◆</span>Chỗ con người quyết định</span>
         <span><span class="d-d"></span>Vòng sửa</span>
       </div>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">03</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">04</span> / 20</span></div>
     </section>
 
     <!-- 04 · SPEC MÁY ĐỌC ĐƯỢC -->
@@ -379,7 +437,7 @@
         <div class="tech-row"><span class="t warm">Các mục còn lại</span><span class="d">Mục tiêu, actor, phạm vi, điều hướng, phân quyền, hướng UI/UX, mô hình dữ liệu, API, giả định.</span></div>
       </div>
       <p class="loop-note">⇄&nbsp;<span>Bốn mục trên không chỉ để đọc: mỗi mục sau này biến thành <b>một cổng kiểm tất định</b> — độ phủ màn hình, self-test từng rule, oracle con số, và cổng nghiệm thu UAT.</span></p>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">04</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">05</span> / 20</span></div>
     </section>
 
     <!-- 05 · CHUẨN BỊ -->
@@ -394,7 +452,7 @@
       </div>
       <p class="loop-note">⇄&nbsp;<span>Cả bốn việc chạy trong worker, <b>trước bất kỳ lời gọi model nào</b> của bước POC — và đều fail-open:
         sinh kịch bản lỗi ⇒ bộ rỗng và mọi tầng UAT tự bỏ qua; spec không đọc được số màn hình ⇒ giữ nguyên ngân sách khai báo sẵn.</span></p>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">05</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">06</span> / 20</span></div>
     </section>
 
     <!-- 06 · SHELL TEMPLATE -->
@@ -418,7 +476,7 @@
         </div>
       </div>
       <p class="loop-note">⇄&nbsp;<span>Nhãn menu và <b>data-view</b> phải TRÙNG nhau, và trùng nguyên văn tên màn hình ở <b>§ 6</b> của spec. Lệch một chữ là click menu chỉ đổi breadcrumb còn nội dung đứng yên — cổng kiểm bắt đúng chỗ đó.</span></p>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">06</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">07</span> / 20</span></div>
     </section>
 
     <!-- 07 · BỐN TOOL -->
@@ -441,7 +499,7 @@
         <div class="tool-row"><span class="t">AuditPocContent</span><span class="d">Tự soát: mười tầng kiểm, trả về một báo cáo <b>ISSUES / WARNINGS / REGRESSIONS</b> — chi tiết ở các slide sau.</span></div>
       </div>
       <p class="loop-note">⇄&nbsp;<span>Vì sao chia nhỏ thay vì một lần ghi cả trang: mỗi lượt trả lời của model có <b>giới hạn token</b>, nhồi cả trang vào một call là bị cắt giữa chừng. Chia nhỏ còn có tác dụng thứ hai — <b>mỗi call ghi thẳng ra đĩa</b>, nên phần đã dựng vẫn còn nguyên kể cả khi agent chạm trần ngân sách bước.</span></p>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">07</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">08</span> / 20</span></div>
     </section>
 
     <!-- 08 · NGHIỆP VỤ PHẢI CHẠY -->
@@ -466,7 +524,7 @@
         </div>
       </div>
       <p class="loop-note warm">◆&nbsp;<span>Cộng một luật về <b>dữ liệu mẫu</b>: seed bằng chính tên/danh mục/mã trong tài liệu người dùng gửi. Chức năng đúng mà dữ liệu bịa vẫn bị người xem demo đọc là "chưa hiểu nghiệp vụ" — lớp lỗi rẻ nhất để sửa nhưng đắt nhất về niềm tin.</span></p>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">08</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">09</span> / 20</span></div>
     </section>
 
     <!-- 09 · CHỒNG CỔNG KIỂM -->
@@ -486,7 +544,7 @@
         <div class="layer"><span class="lv">09</span><span class="ln">Visual QA</span><span class="ld">Ảnh từng màn cho agent UI/UX có vision chấm: bố cục vỡ, bảng tràn, màn trống — thứ chữ nghĩa không tả được</span></div>
         <div class="layer warm"><span class="lv">10</span><span class="ln">Hồi quy</span><span class="ld">Mục từng PASS ở vòng trước mà nay FAIL <b>hoặc biến mất</b> — bản sửa vừa rồi làm gãy thứ đang chạy</span></div>
       </div>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">09</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">10</span> / 20</span></div>
     </section>
 
     <!-- 10 · TẦNG TĨNH -->
@@ -503,7 +561,7 @@
         <div class="tech-row"><span class="t">Độ phủ § 6</span><span class="d">Đối chiếu từng tên màn hình của spec với menu + section của POC.</span></div>
         <div class="tech-row"><span class="t">Dữ liệu &amp; ngôn ngữ</span><span class="d">Ba phép quét <b>cố tình dè dặt</b>, chỉ báo ISSUE khi bằng chứng rõ ràng: không dùng gì từ tài liệu · placeholder kinh điển · UI không đúng ngôn ngữ spec.</span></div>
       </div>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">10</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">11</span> / 20</span></div>
     </section>
 
     <!-- 11 · TẦNG RUNTIME -->
@@ -518,7 +576,7 @@
         <div class="feature"><h3><span class="tick">05</span>Mở lại toàn bộ ở 390px</h3><p>Bề rộng điện thoại. Tràn ngang ở bề rộng nào cũng là ISSUE — người được gửi link demo rất hay mở trên điện thoại.</p></div>
         <div class="feature"><h3><span class="tick">06</span>Fail-open toàn phần</h3><p>Máy không có Chromium ⇒ ghi <b>SKIPPED</b> kèm đúng lệnh cài, phần tĩnh chạy như thường. Một lỗi hạ tầng browser không được làm hỏng lượt audit của agent.</p></div>
       </div>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">11</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">12</span> / 20</span></div>
     </section>
 
     <!-- 12 · BA ORACLE -->
@@ -532,7 +590,7 @@
         <div class="card warm"><span class="k warm">Hành trình</span><h3>Kịch bản nghiệm thu</h3><p>Do BA sinh từ spec <b>trước khi</b> POC tồn tại, và chính là thứ người dùng sẽ bấm thử. Hai lớp: mỗi kịch bản phải có mục PASS, và hệ thống <b>lái thật</b> — tìm nút theo nhãn ghi trong bước rồi click.</p><p>Chỉ kết luận hai khuyết tật không thể chối cãi: <b>nhãn không tồn tại</b>, và <b>bấm mà màn hình không đổi gì</b>.</p></div>
         <div class="card warm"><span class="k warm">Nhất quán</span><h3>Đối chiếu chéo màn hình</h3><p>Đọc các bảng dữ liệu của từng màn rồi so: cùng một bản ghi, cùng một cột, hai màn hai giá trị.</p><p>Mọi cổng khác đều mù ở đây vì cổng nào cũng xét <b>từng màn riêng</b> — còn người xem demo thì thấy ngay.</p></div>
       </div>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">12</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">13</span> / 20</span></div>
     </section>
 
     <!-- 13 · VISUAL QA -->
@@ -546,7 +604,7 @@
         <div class="card"><span class="k">Người chấm</span><h3>Agent UI/UX có vision</h3><p>Chấm bố cục và dữ liệu mẫu theo spec gốc. Kết quả nối vào báo cáo audit như ISSUES/WARNINGS bình thường để Developer sửa <b>trong cùng vòng lặp</b>.</p></div>
         <div class="card"><span class="k">Ranh giới</span><h3>Không bao giờ chặn</h3><p>Chưa cấu hình agent UI/UX, model không có vision, tắt qua cấu hình, hoặc không chụp được ảnh nào ⇒ <b>SKIPPED</b>, audit chạy phần còn lại như trước. Cũng chỉ chụp ảnh khi tầng này thật sự chạy được — không thì khỏi tốn.</p></div>
       </div>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">13</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">14</span> / 20</span></div>
     </section>
 
     <!-- 14 · HỒI QUY -->
@@ -562,7 +620,7 @@
         <li><span><b>Dựng POC lại từ đầu thì xoá cả lịch sử.</b> <span class="mut">So với kết quả kiểm của một bản POC không còn tồn tại chỉ tạo ra báo động giả.</span></span></li>
       </ul>
       <p class="loop-note">⇄&nbsp;<span>Cùng bản ghi đó còn phục vụ người: trang POC Review có panel <b>"máy đã tự kiểm"</b> — rule / ví dụ / kịch bản nào đã xác nhận pass, và issue nào còn lại nếu agent hết vòng sửa mà chưa sạch.</span></p>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">14</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">15</span> / 20</span></div>
     </section>
 
     <!-- 15 · VÒNG SỬA -->
@@ -585,7 +643,7 @@
           <p>Ngoài ra mỗi cổng còn <b>3 vòng "Yêu cầu chỉnh sửa"</b> của con người — vòng đó giữ nguyên POC hiện có để agent sửa tiếp.</p>
         </div>
       </div>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">15</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">16</span> / 20</span></div>
     </section>
 
     <!-- 16 · SẢN PHẨM -->
@@ -600,7 +658,7 @@
         <div class="tech-row warm"><span class="t warm">Cổng duyệt POC</span><span class="d">Duyệt để đi tiếp, hoặc "Yêu cầu chỉnh sửa" kèm các ghi chú đã ghim. <b>Không Reject được ở cổng này</b>: POC sai nghĩa là yêu cầu sai — đường sửa nằm ở chat với BA, không phải huỷ cả run.</span></div>
       </div>
       <p class="loop-note warm">◆&nbsp;<span>Triết lý của cả pipeline nằm gọn ở đây: <b>xem trước rẻ → chốt từng cổng → mới đầu tư bước đắt</b>. POC là bản rẻ nhất mà người dùng nghiệp vụ vẫn nghiệm thu được, nên nó đứng trước toàn bộ phần code thật.</span></p>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">16</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">17</span> / 20</span></div>
     </section>
 
     <!-- 17 · PHỤ LỤC A -->
@@ -617,7 +675,7 @@
         <div class="tech-row"><span class="t">PocVisualReviewer</span><span class="d">Tầng Visual QA (agent UI/UX vision).</span></div>
         <div class="tech-row"><span class="t">PocVerification · PocSnapshots</span><span class="d">Lịch sử kết quả kiểm (hồi quy) và lịch sử bản demo.</span></div>
       </div>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">17</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">18</span> / 20</span></div>
     </section>
 
     <!-- 18 · PHỤ LỤC B -->
@@ -633,7 +691,7 @@
         <div class="tech-row"><span class="t warm">Cấu hình Poc:RuntimeCheck</span><span class="d">Bật/tắt lượt runtime, đường dẫn Chromium, và tuỳ chọn <b>tự tải browser một lần</b> trên máy chưa cài.</span></div>
       </div>
       <p class="cov-note">Tài liệu chủ quản: <b>docs/workspace-and-poc.md</b> và <b>docs/delivery-pipeline.md</b>. Khi tài liệu và code lệch nhau — <b>tin code</b>.</p>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">18</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">19</span> / 20</span></div>
     </section>
 
     <!-- 19 · CLOSING -->
@@ -643,7 +701,7 @@
       <p class="lede">Spec cho bốn hợp đồng máy đọc được · agent dựng file qua nhiều call nhỏ, mỗi call ghi thẳng ra đĩa ·
         mười tầng kiểm mở file thật trong trình duyệt, ba tầng lấy chuẩn từ ngoài tầm agent · sửa tối đa ba vòng, hồi quy bị bắt ngay.<br>
         Thứ tới tay người xem là một bản demo <strong>đã được máy chứng minh là bấm được</strong>.</p>
-      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">19</span> / 19</span></div>
+      <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">20</span> / 20</span></div>
     </section>
 
   </div>
