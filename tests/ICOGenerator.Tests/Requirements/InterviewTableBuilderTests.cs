@@ -1259,4 +1259,130 @@ public class InterviewTableBuilderTests
         Assert.Null(row.MinRows);
         Assert.Null(row.MaxRows);
     }
+
+    // ==== BẢN KỂ CỦA BẢNG KHÔNG ĐƯỢC CHỞ VĂN XUÔI CỦA BA ====
+    // Ca thật (JD Library 1). BA điền ô mô tả của đối tượng JD là "Mô tả công việc được Manager tạo, kiểm
+    // tra, verify và approve trước khi dùng để gán cho nhân viên", trong khi chính người dùng đã kể ở khung
+    // chat và đã TỰ TAY rà ở bảng luồng rằng HRBP verify rồi HoD của Manager approve. Ô mô tả nằm cạnh tên
+    // đối tượng như một cái nhãn xám nên người dùng đọc lướt rồi bấm gửi — và bản kể do RenderUserMessage
+    // soạn được lưu dưới VAI CỦA HỌ. Từ đó câu của BA là "lời người dùng" với mọi tầng phía sau:
+    //
+    //  1. Bộ chắt "điểm cần làm rõ" đẻ ra mục "Chưa rõ ai thực hiện verify và approve JD", CoveragePendingGuard
+    //     hạ ba dòng bản đồ («Đối tượng người dùng & vai trò», «Chức năng & luồng nghiệp vụ chính», «Vòng đời
+    //     & trạng thái») xuống [MỘT PHẦN], và RequirementReadinessGate KHÓA nút "Write Requirement" — ở đúng
+    //     lượt mà BA vừa nói "các nhóm thông tin chính đã đủ".
+    //  2. Bộ chắt bản đồ bao phủ trích thẳng câu đó làm {nguồn: …}, tức ký tên người dùng vào câu của BA.
+    //  3. BA đem nó ra chất vấn: "trong bảng luồng anh/chị đã chốt HRBP verify và HoD approve, nhưng phần mô
+    //     tả JD lại ghi Manager thực hiện verify và approve; luồng nào đúng ạ?" — một mâu thuẫn không có thật
+    //     (hai vế không cùng nguồn), đốt trọn một lượt vốn phải đứng MỘT MÌNH, và mở đường cho người dùng lật
+    //     chính luồng họ đã duyệt.
+    //
+    // Mô tả vẫn được LƯU (nó là văn xuôi cho ## 8. Data Model Summary), chỉ không được đóng dấu thành lời
+    // người dùng ở bất kỳ đường nào.
+
+    [Fact]
+    public void EntityMap_UserMessageDoesNotEchoTheDescriptionBaWrote()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "JD",
+                Description = "Mô tả công việc được Manager tạo, kiểm tra, verify và approve",
+                Included = true,
+                Fields = new List<EntityFieldNote> { new() { Name = "Job Title", Used = true } }
+            }
+        });
+
+        var message = EntityMapBuilder.RenderUserMessage(rows);
+
+        Assert.Contains("JD:", message);
+        Assert.Contains("Job Title", message);
+        Assert.DoesNotContain("verify và approve", message);
+    }
+
+    // Khối ngữ cảnh thì ngược lại: mô tả vẫn phải có mặt (bước sinh spec đọc nó), nhưng đứng ở DÒNG RIÊNG có
+    // gắn xuất xứ. Nối vào dòng tên đối tượng dưới tiêu đề "đã được NGƯỜI DÙNG CHỐT" là đúng cách một câu văn
+    // xuôi của BA trở thành bằng chứng.
+    [Fact]
+    public void EntityMap_ConfirmedBlockMarksTheDescriptionAsBaWritten()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "JD",
+                Description = "Mô tả công việc được Manager tạo, kiểm tra, verify và approve",
+                Included = true,
+                Fields = new List<EntityFieldNote> { new() { Name = "Job Title", Used = true } }
+            }
+        });
+
+        var block = EntityMapBuilder.RenderConfirmedBlock(JsonSerializer.Serialize(rows));
+
+        Assert.Contains("* JD\n", block!.Replace("\r\n", "\n"));
+        Assert.Contains("mô tả (BA tự đặt, chưa ai rà): Mô tả công việc được Manager", block);
+        Assert.Contains("KHÔNG phải lời người dùng", block);
+        Assert.Contains("đừng lấy nó làm một vế mâu thuẫn", block);
+    }
+
+    // Câu dặn về ô mô tả chỉ có nghĩa khi khối có ít nhất một dòng mô tả: khối này đi kèm MỌI lượt chat sau,
+    // nên một dòng lệnh nói về thứ không tồn tại trong khối là token thừa ở mọi lượt.
+    [Fact]
+    public void EntityMap_ConfirmedBlockOmitsTheCaptionWarningWhenNoRowHasOne()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "JD",
+                Included = true,
+                Fields = new List<EntityFieldNote> { new() { Name = "Job Title", Used = true } }
+            }
+        });
+
+        var block = EntityMapBuilder.RenderConfirmedBlock(JsonSerializer.Serialize(rows));
+
+        Assert.DoesNotContain("KHÔNG phải lời người dùng", block);
+    }
+
+    // Ô "việc của màn" là cùng một hình dạng lỗi: BA điền sẵn, người dùng đọc như nhãn, bản kể lưu dưới vai
+    // của họ. Chặn ở một bảng mà bỏ bảng kia là để nguyên đúng đường cũ, chỉ đổi tên ô.
+    [Fact]
+    public void ScreenScope_UserMessageDoesNotEchoThePurposeBaWrote()
+    {
+        var rows = ScreenScopeMapBuilder.Sanitize(new[]
+        {
+            new ScreenScopeRow
+            {
+                Screen = "Màn hình Training Plan",
+                Purpose = "Nơi HR duyệt và chốt kế hoạch năm",
+                Included = true
+            }
+        }, Scope);
+
+        var message = ScreenScopeMapBuilder.RenderUserMessage(rows);
+
+        Assert.Contains("Màn hình Training Plan", message);
+        Assert.DoesNotContain("HR duyệt và chốt", message);
+    }
+
+    [Fact]
+    public void ScreenScope_ConfirmedBlockMarksThePurposeAsBaWritten()
+    {
+        var rows = ScreenScopeMapBuilder.Sanitize(new[]
+        {
+            new ScreenScopeRow
+            {
+                Screen = "Màn hình Training Plan",
+                Purpose = "Nơi HR duyệt và chốt kế hoạch năm",
+                Included = true
+            }
+        }, Scope);
+
+        var block = ScreenScopeMapBuilder.RenderConfirmedBlock(JsonSerializer.Serialize(rows));
+
+        Assert.Contains("việc của màn (BA tự đặt, chưa ai rà): Nơi HR duyệt", block);
+        Assert.Contains("KHÔNG phải lời người dùng", block);
+    }
 }

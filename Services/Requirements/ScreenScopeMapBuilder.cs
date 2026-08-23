@@ -27,6 +27,15 @@ namespace ICOGenerator.Services.Requirements;
 ///   <item><b>Bước luồng không chức năng nào phụ trách.</b> Chốt chặn RIÊNG của bảng này và là lý do
 ///   <see cref="ScreenFunction.FlowSteps"/> tồn tại — xem <see cref="UncoveredActions"/>.</item>
 /// </list>
+///
+/// <para>
+/// <b>Ô "việc của màn" không đi vào bản kể</b>, cùng luật và cùng lý do với ô mô tả của
+/// <see cref="EntityMapBuilder"/> (ca thật ghi ở đó): <see cref="RenderUserMessage"/> được lưu dưới vai
+/// NGƯỜI DÙNG, mà <see cref="ScreenScopeRow.Purpose"/> là văn xuôi BA điền sẵn và đọc như một cái nhãn xám
+/// dưới tên màn. Quyết định của người dùng ở bảng này là các Ô: màn nào giữ, chức năng nào giữ, màn nào tự
+/// thêm. Câu "việc của màn" đi cùng chuyến gửi chứ không được ai rà, nên nó không được đóng dấu thành lời
+/// họ rồi quay lại làm bằng chứng hay làm một vế mâu thuẫn ở các lượt sau.
+/// </para>
 /// </summary>
 public static class ScreenScopeMapBuilder
 {
@@ -455,10 +464,18 @@ public static class ScreenScopeMapBuilder
             + "hình mới ngoài danh sách này, KHÔNG thêm chức năng ngoài các chức năng dưới đây, và KHÔNG hỏi "
             + "lại việc của từng màn.");
 
+        // Cùng luật với khối của bảng đối tượng: câu "việc của màn" là văn xuôi BA đặt, không phải quyết
+        // định người dùng đã rà, nên nó đứng riêng có gắn xuất xứ thay vì nối vào dòng tên màn hình.
+        if (kept.Any(r => !string.IsNullOrWhiteSpace(r.Purpose)))
+            sb.AppendLine("Dòng \"việc của màn\" là câu CHÍNH BẠN đặt lúc bày bảng, KHÔNG phải lời người "
+                + "dùng: đừng trích nó làm bằng chứng và đừng lấy nó làm một vế mâu thuẫn với điều họ nói.");
+
         foreach (var row in kept)
         {
-            var purpose = string.IsNullOrWhiteSpace(row.Purpose) ? string.Empty : $" — {row.Purpose}";
-            sb.AppendLine($"* {row.Screen}{purpose}");
+            sb.AppendLine($"* {row.Screen}");
+
+            if (!string.IsNullOrWhiteSpace(row.Purpose))
+                sb.AppendLine($"  - việc của màn (BA tự đặt, chưa ai rà): {row.Purpose}");
 
             foreach (var function in row.Functions.Where(f => f.Included))
             {
@@ -498,9 +515,8 @@ public static class ScreenScopeMapBuilder
 
         foreach (var row in rows.Where(r => r.Included))
         {
-            var purpose = string.IsNullOrWhiteSpace(row.Purpose) ? string.Empty : $" — {row.Purpose}";
             var functions = row.Functions.Where(f => f.Included).Select(f => f.Name).ToList();
-            sb.AppendLine($"- {row.Screen}{purpose}"
+            sb.AppendLine($"- {row.Screen}"
                 + (functions.Count > 0 ? $" [chức năng: {string.Join(", ", functions)}]" : string.Empty));
 
             if (row.Covers.Count > 0)

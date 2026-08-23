@@ -300,6 +300,20 @@ Cả bốn builder áp cùng bộ luật, vì cả bốn hỏng theo cùng một
   không phải chỗ model tự phủ nhận đề xuất của mình — mà structured output buộc điền đủ trường, nên một
   model điền `false` cho có sẽ âm thầm bỏ tích sạch bảng và người dùng gửi đi một phạm vi RỖNG trong khi
   tưởng mình vừa xác nhận cả ứng dụng. Chỉ đường GỬI (`Sanitize`) mới tôn trọng lựa chọn của họ.
+- **Bản kể chỉ chở các Ô, không chở văn xuôi của BA.** Tin nhắn `RenderUserMessage` được lưu dưới **vai
+  NGƯỜI DÙNG**, nên chữ nào lọt vào đó cũng thành lời của họ với mọi tầng phía sau: bộ chắt bản đồ bao phủ
+  trích làm `{nguồn: …}`, bộ chắt "điểm cần làm rõ" lấy làm một vế mâu thuẫn, BA đem ra chất vấn ở lượt kế.
+  Nhưng thứ người dùng thật sự QUYẾT chỉ là các ô tích/sửa được. Hai ô **mô tả đối tượng** và **việc của
+  màn** là văn xuôi BA điền sẵn, nằm cạnh tên như một cái nhãn xám và đi cùng chuyến gửi mà không ai rà —
+  nên chúng **không** vào bản kể, và trong khối ngữ cảnh chúng đứng ở dòng riêng gắn nhãn *(BA tự đặt, chưa
+  ai rà)* kèm một câu cấm trích chúng làm bằng chứng. Ca thật (JD Library 1): ô mô tả ghi *"JD — Mô tả công
+  việc được Manager tạo, kiểm tra, verify và approve…"* trong khi người dùng đã kể ở chat VÀ tự tay rà bảng
+  luồng rằng HRBP verify rồi HoD approve; câu đó quay về trong vai họ, BA hỏi *"luồng nào đúng với thực tế
+  ạ?"*, và mục tồn đọng sinh ra từ đó hạ ba dòng bản đồ xuống `[MỘT PHẦN]` — khóa cổng "Write Requirement" ở
+  đúng lượt mọi nhóm vừa đủ. Mô tả vẫn được **lưu** (nó là văn xuôi cho `## 8. Data Model Summary`), chỉ
+  không được đóng dấu là lời người dùng. Phần prompt của cùng chốt chặn này: BA phải viết ô mô tả nói đối
+  tượng **là gì**, không nói **ai làm gì** (`requirement-chat.v4.md`), và ba bộ đọc — chat, bản đồ bao phủ,
+  triển vọng phỏng vấn — đều bị cấm coi ô đó là lời người dùng.
 - **Dòng bịa bị loại, dòng bị bỏ quên vẫn phải có mặt** — và có mặt ở trạng thái TÍCH SẴN. "BA quên nêu"
   không phải "người dùng đã loại"; đưa vào ở trạng thái bỏ tích là ra quyết định thay họ ở đúng chỗ họ
   không nhìn thấy để phản đối. Chốt chặn này chặn MODEL, nên bảng màn hình có đúng một ngoại lệ cho dòng
