@@ -151,7 +151,7 @@ tác trên từng dòng** thay vì một chip trả lời thay cho tất cả.
 | Bảng | Cột trên `Project` | Chốt cái gì | Đường tiêu thụ ngoài chat |
 |---|---|---|---|
 | Luồng nghiệp vụ | `FlowMap` | luồng chính + 1–2 ngoại lệ, mỗi luồng là chuỗi bước *ai làm → làm gì → trạng thái sau đó* | `## 13. Worked Examples` định tính (oracle chấm POC) + `## 10. Business Rules` |
-| Đối tượng nghiệp vụ | `EntityMap` | thông tin cần lưu (kèm **cách nhập** và **danh sách lấy ở đâu**) + vòng đời trạng thái | `## 8. Data Model Summary` + `## 10. Business Rules` + **màn hình danh mục** gieo vào `PlannedScope` |
+| Đối tượng nghiệp vụ | `EntityMap` | thông tin cần lưu (kèm **cách nhập** và **danh sách lấy ở đâu**), **quan hệ cha-con** + vòng đời trạng thái | `## 8. Data Model Summary` + `## 10. Business Rules` + **màn hình danh mục** gieo vào `PlannedScope` |
 | Báo cáo / thống kê | `ReportMap` | mỗi báo cáo một dòng: tên, nó **trả lời câu hỏi gì** (lời người dùng), **lấy số từ** đối tượng nào, **gộp/lọc** theo gì | mỗi dòng còn giữ gieo một MÀN HÌNH vào `PlannedScope` ⇒ `## 6. Screens To Generate` + `## 9. API Expectations` (bộ lọc thật) |
 | Màn hình | `ScreenScopeMap` | phạm vi màn hình, việc của từng màn, **các chức năng** trên màn (mỗi chức năng một dòng tích riêng) và **bước luồng** từng chức năng phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
 | Phân quyền | `PermissionMatrix` | quyền CRUD theo màn hình, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + điều kiện lọc ở `## 9. API Expectations` |
@@ -632,6 +632,60 @@ nói hệ thống nào, `inline` mà chưa nêu giá trị nào.
 và `meaning` như cũ; hai trục chỉ sống trong JSON và trong hai dropdown có nhãn nghiệp vụ (*"Gõ tay"*, *"Chọn
 1"* — không phải *"Text"*, *"Single Select"*). BA **không** được hỏi *"trường này kiểu gì"* trong khung chat:
 bảng đã là chỗ họ chọn.
+
+#### Một "thông tin" là NHIỀU DÒNG: quan hệ cha-con
+
+*"Mỗi JD có 5 trách nhiệm, mỗi cái kèm tỷ trọng %"* không có chỗ nào trong bảng để đứng: một ô `fields` chở
+đúng MỘT giá trị, nên nhét cả danh sách vào đó là làm biến mất mọi thứ trên từng dòng. Đây là mẫu phổ biến
+nhất của app nghiệp vụ — Đơn hàng → Dòng hàng, Đánh giá → Mục tiêu có trọng số, Phiếu chi → Khoản mục.
+
+Cách chốt: dòng con là **một đối tượng nữa của chính bảng này**, mang `ParentEntity` trỏ về cha, cộng
+`MinRows`/`MaxRows` là số dòng mỗi bản ghi cha. Trên giao diện nó là một dòng ngay dưới tiêu đề khối:
+*"Là các dòng của ‹JD› — mỗi ‹JD› có [5] đến [5] dòng"*.
+
+**Vì sao là một ô PHẲNG chứ không phải một bảng lồng trong ô "thông tin".** Trực giác đầu tiên là thêm một
+kiểu nhập thứ bảy (`list-of-rows`) rồi cho ô nguồn đổi hình thành một bảng con định nghĩa các cột. Nó thua ở
+đúng một điểm: **các cột của dòng con cần đúng bộ ràng buộc mà một thông tin đã có** — một cột con rất hay là
+dropdown lấy từ danh mục ứng dụng tự quản lý. Dựng chúng thành cấu trúc lồng là nhân đôi cả hai trục xuống
+một tầng thứ ba, cộng một tầng bảng nữa trong bảng dài nhất của buổi phỏng vấn. Để dòng con **là** một đối
+tượng thì hai trục, cột *Bắt buộc*, chip giá trị — tất cả dùng lại nguyên vẹn.
+
+**Ba chốt chặn** (`EntityMapBuilder.NormalizeParents`), và cả ba **hạ dòng về hồ sơ độc lập** chứ không loại
+dòng — một quan hệ sai là một ô điền sai, còn nuốt cả dòng là làm biến mất một đối tượng người dùng đã tích:
+
+- **Cha phải tồn tại và còn được giữ** trong chính bảng này; chính tả lấy của BẢNG, không của model (cùng
+  luật `MatchScreen`). Cha đã bị bỏ tích cũng không được: quan hệ sẽ trỏ vào một đối tượng không vào ứng dụng.
+- **Không tự làm cha của mình.**
+- **Tối đa MỘT cấp** — cha của một dòng con thì không được có cha nữa. POC dựng grid lồng grid là thứ không ai
+  duyệt nổi. Luật xét trên ảnh chụp TRƯỚC khi sửa và áp đúng một lượt, nên nó tất định (thứ tự dòng trong
+  payload không đổi được kết quả) và làm **mọi chu trình tự vỡ**: `A→B→C` giữ `B→C` và cắt `A`; `A→B→A` thì cả
+  hai về độc lập.
+
+Giao diện áp cùng luật một cấp ngay tại dropdown — khối đã có cha không xuất hiện trong danh sách cha của
+khối khác — để người dùng không chọn được một thứ sẽ bị hạ xuống lúc lưu mà không lời nào nói vì sao. Không
+có đối tượng nào đủ điều kiện làm cha ⇒ **không bày ô**: một dropdown chỉ có đúng một lựa chọn là một câu hỏi
+không có câu trả lời thứ hai.
+
+Đường tiêu thụ: `## 8. Data Model Summary` nêu quan hệ 1-n tường minh, `## 6. Screens To Generate` dựng nó
+thành **bảng nhúng trong màn hình của cha** chứ KHÔNG phải màn hình CRUD riêng (ngược hẳn với `Source = app`),
+và `## 9. API Expectations` cho dòng con đi cùng payload của bản ghi cha.
+
+#### Bảng chốt CẤU TRÚC, hội thoại chốt RÀNG BUỘC
+
+Ví dụ trên còn hai mảnh nữa mà bảng **cố ý không chở**: *"tổng tỷ trọng phải bằng 100%"* và *"luôn có sẵn một
+dòng mặc định người dùng không sửa được"*. Phép thử để quyết định một thứ đáng được cấp một ô:
+
+> **Ràng buộc này có xuất hiện ở ít nhất ba dự án khác nhau với CÙNG MỘT hình dạng không?**
+
+`MinRows`/`MaxRows` qua được — mọi quan hệ cha-con đều có số dòng. *"Tổng = 100%"* thì không: app khác là
+*tổng ≤ ngân sách*, app khác nữa không ràng buộc gì. Cấp cho mỗi ràng buộc một ô là đẻ ra một ô rác cho mọi
+dự án không cần tới nó, và một bảng đầy ô rác là bảng không ai rà.
+
+Chỗ của chúng đã có sẵn: nhóm «Quy tắc nghiệp vụ & ràng buộc» của bản đồ bao phủ, với chuẩn `[RÕ]` đòi **điều
+kiện và hệ quả** — đúng hình dạng của cả hai. Vì vậy khối ngữ cảnh của bảng đã chốt phải nói rõ giới hạn của
+lệnh *"đừng hỏi lại"*: nó phủ **cấu trúc**, không phủ ràng buộc. Thiếu câu ấy thì model hiểu rộng lệnh sang cả
+quy tắc, hai thứ đắt nhất của ví dụ này vĩnh viễn không được hỏi, và POC dựng ra một biểu mẫu cộng lại không
+ra gì cả.
 
 #### `app` đẻ ra một MÀN HÌNH, và nó phải chảy ngược lên phạm vi
 

@@ -398,6 +398,11 @@ public class RequirementsController : Controller
                             {
                                 entity = r.Entity,
                                 description = r.Description,
+                                // Quan hệ cha-con: dòng này là các DÒNG của một đối tượng khác, kèm số dòng
+                                // mỗi bản ghi cha. Rỗng/null = hồ sơ độc lập.
+                                parentEntity = r.ParentEntity,
+                                minRows = r.MinRows,
+                                maxRows = r.MaxRows,
                                 fields = r.Fields.Select(f => new
                                 {
                                     name = f.Name,

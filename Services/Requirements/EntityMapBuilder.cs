@@ -63,6 +63,12 @@ public static class EntityMapBuilder
     /// <summary>Ít hơn ngần này trạng thái thì không phải vòng đời — xem ghi chú class.</summary>
     public const int MinStatesForLifecycle = 2;
 
+    /// <summary>
+    /// Trần cho ô "mỗi cha có bao nhiêu dòng con". Không phải giới hạn kỹ thuật mà là phép thử tỉnh táo: một
+    /// con số lớn hơn thế nghĩa là model gõ nhầm ô, hoặc dòng con thật ra là một đối tượng độc lập.
+    /// </summary>
+    public const int MaxChildRowCount = 100;
+
     private const int MaxTextChars = 200;
     private const int MaxEvidenceChars = 300;
 
@@ -148,6 +154,11 @@ public static class EntityMapBuilder
                 Description = Clip((row.Description ?? string.Empty).Trim(), MaxTextChars),
                 Fields = fields,
                 States = states,
+                // Quan hệ cha-con chỉ kiểm được khi đã biết TRỌN bảng (cha có thể đứng sau con), nên ở đây
+                // chỉ chở giá trị thô qua; NormalizeParents ngay dưới mới là chỗ áp ba chốt chặn.
+                ParentEntity = Clip((row.ParentEntity ?? string.Empty).Trim(), MaxTextChars),
+                MinRows = row.MinRows,
+                MaxRows = row.MaxRows,
                 Included = !respectSelection || row.Included,
                 // LUẬT BẰNG CHỨNG — cờ suông không khóa được dòng nào. Xem PermissionGrant.Locked.
                 Locked = evidence.Length > 0,
@@ -159,7 +170,81 @@ public static class EntityMapBuilder
                 break;
         }
 
+        NormalizeParents(result);
         return result;
+    }
+
+    /// <summary>
+    /// Ba chốt chặn của quan hệ cha-con, áp SAU khi đã biết trọn bảng (cha có thể đứng sau con trong danh
+    /// sách model trả về). Cả ba đều <b>hạ dòng về hồ sơ độc lập</b> chứ không loại dòng: một quan hệ sai là
+    /// một ô điền sai, còn nuốt cả dòng là làm biến mất một đối tượng người dùng đã tích.
+    ///
+    /// <list type="number">
+    ///   <item><b>Cha phải TỒN TẠI và còn được giữ</b> trong chính bảng này. Tên bịa (hoặc trỏ vào một dòng
+    ///   người dùng vừa bỏ tích) sẽ thành một quan hệ mà <c>## 8. Data Model Summary</c> dựng ra rồi treo
+    ///   lơ lửng. Cùng luật với <c>ScreenScopeMapBuilder.MatchScreen</c>: chính tả lấy của BẢNG, không của
+    ///   model.</item>
+    ///   <item><b>Không tự làm cha của mình.</b></item>
+    ///   <item><b>Tối đa MỘT cấp</b> — cha của một dòng con thì không được có cha nữa. POC dựng grid lồng
+    ///   grid là thứ không ai duyệt nổi, và người dùng nghiệp vụ không mô hình hoá ba tầng. Luật này xét
+    ///   trên trạng thái TRƯỚC khi sửa và áp đúng một lượt, nên nó tất định và làm mọi chu trình tự vỡ:
+    ///   A→B→C giữ B→C và cắt A (giữ được cấp gần gốc nhất), còn A→B→A thì cả hai cùng có cha-có-cha nên
+    ///   cả hai về độc lập.</item>
+    /// </list>
+    /// </summary>
+    private static void NormalizeParents(List<EntityMapRow> rows)
+    {
+        // Ảnh chụp TRƯỚC khi sửa: luật "một cấp" phải đọc lời khai gốc của CẢ bảng, nếu không thứ tự duyệt
+        // quyết định ai được giữ quan hệ — cùng một bảng gửi hai lần cho hai kết quả khác nhau.
+        var claimed = rows.Select(r => Normalize(r.ParentEntity)).ToList();
+
+        var indexByKey = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (rows[i].Included)
+                indexByKey.TryAdd(Normalize(rows[i].Entity), i);
+        }
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (claimed[i].Length == 0)
+                continue;
+
+            if (!indexByKey.TryGetValue(claimed[i], out var parent) || parent == i || claimed[parent].Length > 0)
+            {
+                rows[i].ParentEntity = string.Empty;
+                continue;
+            }
+
+            // Chính tả của BẢNG, không của model: hai cách viết cho cùng một đối tượng thì mọi tầng sau
+            // tưởng là hai đối tượng.
+            rows[i].ParentEntity = rows[parent].Entity;
+            NormalizeChildRowCount(rows[i]);
+        }
+
+        // Số dòng con chỉ có nghĩa dưới một quan hệ. Rơi lại trên một hồ sơ độc lập, nó đọc như một ràng
+        // buộc về số bản ghi của cả ứng dụng — thứ chưa ai từng hỏi.
+        foreach (var row in rows.Where(r => r.ParentEntity.Length == 0))
+        {
+            row.MinRows = null;
+            row.MaxRows = null;
+        }
+    }
+
+    /// <summary>
+    /// Ô "mỗi cha có bao nhiêu dòng": bỏ giá trị âm/quá trần, và ĐỔI CHỖ khi min &gt; max thay vì bỏ một
+    /// trong hai — gõ nhầm thứ tự hai ô là ca thường gặp nhất, và đổi chỗ giữ được cả hai con số họ đã gõ.
+    /// </summary>
+    private static void NormalizeChildRowCount(EntityMapRow row)
+    {
+        row.MinRows = Clamp(row.MinRows);
+        row.MaxRows = Clamp(row.MaxRows);
+
+        if (row.MinRows.HasValue && row.MaxRows.HasValue && row.MinRows > row.MaxRows)
+            (row.MinRows, row.MaxRows) = (row.MaxRows, row.MinRows);
+
+        static int? Clamp(int? value)
+            => value is null || value < 0 || value > MaxChildRowCount ? null : value;
     }
 
     /// <summary>Đọc JSON bảng đối tượng đã lưu (cột DB hoặc payload client). null/rỗng/hỏng ⇒ mảng rỗng.</summary>
@@ -200,6 +285,11 @@ public static class EntityMapBuilder
         {
             var description = string.IsNullOrWhiteSpace(row.Description) ? string.Empty : $" — {row.Description}";
             sb.AppendLine($"* {row.Entity}{description}");
+
+            // Quan hệ đứng NGAY dưới tên đối tượng chứ không xuống cuối khối: nó đổi nghĩa của mọi dòng
+            // phía dưới (các "thông tin" ở đây là cột của MỘT DÒNG con, không phải của một hồ sơ).
+            if (row.ParentEntity.Length > 0)
+                sb.AppendLine($"  - {RenderParent(row)}");
 
             var fields = row.Fields.Where(f => f.Used).ToList();
             if (fields.Count > 0)
@@ -244,6 +334,9 @@ public static class EntityMapBuilder
             sb.AppendLine();
             var description = string.IsNullOrWhiteSpace(row.Description) ? string.Empty : $" — {row.Description}";
             sb.AppendLine($"{row.Entity}{description}:");
+
+            if (row.ParentEntity.Length > 0)
+                sb.AppendLine($"- {RenderParent(row)}");
 
             var fields = row.Fields.Where(f => f.Used).ToList();
             if (fields.Count > 0)
@@ -367,6 +460,23 @@ public static class EntityMapBuilder
             .ToList();
 
     // ==== chuẩn hoá từng phần ====
+
+    /// <summary>
+    /// Quan hệ cha-con ở dạng một câu — chủ ngữ là CHA vì đó là cách người dùng nói ("mỗi JD có 5 trách
+    /// nhiệm"), và vì mọi tầng đọc sau đó cần biết bản ghi nào chứa danh sách này.
+    /// </summary>
+    private static string RenderParent(EntityMapRow row)
+    {
+        var count = (row.MinRows, row.MaxRows) switch
+        {
+            (int min, int max) when min == max => $" {min}",
+            (int min, int max) => $" {min}–{max}",
+            (int min, null) => $" từ {min}",
+            (null, int max) => $" tối đa {max}",
+            _ => string.Empty
+        };
+        return $"là các DÒNG của \"{row.ParentEntity}\" — mỗi \"{row.ParentEntity}\" có{count} dòng như thế";
+    }
 
     /// <summary>
     /// MỘT thông tin, ở dạng cả người dùng lẫn model đọc được. Phần trong ngoặc vuông chỉ xuất hiện khi có

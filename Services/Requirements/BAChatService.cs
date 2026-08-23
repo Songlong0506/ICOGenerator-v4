@@ -586,9 +586,17 @@ public class BAChatService
             "## Bảng màn hình người dùng ĐÃ CHỐT (phạm vi màn hình — coi như điều đã biết)",
             "KHÔNG hỏi lại ứng dụng cần màn hình nào, và KHÔNG đề xuất thêm màn hình ngoài danh sách này trừ "
             + "khi chính người dùng nêu ra một nhu cầu mới.");
+        // Lệnh "đừng hỏi lại" ở đây chỉ phủ CẤU TRÚC, và câu thứ hai phải nói rõ điều đó. Bảng chốt xong
+        // không có nghĩa là mọi câu hỏi về mô hình dữ liệu đã hết: các RÀNG BUỘC trên một tập dòng con —
+        // "tổng tỷ trọng phải bằng 100%", "luôn có một dòng mặc định không sửa được" — không có ô nào trong
+        // bảng để đứng, nên nếu lệnh này bị hiểu rộng thì chúng vĩnh viễn không được hỏi và POC dựng ra một
+        // biểu mẫu cộng lại không ra gì cả. Đây là ngoại lệ nằm ở câu lệnh, khác ba ngoại lệ ghi ngay tại
+        // dòng của nó trong RenderConfirmedBlock (đối tượng rỗng ruột, ô chọn chưa rõ nguồn).
         AppendConfirmedTable(messages, EntityMapBuilder.RenderConfirmedBlock(project.EntityMap),
             "## Bảng đối tượng nghiệp vụ người dùng ĐÃ CHỐT (coi như điều đã biết)",
-            "KHÔNG hỏi lại thông tin nào cần lưu hay các trạng thái đi qua.");
+            "KHÔNG hỏi lại thông tin nào cần lưu hay các trạng thái đi qua. Bảng này chốt CẤU TRÚC, không "
+            + "chốt RÀNG BUỘC: các quy tắc trên một tập dòng con (tổng tỷ trọng, dòng mặc định luôn có sẵn, "
+            + "điều kiện được sửa) VẪN phải hỏi như mọi quy tắc nghiệp vụ khác.");
         AppendConfirmedTable(messages, ReportMapBuilder.RenderConfirmedBlock(project.ReportMap),
             "## Bảng báo cáo / thống kê người dùng ĐÃ CHỐT (coi như điều đã biết)",
             "KHÔNG hỏi lại ứng dụng cần báo cáo nào, mỗi báo cáo lấy số từ đâu hay gộp theo gì, và KHÔNG đề "
@@ -766,6 +774,15 @@ public class BAChatService
                 + "- `evidence`: CHỈ điền khi người dùng đã tự nêu đối tượng đó, kèm đúng trích dẫn của họ.\n"
                 + "- Thông tin nào đã nằm trong \"Bảng cột … đã được NGƯỜI DÙNG CHỐT\" thì cứ đưa vào — hệ thống "
                 + "tự đánh dấu nguồn; đừng hỏi lại ý nghĩa của chúng.\n"
+                + "- Một \"thông tin\" mà thật ra là NHIỀU DÒNG, mỗi dòng có hơn một thuộc tính (\"5 trách nhiệm, "
+                + "mỗi cái kèm tỷ trọng %\", \"các dòng hàng của đơn\") thì TÁCH thành một phần tử `entityMap` "
+                + "nữa: `parentEntity` chép ĐÚNG `entity` của dòng cha, `fields` là các cột của MỘT dòng, và "
+                + "`minRows`/`maxRows` là số dòng mỗi cha (không ai nói thì để null). Tối đa MỘT cấp — đối "
+                + "tượng đã có cha thì không được làm cha của đối tượng khác. Nhưng đừng tách khi mỗi mục chỉ "
+                + "có ĐÚNG một giá trị (\"các kỹ năng yêu cầu\"): đó là một ô `choice-many`.\n"
+                + "- BẢNG chốt CẤU TRÚC, không chốt RÀNG BUỘC. \"Tổng tỷ trọng phải bằng 100%\", \"luôn có một "
+                + "dòng mặc định không sửa được\" là QUY TẮC — không ô nào ở đây chở chúng, và bạn hỏi chúng "
+                + "bằng câu hỏi ở các lượt sau. Đừng nén chúng vào `meaning` hay `description`.\n"
                 + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng đối tượng\" — không đặt "
                 + "câu hỏi, không kèm `suggestions`, không kèm `questions`, không kèm `flowDiagram`."));
         }

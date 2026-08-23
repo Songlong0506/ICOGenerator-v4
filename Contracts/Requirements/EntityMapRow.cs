@@ -243,6 +243,55 @@ public class EntityMapRow
     /// </summary>
     public List<EntityLifecycleState> States { get; set; } = new();
 
+    /// <summary>
+    /// Tên đối tượng CHA khi dòng này không phải một hồ sơ độc lập mà là <b>các dòng của</b> một đối tượng
+    /// khác — "Trách nhiệm" của một bản mô tả công việc, "Dòng hàng" của một đơn hàng, "Mục tiêu" của một
+    /// bản đánh giá. Rỗng = hồ sơ độc lập, và đó là ca thường gặp nhất.
+    ///
+    /// <para>
+    /// <b>Vì sao quan hệ này phải nằm ở bảng chứ không suy ra được ở bước sau.</b> Một "thông tin" mà thực
+    /// ra là một danh sách nhiều dòng (5 trách nhiệm, mỗi dòng kèm tỷ trọng %) không có chỗ nào trong
+    /// <see cref="EntityFieldNote"/> để đứng: ô đó chở đúng MỘT giá trị. Không có ô này thì BA hoặc nhét cả
+    /// danh sách vào một ô text — mọi ràng buộc trên từng dòng biến mất — hoặc tách nó thành một đối tượng
+    /// riêng, và khi đó <c>## 8. Data Model Summary</c> dựng nó thành một hồ sơ độc lập có màn hình CRUD
+    /// riêng, sai hẳn thứ người dùng mô tả.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Vì sao là một Ô PHẲNG chứ không phải một bảng lồng trong ô "thông tin".</b> Các cột của dòng con
+    /// cần đúng bộ ràng buộc mà một thông tin đã có — bắt buộc, kiểu nhập, nguồn danh sách (một cột con rất
+    /// hay là dropdown lấy từ danh mục ứng dụng tự quản lý). Dựng chúng thành một cấu trúc lồng là nhân đôi
+    /// cả hai trục xuống một tầng thứ ba; để dòng con LÀ một đối tượng thì mọi thứ đó dùng lại nguyên vẹn,
+    /// và bảng không mọc thêm tầng nào.
+    /// </para>
+    ///
+    /// <para>
+    /// Ba chốt chặn ở <c>EntityMapBuilder</c>: tên phải khớp một dòng KHÁC trong chính bảng (không khớp ⇒
+    /// hạ về hồ sơ độc lập, không nuốt dòng); không tự làm cha của mình; và <b>tối đa MỘT cấp</b> — cha của
+    /// một dòng con thì không được có cha nữa. Cấm sâu hơn vì POC dựng grid lồng grid là thứ không ai duyệt
+    /// nổi, và luật ấy làm mọi chu trình tự vỡ.
+    /// </para>
+    /// </summary>
+    public string ParentEntity { get; set; } = "";
+
+    /// <summary>
+    /// Số dòng con TỐI THIỂU mỗi bản ghi cha ("mỗi JD có 5 trách nhiệm" ⇒ 5). null = không ràng buộc, và
+    /// chỉ có nghĩa khi <see cref="ParentEntity"/> khác rỗng.
+    ///
+    /// <para>
+    /// Đây là ràng buộc DUY NHẤT của tập dòng con được cấp một ô riêng, vì nó là ràng buộc duy nhất có cùng
+    /// một hình dạng ở mọi dự án. Những ràng buộc khác — "tổng tỷ trọng phải bằng 100%", "luôn có sẵn một
+    /// dòng mặc định không xóa được" — không có hình dạng chung (app khác là "tổng ≤ ngân sách", app khác
+    /// nữa không ràng buộc gì), nên chúng thuộc về HỘI THOẠI và đi ra ở <c>## 10. Business Rules</c> qua
+    /// nhóm «Quy tắc nghiệp vụ &amp; ràng buộc» của bản đồ bao phủ. Cấp cho mỗi ràng buộc một ô là đẻ ra
+    /// một ô rác cho mọi dự án không cần tới nó.
+    /// </para>
+    /// </summary>
+    public int? MinRows { get; set; }
+
+    /// <summary>Số dòng con TỐI ĐA mỗi bản ghi cha. null = không ràng buộc. Xem <see cref="MinRows"/>.</summary>
+    public int? MaxRows { get; set; }
+
     /// <summary>Đối tượng này có thuộc ứng dụng không. BA tích sẵn; người dùng bỏ tích thứ không cần.</summary>
     public bool Included { get; set; } = true;
 

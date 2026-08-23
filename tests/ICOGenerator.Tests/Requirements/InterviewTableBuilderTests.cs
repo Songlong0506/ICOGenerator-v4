@@ -936,4 +936,206 @@ public class InterviewTableBuilderTests
 
         Assert.Contains("OrgUnit Catalog", EntityMapBuilder.RenderUserMessage(rows));
     }
+
+    // ==== QUAN HỆ CHA-CON: một "thông tin" thật ra là NHIỀU DÒNG ====
+
+    private static EntityMapRow Parent(string name = "Bản mô tả công việc") => new()
+    {
+        Entity = name,
+        Included = true,
+        Fields = new List<EntityFieldNote> { new() { Name = "Mã JD", Used = true } }
+    };
+
+    private static EntityMapRow Child(string name, string parent, int? min = null, int? max = null) => new()
+    {
+        Entity = name,
+        Included = true,
+        ParentEntity = parent,
+        MinRows = min,
+        MaxRows = max,
+        Fields = new List<EntityFieldNote>
+        {
+            new() { Name = "Nội dung", Used = true },
+            new() { Name = "Tỷ trọng %", Used = true, Input = EntityFieldInput.Number }
+        }
+    };
+
+    // Ca gốc: Trách nhiệm là các dòng của JD, mỗi JD đúng 5 dòng. Cả hai bản kể phải nói ra quan hệ đó —
+    // thiếu nó thì spec dựng Trách nhiệm thành một hồ sơ độc lập có màn hình CRUD riêng.
+    [Fact]
+    public void EntityMap_KeepsAChildRowsRelation()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            Parent(),
+            Child("Trách nhiệm", "Bản mô tả công việc", min: 5, max: 5)
+        });
+
+        var child = rows.Single(r => r.Entity == "Trách nhiệm");
+        Assert.Equal("Bản mô tả công việc", child.ParentEntity);
+        Assert.Equal(5, child.MinRows);
+        Assert.Equal(5, child.MaxRows);
+
+        var block = EntityMapBuilder.RenderConfirmedBlock(JsonSerializer.Serialize(rows));
+        Assert.Contains("là các DÒNG của \"Bản mô tả công việc\"", block);
+        Assert.Contains("có 5 dòng", block);
+        Assert.Contains("là các DÒNG của \"Bản mô tả công việc\"", EntityMapBuilder.RenderUserMessage(rows));
+    }
+
+    // Cha bịa (hoặc gõ sai tên) ⇒ HẠ về hồ sơ độc lập, KHÔNG loại dòng: một quan hệ sai là một ô điền sai,
+    // còn nuốt cả dòng là làm biến mất một đối tượng người dùng đã tích.
+    [Fact]
+    public void EntityMap_DropsARelationPointingAtNothing()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            Parent(),
+            Child("Trách nhiệm", "Đối tượng không có thật", min: 5)
+        });
+
+        var child = rows.Single(r => r.Entity == "Trách nhiệm");
+        Assert.Equal(string.Empty, child.ParentEntity);
+        Assert.Null(child.MinRows);
+    }
+
+    // Chính tả lấy của BẢNG, không của model — cùng luật với ScreenScopeMapBuilder.MatchScreen. Hai cách
+    // viết cho cùng một đối tượng thì mọi tầng sau tưởng là hai đối tượng.
+    [Fact]
+    public void EntityMap_TakesTheParentSpellingFromTheTable()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            Parent(),
+            Child("Trách nhiệm", "  bản mô tả CÔNG VIỆC  ")
+        });
+
+        Assert.Equal("Bản mô tả công việc", rows.Single(r => r.Entity == "Trách nhiệm").ParentEntity);
+    }
+
+    [Fact]
+    public void EntityMap_RefusesAnEntityThatIsItsOwnParent()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[] { Child("Trách nhiệm", "Trách nhiệm") });
+
+        Assert.Equal(string.Empty, rows.Single().ParentEntity);
+    }
+
+    // TỐI ĐA MỘT CẤP. A→B→C: giữ B→C (cấp gần gốc nhất) và cắt A. POC dựng grid lồng grid là thứ không ai
+    // duyệt nổi, và người dùng nghiệp vụ không mô hình hoá ba tầng.
+    [Fact]
+    public void EntityMap_AllowsOnlyOneLevelOfNesting()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            Parent("Đơn hàng"),
+            Child("Dòng hàng", "Đơn hàng"),
+            Child("Chi tiết dòng hàng", "Dòng hàng")
+        });
+
+        Assert.Equal("Đơn hàng", rows.Single(r => r.Entity == "Dòng hàng").ParentEntity);
+        Assert.Equal(string.Empty, rows.Single(r => r.Entity == "Chi tiết dòng hàng").ParentEntity);
+    }
+
+    // Chu trình tự vỡ nhờ chính luật một cấp: cả hai dòng đều có cha-có-cha nên cả hai về độc lập. Không
+    // vòng lặp nào, không thứ tự duyệt nào quyết định kết quả.
+    [Fact]
+    public void EntityMap_BreaksACycleInsteadOfLoopingForever()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            Child("A", "B"),
+            Child("B", "A")
+        });
+
+        Assert.All(rows, r => Assert.Equal(string.Empty, r.ParentEntity));
+    }
+
+    // Cùng một bảng gửi hai lần phải ra cùng một kết quả: luật một cấp đọc ảnh chụp TRƯỚC khi sửa, nên thứ
+    // tự các dòng trong payload không đổi được ai giữ quan hệ.
+    [Fact]
+    public void EntityMap_ResolvesRelationsIndependentlyOfRowOrder()
+    {
+        var forward = EntityMapBuilder.Sanitize(new[]
+        {
+            Parent("Đơn hàng"), Child("Dòng hàng", "Đơn hàng"), Child("Chi tiết", "Dòng hàng")
+        });
+        var reversed = EntityMapBuilder.Sanitize(new[]
+        {
+            Child("Chi tiết", "Dòng hàng"), Child("Dòng hàng", "Đơn hàng"), Parent("Đơn hàng")
+        });
+
+        Assert.Equal("Đơn hàng", forward.Single(r => r.Entity == "Dòng hàng").ParentEntity);
+        Assert.Equal("Đơn hàng", reversed.Single(r => r.Entity == "Dòng hàng").ParentEntity);
+        Assert.Equal(string.Empty, forward.Single(r => r.Entity == "Chi tiết").ParentEntity);
+        Assert.Equal(string.Empty, reversed.Single(r => r.Entity == "Chi tiết").ParentEntity);
+    }
+
+    // Cha bị người dùng BỎ TÍCH thì quan hệ không còn chỗ đứng — nó sẽ trỏ vào một đối tượng không đi vào
+    // ứng dụng. Hạ về độc lập, vẫn không loại dòng.
+    [Fact]
+    public void EntityMap_DropsARelationWhoseParentWasUnticked()
+    {
+        var parent = Parent();
+        parent.Included = false;
+
+        var rows = EntityMapBuilder.Sanitize(new[] { parent, Child("Trách nhiệm", "Bản mô tả công việc") });
+
+        Assert.Equal(string.Empty, rows.Single(r => r.Entity == "Trách nhiệm").ParentEntity);
+    }
+
+    // Số dòng chỉ có nghĩa dưới một quan hệ: rơi lại trên một hồ sơ độc lập, nó đọc như một ràng buộc về số
+    // bản ghi của cả ứng dụng — thứ chưa ai từng hỏi.
+    [Fact]
+    public void EntityMap_ClearsTheRowCountOnAStandaloneEntity()
+    {
+        var row = Parent();
+        row.MinRows = 3;
+        row.MaxRows = 7;
+
+        var saved = EntityMapBuilder.Sanitize(new[] { row }).Single();
+        Assert.Null(saved.MinRows);
+        Assert.Null(saved.MaxRows);
+    }
+
+    // Gõ nhầm thứ tự hai ô là ca thường gặp nhất — đổi chỗ giữ được cả hai con số họ đã gõ, bỏ một trong
+    // hai thì mất một nửa thông tin mà không lời nào nói.
+    [Fact]
+    public void EntityMap_SwapsAnInvertedRowCountRange()
+    {
+        var child = EntityMapBuilder.Sanitize(new[]
+        {
+            Parent(), Child("Trách nhiệm", "Bản mô tả công việc", min: 9, max: 2)
+        }).Single(r => r.Entity == "Trách nhiệm");
+
+        Assert.Equal(2, child.MinRows);
+        Assert.Equal(9, child.MaxRows);
+    }
+
+    [Fact]
+    public void EntityMap_DropsARowCountOutsideTheSaneRange()
+    {
+        var child = EntityMapBuilder.Sanitize(new[]
+        {
+            Parent(), Child("Trách nhiệm", "Bản mô tả công việc", min: -1, max: EntityMapBuilder.MaxChildRowCount + 1)
+        }).Single(r => r.Entity == "Trách nhiệm");
+
+        Assert.Null(child.MinRows);
+        Assert.Null(child.MaxRows);
+    }
+
+    // Model BỎ TRỐNG cả ba trường quan hệ (ca thường gặp nhất — phần lớn đối tượng là hồ sơ độc lập) ⇒ dòng
+    // ra ở đúng trạng thái độc lập, không phải một quan hệ treo lơ lửng. Cùng luật với giá trị khởi tạo
+    // `Input = text`: mặc định phải là thứ an toàn, vì đây là thứ model trả về khi nó không có gì để nói.
+    [Fact]
+    public void EntityMap_ReadsRowsWithNoRelationFieldsAsStandalone()
+    {
+        var noRelation = """
+        [{"entity":"Bản mô tả công việc","included":true,"fields":[{"name":"Mã JD","used":true}]}]
+        """;
+
+        var row = EntityMapBuilder.Parse(noRelation).Single();
+        Assert.Equal(string.Empty, row.ParentEntity);
+        Assert.Null(row.MinRows);
+        Assert.Null(row.MaxRows);
+    }
 }

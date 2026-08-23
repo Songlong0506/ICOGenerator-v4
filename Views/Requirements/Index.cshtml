@@ -1207,7 +1207,10 @@
                     <div class="entitymap-blocks">
                         @foreach (var entity in lastEntityMap)
                         {
-                            <div class="entitymap-block" data-entity="@entity.Entity">
+                            <div class="entitymap-block" data-entity="@entity.Entity"
+                                 data-parent="@entity.ParentEntity"
+                                 data-min="@(entity.MinRows?.ToString() ?? "")"
+                                 data-max="@(entity.MaxRows?.ToString() ?? "")">
                                 <div class="permmap-screen entitymap-head">
                                     @if (entity.Locked)
                                     {
@@ -1223,6 +1226,10 @@
                                     <span class="entitymap-name">@entity.Entity</span>
                                     <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="đối tượng này là gì?">@entity.Description</textarea>
                                 </div>
+                                @* Ô quan hệ để RỖNG: danh sách đối tượng được phép làm cha phụ thuộc tên và
+                                   quan hệ của MỌI khối khác (luật "tối đa một cấp"), nên nó chỉ dựng đúng được
+                                   khi cả cụm đã có mặt — xem renderEntityRelation ở requirements.js. *@
+                                <div class="entitymap-rel"></div>
                                 @* Hai bảng con LUÔN hiện, kể cả khi rỗng: đó là chỗ đứng của hai nút thêm. Một
                                    bảng trạng thái rỗng không phải "mời xác nhận một vòng đời vô nghĩa" (thứ mà
                                    luật cắt vòng đời một trạng thái đang chặn) — nó là chỗ người dùng nói ra
