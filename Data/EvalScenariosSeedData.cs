@@ -431,6 +431,70 @@ public static class EvalScenariosSeedData
             - Nếu message có câu ghi nhận thì chỉ được chứa điều người dùng THẬT SỰ đã nói, và KHÔNG nhét "Đồng Nai" hay tên department từ khối ngữ cảnh hệ thống vào đó.
             """);
 
+        // BẢN KỂ CỦA BẢNG KHÔNG PHẢI LỜI NGƯỜI DÙNG. Ca thật (JD Library 1): BA điền ô mô tả của đối tượng
+        // JD là "Mô tả công việc được Manager tạo, kiểm tra, verify và approve…", trong khi chính người dùng
+        // đã kể ở lượt 7 và tự tay rà ở BẢNG LUỒNG rằng HRBP verify rồi HoD của Manager approve. Người dùng
+        // đọc ô đó như một cái nhãn nên bấm gửi luôn — và lượt kế BA hỏi "luồng nào đúng với thực tế ạ?",
+        // tức bắt họ phân xử một mâu thuẫn giữa lời họ và lời BA. Ba tầng thiệt hại: lượt gỡ mâu thuẫn phải
+        // đứng MỘT MÌNH nên cả lượt bị đốt cho việc không có thật; mục tồn đọng sinh ra từ đó hạ ba dòng bản
+        // đồ xuống [MỘT PHẦN] và KHÓA cổng "Write Requirement" ở đúng lượt mọi nhóm vừa đủ; và nếu người dùng
+        // chọn nhầm vế của BA thì luồng bốn mắt do chính họ kể bị lật. Cơ chế đã bỏ ô mô tả khỏi bản kể và
+        // gắn nhãn xuất xứ cho nó trong khối ngữ cảnh (EntityMapBuilder); scenario này chấm phần còn lại —
+        // BA có thôi lấy câu của mình làm một vế mâu thuẫn hay không.
+        Add(
+            "Chat BA — mô tả BA tự đặt trong bảng KHÔNG phải một vế mâu thuẫn",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Bản đồ bao phủ yêu cầu (trạng thái khai thác từng nhóm thông tin — dùng để chọn câu hỏi kế tiếp)
+            Nhóm đã [RÕ]: KHÔNG hỏi lại. Nhóm [MỘT PHẦN]: chỉ hỏi ĐÚNG phần ghi sau "còn thiếu:", KHÔNG phát lại câu hỏi mở đầu của nhóm đó (người dùng đã trả lời phần còn lại rồi).
+            - ★ Đối tượng người dùng & vai trò: [RÕ] Manager tạo/gán JD; HRBP verify; HoD approve; Admin quản lý Skill.
+            - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Manager tạo JD → submit → HRBP verify → HoD approve → available.
+            - Vòng đời & trạng thái: [RÕ] Đang chỉnh sửa → Chờ HRBP verify → Chờ HoD approve → Available.
+            - Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Mỗi JD có 5 Responsibility, mỗi dòng có tỷ lệ. còn thiếu: tổng tỷ lệ của 5 Responsibility có phải bằng 100% không.
+
+            ## Bảng luồng nghiệp vụ người dùng ĐÃ CHỐT (tự tay rà từng bước — coi như điều đã biết)
+            KHÔNG hỏi lại thứ tự bước, ai làm bước nào, hay kết quả của bước; KHÔNG dựng yêu cầu trái với các luồng này.
+
+            --- Bảng luồng đã được NGƯỜI DÙNG CHỐT ---
+            * Tạo và phê duyệt JD [luồng chính] — Manager
+              1. Manager: Submit JD ⇒ JD được chuyển cho HRBP phòng Nhân sự verify
+              2. HRBP phòng Nhân sự: Verify JD ⇒ JD được chuyển cho HoD của Manager approve
+              3. HoD của Manager: Approve JD ⇒ JD trở thành available để assign cho nhân viên
+
+            ## Bảng đối tượng nghiệp vụ người dùng ĐÃ CHỐT (coi như điều đã biết)
+            KHÔNG hỏi lại thông tin nào cần lưu hay các trạng thái đi qua. Bảng này chốt CẤU TRÚC, không chốt RÀNG BUỘC.
+
+            --- Bảng đối tượng nghiệp vụ đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại) ---
+            Mỗi đối tượng: thông tin cần lưu, rồi vòng đời trạng thái kèm ĐIỀU KIỆN chuyển vào.
+            Dòng "mô tả" là câu CHÍNH BẠN đặt lúc bày bảng, KHÔNG phải lời người dùng: đừng trích nó làm bằng chứng, đừng lấy nó làm một vế mâu thuẫn với điều họ nói, và thấy nó lệch với hội thoại thì tự sửa im lặng chứ không hỏi.
+            * JD
+              - mô tả (BA tự đặt, chưa ai rà): Mô tả công việc được Manager tạo, kiểm tra, verify và approve trước khi dùng để gán cho nhân viên
+              - thông tin: Job Title [bắt buộc · chọn 1 giá trị · ứng dụng tự quản lý danh mục]; Degree [bắt buộc · chọn nhiều giá trị · ứng dụng tự quản lý danh mục]
+              - trạng thái "Chờ HRBP verify" khi Manager submit JD và JD đạt kiểm tra tự động
+            * Responsibility — mỗi JD có 5 dòng
+              - thông tin: Task [bắt buộc]; Tỷ lệ [bắt buộc · nhập số]
+
+            Hội thoại trước đó:
+            BA: Các nhóm thông tin chính đã đủ. Anh/chị rà soát bảng đối tượng bên dưới, sau đó bấm "Gửi bảng đối tượng" giúp mình nhé.
+
+            Mình đã rà bảng đối tượng nghiệp vụ:
+
+            JD:
+            - thông tin cần lưu: Job Title [bắt buộc · chọn 1 giá trị · ứng dụng tự quản lý danh mục]; Degree [bắt buộc · chọn nhiều giá trị · ứng dụng tự quản lý danh mục]
+            - "Chờ HRBP verify" khi Manager submit JD và JD đạt kiểm tra tự động
+
+            Responsibility:
+            - là các DÒNG của "JD" — mỗi "JD" có 5 dòng như thế
+            - thông tin cần lưu: Task [bắt buộc]; Tỷ lệ [bắt buộc · nhập số]
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement"; mọi trường bảng (flowMap, screenScopeMap, entityMap, reportMap, permissionMatrix, notificationMap) là mảng RỖNG.
+            - TRƯỢT NẶNG nếu lượt này nêu một mâu thuẫn về ai verify / ai approve JD — vd "trong bảng luồng anh/chị đã chốt HRBP verify và HoD approve, nhưng phần mô tả JD lại ghi Manager thực hiện verify và approve; luồng nào đúng với thực tế ạ?". Vế "Manager verify và approve" đến từ ô mô tả do CHÍNH BA điền sẵn, không phải lời người dùng: hai vế không cùng nguồn nên không có mâu thuẫn nào, và câu mô tả lệch là lỗi câu chữ của BA để tự sửa im lặng.
+            - TRƯỢT nếu hỏi lại bất kỳ điều gì thuộc bốn dòng bản đồ đang [RÕ]: ai tạo JD, ai verify, ai approve, JD đi qua những trạng thái nào, thông tin nào cần lưu cho JD.
+            - ĐẠT khi lượt này đi tiếp bằng đúng phần "còn thiếu" của nhóm «Quy tắc nghiệp vụ & ràng buộc»: tổng tỷ lệ của 5 Responsibility trong một JD (bằng 100% hay không), tốt nhất là dựng sẵn một ví dụ số cụ thể rồi xin chốt.
+            - Câu hỏi ĐÓNG ⇒ suggestions có 2–5 phương án thật; không có chip kiểu "Quy tắc khác" / "Ý khác".
+            """);
+
         // ================= BusinessAnalyst/source-ack.v3.md + source-readback.v1.md =================
         // Đường vào tài liệu nguồn là CỬA VÀO của mọi thứ phía sau: đọc sai ở đây thì cái sai được người
         // dùng bấm "Đúng rồi" đóng dấu, rồi chảy thẳng vào Product Brief. Với BẢNG TÍNH nó đi HAI lượt —

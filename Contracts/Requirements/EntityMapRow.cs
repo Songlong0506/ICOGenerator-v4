@@ -231,7 +231,16 @@ public class EntityMapRow
     /// <summary>Tên đối tượng theo ngôn ngữ nghiệp vụ ("Kế hoạch đào tạo", "Đơn đăng ký").</summary>
     public string Entity { get; set; } = "";
 
-    /// <summary>Một câu mô tả đối tượng là gì, BA điền sẵn.</summary>
+    /// <summary>
+    /// Một câu mô tả đối tượng LÀ GÌ, BA điền sẵn — không nói AI LÀM GÌ với nó.
+    ///
+    /// <para>
+    /// Ô này là văn xuôi của BA, không phải quyết định của người dùng: họ đọc nó như cái nhãn xám cạnh tên
+    /// đối tượng rồi bấm gửi. Vì vậy nó KHÔNG đi vào bản kể gửi lên khung chat và đứng ở một dòng có gắn
+    /// xuất xứ trong khối ngữ cảnh — xem ghi chú class của <c>EntityMapBuilder</c> cho ca thật: một câu mô
+    /// tả nhét cả luồng duyệt vào đây đã quay lại thành "lời người dùng" và khóa cổng "Write Requirement".
+    /// </para>
+    /// </summary>
     public string Description { get; set; } = "";
 
     /// <summary>Các thông tin cần lưu về đối tượng.</summary>
