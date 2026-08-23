@@ -100,20 +100,20 @@ public class ReportMapBuilderTests
 
     // ==== MÀN HÌNH GIEO RA ====
 
-    // Tên đã tự đọc được như một màn hình thì giữ nguyên; tên trần mới được gắn chữ dẫn. Gắn cho tất cả thì
-    // sinh ra những mục phạm vi đọc như "Báo cáo Báo cáo tổng hợp…".
+    // Tên đã tự đọc được như một màn hình thì giữ nguyên; tên trần mới được gắn hậu tố. Gắn cho tất cả thì
+    // sinh ra những mục phạm vi đọc như "Headcount Report Report".
     [Fact]
-    public void ReportScreens_PrefixesOnlyTheNamesThatDoNotAlreadyReadAsAScreen()
+    public void ReportScreens_SuffixesOnlyTheNamesThatDoNotAlreadyReadAsAScreen()
     {
         var screens = ReportMapBuilder.ReportScreens(new[]
         {
-            Row("Báo cáo tổng hợp ngày phép"),
-            Row("Thống kê chi phí đào tạo"),
-            Row("Tiến độ học của từng đơn vị")
+            Row("Headcount Report"),
+            Row("Training Cost Dashboard"),
+            Row("Remaining Leave")
         });
 
         Assert.Equal(
-            new[] { "Báo cáo tổng hợp ngày phép", "Thống kê chi phí đào tạo", "Báo cáo Tiến độ học của từng đơn vị" },
+            new[] { "Headcount Report", "Training Cost Dashboard", "Remaining Leave Report" },
             screens);
     }
 

@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Từ buổi phỏng vấn tới Product Brief — ICOGenerator v4</title>
+<style>
+  :root{
+    --bg:#0d141d;
+    --surface:#16202c;
+    --surface-2:#1c2836;
+    --line:#263444;
+    --text:#e8eef5;
+    --muted:#8fa1b3;
+    --ai:#43d6c0;
+    --ai-dim:rgba(67,214,192,.14);
+    --human:#f0b454;
+    --human-dim:rgba(240,180,84,.14);
+    --display:"Segoe UI Variable Display","Segoe UI",-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --body:"Segoe UI",-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --mono:"Cascadia Code",ui-monospace,"SF Mono",Consolas,"Liberation Mono",monospace;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--body);overflow:hidden;height:100%}
+  *{box-sizing:border-box}
+
+  #viewport{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg)}
+  #deck{width:1280px;height:720px;position:relative;flex:none}
+
+  .slide{
+    position:absolute;inset:0;padding:52px 84px 84px;
+    display:flex;flex-direction:column;
+    opacity:0;visibility:hidden;transition:opacity .35s ease;
+    background:
+      radial-gradient(1100px 600px at 85% -10%, rgba(67,214,192,.06), transparent 60%),
+      var(--bg);
+  }
+  .slide.on{opacity:1;visibility:visible}
+  @media (prefers-reduced-motion: reduce){ .slide{transition:none} }
+
+  .eyebrow{
+    font-family:var(--mono);font-size:14px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--ai);margin:0 0 16px;display:flex;align-items:center;gap:12px;
+  }
+  .eyebrow::before{content:"";width:26px;height:2px;background:var(--ai);flex:none}
+  .eyebrow.warm{color:var(--human)} .eyebrow.warm::before{background:var(--human)}
+
+  h1{font-family:var(--display);font-size:78px;line-height:1.04;font-weight:800;
+     letter-spacing:-0.02em;margin:0;text-wrap:balance}
+  h2{font-family:var(--display);font-size:42px;line-height:1.12;font-weight:800;
+     letter-spacing:-0.015em;margin:0 0 12px;text-wrap:balance;max-width:24ch}
+  h2.wide{max-width:34ch}
+  h2.sm{font-size:34px;margin-bottom:10px}
+  .lede{font-size:20px;line-height:1.55;color:var(--muted);margin:0 0 22px;max-width:66ch}
+  .lede.tight{margin-bottom:14px}
+  .lede strong{color:var(--text);font-weight:600}
+  .accent{color:var(--ai)}
+  .warmtext{color:var(--human)}
+
+  .foot{
+    position:absolute;left:84px;right:84px;bottom:28px;
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-family:var(--mono);font-size:12.5px;color:var(--muted);letter-spacing:.08em;
+  }
+  .foot .n{color:var(--text)}
+
+  /* ---------- title slide ---------- */
+  .title-slide{justify-content:center}
+  .title-sub{font-size:23px;line-height:1.5;color:var(--muted);max-width:50ch;margin:24px 0 0}
+  .title-sub strong{color:var(--text);font-weight:600}
+  .agent-row{display:flex;gap:10px;margin-top:40px;flex-wrap:wrap}
+  .agent-chip{
+    font-family:var(--mono);font-size:15px;padding:9px 16px;border:1px solid var(--line);
+    border-radius:999px;background:var(--surface);color:var(--text)
+  }
+  .agent-chip b{color:var(--ai);font-weight:600;margin-right:8px}
+  .hint{margin-top:44px;font-family:var(--mono);font-size:13px;color:var(--muted)}
+
+  /* ---------- generic building blocks ---------- */
+  .cols{display:grid;gap:18px;flex:1;align-content:start}
+  .cols.c2{grid-template-columns:1fr 1fr}
+  .cols.c3{grid-template-columns:1fr 1fr 1fr}
+
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:20px 22px;display:flex;flex-direction:column;gap:8px;min-width:0;
+  }
+  .card h3{font-family:var(--display);font-size:20px;font-weight:700;margin:0;letter-spacing:-.01em}
+  .card p{font-size:15.5px;line-height:1.5;color:var(--muted);margin:0}
+  .card p b{color:var(--text);font-weight:600}
+  .card .k{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ai)}
+  .card .k.warm{color:var(--human)}
+  .card.warm{border-color:rgba(240,180,84,.4)}
+
+  ul.big{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:16px}
+  ul.big li{display:flex;gap:16px;font-size:19px;line-height:1.5;max-width:80ch}
+  ul.big li::before{content:"";flex:none;width:9px;height:9px;border-radius:2px;background:var(--ai);margin-top:10px}
+  ul.big.warm li::before{background:var(--human)}
+  ul.big li b{font-weight:600}
+  ul.big li .mut{color:var(--muted)}
+
+  .feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 34px;flex:1;align-content:start}
+  .feature{display:flex;flex-direction:column;gap:4px;padding:13px 0 11px;border-top:1px solid var(--line)}
+  .feature h3{font-family:var(--display);font-size:19px;font-weight:700;margin:0}
+  .feature h3 .tick{color:var(--ai);margin-right:10px;font-family:var(--mono);font-weight:600}
+  .feature p{font-size:15px;line-height:1.45;color:var(--muted);margin:0}
+  .feature p b{color:var(--text);font-weight:600}
+
+  /* ---------- flow strip ---------- */
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 6px;margin-top:6px}
+  .stage{
+    display:flex;align-items:center;gap:9px;background:var(--surface);
+    border:1px solid var(--line);border-radius:9px;padding:11px 14px;
+    font-size:16.5px;font-weight:600;white-space:nowrap;
+  }
+  .stage .dot{width:8px;height:8px;border-radius:50%;background:var(--ai);flex:none}
+  .stage.start{background:transparent;border-style:dashed;font-weight:400;color:var(--muted)}
+  .stage.start .dot{background:var(--muted)}
+  .stage.final{border-color:var(--ai);background:var(--ai-dim)}
+  .stage.human{border-color:rgba(240,180,84,.5);background:var(--human-dim)}
+  .stage.human .dot{background:var(--human)}
+  .gate{
+    font-family:var(--mono);font-size:13px;color:var(--human);flex:none;
+    display:flex;align-items:center;gap:5px;padding:0 2px;
+  }
+  .gate::before{content:"◆";font-size:11px}
+  .arrow{color:var(--muted);font-size:17px;flex:none;opacity:.7}
+  .loop-note{
+    display:inline-flex;align-items:flex-start;gap:8px;margin-top:18px;
+    font-size:15.5px;line-height:1.5;color:var(--muted);background:var(--surface);border:1px solid var(--line);
+    border-radius:9px;padding:10px 16px;
+  }
+  .loop-note b{color:var(--text)}
+  .loop-note.warm{border-color:rgba(240,180,84,.35)}
+  .legend{display:flex;gap:28px;margin-top:14px;font-family:var(--mono);font-size:13px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:9px}
+  .legend .d-ai{width:9px;height:9px;border-radius:50%;background:var(--ai)}
+  .legend .d-h{color:var(--human);font-size:11px}
+  .legend .d-d{width:14px;height:0;border-top:2px dashed var(--human)}
+
+  /* ---------- rows (2 cột nhãn + mô tả) ---------- */
+  .tech-rows{display:flex;flex-direction:column;flex:1}
+  .tech-row{
+    display:grid;grid-template-columns:290px 1fr;gap:24px;align-items:baseline;
+    padding:12px 0;border-top:1px solid var(--line);
+  }
+  .tech-row .t{font-family:var(--mono);font-size:15px;color:var(--text);font-weight:600}
+  .tech-row .t.warm{color:var(--human)}
+  .tech-row .d{font-size:16px;line-height:1.45;color:var(--muted)}
+  .tech-row .d b{color:var(--text);font-weight:600}
+
+  /* ---------- diagram (inline SVG) ---------- */
+  .svg-wrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+  .svg-wrap svg{width:100%;height:100%}
+  .d-box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+  .d-box.ai{stroke:rgba(67,214,192,.55)}
+  .d-box.fill-ai{fill:var(--ai-dim);stroke:var(--ai)}
+  .d-box.human{fill:var(--human-dim);stroke:rgba(240,180,84,.75)}
+  .d-box.dash{fill:none;stroke:var(--line);stroke-dasharray:6 5}
+  .d-box.inner{fill:var(--surface-2);stroke:var(--line)}
+  .d-t{fill:var(--text);font-family:var(--body);font-size:14px;font-weight:600}
+  .d-s{fill:var(--muted);font-family:var(--body);font-size:12.5px;font-weight:400}
+  .d-k{fill:var(--ai);font-family:var(--mono);font-size:11.5px;letter-spacing:.14em}
+  .d-k.warm{fill:var(--human)}
+  .d-line{stroke:var(--muted);stroke-width:1.6;fill:none;opacity:.85}
+  .d-line.back{stroke:var(--human);stroke-dasharray:6 5;opacity:.9}
+
+  /* ---------- bản đồ bao phủ ---------- */
+  .cov{display:grid;grid-template-columns:1fr 1fr;gap:0 36px;align-content:start}
+  .cov-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:16px}
+  .pill{
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;padding:3px 0;border-radius:5px;
+    flex:none;width:112px;text-align:center;border:1px solid transparent;
+  }
+  .pill.ok{color:var(--ai);background:var(--ai-dim);border-color:rgba(67,214,192,.4)}
+  .pill.part{color:var(--human);background:var(--human-dim);border-color:rgba(240,180,84,.4)}
+  .pill.none{color:var(--muted);background:var(--surface);border-color:var(--line)}
+  .cov-note{margin-top:16px;font-size:15.5px;line-height:1.5;color:var(--muted)}
+  .cov-note b{color:var(--text)}
+
+  /* ---------- tài liệu mẫu ---------- */
+  .doc{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 24px;
+    display:flex;flex-direction:column;gap:9px;flex:1;
+  }
+  .doc-row{display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line)}
+  .doc-row:first-of-type{border-top:0}
+  .doc-row .h{font-family:var(--display);font-size:17.5px;font-weight:700}
+  .doc-row .h span{color:var(--ai);font-family:var(--mono);font-size:13px;margin-right:9px}
+  .doc-row .x{font-size:15px;line-height:1.45;color:var(--muted)}
+
+  /* ---------- closing ---------- */
+  .closing{justify-content:center;align-items:flex-start}
+  .closing h1{font-size:66px}
+  .closing .lede{font-size:22px;margin-top:22px}
+
+  /* ---------- HUD ---------- */
+  #bar{position:fixed;top:0;left:0;height:3px;background:var(--ai);width:0;z-index:10;transition:width .25s ease}
+  @media (prefers-reduced-motion: reduce){ #bar{transition:none} }
+  .zone{position:fixed;top:0;bottom:0;width:18%;z-index:5;cursor:pointer}
+  .zone:focus-visible{outline:2px solid var(--ai);outline-offset:-4px}
+  #zPrev{left:0}#zNext{right:0}
+
+  /* ---------- print: mỗi slide một trang ---------- */
+  @media print{
+    html,body{overflow:visible;background:#fff}
+    #viewport{position:static;display:block}
+    #deck{transform:none !important;width:1280px;height:auto;margin:0 auto}
+    .slide{position:relative;opacity:1;visibility:visible;height:720px;page-break-after:always;break-after:page}
+    #bar,.zone{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div id="viewport">
+  <div id="deck">
+
+    <!-- 01 · TITLE -->
+    <section class="slide title-slide on">
+      <p class="eyebrow">ICOGenerator v4 · BA Agent</p>
+      <h1>Từ buổi phỏng vấn<br>tới <span class="accent">Product Brief</span></h1>
+      <p class="title-sub">BA agent khai thác yêu cầu thế nào, và bằng cơ chế nào một buổi chat
+        trở thành tài liệu mô tả sản phẩm <strong>mà người dùng dám ký tên</strong>.</p>
+      <div class="agent-row">
+        <span class="agent-chip"><b>01</b>Nghe &amp; đọc tài liệu</span>
+        <span class="agent-chip"><b>02</b>Hỏi theo bản đồ bao phủ</span>
+        <span class="agent-chip"><b>03</b>Chốt bằng bảng</span>
+        <span class="agent-chip"><b>04</b>Qua hai cổng</span>
+        <span class="agent-chip"><b>05</b>Soạn &amp; tự soát</span>
+      </div>
+      <p class="hint">→ Dùng phím mũi tên hoặc bấm mép phải màn hình để chuyển slide</p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">01</span> / 17</span></div>
+    </section>
+
+    <!-- 02 · PROBLEM -->
+    <section class="slide">
+      <p class="eyebrow warm">Vấn đề</p>
+      <h2 class="wide">"Chat với AI rồi bảo nó viết tài liệu" hỏng theo bốn kiểu</h2>
+      <p class="lede tight">Cả bốn đều có chung một đặc điểm: tài liệu nhận về <strong>trông vẫn đầy đủ và hợp lý</strong> —
+        chỉ người thật sự biết nghiệp vụ mới phát hiện ra, và thường là sau khi đã lập trình xong.</p>
+      <ul class="big warm">
+        <li><span><b>Bịa khi thiếu thông tin.</b> <span class="mut">Model không hỏi tiếp mà tự chọn một cách hiểu "hiển nhiên" — tự thêm sửa/xóa khi người dùng chỉ nói tới thêm mới.</span></span></li>
+        <li><span><b>Rơi rụng yêu cầu.</b> <span class="mut">Một quyết định chốt ở giữa buổi rồi không ai nhắc lại vẫn là yêu cầu, nhưng trong 70 lượt chat nó chìm mất.</span></span></li>
+        <li><span><b>Tài liệu tự mâu thuẫn.</b> <span class="mut">Lượt 3 nói quản lý duyệt là xong, lượt 12 kể thêm HR duyệt — bước soạn tài liệu chọn bừa một bên.</span></span></li>
+        <li><span><b>Hỏi lại điều vừa được trả lời.</b> <span class="mut">Người dùng nghiệp vụ bận sẽ bỏ dở buổi phỏng vấn chứ không có cách nào rút ngắn.</span></span></li>
+      </ul>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">02</span> / 17</span></div>
+    </section>
+
+    <!-- 03 · DIAGRAM TỔNG THỂ -->
+    <section class="slide">
+      <p class="eyebrow">Toàn cảnh</p>
+      <h2 class="sm wide">Một vòng phỏng vấn có trí nhớ, hai cổng chặn, và một bước soạn tự soát</h2>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 1120 420" preserveAspectRatio="xMidYMid meet" role="img"
+             aria-label="Sơ đồ: người dùng và tài liệu nguồn đi vào vòng phỏng vấn, qua cổng chất lượng, tới bước Write Requirement, ra Product Brief bản nháp, người dùng duyệt thành phiên bản chính thức">
+          <defs>
+            <marker id="ah" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+              <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#8fa1b3"/>
+            </marker>
+            <marker id="ahw" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+              <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#f0b454"/>
+            </marker>
+          </defs>
+
+          <!-- đường quay lại khung chat -->
+          <text x="700" y="20" class="d-s" text-anchor="middle" fill="#f0b454">chưa đủ, hoặc còn điểm phải tự giả định ⇒ câu hỏi quay lại khung chat</text>
+          <path d="M1000 64 V32 H382 V56" class="d-line back" marker-end="url(#ahw)"/>
+          <path d="M685 110 V32" class="d-line back"/>
+
+          <!-- đầu vào -->
+          <rect x="8" y="110" width="152" height="56" rx="9" class="d-box"/>
+          <text x="84" y="134" class="d-t" text-anchor="middle">Người dùng</text>
+          <text x="84" y="152" class="d-s" text-anchor="middle">nghiệp vụ</text>
+          <rect x="8" y="182" width="152" height="56" rx="9" class="d-box"/>
+          <text x="84" y="206" class="d-t" text-anchor="middle">Tài liệu nguồn</text>
+          <text x="84" y="224" class="d-s" text-anchor="middle">Excel · Word · PDF · ảnh</text>
+          <path d="M162 138 H184" class="d-line" marker-end="url(#ah)"/>
+          <path d="M162 210 H184" class="d-line" marker-end="url(#ah)"/>
+
+          <!-- vòng phỏng vấn -->
+          <rect x="190" y="64" width="380" height="220" rx="14" class="d-box dash"/>
+          <text x="206" y="88" class="d-k">VÒNG PHỎNG VẤN</text>
+          <rect x="205" y="110" width="145" height="58" rx="9" class="d-box ai"/>
+          <text x="277" y="134" class="d-t" text-anchor="middle">Lượt chat BA</text>
+          <text x="277" y="152" class="d-s" text-anchor="middle">hỏi · kể lại · ghi nhận</text>
+          <rect x="410" y="110" width="145" height="58" rx="9" class="d-box ai"/>
+          <text x="482" y="134" class="d-t" text-anchor="middle">Bản đồ bao phủ</text>
+          <text x="482" y="152" class="d-s" text-anchor="middle">12 nhóm thông tin</text>
+          <path d="M352 130 H404" class="d-line" marker-end="url(#ah)"/>
+          <text x="378" y="122" class="d-s" text-anchor="middle">chắt lọc</text>
+          <path d="M408 158 H356" class="d-line" marker-end="url(#ah)"/>
+          <text x="378" y="176" class="d-s" text-anchor="middle">hỏi tiếp</text>
+          <path d="M277 172 V210" class="d-line" marker-end="url(#ah)"/>
+          <rect x="205" y="214" width="350" height="52" rx="9" class="d-box human"/>
+          <text x="380" y="236" class="d-t" text-anchor="middle">Sáu bảng chốt</text>
+          <text x="380" y="254" class="d-s" text-anchor="middle">người dùng tích / sửa từng dòng</text>
+
+          <!-- cổng chất lượng -->
+          <rect x="610" y="110" width="150" height="92" rx="10" class="d-box human"/>
+          <text x="685" y="136" class="d-k warm" text-anchor="middle">CỔNG 1</text>
+          <text x="685" y="160" class="d-t" text-anchor="middle">ĐỦ</text>
+          <text x="685" y="182" class="d-t" text-anchor="middle">KHÔNG MÂU THUẪN</text>
+          <path d="M574 156 H604" class="d-line" marker-end="url(#ah)"/>
+          <path d="M764 156 H794" class="d-line" marker-end="url(#ah)"/>
+
+          <!-- write requirement -->
+          <rect x="800" y="64" width="312" height="200" rx="12" class="d-box ai"/>
+          <text x="818" y="90" class="d-k">WRITE REQUIREMENT</text>
+          <rect x="818" y="102" width="276" height="38" rx="7" class="d-box inner"/>
+          <text x="956" y="126" class="d-t" text-anchor="middle">1 · Soạn bản nháp</text>
+          <rect x="818" y="150" width="276" height="38" rx="7" class="d-box inner"/>
+          <text x="956" y="174" class="d-t" text-anchor="middle">2 · Tự soát (tối đa 8 vấn đề)</text>
+          <rect x="818" y="198" width="276" height="38" rx="7" class="d-box inner"/>
+          <text x="956" y="222" class="d-t" text-anchor="middle">3 · Sửa một vòng</text>
+
+          <!-- hàng dưới: brief → duyệt → phiên bản -->
+          <path d="M956 264 V330" class="d-line" marker-end="url(#ah)"/>
+          <rect x="800" y="334" width="312" height="62" rx="10" class="d-box ai"/>
+          <text x="956" y="358" class="d-t" text-anchor="middle">Product Brief — bản nháp</text>
+          <text x="956" y="376" class="d-s" text-anchor="middle">6 mục, tiếng Việt đời thường, file .docx</text>
+          <path d="M796 365 H768" class="d-line" marker-end="url(#ah)"/>
+          <rect x="610" y="334" width="150" height="62" rx="10" class="d-box human"/>
+          <text x="685" y="360" class="d-k warm" text-anchor="middle">CỔNG 2</text>
+          <text x="685" y="380" class="d-t" text-anchor="middle">Người dùng duyệt</text>
+          <path d="M606 365 H578" class="d-line" marker-end="url(#ah)"/>
+          <rect x="382" y="334" width="192" height="62" rx="10" class="d-box fill-ai"/>
+          <text x="478" y="358" class="d-t" text-anchor="middle">V{n} — đã duyệt</text>
+          <text x="478" y="376" class="d-s" text-anchor="middle">bản chính thức, có lịch sử</text>
+          <path d="M378 365 H352" class="d-line" marker-end="url(#ah)"/>
+          <rect x="190" y="334" width="160" height="62" rx="10" class="d-box dash"/>
+          <text x="270" y="358" class="d-s" text-anchor="middle">AI Design Spec</text>
+          <text x="270" y="376" class="d-s" text-anchor="middle">(bước sau)</text>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><span class="d-ai"></span>AI agent thực hiện</span>
+        <span><span class="d-h">◆</span>Chỗ con người quyết định</span>
+        <span><span class="d-d"></span>Đường quay lại khung chat khi chưa đủ thông tin</span>
+      </div>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">03</span> / 17</span></div>
+    </section>
+
+    <!-- 04 · NGỮ CẢNH MỖI LƯỢT -->
+    <section class="slide">
+      <p class="eyebrow">Bước 1 · Nguyên liệu</p>
+      <h2 class="wide">Mỗi lượt chat được nạp sáu nguồn ngữ cảnh, không chỉ câu vừa gõ</h2>
+      <div class="feature-grid">
+        <div class="feature"><h3><span class="tick">01</span>Bộ nhớ hội thoại hai tầng</h3><p>20 lượt gần nhất gửi nguyên văn; lượt cũ hơn gộp dần thành tóm tắt <b>theo lô ≥ 10 lượt</b> — chat dài không quên đầu câu chuyện mà cũng không đốt token mỗi lượt.</p></div>
+        <div class="feature"><h3><span class="tick">02</span>Bản đồ bao phủ</h3><p>12 nhóm thông tin kèm trạng thái và <b>trích dẫn bằng chứng</b>. Đây là thứ quyết định BA hỏi gì tiếp theo.</p></div>
+        <div class="feature"><h3><span class="tick">03</span>Hồ sơ người dùng</h3><p>Vai trò, lĩnh vực, văn phong — học dần và dùng lại ở <b>mọi dự án</b> của người đó.</p></div>
+        <div class="feature"><h3><span class="tick">04</span>Bối cảnh tổ chức</h3><p>Phòng ban, cấp duyệt thật (chỉ dữ liệu gộp, không PII, cache 1 giờ) + các <b>hằng số của sản phẩm</b>: phạm vi nhà máy, chỉ có kênh email, đăng nhập SSO.</p></div>
+        <div class="feature"><h3><span class="tick">05</span>Tài liệu nguồn</h3><p>Text và ảnh bóc ra từ file người dùng gửi — kèm bảng cột đã chốt của file bảng tính.</p></div>
+        <div class="feature"><h3><span class="tick">06</span>Checklist học được</h3><p>Sau mỗi dự án, hệ thống rà "thông tin nào người dùng phải tự nêu mà BA chưa từng hỏi" và <b>nhớ cho mọi dự án sau</b> — bật/tắt được từng bài học.</p></div>
+      </div>
+      <p class="loop-note">⇄&nbsp;<span>Cả sáu nguồn đều <b>fail-open</b>: dựng hỏng cái nào thì lượt chat vẫn chạy với phần còn lại — trừ bản đồ bao phủ,
+        vì nó đứng im nghĩa là BA có thể hỏi lại điều vừa được trả lời, nên chuyện đó <b>hiện thành cảnh báo</b> trên panel tiến độ.</span></p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">04</span> / 17</span></div>
+    </section>
+
+    <!-- 05 · TÀI LIỆU NGUỒN -->
+    <section class="slide">
+      <p class="eyebrow">Bước 2 · Đầu vào thật</p>
+      <h2 class="wide">Người dùng mô tả yêu cầu bằng thứ họ đang có</h2>
+      <p class="lede tight">Phần quý nhất của một quy trình phòng ban thường nằm trong <strong>ảnh chụp phần mềm cũ</strong>
+        hoặc trong <strong>các giá trị của một cột Excel</strong>.</p>
+      <div class="tech-rows">
+        <div class="tech-row"><span class="t">Ảnh (PNG/JPG/WebP)</span><span class="d">Gửi thẳng cho model vision.</span></div>
+        <div class="tech-row"><span class="t">PDF có text</span><span class="d">Bóc text từng trang, <b>cộng các hình nhúng đủ lớn</b> lấy ra kèm mốc <b>[Hình n]</b> đúng trang chứa nó.</span></div>
+        <div class="tech-row"><span class="t">PDF bản scan</span><span class="d">Trang không có chữ ⇒ lấy ảnh phủ kín trang, gửi cho model vision <b>theo đúng thứ tự trang</b>.</span></div>
+        <div class="tech-row"><span class="t">Word .docx / .docm</span><span class="d">Đoạn văn + bảng theo đúng thứ tự tài liệu, cộng hình nhúng — quy trình và biểu mẫu phòng ban gần như luôn ở dạng này.</span></div>
+        <div class="tech-row"><span class="t">Excel / CSV</span><span class="d"><b>Thống kê toàn bộ bảng</b> đứng TRƯỚC các dòng mẫu: mỗi cột có bao nhiêu dòng có giá trị, bao nhiêu giá trị phân biệt, là những giá trị nào. 29 dòng đầu của một bản xuất không đại diện cho cả bảng.</span></div>
+      </div>
+      <p class="loop-note warm">◆&nbsp;<span>Với file bảng tính, việc đầu tiên là <b>chốt phạm vi cột</b>: BA bày ra bảng đủ mọi cột của file kèm cách hiểu đã điền sẵn,
+        người dùng bỏ tích các cột của hệ cũ. Không có bước này thì <b>Revision Number</b> và <b>Preferred Time zone</b> đi thẳng vào bản demo như trường của app mới.</span></p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">05</span> / 17</span></div>
+    </section>
+
+    <!-- 06 · BẢN ĐỒ BAO PHỦ -->
+    <section class="slide">
+      <p class="eyebrow">Bước 3 · Trái tim của cơ chế</p>
+      <h2 class="sm wide">Bản đồ bao phủ 12 nhóm — nguồn chân lý duy nhất của "đã đủ chưa"</h2>
+      <p class="lede tight">Bốn trạng thái, và một quy tắc:
+        <strong>mọi nhóm áp dụng ở [RÕ] ⇔ nút Write Requirement sáng.</strong></p>
+      <div class="cov">
+        <div class="cov-row"><span class="pill ok">RÕ</span><span>Mục tiêu / bài toán</span></div>
+        <div class="cov-row"><span class="pill ok">RÕ</span><span>Quy tắc nghiệp vụ &amp; ràng buộc</span></div>
+        <div class="cov-row"><span class="pill ok">RÕ</span><span>Đối tượng người dùng &amp; vai trò</span></div>
+        <div class="cov-row"><span class="pill ok">RÕ</span><span>Vòng đời &amp; trạng thái</span></div>
+        <div class="cov-row"><span class="pill ok">RÕ</span><span>Chức năng &amp; luồng nghiệp vụ chính</span></div>
+        <div class="cov-row"><span class="pill none">CHƯA HỎI</span><span>Thông báo / nhắc nhở</span></div>
+        <div class="cov-row"><span class="pill ok">RÕ</span><span>Quy trình hiện tại &amp; điểm khó</span></div>
+        <div class="cov-row"><span class="pill none">KHÔNG ÁP DỤNG</span><span>Báo cáo / thống kê</span></div>
+        <div class="cov-row"><span class="pill part">MỘT PHẦN</span><span>Luồng ngoại lệ &amp; trường hợp đặc biệt</span></div>
+        <div class="cov-row"><span class="pill none">CHƯA HỎI</span><span>Phân quyền theo nghiệp vụ</span></div>
+        <div class="cov-row"><span class="pill ok">RÕ</span><span>Dữ liệu / danh mục chính</span></div>
+        <div class="cov-row"><span class="pill ok">RÕ</span><span>Quy mô sử dụng</span></div>
+      </div>
+      <p class="cov-note" style="margin-top:12px">Ví dụ một buổi đang chạy: <b>[RÕ]</b> đã đủ · <b>[MỘT PHẦN]</b> ghi rõ <b>còn thiếu gì</b> để BA hỏi đúng chỗ đó ·
+        <b>[CHƯA HỎI]</b> chưa có thông tin nào · <b>[KHÔNG ÁP DỤNG]</b> dự án này không có, và <b>không chặn</b> nút.</p>
+      <p class="loop-note">⇄&nbsp;<span>Một dòng <b>[RÕ]</b> không phải cái nhãn trạng thái — nó là <b>lệnh cấm BA hỏi lại nhóm đó</b>. Vì vậy mỗi dòng phải kèm
+        trích dẫn, và trích dẫn chỉ được lấy từ <b>lời người dùng hoặc tài liệu nguồn</b>, không bao giờ từ câu của chính BA.</span></p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">06</span> / 17</span></div>
+    </section>
+
+    <!-- 07 · CÁCH HỎI -->
+    <section class="slide">
+      <p class="eyebrow">Bước 3 · Cách hỏi</p>
+      <h2 class="wide">Rút ngắn số vòng đi-về, không rút ngắn độ sâu khai thác</h2>
+      <div class="feature-grid">
+        <div class="feature"><h3><span class="tick">01</span>Lượt hỏi gộp 2–4 câu</h3><p>Phép thử để được gộp: <b>câu trả lời của câu này có làm đổi câu hỏi kế tiếp không?</b> Không đổi thì gộp. Có đổi — xin câu chuyện thật, đào ngoại lệ, gỡ mâu thuẫn — thì <b>phải hỏi một mình</b>.</p></div>
+        <div class="feature"><h3><span class="tick">02</span>Câu đóng có nút bấm, câu mở thì không</h3><p>Viết được 2–5 đáp án mà mỗi đáp án là câu trả lời <b>trọn vẹn</b> ⇒ câu đóng, kèm chip. Đáp án chỉ chạm một mẩu ⇒ câu mở, bỏ chip — vì bấm chip là gửi ngay, phần đắt nhất sẽ không bao giờ được kể.</p></div>
+        <div class="feature"><h3><span class="tick">03</span>Không đồng ý thì mở ô viết ngay tại chỗ</h3><p>Bấm "Không, tính khác" không gửi đi một lời phủ định trống rỗng: ô nhập mở ngay trong hàng chip để nói luôn <b>cái đúng là gì</b>.</p></div>
+        <div class="feature"><h3><span class="tick">04</span>Phanh chống hỏi lại</h3><p>Câu hỏi trùng với câu đã hỏi ở lượt trước bị <b>loại trước khi lên màn hình</b>, thay bằng bước kế tiếp suy ra từ bản đồ.</p></div>
+        <div class="feature"><h3><span class="tick">05</span>Phanh chống lượt câm</h3><p>Lượt BA chỉ ghi nhận rồi dừng — không hỏi, không mời bấm gì — bị thay bằng câu hỏi thật. Một buổi 90 lượt đã từng kết thúc ở một lượt không ai trả lời được.</p></div>
+        <div class="feature"><h3><span class="tick">06</span>Nhịp đọc lại để kiểm chứng</h3><p>Sau mỗi 5–7 câu đã trả lời, BA tóm tắt lại điều mình hiểu. Đây là <b>đường thoát duy nhất</b> khỏi một nhóm bị chấm [RÕ] oan.</p></div>
+      </div>
+      <p class="loop-note">⇄&nbsp;<span>Các luật này không chỉ được <b>dặn trong prompt</b>: trần 4 câu một lượt, bỏ chip ở câu mở, xóa chip "Khác" trần —
+        đều bị <b>chặn tất định trong code</b> trước khi lượt trả lời lên màn hình. Và luôn <b>chỉ sửa một chiều</b>: nhận nhầm thì người dùng mất một tiện ích,
+        bỏ sót thì sinh ra một câu trả lời cụt mà mọi tầng sau tin là thật.</span></p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">07</span> / 17</span></div>
+    </section>
+
+    <!-- 08 · SÁU BẢNG -->
+    <section class="slide">
+      <p class="eyebrow warm">Bước 4 · Chốt</p>
+      <h2 class="sm wide">Buổi phỏng vấn kết thúc bằng sáu bảng — theo đúng thứ tự phụ thuộc</h2>
+      <div class="flow">
+        <span class="stage human"><span class="dot"></span>Luồng nghiệp vụ</span>
+        <span class="arrow">›</span>
+        <span class="stage human"><span class="dot"></span>Đối tượng nghiệp vụ</span>
+        <span class="arrow">›</span>
+        <span class="stage human"><span class="dot"></span>Báo cáo / thống kê</span>
+        <span class="arrow">›</span>
+        <span class="stage human"><span class="dot"></span>Màn hình</span>
+        <span class="arrow">›</span>
+        <span class="stage human"><span class="dot"></span>Phân quyền</span>
+        <span class="arrow">›</span>
+        <span class="stage human"><span class="dot"></span>Thông báo</span>
+      </div>
+      <div class="cols c3" style="margin-top:24px">
+        <div class="card"><span class="k warm">Vì sao thứ tự này</span><h3>Bảng nào đẻ ra màn hình phải đứng trước bảng chốt phạm vi màn hình</h3><p>Mỗi danh mục do app tự quản lý sinh ra một màn hình quản lý; mỗi báo cáo còn giữ cũng là một màn hình. Hỏi phạm vi màn hình trước chúng là bắt người dùng rà bảng hai lần.</p></div>
+        <div class="card"><span class="k warm">Một lượt, đúng một bảng</span><h3>Hai cái bảng cùng lúc là hai mệnh lệnh chọi nhau</h3><p>Chỉ một cổng duy nhất quyết định lượt này bày bảng nào — nếu không, model trả về một bảng lai hoặc bỏ cả hai.</p></div>
+        <div class="card"><span class="k warm">Rải ra, không dồn cuối buổi</span><h3>Sáu cái bảng nối đuôi nhau là cái nút "Đồng ý" phóng to</h3><p>Người dùng bận sẽ bấm "Đúng rồi" cho xong từ bảng thứ hai. Mỗi bảng vì vậy mở ra ngay khi phần hội thoại nuôi nó đã đủ.</p></div>
+      </div>
+      <p class="loop-note">⇄&nbsp;<span>Sáu cái bảng không chỉ để người dùng gật: mỗi <b>luồng</b> đã chốt trở thành ví dụ để chấm bản demo về sau,
+        mỗi <b>màn hình</b> và mỗi ô <b>quyền</b> đi thẳng vào bản đặc tả kỹ thuật, còn <b>đối tượng nghiệp vụ</b> trở thành mô hình dữ liệu.</span></p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">08</span> / 17</span></div>
+    </section>
+
+    <!-- 09 · VÌ SAO PHẢI LÀ BẢNG -->
+    <section class="slide">
+      <p class="eyebrow warm">Bước 4 · Vì sao</p>
+      <h2 class="wide">Có những thứ BA tự ráp lại mà người dùng chưa bao giờ nhìn thấy để bác</h2>
+      <p class="lede tight">Chuỗi bước của một luồng, danh sách màn hình, mô hình dữ liệu, ma trận quyền — chúng vẫn đi thẳng vào tài liệu,
+        <strong>mang chữ ký của người dùng</strong>. Bảng là chỗ họ nhìn thấy và sửa được.</p>
+      <div class="cols c3">
+        <div class="card warm"><span class="k warm">Bằng chứng</span><h3>Một thao tác trên từng dòng</h3><p>Thay cho một chip "Đúng rồi" trả lời thay cho tất cả. Bảng phơi <b>đủ</b> mọi dòng — cột model bỏ sót vẫn được bổ sung vào cuối bảng.</p></div>
+        <div class="card warm"><span class="k warm">Điền sẵn</span><h3>BA đoán trước, người dùng sửa một dòng</h3><p>Một cái bảng 18 dòng trống là bắt người dùng nghiệp vụ đi giải nghĩa 18 cột — và đọc lên như "tôi chưa mở file của anh/chị".</p></div>
+        <div class="card warm"><span class="k warm">Chốt chặn</span><h3>Không có trích dẫn thì không được khóa</h3><p>Model khai một ô đã chắc mà không kèm được trích dẫn từ hội thoại ⇒ ô đó không khóa. Dòng bịa bị loại; dòng BA <b>quên nêu</b> vẫn phải có mặt, ở trạng thái tích sẵn.</p></div>
+      </div>
+      <p class="loop-note">⇄&nbsp;<span>Gửi bảng đi <b>hai bước</b>: lưu bảng vào dự án, rồi trình duyệt gửi tiếp một tin nhắn do <b>máy chủ soạn</b> qua đúng đường chat thường —
+        hội thoại luôn chỉ có một đường ghi, nên mọi tầng phía sau đọc được điều người dùng vừa chốt.</span></p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">09</span> / 17</span></div>
+    </section>
+
+    <!-- 10 · HAI CỔNG -->
+    <section class="slide">
+      <p class="eyebrow warm">Bước 5 · Cổng 1</p>
+      <h2 class="wide">Trước khi viết một chữ nào: đã ĐỦ chưa, và những điều đã rõ có chọi nhau không</h2>
+      <div class="cols c2">
+        <div class="card">
+          <span class="k">Cổng ĐỦ</span>
+          <h3>Suy tất định từ bản đồ bao phủ — không có lời gọi AI nào chấm lại</h3>
+          <p><b>Mọi nhóm áp dụng ở [RÕ] ⇔ nút Write Requirement sáng.</b> Vì cùng đọc một nguồn, panel tiến độ, lời mời trong chat và cái nút không thể nói khác nhau.</p>
+          <p>Chưa đủ ⇒ cổng tự đặt <b>một câu hỏi mở</b> đúng nhóm còn thiếu, bằng ngôn ngữ công việc của người dùng — và giữ sổ riêng để hai lượt chặn liên tiếp không bao giờ giống hệt nhau.</p>
+        </div>
+        <div class="card">
+          <span class="k">Cổng KHÔNG MÂU THUẪN</span>
+          <h3>Chạy ngay khi bấm nút, trước khi tài liệu được soạn</h3>
+          <p>Người dùng nói ở lượt 3 rằng quản lý duyệt xong là hết, lượt 12 lại kể thêm HR duyệt: bản đồ đánh [RÕ] cả hai lần, còn bước soạn tài liệu — vốn <b>bị cấm tự giả định</b> — sẽ chọn bừa một bên.</p>
+          <p>Lựa chọn của người dùng được ghi vào <b>chính hội thoại</b>, nên mọi thứ đọc transcript đều thấy, không cần biết cổng này tồn tại.</p>
+        </div>
+      </div>
+      <p class="loop-note warm">◆&nbsp;<span>Cổng KHÔNG MÂU THUẪN <b>fail-open</b>: lời gọi hỏng thì luồng chạy tiếp chứ không kẹt. Cổng ĐỦ thì ngược lại —
+        lượt chắt lọc hỏng thì nó xét trên <b>bản đồ cũ</b> và vẫn chặn: thiếu thông tin không bao giờ được nới ra vì một lời gọi lỗi.</span></p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">10</span> / 17</span></div>
+    </section>
+
+    <!-- 11 · WRITE REQUIREMENT -->
+    <section class="slide">
+      <p class="eyebrow">Bước 6 · Soạn</p>
+      <h2 class="sm wide">"Write Requirement" là ba lượt AI, không phải một</h2>
+      <div class="flow">
+        <span class="stage start"><span class="dot"></span>Bấm nút</span>
+        <span class="arrow">›</span>
+        <span class="stage human"><span class="dot"></span>Hai cổng chặn</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>1 · Soạn</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>2 · Tự soát</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>3 · Sửa</span>
+        <span class="arrow">›</span>
+        <span class="stage final"><span class="dot"></span>Product Brief .docx</span>
+      </div>
+      <div class="cols c3" style="margin-top:24px">
+        <div class="card"><span class="k">Lượt 2 · Tự soát</span><h3>Một BA cấp cao đọc lại bản nháp</h3><p>Đối chiếu bản nháp với hội thoại và chỉ soi các loại vấn đề thực chất: bỏ sót, diễn dịch lệch, tự thêm, giả định còn sót, tính năng không có chỗ thực hiện. <b>Tối đa 8 vấn đề</b>, xếp theo mức nghiêm trọng.</p></div>
+        <div class="card"><span class="k">Lượt 3 · Sửa</span><h3>Chỉ chạy khi thật sự có vấn đề</h3><p>Sửa cho hết từng vấn đề được nêu, giữ nguyên phần không bị chê. Vấn đề dạng "tự thêm" được xử lý bằng cách <b>xóa nội dung đó đi</b>, không phải viết thêm cho hợp lý.</p></div>
+        <div class="card warm"><span class="k warm">Van thoát</span><h3>Bí thì hỏi, không viết bừa</h3><p>Nếu để viết được tài liệu mà buộc phải tự giả định một điều người dùng chưa nói ⇒ <b>không viết</b>: trả về một câu hỏi vào khung chat kèm 2–5 đáp án, không sinh file nào.</p></div>
+      </div>
+      <p class="loop-note">⇄&nbsp;<span>Toàn bộ vòng tự soát là <b>fail-open</b>: lượt soát lỗi thì coi như đạt, lượt sửa lỗi thì giữ bản nháp đầu — một lời gọi hỏng không bao giờ làm mất bản nháp đã soạn xong.</span></p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">11</span> / 17</span></div>
+    </section>
+
+    <!-- 12 · PRODUCT BRIEF CÓ GÌ -->
+    <section class="slide">
+      <p class="eyebrow">Kết quả</p>
+      <h2 class="sm wide">Product Brief — viết cho người dùng thường, không cho lập trình viên</h2>
+      <div class="doc">
+        <div class="doc-row"><span class="h"><span>#</span>Tên sản phẩm</span><span class="x">Một dòng tiêu đề.</span></div>
+        <div class="doc-row"><span class="h"><span>##</span>Sản phẩm này là gì?</span><span class="x">2–4 câu dễ hiểu: giải quyết việc gì, thay cho cách làm hiện tại nào.</span></div>
+        <div class="doc-row"><span class="h"><span>##</span>Dành cho ai?</span><span class="x">Các nhóm người dùng và họ được lợi gì.</span></div>
+        <div class="doc-row"><span class="h"><span>##</span>Người dùng làm được những gì?</span><span class="x">Mỗi tính năng một dòng, ngôn ngữ thường. Dưới mỗi tính năng là một dòng <b style="color:var(--ai)">"Hoàn thành khi: …"</b> — một câu nghiệm thu cho biết thế nào là chạy đúng.</span></div>
+        <div class="doc-row"><span class="h"><span>##</span>Các màn hình chính</span><span class="x">Tên màn hình + mỗi màn cho làm gì.</span></div>
+        <div class="doc-row"><span class="h"><span>##</span>Luồng sử dụng điển hình</span><span class="x">Kể chuyện từng bước, kèm nhánh bị từ chối / hủy / ngoại lệ nếu hội thoại có nói tới.</span></div>
+        <div class="doc-row"><span class="h"><span>##</span>Quy tắc cần nhớ</span><span class="x">Ai duyệt, giới hạn, hạn mức, thời hạn — bỏ mục này nếu hội thoại không có.</span></div>
+      </div>
+      <p class="cov-note">Không thuật ngữ kỹ thuật — không "API", không "schema", không "non-functional requirement". Mục tiêu:
+        <b>một người không rành công nghệ đọc cũng hiểu sản phẩm làm được gì</b>. Bản kỹ thuật là việc của bước sau, sau khi bản này được duyệt.</p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">12</span> / 17</span></div>
+    </section>
+
+    <!-- 13 · KHÔNG RƠI RỤNG -->
+    <section class="slide">
+      <p class="eyebrow">Chất lượng</p>
+      <h2 class="wide">Ba luật biến "đừng bỏ sót" thành phép đối chiếu đếm được</h2>
+      <p class="lede tight">Cả ba lượt AI của bước soạn đều nhận thêm một khối <strong>chỉ mục của chính hội thoại</strong> —
+        Điều đã chốt · Ví dụ đã xác nhận · Điểm còn tồn đọng, <strong>mọi dòng đều đã có sẵn trong transcript</strong>.</p>
+      <ul class="big">
+        <li><span><b>Mỗi dòng "Điều đã chốt" phải tìm được chỗ tương ứng trong tài liệu.</b> <span class="mut">Một tính năng, một màn hình, một bước của luồng, hoặc một dòng trong "Quy tắc cần nhớ". Không tìm được là một vấn đề mà vòng tự soát phải nêu ra.</span></span></li>
+        <li><span><b>Mỗi tính năng phải có chỗ thực hiện.</b> <span class="mut">Nêu ở "Người dùng làm được những gì?" thì phải có màn hình tương ứng và một vai trò được giao việc đó. Danh mục mà một quy tắc dựa vào cũng vậy — phải có ai đó tạo/sửa được nó.</span></span></li>
+        <li><span><b>Điểm còn tồn đọng thì không được tự chọn một cách hiểu.</b> <span class="mut">Viết ra một phương án rồi để nó trông như điều đã chốt là loại lỗi đắt nhất: người dùng đọc lại thấy "lời mình" mà mình không nhớ đã nói.</span></span></li>
+      </ul>
+      <p class="loop-note">⇄&nbsp;<span>Một quyết định chốt giữa buổi rồi không ai nhắc lại <b>vẫn là yêu cầu</b> — mà vòng tự soát cũng không cứu được, vì reviewer đọc đúng transcript ấy.</span></p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">13</span> / 17</span></div>
+    </section>
+
+    <!-- 14 · DUYỆT -->
+    <section class="slide">
+      <p class="eyebrow warm">Bước 7 · Cổng 2</p>
+      <h2 class="wide">Bản nháp sửa bao nhiêu lần cũng được — duyệt mới là lúc chốt</h2>
+      <div class="cols c2">
+        <div class="card"><span class="k">Bản nháp</span><h3>Vòng sửa rẻ</h3><p>Người dùng đọc, ghi nhận xét, BA sửa lại — hoặc quay về khung chat nói thêm rồi bấm lại. Bản nháp <b>không đốt token của bản kỹ thuật</b>, vì bản kỹ thuật chỉ sinh sau khi duyệt.</p><p>Có thể tải trọn gói (hội thoại + brief + spec + demo) để nhờ <b>một AI khác rà soát</b> các mối nối giữa các tầng.</p></div>
+        <div class="card warm"><span class="k warm">Duyệt</span><h3>Promote thành <b>V{n}</b></h3><p>Bản được duyệt trở thành phiên bản chính thức, <b>có lịch sử và so sánh diff</b> giữa các lần sửa.</p><p>Ngay sau đó một tiến trình nền sinh <b>AI Design Spec</b> từ bản đã duyệt — màn hình không treo chờ AI. Spec có giả định nào thì người dùng còn một cổng nữa để rà, <b>trước khi</b> tốn lượt dựng bản demo.</p></div>
+      </div>
+      <p class="loop-note warm">◆&nbsp;<span>Đây là chỗ mọi thứ phía sau bám vào: bản demo, bản đặc tả, code và test đều truy ngược được về đúng bản Product Brief mà người dùng đã bấm duyệt.</span></p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">14</span> / 17</span></div>
+    </section>
+
+    <!-- 15 · PHỤ LỤC A -->
+    <section class="slide">
+      <p class="eyebrow">Phụ lục A · Cho người đọc code</p>
+      <h2 class="sm wide">Mỗi cơ chế trên slide nằm ở đúng một chỗ trong mã nguồn</h2>
+      <div class="tech-rows">
+        <div class="tech-row"><span class="t">BAChatService</span><span class="d">Trọn một lượt chat: dựng ngữ cảnh, gọi model, parse, chọn cổng bảng nào được bày, chặn lượt câm.</span></div>
+        <div class="tech-row"><span class="t">RequirementCoverageService</span><span class="d">Chắt lọc hội thoại thành bản đồ bao phủ 12 nhóm. Lỗi thì giữ bản cũ và <b>báo lên panel</b>.</span></div>
+        <div class="tech-row"><span class="t">InterviewTableGate</span><span class="d">Chỗ DUY NHẤT quyết định lượt này bày bảng nào trong sáu bảng.</span></div>
+        <div class="tech-row"><span class="t">RequirementReadinessGate</span><span class="d">Cổng ĐỦ, tất định. Kèm câu mở đầu riêng cho từng nhóm và sổ "đã hỏi nhóm nào".</span></div>
+        <div class="tech-row"><span class="t">RequirementConflictService</span><span class="d">Cổng KHÔNG MÂU THUẪN, chạy lúc bấm nút, ghi lựa chọn vào chính hội thoại.</span></div>
+        <div class="tech-row"><span class="t">ProductBriefDraftService</span><span class="d">Ba lượt LLM (soạn / tự soát / sửa), hai van thoát, rồi ghi file .docx.</span></div>
+        <div class="tech-row"><span class="t">BAChatReplyParser</span><span class="d">Các chốt chặn tất định của một lượt trả lời: trần 4 câu, câu mở thì bỏ chip, chip "Khác" trần bị xóa. Luật chung: <b>chỉ sửa một chiều</b>.</span></div>
+      </div>
+      <p class="cov-note">Tài liệu chủ quản đầy đủ: <b>docs/requirement-flow.md</b>. Khi tài liệu và code lệch nhau — <b>tin code</b>.</p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">15</span> / 17</span></div>
+    </section>
+
+    <!-- 16 · PHỤ LỤC B -->
+    <section class="slide">
+      <p class="eyebrow">Phụ lục B · Prompt &amp; lưới an toàn</p>
+      <h2 class="sm wide">Luật của buổi phỏng vấn nằm trong prompt — sửa được ngay trên web</h2>
+      <div class="tech-rows">
+        <div class="tech-row"><span class="t">requirement-chat.v4</span><span class="d">Cách hỏi: gộp hay hỏi một mình, câu đóng hay câu mở, cấm hỏi kỹ thuật, cấm hỏi lại nhóm đã [RÕ].</span></div>
+        <div class="tech-row"><span class="t">requirement-coverage.v3</span><span class="d">Chuẩn để một nhóm được lên [RÕ], và ba điều <b>không được tính là căn cứ</b>.</span></div>
+        <div class="tech-row"><span class="t">source-ack.v3 · source-readback.v1</span><span class="d">Lượt đọc file: bày bảng cột trước, kể lại file sau — và chỉ kể về các cột người dùng đã tích.</span></div>
+        <div class="tech-row"><span class="t">product-brief.v3</span><span class="d">Sáu mục của tài liệu, luật truy vết, luật cấm tự giả định, van thoát khi thiếu thông tin.</span></div>
+        <div class="tech-row"><span class="t">product-brief-review.v2</span><span class="d">Danh sách các loại vấn đề mà vòng tự soát được phép nêu — và lệnh "bản nháp đạt thì trả về rỗng, đừng nặn ra vấn đề cho có".</span></div>
+        <div class="tech-row"><span class="t warm">Bộ test giữ giao ước</span><span class="d">Nhiều luật ở trên là <b>giao ước giữa prompt và code mà compiler không kiểm được</b> — thêm một nhóm vào bản đồ mà quên viết câu mở đầu cho nó thì <b>fail ở test</b>, chứ không âm thầm hỏng trên màn hình người dùng.</span></div>
+      </div>
+      <p class="cov-note">Mọi prompt đều sửa được ở <b>Prompt Studio</b> — hiệu lực tức thì, có phiên bản, có diff, rollback một cú bấm; và có bộ eval chấm điểm để biết sửa xong là lên hay xuống.</p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">16</span> / 17</span></div>
+    </section>
+
+    <!-- 17 · CLOSING -->
+    <section class="slide closing">
+      <p class="eyebrow">Tóm lại</p>
+      <h1>AI hỏi và soạn.<br><span class="accent">Người dùng chốt từng dòng.</span></h1>
+      <p class="lede">Bản đồ bao phủ quyết định hỏi gì tiếp theo · sáu cái bảng biến "BA hiểu vậy" thành "người dùng đã tích" ·
+        hai cổng chặn trước khi viết một chữ nào · ba lượt AI để soạn rồi tự soát lại chính mình.<br>
+        Kết quả là một tài liệu mà mọi dòng đều truy ngược được về lời người dùng.</p>
+      <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">17</span> / 17</span></div>
+    </section>
+
+  </div>
+</div>
+
+<div id="bar"></div>
+<div class="zone" id="zPrev" tabindex="0" aria-label="Slide trước"></div>
+<div class="zone" id="zNext" tabindex="0" aria-label="Slide sau"></div>
+
+<script>
+(function(){
+  var deck = document.getElementById('deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll('.slide'));
+  var bar = document.getElementById('bar');
+  var i = 0;
+
+  function fit(){
+    var s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    deck.style.transform = 'scale(' + s + ')';
+  }
+
+  function go(n){
+    n = Math.max(0, Math.min(slides.length - 1, n));
+    slides[i].classList.remove('on');
+    i = n;
+    slides[i].classList.add('on');
+    bar.style.width = ((i + 1) / slides.length * 100) + '%';
+    if (history.replaceState) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(i + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); go(i - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+  });
+
+  document.getElementById('zNext').addEventListener('click', function(){ go(i + 1); });
+  document.getElementById('zPrev').addEventListener('click', function(){ go(i - 1); });
+
+  var tx = null;
+  document.addEventListener('touchstart', function(e){ tx = e.changedTouches[0].clientX; }, {passive:true});
+  document.addEventListener('touchend', function(e){
+    if (tx === null) return;
+    var dx = e.changedTouches[0].clientX - tx;
+    if (dx < -40) go(i + 1); else if (dx > 40) go(i - 1);
+    tx = null;
+  }, {passive:true});
+
+  window.addEventListener('resize', fit);
+
+  var h = parseInt((location.hash || '').replace('#',''), 10);
+  fit();
+  if (h >= 1 && h <= slides.length) go(h - 1); else go(0);
+})();
+</script>
+</body>
+</html>

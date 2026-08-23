@@ -468,6 +468,58 @@ một mục rời khỏi phạm vi mà người dùng không nhìn thấy là đ
 để chặn; và **dòng luôn thắng lời khai gộp** — một màn hình có dòng của chính nó thì không lời khai nào làm
 nó biến mất được, nếu không thì chỉ cần model khai bừa một tên là mất trắng một màn hình.
 
+### Tên màn hình là nhãn menu của bản demo, nên nó ngắn và bằng tiếng Anh
+
+Cột `Screen` chở **một chuỗi làm hai việc**: nó là khóa nối của cả buổi phỏng vấn (dòng bảng phân quyền,
+`Covers`, phép đối chiếu độ phủ POC ở `PocSpec.Matches`) **và** là nhãn hiển thị — bước sinh POC chép nguyên
+văn tên ở `## 6. Screens To Generate` ra `navItems` của sidebar, không dịch, không rút gọn
+(`Prompts/Developer/poc-preview.v1.md`). Luật đặt tên vì thế phải thoả cả hai đầu cùng lúc:
+
+> **Tiếng Anh, 2–4 từ, là một DANH TỪ CHỈ NƠI CHỐN — không phải một câu mô tả.**
+> `JD Library` · `Standard JD` · `HRBP Approval` · `JD Assignment` · `My JD` · `Skill Catalog` ·
+> `Remaining Leave Report`.
+
+Hai vế của luật, mỗi vế chặn một lỗi khác nhau:
+
+- **Ngắn và tiếng Anh** — chặn đầu HIỂN THỊ. Tên kiểu *"Trang tạo và chỉnh sửa JD của Manager"* hiện lên
+  sidebar của POC đúng nguyên văn như thế, trong khi các ứng dụng nội bộ nơi bản demo được đem đi trình bày
+  đều dùng tiếng Anh. Phần mô tả không mất đi: nó đã có ô riêng ngay dưới tên trong bảng màn hình
+  (`Purpose`, [ba cột](#ba-cột-của-bảng-màn-hình-và-vì-sao-cột-màn-hình-chỉ-được-chứa-màn-hình)) và thành
+  các bullet dưới heading `### 6.n` của spec. Tên gánh thêm phần mô tả là lặp lại một thứ đã có chỗ.
+- **Danh từ chỉ nơi chốn (thường là hậu tố `Library`/`List`/`Approval`/`Assignment`/`Detail`/`Catalog`/`Report`/`Dashboard`)**
+  — chặn đầu KHÓA NỐI, và nó là lý do bản rút gọn không được rút tới mức tên trần. Một dòng tên `Skill` trùng
+  nguyên văn tên đối tượng `Skill` ở bảng đối tượng vừa chốt ở lượt trước: trong cùng một tài liệu sẽ có
+  "Skill" là thực thể và "Skill" là màn hình, và không chốt chặn nào phân biệt nổi hai thứ đó — cùng đúng
+  cái lỗi mà [luật "cột Màn hình chỉ được chứa màn hình"](#ba-cột-của-bảng-màn-hình-và-vì-sao-cột-màn-hình-chỉ-được-chứa-màn-hình)
+  sinh ra để chặn.
+
+**Luật sống ở ba chỗ, theo đúng ba nguồn sinh ra tên** — sửa một chỗ mà bỏ hai chỗ kia là để phạm vi chạy ra
+hai kiểu tên:
+
+| Nguồn tên | Nơi giữ luật | Hình dạng |
+|---|---|---|
+| LLM chắt từ hội thoại | `Prompts/BusinessAnalyst/interview-outlook.v1.md`, mục `plannedScope` | tự đặt theo luật trên |
+| Danh mục `app` của bảng đối tượng | `EntityMapBuilder.ManagedListScreens` (**tất định**) | `<tên danh mục> Catalog` |
+| Dòng của bảng báo cáo | `ReportMapBuilder.ReportScreens` (**tất định**) + luật `report` trong `requirement-chat.v4.md` | `<tên> Report`, trừ tên đã tự đọc được như màn hình |
+
+Hai bước sau chỉ CHÉP: `ai-design-spec.v1.md` lấy cột `Screen` của bảng đã chốt làm heading `### 6.n`, rồi
+`poc-preview.v1.md` lấy heading đó làm nhãn `navItems` và `data-view` của section.
+
+**Tên ngắn làm phép so khớp bù gần như hết tác dụng, và đó là đánh đổi có chủ ý.** `MatchScreen` chỉ chấp
+nhận cụm chứa nhau khi tên dài từ 8 ký tự (`MinContainsLength`), nên với `My JD` hay `Standard JD` thì chỉ
+còn đường khớp ĐÚNG CHỮ — model thêm một chữ dẫn là dòng trượt khỏi danh sách cho phép rồi mọc lại thành
+dòng trắng. Bù lại, chính vì thế mà không tên ngắn nào bị ghép nhầm vào một màn hình khác. Phần gánh nằm ở
+prompt: khối "LƯỢT NÀY" nói thẳng *chép đúng, không thêm chữ dẫn, không dịch*.
+
+**Chỉ CỘT TÊN đổi sang tiếng Anh.** Việc của màn, danh sách chức năng, bước luồng, ô "để trả lời câu hỏi gì"
+của bảng báo cáo — tất cả vẫn là ngôn ngữ nghiệp vụ của người dùng. Người rà bảng là người nghiệp vụ, và
+bắt họ đọc một bảng tiếng Anh là đánh đổi đúng thứ mấy bảng này sinh ra để lấy.
+
+**Vì sao không tách thành hai trường (tên khóa + nhãn hiển thị).** Vì `Screen` đang là khóa ở bốn chỗ độc
+lập (dòng bảng phân quyền, `Covers`, `PocSpec.Matches`, danh sách cho phép của `ScreenScopeMapBuilder`), nên
+hai cái tên nghĩa là hai khóa phải đồng bộ ở cả bốn — và một cột thứ tư cho bảng này đi ngược đúng lý do nó
+chỉ có ba cột. Một chuỗi thoả cả hai đầu rẻ hơn hẳn.
+
 ### Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng chứng
 
 Bảng phân quyền, bảng đối tượng và bảng thông báo đều có dấu **✓** cho phần người dùng đã tự nói: ở đó nó
@@ -531,13 +583,11 @@ có gửi file — `EntityMapBuilder` vì vậy đánh dấu các thông tin tr�
 ra như đề xuất mới chờ duyệt lần hai (bắt duyệt lại đúng thứ họ vừa tự tay tích là hình dạng vòng lặp câu
 hỏi chết mà `CoverageDeadQuestionLoopTests` đã phải dựng lưới một lần).
 
-**Mỗi trạng thái ở đây là một DÒNG của bảng thông báo** ngay sau đó — đó là chỗ "ai được báo" được chốt.
-Bản trước để câu hỏi ấy thành một ô text cạnh từng trạng thái; ô đó đã gỡ, vì người nhận thật gần như luôn
-là một QUAN HỆ với bản ghi (*"người gửi đơn"*, *"sếp của người đó"*) chứ không phải một vai trò, mà muốn
-bày ra một danh sách quan hệ/vai trò ĐÓNG thì phải có bảng phân quyền đã chốt trước. Trường
-`EntityLifecycleState.Notify` vẫn còn trong contract nhưng chỉ làm đúng một việc: `NotificationMapBuilder.SeedRows`
-kéo nó qua thành giá trị điền sẵn cột To, để dự án đã chốt bảng đối tượng TRƯỚC khi bảng thông báo tồn tại
-không phải trả lời lại đúng câu họ đã trả lời.
+**Mỗi trạng thái ở đây là một DÒNG của bảng thông báo** ngay sau đó — đó là chỗ "ai được báo" được chốt, và
+bảng đối tượng **không** hỏi nó: người nhận thật gần như luôn là một QUAN HỆ với bản ghi (*"người gửi đơn"*,
+*"sếp của người đó"*) chứ không phải một vai trò, mà muốn bày ra một danh sách quan hệ/vai trò ĐÓNG thì phải
+có bảng phân quyền đã chốt trước. Vì vậy dòng `SeedRows` gieo ra có cột To/CC **rỗng**: một phỏng đoán điền
+sẵn ở đó là ký tên người dùng vào danh sách người nhận mà họ chưa chọn.
 
 Vòng đời một trạng thái bị cắt sạch (đối tượng vẫn giữ — nó là đối tượng danh mục): "vòng đời" một trạng
 thái là không có vòng đời, và giữ lại là mời người dùng xác nhận một điều vô nghĩa. Luật này chỉ áp ở lượt
@@ -644,8 +694,9 @@ Chọn *"ứng dụng tự quản lý"* nghĩa là ứng dụng phải có một
 có DÒNG nào trong bảng phân quyền — tức **mặc nhiên "không ai được xem"** một màn hình người dùng vừa đặt
 hàng, và không có gì trên màn hình nói vì sao.
 
-`ConfirmEntityMapUseCase` vì vậy gieo mỗi danh mục `app` thành một mục `Màn hình quản lý danh mục <tên>` vào
-`Project.PlannedScope`. **Chính hàm gieo này là lý do
+`ConfirmEntityMapUseCase` vì vậy gieo mỗi danh mục `app` thành một mục `<tên> Catalog` vào
+`Project.PlannedScope` (hậu tố `Catalog` là bắt buộc, không phải trang trí — xem
+[Tên màn hình là nhãn menu của bản demo](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh)). **Chính hàm gieo này là lý do
 [thứ tự phụ thuộc](#một-cổng-đúng-một-bảng-mỗi-lượt) đặt bảng đối tượng TRƯỚC bảng màn hình:** gieo trước
 lần bày đầu thì các màn hình danh mục là những dòng bình thường của bảng màn hình, người dùng tích/bỏ tích
 ngay tại đó. Đường **mở lại** của `ScreenScopeGate`
@@ -716,7 +767,7 @@ Bảng có bốn cột, và mỗi cột có một đường đi riêng ngoài ch
 
 | Cột | Là gì | Đi đâu |
 |---|---|---|
-| **Báo cáo / thống kê** | tên, đọc được như MỘT màn hình (*"Báo cáo tổng hợp ngày phép còn lại"*) | gieo thẳng vào `PlannedScope` ⇒ bảng màn hình ⇒ `## 6. Screens To Generate` |
+| **Báo cáo / thống kê** | tên, đọc được như MỘT màn hình và theo [luật đặt tên màn hình](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh) (*"Remaining Leave Report"*) | gieo thẳng vào `PlannedScope` ⇒ bảng màn hình ⇒ `## 6. Screens To Generate` |
 | **Để trả lời câu hỏi gì** | mục đích, viết bằng **lời người dùng** (*"để biết tháng này ai chưa đi học"*) | phần mô tả màn hình ở `## 6` |
 | **Lấy số từ** | một đối tượng của bảng đối tượng đã chốt | nối về `## 8. Data Model Summary` — không dựng bảng dữ liệu riêng cho báo cáo |
 | **Gộp / lọc theo** | kỳ, đơn vị, trạng thái, người phụ trách… | **bộ lọc thật** của màn hình + tham số truy vấn ở `## 9. API Expectations` |

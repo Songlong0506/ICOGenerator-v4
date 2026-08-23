@@ -47,11 +47,12 @@ public static class ReportMapBuilder
     private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
-    /// Các tiền tố khiến một cái tên tự đọc được như MỘT MÀN HÌNH. Tên không có tiền tố nào ở đây được
-    /// <see cref="ReportScreens"/> gắn thêm chữ dẫn — xem hàm đó.
+    /// Các từ khiến một cái tên tự đọc được như MỘT MÀN HÌNH — tra ở BẤT KỲ đâu trong tên, vì hình dạng
+    /// tên màn hình là hậu tố ("Headcount Report"). Tên không chứa từ nào ở đây được
+    /// <see cref="ReportScreens"/> gắn thêm hậu tố — xem hàm đó.
     /// </summary>
-    private static readonly string[] ScreenLikePrefixes =
-        { "báo cáo", "thống kê", "dashboard", "màn hình", "trang", "bảng điều khiển" };
+    private static readonly string[] ScreenLikeWords =
+        { "report", "dashboard", "statistics", "analytics", "overview" };
 
     /// <summary>
     /// Bảng cuối cùng cho lượt BA BÀY BẢNG: bỏ dòng không tên/trùng tên, cắt ở trần, và xoá ô nguồn không
@@ -135,9 +136,10 @@ public static class ReportMapBuilder
     ///
     /// <para>
     /// Tên gieo ra phải tự đọc được như một màn hình, vì cột "Màn hình" của bảng màn hình chỉ được chứa màn
-    /// hình. Tên người dùng gõ thường đã tự nói ra điều đó ("Báo cáo tổng hợp ngày phép còn lại") nên giữ
-    /// nguyên; tên trần ("Ngày phép còn lại") mới được gắn chữ dẫn, chứ gắn cho tất cả thì sinh ra những
-    /// mục đọc như "Màn hình báo cáo Báo cáo tổng hợp…".
+    /// hình — và phải NGẮN, bằng TIẾNG ANH, vì nó thành nhãn mục menu của bản demo (cùng lý do với
+    /// <see cref="EntityMapBuilder.ManagedListScreens(IEnumerable{EntityMapRow})"/>). Tên ở bảng báo cáo
+    /// thường đã tự nói ra điều đó ("Headcount Report") nên giữ nguyên; chỉ tên trần ("Remaining Leave")
+    /// mới được gắn hậu tố, chứ gắn cho tất cả thì sinh ra "Headcount Report Report".
     /// </para>
     /// </summary>
     public static List<string> ReportScreens(IEnumerable<ReportMapRow>? rows)
@@ -149,9 +151,7 @@ public static class ReportMapBuilder
                      .Where(r => r != null && r.Included && !string.IsNullOrWhiteSpace(r.Report)))
         {
             var name = row.Report.Trim();
-            var screen = ScreenLikePrefixes.Any(p => name.StartsWith(p, StringComparison.OrdinalIgnoreCase))
-                ? name
-                : $"Báo cáo {name}";
+            var screen = ReadsAsScreen(name) ? name : $"{name} Report";
 
             if (seen.Add(Normalize(screen)))
                 result.Add(screen);
@@ -162,6 +162,10 @@ public static class ReportMapBuilder
 
     /// <summary>Bản đọc từ JSON đã lưu của <see cref="ReportScreens(IEnumerable{ReportMapRow})"/>.</summary>
     public static List<string> ReportScreens(string? json) => ReportScreens(Parse(json));
+
+    /// <summary>Tên đã tự đọc được như một màn hình — xem <see cref="ScreenLikeWords"/>.</summary>
+    private static bool ReadsAsScreen(string name) =>
+        ScreenLikeWords.Any(w => name.Contains(w, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Khối ngữ cảnh gắn vào MỌI lượt chat sau khi bảng đã chốt, vào lượt distill bản đồ bao phủ, và vào

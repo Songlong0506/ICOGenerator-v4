@@ -83,10 +83,9 @@ public static class NotificationMapBuilder
     /// bảng này KHÔNG bao giờ được bày — xem <see cref="NotificationMapGate"/>.
     ///
     /// <para>
-    /// <paramref name="entityMapJson"/> của dự án chốt bảng đối tượng TRƯỚC khi bảng thông báo tồn tại còn
-    /// mang ô <c>notify</c> cũ (một ô text tự do cạnh từng trạng thái). Nó được kéo qua đây thành giá trị
-    /// điền sẵn của cột To — người dùng đã trả lời đúng câu hỏi đó rồi, chỉ khác là trả lời bằng cách gõ.
-    /// Bắt họ chọn lại từ đầu là hình dạng vòng lặp câu hỏi chết mà repo đã phải dựng lưới một lần.
+    /// Dòng gieo ra để cột To/CC RỖNG: "ai được báo" là câu hỏi của chính bảng này, và điền sẵn một phỏng
+    /// đoán vào đó là ký tên người dùng vào danh sách người nhận mà họ chưa chọn. Ô điền sẵn duy nhất được
+    /// phép là ô có trích dẫn thật, và nó đến từ lượt model bày bảng chứ không từ bảng đối tượng.
     /// </para>
     /// </summary>
     public static List<NotificationMapRow> SeedRows(string? entityMapJson)
@@ -105,10 +104,7 @@ public static class NotificationMapBuilder
                     Entity = Clip(entity.Entity.Trim(), MaxTextChars),
                     Event = Clip(state.State.Trim(), MaxTextChars),
                     Trigger = Clip((state.EntryCondition ?? string.Empty).Trim(), MaxTextChars),
-                    // Ô notify cũ — xem ghi chú method. Chưa lọc theo danh sách chọn ở đây; Build làm việc đó.
-                    To = string.IsNullOrWhiteSpace(state.Notify)
-                        ? new List<string>()
-                        : new List<string> { state.Notify.Trim() }
+                    To = new List<string>()
                 });
 
                 if (rows.Count >= MaxRows)

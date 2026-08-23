@@ -412,8 +412,14 @@ public static class EntityMapBuilder
     /// </para>
     ///
     /// <para>
-    /// Tên gieo ra phải đọc được như MỘT MÀN HÌNH, vì cột "Màn hình" của bảng màn hình chỉ được chứa màn
-    /// hình — một mục tên là "OrgUnit" trần sẽ được rà như một màn hình mà không ai biết nó làm gì.
+    /// <b>Hình dạng tên: <c>"&lt;Danh mục&gt; Catalog"</c>.</b> Hai ràng buộc cùng lúc, và chỉ hậu tố mới thoả
+    /// được cả hai. (1) Tên phải đọc được như MỘT MÀN HÌNH, vì cột "Màn hình" của bảng màn hình chỉ được
+    /// chứa màn hình — một mục tên là <c>"OrgUnit"</c> trần trùng nguyên văn tên đối tượng ở bảng ngay
+    /// trước đó, nên nó được rà như một màn hình mà không ai biết nó làm gì. (2) Tên phải NGẮN và bằng
+    /// TIẾNG ANH, vì nó đi thẳng ra <c>## 6. Screens To Generate</c> rồi thành NHÃN MỤC MENU của bản demo —
+    /// Developer chép nguyên văn, không dịch, không rút gọn (xem <c>Prompts/Developer/poc-preview.v1.md</c>),
+    /// nên một chữ dẫn tiếng Việt ở đây là một chữ dẫn tiếng Việt trên sidebar. Luật đầy đủ ở
+    /// <c>docs/requirement-flow.md</c>, mục "Tên màn hình là nhãn menu của bản demo".
     /// </para>
     /// </summary>
     public static List<string> ManagedListScreens(IEnumerable<EntityMapRow>? rows)
@@ -432,7 +438,7 @@ public static class EntityMapBuilder
             // Cùng một danh mục thường xuất hiện ở nhiều đối tượng (OrgUnit của JD và của nhân viên) —
             // gieo hai lần là bắt người dùng rà hai dòng cho cùng một màn hình.
             if (seen.Add(Normalize(field.Name)))
-                result.Add($"Màn hình quản lý danh mục {field.Name.Trim()}");
+                result.Add($"{field.Name.Trim()} Catalog");
         }
 
         return result;
@@ -601,9 +607,8 @@ public static class EntityMapBuilder
         return result;
     }
 
-    // Ô "báo cho ai" KHÔNG được kể ở đây nữa, kể cả với dữ liệu cũ còn mang nó (xem
-    // EntityLifecycleState.Notify): người nhận thông báo có bảng riêng, và hai khối ngữ cảnh cùng nói về
-    // một quyết định là cách chắc chắn nhất để BA hỏi lại thứ người dùng vừa chốt ở bảng kia.
+    // Ô "báo cho ai" KHÔNG có mặt ở đây: người nhận thông báo có bảng riêng, và hai khối ngữ cảnh cùng
+    // nói về một quyết định là cách chắc chắn nhất để BA hỏi lại thứ người dùng vừa chốt ở bảng kia.
     private static string RenderState(EntityLifecycleState state)
     {
         var entry = string.IsNullOrWhiteSpace(state.EntryCondition) ? string.Empty : $" khi {state.EntryCondition.Trim()}";
@@ -695,8 +700,7 @@ public static class EntityMapBuilder
             result.Add(new EntityLifecycleState
             {
                 State = name,
-                EntryCondition = Clip((state.EntryCondition ?? string.Empty).Trim(), MaxTextChars),
-                Notify = Clip((state.Notify ?? string.Empty).Trim(), MaxTextChars)
+                EntryCondition = Clip((state.EntryCondition ?? string.Empty).Trim(), MaxTextChars)
             });
 
             if (result.Count >= MaxStatesPerEntity)

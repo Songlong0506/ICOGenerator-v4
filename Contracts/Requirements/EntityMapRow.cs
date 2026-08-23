@@ -42,10 +42,10 @@ public class EntityFieldNote
     /// NGƯỜI DÙNG NHẬP THẾ NÀO — một trong <see cref="EntityFieldInput"/>.
     ///
     /// <para>
-    /// Giá trị KHỞI TẠO là <see cref="EntityFieldInput.Text"/> chứ không phải chuỗi rỗng, và đó là điều kiện
-    /// để mọi bảng đối tượng đã lưu TRƯỚC khi có cột này đọc ra đúng thứ nó vẫn kể: JSON cũ không có trường
-    /// <c>input</c> nên deserializer giữ nguyên giá trị khởi tạo. Rỗng ở đây sẽ đi thẳng ra
-    /// <c>ChatExportBuilder</c> và các khối ngữ cảnh dưới dạng một ô "không rõ kiểu" mà chưa ai từng hỏi.
+    /// Giá trị KHỞI TẠO là <see cref="EntityFieldInput.Text"/> chứ không phải chuỗi rỗng, và prompt dựa
+    /// thẳng vào điều đó: *"chưa ai bàn ⇒ <c>input: text</c>"*. Model bỏ trống trường này thì deserializer
+    /// giữ nguyên giá trị khởi tạo; rỗng ở đây sẽ đi thẳng ra <c>ChatExportBuilder</c> và các khối ngữ cảnh
+    /// dưới dạng một ô "không rõ kiểu" mà chưa ai từng hỏi.
     /// </para>
     ///
     /// <para>
@@ -199,15 +199,6 @@ public class EntityLifecycleState
 
     /// <summary>Điều kiện/hành động đưa đối tượng vào trạng thái này ("HOD bấm duyệt").</summary>
     public string EntryCondition { get; set; } = "";
-
-    /// <summary>
-    /// DI SẢN — ô "báo cho ai" của bản trước, khi thông báo còn là một ô text tự do cạnh từng trạng thái.
-    /// KHÔNG còn được hỏi: bảng không render nó nữa, prompt không xin nó nữa, và các khối ngữ cảnh không
-    /// kể nó nữa. Trường vẫn còn đúng một việc — <c>NotificationMapBuilder.SeedRows</c> kéo nó qua thành
-    /// giá trị điền sẵn cột To của bảng thông báo, để các dự án đã chốt bảng đối tượng TRƯỚC khi bảng
-    /// thông báo tồn tại không phải trả lời lại đúng câu họ đã trả lời.
-    /// </summary>
-    public string Notify { get; set; } = "";
 }
 
 /// <summary>
