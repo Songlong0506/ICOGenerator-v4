@@ -1173,61 +1173,124 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     }
 
     // ---- BẢNG LUỒNG ----
+    // Trần, chép từ FlowMapBuilder. Chặn ở CLIENT chứ không để server cắt — cùng lý do với bảng màn hình,
+    // mà ở bảng này còn kín hơn: NormalizeSteps đếm CẢ bước đã bỏ rồi `break` khi chạm trần, nên một bước
+    // người dùng vừa gõ mà vượt trần sẽ biến mất lúc lưu không một lời nào nói vì sao. Chặn tại nút bấm thì
+    // họ đọc được lý do ngay lúc bấm.
+    const MAX_FLOW_STEPS = 10;              // = FlowMapBuilder.MaxStepsPerFlow
+    const MIN_FLOW_STEPS = 2;               // = FlowMapBuilder.MinStepsPerFlow
+    const MAX_FLOWS = 6;                    // = FlowMapBuilder.MaxFlows
+    const MAX_EXCEPTION_FLOWS = 3;          // = FlowMapBuilder.MaxExceptionFlows
+    const FLOW_KIND_HAPPY = "luồng chính";  // = FlowKind.Happy
+    const FLOW_KIND_EXCEPTION = "ngoại lệ"; // = FlowKind.Exception
+
     const flowMapPanel = initTablePanel(
         "flowMapPanel", "flowMapSendBtn", "flowMapMsg", "flowJson",
-        panel => Array.from(panel.querySelectorAll(".flowmap-table")).map(table => ({
-            name: table.dataset.flow || "",
-            kind: table.dataset.kind || "",
-            role: table.dataset.role || "",
-            trigger: table.dataset.trigger || "",
-            steps: Array.from(table.querySelectorAll(".flowmap-row")).map(tr => ({
-                actor: tableValue(tr, ".flowmap-actor"),
-                action: tableValue(tr, ".flowmap-action"),
-                outcome: tableValue(tr, ".flowmap-outcome"),
-                included: tableChecked(tr.querySelector(".flowmap-check"))
-            }))
-        })),
+        panel => Array.from(panel.querySelectorAll(".flowmap-block")).map(block => {
+            // Luồng BA bày ra chở tên/loại/vai/điều kiện ở `data-*` và không sửa được — sửa tên ở đó là đổi
+            // nhãn của một thứ model đề xuất mà vẫn kể lại là đề xuất của nó. Luồng NGƯỜI DÙNG tự thêm thì
+            // bốn trường ấy là bốn ô gõ, nên đọc từ ô; cờ `addedByUser` đi kèm để tin nhắn gửi vào hội thoại
+            // gọi tên được nó (xem FlowMapRow.AddedByUser).
+            const table = block.querySelector(".flowmap-table");
+            const added = !!block.querySelector(".flowmap-nameinput");
+            return {
+                name: added ? tableValue(block, ".flowmap-nameinput") : (table.dataset.flow || ""),
+                kind: added ? tableRawValue(block, ".flowmap-kindselect") : (table.dataset.kind || ""),
+                role: added ? tableValue(block, ".flowmap-roleinput") : (table.dataset.role || ""),
+                trigger: added ? tableValue(block, ".flowmap-triggerinput") : (table.dataset.trigger || ""),
+                addedByUser: added,
+                steps: Array.from(table.querySelectorAll(".flowmap-row")).map(tr => ({
+                    actor: tableValue(tr, ".flowmap-actor"),
+                    action: tableValue(tr, ".flowmap-action"),
+                    outcome: tableValue(tr, ".flowmap-outcome"),
+                    included: tableChecked(tr.querySelector(".flowmap-check")),
+                    addedByUser: tr.dataset.added === "1"
+                }))
+            };
+        }),
         "Đang lưu bảng luồng…",
-        "Chưa lưu được bảng luồng — anh/chị bấm gửi lại giúp mình nhé.");
+        "Chưa lưu được bảng luồng — anh/chị bấm gửi lại giúp mình nhé.",
+        validateFlowMap);
 
-    // Nút BỎ/LẤY LẠI của một bước. Hai trạng thái dùng chung MỘT nút vì chúng là một thao tác lật; mọc
-    // thêm một nút "hoàn tác" riêng ở dòng đã bỏ sẽ làm cột cuối đổi bề rộng theo từng cú bấm.
-    function applyFlowStepDropState(btn, included, action) {
-        btn.textContent = included ? "×" : "↩";
-        btn.title = included ? "Bỏ bước này" : "Lấy lại bước này";
-        btn.setAttribute("aria-label", `${included ? "Bỏ" : "Lấy lại"} bước ${action}`);
+    // Nhãn dùng chung cho cả ba nút cuối dòng. Bước vừa thêm chưa có chữ nào để gọi tên, mà một aria-label
+    // cụt ("Bỏ bước ") thì trình đọc màn hình đọc ra đúng như thế.
+    function flowStepLabel(action) {
+        return action ? ` bước ${action}` : " bước vừa thêm";
     }
 
-    // Dựng qua DOM rồi lấy outerHTML: `action` là chữ người dùng gõ, ghép thẳng vào chuỗi HTML là mở đúng
-    // cái lỗ mà escapeHtml sinh ra để bịt, mà ở đây nó còn nằm trong cả `aria-label` lẫn nội dung nút.
-    function flowStepDropCell(included, action) {
+    // Dựng nút qua DOM rồi lấy outerHTML: chữ người dùng gõ nằm trong cả `title` lẫn `aria-label`, ghép
+    // thẳng vào chuỗi HTML là mở đúng cái lỗ mà escapeHtml sinh ra để bịt.
+    function flowIconButton(className, text, label, attrs) {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "flowmap-del";
-        applyFlowStepDropState(btn, included, action);
-        return `<input type="hidden" class="flowmap-check" value="${included ? "1" : "0"}" />${btn.outerHTML}`;
+        btn.className = className;
+        btn.textContent = text;
+        btn.title = label;
+        btn.setAttribute("aria-label", label);
+        Object.keys(attrs || {}).forEach(name => btn.setAttribute(name, attrs[name]));
+        return btn.outerHTML;
     }
 
-    // Markup khớp bản server render trong Index.cshtml — hai đường lệch nhau thì người dùng rà xong bảng
-    // vừa hiện ra rồi F5 và thấy một bảng khác.
-    function renderFlowMap(rows) {
-        if (!flowMapPanel || !Array.isArray(rows) || rows.length === 0) return;
+    // Nút BỎ/LẤY LẠI của một bước BA đề xuất. Hai trạng thái dùng chung MỘT nút vì chúng là một thao tác
+    // lật; mọc thêm một nút "hoàn tác" riêng ở dòng đã bỏ sẽ làm cột cuối đổi bề rộng theo từng cú bấm.
+    function applyFlowStepDropState(btn, included, action) {
+        const label = (included ? "Bỏ" : "Lấy lại") + flowStepLabel(action);
+        btn.textContent = included ? "×" : "↩";
+        btn.title = label;
+        btn.setAttribute("aria-label", label);
+    }
 
-        const tables = rows.map(flow => {
-            const body = (flow.steps || []).map(s => `
-                <tr class="flowmap-row${s.included ? "" : " flowmap-row-dropped"}">
-                    <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">${escapeHtml(s.actor || "")}</textarea></td>
-                    <td><textarea rows="1" class="permmap-cellinput flowmap-action">${escapeHtml(s.action || "")}</textarea></td>
-                    <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">${escapeHtml(s.outcome || "")}</textarea></td>
-                    <td class="flowmap-delcell">${flowStepDropCell(s.included !== false, s.action || "")}</td>
-                </tr>`).join("");
+    // Cột cuối của một dòng: ↑ ↓ rồi tới nút bỏ/xóa.
+    //
+    // Ba nút chứ không phải một tay cầm KÉO-THẢ, và đó là quyết định chứ không phải bước rút gọn: ô của
+    // bảng này là <textarea>, nên đặt `draggable` lên <tr> là cướp mất thao tác bôi đen chữ trong ô — đúng
+    // thao tác chính của cả bảng. Tránh nó thì phải đẻ thêm một CỘT tay cầm trên bảng cố ý chỉ có ba cột,
+    // mà kéo-thả lại không dùng được bằng bàn phím và không chạy trên cảm ứng nếu không kèm polyfill. Một
+    // luồng dài tối đa MAX_FLOW_STEPS bước và thường chỉ lệch một hai vị trí, tức ↑ ↓ là một hai cú bấm.
+    function flowStepControls(step, added) {
+        const action = (step && step.action) || "";
+        const included = !step || step.included !== false;
+        const label = flowStepLabel(action);
+        const move = flowIconButton("flowmap-move", "↑", "Đưa lên trên" + label, { "data-dir": "up" })
+            + flowIconButton("flowmap-move", "↓", "Đưa xuống dưới" + label, { "data-dir": "down" });
 
-            const role = flow.role ? `<span class="flowmap-role">· ${escapeHtml(flow.role)}</span>` : "";
-            const trigger = flow.trigger ? `<span class="flowmap-role">· khi ${escapeHtml(flow.trigger)}</span>` : "";
-            return `
-                <div class="permmap-screen">${escapeHtml(flow.name || "")} <span class="flowmap-kind">${escapeHtml(flow.kind || "")}</span>${role}${trigger}</div>
-                <table class="permmap-table flowmap-table" data-flow="${escapeHtml(flow.name || "")}" data-kind="${escapeHtml(flow.kind || "")}"
-                       data-role="${escapeHtml(flow.role || "")}" data-trigger="${escapeHtml(flow.trigger || "")}">
+        // Bước BA đề xuất: nút LẬT — dòng bị bỏ vẫn phải nằm trong payload để tin nhắn gửi đi gọi tên được
+        // nó. Bước NGƯỜI DÙNG vừa gõ: xóa hẳn, vì nó chưa bao giờ là một đề xuất nên không có gì để kể lại,
+        // và bắt họ "bỏ" một dòng chính họ vừa tạo ra thì dòng trống ấy nằm lại trên bảng mãi.
+        const drop = added
+            ? flowIconButton("flowmap-remove", "×", "Xóa" + label)
+            : flowIconButton("flowmap-del", included ? "×" : "↩", (included ? "Bỏ" : "Lấy lại") + label);
+
+        return `<input type="hidden" class="flowmap-check" value="${included ? "1" : "0"}" />${move}${drop}`;
+    }
+
+    // MỘT bước. `step` null = dòng TRỐNG người dùng vừa thêm bằng nút "+ thêm bước".
+    function flowStepRow(step, added) {
+        const s = step || {};
+        const included = s.included !== false;
+        return `
+            <tr class="flowmap-row${included ? "" : " flowmap-row-dropped"}"${added ? ' data-added="1"' : ""}>
+                <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">${escapeHtml(s.actor || "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput flowmap-action" placeholder="bước này làm gì?">${escapeHtml(s.action || "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">${escapeHtml(s.outcome || "")}</textarea></td>
+                <td class="flowmap-delcell">${flowStepControls(s, added)}</td>
+            </tr>`;
+    }
+
+    // Dòng cuối mỗi luồng: nút thêm bước. Tên luồng chỉ nằm ở nhãn trợ năng, không nằm trong chữ của nút —
+    // cùng lý do với "+ thêm chức năng" của bảng màn hình: mọi ô của .permmap-table là nowrap.
+    function flowStepAddRow(name) {
+        const label = name ? `Thêm bước cho luồng ${name}` : "Thêm bước cho luồng vừa thêm";
+        return `
+            <tr class="flowmap-addsteprow">
+                <td colspan="4">${flowIconButton("flowmap-add flowmap-addstep", "+ thêm bước", label)}</td>
+            </tr>`;
+    }
+
+    function flowTable(name, kind, role, trigger, body) {
+        return `
+                <table class="permmap-table flowmap-table" data-flow="${escapeHtml(name)}" data-kind="${escapeHtml(kind)}"
+                       data-role="${escapeHtml(role)}" data-trigger="${escapeHtml(trigger)}">
                     <thead>
                         <tr>
                             <th class="flowmap-th-actor">Ai làm</th>
@@ -1238,42 +1301,279 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     </thead>
                     <tbody>${body}</tbody>
                 </table>`;
-        }).join("");
+    }
+
+    // Luồng BA bày ra: tiêu đề chỉ-đọc + bảng bước.
+    function flowBlock(flow) {
+        const name = flow.name || "";
+        const kind = flow.kind || FLOW_KIND_HAPPY;
+        const role = flow.role ? `<span class="flowmap-role">· ${escapeHtml(flow.role)}</span>` : "";
+        const trigger = flow.trigger ? `<span class="flowmap-role">· khi ${escapeHtml(flow.trigger)}</span>` : "";
+        const body = (flow.steps || []).map(s => flowStepRow(s, false)).join("") + flowStepAddRow(name);
+        return `
+            <div class="flowmap-block">
+                <div class="permmap-screen">${escapeHtml(name)} <span class="flowmap-kind">${escapeHtml(kind)}</span>${role}${trigger}</div>
+                ${flowTable(name, kind, flow.role || "", flow.trigger || "", body)}
+            </div>`;
+    }
+
+    // Luồng NGƯỜI DÙNG tự thêm: bốn trường của tiêu đề thành bốn ô gõ, và bảng được gieo sẵn đúng
+    // MIN_FLOW_STEPS dòng trống — luồng ít bước hơn thế bị server loại, nên gieo sẵn là cách nói ra cái
+    // luật đó mà không bắt họ khám phá ra nó bằng cách mất một luồng vừa gõ.
+    //
+    // Ô "kích hoạt khi" chỉ hiện với NGOẠI LỆ: luồng chính không có điều kiện kích hoạt nào ngoài chính
+    // việc người dùng bắt đầu nó (server cũng xóa trắng ô này ở luồng chính), nên bày nó ra là bày một ô mà
+    // người ta phải đoán xem mình nên điền gì.
+    function flowNewBlock() {
+        const steps = Array.from({ length: MIN_FLOW_STEPS }, () => flowStepRow(null, true)).join("");
+        return `
+            <div class="flowmap-block">
+                <div class="permmap-screen flowmap-newhead">
+                    <textarea rows="1" class="permmap-cellinput flowmap-nameinput" placeholder="tên luồng…" aria-label="Tên luồng vừa thêm"></textarea>
+                    <select class="flowmap-kindselect" aria-label="Loại của luồng vừa thêm">
+                        <option value="${escapeHtml(FLOW_KIND_HAPPY)}">${escapeHtml(FLOW_KIND_HAPPY)}</option>
+                        <option value="${escapeHtml(FLOW_KIND_EXCEPTION)}">${escapeHtml(FLOW_KIND_EXCEPTION)}</option>
+                    </select>
+                    <textarea rows="1" class="permmap-cellinput flowmap-roleinput" placeholder="ai khởi xướng luồng này?" aria-label="Vai trò khởi xướng luồng vừa thêm"></textarea>
+                    <textarea rows="1" class="permmap-cellinput flowmap-triggerinput" placeholder="kích hoạt khi…" aria-label="Điều kiện kích hoạt luồng vừa thêm" hidden></textarea>
+                    ${flowIconButton("flowmap-delflow", "×", "Xóa luồng vừa thêm")}
+                </div>
+                ${flowTable("", FLOW_KIND_HAPPY, "", "", steps + flowStepAddRow(""))}
+            </div>`;
+    }
+
+    // Markup khớp bản server render trong Index.cshtml — hai đường lệch nhau thì người dùng rà xong bảng
+    // vừa hiện ra rồi F5 và thấy một bảng khác.
+    function renderFlowMap(rows) {
+        if (!flowMapPanel || !Array.isArray(rows) || rows.length === 0) return;
 
         flowMapPanel.innerHTML = `
             <div class="permmap-howto">
                 Đây là các luồng <b>mình ráp lại</b> từ những gì anh/chị đã kể — bước nào sai thì sửa thẳng vào ô,
-                bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về).
+                bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về). Sai thứ tự thì bấm
+                <b>↑ ↓</b>, thiếu bước thì bấm <b>+ thêm bước</b> ở cuối luồng, thiếu hẳn một luồng thì bấm
+                <b>+ thêm luồng</b> ở cuối bảng.
             </div>
-            ${tables}
+            ${rows.map(flowBlock).join("")}
+            <div class="flowmap-addflowrow">
+                ${flowIconButton("flowmap-add flowmap-addflow", "+ thêm luồng", "Thêm một luồng mới vào bảng")}
+            </div>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
                 <div class="permmap-hint">
-                    Thiếu hẳn một luồng, hoặc thiếu một tình huống hỏng nào đó, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                    Muốn mình tự dựng thêm một luồng hay một tình huống hỏng từ đầu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
                 </div>
                 <div class="permmap-msg" id="flowMapMsg"></div>
             </div>`;
         flowMapPanel.hidden = false;
         thinkingBox.before(flowMapPanel);
         autoGrowCells(flowMapPanel);
+        refreshFlowMoves();
     }
 
-    // Bấm × là ĐÁNH DẤU bỏ chứ không xóa dòng khỏi bảng: payload vẫn phải chở bước đó thì tin nhắn server
-    // soạn mới gọi tên được nó ("(bỏ: …)"), và dòng còn nằm đó — mờ đi, gạch ngang — mới cho người dùng
-    // nhìn lướt thấy ngay mình vừa loại những gì. Bấm lần nữa lấy về: một thao tác loại mà không hoàn tác
-    // được tại chỗ thì cú bấm nhầm chỉ sửa được bằng cách gõ tay lại cả bước.
+    // ↑ của dòng đầu và ↓ của dòng cuối bị KHÓA chứ không để bấm rồi không có gì xảy ra: một nút bấm được
+    // mà không làm gì đọc như một lỗi vừa xảy ra. Chạy lại sau MỌI lần thêm/xóa/đổi chỗ.
+    function refreshFlowMoves() {
+        if (!flowMapPanel) return;
+        flowMapPanel.querySelectorAll(".flowmap-table tbody").forEach(function (tbody) {
+            const rows = Array.from(tbody.querySelectorAll(".flowmap-row"));
+            rows.forEach(function (row, i) {
+                const up = row.querySelector('.flowmap-move[data-dir="up"]');
+                const down = row.querySelector('.flowmap-move[data-dir="down"]');
+                if (up) up.disabled = i === 0;
+                if (down) down.disabled = i === rows.length - 1;
+            });
+        });
+    }
+
+    function countExceptionFlows() {
+        return Array.from(flowMapPanel.querySelectorAll(".flowmap-block")).filter(function (block) {
+            const select = block.querySelector(".flowmap-kindselect");
+            const table = block.querySelector(".flowmap-table");
+            return (select ? select.value : (table.dataset.kind || "")) === FLOW_KIND_EXCEPTION;
+        }).length;
+    }
+
+    // Khóa so trùng tên luồng, chép luật của FlowMapBuilder.Normalize. Hai luồng trùng tên thì server giữ
+    // cái đầu và bỏ IM LẶNG cái sau — mà cái sau gần như luôn là luồng người dùng vừa gõ.
+    function flowNameKey(name) {
+        return (name || "").toLowerCase()
+            .split(/\s+/).filter(Boolean).join(" ")
+            .replace(/^[.,:;\-–]+|[.,:;\-–]+$/g, "");
+    }
+
+    function focusFlowField(block, selector) {
+        const field = block && block.querySelector(selector);
+        if (field) field.focus();
+    }
+
+    // Chốt chặn phía CLIENT cho đúng những gì server sẽ lặng lẽ bỏ đi: luồng không tên, luồng chưa đủ
+    // MIN_FLOW_STEPS bước, luồng trùng tên. Cả ba đều bị `BuildCore` `continue` qua không một lời nào — mà
+    // người dùng thì vừa gõ tay cả luồng đó, và bảng biến mất ngay sau khi gửi nên họ cũng không còn chỗ
+    // nào để thấy là mình đã mất gì.
+    function validateFlowMap(panel, rows) {
+        const msgEl = document.getElementById("flowMapMsg");
+        const note = text => { if (msgEl) msgEl.textContent = text; };
+        const blocks = Array.from(panel.querySelectorAll(".flowmap-block"));
+        const seen = new Set();
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const block = blocks[i];
+            const key = flowNameKey(row.name);
+
+            if (row.addedByUser && key.length === 0) {
+                note("Luồng anh/chị vừa thêm chưa có tên — điền tên giúp mình, hoặc bấm × ở đầu luồng để bỏ nó đi.");
+                focusFlowField(block, ".flowmap-nameinput");
+                return false;
+            }
+
+            if (row.addedByUser && row.steps.filter(s => s.action.length > 0).length < MIN_FLOW_STEPS) {
+                note(`Luồng "${row.name}" chưa đủ ${MIN_FLOW_STEPS} bước có nội dung — ít hơn thế thì đó là một câu mô tả `
+                    + `chứ chưa phải một luồng, và bản demo sẽ không có gì để chấm theo.`);
+                focusFlowField(block, ".flowmap-action");
+                return false;
+            }
+
+            if (key.length > 0 && seen.has(key)) {
+                note(`Đang có hai luồng cùng tên "${row.name}" — đặt cho luồng vừa thêm một cái tên khác giúp mình nhé.`);
+                focusFlowField(block, ".flowmap-nameinput");
+                return false;
+            }
+            seen.add(key);
+        }
+
+        note("");
+        return true;
+    }
+
+    // Ủy quyền trên PANEL chứ không gắn vào từng nút: renderFlowMap thay sạch innerHTML mỗi lượt BA bày
+    // bảng, nên listener gắn vào nút sẽ chết ngay lần render kế. Panel thì sống suốt phiên.
     if (flowMapPanel) {
         flowMapPanel.addEventListener("click", function (e) {
-            const btn = e.target.closest(".flowmap-del");
-            if (!btn) return;
+            const toggle = e.target.closest(".flowmap-del");
+            const removeStep = e.target.closest(".flowmap-remove");
+            const move = e.target.closest(".flowmap-move");
+            const addStep = e.target.closest(".flowmap-addstep");
+            const addFlow = e.target.closest(".flowmap-addflow");
+            const removeFlow = e.target.closest(".flowmap-delflow");
+            if (!toggle && !removeStep && !move && !addStep && !addFlow && !removeFlow) return;
 
-            const row = btn.closest(".flowmap-row");
-            const flag = row.querySelector(".flowmap-check");
-            const included = flag.value !== "1";
-            flag.value = included ? "1" : "0";
-            row.classList.toggle("flowmap-row-dropped", !included);
-            applyFlowStepDropState(btn, included, tableValue(row, ".flowmap-action"));
+            const msgEl = document.getElementById("flowMapMsg");
+            const note = text => { if (msgEl) msgEl.textContent = text; };
+
+            // Bấm × ở một bước BA đề xuất là ĐÁNH DẤU bỏ chứ không xóa dòng khỏi bảng: payload vẫn phải chở
+            // bước đó thì tin nhắn server soạn mới gọi tên được nó ("(bỏ: …)"), và dòng còn nằm đó — mờ đi,
+            // gạch ngang — mới cho người dùng nhìn lướt thấy ngay mình vừa loại những gì. Bấm lần nữa lấy
+            // về: một thao tác loại mà không hoàn tác được tại chỗ thì cú bấm nhầm chỉ sửa được bằng cách
+            // gõ tay lại cả bước.
+            if (toggle) {
+                const row = toggle.closest(".flowmap-row");
+                const flag = row.querySelector(".flowmap-check");
+                const included = flag.value !== "1";
+                flag.value = included ? "1" : "0";
+                row.classList.toggle("flowmap-row-dropped", !included);
+                applyFlowStepDropState(toggle, included, tableValue(row, ".flowmap-action"));
+                note("");
+                return;
+            }
+
+            if (removeStep) {
+                removeStep.closest(".flowmap-row").remove();
+                refreshFlowMoves();
+                note("");
+                return;
+            }
+
+            if (removeFlow) {
+                removeFlow.closest(".flowmap-block").remove();
+                note("");
+                return;
+            }
+
+            if (move) {
+                const row = move.closest(".flowmap-row");
+                const dir = move.dataset.dir;
+                const sibling = dir === "up" ? row.previousElementSibling : row.nextElementSibling;
+                // Dòng "+ thêm bước" cũng là một <tr>: đi tới nó là đẩy bước xuống dưới cái nút thêm.
+                if (!sibling || !sibling.classList.contains("flowmap-row")) return;
+
+                if (dir === "up") sibling.before(row); else sibling.after(row);
+                refreshFlowMoves();
+                // Chèn lại một node là mất focus, mà đổi chỗ thì hiếm khi chỉ một nhịp: không trả focus về
+                // thì cú bấm thứ hai phải đi tìm lại đúng cái nút vừa bấm ở một dòng vừa nhảy chỗ. Nút vừa
+                // bấm mà thành khóa (dòng đã chạm đầu/cuối) thì đưa focus sang nút còn lại của chính dòng đó.
+                const back = move.disabled ? row.querySelector(".flowmap-move:not([disabled])") : move;
+                if (back) back.focus();
+                note("");
+                return;
+            }
+
+            if (addStep) {
+                const table = addStep.closest(".flowmap-table");
+                const anchor = addStep.closest(".flowmap-addsteprow");
+                // Đếm CẢ bước đã bỏ, đúng như NormalizeSteps đếm — chặn theo một con số khác con số server
+                // dùng thì vẫn còn đúng cái đường bị nuốt im lặng mà trần này sinh ra để bịt.
+                if (table.querySelectorAll(".flowmap-row").length >= MAX_FLOW_STEPS) {
+                    note(`Một luồng chỉ nhận tối đa ${MAX_FLOW_STEPS} bước — dài hơn thì đó là bản mô tả thao tác `
+                        + `chứ không còn là luồng nghiệp vụ. Anh/chị bỏ bớt bước không cần, hoặc tách phần sau thành một luồng riêng giúp mình nhé.`);
+                    return;
+                }
+
+                anchor.insertAdjacentHTML("beforebegin", flowStepRow(null, true));
+                focusNewRow(anchor.previousElementSibling, ".flowmap-actor");
+                refreshFlowMoves();
+                note("");
+                return;
+            }
+
+            const anchor = addFlow.closest(".flowmap-addflowrow");
+            if (flowMapPanel.querySelectorAll(".flowmap-block").length >= MAX_FLOWS) {
+                note(`Bảng đã tới trần ${MAX_FLOWS} luồng — nhiều hơn thì không rà nổi trong một lượt. Anh/chị bỏ bớt `
+                    + `một luồng vừa thêm, hoặc nhắn vào khung chat để mình gộp lại giúp nhé.`);
+                return;
+            }
+
+            anchor.insertAdjacentHTML("beforebegin", flowNewBlock());
+            const block = anchor.previousElementSibling;
+            autoGrowCells(block);
+            focusFlowField(block, ".flowmap-nameinput");
+            refreshFlowMoves();
+            note("");
         });
+
+        flowMapPanel.addEventListener("change", function (e) {
+            const select = e.target.closest(".flowmap-kindselect");
+            if (!select) return;
+
+            const block = select.closest(".flowmap-block");
+            const msgEl = document.getElementById("flowMapMsg");
+
+            // Trần NGOẠI LỆ chặn ngay tại chỗ chọn, không đợi lúc gửi: quá trần thì `BuildCore` bỏ hẳn luồng
+            // thứ tư, mà ngoại lệ là phần khó lấy nhất của cả buổi phỏng vấn.
+            if (select.value === FLOW_KIND_EXCEPTION && countExceptionFlows() > MAX_EXCEPTION_FLOWS) {
+                select.value = FLOW_KIND_HAPPY;
+                if (msgEl) {
+                    msgEl.textContent = `Bảng chỉ nhận tối đa ${MAX_EXCEPTION_FLOWS} luồng ngoại lệ — anh/chị gộp `
+                        + `tình huống này vào một ngoại lệ đã có, hoặc nhắn vào khung chat giúp mình nhé.`;
+                }
+            } else if (msgEl) {
+                msgEl.textContent = "";
+            }
+
+            // CSS đọc `data-kind` của BẢNG để đổi viền và nhãn loại, nên nó phải chạy theo ô chọn.
+            block.querySelector(".flowmap-table").dataset.kind = select.value;
+
+            const triggerEl = block.querySelector(".flowmap-triggerinput");
+            if (triggerEl) {
+                triggerEl.hidden = select.value !== FLOW_KIND_EXCEPTION;
+                if (!triggerEl.hidden) autoGrowCell(triggerEl);
+            }
+        });
+
+        // Bản server render đã nằm sẵn trong DOM lúc nạp trang, tức nó chưa đi qua renderFlowMap nào —
+        // không gọi ở đây thì ↑ của dòng đầu và ↓ của dòng cuối bấm được cho tới cú bấm đầu tiên.
+        refreshFlowMoves();
     }
 
     // ---- BẢNG MÀN HÌNH ----

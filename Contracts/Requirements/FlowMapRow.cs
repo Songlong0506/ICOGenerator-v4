@@ -69,6 +69,28 @@ public class FlowMapStep
     /// </para>
     /// </summary>
     public bool Included { get; set; } = true;
+
+    /// <summary>
+    /// Bước này do CHÍNH NGƯỜI DÙNG thêm vào bảng bằng nút "+ thêm bước", không phải do BA đề xuất — cùng
+    /// cờ và cùng luật với <see cref="ScreenScopeRow.AddedByUser"/>.
+    ///
+    /// <para>
+    /// Bảng luồng KHÔNG có chốt chặn kiểu "màn hình bịa" để cờ phải đi vòng qua (bước là chữ tự do, không
+    /// phải khóa nối sang bảng nào), nên ở đây cờ chỉ còn đúng một việc — và đó là việc bắt buộc: một bước
+    /// chưa từng có trong đề xuất mà lặng lẽ đi vào phạm vi là đúng loại thay đổi phải NÓI RA, cùng luật
+    /// với các bước bị bỏ. Nói ra ở đâu: <see cref="ICOGenerator.Services.Requirements.FlowMapBuilder.RenderUserMessage"/>.
+    /// Việc phải nói ra ở bảng này còn nặng hơn các bảng khác, vì mỗi bước được giữ là một mục
+    /// <c>IncludedActions</c> mà bảng màn hình sau đó BẮT BUỘC phải có chức năng phụ trách
+    /// (<c>ScreenScopeMapBuilder.UncoveredActions</c>) — thêm một bước ở đây là siết một cổng ở lượt sau.
+    /// </para>
+    ///
+    /// <para>
+    /// Chỉ có nghĩa ở đường GỬI (<see cref="ICOGenerator.Services.Requirements.FlowMapBuilder.Sanitize"/>).
+    /// Đường BÀY BẢNG ép cờ về <c>false</c>: lượt đó là đề xuất của model, một cờ "người dùng tự thêm" ở
+    /// đấy chỉ là chỗ để model gán chữ ký của người dùng lên thứ chính nó vừa bịa.
+    /// </para>
+    /// </summary>
+    public bool AddedByUser { get; set; }
 }
 
 /// <summary>
@@ -113,6 +135,28 @@ public class FlowMapRow
     /// </summary>
     public string Trigger { get; set; } = "";
 
-    /// <summary>Các bước theo đúng thứ tự xảy ra.</summary>
+    /// <summary>
+    /// Các bước theo đúng THỨ TỰ XẢY RA — và ở bảng này thứ tự là dữ liệu, không phải cách bày.
+    ///
+    /// <para>
+    /// Nó đi thẳng vào khối "bảng đã chốt" của mọi lượt chat sau đó và vào <c>## 13. Worked Examples</c>,
+    /// tức oracle chấm POC bị chấm theo đúng thứ tự này. Vì vậy người dùng đổi được thứ tự ngay trên bảng
+    /// (nút ↑ ↓ ở cuối mỗi dòng): BA ráp sai thứ tự mà chỉ sửa được bằng cách gõ đè chữ của hai dòng là
+    /// một đường sửa đắt tới mức không ai đi, và cái sai thì đi tiếp vào tài liệu.
+    /// </para>
+    /// </summary>
     public List<FlowMapStep> Steps { get; set; } = new();
+
+    /// <summary>
+    /// Luồng này do CHÍNH NGƯỜI DÙNG thêm vào bảng bằng nút "+ thêm luồng" — cùng cờ và cùng luật với
+    /// <see cref="FlowMapStep.AddedByUser"/>.
+    ///
+    /// <para>
+    /// Tên luồng KHÔNG phải khóa nối sang bảng nào (khác <see cref="ScreenScopeRow.Screen"/>, thứ là khóa ở
+    /// bốn chỗ độc lập), nên một luồng tự thêm không cần đường lách chốt chặn nào — nó chỉ cần được GỌI TÊN
+    /// trong tin nhắn gửi vào hội thoại, vì một luồng chưa từng có trong đề xuất mà lặng lẽ trở thành ví dụ
+    /// chấm POC là thứ phải nói ra.
+    /// </para>
+    /// </summary>
+    public bool AddedByUser { get; set; }
 }
