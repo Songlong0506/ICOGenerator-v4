@@ -161,6 +161,127 @@ public class InterviewTableBuilderTests
         Assert.Contains("Kế toán ghi sổ", FlowMapBuilder.RenderUserMessage(rows));
     }
 
+    // ==== BẢNG LUỒNG: phần NGƯỜI DÙNG TỰ THÊM và THỨ TỰ BƯỚC ====
+
+    // Thứ tự bước là DỮ LIỆU ở bảng này (nó đi thẳng vào oracle chấm POC), nên nút ↑ ↓ chỉ có nghĩa nếu
+    // server giữ nguyên thứ tự client gửi lên. Một builder "chuẩn hoá" mà xếp lại bước là làm cả thao tác
+    // đổi chỗ trên bảng thành vô hình.
+    [Fact]
+    public void FlowMap_KeepsTheStepOrderTheBrowserSentUp()
+    {
+        var rows = FlowMapBuilder.Sanitize(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Tạo và phê duyệt JD",
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Action = "Submit JD" },
+                    new() { Action = "Tạo JD" },
+                    new() { Action = "Verify JD" }
+                }
+            }
+        });
+
+        Assert.Equal(new[] { "Submit JD", "Tạo JD", "Verify JD" }, rows.Single().Steps.Select(s => s.Action));
+    }
+
+    // Bước người dùng tự gõ không đi qua danh sách cho phép nào (khác bảng màn hình) — nhưng nó phải giữ
+    // được cờ nguồn gốc tới tận tin nhắn gửi đi. Một bước chưa từng có trong đề xuất mà lặng lẽ đi vào
+    // phạm vi là thứ phải nói ra, và ở bảng này còn hơn thế: mỗi bước được giữ là một mục IncludedActions
+    // mà bảng màn hình sau đó buộc phải có chức năng phụ trách.
+    [Fact]
+    public void FlowMap_UserMessageNamesTheStepsTheUserAdded()
+    {
+        var rows = FlowMapBuilder.Sanitize(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Tạo và phê duyệt JD",
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Action = "Tạo JD" },
+                    new() { Action = "Gửi mail cho HRBP", AddedByUser = true }
+                }
+            }
+        });
+
+        var message = FlowMapBuilder.RenderUserMessage(rows);
+        Assert.True(rows.Single().Steps[1].AddedByUser);
+        Assert.Contains("Các bước mình tự bổ sung", message);
+        Assert.Contains("Gửi mail cho HRBP", message);
+    }
+
+    // Luồng tự thêm chỉ kể TÊN LUỒNG: mọi bước trong đó cũng là bước người dùng tự gõ, liệt kê ra là in
+    // lại nguyên danh sách vừa ở ngay bên trên.
+    [Fact]
+    public void FlowMap_UserMessageNamesTheFlowTheUserAddedWithoutRelistingItsSteps()
+    {
+        var rows = FlowMapBuilder.Sanitize(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Thu hồi JD đã duyệt",
+                AddedByUser = true,
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Action = "Chọn JD cần thu hồi", AddedByUser = true },
+                    new() { Action = "Xác nhận thu hồi", AddedByUser = true }
+                }
+            }
+        });
+
+        var message = FlowMapBuilder.RenderUserMessage(rows);
+        Assert.Contains("Các luồng mình tự bổ sung vào bảng: Thu hồi JD đã duyệt", message);
+        Assert.DoesNotContain("Các bước mình tự bổ sung", message);
+    }
+
+    // Bỏ hết bước của một luồng tự thêm ⇒ không có gì đi vào phạm vi, nên cũng không có gì để kể. Kể tên
+    // nó ở đây là báo với BA rằng người dùng vừa bổ sung một luồng mà họ vừa tự đóng lại.
+    [Fact]
+    public void FlowMap_UserMessageSkipsAnAddedFlowWithEveryStepDropped()
+    {
+        var rows = FlowMapBuilder.Sanitize(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Thu hồi JD đã duyệt",
+                AddedByUser = true,
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Action = "Chọn JD cần thu hồi", AddedByUser = true, Included = false },
+                    new() { Action = "Xác nhận thu hồi", AddedByUser = true, Included = false }
+                }
+            }
+        });
+
+        Assert.DoesNotContain("Các luồng mình tự bổ sung", FlowMapBuilder.RenderUserMessage(rows));
+    }
+
+    // Cờ "người dùng tự thêm" ở lượt BÀY BẢNG là cờ của MODEL — một chỗ để nó gán chữ ký của người dùng
+    // lên luồng chính nó vừa bịa, rồi tin nhắn gửi đi kể lại y như thế. Đường bày bảng ép cờ về false.
+    [Fact]
+    public void FlowMap_ClearsTheUserAddedFlagOnTheProposalPath()
+    {
+        var rows = FlowMapBuilder.Build(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Tạo và phê duyệt JD",
+                AddedByUser = true,
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Action = "Tạo JD", AddedByUser = true },
+                    new() { Action = "Submit JD", AddedByUser = true }
+                }
+            }
+        });
+
+        var row = rows.Single();
+        Assert.False(row.AddedByUser);
+        Assert.All(row.Steps, s => Assert.False(s.AddedByUser));
+    }
+
     // ==== BẢNG MÀN HÌNH ====
 
     private static readonly List<string> Scope = new() { "Màn hình Training Plan", "Trang duyệt của HOD" };

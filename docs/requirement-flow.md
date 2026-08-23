@@ -351,6 +351,67 @@ tin nhắn đi vào hội thoại — im lặng bỏ đi thì họ không có b�
 định loại, đúng lỗi mà bảng cột đã cấm. Cờ đi theo dòng nằm ở một `input` ẩn chứ không ở class, để phép gom
 bảng của trình duyệt vẫn đọc đúng một chỗ (`tableChecked`) cho cả sáu bảng.
 
+### Thêm bước, thêm luồng, và đổi thứ tự bước
+
+Bảng luồng là bảng **cuối cùng trong sáu bảng** được mở đường thêm dòng ngay trên bảng; năm bảng kia đã có
+từ trước (xem [Thêm dòng ngay trên bảng](#thêm-dòng-ngay-trên-bảng-và-chỗ-chốt-chặn-màn-hình-bịa-phải-nhường)).
+Ba nút:
+
+- **+ thêm bước** ở cuối mỗi luồng — dòng trống, ba ô gõ, xóa hẳn được bằng **×**;
+- **+ thêm luồng** ở cuối bảng — một khối mới với bốn ô tiêu đề (tên · loại · vai khởi xướng · điều kiện
+  kích hoạt) và **đúng `MinStepsPerFlow` dòng bước gieo sẵn**. Ô *"kích hoạt khi"* chỉ hiện khi loại là
+  **ngoại lệ**: luồng chính không có điều kiện kích hoạt nào ngoài chính việc người dùng bắt đầu nó, và
+  server cũng xoá trắng ô đó ở luồng chính;
+- **↑ ↓** ở cuối mỗi dòng — đổi chỗ bước, giới hạn **trong một luồng**.
+
+Lý do là lý do cũ, áp nguyên xi: đường duy nhất trước đó là gõ vào khung chat rồi chờ BA bày lại bảng — một
+vòng gọi LLM cho một bước họ đã biết chính xác mình muốn gì, và bảng bày lại thì không có gì bảo đảm giữ
+nguyên các ô họ vừa điền.
+
+**Ở bảng này nó rẻ hơn hẳn bảng màn hình.** Bước là chữ tự do và tên luồng không phải khóa nối sang đâu cả
+(khác `ScreenScopeRow.Screen`, thứ là khóa ở bốn chỗ độc lập), nên không có chốt chặn nào phải nhường đường:
+`FlowMapBuilder.Sanitize` không đối chiếu bước với danh sách cho phép nào. `FlowMapStep.AddedByUser` và
+`FlowMapRow.AddedByUser` vì thế chỉ còn **đúng một việc** — để `RenderUserMessage` gọi tên chúng: *"Các luồng
+mình tự bổ sung vào bảng: …"* / *"Các bước mình tự bổ sung: …"*. Việc đó vẫn bắt buộc, và ở bảng này còn nặng
+hơn các bảng khác: mỗi bước được giữ là một mục `IncludedActions` mà bảng màn hình sau đó **buộc phải** có
+chức năng phụ trách (`UncoveredActions`) — thêm một bước ở lượt này là siết một cổng ở lượt sau, và câu kể
+kia là chỗ duy nhất nối hai lượt ấy lại. Cờ vẫn bị ép về `false` ở đường **BÀY BẢNG**, cùng lý do với
+`ScreenScopeRow.AddedByUser`: ở đó nó là cờ của model, tức một chỗ để model gán chữ ký của người dùng lên
+luồng chính nó vừa bịa.
+
+**Vì sao ↑ ↓ chứ không phải kéo-thả.** Đây là đánh đổi có chủ ý, không phải bản rút gọn:
+
+| | kéo-thả | ↑ ↓ |
+|---|---|---|
+| Ô của bảng là `<textarea>` | `draggable` trên `<tr>` cướp mất thao tác bôi đen chữ trong ô — đúng thao tác chính của cả bảng. Tránh nó thì phải đẻ thêm một **cột tay cầm** trên bảng cố ý chỉ có ba cột | không đụng vào ô |
+| Bàn phím | không thao tác được | là `<button>`, có `aria-label` như mọi nút khác của panel |
+| Cảm ứng | HTML5 DnD không chạy nếu không kèm polyfill; repo không có thư viện kéo thả nào | chạy sẵn |
+| Quy mô | một luồng tối đa `MaxStepsPerFlow` bước và thường chỉ lệch một hai vị trí | một hai cú bấm |
+
+`↑` của dòng đầu và `↓` của dòng cuối bị **khóa chứ không giấu**: giấu đi thì cột cuối đổi bề rộng theo từng
+lần đổi chỗ và hai nút còn lại nhảy chỗ ngay dưới con trỏ vừa bấm. Sau mỗi lần đổi chỗ, focus được trả về
+đúng nút vừa bấm — đổi chỗ hiếm khi chỉ một nhịp, và một cú bấm phải đi tìm lại nút ở một dòng vừa nhảy chỗ
+là một nhịp thừa ở đúng chỗ người ta đang bấm liên tục.
+
+**Thứ tự bước là dữ liệu, không phải cách bày** — đó mới là lý do nút đổi chỗ tồn tại. Nó đi thẳng vào khối
+*"bảng đã chốt"* của mọi lượt chat sau đó và vào `## 13. Worked Examples`, tức **oracle chấm POC bị chấm theo
+đúng thứ tự này**. BA ráp sai thứ tự mà chỉ sửa được bằng cách gõ đè chữ của hai dòng (sáu ô) là một đường
+sửa đắt tới mức không ai đi, và cái sai thì đi tiếp vào tài liệu.
+
+**Cả bốn trần đều chặn ở TRÌNH DUYỆT, ngay tại nút bấm** — cùng luật với bảng màn hình, và ở đây có một
+đường hỏng riêng: `NormalizeSteps` đếm **cả bước đã bỏ** rồi `break` khi chạm `MaxStepsPerFlow`, nên phép
+đếm phía trình duyệt cũng phải đếm cả dòng đã bỏ; đếm theo con số khác con số server dùng là vẫn còn đúng
+cái đường bị nuốt im lặng mà trần này sinh ra để bịt. `MaxFlows` chặn ở nút **+ thêm luồng**;
+`MaxExceptionFlows` chặn ngay **tại ô chọn loại** (chọn quá trần thì ô bật về *luồng chính* kèm một câu
+giải thích) chứ không đợi lúc gửi, vì quá trần thì `BuildCore` bỏ hẳn luồng ngoại lệ thứ tư — mà ngoại lệ
+là phần khó lấy nhất của cả buổi. `MinStepsPerFlow`, tên rỗng và trùng tên thì chặn ở **nút Gửi**
+(`validateFlowMap`): cả ba đều bị `BuildCore` `continue` qua không một lời nào, mà bảng thì biến mất ngay
+sau khi gửi nên người dùng cũng không còn chỗ nào để thấy mình vừa mất gì.
+
+**Ranh giới giữ nguyên ở một chỗ:** tiêu đề của luồng **BA đề xuất** vẫn chỉ-đọc (tên/loại/vai/điều kiện
+nằm ở `data-*`). Sửa được tên ở đó là đổi nhãn của một thứ model đề xuất trong khi tin nhắn gửi đi vẫn kể
+lại nó là đề xuất của model. Chỉ luồng người dùng tự thêm mới có bốn ô gõ đó.
+
 ### Bảng màn hình: vá cái nền mà bảng phân quyền đang đứng lên
 
 Các DÒNG của bảng phân quyền lấy từ `Project.PlannedScope` — một danh sách do LLM chắt sau mỗi lượt chat mà
@@ -551,7 +612,9 @@ Ranh giới dừng ở hai bảng này — ba bảng kia giữ nguyên dấu ✓
 Nút **+ thêm màn hình** ở cuối bảng và **+ thêm chức năng** ở cuối mỗi màn cho người dùng bổ sung thứ BA
 không nghĩ tới mà không phải rời bảng. Trước đó đường duy nhất là gõ vào khung chat rồi chờ BA bày lại bảng
 — một vòng gọi LLM cho một dòng họ đã biết chính xác mình muốn gì, và bảng bày lại thì không có gì bảo đảm
-giữ nguyên những ô họ vừa điền.
+giữ nguyên những ô họ vừa điền. Cả **sáu** bảng chốt nay đều thêm dòng được ngay trên bảng; bảng luồng là
+bảng cuối cùng được mở đường, và nó rẻ hơn hẳn vì không có chốt chặn nào phải nhường — xem
+[Thêm bước, thêm luồng, và đổi thứ tự bước](#thêm-bước-thêm-luồng-và-đổi-thứ-tự-bước).
 
 Thêm được thì phải **xóa** được, nhưng chỉ đúng những dòng người dùng tự thêm. Dòng BA đề xuất vẫn **bỏ
 tích chứ không xóa**: dòng bị loại còn phải kể lại được trong tin nhắn gửi đi, nếu không họ không có bằng

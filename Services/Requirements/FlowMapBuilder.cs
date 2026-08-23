@@ -96,7 +96,11 @@ public static class FlowMapBuilder
                 // Điều kiện kích hoạt chỉ có nghĩa với ngoại lệ; giữ nó trên luồng chính là bày ra một ô
                 // mà người dùng phải đoán xem mình nên điền gì.
                 Trigger = kind == FlowKind.Exception ? Clip((row.Trigger ?? string.Empty).Trim(), MaxTextChars) : string.Empty,
-                Steps = steps
+                Steps = steps,
+                // Chỉ đường GỬI mới được mang cờ này. Ở lượt BÀY BẢNG nó là cờ của MODEL, mà cái nó đánh
+                // dấu lại là "người dùng tự thêm" — tức một chỗ để model gán chữ ký của người dùng lên
+                // luồng chính nó vừa bịa, rồi tin nhắn gửi đi kể lại y như thế. Xem FlowMapRow.AddedByUser.
+                AddedByUser = respectIncluded && row.AddedByUser
             };
 
             if (kind == FlowKind.Exception)
@@ -236,7 +240,45 @@ public static class FlowMapBuilder
                 sb.AppendLine("- (bỏ: " + string.Join("; ", dropped.Select(s => s.Action.Trim())) + ")");
         }
 
+        AppendUserAdditions(sb, rows);
         return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Phần bảng KHÁC ĐI so với thứ BA vừa bày ra phải được gọi tên, cùng luật với các bước bị bỏ ở trên:
+    /// mọi tầng chắt lọc phía sau đọc bản kể này chứ không đọc cột DB, nên một luồng hay một bước lặng lẽ
+    /// đi vào phạm vi là một thay đổi không ai còn cửa nào để bắt. Ở bảng này việc đó nặng hơn các bảng
+    /// khác: mỗi bước được giữ là một mục <see cref="IncludedActions"/> mà bảng màn hình sau đó buộc phải
+    /// có chức năng phụ trách — người dùng thêm một bước ở lượt này sẽ gặp cảnh báo ở lượt sau, và câu kể
+    /// ở đây là chỗ duy nhất nối được hai lượt ấy lại.
+    ///
+    /// <para>
+    /// Luồng tự thêm chỉ kể TÊN LUỒNG, không kể lại từng bước trong nó: bước nào của một luồng người dùng
+    /// vừa tự dựng cũng là bước họ tự gõ, liệt kê ra là lặp lại nguyên cái danh sách vừa in ngay bên trên.
+    /// </para>
+    /// </summary>
+    private static void AppendUserAdditions(StringBuilder sb, IReadOnlyList<FlowMapRow> rows)
+    {
+        // Luồng/bước đã bị bỏ hết thì không có gì đi vào phạm vi để mà kể.
+        var addedFlows = rows.Where(r => r.AddedByUser && r.Steps.Any(s => s.Included)).ToList();
+        if (addedFlows.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Các luồng mình tự bổ sung vào bảng: "
+                + string.Join(", ", addedFlows.Select(r => r.Name)) + ".");
+        }
+
+        var addedSteps = rows
+            .Where(r => !r.AddedByUser)
+            .SelectMany(r => r.Steps
+                .Where(s => s.AddedByUser && s.Included && !string.IsNullOrWhiteSpace(s.Action))
+                .Select(s => $"{s.Action.Trim()} (ở {r.Name})"))
+            .ToList();
+        if (addedSteps.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Các bước mình tự bổ sung: " + string.Join("; ", addedSteps) + ".");
+        }
     }
 
     // ==== chuẩn hoá từng phần ====
@@ -266,7 +308,8 @@ public static class FlowMapBuilder
                 // Lượt BÀY BẢNG: mọi bước được giữ (người dùng bấm × để BỎ bước sai — bắt họ tích từng
                 // bước đúng là đổi một thao tác đính chính lấy mười thao tác xác nhận). Lượt GỬI: giữ đúng
                 // thứ họ đã chọn. Xem ghi chú của Build.
-                Included = !respectIncluded || step.Included
+                Included = !respectIncluded || step.Included,
+                AddedByUser = respectIncluded && step.AddedByUser
             });
 
             if (result.Count >= MaxStepsPerFlow)

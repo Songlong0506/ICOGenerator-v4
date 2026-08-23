@@ -1032,55 +1032,81 @@
                 {
                     <div class="permmap-howto">
                         Đây là các luồng <b>mình ráp lại</b> từ những gì anh/chị đã kể — bước nào sai thì sửa thẳng vào ô,
-                        bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về).
+                        bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về). Sai thứ tự thì bấm
+                        <b>↑ ↓</b>, thiếu bước thì bấm <b>+ thêm bước</b> ở cuối luồng, thiếu hẳn một luồng thì bấm
+                        <b>+ thêm luồng</b> ở cuối bảng.
                     </div>
                     @foreach (var flow in lastFlowMap)
                     {
-                        <div class="permmap-screen">
-                            @flow.Name <span class="flowmap-kind">@flow.Kind</span>
-                            @if (!string.IsNullOrWhiteSpace(flow.Role))
-                            {
-                                <span class="flowmap-role">· @flow.Role</span>
-                            }
-                            @if (!string.IsNullOrWhiteSpace(flow.Trigger))
-                            {
-                                <span class="flowmap-role">· khi @flow.Trigger</span>
-                            }
-                        </div>
-                        <table class="permmap-table flowmap-table" data-flow="@flow.Name" data-kind="@flow.Kind"
-                               data-role="@flow.Role" data-trigger="@flow.Trigger">
-                            <thead>
-                                <tr>
-                                    <th class="flowmap-th-actor">Ai làm</th>
-                                    <th class="flowmap-th-action">Làm gì</th>
-                                    <th class="flowmap-th-outcome">Sau đó</th>
-                                    <th class="flowmap-th-del"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var step in flow.Steps)
+                        @* Tiêu đề và bảng gói chung trong .flowmap-block vì JS gom bảng đi theo từng BLOCK chứ không
+                           theo từng <table>: một luồng người dùng tự thêm chở tên/loại/vai ở các ô gõ NGOÀI bảng, và
+                           nút × của nó phải xóa được cả cụm. Server chỉ render lại được đề xuất của BA, nên ở đây
+                           không có nhánh "luồng tự thêm" — xem renderFlowMap trong requirements.js. *@
+                        <div class="flowmap-block">
+                            <div class="permmap-screen">
+                                @flow.Name <span class="flowmap-kind">@flow.Kind</span>
+                                @if (!string.IsNullOrWhiteSpace(flow.Role))
                                 {
-                                    <tr class="flowmap-row @(step.Included ? "" : "flowmap-row-dropped")">
-                                        <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">@step.Actor</textarea></td>
-                                        <td><textarea rows="1" class="permmap-cellinput flowmap-action">@step.Action</textarea></td>
-                                        <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">@step.Outcome</textarea></td>
-                                        @* Cờ đi theo payload nằm ở input ẩn, không ở class của dòng: JS gom bảng đọc đúng
-                                           một chỗ (tableChecked) cho cả năm bảng, và một dòng bị bỏ vẫn phải có mặt trong
-                                           payload để tin nhắn gửi đi còn gọi tên được nó. *@
-                                        <td class="flowmap-delcell">
-                                            <input type="hidden" class="flowmap-check" value="@(step.Included ? "1" : "0")" />
-                                            <button type="button" class="flowmap-del" title="@(step.Included ? "Bỏ bước này" : "Lấy lại bước này")"
-                                                    aria-label="@(step.Included ? $"Bỏ bước {step.Action}" : $"Lấy lại bước {step.Action}")">@(step.Included ? "×" : "↩")</button>
+                                    <span class="flowmap-role">· @flow.Role</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(flow.Trigger))
+                                {
+                                    <span class="flowmap-role">· khi @flow.Trigger</span>
+                                }
+                            </div>
+                            <table class="permmap-table flowmap-table" data-flow="@flow.Name" data-kind="@flow.Kind"
+                                   data-role="@flow.Role" data-trigger="@flow.Trigger">
+                                <thead>
+                                    <tr>
+                                        <th class="flowmap-th-actor">Ai làm</th>
+                                        <th class="flowmap-th-action">Làm gì</th>
+                                        <th class="flowmap-th-outcome">Sau đó</th>
+                                        <th class="flowmap-th-del"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var step in flow.Steps)
+                                    {
+                                        <tr class="flowmap-row @(step.Included ? "" : "flowmap-row-dropped")">
+                                            <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">@step.Actor</textarea></td>
+                                            <td><textarea rows="1" class="permmap-cellinput flowmap-action" placeholder="bước này làm gì?">@step.Action</textarea></td>
+                                            <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">@step.Outcome</textarea></td>
+                                            @* Cờ đi theo payload nằm ở input ẩn, không ở class của dòng: JS gom bảng đọc đúng
+                                               một chỗ (tableChecked) cho cả năm bảng, và một dòng bị bỏ vẫn phải có mặt trong
+                                               payload để tin nhắn gửi đi còn gọi tên được nó.
+
+                                               ↑ ↓ đổi THỨ TỰ BƯỚC, thứ ở bảng này là dữ liệu chứ không phải cách bày (nó đi
+                                               thẳng vào oracle chấm POC — xem FlowMapRow.Steps). Trạng thái khóa của hai nút
+                                               ở dòng đầu/dòng cuối do refreshFlowMoves() gán lúc nạp trang. *@
+                                            <td class="flowmap-delcell">
+                                                <input type="hidden" class="flowmap-check" value="@(step.Included ? "1" : "0")" />
+                                                <button type="button" class="flowmap-move" data-dir="up"
+                                                        title="Đưa lên trên bước @step.Action" aria-label="Đưa lên trên bước @step.Action">↑</button>
+                                                <button type="button" class="flowmap-move" data-dir="down"
+                                                        title="Đưa xuống dưới bước @step.Action" aria-label="Đưa xuống dưới bước @step.Action">↓</button>
+                                                <button type="button" class="flowmap-del" title="@(step.Included ? $"Bỏ bước {step.Action}" : $"Lấy lại bước {step.Action}")"
+                                                        aria-label="@(step.Included ? $"Bỏ bước {step.Action}" : $"Lấy lại bước {step.Action}")">@(step.Included ? "×" : "↩")</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                    <tr class="flowmap-addsteprow">
+                                        <td colspan="4">
+                                            <button type="button" class="flowmap-add flowmap-addstep"
+                                                    title="Thêm bước cho luồng @flow.Name" aria-label="Thêm bước cho luồng @flow.Name">+ thêm bước</button>
                                         </td>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
                     }
+                    <div class="flowmap-addflowrow">
+                        <button type="button" class="flowmap-add flowmap-addflow"
+                                title="Thêm một luồng mới vào bảng" aria-label="Thêm một luồng mới vào bảng">+ thêm luồng</button>
+                    </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
                         <div class="permmap-hint">
-                            Thiếu hẳn một luồng, hoặc thiếu một tình huống hỏng nào đó, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                            Muốn mình tự dựng thêm một luồng hay một tình huống hỏng từ đầu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
                         </div>
                         <div class="permmap-msg" id="flowMapMsg"></div>
                     </div>
