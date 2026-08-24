@@ -1288,7 +1288,18 @@ public class BAChatService
         var entityMapJson = entityMap.Count > 0 ? JsonSerializer.Serialize(entityMap) : null;
         var reportMapJson = reportMap.Count > 0 ? JsonSerializer.Serialize(reportMap) : null;
         var notificationMapJson = notificationMap.Count > 0 ? JsonSerializer.Serialize(notificationMap) : null;
-        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, cancellationToken: cancellationToken);
+        // ĐÓNG DẤU "cổng readiness đã pass ở lượt này" lên chính lượt sắp lưu — thứ mà bước soạn tài liệu
+        // đọc để biết có được bỏ qua lần xét lại hay không (xem AgentConversation.ReadinessVerified).
+        //
+        // Suy từ bản CHỐT (`reply`) chứ không từ nhánh nào phía trên, và đó là điểm mấu chốt: `reply` còn
+        // bị nhiều chốt chặn sau đó viết lại — lượt có BẢNG thay lời mời bằng câu dẫn của bảng
+        // (TakeOverTurn), lượt câm bị thay bằng bước kế tất định (có thể LÀ lời mời khi bản đồ đã đủ). Đặt
+        // cờ ở nhánh "lời mời được giữ" rồi mang xuống đây là dựng lại đúng kiểu vênh mà cột này sinh ra
+        // để dẹp: cờ nói một đằng, lượt được lưu một nẻo. Bản đồ dùng để xét là bản đã gộp ở ĐẦU lượt này
+        // — cùng dữ liệu mà nhánh lời mời phía trên đã xét, nên hai chỗ không thể lệch nhau.
+        var readinessVerified = RequirementReadinessGate.IsReadinessVerifiedTurn(reply, project.RequirementCoverageMap);
+
+        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.

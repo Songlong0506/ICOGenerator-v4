@@ -78,9 +78,32 @@ public class RequirementConflictService
     /// Ghi nhận các lựa chọn của người dùng thành MỘT cặp lượt hội thoại (user chốt + BA xác nhận) rồi gỡ
     /// cổng. Phải ghi cả lượt assistant: một lượt user "cụt" ở cuối hội thoại làm màn hình chat kẹt ở
     /// "BA đang soạn câu trả lời…" (xem <see cref="BAChatService.GetReplyStateAsync"/>).
+    ///
+    /// <para>
+    /// Lượt assistant đóng cổng CHÉP LẠI cờ <see cref="AgentConversation.ReadinessVerified"/> của lượt nó
+    /// vừa đè lên. Ngay sau lượt này trình duyệt submit form "Write Requirement", nên nếu cặp lượt ở đây
+    /// làm mất kết luận của cổng readiness thì vòng soạn tài liệu sẽ xét lại từ đầu trên một bản đồ vừa
+    /// được distill lại chính câu "chốt lại điểm mâu thuẫn" này — và bị đá về khung chat.
+    /// </para>
     /// </summary>
     public async Task ApplyResolutionsAsync(Project project, Agent ba, IReadOnlyList<ConflictResolution> resolutions, BAConversationLog log, CancellationToken cancellationToken = default)
     {
+        // CHÉP CỜ VERIFY của lượt đang đứng cuối sang lượt BA đóng cổng bên dưới — trước khi cặp lượt mới
+        // đè lên vị trí đó. Cổng soát mâu thuẫn chỉ chạy SAU khi cổng readiness đã cho qua (nút "Write
+        // Requirement" mới hiện ra được), và các lựa chọn ở đây chỉ THU HẸP những điều vốn đã [RÕ] chứ
+        // không mở ra chỗ thiếu mới — nên cặp lượt này không được phép làm mất kết luận của cổng.
+        //
+        // Không có cờ để chép (người dùng vào nút bằng đường lùi "đã có draft + bản đồ đủ", lượt cuối là
+        // một lượt hỏi bình thường) ⇒ KHÔNG tự dựng cờ: bước soạn tài liệu xét lại cổng đúng như trước.
+        // Chỉ chép cái đã có, không bao giờ tạo mới — đó là thứ giữ cột này fail-closed.
+        var carriedReadinessVerified = RequirementReadinessGate.IsReadinessVerifiedLatestTurn(
+            await _db.AgentConversations
+                .Where(c => c.ProjectId == project.Id)
+                .OrderByDescending(c => c.CreatedAt)
+                .ThenByDescending(c => c.Id)
+                .Take(1)
+                .ToListAsync(cancellationToken));
+
         var userMessage = new StringBuilder("Mình chốt lại các điểm còn mâu thuẫn như sau:");
         foreach (var r in resolutions)
             userMessage.Append($"\n- {r.Question} → {r.Choice}");
@@ -88,7 +111,7 @@ public class RequirementConflictService
         await log.AppendAsync(project.Id, ba.Id, "user", userMessage.ToString(), cancellationToken: cancellationToken);
         await log.AppendAsync(project.Id, ba.Id, "assistant",
             "Đã ghi nhận các điểm anh/chị vừa chốt lại. Mình sẽ dùng đúng các phương án này khi soạn tài liệu.",
-            cancellationToken: cancellationToken);
+            readinessVerified: carriedReadinessVerified, cancellationToken: cancellationToken);
 
         project.PendingConflicts = null;
         // Con trỏ nhảy tới đúng số lượt SAU khi ghi (gồm cả hai lượt vừa thêm) để lần bấm ngay sau đó

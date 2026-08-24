@@ -1639,6 +1639,24 @@ cùng một câu ở nhiều nhóm, làm panel cao gấp đôi mà vẫn không 
 chốt, bối cảnh tổ chức, chính câu "mình ghi nhận…" của BA) khiến dòng đó trông như đã kiểm chứng trong
 khi người dùng đọc lại thấy một "lời mình" mình không nhớ đã nói.
 
+**Chốt xong mâu thuẫn thì vòng soạn tài liệu phải chạy TIẾP, không được quay về khung chat.** Cú bấm "Chốt
+lại rồi tạo tài liệu" ghi một cặp lượt (user chốt + BA xác nhận) rồi submit ngay form "Write Requirement" —
+và chính cặp lượt đó từng làm gãy đường đi. Bước soạn tài liệu có một đường tắt: lượt cuối hội thoại là lời
+mời đã được cổng duyệt ⇒ không xét lại (xem [Sinh draft requirement](#sinh-draft-requirement)). Bản trước
+nhận diện đường tắt đó bằng cách **dò cụm "Write Requirement" trong lượt cuối**, nên cặp lượt "chốt lại" —
+thứ KHÔNG mang thông tin mới, chỉ chọn giữa hai điều đã nói — vô tình xoá mất tín hiệu: vòng soạn xét lại
+cổng trên một bản đồ vừa distill lại chính câu *"Mình chốt lại các điểm còn mâu thuẫn như sau…"*, mà
+`requirement-coverage.v3.md` § "Người dùng đính chính một nhóm" đọc câu đó **đúng như một lời đính chính** và
+hạ nhóm vừa được chốt xuống `[MỘT PHẦN]`. Kết quả: `NeedsMoreInfo`, BA hỏi lại trong chat, không tài liệu
+nào được sinh — và vì không đường nào tự khởi động lại vòng soạn (nút "Write Requirement" là caller DUY NHẤT
+của `GenerateRequirementDraftUseCase` ở màn hình này), người dùng phải bấm nút lần thứ hai.
+
+Đường tắt nay khoá bằng **cờ `AgentConversation.ReadinessVerified`** — dấu do chính cổng đóng lên lượt nó vừa
+cho qua, không phải thứ suy lại từ chữ. `ApplyResolutionsAsync` **chép** cờ của lượt nó vừa đè lên sang lượt
+BA đóng cổng; không có cờ để chép (người dùng vào nút bằng đường lùi "đã có draft + bản đồ đủ") thì không tự
+dựng, và cổng được xét lại như trước. Fail-closed giữ nguyên: mọi đường ghi khác mặc định `false`, nên một
+lượt chat mới / một file vừa đính kèm / một lượt ⚠️ lỗi LLM đều tự động đóng đường tắt lại.
+
 **Lượt chặn của cổng là một câu MỞ.** Khi chưa đủ, `Evaluate` trả về `Message` + `OpenEnded = true`, và
 cờ đó đi tiếp ra `BAChatTurnResult.OpenEnded` để khung chat đổi placeholder thành lời mời kể. Cổng
 không dựng chip: chip phải là đáp án TRỌN VẸN cho đúng câu đang hỏi, thứ chỉ BA viết ra được. Không có
@@ -1847,7 +1865,15 @@ sequenceDiagram
 Kết quả có thể là:
 
 - Đủ thông tin: tạo/cập nhật requirement docs.
-- Chưa đủ thông tin: worker trả marker `NeedsMoreInfo`, BA đặt câu hỏi tiếp trong chat.
+- Chưa đủ thông tin: worker trả marker `NeedsMoreInfo`, BA đặt câu hỏi tiếp trong chat. **Không có đường tự
+  chạy tiếp**: trả lời xong thì vòng soạn chỉ khởi động lại khi người dùng bấm "Write Requirement" lần nữa
+  (nút là caller duy nhất của `GenerateRequirementDraftUseCase` ở màn hình này) — nên mọi lần bị đá về đây
+  đều là một vòng mất trắng, và đó là lý do đường tắt bên dưới đáng giữ cho đúng.
+
+Trước khi xét cổng, bước soạn kiểm tra **cờ `AgentConversation.ReadinessVerified` của lượt đang đứng cuối**:
+có cờ ⇒ cổng đã pass ở đúng lượt đó và chưa có gì mới kể từ đấy, đi thẳng vào soạn tài liệu (tiết kiệm một
+lượt distill). Cờ do lượt chat đóng khi cổng cho lời mời đi qua, và được đường chốt mâu thuẫn chép sang lượt
+của nó — xem [Hai cổng chất lượng phía yêu cầu](#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn).
 
 ### Approve requirement và sinh AI Design Spec
 
