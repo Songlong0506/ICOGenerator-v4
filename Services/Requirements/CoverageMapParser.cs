@@ -81,7 +81,12 @@ public static partial class CoverageMapParser
             : (summary ?? string.Empty, string.Empty);
     }
 
-    private static string NormalizeStatus(string raw)
+    /// <summary>
+    /// Chuẩn hoá tên trạng thái của một dòng. Mở cho <see cref="CoverageConfirmedTableGuard"/> vì cùng lý
+    /// do với <see cref="LineRegex"/>: guard đó phải biết dòng đang ở trạng thái nào TRƯỚC khi viết lại
+    /// nó, và một bản sao thứ hai của bộ từ vựng này là cách nhanh nhất để hai chỗ trôi lệch nhau.
+    /// </summary>
+    internal static string NormalizeStatus(string raw)
     {
         var status = raw.Trim().ToUpperInvariant();
         return status switch

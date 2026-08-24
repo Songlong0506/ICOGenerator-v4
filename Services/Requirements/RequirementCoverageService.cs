@@ -70,7 +70,13 @@ public class RequirementCoverageService
             .ToListAsync(cancellationToken);
 
         if (delta.Count == 0)
+        {
+            // Không có lượt mới thì cũng KHÔNG bỏ qua chốt chặn bảng-đã-chốt: một bản đồ kẹt lại từ lượt
+            // trước (distill hỏng, hoặc model giữ mẩu "còn thiếu" cũ) sẽ khóa cổng readiness cho tới khi
+            // có lượt chat kế tiếp, mà lượt chat kế tiếp lại chính là thứ đang bị chặn.
+            await ApplyConfirmedTableGuardAsync(project, cancellationToken);
             return new CoverageUpdate(project.RequirementCoverageMap, false);
+        }
 
         // Text tài liệu nguồn (nếu có) đi kèm MỌI lần distill có lượt mới: thông tin trong tài liệu có
         // giá trị như lời người dùng nói, để bản đồ không treo [CHƯA HỎI] thứ tài liệu đã trả lời.
@@ -107,7 +113,30 @@ public class RequirementCoverageService
         // updated == null ⇒ gộp lỗi: fail-open, giữ bản đồ cũ + con trỏ cũ, nạp lại như dưới — nhưng có
         // cờ để caller nói thẳng với người dùng rằng tiến độ khai thác chưa cập nhật được lượt này.
 
+        // CHỐT CHẶN THỨ HAI, cũng chạy bằng code và cố ý đứng SAU CoveragePendingGuard: hai nhóm chốt bằng
+        // BẢNG («Phân quyền theo nghiệp vụ», «Thông báo / nhắc nhở») phải [RÕ] ngay khi bảng của chúng nằm
+        // trong DB. Bằng chứng ở đây không do LLM chắt mà là từng ô người dùng tự tay bấm, nên nó thắng cả
+        // mẩu "còn thiếu" mà distiller giữ lại lẫn một điểm tồn đọng gắn nhầm vào hai nhóm này — điểm tồn
+        // đọng đó là câu hỏi CHẾT: BA bị cấm hỏi lẻ hai nhóm ấy và bảng đã chốt thì không bày lại bao giờ.
+        // Chạy cả trên đường fail-open vì bản đồ cũ cũng là bản đồ mà cổng readiness sắp đọc.
+        await ApplyConfirmedTableGuardAsync(project, cancellationToken);
+
         return new CoverageUpdate(project.RequirementCoverageMap, updated == null);
+    }
+
+    // Áp CoverageConfirmedTableGuard lên bản đồ đang giữ và CHỈ lưu khi nó thật sự đổi — guard chạy ở mọi
+    // lượt, kể cả lượt không có gì mới, nên một SaveChangesAsync vô ích ở đây là một lần ghi DB mỗi lượt
+    // chat cho không.
+    private async Task ApplyConfirmedTableGuardAsync(Project project, CancellationToken cancellationToken)
+    {
+        var repaired = CoverageConfirmedTableGuard.Apply(
+            project.RequirementCoverageMap, project.PermissionMatrix, project.NotificationMap);
+
+        if (string.Equals(repaired, project.RequirementCoverageMap, StringComparison.Ordinal))
+            return;
+
+        project.RequirementCoverageMap = string.IsNullOrWhiteSpace(repaired) ? null : repaired;
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     // Gộp bản đồ hiện có + các lượt mới (+ text tài liệu nguồn) thành MỘT bản đồ duy nhất. Trả về null
