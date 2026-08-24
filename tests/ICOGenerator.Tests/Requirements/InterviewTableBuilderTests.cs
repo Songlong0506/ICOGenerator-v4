@@ -666,6 +666,81 @@ public class InterviewTableBuilderTests
         Assert.Contains("bảng cột", rows.Single().Fields.Single().Meaning);
     }
 
+    // Từ lúc cột tên là TIẾNG ANH, hai đầu của phép so không còn cùng ngôn ngữ: "Effective Date" không bao
+    // giờ khớp cột "Ngày hiệu lực", và dòng mất dấu xuất xứ đúng ở chỗ người dùng cần nhận ra thứ họ vừa tự
+    // tay tích ở bảng trước. `sourceColumn` là chỗ nối lại — model chép nguyên văn tên cột vào đó.
+    [Fact]
+    public void EntityMap_MatchesTheColumnMapThroughTheDeclaredSourceColumn()
+    {
+        var rows = EntityMapBuilder.Build(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "Job Description",
+                Fields = new List<EntityFieldNote>
+                {
+                    new() { Name = "Effective Date", SourceColumn = "ngày hiệu lực" }
+                },
+                States = new List<EntityLifecycleState>()
+            }
+        }, new[] { "Ngày hiệu lực" });
+
+        var field = rows.Single().Fields.Single();
+
+        // Ô ý nghĩa gọi đúng cái tên người dùng nhìn thấy trong FILE của họ, không phải bản chuẩn hoá —
+        // đó là chỗ duy nhất trên dòng còn nói được thông tin tiếng Anh này đến từ đâu.
+        Assert.Contains("bảng cột", field.Meaning);
+        Assert.Contains("Ngày hiệu lực", field.Meaning);
+        Assert.Equal("Ngày hiệu lực", field.SourceColumn);
+    }
+
+    // Ô đó chở dấu "người dùng đã chốt rồi", nên một cái tên model bịa sẽ dán dấu ấy lên một thông tin chưa
+    // ai duyệt — cùng luật cấm bịa của `evidence`. Không khớp cột đã tích nào thì XOÁ, không lấy nguyên.
+    [Fact]
+    public void EntityMap_DropsASourceColumnThatMatchesNoConfirmedColumn()
+    {
+        var rows = EntityMapBuilder.Build(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "Job Description",
+                Fields = new List<EntityFieldNote>
+                {
+                    new() { Name = "Effective Date", SourceColumn = "Cột không có thật" }
+                },
+                States = new List<EntityLifecycleState>()
+            }
+        }, new[] { "Ngày hiệu lực" });
+
+        var field = rows.Single().Fields.Single();
+        Assert.Equal(string.Empty, field.SourceColumn);
+        Assert.Equal(string.Empty, field.Meaning);
+    }
+
+    // Ô máy hết việc ở đường GỬI: bảng đã gửi thì xuất xứ đã nằm trong ô ý nghĩa mà người dùng vừa đọc và
+    // vừa sửa được. Cùng luật với cờ khóa.
+    [Fact]
+    public void EntityMap_ClearsTheSourceColumnOnTheSubmitPath()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "Job Description",
+                Included = true,
+                Fields = new List<EntityFieldNote>
+                {
+                    new() { Name = "Effective Date", Meaning = "ngày JD bắt đầu có hiệu lực", Used = true, SourceColumn = "Ngày hiệu lực" }
+                },
+                States = new List<EntityLifecycleState>()
+            }
+        });
+
+        var field = rows.Single().Fields.Single();
+        Assert.Equal(string.Empty, field.SourceColumn);
+        Assert.Equal("ngày JD bắt đầu có hiệu lực", field.Meaning);
+    }
+
     // Người nhận thông báo thuộc hẳn bảng THÔNG BÁO, nên khối ngữ cảnh của bảng đối tượng không được nhắc
     // tới nó. Hai khối cùng nói về một quyết định là cách chắc chắn nhất để BA hỏi lại thứ người dùng vừa
     // chốt ở bảng kia.

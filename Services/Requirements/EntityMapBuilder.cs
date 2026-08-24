@@ -145,10 +145,15 @@ public static class EntityMapBuilder
         IReadOnlyList<string>? confirmedColumns,
         bool respectSelection)
     {
-        var columnKeys = (confirmedColumns ?? Array.Empty<string>())
-            .Select(Normalize)
-            .Where(c => c.Length > 0)
-            .ToHashSet(StringComparer.Ordinal);
+        // Bản chuẩn hoá -> chữ NGUYÊN VĂN của cột: ô ý nghĩa gieo ra phải gọi đúng cái tên người dùng
+        // nhìn thấy trong file của họ, nhất là khi tên thông tin bên cạnh nay là tiếng Anh.
+        var columnKeys = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var column in confirmedColumns ?? Array.Empty<string>())
+        {
+            var key = Normalize(column);
+            if (key.Length > 0)
+                columnKeys.TryAdd(key, column.Trim());
+        }
 
         var result = new List<EntityMapRow>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -471,6 +476,13 @@ public static class EntityMapBuilder
     /// nên một chữ dẫn tiếng Việt ở đây là một chữ dẫn tiếng Việt trên sidebar. Luật đầy đủ ở
     /// <c>docs/requirement-flow.md</c>, mục "Tên màn hình là nhãn menu của bản demo".
     /// </para>
+    ///
+    /// <para>
+    /// Nửa đầu của cái tên là tên THÔNG TIN, nên vế "tiếng Anh" của luật trên chỉ đứng được nhờ luật đặt
+    /// tên của chính bảng đối tượng (<see cref="EntityFieldNote.Name"/>). Trước đó nó là một điều ước:
+    /// prompt bảo tên thông tin viết bằng lời nghiệp vụ, và một danh mục tên <c>"Chức danh"</c> đi thẳng ra
+    /// sidebar bản demo thành <c>"Chức danh Catalog"</c> mà không chốt chặn nào chặn được.
+    /// </para>
     /// </summary>
     public static List<string> ManagedListScreens(IEnumerable<EntityMapRow>? rows)
     {
@@ -666,7 +678,7 @@ public static class EntityMapBuilder
     }
 
     private static List<EntityFieldNote> NormalizeFields(
-        IEnumerable<EntityFieldNote>? proposed, IReadOnlySet<string> columnKeys, bool respectSelection)
+        IEnumerable<EntityFieldNote>? proposed, IReadOnlyDictionary<string, string> columnKeys, bool respectSelection)
     {
         var result = new List<EntityFieldNote>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -681,10 +693,21 @@ public static class EntityMapBuilder
                 continue;
 
             var meaning = Clip((field.Meaning ?? string.Empty).Trim(), MaxTextChars);
+
             // Thông tin trùng một CỘT ĐÃ TÍCH: người dùng đã chốt nó ở bảng cột, nên ô ý nghĩa được ghi rõ
             // nguồn thay vì bày ra như một đề xuất mới chờ duyệt lần hai.
-            if (columnKeys.Contains(Normalize(name)) && meaning.Length == 0)
-                meaning = "đã chốt ở bảng cột của tài liệu nguồn";
+            //
+            // HAI đường nhận ra điều đó, và đường thứ hai có từ lúc tên thông tin là tiếng Anh: tên trùng
+            // đúng chữ của file (vẫn là ca thường gặp — file xuất từ hệ thống hay có tiêu đề tiếng Anh sẵn),
+            // hoặc lời khai `sourceColumn` của model. Lời khai KHÔNG khớp cột đã tích nào thì bị xoá chứ
+            // không được lấy nguyên: ô đó chở dấu "người dùng đã chốt rồi" nên một cái tên bịa sẽ dán dấu ấy
+            // lên một thông tin chưa ai duyệt — xem EntityFieldNote.SourceColumn.
+            var declaredColumn = Clip((field.SourceColumn ?? string.Empty).Trim(), MaxTextChars);
+            if (!columnKeys.TryGetValue(Normalize(name), out var settledColumn))
+                columnKeys.TryGetValue(Normalize(declaredColumn), out settledColumn);
+
+            if (settledColumn != null && meaning.Length == 0)
+                meaning = $"đã chốt ở bảng cột của tài liệu nguồn (\"{settledColumn}\")";
 
             var used = !respectSelection || field.Used;
             var input = EntityFieldInput.Normalize(field.Input);
@@ -715,7 +738,10 @@ public static class EntityMapBuilder
                     : string.Empty,
                 Rule = input == EntityFieldInput.Auto
                     ? Clip((field.Rule ?? string.Empty).Trim(), MaxTextChars)
-                    : string.Empty
+                    : string.Empty,
+                // Rỗng ở đường GỬI (columnKeys rỗng) là đúng: bảng đã gửi thì xuất xứ đã nằm trong ô ý
+                // nghĩa mà người dùng vừa đọc, còn ô máy này hết việc — cùng luật với cờ Locked.
+                SourceColumn = settledColumn ?? string.Empty
             });
 
             if (result.Count >= MaxFieldsPerEntity)

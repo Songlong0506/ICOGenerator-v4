@@ -2152,6 +2152,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
                 thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
                 cuối. Ai được báo ở mỗi trạng thái thì mình hỏi ở bảng cuối buổi.
+                <br />Tên đối tượng, tên thông tin và tên trạng thái mình để <b>tiếng Anh</b> vì chúng sẽ thành
+                nhãn cột, ô nhập và trạng thái trong ứng dụng; phần tiếng Việt là dòng mô tả ngay dưới mỗi tên —
+                chỗ nào mình hiểu sai thì anh/chị sửa giúp.
                 <br />Cột <b>Nhập thế nào</b> quyết định hình dạng ô trên màn hình; chọn <b>Chọn 1</b> hay
                 <b>Chọn nhiều</b> thì nói thêm giúp mình danh sách lấy ở đâu — <b>ứng dụng tự quản lý</b> nghĩa là
                 app sẽ có thêm một màn hình riêng để quản lý danh mục đó.
