@@ -123,12 +123,19 @@ public class ProductBriefDraftService
         // duyệt (RoutePocFeedbackToRequirementUseCase, ReviseBriefFromNotesUseCase) thêm lượt user rồi
         // gọi thẳng vào đây, không đi qua lượt chat nào để bản đồ kịp tươi.
         //
-        // NGOẠI LỆ: lượt cuối hội thoại là lời BA mời bấm "Write Requirement" ⇒ lời mời đó CHỈ tồn tại
-        // sau khi chính cổng tất định này đã pass ngay trong bước chat (BAChatService) trên bản đồ hiện
-        // hành, và chưa có gì mới kể từ đó — xét lại chỉ tốn một lượt distill vô ích. Bỏ qua gate ở
-        // nhánh này; van "không giả định" của bước soạn tài liệu (needsClarification bên dưới) vẫn là
-        // chốt chặn cuối nên chất lượng tài liệu không đổi.
-        if (RequirementReadinessGate.IsVerifiedInviteLatestTurn(project.Conversations))
+        // NGOẠI LỆ: lượt cuối hội thoại mang dấu "cổng đã verify" (AgentConversation.ReadinessVerified)
+        // ⇒ chính cổng tất định này đã pass trên bản đồ hiện hành ở lượt đó, và chưa có thông tin nào mới
+        // kể từ đó — xét lại chỉ tốn một lượt distill vô ích. Bỏ qua gate ở nhánh này; van "không giả
+        // định" của bước soạn tài liệu (needsClarification bên dưới) vẫn là chốt chặn cuối nên chất lượng
+        // tài liệu không đổi.
+        //
+        // Đọc CỜ chứ không đọc chữ trong lượt cuối: bản trước dò cụm "Write Requirement" trong transcript,
+        // nên mọi đường ghi thêm một lượt sau lời mời đều xoá tín hiệu — kể cả đường KHÔNG mang thông tin
+        // mới. Ca đã gãy: cổng soát mâu thuẫn ghi cặp lượt "chốt lại điểm mâu thuẫn" rồi submit ngay, vòng
+        // soạn rơi vào nhánh else, bản đồ vừa distill lại hạ đúng nhóm vừa được chốt xuống [MỘT PHẦN]
+        // (prompt requirement-coverage.v3 § "Người dùng đính chính một nhóm" đọc câu chốt lại như một lời
+        // đính chính) ⇒ NeedsMoreInfo, và người dùng phải bấm "Write Requirement" lần thứ hai.
+        if (RequirementReadinessGate.IsReadinessVerifiedLatestTurn(project.Conversations))
         {
             Report("thinking", "Yêu cầu đã được kiểm tra đủ ngay trong bước chat — bắt đầu soạn tài liệu.", conversationTranscript);
         }

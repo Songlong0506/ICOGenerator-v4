@@ -3520,11 +3520,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         writeReqZone.dataset.state = gateState;
 
-        // Ghi chú ở sidebar chỉ đúng khi CHƯA đủ thông tin: đủ rồi thì lời mời đã nằm trong chat, nhắc lại
-        // ở cột bên kia là thừa.
-        const waitingHint = document.getElementById("writeReqWaitingHint");
-        if (waitingHint) waitingHint.hidden = gateState !== "waiting";
-
         const conflictPanel = document.getElementById("conflictPanel");
 
         // Dời CẢ CỤM xuống cuối dòng hội thoại (cùng cách renderSuggestions dời khay chip): các bong bóng

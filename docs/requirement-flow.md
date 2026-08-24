@@ -1224,15 +1224,13 @@ Cái mất kèm theo: đường **✎ Sửa → Gửi đính chính** một-cú-
 
 | trạng thái | điều kiện | trên màn hình |
 |---|---|---|
-| `waiting` | lượt BA mới nhất chưa mời (và chưa có draft nào để soạn lại) | cổng ĐÓNG, không có nút nào; panel "Tiến độ khai thác" nói còn thiếu gì và việc gì sẽ xảy ra khi đủ (`#writeReqWaitingHint`) |
+| `waiting` | lượt BA mới nhất chưa mời (và chưa có draft nào để soạn lại) | cổng ĐÓNG, không có nút nào; panel "Tiến độ khai thác" bên cạnh là chỗ nói điều còn thiếu |
 | `table` | còn một [bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn) đang chờ người dùng bấm gửi (`PendingConfirmTableGate`) | cổng ĐÓNG, và `#tableGate` nói ra **bảng nào** + **nút nào** — xem [dưới](#cổng-đóng-khi-còn-một-bảng-chờ-chốt) |
 | `ready` | lượt BA mới nhất mời tạo tài liệu — **hoặc** draft đã có và cổng readiness đang đủ; và không còn bảng nào chờ chốt | cổng MỞ, nút "Tạo bản mô tả sản phẩm" |
 | `running` | vòng soạn đang xếp hàng/đang chạy | cổng ĐÓNG; tiến độ đã có panel `.workflow-progress` trong chat, xong thì `requirement-workflow.js` tải lại trang |
-| `done` | draft đã có và hội thoại chưa có gì mới kể từ vòng soạn gần nhất | cổng ĐÓNG hẳn, và `#writeReqWaitingHint` cũng TẮT |
+| `done` | draft đã có và hội thoại chưa có gì mới kể từ vòng soạn gần nhất | cổng ĐÓNG hẳn; người dùng nhắn thêm một câu là nó mở lại |
 
 **Soạn xong thì cổng ĐÓNG, không phải mở ra một nút "tạo lại".** Trạng thái `done` từng là `regenerate`: bày lại cả bản tổng kết (nay đã gỡ) kèm nút "🔄 Tạo lại tài liệu" và một hộp xác nhận GHI ĐÈ. Cả cụm đó là nhiễu ở đúng chỗ người dùng cần tập trung nhất. Panel workflow ngay phía trên đã nói *"Tài liệu đã sẵn sàng · Xem Product Brief"* và BA cũng vừa mời xem lại rồi bấm Approve, nên bong bóng này là lần **thứ ba** nói cùng một điều — mà lại đẩy hành động thật (đọc Brief → Approve) xuống dưới hàng chục dòng. Soạn xong rồi thì thứ đáng rà là chính Product Brief, và đường đó đã có, chính xác hơn hẳn: ghim ghi chú ngay trên bản xem trước (`ReviseBriefFromNotesUseCase`) hoặc nhắn thẳng trong khung chat. Còn cái nút thì tự nó vô nghĩa: bấm khi chưa bổ sung gì tốn 2–3 lời gọi LLM để ra gần đúng bản cũ rồi ghi đè bản đang có, mà model chạy ở `temperature > 0` nên bản mới có thể tệ hơn — chính lời dẫn cũ của cổng cũng khuyên *"nhắn thêm trong khung chat rồi tạo lại"*, tức một cái nút mà dòng chữ ngay trên nó bảo hãy làm việc khác. Đường soạn lại không mất: nhắn một câu là cổng mở lại ở `ready`, và lúc đó nút soạn từ hội thoại ĐÃ có thông tin mới.
-
-Đổi lại, `done` phải **tắt cả `#writeReqWaitingHint`**: nói *"khi mọi nhóm đã rõ, BA sẽ mời anh/chị tạo tài liệu"* trong lúc panel "Tiến độ khai thác" đầy 100% và tài liệu đã nằm trên màn hình là nói sai — đây chính là lời nói dối mà trạng thái `regenerate` ngày trước sinh ra để vá (lượt cuối là thông báo "đã tạo xong" nên cờ mời hoá `false`).
 
 ### Cổng đóng khi còn một bảng chờ chốt
 
@@ -1486,6 +1484,45 @@ Ba chi tiết đi kèm:
 
 **"Approve"** (`ApproveRequirementUseCase`): promote Product Brief lên `V{n}`, rồi khởi động run nền **AiDesignSpec** (một bước, BA sinh bản kỹ thuật từ Product Brief đã duyệt — chạy nền để màn hình không treo chờ LLM).
 
+### File .docx sinh ra: Markdown thành tài liệu Word thật
+
+LLM trả nội dung ở dạng **Markdown**, còn thứ người dùng tải về và **gửi cấp trên duyệt** là file `.docx`.
+`RequirementDocumentGenerator` không đổ thẳng từng dòng vào từng paragraph nữa mà đi qua
+`Templates/MarkdownDocxWriter` — áp cho cả ba tài liệu sinh từ Markdown: **Product Brief**, **AI Design
+Spec** và **User Stories** (BRD/SRS/FSD đi đường khác: điền vào template `.docx` sẵn có bằng
+`DocxTemplateWriter`).
+
+Bản đổ thô để lại nguyên `#`, `**`, `` ` ``, `|` trên mặt giấy, mọi dòng cùng một cỡ chữ, không mục lục,
+không số trang — file đúng nội dung nhưng không ai đem đi họp được. `MarkdownDocxWriter` dịch sang cấu
+trúc Word thật:
+
+| Trong Markdown | Trong .docx |
+|---|---|
+| `#` … `######` | style `Heading1`–`Heading4` (Word tự dựng mục lục & khung điều hướng; `DocxTemplateWriter.ExtractHtml` render đúng cấp cho khung xem trước) |
+| `-` / `*` / `1.` (kể cả thụt lề nhiều bậc) | numbering thật 3 bậc; **mỗi danh sách đánh số một instance riêng** nên danh sách sau không đếm tiếp danh sách trước |
+| `**đậm**`, `*nghiêng*`, `` `mã` ``, `~~gạch~~`, `[chữ](url)` | định dạng run + hyperlink thật |
+| bảng `\| … \|` (kể cả `:---:` canh lề) | bảng Word: dòng đầu là dòng tiêu đề lặp lại khi tràn trang, các dòng chẵn tô nền |
+| ` ``` ` , `>` , `---` | khối mã có nền, khối trích dẫn có vạch lề, đường kẻ ngang |
+
+Thêm vào phần khung, không lấy từ nội dung: **trang bìa** (tên dự án, loại tài liệu, phiên bản — `draft`
+hiện là *"Bản nháp (chưa duyệt)"*, ngày lập, người soạn), **mục lục**, **header** và **footer có số
+trang**. Trang bìa đứng riêng (`titlePg`) nên không đeo header/footer.
+
+Hai chi tiết dễ làm sai nếu sửa lớp này:
+
+- **Dòng `#` mở đầu đi lên trang bìa** làm phụ đề, không lặp lại ở thân bài — và các mục còn lại được
+  **nâng một bậc** để mục cấp cao nhất thành `Heading1`. Prompt Product Brief đặt tên sản phẩm ở `#` và
+  các mục ở `##`; giữ nguyên bậc thì cả tài liệu không có `Heading1` nào, mục lục và khung điều hướng của
+  Word thụt vào một cấp vô cớ. Tên sản phẩm trùng tên dự án ⇒ bìa chỉ in một lần.
+- **Mục lục là field `TOC` thật** (Word cập nhật số trang khi mở nhờ `updateFields`) nhưng kết quả field
+  được điền sẵn danh sách heading, để công cụ không cập nhật field (Google Docs, LibreOffice, khung xem
+  trước) không hiển thị một trang trắng. Dưới 3 heading thì bỏ hẳn mục lục.
+
+File sai lược đồ OOXML thì Word **từ chối mở** chứ không báo lỗi lúc sinh, nên `MarkdownDocxWriterTests`
+chạy `OpenXmlValidator` trên một tài liệu có đủ heading/danh sách/bảng/mã/trích dẫn/liên kết. Thứ tự phần
+tử con trong OOXML là **bắt buộc** (vd `w:tblBorders` phải là top → left → bottom → right): đây là lỗi
+validator bắt được mà mắt thường không.
+
 ### Chỉ mục của chính hội thoại đi kèm lượt soạn/soát/sửa Brief
 
 Cả ba lượt LLM của bước này (`ProductBriefDraftService`) nhận thêm khối **"Trạng thái đã chắt từ hội
@@ -1657,6 +1694,24 @@ cùng một câu ở nhiều nhóm, làm panel cao gấp đôi mà vẫn không 
 **lời người dùng hoặc tài liệu nguồn**: một câu của hệ thống đem làm bằng chứng (câu dẫn của các bảng
 chốt, bối cảnh tổ chức, chính câu "mình ghi nhận…" của BA) khiến dòng đó trông như đã kiểm chứng trong
 khi người dùng đọc lại thấy một "lời mình" mình không nhớ đã nói.
+
+**Chốt xong mâu thuẫn thì vòng soạn tài liệu phải chạy TIẾP, không được quay về khung chat.** Cú bấm "Chốt
+lại rồi tạo tài liệu" ghi một cặp lượt (user chốt + BA xác nhận) rồi submit ngay form "Write Requirement" —
+và chính cặp lượt đó từng làm gãy đường đi. Bước soạn tài liệu có một đường tắt: lượt cuối hội thoại là lời
+mời đã được cổng duyệt ⇒ không xét lại (xem [Sinh draft requirement](#sinh-draft-requirement)). Bản trước
+nhận diện đường tắt đó bằng cách **dò cụm "Write Requirement" trong lượt cuối**, nên cặp lượt "chốt lại" —
+thứ KHÔNG mang thông tin mới, chỉ chọn giữa hai điều đã nói — vô tình xoá mất tín hiệu: vòng soạn xét lại
+cổng trên một bản đồ vừa distill lại chính câu *"Mình chốt lại các điểm còn mâu thuẫn như sau…"*, mà
+`requirement-coverage.v3.md` § "Người dùng đính chính một nhóm" đọc câu đó **đúng như một lời đính chính** và
+hạ nhóm vừa được chốt xuống `[MỘT PHẦN]`. Kết quả: `NeedsMoreInfo`, BA hỏi lại trong chat, không tài liệu
+nào được sinh — và vì không đường nào tự khởi động lại vòng soạn (nút "Write Requirement" là caller DUY NHẤT
+của `GenerateRequirementDraftUseCase` ở màn hình này), người dùng phải bấm nút lần thứ hai.
+
+Đường tắt nay khoá bằng **cờ `AgentConversation.ReadinessVerified`** — dấu do chính cổng đóng lên lượt nó vừa
+cho qua, không phải thứ suy lại từ chữ. `ApplyResolutionsAsync` **chép** cờ của lượt nó vừa đè lên sang lượt
+BA đóng cổng; không có cờ để chép (người dùng vào nút bằng đường lùi "đã có draft + bản đồ đủ") thì không tự
+dựng, và cổng được xét lại như trước. Fail-closed giữ nguyên: mọi đường ghi khác mặc định `false`, nên một
+lượt chat mới / một file vừa đính kèm / một lượt ⚠️ lỗi LLM đều tự động đóng đường tắt lại.
 
 **Lượt chặn của cổng là một câu MỞ.** Khi chưa đủ, `Evaluate` trả về `Message` + `OpenEnded = true`, và
 cờ đó đi tiếp ra `BAChatTurnResult.OpenEnded` để khung chat đổi placeholder thành lời mời kể. Cổng
@@ -1866,7 +1921,31 @@ sequenceDiagram
 Kết quả có thể là:
 
 - Đủ thông tin: tạo/cập nhật requirement docs.
-- Chưa đủ thông tin: worker trả marker `NeedsMoreInfo`, BA đặt câu hỏi tiếp trong chat.
+- Chưa đủ thông tin: worker trả marker `NeedsMoreInfo`, BA đặt câu hỏi tiếp trong chat. **Không có đường tự
+  chạy tiếp**: trả lời xong thì vòng soạn chỉ khởi động lại khi người dùng bấm "Write Requirement" lần nữa
+  — nên mọi lần bị đá về đây đều là một vòng mất trắng, và đó là lý do đường tắt bên dưới đáng giữ cho đúng.
+  Hai mốc người dùng đọc ở nhánh này (mốc `completed` của worker, băng `needsMoreInfo` của panel tiến độ)
+  vì vậy phải nói **cả hai việc còn phải làm**: trả lời trong khung chat, RỒI bấm lại nút. Bản trước viết
+  *"Đang chờ anh/chị trả lời câu hỏi của BA trong khung chat để viết tiếp tài liệu"* — hứa một bước không
+  tồn tại, đúng cái bẫy mà `requirement-chat.v4.md` cấm BA tự đào bằng những câu *"mình sẽ tổng hợp lại rồi
+  quay lại"*.
+
+**Ba đường được phép khởi động vòng soạn, và không đường nào là một lượt chat.** Nút "Write Requirement",
+ghi chú đã ghim trên bản xem trước Brief (`ReviseBriefFromNotesUseCase`), phản hồi POC chuyển về phía yêu cầu
+(`RoutePocFeedbackToRequirementUseCase`) — cả ba đều là một cú submit có chủ ý nói đúng một điều: *lấy những
+gì đang có mà viết*. `RequirementDraftTriggerCoverageTests` **fail build** khi có đường thứ tư.
+
+Cám dỗ thường trực là nối nó vào lượt chat ("người dùng vừa trả lời xong câu hỏi của cổng thì tự viết tiếp,
+đỡ phải bấm"). Ba lý do không làm: một câu trong khung chat KHÔNG phải lệnh viết tài liệu (trả lời xong rồi
+kể thêm ba ý nữa là ca thường — tự chạy ở câu đầu là cướp lượt và đốt token cho một bản draft thiếu đúng ba
+ý đó); bản đồ bao phủ do LLM chắt nên nó nhấp nháy, một lượt distill lỡ nâng đủ dòng lên `[RÕ]` là một run
+tự bay; và prompt chat đang CẤM BA hứa một bước chạy ngầm giữa hai lượt, nên nối vào chat là biến chính điều
+prompt dạy BA thành lời nói dối.
+
+Trước khi xét cổng, bước soạn kiểm tra **cờ `AgentConversation.ReadinessVerified` của lượt đang đứng cuối**:
+có cờ ⇒ cổng đã pass ở đúng lượt đó và chưa có gì mới kể từ đấy, đi thẳng vào soạn tài liệu (tiết kiệm một
+lượt distill). Cờ do lượt chat đóng khi cổng cho lời mời đi qua, và được đường chốt mâu thuẫn chép sang lượt
+của nó — xem [Hai cổng chất lượng phía yêu cầu](#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn).
 
 ### Approve requirement và sinh AI Design Spec
 

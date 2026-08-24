@@ -193,12 +193,42 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.Null(stored.FlowDiagram);
     }
 
+    // Lượt chat là NƠI DUY NHẤT tự dựng ra dấu verify: cổng tất định vừa xét trên bản đồ hiện hành ngay
+    // trước khi lời mời được lưu, nên dấu đó là kết luận của cổng chứ không phải suy đoán của tầng sau.
+    [Fact]
+    public async Task ChatAsync_InviteAndMapClear_StampsReadinessVerified()
+    {
+        await SetCoverageMapAsync(MapAllClear);
+        var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
+
+        await using var db = NewDb();
+        await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+
+        Assert.True((await LastAssistantTurnAsync()).ReadinessVerified);
+    }
+
+    // Bản đồ còn thiếu ⇒ lời mời bị thay bằng câu chặn, và lượt đó TUYỆT ĐỐI không được mang dấu: nếu
+    // không, bước soạn tài liệu sẽ bỏ qua đúng cái cổng vừa chặn.
+    [Fact]
+    public async Task ChatAsync_InviteButMapIncomplete_DoesNotStampReadinessVerified()
+    {
+        await SetCoverageMapAsync(MapMissingRules);
+        var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
+
+        await using var db = NewDb();
+        await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+
+        var stored = await LastAssistantTurnAsync();
+        Assert.False(stored.ReadinessVerified);
+        Assert.DoesNotContain("Write Requirement", stored.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ---------- Bước sinh tài liệu ----------
 
     [Fact]
-    public async Task GenerateOrUpdateDraft_LastTurnIsVerifiedInvite_SkipsGate_AndDrafts()
+    public async Task GenerateOrUpdateDraft_LastTurnCarriesVerifiedFlag_SkipsGate_AndDrafts()
     {
-        await SeedTurnsAsync(("user", "Tôi muốn app quản lý đơn nghỉ phép"), ("assistant", InviteMessage));
+        await SeedTurnsAsync(verifiedLastTurn: true, ("user", "Tôi muốn app quản lý đơn nghỉ phép"), ("assistant", InviteMessage));
         var llm = new FakeLlm
         {
             // Van "không giả định" của bước soạn: dừng trước khi ghi file để test không đụng file hệ thống,
@@ -212,6 +242,24 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.Equal(1, llm.ProductBriefCalls);
         // Nhánh lời-mời-đã-duyệt không cần gộp bản đồ (không có gì mới kể từ lời mời).
         Assert.Equal(0, llm.CoverageCalls);
+        Assert.Equal(RequirementDraftOutcome.NeedsMoreInfo, outcome);
+    }
+
+    // Đường tắt khoá bằng CỜ, không bằng chữ trong lượt cuối. Một lượt mang đúng cụm "Write Requirement"
+    // nhưng không có dấu verify (lượt cũ ghi trước khi có cột, hoặc một đường ghi khác chép lại lời mời)
+    // KHÔNG được mở đường tắt: cổng xét lại như thường — fail-closed, cùng luật với mọi chốt chặn khác ở
+    // tuyến này.
+    [Fact]
+    public async Task GenerateOrUpdateDraft_InviteTextWithoutFlag_StillReEvaluatesGate()
+    {
+        await SetCoverageMapAsync(MapMissingRules);
+        await SeedTurnsAsync(("user", "Tôi muốn app quản lý đơn nghỉ phép"), ("assistant", InviteMessage));
+        var llm = new FakeLlm();
+
+        await using var db = NewDb();
+        var outcome = await NewDraftSut(db, llm).GenerateOrUpdateDraftAsync(_projectId);
+
+        Assert.Equal(0, llm.ProductBriefCalls);
         Assert.Equal(RequirementDraftOutcome.NeedsMoreInfo, outcome);
     }
 
@@ -269,7 +317,13 @@ public class RequirementReadinessGateTests : IDisposable
             .LastAsync();
     }
 
-    private async Task SeedTurnsAsync(params (string Role, string Message)[] turns)
+    private Task SeedTurnsAsync(params (string Role, string Message)[] turns)
+        => SeedTurnsAsync(verifiedLastTurn: false, turns);
+
+    // verifiedLastTurn: đóng dấu AgentConversation.ReadinessVerified lên lượt CUỐI — đúng thứ mà lượt chat
+    // đặt khi cổng tất định cho lời mời đi qua. Nội dung lượt KHÔNG còn là tín hiệu, nên một lời mời không
+    // có dấu phải được đối xử như mọi lượt khác (xem test bên dưới).
+    private async Task SeedTurnsAsync(bool verifiedLastTurn, params (string Role, string Message)[] turns)
     {
         await using var db = NewDb();
         var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -281,6 +335,7 @@ public class RequirementReadinessGateTests : IDisposable
                 AgentId = _baId,
                 Role = turns[i].Role,
                 Message = turns[i].Message,
+                ReadinessVerified = verifiedLastTurn && i == turns.Length - 1,
                 CreatedAt = baseTime.AddSeconds(i)
             });
         }

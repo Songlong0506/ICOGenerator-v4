@@ -284,17 +284,37 @@ public static class RequirementReadinessGate
     public static bool IsWriteRequirementInvite(string? message) =>
         message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
 
-    // Lượt CÓ NỘI DUNG mới nhất của hội thoại là lời mời bấm "Write Requirement" của BA ⇒ cổng đã pass
-    // trên bản đồ tại bước chat và chưa có thông tin nào mới kể từ đó (người dùng gõ thêm thì lượt chat
-    // luôn lưu một lượt BA mới đè lên vị trí cuối). Lượt lỗi LLM không bao giờ chứa lời mời nên không
-    // cần lọc riêng. Thứ tự CreatedAt rồi Id — như ConversationTranscriptBuilder — vì CreatedAt có thể trùng.
-    public static bool IsVerifiedInviteLatestTurn(IEnumerable<AgentConversation> conversations)
-    {
-        var lastTurn = conversations
-            .Where(c => !string.IsNullOrWhiteSpace(c.Message))
+    /// <summary>
+    /// Lượt BA sắp được lưu có phải lượt "cổng readiness đã PASS tại đây" không — tức là nó MỜI bấm
+    /// "Write Requirement" VÀ bản đồ bao phủ hiện hành đủ để lời mời đó hợp lệ. Kết quả được đóng dấu
+    /// vào <see cref="AgentConversation.ReadinessVerified"/> của chính lượt đó.
+    ///
+    /// <para>
+    /// Phép dò chuỗi nằm ở ĐÂY và chỉ ở đây: "lượt này có mời bấm nút không" là một tính chất của CHỮ mà
+    /// model vừa sinh ra, không có tín hiệu nào khác để đọc. Cái đã bỏ đi là việc các tầng SAU (bước soạn
+    /// tài liệu) phải suy lại kết luận của cổng bằng cách đọc lại transcript: quyết định được ra MỘT LẦN,
+    /// ở nơi biết đủ dữ kiện, rồi được ghi lại.
+    /// </para>
+    /// </summary>
+    public static bool IsReadinessVerifiedTurn(string? message, string? coverageMap)
+        => IsWriteRequirementInvite(message) && Evaluate(coverageMap).Ready;
+
+    /// <summary>
+    /// Hội thoại đang ĐỨNG trên một lượt đã được cổng verify ⇒ bước soạn tài liệu được phép bỏ qua lần xét
+    /// lại (không có thông tin mới nào kể từ lúc cổng cho qua). Thứ tự CreatedAt rồi Id — như
+    /// <c>ConversationTranscriptBuilder</c> — vì CreatedAt có thể trùng.
+    ///
+    /// <para>
+    /// Đọc CỜ chứ không đọc nội dung lượt cuối, và không lọc lượt rỗng: mọi đường ghi thêm một lượt đều
+    /// mặc định <c>false</c>, nên bất kỳ thứ gì chen vào sau lời mời (một lượt chat mới, một file vừa đính
+    /// kèm, một lượt ⚠️ lỗi LLM) đều tự động đóng đường tắt lại — trừ đúng những đường TỰ KHẲNG ĐỊNH rằng
+    /// mình không mang thông tin mới và chép cờ sang lượt của mình
+    /// (<see cref="RequirementConflictService.ApplyResolutionsAsync"/>).
+    /// </para>
+    /// </summary>
+    public static bool IsReadinessVerifiedLatestTurn(IEnumerable<AgentConversation> conversations)
+        => conversations
             .OrderBy(c => c.CreatedAt)
             .ThenBy(c => c.Id)
-            .LastOrDefault();
-        return lastTurn?.Role == "assistant" && IsWriteRequirementInvite(lastTurn.Message);
-    }
+            .LastOrDefault()?.ReadinessVerified == true;
 }

@@ -310,21 +310,6 @@
         cursor: progress;
     }
 
-    /* Dòng ở cuối panel "Tiến độ khai thác" thay cho nút mờ-và-khóa ngày trước: nói còn thiếu gì thì việc
-       gì sẽ xảy ra, thay vì bày ra một nút bấm không được. Chỉ hiện ở trạng thái "waiting". */
-    .write-req-waiting-hint {
-        margin: 12px 0 0;
-        padding-top: 12px;
-        border-top: 1px solid #e5e7eb;
-        font-size: 11.5px;
-        line-height: 1.5;
-        color: #6b7280;
-    }
-
-    .write-req-waiting-hint[hidden] {
-        display: none;
-    }
-
     /* Băng "đã phục hồi nháp" ngay trên ô nhập: nội dung gõ dở được lưu tự động và đổ lại sau khi F5 / mở
        lại trang. Màu nhắc (vàng nhạt) chứ không phải màu lỗi — đây là tin tốt, chỉ cần user để ý là chữ
        trong ô nhập CHƯA được gửi. */
