@@ -68,8 +68,10 @@ public class AgentConversation
     public string? ReportMap { get; set; }
     public string? NotificationMap { get; set; }
 
-    // JSON array (chuỗi) các bước sơ đồ luồng nghiệp vụ (FlowStep[]) — CHỈ có ở lượt BA mời bấm "Write
-    // Requirement" để user xác nhận luồng trực quan trước khi tạo tài liệu. Null với các lượt thường.
+    // JSON array (chuỗi) các bước sơ đồ luồng nghiệp vụ (FlowStep[]) — CHỈ CÒN LÀ DỮ LIỆU CŨ: sơ đồ
+    // chỉ-đọc ở lượt mời "Write Requirement" đã gỡ (luồng nay chốt bằng BẢNG LUỒNG, cột FlowMap ở trên),
+    // nên lượt mới luôn để null. Cột ở lại để các dự án đã chạy vẫn đọc lại được sơ đồ đã từng trình bày
+    // trong bản xuất hội thoại và transcript — xem docs/requirement-flow.md.
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? FlowDiagram { get; set; }
 

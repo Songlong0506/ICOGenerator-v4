@@ -343,7 +343,6 @@ public class RequirementsController : Controller
                             // Bản đồ bao phủ không gộp được lượt này (đã thử lại) ⇒ panel đang hiện bản
                             // cũ và BA cũng vừa dẫn lượt bằng bản cũ đó. Client cảnh báo ngay trên panel.
                             coverageStale = result.CoverageStale,
-                            flowDiagram = result.FlowDiagram,
                             // Bảng phân quyền: chỉ có ở lượt chốt nhóm phân quyền, rỗng ở mọi lượt khác.
                             // Client dựng bảng từ đây, cùng markup với bản server render lúc tải trang.
                             permissionMatrix = result.PermissionMatrix.Select(r => new

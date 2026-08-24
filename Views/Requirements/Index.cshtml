@@ -334,21 +334,6 @@
         }
     }
 
-    static List<ICOGenerator.Contracts.Requirements.FlowStep> ParseFlow(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-            return new List<ICOGenerator.Contracts.Requirements.FlowStep>();
-        try
-        {
-            return System.Text.Json.JsonSerializer.Deserialize<List<ICOGenerator.Contracts.Requirements.FlowStep>>(json,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-                ?? new List<ICOGenerator.Contracts.Requirements.FlowStep>();
-        }
-        catch
-        {
-            return new List<ICOGenerator.Contracts.Requirements.FlowStep>();
-        }
-    }
 }
 
 <div class="page-head">
@@ -496,9 +481,8 @@
         @* KHÔNG có panel "Ví dụ đã xác nhận" ở đây: WorkedExamples vẫn được chắt sau mỗi lượt và vẫn là
            ORACLE mà POC bị chấm theo (spec đúc thành "## 13. Worked Examples", POC phải tính lại ra đúng
            kết quả), nhưng panel thì lặp lại đúng thứ BA vừa nói trong chat — các ví dụ định tính trùng
-           gần nguyên văn sơ đồ luồng ở cuối lượt (renderFlowDiagram, có nút "chưa đúng?" cho TỪNG bước),
-           còn ví dụ định lượng thì đến từ chính câu người dùng vừa chốt. Sidebar cuộn dài thêm một khối
-           mà không thêm thông tin.
+           gần nguyên văn BẢNG LUỒNG mà người dùng tự tay duyệt từng bước, còn ví dụ định lượng thì đến từ
+           chính câu người dùng vừa chốt. Sidebar cuộn dài thêm một khối mà không thêm thông tin.
            Cái mất khi bỏ panel: đường SỬA TAY danh sách oracle (UpdateWorkedExamplesUseCase, đã gỡ theo).
            Đính chính nay đi qua chat như mọi điều khác — nói lại trong khung chat, lượt chắt lọc kế tiếp
            cập nhật danh sách. *@
@@ -723,38 +707,6 @@
                                     </li>
                                 }
                             </ul>
-                        }
-
-                        @{
-                            // Sơ đồ luồng chỉ đính ở lượt BA mời "Write Requirement" và chỉ hiện cho lượt BA
-                            // MỚI NHẤT (như chip gợi ý) để không lặp lại các sơ đồ cũ trong lịch sử. Markup
-                            // khớp renderFlowDiagram (requirements.js) để frame done render y hệt khi không reload.
-                            var flow = group.Conversation.Id == lastBaTurn?.Id
-                                ? ParseFlow(group.Conversation.FlowDiagram)
-                                : new List<ICOGenerator.Contracts.Requirements.FlowStep>();
-                        }
-                        @if (flow.Any())
-                        {
-                            <div class="flow-diagram" aria-label="Sơ đồ luồng nghiệp vụ để xác nhận">
-                                <div class="flow-diagram-title">Luồng nghiệp vụ chính — anh/chị xem giúp đã đúng chưa nhé:</div>
-                                <ol class="flow-steps">
-                                    @foreach (var step in flow)
-                                    {
-                                        <li class="flow-step">
-                                            @if (!string.IsNullOrWhiteSpace(step.Actor))
-                                            {
-                                                <span class="flow-actor">@step.Actor</span>
-                                            }
-                                            <span class="flow-action">@step.Action</span>
-                                            @if (!string.IsNullOrWhiteSpace(step.Outcome))
-                                            {
-                                                <span class="flow-outcome">@step.Outcome</span>
-                                            }
-                                            <button type="button" class="flow-step-fix" data-step="@step.Action" title="Bấm nếu bước này chưa đúng để đính chính ngay trong chat">chưa đúng?</button>
-                                        </li>
-                                    }
-                                </ol>
-                            </div>
                         }
                     </div>
                     prevWasBaBubble = true;
@@ -1748,10 +1700,10 @@
                — vì bản tổng kết chỉ kể lại những gì đã nói.
 
                Việc rà soát không mất, nó đã nằm ở những chỗ SỬA ĐƯỢC và đúng lúc hơn: nhịp BA chủ động đọc
-               lại sau mỗi ~5–7 câu (requirement-chat.v4.md), sơ đồ luồng cuối lượt mời với nút "chưa đúng?"
-               cho TỪNG bước (renderFlowDiagram), năm bảng chốt + bảng phân quyền mà người dùng sửa trực
-               tiếp, cổng soát mâu thuẫn ngay dưới nút này, và sau khi có tài liệu thì ghim ghi chú thẳng
-               trên bản xem trước Product Brief (ReviseBriefFromNotesUseCase).
+               lại sau mỗi ~5–7 câu (requirement-chat.v4.md), sáu bảng chốt + bảng phân quyền mà người dùng
+               sửa trực tiếp (bảng LUỒNG là chỗ rà từng bước quy trình), cổng soát mâu thuẫn ngay dưới nút
+               này, và sau khi có tài liệu thì ghim ghi chú thẳng trên bản xem trước Product Brief
+               (ReviseBriefFromNotesUseCase).
 
                data-state là hợp đồng với requirements.js: nó khởi tạo trạng thái cổng từ đúng bản server
                vừa render thay vì đoán qua việc khối đang ẩn hay hiện.

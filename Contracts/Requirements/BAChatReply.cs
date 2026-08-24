@@ -35,9 +35,11 @@ public class BAChatReply
     // ở trạng thái "chưa sẵn sàng". Đây là tín hiệu cho UI; bước sinh tài liệu vẫn có cổng readiness riêng.
     public bool Ready { get; set; }
 
-    // Sơ đồ luồng nghiệp vụ chính (vai trò → hành động → kết quả) — CHỈ điền ở lượt mời bấm "Write
-    // Requirement" (Ready = true) để user xác nhận trực quan trước khi tạo tài liệu. Rỗng ở các lượt hỏi.
-    public List<FlowStep> FlowDiagram { get; set; } = new();
+    // KHÔNG có "sơ đồ luồng ở lượt mời" (FlowDiagram) nữa: luồng nghiệp vụ được chốt bằng BẢNG LUỒNG
+    // (FlowMap dưới đây) — bảng sửa được từng bước, chở cả ngoại lệ, và là đường DUY NHẤT đưa luồng người
+    // dùng gật tới oracle chấm POC. Sơ đồ cũ chỉ vẽ lại MỘT luồng chính để nhìn, ngay trước nút tạo tài
+    // liệu, mà bấm "chưa đúng?" ở đó cũng không sửa được bảng đã chốt (FlowMapGate không mở lại) — xem
+    // docs/requirement-flow.md.
 
     // BẢNG PHÂN QUYỀN (màn hình × chức năng × vai trò) — CHỈ điền ở đúng lượt hệ thống yêu cầu, tức khi
     // PermissionMatrixGate đã mở (mọi nhóm khác của bản đồ bao phủ đã [RÕ]); mọi lượt khác để rỗng.

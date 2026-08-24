@@ -636,7 +636,7 @@ public class BAChatService
                 + "- `condition`: điều kiện dữ liệu mà bốn nấc phạm vi không chở nổi (\"chỉ đăng ký được khóa nằm "
                 + "trong danh sách bắt buộc của mình\", \"chỉ sửa khi chưa submit\"). Không có thì để rỗng.\n"
                 + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng phân quyền\" — không đặt "
-                + "câu hỏi, không kèm `suggestions`, không kèm `questions`, không kèm `flowDiagram`: bảng là chỗ "
+                + "câu hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ "
                 + "trả lời DUY NHẤT của lượt này.\n\n"
                 + "### Phạm vi dự kiến (mỗi mục là MỘT dòng nhóm của bảng — chép nguyên văn vào `screen`)\n"
                 + string.Join("\n", effectiveScreens.Select(s => "- " + s))));
@@ -676,7 +676,7 @@ public class BAChatService
                 + "trường này và người dùng sẽ tự soát. TUYỆT ĐỐI không bịa trích dẫn.\n"
                 + "- CHỈ mô tả điều người dùng ĐÃ nói/đã chốt. Không thêm bước \"cho đủ quy trình\".\n"
                 + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng luồng\" — không đặt câu "
-                + "hỏi, không kèm `suggestions`, không kèm `questions`, không kèm `flowDiagram`: bảng là chỗ trả "
+                + "hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ trả "
                 + "lời DUY NHẤT của lượt này."));
         }
         else if (table == InterviewTableKind.ScreenScope)
@@ -731,7 +731,7 @@ public class BAChatService
                 + "- `evidence`: CHỈ điền khi người dùng đã tự nêu màn hình / chức năng đó, kèm đúng trích dẫn "
                 + "của họ. Dòng có trích dẫn được tích sẵn kèm dấu ✓; phần bạn suy ra thì để trống trường này.\n"
                 + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng màn hình\" — không đặt "
-                + "câu hỏi, không kèm `suggestions`, không kèm `questions`, không kèm `flowDiagram`.\n\n"
+                + "câu hỏi, không kèm `suggestions`, không kèm `questions`.\n\n"
                 + "### Phạm vi dự kiến (mỗi mục phải hoặc thành MỘT dòng `screen`, hoặc nằm trong `covers` của "
                 + "một dòng — không mục nào được bỏ rơi)\n"
                 + string.Join("\n", effectiveScreens.Select(s => "- " + s))
@@ -801,7 +801,7 @@ public class BAChatService
                 + "dòng mặc định không sửa được\" là QUY TẮC — không ô nào ở đây chở chúng, và bạn hỏi chúng "
                 + "bằng câu hỏi ở các lượt sau. Đừng nén chúng vào `meaning` hay `description`.\n"
                 + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng đối tượng\" — không đặt "
-                + "câu hỏi, không kèm `suggestions`, không kèm `questions`, không kèm `flowDiagram`."));
+                + "câu hỏi, không kèm `suggestions`, không kèm `questions`."));
         }
         // BÁO CÁO / THỐNG KÊ — bảng thứ ba. Khác các bảng kia ở chỗ nhóm của nó VẪN được hỏi bằng câu hỏi
         // suốt buổi (xem ReportMapGate): cổng chỉ mở khi nhóm đã [RÕ], nên tới lượt này BA đã có lời kể để
@@ -834,7 +834,7 @@ public class BAChatService
                 + "- KHÔNG có cột \"ai xem\": mỗi báo cáo là một màn hình nên quyền xem của nó sẽ được chốt ở bảng "
                 + "phân quyền ngay sau đây, kèm cả phạm vi dữ liệu. Đừng nhét vai trò vào `question`.\n"
                 + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng báo cáo\" — không đặt "
-                + "câu hỏi, không kèm `suggestions`, không kèm `questions`, không kèm `flowDiagram`: bảng là chỗ "
+                + "câu hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ "
                 + "trả lời DUY NHẤT của lượt này.\n\n"
                 + "### Các đối tượng đã chốt (chép NGUYÊN VĂN vào `source`)\n"
                 + string.Join("\n", entityNames.Select(e => "- " + e))));
@@ -879,7 +879,7 @@ public class BAChatService
                 + "bỏ. Ghi mốc thời gian vào `trigger`.\n"
                 + "- Kênh gửi duy nhất của nền tảng là EMAIL nên KHÔNG hỏi và KHÔNG nêu kênh nào khác.\n"
                 + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng thông báo\" — không đặt "
-                + "câu hỏi, không kèm `suggestions`, không kèm `questions`, không kèm `flowDiagram`: bảng là chỗ "
+                + "câu hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ "
                 + "trả lời DUY NHẤT của lượt này.\n\n"
                 + "### Các sự kiện (mỗi dòng là MỘT dòng của bảng — chép nguyên văn vào `entity` + `event`)\n"
                 + string.Join("\n", notificationSeedRows.Select(r =>
@@ -966,7 +966,6 @@ public class BAChatService
         // nên chúng phải hạ cờ này — để sót thì màn hình mời "kể tự do" ngay dưới một hàng chip.
         var openEnded = false;
         var questions = new List<BAChatQuestion>();
-        var flowDiagram = new List<FlowStep>();
         var permissionMatrix = new List<PermissionMatrixRow>();
         var flowMap = new List<FlowMapRow>();
         var screenScopeMap = new List<ScreenScopeRow>();
@@ -1007,10 +1006,6 @@ public class BAChatService
             // Lượt hỏi GỘP (2–4 câu độc lập): Normalize đã đảm bảo hoặc có Questions, hoặc có
             // Suggestions — không bao giờ cả hai.
             questions = parsedReply.Questions;
-
-            // Sơ đồ luồng chỉ có nghĩa ở lượt mời "Write Requirement"; giữ lại đây, nhánh gate bên dưới
-            // sẽ xóa nếu lời mời bị thay bằng câu hỏi (khi đó chưa nên vẽ luồng vì còn thiếu thông tin).
-            flowDiagram = parsedReply.FlowDiagram ?? new List<FlowStep>();
 
             // PHANH CHỐNG HỎI LẠI (tất định). Prompt đã cấm phát lại câu cũ, nhưng bản đồ bao phủ — thứ
             // dẫn dắt lượt hỏi — chỉ có độ phân giải theo NHÓM: một dòng chưa đạt chuẩn [RÕ] (hoặc một
@@ -1058,7 +1053,6 @@ public class BAChatService
                     }
 
                     questions = trimmed.Questions;
-                    flowDiagram = new List<FlowStep>();
                 }
             }
             // "Có chip HOẶC là câu mở" = lượt này thật sự đang HỎI. Trước đây vế đầu là đủ vì mọi câu hỏi
@@ -1074,7 +1068,6 @@ public class BAChatService
                 suggestionsJson = null;
                 suggestionsMultiSelect = false;
                 openEnded = followUp.OpenEnded;
-                flowDiagram = new List<FlowStep>();
             }
 
             // Lượt MỜI bấm "Write Requirement" phải qua cổng readiness TẤT ĐỊNH ngay tại đây, trước khi
@@ -1103,8 +1096,6 @@ public class BAChatService
                     // …và cũng không giữ thẻ hỏi gộp: nội dung hiển thị giờ là câu hỏi của gate, để lại
                     // thẻ cũ thì màn hình có hai lượt hỏi khác nhau chồng lên nhau.
                     questions = new List<BAChatQuestion>();
-                    // Lời mời bị thay bằng câu hỏi ⇒ chưa đủ thông tin, không vẽ sơ đồ luồng nữa.
-                    flowDiagram = new List<FlowStep>();
                 }
                 else
                 {
@@ -1115,11 +1106,6 @@ public class BAChatService
                     // Lời mời không phải câu hỏi ⇒ không mời người dùng "kể tự do" ở ô nhập.
                     openEnded = false;
                 }
-            }
-            else
-            {
-                // Sơ đồ luồng chỉ dành cho lượt MỜI bấm nút; lượt hỏi thường mà model lỡ kèm luồng thì bỏ.
-                flowDiagram = new List<FlowStep>();
             }
 
             // BẢNG PHÂN QUYỀN — lượt chốt nhóm «Phân quyền theo nghiệp vụ». Chỉ dựng khi CỔNG đã mở
@@ -1206,7 +1192,7 @@ public class BAChatService
                     break;
             }
 
-            // Bảng dựng được thì nó là chỗ trả lời DUY NHẤT của lượt: dọn chip, thẻ hỏi gộp và sơ đồ luồng.
+            // Bảng dựng được thì nó là chỗ trả lời DUY NHẤT của lượt: dọn chip và thẻ hỏi gộp.
             // Chip bấm là GỬI NGAY, nên để cả hai cùng sống thì một cú bấm nhầm cuốn mất lượt trước khi
             // người dùng chọn xong bảng — và bảng thì không bao giờ được chốt. Cùng luật với bảng cột.
             //
@@ -1226,7 +1212,6 @@ public class BAChatService
                 suggestionsMultiSelect = false;
                 openEnded = false;
                 questions = new List<BAChatQuestion>();
-                flowDiagram = new List<FlowStep>();
             }
 
             // Lượt KỂ LẠI file: chỗ trả lời là hai chip xác nhận, nên không được có thẻ hỏi gộp — thẻ hỏi
@@ -1236,7 +1221,6 @@ public class BAChatService
             if (columnReadbackTurn)
             {
                 questions = new List<BAChatQuestion>();
-                flowDiagram = new List<FlowStep>();
                 // …và bỏ thẻ hỏi thì phải TRẢ LẠI chip: chính vì model kèm thẻ hỏi mà Normalize đã dọn
                 // sạch Suggestions của lượt. Để nguyên là bày ra một câu hỏi đóng KHÔNG CÓ nút trả lời —
                 // đúng lỗi mà lượt đọc bảng tính đã vấp một lần, chỉ khác chỗ phát sinh.
@@ -1297,7 +1281,6 @@ public class BAChatService
                    && notificationMap.Count == 0;
         }
 
-        var flowDiagramJson = flowDiagram.Count > 0 ? JsonSerializer.Serialize(flowDiagram) : null;
         var questionsJson = questions.Count > 0 ? JsonSerializer.Serialize(questions) : null;
         var permissionMatrixJson = permissionMatrix.Count > 0 ? JsonSerializer.Serialize(permissionMatrix) : null;
         var flowMapJson = flowMap.Count > 0 ? JsonSerializer.Serialize(flowMap) : null;
@@ -1305,7 +1288,7 @@ public class BAChatService
         var entityMapJson = entityMap.Count > 0 ? JsonSerializer.Serialize(entityMap) : null;
         var reportMapJson = reportMap.Count > 0 ? JsonSerializer.Serialize(reportMap) : null;
         var notificationMapJson = notificationMap.Count > 0 ? JsonSerializer.Serialize(notificationMap) : null;
-        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, flowDiagramJson, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, cancellationToken: cancellationToken);
+        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -1327,7 +1310,6 @@ public class BAChatService
             // phải lời mời không". UI cần cả hai vì sau khi bản Brief đã tồn tại, một lượt BA không mời
             // (BA hỏi thêm một câu) không được phép cắt mất đường soạn lại bản Brief đang cũ dần.
             CoverageReady = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap).Ready,
-            FlowDiagram = flowDiagram,
             PermissionMatrix = permissionMatrix,
             FlowMap = flowMap,
             ScreenScopeMap = screenScopeMap,
@@ -1859,15 +1841,14 @@ public class BAChatService
         // "ready" được suy ra từ chính nội dung lượt: prompt ép model hễ mời bấm "Write Requirement" thì
         // đó là lúc đã đủ thông tin, nên message có nhắc nút ⇔ ready. Echo lại cờ này để củng cố format JSON.
         var ready = RequirementReadinessGate.IsWriteRequirementInvite(c.Message);
-        // Echo cả sơ đồ luồng đã vẽ (nếu có): BA các lượt sau thấy mình ĐÃ trình bày luồng nào cho người
-        // dùng xác nhận — sửa đúng bước bị người dùng đính chính thay vì vẽ lại từ đầu một luồng khác.
-        var flowDiagram = ConversationTurnRenderer.ParseFlowDiagram(c.FlowDiagram)
-            .Select(s => new { actor = s.Actor, action = s.Action, outcome = s.Outcome });
+        // KHÔNG echo sơ đồ luồng nữa: trường đã ra khỏi schema trả lời (xem BAChatReply), nên dựng lại một
+        // lượt cũ có nó là dạy model đúng cái format vừa gỡ. Luồng mà người dùng đã duyệt quay lại ngữ cảnh
+        // ở khối "bảng đã chốt" (FlowMapBuilder.RenderConfirmedBlock), đầy đủ hơn hẳn.
         // Echo cả các câu hỏi của lượt GỘP: đây là chỗ model học rằng gộp là hợp lệ VÀ học nhịp gộp của
         // chính nó. Bỏ trường này thì mọi lượt cũ trông như lượt một-câu và model trượt về một-câu-một-lượt
         // sau vài vòng — đúng kiểu trượt format mà hàm này sinh ra để chặn.
         var questions = ConversationTurnRenderer.ParseQuestions(c.Questions)
             .Select(q => new { group = q.Group, question = q.Question, suggestions = q.Suggestions, multiSelect = q.MultiSelect, openEnded = q.OpenEnded });
-        return JsonSerializer.Serialize(new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, questions, ready, flowDiagram });
+        return JsonSerializer.Serialize(new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, questions, ready });
     }
 }
