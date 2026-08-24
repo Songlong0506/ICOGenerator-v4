@@ -343,7 +343,6 @@ public class RequirementsController : Controller
                             // Bản đồ bao phủ không gộp được lượt này (đã thử lại) ⇒ panel đang hiện bản
                             // cũ và BA cũng vừa dẫn lượt bằng bản cũ đó. Client cảnh báo ngay trên panel.
                             coverageStale = result.CoverageStale,
-                            flowDiagram = result.FlowDiagram,
                             // Bảng phân quyền: chỉ có ở lượt chốt nhóm phân quyền, rỗng ở mọi lượt khác.
                             // Client dựng bảng từ đây, cùng markup với bản server render lúc tải trang.
                             permissionMatrix = result.PermissionMatrix.Select(r => new
@@ -426,6 +425,25 @@ public class RequirementsController : Controller
                                 locked = r.Locked,
                                 evidence = r.Evidence
                             }),
+                            // BẢNG BÁO CÁO. Kèm luôn mục chọn của ô "lấy số từ" (các đối tượng đã chốt) vì
+                            // cùng lý do với recipientOptions của bảng thông báo ngay dưới: ô là một danh
+                            // sách ĐÓNG mà server sẽ đối chiếu lúc gửi lên, nên client phải dựng đúng bộ đó.
+                            //
+                            // Thiếu HAI trường này thì lượt bày bảng báo cáo về tới client mà KHÔNG có bảng:
+                            // renderReportMap thấy mảng undefined nên bỏ qua, panel vẫn ẩn, và người dùng
+                            // đọc đúng một câu BA mời "rà bảng bên dưới rồi bấm Gửi bảng báo cáo" trỏ vào
+                            // chỗ trống — bảng chỉ hiện ra sau khi trang được tải lại vì lý do khác. Đây
+                            // đúng là hình dạng "câu hỏi không có chỗ trả lời" mà lượt đọc bảng tính đã vấp
+                            // một lần.
+                            reportMap = result.ReportMap.Select(r => new
+                            {
+                                report = r.Report,
+                                question = r.Question,
+                                source = r.Source,
+                                breakdown = r.Breakdown,
+                                included = r.Included
+                            }),
+                            reportEntityOptions = result.ReportEntityOptions,
                             // BẢNG THÔNG BÁO — bảng cuối cùng. Kèm luôn danh sách người nhận vì client
                             // phải dựng đúng bộ tùy chọn mà server sẽ đối chiếu lúc gửi lên.
                             notificationMap = result.NotificationMap.Select(r => new

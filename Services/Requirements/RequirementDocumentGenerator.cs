@@ -1,6 +1,3 @@
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
@@ -48,7 +45,7 @@ public class RequirementDocumentGenerator
 
         var productBriefOutput = _artifactStorage.GetDraftPath(projectKey, _artifactCatalog.ProductBrief);
 
-        CreateSimpleDocumentDocx(productBriefOutput, "Product Brief", result.ProductBrief.Content);
+        CreateMarkdownDocx(productBriefOutput, "Product Brief", project, "draft", result.ProductBrief.Content);
 
         await UpsertDocument(project.Id, baId, _artifactCatalog.ProductBrief, productBriefOutput, result.ProductBrief.Content, "draft", isApproved: false,
             changeNote: string.IsNullOrWhiteSpace(changeNote) ? "Write Requirement (soạn/cập nhật Product Brief)" : changeNote);
@@ -62,7 +59,7 @@ public class RequirementDocumentGenerator
 
         var aiDesignSpecOutput = _artifactStorage.GetVersionPath(projectKey, versionName, _artifactCatalog.AiDesignSpec);
 
-        CreateSimpleDocumentDocx(aiDesignSpecOutput, "AI Design Spec", result.AiDesignSpec.Content);
+        CreateMarkdownDocx(aiDesignSpecOutput, "AI Design Spec", project, versionName, result.AiDesignSpec.Content);
 
         await UpsertDocument(project.Id, baId, _artifactCatalog.AiDesignSpec, aiDesignSpecOutput, result.AiDesignSpec.Content, versionName, isApproved: true,
             changeNote: $"Sinh AI Design Spec cho phiên bản {versionName}");
@@ -91,7 +88,7 @@ public class RequirementDocumentGenerator
         _docxWriter.CreateFromTemplate(brdTemplate, brdOutput, BuildBrdReplacements(project, result.Brd));
         _docxWriter.CreateFromTemplate(srsTemplate, srsOutput, BuildSrsReplacements(project, result.Srs));
         _docxWriter.CreateFromTemplate(fsdTemplate, fsdOutput, BuildFsdReplacements(project, result.Fsd));
-        CreateSimpleDocumentDocx(storiesOutput, "User Stories", result.UserStories.Content);
+        CreateMarkdownDocx(storiesOutput, "User Stories", project, versionName, result.UserStories.Content);
 
         var note = string.IsNullOrWhiteSpace(changeNote) ? $"Sinh tài liệu kỹ thuật {versionName}" : changeNote;
         await UpsertDocument(project.Id, baId, brdArtifact, brdOutput, _docxWriter.ExtractText(brdOutput), versionName, isApproved: true, note);
@@ -103,29 +100,14 @@ public class RequirementDocumentGenerator
     private ProjectArtifactDescriptor GetTechnicalArtifact(string key) =>
         _artifactCatalog.TechnicalDocuments.First(x => x.Key == key);
 
-    private static void CreateSimpleDocumentDocx(string outputPath, string title, string content)
+    // Nội dung LLM trả về là Markdown: đi qua MarkdownDocxWriter để ra tài liệu Word có trang bìa, mục
+    // lục, heading, danh sách và bảng thật. Đổ thẳng từng dòng vào paragraph như trước thì bản gửi cấp
+    // trên hiện nguyên ký tự `#`, `**`, `|` và mọi dòng cùng một cỡ chữ.
+    private static void CreateMarkdownDocx(string outputPath, string title, Project project, string versionName, string content)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+        var meta = new DocxDocumentMeta(title, project.Name, versionName, DateTime.Now);
 
-        using var doc = WordprocessingDocument.Create(
-            outputPath,
-            WordprocessingDocumentType.Document);
-
-        var mainPart = doc.AddMainDocumentPart();
-        mainPart.Document = new Document(new Body());
-
-        var body = mainPart.Document.Body!;
-
-        body.AppendChild(new Paragraph(
-            new Run(new Text(DocxTemplateWriter.SanitizeXmlText(title)))));
-
-        foreach (var line in (content ?? "").Split('\n'))
-        {
-            body.AppendChild(new Paragraph(
-                new Run(new Text(DocxTemplateWriter.SanitizeXmlText(line)))));
-        }
-
-        mainPart.Document.Save();
+        MarkdownDocxWriter.Create(outputPath, meta, content);
     }
 
     private async Task UpsertDocument(Guid projectId, Guid agentId, ProjectArtifactDescriptor artifact, string filePath, string previewContent, string versionName, bool isApproved, string changeNote)

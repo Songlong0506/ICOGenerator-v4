@@ -559,6 +559,14 @@ public static class ReportMapGate
 /// </summary>
 public static class NotificationMapGate
 {
+    /// <summary>
+    /// Nhãn nhóm thông báo trong bản đồ bao phủ — khớp <c>requirement-coverage.v3.md</c> và mục 12 nhãn
+    /// nhóm của <c>requirement-chat.v4.md</c>. Cùng vai trò với
+    /// <see cref="PermissionMatrixGate.PermissionGroupLabel"/>: hai nhóm chốt-bằng-bảng đều cần một chỗ
+    /// duy nhất giữ nhãn, vì <see cref="CoverageConfirmedTableGuard"/> phải tìm đúng dòng để viết lại.
+    /// </summary>
+    public const string NotificationGroupLabel = "Thông báo / nhắc nhở";
+
     /// <summary>Đã tới lúc bày bảng thông báo cho dự án này chưa.</summary>
     public static bool ShouldAsk(Project project)
         => ShouldAsk(project.NotificationMap, project.PermissionMatrix, project.EntityMap);

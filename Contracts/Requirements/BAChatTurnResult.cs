@@ -55,8 +55,8 @@ public class BAChatTurnResult
     // (BAChatService.UpdateDecisionsAsync) nhưng không còn mặt UI nào để đẩy về — bản tổng kết ở cổng tạo
     // tài liệu đã gỡ, xem Views/Requirements/Index.cshtml. Người đọc nhật ký nay chỉ còn là máy.
 
-    /// <summary>Sơ đồ luồng nghiệp vụ để user xác nhận trực quan — CHỈ có ở lượt mời "Write Requirement", rỗng ở lượt hỏi.</summary>
-    public List<FlowStep> FlowDiagram { get; set; } = new();
+    // KHÔNG có FlowDiagram ở đây: sơ đồ luồng chỉ-đọc ở lượt mời đã gỡ, luồng được chốt bằng bảng luồng
+    // (FlowMap bên dưới) — xem BAChatReply.
 
     /// <summary>
     /// Bảng phân quyền để user chọn từng ô — CHỈ có ở lượt chốt nhóm «Phân quyền theo nghiệp vụ» (khi

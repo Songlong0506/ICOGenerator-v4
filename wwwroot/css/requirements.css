@@ -175,102 +175,6 @@
         50% { opacity: 0; }
     }
 
-    /* Sơ đồ luồng nghiệp vụ đính trong bubble BA ở lượt mời "Write Requirement": các bước dọc, mỗi bước
-       có badge vai trò → hành động → kết quả, nối bằng đường dẫn để user "nhìn" ra luồng và bắt lỗi. */
-    .flow-diagram {
-        margin-top: 14px;
-        padding: 14px 16px;
-        background: var(--surface, #fff);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-    }
-
-    .flow-diagram-title {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--bosch-blue);
-        margin-bottom: 12px;
-    }
-
-    .flow-steps {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-    }
-
-    .flow-step {
-        position: relative;
-        padding: 0 0 18px 20px;
-        border-left: 2px solid var(--line);
-    }
-
-        .flow-step:last-child {
-            padding-bottom: 0;
-            border-left-color: transparent;
-        }
-
-        /* Chấm mốc trên đường dẫn dọc trước mỗi bước. */
-        .flow-step::before {
-            content: "";
-            position: absolute;
-            left: -6px;
-            top: 2px;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--bosch-blue);
-        }
-
-    .flow-actor {
-        display: inline-block;
-        font-size: 12px;
-        font-weight: 600;
-        color: #fff;
-        background: var(--bosch-blue);
-        border-radius: 10px;
-        padding: 1px 9px;
-        margin-right: 8px;
-    }
-
-    .flow-action {
-        font-size: 14px;
-        color: var(--text, #1a1a1a);
-    }
-
-    .flow-outcome {
-        display: block;
-        margin-top: 3px;
-        font-size: 12.5px;
-        color: var(--text-muted, #666);
-    }
-
-        .flow-outcome::before {
-            content: "→ ";
-            color: var(--bosch-blue);
-        }
-
-    /* "chưa đúng?" — đính chính đúng MỘT bước của luồng ngay trong chat (R2). Kín đáo bên phải bước,
-       rõ hơn khi rê chuột; bấm sẽ soạn sẵn tin nhắn sửa bước đó (xem requirements.js). */
-    .flow-step-fix {
-        margin-left: 8px;
-        padding: 0 6px;
-        font-size: 11.5px;
-        line-height: 1.6;
-        color: var(--text-muted, #888);
-        background: transparent;
-        border: 1px dashed var(--line);
-        border-radius: 10px;
-        cursor: pointer;
-        opacity: 0.65;
-        transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-    }
-
-        .flow-step-fix:hover {
-            opacity: 1;
-            color: var(--bosch-blue);
-            border-color: var(--bosch-blue);
-        }
-
     /* Suggestion options: đáp án gợi ý "bấm-để-trả-lời" cho lượt hỏi mới nhất của BA, trình bày dạng
        danh sách dọc có đánh số — giống option-select của Claude — thay cho "chip" ngang. Nằm dưới tin
        nhắn BA; người dùng bấm (hoặc gõ phím số) để trả nhanh thay vì gõ tay từng chữ. */
@@ -404,21 +308,6 @@
         opacity: 0.55;
         filter: grayscale(0.4);
         cursor: progress;
-    }
-
-    /* Dòng ở cuối panel "Tiến độ khai thác" thay cho nút mờ-và-khóa ngày trước: nói còn thiếu gì thì việc
-       gì sẽ xảy ra, thay vì bày ra một nút bấm không được. Chỉ hiện ở trạng thái "waiting". */
-    .write-req-waiting-hint {
-        margin: 12px 0 0;
-        padding-top: 12px;
-        border-top: 1px solid #e5e7eb;
-        font-size: 11.5px;
-        line-height: 1.5;
-        color: #6b7280;
-    }
-
-    .write-req-waiting-hint[hidden] {
-        display: none;
     }
 
     /* Băng "đã phục hồi nháp" ngay trên ô nhập: nội dung gõ dở được lưu tự động và đổ lại sau khi F5 / mở
@@ -1319,6 +1208,18 @@
 
 .summary-gate-foot { font-size: 12px; color: var(--muted, #777); }
 
+/* Cổng ĐÓNG vì còn một bảng chờ chốt (#tableGate). Cùng khuôn .summary-gate nhưng tông XÁM và không có
+   nút: khối này không mời bấm gì ở đây, nó chỉ đường ngược lên cái bảng ngay phía trên. Giữ tông xanh của
+   cổng mở thì hai khối trông y hệt nhau và người dùng lại đi tìm cái nút không tồn tại. */
+.summary-gate-blocked {
+    border-color: var(--line);
+    background: var(--surface-alt);
+}
+
+    .summary-gate-blocked .summary-gate-title { color: var(--muted, #777); }
+
+    .summary-gate-blocked .summary-gate-hint { margin-bottom: 0; }
+
 /* ==== Chip gợi ý chế độ CHỌN NHIỀU (multiSelect) ==== */
 
 .suggestion-option.selected {
@@ -1640,15 +1541,7 @@
     background: #fff;
 }
 
-/* Nhãn nhóm bản đồ bao phủ mà câu hỏi nhắm tới — nói cho người dùng biết trả lời câu này thì phần nào
-   của thanh tiến độ bên trái sẽ nhích. */
-.batchq-group {
-    font-size: 11.5px;
-    font-weight: 600;
-    color: var(--bosch-blue, #2563eb);
-}
-
-.batchq-question { font-size: 13px; line-height: 1.5; color: #374151; margin-top: 2px; }
+.batchq-question { font-size: 13px; line-height: 1.5; color: #374151; }
 
 /* DẤU VẾT chỉ-đọc của một thẻ hỏi gộp ĐÃ trả lời (lượt BA cũ). Message của lượt gộp chỉ là câu dẫn, nên
    không có khối này thì lịch sử hội thoại nuốt mất chính các câu hỏi — người dùng cuộn lên chỉ thấy "mình
@@ -1664,11 +1557,7 @@
     gap: 4px;
 }
 
-/* Nhãn nhóm nằm TRÊN câu hỏi như thẻ hỏi sống (.batchq-item): để chung dòng thì câu dài xuống hàng và
-   hai mục liền nhau trông so le, đọc như một đoạn văn đứt quãng. */
 .batchq-history > li { display: flex; flex-direction: column; gap: 1px; }
-
-.batchq-history-group { font-size: 11px; font-weight: 600; color: #9aa3af; }
 
 .batchq-history-question { font-size: 12.5px; line-height: 1.5; color: #6b7280; }
 

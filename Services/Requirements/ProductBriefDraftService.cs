@@ -89,6 +89,24 @@ public class ProductBriefDraftService
         var ba = await _agentResolver.GetRequiredAsync(cancellationToken);
         var model = ba.AiModel!;
 
+        // CÒN BẢNG CHỐT ĐANG CHỜ ⇒ dừng ngay, trước mọi lời gọi LLM. Một bảng chở NỘI DUNG của chính tài
+        // liệu, và nội dung đó chỉ chảy vào tài liệu khi bảng được GỬI: mỗi báo cáo còn giữ chỉ thành một
+        // mục ở "## 6. Screens To Generate" qua ConfirmReportMapUseCase (nó mới là chỗ gieo màn hình báo
+        // cáo vào PlannedScope), mỗi dòng bảng thông báo chỉ thành một quy tắc gửi mail sau khi chốt. Soạn
+        // trước là soạn một bản chắc chắn thiếu — rồi tin nhắn chốt bảng mở cổng lần nữa và vòng soạn thứ
+        // hai ghi đè lên: hai lần gọi LLM cho một tài liệu, lần đầu bỏ đi.
+        //
+        // Cổng #writeReqZone đã đóng ở ca này (Index.cshtml + requirements.js đọc cùng
+        // PendingConfirmTableGate), nên nhánh này là LƯỚI cho các đường không đi qua cái nút đó: một tab mở
+        // từ trước lúc bảng hiện ra, đường POC-feedback và đường ghi chú trên bản xem trước — hai đường sau
+        // thêm một lượt user rồi gọi thẳng vào đây, không qua khung chat.
+        if (PendingConfirmTableGate.Select(project) is { } pendingTable)
+        {
+            await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", pendingTable.BlockedTurn, cancellationToken: cancellationToken);
+            Report("final", $"Còn {pendingTable.Name} chờ anh/chị chốt — xem lời nhắn của BA trong khung chat.", pendingTable.BlockedTurn);
+            return RequirementDraftOutcome.NeedsMoreInfo;
+        }
+
         // Transcript Hỏi–Đáp đầy đủ (BA hỏi / user trả lời) — KHÔNG chỉ lượt user, để câu trả lời ngắn
         // kiểu chip ("Nhân viên văn phòng") còn nguyên ngữ cảnh câu hỏi khi soạn tài liệu.
         var conversationTranscript = ConversationTranscriptBuilder.Build(project.Conversations);
@@ -106,12 +124,19 @@ public class ProductBriefDraftService
         // chat nào để bản đồ kịp tươi. (Ghi chú ghim trên Brief KHÔNG qua đây — nó rẽ sang
         // ReviseDraftFromNotesAsync, vòng sửa có phạm vi.)
         //
-        // NGOẠI LỆ: lượt cuối hội thoại là lời BA mời bấm "Write Requirement" ⇒ lời mời đó CHỈ tồn tại
-        // sau khi chính cổng tất định này đã pass ngay trong bước chat (BAChatService) trên bản đồ hiện
-        // hành, và chưa có gì mới kể từ đó — xét lại chỉ tốn một lượt distill vô ích. Bỏ qua gate ở
-        // nhánh này; van "không giả định" của bước soạn tài liệu (needsClarification bên dưới) vẫn là
-        // chốt chặn cuối nên chất lượng tài liệu không đổi.
-        if (RequirementReadinessGate.IsVerifiedInviteLatestTurn(project.Conversations))
+        // NGOẠI LỆ: lượt cuối hội thoại mang dấu "cổng đã verify" (AgentConversation.ReadinessVerified)
+        // ⇒ chính cổng tất định này đã pass trên bản đồ hiện hành ở lượt đó, và chưa có thông tin nào mới
+        // kể từ đó — xét lại chỉ tốn một lượt distill vô ích. Bỏ qua gate ở nhánh này; van "không giả
+        // định" của bước soạn tài liệu (needsClarification bên dưới) vẫn là chốt chặn cuối nên chất lượng
+        // tài liệu không đổi.
+        //
+        // Đọc CỜ chứ không đọc chữ trong lượt cuối: bản trước dò cụm "Write Requirement" trong transcript,
+        // nên mọi đường ghi thêm một lượt sau lời mời đều xoá tín hiệu — kể cả đường KHÔNG mang thông tin
+        // mới. Ca đã gãy: cổng soát mâu thuẫn ghi cặp lượt "chốt lại điểm mâu thuẫn" rồi submit ngay, vòng
+        // soạn rơi vào nhánh else, bản đồ vừa distill lại hạ đúng nhóm vừa được chốt xuống [MỘT PHẦN]
+        // (prompt requirement-coverage.v3 § "Người dùng đính chính một nhóm" đọc câu chốt lại như một lời
+        // đính chính) ⇒ NeedsMoreInfo, và người dùng phải bấm "Write Requirement" lần thứ hai.
+        if (RequirementReadinessGate.IsReadinessVerifiedLatestTurn(project.Conversations))
         {
             Report("thinking", "Yêu cầu đã được kiểm tra đủ ngay trong bước chat — bắt đầu soạn tài liệu.", conversationTranscript);
         }
@@ -277,15 +302,25 @@ public class ProductBriefDraftService
             .FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken)
             ?? throw new InvalidOperationException($"Project not found: {projectId}.");
 
+        var ba = await _agentResolver.GetRequiredAsync(cancellationToken);
+        var model = ba.AiModel!;
+
+        // CÒN BẢNG CHỐT ĐANG CHỜ ⇒ dừng ngay, y như lượt soạn (xem PendingConfirmTableGate). Vòng sửa này
+        // hẹp hơn nhiều nhưng vẫn nằm dưới cùng một cái búa: bảng được gửi sẽ mở cổng soạn lại, và vòng
+        // soạn đó viết đè cả tài liệu — công sửa ở đây tan ngay sau đó. Chặn trước MỌI lời gọi LLM.
+        if (PendingConfirmTableGate.Select(project) is { } pendingTable)
+        {
+            await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", pendingTable.BlockedTurn, cancellationToken: cancellationToken);
+            Report("final", $"Còn {pendingTable.Name} chờ anh/chị chốt — xem lời nhắn của BA trong khung chat.", pendingTable.BlockedTurn);
+            return RequirementDraftOutcome.NeedsMoreInfo;
+        }
+
         var currentBrief = ProjectDocumentLookup.GetContent(project, _artifactCatalog.ProductBrief.FileName, "draft");
         if (string.IsNullOrWhiteSpace(currentBrief))
         {
             Report("observation", "Chưa có bản nháp nào để sửa — soạn lại từ hội thoại.");
             return await GenerateOrUpdateDraftAsync(projectId, onProgress, onToken, workflowRunId, cancellationToken);
         }
-
-        var ba = await _agentResolver.GetRequiredAsync(cancellationToken);
-        var model = ba.AiModel!;
 
         var conversationTranscript = ConversationTranscriptBuilder.Build(project.Conversations);
         var organizationContext = await _orgContext.BuildCombinedContextAsync(project.OrgUnitCode, cancellationToken);

@@ -419,14 +419,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // lại điều họ vừa trả lời. Markup khớp bản server render cho một lượt gộp CŨ (.batchq-history).
     function batchQuestionsHistoryHtml() {
         const rows = Array.from(batchPanel.querySelectorAll(".batchq-item"))
-            .map(li => ({
-                group: ((li.querySelector(".batchq-group") || {}).textContent || "").trim(),
-                question: li.dataset.question || ""
-            }))
+            .map(li => ({ question: li.dataset.question || "" }))
             .filter(x => x.question)
             .map(x => `
                 <li>
-                    ${x.group ? `<span class="batchq-history-group">${escapeHtml(x.group)}</span>` : ""}
                     <span class="batchq-history-question">${escapeHtml(x.question)}</span>
                 </li>`)
             .join("");
@@ -526,7 +522,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     const open = q.openEnded === true || !(Array.isArray(q.suggestions) && q.suggestions.length > 0);
                     return `
                 <li class="batchq-item" data-question="${escapeHtml(q.question || "")}" data-multi="${q.multiSelect ? "true" : "false"}" data-open="${open ? "true" : "false"}">
-                    ${q.group ? `<div class="batchq-group">${escapeHtml(q.group)}</div>` : ""}
                     <div class="batchq-question">${escapeHtml(q.question || "")}</div>
                     ${open ? "" : `
                     <div class="batchq-choices">
@@ -2157,6 +2152,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
                 thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
                 cuối. Ai được báo ở mỗi trạng thái thì mình hỏi ở bảng cuối buổi.
+                <br />Tên đối tượng, tên thông tin và tên trạng thái mình để <b>tiếng Anh</b> vì chúng sẽ thành
+                nhãn cột, ô nhập và trạng thái trong ứng dụng; phần tiếng Việt là dòng mô tả ngay dưới mỗi tên —
+                chỗ nào mình hiểu sai thì anh/chị sửa giúp.
                 <br />Cột <b>Nhập thế nào</b> quyết định hình dạng ô trên màn hình; chọn <b>Chọn 1</b> hay
                 <b>Chọn nhiều</b> thì nói thêm giúp mình danh sách lấy ở đâu — <b>ứng dụng tự quản lý</b> nghĩa là
                 app sẽ có thêm một màn hình riêng để quản lý danh mục đó.
@@ -3445,7 +3443,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // đứng chờ người dùng, nên câu hỏi và nút trả lời phải nằm cùng chỗ mắt đang nhìn (chat tự cuộn đáy).
     // Markup phải khớp bản server render trong Index.cshtml.
     //
-    // gateState — "waiting" | "ready" | "running" | "done". Suy từ cờ mời của lượt BA mới nhất (frame done),
+    // gateState — "waiting" | "table" | "ready" | "running" | "done". Suy từ cờ mời của lượt BA mới nhất
+    // (frame done) + bảng còn treo trên màn hình,
     // chỉ được sửa qua setWriteReqInvited rồi gọi syncWriteReqGate(). Giá trị đầu lấy thẳng từ bản server
     // vừa render (data-state) chứ không đoán qua "khối đang ẩn hay hiện": server có những trạng thái mà JS
     // không tự suy lại được ("done" — vừa soạn xong và hội thoại chưa có gì mới), và F5 phải giữ nguyên chúng.
@@ -3454,6 +3453,36 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Bản Brief đã tồn tại chưa (server render). Chỉ đổi khi một vòng soạn chạy xong, mà lúc đó
     // requirement-workflow.js tải lại trang ⇒ đọc một lần là đủ.
     const draftExists = writeReqZone?.dataset.draftExists === "true";
+
+    // BẢY PANEL BẢNG CHỐT, theo đúng thứ tự mà cổng chặn phía server xét (PendingConfirmTableGate.Select):
+    // bảng cột của đầu buổi, rồi luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo.
+    const TABLE_PANEL_IDS = ["columnMap", "flowMapPanel", "entityMapPanel", "reportMapPanel",
+        "screenScopePanel", "permissionMatrix", "notificationMapPanel"];
+
+    // Panel của bảng đang treo, hoặc null. Đây KHÔNG phải bản chép lại luật của server: "panel đang hiện"
+    // chính là kết luận của server — bản render đầu đặt hidden theo PendingConfirmTableGate, các render*
+    // của frame done chỉ mở panel ở đúng lượt có bảng, và initTablePanel đóng panel lại ngay khi gửi thành
+    // công. Hàm này chỉ ĐỌC lại sự thật đó, và vì thế nó phủ được cả ca bảng treo từ một lượt TRƯỚC — thứ
+    // mà frame done của lượt này không chở (lượt bày bảng hỏng ⇒ fail-open ⇒ lượt chạy như chat thường,
+    // trong khi bảng của lượt trước vẫn nằm nguyên trên màn hình).
+    function pendingTablePanel() {
+        for (const id of TABLE_PANEL_IDS) {
+            const el = document.getElementById(id);
+            if (el && !el.hidden) return el;
+        }
+        return null;
+    }
+
+    // Câu chặn của cổng. Phải khớp TỪNG CHỮ với PendingConfirmTable.GateHint phía server, cùng lý do mọi
+    // markup dựng hai đường ở đây phải khớp: rà xong một câu rồi F5 mà thấy câu khác thì người dùng không
+    // biết bên nào mới là thật. Tên bảng + nhãn nút đọc từ data-* của chính panel (server render từ cổng
+    // chặn), nên danh sách bảng không bị chép lại lần thứ hai vào JS.
+    function tableGateHint(panel) {
+        const name = panel.dataset.tableName || "bảng phía trên";
+        const send = panel.dataset.sendLabel || "Gửi bảng";
+        return `Mình chưa mở nút tạo tài liệu vì ${name} ngay phía trên còn đang chờ anh/chị chốt. `
+            + `Anh/chị rà lại rồi bấm "${send}" giúp mình — gửi xong mình mời tạo bản mô tả ngay.`;
+    }
 
     // Cờ mời của lượt BA mới nhất + cờ readiness của bản đồ bao phủ (cả hai từ frame done).
     function setWriteReqInvited(invited, coverageReady) {
@@ -3471,7 +3500,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // đóng và không còn đường nào soạn lại bản Brief đang cũ dần so với hội thoại. Cờ readiness do
         // SERVER tính (BAChatTurnResult.CoverageReady) — luật "mọi dòng áp dụng đã [RÕ]" không được phép
         // có bản sao trong JS. Chưa có draft thì cổng vẫn đi theo đúng lời mời của BA như cũ.
-        gateState = (invited === true || (draftExists && coverageReady === true)) ? "ready" : "waiting";
+        //
+        // …và CÒN BẢNG CHỜ CHỐT thì cổng đóng trước cả hai vế đó (khớp nhánh "table" ở Index.cshtml). Đường
+        // lùi ngay trên không đọc lượt cuối, nên thiếu vế này thì đúng ở lượt BA vừa bày một bảng và vừa mời
+        // "rà lại rồi bấm Gửi bảng …", nút tạo tài liệu vẫn sáng ngay dưới cái bảng đó — hai việc chọi nhau
+        // và người dùng bấm cái nút, để rồi tài liệu ra đời thiếu đúng phần cái bảng chở. Xem
+        // PendingConfirmTableGate.
+        gateState = pendingTablePanel() ? "table"
+            : (invited === true || (draftExists && coverageReady === true)) ? "ready"
+            : "waiting";
         syncWriteReqGate();
     }
 
@@ -3483,11 +3520,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         writeReqZone.dataset.state = gateState;
 
-        // Ghi chú ở sidebar chỉ đúng khi CHƯA đủ thông tin: đủ rồi thì lời mời đã nằm trong chat, nhắc lại
-        // ở cột bên kia là thừa.
-        const waitingHint = document.getElementById("writeReqWaitingHint");
-        if (waitingHint) waitingHint.hidden = gateState !== "waiting";
-
         const conflictPanel = document.getElementById("conflictPanel");
 
         // Dời CẢ CỤM xuống cuối dòng hội thoại (cùng cách renderSuggestions dời khay chip): các bong bóng
@@ -3495,9 +3527,21 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // vượt qua — lời mời tạo tài liệu nổi lên phía trên chính câu trả lời vừa sinh ra nó. Dời wrapper
         // chứ không dời từng khối, để panel mâu thuẫn không lạc khỏi nút đã bật nó lên.
         // Dời KỂ CẢ khi cổng đang đóng: "cụm này luôn là khối cuối" phải đúng ở mọi lượt, không chỉ ở lượt
-        // mời. Cụm đóng nằm lại giữa hội thoại thì hôm nay vô hại (cả hai con đều ẩn) nhưng biến vị trí của
-        // nó thành thứ phụ thuộc vào lịch sử các lượt trước — thêm một khối thấy được vào cụm là lộ ra ngay.
+        // mời — và từ khi cụm có khối #tableGate (trạng thái "table") thì nó không còn là chuyện vô hình
+        // nữa: khối đó HIỆN, nên cụm nằm lại giữa hội thoại là câu chặn nổi lên trên chính cái bảng nó bảo
+        // người dùng đi rà.
         thinkingBox.before(writeReqZone);
+
+        // CÒN BẢNG CHỜ CHỐT: khối này loại trừ với cổng mở ở dưới (hai câu trả lời khác nhau cho cùng câu
+        // hỏi "bấm gì tiếp"), và nó phải GỌI TÊN bảng — đóng cổng trong im lặng ở cuối khung chat đọc lên
+        // thành "hệ thống hỏng", vì người dùng vừa thấy một bảng và vốn quen có nút ở đây.
+        const tableGate = document.getElementById("tableGate");
+        if (tableGate) {
+            const panel = gateState === "table" ? pendingTablePanel() : null;
+            const hintEl = document.getElementById("tableGateHint");
+            if (panel && hintEl) hintEl.textContent = tableGateHint(panel);
+            tableGate.hidden = !panel;
+        }
 
         if (gateState !== "ready") {
             // BA quay lại hỏi tiếp (vd vừa phát hiện mâu thuẫn từ chính đính chính user vừa gửi) ⇒ lời mời
@@ -3625,43 +3669,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
-    // Bấm "chưa đúng?" trên MỘT bước của sơ đồ luồng → soạn sẵn tin nhắn đính chính đúng bước đó vào ô
-    // nhập, thay vì bắt user tự mô tả lại cả luồng. Sơ đồ nằm trong bubble BA (thêm động vào chatMessages)
-    // nên bắt sự kiện ở mức chatMessages (delegated) để áp cho cả sơ đồ server-render lẫn client-render.
-    if (chatMessages) {
-        chatMessages.addEventListener("click", function (e) {
-            const fix = e.target.closest(".flow-step-fix");
-            if (!fix) return;
-            messageInput.value = `Bước "${fix.dataset.step}" trong sơ đồ luồng chưa đúng. Ý đúng của tôi là: `;
-            resizeMessageInput();
-            messageInput.focus();
-            messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
-        });
-    }
-
-    // Sơ đồ luồng nghiệp vụ (chỉ ở lượt mời "Write Requirement"): render trong bubble BA để user xác
-    // nhận trực quan. Markup khớp bản server render trong Index.cshtml. Xóa sơ đồ của lượt cũ trước khi
-    // vẽ để chỉ lượt mới nhất còn hiện (như chip gợi ý).
-    function renderFlowDiagram(bubble, steps) {
-        chatMessages.querySelectorAll(".flow-diagram").forEach(el => el.remove());
-        if (!Array.isArray(steps) || steps.length === 0) return;
-
-        const rows = steps.map(s => `
-            <li class="flow-step">
-                ${s.actor ? `<span class="flow-actor">${escapeHtml(s.actor)}</span>` : ""}
-                <span class="flow-action">${escapeHtml(s.action || "")}</span>
-                ${s.outcome ? `<span class="flow-outcome">${escapeHtml(s.outcome)}</span>` : ""}
-                <button type="button" class="flow-step-fix" data-step="${escapeHtml(s.action || "")}" title="Bấm nếu bước này chưa đúng để đính chính ngay trong chat">chưa đúng?</button>
-            </li>
-        `).join("");
-
-        bubble.insertAdjacentHTML("beforeend", `
-            <div class="flow-diagram" aria-label="Sơ đồ luồng nghiệp vụ để xác nhận">
-                <div class="flow-diagram-title">Luồng nghiệp vụ chính — anh/chị xem giúp đã đúng chưa nhé:</div>
-                <ol class="flow-steps">${rows}</ol>
-            </div>
-        `);
-    }
+    // KHÔNG còn sơ đồ luồng ở lượt mời "Write Requirement" (renderFlowDiagram + nút "chưa đúng?" cho từng
+    // bước): nó vẽ lại MỘT luồng chính mà người dùng đã tự tay duyệt từng bước ở BẢNG LUỒNG từ giữa buổi
+    // — và bấm "chưa đúng?" ở đó cũng không sửa được bảng đã chốt, vì FlowMapGate không mở lại. Đính chính
+    // luồng đi qua chính bảng đó; xem docs/requirement-flow.md.
 
     // Tiền tố lượt BA "lời gọi AI thất bại" — khớp ConversationTranscriptBuilder.LlmFailurePrefix phía
     // server. Lượt như vậy được lưu DB như lượt thường (done ok=true) nên phải nhận diện bằng nội dung.
@@ -3682,10 +3693,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             renderSuggestions(data.suggestions, data.suggestionsMultiSelect === true);
             setComposerOpenEnded(data.openEnded === true);
             renderCoverage(data.coverage, data.coverageStale === true);
-            // Cổng tạo tài liệu chỉ mở ở lượt BA MỜI tạo tài liệu — cùng cờ mời điều khiển cả việc mở cổng
-            // lẫn nhãn nút bên trong, nên hai thứ không thể vênh nhau.
-            setWriteReqInvited(data.invitesWriteRequirement === true, data.coverageReady === true);
-            renderFlowDiagram(bubble, data.flowDiagram);
             // Bảng phân quyền: lượt chốt nhóm phân quyền. Không dựng trong `bubble` mà vào panel cố định
             // của trang (như bảng cột) — bảng treo tới khi dự án chốt nó, sống lâu hơn lượt sinh ra nó.
             renderPermissionMatrix(data.permissionMatrix);
@@ -3696,6 +3703,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             renderEntityMap(data.entityMap);
             renderReportMap(data.reportMap, data.reportEntityOptions);
             renderNotificationMap(data.notificationMap, data.recipientOptions);
+            // Cổng tạo tài liệu chỉ mở ở lượt BA MỜI tạo tài liệu — cùng cờ mời điều khiển cả việc mở cổng
+            // lẫn nhãn nút bên trong, nên hai thứ không thể vênh nhau.
+            //
+            // SAU bảy lời gọi render bảng, không trước: cổng đóng khi còn bảng chờ chốt, và nó đọc điều đó
+            // từ chính các panel — chạy trước thì lượt vừa bày bảng ra vẫn thấy màn hình "chưa có bảng nào"
+            // và mở cổng đúng một lượt, tức đúng cái lỗi cần sửa.
+            setWriteReqInvited(data.invitesWriteRequirement === true, data.coverageReady === true);
 
             // Lượt lỗi LLM: tô đỏ + nút "Thử lại" (server xóa lượt lỗi rồi chạy lại, khỏi gõ lại câu hỏi)
             // — markup khớp bản server render trong Index.cshtml.
@@ -3706,7 +3720,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
 
             // SAU CÙNG vì thẻ hỏi NUỐT bong bóng vừa stream làm câu dẫn của nó (absorbLeadBubble): mọi
-            // thứ còn ghi vào `bubble` — sơ đồ luồng, nút "Thử lại" — phải xong trước, không thì ghi vào
+            // thứ còn ghi vào `bubble` — nút "Thử lại" — phải xong trước, không thì ghi vào
             // một node đã rời khỏi DOM.
             renderBatchQuestions(data.questions, bubble);
         } else {
@@ -4453,7 +4467,10 @@ async function loadDocPreview(previewEl) {
     const listEl = document.getElementById("briefNotesList");
     const countEl = document.getElementById("briefNotesCount");
     const sendBtn = document.getElementById("briefNotesSendBtn");
-    const content = document.querySelector(".requirement-content");
+    // Phải neo đúng vào popup Product Brief: trang này còn popup "Tài liệu nguồn" cũng dùng class
+    // .requirement-content và đứng TRƯỚC trong DOM, nên querySelector không gắn id sẽ bắt nhầm nó và
+    // không bao giờ tìm thấy .doc-render → bôi đen xong không thấy nút "＋ Ghi chú" hiện lên.
+    const content = document.querySelector("#requirementModal .requirement-content");
     if (!tray || !listEl || !sendBtn || !content) return;
 
     const notes = []; // { quote, note }
@@ -4602,6 +4619,10 @@ async function loadDocPreview(previewEl) {
             showAddButton(range.getBoundingClientRect(), quote);
         }, 10);
     });
+
+    // Nút "＋ Ghi chú" nổi trên document.body theo toạ độ lúc bôi đen; nội dung brief lại cuộn trong
+    // modal, nên khi user cuộn tiếp thì nút sẽ trỏ nhầm đoạn — bỏ nút đi, bôi đen lại là có ngay.
+    content.addEventListener("scroll", removeAddBtn);
 
     listEl.addEventListener("click", function (e) {
         const del = e.target.closest(".brief-note-del");

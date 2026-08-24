@@ -157,7 +157,11 @@ public class BriefNoteRevisionScopeTests : IDisposable
     [Fact]
     public async Task NoExistingDraft_FallsBackToFullGeneration()
     {
+        // Lượt cuối mang dấu ReadinessVerified (đúng thứ lượt chat đóng khi cổng tất định cho lời mời đi
+        // qua) ⇒ lượt soạn đi thẳng vào việc, không xét lại bản đồ. Ở đây nó chỉ để bài test nhìn thấy
+        // lời gọi soạn tài liệu, chứ nhánh đang test là "không có bản gốc thì rơi về đường soạn".
         await SeedTurnsAsync(
+            verifiedLastTurn: true,
             ("user", "Tôi muốn app quản lý đơn nghỉ phép"),
             ("assistant", "Mình đã đủ thông tin, vui lòng bấm \"Write Requirement\" để tạo tài liệu."));
 
@@ -174,6 +178,43 @@ public class BriefNoteRevisionScopeTests : IDisposable
         Assert.Equal(RequirementDraftOutcome.NeedsMoreInfo, outcome);
         Assert.Equal(1, llm.ProductBriefCalls);
         Assert.Equal(0, llm.NoteRevisionCalls);
+    }
+
+    // Còn một BẢNG CHỐT treo trên màn hình ⇒ chặn y như lượt soạn (PendingConfirmTableGate). Vòng sửa này
+    // hẹp hơn nhiều, nhưng bảng được gửi sẽ mở cổng soạn lại và vòng soạn đó viết đè cả tài liệu — công
+    // sửa ở đây tan ngay sau đó. Chặn phải xảy ra TRƯỚC mọi lời gọi LLM.
+    [Fact]
+    public async Task PendingConfirmTable_BlocksBeforeAnyLlmCall_AndLeavesTheDocumentAlone()
+    {
+        await SeedDraftAsync(OriginalBrief);
+        // Lượt BA vừa bày bảng báo cáo, Project.ReportMap còn null ⇒ bảng vẫn đang chờ người dùng gửi.
+        await SeedTurnsAsync(verifiedLastTurn: false, turns: ("assistant", "Mời anh/chị rà bảng báo cáo."));
+        await using (var seed = NewDb())
+        {
+            var turn = await seed.AgentConversations.OrderBy(c => c.CreatedAt).LastAsync();
+            turn.ReportMap = """[{"report":"JD Status Count Report","included":true}]""";
+            await seed.SaveChangesAsync();
+        }
+
+        var llm = new FakeLlm();
+
+        await using var db = NewDb();
+        var outcome = await NewSut(db, llm).ReviseDraftFromNotesAsync(_projectId, new[]
+        {
+            new BriefNote { Quote = "Gửi đơn nghỉ phép", Note = "gọi là 'đơn xin nghỉ'" }
+        });
+
+        Assert.Equal(RequirementDraftOutcome.NeedsMoreInfo, outcome);
+        Assert.Equal(0, llm.NoteRevisionCalls);
+        Assert.Equal(0, llm.ProductBriefCalls);
+
+        await using var verify = NewDb();
+        Assert.Equal(OriginalBrief, (await verify.ProjectDocuments.SingleAsync()).Content);
+        // Câu chặn phải tự đứng được: nó là thứ duy nhất người dùng nhìn thấy khi run kết thúc.
+        var lastTurn = await verify.AgentConversations
+            .OrderBy(c => c.CreatedAt).ThenBy(c => c.Id)
+            .LastAsync();
+        Assert.Contains("Gửi bảng báo cáo", lastTurn.Message, StringComparison.Ordinal);
     }
 
     // Bản sửa hỏng/rỗng: tài liệu người dùng đang rà phải còn NGUYÊN, và task phải fail để họ biết ghi chú
@@ -258,7 +299,9 @@ public class BriefNoteRevisionScopeTests : IDisposable
         await db.SaveChangesAsync();
     }
 
-    private async Task SeedTurnsAsync(params (string Role, string Message)[] turns)
+    // verifiedLastTurn: đóng dấu AgentConversation.ReadinessVerified lên lượt CUỐI — nội dung lượt KHÔNG
+    // còn là tín hiệu của cổng readiness (xem RequirementReadinessGate.IsReadinessVerifiedLatestTurn).
+    private async Task SeedTurnsAsync(bool verifiedLastTurn, params (string Role, string Message)[] turns)
     {
         await using var db = NewDb();
         var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -268,6 +311,7 @@ public class BriefNoteRevisionScopeTests : IDisposable
             {
                 ProjectId = _projectId,
                 AgentId = _baId,
+                ReadinessVerified = verifiedLastTurn && i == turns.Length - 1,
                 Role = turns[i].Role,
                 Message = turns[i].Message,
                 CreatedAt = baseTime.AddSeconds(i)

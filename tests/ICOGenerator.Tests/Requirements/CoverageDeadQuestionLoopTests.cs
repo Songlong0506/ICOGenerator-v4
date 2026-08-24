@@ -20,6 +20,10 @@ namespace ICOGenerator.Tests.Requirements;
 // 2. TRIỆU CHỨNG: cổng readiness thay lời mời "Write Requirement" của BA bằng một câu dựng sẵn kết thúc
 //    bằng "bạn chia sẻ giúp mình nhé" và gọi nhóm bằng NHÃN NỘI BỘ của bản đồ. Người dùng nghiệp vụ
 //    không có cách nào trả lời câu đó, nên vòng lặp không tự thoát được.
+//
+// Nhãn nội bộ nay đã đi khỏi HẲN màn hình — câu chặn chỉ chở CÂU HỎI, không nhãn nhóm, không đếm số nhóm
+// còn lại ("cứ hỏi thẳng luôn, không cần phải nói nhóm gì hết"). Vì vậy sổ "đã hỏi chỗ nào" của cổng cũng
+// đổi khóa: nó dò chính CÂU HỎI sắp phát trong các lượt đã lưu, thay vì đọc nhãn trong cặp «…».
 public class CoverageDeadQuestionLoopTests
 {
     // Bảng cột đã chốt là câu trả lời của người dùng, chỉ khác là họ trả lời bằng cách tích từng dòng.
@@ -59,9 +63,9 @@ public class CoverageDeadQuestionLoopTests
         // …và là một CÂU HỎI, không phải bản tin trạng thái.
         Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
 
-        // Nhãn nhóm được phép đứng làm chủ đề để người dùng biết đang bàn phần nào…
-        Assert.Contains("«Dữ liệu / danh mục chính»", readiness.Message, StringComparison.Ordinal);
-        // …nhưng KHÔNG phát lại tóm tắt máy (đọc lên tưởng bị hỏi lại điều vừa trả lời), và lượt này
+        // Nhãn nhóm là sổ sách nội bộ ⇒ KHÔNG được lên màn hình…
+        Assert.DoesNotContain("Dữ liệu / danh mục chính", readiness.Message, StringComparison.Ordinal);
+        // …và cũng KHÔNG phát lại tóm tắt máy (đọc lên tưởng bị hỏi lại điều vừa trả lời); lượt này
         // không được kết thúc bằng một lời mời trống nghĩa như bản cũ.
         Assert.DoesNotContain("Master List gồm 6 cột đã chốt", readiness.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("bạn chia sẻ giúp mình nhé", readiness.Message, StringComparison.Ordinal);
@@ -78,7 +82,7 @@ public class CoverageDeadQuestionLoopTests
             """);
 
         Assert.False(readiness.Ready);
-        Assert.Contains("Thông báo / nhắc nhở", readiness.Message, StringComparison.Ordinal);
+        Assert.Equal(CoverageGroupOpeners.Find("Thông báo / nhắc nhở"), readiness.Message);
         Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
     }
 
@@ -100,7 +104,7 @@ public class CoverageDeadQuestionLoopTests
         Assert.DoesNotContain(AskedQuestionHistory.ReopenNote, readiness.Message, StringComparison.OrdinalIgnoreCase);
         // Không còn mẩu nào để hỏi ⇒ rơi về câu mở đầu của nhóm: một câu hỏi rộng vẫn trả lời được, còn
         // cụm tín hiệu thì không.
-        Assert.Contains("Đối tượng người dùng & vai trò", readiness.Message, StringComparison.Ordinal);
+        Assert.Contains(CoverageGroupOpeners.Find("Đối tượng người dùng & vai trò")!, readiness.Message, StringComparison.Ordinal);
         Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
     }
 
@@ -215,15 +219,18 @@ public class CoverageDeadQuestionLoopTests
         }
     }
 
-    // Nhãn model tự nghĩ ra: không có câu mở đầu nào, và cổng KHÔNG được bịa một câu hỏi về một nhóm không
-    // có trong checklist. Câu dẫn vẫn chở nhãn nên lượt đó còn chủ đề để bám.
+    // Nhãn model tự nghĩ ra: không có câu mở đầu nào, và cổng KHÔNG được bịa một câu hỏi khai thác về một
+    // nhóm không có trong checklist. Nhãn vẫn được đọc vào câu như một cụm CHỦ ĐỀ bình thường — đó là ngôn
+    // ngữ tự nhiên, khác hẳn cái ngoặc sổ sách "(nhóm «…»)" của bản trước.
     [Fact]
     public void AnUnknownGroupLabelStillGetsAnAnswerableTurn()
     {
         var readiness = RequirementReadinessGate.Evaluate("- Tích hợp hệ thống ngoài: [CHƯA HỎI]");
 
         Assert.False(readiness.Ready);
-        Assert.Contains("«Tích hợp hệ thống ngoài»", readiness.Message, StringComparison.Ordinal);
+        Assert.Contains("tích hợp hệ thống ngoài", readiness.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("nhóm", readiness.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("«", readiness.Message, StringComparison.Ordinal);
         Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
     }
 
@@ -232,7 +239,7 @@ public class CoverageDeadQuestionLoopTests
     // Đây là nửa còn lại của vòng lặp câu hỏi chết ở đầu file — ba lượt liên tiếp GIỐNG HỆT nhau. Nguồn của
     // nó là một lỗ trong cơ chế: AskedQuestionHistory.Collect chỉ nhận một lượt assistant là "câu hỏi" khi
     // lượt đó có GỢI Ý, mà lượt chặn của cổng cố tình không có chip nào — nên câu của cổng vô hình với đúng
-    // cái phanh dựng ra để chặn hỏi lại. Cổng vì thế giữ sổ riêng, nhận diện bằng chính câu dẫn nó viết ra.
+    // cái phanh dựng ra để chặn hỏi lại. Cổng vì thế giữ sổ riêng, dò bằng chính CÂU HỎI nó dựng ra.
 
     private const string TwoPendingGroups = """
         - ★ Chức năng & luồng nghiệp vụ chính: [CHƯA HỎI]
@@ -247,7 +254,7 @@ public class CoverageDeadQuestionLoopTests
     {
         var readiness = RequirementReadinessGate.Evaluate(TwoPendingGroups);
 
-        Assert.Contains("«Chức năng & luồng nghiệp vụ chính»", readiness.Message, StringComparison.Ordinal);
+        Assert.Equal(CoverageGroupOpeners.Find("Chức năng & luồng nghiệp vụ chính"), readiness.Message);
     }
 
     // Đã hỏi nhóm cốt lõi mà bản đồ không nhúc nhích ⇒ chuyển sang nhóm CHƯA hỏi, kể cả khi nó không phải ★.
@@ -260,7 +267,7 @@ public class CoverageDeadQuestionLoopTests
 
         var second = RequirementReadinessGate.Evaluate(TwoPendingGroups, new[] { BaTurn(first.Message) });
 
-        Assert.Contains("«Quy mô sử dụng»", second.Message, StringComparison.Ordinal);
+        Assert.Equal(CoverageGroupOpeners.Find("Quy mô sử dụng"), second.Message);
         Assert.NotEqual(first.Message, second.Message);
     }
 
@@ -275,7 +282,7 @@ public class CoverageDeadQuestionLoopTests
         var third = RequirementReadinessGate.Evaluate(
             TwoPendingGroups, new[] { BaTurn(first.Message), BaTurn(second.Message) });
 
-        Assert.Contains("«Chức năng & luồng nghiệp vụ chính»", third.Message, StringComparison.Ordinal);
+        Assert.Contains(CoverageGroupOpeners.Find("Chức năng & luồng nghiệp vụ chính")!, third.Message, StringComparison.Ordinal);
         Assert.StartsWith("Mình quay lại", third.Message, StringComparison.Ordinal);
         Assert.NotEqual(first.Message, third.Message);
     }
@@ -291,37 +298,63 @@ public class CoverageDeadQuestionLoopTests
         var second = RequirementReadinessGate.Evaluate(oneGroup, new[] { BaTurn(first.Message) });
 
         Assert.NotEqual(first.Message, second.Message);
-        Assert.Contains("«Quy mô sử dụng»", second.Message, StringComparison.Ordinal);
+        Assert.Contains(CoverageGroupOpeners.Find("Quy mô sử dụng")!, second.Message, StringComparison.Ordinal);
         Assert.EndsWith("?", second.Message.Trim(), StringComparison.Ordinal);
     }
 
-    // Nhận diện lượt chặn là giao ước code↔code mà compiler không kiểm được: CẢ HAI biến thể câu dẫn phải
-    // đọc ra được nhãn nhóm. Sửa một biến thể mà quên cụm nhận diện thì cổng mất sổ và lặng lẽ quay về phát
-    // lại một câu ba lượt liền — không test nào khác bắt được.
+    // Nhận diện lượt chặn là giao ước code↔code mà compiler không kiểm được: CẢ HAI biến thể của lượt chặn
+    // phải đọc ra được. Lượt "quay lại" chỉ thêm một câu dẫn ở ĐẦU, vế hỏi phía sau giữ nguyên — sổ dò trên
+    // vế hỏi nên phải thấy cả hai. Thêm câu dẫn vào GIỮA hay đổi vế hỏi ở nhánh "quay lại" là cổng mất sổ và
+    // lặng lẽ quay về phát lại một câu ba lượt liền; không test nào khác bắt được.
     [Fact]
-    public void AskedGroups_ReadsBothWordingsOfTheGateTurn()
+    public void LastAskedAt_ReadsBothWordingsOfTheGateTurn()
     {
-        var firstAsk = RequirementReadinessGate.Evaluate(TwoPendingGroups).Message;
-        var comingBack = RequirementReadinessGate.Evaluate(
-            "- Quy mô sử dụng: [CHƯA HỎI]",
-            new[] { BaTurn(RequirementReadinessGate.Evaluate("- Quy mô sử dụng: [CHƯA HỎI]").Message) }).Message;
+        const string oneGroup = "- Quy mô sử dụng: [CHƯA HỎI]";
+        var firstAsk = RequirementReadinessGate.Evaluate(oneGroup).Message;
+        var comingBack = RequirementReadinessGate.Evaluate(oneGroup, new[] { BaTurn(firstAsk) }).Message;
 
         Assert.StartsWith("Mình quay lại", comingBack, StringComparison.Ordinal);
-        Assert.Equal(
-            new[] { "Chức năng & luồng nghiệp vụ chính", "Quy mô sử dụng" },
-            RequirementReadinessGate.AskedGroups(new[] { BaTurn(firstAsk), BaTurn(comingBack) }));
+        Assert.Equal(0, RequirementReadinessGate.LastAskedAt(new[] { BaTurn(firstAsk) }, firstAsk));
+        Assert.Equal(1, RequirementReadinessGate.LastAskedAt(
+            new[] { BaTurn("Cảm ơn anh/chị."), BaTurn(comingBack) }, firstAsk));
     }
 
-    // Sổ chỉ đếm lượt của CỔNG. Lượt của người dùng, lượt BA hỏi bình thường và lượt ⚠️ báo lỗi gọi AI
-    // không phải câu chặn — tính chúng vào là cổng bỏ qua một nhóm chưa ai hỏi.
+    // Sổ chỉ đếm lượt của BA. Lượt của người dùng (họ dán lại câu hỏi để hỏi ngược), lượt BA nói chuyện
+    // khác và lượt ⚠️ báo lỗi gọi AI không phải câu chặn — tính chúng vào là cổng bỏ qua một chỗ chưa ai hỏi.
     [Fact]
-    public void AskedGroups_IgnoresEverythingThatIsNotAGateTurn()
+    public void LastAskedAt_IgnoresEverythingThatIsNotAnAssistantTurnAskingIt()
     {
-        Assert.Empty(RequirementReadinessGate.AskedGroups(new[]
+        var question = RequirementReadinessGate.Evaluate(TwoPendingGroups).Message;
+
+        Assert.Equal(-1, RequirementReadinessGate.LastAskedAt(new[]
         {
-            new AgentConversation { Role = "user", Message = RequirementReadinessGate.Evaluate(TwoPendingGroups).Message },
-            BaTurn("Anh/chị cho mình hỏi thêm về nhóm «Quy mô sử dụng» nhé?"),
+            new AgentConversation { Role = "user", Message = question },
+            BaTurn("Anh/chị cho mình hỏi thêm: ai chịu trách nhiệm cập nhật danh sách khóa học?"),
             BaTurn("⚠️ Lời gọi AI thất bại, lượt trả lời bị gián đoạn."),
-        }));
+        }, question));
+    }
+
+    // ==== KHÔNG NÓI NHÓM: lượt chặn chỉ chở CÂU HỎI ====
+    //
+    // Bản trước mở đầu bằng *"Trước khi viết tài liệu, mình còn một chỗ chưa đủ thông tin để khỏi phải tự
+    // đoán (nhóm «Đối tượng người dùng & vai trò», còn 3 nhóm — mình hỏi từng nhóm một)"* rồi mới tới câu
+    // hỏi thật. Cả cụm đó là sổ sách của hệ thống đọc ra màn hình: nhãn nhóm là từ vựng của bản đồ mà người
+    // dùng nghiệp vụ chưa từng thấy, còn "còn 3 nhóm" chỉ báo cho họ biết còn phải chịu bao nhiêu lượt nữa.
+    // Yêu cầu của người dùng repo: "BA có câu hỏi nào thì cứ hỏi thẳng luôn, không cần phải nói nhóm gì hết".
+    [Theory]
+    [InlineData("[CHƯA HỎI]")]
+    [InlineData("[MỘT PHẦN] còn thiếu: ai chịu trách nhiệm cập nhật danh sách")]
+    [InlineData("[MỘT PHẦN] Đã chốt duyệt hai cấp")]
+    public void ThePendingTurnNeverNamesOrCountsCoverageGroups(string status)
+    {
+        foreach (var group in CoverageChecklist.Parse(CoveragePromptFixture.Read()))
+        {
+            var map = $"- {group.Label}: {status}\n- Quy mô sử dụng: [CHƯA HỎI]";
+            var message = RequirementReadinessGate.Evaluate(map).Message;
+
+            Assert.DoesNotContain("nhóm", message, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("«", message, StringComparison.Ordinal);
+            Assert.DoesNotContain(group.Label, message, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }
