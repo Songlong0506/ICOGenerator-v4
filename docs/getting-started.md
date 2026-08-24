@@ -8,7 +8,7 @@
 | ORM | **EF Core 8** | Provider chọn runtime: `SqlServer` (mặc định) hoặc `Sqlite` (dev/CI) |
 | Agent runtime | **Microsoft.Agents.AI 1.10.0** (Microsoft Agent Framework) | `ChatClientAgent` + `AgentSession` tự lo vòng lặp ReAct |
 | LLM abstraction | **Microsoft.Extensions.AI 10.7.0** + `Microsoft.Extensions.AI.OpenAI` | Nói chuyện với mọi endpoint OpenAI-compatible (LM Studio, DeepSeek, OpenAI...) |
-| Sinh tài liệu | **DocumentFormat.OpenXml 3.5.1** | Điền nội dung vào template `.docx` trong `Templates/` |
+| Sinh tài liệu | **DocumentFormat.OpenXml 3.5.1** | Điền nội dung vào template `.docx` trong `Templates/`; dựng `.docx` từ Markdown do LLM trả về |
 | Đọc PDF | **PdfPig 0.1.15** | Trích text từ tài liệu nguồn user upload; trang SCAN (không có text) được lấy ảnh cả trang, trang có text được lấy các hình nhúng đủ lớn — cả hai ra PNG cho model vision |
 | Logging | **Serilog** (Console + File xoay ngày) | Cấu hình hoàn toàn qua `appsettings.json` |
 | Tracing/Metrics | **OpenTelemetry** (OTLP) | OPT-IN qua `Otel:Enabled`, mặc định tắt |
