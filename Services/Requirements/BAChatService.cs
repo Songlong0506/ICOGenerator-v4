@@ -32,6 +32,7 @@ public class BAChatService
     private readonly BAConversationLog _conversationLog;
     private readonly DecisionLogService _decisionLog;
     private readonly InterviewOutlookService _interviewOutlook;
+    private readonly ScreenStepPlacementService _stepPlacement;
     private readonly ChecklistNoteStore _checklistNotes;
     private readonly IServiceScopeFactory? _scopeFactory;
     private readonly BAChatTurnTracker? _turnTracker;
@@ -131,6 +132,91 @@ public class BAChatService
         + "anh/chị bỏ tích sự kiện không cần báo, chọn người nhận cho các sự kiện còn lại, rồi bấm "
         + "\"Gửi bảng thông báo\" giúp mình nhé.";
 
+    /// <summary>
+    /// Câu nói thêm khi BA vừa TỰ XẾP CHỖ cho các bước luồng chưa ai phụ trách
+    /// (<see cref="ScreenStepPlacementService"/>). Trả null khi không xếp được gì.
+    ///
+    /// <para>
+    /// Vì sao việc xếp chỗ không được im lặng, dù mọi dòng đều tích sẵn và người dùng vẫn rà được: một
+    /// MÀN HÌNH mới xuất hiện giữa bảng mà không câu nào nói vì sao thì người dùng chỉ có hai cách hiểu —
+    /// hoặc họ đọc sót ở lượt trước, hoặc BA tự tiện thêm. Cùng luật với
+    /// <c>ScreenScopeMapBuilder.RenderUserMessage</c> kể lại các dòng người dùng tự thêm: thứ vào phạm vi
+    /// bằng một đường khác thường phải được gọi tên ở đúng lượt nó vào.
+    /// </para>
+    ///
+    /// <para>
+    /// Câu này dựng từ BẢNG SAU KHI XẾP chứ không từ lời model trả về: chỗ ở thật của một bước là chỗ
+    /// <c>ApplyPlacements</c> đã ghi nó vào, và các mục bị chốt chặn ở đó bỏ đi thì không được kể như đã
+    /// làm. Vế "trước" chỉ là các TÊN màn hình, không phải bảng cũ: <c>ApplyPlacements</c> trả một danh
+    /// sách mới nhưng dùng lại chính các object dòng, nên một tham chiếu tới bảng cũ không phải một ảnh
+    /// chụp — nó đổi theo.
+    /// </para>
+    /// </summary>
+    public static string? ScreenScopePlacementNotice(
+        IReadOnlyList<string> screensBefore,
+        IReadOnlyList<ScreenScopeRow> after,
+        IReadOnlyList<string> placedSteps)
+    {
+        if (placedSteps.Count == 0)
+            return null;
+
+        var lines = new List<string>();
+        foreach (var step in placedSteps)
+        {
+            var home = after
+                .Where(r => r.Included)
+                .SelectMany(r => r.Functions.Where(f => f.Included).Select(f => new { Row = r, Function = f }))
+                .FirstOrDefault(x => x.Function.FlowSteps.Any(s =>
+                    string.Equals(s.Trim(), step.Trim(), StringComparison.OrdinalIgnoreCase)));
+            if (home != null)
+                lines.Add($"• “{step}” → {home.Row.Screen} · “{home.Function.Name}”");
+        }
+
+        if (lines.Count == 0)
+            return null;
+
+        var known = new HashSet<string>(screensBefore, StringComparer.OrdinalIgnoreCase);
+        var addedScreens = after.Select(r => r.Screen).Where(s => !known.Contains(s)).ToList();
+
+        var notice = "\n\nCó mấy bước trong luồng anh/chị đã chốt mà chưa chức năng nào phụ trách, mình xếp "
+            + "vào chỗ hợp lý nhất rồi — anh/chị xem giúp có đúng không:\n"
+            + string.Join("\n", lines);
+
+        if (addedScreens.Count > 0)
+        {
+            notice += $"\nTrong đó {string.Join(", ", addedScreens.Select(s => $"“{s}”"))} là màn hình mình "
+                + "thêm mới vì không màn nào đang có làm được việc đó — không cần thì anh/chị bỏ tích giúp mình.";
+        }
+
+        return notice;
+    }
+
+    /// <summary>
+    /// Danh sách các BƯỚC LUỒNG đã chốt, đính vào cuối khối lệnh bày bảng màn hình dưới dạng một bảng kê
+    /// phải đối chiếu. Chưa chốt bảng luồng ⇒ chuỗi rỗng.
+    ///
+    /// <para>
+    /// Các bước này đã nằm sẵn trong ngữ cảnh qua khối "bảng luồng đã chốt" của
+    /// <c>FlowMapBuilder.RenderConfirmedBlock</c>, nhưng ở đó chúng là một câu chuyện để ĐỌC, kể theo từng
+    /// luồng và trộn với vai trò, điều kiện kích hoạt, kết quả sau mỗi bước. Ở đây chúng là một danh sách
+    /// phẳng để ĐỐI CHIẾU, đúng hình dạng mà <c>ScreenScopeMapBuilder.UncoveredActions</c> sẽ chấm ngay sau
+    /// đó — và chỗ hỏng của lượt này chưa bao giờ là chỗ hiểu, nó là chỗ nối.
+    /// </para>
+    /// </summary>
+    private static string FlowStepChecklist(string? flowMapJson)
+    {
+        var actions = FlowMapBuilder.IncludedActions(flowMapJson);
+        if (actions.Count == 0)
+            return string.Empty;
+
+        return "\n\n### Các BƯỚC của bảng luồng đã chốt (mỗi bước phải có ÍT NHẤT MỘT chức năng nhận vào "
+            + "`flowSteps` — hệ thống đối chiếu tất định danh sách này với bảng bạn trả về)\n"
+            + string.Join("\n", actions.Select(a => "- " + a))
+            + "\nBước nào không màn hình nào trong phạm vi trên làm được thì CỨ ĐỂ TRỐNG, đừng gán bừa vào "
+            + "một màn cho đủ: gán sai là dựng một chức năng không có thật lên một màn hình có thật, và "
+            + "người dùng đọc lướt qua nó như phần đã đúng. Hệ thống có một lượt riêng xử phần còn lại.";
+    }
+
     public BAChatService(
         AppDbContext db,
         ILlmClient llm,
@@ -145,6 +231,7 @@ public class BAChatService
         BAConversationLog conversationLog,
         DecisionLogService decisionLog,
         InterviewOutlookService interviewOutlook,
+        ScreenStepPlacementService stepPlacement,
         ChecklistNoteStore checklistNotes,
         IServiceScopeFactory? scopeFactory = null,
         BAChatTurnTracker? turnTracker = null)
@@ -162,6 +249,7 @@ public class BAChatService
         _conversationLog = conversationLog;
         _decisionLog = decisionLog;
         _interviewOutlook = interviewOutlook;
+        _stepPlacement = stepPlacement;
         _checklistNotes = checklistNotes;
         // null (test/không có DI đầy đủ) ⇒ các bước chuẩn bị chạy TUẦN TỰ trên chính scope này —
         // hành vi cũ. Có factory ⇒ chạy SONG SONG, mỗi bước một scope riêng (xem PrepareTurnContextAsync).
@@ -725,9 +813,9 @@ public class BAChatService
                 + "evidence}` — người dùng tích/bỏ tích từng chức năng một, nên đừng gói nhiều việc vào một "
                 + "`name` (\"Xem, Sửa và Gửi duyệt\" là ba chức năng, không phải một).\n"
                 + "- `flowSteps` của TỪNG chức năng: các BƯỚC của bảng luồng đã chốt mà CHỨC NĂNG ĐÓ phụ trách "
-                + "— chép phần `action` của bước. Đây là phần quan trọng nhất của bảng: hệ thống đối chiếu tất "
-                + "định và nói thẳng cho người dùng biết bước nào chưa có chức năng nào phụ trách. Chức năng "
-                + "tra cứu không nằm trong luồng nào thì để mảng rỗng.\n"
+                + "— chép phần `action` của bước. Đây là phần quan trọng nhất của bảng: MỌI bước trong danh "
+                + "sách cuối khối này phải được ÍT NHẤT MỘT chức năng nhận, và hệ thống đối chiếu tất định "
+                + "chỗ này. Chức năng tra cứu không nằm trong luồng nào thì để mảng rỗng.\n"
                 + "- `evidence`: CHỈ điền khi người dùng đã tự nêu màn hình / chức năng đó, kèm đúng trích dẫn "
                 + "của họ. Dòng có trích dẫn được tích sẵn kèm dấu ✓; phần bạn suy ra thì để trống trường này.\n"
                 + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng màn hình\" — không đặt "
@@ -740,7 +828,15 @@ public class BAChatService
                         + string.Join("\n", newScreens.Select(s => "- " + s))
                         + "\nMục nào trong số này thật ra chỉ là một chức năng của màn hình ĐÃ CHỐT thì đừng "
                         + "dựng thành dòng riêng: ghi nguyên văn nó vào `covers` của dòng ấy."
-                    : string.Empty)));
+                    : string.Empty)
+                // BẢNG KÊ CÁC BƯỚC PHẢI PHỦ. Các bước này đã có trong ngữ cảnh qua khối bảng luồng đã chốt,
+                // nhưng ở đó chúng là một câu chuyện để đọc, còn ở đây là một danh sách để ĐỐI CHIẾU — và
+                // chỗ hỏng của lượt này luôn là chỗ nối chứ không phải chỗ hiểu. Ca thật (JD Library 2):
+                // bảng luồng có bước "Xem danh sách nhân viên trực tiếp dưới quyền", bảng màn hình dựng ra
+                // mười bảy màn không màn nào nhận nó, và người dùng nhận về một câu hỏi thay vì một bảng.
+                // Bước còn sót lại sau khối này thì ScreenStepPlacementService xếp chỗ ở hậu kỳ; danh sách
+                // đây là để phần lớn ca không phải đi tới đó.
+                + FlowStepChecklist(project.FlowMap)));
         }
         else if (table == InterviewTableKind.EntityMap)
         {
@@ -1163,6 +1259,25 @@ public class BAChatService
                         // một lời gọi LLM: hai bảng đọc riêng đều "đạt", chỗ hỏng nằm ở chỗ nối. Xem
                         // ScreenScopeMapBuilder.UncoveredActions.
                         uncoveredFlowSteps = ScreenScopeMapBuilder.UncoveredActions(screenScopeMap, project.FlowMap);
+
+                        // …và bắt được lỗ hổng thì BA TỰ LẤP, không hỏi ngược người dùng. Việc ánh xạ một
+                        // bước nghiệp vụ sang một chức năng trên một màn hình là phần việc họ đi thuê BA để
+                        // làm; dòng nhắc dưới bảng ở lại làm chỗ rơi cuối cùng cho những bước mà chính BA
+                        // cũng không xếp nổi — đúng ca duy nhất đáng hỏi. Xem ScreenStepPlacementService.
+                        if (uncoveredFlowSteps.Count > 0)
+                        {
+                            var screensBefore = screenScopeMap.Select(r => r.Screen).ToList();
+                            screenScopeMap = await _stepPlacement.PlaceAsync(
+                                project.Id, screenScopeMap, uncoveredFlowSteps, ba, model, cancellationToken);
+
+                            var stillUncovered = ScreenScopeMapBuilder.UncoveredActions(screenScopeMap, project.FlowMap);
+                            var placed = uncoveredFlowSteps.Except(stillUncovered, StringComparer.OrdinalIgnoreCase).ToList();
+                            uncoveredFlowSteps = stillUncovered;
+
+                            var notice = ScreenScopePlacementNotice(screensBefore, screenScopeMap, placed);
+                            if (notice != null)
+                                reply = reply.TrimEnd() + notice;
+                        }
                     }
                     break;
 

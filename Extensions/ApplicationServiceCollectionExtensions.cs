@@ -718,6 +718,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<CoverageChecklist>();
         services.AddScoped<DecisionLogService>();
         services.AddScoped<InterviewOutlookService>();
+        // Lượt xếp chỗ cho bước luồng chưa chức năng nào phụ trách, chạy ngay trước khi bảng màn
+        // hình hiện ra — thay cho dòng nhắc hỏi ngược người dùng bước đó thuộc màn nào.
+        services.AddScoped<ScreenStepPlacementService>();
         services.AddScoped<RequirementConflictService>();
         services.AddScoped<UatScenarioService>();
         services.AddScoped<PocFeedbackMemoryService>();

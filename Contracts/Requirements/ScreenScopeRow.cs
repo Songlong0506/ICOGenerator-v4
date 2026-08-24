@@ -129,6 +129,13 @@ public class ScreenScopeRow
     /// </para>
     ///
     /// <para>
+    /// Có một đường THỨ HAI đưa được màn hình mới vào bảng, và nó KHÔNG mượn cờ này:
+    /// <c>ScreenScopeMapBuilder.ApplyPlacements</c> dựng một dòng để nhận bước luồng đã chốt mà không màn
+    /// hình nào đang có phụ trách nổi. Dòng ấy là đề xuất của BA nên cờ vẫn <c>false</c>; thứ bảo lãnh cho
+    /// nó là phép kiểm tất định <c>UncoveredActions</c>, không phải chữ ký người dùng.
+    /// </para>
+    ///
+    /// <para>
     /// Cờ được GIỮ qua đường lưu, vì
     /// <c>ScreenScopeMapBuilder.RenderUserMessage</c> dùng nó để kể lại "các màn hình mình tự bổ sung": một
     /// màn hình chưa từng có trong đề xuất mà lặng lẽ đi vào phạm vi là đúng loại thay đổi phải nói ra, cùng

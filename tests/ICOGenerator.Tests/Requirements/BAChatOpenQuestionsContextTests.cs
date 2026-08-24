@@ -112,6 +112,7 @@ public class BAChatOpenQuestionsContextTests : IDisposable
             new BAConversationLog(db),
             new DecisionLogService(db, llm, prompts),
             new InterviewOutlookService(db, llm, prompts),
+            new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db),
             scopeFactory: null,
             turnTracker: null);
