@@ -667,9 +667,18 @@ public class AgentTaskWorker : BackgroundService
         // Mốc kết thúc của WORKER nói CHUYỂN TRẠNG THÁI (người dùng làm gì tiếp), KHÔNG lặp lại nội dung
         // mà service vừa báo ở mốc "final" (xem ProductBriefDraftService: "Đã tạo/cập nhật tài liệu." /
         // câu hỏi làm rõ). Trước đây hai tầng nói gần như y hệt nhau nên feed hiện hai dòng trùng liền kề.
+        //
+        // Nhánh NeedsMoreInfo phải nói ĐỦ HAI VIỆC người dùng còn phải làm. Bản trước viết "Đang chờ
+        // anh/chị trả lời câu hỏi của BA trong khung chat ĐỂ VIẾT TIẾP TÀI LIỆU" — hứa một bước không tồn
+        // tại: run này đã Completed, và KHÔNG đường nào tự khởi động lại vòng soạn khi người dùng trả lời
+        // xong (nút "Write Requirement" là caller duy nhất của GenerateRequirementDraftUseCase ở màn hình
+        // này — xem RequirementDraftTriggerCoverageTests). Người dùng trả lời rồi ngồi đợi một cái máy
+        // không chạy, đúng cái bẫy mà requirement-chat.v4.md cấm BA tự đào bằng những câu "mình sẽ tổng
+        // hợp lại rồi quay lại".
         progress.Report("completed",
             outcome == RequirementDraftOutcome.NeedsMoreInfo
-                ? "Đang chờ anh/chị trả lời câu hỏi của BA trong khung chat để viết tiếp tài liệu."
+                ? "Chưa đủ thông tin để viết. Anh/chị trả lời câu hỏi của BA trong khung chat; đủ rồi thì nút "
+                  + "tạo tài liệu hiện lại ở cuối khung chat — bấm lần nữa để mình viết."
                 : "Mời anh/chị xem lại bản mô tả sản phẩm rồi bấm Approve để dựng bản demo.");
 
         return outcome;

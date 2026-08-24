@@ -147,6 +147,58 @@ public class RequirementConflictServiceTests : IDisposable
         Assert.Equal(4, tracked.ConflictCheckedTurnCount);
     }
 
+    // Ngay sau lượt này trình duyệt submit form "Write Requirement". Cặp lượt "chốt lại" KHÔNG mang thông
+    // tin mới (chỉ chọn giữa hai điều đã nói), nên nó phải chép dấu verify của lượt mời mà nó vừa đè lên —
+    // không chép thì vòng soạn tài liệu xét lại cổng trên một bản đồ vừa distill chính câu chốt lại này,
+    // bị đá về khung chat, và người dùng phải bấm nút lần thứ hai (xem ProductBriefDraftService).
+    [Fact]
+    public async Task ApplyResolutions_CarriesReadinessVerifiedFromTurnItReplaces()
+    {
+        var (project, ba) = await SeedAsync(turns: 4, verifiedLastTurn: true);
+
+        await using var db = NewDb();
+        var tracked = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        await NewSut(db, new FakeLlm()).ApplyResolutionsAsync(
+            tracked, trackedBa,
+            new[] { new ConflictResolution("Đơn cần mấy cấp duyệt?", "Chỉ quản lý") },
+            new BAConversationLog(db));
+
+        var turns = await NewDb().AgentConversations
+            .Where(c => c.ProjectId == project.Id)
+            .OrderBy(c => c.CreatedAt).ThenBy(c => c.Id)
+            .ToListAsync();
+
+        Assert.True(RequirementReadinessGate.IsReadinessVerifiedLatestTurn(turns));
+        // Chỉ lượt BA đóng cổng mang dấu; lượt user chốt lại thì không.
+        Assert.False(turns[2].ReadinessVerified);
+    }
+
+    // Chép cái đã có, KHÔNG bao giờ tự dựng: người dùng vào nút bằng đường lùi (đã có draft + bản đồ đủ,
+    // lượt cuối là một lượt hỏi bình thường) thì cổng readiness vẫn phải được xét lại như trước.
+    [Fact]
+    public async Task ApplyResolutions_LastTurnNotVerified_DoesNotInventTheFlag()
+    {
+        var (project, ba) = await SeedAsync(turns: 4);
+
+        await using var db = NewDb();
+        var tracked = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        await NewSut(db, new FakeLlm()).ApplyResolutionsAsync(
+            tracked, trackedBa,
+            new[] { new ConflictResolution("Đơn cần mấy cấp duyệt?", "Chỉ quản lý") },
+            new BAConversationLog(db));
+
+        var turns = await NewDb().AgentConversations
+            .Where(c => c.ProjectId == project.Id)
+            .OrderBy(c => c.CreatedAt).ThenBy(c => c.Id)
+            .ToListAsync();
+
+        Assert.False(RequirementReadinessGate.IsReadinessVerifiedLatestTurn(turns));
+    }
+
     [Fact]
     public void Parse_BadJson_ReturnsEmpty()
     {
@@ -157,7 +209,9 @@ public class RequirementConflictServiceTests : IDisposable
     private RequirementConflictService NewSut(AppDbContext db, ILlmClient llm) =>
         new(db, llm, new StubPrompts(), NullLogger<RequirementConflictService>.Instance);
 
-    private async Task<(Project Project, Agent Ba)> SeedAsync(int turns)
+    private Task<(Project Project, Agent Ba)> SeedAsync(int turns) => SeedAsync(turns, verifiedLastTurn: false);
+
+    private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, bool verifiedLastTurn)
     {
         var ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id };
         var project = new Project { Id = Guid.NewGuid(), Name = "P", DecisionLog = "- Quản lý duyệt là xong" };
@@ -174,6 +228,7 @@ public class RequirementConflictServiceTests : IDisposable
                 AgentId = ba.Id,
                 Role = i % 2 == 0 ? "user" : "assistant",
                 Message = $"turn-{i}",
+                ReadinessVerified = verifiedLastTurn && i == turns - 1,
                 CreatedAt = baseTime.AddSeconds(i)
             });
         }

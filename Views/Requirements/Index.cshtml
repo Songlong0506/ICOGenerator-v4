@@ -220,12 +220,11 @@
     // Năm trạng thái loại trừ nhau, xét theo đúng thứ tự ưu tiên: đang chạy > đã xong & chưa có gì mới >
     // sẵn sàng > còn phải khai thác thêm. Chỉ MỘT trạng thái có nút trên màn hình (cổng #writeReqZone
     // trong khung chat mở ở "ready"); ba trạng thái kia không dựng nút nào:
-    //   waiting — chưa đủ thông tin. Thay cho một nút mờ-và-khóa, panel "Tiến độ khai thác" nói thẳng
-    //             điều còn thiếu và việc gì sẽ xảy ra khi đủ (#writeReqWaitingHint).
+    //   waiting — chưa đủ thông tin. KHÔNG dựng nút nào (một nút mờ-và-khóa chỉ mời bấm rồi từ chối);
+    //             panel "Tiến độ khai thác" bên cạnh là chỗ nói điều còn thiếu.
     //   running — vòng soạn đang chạy. Tiến độ đã có panel .workflow-progress ngay trong khung chat, và
     //             requirement-workflow.js tải lại trang khi run xong.
-    //   done    — vừa soạn xong, chưa có gì mới. Cổng đóng và #writeReqWaitingHint cũng phải TẮT: nói
-    //             "BA sẽ mời khi mọi nhóm đã rõ" trong lúc Tiến độ khai thác đầy 100% là nói sai.
+    //   done    — vừa soạn xong, chưa có gì mới. Cổng đóng; người dùng nhắn thêm một câu là nó mở lại.
     var writeReqState = draftRunInFlight ? "running"
         : draftSettled ? "done"
         : (requirementReady || (draftExists && coverageReady)) ? "ready"
