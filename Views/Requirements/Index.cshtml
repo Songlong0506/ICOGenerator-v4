@@ -892,7 +892,6 @@
                     @* Câu dẫn = Message của chính lượt gộp (xem batchLead ở đầu file). Rỗng thì mới rơi về
                        câu tĩnh — không có dòng dẫn nào thì thẻ mở đầu bằng câu hỏi trần, mất mạch hội thoại. *@
                     <p class="batchq-lead">@(string.IsNullOrWhiteSpace(batchLead) ? "Anh/chị trả lời giúp mình mấy điểm sau nhé." : batchLead)</p>
-                    <div class="batchq-howto">Bấm gợi ý, muốn nói thêm thì gõ vào ô "Ý khác"; điểm nào chưa nghĩ tới thì để trống.</div>
                     <ul class="batchq-list">
                         @foreach (var q in lastBaQuestions)
                         {
