@@ -514,7 +514,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         batchPanel.innerHTML = `
             <p class="batchq-lead">${escapeHtml(lead)}</p>
-            <div class="batchq-howto">Bấm gợi ý, muốn nói thêm thì gõ vào ô "Ý khác"; điểm nào chưa nghĩ tới thì để trống.</div>
             <ul class="batchq-list">
                 ${questions.map(q => {
                     // Câu MỞ: không có gợi ý nào để bấm, nên chỉ còn ô tự nhập — một dòng chỉ có mỗi câu
