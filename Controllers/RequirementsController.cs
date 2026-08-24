@@ -343,7 +343,6 @@ public class RequirementsController : Controller
                             // Bản đồ bao phủ không gộp được lượt này (đã thử lại) ⇒ panel đang hiện bản
                             // cũ và BA cũng vừa dẫn lượt bằng bản cũ đó. Client cảnh báo ngay trên panel.
                             coverageStale = result.CoverageStale,
-                            flowDiagram = result.FlowDiagram,
                             // Bảng phân quyền: chỉ có ở lượt chốt nhóm phân quyền, rỗng ở mọi lượt khác.
                             // Client dựng bảng từ đây, cùng markup với bản server render lúc tải trang.
                             permissionMatrix = result.PermissionMatrix.Select(r => new
@@ -1014,14 +1013,18 @@ public class RequirementsController : Controller
     }
 
     // Tải CẢ CHUỖI DẪN XUẤT (hội thoại BA → Product Brief → AI Design Spec → POC demo) thành một .zip để
-    // đem sang một công cụ AI khác nhờ soi các mối nối giữa bốn tầng. Chỉ ĐỌC (quyền xem là đủ, như
-    // DownloadDocument).
+    // đem sang một công cụ AI khác nhờ soi các mối nối giữa bốn tầng. Thao tác CHỈ ĐỌC.
     //
     // Gói CO LẠI theo quyền của người tải, không mở rộng theo quyền của endpoint: trang Requirements cố ý
     // không hiển thị bản kỹ thuật (AI Design Spec thuộc Agent Dashboard) và bản demo (thuộc Projects), nên
     // một nút tải về ở đây không được phép âm thầm biến RequirementsView thành quyền đọc cả hai thứ đó.
     // Phần bị bỏ ra luôn được nói rõ trong 00-README.md của gói.
+    //
+    // Quyền RIÊNG (chồng lên RequirementsView của controller ⇒ AND): dù gói đã co theo quyền người tải,
+    // nó vẫn là đường ĐEM DỮ LIỆU DỰ ÁN RA NGOÀI hệ thống thành một file — ai được làm việc đó là quyết
+    // định của admin ở màn hình Roles & Permissions, không phải hệ quả của việc được xem trang này.
     [HttpGet]
+    [RequirePermission(AppPermission.RequirementsDownloadPackage)]
     [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> DownloadReviewPackage(Guid projectId, string? version = null)
     {

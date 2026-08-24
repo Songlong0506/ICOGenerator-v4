@@ -41,6 +41,34 @@ namespace ICOGenerator.Services.Requirements;
 /// biến mất lúc lưu là đúng loại quyết định câm mà cả bảng này sinh ra để chặn. Xem
 /// <see cref="EntityMapRow.AddedByUser"/> và <see cref="Sanitize"/>.
 /// </para>
+///
+/// <para>
+/// <b>Ô MÔ TẢ không phải một quyết định, nên nó KHÔNG đi vào bản kể.</b> Tin nhắn của
+/// <see cref="RenderUserMessage"/> được lưu dưới vai NGƯỜI DÙNG, nên mọi chữ trong đó được các tầng sau đọc
+/// như lời họ: bộ chắt bản đồ bao phủ lấy làm <c>{nguồn: …}</c>, bộ chắt "điểm cần làm rõ" lấy làm một vế
+/// mâu thuẫn, và BA đem ra chất vấn ở lượt kế. Nhưng thứ người dùng thật sự QUYẾT trên bảng chỉ là các Ô:
+/// dòng nào giữ, thông tin nào cần lưu, nhập thế nào, danh sách lấy ở đâu, trạng thái nào có, dòng con
+/// thuộc cha nào. <see cref="EntityMapRow.Description"/> thì do BA điền sẵn và nằm cạnh tên đối tượng như
+/// một cái nhãn xám — họ bấm gửi mà không rà nó.
+/// </para>
+///
+/// <para>
+/// Ca thật (dự án JD Library 1). BA điền mô tả <i>"JD — Mô tả công việc được Manager tạo, kiểm tra, verify
+/// và approve trước khi dùng để gán cho nhân viên"</i>, trong khi chính người dùng đã kể ở khung chat và đã
+/// tự tay rà ở BẢNG LUỒNG rằng HRBP verify rồi HoD của Manager approve. Câu ấy quay về trong lượt mang tên
+/// người dùng, và lượt kế BA hỏi <i>"luồng nào đúng với thực tế ạ?"</i> — bắt họ phân xử một mâu thuẫn giữa
+/// lời họ và lời BA, đúng thứ mà mục "Hai vế phải cùng là lời NGƯỜI DÙNG" của prompt chat cấm. Thiệt hại
+/// không dừng ở một lượt hỏng: mục tồn đọng sinh ra từ đó khiến <see cref="CoveragePendingGuard"/> hạ ba
+/// dòng bản đồ («Đối tượng người dùng &amp; vai trò», «Chức năng &amp; luồng nghiệp vụ chính», «Vòng đời
+/// &amp; trạng thái») xuống <c>[MỘT PHẦN]</c> và KHÓA cổng "Write Requirement" — ở đúng lượt mà mọi nhóm
+/// vừa đủ. Và nếu người dùng chọn nhầm vế của BA thì luồng bốn mắt do chính họ kể bị lật, mọi tầng sau tin.
+/// </para>
+///
+/// <para>
+/// Mô tả vẫn được LƯU (nó là văn xuôi cho mục <c>## 8. Data Model Summary</c> của AI Design Spec), chỉ
+/// không được đóng dấu là lời người dùng ở bất kỳ đường nào — xem <see cref="RenderConfirmedBlock"/>. Cùng
+/// lỗi và cùng cách chặn với ô "việc của màn" ở <see cref="ScreenScopeMapBuilder"/>.
+/// </para>
 /// </summary>
 public static class EntityMapBuilder
 {
@@ -117,10 +145,15 @@ public static class EntityMapBuilder
         IReadOnlyList<string>? confirmedColumns,
         bool respectSelection)
     {
-        var columnKeys = (confirmedColumns ?? Array.Empty<string>())
-            .Select(Normalize)
-            .Where(c => c.Length > 0)
-            .ToHashSet(StringComparer.Ordinal);
+        // Bản chuẩn hoá -> chữ NGUYÊN VĂN của cột: ô ý nghĩa gieo ra phải gọi đúng cái tên người dùng
+        // nhìn thấy trong file của họ, nhất là khi tên thông tin bên cạnh nay là tiếng Anh.
+        var columnKeys = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var column in confirmedColumns ?? Array.Empty<string>())
+        {
+            var key = Normalize(column);
+            if (key.Length > 0)
+                columnKeys.TryAdd(key, column.Trim());
+        }
 
         var result = new List<EntityMapRow>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -270,6 +303,14 @@ public static class EntityMapBuilder
     /// <summary>
     /// Khối ngữ cảnh gắn vào MỌI lượt chat sau khi bảng đã chốt, vào lượt distill bản đồ bao phủ, và vào
     /// prompt sinh AI Design Spec (mục <c>## 8. Data Model Summary</c>). Trả null khi chưa chốt.
+    ///
+    /// <para>
+    /// Tiêu đề khối nói "đã được NGƯỜI DÙNG CHỐT", nên mọi dòng dưới nó được ba bên đọc như quyết định của
+    /// người dùng. Câu <see cref="EntityMapRow.Description"/> KHÔNG phải quyết định của ai — nó do BA điền
+    /// sẵn lúc bày bảng (xem ghi chú class) — nên nó đứng ở một dòng RIÊNG có gắn xuất xứ, không nối vào
+    /// dòng tên đối tượng. Nối vào là đúng cách một câu văn xuôi của BA trở thành bằng chứng: bộ chắt bản
+    /// đồ bao phủ trích nó làm <c>{nguồn: …}</c> và bước sinh spec đọc nó như một ràng buộc đã chốt.
+    /// </para>
     /// </summary>
     public static string? RenderConfirmedBlock(string? json)
     {
@@ -281,10 +322,19 @@ public static class EntityMapBuilder
         sb.AppendLine("\n--- Bảng đối tượng nghiệp vụ đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại) ---");
         sb.AppendLine("Mỗi đối tượng: thông tin cần lưu, rồi vòng đời trạng thái kèm ĐIỀU KIỆN chuyển vào.");
 
+        // Câu dặn chỉ xuất hiện khi có ít nhất một dòng mô tả — không có mô tả nào mà vẫn dặn thì đó là một
+        // dòng lệnh nói về thứ không tồn tại trong khối, và mỗi dòng thừa ở đây đi kèm MỌI lượt chat sau.
+        if (rows.Any(r => !string.IsNullOrWhiteSpace(r.Description)))
+            sb.AppendLine("Dòng \"mô tả\" là câu CHÍNH BẠN đặt lúc bày bảng, KHÔNG phải lời người dùng: đừng "
+                + "trích nó làm bằng chứng, đừng lấy nó làm một vế mâu thuẫn với điều họ nói, và thấy nó lệch "
+                + "với hội thoại thì tự sửa im lặng chứ không hỏi.");
+
         foreach (var row in rows)
         {
-            var description = string.IsNullOrWhiteSpace(row.Description) ? string.Empty : $" — {row.Description}";
-            sb.AppendLine($"* {row.Entity}{description}");
+            sb.AppendLine($"* {row.Entity}");
+
+            if (!string.IsNullOrWhiteSpace(row.Description))
+                sb.AppendLine($"  - mô tả (BA tự đặt, chưa ai rà): {row.Description}");
 
             // Quan hệ đứng NGAY dưới tên đối tượng chứ không xuống cuối khối: nó đổi nghĩa của mọi dòng
             // phía dưới (các "thông tin" ở đây là cột của MỘT DÒNG con, không phải của một hồ sơ).
@@ -320,6 +370,12 @@ public static class EntityMapBuilder
     /// <summary>
     /// Tin nhắn mà TRÌNH DUYỆT gửi tiếp vào khung chat sau khi bảng đã lưu — cùng khuôn hai bước với các
     /// bảng khác, và soạn ở server vì cùng lý do: bản kể phải khớp đúng bản đã lưu.
+    ///
+    /// <para>
+    /// Bản kể chở đúng những Ô người dùng vừa quyết, KHÔNG chở câu mô tả BA điền sẵn: tin nhắn này được lưu
+    /// dưới vai NGƯỜI DÙNG, nên chữ nào lọt vào đây cũng thành lời của họ ở mọi tầng phía sau. Xem ghi chú
+    /// class cho ca thật.
+    /// </para>
     /// </summary>
     public static string RenderUserMessage(IReadOnlyList<EntityMapRow> rows)
     {
@@ -332,8 +388,7 @@ public static class EntityMapBuilder
         foreach (var row in rows.Where(r => r.Included))
         {
             sb.AppendLine();
-            var description = string.IsNullOrWhiteSpace(row.Description) ? string.Empty : $" — {row.Description}";
-            sb.AppendLine($"{row.Entity}{description}:");
+            sb.AppendLine($"{row.Entity}:");
 
             if (row.ParentEntity.Length > 0)
                 sb.AppendLine($"- {RenderParent(row)}");
@@ -420,6 +475,13 @@ public static class EntityMapBuilder
     /// Developer chép nguyên văn, không dịch, không rút gọn (xem <c>Prompts/Developer/poc-preview.v1.md</c>),
     /// nên một chữ dẫn tiếng Việt ở đây là một chữ dẫn tiếng Việt trên sidebar. Luật đầy đủ ở
     /// <c>docs/requirement-flow.md</c>, mục "Tên màn hình là nhãn menu của bản demo".
+    /// </para>
+    ///
+    /// <para>
+    /// Nửa đầu của cái tên là tên THÔNG TIN, nên vế "tiếng Anh" của luật trên chỉ đứng được nhờ luật đặt
+    /// tên của chính bảng đối tượng (<see cref="EntityFieldNote.Name"/>). Trước đó nó là một điều ước:
+    /// prompt bảo tên thông tin viết bằng lời nghiệp vụ, và một danh mục tên <c>"Chức danh"</c> đi thẳng ra
+    /// sidebar bản demo thành <c>"Chức danh Catalog"</c> mà không chốt chặn nào chặn được.
     /// </para>
     /// </summary>
     public static List<string> ManagedListScreens(IEnumerable<EntityMapRow>? rows)
@@ -616,7 +678,7 @@ public static class EntityMapBuilder
     }
 
     private static List<EntityFieldNote> NormalizeFields(
-        IEnumerable<EntityFieldNote>? proposed, IReadOnlySet<string> columnKeys, bool respectSelection)
+        IEnumerable<EntityFieldNote>? proposed, IReadOnlyDictionary<string, string> columnKeys, bool respectSelection)
     {
         var result = new List<EntityFieldNote>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -631,10 +693,21 @@ public static class EntityMapBuilder
                 continue;
 
             var meaning = Clip((field.Meaning ?? string.Empty).Trim(), MaxTextChars);
+
             // Thông tin trùng một CỘT ĐÃ TÍCH: người dùng đã chốt nó ở bảng cột, nên ô ý nghĩa được ghi rõ
             // nguồn thay vì bày ra như một đề xuất mới chờ duyệt lần hai.
-            if (columnKeys.Contains(Normalize(name)) && meaning.Length == 0)
-                meaning = "đã chốt ở bảng cột của tài liệu nguồn";
+            //
+            // HAI đường nhận ra điều đó, và đường thứ hai có từ lúc tên thông tin là tiếng Anh: tên trùng
+            // đúng chữ của file (vẫn là ca thường gặp — file xuất từ hệ thống hay có tiêu đề tiếng Anh sẵn),
+            // hoặc lời khai `sourceColumn` của model. Lời khai KHÔNG khớp cột đã tích nào thì bị xoá chứ
+            // không được lấy nguyên: ô đó chở dấu "người dùng đã chốt rồi" nên một cái tên bịa sẽ dán dấu ấy
+            // lên một thông tin chưa ai duyệt — xem EntityFieldNote.SourceColumn.
+            var declaredColumn = Clip((field.SourceColumn ?? string.Empty).Trim(), MaxTextChars);
+            if (!columnKeys.TryGetValue(Normalize(name), out var settledColumn))
+                columnKeys.TryGetValue(Normalize(declaredColumn), out settledColumn);
+
+            if (settledColumn != null && meaning.Length == 0)
+                meaning = $"đã chốt ở bảng cột của tài liệu nguồn (\"{settledColumn}\")";
 
             var used = !respectSelection || field.Used;
             var input = EntityFieldInput.Normalize(field.Input);
@@ -665,7 +738,10 @@ public static class EntityMapBuilder
                     : string.Empty,
                 Rule = input == EntityFieldInput.Auto
                     ? Clip((field.Rule ?? string.Empty).Trim(), MaxTextChars)
-                    : string.Empty
+                    : string.Empty,
+                // Rỗng ở đường GỬI (columnKeys rỗng) là đúng: bảng đã gửi thì xuất xứ đã nằm trong ô ý
+                // nghĩa mà người dùng vừa đọc, còn ô máy này hết việc — cùng luật với cờ Locked.
+                SourceColumn = settledColumn ?? string.Empty
             });
 
             if (result.Count >= MaxFieldsPerEntity)

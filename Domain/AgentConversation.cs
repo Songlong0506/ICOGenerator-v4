@@ -68,8 +68,10 @@ public class AgentConversation
     public string? ReportMap { get; set; }
     public string? NotificationMap { get; set; }
 
-    // JSON array (chuỗi) các bước sơ đồ luồng nghiệp vụ (FlowStep[]) — CHỈ có ở lượt BA mời bấm "Write
-    // Requirement" để user xác nhận luồng trực quan trước khi tạo tài liệu. Null với các lượt thường.
+    // JSON array (chuỗi) các bước sơ đồ luồng nghiệp vụ (FlowStep[]) — CHỈ CÒN LÀ DỮ LIỆU CŨ: sơ đồ
+    // chỉ-đọc ở lượt mời "Write Requirement" đã gỡ (luồng nay chốt bằng BẢNG LUỒNG, cột FlowMap ở trên),
+    // nên lượt mới luôn để null. Cột ở lại để các dự án đã chạy vẫn đọc lại được sơ đồ đã từng trình bày
+    // trong bản xuất hội thoại và transcript — xem docs/requirement-flow.md.
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? FlowDiagram { get; set; }
 
@@ -78,6 +80,24 @@ public class AgentConversation
     // File gốc vẫn sống ở "Tài liệu nguồn"; xóa nguồn thì bubble chỉ mất ảnh xem trước (id hỏng → ẩn).
     // Null với lượt không đính kèm. Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? Attachments { get; set; }
+
+    // CỔNG READINESS ĐÃ PASS TẠI ĐÚNG LƯỢT NÀY — cờ do hệ thống đặt, không phải thứ suy lại từ nội dung
+    // lượt chat. true ⇔ tại thời điểm lưu lượt này, cổng tất định (RequirementReadinessGate.Evaluate) đã
+    // xét trên bản đồ bao phủ hiện hành và cho qua. Bước soạn tài liệu đọc cờ của lượt ĐANG ĐỨNG CUỐI để
+    // biết mình có được bỏ qua lần xét lại hay không (xem ProductBriefDraftService).
+    //
+    // Vì sao là một cột chứ không phải phép dò chuỗi: trước đây bước soạn tài liệu tự suy bằng cách tìm
+    // cụm "Write Requirement" trong lượt cuối. Cách đó hỏng ở hai chỗ — (1) nó phụ thuộc vào CHỮ mà model
+    // sinh ra, nên một lần chỉnh prompt/đổi cách diễn đạt là mất tín hiệu trong im lặng; (2) mọi đường ghi
+    // thêm một lượt SAU lời mời đều vô tình xoá tín hiệu, kể cả đường không hề mang thông tin mới — đúng
+    // ca cổng soát mâu thuẫn (RequirementConflictService.ApplyResolutionsAsync ghi một cặp lượt "chốt lại"
+    // rồi mới soạn tài liệu), khiến vòng soạn bị đá về khung chat và người dùng phải bấm nút lần hai.
+    //
+    // FAIL-CLOSED: mặc định false. Lượt của bất kỳ đường ghi nào không tự khẳng định cờ này đều làm bước
+    // soạn tài liệu xét lại cổng — thừa một lượt distill thì chỉ tốn token, còn bỏ qua cổng nhầm thì tài
+    // liệu được viết trên một bản đồ còn lỗ. Các lượt CŨ (ghi trước khi có cột) mang false và tự lành ở
+    // lượt mời kế tiếp.
+    public bool ReadinessVerified { get; set; }
 
     public int TokenUsed { get; set; }
 

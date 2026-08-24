@@ -72,16 +72,16 @@ public class RequirementReadinessGateTests : IDisposable
     }
 
     [Fact]
-    public void Evaluate_PartialLine_NotReady_QuestionNamesGroupAndGap()
+    public void Evaluate_PartialLine_NotReady_QuestionAsksTheGapWithoutNamingTheGroup()
     {
         var readiness = RequirementReadinessGate.Evaluate(MapMissingRules);
 
         Assert.False(readiness.Ready);
-        // Câu hỏi dựng sẵn phải nêu đúng nhóm thiếu và hỏi ĐÚNG nội dung phần "còn thiếu" distiller đã
-        // ghi — nhưng hỏi thành câu, không bê nguyên cụm bookkeeping "còn thiếu:" ra cho người dùng đọc.
-        // Không được chứa "Write Requirement" (chuỗi đó là tín hiệu làm nổi nút trên UI).
-        Assert.Contains("Quy tắc nghiệp vụ & ràng buộc", readiness.Message);
+        // Câu hỏi dựng sẵn phải hỏi ĐÚNG nội dung phần "còn thiếu" distiller đã ghi — thành câu, không bê
+        // nguyên cụm bookkeeping "còn thiếu:" ra cho người dùng đọc, và KHÔNG đọc nhãn nhóm của bản đồ ra
+        // màn hình. Không được chứa "Write Requirement" (chuỗi đó là tín hiệu làm nổi nút trên UI).
         Assert.Contains("hạn mức ngày phép", readiness.Message);
+        Assert.DoesNotContain("Quy tắc nghiệp vụ & ràng buộc", readiness.Message);
         Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
         Assert.DoesNotContain("Write Requirement", readiness.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -97,11 +97,10 @@ public class RequirementReadinessGateTests : IDisposable
         var readiness = RequirementReadinessGate.Evaluate(map);
 
         Assert.False(readiness.Ready);
-        // Nhóm ★ cốt lõi được hỏi trước dù đứng sau trong bản đồ — và chỉ hỏi MỘT nhóm, nhóm phụ chỉ
-        // được đếm vào con số "còn n nhóm" chứ không bị hỏi dồn trong cùng lượt.
-        Assert.Contains("«Chức năng & luồng nghiệp vụ chính»", readiness.Message);
+        // Dòng ★ cốt lõi được hỏi trước dù đứng sau trong bản đồ — và chỉ hỏi MỘT chỗ, dòng phụ để dành
+        // lượt sau chứ không bị hỏi dồn trong cùng lượt.
         Assert.Contains("luồng duyệt", readiness.Message);
-        Assert.DoesNotContain("«Quy mô sử dụng»", readiness.Message);
+        Assert.DoesNotContain(CoverageGroupOpeners.Find("Quy mô sử dụng")!, readiness.Message);
     }
 
     [Theory]
@@ -146,30 +145,22 @@ public class RequirementReadinessGateTests : IDisposable
         await SetCoverageMapAsync(MapMissingRules);
         var llm = new FakeLlm
         {
-            ChatReply = new BAChatReply
-            {
-                Message = InviteMessage,
-                Ready = true,
-                FlowDiagram = new List<FlowStep> { new() { Action = "Gửi đơn" } }
-            }
+            ChatReply = new BAChatReply { Message = InviteMessage, Ready = true }
         };
 
         await using var db = NewDb();
         var result = await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
 
         var lastBaTurn = await LastAssistantTurnAsync();
-        // Lời mời bị thay bằng câu hỏi nêu đúng nhóm thiếu ⇒ nút "Write Requirement" giữ trạng thái mờ
+        // Lời mời bị thay bằng câu hỏi hỏi đúng mẩu còn thiếu ⇒ nút "Write Requirement" giữ trạng thái mờ
         // (UI nhận diện lời mời qua chuỗi "Write Requirement" trong lượt BA mới nhất) — panel 1 nhóm
         // thiếu và nút mờ giờ kể CÙNG một câu chuyện vì đọc cùng bản đồ.
-        Assert.Contains("Quy tắc nghiệp vụ & ràng buộc", lastBaTurn.Message);
+        Assert.Contains("hạn mức ngày phép", lastBaTurn.Message);
         Assert.DoesNotContain("Write Requirement", lastBaTurn.Message, StringComparison.OrdinalIgnoreCase);
         // Câu của cổng không kèm chip ⇒ phải là câu MỞ, để khung chat mời người dùng gõ vào ô nhập thay
         // vì bày ra một câu hỏi không có chỗ trả lời.
         Assert.True(result.OpenEnded);
         Assert.Null(lastBaTurn.Suggestions);
-        // Chưa đủ thông tin ⇒ không vẽ/không lưu sơ đồ luồng.
-        Assert.Empty(result.FlowDiagram);
-        Assert.Null(lastBaTurn.FlowDiagram);
     }
 
     [Fact]
@@ -184,42 +175,60 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.DoesNotContain("Write Requirement", (await LastAssistantTurnAsync()).Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Lượt mời KHÔNG còn vẽ sơ đồ luồng: luồng đã được người dùng tự tay duyệt ở BẢNG LUỒNG từ giữa buổi
+    // (không bảng nào khác được bày trước khi bảng luồng chốt — xem InterviewTableGate), nên một bản vẽ
+    // chỉ-đọc ngay trước nút chỉ nói lại điều đã chốt mà không sửa được. Cột FlowDiagram vẫn còn cho dữ
+    // liệu CŨ, nhưng lượt mới không được ghi vào nó nữa.
     [Fact]
-    public async Task ChatAsync_InviteAndMapClear_StoresFlowDiagram()
+    public async Task ChatAsync_InviteAndMapClear_StoresNoFlowDiagram()
     {
         await SetCoverageMapAsync(MapAllClear);
-        var llm = new FakeLlm
-        {
-            ChatReply = new BAChatReply
-            {
-                Message = InviteMessage,
-                Ready = true,
-                FlowDiagram = new List<FlowStep>
-                {
-                    new() { Actor = "Nhân viên", Action = "Gửi đơn", Outcome = "Chờ duyệt" }
-                }
-            }
-        };
+        var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
 
         await using var db = NewDb();
-        var result = await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+        await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
 
-        // Lượt mời đã qua cổng → sơ đồ luồng được giữ và lưu để reload trang vẫn hiện.
-        Assert.Single(result.FlowDiagram);
-        Assert.Equal("Gửi đơn", result.FlowDiagram[0].Action);
         var stored = await LastAssistantTurnAsync();
-        Assert.False(string.IsNullOrEmpty(stored.FlowDiagram));
-        // JSON lưu escape unicode (encoder mặc định) nên so bằng deserialize thay vì so chuỗi.
-        var storedSteps = System.Text.Json.JsonSerializer.Deserialize<List<FlowStep>>(stored.FlowDiagram!);
-        Assert.Equal("Gửi đơn", storedSteps![0].Action);
+        Assert.Equal(InviteMessage, stored.Message);
+        Assert.Null(stored.FlowDiagram);
+    }
+
+    // Lượt chat là NƠI DUY NHẤT tự dựng ra dấu verify: cổng tất định vừa xét trên bản đồ hiện hành ngay
+    // trước khi lời mời được lưu, nên dấu đó là kết luận của cổng chứ không phải suy đoán của tầng sau.
+    [Fact]
+    public async Task ChatAsync_InviteAndMapClear_StampsReadinessVerified()
+    {
+        await SetCoverageMapAsync(MapAllClear);
+        var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
+
+        await using var db = NewDb();
+        await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+
+        Assert.True((await LastAssistantTurnAsync()).ReadinessVerified);
+    }
+
+    // Bản đồ còn thiếu ⇒ lời mời bị thay bằng câu chặn, và lượt đó TUYỆT ĐỐI không được mang dấu: nếu
+    // không, bước soạn tài liệu sẽ bỏ qua đúng cái cổng vừa chặn.
+    [Fact]
+    public async Task ChatAsync_InviteButMapIncomplete_DoesNotStampReadinessVerified()
+    {
+        await SetCoverageMapAsync(MapMissingRules);
+        var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
+
+        await using var db = NewDb();
+        await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+
+        var stored = await LastAssistantTurnAsync();
+        Assert.False(stored.ReadinessVerified);
+        Assert.DoesNotContain("Write Requirement", stored.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     // ---------- Bước sinh tài liệu ----------
 
     [Fact]
-    public async Task GenerateOrUpdateDraft_LastTurnIsVerifiedInvite_SkipsGate_AndDrafts()
+    public async Task GenerateOrUpdateDraft_LastTurnCarriesVerifiedFlag_SkipsGate_AndDrafts()
     {
-        await SeedTurnsAsync(("user", "Tôi muốn app quản lý đơn nghỉ phép"), ("assistant", InviteMessage));
+        await SeedTurnsAsync(verifiedLastTurn: true, ("user", "Tôi muốn app quản lý đơn nghỉ phép"), ("assistant", InviteMessage));
         var llm = new FakeLlm
         {
             // Van "không giả định" của bước soạn: dừng trước khi ghi file để test không đụng file hệ thống,
@@ -233,6 +242,24 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.Equal(1, llm.ProductBriefCalls);
         // Nhánh lời-mời-đã-duyệt không cần gộp bản đồ (không có gì mới kể từ lời mời).
         Assert.Equal(0, llm.CoverageCalls);
+        Assert.Equal(RequirementDraftOutcome.NeedsMoreInfo, outcome);
+    }
+
+    // Đường tắt khoá bằng CỜ, không bằng chữ trong lượt cuối. Một lượt mang đúng cụm "Write Requirement"
+    // nhưng không có dấu verify (lượt cũ ghi trước khi có cột, hoặc một đường ghi khác chép lại lời mời)
+    // KHÔNG được mở đường tắt: cổng xét lại như thường — fail-closed, cùng luật với mọi chốt chặn khác ở
+    // tuyến này.
+    [Fact]
+    public async Task GenerateOrUpdateDraft_InviteTextWithoutFlag_StillReEvaluatesGate()
+    {
+        await SetCoverageMapAsync(MapMissingRules);
+        await SeedTurnsAsync(("user", "Tôi muốn app quản lý đơn nghỉ phép"), ("assistant", InviteMessage));
+        var llm = new FakeLlm();
+
+        await using var db = NewDb();
+        var outcome = await NewDraftSut(db, llm).GenerateOrUpdateDraftAsync(_projectId);
+
+        Assert.Equal(0, llm.ProductBriefCalls);
         Assert.Equal(RequirementDraftOutcome.NeedsMoreInfo, outcome);
     }
 
@@ -251,7 +278,7 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.Equal(2, llm.CoverageCalls);
         Assert.Equal(0, llm.ProductBriefCalls);
         Assert.Equal(RequirementDraftOutcome.NeedsMoreInfo, outcome);
-        Assert.Contains("Quy tắc nghiệp vụ & ràng buộc", (await LastAssistantTurnAsync()).Message);
+        Assert.Contains("hạn mức ngày phép", (await LastAssistantTurnAsync()).Message);
     }
 
     [Fact]
@@ -290,7 +317,13 @@ public class RequirementReadinessGateTests : IDisposable
             .LastAsync();
     }
 
-    private async Task SeedTurnsAsync(params (string Role, string Message)[] turns)
+    private Task SeedTurnsAsync(params (string Role, string Message)[] turns)
+        => SeedTurnsAsync(verifiedLastTurn: false, turns);
+
+    // verifiedLastTurn: đóng dấu AgentConversation.ReadinessVerified lên lượt CUỐI — đúng thứ mà lượt chat
+    // đặt khi cổng tất định cho lời mời đi qua. Nội dung lượt KHÔNG còn là tín hiệu, nên một lời mời không
+    // có dấu phải được đối xử như mọi lượt khác (xem test bên dưới).
+    private async Task SeedTurnsAsync(bool verifiedLastTurn, params (string Role, string Message)[] turns)
     {
         await using var db = NewDb();
         var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -302,6 +335,7 @@ public class RequirementReadinessGateTests : IDisposable
                 AgentId = _baId,
                 Role = turns[i].Role,
                 Message = turns[i].Message,
+                ReadinessVerified = verifiedLastTurn && i == turns.Length - 1,
                 CreatedAt = baseTime.AddSeconds(i)
             });
         }

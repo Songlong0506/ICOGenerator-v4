@@ -7,12 +7,41 @@ namespace ICOGenerator.Contracts.Requirements;
 /// </summary>
 public class EntityFieldNote
 {
-    /// <summary>Tên thông tin theo ngôn ngữ nghiệp vụ ("Ngày bắt đầu", "Người phụ trách").</summary>
+    /// <summary>
+    /// TÊN thông tin, viết bằng <b>tiếng Anh</b> ở dạng HIỂN THỊ — "Effective Date", "Job Title", không phải
+    /// <c>effective_date</c> hay <c>EmployeeID</c>. Cùng luật với tên màn hình và tên báo cáo, và vì cùng một
+    /// lý do: chuỗi này chảy ra UI, còn phần diễn giải đã có ô riêng ngay dưới (<see cref="Meaning"/>).
+    ///
+    /// <para>
+    /// <b>Ba đường tiêu thụ, và cả ba đều đọc cái tên chứ không đọc mô tả.</b> (1) Thông tin
+    /// <c>choice-* + app</c> thành một MÀN HÌNH tên <c>"&lt;tên&gt; Catalog"</c>
+    /// (<c>EntityMapBuilder.ManagedListScreens</c>) rồi thành nhãn mục menu của bản demo — Developer chép
+    /// nguyên văn, không dịch, nên một tên tiếng Việt ở đây là một nhãn tiếng Việt trên sidebar. (2) Nó là
+    /// cột của <c>## 8. Data Model Summary</c>, tức tên cột bảng dữ liệu ở mọi bước sau. (3) Nó là nhãn ô
+    /// nhập trên chính bản demo. Luật đầy đủ ở <c>docs/requirement-flow.md</c>, mục "Ba cột TÊN của bảng
+    /// đối tượng cũng là tiếng Anh".
+    /// </para>
+    ///
+    /// <para>
+    /// Dạng hiển thị chứ KHÔNG phải định danh, vì cùng chuỗi này còn là nhãn trên bảng mà người dùng nghiệp
+    /// vụ đang rà và trong bản kể gửi vào hội thoại (<c>RenderField</c>). Bắt họ soát <c>effective_date</c>
+    /// là đánh đổi đúng thứ cái bảng sinh ra để lấy; còn tên cột DB thì bước sinh spec dẫn xuất được từ
+    /// "Effective Date", chiều ngược lại thì không.
+    /// </para>
+    /// </summary>
     public string Name { get; set; } = "";
 
     /// <summary>
-    /// Cách hiểu của BA, viết như một ĐỀ XUẤT để người dùng gật hoặc sửa. Điền sẵn vì cùng lý do với ô ý
-    /// nghĩa của bảng cột — đoán sai thì họ sửa một dòng, còn để trống là bắt họ viết đặc tả.
+    /// Cách hiểu của BA <b>bằng tiếng Việt</b>, viết như một ĐỀ XUẤT để người dùng gật hoặc sửa. Điền sẵn vì
+    /// cùng lý do với ô ý nghĩa của bảng cột — đoán sai thì họ sửa một dòng, còn để trống là bắt họ viết
+    /// đặc tả.
+    ///
+    /// <para>
+    /// Từ lúc <see cref="Name"/> thành tiếng Anh, ô này là NỬA CÒN LẠI của dòng chứ không còn là phần thêm
+    /// nếm: một tên tiếng Anh đứng cạnh một ô mô tả trống để người rà nghiệp vụ đối diện đúng một từ ngoại
+    /// ngữ trơ trọi, tức mất đúng thứ cả cái bảng sinh ra để lấy. Prompt vì vậy cấm để trống, và
+    /// <see cref="SourceColumn"/> là lưới hứng cho ca model vẫn để trống.
+    /// </para>
     /// </summary>
     public string Meaning { get; set; } = "";
 
@@ -102,6 +131,28 @@ public class EntityFieldNote
     /// </para>
     /// </summary>
     public string Rule { get; set; } = "";
+
+    /// <summary>
+    /// Tên NGUYÊN VĂN của cột tài liệu nguồn mà thông tin này lấy từ đó, khi có — "Ngày hiệu lực",
+    /// "Item Title". Không phải một ô của bảng: người dùng không nhìn thấy nó và không sửa nó.
+    ///
+    /// <para>
+    /// <b>Vì sao ô máy này phải tồn tại.</b> <c>EntityMapBuilder</c> nhận ra một thông tin ĐÃ được chốt ở
+    /// bảng cột bằng cách so tên với các cột đã tích, và trước đây phép so ấy chạy được vì cả hai đầu cùng
+    /// là lời người dùng. Từ lúc <see cref="Name"/> thành tiếng Anh thì hai đầu không còn cùng ngôn ngữ —
+    /// "Effective Date" không bao giờ khớp cột "Ngày hiệu lực" — và phép so chết lặng: dòng mất dấu xuất
+    /// xứ, đúng ở chỗ người dùng cần nhất là nhận ra thứ họ vừa tự tay tích ở bảng trước. Dịch ngược một
+    /// cái tên là việc không tất định, nên model được yêu cầu chép lại cột nguồn thay vì để hệ thống đoán.
+    /// </para>
+    ///
+    /// <para>
+    /// Giá trị KHÔNG khớp cột đã tích nào bị <c>EntityMapBuilder.NormalizeFields</c> xoá về rỗng. Đây là
+    /// chốt chặn, không phải dọn dẹp: ô này chở dấu "người dùng đã chốt rồi", nên một cái tên model bịa ra
+    /// sẽ dán dấu ấy lên một thông tin chưa ai duyệt — cùng hình dạng với luật cấm bịa
+    /// <see cref="EntityMapRow.Evidence"/>.
+    /// </para>
+    /// </summary>
+    public string SourceColumn { get; set; } = "";
 }
 
 /// <summary>
@@ -194,7 +245,17 @@ public static class EntityFieldSource
 /// </summary>
 public class EntityLifecycleState
 {
-    /// <summary>Tên trạng thái đúng như người dùng gọi ("Chờ duyệt", "Đã duyệt", "Đã hủy").</summary>
+    /// <summary>
+    /// TÊN trạng thái, viết bằng <b>tiếng Anh</b> ngắn gọn ("Draft", "Pending HRBP Approval", "Available")
+    /// — cùng luật với <see cref="EntityFieldNote.Name"/>, và cùng một đường tiêu thụ: nhãn trạng thái đi
+    /// qua <c>## 8. Data Model Summary</c> rồi hiện lên đúng nguyên văn như thế trên bản demo (chip trạng
+    /// thái, bộ lọc, cột của danh sách).
+    ///
+    /// <para>
+    /// Phần tiếng Việt của dòng nằm ở <see cref="EntryCondition"/> ngay bên cạnh, và đó là ô người dùng
+    /// thật sự rà: "khi nào chuyển vào" là thứ chỉ họ biết, còn cái tên chỉ là nhãn của nó.
+    /// </para>
+    /// </summary>
     public string State { get; set; } = "";
 
     /// <summary>Điều kiện/hành động đưa đối tượng vào trạng thái này ("HOD bấm duyệt").</summary>
@@ -228,10 +289,30 @@ public class EntityLifecycleState
 /// </summary>
 public class EntityMapRow
 {
-    /// <summary>Tên đối tượng theo ngôn ngữ nghiệp vụ ("Kế hoạch đào tạo", "Đơn đăng ký").</summary>
+    /// <summary>
+    /// TÊN đối tượng, viết bằng <b>tiếng Anh</b> ngắn gọn ("Training Plan", "Leave Request") — cùng luật
+    /// với <see cref="EntityFieldNote.Name"/>. Nó thành tên bảng dữ liệu ở <c>## 8. Data Model Summary</c>,
+    /// và một bảng tên tiếng Việt mang toàn cột tiếng Anh là kiểu trộn tệ hơn cả hai lựa chọn thuần.
+    ///
+    /// <para>
+    /// Chuỗi này còn là KHÓA NỐI của ba bảng khác — <c>ReportMapRow.Source</c>,
+    /// <c>NotificationMapRow.Entity</c> và <see cref="ParentEntity"/> đều phải chép đúng nó — nên đổi cách
+    /// đặt tên giữa chừng một buổi phỏng vấn thì các bảng sau trượt khỏi bảng trước. Câu tiếng Việt của
+    /// đối tượng nằm ở <see cref="Description"/>.
+    /// </para>
+    /// </summary>
     public string Entity { get; set; } = "";
 
-    /// <summary>Một câu mô tả đối tượng là gì, BA điền sẵn.</summary>
+    /// <summary>
+    /// Một câu mô tả đối tượng LÀ GÌ, BA điền sẵn — không nói AI LÀM GÌ với nó.
+    ///
+    /// <para>
+    /// Ô này là văn xuôi của BA, không phải quyết định của người dùng: họ đọc nó như cái nhãn xám cạnh tên
+    /// đối tượng rồi bấm gửi. Vì vậy nó KHÔNG đi vào bản kể gửi lên khung chat và đứng ở một dòng có gắn
+    /// xuất xứ trong khối ngữ cảnh — xem ghi chú class của <c>EntityMapBuilder</c> cho ca thật: một câu mô
+    /// tả nhét cả luồng duyệt vào đây đã quay lại thành "lời người dùng" và khóa cổng "Write Requirement".
+    /// </para>
+    /// </summary>
     public string Description { get; set; } = "";
 
     /// <summary>Các thông tin cần lưu về đối tượng.</summary>

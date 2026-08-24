@@ -220,12 +220,11 @@
     // Năm trạng thái loại trừ nhau, xét theo đúng thứ tự ưu tiên: đang chạy > đã xong & chưa có gì mới >
     // sẵn sàng > còn phải khai thác thêm. Chỉ MỘT trạng thái có nút trên màn hình (cổng #writeReqZone
     // trong khung chat mở ở "ready"); ba trạng thái kia không dựng nút nào:
-    //   waiting — chưa đủ thông tin. Thay cho một nút mờ-và-khóa, panel "Tiến độ khai thác" nói thẳng
-    //             điều còn thiếu và việc gì sẽ xảy ra khi đủ (#writeReqWaitingHint).
+    //   waiting — chưa đủ thông tin. KHÔNG dựng nút nào (một nút mờ-và-khóa chỉ mời bấm rồi từ chối);
+    //             panel "Tiến độ khai thác" bên cạnh là chỗ nói điều còn thiếu.
     //   running — vòng soạn đang chạy. Tiến độ đã có panel .workflow-progress ngay trong khung chat, và
     //             requirement-workflow.js tải lại trang khi run xong.
-    //   done    — vừa soạn xong, chưa có gì mới. Cổng đóng và #writeReqWaitingHint cũng phải TẮT: nói
-    //             "BA sẽ mời khi mọi nhóm đã rõ" trong lúc Tiến độ khai thác đầy 100% là nói sai.
+    //   done    — vừa soạn xong, chưa có gì mới. Cổng đóng; người dùng nhắn thêm một câu là nó mở lại.
     var writeReqState = draftRunInFlight ? "running"
         : draftSettled ? "done"
         : (requirementReady || (draftExists && coverageReady)) ? "ready"
@@ -334,21 +333,6 @@
         }
     }
 
-    static List<ICOGenerator.Contracts.Requirements.FlowStep> ParseFlow(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-            return new List<ICOGenerator.Contracts.Requirements.FlowStep>();
-        try
-        {
-            return System.Text.Json.JsonSerializer.Deserialize<List<ICOGenerator.Contracts.Requirements.FlowStep>>(json,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-                ?? new List<ICOGenerator.Contracts.Requirements.FlowStep>();
-        }
-        catch
-        {
-            return new List<ICOGenerator.Contracts.Requirements.FlowStep>();
-        }
-    }
 }
 
 <div class="page-head">
@@ -409,15 +393,22 @@
                "điều người dùng nói bị rơi mất dần qua từng tầng" mà không cổng nào trong hệ thống bắt được.
                Mang theo phiên bản ĐANG CHỌN: gói xuất bản mô tả V1 cạnh bản demo dựng từ V3 chỉ sinh ra một
                danh sách sai lệch giả. Là thẻ <a> chứ không phải form: đây là thao tác CHỈ ĐỌC, và một link
-               tải về không được phép làm mất nội dung đang gõ dở trong ô chat. *@
-            <a class="btn outline full"
-               asp-action="DownloadReviewPackage"
-               asp-route-projectId="@Model.Id"
-               asp-route-version="@selectedVersion"
-               download
-               title="Tải một file .zip gồm đoạn chat (kèm bản đồ bao phủ, tài liệu nguồn, prompt của BA), Product Brief, AI Design Spec và bản demo POC — để nhờ AI khác soi xem thông tin có bị rơi mất qua từng tầng không">
-                ⬇️ Tải trọn gói cho AI
-            </a>
+               tải về không được phép làm mất nội dung đang gõ dở trong ô chat.
+
+               Ẩn khi thiếu quyền RequirementsDownloadPackage (cấp ở màn hình Roles & Permissions, không
+               hardcode vai trò) — cùng một quyền mà action chặn, nên nút này không bao giờ dẫn tới trang
+               Access Denied. *@
+            @if (await Permissions.HasPermissionAsync(User, AppPermission.RequirementsDownloadPackage))
+            {
+                <a class="btn outline full"
+                   asp-action="DownloadReviewPackage"
+                   asp-route-projectId="@Model.Id"
+                   asp-route-version="@selectedVersion"
+                   download
+                   title="Tải một file .zip gồm đoạn chat (kèm bản đồ bao phủ, tài liệu nguồn, prompt của BA), Product Brief, AI Design Spec và bản demo POC — để nhờ AI khác soi xem thông tin có bị rơi mất qua từng tầng không">
+                    ⬇️ Tải trọn gói cho AI
+                </a>
+            }
         </div>
 
         @* Tiến độ khai thác yêu cầu: cho user thấy cuộc phỏng vấn đã rõ bao nhiêu nhóm thông tin và còn
@@ -489,9 +480,8 @@
         @* KHÔNG có panel "Ví dụ đã xác nhận" ở đây: WorkedExamples vẫn được chắt sau mỗi lượt và vẫn là
            ORACLE mà POC bị chấm theo (spec đúc thành "## 13. Worked Examples", POC phải tính lại ra đúng
            kết quả), nhưng panel thì lặp lại đúng thứ BA vừa nói trong chat — các ví dụ định tính trùng
-           gần nguyên văn sơ đồ luồng ở cuối lượt (renderFlowDiagram, có nút "chưa đúng?" cho TỪNG bước),
-           còn ví dụ định lượng thì đến từ chính câu người dùng vừa chốt. Sidebar cuộn dài thêm một khối
-           mà không thêm thông tin.
+           gần nguyên văn BẢNG LUỒNG mà người dùng tự tay duyệt từng bước, còn ví dụ định lượng thì đến từ
+           chính câu người dùng vừa chốt. Sidebar cuộn dài thêm một khối mà không thêm thông tin.
            Cái mất khi bỏ panel: đường SỬA TAY danh sách oracle (UpdateWorkedExamplesUseCase, đã gỡ theo).
            Đính chính nay đi qua chat như mọi điều khác — nói lại trong khung chat, lượt chắt lọc kế tiếp
            cập nhật danh sách. *@
@@ -708,47 +698,14 @@
                             <ul class="batchq-history">
                                 @foreach (var q in pastQuestions)
                                 {
+                                    @* KHÔNG in nhãn nhóm của bản đồ bao phủ ở đây: nó là sổ sách nội bộ,
+                                       xem chú thích ở thẻ hỏi bên dưới. q.Group vẫn được lưu và vẫn đi vào
+                                       transcript cho các bước máy đọc. *@
                                     <li>
-                                        @if (!string.IsNullOrWhiteSpace(q.Group))
-                                        {
-                                            <span class="batchq-history-group">@q.Group</span>
-                                        }
                                         <span class="batchq-history-question">@q.Question</span>
                                     </li>
                                 }
                             </ul>
-                        }
-
-                        @{
-                            // Sơ đồ luồng chỉ đính ở lượt BA mời "Write Requirement" và chỉ hiện cho lượt BA
-                            // MỚI NHẤT (như chip gợi ý) để không lặp lại các sơ đồ cũ trong lịch sử. Markup
-                            // khớp renderFlowDiagram (requirements.js) để frame done render y hệt khi không reload.
-                            var flow = group.Conversation.Id == lastBaTurn?.Id
-                                ? ParseFlow(group.Conversation.FlowDiagram)
-                                : new List<ICOGenerator.Contracts.Requirements.FlowStep>();
-                        }
-                        @if (flow.Any())
-                        {
-                            <div class="flow-diagram" aria-label="Sơ đồ luồng nghiệp vụ để xác nhận">
-                                <div class="flow-diagram-title">Luồng nghiệp vụ chính — anh/chị xem giúp đã đúng chưa nhé:</div>
-                                <ol class="flow-steps">
-                                    @foreach (var step in flow)
-                                    {
-                                        <li class="flow-step">
-                                            @if (!string.IsNullOrWhiteSpace(step.Actor))
-                                            {
-                                                <span class="flow-actor">@step.Actor</span>
-                                            }
-                                            <span class="flow-action">@step.Action</span>
-                                            @if (!string.IsNullOrWhiteSpace(step.Outcome))
-                                            {
-                                                <span class="flow-outcome">@step.Outcome</span>
-                                            }
-                                            <button type="button" class="flow-step-fix" data-step="@step.Action" title="Bấm nếu bước này chưa đúng để đính chính ngay trong chat">chưa đúng?</button>
-                                        </li>
-                                    }
-                                </ol>
-                            </div>
                         }
                     </div>
                     prevWasBaBubble = true;
@@ -899,11 +856,14 @@
                                rỗng, không chỉ từ cờ: lượt gộp cũ lưu trước khi có cờ này vẫn phải render ra
                                một dòng trả lời được. *@
                             var openQuestion = q.OpenEnded || q.Suggestions.Count == 0;
+                            @* Nhãn nhóm (`q.Group`) KHÔNG lên màn hình. «Dữ liệu / danh mục chính»,
+                               «Vòng đời & trạng thái» là từ vựng của bản đồ bao phủ, không phải cách người
+                               dùng nghiệp vụ gọi công việc của họ — in nó lên đầu mỗi câu hỏi là bắt họ đọc
+                               sổ sách của hệ thống trước khi đọc câu hỏi. Trường vẫn được LƯU và vẫn đi vào
+                               transcript: nó là thứ nối câu hỏi về đúng dòng bản đồ (CoveragePendingGuard,
+                               AskedQuestionHistory), chỉ là không nói ra với người dùng. Panel "Tiến độ
+                               khai thác" bên cạnh vẫn liệt kê đủ 12 nhãn cho ai muốn xem. *@
                             <li class="batchq-item" data-question="@q.Question" data-multi="@(q.MultiSelect ? "true" : "false")" data-open="@(openQuestion ? "true" : "false")">
-                                @if (!string.IsNullOrWhiteSpace(q.Group))
-                                {
-                                    <div class="batchq-group">@q.Group</div>
-                                }
                                 <div class="batchq-question">@q.Question</div>
                                 @if (!openQuestion)
                                 {
@@ -1031,55 +991,81 @@
                 {
                     <div class="permmap-howto">
                         Đây là các luồng <b>mình ráp lại</b> từ những gì anh/chị đã kể — bước nào sai thì sửa thẳng vào ô,
-                        bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về).
+                        bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về). Sai thứ tự thì bấm
+                        <b>↑ ↓</b>, thiếu bước thì bấm <b>+ thêm bước</b> ở cuối luồng, thiếu hẳn một luồng thì bấm
+                        <b>+ thêm luồng</b> ở cuối bảng.
                     </div>
                     @foreach (var flow in lastFlowMap)
                     {
-                        <div class="permmap-screen">
-                            @flow.Name <span class="flowmap-kind">@flow.Kind</span>
-                            @if (!string.IsNullOrWhiteSpace(flow.Role))
-                            {
-                                <span class="flowmap-role">· @flow.Role</span>
-                            }
-                            @if (!string.IsNullOrWhiteSpace(flow.Trigger))
-                            {
-                                <span class="flowmap-role">· khi @flow.Trigger</span>
-                            }
-                        </div>
-                        <table class="permmap-table flowmap-table" data-flow="@flow.Name" data-kind="@flow.Kind"
-                               data-role="@flow.Role" data-trigger="@flow.Trigger">
-                            <thead>
-                                <tr>
-                                    <th class="flowmap-th-actor">Ai làm</th>
-                                    <th class="flowmap-th-action">Làm gì</th>
-                                    <th class="flowmap-th-outcome">Sau đó</th>
-                                    <th class="flowmap-th-del"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var step in flow.Steps)
+                        @* Tiêu đề và bảng gói chung trong .flowmap-block vì JS gom bảng đi theo từng BLOCK chứ không
+                           theo từng <table>: một luồng người dùng tự thêm chở tên/loại/vai ở các ô gõ NGOÀI bảng, và
+                           nút × của nó phải xóa được cả cụm. Server chỉ render lại được đề xuất của BA, nên ở đây
+                           không có nhánh "luồng tự thêm" — xem renderFlowMap trong requirements.js. *@
+                        <div class="flowmap-block">
+                            <div class="permmap-screen">
+                                @flow.Name <span class="flowmap-kind">@flow.Kind</span>
+                                @if (!string.IsNullOrWhiteSpace(flow.Role))
                                 {
-                                    <tr class="flowmap-row @(step.Included ? "" : "flowmap-row-dropped")">
-                                        <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">@step.Actor</textarea></td>
-                                        <td><textarea rows="1" class="permmap-cellinput flowmap-action">@step.Action</textarea></td>
-                                        <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">@step.Outcome</textarea></td>
-                                        @* Cờ đi theo payload nằm ở input ẩn, không ở class của dòng: JS gom bảng đọc đúng
-                                           một chỗ (tableChecked) cho cả năm bảng, và một dòng bị bỏ vẫn phải có mặt trong
-                                           payload để tin nhắn gửi đi còn gọi tên được nó. *@
-                                        <td class="flowmap-delcell">
-                                            <input type="hidden" class="flowmap-check" value="@(step.Included ? "1" : "0")" />
-                                            <button type="button" class="flowmap-del" title="@(step.Included ? "Bỏ bước này" : "Lấy lại bước này")"
-                                                    aria-label="@(step.Included ? $"Bỏ bước {step.Action}" : $"Lấy lại bước {step.Action}")">@(step.Included ? "×" : "↩")</button>
+                                    <span class="flowmap-role">· @flow.Role</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(flow.Trigger))
+                                {
+                                    <span class="flowmap-role">· khi @flow.Trigger</span>
+                                }
+                            </div>
+                            <table class="permmap-table flowmap-table" data-flow="@flow.Name" data-kind="@flow.Kind"
+                                   data-role="@flow.Role" data-trigger="@flow.Trigger">
+                                <thead>
+                                    <tr>
+                                        <th class="flowmap-th-actor">Ai làm</th>
+                                        <th class="flowmap-th-action">Làm gì</th>
+                                        <th class="flowmap-th-outcome">Sau đó</th>
+                                        <th class="flowmap-th-del"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var step in flow.Steps)
+                                    {
+                                        <tr class="flowmap-row @(step.Included ? "" : "flowmap-row-dropped")">
+                                            <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">@step.Actor</textarea></td>
+                                            <td><textarea rows="1" class="permmap-cellinput flowmap-action" placeholder="bước này làm gì?">@step.Action</textarea></td>
+                                            <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">@step.Outcome</textarea></td>
+                                            @* Cờ đi theo payload nằm ở input ẩn, không ở class của dòng: JS gom bảng đọc đúng
+                                               một chỗ (tableChecked) cho cả năm bảng, và một dòng bị bỏ vẫn phải có mặt trong
+                                               payload để tin nhắn gửi đi còn gọi tên được nó.
+
+                                               ↑ ↓ đổi THỨ TỰ BƯỚC, thứ ở bảng này là dữ liệu chứ không phải cách bày (nó đi
+                                               thẳng vào oracle chấm POC — xem FlowMapRow.Steps). Trạng thái khóa của hai nút
+                                               ở dòng đầu/dòng cuối do refreshFlowMoves() gán lúc nạp trang. *@
+                                            <td class="flowmap-delcell">
+                                                <input type="hidden" class="flowmap-check" value="@(step.Included ? "1" : "0")" />
+                                                <button type="button" class="flowmap-move" data-dir="up"
+                                                        title="Đưa lên trên bước @step.Action" aria-label="Đưa lên trên bước @step.Action">↑</button>
+                                                <button type="button" class="flowmap-move" data-dir="down"
+                                                        title="Đưa xuống dưới bước @step.Action" aria-label="Đưa xuống dưới bước @step.Action">↓</button>
+                                                <button type="button" class="flowmap-del" title="@(step.Included ? $"Bỏ bước {step.Action}" : $"Lấy lại bước {step.Action}")"
+                                                        aria-label="@(step.Included ? $"Bỏ bước {step.Action}" : $"Lấy lại bước {step.Action}")">@(step.Included ? "×" : "↩")</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                    <tr class="flowmap-addsteprow">
+                                        <td colspan="4">
+                                            <button type="button" class="flowmap-add flowmap-addstep"
+                                                    title="Thêm bước cho luồng @flow.Name" aria-label="Thêm bước cho luồng @flow.Name">+ thêm bước</button>
                                         </td>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
                     }
+                    <div class="flowmap-addflowrow">
+                        <button type="button" class="flowmap-add flowmap-addflow"
+                                title="Thêm một luồng mới vào bảng" aria-label="Thêm một luồng mới vào bảng">+ thêm luồng</button>
+                    </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
                         <div class="permmap-hint">
-                            Thiếu hẳn một luồng, hoặc thiếu một tình huống hỏng nào đó, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+                            Muốn mình tự dựng thêm một luồng hay một tình huống hỏng từ đầu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
                         </div>
                         <div class="permmap-msg" id="flowMapMsg"></div>
                     </div>
@@ -1196,6 +1182,9 @@
                         đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
                         thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
                         cuối. Ai được báo ở mỗi trạng thái thì mình hỏi ở bảng cuối buổi.
+                        <br />Tên đối tượng, tên thông tin và tên trạng thái mình để <b>tiếng Anh</b> vì chúng sẽ thành
+                        nhãn cột, ô nhập và trạng thái trong ứng dụng; phần tiếng Việt là dòng mô tả ngay dưới mỗi tên —
+                        chỗ nào mình hiểu sai thì anh/chị sửa giúp.
                         <br />Cột <b>Nhập thế nào</b> quyết định hình dạng ô trên màn hình; chọn <b>Chọn 1</b> hay
                         <b>Chọn nhiều</b> thì nói thêm giúp mình danh sách lấy ở đâu — <b>ứng dụng tự quản lý</b> nghĩa là
                         app sẽ có thêm một màn hình riêng để quản lý danh mục đó.
@@ -1709,10 +1698,10 @@
                — vì bản tổng kết chỉ kể lại những gì đã nói.
 
                Việc rà soát không mất, nó đã nằm ở những chỗ SỬA ĐƯỢC và đúng lúc hơn: nhịp BA chủ động đọc
-               lại sau mỗi ~5–7 câu (requirement-chat.v4.md), sơ đồ luồng cuối lượt mời với nút "chưa đúng?"
-               cho TỪNG bước (renderFlowDiagram), năm bảng chốt + bảng phân quyền mà người dùng sửa trực
-               tiếp, cổng soát mâu thuẫn ngay dưới nút này, và sau khi có tài liệu thì ghim ghi chú thẳng
-               trên bản xem trước Product Brief (ReviseBriefFromNotesUseCase).
+               lại sau mỗi ~5–7 câu (requirement-chat.v4.md), sáu bảng chốt + bảng phân quyền mà người dùng
+               sửa trực tiếp (bảng LUỒNG là chỗ rà từng bước quy trình), cổng soát mâu thuẫn ngay dưới nút
+               này, và sau khi có tài liệu thì ghim ghi chú thẳng trên bản xem trước Product Brief
+               (ReviseBriefFromNotesUseCase).
 
                data-state là hợp đồng với requirements.js: nó khởi tạo trạng thái cổng từ đúng bản server
                vừa render thay vì đoán qua việc khối đang ẩn hay hiện.

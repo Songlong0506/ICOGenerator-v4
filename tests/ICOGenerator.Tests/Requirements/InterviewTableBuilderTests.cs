@@ -161,6 +161,127 @@ public class InterviewTableBuilderTests
         Assert.Contains("Kế toán ghi sổ", FlowMapBuilder.RenderUserMessage(rows));
     }
 
+    // ==== BẢNG LUỒNG: phần NGƯỜI DÙNG TỰ THÊM và THỨ TỰ BƯỚC ====
+
+    // Thứ tự bước là DỮ LIỆU ở bảng này (nó đi thẳng vào oracle chấm POC), nên nút ↑ ↓ chỉ có nghĩa nếu
+    // server giữ nguyên thứ tự client gửi lên. Một builder "chuẩn hoá" mà xếp lại bước là làm cả thao tác
+    // đổi chỗ trên bảng thành vô hình.
+    [Fact]
+    public void FlowMap_KeepsTheStepOrderTheBrowserSentUp()
+    {
+        var rows = FlowMapBuilder.Sanitize(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Tạo và phê duyệt JD",
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Action = "Submit JD" },
+                    new() { Action = "Tạo JD" },
+                    new() { Action = "Verify JD" }
+                }
+            }
+        });
+
+        Assert.Equal(new[] { "Submit JD", "Tạo JD", "Verify JD" }, rows.Single().Steps.Select(s => s.Action));
+    }
+
+    // Bước người dùng tự gõ không đi qua danh sách cho phép nào (khác bảng màn hình) — nhưng nó phải giữ
+    // được cờ nguồn gốc tới tận tin nhắn gửi đi. Một bước chưa từng có trong đề xuất mà lặng lẽ đi vào
+    // phạm vi là thứ phải nói ra, và ở bảng này còn hơn thế: mỗi bước được giữ là một mục IncludedActions
+    // mà bảng màn hình sau đó buộc phải có chức năng phụ trách.
+    [Fact]
+    public void FlowMap_UserMessageNamesTheStepsTheUserAdded()
+    {
+        var rows = FlowMapBuilder.Sanitize(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Tạo và phê duyệt JD",
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Action = "Tạo JD" },
+                    new() { Action = "Gửi mail cho HRBP", AddedByUser = true }
+                }
+            }
+        });
+
+        var message = FlowMapBuilder.RenderUserMessage(rows);
+        Assert.True(rows.Single().Steps[1].AddedByUser);
+        Assert.Contains("Các bước mình tự bổ sung", message);
+        Assert.Contains("Gửi mail cho HRBP", message);
+    }
+
+    // Luồng tự thêm chỉ kể TÊN LUỒNG: mọi bước trong đó cũng là bước người dùng tự gõ, liệt kê ra là in
+    // lại nguyên danh sách vừa ở ngay bên trên.
+    [Fact]
+    public void FlowMap_UserMessageNamesTheFlowTheUserAddedWithoutRelistingItsSteps()
+    {
+        var rows = FlowMapBuilder.Sanitize(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Thu hồi JD đã duyệt",
+                AddedByUser = true,
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Action = "Chọn JD cần thu hồi", AddedByUser = true },
+                    new() { Action = "Xác nhận thu hồi", AddedByUser = true }
+                }
+            }
+        });
+
+        var message = FlowMapBuilder.RenderUserMessage(rows);
+        Assert.Contains("Các luồng mình tự bổ sung vào bảng: Thu hồi JD đã duyệt", message);
+        Assert.DoesNotContain("Các bước mình tự bổ sung", message);
+    }
+
+    // Bỏ hết bước của một luồng tự thêm ⇒ không có gì đi vào phạm vi, nên cũng không có gì để kể. Kể tên
+    // nó ở đây là báo với BA rằng người dùng vừa bổ sung một luồng mà họ vừa tự đóng lại.
+    [Fact]
+    public void FlowMap_UserMessageSkipsAnAddedFlowWithEveryStepDropped()
+    {
+        var rows = FlowMapBuilder.Sanitize(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Thu hồi JD đã duyệt",
+                AddedByUser = true,
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Action = "Chọn JD cần thu hồi", AddedByUser = true, Included = false },
+                    new() { Action = "Xác nhận thu hồi", AddedByUser = true, Included = false }
+                }
+            }
+        });
+
+        Assert.DoesNotContain("Các luồng mình tự bổ sung", FlowMapBuilder.RenderUserMessage(rows));
+    }
+
+    // Cờ "người dùng tự thêm" ở lượt BÀY BẢNG là cờ của MODEL — một chỗ để nó gán chữ ký của người dùng
+    // lên luồng chính nó vừa bịa, rồi tin nhắn gửi đi kể lại y như thế. Đường bày bảng ép cờ về false.
+    [Fact]
+    public void FlowMap_ClearsTheUserAddedFlagOnTheProposalPath()
+    {
+        var rows = FlowMapBuilder.Build(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Tạo và phê duyệt JD",
+                AddedByUser = true,
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Action = "Tạo JD", AddedByUser = true },
+                    new() { Action = "Submit JD", AddedByUser = true }
+                }
+            }
+        });
+
+        var row = rows.Single();
+        Assert.False(row.AddedByUser);
+        Assert.All(row.Steps, s => Assert.False(s.AddedByUser));
+    }
+
     // ==== BẢNG MÀN HÌNH ====
 
     private static readonly List<string> Scope = new() { "Màn hình Training Plan", "Trang duyệt của HOD" };
@@ -543,6 +664,81 @@ public class InterviewTableBuilderTests
         }, new[] { "Item Title" });
 
         Assert.Contains("bảng cột", rows.Single().Fields.Single().Meaning);
+    }
+
+    // Từ lúc cột tên là TIẾNG ANH, hai đầu của phép so không còn cùng ngôn ngữ: "Effective Date" không bao
+    // giờ khớp cột "Ngày hiệu lực", và dòng mất dấu xuất xứ đúng ở chỗ người dùng cần nhận ra thứ họ vừa tự
+    // tay tích ở bảng trước. `sourceColumn` là chỗ nối lại — model chép nguyên văn tên cột vào đó.
+    [Fact]
+    public void EntityMap_MatchesTheColumnMapThroughTheDeclaredSourceColumn()
+    {
+        var rows = EntityMapBuilder.Build(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "Job Description",
+                Fields = new List<EntityFieldNote>
+                {
+                    new() { Name = "Effective Date", SourceColumn = "ngày hiệu lực" }
+                },
+                States = new List<EntityLifecycleState>()
+            }
+        }, new[] { "Ngày hiệu lực" });
+
+        var field = rows.Single().Fields.Single();
+
+        // Ô ý nghĩa gọi đúng cái tên người dùng nhìn thấy trong FILE của họ, không phải bản chuẩn hoá —
+        // đó là chỗ duy nhất trên dòng còn nói được thông tin tiếng Anh này đến từ đâu.
+        Assert.Contains("bảng cột", field.Meaning);
+        Assert.Contains("Ngày hiệu lực", field.Meaning);
+        Assert.Equal("Ngày hiệu lực", field.SourceColumn);
+    }
+
+    // Ô đó chở dấu "người dùng đã chốt rồi", nên một cái tên model bịa sẽ dán dấu ấy lên một thông tin chưa
+    // ai duyệt — cùng luật cấm bịa của `evidence`. Không khớp cột đã tích nào thì XOÁ, không lấy nguyên.
+    [Fact]
+    public void EntityMap_DropsASourceColumnThatMatchesNoConfirmedColumn()
+    {
+        var rows = EntityMapBuilder.Build(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "Job Description",
+                Fields = new List<EntityFieldNote>
+                {
+                    new() { Name = "Effective Date", SourceColumn = "Cột không có thật" }
+                },
+                States = new List<EntityLifecycleState>()
+            }
+        }, new[] { "Ngày hiệu lực" });
+
+        var field = rows.Single().Fields.Single();
+        Assert.Equal(string.Empty, field.SourceColumn);
+        Assert.Equal(string.Empty, field.Meaning);
+    }
+
+    // Ô máy hết việc ở đường GỬI: bảng đã gửi thì xuất xứ đã nằm trong ô ý nghĩa mà người dùng vừa đọc và
+    // vừa sửa được. Cùng luật với cờ khóa.
+    [Fact]
+    public void EntityMap_ClearsTheSourceColumnOnTheSubmitPath()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "Job Description",
+                Included = true,
+                Fields = new List<EntityFieldNote>
+                {
+                    new() { Name = "Effective Date", Meaning = "ngày JD bắt đầu có hiệu lực", Used = true, SourceColumn = "Ngày hiệu lực" }
+                },
+                States = new List<EntityLifecycleState>()
+            }
+        });
+
+        var field = rows.Single().Fields.Single();
+        Assert.Equal(string.Empty, field.SourceColumn);
+        Assert.Equal("ngày JD bắt đầu có hiệu lực", field.Meaning);
     }
 
     // Người nhận thông báo thuộc hẳn bảng THÔNG BÁO, nên khối ngữ cảnh của bảng đối tượng không được nhắc
@@ -1137,5 +1333,131 @@ public class InterviewTableBuilderTests
         Assert.Equal(string.Empty, row.ParentEntity);
         Assert.Null(row.MinRows);
         Assert.Null(row.MaxRows);
+    }
+
+    // ==== BẢN KỂ CỦA BẢNG KHÔNG ĐƯỢC CHỞ VĂN XUÔI CỦA BA ====
+    // Ca thật (JD Library 1). BA điền ô mô tả của đối tượng JD là "Mô tả công việc được Manager tạo, kiểm
+    // tra, verify và approve trước khi dùng để gán cho nhân viên", trong khi chính người dùng đã kể ở khung
+    // chat và đã TỰ TAY rà ở bảng luồng rằng HRBP verify rồi HoD của Manager approve. Ô mô tả nằm cạnh tên
+    // đối tượng như một cái nhãn xám nên người dùng đọc lướt rồi bấm gửi — và bản kể do RenderUserMessage
+    // soạn được lưu dưới VAI CỦA HỌ. Từ đó câu của BA là "lời người dùng" với mọi tầng phía sau:
+    //
+    //  1. Bộ chắt "điểm cần làm rõ" đẻ ra mục "Chưa rõ ai thực hiện verify và approve JD", CoveragePendingGuard
+    //     hạ ba dòng bản đồ («Đối tượng người dùng & vai trò», «Chức năng & luồng nghiệp vụ chính», «Vòng đời
+    //     & trạng thái») xuống [MỘT PHẦN], và RequirementReadinessGate KHÓA nút "Write Requirement" — ở đúng
+    //     lượt mà BA vừa nói "các nhóm thông tin chính đã đủ".
+    //  2. Bộ chắt bản đồ bao phủ trích thẳng câu đó làm {nguồn: …}, tức ký tên người dùng vào câu của BA.
+    //  3. BA đem nó ra chất vấn: "trong bảng luồng anh/chị đã chốt HRBP verify và HoD approve, nhưng phần mô
+    //     tả JD lại ghi Manager thực hiện verify và approve; luồng nào đúng ạ?" — một mâu thuẫn không có thật
+    //     (hai vế không cùng nguồn), đốt trọn một lượt vốn phải đứng MỘT MÌNH, và mở đường cho người dùng lật
+    //     chính luồng họ đã duyệt.
+    //
+    // Mô tả vẫn được LƯU (nó là văn xuôi cho ## 8. Data Model Summary), chỉ không được đóng dấu thành lời
+    // người dùng ở bất kỳ đường nào.
+
+    [Fact]
+    public void EntityMap_UserMessageDoesNotEchoTheDescriptionBaWrote()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "JD",
+                Description = "Mô tả công việc được Manager tạo, kiểm tra, verify và approve",
+                Included = true,
+                Fields = new List<EntityFieldNote> { new() { Name = "Job Title", Used = true } }
+            }
+        });
+
+        var message = EntityMapBuilder.RenderUserMessage(rows);
+
+        Assert.Contains("JD:", message);
+        Assert.Contains("Job Title", message);
+        Assert.DoesNotContain("verify và approve", message);
+    }
+
+    // Khối ngữ cảnh thì ngược lại: mô tả vẫn phải có mặt (bước sinh spec đọc nó), nhưng đứng ở DÒNG RIÊNG có
+    // gắn xuất xứ. Nối vào dòng tên đối tượng dưới tiêu đề "đã được NGƯỜI DÙNG CHỐT" là đúng cách một câu văn
+    // xuôi của BA trở thành bằng chứng.
+    [Fact]
+    public void EntityMap_ConfirmedBlockMarksTheDescriptionAsBaWritten()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "JD",
+                Description = "Mô tả công việc được Manager tạo, kiểm tra, verify và approve",
+                Included = true,
+                Fields = new List<EntityFieldNote> { new() { Name = "Job Title", Used = true } }
+            }
+        });
+
+        var block = EntityMapBuilder.RenderConfirmedBlock(JsonSerializer.Serialize(rows));
+
+        Assert.Contains("* JD\n", block!.Replace("\r\n", "\n"));
+        Assert.Contains("mô tả (BA tự đặt, chưa ai rà): Mô tả công việc được Manager", block);
+        Assert.Contains("KHÔNG phải lời người dùng", block);
+        Assert.Contains("đừng lấy nó làm một vế mâu thuẫn", block);
+    }
+
+    // Câu dặn về ô mô tả chỉ có nghĩa khi khối có ít nhất một dòng mô tả: khối này đi kèm MỌI lượt chat sau,
+    // nên một dòng lệnh nói về thứ không tồn tại trong khối là token thừa ở mọi lượt.
+    [Fact]
+    public void EntityMap_ConfirmedBlockOmitsTheCaptionWarningWhenNoRowHasOne()
+    {
+        var rows = EntityMapBuilder.Sanitize(new[]
+        {
+            new EntityMapRow
+            {
+                Entity = "JD",
+                Included = true,
+                Fields = new List<EntityFieldNote> { new() { Name = "Job Title", Used = true } }
+            }
+        });
+
+        var block = EntityMapBuilder.RenderConfirmedBlock(JsonSerializer.Serialize(rows));
+
+        Assert.DoesNotContain("KHÔNG phải lời người dùng", block);
+    }
+
+    // Ô "việc của màn" là cùng một hình dạng lỗi: BA điền sẵn, người dùng đọc như nhãn, bản kể lưu dưới vai
+    // của họ. Chặn ở một bảng mà bỏ bảng kia là để nguyên đúng đường cũ, chỉ đổi tên ô.
+    [Fact]
+    public void ScreenScope_UserMessageDoesNotEchoThePurposeBaWrote()
+    {
+        var rows = ScreenScopeMapBuilder.Sanitize(new[]
+        {
+            new ScreenScopeRow
+            {
+                Screen = "Màn hình Training Plan",
+                Purpose = "Nơi HR duyệt và chốt kế hoạch năm",
+                Included = true
+            }
+        }, Scope);
+
+        var message = ScreenScopeMapBuilder.RenderUserMessage(rows);
+
+        Assert.Contains("Màn hình Training Plan", message);
+        Assert.DoesNotContain("HR duyệt và chốt", message);
+    }
+
+    [Fact]
+    public void ScreenScope_ConfirmedBlockMarksThePurposeAsBaWritten()
+    {
+        var rows = ScreenScopeMapBuilder.Sanitize(new[]
+        {
+            new ScreenScopeRow
+            {
+                Screen = "Màn hình Training Plan",
+                Purpose = "Nơi HR duyệt và chốt kế hoạch năm",
+                Included = true
+            }
+        }, Scope);
+
+        var block = ScreenScopeMapBuilder.RenderConfirmedBlock(JsonSerializer.Serialize(rows));
+
+        Assert.Contains("việc của màn (BA tự đặt, chưa ai rà): Nơi HR duyệt", block);
+        Assert.Contains("KHÔNG phải lời người dùng", block);
     }
 }

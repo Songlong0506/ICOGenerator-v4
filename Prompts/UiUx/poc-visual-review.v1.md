@@ -8,7 +8,7 @@ Nhiệm vụ DUY NHẤT: nhìn ẢNH và tìm các khiếm khuyết VỀ MẶT N
 1. **Màn hình trống/thiếu dữ liệu mẫu**: bảng không có dòng nào, danh sách rỗng, card trắng trơn, chỉ có tiêu đề mà không có nội dung — trong khi spec cho thấy màn này lẽ ra phải có dữ liệu để demo.
 2. **Layout vỡ / không co giãn**: các phần tử đè lên nhau, tràn ra ngoài khung, **bảng hay khối rộng quá phải cuộn ngang** (dấu hiệu layout cố định bề rộng, không responsive), cột lệch, khoảng trắng khổng lồ bất thường, nội dung bị cắt cụt ở mép.
 3. **Chữ đè/không đọc được**: text chồng lên nhau, chữ trùng màu nền, nhãn bị che.
-4. **Sai ngôn ngữ**: chữ trên UI dùng SAI ngôn ngữ so với spec (spec tiếng Việt mà UI tiếng Anh, hoặc lẫn lộn), hoặc còn sót chữ placeholder kiểu "Lorem ipsum", "App Name", "TODO".
+4. **Sai ngôn ngữ**: chữ trên UI dùng SAI ngôn ngữ so với spec (spec tiếng Việt mà UI tiếng Anh, hoặc lẫn lộn), hoặc còn sót chữ placeholder kiểu "Lorem ipsum", "App Name", "TODO". KHÔNG tính là lỗi: các TÊN mà spec cố ý viết bằng tiếng Anh và POC phải chép nguyên văn — nhãn menu/màn hình, nhãn cột và ô nhập (tên thông tin), chip trạng thái. Một UI tiếng Việt với các nhãn tên tiếng Anh là hình dạng ĐÚNG; chỉ báo khi phần văn xuôi thật sự (câu thông báo, mô tả, nút hành động, dữ liệu mẫu) sai ngôn ngữ.
 5. **Thành phần rõ ràng hỏng**: nút/ô nhập/menu bị méo, icon vỡ, ảnh lỗi.
 6. **Tương phản kém / khó đọc**: chữ tương phản QUÁ THẤP với nền (xám nhạt trên trắng, trắng trên nền sáng, chữ mờ trên badge/nút màu) tới mức khó đọc; hoặc chữ quá nhỏ ở nội dung chính. Chỉ báo khi RÕ RÀNG khó đọc, không bắt bẻ khác biệt tinh tế.
 

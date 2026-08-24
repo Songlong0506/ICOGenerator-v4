@@ -80,6 +80,12 @@ public class ScreenScopeRow
     /// <summary>
     /// Màn hình này để làm gì, một câu theo góc nhìn nghiệp vụ. BA ĐIỀN SẴN — một bảng ô trống là bắt người
     /// dùng nghiệp vụ tự viết đặc tả cho mười mấy màn hình, đúng thái cực mà bảng cột đã cấm.
+    ///
+    /// <para>
+    /// "BA điền sẵn" kéo theo một hệ quả: ô này KHÔNG phải quyết định của người dùng, nên nó không đi vào
+    /// bản kể gửi lên khung chat và đứng riêng có gắn xuất xứ trong khối ngữ cảnh — cùng luật với ô mô tả
+    /// của <c>EntityMapRow</c>, ca thật ghi ở ghi chú class của <c>EntityMapBuilder</c>.
+    /// </para>
     /// </summary>
     public string Purpose { get; set; } = "";
 

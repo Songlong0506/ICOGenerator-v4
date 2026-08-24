@@ -249,8 +249,11 @@
                 // Run sinh AI Design Spec (sau Approve) cũng là "Requirement" kind nhưng báo khác: nó dẫn
                 // sang delivery (POC). Reload bên dưới sẽ hiện run delivery mà worker vừa tạo, gộp chung panel.
                 const isSpec = (data.tasks || []).some(t => t.type === 'AiDesignSpec');
+                // Nhánh needsMoreInfo phải nói cả BƯỚC THỨ HAI (bấm lại nút), không chỉ "xem câu hỏi":
+                // vòng soạn đã kết thúc và không có gì tự chạy tiếp khi người dùng trả lời xong — xem
+                // AgentTaskWorker.RunRequirementDraftAsync.
                 slot.innerHTML = data.needsMoreInfo
-                    ? `<div class="wf-banner wf-wait">❓ Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi BA trong khung chat.</div>`
+                    ? `<div class="wf-banner wf-wait">❓ Chưa đủ thông tin để viết — trả lời câu hỏi BA trong khung chat, rồi bấm lại nút tạo tài liệu khi nó hiện lên.</div>`
                     : isSpec
                         ? `<div class="wf-banner wf-ok">✓ Đã tạo AI Design Spec — đang khởi động quy trình dựng POC…</div>`
                         // Banner là dải trạng thái cuối, nằm ngay dưới feed đã có mốc "final" + mốc chuyển

@@ -1,8 +1,9 @@
 namespace ICOGenerator.Contracts.Requirements;
 
-// Một bước trong sơ đồ luồng nghiệp vụ mà BA vẽ ở lượt mời "Write Requirement" để user xác nhận trực
-// quan (vai trò → hành động → kết quả/trạng thái). Người nghiệp vụ bắt lỗi luồng trên sơ đồ tốt hơn
-// nhiều so với đọc đoạn văn tóm tắt — cùng triết lý "chốt công thức bằng ví dụ số" nhưng cho luồng.
+// Một bước trong sơ đồ luồng nghiệp vụ mà BA TỪNG vẽ ở lượt mời "Write Requirement" (vai trò → hành
+// động → kết quả). Sơ đồ đó đã GỠ — luồng nay được chốt bằng BẢNG LUỒNG, nơi từng bước sửa được và bỏ
+// được (xem FlowMapStep). Lớp này ở lại đúng một việc: đọc lại cột AgentConversation.FlowDiagram của các
+// hội thoại CŨ cho bản xuất và transcript.
 public class FlowStep
 {
     // Ai thực hiện bước này (vd "Nhân viên", "Quản lý", "Hệ thống"). Rỗng nếu không gắn vai cụ thể.

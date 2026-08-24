@@ -353,6 +353,7 @@ public static class ChatExportBuilder
 
             AppendProposedTables(sb, turn);
 
+            // Chỉ còn với hội thoại CŨ: lượt mới không ghi cột này nữa (xem BAConversationLog).
             var flow = ConversationTurnRenderer.ParseFlowDiagram(turn.FlowDiagram);
             if (flow.Count > 0)
             {

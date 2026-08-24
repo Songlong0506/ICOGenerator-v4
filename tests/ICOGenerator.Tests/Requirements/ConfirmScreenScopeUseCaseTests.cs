@@ -89,7 +89,11 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
             stored.Single(r => r.Screen == ScreenAssign).Functions.Single(f => f.Name == "Gán JD cho nhân viên").FlowSteps));
 
         // Và tin nhắn kể lại phải chở đúng chừng đó, vì mọi tầng chắt lọc đọc bản kể chứ không đọc cột DB.
-        Assert.Contains($"- {ScreenCreate} — Cho manager tạo JD cho orgUnit của mình [chức năng: Tạo JD, Cập nhật JD, Gửi duyệt]", result.Message);
+        // TRỪ ô "việc của màn": nó được LƯU (bước sinh spec đọc nó) nhưng KHÔNG đi vào bản kể, vì bản kể được
+        // lưu dưới vai NGƯỜI DÙNG còn ô đó là văn xuôi BA điền sẵn mà họ đọc như một cái nhãn — xem ghi chú
+        // class của EntityMapBuilder cho ca thật và BAChatTableCaptionRuleTests cho luật.
+        Assert.Contains($"- {ScreenCreate} [chức năng: Tạo JD, Cập nhật JD, Gửi duyệt]", result.Message);
+        Assert.DoesNotContain("Cho manager tạo JD cho orgUnit của mình", result.Message);
         Assert.DoesNotContain("theo orgUnit", result.Message);
     }
 

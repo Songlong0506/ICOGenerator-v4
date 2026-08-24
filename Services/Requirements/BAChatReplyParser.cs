@@ -38,7 +38,6 @@ public class BAChatReplyParser
                 MultiSelect = parsed.MultiSelect == true,
                 OpenEnded = parsed.OpenEnded == true,
                 Questions = ToQuestions(parsed.Questions),
-                FlowDiagram = parsed.FlowDiagram ?? new List<FlowStep>(),
                 // Bảng phân quyền đi thẳng, KHÔNG cắt gọt ở đây: bản chuẩn hoá của nó cần biết phạm vi đã
                 // chắt của dự án (để loại màn hình bịa và bù màn hình bị bỏ quên) mà parser thì không có —
                 // xem PermissionMatrixBuilder.Build, gọi từ BAChatService.
@@ -66,7 +65,6 @@ public class BAChatReplyParser
         reply.Message = (reply.Message ?? string.Empty).Trim();
         reply.Suggestions = CleanSuggestionTexts(reply.Suggestions);
         reply.Questions = CleanQuestions(reply.Questions);
-        reply.FlowDiagram = CleanFlow(reply.FlowDiagram);
 
         // Model trả ĐÚNG MỘT câu trong `questions` (lẽ ra phải dùng đường một-câu): hạ về đường cũ thay
         // vì dựng một thẻ nhiều dòng chỉ có một dòng. Câu hỏi phải được NỐI vào message — message của
@@ -507,32 +505,6 @@ public class BAChatReplyParser
         return null;
     }
 
-    // Trần số bước để một model "hào phóng" không đổ cả kịch bản dài vào sơ đồ.
-    private const int MaxFlowSteps = 12;
-
-    private static List<FlowStep> CleanFlow(List<FlowStep>? raw)
-    {
-        var result = new List<FlowStep>();
-        if (raw == null)
-            return result;
-
-        foreach (var step in raw)
-        {
-            var action = (step.Action ?? string.Empty).Trim();
-            if (action.Length == 0)
-                continue; // bước không có hành động thì vô nghĩa.
-            result.Add(new FlowStep
-            {
-                Actor = (step.Actor ?? string.Empty).Trim(),
-                Action = action,
-                Outcome = (step.Outcome ?? string.Empty).Trim()
-            });
-            if (result.Count >= MaxFlowSteps)
-                break;
-        }
-        return result;
-    }
-
     private class RawReply
     {
         public string? Message { get; set; }
@@ -540,7 +512,6 @@ public class BAChatReplyParser
         public bool? MultiSelect { get; set; }
         public bool? OpenEnded { get; set; }
         public List<RawQuestion>? Questions { get; set; }
-        public List<FlowStep>? FlowDiagram { get; set; }
         public List<PermissionMatrixRow>? PermissionMatrix { get; set; }
     }
 

@@ -175,102 +175,6 @@
         50% { opacity: 0; }
     }
 
-    /* Sơ đồ luồng nghiệp vụ đính trong bubble BA ở lượt mời "Write Requirement": các bước dọc, mỗi bước
-       có badge vai trò → hành động → kết quả, nối bằng đường dẫn để user "nhìn" ra luồng và bắt lỗi. */
-    .flow-diagram {
-        margin-top: 14px;
-        padding: 14px 16px;
-        background: var(--surface, #fff);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-    }
-
-    .flow-diagram-title {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--bosch-blue);
-        margin-bottom: 12px;
-    }
-
-    .flow-steps {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-    }
-
-    .flow-step {
-        position: relative;
-        padding: 0 0 18px 20px;
-        border-left: 2px solid var(--line);
-    }
-
-        .flow-step:last-child {
-            padding-bottom: 0;
-            border-left-color: transparent;
-        }
-
-        /* Chấm mốc trên đường dẫn dọc trước mỗi bước. */
-        .flow-step::before {
-            content: "";
-            position: absolute;
-            left: -6px;
-            top: 2px;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--bosch-blue);
-        }
-
-    .flow-actor {
-        display: inline-block;
-        font-size: 12px;
-        font-weight: 600;
-        color: #fff;
-        background: var(--bosch-blue);
-        border-radius: 10px;
-        padding: 1px 9px;
-        margin-right: 8px;
-    }
-
-    .flow-action {
-        font-size: 14px;
-        color: var(--text, #1a1a1a);
-    }
-
-    .flow-outcome {
-        display: block;
-        margin-top: 3px;
-        font-size: 12.5px;
-        color: var(--text-muted, #666);
-    }
-
-        .flow-outcome::before {
-            content: "→ ";
-            color: var(--bosch-blue);
-        }
-
-    /* "chưa đúng?" — đính chính đúng MỘT bước của luồng ngay trong chat (R2). Kín đáo bên phải bước,
-       rõ hơn khi rê chuột; bấm sẽ soạn sẵn tin nhắn sửa bước đó (xem requirements.js). */
-    .flow-step-fix {
-        margin-left: 8px;
-        padding: 0 6px;
-        font-size: 11.5px;
-        line-height: 1.6;
-        color: var(--text-muted, #888);
-        background: transparent;
-        border: 1px dashed var(--line);
-        border-radius: 10px;
-        cursor: pointer;
-        opacity: 0.65;
-        transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-    }
-
-        .flow-step-fix:hover {
-            opacity: 1;
-            color: var(--bosch-blue);
-            border-color: var(--bosch-blue);
-        }
-
     /* Suggestion options: đáp án gợi ý "bấm-để-trả-lời" cho lượt hỏi mới nhất của BA, trình bày dạng
        danh sách dọc có đánh số — giống option-select của Claude — thay cho "chip" ngang. Nằm dưới tin
        nhắn BA; người dùng bấm (hoặc gõ phím số) để trả nhanh thay vì gõ tay từng chữ. */
@@ -404,21 +308,6 @@
         opacity: 0.55;
         filter: grayscale(0.4);
         cursor: progress;
-    }
-
-    /* Dòng ở cuối panel "Tiến độ khai thác" thay cho nút mờ-và-khóa ngày trước: nói còn thiếu gì thì việc
-       gì sẽ xảy ra, thay vì bày ra một nút bấm không được. Chỉ hiện ở trạng thái "waiting". */
-    .write-req-waiting-hint {
-        margin: 12px 0 0;
-        padding-top: 12px;
-        border-top: 1px solid #e5e7eb;
-        font-size: 11.5px;
-        line-height: 1.5;
-        color: #6b7280;
-    }
-
-    .write-req-waiting-hint[hidden] {
-        display: none;
     }
 
     /* Băng "đã phục hồi nháp" ngay trên ô nhập: nội dung gõ dở được lưu tự động và đổ lại sau khi F5 / mở
@@ -1640,15 +1529,7 @@
     background: #fff;
 }
 
-/* Nhãn nhóm bản đồ bao phủ mà câu hỏi nhắm tới — nói cho người dùng biết trả lời câu này thì phần nào
-   của thanh tiến độ bên trái sẽ nhích. */
-.batchq-group {
-    font-size: 11.5px;
-    font-weight: 600;
-    color: var(--bosch-blue, #2563eb);
-}
-
-.batchq-question { font-size: 13px; line-height: 1.5; color: #374151; margin-top: 2px; }
+.batchq-question { font-size: 13px; line-height: 1.5; color: #374151; }
 
 /* DẤU VẾT chỉ-đọc của một thẻ hỏi gộp ĐÃ trả lời (lượt BA cũ). Message của lượt gộp chỉ là câu dẫn, nên
    không có khối này thì lịch sử hội thoại nuốt mất chính các câu hỏi — người dùng cuộn lên chỉ thấy "mình
@@ -1664,11 +1545,7 @@
     gap: 4px;
 }
 
-/* Nhãn nhóm nằm TRÊN câu hỏi như thẻ hỏi sống (.batchq-item): để chung dòng thì câu dài xuống hàng và
-   hai mục liền nhau trông so le, đọc như một đoạn văn đứt quãng. */
 .batchq-history > li { display: flex; flex-direction: column; gap: 1px; }
-
-.batchq-history-group { font-size: 11px; font-weight: 600; color: #9aa3af; }
 
 .batchq-history-question { font-size: 12.5px; line-height: 1.5; color: #6b7280; }
 
@@ -2146,7 +2023,7 @@
 .flowmap-th-actor { min-width: 120px; }
 .flowmap-th-action { min-width: 220px; }
 .flowmap-th-outcome { min-width: 200px; width: 100%; }
-.flowmap-th-del { min-width: 34px; width: 34px; }
+.flowmap-th-del { min-width: 84px; width: 84px; }
 
 .screenmap-th-name { min-width: 180px; }
 .screenmap-th-purpose { min-width: 200px; }
@@ -2206,15 +2083,23 @@
    giới "thêm thì xóa được, BA đề xuất thì chỉ bỏ tích" là chủ ý — dòng bị loại vẫn phải kể lại được trong
    tin nhắn gửi đi, còn dòng người dùng vừa tự gõ thì chưa bao giờ là một đề xuất nên không có gì để kể.
 
-   Bảng LUỒNG thì mọi dòng đều có nút, và nút ở đó là một cái LẬT (×/↩) chứ không phải xóa thật: nó thay
-   cho cột tích cũ, nên dòng bị bỏ vẫn nằm nguyên trong payload đúng như một dòng bỏ tích. */
+   Bảng LUỒNG thì mọi dòng đều có nút, nhưng nút ấy là HAI nút khác nhau đội chung một dấu ×, và đó chính
+   là ranh giới trên: dòng BA đề xuất mang .flowmap-del — một cái LẬT (×/↩) thay cho cột tích cũ, nên dòng
+   bị bỏ vẫn nằm nguyên trong payload đúng như một dòng bỏ tích; dòng người dùng tự thêm mang
+   .flowmap-remove — xóa thật. Hai nút phải trông y hệt nhau (cùng khuôn dưới đây) vì với người dùng chúng
+   là cùng một thao tác "bỏ dòng này đi"; chỗ chúng khác nhau nằm ở thứ đi vào payload, không ở con mắt. */
 .screenmap-th-del { min-width: 34px; width: 34px; }
 .screenmap-delcell,
-.flowmap-delcell,
 .entitymap-delcell { width: 34px; text-align: center; }
+
+/* Cột cuối của bảng LUỒNG rộng hơn hai bảng kia vì nó chở ba nút: ↑ ↓ rồi tới nút bỏ/xóa. Ba nút là cái
+   giá của việc đổi thứ tự mà không phải đẻ ra một cột tay cầm kéo-thả — xem flowStepControls trong
+   requirements.js. nowrap để hai nút mũi tên không bao giờ rơi xuống dòng dưới và làm dòng cao gấp đôi. */
+.flowmap-delcell { width: 84px; text-align: center; white-space: nowrap; }
 
 .screenmap-del,
 .flowmap-del,
+.flowmap-remove,
 .entitymap-del {
     padding: 0 6px;
     border: 1px solid transparent;
@@ -2230,6 +2115,7 @@
        lỗi, mà việc chính của bảng là ĐỌC rồi sửa chỗ sai. */
     .screenmap-del:hover,
     .flowmap-del:hover,
+    .flowmap-remove:hover,
     .entitymap-del:hover {
         border-color: #fecaca;
         background: #fef2f2;
@@ -2244,11 +2130,39 @@
         color: #1d4ed8;
     }
 
+/* ĐỔI THỨ TỰ BƯỚC. Cùng khuôn với nút × ở trên (mờ khi để yên, chỉ ăn màu lúc rê tới) nhưng KHÔNG bao giờ
+   đỏ: đổi chỗ một bước không phải thao tác loại bỏ, mà hai nút này đứng ngay cạnh nút loại bỏ thật. Hẹp
+   hơn để ba nút vừa một cột. */
+.flowmap-move {
+    padding: 0 3px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #9aa3af;
+    font-size: 12.5px;
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+    .flowmap-move:hover:not(:disabled) {
+        border-color: #bfdbfe;
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+
+    /* ↑ ở dòng đầu và ↓ ở dòng cuối: KHÓA chứ không giấu. Giấu đi thì cột cuối đổi bề rộng theo từng lần
+       đổi chỗ, và hai nút còn lại nhảy chỗ ngay dưới con trỏ vừa bấm. */
+    .flowmap-move:disabled {
+        opacity: .3;
+        cursor: default;
+    }
+
 /* NÚT THÊM DÒNG (cuối bảng con chức năng và cuối cả bảng). Trông như một dòng chữ bấm được chứ không như
    một nút bấm thật: nó là chỗ NỐI THÊM vào một bảng đã điền sẵn, không phải hành động chính của panel —
    hành động chính là "Gửi bảng màn hình" và chỉ nó được mang màu nút chính. */
 .screenmap-add,
-.entitymap-add {
+.entitymap-add,
+.flowmap-add {
     padding: 2px 6px;
     border: 1px dashed var(--line, #e5e7eb);
     border-radius: 6px;
@@ -2261,7 +2175,8 @@
 }
 
     .screenmap-add:hover,
-    .entitymap-add:hover {
+    .entitymap-add:hover,
+    .flowmap-add:hover {
         border-color: var(--bosch-blue-tint-strong, #cfe0fb);
         background: #f8fafc;
         color: var(--bosch-blue, #0a5cd8);
@@ -2270,6 +2185,83 @@
 /* Dòng chứa nút thêm màn hình đứng tách hẳn khỏi dòng cuối cùng: không có nó thì nút trông như thuộc về
    màn hình bên trên. */
 .screenmap-addrow td { background: #fafbfc; }
+.flowmap-addsteprow td { background: #fafbfc; }
+
+/* Nút thêm LUỒNG đứng dưới luồng cuối cùng, tách xa hơn nút thêm bước: hai nút cùng nằm cuối một khối và
+   trông giống nhau thì cú bấm nhầm đẻ ra một luồng rỗng ở đúng lúc người ta định thêm một bước. */
+.flowmap-addflowrow { margin-top: 14px; }
+
+/* TIÊU ĐỀ CỦA LUỒNG NGƯỜI DÙNG TỰ THÊM. Luồng BA bày ra chở tên/loại/vai ở data-* và tiêu đề chỉ là chữ;
+   luồng tự thêm thì bốn trường ấy phải gõ được, nên cùng chỗ đó thành một khối ô.
+
+   GRID hai hàng ĐẶT CỨNG TỪNG Ô chứ không phải flex-wrap, và cũng không để grid tự xếp: bốn ô tự xuống
+   dòng theo bề rộng khung chat sẽ đẩy nút xóa-cả-luồng xuống nằm cạnh ô "kích hoạt khi", và ở đó nó đọc
+   như nút xóa của riêng ô ấy. Hàng trên là phần định danh (tên · loại · nút xóa), hàng dưới là phần bổ
+   nghĩa (vai · điều kiện kích hoạt); mỗi ô khai grid-area đủ bốn cạnh nên vị trí không phụ thuộc thứ tự
+   thẻ trong DOM — ô "kích hoạt khi" ẩn đi cũng không kéo ô nào chạy chỗ. */
+.flowmap-newhead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto min-content;
+    gap: 6px 8px;
+    align-items: center;
+}
+
+    .flowmap-newhead .permmap-cellinput { border-color: var(--line, #e5e7eb); }
+
+    /* Tên luồng giữ nguyên nét đậm của .permmap-screen để khối ô này vẫn đọc như một tiêu đề, không như
+       một dòng nữa của bảng. */
+    .flowmap-newhead .flowmap-nameinput {
+        grid-area: 1 / 1 / 2 / 3;
+        font-weight: 600;
+        color: var(--bosch-blue, #2563eb);
+    }
+
+    .flowmap-newhead .flowmap-roleinput { grid-area: 2 / 1 / 3 / 2; }
+    .flowmap-newhead .flowmap-triggerinput { grid-area: 2 / 2 / 3 / 5; }
+
+    /* Ô "kích hoạt khi" chỉ có nghĩa với ngoại lệ. .permmap-cellinput đặt display:block nên thuộc tính
+       hidden của HTML một mình không giấu nổi nó. */
+    .flowmap-newhead .permmap-cellinput[hidden] { display: none; }
+
+/* Ô chọn loại đội lốt cái nhãn .flowmap-kind của luồng BA bày ra — cùng chỗ, cùng hình viên thuốc — vì nó
+   đúng là thứ đó, chỉ khác là bấm được. width:auto để đè luật `select { width: 100% }` của site.css, thứ
+   một mình đã đủ đẩy ba ô còn lại xuống ba dòng riêng. */
+.flowmap-kindselect {
+    grid-area: 1 / 3 / 2 / 4;
+    width: auto;
+    max-width: 150px;
+    padding: 2px 6px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 999px;
+    background: #fff;
+    color: #4338ca;
+    font-family: inherit;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    cursor: pointer;
+}
+
+/* Nút xóa cả luồng vừa thêm đứng ở cuối HÀNG TRÊN, xa các ô bổ nghĩa — nó xóa nhiều hơn hẳn nút × của
+   một bước, nên không được đứng lẫn vào hàng nút cuối dòng. */
+.flowmap-delflow {
+    grid-area: 1 / 4 / 2 / 5;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #9aa3af;
+    font-size: 15px;
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+    .flowmap-delflow:hover {
+        border-color: #fecaca;
+        background: #fef2f2;
+        color: #b91c1c;
+    }
 
 /* Dòng nhắc của phép kiểm TẤT ĐỊNH luồng ⇄ màn hình. Màu cảnh báo chứ không màu lỗi: một bước chưa có màn
    hình phụ trách là một CÂU HỎI (bước thừa, hay màn hình thiếu?), không phải một lỗi để khóa nút gửi. */
