@@ -10,7 +10,7 @@ namespace ICOGenerator.Tests.Requirements;
 //
 // Ca thật: bảng BÁO CÁO bị bỏ quên đúng như vậy (`reportMap`/`reportEntityOptions` không có trong frame,
 // trong khi requirements.js vẫn gọi renderReportMap(data.reportMap, data.reportEntityOptions)). Người dùng
-// đọc lời mời rà bảng, không thấy bảng đâu, rồi bấm nút "Tạo bản mô tả sản phẩm" đang sáng ngay đó — và
+// đọc lời mời rà bảng, không thấy bảng đâu, rồi bấm nút "Write Requirement" đang sáng ngay đó — và
 // bảng chỉ hiện ra vì cú bấm ấy tải lại trang.
 //
 // Không có phép kiểm nào bắt được chuyện đó: bảng vẫn được LƯU đúng vào lượt hội thoại, nên sau F5 mọi thứ

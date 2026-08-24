@@ -279,7 +279,14 @@
     // Nhãn KHÔNG còn là "✓ Đúng hết — tạo tài liệu": cụm "đúng hết" là lời gật đầu cho một bản tổng kết
     // ngay phía trên nút, mà bản đó đã gỡ (xem chú thích ở cổng #writeReqZone). Giữ lại thì nút hỏi người
     // dùng xác nhận một thứ họ không được đưa ra để đọc.
-    var writeReqLabel = "Tạo bản mô tả sản phẩm";
+    //
+    // Nhãn là "Write Requirement" — nguyên văn cái tên mà MỌI chỗ khác đã gọi nó: prompt BA mời bấm nút
+    // "Write Requirement" (requirement-chat.v4.md), cổng readiness dò đúng cụm đó trong lượt cuối (biến
+    // requirementReady ngay trên), và tài liệu lẫn thông báo lỗi cũng gọi vậy. Dịch riêng cái nhãn thành
+    // "Tạo bản mô tả sản phẩm" để lại đúng một khoảng vênh mà người dùng phải tự bắc cầu: BA bảo bấm một
+    // nút không có trên màn hình. Giữ nguyên tiếng Anh ở ĐÂY rẻ hơn dịch cả prompt — tên nút là danh tính
+    // của một bước quy trình, còn lời dẫn quanh nó vẫn tiếng Việt và đã nói đủ nút này làm gì.
+    var writeReqLabel = "Write Requirement";
     var writeReqTitle = "BA đã thu thập đủ thông tin — tạo bản mô tả sản phẩm.";
 
     // Tài liệu nguồn (ảnh/PDF) người dùng upload cho project + cờ vision của model BA (để cảnh báo).
