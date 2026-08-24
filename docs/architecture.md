@@ -88,7 +88,8 @@ Services/
   Notifications/         # NotificationService + Channels/ (Teams webhook, SMTP email, Bosch Email Server API)
   Prompts/               # PromptTemplateService, DbPromptOverrideProvider, PromptFileCatalog
   Requirements/          # BAChatService, ProductBriefDraftService, RequirementDocsService + trí nhớ/parser/generator của luồng BA
-    Templates/           # RequirementTemplateService, DocxTemplateWriter (sinh .docx)
+    Templates/           # RequirementTemplateService, DocxTemplateWriter (điền template .docx),
+                         #   MarkdownDocxWriter (Markdown -> .docx có bìa/mục lục/heading/bảng)
   Security/              # PermissionService, RequirePermissionAttribute, AesApiKeyProtector, AuditLogger
   Settings/              # AppSettingsFileStore (đọc/ghi appsettings từ màn hình Settings)
   Tools/                 # Tool cho agent: WorkspaceTools, CommandTools, GitTools
@@ -119,7 +120,7 @@ Browser
             │     ├► RequirementPromptBuilder  (dựng prompt)
             │     ├► ILlmClient                 (gọi LLM)      [Services/Llm]
             │     ├► RequirementResponseParser  (parse JSON)
-            │     └► RequirementDocumentGenerator -> Templates/DocxTemplateWriter
+            │     └► RequirementDocumentGenerator -> Templates/MarkdownDocxWriter
             └► AppDbContext.SaveChanges                        [Data]
 ```
 
