@@ -242,9 +242,9 @@
     // #writeReqZone trong khung chat mở ở "ready"); bốn trạng thái kia không dựng nút nào:
     //   waiting — chưa đủ thông tin. KHÔNG dựng nút nào (một nút mờ-và-khóa chỉ mời bấm rồi từ chối);
     //             panel "Tiến độ khai thác" bên cạnh là chỗ nói điều còn thiếu.
-    //   table   — còn một bảng chốt đang chờ gửi. Cổng đóng NHƯNG phải nói ra bảng nào và nút nào (#tableGate):
-    //             im lặng ở đây là đúng cái nút mờ-và-khóa mà repo đã bỏ, chỉ tệ hơn vì không có gì để bấm.
-    //             Đứng TRƯỚC "done" vì một bảng chưa chốt là việc còn phải làm, kể cả khi bản Brief vừa xong.
+    //   table   — còn một bảng chốt đang chờ gửi. Cổng đóng, và #tableGate nói ra bảng nào + nút nào —
+    //             nhưng CHỈ khi cổng lẽ ra đã mở (tableGateSpeaks ngay dưới). Đứng TRƯỚC "done" vì một
+    //             bảng chưa chốt là việc còn phải làm, kể cả khi bản Brief vừa xong.
     //   running — vòng soạn đang chạy. Tiến độ đã có panel .workflow-progress ngay trong khung chat, và
     //             requirement-workflow.js tải lại trang khi run xong.
     //   done    — vừa soạn xong, chưa có gì mới. Cổng đóng; người dùng nhắn thêm một câu là nó mở lại.
@@ -254,6 +254,28 @@
         : (requirementReady || (draftExists && coverageReady)) ? "ready"
         : "waiting";
     var writeReqOpen = writeReqState == "ready";
+
+    // #tableGate CHỈ NÓI KHI CỔNG LẼ RA ĐÃ MỞ. Bong bóng đó tồn tại để trả lời đúng một câu hỏi: "cái nút
+    // quen thuộc ở cuối khung chat đâu mất rồi?" — nên nó chỉ có nghĩa ở lượt mà nếu không vướng bảng thì
+    // cổng ĐÃ mở. Trạng thái "table" lại nuốt cả ca lẽ ra là "waiting": lượt BA vừa bày bảng ra và vừa nói
+    // "rà lại rồi bấm Gửi bảng … giúp mình" thì chưa có lời mời nào cả, cổng vốn đã đóng IM LẶNG, và một
+    // bong bóng ngay dưới cái bảng đang có sẵn nút gửi + câu dẫn của chính nó là lần thứ hai nói cùng một
+    // việc — tệ hơn: nó kéo khái niệm "nút tạo tài liệu" vào đầu người dùng đúng lúc họ đang rà từng dòng,
+    // và giải thích vì sao thiếu một cái nút chưa ai hứa.
+    //
+    // Hai ca CẦN nói thì vẫn nói, vì cả hai đều là đường mở cổng mà KHÔNG đọc lượt cuối: fail-open (bảng
+    // của lượt TRƯỚC còn treo, đã cuộn khỏi tầm mắt, lượt này model mời bấm nút) và đường lùi "draft đã có
+    // + bản đồ đã đủ". Ở đó im lặng đúng là "hệ thống hỏng": người dùng vừa đọc một lời mời rồi nhìn xuống
+    // không thấy gì, mà cũng không có gì để bấm để biết vì sao.
+    //
+    // Cổng CHẶN không đổi một li: trạng thái vẫn là "table", nút vẫn không được dựng, và
+    // ProductBriefDraftService vẫn chặn trước mọi lời gọi LLM. Đây thuần là chuyện nói hay không nói.
+    // requirements.js dựng lại đúng luật này ở frame done — data-gate-speaks là bản server render để F5
+    // không đổi câu trả lời.
+    var tableGateSpeaks = writeReqState == "table"
+        && !draftSettled
+        && (requirementReady || (draftExists && coverageReady));
+
     // Nhãn KHÔNG còn là "✓ Đúng hết — tạo tài liệu": cụm "đúng hết" là lời gật đầu cho một bản tổng kết
     // ngay phía trên nút, mà bản đó đã gỡ (xem chú thích ở cổng #writeReqZone). Giữ lại thì nút hỏi người
     // dùng xác nhận một thứ họ không được đưa ra để đọc.
@@ -1742,18 +1764,23 @@
                mời — xem BAChatTurnResult.CoverageReady). Chỉ đổi khi vòng soạn chạy xong, mà lúc đó
                requirement-workflow.js tải lại trang, nên một thuộc tính render sẵn là đủ. *@
             <div class="write-req-zone" id="writeReqZone" data-state="@writeReqState"
-                 data-draft-exists="@(draftExists ? "true" : "false")">
+                 data-draft-exists="@(draftExists ? "true" : "false")"
+                 data-gate-speaks="@(tableGateSpeaks ? "true" : "false")">
                 @* CỔNG ĐANG CHỜ MỘT BẢNG (trạng thái "table"). Loại trừ với #summaryGate ngay dưới: hai khối
                    này là hai câu trả lời khác nhau cho cùng câu hỏi "bấm gì tiếp theo", nên không bao giờ
                    cùng hiện.
 
-                   Vì sao phải NÓI RA thay vì chỉ đóng cổng: cụm này nằm ở cuối khung chat, còn bảng thì nằm
-                   ngay phía trên — người dùng vừa thấy một bảng, vừa quen có nút ở đây, nên im lặng đọc lên
-                   thành "hệ thống hỏng". Câu chữ do PendingConfirmTableGate soạn (một nguồn cho cả lượt BA
-                   ở đường bị chặn phía server), và requirements.js dựng lại ĐÚNG câu này ở frame done —
-                   markup phải khớp, xem tableGateHint. *@
+                   Vì sao phải NÓI RA thay vì chỉ đóng cổng: cụm này nằm ở cuối khung chat, và người dùng
+                   vừa được MỜI bấm nút ở đây — nút biến mất trong im lặng đọc lên thành "hệ thống hỏng".
+                   Nhưng cũng vì thế, khối này chỉ dựng khi cổng LẼ RA ĐÃ MỞ (tableGateSpeaks): ở lượt BA
+                   vừa bày bảng ra và chưa mời gì cả, cổng vốn đã im lặng, và nói thêm một câu ngay dưới cái
+                   bảng đang có sẵn nút gửi của nó chỉ là lặp lại — xem chú thích ở tableGateSpeaks.
+
+                   Câu chữ do PendingConfirmTableGate soạn (một nguồn cho cả lượt BA ở đường bị chặn phía
+                   server), và requirements.js dựng lại ĐÚNG câu này ở frame done — markup phải khớp, xem
+                   tableGateHint. *@
                 <div class="req-msg ba summary-gate summary-gate-blocked" id="tableGate"
-                     @(writeReqState == "table" ? "" : "hidden")>
+                     @(tableGateSpeaks ? "" : "hidden")>
                     <div class="summary-gate-head">
                         <b>BA</b>
                         <span class="summary-gate-title">Còn một bảng chờ anh/chị chốt</span>

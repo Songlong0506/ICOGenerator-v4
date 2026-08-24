@@ -170,6 +170,23 @@ public class PendingConfirmTableGateTests
         Assert.Equal(fromCsharp, fromJs);
     }
 
+    // Bong bóng #tableGate chỉ được NÓI khi cổng lẽ ra đã mở — nếu không, nó lặp lại đúng cái việc mà bảng
+    // ngay phía trên (đã có nút gửi và câu dẫn của chính nó) vừa nói, và giải thích vì sao thiếu một cái nút
+    // chưa ai hứa. Luật này sống ở HAI chỗ vẽ ra cổng, nên test giữ cả hai cùng có nó: sửa một bên rồi quên
+    // bên kia thì rà xong một màn hình rồi F5 lại thấy câu trả lời khác.
+    [Fact]
+    public void TableGateBubble_SpeaksOnlyWhenTheGateWouldHaveOpened_OnBothSides()
+    {
+        var view = File.ReadAllText(FindRepoFile(Path.Combine("Views", "Requirements", "Index.cshtml")));
+        Assert.Contains("var tableGateSpeaks = writeReqState == \"table\"", view);
+        Assert.Contains("@(tableGateSpeaks ? \"\" : \"hidden\")", view);
+
+        var js = File.ReadAllText(FindRepoFile(Path.Combine("wwwroot", "js", "requirements.js")));
+        var start = js.IndexOf("const tableGate = document.getElementById(\"tableGate\")", StringComparison.Ordinal);
+        Assert.True(start > 0, "requirements.js không còn nhánh dựng #tableGate.");
+        Assert.Contains("writeReqWouldOpen", js[start..js.IndexOf("\n        }", start, StringComparison.Ordinal)]);
+    }
+
     // wwwroot/ không được copy sang bin của test (chỉ Prompts/ có), nên đi ngược từ thư mục chạy lên tới
     // repo root — cùng cách CoveragePromptFixture dò thư mục Prompts.
     private static string FindRepoFile(string relativePath)
