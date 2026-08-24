@@ -574,7 +574,7 @@ hai kiểu tên:
 | Nguồn tên | Nơi giữ luật | Hình dạng |
 |---|---|---|
 | LLM chắt từ hội thoại | `Prompts/BusinessAnalyst/interview-outlook.v1.md`, mục `plannedScope` | tự đặt theo luật trên |
-| Danh mục `app` của bảng đối tượng | `EntityMapBuilder.ManagedListScreens` (**tất định**) | `<tên danh mục> Catalog` |
+| Danh mục `app` của bảng đối tượng | `EntityMapBuilder.ManagedListScreens` (**tất định**) | `<tên danh mục> Catalog` — nửa đầu là TÊN THÔNG TIN, nên vế "tiếng Anh" của luật này đứng được là nhờ [luật đặt tên của bảng đối tượng](#ba-cột-tên-của-bảng-đối-tượng-cũng-là-tiếng-anh) |
 | Dòng của bảng báo cáo | `ReportMapBuilder.ReportScreens` (**tất định**) + luật `report` trong `requirement-chat.v4.md` | `<tên> Report`, trừ tên đã tự đọc được như màn hình |
 
 Hai bước sau chỉ CHÉP: `ai-design-spec.v1.md` lấy cột `Screen` của bảng đã chốt làm heading `### 6.n`, rồi
@@ -586,9 +586,12 @@ còn đường khớp ĐÚNG CHỮ — model thêm một chữ dẫn là dòng t
 dòng trắng. Bù lại, chính vì thế mà không tên ngắn nào bị ghép nhầm vào một màn hình khác. Phần gánh nằm ở
 prompt: khối "LƯỢT NÀY" nói thẳng *chép đúng, không thêm chữ dẫn, không dịch*.
 
-**Chỉ CỘT TÊN đổi sang tiếng Anh.** Việc của màn, danh sách chức năng, bước luồng, ô "để trả lời câu hỏi gì"
-của bảng báo cáo — tất cả vẫn là ngôn ngữ nghiệp vụ của người dùng. Người rà bảng là người nghiệp vụ, và
-bắt họ đọc một bảng tiếng Anh là đánh đổi đúng thứ mấy bảng này sinh ra để lấy.
+**Chỉ CỘT TÊN đổi sang tiếng Anh — và đó là NĂM cột trên toàn bộ bộ bảng**: `Screen` (bảng màn hình),
+`Report` (bảng báo cáo), và ba cột tên của bảng đối tượng — tên đối tượng, tên thông tin, tên trạng thái
+([luật riêng](#ba-cột-tên-của-bảng-đối-tượng-cũng-là-tiếng-anh)). Việc của màn, danh sách chức năng, bước
+luồng, ô "để trả lời câu hỏi gì" của bảng báo cáo, ô mô tả và ô "khi nào chuyển vào" của bảng đối tượng —
+tất cả vẫn là ngôn ngữ nghiệp vụ của người dùng. Người rà bảng là người nghiệp vụ, và bắt họ đọc một bảng
+thuần tiếng Anh là đánh đổi đúng thứ mấy bảng này sinh ra để lấy.
 
 **Vì sao không tách thành hai trường (tên khóa + nhãn hiển thị).** Vì `Screen` đang là khóa ở bốn chỗ độc
 lập (dòng bảng phân quyền, `Covers`, `PocSpec.Matches`, danh sách cho phép của `ScreenScopeMapBuilder`), nên
@@ -669,6 +672,60 @@ sẵn ở đó là ký tên người dùng vào danh sách người nhận mà h
 Vòng đời một trạng thái bị cắt sạch (đối tượng vẫn giữ — nó là đối tượng danh mục): "vòng đời" một trạng
 thái là không có vòng đời, và giữ lại là mời người dùng xác nhận một điều vô nghĩa. Luật này chỉ áp ở lượt
 BÀY BẢNG — xem ngay dưới.
+
+#### Ba cột TÊN của bảng đối tượng cũng là tiếng Anh
+
+Cùng luật với [tên màn hình](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh) và tên
+báo cáo, áp cho ba cột tên của bảng này:
+
+> **`Entity`, `Field.Name`, `State` — tiếng Anh, 1–3 từ, dạng HIỂN THỊ Title Case.**
+> `Job Description` · `Effective Date` · `Job Title` · `Pending HRBP Approval` · `Available`.
+> Mọi ô còn lại — mô tả đối tượng, ý nghĩa thông tin, "khi nào chuyển vào", tên hệ thống nguồn, quy tắc
+> sinh, các giá trị của danh sách — **giữ tiếng Việt**.
+
+**Ba đường tiêu thụ, và cả ba đọc cái TÊN chứ không đọc ô mô tả:**
+
+| Đường | Cái tên thành gì |
+|---|---|
+| `Field.Name` + `source: app` → `ManagedListScreens` | một MÀN HÌNH `"<tên> Catalog"` → `## 6. Screens To Generate` → **nhãn mục menu** của bản demo, Developer chép nguyên văn |
+| `Entity` / `Field.Name` → `## 8. Data Model Summary` | tên bảng và tên cột của mô hình dữ liệu ở mọi bước sau |
+| `Field.Name` / `State` → POC | **nhãn ô nhập**, tiêu đề cột bảng, **chip trạng thái** và giá trị bộ lọc |
+
+Đường thứ nhất là chỗ luật này vá một lỗi CÓ SẴN chứ không chỉ đổi quy ước: `ManagedListScreens` ghép
+`"<tên thông tin> Catalog"` và bắt buộc tên phải ngắn + tiếng Anh (nó đi thẳng ra sidebar), trong khi
+prompt lại bảo tên thông tin viết bằng lời nghiệp vụ. Một danh mục tên *"Chức danh"* vì thế đẻ ra đúng mục
+menu *"Chức danh Catalog"* trên bản demo, và không chốt chặn nào chặn được.
+
+**Dạng hiển thị chứ KHÔNG phải dạng định danh** (`Effective Date`, không phải `effective_date`): cùng chuỗi
+đó còn là nhãn trên bảng mà người dùng nghiệp vụ đang rà và trong bản kể gửi vào hội thoại
+(`RenderField` cho ra *"Effective Date (ngày JD bắt đầu có hiệu lực)"*). Tên cột CSDL thì bước sinh spec
+dẫn xuất được từ dạng hiển thị, chiều ngược lại thì không.
+
+**Hai cái giá, và chỗ trả:**
+
+- **Ô ý nghĩa hết là phần thêm nếm.** Một tên tiếng Anh cạnh một ô mô tả trống để người rà đối diện đúng
+  một từ ngoại ngữ trơ trọi — mất đúng thứ cái bảng sinh ra để lấy. Prompt vì vậy cấm để `meaning` trống,
+  không ngoại lệ.
+- **Mối nối tới bảng cột đứt.** `EntityMapBuilder` nhận ra một thông tin ĐÃ chốt ở bảng cột bằng cách so tên
+  với các cột đã tích; hai đầu nay không cùng ngôn ngữ nên *"Effective Date"* không bao giờ khớp cột
+  *"Ngày hiệu lực"*, và ô ý nghĩa mất dấu xuất xứ đúng ở chỗ người dùng cần nhận ra thứ họ vừa tự tay tích.
+  Nối lại bằng một ô MÁY: model chép nguyên văn tên cột vào `EntityFieldNote.SourceColumn` (người dùng không
+  thấy, không sửa), và giá trị không khớp cột đã tích nào thì bị xoá — ô đó chở dấu *"đã chốt rồi"* nên một
+  cái tên bịa sẽ dán dấu ấy lên một thông tin chưa ai duyệt, cùng luật với `evidence`.
+
+**Luật chỉ ràng buộc MODEL, không ràng buộc người dùng.** Nút *"+ thêm thông tin"* cho họ tự gõ tên và
+không có cổng nào chặn tiếng Việt ở đó — dựng một cổng như thế là đi ngược đúng lý do mấy cái nút thêm dòng
+tồn tại. Nên bảng vẫn trộn ngôn ngữ trong thực tế, và đó là ca CHẤP NHẬN ĐƯỢC: không tầng nào phía sau được
+phép giả định cái tên là một định danh tiếng Anh hợp lệ.
+
+**Luật sống ở bốn chỗ** — sửa một chỗ mà bỏ ba chỗ kia là để mỗi lượt ra một kiểu tên:
+
+| Nơi giữ luật | Giữ vế nào |
+|---|---|
+| `Prompts/BusinessAnalyst/requirement-chat.v4.md`, mục `entityMap` | luật đặt tên đầy đủ + luật `sourceColumn` |
+| `BAChatService`, khối `## LƯỢT NÀY: BÀY BẢNG ĐỐI TƯỢNG` | bản rút gọn cho đúng lượt bày bảng |
+| `Prompts/BusinessAnalyst/ai-design-spec.v1.md`, mục `## 8` | **chép đúng chữ**, không dịch, không đổi cách viết |
+| `Prompts/Developer/poc-preview.v1.md` + `Prompts/UiUx/poc-visual-review.v1.md` | ngoại lệ của luật ngôn ngữ UI: các nhãn TÊN tiếng Anh trong một UI tiếng Việt là hình dạng ĐÚNG, không phải lỗi "lẫn lộn ngôn ngữ" |
 
 #### Hai TRỤC của một thông tin, và vì sao không gộp làm một
 
