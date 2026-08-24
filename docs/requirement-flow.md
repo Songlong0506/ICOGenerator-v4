@@ -1222,6 +1222,14 @@ chuỗi dẫn xuất** của dự án thành một file `.zip` để người d�
 Requirements, cạnh "New Chat" và "Tài liệu nguồn"; là thẻ `<a download>` chứ không phải form vì đây là
 thao tác chỉ đọc và một cú bấm nhầm không được phép làm mất nội dung đang gõ dở trong ô chat.
 
+**Ai được tải: quyền `RequirementsDownloadPackage`.** Action đòi quyền này *chồng lên* `RequirementsView`
+của controller (AND), và nút cũng ẩn khi thiếu — cùng một quyền ở cả hai chỗ nên nút hiện ra không bao giờ
+dẫn tới trang Access Denied. Đây là quyền riêng chứ không dùng lại `RequirementsView` vì gói này là đường
+**đem cả chuỗi tài liệu của dự án ra ngoài hệ thống** thành một file mang đi được: cho phép ai làm việc đó
+là quyết định của admin trên ma trận Roles & Permissions, không phải hệ quả của việc được xem trang này.
+Mặc định seed: Admin và TeamDev có, vai trò `User` không — xem
+[screens-and-permissions.md](screens-and-permissions.md#phân-quyền-chiều-dọc--role--quyền-mức-hành-động).
+
 | File trong gói | Nội dung |
 |---|---|
 | `00-README.md` | Chỉ dẫn chấm (prompt `Eval/delivery-review.v1.md`) + gói thực sự có gì + khai báo phiên bản |
@@ -1242,8 +1250,8 @@ Bốn quyết định thiết kế đáng biết:
   sổ ngữ cảnh, và bản demo mất luôn khả năng mở bằng trình duyệt. README chỉ cho người chấm biết phần do
   agent sinh nằm giữa các mốc `POC_CONTENT` / `POC_SCRIPT`, phần còn lại đừng chấm.
 - **Gói CO LẠI theo quyền người tải, không theo quyền của endpoint.** Trang Requirements cố ý không hiển
-  thị AI Design Spec (thuộc Agent Dashboard) và POC (thuộc Projects), nên nút này không được biến
-  `RequirementsView` thành quyền đọc cả hai: controller hỏi `IPermissionService` cho `AgentsView` /
+  thị AI Design Spec (thuộc Agent Dashboard) và POC (thuộc Projects), nên quyền tải gói không được biến
+  thành quyền đọc cả hai: controller hỏi `IPermissionService` cho `AgentsView` /
   `ProjectsView` rồi truyền xuống dưới dạng `ReviewPackageAccess`. Phần bị bỏ ra **luôn được README nói rõ
   kèm lý do** — im lặng thì mọi phát hiện "tầng sau bỏ mất X" là kết luận về một file người chấm chưa từng thấy.
 - **README cảnh báo lệch pha giữa các tầng.** Hai phép so tất định: bản mô tả và bản kỹ thuật khác phiên
