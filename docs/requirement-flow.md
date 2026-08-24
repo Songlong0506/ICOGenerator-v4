@@ -1002,7 +1002,10 @@ xóa là đẩy các dòng đó vào đúng trạng thái mà bất biến của
 **HAI trạng thái của một dòng, và không trạng thái nào được hỏi lại.** Bỏ tích cột "Cần" = KHÔNG gửi thông
 báo ở sự kiện đó (một quyết định hợp lệ, và khối ngữ cảnh gọi tên chúng ra vì mặc định im lặng của các tầng
 sau là gửi cho tất cả). Còn tích ⇒ **bắt buộc có người nhận chính (To)**; CC vẫn tùy chọn. Nhóm coi như
-xong ngay khi bảng được chốt, và khối "đã chốt" là một lệnh cấm hỏi **tuyệt đối**, không ngoại lệ.
+xong ngay khi bảng được chốt, và khối "đã chốt" là một lệnh cấm hỏi **tuyệt đối**, không ngoại lệ — dòng
+bản đồ của nhóm được `CoverageConfirmedTableGuard` nâng lên `[RÕ]` bằng máy (xem
+[Lượt hỏi GỘP, chuẩn `[RÕ]` và phanh chống hỏi lại](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại)) chứ
+không chờ lượt distill chấm: cấm hỏi mà dòng vẫn kẹt `[MỘT PHẦN]` thì không ai còn đường trả lời.
 
 Trạng thái thứ ba — *"cần báo nhưng chưa chốt được ai"* — từng được cho phép, và nó dẫn ngược về đúng vòng
 hỏi lẻ mà cả cái bảng này sinh ra để thay thế. Ca thật ở dự án JD Library: bảng 8 dòng gửi đi với **7 dòng
@@ -1253,6 +1256,43 @@ readiness thay vì một ghi chú không ai đọc. Bốn ràng buộc của thi
   lại. Lưới đỡ đã có sẵn — prompt chat bắt BA tin HỘI THOẠI khi bản đồ chưa kịp cập nhật, và
   `AskedQuestionHistory` loại thẳng câu hỏi trùng. Đồng bộ hai nhịp thì phải dời distill xuống hậu kỳ, tức
   bản đồ dẫn lượt hỏi kế tiếp luôn cũ một lượt — đắt hơn nhiều.
+
+**Chốt chặn bảng-đã-chốt ⇒ `[RÕ]` (`CoverageConfirmedTableGuard`).** Guard thứ hai của đường ghi, chạy
+**sau** guard trên và đi ngược chiều nó — chỉ cho đúng hai nhóm chốt bằng bảng: «Phân quyền theo nghiệp vụ»
+và [«Thông báo / nhắc nhở»](#bảng-thông-báo-bảng-cuối-cùng). Bảng của nhóm đã nằm trong DB ⇒ dòng bản đồ
+của nhóm đó bị viết lại thành `[RÕ]`, và mẩu `còn thiếu:` — nếu còn sót — bị xóa.
+
+Vì sao phải là máy chứ không phải prompt: `requirement-coverage.v3.md` đã ghi luật một chiều cho cả hai
+nhóm (*"có khối bảng đã chốt ⇒ `[RÕ]`, **không có ngoại lệ nào**"*), và lượt distill được đính đúng khối
+đó. Nhưng nó cũng được đính **bản đồ hiện có**, và bản đồ ấy thường mang sẵn một mẩu `còn thiếu:` từ lúc
+bảng chưa chốt — do chính distiller viết, hoặc do `CoveragePendingGuard` ghi vào từ một điểm tồn đọng.
+Model cập nhật phần tóm tắt theo bảng mới nhưng **giữ nguyên mẩu cũ**. Ca thật (dự án *JD Libary 7*, ba
+lượt cuối của buổi 102 lượt): người dùng gửi bảng thông báo với đủ To/CC cho 4 sự kiện và tắt sự kiện thứ
+5, bảng đã lưu, mà dòng bản đồ là *«[MỘT PHẦN] … đã chốt To/CC riêng từng sự kiện … còn thiếu: Chưa rõ
+người nhận cho từng sự kiện thông báo»* — một dòng vừa nói đã chốt vừa nói chưa rõ. Cổng readiness lấy
+nguyên mẩu ấy làm câu chặn, nên lượt kế tiếp của BA hỏi lại đúng điều người dùng vừa trả lời; và không lối
+thoát nào còn lại: `NotificationMapGate` không bày lại bảng đã chốt, khối "đã chốt" cấm BA hỏi lẻ nhóm này.
+Nút "Write Requirement" khóa vĩnh viễn.
+
+- **Được phép NÂNG cấp, khác luật một chiều ở trên** — vì bằng chứng ở đây không do LLM chắt: nó là bảng
+  người dùng tự tay bấm từng ô, và đường gửi đã bảo đảm nó ĐỦ (`NotificationMapBuilder.MissingRecipients`
+  chặn mọi lần lưu còn dòng tích "Cần" mà chưa chọn người nhận). Guard không đoán thêm gì, nó đọc thẳng một
+  dữ kiện tất định thay vì trông chờ model đọc hộ. Một bảng ghi từ TRƯỚC bất biến đó mà còn dòng thiếu
+  người nhận thì guard im — chỗ đó thiếu thật.
+- **Thắng cả điểm tồn đọng gắn vào hai nhóm này**, và đó là lý do nó chạy sau `CoveragePendingGuard`: BA bị
+  cấm hỏi lẻ hai nhóm ấy, bảng thì không bày lại — nên một mục tồn đọng ở đây là **câu hỏi chết**, không ai
+  hỏi được và không ai trả lời được.
+- **Tóm tắt dòng được dựng lại TỪ BẢNG**, không giữ chữ của model: số đếm lấy từ chính bảng vừa lưu (*"4 sự
+  kiện gửi email kèm người nhận riêng; 1 sự kiện người dùng chọn không gửi"*). Đây là hai nhóm mà một câu
+  tóm tắt sai gây thiệt hại nặng nhất (*"mọi thay đổi trạng thái gửi cho cả bốn nhóm"*), mà dòng bản đồ thì
+  đi thẳng vào ngữ cảnh mọi lượt chat sau — dựng bằng số đếm thì dòng không nói được điều bảng không chứa,
+  và người dùng kiểm lại được bằng cách đếm.
+- **Hai chỗ cố ý không đụng vào**: dòng đã `[RÕ]`/`[KHÔNG ÁP DỤNG]` (không trạng thái nào trong hai cái đó
+  chặn cổng), và dòng mang cụm `AskedQuestionHistory.ReopenNote` — đó là lần duy nhất đường hỏi lại được mở
+  ra, và do chính người dùng mở.
+- **Chạy cả ở lượt không có gì mới** (và cả trên đường fail-open khi distill hỏng): người bị kẹt không gõ
+  thêm gì cả, họ bấm gửi lại hoặc tải lại trang — bắt bản đồ chờ một lượt chat mới là bắt nó chờ đúng thứ
+  đang bị chặn. Chỉ ghi DB khi bản đồ thật sự đổi.
 
 Cùng họ với nó, `requirement-coverage.v3.md` thêm một điều **không được tính là căn cứ để `[RÕ]`**: câu trả
 lời chỉ chạm được MỘT VẾ của một câu hỏi NHIỀU VẾ. BA bị cấm hỏi câu nhiều vế nhưng luật đó chỉ định

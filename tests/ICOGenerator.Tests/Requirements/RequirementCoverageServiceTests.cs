@@ -192,6 +192,73 @@ public class RequirementCoverageServiceTests : IDisposable
         Assert.Contains("trưởng phòng duyệt trong 2 ngày", llm.LastUserMessage);
     }
 
+    // Dòng «Thông báo / nhắc nhở» kẹt [MỘT PHẦN] với một mẩu "còn thiếu" cũ trong khi bảng thông báo đã
+    // nằm trong DB — ca thật ở dự án "JD Libary 7". Bảng đã chốt là bằng chứng TẤT ĐỊNH, không phải thứ để
+    // trông chờ distiller đọc hộ, nên đường ghi phải tự sửa dòng đó (xem CoverageConfirmedTableGuard).
+    [Fact]
+    public async Task UpdateAndLoadAsync_RaisesTheNotificationRow_WhenItsTableIsAlreadyConfirmed()
+    {
+        var (project, ba) = await SeedAsync(turns: 2);
+        await using (var seed = NewDb())
+        {
+            var p = await seed.Projects.FirstAsync(x => x.Id == project.Id);
+            p.NotificationMap = """
+                [
+                  { "entity": "JD", "event": "Chờ HRBP duyệt", "needed": true, "to": ["HRBP"], "cc": ["Manager của orgUnit"] },
+                  { "entity": "JD", "event": "Được tạo", "needed": false, "to": [] }
+                ]
+                """;
+            await seed.SaveChangesAsync();
+        }
+
+        // Lượt distill trả về đúng dòng tự mâu thuẫn của ca thật: vừa nói đã chốt vừa nói chưa rõ.
+        var llm = new FakeLlm
+        {
+            Reply = "- Thông báo / nhắc nhở: [MỘT PHẦN] Đã chốt To/CC riêng từng sự kiện. "
+                + "còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo {nguồn: bảng thông báo người dùng đã chốt}"
+        };
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        var coverage = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.NotNull(coverage.Map);
+        Assert.Contains("Thông báo / nhắc nhở: [RÕ]", coverage.Map, StringComparison.Ordinal);
+        Assert.DoesNotContain("còn thiếu", coverage.Map, StringComparison.OrdinalIgnoreCase);
+
+        // Bản đã sửa là bản được LƯU: cổng readiness, panel tiến độ và các cổng bảng đọc cùng một sự thật.
+        var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
+        Assert.Contains("Thông báo / nhắc nhở: [RÕ]", reloaded.RequirementCoverageMap!, StringComparison.Ordinal);
+    }
+
+    // Người dùng bị kẹt thì không gõ thêm gì cả — họ bấm gửi lại, hoặc tải lại trang. Lượt không có gì mới
+    // vẫn phải gỡ được bản đồ kẹt, nếu không lối thoát duy nhất lại chính là lượt chat đang bị chặn.
+    [Fact]
+    public async Task UpdateAndLoadAsync_RepairsAStuckMap_EvenWithNoNewTurns_WithoutCallingLlm()
+    {
+        var (project, ba) = await SeedAsync(
+            turns: 0,
+            existingMap: "- Thông báo / nhắc nhở: [MỘT PHẦN] Email theo sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo");
+        await using (var seed = NewDb())
+        {
+            var p = await seed.Projects.FirstAsync(x => x.Id == project.Id);
+            p.NotificationMap = """[ { "entity": "JD", "event": "Available", "needed": true, "to": ["Manager của orgUnit"] } ]""";
+            await seed.SaveChangesAsync();
+        }
+
+        var llm = new FakeLlm();
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        var coverage = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.Equal(0, llm.Calls);
+        Assert.Contains("Thông báo / nhắc nhở: [RÕ]", coverage.Map!, StringComparison.Ordinal);
+    }
+
     private RequirementCoverageService NewSut(AppDbContext db, ILlmClient llm) => new(db, llm, new StubPrompts());
 
     private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? existingMap = null, int harvestedTurnCount = 0)
