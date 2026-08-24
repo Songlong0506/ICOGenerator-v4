@@ -1223,6 +1223,18 @@
 
 .summary-gate-foot { font-size: 12px; color: var(--muted, #777); }
 
+/* Cổng ĐÓNG vì còn một bảng chờ chốt (#tableGate). Cùng khuôn .summary-gate nhưng tông XÁM và không có
+   nút: khối này không mời bấm gì ở đây, nó chỉ đường ngược lên cái bảng ngay phía trên. Giữ tông xanh của
+   cổng mở thì hai khối trông y hệt nhau và người dùng lại đi tìm cái nút không tồn tại. */
+.summary-gate-blocked {
+    border-color: var(--line);
+    background: var(--surface-alt);
+}
+
+    .summary-gate-blocked .summary-gate-title { color: var(--muted, #777); }
+
+    .summary-gate-blocked .summary-gate-hint { margin-bottom: 0; }
+
 /* ==== Chip gợi ý chế độ CHỌN NHIỀU (multiSelect) ==== */
 
 .suggestion-option.selected {

@@ -217,16 +217,40 @@
     var coverageReady = ICOGenerator.Services.Requirements.RequirementReadinessGate
         .Evaluate(Model.RequirementCoverageMap).Ready;
 
-    // Năm trạng thái loại trừ nhau, xét theo đúng thứ tự ưu tiên: đang chạy > đã xong & chưa có gì mới >
-    // sẵn sàng > còn phải khai thác thêm. Chỉ MỘT trạng thái có nút trên màn hình (cổng #writeReqZone
-    // trong khung chat mở ở "ready"); ba trạng thái kia không dựng nút nào:
+    // CÒN BẢNG CHỜ CHỐT ⇒ cổng ĐÓNG, kể cả khi hai vế "ready" ở trên đều đúng. Đường lùi ngay trên
+    // (draftExists && coverageReady) KHÔNG đọc lượt cuối, nên nếu không có nhánh này thì đúng ở lượt BA vừa
+    // bày một bảng ra và vừa nói "rà lại rồi bấm Gửi bảng … giúp mình", nút tạo tài liệu vẫn sáng ngay bên
+    // dưới cái bảng đó — hai việc chọi nhau, và người dùng bấm cái nút. Ca thật + cái giá ở
+    // PendingConfirmTableGate. Panel của bảng dựng bằng đúng các danh sách ở đầu file này, còn cổng thì hỏi
+    // lại cùng dữ liệu ấy qua một hàm tất định để bước soạn tài liệu (ProductBriefDraftService) và
+    // requirements.js cùng đọc một luật.
+    var pendingTable = ICOGenerator.Services.Requirements.PendingConfirmTableGate.Select(Model);
+
+    // Tên bảng + nhãn nút gửi của TỪNG panel, lấy từ chính cổng chặn rồi render vào data-table-name /
+    // data-send-label. requirements.js đọc hai thuộc tính này của panel đang HIỆN để soạn câu chặn ở frame
+    // done — nhờ vậy nó không phải chép lại danh sách bảng, và đổi tên một bảng thì chỉ sửa một chỗ.
+    var tblColumn = ICOGenerator.Services.Requirements.PendingConfirmTableGate.ColumnMap;
+    var tblFlow = ICOGenerator.Services.Requirements.PendingConfirmTableGate.FlowMap;
+    var tblEntity = ICOGenerator.Services.Requirements.PendingConfirmTableGate.EntityMap;
+    var tblReport = ICOGenerator.Services.Requirements.PendingConfirmTableGate.ReportMap;
+    var tblScreen = ICOGenerator.Services.Requirements.PendingConfirmTableGate.ScreenScope;
+    var tblPermission = ICOGenerator.Services.Requirements.PendingConfirmTableGate.PermissionMatrix;
+    var tblNotification = ICOGenerator.Services.Requirements.PendingConfirmTableGate.NotificationMap;
+
+    // Năm trạng thái loại trừ nhau, xét theo đúng thứ tự ưu tiên: đang chạy > còn bảng chờ chốt > đã xong &
+    // chưa có gì mới > sẵn sàng > còn phải khai thác thêm. Chỉ MỘT trạng thái có nút trên màn hình (cổng
+    // #writeReqZone trong khung chat mở ở "ready"); bốn trạng thái kia không dựng nút nào:
     //   waiting — chưa đủ thông tin. Thay cho một nút mờ-và-khóa, panel "Tiến độ khai thác" nói thẳng
     //             điều còn thiếu và việc gì sẽ xảy ra khi đủ (#writeReqWaitingHint).
+    //   table   — còn một bảng chốt đang chờ gửi. Cổng đóng NHƯNG phải nói ra bảng nào và nút nào (#tableGate):
+    //             im lặng ở đây là đúng cái nút mờ-và-khóa mà repo đã bỏ, chỉ tệ hơn vì không có gì để bấm.
+    //             Đứng TRƯỚC "done" vì một bảng chưa chốt là việc còn phải làm, kể cả khi bản Brief vừa xong.
     //   running — vòng soạn đang chạy. Tiến độ đã có panel .workflow-progress ngay trong khung chat, và
     //             requirement-workflow.js tải lại trang khi run xong.
     //   done    — vừa soạn xong, chưa có gì mới. Cổng đóng và #writeReqWaitingHint cũng phải TẮT: nói
     //             "BA sẽ mời khi mọi nhóm đã rõ" trong lúc Tiến độ khai thác đầy 100% là nói sai.
     var writeReqState = draftRunInFlight ? "running"
+        : pendingTable != null ? "table"
         : draftSettled ? "done"
         : (requirementReady || (draftExists && coverageReady)) ? "ready"
         : "waiting";
@@ -924,6 +948,7 @@
                khối chen vào đang ẩn. *@
             <div class="req-msg ba colmap" id="columnMap"
                  data-confirm-url="@Url.Action("ConfirmColumnMap", "Requirements")"
+                 data-table-name="@tblColumn.Name" data-send-label="@tblColumn.SendLabel"
                  @(lastColumnMap.Count > 0 ? "" : "hidden")>
                 @if (lastColumnMap.Count > 0)
                 {
@@ -988,6 +1013,7 @@
                mục "Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng chứng". *@
             <div class="req-msg ba permmap flowmap" id="flowMapPanel"
                  data-confirm-url="@Url.Action("ConfirmFlowMap", "Requirements")"
+                 data-table-name="@tblFlow.Name" data-send-label="@tblFlow.SendLabel"
                  @(lastFlowMap.Count > 0 ? "" : "hidden")>
                 @if (lastFlowMap.Count > 0)
                 {
@@ -1079,6 +1105,7 @@
                vì hai danh sách đọc riêng đều "đạt" còn chỗ hỏng nằm ở mối nối. *@
             <div class="req-msg ba permmap screenmap" id="screenScopePanel"
                  data-confirm-url="@Url.Action("ConfirmScreenScope", "Requirements")"
+                 data-table-name="@tblScreen.Name" data-send-label="@tblScreen.SendLabel"
                  @(lastScreenScope.Count > 0 ? "" : "hidden")>
                 @if (lastScreenScope.Count > 0)
                 {
@@ -1176,6 +1203,7 @@
                phân quyền đã chốt trước. *@
             <div class="req-msg ba permmap entitymap" id="entityMapPanel"
                  data-confirm-url="@Url.Action("ConfirmEntityMap", "Requirements")"
+                 data-table-name="@tblEntity.Name" data-send-label="@tblEntity.SendLabel"
                  @(lastEntityMap.Count > 0 ? "" : "hidden")>
                 @if (lastEntityMap.Count > 0)
                 {
@@ -1340,6 +1368,7 @@
                quyền. Bảng treo theo DỰ ÁN (Project.ReportMap còn null) như các bảng kia. *@
             <div class="req-msg ba permmap reportmap" id="reportMapPanel"
                  data-confirm-url="@Url.Action("ConfirmReportMap", "Requirements")"
+                 data-table-name="@tblReport.Name" data-send-label="@tblReport.SendLabel"
                  data-entities='@Html.Raw(reportEntityOptionsJson)'
                  @(lastReportMap.Count > 0 ? "" : "hidden")>
                 @if (lastReportMap.Count > 0)
@@ -1425,6 +1454,7 @@
                ô To/CC đổi theo. Bảng treo theo DỰ ÁN (Project.NotificationMap còn null) như bốn bảng kia. *@
             <div class="req-msg ba permmap notifmap" id="notificationMapPanel"
                  data-confirm-url="@Url.Action("ConfirmNotificationMap", "Requirements")"
+                 data-table-name="@tblNotification.Name" data-send-label="@tblNotification.SendLabel"
                  data-options='@Html.Raw(recipientOptionsJson)'
                  @(lastNotificationMap.Count > 0 ? "" : "hidden")>
                 @if (lastNotificationMap.Count > 0)
@@ -1577,6 +1607,7 @@
                requirements.js dời cả cụm xuống cuối dòng hội thoại sau mỗi lượt. *@
             <div class="req-msg ba permmap" id="permissionMatrix"
                  data-confirm-url="@Url.Action("ConfirmPermissionMatrix", "Requirements")"
+                 data-table-name="@tblPermission.Name" data-send-label="@tblPermission.SendLabel"
                  @(lastPermissionMatrix.Count > 0 ? "" : "hidden")>
                 @if (lastPermissionMatrix.Count > 0)
                 {
@@ -1714,6 +1745,24 @@
                requirement-workflow.js tải lại trang, nên một thuộc tính render sẵn là đủ. *@
             <div class="write-req-zone" id="writeReqZone" data-state="@writeReqState"
                  data-draft-exists="@(draftExists ? "true" : "false")">
+                @* CỔNG ĐANG CHỜ MỘT BẢNG (trạng thái "table"). Loại trừ với #summaryGate ngay dưới: hai khối
+                   này là hai câu trả lời khác nhau cho cùng câu hỏi "bấm gì tiếp theo", nên không bao giờ
+                   cùng hiện.
+
+                   Vì sao phải NÓI RA thay vì chỉ đóng cổng: cụm này nằm ở cuối khung chat, còn bảng thì nằm
+                   ngay phía trên — người dùng vừa thấy một bảng, vừa quen có nút ở đây, nên im lặng đọc lên
+                   thành "hệ thống hỏng". Câu chữ do PendingConfirmTableGate soạn (một nguồn cho cả lượt BA
+                   ở đường bị chặn phía server), và requirements.js dựng lại ĐÚNG câu này ở frame done —
+                   markup phải khớp, xem tableGateHint. *@
+                <div class="req-msg ba summary-gate summary-gate-blocked" id="tableGate"
+                     @(writeReqState == "table" ? "" : "hidden")>
+                    <div class="summary-gate-head">
+                        <b>BA</b>
+                        <span class="summary-gate-title">Còn một bảng chờ anh/chị chốt</span>
+                    </div>
+                    <div class="summary-gate-hint" id="tableGateHint">@(pendingTable?.GateHint)</div>
+                </div>
+
                 <div class="req-msg ba summary-gate" id="summaryGate" @(writeReqOpen ? "" : "hidden")>
                     <div class="summary-gate-head">
                         <b>BA</b>

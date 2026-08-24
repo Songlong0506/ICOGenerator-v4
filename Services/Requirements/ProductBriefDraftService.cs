@@ -89,6 +89,24 @@ public class ProductBriefDraftService
         var ba = await _agentResolver.GetRequiredAsync(cancellationToken);
         var model = ba.AiModel!;
 
+        // CÒN BẢNG CHỐT ĐANG CHỜ ⇒ dừng ngay, trước mọi lời gọi LLM. Một bảng chở NỘI DUNG của chính tài
+        // liệu, và nội dung đó chỉ chảy vào tài liệu khi bảng được GỬI: mỗi báo cáo còn giữ chỉ thành một
+        // mục ở "## 6. Screens To Generate" qua ConfirmReportMapUseCase (nó mới là chỗ gieo màn hình báo
+        // cáo vào PlannedScope), mỗi dòng bảng thông báo chỉ thành một quy tắc gửi mail sau khi chốt. Soạn
+        // trước là soạn một bản chắc chắn thiếu — rồi tin nhắn chốt bảng mở cổng lần nữa và vòng soạn thứ
+        // hai ghi đè lên: hai lần gọi LLM cho một tài liệu, lần đầu bỏ đi.
+        //
+        // Cổng #writeReqZone đã đóng ở ca này (Index.cshtml + requirements.js đọc cùng
+        // PendingConfirmTableGate), nên nhánh này là LƯỚI cho các đường không đi qua cái nút đó: một tab mở
+        // từ trước lúc bảng hiện ra, đường POC-feedback và đường ghi chú trên bản xem trước — hai đường sau
+        // thêm một lượt user rồi gọi thẳng vào đây, không qua khung chat.
+        if (PendingConfirmTableGate.Select(project) is { } pendingTable)
+        {
+            await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", pendingTable.BlockedTurn, cancellationToken: cancellationToken);
+            Report("final", $"Còn {pendingTable.Name} chờ anh/chị chốt — xem lời nhắn của BA trong khung chat.", pendingTable.BlockedTurn);
+            return RequirementDraftOutcome.NeedsMoreInfo;
+        }
+
         // Transcript Hỏi–Đáp đầy đủ (BA hỏi / user trả lời) — KHÔNG chỉ lượt user, để câu trả lời ngắn
         // kiểu chip ("Nhân viên văn phòng") còn nguyên ngữ cảnh câu hỏi khi soạn tài liệu.
         var conversationTranscript = ConversationTranscriptBuilder.Build(project.Conversations);
