@@ -419,14 +419,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // lại điều họ vừa trả lời. Markup khớp bản server render cho một lượt gộp CŨ (.batchq-history).
     function batchQuestionsHistoryHtml() {
         const rows = Array.from(batchPanel.querySelectorAll(".batchq-item"))
-            .map(li => ({
-                group: ((li.querySelector(".batchq-group") || {}).textContent || "").trim(),
-                question: li.dataset.question || ""
-            }))
+            .map(li => ({ question: li.dataset.question || "" }))
             .filter(x => x.question)
             .map(x => `
                 <li>
-                    ${x.group ? `<span class="batchq-history-group">${escapeHtml(x.group)}</span>` : ""}
                     <span class="batchq-history-question">${escapeHtml(x.question)}</span>
                 </li>`)
             .join("");
@@ -526,7 +522,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     const open = q.openEnded === true || !(Array.isArray(q.suggestions) && q.suggestions.length > 0);
                     return `
                 <li class="batchq-item" data-question="${escapeHtml(q.question || "")}" data-multi="${q.multiSelect ? "true" : "false"}" data-open="${open ? "true" : "false"}">
-                    ${q.group ? `<div class="batchq-group">${escapeHtml(q.group)}</div>` : ""}
                     <div class="batchq-question">${escapeHtml(q.question || "")}</div>
                     ${open ? "" : `
                     <div class="batchq-choices">

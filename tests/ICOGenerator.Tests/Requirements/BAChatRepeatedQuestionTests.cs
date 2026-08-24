@@ -117,13 +117,14 @@ public class BAChatRepeatedQuestionTests : IDisposable
 
         // Không im lặng và không để lại câu dẫn cụt ("Mình xác nhận lại mấy điểm sau:" mà chẳng có điểm
         // nào): lượt được thay bằng bước kế tiếp suy TẤT ĐỊNH từ bản đồ — hỏi ĐÚNG phần còn thiếu của
-        // nhóm ★ cốt lõi đang treo, và chỉ MỘT nhóm (nhóm còn lại chỉ được đếm, không hỏi dồn cùng lượt).
+        // dòng ★ cốt lõi đang treo, và chỉ MỘT chỗ (chỗ còn lại để dành lượt sau, không hỏi dồn).
         Assert.Empty(result.Questions);
         Assert.DoesNotContain("xác nhận lại mấy điểm sau", result.Reply);
-        Assert.Contains("Đối tượng người dùng & vai trò", result.Reply);
         Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply);
-        Assert.DoesNotContain("«Thông báo / nhắc nhở»", result.Reply);
-        Assert.Contains("còn 2 nhóm", result.Reply);
+        Assert.DoesNotContain("khi nào thì gọi", result.Reply);
+
+        // …và lượt đó KHÔNG đọc sổ sách của hệ thống ra màn hình: không nhãn nhóm, không đếm nhóm còn lại.
+        Assert.DoesNotContain("nhóm", result.Reply, StringComparison.OrdinalIgnoreCase);
 
         var saved = await LastAssistantTurnAsync();
         Assert.Equal(result.Reply, saved.Message);
@@ -147,7 +148,8 @@ public class BAChatRepeatedQuestionTests : IDisposable
         var result = await NewSut(db, llm).ChatAsync(_projectId, "Phòng bảo vệ xem dashboard, phòng nhân sự xem history");
 
         Assert.NotEqual(AskedRoles, result.Reply);
-        Assert.Contains("Đối tượng người dùng & vai trò", result.Reply);
+        Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply);
+        Assert.DoesNotContain("Đối tượng người dùng & vai trò", result.Reply);
     }
 
     [Fact]
