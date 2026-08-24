@@ -72,16 +72,16 @@ public class RequirementReadinessGateTests : IDisposable
     }
 
     [Fact]
-    public void Evaluate_PartialLine_NotReady_QuestionNamesGroupAndGap()
+    public void Evaluate_PartialLine_NotReady_QuestionAsksTheGapWithoutNamingTheGroup()
     {
         var readiness = RequirementReadinessGate.Evaluate(MapMissingRules);
 
         Assert.False(readiness.Ready);
-        // Câu hỏi dựng sẵn phải nêu đúng nhóm thiếu và hỏi ĐÚNG nội dung phần "còn thiếu" distiller đã
-        // ghi — nhưng hỏi thành câu, không bê nguyên cụm bookkeeping "còn thiếu:" ra cho người dùng đọc.
-        // Không được chứa "Write Requirement" (chuỗi đó là tín hiệu làm nổi nút trên UI).
-        Assert.Contains("Quy tắc nghiệp vụ & ràng buộc", readiness.Message);
+        // Câu hỏi dựng sẵn phải hỏi ĐÚNG nội dung phần "còn thiếu" distiller đã ghi — thành câu, không bê
+        // nguyên cụm bookkeeping "còn thiếu:" ra cho người dùng đọc, và KHÔNG đọc nhãn nhóm của bản đồ ra
+        // màn hình. Không được chứa "Write Requirement" (chuỗi đó là tín hiệu làm nổi nút trên UI).
         Assert.Contains("hạn mức ngày phép", readiness.Message);
+        Assert.DoesNotContain("Quy tắc nghiệp vụ & ràng buộc", readiness.Message);
         Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
         Assert.DoesNotContain("Write Requirement", readiness.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -97,11 +97,10 @@ public class RequirementReadinessGateTests : IDisposable
         var readiness = RequirementReadinessGate.Evaluate(map);
 
         Assert.False(readiness.Ready);
-        // Nhóm ★ cốt lõi được hỏi trước dù đứng sau trong bản đồ — và chỉ hỏi MỘT nhóm, nhóm phụ chỉ
-        // được đếm vào con số "còn n nhóm" chứ không bị hỏi dồn trong cùng lượt.
-        Assert.Contains("«Chức năng & luồng nghiệp vụ chính»", readiness.Message);
+        // Dòng ★ cốt lõi được hỏi trước dù đứng sau trong bản đồ — và chỉ hỏi MỘT chỗ, dòng phụ để dành
+        // lượt sau chứ không bị hỏi dồn trong cùng lượt.
         Assert.Contains("luồng duyệt", readiness.Message);
-        Assert.DoesNotContain("«Quy mô sử dụng»", readiness.Message);
+        Assert.DoesNotContain(CoverageGroupOpeners.Find("Quy mô sử dụng")!, readiness.Message);
     }
 
     [Theory]
@@ -158,10 +157,10 @@ public class RequirementReadinessGateTests : IDisposable
         var result = await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
 
         var lastBaTurn = await LastAssistantTurnAsync();
-        // Lời mời bị thay bằng câu hỏi nêu đúng nhóm thiếu ⇒ nút "Write Requirement" giữ trạng thái mờ
+        // Lời mời bị thay bằng câu hỏi hỏi đúng mẩu còn thiếu ⇒ nút "Write Requirement" giữ trạng thái mờ
         // (UI nhận diện lời mời qua chuỗi "Write Requirement" trong lượt BA mới nhất) — panel 1 nhóm
         // thiếu và nút mờ giờ kể CÙNG một câu chuyện vì đọc cùng bản đồ.
-        Assert.Contains("Quy tắc nghiệp vụ & ràng buộc", lastBaTurn.Message);
+        Assert.Contains("hạn mức ngày phép", lastBaTurn.Message);
         Assert.DoesNotContain("Write Requirement", lastBaTurn.Message, StringComparison.OrdinalIgnoreCase);
         // Câu của cổng không kèm chip ⇒ phải là câu MỞ, để khung chat mời người dùng gõ vào ô nhập thay
         // vì bày ra một câu hỏi không có chỗ trả lời.
@@ -251,7 +250,7 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.Equal(2, llm.CoverageCalls);
         Assert.Equal(0, llm.ProductBriefCalls);
         Assert.Equal(RequirementDraftOutcome.NeedsMoreInfo, outcome);
-        Assert.Contains("Quy tắc nghiệp vụ & ràng buộc", (await LastAssistantTurnAsync()).Message);
+        Assert.Contains("hạn mức ngày phép", (await LastAssistantTurnAsync()).Message);
     }
 
     [Fact]

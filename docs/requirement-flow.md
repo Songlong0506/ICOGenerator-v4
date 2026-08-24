@@ -1161,7 +1161,7 @@ Nay thứ được rút ngắn là **số vòng đi-về**, không phải độ 
 - **NGUỒN của dữ liệu: hỏi *từ đâu ra*, không hỏi *nối bằng gì*.** Danh sách cấm hỏi kỹ thuật từng gộp luôn *"tích hợp hệ thống ngoài"*, tức cấm cả vế nghiệp vụ — và chỗ hỏng không lộ ra trong hội thoại mà ở cuối đường: tài liệu im lặng về nguồn ⇒ bước soạn tài liệu mặc định là nhập tay ⇒ POC seed một màn hình CRUD đầy nút Thêm/Sửa/Xóa cho danh sách nhân viên mà thực tế HR đổ sang hằng tháng (cùng loại thiệt hại với cột `Revision Number` của hệ cũ nằm lại trong app mới, chỉ khác là sai cả một màn hình). Ranh giới nay tách đôi trong `requirement-chat.v4.md` (mục *"NGUỒN của dữ liệu"*): **nghiệp vụ** = dữ liệu vào ứng dụng bằng đường nào (có người tải file lên / nhập tay / app tự lấy về), cập nhật khi nào, và trong app còn sửa được không; **kỹ thuật, vẫn cấm** = API/webhook/đọc thẳng DB/real-time hay chạy lô/định dạng trao đổi. Quy tắc có **điều kiện kích hoạt**: chỉ hỏi khi CHÍNH người dùng nhắc tới một hệ thống/file đang dùng — cùng câu nói kích hoạt luật xin file, nên thứ tự bắt buộc là lượt đó chỉ xin file, đọc xong mới hỏi nguồn. Phía coverage khoá luôn chiều ngược lại: người dùng chưa hề nhắc tới nguồn nào ⇒ mặc định dữ liệu do chính app quản lý, TUYỆT ĐỐI không giữ dòng ở `[MỘT PHẦN]` với *"còn thiếu: nguồn dữ liệu"* — đó đúng là hình dạng vòng lặp câu hỏi chết mà `CoverageDeadQuestionLoopTests` đã phải dựng lưới một lần. Chốt bằng `BAChatDataSourceRuleTests` + điểm chấm golden set.
 - **Câu hỏi kép mà chip chỉ trả lời được một nửa** (*"những vai trò nào sẽ dùng ứng dụng **và mỗi vai trò chịu trách nhiệm gì**?"* với chip là danh sách vai trò) bị cấm trong prompt — người dùng bấm chip là hết lượt, nửa sau rơi mất trong khi BA tưởng đã hỏi. Chỗ này KHÔNG chặn được bằng máy (tách một câu hỏi làm đôi là việc chỉ model làm đúng), nên lưới an toàn nằm ở tầng chấm điểm: `requirement-coverage.v3.md` nay có chuẩn `[RÕ]` riêng cho **Đối tượng người dùng & vai trò** — phải rõ **mỗi vai trò làm gì**, một danh sách tên vai trò trần chỉ được `[MỘT PHẦN]` kèm *còn thiếu: mỗi vai trò làm/xem được gì*. Nhờ vậy nửa câu trả lời bị chấm là thiếu và BA buộc phải hỏi nốt ở lượt sau, thay vì dựa vào việc BA không bao giờ hỏi câu kép.
 - **Contract**: `BAChatReply.Questions` (`BAChatQuestion[]`: nhóm + câu hỏi + gợi ý riêng + cờ chọn-nhiều + cờ `openEnded`), lưu ở cột `AgentConversation.Questions` (mã hóa at rest như `Message`/`Suggestions`). Lượt hỏi một câu vẫn đi đường cũ (`message` + `suggestions`) — đó là ca thường gặp nhất VÀ là ca bắt buộc của mọi câu hỏi đào sâu, nên nó không đổi gì. `Normalize` giữ hai đường **loại trừ nhau**: có thẻ hỏi thì không có chip lượt-đơn (chip bấm là GỬI NGAY, để cả hai cùng sống thì một cú bấm cướp lượt trước khi người dùng kịp trả lời các câu còn lại), và một lượt "gộp" chỉ có một câu bị **hạ về** đường một-câu với câu hỏi nối vào `message`.
-- **UI**: thẻ nhiều dòng trong khung chat (`.batchq`), mỗi dòng là một câu hỏi + hàng gợi ý bấm + **một ô "Ý khác" luôn mở** ở dưới (dòng `openEnded` thì không có hàng gợi ý, chỉ còn ô — một dòng chỉ có câu hỏi mà không có chỗ trả lời đọc như dòng bị lỗi); nút gửi đếm live số câu đã trả lời và nói rõ **không cần trả lời hết** (câu để trống thì BA hỏi tiếp ở lượt sau). Render ở CẢ hai đường — server lúc tải trang, JS ở frame `done` — vì F5 giữa chừng mà thẻ biến mất thì người dùng mất các câu chưa trả lời, và `message` của lượt gộp chỉ là câu dẫn.
+- **UI**: thẻ nhiều dòng trong khung chat (`.batchq`), mỗi dòng là một câu hỏi + hàng gợi ý bấm + **một ô "Ý khác" luôn mở** ở dưới (dòng `openEnded` thì không có hàng gợi ý, chỉ còn ô — một dòng chỉ có câu hỏi mà không có chỗ trả lời đọc như dòng bị lỗi); nút gửi đếm live số câu đã trả lời và nói rõ **không cần trả lời hết** (câu để trống thì BA hỏi tiếp ở lượt sau). Không dòng nào in **nhãn nhóm** của bản đồ lên đầu câu hỏi — xem [Câu chặn không nói nhóm](#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn). Render ở CẢ hai đường — server lúc tải trang, JS ở frame `done` — vì F5 giữa chừng mà thẻ biến mất thì người dùng mất các câu chưa trả lời, và `message` của lượt gộp chỉ là câu dẫn.
   - **Chip giữ lựa chọn, ô giữ lời tự nói — hai vai TÁCH HẲN.** Trạng thái chọn nằm trên chính chip (`.is-on`, `batchPicks`); ô bên dưới là ô *"Ý khác"* đúng như ở hàng chip lượt-đơn, và câu trả lời gửi đi của dòng đó là hai vế ghép lại: `chip đã bấm — lời viết thêm` (`batchAnswerOf`, cùng luật ghép với `otherAnswerMessage`). Trước đây bấm chip **chép nguyên văn chip vào ô**: màn hình nói một điều hai lần (chip sáng ngay trên, y hệt câu chữ đó nằm trong ô ngay dưới) mà không đổi lại được gì — sửa một chữ trong ô là chip tắt, tức không hề "sửa lời gợi ý" như hình thức của nó hứa; và chỗ duy nhất để nói thêm một ý nằm ngoài mọi gợi ý thì bị chiếm mất. Đây cũng là lý do nhãn ô quay lại là **"Ý khác"**: nó lại đúng là thứ nó chứa.
   - **Chọn-nhiều: mỗi chip là một công tắc riêng; chọn-một: chip vừa bấm sáng và tắt các chip còn lại**, bấm lại chính chip đang chọn = bỏ chọn, để một cú bấm nhầm có đường lùi (`toggleBatchChip`). **Bấm chip KHÔNG focus vào ô**: bấm gợi ý là thao tác "câu này xong rồi", focus thì trên điện thoại bật bàn phím lên che mất các câu còn lại của thẻ.
   - **Nháp của thẻ lưu HAI vế riêng** (`{picks, other}` theo từng câu hỏi) chứ không lưu câu trả lời đã ghép: ghép rồi thì lúc F5 đổ về không tách lại được đâu là chip đâu là lời viết thêm, và cả cụm sẽ rơi vào ô *"Ý khác"* — người dùng thấy nguyên văn gợi ý nằm trong ô mình chưa từng gõ. Nháp lưu theo dạng CŨ (một chuỗi) vẫn đổ về được, vào đúng ô *"Ý khác"*: chữ họ đã gõ không mất, và không chip nào bị bật lên thay họ.
@@ -1508,8 +1508,20 @@ không dựng chip: chip phải là đáp án TRỌN VẸN cho đúng câu đang
 cờ này, lượt gate lên màn hình vừa không có nút bấm vừa không mời gõ — đúng thứ `requirement-chat.v4.md`
 gọi là "một lượt hỏi thiếu chỗ trả lời".
 
-**Bốn nhánh dựng câu chặn, và không nhánh nào được rỗng nghĩa.** Câu dẫn (nhãn nhóm trong ngoặc + số nhóm
-còn lại) dựng ở một chỗ; vế câu hỏi thì thử bốn nhánh theo lượng thông tin bản đồ cho, hẹp dần:
+**Câu chặn KHÔNG nói nhóm.** Lượt chặn chỉ chở **câu hỏi**, không nhãn nhóm và không đếm số nhóm còn lại.
+Bản trước mở đầu bằng *"Trước khi viết tài liệu, mình còn một chỗ chưa đủ thông tin để khỏi phải tự đoán
+(nhóm «Đối tượng người dùng & vai trò», còn 3 nhóm — mình hỏi từng nhóm một)"* rồi mới tới câu hỏi thật: cả
+cụm đó là **sổ sách của hệ thống** đọc ra màn hình. Nhãn là từ vựng của bản đồ mà người dùng nghiệp vụ chưa
+từng thấy (cùng lý do `CoveragePendingGuard.StripGroupTag` gỡ thẻ nhóm trước khi vào ngữ cảnh chat), còn
+*"còn 3 nhóm"* chỉ báo cho họ biết còn phải chịu bao nhiêu lượt nữa — không giúp trả lời câu đang hỏi, mà
+làm lượt đó đọc như một bản tin tiến độ. Câu dẫn duy nhất còn lại là *"Mình quay lại chỗ này một chút."* ở
+nhánh quay lại (bên dưới). Cùng luật áp cho hai chỗ khác: `requirement-chat.v4.md` cấm BA đọc nhãn nhóm hay
+đếm nhóm trong `message`, và **thẻ hỏi gộp thôi in nhãn nhóm lên đầu mỗi câu** — trường `group` vẫn được
+lưu và vẫn vào transcript vì nó là thứ nối câu hỏi về đúng dòng bản đồ, chỉ là không nói ra với người dùng.
+Ai muốn xem nhãn thì panel "Tiến độ khai thác" bên cạnh vẫn liệt kê đủ 12 dòng.
+
+**Bốn nhánh dựng câu chặn, và không nhánh nào được rỗng nghĩa.** Vế câu hỏi thử bốn nhánh theo lượng thông
+tin bản đồ cho, hẹp dần — và vì không còn câu dẫn nào đỡ, mỗi nhánh phải tự đứng một mình được:
 
 1. **Có mẩu `còn thiếu: …`** ⇒ hỏi thẳng nó — thứ duy nhất bước soạn tài liệu còn phải tự đoán.
 2. **`[MỘT PHẦN]` mà distiller không viết được mẩu nào** ⇒ **phát lại** phần đã ghi nhận (mọi thứ trước cụm
@@ -1518,8 +1530,10 @@ còn lại) dựng ở một chỗ; vế câu hỏi thì thử bốn nhánh theo
    người dùng đã kể phần đó rồi, nghe lại đúng câu cũ là mất lòng tin vào cả buổi phỏng vấn.
 3. **`[CHƯA HỎI]`** (và `[MỘT PHẦN]` rỗng ruột) ⇒ **câu mở đầu THẬT của nhóm** — `CoverageGroupOpeners`,
    một câu cho mỗi nhóm, bằng ngôn ngữ công việc của người dùng.
-4. **Nhãn không khớp nhóm nào** (distiller tự nghĩ ra một tên) ⇒ câu dẫn chung. Không bịa câu hỏi về một
-   nhóm không có trong checklist.
+4. **Nhãn không khớp nhóm nào** (distiller tự nghĩ ra một tên) ⇒ không bịa một câu hỏi khai thác về thứ
+   không có trong checklist, nhưng cũng không trỏ tới *"phần này"* suông: nhãn được đọc vào câu như một cụm
+   **chủ đề** bình thường (*"Về tích hợp hệ thống ngoài, hiện trong công việc thực tế của anh/chị đang diễn
+   ra thế nào?"*) — ngôn ngữ tự nhiên, khác hẳn cái ngoặc sổ sách `(nhóm «…»)`.
 
 Nhánh 3 là chỗ đã trả giá. Trước đây nó phát **một câu duy nhất cho cả 12 nhóm** — *"Anh/chị kể giúp mình
 phần này trong công việc thực tế hiện đang diễn ra thế nào?"* — không nói được đang hỏi cái gì và trỏ tới
@@ -1542,20 +1556,24 @@ ca đó.
 `requirement-coverage.v3.md` mà quên viết câu cho nó thì fail ở test, chứ không âm thầm rơi về nhánh 4 trên
 màn hình người dùng.
 
-**Cổng giữ SỔ RIÊNG "đã hỏi nhóm nào"** (`RequirementReadinessGate.AskedGroups`), vì phanh chống hỏi lại
+**Cổng giữ SỔ RIÊNG "đã hỏi câu nào"** (`RequirementReadinessGate.LastAskedAt`), vì phanh chống hỏi lại
 dùng chung **không thấy** câu của nó: `AskedQuestionHistory.Collect` chỉ nhận một lượt assistant là câu hỏi
 khi lượt đó có **gợi ý**, mà lượt chặn cố tình không có chip nào. Nới luật của `Collect` thì mọi lượt tóm
-tắt/thông báo cũng thành "câu hỏi" và chặn oan các lượt xác nhận về sau — nên cổng nhận diện lượt chặn của
-chính mình bằng câu dẫn nó viết ra (`PendingMarker`) rồi đọc nhãn nhóm trong cặp `«…»`.
+tắt/thông báo cũng thành "câu hỏi" và chặn oan các lượt xác nhận về sau — nên cổng dò **chính câu hỏi nó sắp
+phát** trong các lượt BA đã lưu (so chuẩn hóa hoa/thường + khoảng trắng). Khóa là câu hỏi chứ không phải nhãn
+nhóm vì hai lẽ: nhãn không còn nằm trong lượt đã lưu để mà đọc lại, và so bằng câu hỏi đúng hơn ở đúng chỗ
+phải đúng — bản đồ nhúc nhích thì mẩu `còn thiếu:` đổi, câu hỏi đổi theo, mà một câu hỏi KHÁC thì đáng hỏi
+ngay chứ không phải đợi hết một vòng.
 
-Sổ đó lái việc **chọn nhóm**: nhóm cổng chưa hỏi đi trước, rồi tới nhóm bị hỏi lâu nhất; trong cùng một bậc
+Sổ đó lái việc **chọn chỗ hỏi**: câu cổng chưa hỏi đi trước, rồi tới câu bị hỏi lâu nhất; trong cùng một bậc
 thì ★ cốt lõi trước. Cờ "đã hỏi" **thắng cả cờ ★** — bản đồ không nhúc nhích thì mọi lượt chặn tiếp theo chọn
 lại đúng dòng cốt lõi đó và phát lại nguyên văn một câu người dùng vừa không trả lời được (ca thật: ba lượt
 liên tiếp giống hệt nhau, người dùng đáp *"mình không hiểu câu hỏi của bạn"* hai lần rồi tự dán lại câu trả
-lời họ đã gõ từ 60 lượt trước). Đổi nhóm thì lượt sau còn cơ hội gỡ, mà nhóm cũ không mất đi đâu: nó quay lại
-ngay khi các nhóm khác đã được hỏi một vòng — và khi quay lại, câu dẫn **nói ra** rằng cổng đang quay lại
-(*"Mình quay lại một chỗ vẫn…"*) nên hai lượt không bao giờ giống hệt nhau, kể cả khi chỉ còn đúng một nhóm
-thiếu để hỏi.
+lời họ đã gõ từ 60 lượt trước). Đổi chỗ hỏi thì lượt sau còn cơ hội gỡ, mà chỗ cũ không mất đi đâu: nó quay
+lại ngay khi các chỗ khác đã được hỏi một vòng — và khi quay lại, lượt đó **nói ra** rằng cổng đang quay lại
+(*"Mình quay lại chỗ này một chút."*) nên hai lượt không bao giờ giống hệt nhau, kể cả khi chỉ còn đúng một
+dòng thiếu để hỏi. Câu dẫn ấy đứng ở **đầu**, vế hỏi phía sau giữ nguyên — đó là điều kiện để sổ đọc ra được
+cả hai biến thể của lượt chặn.
 
 Câu chặn phát ra ở **bốn đường**, và cả bốn đều phải chở hội thoại vào cổng: lượt BA mời bấm nút quá sớm bị
 thay (`BAChatService`), lượt mà **mọi câu hỏi của BA đều là câu đã hỏi** (`BuildFollowUpAfterRepeat` — đường

@@ -19,9 +19,10 @@ namespace ICOGenerator.Services.Requirements;
 /// <b>Luật viết câu.</b> Hỏi bằng ngôn ngữ công việc của người dùng nghiệp vụ, KHÔNG dùng từ vựng nội bộ
 /// của bản đồ ("vòng đời", "phạm vi", "đặc tả", "danh mục") ngay trong câu hỏi; kết thúc bằng dấu hỏi; và
 /// hỏi ĐÚNG MỘT thứ — lượt chặn của cổng không có chip nào nên nó là câu MỞ, mà một câu mở nhiều vế thì
-/// người dùng chỉ trả lời được vế cuối. Nhãn nhóm vẫn được cổng đặt trong ngoặc ở câu dẫn: người dùng THẤY
-/// đúng các nhãn đó ở panel "Tiến độ khai thác" bên cạnh, nên nó là chỉ dẫn chéo hợp lệ, không phải từ vựng
-/// từ trên trời.
+/// người dùng chỉ trả lời được vế cuối. Câu ở đây phải ĐỨNG MỘT MÌNH ĐƯỢC: cổng phát nó nguyên si, không
+/// kèm câu dẫn nào nêu nhóm — nhãn nhóm không bao giờ lên màn hình nữa (xem
+/// <see cref="RequirementReadinessGate"/>), nên một câu chỉ có nghĩa khi biết nó thuộc nhóm nào là một câu
+/// hỏng. Ai muốn xem nhãn thì panel "Tiến độ khai thác" bên cạnh vẫn liệt kê đủ.
 /// </para>
 ///
 /// <para>

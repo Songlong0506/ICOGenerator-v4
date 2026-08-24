@@ -79,10 +79,10 @@ public class BAChatSilentTurnTests : IDisposable
         await using var db = NewDb();
         var result = await NewSut(db, llm).ChatAsync(_projectId, "Đúng rồi, tiếp tục");
 
-        // Lượt câm bị thay bằng đúng bước kế tiếp tất định: câu chặn của cổng, nêu nhóm còn thiếu và hỏi
-        // đúng mẩu "còn thiếu:" — thứ người dùng trả lời được.
+        // Lượt câm bị thay bằng đúng bước kế tiếp tất định: câu chặn của cổng, hỏi đúng mẩu "còn thiếu:"
+        // — thứ người dùng trả lời được — và không đọc nhãn nhóm của bản đồ ra màn hình.
         Assert.DoesNotContain("tiếp tục bước rà soát cuối", result.Reply);
-        Assert.Contains("Chức năng & luồng nghiệp vụ chính", result.Reply);
+        Assert.DoesNotContain("Chức năng & luồng nghiệp vụ chính", result.Reply);
         Assert.Contains("nằm ở màn hình nào", result.Reply);
         Assert.EndsWith("?", result.Reply.TrimEnd());
 
@@ -91,7 +91,7 @@ public class BAChatSilentTurnTests : IDisposable
         Assert.True(result.OpenEnded);
         Assert.Empty(result.Suggestions);
 
-        // Bản LƯU phải là bản người dùng thấy: cổng giữ sổ "đã hỏi nhóm nào" bằng cách đọc lại chính các
+        // Bản LƯU phải là bản người dùng thấy: cổng giữ sổ "đã hỏi câu nào" bằng cách đọc lại chính các
         // lượt đã lưu, nên lưu bản gốc là cổng mất sổ và phát lại đúng câu này ở lượt sau.
         var saved = await LastAssistantTurnAsync();
         Assert.Equal(result.Reply, saved.Message);

@@ -715,11 +715,10 @@
                             <ul class="batchq-history">
                                 @foreach (var q in pastQuestions)
                                 {
+                                    @* KHÔNG in nhãn nhóm của bản đồ bao phủ ở đây: nó là sổ sách nội bộ,
+                                       xem chú thích ở thẻ hỏi bên dưới. q.Group vẫn được lưu và vẫn đi vào
+                                       transcript cho các bước máy đọc. *@
                                     <li>
-                                        @if (!string.IsNullOrWhiteSpace(q.Group))
-                                        {
-                                            <span class="batchq-history-group">@q.Group</span>
-                                        }
                                         <span class="batchq-history-question">@q.Question</span>
                                     </li>
                                 }
@@ -907,11 +906,14 @@
                                rỗng, không chỉ từ cờ: lượt gộp cũ lưu trước khi có cờ này vẫn phải render ra
                                một dòng trả lời được. *@
                             var openQuestion = q.OpenEnded || q.Suggestions.Count == 0;
+                            @* Nhãn nhóm (`q.Group`) KHÔNG lên màn hình. «Dữ liệu / danh mục chính»,
+                               «Vòng đời & trạng thái» là từ vựng của bản đồ bao phủ, không phải cách người
+                               dùng nghiệp vụ gọi công việc của họ — in nó lên đầu mỗi câu hỏi là bắt họ đọc
+                               sổ sách của hệ thống trước khi đọc câu hỏi. Trường vẫn được LƯU và vẫn đi vào
+                               transcript: nó là thứ nối câu hỏi về đúng dòng bản đồ (CoveragePendingGuard,
+                               AskedQuestionHistory), chỉ là không nói ra với người dùng. Panel "Tiến độ
+                               khai thác" bên cạnh vẫn liệt kê đủ 12 nhãn cho ai muốn xem. *@
                             <li class="batchq-item" data-question="@q.Question" data-multi="@(q.MultiSelect ? "true" : "false")" data-open="@(openQuestion ? "true" : "false")">
-                                @if (!string.IsNullOrWhiteSpace(q.Group))
-                                {
-                                    <div class="batchq-group">@q.Group</div>
-                                }
                                 <div class="batchq-question">@q.Question</div>
                                 @if (!openQuestion)
                                 {

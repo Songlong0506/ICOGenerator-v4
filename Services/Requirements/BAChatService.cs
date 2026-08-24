@@ -68,7 +68,7 @@ public class BAChatService
     /// thật sự phải làm nằm ngay dưới. Đúng lỗi mà lượt đọc bảng tính đã vấp một lần.
     /// </summary>
     public const string PermissionMatrixIntro =
-        "Các nhóm thông tin khác mình đã ghi nhận đủ, còn lại phần phân quyền. Mình đã dựng sẵn bảng bên dưới "
+        "Các phần khác mình đã ghi nhận đủ, còn lại phần phân quyền. Mình đã dựng sẵn bảng bên dưới "
         + "theo các màn hình đã chốt: anh/chị chọn phạm vi cho từng vai trò (ô để trống là vai đó không có quyền), "
         + "rồi bấm \"Gửi bảng phân quyền\" giúp mình nhé.";
 
@@ -1374,7 +1374,7 @@ public class BAChatService
 
         // Bản đồ đã đủ ⇒ lời mời này đi qua đúng cổng mà nhánh dưới sẽ xét lại, nên không thể là lời mời
         // sớm. Không phải câu hỏi nên cũng không mở ô nhập: hành động duy nhất lúc này là bấm nút thật.
-        return ("Mình đã ghi nhận đủ các nhóm thông tin cần thiết và không còn câu hỏi nào mới. "
+        return ("Mình đã ghi nhận đủ thông tin cần thiết và không còn câu hỏi nào mới. "
                 + "Nếu anh/chị không còn gì bổ sung, bấm nút \"Write Requirement\" để mình tạo tài liệu nhé.",
             false);
     }
