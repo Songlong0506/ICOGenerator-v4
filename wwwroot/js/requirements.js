@@ -4416,7 +4416,10 @@ async function loadDocPreview(previewEl) {
     const listEl = document.getElementById("briefNotesList");
     const countEl = document.getElementById("briefNotesCount");
     const sendBtn = document.getElementById("briefNotesSendBtn");
-    const content = document.querySelector(".requirement-content");
+    // Phải neo đúng vào popup Product Brief: trang này còn popup "Tài liệu nguồn" cũng dùng class
+    // .requirement-content và đứng TRƯỚC trong DOM, nên querySelector không gắn id sẽ bắt nhầm nó và
+    // không bao giờ tìm thấy .doc-render → bôi đen xong không thấy nút "＋ Ghi chú" hiện lên.
+    const content = document.querySelector("#requirementModal .requirement-content");
     if (!tray || !listEl || !sendBtn || !content) return;
 
     const notes = []; // { quote, note }
@@ -4565,6 +4568,10 @@ async function loadDocPreview(previewEl) {
             showAddButton(range.getBoundingClientRect(), quote);
         }, 10);
     });
+
+    // Nút "＋ Ghi chú" nổi trên document.body theo toạ độ lúc bôi đen; nội dung brief lại cuộn trong
+    // modal, nên khi user cuộn tiếp thì nút sẽ trỏ nhầm đoạn — bỏ nút đi, bôi đen lại là có ngay.
+    content.addEventListener("scroll", removeAddBtn);
 
     listEl.addEventListener("click", function (e) {
         const del = e.target.closest(".brief-note-del");
