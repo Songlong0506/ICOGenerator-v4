@@ -7,11 +7,18 @@ namespace ICOGenerator.Application.Requirements;
 public enum ReviseBriefResult { Ok, ProjectNotFound, NoNotes, BaNotConfigured }
 
 /// <summary>
-/// Biến các ghi chú người dùng ghim trực tiếp lên bản xem trước Product Brief thành MỘT lượt phản hồi
-/// trong hội thoại BA, rồi khởi động lại workflow soạn draft — bản Brief mới sẽ sửa đúng các đoạn được
-/// chú. Đi qua hội thoại (thay vì sửa thẳng file) để giữ nguyên nguồn sự thật: Brief luôn sinh từ
-/// transcript, và ghi chú cũng thành nguồn cho <see cref="ChecklistGapMemoryService"/> như mọi lượt khác.
-/// Tái dùng đúng vòng "Write Requirement" hiện có — không thêm đường sinh tài liệu song song.
+/// Biến các ghi chú người dùng ghim trực tiếp lên bản xem trước Product Brief thành hai thứ: MỘT lượt phản
+/// hồi trong hội thoại BA (để ghi chú nằm trong transcript như mọi lời người dùng khác — các lượt sau,
+/// bản đồ bao phủ và <see cref="ChecklistGapMemoryService"/> đều thấy nó), và một run "Write Requirement"
+/// mang chính các ghi chú đó làm <c>AgentTask.Input</c>.
+///
+/// Run đó chạy vòng SỬA CÓ PHẠM VI (<see cref="ProductBriefDraftService.ReviseDraftFromNotesAsync"/>):
+/// giữ nguyên bản Brief hiện có, chỉ sửa các đoạn được chú. Trước đây đường này gọi thẳng lượt soạn tài
+/// liệu, nên một ghi chú một dòng kéo theo một lần VIẾT LẠI cả tài liệu từ transcript — người dùng nhận
+/// về hàng chục dòng đổi ngoài ý mình và mất lòng tin vào nút này.
+///
+/// Vẫn tái dùng đúng vòng "Write Requirement" hiện có (cùng loại run, cùng panel tiến độ) — không thêm
+/// đường sinh tài liệu song song.
 /// </summary>
 public class ReviseBriefFromNotesUseCase
 {
@@ -56,11 +63,16 @@ public class ReviseBriefFromNotesUseCase
         }
         sb.AppendLine("Hãy cập nhật lại bản mô tả sản phẩm theo đúng các ý này.");
 
-        // Lượt user này đi vào transcript → workflow "Write Requirement" soạn lại Brief có tính tới nó.
+        // Lượt user này đi vào transcript để ghi chú không "nằm ngoài hội thoại" (các lượt chat sau, bản đồ
+        // bao phủ và lượt soạn lại đầy đủ về sau đều phải thấy nó). Bản thân việc SỬA tài liệu thì không
+        // đọc lại transcript để dựng bản mới — nó đi theo payload dưới đây.
         // ProjectNotFound: BAConversationLog ghi thẳng với ProjectId; project không tồn tại sẽ ném FK khi
         // SaveChanges. Kiểm tra rẻ hơn: để orchestrator/worker xử lý, nhưng ở đây coi ghi thành công là Ok.
         await _conversationLog.AppendAsync(projectId, ba.Id, "user", sb.ToString().TrimEnd(), cancellationToken: cancellationToken);
-        await _generateDraft.ExecuteAsync(projectId);
+
+        // Ghi chú đi theo run dưới dạng dữ liệu có cấu trúc (không phải bằng cách bắt worker đoán lại từ
+        // transcript): worker mới biết ĐÚNG đoạn nào được chú để chỉ sửa những chỗ đó.
+        await _generateDraft.ExecuteAsync(projectId, briefNotesPayload: BriefNotePayload.Serialize(clean));
         return ReviseBriefResult.Ok;
     }
 }

@@ -8,9 +8,13 @@ namespace ICOGenerator.Tests.Requirements;
 /// </summary>
 internal static class CoveragePromptFixture
 {
-    public static string Read() => File.ReadAllText(Path.Combine(
+    public static string Read() => ReadPrompt(CoverageChecklist.CoveragePromptPath);
+
+    /// <summary>Đọc MỘT file prompt bất kỳ theo đường dẫn tương đối trong <c>Prompts/</c> (vd
+    /// <c>BusinessAnalyst/product-brief-note-revision.v1.md</c>) — dùng chung một cách tìm thư mục.</summary>
+    public static string ReadPrompt(string relativePath) => File.ReadAllText(Path.Combine(
         FindPromptsRoot(),
-        CoverageChecklist.CoveragePromptPath.Replace('/', Path.DirectorySeparatorChar)));
+        relativePath.Replace('/', Path.DirectorySeparatorChar)));
 
     // Prompts/ được copy vào output của app và flow sang bin của test qua ProjectReference; nếu môi trường
     // build không copy transitives thì đi ngược từ BaseDirectory lên repo root.

@@ -4444,9 +4444,10 @@ async function loadDocPreview(previewEl) {
 
 // ==== Ghi chú trực tiếp trên bản xem trước Product Brief (bản draft) ====
 // Bôi đen một đoạn trong bản mô tả → nút "＋ Ghi chú" nổi lên → nhập điều cần sửa; các ghi chú gom vào
-// khay dưới modal, bấm "Gửi ghi chú cho BA sửa" sẽ nhờ BA soạn lại brief theo đúng các đoạn được chú
-// (POST /Requirements/ReviseBrief — tái dùng vòng "Write Requirement"). Người dùng chỉ vào chỗ cần sửa
-// thay vì mô tả bằng lời cả đoạn.
+// khay dưới modal, bấm "Gửi ghi chú cho BA sửa" sẽ chạy vòng SỬA CÓ PHẠM VI: bản brief hiện có được giữ
+// nguyên, BA chỉ đụng các đoạn được chú (POST /Requirements/ReviseBrief → run "Write Requirement" mang
+// theo chính các ghi chú này — xem ReviseBriefFromNotesUseCase). Người dùng chỉ vào chỗ cần sửa thay vì
+// mô tả bằng lời cả đoạn, và không phải đọc lại cả tài liệu sau mỗi lần góp ý.
 (function initBriefAnnotator() {
     const tray = document.getElementById("briefNotesTray");
     const listEl = document.getElementById("briefNotesList");
@@ -4624,7 +4625,7 @@ async function loadDocPreview(previewEl) {
             const resp = await fetch("/Requirements/ReviseBrief", { method: "POST", body: fd });
             const data = await resp.json();
             if (data.ok) {
-                // Brief đang được soạn lại (workflow nền) — reload để thấy tiến độ + bản mới.
+                // Brief đang được sửa theo ghi chú (workflow nền) — reload để thấy tiến độ + bản mới.
                 location.reload();
             } else {
                 alert(data.error || "Không gửi được ghi chú.");

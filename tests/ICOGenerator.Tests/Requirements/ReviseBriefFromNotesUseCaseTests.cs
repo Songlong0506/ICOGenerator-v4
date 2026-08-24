@@ -12,8 +12,10 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Ghi chú trên Product Brief → gom thành MỘT lượt user trong hội thoại + chạy lại workflow soạn draft.
-// Đi qua transcript (không sửa thẳng file) để Brief luôn sinh từ nguồn sự thật là hội thoại.
+// Ghi chú trên Product Brief → MỘT lượt user trong hội thoại (để ghi chú không nằm ngoài transcript) +
+// một run "Write Requirement" MANG THEO chính các ghi chú đó. Payload là thứ khiến worker rẽ sang vòng
+// SỬA CÓ PHẠM VI thay vì soạn lại cả tài liệu — mất nó là quay về đúng ca người dùng ghi chú một dòng và
+// nhận về một bản Brief đổi hàng chục dòng.
 public class ReviseBriefFromNotesUseCaseTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -60,6 +62,38 @@ public class ReviseBriefFromNotesUseCaseTests : IDisposable
         Assert.Contains("đổi thành đơn xin nghỉ", turn.Message);
         Assert.Contains("thêm mục báo cáo", turn.Message);
         Assert.Contains("đơn nghỉ phép", turn.Message);
+
+        // Ghi chú phải đi theo run dưới dạng DỮ LIỆU CÓ CẤU TRÚC, không chỉ nằm trong câu chữ của lượt
+        // chat: worker cần biết đúng đoạn nào được chú để sửa mỗi chỗ đó.
+        var payload = BriefNotePayload.TryParse(orchestrator.StartedWithNotesPayload);
+        Assert.NotNull(payload);
+        Assert.Equal(2, payload!.Count);
+        Assert.Equal("đơn nghỉ phép", payload[0].Quote);
+        Assert.Equal("đổi thành đơn xin nghỉ", payload[0].Note);
+        Assert.Equal("thêm mục báo cáo", payload[1].Note);
+    }
+
+    // Ghi chú rỗng bị loại từ use case; payload chỉ mang những ghi chú thật, và một payload rỗng phải
+    // được đọc lại thành null (worker rơi về đường soạn bình thường thay vì chạy vòng sửa không có gì để sửa).
+    [Fact]
+    public async Task ExecuteAsync_PayloadCarriesOnlyRealNotes()
+    {
+        var orchestrator = new FakeOrchestrator();
+        await using var db = NewDb();
+
+        await NewSut(db, orchestrator).ExecuteAsync(_projectId, new List<BriefNote>
+        {
+            new() { Quote = "a", Note = "sửa chỗ này" },
+            new() { Quote = "b", Note = "  " }
+        });
+
+        var payload = BriefNotePayload.TryParse(orchestrator.StartedWithNotesPayload);
+        Assert.Single(payload!);
+        Assert.Equal("sửa chỗ này", payload![0].Note);
+
+        Assert.Null(BriefNotePayload.TryParse("[]"));
+        Assert.Null(BriefNotePayload.TryParse(""));
+        Assert.Null(BriefNotePayload.TryParse("không phải json"));
     }
 
     [Fact]
@@ -89,10 +123,12 @@ public class ReviseBriefFromNotesUseCaseTests : IDisposable
     {
         public Guid? StartedProjectId;
         public bool StartedWithCoalesce;
-        public Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId, bool coalesceWithActiveRun = false)
+        public string? StartedWithNotesPayload;
+        public Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId, bool coalesceWithActiveRun = false, string? briefNotesPayload = null)
         {
             StartedProjectId = projectId;
             StartedWithCoalesce = coalesceWithActiveRun;
+            StartedWithNotesPayload = briefNotesPayload;
             return Task.FromResult(Guid.NewGuid());
         }
         public Task<Guid> StartDeliveryWorkflowAsync(Guid projectId, string v, string s) => Task.FromResult(Guid.NewGuid());

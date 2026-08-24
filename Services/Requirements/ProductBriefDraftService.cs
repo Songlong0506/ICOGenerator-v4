@@ -101,9 +101,10 @@ public class ProductBriefDraftService
         // [RÕ] trên bản đồ bao phủ thì hỏi lại NGAY (một lượt BA trong khung chat) và KHÔNG soạn tài
         // liệu — tránh sinh tài liệu rồi vứt đi/sinh lại (tốn token). Ready suy TẤT ĐỊNH từ bản đồ
         // (RequirementReadinessGate.Evaluate) — cùng nguồn chân lý với lời mời trong chat và panel tiến
-        // độ. Trước khi xét phải gộp nốt các lượt chưa distill vào bản đồ: đường POC-feedback/ghi chú
-        // duyệt (RoutePocFeedbackToRequirementUseCase, ReviseBriefFromNotesUseCase) thêm lượt user rồi
-        // gọi thẳng vào đây, không đi qua lượt chat nào để bản đồ kịp tươi.
+        // độ. Trước khi xét phải gộp nốt các lượt chưa distill vào bản đồ: đường POC-feedback
+        // (RoutePocFeedbackToRequirementUseCase) thêm lượt user rồi gọi thẳng vào đây, không đi qua lượt
+        // chat nào để bản đồ kịp tươi. (Ghi chú ghim trên Brief KHÔNG qua đây — nó rẽ sang
+        // ReviseDraftFromNotesAsync, vòng sửa có phạm vi.)
         //
         // NGOẠI LỆ: lượt cuối hội thoại là lời BA mời bấm "Write Requirement" ⇒ lời mời đó CHỈ tồn tại
         // sau khi chính cổng tất định này đã pass ngay trong bước chat (BAChatService) trên bản đồ hiện
@@ -228,6 +229,131 @@ public class ProductBriefDraftService
         await _checklistGapMemory.HarvestAsync(project, ba, model, cancellationToken);
 
         Report("final", "Đã tạo/cập nhật tài liệu.", assistantMessage);
+        return RequirementDraftOutcome.Generated;
+    }
+
+    /// <summary>
+    /// Vòng SỬA CÓ PHẠM VI cho các ghi chú người dùng ghim thẳng lên bản xem trước Product Brief: giữ
+    /// nguyên bản Brief hiện có, chỉ sửa các đoạn được chú. MỘT lời gọi LLM, KHÔNG cổng readiness, KHÔNG
+    /// vòng tự soát, KHÔNG khối "Trạng thái đã chắt".
+    ///
+    /// Vì sao tách khỏi <see cref="GenerateOrUpdateDraftAsync"/>: đường cũ cho ghi chú đi qua đúng lượt
+    /// soạn tài liệu, tức mỗi ghi chú một dòng lại kéo theo một lần VIẾT LẠI cả tài liệu từ transcript —
+    /// cộng `temperature > 0` (đoạn không ai đụng vẫn bị diễn đạt lại), cộng vòng tự soát rà toàn tài liệu,
+    /// cộng luật truy vết bắt bổ sung mọi điều đã chốt còn thiếu. Người dùng ghi chú một dòng rồi nhận về
+    /// một bản Brief đổi hàng chục dòng, và không còn tin cái nút đó nữa.
+    ///
+    /// Cái giá đã cân nhắc: các yêu cầu bị rơi rụng từ lần soạn trước KHÔNG được kéo về ở lượt này —
+    /// đó là việc của "Write Requirement" (nhắn một câu trong khung chat là cổng mở lại).
+    ///
+    /// Chưa có bản draft nào để sửa (ghi chú trên bản V{n} đã duyệt, hoặc file bị xóa) ⇒ rơi về đường
+    /// soạn đầy đủ: không có bản gốc thì không có gì để giữ nguyên.
+    /// </summary>
+    public async Task<RequirementDraftOutcome> ReviseDraftFromNotesAsync(
+        Guid projectId,
+        IReadOnlyList<BriefNote> notes,
+        Action<string, string, string?>? onProgress = null,
+        Action<string>? onToken = null,
+        Guid? workflowRunId = null,
+        CancellationToken cancellationToken = default)
+    {
+        void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
+
+        var clean = (notes ?? Array.Empty<BriefNote>())
+            .Where(n => !string.IsNullOrWhiteSpace(n.Note))
+            .ToList();
+
+        if (clean.Count == 0)
+            return await GenerateOrUpdateDraftAsync(projectId, onProgress, onToken, workflowRunId, cancellationToken);
+
+        Report("setup", $"Đang áp {clean.Count} ghi chú lên bản mô tả sản phẩm…");
+
+        // Không cần SourceFiles ở lượt này: bản gốc đã được soạn từ chúng rồi, đính lại ảnh/PDF chỉ tốn
+        // token và mời model viết lại những đoạn không ai ghi chú.
+        var project = await _db.Projects
+            .Include(x => x.Documents)
+            .Include(x => x.Conversations)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken)
+            ?? throw new InvalidOperationException($"Project not found: {projectId}.");
+
+        var currentBrief = ProjectDocumentLookup.GetContent(project, _artifactCatalog.ProductBrief.FileName, "draft");
+        if (string.IsNullOrWhiteSpace(currentBrief))
+        {
+            Report("observation", "Chưa có bản nháp nào để sửa — soạn lại từ hội thoại.");
+            return await GenerateOrUpdateDraftAsync(projectId, onProgress, onToken, workflowRunId, cancellationToken);
+        }
+
+        var ba = await _agentResolver.GetRequiredAsync(cancellationToken);
+        var model = ba.AiModel!;
+
+        var conversationTranscript = ConversationTranscriptBuilder.Build(project.Conversations);
+        var organizationContext = await _orgContext.BuildCombinedContextAsync(project.OrgUnitCode, cancellationToken);
+
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/product-brief-note-revision.v1.md")),
+            new(ChatRole.User, _promptBuilder.BuildProductBriefNoteRevision(project, conversationTranscript, currentBrief, clean, organizationContext))
+        };
+
+        Report("tool", "Đang gọi AI để sửa đúng các đoạn được ghi chú…",
+            string.Join("\n", clean.Select(n => "- " + n.Note.Trim())));
+
+        var (callResult, structured) = await _llm.ChatStructuredAsync<BAProductBriefResult>(
+            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAProductBriefNoteRevision", workflowRunId), onToken, cancellationToken);
+
+        if (!callResult.IsSuccess)
+        {
+            var detail = callResult.ErrorMessage ?? callResult.Content;
+            Report("error", "Lời gọi LLM thất bại.", detail);
+            throw new InvalidOperationException($"LLM call failed: {detail}");
+        }
+
+        // TryParse STRICT (không fallback template): bản sửa hỏng thì tài liệu đang có phải được giữ
+        // NGUYÊN — ghi đè bản người dùng đang rà bằng một khung "Cần làm rõ" là mất trắng bản tốt.
+        var revised = structured != null
+            ? _responseParser.Normalize(structured)
+            : _responseParser.TryParseProductBrief(callResult.Content);
+
+        // Van thoát: ghi chú mâu thuẫn với điều đã chốt / không hiểu nổi ⇒ hỏi trong khung chat, KHÔNG
+        // đụng vào tài liệu. Ghi chú của người dùng vẫn nằm trong transcript nên câu trả lời của họ ở
+        // lượt sau vẫn có đủ ngữ cảnh.
+        if (revised != null && revised.NeedsClarification)
+        {
+            var clarify = string.IsNullOrWhiteSpace(revised.ClarifyingQuestion)
+                ? "Mình chưa rõ ý ghi chú của anh/chị. Anh/chị nói rõ hơn giúp nhé."
+                : revised.ClarifyingQuestion;
+
+            await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", clarify,
+                revised.ClarifyingSuggestions.Count > 0
+                    ? JsonSerializer.Serialize(revised.ClarifyingSuggestions)
+                    : null,
+                cancellationToken: cancellationToken);
+
+            Report("final", "Cần làm rõ ghi chú trước khi sửa tài liệu — xem câu hỏi trong khung chat.", clarify);
+            return RequirementDraftOutcome.NeedsMoreInfo;
+        }
+
+        // Bản sửa hỏng/rỗng: KHÔNG ghi gì cả và để task FAIL — im lặng ở đây là tệ nhất, người dùng sẽ
+        // tưởng ghi chú đã được áp trong khi tài liệu y nguyên. Task failed thì UI có nút chạy lại.
+        if (revised == null || string.IsNullOrWhiteSpace(revised.ProductBrief.Content))
+        {
+            Report("error", "Bản sửa không hợp lệ — giữ nguyên tài liệu đang có.", callResult.Content);
+            throw new InvalidOperationException("Brief note revision returned no usable content.");
+        }
+
+        Report("tool", "Đang cập nhật file tài liệu (.docx)…");
+
+        await _documentGenerator.GenerateProductBriefDraftFiles(project, ba.Id, revised,
+            changeNote: $"Sửa Product Brief theo {clean.Count} ghi chú trên bản xem trước");
+
+        var assistantMessage = string.IsNullOrWhiteSpace(revised.AssistantMessage)
+            ? "Đã sửa bản mô tả sản phẩm theo các ghi chú của bạn."
+            : revised.AssistantMessage;
+
+        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", assistantMessage, cancellationToken: cancellationToken);
+
+        Report("final", "Đã sửa tài liệu theo ghi chú.", assistantMessage);
         return RequirementDraftOutcome.Generated;
     }
 

@@ -1349,6 +1349,57 @@ viên **được hủy đăng ký**, Brief bỏ hẳn tính năng đó nhưng v�
 cho điểm còn treo rồi viết ra như điều đã chốt. Dự án chưa chắt được gì ⇒ khối vắng mặt hoàn toàn, prompt
 trở về đúng hình dạng cũ (`BriefTraceabilityRuleTests`).
 
+### Ghi chú ghim trên bản xem trước: vòng sửa CÓ PHẠM VI
+
+Bản Product Brief dạng draft cho **ghim ghi chú thẳng lên bản xem trước**: bôi đen một đoạn → *"＋ Ghi
+chú"* → viết điều cần sửa; bấm *"Gửi ghi chú cho BA sửa"* (`ReviseBriefFromNotesUseCase`) làm hai việc:
+
+1. Gom các ghi chú thành **một lượt user** trong hội thoại — ghi chú phải nằm trong transcript như mọi
+   lời người dùng khác, nếu không nó vô hình với các lượt chat sau, với bản đồ bao phủ và với lần soạn
+   lại đầy đủ về sau.
+2. Khởi động một run **"Write Requirement"** mang chính các ghi chú đó ở `AgentTask.Input` (JSON danh
+   sách `BriefNote` — `BriefNotePayload` là chỗ DUY NHẤT biết định dạng này). Worker thấy Input có ghi
+   chú thì rẽ sang `ProductBriefDraftService.ReviseDraftFromNotesAsync`; Input rỗng ⇒ lượt soạn bình
+   thường. Hai hình dạng của **cùng một bước**, không phải hai loại task — run vẫn tên "Write
+   Requirement" nên panel tiến độ, banner và luật chống bấm trùng không phải biết gì về nhánh này.
+
+Vòng sửa có phạm vi là **MỘT lời gọi LLM**, và ba thứ nó CỐ Ý không có:
+
+| Không có | Vì sao |
+|---|---|
+| cổng readiness | bản Brief đã tồn tại và đã qua cổng; xét lại chỉ tốn một lượt distill để chặn đúng người đang góp ý |
+| vòng tự soát + sửa | reviewer đối chiếu **toàn** tài liệu với **toàn** hội thoại, nên nó sửa ở những chỗ chẳng liên quan gì tới ghi chú |
+| khối "Trạng thái đã chắt" | đó là danh sách kiểm bắt model rà lại MỌI điều đã chốt và bổ sung thứ còn thiếu — đúng việc của lượt soạn, và đúng thứ biến một ghi chú một dòng thành một bản Brief đổi hàng chục dòng |
+
+Hội thoại **vẫn** đi kèm prompt, nhưng chỉ với vai trò **tra cứu** cho những ghi chú cần thông tin đã
+trao đổi (*"thêm mục báo cáo như đã bàn"*) — prompt cấm thẳng việc lấy từ đó ra yêu cầu nào khác
+(`BusinessAnalyst/product-brief-note-revision.v1.md`: bản Brief hiện tại là **bản gốc**, mọi đoạn không
+bị ghi chú phải chép nguyên văn).
+
+**Vì sao phải tách khỏi lượt soạn.** Đường cũ cho ghi chú đi qua đúng lượt "Write Requirement", tức mỗi
+ghi chú kéo theo một lần **viết lại cả tài liệu từ transcript**: cộng `temperature > 0` (đoạn không ai
+đụng vẫn bị diễn đạt lại), cộng vòng tự soát, cộng luật truy vết. Không luật nào sai, nhưng người dùng
+ghi chú một dòng rồi nhận về một bản Brief đổi hàng chục dòng — và một cái nút mà mỗi lần bấm phải đọc
+lại cả tài liệu thì lần sau không ai bấm nữa.
+
+**Cái giá đã cân nhắc:** yêu cầu bị rơi rụng từ lần soạn trước **không** được kéo về ở lượt này. Đó là
+việc của "Write Requirement" — nhắn một câu trong khung chat là cổng mở lại và lượt soạn đầy đủ chạy với
+đủ danh sách kiểm.
+
+Ba nhánh còn lại, theo đúng thứ tự ưu tiên *"đừng bao giờ ghi đè bản tốt bằng bản xấu"*:
+
+- **Chưa có bản draft nào** (ghi chú trên bản `V{n}` đã duyệt, file bị xóa) ⇒ rơi về đường soạn đầy đủ:
+  không có bản gốc thì không có gì để giữ nguyên.
+- **Ghi chú mơ hồ / mâu thuẫn với điều đã chốt** ⇒ van `needsClarification` như lượt soạn: câu hỏi vào
+  khung chat, tài liệu **không** bị đụng.
+- **Bản sửa hỏng/rỗng** ⇒ KHÔNG ghi gì và để task **fail**. Im lặng ở đây là kiểu hỏng tệ nhất: người
+  dùng tưởng ghi chú đã được áp trong khi tài liệu y nguyên.
+
+Mỗi bản sửa vẫn chụp một `ProjectDocumentRevision` như mọi lần ghi khác, nhưng mang nhãn *"Sửa Product
+Brief theo N ghi chú trên bản xem trước"* — mở **Lịch sử** là phân biệt được ngay bản nào do ghi chú của
+mình, bản nào do soạn lại (xem [supporting-features.md](supporting-features.md#lịch-sử-revision-tài-liệu-sinh-ra-version-history--diff)).
+Phạm vi được chốt bằng `BriefNoteRevisionScopeTests`.
+
 ## Cổng xác nhận giả định (giữa spec và POC)
 
 **Cổng xác nhận giả định** (giữa spec và POC): spec được phép tự quyết những điều Product Brief không nói (mục `## 12. Assumptions`). Nếu có giả định nào, worker **KHÔNG** khởi động Delivery Pipeline mà đánh dấu `Project.PendingAssumptionsVersion` — trang Requirements đổi panel giả định thành cổng có nút bấm:
@@ -1693,6 +1744,10 @@ Kết quả có thể là:
 
 - Đủ thông tin: tạo/cập nhật requirement docs.
 - Chưa đủ thông tin: worker trả marker `NeedsMoreInfo`, BA đặt câu hỏi tiếp trong chat.
+
+Run sinh ra từ **ghi chú ghim trên bản xem trước** đi đúng sơ đồ này, chỉ khác một mắt: `AgentTask.Input`
+mang các ghi chú nên worker gọi `ReviseDraftFromNotesAsync` thay cho `GenerateOrUpdateDraftAsync` — xem
+[Ghi chú ghim trên bản xem trước](#ghi-chú-ghim-trên-bản-xem-trước-vòng-sửa-có-phạm-vi).
 
 ### Approve requirement và sinh AI Design Spec
 

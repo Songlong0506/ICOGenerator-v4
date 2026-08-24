@@ -248,7 +248,7 @@ public class DispatchPocFeedbackUseCaseTests : IDisposable
     {
         public Guid? StartedProjectId;
 
-        public Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId, bool coalesceWithActiveRun = false)
+        public Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId, bool coalesceWithActiveRun = false, string? briefNotesPayload = null)
         {
             StartedProjectId = projectId;
             return Task.FromResult(Guid.NewGuid());

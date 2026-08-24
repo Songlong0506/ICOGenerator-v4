@@ -2053,7 +2053,7 @@
             @Html.AntiForgeryToken()
             <div class="brief-notes-head">
                 <b>Ghi chú của bạn</b> <span class="brief-notes-count" id="briefNotesCount">(0)</span>
-                <span class="brief-notes-hint">Bôi đen một đoạn trong bản mô tả rồi bấm "＋ Ghi chú".</span>
+                <span class="brief-notes-hint">Bôi đen một đoạn trong bản mô tả rồi bấm "＋ Ghi chú". BA chỉ sửa đúng các đoạn được chú, phần còn lại giữ nguyên.</span>
             </div>
             <ul class="brief-notes-list" id="briefNotesList"></ul>
         </div>
@@ -2062,7 +2062,7 @@
             @if (selectedVersion == "draft")
             {
                 <button type="button" class="btn outline" id="briefNotesSendBtn" hidden
-                        title="Gom các ghi chú và nhờ BA sửa lại bản mô tả">
+                        title="BA sửa đúng các đoạn được ghi chú, giữ nguyên phần còn lại của bản mô tả">
                     ✎ Gửi ghi chú cho BA sửa
                 </button>
                 <form asp-action="Approve" method="post">

@@ -11,7 +11,12 @@ public interface IWorkflowOrchestrator
     /// (ReviseBriefFromNotesUseCase, RoutePocFeedbackToRequirementUseCase) phải để false — run đang bay đã
     /// đọc transcript từ trước nên không thấy lượt vừa thêm, gộp vào nó là nuốt mất phản hồi của họ.
     /// </param>
-    Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId, bool coalesceWithActiveRun = false);
+    /// <param name="briefNotesPayload">
+    /// Có giá trị ⇒ run này sinh ra từ các GHI CHÚ ghim trên bản xem trước Product Brief (JSON danh sách
+    /// BriefNote — xem BriefNotePayload): worker rẽ sang vòng SỬA CÓ PHẠM VI, giữ nguyên bản Brief hiện có
+    /// và chỉ đụng các đoạn được chú, thay vì soạn lại cả tài liệu từ hội thoại. null ⇒ lượt soạn bình thường.
+    /// </param>
+    Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId, bool coalesceWithActiveRun = false, string? briefNotesPayload = null);
 
     // Khởi tạo workflow nền sinh AI Design Spec từ Product Brief đã duyệt của <paramref name="requirementVersionName"/>.
     // Tách khỏi Approve (vốn chạy đồng bộ, làm treo màn hình) để tiến độ report live; worker tự khởi động
