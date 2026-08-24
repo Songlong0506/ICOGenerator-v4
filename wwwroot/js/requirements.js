@@ -3575,7 +3575,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // liệu…" (submit vừa rồi bị cổng mâu thuẫn chặn) hay "Đang soát…". data-idle-label là nhãn
             // nghỉ hiện hành — cổng soát mâu thuẫn đọc lại nó để khôi phục sau khi soát xong.
             btn.disabled = false;
-            btn.textContent = btn.dataset.readyLabel || "Tạo bản mô tả sản phẩm";
+            btn.textContent = btn.dataset.readyLabel || "Write Requirement";
             btn.dataset.idleLabel = btn.textContent;
             btn.title = btn.dataset.readyTitle || "";
         }

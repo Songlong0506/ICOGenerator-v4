@@ -7,7 +7,7 @@ namespace ICOGenerator.Tests.Requirements;
 
 // Cổng trả lời "trên màn hình còn bảng chốt nào đang chờ người dùng gửi không". Nó sinh ra từ một ca thật:
 // bản Product Brief đã có, người dùng nhắn thêm hai báo cáo, BA bày BẢNG BÁO CÁO và nói "rà lại rồi bấm
-// Gửi bảng báo cáo giúp mình" — nhưng nút "Tạo bản mô tả sản phẩm" cũng đang sáng ngay bên dưới cái bảng
+// Gửi bảng báo cáo giúp mình" — nhưng nút "Write Requirement" cũng đang sáng ngay bên dưới cái bảng
 // đó (cổng mở theo đường lùi "đã có draft + bản đồ đã đủ", đường này KHÔNG đọc lượt cuối). Người dùng bấm
 // nút, và vòng soạn chạy trên một hội thoại mà bảng báo cáo còn chưa chốt: Project.ReportMap vẫn null ⇒
 // ConfirmReportMapUseCase chưa gieo màn hình báo cáo nào vào PlannedScope ⇒ tài liệu ra đời thiếu hẳn phần
