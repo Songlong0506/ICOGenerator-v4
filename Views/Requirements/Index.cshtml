@@ -409,15 +409,22 @@
                "điều người dùng nói bị rơi mất dần qua từng tầng" mà không cổng nào trong hệ thống bắt được.
                Mang theo phiên bản ĐANG CHỌN: gói xuất bản mô tả V1 cạnh bản demo dựng từ V3 chỉ sinh ra một
                danh sách sai lệch giả. Là thẻ <a> chứ không phải form: đây là thao tác CHỈ ĐỌC, và một link
-               tải về không được phép làm mất nội dung đang gõ dở trong ô chat. *@
-            <a class="btn outline full"
-               asp-action="DownloadReviewPackage"
-               asp-route-projectId="@Model.Id"
-               asp-route-version="@selectedVersion"
-               download
-               title="Tải một file .zip gồm đoạn chat (kèm bản đồ bao phủ, tài liệu nguồn, prompt của BA), Product Brief, AI Design Spec và bản demo POC — để nhờ AI khác soi xem thông tin có bị rơi mất qua từng tầng không">
-                ⬇️ Tải trọn gói cho AI
-            </a>
+               tải về không được phép làm mất nội dung đang gõ dở trong ô chat.
+
+               Ẩn khi thiếu quyền RequirementsDownloadPackage (cấp ở màn hình Roles & Permissions, không
+               hardcode vai trò) — cùng một quyền mà action chặn, nên nút này không bao giờ dẫn tới trang
+               Access Denied. *@
+            @if (await Permissions.HasPermissionAsync(User, AppPermission.RequirementsDownloadPackage))
+            {
+                <a class="btn outline full"
+                   asp-action="DownloadReviewPackage"
+                   asp-route-projectId="@Model.Id"
+                   asp-route-version="@selectedVersion"
+                   download
+                   title="Tải một file .zip gồm đoạn chat (kèm bản đồ bao phủ, tài liệu nguồn, prompt của BA), Product Brief, AI Design Spec và bản demo POC — để nhờ AI khác soi xem thông tin có bị rơi mất qua từng tầng không">
+                    ⬇️ Tải trọn gói cho AI
+                </a>
+            }
         </div>
 
         @* Tiến độ khai thác yêu cầu: cho user thấy cuộc phỏng vấn đã rõ bao nhiêu nhóm thông tin và còn

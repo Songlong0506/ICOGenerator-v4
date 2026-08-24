@@ -28,6 +28,8 @@ public enum AppPermission
     RequirementsView,
     [Description("Manage requirements workflow (chat BA, approve, re-run...)")]
     RequirementsManage,
+    [Description("Download the AI review package (.zip: chat, brief, spec, POC)")]
+    RequirementsDownloadPackage,
 
     [Description("Read")]
     AgentsView,
