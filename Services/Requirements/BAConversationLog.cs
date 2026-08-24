@@ -11,6 +11,9 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public class BAConversationLog
 {
+    // KHÔNG ghi cột AgentConversation.FlowDiagram nữa: sơ đồ luồng chỉ-đọc ở lượt mời đã gỡ (xem
+    // docs/requirement-flow.md). Cột vẫn còn để các lượt CŨ đọc lại được trong bản xuất và transcript.
+
     private readonly AppDbContext _db;
 
     public BAConversationLog(AppDbContext db)
@@ -18,7 +21,7 @@ public class BAConversationLog
         _db = db;
     }
 
-    public async Task AppendAsync(Guid projectId, Guid agentId, string role, string message, string? suggestionsJson = null, bool suggestionsMultiSelect = false, string? flowDiagramJson = null, string? attachmentsJson = null, string? questionsJson = null, string? columnMapJson = null, string? permissionMatrixJson = null, string? flowMapJson = null, string? screenScopeMapJson = null, string? entityMapJson = null, string? reportMapJson = null, string? notificationMapJson = null, CancellationToken cancellationToken = default)
+    public async Task AppendAsync(Guid projectId, Guid agentId, string role, string message, string? suggestionsJson = null, bool suggestionsMultiSelect = false, string? attachmentsJson = null, string? questionsJson = null, string? columnMapJson = null, string? permissionMatrixJson = null, string? flowMapJson = null, string? screenScopeMapJson = null, string? entityMapJson = null, string? reportMapJson = null, string? notificationMapJson = null, CancellationToken cancellationToken = default)
     {
         _db.AgentConversations.Add(new AgentConversation
         {
@@ -36,7 +39,6 @@ public class BAConversationLog
             EntityMap = entityMapJson,
             ReportMap = reportMapJson,
             NotificationMap = notificationMapJson,
-            FlowDiagram = flowDiagramJson,
             Attachments = attachmentsJson,
             TokenUsed = TokenEstimator.Estimate(message)
         });

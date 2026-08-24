@@ -127,7 +127,7 @@ Lượt chat ngay sau khi bảng được gửi được đính thêm khối `so
 
 - Chỉ nói về **cột đã tích**. Cột bị bỏ tích không được nhắc, không được hỏi thêm — nhắc lại là mở lại thứ họ vừa đóng, và mục đó nằm lại trong danh sách tồn đọng.
 - Giữ bốn thứ bảng cột không chở được: file kể chuyện gì + quy mô thật, các cột chở một quy tắc nghiệp vụ (chép đủ giá trị kèm số dòng, lấy từ khối thống kê), các cột **đọc cạnh nhau**, và phần **đối chiếu với lời kể** + cụm "Chỗ chưa chắc".
-- Lượt này **không hỏi khai thác**: kết bằng câu hỏi đóng, hai chip trả lời. Code cắt `questions`/`flowDiagram` của lượt và trả lại hai chip (`SourceReadbackSuggestions`) nếu model lỡ kèm thẻ hỏi — `BAChatReplyParser.Normalize` đã dọn `suggestions` khi thấy `questions`, để nguyên là bày ra một câu hỏi đóng không có nút trả lời. Các câu hỏi phỏng vấn quay lại từ lượt kế tiếp, lấy từ chính cụm "Chỗ chưa chắc" vừa được chắt.
+- Lượt này **không hỏi khai thác**: kết bằng câu hỏi đóng, hai chip trả lời. Code cắt `questions` của lượt và trả lại hai chip (`SourceReadbackSuggestions`) nếu model lỡ kèm thẻ hỏi — `BAChatReplyParser.Normalize` đã dọn `suggestions` khi thấy `questions`, để nguyên là bày ra một câu hỏi đóng không có nút trả lời. Các câu hỏi phỏng vấn quay lại từ lượt kế tiếp, lấy từ chính cụm "Chỗ chưa chắc" vừa được chắt.
 - Cổng bảng phân quyền nhường một lượt (`askPermissionMatrix` tắt khi đang ở lượt kể lại): hai khối `## LƯỢT NÀY:` cùng lúc là hai mệnh lệnh chọi nhau, và cổng kia mở lại ngay lượt sau.
 
 Chốt xong, bản đồ cột được **tiêu thụ ở hai đầu** — đây mới là chỗ bảng trả tiền cho chính nó:
@@ -330,15 +330,16 @@ tích "Cần" mà chưa chọn người nhận thì không lưu gì, và câu l�
 ngay cạnh nút — xem [bất biến của bảng thông báo](#bảng-thông-báo-bảng-cuối-cùng).
 
 Ba bảng đều **treo theo DỰ ÁN** (cột còn null) chứ không theo lượt — riêng bảng màn hình treo theo **bảng
-server vừa bày** vì nó mở lại được sau khi đã chốt (xem [Bảng màn hình](#bảng-màn-hình-vá-cái-nền-mà-bảng-phân-quyền-đang-đứng-lên)) — và lượt có bảng thì **bỏ** chip, thẻ hỏi
-gộp và sơ đồ luồng — chip bấm là GỬI NGAY, để cả hai cùng sống thì một cú bấm nhầm cuốn mất lượt trước khi
+server vừa bày** vì nó mở lại được sau khi đã chốt (xem [Bảng màn hình](#bảng-màn-hình-vá-cái-nền-mà-bảng-phân-quyền-đang-đứng-lên)) — và lượt có bảng thì **bỏ** chip và thẻ hỏi
+gộp — chip bấm là GỬI NGAY, để cả hai cùng sống thì một cú bấm nhầm cuốn mất lượt trước khi
 người dùng rà xong. Cùng luật với bảng cột và bảng phân quyền.
 
 ### Bảng luồng: chuỗi bước người dùng tự tay duyệt, và đường của nó tới POC
 
-`flowDiagram` (sơ đồ ở lượt mời "Write Requirement") vẫn còn, nhưng nó chỉ **vẽ ra để nhìn**: một luồng
-chính, không ngoại lệ, đính chính bằng lời trong khung chat rồi chờ BA vẽ lại. Bảng luồng khác ở chỗ quyết
-định — bước **sửa được và bỏ được** tại chỗ.
+Bảng này đã **thay hẳn** sơ đồ luồng chỉ-đọc mà BA từng vẽ ở lượt mời "Write Requirement" (`flowDiagram`,
+đã gỡ — xem [Vì sao sơ đồ luồng ở lượt mời bị gỡ](#vì-sao-sơ-đồ-luồng-ở-lượt-mời-bị-gỡ)). Sơ đồ đó chỉ **vẽ
+ra để nhìn**: một luồng chính, không ngoại lệ, đính chính bằng lời trong khung chat rồi chờ BA vẽ lại. Bảng
+luồng khác ở chỗ quyết định — bước **sửa được và bỏ được** tại chỗ.
 
 Phần trả tiền lớn nhất nằm ở đường ra: mỗi luồng đã chốt trở thành một ví dụ ĐỊNH TÍNH của
 `## 13. Worked Examples`, tức **POC bị chấm theo đúng chuỗi bước người dùng gật**. Trước đó `WorkedExamples`
@@ -364,6 +365,45 @@ loại những gì; còn dòng còn trong payload là cách `RenderUserMessage` 
 tin nhắn đi vào hội thoại — im lặng bỏ đi thì họ không có bằng chứng nào cho thấy mình vừa loại đúng thứ
 định loại, đúng lỗi mà bảng cột đã cấm. Cờ đi theo dòng nằm ở một `input` ẩn chứ không ở class, để phép gom
 bảng của trình duyệt vẫn đọc đúng một chỗ (`tableChecked`) cho cả sáu bảng.
+
+### Vì sao sơ đồ luồng ở lượt mời bị gỡ
+
+Ở lượt BA mời bấm **"Write Requirement"**, code từng đính thêm một **sơ đồ luồng** vẽ từ `flowDiagram` của
+lượt đó: luồng chính dựng thành các bước dọc, mỗi bước một nút *"chưa đúng?"* soạn sẵn câu đính chính vào ô
+nhập. Cả đường đó đã gỡ — trường `flowDiagram` ra khỏi schema trả lời, `renderFlowDiagram` và khối server
+render ra khỏi khung chat, và `BAConversationLog` thôi ghi cột `AgentConversation.FlowDiagram`.
+
+Ba lý do, theo thứ tự nặng dần:
+
+1. **Nó không bày ra được gì người dùng chưa duyệt.** `InterviewTableGate.Select` trả bảng luồng ĐẦU TIÊN
+   và `FlowMapGate.ShouldAsk` chỉ tắt khi bảng đã chốt, nên **không bảng nào khác được bày trước khi bảng
+   luồng chốt xong**; mà lời mời thì đòi bản đồ bao phủ đủ, tức đòi hai bảng cuối (phân quyền, thông báo)
+   đã chốt. Tới lúc sơ đồ hiện ra, chuỗi bước ấy đã được người dùng tự tay duyệt từng dòng.
+2. **Đường đính chính của nó là ngõ cụt.** `Project.FlowMap` chỉ được ghi bởi `ConfirmFlowMapUseCase`, và
+   `FlowMapGate` **không có đường mở lại** (khác `ScreenScopeGate`). Bấm *"chưa đúng?"* rồi gõ đính chính
+   chỉ đẩy một câu vào transcript: bảng đã chốt không đổi, `## 13. Worked Examples` không đổi, **oracle
+   chấm POC vẫn giữ chuỗi bước cũ**. Người dùng tưởng mình vừa sửa, thực tế không. Sơ đồ lại do model vẽ
+   lại từ transcript chứ không dựng từ `FlowMap` đã chốt, nên nó còn lệch được với bản người dùng đã gật.
+3. **Nó là cổng rà soát bị bấm qua** — đúng thứ đã gỡ *"bản tổng kết trước khi tạo tài liệu"*: một cổng rà
+   soát bị bấm qua còn tệ hơn không có cổng nào, vì nó tạo cảm giác ĐÃ rà, và nó được bày ra đúng lúc người
+   dùng chỉ còn muốn bấm nút.
+
+**Cái mất: gần như không có.** Dòng transcript `(Sơ đồ luồng nghiệp vụ đã trình bày…)` từng nuôi bản đồ bao
+phủ và bước soạn Product Brief, nhưng khối *"bảng đã chốt"* của bảng luồng (`FlowMapBuilder.RenderConfirmedBlock`)
+đã vào đúng ba chỗ đó — ngữ cảnh chat của BA, ngữ cảnh soát mâu thuẫn, và tài liệu — với nội dung giàu hơn
+hẳn (nhiều luồng, có ngoại lệ, đã được người dùng duyệt).
+
+**Cái còn lại có chủ đích:** cột `AgentConversation.FlowDiagram` và `ConversationTurnRenderer.ParseFlowDiagram`.
+Các dự án chạy trước lần gỡ này có sơ đồ đã THẬT SỰ trình bày cho người dùng; xoá đường đọc là làm hỏng bản
+xuất hội thoại và transcript của chúng. Lượt mới không bao giờ ghi vào cột đó nữa
+(`RequirementReadinessGateTests.ChatAsync_InviteAndMapClear_StoresNoFlowDiagram` giữ điều này).
+
+**Luồng có trôi sau lúc chốt bảng không?** Có — hội thoại còn chạy qua bảng đối tượng, báo cáo, màn hình,
+phân quyền, thông báo. Nhưng một bản vẽ chỉ-đọc chỉ *cho thấy* trôi mà không sửa được (lý do 2), còn phần
+bắt trôi đã có [cổng soát mâu thuẫn](#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn) ngay dưới
+nút tạo tài liệu. Nếu đo được rằng
+trôi là rủi ro thật, cách đúng là mở **đường mở lại cho bảng luồng** như `ScreenScopeGate`, không phải dựng
+lại một bức tranh không bấm được.
 
 ### Thêm bước, thêm luồng, và đổi thứ tự bước
 
@@ -1109,7 +1149,7 @@ Bảy quyết định của thiết kế này:
   liên quan gì tới người thật sự vào lớp.
 - **Bảng treo theo DỰ ÁN, không theo lượt.** Nó còn đó tới khi `Project.PermissionMatrix` được ghi, nên người
   dùng gõ thêm một câu (*"thiếu màn hình đăng ký khóa học"*) rồi mới ngồi chọn cũng không mất bảng. Lượt có bảng thì **bỏ**
-  hàng chip, thẻ hỏi gộp và sơ đồ luồng — chip bấm là gửi NGAY, để cả hai cùng sống thì một cú bấm nhầm cuốn mất
+  hàng chip và thẻ hỏi gộp — chip bấm là gửi NGAY, để cả hai cùng sống thì một cú bấm nhầm cuốn mất
   lượt trước khi người dùng chọn xong. Cùng luật với lượt có bảng cột.
 
 Gửi bảng đi **hai bước**, như bảng cột: `POST Requirements/ConfirmPermissionMatrix` (payload mang **cả bảng vai
@@ -1148,7 +1188,7 @@ Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spe
 
 ## Sidebar đã gỡ: mọi cổng chờ người dùng chuyển vào khung chat
 
-**Sidebar không còn panel nào của `InterviewOutlookService`.** Ba danh sách chắt sau mỗi lượt chat — `OpenQuestions`, `PlannedScope`, `WorkedExamples` — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — `PlannedScope` thành bảng màn hình, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), ngữ cảnh soát mâu thuẫn (`RequirementConflictService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **sơ đồ luồng** ở cuối lượt (có nút "chưa đúng?" cho từng bước — đúng chỗ để đính chính), ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
+**Sidebar không còn panel nào của `InterviewOutlookService`.** Ba danh sách chắt sau mỗi lượt chat — `OpenQuestions`, `PlannedScope`, `WorkedExamples` — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — `PlannedScope` thành bảng màn hình, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), ngữ cảnh soát mâu thuẫn (`RequirementConflictService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
 **Stepper 5 chặng ở đầu trang đã bỏ.** Quy trình thực tế không chạy một chiều — người dùng sửa tới sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm chỗ đầu trang vừa mô tả sai việc đang diễn ra. Trạng thái thật vẫn ở đúng chỗ cần đọc: cổng xác nhận giả định và tiến trình workflow nằm trong khung chat, các bản mô tả nằm ở panel tài liệu.
 
 **Sidebar không còn panel "Điều đã chốt" — soát mâu thuẫn chuyển từ NGƯỜI DÙNG sang BA.** Đây là panel cuối cùng của sidebar bị gỡ, và vì đúng cái lý do đã gỡ ba panel trước nó. Panel hiển thị nhật ký `DecisionLogService` (tới 40 dòng) cạnh khung chat để người dùng tự rà, tức bắt họ **vừa kể chuyện nghiệp vụ vừa làm QA cho BA** — hai chế độ tư duy song song, đúng lúc cần tập trung nhất. Nó cũng đặt việc soát mâu thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc được cả hội thoại. Và "bấm để sửa" không phải công cụ sửa thật — nó chỉ soạn sẵn một câu vào ô chat.
@@ -1168,7 +1208,7 @@ Việc rà soát không mất — nó đã nằm ở những chỗ **sửa đư�
 | rà cái gì | ở đâu |
 |---|---|
 | cách hiểu chung, theo từng chặng phỏng vấn | nhịp BA **chủ động đọc lại** sau mỗi ~5–7 câu đã trả lời (`requirement-chat.v4.md`) |
-| các bước quy trình | **sơ đồ luồng** ở lượt mời, nút "chưa đúng?" cho TỪNG bước (`renderFlowDiagram`) |
+| các bước quy trình | **bảng luồng** — sửa/bỏ/đổi thứ tự từng bước rồi bấm chốt ([Bảng luồng](#bảng-luồng-chuỗi-bước-người-dùng-tự-tay-duyệt-và-đường-của-nó-tới-poc)) |
 | cột dữ liệu, màn hình, thực thể, báo cáo, thông báo, luồng | [sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn) + bảng phân quyền — người dùng sửa trực tiếp trong ô rồi gửi |
 | những điều đã rõ có chọi nhau không | **cổng soát mâu thuẫn** ngay dưới nút này, với lựa chọn A/B thật |
 | toàn văn tài liệu | ghim ghi chú thẳng trên bản xem trước Product Brief (`ReviseBriefFromNotesUseCase`) |
@@ -1335,7 +1375,7 @@ BA vĩnh viễn không hỏi lại) chỉ lộ ra khi đặt bản đồ CẠNH 
 | 1–2 | Dự án + agent/model BA đang chạy | Model KHÔNG vision đổi hẳn cách chấm: BA "không thấy" ảnh trong tài liệu nguồn nên một câu hỏi trông như hỏi lại điều file đã nói lại là bắt buộc |
 | 3 | Bản đồ bao phủ (nguyên văn, kèm `{nguồn: …}`), cổng sẵn sàng, "Điều đã chốt", điểm còn tồn đọng, phạm vi dự kiến, ví dụ đã chốt, bộ nhớ hội thoại, hồ sơ user | Đây là thứ hệ thống tin — đối chiếu với mục 5 để bắt kết luận không có căn cứ |
 | 4 | Tài liệu nguồn: loại, bảng cột đã chốt, mô tả hình, trích text (cắt ở `ChatExportBuilder.SourceExcerptChars`) | Nhiều lỗi nặng nằm ở chỗ BA hỏi lại đúng thứ file đã trả lời |
-| 5 | Toàn văn hội thoại, ĐÁNH SỐ LƯỢT, kèm chip + cờ chọn-một/chọn-nhiều, thẻ hỏi gộp + cờ `openEnded`, **cả sáu bảng chốt BA bày ra** (kể cả bảng phân quyền), sơ đồ luồng, file đính kèm | Các cột phụ chở đúng phần mà `Message` cố ý không chứa; thiếu chúng thì bản xuất trông vẫn bình thường nhưng người chấm mất chính cái để đối chiếu |
+| 5 | Toàn văn hội thoại, ĐÁNH SỐ LƯỢT, kèm chip + cờ chọn-một/chọn-nhiều, thẻ hỏi gộp + cờ `openEnded`, **cả sáu bảng chốt BA bày ra** (kể cả bảng phân quyền), sơ đồ luồng của hội thoại CŨ, file đính kèm | Các cột phụ chở đúng phần mà `Message` cố ý không chứa; thiếu chúng thì bản xuất trông vẫn bình thường nhưng người chấm mất chính cái để đối chiếu |
 | A | Prompt hệ thống của BA (bản đang chạy, đã tính override Prompt Studio) | "BA làm vậy có sai không" không trả lời được nếu không biết BA được dặn gì |
 | B | Khối bối cảnh tổ chức `OrganizationContextService.BuildCombinedContextAsync` đính vào mọi lượt gọi BA | Xem ngay bên dưới — đây là NGUỒN THỨ HAI của mọi dữ kiện trong tài liệu |
 
@@ -1669,9 +1709,9 @@ Một nhóm bị chấm `[RÕ]` oan là **điểm mù kín** của hệ thống 
 nhóm đó không bao giờ được nhắc tới nữa và cách hiểu sai đi thẳng vào tài liệu. Đường thoát duy nhất là
 **chat**, và nó gồm ba mảnh:
 
-1. **BA chủ động đọc lại** — nhịp tóm tắt kiểm chứng sau mỗi ~5–7 câu đã trả lời, cộng sơ đồ luồng ở lượt
-   mời tạo tài liệu (`requirement-chat.v4.md`). Người dùng nói "chưa đúng" bằng lời của họ, không phải bằng
-   tên nhóm.
+1. **BA chủ động đọc lại** — nhịp tóm tắt kiểm chứng sau mỗi ~5–7 câu đã trả lời
+   (`requirement-chat.v4.md`), cộng chính sáu bảng chốt. Người dùng nói "chưa đúng" bằng lời của họ, không
+   phải bằng tên nhóm.
 2. **Lượt chắt lọc hạ dòng bị đụng tới xuống `[MỘT PHẦN]`** kèm **đúng nguyên văn** cụm
    `còn thiếu: người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại.`, giữ ghi nhận cũ trong ngoặc
    (`requirement-coverage.v3.md` § *"Người dùng đính chính một nhóm"*). Cổng "Write Requirement" đóng theo,

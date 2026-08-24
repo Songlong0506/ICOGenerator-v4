@@ -86,10 +86,10 @@ public static class ConversationTurnRenderer
             rendered += $"\n   (Bảng phân quyền đã đưa cho người dùng chọn: {string.Join("; ", screens)})";
         }
 
-        // Sơ đồ luồng BA đã VẼ cho người dùng xác nhận ở lượt mời "Write Requirement" nằm ở cột riêng
-        // (FlowDiagram) — không render thì các reader transcript (bản đồ bao phủ, bước soạn Product
-        // Brief) không hề thấy chuỗi bước mà người dùng đã duyệt bằng hình: tài liệu được soạn "mù"
-        // đúng phần luồng đã chốt kỹ nhất.
+        // Sơ đồ luồng ở cột riêng (FlowDiagram) — DỮ LIỆU CŨ: lượt mới không còn vẽ sơ đồ nào (xem
+        // BAConversationLog), nhưng các dự án đã chạy trước đó có sơ đồ đã thật sự trình bày cho người
+        // dùng, và không render thì các reader transcript (bản đồ bao phủ, bước soạn Product Brief) mất
+        // hẳn chuỗi bước ấy. Dự án mới lấy luồng từ khối "bảng đã chốt" của bảng luồng.
         var flowSteps = ParseFlowDiagram(turn.FlowDiagram);
         if (flowSteps.Count > 0)
         {

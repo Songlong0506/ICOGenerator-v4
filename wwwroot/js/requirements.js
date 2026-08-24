@@ -3623,43 +3623,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
-    // Bấm "chưa đúng?" trên MỘT bước của sơ đồ luồng → soạn sẵn tin nhắn đính chính đúng bước đó vào ô
-    // nhập, thay vì bắt user tự mô tả lại cả luồng. Sơ đồ nằm trong bubble BA (thêm động vào chatMessages)
-    // nên bắt sự kiện ở mức chatMessages (delegated) để áp cho cả sơ đồ server-render lẫn client-render.
-    if (chatMessages) {
-        chatMessages.addEventListener("click", function (e) {
-            const fix = e.target.closest(".flow-step-fix");
-            if (!fix) return;
-            messageInput.value = `Bước "${fix.dataset.step}" trong sơ đồ luồng chưa đúng. Ý đúng của tôi là: `;
-            resizeMessageInput();
-            messageInput.focus();
-            messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
-        });
-    }
-
-    // Sơ đồ luồng nghiệp vụ (chỉ ở lượt mời "Write Requirement"): render trong bubble BA để user xác
-    // nhận trực quan. Markup khớp bản server render trong Index.cshtml. Xóa sơ đồ của lượt cũ trước khi
-    // vẽ để chỉ lượt mới nhất còn hiện (như chip gợi ý).
-    function renderFlowDiagram(bubble, steps) {
-        chatMessages.querySelectorAll(".flow-diagram").forEach(el => el.remove());
-        if (!Array.isArray(steps) || steps.length === 0) return;
-
-        const rows = steps.map(s => `
-            <li class="flow-step">
-                ${s.actor ? `<span class="flow-actor">${escapeHtml(s.actor)}</span>` : ""}
-                <span class="flow-action">${escapeHtml(s.action || "")}</span>
-                ${s.outcome ? `<span class="flow-outcome">${escapeHtml(s.outcome)}</span>` : ""}
-                <button type="button" class="flow-step-fix" data-step="${escapeHtml(s.action || "")}" title="Bấm nếu bước này chưa đúng để đính chính ngay trong chat">chưa đúng?</button>
-            </li>
-        `).join("");
-
-        bubble.insertAdjacentHTML("beforeend", `
-            <div class="flow-diagram" aria-label="Sơ đồ luồng nghiệp vụ để xác nhận">
-                <div class="flow-diagram-title">Luồng nghiệp vụ chính — anh/chị xem giúp đã đúng chưa nhé:</div>
-                <ol class="flow-steps">${rows}</ol>
-            </div>
-        `);
-    }
+    // KHÔNG còn sơ đồ luồng ở lượt mời "Write Requirement" (renderFlowDiagram + nút "chưa đúng?" cho từng
+    // bước): nó vẽ lại MỘT luồng chính mà người dùng đã tự tay duyệt từng bước ở BẢNG LUỒNG từ giữa buổi
+    // — và bấm "chưa đúng?" ở đó cũng không sửa được bảng đã chốt, vì FlowMapGate không mở lại. Đính chính
+    // luồng đi qua chính bảng đó; xem docs/requirement-flow.md.
 
     // Tiền tố lượt BA "lời gọi AI thất bại" — khớp ConversationTranscriptBuilder.LlmFailurePrefix phía
     // server. Lượt như vậy được lưu DB như lượt thường (done ok=true) nên phải nhận diện bằng nội dung.
@@ -3683,7 +3650,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // Cổng tạo tài liệu chỉ mở ở lượt BA MỜI tạo tài liệu — cùng cờ mời điều khiển cả việc mở cổng
             // lẫn nhãn nút bên trong, nên hai thứ không thể vênh nhau.
             setWriteReqInvited(data.invitesWriteRequirement === true, data.coverageReady === true);
-            renderFlowDiagram(bubble, data.flowDiagram);
             // Bảng phân quyền: lượt chốt nhóm phân quyền. Không dựng trong `bubble` mà vào panel cố định
             // của trang (như bảng cột) — bảng treo tới khi dự án chốt nó, sống lâu hơn lượt sinh ra nó.
             renderPermissionMatrix(data.permissionMatrix);
@@ -3704,7 +3670,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             }
 
             // SAU CÙNG vì thẻ hỏi NUỐT bong bóng vừa stream làm câu dẫn của nó (absorbLeadBubble): mọi
-            // thứ còn ghi vào `bubble` — sơ đồ luồng, nút "Thử lại" — phải xong trước, không thì ghi vào
+            // thứ còn ghi vào `bubble` — nút "Thử lại" — phải xong trước, không thì ghi vào
             // một node đã rời khỏi DOM.
             renderBatchQuestions(data.questions, bubble);
         } else {

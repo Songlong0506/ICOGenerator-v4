@@ -145,12 +145,7 @@ public class RequirementReadinessGateTests : IDisposable
         await SetCoverageMapAsync(MapMissingRules);
         var llm = new FakeLlm
         {
-            ChatReply = new BAChatReply
-            {
-                Message = InviteMessage,
-                Ready = true,
-                FlowDiagram = new List<FlowStep> { new() { Action = "Gửi đơn" } }
-            }
+            ChatReply = new BAChatReply { Message = InviteMessage, Ready = true }
         };
 
         await using var db = NewDb();
@@ -166,9 +161,6 @@ public class RequirementReadinessGateTests : IDisposable
         // vì bày ra một câu hỏi không có chỗ trả lời.
         Assert.True(result.OpenEnded);
         Assert.Null(lastBaTurn.Suggestions);
-        // Chưa đủ thông tin ⇒ không vẽ/không lưu sơ đồ luồng.
-        Assert.Empty(result.FlowDiagram);
-        Assert.Null(lastBaTurn.FlowDiagram);
     }
 
     [Fact]
@@ -183,34 +175,22 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.DoesNotContain("Write Requirement", (await LastAssistantTurnAsync()).Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Lượt mời KHÔNG còn vẽ sơ đồ luồng: luồng đã được người dùng tự tay duyệt ở BẢNG LUỒNG từ giữa buổi
+    // (không bảng nào khác được bày trước khi bảng luồng chốt — xem InterviewTableGate), nên một bản vẽ
+    // chỉ-đọc ngay trước nút chỉ nói lại điều đã chốt mà không sửa được. Cột FlowDiagram vẫn còn cho dữ
+    // liệu CŨ, nhưng lượt mới không được ghi vào nó nữa.
     [Fact]
-    public async Task ChatAsync_InviteAndMapClear_StoresFlowDiagram()
+    public async Task ChatAsync_InviteAndMapClear_StoresNoFlowDiagram()
     {
         await SetCoverageMapAsync(MapAllClear);
-        var llm = new FakeLlm
-        {
-            ChatReply = new BAChatReply
-            {
-                Message = InviteMessage,
-                Ready = true,
-                FlowDiagram = new List<FlowStep>
-                {
-                    new() { Actor = "Nhân viên", Action = "Gửi đơn", Outcome = "Chờ duyệt" }
-                }
-            }
-        };
+        var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
 
         await using var db = NewDb();
-        var result = await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
+        await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
 
-        // Lượt mời đã qua cổng → sơ đồ luồng được giữ và lưu để reload trang vẫn hiện.
-        Assert.Single(result.FlowDiagram);
-        Assert.Equal("Gửi đơn", result.FlowDiagram[0].Action);
         var stored = await LastAssistantTurnAsync();
-        Assert.False(string.IsNullOrEmpty(stored.FlowDiagram));
-        // JSON lưu escape unicode (encoder mặc định) nên so bằng deserialize thay vì so chuỗi.
-        var storedSteps = System.Text.Json.JsonSerializer.Deserialize<List<FlowStep>>(stored.FlowDiagram!);
-        Assert.Equal("Gửi đơn", storedSteps![0].Action);
+        Assert.Equal(InviteMessage, stored.Message);
+        Assert.Null(stored.FlowDiagram);
     }
 
     // ---------- Bước sinh tài liệu ----------
