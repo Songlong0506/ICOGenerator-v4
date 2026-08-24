@@ -3454,6 +3454,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // requirement-workflow.js tải lại trang ⇒ đọc một lần là đủ.
     const draftExists = writeReqZone?.dataset.draftExists === "true";
 
+    // Cổng LẼ RA ĐÃ MỞ nếu không vướng bảng nào — điều kiện DUY NHẤT để #tableGate lên tiếng (xem
+    // tableGateSpeaks ở Index.cshtml: bong bóng đó chỉ có nghĩa khi nó đang lấy đi một cái nút người dùng
+    // vừa được mời bấm; ở lượt BA vừa bày bảng thì cổng vốn đã đóng im lặng và nói thêm chỉ là lặp lại).
+    // Cờ này chỉ được ĐỌC ở trạng thái "table", và ở đúng trạng thái đó data-gate-speaks của server mang
+    // cùng một giá trị — nên khởi tạo từ nó là bản server render, cùng luật với gateState.
+    let writeReqWouldOpen = writeReqZone?.dataset.gateSpeaks === "true";
+
     // BẢY PANEL BẢNG CHỐT, theo đúng thứ tự mà cổng chặn phía server xét (PendingConfirmTableGate.Select):
     // bảng cột của đầu buổi, rồi luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo.
     const TABLE_PANEL_IDS = ["columnMap", "flowMapPanel", "entityMapPanel", "reportMapPanel",
@@ -3506,8 +3513,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // "rà lại rồi bấm Gửi bảng …", nút tạo tài liệu vẫn sáng ngay dưới cái bảng đó — hai việc chọi nhau
         // và người dùng bấm cái nút, để rồi tài liệu ra đời thiếu đúng phần cái bảng chở. Xem
         // PendingConfirmTableGate.
+        //
+        // Vế "cổng lẽ ra đã mở" tách riêng vì #tableGate cần đúng nó: có lượt chat mới ⇒ trạng thái "done"
+        // của server không còn, nên hai vế dưới đây là toàn bộ đường mở cổng ở frame này.
+        writeReqWouldOpen = invited === true || (draftExists && coverageReady === true);
         gateState = pendingTablePanel() ? "table"
-            : (invited === true || (draftExists && coverageReady === true)) ? "ready"
+            : writeReqWouldOpen ? "ready"
             : "waiting";
         syncWriteReqGate();
     }
@@ -3527,17 +3538,21 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // vượt qua — lời mời tạo tài liệu nổi lên phía trên chính câu trả lời vừa sinh ra nó. Dời wrapper
         // chứ không dời từng khối, để panel mâu thuẫn không lạc khỏi nút đã bật nó lên.
         // Dời KỂ CẢ khi cổng đang đóng: "cụm này luôn là khối cuối" phải đúng ở mọi lượt, không chỉ ở lượt
-        // mời — và từ khi cụm có khối #tableGate (trạng thái "table") thì nó không còn là chuyện vô hình
-        // nữa: khối đó HIỆN, nên cụm nằm lại giữa hội thoại là câu chặn nổi lên trên chính cái bảng nó bảo
-        // người dùng đi rà.
+        // mời — và từ khi cụm có khối #tableGate thì nó không còn là chuyện vô hình nữa: ở lượt khối đó
+        // HIỆN, cụm nằm lại giữa hội thoại là câu chặn nổi lên trên chính cái bảng nó bảo người dùng đi rà.
         thinkingBox.before(writeReqZone);
 
         // CÒN BẢNG CHỜ CHỐT: khối này loại trừ với cổng mở ở dưới (hai câu trả lời khác nhau cho cùng câu
-        // hỏi "bấm gì tiếp"), và nó phải GỌI TÊN bảng — đóng cổng trong im lặng ở cuối khung chat đọc lên
-        // thành "hệ thống hỏng", vì người dùng vừa thấy một bảng và vốn quen có nút ở đây.
+        // hỏi "bấm gì tiếp"), và khi nói thì nó phải GỌI TÊN bảng — một cái nút vừa được mời bấm mà biến
+        // mất trong im lặng ở cuối khung chat đọc lên thành "hệ thống hỏng".
+        //
+        // Nhưng CHỈ nói khi cổng lẽ ra đã mở (writeReqWouldOpen). Bảng còn treo mà lượt này BA chưa mời gì
+        // — ca thường gặp nhất: BA vừa bày bảng ra và vừa bảo "rà lại rồi bấm Gửi bảng … giúp mình" — thì
+        // cổng vốn đã đóng im lặng như trạng thái "waiting", và một bong bóng ngay dưới cái bảng đang có
+        // sẵn nút gửi của nó là lần thứ hai nói cùng một việc. Xem tableGateSpeaks ở Index.cshtml.
         const tableGate = document.getElementById("tableGate");
         if (tableGate) {
-            const panel = gateState === "table" ? pendingTablePanel() : null;
+            const panel = gateState === "table" && writeReqWouldOpen ? pendingTablePanel() : null;
             const hintEl = document.getElementById("tableGateHint");
             if (panel && hintEl) hintEl.textContent = tableGateHint(panel);
             tableGate.hidden = !panel;
