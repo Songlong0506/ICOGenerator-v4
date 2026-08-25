@@ -63,3 +63,55 @@
 }
 
 /* Multi-select combo (.ms-combo*) is shared in site.css. */
+
+/* Hai lựa chọn phạm vi trong modal "Nhân bản dự án". Bày thành hai thẻ bấm được (cả ô là vùng click, nhờ
+   <label> bọc cả radio lẫn phần chữ) thay vì hai radio trơ kèm chú thích rời: đây là quyết định thật sự
+   của người dùng ở modal này, nên mỗi lựa chọn cần đủ chỗ cho một câu giải thích hệ quả. */
+.clone-scope {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.clone-scope-option {
+    display: flex;
+    gap: 10px;
+    align-items: start;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    cursor: pointer;
+    font-weight: 400;
+}
+
+.clone-scope-option:hover {
+    border-color: var(--bosch-blue);
+}
+
+/* :has() để cả thẻ sáng lên theo radio bên trong nó — không cần JS đồng bộ class. Trình duyệt không hỗ
+   trợ :has() thì thẻ vẫn dùng được bình thường, chỉ mất phần tô đậm lựa chọn đang chọn. */
+.clone-scope-option:has(input:checked) {
+    border-color: var(--bosch-blue);
+    background: var(--info-tint);
+}
+
+.clone-scope-option input {
+    flex: 0 0 auto;
+    margin-top: 2px;
+}
+
+.clone-scope-option span {
+    display: block;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+
+.clone-scope-option strong {
+    display: block;
+    color: var(--ink);
+    font-size: 13.5px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}

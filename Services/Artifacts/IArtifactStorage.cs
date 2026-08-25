@@ -15,6 +15,22 @@ public interface IArtifactStorage
     /// </summary>
     bool TryRenameProjectWorkspace(string oldProjectKey, string newProjectKey);
 
+    /// <summary>
+    /// Chép workspace của một project sang project khác khi NHÂN BẢN dự án (xem CloneProjectUseCase).
+    /// Khác <see cref="TryRenameProjectWorkspace"/>: bản gốc phải còn nguyên chỗ cũ.
+    /// <paramref name="onlyTopLevelFolders"/> null = chép cả cây; khác null = chỉ chép các thư mục cấp 1 có
+    /// tên trong đó (bản sao "chỉ phần yêu cầu" chỉ cần <c>00_Source</c>). Các thư mục sinh lại được
+    /// (<see cref="WorkspaceFileFilter.RegenerableDirectories"/>) luôn bị bỏ qua.
+    /// Trả về <c>true</c> khi đã chép xong HOẶC khi không có gì để chép (nguồn chưa có trên đĩa, RootPath
+    /// cấu hình sai) — cùng tinh thần best-effort với lúc tạo project. Trả về <c>false</c> khi nguồn CÓ trên
+    /// đĩa nhưng không chép được, hoặc thư mục đích đã tồn tại: caller phải hủy việc nhân bản để không tạo
+    /// ra một project trỏ vào thư mục trống.
+    /// </summary>
+    bool TryCopyProjectWorkspace(string sourceProjectKey, string targetProjectKey, IReadOnlyCollection<string>? onlyTopLevelFolders = null);
+
+    /// <summary>Xóa thư mục workspace (best-effort) — dùng để hoàn tác khi nhân bản chép đĩa xong nhưng lưu DB lỗi.</summary>
+    void TryDeleteProjectWorkspace(string projectKey);
+
     string GetDraftPath(string projectKey, ProjectArtifactDescriptor artifact);
     string GetVersionPath(string projectKey, string versionName, ProjectArtifactDescriptor artifact);
 

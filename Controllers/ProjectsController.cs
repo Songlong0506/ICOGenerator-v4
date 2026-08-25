@@ -15,6 +15,7 @@ public class ProjectsController : Controller
     private readonly GetProjectListQuery _getProjectListQuery;
     private readonly CreateProjectUseCase _createProjectUseCase;
     private readonly UpdateProjectUseCase _updateProjectUseCase;
+    private readonly CloneProjectUseCase _cloneProjectUseCase;
     private readonly GetMockupFileQuery _getMockupFileQuery;
     private readonly GetImplementationSourceQuery _getImplementationSourceQuery;
     private readonly GetPocReviewQuery _getPocReviewQuery;
@@ -35,6 +36,7 @@ public class ProjectsController : Controller
         GetProjectListQuery getProjectListQuery,
         CreateProjectUseCase createProjectUseCase,
         UpdateProjectUseCase updateProjectUseCase,
+        CloneProjectUseCase cloneProjectUseCase,
         GetMockupFileQuery getMockupFileQuery,
         GetImplementationSourceQuery getImplementationSourceQuery,
         GetPocReviewQuery getPocReviewQuery,
@@ -54,6 +56,7 @@ public class ProjectsController : Controller
         _getProjectListQuery = getProjectListQuery;
         _createProjectUseCase = createProjectUseCase;
         _updateProjectUseCase = updateProjectUseCase;
+        _cloneProjectUseCase = cloneProjectUseCase;
         _getMockupFileQuery = getMockupFileQuery;
         _getImplementationSourceQuery = getImplementationSourceQuery;
         _getPocReviewQuery = getPocReviewQuery;
@@ -137,6 +140,49 @@ public class ProjectsController : Controller
                 break;
             case UpdateProjectResult.WorkspaceRenameFailed:
                 TempData["Error"] = "Không đổi được tên thư mục làm việc của dự án nên thay đổi đã được hủy để không bỏ rơi tài liệu/POC đã sinh. Hãy thử lại sau (có thể một file trong thư mục đang mở).";
+                break;
+            default:
+                TempData["Error"] = "Project không tồn tại.";
+                break;
+        }
+
+        return BackToList();
+    }
+
+    // Nhân bản một dự án để thử nhiều tình huống khác nhau trên cùng một điểm xuất phát. Quyền là
+    // ProjectsCreate (kết quả là một project MỚI) chứ không phải ProjectsEdit — dự án gốc không bị đụng
+    // tới; [RequireProjectAccess] lo vế còn lại: chỉ nhân bản được project mình có quyền mở.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.ProjectsCreate)]
+    [RequireProjectAccess("vm.ProjectId", Message = "Project không tồn tại.")]
+    public async Task<IActionResult> Clone(
+        CloneProjectVm vm,
+        int page = 1,
+        int pageSize = GetProjectListQuery.DefaultPageSize,
+        string[]? orgUnit = null)
+    {
+        IActionResult BackToList() => RedirectToAction(nameof(Index), new { page, pageSize, orgUnit });
+
+        if (!ModelState.IsValid)
+        {
+            TempData["Error"] = "Thông tin nhân bản không hợp lệ. Vui lòng kiểm tra lại.";
+            return BackToList();
+        }
+
+        var (result, _) = await _cloneProjectUseCase.ExecuteAsync(vm, User.Identity?.Name, HttpContext.RequestAborted);
+        switch (result)
+        {
+            case CloneProjectResult.Cloned:
+                TempData["Success"] = vm.Scope == ProjectCloneScope.Full
+                    ? "Đã nhân bản dự án (bản sao đầy đủ). Các task đang dở của bản gốc không được chép sang."
+                    : "Đã nhân bản dự án (chỉ phần yêu cầu). Bản sao giữ nguyên hội thoại, tài liệu nguồn và các bảng đã chốt.";
+                break;
+            case CloneProjectResult.NameRequired:
+                TempData["Error"] = "Tên bản sao không được để trống.";
+                break;
+            case CloneProjectResult.WorkspaceCopyFailed:
+                TempData["Error"] = "Không chép được thư mục làm việc của dự án nên việc nhân bản đã được hủy (bản sao sẽ không có tài liệu/POC nào). Hãy thử lại sau.";
                 break;
             default:
                 TempData["Error"] = "Project không tồn tại.";

@@ -210,3 +210,40 @@
         closeModal('editProject');
     });
 })();
+
+// Modal "Nhân bản dự án" — cùng khuôn với modal Chỉnh sửa: MỘT modal dùng chung, nút ở mỗi dòng mang dữ
+// liệu dòng đó trong data-*. Đơn giản hơn hẳn vì không có gì để so sánh: chỉ điền sẵn tên gợi ý và mở.
+(function () {
+    var modal = document.getElementById('cloneProject');
+    if (!modal) return;
+
+    var nameInput = modal.querySelector('[data-clone-name]');
+    var idInput = modal.querySelector('[data-clone-id]');
+    var subtitle = modal.querySelector('[data-clone-subtitle]');
+
+    function open(button) {
+        var data = button.dataset;
+        var sourceName = (data.projectName || '').trim();
+
+        idInput.value = data.projectId || '';
+        // Gợi ý cùng công thức với server (CloneProjectUseCase.BuildName) kể cả phần cắt 200 ký tự, để
+        // ô tên hiện đúng cái sẽ được lưu chứ không phải một bản dài hơn rồi bị cắt âm thầm.
+        nameInput.value = (sourceName + ' (bản sao)').slice(0, 200).trimEnd();
+        subtitle.textContent = 'Nhân bản từ: ' + sourceName;
+
+        openModal('cloneProject');
+        nameInput.focus();
+        nameInput.select();
+    }
+
+    document.querySelectorAll('[data-clone-project]').forEach(function (button) {
+        button.addEventListener('click', function () { open(button); });
+    });
+
+    // Esc để đóng — cùng luật với modal Chỉnh sửa (chỉ khi modal này đang mở).
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' || modal.classList.contains('hidden')) return;
+        if (modal.querySelector('.ms-combo.open')) return;
+        closeModal('cloneProject');
+    });
+})();
