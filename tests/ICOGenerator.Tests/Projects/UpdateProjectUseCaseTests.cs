@@ -259,6 +259,9 @@ public class UpdateProjectUseCaseTests : IDisposable
             return RenameSucceeds;
         }
 
+        public bool TryCopyProjectWorkspace(string sourceProjectKey, string targetProjectKey, IReadOnlyCollection<string>? onlyTopLevelFolders = null) => true;
+        public void TryDeleteProjectWorkspace(string projectKey) { }
+
         public string GetDraftPath(string projectKey, ProjectArtifactDescriptor artifact) => Path.Combine(Path.GetTempPath(), artifact.FileName);
         public string GetVersionPath(string projectKey, string versionName, ProjectArtifactDescriptor artifact) => Path.Combine(Path.GetTempPath(), versionName, artifact.FileName);
         public string GetSourceUploadDir(string projectKey) => Path.GetTempPath();

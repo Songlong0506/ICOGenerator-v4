@@ -90,6 +90,10 @@
     // một lượt gọi. Cấp quyền ở màn hình Roles & Permissions; ngoài ra ProjectsController.Update còn qua
     // IProjectAccessGuard nên User thường chỉ sửa được project của chính mình.
     var canEditProject = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsEdit);
+    // Nhân bản tạo ra một project MỚI nên nó đứng sau ProjectsCreate, không phải ProjectsEdit (dự án gốc
+    // không bị đụng tới). ProjectsController.Clone còn qua IProjectAccessGuard nên User thường chỉ nhân
+    // bản được project của chính mình.
+    var canCloneProject = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsCreate);
 }
 <div class="card table-card">
     <table>
@@ -167,10 +171,12 @@
                                còn đây là thao tác trên chính dòng này, giống trang AI Models. Dữ liệu dòng
                                đi qua data-* (Razor tự HTML-encode) rồi JS đọc từ dataset — an toàn hơn
                                việc nhồi giá trị vào tham số onclick. *@
-                            @if (canEditProject)
+                            @if (canEditProject || canCloneProject)
                             {
                             <span class="actions-tools">
                                 <span class="actions-sep" aria-hidden="true"></span>
+                                @if (canEditProject)
+                                {
                                 <button type="button"
                                         class="icon-btn"
                                         title="Chỉnh sửa dự án"
@@ -183,6 +189,19 @@
                                         data-project-running="@(item.HasRunningWorkflow ? "true" : "false")">
                                         <i class="bi bi-pencil-fill" aria-hidden="true"></i>
                                 </button>
+                                }
+                                @if (canCloneProject)
+                                {
+                                <button type="button"
+                                        class="icon-btn"
+                                        title="Nhân bản dự án"
+                                        aria-label="Nhân bản dự án @p.Name"
+                                        data-clone-project
+                                        data-project-id="@p.Id"
+                                        data-project-name="@p.Name">
+                                        <i class="bi bi-copy" aria-hidden="true"></i>
+                                </button>
+                                }
                             </span>
                             }
                         </div>
@@ -286,6 +305,64 @@
             <div class="modal-actions">
                 <button type="button" class="btn" onclick="closeModal('editProject')">Cancel</button>
                 <button class="btn primary" data-edit-save disabled>Save</button>
+            </div>
+        </form>
+    </div>
+}
+
+@* Modal "Nhân bản dự án" — cùng khuôn với modal Chỉnh sửa (MỘT modal dùng chung cho mọi dòng, JS đổ dữ
+   liệu dòng được bấm vào). Hai lựa chọn phạm vi là quyết định thật sự của người dùng nên chúng được bày
+   thành radio kèm câu giải thích, thay vì giấu sau một checkbox "nâng cao". *@
+@if (canCloneProject)
+{
+    <div id="cloneProject" class="modal-backdrop hidden">
+        <form class="modal" asp-action="Clone" method="post"
+              role="dialog" aria-modal="true" aria-labelledby="clone-project-title" data-clone-project-form>
+            <button type="button" class="x" onclick="closeModal('cloneProject')" aria-label="Đóng">×</button>
+            <h2 id="clone-project-title">Nhân bản dự án</h2>
+            <p class="modal-sub" data-clone-subtitle></p>
+
+            <input type="hidden" name="ProjectId" data-clone-id />
+            @* Giữ nguyên trang + bộ lọc đang xem, như modal Chỉnh sửa. *@
+            <input type="hidden" name="page" value="@Model.Page" />
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            @foreach (var code in selectedOrgUnits)
+            {
+                <input type="hidden" name="orgUnit" value="@code" />
+            }
+
+            <label for="clone-project-name">Tên bản sao *</label>
+            <input id="clone-project-name" name="Name" maxlength="200" required autocomplete="off" data-clone-name />
+
+            <label>Chép tới đâu</label>
+            <div class="clone-scope">
+                <label class="clone-scope-option">
+                    <input type="radio" name="Scope" value="Full" checked />
+                    <span>
+                        <strong>Bản sao đầy đủ</strong>
+                        Chép cả tài liệu, workflow, ghi chú POC và thư mục làm việc — rẽ nhánh từ đúng chặng
+                        dự án đang đứng.
+                    </span>
+                </label>
+                <label class="clone-scope-option">
+                    <input type="radio" name="Scope" value="RequirementOnly" />
+                    <span>
+                        <strong>Chỉ phần yêu cầu</strong>
+                        Giữ hội thoại BA, tài liệu nguồn và các bảng đã chốt; không có tài liệu/POC nào —
+                        bản sao chạy lại delivery từ đầu.
+                    </span>
+                </label>
+            </div>
+
+            <p class="modal-note info">
+                <i class="bi bi-info-circle" aria-hidden="true"></i>
+                Bản sao KHÔNG mang theo log gọi model (để không nhân đôi chi phí ở Usage), link chia sẻ POC,
+                và các task đang chạy dở.
+            </p>
+
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('cloneProject')">Cancel</button>
+                <button class="btn primary">Nhân bản</button>
             </div>
         </form>
     </div>

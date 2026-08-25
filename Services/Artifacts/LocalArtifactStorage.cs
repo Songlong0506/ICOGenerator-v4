@@ -68,6 +68,122 @@ public class LocalArtifactStorage : IArtifactStorage
         }
     }
 
+    public bool TryCopyProjectWorkspace(string sourceProjectKey, string targetProjectKey, IReadOnlyCollection<string>? onlyTopLevelFolders = null)
+    {
+        // Key chứa 8 ký tự đầu của Id project, mà bản sao luôn có Id mới ⇒ hai key không thể trùng nhau.
+        // Nếu trùng thì caller đã truyền nhầm, và chép đè lên chính nó là việc phá dữ liệu — chặn ngay.
+        if (string.Equals(sourceProjectKey, targetProjectKey, StringComparison.Ordinal))
+        {
+            _logger.LogWarning("Refusing to copy workspace {Key} onto itself.", sourceProjectKey);
+            return false;
+        }
+
+        string sourcePath;
+        string targetPath;
+        try
+        {
+            sourcePath = _workspacePathResolver.GetProjectWorkspacePath(sourceProjectKey);
+            targetPath = _workspacePathResolver.GetProjectWorkspacePath(targetProjectKey);
+        }
+        catch (Exception ex)
+        {
+            // RootPath thiếu/sai trên máy này ⇒ workspace chưa từng tạo được, không có dữ liệu để mất.
+            // Cùng lý lẽ với TryRenameProjectWorkspace: không chặn thao tác vì một thứ best-effort.
+            _logger.LogWarning(ex, "Could not resolve workspace paths to copy {SourceKey} -> {TargetKey}.", sourceProjectKey, targetProjectKey);
+            return true;
+        }
+
+        // Project nguồn chưa chạy gì (chưa có tài liệu/POC) thì thư mục có thể chưa tồn tại — không có gì
+        // để chép, lần ghi đầu tiên của bản sao sẽ tự tạo thư mục.
+        if (!Directory.Exists(sourcePath))
+            return true;
+
+        // Đích chỉ có thể tồn tại nếu một lần nhân bản trước để lại thư mục rác trùng tên. Gộp hai thư mục
+        // là việc rủi ro (ghi đè tài liệu) — dừng lại thay vì âm thầm trộn dữ liệu hai dự án.
+        if (Directory.Exists(targetPath))
+        {
+            _logger.LogWarning("Workspace folder {TargetPath} already exists; refusing to copy from {SourcePath}.", targetPath, sourcePath);
+            return false;
+        }
+
+        try
+        {
+            CopyDirectory(sourcePath, targetPath, onlyTopLevelFolders);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not copy workspace folder {SourcePath} -> {TargetPath}.", sourcePath, targetPath);
+            // Bản chép dở dang còn tệ hơn không chép gì: nó chiếm chỗ thư mục đích và làm lần nhân bản sau
+            // bị từ chối ở nhánh "đích đã tồn tại" ngay trên.
+            TryDeleteDirectory(targetPath);
+            return false;
+        }
+    }
+
+    public void TryDeleteProjectWorkspace(string projectKey)
+    {
+        try
+        {
+            TryDeleteDirectory(_workspacePathResolver.GetProjectWorkspacePath(projectKey));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not resolve workspace path to delete {ProjectKey}.", projectKey);
+        }
+    }
+
+    private static void CopyDirectory(string sourcePath, string targetPath, IReadOnlyCollection<string>? onlyTopLevelFolders)
+    {
+        Directory.CreateDirectory(targetPath);
+
+        // File nằm thẳng ở gốc workspace không thuộc thư mục cấp 1 nào; bản sao "chỉ phần yêu cầu" cố ý
+        // không lấy chúng (chúng là sản phẩm sinh ra, không phải đầu vào).
+        if (onlyTopLevelFolders == null)
+        {
+            foreach (var file in Directory.EnumerateFiles(sourcePath))
+                File.Copy(file, Path.Combine(targetPath, Path.GetFileName(file)));
+        }
+
+        foreach (var dir in Directory.EnumerateDirectories(sourcePath))
+        {
+            var name = Path.GetFileName(dir);
+            if (onlyTopLevelFolders != null && !onlyTopLevelFolders.Contains(name, StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            CopyTree(dir, Path.Combine(targetPath, name));
+        }
+    }
+
+    private static void CopyTree(string sourceDir, string targetDir)
+    {
+        // node_modules/bin/obj/.git/.vs sinh lại được và chiếm phần lớn dung lượng của một workspace đã
+        // build — WorkspaceFileFilter là nguồn chân lý duy nhất của danh sách đó.
+        if (WorkspaceFileFilter.RegenerableDirectories.Contains(Path.GetFileName(sourceDir)))
+            return;
+
+        Directory.CreateDirectory(targetDir);
+
+        foreach (var file in Directory.EnumerateFiles(sourceDir))
+            File.Copy(file, Path.Combine(targetDir, Path.GetFileName(file)));
+
+        foreach (var dir in Directory.EnumerateDirectories(sourceDir))
+            CopyTree(dir, Path.Combine(targetDir, Path.GetFileName(dir)));
+    }
+
+    private void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not delete workspace folder {Path}.", path);
+        }
+    }
+
     public string GetDraftPath(string projectKey, ProjectArtifactDescriptor artifact) =>
         Path.Combine(_workspacePathResolver.GetPhaseDraftPath(projectKey, artifact.Phase), artifact.FileName);
 

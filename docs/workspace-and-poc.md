@@ -67,6 +67,49 @@ sinh coi như mất. `UpdateProjectUseCase` giữ hai bên khớp nhau bằng ba
 - "Chưa có gì trên đĩa" / hai key trùng nhau / `RootPath` cấu hình sai ⇒ coi như **không có gì phải
   đổi** (true), không chặn việc sửa — cùng tinh thần best-effort với lúc tạo project.
 
+### Nhân bản dự án (thử nhiều tình huống trên cùng một điểm xuất phát)
+`POST /Projects/Clone` (`CloneProjectUseCase`, quyền `ProjectsCreate` + `IProjectAccessGuard`) tạo một dự
+án mới từ một dự án đã có, để thử nhánh khác mà không phải phỏng vấn lại buổi BA đã tốn tiền model. Hai
+phạm vi, chọn ngay ở modal:
+
+- **Bản sao đầy đủ** — hội thoại, tài liệu (kèm `ProjectDocumentRevisions`), file nguồn, workflow và ghi
+  chú POC, cộng cả cây workspace. Rẽ nhánh từ đúng chặng dự án gốc đang đứng.
+- **Chỉ phần yêu cầu** — trí nhớ hội thoại BA, các lượt chat, file nguồn và sáu bảng đã chốt; workspace chỉ
+  chép `00_Source` rồi dựng lại bộ khung 5 giai đoạn. Bản sao chạy lại delivery từ đầu.
+
+Bốn thứ **không bao giờ** đi theo bản sao, mỗi thứ vì một hậu quả cụ thể:
+
+| Không chép | Vì |
+|---|---|
+| `AgentModelCallLogs` | nguồn số liệu của Usage + Delivery Quality — chép sang là nhân đôi chi phí đã tiêu trong báo cáo của cả tổ chức |
+| `PocShareLinks` | `Token` là link công khai đang sống (unique index); nhân bản nó là mở thêm một cửa vào bản demo mà người tạo link không biết |
+| Task ở `Queued`/`Running`/`Retrying` | `AgentTaskWorker` poll `Status == Queued` **toàn cục**, không theo project ⇒ task chép sang bị nhặt ngay và bắn lời gọi LLM thật. Run của chúng chép sang ở trạng thái `Canceled`; riêng `WaitingForHuman` **giữ nguyên** vì đó chính là cổng duyệt người ta nhân bản để thử. Lưu ý `AgentTaskStatus` **không có** giá trị `Canceled` — hủy là việc của `WorkflowRunStatus` |
+| `PocAcceptedAtUtc`/`PocAcceptedBy` | chữ ký nghiệm thu của một người thật cho một bản demo cụ thể |
+
+Ngược lại, `ChecklistGapHarvested` được đặt **true** và `PocFeedbackHarvestedCount` đặt bằng số ghi chú
+thực sự chép sang: cả hai đều là con trỏ của các đường ghi vào `AgentChecklistItem` **dùng chung cho mọi
+dự án**, nên để chúng ở 0/false sẽ khiến cùng một buổi phỏng vấn đẻ ra hai lần cùng một bài học. Cùng lý
+do, mọi con trỏ harvest khác (`SummarizedTurnCount`, `UserMemoryHarvestedTurnCount`,
+`CoverageHarvestedTurnCount`…) được chép **nguyên giá trị**, không reset về 0.
+
+Ba bất biến kỹ thuật:
+
+- **Chép đĩa TRƯỚC, lưu DB SAU** (`IArtifactStorage.TryCopyProjectWorkspace`) — cùng kỷ luật với đổi tên ở
+  trên. Chép hỏng ⇒ `WorkspaceCopyFailed`, không lưu gì (một project trỏ vào thư mục trống không tự lành
+  được). Lưu DB lỗi sau đó ⇒ `TryDeleteProjectWorkspace` dọn thư mục vừa chép rồi mới ném.
+- **Viết lại đường dẫn tuyệt đối đã lưu**: `ProjectSourceFile.StoredPath` và `ProjectDocument.FilePath` mang
+  key thư mục của dự án gốc; không đổi thì bản sao đọc — và xóa — file thật của dự án gốc. Tên thư mục con
+  `{id:N}` dưới `00_Source` giữ nguyên id CŨ: không chỗ nào suy ngược thư mục từ `Id`, mọi nơi đều lấy
+  `Path.GetDirectoryName(StoredPath)`.
+- **Remap id trong `AgentConversation.Attachments`** (JSON `ChatAttachment[]` trỏ về `ProjectSourceFile`) và
+  đọc hội thoại bằng `IgnoreQueryFilters()` — bảng đó có global filter `ArchivedAt == null`, bỏ lượt đã
+  archive sẽ làm lệch mọi con trỏ đếm-theo-`CreatedAt` vừa chép sang.
+
+Các thư mục sinh lại được (`WorkspaceFileFilter.RegenerableDirectories`: `node_modules`, `bin`, `obj`,
+`.git`, `.vs`) không đi theo bản sao. Hệ quả cần biết: skeleton Bosch trong bản sao có đủ file nhưng không
+còn `.git`, và `BoschTemplateSeeder` bỏ qua thư mục đích đã có file nên sẽ **không** clone lại — muốn git
+sạch thì xóa `04_Implementation/src` trong bản sao.
+
 ### Vòng phản hồi POC hai chiều + link chia sẻ cho người ngoài hệ thống
 - `PocComment` có thêm trạng thái `Addressed` (+ thời điểm + bàn giao của agent): vòng chỉnh sửa POC
   chạy xong thì các ghi chú đã gửi chuyển sang "đã sửa — mời kiểm lại", và người review mở lại được
