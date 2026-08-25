@@ -32,7 +32,6 @@ public class RequirementsController : Controller
     private readonly GetDocumentRevisionsQuery _getDocumentRevisionsQuery;
     private readonly GetDocumentRevisionDiffQuery _getDocumentRevisionDiffQuery;
     private readonly GetSourceFileContentQuery _getSourceFileContentQuery;
-    private readonly EstimatePocEtaQuery _estimatePocEtaQuery;
     private readonly ReviseBriefFromNotesUseCase _reviseBriefFromNotesUseCase;
     private readonly ConfirmSpecAssumptionsUseCase _confirmSpecAssumptionsUseCase;
     private readonly ReviseSpecAssumptionsUseCase _reviseSpecAssumptionsUseCase;
@@ -74,7 +73,6 @@ public class RequirementsController : Controller
        GetDocumentRevisionsQuery getDocumentRevisionsQuery,
        GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery,
        GetSourceFileContentQuery getSourceFileContentQuery,
-       EstimatePocEtaQuery estimatePocEtaQuery,
        ReviseBriefFromNotesUseCase reviseBriefFromNotesUseCase,
        ConfirmSpecAssumptionsUseCase confirmSpecAssumptionsUseCase,
        ReviseSpecAssumptionsUseCase reviseSpecAssumptionsUseCase,
@@ -107,7 +105,6 @@ public class RequirementsController : Controller
         _getDocumentRevisionsQuery = getDocumentRevisionsQuery;
         _getDocumentRevisionDiffQuery = getDocumentRevisionDiffQuery;
         _getSourceFileContentQuery = getSourceFileContentQuery;
-        _estimatePocEtaQuery = estimatePocEtaQuery;
         _reviseBriefFromNotesUseCase = reviseBriefFromNotesUseCase;
         _confirmSpecAssumptionsUseCase = confirmSpecAssumptionsUseCase;
         _reviseSpecAssumptionsUseCase = reviseSpecAssumptionsUseCase;
@@ -896,13 +893,6 @@ public class RequirementsController : Controller
         }
 
         TempData["WorkflowStarted"] = true;
-        // Banner kỳ vọng sau Approve: user cần biết điều gì xảy ra tiếp theo và trong bao lâu, thay vì
-        // nhìn spinner vô định. Cờ riêng (không dùng chung WorkflowStarted của Write Requirement) vì
-        // chỉ Approve mới dẫn tới dựng POC. ETA đo từ lịch sử vận hành; null = chưa có lịch sử.
-        TempData["RequirementApproved"] = true;
-        var etaMinutes = await _estimatePocEtaQuery.ExecuteAsync(HttpContext.RequestAborted);
-        if (etaMinutes.HasValue)
-            TempData["ApprovedPocEtaMinutes"] = etaMinutes.Value;
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
