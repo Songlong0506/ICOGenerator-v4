@@ -233,9 +233,10 @@ public class WorkspaceTools
         "For WORKING, PERSISTENT CRUD with NO custom <script>, annotate the content with data-crud-* attributes and the shell engine handles add/edit/delete + localStorage automatically: a list <table data-crud-table=\"ENTITY\" data-crud-modal=\"#id\"> whose <thead> has one <th data-field=\"FIELD\"> per column plus a final <th data-actions> (rows you write in <tbody> are seed data); exactly ONE <form data-crud-form=\"ENTITY\"> (inputs use name=\"FIELD\", with a type=submit Save), usually inside a Bootstrap modal; an Add button with data-crud-add=\"ENTITY\"; optional data-crud-title/data-crud-count/data-crud-reset. The form's name=\"…\" must match the table's data-field names. Seed <td> cells may contain rich HTML (images, badges) and are preserved. For a one-click add with no form (e.g. an Add-to-cart/Buy button), put data-crud-add=\"ENTITY\" data-crud-values='{\"field\":\"value\"}' on the button. Wire EVERY data list (data-crud-table + an Add button) and EVERY create/edit form (data-crud-form) this way so the primary actions actually work and persist — don't leave the main buttons as toast-only stubs. " +
         "'appName': the application/product name, shown in the sidebar header and the browser tab — never leave it as the template default \"App Name\". " +
         "'breadcrumb': the top-bar breadcrumb text, e.g. \"Home > Orders\". " +
-        "'navItems': the left sidebar menu — a real JSON ARRAY (not a JSON-encoded string) of objects { \"label\": string, \"icon\"?: string, \"children\"?: (string | { \"label\": string, \"icon\"?: string })[] }. 'icon' is an optional Bootstrap Icons name shown before the label (e.g. \"house\", \"cart3\", \"people\", \"bag\", \"gear\"; full list at https://icons.getbootstrap.com — the leading \"bi-\" is optional); set one for every item, and if omitted a neutral default icon is used. 'children' is optional and turns the entry into an expandable group. Set these to the real screens, not the template's Overview/Module A/Module B/Settings. " +
+        "'navItems': the left sidebar menu — a real JSON ARRAY (not a JSON-encoded string) of objects { \"label\": string, \"icon\"?: string, \"children\"?: (string | { \"label\": string, \"icon\"?: string })[] }. 'icon' is an optional Bootstrap Icons name shown before the label (e.g. \"house\", \"cart3\", \"people\", \"bag\", \"gear\"; full list at https://icons.getbootstrap.com — the leading \"bi-\" is optional); set one for every item, and if omitted a neutral default icon is used. 'children' is optional and turns the entry into an expandable group, and \"roles\" (array of role names) limits the entry to those personas. Set these to the real screens, not the template's Overview/Module A/Module B/Settings. " +
+        "'roles': the personas of the spec's Permission Matrix, as a JSON ARRAY of strings (e.g. [\"Employee\", \"Manager\", \"HR\"]). They become the VIEW AS switcher pinned at the bottom of the sidebar, so the reviewer changes persona in ONE CLICK — do NOT build a login screen for this (a POC has no backend, so a login form only hides the business behaviour everyone opened the demo to see). The FIRST role is the one the demo opens with. Restrict a menu entry to some of them with \"roles\" on that navItems entry, and a screen with data-roles=\"Manager,HR\" on its <section class=\"page-view\">; anything untagged is visible to every role. Omit 'roles' only when the spec has a single actor. " +
         "The rest of the shell (style/script, topbar, popups) is kept untouched. Use this instead of ReplaceInFile for the POC.")]
-    public async Task<string> SetPocContent(string content, string? appName = null, string? breadcrumb = null, JsonElement? navItems = null)
+    public async Task<string> SetPocContent(string content, string? appName = null, string? breadcrumb = null, JsonElement? navItems = null, JsonElement? roles = null)
     {
         EnsureWorkspace();
         var fullPath = GetSafeFullPath(PocTemplate.MockupRelativePath);
@@ -273,11 +274,32 @@ public class WorkspaceTools
             navNote = " WARNING: no 'navItems' was given — the sidebar menu was left as-is. If you have not set the menu yet it still shows the template items (Overview/Records/…), which will not match your screens; re-issue SetPocContent NOW with the same content plus navItems, BEFORE any AppendPocContent.";
         }
 
+        // Khối VIEW AS (cuối sidebar) là chỗ đổi vai của bản demo — thay cho màn đăng nhập giả. Không
+        // gửi 'roles' KHÔNG phải lỗi (spec một vai thì shell tự ẩn khối), nên chỉ báo lại khi gửi mà đọc
+        // không ra: im lặng bỏ qua sẽ để agent tin là đã có bộ chuyển vai trong khi sidebar trống trơn.
+        var roleNote = string.Empty;
+        if (roles is { } rolesJson)
+        {
+            var parsed = PocRole.ParseList(rolesJson);
+            if (parsed.Count == 0)
+            {
+                roleNote = " WARNING: 'roles' could not be read — the VIEW AS switcher was NOT built. Send it as a JSON ARRAY of role names, e.g. [\"Employee\", \"Manager\"].";
+            }
+            else
+            {
+                var withRoles = PocTemplate.ReplaceRoles(updated, parsed);
+                roleNote = ReferenceEquals(withRoles, updated)
+                    ? " WARNING: the VIEW AS anchor was not found in the file, so the role switcher could not be built."
+                    : $" VIEW AS switcher built with {parsed.Count} role(s): {string.Join(", ", parsed)} (first one is the default).";
+                updated = withRoles;
+            }
+        }
+
         await File.WriteAllTextAsync(fullPath, updated);
         // SetPocContent GHI ĐÈ cả vùng nội dung ⇒ đây là màn hình ĐẦU TIÊN: đếm lại từ 0.
         _pocScreensBuilt = 0;
         NarratePocScreens(content);
-        return $"POC content updated: {PocTemplate.MockupRelativePath}." + navNote;
+        return $"POC content updated: {PocTemplate.MockupRelativePath}." + navNote + roleNote;
     }
 
     [Description("Append MORE feature HTML to the END of the POC content region in 04_Implementation/poc-demo.html, after what's already there. " +
@@ -303,7 +325,7 @@ public class WorkspaceTools
     }
 
     [Description("Set the POC page-logic JavaScript of 04_Implementation/poc-demo.html (REPLACES the dedicated POC_SCRIPT region; the shell script, Bootstrap and the data-crud-* engine stay untouched and keep working). " +
-        "Call it ONCE, AFTER all SetPocContent/AppendPocContent calls, to make the AI Design Spec's business rules actually behave in the demo: compute derived values (totals, weighted averages, ratings) from the seed data instead of hard-coding numbers, drive status/sign state transitions (lock/unlock controls, swap badges, revoke signatures on edit), and simulate roles — after a fake login/persona pick, show only that role's sidebar items and screens. " +
+        "Call it ONCE, AFTER all SetPocContent/AppendPocContent calls, to make the AI Design Spec's business rules actually behave in the demo: compute derived values (totals, weighted averages, ratings) from the seed data instead of hard-coding numbers, drive status/sign state transitions (lock/unlock controls, swap badges, revoke signatures on edit), and re-render whatever depends on the current persona. Roles themselves are the SHELL's job — the VIEW AS switcher built from SetPocContent's 'roles' hides the menu items a role cannot open; do NOT write a login screen or your own menu filtering. Read the persona with window.pocRole() and re-render on window.pocOnRoleChange(role) (or the 'poc:rolechange' event). " +
         "'script' (required): PURE JavaScript only — no <script> tag, no external libraries/CDN, no frameworks; plain DOM APIs. It runs AFTER the shell script, so window.pocToast(msg) shows the standard toast and window.pocNavigate(label) opens a screen exactly like a sidebar click (falling back to a direct view switch for screens not in the menu, e.g. Login). " +
         "The shell delegates sidebar clicks, so menu items this script renders at runtime (role simulation) navigate on their own: NEVER bind your own click handler on a .nav-item, and never call pocNavigate() from inside such a handler — use pocNavigate(label) only to navigate programmatically. " +
         "Declare functions globally so onclick=\"…\" attributes in the content can call them, and put data-no-toast on buttons this script fully handles so the shell's generic click-toast doesn't double up. " +

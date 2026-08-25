@@ -197,7 +197,7 @@ trôi lệch nhau (bản trong instruction thiếu hẳn tầng tự kiểm runt
 | `Eval/persona.v1.md` | Model đóng vai NGƯỜI DÙNG NGHIỆP VỤ trong scenario eval kiểu `Interview` (đo cả cuộc phỏng vấn, không chỉ một lượt) |
 | `Eval/chat-review.v1.md` | Chỉ dẫn chấm đi kèm **bản xuất hội thoại** để người dùng nhờ một AI NGOÀI hệ thống rà soát buổi phỏng vấn — nhúng vào đầu `01-chat-ba.md` (xem [requirement-flow.md](requirement-flow.md#tải-trọn-gói-để-nhờ-một-ai-khác-rà-soát)). Nêu **phụ lục B** (khối ngữ cảnh tổ chức) là nguồn hợp lệ thứ ba bên cạnh lời người dùng và tài liệu nguồn |
 | `Eval/delivery-review.v1.md` | Chỉ dẫn chấm đi kèm **gói rà soát dây chuyền** (hội thoại → Product Brief → AI Design Spec → POC) — nhúng vào đầu `00-README.md` của file `.zip` tải về. Cùng luật ba nguồn như trên: thiếu nó, người chấm báo các hằng số sản phẩm (nhà máy Đồng Nai, "chỉ có email", tên HoD) là bịa thêm mức NẶNG |
-| `Design/poc-template.html` | Shell HTML của POC (sidebar/topbar/Bootstrap + engine `data-crud-*`, hai vùng marker `POC_CONTENT`/`POC_SCRIPT`) |
+| `Design/poc-template.html` | Shell HTML của POC (sidebar/topbar/Bootstrap + engine `data-crud-*` + bộ đổi vai **VIEW AS** cuối sidebar, hai vùng marker `POC_CONTENT`/`POC_SCRIPT`) — xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo) |
 
 ### Prompt Studio — sửa runtime, rollback, gắn với eval
 

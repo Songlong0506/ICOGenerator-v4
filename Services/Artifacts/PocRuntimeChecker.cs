@@ -357,6 +357,13 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         currentScreen = "(click menu)";
         await CheckNavClickRoutingAsync(page, issues, cancellationToken);
 
+        // LƯỢT ĐỔI VAI: bấm THẬT từng vai ở khối VIEW AS (cuối sidebar) và xem vai đó có gì để xem không.
+        // Trước đây vai được mô phỏng bằng một màn đăng nhập giả do script tự dựng, nên mọi cổng ở trên
+        // chỉ nhìn thấy đúng cái form đó: menu rỗng, một vai không mở được màn nào, hay bấm vai mà không
+        // đổi gì đều lọt. Nay vai là cơ chế của shell nên kiểm được bằng đúng thao tác người xem demo làm.
+        currentScreen = "(đổi vai)";
+        await CheckRoleSwitchingAsync(page, issues, cancellationToken);
+
         // LƯỢT ĐIỆN THOẠI: mở lại POC ở bề rộng 390px và đi qua từng màn hình. Trước đây mọi thứ chỉ được
         // kiểm ở 1440px nên lớp lỗi "vỡ trên màn hẹp" KHÔNG cổng nào bắt được — kể cả Visual QA, vì nó chỉ
         // nhìn ảnh desktop (dù prompt của nó có mục "phải cuộn ngang"). Đây là bề rộng mà người duyệt hay
@@ -421,6 +428,65 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                 + "Đây đúng là thứ người xem demo bấm đầu tiên. Để shell tự lo điều hướng: ĐỪNG gắn handler click "
                 + "riêng cho mục menu và đừng gọi pocNavigate() từ trong handler click của chính mục đó; "
                 + "dựng lại menu (mô phỏng vai) thì chỉ thay nội dung <nav class=\"sidebar-nav\">, shell đã bắt click bằng delegation.");
+        }
+    }
+
+    // Đi qua từng vai của khối VIEW AS: bấm nút vai → vai hiện tại phải đổi thật, sidebar phải còn ít
+    // nhất một mục để bấm, và màn hình đang mở phải là màn vai đó được phép thấy. Ít hơn hai vai (POC một
+    // actor) ⇒ không có gì để kiểm. Best-effort như các lượt khác: evaluate hỏng thì bỏ qua.
+    private static async Task CheckRoleSwitchingAsync(IPage page, List<string> issues, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string[] bad;
+        try
+        {
+            bad = await page.EvaluateAsync<string[]>(
+                """
+                async () => {
+                  const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                  const items = Array.from(document.querySelectorAll('#viewAsList .view-as-item'));
+                  if (items.length < 2) return [];
+                  const rolesOf = el => (el && el.getAttribute ? (el.getAttribute('data-roles') || '') : '')
+                    .split(',').map(norm).filter(Boolean);
+                  // "Đang hiện" theo nghĩa CỦA VAI: mục bị vai ẩn (display none) hoặc nằm trong nhóm bị ẩn.
+                  // Không dùng kích thước hiển thị — nhóm accordion đang đóng không phải là "vai không thấy".
+                  const shownForRole = n => n.style.display !== 'none'
+                    && !(n.closest('.nav-group') && n.closest('.nav-group').style.display === 'none');
+                  const out = [];
+                  for (const item of items) {
+                    const label = ((item.getAttribute('data-role') || item.textContent) || '').trim();
+                    try { item.click(); } catch { }
+                    await new Promise(r => setTimeout(r, 80));
+                    const now = (typeof window.pocRole === 'function') ? window.pocRole() : '';
+                    if (norm(now) !== norm(label)) { out.push(label + '|switch|' + (now || '(không đổi)')); continue; }
+                    const leaves = Array.from(document.querySelectorAll('.sidebar-nav .nav-item')).filter(n =>
+                      !(n.parentElement && n.parentElement.classList.contains('nav-group')) && shownForRole(n));
+                    if (!leaves.length) { out.push(label + '|empty|'); continue; }
+                    const view = document.querySelector('section.page-view.active');
+                    const allowed = view ? rolesOf(view) : [];
+                    if (view && allowed.length && allowed.indexOf(norm(label)) < 0)
+                      out.push(label + '|screen|' + (view.dataset.view || ''));
+                  }
+                  if (items.length) { try { items[0].click(); } catch { } }
+                  return out;
+                }
+                """);
+        }
+        catch
+        {
+            return;
+        }
+
+        foreach (var entry in bad.Take(MaxIssues))
+        {
+            var parts = entry.Split('|', 3);
+            var role = parts[0];
+            var detail = parts.Length > 2 ? parts[2] : string.Empty;
+            issues.Add(parts.Length > 1 && parts[1] == "empty"
+                ? $"Chọn vai '{role}' ở VIEW AS xong thì SIDEBAR TRỐNG — vai này không mở được màn nào. Gắn vai vào data-roles của ít nhất một mục menu (mục không khai báo data-roles thì mọi vai đều thấy), hoặc bỏ vai này khỏi danh sách roles của SetPocContent."
+                : parts.Length > 1 && parts[1] == "screen"
+                    ? $"Đổi sang vai '{role}' nhưng màn hình đang mở vẫn là '{detail}' — màn này khai báo data-roles KHÔNG có vai đó, tức người xem demo đang nhìn màn hình của vai khác. Để shell tự mở màn đầu tiên của vai: đừng tự điều hướng trong window.pocOnRoleChange."
+                    : $"Bấm vai '{role}' ở VIEW AS KHÔNG đổi được vai (window.pocRole() trả '{detail}'). Danh sách vai do SetPocContent('roles') dựng — đừng tự dựng lại khối VIEW AS hay tự gắn handler click cho .view-as-item.");
         }
     }
 
@@ -635,10 +701,16 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                   }
 
                   const before = snapshot();
+                  const roleBefore = (typeof window.pocRole === 'function') ? window.pocRole() : null;
                   try { target.click(); } catch (e) { return JSON.stringify({ status: 'skip', label: label }); }
                   await new Promise(r => setTimeout(r, 350));
                   const after = snapshot();
-                  const changed = before.view !== after.view || before.hash !== after.hash || before.modals !== after.modals;
+                  let changed = before.view !== after.view || before.hash !== after.hash || before.modals !== after.modals;
+                  // Bước "chọn vai X" bấm vào khối VIEW AS: bằng chứng nó có tác dụng là VAI đã đổi, không
+                  // phải chữ trên màn đổi — hai vai hoàn toàn có thể cùng mở một màn hình đầu tiên, và
+                  // chấm theo chữ sẽ báo oan "nút chết" cho đúng cái nút thay thế màn đăng nhập.
+                  if (!changed && roleBefore !== null && target.closest && target.closest('.view-as-item'))
+                    changed = norm(window.pocRole()) !== norm(roleBefore);
                   if (!changed && target.getAttribute && target.getAttribute('data-bs-toggle') === 'modal' && !window.bootstrap)
                     return JSON.stringify({ status: 'nobootstrap', label: label });
                   return JSON.stringify({ status: changed ? 'clicked' : 'dead', label: label });

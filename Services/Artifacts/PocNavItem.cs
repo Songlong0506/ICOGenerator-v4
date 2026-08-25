@@ -20,6 +20,13 @@ public sealed class PocNavItem
     public List<PocNavItem>? Children { get; set; }
 
     /// <summary>
+    /// Vai được thấy mục menu này (khối VIEW AS ở cuối sidebar). Rỗng/null = MỌI vai đều thấy — đó là
+    /// mặc định, chỉ khai báo khi spec giới hạn thật. Render thành <c>data-roles="Manager,HR"</c> để
+    /// shell tự ẩn/hiện; nhãn phải trùng danh sách 'roles' của <c>SetPocContent</c>.
+    /// </summary>
+    public List<string>? Roles { get; set; }
+
+    /// <summary>
     /// Tolerant parser for the agent-supplied 'navItems'. Malformed entries are skipped rather than thrown, so a nav slip never blocks the rest of the POC update. Returns an empty list for non-arrays.
     /// </summary>
     public static List<PocNavItem> ParseList(JsonElement element)
@@ -101,6 +108,13 @@ public sealed class PocNavItem
         var icon = GetStringProp(entry, "icon");
         if (!string.IsNullOrWhiteSpace(icon))
             item.Icon = icon.Trim();
+
+        if (TryGetProp(entry, "roles", out var rolesEl))
+        {
+            var roles = PocRole.ParseList(rolesEl);
+            if (roles.Count > 0)
+                item.Roles = roles;
+        }
 
         return item;
     }
