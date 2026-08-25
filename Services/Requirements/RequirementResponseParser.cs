@@ -115,6 +115,14 @@ Cần làm rõ
     {
         // Không đọc được thì dùng khung dự phòng bên dưới, để Approve vẫn ra được AI Design Spec dùng được
         // cho bước POC.
+        //
+        // Khung này BẮT BUỘC có mục "## 12. Assumptions" với một bullet thật. Cổng xác nhận giả định là
+        // thứ duy nhất chặn đường từ spec sang POC, và nó bật theo đúng số bullet của mục đó
+        // (SpecAssumptionsParser + AgentTaskWorker): khung dự phòng không có mục 12 nghĩa là "spec này
+        // không giả định gì" — một bản spec KHÔNG AI VIẾT đi thẳng vào lượt dựng POC đắt nhất tuyến mà
+        // không cổng nào hé một chữ. Đối chiếu Brief↔spec cũng không đỡ được: khung này không parse ra
+        // màn hình/rule/AC nào nên SpecBriefParityChecker fail-open, im lặng luôn. Bullet dưới đây là câu
+        // đúng sự thật cho người dùng nghiệp vụ đọc, và bấm "Chưa đúng" ở nó chính là đường sinh lại spec.
         if (LlmJson.TryDeserialize<BAAiDesignSpecResult>(response) is { } result)
             return Normalize(result);
 
@@ -159,6 +167,9 @@ Cần làm rõ
 ## 11. Developer Instructions
 - Generate a working POC.
 - Build only MVP scope.
+
+## 12. Assumptions
+- Bản thiết kế chi tiết chưa lập được từ bản mô tả sản phẩm, nên bản demo sẽ chỉ bám đúng những gì bản mô tả đã viết; mọi chi tiết còn lại do bên dựng demo tự quyết.
 """
             }
         };
