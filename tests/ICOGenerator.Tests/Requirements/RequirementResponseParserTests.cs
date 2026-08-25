@@ -113,6 +113,26 @@ public class RequirementResponseParserTests
     }
 
     [Fact]
+    public void TryParseAiDesignSpec_BrokenJson_ReturnsNull_SoRevisionKeepsFirstDraft()
+    {
+        // Vòng sửa sau đối chiếu Brief↔spec KHÔNG được rơi vào khung dự phòng: phản hồi bị cắt giữa
+        // chừng mà lấy khung "Cần làm rõ" đè lên bản vòng đầu thì bước dựng POC mất sạch đầu vào thật.
+        Assert.Null(_parser.TryParseAiDesignSpec("văn xuôi thuần, không có JSON"));
+        // Phản hồi bị cắt giữa chừng: ngoặc không cân.
+        Assert.Null(_parser.TryParseAiDesignSpec("{ \"assistantMessage\": \"x\", \"aiDesignSpec\": { \"content\": \"# AI Design Spec"));
+    }
+
+    [Fact]
+    public void TryParseAiDesignSpec_ValidJson_NormalizesContent()
+    {
+        var result = _parser.TryParseAiDesignSpec(
+            "{ \"assistantMessage\": \"x\", \"aiDesignSpec\": { \"content\": \"# AI Design Spec\\n## 12. Assumptions\\n- Mỗi JD một OrgUnit\" } }");
+
+        Assert.NotNull(result);
+        Assert.Single(SpecAssumptionsParser.Parse(result!.AiDesignSpec.Content));
+    }
+
+    [Fact]
     public void ParseAiDesignSpec_BrokenJson_FallbackTripsAssumptionGate()
     {
         // Khung dự phòng là một bản spec KHÔNG AI VIẾT. Nó phải mang mục "## 12. Assumptions" có bullet
