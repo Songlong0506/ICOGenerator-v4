@@ -278,6 +278,7 @@ public static class PocTemplate
     private const string BreadcrumbOpen = "<div class=\"breadcrumb\">";
     private const string NavOpen = "<nav class=\"sidebar-nav\">";
     private const string NavClose = "</nav>";
+    private const string RolesOpen = "<div class=\"view-as-list\" id=\"viewAsList\">";
 
     /// <summary>Sets the sidebar header name and the browser tab title.</summary>
     public static string ReplaceAppName(string current, string appName)
@@ -318,6 +319,53 @@ public static class PocTemplate
             return current;
 
         return current[..innerStart] + "\n" + rendered + "                " + current[closeIdx..];
+    }
+
+    /// <summary>
+    /// Dựng khối VIEW AS ở cuối sidebar: mỗi vai một nút <c>.view-as-item[data-role]</c>, vai đầu tiên
+    /// là vai mặc định lúc mở demo. Đây là thứ THAY CHO một màn đăng nhập giả — POC không có backend
+    /// nên "đăng nhập" chỉ là cửa gác che mất chính phần nghiệp vụ cần xem (và che luôn khỏi các cổng
+    /// tự kiểm). Danh sách rỗng ⇒ giữ nguyên file (shell tự ẩn khối khi có ít hơn hai vai).
+    /// </summary>
+    public static string ReplaceRoles(string current, IReadOnlyList<string> roles)
+    {
+        var rendered = RenderRoles(roles);
+        if (rendered.Length == 0)
+            return current;
+
+        var startIdx = current.IndexOf(RolesOpen, StringComparison.Ordinal);
+        if (startIdx < 0)
+            return current;
+
+        var innerStart = startIdx + RolesOpen.Length;
+        var closeIdx = current.IndexOf("</div>", innerStart, StringComparison.Ordinal);
+        if (closeIdx < 0)
+            return current;
+
+        return current[..innerStart] + "\n" + rendered + "                        " + current[closeIdx..];
+    }
+
+    private static string RenderRoles(IReadOnlyList<string>? roles)
+    {
+        if (roles == null)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        var activeUsed = false;
+        foreach (var role in roles.Take(PocRole.MaxRoles))
+        {
+            var label = (role ?? string.Empty).Trim();
+            if (label.Length == 0)
+                continue;
+
+            var encoded = WebUtility.HtmlEncode(label);
+            var active = activeUsed ? string.Empty : " active";
+            activeUsed = true;
+            sb.Append("                            <button type=\"button\" class=\"view-as-item").Append(active)
+              .Append("\" data-role=\"").Append(encoded).Append("\">").Append(encoded).Append("</button>\n");
+        }
+
+        return sb.ToString();
     }
 
     // Replaces the text between the first `open` tag and the next `close` after it.
@@ -371,7 +419,8 @@ public static class PocTemplate
 
             if (children.Count == 0)
             {
-                sb.Append("                    <div class=\"nav-item").Append(active).Append("\" title=\"").Append(label).Append("\">\n");
+                sb.Append("                    <div class=\"nav-item").Append(active).Append("\" title=\"").Append(label).Append('"')
+                  .Append(RolesAttribute(item.Roles)).Append(">\n");
                 sb.Append("                        ").Append(icon).Append('\n');
                 sb.Append("                        <span class=\"nav-label\">").Append(label).Append("</span>\n");
                 sb.Append("                    </div>\n");
@@ -382,7 +431,8 @@ public static class PocTemplate
             groupOpened = true;
 
             sb.Append("                    <div class=\"nav-group").Append(open).Append("\">\n");
-            sb.Append("                        <div class=\"nav-item").Append(active).Append("\" title=\"").Append(label).Append("\">\n");
+            sb.Append("                        <div class=\"nav-item").Append(active).Append("\" title=\"").Append(label).Append('"')
+              .Append(RolesAttribute(item.Roles)).Append(">\n");
             sb.Append("                            ").Append(icon).Append('\n');
             sb.Append("                            <span class=\"nav-label\">").Append(label).Append("</span>\n");
             sb.Append("                            ").Append(Chevron).Append('\n');
@@ -391,7 +441,8 @@ public static class PocTemplate
             foreach (var child in children)
             {
                 var childLabel = child.Label.Trim();
-                sb.Append("                            <div class=\"nav-item\">").Append(IconMarkup(child.Icon))
+                sb.Append("                            <div class=\"nav-item").Append('"').Append(RolesAttribute(child.Roles)).Append('>')
+                  .Append(IconMarkup(child.Icon))
                   .Append("<span class=\"nav-label\">").Append(WebUtility.HtmlEncode(childLabel)).Append("</span></div>\n");
             }
             sb.Append("                        </div>\n");
@@ -399,6 +450,24 @@ public static class PocTemplate
         }
 
         return sb.ToString();
+    }
+
+    // data-roles="Manager,HR" — vai được thấy mục menu này (khối VIEW AS ở cuối sidebar lọc theo đúng
+    // thuộc tính này). Không khai báo ⇒ không phát thuộc tính ⇒ mọi vai đều thấy.
+    private static string RolesAttribute(IReadOnlyList<string>? roles)
+    {
+        if (roles == null || roles.Count == 0)
+            return string.Empty;
+
+        var labels = roles
+            .Select(r => (r ?? string.Empty).Trim())
+            .Where(r => r.Length > 0)
+            .Take(PocRole.MaxRoles)
+            .ToList();
+
+        return labels.Count == 0
+            ? string.Empty
+            : " data-roles=\"" + WebUtility.HtmlEncode(string.Join(",", labels)) + "\"";
     }
 
     // Renders the Bootstrap Icons element for a nav item: the agent-supplied name (sanitized so it

@@ -8,12 +8,13 @@ public class PocAuditTests
     // Minimal generated-file shape carrying the exact anchors PocAudit scans: the sidebar <nav>,
     // the pinned User/Imprint items OUTSIDE it (must never count as menu leaves), the content
     // region, the shell modals and the POC_SCRIPT region.
-    private static string Doc(string nav, string content, string script = "var state = 1;")
+    private static string Doc(string nav, string content, string script = "var state = 1;", string[]? roles = null)
     {
         var doc =
             "<html><body>\n" +
             "<aside class=\"sidebar\">\n<nav class=\"sidebar-nav\">\n" + nav + "\n</nav>\n" +
             "<div class=\"sidebar-foot\">\n" +
+            ViewAs(roles) +
             "  <div class=\"nav-item\" id=\"navUser\" data-bs-toggle=\"modal\" data-bs-target=\"#userModal\"><span class=\"nav-label\">EXTERNAL User Name</span></div>\n" +
             "  <div class=\"nav-item\" id=\"navImprint\" data-bs-toggle=\"modal\" data-bs-target=\"#imprintModal\"><span class=\"nav-label\">Imprint</span></div>\n" +
             "</div>\n</aside>\n" +
@@ -27,6 +28,19 @@ public class PocAuditTests
 
     private static string Leaf(string label) =>
         $"<div class=\"nav-item\" title=\"{label}\"><span class=\"nav-label\">{label}</span></div>";
+
+    // Mục menu chỉ một số vai thấy được (khối VIEW AS lọc theo đúng thuộc tính này).
+    private static string Leaf(string label, params string[] roles) =>
+        $"<div class=\"nav-item\" title=\"{label}\" data-roles=\"{string.Join(",", roles)}\"><span class=\"nav-label\">{label}</span></div>";
+
+    // Khối chuyển vai ghim cuối sidebar — thứ thay cho một màn đăng nhập giả trong bản demo.
+    private static string ViewAs(string[]? roles) =>
+        roles is null || roles.Length == 0
+            ? string.Empty
+            : "  <div class=\"view-as\" id=\"viewAs\"><div class=\"view-as-list\" id=\"viewAsList\">"
+              + string.Concat(roles.Select((r, i) =>
+                    $"<button type=\"button\" class=\"view-as-item{(i == 0 ? " active" : "")}\" data-role=\"{r}\">{r}</button>"))
+              + "</div></div>\n";
 
     private static string Group(string label, params string[] children) =>
         "<div class=\"nav-group open\">" +
@@ -337,5 +351,79 @@ public class PocAuditTests
         foreach (var issue in outcome.Issues)
             Assert.Contains(issue, outcome.Report);
         Assert.Equal(outcome.Report, PocAudit.Run(doc, spec));
+    }
+
+    // --- VAI / khối VIEW AS ---
+
+    private static PocSpec SpecWithRoles(string[] screens, params string[] roles) =>
+        PocSpec.Parse("## 6. Screens To Generate\n"
+            + string.Concat(screens.Select(s => $"### {s}\n"))
+            + "## 6b. Permission Matrix\n"
+            + string.Concat(roles.Select((r, i) => $"- PM-{i + 1} ({screens[0]}): xem — {r} (của mình)\n")));
+
+    [Fact]
+    public void ReportsMissingViewAsSwitcher_WhenSpecHasSeveralRoles()
+    {
+        var doc = Doc(Leaf("Đơn của tôi") + Leaf("Duyệt đơn"), Section("Đơn của tôi") + Section("Duyệt đơn"));
+
+        var report = PocAudit.Run(doc, SpecWithRoles(["Đơn của tôi", "Duyệt đơn"], "Nhân viên", "Quản lý"));
+
+        Assert.Contains("ISSUES", report);
+        Assert.Contains("Permission Matrix names 2 roles", report);
+        Assert.Contains("VIEW AS", report);
+        Assert.Contains("no VIEW AS roles", report);
+    }
+
+    [Fact]
+    public void ReportsDataRolesNamingAnUndeclaredRole()
+    {
+        var doc = Doc(
+            Leaf("Đơn của tôi") + Leaf("Duyệt đơn", "Quan ly"),
+            Section("Đơn của tôi") + Section("Duyệt đơn"),
+            roles: ["Nhân viên", "Quản lý"]);
+
+        var report = PocAudit.Run(doc, SpecWithRoles(["Đơn của tôi", "Duyệt đơn"], "Nhân viên", "Quản lý"));
+
+        Assert.Contains("ISSUES", report);
+        Assert.Contains("'Quan ly' is not a VIEW AS role", report);
+    }
+
+    [Fact]
+    public void ReportsRoleThatCanOpenNothing()
+    {
+        var doc = Doc(
+            Leaf("Đơn của tôi", "Nhân viên") + Leaf("Duyệt đơn", "Nhân viên"),
+            Section("Đơn của tôi") + Section("Duyệt đơn"),
+            roles: ["Nhân viên", "Quản lý"]);
+
+        var report = PocAudit.Run(doc, SpecWithRoles(["Đơn của tôi", "Duyệt đơn"], "Nhân viên", "Quản lý"));
+
+        Assert.Contains("ISSUES", report);
+        Assert.Contains("visible to the VIEW AS role 'Quản lý'", report);
+    }
+
+    [Fact]
+    public void WarnsAboutLoginScreenTheSpecNeverAskedFor()
+    {
+        var doc = Doc(Leaf("Đơn của tôi"), Section("Đăng nhập") + Section("Đơn của tôi"));
+
+        var report = PocAudit.Run(doc, Spec(["Đơn của tôi"]));
+
+        Assert.Contains("WARNINGS", report);
+        Assert.Contains("login gate the spec never asked for", report);
+    }
+
+    [Fact]
+    public void Ok_WhenRolesAreDeclaredAndEveryTagMatches()
+    {
+        var doc = Doc(
+            Leaf("Đơn của tôi") + Leaf("Duyệt đơn", "Quản lý"),
+            Section("Đơn của tôi") + Section("Duyệt đơn"),
+            roles: ["Nhân viên", "Quản lý"]);
+
+        var report = PocAudit.Run(doc, SpecWithRoles(["Đơn của tôi", "Duyệt đơn"], "Nhân viên", "Quản lý"));
+
+        Assert.StartsWith("POC audit: OK", report);
+        Assert.Contains("VIEW AS roles: Nhân viên / Quản lý (first = default)", report);
     }
 }

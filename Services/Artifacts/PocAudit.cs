@@ -25,7 +25,7 @@ public static partial class PocAudit
     // Ids owned by the shell (poc-template.html); feature content reusing one makes Bootstrap open the
     // wrong dialog or the shell script wire the wrong element. Must match the prompt's reserved list.
     private static readonly string[] ReservedIds =
-        ["appShell", "userModal", "imprintModal", "toastHost", "sbToggle", "navUser", "navImprint"];
+        ["appShell", "userModal", "imprintModal", "toastHost", "sbToggle", "navUser", "navUserRole", "navImprint", "viewAs", "viewAsList"];
 
     public static string Run(string html) => Run(html, PocSpec.Empty);
 
@@ -76,6 +76,7 @@ public static partial class PocAudit
         if (spec.WorkedExamples.Count > 0 && scriptBody.Length > 0 && !scriptBody.Contains("pocWorkedExamples", StringComparison.Ordinal))
             issues.Add($"The POC script does not define window.pocWorkedExamples() although the AI Design Spec declares {spec.WorkedExamples.Count} worked example(s) — define it (globally) to return one entry per example: [{{ ref: 'WE-1', computed: <value computed by CALLING the demo's own logic for that example's inputs> }}, …]. The audit runs it in a headless browser and checks each computed value against the user-confirmed expected result.");
         var coveredScreens = CheckSpecCoverage(spec, navLeaves, sections, issues);
+        var declaredRoles = CheckRoles(scan, spec, issues, warnings);
 
         // Dữ liệu mẫu + ngôn ngữ UI: chạy trên vùng POC_CONTENT của bản GỐC (không phải bản đã strip
         // script/style ở trên — check này tự cắt vùng của nó). Không có bối cảnh ⇒ Empty, báo cáo y như cũ.
@@ -83,7 +84,7 @@ public static partial class PocAudit
         issues.AddRange(sample.Issues);
         warnings.AddRange(sample.Warnings);
 
-        var report = Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody, spec, coveredScreens);
+        var report = Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody, declaredRoles, spec, coveredScreens);
         return new PocAuditOutcome(report, issues, warnings, spec.Screens.Count, coveredScreens);
     }
 
@@ -232,7 +233,7 @@ public static partial class PocAudit
 
     private static string Render(
         List<string> issues, List<string> warnings,
-        List<string> navLeaves, List<string> sections, List<string> crudEntities, string scriptBody,
+        List<string> navLeaves, List<string> sections, List<string> crudEntities, string scriptBody, List<string> declaredRoles,
         PocSpec spec, int coveredScreens)
     {
         var sb = new StringBuilder();
@@ -283,6 +284,9 @@ public static partial class PocAudit
         }
 
         sb.Append($"Summary: {navLeaves.Count} menu leaves, {sections.Count} screens, ");
+        sb.Append(declaredRoles.Count > 0
+            ? $"VIEW AS roles: {string.Join(" / ", declaredRoles)} (first = default), "
+            : "no VIEW AS roles, ");
         if (spec.Screens.Count > 0)
             sb.Append($"spec coverage: {coveredScreens}/{spec.Screens.Count} spec screens, ");
         sb.Append(crudEntities.Count > 0 ? $"CRUD entities: {string.Join(", ", crudEntities.Distinct(StringComparer.Ordinal))}, " : "no CRUD entities, ");
@@ -290,18 +294,115 @@ public static partial class PocAudit
         return sb.ToString();
     }
 
+    // VAI (khối VIEW AS ở cuối sidebar) — chỗ NGƯỜI XEM DEMO đổi vai, thay cho một màn đăng nhập giả.
+    // Ba lớp lỗi được soát ở đây, đều là loại "nhìn ảnh chụp không thấy": spec có nhiều vai mà demo
+    // không cho đổi vai; data-roles gõ sai tên vai (mục menu/màn hình biến mất với MỌI vai); và một vai
+    // được khai báo nhưng không còn mục menu nào để mở. Trả về danh sách vai đã khai báo cho phần Summary.
+    private static List<string> CheckRoles(string html, PocSpec spec, List<string> issues, List<string> warnings)
+    {
+        var declared = DeclaredRoles(html);
+        var declaredKeys = new HashSet<string>(declared.Select(PocRole.Key), StringComparer.Ordinal);
+
+        if (declared.Count == 0 && spec.Roles.Count > 1)
+            issues.Add($"The AI Design Spec's Permission Matrix names {spec.Roles.Count} roles ({string.Join(", ", spec.Roles)}) but the demo declares none, so nobody can see what each role gets. Re-issue SetPocContent with roles: [{string.Join(", ", spec.Roles.Select(r => $"\"{r}\""))}] — that builds the VIEW AS switcher at the bottom of the sidebar — and tag the menu entries/sections that are role-specific with data-roles. Do NOT build a login screen for this: a POC has no backend, so the gate only hides the behaviour the demo exists to show.");
+
+        // Tên vai lệch giữa spec và demo: không phải lỗi cứng (spec có thể gộp/đặt tên khác) nhưng người
+        // nghiệm thu đối chiếu theo tên, nên nói ra.
+        if (declared.Count > 0)
+        {
+            foreach (var specRole in spec.Roles.Where(r => !declaredKeys.Contains(PocRole.Key(r))))
+                warnings.Add($"Role '{specRole}' of the spec's Permission Matrix is not one of the VIEW AS roles ({string.Join(", ", declared)}) — rename the switcher entry or add it, so the reviewer can check that role's screens.");
+        }
+
+        var leaves = NavLeaves(html);
+        var tagged = leaves.Select(l => (Kind: "menu item", Label: l.Label, Roles: l.Roles))
+            .Concat(SectionRoles(html).Select(x => (Kind: "screen", Label: x.Label, Roles: x.Roles)))
+            .Where(x => x.Roles.Count > 0)
+            .ToList();
+
+        if (declared.Count > 0)
+        {
+            foreach (var entry in tagged)
+            {
+                var unknown = entry.Roles.Where(r => !declaredKeys.Contains(PocRole.Key(r))).ToList();
+                if (unknown.Count > 0)
+                    issues.Add($"The {entry.Kind} '{entry.Label}' declares data-roles=\"{string.Join(",", entry.Roles)}\" but {string.Join(", ", unknown.Select(u => $"'{u}'"))} is not a VIEW AS role ({string.Join(", ", declared)}) — with a name no role matches it is hidden for EVERYONE. Fix the spelling or add that role to SetPocContent's roles.");
+            }
+
+            // Một vai không mở được màn nào = chọn vai đó thì sidebar trống. Chỉ xét khi MỌI mục menu đều
+            // đã gắn data-roles: mục không gắn là mục mọi vai đều thấy, nên vai đó vẫn có việc để làm.
+            if (leaves.Count > 0 && leaves.All(l => l.Roles.Count > 0))
+            {
+                foreach (var role in declared)
+                {
+                    if (!leaves.Any(l => l.Roles.Any(r => PocRole.Key(r) == PocRole.Key(role))))
+                        issues.Add($"No menu item is visible to the VIEW AS role '{role}' — switching to it leaves the reviewer with an empty sidebar. Give that role at least one screen (add it to a menu entry's data-roles) or drop it from the roles list.");
+                }
+            }
+        }
+
+        // Cửa gác giả: một màn Login/Đăng nhập KHÔNG có trong spec chỉ làm người xem demo phải bấm thêm
+        // một lượt trước khi thấy nghiệp vụ — và giấu luôn phần còn lại khỏi các cổng tự kiểm.
+        var login = SectionRoles(html).FirstOrDefault(x => LoginScreenRegex().IsMatch(x.Label));
+        if (login.Label is { Length: > 0 } && !spec.Screens.Any(sc => PocSpec.Matches(sc, login.Label)))
+            warnings.Add($"Screen '{login.Label}' looks like a login gate the spec never asked for. A POC has no backend, so it only delays the business behaviour — drop it and let the VIEW AS switcher at the bottom of the sidebar carry the persona instead.");
+
+        return declared;
+    }
+
+    // Các nút của khối VIEW AS: <button class="view-as-item" data-role="Manager">. Quét trên bản đã bỏ
+    // comment/script nên ví dụ trong comment của template không bị tính là vai thật.
+    private static List<string> DeclaredRoles(string html)
+    {
+        var roles = new List<string>();
+        foreach (Match m in ViewAsItemRegex().Matches(html))
+        {
+            var label = WebUtility.HtmlDecode(m.Groups[1].Value).Trim();
+            if (label.Length > 0 && !roles.Any(r => PocRole.Key(r) == PocRole.Key(label)))
+                roles.Add(label);
+        }
+        return roles;
+    }
+
+    private static List<(string Label, IReadOnlyList<string> Roles)> SectionRoles(string html)
+    {
+        var result = new List<(string, IReadOnlyList<string>)>();
+        foreach (Match tag in SectionTagRegex().Matches(html))
+        {
+            if (!tag.Value.Contains("page-view", StringComparison.Ordinal))
+                continue;
+            var view = DataViewRegex().Match(tag.Value);
+            if (!view.Success)
+                continue;
+            var label = WebUtility.HtmlDecode(view.Groups[1].Value).Trim();
+            if (label.Length == 0)
+                continue;
+            result.Add((label, RolesOf(tag.Value)));
+        }
+        return result;
+    }
+
+    private static IReadOnlyList<string> RolesOf(string tagOrBlock)
+    {
+        var m = DataRolesRegex().Match(tagOrBlock);
+        return m.Success ? PocRole.SplitCsv(WebUtility.HtmlDecode(m.Groups[1].Value)) : [];
+    }
+
     // Clickable sidebar leaves: nav-items inside <nav class="sidebar-nav"> that are NOT group headers
     // (headers carry the nav-chevron and only expand/collapse). The pinned User/Imprint items live in
     // .sidebar-foot, outside this <nav>, so they are naturally excluded.
-    private static List<string> NavLeafLabels(string html)
+    private static List<string> NavLeafLabels(string html) => NavLeaves(html).Select(l => l.Label).ToList();
+
+    // Cùng phép quét, giữ thêm data-roles của mục — tầng kiểm vai cần biết mục nào thuộc vai nào.
+    private static List<(string Label, IReadOnlyList<string> Roles)> NavLeaves(string html)
     {
-        var labels = new List<string>();
+        var leaves = new List<(string, IReadOnlyList<string>)>();
         var navStart = html.IndexOf("<nav class=\"sidebar-nav\">", StringComparison.Ordinal);
         if (navStart < 0)
-            return labels;
+            return leaves;
         var navEnd = html.IndexOf("</nav>", navStart, StringComparison.Ordinal);
         if (navEnd < 0)
-            return labels;
+            return leaves;
         var nav = html[navStart..navEnd];
 
         var itemStarts = NavItemStartRegex().Matches(nav);
@@ -318,9 +419,9 @@ public static partial class PocAudit
                 continue;
             var text = WebUtility.HtmlDecode(label.Groups[1].Value).Trim();
             if (text.Length > 0)
-                labels.Add(text);
+                leaves.Add((text, RolesOf(block)));
         }
-        return labels;
+        return leaves;
     }
 
     private static List<string> SectionLabels(string html)
@@ -399,6 +500,18 @@ public static partial class PocAudit
 
     [GeneratedRegex("<section\\b[^>]*>")]
     private static partial Regex SectionTagRegex();
+
+    // Nút chuyển vai của khối VIEW AS (cuối sidebar): <button class="view-as-item …" data-role="Manager">.
+    [GeneratedRegex("<button\\b[^>]*class=\"view-as-item[^\"]*\"[^>]*data-role=\"([^\"]*)\"", RegexOptions.IgnoreCase)]
+    private static partial Regex ViewAsItemRegex();
+
+    // Khai báo vai trên một mục menu / một màn hình.
+    [GeneratedRegex("data-roles=\"([^\"]*)\"", RegexOptions.IgnoreCase)]
+    private static partial Regex DataRolesRegex();
+
+    // Nhãn màn hình trông như một cửa đăng nhập ("Login", "Đăng nhập", "Sign in").
+    [GeneratedRegex("^\\s*(?:login|log in|sign[- ]?in|đăng nhập)\\b", RegexOptions.IgnoreCase)]
+    private static partial Regex LoginScreenRegex();
 
     [GeneratedRegex("data-view=\"([^\"]*)\"")]
     private static partial Regex DataViewRegex();

@@ -330,6 +330,80 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
         Assert.Contains("Chromium", report.SkipReason);
     }
 
+    // ===== VIEW AS trên SHELL THẬT =====
+    // Các test dưới đây dựng POC từ chính Prompts/Design/poc-template.html rồi mở bằng Chromium: đây là
+    // tầng duy nhất chứng minh cơ chế đổi vai của shell CHẠY THẬT (lọc menu, mở màn của vai, không ném
+    // lỗi JS). Trước đây vai do script của agent tự dựng sau một màn đăng nhập giả nên không cổng nào
+    // kiểm được nó.
+    private static string PromptsRoot()
+    {
+        var fromBin = Path.Combine(AppContext.BaseDirectory, "Prompts");
+        if (Directory.Exists(Path.Combine(fromBin, "Design")))
+            return fromBin;
+
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, "Prompts");
+            if (Directory.Exists(Path.Combine(candidate, "Design")))
+                return candidate;
+        }
+
+        throw new DirectoryNotFoundException("Không tìm thấy thư mục Prompts từ " + AppContext.BaseDirectory);
+    }
+
+    private static string RealShellPoc(string[] roles, List<PocNavItem> nav, string content)
+    {
+        var template = File.ReadAllText(Path.Combine(PromptsRoot(), "Design", "poc-template.html"));
+        var html = PocTemplate.SeedFromTemplate(template)!;
+        html = PocTemplate.ReplaceNav(html, nav);
+        html = PocTemplate.ReplaceRoles(html, roles);
+        return PocTemplate.ReplaceContent(html, content)!;
+    }
+
+    private static string Screen(string view, string? roles = null) =>
+        $"<section class=\"page-view{(view == "Đơn của tôi" ? " active" : "")}\" data-view=\"{view}\""
+        + (roles == null ? "" : $" data-roles=\"{roles}\"") + ">"
+        + $"<h2 class=\"h4\">{view}</h2><p>Nội dung demo của màn {view} với đủ chữ để không bị coi là màn trống.</p>"
+        + "<button class=\"btn btn-primary\">Gửi</button></section>";
+
+    [Fact]
+    public async Task RealShell_RoleSwitcher_FiltersMenuAndKeepsEveryScreenReachable()
+    {
+        var html = RealShellPoc(
+            ["Nhân viên", "Quản lý"],
+            [
+                new PocNavItem { Label = "Đơn của tôi" },
+                new PocNavItem { Label = "Duyệt đơn", Roles = ["Quản lý"] }
+            ],
+            Screen("Đơn của tôi") + Screen("Duyệt đơn", "Quản lý"));
+
+        var report = await CheckHtmlAsync(html);
+        if (!report.Ran)
+            return;
+
+        Assert.Empty(report.Issues);
+    }
+
+    [Fact]
+    public async Task RealShell_RoleThatOpensNothing_BecomesIssue()
+    {
+        // Mọi mục menu đều thuộc vai "Nhân viên" ⇒ chọn "Quản lý" là sidebar trống trơn: lỗi người xem
+        // demo gặp ngay ở cú bấm đầu tiên, và chỉ lượt đổi vai này thấy được.
+        var html = RealShellPoc(
+            ["Nhân viên", "Quản lý"],
+            [
+                new PocNavItem { Label = "Đơn của tôi", Roles = ["Nhân viên"] },
+                new PocNavItem { Label = "Duyệt đơn", Roles = ["Nhân viên"] }
+            ],
+            Screen("Đơn của tôi") + Screen("Duyệt đơn"));
+
+        var report = await CheckHtmlAsync(html);
+        if (!report.Ran)
+            return;
+
+        Assert.Contains(report.Issues, i => i.Contains("SIDEBAR TRỐNG") && i.Contains("Quản lý"));
+    }
+
     public Task InitializeAsync() => Task.CompletedTask;
 
     public async Task DisposeAsync()

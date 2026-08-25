@@ -189,4 +189,36 @@ public class PocSpecTests
         Assert.NotSame(PocSpec.Empty, spec);
         Assert.Single(spec.AcceptanceCriteria);
     }
+
+    // --- § 6b. Permission Matrix → danh sách vai của khối VIEW AS ---
+
+    [Fact]
+    public void Parse_ReadsRolesFromPermissionMatrix()
+    {
+        var spec = PocSpec.Parse("""
+            ## 6. Screens To Generate
+            ### 6.1. JD Library
+
+            ## 6b. Permission Matrix (vai trò nào làm được gì trên màn hình nào)
+            - PM-1 (JD Library): xem danh sách JD — Nhân viên (của mình)
+            - PM-2 (JD Library): duyệt JD — HRBP, HoD (của đơn vị)
+            - PM-3 (HRBP Assignment): phân công HRBP — Admin (tất cả)
+            """);
+
+        Assert.Equal(new[] { "Nhân viên", "HRBP", "HoD", "Admin" }, spec.Roles);
+        // Mục 6b KHÔNG được đọc nhầm thành màn hình dù tiêu đề của nó có chữ "màn hình".
+        Assert.Equal(new[] { "JD Library" }, spec.Screens);
+    }
+
+    [Fact]
+    public void Parse_IgnoresPermissionPlaceholderAndMalformedLines()
+    {
+        var spec = PocSpec.Parse("""
+            ## 6b. Permission Matrix
+            - Không có
+            - PM-1: dòng thiếu phần vai trò
+            """);
+
+        Assert.Empty(spec.Roles);
+    }
 }

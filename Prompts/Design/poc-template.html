@@ -2,8 +2,8 @@
 <!--
   poc-template.html — MANDATORY self-contained shell for generated POCs.
   Layout (matches the reference app): a top supergraphic bar, a collapsible dark
-  sidebar (App Name on top, expandable nav groups, User + Imprint pinned at the
-  bottom), and a fixed top bar with breadcrumb (left) + Bosch logo (right).
+  sidebar (App Name on top, expandable nav groups, then VIEW AS + User + Imprint
+  pinned at the bottom), and a fixed top bar with breadcrumb (left) + Bosch logo (right).
 
   STYLING = Bootstrap 5.3 (CSS + JS bundle, via CDN) + a thin Bosch theme layer in <style>
   that recolours Bootstrap to the brand (Bosch blue primary, brand font, borders). The feature
@@ -43,7 +43,8 @@
        data-bs-dismiss="modal" on Cancel buttons. Do NOT hand-roll overlays — let Bootstrap handle
        the backdrop, centering, padding and scroll. Modal ids MUST be unique and MUST NOT reuse the
        shell's reserved ids (appShell, userModal, imprintModal, toastHost, sbToggle, navUser,
-       navImprint) — use a feature id like #userFormModal, or Add/Save go to the wrong dialog.
+       navUserRole, navImprint, viewAs, viewAsList) — use a feature id like #userFormModal, or
+       Add/Save go to the wrong dialog.
     6. Save as poc-demo.html. Use the Bootstrap classes/components already loaded; do NOT re-link
        Bootstrap and do NOT add any other CSS/JS framework (no Angular/Material/jQuery…).
     7. LIVE CRUD WITHOUT CUSTOM JS — the shell <script> ships a small localStorage-backed engine, so
@@ -74,13 +75,21 @@
        (POC_SCRIPT_START/END) holds ONE <script> written only via the SetPocScript/AppendPocScript
        tools (pure JS, no external libraries). It runs after the shell script and is where the
        spec's business rules become real behaviour: compute derived values (totals, weighted
-       averages, ratings) from the seed data instead of hard-coding them, drive status/sign state
-       transitions (lock/unlock controls, swap badges), and simulate roles (a fake login/persona
-       switch that shows only that role's nav items and screens). The shell exposes
-       window.pocToast(msg) for feedback and window.pocNavigate(label) to open a screen like a
-       sidebar click. Declare functions globally so onclick="…" attributes in the content can call
-       them, and put data-no-toast on buttons the script fully handles so the generic click-toast
-       stays out of the way.
+       averages, ratings) from the seed data instead of hard-coding them and drive status/sign state
+       transitions (lock/unlock controls, swap badges). The shell exposes window.pocToast(msg) for
+       feedback and window.pocNavigate(label) to open a screen like a sidebar click. Declare
+       functions globally so onclick="…" attributes in the content can call them, and put
+       data-no-toast on buttons the script fully handles so the generic click-toast stays out of
+       the way.
+    9. ROLES ARE THE SHELL'S JOB — do NOT build a login screen. The VIEW AS block at the bottom of
+       the sidebar switches persona in one click; its buttons come from SetPocContent's 'roles'.
+       Declare access DECLARATIVELY: data-roles="Manager,HR" on a nav item (via the navItems entry's
+       "roles") and on a .page-view section; no data-roles = every role sees it. The shell hides the
+       menu items a role may not open, opens that role's first screen, sets body[data-poc-role], and
+       notifies the page logic through window.pocOnRoleChange(role) / the 'poc:rolechange' event —
+       that hook is where the POC_SCRIPT re-renders role-dependent data (filtered lists, hidden
+       actions). Read the current persona with window.pocRole(), switch from code with
+       window.pocSetRole(label).
 
   Content classes (Bootstrap 5.3, already loaded):
     buttons  btn btn-primary / btn btn-outline-primary / btn btn-link
@@ -363,6 +372,54 @@
             padding: 6px 0;
         }
 
+        /* VIEW AS — the demo role switcher pinned at the bottom of the sidebar. A POC has no backend,
+           so a login screen would only be a fake gate; the reviewer picks the persona here instead. */
+        .view-as {
+            border-bottom: 1px solid rgba(255,255,255,.08);
+            padding: 8px 0 10px;
+            margin-bottom: 6px;
+        }
+
+        .view-as-head {
+            padding: 0 18px 6px;
+            font-size: 11px;
+            letter-spacing: .6px;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .view-as-item {
+            display: block;
+            width: 100%;
+            border: 0;
+            background: none;
+            font: inherit;
+            text-align: left;
+            padding: 8px 18px;
+            color: var(--sidebar-ink);
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+            .view-as-item:hover {
+                background: rgba(255,255,255,.06);
+                color: var(--sidebar-ink-strong);
+            }
+
+            .view-as-item.active {
+                background: var(--bosch-blue);
+                color: #fff;
+            }
+
+        /* Current persona shown under the user name (like the reference app). */
+        .nav-role {
+            display: block;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
         .nav-item {
             display: flex;
             align-items: center;
@@ -417,7 +474,8 @@
         /* collapsed: icons only */
         .app-shell.collapsed .nav-label,
         .app-shell.collapsed .nav-chevron,
-        .app-shell.collapsed .nav-sub {
+        .app-shell.collapsed .nav-sub,
+        .app-shell.collapsed .view-as {
             display: none;
         }
 
@@ -670,11 +728,19 @@
                     </div>
                 </nav>
 
-                <!-- ===== Bottom: User + Imprint (fixed defaults) ===== -->
+                <!-- ===== Bottom: VIEW AS (role switcher) + User + Imprint (fixed defaults) ===== -->
                 <div class="sidebar-foot">
+                    <!-- VIEW AS — the demo's persona switch. The list is built by SetPocContent's
+                         'roles' parameter, one button per role of the spec's Permission Matrix:
+                           <button type="button" class="view-as-item active" data-role="Manager">Manager</button>
+                         With fewer than two roles the shell hides the whole block. -->
+                    <div class="view-as" id="viewAs">
+                        <div class="view-as-head">View as (demo)</div>
+                        <div class="view-as-list" id="viewAsList"></div>
+                    </div>
                     <div class="nav-item" id="navUser" title="User" data-bs-toggle="modal" data-bs-target="#userModal">
                         <i class="bi bi-person-circle" aria-hidden="true"></i>
-                        <span class="nav-label">EXTERNAL User Name</span>
+                        <span class="nav-label">EXTERNAL User Name<small class="nav-role" id="navUserRole" hidden></small></span>
                     </div>
                     <div class="nav-item" id="navImprint" title="Imprint" data-bs-toggle="modal" data-bs-target="#imprintModal">
                         <i class="bi bi-info-circle" aria-hidden="true"></i>
@@ -929,6 +995,13 @@
         var key = viewKey(label), target = null;
         views.forEach(function (v) { if (viewKey(v.getAttribute('data-view')) === key) target = v; });
         if (!target) return false;                        // unknown screen: keep the current view visible
+        // A screen belonging to ANOTHER role, opened from code (pocNavigate, a self-test scenario, the
+        // audit's screen walk): switch VIEW AS to a role that owns it instead of revealing a screen the
+        // current persona is not supposed to see.
+        if (!roleAllows(target, currentRole)) {
+          var owner = declaredRoles(target)[0];
+          if (owner) setRole(owner, true);
+        }
         views.forEach(function (v) { v.classList.toggle('active', v === target); });
         if (pageEl) pageEl.scrollTop = 0;
         return true;
@@ -953,11 +1026,110 @@
         return showView(navLabel(item));
       }
 
-      // Nav clicks are DELEGATED on the sidebar, not bound per element at load: the page-logic script is
-      // told to simulate roles, and a script that re-renders the menu (innerHTML) would strip per-element
-      // listeners and leave every menu item dead — breadcrumb changing while <main> keeps the old screen.
-      // With delegation the routing survives any number of menu rebuilds, and a rebuilt menu needs no
-      // click handler of its own.
+      // ---- VIEW AS: role simulation owned by the SHELL -----------------------------------------
+      // A POC has no backend, so a login screen can only be a fake gate: it hides every screen behind a
+      // form that validates nothing, and the automated gates (the menu-click pass, the UAT drive) then
+      // see nothing but that form. The persona is picked in the sidebar instead — one .view-as-item
+      // button per role — and visibility is DECLARATIVE: a nav item or a .page-view section carries
+      // data-roles="Role A,Role B"; no data-roles means "every role sees it".
+      var currentRole = '';
+      var roleSwitching = false;
+
+      function roleItems() { return Array.prototype.slice.call(document.querySelectorAll('#viewAsList .view-as-item')); }
+      function roleKey(s) { return (s || '').trim().toLowerCase(); }
+      function roleLabelOf(btn) { return ((btn.getAttribute('data-role') || btn.textContent) || '').trim(); }
+      function declaredRoles(el) {
+        var raw = el && el.getAttribute ? (el.getAttribute('data-roles') || '') : '';
+        return raw.split(',').map(function (r) { return r.trim(); }).filter(Boolean);
+      }
+      function roleAllows(el, role) {
+        var list = declaredRoles(el);
+        if (!list.length) return true;                    // untagged = visible to every role
+        var key = roleKey(role);
+        return list.some(function (r) { return roleKey(r) === key; });
+      }
+
+      // Hide what this role may not open. Only the MENU is filtered (never the sections themselves):
+      // a hidden section would screenshot blank in the audit, while a hidden menu item is exactly what
+      // "this role has no access" looks like in the real app.
+      function applyRoleToNav(role) {
+        document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (item) {
+          if (isNavGroupHead(item)) return;
+          item.style.display = roleAllows(item, role) ? '' : 'none';
+        });
+        document.querySelectorAll('.sidebar-nav .nav-group').forEach(function (group) {
+          var head = group.querySelector('.nav-item');
+          var subs = Array.prototype.slice.call(group.querySelectorAll('.nav-sub .nav-item'));
+          var anySub = subs.some(function (s) { return s.style.display !== 'none'; });
+          group.style.display = ((!head || roleAllows(head, role)) && (!subs.length || anySub)) ? '' : 'none';
+        });
+      }
+
+      function firstVisibleLeaf() {
+        var found = null;
+        document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (item) {
+          if (found || isNavGroupHead(item)) return;
+          if (item.style.display === 'none') return;
+          if (item.closest('.nav-group') && item.closest('.nav-group').style.display === 'none') return;
+          found = item;
+        });
+        return found;
+      }
+
+      // reveal=false (a real switch) also opens the role's first screen when the current one is out of
+      // its reach; reveal=true is the call from showView, which is already opening a screen itself.
+      function setRole(role, reveal) {
+        var match = null;
+        roleItems().forEach(function (b) { if (!match && roleKey(roleLabelOf(b)) === roleKey(role)) match = b; });
+        if (!match || roleSwitching) return false;
+        roleSwitching = true;
+        try {
+          currentRole = roleLabelOf(match);
+          roleItems().forEach(function (b) { b.classList.toggle('active', b === match); });
+          var badge = document.getElementById('navUserRole');
+          if (badge) { badge.textContent = currentRole; badge.hidden = false; }
+          document.body.setAttribute('data-poc-role', currentRole);
+          applyRoleToNav(currentRole);
+
+          if (!reveal) {
+            // Mở màn đầu tiên của vai khi màn đang xem không thuộc vai này, HOẶC khi mục menu đang active
+            // vừa bị ẩn đi (người xem sẽ không thấy mình đang đứng ở đâu trong menu).
+            var active = document.querySelector('section.page-view.active');
+            var activeItem = document.querySelector('.sidebar-nav .nav-item.active');
+            var group = activeItem ? activeItem.closest('.nav-group') : null;
+            var itemHidden = !!activeItem && (activeItem.style.display === 'none' || (group && group.style.display === 'none'));
+            if (!active || !roleAllows(active, currentRole) || itemHidden) {
+              var leaf = firstVisibleLeaf();
+              if (leaf) activateNav(leaf);
+            }
+          }
+        } finally {
+          roleSwitching = false;
+        }
+        // The page-logic script re-renders whatever depends on the persona (filtered lists, hidden
+        // actions) from either hook — an event listener or a global function, whichever it declared.
+        if (typeof window.pocOnRoleChange === 'function') { try { window.pocOnRoleChange(currentRole); } catch (e) { } }
+        try { document.dispatchEvent(new CustomEvent('poc:rolechange', { detail: { role: currentRole } })); } catch (e) { }
+        return true;
+      }
+
+      document.addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('.view-as-item') : null;
+        if (!btn) return;
+        if (setRole(roleLabelOf(btn), false)) toast('Viewing as ' + currentRole);
+      });
+
+      // Fewer than two roles = nothing to switch between: keep the block out of the way.
+      var viewAsBox = document.getElementById('viewAs');
+      var declared = roleItems();
+      if (viewAsBox) viewAsBox.hidden = declared.length < 2;
+      if (declared.length) setRole(roleLabelOf(declared[0]), false);
+
+      // Nav clicks are DELEGATED on the sidebar, not bound per element at load: any script that
+      // re-renders the menu (innerHTML) would strip per-element listeners and leave every menu item
+      // dead — breadcrumb changing while <main> keeps the old screen. With delegation the routing
+      // survives any number of menu rebuilds (the role filter above included), and a rebuilt menu
+      // needs no click handler of its own.
       document.addEventListener('click', function (e) {
         var item = e.target && e.target.closest ? e.target.closest('.sidebar-nav .nav-item') : null;
         if (!item) return;
@@ -1305,11 +1477,18 @@
       //   pocToast(msg)      — the standard feedback toast.
       //   pocNavigate(label) — open a screen exactly as if its sidebar item was clicked (active
       //                        state, breadcrumb and view switch); falls back to switching the
-      //                        .page-view directly when no menu item matches, e.g. a login screen
-      //                        that is deliberately not in the menu.
+      //                        .page-view directly when no menu item matches, e.g. a screen the
+      //                        script opens from a button instead of the menu.
+      //   pocRole() / pocRoles() / pocSetRole(label) — the VIEW AS persona: read it while rendering
+      //                        role-dependent data, list the declared roles, or switch from code.
+      //                        Re-render on window.pocOnRoleChange(role) or the 'poc:rolechange'
+      //                        event; the shell already hides the menu items that role cannot open.
       // Buttons the POC script fully handles should carry data-no-toast so the generic click-toast
       // above doesn't double up on the script's own feedback.
       window.pocToast = toast;
+      window.pocRole = function () { return currentRole; };
+      window.pocRoles = function () { return roleItems().map(roleLabelOf); };
+      window.pocSetRole = function (label) { return setRole(label, false); };
       window.pocNavigate = function (label) {
         var key = viewKey(label), match = null;
         document.querySelectorAll('.sidebar-nav .nav-item').forEach(function (item) {

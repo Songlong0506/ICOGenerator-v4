@@ -111,4 +111,15 @@ public class PocNavItemTests
     {
         Assert.Empty(Parse(json));
     }
+
+    [Fact]
+    public void ParseList_ReadsRolesOnItemsAndChildren()
+    {
+        var items = Parse("""[{"label":"Duyệt đơn","roles":["Quản lý","HR"]},{"label":"Quản trị","children":[{"label":"Người dùng","roles":"Admin"}]}]""");
+
+        Assert.Equal(new[] { "Quản lý", "HR" }, items[0].Roles);
+        Assert.Equal(new[] { "Admin" }, items[1].Children!.Single().Roles);
+        // Không khai báo = mọi vai đều thấy, nên KHÔNG dựng danh sách rỗng (shell không phát data-roles).
+        Assert.Null(items[1].Roles);
+    }
 }

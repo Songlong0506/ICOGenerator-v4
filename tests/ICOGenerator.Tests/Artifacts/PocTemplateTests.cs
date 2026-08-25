@@ -450,4 +450,58 @@ public class PocTemplateTests
         }
         return count;
     }
+
+    // --- VIEW AS: bộ chuyển vai cuối sidebar (thay cho màn đăng nhập giả) ---
+
+    private const string RolesShell =
+        "<html><body><div class=\"sidebar-foot\">" +
+        "<div class=\"view-as\" id=\"viewAs\"><div class=\"view-as-head\">View as (demo)</div>" +
+        "<div class=\"view-as-list\" id=\"viewAsList\"></div></div>" +
+        "</div></body></html>";
+
+    [Fact]
+    public void ReplaceRoles_RendersOneButtonPerRole_FirstOneActive()
+    {
+        // HtmlEncode đổi chữ có dấu thành entity số (đúng như ReplaceNav vẫn làm) — giải mã lại rồi mới so.
+        var html = System.Net.WebUtility.HtmlDecode(PocTemplate.ReplaceRoles(RolesShell, ["Nhân viên", "Quản lý"]));
+
+        Assert.Contains("<button type=\"button\" class=\"view-as-item active\" data-role=\"Nhân viên\">Nhân viên</button>", html);
+        Assert.Contains("<button type=\"button\" class=\"view-as-item\" data-role=\"Quản lý\">Quản lý</button>", html);
+        // Khối bao quanh và phần còn lại của shell không bị đụng tới.
+        Assert.Contains("<div class=\"view-as-list\" id=\"viewAsList\">", html);
+        Assert.Contains("View as (demo)", html);
+    }
+
+    [Fact]
+    public void ReplaceRoles_LeavesFileUntouched_WhenNoRolesOrNoAnchor()
+    {
+        Assert.Same(RolesShell, PocTemplate.ReplaceRoles(RolesShell, []));
+        Assert.Same("<html><body>no view-as here</body></html>",
+            PocTemplate.ReplaceRoles("<html><body>no view-as here</body></html>", ["Quản lý"]));
+    }
+
+    [Fact]
+    public void ReplaceNav_EmitsDataRoles_OnlyForItemsThatDeclareThem()
+    {
+        var shell = "<html><body><nav class=\"sidebar-nav\">old</nav></body></html>";
+        var items = new List<PocNavItem>
+        {
+            new() { Label = "Dashboard" },
+            new() { Label = "Duyệt đơn", Roles = ["Quản lý"] },
+            new()
+            {
+                Label = "Quản trị",
+                Roles = ["Admin"],
+                Children = [new PocNavItem { Label = "Người dùng", Roles = ["Admin", "HR"] }]
+            }
+        };
+
+        var html = System.Net.WebUtility.HtmlDecode(PocTemplate.ReplaceNav(shell, items));
+
+        Assert.Contains("title=\"Dashboard\">", html);
+        Assert.DoesNotContain("title=\"Dashboard\" data-roles", html);
+        Assert.Contains("title=\"Duyệt đơn\" data-roles=\"Quản lý\">", html);
+        Assert.Contains("title=\"Quản trị\" data-roles=\"Admin\">", html);
+        Assert.Contains("<div class=\"nav-item\" data-roles=\"Admin,HR\">", html);
+    }
 }

@@ -27,7 +27,7 @@ public sealed record PocAcceptanceCriterion(string Ref, string? Feature, string 
 /// </summary>
 public sealed partial class PocSpec
 {
-    public static readonly PocSpec Empty = new([], [], [], []);
+    public static readonly PocSpec Empty = new([], [], [], [], []);
 
     // Defensive caps: a runaway spec must not turn the audit report into a novel.
     private const int MaxScreens = 30;
@@ -37,6 +37,11 @@ public sealed partial class PocSpec
 
     public IReadOnlyList<string> Screens { get; }
     public IReadOnlyList<string> Rules { get; }
+
+    // Vai người dùng đọc từ "§ 6b. Permission Matrix" (mỗi dòng "- PM-n (<màn hình>): <chức năng> —
+    // <vai trò> (<phạm vi>)"). Đây là danh sách vai mà bản demo phải cho đổi qua lại ở khối VIEW AS
+    // cuối sidebar: spec có từ hai vai mà POC không khai báo vai nào thì phân quyền chỉ nằm trên giấy.
+    public IReadOnlyList<string> Roles { get; }
 
     // Ví dụ tính thử đã chốt (§ 13. Worked Examples): mỗi mục input → kết quả kỳ vọng cho một rule định
     // lượng. Đây là ORACLE ĐỘC LẬP — POC tự tính lại (window.pocWorkedExamples) và PocRuntimeChecker đối
@@ -52,10 +57,12 @@ public sealed partial class PocSpec
         IReadOnlyList<string> screens,
         IReadOnlyList<string> rules,
         IReadOnlyList<PocWorkedExample> workedExamples,
-        IReadOnlyList<PocAcceptanceCriterion> acceptanceCriteria)
+        IReadOnlyList<PocAcceptanceCriterion> acceptanceCriteria,
+        IReadOnlyList<string> roles)
     {
         Screens = screens;
         Rules = rules;
+        Roles = roles;
         WorkedExamples = workedExamples;
         AcceptanceCriteria = acceptanceCriteria;
     }
@@ -71,6 +78,7 @@ public sealed partial class PocSpec
         var rules = new List<string>();
         var workedExamples = new List<PocWorkedExample>();
         var acceptanceCriteria = new List<PocAcceptanceCriterion>();
+        var roles = new List<string>();
         var section = CurrentSection.Other;
 
         foreach (var raw in lines)
@@ -110,6 +118,12 @@ public sealed partial class PocSpec
                     }
                     break;
 
+                case CurrentSection.Permissions:
+                    var pm = TopLevelBulletRegex().Match(line);
+                    if (pm.Success)
+                        AddPermissionRoles(roles, pm.Groups[1].Value);
+                    break;
+
                 case CurrentSection.AcceptanceCriteria:
                     var ac = TopLevelBulletRegex().Match(line);
                     if (ac.Success && acceptanceCriteria.Count < MaxAcceptanceCriteria)
@@ -122,9 +136,9 @@ public sealed partial class PocSpec
             }
         }
 
-        return screens.Count == 0 && rules.Count == 0 && workedExamples.Count == 0 && acceptanceCriteria.Count == 0
+        return screens.Count == 0 && rules.Count == 0 && workedExamples.Count == 0 && acceptanceCriteria.Count == 0 && roles.Count == 0
             ? Empty
-            : new PocSpec(screens, rules, workedExamples, acceptanceCriteria);
+            : new PocSpec(screens, rules, workedExamples, acceptanceCriteria, roles);
     }
 
     // "AC-2 (Thủ thư xác nhận trả sách): xác nhận xong thì sách trở về trạng thái 'có sẵn'." → ref "AC-2",
@@ -192,7 +206,7 @@ public sealed partial class PocSpec
     public static string Key(string label) =>
         WhitespaceRegex().Replace((label ?? string.Empty).Trim(), " ").ToLowerInvariant();
 
-    private enum CurrentSection { Other, Screens, Rules, WorkedExamples, AcceptanceCriteria }
+    private enum CurrentSection { Other, Screens, Rules, WorkedExamples, AcceptanceCriteria, Permissions }
 
     // Headings come numbered ("## 6. Screens To Generate"); classification goes by the words so a
     // renumbered spec still parses. English names are pinned by the BA prompt; the Vietnamese
@@ -207,6 +221,10 @@ public sealed partial class PocSpec
         // viết là "Tiêu chí nghiệm thu (quy tắc chấp nhận)", và chữ "quy tắc" ở đó sẽ kéo nhầm sang Rules.
         if (text.Contains("acceptance criteri", StringComparison.Ordinal) || text.Contains("nghiệm thu", StringComparison.Ordinal))
             return CurrentSection.AcceptanceCriteria;
+        // "Permission Matrix" / "phân quyền" TRƯỚC nhánh màn hình: tiêu đề § 6b hay kèm chú thích
+        // "(vai trò nào làm được gì trên màn hình nào)" và chữ "màn hình" ở đó sẽ kéo nhầm sang Screens.
+        if (text.Contains("permission", StringComparison.Ordinal) || text.Contains("phân quyền", StringComparison.Ordinal))
+            return CurrentSection.Permissions;
         if (text.Contains("screen", StringComparison.Ordinal) || text.Contains("màn hình", StringComparison.Ordinal))
             return CurrentSection.Screens;
         if (text.Contains("business rule", StringComparison.Ordinal) || text.Contains("quy tắc", StringComparison.Ordinal))
@@ -223,6 +241,28 @@ public sealed partial class PocSpec
         name = ScreenLabelPrefixRegex().Replace(name, string.Empty);
         name = TrailingParentheticalRegex().Replace(name, string.Empty);
         return name.Trim();
+    }
+
+    // "PM-3 (JD Library): xem danh sách JD — HRBP, HoD (của đơn vị)" → vai "HRBP" và "HoD". Phần vai là
+    // đoạn SAU dấu gạch dài cuối cùng, bỏ phạm vi trong ngoặc. Dòng không đúng khuôn (hoặc placeholder
+    // "Không có") thì bỏ qua — parser này cố tình dè dặt: đoán bừa một cái tên vai còn tệ hơn không có.
+    private static void AddPermissionRoles(List<string> roles, string raw)
+    {
+        var text = StripMarkdownEmphasis(raw).Trim();
+        if (text.Length == 0 || PlaceholderBulletRegex().IsMatch(text))
+            return;
+
+        var m = PermissionActorRegex().Match(text);
+        if (!m.Success)
+            return;
+
+        var actors = TrailingParentheticalRegex().Replace(m.Groups[1].Value, string.Empty);
+        foreach (var actor in ActorSeparatorRegex().Split(actors))
+        {
+            var name = StripNumbering(actor).Trim().Trim('.', ',', ':', ';').Trim();
+            if (name.Length is > 0 and <= 40)
+                AddUnique(roles, name, PocRole.MaxRoles);
+        }
     }
 
     private static string CleanRuleText(string raw)
@@ -282,6 +322,15 @@ public sealed partial class PocSpec
     // "AC-2 (<tính năng>): <câu nghiệm thu>" — Group1=số, Group2=tính năng (tùy chọn), Group3=câu.
     [GeneratedRegex("^AC[-\\s]?(\\d+)\\s*(?:\\(\\s*([^)]*?)\\s*\\))?\\s*[::]\\s*(.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex AcceptanceCriterionRegex();
+
+    // Dòng permission matrix "PM-n (…): <chức năng> — <vai trò> (<phạm vi>)" — Group1 = đoạn vai trò,
+    // tức phần sau dấu gạch dài (hoặc " - ") CUỐI CÙNG của dòng.
+    [GeneratedRegex("^PM[-\\s]?\\d+\\b.*(?:[—–]|\\s+-\\s+)\\s*(.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex PermissionActorRegex();
+
+    // Nhiều vai trên cùng một dòng: "HRBP, HoD", "HRBP và HoD", "HRBP/HoD".
+    [GeneratedRegex("\\s*(?:[,;/&+]|\\bvà\\b|\\band\\b)\\s*", RegexOptions.IgnoreCase)]
+    private static partial Regex ActorSeparatorRegex();
 
     // Đánh số đầu dòng ("6.", "6.1.", "1)"…) cần cắt bỏ.
     [GeneratedRegex("^\\d{1,2}(?:\\.\\d{1,2})*[.)]?\\s*")]

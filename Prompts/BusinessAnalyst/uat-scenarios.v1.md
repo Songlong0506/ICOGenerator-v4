@@ -6,7 +6,7 @@ Bạn nhận được **AI Design Spec** của một POC vừa được dựng. 
 - 3–8 kịch bản, mỗi kịch bản đi TRỌN một luồng nghiệp vụ có ý nghĩa (tạo → duyệt → đổi trạng thái…), ưu tiên các luồng chính và các Business Rule (BR-n) của spec.
 - **PHỦ HẾT mục "## 14. Acceptance Criteria" (nếu spec có mục này) — đây là yêu cầu quan trọng nhất.** Mỗi câu `AC-n` là một câu nghiệm thu do CHÍNH NGƯỜI DÙNG viết và đã duyệt, nên mỗi AC-n phải có **ít nhất một kịch bản chứng minh được nó**, và kịch bản đó ghi mã AC vào trường `acRefs`. Một kịch bản có thể phủ nhiều AC nếu luồng của nó đi qua cả hai. Ưu tiên phủ AC trước, rồi mới tới các luồng/rule chưa được AC nào chạm tới.
 - Mỗi kịch bản 3–7 bước, mỗi bước là MỘT thao tác cụ thể người dùng làm được trên POC ("Mở màn hình 'Duyệt đơn'", "Bấm nút Duyệt ở đơn của Nguyễn Văn A", "Kiểm tra trạng thái đổi thành 'Đã duyệt'"). Bước cuối luôn là bước KIỂM TRA kết quả nhìn thấy được.
-- Nếu spec có nhiều vai trò (Employee/Manager…), bước đầu của kịch bản nêu rõ đăng nhập/chọn vai nào.
+- Nếu spec có nhiều vai trò (Employee/Manager…), bước đầu của kịch bản là **chọn vai** ở khối **VIEW AS** cuối menu trái, ghi nhãn vai trong ngoặc kép: `Chọn vai "Manager" ở VIEW AS`. POC KHÔNG có màn đăng nhập (không có backend thì đăng nhập chỉ là cửa gác giả), nên đừng viết bước "đăng nhập". Luồng đi qua nhiều vai thì mỗi lần đổi vai là một bước riêng như vậy.
 - Tên màn hình dùng NGUYÊN VĂN tên trong mục "Screens To Generate" của spec.
 - Viết đúng ngôn ngữ của spec (spec tiếng Việt → kịch bản tiếng Việt), dễ hiểu với người không rành công nghệ.
 - KHÔNG bịa tính năng ngoài spec; chỉ dùng màn hình/nút/luồng mà spec mô tả.
