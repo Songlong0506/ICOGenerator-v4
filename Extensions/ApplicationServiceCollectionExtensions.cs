@@ -414,7 +414,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetSourceFileContentQuery>();
         services.AddScoped<GetDocumentRevisionsQuery>();
         services.AddScoped<GetDocumentRevisionDiffQuery>();
-        services.AddScoped<EstimatePocEtaQuery>();
         services.AddScoped<ReviseBriefFromNotesUseCase>();
         services.AddScoped<RoutePocFeedbackToRequirementUseCase>();
         services.AddScoped<TriagePocFeedbackUseCase>();
