@@ -59,7 +59,7 @@
 ## Migration
 
 - Đổi entity ⇒ `dotnet ef migrations add <Tên>`; `DbInitializer` tự `MigrateAsync` lúc khởi động (SqlServer).
-- Migration hiện tại là một **baseline `V1` duy nhất** (đã gộp toàn bộ lịch sử; các migration tiến lẻ tẻ trước đây không còn). Khi cần sinh migration, để `Database:Provider` là `SqlServer` (mặc định) — **đừng** đặt `Database__Provider=Sqlite` — để nó sinh theo provider SqlServer (không phải Sqlite).
+- Lịch sử migration bắt đầu từ **baseline `V1`** (đã gộp toàn bộ lịch sử trước đó), sau đó là các migration tiến bình thường. Khi cần sinh migration, để `Database:Provider` là `SqlServer` (mặc định) — **đừng** đặt `Database__Provider=Sqlite` — để nó sinh theo provider SqlServer (không phải Sqlite).
 - Sqlite **không chạy migration** (dùng `EnsureCreated`) ⇒ đổi schema khi dev Sqlite = xóa file `ICOGenerator.db*` để dựng lại.
 
 ---
@@ -342,6 +342,10 @@ erDiagram
   popup AI Call Logs vì thế chỉ hiện nhãn "Step" khi `Step > 1`.
 - `AgentTool` là bảng many-to-many explicit với composite key.
 - `ToolDefinition` unique theo `(ServiceType, MethodName)` để đồng bộ discovery không tạo trùng.
+- `ToolDefinition.Description` để `nvarchar(max)`: nó là bản chép nguyên `[Description]` của tool trong
+  code — prompt gửi cho LLM, chỉ dài thêm theo thời gian. Cột bound (từng là `nvarchar(3000)`) khiến
+  `ToolDiscoveryService` ném `String or binary data would be truncated` **ngay lúc khởi động** khi có tool
+  vượt trần. `ToolDefinitionColumnTests` chốt điều này ở CI.
 - `Agent.RoleKey` là unique: mỗi role đúng một agent — mọi lookup agent trong hệ thống đều theo `RoleKey`.
 
 ## Security/RBAC/Audit schema

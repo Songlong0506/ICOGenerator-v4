@@ -227,7 +227,11 @@ public class AppDbContext : DbContext
         {
             b.Property(x => x.Name).HasMaxLength(200);
             b.Property(x => x.DisplayName).HasMaxLength(200);
-            b.Property(x => x.Description).HasMaxLength(3000);
+            // Description là prompt gửi thẳng cho LLM (mô tả tool + hướng dẫn dùng), chép nguyên từ
+            // [Description] trong code lúc khởi động — nó chỉ dài thêm theo thời gian. Cột từng bound
+            // nvarchar(3000) và SetPocContent (3067 ký tự) làm ToolDiscoveryService ném "String or binary
+            // data would be truncated" NGAY LÚC KHỞI ĐỘNG ⇒ app chết, sửa được chỉ bằng migration.
+            // Để nvarchar(max) (LOB): cột không nằm trong index nào, nên không mất gì.
             b.HasIndex(x => x.Name);
         });
         builder.Entity<WorkflowRun>().Property(x => x.Name).HasMaxLength(200);
