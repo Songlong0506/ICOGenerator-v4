@@ -1621,6 +1621,10 @@ trở về đúng hình dạng cũ (`BriefTraceabilityRuleTests`).
 
 Lý do đặt cổng ở đây chứ không sau POC: một giả định sai chỉ lộ ra khi xem POC là đã tốn trọn lượt dựng đắt nhất tuyến (5–15 phút), trong khi rà vài dòng chữ mất vài giây. Spec không có giả định nào ⇒ chạy thẳng sang [Delivery Pipeline](delivery-pipeline.md) như trước.
 
+**Cổng đọc mục 12 theo kiểu "lỏng vào, chặt ra".** Cổng bật/tắt theo đúng số bullet `SpecAssumptionsParser` bóc được, nên mọi kiểu trình bày parser không nhận đều biến thành "spec không có giả định nào": cổng **tắt im lặng** trong khi các giả định vẫn nằm trong spec và vẫn lái POC. Nhìn từ phía người dùng, cùng một buổi phỏng vấn mà đổi model BA thì model này "ra POC ngay" còn model kia "cứ hỏi giả định" — khác biệt nằm ở chỗ mục 12 được viết ra sao, không phải ở chỗ model nào tự quyết ít hơn. Vì hỏng theo chiều đó đắt hơn hẳn hỏi thừa một dòng, parser nhận cả các kiểu lệch thật đã gặp: heading ở **bất kỳ cấp nào** (`### 12. Assumptions`), heading in đậm mang số mục (`**12. Assumptions**`), tiểu mục bên trong mục (`### 12.1. …` **không** đóng mục — chỉ heading cùng cấp hoặc nông hơn mới đóng), và **danh sách đánh số** (`1.`, `1)`, `(1)`) ngang hàng với gạch đầu dòng. Vế chặt giữ nguyên: một dòng in đậm **không** mang số mục (`**Giả định chung: …**` nằm giữa mục Business Rules) không được coi là heading, nếu không mọi bullet phía sau bị kéo vào danh sách giả định.
+
+**Khung dự phòng cũng phải qua cổng.** Lượt sinh spec trả JSON không đọc được sẽ rơi vào khung dự phòng của `RequirementResponseParser.ParseAiDesignSpec` — một bản spec không ai viết: Project Goal là nguyên văn Brief, các mục còn lại là "Cần làm rõ". Khung đó mang sẵn một bullet ở mục `## 12. Assumptions` nói đúng tình trạng ("bản thiết kế chi tiết chưa lập được từ bản mô tả sản phẩm…") để cổng bật lên. Không có bullet đó thì khung này đi thẳng vào lượt dựng POC mà không cổng nào hé một chữ: `SpecBriefParityChecker` fail-open với chính nó (không bóc ra màn hình/rule/AC nào để so), nên cổng là chốt duy nhất còn lại. Bấm "Chưa đúng" ở bullet đó chính là đường sinh lại spec.
+
 ---
 
 ## Các cơ chế trí nhớ

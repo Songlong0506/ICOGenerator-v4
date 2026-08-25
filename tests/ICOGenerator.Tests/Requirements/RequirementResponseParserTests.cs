@@ -111,4 +111,15 @@ public class RequirementResponseParserTests
     {
         Assert.Null(_parser.TryParseProductBrief("văn xuôi thuần, không có JSON"));
     }
+
+    [Fact]
+    public void ParseAiDesignSpec_BrokenJson_FallbackTripsAssumptionGate()
+    {
+        // Khung dự phòng là một bản spec KHÔNG AI VIẾT. Nó phải mang mục "## 12. Assumptions" có bullet
+        // thật, vì cổng xác nhận giả định là chốt duy nhất giữa spec và lượt dựng POC — mục rỗng nghĩa là
+        // "spec này không giả định gì" và bản demo được dựng từ khung "Cần làm rõ" mà không ai được hỏi.
+        var result = _parser.ParseAiDesignSpec("văn xuôi thuần, không có JSON", "# App kho\n## Quy tắc cần nhớ\n- Mỗi phiếu một kho");
+
+        Assert.NotEmpty(SpecAssumptionsParser.Parse(result.AiDesignSpec.Content));
+    }
 }
