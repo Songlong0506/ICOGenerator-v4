@@ -300,8 +300,9 @@ public static class PocTemplate
 
     /// <summary>
     /// Rebuilds the left sidebar menu from <paramref name="items"/> using the template's nav classes;
-    /// the first entry is active and the first group expanded. Returns input unchanged when there's
-    /// nothing renderable or the nav element is missing.
+    /// the first LEAF (top-level item, or the first child when the menu opens with a group) is active
+    /// and the first group expanded — a group header only expands, so it never carries the active
+    /// state. Returns input unchanged when there's nothing renderable or the nav element is missing.
     /// </summary>
     public static string ReplaceNav(string current, IReadOnlyList<PocNavItem> items)
     {
@@ -399,7 +400,6 @@ public static class PocTemplate
 
         var sb = new StringBuilder();
         var activeUsed = false;
-        var groupOpened = false;
 
         foreach (var item in items)
         {
@@ -410,15 +410,15 @@ public static class PocTemplate
             var label = WebUtility.HtmlEncode(rawLabel);
             var icon = IconMarkup(item!.Icon);
 
-            var active = activeUsed ? string.Empty : " active";
-            activeUsed = true;
-
             var children = item.Children?
                 .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Label))
                 .ToList() ?? new List<PocNavItem>();
 
             if (children.Count == 0)
             {
+                var active = activeUsed ? string.Empty : " active";
+                activeUsed = true;
+
                 sb.Append("                    <div class=\"nav-item").Append(active).Append("\" title=\"").Append(label).Append('"')
                   .Append(RolesAttribute(item.Roles)).Append(">\n");
                 sb.Append("                        ").Append(icon).Append('\n');
@@ -427,11 +427,17 @@ public static class PocTemplate
                 continue;
             }
 
-            var open = groupOpened ? string.Empty : " open";
-            groupOpened = true;
+            // XỔ SẴN đúng nhóm chứa mục đang mở (tức nhóm đứng đầu menu, khi menu mở bằng một nhóm) —
+            // các nhóm còn lại đóng. Trước đây nhóm ĐẦU TIÊN luôn xổ sẵn dù mục đang mở nằm ngoài nó,
+            // và với menu đã gom thì cái xổ sẵn ấy trả lại nguyên dãy 5–8 màn danh mục lên sidebar —
+            // đúng thứ việc gom nhóm sinh ra để thu lại.
+            var open = activeUsed ? string.Empty : " open";
 
             sb.Append("                    <div class=\"nav-group").Append(open).Append("\">\n");
-            sb.Append("                        <div class=\"nav-item").Append(active).Append("\" title=\"").Append(label).Append('"')
+            // Tiêu đề nhóm KHÔNG bao giờ là mục active: nó chỉ xổ/thu nhóm, không mở màn hình nào. Đánh
+            // active cho nó (thứ tự cũ) thì một menu bắt đầu bằng nhóm mở demo với mục đang sáng không
+            // ứng với màn nào — shell rơi về section đầu tiên, người xem thấy menu chỉ sai chỗ này.
+            sb.Append("                        <div class=\"nav-item\" title=\"").Append(label).Append('"')
               .Append(RolesAttribute(item.Roles)).Append(">\n");
             sb.Append("                            ").Append(icon).Append('\n');
             sb.Append("                            <span class=\"nav-label\">").Append(label).Append("</span>\n");
@@ -441,7 +447,11 @@ public static class PocTemplate
             foreach (var child in children)
             {
                 var childLabel = child.Label.Trim();
-                sb.Append("                            <div class=\"nav-item").Append('"').Append(RolesAttribute(child.Roles)).Append('>')
+                var childActive = activeUsed ? string.Empty : " active";
+                activeUsed = true;
+
+                sb.Append("                            <div class=\"nav-item").Append(childActive).Append('"')
+                  .Append(RolesAttribute(child.Roles)).Append('>')
                   .Append(IconMarkup(child.Icon))
                   .Append("<span class=\"nav-label\">").Append(WebUtility.HtmlEncode(childLabel)).Append("</span></div>\n");
             }

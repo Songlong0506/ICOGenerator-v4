@@ -404,6 +404,36 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
         Assert.Contains(report.Issues, i => i.Contains("SIDEBAR TRỐNG") && i.Contains("Quản lý"));
     }
 
+    // MENU GOM NHÓM trên shell thật: các màn danh mục nằm trong một mục xổ xuống (nhóm KHÔNG mở sẵn,
+    // vì nhóm đầu tiên mới nhận class "open") vẫn phải bấm được và mở đúng màn của nó. Đây là tầng duy
+    // nhất chứng minh việc gom nhóm không làm chết chính lượt CLICK MENU mà nó vừa thu gọn.
+    [Fact]
+    public async Task RealShell_GroupedCatalogMenu_EveryChildStillOpensItsScreen()
+    {
+        var html = RealShellPoc(
+            ["Nhân viên", "Quản lý"],
+            [
+                new PocNavItem { Label = "Đơn của tôi" },
+                new PocNavItem
+                {
+                    Label = "Danh mục",
+                    Children =
+                    [
+                        new PocNavItem { Label = "Skill Catalog" },
+                        new PocNavItem { Label = "Degree Catalog" },
+                        new PocNavItem { Label = "JobTitle Catalog" }
+                    ]
+                }
+            ],
+            Screen("Đơn của tôi") + Screen("Skill Catalog") + Screen("Degree Catalog") + Screen("JobTitle Catalog"));
+
+        var report = await CheckHtmlAsync(html);
+        if (!report.Ran)
+            return;
+
+        Assert.Empty(report.Issues);
+    }
+
     public Task InitializeAsync() => Task.CompletedTask;
 
     public async Task DisposeAsync()

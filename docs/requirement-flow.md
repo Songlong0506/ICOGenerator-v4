@@ -680,6 +680,11 @@ hai kiểu tên:
 Hai bước sau chỉ CHÉP: `ai-design-spec.v1.md` lấy cột `Screen` của bảng đã chốt làm heading `### 6.n`, rồi
 `poc-preview.v1.md` lấy heading đó làm nhãn `navItems` và `data-view` của section.
 
+Hai nguồn tất định ở trên sinh màn hình theo **lô** (5–8 danh mục, 3–5 báo cáo là bình thường), nên ở bản
+demo chúng được gom vào một mục menu xổ xuống thay vì rải phẳng — cơ chế và ngưỡng ở
+[workspace-and-poc.md](workspace-and-poc.md#poc-demo). Phạm vi màn hình thì không đổi: mỗi danh mục/báo cáo
+vẫn là một dòng riêng của bảng màn hình và một heading `### 6.n` riêng của spec.
+
 **Tên ngắn làm phép so khớp bù gần như hết tác dụng, và đó là đánh đổi có chủ ý.** `MatchScreen` chỉ chấp
 nhận cụm chứa nhau khi tên dài từ 8 ký tự (`MinContainsLength`), nên với `My JD` hay `Standard JD` thì chỉ
 còn đường khớp ĐÚNG CHỮ — model thêm một chữ dẫn là dòng trượt khỏi danh sách cho phép rồi mọc lại thành

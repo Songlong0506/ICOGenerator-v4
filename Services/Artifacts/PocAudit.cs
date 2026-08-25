@@ -27,6 +27,9 @@ public static partial class PocAudit
     private static readonly string[] ReservedIds =
         ["appShell", "userModal", "imprintModal", "toastHost", "sbToggle", "navUser", "navUserRole", "navImprint", "viewAs", "viewAsList"];
 
+    /// <summary>Một mục menu BẤM ĐƯỢC của sidebar: nhãn, vai được thấy, và nhãn nhóm chứa nó (null = nằm thẳng ở menu gốc).</summary>
+    private sealed record PocNavLeaf(string Label, IReadOnlyList<string> Roles, string? Group);
+
     public static string Run(string html) => Run(html, PocSpec.Empty);
 
     /// <summary>
@@ -62,10 +65,12 @@ public static partial class PocAudit
         scan = StyleBlockRegex().Replace(scan, string.Empty);
         scan = ScriptBlockRegex().Replace(scan, string.Empty);
 
-        var navLeaves = NavLeafLabels(scan);
+        var navEntries = NavLeaves(scan);
+        var navLeaves = navEntries.Select(l => l.Label).ToList();
         var sections = SectionLabels(scan);
         CheckContentSeeded(html, issues);
         CheckNavAgainstSections(navLeaves, sections, issues, warnings);
+        CheckNavGrouping(navEntries, issues);
         var ids = CheckIds(scan, issues);
         CheckModalTargets(scan, ids, issues);
         var crudEntities = CheckCrud(scan, issues, warnings);
@@ -130,6 +135,40 @@ public static partial class PocAudit
         var leafKeys = new HashSet<string>(navLeaves.Select(Key));
         foreach (var s in sections.Where(s => !leafKeys.Contains(Key(s))))
             warnings.Add($"Section data-view=\"{s}\" is not opened by any menu item — fine only if the POC script navigates to it (pocNavigate('{s}')); otherwise it is unreachable.");
+    }
+
+    // GOM NHÓM MENU: các màn hình sinh ra theo LÔ (danh mục "<tên> Catalog" từ bảng đối tượng, báo cáo
+    // "<tên> Report" từ bảng báo cáo) phải nằm trong MỘT mục xổ xuống, không rải phẳng ra menu gốc.
+    // Một dự án nhân sự bình thường có 5–8 danh mục: để phẳng thì phần nghiệp vụ thật của sidebar bị
+    // đẩy xuống dưới một dãy màn CRUD giống hệt nhau, và người xem demo phải cuộn qua hết mới tới được
+    // luồng chính. Ngưỡng + cách phân loại ở PocNavGroups (cố ý hẹp: bỏ sót thì im, bắt nhầm thì ồn).
+    private static void CheckNavGrouping(List<PocNavLeaf> leaves, List<string> issues)
+    {
+        foreach (var kind in PocNavGroups.KindsToGroup(leaves.Select(l => l.Label)))
+        {
+            var members = leaves.Where(l => PocNavGroups.Classify(l.Label) == kind).ToList();
+            var loose = members.Where(l => l.Group == null).Select(l => l.Label).ToList();
+            var groups = members.Where(l => l.Group != null)
+                .Select(l => l.Group!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            // Đã gom đủ vào đúng MỘT nhóm ⇒ không nói gì.
+            if (loose.Count == 0 && groups.Count <= 1)
+                continue;
+
+            var what = PocNavGroups.Describe(kind);
+            var detail = loose.Count > 0
+                ? $"{loose.Count} mục còn nằm thẳng ở menu gốc ({string.Join(", ", loose.Select(l => $"'{l}'"))})"
+                : $"chúng đang bị chia ra {groups.Count} nhóm khác nhau ({string.Join(", ", groups.Select(g => $"'{g}'"))})";
+
+            issues.Add(
+                $"Bản demo có {members.Count} màn hình {what} nhưng {detail} — gom TẤT CẢ vào ĐÚNG MỘT mục menu xổ xuống "
+                + $"(một entry navItems có \"children\" là các màn hình đó, nhãn nhóm đặt theo ngôn ngữ UI của spec, vd {PocNavGroups.SampleLabel(kind)}). "
+                + "Sửa bằng cách gọi lại SetPocContent với navItems mới (giữ nguyên content) — nhãn mục CON phải giữ NGUYÊN VĂN tên màn hình để vẫn khớp data-view của section, "
+                + "và tiêu đề nhóm KHÔNG phải một màn hình nên đừng tạo section cho nó. "
+                + $"Để phẳng thì {members.Count} màn hình giống hệt nhau đẩy phần nghiệp vụ chính của sidebar xuống dưới, đúng thứ người xem demo mở lên để xem.");
+        }
     }
 
     private static HashSet<string> CheckIds(string html, List<string> issues)
@@ -393,10 +432,11 @@ public static partial class PocAudit
     // .sidebar-foot, outside this <nav>, so they are naturally excluded.
     private static List<string> NavLeafLabels(string html) => NavLeaves(html).Select(l => l.Label).ToList();
 
-    // Cùng phép quét, giữ thêm data-roles của mục — tầng kiểm vai cần biết mục nào thuộc vai nào.
-    private static List<(string Label, IReadOnlyList<string> Roles)> NavLeaves(string html)
+    // Cùng phép quét, giữ thêm data-roles (tầng kiểm vai cần biết mục nào thuộc vai nào) và NHÃN NHÓM
+    // chứa mục (tầng kiểm gom nhóm cần biết mục nào còn nằm trần ở menu gốc).
+    private static List<PocNavLeaf> NavLeaves(string html)
     {
-        var leaves = new List<(string, IReadOnlyList<string>)>();
+        var leaves = new List<PocNavLeaf>();
         var navStart = html.IndexOf("<nav class=\"sidebar-nav\">", StringComparison.Ordinal);
         if (navStart < 0)
             return leaves;
@@ -404,6 +444,7 @@ public static partial class PocAudit
         if (navEnd < 0)
             return leaves;
         var nav = html[navStart..navEnd];
+        var subs = NavSubRegions(nav);
 
         var itemStarts = NavItemStartRegex().Matches(nav);
         for (var i = 0; i < itemStarts.Count; i++)
@@ -419,9 +460,75 @@ public static partial class PocAudit
                 continue;
             var text = WebUtility.HtmlDecode(label.Groups[1].Value).Trim();
             if (text.Length > 0)
-                leaves.Add((text, RolesOf(block)));
+                leaves.Add(new PocNavLeaf(text, RolesOf(block), GroupOf(subs, start)));
         }
         return leaves;
+    }
+
+    // Vùng <div class="nav-sub"> … </div> của từng nhóm, kèm nhãn tiêu đề nhóm ngay trước nó: mục lá
+    // nằm trong vùng nào là con của nhóm đó, ngoài mọi vùng là mục trần ở menu gốc.
+    private static List<(int Start, int End, string Header)> NavSubRegions(string nav)
+    {
+        var regions = new List<(int, int, string)>();
+        var idx = 0;
+        while ((idx = nav.IndexOf("<div class=\"nav-sub\"", idx, StringComparison.Ordinal)) >= 0)
+        {
+            regions.Add((idx, MatchingDivEnd(nav, idx), HeaderBefore(nav, idx)));
+            idx += "<div class=\"nav-sub\"".Length;
+        }
+        return regions;
+    }
+
+    private static string? GroupOf(List<(int Start, int End, string Header)> subs, int itemStart)
+    {
+        foreach (var (start, end, header) in subs)
+        {
+            if (itemStart > start && itemStart < end)
+                return header;
+        }
+        return null;
+    }
+
+    // Nhãn của mục menu gần nhất TRƯỚC vị trí này — với markup do PocTemplate.RenderNav dựng thì đó
+    // đúng là tiêu đề của nhóm đang mở. Không đọc được ⇒ chuỗi rỗng: mục vẫn được tính là "đã ở trong
+    // một nhóm", chỉ là nhóm không tên.
+    private static string HeaderBefore(string nav, int subStart)
+    {
+        var last = -1;
+        foreach (Match m in NavItemStartRegex().Matches(nav[..subStart]))
+            last = m.Index;
+        if (last < 0)
+            return string.Empty;
+
+        var label = NavLabelRegex().Match(nav[last..subStart]);
+        return label.Success ? WebUtility.HtmlDecode(label.Groups[1].Value).Trim() : string.Empty;
+    }
+
+    // Vị trí ngay sau </div> đóng thẻ <div> bắt đầu ở openIdx (đếm độ sâu, không cần parser HTML).
+    private static int MatchingDivEnd(string html, int openIdx)
+    {
+        var depth = 0;
+        var pos = openIdx;
+        while (pos < html.Length)
+        {
+            var open = html.IndexOf("<div", pos, StringComparison.OrdinalIgnoreCase);
+            var close = html.IndexOf("</div>", pos, StringComparison.OrdinalIgnoreCase);
+            if (close < 0)
+                return html.Length;
+
+            if (open >= 0 && open < close)
+            {
+                depth++;
+                pos = open + 4;
+                continue;
+            }
+
+            depth--;
+            pos = close + 6;
+            if (depth == 0)
+                return pos;
+        }
+        return html.Length;
     }
 
     private static List<string> SectionLabels(string html)

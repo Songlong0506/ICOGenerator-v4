@@ -441,7 +441,8 @@ public static class EntityMapBuilder
         if (managed.Count > 0)
         {
             sb.AppendLine();
-            sb.AppendLine("Các danh mục ứng dụng tự quản lý (mỗi danh mục cần một màn hình quản lý riêng): "
+            sb.AppendLine("Các danh mục ứng dụng tự quản lý (mỗi danh mục cần một màn hình quản lý riêng; "
+                + "ở bản demo các màn hình này được gom chung vào MỘT mục menu xổ xuống cho gọn): "
                 + string.Join(", ", managed) + ".");
         }
 
