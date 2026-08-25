@@ -16,16 +16,21 @@ namespace ICOGenerator.Services.Requirements;
 ///   <item><b>Màn hình bịa.</b> Mọi dòng phải khớp một mục của danh sách cho phép, và luôn lấy lại đúng chữ
 ///   của danh sách đó chứ không chữ của model. Lượt BÀY BẢNG đối chiếu với phạm vi đã chắt
 ///   (<see cref="Build"/>); đường GỬI đối chiếu với chính bảng server đã render (<see cref="Sanitize"/>) —
-///   hai danh sách khác nhau, và trộn chúng là lỗi câm, xem <c>ConfirmScreenScopeUseCase</c>. Ngoại lệ DUY
-///   NHẤT: dòng người dùng TỰ THÊM bằng nút "thêm màn hình" — chốt chặn này dựng để chặn model, không phải
-///   để chặn người dùng, xem <see cref="ScreenScopeRow.AddedByUser"/>.</item>
+///   hai danh sách khác nhau, và trộn chúng là lỗi câm, xem <c>ConfirmScreenScopeUseCase</c>. Đúng HAI
+///   ngoại lệ, cả hai đều có thứ khác đứng ra bảo lãnh: dòng người dùng TỰ THÊM bằng nút "thêm màn hình"
+///   (chốt chặn này dựng để chặn model, không phải để chặn người dùng — xem
+///   <see cref="ScreenScopeRow.AddedByUser"/>), và dòng sinh ra để nhận một bước luồng ĐÃ CHỐT mà không
+///   màn hình nào đang có phụ trách nổi (bảo lãnh là chính phép kiểm tất định ngay dưới — xem
+///   <see cref="ApplyPlacements"/>).</item>
 ///   <item><b>Màn hình bị bỏ quên.</b> Mục phạm vi model không nhắc tới vẫn được BỔ SUNG vào cuối bảng —
 ///   ở trạng thái TÍCH SẴN như mọi dòng khác, vì "BA quên nêu" không phải "người dùng đã loại". Bỏ nó đi
 ///   là ra một quyết định thay người dùng ở đúng chỗ họ không nhìn thấy để phản đối. Ngoại lệ DUY NHẤT:
 ///   mục đã được một dòng khai là gộp vào mình qua <see cref="ScreenScopeRow.Covers"/> — xem
 ///   <see cref="CoveredScopeItems"/>.</item>
 ///   <item><b>Bước luồng không chức năng nào phụ trách.</b> Chốt chặn RIÊNG của bảng này và là lý do
-///   <see cref="ScreenFunction.FlowSteps"/> tồn tại — xem <see cref="UncoveredActions"/>.</item>
+///   <see cref="ScreenFunction.FlowSteps"/> tồn tại — xem <see cref="UncoveredActions"/>. Bắt được lỗ hổng
+///   thì BA tự XẾP CHỖ cho bước ấy trước khi bảng hiện ra (<see cref="ApplyPlacements"/>); dòng nhắc dưới
+///   bảng chỉ còn là chỗ rơi cuối cùng, không còn là câu hỏi mặc định ném ngược sang người dùng.</item>
 /// </list>
 ///
 /// <para>
@@ -437,6 +442,164 @@ public static class ScreenScopeMapBuilder
                        && !covered.Any(c => c.Contains(key, StringComparison.Ordinal) || key.Contains(c, StringComparison.Ordinal));
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// XẾP CHỖ cho các bước mồ côi: nhận lời xếp chỗ của lượt <c>ScreenStepPlacementService</c> và ghi
+    /// chúng vào bảng, để bảng hiện ra đã KÍN thay vì hiện ra kèm một câu hỏi ngược người dùng.
+    ///
+    /// <para>
+    /// <b>Vì sao lượt này tồn tại.</b> <see cref="UncoveredActions"/> bắt đúng lỗi cần bắt, nhưng phần còn
+    /// lại thì trước đây đẩy hết sang người dùng: dòng nhắc dưới bảng bảo họ tự điền bước vào ô của "chức
+    /// năng phù hợp" hoặc tự phát hiện ra một màn hình còn thiếu. Đó là phần việc của BA, và người dùng
+    /// nghiệp vụ vừa rà xong một bảng mười mấy màn hình không có cơ sở nào để làm nó. Ca thật (JD Library
+    /// 2): bước *"Xem danh sách nhân viên trực tiếp dưới quyền"* — bước 4 của luồng chính người dùng đã tự
+    /// tay chốt — hiện ra dưới bảng như một câu đố, trong khi chỗ đúng của nó là một chức năng trên màn
+    /// <c>JD Assignment</c> mà chính bảng đó đang có.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Ba luật của lượt xếp chỗ, và cả ba đều là chốt chặn:</b>
+    /// </para>
+    /// <list type="bullet">
+    ///   <item><b>Chỉ lấp, không sửa.</b> Lời xếp chỗ nào không trỏ vào một bước trong
+    ///   <paramref name="uncoveredSteps"/> đều bị bỏ. Không có luật này thì một lượt sinh ra để vá lỗ hổng
+    ///   trở thành một đường vòng cho model viết lại cả bảng — kể cả phần người dùng đã tự tay rà ở lần
+    ///   chốt trước (bảng này bày LẠI được, xem <see cref="SeedRows"/>).</item>
+    ///   <item><b>Chỉ THÊM, không bao giờ bớt.</b> Không dòng nào bị xóa, không cờ tích nào bị đổi, không
+    ///   câu "việc của màn" nào đang có bị viết đè. Bước về một chức năng đã có ⇒ gắn thêm vào ô "phục vụ
+    ///   bước" của nó; không có chức năng nào tên vậy ⇒ một chức năng MỚI ở cuối màn.</item>
+    ///   <item><b>Màn hình MỚI được nhận — ngoại lệ THỨ HAI của chốt chặn "màn hình bịa"</b> (thứ nhất là
+    ///   dòng người dùng tự thêm), và nó hẹp
+    ///   đúng bằng lý do sinh ra nó: dòng mới phải mang một bước mà NGƯỜI DÙNG đã chốt ở bảng luồng và
+    ///   không màn hình nào đang có phụ trách. Chốt chặn kia dựng để chặn model rải thêm màn hình cho đủ
+    ///   bộ; ở đây thì thứ chặn nó là phép kiểm tất định vừa chạy, không phải một danh sách cho phép. Dòng
+    ///   ra TÍCH SẴN như mọi dòng khác và người dùng bỏ tích được — còn cửa duy nhất trước đây, "nhắn cho
+    ///   mình biết nếu thiếu hẳn một màn hình", đòi họ nhận ra điều đó trước.</item>
+    /// </list>
+    ///
+    /// <para>
+    /// Cờ <see cref="ScreenScopeRow.AddedByUser"/> của dòng mới vẫn là <c>false</c>: đây là đề xuất của BA,
+    /// và mượn cờ ấy là gán chữ ký người dùng lên một dòng họ chưa nhìn thấy — đúng thứ cờ đó được dựng ra
+    /// để phân biệt.
+    /// </para>
+    ///
+    /// <para>
+    /// Danh sách trả về là danh sách MỚI, nhưng các dòng bên trong là chính các object của
+    /// <paramref name="rows"/> đã được ghi thêm chức năng/bước — giữ lại tham chiếu bảng cũ không cho bạn
+    /// một ảnh chụp "trước khi xếp". Chỗ cần so trước/sau thì chụp riêng thứ mình cần (xem
+    /// <c>BAChatService.ScreenScopePlacementNotice</c> chỉ chụp danh sách TÊN màn hình).
+    /// </para>
+    /// </summary>
+    public static List<ScreenScopeRow> ApplyPlacements(
+        IReadOnlyList<ScreenScopeRow> rows,
+        IEnumerable<ScreenStepPlacement>? placements,
+        IReadOnlyList<string> uncoveredSteps)
+    {
+        var result = rows.ToList();
+        if (placements == null || result.Count == 0)
+            return result;
+
+        // Chỉ những bước phép kiểm vừa gọi tên mới được xếp chỗ. So bằng CHỨA-NHAU sau chuẩn hoá, cùng
+        // phép so với UncoveredActions: model chép lại bước bằng chữ của nó là chuyện thường, và một phép
+        // so nguyên văn sẽ bỏ đúng những lời xếp chỗ đúng.
+        var wanted = uncoveredSteps
+            .Select(step => (Text: step.Trim(), Key: Normalize(step)))
+            .Where(w => w.Key.Length > 0)
+            .ToList();
+        if (wanted.Count == 0)
+            return result;
+
+        var screens = result.Select(r => r.Screen).ToList();
+
+        foreach (var placement in placements)
+        {
+            if (placement == null)
+                continue;
+
+            var key = Normalize(placement.Step ?? string.Empty);
+            if (key.Length == 0)
+                continue;
+
+            // Ô "phục vụ bước" nhận chữ của BẢNG LUỒNG, không chữ model vừa gõ lại. Hai lý do, và cả hai
+            // đều là chuyện đúng-sai chứ không phải thẩm mỹ: UncoveredActions so bảng này với chính danh
+            // sách ấy nên một bản diễn đạt lại là một lần báo động giả chực chờ, còn người dùng thì đang
+            // đọc đúng các bước mình vừa tự tay rà ở bảng trước — thấy chúng hiện ra bằng chữ khác là mất
+            // đường đối chiếu.
+            var match = wanted
+                .Where(w => w.Key.Contains(key, StringComparison.Ordinal) || key.Contains(w.Key, StringComparison.Ordinal))
+                .Select(w => w.Text)
+                .FirstOrDefault();
+            if (match == null)
+                continue;
+
+            var step = Clip(match, MaxTextChars);
+
+            var function = Clip((placement.Function ?? string.Empty).Trim(), MaxTextChars);
+            if (function.Length == 0)
+                continue;
+
+            var screenName = Clip((placement.Screen ?? string.Empty).Trim(), MaxTextChars);
+            if (screenName.Length == 0)
+                continue;
+
+            var matched = MatchScreen(screenName, screens);
+            var row = matched == null ? null : result.FirstOrDefault(r => r.Screen == matched);
+            if (row == null)
+            {
+                // MÀN HÌNH MỚI. Trần MaxRows vẫn áp: một bảng dài quá thì người dùng thôi đọc, và mất phần
+                // họ đọc là mất đúng thứ cả bảng này sinh ra để lấy.
+                if (result.Count >= MaxRows)
+                    continue;
+
+                row = new ScreenScopeRow
+                {
+                    Screen = screenName,
+                    Purpose = Clip((placement.Purpose ?? string.Empty).Trim(), MaxTextChars),
+                    Included = true
+                };
+                result.Add(row);
+                screens.Add(screenName);
+            }
+
+            AttachStep(row, function, step);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Gắn <paramref name="step"/> vào chức năng <paramref name="function"/> của <paramref name="row"/> —
+    /// chức năng đã có thì gắn thêm bước, chưa có thì thêm một chức năng mới ở cuối màn. Chỉ THÊM: cờ tích
+    /// và tên của phần đang có không bị đụng tới.
+    /// </summary>
+    private static void AttachStep(ScreenScopeRow row, string function, string step)
+    {
+        var key = Normalize(function);
+        var existing = row.Functions.FirstOrDefault(f => Normalize(f.Name) == key);
+        if (existing != null)
+        {
+            // Đã phụ trách bước này rồi (chỉ khác chữ) ⇒ không nhân đôi ô "phục vụ bước".
+            var stepKey = Normalize(step);
+            if (existing.FlowSteps.Any(s => Normalize(s) == stepKey)
+                || existing.FlowSteps.Count >= MaxFlowStepsPerFunction)
+            {
+                return;
+            }
+
+            existing.FlowSteps.Add(step);
+            return;
+        }
+
+        if (row.Functions.Count >= MaxFunctionsPerScreen)
+            return;
+
+        row.Functions.Add(new ScreenFunction
+        {
+            Name = function,
+            FlowSteps = new List<string> { step },
+            Included = true
+        });
     }
 
     /// <summary>

@@ -545,22 +545,80 @@ là chỗ vá nốt nửa còn lại của luật "mục đã bỏ tích không 
 thì **không** ghi ngược — một `PlannedScope` rỗng cắt luôn đường fail-open của `EffectiveScreens` và khóa
 chết cổng phân quyền trong im lặng.
 
+#### Ô "phục vụ bước", và lượt xếp chỗ cho bước mồ côi
+
 **Ô "phục vụ bước" cho một phép kiểm TẤT ĐỊNH chạy bằng code, không cần lời gọi LLM nào**
 (`ScreenScopeMapBuilder.UncoveredActions`): mọi bước của bảng luồng đã chốt phải được ít nhất một **chức
 năng còn tích** nhận phụ trách. Hai danh sách đọc riêng đều "đạt" — bảng luồng đầy đủ, bảng màn hình đầy đủ
 — còn chỗ hỏng nằm ở **mối nối**, đúng loại lỗi đắt nhất của cả dây chuyền. Một bước không ai phụ trách
 nghĩa là hoặc người dùng sẽ không có chỗ nào để làm bước đó, hoặc bước đó không có thật; cả hai đều phải
-hỏi, và hỏi lúc bảng còn trên màn hình rẻ hơn hẳn hỏi lại ở POC. Dòng nhắc **không chặn** nút gửi: đó là
-một câu hỏi, không phải một lỗi. So khớp bằng CHỨA-NHAU sau chuẩn hoá chứ không nguyên văn — người dùng sửa
-ô bằng lời của họ, và một cảnh báo luôn sai thì lần thứ hai không ai đọc nữa. Ô là MỘT ô text ngăn bằng dấu
-chấm phẩy **hoặc xuống dòng** (ô cao theo nội dung nên gõ mỗi bước một dòng là cách tự nhiên nhất), không
-phải một danh sách con — người dùng gõ tiếp vào đó dễ hơn bấm thêm dòng, và phép so khớp chứa-nhau ở trên
-không cần từng bước là một phần tử riêng.
+xử, và xử lúc bảng còn trên màn hình rẻ hơn hẳn hỏi lại ở POC. So khớp bằng CHỨA-NHAU sau chuẩn hoá chứ
+không nguyên văn — người dùng sửa ô bằng lời của họ, và một cảnh báo luôn sai thì lần thứ hai không ai đọc
+nữa. Ô là MỘT ô text ngăn bằng dấu chấm phẩy **hoặc xuống dòng** (ô cao theo nội dung nên gõ mỗi bước một
+dòng là cách tự nhiên nhất), không phải một danh sách con — người dùng gõ tiếp vào đó dễ hơn bấm thêm dòng,
+và phép so khớp chứa-nhau ở trên không cần từng bước là một phần tử riêng.
 
 Bước gắn ở **cấp chức năng**, không phải cấp màn hình, và đó là điều kiện để phép kiểm còn nói được sự
 thật: bỏ tích một chức năng là bỏ luôn phần việc nó gánh, nên bước của nó phải lập tức hiện ra là chưa ai
 làm. Bản gắn ở cấp màn hình không nói được điều đó — người dùng bỏ đúng chức năng chở bước ấy mà cả bảng
 vẫn báo "đủ".
+
+**Bắt được lỗ hổng thì BA TỰ LẤP, không hỏi ngược người dùng.** Phép kiểm nói ra chỗ hỏng, nhưng phần việc
+sau đó — bước này là việc của chức năng nào trên màn nào — là phần người dùng đi thuê BA để làm. Trước đây
+nó bị đẩy ngược lại thành một dòng nhắc: *"Chưa chức năng nào phụ trách các bước: … Anh/chị điền bước đó
+vào ô bên phải của chức năng phù hợp, hoặc nhắn cho mình biết nếu thiếu hẳn một màn hình."* Ca thật (JD
+Library 2): bước mồ côi là *"Xem danh sách nhân viên trực tiếp dưới quyền"* — bước 4 của luồng chính chính
+người dùng vừa tự tay chốt — và nó hiện ra như một câu đố ngay dưới một bảng mười bảy màn hình, trong khi
+chỗ đúng của nó là một chức năng trên `JD Assignment` đang nằm ngay trên bảng đó. Người dùng nghiệp vụ
+không có từ vựng để trả lời câu đó, và càng không có cách nào tự nhận ra "phạm vi màn hình còn thiếu một
+chỗ".
+
+Hai lớp chặn nó, theo thứ tự:
+
+1. **Bảng kê các bước, đính vào khối `## LƯỢT NÀY:` của lượt bày bảng** (`BAChatService.FlowStepChecklist`).
+   Các bước đã có sẵn trong ngữ cảnh qua khối *"bảng luồng đã chốt"*, nhưng ở đó chúng là một câu chuyện
+   kể theo từng luồng, trộn với vai trò và kết quả sau mỗi bước. Ở đây chúng là một danh sách phẳng để
+   ĐỐI CHIẾU, đúng hình dạng mà `UncoveredActions` sẽ chấm ngay sau đó. Khối này cũng nói thẳng: bước nào
+   không màn nào trong phạm vi làm được thì **để trống**, đừng gán bừa — gán sai là dựng một chức năng
+   không có thật lên một màn hình có thật, và người dùng đọc lướt qua nó như phần đã đúng.
+2. **Lượt XẾP CHỖ** (`ScreenStepPlacementService` + prompt `screen-step-placement.v1.md`), chạy khi vẫn còn
+   bước mồ côi sau lượt bày bảng và **trước khi bảng ra tới màn hình**. Phân vai giữ nguyên nguyên tắc của
+   cả tính năng: **code** quyết định có lỗ hổng không (`UncoveredActions`) và lời xếp chỗ nào được nhận
+   (`ScreenScopeMapBuilder.ApplyPlacements`); **model** chỉ trả lời đúng một câu ngữ nghĩa mà không phép so
+   chuỗi nào làm thay được — *bước này là việc của chức năng nào*. Ba nhánh, theo thứ tự ưu tiên: gắn bước
+   vào một chức năng đã có · thêm một chức năng mới lên màn hình đúng (ca thường gặp nhất) · dựng hẳn một
+   màn hình mới.
+
+`ApplyPlacements` là chốt chặn của lượt đó, và nó chỉ nhận đúng ba thứ: lời xếp chỗ **trỏ vào một bước
+trong danh sách mồ côi** (không thì lượt vá lỗ hổng thành đường vòng cho model viết lại cả bảng — kể cả
+phần người dùng đã tự tay rà ở lần chốt trước), thao tác **chỉ THÊM** (không dòng nào bị xóa, không cờ tích
+nào bị đổi, không câu "việc của màn" nào bị viết đè), và các **trần** sẵn có (`MaxRows`,
+`MaxFunctionsPerScreen`, `MaxFlowStepsPerFunction`). Kết quả ra bảng ở dạng **tích sẵn** như mọi đề xuất
+khác của BA, `AddedByUser` vẫn `false` — đây là đề xuất của BA, mượn cờ đó là gán chữ ký người dùng lên một
+dòng họ chưa nhìn thấy.
+
+Ô "phục vụ bước" nhận **chữ của bảng luồng**, không chữ model vừa gõ lại — dù phép so chứa-nhau vẫn nhận một
+bản diễn đạt lại. Ghi bản diễn đạt ấy vào bảng thì hỏng hai chỗ: `UncoveredActions` so bảng với chính danh
+sách bước, nên một dòng khác chữ là một báo động giả chực chờ; và người dùng đang đọc đúng các bước họ vừa
+tự tay rà ở bảng trước, thấy chúng hiện ra bằng chữ khác là mất đường đối chiếu.
+
+Dòng mới **được nói ra** ở câu dẫn của lượt (`BAChatService.ScreenScopePlacementNotice`): bước nào vừa được
+xếp vào màn nào · chức năng nào, và màn hình nào là màn mới thêm. Câu này dựng từ **bảng sau khi xếp** chứ
+không từ lời model trả về — chỗ ở thật của một bước là chỗ `ApplyPlacements` đã ghi nó vào, và mục bị chốt
+chặn bỏ đi thì không được kể như đã làm. Cùng luật với `RenderUserMessage` kể lại các dòng người dùng tự
+thêm: thứ vào phạm vi bằng một đường khác thường phải được gọi tên ở đúng lượt nó vào.
+
+Màn hình mới ở nhánh 3 là **ngoại lệ thứ hai** của chốt chặn "màn hình bịa" (ngoại lệ thứ nhất: dòng người
+dùng tự thêm). Nó hẹp đúng bằng lý do sinh ra nó — dòng ấy phải chở một bước NGƯỜI DÙNG đã chốt ở bảng
+luồng mà không màn hình nào đang có phụ trách nổi — nên thứ bảo lãnh cho nó là phép kiểm tất định vừa chạy,
+không phải một danh sách cho phép. Dòng đi qua đường GỬI bình thường: `ConfirmScreenScopeUseCase` đối chiếu
+payload với **bảng server đã render**, mà dòng mới nằm trong chính bảng đó.
+
+**Dòng nhắc dưới bảng ở lại làm CHỖ RƠI CUỐI CÙNG**, không còn là lối ra mặc định: tới đó chỉ còn những bước
+mà chính BA cũng không xếp nổi — bước làm ngoài phần mềm, hoặc một màn hình còn thiếu hẳn — và đó đúng là ca
+duy nhất đáng hỏi. Lượt xếp chỗ **fail-open** toàn phần (lời gọi lỗi, model trả rác, không xếp được mục
+nào ⇒ bảng nguyên trạng, dòng nhắc hiện ra như trước), nên dòng nhắc cũng là thứ nói thật khi lượt phụ ấy
+hỏng. Nó vẫn **không chặn** nút gửi: một câu hỏi, không phải một lỗi.
 
 ### Ba cột của bảng màn hình, và vì sao cột "Màn hình" chỉ được chứa màn hình
 

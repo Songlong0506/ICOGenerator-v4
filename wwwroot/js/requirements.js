@@ -1711,8 +1711,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 </tbody>
             </table>
             <div class="screenmap-warn" id="screenScopeWarn"${steps.length > 0 ? "" : " hidden"}>
-                Chưa chức năng nào phụ trách các bước: <b>${escapeHtml(steps.join("; "))}</b>.
-                Anh/chị điền bước đó vào ô bên phải của chức năng phù hợp, hoặc nhắn cho mình biết nếu thiếu hẳn một màn hình.
+                Mình chưa xếp được các bước này vào chức năng nào: <b>${escapeHtml(steps.join("; "))}</b>.
+                Có thể bước đó làm ngoài phần mềm, cũng có thể mình còn thiếu hẳn một màn hình — anh/chị nhắn cho mình biết là bên nào giúp nhé.
             </div>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>

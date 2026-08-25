@@ -1206,12 +1206,15 @@
                             </tr>
                         </tbody>
                     </table>
-                    @* Dòng nhắc của phép kiểm tất định. Nó KHÔNG chặn gửi: một bước không chức năng nào
-                       phụ trách có thể là bước thừa, có thể là màn hình thiếu — cả hai đều là câu hỏi cho
-                       người dùng, không phải lỗi để khóa nút. *@
+                    @* Dòng nhắc của phép kiểm tất định, và là CHỖ RƠI CUỐI CÙNG chứ không còn là lối ra
+                       mặc định: bắt được bước mồ côi thì BA tự xếp nó vào chức năng phù hợp trước khi bảng
+                       hiện ra (ScreenStepPlacementService), nên tới đây chỉ còn những bước mà chính BA
+                       cũng không xếp nổi — bước làm ngoài phần mềm, hoặc một màn hình còn thiếu hẳn. Đó
+                       đúng là ca duy nhất đáng hỏi người dùng, và nó vẫn KHÔNG chặn gửi: một câu hỏi,
+                       không phải một lỗi để khóa nút. *@
                     <div class="screenmap-warn" id="screenScopeWarn" @(uncoveredFlowSteps.Count > 0 ? "" : "hidden")>
-                        Chưa chức năng nào phụ trách các bước: <b>@string.Join("; ", uncoveredFlowSteps)</b>.
-                        Anh/chị điền bước đó vào ô bên phải của chức năng phù hợp, hoặc nhắn cho mình biết nếu thiếu hẳn một màn hình.
+                        Mình chưa xếp được các bước này vào chức năng nào: <b>@string.Join("; ", uncoveredFlowSteps)</b>.
+                        Có thể bước đó làm ngoài phần mềm, cũng có thể mình còn thiếu hẳn một màn hình — anh/chị nhắn cho mình biết là bên nào giúp nhé.
                     </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
