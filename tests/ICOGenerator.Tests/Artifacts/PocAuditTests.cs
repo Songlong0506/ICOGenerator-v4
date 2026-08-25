@@ -62,6 +62,73 @@ public class PocAuditTests
         Assert.Contains("2 menu leaves, 2 screens", report);
     }
 
+    // GOM NHÓM MENU — các màn hình sinh theo lô (danh mục từ bảng đối tượng, báo cáo từ bảng báo cáo)
+    // phải nằm trong MỘT mục xổ xuống. Để phẳng thì luồng nghiệp vụ chính bị đẩy xuống cuối sidebar.
+    [Fact]
+    public void ReportsCatalogScreensLeftFlatInTheRootMenu()
+    {
+        var nav = Leaf("JD Library") + Leaf("JobTitle Catalog") + Leaf("Skill Catalog") + Leaf("Degree Catalog");
+        var content = Section("JD Library") + Section("JobTitle Catalog") + Section("Skill Catalog") + Section("Degree Catalog");
+
+        var report = PocAudit.Run(Doc(nav, content));
+
+        Assert.Contains("ISSUES", report);
+        Assert.Contains("3 màn hình danh mục", report);
+        Assert.Contains("'JobTitle Catalog'", report);
+        Assert.DoesNotContain("'JD Library'", report);
+    }
+
+    [Fact]
+    public void NoGroupingIssue_WhenTheCatalogsSitUnderOneGroup()
+    {
+        var nav = Leaf("JD Library")
+            + Group("Danh mục", "JobTitle Catalog", "Skill Catalog", "Degree Catalog");
+        var content = Section("JD Library") + Section("JobTitle Catalog") + Section("Skill Catalog") + Section("Degree Catalog");
+
+        var report = PocAudit.Run(Doc(nav, content));
+
+        Assert.StartsWith("POC audit: OK", report);
+    }
+
+    [Fact]
+    public void NoGroupingIssue_BelowTheBatchThreshold()
+    {
+        var nav = Leaf("JD Library") + Leaf("Skill Catalog") + Leaf("Degree Catalog");
+        var content = Section("JD Library") + Section("Skill Catalog") + Section("Degree Catalog");
+
+        var report = PocAudit.Run(Doc(nav, content));
+
+        Assert.StartsWith("POC audit: OK", report);
+    }
+
+    [Fact]
+    public void ReportsReportScreensSplitAcrossTwoGroups()
+    {
+        var nav = Group("Nhân sự", "Headcount Report", "Turnover Report")
+            + Group("Chi phí", "Payroll Report");
+        var content = Section("Headcount Report") + Section("Turnover Report") + Section("Payroll Report");
+
+        var report = PocAudit.Run(Doc(nav, content));
+
+        Assert.Contains("ISSUES", report);
+        Assert.Contains("3 màn hình báo cáo", report);
+        Assert.Contains("2 nhóm khác nhau", report);
+    }
+
+    [Fact]
+    public void ReportsBothBatchesSeparately()
+    {
+        var nav = Leaf("JobTitle Catalog") + Leaf("Skill Catalog") + Leaf("Degree Catalog")
+            + Leaf("Headcount Report") + Leaf("Turnover Report") + Leaf("Payroll Report");
+        var content = Section("JobTitle Catalog") + Section("Skill Catalog") + Section("Degree Catalog")
+            + Section("Headcount Report") + Section("Turnover Report") + Section("Payroll Report");
+
+        var report = PocAudit.Run(Doc(nav, content));
+
+        Assert.Contains("3 màn hình danh mục", report);
+        Assert.Contains("3 màn hình báo cáo", report);
+    }
+
     [Fact]
     public void ReportsMenuLeafWithoutSection()
     {

@@ -215,7 +215,7 @@ public class PocTemplateTests
     }
 
     [Fact]
-    public void ReplaceNav_RendersLeafAndGroup_FirstActive_FirstGroupOpen()
+    public void ReplaceNav_RendersLeafAndGroup_FirstLeafActive_GroupsStayCollapsed()
     {
         var items = new List<PocNavItem>
         {
@@ -230,21 +230,42 @@ public class PocTemplateTests
         Assert.DoesNotContain("Module A", updated);
         Assert.DoesNotContain(">Overview<", updated);
 
-        // First entry is the active leaf; the group is expanded with its sub-items.
+        // First entry is the active leaf. Mục đang mở nằm NGOÀI nhóm ⇒ nhóm để đóng: một nhóm xổ sẵn
+        // trả nguyên dãy màn danh mục lên sidebar, đúng thứ việc gom nhóm sinh ra để thu lại.
         Assert.Contains("<div class=\"nav-item active\" title=\"Dashboard\">", updated);
-        Assert.Contains("<div class=\"nav-group open\">", updated);
+        Assert.Contains("<div class=\"nav-group\">", updated);
+        Assert.DoesNotContain("nav-group open", updated);
         Assert.Contains("title=\"Orders\"", updated);
         Assert.Contains("<span class=\"nav-label\">All Orders</span>", updated);
         Assert.Contains("<span class=\"nav-label\">Create Order</span>", updated);
         Assert.Contains("<div class=\"nav-item\" title=\"Settings\">", updated);
 
-        // Exactly one active item and one open group.
+        // Exactly one active item.
         Assert.Equal(1, Count(updated, "nav-item active"));
-        Assert.Equal(1, Count(updated, "nav-group open"));
 
         // Shell around the nav is preserved.
         Assert.Contains("<aside class=\"sidebar\">", updated);
         Assert.Contains("</nav>", updated);
+    }
+
+    [Fact]
+    public void ReplaceNav_MenuStartingWithAGroup_ActivatesFirstChild_NotTheHeader()
+    {
+        // Menu bắt đầu bằng một nhóm (vd toàn bộ màn danh mục gom lại): tiêu đề nhóm chỉ xổ/thu, nó
+        // KHÔNG mở màn hình nào — đánh active cho nó thì bản demo mở ra với một mục đang sáng không
+        // ứng với section nào và shell phải rơi về section đầu tiên.
+        var items = new List<PocNavItem>
+        {
+            new() { Label = "Danh mục", Children = new() { new() { Label = "Skill Catalog" }, new() { Label = "Degree Catalog" } } },
+            new() { Label = "JD Library" }
+        };
+
+        var updated = PocTemplate.ReplaceNav(Shell(), items);
+
+        Assert.Contains("<div class=\"nav-item active\"><i class=\"bi bi-dot\" aria-hidden=\"true\"></i><span class=\"nav-label\">Skill Catalog</span></div>", updated);
+        Assert.Contains("<div class=\"nav-item\" title=\"Danh mục\">", updated);
+        Assert.Equal(1, Count(updated, "nav-item active"));
+        Assert.Equal(1, Count(updated, "nav-group open"));
     }
 
     [Fact]
