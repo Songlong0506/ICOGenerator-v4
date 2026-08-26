@@ -514,6 +514,8 @@
     }
 
     .brief-note-quote { color: var(--text-muted, #666); font-style: italic; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Nhãn thay chỗ đoạn trích cho ghi chú chung — không phải trích dẫn nên không in nghiêng. */
+    .brief-note-quote.general { font-style: normal; }
 
     .brief-note-text { flex: 1; }
 
@@ -557,6 +559,9 @@
         max-height: 3.4em;
         overflow: hidden;
     }
+
+    /* Ghi chú chung không có đoạn trích — dòng này chỉ nói phạm vi áp dụng nên bỏ kiểu chữ nghiêng. */
+    .brief-note-popover-quote.general { font-style: normal; }
 
     .brief-note-popover-label {
         font-size: 12.5px;
@@ -759,11 +764,19 @@
         gap: 12px;
     }
 
-    /* Đẩy nút "Gửi ghi chú cho BA sửa" về sát trái để tách khỏi nút Approve bên phải;
-       khi nút này ẩn (chưa có ghi chú) thì Approve vẫn nằm bên phải. */
-    .modal-footer #briefNotesSendBtn {
+    /* Đẩy cụm nút ghi chú ("＋ Thêm ghi chú" + "Gửi ghi chú cho BA sửa") về sát trái để tách khỏi nút
+       Approve bên phải; khi cả hai nút cùng ẩn thì cụm rỗng, Approve vẫn nằm bên phải. */
+    .modal-footer-notes {
         margin-right: auto;
+        display: flex;
+        align-items: center;
+        gap: 12px;
     }
+
+    /* `.btn { display: inline-flex }` của site.css thắng luật `[hidden] { display: none }` của trình
+       duyệt (specificity 0-1-0 so với 0-0-0), nên thuộc tính `hidden` một mình KHÔNG ẩn được hai nút
+       này — cả hai đều bật/tắt bằng `hidden` (chưa có ghi chú nào / đang mở bản đã duyệt V{n}). */
+    .modal-footer-notes .btn[hidden] { display: none; }
 
     .workflow-progress {
         border: 1px solid var(--info-border);

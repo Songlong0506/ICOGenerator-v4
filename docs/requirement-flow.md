@@ -1279,7 +1279,7 @@ Việc rà soát không mất — nó đã nằm ở những chỗ **sửa đư�
 | các bước quy trình | **bảng luồng** — sửa/bỏ/đổi thứ tự từng bước rồi bấm chốt ([Bảng luồng](#bảng-luồng-chuỗi-bước-người-dùng-tự-tay-duyệt-và-đường-của-nó-tới-poc)) |
 | cột dữ liệu, màn hình, thực thể, báo cáo, thông báo, luồng | [sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn) + bảng phân quyền — người dùng sửa trực tiếp trong ô rồi gửi |
 | những điều đã rõ có chọi nhau không | **cổng soát mâu thuẫn** ngay dưới nút này, với lựa chọn A/B thật |
-| toàn văn tài liệu | ghim ghi chú thẳng trên bản xem trước Product Brief (`ReviseBriefFromNotesUseCase`) |
+| toàn văn tài liệu | [ghim ghi chú thẳng trên bản xem trước Product Brief](#ghi-chú-trên-bản-xem-trước-product-brief) (`ReviseBriefFromNotesUseCase`) |
 
 Cái mất kèm theo: đường **✎ Sửa → Gửi đính chính** một-cú-bấm. Đính chính nay đi qua khung chat như mọi điều khác (nó vốn đã đi qua chat — nút cũ chỉ soạn hộ câu vào ô nhập). Nhật ký quyết định thì **không đổi gì**: vẫn được gộp sau mỗi lượt, chỉ mất mặt UI cuối cùng, nên nay hoàn toàn là dữ liệu cho máy (ngữ cảnh chat của BA, soát mâu thuẫn, `ProductBriefDraftService`, `ChatExportBuilder`) — client không nhận frame `decisions` nữa và `BAChatTurnResult` không mang danh sách này.
 
@@ -1555,6 +1555,23 @@ Ba chi tiết đi kèm:
 **"Write Requirement"** chỉ sinh **Product Brief** (ngôn ngữ đời thường, dạng draft — user sửa đi sửa lại không đốt token bản kỹ thuật). Chạy dưới dạng workflow run một-bước loại `RequirementAnalysis` với tiến độ live (xem [delivery-pipeline.md](delivery-pipeline.md#tiến-độ-realtime)).
 
 **"Approve"** (`ApproveRequirementUseCase`): promote Product Brief lên `V{n}`, rồi khởi động run nền **AiDesignSpec** (một bước, BA sinh bản kỹ thuật từ Product Brief đã duyệt — chạy nền để màn hình không treo chờ LLM).
+
+### Ghi chú trên bản xem trước Product Brief
+
+Popup Brief của **bản draft** cho ghi chú thẳng lên bản mô tả; bản đã duyệt `V{n}` chỉ đọc (cờ
+`data-annotatable` trên `.doc-render`). Hai lối vào, cùng đổ vào một khay dưới popup
+(`initBriefAnnotator` trong `wwwroot/js/requirements.js`):
+
+| lối vào | ghi chú tạo ra | dùng khi |
+|---|---|---|
+| bôi đen một đoạn (≥ 3 ký tự) → nút nổi **"＋ Ghi chú"** | `BriefNote.Quote` = đoạn đã bôi đen | điều cần sửa nằm ở đúng một đoạn |
+| nút **"＋ Thêm ghi chú"** ở chân popup | `BriefNote.Quote` rỗng — ghi chú CHUNG | ý không thuộc riêng đoạn nào, hoặc người dùng không muốn đi tìm đoạn để bôi đen |
+
+Hai dạng chỉ khác nhau ở `Quote`: `ReviseBriefFromNotesUseCase` dựng dòng `- Ở đoạn “…”: <note>` khi có
+trích dẫn và `- <note>` khi không, nên **thêm lối vào không cần đổi gì phía server**. Bấm "Gửi ghi chú
+cho BA sửa" ⇒ `POST /Requirements/ReviseBrief` gom tối đa 30 ghi chú thành **một lượt user** trong
+transcript rồi chạy lại vòng "Write Requirement" — Brief luôn sinh từ transcript, ghi chú không sửa
+thẳng file.
 
 ### File .docx sinh ra: Markdown thành tài liệu Word thật
 

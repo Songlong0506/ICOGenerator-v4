@@ -4471,15 +4471,19 @@ async function loadDocPreview(previewEl) {
 }
 
 // ==== Ghi chú trực tiếp trên bản xem trước Product Brief (bản draft) ====
-// Bôi đen một đoạn trong bản mô tả → nút "＋ Ghi chú" nổi lên → nhập điều cần sửa; các ghi chú gom vào
-// khay dưới modal, bấm "Gửi ghi chú cho BA sửa" sẽ nhờ BA soạn lại brief theo đúng các đoạn được chú
-// (POST /Requirements/ReviseBrief — tái dùng vòng "Write Requirement"). Người dùng chỉ vào chỗ cần sửa
-// thay vì mô tả bằng lời cả đoạn.
+// Hai lối vào cùng đổ về một khay ghi chú:
+//   1. Bôi đen một đoạn trong bản mô tả → nút "＋ Ghi chú" nổi lên → ghi chú GẮN VỚI ĐOẠN đó (có Quote).
+//   2. Nút "＋ Thêm ghi chú" ở chân modal → ghi chú CHUNG cho cả bản mô tả (Quote rỗng) — cho ý không
+//      thuộc riêng đoạn nào, và cho người dùng không muốn phải đi tìm đoạn để bôi đen.
+// Bấm "Gửi ghi chú cho BA sửa" sẽ nhờ BA soạn lại brief theo đúng các ghi chú này (POST
+// /Requirements/ReviseBrief — tái dùng vòng "Write Requirement"). ReviseBriefFromNotesUseCase đã phân
+// biệt sẵn hai dạng khi dựng lượt phản hồi, phía server không cần đổi gì.
 (function initBriefAnnotator() {
     const tray = document.getElementById("briefNotesTray");
     const listEl = document.getElementById("briefNotesList");
     const countEl = document.getElementById("briefNotesCount");
     const sendBtn = document.getElementById("briefNotesSendBtn");
+    const addNoteBtn = document.getElementById("briefAddNoteBtn"); // chỉ dựng cho bản draft
     // Phải neo đúng vào popup Product Brief: trang này còn popup "Tài liệu nguồn" cũng dùng class
     // .requirement-content và đứng TRƯỚC trong DOM, nên querySelector không gắn id sẽ bắt nhầm nó và
     // không bao giờ tìm thấy .doc-render → bôi đen xong không thấy nút "＋ Ghi chú" hiện lên.
@@ -4497,13 +4501,22 @@ async function loadDocPreview(previewEl) {
             .find(el => el.offsetParent !== null) || null;
     }
 
+    // Chân modal chỉ dựng cho bản draft, nhưng cùng modal đó còn mở được bản đã duyệt V{n} bằng JS
+    // (openRequirementModal) — lúc ấy không có gì để ghi chú nên ẩn nút đi thay vì để nó bấm hụt.
+    function syncAddNoteBtn() {
+        if (addNoteBtn) addNoteBtn.hidden = currentDraftRender() === null;
+    }
+    window.syncBriefNoteControls = syncAddNoteBtn;
+
     function renderNotes() {
         countEl.textContent = `(${notes.length})`;
         tray.hidden = notes.length === 0;
         sendBtn.hidden = notes.length === 0;
         listEl.innerHTML = notes.map((n, i) => `
             <li class="brief-note-item">
-                ${n.quote ? `<span class="brief-note-quote">“${escapeHtml(n.quote)}”</span>` : ""}
+                ${n.quote
+                    ? `<span class="brief-note-quote">“${escapeHtml(n.quote)}”</span>`
+                    : `<span class="brief-note-quote general">Ghi chú chung</span>`}
                 <span class="brief-note-text">${escapeHtml(n.note)}</span>
                 <button type="button" class="brief-note-del" data-i="${i}" title="Xóa ghi chú">🗑</button>
             </li>
@@ -4528,18 +4541,25 @@ async function loadDocPreview(previewEl) {
         if (e.key === "Escape") { e.preventDefault(); removeNotePopover(); }
     }
 
-    // Popover nhỏ ngay dưới đoạn bôi đen để nhập ghi chú — thay cho window.prompt() của trình duyệt.
+    // Popover nhỏ để nhập ghi chú — thay cho window.prompt() của trình duyệt. quote rỗng ⇒ ghi chú
+    // chung (mở từ nút "＋ Thêm ghi chú"), khác đúng phần tiêu đề và dòng phạm vi.
     function openNotePopover(anchorRect, quote) {
         removeAddBtn();
         removeNotePopover();
 
+        const isGeneral = quote.length === 0;
+        const title = isGeneral ? "Ghi chú chung" : "Ghi chú cho đoạn";
+        const scopeLine = isGeneral
+            ? '<p class="brief-note-popover-quote general">Áp dụng cho cả bản mô tả — không gắn với đoạn nào.</p>'
+            : `<p class="brief-note-popover-quote">“${escapeHtml(quote.slice(0, 160))}${quote.length > 160 ? "…" : ""}”</p>`;
+
         notePopover = document.createElement("div");
         notePopover.className = "brief-note-popover";
         notePopover.setAttribute("role", "dialog");
-        notePopover.setAttribute("aria-label", "Ghi chú cho đoạn");
+        notePopover.setAttribute("aria-label", title);
         notePopover.innerHTML = `
-            <p class="brief-note-popover-title">Ghi chú cho đoạn</p>
-            <p class="brief-note-popover-quote">“${escapeHtml(quote.slice(0, 160))}${quote.length > 160 ? "…" : ""}”</p>
+            <p class="brief-note-popover-title">${title}</p>
+            ${scopeLine}
             <label class="brief-note-popover-label" for="briefNotePopoverInput">Điều cần sửa là gì?</label>
             <textarea id="briefNotePopoverInput" class="brief-note-popover-input" rows="3"
                 placeholder="Nhập điều cần sửa…"></textarea>
@@ -4637,6 +4657,18 @@ async function loadDocPreview(previewEl) {
     // modal, nên khi user cuộn tiếp thì nút sẽ trỏ nhầm đoạn — bỏ nút đi, bôi đen lại là có ngay.
     content.addEventListener("scroll", removeAddBtn);
 
+    // Ghi chú chung: mở thẳng popover với quote rỗng, không cần selection nào.
+    if (addNoteBtn) {
+        addNoteBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            const sel = window.getSelection();
+            if (sel) sel.removeAllRanges(); // bỏ đoạn đang bôi đen (nếu có) để khỏi hiểu nhầm phạm vi
+            openNotePopover(addNoteBtn.getBoundingClientRect(), "");
+        });
+    }
+
+    syncAddNoteBtn();
+
     listEl.addEventListener("click", function (e) {
         const del = e.target.closest(".brief-note-del");
         if (!del) return;
@@ -4688,6 +4720,9 @@ function openRequirementModal(version) {
         docs[0].style.display = "block";
         loadDocPreview(docs[0]);
     }
+
+    // Bản vừa mở quyết định còn ghi chú được hay không (draft: được; V{n} đã duyệt: không).
+    if (window.syncBriefNoteControls) window.syncBriefNoteControls();
 }
 
 function closeRequirementModal() {
