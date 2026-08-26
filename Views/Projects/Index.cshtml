@@ -134,8 +134,9 @@
                            đẩy các cột dữ liệu co lại. Mỗi nút vẫn có aria-label đầy đủ cho trình đọc màn
                            hình — icon chỉ là phần nhìn.
 
-                           Hai nhóm, ngăn bằng một vạch mờ: bên trái là ĐIỀU HƯỚNG (mở màn hình khác),
-                           bên phải là thao tác trên chính dòng này (sửa / nhân bản).
+                           Hai nhóm, ngăn bằng một khoảng thở (không dùng vạch kẻ — trong ô bảng nó
+                           trông như đường viền cột): bên trái là ĐIỀU HƯỚNG (mở màn hình khác), bên
+                           phải là thao tác trên chính dòng này (sửa / nhân bản).
 
                            Hiển thị từng nút theo ma trận Roles & Permissions (tra một lần ở trên):
                            - Requirements: quyền ProjectsOpenRequirements. Đây là cửa vào của cả luồng nên
@@ -194,7 +195,10 @@
                                an toàn hơn việc nhồi giá trị vào tham số onclick. *@
                             @if (canEditProject || canCloneProject)
                             {
-                                <span class="act-sep" aria-hidden="true"></span>
+                                @* Nhóm thao tác trên chính dòng này. Ngăn với nhóm điều hướng bằng một
+                                   khoảng trống (.act-group), không bằng vạch kẻ: một nét kẻ trong ô bảng
+                                   trông như đường viền cột. *@
+                                <span class="act-group">
                                 @if (canEditProject)
                                 {
                                     <button type="button"
@@ -222,6 +226,7 @@
                                         <i class="bi bi-copy" aria-hidden="true"></i>
                                     </button>
                                 }
+                                </span>
                             }
                         </div>
                     </td>
