@@ -1279,11 +1279,9 @@
 
 .brief-card-main { flex: 1; min-width: 0; }
 
-.brief-card-title { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
+.brief-card-title { display: block; font-size: 13px; font-weight: 700; color: var(--ink); }
 
 .brief-card-sub { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.brief-tag { flex: 0 0 auto; padding: 1px 6px; border-radius: 999px; background: var(--bosch-blue); color: #fff; font-size: 10px; font-weight: 700; line-height: 1.6; }
 
 .brief-card-go { flex: 0 0 auto; font-size: 14px; color: var(--slate-400); }
 

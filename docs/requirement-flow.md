@@ -1444,7 +1444,9 @@ chuỗi dẫn xuất** của dự án thành một file `.zip` để người d�
 **"Download Context"**, nằm ở đầu sidebar trang Requirements cạnh "New Chat" và **"Context"** (cửa xem lại
 tài liệu nguồn đã đính kèm); là thẻ `<a download>` chứ không phải form vì đây là thao tác chỉ đọc và một cú
 bấm nhầm không được phép làm mất nội dung đang gõ dở trong ô chat. Gói mang **phiên bản Product Brief đang
-chọn**, nên danh sách Product Brief ngay dưới sidebar đánh dấu bản đó bằng nhãn "Hiện tại".
+chọn**, nên danh sách Product Brief ngay dưới sidebar đánh dấu bản đó bằng thẻ nổi bật (`.brief-card.current`)
+và nói rõ trong tooltip của thẻ, chứ không in thêm nhãn chữ: mỗi thẻ chỉ mang tên bản (`Draft` / `V1` /
+`V2`…) và mốc thời gian, vì tên bản đã chở sẵn trạng thái — `draft` chỉ được đổi thành `V{n}` lúc duyệt.
 
 **Ai được tải: quyền `RequirementsDownloadPackage`.** Action đòi quyền này *chồng lên* `RequirementsView`
 của controller (AND), và nút cũng ẩn khi thiếu — cùng một quyền ở cả hai chỗ nên nút hiện ra không bao giờ
