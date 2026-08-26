@@ -1,6 +1,5 @@
 /* ---------- Table ---------- */
-.audit-table .col-actions { width: 1%; white-space: nowrap; }
-.audit-table td.actions { white-space: nowrap; }
+/* Cột Actions dùng .actions-col / .row-actions / .icon-btn chung ở site.css. */
 .audit-summary { font-weight: 700; }
 .audit-time { color: var(--muted); font-size: 13px; white-space: nowrap; }
 

@@ -132,7 +132,8 @@
                         @* Cột Actions là NÚT BIỂU TƯỢNG, không phải nút chữ: năm hành động xếp thành một
                            dải gọn, đọc bằng icon + tooltip (data-tip) nên bảng không bị năm cụm chữ dài
                            đẩy các cột dữ liệu co lại. Mỗi nút vẫn có aria-label đầy đủ cho trình đọc màn
-                           hình — icon chỉ là phần nhìn.
+                           hình — icon chỉ là phần nhìn. Component chung ở site.css, dùng y hệt ở Audit Log
+                           và Agent Dashboard.
 
                            Hai nhóm, ngăn bằng một khoảng thở (không dùng vạch kẻ — trong ô bảng nó
                            trông như đường viền cột): bên trái là ĐIỀU HƯỚNG (mở màn hình khác), bên
@@ -140,7 +141,7 @@
 
                            Hiển thị từng nút theo ma trận Roles & Permissions (tra một lần ở trên):
                            - Requirements: quyền ProjectsOpenRequirements. Đây là cửa vào của cả luồng nên
-                             nó là nút nhấn mạnh (act-btn--accent).
+                             nó là nút nhấn mạnh (icon-btn--accent).
                            - Agent Dashboard: quyền ProjectsOpenAgentDashboard.
                            - Mockup: quyền ProjectsOpenMockup. Dự án chưa có POC thì vẫn giữ chỗ ở dạng mờ
                              (aria-hidden, không bấm được) để mọi dòng thẳng cột với nhau và người dùng
@@ -148,7 +149,7 @@
                         <div class="row-actions">
                             @if (canOpenRequirements)
                             {
-                                <a class="act-btn act-btn--accent"
+                                <a class="icon-btn icon-btn--accent"
                                    data-tip="Requirements"
                                    aria-label="Mở Requirements của @p.Name"
                                    asp-controller="Requirements"
@@ -160,7 +161,7 @@
 
                             @if (canOpenAgentDashboard)
                             {
-                                <a class="act-btn"
+                                <a class="icon-btn"
                                    data-tip="Agent Dashboard"
                                    aria-label="Mở Agent Dashboard của @p.Name"
                                    asp-controller="AgentDashboard"
@@ -174,7 +175,7 @@
                             {
                                 @if (item.HasMockup)
                                 {
-                                    <a class="act-btn"
+                                    <a class="icon-btn"
                                        data-tip="Mockup — xem POC và ghim ghi chú"
                                        aria-label="Xem Mockup của @p.Name"
                                        asp-controller="Projects"
@@ -185,7 +186,7 @@
                                 }
                                 else
                                 {
-                                    <span class="act-btn is-disabled" data-tip="Chưa có bản POC" aria-hidden="true">
+                                    <span class="icon-btn is-disabled" data-tip="Chưa có bản POC" aria-hidden="true">
                                         <i class="bi bi-easel"></i>
                                     </span>
                                 }
@@ -202,7 +203,7 @@
                                 @if (canEditProject)
                                 {
                                     <button type="button"
-                                            class="act-btn"
+                                            class="icon-btn"
                                             data-tip="Chỉnh sửa dự án"
                                             aria-label="Chỉnh sửa dự án @p.Name"
                                             data-edit-project
@@ -217,7 +218,7 @@
                                 @if (canCloneProject)
                                 {
                                     <button type="button"
-                                            class="act-btn"
+                                            class="icon-btn"
                                             data-tip="Nhân bản dự án"
                                             aria-label="Nhân bản dự án @p.Name"
                                             data-clone-project
