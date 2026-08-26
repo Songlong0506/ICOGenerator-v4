@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Artifacts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -44,6 +45,16 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
         await File.WriteAllTextAsync(path, html);
         return await _checker.CheckAsync(path);
     }
+
+    private async Task<PocRuntimeReport> DriveAsync(string html, params UatScenario[] scenarios)
+    {
+        var path = Path.Combine(_dir, "poc-demo.html");
+        await File.WriteAllTextAsync(path, html);
+        return await _checker.CheckAsync(path, captureScreenshots: false, uatScenarios: scenarios);
+    }
+
+    private static UatScenario Scenario(string title, params string[] steps) =>
+        new() { Title = title, Steps = steps.ToList() };
 
     private const string Shell = """
         <!doctype html><html><head><meta charset="utf-8"></head><body>
@@ -432,6 +443,107 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
             return;
 
         Assert.Empty(report.Issues);
+    }
+
+    // ===== LƯỢT BẤM THỬ THEO KỊCH BẢN NGHIỆM THU trên SHELL THẬT =====
+    // Cả bốn test dưới đây chạy trên chính poc-template.html: đây là tầng duy nhất chứng minh lượt lái
+    // nhìn thấy đúng những điều khiển mà người nghiệm thu sẽ bấm. Ba test đầu là ba đường cổng này từng
+    // báo oan "nút chưa nối logic" cho một POC làm đúng; test cuối giữ lại tín hiệu thật.
+
+    [Fact]
+    public async Task UatDrive_OpensScreen_ThroughMenuItemInsideCollapsedGroup()
+    {
+        // Mục menu là <div class="nav-item"> nên không nằm trong tập button/a/.btn, và mục của nhóm chưa
+        // xổ còn không có cả innerText — bước "Mở màn hình X" vì thế từng không khớp được gì.
+        var html = RealShellPoc(
+            ["Nhân viên", "Quản lý"],
+            [
+                new PocNavItem { Label = "Đơn của tôi" },
+                new PocNavItem
+                {
+                    Label = "Danh mục",
+                    Children =
+                    [
+                        new PocNavItem { Label = "Skill Catalog" },
+                        new PocNavItem { Label = "Degree Catalog" }
+                    ]
+                }
+            ],
+            Screen("Đơn của tôi") + Screen("Skill Catalog") + Screen("Degree Catalog"));
+
+        var report = await DriveAsync(html, Scenario("Xem danh mục kỹ năng", "Mở màn hình \"Skill Catalog\""));
+        if (!report.Ran)
+            return;
+
+        var driven = Assert.Single(report.UatDriveResults);
+        Assert.True(driven.Pass, driven.Detail);
+    }
+
+    [Fact]
+    public async Task UatDrive_ScreenNamedAfterARole_DoesNotClickTheRoleButtonInstead()
+    {
+        // "HRBP Approval" chứa "HRBP": khi bước không khớp được mục menu, khớp NGƯỢC bấm trúng nút vai
+        // HRBP — vai vừa chọn ở bước trước — rồi chấm cú no-op đó là nút chết. Đúng lớp báo oan đã đánh
+        // trượt cả 5 kịch bản của một POC chạy được.
+        var html = RealShellPoc(
+            ["Manager", "HRBP"],
+            [
+                new PocNavItem { Label = "Đơn của tôi" },
+                new PocNavItem { Label = "HRBP Approval", Roles = ["HRBP"] }
+            ],
+            Screen("Đơn của tôi") + Screen("HRBP Approval", "HRBP"));
+
+        var report = await DriveAsync(html, Scenario(
+            "HRBP duyệt JD",
+            "Chọn vai \"HRBP\" ở khối VIEW AS",
+            "Mở màn hình \"HRBP Approval\""));
+        if (!report.Ran)
+            return;
+
+        var driven = Assert.Single(report.UatDriveResults);
+        Assert.True(driven.Pass, driven.Detail);
+        Assert.DoesNotContain(report.Issues, i => i.Contains("KHÔNG thao tác được"));
+    }
+
+    [Fact]
+    public async Task UatDrive_ReSelectingTheRoleTheDemoOpensWith_IsNotADeadButton()
+    {
+        // Vai ĐẦU TIÊN là vai demo mở lên, nên bước 1 "chọn vai Manager" bấm lại đúng nút đang active:
+        // không đổi màn, không đổi vai — no-op ĐÚNG, không phải nút chưa nối logic.
+        var html = RealShellPoc(
+            ["Manager", "HRBP"],
+            [new PocNavItem { Label = "Đơn của tôi" }, new PocNavItem { Label = "Duyệt đơn" }],
+            Screen("Đơn của tôi") + Screen("Duyệt đơn"));
+
+        var report = await DriveAsync(html, Scenario(
+            "Manager gửi JD",
+            "Chọn vai \"Manager\" ở khối VIEW AS",
+            "Mở màn hình \"Duyệt đơn\""));
+        if (!report.Ran)
+            return;
+
+        var driven = Assert.Single(report.UatDriveResults);
+        Assert.True(driven.Pass, driven.Detail);
+    }
+
+    [Fact]
+    public async Task UatDrive_ButtonWithNoLogic_IsStillReported()
+    {
+        // Rào chắn cho ba test trên: nới tập điều khiển và thêm nhánh bỏ qua KHÔNG được làm cổng này
+        // im lặng trước cái nó sinh ra để bắt — nút có nhãn, bấm được, mà màn hình đứng yên.
+        var html = RealShellPoc(
+            ["Nhân viên", "Quản lý"],
+            [new PocNavItem { Label = "Đơn của tôi" }],
+            Screen("Đơn của tôi"));
+
+        var report = await DriveAsync(html, Scenario("Gửi đơn", "Bấm \"Gửi\" để nộp đơn"));
+        if (!report.Ran)
+            return;
+
+        var driven = Assert.Single(report.UatDriveResults);
+        Assert.False(driven.Pass);
+        Assert.Contains("chưa nối logic", driven.Detail);
+        Assert.Contains(report.Issues, i => i.Contains("KHÔNG thao tác được") && i.Contains("Gửi đơn"));
     }
 
     public Task InitializeAsync() => Task.CompletedTask;
