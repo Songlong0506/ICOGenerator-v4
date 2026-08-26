@@ -290,7 +290,7 @@
                 // MỌI vai trò. KHÔNG nêu bước kế (tài liệu kỹ thuật…) hay dẫn sang duyệt — việc tạo tiếp
                 // hay không do đội Dev xử lý ở Agent Dashboard, không đẩy sang quy trình delivery ở đây.
                 slot.innerHTML =
-                    `<div class="wf-banner wf-ok">✓ POC đã tạo xong. Đội ngũ Dev sẽ tiếp nhận các bước tiếp theo.${pocLink}</div>`;
+                    `<div class="wf-banner wf-ok">✓ POC đã tạo xong.${pocLink}</div>`;
             } else if (CAN_ADVANCE) {
                 // TeamDev/Admin: cổng duyệt sống ở Agent Dashboard → dẫn sang đó để bấm "Duyệt & tiếp tục".
                 const nextHint = data.nextStageTitle
