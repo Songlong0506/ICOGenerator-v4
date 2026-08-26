@@ -619,10 +619,10 @@
                     // thì cái nhãn ấy chỉ nói lại điều hiển nhiên.
                     var isCurrent = versions.Count > 1 && version.Key == selectedVersion;
 
-                    // Dòng phụ chỉ chở TRẠNG THÁI + mốc thời gian: bề ngang còn lại của thẻ ở sidebar
-                    // 320px chỉ đủ chừng 30 ký tự, thêm chữ là bị cắt giữa chừng. Phần "bản nháp thì
-                    // còn góp ý được" nằm ở tooltip.
-                    var status = latest.IsApproved ? "Đã duyệt" : "Bản nháp";
+                    // Dòng phụ chỉ còn mốc thời gian: trạng thái đã nằm sẵn trong CHÍNH cái tên bản —
+                    // "draft" chỉ đổi thành "V{n}" lúc duyệt (ApproveRequirementUseCase), nên thấy
+                    // "Draft" là chưa duyệt, thấy "V1" là đã duyệt. In thêm chữ "Đã duyệt" là nói lại
+                    // điều nhãn đã nói, mà bề ngang thẻ ở sidebar 320px chỉ đủ chừng 30 ký tự.
                     var tip = "Mở bản " + label
                         + (latest.IsApproved ? " (đã duyệt)" : " (bản nháp — còn gửi ghi chú cho BA sửa được)")
                         + (isCurrent ? " · gói Download Context cũng lấy theo bản này" : "");
@@ -638,13 +638,9 @@
                         <span class="brief-card-main">
                             <span class="brief-card-title">
                                 @label
-                                @if (isCurrent)
-                                {
-                                    <span class="brief-tag">Hiện tại</span>
-                                }
                             </span>
                             <span class="brief-card-sub">
-                                @status · @latest.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")
+                                @latest.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")
                             </span>
                         </span>
 
