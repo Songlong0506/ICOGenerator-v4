@@ -42,9 +42,9 @@
    cột thấy ngay dòng nào có gì. Nhãn không biến mất — nó nằm ở tooltip (data-tip) cho
    chuột/bàn phím và ở aria-label cho trình đọc màn hình.
 
-   Bố cục: nhóm ĐIỀU HƯỚNG (mở màn hình khác) — vạch ngăn — nhóm thao tác trên chính dòng
-   này (sửa/nhân bản). Cột không xuống dòng (white-space:nowrap ở .actions-col) nên cả dải
-   luôn nằm gọn một hàng. */
+   Bố cục: nhóm ĐIỀU HƯỚNG (mở màn hình khác) — một khoảng thở — nhóm thao tác trên chính
+   dòng này (sửa/nhân bản). Cột không xuống dòng (white-space:nowrap ở .actions-col) nên cả
+   dải luôn nằm gọn một hàng. */
 .actions-col {
     /* width:1% + nowrap = cột co sát nội dung, phần rộng dư trả về cho các cột chữ. */
     width: 1%;
@@ -112,11 +112,13 @@
     background: transparent;
 }
 
-.act-sep {
-    width: 1px;
-    height: 20px;
-    margin: 0 6px;
-    background: var(--line);
+/* Ngăn hai nhóm bằng khoảng trống, không bằng vạch kẻ — trong một ô bảng, một nét dọc
+   dễ bị đọc nhầm thành đường viền cột. */
+.act-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 12px;
     flex: 0 0 auto;
 }
 
