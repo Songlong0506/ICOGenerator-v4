@@ -36,7 +36,10 @@ public class RequirementDocumentGenerator
     // Lượt "Write Requirement" phía user: chỉ sinh Product Brief (cho user) ở dạng draft. AI Design Spec
     // được sinh ở bước Approve (GenerateAiDesignSpecVersionFile). Tài liệu kỹ thuật nặng sinh sau ở
     // bước 2 của Delivery Pipeline (TechnicalDocs).
-    public async Task GenerateProductBriefDraftFiles(Project project, Guid baId, BAProductBriefResult result)
+    // changeNote: nhãn nguồn gốc ghi vào lịch sử revision. Mặc định là lượt "Write Requirement"; vòng sửa
+    // có phạm vi theo ghi chú (ProductBriefDraftService.ReviseDraftFromNotesAsync) truyền nhãn riêng để
+    // người dùng mở Lịch sử là phân biệt được ngay "bản này do ghi chú của tôi" với "bản này do soạn lại".
+    public async Task GenerateProductBriefDraftFiles(Project project, Guid baId, BAProductBriefResult result, string? changeNote = null)
     {
         var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
 
@@ -45,7 +48,7 @@ public class RequirementDocumentGenerator
         CreateMarkdownDocx(productBriefOutput, "Product Brief", project, "draft", result.ProductBrief.Content);
 
         await UpsertDocument(project.Id, baId, _artifactCatalog.ProductBrief, productBriefOutput, result.ProductBrief.Content, "draft", isApproved: false,
-            changeNote: "Write Requirement (soạn/cập nhật Product Brief)");
+            changeNote: string.IsNullOrWhiteSpace(changeNote) ? "Write Requirement (soạn/cập nhật Product Brief)" : changeNote);
     }
 
     // Bước Approve: sinh AI Design Spec từ Product Brief đã duyệt. Ghi thẳng vào thư mục phiên bản đã

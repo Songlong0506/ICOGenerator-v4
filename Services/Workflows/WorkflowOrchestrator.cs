@@ -90,7 +90,7 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
         return workflowRun.Id;
     }
 
-    public async Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId, bool coalesceWithActiveRun = false)
+    public async Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId, bool coalesceWithActiveRun = false, string? briefNotesPayload = null)
     {
         // CHỐNG BẤM TRÙNG. Sau khi POST, WriteRequirement redirect về Index và trang render lại NGAY: lúc đó
         // lượt BA mời bấm nút vẫn là lượt cuối hội thoại (run vừa xếp hàng, chưa ghi lượt "đã tạo xong"),
@@ -127,6 +127,8 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
             StartedAt = null
         };
 
+        var isNoteRevision = !string.IsNullOrWhiteSpace(briefNotesPayload);
+
         var draftTask = new AgentTask
         {
             WorkflowRunId = workflowRun.Id,
@@ -134,7 +136,13 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
             AgentId = ba?.Id,
             Type = AgentTaskType.RequirementAnalysis,
             Status = AgentTaskStatus.Queued,
-            Title = "Generate/update requirement documents from conversation"
+            Title = isNoteRevision
+                ? "Sửa Product Brief theo ghi chú ghim trên bản xem trước"
+                : "Generate/update requirement documents from conversation",
+            // Input là chỗ DUY NHẤT phân biệt hai nhánh của cùng loại task (xem BriefNotePayload) — worker
+            // không cần một AgentTaskType mới, và run vẫn mang tên "Write Requirement" nên panel tiến độ,
+            // banner và luật chống bấm trùng ở trên không phải biết gì về nhánh này.
+            Input = briefNotesPayload ?? string.Empty
         };
 
         _db.WorkflowRuns.Add(workflowRun);

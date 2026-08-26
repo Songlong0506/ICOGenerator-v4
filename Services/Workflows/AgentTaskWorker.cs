@@ -657,12 +657,28 @@ public class AgentTaskWorker : BackgroundService
     {
         var draftService = scope.ServiceProvider.GetRequiredService<ProductBriefDraftService>();
 
-        var outcome = await draftService.GenerateOrUpdateDraftAsync(
-            task.ProjectId,
-            onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
-            onToken: token => _progress.ReportToken(task.WorkflowRunId, token),
-            workflowRunId: task.WorkflowRunId,
-            cancellationToken: cancellationToken);
+        void Report(string kind, string message, string? detail) => _progress.Report(task.WorkflowRunId, kind, message, detail);
+        void ReportToken(string token) => _progress.ReportToken(task.WorkflowRunId, token);
+
+        // task.Input mang các GHI CHÚ người dùng ghim trên bản xem trước Brief (nếu có) ⇒ vòng SỬA CÓ
+        // PHẠM VI: giữ nguyên bản Brief hiện có, chỉ đụng các đoạn được chú. Input rỗng/hỏng ⇒ lượt soạn
+        // bình thường, rà cả hội thoại. Đây là hai hình dạng của CÙNG một bước, không phải hai loại task.
+        var notes = BriefNotePayload.TryParse(task.Input);
+
+        var outcome = notes != null
+            ? await draftService.ReviseDraftFromNotesAsync(
+                task.ProjectId,
+                notes,
+                onProgress: Report,
+                onToken: ReportToken,
+                workflowRunId: task.WorkflowRunId,
+                cancellationToken: cancellationToken)
+            : await draftService.GenerateOrUpdateDraftAsync(
+                task.ProjectId,
+                onProgress: Report,
+                onToken: ReportToken,
+                workflowRunId: task.WorkflowRunId,
+                cancellationToken: cancellationToken);
 
         // Mốc kết thúc của WORKER nói CHUYỂN TRẠNG THÁI (người dùng làm gì tiếp), KHÔNG lặp lại nội dung
         // mà service vừa báo ở mốc "final" (xem ProductBriefDraftService: "Đã tạo/cập nhật tài liệu." /
@@ -679,7 +695,9 @@ public class AgentTaskWorker : BackgroundService
             outcome == RequirementDraftOutcome.NeedsMoreInfo
                 ? "Chưa đủ thông tin để viết. Anh/chị trả lời câu hỏi của BA trong khung chat; đủ rồi thì nút "
                   + "tạo tài liệu hiện lại ở cuối khung chat — bấm lần nữa để mình viết."
-                : "Mời anh/chị xem lại bản mô tả sản phẩm rồi bấm Approve để dựng bản demo.");
+                : notes != null
+                    ? "Đã sửa bản mô tả sản phẩm theo ghi chú — mời anh/chị xem lại (nút Lịch sử cho biết đã đổi đúng những dòng nào)."
+                    : "Mời anh/chị xem lại bản mô tả sản phẩm rồi bấm Approve để dựng bản demo.");
 
         return outcome;
     }

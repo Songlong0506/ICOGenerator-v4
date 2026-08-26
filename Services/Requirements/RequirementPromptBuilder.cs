@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 
 namespace ICOGenerator.Services.Requirements;
@@ -96,6 +97,61 @@ Your task:
 - Rewrite the Product Brief fixing EVERY listed issue; keep the parts that were not criticized.
 - Return JSON only.
 """;
+    }
+
+    // Vòng SỬA CÓ PHẠM VI: người dùng ghim ghi chú thẳng lên bản xem trước Product Brief. Khác hẳn lượt
+    // soạn ở trên — bản Brief hiện tại là BẢN GỐC phải chép nguyên văn, chỉ các đoạn được ghi chú mới
+    // được đụng tới. Xem Prompts/BusinessAnalyst/product-brief-note-revision.v1.md.
+    //
+    // CỐ Ý KHÔNG có khối "Trạng thái đã chắt từ hội thoại": khối đó là danh sách kiểm bắt model rà lại
+    // MỌI điều đã chốt và bổ sung thứ còn thiếu vào tài liệu — đúng việc của lượt "Write Requirement",
+    // và đúng thứ biến một ghi chú một dòng thành một bản Brief đổi hàng chục dòng. Hội thoại vẫn đi kèm,
+    // nhưng chỉ với vai trò TRA CỨU cho những ghi chú cần thông tin đã trao đổi.
+    public string BuildProductBriefNoteRevision(
+        Project project,
+        string conversationTranscript,
+        string currentProductBrief,
+        IReadOnlyList<BriefNote> notes,
+        string organizationContext = "")
+    {
+        return $$"""
+Project:
+{{project.Name}}
+
+Project Description:
+{{project.Description}}
+{{OrganizationSection(organizationContext)}}
+Hội thoại khai thác yêu cầu (CHỈ để tra cứu khi một ghi chú cần thông tin đã trao đổi — KHÔNG phải danh sách kiểm, KHÔNG bổ sung yêu cầu nào từ đây):
+{{conversationTranscript}}
+
+Bản Product Brief HIỆN TẠI (BẢN GỐC — chép nguyên văn mọi đoạn không bị ghi chú):
+{{currentProductBrief}}
+
+Ghi chú người dùng ghim trên bản xem trước — sửa cho hết, và CHỈ sửa những chỗ này:
+{{RenderNotes(notes)}}
+
+Your task:
+- Apply every note to the current Product Brief; copy every other part verbatim.
+- Return JSON only.
+""";
+    }
+
+    // Mỗi ghi chú một dòng: đoạn được bôi đen (nếu có) + điều cần sửa. Đoạn trích cắt ở 200 ký tự —
+    // đủ để định vị chỗ cần sửa, không kéo cả tài liệu vào prompt lần thứ hai.
+    private static string RenderNotes(IReadOnlyList<BriefNote> notes)
+    {
+        var lines = notes.Select((n, i) =>
+        {
+            var quote = (n.Quote ?? "").Trim();
+            if (quote.Length > 200)
+                quote = quote[..200] + "…";
+            var note = (n.Note ?? "").Trim();
+            return quote.Length > 0
+                ? $"{i + 1}. Ở đoạn “{quote}”: {note}"
+                : $"{i + 1}. (không gắn đoạn nào) {note}";
+        });
+
+        return string.Join("\n", lines);
     }
 
     // Bước Approve: sinh AI Design Spec (kỹ thuật, có cấu trúc) từ Product Brief ĐÃ DUYỆT để Developer
