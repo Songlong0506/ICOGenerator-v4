@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ICOGenerator.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260819152129_CachedInputTokens")]
-    partial class CachedInputTokens
+    [Migration("20260826165943_V1")]
+    partial class V1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -164,6 +164,9 @@ namespace ICOGenerator.Migrations
 
                     b.Property<string>("Questions")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("ReadinessVerified")
+                        .HasColumnType("bit");
 
                     b.Property<string>("ReportMap")
                         .HasColumnType("nvarchar(max)");
@@ -482,22 +485,6 @@ namespace ICOGenerator.Migrations
                         .IsUnique();
 
                     b.ToTable("AppUsers");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.AppUserRole", b =>
-                {
-                    b.Property<Guid>("AppUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Role")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.HasKey("AppUserId", "Role");
-
-                    b.HasIndex("Role");
-
-                    b.ToTable("AppUserRoles");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.Associate", b =>
@@ -1175,6 +1162,9 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int>("BriefApprovedTurnCount")
+                        .HasColumnType("int");
+
                     b.Property<bool>("ChecklistGapHarvested")
                         .HasColumnType("bit");
 
@@ -1244,6 +1234,9 @@ namespace ICOGenerator.Migrations
                     b.Property<string>("OrgUnitCode")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PendingAssumptionGaps")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PendingAssumptionsVersion")
                         .HasColumnType("nvarchar(max)");
@@ -1370,6 +1363,9 @@ namespace ICOGenerator.Migrations
 
                     b.Property<int>("RevisionNumber")
                         .HasColumnType("int");
+
+                    b.Property<Guid?>("TriggerConversationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("VersionName")
                         .IsRequired()
@@ -1522,8 +1518,7 @@ namespace ICOGenerator.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasMaxLength(3000)
-                        .HasColumnType("nvarchar(3000)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
@@ -1706,17 +1701,6 @@ namespace ICOGenerator.Migrations
                     b.Navigation("ToolDefinition");
                 });
 
-            modelBuilder.Entity("ICOGenerator.Domain.AppUserRole", b =>
-                {
-                    b.HasOne("ICOGenerator.Domain.AppUser", "AppUser")
-                        .WithMany("Roles")
-                        .HasForeignKey("AppUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("AppUser");
-                });
-
             modelBuilder.Entity("ICOGenerator.Domain.EvalResult", b =>
                 {
                     b.HasOne("ICOGenerator.Domain.EvalRun", "EvalRun")
@@ -1816,11 +1800,6 @@ namespace ICOGenerator.Migrations
                     b.Navigation("AgentTools");
 
                     b.Navigation("ModelCallLogs");
-                });
-
-            modelBuilder.Entity("ICOGenerator.Domain.AppUser", b =>
-                {
-                    b.Navigation("Roles");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.EvalRun", b =>

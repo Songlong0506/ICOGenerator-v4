@@ -22,6 +22,7 @@ namespace ICOGenerator.Migrations
                     ContextWindow = table.Column<int>(type: "int", nullable: false),
                     InputPricePerMillionTokens = table.Column<decimal>(type: "decimal(18,6)", precision: 18, scale: 6, nullable: false),
                     OutputPricePerMillionTokens = table.Column<decimal>(type: "decimal(18,6)", precision: 18, scale: 6, nullable: false),
+                    CachedInputPricePerMillionTokens = table.Column<decimal>(type: "decimal(18,6)", precision: 18, scale: 6, nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     SupportsVision = table.Column<bool>(type: "bit", nullable: false),
                     StructuredOutputMode = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
@@ -240,6 +241,7 @@ namespace ICOGenerator.Migrations
                     OrgUnitCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     ConversationSummary = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     SummarizedTurnCount = table.Column<int>(type: "int", nullable: false),
+                    BriefApprovedTurnCount = table.Column<int>(type: "int", nullable: false),
                     UserMemoryHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
                     ChecklistGapHarvested = table.Column<bool>(type: "bit", nullable: false),
                     DomainKey = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -251,11 +253,19 @@ namespace ICOGenerator.Migrations
                     PlannedScope = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     WorkedExamples = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     InterviewOutlookHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
+                    PermissionMatrix = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    FlowMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ScreenScopeMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    EntityMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ReportMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    NotificationMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    NotificationRecipients = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PendingAssumptionsVersion = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PendingConflicts = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ConflictCheckedTurnCount = table.Column<int>(type: "int", nullable: false),
                     SpecAssumptionCorrections = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ConfirmedAssumptions = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PendingAssumptionGaps = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PocFeedbackHarvestedCount = table.Column<int>(type: "int", nullable: false),
                     PocAcceptedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     PocAcceptedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -304,7 +314,7 @@ namespace ICOGenerator.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     DisplayName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(3000)", maxLength: 3000, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ServiceType = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     MethodName = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false)
@@ -336,24 +346,6 @@ namespace ICOGenerator.Migrations
                         principalTable: "AiModels",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "AppUserRoles",
-                columns: table => new
-                {
-                    AppUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Role = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AppUserRoles", x => new { x.AppUserId, x.Role });
-                    table.ForeignKey(
-                        name: "FK_AppUserRoles_AppUsers_AppUserId",
-                        column: x => x.AppUserId,
-                        principalTable: "AppUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -480,6 +472,7 @@ namespace ICOGenerator.Migrations
                     StoredPath = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
                     ExtractedText = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PageCount = table.Column<int>(type: "int", nullable: false),
+                    ColumnMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     IsVisionSource = table.Column<bool>(type: "bit", nullable: false),
                     ScannedPageImageCount = table.Column<int>(type: "int", nullable: false),
                     VisionSummary = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -566,8 +559,16 @@ namespace ICOGenerator.Migrations
                     Suggestions = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     SuggestionsMultiSelect = table.Column<bool>(type: "bit", nullable: false),
                     Questions = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ColumnMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PermissionMatrix = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    FlowMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ScreenScopeMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    EntityMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ReportMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    NotificationMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     FlowDiagram = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Attachments = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ReadinessVerified = table.Column<bool>(type: "bit", nullable: false),
                     TokenUsed = table.Column<int>(type: "int", nullable: false),
                     ArchivedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
@@ -603,6 +604,7 @@ namespace ICOGenerator.Migrations
                     ResponseText = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ErrorMessage = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PromptTokens = table.Column<int>(type: "int", nullable: false),
+                    CachedPromptTokens = table.Column<int>(type: "int", nullable: false),
                     CompletionTokens = table.Column<int>(type: "int", nullable: false),
                     TotalTokens = table.Column<int>(type: "int", nullable: false),
                     DurationMs = table.Column<long>(type: "bigint", nullable: false),
@@ -737,6 +739,7 @@ namespace ICOGenerator.Migrations
                     RevisionNumber = table.Column<int>(type: "int", nullable: false),
                     Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ChangeNote = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    TriggerConversationId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     VersionName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
@@ -832,11 +835,6 @@ namespace ICOGenerator.Migrations
                 name: "IX_AiModels_ModelId",
                 table: "AiModels",
                 column: "ModelId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AppUserRoles_Role",
-                table: "AppUserRoles",
-                column: "Role");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AppUsers_Username",
@@ -1009,7 +1007,7 @@ namespace ICOGenerator.Migrations
                 name: "AgentTools");
 
             migrationBuilder.DropTable(
-                name: "AppUserRoles");
+                name: "AppUsers");
 
             migrationBuilder.DropTable(
                 name: "Associates");
@@ -1055,9 +1053,6 @@ namespace ICOGenerator.Migrations
 
             migrationBuilder.DropTable(
                 name: "ToolDefinitions");
-
-            migrationBuilder.DropTable(
-                name: "AppUsers");
 
             migrationBuilder.DropTable(
                 name: "EvalRuns");

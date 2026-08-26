@@ -194,7 +194,6 @@
                         <span class="poc-count" id="uatProgress" data-total="@totalSteps"></span>
                     }
                 </summary>
-                <p class="muted poc-panel-hint">Những gì anh/chị đã duyệt ở bước trước — mở bản demo bên trái và đối chiếu từng dòng xem POC làm đúng chưa. Dưới mỗi câu là kịch bản đi-từng-bước để kiểm chính câu đó.</p>
 
                 @* #uatList bọc toàn bộ phần có thẻ kịch bản: mọi handler trong poc-review.js đều delegate
                    từ phần tử này và tìm ngược bằng closest(".uat-scenario"), nên lồng sâu thêm một cấp
@@ -460,7 +459,6 @@
         <div class="modal poc-tech-modal" role="dialog" aria-modal="true" aria-labelledby="pocTechTitle">
             <button type="button" class="x" id="pocTechClose" aria-label="Đóng">&times;</button>
             <h2 id="pocTechTitle"><i class="bi bi-wrench-adjustable" aria-hidden="true"></i> Chi tiết kỹ thuật</h2>
-            <p class="modal-sub">Dành cho đội delivery — người dùng nghiệp vụ không thấy phần này.</p>
 
             <div class="poc-tech-tabs" role="tablist" aria-label="Chi tiết kỹ thuật">
                 @* Tab mặc định là tab có tín hiệu HÀNH ĐỘNG: nếu chưa có dữ liệu tự kiểm (POC cũ) thì
@@ -702,7 +700,6 @@
              data-associate-url="@Url.Action("SearchAssociates", "Projects", new { projectId = Model.ProjectId })">
             <button type="button" class="x" id="pocShareClose" aria-label="Đóng">&times;</button>
             <h2 id="pocShareTitle"><i class="bi bi-link-45deg" aria-hidden="true"></i> Chia sẻ bản demo</h2>
-            <p class="modal-sub">Người nhận mở được đúng bản demo và ghim góp ý — không thấy gì khác của dự án.</p>
 
             @* Ô "Gửi cho ai" là autocomplete lấy từ danh bạ nhân sự: nhãn link chỉ có ích khi cùng một
                người luôn được ghi cùng một cách. Vẫn cho gõ tự do (khách ngoài công ty không có trong

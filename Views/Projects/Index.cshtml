@@ -49,14 +49,14 @@
                         <span class="ms-combo-caption">Org Unit</span>
                         <span class="ms-combo-text" data-ms-label data-ms-placeholder="Tất cả đơn vị"></span>
                     </span>
-                    <span class="ms-combo-caret" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></span>
+                    <span class="ms-combo-caret" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4" /></svg></span>
                 </button>
                 <div class="ms-combo-panel hidden" data-ms-panel>
                     <div class="ms-combo-search">
                         <div class="ms-combo-search-box">
                             <input type="text" placeholder="Tìm đơn vị…" autocomplete="off" data-ms-search />
-                            <button type="button" class="ms-combo-search-clear hidden" data-ms-clear aria-label="Xóa tìm kiếm"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button>
-                            <span class="ms-combo-search-icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14.5" y2="14.5"/></svg></span>
+                            <button type="button" class="ms-combo-search-clear hidden" data-ms-clear aria-label="Xóa tìm kiếm"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" /></svg></button>
+                            <span class="ms-combo-search-icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5" /><line x1="10.5" y1="10.5" x2="14.5" y2="14.5" /></svg></span>
                         </div>
                     </div>
                     <label class="ms-combo-checkbox ms-combo-all ms-combo-all-row" title="Chọn tất cả">
@@ -129,23 +129,6 @@
                     <td>@(item.OrgUnitName ?? (string.IsNullOrWhiteSpace(p.OrgUnitCode) ? "—" : p.OrgUnitCode))</td>
                     <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>
                     <td class="actions-col">
-                        @* Cột Actions là NÚT BIỂU TƯỢNG, không phải nút chữ: năm hành động xếp thành một
-                           dải gọn, đọc bằng icon + tooltip (data-tip) nên bảng không bị năm cụm chữ dài
-                           đẩy các cột dữ liệu co lại. Mỗi nút vẫn có aria-label đầy đủ cho trình đọc màn
-                           hình — icon chỉ là phần nhìn. Component chung ở site.css, dùng y hệt ở Audit Log
-                           và Agent Dashboard.
-
-                           Hai nhóm, ngăn bằng một khoảng thở (không dùng vạch kẻ — trong ô bảng nó
-                           trông như đường viền cột): bên trái là ĐIỀU HƯỚNG (mở màn hình khác), bên
-                           phải là thao tác trên chính dòng này (sửa / nhân bản).
-
-                           Hiển thị từng nút theo ma trận Roles & Permissions (tra một lần ở trên):
-                           - Requirements: quyền ProjectsOpenRequirements. Đây là cửa vào của cả luồng nên
-                             nó là nút nhấn mạnh (icon-btn--accent).
-                           - Agent Dashboard: quyền ProjectsOpenAgentDashboard.
-                           - Mockup: quyền ProjectsOpenMockup. Dự án chưa có POC thì vẫn giữ chỗ ở dạng mờ
-                             (aria-hidden, không bấm được) để mọi dòng thẳng cột với nhau và người dùng
-                             thấy ngay "dự án này chưa có bản demo". *@
                         <div class="row-actions">
                             @if (canOpenRequirements)
                             {
@@ -156,18 +139,6 @@
                                    asp-action="Index"
                                    asp-route-projectId="@p.Id">
                                     <i class="bi bi-card-checklist" aria-hidden="true"></i>
-                                </a>
-                            }
-
-                            @if (canOpenAgentDashboard)
-                            {
-                                <a class="icon-btn"
-                                   data-tip="Agent Dashboard"
-                                   aria-label="Mở Agent Dashboard của @p.Name"
-                                   asp-controller="AgentDashboard"
-                                   asp-action="Index"
-                                   asp-route-projectId="@p.Id">
-                                    <i class="bi bi-robot" aria-hidden="true"></i>
                                 </a>
                             }
 
@@ -192,42 +163,45 @@
                                 }
                             }
 
-                            @* Dữ liệu dòng đi qua data-* (Razor tự HTML-encode) rồi JS đọc từ dataset —
-                               an toàn hơn việc nhồi giá trị vào tham số onclick. *@
-                            @if (canEditProject || canCloneProject)
+                            @if (canEditProject)
                             {
-                                @* Nhóm thao tác trên chính dòng này. Ngăn với nhóm điều hướng bằng một
-                                   khoảng trống (.act-group), không bằng vạch kẻ: một nét kẻ trong ô bảng
-                                   trông như đường viền cột. *@
-                                <span class="act-group">
-                                @if (canEditProject)
-                                {
-                                    <button type="button"
-                                            class="icon-btn"
-                                            data-tip="Chỉnh sửa dự án"
-                                            aria-label="Chỉnh sửa dự án @p.Name"
-                                            data-edit-project
-                                            data-project-id="@p.Id"
-                                            data-project-name="@p.Name"
-                                            data-project-description="@p.Description"
-                                            data-project-orgunit="@p.OrgUnitCode"
-                                            data-project-running="@(item.HasRunningWorkflow ? "true" : "false")">
-                                        <i class="bi bi-pencil" aria-hidden="true"></i>
-                                    </button>
-                                }
-                                @if (canCloneProject)
-                                {
-                                    <button type="button"
-                                            class="icon-btn"
-                                            data-tip="Nhân bản dự án"
-                                            aria-label="Nhân bản dự án @p.Name"
-                                            data-clone-project
-                                            data-project-id="@p.Id"
-                                            data-project-name="@p.Name">
-                                        <i class="bi bi-copy" aria-hidden="true"></i>
-                                    </button>
-                                }
-                                </span>
+                                <button type="button"
+                                        class="icon-btn"
+                                        data-tip="Chỉnh sửa dự án"
+                                        aria-label="Chỉnh sửa dự án @p.Name"
+                                        data-edit-project
+                                        data-project-id="@p.Id"
+                                        data-project-name="@p.Name"
+                                        data-project-description="@p.Description"
+                                        data-project-orgunit="@p.OrgUnitCode"
+                                        data-project-running="@(item.HasRunningWorkflow ? "true" : "false")">
+                                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                                </button>
+                            }
+
+                            @if (canOpenAgentDashboard)
+                            {
+                                <a class="icon-btn"
+                                   data-tip="Agent Dashboard"
+                                   aria-label="Mở Agent Dashboard của @p.Name"
+                                   asp-controller="AgentDashboard"
+                                   asp-action="Index"
+                                   asp-route-projectId="@p.Id">
+                                    <i class="bi bi-robot" aria-hidden="true"></i>
+                                </a>
+                            }
+
+                            @if (canCloneProject)
+                            {
+                                <button type="button"
+                                        class="icon-btn"
+                                        data-tip="Nhân bản dự án"
+                                        aria-label="Nhân bản dự án @p.Name"
+                                        data-clone-project
+                                        data-project-id="@p.Id"
+                                        data-project-name="@p.Name">
+                                    <i class="bi bi-copy" aria-hidden="true"></i>
+                                </button>
                             }
                         </div>
                     </td>
@@ -278,8 +252,8 @@
         <form class="modal" asp-action="Update" method="post"
               role="dialog" aria-modal="true" aria-labelledby="edit-project-title" data-edit-project-form>
             <button type="button" class="x" onclick="closeModal('editProject')" aria-label="Đóng">×</button>
-            <h2 id="edit-project-title">Chỉnh sửa dự án</h2>
-            <p class="modal-sub" data-edit-subtitle></p>
+            <h2 id="edit-project-title">Edit project</h2>
+            <p class="modal-sub" hidden data-edit-subtitle></p>
 
             <input type="hidden" name="ProjectId" data-edit-id />
             @* Giữ nguyên trang + bộ lọc đang xem để sau khi lưu người dùng quay lại đúng chỗ cũ. *@

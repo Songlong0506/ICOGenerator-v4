@@ -434,7 +434,7 @@
                        name="projectId"
                        value="@Model.Id" />
 
-                <button class="side-action primary" type="submit">
+                <button class="side-action" type="submit">
                     <i class="bi bi-plus-lg side-action-ico" aria-hidden="true"></i>
                     <span class="side-action-label">New Chat</span>
                 </button>
@@ -651,15 +651,9 @@
         }
         else
         {
-            @* Trạng thái rỗng nói KHI NÀO có bản đầu tiên, thay cho "No requirement history yet": người
-               dùng nghiệp vụ đọc câu đó không biết mình phải làm gì để nó khác đi. *@
             <div class="brief-empty">
                 <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
                 <p class="brief-empty-title">Chưa có bản mô tả nào</p>
-                <p class="brief-empty-hint">
-                    BA soạn Product Brief khi cuộc phỏng vấn đủ thông tin — nút <b>Write Requirement</b>
-                    hiện ngay trong khung chat lúc đó.
-                </p>
             </div>
         }
 
