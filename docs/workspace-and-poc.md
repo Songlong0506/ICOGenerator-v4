@@ -140,6 +140,15 @@ ngắn, nên so bằng `TextSimilarity` (bằng nhau → chứa nhau → đủ t
 một quy tắc bằng từ ngữ kỹ thuật hơn là chuyện bình thường, và một cổng kêu ở mọi lượt là một cổng sẽ
 bị bỏ qua. `PocUatCoverage` nay dùng chung `TextSimilarity` thay vì bản sao riêng của nó.
 
+**Vòng sửa không được hạ cấp chính bản spec.** Phát hiện lệch thì BA sửa đúng một vòng, và vòng đó phải
+xuất lại **toàn bộ** spec — output dài nhất cả tuyến, nên phản hồi bị cắt giữa chừng là chuyện thường
+(`LlmJson.ExtractObject` gặp ngoặc không cân thì coi như không có JSON). Kết quả vòng sửa vì vậy đọc
+bằng bản strict `RequirementResponseParser.TryParseAiDesignSpec`: không đọc được ⇒ **giữ nguyên bản
+vòng đầu**, log ghi "Không đọc được kết quả vòng sửa spec — giữ nguyên bản đã sinh." Nếu đường này rơi
+vào khung dự phòng như lượt sinh đầu, nó lấy bản chép lại Product Brief đè lên một spec đang dùng được,
+và nhìn từ log thì triệu chứng giống hệt một spec thật còn thiếu mục ("vẫn còn lệch") — cùng kỷ luật
+với `TryParseProductBrief` ở vòng sửa Product Brief.
+
 ### Mỗi vòng dựng POC được chụp lại (`PocSnapshots`)
 Vòng "Yêu cầu chỉnh sửa" **ghi đè thẳng** lên `poc-demo.html`, nên bản người nghiệm thu vừa xem biến
 mất. `PocVerification` giữ được lịch sử **kết quả kiểm** (rule pass/fail, hồi quy) nhưng không giữ

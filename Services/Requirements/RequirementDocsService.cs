@@ -173,17 +173,25 @@ public class RequirementDocsService
 
             if (fixCall.IsSuccess)
             {
+                // Parse STRICT ở vòng sửa: hỏng thì giữ bản vòng đầu, KHÔNG rơi vào khung dự phòng.
+                // Vòng này phải xuất lại toàn bộ spec nên là output dài nhất tuyến; model bị cắt giữa
+                // chừng là chuyện thường, và lấy khung "Cần làm rõ" đè lên bản vòng đầu thì bước dựng POC
+                // mất sạch đầu vào thật trong khi log vẫn chỉ nói "vẫn còn lệch" — xem TryParseAiDesignSpec.
                 var fixedResult = fixStructured != null
                     ? _responseParser.Normalize(fixStructured)
-                    : _responseParser.ParseAiDesignSpec(fixCall.Content, productBrief);
+                    : _responseParser.TryParseAiDesignSpec(fixCall.Content);
 
-                if (!string.IsNullOrWhiteSpace(fixedResult.AiDesignSpec.Content))
+                if (fixedResult != null && !string.IsNullOrWhiteSpace(fixedResult.AiDesignSpec.Content))
                 {
                     result = fixedResult;
                     var remaining = SpecBriefParityChecker.Check(productBrief, result.AiDesignSpec.Content);
                     Report("observation", remaining == null
                         ? "Spec đã khớp Product Brief (màn hình, quy tắc nghiệp vụ, câu nghiệm thu)."
                         : "Spec sau vòng sửa vẫn còn lệch — tiếp tục với bản hiện có.", remaining);
+                }
+                else
+                {
+                    Report("observation", "Không đọc được kết quả vòng sửa spec — giữ nguyên bản đã sinh.", fixCall.Content);
                 }
             }
             else

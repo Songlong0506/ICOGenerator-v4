@@ -111,6 +111,18 @@ Cần làm rõ
         return result;
     }
 
+    // Bản STRICT cho VÒNG SỬA sau đối chiếu Brief↔spec, cùng kỷ luật với TryParseProductBrief: parse
+    // hỏng thì trả null để caller GIỮ bản spec vòng đầu. Tuyệt đối không dùng khung dự phòng ở đường này
+    // — vòng sửa phải xuất lại TOÀN BỘ spec nên nó là output DÀI NHẤT của cả tuyến, và một phản hồi bị
+    // cắt giữa chừng (ngoặc không cân ⇒ LlmJson trả null) sẽ lấy khung "Cần làm rõ" ĐÈ LÊN một bản spec
+    // đang dùng được. Đầu vào duy nhất của bước dựng POC bị thay bằng bản chép lại Product Brief mà
+    // không có gì báo: đối chiếu ở vòng sau vẫn kêu "còn lệch" y như một spec thật còn thiếu mục.
+    public BAAiDesignSpecResult? TryParseAiDesignSpec(string response)
+    {
+        var result = LlmJson.TryDeserialize<BAAiDesignSpecResult>(response);
+        return result == null ? null : Normalize(result);
+    }
+
     public BAAiDesignSpecResult ParseAiDesignSpec(string response, string productBrief)
     {
         // Không đọc được thì dùng khung dự phòng bên dưới, để Approve vẫn ra được AI Design Spec dùng được
