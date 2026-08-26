@@ -67,6 +67,12 @@ public class ApproveRequirementUseCase
             }
         }
 
+        // MỐC DUYỆT của hội thoại. Bản vừa duyệt là bản DUY NHẤT trong dự án có chữ ký người dùng, nên mọi
+        // lượt chat trước thời điểm này đã được chính nó chở — vòng soạn Brief sau đó được phép nén phần
+        // transcript trước mốc thay vì gửi lại nguyên văn (xem BriefContextWindow). Đếm TẤT CẢ lượt để
+        // khớp con trỏ của các tầng bộ nhớ khác (chúng cũng đếm mọi dòng, không lọc).
+        project.BriefApprovedTurnCount = await _db.AgentConversations.CountAsync(c => c.ProjectId == projectId);
+
         // Promote draft folders on disk BEFORE persisting: the doc changes are still only in the
         // change tracker, so if the destructive move fails we return without SaveChangesAsync and
         // the DB stays on the draft — no half-approved state, retryable. Previously an IOException

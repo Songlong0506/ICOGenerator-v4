@@ -33,6 +33,7 @@ public class ProductBriefDraftService
     private readonly RequirementCoverageService _coverage;
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
+    private readonly ConversationMemoryService _memory;
 
     public ProductBriefDraftService(
         AppDbContext db,
@@ -48,7 +49,8 @@ public class ProductBriefDraftService
         OrganizationContextService orgContext,
         RequirementCoverageService coverage,
         BAAgentResolver agentResolver,
-        BAConversationLog conversationLog)
+        BAConversationLog conversationLog,
+        ConversationMemoryService memory)
     {
         _db = db;
         _llm = llm;
@@ -64,6 +66,7 @@ public class ProductBriefDraftService
         _coverage = coverage;
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
+        _memory = memory;
     }
 
     /// <param name="onProgress">Callback (kind, message, detail) báo tiến độ live cho UI; có thể null khi gọi đồng bộ.</param>
@@ -107,9 +110,40 @@ public class ProductBriefDraftService
             return RequirementDraftOutcome.NeedsMoreInfo;
         }
 
-        // Transcript Hỏi–Đáp đầy đủ (BA hỏi / user trả lời) — KHÔNG chỉ lượt user, để câu trả lời ngắn
-        // kiểu chip ("Nhân viên văn phòng") còn nguyên ngữ cảnh câu hỏi khi soạn tài liệu.
-        var conversationTranscript = ConversationTranscriptBuilder.Build(project.Conversations);
+        // BỘ NHỚ DÀI HẠN. Gọi cùng service mà khung chat đang dùng (summary gộp theo lô + cửa sổ lượt gần
+        // nhất) chứ không dựng đường nén riêng: đường ghi chú trên bản xem trước và đường POC-feedback ghi
+        // thêm lượt user rồi gọi thẳng vào đây, không qua lượt chat nào để summary kịp tiến. Thường là
+        // no-op đọc thuần (chỉ gọi LLM khi đã đủ một lô lượt cũ) và fail-open: tóm tắt lỗi ⇒ con trỏ đứng
+        // yên ⇒ cửa sổ bên dưới không cắt gì, hội thoại đi nguyên văn như trước.
+        await _memory.LoadAsync(project, ba, model, cancellationToken);
+
+        // Transcript Hỏi–Đáp (BA hỏi / user trả lời) — KHÔNG chỉ lượt user, để câu trả lời ngắn kiểu chip
+        // ("Nhân viên văn phòng") còn nguyên ngữ cảnh câu hỏi khi soạn tài liệu.
+        //
+        // CẮT phần đầu theo BriefContextWindow: transcript từng là input DUY NHẤT của bước này không có
+        // trần, mà nó lên dây BA LẦN trong một lượt bấm (soạn → tự soát → sửa) và vượt context window thì
+        // task fail thẳng. Chỉ cắt phần đã nằm trong summary (khối đi kèm prompt ngay dưới) và/hoặc trước
+        // mốc duyệt Brief — hai chỗ đó chở lại đúng những lượt không còn gửi nguyên văn.
+        var transcript = ConversationTranscriptBuilder.BuildWindowed(
+            project.Conversations, project.SummarizedTurnCount, project.BriefApprovedTurnCount);
+        var conversationTranscript = transcript.Text;
+
+        // Tóm tắt chỉ đi kèm khi transcript ĐÃ bị cắt. Không cắt gì mà vẫn gửi ⇒ chép đôi: mọi lượt trong
+        // tóm tắt lúc đó vẫn còn nguyên văn ngay bên dưới, tốn token cho đúng thứ model đã đọc.
+        var conversationSummary = transcript.SkippedTurns > 0 ? project.ConversationSummary ?? "" : "";
+
+        // Bản Brief ĐÃ DUYỆT gần nhất: bản duy nhất trong dự án có chữ ký người dùng, và cho tới nay nó
+        // KHÔNG hề có trong prompt (sau Approve, dòng draft bị đổi tên thành "V{n}" nên tra "draft" trả
+        // rỗng) — mọi nội dung đã duyệt phải đi vòng qua transcript mới sang được phiên bản sau.
+        var approvedBrief = ProjectDocumentLookup.GetLatestApproved(project, _artifactCatalog.ProductBrief.FileName);
+
+        if (transcript.SkippedTurns > 0)
+        {
+            Report("info",
+                $"Hội thoại dài — gửi cho AI phần tóm tắt {transcript.SkippedTurns} lượt cũ"
+                + (approvedBrief != null ? $" + bản mô tả đã duyệt {approvedBrief.VersionName}" : "")
+                + " và nguyên văn các lượt gần đây.");
+        }
 
         // Tài liệu nguồn (ảnh/PDF) của project → AIContent gắn kèm lượt soạn tài liệu (text PDF + ảnh nếu model vision).
         var sources = project.SourceFiles.OrderBy(s => s.CreatedAt).ToList();
@@ -179,7 +213,9 @@ public class ProductBriefDraftService
             conversationTranscript,
             ProjectDocumentLookup.GetContent(project, _artifactCatalog.ProductBrief.FileName, "draft"),
             organizationContext,
-            distilledState);
+            distilledState,
+            conversationSummary,
+            approvedBrief);
 
         // Lượt user mang prompt soạn tài liệu + tài liệu nguồn (text/ảnh) đính kèm. Không có nguồn ⇒ chỉ một
         // TextContent, tương đương đường cũ.
@@ -233,7 +269,7 @@ public class ProductBriefDraftService
 
         // Vòng TỰ SOÁT (đúng một vòng): reviewer đối chiếu bản nháp với hội thoại (bỏ sót/sai lệch/tự
         // thêm/giả định còn sót/thiếu mục) rồi sửa nếu có vấn đề. Fail-open toàn tuyến — soát/sửa lỗi thì dùng bản nháp đầu.
-        result = await ReviewAndReviseDraftAsync(project, ba, model, conversationTranscript, organizationContext, distilledState, result, Report, onToken, workflowRunId, cancellationToken);
+        result = await ReviewAndReviseDraftAsync(project, ba, model, conversationTranscript, organizationContext, distilledState, conversationSummary, approvedBrief, result, Report, onToken, workflowRunId, cancellationToken);
 
         Report("tool", "Đang tạo/cập nhật file tài liệu (.docx)…");
 
@@ -266,6 +302,8 @@ public class ProductBriefDraftService
         string conversationTranscript,
         string organizationContext,
         string distilledState,
+        string conversationSummary,
+        ProjectDocumentLookup.ApprovedDocument? approvedBrief,
         BAProductBriefResult draft,
         Action<string, string, string?> report,
         Action<string>? onToken,
@@ -281,7 +319,7 @@ public class ProductBriefDraftService
         var reviewMessages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/product-brief-review.v2.md")),
-            new(ChatRole.User, _promptBuilder.BuildProductBriefReview(project, conversationTranscript, draft.ProductBrief.Content, organizationContext, distilledState))
+            new(ChatRole.User, _promptBuilder.BuildProductBriefReview(project, conversationTranscript, draft.ProductBrief.Content, organizationContext, distilledState, conversationSummary, approvedBrief))
         };
 
         var (reviewCall, structuredReview) = await _llm.ChatStructuredAsync<ProductBriefReview>(
@@ -309,7 +347,7 @@ public class ProductBriefDraftService
         var revisionMessages = new List<ChatMessage>
         {
             new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/product-brief.v3.md")),
-            new(ChatRole.User, _promptBuilder.BuildProductBriefRevision(project, conversationTranscript, draft.ProductBrief.Content, review.Issues, organizationContext, distilledState))
+            new(ChatRole.User, _promptBuilder.BuildProductBriefRevision(project, conversationTranscript, draft.ProductBrief.Content, review.Issues, organizationContext, distilledState, conversationSummary, approvedBrief))
         };
 
         var (revisionCall, structuredRevision) = await _llm.ChatStructuredAsync<BAProductBriefResult>(

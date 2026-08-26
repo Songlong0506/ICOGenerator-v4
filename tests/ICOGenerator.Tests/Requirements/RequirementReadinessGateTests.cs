@@ -384,7 +384,8 @@ public class RequirementReadinessGateTests : IDisposable
             NewOrgContext(db, prompts),
             new RequirementCoverageService(db, llm, prompts),
             new BAAgentResolver(db),
-            new BAConversationLog(db));
+            new BAConversationLog(db),
+            new ConversationMemoryService(db, llm, prompts));
     }
 
     // OrgUnits trống trong các test này ⇒ service trả null (fail-open), không thêm system message nào.

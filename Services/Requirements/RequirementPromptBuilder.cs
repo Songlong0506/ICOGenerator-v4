@@ -9,12 +9,17 @@ public class RequirementPromptBuilder
     // (BA hỏi / Người dùng trả lời) — giữ cả câu hỏi để câu trả lời ngắn kiểu chip không mất ngữ cảnh.
     // organizationContext (có thể rỗng): bối cảnh tổ chức Bosch + đơn vị yêu cầu, render từ dữ liệu HR
     // thật — để tài liệu dùng đúng tên phòng ban/HoD thay vì "TBD". Xem OrganizationContextService.
+    // conversationSummary (có thể rỗng) + approvedBrief (có thể null): xem ConversationSummarySection và
+    // ApprovedBriefSection — hai khối này gánh phần hội thoại KHÔNG còn gửi nguyên văn khi buổi phỏng vấn
+    // dài (BriefContextWindow). Thiếu chúng thì cắt transcript là làm mất thông tin.
     public string BuildProductBrief(
         Project project,
         string conversationTranscript,
         string currentProductBrief,
         string organizationContext = "",
-        string distilledState = "")
+        string distilledState = "",
+        string conversationSummary = "",
+        ProjectDocumentLookup.ApprovedDocument? approvedBrief = null)
     {
         return $$"""
 Project:
@@ -22,7 +27,7 @@ Project:
 
 Project Description:
 {{project.Description}}
-{{OrganizationSection(organizationContext)}}
+{{OrganizationSection(organizationContext)}}{{ApprovedBriefSection(approvedBrief)}}{{ConversationSummarySection(conversationSummary)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
 {{DistilledStateSection(distilledState)}}
@@ -31,6 +36,7 @@ Current Product Brief preview:
 
 Your task:
 - Write/update the Product Brief in plain, non-technical Vietnamese for a normal end user.
+- Everything in the approved Product Brief above is already agreed by the user: KEEP it unless the conversation (or its summary) changes it, and add whatever the conversation adds on top.
 - Return JSON only.
 """;
     }
@@ -44,7 +50,9 @@ Your task:
         string conversationTranscript,
         string draftProductBrief,
         string organizationContext = "",
-        string distilledState = "")
+        string distilledState = "",
+        string conversationSummary = "",
+        ProjectDocumentLookup.ApprovedDocument? approvedBrief = null)
     {
         return $$"""
 Project:
@@ -52,7 +60,7 @@ Project:
 
 Project Description:
 {{project.Description}}
-{{OrganizationSection(organizationContext)}}
+{{OrganizationSection(organizationContext)}}{{ApprovedBriefSection(approvedBrief)}}{{ConversationSummarySection(conversationSummary)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
 {{DistilledStateSection(distilledState)}}
@@ -62,6 +70,7 @@ Bản nháp Product Brief cần soát:
 Your task:
 - Review the draft against the conversation and list substantive issues.
 - Organization facts (department names, HoD/manager names) taken from the organization context above are legitimate — do NOT flag them as fabricated.
+- The approved Product Brief and the conversation summary above are part of the record too: content traced to them is legitimate — do NOT flag it as fabricated or as invented beyond the conversation, and DO flag it when the draft silently drops something they state.
 - Return JSON only.
 """;
     }
@@ -74,7 +83,9 @@ Your task:
         string draftProductBrief,
         IReadOnlyList<string> reviewIssues,
         string organizationContext = "",
-        string distilledState = "")
+        string distilledState = "",
+        string conversationSummary = "",
+        ProjectDocumentLookup.ApprovedDocument? approvedBrief = null)
     {
         return $$"""
 Project:
@@ -82,7 +93,7 @@ Project:
 
 Project Description:
 {{project.Description}}
-{{OrganizationSection(organizationContext)}}
+{{OrganizationSection(organizationContext)}}{{ApprovedBriefSection(approvedBrief)}}{{ConversationSummarySection(conversationSummary)}}
 Hội thoại khai thác yêu cầu (BA hỏi – Người dùng trả lời):
 {{conversationTranscript}}
 {{DistilledStateSection(distilledState)}}
@@ -450,6 +461,41 @@ Reviewer change request (bản "Current ... preview" ở trên là kết quả l
 
 Trạng thái đã chắt từ hội thoại trên (đối chiếu MÁY MÓC với tài liệu: mỗi mục ở đây phải tìm được chỗ tương ứng trong tài liệu; đây KHÔNG phải nguồn thông tin mới, chỉ là chỉ mục của chính hội thoại):
 {distilledState.Trim()}
+
+""";
+    }
+
+    // Bản Product Brief ĐÃ DUYỆT gần nhất. Trước đây khối này KHÔNG hề có trong prompt: sau khi duyệt,
+    // ApproveRequirementUseCase đổi chính dòng draft thành "V{n}", nên lượt soạn kế tiếp tra "draft" nhận
+    // về chuỗi rỗng và transcript trở thành thứ DUY NHẤT chở nội dung V1 sang V2. Nạp vào đây vì đó là
+    // bản duy nhất trong dự án có chữ ký người dùng (họ đã bấm Approve) — nó vừa là mỏ neo chống trôi cho
+    // các lần soạn sau, vừa là thứ cho phép BriefContextWindow nén phần hội thoại trước mốc duyệt.
+    private static string ApprovedBriefSection(ProjectDocumentLookup.ApprovedDocument? approvedBrief)
+    {
+        if (approvedBrief == null || string.IsNullOrWhiteSpace(approvedBrief.Content))
+            return string.Empty;
+
+        return $"""
+
+Bản mô tả sản phẩm ĐÃ DUYỆT ({approvedBrief.VersionName}) — người dùng đã bấm Approve cho bản này, nên mọi điều trong đây là ĐÃ CHỐT (không phải giả định): giữ nguyên, chỉ đổi những chỗ mà hội thoại/tóm tắt bên dưới nói khác, và bổ sung những gì họ nói thêm sau đó:
+{approvedBrief.Content.Trim()}
+
+""";
+    }
+
+    // Tóm tắt các lượt hội thoại CŨ (Project.ConversationSummary, do ConversationMemoryService gộp dần).
+    // Chỉ xuất hiện khi transcript đã bị cắt bớt (BriefContextWindow) — và khi đó nó BẮT BUỘC phải có
+    // mặt: nó chính là chỗ chứa những lượt không còn gửi nguyên văn. Nói rõ "đã nén" để model không đọc
+    // độ ngắn gọn của khối này như thể người dùng chỉ nói bấy nhiêu.
+    private static string ConversationSummarySection(string conversationSummary)
+    {
+        if (string.IsNullOrWhiteSpace(conversationSummary))
+            return string.Empty;
+
+        return $"""
+
+Tóm tắt các lượt hội thoại CŨ (đã nén — phần nguyên văn bên dưới chỉ còn các lượt gần đây; những điều nêu ở đây là điều người dùng ĐÃ nói, có giá trị ngang transcript):
+{conversationSummary.Trim()}
 
 """;
     }

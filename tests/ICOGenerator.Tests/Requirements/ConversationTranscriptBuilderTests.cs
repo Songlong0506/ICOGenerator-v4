@@ -73,6 +73,75 @@ public class ConversationTranscriptBuilderTests
             transcript);
     }
 
+    // ==== Cửa sổ nén (BriefContextWindow) ====
+
+    [Fact]
+    public void BuildWindowed_CutsHeadOfConversation_AndReportsSkippedCount()
+    {
+        var turns = new[]
+        {
+            Turn("user", "Ý cũ 1", 1),
+            Turn("assistant", "Câu hỏi cũ", 2),
+            Turn("user", "Ý cũ 2", 3),
+            Turn("assistant", "Câu hỏi mới", 4),
+            Turn("user", "Ý mới", 5)
+        };
+
+        // Mốc duyệt = 3 lượt đầu, và cả 3 đều đã nằm trong tóm tắt ⇒ được cắt.
+        var transcript = ConversationTranscriptBuilder.BuildWindowed(turns, summarizedTurnCount: 3, approvedTurnCount: 3);
+
+        Assert.Equal(3, transcript.SkippedTurns);
+        Assert.Equal(
+            "BA: Câu hỏi mới\n" +
+            "Người dùng: Ý mới",
+            transcript.Text.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void BuildWindowed_CountsFilteredTurns_SoPointersStayAligned()
+    {
+        // Con trỏ bộ nhớ đếm MỌI dòng hội thoại, kể cả lượt rỗng và lượt báo lỗi gọi AI (những lượt bị lọc
+        // khỏi transcript). Đếm lệch một dòng là cắt nhầm sang lượt chưa được tóm tắt — mất thông tin âm thầm.
+        var turns = new[]
+        {
+            Turn("user", "Ý cũ", 1),
+            Turn("assistant", ConversationTranscriptBuilder.LlmFailurePrefix + ": timeout", 2),
+            Turn("user", "   ", 3),
+            Turn("assistant", "Câu hỏi mới", 4),
+            Turn("user", "Ý mới", 5)
+        };
+
+        var transcript = ConversationTranscriptBuilder.BuildWindowed(turns, summarizedTurnCount: 3, approvedTurnCount: 3);
+
+        Assert.Equal(3, transcript.SkippedTurns);
+        Assert.Equal(
+            "BA: Câu hỏi mới\n" +
+            "Người dùng: Ý mới",
+            transcript.Text.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void BuildWindowed_WithoutSummary_SendsWholeConversation()
+    {
+        // Chưa tóm tắt lượt nào (dự án ngắn, hoặc lời gọi tóm tắt lỗi) ⇒ hành vi y hệt Build cũ.
+        var turns = new[] { Turn("user", "Ý 1", 1), Turn("assistant", "Hỏi", 2), Turn("user", "Ý 2", 3) };
+
+        var transcript = ConversationTranscriptBuilder.BuildWindowed(turns, summarizedTurnCount: 0, approvedTurnCount: 3);
+
+        Assert.Equal(0, transcript.SkippedTurns);
+        Assert.Equal(ConversationTranscriptBuilder.Build(turns), transcript.Text);
+    }
+
+    [Fact]
+    public void BuildWindowed_NoUserTurns_ReturnsPlaceholder()
+    {
+        var transcript = ConversationTranscriptBuilder.BuildWindowed(
+            new[] { Turn("assistant", "Bạn muốn xây ứng dụng gì?", 1) }, summarizedTurnCount: 1, approvedTurnCount: 1);
+
+        Assert.Equal(ConversationTranscriptBuilder.NoRequirementPlaceholder, transcript.Text);
+        Assert.Equal(0, transcript.SkippedTurns);
+    }
+
     [Fact]
     public void Build_FiltersLlmFailureTurns_AndBlankMessages()
     {
