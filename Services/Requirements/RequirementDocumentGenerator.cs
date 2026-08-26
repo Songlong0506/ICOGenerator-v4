@@ -167,9 +167,22 @@ public class RequirementDocumentGenerator
             RevisionNumber = lastNumber + 1,
             Content = content,
             ChangeNote = changeNote.Length > 500 ? changeNote[..500] : changeNote,
-            VersionName = doc.VersionName
+            VersionName = doc.VersionName,
+            TriggerConversationId = await FindTriggerConversationIdAsync(doc.ProjectId)
         });
     }
+
+    // Mốc "input dẫn tới bản này" — xem ProjectDocumentRevision.TriggerConversationId.
+    // KHÔNG IgnoreQueryFilters ở đường GHI (khác đường đọc): sau "New Chat" mọi lượt cũ đã lưu trữ và
+    // vòng soạn cũng đọc transcript rỗng, nên trỏ vào một lượt của buổi chat đã đóng là nói dối về
+    // nguồn của bản này. Không có lượt user nào đang dùng ⇒ để null, popup chỉ hiện ChangeNote.
+    private Task<Guid?> FindTriggerConversationIdAsync(Guid projectId) =>
+        _db.AgentConversations
+            .AsNoTracking()
+            .Where(x => x.ProjectId == projectId && x.Role == "user")
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync();
 
     private static Dictionary<string, string> BuildBrdReplacements(Project project, BrdDto brd)
     {

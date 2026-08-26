@@ -19,6 +19,12 @@ namespace ICOGenerator.Tests.Requirements;
 // Lịch sử revision của tài liệu sinh ra: mỗi lần UpsertDocument GHI nội dung (lần đầu hoặc ghi đè có
 // thay đổi) phải chụp một ProjectDocumentRevision tăng số thứ tự; ghi lại cùng nội dung thì KHÔNG
 // snapshot (tránh lịch sử toàn bản trùng). Diff query đối chiếu một revision với bản liền trước.
+//
+// Kèm theo là VẾT INPUT: mỗi revision ghi mốc TriggerConversationId (lượt user mới nhất lúc ghi), và
+// diff query trả về các lượt user nằm giữa hai mốc — phần "vì sao đổi" đứng cạnh phần "đổi chỗ nào".
+// Hai luật dễ vỡ nhất nằm ở chỗ hội thoại bị LƯU TRỮ ("New Chat"): lượt lưu trữ SAU khi bản được ghi
+// vẫn phải hiện (lịch sử không được bốc hơi vì một cú bấm ở khung chat), lượt lưu trữ TRƯỚC đó thì
+// không (vòng soạn chưa từng đọc chúng).
 public class DocumentRevisionHistoryTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -26,6 +32,8 @@ public class DocumentRevisionHistoryTests : IDisposable
     private readonly string _workspaceRoot;
     private readonly Guid _projectId = Guid.NewGuid();
     private readonly Guid _baId = Guid.NewGuid();
+    // Mốc thời gian trong QUÁ KHỨ: revision được ghi ở UtcNow, các lượt hội thoại phải đứng trước nó.
+    private readonly DateTime _t0 = DateTime.UtcNow.AddHours(-1);
 
     public DocumentRevisionHistoryTests()
     {
@@ -110,6 +118,117 @@ public class DocumentRevisionHistoryTests : IDisposable
 
         Assert.NotNull(result);
         Assert.Equal(new[] { 2, 1 }, result!.Revisions.Select(r => r.RevisionNumber));
+    }
+
+    [Fact]
+    public async Task Snapshot_AnchorsRevisionToLatestUserTurn()
+    {
+        await AddTurnAsync("user", "lượt cũ", _t0);
+        var latest = await AddTurnAsync("user", "cú submit đứng sau bản này", _t0.AddMinutes(3));
+        await AddTurnAsync("assistant", "BA trả lời", _t0.AddMinutes(4));
+        await GenerateDraftAsync("v1");
+
+        await using var db = NewDb();
+        var revision = await db.ProjectDocumentRevisions.SingleAsync();
+
+        // Mốc là lượt USER mới nhất — không phải lượt cuối cùng của hội thoại.
+        Assert.Equal(latest, revision.TriggerConversationId);
+    }
+
+    [Fact]
+    public async Task DiffQuery_ReturnsOnlyUserTurnsSincePreviousRevision()
+    {
+        await AddTurnAsync("user", "lượt trước bản 1", _t0);
+        await GenerateDraftAsync("v1");
+        await AddTurnAsync("assistant", "BA trả lời", _t0.AddMinutes(1));
+        await AddTurnAsync("user", "ghi chú sửa brief", _t0.AddMinutes(2));
+        await GenerateDraftAsync("v2");
+
+        await using var db = NewDb();
+        var query = new GetDocumentRevisionDiffQuery(db, new DocumentDiffService());
+        var first = await db.ProjectDocumentRevisions.SingleAsync(x => x.RevisionNumber == 1);
+        var second = await db.ProjectDocumentRevisions.SingleAsync(x => x.RevisionNumber == 2);
+
+        var firstDiff = await query.ExecuteAsync(first.Id);
+        var secondDiff = await query.ExecuteAsync(second.Id);
+
+        Assert.Equal(new[] { "lượt trước bản 1" }, firstDiff!.Inputs.Select(i => i.Message));
+        // Lượt đã tính cho bản trước KHÔNG được kể lại, lượt assistant không phải input.
+        Assert.Equal(new[] { "ghi chú sửa brief" }, secondDiff!.Inputs.Select(i => i.Message));
+        Assert.False(secondDiff.InputsTruncated);
+    }
+
+    [Fact]
+    public async Task DiffQuery_KeepsInputs_WhenConversationArchivedAfterRevision()
+    {
+        await AddTurnAsync("user", "câu hỏi rồi bị New Chat lưu trữ", _t0);
+        await GenerateDraftAsync("v1");
+
+        await using (var arrange = NewDb())
+        {
+            var turns = await arrange.AgentConversations.IgnoreQueryFilters().ToListAsync();
+            turns.ForEach(t => t.ArchivedAt = DateTime.UtcNow);
+            await arrange.SaveChangesAsync();
+        }
+
+        await using var db = NewDb();
+        var revision = await db.ProjectDocumentRevisions.SingleAsync();
+
+        var diff = await new GetDocumentRevisionDiffQuery(db, new DocumentDiffService()).ExecuteAsync(revision.Id);
+
+        Assert.Equal(new[] { "câu hỏi rồi bị New Chat lưu trữ" }, diff!.Inputs.Select(i => i.Message));
+    }
+
+    [Fact]
+    public async Task Snapshot_AfterNewChat_HasNoTriggerAndNoInputs()
+    {
+        await AddTurnAsync("user", "buổi chat đã đóng", _t0, archivedAt: _t0.AddMinutes(5));
+        await GenerateDraftAsync("v1");
+
+        await using var db = NewDb();
+        var revision = await db.ProjectDocumentRevisions.SingleAsync();
+
+        Assert.Null(revision.TriggerConversationId);
+
+        var diff = await new GetDocumentRevisionDiffQuery(db, new DocumentDiffService()).ExecuteAsync(revision.Id);
+
+        Assert.Empty(diff!.Inputs);
+    }
+
+    [Fact]
+    public async Task DiffQuery_CapsInputTurnsAndFlagsTruncation()
+    {
+        for (var i = 0; i < 12; i++)
+            await AddTurnAsync("user", $"lượt {i}", _t0.AddMinutes(i));
+        await GenerateDraftAsync("v1");
+
+        await using var db = NewDb();
+        var revision = await db.ProjectDocumentRevisions.SingleAsync();
+
+        var diff = await new GetDocumentRevisionDiffQuery(db, new DocumentDiffService()).ExecuteAsync(revision.Id);
+
+        Assert.True(diff!.InputsTruncated);
+        Assert.Equal(10, diff.Inputs.Count);
+        // Cắt từ phía CŨ, trả về theo thứ tự thời gian.
+        Assert.Equal("lượt 2", diff.Inputs[0].Message);
+        Assert.Equal("lượt 11", diff.Inputs[^1].Message);
+    }
+
+    private async Task<Guid> AddTurnAsync(string role, string message, DateTime createdAt, DateTime? archivedAt = null)
+    {
+        await using var db = NewDb();
+        var turn = new AgentConversation
+        {
+            ProjectId = _projectId,
+            AgentId = _baId,
+            Role = role,
+            Message = message,
+            CreatedAt = createdAt,
+            ArchivedAt = archivedAt
+        };
+        db.AgentConversations.Add(turn);
+        await db.SaveChangesAsync();
+        return turn.Id;
     }
 
     private async Task GenerateDraftAsync(string content)
