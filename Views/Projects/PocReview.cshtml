@@ -94,6 +94,14 @@
             }
         </ol>
         <button type="button" class="btn outline small uat-fail">✗ Báo lỗi kịch bản này</button>
+        @* Hai CHỖ TRỐNG của riêng kịch bản này. Ô nhập ghi chú (#pocCommentForm — chỉ có MỘT trên trang,
+           dùng chung với đường ghim trên POC) được JS chuyển vào .uat-scenario-form khi bấm "Báo lỗi", và
+           các ghi chú đã ghim cho kịch bản này render vào .uat-scenario-notes. Vì sao không để cả hai ở
+           cuối cột như trước: người review đang đối chiếu TỪNG kịch bản, mà ô nhập và ghi chú lại rơi
+           xuống dưới danh sách chung — họ phải cuộn đi rồi cuộn về để biết mình vừa ghi gì cho kịch bản
+           nào. Cả hai div rỗng thì `:empty` ẩn đi nên thẻ kịch bản không dày thêm khi chưa có ghi chú. *@
+        <div class="uat-scenario-form"></div>
+        <div class="uat-scenario-notes"></div>
     </div>;
 }
 

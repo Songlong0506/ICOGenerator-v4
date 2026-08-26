@@ -270,6 +270,28 @@
 
 .poc-ac-item > .uat-scenario:last-child { margin-bottom: 2px; }
 
+/* Ô nhập "Báo lỗi kịch bản này" + các ghi chú đã ghim cho kịch bản đó, NGAY TRONG thẻ kịch bản: người
+   review đối chiếu từng kịch bản một, nên chỗ ghi và chỗ đọc lại phải ở cùng khung với các bước vừa tick.
+   Cả hai chỗ trống này luôn có trong DOM (JS chỉ đổ vào), nên :empty là thứ giữ thẻ kịch bản gọn như cũ
+   khi chưa ai ghi gì. */
+.uat-scenario-form:empty,
+.uat-scenario-notes:empty { display: none; }
+
+.uat-scenario-form { margin-top: 8px; }
+
+    .uat-scenario-form > .poc-comment-form { margin-bottom: 0; }
+
+.uat-scenario-notes { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+
+    /* Nền trắng để mục ghi chú nổi khỏi nền xám của thẻ kịch bản. */
+    .uat-scenario-notes > .poc-comment-item { background: #fff; }
+
+    /* Nhãn đích ("Kịch bản: <tiêu đề>") và dòng màn hình chỉ nhắc lại đúng cái tiêu đề + màn hình đang
+       nằm ngay phía trên trong chính thẻ này — mà cột lại hẹp nên nhãn còn bị cắt cụt. Bỏ đi để chỗ đó
+       dành cho nội dung ghi chú; ở danh sách chung cuối cột chúng vẫn cần và vẫn hiện. */
+    .uat-scenario-notes .poc-comment-target,
+    .uat-scenario-notes .poc-comment-view { display: none; }
+
 /* Kịch bản chứng minh nhiều câu nghiệm thu: các câu sau chỉ trỏ về chỗ dựng thẻ đầy đủ. */
 .poc-ac-xref { font-size: 11.5px; color: #64748b; margin-top: 6px; }
 

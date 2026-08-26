@@ -23,6 +23,15 @@
     const textEl = document.getElementById("pocCommentText");
     const cancelBtn = document.getElementById("pocCommentCancel");
     const antiForgery = formEl.querySelector('input[name="__RequestVerificationToken"]');
+    const uatList = document.getElementById("uatList");
+    // Ghi chú nay nằm ở HAI chỗ (danh sách chung ở cuối cột + trong từng thẻ kịch bản), nên mọi handler
+    // của một mục ghi chú phải delegate từ tổ tiên chung của cả hai.
+    const commentsPanel = root.querySelector(".poc-comments-panel") || listEl;
+
+    // Nhãn máy sinh khi báo lỗi từ một thẻ kịch bản — cũng là thứ DUY NHẤT buộc ghi chú về lại đúng thẻ
+    // đó ở lần tải trang sau (elementPath rỗng vì không click phần tử nào trong POC). Đổi chuỗi này là
+    // làm mồ côi mọi ghi chú kịch bản đã lưu trong DB, chúng sẽ rơi xuống danh sách chung.
+    const SCENARIO_LABEL_PREFIX = "Kịch bản: ";
 
     let comments = [];
     let pinMode = false;
@@ -64,17 +73,27 @@
         return '<span class="poc-badge open">chờ gửi</span>';
     }
 
-    function renderList() {
-        const items = numbered();
-        const open = items.filter(c => c.status === "Open").length;
-        countEl.textContent = items.length ? `(${open} chờ gửi / ${items.length})` : "";
+    // Thẻ kịch bản mà một ghi chú thuộc về, hoặc null nếu nó là ghi chú ghim trên POC (đường thường).
+    // Khớp bằng TIÊU ĐỀ kịch bản: đó là thứ duy nhất ghi chú mang theo qua DB. Hai kịch bản trùng tiêu đề
+    // ở hai màn hình khác nhau thì lấy thêm màn hình ra phân giải; kịch bản đã biến mất khỏi vòng POC mới
+    // ⇒ không khớp thẻ nào và ghi chú rơi về danh sách chung (fail-open, không nuốt mất ghi chú).
+    function scenarioNotesHost(comment) {
+        if (!uatList) return null;
 
-        if (!items.length) {
-            listEl.innerHTML = '<p class="muted">Chưa có ghi chú nào. Bật chế độ ghim và click vào phần tử trong POC.</p>';
-            return;
-        }
+        const label = comment.elementLabel || "";
+        if (!label.startsWith(SCENARIO_LABEL_PREFIX)) return null;
 
-        listEl.innerHTML = items.map(c => `
+        const title = label.slice(SCENARIO_LABEL_PREFIX.length);
+        const matches = Array.from(uatList.querySelectorAll(".uat-scenario"))
+            .filter(el => el.dataset.title === title);
+        if (!matches.length) return null;
+
+        const sameScreen = matches.find(el => (el.dataset.screen || "") === (comment.pageView || ""));
+        return (sameScreen || matches[0]).querySelector(".uat-scenario-notes");
+    }
+
+    function itemHtml(c) {
+        return `
             <div class="poc-comment-item" data-id="${c.id}">
                 <div class="poc-comment-head">
                     <span class="poc-pin-no${c.status === "Sent" ? " sent" : ""}">${c.index}</span>
@@ -93,7 +112,40 @@
                                 title="Mở lại ghi chú này để nó vào vòng chỉnh sửa tiếp theo">✗ vẫn chưa đạt</button>
                     </div>` : ""}
             </div>
-        `).join("");
+        `;
+    }
+
+    function renderList() {
+        const items = numbered();
+        const open = items.filter(c => c.status === "Open").length;
+        countEl.textContent = items.length ? `(${open} chờ gửi / ${items.length})` : "";
+
+        // Chỉ dọn ô ghi chú của các thẻ kịch bản — KHÔNG dọn .uat-scenario-form, vì form đang mở có thể
+        // nằm trong đó (xóa/mở lại một ghi chú khác cũng gọi renderList) và xóa nó đi là mất luôn nội
+        // dung người dùng đang gõ cùng listener submit.
+        if (uatList) {
+            uatList.querySelectorAll(".uat-scenario-notes").forEach(el => { el.innerHTML = ""; });
+        }
+
+        // Ghi chú của một kịch bản về đúng thẻ kịch bản đó; phần còn lại (ghim trên POC) ở danh sách chung.
+        const loose = [];
+        const byHost = new Map();
+        items.forEach(c => {
+            const host = scenarioNotesHost(c);
+            if (!host) { loose.push(c); return; }
+            if (!byHost.has(host)) byHost.set(host, []);
+            byHost.get(host).push(c);
+        });
+        byHost.forEach((list, host) => { host.innerHTML = list.map(itemHtml).join(""); });
+
+        if (!loose.length) {
+            listEl.innerHTML = items.length
+                ? '<p class="muted">Mọi ghi chú đang nằm ngay dưới kịch bản của nó ở panel trên.</p>'
+                : '<p class="muted">Chưa có ghi chú nào. Bật chế độ ghim và click vào phần tử trong POC.</p>';
+            return;
+        }
+
+        listEl.innerHTML = loose.map(itemHtml).join("");
     }
 
     async function loadComments() {
@@ -109,9 +161,22 @@
 
     // ===== Form ghim =====
 
-    function openForm(pick, prefill) {
+    // MỘT form duy nhất cho cả hai đường ghi chú (ghim trên POC / báo lỗi một kịch bản) — nó được CHUYỂN
+    // CHỖ chứ không nhân bản: hai form đồng thời nghĩa là hai pendingPick, hai listener submit và một
+    // antiforgery token bị chia đôi. Chỗ đứng mặc định (cuối cột, trên danh sách ghi chú chung) được giữ
+    // bằng một comment node để lúc đóng form còn biết trả nó về đâu.
+    const formSlot = document.createComment("poc-comment-form");
+    formEl.parentNode.insertBefore(formSlot, formEl);
+
+    function moveFormTo(host) {
+        if (host) host.appendChild(formEl);
+        else formSlot.parentNode.insertBefore(formEl, formSlot);
+    }
+
+    function openForm(pick, prefill, host) {
         pendingPick = pick;
         targetLabelEl.textContent = (pick.pageView ? `[${pick.pageView}] ` : "") + (pick.elementLabel || "Vị trí trên trang");
+        moveFormTo(host || null);
         formEl.hidden = false;
         textEl.value = prefill || "";
         textEl.focus();
@@ -122,6 +187,7 @@
     function closeForm() {
         pendingPick = null;
         formEl.hidden = true;
+        moveFormTo(null);
     }
 
     formEl.addEventListener("submit", async function (e) {
@@ -164,7 +230,7 @@
 
     // ===== Danh sách: click để nháy pin trong POC, nút xóa =====
 
-    listEl.addEventListener("click", async function (e) {
+    commentsPanel.addEventListener("click", async function (e) {
         const del = e.target.closest(".poc-comment-del");
         if (del) {
             if (!confirm("Xóa ghi chú này?")) return;
@@ -450,7 +516,7 @@
         } else if (e.data.type === "poc-exit-mode") {
             setPinMode(false);
         } else if (e.data.type === "poc-pin-click") {
-            const item = listEl.querySelector(`.poc-comment-item[data-id="${e.data.id}"]`);
+            const item = commentsPanel.querySelector(`.poc-comment-item[data-id="${e.data.id}"]`);
             if (item) {
                 item.scrollIntoView({ block: "nearest", behavior: "smooth" });
                 item.classList.add("highlight");
@@ -464,7 +530,6 @@
     // ===== Checklist UAT (kịch bản đi-từng-bước) =====
     // Tick từng bước được lưu localStorage theo project để rời trang quay lại vẫn còn; "Báo lỗi" mở
     // form ghi chú với ngữ cảnh kịch bản prefill sẵn — ghi chú đi chung pipeline với pin thường.
-    const uatList = document.getElementById("uatList");
     if (uatList) {
         const storageKey = `poc-uat-${projectId}`;
 
@@ -512,11 +577,11 @@
                 const title = scenario?.dataset.title || "";
                 openForm({
                     pageView: scenario?.dataset.screen || "",
-                    elementLabel: `Kịch bản: ${title}`,
+                    elementLabel: SCENARIO_LABEL_PREFIX + title,
                     elementPath: "",
                     xPercent: 0,
                     yPercent: 0
-                }, `Kịch bản "${title}" chưa đạt — `);
+                }, `Kịch bản "${title}" chưa đạt — `, scenario?.querySelector(".uat-scenario-form"));
                 return;
             }
 
