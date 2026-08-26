@@ -305,7 +305,15 @@
     // đường tiêu thụ của máy — ngữ cảnh chat của BA, ngữ cảnh soát mâu thuẫn, và mục "## 13. Worked
     // Examples" của AI Design Spec.
     // Giả định BA tự đưa khi sinh AI Design Spec (mục ## 12. Assumptions) — hiển thị cho user rà lại.
-    var specAssumptions = ViewBag.SpecAssumptions as IReadOnlyList<string> ?? new List<string>();
+    // Hai nhóm, và chỉ nhóm NGHIỆP VỤ được HỎI: nhóm MÔ PHỎNG (bản demo giả lập đăng nhập, đồng bộ hệ
+    // thống ngoài, gửi email, định dạng file xuất) là thứ BA bị cấm hỏi ngay từ buổi phỏng vấn
+    // (requirement-chat.v4.md) — người dùng nghiệp vụ không có thẩm quyền trả lời, nên nó chỉ được BÁO
+    // cho biết. Trộn chung thì một cổng 11 điểm chỉ có 6 điểm đáng rà, và 5 điểm kia làm loãng đúng phần
+    // cần đọc kỹ.
+    var allSpecAssumptions = ViewBag.SpecAssumptions as IReadOnlyList<ICOGenerator.Services.Requirements.SpecAssumption>
+        ?? new List<ICOGenerator.Services.Requirements.SpecAssumption>();
+    var specAssumptions = allSpecAssumptions.Where(a => !a.IsSimulation).Select(a => a.Text).ToList();
+    var simulationAssumptions = allSpecAssumptions.Where(a => a.IsSimulation).Select(a => a.Text).ToList();
     var specVersion = ViewBag.SpecVersion as string;
     // CỔNG XÁC NHẬN GIẢ ĐỊNH: non-null ⇒ spec đã sinh xong nhưng POC CHƯA được dựng, đang chờ user rà
     // danh sách giả định. Panel giả định lúc này đổi từ "để tham khảo" sang "cổng có nút bấm" — đây là
@@ -542,7 +550,7 @@
            định"), trong khi nút bấm thì nằm lọt giữa một sidebar cuộn dài — người đọc phải tự đi tìm cổng.
            Đặt cổng làm khối CUỐI của khung chat thì nó rơi đúng chỗ mắt đang nhìn (chat tự cuộn xuống đáy
            khi tải trang) và có đủ bề ngang để hiện trọn danh sách thay vì ô cuộn cao 320px. *@
-        @if (specAssumptions.Any() && !pendingAssumptions)
+        @if ((specAssumptions.Any() || simulationAssumptions.Any()) && !pendingAssumptions)
         {
             <div class="assumption-panel" id="assumptionPanel" data-pending="false">
                 <h3>Giả định cần xác nhận @(string.IsNullOrEmpty(specVersion) ? "" : $"({specVersion})")</h3>
@@ -559,6 +567,20 @@
                         </li>
                     }
                 </ul>
+                @* Nhóm mô phỏng: KHÔNG phải câu hỏi (xem chú thích ở đầu file) nên không có nút bấm — chỉ
+                   để người xem demo biết chỗ nào là hạ tầng thật, chỗ nào là dàn dựng. *@
+                @if (simulationAssumptions.Any())
+                {
+                    <details class="assumption-simulated">
+                        <summary>@simulationAssumptions.Count điểm bản demo sẽ giả lập — không cần trả lời</summary>
+                        <ul class="assumption-list">
+                            @foreach (var assumption in simulationAssumptions)
+                            {
+                                <li class="assumption-note">@assumption</li>
+                            }
+                        </ul>
+                    </details>
+                }
             </div>
         }
 
@@ -830,6 +852,21 @@
                                         <textarea class="assumption-fix" rows="2" hidden
                                                   placeholder="Đúng ra là… (ghi ngắn gọn, có thể bỏ trống)"></textarea>
                                     </li>
+                                }
+                            </ul>
+                        </details>
+                    }
+                    @* Nhóm mô phỏng — hiện để BIẾT, không có nút Đúng/Chưa đúng: đây là các quyết định
+                       về việc bản demo dàn dựng hạ tầng thật thế nào, thứ BA bị cấm hỏi người dùng nghiệp
+                       vụ. Không có khối này thì người xem demo tưởng POC đã nối SSO/COMPAS thật. *@
+                    @if (simulationAssumptions.Any())
+                    {
+                        <details class="assumption-simulated">
+                            <summary>@simulationAssumptions.Count điểm bản demo sẽ giả lập — không cần trả lời</summary>
+                            <ul class="assumption-list">
+                                @foreach (var assumption in simulationAssumptions)
+                                {
+                                    <li class="assumption-note">@assumption</li>
                                 }
                             </ul>
                         </details>

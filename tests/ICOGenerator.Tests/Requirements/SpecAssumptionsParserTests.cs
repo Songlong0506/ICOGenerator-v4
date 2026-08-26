@@ -33,7 +33,7 @@ public class SpecAssumptionsParserTests
         var items = SpecAssumptionsParser.Parse(spec);
 
         Assert.Equal(2, items.Count);
-        Assert.Equal("Mỗi nhân viên chỉ thuộc một phòng ban", items[0]);
+        Assert.Equal("Mỗi nhân viên chỉ thuộc một phòng ban", items[0].Text);
     }
 
     [Fact]
@@ -94,8 +94,8 @@ public class SpecAssumptionsParserTests
         var items = SpecAssumptionsParser.Parse(spec);
 
         Assert.Equal(3, items.Count);
-        Assert.Equal("Mỗi JD có một OrgUnit áp dụng", items[0]);
-        Assert.Equal("Reject không cần nhập lý do", items[1]);
+        Assert.Equal("Mỗi JD có một OrgUnit áp dụng", items[0].Text);
+        Assert.Equal("Reject không cần nhập lý do", items[1].Text);
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public class SpecAssumptionsParserTests
         var items = SpecAssumptionsParser.Parse(spec);
 
         Assert.Single(items);
-        Assert.Equal("Email chỉ mô phỏng bằng log", items[0]);
+        Assert.Equal("Email chỉ mô phỏng bằng log", items[0].Text);
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public class SpecAssumptionsParserTests
         var items = SpecAssumptionsParser.Parse(spec);
 
         Assert.Equal(2, items.Count);
-        Assert.Equal("COMPAS được mô phỏng bằng dữ liệu mẫu", items[1]);
+        Assert.Equal("COMPAS được mô phỏng bằng dữ liệu mẫu", items[1].Text);
     }
 
     [Fact]
@@ -146,6 +146,43 @@ public class SpecAssumptionsParserTests
             """;
 
         Assert.Empty(SpecAssumptionsParser.Parse(spec));
+    }
+
+    [Fact]
+    public void Parse_ClassifiesSimulationTag()
+    {
+        var spec = """
+            ## 12. Assumptions
+            - [NGHIỆP VỤ] Reject không yêu cầu nhập lý do
+            - [MÔ PHỎNG] Bản demo giả lập đăng nhập bằng user mẫu
+            - [Simulation] Dữ liệu nhân sự dùng bản seed tĩnh
+            """;
+
+        var items = SpecAssumptionsParser.Parse(spec);
+
+        Assert.Equal(3, items.Count);
+        // Nhãn bị BỎ khỏi Text: nó là khoá của trí nhớ giả định, đổi hình dạng là mọi điểm đã duyệt
+        // trước đây thành "mới" và bị hỏi lại một lượt.
+        Assert.Equal("Reject không yêu cầu nhập lý do", items[0].Text);
+        Assert.False(items[0].IsSimulation);
+        Assert.Equal("Bản demo giả lập đăng nhập bằng user mẫu", items[1].Text);
+        Assert.True(items[1].IsSimulation);
+        Assert.True(items[2].IsSimulation);
+    }
+
+    [Theory]
+    [InlineData("- Mỗi JD có một người tạo", "Mỗi JD có một người tạo")]
+    // Nhãn lạ: vẫn là nghiệp vụ, nhưng KHÔNG cắt — ngoặc vuông có thể là của chính nội dung
+    // ("[Xuất báo cáo] dùng định dạng CSV"), cắt đi là câu hiện lên cụt nghĩa.
+    [InlineData("- [KHÔNG RÕ] Mỗi JD có một người tạo", "[KHÔNG RÕ] Mỗi JD có một người tạo")]
+    public void Parse_MissingOrUnknownTag_DefaultsToBusiness(string bullet, string expected)
+    {
+        // Thà hỏi thừa một dòng còn hơn xếp nhầm một quyết định nghiệp vụ vào nhóm "chỉ để biết".
+        var items = SpecAssumptionsParser.Parse($"## 12. Assumptions\n{bullet}");
+
+        Assert.Single(items);
+        Assert.False(items[0].IsSimulation);
+        Assert.Equal(expected, items[0].Text);
     }
 
     [Fact]

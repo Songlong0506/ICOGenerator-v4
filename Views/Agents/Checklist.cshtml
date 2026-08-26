@@ -117,9 +117,12 @@
 
                         <div class="checklist-item-meta">
                             <span class="checklist-tag">
-                                @(item.SourceKind == ChecklistItemSource.PocFeedback
-                                    ? "từ ghi chú trên POC"
-                                    : "từ hội thoại phỏng vấn")
+                                @(item.SourceKind switch
+                                {
+                                    ChecklistItemSource.PocFeedback => "từ ghi chú trên POC",
+                                    ChecklistItemSource.SpecAssumption => "từ giả định bị bác trước khi dựng demo",
+                                    _ => "từ hội thoại phỏng vấn"
+                                })
                             </span>
                             @if (item.SourceProjectId.HasValue && item.SourceProjectName != null)
                             {

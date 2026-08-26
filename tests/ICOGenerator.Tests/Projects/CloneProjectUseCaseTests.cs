@@ -65,6 +65,7 @@ public class CloneProjectUseCaseTests : IDisposable
             PermissionMatrix = "[{\"screen\":\"Leave\"}]",
             ScreenScopeMap = "[{\"screen\":\"Leave Request\"}]",
             PendingAssumptionsVersion = "V2",
+            PendingAssumptionGaps = "- Giả định A — thực tế: B",
             // Hai thứ phải bị reset ở bản sao.
             PocAcceptedAtUtc = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
             PocAcceptedBy = "bob",
@@ -238,6 +239,9 @@ public class CloneProjectUseCaseTests : IDisposable
         Assert.Equal("[{\"screen\":\"Leave Request\"}]", project.ScreenScopeMap);
         // Cổng giả định trỏ tới bản spec V2 mà bản sao này không có.
         Assert.Null(project.PendingAssumptionsVersion);
+        // Hàng đợi học từ giả định bị bác thuộc về dự án GỐC — chép sang là hai dự án cùng đề xuất một
+        // bài học từ đúng một lần người dùng bấm "Chưa đúng".
+        Assert.Null(project.PendingAssumptionGaps);
     }
 
     [Fact]
@@ -260,6 +264,8 @@ public class CloneProjectUseCaseTests : IDisposable
         Assert.True(project.ChecklistGapHarvested);
         // Một ghi chú POC được chép sang, nên con trỏ phải đứng ở 1 để bản sao không rút lại đúng bài học đó.
         Assert.Equal(1, project.PocFeedbackHarvestedCount);
+        // Cùng lý do, ở bản sao ĐẦY ĐỦ: hàng đợi học từ giả định bị bác không đi theo.
+        Assert.Null(project.PendingAssumptionGaps);
 
         Assert.Equal("carol", project.CreatedByUsername);
         Assert.Equal($"{ProjectName} (bản sao)", project.Name);
