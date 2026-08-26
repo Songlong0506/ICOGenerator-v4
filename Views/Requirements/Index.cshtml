@@ -415,10 +415,15 @@
 
     <aside class="card history-panel">
 
-        @* Hai hành động luôn có mặt (không phụ thuộc trạng thái hội thoại) đứng trên cùng sidebar, để
+        @* Ba hành động luôn có mặt (không phụ thuộc trạng thái hội thoại) đứng trên cùng sidebar, để
            "Tiến độ khai thác" — thứ user cần nhìn nhất — không bị đẩy xuống dưới các panel dài.
-           "Tài liệu nguồn" giờ chỉ là CỬA XEM LẠI: việc đính kèm file đã nằm trong khung chat (nút 📎),
-           nên ở đây không còn form upload, chỉ mở popup liệt kê/xoá các file đã đính kèm. *@
+           Ba nút KHÔNG cùng một hạng nữa: "New Chat" là hành động thật nên là nút đặc màu Bosch, còn
+           "Context" và "Download Context" là hai CỬA TRA CỨU nên hạ xuống dạng dòng điều hướng mờ, chỉ
+           nổi lên khi trỏ vào. Ba nút viền xanh giống hệt nhau như trước bày ra ba lựa chọn ngang hàng
+           ngay chỗ mắt rơi xuống đầu tiên, trong khi việc người dùng vào trang này để làm là trò chuyện,
+           còn hai cửa kia cả buổi mở nhiều lắm một lần — và chúng ăn mất chỗ của "Tiến độ khai thác".
+           "Context" (nhãn cũ: "Tài liệu nguồn") chỉ là CỬA XEM LẠI: việc đính kèm file đã nằm trong khung
+           chat (nút 📎), nên ở đây không còn form upload, chỉ mở popup liệt kê/xoá các file đã đính kèm. *@
         <div class="sidebar-actions">
             <form asp-action="NewChat"
                   method="post"
@@ -429,16 +434,18 @@
                        name="projectId"
                        value="@Model.Id" />
 
-                <button class="btn outline full" type="submit">
-                    ＋ New Chat
+                <button class="side-action primary" type="submit">
+                    <i class="bi bi-plus-lg side-action-ico" aria-hidden="true"></i>
+                    <span class="side-action-label">New Chat</span>
                 </button>
             </form>
 
             <button type="button"
-                    class="btn outline full source-open-btn"
+                    class="side-action"
                     id="sourceOpenBtn"
                     title="Xem lại và xoá các tài liệu anh/chị đã đính kèm cho BA">
-                📎 Tài liệu nguồn
+                <i class="bi bi-paperclip side-action-ico" aria-hidden="true"></i>
+                <span class="side-action-label">Context</span>
                 <span class="source-count-badge" id="sourceCountBadge" @(sourceFiles.Any() ? "" : "hidden")>@sourceFiles.Count</span>
             </button>
 
@@ -446,21 +453,23 @@
                để nhờ một công cụ AI khác (Claude Code, ChatGPT…) soi các mối nối giữa bốn tầng — lớp lỗi
                "điều người dùng nói bị rơi mất dần qua từng tầng" mà không cổng nào trong hệ thống bắt được.
                Mang theo phiên bản ĐANG CHỌN: gói xuất bản mô tả V1 cạnh bản demo dựng từ V3 chỉ sinh ra một
-               danh sách sai lệch giả. Là thẻ <a> chứ không phải form: đây là thao tác CHỈ ĐỌC, và một link
-               tải về không được phép làm mất nội dung đang gõ dở trong ô chat.
+               danh sách sai lệch giả — chính vì vậy danh sách Product Brief bên dưới đánh dấu bản đang chọn.
+               Là thẻ <a> chứ không phải form: đây là thao tác CHỈ ĐỌC, và một link tải về không được phép
+               làm mất nội dung đang gõ dở trong ô chat.
 
                Ẩn khi thiếu quyền RequirementsDownloadPackage (cấp ở màn hình Roles & Permissions, không
                hardcode vai trò) — cùng một quyền mà action chặn, nên nút này không bao giờ dẫn tới trang
                Access Denied. *@
             @if (await Permissions.HasPermissionAsync(User, AppPermission.RequirementsDownloadPackage))
             {
-                <a class="btn outline full"
+                <a class="side-action"
                    asp-action="DownloadReviewPackage"
                    asp-route-projectId="@Model.Id"
                    asp-route-version="@selectedVersion"
                    download
                    title="Tải một file .zip gồm đoạn chat (kèm bản đồ bao phủ, tài liệu nguồn, prompt của BA), Product Brief, AI Design Spec và bản demo POC — để nhờ AI khác soi xem thông tin có bị rơi mất qua từng tầng không">
-                    ⬇️ Tải trọn gói cho AI
+                    <i class="bi bi-download side-action-ico" aria-hidden="true"></i>
+                    <span class="side-action-label">Download Context</span>
                 </a>
             }
         </div>
@@ -584,36 +593,77 @@
             </div>
         }
 
-        <h3>Product Brief</h3>
+        @* Danh sách bản mô tả sản phẩm. Mỗi bản là MỘT thẻ bấm được cả dòng thay cho cặp "dòng chữ +
+           nút View bé xíu ở mép phải": vùng bấm rộng bằng cả thẻ, và dòng phụ nói ngay bản đó đang ở
+           trạng thái nào — hai chữ "Draft" với "V1" đứng trơ không cho người dùng biết nên mở bản nào.
+           Bản ĐANG CHỌN được đánh dấu vì nó không chỉ là bản mở mặc định: gói "Download Context" ở đầu
+           sidebar cũng lấy theo đúng bản này (asp-route-version="@selectedVersion"). *@
+        <div class="brief-head">
+            <h3>Product Brief</h3>
+            @if (versions.Any())
+            {
+                <span class="brief-count">@versions.Count bản</span>
+            }
+        </div>
 
         @if (versions.Any())
         {
-            foreach (var version in versions)
-            {
-                <div class="history-item">
+            <div class="brief-list">
+                @foreach (var version in versions)
+                {
+                    // Một VersionName có thể có nhiều bản ghi (mỗi lần soạn lại ghi thêm một dòng) —
+                    // trạng thái và mốc thời gian lấy theo bản MỚI NHẤT của nhóm.
+                    var latest = version.OrderByDescending(x => x.CreatedAt).First();
+                    var label = version.Key == "draft" ? "Draft" : version.Key;
+                    // Chỉ đánh dấu "bản hiện tại" khi có từ hai bản trở lên: dự án mới có đúng một bản
+                    // thì cái nhãn ấy chỉ nói lại điều hiển nhiên.
+                    var isCurrent = versions.Count > 1 && version.Key == selectedVersion;
 
-                    <div class="history-left">
-                        <div class="history-icon">📄</div>
-
-                        <div>
-                            <div class="history-title">
-                                @(version.Key == "draft" ? "Draft" : version.Key)
-                            </div>
-                        </div>
-                    </div>
+                    // Dòng phụ chỉ chở TRẠNG THÁI + mốc thời gian: bề ngang còn lại của thẻ ở sidebar
+                    // 320px chỉ đủ chừng 30 ký tự, thêm chữ là bị cắt giữa chừng. Phần "bản nháp thì
+                    // còn góp ý được" nằm ở tooltip.
+                    var status = latest.IsApproved ? "Đã duyệt" : "Bản nháp";
+                    var tip = "Mở bản " + label
+                        + (latest.IsApproved ? " (đã duyệt)" : " (bản nháp — còn gửi ghi chú cho BA sửa được)")
+                        + (isCurrent ? " · gói Download Context cũng lấy theo bản này" : "");
 
                     <button type="button"
-                            class="btn outline small"
-                            onclick="openRequirementModal('@version.Key')">
-                        View
+                            class="brief-card @(isCurrent ? "current" : "")"
+                            onclick="openRequirementModal('@version.Key')"
+                            title="@tip">
+                        <span class="brief-card-ico">
+                            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                        </span>
+
+                        <span class="brief-card-main">
+                            <span class="brief-card-title">
+                                @label
+                                @if (isCurrent)
+                                {
+                                    <span class="brief-tag">Hiện tại</span>
+                                }
+                            </span>
+                            <span class="brief-card-sub">
+                                @status · @latest.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")
+                            </span>
+                        </span>
+
+                        <i class="bi bi-chevron-right brief-card-go" aria-hidden="true"></i>
                     </button>
-                </div>
-            }
+                }
+            </div>
         }
         else
         {
-            <div class="empty-history">
-                No requirement history yet.
+            @* Trạng thái rỗng nói KHI NÀO có bản đầu tiên, thay cho "No requirement history yet": người
+               dùng nghiệp vụ đọc câu đó không biết mình phải làm gì để nó khác đi. *@
+            <div class="brief-empty">
+                <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                <p class="brief-empty-title">Chưa có bản mô tả nào</p>
+                <p class="brief-empty-hint">
+                    BA soạn Product Brief khi cuộc phỏng vấn đủ thông tin — nút <b>Write Requirement</b>
+                    hiện ngay trong khung chat lúc đó.
+                </p>
             </div>
         }
 
@@ -1993,7 +2043,7 @@
 
 </div>
 
-@* Popup "Tài liệu nguồn": bảng liệt kê MỌI file người dùng đã đính kèm cho BA (qua nút 📎 / dán /
+@* Popup "Context" (tài liệu nguồn): bảng liệt kê MỌI file người dùng đã đính kèm cho BA (qua nút 📎 / dán /
    kéo-thả trong khung chat) — xem lại, mở bản gốc, hoặc xoá. Không còn form upload ở đây: đính kèm đã
    là một phần của cuộc trò chuyện. Xoá chạy bằng fetch để bảng cập nhật tại chỗ (popup không đóng). *@
 <div id="sourceModal" class="req-modal-overlay">
@@ -2001,7 +2051,7 @@
 
         <div class="modal-header">
             <div>
-                <h2>Tài liệu nguồn</h2>
+                <h2>Context</h2>
                 <div class="history-sub">Các file anh/chị đã đính kèm cho BA trong cuộc trò chuyện. Xoá file nghĩa là BA không dùng nội dung đó cho các lượt sau nữa.</div>
             </div>
 

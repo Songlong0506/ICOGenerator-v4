@@ -4724,7 +4724,7 @@ function openLatestProductBrief() {
     openLatestProductBrief();
 })();
 
-// ==== Popup "Tài liệu nguồn" ====
+// ==== Popup "Context" (tài liệu nguồn) ====
 // Chỉ để XEM LẠI/XOÁ các file đã đính kèm cho BA (việc đính kèm nằm ở nút 📎 trong khung chat). Xoá gọi
 // DeleteSource bằng fetch rồi gỡ hàng tại chỗ: popup không đóng, người dùng dọn liền mấy file một lúc —
 // khác hẳn form POST cũ (mỗi lần xoá là reload cả trang). Sau khi xoá xong KHÔNG reload: các thumbnail
