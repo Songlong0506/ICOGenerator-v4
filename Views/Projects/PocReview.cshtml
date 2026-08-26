@@ -63,7 +63,7 @@
     var totalSteps = scenarios.Sum(s => s.Steps.Count);
     var showReviewPanel = hasUserCoverage || scenarios.Any();
 
-    // Một thẻ kịch bản (tiêu đề + mã BR/AC + nút hướng dẫn + các bước tick được + nút báo lỗi). Dựng
+    // Một thẻ kịch bản (tiêu đề + mã BR/AC + các bước tick được + nút báo lỗi). Dựng
     // bằng templated delegate vì cùng một thẻ xuất hiện ở hai chỗ: lồng dưới AC nó chứng minh, và ở
     // nhóm kịch bản chưa gắn AC. `item.Index` LUÔN là chỉ số gốc trong Model.Scenarios.Scenarios.
     Func<(ICOGenerator.Contracts.Requirements.UatScenario Scenario, int Index), object> scenarioCard =
@@ -81,7 +81,6 @@
             {
                 <span class="uat-rules" title="Câu nghiệm thu bạn đã duyệt mà kịch bản này chứng minh">@string.Join(", ", item.Scenario.AcRefs)</span>
             }
-            <button type="button" class="btn outline small uat-tour" title="Đi lần lượt từng bước, POC sẽ chỉ chỗ">▶ Hướng dẫn</button>
         </div>
         <ol class="uat-steps">
             @for (var j = 0; j < item.Scenario.Steps.Count; j++)

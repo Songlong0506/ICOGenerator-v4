@@ -496,9 +496,11 @@
             renderProgress();
         });
 
-        // Guided tour: bấm một bước (hoặc "▶ Hướng dẫn" đi lần lượt) → POC mở đúng màn hình + tô sáng
-        // phần tử khớp mô tả bước, để người xem biết bấm vào đâu thay vì tự mò. "Chỉ chỗ" là READ-ONLY:
-        // annotator chỉ highlight, không tự thao tác — user vẫn tự bấm để kiểm chứng nghiệp vụ thật.
+        // "Chỉ chỗ": bấm chữ một bước → POC mở đúng màn hình + tô sáng phần tử khớp mô tả bước, để người
+        // xem biết bấm vào đâu thay vì tự mò. READ-ONLY: annotator chỉ highlight, không tự thao tác —
+        // user vẫn tự bấm để kiểm chứng nghiệp vụ thật. Vì thế chỉ chỗ đi theo NHỊP CỦA NGƯỜI XEM: một
+        // lần bấm = một lần chỉ chỗ. Không có lượt tự chạy hết kịch bản theo đồng hồ — người xem còn
+        // phải tự thao tác nên luôn chậm hơn nó, và mỗi bước là một lần đổi màn hình + cuộn iframe.
         function tourStep(screen, text) {
             postToFrame({ type: "poc-tour-step", screen: screen || "", text: text || "" });
         }
@@ -523,29 +525,6 @@
             if (stepText) {
                 const scenario = stepText.closest(".uat-scenario");
                 tourStep(scenario?.dataset.screen || "", stepText.dataset.step || stepText.textContent);
-                return;
-            }
-
-            // "▶ Hướng dẫn" → đi lần lượt từng bước của kịch bản, mỗi bước dừng ~1.8s để người xem theo kịp.
-            const tourBtn = e.target.closest(".uat-tour");
-            if (tourBtn) {
-                const scenario = tourBtn.closest(".uat-scenario");
-                const screen = scenario?.dataset.screen || "";
-                const steps = Array.from(scenario.querySelectorAll(".uat-step-text"))
-                    .map(s => s.dataset.step || s.textContent);
-                let i = 0;
-                tourBtn.disabled = true;
-                (function walk() {
-                    if (i >= steps.length) { tourBtn.disabled = false; return; }
-                    tourStep(screen, steps[i]);
-                    const el = scenario.querySelectorAll(".uat-step-text")[i];
-                    if (el) {
-                        el.classList.add("uat-step-active");
-                        setTimeout(() => el.classList.remove("uat-step-active"), 1700);
-                    }
-                    i++;
-                    setTimeout(walk, 1800);
-                })();
             }
         });
     }
