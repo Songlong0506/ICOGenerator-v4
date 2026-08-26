@@ -70,6 +70,30 @@ public class SpecAssumptionsGateTests : IDisposable
     }
 
     [Fact]
+    public async Task Confirm_RemembersBusinessAssumptionsOnly()
+    {
+        // Nhóm MÔ PHỎNG không phải câu hỏi (người dùng nghiệp vụ không được hỏi tới nó), nên nó KHÔNG
+        // được ghi vào trí nhớ "đã duyệt": nhớ nhầm là khoá luôn trường hợp lượt sinh spec sau xếp lại
+        // chính câu đó sang nhóm nghiệp vụ — lúc ấy nó phải được hỏi.
+        await using (var seed = NewDb())
+        {
+            var doc = await seed.ProjectDocuments.SingleAsync();
+            doc.Content = "# AI Design Spec\n## 12. Assumptions\n"
+                + "- [NGHIỆP VỤ] Đơn đã duyệt thì không sửa được nữa\n"
+                + "- [MÔ PHỎNG] Đăng nhập được giả lập bằng người dùng mẫu";
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+            await new ConfirmSpecAssumptionsUseCase(db, new FakeCatalog(), new FakeOrchestrator()).ExecuteAsync(_projectId);
+
+        await using var verify = NewDb();
+        var confirmed = (await verify.Projects.SingleAsync()).ConfirmedAssumptions;
+        Assert.Contains("Đơn đã duyệt thì không sửa được nữa", confirmed);
+        Assert.DoesNotContain("giả lập", confirmed);
+    }
+
+    [Fact]
     public async Task Confirm_Twice_DoesNotStartTwoDeliveryRuns()
     {
         var orchestrator = new FakeOrchestrator();
@@ -135,6 +159,12 @@ public class SpecAssumptionsGateTests : IDisposable
         var turn = await verify.AgentConversations.SingleAsync();
         Assert.Equal("user", turn.Role);
         Assert.Contains("Nhân viên có thể kiêm nhiệm 2 phòng", turn.Message);
+
+        // Đường HỌC XUYÊN DỰ ÁN: mỗi điểm bị bác là một câu hỏi buổi phỏng vấn lẽ ra phải hỏi, xếp hàng
+        // chờ SpecAssumptionMemoryService chắt lọc thành bài học cho các dự án SAU. Cột riêng vì cột đính
+        // chính ở trên tích lũy + bị cắt vòng nên không biết phần nào đã học.
+        Assert.Contains("Nhân viên có thể kiêm nhiệm 2 phòng", project.PendingAssumptionGaps);
+        Assert.Contains("Đơn đã duyệt thì không sửa được", project.PendingAssumptionGaps);
     }
 
     [Fact]

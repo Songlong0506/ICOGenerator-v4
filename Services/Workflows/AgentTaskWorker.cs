@@ -237,6 +237,15 @@ public class AgentTaskWorker : BackgroundService
             {
                 var specContent = await RunAiDesignSpecAsync(scope, task, cancellationToken);
 
+                // Lượt sinh này có thể là lượt SINH LẠI sau khi user bác vài giả định ở cổng. Mỗi điểm bị
+                // bác là một câu hỏi buổi phỏng vấn lẽ ra phải hỏi — chắt lọc thành bài học cho bộ câu hỏi
+                // của BA (AgentChecklistItem) để các dự án SAU được hỏi ngay từ khâu phỏng vấn thay vì lại
+                // đoán rồi lại bị bác ở đây. Gọi TRƯỚC khi đụng tới trạng thái task/run: service tự
+                // SaveChanges, và ở điểm này DbContext đang sạch. Không có gì trong hàng đợi ⇒ no-op;
+                // fail-open bên trong service.
+                await scope.ServiceProvider.GetRequiredService<SpecAssumptionMemoryService>()
+                    .TryHarvestAsync(task.ProjectId, cancellationToken);
+
                 task.Status = AgentTaskStatus.Completed;
                 task.Output = "AI Design Spec generated.";
                 task.FinishedAt = DateTime.UtcNow;
@@ -255,7 +264,16 @@ public class AgentTaskWorker : BackgroundService
                 // sinh lại spec, và spec mới thường lặp lại gần như nguyên văn các giả định cũ — dựng cổng
                 // theo cả danh sách thì user bị hỏi lại chính những điều họ vừa bấm "Đúng". Còn đúng một
                 // giả định mới thì vẫn phải hỏi; không còn cái nào mới ⇒ tự xác nhận, chạy thẳng dựng POC.
-                var assumptions = SpecAssumptionsParser.Parse(specContent);
+                //
+                // Chỉ nhóm NGHIỆP VỤ mới dựng được cổng. Nhóm MÔ PHỎNG (bản demo giả lập đăng nhập, đồng
+                // bộ hệ thống ngoài, gửi email, định dạng file xuất) là thứ requirement-chat.v4.md CẤM BA
+                // hỏi người dùng ngay từ buổi phỏng vấn — bắt họ bấm Đúng/Chưa đúng cho "POC mô phỏng SSO
+                // bằng user mẫu" là hỏi một câu họ không có thẩm quyền trả lời, và nó làm loãng đúng mấy
+                // điểm nghiệp vụ cần rà. Nhóm đó vẫn hiện trên cổng, ở khối "bản demo sẽ giả lập" gấp lại.
+                var assumptions = SpecAssumptionsParser.Parse(specContent)
+                    .Where(a => !a.IsSimulation)
+                    .Select(a => a.Text)
+                    .ToList();
                 if (assumptions.Count > 0)
                 {
                     var gatedProject = await db.Projects.FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken);

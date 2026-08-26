@@ -94,6 +94,18 @@ public class ReviseSpecAssumptionsUseCase
             ? merged[^MaxCorrectionChars..]
             : merged;
 
+        // HÀNG ĐỢI HỌC: mỗi điểm bị bác là một câu hỏi buổi phỏng vấn lẽ ra phải hỏi — SpecAssumptionMemoryService
+        // chắt lọc nó thành bài học cho bộ câu hỏi của BA ở các dự án SAU (đường thứ ba của checklist học
+        // được, cạnh khoảng trống hội thoại và ghi chú POC). Phải là cột riêng: cột đính chính ở trên tích
+        // lũy qua nhiều vòng và bị cắt vòng nên không biết phần nào đã học. Harvest chạy ở lượt sinh lại
+        // spec ngay sau đây (AgentTaskWorker) rồi xoá cột này.
+        var queued = string.IsNullOrWhiteSpace(project.PendingAssumptionGaps)
+            ? block
+            : project.PendingAssumptionGaps.TrimEnd() + "\n" + block;
+        project.PendingAssumptionGaps = queued.Length > MaxCorrectionChars
+            ? queued[^MaxCorrectionChars..]
+            : queued;
+
         // Phần user KHÔNG bác trong danh sách đang chờ = phần họ đã duyệt đúng ⇒ nhớ lại để lượt sinh mới
         // không hỏi lại. Đồng thời QUÊN các điểm vừa bị bác: một giả định từng được duyệt ở vòng trước mà
         // nay user đổi ý thì phải rời trí nhớ, nếu không nó vĩnh viễn không được hỏi lại nữa.
@@ -101,6 +113,8 @@ public class ReviseSpecAssumptionsUseCase
         var rejectedKeys = rejected.Select(AssumptionMemory.Key).ToHashSet();
         var specContent = ProjectDocumentLookup.GetContent(project, _artifactCatalog.AiDesignSpec.FileName, version);
         var stillOk = SpecAssumptionsParser.Parse(specContent)
+            .Where(a => !a.IsSimulation)
+            .Select(a => a.Text)
             .Where(a => !rejectedKeys.Contains(AssumptionMemory.Key(a)))
             .ToList();
         project.ConfirmedAssumptions = AssumptionMemory.Remember(project.ConfirmedAssumptions, stillOk, rejected);

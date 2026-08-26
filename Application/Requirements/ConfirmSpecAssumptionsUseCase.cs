@@ -52,8 +52,11 @@ public class ConfirmSpecAssumptionsUseCase
 
         // Nhớ lại toàn bộ danh sách vừa được duyệt: nếu sau này spec được sinh lại (user bác một điểm ở
         // vòng sau, hoặc phiên bản mới), cổng sẽ không hỏi lại đúng những điểm này nữa — xem AssumptionMemory.
+        // Chỉ nhóm NGHIỆP VỤ: nhóm mô phỏng không phải câu hỏi nên không có gì để "đã duyệt", và nhớ nó
+        // sẽ khoá luôn trường hợp lượt sinh sau xếp lại chính câu đó sang nhóm nghiệp vụ (lúc ấy PHẢI hỏi).
         project.ConfirmedAssumptions = AssumptionMemory.Remember(
-            project.ConfirmedAssumptions, SpecAssumptionsParser.Parse(spec));
+            project.ConfirmedAssumptions,
+            SpecAssumptionsParser.Parse(spec).Where(a => !a.IsSimulation).Select(a => a.Text));
 
         // Gỡ cổng TRƯỚC khi enqueue: hai tab cùng bấm thì tab thua thấy NothingPending thay vì tạo ra
         // hai delivery run song song trên cùng workspace.

@@ -164,6 +164,11 @@ public class CloneProjectUseCase
         SpecAssumptionCorrections = source.SpecAssumptionCorrections,
         ConfirmedAssumptions = source.ConfirmedAssumptions,
 
+        // Hàng đợi học từ giả định bị bác KHÔNG chép: bài học thuộc về dự án gốc và sẽ được nó chắt lọc:
+        // chép sang là hai dự án cùng đề xuất một bài học từ đúng một lần người dùng bấm "Chưa đúng".
+        // Cùng lý do với ChecklistGapHarvested = true bên dưới.
+        PendingAssumptionGaps = null,
+
         // Sáu bảng đã chốt của buổi phỏng vấn + danh sách người nhận đi kèm bảng thông báo.
         PermissionMatrix = source.PermissionMatrix,
         FlowMap = source.FlowMap,

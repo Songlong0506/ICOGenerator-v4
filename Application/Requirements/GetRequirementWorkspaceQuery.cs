@@ -22,7 +22,7 @@ public record RequirementWorkspaceResult(
     // chúng — OpenQuestions làm ngữ cảnh chat của BA (BAChatService), PlannedScope làm ngữ cảnh soát mâu
     // thuẫn (RequirementConflictService), WorkedExamples đi thẳng vào "## 13. Worked Examples" của AI
     // Design Spec (RequirementPromptBuilder đọc Project.WorkedExamples).
-    IReadOnlyList<string> SpecAssumptions,
+    IReadOnlyList<SpecAssumption> SpecAssumptions,
     string? SpecVersion);
 
 public class GetRequirementWorkspaceQuery

@@ -724,6 +724,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<RequirementConflictService>();
         services.AddScoped<UatScenarioService>();
         services.AddScoped<PocFeedbackMemoryService>();
+        services.AddScoped<SpecAssumptionMemoryService>();
         services.AddScoped<ProductBriefReviewParser>();
         // Bối cảnh tổ chức Bosch render từ OrgUnits/Associates cho prompt BA (chat + soạn tài liệu).
         // Scoped vì dùng DbContext; bản render dùng chung nằm trong IMemoryCache (singleton) nên vẫn

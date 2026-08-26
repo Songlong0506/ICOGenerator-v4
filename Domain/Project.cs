@@ -175,6 +175,13 @@ public class Project
     // thấy "đã trả lời rồi mà BA cứ hỏi". Có nó thì cổng chỉ hỏi phần mới, và lượt sinh lại không đẻ ra
     // giả định mới nào sẽ tự xác nhận chạy thẳng sang dựng POC. Xem AssumptionMemory.
     public string? ConfirmedAssumptions { get; set; }
+    // HÀNG ĐỢI học từ giả định bị bác: khối đính chính user vừa gửi ở cổng, CHƯA được chắt lọc thành bài
+    // học cho bộ câu hỏi của BA. ReviseSpecAssumptionsUseCase ghi vào đây; AgentTaskWorker gọi
+    // SpecAssumptionMemoryService ở lượt sinh lại spec ngay sau đó rồi xoá. Vì sao cần một hàng đợi chứ
+    // không đọc thẳng SpecAssumptionCorrections: cột đó tích lũy và bị cắt vòng, không có cách nào biết
+    // phần nào đã học. Fail-open: harvest lỗi ⇒ giữ nguyên hàng đợi, lượt sau gộp bù. Xem
+    // SpecAssumptionMemoryService.
+    public string? PendingAssumptionGaps { get; set; }
     // Con trỏ học từ ghi chú POC: số PocComment (xếp theo CreatedAt) của dự án đã được chắt lọc vào
     // AgentChecklistItem sau mỗi vòng chỉnh sửa POC — ghi chú kiểu "thiếu màn hình X" chính là
     // câu hỏi BA lẽ ra phải hỏi từ lúc phỏng vấn. Xem PocFeedbackMemoryService.
