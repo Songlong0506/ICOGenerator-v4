@@ -76,7 +76,7 @@ else
                     <th>Summary</th>
                     <th>Performed By</th>
                     <th>Time</th>
-                    <th class="col-actions">Actions</th>
+                    <th class="actions-col">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -88,9 +88,14 @@ else
                         <td class="audit-summary">@item.Summary</td>
                         <td>@ActorDisplay(item.ActorUsername)</td>
                         <td class="audit-time">@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
-                        <td class="actions">
-                            <button class="btn small outline"
+                        @* Cột Actions dùng dải nút biểu tượng chung của app (site.css) — cùng một
+                           kiểu với Projects và Agent Dashboard. Nhãn "Chi tiết" chuyển vào tooltip
+                           + aria-label. *@
+                        <td class="actions-col">
+                          <div class="row-actions">
+                            <button class="icon-btn icon-btn--accent"
                                     type="button"
+                                    data-tip="Xem chi tiết"
                                     aria-label="Xem chi tiết"
                                     data-category="@item.Category.GetTitle()"
                                     data-category-class="@CategoryBadge(item.Category)"
@@ -103,8 +108,9 @@ else
                                     data-before="@(item.BeforeJson ?? "")"
                                     data-after="@(item.AfterJson ?? "")"
                                     onclick="openAuditDetail(this)">
-                                <i class="bi bi-eye" aria-hidden="true"></i> Chi tiết
+                                <i class="bi bi-eye" aria-hidden="true"></i>
                             </button>
+                          </div>
                         </td>
                     </tr>
                 }

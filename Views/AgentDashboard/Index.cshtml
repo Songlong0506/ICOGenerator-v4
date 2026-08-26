@@ -188,7 +188,7 @@
                 <th class="num-col">Total Tokens</th>
                 <th class="num-col">Calls</th>
                 <th>Last Activity</th>
-                <th>Actions</th>
+                <th class="actions-col">Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -227,8 +227,19 @@
                             <span class="muted">—</span>
                         }
                     </td>
-                    <td>
-                        <button type="button" class="btn" onclick="event.stopPropagation(); loadAgentLogs('@a.Id', '@a.RoleKey.GetTitle()')">View Logs</button>
+                    @* Cột Actions dùng dải nút biểu tượng chung của app (site.css) — cùng một kiểu
+                       với Projects và Audit Log. Nhãn "View Logs" chuyển vào tooltip + aria-label.
+                       stopPropagation vẫn cần: cả dòng là vùng bấm để lọc theo agent. *@
+                    <td class="actions-col">
+                        <div class="row-actions">
+                            <button type="button"
+                                    class="icon-btn icon-btn--accent"
+                                    data-tip="Xem log gọi model"
+                                    aria-label="Xem log gọi model của @a.RoleKey.GetTitle()"
+                                    onclick="event.stopPropagation(); loadAgentLogs('@a.Id', '@a.RoleKey.GetTitle()')">
+                                <i class="bi bi-journal-text" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
             }
