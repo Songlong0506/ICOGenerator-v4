@@ -2170,7 +2170,7 @@
             @Html.AntiForgeryToken()
             <div class="brief-notes-head">
                 <b>Ghi chú của bạn</b> <span class="brief-notes-count" id="briefNotesCount">(0)</span>
-                <span class="brief-notes-hint">Bôi đen một đoạn trong bản mô tả rồi bấm "＋ Ghi chú".</span>
+                <span class="brief-notes-hint">Bôi đen một đoạn trong bản mô tả rồi bấm "＋ Ghi chú", hoặc bấm "＋ Thêm ghi chú" dưới đây để ghi chú chung.</span>
             </div>
             <ul class="brief-notes-list" id="briefNotesList"></ul>
         </div>
@@ -2178,10 +2178,20 @@
         <div class="modal-footer">
             @if (selectedVersion == "draft")
             {
-                <button type="button" class="btn outline" id="briefNotesSendBtn" hidden
-                        title="Gom các ghi chú và nhờ BA sửa lại bản mô tả">
-                    ✎ Gửi ghi chú cho BA sửa
-                </button>
+                @* Hai nút ghi chú đứng chung một cụm bên trái, tách khỏi Approve bên phải. "＋ Thêm ghi
+                   chú" là lối vào KHÔNG cần bôi đen: ghi chú chung cho cả bản mô tả (BriefNote.Quote
+                   rỗng) — dành cho ý không thuộc riêng đoạn nào, hoặc khi user không muốn đi tìm đoạn
+                   để bôi đen. JS ẩn nút này khi modal đang mở bản đã duyệt V{n} (không ghi chú được). *@
+                <div class="modal-footer-notes">
+                    <button type="button" class="btn outline" id="briefAddNoteBtn" hidden
+                            title="Ghi chú chung cho cả bản mô tả — không cần bôi đen đoạn nào">
+                        ＋ Thêm ghi chú
+                    </button>
+                    <button type="button" class="btn outline" id="briefNotesSendBtn" hidden
+                            title="Gom các ghi chú và nhờ BA sửa lại bản mô tả">
+                        ✎ Gửi ghi chú cho BA sửa
+                    </button>
+                </div>
                 <form asp-action="Approve" method="post">
                     <input type="hidden"
                            name="projectId"
