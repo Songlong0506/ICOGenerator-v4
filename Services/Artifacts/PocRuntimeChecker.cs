@@ -549,7 +549,8 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
     //   • bấm đúng điều khiển đó mà màn hình KHÔNG đổi gì (nút chết) — toast của shell được loại khỏi phép
     //     so sánh vì shell tự toast cho mọi .btn, kể cả nút chưa nối logic.
     // Bước mang tính QUAN SÁT ("kiểm tra đơn ở trạng thái Chờ duyệt") không tìm thấy điều khiển thì bỏ qua,
-    // không tính là lỗi.
+    // không tính là lỗi. Cùng lý do, bấm lại điều khiển ĐANG active (vai đang chọn, mục menu đang mở)
+    // cũng là bỏ qua chứ không phải "nút chết": no-op ở đó là hành vi đúng.
     private static async Task<List<PocUatDriveResult>> DriveUatScenariosAsync(
         IPage page, string url, IReadOnlyList<UatScenario> scenarios,
         List<string> issues, List<string> errors, Action<string> setCurrentScreen, CancellationToken cancellationToken)
@@ -650,6 +651,10 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                 async (step) => {
                   const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
                   const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+                  // Nhãn của một phần tử ĐANG BỊ ẩn (mục menu trong nhóm chưa xổ) có innerText rỗng, nên
+                  // phải lùi về textContent — nếu không thì đúng các màn hình vừa được gom nhóm lại biến
+                  // mất khỏi tầm nhìn của lượt lái.
+                  const labelOf = el => norm(el.innerText || el.value || el.textContent || '');
                   const snapshot = () => {
                     const active = document.querySelector('section.page-view.active');
                     const modals = document.querySelectorAll('.modal.show');
@@ -668,37 +673,85 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                   let m;
                   while ((m = re.exec(step)) !== null) quoted.push(m[1].trim());
 
-                  const controls = Array.from(document.querySelectorAll(
+                  const clickable = Array.from(document.querySelectorAll(
                     'button, a, [role=button], input[type=submit], input[type=button], .btn, [data-crud-add]'))
-                    .filter(el => visible(el) && norm(el.innerText || el.value || '').length >= 2);
+                    .filter(el => visible(el) && labelOf(el).length >= 2);
+
+                  // MỤC MENU là <div class="nav-item"> (PocTemplate.RenderNav) nên không lọt vào tập
+                  // trên: thiếu nó thì bước "Mở màn hình X" — bước mở đầu của gần như mọi kịch bản
+                  // nghiệm thu — không bao giờ khớp được điều khiển nào. Tiêu đề NHÓM bị loại vì nó chỉ
+                  // xổ/thu, không mở màn nào (đúng luật isNavGroupHead của shell), và mục con của nhóm
+                  // chưa xổ vẫn tính là bấm được: shell bắt click bằng delegation rồi tự mở nhóm.
+                  // Chỉ vai không được xem mới thật sự nằm ngoài tầm với — đó là lúc applyRoleToNav
+                  // đặt display:none thẳng lên mục hoặc lên cả nhóm.
+                  const navLeaves = Array.from(document.querySelectorAll('.sidebar-nav .nav-item'))
+                    .filter(el => !(el.parentElement && el.parentElement.classList.contains('nav-group')))
+                    .filter(el => el.style.display !== 'none'
+                              && !(el.closest('.nav-group') && el.closest('.nav-group').style.display === 'none'))
+                    .filter(el => labelOf(el).length >= 2);
+
+                  const controls = clickable.concat(navLeaves);
+
+                  // Nhãn trùng TÊN MỘT MÀN HÌNH (data-view) thì điều khiển đúng là mục menu, không phải
+                  // một nút cùng tên trong nội dung: bước "Mở màn hình 'Duyệt đơn'" ở một POC có sẵn nút
+                  // "Duyệt đơn" trên bảng phải mở màn, chứ không phải duyệt đại một bản ghi.
+                  const screenNames = Array.from(document.querySelectorAll('section.page-view'))
+                    .map(s => norm(s.dataset.view || ''));
+                  const findControl = nq => {
+                    const pool = screenNames.indexOf(nq) >= 0 ? navLeaves.concat(clickable) : controls;
+                    return pool.find(el => labelOf(el) === nq) || pool.find(el => labelOf(el).includes(nq));
+                  };
+
+                  // Chữ để phán "nhãn này có tồn tại trên trang không": phần nhìn thấy được, CỘNG nhãn
+                  // trong sidebar (mục của nhóm chưa xổ không nằm trong innerText). Cố ý KHÔNG dùng
+                  // body.textContent — nó nuốt luôn mã JS của shell, và khi đó không nhãn nào còn bị coi
+                  // là thiếu nữa.
+                  const nav = document.querySelector('.sidebar-nav');
+                  const pageText = norm((document.body.innerText || '') + ' ' + (nav ? nav.textContent || '' : ''));
 
                   let target = null;
                   let label = '';
+                  let quotedTried = 0;
 
                   for (const q of quoted) {
                     const nq = norm(q);
                     if (nq.length < 2) continue;
-                    target = controls.find(el => norm(el.innerText || el.value || '') === nq)
-                          || controls.find(el => norm(el.innerText || el.value || '').includes(nq));
+                    quotedTried++;
+                    target = findControl(nq);
                     label = q;
                     if (target) break;
                     // Nhãn có tồn tại ở đâu đó trên trang (tiêu đề cột, chữ trong bảng) thì chưa kết luận
                     // thiếu — bước có thể đang nói về dữ liệu chứ không phải nút bấm.
-                    const anywhere = norm(document.body.innerText || '').includes(nq);
-                    if (!anywhere) return JSON.stringify({ status: 'missing', label: q });
+                    if (!pageText.includes(nq)) return JSON.stringify({ status: 'missing', label: q });
+                  }
+
+                  if (!target && quotedTried > 0) {
+                    // Bước ĐÃ nêu nhãn trong ngoặc, nhãn đó có trên trang nhưng không phải điều khiển ⇒
+                    // bước đang nói về DỮ LIỆU. Rơi xuống khớp ngược ở đây là cách cổng này từng bấm bừa
+                    // một nút khác chỉ vì nhãn nó là khúc con của câu bước (nút vai "HRBP" trong bước
+                    // "Mở màn hình 'HRBP Approval'") rồi chấm cú no-op đó là nút chết.
+                    return JSON.stringify({ status: 'skip', label: '' });
                   }
 
                   if (!target) {
                     // Không có nhãn trong ngoặc: thử khớp NGƯỢC — nhãn nút nào xuất hiện nguyên văn trong câu bước.
                     let best = null, bestLen = 0;
                     for (const el of controls) {
-                      const t = norm(el.innerText || el.value || '');
+                      const t = labelOf(el);
                       if (t.length >= 3 && t.length > bestLen && stepText.includes(t)) { best = el; bestLen = t.length; }
                     }
                     if (!best) return JSON.stringify({ status: 'skip', label: '' });
                     target = best;
-                    label = (target.innerText || target.value || '').replace(/\s+/g, ' ').trim();
+                    label = labelOf(target);
                   }
+
+                  // Điều khiển ĐIỀU HƯỚNG đang sẵn ở trạng thái bước yêu cầu (vai đang chọn, mục menu
+                  // đang mở) thì không có gì để chứng minh: bấm lại là no-op ĐÚNG. Chấm nó "nút chết" sẽ
+                  // đánh trượt mọi kịch bản mở đầu bằng "chọn vai <vai đầu tiên>" — mà vai đầu tiên
+                  // chính là vai demo mở lên.
+                  const stateful = target.closest ? target.closest('.view-as-item, .sidebar-nav .nav-item') : null;
+                  if (stateful && stateful.classList.contains('active'))
+                    return JSON.stringify({ status: 'skip', label: label });
 
                   const before = snapshot();
                   const roleBefore = (typeof window.pocRole === 'function') ? window.pocRole() : null;
