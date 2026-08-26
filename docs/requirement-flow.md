@@ -55,7 +55,7 @@ Browser POST /Requirements/ChatStream (SSE)
 
 Các cơ chế trí nhớ (chi tiết đầy đủ ở [phần dưới](#các-cơ-chế-trí-nhớ)):
 
-- **Bộ nhớ hội thoại 2 tầng**: 20 lượt gần nhất gửi nguyên văn; lượt cũ gộp dần vào `Project.ConversationSummary` **theo lô ≥10 lượt** (không tóm tắt mỗi lượt — đó là chỗ tiết kiệm token). Fail-open: gọi tóm tắt lỗi thì giữ summary cũ, không mất lượt nào.
+- **Bộ nhớ hội thoại 2 tầng**: 20 lượt gần nhất gửi nguyên văn; lượt cũ gộp dần vào `Project.ConversationSummary` **theo lô ≥10 lượt** (không tóm tắt mỗi lượt — đó là chỗ tiết kiệm token). Fail-open: gọi tóm tắt lỗi thì giữ summary cũ, không mất lượt nào. Vòng soạn Product Brief dùng lại đúng bộ nhớ này (cửa sổ riêng, rộng hơn — xem [Ngữ cảnh gửi lên model ở vòng soạn Brief](#ngữ-cảnh-gửi-lên-model-ở-vòng-soạn-brief)).
 - **Bộ nhớ cấp user** (`AppUser.UserMemory`): BA chắt lọc sự thật bền về user (vai trò, lĩnh vực, văn phong...) theo lô, dùng lại ở mọi project của họ.
 - **Bản đồ bao phủ yêu cầu** (`Project.RequirementCoverageMap`): 12 nhóm thông tin đánh dấu [RÕ]/[MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG] — NGUỒN CHÂN LÝ DUY NHẤT của độ sẵn sàng: BA chọn câu hỏi kế tiếp dựa vào đây, panel "Tiến độ khai thác" render nó, và cổng "Write Requirement" suy ready TẤT ĐỊNH từ nó (`RequirementReadinessGate.Evaluate`: mọi dòng áp dụng [RÕ] ⇔ cho phép) — không có lời gọi LLM nào chấm lại, nên panel/nút/lời mời không thể vênh nhau.
 - **Checklist học được** (`AgentChecklistItem`): sau khi tài liệu sinh thành công, sau mỗi vòng sửa POC, và **mỗi khi người dùng bác một giả định ở cổng xác nhận**, hệ thống rà "user phải tự nêu thông tin gì mà BA chưa từng hỏi" và ghi nhớ **cho mọi project sau**. Ba đường harvest, sắc dần: hội thoại (`ChecklistGapMemoryService`) → ghi chú POC (`PocFeedbackMemoryService`) → giả định bị bác (`SpecAssumptionMemoryService`, xem [Cổng xác nhận giả định](#cổng-xác-nhận-giả-định-giữa-spec-và-poc)). Mỗi bài học là MỘT DÒNG có định danh, kèm **lý do rút ra + trích dẫn bằng chứng + dự án nguồn**, bật/tắt được ở trang `Agents/Checklist`. Chỉ phần `Text` của mục đang bật đi vào prompt; mục bị tắt được gửi cho vòng harvest sau như **danh sách cấm** nên bài học sai không quay lại.
@@ -1966,7 +1966,8 @@ BA không chỉ trả lời chat; service còn duy trì ngữ cảnh dài hạn:
 | Context | Lưu ở đâu | Mục đích |
 |---|---|---|
 | Conversation transcript | `AgentConversation` | Lịch sử trao đổi chi tiết |
-| Conversation summary | `Project.ConversationSummary` | Rút gọn hội thoại dài |
+| Conversation summary | `Project.ConversationSummary` | Rút gọn hội thoại dài (khung chat + vòng soạn Brief) |
+| Mốc duyệt Brief | `Project.BriefApprovedTurnCount` | Số lượt hội thoại tại lần Approve gần nhất — cho phép vòng soạn nén phần transcript trước mốc (phần đó đã được bản đã duyệt chở) |
 | User memory | `AppUser.UserMemory` | Ghi nhớ preference/đặc thù người dùng |
 | Checklist học được | `AgentChecklistItem` | Học các điểm BA thường hỏi thiếu (mỗi bài học một dòng, kèm lý do + nguồn, bật/tắt được). Ba đường vào: hội thoại, ghi chú POC, giả định bị bác |
 | Requirement coverage | `Project.RequirementCoverageMap` | Theo dõi coverage requirement |
@@ -2007,6 +2008,44 @@ Kết quả có thể là:
   *"Đang chờ anh/chị trả lời câu hỏi của BA trong khung chat để viết tiếp tài liệu"* — hứa một bước không
   tồn tại, đúng cái bẫy mà `requirement-chat.v4.md` cấm BA tự đào bằng những câu *"mình sẽ tổng hợp lại rồi
   quay lại"*.
+
+#### Ngữ cảnh gửi lên model ở vòng soạn Brief
+
+Một lượt bấm gửi transcript lên model **ba lần** (soạn → tự soát → sửa), nên đây là chỗ ngữ cảnh đắt nhất
+phía yêu cầu. Prompt gồm: bối cảnh tổ chức, **bản Product Brief đã duyệt gần nhất**, **tóm tắt hội thoại
+cũ**, transcript nguyên văn, trạng thái đã chắt (điều đã chốt / ví dụ đã xác nhận / điểm tồn đọng), bản
+draft hiện hành và text/ảnh tài liệu nguồn.
+
+**Transcript có trần** (`BriefContextWindow`). Trước đây nó là input DUY NHẤT không bị chặn trên — mọi khối
+khác đã có trần (bản đồ bao phủ 4000 ký tự, nhật ký/tồn đọng 4000, tóm tắt 6000, text nguồn theo
+`Llm:SourceUpload:MaxTextCharsPerFile`) — nên một buổi phỏng vấn dài đủ sức đẩy lượt soạn vượt context
+window, và ở đó không có degrade mềm: lời gọi hỏng ⇒ task fail. Cửa sổ lấy cái cắt nhiều nhất trong ba
+nguồn: trần **40 lượt** (rộng hơn cửa sổ 20 của khung chat — dẫn một câu hỏi chỉ cần vài lượt gần đây, còn
+VIẾT tài liệu thì cần chi tiết), trần **40.000 ký tự** (một lượt chốt bảng dài bằng vài chục lượt hỏi đáp,
+nên đếm lượt một mình không chặn được token), và **mốc duyệt Brief** (`Project.BriefApprovedTurnCount`).
+
+**Bất biến, và là thứ dễ làm hỏng nhất nếu sửa sau này: chỉ được cắt phần đã nằm trong
+`Project.ConversationSummary`** — không bao giờ cắt quá `SummarizedTurnCount`, và luôn chừa lại ít nhất một
+lượt nguyên văn. Cắt xa hơn là làm thông tin bốc hơi: phần bị bỏ không có trong tóm tắt, không có trong
+transcript, và vòng tự soát mất luôn thứ nó phải đối chiếu. Vì vậy vòng soạn gọi thẳng
+`ConversationMemoryService` (cùng service khung chat dùng) thay vì dựng đường nén riêng: đường ghi chú trên
+bản xem trước và đường POC-feedback ghi thêm lượt user rồi gọi vào đây, không qua lượt chat nào để summary
+kịp tiến. Fail-open toàn tuyến: tóm tắt lỗi ⇒ con trỏ đứng yên ⇒ không cắt gì, hội thoại đi nguyên văn.
+
+**Brief ĐÃ DUYỆT là mốc nén hợp lệ; bản draft thì không.** Sau `Approve`, chính dòng draft được đổi tên
+thành `V{n}`, nên trước đây lượt soạn kế tiếp tra `"draft"` nhận về chuỗi rỗng và **transcript là thứ duy
+nhất chở nội dung V1 sang V2**. Nay bản đã duyệt được nạp lại vào prompt: nó là bản duy nhất trong dự án có
+chữ ký người dùng (họ đã bấm Approve), nên vừa là mỏ neo chống trôi, vừa là thứ cho phép cắt phần hội thoại
+trước mốc duyệt. Vòng tự soát được nói rõ rằng nội dung truy được về bản đã duyệt / tóm tắt là **hợp lệ** —
+thiếu câu đó, reviewer chê chính phần người dùng đã ký là "tự thêm ngoài hội thoại" rồi vòng sửa xoá nó đi.
+
+**Đừng đổi thành "chỉ gửi bản draft + ghi chú".** Đề xuất này quay lại đều đặn vì nó rẻ, và nó gãy ở bốn
+chỗ: Brief là bản nén MẤT MÁT nên ghi chú kiểu *"đoạn này thiếu ý X"* chỉ sửa được khi X còn ở đâu đó;
+`product-brief-review.v2.md` đối chiếu bản nháp **với hội thoại** để bắt bỏ sót, mà bỏ hội thoại đi thì nó
+so bản nháp với chính nó; cổng readiness và van `needsClarification` cần phân biệt "điều người dùng nói"
+với "điều model tự điền", trong khi đọc từ Brief thì mọi câu đều trông như đã chốt; và ở `temperature > 0`,
+patch chồng patch không còn mốc nào để tái neo (cùng lý do đã gỡ nút "🔄 Tạo lại tài liệu"). Nén hội thoại
+thì được — thay hội thoại thì không.
 
 **Ba đường được phép khởi động vòng soạn, và không đường nào là một lượt chat.** Nút "Write Requirement",
 ghi chú đã ghim trên bản xem trước Brief (`ReviseBriefFromNotesUseCase`), phản hồi POC chuyển về phía yêu cầu

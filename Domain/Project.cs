@@ -25,6 +25,13 @@ public class Project
     // con trỏ để biết lượt nào còn phải gửi nguyên văn. Xem ConversationMemoryService.
     public string? ConversationSummary { get; set; }
     public int SummarizedTurnCount { get; set; }
+    // Con trỏ "mốc duyệt Brief": số lượt hội thoại đã có tại thời điểm người dùng bấm Approve lần gần
+    // nhất (ApproveRequirementUseCase). Mọi thứ TRƯỚC mốc này đã được chở bởi chính Product Brief đã
+    // duyệt — bản DUY NHẤT trong dự án có chữ ký người dùng — nên vòng soạn Brief sau đó được phép nén
+    // phần transcript trước mốc thay vì gửi lại nguyên văn. 0 = chưa duyệt lần nào (gửi như cũ).
+    // Chỉ là TRẦN mong muốn: BriefContextWindow không bao giờ cắt quá SummarizedTurnCount, tức không
+    // bao giờ bỏ lượt nào chưa nằm trong ConversationSummary. Xem BriefContextWindow.
+    public int BriefApprovedTurnCount { get; set; }
     // Con trỏ riêng cho bộ nhớ CẤP USER (AppUser.UserMemory): số lượt cũ nhất (xếp theo CreatedAt) của
     // project này đã được chắt lọc vào hồ sơ user của người tạo. Tách khỏi SummarizedTurnCount vì hai bộ
     // nhớ tiến theo nhịp/độ trễ khác nhau. Xem UserMemoryService.
