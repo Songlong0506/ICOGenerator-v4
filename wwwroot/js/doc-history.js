@@ -39,6 +39,7 @@
             '          <span class="dh-legend-item removed">− xóa</span>' +
             '        </span>' +
             '      </div>' +
+            '      <div class="dh-input" id="dh-input" hidden></div>' +
             '      <div class="dh-diff" id="dh-diff"><p class="dh-empty">Chọn một revision để xem thay đổi.</p></div>' +
             '    </section>' +
             '  </div>' +
@@ -77,6 +78,40 @@
         });
     }
 
+    // Khối "vì sao đổi" ngay trên diff: các lượt user đã dẫn tới revision đang chọn (câu chat, các ghi
+    // chú ghim trên bản xem trước Product Brief, phản hồi POC chuyển về). Nằm TRÊN diff chứ không phải
+    // cuối popup vì lý do phải đọc trước cái đã đổi — và phải đổi theo từng revision, không phải một
+    // khối chung của cả tài liệu. Không có lượt nào ⇒ ẩn hẳn (tài liệu kỹ thuật sinh trong pipeline
+    // thường không có lượt user nào xen giữa hai bản; lúc đó changeNote ở cột trái đã nói đủ).
+    function renderInputs(data) {
+        const el = modalEl.querySelector('#dh-input');
+        const turns = (data && data.inputs) || [];
+
+        if (!turns.length) {
+            el.hidden = true;
+            el.innerHTML = '';
+            return;
+        }
+
+        el.hidden = false;
+        el.innerHTML =
+            '<div class="dh-input-head">Người dùng đã gửi gì trước bản này' +
+            (data.inputsTruncated ? ' <span class="dh-input-more">(chỉ hiện ' + turns.length + ' lượt gần nhất)</span>' : '') +
+            '</div>' +
+            turns.map(function (t) {
+                return '<div class="dh-input-turn">' +
+                    '<span class="dh-input-time">' + formatTime(t.createdAt) + '</span>' +
+                    '<span class="dh-input-msg">' + escapeHtml(t.message) + '</span>' +
+                    '</div>';
+            }).join('');
+    }
+
+    function clearInputs() {
+        const el = modalEl.querySelector('#dh-input');
+        el.hidden = true;
+        el.innerHTML = '';
+    }
+
     async function selectRevision(revisionId) {
         modalEl.querySelectorAll('.dh-rev').forEach(function (b) {
             b.classList.toggle('selected', b.dataset.revId === revisionId);
@@ -85,6 +120,7 @@
         const diffEl = modalEl.querySelector('#dh-diff');
         const diffTitle = modalEl.querySelector('#dh-diff-title');
         diffEl.innerHTML = '<p class="dh-empty">Đang tải diff…</p>';
+        clearInputs();
 
         try {
             const response = await fetch('/Requirements/DocumentRevisionDiff?id=' + encodeURIComponent(revisionId));
@@ -94,6 +130,8 @@
             diffTitle.textContent = data.previousRevisionNumber
                 ? '#' + data.previousRevisionNumber + ' → #' + data.revisionNumber
                 : 'Bản đầu tiên (#' + data.revisionNumber + ')';
+
+            renderInputs(data);
 
             if (!data.lines.length) {
                 diffEl.innerHTML = '<p class="dh-empty">Tài liệu rỗng.</p>';
@@ -121,6 +159,7 @@
         modal.querySelector('#dh-list').innerHTML = '<p class="dh-empty">Đang tải lịch sử…</p>';
         modal.querySelector('#dh-diff').innerHTML = '<p class="dh-empty">Chọn một revision để xem thay đổi.</p>';
         modal.querySelector('#dh-diff-title').textContent = '';
+        clearInputs();
 
         try {
             const response = await fetch('/Requirements/DocumentRevisions?id=' + encodeURIComponent(docId));

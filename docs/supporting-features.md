@@ -34,6 +34,38 @@ cả khối"). UI: nút **Lịch sử** ở modal tài liệu trang Requirements
 (chỉ doc DB-tracked), dùng chung `wwwroot/js/doc-history.js` + endpoint
 `Requirements/DocumentRevisions|DocumentRevisionDiff`.
 
+**Kèm "vì sao đổi", không chỉ "đổi chỗ nào".** Diff một mình không nói được bản này sinh ra vì điều gì:
+`ChangeNote` của Product Brief là chuỗi cố định cho mọi lần soạn, còn các ghi chú người dùng ghim trên
+bản xem trước thì chỉ tồn tại dưới dạng **một lượt user trong transcript** (`ReviseBriefFromNotesUseCase`
+— xem [requirement-flow.md](requirement-flow.md)). Nên mỗi revision ghi thêm một **mốc**
+`TriggerConversationId`: lượt USER mới nhất của project tại thời điểm ghi. Vòng soạn tài liệu chỉ chạy
+sau một **lệnh tường minh** của người dùng (`RequirementDraftTriggerCoverageTests` chốt đúng ba đường:
+nút "Write Requirement", gửi ghi chú đã ghim, chuyển phản hồi POC về) nên lượt đó chính là cú submit
+đứng sau bản ghi. Hai mốc liền nhau khoanh đúng khoảng input đã sinh ra thay đổi:
+`GetDocumentRevisionDiffQuery` trả về các lượt `role = "user"` trong khoảng `(mốc trước, mốc này]`, tối
+đa 10 lượt gần bản ghi nhất kèm cờ `InputsTruncated`; `doc-history.js` render chúng thành khối
+`.dh-input` ngay TRÊN diff (phải đọc trước cái đã đổi, và phải đổi theo revision đang chọn — đặt cuối
+popup thì nó nằm sau vài trăm dòng diff và trông như thuộc về cả tài liệu). Không có lượt nào ⇒ khối ẩn
+hẳn: tài liệu kỹ thuật sinh trong pipeline thường không có lượt user nào xen giữa hai bản, lúc đó
+`ChangeNote` (đã mang chính nhận xét của người duyệt) nói đủ.
+
+Ba quyết định của cơ chế này, cả ba đều là chỗ dễ hỏng:
+
+- **Không FK tới `AgentConversations`** — lý do ở [data-model.md](data-model.md#ghi-chú-thiết-kế). Mốc trỏ
+  hụt (lượt đã bị xóa ở đường retry, hoặc revision ghi trước khi có cột) thì lùi về `CreatedAt` của
+  revision: xấp xỉ an toàn vì lượt user luôn đứng TRƯỚC bản ghi.
+- **Đường ĐỌC bỏ query filter, đường GHI thì không.** `AgentConversation` có global filter
+  `ArchivedAt == null` ("New Chat" lưu trữ chứ không xóa). Đọc mà để nguyên filter thì mọi revision ghi
+  trước lần New Chat đột nhiên mất sạch phần "vì sao đổi" — nên đường đọc `IgnoreQueryFilters()`. Ghi
+  thì ngược lại: sau New Chat vòng soạn cũng đọc transcript rỗng, trỏ mốc vào một lượt của buổi chat đã
+  đóng là nói dối về nguồn của bản này ⇒ không còn lượt user nào đang dùng thì để mốc null.
+- **Bỏ filter không phải là lấy tất.** Đường đọc chỉ nhận lượt CÒN SỐNG tại thời điểm ghi bản đó
+  (`ArchivedAt == null || ArchivedAt > revision.CreatedAt`): lượt bị lưu trữ TRƯỚC đó thuộc buổi chat đã
+  đóng, vòng soạn chưa từng đọc chúng.
+
+Ghi chú ghim bị cắt ngay lúc gộp thành lượt user (quote tối đa 200 ký tự, tối đa 30 mục —
+`ReviseBriefFromNotesUseCase`), nên popup đọc lại đúng bản đã cắt đó chứ không phải nguyên văn từng ghi chú.
+
 ## Prompt Evals — golden set + LLM-judge
 Trả lời câu "sửa prompt/đổi model xong, chất lượng LÊN hay XUỐNG?" bằng số thay vì cảm tính:
 - **`EvalScenario`** (golden set): một tình huống = (template prompt dưới `/Prompts` + đầu vào mô
