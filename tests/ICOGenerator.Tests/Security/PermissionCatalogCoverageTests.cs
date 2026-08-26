@@ -25,7 +25,7 @@ public class PermissionCatalogCoverageTests
             "sẽ không có ô nào trong ma trận Roles & Permissions để admin cấp.");
     }
 
-    // Nút "Tải trọn gói cho AI" là đường đem cả chuỗi tài liệu dự án ra ngoài hệ thống thành một file.
+    // Nút "Download Context" là đường đem cả chuỗi tài liệu dự án ra ngoài hệ thống thành một file.
     // Quyền riêng cho nó (chồng lên RequirementsView của controller) là chốt cố ý: được xem trang
     // Requirements không đương nhiên được xuất dữ liệu.
     [Fact]

@@ -5,9 +5,15 @@
         height: calc(100vh - 180px);
     }
 
+    /* Cột trái tự cuộn: .doc-grid có chiều cao cố định theo viewport, nên sidebar dài hơn màn hình
+       (12 nhóm bao phủ + panel giả định + danh sách Product Brief) sẽ tràn ra NGOÀI khung thẻ mà trang
+       không cuộn tới được — phần tràn coi như biến mất. Khung chat bên cạnh đã tự cuộn theo đúng cách
+       này. */
     .history-panel {
         display: flex;
         flex-direction: column;
+        min-height: 0;
+        overflow-y: auto;
     }
 
     .chat-panel {
@@ -23,33 +29,9 @@
         padding-right: 10px;
     }
 
-    .history-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border: 1px solid var(--line);
-        padding: 14px;
-        margin-top: 12px;
-        background: var(--surface-alt);
-    }
-
-    .history-left {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-    }
-
-    .history-title {
-        font-weight: 600;
-    }
-
     .history-sub {
         font-size: 12px;
         color: #777;
-    }
-
-    .history-icon {
-        font-size: 20px;
     }
 
     .empty-history {
@@ -1107,16 +1089,60 @@
 .req-alert.ok { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; }
 .source-vision-warn { background: #fffbeb; border: 1px solid var(--warning-border); color: var(--warning-ink); padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; }
 
-/* Hai nút hành động trên cùng sidebar (New Chat + Tài liệu nguồn): xếp dọc, sát nhau, tách khỏi các
-   panel tiến độ phía dưới bằng một đường kẻ để không trông như một mục của panel. */
-.sidebar-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid #e5e7eb; }
-.sidebar-actions .new-chat-form { margin: 0; }
-.source-open-btn { display: flex; align-items: center; justify-content: center; gap: 8px; }
-/* Badge số file: cho biết "đã đính kèm gì chưa" mà không cần mở popup. Ẩn khi chưa có file nào. */
-.source-count-badge { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--bosch-blue, #3b82f6); color: #fff; font-size: 11px; line-height: 18px; font-weight: 600; }
+/* ==== Ba hành động thường trực trên đầu sidebar (New Chat + Context + Download Context) ====
+   Xếp dọc, tách khỏi các panel tiến độ phía dưới bằng một đường kẻ để không trông như một mục của panel.
+   Khác bản cũ ở HẠNG: "New Chat" là nút đặc màu Bosch, hai cửa tra cứu còn lại là dòng điều hướng mờ
+   (nền trong suốt, chỉ tô nền khi trỏ vào) — xem chú thích ở Views/Requirements/Index.cshtml. */
+.sidebar-actions { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.sidebar-actions .new-chat-form { margin: 0 0 8px; }
+
+.side-action {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+}
+
+.side-action:hover { background: var(--bosch-blue-tint); color: var(--bosch-blue-hover); text-decoration: none; }
+.side-action:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.side-action-ico { flex: 0 0 auto; width: 16px; font-size: 15px; line-height: 1; color: var(--muted); text-align: center; }
+.side-action:hover .side-action-ico { color: inherit; }
+.side-action-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Hành động chính của trang: nút đặc, chữ canh giữa — đủ khác hai dòng dưới để không ai phải đọc cả ba
+   nhãn mới biết nên bấm cái nào. */
+.side-action.primary {
+    justify-content: center;
+    padding: 11px 12px;
+    background: var(--bosch-blue);
+    border-color: var(--bosch-blue);
+    color: #fff;
+}
+
+.side-action.primary:hover { background: var(--bosch-blue-hover); border-color: var(--bosch-blue-hover); color: #fff; }
+.side-action.primary:active { background: var(--bosch-blue-active); border-color: var(--bosch-blue-active); }
+.side-action.primary .side-action-ico { width: auto; font-size: 12px; color: #fff; }
+.side-action.primary .side-action-label { flex: 0 0 auto; }
+
+/* Badge số file: cho biết "đã đính kèm gì chưa" mà không cần mở popup. Ẩn khi chưa có file nào. Nền nhạt
+   chứ không phải xanh đặc như trước: nó là một con số tra cứu đứng trong một dòng mờ, không phải nhãn
+   cảnh báo — xanh đặc ở đây kéo mắt mạnh hơn cả nút hành động chính ngay trên nó. */
+.source-count-badge { margin-left: auto; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--bosch-blue-tint-strong); color: var(--bosch-blue-dark); font-size: 11px; line-height: 18px; font-weight: 700; text-align: center; }
 .source-count-badge[hidden] { display: none; }
 
-/* Popup "Tài liệu nguồn": bảng các file đã đính kèm cho BA (xem lại / mở bản gốc / xoá). */
+/* Popup "Context" (tài liệu nguồn): bảng các file đã đính kèm cho BA (xem lại / mở bản gốc / xoá). */
 .source-modal { width: 760px; }
 .source-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .source-table[hidden] { display: none; }
@@ -1201,6 +1227,76 @@
 /* .decision-hint dùng chung cho các dòng chú thích nhỏ dưới tiêu đề panel (panel "Điều đã chốt" từng là
    chủ sở hữu, nay đã gỡ — panel giả định ở sidebar vẫn dùng). */
 .decision-hint { margin: 4px 0 8px; }
+
+/* ==== Danh sách Product Brief ở cuối sidebar ====
+   Mỗi bản là một THẺ bấm được cả dòng (<button class="brief-card">) chứ không phải một hàng chữ kèm nút
+   "View" bé xíu ở mép phải: cùng chiếm chừng ấy chỗ, thẻ cho chỗ đặt dòng phụ "Đã duyệt / Bản nháp" —
+   thứ quyết định người dùng nên mở bản nào — và cho vùng bấm rộng bằng cả thẻ. */
+
+.brief-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+
+    .brief-head h3 { margin: 0; }
+
+.brief-count { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+
+.brief-list { display: flex; flex-direction: column; gap: 8px; }
+
+.brief-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+
+.brief-card:hover { border-color: var(--bosch-blue); background: var(--bosch-blue-tint); box-shadow: var(--shadow); }
+.brief-card:focus-visible { outline: none; border-color: var(--bosch-blue); box-shadow: var(--focus-ring); }
+
+/* Bản ĐANG CHỌN: cũng là bản mà gói "Download Context" ở đầu sidebar mang theo. */
+.brief-card.current { border-color: var(--bosch-blue); background: var(--bosch-blue-tint); }
+
+.brief-card-ico {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--bosch-blue-tint);
+    color: var(--bosch-blue);
+    font-size: 16px;
+}
+
+.brief-card.current .brief-card-ico { background: var(--bosch-blue); color: #fff; }
+
+.brief-card-main { flex: 1; min-width: 0; }
+
+.brief-card-title { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
+
+.brief-card-sub { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.brief-tag { flex: 0 0 auto; padding: 1px 6px; border-radius: 999px; background: var(--bosch-blue); color: #fff; font-size: 10px; font-weight: 700; line-height: 1.6; }
+
+.brief-card-go { flex: 0 0 auto; font-size: 14px; color: var(--slate-400); }
+
+.brief-card:hover .brief-card-go,
+.brief-card.current .brief-card-go { color: var(--bosch-blue); }
+
+/* Chưa có bản nào: khung nét đứt + một câu nói KHI NÀO bản đầu tiên xuất hiện. */
+.brief-empty { padding: 16px 12px; border: 1px dashed var(--line); border-radius: 10px; background: var(--surface-alt); text-align: center; color: var(--muted); }
+
+    .brief-empty .bi { font-size: 20px; color: var(--slate-400); }
+
+.brief-empty-title { margin: 6px 0 0; font-size: 13px; font-weight: 600; color: var(--ink); }
+.brief-empty-hint { margin: 4px 0 0; font-size: 11.5px; line-height: 1.55; }
 
 /* ==== CỔNG TẠO TÀI LIỆU (#writeReqZone) ==== */
 /* Wrapper không có hình dạng riêng — phần nhìn thuộc về .summary-gate và .conflict-panel bên trong. Nó tồn
