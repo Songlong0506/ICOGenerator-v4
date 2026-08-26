@@ -14,6 +14,8 @@
     gap: 10px;
 }
 
+/* Thanh nút trên khung demo — nay CHỈ còn ở trang chia sẻ cho khách (PocShare/Open, layout khách
+   không có command bar). Trang POC Review đã đưa "Bật chế độ ghim" / "Mở tab riêng" lên command bar. */
 .poc-toolbar {
     display: flex;
     align-items: center;
@@ -25,14 +27,19 @@
     font-size: 13px;
 }
 
+/* Trừ hao phần chiều cao KHÔNG phải iframe nằm phía trên nó (header + page-head + command bar +
+   padding thẻ). POC Review đã bỏ .poc-toolbar nên số trừ nhỏ hơn trước 50px (nút 40px + gap 10px) —
+   chỗ đó trả lại cho bản demo. Trang khách (#pocShareRoot) vẫn còn thanh đó nên bù lại ngay dưới. */
 #pocFrame {
     width: 100%;
-    height: calc(100vh - 240px);
+    height: calc(100vh - 190px);
     min-height: 480px;
     border: 1px solid var(--line);
     border-radius: 8px;
     background: #fff;
 }
+
+#pocShareRoot #pocFrame { height: calc(100vh - 240px); }
 
 /* ===== Panel ghi chú ===== */
 

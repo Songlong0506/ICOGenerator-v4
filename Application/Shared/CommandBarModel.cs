@@ -116,11 +116,25 @@ public sealed class CommandBarButton
     /// <summary>Điều hướng: khác null thì nút render thành thẻ <c>&lt;a&gt;</c>.</summary>
     public string? Href { get; init; }
 
+    /// <summary>
+    /// <c>target</c> của thẻ <c>&lt;a&gt;</c> (vd "_blank" cho "Mở tab riêng"). Chỉ có nghĩa khi có
+    /// <see cref="Href"/>; partial tự kèm <c>rel="noopener"</c> khi mở tab mới.
+    /// </summary>
+    public string? Target { get; init; }
+
     /// <summary>Id phần tử, cho JS của màn hình gắn handler (vd "pocShareOpen").</summary>
     public string? Id { get; init; }
 
     /// <summary>Nút mở hộp thoại — gắn <c>aria-haspopup="dialog"</c> + <c>aria-expanded="false"</c>.</summary>
     public bool OpensDialog { get; init; }
+
+    /// <summary>
+    /// Nút BẬT/TẮT một chế độ chứ không chạy một lần rồi thôi (vd "Bật chế độ ghim" ở POC Review) —
+    /// gắn <c>aria-pressed="false"</c>. JS của màn hình đảo <c>aria-pressed</c> và class <c>open</c>
+    /// để nút hiện trạng thái đang bật; đừng ghi đè <c>textContent</c> của cả nút vì như thế là xoá
+    /// luôn icon và badge — chỉ đổi chữ trong <c>.cbar-label</c>.
+    /// </summary>
+    public bool Toggle { get; init; }
 
     /// <summary>Con số/nhãn nhỏ đính kèm (vd số điểm kỹ thuật chưa đạt). Null thì không hiện.</summary>
     public string? Badge { get; init; }

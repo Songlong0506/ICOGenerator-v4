@@ -108,10 +108,39 @@
 @* Command bar chuẩn: chỗ đứng của các hành động CẤP TRANG. "Chia sẻ bản demo" nằm ở đây thay vì
    trong cột ghi chú bên phải — mời người khác vào xem là việc của người chủ trì buổi review, không phải
    một mục để đọc lướt khi đang soát ghi chú, và trước đây nó bị chôn giữa các panel gập nên gần như
-   không ai thấy. Bấm nút mở hộp thoại; mỗi nút soi quyền riêng của nó nên thanh hiện khi có ít nhất một. *@
-@if (canManageRequirements || showTechButton)
-{
-    var pocActions = new List<CommandBarButton>();
+   không ai thấy. Bấm nút mở hộp thoại; mỗi nút soi quyền riêng của nó.
+
+   "Bật chế độ ghim" và "Mở tab riêng" cũng ở đây, không còn là thanh nút riêng nằm trong thẻ chứa
+   iframe: cả hai là hành động CẤP TRANG (đổi chế độ tương tác với bản demo / mở chính bản demo đó ở
+   tab khác), đúng định nghĩa vùng phải của command bar. Để chúng trong thẻ iframe là dựng thanh lệnh
+   thứ hai ngay dưới thanh lệnh thật — hai hàng nút cách nhau vài chục pixel, khác kiểu dáng, người
+   dùng phải quét cả hai mới biết hành động mình cần nằm ở đâu. Gỡ thanh đó đi cũng trả lại chiều cao
+   cho iframe, phần duy nhất trên trang này đáng được chỗ.
+
+   Thanh LUÔN hiện: hai nút này không soi quyền nào (ai mở được trang thì ghim và mở tab được), nên
+   không còn thế "không có nút nào để hiện" như khi thanh chỉ chứa hai nút có quyền riêng. *@
+@{
+    var pocActions = new List<CommandBarButton>
+    {
+        // Toggle: JS (poc-review.js) đảo aria-pressed + class "open" và đổi chữ trong .cbar-label.
+        new CommandBarButton
+        {
+            Label = "Bật chế độ ghim",
+            Icon = "bi-pin-angle",
+            Id = "pinModeBtn",
+            Toggle = true,
+            Title = "Bật rồi bấm vào chỗ chưa đúng trong bản demo để ghim ghi chú"
+        },
+        new CommandBarButton
+        {
+            Label = "Mở tab riêng",
+            Icon = "bi-box-arrow-up-right",
+            Href = Url.Action("Mockup", "Projects", new { projectId = Model.ProjectId }),
+            Target = "_blank",
+            Title = "Mở bản demo ở tab mới (không có chế độ ghim)"
+        }
+    };
+
     if (showTechButton)
     {
         var openIssueCount = Model.Verification is { } headVerif && headVerif.OpenIssues.Any()
@@ -128,15 +157,15 @@
             BadgeTitle = "Số điểm máy báo chưa đạt"
         });
     }
-
-    @await Html.PartialAsync("_CommandBar", new CommandBarModel
-    {
-        Actions = pocActions,
-        Primary = canManageRequirements
-            ? new CommandBarButton { Label = "Chia sẻ bản demo", Icon = "bi-share", Id = "pocShareOpen" }
-            : null
-    })
 }
+
+@await Html.PartialAsync("_CommandBar", new CommandBarModel
+{
+    Actions = pocActions,
+    Primary = canManageRequirements
+        ? new CommandBarButton { Label = "Chia sẻ bản demo", Icon = "bi-share", Id = "pocShareOpen" }
+        : null
+})
 
 <div class="poc-review-layout"
      id="pocReviewRoot"
@@ -152,13 +181,7 @@
      data-revision-limit="@Model.PocRevisionLimit">
 
     <section class="card poc-frame-panel">
-        <div class="poc-toolbar">
-            <button type="button" id="pinModeBtn" class="btn outline">📌 Bật chế độ ghim</button>
-            <a class="btn outline small poc-open-tab"
-               asp-action="Mockup"
-               asp-route-projectId="@Model.ProjectId"
-               target="_blank">Mở tab riêng ↗</a>
-        </div>
+        @* Không còn .poc-toolbar ở đây — "Bật chế độ ghim" và "Mở tab riêng" đã lên command bar phía trên. *@
 
         @* sandbox trên thẻ iframe LẶP LẠI đúng CSP sandbox mà endpoint Mockup tự đặt (defense-in-depth,
            không nới thêm gì); review=True để server tiêm annotator vào tài liệu (bool binder KHÔNG
