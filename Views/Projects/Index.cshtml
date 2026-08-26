@@ -94,10 +94,15 @@
     // không bị đụng tới). ProjectsController.Clone còn qua IProjectAccessGuard nên User thường chỉ nhân
     // bản được project của chính mình.
     var canCloneProject = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsCreate);
+    // Ba nút điều hướng cũng tra quyền MỘT LẦN cho cả trang (trước đây mỗi dòng tra lại ba lượt).
+    // Phân quyền theo ma trận Roles & Permissions, không hardcode vai trò.
+    var canOpenRequirements = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenRequirements);
+    var canOpenAgentDashboard = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenAgentDashboard);
+    var canOpenMockup = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenMockup);
 }
 <div class="card table-card">
     <table>
-        <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th class="actions-col">Actions</th></tr></thead>
         <tbody>
             @if (Model.Items.Count == 0)
             {
@@ -123,86 +128,100 @@
                     @* Tên đơn vị tra từ OrgUnits; mã không còn trong dữ liệu HR thì hiển thị mã thô. *@
                     <td>@(item.OrgUnitName ?? (string.IsNullOrWhiteSpace(p.OrgUnitCode) ? "—" : p.OrgUnitCode))</td>
                     <td>@p.CreatedAt.ToString("MMM dd, yyyy")</td>
-                    <td>
-                        @* Phân quyền hiển thị từng nút theo ma trận Roles & Permissions (assign được ở màn hình
-                           Roles), không hardcode vai trò:
-                           - Requirements: quyền ProjectsOpenRequirements.
+                    <td class="actions-col">
+                        @* Cột Actions là NÚT BIỂU TƯỢNG, không phải nút chữ: năm hành động xếp thành một
+                           dải gọn, đọc bằng icon + tooltip (data-tip) nên bảng không bị năm cụm chữ dài
+                           đẩy các cột dữ liệu co lại. Mỗi nút vẫn có aria-label đầy đủ cho trình đọc màn
+                           hình — icon chỉ là phần nhìn.
+
+                           Hai nhóm, ngăn bằng một vạch mờ: bên trái là ĐIỀU HƯỚNG (mở màn hình khác),
+                           bên phải là thao tác trên chính dòng này (sửa / nhân bản).
+
+                           Hiển thị từng nút theo ma trận Roles & Permissions (tra một lần ở trên):
+                           - Requirements: quyền ProjectsOpenRequirements. Đây là cửa vào của cả luồng nên
+                             nó là nút nhấn mạnh (act-btn--accent).
                            - Agent Dashboard: quyền ProjectsOpenAgentDashboard.
-                           - Mockup: quyền ProjectsOpenMockup (và vẫn cần dự án có mockup như trước). *@
-                        @{
-                            var canOpenRequirements = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenRequirements);
-                            var canOpenAgentDashboard = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenAgentDashboard);
-                            var canOpenMockup = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsOpenMockup);
-                        }
-                        <div class="actions">
+                           - Mockup: quyền ProjectsOpenMockup. Dự án chưa có POC thì vẫn giữ chỗ ở dạng mờ
+                             (aria-hidden, không bấm được) để mọi dòng thẳng cột với nhau và người dùng
+                             thấy ngay "dự án này chưa có bản demo". *@
+                        <div class="row-actions">
                             @if (canOpenRequirements)
                             {
-                                <a class="btn outline"
+                                <a class="act-btn act-btn--accent"
+                                   data-tip="Requirements"
+                                   aria-label="Mở Requirements của @p.Name"
                                    asp-controller="Requirements"
                                    asp-action="Index"
                                    asp-route-projectId="@p.Id">
-                                    Requirements
+                                    <i class="bi bi-card-checklist" aria-hidden="true"></i>
                                 </a>
                             }
 
                             @if (canOpenAgentDashboard)
                             {
-                                <a class="btn"
+                                <a class="act-btn"
+                                   data-tip="Agent Dashboard"
+                                   aria-label="Mở Agent Dashboard của @p.Name"
                                    asp-controller="AgentDashboard"
                                    asp-action="Index"
                                    asp-route-projectId="@p.Id">
-                                    Agent Dashboard
+                                    <i class="bi bi-robot" aria-hidden="true"></i>
                                 </a>
                             }
 
-                            @if (canOpenMockup && item.HasMockup)
+                            @if (canOpenMockup)
                             {
-                                <a class="btn outline"
-                                   asp-controller="Projects"
-                                   asp-action="PocReview"
-                                   asp-route-projectId="@p.Id"
-                                   title="Xem POC và ghim ghi chú trực tiếp lên phần tử cần sửa">
-                                    Mockup
-                                </a>
+                                @if (item.HasMockup)
+                                {
+                                    <a class="act-btn"
+                                       data-tip="Mockup — xem POC và ghim ghi chú"
+                                       aria-label="Xem Mockup của @p.Name"
+                                       asp-controller="Projects"
+                                       asp-action="PocReview"
+                                       asp-route-projectId="@p.Id">
+                                        <i class="bi bi-easel" aria-hidden="true"></i>
+                                    </a>
+                                }
+                                else
+                                {
+                                    <span class="act-btn is-disabled" data-tip="Chưa có bản POC" aria-hidden="true">
+                                        <i class="bi bi-easel"></i>
+                                    </span>
+                                }
                             }
 
-                            @* Sửa thông tin dự án: nút biểu tượng (không phải nút chữ) và tách khỏi nhóm
-                               nút điều hướng bằng một vạch mờ — các nút chữ là "đi tới màn hình khác",
-                               còn đây là thao tác trên chính dòng này, giống trang AI Models. Dữ liệu dòng
-                               đi qua data-* (Razor tự HTML-encode) rồi JS đọc từ dataset — an toàn hơn
-                               việc nhồi giá trị vào tham số onclick. *@
+                            @* Dữ liệu dòng đi qua data-* (Razor tự HTML-encode) rồi JS đọc từ dataset —
+                               an toàn hơn việc nhồi giá trị vào tham số onclick. *@
                             @if (canEditProject || canCloneProject)
                             {
-                            <span class="actions-tools">
-                                <span class="actions-sep" aria-hidden="true"></span>
+                                <span class="act-sep" aria-hidden="true"></span>
                                 @if (canEditProject)
                                 {
-                                <button type="button"
-                                        class="icon-btn"
-                                        title="Chỉnh sửa dự án"
-                                        aria-label="Chỉnh sửa dự án @p.Name"
-                                        data-edit-project
-                                        data-project-id="@p.Id"
-                                        data-project-name="@p.Name"
-                                        data-project-description="@p.Description"
-                                        data-project-orgunit="@p.OrgUnitCode"
-                                        data-project-running="@(item.HasRunningWorkflow ? "true" : "false")">
-                                        <i class="bi bi-pencil-fill" aria-hidden="true"></i>
-                                </button>
+                                    <button type="button"
+                                            class="act-btn"
+                                            data-tip="Chỉnh sửa dự án"
+                                            aria-label="Chỉnh sửa dự án @p.Name"
+                                            data-edit-project
+                                            data-project-id="@p.Id"
+                                            data-project-name="@p.Name"
+                                            data-project-description="@p.Description"
+                                            data-project-orgunit="@p.OrgUnitCode"
+                                            data-project-running="@(item.HasRunningWorkflow ? "true" : "false")">
+                                        <i class="bi bi-pencil" aria-hidden="true"></i>
+                                    </button>
                                 }
                                 @if (canCloneProject)
                                 {
-                                <button type="button"
-                                        class="icon-btn"
-                                        title="Nhân bản dự án"
-                                        aria-label="Nhân bản dự án @p.Name"
-                                        data-clone-project
-                                        data-project-id="@p.Id"
-                                        data-project-name="@p.Name">
+                                    <button type="button"
+                                            class="act-btn"
+                                            data-tip="Nhân bản dự án"
+                                            aria-label="Nhân bản dự án @p.Name"
+                                            data-clone-project
+                                            data-project-id="@p.Id"
+                                            data-project-name="@p.Name">
                                         <i class="bi bi-copy" aria-hidden="true"></i>
-                                </button>
+                                    </button>
                                 }
-                            </span>
                             }
                         </div>
                     </td>

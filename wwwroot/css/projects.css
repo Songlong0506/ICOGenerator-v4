@@ -36,22 +36,156 @@
     max-width: 320px;
 }
 
-/* Cột Actions: bên trái là các nút ĐIỀU HƯỚNG (mở màn hình khác), bên phải — sau một vạch
-   ngăn — là thao tác trên chính dòng này (sửa dự án). Gói vạch + nút vào một khối không tách
-   rời để cột hẹp có xuống dòng thì cả cặp cùng xuống (không bao giờ còn một vạch lơ lửng
-   cuối dòng); margin-left:auto ghim cặp này về mép phải nên các dòng thẳng một cột với nhau. */
-.actions-tools {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex: 0 0 auto;
-    margin-left: auto;
+/* ---------- Cột Actions: dải nút biểu tượng ----------
+   Năm hành động của một dòng đều là NÚT BIỂU TƯỢNG (không còn nút chữ): cả cụm chỉ rộng
+   bằng vài icon nên các cột dữ liệu (Tên, Mô tả) được trả lại chỗ, và mắt quét dọc theo
+   cột thấy ngay dòng nào có gì. Nhãn không biến mất — nó nằm ở tooltip (data-tip) cho
+   chuột/bàn phím và ở aria-label cho trình đọc màn hình.
+
+   Bố cục: nhóm ĐIỀU HƯỚNG (mở màn hình khác) — vạch ngăn — nhóm thao tác trên chính dòng
+   này (sửa/nhân bản). Cột không xuống dòng (white-space:nowrap ở .actions-col) nên cả dải
+   luôn nằm gọn một hàng. */
+.actions-col {
+    /* width:1% + nowrap = cột co sát nội dung, phần rộng dư trả về cho các cột chữ. */
+    width: 1%;
+    white-space: nowrap;
 }
 
-.actions-sep {
+.row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.act-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    text-decoration: none;
+    transition: color .15s ease, background-color .15s ease;
+}
+
+.act-btn i {
+    font-size: 17px;
+    line-height: 1;
+}
+
+.act-btn:hover {
+    color: var(--bosch-blue);
+    background: var(--bosch-blue-tint);
+}
+
+.act-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* Hành động chính của dòng (Requirements — cửa vào của cả luồng) mang màu Bosch sẵn, để
+   trong một dải icon cùng màu xám vẫn có một điểm neo cho mắt. */
+.act-btn--accent {
+    color: var(--bosch-blue);
+}
+
+.act-btn--accent:hover {
+    color: var(--bosch-blue-dark);
+    background: var(--bosch-blue-tint-strong);
+}
+
+/* Giữ chỗ cho hành động chưa dùng được (dự án chưa có POC): mờ, không bắt chuột, nhưng vẫn
+   chiếm đúng ô nên các dòng thẳng cột với nhau. Tooltip vẫn hiện để nói rõ vì sao mờ. */
+.act-btn.is-disabled {
+    color: var(--line);
+    cursor: default;
+}
+
+.act-btn.is-disabled:hover {
+    color: var(--line);
+    background: transparent;
+}
+
+.act-sep {
     width: 1px;
     height: 20px;
+    margin: 0 6px;
     background: var(--line);
+    flex: 0 0 auto;
+}
+
+/* Tooltip của nút biểu tượng — tự vẽ thay vì dùng title="" gốc: title đợi ~1 giây mới hiện,
+   quá chậm cho một dải toàn icon. Hiện cả khi hover lẫn khi focus bằng bàn phím.
+   Dùng ::after (chữ) + ::before (mũi tên) của chính nút; glyph bootstrap-icons nằm ở ::before
+   của thẻ <i> bên trong nên không đụng nhau. .card không cắt tràn nên tooltip nổi được ra
+   ngoài bảng. */
+.act-btn[data-tip]::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%) translateY(3px);
+    padding: 5px 9px;
+    border-radius: 4px;
+    background: var(--slate-800);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+
+.act-btn[data-tip]::before {
+    content: "";
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%) translateY(3px);
+    border: 5px solid transparent;
+    border-top-color: var(--slate-800);
+}
+
+.act-btn[data-tip]::after,
+.act-btn[data-tip]::before {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    z-index: 20;
+    transition: opacity .12s ease, transform .12s ease, visibility .12s;
+}
+
+.act-btn[data-tip]:hover::after,
+.act-btn[data-tip]:hover::before,
+.act-btn[data-tip]:focus-visible::after,
+.act-btn[data-tip]:focus-visible::before {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Dòng đầu bảng: tooltip hướng lên trên sẽ bị header che, nên dòng đầu đẩy tooltip xuống dưới. */
+tbody tr:first-child .act-btn[data-tip]::after {
+    bottom: auto;
+    top: calc(100% + 7px);
+}
+
+tbody tr:first-child .act-btn[data-tip]::before {
+    bottom: auto;
+    top: calc(100% + 2px);
+    border-top-color: transparent;
+    border-bottom-color: var(--slate-800);
+}
+
+tbody tr:first-child .act-btn[data-tip]::after,
+tbody tr:first-child .act-btn[data-tip]::before {
+    transform: translateX(-50%) translateY(-3px);
 }
 
 /* Org Unit dropdown trong modal New Project / Chỉnh sửa dự án dùng <select> gốc, được
