@@ -149,14 +149,18 @@
 .cbar-btn-accent:hover { background: var(--bosch-blue-tint); }
 .cbar-btn-accent:hover i { color: var(--bosch-blue); }
 
-/* Trạng thái mở (panel Filter đang bật). */
-.cbar-btn.open {
+/* Trạng thái ĐANG BẬT — dùng chung cho hai thứ cùng bản chất "công tắc": panel Filter đang mở, và
+   nút bật/tắt chế độ (CommandBarButton.Toggle, vd "Bật chế độ ghim" ở POC Review). JS đặt class
+   .open kèm aria-pressed/aria-expanded; chọn cả hai để nút bật vẫn có màu nếu chỉ đặt được một. */
+.cbar-btn.open,
+.cbar-btn[aria-pressed="true"] {
     background: var(--bosch-blue-tint);
     border-color: var(--bosch-blue-tint-strong);
     color: var(--bosch-blue-dark);
 }
 
-.cbar-btn.open i { color: var(--bosch-blue); }
+.cbar-btn.open i,
+.cbar-btn[aria-pressed="true"] i { color: var(--bosch-blue); }
 
 /* Chấm nhấn mạnh khi đang có bộ lọc áp dụng (nút Lọc trên Audit). */
 .cbar-dot {

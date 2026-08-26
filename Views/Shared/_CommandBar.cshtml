@@ -41,7 +41,9 @@
         <text>
         @if (b.Href != null)
         {
-            <a class="@cls" id="@b.Id" href="@b.Href" title="@(b.Title ?? b.Label)" aria-label="@b.Label">
+            @* rel="noopener" đi kèm target: tab mới KHÔNG được giữ window.opener trỏ về trang này. *@
+            <a class="@cls" id="@b.Id" href="@b.Href" title="@(b.Title ?? b.Label)" aria-label="@b.Label"
+               target="@b.Target" rel="@(b.Target != null ? "noopener" : null)">
                 @{ RenderButtonInner(b); }
             </a>
         }
@@ -50,7 +52,8 @@
             <button type="button" class="@cls" id="@b.Id" title="@(b.Title ?? b.Label)"
                     disabled="@b.Disabled" onclick="@b.OnClick" aria-label="@b.Label"
                     aria-haspopup="@(b.OpensDialog ? "dialog" : null)"
-                    aria-expanded="@(b.OpensDialog ? "false" : null)">
+                    aria-expanded="@(b.OpensDialog ? "false" : null)"
+                    aria-pressed="@(b.Toggle ? "false" : null)">
                 @{ RenderButtonInner(b); }
             </button>
         }

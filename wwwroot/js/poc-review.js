@@ -14,8 +14,13 @@
     const reopenUrl = root.dataset.reopenUrl;
     const projectId = root.dataset.projectId;
 
+    // Nút "Bật chế độ ghim" nay là nút của command bar (icon <i> + <span class="cbar-label">), không
+    // còn là nút chữ trơn: ghi đè textContent của CẢ nút sẽ xoá luôn thẻ icon, nên chỉ đổi chữ trong
+    // nhãn và đổi class icon. Trạng thái bật đọc được ở ba chỗ cho ba kiểu người dùng: chữ trên nhãn,
+    // class .open (màu), và aria-pressed (screen reader).
     const pinModeBtn = document.getElementById("pinModeBtn");
-    const pinModeHint = document.getElementById("pinModeHint");
+    const pinModeLabel = pinModeBtn.querySelector(".cbar-label") || pinModeBtn;
+    const pinModeIcon = pinModeBtn.querySelector("i");
     const listEl = document.getElementById("pocCommentList");
     const countEl = document.getElementById("pocCommentCount");
     const formEl = document.getElementById("pocCommentForm");
@@ -56,12 +61,20 @@
     function setPinMode(enabled) {
         pinMode = enabled;
         postToFrame({ type: "poc-mode", enabled: pinMode });
-        pinModeBtn.classList.toggle("primary", pinMode);
-        pinModeBtn.classList.toggle("outline", !pinMode);
-        pinModeBtn.textContent = pinMode ? "📌 Đang ghim — bấm để tắt" : "📌 Bật chế độ ghim";
-        pinModeHint.textContent = pinMode
-            ? "Click vào phần tử trong POC để ghi chú (Esc để thoát)."
-            : "Chế độ ghim đang tắt — POC thao tác bình thường.";
+        pinModeBtn.classList.toggle("open", pinMode);
+        pinModeBtn.setAttribute("aria-pressed", pinMode ? "true" : "false");
+        // Nhãn phải đổi ở CẢ hai chỗ: .cbar-label là chữ nhìn thấy, aria-label là thứ screen reader
+        // đọc — và trên màn hẹp command bar ẩn .cbar-label đi, lúc đó aria-label là nhãn DUY NHẤT.
+        const pinLabel = pinMode ? "Đang ghim — bấm để tắt" : "Bật chế độ ghim";
+        pinModeLabel.textContent = pinLabel;
+        pinModeBtn.setAttribute("aria-label", pinLabel);
+        pinModeBtn.title = pinMode
+            ? "Click vào phần tử trong POC để ghi chú (Esc để thoát)"
+            : "Bật rồi bấm vào chỗ chưa đúng trong bản demo để ghim ghi chú";
+        if (pinModeIcon) {
+            pinModeIcon.classList.toggle("bi-pin-angle-fill", pinMode);
+            pinModeIcon.classList.toggle("bi-pin-angle", !pinMode);
+        }
     }
 
     function statusBadge(status) {
