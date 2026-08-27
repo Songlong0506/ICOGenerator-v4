@@ -55,9 +55,21 @@
         if (frame.contentWindow) frame.contentWindow.postMessage(msg, "*");
     }
 
+    // Ghi chú ĐÃ GỬI VỀ REQUIREMENT rời danh sách làm việc (và rời cả pin trên bản demo). Nó đã hết
+    // đường đi ở trang này: không thu hồi được (nút 🗑 chỉ hiện với ghi chú Open), không mở lại được
+    // (ReopenPocCommentUseCase chỉ nhận Addressed/Sent), không lượt gửi nào gom nó nữa (triage/dispatch
+    // chỉ quét Open) — và bảng "Lịch sử ghi chú" ngay bên dưới đã giữ nguyên văn nó kèm neo màn hình ·
+    // phần tử. Để lại đây là một bản sao chiếm chỗ của những ghi chú CÒN phải xử lý. Nó không biến mất
+    // im lặng: renderList in một dòng đếm trỏ xuống bảng lịch sử.
+    // CHỈ trạng thái này — Sent còn phải chờ kiểm lại, Addressed còn nút "vẫn chưa đạt"; và KHÔNG lọc
+    // theo version (xem docs/workspace-and-poc.md: ghi chú bản trước vẫn phải gửi đi được).
+    function activeComments() {
+        return comments.filter(c => c.status !== "RoutedToRequirement");
+    }
+
     // Đánh số hiển thị 1..n theo thứ tự tạo — pin trong POC và danh sách bên phải dùng CÙNG số.
     function numbered() {
-        return comments.map((c, i) => Object.assign({}, c, { index: i + 1 }));
+        return activeComments().map((c, i) => Object.assign({}, c, { index: i + 1 }));
     }
 
     function pushCommentsToFrame() {
@@ -95,6 +107,8 @@
         // "Đã xử lý": vòng chỉnh sửa mang ghi chú này đã chạy xong. Người review cần phân biệt được nó
         // với "đang chờ Dev" — nếu không, vòng review thứ hai nhìn danh sách y hệt vòng đầu.
         if (status === "Addressed") return '<span class="poc-badge done">đã sửa — mời kiểm lại</span>';
+        // Giữ lại dù activeComments() đã lọc trạng thái này khỏi danh sách: bỏ đi thì ghi chú routed nào
+        // lọt lưới sẽ đeo nhãn "chờ gửi" của nhánh mặc định — sai hẳn nghĩa.
         if (status === "RoutedToRequirement") return '<span class="poc-badge routed">đã gửi về Requirement</span>';
         return '<span class="poc-badge open">chờ gửi</span>';
     }
@@ -161,6 +175,14 @@
         const open = items.filter(c => c.status === "Open").length;
         countEl.textContent = items.length ? `(${open} chờ gửi / ${items.length})` : "";
 
+        // Số ghi chú vừa bị lọc khỏi danh sách (đã gửi về Requirement) — đếm SỐNG theo dữ liệu vừa nạp,
+        // vì bấm "Gửi ghi chú" chỉ nạp lại danh sách chứ không tải lại trang (bảng lịch sử phía dưới
+        // mới là bản render lúc mở trang).
+        const routed = comments.length - items.length;
+        const routedHint = routed
+            ? `<p class="muted poc-panel-hint">${routed} ghi chú đã gửi về Requirement — nguyên văn nằm ở bảng “Lịch sử ghi chú” bên dưới (tải lại trang để thấy dòng mới nhất).</p>`
+            : "";
+
         // Chỉ dọn ô ghi chú của các thẻ kịch bản — KHÔNG dọn .uat-scenario-form, vì form đang mở có thể
         // nằm trong đó (xóa/mở lại một ghi chú khác cũng gọi renderList) và xóa nó đi là mất luôn nội
         // dung người dùng đang gõ cùng listener submit.
@@ -181,13 +203,16 @@
         refreshScenarioNoteBadges();
 
         if (!loose.length) {
-            listEl.innerHTML = items.length
+            const emptyHtml = items.length
                 ? '<p class="muted">Mọi ghi chú đang nằm ngay dưới kịch bản của nó, ở cột kịch bản kiểm thử bên phải.</p>'
-                : '<p class="muted">Chưa có ghi chú nào. Bật chế độ ghim và click vào phần tử trong POC.</p>';
+                : routed
+                    ? '<p class="muted">Không còn ghi chú nào chờ xử lý ở bản demo này.</p>'
+                    : '<p class="muted">Chưa có ghi chú nào. Bật chế độ ghim và click vào phần tử trong POC.</p>';
+            listEl.innerHTML = emptyHtml + routedHint;
             return;
         }
 
-        listEl.innerHTML = loose.map(itemHtml).join("");
+        listEl.innerHTML = loose.map(itemHtml).join("") + routedHint;
     }
 
     async function loadComments() {
