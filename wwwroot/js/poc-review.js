@@ -48,11 +48,38 @@
     let pinMode = false;
     let pendingPick = null; // mô tả phần tử vừa click trong POC, chờ người dùng gõ ghi chú
     let frameReady = false;
+    let pendingTour = null; // <li> của bước vừa bấm "chỉ chỗ", chờ annotator trả lời tìm được hay không
 
     // escapeHtml dùng chung ở site.js (nạp qua _Layout trước file này).
 
     function postToFrame(msg) {
         if (frame.contentWindow) frame.contentWindow.postMessage(msg, "*");
+    }
+
+    function clearTourHint() {
+        if (uatList) uatList.querySelectorAll(".uat-step-hint").forEach(el => el.remove());
+    }
+
+    // Chỉ chỗ TRƯỢT thì nói ra, đừng im lặng: im lặng để người dùng ngồi soi bản demo tìm một hiệu ứng
+    // không bao giờ tới. Mỗi trạng thái là một việc khác nhau họ cần làm tiếp. Ba hàm này ở TOP-LEVEL
+    // (không nằm trong khối `if (uatList)` bên dưới) vì listener message gọi tới chúng — khai báo hàm
+    // trong khối là block-scoped ở chế độ strict.
+    const TOUR_HINT = {
+        missing: "Bản demo chưa đánh dấu chỗ cho bước này — bạn tự tìm trên màn hình giúp nhé.",
+        unsupported: "Bản demo này dựng trước khi có chỉ dẫn từng bước, nên chưa chỉ chỗ được.",
+        hidden: "Chỗ cần thao tác chỉ hiện sau khi bạn làm xong các bước trước."
+    };
+
+    function showTourResult(status) {
+        const li = pendingTour;
+        pendingTour = null;
+        clearTourHint();
+        if (!li || status === "ok") return;
+
+        const hint = document.createElement("div");
+        hint.className = "uat-step-hint";
+        hint.textContent = TOUR_HINT[status] || TOUR_HINT.missing;
+        li.appendChild(hint);
     }
 
     // Đánh số hiển thị 1..n theo thứ tự tạo — pin trong POC và danh sách bên phải dùng CÙNG số.
@@ -567,6 +594,8 @@
             setPinMode(false); // đã chọn xong phần tử — tắt để không click nhầm khi đang gõ
         } else if (e.data.type === "poc-exit-mode") {
             setPinMode(false);
+        } else if (e.data.type === "poc-tour-result") {
+            showTourResult(e.data.status);
         } else if (e.data.type === "poc-pin-click") {
             const item = commentsPanel.querySelector(`.poc-comment-item[data-id="${e.data.id}"]`);
             if (item) {
@@ -672,13 +701,19 @@
             renderProgress();
         });
 
-        // "Chỉ chỗ": bấm chữ một bước → POC mở đúng màn hình + tô sáng phần tử khớp mô tả bước, để người
-        // xem biết bấm vào đâu thay vì tự mò. READ-ONLY: annotator chỉ highlight, không tự thao tác —
-        // user vẫn tự bấm để kiểm chứng nghiệp vụ thật. Vì thế chỉ chỗ đi theo NHỊP CỦA NGƯỜI XEM: một
-        // lần bấm = một lần chỉ chỗ. Không có lượt tự chạy hết kịch bản theo đồng hồ — người xem còn
+        // "Chỉ chỗ": bấm chữ một bước → POC mở đúng màn hình + tô sáng phần tử của ĐÚNG bước đó, để
+        // người xem biết bấm vào đâu thay vì tự mò. READ-ONLY: annotator chỉ highlight, không tự thao
+        // tác — user vẫn tự bấm để kiểm chứng nghiệp vụ thật. Vì thế chỉ chỗ đi theo NHỊP CỦA NGƯỜI XEM:
+        // một lần bấm = một lần chỉ chỗ. Không có lượt tự chạy hết kịch bản theo đồng hồ — người xem còn
         // phải tự thao tác nên luôn chậm hơn nó, và mỗi bước là một lần đổi màn hình + cuộn iframe.
-        function tourStep(screen, text) {
-            postToFrame({ type: "poc-tour-step", screen: screen || "", text: text || "" });
+        //
+        // Cái đi xuống iframe là MÃ NEO của bước (data-anchor="2.3", do Razor in ra từ chỉ số gốc của
+        // kịch bản/bước), không phải câu chữ của bước: annotator tra [data-uat~="2.3"] — thứ agent dựng
+        // POC đã khai báo — thay vì đoán phần tử từ tiếng Việt và khoanh nhầm.
+        function tourStep(stepEl, screen) {
+            pendingTour = stepEl.closest("li") || stepEl;
+            clearTourHint();
+            postToFrame({ type: "poc-tour-step", screen: screen || "", anchor: stepEl.dataset.anchor || "" });
         }
 
         uatList.addEventListener("click", function (e) {
@@ -699,8 +734,7 @@
             // Bấm chữ của một bước → chỉ chỗ ngay bước đó.
             const stepText = e.target.closest(".uat-step-text");
             if (stepText) {
-                const scenario = stepText.closest(".uat-scenario");
-                tourStep(scenario?.dataset.screen || "", stepText.dataset.step || stepText.textContent);
+                tourStep(stepText, stepText.closest(".uat-scenario")?.dataset.screen || "");
             }
         });
     }

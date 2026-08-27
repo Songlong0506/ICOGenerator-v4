@@ -211,6 +211,14 @@ public class UatScenarioService
         sb.AppendLine("- Phần tử đó phải PASS THẬT: `pass` được tính bằng cách gọi chính các hàm nghiệp vụ/điều hướng của POC theo đúng trình tự các bước, rồi so trạng thái quan sát được với kỳ vọng.");
         sb.AppendLine("- Audit còn LÁI THẬT các bước này trong trình duyệt: nó tìm nút/điều khiển theo nhãn ghi trong bước rồi CLICK. Vì vậy nhãn nút trên UI phải trùng với nhãn nêu trong bước, và nút phải làm thật (bấm mà màn hình không đổi gì sẽ bị báo là nút chết).");
         sb.AppendLine();
+        // NEO CHỈ CHỖ: đích thứ hai của khối này. Xem UatAnchor để biết vì sao mã neo phải do một chỗ duy
+        // nhất sinh ra, và PocUatAnchors cho cổng đối chiếu.
+        sb.AppendLine($"**NEO CHỈ CHỖ (`{UatAnchor.Attribute}`) — BẮT BUỘC cho TỪNG BƯỚC.** Mỗi bước dưới đây in kèm mã neo của nó (`{UatAnchor.Markup(1, 2)}` = bước 3 của kịch bản 2). Gắn mã đó vào phần tử mà bước ấy đụng tới:");
+        sb.AppendLine("- Bước THAO TÁC ⇒ chính nút / ô nhập / mục menu người dùng bấm. Bước nhập cả cụm trường (\"nhập đầy đủ thông tin…\") ⇒ thẻ `<form>` hoặc khối bao quanh cụm ô đó.");
+        sb.AppendLine("- Bước KIỂM TRA ⇒ phần tử HIỂN THỊ kết quả cần đối chiếu (ô trạng thái, badge, dòng bảng, chỗ in mã tự sinh) — không bỏ trống vì \"bước này không bấm gì\".");
+        sb.AppendLine($"- Một phần tử phục vụ nhiều bước thì ghi nhiều mã cách nhau bằng dấu cách: `{UatAnchor.Attribute}=\"1.4 3.2\"`.");
+        sb.AppendLine("- Vì sao bắt buộc: trang POC Review cho người nghiệm thu bấm vào một bước rồi TÔ SÁNG đúng phần tử mang mã neo đó, và lượt lái tự động click theo mã neo thay vì đoán theo nhãn chữ. Thiếu mã nào thì AuditPocContent báo đúng bước đó còn thiếu.");
+        sb.AppendLine();
 
         for (var i = 0; i < scenarios.Count; i++)
         {
@@ -221,8 +229,8 @@ public class UatScenarioService
                 // Mã AC đi kèm để Developer agent biết bước nào đang chứng minh câu nghiệm thu nào của
                 // người dùng — bấm hỏng ở đây là hỏng đúng điều đã hứa, không phải một assertion nội bộ.
                 + (s.AcRefs.Count > 0 ? $" — chứng minh câu nghiệm thu: {string.Join(", ", s.AcRefs)}" : ""));
-            foreach (var step in s.Steps)
-                sb.AppendLine($"   - {step}");
+            for (var j = 0; j < s.Steps.Count; j++)
+                sb.AppendLine($"   - `{UatAnchor.Markup(i, j)}` — {s.Steps[j]}");
         }
 
         return sb.ToString();

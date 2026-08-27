@@ -546,6 +546,56 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
         Assert.Contains(report.Issues, i => i.Contains("KHÔNG thao tác được") && i.Contains("Gửi đơn"));
     }
 
+    // Hai tính chất của đường NEO trong MỘT lượt kiểm: mỗi CheckAsync là cả một battery (đi màn hình,
+    // lái UAT, click menu, đổi vai, lượt mobile) nên tách làm hai test là trả giá gấp đôi cho cùng một
+    // bản demo — và bộ test này đã đủ nặng để một lượt tải trang chạm trần 15s khi máy bận.
+    private const string AnchorPoc = """
+        <section class="page-view active" data-view="Đơn của tôi">
+          <h2 class="h4">Đơn của tôi</h2>
+          <p>Nội dung demo của màn Đơn của tôi với đủ chữ để không bị coi là màn trống.</p>
+          <button class="btn">Gửi</button>
+          <button class="btn" data-uat="1.1" onclick="document.getElementById('kq1').textContent='Đã gửi'">Gửi</button>
+          <p id="kq1">Chưa gửi</p>
+        </section>
+        <section class="page-view" data-view="Đơn đã nộp">
+          <h2 class="h4">Đơn đã nộp</h2>
+          <p>Nội dung demo của màn Đơn đã nộp với đủ chữ để không bị coi là màn trống.</p>
+          <span data-uat="2.1">Trạng thái đơn</span>
+          <button class="btn" onclick="document.getElementById('kq2').textContent='Đã thu hồi'">Thu hồi</button>
+          <p id="kq2">Đang chờ</p>
+        </section>
+        """;
+
+    [Fact]
+    public async Task UatDrive_UsesTheAnchorFirst_AndFallsBackToLabelsWhenTheAnchorIsNotClickable()
+    {
+        var html = RealShellPoc(
+            ["Nhân viên"],
+            [new PocNavItem { Label = "Đơn của tôi" }, new PocNavItem { Label = "Đơn đã nộp" }],
+            AnchorPoc);
+
+        var report = await DriveAsync(
+            html,
+            // Kịch bản 1: màn hình có HAI nút cùng nhãn "Gửi" — một mồi nhử CHẾT đứng trước, nút thật mang
+            // neo 1.1. Lượt đoán theo nhãn luôn chọn cái đầu tiên khớp, tức là mồi nhử, và chấm cú no-op
+            // đó là "nút chết". Pass ⇒ đã bấm theo neo chứ không theo chữ.
+            Scenario("Gửi đơn", "Bấm \"Gửi\" để nộp đơn"),
+            // Kịch bản 2: neo 2.1 trỏ vào chỗ HIỂN THỊ kết quả (đúng quy ước của bước kiểm tra) nên không
+            // bấm được. Đường neo phải nhường lại cho lượt khớp nhãn, nếu không việc thêm neo lại làm
+            // CHÍNH cổng này mù đi. Nút "Thu hồi" là thứ duy nhất bấm được: pass ⇒ đã rơi xuống khớp nhãn.
+            new UatScenario
+            {
+                Title = "Thu hồi đơn",
+                Screen = "Đơn đã nộp",
+                Steps = new List<string> { "Bấm \"Thu hồi\" trên đơn đang chờ" }
+            });
+        if (!report.Ran)
+            return;
+
+        Assert.Equal(2, report.UatDriveResults.Count);
+        Assert.All(report.UatDriveResults, x => Assert.True(x.Pass, $"{x.Title}: {x.Detail}"));
+    }
+
     public Task InitializeAsync() => Task.CompletedTask;
 
     public async Task DisposeAsync()

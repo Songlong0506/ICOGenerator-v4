@@ -228,7 +228,19 @@
 
     window.addEventListener("scroll", queueRepaint, true);
     window.addEventListener("resize", queueRepaint);
-    new MutationObserver(queueRepaint).observe(document.body, {
+
+    // Bỏ QUA các thay đổi do chính renderPins gây ra: pin nằm trong document.body, mà renderPins dựng lại
+    // toàn bộ host bằng innerHTML — quan sát cả chúng thì mỗi lần vẽ lại tự đặt lịch một lần vẽ nữa, thành
+    // vòng requestAnimationFrame chạy mãi 60fps ngay khi màn hình đang mở có lấy một pin. Lọc theo đích
+    // thay vì disconnect/observe quanh renderPins: không đánh rơi thay đổi thật xảy ra cùng lúc.
+    new MutationObserver(function (records) {
+        for (var i = 0; i < records.length; i++) {
+            var t = records[i].target;
+            if (t && t.nodeType === 1 && t.closest && t.closest(".poc-pin-host")) continue;
+            queueRepaint();
+            return;
+        }
+    }).observe(document.body, {
         subtree: true, childList: true, attributes: true, attributeFilter: ["class"]
     });
 
@@ -239,84 +251,66 @@
         setTimeout(function () { pin.classList.remove("flash"); }, 1600);
     }
 
-    // ===== Guided tour: dẫn người xem theo từng bước kịch bản UAT =====
-    // Trang cha gửi text một bước ("Bấm nút Duyệt ở đơn đang chờ"); annotator tìm phần tử tương tác có
-    // chữ khớp nhất trong màn hình đang mở rồi tô sáng + cuộn tới. Không khớp phần tử nào thì nháy cả
-    // vùng nội dung để người xem biết đang ở đúng màn hình. Chỉ ĐỌC DOM + tô sáng, không thao tác thay user.
+    // ===== Chỉ chỗ: dẫn người xem tới đúng phần tử của một bước kịch bản UAT =====
+    // Trang cha gửi MÃ NEO của bước ("2.3" = bước 3 của kịch bản 2); annotator mở đúng màn hình rồi tô
+    // sáng phần tử mang [data-uat~="2.3"] — thứ do chính agent dựng POC khai báo lúc sinh (xem
+    // UatAnchor / PocUatAnchors, cổng audit báo thiếu neo).
+    //
+    // Bản trước tự ĐOÁN phần tử bằng cách so từ của câu bước với chữ trên các nút/ô bảng. Nó không cứu
+    // được: một bước "Kiểm tra JD được tạo với mã HcP-JD-XXX" trùng đúng một từ với một ô bảng bất kỳ là
+    // đủ để khoanh vàng nhầm chỗ, còn bước kiểm tra thì vốn không có nút nào để trỏ. Chỉ chỗ SAI tệ hơn
+    // không chỉ chỗ, nên ở đây không còn đường đoán: tìm được neo thì tô sáng, không thì nói thẳng cho
+    // trang cha để nó báo người dùng, KHÔNG nháy cả trang cho có phản hồi.
 
-    // Từ dừng (tiếng Việt) bỏ khi so khớp — giữ lại danh từ/động từ mang nghĩa.
-    var TOUR_STOPWORDS = { "bam": 1, "nut": 1, "vao": 1, "o": 1, "the": 1, "va": 1, "cua": 1, "mot": 1, "voi": 1, "man": 1, "hinh": 1, "kiem": 1, "tra": 1, "mo": 1, "chon": 1, "nhap": 1, "xem": 1, "dang": 1 };
+    // Mã neo tới từ trang cha nhưng vẫn được soi trước khi ghép vào selector: đây là ranh giới postMessage.
+    var ANCHOR_RE = /^[0-9]{1,3}\.[0-9]{1,3}$/;
 
-    function tourTokens(text) {
-        // Bỏ dấu tiếng Việt để so khớp không phụ thuộc dấu; tách từ; bỏ stopword & từ quá ngắn.
-        var norm = (text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
-        return norm.split(/[^a-z0-9]+/).filter(function (w) { return w.length >= 2 && !TOUR_STOPWORDS[w]; });
-    }
-
-    function elementText(el) {
-        if (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA") {
-            return (el.getAttribute("placeholder") || el.getAttribute("name") || el.getAttribute("aria-label") || "");
-        }
-        return (el.textContent || el.getAttribute("aria-label") || el.title || "");
-    }
-
-    function findBestMatch(stepText) {
-        var wanted = tourTokens(stepText);
-        if (wanted.length === 0) return null;
-
-        // Ưu tiên phần tử tương tác; nới ra heading/nhãn/ô bảng nếu không có nút khớp.
-        var candidates = document.querySelectorAll(
-            ".page-view.active button, .page-view.active a, .page-view.active .btn, .page-view.active [role='button']," +
-            ".page-view.active input, .page-view.active select, .page-view.active th, .page-view.active label," +
-            ".page-view.active h1, .page-view.active h2, .page-view.active h3, .page-view.active td");
-
-        var best = null, bestScore = 0;
-        candidates.forEach(function (el) {
-            var rect = el.getBoundingClientRect();
-            if (rect.width === 0 && rect.height === 0) return; // ẩn
-
-            var have = tourTokens(elementText(el));
-            if (have.length === 0) return;
-            var haveSet = {};
-            have.forEach(function (w) { haveSet[w] = 1; });
-
-            var hits = 0;
-            wanted.forEach(function (w) { if (haveSet[w]) hits++; });
-            if (hits === 0) return;
-
-            // Ưu tiên khớp nhiều token VÀ phần tử ngắn gọn (nút "Duyệt" hơn cả một đoạn dài chứa "duyệt").
-            var score = hits * 10 - Math.min(have.length, 20) * 0.2;
-            if (score > bestScore) { bestScore = score; best = el; }
-        });
-        return best;
+    function findAnchor(anchor) {
+        if (!ANCHOR_RE.test(anchor || "")) return null;
+        try { return document.querySelector('[data-uat~="' + anchor + '"]'); } catch (e) { return null; }
     }
 
     var tourTimer = null;
+    function clearTourTargets() {
+        var marked = document.querySelectorAll(".poc-tour-target");
+        for (var i = 0; i < marked.length; i++) marked[i].classList.remove("poc-tour-target");
+    }
+
     function highlightElement(el) {
         el.classList.add("poc-tour-target");
         el.scrollIntoView({ block: "center", behavior: "smooth" });
         if (tourTimer) clearTimeout(tourTimer);
-        tourTimer = setTimeout(function () {
-            document.querySelectorAll(".poc-tour-target").forEach(function (x) { x.classList.remove("poc-tour-target"); });
-        }, 2600);
+        tourTimer = setTimeout(clearTourTargets, 2600);
     }
 
-    function flashMain() {
-        var main = document.querySelector(".page-view.active") || document.querySelector("main") || document.body;
-        main.classList.add("poc-tour-flash");
-        setTimeout(function () { main.classList.remove("poc-tour-flash"); }, 900);
-    }
-
-    function runTourStep(screen, text) {
-        // Mở đúng màn hình trước (nếu kịch bản chỉ định), rồi tìm & tô sáng sau khi render.
+    function runTourStep(screen, anchor) {
+        // Mở đúng màn hình trước (nếu kịch bản chỉ định), rồi tìm neo sau khi màn hình đã render.
         if (screen && typeof window.pocNavigate === "function" && screen !== currentView()) {
             window.pocNavigate(screen);
         }
         setTimeout(function () {
-            document.querySelectorAll(".poc-tour-target").forEach(function (x) { x.classList.remove("poc-tour-target"); });
-            var el = findBestMatch(text);
-            if (el) highlightElement(el);
-            else flashMain();
+            clearTourTargets();
+            var el = findAnchor(anchor);
+
+            if (!el) {
+                // Phân biệt hai chuyện khác hẳn nhau với người dùng: bản demo này dựng TRƯỚC khi có cơ chế
+                // neo (không có neo nào — chẳng bao giờ chỉ chỗ được, đừng bắt họ thử lại), và bản demo có
+                // neo nhưng thiếu đúng bước này (cổng audit đã báo, đây là thiếu sót cục bộ).
+                var supported = !!document.querySelector("[data-uat]");
+                send({ type: "poc-tour-result", anchor: anchor, status: supported ? "missing" : "unsupported" });
+                return;
+            }
+
+            var rect = el.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) {
+                // Neo đúng nhưng phần tử chưa hiện (modal chưa mở, dòng bảng chưa tồn tại): đây là "làm
+                // các bước trước đã", không phải hỏng.
+                send({ type: "poc-tour-result", anchor: anchor, status: "hidden" });
+                return;
+            }
+
+            highlightElement(el);
+            send({ type: "poc-tour-result", anchor: anchor, status: "ok" });
         }, 120);
     }
 
@@ -354,8 +348,8 @@
             }
             setTimeout(function () { renderPins(); flashPin(c.id); }, 60);
         } else if (e.data.type === "poc-tour-step") {
-            // Guided tour: dẫn tới màn hình + tô sáng phần tử khớp mô tả bước.
-            runTourStep(e.data.screen || "", e.data.text || "");
+            // Chỉ chỗ: mở màn hình của kịch bản + tô sáng phần tử mang mã neo của bước.
+            runTourStep(e.data.screen || "", e.data.anchor || "");
         }
     });
 
@@ -372,11 +366,10 @@
         ".poc-pin.sent { background: #64748b; }" +
         ".poc-pin.flash { animation: poc-pin-flash 0.4s ease 3; }" +
         "@keyframes poc-pin-flash { 50% { transform: scale(1.45); background: #e20015; } }" +
-        // Guided tour: phần tử đang được "chỉ chỗ" và nháy vùng nội dung khi không tìm ra phần tử.
+        // Phần tử đang được "chỉ chỗ". Không còn hiệu ứng nháy cả trang: nó là phản hồi cho một cú chỉ
+        // chỗ TRƯỢT, mà trượt thì nay nói thẳng bằng chữ ở panel kịch bản.
         ".poc-tour-target { outline: 3px solid #d97706 !important; outline-offset: 2px;" +
-        "  box-shadow: 0 0 0 6px rgba(217,119,6,.25) !important; border-radius: 3px; transition: outline .15s; }" +
-        ".poc-tour-flash { animation: poc-tour-flash 0.9s ease; }" +
-        "@keyframes poc-tour-flash { 0%,100% { background: transparent; } 40% { background: rgba(217,119,6,.12); } }";
+        "  box-shadow: 0 0 0 6px rgba(217,119,6,.25) !important; border-radius: 3px; transition: outline .15s; }";
     document.head.appendChild(style);
 
     // Báo trang cha là annotator đã sẵn sàng (trang cha sẽ gửi danh sách ghi chú + trạng thái mode).

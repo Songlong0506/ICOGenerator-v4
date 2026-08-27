@@ -130,7 +130,12 @@
                 <li>
                     <label>
                         <input type="checkbox" class="uat-step" data-key="@(item.Index)-@(j)" />
-                        <span class="uat-step-text" data-step="@item.Scenario.Steps[j]" title="Bấm để POC chỉ chỗ thao tác này">@item.Scenario.Steps[j]</span>
+                        @* data-anchor = MÃ NEO của bước (xem UatAnchor): thứ duy nhất đi xuống iframe khi
+                           người dùng bấm vào bước. Câu chữ của bước ở lại đây — annotator tra
+                           [data-uat~="..."] do agent gắn sẵn chứ không đoán phần tử từ tiếng Việt nữa. *@
+                        <span class="uat-step-text"
+                              data-anchor="@ICOGenerator.Contracts.Requirements.UatAnchor.Token(item.Index, j)"
+                              title="Bấm để POC chỉ chỗ thao tác này">@item.Scenario.Steps[j]</span>
                     </label>
                 </li>
             }

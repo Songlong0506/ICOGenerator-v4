@@ -455,6 +455,29 @@ public class WorkspaceTools
             }
         }
 
+        // NEO CHỈ CHỖ: mỗi bước kịch bản phải có một phần tử mang data-uat="{kịch bản}.{bước}". Kiểm TĨNH
+        // (không cần browser) trên vùng POC_CONTENT — shell không mang neo nào nên xét cả file chỉ tổ nhận
+        // nhầm chữ trong comment hướng dẫn của template.
+        var pocContent = PocTemplate.GetContentBody(current);
+        var anchorIssues = PocUatAnchors.Check(_pocUat, pocContent);
+        // Vùng nội dung rỗng (agent chưa viết gì) ⇒ im lặng: cổng độ phủ màn hình đã la rồi, và một dòng
+        // "NEO CHỈ CHỖ: OK" trên một POC trắng là báo cáo sai.
+        if (_pocUat is { Scenarios.Count: > 0 } && !string.IsNullOrWhiteSpace(pocContent))
+        {
+            sb.AppendLine();
+            if (anchorIssues.Count == 0)
+            {
+                var steps = _pocUat.Scenarios.Sum(x => x.Steps.Count);
+                sb.Append($"NEO CHỈ CHỖ (data-uat): OK — {steps} bước nghiệm thu đều có phần tử tương ứng để trang review tô sáng.");
+            }
+            else
+            {
+                sb.AppendLine("NEO CHỈ CHỖ THIẾU (người nghiệm thu bấm vào bước mà POC không chỉ được chỗ — fix như ISSUES ở trên):");
+                for (var i = 0; i < anchorIssues.Count; i++)
+                    sb.AppendLine($"{i + 1}. {anchorIssues[i]}");
+            }
+        }
+
         // Nhất quán dữ liệu mẫu GIỮA CÁC MÀN HÌNH: cùng bản ghi, cùng cột, hai màn hai giá trị. Mỗi màn xét
         // riêng thì màn nào cũng hợp lệ, nên không cổng nào khác thấy được — còn người xem demo thì thấy ngay.
         var crossScreenIssues = PocCrossScreenConsistency.Check(runtime.ScreenTables);
@@ -535,6 +558,7 @@ public class WorkspaceTools
                     .Concat(runtime.Issues)
                     .Concat(oracleIssues)
                     .Concat(uatIssues)
+                    .Concat(anchorIssues)
                     .Concat(crossScreenIssues)
                     .Concat(visualIssues)
                     .ToList(),
