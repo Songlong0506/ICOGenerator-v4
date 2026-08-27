@@ -902,12 +902,18 @@ pollAgentStats();
 
     const COLOR = {
         Queued: '#64748B', Running: '#2563EB', Completed: '#16A34A',
-        Failed: '#DC2626', Canceled: '#64748B', WaitingForHuman: '#D97706', Retrying: '#2563EB'
+        Failed: '#DC2626', Canceled: '#64748B', WaitingForHuman: '#D97706', Retrying: '#2563EB',
+        NotStarted: '#64748B'
     };
+
+    // NotStarted không phải WorkflowRunStatus của server — là trạng thái hiển thị khi chưa có run
+    // delivery nào; đặt nhãn tiếng Việt vì người đọc không tra được nó trong danh sách trạng thái.
+    const STATUS_LABEL = { NotStarted: 'Chưa bắt đầu' };
 
     function badge(status) {
         const c = COLOR[status] || '#64748B';
-        return `<span class="dg-badge" style="background:${c}1A;color:${c};border:1px solid ${c}55;">${escapeHtml(status)}</span>`;
+        const label = STATUS_LABEL[status] || status;
+        return `<span class="dg-badge" style="background:${c}1A;color:${c};border:1px solid ${c}55;">${escapeHtml(label)}</span>`;
     }
 
     // Nhãn + biểu tượng cho từng trạng thái bước (khớp lớp CSS .dg-step.<state>).
@@ -980,9 +986,18 @@ pollAgentStats();
         }
 
         // Cổng chỉ áp cho workflow delivery (sau khi Approve requirement). Run "Requirement" (sinh tài liệu)
-        // không có cổng ở đây — user vẫn đang ở màn hình Requirements.
+        // không có cổng ở đây — user vẫn đang ở màn hình Requirements. Nhưng DẢI TIMELINE thì vẫn hiện:
+        // project mới tạo (chưa có run nào) cũng thấy trước lộ trình POC → … → PR, chỉ là chưa bước nào
+        // sáng lên và không có nút hành động nào.
         if (!data.hasWorkflow || data.runKind !== 'Delivery') {
-            gate.style.display = 'none';
+            gate.style.display = '';
+            gate.dataset.stage = '';
+            setRunId('');
+            if (statusEl) statusEl.innerHTML = badge('NotStarted');
+            renderTimeline(data.pipeline);
+            bannerEl.innerHTML = `<div class="dg-msg idle">Chưa có lượt chạy delivery nào cho project này. Sang <a href="/Requirements/Index?projectId=${PROJECT_ID}">Requirements</a>, chốt yêu cầu với BA rồi bấm Approve — pipeline sẽ bắt đầu từ bước POC.</div>`;
+            setReviseRounds(0, 0, false);
+            setForms(false, false, false, false);
             setTimeout(poll, 4000);
             return;
         }

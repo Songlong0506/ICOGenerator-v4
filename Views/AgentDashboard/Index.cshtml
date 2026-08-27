@@ -119,7 +119,9 @@
 @if (canAdvance)
 {
     <!-- CỔNG DELIVERY: duyệt/đẩy/chạy-lại các bước sau POC (Architecture → code → review → test → PR).
-         Ẩn cho tới khi poll thấy có workflow; JS (agent-dashboard.js) bật đúng nút theo trạng thái run. -->
+         Dải timeline hiện ở MỌI project, kể cả project mới tạo chưa có run nào (khi đó mọi bước ở trạng
+         thái "chưa tới" và không có nút hành động); JS (agent-dashboard.js) bật đúng nút theo trạng thái
+         run. Ẩn ở lần render đầu để khỏi chớp một card rỗng trước khi poll đầu tiên trả về. -->
     <div class="card delivery-gate" id="delivery-gate" style="display:none;">
         <div class="dg-head">
             <h3>Delivery Pipeline</h3>

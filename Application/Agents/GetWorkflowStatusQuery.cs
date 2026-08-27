@@ -68,10 +68,13 @@ public class GetWorkflowStatusQuery
             })
             .FirstOrDefaultAsync();
 
+        // Project chưa có lượt chạy nào (vừa tạo xong): vẫn trả dải pipeline ở trạng thái "chưa tới"
+        // để dashboard hiện lộ trình delivery thay vì một khoảng trống — người dùng biết trước sẽ đi
+        // qua những bước nào và cổng duyệt nằm ở đâu.
         if (run == null)
             return new WorkflowStatusVm(false, null, null, true, false,
                 Array.Empty<WorkflowTaskStatusVm>(), Array.Empty<WorkflowProgressEventVm>(), afterSeq, "Delivery",
-                null, null, false, null, false, false, Array.Empty<PipelineStageVm>(),
+                null, null, false, null, false, false, BuildPipelinePreview(),
                 0, DeliveryPipeline.MaxRevisionRounds);
 
         var isTerminal = run.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Failed or WorkflowRunStatus.Canceled;
@@ -138,11 +141,12 @@ public class GetWorkflowStatusQuery
                           && x.Type == AgentTaskType.RequirementAnalysis
                           && x.Output == RequirementDraftMarkers.NeedsMoreInfo);
 
-        // Pipeline timeline chỉ áp cho run delivery (POC → … → PR). Run "Requirement" (sinh tài liệu)
-        // không chạy các bước này nên để rỗng — UI cũng chỉ render timeline cho run delivery.
+        // Trạng thái từng bước chỉ tính được từ run delivery (POC → … → PR). Run "Requirement" (sinh tài
+        // liệu) chưa chạy bước nào của pipeline nên nhận dải "chưa tới" — timeline vẫn hiện, chỉ là chưa
+        // có bước nào sáng lên; cổng duyệt vẫn ẩn vì UI chỉ bật nút cho run delivery.
         var pipeline = runKind == "Delivery"
             ? BuildPipeline(run.CurrentStage, run.Status, tasks)
-            : Array.Empty<PipelineStageVm>();
+            : BuildPipelinePreview();
 
         // Số vòng "Yêu cầu chỉnh sửa" đã dùng cho bước đang chờ duyệt (đếm task chỉnh sửa cùng loại
         // trong run) — chỉ có nghĩa khi đang WaitingForHuman; ngoài cổng duyệt trả 0 cho gọn.
@@ -162,6 +166,15 @@ public class GetWorkflowStatusQuery
             run.Id, run.CurrentStage.ToString(), isWaiting, nextStep?.Title, pocReady, needsMoreInfo, pipeline,
             revisionRoundsUsed, DeliveryPipeline.MaxRevisionRounds);
     }
+
+    /// <summary>
+    /// Dải timeline khi pipeline delivery CHƯA chạy (project mới tạo, hoặc mới chỉ có run requirement):
+    /// đúng thứ tự <see cref="DeliveryPipeline.Steps"/>, mọi bước ở trạng thái "pending".
+    /// </summary>
+    private static IReadOnlyList<PipelineStageVm> BuildPipelinePreview() =>
+        DeliveryPipeline.Steps
+            .Select(step => new PipelineStageVm(step.Stage.ToString(), step.Title, "pending"))
+            .ToList();
 
     /// <summary>
     /// Quy đổi trạng thái run + các task đã chạy thành dải timeline theo đúng thứ tự
