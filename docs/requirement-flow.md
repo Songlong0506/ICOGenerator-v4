@@ -13,6 +13,11 @@ trang**. Client dùng `fetch` + đọc `ReadableStream` (EventSource không POST
 Lượt chat chạy với `CancellationToken.None` — người dùng đóng tab giữa chừng thì turn vẫn hoàn tất và lưu
 DB, chỉ việc ghi response dừng lại.
 
+Đường này **đóng lại khi bản demo đã được nghiệm thu**: `ChatStream` (cùng `NewChat`, `UploadSource`,
+`ReviseBrief`) trả 409 và khung chat render ở trạng thái khoá cho tới khi người dùng bấm "Withdraw Approve"
+ở trang POC Review — luật khoá và lý do của nó ở
+[workspace-and-poc.md](workspace-and-poc.md#nghiệm-thu-là-công-tắc-hai-chiều-và-nó-khoá-nội-dung).
+
 Đây là **đường ghi duy nhất** của khung chat, và stream hỏng kiểu gì `requirements.js` cũng **reload chứ
 không gửi lại**. Chính vì lượt chạy với `CancellationToken.None`: khi client không nghe thấy gì (proxy đệm
 cả response nên không frame nào về, đồng hồ canh bắn abort sau 45s) thì server **vẫn đang chạy trọn lượt

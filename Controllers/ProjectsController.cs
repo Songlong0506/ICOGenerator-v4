@@ -30,6 +30,7 @@ public class ProjectsController : Controller
     private readonly TriagePocFeedbackUseCase _triagePocFeedbackUseCase;
     private readonly DispatchPocFeedbackUseCase _dispatchPocFeedbackUseCase;
     private readonly AcceptPocUseCase _acceptPocUseCase;
+    private readonly WithdrawPocAcceptanceUseCase _withdrawPocAcceptanceUseCase;
     private readonly IPermissionService _permissions;
 
     public ProjectsController(
@@ -51,6 +52,7 @@ public class ProjectsController : Controller
         TriagePocFeedbackUseCase triagePocFeedbackUseCase,
         DispatchPocFeedbackUseCase dispatchPocFeedbackUseCase,
         AcceptPocUseCase acceptPocUseCase,
+        WithdrawPocAcceptanceUseCase withdrawPocAcceptanceUseCase,
         IPermissionService permissions)
     {
         _getProjectListQuery = getProjectListQuery;
@@ -71,6 +73,7 @@ public class ProjectsController : Controller
         _triagePocFeedbackUseCase = triagePocFeedbackUseCase;
         _dispatchPocFeedbackUseCase = dispatchPocFeedbackUseCase;
         _acceptPocUseCase = acceptPocUseCase;
+        _withdrawPocAcceptanceUseCase = withdrawPocAcceptanceUseCase;
         _permissions = permissions;
     }
 
@@ -282,6 +285,7 @@ public class ProjectsController : Controller
             AddPocCommentResult.Ok => Json(item),
             AddPocCommentResult.MissingComment => BadRequest("Nội dung ghi chú trống."),
             AddPocCommentResult.TooManyComments => BadRequest("Project đã có quá nhiều ghi chú — hãy xóa bớt trước khi ghim thêm."),
+            AddPocCommentResult.PocAccepted => Conflict(PocAcceptanceGate.LockedMessage),
             _ => NotFound("Project không tồn tại.")
         };
     }
@@ -302,6 +306,7 @@ public class ProjectsController : Controller
             WithdrawPocCommentResult.Ok => Json(new { ok = true }),
             WithdrawPocCommentResult.AlreadyDispatched =>
                 BadRequest("Ghi chú này đã được gửi đi xử lý — không thu hồi được nữa."),
+            WithdrawPocCommentResult.PocAccepted => Conflict(PocAcceptanceGate.LockedMessage),
             _ => NotFound()
         };
     }
@@ -320,6 +325,7 @@ public class ProjectsController : Controller
         {
             ReopenPocCommentResult.Ok => Json(new { ok = true }),
             ReopenPocCommentResult.NotFound => NotFound(),
+            ReopenPocCommentResult.PocAccepted => Conflict(PocAcceptanceGate.LockedMessage),
             _ => BadRequest("Ghi chú này chưa qua vòng chỉnh sửa nào (hoặc đã được gửi ngược về bước Requirement).")
         };
     }
@@ -438,6 +444,7 @@ public class ProjectsController : Controller
             PocFeedbackDispatchStatus.InvalidSelection => Json(new { ok = false, reload = true, message = "Danh sách ghi chú vừa thay đổi (có người khác gửi hoặc xóa) — mở lại để phân loại theo bản mới nhé." }),
             PocFeedbackDispatchStatus.RequirementFailed => Json(new { ok = false, message = RequirementErrorMessage(report.RequirementError) }),
             PocFeedbackDispatchStatus.FixFailed => Json(new { ok = false, message = FixErrorMessage(report.FixError) }),
+            PocFeedbackDispatchStatus.PocAccepted => Json(new { ok = false, reload = true, message = PocAcceptanceGate.LockedMessage }),
             _ => NotFound("Project không tồn tại.")
         };
     }
@@ -492,6 +499,27 @@ public class ProjectsController : Controller
             AcceptPocResult.Ok => Json(new { ok = true, message = "Đã ghi nhận anh/chị nghiệm thu bản demo — đội delivery đã được báo để đi tiếp các bước sau." }),
             AcceptPocResult.AlreadyAccepted => Json(new { ok = false, message = "Bản demo này đã được nghiệm thu trước đó rồi." }),
             AcceptPocResult.NoPoc => Json(new { ok = false, message = "Chưa có bản demo nào để nghiệm thu." }),
+            _ => NotFound("Project không tồn tại.")
+        };
+    }
+
+    // RÚT NGHIỆM THU: cửa mở khoá DUY NHẤT. Nghiệm thu đóng băng chat BA + ghi chú POC (xem
+    // PocAcceptanceGate), nên nếu chỉ có chiều đi thì người dùng phát hiện thêm điểm sai sau khi bấm
+    // "được rồi" sẽ không còn đường nào để nói. Cùng quyền với chiều đi (RequirementsManage): ai nghiệm
+    // thu được thì rút được — khoá này thuộc về phía người yêu cầu, không phải một cổng của delivery.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Message = "Project không tồn tại.")]
+    public async Task<IActionResult> WithdrawPocAcceptance(Guid projectId)
+    {
+        var result = await _withdrawPocAcceptanceUseCase.ExecuteAsync(
+            projectId, User.Identity?.Name ?? string.Empty, HttpContext.RequestAborted);
+
+        return result switch
+        {
+            WithdrawPocAcceptanceResult.Ok => Json(new { ok = true, message = "Đã rút nghiệm thu — anh/chị chat và ghi chú lại được; đội delivery đã được báo." }),
+            WithdrawPocAcceptanceResult.NotAccepted => Json(new { ok = false, message = "Bản demo này đang không ở trạng thái đã nghiệm thu." }),
             _ => NotFound("Project không tồn tại.")
         };
     }

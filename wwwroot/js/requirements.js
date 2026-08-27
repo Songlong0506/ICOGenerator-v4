@@ -61,6 +61,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // bao giờ reject — promise treo vĩnh viễn, chatBusy kẹt ở true và màn hình đứng mãi ở "BA đang soạn
     // câu trả lời…", gửi tin mới cũng không được.
     const STREAM_IDLE_TIMEOUT_MS = 45000;
+    // KHOÁ SAU NGHIỆM THU (xem PocAcceptanceGate ở phía server): ô nhập và các nút đã bị render kèm
+    // `disabled`, nhưng lượt chat còn nhiều lối vào KHÔNG đi qua chúng — thẻ hỏi gộp, chip gợi ý và các
+    // nút "gửi câu trả lời" đều gọi thẳng chatForm.requestSubmit(). Chốt ở đúng handler submit là chỗ
+    // duy nhất mọi lối vào đó đi qua.
+    const pocLocked = chatForm.dataset.pocLocked === "true";
     let chatBusy = false;
     let liveBubble = null;
 
@@ -3857,6 +3862,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     chatForm.addEventListener("submit", function (e) {
         e.preventDefault();
+
+        // Đã nghiệm thu ⇒ hội thoại đứng yên; server sẽ trả 409 cho mọi lượt, nên đừng gửi đi để rồi
+        // hiện một lỗi stream khó hiểu. Biển báo lý do đã nằm ngay trên ô nhập.
+        if (pocLocked) return;
 
         // Băng "đã phục hồi nháp" nói về nội dung đang nằm trong ô nhập — bấm gửi là hết chuyện.
         hideDraftNote();

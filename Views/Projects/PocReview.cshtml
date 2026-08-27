@@ -206,17 +206,66 @@
     }
 }
 
+@{
+    // ---- NGHIỆM THU: công tắc HAI CHIỀU, và nó đứng ở NÚT CHÍNH của command bar ----
+    // Trước đây nút "Approve POC" nằm lọt trong panel ghi chú ở cột trái, cùng chỗ với các đường "còn sai
+    // chỗ này". Nó là hành động CẤP TRANG và là điểm dừng của cả buổi review, nên chỗ của nó là vùng phải
+    // của command bar — đúng luật đã áp cho "Bật chế độ ghim"/"Mở tab riêng". "Share" lùi về nhóm nút phụ:
+    // mời người khác vào xem là việc mở đầu buổi review, không phải kết luận của nó.
+    //
+    // Hai nút KHÔNG bao giờ cùng xuất hiện: đã nghiệm thu ⇒ chỉ có "Withdraw Approve", chưa ⇒ chỉ có
+    // "Approve POC". Trạng thái này quyết định luôn việc trang có khoá hay không (xem PocAcceptanceGate),
+    // nên sau mỗi cú bấm JS tải lại trang thay vì tự đảo nhãn — cả trang phải nói cùng một trạng thái.
+    var pocAccepted = Model.PocAcceptedAtUtc.HasValue;
+    CommandBarButton? pocPrimary = null;
+
+    if (canManageRequirements && pocAccepted)
+    {
+        pocPrimary = new CommandBarButton
+        {
+            Label = "Withdraw Approve",
+            Icon = "bi-unlock",
+            Id = "pocWithdrawApproveBtn",
+            Title = "Rút nghiệm thu để chat với BA và ghi chú trên POC trở lại"
+        };
+    }
+    else if (canManageRequirements && Model.HasMockup)
+    {
+        pocPrimary = new CommandBarButton
+        {
+            Label = "Approve POC",
+            Icon = "bi-check2-circle",
+            Id = "pocAcceptBtn",
+            Title = "Xác nhận bản demo đã đạt — khoá chat ở màn hình Requirement và ghi chú trên trang này"
+        };
+    }
+
+    if (canManageRequirements)
+    {
+        var shareButton = new CommandBarButton { Label = "Share", Icon = "bi-share", Id = "pocShareOpen" };
+        if (pocPrimary == null)
+        {
+            pocPrimary = shareButton;
+        }
+        else
+        {
+            pocActions.Add(shareButton);
+        }
+    }
+}
+
 @await Html.PartialAsync("_CommandBar", new CommandBarModel
 {
     Actions = pocActions,
-    Primary = canManageRequirements
-        ? new CommandBarButton { Label = "Share", Icon = "bi-share", Id = "pocShareOpen" }
-        : null
+    Primary = pocPrimary
 })
 
-<div class="poc-review-layout"
+<div class="poc-review-layout@(pocAccepted ? " is-locked" : "")"
      id="pocReviewRoot"
      data-project-id="@Model.ProjectId"
+     data-locked="@(pocAccepted ? "true" : "false")"
+     data-accept-url="@Url.Action("AcceptPoc", "Projects")"
+     data-withdraw-accept-url="@Url.Action("WithdrawPocAcceptance", "Projects")"
      data-comments-url="@Url.Action("PocComments", "Projects", new { projectId = Model.ProjectId })"
      data-add-url="@Url.Action("AddPocComment", "Projects")"
      data-withdraw-url="@Url.Action("WithdrawPocComment", "Projects")"
@@ -260,28 +309,25 @@
                chú thẩm mỹ bị đánh dấu RoutedToRequirement dù BA đã loại chúng khỏi tin nhắn — mất trắng.
                Nay: máy đề xuất nhóm cho từng ghi chú → người dùng soát/đổi trong hộp xác nhận → mỗi đường chỉ
                nhận đúng tập con của nó. Quyền vẫn là RequirementsManage như hai endpoint cũ. *@
-            @* NGHIỆM THU: điểm dừng của hành trình phía người yêu cầu. Ba đường bên dưới đều là "còn sai chỗ
-               này"; thiếu đường "được rồi" thì đội delivery phải đi hỏi miệng và chặng cuối stepper trên trang
-               Requirements không bao giờ đóng. Bấm KHÔNG đẩy pipeline — chỉ ghi nhận + báo người có quyền duyệt. *@
-            @if (Model.PocAcceptedAtUtc.HasValue)
+            @* Nút bấm ĐÃ LÊN command bar (xem khối dựng pocPrimary phía trên). Ở lại đây là tấm biển trạng
+               thái: ai chốt, lúc nào, và điều gì đang bị khoá — người mở trang giữa buổi review cần đọc
+               được lý do ô nhập của họ không gõ được, ngay tại chỗ họ định gõ. *@
+            @if (pocAccepted)
             {
                 <div class="poc-accepted">
                     ✓ <b>Đã nghiệm thu</b>@(string.IsNullOrWhiteSpace(Model.PocAcceptedBy) ? "" : $" bởi {Model.PocAcceptedBy}")
-                    · @Model.PocAcceptedAtUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
-                    <div class="muted poc-panel-hint">Đội delivery đã được báo. Anh/chị vẫn ghim thêm ghi chú được nếu phát hiện điểm cần sửa.</div>
-                </div>
-            }
-            else if (canManageRequirements && Model.HasMockup)
-            {
-                <div class="poc-accept">
-                    <button type="button" id="pocAcceptBtn" class="btn approve small full"
-                            data-accept-url="@Url.Action("AcceptPoc", "Projects")">
-                        Approve POC
-                    </button>
+                    · @Model.PocAcceptedAtUtc!.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                    <div class="muted poc-panel-hint">
+                        Nội dung đang khoá: không ghim/thu hồi ghi chú và không chat với BA ở màn hình Requirement.
+                        @if (canManageRequirements)
+                        {
+                            <text>Bấm <b>Withdraw Approve</b> trên thanh lệnh để mở khoá.</text>
+                        }
+                    </div>
                 </div>
             }
 
-            @if (canManageRequirements)
+            @if (canManageRequirements && !pocAccepted)
             {
                 <div class="poc-route-req">
                     <button type="button" id="pocSendFeedbackBtn" class="btn primary small full">

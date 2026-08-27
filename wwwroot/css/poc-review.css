@@ -569,6 +569,19 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
 /* ==== Nghiệm thu bản demo (đường ĐÓNG hành trình của người yêu cầu) ==== */
 
+/* Nút bấm nằm ở NÚT CHÍNH của command bar; chiều "rút" phải nhìn khác chiều "chốt" — cùng vị trí, cùng
+   kích thước, nên nếu cùng màu thì người dùng bấm theo trí nhớ vị trí và chốt/rút nhầm nhau. */
+#pocWithdrawApproveBtn {
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #9a3412;
+}
+
+/* Trang đã khoá: những lối vào ghi chú nằm rải trong danh sách kịch bản không còn nghĩa (server sẽ từ
+   chối). Ẩn thay vì disable vì chúng là các nút nhỏ nằm sâu trong từng thẻ — một hàng nút xám không giải
+   thích được gì, trong khi biển trạng thái ở panel ghi chú đã nói rõ vì sao. */
+.poc-review-layout.is-locked .uat-fail { display: none; }
+
 .poc-accept { margin: 10px 0; }
 
 .poc-accepted {

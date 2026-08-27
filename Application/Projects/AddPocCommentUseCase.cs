@@ -15,7 +15,10 @@ public enum AddPocCommentResult
     MissingComment,
 
     /// <summary>Project đã có quá nhiều ghi chú (chống spam/lỗi vòng lặp client).</summary>
-    TooManyComments
+    TooManyComments,
+
+    /// <summary>Bản demo đã được nghiệm thu ⇒ nội dung đang khoá (xem <see cref="PocAcceptanceGate"/>).</summary>
+    PocAccepted
 }
 
 /// <summary>
@@ -30,11 +33,13 @@ public class AddPocCommentUseCase
 
     private readonly AppDbContext _db;
     private readonly BriefVersionResolver _briefVersions;
+    private readonly PocAcceptanceGate _acceptanceGate;
 
-    public AddPocCommentUseCase(AppDbContext db, BriefVersionResolver briefVersions)
+    public AddPocCommentUseCase(AppDbContext db, BriefVersionResolver briefVersions, PocAcceptanceGate acceptanceGate)
     {
         _db = db;
         _briefVersions = briefVersions;
+        _acceptanceGate = acceptanceGate;
     }
 
     public async Task<(AddPocCommentResult Result, PocCommentItem? Item)> ExecuteAsync(
@@ -54,6 +59,11 @@ public class AddPocCommentUseCase
 
         if (!await _db.Projects.AnyAsync(x => x.Id == projectId, cancellationToken))
             return (AddPocCommentResult.ProjectNotFound, null);
+
+        // Khoá sau nghiệm thu — chốt Ở ĐÂY chứ không ở controller vì đường ghim còn cửa thứ hai: khách
+        // vào bằng link chia sẻ (PocShareController) không đi qua trang review nên không thấy nút khoá.
+        if (await _acceptanceGate.IsLockedAsync(projectId, cancellationToken))
+            return (AddPocCommentResult.PocAccepted, null);
 
         // Trần đếm ghi chú CÒN HIỆU LỰC: dòng đã thu hồi vẫn nằm lại làm lịch sử, không được phép chiếm
         // chỗ của ghi chú mới (nếu không, "không xoá được" sẽ tự khoá trang review lại sau vài buổi).

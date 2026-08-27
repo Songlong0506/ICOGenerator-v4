@@ -116,7 +116,7 @@ public class PocCommentUseCaseTests : IDisposable
 
         await using (var db = NewDb())
         {
-            var useCase = new WithdrawPocCommentUseCase(db);
+            var useCase = new WithdrawPocCommentUseCase(db, new PocAcceptanceGate(db));
 
             // Không phải chủ, không phải manager → từ chối, không đụng gì.
             Assert.Equal(WithdrawPocCommentResult.NotFoundOrForbidden,
@@ -159,7 +159,7 @@ public class PocCommentUseCaseTests : IDisposable
         {
             // Đã gửi đi thì việc đã xảy ra — giấu dòng này đi là nói dối lịch sử.
             Assert.Equal(WithdrawPocCommentResult.AlreadyDispatched,
-                await new WithdrawPocCommentUseCase(db).ExecuteAsync(sentId, "user", canManage: true));
+                await new WithdrawPocCommentUseCase(db, new PocAcceptanceGate(db)).ExecuteAsync(sentId, "user", canManage: true));
             Assert.Null((await db.PocComments.SingleAsync()).WithdrawnAtUtc);
         }
     }
@@ -207,8 +207,66 @@ public class PocCommentUseCaseTests : IDisposable
         }
     }
 
+    // KHOÁ SAU NGHIỆM THU: bấm "Approve POC" là đóng băng ghi chú. Chốt nằm ở tầng use case chứ không ở
+    // giao diện, vì đường ghim còn một cửa thứ hai (link chia sẻ, khách ẩn danh) không thấy nút khoá nào.
+    [Fact]
+    public async Task Add_And_Withdraw_AreLocked_AfterThePocIsAccepted()
+    {
+        Guid commentId;
+        await using (var db = NewDb())
+        {
+            var existing = new PocComment { ProjectId = _projectId, Comment = "ghim trước khi nghiệm thu", CreatedByUsername = "user" };
+            db.PocComments.Add(existing);
+            var project = await db.Projects.SingleAsync();
+            project.PocAcceptedAtUtc = DateTime.UtcNow;
+            project.PocAcceptedBy = "lan.nguyen";
+            await db.SaveChangesAsync();
+            commentId = existing.Id;
+        }
+
+        await using (var db = NewDb())
+        {
+            var (result, item) = await NewAddUseCase(db).ExecuteAsync(
+                _projectId, "Overview", "Nút", "#a", 10, 10, "ghi chú mới", "user");
+            Assert.Equal(AddPocCommentResult.PocAccepted, result);
+            Assert.Null(item);
+
+            Assert.Equal(WithdrawPocCommentResult.PocAccepted,
+                await new WithdrawPocCommentUseCase(db, new PocAcceptanceGate(db))
+                    .ExecuteAsync(commentId, "user", canManage: true));
+
+            // Không dòng nào được thêm, không dòng nào bị đụng.
+            Assert.Equal(1, await db.PocComments.CountAsync());
+            Assert.Null((await db.PocComments.SingleAsync()).WithdrawnAtUtc);
+        }
+    }
+
+    // …và rút nghiệm thu là mở khoá thật, không phải chỉ đổi nhãn nút.
+    [Fact]
+    public async Task Add_WorksAgain_AfterTheAcceptanceIsWithdrawn()
+    {
+        await using (var db = NewDb())
+        {
+            var project = await db.Projects.SingleAsync();
+            project.PocAcceptedAtUtc = DateTime.UtcNow;
+            project.PocAcceptedBy = "lan.nguyen";
+            await db.SaveChangesAsync();
+
+            project.PocAcceptedAtUtc = null;
+            project.PocAcceptedBy = null;
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            var (result, _) = await NewAddUseCase(db).ExecuteAsync(
+                _projectId, "Overview", "Nút", "#a", 10, 10, "ghi chú sau khi mở khoá", "user");
+            Assert.Equal(AddPocCommentResult.Ok, result);
+        }
+    }
+
     private static AddPocCommentUseCase NewAddUseCase(AppDbContext db) =>
-        new(db, new BriefVersionResolver(db, new ProjectArtifactCatalog()));
+        new(db, new BriefVersionResolver(db, new ProjectArtifactCatalog()), new PocAcceptanceGate(db));
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 

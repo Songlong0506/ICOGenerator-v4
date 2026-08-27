@@ -386,6 +386,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ResolvePocShareTokenQuery>();
         services.AddScoped<SearchAssociatesQuery>();
         services.AddScoped<AcceptPocUseCase>();
+        services.AddScoped<WithdrawPocAcceptanceUseCase>();
+        services.AddScoped<PocAcceptanceGate>();
         return services;
     }
 

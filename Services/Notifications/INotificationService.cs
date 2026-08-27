@@ -27,4 +27,7 @@ public interface INotificationService
     /// trước đây: cổng duyệt nằm trên Agent Dashboard nên không ai biết người xem demo đã ưng hay chưa.
     /// </summary>
     Task NotifyPocAcceptedAsync(WorkflowRun run, string acceptedBy, CancellationToken cancellationToken = default);
+
+    /// <summary>Người yêu cầu rút lại lời nghiệm thu — đội delivery phải biết trước khi bấm duyệt cổng POC.</summary>
+    Task NotifyPocAcceptanceWithdrawnAsync(WorkflowRun run, string withdrawnBy, CancellationToken cancellationToken = default);
 }

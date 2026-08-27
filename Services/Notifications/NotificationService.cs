@@ -80,6 +80,14 @@ public class NotificationService : INotificationService
                 cancellationToken)
             : Task.CompletedTask;
 
+    public Task NotifyPocAcceptanceWithdrawnAsync(WorkflowRun run, string withdrawnBy, CancellationToken cancellationToken = default) =>
+        Enabled
+            ? CreateForEligibleAsync(run, NotificationType.PocAcceptanceWithdrawn,
+                "Nghiệm thu bản demo đã bị rút",
+                $"{withdrawnBy} rút lại lời nghiệm thu bản demo (POC) — đang có góp ý cần xử lý, đừng duyệt cổng POC cho tới khi được nghiệm thu lại.",
+                cancellationToken)
+            : Task.CompletedTask;
+
     private async Task CreateForEligibleAsync(WorkflowRun run, NotificationType type, string title, string message, CancellationToken cancellationToken)
     {
         var relativeLink = $"/AgentDashboard?projectId={run.ProjectId}";

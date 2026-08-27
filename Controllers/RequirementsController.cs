@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Threading.Channels;
 using ICOGenerator.Application.Agents;
+using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Requirements;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Contracts.Requirements;
@@ -46,6 +47,7 @@ public class RequirementsController : Controller
     private readonly ConfirmReportMapUseCase _confirmReportMapUseCase;
     private readonly ConfirmNotificationMapUseCase _confirmNotificationMapUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
+    private readonly PocAcceptanceGate _pocAcceptanceGate;
     private readonly ILogger<RequirementsController> _logger;
 
     // SSE frames are hand-serialized, so match the camelCase the polling JSON (and client) already use.
@@ -87,6 +89,7 @@ public class RequirementsController : Controller
        ConfirmReportMapUseCase confirmReportMapUseCase,
        ConfirmNotificationMapUseCase confirmNotificationMapUseCase,
        BAChatTurnTracker chatTurnTracker,
+       PocAcceptanceGate pocAcceptanceGate,
        ILogger<RequirementsController> logger)
     {
         _getRequirementWorkspaceQuery = getRequirementWorkspaceQuery;
@@ -119,6 +122,7 @@ public class RequirementsController : Controller
         _confirmReportMapUseCase = confirmReportMapUseCase;
         _confirmNotificationMapUseCase = confirmNotificationMapUseCase;
         _chatTurnTracker = chatTurnTracker;
+        _pocAcceptanceGate = pocAcceptanceGate;
         _logger = logger;
     }
 
@@ -161,6 +165,17 @@ public class RequirementsController : Controller
     [RequireProjectAccess]
     public async Task ChatStream(Guid projectId, string message, bool retry = false, bool edit = false)
     {
+        // KHOÁ SAU NGHIỆM THU: bản demo đã được "Approve POC" thì hội thoại đứng yên cho tới khi người
+        // dùng bấm "Withdraw Approve" (xem PocAcceptanceGate). Chặn TRƯỚC khi mở stream — trả 409 chứ
+        // không phải một frame done, vì client coi mọi frame done là "lượt đã chạy" và sẽ ghi nó vào màn hình.
+        if (await _pocAcceptanceGate.IsLockedAsync(projectId, HttpContext.RequestAborted))
+        {
+            Response.StatusCode = StatusCodes.Status409Conflict;
+            Response.ContentType = "text/plain; charset=utf-8";
+            await Response.WriteAsync(PocAcceptanceGate.LockedMessage, HttpContext.RequestAborted);
+            return;
+        }
+
         Response.StatusCode = 200;
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
@@ -539,6 +554,14 @@ public class RequirementsController : Controller
     [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> UploadSource(Guid projectId, List<IFormFile> files, string? note = null)
     {
+        // Đính kèm tài liệu là nút 📎 NGAY TRONG khung chat và kết thúc bằng một lượt BA đọc/tóm tắt
+        // (AcknowledgeSourcesAsync) — cùng phạm vi khoá với ô nhập bên cạnh nó.
+        if (await _pocAcceptanceGate.IsLockedAsync(projectId, HttpContext.RequestAborted))
+        {
+            TempData["Error"] = PocAcceptanceGate.LockedMessage;
+            return RedirectToAction(nameof(Index), new { projectId });
+        }
+
         try
         {
             var result = await _uploadProjectSourceUseCase.ExecuteAsync(projectId, files, User.Identity?.Name);
@@ -790,6 +813,12 @@ public class RequirementsController : Controller
     [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
     public async Task<IActionResult> ReviseBrief(Guid projectId, [FromForm] string notesJson)
     {
+        // Ghi chú trên bản xem trước Brief đi vào ĐÚNG transcript mà khung chat ghi (một lượt user rồi
+        // chạy lại vòng soạn draft), nên nó nằm trong cùng phạm vi khoá — bỏ sót là để hở một cửa ghi
+        // ngay cạnh cửa vừa khoá.
+        if (await _pocAcceptanceGate.IsLockedAsync(projectId, HttpContext.RequestAborted))
+            return Json(new { ok = false, error = PocAcceptanceGate.LockedMessage });
+
         List<BriefNote> notes;
         try
         {
@@ -970,6 +999,14 @@ public class RequirementsController : Controller
     [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
     public async Task<IActionResult> NewChat(Guid projectId)
     {
+        // Mở hội thoại mới cũng là GHI vào hội thoại — khoá sau nghiệm thu chặn luôn, nếu không thì
+        // "chat bị khoá" chỉ đúng với ô nhập còn nút này vẫn xoá sạch được ngữ cảnh đang khoá.
+        if (await _pocAcceptanceGate.IsLockedAsync(projectId, HttpContext.RequestAborted))
+        {
+            TempData["Error"] = PocAcceptanceGate.LockedMessage;
+            return RedirectToAction(nameof(Index), new { projectId });
+        }
+
         await _startNewChatUseCase.ExecuteAsync(projectId);
         return RedirectToAction(nameof(Index), new { projectId });
     }

@@ -22,5 +22,9 @@ public enum NotificationType
 
     /// <summary>Người yêu cầu đã NGHIỆM THU bản demo (POC) — đội delivery đẩy tiếp được các bước sau.</summary>
     [Description("Bản demo đã được nghiệm thu")]
-    PocAccepted
+    PocAccepted,
+
+    /// <summary>Người yêu cầu đã RÚT nghiệm thu bản demo — lời "được rồi" trước đó không còn hiệu lực.</summary>
+    [Description("Nghiệm thu bản demo đã bị rút")]
+    PocAcceptanceWithdrawn
 }
