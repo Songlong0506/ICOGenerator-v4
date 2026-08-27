@@ -1494,12 +1494,13 @@ input[type="week"] {
 .ms-combo-option:hover { background: var(--surface-hover); }
 .ms-combo-option-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 
-/* Selected multi-row uses the Bosch blue accent. */
-.ms-combo-option.selected { background: var(--bosch-blue); color: #fff; }
-.ms-combo-option.selected:hover { background: var(--bosch-blue-hover); }
+/* Dòng đã chọn dùng nền tint nhạt + chữ xanh đậm — cùng bộ nhấn với biến thể
+   .ms-combo--single, .badge.blue, .tool-row.enabled… Nền xanh đặc + chữ trắng
+   trước đây quá chói khi tick nhiều đơn vị và lệch với phần còn lại của app.
+   Ô tick giữ nguyên màu xanh của trạng thái :checked. */
+.ms-combo-option.selected { background: var(--bosch-blue-tint); color: var(--bosch-blue-dark); }
+.ms-combo-option.selected:hover { background: var(--bosch-blue-tint-strong); }
 .ms-combo-option.selected .ms-combo-option-text { font-weight: 700; }
-.ms-combo-option.selected .ms-combo-box { border-color: rgba(255,255,255,.85); background: transparent; }
-.ms-combo-option.selected .ms-combo-box::after { opacity: 1; }
 .ms-combo-option.hidden { display: none; }
 
 /* Single-select variant: no checkbox squares, a lighter selected highlight. */
