@@ -29,9 +29,11 @@
     const cancelBtn = document.getElementById("pocCommentCancel");
     const antiForgery = formEl.querySelector('input[name="__RequestVerificationToken"]');
     const uatList = document.getElementById("uatList");
-    // Ghi chú nay nằm ở HAI chỗ (danh sách chung ở cuối cột + trong từng thẻ kịch bản), nên mọi handler
-    // của một mục ghi chú phải delegate từ tổ tiên chung của cả hai.
-    const commentsPanel = root.querySelector(".poc-comments-panel") || listEl;
+    // Ghi chú nay nằm ở HAI chỗ, và từ lúc danh sách chung dọn sang cột trái (dưới khung demo) còn ở
+    // HAI CỘT KHÁC NHAU: danh sách chung ở .poc-notes-panel, ghi chú của từng kịch bản trong thẻ kịch
+    // bản ở cột phải. Tổ tiên chung của cả hai vì thế là gốc trang — delegate từ một cột là mất trắng
+    // handler của cột kia (xóa/mở lại/click-nháy-pin im lặng không làm gì).
+    const commentsPanel = root;
 
     // Nhãn máy sinh khi báo lỗi từ một thẻ kịch bản — cũng là thứ DUY NHẤT buộc ghi chú về lại đúng thẻ
     // đó ở lần tải trang sau (elementPath rỗng vì không click phần tử nào trong POC). Đổi chuỗi này là
@@ -128,6 +130,20 @@
         `;
     }
 
+    // Số ghi chú đang nằm TRONG một thẻ kịch bản, in lên dòng tiêu đề của thẻ. Thẻ gập lại là giấu cả
+    // ghi chú bên trong, nên nếu không có badge này thì người review không có cách nào biết mình từng
+    // báo lỗi kịch bản đó — trừ khi mở lần lượt từng thẻ ra dò.
+    function refreshScenarioNoteBadges() {
+        if (!uatList) return;
+        uatList.querySelectorAll(".uat-scenario").forEach(function (card) {
+            const badge = card.querySelector(".uat-note-count");
+            if (!badge) return;
+            const n = card.querySelectorAll(".uat-scenario-notes > .poc-comment-item").length;
+            badge.textContent = n ? `${n} ghi chú` : "";
+            badge.hidden = n === 0;
+        });
+    }
+
     function renderList() {
         const items = numbered();
         const open = items.filter(c => c.status === "Open").length;
@@ -150,10 +166,11 @@
             byHost.get(host).push(c);
         });
         byHost.forEach((list, host) => { host.innerHTML = list.map(itemHtml).join(""); });
+        refreshScenarioNoteBadges();
 
         if (!loose.length) {
             listEl.innerHTML = items.length
-                ? '<p class="muted">Mọi ghi chú đang nằm ngay dưới kịch bản của nó ở panel trên.</p>'
+                ? '<p class="muted">Mọi ghi chú đang nằm ngay dưới kịch bản của nó, ở cột kịch bản kiểm thử bên phải.</p>'
                 : '<p class="muted">Chưa có ghi chú nào. Bật chế độ ghim và click vào phần tử trong POC.</p>';
             return;
         }
@@ -295,7 +312,15 @@
         }
 
         const item = e.target.closest(".poc-comment-item");
-        if (item) postToFrame({ type: "poc-focus", id: item.dataset.id });
+        if (item) {
+            // Danh sách ghi chú nằm DƯỚI khung demo: đọc tới ghi chú thứ mười là khung demo đã trôi lên
+            // khỏi màn hình, và cú nháy pin bên trong nó thành ra vô hình. Chỉ cuộn khi khung thật sự
+            // đã trôi qua mép trên — còn nhìn thấy thì đừng giật trang dưới tay người dùng.
+            if (frame.getBoundingClientRect().top < 0) {
+                frame.scrollIntoView({ block: "start", behavior: "smooth" });
+            }
+            postToFrame({ type: "poc-focus", id: item.dataset.id });
+        }
     });
 
     // "Bản demo đã đạt — tôi nghiệm thu": đường ĐÓNG hành trình phía người yêu cầu, đối trọng với nút
@@ -553,17 +578,63 @@
             box.checked = checked[box.dataset.key] === true;
         });
 
-        // Tiến độ ở tiêu đề panel: các kịch bản nay nằm rải dưới từng câu nghiệm thu nên không còn đọc
-        // được "còn bao nhiêu việc" bằng cách liếc một danh sách phẳng. Đếm từ DOM (không từ `checked`)
-        // vì localStorage còn giữ khóa của những kịch bản đã biến mất ở các vòng POC trước.
+        // ===== Gập/mở từng kịch bản =====
+        // Đơn vị công việc của người review là MỘT KỊCH BẢN: mở ra, đi hết các bước, đóng lại. Mở hết
+        // tám kịch bản cùng lúc là bắt họ cuộn qua những cái đã xong để tới cái đang làm dở — nên mặc
+        // định chỉ mở kịch bản CHƯA XONG ĐẦU TIÊN. Đóng/mở tay được nhớ theo project để rời trang quay
+        // lại không mất bố cục vừa dựng.
+        const cards = Array.from(uatList.querySelectorAll(".uat-scenario"));
+        const openKey = `poc-uat-open-${projectId}`;
+
+        let openState = {};
+        try { openState = JSON.parse(localStorage.getItem(openKey) || "{}"); } catch { openState = {}; }
+
+        function stepsOf(card) { return Array.from(card.querySelectorAll(".uat-step")); }
+
+        function isDone(card) {
+            const boxes = stepsOf(card);
+            return boxes.length > 0 && boxes.every(b => b.checked);
+        }
+
+        // Tiến độ THEO BƯỚC về đúng chỗ của nó: trên dòng tiêu đề của chính kịch bản đó, chỗ duy nhất
+        // còn nhìn thấy khi thẻ đã gập.
+        function refreshCard(card) {
+            const boxes = stepsOf(card);
+            const done = boxes.filter(b => b.checked).length;
+            const label = card.querySelector(".uat-step-count");
+            const finished = isDone(card);
+            card.classList.toggle("done", finished);
+            if (label) {
+                label.textContent = boxes.length
+                    ? (finished ? `✓ ${boxes.length}/${boxes.length} bước` : `${done}/${boxes.length} bước`)
+                    : "";
+            }
+        }
+
+        // Tiến độ ở tiêu đề panel đếm KỊCH BẢN, không đếm bước — cùng đơn vị với các thẻ đang gập bên
+        // dưới, nên "3/8" đọc thẳng ra "còn 5 thẻ nữa phải mở". Đếm từ DOM (không từ `checked`) vì
+        // localStorage còn giữ khóa của những kịch bản đã biến mất ở các vòng POC trước.
         const progress = document.getElementById("uatProgress");
         function renderProgress() {
             if (!progress) return;
-            const boxes = uatList.querySelectorAll(".uat-step");
-            const done = uatList.querySelectorAll(".uat-step:checked").length;
-            progress.textContent = `(${done}/${boxes.length} bước)`;
+            progress.textContent = `(${cards.filter(isDone).length}/${cards.length})`;
         }
+
+        const firstUndone = cards.find(card => !isDone(card));
+        cards.forEach(function (card) {
+            refreshCard(card);
+            const stored = openState[card.dataset.index];
+            card.open = typeof stored === "boolean" ? stored : card === firstUndone;
+        });
         renderProgress();
+
+        // `toggle` KHÔNG nổi bọt ⇒ phải bắt ở pha capture, không thì mọi lần đóng/mở đều không được nhớ.
+        uatList.addEventListener("toggle", function (e) {
+            const card = e.target.closest(".uat-scenario");
+            if (!card) return;
+            openState[card.dataset.index] = card.open;
+            try { localStorage.setItem(openKey, JSON.stringify(openState)); } catch { }
+        }, true);
 
         uatList.addEventListener("change", function (e) {
             const box = e.target.closest(".uat-step");
@@ -571,6 +642,19 @@
 
             checked[box.dataset.key] = box.checked;
             try { localStorage.setItem(storageKey, JSON.stringify(checked)); } catch { }
+
+            const card = box.closest(".uat-scenario");
+            if (card) {
+                const wasDone = card.classList.contains("done");
+                refreshCard(card);
+                // Tick nốt bước cuối ⇒ tự gập kịch bản lại. Đây là lúc DUY NHẤT gập hộ là đúng ý người
+                // dùng (họ vừa nói xong việc này rồi) và cũng là thứ giữ cho panel NGẮN DẦN trong lúc
+                // review thay vì dài mãi. Hai ngoại lệ, vì gập lúc đó là giấu mất thứ đang cần nhìn:
+                // thẻ đang giữ ô nhập ghi chú, hoặc thẻ đã có ghi chú ghim bên trong.
+                const busy = card.querySelector(".uat-scenario-form > *")
+                    || card.querySelector(".uat-scenario-notes > *");
+                if (!wasDone && isDone(card) && !busy) card.open = false;
+            }
             renderProgress();
         });
 

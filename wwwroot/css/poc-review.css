@@ -1,11 +1,20 @@
-/* POC Review: iframe POC bên trái + panel ghi chú bên phải. Dùng chung design token của app
-   (biến --line/--surface-alt/--muted... khai báo ở site.css). */
+/* POC Review: cột trái = bản demo + ghi chú trên chính bản demo đó; cột phải = kịch bản kiểm thử.
+   Dùng chung design token của app (biến --line/--surface-alt/--muted... khai báo ở site.css). */
 
 .poc-review-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 360px;
     gap: 16px;
     align-items: start;
+}
+
+/* Cột trái xếp dọc hai thẻ (khung demo, rồi ghi chú). min-width:0 là bắt buộc trong grid item —
+   thiếu nó thì một ghi chú dài không xuống dòng sẽ nong cột trái ra và bóp cột kịch bản. */
+.poc-main-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
 }
 
 .poc-frame-panel {
@@ -27,23 +36,30 @@
     font-size: 13px;
 }
 
-/* Trừ hao phần chiều cao KHÔNG phải iframe nằm phía trên nó (header + page-head + command bar +
-   padding thẻ). POC Review đã bỏ .poc-toolbar nên số trừ nhỏ hơn trước 50px (nút 40px + gap 10px) —
-   chỗ đó trả lại cho bản demo. Trang khách (#pocShareRoot) vẫn còn thanh đó nên bù lại ngay dưới. */
+/* Trừ hao phần chiều cao KHÔNG phải iframe nằm phía trên nó (header + page-head + thanh nút/command
+   bar + padding thẻ). Trị số gốc ở đây là của trang khách (#pocShareRoot — vẫn còn .poc-toolbar). */
 #pocFrame {
     width: 100%;
-    height: calc(100vh - 190px);
+    height: calc(100vh - 240px);
     min-height: 480px;
     border: 1px solid var(--line);
     border-radius: 8px;
     background: #fff;
 }
 
-#pocShareRoot #pocFrame { height: calc(100vh - 240px); }
+/* POC Review trừ nhiều hơn vì thẻ "Ghi chú trên POC" nằm NGAY DƯỚI khung demo: số trừ này được đo
+   để tiêu đề ghi chú + nút "Bản demo đã đạt" LÓ LÊN trên mép màn hình ở màn hình laptop thường. Không
+   chừa thì hai thao tác kết thúc buổi review nằm trọn dưới mép — không ai cuộn xuống tìm thứ mình
+   không biết là có. Đây là lý do DUY NHẤT bản demo chịu mất chiều cao, nên đừng trừ thêm nữa. */
+#pocReviewRoot #pocFrame {
+    height: calc(100vh - 384px);
+    min-height: 420px;
+}
 
 /* ===== Panel ghi chú ===== */
 
-.poc-comments-panel h3 {
+.poc-comments-panel h3,
+.poc-notes-panel h3 {
     margin-bottom: 4px;
 }
 
@@ -107,8 +123,14 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-height: calc(100vh - 360px);
+    max-height: calc(100vh - 384px);
     overflow-y: auto;
+}
+
+/* Ở POC Review danh sách nằm dưới khung demo trong một cột tự cuộn: trần thấp hơn để một buổi review
+   hai chục ghi chú không đẩy "Nhật ký vòng sửa" đi mất hút — phần dôi ra cuộn trong chính danh sách. */
+.poc-notes-panel .poc-comment-list {
+    max-height: 40vh;
 }
 
 .poc-comment-item {
@@ -234,6 +256,35 @@
 .uat-scenario { border: 1px solid var(--line, #e5e7eb); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; background: var(--surface-alt, #fafafa); }
 
 .uat-title { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Thẻ kịch bản GẬP ĐƯỢC (chỉ trang POC Review — trang khách vẫn là <div>, các rule dưới đây không
+   chạm tới nó). Dòng tiêu đề là summary, nên phải tự vẽ mũi chỉ hướng: bỏ marker mặc định của trình
+   duyệt vì display:flex làm nó rơi lung tung giữa các chip. */
+details.uat-scenario > summary { cursor: pointer; list-style: none; }
+
+    details.uat-scenario > summary::-webkit-details-marker { display: none; }
+
+    details.uat-scenario > summary::before {
+        content: "▸";
+        flex: none;
+        color: var(--muted, #6b7280);
+        font-size: 11px;
+    }
+
+details.uat-scenario[open] > summary::before { content: "▾"; }
+
+/* Tiêu đề co giãn, các chip/badge bám mép phải — dòng gập lại vẫn đọc được từ trái sang phải:
+   "tên kịch bản … 3/7 bước". */
+.uat-title-text { flex: 1 1 auto; min-width: 0; }
+
+.uat-scenario-meta { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; color: var(--muted, #6b7280); white-space: nowrap; }
+
+.uat-note-count { color: #b45309; background: #fef3c7; border: 1px solid #fde68a; border-radius: 999px; padding: 1px 7px; }
+
+/* Kịch bản đã tick đủ: viền trái xanh để lướt một lượt là biết còn thẻ nào chưa đụng tới. */
+.uat-scenario.done { border-left: 3px solid #0a7d33; }
+
+    .uat-scenario.done > summary .uat-step-count { color: #0a7d33; }
 
 .uat-rules { font-size: 11px; font-weight: 500; color: #555; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 999px; padding: 1px 8px; }
 
