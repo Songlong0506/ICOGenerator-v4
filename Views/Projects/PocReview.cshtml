@@ -210,7 +210,7 @@
 {
     Actions = pocActions,
     Primary = canManageRequirements
-        ? new CommandBarButton { Label = "Chia sẻ bản demo", Icon = "bi-share", Id = "pocShareOpen" }
+        ? new CommandBarButton { Label = "Share", Icon = "bi-share", Id = "pocShareOpen" }
         : null
 })
 
@@ -276,7 +276,7 @@
                 <div class="poc-accept">
                     <button type="button" id="pocAcceptBtn" class="btn approve small full"
                             data-accept-url="@Url.Action("AcceptPoc", "Projects")">
-                        ✓ Bản demo đã đạt
+                        Approve POC
                     </button>
                 </div>
             }
@@ -287,25 +287,6 @@
                     <button type="button" id="pocSendFeedbackBtn" class="btn primary small full">
                         📤 Gửi ghi chú cho đội xử lý
                     </button>
-                    <p class="muted poc-panel-hint" id="pocSendFeedbackHint">
-                        @if (Model.PocGateOpen)
-                        {
-                            <text>
-                                Bấm để xem hệ thống xếp từng ghi chú vào đường nào — anh/chị đổi được trước khi gửi.
-                                Đã dùng <b>@Model.PocRevisionsUsed/@Model.PocRevisionLimit</b> vòng chỉnh bản demo.
-                            </text>
-                        }
-                        else
-                        {
-                            @* Cổng POC đóng ⇒ đường chỉnh bản demo không chạy được. Nói thẳng ở đây: trước đây
-                               nút đó chỉ lặng lẽ biến mất, và người dùng đẩy luôn ghi chú thẩm mỹ vào pipeline
-                               tài liệu — đúng cái panel này muốn tránh. *@
-                            <text>
-                                Quy trình đã đi qua bước bản demo nên vòng chỉnh sửa demo không còn mở — lượt này
-                                chỉ gửi được các điểm <b>hiểu sai yêu cầu</b> về BA để sửa tài liệu.
-                            </text>
-                        }
-                    </p>
                 </div>
 
                 @* Hộp xác nhận: bảng phân loại của máy, mỗi ghi chú một dòng và đổi nhóm được. Dựng rỗng ở đây,
@@ -855,14 +836,14 @@
              data-revoke-url="@Url.Action("RevokePocShareLink", "Projects")"
              data-associate-url="@Url.Action("SearchAssociates", "Projects", new { projectId = Model.ProjectId })">
             <button type="button" class="x" id="pocShareClose" aria-label="Đóng">&times;</button>
-            <h2 id="pocShareTitle"><i class="bi bi-link-45deg" aria-hidden="true"></i> Chia sẻ bản demo</h2>
+            <h2 id="pocShareTitle"><i class="bi bi-link-45deg" aria-hidden="true"></i> Share</h2>
 
             @* Ô "Gửi cho ai" là autocomplete lấy từ danh bạ nhân sự: nhãn link chỉ có ích khi cùng một
                người luôn được ghi cùng một cách. Vẫn cho gõ tự do (khách ngoài công ty không có trong
                danh bạ), gợi ý chỉ để chọn cho nhanh và cho đúng. *@
             <div class="poc-share-form">
                 <div class="poc-share-field poc-share-who">
-                    <label for="pocShareLabel">Gửi cho ai</label>
+                    <label for="pocShareLabel">Send to</label>
                     <input type="text" id="pocShareLabel" maxlength="200" autocomplete="off"
                            role="combobox" aria-autocomplete="list" aria-expanded="false"
                            aria-controls="pocShareSuggest" placeholder="Gõ tên, email hoặc NTID…" />
@@ -870,7 +851,7 @@
                          aria-label="Gợi ý người nhận"></div>
                 </div>
                 <div class="poc-share-field poc-share-days">
-                    <label for="pocShareDays">Hạn dùng</label>
+                    <label for="pocShareDays">Expiry date</label>
                     <select id="pocShareDays">
                         <option value="7">7 ngày</option>
                         <option value="14" selected>14 ngày</option>

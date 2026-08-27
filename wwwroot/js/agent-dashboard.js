@@ -995,7 +995,6 @@ pollAgentStats();
             setRunId('');
             if (statusEl) statusEl.innerHTML = badge('NotStarted');
             renderTimeline(data.pipeline);
-            bannerEl.innerHTML = `<div class="dg-msg idle">Chưa có lượt chạy delivery nào cho project này. Sang <a href="/Requirements/Index?projectId=${PROJECT_ID}">Requirements</a>, chốt yêu cầu với BA rồi bấm Approve — pipeline sẽ bắt đầu từ bước POC.</div>`;
             setReviseRounds(0, 0, false);
             setForms(false, false, false, false);
             setTimeout(poll, 4000);

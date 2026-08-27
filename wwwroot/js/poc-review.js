@@ -228,17 +228,6 @@
         });
         byHost.forEach((list, host) => { host.innerHTML = list.map(itemHtml).join(""); });
         refreshScenarioNoteBadges();
-
-        if (!loose.length) {
-            const emptyHtml = items.length
-                ? '<p class="muted">Mọi ghi chú đang nằm ngay dưới kịch bản của nó, ở cột kịch bản kiểm thử bên phải.</p>'
-                : routed
-                    ? '<p class="muted">Không còn ghi chú nào chờ xử lý ở bản demo này.</p>'
-                    : '<p class="muted">Chưa có ghi chú nào. Bật chế độ ghim và click vào phần tử trong POC.</p>';
-            listEl.innerHTML = emptyHtml + routedHint;
-            return;
-        }
-
         listEl.innerHTML = loose.map(itemHtml).join("") + routedHint;
     }
 
