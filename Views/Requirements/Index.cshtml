@@ -596,15 +596,10 @@
         @* Danh sách bản mô tả sản phẩm. Mỗi bản là MỘT thẻ bấm được cả dòng thay cho cặp "dòng chữ +
            nút View bé xíu ở mép phải": vùng bấm rộng bằng cả thẻ, và dòng phụ nói ngay bản đó đang ở
            trạng thái nào — hai chữ "Draft" với "V1" đứng trơ không cho người dùng biết nên mở bản nào.
-           Bản ĐANG CHỌN được đánh dấu vì nó không chỉ là bản mở mặc định: gói "Download Context" ở đầu
-           sidebar cũng lấy theo đúng bản này (asp-route-version="@selectedVersion"). *@
-        <div class="brief-head">
-            <h3>Product Brief</h3>
-            @if (versions.Any())
-            {
-                <span class="brief-count">@versions.Count bản</span>
-            }
-        </div>
+           MỌI thẻ trông giống hệt nhau: bản đang chọn KHÔNG có dấu riêng nào ngoài câu nhắc trong
+           tooltip (gói "Download Context" ở đầu sidebar lấy theo đúng bản này —
+           asp-route-version="@selectedVersion"). Không in cả số bản: danh sách ngay bên dưới đã đếm hộ. *@
+        <h3 class="brief-head">Product Brief</h3>
 
         @if (versions.Any())
         {
@@ -615,8 +610,9 @@
                     // trạng thái và mốc thời gian lấy theo bản MỚI NHẤT của nhóm.
                     var latest = version.OrderByDescending(x => x.CreatedAt).First();
                     var label = version.Key == "draft" ? "Draft" : version.Key;
-                    // Chỉ đánh dấu "bản hiện tại" khi có từ hai bản trở lên: dự án mới có đúng một bản
-                    // thì cái nhãn ấy chỉ nói lại điều hiển nhiên.
+                    // Chỉ nhắc "bản hiện tại" khi có từ hai bản trở lên: dự án mới có đúng một bản thì
+                    // câu ấy chỉ nói lại điều hiển nhiên. Cờ này CHỈ vào tooltip, không đổi lấy một nét
+                    // vẽ nào của thẻ.
                     var isCurrent = versions.Count > 1 && version.Key == selectedVersion;
 
                     // Dòng phụ chỉ còn mốc thời gian: trạng thái đã nằm sẵn trong CHÍNH cái tên bản —
@@ -628,7 +624,7 @@
                         + (isCurrent ? " · gói Download Context cũng lấy theo bản này" : "");
 
                     <button type="button"
-                            class="brief-card @(isCurrent ? "current" : "")"
+                            class="brief-card"
                             onclick="openRequirementModal('@version.Key')"
                             title="@tip">
                         <span class="brief-card-ico">

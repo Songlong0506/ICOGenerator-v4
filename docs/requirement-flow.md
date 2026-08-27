@@ -1444,11 +1444,12 @@ chuỗi dẫn xuất** của dự án thành một file `.zip` để người d�
 **"Download Context"**, nằm ở đầu sidebar trang Requirements cạnh "New Chat" và **"Context"** (cửa xem lại
 tài liệu nguồn đã đính kèm); là thẻ `<a download>` chứ không phải form vì đây là thao tác chỉ đọc và một cú
 bấm nhầm không được phép làm mất nội dung đang gõ dở trong ô chat. Gói mang **phiên bản Product Brief đang
-chọn**, nên danh sách Product Brief ngay dưới sidebar đánh dấu bản đó bằng **vạch xanh bên trái thẻ + ô
-icon tô đặc** (`.brief-card.current`) và nói rõ trong tooltip của thẻ, chứ không in thêm nhãn chữ. Dấu này
-cố tình KHÁC dấu của `:hover` (viền xanh + nền tint): dùng chung một bộ khai báo thì thẻ đang chọn lúc nghỉ
-trông y hệt thẻ đang bị rê chuột. Mỗi thẻ chỉ mang tên bản (`Draft` / `V1` /
-`V2`…) và mốc thời gian, vì tên bản đã chở sẵn trạng thái — `draft` chỉ được đổi thành `V{n}` lúc duyệt.
+chọn**, và danh sách Product Brief ngay dưới sidebar nhắc điều đó trong **tooltip** của thẻ tương ứng —
+không nhãn chữ, không dấu nhìn thấy được: mọi thẻ `.brief-card` trông **giống hệt nhau** lúc nghỉ, chỉ
+`:hover` / `:focus-visible` mới đổi viền + nền. Đây là chủ ý, vì một dấu trạng-thái-nghỉ vẽ bằng đúng vốn
+từ của hover khiến thẻ đang chọn trông như đang bị rê chuột dù con trỏ ở tận đâu. Mỗi thẻ chỉ mang tên bản
+(`Draft` / `V1` / `V2`…) và mốc thời gian, vì tên bản đã chở sẵn trạng thái — `draft` chỉ được đổi thành
+`V{n}` lúc duyệt. Đầu danh sách cũng không in số bản: chính danh sách ngay bên dưới đã đếm hộ.
 
 **Ai được tải: quyền `RequirementsDownloadPackage`.** Action đòi quyền này *chồng lên* `RequirementsView`
 của controller (AND), và nút cũng ẩn khi thiếu — cùng một quyền ở cả hai chỗ nên nút hiện ra không bao giờ
