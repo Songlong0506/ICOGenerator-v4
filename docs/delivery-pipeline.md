@@ -85,6 +85,15 @@ Mỗi bước chạy xong, run **dừng** ở `WaitingForHuman`. Trên **Agent D
 
 Triết lý: *xem trước rẻ (POC) → chốt từng cổng → mới đầu tư bước đắt (full code)*. Kết quả chỉ *gần* đúng thì đừng Reject — dùng "Yêu cầu chỉnh sửa", rẻ hơn nhiều.
 
+### Dải timeline hiện ở mọi project, kể cả project vừa tạo
+
+`GetWorkflowStatusQuery` **luôn** trả đủ các bước theo `DeliveryPipeline.Steps`; khi project chưa có
+run delivery nào (mới tạo, hoặc mới chỉ có run phía requirement) thì mọi bước mang trạng thái
+`pending` và `HasWorkflow = false`. Dashboard nhờ đó hiện lộ trình POC → … → PR ngay từ đầu — kèm
+badge "Chưa bắt đầu" và một dòng chỉ đường sang màn hình Requirements — thay vì một khoảng trống
+khiến người dùng tưởng màn hình hỏng. Các nút cổng duyệt vẫn ẩn cho tới khi có run delivery thật:
+danh sách bước là **thông tin**, quyền hành động vẫn bám trạng thái run.
+
 ## Chu trình tự sửa lỗi Testing ↔ BugFix (không cần cổng duyệt)
 
 Tester **bắt buộc** chốt dòng máy-đọc-được `VERDICT: PASS` / `VERDICT: FAIL` cuối báo cáo (`TestVerdictParser` — khoan dung hoa/thường, `**bold**`, `:`/`=`; không rõ ⇒ coi như PASS).

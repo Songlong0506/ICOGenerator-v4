@@ -205,6 +205,8 @@
 .dg-msg.fail { background: var(--danger-tint); border: 1px solid var(--danger-border); color: #991b1b; }
 .dg-msg.ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
 .dg-msg.run { display: inline-flex; align-items: center; gap: 8px; background: #eff6ff; border: 1px solid var(--info-border); color: var(--info-ink); }
+/* Chưa có lượt chạy delivery nào (project mới tạo): dải timeline vẫn hiện, banner trung tính chỉ đường. */
+.dg-msg.idle { background: var(--slate-50); border: 1px solid var(--slate-200); color: var(--slate-600); }
 .dg-msg a { color: inherit; font-weight: 600; }
 .dg-err { margin: 8px 0 0; background: var(--slate-900); color: var(--slate-200); border-radius: 8px; padding: 10px; white-space: pre-wrap; overflow: auto; max-height: 200px; font-size: 12px; }
 .dg-actions { display: flex; gap: 10px; flex-wrap: wrap; }
