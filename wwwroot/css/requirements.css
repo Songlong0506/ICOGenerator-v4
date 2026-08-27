@@ -1271,11 +1271,23 @@
     transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
 
+/* Viền xanh + nền tint là tiếng nói của HOVER/FOCUS — trạng thái TẠM, nói "con trỏ đang ở đây".
+   Không trạng thái nghỉ nào được mượn lại bộ khai báo này. */
 .brief-card:hover { border-color: var(--bosch-blue); background: var(--bosch-blue-tint); box-shadow: var(--shadow); }
 .brief-card:focus-visible { outline: none; border-color: var(--bosch-blue); box-shadow: var(--focus-ring); }
 
-/* Bản ĐANG CHỌN: cũng là bản mà gói "Download Context" ở đầu sidebar mang theo. */
-.brief-card.current { border-color: var(--bosch-blue); background: var(--bosch-blue-tint); }
+/* Bản ĐANG CHỌN: cũng là bản mà gói "Download Context" ở đầu sidebar mang theo. Dấu là VẠCH XANH bên
+   trái + ô icon tô đặc, KHÔNG phải viền xanh + nền tint: trước đây .current dùng đúng bộ khai báo của
+   :hover nên thẻ đang chọn lúc NGHỈ trông y hệt thẻ đang bị rê chuột — người dùng thấy "Draft" sáng lên
+   dù chuột ở tận đâu — mà rê chuột thật lên chính nó thì gần như không đổi gì. Vạch trái là đúng lối
+   "đang chọn" đã dùng cho .agent-row.active (agent-dashboard.css), nên hai trạng thái không còn chọi
+   nhau: nghỉ có vạch, hover thêm viền + nền, và thẻ đang chọn vẫn phản hồi khi rê chuột. */
+.brief-card.current { box-shadow: inset 3px 0 0 var(--bosch-blue); }
+
+/* Vạch trái phải sống chung với bóng của hover/focus — box-shadow là MỘT thuộc tính nên thiếu hai dòng
+   này thì hover lên bản đang chọn sẽ xóa mất vạch. */
+.brief-card.current:hover { box-shadow: inset 3px 0 0 var(--bosch-blue), var(--shadow); }
+.brief-card.current:focus-visible { box-shadow: inset 3px 0 0 var(--bosch-blue), var(--focus-ring); }
 
 .brief-card-ico {
     flex: 0 0 auto;
@@ -1300,8 +1312,9 @@
 
 .brief-card-go { flex: 0 0 auto; font-size: 14px; color: var(--slate-400); }
 
-.brief-card:hover .brief-card-go,
-.brief-card.current .brief-card-go { color: var(--bosch-blue); }
+/* Mũi tên chỉ xanh khi HOVER: nó là lời mời bấm, không phải dấu của bản đang chọn (bản đang chọn đã
+   có vạch trái + icon tô đặc rồi). */
+.brief-card:hover .brief-card-go { color: var(--bosch-blue); }
 
 /* Chưa có bản nào: khung nét đứt + một câu nói KHI NÀO bản đầu tiên xuất hiện. */
 .brief-empty { padding: 16px 12px; border: 1px dashed var(--line); border-radius: 10px; background: var(--surface-alt); text-align: center; color: var(--muted); }
