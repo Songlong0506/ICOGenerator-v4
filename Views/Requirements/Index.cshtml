@@ -2172,21 +2172,30 @@
         <div class="modal-footer">
             @if (selectedVersion == "draft")
             {
-                @* Hai nút ghi chú đứng chung một cụm bên trái, tách khỏi Approve bên phải. "＋ Thêm ghi
-                   chú" là lối vào KHÔNG cần bôi đen: ghi chú chung cho cả bản mô tả (BriefNote.Quote
-                   rỗng) — dành cho ý không thuộc riêng đoạn nào, hoặc khi user không muốn đi tìm đoạn
-                   để bôi đen. JS ẩn nút này khi modal đang mở bản đã duyệt V{n} (không ghi chú được). *@
+                @* "＋ Thêm ghi chú" là lối vào KHÔNG cần bôi đen: ghi chú chung cho cả bản mô tả
+                   (BriefNote.Quote rỗng) — dành cho ý không thuộc riêng đoạn nào, hoặc khi user không
+                   muốn đi tìm đoạn để bôi đen. Nó đứng sát trái và luôn ở đó khi còn ghi chú được;
+                   JS ẩn nó khi modal đang mở bản đã duyệt V{n} (không ghi chú được). *@
                 <div class="modal-footer-notes">
                     <button type="button" class="btn outline" id="briefAddNoteBtn" hidden
                             title="Ghi chú chung cho cả bản mô tả — không cần bôi đen đoạn nào">
                         ＋ Thêm ghi chú
                     </button>
-                    <button type="button" class="btn outline" id="briefNotesSendBtn" hidden
-                            title="Gom các ghi chú và nhờ BA sửa lại bản mô tả">
-                        ✎ Gửi ghi chú cho BA sửa
-                    </button>
                 </div>
-                <form asp-action="Approve" method="post">
+
+                @* Ô hành động chính (góc phải) chỉ chứa ĐÚNG MỘT nút tại một thời điểm, do renderNotes
+                   trong requirements.js hoán đổi theo số ghi chú đang có:
+                     - chưa có ghi chú nào ⇒ "Approve this requirement";
+                     - có ≥ 1 ghi chú ⇒ "Gửi ghi chú cho BA sửa", Approve bị ẩn.
+                   Ghi chú chỉ sống trong bộ nhớ trình duyệt cho tới khi bấm gửi, còn Approve promote
+                   thẳng file draft hiện tại rồi chạy sinh AI Design Spec/POC — nên approve khi khay còn
+                   ghi chú luôn là thao tác sai: ghi chú mất trắng và POC dựng từ bản chưa sửa. Chặn hẳn
+                   thay vì cảnh báo; muốn approve thì xoá ghi chú (nút thùng rác ở từng dòng). *@
+                <button type="button" class="btn outline" id="briefNotesSendBtn" hidden
+                        title="Gom các ghi chú và nhờ BA sửa lại bản mô tả">
+                    ✎ Gửi ghi chú cho BA sửa
+                </button>
+                <form asp-action="Approve" method="post" id="briefApproveForm">
                     <input type="hidden"
                            name="projectId"
                            value="@Model.Id" />
