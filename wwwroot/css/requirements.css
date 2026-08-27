@@ -1248,11 +1248,7 @@
    "View" bé xíu ở mép phải: cùng chiếm chừng ấy chỗ, thẻ cho chỗ đặt dòng phụ "Đã duyệt / Bản nháp" —
    thứ quyết định người dùng nên mở bản nào — và cho vùng bấm rộng bằng cả thẻ. */
 
-.brief-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-
-    .brief-head h3 { margin: 0; }
-
-.brief-count { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+.brief-head { margin: 0 0 10px; }
 
 .brief-list { display: flex; flex-direction: column; gap: 8px; }
 
@@ -1271,23 +1267,12 @@
     transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
 
-/* Viền xanh + nền tint là tiếng nói của HOVER/FOCUS — trạng thái TẠM, nói "con trỏ đang ở đây".
-   Không trạng thái nghỉ nào được mượn lại bộ khai báo này. */
+/* MỌI thẻ trông giống hệt nhau lúc nghỉ — bản đang chọn KHÔNG có dấu riêng. Viền xanh + nền tint chỉ
+   thuộc về HOVER/FOCUS, tức trạng thái TẠM nói "con trỏ đang ở đây"; không trạng thái nghỉ nào được
+   mượn lại bộ khai báo này, vì thẻ nghỉ mà mang dấu hover thì trông như đang bị rê chuột dù con trỏ ở
+   tận đâu. Bản mà gói "Download Context" mang theo nói trong tooltip của thẻ (xem Index.cshtml). */
 .brief-card:hover { border-color: var(--bosch-blue); background: var(--bosch-blue-tint); box-shadow: var(--shadow); }
 .brief-card:focus-visible { outline: none; border-color: var(--bosch-blue); box-shadow: var(--focus-ring); }
-
-/* Bản ĐANG CHỌN: cũng là bản mà gói "Download Context" ở đầu sidebar mang theo. Dấu là VẠCH XANH bên
-   trái + ô icon tô đặc, KHÔNG phải viền xanh + nền tint: trước đây .current dùng đúng bộ khai báo của
-   :hover nên thẻ đang chọn lúc NGHỈ trông y hệt thẻ đang bị rê chuột — người dùng thấy "Draft" sáng lên
-   dù chuột ở tận đâu — mà rê chuột thật lên chính nó thì gần như không đổi gì. Vạch trái là đúng lối
-   "đang chọn" đã dùng cho .agent-row.active (agent-dashboard.css), nên hai trạng thái không còn chọi
-   nhau: nghỉ có vạch, hover thêm viền + nền, và thẻ đang chọn vẫn phản hồi khi rê chuột. */
-.brief-card.current { box-shadow: inset 3px 0 0 var(--bosch-blue); }
-
-/* Vạch trái phải sống chung với bóng của hover/focus — box-shadow là MỘT thuộc tính nên thiếu hai dòng
-   này thì hover lên bản đang chọn sẽ xóa mất vạch. */
-.brief-card.current:hover { box-shadow: inset 3px 0 0 var(--bosch-blue), var(--shadow); }
-.brief-card.current:focus-visible { box-shadow: inset 3px 0 0 var(--bosch-blue), var(--focus-ring); }
 
 .brief-card-ico {
     flex: 0 0 auto;
@@ -1301,8 +1286,6 @@
     color: var(--bosch-blue);
     font-size: 16px;
 }
-
-.brief-card.current .brief-card-ico { background: var(--bosch-blue); color: #fff; }
 
 .brief-card-main { flex: 1; min-width: 0; }
 
