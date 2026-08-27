@@ -144,11 +144,19 @@ public class CloneProjectUseCaseTests : IDisposable
             Status = AgentTaskStatus.Running, Title = "Đang chạy"
         });
 
-        db.PocComments.Add(new PocComment
-        {
-            ProjectId = _projectId, PageView = "Leave Request", ElementLabel = "Nút Gửi",
-            Comment = "Thiếu xác nhận", CreatedByUsername = "bob"
-        });
+        db.PocComments.AddRange(
+            // Đã gửi Dev ⇒ đã vào tầm harvest của PocFeedbackMemoryService (chỉ đếm ghi chú Sent).
+            new PocComment
+            {
+                ProjectId = _projectId, PageView = "Leave Request", ElementLabel = "Nút Gửi",
+                Comment = "Thiếu xác nhận", CreatedByUsername = "bob", Status = PocCommentStatus.Sent
+            },
+            // Còn chờ gửi ⇒ chép sang bản sao nhưng KHÔNG được đẩy con trỏ harvest lên.
+            new PocComment
+            {
+                ProjectId = _projectId, PageView = "Leave Request", ElementLabel = "Cột Trạng thái",
+                Comment = "Thiếu cột trạng thái", CreatedByUsername = "bob"
+            });
 
         db.AgentModelCallLogs.Add(new AgentModelCallLog
         {
@@ -173,7 +181,7 @@ public class CloneProjectUseCaseTests : IDisposable
         Assert.Equal(1, await db.ProjectSourceFiles.CountAsync(f => f.ProjectId == clone));
         Assert.Equal(1, await db.ProjectDocuments.CountAsync(d => d.ProjectId == clone));
         Assert.Equal(3, await db.WorkflowRuns.CountAsync(r => r.ProjectId == clone));
-        Assert.Equal(1, await db.PocComments.CountAsync(c => c.ProjectId == clone));
+        Assert.Equal(2, await db.PocComments.CountAsync(c => c.ProjectId == clone));
 
         // Id mới, không phải "chuyển chủ" dòng cũ sang project mới.
         Assert.NotEqual(_sourceFileId, (await db.ProjectSourceFiles.SingleAsync(f => f.ProjectId == clone)).Id);
@@ -262,7 +270,8 @@ public class CloneProjectUseCaseTests : IDisposable
         Assert.Null(project.PocAcceptedAtUtc);
         Assert.Null(project.PocAcceptedBy);
         Assert.True(project.ChecklistGapHarvested);
-        // Một ghi chú POC được chép sang, nên con trỏ phải đứng ở 1 để bản sao không rút lại đúng bài học đó.
+        // Hai ghi chú POC được chép sang nhưng chỉ MỘT đã gửi Dev: con trỏ đứng ở 1 để bản sao không rút
+        // lại đúng bài học đó, mà cũng không vượt quá (đẩy con trỏ lên 2 là bỏ qua bài học của vòng sau).
         Assert.Equal(1, project.PocFeedbackHarvestedCount);
         // Cùng lý do, ở bản sao ĐẦY ĐỦ: hàng đợi học từ giả định bị bác không đi theo.
         Assert.Null(project.PendingAssumptionGaps);

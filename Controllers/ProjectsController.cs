@@ -21,7 +21,7 @@ public class ProjectsController : Controller
     private readonly GetPocReviewQuery _getPocReviewQuery;
     private readonly ListPocCommentsQuery _listPocCommentsQuery;
     private readonly AddPocCommentUseCase _addPocCommentUseCase;
-    private readonly DeletePocCommentUseCase _deletePocCommentUseCase;
+    private readonly WithdrawPocCommentUseCase _withdrawPocCommentUseCase;
     private readonly ReopenPocCommentUseCase _reopenPocCommentUseCase;
     private readonly CreatePocShareLinkUseCase _createPocShareLinkUseCase;
     private readonly RevokePocShareLinkUseCase _revokePocShareLinkUseCase;
@@ -42,7 +42,7 @@ public class ProjectsController : Controller
         GetPocReviewQuery getPocReviewQuery,
         ListPocCommentsQuery listPocCommentsQuery,
         AddPocCommentUseCase addPocCommentUseCase,
-        DeletePocCommentUseCase deletePocCommentUseCase,
+        WithdrawPocCommentUseCase withdrawPocCommentUseCase,
         ReopenPocCommentUseCase reopenPocCommentUseCase,
         CreatePocShareLinkUseCase createPocShareLinkUseCase,
         RevokePocShareLinkUseCase revokePocShareLinkUseCase,
@@ -62,7 +62,7 @@ public class ProjectsController : Controller
         _getPocReviewQuery = getPocReviewQuery;
         _listPocCommentsQuery = listPocCommentsQuery;
         _addPocCommentUseCase = addPocCommentUseCase;
-        _deletePocCommentUseCase = deletePocCommentUseCase;
+        _withdrawPocCommentUseCase = withdrawPocCommentUseCase;
         _reopenPocCommentUseCase = reopenPocCommentUseCase;
         _createPocShareLinkUseCase = createPocShareLinkUseCase;
         _revokePocShareLinkUseCase = revokePocShareLinkUseCase;
@@ -286,16 +286,24 @@ public class ProjectsController : Controller
         };
     }
 
+    // Thu hồi (không xoá): dòng ở lại bảng lịch sử với nhãn "đã thu hồi bởi X" — xem
+    // WithdrawPocCommentUseCase để biết vì sao xoá cứng bị bỏ.
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeletePocComment(Guid id)
+    public async Task<IActionResult> WithdrawPocComment(Guid id)
     {
         var canManage = await _permissions.HasPermissionAsync(
             User, AppPermission.DeliveryAdvance, HttpContext.RequestAborted);
-        var deleted = await _deletePocCommentUseCase.ExecuteAsync(
+        var result = await _withdrawPocCommentUseCase.ExecuteAsync(
             id, User.Identity?.Name, canManage, HttpContext.RequestAborted);
 
-        return deleted ? Json(new { ok = true }) : NotFound();
+        return result switch
+        {
+            WithdrawPocCommentResult.Ok => Json(new { ok = true }),
+            WithdrawPocCommentResult.AlreadyDispatched =>
+                BadRequest("Ghi chú này đã được gửi đi xử lý — không thu hồi được nữa."),
+            _ => NotFound()
+        };
     }
 
     // "Vẫn chưa đạt": mở lại một ghi chú mà vòng sửa đã tuyên bố xử lý xong, để nó vào yêu cầu chỉnh sửa

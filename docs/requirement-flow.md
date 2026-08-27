@@ -1576,12 +1576,21 @@ cho BA sửa" ⇒ `POST /Requirements/ReviseBrief` gom tối đa 30 ghi chú th�
 transcript rồi chạy lại vòng "Write Requirement" — Brief luôn sinh từ transcript, ghi chú không sửa
 thẳng file.
 
+**Mỗi ghi chú cũng thành một dòng lịch sử** (`PocComments`, `Target = Brief`, `Route = Requirement`),
+ghi **trước** khi khởi động lại vòng soạn draft — vòng đó chạy dài và ghi đè Brief, còn ghi chú phải nằm
+lại kể cả khi lượt soạn hỏng giữa chừng. Dòng đóng dấu `BriefVersion = "draft"` và được
+`ApproveRequirementUseCase` **nâng lên `V{n}` cùng lúc với file draft**: nó nói về đúng nội dung vừa được
+duyệt. Trước đây ghi chú chỉ tan vào transcript, mà transcript không phân biệt được lượt nào là ghi chú
+review — sau khi Brief lên bản mới thì không còn cách nào truy lại bản cũ từng bị chê gì. Cả ba nguồn
+(ghi chú Brief, ghi chú POC, vòng Dev chỉnh demo) hiện chung ở **bảng lịch sử trên trang POC Review** —
+xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo).
+
 **Còn ghi chú chưa gửi thì không approve được.** Ô hành động ở góc phải chân popup chỉ chứa ĐÚNG MỘT
 nút, `renderNotes` hoán đổi theo số ghi chú đang có: khay rỗng ⇒ "Approve this requirement"; có ≥ 1 ghi
 chú ⇒ "Gửi ghi chú cho BA sửa", form Approve bị ẩn. Lý do là hai đường này không hề gặp nhau ở phía
-server: ghi chú chỉ sống trong mảng `notes` của trang cho tới lúc bấm gửi (không lưu DB, không
-`localStorage`), còn `ApproveRequirementUseCase.ExecuteAsync` chỉ nhận `projectId` rồi promote **nguyên
-trạng** file draft lên `V{n}` và khởi động AI Design Spec → POC. Nên approve khi khay còn ghi chú luôn
+server: ghi chú chỉ sống trong mảng `notes` của trang cho tới lúc bấm gửi (chỉ khi GỬI mới thành dòng
+`PocComments`; trước đó không lưu DB, không `localStorage`), còn `ApproveRequirementUseCase.ExecuteAsync`
+chỉ nhận `projectId` rồi promote **nguyên trạng** file draft lên `V{n}` và khởi động AI Design Spec → POC. Nên approve khi khay còn ghi chú luôn
 là thao tác sai: ghi chú mất trắng (Approve là POST cả trang) và POC dựng từ bản chưa sửa — trong khi
 khay hiện "(4)" ngay cạnh nút trông như thể chúng đã được ghi nhận.
 

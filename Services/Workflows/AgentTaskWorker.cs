@@ -742,6 +742,10 @@ public class AgentTaskWorker : BackgroundService
                 comment.Status = PocCommentStatus.Addressed;
                 comment.AddressedAtUtc = DateTime.UtcNow;
                 comment.AddressedNote = note.Length == 0 ? null : note;
+                // Vòng nào đã xử lý ghi chú này — bảng lịch sử mở bàn giao TOÀN VĂN từ đây (AddressedNote
+                // chỉ là bản cắt gọn). RequestStageRevisionUseCase đã nối sẵn cho đường Dispatch; dòng này
+                // phủ nốt các ghi chú đi qua nút "Yêu cầu chỉnh sửa" thường ở Agent Dashboard.
+                comment.RevisionTaskId ??= task.Id;
             }
             await db.SaveChangesAsync(cancellationToken);
         }

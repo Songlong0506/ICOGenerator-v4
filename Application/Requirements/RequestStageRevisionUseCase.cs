@@ -96,6 +96,10 @@ public class RequestStageRevisionUseCase
         // Cổng POC: gom các ghi chú ghim trực tiếp trên POC vào nhận xét. Đổi Status ở đây chỉ nằm trong
         // change tracker — các đường return sớm bên dưới (thiếu task/hết vòng) không SaveChanges nên
         // không "đốt" ghi chú của người dùng.
+        // Các ghi chú vừa được gom, để nối RevisionTaskId khi biết id của task chỉnh sửa bên dưới —
+        // bảng lịch sử dựa vào đó mở đúng bàn giao toàn văn của vòng đã xử lý ghi chú này.
+        List<PocComment> sentPocComments = new();
+
         if (includePocComments && run.CurrentStage == WorkflowStageKey.PocPreview)
         {
             var pocCommentQuery = _db.PocComments
@@ -115,7 +119,12 @@ public class RequestStageRevisionUseCase
             {
                 feedback = AppendPocComments(feedback, pocComments);
                 foreach (var comment in pocComments)
+                {
                     comment.Status = PocCommentStatus.Sent;
+                    comment.Route = PocCommentRoute.FixPoc;
+                }
+
+                sentPocComments = pocComments;
             }
         }
 
@@ -143,7 +152,7 @@ public class RequestStageRevisionUseCase
         if (revisionsUsed >= DeliveryPipeline.MaxRevisionRounds)
             return RequestStageRevisionResult.RevisionLimitReached;
 
-        _db.AgentTasks.Add(new AgentTask
+        var revisionTask = new AgentTask
         {
             WorkflowRunId = run.Id,
             ProjectId = projectId,
@@ -153,7 +162,11 @@ public class RequestStageRevisionUseCase
             Title = $"{step.Title} (chỉnh sửa lần {revisionsUsed + 1})",
             Input = previousTask.Input,
             RevisionFeedback = feedback
-        });
+        };
+        _db.AgentTasks.Add(revisionTask);
+
+        foreach (var comment in sentPocComments)
+            comment.RevisionTaskId = revisionTask.Id;
 
         // CurrentStage giữ nguyên — chạy xong bước này lại rơi về đúng cổng duyệt hiện tại.
         run.Status = WorkflowRunStatus.Queued;

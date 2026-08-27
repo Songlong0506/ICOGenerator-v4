@@ -801,7 +801,7 @@ public class RequirementsController : Controller
             return Json(new { ok = false, error = "Dữ liệu ghi chú không hợp lệ." });
         }
 
-        var result = await _reviseBriefFromNotesUseCase.ExecuteAsync(projectId, notes);
+        var result = await _reviseBriefFromNotesUseCase.ExecuteAsync(projectId, notes, User.Identity?.Name);
         return result switch
         {
             ReviseBriefResult.Ok => Json(new { ok = true }),

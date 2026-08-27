@@ -418,12 +418,20 @@ public class AppDbContext : DbContext
         {
             b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
             b.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.Target).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.Route).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.BriefVersion).HasMaxLength(20);
             b.Property(x => x.PageView).HasMaxLength(200);
             b.Property(x => x.ElementLabel).HasMaxLength(300);
             b.Property(x => x.ElementPath).HasMaxLength(600);
+            b.Property(x => x.Quote).HasMaxLength(1000);
             b.Property(x => x.Comment).HasMaxLength(4000);
             b.Property(x => x.CreatedByUsername).HasMaxLength(100);
+            b.Property(x => x.WithdrawnByUsername).HasMaxLength(100);
             b.HasIndex(x => new { x.ProjectId, x.Status, x.CreatedAt });
+            // Bảng lịch sử đọc theo dự án + phiên bản Brief (nhóm từng thế hệ ghi chú), khác hẳn index
+            // trên với đường làm việc (lọc theo Status).
+            b.HasIndex(x => new { x.ProjectId, x.BriefVersion, x.CreatedAt });
         });
 
         // Link chia sẻ POC cho người ngoài hệ thống: Token là đường tra cứu DUY NHẤT (index unique — vừa

@@ -39,6 +39,9 @@ public class ReopenPocCommentUseCase
         comment.Status = PocCommentStatus.Open;
         comment.AddressedAtUtc = null;
         comment.AddressedNote = null;
+        // Về lại "chưa gửi" thì đường xử lý cũ cũng phải rỗng — lượt gửi sau phân loại lại từ đầu.
+        // RevisionTaskId GIỮ NGUYÊN: nó là bằng chứng vòng nào đã từng đụng tới ghi chú này.
+        comment.Route = null;
         await _db.SaveChangesAsync(cancellationToken);
 
         return ReopenPocCommentResult.Ok;
