@@ -57,6 +57,31 @@ public class WorkflowTaskPromptBuilderTests
         Assert.Equal("BASE:handoff", prompt);
     }
 
+    // Khối quy ước trình bày là đường DUY NHẤT các góp ý giao diện đã được chấp nhận tới được agent sau
+    // khi poc-demo.html bị dựng lại từ template — nó phải nằm SAU cả input lẫn khối nghiệm thu, và phải
+    // biến mất hoàn toàn khi dự án chưa có quy ước nào (đừng đổi prompt của dự án không liên quan).
+    [Fact]
+    public void Build_WithConventionsBlock_AppendsItAfterTheAcceptanceBlock()
+    {
+        var builder = new WorkflowTaskPromptBuilder(new StubPrompts());
+
+        var prompt = builder.Build(AgentTaskType.PocPreview, "the spec", useBoschTemplate: false,
+            acceptanceBlock: "UAT-BLOCK", conventionsBlock: "CONVENTIONS-BLOCK");
+
+        Assert.StartsWith("BASE:the spec", prompt);
+        Assert.True(prompt.IndexOf("UAT-BLOCK", StringComparison.Ordinal) < prompt.IndexOf("CONVENTIONS-BLOCK", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Build_WithoutConventionsBlock_LeavesThePromptUnchanged()
+    {
+        var builder = new WorkflowTaskPromptBuilder(new StubPrompts());
+
+        Assert.Equal(
+            builder.Build(AgentTaskType.PocPreview, "the spec", useBoschTemplate: false),
+            builder.Build(AgentTaskType.PocPreview, "the spec", useBoschTemplate: false, conventionsBlock: "   "));
+    }
+
     private sealed class StubPrompts : PromptTemplateService
     {
         public StubPrompts() : base(null!) { }
