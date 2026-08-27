@@ -332,6 +332,11 @@ public class AgentTaskWorker : BackgroundService
             // vừa là ĐÍCH trong prompt, vừa là cổng đối chiếu độc lập ở AuditPocContent.
             UatScenarioSet? uatScenarios = null;
 
+            // Quy ước trình bày đã chốt của dự án — các góp ý giao diện người dùng đã ghim ở những vòng
+            // trước và Dev đã sửa theo. Bản demo mang chúng bị EnsureDesignAssetsAsync ghi đè về template
+            // ở mỗi vòng dựng mới, nên đây là đường DUY NHẤT chúng còn tới được agent.
+            PocUiConventionSet? uiConventions = null;
+
             // POC template chỉ cần cho bước POC preview.
             if (task.Type == AgentTaskType.PocPreview)
             {
@@ -371,6 +376,14 @@ public class AgentTaskWorker : BackgroundService
                 if (uatScenarios.Scenarios.Count > 0)
                     _progress.Report(task.WorkflowRunId, "setup",
                         $"POC phải chạy được {uatScenarios.Scenarios.Count} kịch bản nghiệm thu — cổng audit sẽ đối chiếu và lái thử từng kịch bản.");
+
+                // Nạp cho CẢ vòng dựng mới lẫn vòng chỉnh sửa: vòng dựng mới cần để không đánh rơi các
+                // góp ý cũ, vòng chỉnh sửa cần để không vô tình gỡ bỏ chính chúng khi sửa việc khác.
+                uiConventions = await scope.ServiceProvider.GetRequiredService<PocUiConventionService>()
+                    .LoadAsync(task.ProjectId, project.Name, cancellationToken);
+                if (uiConventions.Conventions.Count > 0)
+                    _progress.Report(task.WorkflowRunId, "setup",
+                        $"Áp dụng lại {uiConventions.Conventions.Count} quy ước trình bày đã chốt ở các vòng review trước.");
             }
 
             // Generation Mode do TeamDev chọn ở Agent Dashboard. Cổng Approve đã chặn pipeline đi quá POC
@@ -405,7 +418,8 @@ public class AgentTaskWorker : BackgroundService
 
             var promptBuilder = scope.ServiceProvider.GetRequiredService<WorkflowTaskPromptBuilder>();
             var prompt = promptBuilder.Build(task.Type, task.Input, useBoschTemplate, task.RevisionFeedback, previousOutput,
-                UatScenarioService.BuildPromptBlock(uatScenarios));
+                UatScenarioService.BuildPromptBlock(uatScenarios),
+                PocUiConventionService.BuildPromptBlock(uiConventions));
             var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
 
             // Bước POC: ngân sách suy theo SỐ MÀN HÌNH của spec (task.Input) thay vì một con số cứng —
@@ -463,6 +477,13 @@ public class AgentTaskWorker : BackgroundService
             {
                 await scope.ServiceProvider.GetRequiredService<PocFeedbackMemoryService>()
                     .TryHarvestAsync(task.ProjectId, cancellationToken);
+
+                // …và thành QUY ƯỚC TRÌNH BÀY của CHÍNH dự án này. Bản vá vừa rồi chỉ nằm trong
+                // poc-demo.html, mà vòng dựng POC kế tiếp ghi đè cả file đó về template — không chắt lọc
+                // ở đây thì mọi góp ý giao diện người dùng đã chấp nhận mất trắng. Phải chạy TRƯỚC
+                // MarkSentPocCommentsAddressedAsync: nó đọc đúng tập ghi chú còn ở trạng thái Sent.
+                await scope.ServiceProvider.GetRequiredService<PocUiConventionService>()
+                    .TryHarvestAsync(task.ProjectId, task.WorkflowRunId, cancellationToken);
 
                 // Các ghi chú đã đi vào vòng sửa này chuyển sang "đã xử lý" kèm bàn giao của agent. Không
                 // có bước này, người review vòng sau nhìn danh sách ghi chú y hệt vòng trước và không có

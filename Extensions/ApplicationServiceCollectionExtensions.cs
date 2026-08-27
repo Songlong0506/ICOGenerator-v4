@@ -724,6 +724,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<RequirementConflictService>();
         services.AddScoped<UatScenarioService>();
         services.AddScoped<PocFeedbackMemoryService>();
+        // Quy ước trình bày của CHÍNH dự án (khác PocFeedbackMemoryService — vốn bồi cho các dự án sau):
+        // thứ duy nhất chở góp ý giao diện đã được chấp nhận qua một vòng dựng lại POC.
+        services.AddScoped<PocUiConventionService>();
         services.AddScoped<SpecAssumptionMemoryService>();
         services.AddScoped<ProductBriefReviewParser>();
         // Bối cảnh tổ chức Bosch render từ OrgUnits/Associates cho prompt BA (chat + soạn tài liệu).

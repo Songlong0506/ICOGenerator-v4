@@ -9,7 +9,7 @@ Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-
   01_Requirement/     # Product Brief (draft/ + V1, V2...), BRD/SRS/FSD/UserStories
   02_Design/          # AI Design Spec theo V{n}
   03_Architecture/    # Đề xuất kiến trúc của Tech Lead
-  04_Implementation/  # poc-demo.html (POC) + src/ (code đa file) + code-review.md
+  04_Implementation/  # poc-demo.html (POC) + poc-ui-conventions.json + src/ (code đa file) + code-review.md
   05_Test/            # Test cases + báo cáo test
 ```
 
@@ -137,6 +137,30 @@ sạch thì xóa `04_Implementation/src` trong bản sao.
   luôn được ghi cùng một cách. Vẫn cho gõ tự do vì khách ngoài công ty không có trong danh bạ. Danh bạ
   dùng chung cả công ty nhưng cửa vào kẹp theo project + `RequirementsManage`, và chỉ trả tên/email/
   đơn vị/chức danh — không mở thêm một đường tra cứu hồ sơ nhân sự.
+
+### Góp ý giao diện sống sót qua một vòng dựng lại POC (`poc-ui-conventions.json`)
+Hai đường của popup "Gửi ghi chú đi xử lý" ghi vào hai chỗ khác hẳn nhau, và đó là chỗ từng rò: đường
+**"Nhờ đội Dev chỉnh bản demo"** chỉ vá `poc-demo.html`, không đụng Brief/Spec; còn đường **"Gửi về
+Requirement"** dẫn tới duyệt lại tài liệu, và mỗi vòng dựng POC MỚI thì `EnsureDesignAssetsAsync` **ghi
+đè cả `poc-demo.html`** về shell template. Input của vòng dựng mới chỉ có AI Design Spec + kịch bản UAT +
+dữ liệu mẫu — không có file POC cũ, không có transcript, không có `PocComment` cũ (chúng đã sang
+`Addressed` nên `TriagePocFeedbackUseCase` cũng không gom lại vì nó chỉ query `Open`). Kết quả: mọi góp ý
+giao diện người dùng đã chấp nhận biến mất, và họ gặp lại đúng lỗi đã góp ý một lần rồi.
+
+`PocUiConventionService` đóng chỗ rò bằng cách để thứ phải sống sót nằm **ngoài file bị sinh lại**: sau
+mỗi vòng chỉnh sửa POC, các ghi chú vừa được sửa (`Sent`, đọc TRƯỚC khi chúng chuyển `Addressed`) được
+chắt lọc thành **quy ước trình bày dùng lại được** (`poc-ui-convention.v1.md`) và lưu ở
+`04_Implementation/poc-ui-conventions.json`. Mọi vòng dựng POC sau — mới lẫn chỉnh sửa — nối bộ này vào
+prompt qua `PocUiConventionService.BuildPromptBlock` + `WorkflowTaskPromptBuilder`, kèm hai rào: chỉ áp
+dụng khi màn hình tương ứng còn trong spec, và **spec luôn thắng khi mâu thuẫn** (quy ước nói về cách
+trình bày, không đổi nghiệp vụ). Khác [`PocFeedbackMemoryService`](requirement-flow.md#các-cơ-chế-trí-nhớ) — vốn bồi
+bài học vào checklist phỏng vấn của BA cho **các dự án sau** — bộ này giữ quy ước cho **chính dự án này**.
+
+Fail-open như mọi tầng bộ nhớ: model lỗi/không đọc nổi ⇒ giữ nguyên bộ cũ. Và một kết quả **nghèo hơn**
+bộ đang lưu bị từ chối — model được yêu cầu xuất lại toàn bộ bộ đã gộp, nên ít đi nghĩa là nó vừa đánh
+rơi quy ước cũ, chứ không phải người dùng đổi ý. Trần 24 quy ước (giữ mới nhất): bộ này đi vào prompt của
+mọi vòng dựng nên để phình vô hạn là lấy dần chỗ của chính AI Design Spec. Dự án chưa từng đi đường
+"chỉnh bản demo" thì không có file, khối prompt rỗng, prompt POC y như trước.
 
 ### Parity Brief ↔ Spec soát ba tầng, không chỉ màn hình
 Spec là **đầu vào duy nhất** của bước dựng POC, nên thứ gì rơi rụng ở biên Brief→Spec thì POC thiếu
