@@ -258,6 +258,23 @@
         gap: 10px;
     }
 
+    /* Biển báo "hội thoại đang khoá vì bản demo đã nghiệm thu". Nằm trong composer, ngay trên ô nhập:
+       đây là chỗ người dùng phát hiện mình không gõ được, nên cũng phải là chỗ nói vì sao và mở khoá ở đâu. */
+    .composer-locked {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 8px 10px;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        background: #fffbeb;
+        color: #78350f;
+        font-size: 12.5px;
+        line-height: 1.5;
+    }
+
+    .composer-locked a { color: inherit; text-decoration: underline; }
+
     /* Action row: nhóm "Write Requirement" và nút "Duyệt & tiếp tục" trên cùng một
        hàng, tách khỏi ô chat hội thoại bên dưới. */
     .composer-actions {

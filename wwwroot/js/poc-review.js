@@ -18,6 +18,10 @@
     // trước thì có.
     const currentBriefVersion = root.dataset.briefVersion || "";
 
+    // ĐÃ NGHIỆM THU ⇒ trang chỉ còn đọc. Server mới là chỗ chặn thật (mọi endpoint ghi đều đi qua
+    // PocAcceptanceGate); lớp này chỉ để người dùng không bấm vào những nút chắc chắn bị từ chối.
+    const locked = root.dataset.locked === "true";
+
     // Nút "Bật chế độ ghim" nay là nút của command bar (icon <i> + <span class="cbar-label">), không
     // còn là nút chữ trơn: ghi đè textContent của CẢ nút sẽ xoá luôn thẻ icon, nên chỉ đổi chữ trong
     // nhãn và đổi class icon. Trạng thái bật đọc được ở ba chỗ cho ba kiểu người dùng: chữ trên nhãn,
@@ -104,6 +108,9 @@
     }
 
     function setPinMode(enabled) {
+        // Khoá thì không có chế độ ghim: mọi ghi chú mới sẽ bị server từ chối, nên để người dùng đi hết
+        // một vòng "bật ghim → click phần tử → gõ ghi chú" rồi mới báo lỗi là tệ nhất trong các cách nói không.
+        if (locked) enabled = false;
         pinMode = enabled;
         postToFrame({ type: "poc-mode", enabled: pinMode });
         pinModeBtn.classList.toggle("open", pinMode);
@@ -167,7 +174,7 @@
                     <span class="poc-comment-target" title="${escapeHtml(c.elementPath || "")}">${escapeHtml(c.elementLabel || "Vị trí trên trang")}</span>
                     ${versionBadge(c.briefVersion)}
                     ${statusBadge(c.status)}
-                    ${c.canDelete && c.status === "Open" ? `<button type="button" class="poc-comment-del" data-id="${c.id}" title="Thu hồi ghi chú (vẫn giữ trong lịch sử)">🗑</button>` : ""}
+                    ${!locked && c.canDelete && c.status === "Open" ? `<button type="button" class="poc-comment-del" data-id="${c.id}" title="Thu hồi ghi chú (vẫn giữ trong lịch sử)">🗑</button>` : ""}
                 </div>
                 ${c.pageView ? `<div class="poc-comment-view">Màn hình: ${escapeHtml(c.pageView)}</div>` : ""}
                 <div class="poc-comment-text">${escapeHtml(c.comment)}</div>
@@ -176,8 +183,8 @@
                     <div class="poc-comment-addressed">
                         <div class="poc-comment-addressed-head">Dev đã sửa lúc ${new Date(c.addressedAt).toLocaleString()}</div>
                         ${c.addressedNote ? `<div class="poc-comment-addressed-note">${escapeHtml(c.addressedNote)}</div>` : ""}
-                        <button type="button" class="poc-comment-reopen" data-id="${c.id}"
-                                title="Mở lại ghi chú này để nó vào vòng chỉnh sửa tiếp theo">✗ vẫn chưa đạt</button>
+                        ${locked ? "" : `<button type="button" class="poc-comment-reopen" data-id="${c.id}"
+                                title="Mở lại ghi chú này để nó vào vòng chỉnh sửa tiếp theo">✗ vẫn chưa đạt</button>`}
                     </div>` : ""}
             </div>
         `;
@@ -257,6 +264,7 @@
     }
 
     function openForm(pick, prefill, host) {
+        if (locked) return;
         pendingPick = pick;
         targetLabelEl.textContent = (pick.pageView ? `[${pick.pageView}] ` : "") + (pick.elementLabel || "Vị trí trên trang");
         moveFormTo(host || null);
@@ -378,39 +386,58 @@
         }
     });
 
-    // "Bản demo đã đạt — tôi nghiệm thu": đường ĐÓNG hành trình phía người yêu cầu, đối trọng với nút
-    // "còn sai chỗ này" bên dưới. Chỉ ghi nhận + báo người có quyền duyệt (không tự đẩy pipeline), nên sau
-    // khi thành công chỉ cần thay khối nút bằng dòng xác nhận tại chỗ.
-    const acceptBtn = document.getElementById("pocAcceptBtn");
-    if (acceptBtn) {
-        acceptBtn.addEventListener("click", async function () {
-            if (!confirm("Xác nhận bản demo này đã đạt yêu cầu? Đội delivery sẽ được báo để đi tiếp các bước sau.")) return;
+    // ===== Nghiệm thu: công tắc HAI CHIỀU trên command bar =====
+    //
+    // "Approve POC" chốt lại nội dung: từ lúc đó ghi chú trên trang này và chat BA ở màn hình Requirement
+    // đều ngừng nhận thay đổi (server chặn thật — xem PocAcceptanceGate, khoá ở giao diện chỉ là lớp
+    // ngoài). "Withdraw Approve" là cửa mở khoá, và hai nút không bao giờ cùng có mặt.
+    //
+    // Xong thì TẢI LẠI TRANG chứ không tự đảo nhãn nút: trạng thái khoá chạm vào gần như mọi thứ trên
+    // trang (nút gửi ghi chú, chế độ ghim, nút thu hồi từng dòng, biển trạng thái trong panel ghi chú).
+    // Vá từng chỗ bằng JS là dựng bản sao thứ hai của luật khoá — bản sao sẽ trôi lệch khỏi server ngay
+    // lần sửa sau.
+    function bindAcceptanceButton(id, url, question) {
+        const btn = document.getElementById(id);
+        if (!btn || !url) return;
 
-            const wrap = acceptBtn.closest(".poc-accept");
-            const hint = wrap ? wrap.querySelector(".poc-panel-hint") : null;
-            acceptBtn.disabled = true;
-            const original = acceptBtn.textContent;
-            acceptBtn.textContent = "Đang ghi nhận…";
+        btn.addEventListener("click", async function () {
+            if (!confirm(question)) return;
+
+            const label = btn.querySelector(".cbar-label") || btn;
+            const original = label.textContent;
+            btn.disabled = true;
+            label.textContent = "Đang xử lý…";
 
             const fd = new FormData();
             fd.append("projectId", projectId);
             if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
 
             try {
-                const response = await fetch(acceptBtn.dataset.acceptUrl, { method: "POST", body: fd });
+                const response = await fetch(url, { method: "POST", body: fd });
                 const data = await response.json().catch(() => null);
                 if (data && data.ok) {
-                    if (wrap) wrap.innerHTML = '<div class="poc-accepted">✓ <b>Đã nghiệm thu</b> — đội delivery đã được báo.</div>';
+                    window.location.reload();
                     return;
                 }
-                if (hint) hint.textContent = (data && data.message) || "Không ghi nhận được — thử lại sau.";
+                alert((data && data.message) || "Không thực hiện được — thử lại sau.");
             } catch {
-                if (hint) hint.textContent = "Không ghi nhận được — thử lại sau.";
+                alert("Không thực hiện được — thử lại sau.");
             }
-            acceptBtn.disabled = false;
-            acceptBtn.textContent = original;
+
+            btn.disabled = false;
+            label.textContent = original;
         });
     }
+
+    bindAcceptanceButton(
+        "pocAcceptBtn",
+        root.dataset.acceptUrl,
+        "Xác nhận bản demo này đã đạt yêu cầu?\n\nSau khi nghiệm thu, ghi chú trên POC và chat với BA ở màn hình Requirement sẽ bị khoá cho tới khi anh/chị bấm \"Withdraw Approve\".");
+
+    bindAcceptanceButton(
+        "pocWithdrawApproveBtn",
+        root.dataset.withdrawAcceptUrl,
+        "Rút lại nghiệm thu bản demo?\n\nGhi chú và chat với BA sẽ mở lại, và đội delivery được báo là lời nghiệm thu không còn hiệu lực.");
 
     // ===== Gửi ghi chú đi xử lý: MỘT nút, hai đường =====
     //
@@ -619,6 +646,11 @@
             }
         }
     });
+
+    if (locked) {
+        pinModeBtn.disabled = true;
+        pinModeBtn.title = "Bản demo đã được nghiệm thu — bấm \"Withdraw Approve\" để ghi chú trở lại";
+    }
 
     pinModeBtn.addEventListener("click", () => setPinMode(!pinMode));
 

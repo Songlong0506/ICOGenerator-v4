@@ -91,6 +91,59 @@ public class AcceptPocUseCaseTests : IDisposable
         Assert.Null((await NewDb().Projects.SingleAsync()).PocAcceptedAtUtc);
     }
 
+    // ---- Chiều RÚT nghiệm thu: cửa mở khoá duy nhất, nên nó phải trả project về đúng trạng thái cũ
+    // (không còn dấu nghiệm thu) và phải BÁO cho đội delivery — họ đã nhận lời "được rồi" ở chiều đi.
+    [Fact]
+    public async Task WithdrawAsync_ClearsTheAcceptance_AndNotifiesTheDeliveryTeam()
+    {
+        AddDeliveryRun();
+        await using (var first = NewDb())
+            await new AcceptPocUseCase(first, new SpyNotifier()).ExecuteAsync(_projectId, "lan.nguyen");
+
+        await using var db = NewDb();
+        var notifier = new SpyNotifier();
+
+        var result = await new WithdrawPocAcceptanceUseCase(db, notifier).ExecuteAsync(_projectId, "lan.nguyen");
+
+        Assert.Equal(WithdrawPocAcceptanceResult.Ok, result);
+        var project = await NewDb().Projects.SingleAsync();
+        Assert.Null(project.PocAcceptedAtUtc);
+        Assert.Null(project.PocAcceptedBy);
+        Assert.Equal("lan.nguyen", notifier.WithdrawnBy);
+    }
+
+    // Rút khi chưa nghiệm thu là một cú bấm vô nghĩa (trang cũ, hai tab) — không được báo cho ai.
+    [Fact]
+    public async Task WithdrawAsync_WhenNotAccepted_DoesNothing()
+    {
+        AddDeliveryRun();
+        await using var db = NewDb();
+        var notifier = new SpyNotifier();
+
+        var result = await new WithdrawPocAcceptanceUseCase(db, notifier).ExecuteAsync(_projectId, "lan.nguyen");
+
+        Assert.Equal(WithdrawPocAcceptanceResult.NotAccepted, result);
+        Assert.Null(notifier.WithdrawnBy);
+    }
+
+    // Nghiệm thu → rút → nghiệm thu lại: khoá phải mở được HẲN, nếu không "Withdraw Approve" chỉ là
+    // một cái nút không dẫn tới đâu.
+    [Fact]
+    public async Task AcceptAsync_AfterWithdraw_RecordsTheNewAcceptance()
+    {
+        AddDeliveryRun();
+        await using (var first = NewDb())
+            await new AcceptPocUseCase(first, new SpyNotifier()).ExecuteAsync(_projectId, "lan.nguyen");
+        await using (var second = NewDb())
+            await new WithdrawPocAcceptanceUseCase(second, new SpyNotifier()).ExecuteAsync(_projectId, "lan.nguyen");
+
+        await using var db = NewDb();
+        var result = await new AcceptPocUseCase(db, new SpyNotifier()).ExecuteAsync(_projectId, "khac.nguoi");
+
+        Assert.Equal(AcceptPocResult.Ok, result);
+        Assert.Equal("khac.nguoi", (await NewDb().Projects.SingleAsync()).PocAcceptedBy);
+    }
+
     private void AddDeliveryRun()
     {
         using var db = NewDb();
@@ -112,6 +165,7 @@ public class AcceptPocUseCaseTests : IDisposable
     private sealed class SpyNotifier : INotificationService
     {
         public string? AcceptedBy;
+        public string? WithdrawnBy;
 
         public Task NotifyGateOpenedAsync(WorkflowRun run, string nextStepTitle, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task NotifyRunCompletedAsync(WorkflowRun run, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -120,6 +174,12 @@ public class AcceptPocUseCaseTests : IDisposable
         public Task NotifyPocAcceptedAsync(WorkflowRun run, string acceptedBy, CancellationToken cancellationToken = default)
         {
             AcceptedBy = acceptedBy;
+            return Task.CompletedTask;
+        }
+
+        public Task NotifyPocAcceptanceWithdrawnAsync(WorkflowRun run, string withdrawnBy, CancellationToken cancellationToken = default)
+        {
+            WithdrawnBy = withdrawnBy;
             return Task.CompletedTask;
         }
     }

@@ -19,7 +19,10 @@ public enum PocFeedbackDispatchStatus
     /// <summary>Đường sửa tài liệu hỏng — KHÔNG ghi chú nào đổi trạng thái (xem <see cref="PocFeedbackDispatchReport.RequirementError"/>).</summary>
     RequirementFailed,
     /// <summary>Đường chỉnh bản demo hỏng — KHÔNG ghi chú nào đổi trạng thái (xem <see cref="PocFeedbackDispatchReport.FixError"/>).</summary>
-    FixFailed
+    FixFailed,
+
+    /// <summary>Bản demo đã được nghiệm thu ⇒ nội dung đang khoá (xem <see cref="Projects.PocAcceptanceGate"/>).</summary>
+    PocAccepted
 }
 
 /// <param name="HeldCount">
@@ -58,15 +61,18 @@ public class DispatchPocFeedbackUseCase
     private readonly AppDbContext _db;
     private readonly RoutePocFeedbackToRequirementUseCase _route;
     private readonly RequestStageRevisionUseCase _revision;
+    private readonly Projects.PocAcceptanceGate _acceptanceGate;
 
     public DispatchPocFeedbackUseCase(
         AppDbContext db,
         RoutePocFeedbackToRequirementUseCase route,
-        RequestStageRevisionUseCase revision)
+        RequestStageRevisionUseCase revision,
+        Projects.PocAcceptanceGate acceptanceGate)
     {
         _db = db;
         _route = route;
         _revision = revision;
+        _acceptanceGate = acceptanceGate;
     }
 
     /// <param name="fixIds">Ghi chú người dùng xếp vào "nhờ đội Dev chỉnh bản demo".</param>
@@ -80,6 +86,11 @@ public class DispatchPocFeedbackUseCase
         var projectExists = await _db.Projects.AsNoTracking().AnyAsync(p => p.Id == projectId, cancellationToken);
         if (!projectExists)
             return new PocFeedbackDispatchReport(PocFeedbackDispatchStatus.ProjectNotFound);
+
+        // Khoá sau nghiệm thu: gửi ghi chú đi xử lý là đường đắt nhất của trang review (nó khởi động một
+        // vòng sửa POC hoặc một vòng sửa tài liệu), nên nó phải là đường bị chặn chắc chắn nhất.
+        if (await _acceptanceGate.IsLockedAsync(projectId, cancellationToken))
+            return new PocFeedbackDispatchReport(PocFeedbackDispatchStatus.PocAccepted);
 
         var fix = fixIds.Distinct().ToList();
         var requirement = requirementIds.Distinct().ToList();

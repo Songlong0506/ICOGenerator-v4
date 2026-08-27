@@ -11,7 +11,10 @@ public enum WithdrawPocCommentResult
     NotFoundOrForbidden,
 
     /// <summary>Ghi chú ĐÃ GỬI đi (Dev đang sửa / BA đã nhận) — thu hồi lúc này chỉ làm lệch lịch sử.</summary>
-    AlreadyDispatched
+    AlreadyDispatched,
+
+    /// <summary>Bản demo đã được nghiệm thu ⇒ nội dung đang khoá (xem <see cref="PocAcceptanceGate"/>).</summary>
+    PocAccepted
 }
 
 /// <summary>
@@ -28,10 +31,12 @@ public enum WithdrawPocCommentResult
 public class WithdrawPocCommentUseCase
 {
     private readonly AppDbContext _db;
+    private readonly PocAcceptanceGate _acceptanceGate;
 
-    public WithdrawPocCommentUseCase(AppDbContext db)
+    public WithdrawPocCommentUseCase(AppDbContext db, PocAcceptanceGate acceptanceGate)
     {
         _db = db;
+        _acceptanceGate = acceptanceGate;
     }
 
     public async Task<WithdrawPocCommentResult> ExecuteAsync(
@@ -43,6 +48,10 @@ public class WithdrawPocCommentUseCase
 
         if (!canManage && (currentUsername == null || comment.CreatedByUsername != currentUsername))
             return WithdrawPocCommentResult.NotFoundOrForbidden;
+
+        // Khoá sau nghiệm thu: đọc project của CHÍNH ghi chú (action chỉ nhận id ghi chú, không có projectId).
+        if (await _acceptanceGate.IsLockedAsync(comment.ProjectId, cancellationToken))
+            return WithdrawPocCommentResult.PocAccepted;
 
         if (comment.WithdrawnAtUtc.HasValue)
             return WithdrawPocCommentResult.Ok; // đã thu hồi rồi — bấm hai lần không phải lỗi.

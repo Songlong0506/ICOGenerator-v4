@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Projects;
 
-public enum ReopenPocCommentResult { Ok, NotFound, NotAddressed }
+public enum ReopenPocCommentResult { Ok, NotFound, NotAddressed, PocAccepted }
 
 /// <summary>
 /// "Vẫn chưa đạt": người review mở lại một ghi chú mà vòng chỉnh sửa POC đã tuyên bố xử lý xong
@@ -18,15 +18,20 @@ public enum ReopenPocCommentResult { Ok, NotFound, NotAddressed }
 public class ReopenPocCommentUseCase
 {
     private readonly AppDbContext _db;
+    private readonly PocAcceptanceGate _acceptanceGate;
 
-    public ReopenPocCommentUseCase(AppDbContext db)
+    public ReopenPocCommentUseCase(AppDbContext db, PocAcceptanceGate acceptanceGate)
     {
         _db = db;
+        _acceptanceGate = acceptanceGate;
     }
 
     /// <param name="projectId">Project mà caller ĐÃ kiểm quyền truy cập — ghi chú phải thuộc đúng project này.</param>
     public async Task<ReopenPocCommentResult> ExecuteAsync(Guid projectId, Guid commentId, CancellationToken cancellationToken = default)
     {
+        if (await _acceptanceGate.IsLockedAsync(projectId, cancellationToken))
+            return ReopenPocCommentResult.PocAccepted;
+
         var comment = await _db.PocComments.FirstOrDefaultAsync(x => x.Id == commentId && x.ProjectId == projectId, cancellationToken);
         if (comment == null)
             return ReopenPocCommentResult.NotFound;

@@ -144,6 +144,39 @@ sạch thì xóa `04_Implementation/src` trong bản sao.
   dùng chung cả công ty nhưng cửa vào kẹp theo project + `RequirementsManage`, và chỉ trả tên/email/
   đơn vị/chức danh — không mở thêm một đường tra cứu hồ sơ nhân sự.
 
+### Nghiệm thu là công tắc HAI CHIỀU, và nó KHOÁ nội dung
+
+Nút **Approve POC** đứng ở **nút chính của command bar** trang POC Review (cùng chỗ với "Bật chế độ ghim",
+"Mở tab riêng", "Share"), không còn nằm lọt trong panel ghi chú ở cột trái. Hai nút không bao giờ cùng
+xuất hiện: đã nghiệm thu ⇒ chỉ có **Withdraw Approve**; chưa ⇒ chỉ có **Approve POC**. Cả hai đòi
+`RequirementsManage` — khoá này thuộc phía người yêu cầu, không phải một cổng của delivery.
+
+Bấm Approve là **chốt nội dung lại**: từ lúc đó cả hai phía đều ngừng nhận thay đổi.
+
+| Bị khoá | Endpoint |
+|---|---|
+| Chat BA, mở chat mới, đính kèm tài liệu cho BA | `ChatStream`, `NewChat`, `UploadSource` |
+| Ghi chú trên bản xem trước Product Brief (ghi vào cùng transcript) | `ReviseBrief` |
+| Ghim / thu hồi / mở lại ghi chú POC, kể cả qua link chia sẻ | `AddPocComment`, `WithdrawPocComment`, `ReopenPocComment`, `poc-share/{token}/comments` |
+| Gửi ghi chú đi xử lý (khởi động vòng sửa POC hoặc vòng sửa tài liệu) | `DispatchPocFeedback` |
+
+Chốt nằm ở **tầng use case** (`PocAcceptanceGate`), không ở controller và càng không ở JavaScript: đường
+ghim ghi chú có cửa thứ hai là link chia sẻ cho khách ẩn danh — khách không thấy nút khoá nào, nên khoá
+chỉ ở giao diện là khoá giả. Giao diện (ô nhập `disabled`, biển báo trên khung chat, ẩn nút "Báo lỗi kịch
+bản", `data-annotatable="false"` cho bản draft) chỉ để người dùng biết **vì sao** không gõ được thay vì gõ
+xong mới nhận lỗi.
+
+**Withdraw Approve** (`WithdrawPocAcceptanceUseCase`) xoá dấu nghiệm thu và là cửa mở khoá **duy nhất**.
+Nó phải tồn tại: từ khi một cú bấm đóng băng cả hai màn hình, một chiều đi không có chiều về nghĩa là
+người phát hiện thêm điểm sai sau khi đã nói "được rồi" không còn đường nào để nói. Chiều đi báo cho đội
+delivery (`PocAccepted`) thì chiều về cũng báo (`PocAcceptanceWithdrawn`) — họ có thể đang đứng ở cổng POC
+và sắp bấm duyệt dựa trên lời vừa bị rút. Cả hai chiều **không đụng pipeline**: các bước đã chạy thì không
+lùi lại được bằng một cú bấm ở đây.
+
+Sau mỗi lần bấm, JS **tải lại trang** thay vì tự đảo nhãn nút: trạng thái khoá chạm tới gần như mọi thứ
+trên trang (nút gửi ghi chú, chế độ ghim, nút thu hồi từng dòng, biển trạng thái), nên vá từng chỗ bằng JS
+là dựng một bản sao thứ hai của luật khoá — bản sao sẽ trôi lệch khỏi server ngay lần sửa sau.
+
 ### Góp ý giao diện sống sót qua một vòng dựng lại POC (`poc-ui-conventions.json`)
 Hai đường của popup "Gửi ghi chú đi xử lý" ghi vào hai chỗ khác hẳn nhau, và đó là chỗ từng rò: đường
 **"Nhờ đội Dev chỉnh bản demo"** chỉ vá `poc-demo.html`, không đụng Brief/Spec; còn đường **"Gửi về

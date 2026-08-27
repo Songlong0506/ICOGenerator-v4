@@ -127,6 +127,9 @@ public class PocShareController : Controller
             AddPocCommentResult.Ok => Json(item),
             AddPocCommentResult.MissingComment => BadRequest("Nội dung góp ý trống."),
             AddPocCommentResult.TooManyComments => BadRequest("Bản demo này đã có quá nhiều góp ý — báo đội dự án xử lý bớt trước nhé."),
+            // Khách không thấy nút mở khoá (nó nằm trong trang review có đăng nhập), nên câu này nói theo
+            // ngôn ngữ của họ: đã chốt rồi, muốn góp thêm thì báo đội dự án.
+            AddPocCommentResult.PocAccepted => Conflict("Bản demo này đã được nghiệm thu nên không nhận thêm góp ý — báo đội dự án nếu bạn còn điểm cần sửa."),
             _ => NotFound("Không tìm thấy bản demo.")
         };
     }

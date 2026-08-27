@@ -13,6 +13,12 @@
             int.TryParse(g.Key.Replace("V", ""), out var n) ? n : 0)
         .ToList();
     var selectedVersion = ViewBag.SelectedVersion?.ToString() ?? "draft";
+
+    // KHOÁ SAU NGHIỆM THU: người yêu cầu đã bấm "Approve POC" ở trang POC Review ⇒ hội thoại với BA đứng
+    // yên (kể cả đính kèm, chat mới, và ghi chú trên bản mô tả — cả ba đều GHI vào chính transcript này)
+    // cho tới khi họ bấm "Withdraw Approve". Server chặn thật ở PocAcceptanceGate; phần dưới đây chỉ để
+    // người dùng thấy TẠI SAO ô nhập không gõ được, thay vì gõ xong mới nhận lỗi.
+    var pocLocked = Model.PocAcceptedAtUtc.HasValue;
     var conversations = Model.Conversations
         .OrderBy(x => x.CreatedAt)
         .ToList();
@@ -434,7 +440,8 @@
                        name="projectId"
                        value="@Model.Id" />
 
-                <button class="side-action" type="submit">
+                <button class="side-action" type="submit" disabled="@pocLocked"
+                        title="@(pocLocked ? "Bản demo đã được nghiệm thu — rút nghiệm thu ở trang POC Review để chat lại" : null)">
                     <i class="bi bi-plus-lg side-action-ico" aria-hidden="true"></i>
                     <span class="side-action-label">New Chat</span>
                 </button>
@@ -1947,6 +1954,21 @@
 
         <div class="chat-composer">
 
+            @* Biển báo khoá: đứng NGAY TRÊN ô nhập vì đó là chỗ người dùng phát hiện mình không gõ được.
+               Nói luôn chỗ mở khoá — nút "Withdraw Approve" nằm ở màn hình khác (POC Review), nên không
+               dẫn đường thì người dùng chỉ biết là "hỏng". *@
+            @if (pocLocked)
+            {
+                <div class="composer-locked">
+                    <i class="bi bi-lock" aria-hidden="true"></i>
+                    <span>
+                        Bản demo đã được nghiệm thu@(string.IsNullOrWhiteSpace(Model.PocAcceptedBy) ? "" : $" bởi {Model.PocAcceptedBy}") nên hội thoại đang khoá.
+                        Muốn trao đổi tiếp, bấm <b>Withdraw Approve</b> ở
+                        <a asp-controller="Projects" asp-action="PocReview" asp-route-projectId="@Model.Id">trang POC Review</a>.
+                    </span>
+                </div>
+            }
+
             <div class="composer-actions">
 
                 <!-- WRITE REQUIREMENT không có nút ở đây, và cũng không còn ở sidebar: nút thật nằm trong
@@ -1974,7 +1996,8 @@
             <form id="chatForm"
                   asp-action="ChatStream"
                   method="post"
-                  class="req-chatbox">
+                  class="req-chatbox"
+                  data-poc-locked="@(pocLocked ? "true" : "false")">
 
                 @Html.AntiForgeryToken()
 
@@ -1984,8 +2007,9 @@
 
               <textarea id="messageInput"
                           rows="1"
-                          placeholder="Type your message..."
-                          autocomplete="off"></textarea>
+                          placeholder="@(pocLocked ? "Hội thoại đang khoá vì bản demo đã được nghiệm thu" : "Type your message...")"
+                          autocomplete="off"
+                          disabled="@pocLocked"></textarea>
 
                 <!-- Đính kèm tài liệu: mở hộp chọn file rồi upload qua đúng endpoint UploadSource (BA đọc &
                      tóm tắt). Dùng chung luồng với dán (Ctrl+V) / kéo-thả — chỉ thêm điểm bấm rõ ràng cho
@@ -2000,6 +2024,7 @@
                 <button class="btn outline attach-btn"
                         type="button"
                         id="attachImageBtn"
+                        disabled="@pocLocked"
                         aria-label="Đính kèm tài liệu"
                         title="Đính kèm tài liệu để BA đọc: ảnh/chụp màn hình, PDF (kể cả bản scan), Word (.docx), Excel (.xlsx) hoặc CSV">
                     <i class="bi bi-paperclip" aria-hidden="true"></i>
@@ -2018,6 +2043,7 @@
 
                 <button class="btn primary"
                         type="submit"
+                        disabled="@pocLocked"
                         aria-label="Send message">
                     ➤
                 </button>
@@ -2147,7 +2173,7 @@
                     <div class="doc-render"
                          data-doc-id="@doc.Id"
                          data-loaded="false"
-                         data-annotatable="@(doc.VersionName == "draft" ? "true" : "false")">
+                         data-annotatable="@(doc.VersionName == "draft" && !pocLocked ? "true" : "false")">
                         <p class="doc-loading">Loading…</p>
                     </div>
                 </div>

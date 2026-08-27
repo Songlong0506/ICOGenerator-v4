@@ -211,7 +211,7 @@ public class DispatchPocFeedbackUseCaseTests : IDisposable
             new BAConversationLog(db),
             new GenerateRequirementDraftUseCase(orchestrator ?? new FakeOrchestrator()));
 
-        return new DispatchPocFeedbackUseCase(db, route, new RequestStageRevisionUseCase(db));
+        return new DispatchPocFeedbackUseCase(db, route, new RequestStageRevisionUseCase(db), new ICOGenerator.Application.Projects.PocAcceptanceGate(db));
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
