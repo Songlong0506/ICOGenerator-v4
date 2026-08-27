@@ -119,7 +119,10 @@ public class RoutePocFeedbackToRequirementUseCase
 
         // Chỉ ĐÚNG các ghi chú đã gửi mới đổi trạng thái — ghi chú Open còn lại vẫn chờ đường của chúng.
         foreach (var c in selected)
+        {
             c.Status = PocCommentStatus.RoutedToRequirement;
+            c.Route = PocCommentRoute.Requirement;
+        }
         await _db.SaveChangesAsync(cancellationToken);
 
         await _generateDraft.ExecuteAsync(projectId);

@@ -1,5 +1,7 @@
 using ICOGenerator.Data;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
 
@@ -66,6 +68,17 @@ public class ApproveRequirementUseCase
                     doc.FilePath = Path.Combine(phaseFolder, versionName, fileName);
             }
         }
+
+        // Ghi chú người dùng đã ghim lên bản draft đi CÙNG bản draft lên V{n}: chúng nói về đúng nội dung
+        // vừa được duyệt, nên đóng dấu bất kỳ version nào khác là gán chúng cho một bản không tồn tại.
+        // Đây là toàn bộ lý do ghi chú Brief đóng dấu "draft" lúc ghim thay vì đoán trước số version.
+        var draftNotes = await _db.PocComments
+            .Where(c => c.ProjectId == projectId
+                        && c.Target == PocCommentTarget.Brief
+                        && c.BriefVersion == BriefVersionResolver.DraftVersion)
+            .ToListAsync();
+        foreach (var note in draftNotes)
+            note.BriefVersion = versionName;
 
         // MỐC DUYỆT của hội thoại. Bản vừa duyệt là bản DUY NHẤT trong dự án có chữ ký người dùng, nên mọi
         // lượt chat trước thời điểm này đã được chính nó chở — vòng soạn Brief sau đó được phép nén phần

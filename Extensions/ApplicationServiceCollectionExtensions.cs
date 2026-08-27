@@ -376,8 +376,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetImplementationSourceQuery>();
         services.AddScoped<GetPocReviewQuery>();
         services.AddScoped<ListPocCommentsQuery>();
+        services.AddScoped<GetPocNoteHistoryQuery>();
         services.AddScoped<AddPocCommentUseCase>();
-        services.AddScoped<DeletePocCommentUseCase>();
+        services.AddScoped<WithdrawPocCommentUseCase>();
         services.AddScoped<ReopenPocCommentUseCase>();
         services.AddScoped<CreatePocShareLinkUseCase>();
         services.AddScoped<RevokePocShareLinkUseCase>();
@@ -723,6 +724,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ScreenStepPlacementService>();
         services.AddScoped<RequirementConflictService>();
         services.AddScoped<UatScenarioService>();
+        // Đóng dấu phiên bản Brief lên ghi chú (một chỗ duy nhất giữ quy tắc đánh số V{n}).
+        services.AddScoped<BriefVersionResolver>();
         services.AddScoped<PocFeedbackMemoryService>();
         // Quy ước trình bày của CHÍNH dự án (khác PocFeedbackMemoryService — vốn bồi cho các dự án sau):
         // thứ duy nhất chở góp ý giao diện đã được chấp nhận qua một vòng dựng lại POC.

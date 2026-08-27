@@ -12,8 +12,10 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Ghi chú trên Product Brief → gom thành MỘT lượt user trong hội thoại + chạy lại workflow soạn draft.
-// Đi qua transcript (không sửa thẳng file) để Brief luôn sinh từ nguồn sự thật là hội thoại.
+// Ghi chú trên Product Brief → gom thành MỘT lượt user trong hội thoại + chạy lại workflow soạn draft,
+// và LƯU thành dòng lịch sử (PocComment, Target=Brief). Đi qua transcript (không sửa thẳng file) để Brief
+// luôn sinh từ nguồn sự thật là hội thoại; lưu dòng riêng vì transcript không phân biệt được lượt nào là
+// ghi chú review, và sau khi Brief lên version mới thì không còn cách nào truy lại bản cũ bị chê gì.
 public class ReviseBriefFromNotesUseCaseTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -63,6 +65,34 @@ public class ReviseBriefFromNotesUseCaseTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_SavesEachNote_AsDraftStampedHistoryRow()
+    {
+        await using var db = NewDb();
+
+        await NewSut(db, new FakeOrchestrator()).ExecuteAsync(_projectId, new List<BriefNote>
+        {
+            new() { Quote = "đơn nghỉ phép", Note = "đổi thành đơn xin nghỉ" },
+            new() { Quote = "", Note = "thêm mục báo cáo" }
+        }, createdByUsername: "user");
+
+        await using var verify = NewDb();
+        var notes = await verify.PocComments.OrderBy(c => c.Comment).ToListAsync();
+        Assert.Equal(2, notes.Count);
+        Assert.All(notes, n =>
+        {
+            Assert.Equal(PocCommentTarget.Brief, n.Target);
+            // "draft" chứ không phải V{n}: bản đang xem chưa được duyệt. ApproveRequirementUseCase nâng
+            // dấu này lên V{n} cùng lúc với file draft.
+            Assert.Equal("draft", n.BriefVersion);
+            Assert.Equal(PocCommentRoute.Requirement, n.Route);
+            Assert.Equal("user", n.CreatedByUsername);
+        });
+        // Ghi chú chung (không bôi đen đoạn nào) vẫn là một dòng — Quote rỗng, không mất.
+        Assert.Equal("", notes.Single(n => n.Comment == "thêm mục báo cáo").Quote);
+        Assert.Equal("đơn nghỉ phép", notes.Single(n => n.Comment == "đổi thành đơn xin nghỉ").Quote);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_NoNotes_ReturnsNoNotes_AndDoesNotTrigger()
     {
         var orchestrator = new FakeOrchestrator();
@@ -79,7 +109,7 @@ public class ReviseBriefFromNotesUseCaseTests : IDisposable
     }
 
     private static ReviseBriefFromNotesUseCase NewSut(AppDbContext db, IWorkflowOrchestrator orchestrator) =>
-        new(new BAConversationLog(db), new BAAgentResolver(db), new GenerateRequirementDraftUseCase(orchestrator));
+        new(db, new BAConversationLog(db), new BAAgentResolver(db), new GenerateRequirementDraftUseCase(orchestrator));
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 

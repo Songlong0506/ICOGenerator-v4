@@ -390,21 +390,32 @@ public class CloneProjectUseCase
             _db.PocComments.Add(new PocComment
             {
                 ProjectId = cloneProjectId,
+                Target = comment.Target,
+                BriefVersion = comment.BriefVersion,
                 PageView = comment.PageView,
                 ElementLabel = comment.ElementLabel,
                 ElementPath = comment.ElementPath,
                 XPercent = comment.XPercent,
                 YPercent = comment.YPercent,
+                Quote = comment.Quote,
                 Comment = comment.Comment,
                 Status = comment.Status,
+                Route = comment.Route,
                 CreatedByUsername = comment.CreatedByUsername,
                 CreatedAt = comment.CreatedAt,
                 AddressedAtUtc = comment.AddressedAtUtc,
-                AddressedNote = comment.AddressedNote
+                AddressedNote = comment.AddressedNote,
+                WithdrawnAtUtc = comment.WithdrawnAtUtc,
+                WithdrawnByUsername = comment.WithdrawnByUsername
+                // RevisionTaskId KHÔNG chép: nó trỏ tới AgentTask của dự án GỐC, mà bản sao có bộ task id
+                // riêng. Dòng lịch sử của bản sao vẫn còn bàn giao cắt gọn ở AddressedNote.
             });
         }
 
-        return comments.Count;
+        // Con trỏ harvest đếm theo các ghi chú Sent (xem PocFeedbackMemoryService) — đếm cả ghi chú Brief
+        // hay ghi chú đã thu hồi vào đây là đẩy con trỏ vượt quá, và bài học của những vòng SAU của bản sao
+        // sẽ bị bỏ qua.
+        return comments.Count(c => c.Status == PocCommentStatus.Sent);
     }
 
     /// <summary>

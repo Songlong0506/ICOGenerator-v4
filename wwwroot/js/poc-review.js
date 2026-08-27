@@ -1,6 +1,7 @@
 // poc-review.js — trang cha của POC Review: giữ danh sách ghi chú + form ghim, nói chuyện với
-// annotator trong iframe POC (poc-annotator.js) qua postMessage. Mọi thao tác GHI (thêm/xóa ghi chú)
+// annotator trong iframe POC (poc-annotator.js) qua postMessage. Mọi thao tác GHI (thêm/thu hồi ghi chú)
 // đều đi từ trang cha (same-origin, có cookie + antiforgery); iframe sandbox không gọi được gì.
+// Ghi chú KHÔNG bị xoá: nút 🗑 thu hồi (dòng rời danh sách này nhưng ở lại bảng lịch sử phía dưới).
 (function () {
     "use strict";
 
@@ -10,9 +11,12 @@
 
     const commentsUrl = root.dataset.commentsUrl;
     const addUrl = root.dataset.addUrl;
-    const deleteUrl = root.dataset.deleteUrl;
+    const withdrawUrl = root.dataset.withdrawUrl;
     const reopenUrl = root.dataset.reopenUrl;
     const projectId = root.dataset.projectId;
+    // Bản Brief mà POC đang phục vụ được dựng từ đó — ghi chú của bản này không cần nhãn, các bản
+    // trước thì có.
+    const currentBriefVersion = root.dataset.briefVersion || "";
 
     // Nút "Bật chế độ ghim" nay là nút của command bar (icon <i> + <span class="cbar-label">), không
     // còn là nút chữ trơn: ghi đè textContent của CẢ nút sẽ xoá luôn thẻ icon, nên chỉ đổi chữ trong
@@ -79,6 +83,13 @@
         }
     }
 
+    // Ghi chú của bản Brief NÀO. Danh sách cố ý giữ cả ghi chú của các bản trước (mất chúng đúng là thứ
+    // người dùng phàn nàn), nên phải có nhãn để vòng review thứ hai trở đi không nhầm thế hệ.
+    function versionBadge(briefVersion) {
+        if (!briefVersion || briefVersion === currentBriefVersion) return "";
+        return `<span class="poc-badge version" title="Ghi chú của bản Product Brief ${escapeHtml(briefVersion)}">${escapeHtml(briefVersion)}</span>`;
+    }
+
     function statusBadge(status) {
         if (status === "Sent") return '<span class="poc-badge sent">đã gửi Dev</span>';
         // "Đã xử lý": vòng chỉnh sửa mang ghi chú này đã chạy xong. Người review cần phân biệt được nó
@@ -113,8 +124,9 @@
                 <div class="poc-comment-head">
                     <span class="poc-pin-no${c.status === "Sent" ? " sent" : ""}">${c.index}</span>
                     <span class="poc-comment-target" title="${escapeHtml(c.elementPath || "")}">${escapeHtml(c.elementLabel || "Vị trí trên trang")}</span>
+                    ${versionBadge(c.briefVersion)}
                     ${statusBadge(c.status)}
-                    ${c.canDelete ? `<button type="button" class="poc-comment-del" data-id="${c.id}" title="Xóa ghi chú">🗑</button>` : ""}
+                    ${c.canDelete && c.status === "Open" ? `<button type="button" class="poc-comment-del" data-id="${c.id}" title="Thu hồi ghi chú (vẫn giữ trong lịch sử)">🗑</button>` : ""}
                 </div>
                 ${c.pageView ? `<div class="poc-comment-view">Màn hình: ${escapeHtml(c.pageView)}</div>` : ""}
                 <div class="poc-comment-text">${escapeHtml(c.comment)}</div>
@@ -263,17 +275,19 @@
     commentsPanel.addEventListener("click", async function (e) {
         const del = e.target.closest(".poc-comment-del");
         if (del) {
-            if (!confirm("Xóa ghi chú này?")) return;
+            if (!confirm("Thu hồi ghi chú này? Nó rời danh sách nhưng vẫn còn trong bảng lịch sử bên dưới.")) return;
 
             const fd = new FormData();
             fd.append("id", del.dataset.id);
             if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
 
             try {
-                const response = await fetch(deleteUrl, { method: "POST", body: fd });
-                if (!response.ok) throw new Error();
-            } catch {
-                alert("Không xóa được ghi chú.");
+                const response = await fetch(withdrawUrl, { method: "POST", body: fd });
+                // 400 = ghi chú đã gửi đi xử lý (không thu hồi được nữa) — nói đúng lý do thay vì
+                // "không thu hồi được", vì người dùng sẽ bấm lại mãi.
+                if (!response.ok) throw new Error(response.status === 400 ? await response.text() : "");
+            } catch (err) {
+                alert(err && err.message ? err.message : "Không thu hồi được ghi chú.");
                 return;
             }
 

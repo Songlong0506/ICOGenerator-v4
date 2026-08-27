@@ -444,15 +444,43 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
 .poc-tech-tab.active .poc-tech-badge { background: rgba(255, 255, 255, .28); }
 
-/* ==== Nhật ký vòng sửa (changelog) ==== */
+/* ==== Lịch sử ghi chú (thay panel "Nhật ký vòng sửa" cũ) ==== */
 
-.poc-changelog { margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 12px; }
+.poc-history { margin-top: 16px; border-top: 1px solid var(--line, #e5e7eb); padding-top: 12px; }
 
-.poc-changelog-item { margin-bottom: 8px; }
+.poc-history-version { margin-bottom: 10px; }
 
-    .poc-changelog-item > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+    .poc-history-version > summary { cursor: pointer; font-size: 12.5px; padding: 4px 0; }
 
-    .poc-changelog-item pre { white-space: pre-wrap; font-family: inherit; font-size: 12px; line-height: 1.55; background: var(--surface-alt, #fafafa); border: 1px solid var(--line, #e5e7eb); border-radius: 8px; padding: 8px 10px; margin: 6px 0 0; max-height: 260px; overflow-y: auto; }
+/* Bảng rộng hơn cột thì CUỘN TRONG KHUNG của nó — không được đẩy cả trang trượt ngang. */
+.poc-history-scroll { overflow-x: auto; }
+
+.poc-history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+    .poc-history-table th,
+    .poc-history-table td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line, #e5e7eb); }
+
+    .poc-history-table th { font-weight: 600; color: var(--muted, #6b7280); white-space: nowrap; }
+
+    .poc-history-table td:nth-child(3),
+    .poc-history-table td:nth-child(4) { white-space: nowrap; color: var(--muted, #6b7280); }
+
+    /* Dòng đã thu hồi vẫn đọc được nhưng phải nhìn ra ngay là "không còn hiệu lực". */
+    .poc-history-table tr.is-withdrawn td { opacity: .6; }
+
+    .poc-history-table tr.is-withdrawn .poc-history-note { text-decoration: line-through; }
+
+.poc-history-route { margin-top: 4px; color: var(--muted, #6b7280); white-space: nowrap; }
+
+.poc-history-anchor { color: var(--muted, #6b7280); margin-bottom: 2px; }
+
+.poc-history-note { line-height: 1.5; }
+
+.poc-history-withdrawn { margin-top: 3px; color: #b91c1c; }
+
+.poc-history-log > summary { cursor: pointer; color: #1d4ed8; white-space: nowrap; }
+
+.poc-history-log pre { white-space: pre-wrap; font-family: inherit; font-size: 12px; line-height: 1.55; background: var(--surface-alt, #fafafa); border: 1px solid var(--line, #e5e7eb); border-radius: 8px; padding: 8px 10px; margin: 6px 0 0; max-height: 260px; overflow-y: auto; }
 
 /* Đường đóng vòng DUY NHẤT của panel: gửi ghi chú đi xử lý (server phân loại, người dùng soát trong
    hộp xác nhận rồi mỗi đường nhận đúng tập con của nó). */
@@ -545,6 +573,9 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 .poc-badge.done { background: #dcfce7; color: #166534; }
 
 .poc-badge.routed { background: #ede9fe; color: #5b21b6; }
+
+/* Nhãn phiên bản Brief trên ghi chú của THẾ HỆ TRƯỚC (ghi chú của bản đang xem không gắn nhãn). */
+.poc-badge.version { background: #e0f2fe; color: #075985; }
 
 .poc-comment-addressed {
     margin-top: 6px;

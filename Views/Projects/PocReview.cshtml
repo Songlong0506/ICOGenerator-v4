@@ -1,4 +1,34 @@
 @model ICOGenerator.Application.Projects.PocReviewPage
+@using ICOGenerator.Application.Projects
+@functions {
+    // Nhãn thuần trình bày cho bảng lịch sử. Để ở view vì chúng chỉ là chữ hiển thị — query trả về
+    // enum/khoá, không trả chuỗi tiếng Việt (chuỗi trong dữ liệu là thứ sau này không đổi được).
+    private static string KindLabel(PocNoteHistoryKind kind) => kind switch
+    {
+        PocNoteHistoryKind.BriefNote => "Ghi chú Brief",
+        PocNoteHistoryKind.Revision => "Vòng Dev sửa",
+        _ => "Ghi chú POC"
+    };
+
+    private static string KindClass(PocNoteHistoryKind kind) => kind switch
+    {
+        PocNoteHistoryKind.BriefNote => "routed",
+        PocNoteHistoryKind.Revision => "done",
+        _ => "open"
+    };
+
+    // Đường xử lý của dòng: đã gửi đi đâu, hoặc còn chờ. Dòng đã thu hồi thì đường đi không còn nghĩa.
+    private static string RouteLabel(PocNoteHistoryRow row)
+    {
+        if (row.Withdrawn) return "không gửi";
+        return row.Route switch
+        {
+            "FixPoc" => "→ Dev chỉnh demo",
+            "Requirement" => "→ BA sửa tài liệu",
+            _ => "chưa gửi"
+        };
+    }
+}
 @{
     ViewData["Title"] = "POC Review";
     var canManage = ViewBag.CanManageComments is bool cm && cm;
@@ -184,10 +214,11 @@
      data-project-id="@Model.ProjectId"
      data-comments-url="@Url.Action("PocComments", "Projects", new { projectId = Model.ProjectId })"
      data-add-url="@Url.Action("AddPocComment", "Projects")"
-     data-delete-url="@Url.Action("DeletePocComment", "Projects")"
+     data-withdraw-url="@Url.Action("WithdrawPocComment", "Projects")"
      data-reopen-url="@Url.Action("ReopenPocComment", "Projects")"
      data-triage-url="@Url.Action("TriagePocFeedback", "Projects")"
      data-dispatch-url="@Url.Action("DispatchPocFeedback", "Projects")"
+     data-brief-version="@Model.BriefVersion"
      data-gate-open="@(Model.PocGateOpen ? "true" : "false")"
      data-revisions-used="@Model.PocRevisionsUsed"
      data-revision-limit="@Model.PocRevisionLimit">
@@ -304,17 +335,79 @@
                 <p class="muted">Đang tải ghi chú…</p>
             </div>
 
-            @* Changelog các vòng "Yêu cầu chỉnh sửa" đã chạy: bàn giao cuối của agent nêu đã đổi gì ứng với
-               từng ghi chú — người review thấy ngay POC mới khác gì thay vì phải tự so hai bản. *@
-            @if (Model.Revisions.Any())
+            @* LỊCH SỬ — thay cho panel "Nhật ký vòng sửa" cũ. Panel cũ chỉ có bàn giao của agent, nên nửa
+               còn lại của câu chuyện (ai chê gì ở bản nào, điểm đó đi đường nào) không truy lại được sau
+               khi Brief lên version mới. Bảng này gom cả ba nguồn về một dòng thời gian, gom theo phiên bản
+               Product Brief, và KHÔNG có hành động nào: dòng lịch sử không bao giờ bị xoá — ghi chú bỏ đi
+               chỉ được đóng dấu "đã thu hồi" (xem WithdrawPocCommentUseCase). *@
+            @if (Model.History.Any())
             {
-                <div class="poc-changelog">
-                    <h3>Nhật ký vòng sửa <span class="poc-count">(@Model.Revisions.Count)</span></h3>
-                    @foreach (var revision in Model.Revisions)
+                <div class="poc-history">
+                    <h3>Lịch sử ghi chú <span class="poc-count">(@Model.History.Sum(v => v.Rows.Count) mục / @Model.History.Count bản)</span></h3>
+                    <p class="muted poc-panel-hint">
+                        Mọi ghi chú của mọi phiên bản Product Brief — kể cả ghi chú trên bản mô tả và các dòng đã thu hồi.
+                        Không dòng nào bị xoá.
+                    </p>
+
+                    @foreach (var (version, versionIndex) in Model.History.Select((v, i) => (v, i)))
                     {
-                        <details class="poc-changelog-item">
-                            <summary>@revision.Title@(revision.FinishedAt.HasValue ? $" · {revision.FinishedAt.Value.ToLocalTime():dd/MM HH:mm}" : "")</summary>
-                            <pre>@revision.Output</pre>
+                        <details class="poc-history-version" open="@(versionIndex == 0)">
+                            <summary>
+                                <b>@(string.IsNullOrEmpty(version.BriefVersion) ? "Không rõ phiên bản" : $"Product Brief {version.BriefVersion}")</b>
+                                <span class="poc-count">(@version.Rows.Count)</span>
+                            </summary>
+                            <div class="poc-history-scroll">
+                                <table class="poc-history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Loại</th>
+                                            <th>Nội dung</th>
+                                            <th>Người tạo</th>
+                                            <th>Thời điểm</th>
+                                            <th>Đã xử lý</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var row in version.Rows)
+                                        {
+                                            <tr class="@(row.Withdrawn ? "is-withdrawn" : "")">
+                                                <td>
+                                                    <span class="poc-badge @KindClass(row.Kind)">@KindLabel(row.Kind)</span>
+                                                    <div class="poc-history-route">@RouteLabel(row)</div>
+                                                </td>
+                                                <td>
+                                                    @if (!string.IsNullOrWhiteSpace(row.Anchor))
+                                                    {
+                                                        <div class="poc-history-anchor">@row.Anchor</div>
+                                                    }
+                                                    <div class="poc-history-note">@row.Note</div>
+                                                    @if (row.Withdrawn)
+                                                    {
+                                                        <div class="poc-history-withdrawn">
+                                                            đã thu hồi@(string.IsNullOrWhiteSpace(row.WithdrawnBy) ? "" : $" bởi {row.WithdrawnBy}")
+                                                        </div>
+                                                    }
+                                                </td>
+                                                <td>@(row.CreatedBy ?? "agent Developer")</td>
+                                                <td>@row.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                                <td>
+                                                    @if (string.IsNullOrWhiteSpace(row.RepairLog))
+                                                    {
+                                                        <span class="muted">—</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <details class="poc-history-log">
+                                                            <summary>@(row.RepairedAt.HasValue ? row.RepairedAt.Value.ToLocalTime().ToString("dd/MM HH:mm") : "xem bàn giao")</summary>
+                                                            <pre>@row.RepairLog</pre>
+                                                        </details>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
                         </details>
                     }
                 </div>
