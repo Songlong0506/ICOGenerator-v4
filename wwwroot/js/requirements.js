@@ -4484,6 +4484,7 @@ async function loadDocPreview(previewEl) {
     const countEl = document.getElementById("briefNotesCount");
     const sendBtn = document.getElementById("briefNotesSendBtn");
     const addNoteBtn = document.getElementById("briefAddNoteBtn"); // chỉ dựng cho bản draft
+    const approveForm = document.getElementById("briefApproveForm"); // chỉ dựng cho bản draft
     // Phải neo đúng vào popup Product Brief: trang này còn popup "Tài liệu nguồn" cũng dùng class
     // .requirement-content và đứng TRƯỚC trong DOM, nên querySelector không gắn id sẽ bắt nhầm nó và
     // không bao giờ tìm thấy .doc-render → bôi đen xong không thấy nút "＋ Ghi chú" hiện lên.
@@ -4511,7 +4512,15 @@ async function loadDocPreview(previewEl) {
     function renderNotes() {
         countEl.textContent = `(${notes.length})`;
         tray.hidden = notes.length === 0;
+
+        // Ô hành động chính bên phải chỉ chứa MỘT nút: còn ghi chú chưa gửi thì đó là "Gửi ghi chú cho
+        // BA sửa", hết ghi chú thì trả lại Approve. Ghi chú chỉ nằm trong mảng `notes` của trang này
+        // cho tới khi gửi, mà Approve là form POST cả trang — bấm Approve lúc khay còn ghi chú là mất
+        // trắng chúng và POC dựng từ bản draft chưa sửa. Đây là chốt chặn cố ý, đừng đổi thành cảnh
+        // báo `confirm()`: approve kèm ghi chú chưa gửi không có ca dùng đúng nào. Muốn approve thật
+        // thì xoá ghi chú bằng nút thùng rác — bỏ ghi chú là một hành động có ý thức, không âm thầm.
         sendBtn.hidden = notes.length === 0;
+        if (approveForm) approveForm.hidden = notes.length > 0;
         listEl.innerHTML = notes.map((n, i) => `
             <li class="brief-note-item">
                 ${n.quote

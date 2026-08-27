@@ -764,8 +764,8 @@
         gap: 12px;
     }
 
-    /* Đẩy cụm nút ghi chú ("＋ Thêm ghi chú" + "Gửi ghi chú cho BA sửa") về sát trái để tách khỏi nút
-       Approve bên phải; khi cả hai nút cùng ẩn thì cụm rỗng, Approve vẫn nằm bên phải. */
+    /* Đẩy "＋ Thêm ghi chú" về sát trái để tách khỏi ô hành động chính bên phải; khi nút này ẩn thì
+       cụm rỗng, nút bên phải vẫn nằm đúng góc phải. */
     .modal-footer-notes {
         margin-right: auto;
         display: flex;
@@ -774,9 +774,11 @@
     }
 
     /* `.btn { display: inline-flex }` của site.css thắng luật `[hidden] { display: none }` của trình
-       duyệt (specificity 0-1-0 so với 0-0-0), nên thuộc tính `hidden` một mình KHÔNG ẩn được hai nút
-       này — cả hai đều bật/tắt bằng `hidden` (chưa có ghi chú nào / đang mở bản đã duyệt V{n}). */
-    .modal-footer-notes .btn[hidden] { display: none; }
+       duyệt (specificity 0-1-0 so với 0-0-0), nên thuộc tính `hidden` một mình KHÔNG ẩn được các nút
+       trong chân popup — cả ba chỗ đều bật/tắt bằng `hidden`: "＋ Thêm ghi chú" (đang mở bản đã duyệt
+       V{n}), và cặp "Gửi ghi chú" ⇄ form Approve hoán đổi theo số ghi chú đang có. */
+    .modal-footer .btn[hidden],
+    .modal-footer form[hidden] { display: none; }
 
     .workflow-progress {
         border: 1px solid var(--info-border);

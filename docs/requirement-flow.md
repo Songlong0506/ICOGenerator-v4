@@ -1573,6 +1573,19 @@ cho BA sửa" ⇒ `POST /Requirements/ReviseBrief` gom tối đa 30 ghi chú th�
 transcript rồi chạy lại vòng "Write Requirement" — Brief luôn sinh từ transcript, ghi chú không sửa
 thẳng file.
 
+**Còn ghi chú chưa gửi thì không approve được.** Ô hành động ở góc phải chân popup chỉ chứa ĐÚNG MỘT
+nút, `renderNotes` hoán đổi theo số ghi chú đang có: khay rỗng ⇒ "Approve this requirement"; có ≥ 1 ghi
+chú ⇒ "Gửi ghi chú cho BA sửa", form Approve bị ẩn. Lý do là hai đường này không hề gặp nhau ở phía
+server: ghi chú chỉ sống trong mảng `notes` của trang cho tới lúc bấm gửi (không lưu DB, không
+`localStorage`), còn `ApproveRequirementUseCase.ExecuteAsync` chỉ nhận `projectId` rồi promote **nguyên
+trạng** file draft lên `V{n}` và khởi động AI Design Spec → POC. Nên approve khi khay còn ghi chú luôn
+là thao tác sai: ghi chú mất trắng (Approve là POST cả trang) và POC dựng từ bản chưa sửa — trong khi
+khay hiện "(4)" ngay cạnh nút trông như thể chúng đã được ghi nhận.
+
+Chặn hẳn chứ **đừng đổi thành `confirm()`**: cảnh báo hợp lý khi cả hai lựa chọn đều có ca dùng đúng,
+còn ở đây "approve kèm ghi chú chưa gửi" không có ca dùng đúng nào. Ai đổi ý thì xoá ghi chú bằng nút
+thùng rác ở từng dòng — bỏ ghi chú thành một hành động có ý thức thay vì một mất mát âm thầm.
+
 ### File .docx sinh ra: Markdown thành tài liệu Word thật
 
 LLM trả nội dung ở dạng **Markdown**, còn thứ người dùng tải về và **gửi cấp trên duyệt** là file `.docx`.
