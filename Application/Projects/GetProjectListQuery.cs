@@ -11,15 +11,18 @@ public class GetProjectListQuery
     private readonly AppDbContext _db;
     private readonly WorkspacePathResolver _workspacePathResolver;
     private readonly UserDisplayNameResolver _displayNames;
+    private readonly ProjectStatusResolver _statuses;
 
     public GetProjectListQuery(
         AppDbContext db,
         WorkspacePathResolver workspacePathResolver,
-        UserDisplayNameResolver displayNames)
+        UserDisplayNameResolver displayNames,
+        ProjectStatusResolver statuses)
     {
         _db = db;
         _workspacePathResolver = workspacePathResolver;
         _displayNames = displayNames;
+        _statuses = statuses;
     }
 
     public const int DefaultPageSize = 10;
@@ -92,6 +95,9 @@ public class GetProjectListQuery
         var displayNameByUsername = await _displayNames.ResolveManyAsync(
             rows.Select(r => r.Project.CreatedByUsername));
 
+        // Chặng của các dự án đang hiện trên trang (một truy vấn gộp, suy dưới DB) — xem ProjectStatusResolver.
+        var statusByProjectId = await _statuses.ResolveManyAsync(rows.Select(r => r.Project.Id));
+
         var items = rows
             .Select(row =>
             {
@@ -105,6 +111,11 @@ public class GetProjectListQuery
 
                 return new ProjectListItem(
                     row.Project,
+                    // Dự án luôn có mặt trong dict (vừa đọc lên từ cùng bảng); fallback chỉ để không ném
+                    // NRE nếu ai đó xoá dự án đúng giữa hai truy vấn.
+                    statusByProjectId.GetValueOrDefault(
+                        row.Project.Id,
+                        new ProjectStatusRow(row.Project.Id, ProjectStatus.New, false)),
                     File.Exists(_workspacePathResolver.GetMockupPath(projectKey)),
                     latestWorkflow?.Status.ToString(),
                     latestWorkflow?.CurrentStage.ToString(),

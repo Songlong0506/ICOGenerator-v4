@@ -102,12 +102,12 @@
 }
 <div class="card table-card">
     <table>
-        <thead><tr><th>Project Name</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th class="actions-col">Actions</th></tr></thead>
+        <thead><tr><th>Project Name</th><th>Status</th><th>Description</th><th>Created By</th><th>Org Unit</th><th>Created At</th><th class="actions-col">Actions</th></tr></thead>
         <tbody>
             @if (Model.Items.Count == 0)
             {
                 <tr>
-                    <td colspan="6" style="text-align:center; color:var(--muted); padding:24px;">
+                    <td colspan="7" style="text-align:center; color:var(--muted); padding:24px;">
                         @(hasFilter ? "Không có dự án nào khớp với bộ lọc." : "Chưa có dự án nào.")
                     </td>
                 </tr>
@@ -121,6 +121,9 @@
                             <b>@p.Name</b>
                         </div>
                     </td>
+                    @* Chặng của dự án nhìn từ phía người yêu cầu (New → POC Approve). Suy ra tại chỗ,
+                       không có cột nào lưu sẵn — xem ProjectStatusResolver. *@
+                    <td><partial name="_ProjectStatusBadge" model="item.Status" /></td>
                     @* Mô tả có thể dài (tới 2000 ký tự) — kẹp còn 2 dòng để chiều cao các dòng bảng đều
                        nhau, xem đầy đủ qua tooltip hoặc modal Chỉnh sửa. *@
                     <td><span class="project-desc" title="@p.Description">@p.Description</span></td>

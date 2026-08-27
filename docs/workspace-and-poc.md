@@ -151,6 +151,9 @@ Nút **Approve POC** đứng ở **nút chính của command bar** trang POC Rev
 xuất hiện: đã nghiệm thu ⇒ chỉ có **Withdraw Approve**; chưa ⇒ chỉ có **Approve POC**. Cả hai đòi
 `RequirementsManage` — khoá này thuộc phía người yêu cầu, không phải một cổng của delivery.
 
+Bấm Approve cũng đưa dự án sang chặng **POC Approve** — chặng cuối của
+[`ProjectStatus`](overview.md#chặng-của-dự-án-projectstatus), hiện thành badge kèm ổ khoá ở đầu trang này.
+
 Bấm Approve là **chốt nội dung lại**: từ lúc đó cả hai phía đều ngừng nhận thay đổi.
 
 | Bị khoá | Endpoint |

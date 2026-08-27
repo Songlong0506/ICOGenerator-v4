@@ -1,0 +1,31 @@
+@using ICOGenerator.Application.Projects
+@using ICOGenerator.Domain.Enums
+@model ProjectStatusRow
+@{
+    // BADGE CHẶNG DỰ ÁN — dùng chung cho mọi màn hình hiển thị trạng thái (danh sách Projects, đầu trang
+    // POC Review). Một partial thay vì lặp bảng màu ở từng view: hai bản sao sẽ lệch màu/lệch chữ ngay ở
+    // lần thêm chặng kế tiếp. Nguồn chữ là [Description] của enum, nguồn giá trị là ProjectStatusResolver.
+    var tone = Model.Status switch
+    {
+        ProjectStatus.New => "gray",
+        ProjectStatus.GetRequirement => "blue",
+        ProjectStatus.ProductBriefDraft => "orange",
+        ProjectStatus.ProductBriefApproved => "green",
+        ProjectStatus.PocApproved => "green",
+        _ => "gray"
+    };
+
+    // Đã duyệt Brief mà vẫn còn bản nháp mới (vòng soạn lại từ ghi chú) — chặng KHÔNG tụt hạng, nhưng
+    // người xem cần biết là đang có bản chờ duyệt, nếu không badge "đã duyệt" che mất việc còn dở.
+    var pending = Model.HasPendingBriefDraft;
+    var title = pending
+        ? $"{Model.Status.GetTitle()} — đang có bản nháp Product Brief mới chờ duyệt"
+        : Model.Status.GetTitle();
+}
+<span class="badge @tone project-status" title="@title">
+    @Model.Status.GetTitle()@(pending ? " · đang sửa" : "")
+    @if (Model.Status == ProjectStatus.PocApproved)
+    {
+        <i class="bi bi-lock-fill" aria-hidden="true" title="Nội dung đang khoá — chat và ghi chú chỉ đọc"></i>
+    }
+</span>

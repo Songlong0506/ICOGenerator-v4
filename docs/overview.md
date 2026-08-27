@@ -80,6 +80,39 @@ sequenceDiagram
     W-->>U: progress qua in-memory reporter/SSE
 ```
 
+## Chặng của dự án (`ProjectStatus`)
+
+Năm chặng của hành trình nhìn từ phía **người yêu cầu**, hiển thị thành badge ở cột `Status` của danh
+sách Projects và ở đầu trang POC Review:
+
+| Chặng | Đạt khi | Suy từ |
+|---|---|---|
+| **New** | chưa từng chat với BA | không có `AgentConversation` nào |
+| **Get requirement** | đang phỏng vấn | đã có lượt chat, chưa có Product Brief |
+| **Product Brief Draft** | đã bấm "Write Requirement" | có `ProductBrief.docx` chưa duyệt |
+| **Product Brief Approve** | user đã duyệt Brief | có `ProductBrief.docx` `IsApproved` |
+| **POC Approve** | user đã bấm "Approve POC" | `Project.PocAcceptedAtUtc != null` |
+
+**Không có cột `Projects.Status`** — giá trị được SUY RA tại chỗ (`Application/Projects/ProjectStatusResolver`,
+một biểu thức EF chạy thẳng xuống SQL thành `CASE` + `EXISTS`). Lý do: mỗi chặng đã có nguồn chân lý riêng
+và có nhiều đường ghi vào nó (duyệt Brief, soạn lại Brief từ ghi chú POC, từ chối cổng, nhân bản dự án,
+nghiệm thu/rút nghiệm thu); một cột lưu sẵn buộc mọi đường phải nhớ cập nhật, quên một đường là badge nói
+dối mà không test nào bắt được.
+
+Hai luật của phép suy:
+
+- **Chặng CAO NHẤT đã đạt**, không phải "đang làm". Dự án đã duyệt Brief rồi soạn lại bản nháp mới vẫn là
+  *Product Brief Approve*, kèm cờ `HasPendingBriefDraft` (badge thêm "· đang sửa") — nếu tụt về *Draft*
+  thì mỗi vòng góp ý sẽ làm badge nhảy tới nhảy lui.
+- **"Chưa chat gì hết" = chưa TỪNG chat.** `AgentConversation` có query filter `ArchivedAt == null` còn
+  "＋ New Chat" chỉ đóng dấu `ArchivedAt`, nên phép đếm chạy dưới `IgnoreQueryFilters()`; không thì dự án
+  đã phỏng vấn cả buổi rồi bấm New Chat sẽ rơi ngược về *New*.
+
+`ProjectStatus` **khác** `WorkflowStageKey`: enum này kể chặng của người yêu cầu, `WorkflowStageKey` kể
+bước kỹ thuật của delivery pipeline — cả pipeline nằm gọn giữa *Product Brief Approve* và *POC Approve*
+(xem [delivery-pipeline.md](delivery-pipeline.md)). Chặng *POC Approve* cũng là chặng KHOÁ nội dung, chi
+tiết ở [workspace-and-poc.md](workspace-and-poc.md).
+
 ## Định nghĩa “done” trong hệ thống
 
 Một project được coi là đi hết delivery khi:

@@ -120,7 +120,11 @@ public class GetProjectListQueryTests : IDisposable
                 ["AgentWorkspace:RootPath"] = Path.Combine(Path.GetTempPath(), "ico-tests")
             })
             .Build();
-        return new GetProjectListQuery(db, new WorkspacePathResolver(configuration), new UserDisplayNameResolver(db));
+        return new GetProjectListQuery(
+            db,
+            new WorkspacePathResolver(configuration),
+            new UserDisplayNameResolver(db),
+            new ProjectStatusResolver(db, new ProjectArtifactCatalog()));
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());

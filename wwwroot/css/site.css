@@ -647,6 +647,13 @@ tbody tr:hover { background: var(--table-hover); }
 .badge.orange { color: var(--warning); background: rgba(245,130,32,.16); }
 .badge.gray { color: var(--muted); background: #e7eaec; }
 
+/* Badge CHẶNG DỰ ÁN (Shared/_ProjectStatusBadge) — dùng ở cột Status của danh sách Projects và ở đầu
+   trang POC Review. Không xuống dòng: nhãn hai-ba chữ bị ngắt giữa chừng làm chiều cao các dòng bảng
+   so le, đúng thứ mà cột mô tả đã phải kẹp 2 dòng để tránh. */
+.project-status { white-space: nowrap; }
+.project-status .bi { margin-left: 4px; font-size: 11px; vertical-align: baseline; }
+.page-head > .project-status { align-self: center; }
+
 /* ---------- Pager (Bosch standard table footer) ----------
    One footer for every table: an "Elements per page" selector on the left and
    a numbered page strip on the right (chevron ‹ ›, round page buttons, the
