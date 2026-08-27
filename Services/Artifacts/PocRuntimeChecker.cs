@@ -559,8 +559,9 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         if (scenarios.Count == 0)
             return results;
 
-        foreach (var scenario in scenarios.Take(MaxUatScenarios))
+        for (var index = 0; index < scenarios.Count && index < MaxUatScenarios; index++)
         {
+            var scenario = scenarios[index];
             cancellationToken.ThrowIfCancellationRequested();
             setCurrentScreen($"UAT: {scenario.Title}");
 
@@ -589,7 +590,9 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     var step = scenario.Steps[i];
-                    var outcome = await RunUatStepAsync(page, step);
+                    // Neo do agent khai báo (data-uat="{kịch bản}.{bước}") là đích CHÍNH XÁC của bước này;
+                    // lượt khớp nhãn bên dưới chỉ còn là đường lùi cho POC chưa gắn neo.
+                    var outcome = await RunUatStepAsync(page, step, UatAnchor.Token(index, i));
 
                     switch (outcome.Status)
                     {
@@ -642,13 +645,15 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
 
     // Một bước kịch bản: tìm điều khiển ứng với bước → chụp trạng thái → click → chờ → chụp lại → so.
     // Toàn bộ chạy trong MỘT evaluate (async) để không phải đi lại nhiều vòng giữa C# và trang.
-    private static async Task<UatStepOutcome> RunUatStepAsync(IPage page, string step)
+    private static async Task<UatStepOutcome> RunUatStepAsync(IPage page, string step, string anchor)
     {
         try
         {
             var json = await page.EvaluateAsync<string>(
                 """
-                async (step) => {
+                async (arg) => {
+                  const step = arg.step;
+                  const anchor = arg.anchor;
                   const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
                   const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
                   // Nhãn của một phần tử ĐANG BỊ ẩn (mục menu trong nhóm chưa xổ) có innerText rỗng, nên
@@ -713,7 +718,29 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                   let label = '';
                   let quotedTried = 0;
 
-                  for (const q of quoted) {
+                  // NEO CHỈ CHỖ trước, đoán nhãn sau. Agent dựng POC đã khai báo phần tử của TỪNG bước
+                  // (data-uat="{kịch bản}.{bước}", xem UatAnchor/PocUatAnchors), nên ở đây không cần suy
+                  // ra điều khiển từ câu tiếng Việt nữa — suy ra là nguồn của cả lớp "bấm trúng nút khác
+                  // vì nhãn nó là khúc con của câu bước".
+                  //
+                  // Chỉ nhận neo trỏ vào thứ BẤM ĐƯỢC: bước kiểm tra neo vào ô trạng thái/dòng bảng (đúng
+                  // theo quy ước), click nó không chứng minh gì mà lại bị chấm "nút chết". Neo không bấm
+                  // được ⇒ rơi xuống lượt khớp nhãn y như trước, nên đường neo chỉ thêm độ chính xác chứ
+                  // không cắt mất độ phủ của cổng này.
+                  if (anchor) {
+                    const anchored = document.querySelector('[data-uat~="' + anchor + '"]');
+                    const clickableSel = 'button, a, [role=button], input[type=submit], input[type=button], .btn,'
+                      + ' [data-crud-add], .sidebar-nav .nav-item, .view-as-item';
+                    if (anchored && visible(anchored)) {
+                      const hit = anchored.matches(clickableSel) ? anchored : anchored.querySelector(clickableSel);
+                      if (hit && visible(hit)) {
+                        target = hit;
+                        label = labelOf(hit) || anchor;
+                      }
+                    }
+                  }
+
+                  if (!target) for (const q of quoted) {
                     const nq = norm(q);
                     if (nq.length < 2) continue;
                     quotedTried++;
@@ -768,7 +795,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                     return JSON.stringify({ status: 'nobootstrap', label: label });
                   return JSON.stringify({ status: changed ? 'clicked' : 'dead', label: label });
                 }
-                """, step);
+                """, new { step, anchor });
 
             return System.Text.Json.JsonSerializer.Deserialize<UatStepOutcome>(json ?? "{}") ?? new UatStepOutcome();
         }
