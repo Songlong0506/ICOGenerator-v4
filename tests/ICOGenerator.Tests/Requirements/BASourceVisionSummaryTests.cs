@@ -59,7 +59,6 @@ public class BASourceVisionSummaryTests : IDisposable
             StoredPath = Path.Combine(_root, "technical-document.docx"),
             ExtractedText = "Testing Reference Belt Document. [Hình 1] [Hình 2] [Hình 3]",
             ScannedPageImageCount = 3,
-            IsVisionSource = true,
         });
         db.SaveChanges();
     }

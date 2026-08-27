@@ -55,12 +55,6 @@ public class ProjectSourceFile
     public string? ColumnMap { get; set; }
 
     /// <summary>
-    /// True nếu nguồn này có phần ẢNH cần model vision: file ảnh upload trực tiếp, PDF đã lấy được ảnh trang
-    /// scan hoặc hình nhúng, hoặc Word có hình nhúng đã lấy ra (<see cref="ScannedPageImageCount"/> &gt; 0).
-    /// </summary>
-    public bool IsVisionSource { get; set; }
-
-    /// <summary>
     /// TỔNG số ảnh PNG đã lấy ra từ nguồn, nằm cạnh file gốc: trang SCAN của PDF (tên <c>page-{n}.png</c> —
     /// xem <see cref="Services.Requirements.PdfScanPageRenderer"/>), hình nhúng trong trang PDF CÓ chữ (tên
     /// <c>figure-{n}.png</c> — xem <see cref="Services.Requirements.PdfFigureExtractor"/>), hoặc hình nhúng

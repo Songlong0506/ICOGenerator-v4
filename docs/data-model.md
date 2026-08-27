@@ -49,7 +49,7 @@
 | Bảng | Vai trò |
 |---|---|
 | `Feedbacks` + `FeedbackAttachments` | Phản hồi người dùng toàn app (bug/góp ý/trải nghiệm) kèm file đính kèm; file gốc lưu đĩa (`Feedback:UploadRootPath`), DB chỉ giữ metadata |
-| `OrgUnits` + `Associates` | Dữ liệu tổ chức đồng bộ từ HR_Portal (phòng ban, nhân sự) — nguyên liệu cho `OrganizationContextService` |
+| `OrgUnits` + `Associates` | Bản sao **rút gọn** dữ liệu tổ chức HR_Portal (phòng ban, nhân sự): chỉ những cột app thật sự đọc — xem ["Organization schema"](#organization-schema). Nguyên liệu cho `OrganizationContextService`, dropdown "Đơn vị yêu cầu", roll-up phòng ban ở màn Usage và gợi ý người nhận bản demo |
 | `Notifications` | Thông báo in-app (chuông): index `(RecipientUsername, IsRead, CreatedAt)` |
 | `EvalScenarios` / `EvalRuns` / `EvalResults` | Prompt eval harness (golden set + LLM-judge). Model/scenario tham chiếu bằng **Guid + snapshot tên, không FK** — xóa không mất lịch sử điểm |
 | `PromptTemplateVersions` | Phiên bản prompt chỉnh runtime (Prompt Studio): snapshot đầy đủ, unique `(PromptKey, VersionNumber)`, tối đa một `IsActive` mỗi key |
@@ -147,9 +147,9 @@ erDiagram
         string StoredPath
         string ExtractedText
         string ColumnMap
-        string PageImagePaths
         int PageCount
-        bool IsVisionSource
+        int ScannedPageImageCount
+        string VisionSummary
         string UploadedByUserId
         DateTime CreatedAt
     }
@@ -185,7 +185,7 @@ erDiagram
 - `Project.OrgUnitCode` không FK tới `OrgUnits` để project cũ vẫn giữ nhãn lịch sử nếu dữ liệu HR bị đồng bộ lại/xóa.
 - `ProjectDocumentRevision` có unique index `(ProjectDocumentId, RevisionNumber)` để bảo toàn thứ tự version.
 - `ProjectDocumentRevision.TriggerConversationId` **không FK** tới `AgentConversations` — cố ý. Lượt hội thoại bị xóa cứng ở đường retry (`BAChatService`) và bị lưu trữ ở "New Chat"; một ràng buộc cascade sẽ kéo theo cả revision, tức xóa mất lịch sử tài liệu vì một thao tác trên khung chat. Mốc trỏ hụt thì đường đọc lùi về `CreatedAt` của revision — xem [supporting-features.md](supporting-features.md#lịch-sử-revision-tài-liệu-sinh-ra-version-history--diff).
-- `ProjectSourceFile.ExtractedText` và `PageImagePaths` là LOB, dùng cho context BA/vision.
+- `ProjectSourceFile.ExtractedText` là LOB, dùng cho context BA/vision; ảnh lấy ra khỏi nguồn nằm trên đĩa cạnh file gốc, DB chỉ giữ `ScannedPageImageCount`.
 - `ProjectSourceFile.ColumnMap` (JSON `SourceColumnNote[]`) là **bảng cột đã được người dùng chốt** cho nguồn bảng tính: cột nào ứng dụng mới dùng và nghĩa của nó. `SourceContextBuilder` gắn nó vào ngữ cảnh mọi lượt chat, `RealSampleDataReader` lọc dữ liệu mẫu theo nó — xem [requirement-flow.md](requirement-flow.md#bảng-cột-chốt-phạm-vi-cột-của-file-bảng-tính). **Không** mã hóa at rest, cùng lý do với `ExtractedText` nằm cạnh nó dưới dạng plaintext.
 - `AgentConversation.ColumnMap` giữ **bản đề xuất** của BA ở lượt đọc file (để F5 không mất bảng chưa tích); nó là nội dung hội thoại nên **có** mã hóa at rest như `Message`/`Suggestions`/`Questions`.
 - `AgentConversation.ReadinessVerified` là **dấu đóng của cổng readiness**: `true` ⇔ tại thời điểm lượt đó được lưu, `RequirementReadinessGate.Evaluate` đã xét trên bản đồ bao phủ hiện hành và cho qua. Bước soạn tài liệu đọc cờ của lượt ĐANG ĐỨNG CUỐI để biết có được bỏ qua lần xét lại hay không — thay cho việc dò cụm "Write Requirement" trong transcript, thứ phụ thuộc vào chữ model sinh ra và bị mọi lượt ghi thêm phía sau xoá mất. Fail-closed: mặc định `false`, chỉ hai đường được bật — lượt chat (tự dựng, khi cổng vừa cho lời mời đi qua) và đường chốt mâu thuẫn (chỉ CHÉP LẠI cờ của lượt nó vừa đè lên, không bao giờ tự dựng). Xem [requirement-flow.md](requirement-flow.md#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn).
@@ -389,7 +389,6 @@ erDiagram
         string EntityId
         string Summary
         string ActorUsername
-        string ActorRole
         string BeforeJson
         string AfterJson
         DateTime CreatedAt
@@ -418,7 +417,6 @@ erDiagram
         string Link
         bool IsRead
         DateTime CreatedAt
-        DateTime ReadAt
     }
 
     Feedback {
@@ -502,7 +500,6 @@ erDiagram
         Guid EvalScenarioId "no fk"
         string ScenarioName
         string Output
-        Guid PromptVersionId "no fk"
         int PromptVersionNumber
         int Score
         string JudgeReasoning
@@ -535,10 +532,8 @@ erDiagram
         Guid Id PK
         string OrgUnitCode
         string DisplayName
-        string Description
-        string CostCenter
-        string DisciplinaryResponsible
         string TargetResponsible
+        string TrgtManagerLId
         bool IsDepartment
         bool IsDelete
     }
@@ -546,23 +541,29 @@ erDiagram
     Associate {
         Guid Id PK
         string PersonalNumber
-        string GlobalId
         string DisplayName
         string OrgUnitCode
         string OrganizationUnit
         string Email
         string Position
-        decimal StandardWorkingHour
-        bool IsIndirect
+        string UserId
+        DateTime LeavingDate
         bool IsDelete
     }
 ```
 
-Hai bảng này được seed từ dữ liệu HR_Portal mẫu. Index chính:
+Hai bảng này được seed từ dữ liệu HR_Portal mẫu (`Data/SeedData/*.ndjson`). Chúng chỉ giữ những cột
+có đường đọc thật trong app — dropdown "Đơn vị yêu cầu", roll-up phòng ban của màn Usage, gợi ý người
+nhận bản demo, và số liệu GỘP cho bối cảnh tổ chức của prompt BA. Các cột HR còn lại (ngày sinh, giới
+tính, điện thoại, địa chỉ đón, cost center, ngày vào làm, dấu vết created/updated…) **không** được sao
+sang đây: không nơi nào đọc, mà vẫn kéo hồ sơ cá nhân vào DB lẫn file seed trong repo. Đồng bộ lại từ
+HR_Portal thì chỉ sinh đúng các khoá trên.
+
+`OrgUnit.TargetResponsible` là mã đơn vị CẤP TRÊN (cạnh của cây tổ chức), `OrgUnit.TrgtManagerLId` là
+mã nhân sự của quản lý — tra sang `Associate.PersonalNumber`. Index chính:
 
 - `OrgUnit.OrgUnitCode`
 - `Associate.OrgUnitCode`
-- `Associate.GlobalId`
 
 ## Cascade/delete behavior
 

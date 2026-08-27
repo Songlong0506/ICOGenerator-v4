@@ -11,6 +11,5 @@ public class Agent
     public AiModel AiModel { get; set; } = null!;
     public string? CreatedByUsername { get; set; }
     public ICollection<AgentTool> AgentTools { get; set; } = new List<AgentTool>();
-    public ICollection<AgentModelCallLog> ModelCallLogs { get; set; } = new List<AgentModelCallLog>();
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

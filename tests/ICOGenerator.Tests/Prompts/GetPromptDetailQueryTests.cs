@@ -50,7 +50,7 @@ public class GetPromptDetailQueryTests : IDisposable
                 new EvalResult { EvalRunId = run.Id, EvalScenarioId = scenario.Id, ScenarioName = "S", Score = 4, IsSuccess = true },
                 new EvalResult { EvalRunId = run.Id, EvalScenarioId = scenario.Id, ScenarioName = "S", Score = 2, IsSuccess = true },
                 // Một kết quả đo bản DB v1: 5 ⇒ TB 5.00.
-                new EvalResult { EvalRunId = run.Id, EvalScenarioId = scenario.Id, ScenarioName = "S", Score = 5, IsSuccess = true, PromptVersionNumber = 1, PromptVersionId = Guid.NewGuid() },
+                new EvalResult { EvalRunId = run.Id, EvalScenarioId = scenario.Id, ScenarioName = "S", Score = 5, IsSuccess = true, PromptVersionNumber = 1 },
                 // Kết quả lỗi (không điểm) và kết quả của template KHÁC — không được tính.
                 new EvalResult { EvalRunId = run.Id, EvalScenarioId = scenario.Id, ScenarioName = "S", IsSuccess = false, ErrorMessage = "x" },
                 new EvalResult { EvalRunId = run.Id, EvalScenarioId = otherScenario.Id, ScenarioName = "Khac", Score = 1, IsSuccess = true });

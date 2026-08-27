@@ -32,7 +32,7 @@ public class CompareEvalRunsQueryTests : IDisposable
         db.EvalResults.AddRange(
             // Run A đo nội dung FILE, run B đo bản DB v2 của cùng scenario.
             new EvalResult { EvalRunId = _runAId, EvalScenarioId = _scenarioId, ScenarioName = "S", Score = 3, IsSuccess = true },
-            new EvalResult { EvalRunId = _runBId, EvalScenarioId = _scenarioId, ScenarioName = "S", Score = 4, IsSuccess = true, PromptVersionNumber = 2, PromptVersionId = Guid.NewGuid() },
+            new EvalResult { EvalRunId = _runBId, EvalScenarioId = _scenarioId, ScenarioName = "S", Score = 4, IsSuccess = true, PromptVersionNumber = 2 },
             // Scenario chỉ chạy ở run B — bên A phải là null (không có kết quả).
             new EvalResult { EvalRunId = _runBId, EvalScenarioId = Guid.NewGuid(), ScenarioName = "ChiB", Score = 5, IsSuccess = true });
         db.SaveChanges();

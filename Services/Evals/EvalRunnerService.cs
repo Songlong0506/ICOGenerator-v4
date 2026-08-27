@@ -181,7 +181,6 @@ public class EvalRunnerService
 
         var promptOverride = _promptOverrides.GetActiveOverride(scenario.PromptKey);
         var systemPrompt = promptOverride?.Content ?? _prompts.Get(scenario.PromptKey);
-        result.PromptVersionId = promptOverride?.Id;
         result.PromptVersionNumber = promptOverride?.VersionNumber;
 
         var personaPrompt = _prompts.Get("Eval/persona.v1.md").Replace("{{persona}}", scenario.UserInput);
@@ -317,7 +316,6 @@ public class EvalRunnerService
         // phiên bản lên kết quả; không có ⇒ nội dung file (PromptVersionId null = "file").
         var promptOverride = _promptOverrides.GetActiveOverride(scenario.PromptKey);
         var systemPrompt = promptOverride?.Content ?? _prompts.Get(scenario.PromptKey);
-        result.PromptVersionId = promptOverride?.Id;
         result.PromptVersionNumber = promptOverride?.VersionNumber;
         var targetResult = await CallModelAsync(targetModel, systemPrompt, scenario.UserInput, TargetTemperature, cancellationToken);
 
