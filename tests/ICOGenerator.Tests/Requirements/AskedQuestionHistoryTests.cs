@@ -55,6 +55,35 @@ public class AskedQuestionHistoryTests
         }, asked);
     }
 
+    // Câu MỞ (xin một lời KỂ) không được phép kèm chip — nên nếu sổ chỉ nhận lượt CÓ chip thì đúng loại
+    // câu đắt nhất của buổi phỏng vấn không bao giờ vào sổ, và BA phát lại được nguyên văn. Ca thật (dự
+    // án JD Libary, lượt 2 và lượt 4). Dấu hỏi là ranh giới: lượt tóm tắt vẫn đứng ngoài.
+    [Fact]
+    public void Collect_TakesOpenQuestionsWithNoChips()
+    {
+        var turns = new List<AgentConversation>
+        {
+            Assistant("Anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD cho nhân viên?"),
+            User("HRBP làm trong 2 file excel"),
+            Assistant("Mình ghi nhận: HRBP thao tác trên 2 file Excel.")
+        };
+
+        var asked = AskedQuestionHistory.Collect(turns);
+
+        Assert.Equal(new[] { "Anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD cho nhân viên?" }, asked);
+    }
+
+    // Lượt bày BẢNG CHỐT đứng ngoài sổ: chỗ trả lời của nó là chính cái bảng, `Message` chỉ là câu dẫn —
+    // mà câu dẫn của hai bảng khác nhau thì na ná nhau, để vào sổ là chặn oan lượt bày bảng kế tiếp.
+    [Fact]
+    public void Collect_SkipsTurnsThatCarryAConfirmationTable()
+    {
+        var withTable = Assistant("Anh/chị rà giúp mình bảng phân quyền dưới đây nhé?");
+        withTable.PermissionMatrix = "[]";
+
+        Assert.Empty(AskedQuestionHistory.Collect(new List<AgentConversation> { withTable }));
+    }
+
     [Fact]
     public void IsRepeat_CatchesTheSameQuestionRegardlessOfPunctuationAndCase()
     {

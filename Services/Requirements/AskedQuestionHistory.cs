@@ -45,8 +45,9 @@ public static class AskedQuestionHistory
     /// <summary>
     /// Mọi câu hỏi BA đã đặt trong các lượt đang xét, theo đúng thứ tự hỏi. Gồm cả câu của lượt hỏi GỘP
     /// (cột <see cref="AgentConversation.Questions"/>) lẫn lượt hỏi MỘT câu (khi đó <c>Message</c> chính
-    /// là câu hỏi — nhận diện qua việc lượt đó có gợi ý, đúng như prompt bắt buộc mọi câu hỏi phải kèm
-    /// gợi ý). Lượt ⚠️ báo lỗi gọi AI bị bỏ: nó không phải câu hỏi.
+    /// là câu hỏi — nhận diện qua việc lượt đó có gợi ý, HOẶC có dấu hỏi: câu MỞ được phép bỏ chip nên
+    /// vế thứ hai là thứ duy nhất nhìn thấy nó). Lượt ⚠️ báo lỗi gọi AI, lượt tóm tắt/thông báo (không
+    /// hỏi gì) và lượt bày BẢNG CHỐT (chỗ trả lời là cái bảng, `Message` chỉ là câu dẫn) đều bị bỏ.
     /// </summary>
     public static List<string> Collect(IEnumerable<AgentConversation> turns)
     {
@@ -67,14 +68,43 @@ public static class AskedQuestionHistory
                 continue;
             }
 
-            // Lượt hỏi một câu: Message CHỞ câu hỏi. Không có gợi ý ⇒ lượt tóm tắt/thông báo, không phải
-            // câu hỏi — bỏ qua để không chặn oan các lượt xác nhận về sau.
-            if (message.Length > 0 && ConversationTurnRenderer.ParseSuggestions(turn.Suggestions).Count > 0)
+            // Lượt hỏi một câu: Message CHỞ câu hỏi. Nhận diện bằng "có chip HOẶC có dấu hỏi" — đúng cặp
+            // điều kiện mà BAChatService dùng ở phía ĐỐI CHIẾU. Trước đây vế đầu là đủ, vì mọi câu hỏi
+            // đều bắt buộc kèm chip; từ khi CÂU MỞ được phép bỏ chip (xem BAChatQuestion.OpenEnded) thì
+            // đúng loại câu đắt nhất — xin một lời KỂ — không bao giờ vào sổ, nên phanh không có gì để
+            // so và câu đó được phát lại nguyên văn. Ca thật (dự án JD Libary, lượt 2 và lượt 4):
+            // *"anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD cho nhân viên: bắt đầu từ
+            // đâu, làm những bước nào, và ai tham gia?"* hỏi hai lượt liền, không lệch một chữ.
+            //
+            // Dấu hỏi là ranh giới (cùng phép thử với chốt chặn lượt câm ở BAChatService): lượt tóm
+            // tắt/thông báo không có nó nên vẫn đứng ngoài sổ, đúng như trước.
+            if (message.Length > 0
+                && (ConversationTurnRenderer.ParseSuggestions(turn.Suggestions).Count > 0 || AsksSomething(message))
+                && !CarriesTable(turn))
                 asked.Add(message);
         }
 
         return asked;
     }
+
+    /// <summary>Lượt này có HỎI gì không — dấu hỏi là ranh giới duy nhất đọc được từ một lượt đã lưu.</summary>
+    private static bool AsksSomething(string message)
+        => message.Contains('?', StringComparison.Ordinal) || message.Contains('\uff1f', StringComparison.Ordinal);
+
+    /// <summary>
+    /// Lượt bày một BẢNG CHỐT (bảng cột, phân quyền, luồng, màn hình, đối tượng, báo cáo, thông báo).
+    /// Đứng ngoài sổ: chỗ trả lời của lượt đó là chính cái bảng, còn `Message` chỉ là câu dẫn — mà câu
+    /// dẫn của hai bảng khác nhau thì na ná nhau, nên để nó vào sổ là dựng sẵn một vụ chặn oan cho lượt
+    /// bày bảng kế tiếp.
+    /// </summary>
+    private static bool CarriesTable(AgentConversation turn)
+        => turn.ColumnMap != null
+           || turn.PermissionMatrix != null
+           || turn.FlowMap != null
+           || turn.ScreenScopeMap != null
+           || turn.EntityMap != null
+           || turn.ReportMap != null
+           || turn.NotificationMap != null;
 
     /// <summary>Khoá so khớp: bỏ dấu câu/ký tự trang trí, gộp khoảng trắng, hạ chữ thường.</summary>
     public static string Key(string? text)

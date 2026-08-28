@@ -31,11 +31,14 @@ public static class RequirementReadinessGate
     ///
     /// <para>
     /// <b>Vì sao cổng phải tự nhớ.</b> Phanh chống hỏi lại dùng chung
-    /// (<see cref="AskedQuestionHistory.Collect"/>) chỉ nhận một lượt assistant là "câu hỏi" khi lượt đó có
-    /// GỢI Ý — mà lượt chặn của cổng cố tình không có chip nào (nó là câu MỞ). Nghĩa là câu của cổng vô hình
-    /// với đúng cái phanh dựng ra để chặn hỏi lại. Nới luật của <c>Collect</c> thì mọi lượt tóm tắt/thông
-    /// báo cũng thành "câu hỏi" và chặn oan các lượt xác nhận về sau, nên cổng giữ sổ RIÊNG của mình, dò
-    /// bằng chính câu hỏi nó dựng ra.
+    /// (<see cref="AskedQuestionHistory.Collect"/>) chỉ trả lời được MỘT câu: "câu này hỏi rồi hay chưa".
+    /// Cổng cần thứ khác — THỨ TỰ: nó phải dựng câu hỏi của MỌI dòng còn thiếu rồi xếp theo lần cuối mỗi
+    /// câu được phát, để chỗ chưa hỏi đi trước và chỗ vừa hỏi lùi lại một vòng. Sổ chung không mang vị
+    /// trí, nên cổng dò bằng chính câu hỏi nó sắp phát trong các lượt BA đã lưu.</para>
+    ///
+    /// <para>
+    /// Lượt chặn của cổng KHÔNG có chip (nó là câu MỞ) nhưng luôn kết bằng dấu hỏi, nên nó vẫn vào sổ
+    /// chung — model đọc "các câu BẠN ĐÃ HỎI" sẽ không phát lại nó bằng lời của mình.
     /// </para>
     /// </summary>
     public static RequirementReadiness Evaluate(string? coverageMap, IEnumerable<AgentConversation>? turns = null)
@@ -97,8 +100,8 @@ public static class RequirementReadinessGate
     /// trước, rồi tới câu bị hỏi lâu nhất.
     ///
     /// <para>
-    /// Đây là sổ RIÊNG của cổng, không dùng <see cref="AskedQuestionHistory.Collect"/>: lượt chặn không có
-    /// chip nào nên <c>Collect</c> cố tình bỏ qua nó (xem <see cref="Evaluate"/>). Dò trên VẾ CÂU HỎI nên cả
+    /// Đây là sổ RIÊNG của cổng, không dùng <see cref="AskedQuestionHistory.Collect"/>: sổ chung chỉ nói
+    /// "đã hỏi hay chưa", còn cổng cần VỊ TRÍ để xoay vòng (xem <see cref="Evaluate"/>). Dò trên VẾ CÂU HỎI nên cả
     /// hai biến thể của câu chặn đều được đọc ra — lượt "quay lại" chỉ thêm một câu dẫn ở ĐẦU, vế hỏi phía
     /// sau giữ nguyên. Chuẩn hóa hoa/thường + khoảng trắng để một lượt bị xuống dòng khác đi không làm sổ
     /// này câm trong im lặng.

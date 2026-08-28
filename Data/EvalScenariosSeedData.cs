@@ -234,6 +234,41 @@ public static class EvalScenariosSeedData
             - suggestions dạng chốt đúng/sai, 2–3 mục (vd "Đúng rồi" / "Không, tính khác"); multiSelect = false.
             """);
 
+        Add(
+            "Chat BA — quy trình hiện tại đã kể xong: đi tiếp sang HƯỚNG CẢI TIẾN, không hỏi lại",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Bản đồ bao phủ yêu cầu
+            - ★ Mục tiêu / bài toán: [MỘT PHẦN] App quản lý danh sách JD trong nhà máy và gán JD cho nhân viên.
+            - ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] Có vai trò HRBP thực hiện tạo và gán JD.
+            - ★ Chức năng & luồng nghiệp vụ chính: [MỘT PHẦN] HRBP tự thêm/sửa/xóa JD trong file Excel danh sách JD và file Excel quản lý JD đã gán.
+            - Quy trình hiện tại & điểm khó: [MỘT PHẦN] HRBP làm bằng 2 file Excel; còn thiếu: điểm khó chịu nhất của cách làm hiện tại và mong muốn cải tiến.
+            - Luồng ngoại lệ & trường hợp đặc biệt: [CHƯA HỎI]
+            - Dữ liệu / danh mục chính: [CHƯA HỎI]
+            - Quy tắc nghiệp vụ & ràng buộc: [CHƯA HỎI]
+            - Vòng đời & trạng thái: [CHƯA HỎI]
+            - Thông báo / nhắc nhở: [CHƯA HỎI]
+            - Báo cáo / thống kê: [CHƯA HỎI]
+            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
+            - Quy mô sử dụng: [CHƯA HỎI]
+
+            ## Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước (TUYỆT ĐỐI KHÔNG phát lại)
+            - Anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD cho nhân viên: bắt đầu từ đâu, làm những bước nào, và ai tham gia vào quy trình đó?
+
+            Hội thoại trước đó:
+            BA: Anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD cho nhân viên: bắt đầu từ đâu, làm những bước nào, và ai tham gia vào quy trình đó?
+            Người dùng: hiện tại việc tạo và gán JD cho nhân viên được HRBP thực hiện trong file excel, có 1 file excel danh sách JD được dùng trong nhà máy, HRBP vào đó tự thêm, sửa, xóa JD, và 1 file excel khác để quản lý JD được gán cho nhân viên, HRBP cũng tự vào đó để thêm, sửa, xóa
+            Người dùng: mình nói ở trên rồi đó, hiện tại chỉ có mỗi HRBP chỉnh sửa thông tin trên 2 file excel thôi
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - TUYỆT ĐỐI KHÔNG hỏi lại quy trình hiện tại dưới bất kỳ hình thức nào: không "kể giúp mình một lần gần nhất…", không "các bước khi tạo và gán JD là gì", không xin xác nhận lại chuỗi thao tác trên 2 file Excel. Người dùng đã kể, và đã phải nhắc "mình nói ở trên rồi đó".
+            - Lượt này phải đi sang chặng kế: hỏi ĐIỂM ĐAU của cách làm bằng 2 file Excel, hoặc hỏi MONG MUỐN CẢI TIẾN ở ứng dụng mới.
+            - Chỉ MỘT câu hỏi trong message.
+            - Nếu hỏi mong muốn cải tiến (câu MỞ, xin lời kể) thì suggestions phải RỖNG và openEnded = true; nếu hỏi điểm đau bằng câu ĐÓNG thì suggestions có 2–5 chip rút từ chính bối cảnh 2 file Excel (vd "Phải sửa tay ở 2 file", "Không biết JD nào đang gán cho ai", "Người khác muốn xem phải hỏi HRBP").
+            - KHÔNG tự khẳng định một điểm đau mà người dùng chưa nói ("dữ liệu khó đồng bộ", "khó truy vết") như thể đó là lời họ.
+            """);
+
         // Hai scenario dưới đây đo cùng một ca hỏng thật: khối ranh giới phạm vi (hằng số của sản phẩm,
         // OrganizationContextService đính vào MỌI lời gọi BA) bị BA đối xử như lời người dùng — trước là
         // chèn "Đồng Nai" vào câu "mình ghi nhận", sau là đem chính câu đó ra chất vấn người dùng như một

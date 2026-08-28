@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 
 namespace ICOGenerator.Services.Llm;
@@ -71,16 +72,130 @@ public static class LlmJson
 
         try
         {
-            if (requireKnownProperty && !SharesAnyPropertyWith<T>(json))
-                return null;
-
-            return JsonSerializer.Deserialize<T>(json, Options);
+            return Read<T>(json, requireKnownProperty);
         }
         catch (JsonException)
         {
-            return null;
+            // JSON hỏng ở tầng DÃY THOÁT — model nhả `\u1E1y` (ba chữ số hex rồi tới chữ cái) giữa một
+            // câu tiếng Việt. Sửa rồi đọc lại; sửa không xong thì vẫn null như trước.
+            var repaired = RepairStringEscapes(json);
+            if (ReferenceEquals(repaired, json))
+                return null;
+
+            try
+            {
+                return Read<T>(repaired, requireKnownProperty);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
         }
     }
+
+    private static T? Read<T>(string json, bool requireKnownProperty) where T : class
+    {
+        if (requireKnownProperty && !SharesAnyPropertyWith<T>(json))
+            return null;
+
+        return JsonSerializer.Deserialize<T>(json, Options);
+    }
+
+    /// <summary>
+    /// Sửa các DÃY THOÁT hỏng bên trong chuỗi JSON, chỉ chạy khi lần đọc đầu đã ném. Trả về CHÍNH
+    /// <paramref name="json"/> (so bằng tham chiếu) khi không sửa gì — caller dùng đó để biết "không có
+    /// gì để thử lại" thay vì gọi deserialize thêm một lần vô ích.
+    ///
+    /// <para>
+    /// Vì sao phải có: model viết tiếng Việt hay nhả JSON dạng ASCII toàn `\uXXXX`, và chỉ cần MỘT dãy
+    /// rụng một chữ số hex là cả object không đọc được. Ca thật (dự án JD Libary, lượt 6): `\u1E1y` trong
+    /// chữ "vậy" ⇒ <see cref="BAChatReplyParser"/> rơi về nhánh text thuần và **nguyên khối JSON** —
+    /// `{"message":"C\u1EA3m \u01A1n…","suggestions":[…],"ready":false}` — lên màn hình người dùng như
+    /// một lượt trả lời của BA.
+    /// </para>
+    ///
+    /// <para>
+    /// Sửa theo hướng MẤT KÝ TỰ chứ không đoán ký tự: một dãy `\u` hỏng bị bỏ hẳn (kèm tối đa 3 chữ số
+    /// hex đi cùng), một dấu `\` đứng trước ký tự không phải escape hợp lệ thì bỏ dấu `\`. Đoán bừa chữ
+    /// mà model định viết là bịa nội dung nghiệp vụ; mất một chữ trong một câu vẫn là một lượt chat đọc
+    /// được, còn dựng sai một chữ thì không ai biết đường mà lần.
+    /// </para>
+    /// </summary>
+    private static string RepairStringEscapes(string json)
+    {
+        const string SimpleEscapes = "\"\\/bfnrt";
+
+        var sb = new StringBuilder(json.Length);
+        var inString = false;
+        var repaired = false;
+
+        for (var i = 0; i < json.Length; i++)
+        {
+            var c = json[i];
+
+            if (!inString)
+            {
+                sb.Append(c);
+                if (c == '"') inString = true;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                sb.Append(c);
+                inString = false;
+                continue;
+            }
+
+            if (c != '\\')
+            {
+                sb.Append(c);
+                continue;
+            }
+
+            if (i + 1 >= json.Length)
+            {
+                repaired = true; // dấu `\` cụt ở cuối chuỗi
+                continue;
+            }
+
+            var next = json[i + 1];
+
+            if (next == 'u')
+            {
+                if (i + 5 < json.Length && IsHex(json[i + 2]) && IsHex(json[i + 3]) && IsHex(json[i + 4]) && IsHex(json[i + 5]))
+                {
+                    sb.Append(json, i, 6);
+                    i += 5;
+                    continue;
+                }
+
+                // `\u` thiếu chữ số: bỏ cả dãy, kể cả các chữ số hex lỡ dở đi kèm.
+                var end = i + 2;
+                var limit = Math.Min(json.Length, end + 3);
+                while (end < limit && IsHex(json[end]))
+                    end++;
+                i = end - 1;
+                repaired = true;
+                continue;
+            }
+
+            if (SimpleEscapes.IndexOf(next) >= 0)
+            {
+                sb.Append(c).Append(next);
+                i++;
+                continue;
+            }
+
+            sb.Append(next); // escape lạ (`\x`): giữ ký tự, bỏ dấu gạch chéo
+            i++;
+            repaired = true;
+        }
+
+        return repaired ? sb.ToString() : json;
+    }
+
+    private static bool IsHex(char c) => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 
     private static bool SharesAnyPropertyWith<T>(string json)
     {
