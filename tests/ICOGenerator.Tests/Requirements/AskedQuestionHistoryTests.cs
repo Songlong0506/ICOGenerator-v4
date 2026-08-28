@@ -114,6 +114,67 @@ public class AskedQuestionHistoryTests
             "Trong hai phòng anh/chị vừa kể, ai là người chịu trách nhiệm gọi điện nhắc nhân viên?", keys));
     }
 
+    // Ca thật (dự án JD Libary 4, lượt 16 → 20). Prompt bắt BA PHÁT LẠI điều đã ghi nhận trước khi hỏi, nên
+    // một lượt hỏi một câu gần như luôn là "Cảm ơn anh/chị! Mình đã ghi nhận: … . <câu hỏi>?" — và phần phát
+    // lại đổi theo từng lượt vì nó chép lời người dùng vừa nói. So cả `Message` là pha loãng đúng vế cần so:
+    // hai lượt hỏi CÙNG một câu vẫn lệch nhau vì hai câu phát lại khác nhau, và phanh câm ở đúng chỗ prompt
+    // làm đúng nhất. Lượt 20 thoát được phanh, hỏi lại nguyên câu của lượt 16, kèm một chip chép lại đúng
+    // câu trả lời người dùng vừa gõ ở lượt 19.
+    [Fact]
+    public void IsRepeat_SeesThroughTheRecapPreambleThatThePromptRequires()
+    {
+        var keys = AskedQuestionHistory.Keys(new[]
+        {
+            "Cảm ơn anh/chị! Mình đã ghi nhận: Manager tự quản lý JD của orgUnit mình. Vậy khi JD đã available "
+            + "và được gán cho nhân viên, nếu cần chỉnh sửa hoặc ngừng sử dụng JD đó thì xử lý như thế nào?"
+        });
+
+        Assert.True(AskedQuestionHistory.IsRepeat(
+            "Cảm ơn anh/chị! Mình đã ghi nhận: JD đã được HoD approve thì không sửa trực tiếp được, muốn chỉnh "
+            + "sửa thì phải upgrade version (giữ nguyên mã JD cũ, tăng version 1, 2, 3...) và version mới phải "
+            + "trải qua quy trình approve lại từ đầu. Mình còn một điểm cần làm rõ: khi JD đã available và được "
+            + "gán cho nhân viên, nếu cần chỉnh sửa thì xử lý thế nào?", keys));
+    }
+
+    // Chiều ngược lại, cùng buổi phỏng vấn đó: lượt 16 hỏi một câu KÉP ("chỉnh sửa HOẶC ngừng sử dụng") mà
+    // người dùng chỉ trả lời được một nửa, nên lượt 18 đi nhặt lại nửa còn lại. Đó đúng là việc BA phải làm —
+    // chặn nó là biến phanh chống-hỏi-lại thành phanh chống-phỏng-vấn, và ở ca thật thì lượt bị chặn chính là
+    // lượt đắt nhất của buổi (câu trả lời của nó chở nguyên luật upgrade version).
+    [Fact]
+    public void IsRepeat_DoesNotBlockTheFollowUpOnTheHalfOfADoubleQuestionThatWentUnanswered()
+    {
+        var keys = AskedQuestionHistory.Keys(new[]
+        {
+            "Cảm ơn anh/chị! Mình đã ghi nhận: Manager tự quản lý JD của orgUnit mình. Vậy khi JD đã available "
+            + "và được gán cho nhân viên, nếu cần chỉnh sửa hoặc ngừng sử dụng JD đó thì xử lý như thế nào?"
+        });
+
+        Assert.False(AskedQuestionHistory.IsRepeat(
+            "Cảm ơn anh/chị! Mình đã ghi nhận: khi ngừng sử dụng JD thì không gán mới nữa nhưng vẫn giữ lịch "
+            + "sử. Vậy khi JD đã gán cho nhân viên mà cần chỉnh sửa thì xử lý thế nào?", keys));
+    }
+
+    // Vế hỏi quá ngắn ⇒ GIỮ NGUYÊN cả message. Hai lượt khác hẳn nhau vẫn có thể cùng kết bằng "Đúng không
+    // ạ?"; cắt xuống còn bấy nhiêu là dựng ra một vụ trùng khoá TUYỆT ĐỐI giữa hai lượt không liên quan.
+    [Fact]
+    public void QuestionCore_KeepsTheWholeMessage_WhenTheQuestionClauseIsTooShortToStandAlone()
+    {
+        var keys = AskedQuestionHistory.Keys(new[]
+        {
+            "Mình đang ghi nhận: Manager tạo JD cho orgUnit của mình. Đúng không ạ?"
+        });
+
+        Assert.False(AskedQuestionHistory.IsRepeat(
+            "Mình đang ghi nhận: HRBP duyệt trước rồi HoD duyệt sau. Đúng không ạ?", keys));
+    }
+
+    [Fact]
+    public void QuestionCore_LeavesTextWithoutAQuestionUntouched()
+    {
+        Assert.Equal("Đối tượng người dùng & vai trò", AskedQuestionHistory.QuestionCore("Đối tượng người dùng & vai trò"));
+        Assert.Equal(string.Empty, AskedQuestionHistory.QuestionCore(null));
+    }
+
     [Fact]
     public void IsRepeat_ShortConfirmationsAreOnlyMatchedExactly()
     {

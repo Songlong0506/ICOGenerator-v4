@@ -1439,6 +1439,40 @@ Nút "Write Requirement" khóa vĩnh viễn.
   thêm gì cả, họ bấm gửi lại hoặc tải lại trang — bắt bản đồ chờ một lượt chat mới là bắt nó chờ đúng thứ
   đang bị chặn. Chỉ ghi DB khi bản đồ thật sự đổi.
 
+**Chốt chặn mẩu `còn thiếu:` ĐÃ CHẾT (`CoverageStaleGapGuard`).** Guard thứ ba của đường ghi, chạy **trước**
+`CoverageConfirmedTableGuard`. Nó xoá một mẩu `còn thiếu:` mà **chính bản đồ đã trả lời** — bằng phần đã ghi
+nhận của cùng dòng đó, hoặc bằng phần đã ghi nhận của một dòng `[RÕ]` khác.
+
+`requirement-coverage.v3.md` đã ghi luật này (*"tóm tắt đã chứa câu trả lời thì mẩu `còn thiếu:` phải BIẾN
+MẤT"*), nhưng nó là luật cho model — mà lượt distill được đính CHÍNH bản đồ cũ, nên cách rẻ nhất để model
+xuất ra một dòng "hợp lệ" là chép lại nguyên mẩu cũ. Ca thật (dự án *JD Libary 4*, buổi 24 lượt): người dùng
+trả lời điểm đau ở lượt 5 và distiller ghi trọn bốn điểm ấy vào dòng «Quy trình hiện tại & điểm khó» ở
+`[RÕ]`, nhưng dòng «Mục tiêu / bài toán» vẫn giữ *còn thiếu: Chưa rõ điểm khó chịu nhất khi làm việc bằng 2
+file Excel là gì* suốt 19 lượt sau đó; cùng buổi, dòng «Quy tắc nghiệp vụ & ràng buộc» liệt kê đủ ba quy tắc
+rồi vẫn kèm *còn thiếu: Chưa rõ các quy tắc bắt buộc … (ví dụ mã JD duy nhất, Responsibility tổng % bằng
+100)* — đúng ba quy tắc nó vừa ghi. Thiệt hại là một **vòng lặp kín**: cổng readiness lấy nguyên mẩu đó làm
+câu chặn, nên **lượt 24 của buổi ấy là câu hỏi của lượt 4 phát lại nguyên văn**, distiller lại chép mẩu cũ
+sang lượt sau, và nút "Write Requirement" khoá vĩnh viễn. Phanh chống hỏi lại không đỡ được ca này: câu chặn
+do chính cổng dựng ra, không phải câu model sinh.
+
+- **Chỉ XOÁ mẩu, KHÔNG BAO GIỜ nâng trạng thái** — ngược với `CoverageConfirmedTableGuard`, và vì đúng lý do
+  đã cho nó quyền nâng: ở đây bằng chứng do LLM chắt, không phải ô người dùng tự tay bấm. Dòng mất mẩu vẫn
+  đứng `[MỘT PHẦN]` và cổng rơi về **nhánh 2 (phát lại)** của câu chặn — *"Mình đang ghi nhận: …
+  Phần này còn chỗ nào chưa đúng hoặc còn thiếu không?"* — một câu hỏi **đóng lại được bằng một lượt**, thay
+  cho một câu hỏi không có câu trả lời nào đúng. Vòng lặp bị cắt ở chỗ nó thật sự kín; quyền nâng `[RÕ]` vẫn
+  ở lượt distill kế tiếp.
+- **Lọc luôn ĐƯỜNG VÀO THỨ HAI** (`DropAnsweredItems`): danh sách tồn đọng chắt ở hậu kỳ nên luôn cũ hơn bản
+  đồ đúng một lượt, và `CoveragePendingGuard` ghi thẳng mục đầu của mỗi nhóm vào dòng bản đồ — không lọc thì
+  mẩu vừa dọn quay lại ngay ở lượt sau qua ngả tồn đọng.
+- **Đo BAO PHỦ một chiều trên tập từ nội dung**, ngưỡng 0.65, bỏ hư từ tiếng Việt (không bỏ thì mọi mẩu
+  tiếng Việt trùng mọi tóm tắt tiếng Việt ở phân nửa số từ). Con số đọc ra từ chính bốn dòng của buổi trên:
+  hai mẩu đã chết đo 0.71 và 0.89, hai mẩu **còn sống** — *ai được XOÁ danh mục JD*, *JD bị TRÙNG TÊN thì
+  sao*, những thứ phần thân dòng thật sự không trả lời — đo 0.46 và 0.40. Ngưỡng đặt vào giữa khoảng trống
+  đó, cố ý lệch xuống phía xoá: xoá nhầm thì cổng hỏi một câu xác nhận và người dùng bấm một chip; giữ nhầm
+  thì buổi phỏng vấn không bao giờ kết thúc.
+- **Cụm `ReopenNote` đứng ngoài mọi phép xoá** — nó không phải câu hỏi mà là một lệnh MỞ LẠI nhóm, do chính
+  người dùng phát.
+
 Cùng họ với nó, `requirement-coverage.v3.md` thêm một điều **không được tính là căn cứ để `[RÕ]`**: câu trả
 lời chỉ chạm được MỘT VẾ của một câu hỏi NHIỀU VẾ. BA bị cấm hỏi câu nhiều vế nhưng luật đó chỉ định
 hướng, nên việc của distiller là **đếm vế**. Ca thật: *"từ lúc nhận file đến lúc lập kế hoạch, anh/chị làm
@@ -1462,8 +1496,9 @@ chôn vĩnh viễn phần đắt nhất của nhóm.
 **Phanh chống HỎI LẠI (`AskedQuestionHistory`).** Chuẩn `[RÕ]` càng khắt khe thì càng lộ ra một lỗ hổng của thiết kế: thứ DUY NHẤT ngăn BA hỏi lại là bản đồ bao phủ, mà bản đồ chỉ có độ phân giải theo **NHÓM** (12 dòng). Một dòng chưa `[RÕ]` nghĩa là "ưu tiên hỏi nhóm này", và vì mỗi câu hỏi của lượt gộp được gắn `group` = tên dòng bản đồ, model sinh lại đúng **câu hỏi mở đầu** của nhóm đó — người dùng vừa trả lời xong đã bị hỏi lại nguyên văn, chip gợi ý chính là câu họ vừa gõ. Cùng triệu chứng khi lượt chắt lọc bản đồ hỏng (fail-open giữ bản cũ): cả cụm câu hỏi lượt trước được phát lại y nguyên. Prompt đã cấm, nhưng prompt chỉ định hướng — nên có ba lớp:
 
 - **Ngữ cảnh**: system message *"Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước"* dựng từ chính hội thoại (câu của lượt gộp + `message` của lượt hỏi một câu), nạp cạnh bản đồ. Đây là thứ duy nhất phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời" — bản đồ theo nhóm thì không.
-- **Chặn tất định**: câu hỏi trùng (khoá chuẩn hoá, hoặc bao phủ tập từ ≥ 0.8 **và** Jaccard ≥ 0.5 — bắt được câu cũ sửa vài chữ mà không chặn oan câu đào sâu mới) bị **loại khỏi lượt trả lời trước khi nó lên màn hình**. Còn ≥ 2 câu ⇒ thẻ hỏi rút gọn; còn 1 ⇒ hạ về đường một-câu; còn 0 ⇒ thay bằng bước kế tiếp suy tất định từ bản đồ (`RequirementReadinessGate`) — nêu đúng nhóm còn thiếu, hoặc mời bấm "Write Requirement" khi bản đồ đã đủ. Không bao giờ để lại một lượt câm hay một câu dẫn cụt. Phanh này chỉ thấy các lượt CÓ hỏi — lượt không chở câu hỏi nào lọt qua nó, và được chặn riêng ở [lượt câm](#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn).
+- **Chặn tất định**: câu hỏi trùng (khoá chuẩn hoá, hoặc bao phủ tập từ ≥ 0.8 **và** Jaccard ≥ 0.6 — bắt được câu cũ sửa vài chữ mà không chặn oan câu đào sâu mới) bị **loại khỏi lượt trả lời trước khi nó lên màn hình**. Còn ≥ 2 câu ⇒ thẻ hỏi rút gọn; còn 1 ⇒ hạ về đường một-câu; còn 0 ⇒ thay bằng bước kế tiếp suy tất định từ bản đồ (`RequirementReadinessGate`) — nêu đúng nhóm còn thiếu, hoặc mời bấm "Write Requirement" khi bản đồ đã đủ. Không bao giờ để lại một lượt câm hay một câu dẫn cụt. Phanh này chỉ thấy các lượt CÓ hỏi — lượt không chở câu hỏi nào lọt qua nó, và được chặn riêng ở [lượt câm](#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn).
 - **Sổ nhận cả CÂU MỞ, không chỉ lượt có chip.** Một lượt hỏi-một-câu vào sổ khi nó **có chip HOẶC có dấu hỏi** — đúng cặp điều kiện mà phía đối chiếu (`BAChatService`) đang dùng. Vế thứ hai không phải cho đẹp đối xứng: **câu mở** bị CẤM kèm chip (xem chốt chặn *"Câu ĐÓNG mới có chip; câu MỞ thì KHÔNG"* ở trên), nên nếu sổ chỉ nhận lượt có chip thì đúng loại câu đắt nhất — xin một lời KỂ — không bao giờ vào sổ, phanh không có gì để so, và BA phát lại được nguyên văn. Ca thật (dự án JD Libary, lượt 2 và 4): cùng một câu *"anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD…"* hỏi hai lượt liền, người dùng đáp *"mình nói ở trên rồi đó"*. Đứng ngoài sổ: lượt tóm tắt/thông báo (không có dấu hỏi), lượt ⚠️ lỗi gọi AI, và lượt bày **bảng chốt** (chỗ trả lời là cái bảng, `message` chỉ là câu dẫn — mà câu dẫn của hai bảng thì na ná nhau).
+- **So VẾ HỎI, không so cả `message` (`AskedQuestionHistory.QuestionCore`).** Đây là chỗ phanh câm ở đúng lúc prompt làm ĐÚNG nhất: *QUY TẮC PHÁT LẠI* của `requirement-chat.v4.md` bắt BA chép lại điều đã ghi nhận **trước** khi hỏi, nên một lượt hỏi-một-câu gần như luôn có dạng *"Cảm ơn anh/chị! Mình đã ghi nhận: … . &lt;câu hỏi&gt;?"* — và đoạn phát lại **đổi theo từng lượt** vì nó chép lời người dùng vừa nói. Đem cả khối đó đi so là pha loãng đúng vế cần so: hai lượt hỏi CÙNG một câu vẫn lệch nhau vì hai đoạn phát lại lệch nhau. Ca thật (dự án *JD Libary 4*, lượt 16 → 20): lượt 20 tóm tắt câu trả lời người dùng vừa gõ ở lượt 19 rồi hỏi lại **chính câu của lượt 16**, chip gợi ý là bản chép câu trả lời đó — so nguyên `message` cho bao phủ 0.68 (lọt), so vế hỏi cho 1.00. Phép cắt: lấy tới dấu hỏi CUỐI, lùi về sau dấu kết câu gần nhất, rồi bỏ mệnh đề dẫn kết bằng dấu hai chấm (*"Mình còn một điểm cần làm rõ:"*) — nhưng **vế hỏi quá ngắn thì giữ nguyên cả `message`**, vì hai lượt khác hẳn nhau vẫn có thể cùng kết bằng *"Đúng không ạ?"* và một cú trùng khoá TUYỆT ĐỐI thì không có ngưỡng nào đỡ. Cắt hai đầu ⇒ hai vế còn lại ngắn hơn và giống nhau hơn hẳn, nên ngưỡng Jaccard đi từ 0.5 lên **0.6**: cùng buổi đó, hai lượt hỏi lại thật đo được 0.73 và 0.71, còn lượt đi nhặt **nửa còn lại của một câu KÉP** (lượt 16 hỏi *"chỉnh sửa HOẶC ngừng sử dụng"*, người dùng chỉ trả lời vế sau, lượt 18 hỏi vế trước) ở 0.59 — giữ 0.5 là chặn oan đúng lượt đắt nhất của buổi, vì câu trả lời của nó chở nguyên luật *upgrade version*. Sổ nạp vào ngữ cảnh thì vẫn giữ **nguyên văn** lượt đã hỏi: cắt là chuyện của phép so, còn model cần đọc đúng câu như nó đã lên màn hình.
 - **Ngoại lệ đúng chỗ**: nhóm mà người dùng vừa **đính chính trong chat** được MIỄN phanh. Nhận diện qua cụm `AskedQuestionHistory.ReopenNote` (*"người dùng báo phần này chưa đúng"*) mà lượt chắt lọc ghi vào phần `còn thiếu:` của dòng bị đụng tới — xem [Đính chính một nhóm](#đính-chính-một-nhóm-đường-thoát-khỏi-một-dòng-rõ-oan). Không có ngoại lệ này thì lời đính chính rơi vào im lặng: bản đồ đã hạ nhóm xuống nhưng câu hỏi của BA lại bị lọc mất vì trùng câu cũ.
 
 Prompt `requirement-chat.v4.md` cũng tách rõ hai việc mà trước đây bị gộp làm một: `[CHƯA HỎI]` ⇒ hỏi câu mở đầu của nhóm; `[MỘT PHẦN]` ⇒ hỏi **đúng phần ghi sau `còn thiếu:`**, bằng câu hỏi khác hẳn, và mỗi nhóm chỉ được quay lại **tối đa một lần** trước khi phải đề xuất phương án xin chốt.

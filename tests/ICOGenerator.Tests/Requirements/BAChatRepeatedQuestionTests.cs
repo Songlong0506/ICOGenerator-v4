@@ -180,6 +180,36 @@ public class BAChatRepeatedQuestionTests : IDisposable
         Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply);
     }
 
+    // Ca thật (dự án JD Libary 4, lượt 16 → 20), và là chỗ phanh này câm ở đúng lúc prompt làm ĐÚNG nhất:
+    // "QUY TẮC PHÁT LẠI" bắt BA chép lại điều đã ghi nhận trước khi hỏi, nên mỗi lượt hỏi một câu mang theo
+    // một đoạn phát lại KHÁC nhau (nó chép lời người dùng vừa nói). So cả `Message` thì hai lượt hỏi CÙNG
+    // một câu vẫn lệch nhau vì hai đoạn phát lại lệch nhau — lượt 20 lọt qua, hỏi lại nguyên câu của lượt
+    // 16 kèm một chip chép lại đúng câu trả lời người dùng vừa gõ ở lượt 19.
+    [Fact]
+    public async Task ARepeatHiddenBehindItsRecapPreamble_IsStillCaught()
+    {
+        await SeedAskedWithRecapAsync();
+
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Cảm ơn anh/chị! Mình đã ghi nhận: JD đã được HoD approve thì không sửa trực tiếp "
+                    + "được, muốn chỉnh sửa thì phải upgrade version (giữ nguyên mã JD cũ, tăng version 1, 2, "
+                    + "3...) và version mới phải trải qua quy trình approve lại từ đầu. Mình còn một điểm cần "
+                    + "làm rõ: khi JD đã available và được gán cho nhân viên, nếu cần chỉnh sửa thì xử lý thế nào?",
+                Suggestions = new List<string> { "Upgrade version và duyệt lại từ đầu", "Sửa bất kỳ lúc nào" }
+            }
+        };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(_projectId, "Upgrade version và duyệt lại từ đầu");
+
+        Assert.DoesNotContain("nếu cần chỉnh sửa thì xử lý thế nào", result.Reply, StringComparison.Ordinal);
+        // Thay bằng bước kế tiếp suy TẤT ĐỊNH từ bản đồ — không im lặng, không câu dẫn cụt.
+        Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply, StringComparison.Ordinal);
+    }
+
     // …và nửa còn lại của phanh: câu mở đã hỏi phải NẰM TRONG ngữ cảnh gửi lên model, không chỉ bị lọc
     // sau khi model lỡ hỏi lại.
     [Fact]
@@ -321,6 +351,34 @@ public class BAChatRepeatedQuestionTests : IDisposable
     }
 
     // Hội thoại nền cho hai test câu MỞ: BA xin một lời kể (không chip), người dùng kể xong.
+    // Lượt BA đúng khuôn prompt bắt: một đoạn PHÁT LẠI rồi mới tới câu hỏi.
+    private async Task SeedAskedWithRecapAsync()
+    {
+        await using var db = NewDb();
+        var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId,
+            AgentId = _baId,
+            Role = "assistant",
+            Message = "Cảm ơn anh/chị! Mình đã ghi nhận: Manager tự quản lý JD của orgUnit mình. Vậy khi JD đã "
+                + "available và được gán cho nhân viên, nếu cần chỉnh sửa hoặc ngừng sử dụng JD đó thì xử lý "
+                + "như thế nào?",
+            Suggestions = "[\"Chỉ được sửa khi chưa gán cho ai\"]",
+            CreatedAt = baseTime
+        });
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId,
+            AgentId = _baId,
+            Role = "user",
+            Message = "Ngừng sử dụng thì không gán mới nữa nhưng vẫn giữ lịch sử",
+            CreatedAt = baseTime.AddSeconds(1)
+        });
+        await db.SaveChangesAsync();
+    }
+
     private async Task SeedAskedOpenQuestionAsync()
     {
         await using var db = NewDb();

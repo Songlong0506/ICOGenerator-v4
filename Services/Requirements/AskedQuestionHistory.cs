@@ -40,7 +40,14 @@ public static class AskedQuestionHistory
     // Một câu hỏi đào sâu thật sự ("trong hai phòng anh/chị vừa kể, ai gọi điện nhắc?") rơi xa cả hai
     // ngưỡng, nên nó không bị chặn oan — đó mới là việc BA phải làm với một nhóm [MỘT PHẦN].
     private const double RepeatContainment = 0.8;
-    private const double RepeatJaccard = 0.5;
+    // 0.5 là ngưỡng của thời phép thử chạy trên TOÀN BỘ `Message`. Từ khi <see cref="QuestionCore"/> lược
+    // phần "mình đã ghi nhận…" đi, hai vế đem so ngắn hơn hẳn và giống nhau hơn hẳn — đo lại trên chính
+    // buổi JD Libary 4: hai lượt hỏi lại thật (20↔16, 20↔18) lên 0.73 và 0.71, còn một câu hỏi tiếp NỬA
+    // CÒN LẠI của một câu kép (18↔16, BA hỏi vế "chỉnh sửa" sau khi người dùng chỉ trả lời vế "ngừng sử
+    // dụng") ở 0.59. Giữ 0.5 là chặn oan đúng cái lượt đắt nhất của buổi đó — lượt 19 chở nguyên luật
+    // upgrade version. Nâng lên 0.6 tách được hai bên; ca "câu cũ rụng vài chữ" mà phanh này sinh ra để
+    // bắt vẫn ở 0.67 nên không mất.
+    private const double RepeatJaccard = 0.6;
 
     /// <summary>
     /// Mọi câu hỏi BA đã đặt trong các lượt đang xét, theo đúng thứ tự hỏi. Gồm cả câu của lượt hỏi GỘP
@@ -78,6 +85,10 @@ public static class AskedQuestionHistory
             //
             // Dấu hỏi là ranh giới (cùng phép thử với chốt chặn lượt câm ở BAChatService): lượt tóm
             // tắt/thông báo không có nó nên vẫn đứng ngoài sổ, đúng như trước.
+            //
+            // Sổ này giữ NGUYÊN VĂN lượt đã hỏi, không cắt vế hỏi: nó còn là khối "các câu BẠN ĐÃ HỎI" nạp
+            // vào ngữ cảnh (<see cref="BuildNote"/>), và ở đó model cần đọc đúng câu như nó đã lên màn hình.
+            // Việc cắt là chuyện của phép SO KHỚP, làm bên trong <see cref="Keys"/>/<see cref="IsRepeat"/>.
             if (message.Length > 0
                 && (ConversationTurnRenderer.ParseSuggestions(turn.Suggestions).Count > 0 || AsksSomething(message))
                 && !CarriesTable(turn))
@@ -106,6 +117,56 @@ public static class AskedQuestionHistory
            || turn.ReportMap != null
            || turn.NotificationMap != null;
 
+    /// <summary>
+    /// VẾ HỎI của một lượt BA — phần duy nhất đáng đem so khi hỏi "câu này hỏi rồi hay chưa".
+    ///
+    /// <para>
+    /// <b>Vì sao không so cả <c>Message</c>.</b> Prompt bắt BA <i>phát lại điều đã ghi nhận rồi mới hỏi</i>
+    /// (<c>requirement-chat.v4.md</c> § "QUY TẮC PHÁT LẠI") — nên một lượt hỏi một câu gần như luôn có dạng
+    /// <i>"Cảm ơn anh/chị! Mình đã ghi nhận: … . &lt;câu hỏi&gt;?"</i>, và phần phát lại ĐỔI theo từng lượt vì
+    /// nó chép lời người dùng vừa nói. Đem cả khối đó đi so là pha loãng đúng vế cần so: hai lượt hỏi CÙNG
+    /// một câu vẫn lệch nhau vì hai câu phát lại khác nhau. Phanh chống hỏi lại vì thế câm ở đúng chỗ prompt
+    /// làm đúng nhất.
+    /// </para>
+    /// <para>
+    /// Ca thật (dự án <i>JD Libary 4</i>, lượt 16 → 18 → 20): lượt 20 tóm tắt câu trả lời người dùng vừa gõ
+    /// ở lượt 19 rồi hỏi lại CHÍNH câu của lượt 16 — <i>"khi JD đã available và được gán cho nhân viên, nếu
+    /// cần chỉnh sửa thì xử lý thế nào?"</i> — kèm một chip chép lại đúng câu trả lời đó. So nguyên
+    /// <c>Message</c> cho bao phủ 0.68; so vế hỏi cho 1.00.
+    /// </para>
+    /// <para>
+    /// Phép cắt: lấy tới dấu hỏi CUỐI (phần sau nó không phải câu hỏi), rồi lùi về sau dấu kết câu gần nhất
+    /// — câu hỏi luôn đứng cuối theo đúng khuôn prompt. Bỏ nốt mệnh đề dẫn kết bằng dấu hai chấm
+    /// (<i>"Mình còn một điểm cần làm rõ:"</i>) khi phần còn lại vẫn đủ dài để tự đứng.
+    /// </para>
+    /// <para>
+    /// <b>Vế hỏi quá ngắn thì GIỮ NGUYÊN cả message.</b> Hai lượt khác hẳn nhau vẫn có thể cùng kết bằng
+    /// <i>"Đúng không ạ?"</i>; cắt xuống còn bấy nhiêu là dựng ra một vụ trùng khoá TUYỆT ĐỐI giữa hai lượt
+    /// không liên quan — đắt hơn hẳn việc bỏ sót, vì khớp tuyệt đối không có ngưỡng nào đỡ.
+    /// </para>
+    /// </summary>
+    public static string QuestionCore(string? message)
+    {
+        var text = (message ?? string.Empty).Trim();
+        var end = Math.Max(text.LastIndexOf('?'), text.LastIndexOf('\uff1f'));
+        if (end < 0)
+            return text;
+
+        var upToQuestion = text[..(end + 1)];
+        var start = upToQuestion.LastIndexOfAny(SentenceEnders, upToQuestion.Length - 2);
+        var core = (start >= 0 ? upToQuestion[(start + 1)..] : upToQuestion).Trim();
+
+        var lead = core.LastIndexOf(':');
+        if (lead >= 0 && core[(lead + 1)..].Trim().Length >= MinLengthForFuzzyMatch)
+            core = core[(lead + 1)..].Trim();
+
+        return Key(core).Length >= MinLengthForFuzzyMatch ? core : text;
+    }
+
+    // Dấu kết câu đứng TRƯỚC câu hỏi cuối. '?' có mặt vì một lượt được phép chở nhiều câu hỏi liên tiếp —
+    // khi đó vế cần so là câu cuối cùng.
+    private static readonly char[] SentenceEnders = { '.', '!', '?', '\uff1f', '\n' };
+
     /// <summary>Khoá so khớp: bỏ dấu câu/ký tự trang trí, gộp khoảng trắng, hạ chữ thường.</summary>
     public static string Key(string? text)
     {
@@ -128,13 +189,17 @@ public static class AskedQuestionHistory
         return sb.ToString().Trim();
     }
 
-    /// <summary>Khoá của mọi câu đã hỏi — truyền vào <see cref="IsRepeat"/> để không chuẩn hoá lặp lại.</summary>
+    /// <summary>
+    /// Khoá của mọi câu đã hỏi — truyền vào <see cref="IsRepeat"/> để không chuẩn hoá lặp lại. Vế hỏi được
+    /// cắt Ở ĐÂY, cùng chỗ với <see cref="IsRepeat"/>: hai phía của phép so bắt buộc phải cùng một hình
+    /// dạng, và <see cref="Collect"/> thì cố ý giữ nguyên văn cho khối ngữ cảnh.
+    /// </summary>
     public static HashSet<string> Keys(IEnumerable<string> asked)
     {
         var keys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var question in asked)
         {
-            var key = Key(question);
+            var key = Key(QuestionCore(question));
             if (key.Length > 0)
                 keys.Add(key);
         }
@@ -147,7 +212,7 @@ public static class AskedQuestionHistory
     /// </summary>
     public static bool IsRepeat(string? candidate, IReadOnlyCollection<string> askedKeys)
     {
-        var key = Key(candidate);
+        var key = Key(QuestionCore(candidate));
         if (key.Length == 0 || askedKeys.Count == 0)
             return false;
 
