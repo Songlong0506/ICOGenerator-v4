@@ -1786,9 +1786,10 @@ Hai bảng **`OrgUnits`/`Associates`** (đồng bộ từ HR_Portal, seed một 
   Chốt được nguồn KHÔNG đóng luôn nhóm dữ liệu: thứ ứng dụng **tự gắn thêm** lên một orgUnit/một con người
   (JD do ai soạn và ai duyệt, ai được gán vào lớp nào) vẫn là danh mục bình thường, và nhân viên **external**
   không có trong COMPAS. Chốt bằng `BAChatOrgDirectoryRuleTests`.
-- **`BuildProjectUnitNoteAsync`** dựng ghi chú "đơn vị yêu cầu" từ **`Project.OrgUnitCode`** (chọn tùy chọn
-  ở modal New Project; `CreateProjectUseCase` chỉ lưu mã có thật trong OrgUnits): orgUnit + manager +
-  department cha + HoD.
+- **`BuildProjectUnitNoteAsync`** dựng ghi chú "đơn vị yêu cầu" từ **`Project.OrgUnitCode`** (**bắt buộc
+  chọn** ở modal New Project; `CreateProjectUseCase` chỉ nhận mã có thật trong OrgUnits, thiếu/mã lạ ⇒
+  `OrgUnitRequired`, không tạo project): orgUnit + manager + department cha + HoD. Dự án tạo từ trước khi
+  field này thành bắt buộc vẫn có thể trống ⇒ **fail-open** như dưới đây.
 - Nơi tiêu thụ: `BAChatService.ChatAsync` (system message nền — BA hiểu tên phòng/vai trò, gợi ý
   bằng tên phòng thật, hỏi luồng duyệt đúng ngôn ngữ manager/HoD, biết external KHÔNG nằm trong dữ liệu HR),
   và các lời gọi soạn/soát/sửa Product Brief + Technical Docs (`RequirementPromptBuilder` — tài liệu dùng

@@ -10,8 +10,8 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Projects;
 
-// Đơn vị yêu cầu khi tạo project: chỉ lưu OrgUnitCode khi mã CÓ THẬT trong OrgUnits (dropdown render từ
-// DB nên mã lạ chỉ đến từ request tự chế) — mã lạ/đã xóa mềm bị lặng lẽ bỏ qua, KHÔNG chặn tạo project.
+// Đơn vị yêu cầu khi tạo project là BẮT BUỘC: phải là mã CÓ THẬT trong OrgUnits (dropdown render từ DB
+// nên mã lạ chỉ đến từ request tự chế) — thiếu mã hoặc mã lạ/đã xóa mềm thì CHẶN, không tạo project.
 public class CreateProjectUseCaseTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -34,9 +34,10 @@ public class CreateProjectUseCaseTests : IDisposable
     public async Task ExecuteAsync_WithValidOrgUnitCode_StoresTrimmedCode()
     {
         await using var db = NewDb();
-        var id = await NewSut(db).ExecuteAsync(new ProjectCreateVm { Name = "P", OrgUnitCode = " 50123 " }, "alice");
+        var outcome = await NewSut(db).ExecuteAsync(new ProjectCreateVm { Name = "P", OrgUnitCode = " 50123 " }, "alice");
 
-        var project = await NewDb().Projects.SingleAsync(p => p.Id == id);
+        Assert.Equal(CreateProjectResult.Created, outcome.Result);
+        var project = await NewDb().Projects.SingleAsync(p => p.Id == outcome.ProjectId);
         Assert.Equal("50123", project.OrgUnitCode);
         Assert.Equal("alice", project.CreatedByUsername);
     }
@@ -44,15 +45,42 @@ public class CreateProjectUseCaseTests : IDisposable
     [Theory]
     [InlineData(null)]        // không chọn đơn vị
     [InlineData("")]          // form gửi chuỗi rỗng
+    [InlineData("   ")]       // chỉ khoảng trắng
     [InlineData("60000")]     // mã không tồn tại
     [InlineData("50999")]     // mã đã xóa mềm trong dữ liệu HR
-    public async Task ExecuteAsync_WithMissingOrUnknownCode_StoresNull_AndStillCreatesProject(string? code)
+    public async Task ExecuteAsync_WithMissingOrUnknownCode_IsRejected_AndCreatesNothing(string? code)
     {
         await using var db = NewDb();
-        var id = await NewSut(db).ExecuteAsync(new ProjectCreateVm { Name = "P", OrgUnitCode = code });
+        var outcome = await NewSut(db).ExecuteAsync(new ProjectCreateVm { Name = "P", OrgUnitCode = code });
 
-        var project = await NewDb().Projects.SingleAsync(p => p.Id == id);
-        Assert.Null(project.OrgUnitCode);
+        Assert.Equal(CreateProjectResult.OrgUnitRequired, outcome.Result);
+        Assert.Equal(Guid.Empty, outcome.ProjectId);
+        Assert.Empty(await NewDb().Projects.ToListAsync());
+    }
+
+    // Mô tả là field TÙY CHỌN — bỏ trống vẫn tạo được project (ProjectCreateVm.Description phải nullable,
+    // nếu không MVC gắn [Required] ngầm cho `string` không-nullable và form im lặng không tạo được gì).
+    [Fact]
+    public async Task ExecuteAsync_WithoutDescription_StillCreatesProject()
+    {
+        await using var db = NewDb();
+        var outcome = await NewSut(db).ExecuteAsync(new ProjectCreateVm { Name = "P", OrgUnitCode = "50123" });
+
+        Assert.Equal(CreateProjectResult.Created, outcome.Result);
+        var project = await NewDb().Projects.SingleAsync(p => p.Id == outcome.ProjectId);
+        Assert.Equal(string.Empty, project.Description);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ExecuteAsync_WithBlankName_IsRejected_AndCreatesNothing(string name)
+    {
+        await using var db = NewDb();
+        var outcome = await NewSut(db).ExecuteAsync(new ProjectCreateVm { Name = name, OrgUnitCode = "50123" });
+
+        Assert.Equal(CreateProjectResult.NameRequired, outcome.Result);
+        Assert.Empty(await NewDb().Projects.ToListAsync());
     }
 
     private static CreateProjectUseCase NewSut(AppDbContext db) =>

@@ -5,6 +5,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Projects;
 
+public enum CreateProjectResult
+{
+    Created,
+    NameRequired,
+    /// <summary>Chưa chọn đơn vị yêu cầu, hoặc mã gửi lên không có thật trong OrgUnits.</summary>
+    OrgUnitRequired
+}
+
+/// <summary>Kết quả tạo project — <see cref="ProjectId"/> chỉ có giá trị khi <see cref="Result"/> = Created.</summary>
+public record CreateProjectOutcome(CreateProjectResult Result, Guid ProjectId);
+
 public class CreateProjectUseCase
 {
     private readonly AppDbContext _db;
@@ -21,27 +32,29 @@ public class CreateProjectUseCase
         _logger = logger;
     }
 
-    public async Task<Guid> ExecuteAsync(ProjectCreateVm vm, string? createdByUsername = null)
+    public async Task<CreateProjectOutcome> ExecuteAsync(ProjectCreateVm vm, string? createdByUsername = null)
     {
-        // Đơn vị yêu cầu (tùy chọn): chỉ lưu khi mã CÓ THẬT trong OrgUnits — dropdown render từ DB nên mã
-        // lạ chỉ đến từ request tự chế; lặng lẽ bỏ qua thay vì chặn việc tạo project vì một field phụ.
-        string? orgUnitCode = null;
-        if (!string.IsNullOrWhiteSpace(vm.OrgUnitCode))
-        {
-            var code = vm.OrgUnitCode.Trim();
-            if (await _db.OrgUnits.AnyAsync(u => !u.IsDelete && u.OrgUnitCode == code))
-                orgUnitCode = code;
-        }
+        var name = (vm.Name ?? string.Empty).Trim();
+        if (name.Length == 0)
+            return new CreateProjectOutcome(CreateProjectResult.NameRequired, Guid.Empty);
 
-        // Chỉ lưu Name + Description (+ đơn vị yêu cầu nếu chọn). Generation Mode và Backend/Frontend Git
-        // để trống — TeamDev điền sau ở Agent Dashboard (UpdateDeliveryConfigUseCase) khi pipeline cần tới chúng.
+        // Đơn vị yêu cầu là BẮT BUỘC: mọi thứ phía sau (ghi chú đơn vị nạp cho BA, tên phòng ban thật trong
+        // tài liệu, roll-up department ở trang Usage) đều đọc từ đây, nên một project không có đơn vị là
+        // một lỗ hổng dữ liệu kéo dài cả vòng đời dự án. Chỉ nhận mã CÓ THẬT trong OrgUnits — dropdown
+        // render từ DB nên mã lạ/đã xóa mềm chỉ đến từ request tự chế, và lần này thì CHẶN thay vì bỏ qua.
+        var code = (vm.OrgUnitCode ?? string.Empty).Trim();
+        if (code.Length == 0 || !await _db.OrgUnits.AnyAsync(u => !u.IsDelete && u.OrgUnitCode == code))
+            return new CreateProjectOutcome(CreateProjectResult.OrgUnitRequired, Guid.Empty);
+
+        // Chỉ lưu Name + Description + đơn vị yêu cầu. Generation Mode và Backend/Frontend Git để trống —
+        // TeamDev điền sau ở Agent Dashboard (UpdateDeliveryConfigUseCase) khi pipeline cần tới chúng.
         var project = new Project
         {
-            Name = vm.Name,
-            Description = vm.Description,
+            Name = name,
+            Description = (vm.Description ?? string.Empty).Trim(),
             // Gắn chủ sở hữu để trang Projects/Index lọc đúng: User thường chỉ thấy project của mình.
             CreatedByUsername = createdByUsername,
-            OrgUnitCode = orgUnitCode
+            OrgUnitCode = code
         };
 
         _db.Projects.Add(project);
@@ -58,6 +71,6 @@ public class CreateProjectUseCase
             _logger.LogWarning(ex, "Could not initialize workspace folders for project {ProjectName}.", project.Name);
         }
 
-        return project.Id;
+        return new CreateProjectOutcome(CreateProjectResult.Created, project.Id);
     }
 }
