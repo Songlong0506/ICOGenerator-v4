@@ -63,6 +63,20 @@ thu gọn sidebar, nút đóng modal, bút chì sửa tại chỗ (`Views/Projec
 chỉ-có-icon biến thành ô trống không ai bấm. Cùng lý do, chevron của `PocTemplate` giữ SVG vì animation
 xoay bám `.nav-chevron`.
 
+### Hộp thoại: chiều cao có trần, cuộn trong thân
+
+`.modal-backdrop` là lưới canh giữa (`site.css`), nên hộp thoại cao hơn màn hình sẽ tràn ra cả hai
+đầu và **phần tràn không cuộn tới được** — trên laptop màn thấp, một form dài (Add/Edit Model) mất
+luôn hàng nút cuối. Vì vậy `.modal` mặc định đã có `max-height: 100%` + `overflow-y: auto`: hộp thoại
+luôn nằm trọn trong màn hình và tự cuộn phần dư. Đừng gỡ cặp thuộc tính đó khi thêm modal mới.
+
+Hộp thoại nào cần **tiêu đề/hàng tab đứng yên** khi cuộn thì tự khai `max-height` cho `.modal` và đặt
+`overflow-y: auto` ở đúng khối thân (mẫu: `.eval-wide-modal` + `.eval-detail-body`, `.poc-tech-panel`).
+
+Hệ quả cần biết khi đặt `<select>` gần đáy modal: panel của combo (`dropdown.js`) luôn thả xuống dưới
+và bị `overflow` của modal cắt. `dropdown.js` xử lý sẵn — lúc mở, nó cuộn tổ tiên cuộn được gần nhất
+xuống vừa đủ để panel lọt khung; đừng chép logic đó ra view.
+
 ### Chỗ đặt DTO quyết định bởi ai đọc nó
 
 Không phải bởi "nó là DTO":
