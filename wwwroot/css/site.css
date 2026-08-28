@@ -1437,6 +1437,24 @@ input[type="week"] {
     overflow: hidden;
 }
 
+/* Panel NỔI (dropdown.js gắn khi mở): thoát khỏi `overflow` của hộp chứa để đè lên trên
+   thay vì bị cắt/đội hộp thoại lên. Toạ độ do JS tính theo nút bấm nên phải huỷ mọi neo của
+   biến thể absolute; z-index cao hơn mọi lớp modal trong app (cao nhất hiện tại: 10000). */
+.ms-combo-panel--floating {
+    position: fixed;
+    top: auto;
+    left: auto;
+    right: auto;
+    z-index: 10050;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Panel nổi bị chặn chiều cao theo khoảng trống còn lại của màn hình ⇒ phần cuộn phải là
+   danh sách, không phải cả panel (ô Search luôn đứng yên trên đầu). */
+.ms-combo-panel--floating .ms-combo-search { flex: 0 0 auto; }
+.ms-combo-panel--floating .ms-combo-list { flex: 1 1 auto; min-height: 0; max-height: none; }
+
 /* Search row — full-width box with magnifier + clear (✕), light-blue fill. */
 .ms-combo-search { padding: 10px; border-bottom: 1px solid var(--line); }
 .ms-combo-search-box { position: relative; }
