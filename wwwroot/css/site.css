@@ -1002,6 +1002,14 @@ input[type="checkbox"], input[type="radio"], input[type="range"], input[type="fi
     padding: 26px;
     box-shadow: 0 12px 40px rgba(0,0,0,.3);
     position: relative;
+    /* Trần chiều cao + cuộn TRONG hộp thoại. Backdrop là grid canh giữa: một hộp cao hơn ô lưới sẽ
+       tràn cả hai đầu, và phần tràn LÊN TRÊN không tài nào cuộn tới — trên laptop màn thấp, form dài
+       (Add/Edit Model) mất luôn phần cuối. `100%` là ô lưới đã trừ padding 24px của backdrop, nên
+       hộp thoại luôn nằm trọn trong màn hình. Modal nào cần header/tab đứng yên thì tự khai
+       `max-height` + cuộn ở thân (xem .eval-wide-modal, .poc-tech-panel). */
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .modal .x {

@@ -226,6 +226,18 @@
             // bring the selected row into view
             var sel = list.querySelector('.ms-combo-option.selected');
             if (sel) sel.scrollIntoView({ block: 'nearest' });
+            keepPanelInsideScroller();
+        }
+
+        // Panel luôn thả XUỐNG (`top: calc(100% + 3px)`). Nằm trong một hộp có cuộn riêng —
+        // điển hình là .modal cao hơn màn hình trên laptop nhỏ — phần thả quá mép dưới bị
+        // `overflow` của hộp cắt mất, mở ra chỉ thấy một hai dòng đầu. Cuộn chính hộp đó
+        // xuống vừa đủ để panel lọt vào khung.
+        function keepPanelInsideScroller() {
+            var scroller = scrollableAncestor(combo);
+            if (!scroller) return;
+            var over = panel.getBoundingClientRect().bottom - scroller.getBoundingClientRect().bottom + 8;
+            if (over > 0) scroller.scrollTop += over;
         }
 
         function close() {
@@ -286,6 +298,16 @@
 
         buildList();
         renderTrigger();
+    }
+
+    // Tổ tiên gần nhất tự cuộn được theo chiều dọc. Không xét document: ở trang thường
+    // panel không bị cắt, cuộn cả trang khi mở dropdown chỉ làm giật màn hình.
+    function scrollableAncestor(node) {
+        for (var el = node.parentElement; el; el = el.parentElement) {
+            var oy = getComputedStyle(el).overflowY;
+            if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+        }
+        return null;
     }
 
     function closeAll() {
