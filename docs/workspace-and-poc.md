@@ -64,7 +64,15 @@ Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-
 
 ---
 
-### Sửa thông tin dự án (và bất biến "tên dự án = tên thư mục workspace")
+### Tạo & sửa thông tin dự án (và bất biến "tên dự án = tên thư mục workspace")
+Modal **New Project** nhận đúng ba field: **Name** (bắt buộc), Description và **Org Unit** — đơn vị yêu
+cầu **bắt buộc** từ lúc tạo, vì ghi chú đơn vị nạp cho BA, tên phòng ban thật trong tài liệu và bảng
+"Usage by department" đều đọc từ `Project.OrgUnitCode` (xem
+[requirement-flow.md](requirement-flow.md#bối-cảnh-tổ-chức-bosch-orgunitsassociates--prompt-ba--tài-liệu--usage)). `CreateProjectUseCase` chỉ nhận
+mã có thật trong `OrgUnits`: thiếu hoặc mã lạ/đã xóa mềm ⇒ `OrgUnitRequired`, **không** tạo project (form
+đánh dấu `required` chỉ là lớp tiện dụng). Bảng `OrgUnits` chưa đồng bộ được đơn vị nào ⇒ modal nói thẳng
+lý do và khóa nút tạo thay vì đưa ra một dropdown rỗng.
+
 Trang Projects sửa được Name / Description / đơn vị yêu cầu ngay tại danh sách (modal, quyền
 `ProjectsEdit` + `IProjectAccessGuard` nên User thường chỉ sửa project của mình). Ba field kỹ thuật
 (Generation Mode, Backend/Frontend Git) **không** ở đây — chúng thuộc `UpdateDeliveryConfigUseCase` ở

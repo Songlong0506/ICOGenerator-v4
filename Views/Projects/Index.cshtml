@@ -226,14 +226,15 @@
         <button type="button" class="x" onclick="closeModal('newProject')">×</button><h2>New Project</h2>
         <label>Name *</label><input name="Name" placeholder="e.g E-commerce Web App" required />
         <label>Description</label><input name="Description" placeholder="Short description" />
+        @* Đơn vị yêu cầu (BẮT BUỘC): giúp BA hiểu bối cảnh phòng ban ngay từ đầu, tài liệu ghi đúng
+           đơn vị chủ quản và trang Usage thống kê được theo phòng ban — thiếu nó thì cả ba thứ đó hỏng
+           suốt vòng đời dự án, nên chặn ngay ở đây. Dùng <select> gốc để dropdown.js tự nâng cấp thành
+           combo chuẩn (.ms-combo--single) — đồng bộ với mọi dropdown khác trong app, kèm ô tìm kiếm khi
+           danh sách dài; select gốc vẫn focus được nên thông báo "required" của trình duyệt hiện đúng chỗ. *@
         @if (Model.OrgUnitOptions.Count > 0)
         {
-            @* Đơn vị yêu cầu (tùy chọn): giúp BA hiểu bối cảnh phòng ban ngay từ đầu, tài liệu ghi đúng
-               đơn vị chủ quản và trang Usage thống kê được theo phòng ban. Dùng <select> gốc để
-               dropdown.js tự nâng cấp thành combo chuẩn (.ms-combo--single) — đồng bộ với mọi dropdown
-               khác trong app, kèm ô tìm kiếm khi danh sách dài. *@
-            <label>Org Unit</label>
-            <select name="OrgUnitCode">
+            <label>Org Unit *</label>
+            <select name="OrgUnitCode" required>
                 <option value="">— Chưa chọn —</option>
                 @foreach (var o in Model.OrgUnitOptions)
                 {
@@ -241,7 +242,16 @@
                 }
             </select>
         }
-        <div class="modal-actions"><button type="button" class="btn" onclick="closeModal('newProject')">Cancel</button><button class="btn primary">Create Project</button></div>
+        else
+        {
+            @* Chưa đồng bộ được đơn vị nào từ dữ liệu HR: nói thẳng lý do thay vì hiện một dropdown rỗng
+               bấm mãi không được — và khóa luôn nút tạo vì server cũng sẽ từ chối. *@
+            <p class="modal-note warning">
+                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                Chưa có đơn vị nào trong hệ thống nên chưa tạo được dự án. Hãy đồng bộ dữ liệu đơn vị (OrgUnits) trước.
+            </p>
+        }
+        <div class="modal-actions"><button type="button" class="btn" onclick="closeModal('newProject')">Cancel</button><button class="btn primary" @(Model.OrgUnitOptions.Count == 0 ? "disabled" : "")>Create Project</button></div>
     </form>
 </div>
 

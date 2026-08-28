@@ -97,10 +97,29 @@ public class ProjectsController : Controller
     [RequirePermission(AppPermission.ProjectsCreate)]
     public async Task<IActionResult> Create(ProjectCreateVm vm)
     {
+        // Form đã đánh dấu required cả Name lẫn Org Unit, nhưng validate lại ở server: HTML required chỉ là
+        // lớp tiện dụng, request tự chế bỏ qua nó dễ dàng. Báo lý do bằng toast thay vì im lặng quay về
+        // danh sách — người dùng bấm "Create Project" mà không thấy gì xảy ra là bug khó hiểu nhất.
         if (!ModelState.IsValid)
+        {
+            TempData["Error"] = "Thông tin dự án không hợp lệ. Vui lòng kiểm tra lại.";
             return RedirectToAction(nameof(Index));
+        }
 
-        await _createProjectUseCase.ExecuteAsync(vm, User.Identity?.Name);
+        var outcome = await _createProjectUseCase.ExecuteAsync(vm, User.Identity?.Name);
+        switch (outcome.Result)
+        {
+            case CreateProjectResult.Created:
+                TempData["Success"] = "Đã tạo dự án.";
+                break;
+            case CreateProjectResult.NameRequired:
+                TempData["Error"] = "Tên dự án không được để trống.";
+                break;
+            default:
+                TempData["Error"] = "Vui lòng chọn đơn vị yêu cầu cho dự án.";
+                break;
+        }
+
         return RedirectToAction(nameof(Index));
     }
 
