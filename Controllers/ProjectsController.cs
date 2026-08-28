@@ -494,11 +494,14 @@ public class ProjectsController : Controller
         var result = await _acceptPocUseCase.ExecuteAsync(
             projectId, User.Identity?.Name ?? string.Empty, HttpContext.RequestAborted);
 
+        // Chuỗi ở đây là chữ hiện TRONG hộp xác nhận nghiệm thu của trang POC Review, và hộp đó để
+        // tiếng Anh cho khớp nhãn nút trên command bar ("Approve POC" / "Withdraw Approve") — xem
+        // bindAcceptanceButton trong poc-review.js. Đây là ngoại lệ có chủ đích của quy ước tiếng Việt.
         return result switch
         {
-            AcceptPocResult.Ok => Json(new { ok = true, message = "Đã ghi nhận anh/chị nghiệm thu bản demo — đội delivery đã được báo để đi tiếp các bước sau." }),
-            AcceptPocResult.AlreadyAccepted => Json(new { ok = false, message = "Bản demo này đã được nghiệm thu trước đó rồi." }),
-            AcceptPocResult.NoPoc => Json(new { ok = false, message = "Chưa có bản demo nào để nghiệm thu." }),
+            AcceptPocResult.Ok => Json(new { ok = true, message = "The demo is marked as approved — the delivery team has been notified to move on." }),
+            AcceptPocResult.AlreadyAccepted => Json(new { ok = false, message = "This demo has already been approved." }),
+            AcceptPocResult.NoPoc => Json(new { ok = false, message = "There is no demo to approve yet." }),
             _ => NotFound("Project không tồn tại.")
         };
     }
@@ -516,10 +519,11 @@ public class ProjectsController : Controller
         var result = await _withdrawPocAcceptanceUseCase.ExecuteAsync(
             projectId, User.Identity?.Name ?? string.Empty, HttpContext.RequestAborted);
 
+        // Tiếng Anh vì cùng lý do với AcceptPoc ở trên: chữ này hiện trong hộp xác nhận của POC Review.
         return result switch
         {
-            WithdrawPocAcceptanceResult.Ok => Json(new { ok = true, message = "Đã rút nghiệm thu — anh/chị chat và ghi chú lại được; đội delivery đã được báo." }),
-            WithdrawPocAcceptanceResult.NotAccepted => Json(new { ok = false, message = "Bản demo này đang không ở trạng thái đã nghiệm thu." }),
+            WithdrawPocAcceptanceResult.Ok => Json(new { ok = true, message = "Approval withdrawn — chat and notes are open again; the delivery team has been notified." }),
+            WithdrawPocAcceptanceResult.NotAccepted => Json(new { ok = false, message = "This demo is not in the approved state." }),
             _ => NotFound("Project không tồn tại.")
         };
     }

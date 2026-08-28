@@ -871,6 +871,38 @@
     </div>
 }
 
+@* XÁC NHẬN NGHIỆM THU — hộp thoại của app, không phải confirm() của trình duyệt. Hai cú bấm này là
+   hai cú bấm đắt nhất trang: một cái đóng băng cả chat BA lẫn ghi chú POC, cái kia rút lại lời đã nói
+   với đội delivery. Hộp mặc định của trình duyệt dán tên miền "localhost:7115 says" lên trên, bỏ hết
+   xuống dòng của câu giải thích và không bày được nhãn hành động thật, nên người dùng đọc "OK/Cancel"
+   mà không biết mình đang OK cái gì. Một hộp dùng .modal của app trả lại đủ ba thứ: tiêu đề là câu hỏi,
+   một dòng cảnh báo nói hậu quả, và nút chính mang đúng nhãn của thao tác.
+
+   Chữ trong hộp để TIẾNG ANH cho khớp nhãn nút trên command bar ("Approve POC" / "Withdraw Approve") —
+   đọc "Rút lại nghiệm thu?" rồi phải tự suy ra là nút "Withdraw Approve" là một bước dịch thừa ngay tại
+   khoảnh khắc cần chắc tay nhất. Nội dung do JS bơm vào (xem bindAcceptanceButton) vì hai thao tác dùng
+   chung một hộp. *@
+@if (canManageRequirements)
+{
+    <div class="modal-backdrop hidden" id="pocConfirmModal">
+        <div class="modal poc-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="pocConfirmTitle">
+            <button type="button" class="x" id="pocConfirmClose" aria-label="Close">&times;</button>
+            <h2 id="pocConfirmTitle"></h2>
+            <p class="modal-note warning" id="pocConfirmNote">
+                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                <span id="pocConfirmNoteText"></span>
+            </p>
+            @* Lỗi từ server hiện NGAY TRONG hộp: bắn alert() ra ngoài sau khi đã đóng hộp là quay lại
+               đúng thứ vừa thay. *@
+            <div class="poc-confirm-msg hidden" id="pocConfirmMsg" role="alert"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn outline small" id="pocConfirmCancel">Cancel</button>
+                <button type="button" class="btn primary small" id="pocConfirmOk"></button>
+            </div>
+        </div>
+    </div>
+}
+
 @* CHIA SẺ bản demo cho người không có tài khoản: nghiệm thu thật luôn có nhiều người, mà trang này bị
    chặn theo quyền truy cập project. Link luôn có hạn dùng và thu hồi được; người xem chỉ mở được đúng
    bản demo + ghim góp ý, không thấy gì khác của dự án. Hộp thoại mở từ nút trên command bar; đặt ngoài

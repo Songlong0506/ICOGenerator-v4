@@ -396,12 +396,65 @@
     // trang (nút gửi ghi chú, chế độ ghim, nút thu hồi từng dòng, biển trạng thái trong panel ghi chú).
     // Vá từng chỗ bằng JS là dựng bản sao thứ hai của luật khoá — bản sao sẽ trôi lệch khỏi server ngay
     // lần sửa sau.
-    function bindAcceptanceButton(id, url, question) {
+    const FALLBACK_ERROR = "Something went wrong — please try again.";
+
+    // Hộp xác nhận là hộp CỦA APP (#pocConfirmModal trong PocReview.cshtml), không phải confirm() của
+    // trình duyệt — lý do đổi ghi ở chính khối markup đó. Một hộp dùng chung cho cả hai chiều: hai thao
+    // tác không bao giờ cùng có mặt (nút kia không được render), nên hai bản sao markup chỉ để trôi lệch.
+    // Chữ trong hộp để tiếng Anh cho khớp nhãn nút trên command bar.
+    const confirmModal = document.getElementById("pocConfirmModal");
+    const confirmTitle = document.getElementById("pocConfirmTitle");
+    const confirmNoteText = document.getElementById("pocConfirmNoteText");
+    const confirmMsg = document.getElementById("pocConfirmMsg");
+    const confirmOk = document.getElementById("pocConfirmOk");
+
+    // Người bấm Cancel/Escape/nút ✕ phải làm ĐÚNG MỘT việc: không chạy thao tác. Nên câu trả lời của hộp
+    // đi ra bằng một Promise<boolean> — chỗ gọi giữ nguyên hình dạng "hỏi rồi mới làm" của confirm() cũ.
+    let confirmResolve = null;
+
+    function closeConfirm(answer) {
+        if (!confirmModal) return;
+        confirmModal.classList.add("hidden");
+        const resolve = confirmResolve;
+        confirmResolve = null;
+        if (resolve) resolve(answer);
+    }
+
+    function askConfirm(title, note, okLabel) {
+        if (!confirmModal) return Promise.resolve(false);
+
+        // Hộp còn đang mở cho một câu hỏi khác (mở bằng bàn phím chẳng hạn) ⇒ trả lời "không" cho câu cũ
+        // trước, đừng để lời hứa cũ treo mãi.
+        closeConfirm(false);
+
+        confirmTitle.textContent = title;
+        confirmNoteText.textContent = note;
+        confirmOk.textContent = okLabel;
+        confirmOk.disabled = false;
+        confirmMsg.textContent = "";
+        confirmMsg.classList.add("hidden");
+        confirmModal.classList.remove("hidden");
+        confirmOk.focus();
+
+        return new Promise(resolve => { confirmResolve = resolve; });
+    }
+
+    if (confirmModal) {
+        confirmOk.addEventListener("click", () => closeConfirm(true));
+        document.getElementById("pocConfirmCancel").addEventListener("click", () => closeConfirm(false));
+        document.getElementById("pocConfirmClose").addEventListener("click", () => closeConfirm(false));
+        confirmModal.addEventListener("click", e => { if (e.target === confirmModal) closeConfirm(false); });
+        document.addEventListener("keydown", e => {
+            if (e.key === "Escape" && !confirmModal.classList.contains("hidden")) closeConfirm(false);
+        });
+    }
+
+    function bindAcceptanceButton(id, url, title, note, okLabel) {
         const btn = document.getElementById(id);
         if (!btn || !url) return;
 
         btn.addEventListener("click", async function () {
-            if (!confirm(question)) return;
+            if (!await askConfirm(title, note, okLabel)) return;
 
             const label = btn.querySelector(".cbar-label") || btn;
             const original = label.textContent;
@@ -412,6 +465,7 @@
             fd.append("projectId", projectId);
             if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
 
+            let message = null;
             try {
                 const response = await fetch(url, { method: "POST", body: fd });
                 const data = await response.json().catch(() => null);
@@ -419,25 +473,40 @@
                     window.location.reload();
                     return;
                 }
-                alert((data && data.message) || "Không thực hiện được — thử lại sau.");
+                message = (data && data.message) || FALLBACK_ERROR;
             } catch {
-                alert("Không thực hiện được — thử lại sau.");
+                message = FALLBACK_ERROR;
             }
 
+            // Lỗi hiện lại TRONG hộp vừa hỏi (mở lại, nút chính khoá): câu trả lời "không làm được" phải
+            // đứng cạnh câu hỏi vừa hỏi, và người dùng còn ngay đó để đóng hoặc thử lại.
             btn.disabled = false;
             label.textContent = original;
+            showConfirmError(message);
         });
+    }
+
+    function showConfirmError(message) {
+        if (!confirmModal) return;
+        confirmMsg.textContent = message;
+        confirmMsg.classList.remove("hidden");
+        confirmOk.disabled = true;
+        confirmModal.classList.remove("hidden");
     }
 
     bindAcceptanceButton(
         "pocAcceptBtn",
         root.dataset.acceptUrl,
-        "Xác nhận bản demo này đã đạt yêu cầu?\n\nSau khi nghiệm thu, ghi chú trên POC và chat với BA ở màn hình Requirement sẽ bị khoá cho tới khi anh/chị bấm \"Withdraw Approve\".");
+        "Approve this demo?",
+        "After approval, POC notes and the BA chat on the Requirement screen are locked until you click \"Withdraw Approve\".",
+        "Approve POC");
 
     bindAcceptanceButton(
         "pocWithdrawApproveBtn",
         root.dataset.withdrawAcceptUrl,
-        "Rút lại nghiệm thu bản demo?\n\nGhi chú và chat với BA sẽ mở lại, và đội delivery được báo là lời nghiệm thu không còn hiệu lực.");
+        "Withdraw the approval of this demo?",
+        "Notes and the BA chat reopen, and the delivery team is told that the approval is no longer valid.",
+        "Withdraw Approve");
 
     // ===== Gửi ghi chú đi xử lý: MỘT nút, hai đường =====
     //
