@@ -74,7 +74,7 @@ public class RequirementCoverageService
             // Không có lượt mới thì cũng KHÔNG bỏ qua chốt chặn bảng-đã-chốt: một bản đồ kẹt lại từ lượt
             // trước (distill hỏng, hoặc model giữ mẩu "còn thiếu" cũ) sẽ khóa cổng readiness cho tới khi
             // có lượt chat kế tiếp, mà lượt chat kế tiếp lại chính là thứ đang bị chặn.
-            await ApplyConfirmedTableGuardAsync(project, cancellationToken);
+            await RepairMapAsync(project, cancellationToken);
             return new CoverageUpdate(project.RequirementCoverageMap, false);
         }
 
@@ -104,7 +104,14 @@ public class RequirementCoverageService
             // chắt ra và không bao giờ nhìn thấy nhau, nên chúng nói ngược nhau mà không tầng nào biết —
             // và [RÕ] là lệnh cấm BA hỏi lại, tức mục tồn đọng ấy vĩnh viễn không được lấy. Xem
             // CoveragePendingGuard cho ca thật và cho lý do guard chạy ở đường GHI chứ không ở đường đọc.
-            var guarded = CoveragePendingGuard.Apply(updated, InterviewOutlookService.ParseItems(project.OpenQuestions));
+            //
+            // …và danh sách tồn đọng được LỌC trước khi ghi vào bản đồ: nó chắt ở HẬU KỲ nên luôn cũ hơn
+            // bản đồ đúng một lượt, và một mục người dùng vừa trả lời mà vẫn được ghi thành mẩu
+            // "còn thiếu:" là đúng cái vòng lặp kín mà CoverageStaleGapGuard sinh ra để cắt — chỉ khác
+            // đường vào. Dọn ở đây thì mẩu chết không quay lại ngay ở lượt sau qua ngả tồn đọng.
+            var pending = CoverageStaleGapGuard.DropAnsweredItems(
+                updated, InterviewOutlookService.ParseItems(project.OpenQuestions));
+            var guarded = CoveragePendingGuard.Apply(updated, pending);
 
             project.RequirementCoverageMap = string.IsNullOrWhiteSpace(guarded) ? null : guarded;
             project.CoverageHarvestedTurnCount = harvested + delta.Count;
@@ -113,24 +120,32 @@ public class RequirementCoverageService
         // updated == null ⇒ gộp lỗi: fail-open, giữ bản đồ cũ + con trỏ cũ, nạp lại như dưới — nhưng có
         // cờ để caller nói thẳng với người dùng rằng tiến độ khai thác chưa cập nhật được lượt này.
 
-        // CHỐT CHẶN THỨ HAI, cũng chạy bằng code và cố ý đứng SAU CoveragePendingGuard: hai nhóm chốt bằng
+        // HAI CHỐT CHẶN CÒN LẠI, cũng chạy bằng code và cố ý đứng SAU CoveragePendingGuard. Một: mẩu
+        // "còn thiếu:" mà chính bản đồ đã trả lời bị XOÁ (CoverageStaleGapGuard) — distiller được đính bản
+        // đồ cũ nên nó chép lại mẩu cũ, và cổng readiness lấy nguyên mẩu ấy làm câu chặn, tức một câu hỏi
+        // người dùng đã trả lời rồi được phát lại tới khi họ bỏ cuộc. Hai: hai nhóm chốt bằng
         // BẢNG («Phân quyền theo nghiệp vụ», «Thông báo / nhắc nhở») phải [RÕ] ngay khi bảng của chúng nằm
         // trong DB. Bằng chứng ở đây không do LLM chắt mà là từng ô người dùng tự tay bấm, nên nó thắng cả
         // mẩu "còn thiếu" mà distiller giữ lại lẫn một điểm tồn đọng gắn nhầm vào hai nhóm này — điểm tồn
         // đọng đó là câu hỏi CHẾT: BA bị cấm hỏi lẻ hai nhóm ấy và bảng đã chốt thì không bày lại bao giờ.
         // Chạy cả trên đường fail-open vì bản đồ cũ cũng là bản đồ mà cổng readiness sắp đọc.
-        await ApplyConfirmedTableGuardAsync(project, cancellationToken);
+        await RepairMapAsync(project, cancellationToken);
 
         return new CoverageUpdate(project.RequirementCoverageMap, updated == null);
     }
 
-    // Áp CoverageConfirmedTableGuard lên bản đồ đang giữ và CHỈ lưu khi nó thật sự đổi — guard chạy ở mọi
-    // lượt, kể cả lượt không có gì mới, nên một SaveChangesAsync vô ích ở đây là một lần ghi DB mỗi lượt
-    // chat cho không.
-    private async Task ApplyConfirmedTableGuardAsync(Project project, CancellationToken cancellationToken)
+    // Hai chốt chặn cuối cùng, áp lên bản đồ ĐANG GIỮ (kể cả bản cũ của đường fail-open — nó cũng là bản
+    // đồ mà cổng readiness sắp đọc) và CHỈ lưu khi có gì đổi: guard chạy ở mọi lượt, kể cả lượt không có
+    // gì mới, nên một SaveChangesAsync vô ích ở đây là một lần ghi DB mỗi lượt chat cho không.
+    //
+    // Thứ tự bắt buộc: XOÁ mẩu chết trước, ÉP [RÕ] theo bảng đã chốt sau. CoverageConfirmedTableGuard là
+    // guard duy nhất được nâng trạng thái (bằng chứng của nó là từng ô người dùng tự tay bấm), nên nó phải
+    // là tiếng nói cuối cùng trên hai dòng chốt-bằng-bảng.
+    private async Task RepairMapAsync(Project project, CancellationToken cancellationToken)
     {
         var repaired = CoverageConfirmedTableGuard.Apply(
-            project.RequirementCoverageMap, project.PermissionMatrix, project.NotificationMap);
+            CoverageStaleGapGuard.Apply(project.RequirementCoverageMap),
+            project.PermissionMatrix, project.NotificationMap);
 
         if (string.Equals(repaired, project.RequirementCoverageMap, StringComparison.Ordinal))
             return;
