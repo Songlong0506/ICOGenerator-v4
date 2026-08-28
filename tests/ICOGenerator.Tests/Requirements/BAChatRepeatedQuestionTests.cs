@@ -37,6 +37,11 @@ public class BAChatRepeatedQuestionTests : IDisposable
     private const string AskedRoles = "Ai sẽ sử dụng app này và vai trò của họ?";
     private const string AskedNotify = "Khi có nhân viên đạt 11 giờ, cách thức nhắc nhở và hành động tiếp theo ra sao?";
 
+    // Câu MỞ xin một lời KỂ: theo luật "câu mở thì KHÔNG chip" nên lượt lưu nó không có gợi ý nào.
+    private const string AskedStory =
+        "Anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD cho nhân viên: bắt đầu từ đâu, "
+        + "làm những bước nào, và ai tham gia vào quy trình đó?";
+
     // Bản đồ mà lượt chắt lọc (fake) trả về ở mọi test: hai nhóm người dùng VỪA trả lời vẫn bị giữ
     // [MỘT PHẦN] — đúng tình huống đã đẻ ra bệnh, vì đó là lúc prompt bảo BA "ưu tiên hỏi nhóm này".
     private const string PartialMap =
@@ -150,6 +155,44 @@ public class BAChatRepeatedQuestionTests : IDisposable
         Assert.NotEqual(AskedRoles, result.Reply);
         Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply);
         Assert.DoesNotContain("Đối tượng người dùng & vai trò", result.Reply);
+    }
+
+    // CÂU MỞ (xin một lời KỂ) là loại câu đắt nhất của buổi phỏng vấn và cũng là loại KHÔNG có chip —
+    // trước đây đúng vì thế mà nó không bao giờ vào sổ "đã hỏi", nên phanh không có gì để so và BA phát
+    // lại được nguyên văn. Ca thật (dự án JD Libary, lượt 2 và lượt 4): cùng một câu xin kể quy trình
+    // tạo/gán JD hỏi hai lượt liền, người dùng đáp "mình nói ở trên rồi đó".
+    [Fact]
+    public async Task AnOpenStorytellingQuestionIsRememberedToo_AndNeverAskedTwice()
+    {
+        await SeedAskedOpenQuestionAsync();
+
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply { Message = AskedStory, OpenEnded = true }
+        };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(_projectId, "mình nói ở trên rồi đó");
+
+        Assert.NotEqual(AskedStory, result.Reply);
+        Assert.DoesNotContain("một lần gần nhất", result.Reply);
+        // Thay bằng bước kế tiếp suy TẤT ĐỊNH từ bản đồ — không im lặng, không câu dẫn cụt.
+        Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply);
+    }
+
+    // …và nửa còn lại của phanh: câu mở đã hỏi phải NẰM TRONG ngữ cảnh gửi lên model, không chỉ bị lọc
+    // sau khi model lỡ hỏi lại.
+    [Fact]
+    public async Task AnOpenQuestionAskedBefore_IsLoadedIntoTheBaContext()
+    {
+        await SeedAskedOpenQuestionAsync();
+
+        var llm = new FakeLlm(PartialMap) { ChatReply = new BAChatReply { Message = "Nhà máy có bao nhiêu nhân viên?", Suggestions = new List<string> { "Dưới 500" } } };
+
+        await using var db = NewDb();
+        await NewSut(db, llm).ChatAsync(_projectId, "khoảng 500");
+
+        Assert.Contains(AskedStory, string.Join("\n", llm.LastChatSystemMessages));
     }
 
     [Fact]
@@ -273,6 +316,31 @@ public class BAChatRepeatedQuestionTests : IDisposable
             Message = $"- {AskedRoles}: Phòng bảo vệ xem dashboard, phòng nhân sự xem history\n"
                       + $"- {AskedNotify}: Gọi điện cho nhân viên, không được thì gọi manager",
             CreatedAt = baseTime.AddSeconds(2)
+        });
+        await db.SaveChangesAsync();
+    }
+
+    // Hội thoại nền cho hai test câu MỞ: BA xin một lời kể (không chip), người dùng kể xong.
+    private async Task SeedAskedOpenQuestionAsync()
+    {
+        await using var db = NewDb();
+        var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId,
+            AgentId = _baId,
+            Role = "assistant",
+            Message = AskedStory,
+            CreatedAt = baseTime
+        });
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId,
+            AgentId = _baId,
+            Role = "user",
+            Message = "hiện tại việc tạo và gán JD được HRBP làm trong 2 file excel, HRBP tự thêm sửa xóa",
+            CreatedAt = baseTime.AddSeconds(1)
         });
         await db.SaveChangesAsync();
     }

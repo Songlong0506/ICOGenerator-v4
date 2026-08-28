@@ -118,6 +118,14 @@ Hai quy ước giữ cho nó không rối lại:
 - **`LlmJson` là chỗ ĐỌC JSON model trả về duy nhất.** Trước đây gần chục service tự chép "bóc JSON rồi
   `Deserialize` trong `try/catch`" nên hành vi biên (phản hồi bị cắt, JSON toàn field lạ) mỗi nơi một
   kiểu. Parser dự phòng giờ là một dòng `LlmJson.TryDeserialize<T>(raw)`.
+  - **Dãy thoát hỏng được SỬA rồi đọc lại**, thay vì bỏ cả object. Model viết tiếng Việt hay nhả JSON dạng
+    ASCII toàn `\uXXXX`, và chỉ cần MỘT dãy rụng một chữ số hex là cả phản hồi mất trắng: ca thật (dự án
+    JD Libary, lượt 6) là `\u1E1y` giữa chữ *"vậy"* — `BAChatReplyParser` rơi về nhánh text thuần và
+    **nguyên khối JSON** lên khung chat như một lượt trả lời của BA. Cách sửa cố ý **mất ký tự chứ không
+    đoán ký tự**: dãy `\u` hỏng bị bỏ hẳn, dấu `\` đứng trước một escape lạ thì bỏ dấu `\`. Đoán chữ mà
+    model định viết là bịa nội dung nghiệp vụ; rụng một chữ trong một câu thì vẫn còn đọc được và còn
+    thấy được. Chỉ chạy khi lần đọc đầu đã ném, và **không** chữa hỏng cấu trúc — `{"a": }` vẫn trả `null`
+    để caller dùng parser dự phòng.
 - **`LlmSettings` là chỗ ĐỌC config `Llm:*` duy nhất.** Trước đây ba service tự đọc
   `Llm:RequestTimeoutSeconds` kèm ba hằng mặc định riêng — sửa một chỗ là lệch ngay với hai chỗ kia.
 

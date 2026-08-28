@@ -73,6 +73,38 @@ public class LlmJsonTests
         Assert.Null(LlmJson.TryDeserialize<Reply>(text));
     }
 
+    // DÃY THOÁT HỎNG — ca thật đã đốt một lượt chat trên màn hình (dự án JD Libary, lượt 6): model viết
+    // tiếng Việt dạng ASCII toàn \uXXXX và nhả `\u1E1y` (rụng một chữ số hex) giữa chữ "vậy". Cả object
+    // không đọc được ⇒ BAChatReplyParser rơi về nhánh text thuần ⇒ NGUYÊN KHỐI JSON lên khung chat như
+    // một lượt trả lời của BA. Sửa theo hướng MẤT KÝ TỰ, không đoán ký tự: phần còn lại của câu phải
+    // nguyên vẹn, chỉ chỗ hỏng là rụng.
+    [Fact]
+    public void TryDeserialize_RepairsABrokenUnicodeEscape_InsteadOfGivingUp()
+    {
+        var value = LlmJson.TryDeserialize<Reply>("""{"answer":"ch\u00EDnh x\u00E1c nh\u01B0 v\u1E1y","score":3}""");
+
+        Assert.Equal(3, value?.Score);
+        Assert.StartsWith("chính xác như v", value?.Answer);
+        Assert.DoesNotContain("\\u", value?.Answer);
+    }
+
+    [Fact]
+    public void TryDeserialize_RepairsAStrayBackslash()
+    {
+        // `\x` không phải escape hợp lệ của JSON: bỏ dấu gạch chéo, giữ ký tự.
+        var value = LlmJson.TryDeserialize<Reply>("""{"answer":"file C:\xData\\bao-cao.xlsx"}""");
+
+        Assert.Equal("file C:xData\\bao-cao.xlsx", value?.Answer);
+    }
+
+    // Sửa dãy thoát KHÔNG được biến thành "sửa mọi thứ": JSON hỏng ở cấu trúc vẫn trả null để caller rơi
+    // về parser dự phòng của mình.
+    [Fact]
+    public void TryDeserialize_StillReturnsNull_WhenTheDamageIsNotAnEscape()
+    {
+        Assert.Null(LlmJson.TryDeserialize<Reply>("""{"answer": , "score": 3}"""));
+    }
+
     // Mặc định (các parser dự phòng): giữ nguyên hành vi cũ — JSON hợp lệ nhưng toàn field lạ vẫn đọc
     // được thành object mặc-định-hết.
     [Fact]

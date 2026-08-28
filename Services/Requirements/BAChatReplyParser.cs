@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Llm;
@@ -49,8 +50,41 @@ public class BAChatReplyParser
                 return Normalize(reply);
         }
 
+        // Phản hồi CÓ HÌNH DẠNG JSON mà không đọc nổi (dãy thoát hỏng mà LlmJson cũng chữa không xong,
+        // chuỗi bị cắt giữa chừng vì chạm trần token, dấu " không escape...): vớt lấy phần `message` rồi
+        // đi tiếp như một lượt bình thường. Nhánh này KHÔNG bao giờ được rơi về "coi cả khối là text":
+        // ca thật (dự án JD Libary, lượt 6) là nguyên khối `{"message":"C\u1EA3m \u01A1n…","ready":false}`
+        // hiện lên khung chat như một lượt trả lời của BA — người dùng đọc phải sổ sách của hệ thống, còn
+        // các tầng sau (chắt bản đồ bao phủ, nhật ký điều đã chốt) thì đọc nó như lời BA nói ra.
+        // Vớt không được thì trả lượt RỖNG: BAChatService có sẵn chốt chặn cho lượt câm (nó thay bằng
+        // bước kế tiếp tất định suy từ bản đồ bao phủ), và một câu hỏi khô cứng vẫn hơn một khối JSON.
+        if (LooksLikeJsonObject(text))
+            return Normalize(new BAChatReply { Message = SalvageMessage(text) });
+
         // Fallback: coi toàn bộ phản hồi là text hiển thị, không kèm chip (giống hành vi trước đây).
         return new BAChatReply { Message = text };
+    }
+
+    private static bool LooksLikeJsonObject(string text)
+        => text.StartsWith('{') || text.StartsWith("```", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Đọc phần GIÁ TRỊ của trường <c>message</c> ra khỏi một khối JSON hỏng, khoan dung hết mức: bỏ hàng
+    /// rào ```, unescape được tới đâu hay tới đó, dãy `\u` hỏng thì bỏ qua, chuỗi chưa đóng thì lấy tới
+    /// hết. Chuỗi rỗng nghĩa là không vớt được gì.
+    ///
+    /// <para>
+    /// Dùng lại <see cref="BAChatTokenFilter"/> chứ không viết máy trạng thái thứ hai: nó vốn đã làm đúng
+    /// việc này để stream "BA đang gõ", và nó cố ý khoan dung (không nhận ra định dạng thì im lặng, không
+    /// bao giờ ném). Một bộ luật, một chỗ sửa — và bản xem trước lúc gõ với bản chốt lúc lưu không thể
+    /// nói hai điều khác nhau về cùng một phản hồi hỏng.
+    /// </para>
+    /// </summary>
+    private static string SalvageMessage(string text)
+    {
+        var salvaged = new StringBuilder();
+        new BAChatTokenFilter(chunk => salvaged.Append(chunk)).Feed(text);
+        return salvaged.ToString().Trim();
     }
 
     /// <summary>
