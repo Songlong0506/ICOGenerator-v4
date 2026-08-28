@@ -226,13 +226,63 @@
             // bring the selected row into view
             var sel = list.querySelector('.ms-combo-option.selected');
             if (sel) sel.scrollIntoView({ block: 'nearest' });
-            keepPanelInsideScroller();
+            floatPanel();
         }
 
-        // Panel luôn thả XUỐNG (`top: calc(100% + 3px)`). Nằm trong một hộp có cuộn riêng —
-        // điển hình là .modal cao hơn màn hình trên laptop nhỏ — phần thả quá mép dưới bị
-        // `overflow` của hộp cắt mất, mở ra chỉ thấy một hai dòng đầu. Cuộn chính hộp đó
-        // xuống vừa đủ để panel lọt vào khung.
+        // Mặc định panel là `position: absolute` — nằm TRONG dòng chảy của hộp chứa. Đặt trong
+        // một hộp có cuộn riêng (điển hình là .modal với `overflow-y: auto`) thì phần thả
+        // quá mép dưới bị cắt, hộp thoại mọc thêm thanh cuộn và UI vỡ. Khi mở, chuyển panel
+        // sang `position: fixed` (class `--floating`) và tự tính toạ độ theo nút bấm: panel nổi ĐÈ
+        // LÊN hộp thoại, không bị `overflow` cắt và không cộng vào chiều cao cuộn của hộp.
+        // Panel vẫn nằm trong DOM của combo nên đóng modal là panel biến theo, click-ra-ngoài
+        // và các phép `contains()` giữ nguyên ý nghĩa.
+        var GAP = 3, EDGE = 8, MIN_PANEL_H = 160;
+
+        function floatPanel() {
+            // `position: fixed` neo theo viewport TRỪ KHI có tổ tiên tạo containing block
+            // (transform/filter/perspective/contain). Gặp trường hợp đó thì giữ cách cũ: thả xuống
+            // theo hộp chứa rồi cuộn hộp cho panel lọt khung.
+            if (fixedContainingBlock(combo)) {
+                keepPanelInsideScroller();
+                return;
+            }
+            panel.classList.add('ms-combo-panel--floating');
+            positionPanel();
+            window.addEventListener('resize', positionPanel);
+            // capture: bắt cả cuộn của hộp thoại/khung con, không chỉ của trang.
+            window.addEventListener('scroll', positionPanel, true);
+        }
+
+        function unfloatPanel() {
+            window.removeEventListener('resize', positionPanel);
+            window.removeEventListener('scroll', positionPanel, true);
+            panel.classList.remove('ms-combo-panel--floating');
+            panel.style.top = panel.style.left = panel.style.width = panel.style.maxHeight = '';
+        }
+
+        function positionPanel() {
+            var r = trigger.getBoundingClientRect();
+            // Nút bấm bị cuộn ra khỏi tầm nhìn ⇒ panel không còn điểm neo, đóng lại.
+            if (r.bottom < 0 || r.top > window.innerHeight) { close(); return; }
+
+            var width = Math.max(r.width, 240);
+            var left = Math.min(r.left, window.innerWidth - width - EDGE);
+            panel.style.width = width + 'px';
+            panel.style.left = Math.max(EDGE, left) + 'px';
+
+            var below = window.innerHeight - r.bottom - GAP - EDGE;
+            var above = r.top - GAP - EDGE;
+            var flipUp = below < MIN_PANEL_H && above > below;
+            var avail = Math.max(MIN_PANEL_H, flipUp ? above : below);
+            panel.style.maxHeight = avail + 'px';
+            // offsetHeight đọc SAU khi đã đặt maxHeight nên là chiều cao thật sự sẽ hiển thị.
+            panel.style.top = (flipUp
+                ? Math.max(EDGE, r.top - GAP - panel.offsetHeight)
+                : r.bottom + GAP) + 'px';
+        }
+
+        // Không dùng được `fixed` thì panel vẫn thả xuống theo hộp chứa và có thể bị `overflow`
+        // cắt mất. Cuộn chính hộp đó xuống vừa đủ để panel lọt vào khung.
         function keepPanelInsideScroller() {
             var scroller = scrollableAncestor(combo);
             if (!scroller) return;
@@ -241,6 +291,7 @@
         }
 
         function close() {
+            unfloatPanel();
             combo.classList.remove('open');
             panel.classList.add('hidden');
             trigger.setAttribute('aria-expanded', 'false');
@@ -298,6 +349,20 @@
 
         buildList();
         renderTrigger();
+    }
+
+    // Tổ tiên gần nhất biến mình thành containing block cho con `position: fixed` — khi đó
+    // `fixed` neo theo tổ tiên đó chứ không theo viewport, nên panel nổi sẽ đặt sai chỗ.
+    function fixedContainingBlock(node) {
+        for (var el = node.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+            var cs = getComputedStyle(el);
+            if ((cs.transform && cs.transform !== 'none')
+                || (cs.filter && cs.filter !== 'none')
+                || (cs.perspective && cs.perspective !== 'none')
+                || (cs.contain && /paint|layout|strict|content/.test(cs.contain))
+                || (cs.willChange && /transform|filter|perspective/.test(cs.willChange))) return el;
+        }
+        return null;
     }
 
     // Tổ tiên gần nhất tự cuộn được theo chiều dọc. Không xét document: ở trang thường

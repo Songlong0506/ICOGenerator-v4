@@ -73,9 +73,14 @@ luôn nằm trọn trong màn hình và tự cuộn phần dư. Đừng gỡ c�
 Hộp thoại nào cần **tiêu đề/hàng tab đứng yên** khi cuộn thì tự khai `max-height` cho `.modal` và đặt
 `overflow-y: auto` ở đúng khối thân (mẫu: `.eval-wide-modal` + `.eval-detail-body`, `.poc-tech-panel`).
 
-Hệ quả cần biết khi đặt `<select>` gần đáy modal: panel của combo (`dropdown.js`) luôn thả xuống dưới
-và bị `overflow` của modal cắt. `dropdown.js` xử lý sẵn — lúc mở, nó cuộn tổ tiên cuộn được gần nhất
-xuống vừa đủ để panel lọt khung; đừng chép logic đó ra view.
+Hệ quả cần biết khi đặt `<select>` trong modal: panel của combo (`dropdown.js`) nếu nằm trong dòng chảy
+của hộp thoại sẽ bị `overflow` cắt, đồng thời đội chiều cao hộp lên làm mọc thanh cuộn — với danh sách
+dài (Org Unit ~200 đơn vị) là vỡ hẳn bố cục. `dropdown.js` xử lý sẵn — lúc mở, nó chuyển panel sang
+`position: fixed` (class `.ms-combo-panel--floating`) và tự tính toạ độ theo nút bấm, nên panel **nổi đè
+lên** hộp thoại thay vì nằm trong: không bị cắt, không cộng vào chiều cao cuộn, tự lật lên trên khi hụt
+chỗ bên dưới, và bám theo nút khi cuộn/đổi kích thước cửa sổ. Panel vẫn là con của combo trong DOM nên
+đóng modal là nó biến theo. Gặp tổ tiên tạo containing block cho `fixed` (`transform`/`filter`/`contain`)
+thì tự lùi về cách cũ: thả xuống rồi cuộn hộp cho panel lọt khung. Đừng chép logic đó ra view.
 
 ### Chỗ đặt DTO quyết định bởi ai đọc nó
 
