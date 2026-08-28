@@ -219,7 +219,6 @@ public class CloneProjectUseCase
                 ExtractedText = file.ExtractedText,
                 PageCount = file.PageCount,
                 ColumnMap = file.ColumnMap,
-                IsVisionSource = file.IsVisionSource,
                 ScannedPageImageCount = file.ScannedPageImageCount,
                 VisionSummary = file.VisionSummary,
                 UploadedByUserId = file.UploadedByUserId,

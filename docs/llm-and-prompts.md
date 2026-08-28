@@ -221,7 +221,7 @@ deploy, và eval run không biết mình đã đo phiên bản nào. Nay có m�
   "Quay về file"), trang **Diff** giữa hai mốc (mốc `0` = file; tái dùng `DocumentDiffService` +
   style diff của doc-history). Mọi thao tác ghi vào **Audit Log** (category `Prompt`).
 - **Gắn với eval**: `EvalRunnerService` hỏi provider trước khi chạy từng scenario và snapshot
-  `EvalResult.PromptVersionId/PromptVersionNumber` (Guid + số, **không FK** — như mọi tham chiếu
+  `EvalResult.PromptVersionNumber` (chỉ SỐ phiên bản, **không FK** — như mọi tham chiếu
   eval khác; null = nội dung file). Chi tiết run hiển thị "prompt v{n}/file" từng kết quả; màn so
   sánh 2 run gắn nhãn phiên bản mỗi bên (cùng nhãn = so MODEL, khác nhãn = so PROMPT); trang chi
   tiết template có bảng **"Điểm eval theo phiên bản"** (gộp điểm judge theo `PromptVersionNumber`)

@@ -25,7 +25,6 @@ public class AuditLog
 
     /// <summary>Username người thực hiện (lấy từ claim đăng nhập); "system" nếu không có ngữ cảnh request.</summary>
     public string ActorUsername { get; set; } = string.Empty;
-    public string ActorRole { get; set; } = string.Empty;
 
     /// <summary>Ảnh chụp trạng thái trước/sau ở dạng JSON đã che secret. Null khi không áp dụng (vd Create).</summary>
     public string? BeforeJson { get; set; }

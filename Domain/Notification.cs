@@ -39,6 +39,4 @@ public class Notification
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    /// <summary>Thời điểm người nhận đọc (null nếu chưa đọc).</summary>
-    public DateTime? ReadAt { get; set; }
 }

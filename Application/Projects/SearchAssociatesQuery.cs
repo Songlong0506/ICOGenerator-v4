@@ -5,8 +5,8 @@ namespace ICOGenerator.Application.Projects;
 
 /// <summary>
 /// Một người trong danh bạ nhân sự, rút gọn đúng mức cần để NHẬN RA người nhận link: tên, email và nơi
-/// làm việc. Không kèm dữ liệu cá nhân nhạy cảm (ngày sinh, điện thoại, địa chỉ đón) — ô gợi ý này chỉ
-/// giúp gõ đúng tên, không phải cửa sổ tra cứu hồ sơ nhân sự.
+/// làm việc — ô gợi ý này chỉ giúp gõ đúng tên, không phải cửa sổ tra cứu hồ sơ nhân sự. Dữ liệu cá nhân
+/// nhạy cảm (ngày sinh, điện thoại, địa chỉ đón) không nằm trong bảng <c>Associates</c> để mà lộ.
 /// </summary>
 public record AssociateSuggestion(string DisplayName, string? Email, string? OrganizationUnit, string? Position);
 

@@ -16,9 +16,11 @@ namespace ICOGenerator.Services.Requirements;
 /// (<see cref="BuildPlatformNote"/>) chặn BA hỏi/gợi ý những thứ nhà máy đã chốt sẵn (kênh thông báo, cách
 /// đăng nhập, nguồn của dữ liệu orgUnit/nhân sự).
 ///
-/// Nguyên tắc dữ liệu: prompt CHỈ nhận dữ liệu GỘP (tên đơn vị, số lượng, chức danh) — KHÔNG bao giờ đưa
-/// thông tin cá nhân nhạy cảm của Associates (ngày sinh, điện thoại, email, địa chỉ đón) vào prompt. Tên
-/// người thật chỉ xuất hiện ở vai trò quản lý (HoD/manager) — thứ vốn ghi công khai trong tài liệu dự án.
+/// Nguyên tắc dữ liệu: prompt CHỈ nhận dữ liệu GỘP (tên đơn vị, số lượng, chức danh). Hồ sơ cá nhân nhạy
+/// cảm (ngày sinh, giới tính, điện thoại, địa chỉ đón…) thậm chí KHÔNG được đồng bộ về bảng
+/// <c>Associates</c> ngay từ đầu — xem <see cref="Domain.Associate"/>, nên không có đường nào để nó lọt
+/// vào prompt. Tên người thật chỉ xuất hiện ở vai trò quản lý (HoD/manager) — thứ vốn ghi công khai
+/// trong tài liệu dự án.
 ///
 /// Bản render dùng chung mọi project nên cache theo tiến trình (IMemoryCache, hết hạn theo thời gian —
 /// dữ liệu HR chỉ đổi khi đồng bộ lại). Fail-open toàn tuyến: bảng trống/lỗi DB ⇒ trả null, chat và sinh

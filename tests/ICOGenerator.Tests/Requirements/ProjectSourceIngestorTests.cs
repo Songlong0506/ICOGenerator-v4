@@ -37,7 +37,7 @@ public class ProjectSourceIngestorTests : IDisposable
     }
 
     [Fact]
-    public async Task IngestAsync_Image_StoresFile_AndIsVisionSource()
+    public async Task IngestAsync_Image_StoresFile_AndMarksImageKind()
     {
         var ingestor = NewIngestor();
         using var ms = new MemoryStream(OnePixelPng);
@@ -46,7 +46,6 @@ public class ProjectSourceIngestorTests : IDisposable
             Guid.NewGuid(), "proj-key", "shot.png", "image/png", OnePixelPng.Length, ms, "tester");
 
         Assert.Equal(SourceFileKind.Image, entity.Kind);
-        Assert.True(entity.IsVisionSource);
         Assert.Equal("image/png", entity.ContentType);
         Assert.True(File.Exists(entity.StoredPath));
         Assert.Null(entity.ExtractedText);
@@ -107,7 +106,6 @@ public class ProjectSourceIngestorTests : IDisposable
             FileName = "img.png",
             ContentType = "image/png",
             StoredPath = imgPath,
-            IsVisionSource = true,
         };
         var config = new ConfigurationBuilder().Build();
         var builder = new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance);
@@ -145,7 +143,7 @@ public class ProjectSourceIngestorTests : IDisposable
             Guid.NewGuid(), "proj-key", "quy-trinh.docx", null, docx.Length, ms, "tester");
 
         Assert.Equal(SourceFileKind.Document, entity.Kind);
-        Assert.False(entity.IsVisionSource);
+        Assert.Equal(0, entity.ScannedPageImageCount);
         Assert.True(File.Exists(entity.StoredPath));
         Assert.NotNull(entity.ExtractedText);
         Assert.Contains("Quy trình duyệt đơn", entity.ExtractedText);
@@ -153,7 +151,7 @@ public class ProjectSourceIngestorTests : IDisposable
     }
 
     [Fact]
-    public async Task IngestAsync_WordDocumentWithEmbeddedImage_ExtractsFigure_AndIsVisionSource()
+    public async Task IngestAsync_WordDocumentWithEmbeddedImage_ExtractsFigure()
     {
         // Tài liệu kỹ thuật hay nhét screenshot/sơ đồ vào ảnh nhúng — phải lấy ra figure-{n}.png cạnh file
         // gốc cho model vision, thay vì chỉ bóc text rồi mất trắng phần hình.
@@ -166,7 +164,6 @@ public class ProjectSourceIngestorTests : IDisposable
 
         Assert.Equal(SourceFileKind.Document, entity.Kind);
         Assert.Equal(1, entity.ScannedPageImageCount);
-        Assert.True(entity.IsVisionSource);
         Assert.NotNull(entity.ExtractedText);
         Assert.Contains("[Hình 1", entity.ExtractedText);
         Assert.True(File.Exists(Path.Combine(Path.GetDirectoryName(entity.StoredPath)!, "figure-1.png")));
@@ -190,7 +187,6 @@ public class ProjectSourceIngestorTests : IDisposable
             StoredPath = Path.Combine(dir, "tai-lieu.docx"),
             ExtractedText = "Quy trình nhập kho. [Hình 1 — trích từ tài liệu, gửi kèm dưới dạng ảnh]",
             ScannedPageImageCount = 3,
-            IsVisionSource = true
         };
 
         var config = new ConfigurationBuilder().Build();
@@ -361,7 +357,6 @@ public class ProjectSourceIngestorTests : IDisposable
         StoredPath = Path.Combine(dir, "tai-lieu.docx"),
         ExtractedText = "Quy trình nhập kho.",
         ScannedPageImageCount = figureCount,
-        IsVisionSource = true,
     };
 
     [Fact]
@@ -378,7 +373,6 @@ public class ProjectSourceIngestorTests : IDisposable
 
         Assert.Equal(SourceFileKind.Pdf, entity.Kind);
         Assert.Equal(0, entity.ScannedPageImageCount);
-        Assert.False(entity.IsVisionSource);
     }
 
     [Fact]
@@ -397,7 +391,6 @@ public class ProjectSourceIngestorTests : IDisposable
             ContentType = "application/pdf",
             StoredPath = Path.Combine(dir, "bieu-mau-scan.pdf"),
             ScannedPageImageCount = 3,
-            IsVisionSource = true
         };
 
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
@@ -488,7 +481,6 @@ public class ProjectSourceIngestorTests : IDisposable
 
         Assert.Equal(SourceFileKind.Pdf, entity.Kind);
         Assert.Equal(1, entity.ScannedPageImageCount);
-        Assert.True(entity.IsVisionSource);
 
         var dir = Path.GetDirectoryName(entity.StoredPath)!;
         Assert.True(File.Exists(Path.Combine(dir, "figure-1.png")));
@@ -510,7 +502,6 @@ public class ProjectSourceIngestorTests : IDisposable
             Guid.NewGuid(), "proj-key", "bien-ban.pdf", "application/pdf", pdf.Length, ms, "tester");
 
         Assert.Equal(0, entity.ScannedPageImageCount);
-        Assert.False(entity.IsVisionSource);
         Assert.DoesNotContain("[Hình", entity.ExtractedText);
     }
 
@@ -552,7 +543,6 @@ public class ProjectSourceIngestorTests : IDisposable
             StoredPath = Path.Combine(dir, "ho-so.pdf"),
             ExtractedText = "--- Trang 1 ---\nMo ta quy trinh.\n[Hình 1 — ảnh nhúng trong trang 1, gửi kèm dưới dạng ảnh]",
             ScannedPageImageCount = 3,
-            IsVisionSource = true,
         };
 
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
@@ -586,7 +576,6 @@ public class ProjectSourceIngestorTests : IDisposable
             StoredPath = storedPath,
             ExtractedText = "Noi dung tai lieu.",
             ScannedPageImageCount = 1,
-            IsVisionSource = true,
         };
 
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();

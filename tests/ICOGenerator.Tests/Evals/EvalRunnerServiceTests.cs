@@ -187,7 +187,7 @@ public class EvalRunnerServiceTests : IDisposable
             runId = run.Id;
         }
 
-        // (1) Không có bản DB active ⇒ kết quả ghi "file" (PromptVersionId null).
+        // (1) Không có bản DB active ⇒ kết quả ghi "file" (PromptVersionNumber null).
         await using (var db = NewDb())
         {
             await NewRunner(db, judgeReply: """{"score": 4, "reasoning": "ổn"}""").RunAsync(runId);
@@ -195,12 +195,10 @@ public class EvalRunnerServiceTests : IDisposable
         await using (var verify = NewDb())
         {
             var result = await verify.EvalResults.SingleAsync(x => x.EvalRunId == runId);
-            Assert.Null(result.PromptVersionId);
             Assert.Null(result.PromptVersionNumber);
         }
 
-        // (2) Có bản DB active ⇒ kết quả snapshot đúng id + số phiên bản đã đo.
-        var overrideId = Guid.NewGuid();
+        // (2) Có bản DB active ⇒ kết quả snapshot đúng số phiên bản đã đo.
         Guid secondRunId;
         await using (var db = NewDb())
         {
@@ -212,12 +210,11 @@ public class EvalRunnerServiceTests : IDisposable
         await using (var db = NewDb())
         {
             await NewRunner(db, judgeReply: """{"score": 4, "reasoning": "ổn"}""",
-                overrides: new FixedPromptOverrideProvider(new PromptOverride(overrideId, 3, "## prompt v3"))).RunAsync(secondRunId);
+                overrides: new FixedPromptOverrideProvider(new PromptOverride(Guid.NewGuid(), 3, "## prompt v3"))).RunAsync(secondRunId);
         }
 
         await using var verify2 = NewDb();
         var stamped = await verify2.EvalResults.SingleAsync(x => x.EvalRunId == secondRunId);
-        Assert.Equal(overrideId, stamped.PromptVersionId);
         Assert.Equal(3, stamped.PromptVersionNumber);
     }
 

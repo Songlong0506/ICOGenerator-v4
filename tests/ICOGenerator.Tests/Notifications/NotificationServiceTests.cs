@@ -79,9 +79,8 @@ public class NotificationServiceTests : IDisposable
 
         await using (var db = NewDb())
         {
-            // Toàn bộ thông báo của teamdev đã đọc (có ReadAt); của người khác giữ nguyên.
+            // Toàn bộ thông báo của teamdev đã đọc; của người khác giữ nguyên.
             Assert.False(await db.Notifications.AnyAsync(n => n.RecipientUsername == "teamdev" && !n.IsRead));
-            Assert.True(await db.Notifications.Where(n => n.RecipientUsername == "teamdev" && n.Title != "c").AllAsync(n => n.ReadAt != null));
             Assert.False(await db.Notifications.Where(n => n.RecipientUsername == "other").Select(n => n.IsRead).FirstAsync());
         }
 

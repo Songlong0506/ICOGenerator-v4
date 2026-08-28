@@ -85,8 +85,8 @@ public class AppDbContext : DbContext
         builder.Entity<ToolDefinition>().HasIndex(x => new { x.ServiceType, x.MethodName }).IsUnique();
 
         // Audit data: Project FK Cascade, nhưng Agent FK Restrict — KHÔNG để xóa agent wipe sạch lịch sử log/hội thoại của nó.
-        builder.Entity<AgentModelCallLog>().HasOne(x => x.Project).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
-        builder.Entity<AgentModelCallLog>().HasOne(x => x.Agent).WithMany(x => x.ModelCallLogs).HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<AgentModelCallLog>().HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<AgentModelCallLog>().HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<AgentModelCallLog>().HasIndex(x => new { x.ProjectId, x.AgentId, x.CreatedAt });
         // Cột WorkflowRunId là khóa nhóm cho báo cáo chi phí "theo run"; KHÔNG khai báo FK để tránh
         // multiple-cascade-path (Project đã cascade cả CallLog lẫn WorkflowRun). Tên run lấy bằng join thủ công khi truy vấn.
@@ -342,8 +342,6 @@ public class AppDbContext : DbContext
             b.Property(x => x.EntityId).HasMaxLength(100);
             b.Property(x => x.Summary).HasMaxLength(500);
             b.Property(x => x.ActorUsername).HasMaxLength(100);
-            // 200 (trước là 50) vì actor nay có thể giữ nhiều vai trò, ghi thành chuỗi nối "Admin,TeamDev".
-            b.Property(x => x.ActorRole).HasMaxLength(200);
             b.HasIndex(x => x.CreatedAt);
             b.HasIndex(x => new { x.Category, x.CreatedAt });
         });
@@ -448,13 +446,8 @@ public class AppDbContext : DbContext
         });
 
         // Dữ liệu tổ chức đồng bộ từ HR_Portal (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu
-        // chính giữa hai bảng nên đánh index cho cả hai; các cột decimal cần khai precision tường minh.
+        // chính giữa hai bảng nên đánh index cho cả hai.
         builder.Entity<OrgUnit>().HasIndex(x => x.OrgUnitCode);
-        builder.Entity<Associate>(b =>
-        {
-            b.Property(x => x.StandardWorkingHour).HasPrecision(18, 2);
-            b.HasIndex(x => x.OrgUnitCode);
-            b.HasIndex(x => x.GlobalId);
-        });
+        builder.Entity<Associate>().HasIndex(x => x.OrgUnitCode);
     }
 }

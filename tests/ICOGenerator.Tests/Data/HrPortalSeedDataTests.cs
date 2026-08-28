@@ -39,9 +39,9 @@ public class HrPortalSeedDataTests
             orgUnits.Select(x => x.Id).Distinct().Count());
     }
 
-    // Một bản ghi mốc, đủ mọi KIỂU dữ liệu có trong entity: Guid, DateTime có phần lẻ giây, DateTime
-    // chỉ có ngày, string, bool. Nếu tuỳ chọn JsonSerializer lúc đọc lệch khỏi lúc ghi (vd đổi
-    // DefaultIgnoreCondition) thì sai lệch lộ ra ở đây chứ không âm thầm trôi vào DB.
+    // Một bản ghi mốc, đủ mọi KIỂU dữ liệu còn lại trong entity: Guid, string, bool, DateTime nullable.
+    // Nếu tuỳ chọn JsonSerializer lúc đọc lệch khỏi lúc ghi (vd đổi DefaultIgnoreCondition) thì sai lệch
+    // lộ ra ở đây chứ không âm thầm trôi vào DB.
     [Fact]
     public void Load_PreservesFieldValuesExactly()
     {
@@ -50,20 +50,15 @@ public class HrPortalSeedDataTests
             x => x.Id == Guid.Parse("50CCF4D7-3915-4F74-8DF0-00A1939CD65C"));
 
         Assert.Equal("35962752", associate.PersonalNumber);
-        Assert.Equal("11954888", associate.GlobalId);
         Assert.Equal("Le Anh Hao", associate.DisplayName);
+        Assert.Equal("50920748", associate.OrgUnitCode);
         Assert.Equal("PS/EPC2-VN", associate.OrganizationUnit);
         Assert.Equal("HAO.LEANH@VN.BOSCH.COM", associate.Email);
         Assert.Equal("Technical Documentation Engineer", associate.Position);
         Assert.Equal("LHN9HC", associate.UserId);
-        Assert.Equal(DateTime.Parse("2025-03-19 12:00:00.6655978"), associate.CreatedDate);
-        Assert.Equal(DateTime.Parse("2025-03-12 00:00:00.0000000"), associate.HiredDate);
         // Các trường vắng mặt trong JSON phải trở về đúng giá trị mặc định của property.
         Assert.False(associate.IsDelete);
-        Assert.False(associate.IsIndirect);
-        Assert.Null(associate.Birthday);
         Assert.Null(associate.LeavingDate);
-        Assert.Equal(0m, associate.StandardWorkingHour);
     }
 
     [Fact]
@@ -74,8 +69,10 @@ public class HrPortalSeedDataTests
             x => x.Id == Guid.Parse("8BA9C19B-B26A-4976-B60D-02EA83BDCE68"));
 
         Assert.Equal("HcP/MFE2.12", orgUnit.DisplayName);
-        Assert.Equal("00001835050010", orgUnit.CostCenter);
-        Assert.Equal("993F9106-79CB-4BB0-B061-EBDE116C32B6", orgUnit.UpdatedBy);
-        Assert.Equal(DateTime.Parse("2023-12-05 11:15:09.3212666"), orgUnit.CreatedDate);
+        Assert.Equal("50672627", orgUnit.OrgUnitCode);
+        Assert.Equal("50672623", orgUnit.TargetResponsible);
+        Assert.Equal("34183936", orgUnit.TrgtManagerLId);
+        Assert.False(orgUnit.IsDelete);
+        Assert.False(orgUnit.IsDepartment);
     }
 }
