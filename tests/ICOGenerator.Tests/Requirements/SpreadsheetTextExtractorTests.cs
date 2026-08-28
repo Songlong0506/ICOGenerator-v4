@@ -140,6 +140,128 @@ public class SpreadsheetTextExtractorTests
         Assert.Contains("Đang dùng: TRỐNG ở toàn bộ 1 dòng", text);
     }
 
+    // Biểu mẫu do người làm nghiệp vụ dựng gần như luôn mở đầu bằng một dòng banner MỘT Ô, rồi "Created by"
+    // / "Updated on", rồi mới tới hàng tiêu đề thật. Lấy "dòng có chữ đầu tiên" làm tiêu đề gây HAI hỏng
+    // cùng lúc, và cái thứ hai im lặng:
+    //   1. tên cột rỗng ⇒ bảng cột bày cho người dùng toàn "(cột 1)", "(cột 2)"… trong khi file có sẵn
+    //      "Org Unit", "Job title", "Job Grade" — họ không thể phân xử một cái tên không có trong file nào;
+    //   2. bề rộng bảng bị chốt theo dòng banner một ô ⇒ MỌI cột từ B trở đi biến mất khỏi bản đọc.
+    // Ca thật: StandardJDTemplate.xlsx, sheet "JD Database_Master" 12 cột chỉ còn lại 1.
+    [Fact]
+    public void ExtractXlsx_FindsTheRealHeaderRow_BelowBannerAndMetadataRows()
+    {
+        var bytes = BuildXlsxWithCells(
+            new Row(Text("A1", "HcP_JD Database 2023")),                 // banner một ô
+            new Row(Text("A2", "Created by"), Text("B2", "HcP/HRL")),
+            new Row(Text("A3", "Updated on"), Text("B3", "46118")),
+            new Row(Text("A6", "Org Unit"), Text("B6", "Job title"), Text("C6", "Job Grade")),
+            new Row(Text("A8", "C/AUP13-VN"), Text("B8", "Manager - Security"), Text("C8", "PC10")),
+            new Row(Text("A9", "C/AUP13-VN"), Text("B9", "Engineer - FCM"), Text("C9", "PC7")));
+
+        var text = SpreadsheetTextExtractor.Extract(bytes, "jd.xlsx")!;
+
+        Assert.Contains("Org Unit | Job title | Job Grade", text);
+        Assert.Contains("Job Grade: có giá trị 2/2", text);
+        Assert.DoesNotContain("(cột ", text);                            // không còn cột nào vô danh
+        Assert.Contains("Tổng: 2 dòng dữ liệu, 3 cột.", text);           // banner KHÔNG bị đếm là dòng dữ liệu
+    }
+
+    // Các dòng trước hàng tiêu đề không phải rác: chúng nói file này là bản gì, của ai, kỳ nào. Bỏ hẳn thì
+    // BA mất bối cảnh; để nguyên như cũ thì chúng đội lốt tên cột. Nên: giữ lại, gắn nhãn đúng thân phận.
+    [Fact]
+    public void ExtractXlsx_KeepsRowsAboveTheHeader_LabelledAsPreamble()
+    {
+        var bytes = BuildXlsxWithCells(
+            new Row(Text("A1", "HcP_JD Database 2023")),
+            new Row(Text("A2", "Created by"), Text("B2", "HcP/HRL")),
+            new Row(Text("A4", "Org Unit"), Text("B4", "Job title"), Text("C4", "Job Grade")),
+            new Row(Text("A5", "C/AUP13-VN"), Text("B5", "Manager - Security"), Text("C5", "PC10")));
+
+        var text = SpreadsheetTextExtractor.Extract(bytes, "jd.xlsx")!;
+
+        Assert.Contains(SpreadsheetTextExtractor.PreambleHeading, text);
+        Assert.Contains("HcP_JD Database 2023", text);
+        Assert.Contains("Created by | HcP/HRL", text);
+    }
+
+    // Hàng tiêu đề thắng hàng GỢI Ý nằm ngay dưới nó ("Please choose from drop down…") nhờ luật hoà điểm
+    // lấy dòng TRÊN — nếu không thì bảng cột mang tên "Automatically filled" cho ba cột khác nhau.
+    [Fact]
+    public void ExtractXlsx_PrefersTheHeaderRowOverTheHintRowBelowIt()
+    {
+        var bytes = BuildXlsxWithCells(
+            new Row(Text("A1", "Department"), Text("B1", "Job Grade"), Text("C1", "Job Code")),
+            new Row(Text("A2", "Chọn từ danh sách"), Text("B2", "Tự động điền"), Text("C2", "Tự động điền")),
+            new Row(Text("A3", "HcP/MSE1"), Text("B3", "PC1"), Text("C3", "MSE1-001")),
+            new Row(Text("A4", "HcP/MSE1"), Text("B4", "PC2"), Text("C4", "MSE1-002")));
+
+        var text = SpreadsheetTextExtractor.Extract(bytes, "jd.xlsx")!;
+
+        Assert.Contains("Department | Job Grade | Job Code", text);
+    }
+
+    // Cột chỉ có DỮ LIỆU mà không có tiêu đề (bảng phụ dán cạnh, ô tiêu đề gộp) vẫn phải ra bản đọc dưới
+    // tên "(cột n)": cắt bề rộng theo riêng hàng tiêu đề thì dữ liệu của chúng biến mất không dấu vết, mà
+    // im lặng mất dữ liệu tệ hơn hẳn một cái tên tạm mà người dùng gọi lại được ở bảng cột.
+    [Fact]
+    public void ExtractXlsx_KeepsColumnsThatHaveDataButNoHeader()
+    {
+        var bytes = BuildXlsxWithCells(
+            new Row(Text("A1", "JD code"), Text("B1", "Position title"), Text("C1", "PC level")),
+            new Row(Text("A2", "HcP-001"), Text("B2", "Worker"), Text("C2", "PC1"), Text("D2", "MSE1")),
+            new Row(Text("A3", "HcP-002"), Text("B3", "Operator"), Text("C3", "PC2"), Text("D3", "MSE2")));
+
+        var text = SpreadsheetTextExtractor.Extract(bytes, "jd.xlsx")!;
+
+        Assert.Contains("Tổng: 2 dòng dữ liệu, 4 cột.", text);
+        Assert.Contains("(cột 4): có giá trị 2/2", text);
+    }
+
+    // Dòng trống xen giữa bảng (rất hay gặp ngay dưới hàng tiêu đề) không phải bản ghi: đếm nó vào thì mọi
+    // tỉ lệ "có giá trị n/m" của khối thống kê lệch, và nó chiếm một suất trong 29 dòng mẫu.
+    [Fact]
+    public void ExtractXlsx_SkipsBlankRowsInsideTheTable()
+    {
+        var bytes = BuildXlsxWithCells(
+            new Row(Text("A1", "Mã"), Text("B1", "Tên")),
+            new Row(Text("A2", ""), Text("B2", "")),
+            new Row(Text("A3", "M1"), Text("B3", "An")));
+
+        var text = SpreadsheetTextExtractor.Extract(bytes, "s.xlsx")!;
+
+        Assert.Contains("Tổng: 1 dòng dữ liệu, 2 cột.", text);
+        Assert.Contains("Tên: có giá trị 1/1", text);
+    }
+
+    private static Cell Text(string reference, string value) => new()
+    {
+        CellReference = reference,
+        DataType = CellValues.String,
+        CellValue = new CellValue(value)
+    };
+
+    private static byte[] BuildXlsxWithCells(params Row[] rows)
+    {
+        using var ms = new MemoryStream();
+        using (var doc = SpreadsheetDocument.Create(ms, DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook))
+        {
+            var workbookPart = doc.AddWorkbookPart();
+            workbookPart.Workbook = new Workbook();
+
+            var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+            worksheetPart.Worksheet = new Worksheet(new SheetData(rows));
+
+            workbookPart.Workbook.AppendChild(new Sheets()).AppendChild(new Sheet
+            {
+                Id = workbookPart.GetIdOfPart(worksheetPart),
+                SheetId = 1,
+                Name = "S"
+            });
+            workbookPart.Workbook.Save();
+        }
+        return ms.ToArray();
+    }
+
     // Dựng .xlsx có ô rỗng bị LƯỢC BỎ (đúng cách Excel xuất file thật): hàng dữ liệu chỉ có ô A2 và C2.
     private static byte[] BuildXlsxWithGaps()
     {
@@ -148,13 +270,6 @@ public class SpreadsheetTextExtractorTests
         {
             var workbookPart = doc.AddWorkbookPart();
             workbookPart.Workbook = new Workbook();
-
-            static Cell Text(string reference, string value) => new()
-            {
-                CellReference = reference,
-                DataType = CellValues.String,
-                CellValue = new CellValue(value)
-            };
 
             var sheetData = new SheetData(
                 new Row(Text("A1", "Tên"), Text("B1", "Đang dùng"), Text("C1", "Phòng")),
