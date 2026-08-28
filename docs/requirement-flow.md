@@ -68,6 +68,31 @@ Các cơ chế trí nhớ (chi tiết đầy đủ ở [phần dưới](#các-c�
 
 ## Tài liệu nguồn, ảnh và call log
 
+### Lượt xin file tất định
+
+Đường vào này chỉ có giá trị khi file thật sự tới. `requirement-chat.v4.md` đã bắt BA *"xin file NGAY TẠI LƯỢT
+người dùng nhắc tới nó"* từ lâu, in đậm, kèm một ca thật — và nó vẫn trượt, trượt **im lặng**: không cổng nào
+biết rằng buổi phỏng vấn vừa bỏ qua một file. Ca thật (JD Libary 5, lượt 3 và 5): người dùng kể *"1 file excel
+danh sách JD… và 1 file excel khác để quản lý JD được gán cho nhân viên"* — nhắc **hai lần** — và không lượt nào
+trong cả 26 lượt xin file. Hậu quả không dừng ở một tệp đính kèm thiếu: không có file thì không có
+[bảng cột](#bảng-cột-chốt-phạm-vi-cột-của-file-bảng-tính) để chốt phạm vi, nên toàn bộ mô hình dữ liệu của dự án
+được dựng từ trí nhớ người dùng gõ tay trong một lượt chat — đúng thứ đang nằm sẵn trong file.
+
+Vì vậy nó là một chốt chặn tất định (`SourceRequestTurn`): lượt user cuối **nhắc tới một vật mang dữ liệu**
+(excel, bảng tính, sheet, file, biểu mẫu) trong khi dự án **chưa có tài liệu nguồn nào** và **chưa lượt BA nào
+xin file** ⇒ lượt trả lời bị thay bằng một lời xin file **đứng một mình** (không chip, không thẻ hỏi, ô nhập là
+chỗ trả lời). Ba tính chất của thiết kế:
+
+- **Thay TRỌN lượt, không chèn thêm một câu.** Xin file là lời nhờ *hành động*: người dùng đọc xong đi tìm file
+  và mọi câu hỏi kèm trong lượt bị nuốt mất — trong khi bản đồ bao phủ vẫn tính là đã hỏi. Câu hỏi model vừa
+  viết không mất: nhóm của nó chưa nhúc nhích nên nó quay lại ở lượt sau, lúc đó đọc được file rồi thì thường
+  còn hỏi ngắn hơn.
+- **Bắn đúng MỘT lần.** Người dùng nói không có file thì hội thoại đi tiếp bình thường; giục lần hai là phí đúng
+  cái lượt mà luật này sinh ra để tiết kiệm.
+- **Không có dấu hỏi, và đó là lý do nó là ngoại lệ DUY NHẤT của [chốt chặn lượt câm](#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn)** (`SourceRequestTurn.Looks`).
+
+`BAChatSourceRequestTurnTests` chốt cả ba.
+
 **Tài liệu nguồn** (`ProjectSourceIngestor`) — người dùng nghiệp vụ mô tả yêu cầu bằng thứ họ đang có, nên đường vào này quyết định chất lượng phỏng vấn:
 
 | Định dạng | Cách đọc |
@@ -1353,6 +1378,8 @@ Nay thứ được rút ngắn là **số vòng đi-về**, không phải độ 
 - **Trần cứng 4 câu/lượt, chặn TẤT ĐỊNH ở `BAChatReplyParser`** — không chỉ dặn trong prompt. Model luôn có xu hướng gộp tối đa để "xong sớm", và một lượt 12 câu hỏi chính là cổng chốt nhanh đội lốt phỏng vấn. Trần áp ở **cả hai** đường vào: `Parse` (model trả text) và `Normalize` (structured output trả thẳng `BAChatReply` — đường mặc định của các model tốt, nếu chỉ chặn trong `Parse` thì đúng những model đó không bị chặn).
 - **Hình dạng bộ chip phải khớp cờ `multiSelect`, chặn TẤT ĐỊNH ở `BAChatReplyParser`.** Một bộ gợi ý chỉ thuộc đúng một trong hai kiểu: **phương án thay thế** (mỗi chip là câu trả lời trọn vẹn, chọn cái này loại cái kia ⇒ chọn MỘT) hoặc **liệt kê thành phần** (câu trả lời thật là một danh sách, mỗi chip là một MẢNH ⇒ chọn NHIỀU). Model hay trộn hai kiểu: hỏi *"gồm những vai trò nào?"* — đúng kiểu liệt kê nên bật `multiSelect` — nhưng chip vẫn giữ dạng GÓI lồng nhau và phủ định nhau (`["Nhân viên và HR/đào tạo", "Nhân viên, quản lý và HR", "Thêm HoD phòng ban", "Chỉ bộ phận HR/đào tạo"]`). UI cho tích ô 1 + ô 4 cùng lúc, và thứ gửi đi là một câu trả lời **tự mâu thuẫn** được chắt thẳng vào bản đồ bao phủ với "Điều đã chốt" như lời người dùng — từ đó không tầng nào phía sau phân biệt được nữa. Parser nhận diện ba dấu hiệu "chip này là một PHƯƠNG ÁN, không phải một mảnh" (gói nhiều thứ trong một dòng; mở đầu bằng *"Chỉ…"*/*"Tất cả…"*/*"Không…"*; không tự đứng một mình như *"Thêm HoD…"*) rồi **hạ `multiSelect` về `false`** — áp ở cả hai đường vào và cho cả chip lượt-đơn lẫn chip từng câu của lượt gộp. Sửa **chỉ một chiều**, không bao giờ tự bật: hạ nhầm thì người dùng mất tiện ích tích nhiều ô (vẫn bấm được một chip, vẫn tự nhập được), bật nhầm thì sinh ra dữ liệu sai mà mọi bước sau tin là thật — hai cái giá không cùng hạng. Prompt (`requirement-chat.v4.md`, mục *"HAI KIỂU BỘ GỢI Ý"*) dạy cách viết chip nguyên tử; parser chỉ là cái phanh.
 - **Câu ĐÓNG mới có chip; câu MỞ thì KHÔNG, chặn TẤT ĐỊNH ở `BAChatReplyParser`.** Luật trước bắt *"mỗi khi bạn HỎI bất cứ điều gì thì PHẢI kèm gợi ý"*, nên BA xin một câu chuyện rồi vẫn dựng ra một hàng chip. Lỗi thật đã gặp trên màn hình: *"Anh/chị kể giúp một lần gần nhất lập kế hoạch cho các lớp học trong năm: bắt đầu từ đâu, thực hiện những bước nào, và kết quả cuối cùng cần có là gì?"* với `["Đã có danh sách khóa học", "Bắt đầu từ nhu cầu đào tạo", "Đang theo dõi bằng Excel", "Chưa có quy trình cố định"]`. Bốn chip chỉ chạm vế *"bắt đầu từ đâu"*, mà ở lượt hỏi một câu **bấm chip là GỬI NGAY** — nên *các bước* và *kết quả cuối cùng*, đúng hai thứ đắt nhất, không bao giờ được kể; rồi mẩu bốn chữ đó được chắt vào bản đồ bao phủ với "Điều đã chốt" **như câu trả lời thật của người dùng**, và nhóm coi như đã hỏi xong. Chip ở đó không phải tiện ích mà là một cái bẫy. Phép thử của prompt (`requirement-chat.v4.md`, mục *"CÂU ĐÓNG hay CÂU MỞ"*): *viết được 2–5 đáp án mà MỖI đáp án là câu trả lời TRỌN VẸN không?* — được ⇒ câu đóng, bắt buộc kèm chip; các đáp án chỉ trả lời được một MẨU ⇒ câu mở, `suggestions: []` + `openEnded: true`. Parser áp cờ đó ở cả hai đường vào và cho cả câu lượt-đơn lẫn từng câu của lượt gộp: `openEnded` ⇒ **xóa chip** (không bao giờ có hai chỗ trả lời cho một câu), cộng một nhận diện hẹp theo CỤM TỪ (*"kể giúp"*, *"mô tả"*, *"nói rõ hơn"*…) tự chuyển câu xin-lời-kể sang mở. Sửa **chỉ một chiều** (đóng → mở), không bao giờ tắt cờ BA đã đặt: bật nhầm thì người dùng phải gõ thay vì bấm, bỏ sót thì sinh ra một câu trả lời cụt mà mọi tầng sau tin là lời người dùng — hai cái giá không cùng hạng. Mặc định vẫn là câu đóng có chip: bỏ chip ở câu đóng là bắt người dùng nghiệp vụ gõ tay đúng thứ đáng lẽ bấm một cái là xong.
+- **Hai nhóm ĐÓNG ĐƯỢC BẰNG MỘT CÚ BẤM có luật riêng, chặn TẤT ĐỊNH ở `InterviewQuestionRules`.** «Luồng ngoại lệ & trường hợp đặc biệt» và «Báo cáo / thống kê» là hai nhóm duy nhất mà một câu phủ định của người dùng đưa dòng bản đồ thẳng tới `[KHÔNG ÁP DỤNG]` — trạng thái **không có đường quay lại**: cổng bỏ qua dòng đó và BA bị cấm hỏi lại. Nghĩa là một chip *"Không có trường hợp đặc biệt"* đóng vĩnh viễn đúng cái nhóm mà prompt gọi là lỗ hổng lớn nhất của tài liệu yêu cầu. Ca thật (JD Libary 5, lượt 22–23): BA gộp ba câu vào một thẻ, câu ngoại lệ và câu báo cáo đều dùng cặp chip có/không; người dùng bấm hai chip phủ định và cả hai nhóm đóng tới hết buổi — trong khi chính hội thoại ấy đã kể một đường hỏng ở lượt 9 (bị reject thì Manager sửa rồi submit lại) và hai điểm đau ở lượt 7 chính là một màn hình tra cứu. Hai luật, cả hai chỉ **mở rộng** chỗ trả lời: câu nhóm ngoại lệ lỡ nằm trong lượt gộp thì **các câu đi kèm bị bỏ** (nó vốn nằm trong danh sách "bắt buộc hỏi một mình", và các câu bị bỏ là các câu RẺ — nhóm của chúng chưa nhúc nhích nên lượt sau hỏi lại không mất gì), còn bộ chip **dạng có/không** của cả hai nhóm bị **xóa sạch**, lượt thành câu mở. Phép thử bắt đúng hình dạng (đúng hai chip, một mở đầu bằng *"không"*, một bằng *"có"*) nên bộ hai chip ở lượt xin chốt (`["Đúng rồi", "Không, tính khác"]`) — nơi vế "không" là một nhánh trả lời thật — không bị đụng tới. `InterviewQuestionRulesTests` chốt cả bốn ranh giới.
+- **Lượt tóm tắt kiểm chứng luôn có nút để bấm.** Lượt này là câu ĐÓNG (gật, hoặc đòi sửa) nên `BAChatService` gắn sẵn `SummaryCheckSuggestions` (`["Đúng rồi, tiếp tục", "Tôi muốn sửa lại"]`) khi model quên chip. Không có hai nhánh bày sẵn thì model trượt sang hỏi **độ đầy đủ** của cả buổi phỏng vấn — ca thật (JD Libary 5, lượt 20): *"anh/chị thấy đã đầy đủ chưa?"* nhận về *"đầy đủ rồi"* trong khi bản đồ còn hai nhóm `[CHƯA HỎI]`, và bốn lượt hỏi tiếp sau đó đọc như hỏi thừa. Người dùng không nhìn thấy bản đồ bao phủ nên họ không có cách nào trả lời câu đó; prompt vì vậy cấm hỏi độ đầy đủ và chỉ cho xin xác nhận **cách hiểu**.
 - **Khung chat KHÔNG BAO GIỜ hiện ra một khối JSON, chặn TẤT ĐỊNH ở `BAChatReplyParser`.** Nhánh dự phòng của parser vốn là *"đọc không được thì coi cả phản hồi là text hiển thị"* — đúng cho một model trả văn xuôi, nhưng thảm hoạ cho một phản hồi CÓ hình dạng JSON mà hỏng: ca thật (dự án JD Libary, lượt 6) là nguyên khối `{"message":"C\u1EA3m \u01A1n…","suggestions":[…],"ready":false}` nằm trong bong bóng chat như một lượt trả lời của BA — người dùng đọc phải sổ sách của hệ thống, chip thì mất, và các tầng chắt lọc phía sau (bản đồ bao phủ, "Điều đã chốt") đọc khối đó như lời BA vừa nói ra. Ba lớp, hẹp dần: `LlmJson` [sửa dãy thoát hỏng rồi đọc lại](llm-and-prompts.md#giải-phẫu-servicesllm-một-trách-nhiệm-một-file) (lượt về nguyên vẹn, còn cả chip) → sửa không xong mà text bắt đầu bằng `{` hoặc hàng rào ``` thì parser **vớt lấy phần `message`**, dùng lại chính `BAChatTokenFilter` (máy trạng thái vốn đã bóc `message` để stream "BA đang gõ", cố ý khoan dung: dãy `\u` hỏng thì bỏ qua, chuỗi chưa đóng thì lấy tới hết — nên bản xem trước lúc gõ và bản chốt lúc lưu không thể nói hai điều khác nhau) → vớt không ra chữ nào thì trả lượt **RỖNG**, để [chốt chặn lượt câm](#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn) thay bằng bước kế tiếp tất định suy từ bản đồ. Một câu hỏi khô cứng vẫn hơn một khối JSON.
 - **Chip "KHÁC" TRẦN bị XÓA, chặn TẤT ĐỊNH ở `BAChatReplyParser`.** Chip mà toàn bộ nội dung chỉ là *"không phải mấy cái kia"* — *"Khác"*, *"Tự nhập"*, và các bản đội lốt nghiệp vụ *"Quy tắc khác"*, *"Trạng thái khác"*, *"Cách xử lý khác"* — nói **đúng bằng** ô *"Ý khác"* nằm ngay dưới mọi hàng chip, chỉ thiếu đúng phần đắt nhất: nội dung. Mà ở lượt một câu **bấm chip là GỬI NGAY**, nên cú bấm đó gửi đi một lượt user rỗng (*"Quy tắc khác"* — quy tắc gì thì không ai biết) trong khi bản đồ bao phủ tính là nhóm đó đã hỏi VÀ đã trả lời: đúng ca *"câu trả lời rỗng"* mà prompt cảnh báo, chỉ khác là lần này chính bộ chip bày sẵn cái bẫy. Prompt cấm chip này từ lâu nhưng cấm theo **mặt chữ** (*"Khác"*, *"Tự nhập"*), nên model né được chỉ bằng cách thêm một danh từ vào trước — ca thật đã gặp trên màn hình. `DropBareOtherChips` cấm theo **hình dạng**: đuôi *"khác"* + phần đầu là một danh từ mê-ta (`MetaChipHeads`), áp cho **mọi** câu chứ không riêng câu liệt kê (khác chip chốt hạ, thứ chỉ vô nghĩa ở câu liệt kê). Đây là chip thứ hai và cuối cùng được phép **xóa**, cùng lý lẽ với chốt hạ: xóa không mất gì, vì lối thoát vẫn còn nguyên ở cái ô. Hai chốt giữ nó không xóa quá tay — danh sách đầu mê-ta cố ý **hẹp** (*"Chuyển sang phòng ban khác"* chở nội dung thật ⇒ giữ; lọt lưới thì mất tiện ích, không mất dữ liệu), và **xóa xong phải còn ≥ 2 chip**, thứ giữ nguyên vẹn bộ HAI chip mà prompt kê sẵn ở lượt xin chốt (`["Đồng ý", "Tôi muốn khác"]`) — ở đó vế *"khác"* không phải lối thoát mà là một trong hai **nhánh trả lời**, xóa đi là biến câu hỏi thành cái gật bắt buộc. Đúng bộ chip đó lại là bộ mà cú bấm *"khác"* tốn kém nhất, nên tầng dưới đỡ tiếp: `isDissentChip` mở ô nhập tại chỗ thay vì gửi (mục kế).
 - **Chip BẤT ĐỒNG mở ô tự nhập TẠI CHỖ, không gửi ngay.** Prompt kê sẵn ba bộ chip có vế từ chối — `["Đúng rồi", "Không, tính khác"]` (chốt ví dụ số / kịch bản luồng), `["Đồng ý", "Tôi muốn khác"]` (xin chốt một phương án), `["Đúng rồi, tiếp tục", "Tôi muốn sửa lại"]` (nhịp tóm tắt kiểm chứng) — và cả ba đều thuộc nhóm **bắt buộc hỏi một mình**, tức các lượt đắt nhất của cuộc phỏng vấn. Nhưng ở lượt hỏi một câu, **bấm chip là GỬI NGAY**, nên vế từ chối gửi đi một lượt user RỖNG NỘI DUNG: phủ định mà không kèm cái đúng. Giá phải trả là trọn một vòng LLM chỉ để BA hỏi lại *"vậy anh/chị tính thế nào?"*, trong khi nhóm bị đụng tới đã rớt khỏi `[RÕ]` mà không có thông tin nào thay thế — và **lượt quay lại duy nhất** mà mỗi nhóm được phép (xem mục trên) bị tiêu đúng vào đó; câu trả lời thật thì đang nằm sẵn trong đầu người dùng đúng giây họ bấm "Không". Nay `requirements.js` nhận diện chip bất đồng (`isDissentChip`) rồi **mở ô nhập ngay trong hàng chip** thay vì gửi. Bốn điều ràng buộc thiết kế này:
@@ -1396,6 +1423,14 @@ readiness thay vì một ghi chú không ai đọc. Bốn ràng buộc của thi
   đã bỏ đi.
 - **Thẻ nhóm bị GỠ trước khi vào ngữ cảnh chat** (`CoveragePendingGuard.StripGroupTag`) — nhãn nhóm là từ
   vựng nội bộ, để nguyên là mời BA chép nó vào câu hỏi kế tiếp.
+- **Dòng VỪA ĐỔI trong chính lượt này thì đứng ngoài.** Danh sách tồn đọng chắt ở hậu kỳ nên nó chưa bao giờ
+  thấy lượt user mới nhất, còn bản đồ thì vừa gộp đúng lượt đó xong — nên một mục gắn vào dòng mà lượt distill
+  này vừa viết lại là mục CŨ theo thứ tự thời gian, và ghi nó thành mẩu `còn thiếu:` là biến câu người dùng vừa
+  trả lời thành câu chặn của cổng. Ca thật (JD Libary 5, lượt 3 → 4): người dùng kể xong quy trình Excel hiện
+  tại ở lượt 3; lượt 4 nhận lại đúng *"Chưa rõ quy trình hiện tại tạo và gán JD cho nhân viên diễn ra như thế
+  nào (các bước, vai trò tham gia)"* — mục chắt từ lượt 2 — và họ dán lại nguyên văn câu vừa gõ; ba lượt bị đốt.
+  Guard nhận thêm bản đồ **trước** distill và so THÂN DÒNG: đổi ⇒ bỏ qua mục tồn đọng của dòng đó. Phép so chặt
+  vì distiller được đính chính bản đồ cũ, nên một dòng không có gì mới được chép lại từng chữ.
 - **Trễ một lượt, có chủ ý.** Bản đồ gộp ngay trong lượt chat còn danh sách tồn đọng chắt ở hậu kỳ, nên
   guard của lượt N đọc danh sách tính tới lượt N−1: điểm vừa được trả lời vẫn hạ dòng một lượt rồi tự lên
   lại. Lưới đỡ đã có sẵn — prompt chat bắt BA tin HỘI THOẠI khi bản đồ chưa kịp cập nhật, và
@@ -1439,8 +1474,26 @@ Nút "Write Requirement" khóa vĩnh viễn.
   thêm gì cả, họ bấm gửi lại hoặc tải lại trang — bắt bản đồ chờ một lượt chat mới là bắt nó chờ đúng thứ
   đang bị chặn. Chỉ ghi DB khi bản đồ thật sự đổi.
 
+**Chốt chặn quy tắc ĐỊNH LƯỢNG chưa có ví dụ (`CoverageWorkedExampleGuard`).** Guard thứ tư của đường ghi,
+chạy **giữa** `CoverageStaleGapGuard` và `CoverageConfirmedTableGuard` (sau lớp xoá, để mẩu nó vừa gắn không bị
+chính lớp xoá dọn đi trong cùng một lượt; trước lớp bảng, vốn là tiếng nói cuối cùng trên hai dòng
+chốt-bằng-bảng). Luật: dòng «Quy tắc nghiệp vụ & ràng buộc» **chở chữ số hoặc dấu `%`** không được đứng `[RÕ]`
+khi `Project.WorkedExamples` còn trống — hạ xuống `[MỘT PHẦN]` kèm một mẩu xin đúng một ví dụ tính thử.
+
+Công thức hiểu sai là lỗi **không cổng nào phía sau bắt được**: mọi cổng chỉ hỏi "có thông tin chưa", không hỏi
+"thông tin đó có đúng không", nên tài liệu ghi đúng… điều đã hiểu sai và spec lẫn POC sai theo. Thứ duy nhất bắt
+được là một ví dụ số người dùng đã gật — nó vừa là bằng chứng hiểu đúng, vừa là oracle mà POC bị chấm theo
+(`PocWorkedExampleOracle`). Ca thật (JD Libary 5, lượt 13): *"Responsibility (5 cái và có %, và có 1 item mặc
+định không được sửa là «Other task assign by manager» % từ 5-10)"* được ghi nhận nguyên văn rồi đi tiếp; ba câu
+không ai trả lời (5 là cố định hay tối thiểu, tổng % có bằng 100 không, khoảng 5–10 là của riêng dòng mặc định
+hay của mọi dòng), và mục "Ví dụ đã xác nhận" trống trơn suốt buổi. Ba ranh giới giữ guard khỏi thành một cổng
+đóng thường trực: chỉ soi **nhóm quy tắc** (con số ở «Quy mô sử dụng» hay «Dữ liệu / danh mục chính» không phải
+công thức), không đụng dòng **đã có mẩu `còn thiếu:` riêng** (mẩu của distiller cụ thể hơn), và điều kiện mở là
+**một** ví dụ chứ không phải một ví dụ cho mỗi quy tắc — bản đồ không mang cấu trúc để nối ví dụ với quy tắc, và
+một cổng đòi nhiều hơn mức nó kiểm được là một cổng đóng mãi. `CoverageWorkedExampleGuardTests` chốt cả ba.
+
 **Chốt chặn mẩu `còn thiếu:` ĐÃ CHẾT (`CoverageStaleGapGuard`).** Guard thứ ba của đường ghi, chạy **trước**
-`CoverageConfirmedTableGuard`. Nó xoá một mẩu `còn thiếu:` mà **chính bản đồ đã trả lời** — bằng phần đã ghi
+`CoverageWorkedExampleGuard` và `CoverageConfirmedTableGuard`. Nó xoá một mẩu `còn thiếu:` mà **chính bản đồ đã trả lời** — bằng phần đã ghi
 nhận của cùng dòng đó, hoặc bằng phần đã ghi nhận của một dòng `[RÕ]` khác.
 
 `requirement-coverage.v3.md` đã ghi luật này (*"tóm tắt đã chứa câu trả lời thì mẩu `còn thiếu:` phải BIẾN
@@ -1499,6 +1552,7 @@ chôn vĩnh viễn phần đắt nhất của nhóm.
 - **Chặn tất định**: câu hỏi trùng (khoá chuẩn hoá, hoặc bao phủ tập từ ≥ 0.8 **và** Jaccard ≥ 0.6 — bắt được câu cũ sửa vài chữ mà không chặn oan câu đào sâu mới) bị **loại khỏi lượt trả lời trước khi nó lên màn hình**. Còn ≥ 2 câu ⇒ thẻ hỏi rút gọn; còn 1 ⇒ hạ về đường một-câu; còn 0 ⇒ thay bằng bước kế tiếp suy tất định từ bản đồ (`RequirementReadinessGate`) — nêu đúng nhóm còn thiếu, hoặc mời bấm "Write Requirement" khi bản đồ đã đủ. Không bao giờ để lại một lượt câm hay một câu dẫn cụt. Phanh này chỉ thấy các lượt CÓ hỏi — lượt không chở câu hỏi nào lọt qua nó, và được chặn riêng ở [lượt câm](#hai-cổng-chất-lượng-phía-yêu-cầu-đủ-và-không-mâu-thuẫn).
 - **Sổ nhận cả CÂU MỞ, không chỉ lượt có chip.** Một lượt hỏi-một-câu vào sổ khi nó **có chip HOẶC có dấu hỏi** — đúng cặp điều kiện mà phía đối chiếu (`BAChatService`) đang dùng. Vế thứ hai không phải cho đẹp đối xứng: **câu mở** bị CẤM kèm chip (xem chốt chặn *"Câu ĐÓNG mới có chip; câu MỞ thì KHÔNG"* ở trên), nên nếu sổ chỉ nhận lượt có chip thì đúng loại câu đắt nhất — xin một lời KỂ — không bao giờ vào sổ, phanh không có gì để so, và BA phát lại được nguyên văn. Ca thật (dự án JD Libary, lượt 2 và 4): cùng một câu *"anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD…"* hỏi hai lượt liền, người dùng đáp *"mình nói ở trên rồi đó"*. Đứng ngoài sổ: lượt tóm tắt/thông báo (không có dấu hỏi), lượt ⚠️ lỗi gọi AI, và lượt bày **bảng chốt** (chỗ trả lời là cái bảng, `message` chỉ là câu dẫn — mà câu dẫn của hai bảng thì na ná nhau).
 - **So VẾ HỎI, không so cả `message` (`AskedQuestionHistory.QuestionCore`).** Đây là chỗ phanh câm ở đúng lúc prompt làm ĐÚNG nhất: *QUY TẮC PHÁT LẠI* của `requirement-chat.v4.md` bắt BA chép lại điều đã ghi nhận **trước** khi hỏi, nên một lượt hỏi-một-câu gần như luôn có dạng *"Cảm ơn anh/chị! Mình đã ghi nhận: … . &lt;câu hỏi&gt;?"* — và đoạn phát lại **đổi theo từng lượt** vì nó chép lời người dùng vừa nói. Đem cả khối đó đi so là pha loãng đúng vế cần so: hai lượt hỏi CÙNG một câu vẫn lệch nhau vì hai đoạn phát lại lệch nhau. Ca thật (dự án *JD Libary 4*, lượt 16 → 20): lượt 20 tóm tắt câu trả lời người dùng vừa gõ ở lượt 19 rồi hỏi lại **chính câu của lượt 16**, chip gợi ý là bản chép câu trả lời đó — so nguyên `message` cho bao phủ 0.68 (lọt), so vế hỏi cho 1.00. Phép cắt: lấy tới dấu hỏi CUỐI, lùi về sau dấu kết câu gần nhất, rồi bỏ mệnh đề dẫn kết bằng dấu hai chấm (*"Mình còn một điểm cần làm rõ:"*) — nhưng **vế hỏi quá ngắn thì giữ nguyên cả `message`**, vì hai lượt khác hẳn nhau vẫn có thể cùng kết bằng *"Đúng không ạ?"* và một cú trùng khoá TUYỆT ĐỐI thì không có ngưỡng nào đỡ. Cắt hai đầu ⇒ hai vế còn lại ngắn hơn và giống nhau hơn hẳn, nên ngưỡng Jaccard đi từ 0.5 lên **0.6**: cùng buổi đó, hai lượt hỏi lại thật đo được 0.73 và 0.71, còn lượt đi nhặt **nửa còn lại của một câu KÉP** (lượt 16 hỏi *"chỉnh sửa HOẶC ngừng sử dụng"*, người dùng chỉ trả lời vế sau, lượt 18 hỏi vế trước) ở 0.59 — giữ 0.5 là chặn oan đúng lượt đắt nhất của buổi, vì câu trả lời của nó chở nguyên luật *upgrade version*. Sổ nạp vào ngữ cảnh thì vẫn giữ **nguyên văn** lượt đã hỏi: cắt là chuyện của phép so, còn model cần đọc đúng câu như nó đã lên màn hình.
+- **Sổ thứ hai: CHIP ĐÃ BÀY MÀ KHÔNG CHỌN** (`AskedQuestionHistory.DeclinedChipKeys`). Ở lượt `multiSelect`, bộ chip là cả một danh sách bày sẵn và mảnh không tích mang đúng nghĩa *"không có cái này"* — một câu trả lời, nhưng nó không nằm trong sổ câu hỏi nên một câu có/không hỏi riêng đúng mảnh đó lọt qua phanh trên. Ca thật (JD Libary 5, lượt 14 → 16): lượt 14 bày `["Ngày gán JD", "Nhân viên được gán", "Ngày hiệu lực", "Ngày hết hạn"]`, người dùng liệt kê ba cái đầu; lượt 16 hỏi lại *"có cần lưu thêm ngày hết hạn hay không?"* — trọn một lượt để nghe lại một tiếng "không". Phép thử đòi **cả hai** vế: câu hỏi có hình dạng CÓ/KHÔNG *và* chở nguyên văn một chip đã bị bỏ; thiếu vế đầu thì một câu đào sâu về cùng chủ đề (*"ngày hết hạn do ai đặt?"*) cũng bị chặn oan, mà đó lại đúng là việc BA nên làm. Chỉ lượt chọn-nhiều mới sinh ra sổ này: ở lượt chọn-một, chip còn lại là các phương án bị loại theo luật của câu hỏi, không phải thứ người dùng đã bỏ.
 - **Ngoại lệ đúng chỗ**: nhóm mà người dùng vừa **đính chính trong chat** được MIỄN phanh. Nhận diện qua cụm `AskedQuestionHistory.ReopenNote` (*"người dùng báo phần này chưa đúng"*) mà lượt chắt lọc ghi vào phần `còn thiếu:` của dòng bị đụng tới — xem [Đính chính một nhóm](#đính-chính-một-nhóm-đường-thoát-khỏi-một-dòng-rõ-oan). Không có ngoại lệ này thì lời đính chính rơi vào im lặng: bản đồ đã hạ nhóm xuống nhưng câu hỏi của BA lại bị lọc mất vì trùng câu cũ.
 
 Prompt `requirement-chat.v4.md` cũng tách rõ hai việc mà trước đây bị gộp làm một: `[CHƯA HỎI]` ⇒ hỏi câu mở đầu của nhóm; `[MỘT PHẦN]` ⇒ hỏi **đúng phần ghi sau `còn thiếu:`**, bằng câu hỏi khác hẳn, và mỗi nhóm chỉ được quay lại **tối đa một lần** trước khi phải đề xuất phương án xin chốt.
@@ -1926,7 +1980,15 @@ Ai muốn xem nhãn thì panel "Tiến độ khai thác" bên cạnh vẫn liệ
 **Bốn nhánh dựng câu chặn, và không nhánh nào được rỗng nghĩa.** Vế câu hỏi thử bốn nhánh theo lượng thông
 tin bản đồ cho, hẹp dần — và vì không còn câu dẫn nào đỡ, mỗi nhánh phải tự đứng một mình được:
 
-1. **Có mẩu `còn thiếu: …`** ⇒ hỏi thẳng nó — thứ duy nhất bước soạn tài liệu còn phải tự đoán.
+1. **Có mẩu `còn thiếu: …`** ⇒ hỏi thẳng nó — thứ duy nhất bước soạn tài liệu còn phải tự đoán. Trừ **mẩu
+   RỖNG NGHĨA**: cụm chỉ nói rằng "vẫn còn gì đó" (*"các quy tắc khác (nếu có)"*, *"thông tin bổ sung"*,
+   *"các điểm còn lại"*) bị bỏ qua, và cổng rơi xuống nhánh 2. Ca thật (JD Libary 5, lượt 26 — lượt CUỐI của
+   buổi): người dùng nhận đúng *"Anh/chị cho mình hỏi thêm: các quy tắc khác (nếu có) — anh/chị cho mình xin
+   thông tin này nhé?"*; câu đó không trả lời được bằng điều gì cụ thể, mà một tiếng *"không có"* lại đủ để lật
+   dòng lên `[RÕ]` và **mở cổng bằng một câu hỏi rỗng**. Nhận diện theo HÌNH DẠNG như chip "khác" trần của
+   parser (bỏ phần trong ngoặc, bỏ từ chỉ số nhiều, rồi hỏi phần còn lại có phải một danh từ MÊ-TA gắn đuôi
+   *"khác / còn lại / bổ sung"* không), nên một mẩu chở danh từ nghiệp vụ thật vẫn được phát nguyên văn.
+   `requirement-coverage.v3.md` cấm distiller viết mẩu như vậy ngay từ đầu; đây là cái phanh.
 2. **`[MỘT PHẦN]` mà distiller không viết được mẩu nào** ⇒ **phát lại** phần đã ghi nhận (mọi thứ trước cụm
    `còn thiếu:`, đã lược sạch ghi chú máy) rồi hỏi còn chỗ nào chưa đúng. KHÔNG được rơi xuống nhánh 3 ở ca
    này: `requirement-chat.v4.md` cấm tuyệt đối việc phát lại **câu mở đầu** cho một nhóm `[MỘT PHẦN]` —
@@ -1996,11 +2058,19 @@ tục đi"*, nhận lại đúng một lượt như thế, và buổi phỏng v�
 lấy thông tin mới — nên chốt chặn phải nằm ở lượt chat chứ không ở lượt distill sau đó.
 
 `BAChatService` xét **hình dạng của lượt đã chốt**, sau mọi nhánh khác (kể cả các cổng bảng): không chip, không
-`openEnded`, không thẻ hỏi, không bảng, không dấu hỏi, không nhắc tới nút ⇒ thay bằng `BuildFollowUpAfterRepeat`.
+thẻ hỏi, không bảng, không dấu hỏi, không nhắc tới nút ⇒ thay bằng `BuildFollowUpAfterRepeat`.
 Dấu hỏi là ranh giới, cùng phép thử mà `BAChatReplyParser.LooksOpenEnded` dùng: một lượt CÓ hỏi mà quên chip vẫn
 trả lời được bằng ô nhập (luôn mở), và thay nó đi là cướp mất câu hỏi thật của BA — thường là loại đắt nhất, câu
 xin lời kể — để phát một câu khô cứng hơn. Lượt có bảng cũng không câm: bảng chính là chỗ trả lời duy nhất của
 lượt, và câu dẫn của nó cố tình không phải câu hỏi. `BAChatSilentTurnTests` chốt cả hai chiều.
+
+**Cờ `openEnded` KHÔNG nằm trong phép thử đó, và đây là chỗ chốt chặn từng thủng.** Cờ do model tự đặt, còn thứ
+nó bật lên chỉ là một ô nhập — mà ô nhập thì lượt nào cũng có; thứ mời người dùng gõ vào đó là *câu hỏi*. Ca thật
+(JD Libary 5, lượt 18): *"Để mình tổng hợp lại những gì đã chốt và hỏi thêm một số điểm còn lại nhé."* — đúng
+hình dạng lượt câm mà prompt cấm bằng tên, nhưng kèm `openEnded: true` nên nó đi thẳng qua chốt chặn; người dùng
+đáp *"ok"* ở lượt 19 và lượt đó mất trắng. Nay phép thử đọc **nội dung**: có dấu hỏi, hoặc là một lời nhờ hành
+động — đúng **một** ngoại lệ, [lượt xin file](#lượt-xin-file-tất-định) (`SourceRequestTurn.Looks`), vốn cố ý
+không có dấu hỏi.
 
 Chốt chặn này chỉ chữa **triệu chứng**. Nguyên nhân nằm ở hai lượt chắt lọc, và mỗi cái có một luật riêng:
 `requirement-coverage.v3.md` cấm viết mẩu `còn thiếu:` mà **không câu trả lời nào đóng lại được** — dạng loại trừ

@@ -111,7 +111,13 @@ public class RequirementCoverageService
             // đường vào. Dọn ở đây thì mẩu chết không quay lại ngay ở lượt sau qua ngả tồn đọng.
             var pending = CoverageStaleGapGuard.DropAnsweredItems(
                 updated, InterviewOutlookService.ParseItems(project.OpenQuestions));
-            var guarded = CoveragePendingGuard.Apply(updated, pending);
+
+            // Bản đồ TRƯỚC lượt distill này đi kèm để guard bỏ qua các dòng vừa ăn thông tin mới trong
+            // chính lượt này: mục tồn đọng chắt ở hậu kỳ nên nó chưa từng thấy lượt user vừa rồi, và gắn
+            // nó vào một dòng vừa đổi là phát lại thành câu chặn đúng câu người dùng vừa trả lời (ca thật
+            // JD Libary 5, lượt 3→4 — xem CoveragePendingGuard). project.RequirementCoverageMap ở đây vẫn
+            // là bản CŨ: dòng gán bản mới nằm ngay dưới.
+            var guarded = CoveragePendingGuard.Apply(updated, pending, project.RequirementCoverageMap);
 
             project.RequirementCoverageMap = string.IsNullOrWhiteSpace(guarded) ? null : guarded;
             project.CoverageHarvestedTurnCount = harvested + delta.Count;
@@ -120,10 +126,13 @@ public class RequirementCoverageService
         // updated == null ⇒ gộp lỗi: fail-open, giữ bản đồ cũ + con trỏ cũ, nạp lại như dưới — nhưng có
         // cờ để caller nói thẳng với người dùng rằng tiến độ khai thác chưa cập nhật được lượt này.
 
-        // HAI CHỐT CHẶN CÒN LẠI, cũng chạy bằng code và cố ý đứng SAU CoveragePendingGuard. Một: mẩu
+        // BA CHỐT CHẶN CÒN LẠI, cũng chạy bằng code và cố ý đứng SAU CoveragePendingGuard. Một: mẩu
         // "còn thiếu:" mà chính bản đồ đã trả lời bị XOÁ (CoverageStaleGapGuard) — distiller được đính bản
         // đồ cũ nên nó chép lại mẩu cũ, và cổng readiness lấy nguyên mẩu ấy làm câu chặn, tức một câu hỏi
-        // người dùng đã trả lời rồi được phát lại tới khi họ bỏ cuộc. Hai: hai nhóm chốt bằng
+        // người dùng đã trả lời rồi được phát lại tới khi họ bỏ cuộc. Hai: một dòng quy tắc CHỞ CON SỐ
+        // không được [RÕ] khi chưa chốt được ví dụ tính thử nào (CoverageWorkedExampleGuard) — công thức
+        // hiểu sai là lỗi không cổng nào phía sau bắt được, vì mọi cổng chỉ hỏi "có thông tin chưa". Ba:
+        // hai nhóm chốt bằng
         // BẢNG («Phân quyền theo nghiệp vụ», «Thông báo / nhắc nhở») phải [RÕ] ngay khi bảng của chúng nằm
         // trong DB. Bằng chứng ở đây không do LLM chắt mà là từng ô người dùng tự tay bấm, nên nó thắng cả
         // mẩu "còn thiếu" mà distiller giữ lại lẫn một điểm tồn đọng gắn nhầm vào hai nhóm này — điểm tồn
@@ -134,17 +143,19 @@ public class RequirementCoverageService
         return new CoverageUpdate(project.RequirementCoverageMap, updated == null);
     }
 
-    // Hai chốt chặn cuối cùng, áp lên bản đồ ĐANG GIỮ (kể cả bản cũ của đường fail-open — nó cũng là bản
+    // Ba chốt chặn cuối cùng, áp lên bản đồ ĐANG GIỮ (kể cả bản cũ của đường fail-open — nó cũng là bản
     // đồ mà cổng readiness sắp đọc) và CHỈ lưu khi có gì đổi: guard chạy ở mọi lượt, kể cả lượt không có
     // gì mới, nên một SaveChangesAsync vô ích ở đây là một lần ghi DB mỗi lượt chat cho không.
-    //
-    // Thứ tự bắt buộc: XOÁ mẩu chết trước, ÉP [RÕ] theo bảng đã chốt sau. CoverageConfirmedTableGuard là
-    // guard duy nhất được nâng trạng thái (bằng chứng của nó là từng ô người dùng tự tay bấm), nên nó phải
-    // là tiếng nói cuối cùng trên hai dòng chốt-bằng-bảng.
     private async Task RepairMapAsync(Project project, CancellationToken cancellationToken)
     {
+        // Ba lớp, thứ tự bắt buộc: XOÁ mẩu chết → ĐÒI ví dụ số cho quy tắc định lượng → ÉP [RÕ] theo bảng
+        // đã chốt. Lớp giữa đứng SAU lớp xoá để mẩu nó vừa gắn không bị chính lớp xoá dọn đi trong cùng
+        // một lượt, và đứng TRƯỚC lớp bảng vì lớp bảng là tiếng nói cuối cùng trên hai dòng chốt-bằng-bảng
+        // (bằng chứng của nó là từng ô người dùng tự tay bấm) — mà hai dòng đó thì guard ví dụ không đụng.
         var repaired = CoverageConfirmedTableGuard.Apply(
-            CoverageStaleGapGuard.Apply(project.RequirementCoverageMap),
+            CoverageWorkedExampleGuard.Apply(
+                CoverageStaleGapGuard.Apply(project.RequirementCoverageMap),
+                project.WorkedExamples),
             project.PermissionMatrix, project.NotificationMap);
 
         if (string.Equals(repaired, project.RequirementCoverageMap, StringComparison.Ordinal))

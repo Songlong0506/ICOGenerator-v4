@@ -153,6 +153,45 @@ public class CoveragePendingGuardTests
         Assert.DoesNotContain("trùng lịch", map, StringComparison.Ordinal);
     }
 
+    // DÒNG VỪA ĐỔI trong chính lượt distill này thì mục tồn đọng của nó đã cũ hơn dòng — danh sách tồn
+    // đọng chắt ở hậu kỳ nên nó chưa từng thấy lượt user vừa rồi.
+    //
+    // Ca thật (dự án JD Libary 5, lượt 3→4): người dùng kể xong quy trình Excel hiện tại ở lượt 3; lượt 4
+    // nhận lại đúng mục tồn đọng chắt từ lượt 2 làm câu chặn và họ dán lại nguyên văn câu vừa gõ.
+    [Fact]
+    public void ARowThatJustChanged_DoesNotGetTheStalePendingGap()
+    {
+        const string before =
+            "- Quy trình hiện tại & điểm khó: [CHƯA HỎI]";
+        const string after =
+            "- Quy trình hiện tại & điểm khó: [RÕ] Hiện dùng 2 file Excel, HRBP tự thêm/sửa/xóa cả hai. "
+            + "{nguồn: \"1 file excel danh sách JD\"}";
+
+        var map = CoveragePendingGuard.Apply(
+            after,
+            new[] { "[Quy trình hiện tại & điểm khó] Chưa rõ quy trình hiện tại tạo và gán JD diễn ra thế nào (các bước, vai trò tham gia)" },
+            before);
+
+        Assert.Equal(after, map);
+    }
+
+    // Ranh giới: dòng KHÔNG đổi thì mục tồn đọng vẫn còn nguyên giá trị và guard vẫn hạ như cũ. Bản đồ cũ
+    // được chép lại từng chữ khi lượt distill không có gì mới cho dòng đó, nên phép so nội dung đủ chặt.
+    [Fact]
+    public void AnUnchangedRow_StillGetsTheGap()
+    {
+        const string row =
+            "- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì ticket sang Waitlist. {nguồn: \"giữ Waitlist\"}";
+
+        var map = CoveragePendingGuard.Apply(
+            row,
+            new[] { "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký lại sau khi bị Reject" },
+            row);
+
+        Assert.Contains("[MỘT PHẦN]", map, StringComparison.Ordinal);
+        Assert.Contains("còn thiếu: Chưa rõ đăng ký lại sau khi bị Reject", map, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void NoPendingItems_LeavesTheMapUntouched()
     {

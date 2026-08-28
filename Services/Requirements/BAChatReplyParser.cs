@@ -100,6 +100,16 @@ public class BAChatReplyParser
         reply.Suggestions = CleanSuggestionTexts(reply.Suggestions);
         reply.Questions = CleanQuestions(reply.Questions);
 
+        // CÂU BẮT BUỘC HỎI MỘT MÌNH lỡ bị gộp ⇒ lượt này chỉ còn ĐÚNG câu đó, các câu đi kèm bị bỏ.
+        // Bỏ đi là bỏ đúng những câu RẺ nhất: chúng thuộc các nhóm rời nhau, bản đồ bao phủ chưa nhúc
+        // nhích vì chúng, nên lượt sau hỏi lại không mất gì. Còn câu đào ngoại lệ thì ngược lại — mỗi câu
+        // trả lời của nó mở ra một nhánh mới mà BA phải nghe xong mới biết hỏi tiếp gì, và ở lượt gộp nó
+        // luôn bị rút gọn thành một cặp chip có/không đóng luôn cả nhóm (xem InterviewQuestionRules).
+        // Giữ câu đắt, bỏ câu rẻ: lượt tự rơi về đường một-câu ở bước hạ cấp ngay bên dưới.
+        if (reply.Questions.Count > 1
+            && reply.Questions.FirstOrDefault(q => InterviewQuestionRules.MustAskAlone(q.Group)) is { } alone)
+            reply.Questions = new List<BAChatQuestion> { alone };
+
         // Model trả ĐÚNG MỘT câu trong `questions` (lẽ ra phải dùng đường một-câu): hạ về đường cũ thay
         // vì dựng một thẻ nhiều dòng chỉ có một dòng. Câu hỏi phải được NỐI vào message — message của
         // lượt gộp chỉ là câu dẫn, bỏ nó đi là mất luôn điều BA vừa hỏi.
@@ -197,6 +207,14 @@ public class BAChatReplyParser
             // phần còn lại của câu hỏi không bao giờ được hỏi lại — bản đồ bao phủ đã tính là đã hỏi.
             var suggestions = CleanSuggestionTexts(item.Suggestions);
             var openEnded = item.OpenEnded || LooksOpenEnded(question);
+
+            // Câu ĐÓNG NHÓM BẰNG MỘT CÚ BẤM (ngoại lệ / báo cáo hỏi bằng cặp chip có-không) ⇒ bỏ chip,
+            // chuyển thành câu MỞ. Vế "Không" của cặp đó đưa thẳng dòng bản đồ tới [KHÔNG ÁP DỤNG] — trạng
+            // thái không có đường quay lại — còn vế "Có" thì không chở nội dung nào. Xem
+            // InterviewQuestionRules cho ca thật và cho lý do phép thử chỉ bắt đúng hình dạng có/không.
+            if (InterviewQuestionRules.IsGroupClosingYesNo(item.Group, suggestions))
+                openEnded = true;
+
             if (openEnded)
                 suggestions = new List<string>();
 

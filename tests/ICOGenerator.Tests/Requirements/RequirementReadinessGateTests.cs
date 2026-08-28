@@ -86,6 +86,46 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.DoesNotContain("Write Requirement", readiness.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    // MẨU "còn thiếu" RỖNG NGHĨA không được lên màn hình. Cổng phát nguyên văn mẩu đó, nên một mẩu chỉ
+    // nói rằng "vẫn còn gì đó" là một lượt mất trắng — và tệ hơn: một tiếng "không có" đủ để lật dòng lên
+    // [RÕ] và mở cổng bằng một câu hỏi rỗng.
+    //
+    // Ca thật (dự án JD Libary 5, lượt 26 — lượt CUỐI của buổi phỏng vấn): người dùng nhận đúng
+    // "Anh/chị cho mình hỏi thêm: các quy tắc khác (nếu có) — anh/chị cho mình xin thông tin này nhé?".
+    [Theory]
+    [InlineData("các quy tắc khác (nếu có)")]
+    [InlineData("thông tin bổ sung")]
+    [InlineData("các điểm còn lại")]
+    [InlineData("chi tiết khác")]
+    public void Evaluate_HollowGap_FallsBackToReplayingWhatWasRecorded(string hollowGap)
+    {
+        var map = "- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] JD phải qua HRBP verify rồi HoD approve mới "
+                  + $"available để assign. còn thiếu: {hollowGap}";
+
+        var readiness = RequirementReadinessGate.Evaluate(map);
+
+        Assert.False(readiness.Ready);
+        // Không phát mẩu rỗng…
+        Assert.DoesNotContain(hollowGap, readiness.Message, StringComparison.OrdinalIgnoreCase);
+        // …mà rơi về nhánh PHÁT LẠI: chở theo điều đã ghi nhận nên người dùng đọc là trả lời được, và nó
+        // là một câu ĐÓNG LẠI ĐƯỢC bằng một lượt.
+        Assert.Contains("HRBP verify", readiness.Message, StringComparison.Ordinal);
+        Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
+    }
+
+    // Ranh giới: mẩu chở nội dung nghiệp vụ thật vẫn được phát nguyên văn, kể cả khi nó cũng kết bằng chữ
+    // "khác" — phép thử bắt HÌNH DẠNG (đầu mê-ta + đuôi "khác"), không bắt mặt chữ.
+    [Fact]
+    public void Evaluate_AGapCarryingRealContent_IsStillAsked()
+    {
+        var map = "- Vòng đời & trạng thái: [MỘT PHẦN] JD có trạng thái submit, verify, approve. "
+                  + "còn thiếu: tên chính thức của các trạng thái và điều kiện chuyển giữa chúng";
+
+        var readiness = RequirementReadinessGate.Evaluate(map);
+
+        Assert.Contains("tên chính thức của các trạng thái", readiness.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Evaluate_CoreGroupAskedBeforeSecondary()
     {

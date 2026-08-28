@@ -35,6 +35,21 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
+/// <b>Dòng VỪA ĐỔI trong chính lượt này thì đứng ngoài.</b> Danh sách tồn đọng chắt ở hậu kỳ nên nó KHÔNG
+/// bao giờ nhìn thấy lượt user mới nhất; còn bản đồ thì vừa gộp đúng lượt đó xong. Vì vậy một mục tồn đọng
+/// gắn vào dòng mà lượt distill này vừa viết lại là mục CŨ theo thứ tự thời gian, không phải một khoảng
+/// trống còn thật — và ghi nó thành mẩu <c>còn thiếu:</c> là biến câu người dùng vừa trả lời thành câu chặn
+/// của cổng. Ca thật (dự án JD Libary 5, lượt 3→4): người dùng kể xong quy trình Excel hiện tại ở lượt 3;
+/// lượt 4 nhận lại đúng *"Chưa rõ quy trình hiện tại tạo và gán JD cho nhân viên diễn ra như thế nào (các
+/// bước, vai trò tham gia)"* — mục tồn đọng chắt từ lượt 2 — và người dùng dán lại nguyên văn câu vừa gõ.
+/// Ba lượt bị đốt. Phép so ở đây là so THÂN DÒNG với bản đồ TRƯỚC distill: đổi ⇒ dòng đã ăn thông tin mới
+/// trong lượt này ⇒ bỏ qua mục tồn đọng của nó; không đổi ⇒ mục tồn đọng vẫn còn nguyên giá trị.
+/// So bằng nội dung chứ không bằng dấu thời gian vì bản đồ không mang dấu thời gian nào, và distiller được
+/// đính chính bản đồ cũ nên một dòng KHÔNG có gì mới sẽ được chép lại y nguyên từng chữ.
+/// <paramref name="previousMap"/> bỏ trống ⇒ giữ nguyên hành vi cũ (áp cho mọi dòng).
+/// </para>
+///
+/// <para>
 /// <b>Trễ một lượt, và đó là đánh đổi có chủ ý.</b> Bản đồ được gộp NGAY trong lượt chat, còn danh sách
 /// tồn đọng chắt ở HẬU KỲ (sau frame done) — nên guard của lượt N đọc danh sách tính tới lượt N−1. Người
 /// dùng vừa trả lời đúng mục tồn đọng ở lượt N thì dòng đó vẫn bị hạ một lượt, rồi tự lên lại ở lượt N+1
@@ -55,7 +70,7 @@ public static partial class CoveragePendingGuard
     /// nên điểm tồn đọng thật sự trở thành câu chặn của cổng thay vì một ghi chú không ai đọc.
     /// Không có mục nào gắn thẻ ⇒ trả nguyên bản đồ.
     /// </summary>
-    public static string? Apply(string? coverageMap, IReadOnlyList<string> openQuestions)
+    public static string? Apply(string? coverageMap, IReadOnlyList<string> openQuestions, string? previousMap = null)
     {
         if (string.IsNullOrWhiteSpace(coverageMap) || openQuestions.Count == 0)
             return coverageMap;
@@ -81,6 +96,7 @@ public static partial class CoveragePendingGuard
         if (gaps.Count == 0)
             return coverageMap;
 
+        var previousBodies = ReadBodies(previousMap);
         var lines = coverageMap.Replace("\r\n", "\n").Split('\n');
         for (var i = 0; i < lines.Length; i++)
         {
@@ -93,11 +109,18 @@ public static partial class CoveragePendingGuard
             if (!"RÕ".Equals(status, StringComparison.OrdinalIgnoreCase))
                 continue;
 
+            var summary = match.Groups["summary"].Value.Trim();
+
+            // Dòng vừa đổi nội dung trong chính lượt distill này ⇒ mục tồn đọng gắn vào nó đã cũ hơn dòng.
+            // Xem phần "Dòng VỪA ĐỔI" ở doc của class.
+            if (ChangedThisTurn(previousBodies, label, summary))
+                continue;
+
             var gap = FindGap(gaps, label);
             if (gap == null)
                 continue;
 
-            lines[i] = Downgrade(match.Groups["core"].Success, label, match.Groups["summary"].Value.Trim(), gap);
+            lines[i] = Downgrade(match.Groups["core"].Success, label, summary, gap);
         }
 
         return string.Join("\n", lines);
@@ -113,6 +136,45 @@ public static partial class CoveragePendingGuard
     {
         var match = TaggedItemRegex().Match((item ?? string.Empty).Trim());
         return match.Success ? match.Groups["text"].Value.Trim() : (item ?? string.Empty).Trim();
+    }
+
+    /// <summary>
+    /// Thân dòng (phần tóm tắt, không kể khối <c>{nguồn: …}</c>) của từng nhãn trong một bản đồ. Bản đồ
+    /// rỗng/không đọc được ⇒ từ điển rỗng, và mọi dòng được coi là "không đổi" — đúng hành vi cũ.
+    /// </summary>
+    private static Dictionary<string, string> ReadBodies(string? map)
+    {
+        var bodies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(map))
+            return bodies;
+
+        foreach (var raw in map.Replace("\r\n", "\n").Split('\n'))
+        {
+            var match = CoverageMapParser.LineRegex().Match(raw.Trim());
+            if (!match.Success)
+                continue;
+
+            var (body, _) = CoverageMapParser.SplitEvidence(match.Groups["summary"].Value.Trim());
+            bodies[match.Groups["label"].Value.Trim()] = AskedQuestionHistory.Key(body);
+        }
+        return bodies;
+    }
+
+    /// <summary>
+    /// Dòng này có vừa ăn thông tin mới trong lượt distill vừa rồi không: thân dòng khác với thân dòng cùng
+    /// nhãn ở bản đồ TRƯỚC đó. Không có bản đồ trước (lượt đầu tiên, hoặc caller không truyền) ⇒ false, giữ
+    /// nguyên hành vi cũ. Dòng MỚI xuất hiện lần này cũng tính là vừa đổi — nó vừa được trả lời xong.
+    /// So trên khoá đã chuẩn hoá (<see cref="AskedQuestionHistory.Key"/>) để một dấu chấm hay một chữ hoa
+    /// đổi chỗ không bị đọc thành "có thông tin mới".
+    /// </summary>
+    private static bool ChangedThisTurn(Dictionary<string, string> previousBodies, string label, string summary)
+    {
+        if (previousBodies.Count == 0)
+            return false;
+
+        var (body, _) = CoverageMapParser.SplitEvidence(summary);
+        return !previousBodies.TryGetValue(label, out var before)
+            || !string.Equals(before, AskedQuestionHistory.Key(body), StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -63,6 +63,34 @@ public class BAChatService
         new[] { "Đúng rồi", "Có chỗ chưa đúng" };
 
     /// <summary>
+    /// Hai chip dự phòng của NHỊP TÓM TẮT KIỂM CHỨNG — bộ mà <c>requirement-chat.v4.md</c> kê sẵn cho lượt
+    /// này. Lượt tóm tắt là câu ĐÓNG (gật, hoặc đòi sửa), nên nó phải có nút để bấm; thiếu nút thì model
+    /// tự trượt sang hỏi độ ĐẦY ĐỦ của cả buổi phỏng vấn và nhận về một lời tuyên bố hoàn tất mà bản đồ
+    /// bao phủ không hề công nhận (xem chốt chặn ở <see cref="ChatAsync"/>).
+    /// </summary>
+    public static readonly IReadOnlyList<string> SummaryCheckSuggestions =
+        new[] { "Đúng rồi, tiếp tục", "Tôi muốn sửa lại" };
+
+    /// <summary>
+    /// Lượt này có phải một nhịp tóm tắt kiểm chứng không: BA đang phát lại cách mình hiểu rồi xin xác
+    /// nhận. Nhận diện bằng CỤM TỪ + dấu hỏi, cố ý hẹp như <c>NarrativeCues</c> — bắt hụt thì lượt đó chỉ
+    /// mất tiện ích bấm chip, còn bắt quá tay thì gắn chip xác nhận vào một câu hỏi khai thác thật.
+    /// </summary>
+    private static bool LooksVerificationSummary(string? message)
+    {
+        var value = (message ?? string.Empty).ToLowerInvariant();
+        if (!value.Contains('?', StringComparison.Ordinal))
+            return false;
+
+        return SummaryCues.Any(cue => value.Contains(cue, StringComparison.Ordinal));
+    }
+
+    private static readonly string[] SummaryCues =
+    {
+        "tóm tắt lại", "mình tóm tắt", "xin tóm tắt", "tổng hợp lại", "mình hiểu đúng", "mình đang hiểu"
+    };
+
+    /// <summary>
     /// Câu dẫn dự phòng cho lượt bày bảng phân quyền, dùng khi model không viết được câu dẫn dùng được.
     /// Nó phải CHỈ VÀO BẢNG chứ không kết bằng một câu hỏi đóng: lượt này không có chip, nên một câu hỏi
     /// ở đây là câu hỏi KHÔNG CÓ NÚT TRẢ LỜI — người dùng đi tìm nút "Đúng rồi" không thấy trong khi việc
@@ -1110,11 +1138,16 @@ public class BAChatService
             // bị LOẠI khỏi lượt trả lời trước khi nó kịp lên màn hình.
             var askedKeys = AskedQuestionHistory.Keys(askedBefore);
             var reopenedGroups = AskedQuestionHistory.ReopenedGroups(CoverageMapParser.Parse(project.RequirementCoverageMap));
+            // …và sổ thứ hai: các CHIP đã bày ở một lượt chọn-nhiều mà người dùng không chọn. Một chip bị
+            // bỏ là một câu trả lời ("cái này thì không"), nhưng nó không nằm trong sổ câu hỏi nên một câu
+            // có/không hỏi riêng đúng chip đó lọt qua phanh trên — xem AskedQuestionHistory.DeclinedChipKeys.
+            var declinedChips = AskedQuestionHistory.DeclinedChipKeys(recent);
             if (questions.Count > 0)
             {
                 var kept = questions
                     .Where(q => AskedQuestionHistory.IsExempt(q, reopenedGroups)
-                                || !AskedQuestionHistory.IsRepeat(q.Question, askedKeys))
+                                || (!AskedQuestionHistory.IsRepeat(q.Question, askedKeys)
+                                    && !AskedQuestionHistory.AsksAboutDeclinedChip(q.Question, declinedChips)))
                     .ToList();
 
                 if (kept.Count < questions.Count)
@@ -1156,7 +1189,8 @@ public class BAChatService
             // đắt nhất (xin lời kể) ra khỏi phanh chống hỏi lại.
             else if ((parsedReply.Suggestions.Count > 0 || parsedReply.OpenEnded)
                      && !RequirementReadinessGate.IsWriteRequirementInvite(reply)
-                     && AskedQuestionHistory.IsRepeat(reply, askedKeys))
+                     && (AskedQuestionHistory.IsRepeat(reply, askedKeys)
+                         || AskedQuestionHistory.AsksAboutDeclinedChip(reply, declinedChips)))
             {
                 // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
                 var followUp = BuildFollowUpAfterRepeat(project.RequirementCoverageMap, recent);
@@ -1347,6 +1381,50 @@ public class BAChatService
                 }
             }
 
+            // LƯỢT XIN FILE — người dùng vừa nhắc tới một file/bảng tính họ đang dùng mà dự án chưa có
+            // tài liệu nguồn nào. Luật "xin file NGAY TẠI LƯỢT ĐÓ" nằm trong prompt từ lâu và vẫn trượt
+            // im lặng (ca thật: JD Libary 5, người dùng nhắc hai file excel ở lượt 3 và 5, BA không xin
+            // lần nào trong 26 lượt) — nên nó phải là một chốt chặn tất định như mọi luật đắt khác.
+            //
+            // Thay TRỌN lượt chứ không chèn thêm một câu: xin file là lời nhờ HÀNH ĐỘNG, người dùng đọc
+            // xong đi tìm file và mọi thứ khác trong lượt rơi mất — trong khi bản đồ bao phủ vẫn tính là
+            // đã hỏi. Câu hỏi model vừa viết không mất đi đâu: nhóm của nó chưa nhúc nhích nên nó quay lại
+            // ở lượt sau, lúc đó đọc được file rồi thì thường còn hỏi ngắn hơn.
+            //
+            // Bốn điều kiện, và cả bốn đều cần: chưa có nguồn nào (có rồi thì đây là đường đọc lại file),
+            // lượt user CUỐI thật sự nhắc tới một vật mang dữ liệu, chưa lượt BA nào xin file (giục lần
+            // hai là phí lượt), và lượt này không phải lượt bày BẢNG (bảng là chỗ trả lời duy nhất của nó).
+            if (sources.Count == 0
+                && lastUserIndex >= 0
+                && SourceRequestTurn.MentionsExistingSource(recent[lastUserIndex].Message)
+                && !SourceRequestTurn.Looks(reply)
+                && !recent.Any(c => ConversationTurnRenderer.IsAssistant(c) && SourceRequestTurn.Looks(c.Message))
+                && !CarriesTable())
+            {
+                reply = SourceRequestTurn.Message;
+                suggestionsJson = null;
+                suggestionsMultiSelect = false;
+                questions = new List<BAChatQuestion>();
+                openEnded = true;
+            }
+
+            // NHỊP TÓM TẮT KIỂM CHỨNG mà quên chip. Prompt kê sẵn bộ hai chip cho lượt này
+            // (["Đúng rồi, tiếp tục", "Tôi muốn sửa lại"]) vì nó là câu ĐÓNG: người dùng chỉ cần gật hoặc
+            // đòi sửa. Thiếu chip thì họ phải gõ tay một câu xác nhận, và ca thật (JD Libary 5, lượt 20)
+            // cho thấy cái giá thật nằm ở chỗ khác: không có hai nhánh bày sẵn, model tự viết ra một câu
+            // hỏi độ ĐẦY ĐỦ ("anh/chị thấy đã đầy đủ chưa?") và nhận về "đầy đủ rồi" — một lời tuyên bố
+            // hoàn tất trong khi bản đồ còn hai nhóm [CHƯA HỎI]. Cùng luật với chip dự phòng của lượt kể
+            // lại file: lượt nào là câu đóng thì phải có nút để bấm.
+            if (string.IsNullOrEmpty(suggestionsJson)
+                && questions.Count == 0
+                && !CarriesTable()
+                && LooksVerificationSummary(reply))
+            {
+                suggestionsJson = JsonSerializer.Serialize(SummaryCheckSuggestions);
+                suggestionsMultiSelect = false;
+                openEnded = false;
+            }
+
             // LƯỢT CÂM — chốt chặn cuối cùng của lượt chat, chạy SAU mọi nhánh trên vì nó xét HÌNH DẠNG
             // của lượt đã chốt chứ không xét ý định của model.
             //
@@ -1379,21 +1457,37 @@ public class BAChatService
                 openEnded = followUp.OpenEnded;
             }
 
+            // `openEnded` KHÔNG mua được quyền miễn trừ ở đây, và đó là chỗ chốt chặn này từng thủng.
+            // Cờ đó do model tự đặt, còn cái nó bật lên chỉ là một Ô NHẬP — mà ô nhập thì lượt nào cũng
+            // có. Ca thật (dự án JD Libary 5, lượt 18): *"Để mình tổng hợp lại những gì đã chốt và hỏi
+            // thêm một số điểm còn lại nhé."* — không chip, không thẻ hỏi, không dấu hỏi, đúng hình dạng
+            // lượt câm mà prompt cấm bằng tên ("KHÔNG kết bằng lời hứa về một bước bạn sắp làm"), nhưng
+            // model kèm `openEnded: true` nên nó đi thẳng qua chốt chặn này. Người dùng đáp "ok" và nhận
+            // lại một lượt nữa: đúng vòng lặp mà cả class test này sinh ra để cắt.
+            //
+            // Thứ MỞ được chỗ trả lời là bản thân lượt có HỎI hay có NHỜ, không phải cái cờ đi kèm — nên
+            // phép thử đọc chính nội dung: dấu hỏi, hoặc một lời nhờ hành động (xin file) vốn cố ý không
+            // có dấu hỏi.
             bool IsSilentTurn()
                 => string.IsNullOrEmpty(suggestionsJson)
-                   && !openEnded
                    && questions.Count == 0
                    && !reply.Contains('?', StringComparison.Ordinal)
                    && !reply.Contains('\uff1f', StringComparison.Ordinal)
+                   && !SourceRequestTurn.Looks(reply)
                    && !RequirementReadinessGate.IsWriteRequirementInvite(reply)
                    // Lượt có BẢNG không câm: bảng chính là chỗ trả lời DUY NHẤT của lượt, và câu dẫn của
                    // nó cố tình không phải câu hỏi (xem TakeOverTurn).
-                   && permissionMatrix.Count == 0
-                   && flowMap.Count == 0
-                   && screenScopeMap.Count == 0
-                   && entityMap.Count == 0
-                   && reportMap.Count == 0
-                   && notificationMap.Count == 0;
+                   && !CarriesTable();
+
+            // Lượt này có chở một BẢNG CHỐT nào không — chỗ trả lời duy nhất của lượt, nên mọi chốt chặn
+            // về "chỗ trả lời" đều phải nhường nó.
+            bool CarriesTable()
+                => permissionMatrix.Count > 0
+                   || flowMap.Count > 0
+                   || screenScopeMap.Count > 0
+                   || entityMap.Count > 0
+                   || reportMap.Count > 0
+                   || notificationMap.Count > 0;
         }
 
         var questionsJson = questions.Count > 0 ? JsonSerializer.Serialize(questions) : null;

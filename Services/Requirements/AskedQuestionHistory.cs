@@ -246,6 +246,93 @@ public static class AskedQuestionHistory
     }
 
     /// <summary>
+    /// Các CHIP đã bày ra ở một lượt chọn-nhiều mà lượt user ngay sau đó KHÔNG chọn — tức người dùng đã
+    /// trả lời "cái này thì không". Trả về khoá đã chuẩn hoá (<see cref="Key"/>) để caller so trực tiếp.
+    ///
+    /// <para>
+    /// <b>Vì sao một chip không được chọn cũng là một câu trả lời.</b> Ở lượt <c>multiSelect</c>, bộ chip
+    /// là cả một danh sách bày sẵn và người dùng tích những mảnh đúng với họ; mảnh không tích mang đúng
+    /// nghĩa "không có cái này". Sổ "đã hỏi" thường (<see cref="Collect"/>) không thấy điều đó — nó chỉ ghi
+    /// CÂU HỎI — nên BA quay lại hỏi riêng đúng cái mảnh vừa bị bỏ, và người dùng phải trả lời lần thứ hai
+    /// cho cùng một thông tin. Ca thật (dự án JD Libary 5, lượt 14→16): lượt 14 bày
+    /// <c>["Ngày gán JD", "Nhân viên được gán", "Ngày hiệu lực", "Ngày hết hạn"]</c> ở chế độ chọn nhiều,
+    /// người dùng liệt kê ba cái đầu; lượt 16 hỏi lại *"có cần lưu thêm ngày hết hạn hay không?"* — đốt
+    /// trọn một lượt để nghe lại đúng một tiếng "không".
+    /// </para>
+    ///
+    /// <para>
+    /// Chỉ xét lượt <c>multiSelect</c>: ở lượt chọn-MỘT, các chip còn lại là những phương án bị loại theo
+    /// luật của câu hỏi chứ không phải những thứ người dùng "đã bỏ", nên hỏi lại một phương án khác vẫn có
+    /// thể là một câu hỏi mới hợp lệ.
+    /// </para>
+    /// </summary>
+    public static HashSet<string> DeclinedChipKeys(IReadOnlyList<AgentConversation> turns)
+    {
+        var declined = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < turns.Count; i++)
+        {
+            var turn = turns[i];
+            if (!ConversationTurnRenderer.IsAssistant(turn) || !turn.SuggestionsMultiSelect)
+                continue;
+
+            var chips = ConversationTurnRenderer.ParseSuggestions(turn.Suggestions);
+            if (chips.Count == 0)
+                continue;
+
+            // Lượt user NGAY SAU đó là câu trả lời cho bộ chip này. Không có lượt nào sau (bộ chip đang
+            // chờ trả lời) ⇒ chưa có gì bị bỏ.
+            var answer = turns.Skip(i + 1).FirstOrDefault(t => !ConversationTurnRenderer.IsAssistant(t));
+            if (answer == null)
+                continue;
+
+            var answerKey = Key(answer.Message);
+            foreach (var chip in chips)
+            {
+                var chipKey = Key(chip);
+                if (chipKey.Length > 0 && !answerKey.Contains(chipKey, StringComparison.Ordinal))
+                    declined.Add(chipKey);
+            }
+        }
+
+        return declined;
+    }
+
+    /// <summary>
+    /// Câu hỏi này có phải đang hỏi CÓ/KHÔNG về đúng một chip mà người dùng vừa bỏ không — nếu phải thì nó
+    /// là câu hỏi lại, dù mặt chữ khác hẳn câu đã hỏi nên <see cref="IsRepeat"/> không bắt được.
+    ///
+    /// <para>
+    /// Hai điều kiện phải cùng đạt, và cả hai đều hẹp có chủ ý:
+    /// <list type="bullet">
+    /// <item>câu hỏi có hình dạng CÓ/KHÔNG — nó chỉ xin một tiếng gật hay lắc, tức đúng thứ cú bấm vừa
+    /// rồi đã trả lời;</item>
+    /// <item>và nó chở nguyên văn một chip đã bị bỏ.</item>
+    /// </list>
+    /// Thiếu vế đầu thì một câu ĐÀO SÂU về cùng chủ đề (*"ngày hết hạn của một lần gán do ai đặt?"*) cũng
+    /// bị chặn oan — mà đó lại đúng là việc BA nên làm.
+    /// </para>
+    /// </summary>
+    public static bool AsksAboutDeclinedChip(string? candidate, IReadOnlyCollection<string> declinedChipKeys)
+    {
+        if (declinedChipKeys.Count == 0)
+            return false;
+
+        var text = QuestionCore(candidate)?.ToLowerInvariant() ?? string.Empty;
+        if (!YesNoCues.Any(cue => text.Contains(cue, StringComparison.Ordinal)))
+            return false;
+
+        var key = Key(text);
+        return key.Length > 0 && declinedChipKeys.Any(chip => key.Contains(chip, StringComparison.Ordinal));
+    }
+
+    // Hình dạng CÓ/KHÔNG của một câu hỏi tiếng Việt. Cố ý không nhận "không" đứng một mình: nó có mặt
+    // trong vô số câu hỏi mở ("chỗ nào chưa đúng hoặc còn thiếu?").
+    private static readonly string[] YesNoCues =
+    {
+        "có cần", "có phải", "hay không", "có lưu", "có dùng", "có áp dụng", "có bắt buộc", "đúng không"
+    };
+
+    /// <summary>
     /// Ghi chú đánh dấu một dòng bản đồ mà NGƯỜI DÙNG vừa nói là BA hiểu chưa đúng. Lượt chắt lọc bản đồ
     /// ghi nguyên văn cụm này vào phần <c>còn thiếu:</c> của dòng đó — xem
     /// <c>Prompts/BusinessAnalyst/requirement-coverage.v3.md</c> § "Người dùng đính chính một nhóm".
