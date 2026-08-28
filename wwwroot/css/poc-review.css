@@ -569,6 +569,31 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
 /* ==== Nghiệm thu bản demo (đường ĐÓNG hành trình của người yêu cầu) ==== */
 
+/* Hộp xác nhận cho Approve POC / Withdraw Approve. Hẹp hơn .modal mặc định vì nội dung chỉ là một câu
+   hỏi + một dòng hậu quả: hộp rộng cho hai dòng chữ làm câu hỏi trôi ra hai mép và mắt phải quét ngang.
+   Tiêu đề nhỏ hơn h2 mặc định của .modal — đây là một câu hỏi, không phải tên một màn hình. */
+.poc-confirm-modal { width: 420px; text-align: left; }
+
+    .poc-confirm-modal h2 {
+        margin: 0;
+        padding-right: 26px; /* chừa chỗ cho nút ✕ ở góc phải, không thì tiêu đề dài chui xuống dưới nó */
+        font-size: 17px;
+        line-height: 1.35;
+    }
+
+    /* Nút chính mang đúng nhãn thao tác ("Approve POC" / "Withdraw Approve") nên dài hơn "OK" nhiều —
+       để nó co lại thành hai dòng là mất luôn thứ khiến hộp này hơn confirm() của trình duyệt. */
+    .poc-confirm-modal .modal-actions .btn { white-space: nowrap; }
+
+/* Lỗi từ server: đứng ngay dưới dòng hậu quả, cùng cỡ chữ với .poc-dispatch-msg để hai hộp của trang
+   nói lỗi bằng một giọng. */
+.poc-confirm-msg {
+    margin-top: 10px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #b91c1c;
+}
+
 /* Nút bấm nằm ở NÚT CHÍNH của command bar; chiều "rút" phải nhìn khác chiều "chốt" — cùng vị trí, cùng
    kích thước, nên nếu cùng màu thì người dùng bấm theo trí nhớ vị trí và chốt/rút nhầm nhau. */
 #pocWithdrawApproveBtn {

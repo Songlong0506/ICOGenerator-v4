@@ -176,6 +176,18 @@ delivery (`PocAccepted`) thì chiều về cũng báo (`PocAcceptanceWithdrawn`)
 và sắp bấm duyệt dựa trên lời vừa bị rút. Cả hai chiều **không đụng pipeline**: các bước đã chạy thì không
 lùi lại được bằng một cú bấm ở đây.
 
+Cả hai chiều hỏi lại bằng **hộp thoại của app** (`#pocConfirmModal`, `.modal` như các hộp khác của trang),
+không phải `confirm()` của trình duyệt: hộp mặc định dán tên miền lên đầu, bỏ hết xuống dòng của câu giải
+thích và chỉ bày được "OK/Cancel", nên người dùng đọc xong vẫn không thấy mình đang OK cái gì. Hộp của app
+bày đủ câu hỏi (tiêu đề), hậu quả (`.modal-note warning`) và nút chính mang đúng nhãn thao tác. Một hộp
+dùng chung cho cả hai chiều — hai nút không bao giờ cùng có mặt — và `askConfirm` trả lời bằng
+`Promise<boolean>` để chỗ gọi giữ nguyên hình dạng "hỏi rồi mới làm". Lỗi từ server hiện **trong chính hộp
+đó** thay vì `alert()`.
+
+Chữ trong hộp (kể cả `message` mà `AcceptPoc`/`WithdrawPocAcceptance` trả về) để **tiếng Anh** — ngoại lệ
+có chủ đích của quy ước tiếng Việt — cho khớp nhãn nút trên command bar (`Approve POC` / `Withdraw
+Approve`): bắt người dùng tự dịch nhãn ngay tại khoảnh khắc cần chắc tay là một bước thừa.
+
 Sau mỗi lần bấm, JS **tải lại trang** thay vì tự đảo nhãn nút: trạng thái khoá chạm tới gần như mọi thứ
 trên trang (nút gửi ghi chú, chế độ ghim, nút thu hồi từng dòng, biển trạng thái), nên vá từng chỗ bằng JS
 là dựng một bản sao thứ hai của luật khoá — bản sao sẽ trôi lệch khỏi server ngay lần sửa sau.
