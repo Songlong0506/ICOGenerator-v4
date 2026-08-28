@@ -4,6 +4,10 @@ namespace ICOGenerator.Application.Projects;
 
 public record ProjectListItem(
     Project Project,
+    // Chặng của dự án nhìn từ phía người yêu cầu, SUY RA chứ không lưu ở DB — xem ProjectStatusResolver.
+    // Khác cột workflow stage (bước kỹ thuật của pipeline): cả pipeline nằm gọn trong chặng
+    // ProductBriefApproved.
+    ProjectStatusRow Status,
     bool HasMockup,
     string? LatestWorkflowStatus,
     string? LatestWorkflowStage,

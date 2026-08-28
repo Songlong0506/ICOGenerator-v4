@@ -6,6 +6,7 @@
 | **AgentRoleKey** | Vai của AI: BusinessAnalyst, TechLead, Developer, Tester, UiUx |
 | **UserRole** | Vai của người: SuperAdmin, Admin, TeamDev, User. **Không lưu ở DB** — chỉ tồn tại trong claim của phiên đăng nhập |
 | **Product Brief** | Tài liệu yêu cầu ngôn ngữ đời thường cho user duyệt (draft → V{n}) |
+| **ProjectStatus (chặng dự án)** | Năm chặng nhìn từ phía người yêu cầu: New → Get requirement → Product Brief Draft → Product Brief Approve → POC Approve. **Không lưu ở DB** — suy ra từ hội thoại/tài liệu/dấu nghiệm thu (`ProjectStatusResolver`). Khác **WorkflowStageKey** (bước kỹ thuật của pipeline) |
 | **AI Design Spec** | Bản đặc tả kỹ thuật sinh từ Product Brief đã duyệt — input của POC/Architecture |
 | **AC-n (câu nghiệm thu)** | Dòng "Hoàn thành khi: …" người dùng đã duyệt trong Product Brief, chép nguyên văn vào spec § 14 và là đích của bộ kịch bản UAT |
 | **POC** | Demo HTML một-file (`poc-demo.html`) có hành vi thật, để user "thấy" trước khi đầu tư code |

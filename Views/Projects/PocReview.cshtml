@@ -47,6 +47,9 @@
     <div>
         <h1>POC Review</h1>
     </div>
+    @* Chặng của dự án (suy ra, không lưu DB — xem ProjectStatusResolver). Ở đây nó là câu trả lời sẵn
+       cho "vì sao ô ghi chú của tôi không gõ được": badge "POC Approve" kèm ổ khoá nói đúng lý do. *@
+    <partial name="_ProjectStatusBadge" model="Model.Status" />
 </div>
 
 @* CHI TIẾT KỸ THUẬT: trang này phục vụ người dùng nghiệp vụ đi nghiệm thu bản demo, nên cột phải chỉ

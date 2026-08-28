@@ -68,7 +68,10 @@ public record PocReviewPage(
     string? PocAcceptedBy,
     // Bản Product Brief mà POC đang phục vụ được dựng từ đó — ghi chú ghim mới đóng dấu bản này, và
     // danh sách dùng nó để gắn nhãn cho ghi chú của các thế hệ TRƯỚC.
-    string BriefVersion);
+    string BriefVersion,
+    // Chặng của dự án (suy ra, không lưu DB — xem ProjectStatusResolver). Trang này hiện nó thành badge
+    // ở đầu trang: khi đã "POC Approve" thì badge là lời giải thích cho việc ghi chú đang khoá.
+    ProjectStatusRow Status);
 
 /// <summary>
 /// Dữ liệu cho trang review POC (Projects/PocReview): tên project, POC đã tồn tại chưa, bộ kịch bản
@@ -83,14 +86,16 @@ public class GetPocReviewQuery
     private readonly UatScenarioService _uatScenarios;
     private readonly IProjectArtifactCatalog _artifactCatalog;
     private readonly GetPocNoteHistoryQuery _history;
+    private readonly ProjectStatusResolver _statuses;
 
-    public GetPocReviewQuery(AppDbContext db, WorkspacePathResolver workspacePathResolver, UatScenarioService uatScenarios, IProjectArtifactCatalog artifactCatalog, GetPocNoteHistoryQuery history)
+    public GetPocReviewQuery(AppDbContext db, WorkspacePathResolver workspacePathResolver, UatScenarioService uatScenarios, IProjectArtifactCatalog artifactCatalog, GetPocNoteHistoryQuery history, ProjectStatusResolver statuses)
     {
         _db = db;
         _workspacePathResolver = workspacePathResolver;
         _uatScenarios = uatScenarios;
         _artifactCatalog = artifactCatalog;
         _history = history;
+        _statuses = statuses;
     }
 
     public async Task<PocReviewPage?> ExecuteAsync(Guid projectId, CancellationToken cancellationToken = default)
@@ -146,10 +151,13 @@ public class GetPocReviewQuery
             .Where(d => d.IsApproved && d.FileName == _artifactCatalog.ProductBrief.FileName)
             .Select(d => d.VersionName));
 
+        var status = await _statuses.ResolveAsync(projectId, cancellationToken)
+                     ?? new ProjectStatusRow(projectId, ProjectStatus.New, false);
+
         return new PocReviewPage(
             project.Id, project.Name, File.Exists(mockupPath), scenarios, history, coverage, verification, verificationFixes,
             versions, pocGateOpen, revisionsUsed, DeliveryPipeline.MaxRevisionRounds,
-            project.PocAcceptedAtUtc, project.PocAcceptedBy, briefVersion);
+            project.PocAcceptedAtUtc, project.PocAcceptedBy, briefVersion, status);
     }
 
     // Bản chụp của MỖI vòng dựng (xem PocSnapshots) + diff màn hình giữa bản đang phục vụ và vòng liền

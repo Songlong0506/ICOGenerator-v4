@@ -368,6 +368,7 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddProjectUseCases(this IServiceCollection services)
     {
         services.AddScoped<GetProjectListQuery>();
+        services.AddScoped<ProjectStatusResolver>();
         services.AddScoped<CreateProjectUseCase>();
         services.AddScoped<UpdateProjectUseCase>();
         services.AddScoped<CloneProjectUseCase>();
