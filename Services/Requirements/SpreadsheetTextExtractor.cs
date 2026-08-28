@@ -28,6 +28,15 @@ public static class SpreadsheetTextExtractor
     private const int MaxCols = 40;
     private const int MaxCellChars = 200;
 
+    // Dò hàng tiêu đề (xem ChooseHeaderRow): đệm HeaderScanRows dòng đầu sheet, chỉ xét HeaderCandidateRows
+    // dòng đầu tiên trong đệm làm ứng viên — phần còn lại của đệm là "phía dưới" để chấm điểm.
+    private const int HeaderScanRows = 25;
+    private const int HeaderCandidateRows = 12;
+    private const int MaxHeaderNameChars = 60;  // dài hơn thế là một câu mô tả, không phải tên cột.
+    private const int HeaderScoreMargin = 2;    // biên để BỎ dòng trên mà xuống dòng dưới — xem ChooseHeaderRow.
+    private const int MaxPreambleLines = 5;     // các dòng trước hàng tiêu đề được kể lại, không bị vứt.
+    private const int MaxPreambleLineChars = 160;
+
     // Cột ít giá trị ⇒ liệt kê HẾT (đó là một danh mục, thiếu một giá trị là thiếu một ca nghiệp vụ).
     // Cột nhiều giá trị ⇒ chỉ vài giá trị hay gặp nhất, kèm tổng số giá trị phân biệt.
     private const int ListAllValuesUpTo = 12;
@@ -39,6 +48,12 @@ public static class SpreadsheetTextExtractor
 
     /// <summary>Tiêu đề khối thống kê cột — tính trên toàn bộ bảng. Đứng TRƯỚC khối dòng dữ liệu.</summary>
     public const string ColumnStatsHeading = "#### Thống kê cột";
+
+    /// <summary>
+    /// Nhãn của các dòng nằm TRƯỚC hàng tiêu đề (banner, người tạo, ngày cập nhật). Có nhãn riêng để bản
+    /// đọc lại không tưởng nhầm chúng là tên cột — đúng cái bẫy khiến chúng từng bị chốt thành hàng tiêu đề.
+    /// </summary>
+    public const string PreambleHeading = "Dòng đầu sheet (trước hàng tiêu đề):";
 
     /// <summary>
     /// Tiêu đề khối dòng dữ liệu (hàng tiêu đề + các dòng mẫu). Là hằng số vì có consumer đi TÌM đúng khối
@@ -187,6 +202,7 @@ public static class SpreadsheetTextExtractor
     private sealed class Table
     {
         public string[] Header = Array.Empty<string>();
+        public List<string> Preamble = new();
         public List<string[]> Sample = new();
         public List<ColumnProfile> Columns = new();
         public int DataRows;
@@ -205,21 +221,45 @@ public static class SpreadsheetTextExtractor
     private static Table Read(IEnumerable<string[]> rows)
     {
         var table = new Table();
+
+        using var rest = rows.GetEnumerator();
+        var window = new List<string[]>(HeaderScanRows);
+        while (window.Count < HeaderScanRows && rest.MoveNext())
+            window.Add(rest.Current);
+
+        var headerIndex = ChooseHeaderRow(window);
+        if (headerIndex < 0)
+            return table; // sheet rỗng.
+
+        // Các dòng trước hàng tiêu đề (banner, "Created by", ngày cập nhật) không phải dữ liệu, nhưng cũng
+        // không phải rác: chúng nói file này là bản gì, của ai, kỳ nào. Kể lại nguyên văn, gắn nhãn đúng
+        // thân phận, thay vì để chúng đội lốt tên cột.
+        table.Preamble = window
+            .Take(headerIndex)
+            .Select(r => string.Join(" | ", r.Take(Math.Max(LastNonEmpty(r) + 1, 0)).Select(c => c ?? string.Empty)))
+            .Where(l => l.Any(ch => ch != ' ' && ch != '|'))
+            .Select(l => l.Length > MaxPreambleLineChars ? l[..MaxPreambleLineChars] + "…" : l)
+            .Take(MaxPreambleLines)
+            .ToList();
+
+        // Bề rộng lấy theo dòng RỘNG NHẤT trong đệm kể từ hàng tiêu đề, không lấy theo riêng hàng tiêu đề:
+        // biểu mẫu thật hay có cột chỉ có dữ liệu mà không có tiêu đề (hoặc tiêu đề nằm ở dòng gợi ý ngay
+        // dưới). Cắt theo hàng tiêu đề thì các cột đó biến mất hẳn khỏi bản đọc; để lại dưới tên "(cột n)"
+        // thì người dùng còn nhìn thấy giá trị mà gọi tên chúng ở bảng cột.
         var width = 0;
+        for (var i = headerIndex; i < window.Count; i++)
+            width = Math.Max(width, LastNonEmpty(window[i]) + 1);
+        if (width <= 0)
+            return table;
 
-        foreach (var cells in rows)
+        table.Header = window[headerIndex].Take(width).Select(c => c ?? string.Empty).ToArray();
+        for (var i = 0; i < width; i++)
+            table.Columns.Add(new ColumnProfile { Name = ColumnName(table.Header[i], i) });
+
+        foreach (var cells in Body(window, headerIndex, rest))
         {
-            if (table.Header.Length == 0)
-            {
-                width = LastNonEmpty(cells) + 1;
-                if (width <= 0)
-                    continue; // bỏ qua các dòng trống ở đầu sheet cho tới khi gặp hàng tiêu đề.
-
-                table.Header = cells.Take(width).Select(c => c ?? string.Empty).ToArray();
-                for (var i = 0; i < width; i++)
-                    table.Columns.Add(new ColumnProfile { Name = ColumnName(table.Header[i], i) });
-                continue;
-            }
+            if (LastNonEmpty(cells) < 0)
+                continue; // dòng trống xen giữa bảng: không phải bản ghi, đừng thổi số dòng lẫn dòng mẫu.
 
             if (table.DataRows >= MaxProfiledRows)
             {
@@ -251,6 +291,105 @@ public static class SpreadsheetTextExtractor
         return table;
     }
 
+    /// <summary>Các dòng dữ liệu: phần còn lại của đệm sau hàng tiêu đề, rồi tới phần chưa đọc của sheet.</summary>
+    private static IEnumerable<string[]> Body(List<string[]> window, int headerIndex, IEnumerator<string[]> rest)
+    {
+        for (var i = headerIndex + 1; i < window.Count; i++)
+            yield return window[i];
+        while (rest.MoveNext())
+            yield return rest.Current;
+    }
+
+    /// <summary>
+    /// Chọn hàng tiêu đề trong <paramref name="window"/> (chỉ số trong đệm), hoặc -1 khi sheet rỗng.
+    ///
+    /// <para>
+    /// KHÔNG lấy "dòng có chữ đầu tiên". Biểu mẫu do người làm nghiệp vụ dựng gần như luôn mở đầu bằng một
+    /// dòng banner một ô (<c>HcP_JD Database 2023</c>), rồi <c>Created by</c> / <c>Updated on</c>, rồi mới
+    /// tới hàng tiêu đề thật ở dòng 6. Lấy dòng đầu làm tiêu đề gây ra HAI hỏng cùng lúc, và cái thứ hai
+    /// im lặng: bề rộng bảng bị chốt theo dòng banner nên **mọi cột từ B trở đi bị vứt khỏi bản đọc** (12
+    /// cột JD chỉ còn 1), còn cột nào sống sót thì mang tên rỗng ⇒ bảng cột bày ra cho người dùng toàn
+    /// <c>(cột 1)</c>, <c>(cột 2)</c>… trong khi file có sẵn <c>Org Unit</c>, <c>Job title</c>, <c>Job Grade</c>.
+    /// Người dùng nhìn thấy đúng thứ họ không thể phân xử: tên cột họ biết rõ thì không hiện, còn thứ hiện
+    /// ra thì không có trong file nào cả.
+    /// </para>
+    ///
+    /// <para>
+    /// Chấm điểm mỗi ứng viên bằng số ô "trông như tên cột": có chữ, ngắn (≤ <see cref="MaxHeaderNameChars"/>),
+    /// không phải số, và **không lặp lại ở phía dưới trong cùng cột** — dấu hiệu tách tiêu đề khỏi dữ liệu
+    /// mạnh nhất mà không cần biết nghiệp vụ, vì giá trị của một cột danh mục thì lặp còn tên cột thì không.
+    /// Điểm bằng nhau ⇒ lấy dòng TRÊN, đó là cách hàng tiêu đề thắng hàng gợi ý ("Automatically filled",
+    /// "Please choose from drop down") nằm ngay dưới nó. Chỉ dòng đầu đệm mới được làm ứng viên: dòng càng
+    /// gần đáy đệm càng ít dòng phía dưới để đối chiếu nên điểm bị thổi lên, và một dòng dữ liệu ở cuối đệm
+    /// sẽ ăn gian thắng hàng tiêu đề thật.
+    /// </para>
+    ///
+    /// <para>
+    /// Dòng TRÊN được giữ trừ khi dòng dưới hơn hẳn <see cref="HeaderScoreMargin"/> điểm. Không có biên này
+    /// thì với bảng nhỏ, dòng dữ liệu đầu tiên chỉ cần đông ô hơn hàng tiêu đề một ô (một cột không có tiêu
+    /// đề là đủ) đã cướp được vai tiêu đề — mà mọi giá trị của nó chưa kịp lặp lại để bị trừ điểm.
+    /// </para>
+    ///
+    /// Không dòng nào ăn điểm (bảng toàn số, sheet chỉ có vài ô chữ) ⇒ rơi về hành vi cũ: dòng có chữ đầu tiên.
+    /// </summary>
+    private static int ChooseHeaderRow(IReadOnlyList<string[]> window)
+    {
+        var bestIndex = -1;
+        var bestScore = -1;
+        var candidates = Math.Min(HeaderCandidateRows, window.Count);
+        for (var i = 0; i < candidates; i++)
+        {
+            if (LastNonEmpty(window[i]) < 0)
+                continue;
+
+            var score = HeaderScore(window, i);
+            if (bestIndex < 0 || score >= bestScore + HeaderScoreMargin)
+            {
+                bestIndex = i;
+                bestScore = score;
+            }
+        }
+        if (bestIndex >= 0)
+            return bestIndex;
+
+        for (var i = 0; i < window.Count; i++)
+            if (LastNonEmpty(window[i]) >= 0)
+                return i;
+        return -1;
+    }
+
+    private static int HeaderScore(IReadOnlyList<string[]> window, int index)
+    {
+        var row = window[index];
+        var score = 0;
+        for (var c = 0; c < row.Length; c++)
+        {
+            var value = (row[c] ?? string.Empty).Trim();
+            if (value.Length == 0 || value.Length > MaxHeaderNameChars || LooksNumeric(value))
+                continue;
+
+            var repeatedBelow = false;
+            for (var j = index + 1; j < window.Count && !repeatedBelow; j++)
+                repeatedBelow = string.Equals((window[j][c] ?? string.Empty).Trim(), value, StringComparison.Ordinal);
+
+            if (!repeatedBelow)
+                score++;
+        }
+        return score;
+    }
+
+    /// <summary>Số, ngày, phần trăm… — một ô như thế là dữ liệu, không phải tên cột.</summary>
+    private static bool LooksNumeric(string value)
+    {
+        var hasDigit = false;
+        foreach (var ch in value)
+        {
+            if (char.IsDigit(ch)) hasDigit = true;
+            else if (ch is not (',' or '.' or '%' or '-' or '/' or ' ')) return false;
+        }
+        return hasDigit;
+    }
+
     private static int LastNonEmpty(string[] cells)
     {
         for (var i = cells.Length - 1; i >= 0; i--)
@@ -276,6 +415,10 @@ public static class SpreadsheetTextExtractor
     {
         var scope = table.Truncated ? $"{table.DataRows}+ dòng đầu" : $"{table.DataRows} dòng";
         sb.AppendLine($"Tổng: {(table.Truncated ? $"trên {table.DataRows}" : table.DataRows.ToString())} dòng dữ liệu, {table.Header.Length} cột.");
+        if (table.Preamble.Count > 0)
+        {
+            sb.AppendLine($"{PreambleHeading} {string.Join(" · ", table.Preamble)}");
+        }
         sb.AppendLine();
 
         sb.AppendLine($"{ColumnStatsHeading} (trên {scope})");
