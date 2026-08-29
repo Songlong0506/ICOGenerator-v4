@@ -152,10 +152,110 @@ public class DecisionLogServiceTests : IDisposable
         Assert.Null(log);
     }
 
+    // Bản đồ bao phủ trích ĐÚNG câu người dùng nói trong lô delta ("Đúng, chỉ Assistant HR") ⇒ lô này chắc
+    // chắn có nội dung nghiệp vụ, theo một bộ đọc độc lập với nhật ký.
+    private const string MapCitingBatch =
+        "- ★ Đối tượng người dùng & vai trò: [RÕ] Assistant HR lập kế hoạch. {nguồn: \"Đúng, chỉ Assistant HR\"}";
+
+    [Fact]
+    public async Task SuspectedMiss_ChattsAgainOnce_WithEvidenceHint_AndTakesTheSecondPass()
+    {
+        // Lượt chắt đầu trả về Y HỆT nhật ký cũ trong khi lô có bằng chứng — đúng hình dạng ca JD Libary 5.
+        var (project, ba) = await SeedChipAnswerAsync(existingLog: "- Nhật ký cũ một dòng", coverageMap: MapCitingBatch);
+        var llm = new FakeLlm();
+        llm.Replies.Enqueue("- Nhật ký cũ một dòng");
+        llm.Replies.Enqueue("- Nhật ký cũ một dòng\n- Chỉ Assistant HR được lập kế hoạch đào tạo và submit duyệt.");
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        var log = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.Equal(2, llm.Calls);
+        // Lượt chắt lại mang purpose RIÊNG: guard mới thì phải đếm được nó nổ bao nhiêu lần.
+        Assert.Equal(new[] { "BADecisionLog", "BADecisionLogRecheck" }, llm.Purposes);
+        // Chỉ dẫn phải chở ĐÚNG câu bộ đọc kia đã trích, không phải một lời "cố lên" chung chung.
+        Assert.Contains("RÀ LẠI", llm.UserMessages[1]);
+        Assert.Contains("Đúng, chỉ Assistant HR", llm.UserMessages[1]);
+        // …và không được nới luật chống suy diễn khi giục model ghi thêm.
+        Assert.Contains("KHÔNG suy diễn", llm.UserMessages[1]);
+        Assert.Contains("Chỉ Assistant HR được lập kế hoạch", log);
+    }
+
+    [Fact]
+    public async Task SuspectedMiss_SecondPassStillUnchanged_KeepsFirstPass_AndAdvancesCursor()
+    {
+        // Rà lại mà vẫn không có gì ⇒ chấp nhận, dời con trỏ như thường. Nghi ngờ không được thành vòng lặp.
+        var (project, ba) = await SeedChipAnswerAsync(existingLog: "- Nhật ký cũ một dòng", coverageMap: MapCitingBatch);
+        var llm = new FakeLlm { Reply = "- Nhật ký cũ một dòng" };
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        var log = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.Equal(2, llm.Calls);
+        Assert.Equal("- Nhật ký cũ một dòng", log);
+        var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
+        Assert.Equal(4, reloaded.DecisionHarvestedTurnCount);
+    }
+
+    [Fact]
+    public async Task SuspectedMiss_SecondPassFails_FailsOpenToFirstPass()
+    {
+        var (project, ba) = await SeedChipAnswerAsync(existingLog: "- Nhật ký cũ một dòng", coverageMap: MapCitingBatch);
+        var llm = new FakeLlm { Reply = "- Nhật ký cũ một dòng", FailFromCall = 2 };
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        var log = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.Equal(2, llm.Calls);
+        Assert.Equal("- Nhật ký cũ một dòng", log);
+    }
+
+    [Fact]
+    public async Task LogGrew_DoesNotChatAgain()
+    {
+        // Lô có bằng chứng NHƯNG nhật ký đã dài thêm ⇒ không nghi ngờ gì, không tốn lời gọi thứ hai.
+        var (project, ba) = await SeedChipAnswerAsync(existingLog: "- Nhật ký cũ một dòng", coverageMap: MapCitingBatch);
+        var llm = new FakeLlm { Reply = "- Nhật ký cũ một dòng\n- Chỉ Assistant HR được lập kế hoạch đào tạo." };
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.Equal(1, llm.Calls);
+        Assert.Equal(new[] { "BADecisionLog" }, llm.Purposes);
+    }
+
+    [Fact]
+    public async Task NoCoverageEvidence_DoesNotChatAgain_EvenWhenLogUnchanged()
+    {
+        // Không có bản đồ (hoặc bản đồ chưa trích được gì từ lô) ⇒ guard không có căn cứ, im lặng. Đây là
+        // ca thường gặp nhất — lô toàn lượt xã giao — nên nó KHÔNG được đẻ ra lời gọi thứ hai.
+        var (project, ba) = await SeedChipAnswerAsync(existingLog: "- Nhật ký cũ một dòng");
+        var llm = new FakeLlm { Reply = "- Nhật ký cũ một dòng" };
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.Equal(1, llm.Calls);
+    }
+
     private DecisionLogService NewSut(AppDbContext db, ILlmClient llm) => new(db, llm, new StubPrompts());
 
     // Bốn lượt: [user kể, BA hỏi kèm chip] đã gộp (con trỏ mặc định = 2), rồi [user bấm chip, BA hỏi tiếp].
-    private async Task<(Project Project, Agent Ba)> SeedChipAnswerAsync(int harvestedTurnCount = 2, string? existingLog = null)
+    private async Task<(Project Project, Agent Ba)> SeedChipAnswerAsync(int harvestedTurnCount = 2, string? existingLog = null, string? coverageMap = null)
     {
         var ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id };
         var project = new Project
@@ -163,6 +263,7 @@ public class DecisionLogServiceTests : IDisposable
             Id = Guid.NewGuid(),
             Name = "P",
             DecisionLog = existingLog,
+            RequirementCoverageMap = coverageMap,
             DecisionHarvestedTurnCount = harvestedTurnCount
         };
         var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -204,17 +305,28 @@ public class DecisionLogServiceTests : IDisposable
         public int Calls;
         public string Reply = "- quyết định";
         public bool Fail;
+        // Lời gọi thứ N trở đi hỏng — để test đường fail-open của riêng lượt chắt lại.
+        public int FailFromCall = int.MaxValue;
         public string? LastUserMessage;
+        // Lượt chắt LẠI (guard nghi bỏ sót) là lời gọi thứ hai: xếp sẵn câu trả lời riêng cho nó, và giữ
+        // purpose của từng lời gọi để test chốt được nó mang nhãn riêng trên AI Call Logs.
+        public readonly Queue<string> Replies = new();
+        public readonly List<string> Purposes = new();
+        public readonly List<string> UserMessages = new();
 
         public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
         {
             Calls++;
+            Purposes.Add(logContext.Purpose);
             LastUserMessage = messages.LastOrDefault(m => m.Role == ChatRole.User)?.Text;
+            UserMessages.Add(LastUserMessage ?? string.Empty);
+            var reply = Replies.Count > 0 ? Replies.Dequeue() : Reply;
+            var failed = Fail || Calls >= FailFromCall;
             return Task.FromResult(new LlmCallResult
             {
-                IsSuccess = !Fail,
-                Content = Fail ? string.Empty : Reply,
-                ErrorMessage = Fail ? "boom" : null
+                IsSuccess = !failed,
+                Content = failed ? string.Empty : reply,
+                ErrorMessage = failed ? "boom" : null
             });
         }
 
