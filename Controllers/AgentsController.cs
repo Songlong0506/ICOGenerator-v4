@@ -76,13 +76,13 @@ public class AgentsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.AgentsManage)]
-    public async Task<IActionResult> SaveChecklist(string? domainKey, List<ChecklistItemInput>? items, Guid? deleteId, string? bucketAction)
+    public async Task<IActionResult> SaveChecklist(string? departmentCode, List<ChecklistItemInput>? items, Guid? deleteId, string? bucketAction)
     {
         var (result, message) = deleteId.HasValue
             ? (await _saveLearnedChecklistUseCase.DeleteAsync(deleteId.Value, HttpContext.RequestAborted), "Đã xóa hẳn mục đó — lưu ý BA có thể học lại bài học này từ dự án sau.")
             : bucketAction == "disableAll"
-                ? (await _saveLearnedChecklistUseCase.DisableBucketAsync(domainKey, HttpContext.RequestAborted), "Đã tắt toàn bộ nhóm này. BA thôi hỏi các điểm đó; bật lại bất cứ lúc nào.")
-                : (await _saveLearnedChecklistUseCase.SaveAsync(domainKey, items ?? new List<ChecklistItemInput>(), HttpContext.RequestAborted), "Đã lưu checklist.");
+                ? (await _saveLearnedChecklistUseCase.DisableBucketAsync(departmentCode, HttpContext.RequestAborted), "Đã tắt toàn bộ nhóm này. BA thôi hỏi các điểm đó; bật lại bất cứ lúc nào.")
+                : (await _saveLearnedChecklistUseCase.SaveAsync(departmentCode, items ?? new List<ChecklistItemInput>(), HttpContext.RequestAborted), "Đã lưu checklist.");
 
         if (result == SaveLearnedChecklistResult.BaNotConfigured)
             TempData["Error"] = "Chưa cấu hình agent BA.";

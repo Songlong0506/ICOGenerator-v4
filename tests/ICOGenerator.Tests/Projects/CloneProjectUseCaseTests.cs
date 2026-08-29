@@ -56,7 +56,7 @@ public class CloneProjectUseCaseTests : IDisposable
             Name = ProjectName,
             Description = "Dự án gốc",
             CreatedByUsername = "alice",
-            DomainKey = "leave-management",
+            OrgUnitCode = "50101",
             ConversationSummary = "tóm tắt",
             SummarizedTurnCount = 4,
             UserMemoryHarvestedTurnCount = 6,
@@ -265,7 +265,8 @@ public class CloneProjectUseCaseTests : IDisposable
         Assert.Equal(6, project.UserMemoryHarvestedTurnCount);
         Assert.Equal(7, project.CoverageHarvestedTurnCount);
         Assert.Equal("tóm tắt", project.ConversationSummary);
-        Assert.Equal("leave-management", project.DomainKey);
+        // Đơn vị yêu cầu đi theo bản sao: nó quyết định bucket "checklist học được" của mọi lượt chat sau.
+        Assert.Equal("50101", project.OrgUnitCode);
 
         Assert.Null(project.PocAcceptedAtUtc);
         Assert.Null(project.PocAcceptedBy);

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using ICOGenerator.Data;
+using ICOGenerator.Services.Organization;
 using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -36,17 +37,20 @@ public partial class OrganizationContextService
 
     private readonly AppDbContext _db;
     private readonly PromptTemplateService _prompts;
+    private readonly OrgChartProvider _orgChart;
     private readonly IMemoryCache _cache;
     private readonly ILogger<OrganizationContextService> _logger;
 
     public OrganizationContextService(
         AppDbContext db,
         PromptTemplateService prompts,
+        OrgChartProvider orgChart,
         IMemoryCache cache,
         ILogger<OrganizationContextService> logger)
     {
         _db = db;
         _prompts = prompts;
+        _orgChart = orgChart;
         _cache = cache;
         _logger = logger;
     }
@@ -127,25 +131,16 @@ public partial class OrganizationContextService
 
         try
         {
-            var code = orgUnitCode.Trim();
-            var units = await LoadUnitsAsync(cancellationToken);
-            var byCode = units.ToDictionary(u => u.Code, StringComparer.OrdinalIgnoreCase);
-            if (!byCode.TryGetValue(code, out var unit))
+            var chart = await _orgChart.GetAsync(cancellationToken);
+            var unit = chart.Find(orgUnitCode);
+            if (unit == null)
                 return null;
 
-            // Đi ngược cấp trên trực tiếp tới department gần nhất; visited chặn vòng lặp dữ liệu bẩn
-            // (TargetResponsible tự trỏ về mình/chu trình).
-            var department = unit;
-            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { unit.Code };
-            while (!department.IsDepartment
-                   && !string.IsNullOrWhiteSpace(department.ParentCode)
-                   && byCode.TryGetValue(department.ParentCode!, out var parent)
-                   && visited.Add(parent.Code))
-            {
-                department = parent;
-            }
+            // Department chứa đơn vị này; null khi chuỗi cấp trên không dẫn tới department nào — khi đó
+            // ghi chú chỉ nói về chính orgUnit, không bịa ra phòng ban.
+            var department = chart.FindDepartment(orgUnitCode);
 
-            var managerNames = await LoadManagerNamesAsync(new[] { unit.ManagerId, department.ManagerId }, cancellationToken);
+            var managerNames = await LoadManagerNamesAsync(new[] { unit.ManagerId, department?.ManagerId }, cancellationToken);
             string ManagerLabel(string? managerId) =>
                 managerId != null && managerNames.TryGetValue(managerId, out var name) ? name : "(chưa rõ)";
 
@@ -158,7 +153,7 @@ public partial class OrganizationContextService
             else
             {
                 sb.AppendLine($"- OrgUnit {unit.DisplayName} (mã {unit.Code}) — manager: {ManagerLabel(unit.ManagerId)}.");
-                if (department.IsDepartment)
+                if (department != null)
                     sb.AppendLine($"- Thuộc department {department.DisplayName} — HoD: {ManagerLabel(department.ManagerId)}.");
             }
             sb.Append("- Mặc định ngữ cảnh nghiệp vụ/người dùng xoay quanh đơn vị này; vẫn xác nhận lại trong hội thoại, không tự suy rộng.");
@@ -190,7 +185,7 @@ public partial class OrganizationContextService
 
     private async Task<string?> RenderBaContextAsync(CancellationToken cancellationToken)
     {
-        var units = await LoadUnitsAsync(cancellationToken);
+        var units = (await _orgChart.GetAsync(cancellationToken)).Units;
         if (units.Count == 0)
             return null;
 
@@ -281,26 +276,6 @@ public partial class OrganizationContextService
         }
 
         return (visited.Count - 1, headcount);
-    }
-
-    private sealed record UnitRow(string Code, string DisplayName, string? ParentCode, string? ManagerId, bool IsDepartment);
-
-    private async Task<List<UnitRow>> LoadUnitsAsync(CancellationToken cancellationToken)
-    {
-        // Bản ghi trùng OrgUnitCode (nếu dữ liệu đồng bộ lỗi) lấy bản đầu để các dictionary không ném lỗi.
-        return (await _db.OrgUnits.AsNoTracking()
-                .Where(u => !u.IsDelete && u.OrgUnitCode != null && u.OrgUnitCode != "")
-                .Select(u => new { Code = u.OrgUnitCode!, u.DisplayName, u.TargetResponsible, u.TrgtManagerLId, u.IsDepartment })
-                .ToListAsync(cancellationToken))
-            .GroupBy(u => u.Code, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .Select(u => new UnitRow(
-                u.Code,
-                string.IsNullOrWhiteSpace(u.DisplayName) ? u.Code : u.DisplayName!,
-                string.IsNullOrWhiteSpace(u.TargetResponsible) ? null : u.TargetResponsible!.Trim(),
-                string.IsNullOrWhiteSpace(u.TrgtManagerLId) ? null : u.TrgtManagerLId!.Trim(),
-                u.IsDepartment))
-            .ToList();
     }
 
     private async Task<Dictionary<string, string>> LoadManagerNamesAsync(IEnumerable<string?> personalNumbers, CancellationToken cancellationToken)

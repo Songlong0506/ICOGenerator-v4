@@ -7,20 +7,23 @@ using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using ICOGenerator.Tests;
 
 namespace ICOGenerator.Tests.Agents;
 
 // Trang quản trị "checklist BA học được": nội dung này được nạp vào prompt ở MỌI lượt chat của các dự án
-// cùng miền, nên ba điều phải đúng — nhìn thấy được (kèm VÌ SAO rút ra + dự án nguồn), TẮT được từng
+// cùng PHÒNG BAN, nên ba điều phải đúng — nhìn thấy được (kèm VÌ SAO rút ra + dự án nguồn), TẮT được từng
 // mục, và mục đã tắt phải nằm lại làm danh sách cấm chứ không biến mất.
 public class LearnedChecklistTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly DbContextOptions<AppDbContext> _options;
     private readonly Guid _baId = Guid.NewGuid();
-    private readonly Guid _leaveProjectId = Guid.NewGuid();
+    private readonly Guid _hrProjectId = Guid.NewGuid();
     private readonly Guid _commonItemId = Guid.NewGuid();
-    private readonly Guid _leaveItemId = Guid.NewGuid();
+    private readonly Guid _deptItemId = Guid.NewGuid();
+    private const string DeptCode = "50100";
+    private const string SubUnitCode = "50101";
 
     public LearnedChecklistTests()
     {
@@ -33,34 +36,37 @@ public class LearnedChecklistTests : IDisposable
         var model = new AiModel { Id = Guid.NewGuid(), ModelId = "test" };
         db.AiModels.Add(model);
         db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = model.Id });
-        db.Projects.Add(new Project { Id = _leaveProjectId, Name = "Nghỉ phép HR", DomainKey = "leave-management" });
+        // Dự án gắn orgUnit CON; bucket của nó là department cha — trang quản trị hiển thị TÊN phòng đó.
+        db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = DeptCode, DisplayName = "HcP/HRL", IsDepartment = true });
+        db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = SubUnitCode, DisplayName = "HcP/HRL1", TargetResponsible = DeptCode });
+        db.Projects.Add(new Project { Id = _hrProjectId, Name = "Nghỉ phép HR", OrgUnitCode = SubUnitCode });
 
         db.AgentChecklistItems.Add(new AgentChecklistItem
         {
             Id = _commonItemId,
             AgentId = _baId,
-            DomainKey = null,
+            DepartmentCode = null,
             Text = "Hỏi kỹ vòng đời dữ liệu cũ.",
             SourceKind = ChecklistItemSource.Conversation
         });
         db.AgentChecklistItems.Add(new AgentChecklistItem
         {
-            Id = _leaveItemId,
+            Id = _deptItemId,
             AgentId = _baId,
-            DomainKey = "leave-management",
+            DepartmentCode = DeptCode,
             Text = "Hỏi ai duyệt khi quản lý trực tiếp nghỉ.",
             Rationale = "Người dùng tự nêu người duyệt thay, BA chưa hỏi tới trường hợp người duyệt vắng mặt.",
             Evidence = "sếp em nghỉ thì ai duyệt?",
             SourceKind = ChecklistItemSource.Conversation,
-            SourceProjectId = _leaveProjectId
+            SourceProjectId = _hrProjectId
         });
         db.AgentChecklistItems.Add(new AgentChecklistItem
         {
             AgentId = _baId,
-            DomainKey = "leave-management",
+            DepartmentCode = DeptCode,
             Text = "Hỏi cách cộng ngày phép tồn.",
             SourceKind = ChecklistItemSource.PocFeedback,
-            SourceProjectId = _leaveProjectId,
+            SourceProjectId = _hrProjectId,
             Status = ChecklistItemStatus.DisabledByUser
         });
         db.SaveChanges();
@@ -70,21 +76,23 @@ public class LearnedChecklistTests : IDisposable
     public async Task Query_GroupsIntoBuckets_WithReasonAndSource()
     {
         await using var db = NewDb();
-        var buckets = await new GetLearnedChecklistQuery(db, new BAAgentResolver(db)).ExecuteAsync();
+        var buckets = await new GetLearnedChecklistQuery(db, new BAAgentResolver(db), TestOrgChart.NewProvider(db)).ExecuteAsync();
 
         Assert.Equal(2, buckets.Count);
-        Assert.Null(buckets[0].DomainKey); // bucket chung luôn đứng đầu.
+        Assert.Null(buckets[0].DepartmentCode); // bucket chung luôn đứng đầu.
 
-        var leave = buckets.Single(b => b.DomainKey == "leave-management");
-        Assert.Equal(2, leave.Items.Count);
-        Assert.Equal(1, leave.ActiveCount); // mục đã tắt vẫn hiện, chỉ không tính là đang dùng.
+        var dept = buckets.Single(b => b.DepartmentCode == DeptCode);
+        // Nhãn hiển thị là TÊN phòng tra từ OrgUnits, không phải mã trần.
+        Assert.Equal("HcP/HRL", dept.DepartmentLabel);
+        Assert.Equal(2, dept.Items.Count);
+        Assert.Equal(1, dept.ActiveCount); // mục đã tắt vẫn hiện, chỉ không tính là đang dùng.
 
-        var item = leave.Items.Single(i => i.Id == _leaveItemId);
+        var item = dept.Items.Single(i => i.Id == _deptItemId);
         Assert.StartsWith("Người dùng tự nêu", item.Rationale);
         Assert.Equal("sếp em nghỉ thì ai duyệt?", item.Evidence);
-        // Truy nguồn tới ĐÚNG dự án đã sinh ra bài học, không phải "mọi dự án cùng miền".
+        // Truy nguồn tới ĐÚNG dự án đã sinh ra bài học, không phải "mọi dự án cùng phòng ban".
         Assert.Equal("Nghỉ phép HR", item.SourceProjectName);
-        Assert.Equal("Nghỉ phép HR", Assert.Single(leave.Sources).Name);
+        Assert.Equal("Nghỉ phép HR", Assert.Single(dept.Sources).Name);
     }
 
     // Bài học đã rút ra là tài sản dùng chung cho mọi dự án SAU — xóa dự án nguồn chỉ được làm mất đường
@@ -94,32 +102,32 @@ public class LearnedChecklistTests : IDisposable
     {
         await using (var seed = NewDb())
         {
-            seed.Projects.Remove(await seed.Projects.SingleAsync(p => p.Id == _leaveProjectId));
+            seed.Projects.Remove(await seed.Projects.SingleAsync(p => p.Id == _hrProjectId));
             await seed.SaveChangesAsync();
         }
 
         await using var db = NewDb();
-        var leave = (await new GetLearnedChecklistQuery(db, new BAAgentResolver(db)).ExecuteAsync())
-            .Single(b => b.DomainKey == "leave-management");
+        var dept = (await new GetLearnedChecklistQuery(db, new BAAgentResolver(db), TestOrgChart.NewProvider(db)).ExecuteAsync())
+            .Single(b => b.DepartmentCode == DeptCode);
 
-        var item = leave.Items.Single(i => i.Id == _leaveItemId);
+        var item = dept.Items.Single(i => i.Id == _deptItemId);
         Assert.Null(item.SourceProjectId);
         Assert.Null(item.SourceProjectName);
         Assert.StartsWith("Người dùng tự nêu", item.Rationale); // lý do vẫn còn để phán đoán.
-        Assert.Empty(leave.Sources);
+        Assert.Empty(dept.Sources);
     }
 
     [Fact]
     public async Task Save_UnticksItem_DisablesIt_ButKeepsItAsBlocklist()
     {
         await using var db = NewDb();
-        var result = await NewSave(db).SaveAsync("leave-management", new[]
+        var result = await NewSave(db).SaveAsync(DeptCode, new[]
         {
-            new ChecklistItemInput { Id = _leaveItemId, Text = "Hỏi ai duyệt khi quản lý trực tiếp nghỉ.", Enabled = false }
+            new ChecklistItemInput { Id = _deptItemId, Text = "Hỏi ai duyệt khi quản lý trực tiếp nghỉ.", Enabled = false }
         });
 
         Assert.Equal(SaveLearnedChecklistResult.Ok, result);
-        var saved = await NewDb().AgentChecklistItems.SingleAsync(x => x.Id == _leaveItemId);
+        var saved = await NewDb().AgentChecklistItems.SingleAsync(x => x.Id == _deptItemId);
         Assert.Equal(ChecklistItemStatus.DisabledByUser, saved.Status);
         Assert.Equal("Hỏi ai duyệt khi quản lý trực tiếp nghỉ.", saved.Text); // vẫn còn nguyên để chặn học lại.
     }
@@ -133,7 +141,7 @@ public class LearnedChecklistTests : IDisposable
             .SingleAsync();
 
         await using var db = NewDb();
-        await NewSave(db).SaveAsync("leave-management", new[]
+        await NewSave(db).SaveAsync(DeptCode, new[]
         {
             new ChecklistItemInput { Id = disabledId, Text = "  Hỏi cách cộng dồn ngày phép tồn cuối năm.  ", Enabled = true }
         });
@@ -161,7 +169,7 @@ public class LearnedChecklistTests : IDisposable
     {
         await using var db = NewDb();
         // Id của bucket chung gửi kèm form của bucket miền ⇒ không được đụng tới.
-        await NewSave(db).SaveAsync("leave-management", new[]
+        await NewSave(db).SaveAsync(DeptCode, new[]
         {
             new ChecklistItemInput { Id = _commonItemId, Text = "cố sửa xuyên bucket", Enabled = false }
         });
@@ -175,9 +183,9 @@ public class LearnedChecklistTests : IDisposable
     public async Task DisableBucket_TurnsOffEveryItem_WithoutDeleting()
     {
         await using var db = NewDb();
-        await NewSave(db).DisableBucketAsync("leave-management");
+        await NewSave(db).DisableBucketAsync(DeptCode);
 
-        var items = await NewDb().AgentChecklistItems.Where(x => x.DomainKey == "leave-management").ToListAsync();
+        var items = await NewDb().AgentChecklistItems.Where(x => x.DepartmentCode == DeptCode).ToListAsync();
         Assert.Equal(2, items.Count);
         Assert.All(items, x => Assert.Equal(ChecklistItemStatus.DisabledByUser, x.Status));
     }
@@ -186,9 +194,9 @@ public class LearnedChecklistTests : IDisposable
     public async Task Delete_RemovesItemEntirely()
     {
         await using var db = NewDb();
-        await NewSave(db).DeleteAsync(_leaveItemId);
+        await NewSave(db).DeleteAsync(_deptItemId);
 
-        Assert.False(await NewDb().AgentChecklistItems.AnyAsync(x => x.Id == _leaveItemId));
+        Assert.False(await NewDb().AgentChecklistItems.AnyAsync(x => x.Id == _deptItemId));
     }
 
     [Fact]

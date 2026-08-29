@@ -72,14 +72,16 @@ public class PocFeedbackMemoryService
             if (delta.Count == 0)
                 return;
 
-            // Bài học vào BUCKET đúng miền nghiệp vụ của dự án (bucket chung khi chưa phân loại) —
-            // ghi chú POC của dự án kho không gây nhiễu phỏng vấn dự án nghỉ phép. Xem ChecklistNoteStore.
-            var existing = await _noteStore.LoadBucketAsync(ba, project.DomainKey, cancellationToken);
+            // Bài học vào BUCKET phòng ban của đơn vị yêu cầu (bucket chung khi không giải được phòng
+            // ban) — ghi chú POC của phòng kho không gây nhiễu phỏng vấn của phòng nhân sự. Xem
+            // ChecklistNoteStore.
+            var bucket = await _noteStore.ResolveBucketAsync(project.OrgUnitCode, cancellationToken);
+            var existing = await _noteStore.LoadBucketAsync(ba, bucket, cancellationToken);
             var lessons = await DistillAsync(existing, delta, ba, ba.AiModel!, projectId, cancellationToken);
             if (lessons == null)
                 return; // fail-open: giữ checklist cũ + con trỏ đứng yên, vòng sau gộp bù.
 
-            _noteStore.MergeHarvest(ba, project.DomainKey, existing, lessons.Items, ChecklistItemSource.PocFeedback, projectId);
+            _noteStore.MergeHarvest(ba, bucket, existing, lessons.Items, ChecklistItemSource.PocFeedback, projectId);
             project.PocFeedbackHarvestedCount += delta.Count;
             await _db.SaveChangesAsync(cancellationToken);
         }

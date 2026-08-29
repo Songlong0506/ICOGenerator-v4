@@ -3,17 +3,18 @@ using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Organization;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Kho "checklist học được" của BA — mỗi bài học là MỘT dòng <see cref="AgentChecklistItem"/>, gom theo
-/// BUCKET: bucket CHUNG (<c>domainKey = null</c>, áp dụng mọi dự án) và bucket THEO MIỀN nghiệp vụ (bài
-/// học của dự án kho không làm nhiễu phỏng vấn dự án nghỉ phép). Hai đường ghi
-/// (<see cref="ChecklistGapMemoryService"/>, <see cref="PocFeedbackMemoryService"/>) và đường nạp cho
-/// lượt chat đều đi qua đây để cùng một cách chọn bucket: dự án ĐÃ có DomainKey ⇒ bucket miền đó; chưa
-/// phân loại ⇒ bucket chung.
+/// BUCKET: bucket CHUNG (<c>departmentCode = null</c>, áp dụng mọi dự án) và bucket THEO PHÒNG BAN (bài
+/// học của phòng kho không làm nhiễu phỏng vấn của phòng nhân sự). Ba đường ghi
+/// (<see cref="ChecklistGapMemoryService"/>, <see cref="PocFeedbackMemoryService"/>,
+/// <see cref="SpecAssumptionMemoryService"/>) và đường nạp cho lượt chat đều đi qua đây để cùng một cách
+/// chọn bucket — xem <see cref="ResolveBucketAsync"/>.
 ///
 /// <para>
 /// Hai luật sống còn của kho này:
@@ -44,21 +45,41 @@ public class ChecklistNoteStore
     private const int MaxCharsPerBucketInPrompt = 4000;
 
     private readonly AppDbContext _db;
+    private readonly OrgChartProvider _orgChart;
 
-    public ChecklistNoteStore(AppDbContext db)
+    public ChecklistNoteStore(AppDbContext db, OrgChartProvider orgChart)
     {
         _db = db;
+        _orgChart = orgChart;
+    }
+
+    /// <summary>
+    /// Bucket của một dự án, suy từ ĐƠN VỊ YÊU CẦU của nó: mã phòng ban chứa đơn vị đó, hoặc null (bucket
+    /// chung) khi dự án chưa gắn đơn vị / mã không còn tồn tại / chuỗi cấp trên không dẫn tới department nào.
+    ///
+    /// <para>
+    /// Vì sao rơi về bucket CHUNG chứ không lấy chính orgUnit làm bucket (khác trang Usage, nơi orgUnit lẻ
+    /// vẫn thành một nhóm): dữ liệu HR có 195 orgUnit nhưng chỉ 15 department. Cho orgUnit tự làm bucket là
+    /// mở đường cho hàng trăm bucket, mỗi bucket vài mục — dưới xa ngưỡng
+    /// <see cref="MaxActiveItemsPerBucket"/> mà bộ nhớ này cần để có ích. Bảng Usage phải cộng đủ chi phí
+    /// nên không được bỏ nhóm nào; bộ nhớ thì thà gộp vào bucket chung còn hơn vụn ra vô dụng.
+    /// </para>
+    /// </summary>
+    public async Task<string?> ResolveBucketAsync(string? orgUnitCode, CancellationToken cancellationToken = default)
+    {
+        var chart = await _orgChart.GetAsync(cancellationToken);
+        return chart.FindDepartment(orgUnitCode)?.Code;
     }
 
     /// <summary>
     /// Toàn bộ mục của MỘT bucket (cả mục đã tắt — vòng harvest cần chúng làm danh sách cấm), cũ trước
     /// mới sau. Entity được TRACK: <see cref="MergeHarvest"/> sửa trạng thái ngay trên chúng.
     /// </summary>
-    public Task<List<AgentChecklistItem>> LoadBucketAsync(Agent ba, string? domainKey, CancellationToken cancellationToken = default)
+    public Task<List<AgentChecklistItem>> LoadBucketAsync(Agent ba, string? departmentCode, CancellationToken cancellationToken = default)
     {
-        var bucket = Normalize(domainKey);
+        var bucket = Normalize(departmentCode);
         return _db.AgentChecklistItems
-            .Where(x => x.AgentId == ba.Id && x.DomainKey == bucket)
+            .Where(x => x.AgentId == ba.Id && x.DepartmentCode == bucket)
             .OrderBy(x => x.CreatedAt)
             .ThenBy(x => x.Id)
             .ToListAsync(cancellationToken);
@@ -76,13 +97,13 @@ public class ChecklistNoteStore
     /// <returns>Số mục thật sự được thêm.</returns>
     public int MergeHarvest(
         Agent ba,
-        string? domainKey,
+        string? departmentCode,
         List<AgentChecklistItem> existing,
         IEnumerable<ChecklistLesson> lessons,
         ChecklistItemSource sourceKind,
         Guid? sourceProjectId)
     {
-        var bucket = Normalize(domainKey);
+        var bucket = Normalize(departmentCode);
         var seen = existing.Select(x => Fingerprint(x.Text)).ToHashSet(StringComparer.Ordinal);
         var added = 0;
 
@@ -99,7 +120,7 @@ public class ChecklistNoteStore
             var item = new AgentChecklistItem
             {
                 AgentId = ba.Id,
-                DomainKey = bucket,
+                DepartmentCode = bucket,
                 Text = text.Length <= 400 ? text : text[..400],
                 Rationale = Clamp(Clean(lesson.Rationale), 600),
                 Evidence = Clamp(Clean(lesson.Evidence), 600),
@@ -118,33 +139,39 @@ public class ChecklistNoteStore
     }
 
     /// <summary>
-    /// Khối checklist nạp cho MỘT lượt chat: mục đang dùng của bucket chung + của bucket đúng miền dự án
-    /// (nếu đã phân loại). Trả null khi cả hai đều trống — caller bỏ qua system message này như trước.
+    /// Khối checklist nạp cho MỘT lượt chat: mục đang dùng của bucket chung + của bucket phòng ban của dự
+    /// án (nếu giải được). Trả null khi cả hai đều trống — caller bỏ qua system message này như trước.
     /// </summary>
-    public async Task<string?> BuildForChatAsync(Agent ba, string? domainKey, CancellationToken cancellationToken = default)
+    public async Task<string?> BuildForChatAsync(Agent ba, string? departmentCode, CancellationToken cancellationToken = default)
     {
         var buckets = new List<string?> { null };
-        if (!string.IsNullOrWhiteSpace(domainKey))
-            buckets.Add(Normalize(domainKey));
+        if (!string.IsNullOrWhiteSpace(departmentCode))
+            buckets.Add(Normalize(departmentCode));
 
         var active = await _db.AgentChecklistItems
             .AsNoTracking()
-            .Where(x => x.AgentId == ba.Id && buckets.Contains(x.DomainKey) && x.Status == ChecklistItemStatus.Active)
+            .Where(x => x.AgentId == ba.Id && buckets.Contains(x.DepartmentCode) && x.Status == ChecklistItemStatus.Active)
             .OrderBy(x => x.CreatedAt)
             .ThenBy(x => x.Id)
             .ToListAsync(cancellationToken);
 
         var parts = new List<string>();
 
-        var common = Render(active.Where(x => x.DomainKey == null));
+        var common = Render(active.Where(x => x.DepartmentCode == null));
         if (common.Length > 0)
             parts.Add(common);
 
         if (buckets.Count > 1)
         {
-            var domain = Render(active.Where(x => x.DomainKey == buckets[1]));
-            if (domain.Length > 0)
-                parts.Add($"### Riêng cho miền nghiệp vụ \"{buckets[1]}\" (dự án hiện tại thuộc miền này)\n{domain}");
+            var lines = Render(active.Where(x => x.DepartmentCode == buckets[1]));
+            if (lines.Length > 0)
+            {
+                // Tiêu đề gọi TÊN phòng ban, không phải mã: "HcP/MFE2" nói với model nhiều hơn "50123".
+                // Mã không tra được tên (dữ liệu HR đứt) thì dùng chính mã — vẫn tốt hơn bỏ trống.
+                var chart = await _orgChart.GetAsync(cancellationToken);
+                var name = chart.Find(buckets[1])?.DisplayName ?? buckets[1];
+                parts.Add($"### Riêng cho phòng ban \"{name}\" (đơn vị yêu cầu của dự án hiện tại thuộc phòng này)\n{lines}");
+            }
         }
 
         return parts.Count == 0 ? null : string.Join("\n\n", parts);
@@ -210,10 +237,10 @@ public class ChecklistNoteStore
         return sb.ToString().TrimEnd();
     }
 
-    // Bucket chung dùng NULL thống nhất ở mọi đường (query "chưa phân loại" và query bucket miền dùng
-    // chung một cột), nên chuỗi rỗng/space cũng phải quy về null.
-    private static string? Normalize(string? domainKey) =>
-        string.IsNullOrWhiteSpace(domainKey) ? null : domainKey.Trim();
+    // Bucket chung dùng NULL thống nhất ở mọi đường (query "không có phòng ban" và query bucket phòng ban
+    // dùng chung một cột), nên chuỗi rỗng/space cũng phải quy về null.
+    private static string? Normalize(string? departmentCode) =>
+        string.IsNullOrWhiteSpace(departmentCode) ? null : departmentCode.Trim();
 
     private static string? Clean(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

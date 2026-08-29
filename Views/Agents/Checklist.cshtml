@@ -49,7 +49,7 @@
     <div class="card checklist-bucket">
         <div class="checklist-bucket-head">
             <h2>
-                @(bucket.DomainKey == null ? "Áp dụng cho mọi dự án" : $"Nhóm nghiệp vụ: {bucket.DomainKey}")
+                @(bucket.DepartmentCode == null ? "Áp dụng cho mọi dự án" : $"Phòng ban: {bucket.DepartmentLabel}")
                 <span class="muted">· @bucket.ActiveCount/@bucket.Items.Count mục đang dùng</span>
             </h2>
             @if (bucket.UpdatedAt.HasValue)
@@ -74,7 +74,7 @@
 
         <form asp-action="SaveChecklist" method="post" class="checklist-form">
             @Html.AntiForgeryToken()
-            <input type="hidden" name="domainKey" value="@bucket.DomainKey" />
+            <input type="hidden" name="departmentCode" value="@bucket.DepartmentCode" />
 
             @{ var index = 0; }
             @foreach (var item in bucket.Items)

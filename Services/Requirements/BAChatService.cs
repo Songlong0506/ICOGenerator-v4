@@ -583,9 +583,10 @@ public class BAChatService
             messages.Add(new ChatMessage(ChatRole.System, organizationContext));
         }
         // Checklist bổ sung được BA rút kinh nghiệm từ các dự án TRƯỚC (của bất kỳ ai) — bucket chung +
-        // bucket đúng MIỀN nghiệp vụ của dự án (Project.DomainKey, phân loại nền sau lượt chat đầu) — nạp
-        // để hỏi kỹ hơn ngay từ đầu mà không bị nhiễu bởi bài học của miền khác. Xem ChecklistNoteStore.
-        var learnedChecklist = await _checklistNotes.BuildForChatAsync(ba, project.DomainKey, cancellationToken);
+        // bucket PHÒNG BAN của đơn vị yêu cầu (gắn bắt buộc lúc tạo project, nên đúng ngay từ lượt đầu) —
+        // nạp để hỏi kỹ hơn mà không bị nhiễu bởi bài học của phòng khác. Xem ChecklistNoteStore.
+        var checklistBucket = await _checklistNotes.ResolveBucketAsync(project.OrgUnitCode, cancellationToken);
+        var learnedChecklist = await _checklistNotes.BuildForChatAsync(ba, checklistBucket, cancellationToken);
         if (!string.IsNullOrWhiteSpace(learnedChecklist))
         {
             messages.Add(new ChatMessage(ChatRole.System,

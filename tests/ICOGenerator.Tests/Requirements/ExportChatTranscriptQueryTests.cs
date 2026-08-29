@@ -5,6 +5,7 @@ using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Security;
+using ICOGenerator.Services.Organization;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -154,7 +155,9 @@ public class ExportChatTranscriptQueryTests : IDisposable
         return new ExportChatTranscriptQuery(
             db,
             prompts,
-            new OrganizationContextService(db, prompts, new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
+            new OrganizationContextService(db, prompts,
+                new OrgChartProvider(db, new MemoryCache(new MemoryCacheOptions())),
+                new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db));
     }
 

@@ -521,10 +521,6 @@ public class RequirementsController : Controller
                 {
                     _logger.LogWarning(ex, "Không cập nhật được 'triển vọng phỏng vấn' sau lượt chat của project {ProjectId}", projectId);
                 }
-
-                // Phân loại miền nghiệp vụ (một lần cho mỗi dự án, fail-open bên trong) — cũng ở hậu kỳ
-                // để lượt chat không phải chờ; miền chọn bucket checklist học được cho các lượt sau.
-                await _chatWithBAUseCase.EnsureProjectDomainAsync(projectId, CancellationToken.None);
             }
         }
     }

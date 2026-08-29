@@ -150,7 +150,6 @@ public class CloneProjectUseCase
         ConversationSummary = source.ConversationSummary,
         SummarizedTurnCount = source.SummarizedTurnCount,
         UserMemoryHarvestedTurnCount = source.UserMemoryHarvestedTurnCount,
-        DomainKey = source.DomainKey,
         RequirementCoverageMap = source.RequirementCoverageMap,
         CoverageHarvestedTurnCount = source.CoverageHarvestedTurnCount,
         DecisionLog = source.DecisionLog,
