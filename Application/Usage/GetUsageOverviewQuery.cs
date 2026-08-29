@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Services.Llm;
+using ICOGenerator.Services.Organization;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Usage;
@@ -66,7 +67,13 @@ public class GetUsageOverviewQuery
     private const int MonthsToShow = 12;
 
     private readonly AppDbContext _db;
-    public GetUsageOverviewQuery(AppDbContext db) => _db = db;
+    private readonly OrgChartProvider _orgChart;
+
+    public GetUsageOverviewQuery(AppDbContext db, OrgChartProvider orgChart)
+    {
+        _db = db;
+        _orgChart = orgChart;
+    }
 
     public async Task<UsageOverviewVm> ExecuteAsync(int? year = null)
     {
@@ -208,9 +215,9 @@ public class GetUsageOverviewQuery
 
         // Nạp bảng OrgUnits một lần rồi dựng hai bộ giải: (1) roll-up về phòng ban gần nhất, (2) giải trực
         // tiếp orgUnit của project (không roll-up). Dùng chung cho bảng project và bảng "Usage by department".
-        var units = await LoadOrgUnitsAsync();
-        var resolveDepartment = BuildDepartmentResolver(units);
-        var resolveOrgUnit = BuildOrgUnitResolver(units);
+        var chart = await _orgChart.GetAsync();
+        var resolveDepartment = BuildDepartmentResolver(chart);
+        var resolveOrgUnit = BuildOrgUnitResolver(chart);
 
         // ----- Theo project (gộp lại từ logRaw) -----
         // Mỗi project chỉ gắn một OrgUnitCode nên lấy bản đầu của nhóm là đủ để giải ra đơn vị.
@@ -257,58 +264,32 @@ public class GetUsageOverviewQuery
     }
 
     // Một dòng OrgUnits đã nạp vào RAM (dựng map cha-con để giải phòng ban / đơn vị).
-    private sealed record OrgUnitRow(string Code, string? DisplayName, string? TargetResponsible, bool IsDepartment);
-
-    // Nạp bảng OrgUnits (nhỏ, vài trăm dòng) một lần, dựng dict theo mã. Mã trùng lấy bản đầu.
-    private async Task<IReadOnlyDictionary<string, OrgUnitRow>> LoadOrgUnitsAsync()
-    {
-        return (await _db.OrgUnits.AsNoTracking()
-                .Where(u => !u.IsDelete && u.OrgUnitCode != null && u.OrgUnitCode != "")
-                .Select(u => new OrgUnitRow(u.OrgUnitCode!, u.DisplayName, u.TargetResponsible, u.IsDepartment))
-                .ToListAsync())
-            .GroupBy(u => u.Code, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .ToDictionary(u => u.Code, u => u, StringComparer.OrdinalIgnoreCase);
-    }
-
-    // Dựng hàm giải ĐƠN VỊ CẤP PHÒNG BAN: project thường gắn một orgUnit con (line/nhóm), nên đi ngược
-    // TargetResponsible tới department gần nhất (IsDepartment). Không tìm được department trên đường đi
-    // (chuỗi cấp trên trỏ ra ngoài dữ liệu) thì giữ chính orgUnit đó làm nhóm; mã không còn tồn tại hoặc
-    // project chưa gắn đơn vị rơi vào nhóm "(Chưa gắn đơn vị)".
-    private static Func<string?, (string? Code, string Name)> BuildDepartmentResolver(
-        IReadOnlyDictionary<string, OrgUnitRow> units)
+    // Dựng hàm giải ĐƠN VỊ CẤP PHÒNG BAN: project thường gắn một orgUnit con (line/nhóm), nên roll-up về
+    // department gần nhất (OrgChart.FindDepartment). Không tìm được department trên đường đi (chuỗi cấp
+    // trên trỏ ra ngoài dữ liệu) thì giữ chính orgUnit đó làm nhóm — bảng Usage phải cộng ĐỦ chi phí, thà
+    // hiện một nhóm lẻ còn hơn giấu nó đi; mã không còn tồn tại hoặc project chưa gắn đơn vị rơi vào nhóm
+    // "(Chưa gắn đơn vị)".
+    private static Func<string?, (string? Code, string Name)> BuildDepartmentResolver(OrgChart chart)
     {
         return orgUnitCode =>
         {
-            if (string.IsNullOrWhiteSpace(orgUnitCode) || !units.TryGetValue(orgUnitCode.Trim(), out var unit))
+            var unit = chart.Find(orgUnitCode);
+            if (unit == null)
                 return (null, "(Chưa gắn đơn vị)");
 
-            var current = unit;
-            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { current.Code };
-            while (!current.IsDepartment
-                   && !string.IsNullOrWhiteSpace(current.TargetResponsible)
-                   && units.TryGetValue(current.TargetResponsible!, out var parent)
-                   && visited.Add(parent.Code))
-            {
-                current = parent;
-            }
-
-            var resolved = current.IsDepartment ? current : unit;
-            return (resolved.Code, string.IsNullOrWhiteSpace(resolved.DisplayName) ? resolved.Code : resolved.DisplayName!);
+            var resolved = chart.FindDepartment(orgUnitCode) ?? unit;
+            return (resolved.Code, resolved.DisplayName);
         };
     }
 
     // Dựng hàm giải ĐƠN VỊ TRỰC TIẾP: lấy chính orgUnit mà project gắn (không roll-up lên phòng ban).
     // Mã không còn tồn tại hoặc project chưa gắn đơn vị rơi vào nhóm "(Chưa gắn đơn vị)".
-    private static Func<string?, (string? Code, string Name)> BuildOrgUnitResolver(
-        IReadOnlyDictionary<string, OrgUnitRow> units)
+    private static Func<string?, (string? Code, string Name)> BuildOrgUnitResolver(OrgChart chart)
     {
         return orgUnitCode =>
         {
-            if (string.IsNullOrWhiteSpace(orgUnitCode) || !units.TryGetValue(orgUnitCode.Trim(), out var unit))
-                return (null, "(Chưa gắn đơn vị)");
-
-            return (unit.Code, string.IsNullOrWhiteSpace(unit.DisplayName) ? unit.Code : unit.DisplayName!);
+            var unit = chart.Find(orgUnitCode);
+            return unit == null ? (null, "(Chưa gắn đơn vị)") : (unit.Code, unit.DisplayName);
         };
     }
 

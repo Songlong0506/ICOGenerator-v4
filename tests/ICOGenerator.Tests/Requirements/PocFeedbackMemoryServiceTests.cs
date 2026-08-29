@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using ICOGenerator.Tests;
 
 namespace ICOGenerator.Tests.Requirements;
 
@@ -117,7 +118,7 @@ public class PocFeedbackMemoryServiceTests : IDisposable
     }
 
     private PocFeedbackMemoryService NewSut(AppDbContext db, ILlmClient llm) =>
-        new(db, llm, new StubPrompts(), new ChecklistNoteStore(db), NullLogger<PocFeedbackMemoryService>.Instance);
+        new(db, llm, new StubPrompts(), new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)), NullLogger<PocFeedbackMemoryService>.Instance);
 
     private async Task<Project> SeedAsync(int sentComments, int openComments, string? existingLesson = null)
     {

@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using ICOGenerator.Tests;
 
 namespace ICOGenerator.Tests.Requirements;
 
@@ -95,17 +96,34 @@ public class ChecklistGapMemoryServiceTests : IDisposable
         Assert.Equal(ChecklistItemStatus.Active, item.Status);
     }
 
+    // Dự án gắn orgUnit CON ⇒ bài học rơi vào bucket của DEPARTMENT cha, không phải mã orgUnit đó: 195
+    // orgUnit mà chỉ 15 department, gom theo lá thì bucket nào cũng lèo tèo vài mục.
     [Fact]
-    public async Task HarvestAsync_ProjectWithDomain_WritesIntoThatBucket()
+    public async Task HarvestAsync_ProjectUnderDepartment_WritesIntoDepartmentBucket()
     {
-        var (project, _) = await SeedAsync(turns: 4, domainKey: "leave-management");
+        var (project, _) = await SeedAsync(turns: 4, orgUnitCode: "50101");
         var llm = new FakeLlm { Reply = OneLesson };
 
         await using var db = NewDb();
         var (trackedProject, trackedBa) = await TrackAsync(db, project.Id);
         await NewSut(db, llm).HarvestAsync(trackedProject, trackedBa, _model);
 
-        Assert.Equal("leave-management", (await NewDb().AgentChecklistItems.SingleAsync()).DomainKey);
+        Assert.Equal("50100", (await NewDb().AgentChecklistItems.SingleAsync()).DepartmentCode);
+    }
+
+    // OrgUnit không thuộc department nào (dữ liệu HR đứt đoạn) ⇒ bucket CHUNG, chứ không tự đẻ ra một
+    // bucket riêng cho orgUnit đó.
+    [Fact]
+    public async Task HarvestAsync_OrphanOrgUnit_FallsBackToCommonBucket()
+    {
+        var (project, _) = await SeedAsync(turns: 4, orgUnitCode: "50999");
+        var llm = new FakeLlm { Reply = OneLesson };
+
+        await using var db = NewDb();
+        var (trackedProject, trackedBa) = await TrackAsync(db, project.Id);
+        await NewSut(db, llm).HarvestAsync(trackedProject, trackedBa, _model);
+
+        Assert.Null((await NewDb().AgentChecklistItems.SingleAsync()).DepartmentCode);
     }
 
     [Fact]
@@ -162,7 +180,7 @@ public class ChecklistGapMemoryServiceTests : IDisposable
     }
 
     private ChecklistGapMemoryService NewSut(AppDbContext db, ILlmClient llm) =>
-        new(db, llm, new StubPrompts(), new ChecklistNoteStore(db), NullLogger<ChecklistGapMemoryService>.Instance);
+        new(db, llm, new StubPrompts(), new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)), NullLogger<ChecklistGapMemoryService>.Instance);
 
     private static async Task<(Project Project, Agent Ba)> TrackAsync(AppDbContext db, Guid projectId)
     {
@@ -178,13 +196,17 @@ public class ChecklistGapMemoryServiceTests : IDisposable
         await db.SaveChangesAsync();
     }
 
-    private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? domainKey = null)
+    private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? orgUnitCode = null)
     {
         var ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id };
-        var project = new Project { Id = Guid.NewGuid(), Name = "P", DomainKey = domainKey };
+        var project = new Project { Id = Guid.NewGuid(), Name = "P", OrgUnitCode = orgUnitCode };
 
         await using var db = NewDb();
         db.Agents.Add(ba);
+        // Cây tổ chức tối thiểu: 50101 (orgUnit con) → 50100 (department). 50999 cố tình đứng lẻ.
+        db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = "50100", DisplayName = "HcP/HRL", IsDepartment = true });
+        db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = "50101", DisplayName = "HcP/HRL1", TargetResponsible = "50100" });
+        db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = "50999", DisplayName = "HcP/LONE" });
         db.Projects.Add(project);
         var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         for (var i = 0; i < turns; i++)

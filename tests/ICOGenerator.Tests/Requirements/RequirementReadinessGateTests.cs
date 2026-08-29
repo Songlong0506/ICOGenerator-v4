@@ -8,6 +8,7 @@ using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Requirements.Templates;
 using ICOGenerator.Services.Security;
+using ICOGenerator.Services.Organization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using ICOGenerator.Tests;
 
 namespace ICOGenerator.Tests.Requirements;
 
@@ -401,7 +403,7 @@ public class RequirementReadinessGateTests : IDisposable
             new DecisionLogService(db, llm, prompts),
             new InterviewOutlookService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
-            new ChecklistNoteStore(db));
+            new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)));
     }
 
     private static ProductBriefDraftService NewDraftSut(AppDbContext db, ILlmClient llm)
@@ -419,7 +421,7 @@ public class RequirementReadinessGateTests : IDisposable
             prompts,
             new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance),
             catalog,
-            new ChecklistGapMemoryService(db, llm, prompts, new ChecklistNoteStore(db), NullLogger<ChecklistGapMemoryService>.Instance),
+            new ChecklistGapMemoryService(db, llm, prompts, new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)), NullLogger<ChecklistGapMemoryService>.Instance),
             new ProductBriefReviewParser(),
             NewOrgContext(db, prompts),
             new RequirementCoverageService(db, llm, prompts),
@@ -430,7 +432,8 @@ public class RequirementReadinessGateTests : IDisposable
 
     // OrgUnits trống trong các test này ⇒ service trả null (fail-open), không thêm system message nào.
     private static OrganizationContextService NewOrgContext(AppDbContext db, PromptTemplateService prompts) =>
-        new(db, prompts, new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance);
+        new(db, prompts, new OrgChartProvider(db, new MemoryCache(new MemoryCacheOptions())),
+            new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance);
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 

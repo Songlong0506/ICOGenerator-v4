@@ -53,8 +53,8 @@ public class ChecklistGapMemoryService
 
     /// <summary>
     /// Phân tích hội thoại của một dự án VỪA sinh tài liệu thành công để rút khoảng trống checklist, thêm
-    /// vào hồ sơ của Agent BA — vào BUCKET đúng miền nghiệp vụ của dự án (Project.DomainKey), hoặc bucket
-    /// chung khi dự án chưa được phân loại miền. Bỏ qua nếu dự án đã harvest rồi hoặc chưa có hội thoại nào.
+    /// vào hồ sơ của Agent BA — vào BUCKET phòng ban của đơn vị yêu cầu, hoặc bucket chung khi không giải
+    /// được phòng ban. Bỏ qua nếu dự án đã harvest rồi hoặc chưa có hội thoại nào.
     /// <paramref name="project"/> và <paramref name="ba"/> phải là entity ĐANG ĐƯỢC TRACK — cột kết quả được
     /// ghi thẳng lên chúng rồi lưu trong này.
     /// </summary>
@@ -67,12 +67,13 @@ public class ChecklistGapMemoryService
         if (turns.Count == 0)
             return;
 
-        var existing = await _noteStore.LoadBucketAsync(ba, project.DomainKey, cancellationToken);
+        var bucket = await _noteStore.ResolveBucketAsync(project.OrgUnitCode, cancellationToken);
+        var existing = await _noteStore.LoadBucketAsync(ba, bucket, cancellationToken);
         var lessons = await DistillAsync(existing, turns, ba, model, project.Id, cancellationToken);
         if (lessons == null)
             return; // fail-open: chắt lọc lỗi, giữ checklist cũ + không đánh dấu, lần sau thử lại.
 
-        _noteStore.MergeHarvest(ba, project.DomainKey, existing, lessons.Items, ChecklistItemSource.Conversation, project.Id);
+        _noteStore.MergeHarvest(ba, bucket, existing, lessons.Items, ChecklistItemSource.Conversation, project.Id);
         project.ChecklistGapHarvested = true;
         await _db.SaveChangesAsync(cancellationToken);
     }

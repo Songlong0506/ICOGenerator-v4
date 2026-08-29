@@ -120,11 +120,11 @@ public class AppDbContext : DbContext
         // đó: nạp prompt lấy mục Active của một bucket, trang quản trị liệt kê cả bucket.
         builder.Entity<AgentChecklistItem>(b =>
         {
-            b.Property(x => x.DomainKey).HasMaxLength(40);
+            b.Property(x => x.DepartmentCode).HasMaxLength(50);
             b.Property(x => x.Text).HasMaxLength(400);
             b.Property(x => x.Rationale).HasMaxLength(600);
             b.Property(x => x.Evidence).HasMaxLength(600);
-            b.HasIndex(x => new { x.AgentId, x.DomainKey, x.Status });
+            b.HasIndex(x => new { x.AgentId, x.DepartmentCode, x.Status });
             b.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.Cascade);
             // Xóa dự án nguồn KHÔNG được xóa bài học đã rút ra từ nó (bài học dùng chung cho mọi dự án
             // sau); chỉ mất đường truy nguồn ⇒ SetNull.

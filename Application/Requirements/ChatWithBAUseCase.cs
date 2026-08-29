@@ -6,12 +6,10 @@ namespace ICOGenerator.Application.Requirements;
 public class ChatWithBAUseCase
 {
     private readonly BAChatService _baChatService;
-    private readonly ProjectDomainClassifier _domainClassifier;
 
-    public ChatWithBAUseCase(BAChatService baChatService, ProjectDomainClassifier domainClassifier)
+    public ChatWithBAUseCase(BAChatService baChatService)
     {
         _baChatService = baChatService;
-        _domainClassifier = domainClassifier;
     }
 
     /// <param name="onStatus">Callback trạng thái ngắn cho UI streaming (null khi gọi kiểu postback cổ điển).</param>
@@ -61,13 +59,6 @@ public class ChatWithBAUseCase
     /// </summary>
     public Task<InterviewOutlook> UpdateInterviewOutlookAsync(Guid projectId, CancellationToken cancellationToken = default) =>
         _baChatService.UpdateInterviewOutlookAsync(projectId, cancellationToken);
-
-    /// <summary>
-    /// Phân loại miền nghiệp vụ của dự án nếu chưa có (idempotent, fail-open) — cũng chạy ở hậu kỳ lượt
-    /// chat để không cộng vào độ chờ. Miền quyết định bucket "checklist học được" nào của BA được dùng.
-    /// </summary>
-    public Task EnsureProjectDomainAsync(Guid projectId, CancellationToken cancellationToken = default) =>
-        _domainClassifier.TryClassifyAsync(projectId, cancellationToken);
 
     /// <summary>
     /// Sau upload tài liệu nguồn: lưu lượt user (ghi chú + file đính kèm để bubble hiển thị ảnh trong

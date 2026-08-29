@@ -1,5 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Organization;
 using ICOGenerator.Services.Requirements;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,14 +31,19 @@ public record LearnedChecklistItemVm(
 }
 
 /// <summary>
-/// Một bucket "checklist học được": bucket CHUNG (<see cref="DomainKey"/> = null) hoặc bucket của một
-/// miền nghiệp vụ, cùng các bài học của nó.
+/// Một bucket "checklist học được": bucket CHUNG (<see cref="DepartmentCode"/> = null) hoặc bucket của
+/// một phòng ban, cùng các bài học của nó. <see cref="DepartmentName"/> là tên phòng tra từ OrgUnits để
+/// hiển thị — mã trần ("50123") không nói gì với người đọc trang này; null khi mã không còn tra được.
 /// </summary>
 public record LearnedChecklistBucket(
-    string? DomainKey,
+    string? DepartmentCode,
+    string? DepartmentName,
     IReadOnlyList<LearnedChecklistItemVm> Items,
     DateTime? UpdatedAt)
 {
+    /// <summary>Nhãn hiển thị của bucket: tên phòng nếu tra được, ngược lại chính mã.</summary>
+    public string? DepartmentLabel => DepartmentName ?? DepartmentCode;
+
     public int ActiveCount => Items.Count(i => i.IsActive);
 
     /// <summary>Dự án nào đã đóng góp bài học vào bucket này — suy từ chính nguồn của từng mục.</summary>
@@ -55,7 +61,7 @@ public record LearnedChecklistBucket(
 /// Vì sao cần: hai đường harvest (<see cref="ChecklistGapMemoryService"/> từ hội thoại,
 /// <see cref="PocFeedbackMemoryService"/> từ ghi chú POC) tự bồi bài học vào các bucket này, và mỗi lượt
 /// chat của MỌI dự án sau đó đều nạp chúng vào prompt BA. Không có màn hình này thì một bài học rút sai
-/// từ một dự án cá biệt sẽ âm thầm làm nhiễu phỏng vấn của mọi dự án cùng miền — không ai biết để gỡ.
+/// từ một dự án cá biệt sẽ âm thầm làm nhiễu phỏng vấn của mọi dự án cùng phòng ban — không ai biết để gỡ.
 /// </para>
 ///
 /// <para>
@@ -67,11 +73,13 @@ public class GetLearnedChecklistQuery
 {
     private readonly AppDbContext _db;
     private readonly BAAgentResolver _agentResolver;
+    private readonly OrgChartProvider _orgChart;
 
-    public GetLearnedChecklistQuery(AppDbContext db, BAAgentResolver agentResolver)
+    public GetLearnedChecklistQuery(AppDbContext db, BAAgentResolver agentResolver, OrgChartProvider orgChart)
     {
         _db = db;
         _agentResolver = agentResolver;
+        _orgChart = orgChart;
     }
 
     public async Task<IReadOnlyList<LearnedChecklistBucket>> ExecuteAsync(CancellationToken cancellationToken = default)
@@ -96,12 +104,15 @@ public class GetLearnedChecklistQuery
                 .Where(p => sourceIds.Contains(p.Id))
                 .ToDictionaryAsync(p => p.Id, p => p.Name, cancellationToken);
 
+        var chart = await _orgChart.GetAsync(cancellationToken);
+
         return items
-            .GroupBy(x => x.DomainKey)
+            .GroupBy(x => x.DepartmentCode)
             .OrderBy(g => g.Key == null ? 0 : 1)
             .ThenBy(g => g.Key)
             .Select(g => new LearnedChecklistBucket(
                 g.Key,
+                chart.Find(g.Key)?.DisplayName,
                 g.Select(x => new LearnedChecklistItemVm(
                     x.Id,
                     x.Text,
@@ -149,9 +160,9 @@ public class SaveLearnedChecklistUseCase
     }
 
     /// <summary>Áp trạng thái bật/tắt và lời văn người dùng gửi lên cho các mục của MỘT bucket.</summary>
-    public async Task<SaveLearnedChecklistResult> SaveAsync(string? domainKey, IReadOnlyList<ChecklistItemInput> inputs, CancellationToken cancellationToken = default)
+    public async Task<SaveLearnedChecklistResult> SaveAsync(string? departmentCode, IReadOnlyList<ChecklistItemInput> inputs, CancellationToken cancellationToken = default)
     {
-        var items = await LoadBucketAsync(domainKey, cancellationToken);
+        var items = await LoadBucketAsync(departmentCode, cancellationToken);
         if (items == null)
             return SaveLearnedChecklistResult.BaNotConfigured;
 
@@ -181,9 +192,9 @@ public class SaveLearnedChecklistUseCase
     }
 
     /// <summary>Tắt mọi bài học của một bucket — BA thôi hỏi cả nhóm, nhưng vẫn xem lại/bật lại được.</summary>
-    public async Task<SaveLearnedChecklistResult> DisableBucketAsync(string? domainKey, CancellationToken cancellationToken = default)
+    public async Task<SaveLearnedChecklistResult> DisableBucketAsync(string? departmentCode, CancellationToken cancellationToken = default)
     {
-        var items = await LoadBucketAsync(domainKey, cancellationToken);
+        var items = await LoadBucketAsync(departmentCode, cancellationToken);
         if (items == null)
             return SaveLearnedChecklistResult.BaNotConfigured;
 
@@ -215,15 +226,15 @@ public class SaveLearnedChecklistUseCase
     }
 
     // null = chưa cấu hình agent BA (không phải "bucket rỗng").
-    private async Task<List<Domain.AgentChecklistItem>?> LoadBucketAsync(string? domainKey, CancellationToken cancellationToken)
+    private async Task<List<Domain.AgentChecklistItem>?> LoadBucketAsync(string? departmentCode, CancellationToken cancellationToken)
     {
         var ba = await _agentResolver.FindTrackedAsync(cancellationToken);
         if (ba == null)
             return null;
 
-        var bucket = string.IsNullOrWhiteSpace(domainKey) ? null : domainKey.Trim();
+        var bucket = string.IsNullOrWhiteSpace(departmentCode) ? null : departmentCode.Trim();
         return await _db.AgentChecklistItems
-            .Where(x => x.AgentId == ba.Id && x.DomainKey == bucket)
+            .Where(x => x.AgentId == ba.Id && x.DepartmentCode == bucket)
             .ToListAsync(cancellationToken);
     }
 }

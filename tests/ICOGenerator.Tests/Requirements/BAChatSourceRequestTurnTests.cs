@@ -6,6 +6,7 @@ using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Security;
+using ICOGenerator.Services.Organization;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using ICOGenerator.Tests;
 
 namespace ICOGenerator.Tests.Requirements;
 
@@ -156,13 +158,15 @@ public class BAChatSourceRequestTurnTests : IDisposable
             new ConversationMemoryService(db, llm, prompts),
             new UserMemoryService(db, llm, prompts),
             new RequirementCoverageService(db, llm, prompts),
-            new OrganizationContextService(db, prompts, new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
+            new OrganizationContextService(db, prompts,
+                new OrgChartProvider(db, new MemoryCache(new MemoryCacheOptions())),
+                new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
             new DecisionLogService(db, llm, prompts),
             new InterviewOutlookService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
-            new ChecklistNoteStore(db),
+            new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,
             turnTracker: null);
     }

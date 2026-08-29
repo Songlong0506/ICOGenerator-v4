@@ -13,8 +13,8 @@ namespace ICOGenerator.Domain;
 /// </para>
 ///
 /// <para>
-/// Bucket của mục = <see cref="DomainKey"/> (null = bài học áp dụng cho MỌI dự án; ngược lại chỉ nạp cho
-/// dự án cùng miền nghiệp vụ). Xem <see cref="Services.Requirements.ChecklistNoteStore"/>.
+/// Bucket của mục = <see cref="DepartmentCode"/> (null = bài học áp dụng cho MỌI dự án; ngược lại chỉ nạp
+/// cho dự án của cùng phòng ban). Xem <see cref="Services.Requirements.ChecklistNoteStore"/>.
 /// </para>
 /// </summary>
 public class AgentChecklistItem
@@ -24,8 +24,12 @@ public class AgentChecklistItem
     public Guid AgentId { get; set; }
     public Agent Agent { get; set; } = default!;
 
-    /// <summary>Slug miền thuộc taxonomy của ProjectDomainClassifier (vd "leave-management"); null = bucket chung.</summary>
-    public string? DomainKey { get; set; }
+    /// <summary>
+    /// Mã phòng ban (<c>OrgUnits.OrgUnitCode</c> của một đơn vị <c>IsDepartment</c>) mà bài học thuộc về;
+    /// null = bucket chung, áp dụng mọi dự án. Suy từ đơn vị yêu cầu của dự án nguồn — xem
+    /// <see cref="Services.Requirements.ChecklistNoteStore.ResolveBucketAsync"/>.
+    /// </summary>
+    public string? DepartmentCode { get; set; }
 
     /// <summary>Nội dung mục checklist — ĐÚNG phần văn bản được nạp vào prompt BA, không kèm lý do.</summary>
     public string Text { get; set; } = string.Empty;

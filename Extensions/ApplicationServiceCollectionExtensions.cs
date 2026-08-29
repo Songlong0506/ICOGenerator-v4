@@ -23,6 +23,7 @@ using ICOGenerator.Services.Feedback;
 using ICOGenerator.Services.Identity;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Notifications;
+using ICOGenerator.Services.Organization;
 using ICOGenerator.Services.Notifications.Channels;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Tools.Registry;
@@ -715,7 +716,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UserMemoryService>();
         services.AddScoped<ChecklistGapMemoryService>();
         services.AddScoped<ChecklistNoteStore>();
-        services.AddScoped<ProjectDomainClassifier>();
         services.AddScoped<RequirementCoverageService>();
         // Khung 12 nhóm rỗng cho panel tiến độ lúc dự án chưa có bản đồ — scoped theo PromptTemplateService
         // (bản prompt có thể bị Prompt Studio ghi đè trong DB, nên khung phải đọc lại mỗi request).
@@ -735,6 +735,10 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<PocUiConventionService>();
         services.AddScoped<SpecAssumptionMemoryService>();
         services.AddScoped<ProductBriefReviewParser>();
+        // Cây orgUnit (đi ngược tới department) — nguồn duy nhất của phép roll-up phòng ban, dùng bởi ghi
+        // chú "đơn vị yêu cầu", bucket checklist học được và trang Usage. Scoped vì dùng DbContext; cây
+        // dựng xong nằm trong IMemoryCache (singleton) nên cả tiến trình chỉ đọc bảng một lần mỗi giờ.
+        services.AddScoped<OrgChartProvider>();
         // Bối cảnh tổ chức Bosch render từ OrgUnits/Associates cho prompt BA (chat + soạn tài liệu).
         // Scoped vì dùng DbContext; bản render dùng chung nằm trong IMemoryCache (singleton) nên vẫn
         // chỉ tốn một lần dựng mỗi giờ cho cả tiến trình.

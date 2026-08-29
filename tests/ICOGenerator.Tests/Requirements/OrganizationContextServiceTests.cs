@@ -3,6 +3,7 @@ using ICOGenerator.Domain;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Security;
+using ICOGenerator.Services.Organization;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -232,9 +233,13 @@ public class OrganizationContextServiceTests : IDisposable
         IsDelete = isDelete
     };
 
-    private static OrganizationContextService NewSut(AppDbContext db, IMemoryCache? cache = null) =>
-        new(db, new StubPrompts(), cache ?? new MemoryCache(new MemoryCacheOptions()),
-            NullLogger<OrganizationContextService>.Instance);
+    private static OrganizationContextService NewSut(AppDbContext db, IMemoryCache? cache = null)
+    {
+        // Cùng một IMemoryCache cho cả cây orgUnit lẫn bản render, đúng như DI thật (một cache cho tiến trình).
+        var sharedCache = cache ?? new MemoryCache(new MemoryCacheOptions());
+        return new OrganizationContextService(db, new StubPrompts(), new OrgChartProvider(db, sharedCache),
+            sharedCache, NullLogger<OrganizationContextService>.Instance);
+    }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 

@@ -70,14 +70,16 @@ public class SpecAssumptionMemoryService
             if (ba == null)
                 return;
 
-            // Bài học vào BUCKET đúng miền nghiệp vụ của dự án (bucket chung khi chưa phân loại) — giả
-            // định sai của dự án JD không gây nhiễu phỏng vấn dự án nghỉ phép. Xem ChecklistNoteStore.
-            var existing = await _noteStore.LoadBucketAsync(ba, project.DomainKey, cancellationToken);
+            // Bài học vào BUCKET phòng ban của đơn vị yêu cầu (bucket chung khi không giải được phòng
+            // ban) — giả định sai của phòng này không gây nhiễu phỏng vấn của phòng khác. Xem
+            // ChecklistNoteStore.
+            var bucket = await _noteStore.ResolveBucketAsync(project.OrgUnitCode, cancellationToken);
+            var existing = await _noteStore.LoadBucketAsync(ba, bucket, cancellationToken);
             var lessons = await DistillAsync(existing, project.PendingAssumptionGaps, ba, ba.AiModel!, projectId, cancellationToken);
             if (lessons == null)
                 return; // fail-open: giữ checklist cũ + hàng đợi đứng yên, lượt sau gộp bù.
 
-            _noteStore.MergeHarvest(ba, project.DomainKey, existing, lessons.Items, ChecklistItemSource.SpecAssumption, projectId);
+            _noteStore.MergeHarvest(ba, bucket, existing, lessons.Items, ChecklistItemSource.SpecAssumption, projectId);
             project.PendingAssumptionGaps = null;
             await _db.SaveChangesAsync(cancellationToken);
         }
