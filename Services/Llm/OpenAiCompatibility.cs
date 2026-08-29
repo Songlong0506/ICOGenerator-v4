@@ -33,6 +33,19 @@ internal static class OpenAiCompatibility
         return id.Length >= 2 && (id[0] is 'o' or 'O') && char.IsDigit(id[1]);
     }
 
+    /// <summary>
+    /// Giá trị <c>prompt_cache_retention</c> gửi kèm mọi lời gọi tới OpenAI thật. Mặc định của OpenAI chỉ
+    /// giữ prefix cache 5–10 phút không hoạt động, mà một buổi phỏng vấn BA nghỉ lâu hơn thế thường xuyên
+    /// (người dùng đọc lại tài liệu, đi họp, nghĩ một câu khó) — để mặc định là trượt cache đúng ở hội
+    /// thoại dài, nơi prompt đắt nhất. Đặt rỗng để thôi gửi trường này.
+    /// <para>
+    /// Là hằng số chứ không phải cấu hình vì đây là quy ước phải GIỐNG NHAU ở hai nơi: handler dựng body
+    /// thật và bản xem trước trong call log. Một trong hai đọc cấu hình còn nơi kia đọc mặc định là call
+    /// log nói dối đúng vào lúc người ta mở nó ra để hỏi "lượt này có xin cache không".
+    /// </para>
+    /// </summary>
+    public const string PromptCacheRetention = "24h";
+
     /// <summary>Host of an absolute endpoint URL, or <c>null</c> if it isn't a well-formed absolute URI.</summary>
     public static string? HostOf(string? endpoint) =>
         Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) ? uri.Host : null;

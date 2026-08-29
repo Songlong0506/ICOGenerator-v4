@@ -28,9 +28,14 @@ namespace ICOGenerator.Services.Requirements;
 public static class BriefContextWindow
 {
     /// <summary>
-    /// Số lượt gần nhất luôn gửi nguyên văn. Rộng hơn cửa sổ của
-    /// <see cref="ConversationMemoryService.RecentWindowSize"/> (20) một cách có chủ ý: dẫn câu hỏi kế
-    /// tiếp chỉ cần vài lượt gần đây, còn VIẾT tài liệu thì cần đủ chi tiết để không phải đoán.
+    /// Số lượt gần nhất luôn gửi nguyên văn. Bằng đúng
+    /// <see cref="ConversationMemoryService.RecentWindowTurns"/> (40) — trước đây rộng gấp đôi cửa sổ
+    /// chat (20) vì dẫn câu hỏi kế tiếp chỉ cần vài lượt gần đây còn VIẾT tài liệu thì cần đủ chi tiết
+    /// để không phải đoán; nay cửa sổ chat đã nới lên bằng nó nên khoảng cách đó không còn.
+    /// Hệ quả cần biết: con trỏ tóm tắt trôi chậm hơn trước, mà bất biến bên dưới cấm cắt quá con trỏ,
+    /// nên transcript soạn Brief giữ nguyên văn nhiều lượt hơn trước (~40 thay vì ~20-29). Đây là đánh
+    /// đổi có chủ ý cho model context lớn; hạ <see cref="ConversationMemoryService.RecentWindowTurns"/>
+    /// nếu quay lại dùng model context nhỏ.
     /// </summary>
     public const int MaxVerbatimTurns = 40;
 

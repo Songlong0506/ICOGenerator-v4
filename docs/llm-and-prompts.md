@@ -23,7 +23,20 @@ LlmClient / AgentRunService
 
 ### Cached input (token prompt đọc lại từ cache)
 
-Provider tính token prompt **đọc lại từ cache** rẻ hơn hẳn token input thường (OpenAI/DeepSeek: ~1/10). App **không bật** cache bằng tham số nào cả — với OpenAI đây là cơ chế **tự động** (prompt đủ dài, prefix trùng lượt trước), nên việc của app chỉ là **đo và tính đúng**:
+Provider tính token prompt **đọc lại từ cache** rẻ hơn hẳn token input thường (OpenAI: ~1/10 — `gpt-5.6-luna` là $0,02 so với $0,20 mỗi triệu token). Đây là **khoản tiết kiệm lớn nhất của app**: riêng prompt nền của BA chat (`requirement-chat.v4.md`, >26.000 token ước lượng) đi lại **nguyên si** ở mọi lượt.
+
+Việc trúng cache là **tự động** và khớp theo **prefix** (prompt từ 1024 token trở lên, tăng theo bậc 128 token) — không có tham số nào để khai "phần này cache đi". Nhưng app **có** gửi hai trường điều khiển, cả hai chỉ cho endpoint OpenAI thật (xem `LlmRequestCompatibilityHandler.PatchPromptCache`):
+
+| Trường | Vì sao phải tự đặt |
+|---|---|
+| `prompt_cache_retention: "24h"` | Mặc định của OpenAI chỉ giữ cache **5–10 phút** không hoạt động. Một buổi phỏng vấn BA nghỉ lâu hơn thế thường xuyên (người dùng đọc lại tài liệu, đi họp, nghĩ một câu khó), nên để mặc định là trượt cache đúng ở hội thoại dài — nơi prompt đắt nhất. Hằng số ở `OpenAiCompatibility.PromptCacheRetention` |
+| `prompt_cache_key` | Gợi ý **định tuyến**: request cùng khóa về cùng backend nên khả năng trúng prefix cao hơn. Đặt theo project (`LlmCacheScope.KeyForProject`) vì mỗi dự án có một prefix tĩnh riêng — prompt nền + tài liệu nguồn của chính nó. Không phải khóa định danh cache: đặt sai chỉ giảm tỉ lệ trúng, không bao giờ cho project này đọc cache của project khác |
+
+Khóa đi từ `ModelCallLoggingChatClient` (chỗ duy nhất cầm `ModelCallLogContext`) xuống tầng HTTP qua `AsyncLocal` — xem `LlmCacheScope`, vì `DelegatingHandler` chỉ nhìn thấy `HttpRequestMessage`, không biết gì về project.
+
+**Prefix chỉ cache được khi thứ đứng trước nó không đổi**, nên THỨ TỰ message của lượt chat BA là một quyết định về chi phí: các khối tĩnh và lớn đứng trước, các khối đổi mỗi lượt (bản đồ bao phủ, điều đã chốt, điểm cần làm rõ) đứng sau. Xem [requirement-flow.md](requirement-flow.md#thứ-tự-message-của-lượt-chat-ba-là-một-quyết-định-về-chi-phí).
+
+Phần **đo và tính đúng** thì như cũ:
 
 | Khâu | Ở đâu |
 |---|---|
@@ -40,6 +53,29 @@ Bốn điều dễ hiểu ngược:
 - **Lượt streaming chỉ có `usage` khi server tự gửi** (OpenAI: `stream_options.include_usage`) — app **không ép** tham số này vì nhiều server OpenAI-compatible từ chối tham số lạ. Không có `usage` thì cả token lẫn cache đều rơi về ước lượng/0. Vì vậy cột "Cached prompt" ở trang Usage hiện `–` chứ không hiện `0%`: hai chuyện "endpoint không báo" và "không lượt nào trúng cache" app không phân biệt được.
 
 `CachedInputWireFormatTests` lái **SDK OpenAI thật** trên một endpoint loopback trả `usage` đúng hình dạng OpenAI: ánh xạ `cached_tokens` → `CachedInputTokenCount` nằm trong hai gói ngoài repo, đổi phiên bản mà ánh xạ hỏng thì số cache im lặng về 0 và chi phí chỉ *đắt hơn* chứ không sai kiểu nổ ra lỗi.
+
+### Trần token của một prompt (`PromptBudget`)
+
+Trần **không** phải phần trăm của `AiModel.ContextWindow`. Context window là giới hạn **kỹ thuật** (vượt thì lời gọi hỏng); thứ phải canh là giới hạn **kinh tế**.
+
+Với `gpt-5.6-luna`, prompt vượt **272.000 token** bị tính **2x giá input và 1,5x giá output cho TOÀN BỘ request** — một bậc thang, không phải cái dốc: vượt 1 token thì cả prompt đổi giá. Model có context 1.050.000, nên một quy tắc kiểu "tóm tắt khi đạt 40% context window" sẽ đặt trần ở 420.000 — tức **giữ prompt nằm sâu trong vùng giá đôi** rồi mới chịu nén, và càng đổi sang model context lớn thì càng đắt. Đó là lý do trần là số **tuyệt đối**, còn context window chỉ làm **cận trên an toàn** cho model nhỏ.
+
+```
+ceiling = min(ContextWindow, 272_000)          // vách giá
+usable  = max(ceiling / 2, ceiling - 32_000)   // chừa cho output
+trần    = usable * 5 / 8                       // hệ số an toàn tiếng Việt
+```
+
+**Hệ số 5/8 là chỗ dễ làm hỏng nhất nếu sửa sau này.** `TokenEstimator` đếm 4 ký tự/token — tỉ lệ của tiếng Anh. Prompt và tài liệu ở repo này là tiếng Việt có dấu, tokenize ra nhiều token hơn hẳn (~2,5 ký tự/token), nên nó **ước lượng thiếu ~1,6 lần**. Bỏ hệ số đi là bộ đếm báo 180.000 trong khi thực tế đã vượt vách 272.000 từ lâu.
+
+Trần được chia ba phần bằng nhau cho ba khối co giãn của prompt chat BA — prompt nền cố định, text tài liệu nguồn, hội thoại nguyên văn — để một khối phình không bóp chết hai khối kia:
+
+| Model | `Resolve` | `ConversationTokens` | `SourceTokens` |
+|---|---|---|---|
+| `gpt-5.6-luna` (1.050.000) | 150.000 | 50.000 | 50.000 |
+| Model context 128.000 | 60.000 | 20.000 | 20.000 |
+
+Hai chỗ tiêu thụ: `ConversationMemoryService.RecentWindowTokensFor` (cửa sổ hội thoại nguyên văn) và `SourceContextBuilder` (trần **tổng** phần chữ, cộng dồn trên mọi nguồn — trần mỗi file `Llm:SourceUpload:MaxTextCharsPerFile` không chặn được tổng). Cắt phần chữ nguồn thì **không bao giờ im lặng**: chỗ bị cắt mang đúng câu nói rằng nội dung không được gửi kèm, cùng lý do mà câu ghi chú phần ảnh phải nói thật số ảnh đi kèm.
 
 ### Thêm một model mới
 
@@ -104,7 +140,8 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `ModelCallLoggingChatClient` | Middleware cắt ngang: budget, deadline, trần token, dựng result, map lỗi, log DB, progress | thêm một mối quan tâm cắt ngang |
 | `ModelCallOptions` | Núm vặn của middleware theo từng đường gọi (record) | thêm một núm — **không phải sửa chỗ dựng nào cả** |
 | `ModelCallRequestPreview` | Dựng chuỗi JSON "request đã gửi" cho màn Call Log | đổi hiển thị call log |
-| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking`, bỏ `temperature`) | thêm quirk phía request |
+| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking`, bỏ `temperature`, thêm hai trường prompt cache) | thêm quirk phía request |
+| `LlmCacheScope` | Mang `prompt_cache_key` của lời gọi đang chạy xuống tầng HTTP (`AsyncLocal`) | đổi cách nhóm khóa cache |
 | `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |
 | `LlmSettings` | Toàn bộ section `"Llm"` của appsettings, đọc **một lần** | thêm một khoá cấu hình |
@@ -112,7 +149,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `LlmProxy` | Dựng `IWebProxy` từ `Llm:Proxy` (địa chỉ, credential Windows, bypass list) | đổi cách app đi qua proxy công ty |
 | `IModelCallLogger` / `ModelCallLogger` | Ghi một dòng call log | đổi schema log |
 | `IModelConnectionTester` / `ModelConnectionTester` | Nút "Test Connection" — **không** log, **không** tính budget | đổi cách chẩn đoán lỗi cấu hình |
-| `LlmCost` + `LlmPrice`, `TokenEstimator`, `MaxOutputTokenResolver` | Ba phép tính thuần (USD kể cả phần cached input, ước lượng token, trần output) | đổi công thức |
+| `LlmCost` + `LlmPrice`, `TokenEstimator`, `MaxOutputTokenResolver`, `PromptBudget` | Bốn phép tính thuần (USD kể cả phần cached input, ước lượng token, trần output, trần prompt) | đổi công thức |
 
 Hai quy ước giữ cho nó không rối lại:
 - **`LlmJson` là chỗ ĐỌC JSON model trả về duy nhất.** Trước đây gần chục service tự chép "bóc JSON rồi

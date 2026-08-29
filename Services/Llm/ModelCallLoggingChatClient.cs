@@ -160,6 +160,10 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     private CallState Begin(IEnumerable<ChatMessage> messages, ChatOptions? options, bool streaming)
     {
         var step = ++_step;
+        // Khóa định tuyến prompt cache của lời gọi này. Đặt Ở ĐÂY vì đây là chỗ duy nhất vừa cầm
+        // ModelCallLogContext (biết project) vừa nằm TRÊN lời gọi HTTP trong cùng execution context, nên
+        // giá trị chảy xuống đúng request của chính nó. Xem LlmCacheScope.
+        LlmCacheScope.CacheKey = LlmCacheScope.KeyForProject(_context.ProjectId);
         var messageList = messages as IList<ChatMessage> ?? messages.ToList();
         var result = new LlmCallResult
         {

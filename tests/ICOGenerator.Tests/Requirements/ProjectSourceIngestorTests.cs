@@ -1,4 +1,5 @@
 using DocumentFormat.OpenXml.Packaging;
+using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Requirements;
@@ -18,6 +19,11 @@ public class ProjectSourceIngestorTests : IDisposable
     // PNG 1x1 hợp lệ (transparent) — đủ để kiểm tra luồng ingest ảnh mà không cần lib ảnh.
     private static readonly byte[] OnePixelPng = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+
+    // ContextWindow rộng để trần token của PromptBudget không xen vào các test về ẢNH ở đây — phần trần
+    // chữ có test riêng (SourceContextTextBudgetTests).
+    private static AiModel VisionModel => new() { ModelId = "gpt-5.6-luna", ContextWindow = 1_050_000, SupportsVision = true };
+    private static AiModel TextOnlyModel => new() { ModelId = "gpt-5.6-luna", ContextWindow = 1_050_000, SupportsVision = false };
 
     private readonly string _root;
 
@@ -112,8 +118,8 @@ public class ProjectSourceIngestorTests : IDisposable
         var config = new ConfigurationBuilder().Build();
         var builder = new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance);
 
-        var withVision = builder.Build(new[] { source }, modelSupportsVision: true);
-        var noVision = builder.Build(new[] { source }, modelSupportsVision: false);
+        var withVision = builder.Build(new[] { source }, VisionModel);
+        var noVision = builder.Build(new[] { source }, TextOnlyModel);
 
         Assert.Contains(withVision.Contents, c => c is Microsoft.Extensions.AI.DataContent);
         Assert.DoesNotContain(noVision.Contents, c => c is Microsoft.Extensions.AI.DataContent);
@@ -196,8 +202,8 @@ public class ProjectSourceIngestorTests : IDisposable
         var config = new ConfigurationBuilder().Build();
         var builder = new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance);
 
-        var withVision = builder.Build(new[] { source }, modelSupportsVision: true);
-        var noVision = builder.Build(new[] { source }, modelSupportsVision: false);
+        var withVision = builder.Build(new[] { source }, VisionModel);
+        var noVision = builder.Build(new[] { source }, TextOnlyModel);
 
         Assert.Equal(3, withVision.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
         Assert.DoesNotContain(noVision.Contents, c => c is Microsoft.Extensions.AI.DataContent);
@@ -219,7 +225,7 @@ public class ProjectSourceIngestorTests : IDisposable
         var source = WordSource(dir, WordDocumentTextExtractor.MaxImages);
         var builder = NewBuilder();
 
-        var built = builder.Build(new[] { source }, modelSupportsVision: true);
+        var built = builder.Build(new[] { source }, VisionModel);
 
         Assert.Equal(WordDocumentTextExtractor.MaxImages,
             built.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
@@ -235,7 +241,7 @@ public class ProjectSourceIngestorTests : IDisposable
         var source = WordSource(dir, 3);
         var builder = NewBuilder(maxImagesPerCall: 2);
 
-        var built = builder.Build(new[] { source }, modelSupportsVision: true);
+        var built = builder.Build(new[] { source }, VisionModel);
         var text = string.Concat(built.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
 
         Assert.Equal(2, built.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
@@ -255,7 +261,7 @@ public class ProjectSourceIngestorTests : IDisposable
         source.VisionSummary = "[Hình 1] — Màn hình Belt Type: cột Belt Type, Belt Size, Action.";
         var builder = NewBuilder();
 
-        var built = builder.Build(new[] { source }, modelSupportsVision: true);
+        var built = builder.Build(new[] { source }, VisionModel);
         var text = string.Concat(built.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
 
         Assert.Empty(built.Contents.OfType<Microsoft.Extensions.AI.DataContent>());
@@ -282,7 +288,7 @@ public class ProjectSourceIngestorTests : IDisposable
         pending.FileName = "tai-lieu-2.docx";
 
         var builder = NewBuilder(maxImagesPerCall: 2);
-        var built = builder.Build(new[] { described, pending }, modelSupportsVision: true);
+        var built = builder.Build(new[] { described, pending }, VisionModel);
 
         Assert.Equal(2, built.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
         Assert.Equal(new[] { pending.Id }, built.FullyAttachedSourceIds);
@@ -306,7 +312,7 @@ public class ProjectSourceIngestorTests : IDisposable
                 """
         };
 
-        var built = NewBuilder().Build(new[] { source }, modelSupportsVision: false);
+        var built = NewBuilder().Build(new[] { source }, TextOnlyModel);
         var text = string.Concat(built.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
 
         Assert.Contains("đã được NGƯỜI DÙNG CHỐT", text);
@@ -329,7 +335,7 @@ public class ProjectSourceIngestorTests : IDisposable
             ExtractedText = "Global ID | Item Title"
         };
 
-        var built = NewBuilder().Build(new[] { source }, modelSupportsVision: false);
+        var built = NewBuilder().Build(new[] { source }, TextOnlyModel);
         var text = string.Concat(built.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
 
         Assert.DoesNotContain("NGƯỜI DÙNG CHỐT", text);
@@ -403,8 +409,8 @@ public class ProjectSourceIngestorTests : IDisposable
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
         var builder = new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance);
 
-        var withVision = builder.Build(new[] { source }, modelSupportsVision: true);
-        var noVision = builder.Build(new[] { source }, modelSupportsVision: false);
+        var withVision = builder.Build(new[] { source }, VisionModel);
+        var noVision = builder.Build(new[] { source }, TextOnlyModel);
 
         Assert.Equal(3, withVision.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
         Assert.DoesNotContain(noVision.Contents, c => c is Microsoft.Extensions.AI.DataContent);
@@ -558,7 +564,7 @@ public class ProjectSourceIngestorTests : IDisposable
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
         var builder = new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance);
 
-        var context = builder.Build(new[] { source }, modelSupportsVision: true);
+        var context = builder.Build(new[] { source }, VisionModel);
 
         Assert.Equal(3, context.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
         var text = string.Concat(context.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
@@ -592,7 +598,7 @@ public class ProjectSourceIngestorTests : IDisposable
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
         var builder = new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance);
 
-        var images = builder.Build(new[] { source }, modelSupportsVision: true)
+        var images = builder.Build(new[] { source }, VisionModel)
             .Contents.OfType<Microsoft.Extensions.AI.DataContent>().ToList();
 
         Assert.Single(images);
