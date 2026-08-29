@@ -54,6 +54,17 @@ internal static class ModelCallRequestPreview
         if (!isOpenAi)
             node["thinking"] = new JsonObject { ["type"] = "disabled" };
 
+        // Hai trường prompt cache chỉ đi với OpenAI thật (xem LlmRequestCompatibilityHandler.PatchPromptCache).
+        // Phải hiện trong call log: khi hóa đơn không giảm như mong đợi, câu hỏi đầu tiên luôn là "lượt này
+        // có thực sự xin cache không, và xin bằng khóa nào" — không có hai dòng này thì phải đoán.
+        if (isOpenAi)
+        {
+            if (OpenAiCompatibility.PromptCacheRetention.Length > 0)
+                node["prompt_cache_retention"] = OpenAiCompatibility.PromptCacheRetention;
+            if (LlmCacheScope.CacheKey is { Length: > 0 } cacheKey)
+                node["prompt_cache_key"] = cacheKey;
+        }
+
         // Cỡ GÓI TIN thật sự đi trên dây, ước lượng. Không phải thông tin trang trí: một lời gọi mang ảnh
         // vượt trần body của gateway/proxy trước endpoint sẽ chết mà KHÔNG có mã HTTP nào để đọc lý do
         // (xem EndpointQuirks.RequestNeverReachedModel), và khi đó câu hỏi đầu tiên luôn là "request bao

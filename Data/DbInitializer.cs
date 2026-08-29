@@ -37,7 +37,14 @@ public static class DbInitializer
                 // DeepSeek nhận json_object nhưng 400 với json_schema; OpenAI nhận cả hai — seed đúng mức mà
                 // mỗi endpoint thật sự chấp nhận, model local để None cho an toàn.
                 new AiModel { ModelId = "deepseek-v4-flash", Endpoint = "https://api.deepseek.com", ApiKey = "", SupportsVision = false, ContextWindow = 1000000, InputPricePerMillionTokens = 0.14m, CachedInputPricePerMillionTokens = 0.014m, OutputPricePerMillionTokens = 0.28m, StructuredOutputMode = StructuredOutputMode.JsonObject },
-                new AiModel { ModelId = "gpt-5-nano", Endpoint = "https://api.openai.com/v1", ApiKey = "", SupportsVision = true, ContextWindow = 400000, InputPricePerMillionTokens = 0.05m, CachedInputPricePerMillionTokens = 0.005m, OutputPricePerMillionTokens = 0.4m, StructuredOutputMode = StructuredOutputMode.JsonSchema }
+                new AiModel { ModelId = "gpt-5-nano", Endpoint = "https://api.openai.com/v1", ApiKey = "", SupportsVision = true, ContextWindow = 400000, InputPricePerMillionTokens = 0.05m, CachedInputPricePerMillionTokens = 0.005m, OutputPricePerMillionTokens = 0.4m, StructuredOutputMode = StructuredOutputMode.JsonSchema },
+                // Model MẶC ĐỊNH của app (xem thứ tự ưu tiên khi gắn agent bên dưới).
+                // CachedInputPricePerMillionTokens PHẢI khai đúng 0.02: để 0 nghĩa là "chưa khai báo" chứ
+                // không phải miễn phí, và khi đó trang Usage tính mọi token đọc từ cache theo giá input đầy
+                // đủ — báo cáo sẽ giấu đi đúng khoản mà prompt cache vừa tiết kiệm được (xem AiModel).
+                // ContextWindow 1.050.000 là giới hạn KỸ THUẬT; giới hạn KINH TẾ thấp hơn nhiều và nằm ở
+                // PromptBudget (vách giá 272K token).
+                new AiModel { ModelId = "gpt-5.6-luna", Endpoint = "https://api.openai.com/v1", ApiKey = "", SupportsVision = true, ContextWindow = 1050000, InputPricePerMillionTokens = 0.2m, CachedInputPricePerMillionTokens = 0.02m, OutputPricePerMillionTokens = 1.2m, StructuredOutputMode = StructuredOutputMode.JsonSchema }
             );
             await db.SaveChangesAsync();
         }
@@ -45,7 +52,7 @@ public static class DbInitializer
         if (!await db.Agents.AnyAsync())
         {
             var modelId = await db.AiModels
-                .OrderByDescending(x => x.ModelId == "deepseek-v4-flash")
+                .OrderByDescending(x => x.ModelId == "gpt-5.6-luna")
                 .ThenBy(x => x.ModelId)
                 .Select(x => x.Id)
                 .FirstAsync();

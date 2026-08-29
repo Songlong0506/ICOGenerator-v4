@@ -557,7 +557,7 @@ public class BAChatService
             .Where(s => s.ProjectId == projectId)
             .OrderBy(s => s.CreatedAt)
             .ToListAsync(cancellationToken);
-        var sourceContents = _sourceContextBuilder.Build(sources, model.SupportsVision);
+        var sourceContents = _sourceContextBuilder.Build(sources, model);
         var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
 
         // LƯỢT KỂ LẠI FILE BẢNG TÍNH: người dùng vừa gửi bảng cột đã tích, và tin nhắn đó do server soạn
@@ -573,6 +573,21 @@ public class BAChatService
         {
             new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/requirement-chat.v4.md"))
         };
+        // TEXT TÀI LIỆU NGUỒN ĐẶT NGAY ĐÂY, KHÔNG PHẢI Ở LƯỢT USER CUỐI — đây là một quyết định về CHI PHÍ,
+        // không phải về cách trình bày. Prompt cache của OpenAI khớp theo PREFIX: mọi thứ đứng trước khối
+        // đầu tiên thay đổi trong lượt này đều được phục vụ từ cache với giá rẻ hơn 10 lần. Text nguồn là
+        // khối LỚN (tới 20.000 ký tự mỗi file) và TĨNH (không đổi cho tới khi người dùng upload thêm), mà
+        // trước đây nó bị đính vào lượt user CUỐI CÙNG — vị trí biến động nhất trong cả danh sách — nên
+        // lượt nào cũng trả giá đầy đủ cho đúng những byte không hề đổi.
+        //
+        // Chỉ tách khi lượt này KHÔNG mang ảnh: còn ảnh thì chữ phải ở cạnh ảnh của chính nguồn đó (xem
+        // SourceContext.TextOnly). Không mất mát gì ở trạng thái ổn định — ảnh chỉ đi kèm cho tới khi BA
+        // ghi xong VisionSummary, sau đó mọi lượt đều là lượt không ảnh (xem SourceContextBuilder).
+        var sourceTextInPrefix = sourceContents.Count > 0 && !sourceContents.HasImages;
+        if (sourceTextInPrefix)
+        {
+            messages.Add(new ChatMessage(ChatRole.System, sourceContents.TextOnly()));
+        }
         // Bối cảnh tổ chức Bosch render từ dữ liệu HR thật (OrgUnits/Associates, có cache) + đơn vị yêu cầu
         // của dự án (nếu đã gắn lúc tạo project): BA hiểu ngay tên phòng ban/chức danh người dùng nhắc tới,
         // gợi ý bằng tên phòng thật và hỏi luồng duyệt đúng ngôn ngữ manager/HoD. Fail-open: chưa có dữ
@@ -1059,7 +1074,8 @@ public class BAChatService
             // mất luôn gợi ý. Đưa lại đúng format giúp model giữ JSON ở mọi lượt.
             var text = isAssistant ? BuildAssistantContext(c) : c.Message;
 
-            if (!isAssistant && i == lastUserIndex && sourceContents.Count > 0)
+            // sourceTextInPrefix ⇒ khối nguồn đã đi ở đầu prompt rồi, đính lại đây là chép đôi.
+            if (!isAssistant && i == lastUserIndex && sourceContents.Count > 0 && !sourceTextInPrefix)
             {
                 var contents = new List<AIContent> { new TextContent(text) };
                 contents.AddRange(sourceContents.Contents);
@@ -1681,7 +1697,7 @@ public class BAChatService
                 .Where(s => s.ProjectId == projectId)
                 .OrderBy(s => s.CreatedAt)
                 .ToListAsync(cancellationToken);
-            var sourceContents = _sourceContextBuilder.Build(sources, model.SupportsVision);
+            var sourceContents = _sourceContextBuilder.Build(sources, model);
             if (sourceContents.Count == 0)
             {
                 // Không có gì đọc được (model không vision với ảnh / PDF scan). Nếu người dùng vừa gửi từ

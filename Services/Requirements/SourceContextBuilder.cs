@@ -1,5 +1,6 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Llm;
 using Microsoft.Extensions.AI;
 
 namespace ICOGenerator.Services.Requirements;
@@ -16,6 +17,20 @@ public sealed record SourceContext(List<AIContent> Contents, IReadOnlyList<Guid>
     public static readonly SourceContext Empty = new(new List<AIContent>(), Array.Empty<Guid>());
 
     public int Count => Contents.Count;
+
+    /// <summary>
+    /// Lượt này có thực sự mang ảnh đi không. Quyết định chỗ ĐẶT khối nguồn trong danh sách message: chỉ
+    /// khi KHÔNG có ảnh thì phần chữ mới được tách ra thành system message nằm ở đầu prompt (xem
+    /// <see cref="TextOnly"/>).
+    /// </summary>
+    public bool HasImages => Contents.Any(c => c is DataContent);
+
+    /// <summary>
+    /// Ghép toàn bộ phần CHỮ của mọi nguồn thành một khối. Chỉ dùng khi <see cref="HasImages"/> là false:
+    /// lúc còn ảnh, phần chữ phải ở lại NGAY CẠNH ảnh của chính nguồn đó trên lượt user, vì các câu ghi
+    /// chú ("kèm 3 hình dưới dạng ẢNH", các mốc "[Hình n]") chỉ đọc được khi chữ và ảnh còn kề nhau.
+    /// </summary>
+    public string TextOnly() => string.Concat(Contents.OfType<TextContent>().Select(t => t.Text));
 }
 
 /// <summary>
@@ -57,8 +72,15 @@ public class SourceContextBuilder
     }
 
     /// <summary>Trả về <see cref="SourceContext.Empty"/> nếu không có nguồn (caller giữ nguyên message text thuần như cũ).</summary>
-    public SourceContext Build(IEnumerable<ProjectSourceFile>? sources, bool modelSupportsVision)
+    public SourceContext Build(IEnumerable<ProjectSourceFile>? sources, AiModel model)
     {
+        var modelSupportsVision = model.SupportsVision;
+        // Trần TỔNG phần chữ, cộng dồn trên mọi nguồn. Trần mỗi file (_maxTextCharsPerFile) không chặn
+        // được tổng: mười file đủ 20.000 ký tự là 50.000 token ước lượng chỉ riêng phần nguồn, và với
+        // model tính giá theo bậc thang thì vượt vách là cả request đổi giá. Xem PromptBudget.
+        var textBudgetTokens = PromptBudget.SourceTokens(model);
+        long textTokensUsed = 0;
+
         var contents = new List<AIContent>();
         var fullyAttached = new List<Guid>();
         var list = sources?.OrderBy(s => s.CreatedAt).ToList() ?? new List<ProjectSourceFile>();
@@ -74,7 +96,7 @@ public class SourceContextBuilder
         foreach (var s in list)
         {
             var expected = ExpectedImageCount(s);
-            var summary = Truncate(s.VisionSummary);
+            var summary = TakeWithinBudget(s.VisionSummary, ref textTokensUsed, textBudgetTokens);
             // Đã có bản mô tả hình bằng chữ ⇒ KHÔNG đọc lại ảnh (đây là chỗ tiết kiệm của cả cơ chế), và
             // hạn mức ảnh còn nguyên cho các nguồn chưa được mô tả.
             var images = modelSupportsVision && summary == null && expected > 0
@@ -83,7 +105,7 @@ public class SourceContextBuilder
 
             var note = ImageNote(s.Kind, modelSupportsVision, expected, images.Count, summary != null);
 
-            var text = Truncate(s.ExtractedText);
+            var text = TakeWithinBudget(s.ExtractedText, ref textTokensUsed, textBudgetTokens);
             contents.Add(new TextContent(text != null
                 ? $"\n[Nguồn: {s.FileName}]{note}\n{text}"
                 : $"\n[Nguồn: {s.FileName}]{TextlessSuffix(s.Kind, expected)}{note}"));
@@ -215,6 +237,44 @@ public class SourceContextBuilder
         if (string.IsNullOrWhiteSpace(raw))
             return null;
         return raw.Length > _maxTextCharsPerFile ? raw[.._maxTextCharsPerFile] + "\n…(đã cắt bớt)" : raw;
+    }
+
+    /// <summary>
+    /// <see cref="Truncate"/> rồi cắt tiếp cho lọt phần ngân sách chữ CÒN LẠI của lượt gọi, và trừ vào
+    /// ngân sách đó.
+    /// <para>
+    /// BẤT BIẾN: đầu vào có chữ thì đầu ra KHÔNG BAO GIỜ null, kể cả khi ngân sách đã cạn — hết chỗ thì
+    /// trả về đúng câu nói rằng nội dung không được gửi. Hai lý do, cả hai đều đã đủ một mình:
+    /// (1) trả null khi hết ngân sách sẽ làm <c>summary == null</c> ở vòng lặp trên, và điều kiện đó là
+    /// thứ quyết định có GỬI LẠI ẢNH hay không — một nguồn đã được mô tả xong sẽ bị đọc lại bằng ảnh,
+    /// đắt gấp bội đúng thứ ta đang cố tiết kiệm; (2) im lặng bỏ nội dung là mời BA đi hỏi lại người
+    /// dùng đúng thứ họ đã upload, hoặc tệ hơn là tự bịa — cùng lý do mà
+    /// <see cref="ImageNote"/> phải nói thật số ảnh đi kèm.
+    /// </para>
+    /// </summary>
+    private string? TakeWithinBudget(string? raw, ref long usedTokens, int budgetTokens)
+    {
+        var text = Truncate(raw);
+        if (text == null)
+            return null;
+
+        var remaining = budgetTokens - usedTokens;
+        var tokens = TokenEstimator.Estimate(text);
+        if (tokens <= remaining)
+        {
+            usedTokens += tokens;
+            return text;
+        }
+
+        // TokenEstimator đếm 4 ký tự/token, nên đổi ngược phần còn lại ra ký tự cũng bằng hệ số đó.
+        var allowedChars = (int)Math.Max(0, remaining) * 4;
+        usedTokens = budgetTokens;
+        return allowedChars <= 0
+            ? "…(nội dung nguồn này KHÔNG được gửi kèm ở lượt này vì đã hết hạn mức ngữ cảnh dành cho tài "
+              + "liệu nguồn; TUYỆT ĐỐI không suy đoán nội dung, hãy hỏi lại người dùng)"
+            : text[..allowedChars]
+              + "\n…(đã cắt bớt vì hết hạn mức ngữ cảnh dành cho tài liệu nguồn; phần sau KHÔNG được gửi "
+              + "kèm — TUYỆT ĐỐI không suy đoán nội dung phần đó)";
     }
 
     // Nguồn vision gồm: ảnh user upload trực tiếp, ảnh trang của PDF scan (PdfScanPageRenderer ghi

@@ -1806,16 +1806,37 @@ Lý do đặt cổng ở đây chứ không sau POC: một giả định sai ch�
 Hội thoại BA (`ChatWithBAUseCase` → `BAChatService.ChatAsync`) dùng **hai tầng nhớ** để giữ ngữ
 cảnh khi chat dài mà prompt không phình token, do `ConversationMemoryService` lo:
 
-- **Ngắn hạn (working memory):** `RecentWindowSize` (=20) lượt gần nhất luôn gửi **nguyên văn** cho model.
+- **Ngắn hạn (working memory):** cửa sổ lượt gần nhất luôn gửi **nguyên văn** cho model — hậu tố dài nhất
+  vừa lọt **cả hai** trần: `RecentWindowTurns` (=40 lượt) và `RecentWindowTokensFor(model)` (=20.000 token
+  với `gpt-5.6-luna`, xem [`PromptBudget`](llm-and-prompts.md#trần-token-của-một-prompt-promptbudget)).
 - **Dài hạn:** các lượt **cũ** rơi ra ngoài cửa sổ được **gộp dần** thành một đoạn tóm tắt (text) lưu bền
   trên `Project.ConversationSummary`; `Project.SummarizedTurnCount` là con trỏ "đã gộp tới lượt nào". Đoạn
   tóm tắt được đính vào prompt như một `System` message nền (prompt `BusinessAnalyst/conversation-summary.v1.md`).
 
-Việc tóm tắt **gom theo lô**: chỉ gọi LLM khi đã có ít nhất `SummarizeBatchThreshold` (=10) lượt cũ chưa
-gộp — nên KHÔNG tóm tắt trên mỗi lượt chat (đây mới là chỗ tiết kiệm token). Trong lúc chờ đủ lô, các lượt
-đó vẫn gửi nguyên văn nên **không mất ngữ cảnh**; cửa sổ verbatim chỉ phình tạm tới `20 + (10-1)` rồi co lại
-sau mỗi lần gộp. **Fail-open:** lời gọi tóm tắt lỗi ⇒ giữ nguyên summary cũ, KHÔNG dời con trỏ (các lượt
-chưa gộp vẫn được gửi nguyên văn) — không bao giờ fail trắng, không mất lượt nào.
+**Đo bằng token, không đếm lượt.** Lượt hội thoại lệch nhau hàng trăm lần về độ dài: một lượt chốt bảng
+phân quyền dài bằng vài chục lượt gật đầu bằng chip. Đếm lượt vì thế không chặn được thứ thực sự phải trả
+tiền — đường soạn Product Brief đã tự nhận ra điều đó một lần rồi (`BriefContextWindow.MaxVerbatimChars`).
+Trần lượt vẫn còn, nhưng chỉ như cận trên thứ hai: cái nào chặt hơn thì cái đó thắng. Hệ quả thấy được
+ngay: mười lượt rất dài đã đủ kích hoạt gộp, trong khi luật đếm lượt cũ phải chờ tới lượt thứ 30.
+
+Token đo trên `ConversationTurnRenderer.Render` chứ **không** dùng cột `AgentConversation.TokenUsed`: cột
+đó chỉ ước lượng trên `Message`, trong khi thứ thật sự vào ngữ cảnh còn có các bảng đã chốt (gợi ý, bảng
+cột, bảng phân quyền, bảng luồng…). Tức là nó ước lượng thiếu đúng ở những lượt **nặng nhất** — chính các
+lượt mà một trần token sinh ra để chặn. Cùng lý do đó, bước gộp cũng render qua `ConversationTurnRenderer`:
+gộp từ `Message` thuần là để các bảng người dùng đã tích tay bốc hơi đúng lúc chúng rời cửa sổ nguyên văn.
+
+Việc tóm tắt **gom theo lô**: chỉ gọi LLM khi phần lượt cũ chưa gộp đã đạt `SummarizeBatchTokens` (=5.000
+token) — nên KHÔNG tóm tắt trên mỗi lượt chat. Trong lúc chờ đủ lô, các lượt đó vẫn gửi nguyên văn nên
+**không mất ngữ cảnh**; cửa sổ verbatim chỉ phình tạm rồi co lại sau mỗi lần gộp. **Fail-open:** lời gọi
+tóm tắt lỗi ⇒ giữ nguyên summary cũ, KHÔNG dời con trỏ (các lượt chưa gộp vẫn được gửi nguyên văn) — không
+bao giờ fail trắng, không mất lượt nào.
+
+Cửa sổ 40 lượt là **nới ra**, không phải siết lại, và đó là chủ ý khi app chuẩn hóa về `gpt-5.6-luna`: với
+trần giá/ngữ cảnh của model đó, chênh lệch chi phí giữa cửa sổ 20 và 40 lượt là vài xu cho cả một buổi
+phỏng vấn, còn BA thấy nhiều lượt nguyên văn thì hỏi trúng hơn hẳn — nén sớm là đánh đổi sai chiều. Hệ quả
+cần biết: con trỏ tóm tắt trôi chậm hơn trước, mà `BriefContextWindow` cấm cắt quá con trỏ, nên transcript
+soạn Brief giữ nguyên văn nhiều lượt hơn trước (~40 thay vì ~20-29). Hạ `RecentWindowTurns` nếu quay lại
+dùng model context nhỏ.
 
 **Gộp lũy tiến ⇒ thứ đã viết ra ở lại MÃI trừ khi lượt chắt lọc chủ động gỡ nó**, và luật đó áp cho cả ba
 tầng cùng hình dạng: bộ nhớ hội thoại, "Điều đã chốt" (`decision-log.v1.md`), ví dụ vàng
@@ -1831,6 +1852,34 @@ một. Phép thử: *bỏ đi một nửa ví dụ thì nửa còn lại có cò
 "Điều đã chốt" bị cấm để một câu đáp **bao trùm** cho câu hỏi gộp nhiều đối tượng ghi đè lên một dòng đã
 chốt trước đó (ca thật: lượt 19 chốt *Assistant* chấm điểm, lượt 25 một tiếng *"admin sẽ quản lý"* trả lời
 cho câu hỏi gộp bốn danh mục — trong đó BA nhét sẵn *"kết quả học tập"* — và nhật ký nhận về cả hai dòng).
+
+### Thứ tự message của lượt chat BA là một quyết định về chi phí
+
+Prompt cache của OpenAI khớp theo **prefix**: mọi thứ đứng **trước** khối đầu tiên thay đổi trong lượt này
+được phục vụ lại rẻ hơn 10 lần (xem [llm-and-prompts.md](llm-and-prompts.md#cached-input-token-prompt-đọc-lại-từ-cache)).
+Vì thế `BAChatService.ChatAsync` xếp message theo **độ biến động tăng dần**, không theo thứ tự "đọc cho
+xuôi":
+
+| # | Khối | Đổi khi nào |
+|---|---|---|
+| 1 | `requirement-chat.v4.md` | không bao giờ (trong một phiên bản prompt) |
+| 2 | **Text tài liệu nguồn** | người dùng upload thêm / BA ghi xong `VisionSummary` / chốt bảng cột |
+| 3 | Bối cảnh tổ chức, checklist học được, hồ sơ người dùng | thỉnh thoảng |
+| 4 | Bộ nhớ hội thoại (summary) | mỗi lần gộp một lô |
+| 5 | Bản đồ bao phủ, điều đã chốt, điểm cần làm rõ, sổ đã hỏi | **mỗi lượt** |
+| 6 | Các lượt hội thoại nguyên văn | **mỗi lượt** |
+
+Khối **#2 là chỗ vừa sửa**: text tài liệu nguồn vừa lớn (tới 20.000 ký tự mỗi file) vừa tĩnh, nhưng trước
+đây nó bị đính vào **lượt user cuối cùng** — vị trí biến động nhất trong cả danh sách — nên lượt nào cũng
+trả giá đầy đủ cho đúng những byte không hề đổi. Nay nó là một `System` message đứng ngay sau prompt nền.
+
+Ngoại lệ có chủ ý: **lượt còn mang ảnh thì phần chữ ở lại cạnh ảnh** trên lượt user, vì các câu ghi chú
+("kèm 3 hình dưới dạng ẢNH") và các mốc `[Hình n]` chỉ đọc được khi chữ và ảnh còn kề nhau. Không mất mát
+gì ở trạng thái ổn định: ảnh chỉ đi kèm cho tới khi BA ghi xong `VisionSummary`, sau đó mọi lượt đều là
+lượt không ảnh (xem [Tài liệu nguồn, ảnh và call log](#tài-liệu-nguồn-ảnh-và-call-log)).
+
+Đường này **không tự lộ ra khi hỏng**: BA vẫn trả lời đúng như cũ, chỉ là hóa đơn không bao giờ giảm. Vì
+thế nó có test giữ (`BAChatSourcePrefixCacheTests`) chứ không chỉ là một quy ước ghi trong tài liệu.
 
 ### Bộ nhớ cấp người dùng (personalization — "càng nói càng hiểu user")
 Song song với bộ nhớ theo dự án ở 5.11, `UserMemoryService` lo một tầng nhớ **gắn theo NGƯỜI DÙNG** chứ

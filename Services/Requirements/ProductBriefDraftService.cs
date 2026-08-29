@@ -147,7 +147,7 @@ public class ProductBriefDraftService
 
         // Tài liệu nguồn (ảnh/PDF) của project → AIContent gắn kèm lượt soạn tài liệu (text PDF + ảnh nếu model vision).
         var sources = project.SourceFiles.OrderBy(s => s.CreatedAt).ToList();
-        var sourceContents = _sourceContextBuilder.Build(sources, model.SupportsVision);
+        var sourceContents = _sourceContextBuilder.Build(sources, model);
 
         // Cổng kiểm tra: tài liệu KHÔNG được phép chứa giả định, nên còn BẤT KỲ nhóm áp dụng nào chưa
         // [RÕ] trên bản đồ bao phủ thì hỏi lại NGAY (một lượt BA trong khung chat) và KHÔNG soạn tài
