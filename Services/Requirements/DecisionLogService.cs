@@ -48,6 +48,12 @@ public class DecisionLogService
     // rồi chất vấn người dùng một câu thừa). Hai lượt là đủ phủ [lượt user trước, câu hỏi của BA].
     private const int ContextTurnCount = 2;
 
+    // Hai purpose TÁCH nhau trên màn AI Call Logs: lượt chắt thường, và lượt chắt lại do
+    // DecisionUnderHarvestGuard nghi bỏ sót. Tách để đo được guard nổ bao nhiêu lần và có đáng giữ không —
+    // một heuristic mới mà không đếm được thì không sửa được.
+    private const string DistillPurpose = "BADecisionLog";
+    private const string RecheckPurpose = "BADecisionLogRecheck";
+
     private readonly AppDbContext _db;
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
@@ -85,9 +91,10 @@ public class DecisionLogService
         if (delta.Count == 0)
             return project.DecisionLog;
 
-        var updated = await DistillAsync(project.DecisionLog, context, delta, ba, model, project.Id, cancellationToken);
+        var updated = await DistillAsync(project.DecisionLog, context, delta, ba, model, project.Id, DistillPurpose, null, cancellationToken);
         if (updated != null)
         {
+            updated = await RecheckIfSuspectedMissAsync(project, context, delta, updated, ba, model, cancellationToken);
             project.DecisionLog = string.IsNullOrWhiteSpace(updated) ? null : updated;
             project.DecisionHarvestedTurnCount = harvested + delta.Count;
             await _db.SaveChangesAsync(cancellationToken);
@@ -111,7 +118,33 @@ public class DecisionLogService
             .ToList();
     }
 
-    private async Task<string?> DistillAsync(string? existingLog, List<AgentConversation> context, List<AgentConversation> turns, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Phép thử chống BỎ SÓT, chạy bằng CODE (<see cref="DecisionUnderHarvestGuard"/>) chứ không nhờ model
+    /// tự chấm: bản đồ bao phủ — một bộ đọc ĐỘC LẬP đọc đúng lô lượt này — đã trích được bằng chứng từ
+    /// chính lời người dùng trong lô, mà nhật ký không dài thêm và không sửa dòng nào ⇒ nghi bỏ sót, chắt
+    /// lại ĐÚNG MỘT lần với các trích dẫn đó làm chỉ dẫn.
+    /// <para>
+    /// Lần chắt lại chỉ được nhận khi nó THẬT SỰ đổi nhật ký; không đổi (hoặc lỗi) thì giữ nguyên kết quả
+    /// lần đầu và dời con trỏ như thường — nghi ngờ không được phép biến thành vòng lặp. Lời gọi thêm mang
+    /// purpose riêng (<c>BADecisionLogRecheck</c>) để đo được tần suất guard nổ trên màn AI Call Logs, và
+    /// nó nằm trên đường HẬU KỲ (sau frame done) nên người dùng không chờ thêm.
+    /// </para>
+    /// </summary>
+    private async Task<string> RecheckIfSuspectedMissAsync(Project project, List<AgentConversation> context, List<AgentConversation> delta, string firstPass, Agent ba, AiModel model, CancellationToken cancellationToken)
+    {
+        var userTurnTexts = delta
+            .Where(t => !ConversationTurnRenderer.IsAssistant(t))
+            .Select(t => t.Message ?? string.Empty);
+
+        var check = DecisionUnderHarvestGuard.Check(project.RequirementCoverageMap, userTurnTexts, project.DecisionLog, firstPass);
+        if (!check.SuspectsMiss)
+            return firstPass;
+
+        var second = await DistillAsync(project.DecisionLog, context, delta, ba, model, project.Id, RecheckPurpose, check.Evidence, cancellationToken);
+        return second != null && !DecisionUnderHarvestGuard.Unchanged(project.DecisionLog, second) ? second : firstPass;
+    }
+
+    private async Task<string?> DistillAsync(string? existingLog, List<AgentConversation> context, List<AgentConversation> turns, Agent ba, AiModel model, Guid projectId, string purpose, IReadOnlyList<string>? missedEvidence, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(existingLog))
@@ -137,6 +170,20 @@ public class DecisionLogService
             sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
         }
 
+        if (missedEvidence is { Count: > 0 })
+        {
+            // Chỉ dẫn của lượt chắt LẠI: không phải "cố lên", mà là đúng các câu mà bộ đọc kia đã tìm thấy
+            // trong lô này — model được chỉ thẳng vào chỗ nó vừa bỏ qua. Vẫn KHÔNG nới luật "chỉ ghi điều
+            // người dùng thật sự nói": nếu rà lại mà đúng là không có quyết định nào thì xuất y như cũ.
+            sb.AppendLine();
+            sb.AppendLine("## RÀ LẠI — lô trên gần như chắc chắn có nội dung nghiệp vụ");
+            sb.AppendLine("Một bộ đọc ĐỘC LẬP (bản đồ bao phủ yêu cầu) đọc đúng các lượt trên và đã trích các câu sau từ CHÍNH lời người dùng làm bằng chứng:");
+            foreach (var quote in missedEvidence)
+                sb.AppendLine($"- {quote}");
+            sb.AppendLine();
+            sb.AppendLine("Lần chắt trước không thêm và không sửa dòng nào — đó là dấu hiệu bỏ sót. Hãy rà lại lô và xuất nhật ký ĐẦY ĐỦ (giữ các dòng cũ, thêm dòng cho những điều người dùng đã chốt ở lô này). Vẫn giữ nguyên mọi luật ở trên: KHÔNG suy diễn, KHÔNG ghi điều BA mới chỉ hỏi, mỗi dòng phải TỰ ĐỨNG ĐƯỢC. Rà kỹ mà thật sự không có quyết định nào thì xuất lại nhật ký y như cũ.");
+        }
+
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, _prompts.Get("BusinessAnalyst/decision-log.v1.md")),
@@ -144,7 +191,7 @@ public class DecisionLogService
         };
 
         var result = await _llm.ChatWithLogAsync(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BADecisionLog"),
+            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, purpose),
             cancellationToken: cancellationToken);
 
         if (!result.IsSuccess || result.Content == null)
