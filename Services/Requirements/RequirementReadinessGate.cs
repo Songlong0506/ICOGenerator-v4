@@ -225,8 +225,78 @@ public static class RequirementReadinessGate
         if (note >= 0)
             missing = missing[..note].Trim();
 
-        return StripReopenMarker(missing).TrimEnd('.', ';', ',');
+        missing = StripReopenMarker(missing).TrimEnd('.', ';', ',');
+
+        // Mẩu RỖNG NGHĨA thì coi như không có: caller rơi về nhánh PHÁT LẠI, một câu hỏi đóng lại được.
+        return IsHollowGap(missing) ? string.Empty : missing;
     }
+
+    /// <summary>
+    /// Mẩu <c>còn thiếu:</c> không nói được đang hỏi cái gì — *"các quy tắc khác (nếu có)"*, *"thông tin
+    /// bổ sung"*, *"các điểm còn lại"*. Nó là một CHỖ TRỐNG chứ không phải một câu hỏi: distiller viết ra
+    /// để dòng trông "chưa xong", nhưng cổng thì phát nguyên văn nó lên màn hình.
+    ///
+    /// <para>
+    /// Ca thật (dự án JD Libary 5, lượt 26 — lượt CUỐI của buổi phỏng vấn): người dùng nhận
+    /// *"Anh/chị cho mình hỏi thêm: các quy tắc khác (nếu có) — anh/chị cho mình xin thông tin này nhé?"*.
+    /// Câu đó không trả lời được bằng một điều cụ thể nào, và tệ hơn: một tiếng *"không có"* sẽ lật dòng
+    /// «Quy tắc nghiệp vụ &amp; ràng buộc» lên <c>[RÕ]</c> mà không thêm được một quy tắc nào — cổng mở ra
+    /// bằng một câu hỏi rỗng. Nhánh phát lại (*"Mình đang ghi nhận: … còn chỗ nào chưa đúng hoặc còn thiếu
+    /// không?"*) nói đúng bằng ấy ý nhưng chở theo điều đã ghi nhận, nên người dùng đọc là trả lời được.
+    /// </para>
+    ///
+    /// <para>
+    /// Nhận diện theo HÌNH DẠNG, cùng cách với chip "khác" trần ở <see cref="BAChatReplyParser"/>: bỏ phần
+    /// trong ngoặc, bỏ từ chỉ số nhiều ở đầu, rồi hỏi phần còn lại có phải một danh từ MÊ-TA gắn đuôi
+    /// "khác / còn lại / bổ sung" hay không. Danh sách đầu mê-ta cố ý HẸP — một mẩu chở danh từ nghiệp vụ
+    /// thật (*"các trạng thái khác của JD"*) không lọt vào đây, và lọt lưới thì chỉ mất một lượt.
+    /// </para>
+    /// </summary>
+    private static bool IsHollowGap(string missing)
+    {
+        var text = missing.ToLowerInvariant().Trim();
+
+        // "(nếu có)", "(nếu cần)" — phần chú không bao giờ là nội dung cần hỏi.
+        var paren = text.IndexOf('(');
+        if (paren >= 0)
+            text = text[..paren];
+
+        text = text.Trim(GapTrimChars);
+        foreach (var prefix in PluralPrefixes)
+        {
+            if (text.StartsWith(prefix, StringComparison.Ordinal))
+                text = text[prefix.Length..].Trim();
+        }
+
+        if (text.Length == 0)
+            return true;
+
+        foreach (var suffix in HollowSuffixes)
+        {
+            if (!text.EndsWith(suffix, StringComparison.Ordinal))
+                continue;
+
+            var head = text[..^suffix.Length].Trim(GapTrimChars);
+            if (MetaGapHeads.Contains(head))
+                return true;
+        }
+
+        return MetaGapHeads.Contains(text);
+    }
+
+    private static readonly char[] GapTrimChars = { ' ', '.', ',', ';', ':', '-', '–', '…' };
+
+    private static readonly string[] PluralPrefixes = { "các ", "những ", "một số " };
+
+    private static readonly string[] HollowSuffixes = { "khác", "còn lại", "bổ sung", "chưa nêu" };
+
+    // Danh từ chỉ CHỖ của câu trả lời chứ không chở câu trả lời nào — cùng vai trò với
+    // BAChatReplyParser.MetaChipHeads, và cũng phải hẹp vì lý do y hệt.
+    private static readonly HashSet<string> MetaGapHeads = new(StringComparer.Ordinal)
+    {
+        "quy tắc", "quy tắc nghiệp vụ", "quy định", "ràng buộc", "thông tin", "yêu cầu", "nội dung",
+        "chi tiết", "điểm", "mục", "phần", "dữ liệu", "vấn đề", "ý"
+    };
 
     /// <summary>Trần độ dài phần phát lại — câu hỏi, không phải biên bản. Cùng hạng với
     /// <c>CoveragePendingGuard.MaxGapChars</c>.</summary>

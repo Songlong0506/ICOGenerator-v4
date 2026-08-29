@@ -132,6 +132,52 @@ public class BAChatSilentTurnTests : IDisposable
         Assert.Equal(question, result.Reply);
     }
 
+    // LỖ THỦNG ĐÃ CÓ THẬT của chốt chặn này: model đặt `openEnded: true` cho một lượt không hỏi gì, và cờ
+    // đó mua được quyền miễn trừ. Nhưng cờ chỉ mở một Ô NHẬP — mà ô nhập thì lượt nào cũng có; thứ mời
+    // người dùng gõ vào đó là CÂU HỎI.
+    //
+    // Ca thật (dự án JD Libary 5, lượt 18): "Để mình tổng hợp lại những gì đã chốt và hỏi thêm một số điểm
+    // còn lại nhé." — đúng hình dạng lượt câm mà prompt cấm bằng tên ("KHÔNG kết bằng lời hứa về một bước
+    // bạn sắp làm"), người dùng đáp "ok" ở lượt 19 và lượt đó mất trắng.
+    [Fact]
+    public async Task AnOpenEndedFlagDoesNotExemptATurnThatAsksNothing()
+    {
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Cảm ơn anh/chị! Mình đã ghi nhận: khi gán JD chỉ cần ngày hiệu lực. "
+                          + "Để mình tổng hợp lại những gì đã chốt và hỏi thêm một số điểm còn lại nhé.",
+                OpenEnded = true
+            }
+        };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(_projectId, "Không, chỉ cần ngày hiệu lực");
+
+        Assert.DoesNotContain("tổng hợp lại những gì đã chốt", result.Reply);
+        Assert.Contains("nằm ở màn hình nào", result.Reply);
+        Assert.EndsWith("?", result.Reply.TrimEnd());
+    }
+
+    // NHỊP TÓM TẮT KIỂM CHỨNG mà quên chip: lượt này là câu ĐÓNG (gật, hoặc đòi sửa) nên nó phải có nút để
+    // bấm. Không có hai nhánh bày sẵn thì model tự trượt sang hỏi độ ĐẦY ĐỦ của cả buổi phỏng vấn — ca
+    // thật JD Libary 5 lượt 20, nhận về "đầy đủ rồi" trong khi bản đồ còn hai nhóm [CHƯA HỎI].
+    [Fact]
+    public async Task AVerificationSummaryWithoutChipsGetsTheStandardPair()
+    {
+        const string summary = "Mình xin tóm tắt lại những gì đã chốt: Manager tạo JD, HRBP verify, HoD approve. "
+                               + "Mình hiểu đúng chứ ạ?";
+        var llm = new FakeLlm(PartialMap) { ChatReply = new BAChatReply { Message = summary } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(_projectId, "ok");
+
+        Assert.Equal(summary, result.Reply);
+        Assert.Equal(BAChatService.SummaryCheckSuggestions, result.Suggestions);
+        Assert.False(result.OpenEnded);
+    }
+
     [Fact]
     public async Task WhenTheMapIsComplete_ASilentTurnBecomesTheInviteInstead()
     {

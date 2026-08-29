@@ -209,6 +209,65 @@ public class AskedQuestionHistoryTests
             new BAChatQuestion { Group = "Thông báo / nhắc nhở", Question = "Ai cần được báo?" }, reopened));
     }
 
+    // CHIP ĐÃ BÀY MÀ KHÔNG CHỌN cũng là một câu trả lời — "cái này thì không". Sổ câu hỏi không thấy điều
+    // đó (nó chỉ ghi CÂU HỎI), nên một câu có/không hỏi riêng đúng chip vừa bị bỏ lọt qua phanh trên.
+    //
+    // Ca thật (dự án JD Libary 5, lượt 14→16): lượt 14 bày ["Ngày gán JD", "Nhân viên được gán",
+    // "Ngày hiệu lực", "Ngày hết hạn"] ở chế độ chọn nhiều; người dùng liệt kê ba cái đầu; lượt 16 hỏi lại
+    // "có cần lưu thêm ngày hết hạn hay không?" — đốt trọn một lượt để nghe lại đúng một tiếng "không".
+    [Fact]
+    public void AChipLeftUnchecked_CountsAsAnswered()
+    {
+        var turns = new List<AgentConversation>
+        {
+            new()
+            {
+                Role = "assistant",
+                Message = "Khi gán JD cho nhân viên, cần lưu những thông tin gì về lần gán đó?",
+                Suggestions = JsonSerializer.Serialize(new[]
+                    { "Ngày gán JD", "Nhân viên được gán", "Ngày hiệu lực", "Ngày hết hạn" }),
+                SuggestionsMultiSelect = true
+            },
+            User("ngày gán JD, nhân viên được gán, ngày hiệu lực, mã JD")
+        };
+
+        var declined = AskedQuestionHistory.DeclinedChipKeys(turns);
+
+        Assert.Contains(AskedQuestionHistory.Key("Ngày hết hạn"), declined);
+        Assert.DoesNotContain(AskedQuestionHistory.Key("Ngày hiệu lực"), declined);
+
+        Assert.True(AskedQuestionHistory.AsksAboutDeclinedChip(
+            "Cảm ơn anh/chị! Vậy khi gán JD cho nhân viên, có cần lưu thêm ngày hết hạn hay không?", declined));
+
+        // Ranh giới 1: câu ĐÀO SÂU về cùng chủ đề không phải hỏi lại — đó đúng là việc BA nên làm.
+        Assert.False(AskedQuestionHistory.AsksAboutDeclinedChip(
+            "Ngày hết hạn của một lần gán do ai đặt và dựa vào đâu?", declined));
+
+        // Ranh giới 2: câu có/không về một chip người dùng ĐÃ chọn thì không nằm trong sổ này.
+        Assert.False(AskedQuestionHistory.AsksAboutDeclinedChip(
+            "Ngày hiệu lực có bắt buộc không?", declined));
+    }
+
+    // Chỉ lượt CHỌN NHIỀU mới sinh ra "chip bị bỏ": ở lượt chọn-một, các chip còn lại là phương án bị
+    // loại theo luật của câu hỏi, không phải thứ người dùng đã cân nhắc rồi bỏ.
+    [Fact]
+    public void SinglePickChips_AreNotTreatedAsDeclined()
+    {
+        var turns = new List<AgentConversation>
+        {
+            new()
+            {
+                Role = "assistant",
+                Message = "Khi JD đã available, ai là người gán JD cho nhân viên?",
+                Suggestions = JsonSerializer.Serialize(new[] { "Manager tự gán", "HRBP gán", "Cả hai đều gán được" }),
+                SuggestionsMultiSelect = false
+            },
+            User("Manager tự gán")
+        };
+
+        Assert.Empty(AskedQuestionHistory.DeclinedChipKeys(turns));
+    }
+
     [Fact]
     public void BuildNote_ListsRecentQuestions_AndIsEmptyWhenNothingWasAsked()
     {
