@@ -230,31 +230,6 @@ public class BAChatService
         return notice;
     }
 
-    /// <summary>
-    /// Danh sách các BƯỚC LUỒNG đã chốt, đính vào cuối khối lệnh bày bảng màn hình dưới dạng một bảng kê
-    /// phải đối chiếu. Chưa chốt bảng luồng ⇒ chuỗi rỗng.
-    ///
-    /// <para>
-    /// Các bước này đã nằm sẵn trong ngữ cảnh qua khối "bảng luồng đã chốt" của
-    /// <c>FlowMapBuilder.RenderConfirmedBlock</c>, nhưng ở đó chúng là một câu chuyện để ĐỌC, kể theo từng
-    /// luồng và trộn với vai trò, điều kiện kích hoạt, kết quả sau mỗi bước. Ở đây chúng là một danh sách
-    /// phẳng để ĐỐI CHIẾU, đúng hình dạng mà <c>ScreenScopeMapBuilder.UncoveredActions</c> sẽ chấm ngay sau
-    /// đó — và chỗ hỏng của lượt này chưa bao giờ là chỗ hiểu, nó là chỗ nối.
-    /// </para>
-    /// </summary>
-    private static string FlowStepChecklist(string? flowMapJson)
-    {
-        var actions = FlowMapBuilder.IncludedActions(flowMapJson);
-        if (actions.Count == 0)
-            return string.Empty;
-
-        return "\n\n### Các BƯỚC của bảng luồng đã chốt (mỗi bước phải có ÍT NHẤT MỘT chức năng nhận vào "
-            + "`flowSteps` — hệ thống đối chiếu tất định danh sách này với bảng bạn trả về)\n"
-            + string.Join("\n", actions.Select(a => "- " + a))
-            + "\nBước nào không màn hình nào trong phạm vi trên làm được thì CỨ ĐỂ TRỐNG, đừng gán bừa vào "
-            + "một màn cho đủ: gán sai là dựng một chức năng không có thật lên một màn hình có thật, và "
-            + "người dùng đọc lướt qua nó như phần đã đúng. Hệ thống có một lượt riêng xử phần còn lại.";
-    }
 
     public BAChatService(
         AppDbContext db,
@@ -536,580 +511,56 @@ public class BAChatService
         return await RunTurnGuaranteedAsync(project, ba, ba.AiModel!, onStatus, onToken, cancellationToken);
     }
 
-    // Lõi một lượt trả lời của BA (chuẩn bị ngữ cảnh → gọi LLM → cổng readiness → lưu lượt assistant).
-    // Tách khỏi ChatAsync để đường "thử lại lượt lỗi" chạy lại y hệt mà không ghi thêm lượt user.
+    /// <summary>
+    /// Ngữ cảnh TẤT ĐỊNH của một lượt chat: mọi thứ suy được từ dữ liệu dự án TRƯỚC khi gọi model, chốt
+    /// đúng MỘT LẦN ở đầu lượt.
+    ///
+    /// <para>
+    /// Vì sao nó là một vật chứ không phải mười lăm biến cục bộ: cả khối lắp ngữ cảnh (<see
+    /// cref="BuildMessagesAsync"/>) lẫn các chốt chặn chạy SAU lời gọi model đều đọc đúng bộ dữ kiện này —
+    /// cổng nào đang mở, phạm vi màn hình thật, các dòng gieo của bảng thông báo. Tính lại ở nhánh thứ hai
+    /// là mở đường cho hai nhánh xét trên hai bản khác nhau, đúng loại vênh mà cả tầng cổng tất định của
+    /// luồng này sinh ra để dẹp.
+    /// </para>
+    /// </summary>
+    private sealed record TurnContext(
+        Project Project,
+        ConversationMemoryService.Memory Memory,
+        string? UserMemory,
+        RequirementCoverageService.CoverageUpdate CoverageUpdate,
+        List<ProjectSourceFile> Sources,
+        SourceContext SourceContents,
+        bool SourceTextInPrefix,
+        int LastUserIndex,
+        bool ColumnReadbackTurn,
+        List<string> AskedBefore,
+        InterviewTableKind Table,
+        bool ReshowScreenScope,
+        List<string> PendingScreens,
+        List<string> PendingFunctions,
+        IReadOnlyList<string> EffectiveScreens,
+        List<string> EntityNames,
+        List<NotificationMapRow> NotificationSeedRows,
+        List<string> RecipientOptions)
+    {
+        public Guid ProjectId => Project.Id;
+
+        public List<AgentConversation> Recent => Memory.RecentTurns;
+    }
+
+    // Lõi một lượt trả lời của BA. Tách khỏi ChatAsync để đường "thử lại lượt lỗi" chạy lại y hệt mà
+    // không ghi thêm lượt user.
+    //
+    // Bốn chặng, đọc từ trên xuống: chốt ngữ cảnh tất định của lượt → lắp prompt → gọi model → nắn hình
+    // dạng lượt trả lời rồi lưu.
     private async Task<BAChatTurnResult> RunTurnAsync(Project project, Agent ba, AiModel model, Action<string>? onStatus, Action<string>? onToken, CancellationToken cancellationToken)
     {
-        var projectId = project.Id;
-
         // Các bước chuẩn bị dưới đây có thể gọi LLM (tóm tắt/bồi hồ sơ/bản đồ bao phủ) — báo trạng thái
         // để người dùng thấy BA "đang làm việc" thay vì spinner câm khi stream.
         onStatus?.Invoke("BA đang đọc lại ngữ cảnh hội thoại…");
+        var turn = await BuildTurnContextAsync(project, ba, model, cancellationToken);
 
-        // Ba bước chuẩn bị (bộ nhớ hội thoại + hồ sơ user + bản đồ bao phủ) độc lập với nhau và là phần
-        // chậm nhất trước khi BA "đặt bút" — chạy SONG SONG để độ chờ mỗi lượt bằng bước chậm nhất thay vì
-        // tổng ba bước. Xem PrepareTurnContextAsync về cách cô lập DbContext.
-        var (memory, userMemory, coverageUpdate) = await PrepareTurnContextAsync(project, ba, model, cancellationToken);
-        var recent = memory.RecentTurns;
-        var coverageMap = coverageUpdate.Map;
-
-        // Ba nhánh (khi chạy song song) ghi cột bộ nhớ qua context riêng — đồng bộ lại giá trị bản đồ lên
-        // entity đang track để các chỗ đọc phía dưới (BuildCoverageNote, kết quả trả về) thấy bản tươi.
-        project.RequirementCoverageMap = coverageMap;
-
-        // Tài liệu nguồn (ảnh/PDF) của project: gắn vào ĐÚNG lượt user mới nhất (một lần) để BA "thấy" khi trả lời,
-        // thay vì lặp lại ở mọi message trong lịch sử. Model không vision ⇒ builder chỉ trả phần text bóc từ PDF.
-        // Lưu ý chi phí: mỗi lượt chat là một request MỚI, nên nguồn nào còn phải đi bằng ẢNH thì lượt nào
-        // cũng upload lại ảnh đó. Thứ chặn việc này là VisionSummary — nguồn đã được BA mô tả nội dung hình
-        // thành chữ ở lượt xác nhận tài liệu thì từ đây chỉ còn mang phần chữ (xem SourceContextBuilder).
-        // Chỉ đọc (builder không ghi gì lên entity) ⇒ AsNoTracking, khỏi track cả ExtractedText dài.
-        var sources = await _db.ProjectSourceFiles
-            .AsNoTracking()
-            .Where(s => s.ProjectId == projectId)
-            .OrderBy(s => s.CreatedAt)
-            .ToListAsync(cancellationToken);
-        var sourceContents = _sourceContextBuilder.Build(sources, model);
-        var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
-
-        // LƯỢT KỂ LẠI FILE BẢNG TÍNH: người dùng vừa gửi bảng cột đã tích, và tin nhắn đó do server soạn
-        // nên nhận ra được chắc chắn (SourceColumnMapBuilder.IsSubmissionMessage). Bản đọc lại của bảng
-        // tính bị cố ý dời từ lượt upload xuống đây — xem BuildSourceAckTurnShape. Không có lượt này thì
-        // chốt cột xong là BA hỏi thẳng câu tiếp theo, và cái sai duy nhất còn lại ở đầu vào (BA hiểu file
-        // kể chuyện gì) không bao giờ được người dùng nhìn thấy để bác.
-        var columnReadbackTurn = lastUserIndex >= 0
-            && SourceColumnMapBuilder.IsSubmissionMessage(recent[lastUserIndex].Message)
-            && sources.Any(s => s.Kind == SourceFileKind.Spreadsheet && !string.IsNullOrWhiteSpace(s.ColumnMap));
-
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/requirement-chat.v4.md"))
-        };
-        // TEXT TÀI LIỆU NGUỒN ĐẶT NGAY ĐÂY, KHÔNG PHẢI Ở LƯỢT USER CUỐI — đây là một quyết định về CHI PHÍ,
-        // không phải về cách trình bày. Prompt cache của OpenAI khớp theo PREFIX: mọi thứ đứng trước khối
-        // đầu tiên thay đổi trong lượt này đều được phục vụ từ cache với giá rẻ hơn 10 lần. Text nguồn là
-        // khối LỚN (tới 20.000 ký tự mỗi file) và TĨNH (không đổi cho tới khi người dùng upload thêm), mà
-        // trước đây nó bị đính vào lượt user CUỐI CÙNG — vị trí biến động nhất trong cả danh sách — nên
-        // lượt nào cũng trả giá đầy đủ cho đúng những byte không hề đổi.
-        //
-        // Chỉ tách khi lượt này KHÔNG mang ảnh: còn ảnh thì chữ phải ở cạnh ảnh của chính nguồn đó (xem
-        // SourceContext.TextOnly). Không mất mát gì ở trạng thái ổn định — ảnh chỉ đi kèm cho tới khi BA
-        // ghi xong VisionSummary, sau đó mọi lượt đều là lượt không ảnh (xem SourceContextBuilder).
-        var sourceTextInPrefix = sourceContents.Count > 0 && !sourceContents.HasImages;
-        if (sourceTextInPrefix)
-        {
-            messages.Add(new ChatMessage(ChatRole.System, sourceContents.TextOnly()));
-        }
-        // Bối cảnh tổ chức Bosch render từ dữ liệu HR thật (OrgUnits/Associates, có cache) + đơn vị yêu cầu
-        // của dự án (nếu đã gắn lúc tạo project): BA hiểu ngay tên phòng ban/chức danh người dùng nhắc tới,
-        // gợi ý bằng tên phòng thật và hỏi luồng duyệt đúng ngôn ngữ manager/HoD. Fail-open: chưa có dữ
-        // liệu ⇒ bỏ qua, chat như cũ. Xem OrganizationContextService.
-        var organizationContext = await _orgContext.BuildCombinedContextAsync(project.OrgUnitCode, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(organizationContext))
-        {
-            messages.Add(new ChatMessage(ChatRole.System, organizationContext));
-        }
-        // Checklist bổ sung được BA rút kinh nghiệm từ các dự án TRƯỚC (của bất kỳ ai) — bucket chung +
-        // bucket PHÒNG BAN của đơn vị yêu cầu (gắn bắt buộc lúc tạo project, nên đúng ngay từ lượt đầu) —
-        // nạp để hỏi kỹ hơn mà không bị nhiễu bởi bài học của phòng khác. Xem ChecklistNoteStore.
-        var checklistBucket = await _checklistNotes.ResolveBucketAsync(project.OrgUnitCode, cancellationToken);
-        var learnedChecklist = await _checklistNotes.BuildForChatAsync(ba, checklistBucket, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(learnedChecklist))
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## Checklist bổ sung (rút kinh nghiệm từ các dự án trước — chủ động hỏi thêm các mục này nếu liên quan)\n"
-                + learnedChecklist));
-        }
-        // Hồ sơ người dùng (nếu có): nạp như một system message nền để BA hiểu user ngay từ lượt đầu, kể cả
-        // ở dự án mới. Đây là điều tạo cảm giác "càng nói chuyện càng hiểu mình".
-        if (!string.IsNullOrWhiteSpace(userMemory))
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## Hồ sơ người dùng (đúc kết từ các lần trao đổi trước — dùng để hiểu & phục vụ đúng ý người dùng, KHÔNG nhắc lại như thể vừa được kể)\n"
-                + userMemory));
-        }
-        // Đính kèm bộ nhớ dài hạn (nếu có) như một system message nền — BA nhớ các lượt cũ đã lược bớt
-        // mà không phải đọc lại nguyên văn.
-        if (!string.IsNullOrWhiteSpace(memory.Summary))
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược bớt để tiết kiệm token — dùng làm ngữ cảnh nền)\n"
-                + memory.Summary));
-        }
-        // Bản đồ bao phủ (nếu có): la bàn để BA chọn câu hỏi kế tiếp — ưu tiên nhóm ★ chưa rõ, không hỏi
-        // lại nhóm đã [RÕ]. Prompt requirement-chat.v4 hướng dẫn cách dùng heading này.
-        if (!string.IsNullOrWhiteSpace(coverageMap))
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## Bản đồ bao phủ yêu cầu (trạng thái khai thác từng nhóm thông tin — dùng để chọn câu hỏi kế tiếp)\n"
-                + "Nhóm đã [RÕ]: KHÔNG hỏi lại. Nhóm [MỘT PHẦN]: chỉ hỏi ĐÚNG phần ghi sau \"còn thiếu:\", "
-                + "KHÔNG phát lại câu hỏi mở đầu của nhóm đó (người dùng đã trả lời phần còn lại rồi).\n"
-                + coverageMap));
-        }
-        // "Điều đã chốt" (DecisionLogService): các quyết định người dùng đã nói/đã xác nhận, gộp lũy tiến
-        // qua MỌI lượt. Trước đây nhật ký này chỉ hiện thành panel cạnh khung chat để người dùng tự canh —
-        // một nghịch lý, vì BA mới là bên đọc được cả hội thoại, còn người dùng thì phải vừa kể chuyện vừa
-        // đối chiếu một danh sách 40 dòng. Nay nó đi thẳng vào ngữ cảnh của BA (panel đã gỡ) để BA soát
-        // mâu thuẫn NGAY trong lượt, thay vì dồn hết cho cổng soát trước lúc soạn tài liệu — lúc đó người
-        // dùng phải chọn A/B cho một câu họ nói từ lượt 3, đã nguội hẳn bối cảnh.
-        //
-        // Vì sao không để BA tự đọc lại transcript: các lượt cũ bị ConversationMemoryService NÉN thành bản
-        // tóm tắt để tiết kiệm token, nên chi tiết đã chốt bị bào mòn đúng ở hội thoại dài — cũng chính là
-        // lúc mâu thuẫn dễ xảy ra nhất. Nhật ký là bản đúc kết duy nhất sống sót qua việc nén đó.
-        var settledDecisions = DecisionLogService.ParseItems(project.DecisionLog);
-        if (settledDecisions.Count > 0)
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## Điều đã chốt (các quyết định người dùng ĐÃ nói/đã xác nhận — đối chiếu trước khi hỏi tiếp)\n"
-                + "TRƯỚC khi soạn câu hỏi kế tiếp, đối chiếu câu người dùng VỪA trả lời với danh sách này. "
-                + "Nếu nó CHỌI với một điều đã chốt, lượt này PHẢI là lượt gỡ mâu thuẫn (xem mục \"Soát mâu "
-                + "thuẫn với điều đã chốt\" trong hướng dẫn), KHÔNG hỏi sang nhóm khác. Không chọi nhau thì "
-                + "coi đây là điều đã biết: KHÔNG hỏi lại, KHÔNG bắt người dùng xác nhận lần nữa.\n"
-                + string.Join("\n", settledDecisions.Select(d => "- " + d))));
-        }
-        // "Điểm cần làm rõ" (InterviewOutlookService.OpenQuestions): tồn đọng các điểm còn mơ hồ/mâu thuẫn
-        // chắt từ hội thoại. Bản đồ ở trên chỉ có độ phân giải theo NHÓM ("Quy tắc nghiệp vụ: MỘT PHẦN"),
-        // còn danh sách này giữ ĐÚNG điểm chưa chốt ("Reference Belt đồng bộ tự động hay nhập tay?") —
-        // BA mỗi lượt chỉ hỏi 1-2 câu nên phần chưa hỏi tới cần một chỗ để không rơi. Trước đây danh sách
-        // này chỉ hiện thành panel cạnh chat để user tự đọc; nay nó đi thẳng vào ngữ cảnh của BA — người
-        // dùng chỉ cần trò chuyện, việc "hỏi cho hết" là của BA.
-        var openQuestions = InterviewOutlookService.ParseItems(project.OpenQuestions);
-        if (openQuestions.Count > 0)
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## Điểm cần làm rõ còn tồn đọng (chắt từ các lượt trước — hỏi cho hết trong khung chat)\n"
-                + "Chọn câu hỏi kế tiếp ƯU TIÊN từ danh sách này khi nó còn mục, trước khi mở nhóm mới trong "
-                + "bản đồ bao phủ. Điểm nào người dùng đã trả lời ở lượt gần đây thì coi như xong, KHÔNG hỏi lại.\n"
-                // Thẻ nhóm "[Vòng đời & trạng thái] …" bị GỠ trước khi vào ngữ cảnh: nó được gắn cho
-                // CoveragePendingGuard đối chiếu tất định với bản đồ, không phải cho BA đọc ra. Nhãn nhóm là
-                // từ vựng nội bộ của bản đồ và prompt chat cấm ném nó vào mặt người dùng nghiệp vụ — để
-                // nguyên thì thẻ đi thẳng vào câu hỏi kế tiếp, đúng lỗi mà CoverageDeadQuestionLoopTests
-                // đã phải dựng lưới một lần.
-                + string.Join("\n", openQuestions.Select(q => "- " + CoveragePendingGuard.StripGroupTag(q)))));
-        }
-        // PHÂN QUYỀN — một trong HAI nhóm không được hỏi bằng câu hỏi (nhóm kia là «Thông báo / nhắc nhở»,
-        // khối của nó nằm ngay dưới). Xem PermissionMatrixGate cho lý do đầy đủ; tóm tắt: hỏi "mỗi vai trò được xem và làm những gì?" là bắt người dùng nghiệp vụ tự dựng cả
-        // ma trận trong đầu, nên câu trả lời thật gần như luôn là "cứ vậy đã, có gì tôi bổ sung sau" — rồi
-        // BA tự soạn phương án và một chip "Đồng ý" đóng dấu [RÕ] cho cả nhóm. Ba trạng thái, ba lệnh khác
-        // nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model tự đoán đang ở trạng thái nào.
-        // PHẠM VI MÀN HÌNH THẬT SỰ: mọi dòng CÒN TÍCH của bảng màn hình — nguồn duy nhất, chốt rồi hay còn
-        // chờ duyệt. Đây là chỗ bảng màn hình trả tiền cho chính nó, vì các DÒNG của bảng phân quyền lấy
-        // từ đây.
-        var effectiveScreens = PermissionMatrixGate.EffectiveScreens(project);
-        // MỘT cổng cho cả sáu bảng, chọn TẤT ĐỊNH và mỗi lượt đúng MỘT bảng: hai khối "## LƯỢT NÀY:" cùng
-        // lúc là hai mệnh lệnh chọi nhau, model sẽ trả một bảng lai hoặc bỏ cả hai. Lượt kể lại file đã có
-        // việc riêng và chỉ có MỘT chỗ trả lời (hai chip xác nhận) nên mọi cổng nhường nó một lượt — chúng
-        // mở lại ngay lượt sau. Xem InterviewTableGate cho thứ tự ưu tiên và lý do.
-        var table = InterviewTableGate.Select(project, suppressed: columnReadbackTurn);
-        // Bảng màn hình là cổng DUY NHẤT mở lại được sau khi đã chốt (xem ScreenScopeGate). Bảng đã mang
-        // dấu chốt ⇒ lượt BÀY LẠI, và cả khối lệnh lẫn câu dẫn đều phải nói ra sự khác biệt đó: phần lớn
-        // bảng là thứ người dùng đã tự tay rà và hệ thống giữ nguyên bằng SeedRows, việc của lượt này chỉ
-        // là các mục vừa lộ ra. Ở lượt bày ĐẦU thì MỌI dòng đều chờ duyệt, nên hai danh sách dưới đây cố ý
-        // để rỗng: gọi tên cả bảng là "phần mới" thì câu dẫn thành vô nghĩa.
-        var reshowScreenScope = table == InterviewTableKind.ScreenScope
-            && ScreenScopeMapBuilder.IsConfirmed(project.ScreenScopeMap);
-        var pendingScreens = reshowScreenScope
-            ? ScreenScopeMapBuilder.PendingScreens(project.ScreenScopeMap)
-            : new List<string>();
-        var pendingFunctions = reshowScreenScope
-            ? ScreenScopeMapBuilder.PendingFunctions(project.ScreenScopeMap)
-            : new List<string>();
-        // Hai đầu vào của bảng THÔNG BÁO: DÒNG là chuyển trạng thái của bảng đối tượng đã chốt, còn MỤC CHỌN
-        // của hai ô To/CC là danh sách người nhận của dự án — bộ người dùng đã tự tay rà nếu có, còn không
-        // thì bản gieo từ bốn quan hệ + các vai trò của bảng phân quyền. Tính ở đây vì cả khối "LƯỢT NÀY"
-        // lẫn nhánh dựng bảng phía dưới đều đọc chúng, và cả lệnh cấm hỏi lẻ cũng phải biết có dòng nào gieo
-        // được không.
-        // Bộ đối chiếu ô "lấy số từ" của bảng BÁO CÁO: tên các đối tượng người dùng đã GIỮ ở bảng đối tượng.
-        // Cùng lý do với hai đầu vào của bảng thông báo ngay dưới — cả khối "LƯỢT NÀY" lẫn nhánh dựng bảng
-        // đều đọc nó, nên tính một lần ở đây.
-        var entityNames = EntityMapBuilder.EntityNames(project.EntityMap);
-        var notificationSeedRows = NotificationMapBuilder.SeedRows(project.EntityMap);
-        var recipientOptions = NotificationMapBuilder.RecipientOptions(
-            project.NotificationRecipients, PermissionMatrixBuilder.Roles(project.PermissionMatrix));
-        // CÁC BẢNG ĐÃ CHỐT còn lại: khối ngữ cảnh đính vào MỌI lượt sau, không phụ thuộc cổng nào đang mở.
-        // Thiếu chúng thì mỗi bảng chỉ là một màn bấm đẹp — BA vẫn hỏi lại đúng thứ người dùng vừa duyệt.
-        AppendConfirmedTable(messages, FlowMapBuilder.RenderConfirmedBlock(project.FlowMap),
-            "## Bảng luồng nghiệp vụ người dùng ĐÃ CHỐT (tự tay rà từng bước — coi như điều đã biết)",
-            "KHÔNG hỏi lại thứ tự bước, ai làm bước nào, hay kết quả của bước; KHÔNG dựng yêu cầu trái với "
-            + "các luồng này. Còn được phép hỏi các luồng CHƯA có trong bảng.");
-        AppendConfirmedTable(messages, ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
-            "## Bảng màn hình người dùng ĐÃ CHỐT (phạm vi màn hình — coi như điều đã biết)",
-            "KHÔNG hỏi lại ứng dụng cần màn hình nào, và KHÔNG đề xuất thêm màn hình ngoài danh sách này trừ "
-            + "khi chính người dùng nêu ra một nhu cầu mới.");
-        // Lệnh "đừng hỏi lại" ở đây chỉ phủ CẤU TRÚC, và câu thứ hai phải nói rõ điều đó. Bảng chốt xong
-        // không có nghĩa là mọi câu hỏi về mô hình dữ liệu đã hết: các RÀNG BUỘC trên một tập dòng con —
-        // "tổng tỷ trọng phải bằng 100%", "luôn có một dòng mặc định không sửa được" — không có ô nào trong
-        // bảng để đứng, nên nếu lệnh này bị hiểu rộng thì chúng vĩnh viễn không được hỏi và POC dựng ra một
-        // biểu mẫu cộng lại không ra gì cả. Đây là ngoại lệ nằm ở câu lệnh, khác ba ngoại lệ ghi ngay tại
-        // dòng của nó trong RenderConfirmedBlock (đối tượng rỗng ruột, ô chọn chưa rõ nguồn).
-        AppendConfirmedTable(messages, EntityMapBuilder.RenderConfirmedBlock(project.EntityMap),
-            "## Bảng đối tượng nghiệp vụ người dùng ĐÃ CHỐT (coi như điều đã biết)",
-            "KHÔNG hỏi lại thông tin nào cần lưu hay các trạng thái đi qua. Bảng này chốt CẤU TRÚC, không "
-            + "chốt RÀNG BUỘC: các quy tắc trên một tập dòng con (tổng tỷ trọng, dòng mặc định luôn có sẵn, "
-            + "điều kiện được sửa) VẪN phải hỏi như mọi quy tắc nghiệp vụ khác.");
-        AppendConfirmedTable(messages, ReportMapBuilder.RenderConfirmedBlock(project.ReportMap),
-            "## Bảng báo cáo / thống kê người dùng ĐÃ CHỐT (coi như điều đã biết)",
-            "KHÔNG hỏi lại ứng dụng cần báo cáo nào, mỗi báo cáo lấy số từ đâu hay gộp theo gì, và KHÔNG đề "
-            + "xuất lại báo cáo người dùng đã bỏ. Mỗi báo cáo còn giữ là MỘT MÀN HÌNH của ứng dụng.");
-        var confirmedMatrix = PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix);
-        if (!string.IsNullOrWhiteSpace(confirmedMatrix))
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## Bảng phân quyền người dùng ĐÃ CHỐT (tự tay chọn từng ô — coi như điều đã biết)\n"
-                + "KHÔNG hỏi lại bất kỳ quyền nào dưới đây, KHÔNG bắt xác nhận lần nữa, và KHÔNG dựng yêu cầu "
-                + "trái với bảng này.\n"
-                + confirmedMatrix));
-        }
-        else if (table == InterviewTableKind.PermissionMatrix)
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## LƯỢT NÀY: BÀY BẢNG PHÂN QUYỀN (bắt buộc)\n"
-                + "Mọi nhóm khác của bản đồ bao phủ đã [RÕ]. Lượt này là lượt chốt nhóm «Phân quyền theo "
-                + "nghiệp vụ», và nó được chốt bằng BẢNG chứ không bằng câu hỏi.\n"
-                + "Trả về trường `permissionMatrix`: mỗi dòng là MỘT chức năng của MỘT màn hình, kèm quyền của "
-                + "từng vai trò. Ràng buộc:\n"
-                + "- `screen` phải CHÉP ĐÚNG một mục trong danh sách phạm vi bên dưới — không thêm màn hình mới, "
-                + "không gộp hai mục làm một. Mục nào bạn không nêu, hệ thống tự bổ sung vào bảng ở trạng thái "
-                + "chưa ai có quyền.\n"
-                + "- `function`: động từ nghiệp vụ ngắn (\"Xem\", \"Tạo\", \"Sửa\", \"Xóa\", \"Duyệt/Từ chối\", "
-                + "\"Cập nhật kết quả\"). Có khối \"Bảng màn hình đã được NGƯỜI DÙNG CHỐT\" trong ngữ cảnh thì "
-                + "LẤY THEO danh sách chức năng của đúng màn hình đó — người dùng vừa tự tay tích từng chức "
-                + "năng, nên tự nghĩ ra một danh sách khác là bắt họ phân quyền cho những việc chưa ai duyệt, "
-                + "và bỏ sót một chức năng họ đã giữ thì chức năng ấy mặc nhiên thành \"không ai được làm\". "
-                + "Chỉ thêm chức năng ngoài danh sách khi chính hội thoại có nêu.\n"
-                + "- `grants`: mỗi vai trò một mục, `scope` là MỘT trong \"của mình\" / \"của đơn vị\" / \"tất cả\", "
-                + "hoặc để rỗng nếu vai đó không có quyền. Phạm vi là phần quan trọng nhất của bảng — "
-                + "\"xem Training Plan\" và \"xem Training Plan do mình lập\" là hai yêu cầu khác hẳn nhau.\n"
-                + "- `evidence`: CHỈ điền khi người dùng đã tự nói điều đó trong hội thoại, và điền đúng trích dẫn "
-                + "của họ. Ô có trích dẫn được khóa lại như điều đã chốt; ô bạn suy đoán thì để trống trường này "
-                + "và người dùng sẽ tự chọn. TUYỆT ĐỐI không bịa trích dẫn để ô trông như đã chốt.\n"
-                + "- `condition`: điều kiện dữ liệu mà bốn nấc phạm vi không chở nổi (\"chỉ đăng ký được khóa nằm "
-                + "trong danh sách bắt buộc của mình\", \"chỉ sửa khi chưa submit\"). Không có thì để rỗng.\n"
-                + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng phân quyền\" — không đặt "
-                + "câu hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ "
-                + "trả lời DUY NHẤT của lượt này.\n\n"
-                + "### Phạm vi dự kiến (mỗi mục là MỘT dòng nhóm của bảng — chép nguyên văn vào `screen`)\n"
-                + string.Join("\n", effectiveScreens.Select(s => "- " + s))));
-        }
-        else
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## Nhóm «Phân quyền theo nghiệp vụ» — ĐỂ CUỐI, đừng hỏi lẻ\n"
-                + "KHÔNG hỏi các câu kiểu \"mỗi vai trò được xem và thao tác những gì\", \"vai X còn được làm gì "
-                + "nữa không\", và KHÔNG tự soạn một phương án phân quyền rồi xin người dùng gật. Quyền xem/tạo/"
-                + "sửa/xóa theo từng màn hình sẽ được chốt bằng MỘT BẢNG ở cuối buổi, khi phạm vi màn hình đã "
-                + "đứng yên — hỏi bây giờ chỉ nhận về \"cứ vậy đã, có gì tôi bổ sung sau\".\n"
-                + "Vẫn PHẢI hỏi như thường: vai trò nào làm bước nào trong LUỒNG (ai gửi, ai duyệt, ai bị từ "
-                + "chối thì làm gì), vì câu trả lời đó đổi luôn câu hỏi kế tiếp của bạn; và ai QUẢN LÝ từng danh "
-                + "mục dữ liệu. Đó là nhóm «Chức năng & luồng nghiệp vụ chính» và «Dữ liệu / danh mục chính», "
-                + "không phải nhóm phân quyền."));
-        }
-        // BA KHỐI "LƯỢT NÀY" còn lại. Chúng loại trừ nhau VÀ loại trừ khối phân quyền ở trên vì cùng đến từ
-        // một lời gọi InterviewTableGate.Select — không có tổ hợp nào bày hai bảng cùng lúc.
-        if (table == InterviewTableKind.FlowMap)
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## LƯỢT NÀY: BÀY BẢNG LUỒNG NGHIỆP VỤ (bắt buộc)\n"
-                + "Các luồng chính đã rõ trong hội thoại. Lượt này bạn ráp chúng lại thành BẢNG để người dùng rà "
-                + "từng bước — họ chưa bao giờ nhìn thấy bản bạn ráp, mà chính bản đó mới là thứ đi vào tài liệu.\n"
-                + "Trả về trường `flowMap`: mỗi phần tử là MỘT luồng. Ràng buộc:\n"
-                + "- `name`: tên luồng theo ngôn ngữ nghiệp vụ (\"Đăng ký khóa học\", \"Duyệt kế hoạch quý\").\n"
-                + "- `kind`: \"luồng chính\" hoặc \"ngoại lệ\". PHẢI có ít nhất MỘT ngoại lệ nếu hội thoại có nhắc "
-                + "tới bất kỳ đường hỏng nào (từ chối, quá hạn, trùng, thiếu điều kiện). Ngoại lệ là phần người "
-                + "dùng không bao giờ tự kể — họ coi nó là hiển nhiên — nên đây là chỗ rẻ nhất để hỏi.\n"
-                + "- `role`: vai trò khởi xướng luồng. `trigger`: CHỈ với ngoại lệ — điều kiện làm nó xảy ra.\n"
-                + "- `steps`: từ 2 tới 10 bước theo đúng thứ tự, mỗi bước `{actor, action, outcome}`. `actor` là "
-                + "vai làm bước đó; `outcome` là trạng thái/kết quả sau bước (để rỗng nếu bước không đổi trạng "
-                + "thái). Luồng một bước KHÔNG phải luồng — hệ thống sẽ loại nó.\n"
-                + "- `evidence` của TỪNG BƯỚC: CHỈ điền khi người dùng đã tự nói đúng bước đó, và điền đúng trích "
-                + "dẫn của họ. Bước có trích dẫn được khóa lại như điều đã chốt; bước bạn suy ra thì để trống "
-                + "trường này và người dùng sẽ tự soát. TUYỆT ĐỐI không bịa trích dẫn.\n"
-                + "- CHỈ mô tả điều người dùng ĐÃ nói/đã chốt. Không thêm bước \"cho đủ quy trình\".\n"
-                + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng luồng\" — không đặt câu "
-                + "hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ trả "
-                + "lời DUY NHẤT của lượt này."));
-        }
-        else if (table == InterviewTableKind.ScreenScope)
-        {
-            // Hai câu mở đầu khác nhau theo lượt bày đầu / bày lại. Nói "người dùng chưa bao giờ nhìn thấy
-            // danh sách này" với một bảng họ vừa tự tay rà là sai sự thật, và model đọc câu đó sẽ mô tả lại
-            // từ đầu cả những màn hình đã duyệt — đúng phần mà SeedRows sẽ bỏ đi, tức một lượt gọi tốn công
-            // cho không.
-            var screenScopeIntro = reshowScreenScope
-                ? "## LƯỢT NÀY: BỔ SUNG BẢNG MÀN HÌNH ĐÃ CHỐT (bắt buộc)\n"
-                    + "Người dùng đã tự tay rà và CHỐT bảng màn hình ở một lượt trước. Sau đó hội thoại lộ "
-                    + "thêm phần MỚI, và lượt này bày lại bảng chỉ để lấy phần mới đó. Hệ thống giữ "
-                    + "nguyên các dòng người dùng đã duyệt, nên bạn CHỈ mô tả các mục ở phần \"MỚI\" cuối "
-                    + "khối này — mô tả lại màn hình đã có là công bỏ đi, và câu dẫn của lượt do "
-                    + "hệ thống soạn nên đừng nhắc tới chúng.\n"
-                : "## LƯỢT NÀY: BÀY BẢNG MÀN HÌNH (bắt buộc)\n"
-                    + "Lượt này chốt PHẠM VI MÀN HÌNH của ứng dụng. Danh sách dưới đây được chắt ra từ hội "
-                    + "thoại nhưng người dùng chưa bao giờ nhìn thấy nó — mà mọi thứ phía sau (bảng phân "
-                    + "quyền, các màn hình của bản demo) đều đứng trên đúng danh sách này.\n"
-                    // Bảng này đứng SAU bảng đối tượng và bảng báo cáo đúng để hai loại màn hình ấy có mặt
-                    // ngay ở lần bày đầu. Model không được phép coi chúng là mục lạc: bỏ một màn hình quản
-                    // lý danh mục ra khỏi bảng là xoá một quyết định người dùng vừa tự tay chốt ở bảng
-                    // trước, và người dùng sẽ đọc bảng này như thể danh mục đó không cần màn hình nào.
-                    + "Phạm vi này đã GỒM CẢ các màn hình do hai bảng người dùng vừa chốt sinh ra: màn hình "
-                    + "quản lý từng danh mục mà ứng dụng tự quản lý (từ bảng đối tượng) và mỗi báo cáo còn "
-                    + "giữ (từ bảng báo cáo). Chúng là quyết định NGƯỜI DÙNG vừa chốt, không phải mục bạn "
-                    + "chắt ra — phải có dòng riêng, và phần `purpose`/`functions` viết đúng như một màn hình "
-                    + "quản lý danh mục (xem, thêm, sửa, bỏ) hoặc một màn hình báo cáo (xem, lọc, xuất).\n";
-
-            messages.Add(new ChatMessage(ChatRole.System,
-                screenScopeIntro
-                + "Trả về trường `screenScopeMap`: mỗi phần tử là MỘT MÀN HÌNH. Ràng buộc:\n"
-                + "- `screen` phải CHÉP ĐÚNG một mục trong danh sách phạm vi bên dưới — không thêm màn hình mới, "
-                + "không tự đặt tên khác, không dịch tên tiếng Anh sang tiếng Việt, không thêm chữ dẫn kiểu "
-                + "\"Màn hình …\"/\"… Screen\" (tên màn hình là nhãn menu của bản demo, và tên ngắn thì phép "
-                + "so khớp bù chỉ chạy khi bạn chép đúng). Mục nào bạn không nêu, hệ thống tự bổ sung vào bảng.\n"
-                + "- MỘT DÒNG = MỘT MÀN HÌNH, không phải một tính năng và không phải một luồng. Danh sách phạm "
-                + "vi bên dưới được chắt theo lượt nên hay lẫn cả ba loại: mục nào đọc lên là một CHỨC NĂNG "
-                + "(\"Tính năng Generate Training Implement từ Training Plan Detail\", \"Chỉnh sửa số lượng "
-                + "lớp\") hay một LUỒNG (\"Luồng đăng ký khóa học với trạng thái pending, enroll, waitlist\") "
-                + "thì ĐỪNG dựng thành dòng riêng: đưa nó vào `functions` của màn hình thật sự chứa nó, và ghi "
-                + "nguyên văn mục đó vào `covers` của dòng ấy. Không ghi vào `covers` thì hệ thống tưởng bạn "
-                + "bỏ quên và bổ sung nó lại thành một dòng trắng.\n"
-                + "- `purpose`: MỘT câu nói màn hình này để làm gì, theo góc nhìn người dùng nghiệp vụ.\n"
-                + "- `functions`: các chức năng trên màn, MỖI CHỨC NĂNG MỘT PHẦN TỬ `{name, flowSteps, "
-                + "evidence}` — người dùng tích/bỏ tích từng chức năng một, nên đừng gói nhiều việc vào một "
-                + "`name` (\"Xem, Sửa và Gửi duyệt\" là ba chức năng, không phải một).\n"
-                + "- `flowSteps` của TỪNG chức năng: các BƯỚC của bảng luồng đã chốt mà CHỨC NĂNG ĐÓ phụ trách "
-                + "— chép phần `action` của bước. Đây là phần quan trọng nhất của bảng: MỌI bước trong danh "
-                + "sách cuối khối này phải được ÍT NHẤT MỘT chức năng nhận, và hệ thống đối chiếu tất định "
-                + "chỗ này. Chức năng tra cứu không nằm trong luồng nào thì để mảng rỗng.\n"
-                + "- `evidence`: CHỈ điền khi người dùng đã tự nêu màn hình / chức năng đó, kèm đúng trích dẫn "
-                + "của họ. Dòng có trích dẫn được tích sẵn kèm dấu ✓; phần bạn suy ra thì để trống trường này.\n"
-                + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng màn hình\" — không đặt "
-                + "câu hỏi, không kèm `suggestions`, không kèm `questions`.\n\n"
-                + "### Phạm vi dự kiến (mỗi mục phải hoặc thành MỘT dòng `screen`, hoặc nằm trong `covers` của "
-                + "một dòng — không mục nào được bỏ rơi)\n"
-                + string.Join("\n", effectiveScreens.Select(s => "- " + s))
-                + (pendingScreens.Count > 0
-                    ? "\n\n### Màn hình MỚI (lộ ra SAU lúc người dùng chốt bảng — phần việc DUY NHẤT của lượt này)\n"
-                        + string.Join("\n", pendingScreens.Select(s => "- " + s))
-                        + "\nMục nào trong số này thật ra chỉ là một chức năng của màn hình ĐÃ CHỐT thì đừng "
-                        + "dựng thành dòng riêng: ghi nguyên văn nó vào `covers` của dòng ấy."
-                    : string.Empty)
-                // Chức năng mới trên một màn hình ĐÃ CHỐT: hệ thống đã ghép sẵn nó vào dòng của màn hình ấy
-                // và giữ nguyên phần còn lại, nên việc của model chỉ là ô "phục vụ bước nào". Không nói ra
-                // thì model thấy một chức năng lạ trong bảng và mô tả lại cả màn hình quanh nó.
-                + (pendingFunctions.Count > 0
-                    ? "\n\n### Chức năng MỚI trên màn hình đã chốt (đã có sẵn trong bảng, đừng dựng dòng mới)\n"
-                        + string.Join("\n", pendingFunctions.Select(s => "- " + s))
-                    : string.Empty)
-                // BẢNG KÊ CÁC BƯỚC PHẢI PHỦ. Các bước này đã có trong ngữ cảnh qua khối bảng luồng đã chốt,
-                // nhưng ở đó chúng là một câu chuyện để đọc, còn ở đây là một danh sách để ĐỐI CHIẾU — và
-                // chỗ hỏng của lượt này luôn là chỗ nối chứ không phải chỗ hiểu. Ca thật (JD Library 2):
-                // bảng luồng có bước "Xem danh sách nhân viên trực tiếp dưới quyền", bảng màn hình dựng ra
-                // mười bảy màn không màn nào nhận nó, và người dùng nhận về một câu hỏi thay vì một bảng.
-                // Bước còn sót lại sau khối này thì ScreenStepPlacementService xếp chỗ ở hậu kỳ; danh sách
-                // đây là để phần lớn ca không phải đi tới đó.
-                + FlowStepChecklist(project.FlowMap)));
-        }
-        else if (table == InterviewTableKind.EntityMap)
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## LƯỢT NÀY: BÀY BẢNG ĐỐI TƯỢNG NGHIỆP VỤ (bắt buộc)\n"
-                + "Lượt này chốt các ĐỐI TƯỢNG mà ứng dụng lưu hồ sơ, thông tin cần lưu về chúng, và vòng đời "
-                + "trạng thái kèm người nhận thông báo.\n"
-                + "Trả về trường `entityMap`: mỗi phần tử là MỘT đối tượng. Ràng buộc:\n"
-                + "- BA CỘT TÊN của bảng này — `entity`, `fields[].name`, `states[].state` — viết bằng TIẾNG "
-                + "ANH, 1–3 từ, dạng HIỂN THỊ Title Case (\"Training Plan\", \"Effective Date\", \"Pending "
-                + "HRBP Approval\"), KHÔNG phải dạng định danh (`effective_date`, `EmployeeID`). Chúng là thứ "
-                + "chảy ra mô hình dữ liệu và ra nhãn trên bản demo. Mọi ô CÒN LẠI viết bằng tiếng Việt — "
-                + "`description`, `meaning`, `entryCondition`, `sourceSystem`, `rule`, `options`, `evidence` và cả "
-                + "`message`: người rà bảng là người nghiệp vụ. Từ vựng riêng của đơn vị (OrgUnit, HRBP, JD, PC "
-                + "Level) giữ NGUYÊN VĂN, đừng dịch lại.\n"
-                + "- `entity`: tên đối tượng (\"Training Plan\", \"Leave Request\") — TUYỆT ĐỐI không dùng từ "
-                + "vựng kỹ thuật (table, entity, model, khóa chính, quan hệ 1-n). Các bảng sau phải chép ĐÚNG "
-                + "chuỗi này, nên đừng đổi cách đặt tên giữa chừng.\n"
-                + "- `fields`: các thông tin cần lưu, mỗi mục `{name, meaning, required, input, source, options, "
-                + "sourceSystem, rule, sourceColumn}`. Không liệt kê id/khóa/ngày tạo kỹ thuật — người dùng không "
-                + "quyết định chúng. `meaning` là câu tiếng Việt giải nghĩa cái tên tiếng Anh bên cạnh và KHÔNG "
-                + "ĐƯỢC để trống: một tên tiếng Anh cạnh một ô mô tả trống để người dùng đối diện đúng một từ "
-                + "ngoại ngữ trơ trọi. Chưa chắc nghĩa thì vẫn viết cách hiểu của bạn — họ sửa một dòng, còn để "
-                + "trống là họ không có gì để sửa.\n"
-                + "- Thông tin nào có `source: \"app\"` thì tên của nó còn thành MỘT MÀN HÌNH \"<tên> Catalog\" "
-                + "trên sidebar bản demo — thêm một lý do nữa để nó là tiếng Anh và ngắn.\n"
-                + "- HAI TRỤC của một thông tin, độc lập nhau: `input` = người dùng nhập thế nào (`text` mặc "
-                + "định · `number` · `date` · `choice-one` chọn 1 giá trị · `choice-many` chọn nhiều giá trị · "
-                + "`auto` ứng dụng tự sinh), `source` = danh sách lấy ở đâu và CHỈ có nghĩa với hai kiểu chọn "
-                + "(`inline` vài giá trị cố định liệt kê ở `options` · `app` ứng dụng tự quản lý danh mục · "
-                + "`external` lấy từ hệ thống khác, ghi tên vào `sourceSystem`). `rule` chỉ dành cho `auto` và "
-                + "chở quy tắc sinh mã đúng như người dùng nói.\n"
-                + "- Hai trục này theo ĐÚNG luật của `evidence`: chỉ rời mặc định khi hội thoại đã nói tới. Chưa "
-                + "ai bàn ⇒ `input: \"text\"`, `source: \"\"` và để người dùng tự chọn trên bảng — đoán `app` là "
-                + "âm thầm đặt hàng thêm một MÀN HÌNH cho dự án, đoán `external` là bịa ra một tích hợp không có "
-                + "thật.\n"
-                + "- `required` là *để trống có được không*, KHÁC ô tích \"cần lưu\" của bảng: chỉ bật cho thông "
-                + "tin hội thoại đã nói rõ là bắt buộc, và luôn để `false` với `input: \"auto\"`.\n"
-                + "- `states`: vòng đời, mỗi mục `{state, entryCondition}`. `entryCondition` là điều kiện "
-                + "hoặc hành động đưa đối tượng vào trạng thái đó — lấy từ chính các bước của bảng luồng đã chốt. "
-                + "KHÔNG nêu ai được báo ở mỗi trạng thái: đó là việc của bảng THÔNG BÁO ở cuối buổi, và mỗi "
-                + "trạng thái ở đây sẽ thành một DÒNG của bảng đó. Đối tượng danh mục (phòng ban, khóa học) "
-                + "KHÔNG có vòng đời — để mảng rỗng, đừng dựng ra trạng thái giả.\n"
-                + "- `evidence`: CHỈ điền khi người dùng đã tự nêu đối tượng đó, kèm đúng trích dẫn của họ.\n"
-                + "- Thông tin nào đã nằm trong \"Bảng cột … đã được NGƯỜI DÙNG CHỐT\" thì cứ đưa vào — hệ thống "
-                + "tự đánh dấu nguồn; đừng hỏi lại ý nghĩa của chúng. Với đúng các thông tin đó, chép NGUYÊN VĂN "
-                + "tên cột vào `sourceColumn` (\"Ngày hiệu lực\", \"Item Title\"): cột tên nay là tiếng Anh nên "
-                + "hệ thống không tự nối lại được hai đầu, và mất mối nối ấy thì dòng mất dấu xuất xứ đúng ở chỗ "
-                + "người dùng cần nhận ra thứ họ vừa tự tay tích. Thông tin không đến từ cột nào thì để rỗng — "
-                + "tên không khớp cột đã tích nào sẽ bị hệ thống xoá.\n"
-                + "- Một \"thông tin\" mà thật ra là NHIỀU DÒNG, mỗi dòng có hơn một thuộc tính (\"5 trách nhiệm, "
-                + "mỗi cái kèm tỷ trọng %\", \"các dòng hàng của đơn\") thì TÁCH thành một phần tử `entityMap` "
-                + "nữa: `parentEntity` chép ĐÚNG `entity` của dòng cha, `fields` là các cột của MỘT dòng, và "
-                + "`minRows`/`maxRows` là số dòng mỗi cha (không ai nói thì để null). Tối đa MỘT cấp — đối "
-                + "tượng đã có cha thì không được làm cha của đối tượng khác. Nhưng đừng tách khi mỗi mục chỉ "
-                + "có ĐÚNG một giá trị (\"các kỹ năng yêu cầu\"): đó là một ô `choice-many`.\n"
-                + "- BẢNG chốt CẤU TRÚC, không chốt RÀNG BUỘC. \"Tổng tỷ trọng phải bằng 100%\", \"luôn có một "
-                + "dòng mặc định không sửa được\" là QUY TẮC — không ô nào ở đây chở chúng, và bạn hỏi chúng "
-                + "bằng câu hỏi ở các lượt sau. Đừng nén chúng vào `meaning` hay `description`.\n"
-                + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng đối tượng\" — không đặt "
-                + "câu hỏi, không kèm `suggestions`, không kèm `questions`."));
-        }
-        // BÁO CÁO / THỐNG KÊ — bảng thứ ba. Khác các bảng kia ở chỗ nhóm của nó VẪN được hỏi bằng câu hỏi
-        // suốt buổi (xem ReportMapGate): cổng chỉ mở khi nhóm đã [RÕ], nên tới lượt này BA đã có lời kể để
-        // ráp thành các dòng. Không có vế đó thì bảng bày ra trống và người dùng phải tự chẻ câu chuyện của
-        // họ thành bốn cột — ít hơn cả cái ô kể tự do mà bảng thay thế.
-        else if (table == InterviewTableKind.ReportMap)
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## LƯỢT NÀY: BÀY BẢNG BÁO CÁO / THỐNG KÊ (bắt buộc)\n"
-                + "Lượt này chốt nhóm «Báo cáo / thống kê»: người dùng đã kể họ cần xem những con số/danh sách "
-                + "tổng hợp nào, việc của bạn là ráp lại thành một danh sách có ranh giới để họ rà.\n"
-                + "Trả về trường `reportMap`: mỗi phần tử là MỘT báo cáo. Ràng buộc:\n"
-                + "- `report`: tên đọc được như MỘT MÀN HÌNH, viết bằng TIẾNG ANH 2–4 từ, thường có hậu tố "
-                + "`Report`/`Dashboard` (\"Remaining Leave Report\") — mỗi dòng người dùng giữ lại sẽ thành một "
-                + "màn hình thật của ứng dụng rồi thành nhãn mục menu của bản demo, nên tên tiếng Việt ở đây là "
-                + "một nhãn tiếng Việt trên sidebar. Tên trống nghĩa (\"Thống kê\", \"Báo cáo tổng hợp\") thì "
-                + "tới bảng màn hình không ai rà nổi nó. Ô `question` ngay dưới vẫn là tiếng Việt.\n"
-                + "- `question`: báo cáo này TRẢ LỜI CÂU HỎI GÌ, viết bằng lời người dùng (\"để biết tháng này ai "
-                + "chưa đi học\"). KHÔNG viết mô tả chức năng kiểu tài liệu (\"hiển thị danh sách có phân trang\") "
-                + "— phần đó là việc của bước sinh spec, còn ô này là thứ chỉ người dùng mới biết.\n"
-                + "- `source`: số liệu lấy từ ĐỐI TƯỢNG nào — chép đúng tên một đối tượng trong danh sách bên "
-                + "dưới. Tên không khớp đối tượng nào sẽ bị hệ thống xoá khỏi ô, nên đừng bịa một nguồn mới.\n"
-                + "- `breakdown`: gộp/lọc theo cái gì (kỳ báo cáo, đơn vị, trạng thái, người phụ trách…), ngăn "
-                + "bằng dấu chấm phẩy. Đây là cột phân biệt một báo cáo thật với một bảng đổ dữ liệu ra màn "
-                + "hình — chưa rõ thì để rỗng, đừng điền \"theo thời gian\" cho có.\n"
-                + "- CHỈ nêu báo cáo mà hội thoại (hoặc tài liệu nguồn) đã nói tới. TUYỆT ĐỐI không rải thêm cho "
-                + "đủ bộ: mỗi dòng thừa là một MÀN HÌNH mà người dùng chưa từng đặt hàng, và nó đi thẳng vào "
-                + "phạm vi rồi vào bản demo. Cùng một câu hỏi nghiệp vụ xem theo tháng/quý/năm là MỘT dòng, kỳ "
-                + "báo cáo ghi ở `breakdown`.\n"
-                + "- KHÔNG có cột \"ai xem\": mỗi báo cáo là một màn hình nên quyền xem của nó sẽ được chốt ở bảng "
-                + "phân quyền ngay sau đây, kèm cả phạm vi dữ liệu. Đừng nhét vai trò vào `question`.\n"
-                + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng báo cáo\" — không đặt "
-                + "câu hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ "
-                + "trả lời DUY NHẤT của lượt này.\n\n"
-                + "### Các đối tượng đã chốt (chép NGUYÊN VĂN vào `source`)\n"
-                + string.Join("\n", entityNames.Select(e => "- " + e))));
-        }
-        // THÔNG BÁO / NHẮC NHỞ — nhóm THỨ HAI không được hỏi bằng câu hỏi, và vì cùng lý do với nhóm phân
-        // quyền: chuẩn [RÕ] đòi hai vế GHÉP ĐƯỢC với nhau (mỗi sự kiện biết người nhận của riêng nó) trong
-        // khi câu hỏi tự nhiên lại tách chúng làm hai câu rời, rồi bốn chip vai trò đóng dấu [RÕ] cho cả
-        // nhóm với nội dung "mọi thay đổi trạng thái gửi cho cả bốn nhóm". Bốn ca: đã chốt / lượt bày bảng
-        // / còn phải chờ (cấm hỏi lẻ) / dự án không có vòng đời nào (không lệnh nào, nhóm quay về đường hỏi
-        // bằng câu hỏi) — và ca nào cũng do CƠ CHẾ chọn, không để model tự đoán mình đang ở đâu.
-        var confirmedNotifications = NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap);
-        if (!string.IsNullOrWhiteSpace(confirmedNotifications))
-        {
-            // Cấm TUYỆT ĐỐI, không ngoại lệ: bất biến của bảng (xem NotificationMapBuilder) bảo đảm mọi dòng
-            // đã lưu đều trả lời xong — hoặc "không gửi", hoặc có người nhận. Bản trước còn một ngoại lệ cho
-            // các dòng để trống người nhận, và nó là đường dẫn tới đúng vòng hỏi lẻ mà cả cái bảng sinh ra
-            // để thay thế: một bảng 8 dòng gửi đi với 7 dòng trống ⇒ 14 lượt chat để hỏi lại từng sự kiện.
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## Bảng thông báo người dùng ĐÃ CHỐT (tự tay chọn từng dòng — coi như điều đã biết)\n"
-                + "KHÔNG hỏi lại sự kiện nào cần báo, cũng KHÔNG hỏi lại ai là người nhận — cả nhóm «Thông báo "
-                + "/ nhắc nhở» đã xong.\n"
-                + confirmedNotifications));
-        }
-        else if (table == InterviewTableKind.NotificationMap)
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## LƯỢT NÀY: BÀY BẢNG THÔNG BÁO (bắt buộc)\n"
-                + "Đây là việc CUỐI CÙNG của buổi phỏng vấn: chốt nhóm «Thông báo / nhắc nhở», và nó được chốt "
-                + "bằng BẢNG chứ không bằng câu hỏi.\n"
-                + "Trả về trường `notificationMap`: mỗi dòng là MỘT sự kiện. Ràng buộc:\n"
-                + "- `entity` + `event` phải CHÉP ĐÚNG một dòng trong danh sách sự kiện bên dưới (chúng là các "
-                + "chuyển trạng thái người dùng vừa tự tay chốt ở bảng đối tượng). Dòng nào bạn không nêu, hệ "
-                + "thống tự bổ sung vào bảng ở trạng thái chưa chọn người nhận.\n"
-                + "- `to` và `cc` là MẢNG, mỗi phần tử phải CHÉP ĐÚNG NGUYÊN VĂN một mục trong danh sách người "
-                + "nhận bên dưới. Giá trị không khớp mục nào sẽ bị bỏ. `cc` thường rỗng.\n"
-                + "- CHỈ điền `to`/`cc` cho những sự kiện mà hội thoại ĐÃ nói ai nhận, và khi đó `evidence` là "
-                + "đúng trích dẫn của người dùng. Sự kiện bạn chỉ suy đoán thì để `to`/`cc` RỖNG và không "
-                + "`evidence` — người dùng sẽ tự chọn. TUYỆT ĐỐI không bịa trích dẫn, và TUYỆT ĐỐI không rải "
-                + "người nhận cho đủ: mỗi mục thừa là một người nhận email mà không ai yêu cầu.\n"
-                + "- Được thêm dòng NHẮC NHỞ ngoài danh sách (\"trước hạn 3 ngày\", \"quá hạn mà chưa ai duyệt\") "
-                + "CHỈ khi người dùng đã tự nói tới nó — dòng thêm bắt buộc có `evidence`, không có thì hệ thống "
-                + "bỏ. Ghi mốc thời gian vào `trigger`.\n"
-                + "- Kênh gửi duy nhất của nền tảng là EMAIL nên KHÔNG hỏi và KHÔNG nêu kênh nào khác.\n"
-                + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng thông báo\" — không đặt "
-                + "câu hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ "
-                + "trả lời DUY NHẤT của lượt này.\n\n"
-                + "### Các sự kiện (mỗi dòng là MỘT dòng của bảng — chép nguyên văn vào `entity` + `event`)\n"
-                + string.Join("\n", notificationSeedRows.Select(r =>
-                    $"- entity: {r.Entity} | event: {r.Event}"
-                    + (string.IsNullOrWhiteSpace(r.Trigger) ? string.Empty : $" | khi: {r.Trigger}")))
-                + "\n\n### Danh sách người nhận (chép NGUYÊN VĂN vào `to`/`cc`)\n"
-                + "Đây là bảng \"Danh sách người nhận\" mà người dùng thấy ngay trên bảng thông báo và tự "
-                + "thêm/sửa/xóa được. Bạn thì KHÔNG: mục bạn tự nghĩ ra sẽ bị hệ thống bỏ.\n"
-                + string.Join("\n", recipientOptions.Select(o => "- " + o))));
-        }
-        // Không có dòng nào gieo được (dự án không có vòng đời trạng thái nào) VÀ buổi phỏng vấn đã tới cuối
-        // ⇒ bảng này sẽ KHÔNG BAO GIỜ được bày, nên lệnh cấm phải tự tắt: giữ nó là khóa chết nhóm ở
-        // [CHƯA HỎI] và nút "Write Requirement" không bao giờ sáng. Đây là đường thoát duy nhất của ca đó,
-        // và nó khớp đúng điều kiện thứ ba của NotificationMapGate.
-        else if (notificationSeedRows.Count > 0 || !PermissionMatrixGate.IsConfirmed(project.PermissionMatrix))
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                "## Nhóm «Thông báo / nhắc nhở» — ĐỂ CUỐI, đừng hỏi lẻ\n"
-                + "KHÔNG hỏi các câu kiểu \"vai trò nào cần nhận email?\", \"sự kiện nào cần gửi thông báo?\", và "
-                + "KHÔNG tự soạn một danh sách người nhận rồi xin người dùng gật. Nhóm này được chốt bằng MỘT "
-                + "BẢNG ở cuối buổi (mỗi sự kiện một dòng, người nhận chọn từ danh sách) — hỏi bây giờ chỉ nhận "
-                + "về một danh sách vai trò trần không gắn với sự kiện nào, và tài liệu sẽ đóng băng thành \"mọi "
-                + "thay đổi trạng thái gửi cho cả bốn nhóm\", tức mỗi lần một bản ghi đổi trạng thái là cả nhà "
-                + "máy nhận email.\n"
-                + "Vẫn PHẢI hỏi như thường: các TRẠNG THÁI một đối tượng đi qua và ĐIỀU KIỆN chuyển giữa chúng "
-                + "(nhóm «Vòng đời & trạng thái») — đó là nguồn các dòng của bảng thông báo, không có nó thì "
-                + "bảng ấy trống. Cũng KHÔNG hỏi về cấu hình email/SMTP: kênh gửi duy nhất đã chốt là email."));
-        }
-        // LƯỢT KỂ LẠI FILE BẢNG TÍNH — nửa sau của cơ chế "bảng cột trước, bản đọc lại sau". Luật viết bản
-        // đọc lại nằm trong prompt riêng (đo được ở Prompt Evals, sửa được ở Prompt Studio) chứ không nhét
-        // thành chuỗi ở đây; khối này chỉ chọn ĐÚNG lượt để đính nó vào.
-        if (columnReadbackTurn)
-        {
-            messages.Add(new ChatMessage(ChatRole.System,
-                _promptTemplateService.Get("BusinessAnalyst/source-readback.v1.md")));
-        }
-        // Sổ "đã hỏi rồi": bản đồ ở trên chỉ có độ phân giải theo NHÓM, nên một nhóm chưa [RÕ] dễ khiến
-        // model phát lại nguyên văn câu hỏi mở đầu của chính nhóm ấy. Danh sách câu hỏi thật là thứ duy
-        // nhất phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời".
-        var askedBefore = AskedQuestionHistory.Collect(recent);
-        var askedNote = AskedQuestionHistory.BuildNote(askedBefore);
-        if (!string.IsNullOrWhiteSpace(askedNote))
-        {
-            messages.Add(new ChatMessage(ChatRole.System, askedNote));
-        }
-        for (var i = 0; i < recent.Count; i++)
-        {
-            var c = recent[i];
-            var isAssistant = c.Role == "assistant";
-            // Lượt cũ của BA được "dựng lại" đúng JSON {message, suggestions}. Nếu chỉ đưa text thuần,
-            // model thấy phản hồi trước của mình là văn xuôi và bắt chước → bỏ JSON từ lượt 2 trở đi,
-            // mất luôn gợi ý. Đưa lại đúng format giúp model giữ JSON ở mọi lượt.
-            var text = isAssistant ? BuildAssistantContext(c) : c.Message;
-
-            // sourceTextInPrefix ⇒ khối nguồn đã đi ở đầu prompt rồi, đính lại đây là chép đôi.
-            if (!isAssistant && i == lastUserIndex && sourceContents.Count > 0 && !sourceTextInPrefix)
-            {
-                var contents = new List<AIContent> { new TextContent(text) };
-                contents.AddRange(sourceContents.Contents);
-                messages.Add(new ChatMessage(ChatRole.User, contents));
-            }
-            else
-            {
-                messages.Add(new ChatMessage(isAssistant ? ChatRole.Assistant : ChatRole.User, text));
-            }
-        }
+        var messages = await BuildMessagesAsync(turn, ba, cancellationToken);
 
         onStatus?.Invoke("BA đang soạn câu trả lời…");
 
@@ -1119,451 +570,683 @@ public class BAChatService
         // output vốn không stream nên callback đơn giản là không được gọi — UI vẫn nhận bản chốt ở done.
         var tokenFilter = onToken == null ? null : new BAChatTokenFilter(onToken);
         var (callResult, structuredReply) = await _llm.ChatStructuredAsync<BAChatReply>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAChat"),
+            model, messages, ba.Temperature, new ModelCallLogContext(turn.ProjectId, ba, "BAChat"),
             tokenFilter == null ? null : tokenFilter.Feed, cancellationToken);
 
-        // Surface a failure as a clearly-labelled assistant turn instead of a 500, but never present an API error as if it were a normal BA answer.
-        string reply;
-        string? suggestionsJson = null;
-        var suggestionsMultiSelect = false;
-        // Lượt hỏi MỘT câu MỞ (xin lời kể): không có chip, UI mời gõ vào ô nhập. Các nhánh TẤT ĐỊNH bên
-        // dưới (phanh chống hỏi lại, cổng readiness) đều thay lượt bằng câu hỏi đóng có sẵn phương án,
-        // nên chúng phải hạ cờ này — để sót thì màn hình mời "kể tự do" ngay dưới một hàng chip.
-        var openEnded = false;
-        var questions = new List<BAChatQuestion>();
-        var permissionMatrix = new List<PermissionMatrixRow>();
-        var flowMap = new List<FlowMapRow>();
-        var screenScopeMap = new List<ScreenScopeRow>();
-        var entityMap = new List<EntityMapRow>();
-        var reportMap = new List<ReportMapRow>();
-        var notificationMap = new List<NotificationMapRow>();
-        var uncoveredFlowSteps = new List<string>();
+        var draft = new BAChatTurnDraft();
         if (!callResult.IsSuccess)
         {
-            // Tiền tố dùng chung với ConversationTranscriptBuilder để transcript tổng hợp yêu cầu lọc
-            // được các lượt lỗi này ra.
-            reply = $"{ConversationTranscriptBuilder.LlmFailurePrefix}, chưa thể trả lời. Chi tiết: {callResult.ErrorMessage ?? callResult.Content}";
+            // Lỗi gọi model thành một lượt assistant CÓ NHÃN thay vì một HTTP 500 — nhưng không bao giờ
+            // bày một lỗi API ra như thể đó là câu trả lời bình thường của BA. Tiền tố dùng chung với
+            // ConversationTranscriptBuilder để transcript tổng hợp yêu cầu lọc được các lượt lỗi này ra.
+            draft.Reply = $"{ConversationTranscriptBuilder.LlmFailurePrefix}, chưa thể trả lời. Chi tiết: {callResult.ErrorMessage ?? callResult.Content}";
         }
         else
         {
-            // Đường structured output trả thẳng BAChatReply (không qua Parse), nên phải chuẩn hoá RIÊNG:
-            // trần "tối đa 4 câu hỏi một lượt" và việc hạ lượt-gộp-một-câu về đường một-câu sống trong
-            // Normalize. Bỏ bước này thì các model tốt (đường mặc định) là các model KHÔNG bị chặn.
-            var parsedReply = structuredReply != null
-                ? _replyParser.Normalize(structuredReply)
-                : _replyParser.Parse(callResult.Content);
-            // Lượt phải gửi lại mà bỏ ảnh có kèm một dòng dặn dò NỘI BỘ cho model; model yếu hay chép
-            // nguyên văn dòng đó vào câu trả lời. Dọn trước khi nó thành một lượt hội thoại.
-            reply = string.IsNullOrWhiteSpace(parsedReply.Message)
-                ? "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu."
-                : EndpointQuirks.StripInternalNotices(parsedReply.Message);
-
-            // Lưu suggestions tách riêng (JSON) để UI render chip; chỉ set khi thực sự có gợi ý.
-            if (parsedReply.Suggestions.Count > 0)
-            {
-                suggestionsJson = JsonSerializer.Serialize(parsedReply.Suggestions);
-                suggestionsMultiSelect = parsedReply.MultiSelect;
-            }
-
-            // Normalize đã đảm bảo OpenEnded ⇒ Suggestions rỗng, nên hai nhánh này loại trừ nhau.
-            openEnded = parsedReply.OpenEnded;
-
-            // Lượt hỏi GỘP (2–4 câu độc lập): Normalize đã đảm bảo hoặc có Questions, hoặc có
-            // Suggestions — không bao giờ cả hai.
-            questions = parsedReply.Questions;
-
-            // PHANH CHỐNG HỎI LẠI (tất định). Prompt đã cấm phát lại câu cũ, nhưng bản đồ bao phủ — thứ
-            // dẫn dắt lượt hỏi — chỉ có độ phân giải theo NHÓM: một dòng chưa đạt chuẩn [RÕ] (hoặc một
-            // lượt chắt lọc bản đồ hỏng, giữ nguyên bản cũ) là đủ để model phát lại nguyên văn cả cụm câu
-            // hỏi của lượt trước, kèm chip gợi ý chính là câu trả lời người dùng vừa gõ. Ở đây câu trùng
-            // bị LOẠI khỏi lượt trả lời trước khi nó kịp lên màn hình.
-            var askedKeys = AskedQuestionHistory.Keys(askedBefore);
-            var reopenedGroups = AskedQuestionHistory.ReopenedGroups(CoverageMapParser.Parse(project.RequirementCoverageMap));
-            // …và sổ thứ hai: các CHIP đã bày ở một lượt chọn-nhiều mà người dùng không chọn. Một chip bị
-            // bỏ là một câu trả lời ("cái này thì không"), nhưng nó không nằm trong sổ câu hỏi nên một câu
-            // có/không hỏi riêng đúng chip đó lọt qua phanh trên — xem AskedQuestionHistory.DeclinedChipKeys.
-            var declinedChips = AskedQuestionHistory.DeclinedChipKeys(recent);
-            if (questions.Count > 0)
-            {
-                var kept = questions
-                    .Where(q => AskedQuestionHistory.IsExempt(q, reopenedGroups)
-                                || (!AskedQuestionHistory.IsRepeat(q.Question, askedKeys)
-                                    && !AskedQuestionHistory.AsksAboutDeclinedChip(q.Question, declinedChips)))
-                    .ToList();
-
-                if (kept.Count < questions.Count)
-                {
-                    // Câu dẫn của lượt gộp thường tự đếm ("dưới đây là 4 câu xác nhận") nên bỏ bớt câu là
-                    // nó nói sai — thay bằng câu dẫn trung tính. Còn đúng một câu thì để Message rỗng cho
-                    // Normalize nâng chính câu hỏi lên làm nội dung lượt (đường một-câu).
-                    var trimmed = _replyParser.Normalize(new BAChatReply
-                    {
-                        Message = kept.Count >= 2 ? "Cảm ơn anh/chị. Mình hỏi thêm mấy điểm sau nhé:" : string.Empty,
-                        Questions = kept
-                    });
-
-                    if (kept.Count == 0)
-                    {
-                        // Không còn câu nào MỚI để hỏi: lượt này lẽ ra rỗng. Thay bằng bước kế tiếp TẤT
-                        // ĐỊNH suy từ bản đồ (hỏi đúng nhóm còn thiếu, hoặc mời bấm nút khi bản đồ đã đủ)
-                        // — im lặng hoặc để nguyên câu dẫn cụt đều tệ hơn. Câu đó không có chip, nên cờ
-                        // "câu mở" đi theo nó để ô nhập nhận vai chỗ trả lời.
-                        var followUp = BuildFollowUpAfterRepeat(project.RequirementCoverageMap, recent);
-                        reply = followUp.Message;
-                        suggestionsJson = null;
-                        suggestionsMultiSelect = false;
-                        openEnded = followUp.OpenEnded;
-                    }
-                    else
-                    {
-                        reply = trimmed.Message;
-                        suggestionsJson = trimmed.Suggestions.Count > 0 ? JsonSerializer.Serialize(trimmed.Suggestions) : null;
-                        suggestionsMultiSelect = trimmed.MultiSelect && trimmed.Suggestions.Count > 0;
-                        openEnded = trimmed.OpenEnded;
-                    }
-
-                    questions = trimmed.Questions;
-                }
-            }
-            // "Có chip HOẶC là câu mở" = lượt này thật sự đang HỎI. Trước đây vế đầu là đủ vì mọi câu hỏi
-            // đều bắt buộc kèm chip; từ khi câu mở được phép bỏ chip, chỉ xét chip là để lọt đúng loại câu
-            // đắt nhất (xin lời kể) ra khỏi phanh chống hỏi lại.
-            else if ((parsedReply.Suggestions.Count > 0 || parsedReply.OpenEnded)
-                     && !RequirementReadinessGate.IsWriteRequirementInvite(reply)
-                     && (AskedQuestionHistory.IsRepeat(reply, askedKeys)
-                         || AskedQuestionHistory.AsksAboutDeclinedChip(reply, declinedChips)))
-            {
-                // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
-                var followUp = BuildFollowUpAfterRepeat(project.RequirementCoverageMap, recent);
-                reply = followUp.Message;
-                suggestionsJson = null;
-                suggestionsMultiSelect = false;
-                openEnded = followUp.OpenEnded;
-            }
-
-            // Lượt MỜI bấm "Write Requirement" phải qua cổng readiness TẤT ĐỊNH ngay tại đây, trước khi
-            // người dùng nhìn thấy lời mời: ready suy thẳng từ bản đồ bao phủ (đã gộp tới lượt user mới
-            // nhất ở đầu lượt này) — cùng dữ liệu mà panel "Tiến độ khai thác" render, nên panel, lời mời
-            // và nút KHÔNG THỂ vênh nhau. Bản đồ chưa đủ (kể cả khi lượt gộp lỗi giữ bản cũ — fail-closed,
-            // lượt sau gộp bù) ⇒ thay lời mời bằng câu hỏi nêu đúng nhóm còn thiếu, nút vẫn mờ; đủ ⇒ giữ
-            // lời mời và bước sinh tài liệu KHÔNG xét lại trên cùng transcript (xem
-            // ProductBriefDraftService.GenerateOrUpdateDraftAsync). Một nguồn chân lý, một tiêu chuẩn.
-            if (RequirementReadinessGate.IsWriteRequirementInvite(reply))
-            {
-                // `recent` đi kèm để cổng không phát lại đúng câu chặn nó vừa phát: câu của cổng không có
-                // chip nên phanh chống hỏi lại dùng chung không thấy nó — xem RequirementReadinessGate.
-                var readiness = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap, recent);
-                if (!readiness.Ready)
-                {
-                    reply = string.IsNullOrWhiteSpace(readiness.Message)
-                        ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
-                        : readiness.Message;
-                    // Câu hỏi của gate xin một mẩu thông tin còn thiếu và không kèm chip nào ⇒ ô nhập là
-                    // chỗ trả lời DUY NHẤT: bỏ cờ multi của lời mời bị thay, và bật cờ "câu mở" để khung
-                    // chat mời người dùng gõ thay vì để họ nhìn một câu hỏi không có nút nào.
-                    suggestionsJson = null;
-                    suggestionsMultiSelect = false;
-                    openEnded = readiness.OpenEnded;
-                    // …và cũng không giữ thẻ hỏi gộp: nội dung hiển thị giờ là câu hỏi của gate, để lại
-                    // thẻ cũ thì màn hình có hai lượt hỏi khác nhau chồng lên nhau.
-                    questions = new List<BAChatQuestion>();
-                }
-                else
-                {
-                    // Lời mời ĐƯỢC GIỮ: lượt này là lời mời bấm nút, không phải lượt hỏi. Một lời mời kèm
-                    // thẻ hỏi là tự mâu thuẫn ("không còn gì để hỏi" + 3 câu hỏi), và ở đúng lượt mà cổng
-                    // vừa mở — người dùng sẽ trả lời thẻ đó rồi tự hỏi vì sao mình vẫn chưa được viết.
-                    questions = new List<BAChatQuestion>();
-                    // Lời mời không phải câu hỏi ⇒ không mời người dùng "kể tự do" ở ô nhập.
-                    openEnded = false;
-                }
-            }
-
-            // BẢNG PHÂN QUYỀN — lượt chốt nhóm «Phân quyền theo nghiệp vụ». Chỉ dựng khi CỔNG đã mở
-            // (PermissionMatrixGate: mọi nhóm áp dụng khác đã [RÕ]), nên không lượt nào giữa buổi bị thay
-            // bằng một bảng dựng trên phạm vi mới có một nửa.
-            //
-            // Bảng dựng được ⇒ nó là chỗ trả lời DUY NHẤT của lượt: dọn sạch chip, thẻ hỏi gộp và sơ đồ
-            // luồng. Cùng luật với lượt có bảng cột, và cùng lý do — chip bấm là GỬI NGAY, nên một cú bấm
-            // nhầm cuốn mất lượt trước khi người dùng kịp chọn xong bảng, và bảng thì không bao giờ được chốt.
-            //
-            // Model không trả bảng dùng được (structured output tắt, hoặc mọi dòng đều trỏ vào màn hình
-            // không có trong phạm vi) ⇒ FAIL-OPEN: lượt chạy y như một lượt chat thường và cổng sẽ mở lại ở
-            // lượt sau. Một lượt hỏi thừa rẻ hơn nhiều so với một lượt câm.
-            //
-            // Năm nhánh dưới đây loại trừ nhau vì `table` đến từ MỘT lời gọi InterviewTableGate.Select.
-            // Dựng được bảng ⇒ TakeOverTurn dọn sạch chip/thẻ hỏi/sơ đồ để bảng là chỗ trả lời DUY NHẤT.
-            switch (table)
-            {
-                case InterviewTableKind.PermissionMatrix:
-                    permissionMatrix = PermissionMatrixBuilder.Build(parsedReply.PermissionMatrix, effectiveScreens);
-                    if (permissionMatrix.Count > 0)
-                        TakeOverTurn(PermissionMatrixIntro);
-                    break;
-
-                case InterviewTableKind.FlowMap:
-                    flowMap = FlowMapBuilder.Build(parsedReply.FlowMap);
-                    if (flowMap.Count > 0)
-                        TakeOverTurn(FlowMapIntro);
-                    break;
-
-                case InterviewTableKind.ScreenScope:
-                    // GIEO bằng chính bảng đang lưu. Cổng này mở lại được khi có mục mới lộ ra sau lúc
-                    // chốt — xem ScreenScopeGate — và Build dựng bảng từ đề xuất TƯƠI của model, nên không
-                    // gieo thì lần bày lại thay sạch phần người dùng đã tự tay rà bằng bản model vừa đoán
-                    // lại. Hạt giống là tham số RIÊNG: chỉ nó được chở cờ đã-chốt qua, và chỉ dòng CHƯA
-                    // CHỐT của nó mới cho model lấp thêm vào (xem Build).
-                    screenScopeMap = ScreenScopeMapBuilder.Build(
-                        ScreenScopeMapBuilder.SeedRows(project.ScreenScopeMap),
-                        parsedReply.ScreenScopeMap,
-                        effectiveScreens);
-                    if (screenScopeMap.Count > 0)
-                    {
-                        // Lượt BÀY LẠI ép dùng câu dẫn của hệ thống (force) thay vì câu của model. Đây là
-                        // ngoại lệ DUY NHẤT của luật "câu dẫn model thắng", và nó cần thiết vì model không
-                        // có cách nào biết lượt này khác lượt trước: nó nhận cùng một khối lệnh bày bảng và
-                        // viết ra đúng một câu như lần đầu ("anh/chị rà soát bảng màn hình dưới đây rồi
-                        // bấm…"), tức lời mời rà lại TOÀN BỘ một bảng mà người dùng vừa chốt. Thứ phải nói
-                        // ra — giữ nguyên phần đã chốt, chỉ thêm màn hình nào — là dữ kiện của CƠ CHẾ
-                        // (SeedRows + NewScreens), nên nó phải do cơ chế viết.
-                        if (reshowScreenScope)
-                            TakeOverTurn(ScreenScopeReshowIntro(pendingScreens, pendingFunctions), force: true);
-                        else
-                            TakeOverTurn(ScreenScopeIntro);
-                        // Phép kiểm TẤT ĐỊNH của mối nối luồng ⇄ màn hình, chạy bằng code chứ không bằng
-                        // một lời gọi LLM: hai bảng đọc riêng đều "đạt", chỗ hỏng nằm ở chỗ nối. Xem
-                        // ScreenScopeMapBuilder.UncoveredActions.
-                        uncoveredFlowSteps = ScreenScopeMapBuilder.UncoveredActions(screenScopeMap, project.FlowMap);
-
-                        // …và bắt được lỗ hổng thì BA TỰ LẤP, không hỏi ngược người dùng. Việc ánh xạ một
-                        // bước nghiệp vụ sang một chức năng trên một màn hình là phần việc họ đi thuê BA để
-                        // làm; dòng nhắc dưới bảng ở lại làm chỗ rơi cuối cùng cho những bước mà chính BA
-                        // cũng không xếp nổi — đúng ca duy nhất đáng hỏi. Xem ScreenStepPlacementService.
-                        if (uncoveredFlowSteps.Count > 0)
-                        {
-                            var screensBefore = screenScopeMap.Select(r => r.Screen).ToList();
-                            screenScopeMap = await _stepPlacement.PlaceAsync(
-                                project.Id, screenScopeMap, uncoveredFlowSteps, ba, model, cancellationToken);
-
-                            var stillUncovered = ScreenScopeMapBuilder.UncoveredActions(screenScopeMap, project.FlowMap);
-                            var placed = uncoveredFlowSteps.Except(stillUncovered, StringComparer.OrdinalIgnoreCase).ToList();
-                            uncoveredFlowSteps = stillUncovered;
-
-                            var notice = ScreenScopePlacementNotice(screensBefore, screenScopeMap, placed);
-                            if (notice != null)
-                                reply = reply.TrimEnd() + notice;
-                        }
-                    }
-                    break;
-
-                case InterviewTableKind.EntityMap:
-                    entityMap = EntityMapBuilder.Build(parsedReply.EntityMap, ConfirmedColumnNames(sources));
-                    if (entityMap.Count > 0)
-                        TakeOverTurn(EntityMapIntro);
-                    break;
-
-                case InterviewTableKind.ReportMap:
-                    // Dòng do MODEL đề xuất (không có bảng nào gieo ra được một báo cáo), nhưng ô "lấy số
-                    // từ" thì phải trỏ về bảng đối tượng đã chốt — đó là mối nối duy nhất giữ cho bước sinh
-                    // spec không tự nghĩ ra một nguồn dữ liệu cho báo cáo.
-                    reportMap = ReportMapBuilder.Build(parsedReply.ReportMap, entityNames);
-                    if (reportMap.Count > 0)
-                        TakeOverTurn(ReportMapIntro);
-                    break;
-
-                case InterviewTableKind.NotificationMap:
-                    // Dòng do CƠ CHẾ gieo, không do model liệt kê: model chỉ điền người nhận vào các dòng
-                    // có sẵn. Một sự kiện model quên nêu vẫn có mặt ở trạng thái chưa chọn người nhận —
-                    // im lặng bỏ nó đi là biến "chưa hỏi" thành "không báo cho ai".
-                    notificationMap = NotificationMapBuilder.Build(
-                        parsedReply.NotificationMap, notificationSeedRows, recipientOptions);
-                    if (notificationMap.Count > 0)
-                        TakeOverTurn(NotificationMapIntro);
-                    break;
-            }
-
-            // Bảng dựng được thì nó là chỗ trả lời DUY NHẤT của lượt: dọn chip và thẻ hỏi gộp.
-            // Chip bấm là GỬI NGAY, nên để cả hai cùng sống thì một cú bấm nhầm cuốn mất lượt trước khi
-            // người dùng chọn xong bảng — và bảng thì không bao giờ được chốt. Cùng luật với bảng cột.
-            //
-            // Câu dẫn của model chỉ được dùng khi nó KHÔNG phải lời mời bấm "Write Requirement": một lời
-            // mời đặt trên đầu bảng bảo người dùng bấm nút, trong khi việc thật sự phải làm nằm ở bảng ngay
-            // dưới — đúng kiểu "câu hỏi không có nút trả lời" mà lượt đọc file đã vấp.
-            // force = câu dẫn của CƠ CHẾ thắng câu của model, dùng cho lượt bày lại bảng màn hình: model
-            // không biết lượt này là lượt bổ sung nên câu nó viết ra mời rà lại cả bảng đã chốt.
-            void TakeOverTurn(string fallbackIntro, bool force = false)
-            {
-                reply = force
-                        || string.IsNullOrWhiteSpace(parsedReply.Message)
-                        || RequirementReadinessGate.IsWriteRequirementInvite(parsedReply.Message)
-                    ? fallbackIntro
-                    : EndpointQuirks.StripInternalNotices(parsedReply.Message);
-                suggestionsJson = null;
-                suggestionsMultiSelect = false;
-                openEnded = false;
-                questions = new List<BAChatQuestion>();
-            }
-
-            // Lượt KỂ LẠI file: chỗ trả lời là hai chip xác nhận, nên không được có thẻ hỏi gộp — thẻ hỏi
-            // và chip loại trừ nhau trên màn hình (BAChatReplyParser.Normalize), và một thẻ hỏi ở đây nuốt
-            // mất đúng thứ lượt này cần lấy: bản đọc rốt cuộc đúng hay sai. Các câu hỏi khai thác quay lại
-            // từ lượt sau.
-            if (columnReadbackTurn)
-            {
-                questions = new List<BAChatQuestion>();
-                // …và bỏ thẻ hỏi thì phải TRẢ LẠI chip: chính vì model kèm thẻ hỏi mà Normalize đã dọn
-                // sạch Suggestions của lượt. Để nguyên là bày ra một câu hỏi đóng KHÔNG CÓ nút trả lời —
-                // đúng lỗi mà lượt đọc bảng tính đã vấp một lần, chỉ khác chỗ phát sinh.
-                if (string.IsNullOrEmpty(suggestionsJson))
-                {
-                    suggestionsJson = JsonSerializer.Serialize(SourceReadbackSuggestions);
-                    suggestionsMultiSelect = false;
-                    openEnded = false;
-                }
-            }
-
-            // LƯỢT XIN FILE — người dùng vừa nhắc tới một file/bảng tính họ đang dùng mà dự án chưa có
-            // tài liệu nguồn nào. Luật "xin file NGAY TẠI LƯỢT ĐÓ" nằm trong prompt từ lâu và vẫn trượt
-            // im lặng (ca thật: JD Libary 5, người dùng nhắc hai file excel ở lượt 3 và 5, BA không xin
-            // lần nào trong 26 lượt) — nên nó phải là một chốt chặn tất định như mọi luật đắt khác.
-            //
-            // Thay TRỌN lượt chứ không chèn thêm một câu: xin file là lời nhờ HÀNH ĐỘNG, người dùng đọc
-            // xong đi tìm file và mọi thứ khác trong lượt rơi mất — trong khi bản đồ bao phủ vẫn tính là
-            // đã hỏi. Câu hỏi model vừa viết không mất đi đâu: nhóm của nó chưa nhúc nhích nên nó quay lại
-            // ở lượt sau, lúc đó đọc được file rồi thì thường còn hỏi ngắn hơn.
-            //
-            // Bốn điều kiện, và cả bốn đều cần: chưa có nguồn nào (có rồi thì đây là đường đọc lại file),
-            // lượt user CUỐI thật sự nhắc tới một vật mang dữ liệu, chưa lượt BA nào xin file (giục lần
-            // hai là phí lượt), và lượt này không phải lượt bày BẢNG (bảng là chỗ trả lời duy nhất của nó).
-            if (sources.Count == 0
-                && lastUserIndex >= 0
-                && SourceRequestTurn.MentionsExistingSource(recent[lastUserIndex].Message)
-                && !SourceRequestTurn.Looks(reply)
-                && !recent.Any(c => ConversationTurnRenderer.IsAssistant(c) && SourceRequestTurn.Looks(c.Message))
-                && !CarriesTable())
-            {
-                reply = SourceRequestTurn.Message;
-                suggestionsJson = null;
-                suggestionsMultiSelect = false;
-                questions = new List<BAChatQuestion>();
-                openEnded = true;
-            }
-
-            // NHỊP TÓM TẮT KIỂM CHỨNG mà quên chip. Prompt kê sẵn bộ hai chip cho lượt này
-            // (["Đúng rồi, tiếp tục", "Tôi muốn sửa lại"]) vì nó là câu ĐÓNG: người dùng chỉ cần gật hoặc
-            // đòi sửa. Thiếu chip thì họ phải gõ tay một câu xác nhận, và ca thật (JD Libary 5, lượt 20)
-            // cho thấy cái giá thật nằm ở chỗ khác: không có hai nhánh bày sẵn, model tự viết ra một câu
-            // hỏi độ ĐẦY ĐỦ ("anh/chị thấy đã đầy đủ chưa?") và nhận về "đầy đủ rồi" — một lời tuyên bố
-            // hoàn tất trong khi bản đồ còn hai nhóm [CHƯA HỎI]. Cùng luật với chip dự phòng của lượt kể
-            // lại file: lượt nào là câu đóng thì phải có nút để bấm.
-            if (string.IsNullOrEmpty(suggestionsJson)
-                && questions.Count == 0
-                && !CarriesTable()
-                && LooksVerificationSummary(reply))
-            {
-                suggestionsJson = JsonSerializer.Serialize(SummaryCheckSuggestions);
-                suggestionsMultiSelect = false;
-                openEnded = false;
-            }
-
-            // LƯỢT CÂM — chốt chặn cuối cùng của lượt chat, chạy SAU mọi nhánh trên vì nó xét HÌNH DẠNG
-            // của lượt đã chốt chứ không xét ý định của model.
-            //
-            // Hai phanh tất định phía trên chỉ soi các lượt CÓ hỏi: lượt mà mọi câu hỏi đều là câu đã hỏi
-            // (AskedQuestionHistory), và lượt mời bấm "Write Requirement" quá sớm (cổng readiness). Còn một
-            // hình dạng thứ ba lọt qua cả hai — lượt KHÔNG hỏi gì cả: không chip, không câu mở, không thẻ
-            // hỏi, không bảng, không dấu hỏi, không nhắc tới nút. Người dùng không có chỗ nào để trả lời, và
-            // vì lượt đó không chở câu hỏi nào nên phanh chống hỏi lại (so theo nội dung CÂU HỎI) cũng
-            // không nhìn thấy nó.
-            //
-            // Ca thật (dự án JD Libary 5, các lượt 82/84/90): bản đồ kẹt [MỘT PHẦN] ở một dòng mà người
-            // dùng ĐÃ trả lời, nên BA hết đường hợp lệ — prompt cấm hỏi lại điều vừa được trả lời, và cấm
-            // nhắc tới nút khi bản đồ chưa đủ — rồi rơi vào "mình tiếp tục bước rà soát cuối", một bước
-            // không hề tồn tại ở chế độ chat. Người dùng đáp "ok", "tiếp tục đi" và nhận lại đúng một lượt
-            // như thế: ba lượt bị đốt, bản đồ không nhúc nhích, cuộc phỏng vấn đứng hẳn ở lượt cuối. Đây
-            // đúng là ca mà bản đồ KHÔNG tự lành được: nó chỉ nhúc nhích khi có thông tin mới, mà lượt câm
-            // thì không hỏi được gì để lấy thông tin mới.
-            //
-            // Thay bằng đúng bước kế tiếp tất định của đường lượt-trùng: bản đồ còn thiếu ⇒ câu chặn của
-            // cổng (đường phát thứ tư của nó), bản đồ đã đủ ⇒ lời mời bấm nút. Cả hai đều là thứ người dùng
-            // trả lời được.
-            //
-            // Dấu hỏi là ranh giới, cùng một phép thử mà BAChatReplyParser.LooksOpenEnded đang dùng: một
-            // lượt CÓ hỏi mà quên chip vẫn trả lời được bằng ô nhập (luôn mở), nên nó không phải lượt câm —
-            // và thay nó đi là cướp mất câu hỏi thật của BA để phát một câu khô cứng hơn.
-            if (IsSilentTurn())
-            {
-                var followUp = BuildFollowUpAfterRepeat(project.RequirementCoverageMap, recent);
-                reply = followUp.Message;
-                openEnded = followUp.OpenEnded;
-            }
-
-            // `openEnded` KHÔNG mua được quyền miễn trừ ở đây, và đó là chỗ chốt chặn này từng thủng.
-            // Cờ đó do model tự đặt, còn cái nó bật lên chỉ là một Ô NHẬP — mà ô nhập thì lượt nào cũng
-            // có. Ca thật (dự án JD Libary 5, lượt 18): *"Để mình tổng hợp lại những gì đã chốt và hỏi
-            // thêm một số điểm còn lại nhé."* — không chip, không thẻ hỏi, không dấu hỏi, đúng hình dạng
-            // lượt câm mà prompt cấm bằng tên ("KHÔNG kết bằng lời hứa về một bước bạn sắp làm"), nhưng
-            // model kèm `openEnded: true` nên nó đi thẳng qua chốt chặn này. Người dùng đáp "ok" và nhận
-            // lại một lượt nữa: đúng vòng lặp mà cả class test này sinh ra để cắt.
-            //
-            // Thứ MỞ được chỗ trả lời là bản thân lượt có HỎI hay có NHỜ, không phải cái cờ đi kèm — nên
-            // phép thử đọc chính nội dung: dấu hỏi, hoặc một lời nhờ hành động (xin file) vốn cố ý không
-            // có dấu hỏi.
-            bool IsSilentTurn()
-                => string.IsNullOrEmpty(suggestionsJson)
-                   && questions.Count == 0
-                   && !reply.Contains('?', StringComparison.Ordinal)
-                   && !reply.Contains('\uff1f', StringComparison.Ordinal)
-                   && !SourceRequestTurn.Looks(reply)
-                   && !RequirementReadinessGate.IsWriteRequirementInvite(reply)
-                   // Lượt có BẢNG không câm: bảng chính là chỗ trả lời DUY NHẤT của lượt, và câu dẫn của
-                   // nó cố tình không phải câu hỏi (xem TakeOverTurn).
-                   && !CarriesTable();
-
-            // Lượt này có chở một BẢNG CHỐT nào không — chỗ trả lời duy nhất của lượt, nên mọi chốt chặn
-            // về "chỗ trả lời" đều phải nhường nó.
-            bool CarriesTable()
-                => permissionMatrix.Count > 0
-                   || flowMap.Count > 0
-                   || screenScopeMap.Count > 0
-                   || entityMap.Count > 0
-                   || reportMap.Count > 0
-                   || notificationMap.Count > 0;
+            await ShapeTurnAsync(draft, callResult, structuredReply, turn, ba, model, cancellationToken);
         }
 
-        var questionsJson = questions.Count > 0 ? JsonSerializer.Serialize(questions) : null;
-        var permissionMatrixJson = permissionMatrix.Count > 0 ? JsonSerializer.Serialize(permissionMatrix) : null;
-        var flowMapJson = flowMap.Count > 0 ? JsonSerializer.Serialize(flowMap) : null;
-        var screenScopeMapJson = screenScopeMap.Count > 0 ? JsonSerializer.Serialize(screenScopeMap) : null;
-        var entityMapJson = entityMap.Count > 0 ? JsonSerializer.Serialize(entityMap) : null;
-        var reportMapJson = reportMap.Count > 0 ? JsonSerializer.Serialize(reportMap) : null;
-        var notificationMapJson = notificationMap.Count > 0 ? JsonSerializer.Serialize(notificationMap) : null;
+        return await SaveTurnAsync(turn, ba, draft, cancellationToken);
+    }
+
+    /// <summary>
+    /// Chốt mọi dữ kiện TẤT ĐỊNH của lượt: ba bước chuẩn bị chạy song song, tài liệu nguồn, và cổng nào
+    /// đang mở. Xem <see cref="TurnContext"/> về việc vì sao chúng phải được chốt một lần.
+    /// </summary>
+    private async Task<TurnContext> BuildTurnContextAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
+    {
+        // Ba bước chuẩn bị (bộ nhớ hội thoại + hồ sơ user + bản đồ bao phủ) độc lập với nhau và là phần
+        // chậm nhất trước khi BA "đặt bút" — chạy SONG SONG để độ chờ mỗi lượt bằng bước chậm nhất thay vì
+        // tổng ba bước. Xem PrepareTurnContextAsync về cách cô lập DbContext.
+        var (memory, userMemory, coverageUpdate) = await PrepareTurnContextAsync(project, ba, model, cancellationToken);
+        var recent = memory.RecentTurns;
+
+        // Ba nhánh (khi chạy song song) ghi cột bộ nhớ qua context riêng — đồng bộ lại giá trị bản đồ lên
+        // entity đang track để các chỗ đọc phía dưới (khối ngữ cảnh, các cổng, kết quả trả về) thấy bản tươi.
+        project.RequirementCoverageMap = coverageUpdate.Map;
+
+        // Tài liệu nguồn (ảnh/PDF) của project: gắn vào ĐÚNG lượt user mới nhất (một lần) để BA "thấy" khi trả lời,
+        // thay vì lặp lại ở mọi message trong lịch sử. Model không vision ⇒ builder chỉ trả phần text bóc từ PDF.
+        // Lưu ý chi phí: mỗi lượt chat là một request MỚI, nên nguồn nào còn phải đi bằng ẢNH thì lượt nào
+        // cũng upload lại ảnh đó. Thứ chặn việc này là VisionSummary — nguồn đã được BA mô tả nội dung hình
+        // thành chữ ở lượt xác nhận tài liệu thì từ đây chỉ còn mang phần chữ (xem SourceContextBuilder).
+        // Chỉ đọc (builder không ghi gì lên entity) ⇒ AsNoTracking, khỏi track cả ExtractedText dài.
+        var sources = await _db.ProjectSourceFiles
+            .AsNoTracking()
+            .Where(s => s.ProjectId == project.Id)
+            .OrderBy(s => s.CreatedAt)
+            .ToListAsync(cancellationToken);
+        var sourceContents = _sourceContextBuilder.Build(sources, model);
+        var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
+
+        // LƯỢT KỂ LẠI FILE BẢNG TÍNH: người dùng vừa gửi bảng cột đã tích, và tin nhắn đó do server soạn
+        // nên nhận ra được chắc chắn (SourceColumnMapBuilder.IsSubmissionMessage). Bản đọc lại của bảng
+        // tính bị cố ý dời từ lượt upload xuống đây — xem BASourceAckPrompt.TurnShape. Không có lượt này thì
+        // chốt cột xong là BA hỏi thẳng câu tiếp theo, và cái sai duy nhất còn lại ở đầu vào (BA hiểu file
+        // kể chuyện gì) không bao giờ được người dùng nhìn thấy để bác.
+        var columnReadbackTurn = lastUserIndex >= 0
+            && SourceColumnMapBuilder.IsSubmissionMessage(recent[lastUserIndex].Message)
+            && sources.Any(s => s.Kind == SourceFileKind.Spreadsheet && !string.IsNullOrWhiteSpace(s.ColumnMap));
+
+        // MỘT cổng cho cả sáu bảng, chọn TẤT ĐỊNH và mỗi lượt đúng MỘT bảng: hai khối "## LƯỢT NÀY:" cùng
+        // lúc là hai mệnh lệnh chọi nhau, model sẽ trả một bảng lai hoặc bỏ cả hai. Lượt kể lại file đã có
+        // việc riêng và chỉ có MỘT chỗ trả lời (hai chip xác nhận) nên mọi cổng nhường nó một lượt — chúng
+        // mở lại ngay lượt sau. Xem InterviewTableGate cho thứ tự ưu tiên và lý do.
+        var table = InterviewTableGate.Select(project, suppressed: columnReadbackTurn);
+
+        // Bảng màn hình là cổng DUY NHẤT mở lại được sau khi đã chốt (xem ScreenScopeGate). Bảng đã mang
+        // dấu chốt ⇒ lượt BÀY LẠI, và cả khối lệnh lẫn câu dẫn đều phải nói ra sự khác biệt đó: phần lớn
+        // bảng là thứ người dùng đã tự tay rà và hệ thống giữ nguyên bằng SeedRows, việc của lượt này chỉ
+        // là các mục vừa lộ ra. Ở lượt bày ĐẦU thì MỌI dòng đều chờ duyệt, nên hai danh sách dưới đây cố ý
+        // để rỗng: gọi tên cả bảng là "phần mới" thì câu dẫn thành vô nghĩa.
+        var reshowScreenScope = table == InterviewTableKind.ScreenScope
+            && ScreenScopeMapBuilder.IsConfirmed(project.ScreenScopeMap);
+
+        return new TurnContext(
+            project,
+            memory,
+            userMemory,
+            coverageUpdate,
+            sources,
+            sourceContents,
+            // TEXT TÀI LIỆU NGUỒN ĐI Ở ĐẦU PROMPT, KHÔNG PHẢI Ở LƯỢT USER CUỐI — xem BuildMessagesAsync.
+            // Chỉ tách khi lượt này KHÔNG mang ảnh: còn ảnh thì chữ phải ở cạnh ảnh của chính nguồn đó.
+            SourceTextInPrefix: sourceContents.Count > 0 && !sourceContents.HasImages,
+            lastUserIndex,
+            columnReadbackTurn,
+            // Sổ "đã hỏi rồi": bản đồ bao phủ chỉ có độ phân giải theo NHÓM, nên một nhóm chưa [RÕ] dễ
+            // khiến model phát lại nguyên văn câu hỏi mở đầu của chính nhóm ấy. Danh sách câu hỏi thật là
+            // thứ duy nhất phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời".
+            AskedQuestionHistory.Collect(recent),
+            table,
+            reshowScreenScope,
+            reshowScreenScope ? ScreenScopeMapBuilder.PendingScreens(project.ScreenScopeMap) : new List<string>(),
+            reshowScreenScope ? ScreenScopeMapBuilder.PendingFunctions(project.ScreenScopeMap) : new List<string>(),
+            // PHẠM VI MÀN HÌNH THẬT SỰ: mọi dòng CÒN TÍCH của bảng màn hình — nguồn duy nhất, chốt rồi hay
+            // còn chờ duyệt. Đây là chỗ bảng màn hình trả tiền cho chính nó, vì các DÒNG của bảng phân
+            // quyền lấy từ đây.
+            PermissionMatrixGate.EffectiveScreens(project),
+            // Bộ đối chiếu ô "lấy số từ" của bảng BÁO CÁO: tên các đối tượng người dùng đã GIỮ ở bảng đối
+            // tượng. Cùng lý do với hai đầu vào của bảng thông báo ngay dưới — cả khối "LƯỢT NÀY" lẫn nhánh
+            // dựng bảng đều đọc nó, nên tính một lần ở đây.
+            EntityMapBuilder.EntityNames(project.EntityMap),
+            // Hai đầu vào của bảng THÔNG BÁO: DÒNG là chuyển trạng thái của bảng đối tượng đã chốt, còn MỤC
+            // CHỌN của hai ô To/CC là danh sách người nhận của dự án — bộ người dùng đã tự tay rà nếu có,
+            // còn không thì bản gieo từ bốn quan hệ + các vai trò của bảng phân quyền.
+            NotificationMapBuilder.SeedRows(project.EntityMap),
+            NotificationMapBuilder.RecipientOptions(
+                project.NotificationRecipients, PermissionMatrixBuilder.Roles(project.PermissionMatrix)));
+    }
+
+    /// <summary>
+    /// Lắp ngữ cảnh của lượt thành danh sách message gửi model. Nội dung từng khối nằm ở
+    /// <see cref="BAChatPromptBlocks"/>; ở đây chỉ có THỨ TỰ và điều kiện đính — và thứ tự là một phần của
+    /// hành vi, xem ghi chú prompt cache ngay dưới.
+    /// </summary>
+    private async Task<List<ChatMessage>> BuildMessagesAsync(TurnContext turn, Agent ba, CancellationToken cancellationToken)
+    {
+        var project = turn.Project;
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/requirement-chat.v4.md"))
+        };
+
+        // TEXT TÀI LIỆU NGUỒN ĐẶT NGAY ĐÂY, KHÔNG PHẢI Ở LƯỢT USER CUỐI — đây là một quyết định về CHI PHÍ,
+        // không phải về cách trình bày. Prompt cache của OpenAI khớp theo PREFIX: mọi thứ đứng trước khối
+        // đầu tiên thay đổi trong lượt này đều được phục vụ từ cache với giá rẻ hơn 10 lần. Text nguồn là
+        // khối LỚN (tới 20.000 ký tự mỗi file) và TĨNH (không đổi cho tới khi người dùng upload thêm), mà
+        // trước đây nó bị đính vào lượt user CUỐI CÙNG — vị trí biến động nhất trong cả danh sách — nên
+        // lượt nào cũng trả giá đầy đủ cho đúng những byte không hề đổi.
+        //
+        // Không mất mát gì ở trạng thái ổn định — ảnh chỉ đi kèm cho tới khi BA ghi xong VisionSummary,
+        // sau đó mọi lượt đều là lượt không ảnh (xem SourceContextBuilder).
+        if (turn.SourceTextInPrefix)
+            messages.Add(new ChatMessage(ChatRole.System, turn.SourceContents.TextOnly()));
+
+        // Bối cảnh tổ chức Bosch render từ dữ liệu HR thật (OrgUnits/Associates, có cache) + đơn vị yêu cầu
+        // của dự án (nếu đã gắn lúc tạo project): BA hiểu ngay tên phòng ban/chức danh người dùng nhắc tới,
+        // gợi ý bằng tên phòng thật và hỏi luồng duyệt đúng ngôn ngữ manager/HoD. Fail-open: chưa có dữ
+        // liệu ⇒ bỏ qua, chat như cũ. Xem OrganizationContextService.
+        var organizationContext = await _orgContext.BuildCombinedContextAsync(project.OrgUnitCode, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(organizationContext))
+            messages.Add(new ChatMessage(ChatRole.System, organizationContext));
+
+        var checklistBucket = await _checklistNotes.ResolveBucketAsync(project.OrgUnitCode, cancellationToken);
+        var learnedChecklist = await _checklistNotes.BuildForChatAsync(ba, checklistBucket, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(learnedChecklist))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.LearnedChecklist(learnedChecklist)));
+
+        if (!string.IsNullOrWhiteSpace(turn.UserMemory))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.UserProfile(turn.UserMemory)));
+
+        if (!string.IsNullOrWhiteSpace(turn.Memory.Summary))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConversationMemory(turn.Memory.Summary)));
+
+        if (!string.IsNullOrWhiteSpace(turn.CoverageUpdate.Map))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.CoverageMap(turn.CoverageUpdate.Map)));
+
+        var settledDecisions = DecisionLogService.ParseItems(project.DecisionLog);
+        if (settledDecisions.Count > 0)
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.SettledDecisions(settledDecisions)));
+
+        var openQuestions = InterviewOutlookService.ParseItems(project.OpenQuestions);
+        if (openQuestions.Count > 0)
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.OpenQuestions(openQuestions)));
+
+        AppendTableBlocks(messages, turn);
+
+        // LƯỢT KỂ LẠI FILE BẢNG TÍNH — nửa sau của cơ chế "bảng cột trước, bản đọc lại sau". Luật viết bản
+        // đọc lại nằm trong prompt riêng (đo được ở Prompt Evals, sửa được ở Prompt Studio) chứ không nhét
+        // thành chuỗi ở đây; khối này chỉ chọn ĐÚNG lượt để đính nó vào.
+        if (turn.ColumnReadbackTurn)
+            messages.Add(new ChatMessage(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/source-readback.v1.md")));
+
+        var askedNote = AskedQuestionHistory.BuildNote(turn.AskedBefore);
+        if (!string.IsNullOrWhiteSpace(askedNote))
+            messages.Add(new ChatMessage(ChatRole.System, askedNote));
+
+        AppendTranscript(messages, turn);
+        return messages;
+    }
+
+    /// <summary>
+    /// Sáu khối bảng, chia làm hai loại: bảng ĐÃ CHỐT (đính vào mọi lượt sau, không phụ thuộc cổng nào
+    /// đang mở) và đúng MỘT khối "## LƯỢT NÀY:" của cổng đang mở. Chúng loại trừ nhau vì cùng đến từ một
+    /// lời gọi <see cref="InterviewTableGate.Select"/>.
+    /// </summary>
+    private static void AppendTableBlocks(List<ChatMessage> messages, TurnContext turn)
+    {
+        var project = turn.Project;
+
+        AppendConfirmedTable(messages, FlowMapBuilder.RenderConfirmedBlock(project.FlowMap), BAChatPromptBlocks.ConfirmedFlowMap);
+        AppendConfirmedTable(messages, ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap), BAChatPromptBlocks.ConfirmedScreenScope);
+        AppendConfirmedTable(messages, EntityMapBuilder.RenderConfirmedBlock(project.EntityMap), BAChatPromptBlocks.ConfirmedEntityMap);
+        AppendConfirmedTable(messages, ReportMapBuilder.RenderConfirmedBlock(project.ReportMap), BAChatPromptBlocks.ConfirmedReportMap);
+
+        // PHÂN QUYỀN — ba trạng thái, ba lệnh khác nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model
+        // tự đoán đang ở trạng thái nào: đã chốt / lượt bày bảng / còn phải chờ (cấm hỏi lẻ).
+        var confirmedMatrix = PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix);
+        if (!string.IsNullOrWhiteSpace(confirmedMatrix))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConfirmedPermissionMatrix(confirmedMatrix)));
+        else if (turn.Table == InterviewTableKind.PermissionMatrix)
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.PermissionMatrixTable(turn.EffectiveScreens)));
+        else
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.PermissionMatrixDeferred));
+
+        switch (turn.Table)
+        {
+            case InterviewTableKind.FlowMap:
+                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.FlowMapTable));
+                break;
+
+            case InterviewTableKind.ScreenScope:
+                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ScreenScopeTable(
+                    turn.ReshowScreenScope, turn.EffectiveScreens, turn.PendingScreens, turn.PendingFunctions, project.FlowMap)));
+                break;
+
+            case InterviewTableKind.EntityMap:
+                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.EntityMapTable));
+                break;
+
+            case InterviewTableKind.ReportMap:
+                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ReportMapTable(turn.EntityNames)));
+                break;
+        }
+
+        // THÔNG BÁO / NHẮC NHỞ — bốn ca: đã chốt / lượt bày bảng / còn phải chờ (cấm hỏi lẻ) / dự án không
+        // có vòng đời nào. Ca cuối KHÔNG có lệnh nào: bảng sẽ không bao giờ được bày, nên giữ lệnh cấm là
+        // khóa chết nhóm ở [CHƯA HỎI] và nút "Write Requirement" không bao giờ sáng. Đây là đường thoát duy
+        // nhất của ca đó, và nó khớp đúng điều kiện thứ ba của NotificationMapGate.
+        var confirmedNotifications = NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap);
+        if (!string.IsNullOrWhiteSpace(confirmedNotifications))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConfirmedNotificationMap(confirmedNotifications)));
+        else if (turn.Table == InterviewTableKind.NotificationMap)
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationMapTable(turn.NotificationSeedRows, turn.RecipientOptions)));
+        else if (turn.NotificationSeedRows.Count > 0 || !PermissionMatrixGate.IsConfirmed(project.PermissionMatrix))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationDeferred));
+    }
+
+    /// <summary>
+    /// Các lượt hội thoại gần đây, dựng lại đúng hình dạng model được yêu cầu xuất (xem
+    /// <see cref="BuildAssistantContext"/>). Tài liệu nguồn đi kèm ĐÚNG lượt user cuối, và chỉ khi phần
+    /// text của chúng chưa được tách lên đầu prompt.
+    /// </summary>
+    private static void AppendTranscript(List<ChatMessage> messages, TurnContext turn)
+    {
+        var recent = turn.Recent;
+        for (var i = 0; i < recent.Count; i++)
+        {
+            var c = recent[i];
+            var isAssistant = c.Role == "assistant";
+            // Lượt cũ của BA được "dựng lại" đúng JSON {message, suggestions}. Nếu chỉ đưa text thuần,
+            // model thấy phản hồi trước của mình là văn xuôi và bắt chước → bỏ JSON từ lượt 2 trở đi,
+            // mất luôn gợi ý. Đưa lại đúng format giúp model giữ JSON ở mọi lượt.
+            var text = isAssistant ? BuildAssistantContext(c) : c.Message;
+
+            // SourceTextInPrefix ⇒ khối nguồn đã đi ở đầu prompt rồi, đính lại đây là chép đôi.
+            if (!isAssistant && i == turn.LastUserIndex && turn.SourceContents.Count > 0 && !turn.SourceTextInPrefix)
+            {
+                var contents = new List<AIContent> { new TextContent(text) };
+                contents.AddRange(turn.SourceContents.Contents);
+                messages.Add(new ChatMessage(ChatRole.User, contents));
+            }
+            else
+            {
+                messages.Add(new ChatMessage(isAssistant ? ChatRole.Assistant : ChatRole.User, text));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Nắn lượt model vừa trả thành lượt sẽ được LƯU. Các chốt chặn TẤT ĐỊNH chạy nối tiếp theo ĐÚNG thứ
+    /// tự dưới đây, và thứ tự là một phần của hành vi: chúng viết đè lên nhau, nên chốt chặn "lượt câm"
+    /// phải chạy cuối — nó xét HÌNH DẠNG của lượt đã chốt chứ không xét ý định của model.
+    /// </summary>
+    private async Task ShapeTurnAsync(
+        BAChatTurnDraft draft, LlmCallResult callResult, BAChatReply? structuredReply,
+        TurnContext turn, Agent ba, AiModel model, CancellationToken cancellationToken)
+    {
+        // Đường structured output trả thẳng BAChatReply (không qua Parse), nên phải chuẩn hoá RIÊNG:
+        // trần "tối đa 4 câu hỏi một lượt" và việc hạ lượt-gộp-một-câu về đường một-câu sống trong
+        // Normalize. Bỏ bước này thì các model tốt (đường mặc định) là các model KHÔNG bị chặn.
+        var parsedReply = structuredReply != null
+            ? _replyParser.Normalize(structuredReply)
+            : _replyParser.Parse(callResult.Content);
+
+        ApplyModelReply(draft, parsedReply);
+        ApplyRepeatedQuestionBrake(draft, parsedReply, turn);
+        ApplyReadinessGate(draft, turn);
+        await BuildInterviewTableAsync(draft, parsedReply, turn, ba, model, cancellationToken);
+        ApplyColumnReadbackShape(draft, turn);
+        ApplySourceRequestTurn(draft, turn);
+        ApplySummaryCheckChips(draft);
+
+        // LƯỢT CÂM — chốt chặn cuối cùng của lượt chat, chạy SAU mọi nhánh trên vì nó xét HÌNH DẠNG của
+        // lượt đã chốt chứ không xét ý định của model.
+        //
+        // Hai phanh tất định phía trên chỉ soi các lượt CÓ hỏi: lượt mà mọi câu hỏi đều là câu đã hỏi
+        // (AskedQuestionHistory), và lượt mời bấm "Write Requirement" quá sớm (cổng readiness). Còn một
+        // hình dạng thứ ba lọt qua cả hai — lượt KHÔNG hỏi gì cả. Người dùng không có chỗ nào để trả lời,
+        // và vì lượt đó không chở câu hỏi nào nên phanh chống hỏi lại (so theo nội dung CÂU HỎI) cũng
+        // không nhìn thấy nó.
+        //
+        // Ca thật (dự án JD Libary 5, các lượt 82/84/90): bản đồ kẹt [MỘT PHẦN] ở một dòng mà người dùng
+        // ĐÃ trả lời, nên BA hết đường hợp lệ — prompt cấm hỏi lại điều vừa được trả lời, và cấm nhắc tới
+        // nút khi bản đồ chưa đủ — rồi rơi vào "mình tiếp tục bước rà soát cuối", một bước không hề tồn
+        // tại ở chế độ chat. Người dùng đáp "ok", "tiếp tục đi" và nhận lại đúng một lượt như thế: ba lượt
+        // bị đốt, bản đồ không nhúc nhích, cuộc phỏng vấn đứng hẳn ở lượt cuối. Đây đúng là ca mà bản đồ
+        // KHÔNG tự lành được: nó chỉ nhúc nhích khi có thông tin mới, mà lượt câm thì không hỏi được gì để
+        // lấy thông tin mới.
+        //
+        // Thay bằng đúng bước kế tiếp tất định của đường lượt-trùng: bản đồ còn thiếu ⇒ câu chặn của cổng
+        // (đường phát thứ tư của nó), bản đồ đã đủ ⇒ lời mời bấm nút. Cả hai đều là thứ người dùng trả
+        // lời được. Xem BAChatTurnDraft.IsSilent cho ranh giới "thế nào là câm".
+        if (draft.IsSilent)
+        {
+            var (message, openEnded) = BuildFollowUpAfterRepeat(turn.Project.RequirementCoverageMap, turn.Recent);
+            draft.Reply = message;
+            draft.OpenEnded = openEnded;
+        }
+    }
+
+    /// <summary>Lượt model trả về, đã chuẩn hoá — điểm xuất phát của mọi chốt chặn phía sau.</summary>
+    private static void ApplyModelReply(BAChatTurnDraft draft, BAChatReply parsedReply)
+    {
+        // Lượt phải gửi lại mà bỏ ảnh có kèm một dòng dặn dò NỘI BỘ cho model; model yếu hay chép
+        // nguyên văn dòng đó vào câu trả lời. Dọn trước khi nó thành một lượt hội thoại.
+        draft.Reply = string.IsNullOrWhiteSpace(parsedReply.Message)
+            ? "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu."
+            : EndpointQuirks.StripInternalNotices(parsedReply.Message);
+
+        // Lưu suggestions tách riêng (JSON) để UI render chip; chỉ set khi thực sự có gợi ý.
+        if (parsedReply.Suggestions.Count > 0)
+        {
+            draft.SuggestionsJson = JsonSerializer.Serialize(parsedReply.Suggestions);
+            draft.SuggestionsMultiSelect = parsedReply.MultiSelect;
+        }
+
+        // Normalize đã đảm bảo OpenEnded ⇒ Suggestions rỗng, nên hai nhánh này loại trừ nhau.
+        draft.OpenEnded = parsedReply.OpenEnded;
+
+        // Lượt hỏi GỘP (2–4 câu độc lập): Normalize đã đảm bảo hoặc có Questions, hoặc có
+        // Suggestions — không bao giờ cả hai.
+        draft.Questions = parsedReply.Questions;
+    }
+
+    /// <summary>
+    /// PHANH CHỐNG HỎI LẠI (tất định). Prompt đã cấm phát lại câu cũ, nhưng bản đồ bao phủ — thứ dẫn dắt
+    /// lượt hỏi — chỉ có độ phân giải theo NHÓM: một dòng chưa đạt chuẩn [RÕ] (hoặc một lượt chắt lọc bản
+    /// đồ hỏng, giữ nguyên bản cũ) là đủ để model phát lại nguyên văn cả cụm câu hỏi của lượt trước, kèm
+    /// chip gợi ý chính là câu trả lời người dùng vừa gõ. Ở đây câu trùng bị LOẠI khỏi lượt trả lời trước
+    /// khi nó kịp lên màn hình.
+    /// </summary>
+    private void ApplyRepeatedQuestionBrake(BAChatTurnDraft draft, BAChatReply parsedReply, TurnContext turn)
+    {
+        var askedKeys = AskedQuestionHistory.Keys(turn.AskedBefore);
+        var reopenedGroups = AskedQuestionHistory.ReopenedGroups(CoverageMapParser.Parse(turn.Project.RequirementCoverageMap));
+        // …và sổ thứ hai: các CHIP đã bày ở một lượt chọn-nhiều mà người dùng không chọn. Một chip bị
+        // bỏ là một câu trả lời ("cái này thì không"), nhưng nó không nằm trong sổ câu hỏi nên một câu
+        // có/không hỏi riêng đúng chip đó lọt qua phanh trên — xem AskedQuestionHistory.DeclinedChipKeys.
+        var declinedChips = AskedQuestionHistory.DeclinedChipKeys(turn.Recent);
+
+        if (draft.Questions.Count > 0)
+        {
+            var kept = draft.Questions
+                .Where(q => AskedQuestionHistory.IsExempt(q, reopenedGroups)
+                            || (!AskedQuestionHistory.IsRepeat(q.Question, askedKeys)
+                                && !AskedQuestionHistory.AsksAboutDeclinedChip(q.Question, declinedChips)))
+                .ToList();
+
+            if (kept.Count == draft.Questions.Count)
+                return;
+
+            // Câu dẫn của lượt gộp thường tự đếm ("dưới đây là 4 câu xác nhận") nên bỏ bớt câu là
+            // nó nói sai — thay bằng câu dẫn trung tính. Còn đúng một câu thì để Message rỗng cho
+            // Normalize nâng chính câu hỏi lên làm nội dung lượt (đường một-câu).
+            var trimmed = _replyParser.Normalize(new BAChatReply
+            {
+                Message = kept.Count >= 2 ? "Cảm ơn anh/chị. Mình hỏi thêm mấy điểm sau nhé:" : string.Empty,
+                Questions = kept
+            });
+
+            if (kept.Count == 0)
+            {
+                // Không còn câu nào MỚI để hỏi: lượt này lẽ ra rỗng. Thay bằng bước kế tiếp TẤT
+                // ĐỊNH suy từ bản đồ (hỏi đúng nhóm còn thiếu, hoặc mời bấm nút khi bản đồ đã đủ)
+                // — im lặng hoặc để nguyên câu dẫn cụt đều tệ hơn. Câu đó không có chip, nên cờ
+                // "câu mở" đi theo nó để ô nhập nhận vai chỗ trả lời.
+                var (message, openEnded) = BuildFollowUpAfterRepeat(turn.Project.RequirementCoverageMap, turn.Recent);
+                draft.Replace(message, openEnded);
+            }
+            else
+            {
+                draft.Reply = trimmed.Message;
+                draft.SuggestionsJson = trimmed.Suggestions.Count > 0 ? JsonSerializer.Serialize(trimmed.Suggestions) : null;
+                draft.SuggestionsMultiSelect = trimmed.MultiSelect && trimmed.Suggestions.Count > 0;
+                draft.OpenEnded = trimmed.OpenEnded;
+            }
+
+            draft.Questions = trimmed.Questions;
+            return;
+        }
+
+        // "Có chip HOẶC là câu mở" = lượt này thật sự đang HỎI. Trước đây vế đầu là đủ vì mọi câu hỏi
+        // đều bắt buộc kèm chip; từ khi câu mở được phép bỏ chip, chỉ xét chip là để lọt đúng loại câu
+        // đắt nhất (xin lời kể) ra khỏi phanh chống hỏi lại.
+        if ((parsedReply.Suggestions.Count > 0 || parsedReply.OpenEnded)
+            && !RequirementReadinessGate.IsWriteRequirementInvite(draft.Reply)
+            && (AskedQuestionHistory.IsRepeat(draft.Reply, askedKeys)
+                || AskedQuestionHistory.AsksAboutDeclinedChip(draft.Reply, declinedChips)))
+        {
+            // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
+            var (message, openEnded) = BuildFollowUpAfterRepeat(turn.Project.RequirementCoverageMap, turn.Recent);
+            draft.Replace(message, openEnded);
+        }
+    }
+
+    /// <summary>
+    /// Lượt MỜI bấm "Write Requirement" phải qua cổng readiness TẤT ĐỊNH ngay tại đây, trước khi người
+    /// dùng nhìn thấy lời mời: ready suy thẳng từ bản đồ bao phủ (đã gộp tới lượt user mới nhất ở đầu lượt
+    /// này) — cùng dữ liệu mà panel "Tiến độ khai thác" render, nên panel, lời mời và nút KHÔNG THỂ vênh
+    /// nhau. Bản đồ chưa đủ (kể cả khi lượt gộp lỗi giữ bản cũ — fail-closed, lượt sau gộp bù) ⇒ thay lời
+    /// mời bằng câu hỏi nêu đúng nhóm còn thiếu, nút vẫn mờ; đủ ⇒ giữ lời mời và bước sinh tài liệu KHÔNG
+    /// xét lại trên cùng transcript (xem ProductBriefDraftService.GenerateOrUpdateDraftAsync). Một nguồn
+    /// chân lý, một tiêu chuẩn.
+    /// </summary>
+    private static void ApplyReadinessGate(BAChatTurnDraft draft, TurnContext turn)
+    {
+        if (!RequirementReadinessGate.IsWriteRequirementInvite(draft.Reply))
+            return;
+
+        // `Recent` đi kèm để cổng không phát lại đúng câu chặn nó vừa phát: câu của cổng không có chip nên
+        // phanh chống hỏi lại dùng chung không thấy nó — xem RequirementReadinessGate.
+        var readiness = RequirementReadinessGate.Evaluate(turn.Project.RequirementCoverageMap, turn.Recent);
+        if (!readiness.Ready)
+        {
+            // Câu hỏi của gate xin một mẩu thông tin còn thiếu và không kèm chip nào ⇒ ô nhập là chỗ trả
+            // lời DUY NHẤT: bỏ cờ multi của lời mời bị thay, bật cờ "câu mở" để khung chat mời người dùng
+            // gõ, và cũng không giữ thẻ hỏi gộp — để lại thẻ cũ thì màn hình có hai lượt hỏi khác nhau
+            // chồng lên nhau.
+            draft.Replace(
+                string.IsNullOrWhiteSpace(readiness.Message)
+                    ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
+                    : readiness.Message,
+                readiness.OpenEnded);
+            return;
+        }
+
+        // Lời mời ĐƯỢC GIỮ: lượt này là lời mời bấm nút, không phải lượt hỏi. Một lời mời kèm thẻ hỏi là
+        // tự mâu thuẫn ("không còn gì để hỏi" + 3 câu hỏi), và ở đúng lượt mà cổng vừa mở — người dùng sẽ
+        // trả lời thẻ đó rồi tự hỏi vì sao mình vẫn chưa được viết. Lời mời cũng không phải câu hỏi ⇒
+        // không mời người dùng "kể tự do" ở ô nhập.
+        draft.Questions = new List<BAChatQuestion>();
+        draft.OpenEnded = false;
+    }
+
+    /// <summary>
+    /// Dựng BẢNG của cổng đang mở từ đề xuất model. Chỉ chạy khi cổng đã mở (xem
+    /// <see cref="InterviewTableGate"/>), nên không lượt nào giữa buổi bị thay bằng một bảng dựng trên
+    /// phạm vi mới có một nửa.
+    ///
+    /// <para>
+    /// Model không trả bảng dùng được (structured output tắt, hoặc mọi dòng đều trỏ vào màn hình không có
+    /// trong phạm vi) ⇒ FAIL-OPEN: lượt chạy y như một lượt chat thường và cổng sẽ mở lại ở lượt sau. Một
+    /// lượt hỏi thừa rẻ hơn nhiều so với một lượt câm.
+    /// </para>
+    /// </summary>
+    private async Task BuildInterviewTableAsync(
+        BAChatTurnDraft draft, BAChatReply parsedReply, TurnContext turn,
+        Agent ba, AiModel model, CancellationToken cancellationToken)
+    {
+        var project = turn.Project;
+        switch (turn.Table)
+        {
+            case InterviewTableKind.PermissionMatrix:
+                draft.PermissionMatrix = PermissionMatrixBuilder.Build(parsedReply.PermissionMatrix, turn.EffectiveScreens);
+                if (draft.PermissionMatrix.Count > 0)
+                    draft.TakeOverForTable(PermissionMatrixIntro, parsedReply.Message);
+                break;
+
+            case InterviewTableKind.FlowMap:
+                draft.FlowMap = FlowMapBuilder.Build(parsedReply.FlowMap);
+                if (draft.FlowMap.Count > 0)
+                    draft.TakeOverForTable(FlowMapIntro, parsedReply.Message);
+                break;
+
+            case InterviewTableKind.ScreenScope:
+                // GIEO bằng chính bảng đang lưu. Cổng này mở lại được khi có mục mới lộ ra sau lúc
+                // chốt — xem ScreenScopeGate — và Build dựng bảng từ đề xuất TƯƠI của model, nên không
+                // gieo thì lần bày lại thay sạch phần người dùng đã tự tay rà bằng bản model vừa đoán
+                // lại. Hạt giống là tham số RIÊNG: chỉ nó được chở cờ đã-chốt qua, và chỉ dòng CHƯA
+                // CHỐT của nó mới cho model lấp thêm vào (xem Build).
+                draft.ScreenScopeMap = ScreenScopeMapBuilder.Build(
+                    ScreenScopeMapBuilder.SeedRows(project.ScreenScopeMap),
+                    parsedReply.ScreenScopeMap,
+                    turn.EffectiveScreens);
+                if (draft.ScreenScopeMap.Count > 0)
+                {
+                    // Lượt BÀY LẠI ép dùng câu dẫn của hệ thống (force) thay vì câu của model. Đây là
+                    // ngoại lệ DUY NHẤT của luật "câu dẫn model thắng", và nó cần thiết vì model không
+                    // có cách nào biết lượt này khác lượt trước: nó nhận cùng một khối lệnh bày bảng và
+                    // viết ra đúng một câu như lần đầu ("anh/chị rà soát bảng màn hình dưới đây rồi
+                    // bấm…"), tức lời mời rà lại TOÀN BỘ một bảng mà người dùng vừa chốt. Thứ phải nói
+                    // ra — giữ nguyên phần đã chốt, chỉ thêm màn hình nào — là dữ kiện của CƠ CHẾ
+                    // (SeedRows + NewScreens), nên nó phải do cơ chế viết.
+                    if (turn.ReshowScreenScope)
+                        draft.TakeOverForTable(ScreenScopeReshowIntro(turn.PendingScreens, turn.PendingFunctions), parsedReply.Message, force: true);
+                    else
+                        draft.TakeOverForTable(ScreenScopeIntro, parsedReply.Message);
+
+                    await CoverFlowStepsAsync(draft, turn, ba, model, cancellationToken);
+                }
+                break;
+
+            case InterviewTableKind.EntityMap:
+                draft.EntityMap = EntityMapBuilder.Build(parsedReply.EntityMap, ConfirmedColumnNames(turn.Sources));
+                if (draft.EntityMap.Count > 0)
+                    draft.TakeOverForTable(EntityMapIntro, parsedReply.Message);
+                break;
+
+            case InterviewTableKind.ReportMap:
+                // Dòng do MODEL đề xuất (không có bảng nào gieo ra được một báo cáo), nhưng ô "lấy số
+                // từ" thì phải trỏ về bảng đối tượng đã chốt — đó là mối nối duy nhất giữ cho bước sinh
+                // spec không tự nghĩ ra một nguồn dữ liệu cho báo cáo.
+                draft.ReportMap = ReportMapBuilder.Build(parsedReply.ReportMap, turn.EntityNames);
+                if (draft.ReportMap.Count > 0)
+                    draft.TakeOverForTable(ReportMapIntro, parsedReply.Message);
+                break;
+
+            case InterviewTableKind.NotificationMap:
+                // Dòng do CƠ CHẾ gieo, không do model liệt kê: model chỉ điền người nhận vào các dòng
+                // có sẵn. Một sự kiện model quên nêu vẫn có mặt ở trạng thái chưa chọn người nhận —
+                // im lặng bỏ nó đi là biến "chưa hỏi" thành "không báo cho ai".
+                draft.NotificationMap = NotificationMapBuilder.Build(
+                    parsedReply.NotificationMap, turn.NotificationSeedRows, turn.RecipientOptions);
+                if (draft.NotificationMap.Count > 0)
+                    draft.TakeOverForTable(NotificationMapIntro, parsedReply.Message);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Phép kiểm TẤT ĐỊNH của mối nối luồng ⇄ màn hình, chạy bằng code chứ không bằng một lời gọi LLM:
+    /// hai bảng đọc riêng đều "đạt", chỗ hỏng nằm ở chỗ nối. Xem
+    /// <see cref="ScreenScopeMapBuilder.UncoveredActions"/>.
+    ///
+    /// <para>
+    /// Bắt được lỗ hổng thì BA TỰ LẤP, không hỏi ngược người dùng. Việc ánh xạ một bước nghiệp vụ sang một
+    /// chức năng trên một màn hình là phần việc họ đi thuê BA để làm; dòng nhắc dưới bảng ở lại làm chỗ rơi
+    /// cuối cùng cho những bước mà chính BA cũng không xếp nổi — đúng ca duy nhất đáng hỏi. Xem
+    /// <see cref="ScreenStepPlacementService"/>.
+    /// </para>
+    /// </summary>
+    private async Task CoverFlowStepsAsync(BAChatTurnDraft draft, TurnContext turn, Agent ba, AiModel model, CancellationToken cancellationToken)
+    {
+        var uncovered = ScreenScopeMapBuilder.UncoveredActions(draft.ScreenScopeMap, turn.Project.FlowMap);
+        draft.UncoveredFlowSteps = uncovered;
+        if (uncovered.Count == 0)
+            return;
+
+        var screensBefore = draft.ScreenScopeMap.Select(r => r.Screen).ToList();
+        draft.ScreenScopeMap = await _stepPlacement.PlaceAsync(
+            turn.ProjectId, draft.ScreenScopeMap, uncovered, ba, model, cancellationToken);
+
+        var stillUncovered = ScreenScopeMapBuilder.UncoveredActions(draft.ScreenScopeMap, turn.Project.FlowMap);
+        var placed = uncovered.Except(stillUncovered, StringComparer.OrdinalIgnoreCase).ToList();
+        draft.UncoveredFlowSteps = stillUncovered;
+
+        var notice = ScreenScopePlacementNotice(screensBefore, draft.ScreenScopeMap, placed);
+        if (notice != null)
+            draft.Reply = draft.Reply.TrimEnd() + notice;
+    }
+
+    /// <summary>
+    /// Lượt KỂ LẠI file: chỗ trả lời là hai chip xác nhận, nên không được có thẻ hỏi gộp — thẻ hỏi và chip
+    /// loại trừ nhau trên màn hình (<see cref="BAChatReplyParser.Normalize"/>), và một thẻ hỏi ở đây nuốt
+    /// mất đúng thứ lượt này cần lấy: bản đọc rốt cuộc đúng hay sai. Các câu hỏi khai thác quay lại từ lượt
+    /// sau.
+    /// </summary>
+    private static void ApplyColumnReadbackShape(BAChatTurnDraft draft, TurnContext turn)
+    {
+        if (!turn.ColumnReadbackTurn)
+            return;
+
+        draft.Questions = new List<BAChatQuestion>();
+        // …và bỏ thẻ hỏi thì phải TRẢ LẠI chip: chính vì model kèm thẻ hỏi mà Normalize đã dọn
+        // sạch Suggestions của lượt. Để nguyên là bày ra một câu hỏi đóng KHÔNG CÓ nút trả lời —
+        // đúng lỗi mà lượt đọc bảng tính đã vấp một lần, chỉ khác chỗ phát sinh.
+        if (string.IsNullOrEmpty(draft.SuggestionsJson))
+            draft.SetFallbackSuggestions(SourceReadbackSuggestions);
+    }
+
+    /// <summary>
+    /// LƯỢT XIN FILE — người dùng vừa nhắc tới một file/bảng tính họ đang dùng mà dự án chưa có tài liệu
+    /// nguồn nào. Luật "xin file NGAY TẠI LƯỢT ĐÓ" nằm trong prompt từ lâu và vẫn trượt im lặng (ca thật:
+    /// JD Libary 5, người dùng nhắc hai file excel ở lượt 3 và 5, BA không xin lần nào trong 26 lượt) —
+    /// nên nó phải là một chốt chặn tất định như mọi luật đắt khác.
+    ///
+    /// <para>
+    /// Thay TRỌN lượt chứ không chèn thêm một câu: xin file là lời nhờ HÀNH ĐỘNG, người dùng đọc xong đi
+    /// tìm file và mọi thứ khác trong lượt rơi mất — trong khi bản đồ bao phủ vẫn tính là đã hỏi. Câu hỏi
+    /// model vừa viết không mất đi đâu: nhóm của nó chưa nhúc nhích nên nó quay lại ở lượt sau, lúc đó đọc
+    /// được file rồi thì thường còn hỏi ngắn hơn.
+    /// </para>
+    ///
+    /// <para>
+    /// Bốn điều kiện, và cả bốn đều cần: chưa có nguồn nào (có rồi thì đây là đường đọc lại file), lượt user
+    /// CUỐI thật sự nhắc tới một vật mang dữ liệu, chưa lượt BA nào xin file (giục lần hai là phí lượt), và
+    /// lượt này không phải lượt bày BẢNG (bảng là chỗ trả lời duy nhất của nó).
+    /// </para>
+    /// </summary>
+    private static void ApplySourceRequestTurn(BAChatTurnDraft draft, TurnContext turn)
+    {
+        if (turn.Sources.Count == 0
+            && turn.LastUserIndex >= 0
+            && SourceRequestTurn.MentionsExistingSource(turn.Recent[turn.LastUserIndex].Message)
+            && !SourceRequestTurn.Looks(draft.Reply)
+            && !turn.Recent.Any(c => ConversationTurnRenderer.IsAssistant(c) && SourceRequestTurn.Looks(c.Message))
+            && !draft.CarriesTable)
+        {
+            draft.Replace(SourceRequestTurn.Message, openEnded: true);
+        }
+    }
+
+    /// <summary>
+    /// NHỊP TÓM TẮT KIỂM CHỨNG mà quên chip. Prompt kê sẵn bộ hai chip cho lượt này (["Đúng rồi, tiếp tục",
+    /// "Tôi muốn sửa lại"]) vì nó là câu ĐÓNG: người dùng chỉ cần gật hoặc đòi sửa. Thiếu chip thì họ phải
+    /// gõ tay một câu xác nhận, và ca thật (JD Libary 5, lượt 20) cho thấy cái giá thật nằm ở chỗ khác:
+    /// không có hai nhánh bày sẵn, model tự viết ra một câu hỏi độ ĐẦY ĐỦ ("anh/chị thấy đã đầy đủ chưa?")
+    /// và nhận về "đầy đủ rồi" — một lời tuyên bố hoàn tất trong khi bản đồ còn hai nhóm [CHƯA HỎI]. Cùng
+    /// luật với chip dự phòng của lượt kể lại file: lượt nào là câu đóng thì phải có nút để bấm.
+    /// </summary>
+    private static void ApplySummaryCheckChips(BAChatTurnDraft draft)
+    {
+        if (string.IsNullOrEmpty(draft.SuggestionsJson)
+            && draft.Questions.Count == 0
+            && !draft.CarriesTable
+            && LooksVerificationSummary(draft.Reply))
+        {
+            draft.SetFallbackSuggestions(SummaryCheckSuggestions);
+        }
+    }
+
+    /// <summary>Lưu lượt assistant vừa nắn xong rồi trả bản CHỐT cho endpoint streaming render tại chỗ.</summary>
+    private async Task<BAChatTurnResult> SaveTurnAsync(TurnContext turn, Agent ba, BAChatTurnDraft draft, CancellationToken cancellationToken)
+    {
+        var project = turn.Project;
+        var questionsJson = draft.Questions.Count > 0 ? JsonSerializer.Serialize(draft.Questions) : null;
+        var permissionMatrixJson = draft.PermissionMatrix.Count > 0 ? JsonSerializer.Serialize(draft.PermissionMatrix) : null;
+        var flowMapJson = draft.FlowMap.Count > 0 ? JsonSerializer.Serialize(draft.FlowMap) : null;
+        var screenScopeMapJson = draft.ScreenScopeMap.Count > 0 ? JsonSerializer.Serialize(draft.ScreenScopeMap) : null;
+        var entityMapJson = draft.EntityMap.Count > 0 ? JsonSerializer.Serialize(draft.EntityMap) : null;
+        var reportMapJson = draft.ReportMap.Count > 0 ? JsonSerializer.Serialize(draft.ReportMap) : null;
+        var notificationMapJson = draft.NotificationMap.Count > 0 ? JsonSerializer.Serialize(draft.NotificationMap) : null;
         // ĐÓNG DẤU "cổng readiness đã pass ở lượt này" lên chính lượt sắp lưu — thứ mà bước soạn tài liệu
         // đọc để biết có được bỏ qua lần xét lại hay không (xem AgentConversation.ReadinessVerified).
         //
-        // Suy từ bản CHỐT (`reply`) chứ không từ nhánh nào phía trên, và đó là điểm mấu chốt: `reply` còn
-        // bị nhiều chốt chặn sau đó viết lại — lượt có BẢNG thay lời mời bằng câu dẫn của bảng
-        // (TakeOverTurn), lượt câm bị thay bằng bước kế tất định (có thể LÀ lời mời khi bản đồ đã đủ). Đặt
-        // cờ ở nhánh "lời mời được giữ" rồi mang xuống đây là dựng lại đúng kiểu vênh mà cột này sinh ra
-        // để dẹp: cờ nói một đằng, lượt được lưu một nẻo. Bản đồ dùng để xét là bản đã gộp ở ĐẦU lượt này
-        // — cùng dữ liệu mà nhánh lời mời phía trên đã xét, nên hai chỗ không thể lệch nhau.
-        var readinessVerified = RequirementReadinessGate.IsReadinessVerifiedTurn(reply, project.RequirementCoverageMap);
+        // Suy từ bản CHỐT (`draft.Reply`) chứ không từ nhánh nào phía trên, và đó là điểm mấu chốt: nội
+        // dung lượt còn bị nhiều chốt chặn sau đó viết lại — lượt có BẢNG thay lời mời bằng câu dẫn của
+        // bảng (TakeOverForTable), lượt câm bị thay bằng bước kế tất định (có thể LÀ lời mời khi bản đồ đã
+        // đủ). Đặt cờ ở nhánh "lời mời được giữ" rồi mang xuống đây là dựng lại đúng kiểu vênh mà cột này
+        // sinh ra để dẹp: cờ nói một đằng, lượt được lưu một nẻo. Bản đồ dùng để xét là bản đã gộp ở ĐẦU
+        // lượt này — cùng dữ liệu mà cổng readiness đã xét, nên hai chỗ không thể lệch nhau.
+        var readinessVerified = RequirementReadinessGate.IsReadinessVerifiedTurn(draft.Reply, project.RequirementCoverageMap);
 
-        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply, suggestionsJson, suggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, cancellationToken: cancellationToken);
+        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
         return new BAChatTurnResult
         {
             Status = ChatWithBAResult.Ok,
-            Reply = reply,
-            Suggestions = string.IsNullOrEmpty(suggestionsJson)
+            Reply = draft.Reply,
+            Suggestions = string.IsNullOrEmpty(draft.SuggestionsJson)
                 ? new List<string>()
-                : JsonSerializer.Deserialize<List<string>>(suggestionsJson) ?? new List<string>(),
-            InvitesWriteRequirement = RequirementReadinessGate.IsWriteRequirementInvite(reply),
-            SuggestionsMultiSelect = suggestionsMultiSelect,
-            OpenEnded = openEnded,
-            Questions = questions,
+                : JsonSerializer.Deserialize<List<string>>(draft.SuggestionsJson) ?? new List<string>(),
+            InvitesWriteRequirement = RequirementReadinessGate.IsWriteRequirementInvite(draft.Reply),
+            SuggestionsMultiSelect = draft.SuggestionsMultiSelect,
+            OpenEnded = draft.OpenEnded,
+            Questions = draft.Questions,
             // Bản đồ ở thời điểm này đã gộp tới lượt user mới nhất (cập nhật đầu lượt); lượt BA vừa trả
             // lời sẽ được gộp ở lượt sau — đủ tươi cho panel tiến độ.
             Coverage = CoverageMapParser.Parse(project.RequirementCoverageMap).ToList(),
@@ -1571,21 +1254,21 @@ public class BAChatService
             // phải lời mời không". UI cần cả hai vì sau khi bản Brief đã tồn tại, một lượt BA không mời
             // (BA hỏi thêm một câu) không được phép cắt mất đường soạn lại bản Brief đang cũ dần.
             CoverageReady = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap).Ready,
-            PermissionMatrix = permissionMatrix,
-            FlowMap = flowMap,
-            ScreenScopeMap = screenScopeMap,
-            EntityMap = entityMap,
-            ReportMap = reportMap,
+            PermissionMatrix = draft.PermissionMatrix,
+            FlowMap = draft.FlowMap,
+            ScreenScopeMap = draft.ScreenScopeMap,
+            EntityMap = draft.EntityMap,
+            ReportMap = draft.ReportMap,
             // Cùng luật với RecipientOptions ngay dưới: mục chọn chỉ có nghĩa khi lượt này thật sự bày bảng.
-            ReportEntityOptions = reportMap.Count > 0 ? entityNames : new List<string>(),
-            NotificationMap = notificationMap,
+            ReportEntityOptions = draft.ReportMap.Count > 0 ? turn.EntityNames : new List<string>(),
+            NotificationMap = draft.NotificationMap,
             // Danh sách chọn chỉ có nghĩa khi lượt này thật sự bày bảng: client dựng ô chọn từ đây, và
             // server đối chiếu đúng bộ này lúc gửi lên.
-            RecipientOptions = notificationMap.Count > 0 ? recipientOptions : new List<string>(),
-            UncoveredFlowSteps = uncoveredFlowSteps,
+            RecipientOptions = draft.NotificationMap.Count > 0 ? turn.RecipientOptions : new List<string>(),
+            UncoveredFlowSteps = draft.UncoveredFlowSteps,
             // Bản đồ KHÔNG gộp được lượt này (đã thử lại): panel tiến độ đang hiển thị bản cũ và BA vừa
             // dẫn lượt bằng bản cũ đó. Nói thẳng ra thay vì để người dùng tự đoán vì sao tiến độ đứng im.
-            CoverageStale = coverageUpdate.DistillFailed
+            CoverageStale = turn.CoverageUpdate.DistillFailed
         };
     }
 
@@ -1594,12 +1277,12 @@ public class BAChatService
     /// đẹp: BA vẫn hỏi lại đúng thứ người dùng vừa duyệt từng dòng, và mọi tầng phía sau vẫn phải tự đoán.
     /// Chưa chốt (<paramref name="block"/> null/rỗng) ⇒ không đính gì, lượt chạy đúng như trước.
     /// </summary>
-    private static void AppendConfirmedTable(List<ChatMessage> messages, string? block, string heading, string rule)
+    private static void AppendConfirmedTable(List<ChatMessage> messages, string? block, string instruction)
     {
         if (string.IsNullOrWhiteSpace(block))
             return;
 
-        messages.Add(new ChatMessage(ChatRole.System, heading + "\n" + rule + "\n" + block));
+        messages.Add(new ChatMessage(ChatRole.System, instruction + "\n" + block));
     }
 
     /// <summary>
@@ -1735,25 +1418,12 @@ public class BAChatService
                 return false;
             }
 
-            // PHẠM VI của lượt: file VỪA GỬI, tách khỏi các nguồn cũ. Lượt này nạp lại TOÀN BỘ nguồn của
-            // project và điều đó là cố ý — nguồn cũ là thứ duy nhất để ĐỐI CHIẾU, mà chỗ nối giữa file mới
-            // và file cũ thường là điểm chưa rõ đắt nhất của cả buổi. Nhưng "đính kèm để đối chiếu" khác
-            // hẳn "phải kể lại": không tách hai việc đó ra thì model — vốn thấy mọi nguồn nằm dưới cùng một
-            // câu "tôi vừa đính kèm" — kể lại cả những file người dùng đã xác nhận từ lượt trước, và họ phải
-            // đọc lại lần thứ hai đúng thứ mình vừa duyệt trước khi tới được phần nói về file vừa gửi.
-            var justSentIds = attachments?.Select(a => a.Id).ToHashSet() ?? new HashSet<Guid>();
-            var justSentFiles = sources.Where(s => justSentIds.Contains(s.Id)).Select(s => s.FileName).ToList();
-            // Không biết lô nào vừa gửi (caller không truyền danh sách) ⇒ giữ nguyên hành vi cũ: coi mọi
-            // nguồn là vừa gửi. Đoán bừa một tập con là nguy hiểm hơn hẳn việc kể lại thừa — file vừa gửi
-            // mà rơi khỏi phạm vi kể lại thì lượt bắt lỗi đầu vào của chính nó biến mất.
-            var scopedToNewFiles = justSentFiles.Count > 0;
-            if (!scopedToNewFiles)
-                justSentFiles = sources.Select(s => s.FileName).ToList();
+            var scope = BuildSourceAckScope(sources, attachments);
 
             // Ghi chú người dùng gõ cạnh ảnh (nếu có) → BA đọc đúng trọng tâm thay vì tóm tắt chung chung.
             // Câu này GỌI TÊN đúng các file vừa gửi: câu cũ ("đây là các tài liệu nguồn tôi vừa đính kèm")
             // đứng trước text của mọi nguồn nên nó khai man rằng file cũ cũng vừa được gửi.
-            var justSentList = string.Join(", ", justSentFiles);
+            var justSentList = string.Join(", ", scope.JustSentFiles);
             var promptText = string.IsNullOrEmpty(trimmedNote)
                 ? $"Tôi vừa đính kèm: {justSentList}. Bạn đọc kỹ và kể lại cụ thể những gì rút được từ đó để tôi xác nhận nhé."
                 : $"Tôi vừa đính kèm: {justSentList}, kèm ghi chú của tôi: \"{trimmedNote}\". Bạn đọc kỹ và kể lại cụ thể những gì rút được từ đó để tôi xác nhận nhé.";
@@ -1761,53 +1431,14 @@ public class BAChatService
             var userContent = new List<AIContent> { new TextContent(promptText) };
             userContent.AddRange(sourceContents.Contents);
 
-            // HÌNH DẠNG của lượt do CƠ CHẾ chọn, không để model tự đoán (cùng luật với cổng bảng phân
-            // quyền): còn bảng tính chưa chốt cột ⇒ lượt CHỐT PHẠM VI CỘT (bảng + lời giới thiệu ngắn);
-            // không còn ⇒ lượt BẢN ĐỌC LẠI như cũ. Model nhìn thấy text của MỌI nguồn trong project (kể cả
-            // file đã chốt cột từ lần upload trước) nên nó không tự suy ra được file nào đang chờ.
-            var pendingColumnFiles = sources
-                .Where(s => s.Kind == SourceFileKind.Spreadsheet && s.ExtractedText != null && s.ColumnMap == null)
-                .Select(s => s.FileName)
-                .ToList();
-
-            // Nguồn CŨ mà lượt này không còn việc gì với nó. Bảng tính cũ chưa chốt cột KHÔNG nằm ở đây dù
-            // nó cũng là nguồn cũ: bảng của nó được bày lại ngay lượt này (BuildColumnMapJson lấy mọi file
-            // ColumnMap == null), nên nó vẫn cần một câu giới thiệu — cấm nhắc tới nó là mời rà một cái bảng
-            // không có lời dẫn nào.
-            var earlierFiles = scopedToNewFiles
-                ? sources
-                    .Where(s => !justSentIds.Contains(s.Id) && !pendingColumnFiles.Contains(s.FileName))
-                    .Select(s => s.FileName)
-                    .ToList()
-                : new List<string>();
-
             var messages = new List<ChatMessage>
             {
                 new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/source-ack.v3.md")),
-                new(ChatRole.System, BuildSourceAckTurnShape(pendingColumnFiles, justSentFiles, earlierFiles)),
+                new(ChatRole.System, BASourceAckPrompt.TurnShape(scope.PendingColumnFiles, scope.JustSentFiles, scope.EarlierFiles)),
                 new(ChatRole.User, userContent)
             };
 
-            // Lời gọi LLM có thể THROW trước cả khi tới model (ví dụ ApiKey rỗng làm BuildClient ném
-            // ArgumentException) chứ không chỉ trả IsSuccess=false — bắt riêng tại đây để lỗi nào cũng
-            // thành lượt ⚠️ hiển thị được, thay vì lọt xuống catch-all và BA "mất tích" không dấu vết.
-            LlmCallResult? callResult = null;
-            BASourceAckReply? parsed = null;
-            string? callError = null;
-            try
-            {
-                (callResult, parsed) = await _llm.ChatStructuredAsync<BASourceAckReply>(
-                    model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BASourceAck"),
-                    cancellationToken: cancellationToken);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                callError = ex.Message;
-            }
+            var (callResult, parsed, callError) = await CallSourceAckAsync(projectId, ba, model, messages, cancellationToken);
 
             var reply = callResult is { IsSuccess: true } ? (parsed ?? _replyParser.Parse(callResult.Content)) : null;
             // Lượt phải gửi lại mà bỏ ảnh có kèm một dòng dặn dò NỘI BỘ cho model; model yếu hay chép nguyên
@@ -1838,7 +1469,7 @@ public class BAChatService
             // message đã được viết theo hình dạng "mời rà bảng bên dưới" nên nó đang trỏ vào một cái bảng
             // KHÔNG tồn tại. Nói thẳng ra và mở đường khác, thay vì để người dùng đi tìm một cái bảng không
             // có — phạm vi cột lúc này quay về đường phỏng vấn như trước khi có bảng.
-            if (pendingColumnFiles.Count > 0 && columnMapJson == null)
+            if (scope.PendingColumnFiles.Count > 0 && columnMapJson == null)
                 reply.Message = reply.Message.TrimEnd() + ColumnMapMissingNotice;
 
             // Có bảng cột ⇒ BỎ hàng chip của lượt này. Chip của lượt đọc file là câu chốt bản đọc lại
@@ -1884,85 +1515,81 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Khối chọn HÌNH DẠNG của lượt đọc file, dựng từ dữ liệu chứ không để model tự đoán.
-    ///
-    /// <para>
-    /// Còn bảng tính chưa chốt cột ⇒ lượt này chỉ bày BẢNG CỘT kèm một lời giới thiệu ngắn. Bản đọc lại chi
-    /// tiết của bảng tính (và cụm "Chỗ chưa chắc" của nó) bị đẩy sang lượt sau — lượt mà người dùng đã chốt
-    /// xong phạm vi cột — vì kể lại cả file trước khi biết họ dùng cột nào là: dựng việc tồn trên những cột
-    /// sắp bị bỏ tích, đọc nhầm cả file khi người dùng gửi nhầm file, và bày ra một bức tường chữ ngay trên
-    /// đúng cái bảng chở cùng nội dung ở dạng sửa được. Xem <c>source-readback.v1.md</c> cho nửa còn lại.
-    /// </para>
-    ///
-    /// <para>
-    /// Khối này mang thêm PHẠM VI KỂ LẠI — các file thật sự vừa gửi ở lượt này. Lượt đọc file nạp lại toàn
-    /// bộ nguồn của project, còn model thì không có cách nào tự phân biệt file mới với file đã xác nhận từ
-    /// lượt trước, nên thiếu dòng này nó kể lại tất — xem <see cref="BuildReadbackScope"/>.
-    /// </para>
+    /// Ba nhóm file của một lượt đọc tài liệu: file lượt này phải KỂ LẠI, bảng tính còn CHỜ CHỐT CỘT, và
+    /// nguồn CŨ chỉ đính kèm để đối chiếu. Xem <see cref="BuildSourceAckScope"/> cho lý do phải tách.
     /// </summary>
-    private static string BuildSourceAckTurnShape(
-        IReadOnlyList<string> pendingColumnFiles,
-        IReadOnlyList<string> justSentFiles,
-        IReadOnlyList<string> earlierFiles)
-    {
-        var shape = pendingColumnFiles.Count > 0
-            ? "## LƯỢT NÀY: CHỐT PHẠM VI CỘT (bắt buộc)\n"
-              + "File bảng tính CHƯA chốt bảng cột: " + string.Join(", ", pendingColumnFiles) + ".\n"
-              + "Với các file đó, lượt này CHỈ làm hai việc: điền `columns` phủ đủ mọi cột của file (ý nghĩa "
-              + "viết sẵn, tích sẵn cột nghiệp vụ), và viết `message` NGẮN — tối đa năm câu: file này là gì, "
-              + "quy mô thật, rồi mời người dùng rà bảng bên dưới và bấm \"Gửi bảng cột\".\n"
-              + "TUYỆT ĐỐI KHÔNG kể lại chi tiết từng cột và KHÔNG viết cụm \"Chỗ chưa chắc\" cho các file "
-              + "đó: bản đọc lại của bảng tính là lượt SAU, sau khi người dùng chốt xong cột. Ngoại lệ duy "
-              + "nhất là MỘT câu khi file rõ ràng không phải thứ bạn vừa xin — họ cần biết ngay để gửi lại.\n"
-              + "Nguồn khác trong cùng lô (Word/PDF/ảnh) vẫn được đọc lại đầy đủ như thường."
-            : "## LƯỢT NÀY: BẢN ĐỌC LẠI\n"
-              + "Không có file bảng tính nào đang chờ chốt bảng cột ⇒ `columns` là mảng RỖNG, và lượt này là "
-              + "bản đọc lại đầy đủ: kể lại thứ bạn đọc được, nêu cụm \"Chỗ chưa chắc\", kết bằng câu hỏi "
-              + "đóng để người dùng bấm một trong hai chip.";
+    private sealed record SourceAckScope(
+        List<string> JustSentFiles,
+        List<string> PendingColumnFiles,
+        List<string> EarlierFiles);
 
-        return shape + BuildReadbackScope(justSentFiles, earlierFiles);
+    /// <summary>
+    /// PHẠM VI của lượt đọc file: file VỪA GỬI, tách khỏi các nguồn cũ. Lượt này nạp lại TOÀN BỘ nguồn của
+    /// project và điều đó là cố ý — nguồn cũ là thứ duy nhất để ĐỐI CHIẾU, mà chỗ nối giữa file mới và file
+    /// cũ thường là điểm chưa rõ đắt nhất của cả buổi. Nhưng "đính kèm để đối chiếu" khác hẳn "phải kể
+    /// lại": không tách hai việc đó ra thì model — vốn thấy mọi nguồn nằm dưới cùng một câu "tôi vừa đính
+    /// kèm" — kể lại cả những file người dùng đã xác nhận từ lượt trước, và họ phải đọc lại lần thứ hai
+    /// đúng thứ mình vừa duyệt trước khi tới được phần nói về file vừa gửi.
+    /// </summary>
+    private static SourceAckScope BuildSourceAckScope(
+        List<ProjectSourceFile> sources, IReadOnlyList<ChatAttachment>? attachments)
+    {
+        var justSentIds = attachments?.Select(a => a.Id).ToHashSet() ?? new HashSet<Guid>();
+        var justSentFiles = sources.Where(s => justSentIds.Contains(s.Id)).Select(s => s.FileName).ToList();
+        // Không biết lô nào vừa gửi (caller không truyền danh sách) ⇒ giữ nguyên hành vi cũ: coi mọi
+        // nguồn là vừa gửi. Đoán bừa một tập con là nguy hiểm hơn hẳn việc kể lại thừa — file vừa gửi
+        // mà rơi khỏi phạm vi kể lại thì lượt bắt lỗi đầu vào của chính nó biến mất.
+        var scopedToNewFiles = justSentFiles.Count > 0;
+        if (!scopedToNewFiles)
+            justSentFiles = sources.Select(s => s.FileName).ToList();
+
+        // HÌNH DẠNG của lượt do CƠ CHẾ chọn, không để model tự đoán (cùng luật với cổng bảng phân
+        // quyền): còn bảng tính chưa chốt cột ⇒ lượt CHỐT PHẠM VI CỘT (bảng + lời giới thiệu ngắn);
+        // không còn ⇒ lượt BẢN ĐỌC LẠI như cũ. Model nhìn thấy text của MỌI nguồn trong project (kể cả
+        // file đã chốt cột từ lần upload trước) nên nó không tự suy ra được file nào đang chờ.
+        var pendingColumnFiles = sources
+            .Where(s => s.Kind == SourceFileKind.Spreadsheet && s.ExtractedText != null && s.ColumnMap == null)
+            .Select(s => s.FileName)
+            .ToList();
+
+        // Nguồn CŨ mà lượt này không còn việc gì với nó. Bảng tính cũ chưa chốt cột KHÔNG nằm ở đây dù
+        // nó cũng là nguồn cũ: bảng của nó được bày lại ngay lượt này (BuildColumnMapJson lấy mọi file
+        // ColumnMap == null), nên nó vẫn cần một câu giới thiệu — cấm nhắc tới nó là mời rà một cái bảng
+        // không có lời dẫn nào.
+        var earlierFiles = scopedToNewFiles
+            ? sources
+                .Where(s => !justSentIds.Contains(s.Id) && !pendingColumnFiles.Contains(s.FileName))
+                .Select(s => s.FileName)
+                .ToList()
+            : new List<string>();
+
+        return new SourceAckScope(justSentFiles, pendingColumnFiles, earlierFiles);
     }
 
     /// <summary>
-    /// PHẠM VI KỂ LẠI của lượt đọc file: gọi đích danh các file VỪA GỬI, và nói thẳng rằng các nguồn cũ chỉ
-    /// đính kèm để đối chiếu.
-    ///
-    /// <para>
-    /// Ca thật đã gặp: người dùng đã chốt bảng cột cho một file Excel từ đầu buổi, nhiều lượt sau gửi thêm
-    /// một ảnh chụp biểu mẫu để trả lời một câu hỏi — và BA kể lại CẢ HAI, mở đầu lượt bằng gần nửa số dòng
-    /// nói lại đúng bộ cột người dùng đã tích tay ở lượt trước. Model không sai luật nào nó được cho: nó
-    /// thấy text của mọi nguồn nằm dưới cùng một câu "tôi vừa đính kèm", và prompt bắt "MỌI file vừa gửi
-    /// đều phải được nhắc tới". Chỗ hỏng là cơ chế nói dối về chữ "vừa gửi", nên chỗ vá cũng phải ở đây —
-    /// prompt không có cách nào tự biết file nào mới.
-    /// </para>
-    ///
-    /// <para>
-    /// Nguồn cũ vẫn ĐI KÈM, và ngoại lệ cho phép nhắc tên chúng là cố ý: điểm chưa rõ đắt nhất của một lô
-    /// upload thường nằm đúng ở chỗ NỐI giữa file mới và file cũ (biểu mẫu vừa gửi lấy người học từ file
-    /// danh sách hay tự nhập?). Cấm nhắc tên là cắt luôn câu hỏi đó.
-    /// </para>
+    /// Lời gọi LLM của lượt đọc file. Nó có thể THROW trước cả khi tới model (ví dụ ApiKey rỗng làm
+    /// <c>BuildClient</c> ném <see cref="ArgumentException"/>) chứ không chỉ trả <c>IsSuccess=false</c> —
+    /// bắt riêng tại đây để lỗi nào cũng thành lượt ⚠️ hiển thị được, thay vì lọt xuống catch-all của
+    /// <see cref="AcknowledgeSourcesAsync"/> và BA "mất tích" không dấu vết.
     /// </summary>
-    private static string BuildReadbackScope(IReadOnlyList<string> justSentFiles, IReadOnlyList<string> earlierFiles)
+    private async Task<(LlmCallResult? CallResult, BASourceAckReply? Parsed, string? Error)> CallSourceAckAsync(
+        Guid projectId, Agent ba, AiModel model, List<ChatMessage> messages, CancellationToken cancellationToken)
     {
-        if (justSentFiles.Count == 0)
-            return string.Empty;
-
-        var scope = "\n\n## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY\n"
-            + "File người dùng VỪA GỬI ở lượt này: " + string.Join(", ", justSentFiles) + ". Chỉ những file "
-            + "này mới là thứ lượt này phải kể lại và xin xác nhận.\n";
-
-        if (earlierFiles.Count == 0)
-            return scope;
-
-        return scope
-            + "Các nguồn còn lại — " + string.Join(", ", earlierFiles) + " — đã gửi từ TRƯỚC và người dùng đã "
-            + "xác nhận cách bạn hiểu chúng rồi; chúng đính kèm ở đây CHỈ để bạn đối chiếu. TUYỆT ĐỐI KHÔNG "
-            + "kể lại chúng: không mô tả lại nội dung/cột/quy mô của chúng, không dựng cụm \"Chỗ chưa chắc\" "
-            + "cho riêng chúng. Kể lại một file đã được xác nhận là bắt người dùng đọc và duyệt lần thứ hai "
-            + "đúng thứ họ vừa duyệt, trong khi file họ thật sự vừa gửi bị đẩy xuống nửa dưới của lượt.\n"
-            + "Được phép nhắc tên chúng đúng MỘT trường hợp: nêu một điểm chưa rõ nằm ở chỗ NỐI giữa file "
-            + "vừa gửi và chúng (dữ liệu bên này lấy từ bên kia hay nhập tay?). Đó là câu hỏi chỉ lộ ra khi "
-            + "đặt hai nguồn cạnh nhau, và nó thuộc về file vừa gửi.";
+        try
+        {
+            var (callResult, parsed) = await _llm.ChatStructuredAsync<BASourceAckReply>(
+                model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BASourceAck"),
+                cancellationToken: cancellationToken);
+            return (callResult, parsed, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return (null, null, ex.Message);
+        }
     }
 
     /// <summary>

@@ -99,7 +99,7 @@ public class SourceAckReadbackRuleTests
     // nên "kể lại tài liệu vừa gửi" chỉ có nghĩa nếu ai đó nói cho model biết file nào vừa gửi. Ca thật:
     // người dùng chốt bảng cột cho một file Excel ở đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu
     // để trả lời một câu hỏi — BA kể lại CẢ HAI, mở đầu bằng gần nửa số dòng nói lại đúng bộ cột họ đã tích
-    // tay. Cơ chế gọi đích danh file vừa gửi (BAChatService.BuildReadbackScope); prompt phải dạy model đọc
+    // tay. Cơ chế gọi đích danh file vừa gửi (BASourceAckPrompt.ReadbackScope); prompt phải dạy model đọc
     // khối đó, nếu không nó vẫn đi theo luật "MỌI file vừa gửi đều phải được nhắc tới" với chữ "vừa gửi"
     // hiểu là tất cả.
     [Fact]

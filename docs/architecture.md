@@ -87,7 +87,8 @@ Services/
                          #   TokenEstimator, MaxOutputTokenResolver, LlmCost, JsonExtractor...
   Notifications/         # NotificationService + Channels/ (Teams webhook, SMTP email, Bosch Email Server API)
   Prompts/               # PromptTemplateService, DbPromptOverrideProvider, PromptFileCatalog
-  Requirements/          # BAChatService, ProductBriefDraftService, RequirementDocsService + trí nhớ/parser/generator của luồng BA
+  Requirements/          # BAChatService (+ BAChatPromptBlocks, BAChatTurnDraft, BASourceAckPrompt),
+                         #   ProductBriefDraftService, RequirementDocsService + trí nhớ/parser/generator của luồng BA
     Templates/           # RequirementTemplateService, DocxTemplateWriter (điền template .docx),
                          #   MarkdownDocxWriter (Markdown -> .docx có bìa/mục lục/heading/bảng)
   Security/              # PermissionService, RequirePermissionAttribute, AesApiKeyProtector, AuditLogger
