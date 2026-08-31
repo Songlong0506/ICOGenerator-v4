@@ -39,11 +39,14 @@ public static class BAChatPromptBlocks
 
     // Bản đồ bao phủ (nếu có): la bàn để BA chọn câu hỏi kế tiếp — ưu tiên nhóm ★ chưa rõ, không hỏi
     // lại nhóm đã [RÕ]. Prompt requirement-chat.v4 hướng dẫn cách dùng heading này.
+    // Bản đồ được LƯU dạng JSON nhưng nạp vào ngữ cảnh chat dạng 12 dòng bullet: BA đọc nó để chọn câu
+    // hỏi, không để sửa nó, nên dấu ngoặc nhọn ở đây chỉ tốn token và mời model chép cú pháp JSON ra câu
+    // trả lời cho người dùng. Xem CoverageMapParser.ToText.
     public static string CoverageMap(string coverageMap)
         => "## Bản đồ bao phủ yêu cầu (trạng thái khai thác từng nhóm thông tin — dùng để chọn câu hỏi kế tiếp)\n"
             + "Nhóm đã [RÕ]: KHÔNG hỏi lại. Nhóm [MỘT PHẦN]: chỉ hỏi ĐÚNG phần ghi sau \"còn thiếu:\", "
             + "KHÔNG phát lại câu hỏi mở đầu của nhóm đó (người dùng đã trả lời phần còn lại rồi).\n"
-            + coverageMap;
+            + CoverageMapParser.ToText(CoverageMapParser.Parse(coverageMap));
 
     // "Điều đã chốt" (DecisionLogService): các quyết định người dùng đã nói/đã xác nhận, gộp lũy tiến
     // qua MỌI lượt. Trước đây nhật ký này chỉ hiện thành panel cạnh khung chat để người dùng tự canh —

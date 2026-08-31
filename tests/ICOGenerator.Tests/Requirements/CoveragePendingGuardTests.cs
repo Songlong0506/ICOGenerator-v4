@@ -19,6 +19,11 @@ namespace ICOGenerator.Tests.Requirements;
 // nhận một khoảng trống mà không cổng nào báo.
 public class CoveragePendingGuardTests
 {
+    // Bản đồ được lưu dạng JSON nên các test dưới soi TRƯỜNG đã parse, không soi chuỗi: trạng thái và mẩu
+    // còn phải hỏi là thứ những tầng sau đọc, còn cách xếp chữ thì không tầng nào phụ thuộc vào.
+    private static ICOGenerator.Contracts.Requirements.CoverageMapItem Row(string? map, string labelPrefix) =>
+        CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
+
     [Fact]
     public void ClearRow_IsDowngraded_WhenItsGroupStillHasAPendingItem()
     {
@@ -30,11 +35,12 @@ public class CoveragePendingGuardTests
             new[] { "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không" });
 
         Assert.NotNull(map);
-        // Dòng có điểm tồn đọng bị hạ…
-        Assert.Contains("Luồng ngoại lệ & trường hợp đặc biệt: [MỘT PHẦN]", map, StringComparison.Ordinal);
-        Assert.Contains("còn thiếu: Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không", map, StringComparison.Ordinal);
+        // Dòng có điểm tồn đọng bị hạ, và mục tồn đọng thành ĐÚNG trường Gap — chỗ cổng readiness đọc.
+        var exception = Row(map, "Luồng ngoại lệ");
+        Assert.Equal("MỘT PHẦN", exception.Status);
+        Assert.Equal("Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không", exception.Gap);
         // …còn dòng không liên quan thì không bị đụng tới.
-        Assert.Contains("Mục tiêu / bài toán: [RÕ]", map, StringComparison.Ordinal);
+        Assert.Equal("RÕ", Row(map, "Mục tiêu").Status);
     }
 
     // Phần "còn thiếu:" không phải một ghi chú nội bộ: RequirementReadinessGate lấy NGUYÊN nó làm câu hỏi
@@ -69,8 +75,8 @@ public class CoveragePendingGuardTests
 
         Assert.Equal("MỘT PHẦN", item.Status);
         Assert.Equal("bảng cột người dùng đã chốt", item.Evidence);
-        Assert.Contains("Dùng 6 cột Master List đã chốt", item.Summary, StringComparison.Ordinal);
-        Assert.Contains("còn thiếu: Chưa rõ xử lý khi Item ID", item.Summary, StringComparison.Ordinal);
+        Assert.Contains("Dùng 6 cột Master List đã chốt", item.Known, StringComparison.Ordinal);
+        Assert.StartsWith("Chưa rõ xử lý khi Item ID", item.Gap, StringComparison.Ordinal);
     }
 
     // Lượt chắt lọc viết "Luồng ngoại lệ" còn bản đồ ghi "Luồng ngoại lệ & trường hợp đặc biệt" — vẫn là
@@ -85,7 +91,7 @@ public class CoveragePendingGuardTests
             "- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist.",
             new[] { $"[{tag}] Chưa rõ ticket Waitlist còn treo khi lớp đã kết thúc" });
 
-        Assert.Contains("[MỘT PHẦN]", map, StringComparison.Ordinal);
+        Assert.Equal("MỘT PHẦN", Row(map, "Luồng ngoại lệ").Status);
     }
 
     // Guard chạy MỘT CHIỀU. Hạ nhầm thì BA hỏi thêm một câu; nâng nhầm thì sinh ra một khoảng trống mà mọi
@@ -149,7 +155,7 @@ public class CoveragePendingGuardTests
                 "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký trùng lịch"
             });
 
-        Assert.Contains("còn thiếu: Chưa rõ đăng ký lại sau khi bị Reject", map, StringComparison.Ordinal);
+        Assert.Equal("Chưa rõ đăng ký lại sau khi bị Reject", Row(map, "Luồng ngoại lệ").Gap);
         Assert.DoesNotContain("trùng lịch", map, StringComparison.Ordinal);
     }
 
@@ -188,8 +194,9 @@ public class CoveragePendingGuardTests
             new[] { "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký lại sau khi bị Reject" },
             row);
 
-        Assert.Contains("[MỘT PHẦN]", map, StringComparison.Ordinal);
-        Assert.Contains("còn thiếu: Chưa rõ đăng ký lại sau khi bị Reject", map, StringComparison.Ordinal);
+        var item = Assert.Single(CoverageMapParser.Parse(map));
+        Assert.Equal("MỘT PHẦN", item.Status);
+        Assert.Equal("Chưa rõ đăng ký lại sau khi bị Reject", item.Gap);
     }
 
     [Fact]

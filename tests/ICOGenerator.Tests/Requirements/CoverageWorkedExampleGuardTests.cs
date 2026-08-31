@@ -17,6 +17,11 @@ namespace ICOGenerator.Tests.Requirements;
 // của riêng dòng mặc định hay của mọi dòng.
 public class CoverageWorkedExampleGuardTests
 {
+    // Bản đồ lưu dạng JSON ⇒ các test soi TRƯỜNG đã parse thay vì chuỗi: trạng thái, phần đã ghi nhận,
+    // mẩu còn phải hỏi và bằng chứng là thứ những tầng sau đọc; cách xếp chữ thì không tầng nào dựa vào.
+    private static ICOGenerator.Contracts.Requirements.CoverageMapItem Row(string? map, string labelPrefix) =>
+        CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
+
     private const string RuleRowWithNumbers =
         "- Quy tắc nghiệp vụ & ràng buộc: [RÕ] Responsibility có 5 cái kèm %, 1 item mặc định % từ 5-10. "
         + "{nguồn: \"Responsibility( 5 cái và có %)\"}";
@@ -27,11 +32,12 @@ public class CoverageWorkedExampleGuardTests
         var map = CoverageWorkedExampleGuard.Apply(RuleRowWithNumbers, workedExamples: null);
 
         Assert.NotNull(map);
-        Assert.Contains("Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN]", map, StringComparison.Ordinal);
-        Assert.Contains("còn thiếu: " + CoverageWorkedExampleGuard.MissingExampleGap, map, StringComparison.Ordinal);
+        var row = Row(map, "Quy tắc nghiệp vụ");
+        Assert.Equal("MỘT PHẦN", row.Status);
+        Assert.Equal(CoverageWorkedExampleGuard.MissingExampleGap, row.Gap);
 
         // Bằng chứng của dòng phải sống sót: nó là thứ panel tiến độ hiển thị và là chỗ distiller bám vào.
-        Assert.Contains("{nguồn: \"Responsibility( 5 cái và có %)\"}", map, StringComparison.Ordinal);
+        Assert.Equal("\"Responsibility( 5 cái và có %)\"", row.Evidence);
     }
 
     [Fact]

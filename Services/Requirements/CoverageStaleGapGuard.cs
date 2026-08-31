@@ -8,7 +8,7 @@ namespace ICOGenerator.Services.Requirements;
 /// <see cref="CoverageConfirmedTableGuard"/>.
 ///
 /// <para>
-/// <b>Vì sao cần một cái phanh riêng.</b> <c>requirement-coverage.v3.md</c> đã ghi luật này ("tóm tắt đã
+/// <b>Vì sao cần một cái phanh riêng.</b> <c>requirement-coverage.v4.md</c> đã ghi luật này ("tóm tắt đã
 /// chứa câu trả lời thì mẩu <c>còn thiếu:</c> phải BIẾN MẤT"), nhưng nó là luật cho model — mà lượt
 /// distill được đính CHÍNH bản đồ cũ, nên cách rẻ nhất để model xuất ra một dòng "hợp lệ" là chép lại
 /// nguyên mẩu cũ. Ca thật (dự án <i>JD Libary 4</i>, buổi 24 lượt): người dùng trả lời điểm đau ở lượt 5,
@@ -77,53 +77,43 @@ public static partial class CoverageStaleGapGuard
         if (string.IsNullOrWhiteSpace(coverageMap))
             return coverageMap;
 
-        var lines = coverageMap.Replace("\r\n", "\n").Split('\n');
-        var rows = new List<(int Index, Match Match, string Body, string Gap)>();
-
-        foreach (var (raw, index) in lines.Select((raw, index) => (raw, index)))
-        {
-            var match = CoverageMapParser.LineRegex().Match(raw.Trim());
-            if (!match.Success)
-                continue;
-
-            var (summary, _) = CoverageMapParser.SplitEvidence(match.Groups["summary"].Value.Trim());
-            var at = summary.IndexOf(GapMarker, StringComparison.OrdinalIgnoreCase);
-            rows.Add((index, match, at < 0 ? summary.Trim() : summary[..at].Trim(),
-                at < 0 ? string.Empty : summary[(at + GapMarker.Length)..].Trim()));
-        }
+        var items = CoverageMapParser.Parse(coverageMap);
+        if (items.Count == 0)
+            return coverageMap;
 
         // Kho lời giải cho một mẩu ở dòng KHÁC: chỉ phần đã ghi nhận của các dòng [RÕ]. Dòng [MỘT PHẦN]
         // không được làm chứng cho dòng khác — nó tự nó còn đang thiếu, và hai dòng cùng dở dang xác nhận
         // lẫn nhau là cách nhanh nhất để guard xoá một mẩu còn sống.
-        var clearBodies = rows
-            .Where(r => "RÕ".Equals(CoverageMapParser.NormalizeStatus(r.Match.Groups["status"].Value), StringComparison.Ordinal))
-            .Select(r => Words(r.Body))
+        var clearBodies = items
+            .Where(x => "RÕ".Equals(x.Status, StringComparison.Ordinal))
+            .Select(x => Words(x.Known))
             .ToList();
 
         var changed = false;
-        foreach (var row in rows)
+        foreach (var item in items)
         {
-            if (row.Gap.Length == 0)
+            if (item.Gap.Length == 0)
                 continue;
 
             // Cụm tín hiệu tái mở (người dùng vừa đính chính nhóm này) đứng ngoài mọi phép xoá: nó không
             // phải một câu hỏi mà là một lệnh MỞ LẠI nhóm — xoá nó là bịt đúng đường người dùng vừa mở.
-            if (row.Gap.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase))
+            if (item.Gap.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var gapWords = Words(row.Gap);
+            var gapWords = Words(item.Gap);
             if (gapWords.Count < MinGapWords)
                 continue;
 
-            var answeredHere = Covers(Words(row.Body), gapWords);
+            var answeredHere = Covers(Words(item.Known), gapWords);
             if (!answeredHere && !clearBodies.Any(body => Covers(body, gapWords)))
                 continue;
 
-            lines[row.Index] = Rebuild(row.Match, row.Body);
+            // Chỉ mẩu còn thiếu bị xoá: trạng thái, phần đã ghi nhận và bằng chứng của dòng giữ nguyên.
+            item.Gap = string.Empty;
             changed = true;
         }
 
-        return changed ? string.Join("\n", lines) : coverageMap;
+        return changed ? CoverageMapParser.Serialize(items) : coverageMap;
     }
 
     /// <summary>
@@ -137,18 +127,10 @@ public static partial class CoverageStaleGapGuard
         if (string.IsNullOrWhiteSpace(coverageMap) || openQuestions.Count == 0)
             return openQuestions;
 
-        var clearBodies = new List<HashSet<string>>();
-        foreach (var raw in coverageMap.Replace("\r\n", "\n").Split('\n'))
-        {
-            var match = CoverageMapParser.LineRegex().Match(raw.Trim());
-            if (!match.Success)
-                continue;
-            if (!"RÕ".Equals(CoverageMapParser.NormalizeStatus(match.Groups["status"].Value), StringComparison.Ordinal))
-                continue;
-
-            var (summary, _) = CoverageMapParser.SplitEvidence(match.Groups["summary"].Value.Trim());
-            clearBodies.Add(Words(summary));
-        }
+        var clearBodies = CoverageMapParser.Parse(coverageMap)
+            .Where(x => "RÕ".Equals(x.Status, StringComparison.Ordinal))
+            .Select(x => Words(x.Summary))
+            .ToList();
 
         if (clearBodies.Count == 0)
             return openQuestions;
@@ -162,21 +144,6 @@ public static partial class CoverageStaleGapGuard
             .ToList();
 
         return kept.Count == openQuestions.Count ? openQuestions : kept;
-    }
-
-    private const string GapMarker = "còn thiếu:";
-
-    // Dựng lại dòng KHÔNG có mẩu "còn thiếu", giữ nguyên ★, nhãn, trạng thái và khối {nguồn: …}. Khối bằng
-    // chứng phải ở CUỐI (CoverageMapParser.SplitEvidence chỉ nhận nó ở đó).
-    private static string Rebuild(Match match, string body)
-    {
-        var (_, evidence) = CoverageMapParser.SplitEvidence(match.Groups["summary"].Value.Trim());
-        var rebuilt = body.Trim();
-        if (evidence.Length > 0)
-            rebuilt = (rebuilt + " {nguồn: " + evidence + "}").Trim();
-
-        return "- " + (match.Groups["core"].Success ? "★ " : string.Empty)
-            + match.Groups["label"].Value.Trim() + ": [" + match.Groups["status"].Value.Trim() + "] " + rebuilt;
     }
 
     /// <summary>Phần đã ghi nhận có phủ được mẩu còn thiếu không — bao phủ một chiều trên tập từ nội dung.</summary>

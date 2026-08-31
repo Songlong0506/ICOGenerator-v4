@@ -12,7 +12,7 @@ namespace ICOGenerator.Tests.Requirements;
 public class InterviewGuardPromptRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
-    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v3.md";
+    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
     private const string DecisionPromptKey = "BusinessAnalyst/decision-log.v1.md";
 
     // Nhóm ngoại lệ: hỏi MỘT MÌNH, và cặp chip có/không bị xoá. Cả hai vế đều do

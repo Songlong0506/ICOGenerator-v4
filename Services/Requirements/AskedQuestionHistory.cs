@@ -11,7 +11,7 @@ namespace ICOGenerator.Services.Requirements;
 /// <para>
 /// Lý do tồn tại: trước lớp này, thứ DUY NHẤT ngăn BA hỏi lại là bản đồ bao phủ — mà bản đồ chỉ có độ
 /// phân giải theo NHÓM (12 dòng), không theo câu hỏi. Một dòng chưa đạt chuẩn <c>[RÕ]</c> (chuẩn cố ý
-/// khắt khe trong <c>requirement-coverage.v3.md</c>) đồng nghĩa "ưu tiên hỏi nhóm này", và vì mỗi câu
+/// khắt khe trong <c>requirement-coverage.v4.md</c>) đồng nghĩa "ưu tiên hỏi nhóm này", và vì mỗi câu
 /// hỏi trong lượt gộp được yêu cầu gắn <c>group</c> = tên dòng bản đồ, model sinh lại ĐÚNG câu hỏi mở
 /// cũ của chính nhóm đó. Người dùng vừa trả lời xong đã bị hỏi lại nguyên văn — kèm chip gợi ý chính là
 /// câu trả lời họ vừa gõ. Cùng chuyện đó xảy ra khi lượt chắt lọc bản đồ lỗi (fail-open giữ bản cũ):
@@ -335,7 +335,7 @@ public static class AskedQuestionHistory
     /// <summary>
     /// Ghi chú đánh dấu một dòng bản đồ mà NGƯỜI DÙNG vừa nói là BA hiểu chưa đúng. Lượt chắt lọc bản đồ
     /// ghi nguyên văn cụm này vào phần <c>còn thiếu:</c> của dòng đó — xem
-    /// <c>Prompts/BusinessAnalyst/requirement-coverage.v3.md</c> § "Người dùng đính chính một nhóm".
+    /// <c>Prompts/BusinessAnalyst/requirement-coverage.v4.md</c> § "Người dùng đính chính một nhóm".
     /// Là hằng số dùng chung vì <see cref="ReopenedGroups"/> đọc nó để MIỄN phanh chống-hỏi-lại cho đúng
     /// nhóm đó. <c>PromptReopenNoteRuleTests</c> giữ prompt và hằng số này không trôi khỏi nhau.
     /// </summary>

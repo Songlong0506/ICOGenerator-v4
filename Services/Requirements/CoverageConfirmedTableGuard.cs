@@ -9,7 +9,7 @@ namespace ICOGenerator.Services.Requirements;
 /// <see cref="CoveragePendingGuard"/>, trước khi bản đồ được lưu.
 ///
 /// <para>
-/// <b>Vì sao prompt không đủ.</b> <c>requirement-coverage.v3.md</c> đã ghi luật một chiều cho cả hai nhóm
+/// <b>Vì sao prompt không đủ.</b> <c>requirement-coverage.v4.md</c> đã ghi luật một chiều cho cả hai nhóm
 /// ("có khối bảng đã chốt ⇒ <c>[RÕ]</c>, <b>không có ngoại lệ nào</b>"), và
 /// <see cref="RequirementCoverageService"/> đính đúng khối đó vào mọi lượt distill. Nhưng lượt distill
 /// nhận thêm BẢN ĐỒ HIỆN CÓ, và bản đồ ấy thường đã mang sẵn một mẩu <c>còn thiếu: …</c> từ lúc bảng chưa
@@ -60,7 +60,7 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public static class CoverageConfirmedTableGuard
 {
-    /// <summary>Bằng chứng ghim cho dòng phân quyền — đúng chữ mà <c>requirement-coverage.v3.md</c> đòi.</summary>
+    /// <summary>Bằng chứng ghim cho dòng phân quyền — đúng chữ mà <c>requirement-coverage.v4.md</c> đòi.</summary>
     private const string PermissionEvidence = "bảng phân quyền người dùng đã chốt";
 
     /// <summary>Bằng chứng ghim cho dòng thông báo.</summary>
@@ -88,32 +88,31 @@ public static class CoverageConfirmedTableGuard
         if (settled.Count == 0)
             return coverageMap;
 
-        var lines = coverageMap.Replace("\r\n", "\n").Split('\n');
-        for (var i = 0; i < lines.Length; i++)
-        {
-            var match = CoverageMapParser.LineRegex().Match(lines[i].Trim());
-            if (!match.Success)
-                continue;
+        var items = CoverageMapParser.Parse(coverageMap);
+        var changed = false;
 
-            var label = match.Groups["label"].Value.Trim();
-            var row = settled.FirstOrDefault(x => IsSameGroup(label, x.Label));
+        foreach (var item in items)
+        {
+            var row = settled.FirstOrDefault(x => IsSameGroup(item.Label, x.Label));
             if (row.Label == null)
                 continue;
 
             // [RÕ] và [KHÔNG ÁP DỤNG] đều không chặn cổng ⇒ không có gì để sửa.
-            var status = CoverageMapParser.NormalizeStatus(match.Groups["status"].Value);
-            if (status is "RÕ" or "KHÔNG ÁP DỤNG")
+            if (item.Status is "RÕ" or "KHÔNG ÁP DỤNG")
                 continue;
 
             // Người dùng vừa đính chính nhóm này ⇒ để nguyên đường hỏi lại mà họ vừa mở ra.
-            if (match.Groups["summary"].Value.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase))
+            if (item.Summary.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            lines[i] = "- " + (match.Groups["core"].Success ? "★ " : string.Empty)
-                + label + ": [RÕ] " + row.Summary + " {nguồn: " + row.Evidence + "}";
+            item.Status = "RÕ";
+            item.Known = row.Summary;
+            item.Gap = string.Empty;
+            item.Evidence = row.Evidence;
+            changed = true;
         }
 
-        return string.Join("\n", lines);
+        return changed ? CoverageMapParser.Serialize(items) : coverageMap;
     }
 
     /// <summary>

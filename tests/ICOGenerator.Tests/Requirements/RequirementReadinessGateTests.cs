@@ -459,6 +459,12 @@ public class RequirementReadinessGateTests : IDisposable
 
         public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
         {
+
+            // Bản đồ bao phủ nay đi qua đường structured output (RequirementCoverageService). Fake trả về
+            // Value null để service rơi xuống nhánh parse văn xuôi — đúng nhánh mà một model không nhận
+            // response_format sẽ chạy — nên các test ở đây vẫn seed bản đồ bằng text như trước.
+            if (logContext.Purpose == "BARequirementCoverage")
+                return Task.FromResult((ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).Result, (T?)null));
             object? value = logContext.Purpose switch
             {
                 "BAChat" => ChatReply,

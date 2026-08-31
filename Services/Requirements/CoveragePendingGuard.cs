@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using ICOGenerator.Contracts.Requirements;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -96,34 +97,33 @@ public static partial class CoveragePendingGuard
         if (gaps.Count == 0)
             return coverageMap;
 
+        var items = CoverageMapParser.Parse(coverageMap);
+        if (items.Count == 0)
+            return coverageMap;
+
         var previousBodies = ReadBodies(previousMap);
-        var lines = coverageMap.Replace("\r\n", "\n").Split('\n');
-        for (var i = 0; i < lines.Length; i++)
+        var changed = false;
+        foreach (var item in items)
         {
-            var match = CoverageMapParser.LineRegex().Match(lines[i].Trim());
-            if (!match.Success)
+            if (!"RÕ".Equals(item.Status, StringComparison.Ordinal))
                 continue;
-
-            var label = match.Groups["label"].Value.Trim();
-            var status = match.Groups["status"].Value.Trim();
-            if (!"RÕ".Equals(status, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            var summary = match.Groups["summary"].Value.Trim();
 
             // Dòng vừa đổi nội dung trong chính lượt distill này ⇒ mục tồn đọng gắn vào nó đã cũ hơn dòng.
             // Xem phần "Dòng VỪA ĐỔI" ở doc của class.
-            if (ChangedThisTurn(previousBodies, label, summary))
+            if (ChangedThisTurn(previousBodies, item.Label, item.Summary))
                 continue;
 
-            var gap = FindGap(gaps, label);
+            var gap = FindGap(gaps, item.Label);
             if (gap == null)
                 continue;
 
-            lines[i] = Downgrade(match.Groups["core"].Success, label, summary, gap);
+            Downgrade(item, gap);
+            changed = true;
         }
 
-        return string.Join("\n", lines);
+        // Không hạ dòng nào ⇒ trả về ĐÚNG chuỗi đã nhận. Serialize lại một bản đồ y hệt là ghi DB thừa ở
+        // mọi lượt chat (xem RepairMapAsync, nó chỉ lưu khi chuỗi đổi).
+        return changed ? CoverageMapParser.Serialize(items) : coverageMap;
     }
 
     /// <summary>
@@ -145,23 +145,13 @@ public static partial class CoveragePendingGuard
     private static Dictionary<string, string> ReadBodies(string? map)
     {
         var bodies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (string.IsNullOrWhiteSpace(map))
-            return bodies;
-
-        foreach (var raw in map.Replace("\r\n", "\n").Split('\n'))
-        {
-            var match = CoverageMapParser.LineRegex().Match(raw.Trim());
-            if (!match.Success)
-                continue;
-
-            var (body, _) = CoverageMapParser.SplitEvidence(match.Groups["summary"].Value.Trim());
-            bodies[match.Groups["label"].Value.Trim()] = AskedQuestionHistory.Key(body);
-        }
+        foreach (var item in CoverageMapParser.Parse(map))
+            bodies[item.Label] = AskedQuestionHistory.Key(item.Summary);
         return bodies;
     }
 
     /// <summary>
-    /// Dòng này có vừa ăn thông tin mới trong lượt distill vừa rồi không: thân dòng khác với thân dòng cùng
+    /// Dòng này có vừa ăn thông tin mới trong lượt distill vừa rồi không: tóm tắt khác với tóm tắt cùng
     /// nhãn ở bản đồ TRƯỚC đó. Không có bản đồ trước (lượt đầu tiên, hoặc caller không truyền) ⇒ false, giữ
     /// nguyên hành vi cũ. Dòng MỚI xuất hiện lần này cũng tính là vừa đổi — nó vừa được trả lời xong.
     /// So trên khoá đã chuẩn hoá (<see cref="AskedQuestionHistory.Key"/>) để một dấu chấm hay một chữ hoa
@@ -172,9 +162,8 @@ public static partial class CoveragePendingGuard
         if (previousBodies.Count == 0)
             return false;
 
-        var (body, _) = CoverageMapParser.SplitEvidence(summary);
         return !previousBodies.TryGetValue(label, out var before)
-            || !string.Equals(before, AskedQuestionHistory.Key(body), StringComparison.Ordinal);
+            || !string.Equals(before, AskedQuestionHistory.Key(summary), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -195,22 +184,18 @@ public static partial class CoveragePendingGuard
         return null;
     }
 
-    // Dựng lại dòng ở [MỘT PHẦN], giữ nguyên ★, nhãn, tóm tắt và khối {nguồn: …}. Khối bằng chứng phải ở
-    // CUỐI (CoverageMapParser.SplitEvidence chỉ nhận nó ở đó), nên mẩu "còn thiếu" chèn vào TRƯỚC nó —
-    // ghép ẩu ra sau là mất luôn phần bằng chứng của dòng khỏi panel tiến độ.
-    private static string Downgrade(bool isCore, string label, string summary, string gap)
+    // Hạ dòng xuống [MỘT PHẦN] và ghi mẩu còn phải hỏi vào trường Gap — đúng chỗ RequirementReadinessGate
+    // lấy làm câu chặn. Bằng chứng của dòng giữ nguyên: nó là căn cứ cho phần ĐÃ ghi nhận, không phải cho
+    // phần còn thiếu, và xoá nó đi là làm panel tiến độ mất lý do vì sao nhóm này từng được chấm [RÕ].
+    private static void Downgrade(CoverageMapItem item, string gap)
     {
-        var (body, evidence) = CoverageMapParser.SplitEvidence(summary);
-        body = body.Trim();
+        var body = item.Summary.Trim();
         if (body.Length > 0 && !body.EndsWith('.') && !body.EndsWith(';'))
             body += ".";
 
-        var trimmedGap = gap.Length > MaxGapChars ? gap[..MaxGapChars].TrimEnd() : gap;
-        var rebuilt = (body + " còn thiếu: " + trimmedGap).Trim();
-        if (evidence.Length > 0)
-            rebuilt += " {nguồn: " + evidence + "}";
-
-        return "- " + (isCore ? "★ " : string.Empty) + label + ": [MỘT PHẦN] " + rebuilt;
+        item.Status = "MỘT PHẦN";
+        item.Known = body;
+        item.Gap = gap.Length > MaxGapChars ? gap[..MaxGapChars].TrimEnd() : gap;
     }
 
     // "[Vòng đời & trạng thái] Chưa rõ kết quả Complete dùng để chuyển bước nào" — thẻ nhóm do

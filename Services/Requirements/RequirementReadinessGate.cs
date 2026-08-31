@@ -177,7 +177,7 @@ public static class RequirementReadinessGate
     private static string AskFor(CoverageMapItem item)
     {
         // 1. Mẩu "còn thiếu: …" — thứ duy nhất bước soạn tài liệu còn phải tự đoán, nên hỏi thẳng nó.
-        var missing = ExtractMissingPart(item.Summary);
+        var missing = ExtractMissingPart(item.Gap);
         if (!string.IsNullOrWhiteSpace(missing))
             return $"Anh/chị cho mình hỏi thêm: {ToQuestion(missing)}";
 
@@ -185,7 +185,7 @@ public static class RequirementReadinessGate
         //    xuống câu mở đầu của nhóm ở ca này: prompt chat cấm tuyệt đối việc phát lại câu mở đầu cho một
         //    nhóm [MỘT PHẦN] — người dùng đã kể phần đó rồi, nghe lại đúng câu cũ là mất lòng tin vào cả
         //    buổi phỏng vấn. Phát lại lời họ thì ngược lại: nó miễn cho họ việc phải cuộn ngược lên tìm.
-        var recorded = ExtractRecordedPart(item.Summary);
+        var recorded = ExtractRecordedPart(item.Known);
         if (recorded.Length > 0)
             return $"Mình đang ghi nhận: {recorded}. Phần này còn chỗ nào chưa đúng hoặc còn thiếu mà "
                 + "anh/chị muốn bổ sung không?";
@@ -208,17 +208,13 @@ public static class RequirementReadinessGate
     }
 
     // Phần "còn thiếu: …" trên một dòng [MỘT PHẦN] — ghi chú của distiller về đúng mẩu còn hụt. Định dạng
-    // do prompt requirement-coverage.v3 ghim; không có thì trả rỗng để caller hỏi câu mở đầu của nhóm.
-    private static string ExtractMissingPart(string? summary)
+    // do prompt requirement-coverage.v4 ghim; không có thì trả rỗng để caller hỏi câu mở đầu của nhóm.
+    private static string ExtractMissingPart(string? gap)
     {
-        if (string.IsNullOrWhiteSpace(summary))
+        if (string.IsNullOrWhiteSpace(gap))
             return string.Empty;
 
-        var at = summary.IndexOf("còn thiếu:", StringComparison.OrdinalIgnoreCase);
-        if (at < 0)
-            return string.Empty;
-
-        var missing = summary[(at + "còn thiếu:".Length)..].Trim();
+        var missing = gap.Trim();
         // Ghi chú tái mở của một dòng bị người dùng đính chính kèm "(ghi nhận trước đó: …)" — phần trong
         // ngoặc là ghi chép cũ của hệ thống, không phải điều cần hỏi.
         var note = missing.IndexOf("(ghi nhận trước đó:", StringComparison.OrdinalIgnoreCase);
@@ -310,13 +306,12 @@ public static class RequirementReadinessGate
     // Ghi chú máy bị lược SẠCH trước khi phát: cụm ReopenNote và mẩu "(ghi nhận trước đó: …)" là ghi chép
     // của hệ thống dành cho BA, đọc lên là xưng "người dùng" ở ngôi thứ ba với chính người đang đọc. Lược
     // hết mà không còn gì ⇒ trả rỗng để caller rơi về câu mở đầu của nhóm.
-    private static string ExtractRecordedPart(string? summary)
+    private static string ExtractRecordedPart(string? known)
     {
-        if (string.IsNullOrWhiteSpace(summary))
+        if (string.IsNullOrWhiteSpace(known))
             return string.Empty;
 
-        var at = summary.IndexOf("còn thiếu:", StringComparison.OrdinalIgnoreCase);
-        var recorded = (at < 0 ? summary : summary[..at]).Trim();
+        var recorded = known.Trim();
 
         var note = recorded.IndexOf("(ghi nhận trước đó:", StringComparison.OrdinalIgnoreCase);
         if (note >= 0)
@@ -333,7 +328,7 @@ public static class RequirementReadinessGate
     // ngôi thứ ba với chính người đang đọc và không hỏi gì cả. Ca thật đã gặp trên màn hình (dự án
     // JD Library, lượt 34).
     //
-    // Cắt trọn CÂU chứa cụm đó và giữ phần distiller viết thêm sau nó — prompt requirement-coverage.v3
+    // Cắt trọn CÂU chứa cụm đó và giữ phần distiller viết thêm sau nó — prompt requirement-coverage.v4
     // § "Người dùng đính chính một nhóm" bắt buộc viết tiếp đúng mẩu cần hỏi lại. Không còn gì ⇒ trả rỗng
     // để caller rơi về câu mở đầu của nhóm: một câu hỏi rộng vẫn trả lời được, còn cụm tín hiệu thì không.
     private static string StripReopenMarker(string missing)

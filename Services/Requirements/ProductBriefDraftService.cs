@@ -167,7 +167,7 @@ public class ProductBriefDraftService
         // nên mọi đường ghi thêm một lượt sau lời mời đều xoá tín hiệu — kể cả đường KHÔNG mang thông tin
         // mới. Ca đã gãy: cổng soát mâu thuẫn ghi cặp lượt "chốt lại điểm mâu thuẫn" rồi submit ngay, vòng
         // soạn rơi vào nhánh else, bản đồ vừa distill lại hạ đúng nhóm vừa được chốt xuống [MỘT PHẦN]
-        // (prompt requirement-coverage.v3 § "Người dùng đính chính một nhóm" đọc câu chốt lại như một lời
+        // (prompt requirement-coverage.v4 § "Người dùng đính chính một nhóm" đọc câu chốt lại như một lời
         // đính chính) ⇒ NeedsMoreInfo, và người dùng phải bấm "Write Requirement" lần thứ hai.
         if (RequirementReadinessGate.IsReadinessVerifiedLatestTurn(project.Conversations))
         {

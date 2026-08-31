@@ -23,6 +23,11 @@ namespace ICOGenerator.Tests.Requirements;
 // cũng nhận lại đúng câu ấy, nút "Write Requirement" khóa vĩnh viễn.
 public class CoverageConfirmedTableGuardTests
 {
+    // Bản đồ lưu dạng JSON ⇒ các test soi TRƯỜNG đã parse thay vì chuỗi: trạng thái, phần đã ghi nhận,
+    // mẩu còn phải hỏi và bằng chứng là thứ những tầng sau đọc; cách xếp chữ thì không tầng nào dựa vào.
+    private static ICOGenerator.Contracts.Requirements.CoverageMapItem Row(string? map, string labelPrefix) =>
+        CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
+
     private const string ConfirmedNotifications = """
         [
           { "entity": "JD", "event": "Chờ HRBP duyệt", "needed": true, "to": ["HRBP"], "cc": ["Manager của orgUnit"] },
@@ -54,11 +59,14 @@ public class CoverageConfirmedTableGuardTests
             ConfirmedNotifications);
 
         Assert.NotNull(map);
-        Assert.Contains("Thông báo / nhắc nhở: [RÕ]", map, StringComparison.Ordinal);
-        // Mẩu "còn thiếu" là thứ cổng đem ra hỏi ⇒ phải biến mất hẳn, không chỉ đổi trạng thái dòng.
-        Assert.DoesNotContain("còn thiếu", map, StringComparison.OrdinalIgnoreCase);
+        var notification = Row(map, "Thông báo");
+        Assert.Equal("RÕ", notification.Status);
+        // Mẩu còn phải hỏi là thứ cổng đem ra hỏi ⇒ phải biến mất hẳn, không chỉ đổi trạng thái dòng.
+        Assert.Empty(notification.Gap);
         // Dòng không liên quan giữ nguyên.
-        Assert.Contains("Mục tiêu / bài toán: [RÕ] Quản lý và phê duyệt JD.", map, StringComparison.Ordinal);
+        var goal = Row(map, "Mục tiêu");
+        Assert.Equal("RÕ", goal.Status);
+        Assert.Equal("Quản lý và phê duyệt JD.", goal.Known);
     }
 
     // Triệu chứng người dùng thật sự nhìn thấy: cổng thôi chặn và nút "Write Requirement" mở.
@@ -93,9 +101,10 @@ public class CoverageConfirmedTableGuardTests
             ConfirmedNotifications);
 
         Assert.NotNull(map);
-        Assert.Contains("4 sự kiện gửi email kèm người nhận riêng", map, StringComparison.Ordinal);
-        Assert.Contains("1 sự kiện người dùng chọn không gửi", map, StringComparison.Ordinal);
-        Assert.Contains("{nguồn: bảng thông báo người dùng đã chốt}", map, StringComparison.Ordinal);
+        var row = Row(map, "Thông báo");
+        Assert.Contains("4 sự kiện gửi email kèm người nhận riêng", row.Known, StringComparison.Ordinal);
+        Assert.Contains("1 sự kiện người dùng chọn không gửi", row.Known, StringComparison.Ordinal);
+        Assert.Equal("bảng thông báo người dùng đã chốt", row.Evidence);
     }
 
     // Dòng phân quyền đi theo ĐÚNG luật đó: cùng hình dạng "chốt bằng bảng, cấm hỏi lại", nên cùng một mẩu
@@ -109,9 +118,10 @@ public class CoverageConfirmedTableGuardTests
             notificationMapJson: null);
 
         Assert.NotNull(map);
-        Assert.Contains("Phân quyền theo nghiệp vụ: [RÕ]", map, StringComparison.Ordinal);
-        Assert.Contains("2 chức năng trên 2 màn hình, 3 vai trò", map, StringComparison.Ordinal);
-        Assert.DoesNotContain("còn thiếu", map, StringComparison.OrdinalIgnoreCase);
+        var row = Row(map, "Phân quyền");
+        Assert.Equal("RÕ", row.Status);
+        Assert.Contains("2 chức năng trên 2 màn hình, 3 vai trò", row.Known, StringComparison.Ordinal);
+        Assert.Empty(row.Gap);
     }
 
     // Chưa có bảng ⇒ guard phải IM. Luật một chiều của hai nhóm này là "chưa có bảng thì KHÔNG BAO GIỜ
@@ -173,6 +183,8 @@ public class CoverageConfirmedTableGuardTests
             ConfirmedNotifications);
 
         Assert.NotNull(map);
-        Assert.Contains("★ Thông báo: [RÕ]", map, StringComparison.Ordinal);
+        var row = Row(map, "Thông báo");
+        Assert.Equal("RÕ", row.Status);
+        Assert.True(row.IsCore);
     }
 }

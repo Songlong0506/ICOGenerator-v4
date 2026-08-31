@@ -6,7 +6,7 @@ namespace ICOGenerator.Contracts.Requirements;
 /// <para>
 /// Câu trả lời thật của người dùng gần như luôn là một người có QUAN HỆ với bản ghi ("báo cho người gửi
 /// đơn", "báo cho sếp của người đó"), chứ không phải một vai trò. Ca thật đã ghi lại ở
-/// <c>requirement-coverage.v3.md</c>: BA hỏi "vai trò nào cần nhận email?", người dùng bấm bốn chip vai
+/// <c>requirement-coverage.v4.md</c>: BA hỏi "vai trò nào cần nhận email?", người dùng bấm bốn chip vai
 /// trò, và tài liệu đóng băng thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm" — mỗi lần một bản kế
 /// hoạch đổi trạng thái là cả nhà máy nhận email. Vì vậy bốn mục QUAN HỆ ở đây luôn đứng ĐẦU danh sách:
 /// đó là ca thường gặp, và là hình dạng câu trả lời mà một hàng chip vai trò không bao giờ chở được.

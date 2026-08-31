@@ -841,14 +841,14 @@ public static class EvalScenariosSeedData
             - Không bịa thêm quyết định nào khác.
             """);
 
-        // ================= BusinessAnalyst/requirement-coverage.v3.md =================
+        // ================= BusinessAnalyst/requirement-coverage.v4.md =================
         // Bản đồ bao phủ là NGUỒN CHÂN LÝ DUY NHẤT của cổng "Write Requirement" (ready suy tất định:
         // mọi dòng áp dụng [RÕ]/[KHÔNG ÁP DỤNG]) nên các scenario phủ cả hai chiều sai: chấm [RÕ] non
         // (suy diễn) và giữ [MỘT PHẦN]/[CHƯA HỎI] oan (tra khảo nhóm không áp dụng, bỏ qua điều đã chốt).
 
         Add(
             "Coverage map — dựng mới từ hội thoại: đúng 12 dòng, không suy diễn",
-            "BusinessAnalyst/requirement-coverage.v3.md",
+            "BusinessAnalyst/requirement-coverage.v4.md",
             """
             ## Các lượt hội thoại mới cần gộp vào bản đồ
             - BA: Anh/chị muốn ứng dụng giải quyết việc gì?
@@ -870,7 +870,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Coverage map — gộp lũy tiến khi người dùng đổi ý: ý mới nhất thắng",
-            "BusinessAnalyst/requirement-coverage.v3.md",
+            "BusinessAnalyst/requirement-coverage.v4.md",
             """
             ## Bản đồ hiện có (gộp/cập nhật cùng các lượt mới bên dưới)
             - ★ Mục tiêu / bài toán: [RÕ] Quản lý yêu cầu sửa chữa thiết bị trong nhà máy.
@@ -902,7 +902,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Coverage map — hội thoại đủ (kể cả phương án đã chốt): mọi dòng [RÕ]/[KHÔNG ÁP DỤNG] để mở cổng",
-            "BusinessAnalyst/requirement-coverage.v3.md",
+            "BusinessAnalyst/requirement-coverage.v4.md",
             """
             ## Các lượt hội thoại mới cần gộp vào bản đồ
             - BA: Anh/chị muốn ứng dụng giải quyết việc gì?
@@ -935,7 +935,7 @@ public static class EvalScenariosSeedData
 
         Add(
             "Coverage map — app cá nhân một người dùng: chủ động [KHÔNG ÁP DỤNG], không tra khảo",
-            "BusinessAnalyst/requirement-coverage.v3.md",
+            "BusinessAnalyst/requirement-coverage.v4.md",
             """
             ## Các lượt hội thoại mới cần gộp vào bản đồ
             - BA: Anh/chị muốn ứng dụng giải quyết việc gì?

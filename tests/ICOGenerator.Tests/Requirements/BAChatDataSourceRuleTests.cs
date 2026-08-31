@@ -16,7 +16,7 @@ namespace ICOGenerator.Tests.Requirements;
 public class BAChatDataSourceRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
-    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v3.md";
+    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
 
     [Fact]
     public void ChatPrompt_AsksWhereDataComesFrom_ButNotHowSystemsConnect()
@@ -64,8 +64,8 @@ public class BAChatDataSourceRuleTests
         Assert.Contains("mặc định dữ liệu do chính ứng dụng quản lý", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("vòng lặp câu hỏi chết", prompt, StringComparison.OrdinalIgnoreCase);
 
-        // Và không được đẻ ra một "còn thiếu" mà BA bị cấm đi hỏi.
-        Assert.Contains("còn thiếu: cách tích hợp", prompt, StringComparison.OrdinalIgnoreCase);
+        // Và không được đẻ ra một mẩu `gap` mà BA bị cấm đi hỏi.
+        Assert.Contains("`gap`: *cách tích hợp", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using System.Text;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
@@ -18,7 +19,7 @@ namespace ICOGenerator.Services.Requirements;
 /// BA đọc nó để chọn câu hỏi kế tiếp, panel "Tiến độ khai thác" render nó, và
 /// <see cref="RequirementReadinessGate"/> suy ready TẤT ĐỊNH từ nó (mọi dòng áp dụng [RÕ] ⇔ cho phép
 /// "Write Requirement") — không còn lời gọi LLM nào chấm lại, nên lượt distill này chính là "giám khảo"
-/// và tiêu chí thẩm định nằm trong prompt requirement-coverage.v3. Distill đọc cả text tài liệu nguồn
+/// và tiêu chí thẩm định nằm trong prompt requirement-coverage.v4. Distill đọc cả text tài liệu nguồn
 /// để không bắt người dùng gõ lại điều tài liệu đính kèm đã có.
 /// <para>
 /// Khác hai bộ nhớ kia, việc cập nhật KHÔNG gom theo lô: bản đồ phải tươi ở từng lượt mới dẫn được câu
@@ -170,10 +171,15 @@ public class RequirementCoverageService
     private async Task<string?> DistillAsync(string? existingMap, List<AgentConversation> turns, List<ProjectSourceFile> sources, Project project, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(existingMap))
+        // Chuẩn hoá về JSON trước khi nạp: model được yêu cầu XUẤT JSON, nên cho nó đọc bản đồ hiện có ở
+        // cùng format là bỏ đi một phép dịch mà nó phải tự làm. Đây cũng là đường nâng cấp cho dự án cũ —
+        // bản đồ text trong DB được Parse rồi Serialize, nên lượt distill đầu tiên sau khi đổi format vẫn
+        // thấy đủ 12 dòng chứ không mở màn bằng một bản đồ trống.
+        var existingItems = CoverageMapParser.Parse(existingMap);
+        if (existingItems.Count > 0)
         {
             sb.AppendLine("## Bản đồ hiện có (gộp/cập nhật cùng các lượt mới bên dưới)");
-            sb.AppendLine(existingMap.Trim());
+            sb.AppendLine(CoverageMapParser.Serialize(existingItems));
             sb.AppendLine();
         }
         sb.AppendLine("## Các lượt hội thoại mới cần gộp vào bản đồ");
@@ -225,19 +231,74 @@ public class RequirementCoverageService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _prompts.Get("BusinessAnalyst/requirement-coverage.v3.md")),
+            new(ChatRole.System, _prompts.Get("BusinessAnalyst/requirement-coverage.v4.md")),
             new(ChatRole.User, sb.ToString())
         };
 
-        var result = await _llm.ChatWithLogAsync(
+        // Structured output: bản đồ là JSON, nên schema được gửi thẳng cho model thay vì dặn dò bằng lời.
+        // Model/endpoint không nhận response_format ⇒ ILlmClient tự lùi về đường văn xuôi và trả Value null;
+        // lúc đó CoverageMapParser bóc lấy — nó đọc được cả JSON dạng text lẫn bản đồ text của format cũ,
+        // nên một model yếu không làm hỏng lượt, chỉ mất bảo đảm cú pháp.
+        var (result, value) = await _llm.ChatStructuredAsync<CoverageMapDocument>(
             model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BARequirementCoverage"),
             cancellationToken: cancellationToken);
 
-        if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Content))
+        if (!result.IsSuccess)
             return null;
 
-        var map = result.Content.Trim();
-        return map.Length > MaxCoverageChars ? map[..MaxCoverageChars] : map;
+        var items = value != null
+            ? CoverageMapParser.Parse(CoverageMapParser.Serialize(ToItems(value)))
+            : CoverageMapParser.Parse(result.Content);
+
+        // Không đọc ra dòng nào ⇒ coi như lời gọi hỏng: caller fail-open (giữ bản đồ cũ, không dời con trỏ)
+        // và thử lại một lần. Ghi đè bản đồ đang có bằng một bản rỗng là xoá trắng tiến độ khai thác.
+        return items.Count == 0 ? null : CoverageMapParser.Serialize(Cap(items));
+    }
+
+    // Chuẩn hoá phần model trả về thành các dòng bản đồ. Đi vòng qua Serialize/Parse để mọi đường vào đều
+    // qua đúng một bộ chuẩn hoá trạng thái + trim, thay vì hai bản sao dễ trôi lệch nhau.
+    private static List<CoverageMapItem> ToItems(CoverageMapDocument doc) =>
+        (doc.Items ?? new List<CoverageMapEntry>())
+            .Select(x => new CoverageMapItem
+            {
+                Label = x.Label ?? string.Empty,
+                IsCore = x.Core,
+                Status = x.Status ?? string.Empty,
+                Known = x.Known ?? string.Empty,
+                Gap = x.Gap ?? string.Empty,
+                Evidence = x.Evidence ?? string.Empty
+            })
+            .ToList();
+
+    /// <summary>
+    /// Chặn trên độ dài bản đồ, cắt theo TRƯỜNG chứ không cắt chuỗi JSON. Bản cũ cắt thẳng
+    /// <c>map[..MaxCoverageChars]</c> — với format text thì chỉ mất một dòng cuối, còn với JSON thì đó là
+    /// một tài liệu vỡ cú pháp, tức mất TRẮNG cả bản đồ ở đúng lúc nó dài nhất. Ở đây chỉ có nội dung bị
+    /// cắt ngắn dần, bắt đầu từ trường dài nhất (đồng dài thì bằng chứng đi trước) — nên 12 nhãn và 12
+    /// trạng thái luôn sống sót, và đó là hai thứ cổng readiness với panel tiến độ cần để không bị mù.
+    /// </summary>
+    private static IReadOnlyList<CoverageMapItem> Cap(IReadOnlyList<CoverageMapItem> items)
+    {
+        // Ba trường nội dung của mỗi dòng, kèm cách đọc/ghi — chọn theo VỊ TRÍ chứ không so nội dung, để
+        // hai dòng tình cờ trùng chữ không làm phép cắt ghi nhầm chỗ.
+        var fields = items.SelectMany(item => new (CoverageMapItem Item, Func<string> Get, Action<string> Set)[]
+        {
+            (item, () => item.Evidence, v => item.Evidence = v),
+            (item, () => item.Known, v => item.Known = v),
+            (item, () => item.Gap, v => item.Gap = v)
+        }).ToList();
+
+        while (CoverageMapParser.Serialize(items).Length > MaxCoverageChars)
+        {
+            var longest = fields.OrderByDescending(f => f.Get().Length).First();
+            var text = longest.Get();
+            if (text.Length <= 1)
+                break;
+
+            longest.Set(text[..(text.Length / 2)].TrimEnd());
+        }
+
+        return items;
     }
 
     // Đính một khối bảng đã chốt vào phần bằng chứng của lượt distill. Chưa chốt ⇒ không đính gì.
