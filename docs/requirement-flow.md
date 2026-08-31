@@ -58,6 +58,17 @@ Browser POST /Requirements/ChatStream (SSE)
        └► AppDbContext.SaveChanges                   [Data] — lưu lượt hội thoại
 ```
 
+Một lượt chat nằm ở bốn file, chia theo thứ đọc khi sửa:
+
+| File | Giữ gì |
+|---|---|
+| `BAChatService` | trình tự của lượt: chốt ngữ cảnh tất định (`TurnContext`) → lắp message → gọi model → chạy các chốt chặn → lưu. Mỗi chốt chặn một method, và **thứ tự chạy là một phần của hành vi** (xem [Lượt hỏi GỘP, chuẩn `[RÕ]` và phanh chống hỏi lại](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại)) |
+| `BAChatPromptBlocks` | văn bản mọi khối system message dựng từ **dữ liệu dự án** (các bảng đã chốt, sáu khối `## LƯỢT NÀY:`). Không quyết định gì — chọn khối nào là việc của `InterviewTableGate` + `BAChatService` |
+| `BAChatTurnDraft` | hình dạng lượt trả lời đang được nắn (nội dung, chip, thẻ hỏi, sáu bảng) + các phép thay lượt. Thay lượt là **một** lời gọi vì thay nội dung mà quên hạ chip là bày ra câu hỏi kèm nút của câu trước |
+| `BASourceAckPrompt` | hai khối của lượt đọc tài liệu nguồn (hình dạng lượt + phạm vi kể lại) — xem [Tài liệu nguồn](#tài-liệu-nguồn-ảnh-và-call-log) |
+
+Phần luật viết thuần văn phong — cách hỏi, giọng, nhịp phỏng vấn — vẫn nằm ở file prompt (`Prompts/BusinessAnalyst/*`), sửa được ở Prompt Studio và đo được ở Prompt Evals.
+
 Các cơ chế trí nhớ (chi tiết đầy đủ ở [phần dưới](#các-cơ-chế-trí-nhớ)):
 
 - **Bộ nhớ hội thoại 2 tầng**: 20 lượt gần nhất gửi nguyên văn; lượt cũ gộp dần vào `Project.ConversationSummary` **theo lô ≥10 lượt** (không tóm tắt mỗi lượt — đó là chỗ tiết kiệm token). Fail-open: gọi tóm tắt lỗi thì giữ summary cũ, không mất lượt nào. Vòng soạn Product Brief dùng lại đúng bộ nhớ này (cửa sổ riêng, rộng hơn — xem [Ngữ cảnh gửi lên model ở vòng soạn Brief](#ngữ-cảnh-gửi-lên-model-ở-vòng-soạn-brief)).
@@ -141,9 +152,9 @@ Cách chốt: ở **chính lượt BA đọc file** (`source-ack.v3.md`), BA tr�
 
 **Bảng ĐỨNG TRƯỚC bản đọc lại, và với bảng tính lượt upload không kể lại gì cả.** Đây là thứ tự, không phải chi tiết trình bày: lượt đọc file cũ vừa bày bảng vừa kể lại cả file kèm cụm "Chỗ chưa chắc", tức là làm ba việc sai cùng lúc. Nó dựng **việc tồn** trên những cột người dùng sắp bỏ tích ngay bên dưới (mỗi mục ở "Chỗ chưa chắc" đốt một lượt phỏng vấn thật, và `requirement-chat.v4.md` bắt hỏi cho hết chúng trước khi mở nhóm mới). Nó đọc nhầm cả file khi người dùng **gửi nhầm file** hoặc gửi bản xuất sai kỳ — mà bản đọc vẫn đủ hợp lý để được bấm "Đúng rồi". Và nó đặt một bức tường chữ về 18 cột **ngay trên** một cái bảng 18 dòng chở cùng nội dung ở dạng **sửa được**, nên ai cũng đọc lướt phần trên. Nay lượt upload chỉ còn: file này là gì, quy mô thật, mời rà bảng — tối đa năm câu, không gạch đầu dòng, không "Chỗ chưa chắc" (ngoại lệ đúng một câu khi file rõ ràng không phải thứ BA vừa xin, vì họ cần biết ngay để gửi lại). Word/PDF/ảnh không có bảng nên vẫn được đọc lại đầy đủ ngay tại lượt đó.
 
-Hình dạng của lượt do **cơ chế** chọn chứ không để model đoán (`BAChatService.BuildSourceAckTurnShape`, cùng khuôn với cổng bảng phân quyền): còn bảng tính nào `ColumnMap == null` ⇒ khối `## LƯỢT NÀY: CHỐT PHẠM VI CỘT` gọi đích danh các file đó; không còn ⇒ khối `## LƯỢT NÀY: BẢN ĐỌC LẠI`. Model nhìn thấy text của **mọi** nguồn trong project (kể cả file đã chốt cột từ lần upload trước) nên nó không tự suy ra được file nào đang chờ.
+Hình dạng của lượt do **cơ chế** chọn chứ không để model đoán (`BASourceAckPrompt.TurnShape`, cùng khuôn với cổng bảng phân quyền): còn bảng tính nào `ColumnMap == null` ⇒ khối `## LƯỢT NÀY: CHỐT PHẠM VI CỘT` gọi đích danh các file đó; không còn ⇒ khối `## LƯỢT NÀY: BẢN ĐỌC LẠI`. Model nhìn thấy text của **mọi** nguồn trong project (kể cả file đã chốt cột từ lần upload trước) nên nó không tự suy ra được file nào đang chờ.
 
-**Cùng lý do đó, phạm vi KỂ LẠI cũng phải do cơ chế nói ra** (`BAChatService.BuildReadbackScope` → khối `## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY`). Lượt đọc file nạp lại **toàn bộ** nguồn của project và điều đó là cố ý — nguồn cũ là thứ duy nhất để **đối chiếu**, mà chỗ **nối** giữa file mới và file cũ thường là điểm chưa rõ đắt nhất của cả lô upload (*"biểu mẫu vừa gửi lấy danh sách người học từ file kia, hay người dùng tự nhập?"*). Nhưng "đính kèm để đối chiếu" khác hẳn "phải kể lại", và trước đây không có gì phân biệt hai việc đó: câu dẫn của lượt user nói *"đây là các tài liệu nguồn tôi vừa đính kèm"* rồi đứng trên text của **mọi** nguồn, còn `source-ack.v3.md` bắt *"MỌI file vừa gửi đều phải được nhắc tới"*. Ca thật: người dùng chốt bảng cột cho một file Excel ở đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu để trả lời một câu hỏi — bản đọc lại mở đầu bằng gần nửa số dòng nói lại đúng bộ cột họ đã tích tay (chép từ chính khối *"Bảng cột … đã được NGƯỜI DÙNG CHỐT"*), rồi mới tới cái ảnh. Model không sai luật nào nó được cho; cơ chế nói dối về chữ "vừa gửi". Nay lô vừa upload đi từ controller xuống dưới dạng `attachments`, và:
+**Cùng lý do đó, phạm vi KỂ LẠI cũng phải do cơ chế nói ra** (`BASourceAckPrompt.ReadbackScope` → khối `## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY`). Lượt đọc file nạp lại **toàn bộ** nguồn của project và điều đó là cố ý — nguồn cũ là thứ duy nhất để **đối chiếu**, mà chỗ **nối** giữa file mới và file cũ thường là điểm chưa rõ đắt nhất của cả lô upload (*"biểu mẫu vừa gửi lấy danh sách người học từ file kia, hay người dùng tự nhập?"*). Nhưng "đính kèm để đối chiếu" khác hẳn "phải kể lại", và trước đây không có gì phân biệt hai việc đó: câu dẫn của lượt user nói *"đây là các tài liệu nguồn tôi vừa đính kèm"* rồi đứng trên text của **mọi** nguồn, còn `source-ack.v3.md` bắt *"MỌI file vừa gửi đều phải được nhắc tới"*. Ca thật: người dùng chốt bảng cột cho một file Excel ở đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu để trả lời một câu hỏi — bản đọc lại mở đầu bằng gần nửa số dòng nói lại đúng bộ cột họ đã tích tay (chép từ chính khối *"Bảng cột … đã được NGƯỜI DÙNG CHỐT"*), rồi mới tới cái ảnh. Model không sai luật nào nó được cho; cơ chế nói dối về chữ "vừa gửi". Nay lô vừa upload đi từ controller xuống dưới dạng `attachments`, và:
 
 - câu dẫn của lượt user **gọi tên** đúng các file vừa gửi thay vì gộp chung;
 - khối phạm vi liệt kê file vừa gửi, liệt kê các nguồn cũ và cấm kể lại chúng — trừ đúng một chỗ: một điểm chưa rõ nằm ở chỗ **nối** giữa hai nguồn;
@@ -656,7 +667,7 @@ chỗ".
 
 Hai lớp chặn nó, theo thứ tự:
 
-1. **Bảng kê các bước, đính vào khối `## LƯỢT NÀY:` của lượt bày bảng** (`BAChatService.FlowStepChecklist`).
+1. **Bảng kê các bước, đính vào khối `## LƯỢT NÀY:` của lượt bày bảng** (`BAChatPromptBlocks.FlowStepChecklist`).
    Các bước đã có sẵn trong ngữ cảnh qua khối *"bảng luồng đã chốt"*, nhưng ở đó chúng là một câu chuyện
    kể theo từng luồng, trộn với vai trò và kết quả sau mỗi bước. Ở đây chúng là một danh sách phẳng để
    ĐỐI CHIẾU, đúng hình dạng mà `UncoveredActions` sẽ chấm ngay sau đó. Khối này cũng nói thẳng: bước nào
@@ -909,7 +920,7 @@ phép giả định cái tên là một định danh tiếng Anh hợp lệ.
 | Nơi giữ luật | Giữ vế nào |
 |---|---|
 | `Prompts/BusinessAnalyst/requirement-chat.v4.md`, mục `entityMap` | luật đặt tên đầy đủ + luật `sourceColumn` |
-| `BAChatService`, khối `## LƯỢT NÀY: BÀY BẢNG ĐỐI TƯỢNG` | bản rút gọn cho đúng lượt bày bảng |
+| `BAChatPromptBlocks.EntityMapTable` (khối `## LƯỢT NÀY: BÀY BẢNG ĐỐI TƯỢNG`) | bản rút gọn cho đúng lượt bày bảng |
 | `Prompts/BusinessAnalyst/ai-design-spec.v1.md`, mục `## 8` | **chép đúng chữ**, không dịch, không đổi cách viết |
 | `Prompts/Developer/poc-preview.v1.md` + `Prompts/UiUx/poc-visual-review.v1.md` | ngoại lệ của luật ngôn ngữ UI: các nhãn TÊN tiếng Anh trong một UI tiếng Việt là hình dạng ĐÚNG, không phải lỗi "lẫn lộn ngôn ngữ" |
 
