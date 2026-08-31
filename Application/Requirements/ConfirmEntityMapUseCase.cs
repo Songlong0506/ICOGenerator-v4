@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Requirements;
 using Microsoft.EntityFrameworkCore;
@@ -40,44 +41,27 @@ public class ConfirmEntityMapUseCase
 
         project.EntityMap = JsonSerializer.Serialize(rows);
 
-        // GIEO MÀN HÌNH DANH MỤC VÀO PHẠM VI. Một thông tin có nguồn "ứng dụng tự quản lý" là một danh mục
-        // mà ứng dụng phải có màn hình CRUD riêng để quản lý — và đó là lý do bảng này đứng TRƯỚC bảng màn
-        // hình trong thứ tự phụ thuộc (luồng → đối tượng → báo cáo → màn hình): các mục gieo ở đây có mặt
-        // ngay ở lần bày ĐẦU của bảng màn hình, nên người dùng rà trọn phạm vi đúng MỘT lần. Không ghi vào
-        // phạm vi thì màn hình ấy không có dòng nào trong bảng phân quyền và không có mục nào ở
+        // GIEO MÀN HÌNH DANH MỤC VÀO BẢNG MÀN HÌNH. Một thông tin có nguồn "ứng dụng tự quản lý" là một
+        // danh mục mà ứng dụng phải có màn hình CRUD riêng để quản lý — và đó là lý do bảng này đứng TRƯỚC
+        // bảng màn hình trong thứ tự phụ thuộc (luồng → đối tượng → báo cáo → màn hình): các mục gieo ở đây
+        // có mặt ngay ở lần bày ĐẦU của bảng màn hình, nên người dùng rà trọn phạm vi đúng MỘT lần. Không
+        // gieo thì màn hình ấy không có dòng nào trong bảng phân quyền và không có mục nào ở
         // `## 6. Screens To Generate`: mặc nhiên "không ai được xem" một màn hình người dùng vừa đặt hàng,
         // đúng loại quyết định câm mà cả bộ bảng sinh ra để chặn.
         //
-        // Chỉ cần ghi vào PlannedScope, không cổng nào phải sửa. Đường MỞ LẠI của ScreenScopeGate
-        // (ScreenScopeMapBuilder.NewScreens so bảng đã chốt với PlannedScope) vẫn là lưới an toàn cho ca
-        // bảng màn hình đã chốt trước bảng này — sau khi sửa thứ tự thì ca đó chỉ còn tới được khi cổng đối
-        // tượng mở muộn (nhóm «Dữ liệu / danh mục chính» lên [RÕ] sau lúc bảng màn hình chốt).
-        //
-        // GHÉP THÊM chứ không ghi đè, và giữ nguyên thứ tự cũ: ở ca đó PlannedScope chính là danh sách
-        // người dùng đã rà ở bảng màn hình (ConfirmScreenScopeUseCase ghi ngược lên đây), nên thay nó bằng
-        // mấy dòng danh mục là xoá sạch phạm vi đã duyệt. Mục trùng bị bỏ vì lần chốt thứ hai của cùng một
-        // bảng sẽ gieo lại đúng các danh mục ấy — thêm lần nữa là đẻ ra dòng trùng trong bảng màn hình.
-        var scope = InterviewOutlookService.ParseItems(project.PlannedScope).ToList();
-        var known = new HashSet<string>(scope.Select(NormalizeScope), StringComparer.Ordinal);
-        var added = EntityMapBuilder.ManagedListScreens(rows).Where(s => known.Add(NormalizeScope(s))).ToList();
-        if (added.Count > 0)
-        {
-            scope.AddRange(added);
-            project.PlannedScope = InterviewOutlookService.Store(scope);
-        }
+        // Gieo bằng đúng đường mà lượt chắt lọc dùng (ScreenScopeMapBuilder.Merge): mục mới vào bảng ở
+        // trạng thái CHỜ DUYỆT, mục trùng một dòng đã có thì bỏ, mục trùng một dòng người dùng đã BỎ TÍCH
+        // cũng bỏ. Chỉ THÊM, không đụng tới dòng nào đang có — ở ca bảng màn hình đã chốt TRƯỚC bảng này
+        // (cổng đối tượng mở muộn), bảng ấy là thứ người dùng vừa tự tay rà, và đường MỞ LẠI của
+        // ScreenScopeGate sẽ đưa các danh mục vừa gieo ra hỏi ở lượt sau.
+        var merged = ScreenScopeMapBuilder.Merge(
+            project.ScreenScopeMap,
+            EntityMapBuilder.ManagedListScreens(rows).Select(s => new ScopeAddition { Screen = s }));
+        if (merged != null)
+            project.ScreenScopeMap = JsonSerializer.Serialize(merged);
 
         await _db.SaveChangesAsync(cancellationToken);
 
         return new Result(rows.Count, EntityMapBuilder.RenderUserMessage(rows));
     }
-
-    /// <summary>
-    /// Khoá so trùng của một mục phạm vi — chép đúng phép chuẩn hoá mà <c>ScreenScopeMapBuilder</c> dùng để
-    /// nhận ra "màn hình mới", để một mục vừa gieo không quay lại thành mục mới ở lượt sau chỉ vì khác hoa
-    /// thường hay khác một dấu câu ở cuối.
-    /// </summary>
-    private static string NormalizeScope(string value)
-        => string.Join(' ', (value ?? string.Empty).ToLowerInvariant()
-                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
-            .Trim(' ', '.', ',', ':', ';', '-', '–');
 }

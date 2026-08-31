@@ -23,7 +23,7 @@ namespace ICOGenerator.Contracts.Requirements;
 ///
 /// <para>
 /// <b>Không có cột "ai xem".</b> Đó là chủ ý, không phải thiếu sót: một báo cáo LÀ một màn hình
-/// (<c>ReportMapBuilder.ReportScreens</c> gieo nó vào <c>Project.PlannedScope</c> TRƯỚC lần bày đầu của
+/// (<c>ReportMapBuilder.ReportScreens</c> gieo nó vào bảng màn hình TRƯỚC lần bày đầu của
 /// bảng màn hình), nên nó đi qua bảng màn hình rồi thành DÒNG của bảng phân quyền — nơi "ai xem" đã có cột riêng kèm PHẠM VI DỮ LIỆU ("của mình"
 /// / "của đơn vị" / "tất cả"). Thêm một cột vai trò ở đây là dựng danh sách vai trò thứ hai trong cùng một
 /// buổi phỏng vấn, và hai danh sách lệch nhau thì không tầng nào phía sau biết tin bên nào. Đó cũng là lý

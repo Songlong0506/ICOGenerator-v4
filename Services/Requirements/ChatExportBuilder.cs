@@ -175,9 +175,17 @@ public static class ChatExportBuilder
             InterviewOutlookService.ParseItems(project.OpenQuestions),
             "(không có điểm nào đang tồn đọng)");
 
-        AppendBullets(sb, "3.5. Phạm vi dự kiến (màn hình/tính năng chắt từ hội thoại)",
-            InterviewOutlookService.ParseItems(project.PlannedScope),
-            "(chưa chắt được phạm vi nào)");
+        // Phạm vi màn hình nay nằm trong CHÍNH bảng màn hình, nên mục này kể lại bảng đó: phần người dùng
+        // đã rà, phần họ đã loại, và phần còn chờ duyệt — người chấm cần phân biệt được ba thứ đó, vì một
+        // màn hình đi vào tài liệu ở dạng chưa ai duyệt là đúng loại lỗi bản xuất này dựng ra để bắt.
+        AppendText(sb, "3.5. Bảng màn hình người dùng đã chốt (phạm vi màn hình của ứng dụng)",
+            ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
+            "(chưa chốt — mọi thứ đứng trên phạm vi màn hình vẫn đang chờ)");
+
+        AppendBullets(sb, "3.5b. Phạm vi còn CHỜ DUYỆT (lộ ra sau lượt chốt gần nhất, bảng sẽ bày lại để hỏi)",
+            ScreenScopeMapBuilder.PendingScreens(project.ScreenScopeMap)
+                .Concat(ScreenScopeMapBuilder.PendingFunctions(project.ScreenScopeMap)).ToList(),
+            "(không còn mục nào chờ duyệt)");
 
         AppendBullets(sb, "3.6. Ví dụ đã xác nhận (input → kết quả kỳ vọng, dùng để chấm bản demo)",
             InterviewOutlookService.ParseItems(project.WorkedExamples),

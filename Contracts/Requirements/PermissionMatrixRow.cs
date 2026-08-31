@@ -81,7 +81,7 @@ public class PermissionGrant
 ///
 /// <para>
 /// Vì sao ở cuối mà không sớm hơn: các dòng của bảng là MÀN HÌNH đã chắt ra từ hội thoại
-/// (<c>Project.PlannedScope</c>) — danh sách đó chỉ đứng yên khi phạm vi đã rõ. Hỏi sớm thì bảng thiếu
+/// (bảng màn hình) — danh sách đó chỉ đứng yên khi phạm vi đã rõ. Hỏi sớm thì bảng thiếu
 /// nửa số màn hình, mà quyền của một màn hình chưa tồn tại thì không ai trả lời được.
 /// </para>
 ///
@@ -95,8 +95,9 @@ public class PermissionGrant
 public class PermissionMatrixRow
 {
     /// <summary>
-    /// Màn hình/tính năng — phải khớp một mục trong <c>Project.PlannedScope</c> (bản chuẩn hoá luôn lấy lại
-    /// đúng chữ của PlannedScope, không lấy chữ của model). Xem <c>PermissionMatrixBuilder</c>.
+    /// Màn hình/tính năng — phải khớp một mục của phạm vi màn hình đã rà
+    /// (<c>ScreenScopeMapBuilder.EffectiveScreens</c>; bản chuẩn hoá luôn lấy lại đúng chữ của danh sách đó,
+    /// không lấy chữ của model). Xem <c>PermissionMatrixBuilder</c>.
     /// </summary>
     public string Screen { get; set; } = "";
 

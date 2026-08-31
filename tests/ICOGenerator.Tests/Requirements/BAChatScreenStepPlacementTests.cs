@@ -48,10 +48,13 @@ public class BAChatScreenStepPlacementTests : IDisposable
 
     // Bảng đã chốt ở lượt trước: có màn JD Assignment nhưng KHÔNG chức năng nào nhận bước "xem danh sách
     // nhân viên dưới quyền" — đúng trạng thái của ca thật JD Library 2.
+    // Bảng đã chốt một dòng, cộng một màn hình vừa lộ ra sau đó (còn CHỜ DUYỆT) — đúng trạng thái mở lại
+    // cổng bảng màn hình.
     private const string ConfirmedScreens = """
         [{"screen":"JD Assignment","purpose":"Gán JD cho từng nhân viên.",
-          "functions":[{"name":"Tạo assignment","flowSteps":["Gán JD tương ứng cho từng nhân viên"],"included":true}],
-          "covers":[],"included":true}]
+          "functions":[{"name":"Tạo assignment","flowSteps":["Gán JD tương ứng cho từng nhân viên"],"included":true,"confirmedByUser":true}],
+          "covers":[],"included":true,"confirmedByUser":true},
+         {"screen":"JD Library","purpose":"","functions":[],"covers":[],"included":true,"confirmedByUser":false}]
         """;
 
     private readonly SqliteConnection _connection;
@@ -77,8 +80,7 @@ public class BAChatScreenStepPlacementTests : IDisposable
             Description = "quản lý JD trong nhà máy",
             RequirementCoverageMap = CoverageWithMainFlowClear,
             FlowMap = ConfirmedFlow,
-            ScreenScopeMap = ConfirmedScreens,
-            PlannedScope = "- JD Assignment\n- JD Library"
+            ScreenScopeMap = ConfirmedScreens
         });
         db.SaveChanges();
     }

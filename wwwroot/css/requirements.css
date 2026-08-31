@@ -2243,6 +2243,16 @@
    nhìn thấy là đúng loại quyết định thay họ mà cả bảng này sinh ra để chặn. */
 .screenmap-covers { margin-top: 4px; font-size: 11px; line-height: 1.5; color: #6b7280; font-style: italic; }
 
+/* NHÃN "mới" của lượt bày LẠI. Câu dẫn đã gọi tên các mục vừa lộ ra, nhưng trong một bảng mười mấy dòng thì
+   một cái tên trong câu dẫn không đủ để tìm ra dòng của nó — nhãn này là chỗ người dùng nhìn thấy phần việc
+   thật sự của lượt. Chỉ hiện ở bảng đã có phần đã chốt: ở lần bày đầu thì MỌI dòng đều mới, và một nhãn
+   dán lên tất cả các dòng không nói được gì. */
+.screenmap-new {
+    margin-left: 6px; padding: 1px 6px; border-radius: 999px; vertical-align: middle;
+    font-size: 10px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase;
+    color: #92400e; background: #fef3c7; border: 1px solid #fde68a;
+}
+
 /* BẢNG CON CHỨC NĂNG: mỗi chức năng một dòng, mỗi dòng một ô tích. Không viền ngoài, không nền — nó nằm
    trong một ô của bảng cha, nên thêm một khung nữa chỉ làm mắt phải phân biệt hai lớp bảng. */
 .screenmap-fncell { padding: 4px 6px !important; }

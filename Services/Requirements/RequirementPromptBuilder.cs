@@ -294,7 +294,7 @@ Phần trong ngoặc vuông sau mỗi thông tin là RÀNG BUỘC người dùng
     // Khối "bảng báo cáo đã chốt": mỗi báo cáo một dòng, kèm câu hỏi nó trả lời, đối tượng nó lấy số và các
     // chiều gộp/lọc. Rỗng thì biến mất (dự án cũ, dự án không cần báo cáo, hoặc chưa chốt bảng).
     //
-    // Vì sao nó cần ở đây dù các màn hình báo cáo đã có mặt ở phạm vi: PlannedScope chỉ chở được cái TÊN.
+    // Vì sao nó cần ở đây dù các màn hình báo cáo đã có mặt ở phạm vi: bảng màn hình chỉ chở được cái TÊN.
     // Phần quyết định một màn hình báo cáo có dùng được hay không — nó trả lời câu hỏi gì, lấy số từ đối
     // tượng nào, gộp/lọc theo chiều nào — nằm ở đây, và nếu không nạp vào thì bước sinh spec dựng ra một
     // bảng đổ toàn bộ dữ liệu ra màn hình rồi gọi đó là báo cáo.

@@ -36,6 +36,19 @@ public class ScreenFunction
     /// không cần. Bỏ tích chứ không xóa: dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi.
     /// </summary>
     public bool Included { get; set; } = true;
+
+    /// <summary>
+    /// Chức năng này đã đi qua tay NGƯỜI DÙNG chưa — xem <see cref="ScreenScopeRow.ConfirmedByUser"/> cho
+    /// luật chung; ở cấp này nó còn mở ra một ca mà trước đây hệ thống không biểu diễn nổi.
+    ///
+    /// <para>
+    /// Phần trôi của phạm vi không chỉ là màn hình mới: một CHỨC NĂNG lộ ra ở lượt 30 trên một màn hình đã
+    /// chốt từ lượt 23 cũng là phạm vi trôi, và nó đi thẳng vào tài liệu mà không ai rà — bản cũ chỉ so
+    /// được TÊN MÀN HÌNH nên cả màn hình ấy vẫn "đã biết" và cổng không mở lại. Có cờ ở đây thì chức năng
+    /// mới là một mục CHỜ DUYỆT y như một màn hình mới, và bảng bày lại đủ để người dùng gật hay bỏ tích.
+    /// </para>
+    /// </summary>
+    public bool ConfirmedByUser { get; set; }
 }
 
 /// <summary>
@@ -43,11 +56,17 @@ public class ScreenFunction
 ///
 /// <para>
 /// Vì sao bảng này tồn tại, và vì sao nó phải đứng TRƯỚC bảng phân quyền: các DÒNG của bảng phân quyền lấy
-/// từ <c>Project.PlannedScope</c> — một danh sách do LLM chắt ra sau mỗi lượt chat mà người dùng KHÔNG bao
-/// giờ nhìn thấy (panel sidebar hiển thị nó đã bị gỡ). Nghĩa là toàn bộ phần phân quyền, thứ đã được dựng
-/// cẩn thận để có bằng chứng trên từng ô, lại đang đứng trên một danh sách màn hình chưa ai duyệt: một màn
-/// hình LLM chắt nhầm sẽ được người dùng tích quyền cho, và một màn hình bị bỏ quên thì không bao giờ có
-/// mặt để họ phản đối.
+/// từ chính bảng này. Trước đây chúng lấy từ một danh sách bullet riêng (<c>Project.PlannedScope</c>, đã
+/// gỡ) do LLM chắt sau mỗi lượt chat mà người dùng KHÔNG bao giờ nhìn thấy. Nghĩa là toàn bộ phần phân
+/// quyền, thứ đã được dựng cẩn thận để có bằng chứng trên từng ô, lại đang đứng trên một danh sách màn
+/// hình chưa ai duyệt: một màn hình LLM chắt nhầm sẽ được người dùng tích quyền cho, và một màn hình bị bỏ
+/// quên thì không bao giờ có mặt để họ phản đối.
+/// </para>
+///
+/// <para>
+/// Nay bảng này là NGUỒN DUY NHẤT của phạm vi màn hình, và <see cref="ConfirmedByUser"/> là thứ phân biệt
+/// phần đã được rà với phần vừa lộ ra. Xem <c>ScreenScopeMapBuilder.Merge</c> cho đường một chiều đưa mục
+/// mới vào bảng, và <c>ScreenScopeGate</c> cho lúc bảng được bày ra hỏi.
 /// </para>
 ///
 /// <para>
@@ -72,8 +91,8 @@ public class ScreenScopeRow
     /// Tên màn hình. Bản chuẩn hoá luôn lấy lại đúng chữ của danh sách cho phép chứ không lấy chữ của model
     /// — cùng luật với <see cref="PermissionMatrixRow.Screen"/> và với bảng cột, và cùng lý do: một dòng bịa
     /// lọt qua là một tính năng ngoài phạm vi đi vào tài liệu mang chữ ký người dùng. Danh sách cho phép là
-    /// <c>Project.PlannedScope</c> ở lượt BÀY BẢNG, nhưng là chính bảng server đã render ở đường GỬI — xem
-    /// <c>ScreenScopeMapBuilder.Sanitize</c>.
+    /// các dòng CÒN TÍCH của chính bảng đang lưu ở lượt BÀY BẢNG, nhưng là bảng server đã render ở đường
+    /// GỬI — xem <c>ScreenScopeMapBuilder.Sanitize</c>.
     /// </summary>
     public string Screen { get; set; } = "";
 
@@ -143,4 +162,31 @@ public class ScreenScopeRow
     /// </para>
     /// </summary>
     public bool AddedByUser { get; set; }
+
+    /// <summary>
+    /// Dòng này đã đi qua tay NGƯỜI DÙNG chưa — cờ chia bảng làm hai phần, và là thứ thay cho cả một danh
+    /// sách phạm vi song song từng tồn tại (<c>Project.PlannedScope</c>).
+    ///
+    /// <para>
+    /// Ba trạng thái, và mỗi trạng thái là một câu khác hẳn nhau:
+    /// </para>
+    /// <list type="bullet">
+    ///   <item><c>ConfirmedByUser=false</c> — mục vừa lộ ra từ hội thoại (hoặc do một bảng khác gieo sang)
+    ///   mà chưa ai rà. Nó là ĐIỀU KIỆN MỞ của <c>ScreenScopeGate</c>: còn một mục như thế thì bảng còn
+    ///   phải được bày ra hỏi.</item>
+    ///   <item><c>ConfirmedByUser=true, Included=true</c> — người dùng đã GIỮ. Đây là phạm vi thật của ứng
+    ///   dụng: nguồn dòng của bảng phân quyền, của <c>## 6. Screens To Generate</c> và của bản demo.</item>
+    ///   <item><c>ConfirmedByUser=true, Included=false</c> — người dùng đã LOẠI. Dòng ở lại vĩnh viễn làm
+    ///   BIA: không lượt chắt lọc nào được phép dựng lại một màn hình họ vừa đóng, và không có bia thì lần
+    ///   sau nó quay lại làm một mục "mới" tinh.</item>
+    /// </list>
+    ///
+    /// <para>
+    /// Cờ được đóng dấu ở ĐÚNG MỘT chỗ — <c>ScreenScopeMapBuilder.Sanitize</c>, tức đường GỬI của bảng —
+    /// và không bao giờ bị gỡ xuống. Model không được phép tự bật nó: <c>Build</c> chỉ chép cờ từ các dòng
+    /// ĐANG LƯU, mọi dòng model đề xuất đều ra <c>false</c>, cùng luật và cùng lý do với
+    /// <see cref="Included"/>.
+    /// </para>
+    /// </summary>
+    public bool ConfirmedByUser { get; set; }
 }

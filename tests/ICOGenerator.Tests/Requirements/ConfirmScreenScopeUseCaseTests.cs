@@ -1,4 +1,5 @@
 using ICOGenerator.Application.Requirements;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -12,13 +13,13 @@ namespace ICOGenerator.Tests.Requirements;
 
 // BẢNG NGƯỜI DÙNG GỬI ĐI PHẢI LÀ BẢNG HỌ VỪA NHÌN THẤY.
 //
-// Bảng màn hình được dựng từ Project.PlannedScope, nhưng lượt chắt lọc "triển vọng phỏng vấn" GHI ĐÈ cột đó
-// ở hậu kỳ ngay chính lượt bày bảng. Nên tới lúc người dùng bấm gửi, danh sách đối chiếu đã khác danh sách
-// đã render — và chốt chặn "màn hình bịa" quay ra bắn vào chính bảng của server: mọi dòng trượt khỏi
-// MatchScreen, phần người dùng điền bị bỏ, chỗ của nó là các mục phạm vi mới bù vào ở dạng TRẮNG.
+// Giữa lúc BA bày bảng và lúc người dùng bấm gửi vẫn có thể có một lượt chat khác, và lượt chắt lọc chạy ở
+// hậu kỳ lượt đó ghép thêm được mục mới vào bảng màn hình. Đối chiếu payload với BẢNG ĐANG LƯU — thay vì
+// với bảng server đã render — thì các mục mới ấy được "bù" vào bản chốt ở dạng TRẮNG và bị đóng dấu
+// đã-duyệt trong khi người dùng chưa từng nhìn thấy chúng.
 //
 // Hỏng kiểu này KHÔNG báo lỗi ở đâu cả: nút gửi vẫn chạy, hội thoại vẫn có tin nhắn "mình đã rà bảng màn
-// hình", chỉ có điều nội dung rà đã biến mất và khối ngữ cảnh của bảng đã chốt thì cấm BA hỏi lại.
+// hình", chỉ có điều bảng đã chốt chở thêm thứ không ai rà và khối ngữ cảnh của nó thì cấm BA hỏi lại.
 public class ConfirmScreenScopeUseCaseTests : IDisposable
 {
     // Ba màn hình BA đã bày ra và người dùng đã rà.
@@ -46,22 +47,22 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
         {
             Id = _projectId,
             Name = "Quản lý JD",
-            PlannedScope = Bullets(ScreenList, ScreenCreate, ScreenAssign)
+            // Phạm vi đã chắt từ hội thoại, chưa ai rà: ba dòng CHỜ DUYỆT.
+            ScreenScopeMap = PendingTable(ScreenList, ScreenCreate, ScreenAssign)
         });
         db.SaveChanges();
     }
 
-    // LỖI GỐC. Bảng render ra ba dòng; ngay sau đó lượt chắt lọc viết lại phạm vi thành tám mục diễn đạt
-    // khác. Người dùng bấm gửi và phải nhận lại ĐÚNG ba dòng mình vừa điền — không phải tám dòng trắng.
+    // LỖI GỐC. Bảng render ra ba dòng; ngay sau đó một lượt chat nữa chạy và lượt chắt lọc ghép thêm hai
+    // màn hình vừa lộ ra. Người dùng bấm gửi và phải nhận lại ĐÚNG ba dòng mình vừa điền — hai mục mới ở
+    // lại bảng nhưng KHÔNG được đóng dấu, và bảng sẽ bày lại để hỏi chúng.
     [Fact]
-    public async Task ExecuteAsync_KeepsTheReviewedTable_WhenTheDistillRewrotePlannedScopeUnderneath()
+    public async Task ExecuteAsync_KeepsTheReviewedTable_WhenTheDistillAddedRowsUnderneath()
     {
         await SeedRenderedTableAsync(ScreenList, ScreenCreate, ScreenAssign);
-        await RewritePlannedScopeAsync(
-            "Màn hình quản lý danh sách JD theo orgUnit",
-            "Màn hình để manager tự tạo và cập nhật JD cho orgUnit của mình",
-            "Tính năng manager submit JD để HRBP xác minh",
-            "Tính năng manager gán JD available cho nhân viên thuộc quyền");
+        await MergeIntoScopeAsync(
+            "Màn hình lịch sử thay đổi JD",
+            "Màn hình cấu hình mẫu JD chuẩn");
 
         var result = await ExecuteAsync($$"""
             [{"screen":"{{ScreenList}}","purpose":"Quản lý và tra cứu danh sách",
@@ -80,7 +81,11 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
         Assert.Equal(3, result.Rows);
 
         var stored = ScreenScopeMapBuilder.Parse(await LoadScreenScopeAsync());
-        Assert.Equal(3, stored.Count);
+        // Ba dòng đã rà mang dấu; hai mục ghép thêm giữa chừng ở lại bảng và vẫn CHỜ DUYỆT.
+        Assert.Equal(5, stored.Count);
+        Assert.Equal(3, stored.Count(r => r.ConfirmedByUser));
+        Assert.Equal(new[] { "Màn hình lịch sử thay đổi JD", "Màn hình cấu hình mẫu JD chuẩn" },
+            ScreenScopeMapBuilder.PendingScreens(await LoadScreenScopeAsync()));
         // Phần đắt nhất của bảng là những ô người dùng tự điền — mất chúng thì bảng chỉ còn là danh sách tên.
         Assert.Equal("Quản lý và tra cứu danh sách", stored.Single(r => r.Screen == ScreenList).Purpose);
         Assert.Equal(new[] { "Tạo JD", "Cập nhật JD", "Gửi duyệt" },
@@ -94,7 +99,7 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
         // class của EntityMapBuilder cho ca thật và BAChatTableCaptionRuleTests cho luật.
         Assert.Contains($"- {ScreenCreate} [chức năng: Tạo JD, Cập nhật JD, Gửi duyệt]", result.Message);
         Assert.DoesNotContain("Cho manager tạo JD cho orgUnit của mình", result.Message);
-        Assert.DoesNotContain("theo orgUnit", result.Message);
+        Assert.DoesNotContain("lịch sử thay đổi JD", result.Message);
     }
 
     // Bỏ tích một CHỨC NĂNG là một quyết định nhỏ hơn hẳn bỏ cả màn hình, và trước đây người dùng không có
@@ -119,14 +124,13 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
         Assert.Contains($"Các chức năng mình KHÔNG cần: Xóa JD (ở {ScreenCreate})", result.Message);
     }
 
-    // Người dùng vừa tự tay duyệt phạm vi ⇒ bản duyệt thay cho bản LLM đoán. Không ghi ngược thì
-    // EffectiveScreens bù lại đúng những mục chỉ khác CHỮ so với dòng vừa giữ, và bảng phân quyền ngay sau
-    // đó mọc thêm một loạt dòng trùng nghĩa mà không dòng nào có việc của màn hình.
+    // Bấm gửi là hành vi xác nhận CẢ BẢNG: mọi dòng mang dấu, kể cả dòng bị bỏ tích — dòng ấy ở lại làm
+    // BIA để lượt chắt lọc sau không dựng lại được thứ người dùng vừa đóng. Và cổng đóng ngay sau đó, vì
+    // không còn mục nào chờ duyệt.
     [Fact]
-    public async Task ExecuteAsync_WritesTheRatifiedScopeBackOntoTheProject()
+    public async Task ExecuteAsync_StampsEveryRow_AndKeepsTheUntickedOneAsATombstone()
     {
         await SeedRenderedTableAsync(ScreenList, ScreenCreate, ScreenAssign);
-        await RewritePlannedScopeAsync("Màn hình quản lý danh sách JD theo orgUnit");
 
         await ExecuteAsync($$"""
             [{"screen":"{{ScreenList}}","included":true},
@@ -134,13 +138,43 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
              {"screen":"{{ScreenAssign}}","included":false}]
             """);
 
-        var scope = InterviewOutlookService.ParseItems(await LoadPlannedScopeAsync());
-        Assert.Equal(new[] { ScreenList, ScreenCreate }, scope);
+        var json = await LoadScreenScopeAsync();
+        Assert.All(ScreenScopeMapBuilder.Parse(json), r => Assert.True(r.ConfirmedByUser));
+        Assert.False(ScreenScopeMapBuilder.HasPending(json));
 
-        // Và phạm vi hiệu dụng — nguồn DÒNG của bảng phân quyền — không còn mục nào người dùng chưa duyệt.
+        // Lượt chắt lọc sau gặp lại đúng cái tên vừa bị loại: bia chặn nó lại.
+        Assert.Null(ScreenScopeMapBuilder.Merge(json, new[] { new ScopeAddition { Screen = ScreenAssign } }));
+
+        // Và phạm vi hiệu dụng — nguồn DÒNG của bảng phân quyền — không còn mục nào người dùng đã loại.
         await using var db = NewDb();
         var project = await db.Projects.FirstAsync(p => p.Id == _projectId);
         Assert.Equal(new[] { ScreenList, ScreenCreate }, PermissionMatrixGate.EffectiveScreens(project));
+    }
+
+    // Dòng người dùng đã bỏ tích KHÔNG có mặt ở lượt bày lại (SeedRows lọc nó ra), nên ghi đè thẳng bảng
+    // bằng payload là xoá mất tấm bia. Lần chốt thứ hai phải giữ lại phần bảng vừa bày không mang ra hỏi.
+    [Fact]
+    public async Task ExecuteAsync_KeepsTombstonesThatTheReshownTableDidNotCarry()
+    {
+        await SeedRenderedTableAsync(ScreenList, ScreenCreate, ScreenAssign);
+        await ExecuteAsync($$"""
+            [{"screen":"{{ScreenList}}","included":true},
+             {"screen":"{{ScreenCreate}}","included":true},
+             {"screen":"{{ScreenAssign}}","included":false}]
+            """);
+
+        // Lượt bày LẠI chỉ mang hai dòng còn tích cộng một màn hình mới.
+        await SeedRenderedTableAsync(ScreenList, ScreenCreate, "Màn hình lịch sử thay đổi JD");
+        await ExecuteAsync($$"""
+            [{"screen":"{{ScreenList}}","included":true},
+             {"screen":"{{ScreenCreate}}","included":true},
+             {"screen":"Màn hình lịch sử thay đổi JD","included":true}]
+            """);
+
+        var stored = ScreenScopeMapBuilder.Parse(await LoadScreenScopeAsync());
+        var tombstone = stored.Single(r => r.Screen == ScreenAssign);
+        Assert.False(tombstone.Included);
+        Assert.True(tombstone.ConfirmedByUser);
     }
 
     // Chốt chặn "màn hình bịa" vẫn còn nguyên, chỉ đổi thứ để đối chiếu: bảng server đã render, chứ không
@@ -157,8 +191,12 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
             """);
 
         var stored = ScreenScopeMapBuilder.Parse(await LoadScreenScopeAsync());
-        Assert.Equal(2, stored.Count);
         Assert.DoesNotContain(stored, r => r.Screen.Contains("quản trị hệ thống"));
+        // Hai dòng vừa rà mang dấu; dòng thứ ba của bảng đang lưu không được mang ra hỏi lượt này nên nó ở
+        // lại nguyên trạng — CHỜ DUYỆT, không bị đóng dấu theo.
+        Assert.Equal(new[] { ScreenList, ScreenCreate },
+            stored.Where(r => r.ConfirmedByUser).Select(r => r.Screen));
+        Assert.Equal(new[] { ScreenAssign }, ScreenScopeMapBuilder.PendingScreens(await LoadScreenScopeAsync()));
     }
 
     // …nhưng chốt chặn đó dựng để chặn MODEL, nên nó phải nhường đúng một chỗ: dòng người dùng TỰ THÊM bằng
@@ -179,10 +217,12 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
 
         Assert.Equal(3, result.Rows);
 
-        // Dòng tự thêm xếp SAU CÙNG — đúng chỗ nó đứng trên bảng — và chở theo mọi ô người dùng đã điền.
+        // Dòng tự thêm xếp SAU CÙNG trong phần vừa gửi — đúng chỗ nó đứng trên bảng — và chở theo mọi ô
+        // người dùng đã điền.
         var stored = ScreenScopeMapBuilder.Parse(await LoadScreenScopeAsync());
-        var added = stored.Last();
+        var added = stored.Single(r => r.AddedByUser);
         Assert.Equal("Màn hình báo cáo JD theo phòng ban", added.Screen);
+        Assert.Equal(added, stored.Last(r => r.ConfirmedByUser));
         Assert.Equal("Xem thống kê JD đã gán", added.Purpose);
         Assert.Equal("Xem báo cáo", Assert.Single(added.Functions).Name);
         Assert.True(added.AddedByUser);
@@ -215,29 +255,29 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
         Assert.Equal(2, result.Rows);
     }
 
-    // Bỏ tích SẠCH bảng: vẫn lưu bảng (đó là quyết định của họ) nhưng KHÔNG ghi ngược một phạm vi rỗng.
-    // Ghi null vào PlannedScope là cắt luôn đường fail-open của EffectiveScreens và khóa chết cổng phân
-    // quyền trong im lặng — nút "Write Requirement" không bao giờ sáng, không gì trên màn hình nói vì sao.
+    // Bỏ tích SẠCH bảng: KHÔNG ghi gì và báo 0 dòng để UI giữ bảng lại. Bảng này là nguồn phạm vi duy
+    // nhất, nên lưu một bảng trắng trơn là khóa chết cổng phân quyền — nó đòi phạm vi có mục mới mở — và
+    // khóa trong im lặng: nút "Write Requirement" không bao giờ sáng, không gì trên màn hình nói vì sao.
     [Fact]
-    public async Task ExecuteAsync_LeavesPlannedScopeAlone_WhenEveryRowWasUnticked()
+    public async Task ExecuteAsync_StoresNothing_WhenEveryRowWasUnticked()
     {
         await SeedRenderedTableAsync(ScreenList, ScreenCreate);
-        var before = await LoadPlannedScopeAsync();
+        var before = await LoadScreenScopeAsync();
 
         var result = await ExecuteAsync($$"""
             [{"screen":"{{ScreenList}}","included":false},
              {"screen":"{{ScreenCreate}}","included":false}]
             """);
 
-        Assert.Equal(2, result.Rows);
-        Assert.Equal(before, await LoadPlannedScopeAsync());
+        Assert.Equal(0, result.Rows);
+        Assert.Equal(before, await LoadScreenScopeAsync());
     }
 
     // Không có lượt bảng nào để đối chiếu (lượt đã bị "New Chat" lưu trữ, hoặc dự án chốt bằng đường khác)
-    // ⇒ quay về PlannedScope như trước. Fail-open: mất chốt chặn tên màn hình rẻ hơn nhiều so với một nút
-    // gửi không bao giờ lưu được gì.
+    // ⇒ quay về các dòng còn tích của bảng đang lưu. Fail-open: mất chốt chặn tên màn hình rẻ hơn nhiều so
+    // với một nút gửi không bao giờ lưu được gì.
     [Fact]
-    public async Task ExecuteAsync_FallsBackToPlannedScope_WhenNoRenderedTableSurvives()
+    public async Task ExecuteAsync_FallsBackToTheStoredTable_WhenNoRenderedTableSurvives()
     {
         await SeedRenderedTableAsync(archived: true, screens: new[] { ScreenList, ScreenCreate });
 
@@ -245,7 +285,7 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
             [{"screen":"{{ScreenAssign}}","purpose":"Cho manager gán JD","included":true}]
             """);
 
-        Assert.Equal(3, result.Rows); // ba mục PlannedScope, hai mục còn lại được bù vào
+        Assert.Equal(3, result.Rows); // ba dòng của bảng đang lưu, hai dòng còn lại được bù vào
         var stored = ScreenScopeMapBuilder.Parse(await LoadScreenScopeAsync());
         Assert.Equal("Cho manager gán JD", stored.Single(r => r.Screen == ScreenAssign).Purpose);
     }
@@ -259,7 +299,7 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
         Assert.Equal(0, (await ExecuteAsync("[]")).Rows);
         Assert.Equal(0, (await ExecuteAsync("{ hỏng")).Rows);
         Assert.Equal(0, (await ExecuteAsync(null)).Rows);
-        Assert.Null(await LoadScreenScopeAsync());
+        Assert.False(ScreenScopeMapBuilder.IsConfirmed(await LoadScreenScopeAsync()));
     }
 
     // ==== dàn dựng ====
@@ -270,7 +310,7 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
     private async Task SeedRenderedTableAsync(bool archived, string[] screens)
     {
         var rows = ScreenScopeMapBuilder.Build(
-            screens.Select(s => new ICOGenerator.Contracts.Requirements.ScreenScopeRow { Screen = s }), screens);
+            null, screens.Select(s => new ScreenScopeRow { Screen = s }), screens);
 
         await using var db = NewDb();
         db.AgentConversations.Add(new AgentConversation
@@ -286,11 +326,17 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
         await db.SaveChangesAsync();
     }
 
-    /// <summary>Lượt chắt lọc hậu kỳ ghi đè phạm vi — chạy NGAY sau lượt bày bảng, trước khi người dùng bấm gửi.</summary>
-    private async Task RewritePlannedScopeAsync(params string[] screens)
+    /// <summary>
+    /// Lượt chắt lọc hậu kỳ ghép thêm màn hình vừa lộ ra — chạy sau lượt bày bảng, trước khi người dùng bấm
+    /// gửi (một lượt chat nữa xen vào giữa).
+    /// </summary>
+    private async Task MergeIntoScopeAsync(params string[] screens)
     {
         await using var db = NewDb();
-        (await db.Projects.FirstAsync(p => p.Id == _projectId)).PlannedScope = Bullets(screens);
+        var project = await db.Projects.FirstAsync(p => p.Id == _projectId);
+        var merged = ScreenScopeMapBuilder.Merge(
+            project.ScreenScopeMap, screens.Select(s => new ScopeAddition { Screen = s }));
+        project.ScreenScopeMap = System.Text.Json.JsonSerializer.Serialize(merged);
         await db.SaveChangesAsync();
     }
 
@@ -306,13 +352,10 @@ public class ConfirmScreenScopeUseCaseTests : IDisposable
         return (await db.Projects.FirstAsync(p => p.Id == _projectId)).ScreenScopeMap;
     }
 
-    private async Task<string?> LoadPlannedScopeAsync()
-    {
-        await using var db = NewDb();
-        return (await db.Projects.FirstAsync(p => p.Id == _projectId)).PlannedScope;
-    }
-
-    private static string Bullets(params string[] items) => string.Join("\n", items.Select(i => "- " + i));
+    /// <summary>Bảng màn hình đã chắt từ hội thoại nhưng CHƯA AI RÀ.</summary>
+    private static string PendingTable(params string[] screens)
+        => System.Text.Json.JsonSerializer.Serialize(
+            screens.Select(s => new ScreenScopeRow { Screen = s, Included = true }).ToList());
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 

@@ -116,7 +116,7 @@ public class BAChatService
         "Từ các luồng vừa chốt, mình liệt kê các màn hình ứng dụng sẽ có. Anh/chị bỏ tích màn hình không cần và "
         + "sửa lại phần việc của từng màn cho đúng, rồi bấm \"Gửi bảng màn hình\" giúp mình nhé.";
 
-    /// <summary>Số màn hình mới được GỌI TÊN trong câu dẫn bày lại; phần dư gộp thành "và N mục khác".</summary>
+    /// <summary>Số mục mới được GỌI TÊN trong câu dẫn bày lại; phần dư gộp thành "và N mục khác".</summary>
     private const int MaxNamedNewScreens = 4;
 
     /// <summary>
@@ -131,17 +131,28 @@ public class BAChatService
     /// nguyên phần họ đã tự tay rà và việc thật sự còn lại chỉ là mấy màn hình mới — nhưng KHÔNG có gì trên
     /// màn hình nói điều đó. Câu dẫn này là chỗ duy nhất nói được.
     /// </para>
+    ///
+    /// <para>
+    /// Phần trôi không chỉ là màn hình mới: một CHỨC NĂNG lộ ra trên một màn hình đã chốt cũng phải được
+    /// gọi tên ở đây, và phải gọi khác đi — người dùng nghe "còn 2 màn hình nữa" rồi mở ra thấy đúng bảng
+    /// cũ với một dòng con lạ sẽ đi tìm cái màn hình không có thật.
+    /// </para>
     /// </summary>
-    public static string ScreenScopeReshowIntro(IReadOnlyList<string> newScreens)
+    public static string ScreenScopeReshowIntro(IReadOnlyList<string> newScreens, IReadOnlyList<string> newFunctions)
     {
-        var named = newScreens.Take(MaxNamedNewScreens).Select(s => $"“{s}”").ToList();
-        var rest = newScreens.Count - named.Count;
+        var items = newScreens.Concat(newFunctions).ToList();
+        var named = items.Take(MaxNamedNewScreens).Select(s => $"“{s}”").ToList();
+        var rest = items.Count - named.Count;
         var list = string.Join(", ", named) + (rest > 0 ? $" và {rest} mục khác" : string.Empty);
 
+        // Gọi đúng tên loại: toàn màn hình mới thì nói "màn hình", có lẫn chức năng thì nói "mục" — một câu
+        // dẫn sai loại đắt đúng bằng một câu dẫn không có.
+        var noun = newFunctions.Count == 0 ? "màn hình" : "mục";
+        var count = items.Count == 1 ? $"một {noun}" : $"{items.Count} {noun}";
+
         return "Phần bảng màn hình anh/chị đã chốt mình giữ nguyên, không phải rà lại. Từ những điều anh/chị "
-            + $"nói sau đó, mình thấy còn {(newScreens.Count == 1 ? "một màn hình" : $"{newScreens.Count} màn hình")} "
-            + $"nữa cần chốt: {list}. Anh/chị xem giúp phần này — không cần thì bỏ tích — rồi bấm "
-            + "\"Gửi bảng màn hình\" nhé.";
+            + $"nói sau đó, mình thấy còn {count} nữa cần chốt: {list}. Anh/chị xem giúp phần này — không cần "
+            + "thì bỏ tích — rồi bấm \"Gửi bảng màn hình\" nhé.";
     }
 
     /// <inheritdoc cref="FlowMapIntro"/>
@@ -680,21 +691,27 @@ public class BAChatService
         // ma trận trong đầu, nên câu trả lời thật gần như luôn là "cứ vậy đã, có gì tôi bổ sung sau" — rồi
         // BA tự soạn phương án và một chip "Đồng ý" đóng dấu [RÕ] cho cả nhóm. Ba trạng thái, ba lệnh khác
         // nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model tự đoán đang ở trạng thái nào.
-        var plannedScope = InterviewOutlookService.ParseItems(project.PlannedScope);
-        // PHẠM VI MÀN HÌNH THẬT SỰ: bảng màn hình đã chốt (nếu có) thay cho PlannedScope thô — đây là chỗ
-        // bảng màn hình trả tiền cho chính nó, vì các DÒNG của bảng phân quyền lấy từ đây.
+        // PHẠM VI MÀN HÌNH THẬT SỰ: mọi dòng CÒN TÍCH của bảng màn hình — nguồn duy nhất, chốt rồi hay còn
+        // chờ duyệt. Đây là chỗ bảng màn hình trả tiền cho chính nó, vì các DÒNG của bảng phân quyền lấy
+        // từ đây.
         var effectiveScreens = PermissionMatrixGate.EffectiveScreens(project);
         // MỘT cổng cho cả sáu bảng, chọn TẤT ĐỊNH và mỗi lượt đúng MỘT bảng: hai khối "## LƯỢT NÀY:" cùng
         // lúc là hai mệnh lệnh chọi nhau, model sẽ trả một bảng lai hoặc bỏ cả hai. Lượt kể lại file đã có
         // việc riêng và chỉ có MỘT chỗ trả lời (hai chip xác nhận) nên mọi cổng nhường nó một lượt — chúng
         // mở lại ngay lượt sau. Xem InterviewTableGate cho thứ tự ưu tiên và lý do.
         var table = InterviewTableGate.Select(project, suppressed: columnReadbackTurn);
-        // Bảng màn hình là cổng DUY NHẤT mở lại được sau khi đã chốt (xem ScreenScopeGate). Danh sách này
-        // rỗng ⇒ lượt bày ĐẦU; có mục ⇒ lượt BÀY LẠI, và cả khối lệnh lẫn câu dẫn đều phải nói ra sự khác
-        // biệt đó: phần lớn bảng là thứ người dùng đã tự tay rà và hệ thống giữ nguyên bằng SeedRows, việc
-        // của lượt này chỉ là các màn hình vừa lộ ra.
-        var newScreens = table == InterviewTableKind.ScreenScope
-            ? ScreenScopeMapBuilder.NewScreens(project.ScreenScopeMap, plannedScope)
+        // Bảng màn hình là cổng DUY NHẤT mở lại được sau khi đã chốt (xem ScreenScopeGate). Bảng đã mang
+        // dấu chốt ⇒ lượt BÀY LẠI, và cả khối lệnh lẫn câu dẫn đều phải nói ra sự khác biệt đó: phần lớn
+        // bảng là thứ người dùng đã tự tay rà và hệ thống giữ nguyên bằng SeedRows, việc của lượt này chỉ
+        // là các mục vừa lộ ra. Ở lượt bày ĐẦU thì MỌI dòng đều chờ duyệt, nên hai danh sách dưới đây cố ý
+        // để rỗng: gọi tên cả bảng là "phần mới" thì câu dẫn thành vô nghĩa.
+        var reshowScreenScope = table == InterviewTableKind.ScreenScope
+            && ScreenScopeMapBuilder.IsConfirmed(project.ScreenScopeMap);
+        var pendingScreens = reshowScreenScope
+            ? ScreenScopeMapBuilder.PendingScreens(project.ScreenScopeMap)
+            : new List<string>();
+        var pendingFunctions = reshowScreenScope
+            ? ScreenScopeMapBuilder.PendingFunctions(project.ScreenScopeMap)
             : new List<string>();
         // Hai đầu vào của bảng THÔNG BÁO: DÒNG là chuyển trạng thái của bảng đối tượng đã chốt, còn MỤC CHỌN
         // của hai ô To/CC là danh sách người nhận của dự án — bộ người dùng đã tự tay rà nếu có, còn không
@@ -817,12 +834,12 @@ public class BAChatService
             // danh sách này" với một bảng họ vừa tự tay rà là sai sự thật, và model đọc câu đó sẽ mô tả lại
             // từ đầu cả những màn hình đã duyệt — đúng phần mà SeedRows sẽ bỏ đi, tức một lượt gọi tốn công
             // cho không.
-            var screenScopeIntro = newScreens.Count > 0
+            var screenScopeIntro = reshowScreenScope
                 ? "## LƯỢT NÀY: BỔ SUNG BẢNG MÀN HÌNH ĐÃ CHỐT (bắt buộc)\n"
                     + "Người dùng đã tự tay rà và CHỐT bảng màn hình ở một lượt trước. Sau đó hội thoại lộ "
-                    + "thêm màn hình MỚI, và lượt này bày lại bảng chỉ để lấy phần mới đó. Hệ thống giữ "
-                    + "nguyên các dòng người dùng đã duyệt, nên bạn CHỈ mô tả các màn hình ở mục \"Màn hình "
-                    + "MỚI\" cuối khối này — mô tả lại màn hình đã có là công bỏ đi, và câu dẫn của lượt do "
+                    + "thêm phần MỚI, và lượt này bày lại bảng chỉ để lấy phần mới đó. Hệ thống giữ "
+                    + "nguyên các dòng người dùng đã duyệt, nên bạn CHỈ mô tả các mục ở phần \"MỚI\" cuối "
+                    + "khối này — mô tả lại màn hình đã có là công bỏ đi, và câu dẫn của lượt do "
                     + "hệ thống soạn nên đừng nhắc tới chúng.\n"
                 : "## LƯỢT NÀY: BÀY BẢNG MÀN HÌNH (bắt buộc)\n"
                     + "Lượt này chốt PHẠM VI MÀN HÌNH của ứng dụng. Danh sách dưới đây được chắt ra từ hội "
@@ -867,11 +884,18 @@ public class BAChatService
                 + "### Phạm vi dự kiến (mỗi mục phải hoặc thành MỘT dòng `screen`, hoặc nằm trong `covers` của "
                 + "một dòng — không mục nào được bỏ rơi)\n"
                 + string.Join("\n", effectiveScreens.Select(s => "- " + s))
-                + (newScreens.Count > 0
+                + (pendingScreens.Count > 0
                     ? "\n\n### Màn hình MỚI (lộ ra SAU lúc người dùng chốt bảng — phần việc DUY NHẤT của lượt này)\n"
-                        + string.Join("\n", newScreens.Select(s => "- " + s))
+                        + string.Join("\n", pendingScreens.Select(s => "- " + s))
                         + "\nMục nào trong số này thật ra chỉ là một chức năng của màn hình ĐÃ CHỐT thì đừng "
                         + "dựng thành dòng riêng: ghi nguyên văn nó vào `covers` của dòng ấy."
+                    : string.Empty)
+                // Chức năng mới trên một màn hình ĐÃ CHỐT: hệ thống đã ghép sẵn nó vào dòng của màn hình ấy
+                // và giữ nguyên phần còn lại, nên việc của model chỉ là ô "phục vụ bước nào". Không nói ra
+                // thì model thấy một chức năng lạ trong bảng và mô tả lại cả màn hình quanh nó.
+                + (pendingFunctions.Count > 0
+                    ? "\n\n### Chức năng MỚI trên màn hình đã chốt (đã có sẵn trong bảng, đừng dựng dòng mới)\n"
+                        + string.Join("\n", pendingFunctions.Select(s => "- " + s))
                     : string.Empty)
                 // BẢNG KÊ CÁC BƯỚC PHẢI PHỦ. Các bước này đã có trong ngữ cảnh qua khối bảng luồng đã chốt,
                 // nhưng ở đó chúng là một câu chuyện để đọc, còn ở đây là một danh sách để ĐỐI CHIẾU — và
@@ -1284,14 +1308,14 @@ public class BAChatService
                     break;
 
                 case InterviewTableKind.ScreenScope:
-                    // GIEO bằng bảng đã chốt (rỗng ở lần bày đầu tiên). Cổng này mở lại được khi có màn
-                    // hình mới lộ ra sau lúc chốt — xem ScreenScopeGate — và Build dựng bảng từ đề xuất
-                    // TƯƠI của model, nên không gieo thì lần bày lại thay sạch phần người dùng đã tự tay
-                    // rà bằng bản model vừa đoán lại. Hạt giống đứng TRƯỚC: Build giữ dòng đầu tiên của mỗi
-                    // màn hình, nên bản đã duyệt luôn thắng, và phần tươi chỉ lấp vào các màn hình mới.
+                    // GIEO bằng chính bảng đang lưu. Cổng này mở lại được khi có mục mới lộ ra sau lúc
+                    // chốt — xem ScreenScopeGate — và Build dựng bảng từ đề xuất TƯƠI của model, nên không
+                    // gieo thì lần bày lại thay sạch phần người dùng đã tự tay rà bằng bản model vừa đoán
+                    // lại. Hạt giống là tham số RIÊNG: chỉ nó được chở cờ đã-chốt qua, và chỉ dòng CHƯA
+                    // CHỐT của nó mới cho model lấp thêm vào (xem Build).
                     screenScopeMap = ScreenScopeMapBuilder.Build(
-                        ScreenScopeMapBuilder.SeedRows(project.ScreenScopeMap)
-                            .Concat(parsedReply.ScreenScopeMap ?? Enumerable.Empty<ScreenScopeRow>()),
+                        ScreenScopeMapBuilder.SeedRows(project.ScreenScopeMap),
+                        parsedReply.ScreenScopeMap,
                         effectiveScreens);
                     if (screenScopeMap.Count > 0)
                     {
@@ -1302,8 +1326,8 @@ public class BAChatService
                         // bấm…"), tức lời mời rà lại TOÀN BỘ một bảng mà người dùng vừa chốt. Thứ phải nói
                         // ra — giữ nguyên phần đã chốt, chỉ thêm màn hình nào — là dữ kiện của CƠ CHẾ
                         // (SeedRows + NewScreens), nên nó phải do cơ chế viết.
-                        if (newScreens.Count > 0)
-                            TakeOverTurn(ScreenScopeReshowIntro(newScreens), force: true);
+                        if (reshowScreenScope)
+                            TakeOverTurn(ScreenScopeReshowIntro(pendingScreens, pendingFunctions), force: true);
                         else
                             TakeOverTurn(ScreenScopeIntro);
                         // Phép kiểm TẤT ĐỊNH của mối nối luồng ⇄ màn hình, chạy bằng code chứ không bằng

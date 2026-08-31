@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Requirements;
 using Microsoft.EntityFrameworkCore;
@@ -19,18 +20,17 @@ namespace ICOGenerator.Application.Requirements;
 /// <b>GIEO MÀN HÌNH BÁO CÁO VÀO PHẠM VI — đây mới là chỗ bảng trả tiền cho chính nó.</b> Một báo cáo là
 /// một chỗ người dùng mở ra và nhìn thấy, tức một màn hình; nằm lại trong cột <c>ReportMap</c> thì nó không
 /// có DÒNG nào trong bảng phân quyền và không có mục nào ở <c>## 6. Screens To Generate</c> — mặc nhiên
-/// "không ai được xem" một màn hình người dùng vừa đặt hàng. Đường ra là <c>Project.PlannedScope</c>, đúng
+/// "không ai được xem" một màn hình người dùng vừa đặt hàng. Đường ra là các DÒNG của bảng màn hình, đúng
 /// như màn hình danh mục của <see cref="ConfirmEntityMapUseCase"/>: không cổng nào phải sửa, vì bảng MÀN
 /// HÌNH đứng SAU bảng này trong thứ tự phụ thuộc (<c>luồng → đối tượng → báo cáo → màn hình</c>) nên các
 /// mục vừa gieo có mặt ngay ở lần bày ĐẦU của nó, rồi đi tiếp thành DÒNG của bảng phân quyền.
 /// </para>
 ///
 /// <para>
-/// GHÉP THÊM chứ không ghi đè, và giữ nguyên thứ tự cũ: <c>PlannedScope</c> có thể đã là danh sách người
-/// dùng tự tay rà ở bảng màn hình (<c>ConfirmScreenScopeUseCase</c> ghi ngược lên đây) — ca đó hiếm sau khi
-/// thứ tự được sửa, nhưng vẫn tới được qua đường MỞ LẠI của <c>ScreenScopeGate</c> khi nhóm «Báo cáo /
-/// thống kê» chỉ lên <c>[RÕ]</c> sau lúc bảng màn hình đã chốt. Thay cả danh sách bằng mấy dòng báo cáo ở
-/// ca đó là xoá sạch phạm vi đã duyệt. Mục trùng bị bỏ.
+/// Chỉ THÊM, không đụng tới dòng nào đang có (<c>ScreenScopeMapBuilder.Merge</c>): bảng màn hình có thể đã
+/// được người dùng tự tay rà — ca đó hiếm sau khi thứ tự được sửa, nhưng vẫn tới được qua đường MỞ LẠI của
+/// <c>ScreenScopeGate</c> khi nhóm «Báo cáo / thống kê» chỉ lên <c>[RÕ]</c> sau lúc bảng màn hình đã chốt.
+/// Mục trùng, và mục trùng một dòng họ đã bỏ tích, đều bị bỏ.
 /// </para>
 /// </summary>
 public class ConfirmReportMapUseCase
@@ -61,27 +61,15 @@ public class ConfirmReportMapUseCase
 
         project.ReportMap = JsonSerializer.Serialize(rows);
 
-        var scope = InterviewOutlookService.ParseItems(project.PlannedScope).ToList();
-        var known = new HashSet<string>(scope.Select(NormalizeScope), StringComparer.Ordinal);
-        var added = ReportMapBuilder.ReportScreens(rows).Where(s => known.Add(NormalizeScope(s))).ToList();
-        if (added.Count > 0)
-        {
-            scope.AddRange(added);
-            project.PlannedScope = InterviewOutlookService.Store(scope);
-        }
+        // Cùng đường gieo với màn hình danh mục của ConfirmEntityMapUseCase — xem ghi chú ở đó.
+        var merged = ScreenScopeMapBuilder.Merge(
+            project.ScreenScopeMap,
+            ReportMapBuilder.ReportScreens(rows).Select(s => new ScopeAddition { Screen = s }));
+        if (merged != null)
+            project.ScreenScopeMap = JsonSerializer.Serialize(merged);
 
         await _db.SaveChangesAsync(cancellationToken);
 
         return new Result(rows.Count, ReportMapBuilder.RenderUserMessage(rows));
     }
-
-    /// <summary>
-    /// Khoá so trùng của một mục phạm vi — chép đúng phép chuẩn hoá mà <c>ScreenScopeMapBuilder</c> dùng để
-    /// nhận ra "màn hình mới", để một mục vừa gieo không quay lại thành mục mới ở lượt sau chỉ vì khác hoa
-    /// thường hay khác một dấu câu ở cuối.
-    /// </summary>
-    private static string NormalizeScope(string value)
-        => string.Join(' ', (value ?? string.Empty).ToLowerInvariant()
-                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
-            .Trim(' ', '.', ',', ':', ';', '-', '–');
 }

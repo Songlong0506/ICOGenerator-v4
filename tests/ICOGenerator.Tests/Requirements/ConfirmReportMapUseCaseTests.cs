@@ -37,7 +37,8 @@ public class ConfirmReportMapUseCaseTests : IDisposable
             Id = _projectId,
             Name = "Đào tạo",
             EntityMap = ConfirmedEntities,
-            PlannedScope = "- Màn hình Training Plan"
+            // Phạm vi đã chắt từ hội thoại, chưa ai rà.
+            ScreenScopeMap = """[{"screen":"Màn hình Training Plan","included":true}]"""
         });
         db.SaveChanges();
     }
@@ -61,17 +62,17 @@ public class ConfirmReportMapUseCaseTests : IDisposable
         Assert.Contains("(bỏ: Training Cost Report)", result.Message);
     }
 
-    // GIEO MÀN HÌNH — xem ghi chú đầu file. Ghép THÊM chứ không ghi đè: PlannedScope là danh sách người dùng
-    // đã rà ở bảng màn hình, thay nó bằng mấy dòng báo cáo là xoá sạch phạm vi đã duyệt.
+    // GIEO MÀN HÌNH — xem ghi chú đầu file. CHỈ THÊM, không đụng tới dòng nào đang có: bảng màn hình có thể
+    // đã được người dùng tự tay rà, ghi đè nó bằng mấy dòng báo cáo là xoá sạch phạm vi đã duyệt.
     [Fact]
-    public async Task ExecuteAsync_SeedsTheKeptReportsIntoPlannedScope_WithoutLosingWhatWasThere()
+    public async Task ExecuteAsync_SeedsTheKeptReportsIntoTheScreenTable_WithoutLosingWhatWasThere()
     {
         await ExecuteAsync("""
             [{"report":"Training Progress Report","source":"Kế hoạch đào tạo","included":true},
              {"report":"Training Cost Report","included":false}]
             """);
 
-        var scope = InterviewOutlookService.ParseItems(await LoadAsync(p => p.PlannedScope));
+        var scope = ScreenScopeMapBuilder.EffectiveScreens(await LoadAsync(p => p.ScreenScopeMap));
         Assert.Equal(new[] { "Màn hình Training Plan", "Training Progress Report" }, scope);
     }
 
@@ -84,7 +85,7 @@ public class ConfirmReportMapUseCaseTests : IDisposable
         await ExecuteAsync(json);
         await ExecuteAsync(json);
 
-        var scope = InterviewOutlookService.ParseItems(await LoadAsync(p => p.PlannedScope));
+        var scope = ScreenScopeMapBuilder.EffectiveScreens(await LoadAsync(p => p.ScreenScopeMap));
         Assert.Single(scope, s => s == "Training Progress Report");
     }
 

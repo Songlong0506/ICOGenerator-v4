@@ -11,9 +11,16 @@ namespace ICOGenerator.Application.Requirements;
 ///
 /// <para>
 /// Đây là bảng mà bảng phân quyền sẽ đứng lên: <see cref="PermissionMatrixGate.EffectiveScreens"/> đọc nó
-/// làm nguồn DÒNG thay cho <c>Project.PlannedScope</c> thô. Trước khi có bước này, toàn bộ phần phân quyền
-/// — thứ đã được dựng cẩn thận để có bằng chứng trên từng ô — lại đứng trên một danh sách màn hình do LLM
-/// chắt mà người dùng chưa bao giờ nhìn thấy để phản đối.
+/// làm nguồn DÒNG. Trước khi có bước này, toàn bộ phần phân quyền — thứ đã được dựng cẩn thận để có bằng
+/// chứng trên từng ô — lại đứng trên một danh sách màn hình do LLM chắt mà người dùng chưa bao giờ nhìn
+/// thấy để phản đối.
+/// </para>
+///
+/// <para>
+/// Đây cũng là ĐÚNG MỘT chỗ đóng dấu <see cref="ICOGenerator.Contracts.Requirements.ScreenScopeRow.ConfirmedByUser"/>
+/// (<see cref="ScreenScopeMapBuilder.Sanitize"/> làm việc đó), tức chỗ duy nhất một mục phạm vi rời khỏi
+/// trạng thái CHỜ DUYỆT. Mọi đường khác — lượt chắt lọc, hai bảng gieo màn hình sang — chỉ được THÊM mục
+/// chờ duyệt vào bảng.
 /// </para>
 ///
 /// <para>
@@ -50,26 +57,23 @@ public class ConfirmScreenScopeUseCase
         // Tên màn hình phải khớp lại BẢNG SERVER ĐÃ RENDER — server không tin payload nó vừa render ra,
         // nhưng cũng không được đối chiếu với một danh sách đã đổi dưới chân người dùng. Xem
         // AllowedScreensAsync.
-        var allowedScreens = await AllowedScreensAsync(projectId, project.PlannedScope, cancellationToken);
+        var allowedScreens = await AllowedScreensAsync(projectId, project.ScreenScopeMap, cancellationToken);
         var rows = ScreenScopeMapBuilder.Sanitize(submitted, allowedScreens);
         if (rows.Count == 0)
             return new Result(0, string.Empty);
 
-        project.ScreenScopeMap = JsonSerializer.Serialize(rows);
+        // KHÔNG dòng nào được giữ ⇒ KHÔNG ghi gì, và UI giữ bảng lại (0 dòng) như với payload hỏng. Bảng
+        // này là nguồn phạm vi DUY NHẤT nên không còn danh sách nào để rơi về: lưu một bảng trắng trơn là
+        // khóa chết cổng phân quyền — nó đòi phạm vi có mục mới mở — và khóa trong im lặng, không có gì
+        // trên màn hình nói vì sao. Một ứng dụng không có màn hình nào cũng không phải thứ dựng được.
+        if (!rows.Any(r => r.Included))
+            return new Result(0, string.Empty);
 
-        // GHI NGƯỢC PHẠM VI. Người dùng vừa tự tay duyệt danh sách màn hình, nên nó thay cho bản LLM đoán:
-        // lượt chắt lọc kế tiếp nhận bản đã duyệt làm gốc để gộp tiếp thay vì diễn đạt lại từ đầu, và
-        // EffectiveScreens không còn phải bù vào những mục chỉ khác CHỮ so với dòng người dùng vừa giữ —
-        // nếu không, bảng phân quyền ngay sau đó mọc thêm một loạt dòng trùng nghĩa mà không dòng nào có
-        // việc của màn hình. Đây cũng là chỗ vá điều mà EffectiveScreens từ trước tới nay chỉ chắn được
-        // một nửa: lượt chắt lọc không đọc bảng nên nó giữ mãi cả mục người dùng đã bỏ tích.
-        //
-        // KHÔNG dòng nào được giữ ⇒ để nguyên PlannedScope. Ghi null vào đây là cắt luôn đường fail-open
-        // của EffectiveScreens (nó quay về PlannedScope khi bảng trống) và khóa chết cổng phân quyền trong
-        // im lặng.
-        var kept = rows.Where(r => r.Included).Select(r => r.Screen).ToList();
-        if (kept.Count > 0)
-            project.PlannedScope = InterviewOutlookService.Store(kept);
+        // GIỮ phần bảng vừa bày KHÔNG mang ra hỏi — các dòng/chức năng người dùng đã bỏ tích ở lần chốt
+        // trước. Chúng là BIA: mất chúng thì lượt chắt lọc kế tiếp gặp lại đúng cái tên ấy trong hội thoại
+        // sẽ ghép lại vào bảng như một mục mới tinh, tức mở lại thứ người dùng vừa đóng. Xem MergeConfirmed.
+        var merged = ScreenScopeMapBuilder.MergeConfirmed(project.ScreenScopeMap, rows);
+        project.ScreenScopeMap = JsonSerializer.Serialize(merged);
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -81,25 +85,22 @@ public class ConfirmScreenScopeUseCase
     /// bày bảng (<c>AgentConversation.ScreenScopeMap</c> — cùng lượt mà view dùng để dựng lại panel sau F5).
     ///
     /// <para>
-    /// Vì sao không dùng <c>Project.PlannedScope</c> đọc lại tại đây, dù chính nó là nguồn DÒNG lúc bày
-    /// bảng: lượt chắt lọc "triển vọng phỏng vấn" chạy ở HẬU KỲ ngay lượt bày bảng
-    /// (<c>RequirementsController</c> gọi <c>UpdateInterviewOutlookAsync</c> sau frame done) và nó GHI ĐÈ
-    /// cả danh sách. Nghĩa là bảng vừa hiện trên màn hình đã dựng từ một bản <c>PlannedScope</c> không còn
-    /// tồn tại nữa. Chỉ cần lượt chắt lọc diễn đạt lại một mục — "…trong nhà máy" thành "…theo orgUnit" —
-    /// là <c>MatchScreen</c> trượt, dòng người dùng vừa điền bị bỏ, và các mục phạm vi mới bù vào chỗ đó ở
-    /// dạng TRẮNG: họ gửi một bảng đã rà và nhận lại một danh sách tên suông, không việc, không chức năng,
-    /// không bước luồng — trong khi khối ngữ cảnh của bảng đã chốt lại cấm BA hỏi lại việc của từng màn.
-    /// Đây không phải tình huống hiếm: lượt chắt lọc LUÔN chạy giữa lúc bày bảng và lúc bấm gửi.
+    /// Vì sao không đọc lại BẢNG ĐANG LƯU tại đây, dù chính nó là nguồn DÒNG lúc bày bảng: giữa lúc bày và
+    /// lúc bấm gửi vẫn có thể có một lượt chat khác, và lượt chắt lọc chạy ở hậu kỳ lượt đó
+    /// (<c>RequirementsController</c> gọi <c>UpdateInterviewOutlookAsync</c> sau frame done) ghép thêm
+    /// được mục mới vào bảng. Đối chiếu với một danh sách đã dài ra dưới chân người dùng thì các mục mới ấy
+    /// được "bù" vào bản chốt ở dạng TRẮNG — không việc, không chức năng, không bước luồng — và bị đóng dấu
+    /// đã-duyệt trong khi họ chưa từng nhìn thấy. Danh sách đúng luôn là đúng thứ đang hiện trên màn hình.
     /// </para>
     ///
     /// <para>
     /// Không có lượt bảng nào (dự án cũ chốt bằng đường khác, hoặc lượt đã bị "New Chat" lưu trữ) ⇒ quay về
-    /// <paramref name="plannedScope"/> như trước. Fail-open: mất chốt chặn tên màn hình rẻ hơn nhiều so với
-    /// một nút gửi không bao giờ lưu được gì.
+    /// các dòng còn tích của bảng đang lưu. Fail-open: mất chốt chặn tên màn hình rẻ hơn nhiều so với một
+    /// nút gửi không bao giờ lưu được gì.
     /// </para>
     /// </summary>
     private async Task<IReadOnlyList<string>> AllowedScreensAsync(
-        Guid projectId, string? plannedScope, CancellationToken cancellationToken)
+        Guid projectId, string? screenScopeJson, CancellationToken cancellationToken)
     {
         var rendered = await _db.AgentConversations
             .AsNoTracking()
@@ -111,6 +112,6 @@ public class ConfirmScreenScopeUseCase
             .FirstOrDefaultAsync(cancellationToken);
 
         var screens = ScreenScopeMapBuilder.Parse(rendered).Select(r => r.Screen).ToList();
-        return screens.Count > 0 ? screens : InterviewOutlookService.ParseItems(plannedScope);
+        return screens.Count > 0 ? screens : ScreenScopeMapBuilder.EffectiveScreens(screenScopeJson);
     }
 }
