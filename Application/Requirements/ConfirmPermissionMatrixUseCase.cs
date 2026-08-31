@@ -72,9 +72,9 @@ public class ConfirmPermissionMatrixUseCase
                 "Bảng phải có ít nhất một vai trò — anh/chị thêm lại một dòng ở bảng Vai trò rồi gửi nhé.");
 
         // Server KHÔNG tin bảng client gửi, kể cả khi chính server vừa render nó ra: tên màn hình phải khớp
-        // lại phạm vi đã chắt của dự án, và mọi dòng phải đủ vai trò (xem PermissionMatrixBuilder). Phạm vi
-        // đối chiếu là phạm vi ĐÃ RÀ nếu bảng màn hình đã chốt — nếu dùng PlannedScope thô ở đây thì một
-        // màn hình người dùng vừa bỏ tích vẫn khớp được, và quyền của nó đi thẳng vào tài liệu.
+        // lại phạm vi màn hình của dự án, và mọi dòng phải đủ vai trò (xem PermissionMatrixBuilder). Phạm
+        // vi đối chiếu là các dòng CÒN TÍCH của bảng màn hình: một màn hình người dùng vừa bỏ tích không
+        // còn khớp được, nên quyền của nó không đi vào tài liệu.
         var rows = PermissionMatrixBuilder.Sanitize(
             PermissionMatrixBuilder.Parse(matrixJson), PermissionMatrixGate.EffectiveScreens(project), roles);
         if (rows.Count == 0)

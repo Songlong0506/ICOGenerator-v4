@@ -17,11 +17,11 @@ public record RequirementWorkspaceResult(
     // Views/Requirements/Index.cshtml). Người đọc nó nay là máy: ngữ cảnh chat của BA (BAChatService),
     // ngữ cảnh soát mâu thuẫn (RequirementConflictService), bước soạn Product Brief
     // (ProductBriefDraftService) và bản xuất hội thoại (ChatExportBuilder).
-    // Không có danh sách nào của "triển vọng phỏng vấn" ở đây (OpenQuestions, PlannedScope,
-    // WorkedExamples): cả ba vẫn được chắt sau mỗi lượt nhưng không còn panel nào trên trang render
-    // chúng — OpenQuestions làm ngữ cảnh chat của BA (BAChatService), PlannedScope làm ngữ cảnh soát mâu
-    // thuẫn (RequirementConflictService), WorkedExamples đi thẳng vào "## 13. Worked Examples" của AI
-    // Design Spec (RequirementPromptBuilder đọc Project.WorkedExamples).
+    // Không có danh sách nào của "triển vọng phỏng vấn" ở đây (OpenQuestions, WorkedExamples): cả hai vẫn
+    // được chắt sau mỗi lượt nhưng không còn panel nào trên trang render chúng — OpenQuestions làm ngữ cảnh
+    // chat của BA (BAChatService), WorkedExamples đi thẳng vào "## 13. Worked Examples" của AI Design Spec
+    // (RequirementPromptBuilder đọc Project.WorkedExamples). Phạm vi màn hình thì có mặt, nhưng ở dạng SỬA
+    // ĐƯỢC: chính bảng màn hình (Project.ScreenScopeMap).
     IReadOnlyList<SpecAssumption> SpecAssumptions,
     string? SpecVersion);
 

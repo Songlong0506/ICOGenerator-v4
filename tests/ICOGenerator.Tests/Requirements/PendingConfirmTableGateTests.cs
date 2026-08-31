@@ -29,6 +29,13 @@ public class PendingConfirmTableGateTests
           "functions":[{"name":"Xem","flowSteps":[],"included":true}],"included":true}]
         """;
 
+    // Cùng bảng đó SAU khi người dùng gửi: mọi dòng và mọi chức năng mang dấu.
+    private const string OneScreenConfirmed = """
+        [{"screen":"JD List","purpose":"xem danh sách JD",
+          "functions":[{"name":"Xem","flowSteps":[],"included":true,"confirmedByUser":true}],
+          "included":true,"confirmedByUser":true}]
+        """;
+
     private static Project ProjectWith(params AgentConversation[] turns)
     {
         var project = new Project { Name = "JD Library" };
@@ -120,11 +127,11 @@ public class PendingConfirmTableGateTests
             """;
 
         var settled = ProjectWith(BaTurn(1, t => t.ScreenScopeMap = OneScreen));
-        settled.ScreenScopeMap = OneScreen;
+        settled.ScreenScopeMap = OneScreenConfirmed;
         Assert.Null(PendingConfirmTableGate.Select(settled));
 
         var reopenedProject = ProjectWith(BaTurn(1, t => t.ScreenScopeMap = reopened));
-        reopenedProject.ScreenScopeMap = OneScreen;
+        reopenedProject.ScreenScopeMap = OneScreenConfirmed;
         Assert.Equal(PendingConfirmTableGate.ScreenScope, PendingConfirmTableGate.Select(reopenedProject));
     }
 

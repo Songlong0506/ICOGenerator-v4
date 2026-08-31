@@ -457,7 +457,7 @@ public static class EntityMapBuilder
     /// <b>Vì sao nó phải chảy ra khỏi bảng này.</b> Một quyết định "danh sách này do ứng dụng tự quản lý"
     /// nằm lại trong cột <c>EntityMap</c> sẽ không có màn hình nào trong <c>## 6. Screens To Generate</c> và
     /// không có DÒNG nào trong bảng phân quyền — tức mặc nhiên "không ai được xem" một màn hình mà người
-    /// dùng vừa đặt hàng. Đường ra là <c>Project.PlannedScope</c>, và chính hàm này là lý do thứ tự phụ
+    /// dùng vừa đặt hàng. Đường ra là các DÒNG của bảng màn hình, và chính hàm này là lý do thứ tự phụ
     /// thuộc của buổi phỏng vấn đặt bảng đối tượng TRƯỚC bảng màn hình
     /// (<c>luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo</c>): gieo trước lần bày đầu thì
     /// các màn hình danh mục là những dòng bình thường của bảng màn hình, người dùng tích/bỏ tích ngay tại

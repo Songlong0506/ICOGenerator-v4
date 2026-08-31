@@ -291,7 +291,7 @@ public class InterviewTableBuilderTests
     [Fact]
     public void ScreenScope_AddsForgottenScreensTicked()
     {
-        var rows = ScreenScopeMapBuilder.Build(
+        var rows = ScreenScopeMapBuilder.Build(null, 
             new[] { new ScreenScopeRow { Screen = "Màn hình Training Plan", Purpose = "Lập kế hoạch" } }, Scope);
 
         Assert.Equal(2, rows.Count);
@@ -303,7 +303,7 @@ public class InterviewTableBuilderTests
     [Fact]
     public void ScreenScope_DropsScreensOutsideThePlannedScope()
     {
-        var rows = ScreenScopeMapBuilder.Build(
+        var rows = ScreenScopeMapBuilder.Build(null, 
             new[] { new ScreenScopeRow { Screen = "Màn hình quản trị hệ thống" } }, Scope);
 
         Assert.DoesNotContain(rows, r => r.Screen == "Màn hình quản trị hệ thống");
@@ -315,7 +315,7 @@ public class InterviewTableBuilderTests
     [Fact]
     public void ScreenScope_IgnoresTheUserAddedFlagOnTheProposalPath()
     {
-        var rows = ScreenScopeMapBuilder.Build(
+        var rows = ScreenScopeMapBuilder.Build(null, 
             new[] { new ScreenScopeRow { Screen = "Màn hình quản trị hệ thống", AddedByUser = true } }, Scope);
 
         Assert.DoesNotContain(rows, r => r.Screen == "Màn hình quản trị hệ thống");
@@ -346,7 +346,7 @@ public class InterviewTableBuilderTests
     [Fact]
     public void ScreenScope_TicksEveryFunctionOnTheProposalPath()
     {
-        var rows = ScreenScopeMapBuilder.Build(new[]
+        var rows = ScreenScopeMapBuilder.Build(null, new[]
         {
             new ScreenScopeRow
             {
@@ -400,7 +400,7 @@ public class InterviewTableBuilderTests
             "Tính năng Generate Training Implement từ Training Plan Detail"
         };
 
-        var rows = ScreenScopeMapBuilder.Build(new[]
+        var rows = ScreenScopeMapBuilder.Build(null, new[]
         {
             new ScreenScopeRow
             {
@@ -419,7 +419,7 @@ public class InterviewTableBuilderTests
     [Fact]
     public void ScreenScope_KeepsAScreenThatOwnsItsRow_EvenWhenAnotherRowClaimsToCoverIt()
     {
-        var rows = ScreenScopeMapBuilder.Build(new[]
+        var rows = ScreenScopeMapBuilder.Build(null, new[]
         {
             new ScreenScopeRow { Screen = "Màn hình Training Plan", Covers = new List<string> { "Trang duyệt của HOD" } },
             new ScreenScopeRow { Screen = "Trang duyệt của HOD" }
@@ -428,63 +428,87 @@ public class InterviewTableBuilderTests
         Assert.Equal(Scope, rows.Select(r => r.Screen));
     }
 
-    // Mục đã gộp không được QUAY LẠI ở lượt sau. Lượt chắt lọc PlannedScope là một lời gọi LLM chạy độc
-    // lập với bảng, nên nó vẫn giữ mãi mục cũ; phép lọc này là thứ bảo đảm nó không mọc lại thành một dòng
-    // của bảng phân quyền và một màn hình của bản demo.
+    // Mục đã gộp không được QUAY LẠI ở lượt sau. Lượt chắt lọc là một lời gọi LLM chạy độc lập với bảng
+    // nên nó vẫn nhả ra mục cũ; chốt chặn này là thứ bảo đảm mục ấy không mọc lại thành một dòng của bảng
+    // phân quyền và một màn hình của bản demo.
     [Fact]
-    public void ScreenScope_EffectiveScreensDoesNotResurrectCoveredItems()
+    public void ScreenScope_MergeDoesNotResurrectCoveredItems()
     {
-        const string confirmed = """
-            [{"screen":"Trang Training Plan Detail","included":true,
+        const string table = """
+            [{"screen":"Trang Training Plan Detail","included":true,"confirmedByUser":true,
               "covers":["Tính năng Generate Training Implement từ Training Plan Detail"]}]
             """;
-        var laterScope = new List<string>
+
+        var merged = ScreenScopeMapBuilder.Merge(table, new[]
         {
-            "Trang Training Plan Detail",
-            "Tính năng Generate Training Implement từ Training Plan Detail",
-            "Báo cáo tổng hợp"
-        };
+            new ScopeAddition { Screen = "Tính năng Generate Training Implement từ Training Plan Detail" }
+        });
 
-        var screens = ScreenScopeMapBuilder.EffectiveScreens(confirmed, laterScope);
-
-        Assert.Equal(new[] { "Trang Training Plan Detail", "Báo cáo tổng hợp" }, screens);
+        Assert.Null(merged);
     }
 
-    // Phạm vi HIỆU LỰC sau khi bảng chốt: các dòng người dùng GIỮ, cộng mục mới lộ ra sau đó. Mục họ đã
-    // bỏ tích không bao giờ quay lại — lượt chắt lọc PlannedScope không đọc bảng nên nó vẫn giữ mục đó
-    // mãi, và mở lại thứ họ vừa đóng là đúng lỗi mà bảng cột đã cấm.
+    // Dòng người dùng đã BỎ TÍCH là một tấm BIA: lượt chắt lọc gặp lại đúng cái tên ấy cũng không dựng lại
+    // được. Không có luật này thì mỗi màn hình bị loại quay lại làm một mục "mới" ở lượt kế, và cổng mở lại
+    // vĩnh viễn.
     [Fact]
-    public void ScreenScope_EffectiveScreensDropsUntickedRowsButKeepsNewOnes()
+    public void ScreenScope_MergeNeverRebuildsAScreenTheUserRemoved()
     {
-        var confirmed = """
-            [{"screen":"Màn hình Training Plan","included":true},
-             {"screen":"Trang duyệt của HOD","included":false}]
-            """;
-        var laterScope = new List<string> { "Màn hình Training Plan", "Trang duyệt của HOD", "Báo cáo tổng hợp" };
-
-        var screens = ScreenScopeMapBuilder.EffectiveScreens(confirmed, laterScope);
-
-        Assert.Equal(new[] { "Màn hình Training Plan", "Báo cáo tổng hợp" }, screens);
-    }
-
-    [Fact]
-    public void ScreenScope_EffectiveScreensFallsBackToPlannedScopeWhenNotConfirmed()
-    {
-        Assert.Equal(Scope, ScreenScopeMapBuilder.EffectiveScreens(null, Scope));
-    }
-
-    // Bỏ tích SẠCH bảng là bảng hỏng, không phải "ứng dụng không có màn hình nào". Trả rỗng ở đây khóa
-    // chết cả tuyến trong im lặng: cổng phân quyền đòi phạm vi có mục mới mở, mà dòng phân quyền chỉ [RÕ]
-    // sau khi bảng đó chốt ⇒ nút "Write Requirement" không bao giờ sáng và không gì trên màn hình nói vì sao.
-    [Fact]
-    public void ScreenScope_EffectiveScreensFallsBackWhenEveryRowWasUnticked()
-    {
-        const string allUnticked = """
-            [{"screen":"Màn hình Training Plan","included":false},
-             {"screen":"Trang duyệt của HOD","included":false}]
+        const string table = """
+            [{"screen":"Trang duyệt của HOD","included":false,"confirmedByUser":true}]
             """;
 
-        Assert.Equal(Scope, ScreenScopeMapBuilder.EffectiveScreens(allUnticked, Scope));
+        var merged = ScreenScopeMapBuilder.Merge(table, new[]
+        {
+            new ScopeAddition { Screen = "Trang duyệt của HOD", Functions = new List<string> { "Duyệt kế hoạch" } }
+        });
+
+        Assert.Null(merged);
+    }
+
+    // CHỨC NĂNG mới trên một màn hình ĐÃ CHỐT: ca mà bản cũ không biểu diễn nổi (phép so chỉ nhìn tên màn
+    // hình, nên cả màn hình vẫn "đã biết" và cổng không mở lại). Nay nó là một mục chờ duyệt như mọi mục
+    // khác — và phần người dùng đã rà thì không bị đụng tới.
+    [Fact]
+    public void ScreenScope_MergeAddsANewFunctionToAConfirmedScreen()
+    {
+        const string table = """
+            [{"screen":"Màn hình Training Plan","purpose":"Lập kế hoạch","included":true,"confirmedByUser":true,
+              "functions":[{"name":"Tạo version plan","included":true,"confirmedByUser":true}]}]
+            """;
+
+        var merged = ScreenScopeMapBuilder.Merge(table, new[]
+        {
+            new ScopeAddition
+            {
+                Screen = "Màn hình Training Plan",
+                Purpose = "Model đoán lại việc của màn",
+                Functions = new List<string> { "Tạo version plan", "Xuất kế hoạch ra Excel" }
+            }
+        });
+
+        var row = Assert.Single(merged!);
+        Assert.Equal("Lập kế hoạch", row.Purpose);            // chỉ THÊM, không ghi đè
+        Assert.True(row.ConfirmedByUser);
+        Assert.Equal(new[] { "Tạo version plan", "Xuất kế hoạch ra Excel" }, row.Functions.Select(f => f.Name));
+        Assert.True(row.Functions[0].ConfirmedByUser);        // chức năng cũ giữ nguyên dấu
+        Assert.False(row.Functions[1].ConfirmedByUser);       // chức năng mới còn chờ duyệt
+        Assert.True(ScreenScopeMapBuilder.HasPending(JsonSerializer.Serialize(merged)));
+    }
+
+    // Phạm vi HIỆU LỰC là mọi dòng CÒN TÍCH — chốt rồi hay còn chờ duyệt. Mục chưa chốt phải có mặt (một
+    // màn hình lộ ra sau lượt chốt mà không vào được bảng phân quyền thì mặc nhiên "không ai được xem"),
+    // mục đã bỏ tích thì không bao giờ.
+    [Fact]
+    public void ScreenScope_EffectiveScreensKeepsPendingRowsAndDropsUntickedOnes()
+    {
+        const string table = """
+            [{"screen":"Màn hình Training Plan","included":true,"confirmedByUser":true},
+             {"screen":"Trang duyệt của HOD","included":false,"confirmedByUser":true},
+             {"screen":"Báo cáo tổng hợp","included":true,"confirmedByUser":false}]
+            """;
+
+        Assert.Equal(new[] { "Màn hình Training Plan", "Báo cáo tổng hợp" },
+            ScreenScopeMapBuilder.EffectiveScreens(table));
     }
 
     // Cùng đường hỏng, phía bảng luồng: một khối "đã chốt" chỉ gồm hai dòng tiêu đề nói dối cả hai chiều —

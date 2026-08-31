@@ -199,10 +199,14 @@ public class RequirementConflictService
             sb.AppendLine();
         }
 
-        var scope = InterviewOutlookService.ParseItems(project.PlannedScope);
+        // PHẠM VI MÀN HÌNH lấy thẳng từ bảng màn hình (mọi dòng còn tích, chốt rồi hay chưa) thay cho danh
+        // sách bullet cũ do LLM chắt: cùng một thứ, nhưng nay chỉ còn MỘT bản và bản đó là bản người dùng
+        // đã rà. Một mâu thuẫn dựng trên một mục phạm vi họ đã bỏ tích là một cảnh báo sai, và ở tầng này
+        // cảnh báo sai đắt gấp đôi — nó khóa cổng soạn tài liệu.
+        var scope = ScreenScopeMapBuilder.EffectiveScreens(project.ScreenScopeMap);
         if (scope.Count > 0)
         {
-            sb.AppendLine("## Màn hình/tính năng dự kiến");
+            sb.AppendLine("## Màn hình dự kiến");
             foreach (var s in scope)
                 sb.AppendLine($"- {s}");
             sb.AppendLine();

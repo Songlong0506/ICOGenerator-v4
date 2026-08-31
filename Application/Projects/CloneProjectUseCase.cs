@@ -155,7 +155,6 @@ public class CloneProjectUseCase
         DecisionLog = source.DecisionLog,
         DecisionHarvestedTurnCount = source.DecisionHarvestedTurnCount,
         OpenQuestions = source.OpenQuestions,
-        PlannedScope = source.PlannedScope,
         WorkedExamples = source.WorkedExamples,
         InterviewOutlookHarvestedTurnCount = source.InterviewOutlookHarvestedTurnCount,
         PendingConflicts = source.PendingConflicts,

@@ -95,7 +95,7 @@ public class ProductBriefDraftService
         // CÒN BẢNG CHỐT ĐANG CHỜ ⇒ dừng ngay, trước mọi lời gọi LLM. Một bảng chở NỘI DUNG của chính tài
         // liệu, và nội dung đó chỉ chảy vào tài liệu khi bảng được GỬI: mỗi báo cáo còn giữ chỉ thành một
         // mục ở "## 6. Screens To Generate" qua ConfirmReportMapUseCase (nó mới là chỗ gieo màn hình báo
-        // cáo vào PlannedScope), mỗi dòng bảng thông báo chỉ thành một quy tắc gửi mail sau khi chốt. Soạn
+        // cáo vào bảng màn hình), mỗi dòng bảng thông báo chỉ thành một quy tắc gửi mail sau khi chốt. Soạn
         // trước là soạn một bản chắc chắn thiếu — rồi tin nhắn chốt bảng mở cổng lần nữa và vòng soạn thứ
         // hai ghi đè lên: hai lần gọi LLM cho một tài liệu, lần đầu bỏ đi.
         //

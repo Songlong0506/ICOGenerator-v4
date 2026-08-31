@@ -43,7 +43,7 @@ public sealed record PendingConfirmTable(string Name, string SendLabel)
 /// <see cref="ReportMapGate"/> mở và BA bày BẢNG BÁO CÁO — nhưng nút tạo tài liệu cũng sáng, người dùng bấm
 /// nút thay vì gửi bảng, và vòng soạn chạy trên một hội thoại mà bảng báo cáo còn chưa chốt. Cái giá:
 /// <c>Project.ReportMap</c> vẫn null nên <c>ConfirmReportMapUseCase</c> chưa gieo màn hình báo cáo nào vào
-/// <c>PlannedScope</c> ⇒ tài liệu ra đời thiếu hẳn phần báo cáo ở <c>## 6. Screens To Generate</c>; rồi
+/// bảng màn hình ⇒ tài liệu ra đời thiếu hẳn phần báo cáo ở <c>## 6. Screens To Generate</c>; rồi
 /// người dùng vẫn phải gửi bảng, và tin nhắn chốt bảng lại mở cổng lần nữa ⇒ một vòng soạn thứ hai ghi đè
 /// bản vừa sinh. Hai lần gọi LLM cho một tài liệu, lần đầu chắc chắn sai.
 /// </para>

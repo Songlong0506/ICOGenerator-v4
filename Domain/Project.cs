@@ -65,19 +65,15 @@ public class Project
     //    thành panel (user chỉ cần trò chuyện; hỏi cho hết là việc của BA): danh sách này được nạp vào
     //    ngữ cảnh mỗi lượt chat làm la bàn ƯU TIÊN cạnh bản đồ bao phủ — bản đồ chỉ phân giải theo NHÓM,
     //    còn đây giữ đúng điểm chưa chốt. Mục được chốt thì rời khỏi danh sách. Xem BAChatService.
-    //  • PlannedScope: các MÀN HÌNH/TÍNH NĂNG dự kiến dựng dần theo hội thoại. Không có panel sidebar nào
-    //    hiển thị nó (một danh sách SUY ĐOÁN mà user không sửa được tại chỗ là nhiễu, không đóng được vòng
-    //    "bắt hiểu nhầm sớm"). Nó tới tay người dùng ở dạng SỬA ĐƯỢC — bảng màn hình (ScreenScopeMap) —
-    //    rồi từ đó thành DÒNG của bảng phân quyền; ngoài ra vẫn dùng làm ngữ cảnh soát mâu thuẫn. Xem
-    //    ScreenScopeGate + RequirementConflictService. Đây là cột DUY NHẤT của ba cột này có chỗ ghi thứ
-    //    hai ngoài lượt chắt lọc: chốt xong bảng màn hình, ConfirmScreenScopeUseCase ghi ngược phạm vi đã
-    //    duyệt lên đây để lượt chắt lọc sau gộp tiếp từ bản người dùng gật, không diễn đạt lại từ đầu.
+    //  • PHẠM VI MÀN HÌNH không có cột riêng ở đây (cột PlannedScope đã gỡ): phần phạm vi mới lộ ra được
+    //    lượt chắt lọc ghép THẲNG vào ScreenScopeMap bên dưới ở trạng thái chờ duyệt. Một danh sách suy
+    //    đoán chạy song song với bảng người dùng đã rà là hai bản của cùng một thứ, và chúng không bao giờ
+    //    bằng nhau — xem ghi chú class của InterviewOutlookService cho cái giá đã phải trả.
     //  • WorkedExamples: các VÍ DỤ TÍNH THỬ người dùng ĐÃ XÁC NHẬN (input → kết quả kỳ vọng) cho quy tắc
     //    định lượng — nguồn để bước sinh AI Design Spec đúc thành "## 13. Worked Examples" và POC tự kiểm
     //    (window.pocWorkedExamples) đối chiếu ĐỘC LẬP: kỳ vọng do user chốt, giá trị do POC tự tính.
     // InterviewOutlookHarvestedTurnCount là con trỏ số lượt đã gộp (fail-open như các bản đồ khác).
     public string? OpenQuestions { get; set; }
-    public string? PlannedScope { get; set; }
     public string? WorkedExamples { get; set; }
     public int InterviewOutlookHarvestedTurnCount { get; set; }
     // BẢNG PHÂN QUYỀN người dùng ĐÃ CHỐT (JSON PermissionMatrixRow[]) — màn hình × chức năng × vai trò,
@@ -110,9 +106,12 @@ public class Project
     //    chuỗi bước người dùng tự tay duyệt tới được oracle chấm POC ("## 13. Worked Examples" định tính) —
     //    trước đó nó là bản LLM chắt từ transcript, không ai duyệt và cũng không sửa tay được nữa.
     //  • ScreenScopeMap (ScreenScopeRow[]) — các MÀN HÌNH dự kiến, kèm việc của từng màn và các BƯỚC LUỒNG
-    //    nó phục vụ. Vá một lỗ hổng đang mở: các DÒNG của bảng phân quyền lấy từ PlannedScope, một danh
-    //    sách do LLM chắt mà người dùng chưa bao giờ nhìn thấy (panel sidebar đã gỡ) — tức cả phần phân
-    //    quyền đang đứng trên một nền chưa ai duyệt.
+    //    nó phục vụ. Vá một lỗ hổng từng mở: các DÒNG của bảng phân quyền lấy từ một danh sách do LLM chắt
+    //    mà người dùng chưa bao giờ nhìn thấy — tức cả phần phân quyền đứng trên một nền chưa ai duyệt.
+    //    NGOẠI LỆ của khuôn "null = chưa chốt" ở khối này: cột chở CẢ phần chưa ai rà (ConfirmedByUser =
+    //    false) vì nó là nguồn phạm vi màn hình DUY NHẤT của dự án — lượt chắt lọc và hai bảng gieo màn
+    //    hình chỉ được THÊM mục chờ duyệt vào đây, còn dấu chốt thì chỉ ConfirmScreenScopeUseCase đóng.
+    //    Vì vậy "đã chốt" phải hỏi ScreenScopeMapBuilder.IsConfirmed chứ không hỏi cột khác null.
     //  • EntityMap (EntityMapRow[]) — các ĐỐI TƯỢNG nghiệp vụ: thông tin cần lưu + vòng đời trạng thái.
     //    Đi vào "## 8. Data Model Summary" của spec, mục mà bước sinh spec vốn phải TỰ NGHĨ RA từ văn xuôi
     //    Product Brief. Vòng đời của nó còn là nguồn DÒNG của bảng thông báo ngay dưới.
@@ -127,7 +126,7 @@ public class Project
     // Cùng luật MỀM với ba bảng trên (bảng chỉ XÁC NHẬN LẠI thứ hội thoại đã trả lời), và cổng của nó còn
     // ĐÒI nhóm «Báo cáo / thống kê» đã [RÕ] trước khi bày: một bảng báo cáo TRỐNG bắt người dùng nghiệp vụ
     // tự chẻ câu chuyện của họ thành bốn cột trước khi gõ được chữ nào, tức thu về ít hơn cả ô kể tự do nó
-    // thay thế. Mỗi dòng còn tích là một MÀN HÌNH: ConfirmReportMapUseCase gieo nó vào PlannedScope nên nó
+    // thay thế. Mỗi dòng còn tích là một MÀN HÌNH: ConfirmReportMapUseCase gieo nó thẳng vào bảng màn hình nên nó
     // đi tiếp vào bảng màn hình → bảng phân quyền → "## 6. Screens To Generate". Đó cũng là lý do bảng này
     // đứng TRƯỚC bảng phân quyền và không có cột "ai xem" riêng. Xem ReportMapBuilder + ReportMapGate.
     public string? ReportMap { get; set; }

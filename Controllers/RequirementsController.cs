@@ -506,13 +506,13 @@ public class RequirementsController : Controller
                     _logger.LogWarning(ex, "Không cập nhật được 'Điều đã chốt' sau lượt chat của project {ProjectId}", projectId);
                 }
 
-                // Cùng nhịp hậu kỳ: gộp "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ
-                // tính thử đã xác nhận). KHÔNG frame nào được đẩy về client: cả ba danh sách nay chỉ có
+                // Cùng nhịp hậu kỳ: gộp "triển vọng phỏng vấn" (điểm cần làm rõ + phần phạm vi mới + ví dụ
+                // tính thử đã xác nhận). KHÔNG frame nào được đẩy về client: mọi thứ nó chắt ra đều chỉ có
                 // đường tiêu thụ của máy — OpenQuestions nạp vào ngữ cảnh chat của BA ở lượt sau (xem
-                // BAChatService), PlannedScope nạp vào ngữ cảnh soát mâu thuẫn (xem
-                // RequirementConflictService), WorkedExamples đi vào "## 13. Worked Examples" của AI
-                // Design Spec rồi thành oracle chấm POC. Vẫn gộp ở đây (fail-open) để các đường đó có
-                // bản mới nhất ngay sau lượt chat.
+                // BAChatService), phần phạm vi mới ghép thẳng vào bảng màn hình ở trạng thái chờ duyệt để
+                // ScreenScopeGate bày ra hỏi (xem ScreenScopeMapBuilder.Merge), WorkedExamples đi vào
+                // "## 13. Worked Examples" của AI Design Spec rồi thành oracle chấm POC. Vẫn gộp ở đây
+                // (fail-open) để các đường đó có bản mới nhất ngay sau lượt chat.
                 try
                 {
                     await _chatWithBAUseCase.UpdateInterviewOutlookAsync(projectId, CancellationToken.None);
@@ -713,7 +713,7 @@ public class RequirementsController : Controller
     }
 
     // BẢNG BÁO CÁO / THỐNG KÊ — mỗi báo cáo một dòng, và mỗi dòng còn tích là một MÀN HÌNH: use case gieo
-    // nó vào PlannedScope nên nó đi tiếp vào bảng màn hình rồi thành DÒNG của bảng phân quyền.
+    // nó thẳng vào bảng màn hình nên nó đi tiếp thành DÒNG của bảng phân quyền.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]

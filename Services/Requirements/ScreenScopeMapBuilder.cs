@@ -65,21 +65,34 @@ public static class ScreenScopeMapBuilder
     private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
-    /// Bảng cuối cùng cho lượt BA BÀY BẢNG: giữ các dòng khớp phạm vi đã chắt, bỏ dòng bịa/trùng, bổ sung
-    /// mọi màn hình chưa được nhắc tới (trừ mục đã được gộp), và luôn xếp theo thứ tự của
-    /// <paramref name="plannedScope"/>. Trả rỗng khi phạm vi trống — không có phạm vi thì bảng không có gì
-    /// để hỏi.
+    /// Bảng cuối cùng cho lượt BA BÀY BẢNG: các dòng ĐANG LƯU đứng trước và luôn thắng, đề xuất TƯƠI của
+    /// model chỉ lấp vào phần chưa ai rà, dòng bịa/trùng bị bỏ, mọi màn hình chưa được nhắc tới vẫn được bổ
+    /// sung (trừ mục đã được gộp), và thứ tự luôn theo <paramref name="allowedScreens"/>. Trả rỗng khi danh
+    /// sách cho phép trống — không có phạm vi thì bảng không có gì để hỏi.
     ///
     /// <para>
-    /// Khác <see cref="Sanitize"/> ở đúng chỗ cờ <c>included</c>: ở đây mọi dòng và mọi chức năng ra TÍCH
-    /// SẴN bất kể model trả gì, vì cờ đó là chỗ NGƯỜI DÙNG loại một màn hình, không phải chỗ model tự phủ
-    /// nhận đề xuất của mình. Structured output buộc điền đủ trường, nên một model điền <c>false</c> cho có
-    /// sẽ bỏ tích sạch bảng và người dùng gửi đi một phạm vi RỖNG trong khi tưởng mình vừa xác nhận cả
-    /// ứng dụng.
+    /// <b>Vì sao dòng đang lưu phải là một tham số RIÊNG chứ không nối chung vào
+    /// <paramref name="proposed"/>.</b> Chỉ dòng đang lưu mới được mang
+    /// <see cref="ScreenScopeRow.ConfirmedByUser"/>: structured output buộc model điền đủ trường, nên một
+    /// model điền <c>true</c> cho có sẽ tự đóng dấu chữ ký người dùng lên một màn hình họ chưa từng nhìn
+    /// thấy — và cờ ấy là thứ quyết định cổng còn mở hay đóng. Tách hai nguồn là cách duy nhất để
+    /// <see cref="BuildCore"/> biết dòng nào được phép chở cờ. Cùng luật với <c>included</c>: ở đây mọi
+    /// dòng và mọi chức năng ra TÍCH SẴN bất kể model trả gì, vì cờ đó là chỗ NGƯỜI DÙNG loại một màn hình,
+    /// không phải chỗ model tự phủ nhận đề xuất của mình.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Model được lấp vào đâu.</b> Dòng đã <see cref="ScreenScopeRow.ConfirmedByUser"/> thì KHÔNG: người
+    /// dùng đã tự tay rà việc của màn và danh sách chức năng, để model đoán lại là xoá đúng phần đắt nhất
+    /// của buổi phỏng vấn. Dòng còn CHỜ DUYỆT thì có — mục vừa lộ ra mới chỉ có cái tên (và cùng lắm vài
+    /// chức năng), còn ô "việc của màn" và ô "phục vụ bước nào" là phần việc của BA ở đúng lượt này.
     /// </para>
     /// </summary>
-    public static List<ScreenScopeRow> Build(IEnumerable<ScreenScopeRow>? proposed, IReadOnlyList<string> plannedScope)
-        => BuildCore(proposed, plannedScope, respectIncluded: false, acceptUserAdded: false);
+    public static List<ScreenScopeRow> Build(
+        IEnumerable<ScreenScopeRow>? stored,
+        IEnumerable<ScreenScopeRow>? proposed,
+        IReadOnlyList<string> allowedScreens)
+        => BuildCore(stored, proposed, allowedScreens, respectIncluded: false, acceptUserAdded: false);
 
     /// <summary>
     /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT. Server không tin bảng client gửi kể cả khi chính nó
@@ -90,23 +103,75 @@ public static class ScreenScopeMapBuilder
     /// <see cref="ScreenScopeRow.AddedByUser"/>. Dòng tự thêm xếp SAU CÙNG, đúng chỗ chúng đứng trên bảng.
     ///
     /// <para>
+    /// Đây là ĐÚNG MỘT chỗ trong cả hệ thống đóng dấu <see cref="ScreenScopeRow.ConfirmedByUser"/>, và nó
+    /// đóng dấu cho MỌI dòng, MỌI chức năng — kể cả phần bị bỏ tích. Bấm gửi là hành vi xác nhận cả bảng:
+    /// dòng người dùng không đụng tới cũng là dòng họ đã đọc và giữ, còn dòng họ bỏ tích thì phải mang dấu
+    /// để không lượt chắt lọc nào dựng nó lại được (xem <see cref="Merge"/>).
+    /// </para>
+    ///
+    /// <para>
     /// <paramref name="allowedScreens"/> phải là danh sách màn hình của CHÍNH BẢNG SERVER ĐÃ RENDER, không
-    /// phải <c>Project.PlannedScope</c> đọc lại lúc gửi. Hai thứ đó KHÔNG bằng nhau: lượt chắt lọc
-    /// <c>PlannedScope</c> chạy ở hậu kỳ ngay lượt bày bảng (xem <c>InterviewOutlookService</c>), nên tới
-    /// lúc người dùng bấm gửi thì danh sách đã bị viết lại — chỉ cần model diễn đạt khác đi một chữ là mọi
-    /// dòng trượt khỏi <see cref="MatchScreen"/>, cả bảng người dùng vừa rà bị bỏ, và chỗ của nó là các mục
-    /// phạm vi mới bù vào ở dạng TRẮNG. Người dùng thấy mình gửi một bảng đã điền và nhận lại một danh sách
-    /// tên suông. Xem <c>ConfirmScreenScopeUseCase</c>.
+    /// phải bảng đang lưu đọc lại lúc gửi: giữa lúc bày bảng và lúc bấm gửi vẫn có thể có một lượt chat
+    /// khác, và lượt đó ghép thêm được mục mới vào bảng (<see cref="Merge"/>). Xem
+    /// <c>ConfirmScreenScopeUseCase</c>.
     /// </para>
     /// </summary>
     public static List<ScreenScopeRow> Sanitize(IEnumerable<ScreenScopeRow>? submitted, IReadOnlyList<string> allowedScreens)
     {
         // Cờ TỰ THÊM là thứ DUY NHẤT của dòng còn sống qua đường gửi ngoài phần người dùng tự điền: nó là
         // một sự thật về nguồn gốc của dòng mà RenderUserMessage còn phải kể lại.
-        return BuildCore(submitted, allowedScreens, respectIncluded: true, acceptUserAdded: true);
+        var rows = BuildCore(null, submitted, allowedScreens, respectIncluded: true, acceptUserAdded: true);
+        foreach (var row in rows)
+        {
+            row.ConfirmedByUser = true;
+            foreach (var function in row.Functions)
+                function.ConfirmedByUser = true;
+        }
+        return rows;
+    }
+
+    /// <summary>
+    /// Bảng để LƯU sau khi người dùng gửi: <paramref name="submitted"/> đè lên bảng đang lưu, nhưng những
+    /// dòng đang lưu mà lượt bày vừa rồi KHÔNG mang ra hỏi thì được GIỮ NGUYÊN ở cuối.
+    ///
+    /// <para>
+    /// Thứ được giữ lại chính là các BIA: dòng người dùng đã bỏ tích ở lần chốt trước không có mặt trong
+    /// bảng bày lại (<see cref="SeedRows"/> lọc chúng ra, và danh sách cho phép cũng không chứa chúng), nên
+    /// ghi đè thẳng là xoá sạch trí nhớ về những gì họ đã loại. Lượt chắt lọc kế tiếp gặp lại đúng cái tên
+    /// đó trong hội thoại sẽ coi nó là một mục MỚI tinh và ghép lại vào bảng — mở lại thứ người dùng vừa
+    /// đóng, đúng lỗi mà cả bộ bảng sinh ra để chặn. Cùng lý do cho chức năng bị bỏ tích, nên phép giữ chạy
+    /// ở CẢ HAI cấp.
+    /// </para>
+    /// </summary>
+    public static List<ScreenScopeRow> MergeConfirmed(string? screenScopeJson, IReadOnlyList<ScreenScopeRow> submitted)
+    {
+        var stored = Parse(screenScopeJson);
+        if (stored.Count == 0)
+            return submitted.ToList();
+
+        var result = submitted.ToList();
+        var shown = new HashSet<string>(result.Select(r => Normalize(r.Screen)), StringComparer.Ordinal);
+
+        foreach (var row in result)
+        {
+            var previous = stored.FirstOrDefault(r => Normalize(r.Screen) == Normalize(row.Screen));
+            if (previous == null)
+                continue;
+
+            var names = new HashSet<string>(row.Functions.Select(f => Normalize(f.Name)), StringComparer.Ordinal);
+            foreach (var function in previous.Functions)
+            {
+                if (names.Add(Normalize(function.Name)) && row.Functions.Count < MaxFunctionsPerScreen)
+                    row.Functions.Add(function);
+            }
+        }
+
+        result.AddRange(stored.Where(r => !shown.Contains(Normalize(r.Screen))));
+        return result;
     }
 
     private static List<ScreenScopeRow> BuildCore(
+        IEnumerable<ScreenScopeRow>? stored,
         IEnumerable<ScreenScopeRow>? proposed,
         IReadOnlyList<string> allowedScreens,
         bool respectIncluded,
@@ -119,10 +184,14 @@ public static class ScreenScopeMapBuilder
             return new List<ScreenScopeRow>();
 
         var byScreen = new Dictionary<string, ScreenScopeRow>(StringComparer.Ordinal);
+        var fromStore = new HashSet<string>(StringComparer.Ordinal);
         var added = new List<ScreenScopeRow>();
         var addedKeys = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var row in proposed ?? Enumerable.Empty<ScreenScopeRow>())
+        var sources = (stored ?? Enumerable.Empty<ScreenScopeRow>()).Select(r => (Row: r, Trusted: true))
+            .Concat((proposed ?? Enumerable.Empty<ScreenScopeRow>()).Select(r => (Row: r, Trusted: false)));
+
+        foreach (var (row, trusted) in sources)
         {
             if (row == null)
                 continue;
@@ -142,15 +211,23 @@ public static class ScreenScopeMapBuilder
                 if (name.Length == 0 || !addedKeys.Add(Normalize(name)))
                     continue;
 
-                added.Add(NewRow(row, name, respectIncluded, addedByUser: true));
+                added.Add(NewRow(row, name, respectIncluded, addedByUser: true, trusted));
                 continue;
             }
 
-            if (byScreen.ContainsKey(screen))
+            if (byScreen.TryGetValue(screen, out var existing))
+            {
+                // Dòng ĐANG LƯU đứng trước nên nó luôn thắng. Đề xuất của model chỉ được lấp vào một dòng
+                // CHƯA AI RÀ — xem ghi chú của Build.
+                if (!trusted && fromStore.Contains(screen) && !existing.ConfirmedByUser)
+                    Enrich(existing, row);
                 continue;
+            }
 
             // chữ của DANH SÁCH CHO PHÉP, không phải chữ của model
-            byScreen[screen] = NewRow(row, screen, respectIncluded, addedByUser: false);
+            byScreen[screen] = NewRow(row, screen, respectIncluded, addedByUser: false, trusted);
+            if (trusted)
+                fromStore.Add(screen);
         }
 
         var covered = CoveredScopeItems(byScreen.Values.Concat(added), screens);
@@ -183,17 +260,50 @@ public static class ScreenScopeMapBuilder
         return result;
     }
 
-    /// <summary>Một dòng đã chuẩn hoá, dùng chung cho dòng khớp danh sách cho phép và dòng người dùng tự thêm.</summary>
-    private static ScreenScopeRow NewRow(ScreenScopeRow source, string screen, bool respectIncluded, bool addedByUser)
+    /// <summary>
+    /// Lấp đề xuất của model vào một dòng CHƯA AI RÀ: chỉ THÊM, không bao giờ ghi đè. Câu "việc của màn"
+    /// chỉ được điền khi đang trống, chức năng và lời khai gộp chỉ được thêm mục chưa có.
+    /// </summary>
+    private static void Enrich(ScreenScopeRow existing, ScreenScopeRow incoming)
+    {
+        if (existing.Purpose.Length == 0)
+            existing.Purpose = Clip((incoming.Purpose ?? string.Empty).Trim(), MaxTextChars);
+
+        foreach (var function in CleanFunctions(incoming.Functions, respectIncluded: false, trusted: false))
+        {
+            if (existing.Functions.Count >= MaxFunctionsPerScreen)
+                break;
+            if (existing.Functions.Any(f => Normalize(f.Name) == Normalize(function.Name)))
+                continue;
+            existing.Functions.Add(function);
+        }
+
+        foreach (var item in CleanCovers(incoming.Covers, existing.Screen))
+        {
+            if (existing.Covers.Count >= MaxCoversPerScreen)
+                break;
+            if (existing.Covers.Any(c => Normalize(c) == Normalize(item)))
+                continue;
+            existing.Covers.Add(item);
+        }
+    }
+
+    /// <summary>
+    /// Một dòng đã chuẩn hoá, dùng chung cho dòng khớp danh sách cho phép và dòng người dùng tự thêm.
+    /// <paramref name="trusted"/> = dòng đến từ BẢNG ĐANG LƯU: chỉ nó mới được chở
+    /// <see cref="ScreenScopeRow.ConfirmedByUser"/> qua, dòng model đề xuất luôn ra <c>false</c>.
+    /// </summary>
+    private static ScreenScopeRow NewRow(ScreenScopeRow source, string screen, bool respectIncluded, bool addedByUser, bool trusted)
     {
         return new ScreenScopeRow
         {
             Screen = screen,
             Purpose = Clip((source.Purpose ?? string.Empty).Trim(), MaxTextChars),
-            Functions = CleanFunctions(source.Functions, respectIncluded),
+            Functions = CleanFunctions(source.Functions, respectIncluded, trusted),
             Covers = CleanCovers(source.Covers, screen),
             Included = !respectIncluded || source.Included,
-            AddedByUser = addedByUser
+            AddedByUser = addedByUser,
+            ConfirmedByUser = trusted && source.ConfirmedByUser
         };
     }
 
@@ -247,136 +357,201 @@ public static class ScreenScopeMapBuilder
         }
     }
 
-    /// <summary>Dự án này đã chốt bảng màn hình chưa.</summary>
-    public static bool IsConfirmed(string? json) => Parse(json).Count > 0;
+    /// <summary>
+    /// Dự án này đã có ít nhất một dòng người dùng CHỐT chưa. Cột khác null KHÔNG còn đồng nghĩa "đã chốt":
+    /// bảng nay là nguồn phạm vi duy nhất nên lượt chắt lọc ghép mục mới vào đó từ trước lúc người dùng
+    /// nhìn thấy bảng lần đầu — hỏi cột null là kết luận "đã trả lời rồi" cho một bảng chưa ai rà.
+    /// </summary>
+    public static bool IsConfirmed(string? json) => Parse(json).Any(r => r.ConfirmedByUser);
+
+    /// <summary>
+    /// Bảng còn mục nào CHỜ DUYỆT không — điều kiện mở của <see cref="ScreenScopeGate"/>, và là thứ thay cho
+    /// cả phép so tập hợp giữa hai danh sách phạm vi ở bản cũ.
+    /// </summary>
+    public static bool HasPending(string? json)
+    {
+        var rows = Parse(json);
+        return rows.Any(r => r.Included && !r.ConfirmedByUser)
+            || rows.Any(r => r.Included && r.Functions.Any(f => f.Included && !f.ConfirmedByUser));
+    }
+
+    /// <summary>
+    /// Các MÀN HÌNH đang chờ duyệt: dòng còn tích mà chưa ai rà. Dùng để gọi tên phần mới trong câu dẫn của
+    /// lượt bày LẠI (<c>BAChatService.ScreenScopeReshowIntro</c>).
+    /// </summary>
+    public static List<string> PendingScreens(string? json)
+        => Parse(json).Where(r => r.Included && !r.ConfirmedByUser).Select(r => r.Screen.Trim()).ToList();
+
+    /// <summary>
+    /// Các CHỨC NĂNG đang chờ duyệt trên những màn hình người dùng ĐÃ chốt, kể kèm tên màn (cùng khuôn với
+    /// bản kể chức năng bị bỏ tích ở <see cref="RenderUserMessage"/>).
+    ///
+    /// <para>
+    /// Chỉ tính trên dòng đã chốt để không kể hai lần: chức năng của một màn hình còn chờ duyệt đã nằm
+    /// trong <see cref="PendingScreens"/> rồi — cả cái màn hình ấy là mới.
+    /// </para>
+    /// </summary>
+    public static List<string> PendingFunctions(string? json)
+        => Parse(json)
+            .Where(r => r.Included && r.ConfirmedByUser)
+            .SelectMany(r => r.Functions
+                .Where(f => f.Included && !f.ConfirmedByUser)
+                .Select(f => $"{f.Name.Trim()} (ở {r.Screen.Trim()})"))
+            .ToList();
 
     /// <summary>
     /// Các dòng bảng màn hình CÒN ĐANG CHỜ người dùng gửi — thứ mà view dựng lại sau F5.
     /// <paramref name="confirmedJson"/> là <see cref="ICOGenerator.Domain.Project.ScreenScopeMap"/>,
-    /// <paramref name="renderedJson"/> là <c>ScreenScopeMap</c> của lượt BA bày bảng gần nhất (cùng lượt mà
-    /// <c>ConfirmScreenScopeUseCase</c> lấy danh sách đối chiếu).
+    /// <paramref name="renderedJson"/> là <c>ScreenScopeMap</c> của lượt BA bày bảng gần nhất.
     ///
     /// <para>
     /// <b>Vì sao không thể hỏi mỗi "dự án đã chốt bảng chưa".</b> Ba bảng kia treo theo DỰ ÁN được vì chúng
     /// chốt đúng một lần: cột trên <c>Project</c> khác null ⇔ bảng đã trả lời xong. Bảng màn hình là cổng
-    /// DUY NHẤT mở lại được (<see cref="ScreenScopeGate"/>), nên ở lượt bày LẠI cột đó đã khác null từ lần
-    /// chốt trước — hỏi nó là kết luận "đã trả lời rồi" cho một bảng người dùng còn chưa kịp nhìn. Bảng
-    /// hiện ra ở lượt bày lại, F5 một cái là mất, và không có đường nào khác để gửi: các màn hình mới lại
-    /// rơi vào bảng phân quyền ở dạng TRẮNG — đúng lỗ hổng mà đường mở lại sinh ra để bịt.
+    /// DUY NHẤT mở lại được (<see cref="ScreenScopeGate"/>), nên ở lượt bày LẠI cột đó đã mang dấu chốt từ
+    /// lần trước — hỏi nó là kết luận "đã trả lời rồi" cho một bảng người dùng còn chưa kịp nhìn. Bảng hiện
+    /// ra ở lượt bày lại, F5 một cái là mất, và không có đường nào khác để gửi: các màn hình mới lại rơi vào
+    /// bảng phân quyền ở dạng TRẮNG — đúng lỗ hổng mà đường mở lại sinh ra để bịt.
     /// </para>
     ///
     /// <para>
-    /// Nên phép so là bảng ĐÃ CHỐT với chính bảng SERVER VỪA BÀY, không phải với
-    /// <c>Project.PlannedScope</c>: <c>PlannedScope</c> bị lượt chắt lọc "triển vọng phỏng vấn" ghi đè ngay
-    /// ở hậu kỳ lượt bày bảng, nên treo panel vào nó là để một lời gọi LLM chạy sau lưng quyết định bảng
-    /// còn hay mất — cùng lý do <c>ConfirmScreenScopeUseCase</c> lấy danh sách đối chiếu từ lượt hội thoại.
-    /// Vòng lặp vẫn có đáy: gửi xong thì mọi màn hình của bảng vừa bày đều có mặt trong bản chốt (kể cả
-    /// dòng bỏ tích và mục khai gộp — xem <see cref="NewScreens(string?, IReadOnlyList{string})"/>), nên
-    /// panel tự đóng.
+    /// Phép so vì vậy là từng MỤC của bảng vừa bày với dấu chốt trong bảng đang lưu: còn một màn hình hoặc
+    /// một chức năng chưa mang dấu thì bảng ấy vẫn đang chờ. Vòng lặp có đáy vì đường GỬI đóng dấu cho MỌI
+    /// dòng của bảng vừa bày (<see cref="Sanitize"/>), kể cả dòng bỏ tích — gửi xong là panel tự đóng.
     /// </para>
     /// </summary>
     public static List<ScreenScopeRow> PendingRows(string? confirmedJson, string? renderedJson)
     {
         var rendered = Parse(renderedJson);
-        if (rendered.Count == 0 || !IsConfirmed(confirmedJson))
+        if (rendered.Count == 0)
             return rendered;
 
-        // Bảng vừa bày chỉ còn chờ khi nó mang màn hình mà bản đã chốt chưa biết — tức đúng lượt bày LẠI.
-        return NewScreens(confirmedJson, rendered.Select(r => r.Screen).ToList()).Count > 0
-            ? rendered
-            : new List<ScreenScopeRow>();
-    }
+        var stored = Parse(confirmedJson);
+        if (stored.Count == 0)
+            return rendered;
 
-    /// <summary>
-    /// PHẠM VI MÀN HÌNH THẬT SỰ của dự án — nguồn dòng cho bảng phân quyền và cho mục
-    /// <c>## 6. Screens To Generate</c> của spec.
-    ///
-    /// <para>
-    /// Chưa chốt bảng ⇒ trả nguyên <paramref name="plannedScope"/>, tức mọi thứ chạy đúng như trước khi có
-    /// tính năng này. Đã chốt ⇒ các dòng người dùng GIỮ, cộng những mục phạm vi mới lộ ra SAU lúc chốt.
-    /// Mục mới phải được thêm vào (buổi phỏng vấn còn tiếp tục sau khi bảng đã chốt, và một màn hình lộ ra
-    /// ở lượt sau mà không vào được bảng phân quyền thì mặc nhiên "không ai được xem"); còn mục người dùng
-    /// đã BỎ TÍCH — hoặc đã được GỘP vào một màn hình khác — thì không bao giờ quay lại, kể cả khi nó vẫn
-    /// nằm trong PlannedScope. Mở lại thứ họ vừa đóng là đúng lỗi mà bảng cột đã cấm.
-    /// <c>ConfirmScreenScopeUseCase</c> ghi ngược phạm vi đã duyệt lên PlannedScope nên lượt chắt lọc kế
-    /// tiếp không còn mang mục đã đóng theo nữa, nhưng phép lọc ở đây vẫn là thứ BẢO ĐẢM điều đó: lượt chắt
-    /// lọc là một lời gọi LLM, và một lời gọi LLM không phải một bất biến.
-    /// </para>
-    /// </summary>
-    public static List<string> EffectiveScreens(string? screenScopeJson, IReadOnlyList<string> plannedScope)
-    {
-        var rows = Parse(screenScopeJson);
-        if (rows.Count == 0)
-            return CleanScreens(plannedScope);
-
-        var kept = rows.Where(r => r.Included).ToList();
-        // KHÔNG dòng nào được giữ ⇒ coi là bảng hỏng, KHÔNG phải "ứng dụng không có màn hình nào". Trả
-        // rỗng ở đây là khóa chết cả tuyến trong im lặng: cổng bảng phân quyền đòi phạm vi có mục mới mở,
-        // mà dòng phân quyền chỉ [RÕ] sau khi bảng đó chốt ⇒ nút "Write Requirement" không bao giờ sáng và
-        // không có gì trên màn hình nói vì sao. Cùng luật fail-open với bảng cột không khớp hàng tiêu đề
-        // nào: để lọt vài mục thừa rẻ hơn nhiều so với cắt sạch.
-        if (kept.Count == 0)
-            return CleanScreens(plannedScope);
-
-        var result = kept.Select(r => r.Screen.Trim()).ToList();
-        result.AddRange(NewScreens(rows, plannedScope));
-        return result;
-    }
-
-    /// <summary>
-    /// Các màn hình LỘ RA SAU lúc bảng được chốt: mục của <paramref name="plannedScope"/> mà bảng đã chốt
-    /// không đứng tên và cũng không khai là đã gộp vào một dòng nào.
-    ///
-    /// <para>
-    /// <b>Vì sao nó phải là một hàm công khai chứ chỉ nằm trong <see cref="EffectiveScreens"/>.</b> Buổi
-    /// phỏng vấn còn tiếp tục sau khi bảng đã chốt, và phạm vi vẫn trôi: ca thật (dự án Learning and
-    /// Development 7) người dùng chốt bảng ở lượt 23 rồi tới lượt 33 mới nói *"sĩ số tối thiểu và tối đa lấy
-    /// từ danh sách khóa học được quản lý ở một màn hình riêng"* — một màn hình mới, cùng với hai danh mục
-    /// nữa (phòng học, người dạy) mà Admin được chốt là người quản lý. Trước đây
-    /// <see cref="EffectiveScreens"/> bù chúng vào bảng phân quyền ở dạng TRẮNG: không việc, không chức
-    /// năng, không bước luồng — trong khi khối ngữ cảnh của bảng đã chốt lại CẤM BA hỏi lại việc của từng
-    /// màn. Kết quả là ba màn hình đi vào tài liệu và vào bản demo mà không ai biết chúng để làm gì.
-    /// <see cref="ScreenScopeGate"/> dùng hàm này để mở lại bảng đúng lúc đó.
-    /// </para>
-    ///
-    /// <para>
-    /// Bảng chưa chốt, hoặc chốt mà không dòng nào được giữ (bảng hỏng — xem
-    /// <see cref="EffectiveScreens"/>) ⇒ rỗng: lúc đó không có "sau lúc chốt" nào để so, và mở lại một bảng
-    /// dựng trên một bản chốt hỏng chỉ làm người dùng rà lại từ đầu.
-    /// </para>
-    /// </summary>
-    public static List<string> NewScreens(string? screenScopeJson, IReadOnlyList<string> plannedScope)
-    {
-        var rows = Parse(screenScopeJson);
-        if (rows.Count == 0 || !rows.Any(r => r.Included))
-            return new List<string>();
-
-        return NewScreens(rows, plannedScope);
-    }
-
-    private static List<string> NewScreens(IReadOnlyList<ScreenScopeRow> rows, IReadOnlyList<string> plannedScope)
-    {
-        // Mục đã BỎ TÍCH hoặc đã được GỘP vào một màn hình khác thì không bao giờ quay lại, kể cả khi nó
-        // vẫn nằm trong PlannedScope — mở lại thứ người dùng vừa đóng là đúng lỗi mà bảng cột đã cấm. Vì
-        // vậy "đã biết" gồm MỌI dòng của bảng (cả dòng bỏ tích) cộng mọi lời khai gộp.
-        var known = new HashSet<string>(rows.Select(r => Normalize(r.Screen)), StringComparer.Ordinal);
-        foreach (var item in rows.SelectMany(r => r.Covers))
-            known.Add(Normalize(item));
-
-        var result = new List<string>();
-        foreach (var raw in CleanScreens(plannedScope))
+        foreach (var row in rendered)
         {
-            if (known.Add(Normalize(raw)))
-                result.Add(raw);
+            var match = stored.FirstOrDefault(r => Normalize(r.Screen) == Normalize(row.Screen));
+            // Dòng bảng vừa bày mà bảng đang lưu không đứng tên hoặc chưa đóng dấu ⇒ còn chờ. Mục đã được
+            // khai GỘP vào một màn hình khác không tính: nó không bao giờ trở thành một dòng riêng.
+            if (match == null)
+            {
+                if (stored.Any(r => r.Covers.Any(c => Normalize(c) == Normalize(row.Screen))))
+                    continue;
+                return rendered;
+            }
+
+            if (!match.ConfirmedByUser)
+                return rendered;
+
+            foreach (var function in row.Functions)
+            {
+                var known = match.Functions.FirstOrDefault(f => Normalize(f.Name) == Normalize(function.Name));
+                if (known == null || !known.ConfirmedByUser)
+                    return rendered;
+            }
         }
 
-        return result;
+        return new List<ScreenScopeRow>();
     }
 
     /// <summary>
-    /// Các dòng để BÀY LẠI một bảng đã chốt: chỉ màn hình CÒN TÍCH, và trong mỗi màn chỉ chức năng CÒN
-    /// TÍCH. Dùng làm hạt giống cho <see cref="Build"/> khi <see cref="ScreenScopeGate"/> mở lại bảng vì có
-    /// màn hình mới (<see cref="NewScreens(string?, IReadOnlyList{string})"/>).
+    /// PHẠM VI MÀN HÌNH THẬT SỰ của dự án — nguồn dòng cho bảng phân quyền, cho danh sách cho phép của lượt
+    /// bày bảng, và cho mục <c>## 6. Screens To Generate</c> của spec.
+    ///
+    /// <para>
+    /// Là mọi dòng CÒN TÍCH, chốt rồi hay chưa. Mục chưa chốt phải có mặt vì buổi phỏng vấn còn tiếp tục
+    /// sau lúc bảng được chốt, và một màn hình lộ ra ở lượt sau mà không vào được bảng phân quyền thì mặc
+    /// nhiên "không ai được xem"; mục người dùng đã BỎ TÍCH thì không bao giờ quay lại — dòng bia ở lại
+    /// trong bảng chính là thứ bảo đảm điều đó (xem <see cref="Merge"/>).
+    /// </para>
+    /// </summary>
+    public static List<string> EffectiveScreens(string? screenScopeJson)
+        => Parse(screenScopeJson).Where(r => r.Included).Select(r => r.Screen.Trim()).ToList();
+
+    /// <summary>
+    /// GHÉP phần phạm vi vừa lộ ra (<see cref="ScopeAddition"/> của lượt chắt lọc, hoặc màn hình do một bảng
+    /// khác gieo sang) vào bảng đang lưu. Trả <c>null</c> khi không có gì mới — người gọi đừng ghi DB.
+    ///
+    /// <para>
+    /// <b>Chỉ THÊM, không bao giờ sửa hay bớt.</b> Không dòng nào bị xoá, không cờ tích nào bị đổi, không
+    /// câu "việc của màn" nào đang có bị viết đè, và không dấu chốt nào bị gỡ. Đây là bất biến chở cả tính
+    /// năng: lượt chắt lọc là một lời gọi LLM chạy ở hậu kỳ sau lưng người dùng, nên mọi thứ nó chạm được
+    /// phải là thứ mất đi cũng không xoá được quyết định của ai. Mục mới vào ở trạng thái CHỜ DUYỆT, và chỗ
+    /// nó được quyết là bảng bày ra ở lượt sau.
+    /// </para>
+    ///
+    /// <para>
+    /// Ba cửa đóng lại, và cả ba đều là lý do bản cũ phải dựng một phép so tập hợp mỗi lượt: mục trùng tên
+    /// một dòng đã có ⇒ chỉ xét phần chức năng; mục trùng một dòng người dùng đã BỎ TÍCH ⇒ bỏ hẳn (bia);
+    /// mục đã được một dòng khai là GỘP vào mình (<see cref="ScreenScopeRow.Covers"/>) ⇒ cũng bỏ hẳn, nếu
+    /// không thì mỗi lượt nó lại mọc lại thành một dòng trắng ngay dưới chỗ vừa được gộp.
+    /// </para>
+    /// </summary>
+    public static List<ScreenScopeRow>? Merge(string? screenScopeJson, IEnumerable<ScopeAddition>? additions)
+    {
+        if (additions == null)
+            return null;
+
+        var rows = Parse(screenScopeJson);
+        var changed = false;
+
+        foreach (var addition in additions)
+        {
+            if (addition == null)
+                continue;
+
+            var name = Clip((addition.Screen ?? string.Empty).Trim(), MaxTextChars);
+            if (name.Length == 0)
+                continue;
+
+            var matched = MatchScreen(name, rows.Select(r => r.Screen).ToList());
+            var row = matched == null ? null : rows.First(r => r.Screen == matched);
+
+            if (row == null)
+            {
+                if (rows.Any(r => r.Covers.Any(c => MatchScreen(name, new List<string> { c }) != null)))
+                    continue;
+                if (rows.Count >= MaxRows)
+                    continue;
+
+                row = new ScreenScopeRow
+                {
+                    Screen = name,
+                    Purpose = Clip((addition.Purpose ?? string.Empty).Trim(), MaxTextChars),
+                    Included = true
+                };
+                rows.Add(row);
+                changed = true;
+            }
+            else if (!row.Included)
+            {
+                // BIA. Người dùng đã loại màn hình này; dựng lại nó là mở lại thứ họ vừa đóng.
+                continue;
+            }
+
+            foreach (var raw in addition.Functions ?? new List<string>())
+            {
+                var function = Clip((raw ?? string.Empty).Trim(), MaxTextChars);
+                if (function.Length == 0 || row.Functions.Count >= MaxFunctionsPerScreen)
+                    continue;
+                // So khớp tên chức năng bằng CHỨA-NHAU sau chuẩn hoá, cùng phép so với tên màn hình: model
+                // chép lại một chức năng đã có bằng chữ của nó là chuyện thường, và mỗi lần như thế là một
+                // mục chờ duyệt giả — tức một lượt bày bảng mà người dùng không có việc gì để làm.
+                if (MatchScreen(function, row.Functions.Select(f => f.Name).ToList()) != null)
+                    continue;
+
+                row.Functions.Add(new ScreenFunction { Name = function, Included = true });
+                changed = true;
+            }
+        }
+
+        return changed ? rows : null;
+    }
+
+    /// <summary>
+    /// Các dòng ĐANG LƯU để gieo cho lượt bày bảng: chỉ màn hình CÒN TÍCH, và trong mỗi màn chỉ chức năng
+    /// CÒN TÍCH — chốt rồi hay còn chờ duyệt đều vào, vì cả hai đều đang là phạm vi của ứng dụng.
     ///
     /// <para>
     /// Không có hạt giống này thì lần bày lại là một lượt phá hoại: <see cref="Build"/> dựng bảng từ đề
@@ -384,7 +559,8 @@ public static class ScreenScopeMapBuilder
     /// sách chức năng, ô "phục vụ bước nào" — bị thay bằng bản model vừa đoán lại, và họ phải rà lần thứ
     /// hai từ số không cho những màn hình chẳng liên quan gì tới thứ vừa lộ ra. Lọc theo cờ tích là phần
     /// còn lại của cùng một luật: <see cref="Build"/> cố ý trả mọi dòng ở trạng thái TÍCH SẴN, nên đưa cả
-    /// dòng/chức năng đã bỏ tích vào hạt giống là bật lại đúng thứ họ vừa tắt.
+    /// dòng/chức năng đã bỏ tích vào hạt giống là bật lại đúng thứ họ vừa tắt. Phần bị lọc ra không mất:
+    /// <see cref="MergeConfirmed"/> giữ nó lại lúc lưu.
     /// </para>
     /// </summary>
     public static List<ScreenScopeRow> SeedRows(string? screenScopeJson)
@@ -614,7 +790,10 @@ public static class ScreenScopeMapBuilder
     /// </summary>
     public static string? RenderConfirmedBlock(string? json)
     {
-        var rows = Parse(json);
+        // CHỈ phần mang dấu chốt. Bảng nay chở cả mục chưa ai rà, mà khối này mở đầu bằng "người dùng đã
+        // CHỐT" và đóng lại bằng lệnh cấm hỏi lại việc của từng màn — đưa một dòng chờ duyệt vào đây là
+        // đóng dấu chữ ký người dùng lên nó rồi cấm BA hỏi về nó, tức bịt đúng lượt sinh ra để hỏi.
+        var rows = Parse(json).Where(r => r.ConfirmedByUser).ToList();
         if (rows.Count == 0)
             return null;
 
@@ -640,7 +819,7 @@ public static class ScreenScopeMapBuilder
             if (!string.IsNullOrWhiteSpace(row.Purpose))
                 sb.AppendLine($"  - việc của màn (BA tự đặt, chưa ai rà): {row.Purpose}");
 
-            foreach (var function in row.Functions.Where(f => f.Included))
+            foreach (var function in row.Functions.Where(f => f.Included && f.ConfirmedByUser))
             {
                 var steps = function.FlowSteps.Count > 0
                     ? $" (phục vụ bước: {string.Join("; ", function.FlowSteps)})"
@@ -648,7 +827,7 @@ public static class ScreenScopeMapBuilder
                 sb.AppendLine($"  - chức năng: {function.Name}{steps}");
             }
 
-            var droppedFunctions = row.Functions.Where(f => !f.Included).Select(f => f.Name).ToList();
+            var droppedFunctions = row.Functions.Where(f => !f.Included && f.ConfirmedByUser).Select(f => f.Name).ToList();
             if (droppedFunctions.Count > 0)
                 sb.AppendLine($"  - chức năng người dùng đã LOẠI (đừng dựng, đừng nhắc lại): {string.Join(", ", droppedFunctions)}");
 
@@ -743,7 +922,7 @@ public static class ScreenScopeMapBuilder
 
     // Chức năng KHÔNG có tên thì không có gì để tích: bỏ. Đây cũng là đường mà dòng người dùng thêm bằng nút
     // "+ thêm chức năng" rồi bỏ trống đi ra — bấm thêm mà không gõ gì thì nó không thành một chức năng.
-    private static List<ScreenFunction> CleanFunctions(IEnumerable<ScreenFunction>? proposed, bool respectIncluded)
+    private static List<ScreenFunction> CleanFunctions(IEnumerable<ScreenFunction>? proposed, bool respectIncluded, bool trusted)
     {
         var result = new List<ScreenFunction>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -760,7 +939,8 @@ public static class ScreenScopeMapBuilder
             {
                 Name = name,
                 FlowSteps = CleanFlowSteps(function.FlowSteps),
-                Included = !respectIncluded || function.Included
+                Included = !respectIncluded || function.Included,
+                ConfirmedByUser = trusted && function.ConfirmedByUser
             });
 
             if (result.Count >= MaxFunctionsPerScreen)
@@ -806,6 +986,10 @@ public static class ScreenScopeMapBuilder
     // Cùng phép ghép tên màn hình với PermissionMatrixBuilder (khớp chính xác trước, rồi cho phép một bên
     // chứa bên kia khi model rút gọn tên), và cùng ngưỡng độ dài để những mẩu quá ngắn không dính vào mọi
     // mục. Mơ hồ (nhiều mục cùng khớp) ⇒ bỏ hẳn: gán bừa là đặt cả một màn hình lên nhầm dòng.
+    //
+    // Merge dùng lại chính hàm này cho TÊN CHỨC NĂNG, và đó là cố ý: hai chỗ đều đang hỏi cùng một câu
+    // ("mục model vừa nêu có phải là mục đã có trong bảng không") và một phép so lỏng hơn ở cấp chức năng
+    // sẽ đẻ ra mục chờ duyệt giả mỗi lượt chat.
     private const int MinContainsLength = 8;
 
     private static string? MatchScreen(string? proposed, IReadOnlyList<string> screens)

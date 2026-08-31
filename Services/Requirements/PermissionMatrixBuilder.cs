@@ -13,7 +13,7 @@ namespace ICOGenerator.Services.Requirements;
 /// bảng cột, và vá đúng ba đường hỏng đã gặp:
 /// </para>
 /// <list type="bullet">
-///   <item><b>Màn hình bịa.</b> Mọi dòng phải khớp một mục trong <c>Project.PlannedScope</c> — danh sách
+///   <item><b>Màn hình bịa.</b> Mọi dòng phải khớp một mục của phạm vi màn hình đã rà — danh sách
 ///   màn hình/tính năng đã chắt từ chính hội thoại. Không có chốt này thì model thêm được một màn hình
 ///   chưa ai nói tới, người dùng tích quyền cho nó, và một tính năng ngoài phạm vi đi thẳng vào tài liệu
 ///   mang theo chữ ký của người dùng.</item>

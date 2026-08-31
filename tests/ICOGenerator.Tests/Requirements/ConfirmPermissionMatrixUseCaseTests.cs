@@ -16,9 +16,10 @@ namespace ICOGenerator.Tests.Requirements;
 // vừa render bảng đó ra vài giây trước.
 public class ConfirmPermissionMatrixUseCaseTests : IDisposable
 {
-    private const string PlannedScope = """
-        - Màn hình Training Plan để tạo và quản lý kế hoạch cho cả năm
-        - Màn hình Admin xem xét và xử lý các ticket ở trạng thái waitlist
+    // Phạm vi màn hình của dự án — các DÒNG mà bảng phân quyền đứng lên.
+    private const string ScreenScope = """
+        [{"screen":"Màn hình Training Plan để tạo và quản lý kế hoạch cho cả năm","included":true,"confirmedByUser":true},
+         {"screen":"Màn hình Admin xem xét và xử lý các ticket ở trạng thái waitlist","included":true,"confirmedByUser":true}]
         """;
 
     private readonly SqliteConnection _connection;
@@ -33,7 +34,7 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
 
         using var db = NewDb();
         db.Database.EnsureCreated();
-        db.Projects.Add(new Project { Id = _projectId, Name = "Kế hoạch đào tạo", PlannedScope = PlannedScope });
+        db.Projects.Add(new Project { Id = _projectId, Name = "Kế hoạch đào tạo", ScreenScopeMap = ScreenScope });
         db.SaveChanges();
     }
 
@@ -93,11 +94,11 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
     // Dự án chưa chắt được phạm vi màn hình nào ⇒ không có dòng nào hợp lệ để lưu. Lưu bừa theo tên client
     // gửi là mở đúng cửa mà PermissionMatrixBuilder sinh ra để đóng.
     [Fact]
-    public async Task ExecuteAsync_StoresNothing_WhenTheProjectHasNoPlannedScope()
+    public async Task ExecuteAsync_StoresNothing_WhenTheProjectHasNoScreenScope()
     {
         await using (var db = NewDb())
         {
-            (await db.Projects.FirstAsync(p => p.Id == _projectId)).PlannedScope = null;
+            (await db.Projects.FirstAsync(p => p.Id == _projectId)).ScreenScopeMap = null;
             await db.SaveChangesAsync();
         }
 

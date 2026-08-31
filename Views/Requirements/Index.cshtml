@@ -160,6 +160,9 @@
     var recipientOptionsJson = System.Text.Json.JsonSerializer.Serialize(recipientOptions);
     // Bước luồng chưa có màn hình nào phụ trách — phép kiểm TẤT ĐỊNH của mối nối luồng ⇄ màn hình, tính
     // lại ở đây thay vì chở qua SSE: sau F5 thì frame done đã đi mất, mà dòng nhắc thì phải còn.
+    // Lượt BÀY LẠI: bảng có lẫn phần đã chốt và phần vừa lộ ra, nên các dòng/chức năng chưa mang dấu được
+    // gắn nhãn "mới". Ở lần bày ĐẦU thì mọi thứ đều chưa mang dấu — dán nhãn lên tất cả không nói được gì.
+    var screenScopeReshow = lastScreenScope.Any(r => r.ConfirmedByUser);
     var uncoveredFlowSteps = lastScreenScope.Count > 0
         ? ICOGenerator.Services.Requirements.ScreenScopeMapBuilder.UncoveredActions(lastScreenScope, Model.FlowMap)
         : new List<string>();
@@ -1236,7 +1239,13 @@
                                         <input type="checkbox" class="screenmap-check" aria-label="Cần màn hình @row.Screen" @(row.Included ? "checked" : "") />
                                     </td>
                                     <td class="permmap-fn">
-                                        <div class="screenmap-name">@row.Screen</div>
+                                        <div class="screenmap-name">
+                                            @row.Screen
+                                            @if (screenScopeReshow && !row.ConfirmedByUser)
+                                            {
+                                                <span class="screenmap-new">mới</span>
+                                            }
+                                        </div>
                                         <textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="màn này để làm gì?">@row.Purpose</textarea>
                                         @if (row.Covers.Count > 0)
                                         {
@@ -1252,7 +1261,13 @@
                                                         <td class="flowmap-use">
                                                             <input type="checkbox" class="screenfn-check" aria-label="Cần chức năng @fn.Name" @(fn.Included ? "checked" : "") />
                                                         </td>
-                                                        <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="chức năng">@fn.Name</textarea></td>
+                                                        <td>
+                                                            <textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="chức năng">@fn.Name</textarea>
+                                                            @if (screenScopeReshow && row.ConfirmedByUser && !fn.ConfirmedByUser)
+                                                            {
+                                                                <span class="screenmap-new">mới</span>
+                                                            }
+                                                        </td>
                                                         <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="chức năng này phụ trách bước nào?">@string.Join("; ", fn.FlowSteps)</textarea></td>
                                                         <td class="screenmap-delcell"></td>
                                                     </tr>

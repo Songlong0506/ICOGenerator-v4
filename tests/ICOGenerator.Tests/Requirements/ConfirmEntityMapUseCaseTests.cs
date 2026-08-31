@@ -18,7 +18,7 @@ namespace ICOGenerator.Tests.Requirements;
 // hình: luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo. Gieo trước lần bày đầu thì các màn
 // hình danh mục là những dòng bình thường của bảng màn hình, người dùng tích/bỏ tích ngay tại đó.
 //
-// Không gieo lên Project.PlannedScope thì màn hình ấy không có mục nào ở "## 6. Screens To Generate"
+// Không gieo vào bảng màn hình thì màn hình ấy không có mục nào ở "## 6. Screens To Generate"
 // và không có DÒNG nào trong bảng phân quyền — tức mặc nhiên "không ai được xem" một màn hình mà người dùng
 // vừa đặt hàng. Và hỏng kiểu này không báo lỗi ở đâu: bảng vẫn lưu, tin nhắn vẫn gửi, chỉ có màn hình là
 // không bao giờ tồn tại.
@@ -60,7 +60,8 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
         {
             Id = _projectId,
             Name = "Quản lý JD",
-            PlannedScope = Bullets(ScreenList, ScreenCreate),
+            // Phạm vi đã chắt từ hội thoại, chưa ai rà.
+            ScreenScopeMap = PendingTable(ScreenList, ScreenCreate),
             // Trạng thái của một dự án vừa chốt bảng luồng: đủ để cổng bảng màn hình mở ngay sau lượt chốt
             // bảng đối tượng — xem ExecuteAsync_PutsTheSeededScreenIntoTheFirstScreenScopeTable.
             RequirementCoverageMap = Coverage,
@@ -81,12 +82,12 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
         Assert.Equal(1, result.Rows);
         Assert.Equal(
             new[] { ScreenList, ScreenCreate, "OrgUnit Catalog" },
-            InterviewOutlookService.ParseItems(await LoadPlannedScopeAsync()));
+            ScreenScopeMapBuilder.EffectiveScreens(await LoadScreenScopeAsync()));
     }
 
-    // GHÉP THÊM chứ không ghi đè. PlannedScope là danh sách người dùng đã tự tay rà ở bảng màn hình
-    // (ConfirmScreenScopeUseCase ghi ngược lên đây) — thay nó bằng mấy dòng danh mục là xoá sạch phạm vi đã
-    // duyệt, và bảng phân quyền ngay sau đó mất gần hết dòng.
+    // CHỈ THÊM, không đụng tới dòng nào đang có. Bảng màn hình có thể đã được người dùng tự tay rà — ghi
+    // đè nó bằng mấy dòng danh mục là xoá sạch phạm vi đã duyệt, và bảng phân quyền ngay sau đó mất gần
+    // hết dòng.
     [Fact]
     public async Task ExecuteAsync_KeepsTheReviewedScopeUntouched_WhenNoListIsAppManaged()
     {
@@ -96,7 +97,7 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
 
         Assert.Equal(
             new[] { ScreenList, ScreenCreate },
-            InterviewOutlookService.ParseItems(await LoadPlannedScopeAsync()));
+            ScreenScopeMapBuilder.EffectiveScreens(await LoadScreenScopeAsync()));
     }
 
     // Gửi lại cùng một bảng (người dùng sửa một ô rồi bấm gửi lần nữa, hoặc BA bày lại bảng) KHÔNG được đẻ
@@ -111,7 +112,7 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
 
         Assert.Equal(
             new[] { ScreenList, ScreenCreate, "OrgUnit Catalog" },
-            InterviewOutlookService.ParseItems(await LoadPlannedScopeAsync()));
+            ScreenScopeMapBuilder.EffectiveScreens(await LoadScreenScopeAsync()));
     }
 
     // CẢ CHUỖI, không chỉ một cột: sau khi bảng đối tượng chốt, bảng kế tiếp phải là bảng MÀN HÌNH và màn
@@ -143,7 +144,7 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
         Assert.Equal(0, result.Rows);
         Assert.Equal(
             new[] { ScreenList, ScreenCreate },
-            InterviewOutlookService.ParseItems(await LoadPlannedScopeAsync()));
+            ScreenScopeMapBuilder.EffectiveScreens(await LoadScreenScopeAsync()));
         Assert.Null(await LoadEntityMapAsync());
     }
 
@@ -177,11 +178,16 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
         return await new ConfirmEntityMapUseCase(db).ExecuteAsync(_projectId, entitiesJson);
     }
 
-    private async Task<string?> LoadPlannedScopeAsync()
+    private async Task<string?> LoadScreenScopeAsync()
     {
         await using var db = NewDb();
-        return (await db.Projects.FirstAsync(p => p.Id == _projectId)).PlannedScope;
+        return (await db.Projects.FirstAsync(p => p.Id == _projectId)).ScreenScopeMap;
     }
+
+    /// <summary>Bảng màn hình đã chắt từ hội thoại nhưng CHƯA AI RÀ.</summary>
+    private static string PendingTable(params string[] screens)
+        => JsonSerializer.Serialize(
+            screens.Select(s => new ScreenScopeRow { Screen = s, Included = true }).ToList());
 
     private async Task<string?> LoadEntityMapAsync()
     {
@@ -189,7 +195,6 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
         return (await db.Projects.FirstAsync(p => p.Id == _projectId)).EntityMap;
     }
 
-    private static string Bullets(params string[] items) => string.Join("\n", items.Select(i => "- " + i));
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 
