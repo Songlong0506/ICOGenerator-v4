@@ -14,8 +14,8 @@ namespace ICOGenerator.Tests.Requirements;
 // cách nào biết là đã mất.
 public class ChatExportBuilderTests
 {
-    private const string CoverageMap = "- ★ Mục tiêu & phạm vi: [RÕ] quản lý lịch lớp học {nguồn: \"tụi em đang xếp lớp bằng Excel\"}\n"
-        + "- Thông báo / nhắc nhở: [CHƯA HỎI]";
+    private static readonly string CoverageMap = CoverageMapFixture.Map("- ★ Mục tiêu & phạm vi: [RÕ] quản lý lịch lớp học {nguồn: \"tụi em đang xếp lớp bằng Excel\"}\n"
+        + "- Thông báo / nhắc nhở: [CHƯA HỎI]");
 
     private static AgentConversation Turn(string role, string message, DateTime? at = null) => new()
     {
@@ -329,7 +329,7 @@ public class ChatExportBuilderTests
         var project = new Project
         {
             Name = "Quản lý đào tạo",
-            RequirementCoverageMap = "- Mục tiêu: [RÕ] người dùng dán ```đoạn code``` vào mô tả"
+            RequirementCoverageMap = CoverageMapFixture.Map("- Mục tiêu: [RÕ] người dùng dán ```đoạn code``` vào mô tả")
         };
 
         var markdown = ChatExportBuilder.Build(Snapshot(project));

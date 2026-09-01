@@ -24,21 +24,21 @@ public class CoverageStaleGapGuardTests
         CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
 
     // Nguyên văn hai dòng của buổi JD Libary 4.
-    private const string MucTieu =
-        "- ★ Mục tiêu / bài toán: [MỘT PHẦN] App quản lý danh sách JD trong nhà máy và gán JD cho nhân viên. "
+    private static readonly string MucTieu =
+        ("- ★ Mục tiêu / bài toán: [MỘT PHẦN] App quản lý danh sách JD trong nhà máy và gán JD cho nhân viên. "
         + "còn thiếu: Chưa rõ điểm khó chịu nhất khi làm việc bằng 2 file Excel là gì (phải sửa tay ở 2 file, "
         + "không biết JD nào đang gán cho ai, người khác muốn xem phải hỏi HRBP, hay file dễ sửa nhầm không "
-        + "biết ai sửa) {nguồn: \"đây là app để quản lý danh sách JD ở trong nhà máy\"}";
+        + "biết ai sửa) {nguồn: \"đây là app để quản lý danh sách JD ở trong nhà máy\"}");
 
-    private const string QuyTrinhHienTai =
-        "- Quy trình hiện tại & điểm khó: [RÕ] Hiện tại dùng 2 file Excel (1 file danh sách JD, 1 file JD gán "
+    private static readonly string QuyTrinhHienTai =
+        ("- Quy trình hiện tại & điểm khó: [RÕ] Hiện tại dùng 2 file Excel (1 file danh sách JD, 1 file JD gán "
         + "cho nhân viên), HRBP tự thao tác. Điểm khó: sửa tay 2 file, không biết JD nào đang gán cho ai, "
-        + "người khác xem phải hỏi HRBP, dễ sửa nhầm không biết ai sửa. {nguồn: \"tất cả các thông tin mà bạn gợi ý ở trên\"}";
+        + "người khác xem phải hỏi HRBP, dễ sửa nhầm không biết ai sửa. {nguồn: \"tất cả các thông tin mà bạn gợi ý ở trên\"}");
 
     [Fact]
     public void GapAnsweredByAnotherClearRow_IsDropped()
     {
-        var map = CoverageStaleGapGuard.Apply(MucTieu + "\n" + QuyTrinhHienTai);
+        var map = CoverageStaleGapGuard.Apply(CoverageMapFixture.Map(MucTieu + "\n" + QuyTrinhHienTai));
 
         Assert.NotNull(map);
         var row = Row(map, "Mục tiêu");
@@ -54,11 +54,11 @@ public class CoverageStaleGapGuardTests
     public void GapAnsweredByTheRowItself_IsDropped()
     {
         var map = CoverageStaleGapGuard.Apply(
-            "- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Mã JD phải duy nhất; Responsibility phải có tổng % "
+            CoverageMapFixture.Map("- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Mã JD phải duy nhất; Responsibility phải có tổng % "
             + "bằng 100; tất cả các trường của JD (mã JD, OrgUnit, JobTitle, JobFunction, PC Level, Skill, "
             + "Degree, Major, Responsibility) là bắt buộc, không được để trống. còn thiếu: Chưa rõ các quy tắc "
             + "bắt buộc cho các trường thông tin JD (ví dụ mã JD duy nhất, Responsibility tổng % bằng 100) "
-            + "{nguồn: \"mã JD phải duy nhất, Responsibility phải có tổng % bằng 100\"}");
+            + "{nguồn: \"mã JD phải duy nhất, Responsibility phải có tổng % bằng 100\"}"));
 
         Assert.NotNull(map);
         var row = Row(map, "Quy tắc nghiệp vụ");
@@ -74,7 +74,7 @@ public class CoverageStaleGapGuardTests
     [Fact]
     public void TheRowStaysPartial_AndTheGateAsksAQuestionThatCanBeClosed()
     {
-        var map = CoverageStaleGapGuard.Apply(MucTieu + "\n" + QuyTrinhHienTai);
+        var map = CoverageStaleGapGuard.Apply(CoverageMapFixture.Map(MucTieu + "\n" + QuyTrinhHienTai));
 
         var readiness = RequirementReadinessGate.Evaluate(map);
 
@@ -107,9 +107,10 @@ public class CoverageStaleGapGuardTests
     [Fact]
     public void TheReopenMarker_IsNeverDropped()
     {
-        var line = "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] Manager tạo JD, HRBP duyệt, HoD duyệt cuối. "
+        var line = CoverageMapFixture.Map(
+            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] Manager tạo JD, HRBP duyệt, HoD duyệt cuối. "
             + "còn thiếu: " + AskedQuestionHistory.ReopenNote + " — cần hỏi lại và chốt lại. Manager tạo JD, "
-            + "HRBP duyệt, HoD duyệt cuối.";
+            + "HRBP duyệt, HoD duyệt cuối.");
 
         Assert.Equal(line, CoverageStaleGapGuard.Apply(line));
     }
@@ -117,7 +118,8 @@ public class CoverageStaleGapGuardTests
     [Fact]
     public void AMapWithNothingToRepair_IsReturnedUnchanged()
     {
-        Assert.Equal(QuyTrinhHienTai, CoverageStaleGapGuard.Apply(QuyTrinhHienTai));
+        var quyTrinh = CoverageMapFixture.Map(QuyTrinhHienTai);
+        Assert.Equal(quyTrinh, CoverageStaleGapGuard.Apply(quyTrinh));
         Assert.Null(CoverageStaleGapGuard.Apply(null));
     }
 
@@ -135,7 +137,7 @@ public class CoverageStaleGapGuardTests
             "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ có trường hợp ngoại lệ nào không, ví dụ JD bị trùng tên"
         };
 
-        var kept = CoverageStaleGapGuard.DropAnsweredItems(QuyTrinhHienTai, pending);
+        var kept = CoverageStaleGapGuard.DropAnsweredItems(CoverageMapFixture.Map(QuyTrinhHienTai), pending);
 
         Assert.Single(kept);
         Assert.Contains("trùng tên", kept[0], StringComparison.Ordinal);

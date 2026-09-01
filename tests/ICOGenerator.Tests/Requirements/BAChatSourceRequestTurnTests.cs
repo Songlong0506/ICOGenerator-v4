@@ -39,9 +39,9 @@ public class BAChatSourceRequestTurnTests : IDisposable
     private readonly Guid _projectId = Guid.NewGuid();
     private readonly Guid _baId = Guid.NewGuid();
 
-    private const string Map =
-        "- ★ Mục tiêu / bài toán: [RÕ] Quản lý JD và gán cho nhân viên. {nguồn: \"quản lý danh sách JD\"}\n"
-        + "- Quy trình hiện tại & điểm khó: [MỘT PHẦN] Đang dùng Excel. còn thiếu: chỗ nào mất thời gian nhất";
+    private static readonly string Map =
+        CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] Quản lý JD và gán cho nhân viên. {nguồn: \"quản lý danh sách JD\"}\n"
+        + "- Quy trình hiện tại & điểm khó: [MỘT PHẦN] Đang dùng Excel. còn thiếu: chỗ nào mất thời gian nhất");
 
     private const string ModelQuestion = "Trong cách làm hiện nay, chỗ nào làm anh/chị mất thời gian nhất?";
 

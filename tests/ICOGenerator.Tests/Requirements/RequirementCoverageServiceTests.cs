@@ -37,7 +37,7 @@ public class RequirementCoverageServiceTests : IDisposable
     [Fact]
     public async Task UpdateAndLoadAsync_NoNewTurns_DoesNotCallLlm_ReturnsCurrentMap()
     {
-        var (project, ba) = await SeedAsync(turns: 0, existingMap: "- ★ Mục tiêu / bài toán: [RÕ] app kho");
+        var (project, ba) = await SeedAsync(turns: 0, existingMap: CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] app kho"));
         var llm = new FakeLlm();
 
         await using var db = NewDb();
@@ -47,7 +47,7 @@ public class RequirementCoverageServiceTests : IDisposable
         var coverage = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
         Assert.Equal(0, llm.Calls);
-        Assert.Equal("- ★ Mục tiêu / bài toán: [RÕ] app kho", coverage.Map);
+        Assert.Equal("app kho", Assert.Single(CoverageMapParser.Parse(coverage.Map)).Known);
         Assert.False(coverage.DistillFailed);
     }
 
@@ -55,7 +55,7 @@ public class RequirementCoverageServiceTests : IDisposable
     public async Task UpdateAndLoadAsync_NewTurns_CallsLlmOnce_SavesMap_AndAdvancesPointer()
     {
         var (project, ba) = await SeedAsync(turns: 4);
-        var llm = new FakeLlm { Reply = "- ★ Mục tiêu / bài toán: [MỘT PHẦN] còn thiếu: luồng chính" };
+        var llm = new FakeLlm { Reply = CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [MỘT PHẦN] còn thiếu: luồng chính") };
 
         await using var db = NewDb();
         var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
@@ -105,7 +105,7 @@ public class RequirementCoverageServiceTests : IDisposable
     public async Task UpdateAndLoadAsync_SecondCallWithoutNewTurns_DoesNotCallLlmAgain()
     {
         var (project, ba) = await SeedAsync(turns: 3);
-        var llm = new FakeLlm { Reply = "- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho." };
+        var llm = new FakeLlm { Reply = CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho.") };
 
         await using var db = NewDb();
         var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
@@ -152,7 +152,7 @@ public class RequirementCoverageServiceTests : IDisposable
             await seed.SaveChangesAsync();
         }
 
-        var llm = new FakeLlm { Reply = "- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho." };
+        var llm = new FakeLlm { Reply = CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho.") };
         await using var db = NewDb();
         var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
         var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
@@ -185,7 +185,7 @@ public class RequirementCoverageServiceTests : IDisposable
             await seed.SaveChangesAsync();
         }
 
-        var llm = new FakeLlm { Reply = "- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho." };
+        var llm = new FakeLlm { Reply = CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho.") };
         await using var db = NewDb();
         var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
         var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
@@ -220,8 +220,8 @@ public class RequirementCoverageServiceTests : IDisposable
         // Lượt distill trả về đúng dòng tự mâu thuẫn của ca thật: vừa nói đã chốt vừa nói chưa rõ.
         var llm = new FakeLlm
         {
-            Reply = "- Thông báo / nhắc nhở: [MỘT PHẦN] Đã chốt To/CC riêng từng sự kiện. "
-                + "còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo {nguồn: bảng thông báo người dùng đã chốt}"
+            Reply = CoverageMapFixture.Map("- Thông báo / nhắc nhở: [MỘT PHẦN] Đã chốt To/CC riêng từng sự kiện. "
+                + "còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo {nguồn: bảng thông báo người dùng đã chốt}")
         };
 
         await using var db = NewDb();
@@ -247,7 +247,7 @@ public class RequirementCoverageServiceTests : IDisposable
     {
         var (project, ba) = await SeedAsync(
             turns: 0,
-            existingMap: "- Thông báo / nhắc nhở: [MỘT PHẦN] Email theo sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo");
+            existingMap: CoverageMapFixture.Map("- Thông báo / nhắc nhở: [MỘT PHẦN] Email theo sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo"));
         await using (var seed = NewDb())
         {
             var p = await seed.Projects.FirstAsync(x => x.Id == project.Id);
@@ -310,7 +310,7 @@ public class RequirementCoverageServiceTests : IDisposable
     private sealed class FakeLlm : ILlmClient
     {
         public int Calls;
-        public string Reply = "- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho.";
+        public string Reply = CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho.");
         public bool Fail;
 
         // Text của lượt user cuối (chính là khối hội thoại được gộp) để test soi xem gợi ý có được đính kèm không.

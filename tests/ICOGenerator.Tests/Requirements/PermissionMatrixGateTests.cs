@@ -14,13 +14,13 @@ public class PermissionMatrixGateTests
 {
     private static readonly List<string> Scope = new() { "Màn hình Training Plan" };
 
-    private const string EverythingElseClear = """
+    private static readonly string EverythingElseClear = CoverageMapFixture.Map("""
         - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo. {nguồn: "lên kế hoạch các lớp học"}
         - ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant, HOD HR, nhân viên. {nguồn: "Assistant... HOD"}
         - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo plan, submit theo quý. {nguồn: "Đúng luồng này"}
         - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: "hiện tại chưa cần"}
         - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
-        """;
+        """);
 
     [Fact]
     public void ShouldAsk_OpensWhenEveryOtherApplicableGroupIsClear()
@@ -34,8 +34,8 @@ public class PermissionMatrixGateTests
     public void ShouldAsk_IgnoresThePermissionRowItself()
     {
         var withPartialPermission = EverythingElseClear
-            .Replace("- Phân quyền theo nghiệp vụ: [CHƯA HỎI]",
-                "- Phân quyền theo nghiệp vụ: [MỘT PHẦN] Còn thiếu: quyền theo màn hình.");
+            .Replace(CoverageMapFixture.Map("- Phân quyền theo nghiệp vụ: [CHƯA HỎI]"),
+                CoverageMapFixture.Map("- Phân quyền theo nghiệp vụ: [MỘT PHẦN] Còn thiếu: quyền theo màn hình."));
 
         Assert.True(PermissionMatrixGate.ShouldAsk(withPartialPermission, null, Scope));
     }
@@ -43,9 +43,8 @@ public class PermissionMatrixGateTests
     [Fact]
     public void ShouldAsk_StaysClosedWhileAnotherGroupIsStillOpen()
     {
-        var stillInterviewing = EverythingElseClear
-            .Replace("- Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: \"hiện tại chưa cần\"}",
-                "- Báo cáo / thống kê: [MỘT PHẦN] Còn thiếu: báo cáo nào, cho ai xem.");
+        var stillInterviewing = CoverageMapFixture.With(EverythingElseClear,
+            "- Báo cáo / thống kê: [MỘT PHẦN] còn thiếu: báo cáo nào, cho ai xem.");
 
         Assert.False(PermissionMatrixGate.ShouldAsk(stillInterviewing, null, Scope));
     }
@@ -77,9 +76,9 @@ public class PermissionMatrixGateTests
     {
         Assert.False(PermissionMatrixGate.ShouldAsk(null, null, Scope));
         Assert.False(PermissionMatrixGate.ShouldAsk("không phải bản đồ", null, Scope));
-        Assert.False(PermissionMatrixGate.ShouldAsk("""
+        Assert.False(PermissionMatrixGate.ShouldAsk(CoverageMapFixture.Map("""
             - ★ Mục tiêu / bài toán: [KHÔNG ÁP DỤNG]
             - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
-            """, null, Scope));
+            """), null, Scope));
     }
 }

@@ -42,7 +42,7 @@ public class CoverageChecklistTests
         // Bản đồ "thật" mô phỏng: cùng khối template nhưng đã điền trạng thái, như model sẽ trả về.
         var realMap = string.Join("\n", skeleton.Select(x =>
             $"- {(x.IsCore ? "★ " : "")}{x.Label}: [RÕ] tóm tắt gì đó"));
-        var parsed = CoverageMapParser.Parse(realMap);
+        var parsed = CoverageMapParser.Parse(CoverageMapFixture.Map(realMap));
 
         Assert.Equal(
             skeleton.Select(x => x.Label).ToArray(),

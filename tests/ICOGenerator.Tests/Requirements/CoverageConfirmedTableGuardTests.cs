@@ -51,10 +51,10 @@ public class CoverageConfirmedTableGuardTests
     public void NotificationRow_IsRaised_AndTheStaleGapIsDropped_WhenTheTableIsConfirmed()
     {
         var map = CoverageConfirmedTableGuard.Apply(
-            """
+            CoverageMapFixture.Map("""
             - ★ Mục tiêu / bài toán: [RÕ] Quản lý và phê duyệt JD. {nguồn: "Đồng ý"}
             - Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện; đã chốt To/CC riêng từng sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo {nguồn: bảng thông báo người dùng đã chốt}
-            """,
+            """),
             permissionMatrixJson: null,
             ConfirmedNotifications);
 
@@ -73,11 +73,11 @@ public class CoverageConfirmedTableGuardTests
     [Fact]
     public void TheRepairedMap_UnlocksTheGate_InsteadOfAskingTheSameQuestionAgain()
     {
-        const string stuck = """
+        var stuck = CoverageMapFixture.Map("""
             - ★ Mục tiêu / bài toán: [RÕ] Quản lý và phê duyệt JD. {nguồn: "Đồng ý"}
             - Phân quyền theo nghiệp vụ: [RÕ] Đã chốt quyền từng vai. {nguồn: bảng phân quyền người dùng đã chốt}
             - Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo
-            """;
+            """);
 
         // Trước khi sửa: cổng chặn bằng ĐÚNG câu BA đã hỏi ở lượt 102.
         var before = RequirementReadinessGate.Evaluate(stuck);
@@ -96,7 +96,7 @@ public class CoverageConfirmedTableGuardTests
     public void TheRewrittenSummary_CountsTheRowsOfTheConfirmedTable()
     {
         var map = CoverageConfirmedTableGuard.Apply(
-            "- Thông báo / nhắc nhở: [CHƯA HỎI]",
+            CoverageMapFixture.Map("- Thông báo / nhắc nhở: [CHƯA HỎI]"),
             permissionMatrixJson: null,
             ConfirmedNotifications);
 
@@ -113,7 +113,7 @@ public class CoverageConfirmedTableGuardTests
     public void PermissionRow_FollowsTheSameRule()
     {
         var map = CoverageConfirmedTableGuard.Apply(
-            "- Phân quyền theo nghiệp vụ: [MỘT PHẦN] Đã chốt quyền từng vai. còn thiếu: bảng phân quyền theo màn hình chưa được chốt",
+            CoverageMapFixture.Map("- Phân quyền theo nghiệp vụ: [MỘT PHẦN] Đã chốt quyền từng vai. còn thiếu: bảng phân quyền theo màn hình chưa được chốt"),
             ConfirmedMatrix,
             notificationMapJson: null);
 
@@ -129,7 +129,7 @@ public class CoverageConfirmedTableGuardTests
     [Fact]
     public void NothingIsRaised_WhenTheTableWasNeverConfirmed()
     {
-        const string map = "- Thông báo / nhắc nhở: [MỘT PHẦN] Có gửi email khi đổi trạng thái. còn thiếu: ai nhận email của từng sự kiện";
+        var map = CoverageMapFixture.Map("- Thông báo / nhắc nhở: [MỘT PHẦN] Có gửi email khi đổi trạng thái. còn thiếu: ai nhận email của từng sự kiện");
 
         Assert.Equal(map, CoverageConfirmedTableGuard.Apply(map, permissionMatrixJson: null, notificationMapJson: null));
         Assert.Equal(map, CoverageConfirmedTableGuard.Apply(map, permissionMatrixJson: "[]", notificationMapJson: "[]"));
@@ -146,7 +146,7 @@ public class CoverageConfirmedTableGuardTests
               { "entity": "JD", "event": "Available", "needed": true, "to": [] }
             ]
             """;
-        const string map = "- Thông báo / nhắc nhở: [MỘT PHẦN] Mới chốt một phần. còn thiếu: người nhận của sự kiện Available";
+        var map = CoverageMapFixture.Map("- Thông báo / nhắc nhở: [MỘT PHẦN] Mới chốt một phần. còn thiếu: người nhận của sự kiện Available");
 
         Assert.Equal(map, CoverageConfirmedTableGuard.Apply(map, permissionMatrixJson: null, partial));
     }
@@ -156,8 +156,9 @@ public class CoverageConfirmedTableGuardTests
     [Fact]
     public void AReopenedRow_IsLeftAlone_BecauseTheUserJustOpenedItBackUp()
     {
-        var map = "- Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện. còn thiếu: "
-            + AskedQuestionHistory.ReopenNote + " — cần hỏi lại người nhận của sự kiện Bị từ chối";
+        var map = CoverageMapFixture.Map(
+            "- Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện. còn thiếu: "
+            + AskedQuestionHistory.ReopenNote + " — cần hỏi lại người nhận của sự kiện Bị từ chối");
 
         Assert.Equal(map, CoverageConfirmedTableGuard.Apply(map, permissionMatrixJson: null, ConfirmedNotifications));
     }
@@ -166,7 +167,7 @@ public class CoverageConfirmedTableGuardTests
     [Fact]
     public void ANotApplicableRow_IsLeftAlone()
     {
-        const string map = "- Thông báo / nhắc nhở: [KHÔNG ÁP DỤNG] Ứng dụng một người dùng, không báo cho ai.";
+        var map = CoverageMapFixture.Map("- Thông báo / nhắc nhở: [KHÔNG ÁP DỤNG] Ứng dụng một người dùng, không báo cho ai.");
 
         Assert.Equal(map, CoverageConfirmedTableGuard.Apply(map, permissionMatrixJson: null, ConfirmedNotifications));
     }
@@ -178,7 +179,7 @@ public class CoverageConfirmedTableGuardTests
     public void TheGroupLabel_MatchesByPrefix_SoADriftedLabelStillGetsRepaired()
     {
         var map = CoverageConfirmedTableGuard.Apply(
-            "- ★ Thông báo: [MỘT PHẦN] Email theo sự kiện. còn thiếu: người nhận từng sự kiện",
+            CoverageMapFixture.Map("- ★ Thông báo: [MỘT PHẦN] Email theo sự kiện. còn thiếu: người nhận từng sự kiện"),
             permissionMatrixJson: null,
             ConfirmedNotifications);
 

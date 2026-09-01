@@ -46,10 +46,10 @@ public class BAChatRepeatedQuestionTests : IDisposable
 
     // Bản đồ mà lượt chắt lọc (fake) trả về ở mọi test: hai nhóm người dùng VỪA trả lời vẫn bị giữ
     // [MỘT PHẦN] — đúng tình huống đã đẻ ra bệnh, vì đó là lúc prompt bảo BA "ưu tiên hỏi nhóm này".
-    private const string PartialMap =
-        "- ★ Mục tiêu / bài toán: [RÕ] hiển thị nhân viên làm quá 11 giờ. {nguồn: \"nhắc đi về trước 12 tiếng\"}\n"
+    private static readonly string PartialMap =
+        CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] hiển thị nhân viên làm quá 11 giờ. {nguồn: \"nhắc đi về trước 12 tiếng\"}\n"
         + "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: quan hệ cấp trên của các vai trò\n"
-        + "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: khi nào thì gọi";
+        + "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: khi nào thì gọi");
 
     public BAChatRepeatedQuestionTests()
     {
@@ -235,9 +235,9 @@ public class BAChatRepeatedQuestionTests : IDisposable
         // Người dùng vừa nói trong chat "nhóm vai trò chưa đúng" và lượt chắt lọc đã đánh dấu dòng đó ⇒ họ
         // CHỦ ĐỘNG xin được hỏi lại. Phanh phải nhường, nếu không lời đính chính của họ rơi vào im lặng:
         // bản đồ đã hạ nhóm xuống nhưng câu hỏi của BA lại bị lọc mất vì trùng câu cũ.
-        var reopenedMap =
-            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: " + AskedQuestionHistory.ReopenNote + " — cần hỏi lại và chốt lại.\n"
-            + "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: khi nào thì gọi";
+        var reopenedMap = CoverageMapFixture.Map(
+            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: " + AskedQuestionHistory.ReopenNote + "\n"
+            + "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: khi nào thì gọi");
 
         var llm = new FakeLlm(reopenedMap)
         {

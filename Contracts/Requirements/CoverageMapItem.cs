@@ -17,9 +17,10 @@ namespace ICOGenerator.Contracts.Requirements;
 public class CoverageMapItem
 {
     /// <summary>
-    /// Dấu ngăn giữa phần đã ghi nhận và phần còn thiếu trong format text CŨ. Vẫn cần vì bản đồ sinh
-    /// trước lần đổi format còn nằm trong DB và được đọc lại bằng đường tương thích ngược của
-    /// <c>CoverageMapParser</c>, và vì <see cref="Summary"/> dựng lại đúng chuỗi ấy cho UI.
+    /// Dấu ngăn giữa phần đã ghi nhận và phần còn thiếu khi hai trường được GHÉP LẠI thành một dòng cho
+    /// người đọc — <see cref="Summary"/> (panel tiến độ) và <c>CoverageMapParser.ToText</c> (ngữ cảnh chat
+    /// của BA, bản xuất hội thoại). Chiều lưu trữ không dùng tới nó: ở đó <see cref="Known"/> và
+    /// <see cref="Gap"/> là hai ô riêng.
     /// </summary>
     public const string GapMarker = "còn thiếu:";
 

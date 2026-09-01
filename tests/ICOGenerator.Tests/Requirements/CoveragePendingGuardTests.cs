@@ -28,10 +28,10 @@ public class CoveragePendingGuardTests
     public void ClearRow_IsDowngraded_WhenItsGroupStillHasAPendingItem()
     {
         var map = CoveragePendingGuard.Apply(
-            """
+            CoverageMapFixture.Map("""
             - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học cả năm. {nguồn: "lên kế hoạch các lớp học"}
             - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì ticket sang Waitlist. {nguồn: "Tiếp tục giữ Waitlist"}
-            """,
+            """),
             new[] { "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không" });
 
         Assert.NotNull(map);
@@ -50,7 +50,7 @@ public class CoveragePendingGuardTests
     public void TheDowngradedRow_BecomesTheQuestionTheGateAsks()
     {
         var map = CoveragePendingGuard.Apply(
-            "- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll/Waitlist → Complete. {nguồn: bảng luồng đã chốt}",
+            CoverageMapFixture.Map("- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll/Waitlist → Complete. {nguồn: bảng luồng đã chốt}"),
             new[] { "[Vòng đời & trạng thái] Chưa rõ kết quả Complete/Not Complete/No Show được dùng để xử lý bước nào tiếp theo" });
 
         var readiness = RequirementReadinessGate.Evaluate(map);
@@ -68,7 +68,7 @@ public class CoveragePendingGuardTests
     public void Downgrade_KeepsTheEvidenceBlockAtTheEnd()
     {
         var map = CoveragePendingGuard.Apply(
-            "- Dữ liệu / danh mục chính: [RÕ] Dùng 6 cột Master List đã chốt. {nguồn: bảng cột người dùng đã chốt}",
+            CoverageMapFixture.Map("- Dữ liệu / danh mục chính: [RÕ] Dùng 6 cột Master List đã chốt. {nguồn: bảng cột người dùng đã chốt}"),
             new[] { "[Dữ liệu / danh mục chính] Chưa rõ xử lý khi Item ID và Item Title không tạo thành cặp duy nhất" });
 
         var item = Assert.Single(CoverageMapParser.Parse(map));
@@ -88,7 +88,7 @@ public class CoveragePendingGuardTests
     public void GroupTag_MatchesTheMapLabelByPrefix_InBothDirections(string tag)
     {
         var map = CoveragePendingGuard.Apply(
-            "- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist.",
+            CoverageMapFixture.Map("- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist."),
             new[] { $"[{tag}] Chưa rõ ticket Waitlist còn treo khi lớp đã kết thúc" });
 
         Assert.Equal("MỘT PHẦN", Row(map, "Luồng ngoại lệ").Status);
@@ -99,11 +99,11 @@ public class CoveragePendingGuardTests
     [Fact]
     public void Guard_NeverUpgrades_AndNeverTouchesOtherStatuses()
     {
-        const string map = """
+        var map = CoverageMapFixture.Map("""
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Người dùng nói không cần báo cáo.
             - Quy mô sử dụng: [MỘT PHẦN] Toàn nhà máy. còn thiếu: bao nhiêu lớp mỗi năm.
-            """;
+            """);
 
         var guarded = CoveragePendingGuard.Apply(map, new[]
         {
@@ -123,7 +123,7 @@ public class CoveragePendingGuardTests
     [InlineData("Chưa rõ điểm này thuộc nhóm nào — mục không gắn thẻ")]
     public void UnknownOrMissingTag_LeavesTheMapAlone(string pendingItem)
     {
-        const string map = "- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll → Complete.";
+        var map = CoverageMapFixture.Map("- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll → Complete.");
 
         Assert.Equal(map, CoveragePendingGuard.Apply(map, new[] { pendingItem }));
     }
@@ -148,7 +148,7 @@ public class CoveragePendingGuardTests
     public void OnlyTheFirstPendingItemOfAGroup_BecomesTheGap()
     {
         var map = CoveragePendingGuard.Apply(
-            "- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist.",
+            CoverageMapFixture.Map("- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist."),
             new[]
             {
                 "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký lại sau khi bị Reject",
@@ -167,11 +167,11 @@ public class CoveragePendingGuardTests
     [Fact]
     public void ARowThatJustChanged_DoesNotGetTheStalePendingGap()
     {
-        const string before =
-            "- Quy trình hiện tại & điểm khó: [CHƯA HỎI]";
-        const string after =
-            "- Quy trình hiện tại & điểm khó: [RÕ] Hiện dùng 2 file Excel, HRBP tự thêm/sửa/xóa cả hai. "
-            + "{nguồn: \"1 file excel danh sách JD\"}";
+        var before =
+            CoverageMapFixture.Map("- Quy trình hiện tại & điểm khó: [CHƯA HỎI]");
+        var after =
+            CoverageMapFixture.Map("- Quy trình hiện tại & điểm khó: [RÕ] Hiện dùng 2 file Excel, HRBP tự thêm/sửa/xóa cả hai. "
+            + "{nguồn: \"1 file excel danh sách JD\"}");
 
         var map = CoveragePendingGuard.Apply(
             after,
@@ -186,8 +186,8 @@ public class CoveragePendingGuardTests
     [Fact]
     public void AnUnchangedRow_StillGetsTheGap()
     {
-        const string row =
-            "- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì ticket sang Waitlist. {nguồn: \"giữ Waitlist\"}";
+        var row =
+            CoverageMapFixture.Map("- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì ticket sang Waitlist. {nguồn: \"giữ Waitlist\"}");
 
         var map = CoveragePendingGuard.Apply(
             row,
@@ -202,7 +202,7 @@ public class CoveragePendingGuardTests
     [Fact]
     public void NoPendingItems_LeavesTheMapUntouched()
     {
-        const string map = "- ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học.";
+        var map = CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học.");
 
         Assert.Equal(map, CoveragePendingGuard.Apply(map, Array.Empty<string>()));
         Assert.Null(CoveragePendingGuard.Apply(null, new[] { "[Vòng đời & trạng thái] Chưa rõ gì đó" }));

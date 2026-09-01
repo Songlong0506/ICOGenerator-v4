@@ -154,8 +154,8 @@ public class DecisionLogServiceTests : IDisposable
 
     // Bản đồ bao phủ trích ĐÚNG câu người dùng nói trong lô delta ("Đúng, chỉ Assistant HR") ⇒ lô này chắc
     // chắn có nội dung nghiệp vụ, theo một bộ đọc độc lập với nhật ký.
-    private const string MapCitingBatch =
-        "- ★ Đối tượng người dùng & vai trò: [RÕ] Assistant HR lập kế hoạch. {nguồn: \"Đúng, chỉ Assistant HR\"}";
+    private static readonly string MapCitingBatch =
+        CoverageMapFixture.Map("- ★ Đối tượng người dùng & vai trò: [RÕ] Assistant HR lập kế hoạch. {nguồn: \"Đúng, chỉ Assistant HR\"}");
 
     [Fact]
     public async Task SuspectedMiss_ChattsAgainOnce_WithEvidenceHint_AndTakesTheSecondPass()

@@ -28,7 +28,7 @@ public class InterviewTableGateTests
     private static readonly List<string> Scope = new() { "Màn hình Training Plan" };
 
     // Bản đồ ở trạng thái CUỐI BUỔI: mọi nhóm áp dụng đã [RÕ] trừ chính dòng phân quyền.
-    private const string EverythingClear = """
+    private static readonly string EverythingClear = CoverageMapFixture.Map("""
         - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo. {nguồn: "lên kế hoạch các lớp học"}
         - ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt. {nguồn: "Assistant lập, HOD duyệt"}
         - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo plan, submit theo quý. {nguồn: "Đúng luồng này"}
@@ -41,10 +41,12 @@ public class InterviewTableGateTests
         - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: "hiện tại chưa cần"}
         - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
         - Quy mô sử dụng: [RÕ] Khoảng 200 người. {nguồn: "tầm 200 nhân viên"}
-        """;
+        """);
 
+    // coverage = null ⇒ EverythingClear. Không đặt thẳng làm giá trị mặc định được nữa: bản đồ nay dựng
+    // qua CoverageMapFixture nên nó không còn là hằng số biên dịch.
     private static Project ProjectWith(
-        string coverage = EverythingClear,
+        string? coverage = null,
         string? flowMap = null,
         string? screenScope = null,
         string? entityMap = null,
@@ -53,7 +55,7 @@ public class InterviewTableGateTests
         string? notificationMap = null)
         => new()
         {
-            RequirementCoverageMap = coverage,
+            RequirementCoverageMap = coverage ?? EverythingClear,
             FlowMap = flowMap,
             // Mặc định là bảng màn hình CHƯA AI RÀ: phạm vi đã chắt được nhưng chưa qua tay người dùng —
             // đúng trạng thái của một dự án đang giữa buổi phỏng vấn, và là điều kiện để cổng màn hình mở.
@@ -94,8 +96,8 @@ public class InterviewTableGateTests
 
     // Bản đồ CUỐI BUỔI của một dự án CÓ báo cáo. EverythingClear để nhóm này ở [KHÔNG ÁP DỤNG] — đó là ca
     // "dự án không cần báo cáo nào", ca duy nhất mà bảng báo cáo không bao giờ được bày.
-    private static readonly string ReportsClear = EverythingClear.Replace(
-        "- Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: \"hiện tại chưa cần\"}",
+    private static readonly string ReportsClear = CoverageMapFixture.With(
+        EverythingClear,
         "- Báo cáo / thống kê: [RÕ] Tiến độ đào tạo theo quý cho HOD. {nguồn: \"cuối quý xem đơn vị nào chưa đạt\"}");
 
     private const string ConfirmedPermissions =
@@ -226,9 +228,9 @@ public class InterviewTableGateTests
     [Fact]
     public void ReportMapGate_StaysClosedWhileTheGroupIsOnlyPartlyAnswered()
     {
-        var partial = EverythingClear.Replace(
-            "- Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: \"hiện tại chưa cần\"}",
-            "- Báo cáo / thống kê: [MỘT PHẦN] Có cần báo cáo. {còn thiếu: gồm những báo cáo nào}");
+        var partial = CoverageMapFixture.With(
+            EverythingClear,
+            "- Báo cáo / thống kê: [MỘT PHẦN] Có cần báo cáo. còn thiếu: gồm những báo cáo nào");
 
         Assert.False(ReportMapGate.ShouldAsk(partial, null, ConfirmedEntities));
     }
@@ -277,8 +279,8 @@ public class InterviewTableGateTests
     [Fact]
     public void FlowMapGate_StaysClosedWhileExceptionsAreUnasked()
     {
-        var coverage = EverythingClear.Replace(
-            "- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] HOD từ chối thì Assistant sửa lại. {nguồn: \"trả về sửa lại\"}",
+        var coverage = CoverageMapFixture.With(
+            EverythingClear,
             "- Luồng ngoại lệ & trường hợp đặc biệt: [CHƯA HỎI]");
 
         Assert.False(FlowMapGate.ShouldAsk(coverage, null));
@@ -287,8 +289,8 @@ public class InterviewTableGateTests
     [Fact]
     public void FlowMapGate_StaysClosedWhileTheMainFlowIsStillOpen()
     {
-        var coverage = EverythingClear.Replace(
-            "- ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo plan, submit theo quý. {nguồn: \"Đúng luồng này\"}",
+        var coverage = CoverageMapFixture.With(
+            EverythingClear,
             "- ★ Chức năng & luồng nghiệp vụ chính: [MỘT PHẦN] còn thiếu: ai duyệt.");
 
         Assert.False(FlowMapGate.ShouldAsk(coverage, null));
@@ -312,8 +314,8 @@ public class InterviewTableGateTests
     [Fact]
     public void ScreenScopeGate_StaysClosedUntilTheFlowGateCouldOpen()
     {
-        var coverage = EverythingClear.Replace(
-            "- ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt. {nguồn: \"Assistant lập, HOD duyệt\"}",
+        var coverage = CoverageMapFixture.With(
+            EverythingClear,
             "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: ai được xem.");
 
         Assert.False(FlowMapGate.ShouldAsk(coverage, null));
@@ -332,8 +334,8 @@ public class InterviewTableGateTests
     [Fact]
     public void ScreenScopeGate_StaysClosedUntilTheEntityGateCouldOpen()
     {
-        var coverage = EverythingClear.Replace(
-            "- Dữ liệu / danh mục chính: [RÕ] Khóa học, người học, đơn vị. {nguồn: \"danh sách khóa học\"}",
+        var coverage = CoverageMapFixture.With(
+            EverythingClear,
             "- Dữ liệu / danh mục chính: [MỘT PHẦN] còn thiếu: danh mục nào ứng dụng tự quản lý.");
 
         Assert.False(EntityMapGate.ShouldAsk(coverage, null));
@@ -348,9 +350,9 @@ public class InterviewTableGateTests
     [Fact]
     public void ScreenScopeGate_StaysClosedUntilTheReportGroupIsSettled()
     {
-        var coverage = EverythingClear.Replace(
-            "- Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: \"hiện tại chưa cần\"}",
-            "- Báo cáo / thống kê: [MỘT PHẦN] Có cần báo cáo. {còn thiếu: gồm những báo cáo nào}");
+        var coverage = CoverageMapFixture.With(
+            EverythingClear,
+            "- Báo cáo / thống kê: [MỘT PHẦN] Có cần báo cáo. còn thiếu: gồm những báo cáo nào");
 
         Assert.False(ScreenScopeGate.ShouldAsk(coverage, PendingScreens));
         Assert.Equal(InterviewTableKind.None,
@@ -366,8 +368,8 @@ public class InterviewTableGateTests
     [Fact]
     public void ScreenScopeGate_StillOpens_WhenAnEarlierGroupIsNotApplicable()
     {
-        var coverage = EverythingClear.Replace(
-            "- Dữ liệu / danh mục chính: [RÕ] Khóa học, người học, đơn vị. {nguồn: \"danh sách khóa học\"}",
+        var coverage = CoverageMapFixture.With(
+            EverythingClear,
             "- Dữ liệu / danh mục chính: [KHÔNG ÁP DỤNG] Không có danh mục nào. {nguồn: \"không có danh mục\"}");
 
         Assert.False(EntityMapGate.ShouldAsk(coverage, null));
@@ -382,8 +384,8 @@ public class InterviewTableGateTests
     [Fact]
     public void EntityMapGate_StaysClosedUntilTheFlowGateCouldOpen()
     {
-        var coverage = EverythingClear.Replace(
-            "- ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt. {nguồn: \"Assistant lập, HOD duyệt\"}",
+        var coverage = CoverageMapFixture.With(
+            EverythingClear,
             "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: ai được xem.");
 
         Assert.False(EntityMapGate.ShouldAsk(coverage, null));
@@ -408,8 +410,8 @@ public class InterviewTableGateTests
     [Fact]
     public void EntityMapGate_OpensWhileNotificationsAreStillUnasked()
     {
-        var coverage = EverythingClear.Replace(
-            "- Thông báo / nhắc nhở: [RÕ] Báo HOD khi submit. {nguồn: \"gửi mail cho HOD\"}",
+        var coverage = CoverageMapFixture.With(
+            EverythingClear,
             "- Thông báo / nhắc nhở: [CHƯA HỎI]");
 
         Assert.True(EntityMapGate.ShouldAsk(coverage, null));
@@ -421,8 +423,8 @@ public class InterviewTableGateTests
     [Fact]
     public void PermissionMatrixGate_OpensWhileNotificationsAreStillUnasked()
     {
-        var coverage = EverythingClear.Replace(
-            "- Thông báo / nhắc nhở: [RÕ] Báo HOD khi submit. {nguồn: \"gửi mail cho HOD\"}",
+        var coverage = CoverageMapFixture.With(
+            EverythingClear,
             "- Thông báo / nhắc nhở: [CHƯA HỎI]");
 
         Assert.True(PermissionMatrixGate.ShouldAsk(coverage, null, Scope));

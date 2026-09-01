@@ -22,9 +22,9 @@ public class CoverageWorkedExampleGuardTests
     private static ICOGenerator.Contracts.Requirements.CoverageMapItem Row(string? map, string labelPrefix) =>
         CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
 
-    private const string RuleRowWithNumbers =
-        "- Quy tắc nghiệp vụ & ràng buộc: [RÕ] Responsibility có 5 cái kèm %, 1 item mặc định % từ 5-10. "
-        + "{nguồn: \"Responsibility( 5 cái và có %)\"}";
+    private static readonly string RuleRowWithNumbers =
+        CoverageMapFixture.Map("- Quy tắc nghiệp vụ & ràng buộc: [RÕ] Responsibility có 5 cái kèm %, 1 item mặc định % từ 5-10. "
+        + "{nguồn: \"Responsibility( 5 cái và có %)\"}");
 
     [Fact]
     public void ARuleRowCarryingNumbers_IsDowngraded_WhenNoWorkedExampleIsConfirmed()
@@ -55,10 +55,10 @@ public class CoverageWorkedExampleGuardTests
     [Fact]
     public void NumbersInOtherGroups_AreLeftAlone()
     {
-        const string map = """
+        var map = CoverageMapFixture.Map("""
             - Quy mô sử dụng: [RÕ] Khoảng 1549 nhân sự toàn nhà máy dùng ứng dụng.
             - Dữ liệu / danh mục chính: [RÕ] Một JD gồm 9 thông tin: mã JD, OrgUnit, JobTitle…
-            """;
+            """);
 
         Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: null));
     }
@@ -68,8 +68,8 @@ public class CoverageWorkedExampleGuardTests
     [Fact]
     public void AQualitativeRuleRow_IsLeftAlone()
     {
-        const string map =
-            "- Quy tắc nghiệp vụ & ràng buộc: [RÕ] JD phải qua HRBP verify rồi HoD approve mới available để assign.";
+        var map =
+            CoverageMapFixture.Map("- Quy tắc nghiệp vụ & ràng buộc: [RÕ] JD phải qua HRBP verify rồi HoD approve mới available để assign.");
 
         Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: null));
     }
@@ -79,9 +79,9 @@ public class CoverageWorkedExampleGuardTests
     [Fact]
     public void ARowThatAlreadyCarriesItsOwnGap_IsNotOverwritten()
     {
-        const string map =
-            "- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Responsibility có 5 cái kèm %. "
-            + "còn thiếu: tổng % của các Responsibility phải bằng bao nhiêu";
+        var map =
+            CoverageMapFixture.Map("- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Responsibility có 5 cái kèm %. "
+            + "còn thiếu: tổng % của các Responsibility phải bằng bao nhiêu");
 
         Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: null));
     }
@@ -90,10 +90,10 @@ public class CoverageWorkedExampleGuardTests
     [Fact]
     public void RowsThatAreNotClearOrPartial_AreUntouched()
     {
-        const string map = """
+        var map = CoverageMapFixture.Map("""
             - Quy tắc nghiệp vụ & ràng buộc: [CHƯA HỎI]
             - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] người dùng nói không cần báo cáo nào.
-            """;
+            """);
 
         Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: null));
     }

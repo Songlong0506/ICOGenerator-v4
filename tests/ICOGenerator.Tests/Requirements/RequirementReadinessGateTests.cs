@@ -32,16 +32,16 @@ public class RequirementReadinessGateTests : IDisposable
 {
     private const string InviteMessage = "Mình đã đủ thông tin. Nếu không còn gì bổ sung, vui lòng bấm nút \"Write Requirement\" để tạo tài liệu.";
 
-    private const string MapAllClear = """
+    private static readonly string MapAllClear = CoverageMapFixture.Map("""
         - ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn nghỉ phép.
         - ★ Đối tượng người dùng & vai trò: [RÕ] Nhân viên nộp, quản lý duyệt.
         - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] người dùng không cần.
-        """;
+        """);
 
-    private const string MapMissingRules = """
+    private static readonly string MapMissingRules = CoverageMapFixture.Map("""
         - ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn nghỉ phép.
         - Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Trừ quỹ phép năm; còn thiếu: hạn mức ngày phép.
-        """;
+        """);
 
     private readonly SqliteConnection _connection;
     private readonly DbContextOptions<AppDbContext> _options;
@@ -101,8 +101,8 @@ public class RequirementReadinessGateTests : IDisposable
     [InlineData("chi tiết khác")]
     public void Evaluate_HollowGap_FallsBackToReplayingWhatWasRecorded(string hollowGap)
     {
-        var map = "- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] JD phải qua HRBP verify rồi HoD approve mới "
-                  + $"available để assign. còn thiếu: {hollowGap}";
+        var map = CoverageMapFixture.Map("- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] JD phải qua HRBP verify rồi HoD approve mới "
+                  + $"available để assign. còn thiếu: {hollowGap}");
 
         var readiness = RequirementReadinessGate.Evaluate(map);
 
@@ -120,8 +120,8 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public void Evaluate_AGapCarryingRealContent_IsStillAsked()
     {
-        var map = "- Vòng đời & trạng thái: [MỘT PHẦN] JD có trạng thái submit, verify, approve. "
-                  + "còn thiếu: tên chính thức của các trạng thái và điều kiện chuyển giữa chúng";
+        var map = CoverageMapFixture.Map("- Vòng đời & trạng thái: [MỘT PHẦN] JD có trạng thái submit, verify, approve. "
+                  + "còn thiếu: tên chính thức của các trạng thái và điều kiện chuyển giữa chúng");
 
         var readiness = RequirementReadinessGate.Evaluate(map);
 
@@ -131,10 +131,10 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public void Evaluate_CoreGroupAskedBeforeSecondary()
     {
-        var map = """
+        var map = CoverageMapFixture.Map("""
             - Quy mô sử dụng: [CHƯA HỎI]
             - ★ Chức năng & luồng nghiệp vụ chính: [MỘT PHẦN] còn thiếu: luồng duyệt.
-            """;
+            """);
 
         var readiness = RequirementReadinessGate.Evaluate(map);
 
@@ -160,7 +160,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public void Evaluate_AllNotApplicable_IsBrokenMap_NotReady()
     {
-        var readiness = RequirementReadinessGate.Evaluate("- ★ Mục tiêu / bài toán: [KHÔNG ÁP DỤNG] ?");
+        var readiness = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [KHÔNG ÁP DỤNG] ?"));
 
         Assert.False(readiness.Ready);
     }
