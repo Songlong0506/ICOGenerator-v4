@@ -32,27 +32,14 @@ public class Associate
     [MaxLength(255)]
     public string? Email { get; set; }
 
-    [MaxLength(50)]
-    public string? Mobiphone { get; set; }
-
-    public string? PickupAddress { get; set; }
-
     [MaxLength(10)]
     public string? Gender { get; set; }
 
     [MaxLength(255)]
     public string? Position { get; set; }
 
-    public decimal StandardWorkingHour { get; set; }
-
     [MaxLength(50)]
     public string? Costcenter { get; set; }
-
-    [MaxLength(50)]
-    public string? LeadingPerson { get; set; }
-
-    [MaxLength(100)]
-    public string? EmployeeSubGroup { get; set; }
 
     public DateTime? HiredDate { get; set; }
 

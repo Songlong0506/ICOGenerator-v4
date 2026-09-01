@@ -452,7 +452,6 @@ public class AppDbContext : DbContext
         builder.Entity<OrgUnit>().HasIndex(x => x.OrgUnitCode);
         builder.Entity<Associate>(b =>
         {
-            b.Property(x => x.StandardWorkingHour).HasPrecision(18, 2);
             b.HasIndex(x => x.OrgUnitCode);
             b.HasIndex(x => x.GlobalId);
         });

@@ -23,11 +23,6 @@ public class OrgUnit
     public string? CostCenter { get; set; }
 
     [MaxLength(50)]
-    public string? DiscManagerLId { get; set; }
-
-    public string? DisciplinaryResponsible { get; set; }
-
-    [MaxLength(50)]
     public string? OrgUnitCode { get; set; }
 
     [MaxLength(50)]
