@@ -918,13 +918,18 @@ public class BAChatService
         // bỏ là một câu trả lời ("cái này thì không"), nhưng nó không nằm trong sổ câu hỏi nên một câu
         // có/không hỏi riêng đúng chip đó lọt qua phanh trên — xem AskedQuestionHistory.DeclinedChipKeys.
         var declinedChips = AskedQuestionHistory.DeclinedChipKeys(turn.Recent);
+        // …và sổ thứ ba: đuôi của các câu HỎI-VÉT đã hỏi ("…, còn có trường hợp nào khác không?"). Model
+        // phát lại loại câu này bằng cách giữ nguyên khung và thay vế liệt kê, nên nó nằm dưới cả hai
+        // ngưỡng tương đồng — xem AskedQuestionHistory.IsSweepRepeat.
+        var sweepTails = AskedQuestionHistory.SweepTailKeys(turn.AskedBefore);
 
         if (draft.Questions.Count > 0)
         {
             var kept = draft.Questions
                 .Where(q => AskedQuestionHistory.IsExempt(q, reopenedGroups)
                             || (!AskedQuestionHistory.IsRepeat(q.Question, askedKeys)
-                                && !AskedQuestionHistory.AsksAboutDeclinedChip(q.Question, declinedChips)))
+                                && !AskedQuestionHistory.AsksAboutDeclinedChip(q.Question, declinedChips)
+                                && !AskedQuestionHistory.IsSweepRepeat(q.Question, sweepTails)))
                 .ToList();
 
             if (kept.Count == draft.Questions.Count)
@@ -960,13 +965,15 @@ public class BAChatService
             return;
         }
 
-        // "Có chip HOẶC là câu mở" = lượt này thật sự đang HỎI. Trước đây vế đầu là đủ vì mọi câu hỏi
-        // đều bắt buộc kèm chip; từ khi câu mở được phép bỏ chip, chỉ xét chip là để lọt đúng loại câu
-        // đắt nhất (xin lời kể) ra khỏi phanh chống hỏi lại.
-        if ((parsedReply.Suggestions.Count > 0 || parsedReply.OpenEnded)
+        // Lượt này có thật sự đang HỎI không — phép thử DÙNG CHUNG với phía ghi sổ
+        // (AskedQuestionHistory.Collect), và bắt buộc phải dùng chung: hai phía lệch nhau thì cả một lớp
+        // câu hỏi được ghi vào sổ mà không bao giờ bị soi lại. Xem AskedQuestionHistory.IsAskingTurn cho
+        // ca thật. "Chỗ trả lời" ở phía này gồm cả cờ câu-mở, thứ không đọc lại được từ một lượt đã lưu.
+        if (AskedQuestionHistory.IsAskingTurn(draft.Reply, parsedReply.Suggestions.Count > 0 || parsedReply.OpenEnded)
             && !RequirementReadinessGate.IsWriteRequirementInvite(draft.Reply)
             && (AskedQuestionHistory.IsRepeat(draft.Reply, askedKeys)
-                || AskedQuestionHistory.AsksAboutDeclinedChip(draft.Reply, declinedChips)))
+                || AskedQuestionHistory.AsksAboutDeclinedChip(draft.Reply, declinedChips)
+                || AskedQuestionHistory.IsSweepRepeat(draft.Reply, sweepTails)))
         {
             // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
             var (message, openEnded) = BuildFollowUpAfterRepeat(turn.Project.RequirementCoverageMap, turn.Recent);

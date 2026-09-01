@@ -269,6 +269,123 @@ public class AskedQuestionHistoryTests
         Assert.Empty(AskedQuestionHistory.DeclinedChipKeys(turns));
     }
 
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // CÂU HỎI-VÉT ("…, còn có <cái gì> nào KHÁC không?")
+    //
+    // Ca thật (dự án quản lý khóa học bắt buộc — AI Call Log BAChat 2026-09-01). Người dùng vừa trả lời
+    // xong câu vét về các trường hợp đặc biệt; hai lượt sau BA phát lại ĐÚNG khung câu ấy, chỉ thay vế
+    // liệt kê bằng chính câu trả lời vừa nhận. Đo bằng phép thử tương đồng: bao phủ 0.75, Jaccard 0.52 —
+    // dưới CẢ HAI ngưỡng, vì phần đổi chiếm gần nửa số từ. Hạ ngưỡng để bắt nó thì chặn oan hàng loạt câu
+    // đào sâu thật, nên chỗ để bắt là HÌNH DẠNG câu.
+    [Fact]
+    public void IsSweepRepeat_CatchesTheSameSweepQuestionWithADifferentExampleList()
+    {
+        var tails = AskedQuestionHistory.SweepTailKeys(new[]
+        {
+            "Mình đã ghi nhận: tất cả nhân viên trong nhà máy sẽ dùng ứng dụng này. Vậy mình còn một điểm "
+            + "cần làm rõ về các trường hợp đặc biệt: ngoài việc khóa học hết hạn, còn có trường hợp nào khác "
+            + "cần xử lý không? Ví dụ như nhân viên nghỉ việc, chuyển phòng ban, hay khóa học bị hủy..."
+        });
+
+        Assert.True(AskedQuestionHistory.IsSweepRepeat(
+            "Cảm ơn anh/chị. Mình đã ghi nhận: khi còn 1 tháng nữa là hết hạn hiệu lực thì gửi mail nhắc "
+            + "nhở, và cứ cách 1 tuần gửi 1 lần cho đến khi nhân viên hoàn thành khóa học đó. Vậy mình còn một "
+            + "điểm cần làm rõ về các trường hợp đặc biệt khác: ngoài việc nhân viên nghỉ việc và chuyển vai "
+            + "trò, còn có trường hợp nào khác cần xử lý không? Ví dụ như khóa học bị hủy, hay nhân viên "
+            + "chuyển phòng ban...", tails));
+
+        // …và nó nằm ngoài tầm của phép thử tương đồng, nên hai phanh không thay thế nhau được.
+        Assert.False(AskedQuestionHistory.IsRepeat(
+            "Cảm ơn anh/chị. Mình đã ghi nhận: khi còn 1 tháng nữa là hết hạn hiệu lực thì gửi mail nhắc "
+            + "nhở, và cứ cách 1 tuần gửi 1 lần cho đến khi nhân viên hoàn thành khóa học đó. Vậy mình còn một "
+            + "điểm cần làm rõ về các trường hợp đặc biệt khác: ngoài việc nhân viên nghỉ việc và chuyển vai "
+            + "trò, còn có trường hợp nào khác cần xử lý không? Ví dụ như khóa học bị hủy, hay nhân viên "
+            + "chuyển phòng ban...",
+            AskedQuestionHistory.Keys(new[] { "Mình đã ghi nhận: tất cả nhân viên trong nhà máy sẽ dùng ứng dụng này. Vậy mình còn một điểm "
+            + "cần làm rõ về các trường hợp đặc biệt: ngoài việc khóa học hết hạn, còn có trường hợp nào khác "
+            + "cần xử lý không? Ví dụ như nhân viên nghỉ việc, chuyển phòng ban, hay khóa học bị hủy..." })));
+    }
+
+    // Đuôi câu KHÁC nhau ⇒ không phải phát lại. Ca thật cùng buổi đó (lượt 26 → 28): BA hỏi cần báo cáo
+    // gì, người dùng kể hai cái, BA hỏi tiếp "ngoài hai báo cáo này còn cần gì khác không" — đó là câu
+    // vét TIẾP, không phải câu vét CŨ, và nó phải được đi qua.
+    [Fact]
+    public void IsSweepRepeat_DoesNotBlockTheNextSweepOnAnAnswerJustGiven()
+    {
+        var tails = AskedQuestionHistory.SweepTailKeys(new[]
+        {
+            "Vậy ngoài việc theo dõi hạn hiệu lực và gửi email nhắc nhở, anh/chị còn cần những báo cáo "
+            + "hay thống kê nào từ ứng dụng này không?"
+        });
+
+        Assert.False(AskedQuestionHistory.IsSweepRepeat(
+            "Vậy ngoài hai báo cáo này, anh/chị còn cần những báo cáo hay thống kê nào khác không?", tails));
+    }
+
+    [Fact]
+    public void IsSweepRepeat_IgnoresQuestionsThatAreNotSweeps_OrWhoseTailIsTooShortToStandAlone()
+    {
+        // Không mang cụm vét ⇒ đứng ngoài sổ đuôi, dù có dấu phẩy và hỏi cùng chủ đề.
+        Assert.Empty(AskedQuestionHistory.SweepTailKeys(new[]
+        {
+            "Khi nhân viên nghỉ việc, khóa học bắt buộc đã gán chuyển sang trạng thái nào?"
+        }));
+
+        // Có cụm vét nhưng đuôi cụt: "ai xử lý" là đuôi của vô số câu khác hẳn nhau.
+        Assert.Empty(AskedQuestionHistory.SweepTailKeys(new[]
+        {
+            "Ngoài nghỉ việc, còn trường hợp nào khác, ai xử lý?"
+        }));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // LƯỢT PHÁT LẠI RỒI XIN GẬT
+    //
+    // Prompt bắt BA chốt lại điều đã ghi nhận rồi xin xác nhận, và câu xin gật ấy giống nhau ở mọi lượt.
+    // Nó dài hơn ngưỡng "vế hỏi quá ngắn" nên ngưỡng đó không đỡ — lấy nó làm khoá là dựng sẵn một vụ
+    // trùng khoá TUYỆT ĐỐI giữa hai lượt chốt hai điều khác hẳn nhau.
+    [Fact]
+    public void QuestionCore_KeepsTheWholeMessage_WhenTheQuestionClauseOnlyAsksForANod()
+    {
+        var keys = AskedQuestionHistory.Keys(new[]
+        {
+            "Vậy mình chốt lại những gì đã ghi nhận được cho đến giờ: ứng dụng quản lý việc học các khóa "
+            + "bắt buộc; admin cấu hình vai trò và khóa học. Anh/chị thấy mình hiểu vậy đã đúng chưa?"
+        });
+
+        Assert.False(AskedQuestionHistory.IsRepeat(
+            "Vậy mình chốt lại phần nhắc nhở: mail gửi trước hạn 1 tháng, sau đó mỗi tuần một lần cho đến "
+            + "khi học xong. Anh/chị thấy mình hiểu vậy đã đúng chưa?", keys));
+    }
+
+    // Chiều ngược lại: một KỊCH BẢN MẪU hay VÍ DỤ TÍNH THỬ cũng kết bằng cụm xác nhận, nhưng nó CHỞ nội
+    // dung — phát lại nguyên si vẫn phải bị bắt. Đây là ranh giới của điều khoản trên.
+    [Fact]
+    public void QuestionCore_StillComparesAWorkedExampleThatEndsWithTheSameConfirmationCue()
+    {
+        var example = "Ví dụ 23 nhân viên với sĩ số tối thiểu 8 và tối đa 12 thì hệ thống gợi ý mở 2 lớp — "
+            + "đúng cách anh/chị tính không?";
+
+        Assert.True(AskedQuestionHistory.IsRepeat(example, AskedQuestionHistory.Keys(new[] { example })));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // HAI PHÍA CỦA PHANH PHẢI DÙNG CHUNG MỘT PHÉP THỬ "lượt này có HỎI không"
+    //
+    // Phía ghi sổ nhận diện bằng "có chip HOẶC có dấu hỏi", phía đối chiếu từng dùng "có chip HOẶC là câu
+    // mở" — mà cờ câu-mở chỉ bật khi câu chứa một cụm xin-kể. Cả một lớp câu hỏi (không chip, không cụm
+    // xin-kể) vì thế vào được sổ nhưng không bao giờ bị soi lại. Ca thật: chính câu vét ở trên.
+    [Fact]
+    public void IsAskingTurn_CountsAChiplessQuestion_ButNotASummary()
+    {
+        Assert.True(AskedQuestionHistory.IsAskingTurn(
+            "Vậy ngoài việc khóa học hết hạn, còn có trường hợp nào khác cần xử lý không?", false));
+        Assert.True(AskedQuestionHistory.IsAskingTurn("Mình đã ghi nhận đủ rồi.", true));
+        Assert.False(AskedQuestionHistory.IsAskingTurn("Mình tóm tắt lại: app theo dõi hạn hiệu lực.", false));
+        Assert.False(AskedQuestionHistory.IsAskingTurn(null, false));
+    }
+
     [Fact]
     public void BuildNote_ListsRecentQuestions_AndIsEmptyWhenNothingWasAsked()
     {
