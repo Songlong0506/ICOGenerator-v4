@@ -212,6 +212,38 @@ public class BAChatRepeatedQuestionTests : IDisposable
         Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply, StringComparison.Ordinal);
     }
 
+    // CA THẬT (dự án quản lý khóa học bắt buộc — AI Call Log BAChat 2026-09-01, lượt 38 và lượt cuối).
+    // Hai lỗ hổng chồng lên nhau, và đây là chỗ chúng gặp nhau:
+    //   1. Câu hỏi KHÔNG chip và không mang cụm xin-kể ⇒ cờ "câu mở" không bật ⇒ phanh không chạy lần
+    //      nào, dù câu đó vẫn được ghi vào sổ "đã hỏi". Gần một nửa số lượt của buổi đó có hình dạng này.
+    //   2. Kể cả khi chạy, phép thử tương đồng cũng hụt: model giữ nguyên khung câu VÉT và chỉ thay vế
+    //      liệt kê bằng chính câu trả lời vừa nhận (bao phủ 0.75 / Jaccard 0.52 — dưới cả hai ngưỡng).
+    [Fact]
+    public async Task AChiplessSweepQuestion_IsCaught_EvenWhenTheExampleListChanged()
+    {
+        await SeedAskedSweepQuestionAsync();
+
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Cảm ơn anh/chị. Mình đã ghi nhận: khi còn 1 tháng nữa là hết hạn hiệu lực thì gửi "
+                    + "mail nhắc nhở, và cứ cách 1 tuần gửi 1 lần cho đến khi nhân viên hoàn thành khóa học đó. "
+                    + "Vậy mình còn một điểm cần làm rõ về các trường hợp đặc biệt khác: ngoài việc nhân viên "
+                    + "nghỉ việc và chuyển vai trò, còn có trường hợp nào khác cần xử lý không? Ví dụ như khóa "
+                    + "học bị hủy, hay nhân viên chuyển phòng ban..."
+            }
+        };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(
+            _projectId, "khi thời hạn hiệu lực còn 1 tháng thì gửi mail nhắc nhở, và cứ cách 1 tuần gửi 1 lần");
+
+        Assert.DoesNotContain("còn có trường hợp nào khác cần xử lý không", result.Reply, StringComparison.Ordinal);
+        // Thay bằng bước kế tiếp suy TẤT ĐỊNH từ bản đồ — không im lặng, không câu dẫn cụt.
+        Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply, StringComparison.Ordinal);
+    }
+
     // …và nửa còn lại của phanh: câu mở đã hỏi phải NẰM TRONG ngữ cảnh gửi lên model, không chỉ bị lọc
     // sau khi model lỡ hỏi lại.
     [Fact]
@@ -348,6 +380,35 @@ public class BAChatRepeatedQuestionTests : IDisposable
             Message = $"- {AskedRoles}: Phòng bảo vệ xem dashboard, phòng nhân sự xem history\n"
                       + $"- {AskedNotify}: Gọi điện cho nhân viên, không được thì gọi manager",
             CreatedAt = baseTime.AddSeconds(2)
+        });
+        await db.SaveChangesAsync();
+    }
+
+    // Hội thoại nền cho ca câu HỎI-VÉT: BA hỏi vét các trường hợp đặc biệt — KHÔNG chip, đúng như lượt
+    // thật — và người dùng chỉ trả lời được hai trong ba ca mà chính BA nêu ví dụ.
+    private async Task SeedAskedSweepQuestionAsync()
+    {
+        await using var db = NewDb();
+        var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId,
+            AgentId = _baId,
+            Role = "assistant",
+            Message = "Mình đã ghi nhận: tất cả nhân viên trong nhà máy sẽ dùng ứng dụng này. Vậy mình còn một "
+                + "điểm cần làm rõ về các trường hợp đặc biệt: ngoài việc khóa học hết hạn, còn có trường hợp "
+                + "nào khác cần xử lý không? Ví dụ như nhân viên nghỉ việc, chuyển phòng ban, hay khóa học bị hủy...",
+            CreatedAt = baseTime
+        });
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId,
+            AgentId = _baId,
+            Role = "user",
+            Message = "nhân viên nghỉ việc thì khóa học bắt buộc chuyển thành \"Đóng\", nhân viên chuyển vai "
+                + "trò thì gán khóa mới theo vai trò mới",
+            CreatedAt = baseTime.AddSeconds(1)
         });
         await db.SaveChangesAsync();
     }
