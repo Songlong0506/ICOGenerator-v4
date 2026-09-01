@@ -78,7 +78,7 @@ public class StartNewChatUseCaseTests : IDisposable
             ConversationSummary = "summary cũ",
             SummarizedTurnCount = 15,
             UserMemoryHarvestedTurnCount = 10,
-            RequirementCoverageMap = "- ★ Mục tiêu / bài toán: [RÕ] app kho",
+            RequirementCoverageMap = CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] app kho"),
             CoverageHarvestedTurnCount = 12
         };
         var other = new Project

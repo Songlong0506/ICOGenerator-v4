@@ -16,12 +16,12 @@ public class CoverageMapParserTests
     [Fact]
     public void Parse_StandardMap_ReadsStatusCoreAndSummary()
     {
-        var map = """
+        var map = CoverageMapFixture.Map("""
             - ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn nghỉ phép
             - ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] Nhân viên + quản lý; còn thiếu: admin?
             - Báo cáo / thống kê: [CHƯA HỎI]
             - Phân quyền theo nghiệp vụ: [KHÔNG ÁP DỤNG] ứng dụng cá nhân
-            """;
+            """);
 
         var items = CoverageMapParser.Parse(map);
 
@@ -39,7 +39,7 @@ public class CoverageMapParserTests
     [Fact]
     public void Parse_IgnoresProseLinesAroundMap()
     {
-        var map = "Đây là bản đồ:\n- ★ Mục tiêu / bài toán: [RÕ] ok\nHết.";
+        var map = CoverageMapFixture.Map("Đây là bản đồ:\n- ★ Mục tiêu / bài toán: [RÕ] ok\nHết.");
 
         var items = CoverageMapParser.Parse(map);
 
@@ -51,11 +51,11 @@ public class CoverageMapParserTests
     [Fact]
     public void Progress_KeepsTotalAsDenominatorAndCountsNotApplicable()
     {
-        var items = CoverageMapParser.Parse("""
+        var items = CoverageMapParser.Parse(CoverageMapFixture.Map("""
             - A: [RÕ] x
             - B: [MỘT PHẦN] y
             - C: [KHÔNG ÁP DỤNG] z
-            """);
+            """));
 
         var progress = CoverageMapParser.Progress(items);
 
@@ -71,11 +71,11 @@ public class CoverageMapParserTests
     [Fact]
     public void Percent_FullWhenEveryApplicableGroupIsClear()
     {
-        var map = """
+        var map = CoverageMapFixture.Map("""
             - A: [RÕ] x
             - B: [RÕ] y
             - C: [KHÔNG ÁP DỤNG] z
-            """;
+            """);
         var items = CoverageMapParser.Parse(map);
 
         Assert.Equal(100, CoverageMapParser.Progress(items).Percent);
@@ -146,49 +146,14 @@ public class CoverageMapParserTests
         Assert.Empty(CoverageMapParser.Parse("{}"));
     }
 
-    // ── Tương thích ngược: bản đồ dạng text còn nằm trong DB ──────────────────────────────────────────
-
-    // Dự án tạo trước lần đổi format vẫn phải đọc được, và phần "còn thiếu:" nhồi trong tóm tắt phải tách
-    // đúng ra trường Gap — nếu không, cổng readiness mất câu chặn của mọi dự án cũ trong đúng một lần deploy.
-    [Fact]
-    public void Parse_LegacyText_SplitsKnownFromGapAndEvidence()
-    {
-        var items = CoverageMapParser.Parse(
-            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] Có 3 vai trò. còn thiếu: mỗi vai trò làm được gì "
-            + "{nguồn: \"nhân viên, quản lý, HR\"}");
-
-        var item = Assert.Single(items);
-        Assert.True(item.IsCore);
-        Assert.Equal("MỘT PHẦN", item.Status);
-        Assert.Equal("Có 3 vai trò.", item.Known);
-        Assert.Equal("mỗi vai trò làm được gì", item.Gap);
-        Assert.Equal("\"nhân viên, quản lý, HR\"", item.Evidence);
-    }
-
-    // Đường nâng cấp: đọc bản đồ cũ rồi ghi lại là đã sang JSON, không cần một bước migration nào chạm DB.
-    [Fact]
-    public void LegacyText_UpgradesToJson_WithoutLosingAnything()
-    {
-        const string legacy = "- ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn nghỉ phép. {nguồn: \"app xin nghỉ\"}";
-
-        var json = CoverageMapParser.Serialize(CoverageMapParser.Parse(legacy));
-
-        Assert.StartsWith("{", json, StringComparison.Ordinal);
-        var item = Assert.Single(CoverageMapParser.Parse(json));
-        Assert.Equal("Mục tiêu / bài toán", item.Label);
-        Assert.Equal("RÕ", item.Status);
-        Assert.Equal("Quản lý đơn nghỉ phép.", item.Known);
-        Assert.Equal("\"app xin nghỉ\"", item.Evidence);
-    }
-
     // ToText dựng lại đúng 12 dòng mà BA đọc trong ngữ cảnh chat (bản đồ lưu JSON, nạp vào prompt dạng
     // bullet — xem BAChatPromptBlocks.CoverageMap). Mất khối {nguồn: …} ở đây là mất bằng chứng khỏi cả
     // ngữ cảnh chat lẫn bản xuất hội thoại.
     [Fact]
     public void ToText_RendersTheBulletFormTheBaReads()
     {
-        var text = CoverageMapParser.ToText(CoverageMapParser.Parse(
-            "- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn. còn thiếu: ai duyệt {nguồn: \"app xin nghỉ\"}"));
+        var text = CoverageMapParser.ToText(CoverageMapParser.Parse(CoverageMapFixture.Map(
+            "- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn. còn thiếu: ai duyệt {nguồn: \"app xin nghỉ\"}")));
 
         Assert.Equal(
             "- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn. còn thiếu: ai duyệt {nguồn: \"app xin nghỉ\"}",

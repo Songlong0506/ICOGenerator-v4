@@ -1,8 +1,8 @@
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using ICOGenerator.Contracts.Requirements;
+using ICOGenerator.Services.Llm;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -42,19 +42,19 @@ public readonly record struct CoverageProgress(int Clear, int Applicable, int To
 /// </para>
 ///
 /// <para>
-/// <b>Tương thích ngược, không cần migration.</b> Dự án tạo trước lần đổi format còn giữ bản đồ dạng
-/// text trong DB. <see cref="Parse"/> tự nhận dạng: chuỗi mở đầu bằng <c>{</c> là JSON, còn lại đọc bằng
-/// đường text cũ (<see cref="ParseLegacyText"/>) — cùng regex, cùng cách tách <c>còn thiếu:</c> và
-/// <c>{nguồn: …}</c> như trước. Lượt distill kế tiếp ghi đè bằng JSON, nên bản đồ cũ tự chuyển dần sang
-/// format mới mà không có bước migration nào chạm vào DB.
+/// <b>Chỉ đọc JSON.</b> Đây là parser của bản đồ ĐÃ LƯU, nên nó không cần biết gì về văn xuôi model trả
+/// về: lượt distill lấy JSON qua structured output, và nhánh dự phòng khi model không nhận
+/// <c>response_format</c> nằm ở <c>RequirementCoverageService</c>, dùng <c>LlmJson</c> như mọi đường
+/// "parse tay" khác của repo. Chiều ngược lại — dựng 12 dòng bullet cho prompt và bản xuất — là
+/// <see cref="ToText"/>.
 /// </para>
 ///
 /// <para>
-/// Chịu lỗi ở mọi đường: JSON hỏng / text không đúng dạng ⇒ bỏ qua phần không đọc được, map rỗng ⇒ danh
-/// sách rỗng (panel ẩn, cổng readiness báo "chưa tổng hợp được bản đồ"). Không ném lên khung chat.
+/// Chịu lỗi: JSON hỏng ⇒ danh sách rỗng (panel ẩn, cổng readiness báo "chưa tổng hợp được bản đồ").
+/// Không ném lên khung chat.
 /// </para>
 /// </summary>
-public static partial class CoverageMapParser
+public static class CoverageMapParser
 {
     /// <summary>
     /// Không escape non-ASCII: bản đồ toàn tiếng Việt, mà mặc định của System.Text.Json biến mỗi chữ có
@@ -68,16 +68,35 @@ public static partial class CoverageMapParser
         WriteIndented = false
     };
 
+    /// <summary>Đọc bản đồ đã lưu thành danh sách dòng. Rỗng/không đọc được ⇒ danh sách rỗng.</summary>
+    public static IReadOnlyList<CoverageMapItem> Parse(string? coverageMap) =>
+        string.IsNullOrWhiteSpace(coverageMap)
+            ? Array.Empty<CoverageMapItem>()
+            : ToItems(LlmJson.TryDeserialize<CoverageMapDocument>(coverageMap));
+
     /// <summary>
-    /// Đọc bản đồ (JSON, hoặc text của format cũ) thành danh sách dòng. Rỗng/không đọc được ⇒ danh sách rỗng.
+    /// Chuẩn hoá một <see cref="CoverageMapDocument"/> (đọc từ DB hoặc do structured output trả về) thành
+    /// các dòng bản đồ: trim, chuẩn hoá trạng thái, bỏ dòng không có nhãn. Mở cho
+    /// <c>RequirementCoverageService</c> để đường structured output và đường đọc DB dùng CHUNG một bộ
+    /// chuẩn hoá — hai bản sao là hai thứ trôi lệch nhau.
     /// </summary>
-    public static IReadOnlyList<CoverageMapItem> Parse(string? coverageMap)
+    public static IReadOnlyList<CoverageMapItem> ToItems(CoverageMapDocument? doc)
     {
-        if (string.IsNullOrWhiteSpace(coverageMap))
+        if (doc?.Items == null)
             return Array.Empty<CoverageMapItem>();
 
-        var text = coverageMap.Trim();
-        return text.StartsWith('{') ? ParseJson(text) : ParseLegacyText(text);
+        return doc.Items
+            .Where(x => !string.IsNullOrWhiteSpace(x.Label))
+            .Select(x => new CoverageMapItem
+            {
+                Label = x.Label.Trim(),
+                IsCore = x.Core,
+                Status = NormalizeStatus(x.Status),
+                Known = (x.Known ?? string.Empty).Trim(),
+                Gap = (x.Gap ?? string.Empty).Trim(),
+                Evidence = (x.Evidence ?? string.Empty).Trim()
+            })
+            .ToList();
     }
 
     /// <summary>Ghi danh sách dòng thành JSON để lưu vào <c>Project.RequirementCoverageMap</c>.</summary>
@@ -126,95 +145,8 @@ public static partial class CoverageMapParser
         Applicable: items.Count(x => x.Status != "KHÔNG ÁP DỤNG"),
         Total: items.Count);
 
-    private static IReadOnlyList<CoverageMapItem> ParseJson(string json)
-    {
-        CoverageMapDocument? doc;
-        try
-        {
-            doc = JsonSerializer.Deserialize<CoverageMapDocument>(json, SerializerOptions);
-        }
-        catch (JsonException)
-        {
-            // Bản đồ hỏng cú pháp (model bị cắt giữa chừng, ghi lỗi) ⇒ coi như chưa có bản đồ. Cùng cách
-            // fail-open với text cũ: panel ẩn, cổng readiness nói chưa tổng hợp được, lượt sau gộp bù.
-            return Array.Empty<CoverageMapItem>();
-        }
-
-        if (doc?.Items == null)
-            return Array.Empty<CoverageMapItem>();
-
-        return doc.Items
-            .Where(x => !string.IsNullOrWhiteSpace(x.Label))
-            .Select(x => new CoverageMapItem
-            {
-                Label = x.Label.Trim(),
-                IsCore = x.Core,
-                Status = NormalizeStatus(x.Status),
-                Known = (x.Known ?? string.Empty).Trim(),
-                Gap = (x.Gap ?? string.Empty).Trim(),
-                Evidence = (x.Evidence ?? string.Empty).Trim()
-            })
-            .ToList();
-    }
-
-    /// <summary>
-    /// Đường TƯƠNG THÍCH NGƯỢC: đọc bản đồ dạng text của format cũ còn nằm trong DB. Giữ nguyên cách đọc
-    /// trước đây — bóc <c>{nguồn: …}</c> ở cuối, rồi tách phần đã ghi nhận với phần <c>còn thiếu:</c> —
-    /// nên một bản đồ cũ cho ra đúng các dòng như trước lần đổi format.
-    /// </summary>
-    private static IReadOnlyList<CoverageMapItem> ParseLegacyText(string coverageMap)
-    {
-        var items = new List<CoverageMapItem>();
-        foreach (var raw in coverageMap.Replace("\r\n", "\n").Split('\n'))
-        {
-            var match = CoverageLineRegex().Match(raw.Trim());
-            if (!match.Success)
-                continue;
-
-            var (summary, evidence) = SplitEvidence(match.Groups["summary"].Value.Trim());
-            var (known, gap) = SplitGap(summary);
-
-            items.Add(new CoverageMapItem
-            {
-                IsCore = match.Groups["core"].Success,
-                Label = match.Groups["label"].Value.Trim(),
-                Status = NormalizeStatus(match.Groups["status"].Value),
-                Known = known,
-                Gap = gap,
-                Evidence = evidence
-            });
-        }
-
-        return items;
-    }
-
-    /// <summary>
-    /// Tách khối bằng chứng "{nguồn: …}" ở CUỐI tóm tắt của format text cũ. Không có khối ⇒ trả nguyên
-    /// tóm tắt + bằng chứng rỗng.
-    /// </summary>
-    public static (string Summary, string Evidence) SplitEvidence(string summary)
-    {
-        var match = EvidenceRegex().Match(summary ?? string.Empty);
-        return match.Success
-            ? (summary![..match.Index].Trim(), match.Groups["evidence"].Value.Trim())
-            : (summary ?? string.Empty, string.Empty);
-    }
-
-    /// <summary>
-    /// Tách phần đã ghi nhận với phần "còn thiếu: …" trong tóm tắt của format text cũ. Không có dấu ngăn
-    /// ⇒ tất cả là phần đã ghi nhận.
-    /// </summary>
-    public static (string Known, string Gap) SplitGap(string summary)
-    {
-        var text = (summary ?? string.Empty).Trim();
-        var at = text.IndexOf(CoverageMapItem.GapMarker, StringComparison.OrdinalIgnoreCase);
-        return at < 0
-            ? (text, string.Empty)
-            : (text[..at].Trim(), text[(at + CoverageMapItem.GapMarker.Length)..].Trim());
-    }
-
     /// <summary>Chuẩn hoá tên trạng thái của một dòng; giá trị lạ ⇒ [CHƯA HỎI].</summary>
-    internal static string NormalizeStatus(string? raw)
+    private static string NormalizeStatus(string? raw)
     {
         var status = (raw ?? string.Empty).Trim().ToUpperInvariant();
         return status switch
@@ -225,12 +157,4 @@ public static partial class CoverageMapParser
             _ => "CHƯA HỎI"
         };
     }
-
-    // "- ★ Mục tiêu / bài toán: [RÕ] tóm tắt…" — format CŨ, chỉ còn dùng ở đường tương thích ngược.
-    [GeneratedRegex(@"^-\s*(?<core>★)?\s*(?<label>[^:\[\]]+):\s*\[(?<status>[^\]]+)\]\s*(?<summary>.*)$")]
-    private static partial Regex CoverageLineRegex();
-
-    // Khối bằng chứng ở cuối tóm tắt: "{nguồn: người dùng nói 'quản lý duyệt là xong'}".
-    [GeneratedRegex(@"\{\s*(?:nguồn|nguon|source)\s*:\s*(?<evidence>[^}]*)\}\s*$", RegexOptions.IgnoreCase)]
-    private static partial Regex EvidenceRegex();
 }

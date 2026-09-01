@@ -27,7 +27,7 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
     private const string ScreenList = "Màn hình quản lý danh sách JD trong nhà máy";
     private const string ScreenCreate = "Tính năng tạo và cập nhật JD";
 
-    private const string Coverage = """
+    private static readonly string Coverage = CoverageMapFixture.Map("""
         - ★ Mục tiêu / bài toán: [RÕ] Quản lý JD. {nguồn: "quản lý JD trong nhà máy"}
         - ★ Đối tượng người dùng & vai trò: [RÕ] Manager lập, HRBP verify. {nguồn: "Manager lập, HRBP verify"}
         - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo JD, submit, duyệt. {nguồn: "Đúng luồng này"}
@@ -36,7 +36,7 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
         - Vòng đời & trạng thái: [RÕ] Draft → Chờ duyệt → Available. {nguồn: "duyệt xong là dùng được"}
         - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: "hiện tại chưa cần"}
         - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
-        """;
+        """);
 
     private const string ConfirmedFlow = """
         [{"name":"Tạo JD","kind":"luồng chính","role":"Manager","steps":[

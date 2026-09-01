@@ -14,10 +14,10 @@ namespace ICOGenerator.Tests.Requirements;
 // sách này) mù suốt buổi đó.
 public class DecisionUnderHarvestGuardTests
 {
-    private const string MapWithEvidence =
-        "- ★ Mục tiêu / bài toán: [RÕ] App quản lý danh sách JD trong nhà máy. {nguồn: \"đây là app để quản lý danh sách JD ở trong nhà máy\"}\n"
+    private static readonly string MapWithEvidence =
+        CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] App quản lý danh sách JD trong nhà máy. {nguồn: \"đây là app để quản lý danh sách JD ở trong nhà máy\"}\n"
         + "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] HRBP gán JD. còn thiếu: mỗi vai trò làm/xem được gì {nguồn: \"HRBP là người gán JD cho nhân viên\"}\n"
-        + "- Báo cáo / thống kê: [CHƯA HỎI]";
+        + "- Báo cáo / thống kê: [CHƯA HỎI]");
 
     private static readonly string[] BatchUserTurns =
     {
@@ -81,7 +81,7 @@ public class DecisionUnderHarvestGuardTests
     {
         // {nguồn: bảng phân quyền người dùng đã chốt} là MÔ TẢ hợp lệ, không phải câu người dùng nói —
         // nó không nằm trong lượt nào nên không được dùng làm căn cứ nghi ngờ.
-        var map = "- Phân quyền theo nghiệp vụ: [RÕ] Bốn vai trò. {nguồn: bảng phân quyền người dùng đã chốt}";
+        var map = CoverageMapFixture.Map("- Phân quyền theo nghiệp vụ: [RÕ] Bốn vai trò. {nguồn: bảng phân quyền người dùng đã chốt}");
 
         var result = DecisionUnderHarvestGuard.Check(
             map, BatchUserTurns, "- Nhật ký cũ", "- Nhật ký cũ");
@@ -93,7 +93,7 @@ public class DecisionUnderHarvestGuardTests
     public void ShortEvidence_IsIgnored()
     {
         // "có" / "tất cả" trùng nhau ở mọi buổi phỏng vấn — dưới ngưỡng thì không kết luận gì.
-        var map = "- Quy mô sử dụng: [RÕ] Trên 100 người. {nguồn: \"có\"}";
+        var map = CoverageMapFixture.Map("- Quy mô sử dụng: [RÕ] Trên 100 người. {nguồn: \"có\"}");
 
         var result = DecisionUnderHarvestGuard.Check(
             map, new[] { "Có, bên mình có khoảng 100 người dùng ứng dụng này." },
@@ -107,7 +107,7 @@ public class DecisionUnderHarvestGuardTests
     {
         // Model trích lại gần đúng chứ hiếm khi đúng từng ký tự: khác dấu phẩy, khác khoảng trắng, khác
         // hoa thường thì vẫn phải khớp — nếu không guard sẽ im lặng đúng lúc cần nói.
-        var map = "- ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Quản lý duyệt là xong. {nguồn: \"quản lý duyệt xong là đơn khoá luôn,\"}";
+        var map = CoverageMapFixture.Map("- ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Quản lý duyệt là xong. {nguồn: \"quản lý duyệt xong là đơn khoá luôn,\"}");
 
         var result = DecisionUnderHarvestGuard.Check(
             map,

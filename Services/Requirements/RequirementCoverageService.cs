@@ -246,29 +246,15 @@ public class RequirementCoverageService
         if (!result.IsSuccess)
             return null;
 
-        var items = value != null
-            ? CoverageMapParser.Parse(CoverageMapParser.Serialize(ToItems(value)))
-            : CoverageMapParser.Parse(result.Content);
+        // Value null ⇒ endpoint không nhận response_format (hoặc trả thứ không đọc được): bóc JSON khỏi
+        // văn xuôi bằng LlmJson — đúng đường "parse tay" mà mọi service khác của repo dùng, và nó lo luôn
+        // hàng rào ```json lẫn câu dẫn quanh object.
+        var items = CoverageMapParser.ToItems(value ?? LlmJson.TryDeserialize<CoverageMapDocument>(result.Content));
 
         // Không đọc ra dòng nào ⇒ coi như lời gọi hỏng: caller fail-open (giữ bản đồ cũ, không dời con trỏ)
         // và thử lại một lần. Ghi đè bản đồ đang có bằng một bản rỗng là xoá trắng tiến độ khai thác.
         return items.Count == 0 ? null : CoverageMapParser.Serialize(Cap(items));
     }
-
-    // Chuẩn hoá phần model trả về thành các dòng bản đồ. Đi vòng qua Serialize/Parse để mọi đường vào đều
-    // qua đúng một bộ chuẩn hoá trạng thái + trim, thay vì hai bản sao dễ trôi lệch nhau.
-    private static List<CoverageMapItem> ToItems(CoverageMapDocument doc) =>
-        (doc.Items ?? new List<CoverageMapEntry>())
-            .Select(x => new CoverageMapItem
-            {
-                Label = x.Label ?? string.Empty,
-                IsCore = x.Core,
-                Status = x.Status ?? string.Empty,
-                Known = x.Known ?? string.Empty,
-                Gap = x.Gap ?? string.Empty,
-                Evidence = x.Evidence ?? string.Empty
-            })
-            .ToList();
 
     /// <summary>
     /// Chặn trên độ dài bản đồ, cắt theo TRƯỜNG chứ không cắt chuỗi JSON. Bản cũ cắt thẳng

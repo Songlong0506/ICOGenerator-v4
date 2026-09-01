@@ -1473,10 +1473,13 @@ chứng trong im lặng, mà bằng chứng lại là thứ duy nhất cho ngư�
 chúng chỉ gán thuộc tính rồi serialize. `RequirementReadinessGate` cũng thôi bóc câu chặn bằng
 `IndexOf("còn thiếu:")` — nó đọc thẳng trường `gap`.
 
-**Tương thích ngược, không có bước migration.** `CoverageMapParser.Parse` tự nhận dạng: chuỗi mở đầu
-bằng `{` là JSON, còn lại đọc bằng đường text cũ (cùng regex, cùng cách tách `còn thiếu:` và
-`{nguồn: …}`). Dự án tạo trước lần đổi format vẫn đọc được nguyên vẹn, và lượt distill kế tiếp ghi đè
-bằng JSON — bản đồ cũ tự chuyển dần mà không có script nào chạm vào DB.
+**Chỉ còn MỘT format.** `CoverageMapParser` đọc và ghi JSON, không còn đường đọc bản đồ text nào —
+đừng đi tìm nó, nó đã bị gỡ cùng lần đổi format (DB được dựng lại từ đầu nên không còn bản đồ cũ nào để
+đọc). Nhánh dự phòng khi model không nhận `response_format` nằm ở `RequirementCoverageService` và dùng
+`LlmJson.TryDeserialize` như mọi đường "parse tay" khác của repo, nên nó lo luôn hàng rào ```json và câu
+dẫn quanh object. Test dựng bản đồ bằng `CoverageMapFixture` — một DSL của test viết ở dạng bullet cho
+dễ đọc rồi chuyển sang JSON, và `CoverageMapFixtureTests` chốt nó khớp với `ToText` để fixture không
+trôi khỏi format thật.
 
 **Prompt và panel vẫn thấy 12 dòng bullet.** `CoverageMapParser.ToText` dựng lại đúng dạng cũ cho ngữ
 cảnh chat của BA (`BAChatPromptBlocks.CoverageMap`) và cho bản xuất hội thoại: JSON là format lưu trữ vì

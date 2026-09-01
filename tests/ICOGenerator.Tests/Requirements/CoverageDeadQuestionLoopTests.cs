@@ -51,10 +51,10 @@ public class CoverageDeadQuestionLoopTests
     [Fact]
     public void PendingQuestion_AsksTheMissingPart_NotTheInternalGroupLabel()
     {
-        var readiness = RequirementReadinessGate.Evaluate("""
+        var readiness = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map("""
             - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học. {nguồn: "lên kế hoạch các lớp học"}
             - Dữ liệu / danh mục chính: [MỘT PHẦN] Master List gồm 6 cột đã chốt; còn thiếu: ai quản lý danh mục khóa học của ứng dụng.
-            """);
+            """));
 
         Assert.False(readiness.Ready);
 
@@ -76,10 +76,10 @@ public class CoverageDeadQuestionLoopTests
     [Fact]
     public void PendingQuestion_FallsBackToAnOpeningQuestion_WhenNothingWasAskedYet()
     {
-        var readiness = RequirementReadinessGate.Evaluate("""
+        var readiness = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map("""
             - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học. {nguồn: "lên kế hoạch các lớp học"}
             - Thông báo / nhắc nhở: [CHƯA HỎI]
-            """);
+            """));
 
         Assert.False(readiness.Ready);
         Assert.Equal(CoverageGroupOpeners.Find("Thông báo / nhắc nhở"), readiness.Message);
@@ -95,9 +95,9 @@ public class CoverageDeadQuestionLoopTests
     [Fact]
     public void PendingQuestion_DropsTheReopenBookkeeping()
     {
-        var readiness = RequirementReadinessGate.Evaluate($"""
+        var readiness = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map($"""
             - ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: {AskedQuestionHistory.ReopenNote} — cần hỏi lại và chốt lại. (ghi nhận trước đó: trưởng phòng duyệt đơn)
-            """);
+            """));
 
         Assert.False(readiness.Ready);
         Assert.DoesNotContain("ghi nhận trước đó", readiness.Message, StringComparison.Ordinal);
@@ -113,9 +113,9 @@ public class CoverageDeadQuestionLoopTests
     [Fact]
     public void PendingQuestion_AsksTheGapWrittenAfterTheReopenMarker()
     {
-        var readiness = RequirementReadinessGate.Evaluate($"""
+        var readiness = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map($"""
             - ★ Chức năng & luồng nghiệp vụ chính: [MỘT PHẦN] còn thiếu: {AskedQuestionHistory.ReopenNote} — cần hỏi lại và chốt lại. MyJD có nằm trong phạm vi màn hình không. (ghi nhận trước đó: phạm vi không có MyJD)
-            """);
+            """));
 
         Assert.False(readiness.Ready);
         Assert.Contains("MyJD có nằm trong phạm vi màn hình không", readiness.Message, StringComparison.Ordinal);
@@ -162,10 +162,10 @@ public class CoverageDeadQuestionLoopTests
     [Fact]
     public void PendingQuestion_AsksTheGroupsOwnOpeningQuestion_WhenNothingWasAskedYet()
     {
-        var readiness = RequirementReadinessGate.Evaluate("""
+        var readiness = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map("""
             - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học. {nguồn: "lên kế hoạch các lớp học"}
             - Quy mô sử dụng: [CHƯA HỎI]
-            """);
+            """));
 
         Assert.Contains(CoverageGroupOpeners.Find("Quy mô sử dụng")!, readiness.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("phần này", readiness.Message, StringComparison.OrdinalIgnoreCase);
@@ -177,9 +177,9 @@ public class CoverageDeadQuestionLoopTests
     [Fact]
     public void PendingQuestion_PlaysBackWhatWasRecorded_WhenTheDistillerWroteNoGap()
     {
-        var readiness = RequirementReadinessGate.Evaluate("""
+        var readiness = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map("""
             - Thông báo / nhắc nhở: [MỘT PHẦN] Đã chốt To HOD của đơn vị, CC người tạo khi JD chờ HRBP verify.
-            """);
+            """));
 
         Assert.False(readiness.Ready);
         Assert.Contains("Đã chốt To HOD của đơn vị, CC người tạo khi JD chờ HRBP verify", readiness.Message, StringComparison.Ordinal);
@@ -193,9 +193,9 @@ public class CoverageDeadQuestionLoopTests
     [Fact]
     public void PlaybackDropsTheMachineBookkeeping()
     {
-        var readiness = RequirementReadinessGate.Evaluate($"""
+        var readiness = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map($"""
             - Vòng đời & trạng thái: [MỘT PHẦN] Đơn đi qua Chờ duyệt và Đã duyệt. {AskedQuestionHistory.ReopenNote} (ghi nhận trước đó: chỉ có hai trạng thái)
-            """);
+            """));
 
         Assert.Contains("Đơn đi qua Chờ duyệt và Đã duyệt", readiness.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("ghi nhận trước đó", readiness.Message, StringComparison.Ordinal);
@@ -211,7 +211,8 @@ public class CoverageDeadQuestionLoopTests
     {
         foreach (var group in CoverageChecklist.Parse(CoveragePromptFixture.Read()))
         {
-            var readiness = RequirementReadinessGate.Evaluate($"- {group.Label}: {status}");
+            var readiness = RequirementReadinessGate.Evaluate(
+                CoverageMapFixture.Map($"- {group.Label}: {status}"));
 
             Assert.False(readiness.Ready);
             Assert.Contains(CoverageGroupOpeners.Find(group.Label)!, readiness.Message, StringComparison.Ordinal);
@@ -225,7 +226,7 @@ public class CoverageDeadQuestionLoopTests
     [Fact]
     public void AnUnknownGroupLabelStillGetsAnAnswerableTurn()
     {
-        var readiness = RequirementReadinessGate.Evaluate("- Tích hợp hệ thống ngoài: [CHƯA HỎI]");
+        var readiness = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map("- Tích hợp hệ thống ngoài: [CHƯA HỎI]"));
 
         Assert.False(readiness.Ready);
         Assert.Contains("tích hợp hệ thống ngoài", readiness.Message, StringComparison.Ordinal);
@@ -241,10 +242,10 @@ public class CoverageDeadQuestionLoopTests
     // lượt đó có GỢI Ý, mà lượt chặn của cổng cố tình không có chip nào — nên câu của cổng vô hình với đúng
     // cái phanh dựng ra để chặn hỏi lại. Cổng vì thế giữ sổ riêng, dò bằng chính CÂU HỎI nó dựng ra.
 
-    private const string TwoPendingGroups = """
+    private static readonly string TwoPendingGroups = CoverageMapFixture.Map("""
         - ★ Chức năng & luồng nghiệp vụ chính: [CHƯA HỎI]
         - Quy mô sử dụng: [CHƯA HỎI]
-        """;
+        """);
 
     private static AgentConversation BaTurn(string message) => new() { Role = "assistant", Message = message };
 
@@ -292,7 +293,7 @@ public class CoverageDeadQuestionLoopTests
     [Fact]
     public void WithASinglePendingGroup_TheSecondAskIsStillWordedDifferently()
     {
-        const string oneGroup = "- Quy mô sử dụng: [CHƯA HỎI]";
+        var oneGroup = CoverageMapFixture.Map("- Quy mô sử dụng: [CHƯA HỎI]");
         var first = RequirementReadinessGate.Evaluate(oneGroup);
 
         var second = RequirementReadinessGate.Evaluate(oneGroup, new[] { BaTurn(first.Message) });
@@ -309,7 +310,7 @@ public class CoverageDeadQuestionLoopTests
     [Fact]
     public void LastAskedAt_ReadsBothWordingsOfTheGateTurn()
     {
-        const string oneGroup = "- Quy mô sử dụng: [CHƯA HỎI]";
+        var oneGroup = CoverageMapFixture.Map("- Quy mô sử dụng: [CHƯA HỎI]");
         var firstAsk = RequirementReadinessGate.Evaluate(oneGroup).Message;
         var comingBack = RequirementReadinessGate.Evaluate(oneGroup, new[] { BaTurn(firstAsk) }).Message;
 
@@ -349,7 +350,7 @@ public class CoverageDeadQuestionLoopTests
     {
         foreach (var group in CoverageChecklist.Parse(CoveragePromptFixture.Read()))
         {
-            var map = $"- {group.Label}: {status}\n- Quy mô sử dụng: [CHƯA HỎI]";
+            var map = CoverageMapFixture.Map($"- {group.Label}: {status}\n- Quy mô sử dụng: [CHƯA HỎI]");
             var message = RequirementReadinessGate.Evaluate(map).Message;
 
             Assert.DoesNotContain("nhóm", message, StringComparison.OrdinalIgnoreCase);
