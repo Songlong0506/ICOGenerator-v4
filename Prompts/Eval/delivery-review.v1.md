@@ -67,7 +67,7 @@ chung của mọi POC — **đừng chấm khung đó**, nó không phản ánh 
    KHÔNG phải bịa thêm — nó là hằng số của sản phẩm và Brief buộc phải nói đúng như vậy. Báo nhầm ở đây
    đắt gấp đôi: người đọc sẽ đi "sửa" một dữ kiện vốn đang đúng, thành một dữ kiện sai.
    Điều **đáng báo** ở cùng chỗ đó là hướng ngược lại: BA lấy một hằng số trong phụ lục B rồi **kể lại như
-   thể người dùng đã nói ra** — nhét nó vào câu "mình ghi nhận…", vào "Điều đã chốt", hay dựng nó thành một
+   thể người dùng đã nói ra** — nhét nó vào câu "mình ghi nhận…", vào `{nguồn: …}` của bản đồ bao phủ, hay dựng nó thành một
    mâu thuẫn bắt người dùng phân xử. Chính phụ lục B cấm điều đó.
 3. **Diễn dịch lệch một cách âm thầm.** Cùng một khái niệm mang nghĩa khác đi giữa hai tầng: đơn vị tính
    đổi, chiều làm tròn đổi, "duyệt" từ một cấp thành hai cấp, một danh sách mở bị đóng cứng thành enum,

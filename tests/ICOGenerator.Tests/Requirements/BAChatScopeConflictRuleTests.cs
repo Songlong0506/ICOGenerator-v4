@@ -18,8 +18,8 @@ namespace ICOGenerator.Tests.Requirements;
 // OrganizationContextService đính vào MỌI lời gọi BA — nó là hằng số của SẢN PHẨM, người dùng chưa hề nói
 // và cũng không nhìn thấy khối đó. Ba tầng thiệt hại:
 //
-//  1. Câu "mình ghi nhận" chèn dữ kiện lạ vào lời người dùng ⇒ DecisionLogService chắt nó thành một dòng
-//     "Điều đã chốt" NHƯ MỘT QUYẾT ĐỊNH CỦA HỌ, rồi dòng đó nằm trong ngữ cảnh của mọi lượt sau.
+//  1. Câu "mình ghi nhận" chèn dữ kiện lạ vào lời người dùng ⇒ RequirementCoverageService trích nó làm
+//     {nguồn: …} NHƯ LỜI CỦA HỌ, rồi trích dẫn đó nằm trong ngữ cảnh của mọi lượt sau.
 //  2. Lượt sau, BA đem chính câu mình viết ra chọi với lời người dùng và bắt họ phân xử — một mâu thuẫn
 //     không có thật (người ngồi trong nhà máy Đồng Nai nói "tất cả nhân viên Bosch" là cách nói rộng
 //     miệng, hai vế cùng đúng), lại đúng vào điều organization-scope.v1.md cấm hỏi vì ĐÃ CHỐT.
@@ -57,8 +57,9 @@ public class BAChatScopeConflictRuleTests
 
         Assert.Contains("chỉ được chứa điều người dùng THẬT SỰ đã nói", prompt, StringComparison.Ordinal);
 
-        // Lý do phải nằm cạnh quy tắc: câu ghi nhận sai lệch bị chắt vào "Điều đã chốt" như lời người dùng.
-        Assert.Contains("Điều đã chốt", prompt, StringComparison.Ordinal);
+        // Lý do phải nằm cạnh quy tắc: câu ghi nhận sai lệch bị bản đồ bao phủ trích làm bằng chứng như
+        // lời người dùng, rồi ở lại ngữ cảnh của mọi lượt sau.
+        Assert.Contains("{nguồn: …}", prompt, StringComparison.Ordinal);
     }
 
     // Khối ranh giới phạm vi được đính vào MỌI lời gọi BA, kể cả khi Prompt Studio override khối ngữ cảnh

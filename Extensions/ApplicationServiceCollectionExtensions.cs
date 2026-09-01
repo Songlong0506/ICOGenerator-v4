@@ -427,8 +427,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ReviseSpecAssumptionsUseCase>();
         services.AddScoped<GetLearnedChecklistQuery>();
         services.AddScoped<SaveLearnedChecklistUseCase>();
-        services.AddScoped<CheckRequirementConflictsUseCase>();
-        services.AddScoped<ResolveRequirementConflictsUseCase>();
         services.AddScoped<ConfirmSourceColumnMapUseCase>();
         services.AddScoped<ConfirmPermissionMatrixUseCase>();
         services.AddScoped<ConfirmFlowMapUseCase>();
@@ -720,12 +718,10 @@ public static class ApplicationServiceCollectionExtensions
         // Khung 12 nhóm rỗng cho panel tiến độ lúc dự án chưa có bản đồ — scoped theo PromptTemplateService
         // (bản prompt có thể bị Prompt Studio ghi đè trong DB, nên khung phải đọc lại mỗi request).
         services.AddScoped<CoverageChecklist>();
-        services.AddScoped<DecisionLogService>();
         services.AddScoped<InterviewOutlookService>();
         // Lượt xếp chỗ cho bước luồng chưa chức năng nào phụ trách, chạy ngay trước khi bảng màn
         // hình hiện ra — thay cho dòng nhắc hỏi ngược người dùng bước đó thuộc màn nào.
         services.AddScoped<ScreenStepPlacementService>();
-        services.AddScoped<RequirementConflictService>();
         services.AddScoped<UatScenarioService>();
         // Đóng dấu phiên bản Brief lên ghi chú (một chỗ duy nhất giữ quy tắc đánh số V{n}).
         services.AddScoped<BriefVersionResolver>();

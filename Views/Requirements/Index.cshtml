@@ -306,13 +306,10 @@
     // ChatStream cập nhật live (markup phải khớp renderCoverage trong requirements.js).
     var coverage = ViewBag.Coverage as IReadOnlyList<ICOGenerator.Contracts.Requirements.CoverageMapItem>
         ?? new List<ICOGenerator.Contracts.Requirements.CoverageMapItem>();
-    // Nhật ký "điều đã chốt" KHÔNG còn mặt UI nào: không panel sidebar, và cũng không còn bản tổng kết ở
-    // cổng tạo tài liệu (xem chú thích ở #writeReqZone). Danh sách vẫn được chắt sau mỗi lượt nhưng chỉ đi
-    // vào các đường tiêu thụ của máy, nên view không nhận nó nữa.
     // "Triển vọng phỏng vấn" (InterviewOutlookService) KHÔNG còn danh sách nào lên màn hình: cả ba
-    // (OpenQuestions, PlannedScope, WorkedExamples) vẫn được chắt sau mỗi lượt nhưng đi thẳng vào các
-    // đường tiêu thụ của máy — ngữ cảnh chat của BA, ngữ cảnh soát mâu thuẫn, và mục "## 13. Worked
-    // Examples" của AI Design Spec.
+    // (OpenQuestions, ScopeAdditions, WorkedExamples) vẫn được chắt sau mỗi lượt nhưng đi thẳng vào các
+    // đường tiêu thụ của máy — ngữ cảnh chat của BA, bảng màn hình ở trạng thái chờ duyệt, và mục
+    // "## 13. Worked Examples" của AI Design Spec.
     // Giả định BA tự đưa khi sinh AI Design Spec (mục ## 12. Assumptions) — hiển thị cho user rà lại.
     // Hai nhóm, và chỉ nhóm NGHIỆP VỤ được HỎI: nhóm MÔ PHỎNG (bản demo giả lập đăng nhập, đồng bộ hệ
     // thống ngoài, gửi email, định dạng file xuất) là thứ BA bị cấm hỏi ngay từ buổi phỏng vấn
@@ -524,31 +521,19 @@
             </ul>
         </div>
 
-        @* KHÔNG còn panel "Điều đã chốt" ở đây — panel cuối cùng của sidebar bị gỡ, và vì đúng cái lý do
-           đã gỡ ba panel trước nó. Nhật ký quyết định (DecisionLogService) VẪN được chắt sau mỗi lượt;
-           chỉ có mặt UI biến mất, và người ĐỌC nó đổi từ user sang máy.
-           Vì sao gỡ: panel này bắt người dùng vừa kể chuyện nghiệp vụ vừa audit một danh sách tới 40 dòng
-           — hai chế độ tư duy chạy song song, đúng lúc họ cần tập trung nhất. Nó cũng đặt việc soát mâu
-           thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc
-           được cả hội thoại. Và "bấm để sửa" cũng không phải công cụ sửa thật — nó chỉ soạn sẵn một câu
-           vào ô chat, tức là vẫn quay về chat.
-           Nhật ký nay đi vào ba đường tiêu thụ của máy, KHÔNG còn đường nào ra màn hình (bản tổng kết ở cổng
-           tạo tài liệu đã gỡ theo — xem chú thích ở #writeReqZone):
-             1. Ngữ cảnh chat của BA (BAChatService) — BA đối chiếu câu vừa nghe với điều đã chốt và hỏi
-                lại NGAY khi thấy chọi nhau (prompt requirement-chat.v4 § "Soát mâu thuẫn với điều đã chốt").
-             2. Ngữ cảnh soát mâu thuẫn trước lúc soạn tài liệu (RequirementConflictService) — lưới an toàn.
-             3. Ngữ cảnh soạn Product Brief (ProductBriefDraftService) và bản xuất hội thoại
-                (ChatExportBuilder). *@
+        @* ĐỪNG TÌM panel "Điều đã chốt" — cả nhật ký quyết định lẫn cổng soát mâu thuẫn dựng trên nó đã
+           gỡ hẳn (cột Project.DecisionLog, DecisionLogService, RequirementConflictService). Bản đúc kết
+           còn lại của hội thoại là bản đồ bao phủ (panel tiến độ ở trên) và "triển vọng phỏng vấn"
+           (InterviewOutlookService), cả hai đều không có panel riêng ở sidebar. *@
 
         @* KHÔNG có panel "Sẽ xây gì" ở đây: PlannedScope vẫn được chắt sau mỗi lượt, nhưng nó là danh
            sách SUY ĐOÁN mà user không sửa được tại chỗ — vòng "bắt hiểu nhầm sớm" không đóng lại được nên
            panel chỉ còn là nhiễu.
-           Dữ liệu vẫn giữ: nó đi vào ngữ cảnh soát mâu thuẫn (RequirementConflictService). *@
+           Dữ liệu vẫn giữ: phần phạm vi mới ghép thẳng vào bảng màn hình (ScreenScopeMapBuilder.Merge). *@
 
         @* KHÔNG có panel "Điểm cần làm rõ" ở đây: danh sách OpenQuestions vẫn được chắt sau mỗi lượt,
            nhưng nay đi thẳng vào ngữ cảnh chat của BA (BAChatService) thay vì thành một panel để user tự
-           đọc. Người dùng chỉ cần trò chuyện — BA có thắc mắc gì thì hỏi ngay trong khung chat, và phần
-           "còn mâu thuẫn" đã có panel ⚠ riêng ở trên với lựa chọn thật để chốt. *@
+           đọc. Người dùng chỉ cần trò chuyện — BA có thắc mắc gì thì hỏi ngay trong khung chat. *@
 
         @* KHÔNG có panel "Ví dụ đã xác nhận" ở đây: WorkedExamples vẫn được chắt sau mỗi lượt và vẫn là
            ORACLE mà POC bị chấm theo (spec đúc thành "## 13. Worked Examples", POC phải tính lại ra đúng
@@ -755,8 +740,8 @@
                         }
                         @* SỬA lượt vừa gửi — chỉ ở lượt user CUỐI CÙNG (sửa lượt giữa hội thoại thì mọi
                            lượt sau đó nói về nội dung đã biến mất). Không có nút này, một câu gõ nhầm chỉ
-                           "sửa" được bằng cách nhắn thêm câu đính chính, trong khi bản đồ bao phủ và nhật
-                           ký điều đã chốt đã kịp ghi nhận câu sai và chúng gộp lũy tiến. *@
+                           "sửa" được bằng cách nhắn thêm câu đính chính, trong khi bản đồ bao phủ và
+                           triển vọng phỏng vấn đã kịp ghi nhận câu sai và chúng gộp lũy tiến. *@
                         @if (group.Conversation.Id == lastUserTurnId && !string.IsNullOrWhiteSpace(group.Conversation.Message))
                         {
                             <button type="button" class="chat-edit-btn"
@@ -1827,32 +1812,26 @@
             </div>
 
             @* CỔNG TẠO TÀI LIỆU (#writeReqZone) — khối cuối cùng của dòng hội thoại, và là chỗ DUY NHẤT
-               trên màn hình có nút sinh Product Brief. Gồm hai nhịp của CÙNG một quyết định: nút tạo tài
-               liệu → cổng soát mâu thuẫn (nếu có).
+               trên màn hình có nút sinh Product Brief.
 
                Vì sao cả cụm nằm trong khung chat chứ không ở sidebar: quy trình đang ĐỨNG CHỜ người dùng,
                mà lời mời lại do BA nói ở cuối chat — câu hỏi và nút trả lời phải nằm cùng một chỗ mắt đang
                nhìn (chat tự cuộn đáy). Cùng lý do đã chuyển cổng xác nhận giả định vào đây.
 
-               Là MỘT wrapper chứ không phải hai khối rời vì requirements.js phải dời cả cụm xuống cuối dòng
-               hội thoại sau mỗi lượt (các bong bóng mới chèn vào trước #thinkingBox): dời lẻ từng khối thì
-               panel mâu thuẫn có thể lạc lên giữa các lượt cũ. Wrapper cũng giữ cụm này KHÔNG kề trực tiếp
-               các bong bóng BA, nên quy tắc gộp "câu hỏi BA + chip gợi ý" (.req-msg.ba:has(+ .suggestion-list
-               …)) không bị chen vào giữa.
+               Vẫn là MỘT wrapper (dù nay chỉ còn #summaryGate và #tableGate bên trong) vì requirements.js
+               phải dời cả cụm xuống cuối dòng hội thoại sau mỗi lượt — các bong bóng mới chèn vào trước
+               #thinkingBox, nên dời lẻ từng khối thì khối này có thể lạc lên giữa các lượt cũ. Wrapper cũng
+               giữ cụm này KHÔNG kề trực tiếp các bong bóng BA, nên quy tắc gộp "câu hỏi BA + chip gợi ý"
+               (.req-msg.ba:has(+ .suggestion-list …)) không bị chen vào giữa.
 
-               KHÔNG còn "bản tổng kết trước khi tạo tài liệu" ở đây (danh sách nhật ký "điều đã chốt" kèm
-               nút ✎ Sửa, chip bôi đen và nút "Gửi đính chính"). Nó bị gỡ vì đúng cái lý do đã gỡ panel
-               "Điều đã chốt" ở sidebar, chỉ muộn hơn một nhịp: một danh sách ~40 dòng phẳng, không thứ tự
-               ưu tiên, được bày ra đúng lúc người dùng chỉ còn muốn bấm nút — nên nó bị đọc lướt rồi bấm
-               qua, và một cổng rà soát được bấm qua còn tệ hơn không có: nó tạo cảm giác ĐÃ rà. Người dùng
-               cũng không có cách nào nhìn danh sách đó mà biết được cái gì THIẾU — thứ đắt nhất ở bước này
-               — vì bản tổng kết chỉ kể lại những gì đã nói.
+               ĐỪNG TÌM "bản tổng kết trước khi tạo tài liệu" (danh sách nhật ký "điều đã chốt" kèm nút
+               ✎ Sửa, chip bôi đen và nút "Gửi đính chính") hay cổng soát mâu thuẫn từng đứng ngay dưới nút
+               này: cả nhật ký quyết định lẫn cổng soát dựng trên nó đã gỡ hẳn.
 
-               Việc rà soát không mất, nó đã nằm ở những chỗ SỬA ĐƯỢC và đúng lúc hơn: nhịp BA chủ động đọc
-               lại sau mỗi ~5–7 câu (requirement-chat.v4.md), sáu bảng chốt + bảng phân quyền mà người dùng
-               sửa trực tiếp (bảng LUỒNG là chỗ rà từng bước quy trình), cổng soát mâu thuẫn ngay dưới nút
-               này, và sau khi có tài liệu thì ghim ghi chú thẳng trên bản xem trước Product Brief
-               (ReviseBriefFromNotesUseCase).
+               Việc rà soát nằm ở những chỗ SỬA ĐƯỢC và đúng lúc hơn: nhịp BA chủ động đọc lại sau mỗi ~5–7
+               câu (requirement-chat.v4.md), sáu bảng chốt + bảng phân quyền mà người dùng sửa trực tiếp
+               (bảng LUỒNG là chỗ rà từng bước quy trình), và sau khi có tài liệu thì ghim ghi chú thẳng
+               trên bản xem trước Product Brief (ReviseBriefFromNotesUseCase).
 
                data-state là hợp đồng với requirements.js: nó khởi tạo trạng thái cổng từ đúng bản server
                vừa render thay vì đoán qua việc khối đang ẩn hay hiện.
@@ -1900,13 +1879,12 @@
                         hoặc nhắn lại cho mình trong khung chat.
                     </div>
                     <div class="summary-gate-bar">
-                        @* NÚT THẬT — không còn nút trung gian "bấm hộ" một form ở sidebar. Chốt chặn trước
-                           lúc soạn (cổng soát mâu thuẫn initConflictGate) là listener trên chính nút này,
-                           nên mọi đường bấm đều đi qua nó — không có cửa sau nào submit thẳng form.
-                           data-*-label/title là hợp đồng với requirements.js: cổng soát mâu thuẫn đọc
-                           data-idle-label để khôi phục nhãn sau khi soát xong, còn data-ready-* là bản
-                           gốc để syncWriteReqGate dựng lại nhãn sau mỗi lượt chat (nhãn có thể đang là
-                           "Đang tạo tài liệu…"/"Đang soát…"). Nút chỉ còn MỘT nhãn vì cổng chỉ còn MỘT
+                        @* NÚT THẬT — không còn nút trung gian "bấm hộ" một form ở sidebar, và không còn
+                           chốt chặn nào chen giữa cú bấm và form (hộp xác nhận ghi đè, cổng soát mâu
+                           thuẫn đều đã gỡ): bấm là submit.
+                           data-*-label/title là hợp đồng với requirements.js: data-idle-label là nhãn nghỉ
+                           hiện hành, còn data-ready-* là bản gốc để syncWriteReqGate dựng lại nhãn sau mỗi
+                           lượt chat (nhãn có thể đang là "Đang tạo tài liệu…"). Nút chỉ còn MỘT nhãn vì cổng chỉ còn MỘT
                            trạng thái mở ("ready"); các trạng thái khác không dựng nút nào. Cờ "run đang
                            bay" KHÔNG lặp lại ở đây — nó đã nằm trong data-state của #writeReqZone, và hai
                            nguồn sự thật cho cùng một điều là đúng thứ sinh ra vênh trạng thái. *@
@@ -1934,20 +1912,6 @@
                     </div>
                 </div>
 
-                @* CỔNG SOÁT MÂU THUẪN: chạy khi bấm nút ở trên, TRƯỚC khi tài liệu được soạn. Panel tiến độ
-                   chỉ trả lời "đã rõ hết chưa"; cổng này trả lời "những điều đã rõ có chọi nhau không" — và
-                   một mâu thuẫn lọt qua đây sẽ đóng băng thành yêu cầu sai rồi kéo cả POC theo. Không có mâu
-                   thuẫn ⇒ panel không bao giờ hiện, form submit như trước.
-                   Đứng ngay dưới nút chứ không ở sidebar: nó là CÂU HỎI PHÁT SINH TỪ CÚ BẤM đó, hiện lên ở
-                   nửa màn hình bên kia thì người dùng chỉ thấy nút mình vừa bấm không phản ứng gì. *@
-                <div class="conflict-panel" id="conflictPanel" hidden
-                     data-check-url="@Url.Action("CheckConflicts", "Requirements")"
-                     data-resolve-url="@Url.Action("ResolveConflicts", "Requirements")">
-                    <h3>⚠ Có điểm đang mâu thuẫn</h3>
-                    <div class="history-sub">Mấy điểm dưới đây anh/chị đã nói theo hai cách khác nhau. Chọn giúp phương án đúng để tài liệu không ghi nhầm.</div>
-                    <div class="conflict-body" id="conflictBody"></div>
-                    <div class="conflict-msg" id="conflictMsg"></div>
-                </div>
             </div>
 
             <div id="thinkingBox"

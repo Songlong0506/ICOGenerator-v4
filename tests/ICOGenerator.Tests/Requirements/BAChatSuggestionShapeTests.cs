@@ -15,7 +15,7 @@ namespace ICOGenerator.Tests.Requirements;
 // multiSelect — nhưng chip lại giữ dạng GÓI vai trò lồng nhau và phủ định nhau
 // (["Nhân viên và HR/đào tạo", "Nhân viên, quản lý và HR", "Thêm HoD phòng ban",
 // "Chỉ bộ phận HR/đào tạo"]). UI cho tích ô 1 + ô 4 cùng lúc, và cái gửi đi là một câu trả lời tự mâu
-// thuẫn — được chắt thẳng vào bản đồ bao phủ và "Điều đã chốt" như lời người dùng, nơi không tầng nào
+// thuẫn — được chắt thẳng vào bản đồ bao phủ như lời người dùng, nơi không tầng nào
 // phía sau (Product Brief, spec, POC) còn phân biệt được nữa.
 //
 // Hạ cờ multiSelect chặn được câu trả lời tự mâu thuẫn, nhưng KHÔNG chặn được thiệt hại: câu hỏi liệt kê

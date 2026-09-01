@@ -15,7 +15,7 @@ namespace ICOGenerator.Tests.Requirements;
 // Cụm "đã nêu" trỏ tới một chỗ mà CHỈ MÌNH BA đang nhìn thấy: BA có cả cuộn hội thoại trong ngữ cảnh,
 // người dùng chỉ thấy ô chat cuối cùng. Muốn trả lời họ phải cuộn ngược lên đọc lại chính lời mình —
 // phần lớn sẽ không cuộn mà trả lời đại một câu chung chung, rồi câu đó được chắt vào bản đồ bao phủ và
-// "Điều đã chốt" NHƯ CÂU TRẢ LỜI THẬT, nhóm coi như đã hỏi xong và BA không quay lại nữa. Cùng hạng
+// bản đồ bao phủ NHƯ CÂU TRẢ LỜI THẬT, nhóm coi như đã hỏi xong và BA không quay lại nữa. Cùng hạng
 // thiệt hại với "câu mở mà vẫn kèm chip", chỉ đi bằng cửa khác.
 //
 // Vì sao chốt bằng test này chứ không bằng một phanh trong BAChatReplyParser: các phanh ở đó đều sửa

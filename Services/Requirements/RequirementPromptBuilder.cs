@@ -440,15 +440,12 @@ Reviewer change request (bản "Current ... preview" ở trên là kết quả l
 
     // Khối "bối cảnh tổ chức" chèn vào giữa prompt: rỗng thì biến mất không để lại dòng thừa; có nội dung
     // thì tự mang đúng một dòng trống đệm trên/dưới để khớp nhịp các section xung quanh.
-    // Trạng thái máy đã chắt từ chính hội thoại này — "Điều đã chốt", "Ví dụ đã xác nhận" và "Điểm cần
-    // làm rõ còn tồn đọng" (xem DecisionLogService, InterviewOutlookService). Transcript thô KHÔNG thay
-    // được cho khối này ở bước soạn/soát Brief:
+    // Trạng thái máy đã chắt từ chính hội thoại này — "Ví dụ đã xác nhận" và "Điểm cần làm rõ còn tồn
+    // đọng" (xem InterviewOutlookService). Transcript thô KHÔNG thay được cho khối này ở bước soạn/soát
+    // Brief:
     //
-    // - Một quyết định được chốt ở lượt 38 rồi không ai nhắc lại tới lượt 71 vẫn là yêu cầu phải có trong
-    //   tài liệu, nhưng đọc transcript dài thì nó chìm. Ca thật: người dùng chốt nhân viên được HỦY ĐĂNG
-    //   KÝ, Brief bỏ hẳn tính năng đó trong khi vẫn giữ hai quy tắc phụ thuộc vào nó (Admin reject ticket
-    //   waitlist "khi nhân viên đã hủy đăng ký"), và vòng tự soát không bắt được vì nó cũng chỉ có
-    //   transcript để đối chiếu.
+    // - Một ví dụ tính thử người dùng gật ở lượt 38 rồi không ai nhắc lại tới lượt 71 vẫn là oracle mà
+    //   quy tắc trong tài liệu phải khớp, nhưng đọc transcript dài thì nó chìm.
     // - "Điểm cần làm rõ còn tồn đọng" là thứ cổng readiness KHÔNG xét (cổng suy tất định từ bản đồ bao
     //   phủ). Đưa nó vào đây để van "không giả định" của bước soạn (needsClarification) có cơ sở dừng lại
     //   thay vì tự lấp chỗ trống.

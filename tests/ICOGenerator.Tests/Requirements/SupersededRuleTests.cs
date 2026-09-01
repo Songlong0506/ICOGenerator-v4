@@ -4,8 +4,8 @@ namespace ICOGenerator.Tests.Requirements;
 
 // MỘT QUY TẮC BỊ NGƯỜI DÙNG BÁC BỎ VẪN SỐNG TIẾP TRONG CÁC TẦNG TRÍ NHỚ.
 //
-// Ba tầng chắt lọc của buổi phỏng vấn — bộ nhớ hội thoại, nhật ký "Điều đã chốt", danh sách ví dụ vàng —
-// đều là GỘP LŨY TIẾN: một dòng đã viết ra sẽ ở lại mãi mãi trừ khi chính lượt chắt lọc gỡ nó. Mà người
+// Các tầng chắt lọc của buổi phỏng vấn — bộ nhớ hội thoại, bản đồ bao phủ, danh sách ví dụ vàng — đều là
+// GỘP LŨY TIẾN: một dòng đã viết ra sẽ ở lại mãi mãi trừ khi chính lượt chắt lọc gỡ nó. Mà người
 // dùng đổi ý là chuyện thường xuyên, và họ đổi ý bằng cách nói một câu mới chứ không bằng cách chỉ vào
 // dòng cũ.
 //
@@ -61,20 +61,6 @@ public class SupersededRuleTests
 
         Assert.Contains("BÁC BỎ thì XÓA", prompt, StringComparison.Ordinal);
         Assert.Contains("13. Worked Examples", prompt, StringComparison.Ordinal);
-    }
-
-    // Nhật ký "Điều đã chốt": một câu đáp bao trùm cho câu hỏi gộp nhiều đối tượng không được ghi đè lên
-    // một dòng đã chốt khác. Ca thật cùng dự án — lượt 19 người dùng nói Assistant chấm điểm, lượt 25 họ
-    // đáp "admin sẽ quản lý" cho một câu hỏi gộp bốn danh mục mà BA nhét "kết quả học tập" vào — và nhật
-    // ký nhận về cả hai dòng nói ngược nhau.
-    [Fact]
-    public void DecisionLog_MustNotOverwriteAnEarlierDecisionWithABlanketAnswer()
-    {
-        var prompt = ReadPrompt("BusinessAnalyst/decision-log.v1.md");
-
-        Assert.Contains("BAO TRÙM", prompt, StringComparison.Ordinal);
-        Assert.Contains("thu hẹp dòng mới về đúng các vế không chọi", prompt, StringComparison.Ordinal);
-        Assert.Contains("không xuất hai dòng nói ngược nhau", prompt, StringComparison.Ordinal);
     }
 
     // Cùng cách tìm Prompts/ như BAChatNotificationChannelRuleTests: ưu tiên bản copy trong bin, không có

@@ -13,7 +13,6 @@ public class InterviewGuardPromptRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
     private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
-    private const string DecisionPromptKey = "BusinessAnalyst/decision-log.v1.md";
 
     // Nhóm ngoại lệ: hỏi MỘT MÌNH, và cặp chip có/không bị xoá. Cả hai vế đều do
     // InterviewQuestionRules cưỡng chế, nên prompt phải kê cả hai.
@@ -100,17 +99,6 @@ public class InterviewGuardPromptRuleTests
 
         Assert.Contains("Ví dụ đã xác nhận", prompt, StringComparison.Ordinal);
         Assert.Contains("hạ xuống `[MỘT PHẦN]`", prompt, StringComparison.Ordinal);
-    }
-
-    // Nhật ký quyết định gần rỗng làm cơ chế soát mâu thuẫn mù — nên prompt phải có phép thử chống BỎ SÓT,
-    // đối trọng với hàng loạt luật chống ghi thừa của chính nó.
-    [Fact]
-    public void DecisionLogPrompt_HasAnUnderHarvestCheck()
-    {
-        var prompt = ReadPrompt(DecisionPromptKey);
-
-        Assert.Contains("Phép thử chống BỎ SÓT", prompt, StringComparison.Ordinal);
-        Assert.Contains("Điều người dùng LOẠI BỎ cũng là một quyết định", prompt, StringComparison.Ordinal);
     }
 
     private static string ReadPrompt(string promptKey)

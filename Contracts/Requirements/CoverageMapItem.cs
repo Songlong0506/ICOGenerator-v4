@@ -48,9 +48,9 @@ public class CoverageMapItem
     /// mà trạng thái dựa vào. Không có bằng chứng thì người dùng không có cách nào biết vì sao một nhóm bị
     /// chấm [RÕ] — và một nhóm bị chấm [RÕ] oan thì BA sẽ KHÔNG BAO GIỜ hỏi lại nó nữa.
     /// <para>
-    /// Phải giữ NGUYÊN VĂN: <c>DecisionUnderHarvestGuard</c> khớp trích dẫn này bằng phép tìm chuỗi con
-    /// trong lời người dùng của lô lượt, và đó là toàn bộ cơ chế biến bản đồ thành bộ đọc độc lập làm
-    /// chứng cho nhật ký quyết định. Viết lại cho "gọn" là tắt guard đó trong im lặng.
+    /// Phải giữ NGUYÊN VĂN: người dùng rà một dòng [RÕ] bằng cách tìm lại chính câu mình đã nói. Một
+    /// trích dẫn được "viết lại cho gọn" thì không còn đối chiếu được với hội thoại, và dòng đó mất
+    /// đường kiểm chứng duy nhất của nó.
     /// </para>
     /// </summary>
     public string Evidence { get; set; } = string.Empty;

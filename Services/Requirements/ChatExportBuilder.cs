@@ -168,34 +168,30 @@ public static class ChatExportBuilder
             sb.AppendLine($"- Câu chặn hệ thống dựng sẵn: {OneLine(readiness.Message)}");
         sb.AppendLine();
 
-        AppendBullets(sb, "3.3. Điều đã chốt (nhật ký quyết định BA chắt sau mỗi lượt)",
-            DecisionLogService.ParseItems(project.DecisionLog),
-            "(chưa có điều nào được chắt)");
-
-        AppendBullets(sb, "3.4. Điểm cần làm rõ còn tồn đọng",
+        AppendBullets(sb, "3.3. Điểm cần làm rõ còn tồn đọng",
             InterviewOutlookService.ParseItems(project.OpenQuestions),
             "(không có điểm nào đang tồn đọng)");
 
         // Phạm vi màn hình nay nằm trong CHÍNH bảng màn hình, nên mục này kể lại bảng đó: phần người dùng
         // đã rà, phần họ đã loại, và phần còn chờ duyệt — người chấm cần phân biệt được ba thứ đó, vì một
         // màn hình đi vào tài liệu ở dạng chưa ai duyệt là đúng loại lỗi bản xuất này dựng ra để bắt.
-        AppendText(sb, "3.5. Bảng màn hình người dùng đã chốt (phạm vi màn hình của ứng dụng)",
+        AppendText(sb, "3.4. Bảng màn hình người dùng đã chốt (phạm vi màn hình của ứng dụng)",
             ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
             "(chưa chốt — mọi thứ đứng trên phạm vi màn hình vẫn đang chờ)");
 
-        AppendBullets(sb, "3.5b. Phạm vi còn CHỜ DUYỆT (lộ ra sau lượt chốt gần nhất, bảng sẽ bày lại để hỏi)",
+        AppendBullets(sb, "3.4b. Phạm vi còn CHỜ DUYỆT (lộ ra sau lượt chốt gần nhất, bảng sẽ bày lại để hỏi)",
             ScreenScopeMapBuilder.PendingScreens(project.ScreenScopeMap)
                 .Concat(ScreenScopeMapBuilder.PendingFunctions(project.ScreenScopeMap)).ToList(),
             "(không còn mục nào chờ duyệt)");
 
-        AppendBullets(sb, "3.6. Ví dụ đã xác nhận (input → kết quả kỳ vọng, dùng để chấm bản demo)",
+        AppendBullets(sb, "3.5. Ví dụ đã xác nhận (input → kết quả kỳ vọng, dùng để chấm bản demo)",
             InterviewOutlookService.ParseItems(project.WorkedExamples),
             "(chưa chốt ví dụ nào — mọi quy tắc định lượng đang thiếu ví dụ số)");
 
         // Bảng phân quyền ĐÃ CHỐT là bằng chứng DUY NHẤT được chấp nhận cho dòng «Phân quyền theo nghiệp
         // vụ» của bản đồ. Người chấm phải thấy nó ở đây để phân biệt hai ca trông giống hệt nhau trên
         // transcript: dòng đó [RÕ] vì người dùng đã tự chọn từng ô, hay [RÕ] oan vì một chip "Đồng ý".
-        AppendText(sb, "3.7. Bảng phân quyền người dùng đã chốt (bằng chứng của dòng «Phân quyền theo nghiệp vụ»)",
+        AppendText(sb, "3.6. Bảng phân quyền người dùng đã chốt (bằng chứng của dòng «Phân quyền theo nghiệp vụ»)",
             PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix),
             "(chưa chốt — dòng phân quyền của bản đồ KHÔNG được phép [RÕ] khi mục này còn trống)");
 
@@ -203,15 +199,15 @@ public static class ChatExportBuilder
         // nhắc nhở» của bản đồ không bao giờ được [RÕ] khi chưa có bảng này. Người chấm phải thấy nó ở đây
         // vì hai ca vẫn trông giống hệt nhau trên transcript — và ở bảng này còn ca thứ ba: bảng đã gửi
         // nhưng người dùng bỏ trống người nhận ở vài dòng, lúc đó dòng bản đồ chỉ được [MỘT PHẦN].
-        AppendText(sb, "3.8. Bảng thông báo người dùng đã chốt (bằng chứng của dòng «Thông báo / nhắc nhở»)",
+        AppendText(sb, "3.7. Bảng thông báo người dùng đã chốt (bằng chứng của dòng «Thông báo / nhắc nhở»)",
             NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap),
             "(chưa chốt — dòng thông báo của bản đồ KHÔNG được phép [RÕ] khi mục này còn trống)");
 
-        AppendText(sb, "3.9. Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược khỏi cửa sổ nguyên văn)",
+        AppendText(sb, "3.8. Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược khỏi cửa sổ nguyên văn)",
             project.ConversationSummary,
             "(chưa có — hội thoại còn ngắn, mọi lượt vẫn được gửi nguyên văn)");
 
-        AppendText(sb, "3.10. Hồ sơ người dùng (đúc kết xuyên dự án, nạp vào mọi lượt chat)",
+        AppendText(sb, "3.9. Hồ sơ người dùng (đúc kết xuyên dự án, nạp vào mọi lượt chat)",
             snapshot.UserMemory,
             "(chưa có hồ sơ)");
     }

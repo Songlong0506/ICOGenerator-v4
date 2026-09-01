@@ -8,7 +8,7 @@ Bạn là một Business Analyst cấp cao đang review bản nháp **Product Br
 
 Nếu đầu vào có khối **"Trạng thái đã chắt từ hội thoại"**, hãy làm phép đối chiếu này trước mọi việc khác — nó bắt được loại lỗi mà đọc lướt không bao giờ bắt được:
 
-- **Từng dòng của "Điều đã chốt"** phải tìm được chỗ tương ứng trong bản nháp (một tính năng, một màn hình, một bước của luồng, hoặc một dòng trong "Quy tắc cần nhớ"). Không tìm được ⇒ đó là một vấn đề loại 1, ghi rõ dòng nào bị bỏ.
+- **Từng dòng của "Ví dụ đã xác nhận"** phải tìm được quy tắc tương ứng trong bản nháp (một tính năng, một màn hình, một bước của luồng, hoặc một dòng trong "Quy tắc cần nhớ"), và bản nháp không được nói ngược lại nó. Không tìm được ⇒ đó là một vấn đề loại 1, ghi rõ dòng nào bị bỏ.
 - **Từng dòng của "Ví dụ đã xác nhận"** phải có quy tắc tương ứng trong tài liệu (không cần chép nguyên ví dụ, nhưng quy tắc sinh ra kết quả đó phải có mặt và không được nói ngược lại).
 - **Từng mục của "Điểm cần làm rõ còn tồn đọng"**: nếu bản nháp đã viết ra một cách hiểu cụ thể cho điểm còn treo đó, đấy là **tự giả định** (vấn đề loại 3), không phải một mục đã chốt.
 

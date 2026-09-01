@@ -48,24 +48,6 @@ public static class BAChatPromptBlocks
             + "KHÔNG phát lại câu hỏi mở đầu của nhóm đó (người dùng đã trả lời phần còn lại rồi).\n"
             + CoverageMapParser.ToText(CoverageMapParser.Parse(coverageMap));
 
-    // "Điều đã chốt" (DecisionLogService): các quyết định người dùng đã nói/đã xác nhận, gộp lũy tiến
-    // qua MỌI lượt. Trước đây nhật ký này chỉ hiện thành panel cạnh khung chat để người dùng tự canh —
-    // một nghịch lý, vì BA mới là bên đọc được cả hội thoại, còn người dùng thì phải vừa kể chuyện vừa
-    // đối chiếu một danh sách 40 dòng. Nay nó đi thẳng vào ngữ cảnh của BA (panel đã gỡ) để BA soát
-    // mâu thuẫn NGAY trong lượt, thay vì dồn hết cho cổng soát trước lúc soạn tài liệu — lúc đó người
-    // dùng phải chọn A/B cho một câu họ nói từ lượt 3, đã nguội hẳn bối cảnh.
-    //
-    // Vì sao không để BA tự đọc lại transcript: các lượt cũ bị ConversationMemoryService NÉN thành bản
-    // tóm tắt để tiết kiệm token, nên chi tiết đã chốt bị bào mòn đúng ở hội thoại dài — cũng chính là
-    // lúc mâu thuẫn dễ xảy ra nhất. Nhật ký là bản đúc kết duy nhất sống sót qua việc nén đó.
-    public static string SettledDecisions(IReadOnlyList<string> settledDecisions)
-        => "## Điều đã chốt (các quyết định người dùng ĐÃ nói/đã xác nhận — đối chiếu trước khi hỏi tiếp)\n"
-            + "TRƯỚC khi soạn câu hỏi kế tiếp, đối chiếu câu người dùng VỪA trả lời với danh sách này. "
-            + "Nếu nó CHỌI với một điều đã chốt, lượt này PHẢI là lượt gỡ mâu thuẫn (xem mục \"Soát mâu "
-            + "thuẫn với điều đã chốt\" trong hướng dẫn), KHÔNG hỏi sang nhóm khác. Không chọi nhau thì "
-            + "coi đây là điều đã biết: KHÔNG hỏi lại, KHÔNG bắt người dùng xác nhận lần nữa.\n"
-            + string.Join("\n", settledDecisions.Select(d => "- " + d));
-
     // "Điểm cần làm rõ" (InterviewOutlookService.OpenQuestions): tồn đọng các điểm còn mơ hồ/mâu thuẫn
     // chắt từ hội thoại. Bản đồ ở trên chỉ có độ phân giải theo NHÓM ("Quy tắc nghiệp vụ: MỘT PHẦN"),
     // còn danh sách này giữ ĐÚNG điểm chưa chốt ("Reference Belt đồng bộ tự động hay nhập tay?") —

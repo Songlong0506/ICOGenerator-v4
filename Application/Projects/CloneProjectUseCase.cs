@@ -152,13 +152,9 @@ public class CloneProjectUseCase
         UserMemoryHarvestedTurnCount = source.UserMemoryHarvestedTurnCount,
         RequirementCoverageMap = source.RequirementCoverageMap,
         CoverageHarvestedTurnCount = source.CoverageHarvestedTurnCount,
-        DecisionLog = source.DecisionLog,
-        DecisionHarvestedTurnCount = source.DecisionHarvestedTurnCount,
         OpenQuestions = source.OpenQuestions,
         WorkedExamples = source.WorkedExamples,
         InterviewOutlookHarvestedTurnCount = source.InterviewOutlookHarvestedTurnCount,
-        PendingConflicts = source.PendingConflicts,
-        ConflictCheckedTurnCount = source.ConflictCheckedTurnCount,
         SpecAssumptionCorrections = source.SpecAssumptionCorrections,
         ConfirmedAssumptions = source.ConfirmedAssumptions,
 

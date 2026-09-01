@@ -9,7 +9,7 @@ namespace ICOGenerator.Tests.Requirements;
 // một điểm khiến nó nguy hiểm hơn: prompt chat TỪNG tự tay mời BA hỏi về đăng nhập. Mục "Đối tượng người
 // dùng" nêu *"Người dùng cần đăng nhập riêng cho mỗi người không?"* làm VÍ DỤ MẪU của một câu hỏi đúng
 // tầm nghiệp vụ — nghe thì đúng là nghiệp vụ, nhưng thứ nó hỏi đã chốt từ trước, và câu trả lời "cả tổ
-// dùng chung một tài khoản" thì không hiện thực được mà vẫn chảy qua "Điều đã chốt" → Product Brief →
+// dùng chung một tài khoản" thì không hiện thực được mà vẫn chảy qua bản đồ bao phủ → Product Brief →
 // thiết kế. Test này giữ cho ví dụ đó không quay lại, và giữ cho ràng buộc sống đúng chỗ của nó.
 //
 // Khối ràng buộc ở Prompts/BusinessAnalyst/organization-platform.v1.md, được OrganizationContextService

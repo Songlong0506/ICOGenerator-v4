@@ -536,9 +536,9 @@
       <p class="eyebrow">Chất lượng</p>
       <h2 class="wide">Ba luật biến "đừng bỏ sót" thành phép đối chiếu đếm được</h2>
       <p class="lede tight">Cả ba lượt AI của bước soạn đều nhận thêm một khối <strong>chỉ mục của chính hội thoại</strong> —
-        Điều đã chốt · Ví dụ đã xác nhận · Điểm còn tồn đọng, <strong>mọi dòng đều đã có sẵn trong transcript</strong>.</p>
+        Ví dụ đã xác nhận · Điểm còn tồn đọng, <strong>mọi dòng đều đã có sẵn trong transcript</strong>.</p>
       <ul class="big">
-        <li><span><b>Mỗi dòng "Điều đã chốt" phải tìm được chỗ tương ứng trong tài liệu.</b> <span class="mut">Một tính năng, một màn hình, một bước của luồng, hoặc một dòng trong "Quy tắc cần nhớ". Không tìm được là một vấn đề mà vòng tự soát phải nêu ra.</span></span></li>
+        <li><span><b>Mỗi "Ví dụ đã xác nhận" phải có quy tắc tương ứng trong tài liệu.</b> <span class="mut">Và tài liệu không được nói ngược lại nó. Không tìm được là một vấn đề mà vòng tự soát phải nêu ra.</span></span></li>
         <li><span><b>Mỗi tính năng phải có chỗ thực hiện.</b> <span class="mut">Nêu ở "Người dùng làm được những gì?" thì phải có màn hình tương ứng và một vai trò được giao việc đó. Danh mục mà một quy tắc dựa vào cũng vậy — phải có ai đó tạo/sửa được nó.</span></span></li>
         <li><span><b>Điểm còn tồn đọng thì không được tự chọn một cách hiểu.</b> <span class="mut">Viết ra một phương án rồi để nó trông như điều đã chốt là loại lỗi đắt nhất: người dùng đọc lại thấy "lời mình" mà mình không nhớ đã nói.</span></span></li>
       </ul>
@@ -567,7 +567,6 @@
         <div class="tech-row"><span class="t">RequirementCoverageService</span><span class="d">Chắt lọc hội thoại thành bản đồ bao phủ 12 nhóm. Lỗi thì giữ bản cũ và <b>báo lên panel</b>.</span></div>
         <div class="tech-row"><span class="t">InterviewTableGate</span><span class="d">Chỗ DUY NHẤT quyết định lượt này bày bảng nào trong sáu bảng.</span></div>
         <div class="tech-row"><span class="t">RequirementReadinessGate</span><span class="d">Cổng ĐỦ, tất định. Kèm câu mở đầu riêng cho từng nhóm và sổ "đã hỏi nhóm nào".</span></div>
-        <div class="tech-row"><span class="t">RequirementConflictService</span><span class="d">Cổng KHÔNG MÂU THUẪN, chạy lúc bấm nút, ghi lựa chọn vào chính hội thoại.</span></div>
         <div class="tech-row"><span class="t">ProductBriefDraftService</span><span class="d">Ba lượt LLM (soạn / tự soát / sửa), hai van thoát, rồi ghi file .docx.</span></div>
         <div class="tech-row"><span class="t">BAChatReplyParser</span><span class="d">Các chốt chặn tất định của một lượt trả lời: trần 4 câu, câu mở thì bỏ chip, chip "Khác" trần bị xóa. Luật chung: <b>chỉ sửa một chiều</b>.</span></div>
       </div>

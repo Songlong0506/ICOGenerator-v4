@@ -37,8 +37,6 @@ public class RequirementsController : Controller
     private readonly ConfirmSpecAssumptionsUseCase _confirmSpecAssumptionsUseCase;
     private readonly ReviseSpecAssumptionsUseCase _reviseSpecAssumptionsUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
-    private readonly CheckRequirementConflictsUseCase _checkRequirementConflictsUseCase;
-    private readonly ResolveRequirementConflictsUseCase _resolveRequirementConflictsUseCase;
     private readonly ConfirmSourceColumnMapUseCase _confirmSourceColumnMapUseCase;
     private readonly ConfirmPermissionMatrixUseCase _confirmPermissionMatrixUseCase;
     private readonly ConfirmFlowMapUseCase _confirmFlowMapUseCase;
@@ -79,8 +77,6 @@ public class RequirementsController : Controller
        ConfirmSpecAssumptionsUseCase confirmSpecAssumptionsUseCase,
        ReviseSpecAssumptionsUseCase reviseSpecAssumptionsUseCase,
        RetryWorkflowUseCase retryWorkflowUseCase,
-       CheckRequirementConflictsUseCase checkRequirementConflictsUseCase,
-       ResolveRequirementConflictsUseCase resolveRequirementConflictsUseCase,
        ConfirmSourceColumnMapUseCase confirmSourceColumnMapUseCase,
        ConfirmPermissionMatrixUseCase confirmPermissionMatrixUseCase,
        ConfirmFlowMapUseCase confirmFlowMapUseCase,
@@ -112,8 +108,6 @@ public class RequirementsController : Controller
         _confirmSpecAssumptionsUseCase = confirmSpecAssumptionsUseCase;
         _reviseSpecAssumptionsUseCase = reviseSpecAssumptionsUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
-        _checkRequirementConflictsUseCase = checkRequirementConflictsUseCase;
-        _resolveRequirementConflictsUseCase = resolveRequirementConflictsUseCase;
         _confirmSourceColumnMapUseCase = confirmSourceColumnMapUseCase;
         _confirmPermissionMatrixUseCase = confirmPermissionMatrixUseCase;
         _confirmFlowMapUseCase = confirmFlowMapUseCase;
@@ -489,30 +483,15 @@ public class RequirementsController : Controller
 
             channel.Writer.TryWrite(done);
 
-            // "Điều đã chốt" cập nhật SAU frame done: user đã đọc được câu trả lời, nên lời gọi LLM gộp
-            // quyết định không cộng vào độ chờ cảm nhận. KHÔNG frame nào được đẩy về client — nhật ký
-            // không còn mặt UI nào (bản tổng kết ở cổng tạo tài liệu đã gỡ), người đọc nó nay chỉ còn là
-            // máy: ngữ cảnh chat của BA ở lượt sau, ngữ cảnh soát mâu thuẫn, bước soạn Product Brief và
-            // bản xuất hội thoại. Cùng nhịp và cùng lý do với UpdateInterviewOutlookAsync ngay dưới.
-            // Fail-open: lỗi thì giữ bản đang lưu.
+            // "Triển vọng phỏng vấn" cập nhật SAU frame done: user đã đọc được câu trả lời, nên lời gọi
+            // LLM này không cộng vào độ chờ cảm nhận. KHÔNG frame nào được đẩy về client: mọi thứ nó chắt
+            // ra đều chỉ có đường tiêu thụ của máy — OpenQuestions nạp vào ngữ cảnh chat của BA ở lượt sau
+            // (xem BAChatService), phần phạm vi mới ghép thẳng vào bảng màn hình ở trạng thái chờ duyệt để
+            // ScreenScopeGate bày ra hỏi (xem ScreenScopeMapBuilder.Merge), WorkedExamples đi vào
+            // "## 13. Worked Examples" của AI Design Spec rồi thành oracle chấm POC. Vẫn gộp ở đây
+            // (fail-open: lỗi thì giữ bản đang lưu) để các đường đó có bản mới nhất ngay sau lượt chat.
             if (turnSucceeded)
             {
-                try
-                {
-                    await _chatWithBAUseCase.UpdateDecisionsAsync(projectId, CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Không cập nhật được 'Điều đã chốt' sau lượt chat của project {ProjectId}", projectId);
-                }
-
-                // Cùng nhịp hậu kỳ: gộp "triển vọng phỏng vấn" (điểm cần làm rõ + phần phạm vi mới + ví dụ
-                // tính thử đã xác nhận). KHÔNG frame nào được đẩy về client: mọi thứ nó chắt ra đều chỉ có
-                // đường tiêu thụ của máy — OpenQuestions nạp vào ngữ cảnh chat của BA ở lượt sau (xem
-                // BAChatService), phần phạm vi mới ghép thẳng vào bảng màn hình ở trạng thái chờ duyệt để
-                // ScreenScopeGate bày ra hỏi (xem ScreenScopeMapBuilder.Merge), WorkedExamples đi vào
-                // "## 13. Worked Examples" của AI Design Spec rồi thành oracle chấm POC. Vẫn gộp ở đây
-                // (fail-open) để các đường đó có bản mới nhất ngay sau lượt chat.
                 try
                 {
                     await _chatWithBAUseCase.UpdateInterviewOutlookAsync(projectId, CancellationToken.None);
@@ -753,52 +732,6 @@ public class RequirementsController : Controller
                 ? "Không lưu được bảng thông báo — tải lại trang rồi thử lại nhé."
                 : result.Error
         });
-    }
-
-    // CỔNG SOÁT MÂU THUẪN — bước 1: chạy ngay trước khi soạn tài liệu (nút "Write Requirement" gọi trước
-    // khi submit form). Trả về các cặp điều đã chốt chọi nhau để người dùng chốt lại; danh sách rỗng ⇒
-    // client submit form như bình thường. POST vì lượt này gọi LLM và ghi kết quả lên project.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> CheckConflicts(Guid projectId)
-    {
-        var conflicts = await _checkRequirementConflictsUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
-        return Json(new
-        {
-            ok = true,
-            conflicts = conflicts.Select(c => new { topic = c.Topic, sideA = c.SideA, sideB = c.SideB, question = c.Question, options = c.Options })
-        });
-    }
-
-    // CỔNG SOÁT MÂU THUẪN — bước 2: người dùng đã chốt từng điểm. Lựa chọn được ghi vào hội thoại nên
-    // bước soạn tài liệu (đọc transcript) tự khắc dùng đúng phương án đã chốt.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> ResolveConflicts(Guid projectId, [FromForm] string resolutionsJson)
-    {
-        List<ConflictResolution> resolutions;
-        try
-        {
-            resolutions = JsonSerializer.Deserialize<List<ConflictResolution>>(resolutionsJson ?? "[]",
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<ConflictResolution>();
-        }
-        catch
-        {
-            return Json(new { ok = false, error = "Dữ liệu lựa chọn không hợp lệ." });
-        }
-
-        var result = await _resolveRequirementConflictsUseCase.ExecuteAsync(projectId, resolutions, HttpContext.RequestAborted);
-        return result switch
-        {
-            ResolveConflictsResult.Ok => Json(new { ok = true }),
-            ResolveConflictsResult.NoResolutions => Json(new { ok = false, error = "Chưa chọn phương án nào." }),
-            ResolveConflictsResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
-            _ => Json(new { ok = false, error = "Không ghi nhận được lựa chọn." })
-        };
     }
 
     // Ghi chú người dùng ghim trực tiếp lên bản xem trước Product Brief → gom thành một lượt phản hồi
