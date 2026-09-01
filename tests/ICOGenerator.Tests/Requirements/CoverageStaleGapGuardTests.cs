@@ -18,6 +18,11 @@ namespace ICOGenerator.Tests.Requirements;
 // 19 lượt trước. Distiller lại chép mẩu cũ sang lượt sau, và nút "Write Requirement" khoá vĩnh viễn.
 public class CoverageStaleGapGuardTests
 {
+    // Bản đồ lưu dạng JSON ⇒ các test soi TRƯỜNG đã parse thay vì chuỗi: trạng thái, phần đã ghi nhận,
+    // mẩu còn phải hỏi và bằng chứng là thứ những tầng sau đọc; cách xếp chữ thì không tầng nào dựa vào.
+    private static ICOGenerator.Contracts.Requirements.CoverageMapItem Row(string? map, string labelPrefix) =>
+        CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
+
     // Nguyên văn hai dòng của buổi JD Libary 4.
     private const string MucTieu =
         "- ★ Mục tiêu / bài toán: [MỘT PHẦN] App quản lý danh sách JD trong nhà máy và gán JD cho nhân viên. "
@@ -36,11 +41,13 @@ public class CoverageStaleGapGuardTests
         var map = CoverageStaleGapGuard.Apply(MucTieu + "\n" + QuyTrinhHienTai);
 
         Assert.NotNull(map);
-        Assert.DoesNotContain("còn thiếu:", map, StringComparison.OrdinalIgnoreCase);
-        // Trạng thái, tóm tắt và bằng chứng của dòng đều còn nguyên — guard chỉ xoá mẩu đã chết.
-        Assert.Contains("Mục tiêu / bài toán: [MỘT PHẦN] App quản lý danh sách JD", map, StringComparison.Ordinal);
-        Assert.Contains("{nguồn: \"đây là app để quản lý danh sách JD ở trong nhà máy\"}", map, StringComparison.Ordinal);
-        Assert.Contains("★", map, StringComparison.Ordinal);
+        var row = Row(map, "Mục tiêu");
+        Assert.Empty(row.Gap);
+        // Trạng thái, phần đã ghi nhận, bằng chứng và cờ ★ của dòng đều còn nguyên — guard chỉ xoá mẩu chết.
+        Assert.Equal("MỘT PHẦN", row.Status);
+        Assert.StartsWith("App quản lý danh sách JD", row.Known, StringComparison.Ordinal);
+        Assert.Equal("\"đây là app để quản lý danh sách JD ở trong nhà máy\"", row.Evidence);
+        Assert.True(row.IsCore);
     }
 
     [Fact]
@@ -54,8 +61,10 @@ public class CoverageStaleGapGuardTests
             + "{nguồn: \"mã JD phải duy nhất, Responsibility phải có tổng % bằng 100\"}");
 
         Assert.NotNull(map);
-        Assert.DoesNotContain("còn thiếu:", map, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("[MỘT PHẦN] Mã JD phải duy nhất", map, StringComparison.Ordinal);
+        var row = Row(map, "Quy tắc nghiệp vụ");
+        Assert.Empty(row.Gap);
+        Assert.Equal("MỘT PHẦN", row.Status);
+        Assert.StartsWith("Mã JD phải duy nhất", row.Known, StringComparison.Ordinal);
     }
 
     // Cắt vòng lặp là đủ; guard KHÔNG được tự kết luận "vậy là đã đủ". Bằng chứng ở đây do LLM chắt, khác

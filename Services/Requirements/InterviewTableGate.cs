@@ -140,7 +140,7 @@ public static class InterviewTableGate
         return InterviewTableKind.None;
     }
 
-    /// <summary>Nhãn nhóm trong bản đồ bao phủ, khớp <c>requirement-coverage.v3.md</c>.</summary>
+    /// <summary>Nhãn nhóm trong bản đồ bao phủ, khớp <c>requirement-coverage.v4.md</c>.</summary>
     internal static class Groups
     {
         public const string Roles = "Đối tượng người dùng & vai trò";
@@ -530,7 +530,7 @@ public static class ReportMapGate
 /// Nhóm «Thông báo / nhắc nhở» là nhóm THỨ HAI không được hỏi bằng câu hỏi, và vì đúng lý do của nhóm phân
 /// quyền. Chuẩn <c>[RÕ]</c> của nó đòi hai vế GHÉP ĐƯỢC với nhau — mỗi loại sự kiện biết ai là người nhận
 /// của RIÊNG nó — trong khi hình dạng tự nhiên của câu hỏi lại tách chúng ra làm hai câu rời ("vai trò nào
-/// cần nhận email?" + "sự kiện nào cần gửi?"). Ca thật đã ghi ở <c>requirement-coverage.v3.md</c>: người
+/// cần nhận email?" + "sự kiện nào cần gửi?"). Ca thật đã ghi ở <c>requirement-coverage.v4.md</c>: người
 /// dùng bấm bốn chip vai trò, dòng được nâng <c>[RÕ]</c>, và tài liệu đóng băng thành "mọi thay đổi trạng
 /// thái gửi cho cả bốn nhóm" — tức mỗi lần một bản kế hoạch đổi trạng thái thì cả nhà máy nhận email.
 /// </para>
@@ -556,7 +556,7 @@ public static class ReportMapGate
 public static class NotificationMapGate
 {
     /// <summary>
-    /// Nhãn nhóm thông báo trong bản đồ bao phủ — khớp <c>requirement-coverage.v3.md</c> và mục 12 nhãn
+    /// Nhãn nhóm thông báo trong bản đồ bao phủ — khớp <c>requirement-coverage.v4.md</c> và mục 12 nhãn
     /// nhóm của <c>requirement-chat.v4.md</c>. Cùng vai trò với
     /// <see cref="PermissionMatrixGate.PermissionGroupLabel"/>: hai nhóm chốt-bằng-bảng đều cần một chỗ
     /// duy nhất giữ nhãn, vì <see cref="CoverageConfirmedTableGuard"/> phải tìm đúng dòng để viết lại.

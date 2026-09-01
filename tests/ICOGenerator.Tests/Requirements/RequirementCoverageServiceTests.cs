@@ -64,13 +64,19 @@ public class RequirementCoverageServiceTests : IDisposable
         var coverage = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
         Assert.Equal(1, llm.Calls);
-        Assert.Equal("- ★ Mục tiêu / bài toán: [MỘT PHẦN] còn thiếu: luồng chính", coverage.Map);
         Assert.False(coverage.DistillFailed);
         Assert.Equal(4, trackedProject.CoverageHarvestedTurnCount);
 
+        // Bản đồ được LƯU dạng JSON — model trả về text của format cũ vẫn được đọc và chuẩn hoá sang JSON,
+        // đó là đường nâng cấp cho cả model không nhận response_format lẫn dự án có bản đồ cũ trong DB.
+        var row = Assert.Single(CoverageMapParser.Parse(coverage.Map));
+        Assert.Equal("MỘT PHẦN", row.Status);
+        Assert.Equal("luồng chính", row.Gap);
+        Assert.True(row.IsCore);
+
         // Bền trong DB, không chỉ trên entity đang track.
         var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
-        Assert.Equal("- ★ Mục tiêu / bài toán: [MỘT PHẦN] còn thiếu: luồng chính", reloaded.RequirementCoverageMap);
+        Assert.Equal(coverage.Map, reloaded.RequirementCoverageMap);
         Assert.Equal(4, reloaded.CoverageHarvestedTurnCount);
     }
 
@@ -99,7 +105,7 @@ public class RequirementCoverageServiceTests : IDisposable
     public async Task UpdateAndLoadAsync_SecondCallWithoutNewTurns_DoesNotCallLlmAgain()
     {
         var (project, ba) = await SeedAsync(turns: 3);
-        var llm = new FakeLlm { Reply = "bản đồ v1" };
+        var llm = new FakeLlm { Reply = "- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho." };
 
         await using var db = NewDb();
         var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
@@ -110,7 +116,7 @@ public class RequirementCoverageServiceTests : IDisposable
         var coverage = await sut.UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
         Assert.Equal(1, llm.Calls);
-        Assert.Equal("bản đồ v1", coverage.Map);
+        Assert.Equal("App quản lý kho.", Assert.Single(CoverageMapParser.Parse(coverage.Map)).Known);
     }
 
     [Fact]
@@ -146,7 +152,7 @@ public class RequirementCoverageServiceTests : IDisposable
             await seed.SaveChangesAsync();
         }
 
-        var llm = new FakeLlm { Reply = "bản đồ v1" };
+        var llm = new FakeLlm { Reply = "- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho." };
         await using var db = NewDb();
         var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
         var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
@@ -179,7 +185,7 @@ public class RequirementCoverageServiceTests : IDisposable
             await seed.SaveChangesAsync();
         }
 
-        var llm = new FakeLlm { Reply = "bản đồ v1" };
+        var llm = new FakeLlm { Reply = "- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho." };
         await using var db = NewDb();
         var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
         var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
@@ -225,12 +231,13 @@ public class RequirementCoverageServiceTests : IDisposable
         var coverage = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
         Assert.NotNull(coverage.Map);
-        Assert.Contains("Thông báo / nhắc nhở: [RÕ]", coverage.Map, StringComparison.Ordinal);
-        Assert.DoesNotContain("còn thiếu", coverage.Map, StringComparison.OrdinalIgnoreCase);
+        var row = Row(coverage.Map, "Thông báo");
+        Assert.Equal("RÕ", row.Status);
+        Assert.Empty(row.Gap);
 
         // Bản đã sửa là bản được LƯU: cổng readiness, panel tiến độ và các cổng bảng đọc cùng một sự thật.
         var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
-        Assert.Contains("Thông báo / nhắc nhở: [RÕ]", reloaded.RequirementCoverageMap!, StringComparison.Ordinal);
+        Assert.Equal("RÕ", Row(reloaded.RequirementCoverageMap, "Thông báo").Status);
     }
 
     // Người dùng bị kẹt thì không gõ thêm gì cả — họ bấm gửi lại, hoặc tải lại trang. Lượt không có gì mới
@@ -256,8 +263,12 @@ public class RequirementCoverageServiceTests : IDisposable
         var coverage = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
         Assert.Equal(0, llm.Calls);
-        Assert.Contains("Thông báo / nhắc nhở: [RÕ]", coverage.Map!, StringComparison.Ordinal);
+        Assert.Equal("RÕ", Row(coverage.Map, "Thông báo").Status);
     }
+
+    // Bản đồ lưu dạng JSON ⇒ test soi TRƯỜNG đã parse thay vì chuỗi.
+    private static ICOGenerator.Contracts.Requirements.CoverageMapItem Row(string? map, string labelPrefix) =>
+        CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
 
     private RequirementCoverageService NewSut(AppDbContext db, ILlmClient llm) => new(db, llm, new StubPrompts());
 
@@ -299,7 +310,7 @@ public class RequirementCoverageServiceTests : IDisposable
     private sealed class FakeLlm : ILlmClient
     {
         public int Calls;
-        public string Reply = "bản đồ bao phủ";
+        public string Reply = "- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho.";
         public bool Fail;
 
         // Text của lượt user cuối (chính là khối hội thoại được gộp) để test soi xem gợi ý có được đính kèm không.
@@ -317,8 +328,10 @@ public class RequirementCoverageServiceTests : IDisposable
             });
         }
 
+        // Lượt distill bản đồ đi qua đường structured output. Trả Value null ⇒ service parse Content như
+        // văn xuôi, nên Reply của từng test vẫn là bản đồ dạng text và các assert giữ nguyên ý nghĩa.
         public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
-            => throw new NotSupportedException();
+            => Task.FromResult((ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).Result, (T?)null));
     }
 
     private sealed class StubPrompts : PromptTemplateService

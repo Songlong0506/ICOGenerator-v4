@@ -19,7 +19,7 @@ namespace ICOGenerator.Tests.Requirements;
 public class InterviewDeadEndRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
-    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v3.md";
+    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
     private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v1.md";
 
     // Prompt chat từng TỰ CHO PHÉP lượt câm: luật về `suggestions` liệt kê "lượt hoàn toàn KHÔNG cần người
@@ -72,14 +72,14 @@ public class InterviewDeadEndRuleTests
         Assert.Contains("KHÔNG viết dạng loại trừ", prompt, StringComparison.Ordinal);
     }
 
-    // Dòng tự mâu thuẫn — tóm tắt đã chở câu trả lời mà mẩu "còn thiếu:" vẫn hỏi đúng điều đó — là hình
+    // Dòng tự mâu thuẫn — `known` đã chở câu trả lời mà `gap` vẫn hỏi đúng điều đó — là hình
     // dạng thật đã gặp, và distiller là tầng DUY NHẤT gỡ được nó (guard chỉ chạy một chiều, không nâng cấp).
     [Fact]
     public void CoveragePrompt_TellsTheDistillerToDropAGapItsOwnSummaryAlreadyAnswers()
     {
         var prompt = ReadPrompt(CoveragePromptKey);
 
-        Assert.Contains("Tóm tắt đã chứa câu trả lời thì mẩu `còn thiếu:` phải BIẾN MẤT", prompt, StringComparison.Ordinal);
+        Assert.Contains("`known` đã chứa câu trả lời thì `gap` phải RỖNG", prompt, StringComparison.Ordinal);
     }
 
     // Danh sách tồn đọng lái CoveragePendingGuard hạ dòng bản đồ, nên một mục giữ lại quá hạn khoá cổng

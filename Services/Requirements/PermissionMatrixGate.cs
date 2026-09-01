@@ -44,7 +44,7 @@ namespace ICOGenerator.Services.Requirements;
 public static class PermissionMatrixGate
 {
     /// <summary>
-    /// Nhãn nhóm phân quyền trong bản đồ bao phủ — khớp <c>requirement-coverage.v3.md</c> và mục 12 nhãn
+    /// Nhãn nhóm phân quyền trong bản đồ bao phủ — khớp <c>requirement-coverage.v4.md</c> và mục 12 nhãn
     /// nhóm của <c>requirement-chat.v4.md</c>. So khớp bằng tiền tố "Phân quyền" để một lượt distill viết
     /// chệch phần đuôi không làm cổng câm.
     /// </summary>

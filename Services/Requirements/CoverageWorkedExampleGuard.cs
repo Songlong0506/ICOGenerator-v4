@@ -68,48 +68,37 @@ public static class CoverageWorkedExampleGuard
         if (InterviewOutlookService.ParseItems(workedExamples).Count > 0)
             return coverageMap;
 
-        var lines = coverageMap.Replace("\r\n", "\n").Split('\n');
+        var items = CoverageMapParser.Parse(coverageMap);
         var changed = false;
 
-        for (var i = 0; i < lines.Length; i++)
+        foreach (var item in items)
         {
-            var match = CoverageMapParser.LineRegex().Match(lines[i].Trim());
-            if (!match.Success)
+            if (!item.Label.StartsWith(RuleGroupLabel, StringComparison.OrdinalIgnoreCase)
+                && !RuleGroupLabel.StartsWith(item.Label, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var label = match.Groups["label"].Value.Trim();
-            if (!label.StartsWith(RuleGroupLabel, StringComparison.OrdinalIgnoreCase)
-                && !RuleGroupLabel.StartsWith(label, StringComparison.OrdinalIgnoreCase))
+            if (item.Status is not ("RÕ" or "MỘT PHẦN"))
                 continue;
-
-            var status = CoverageMapParser.NormalizeStatus(match.Groups["status"].Value);
-            if (status is not ("RÕ" or "MỘT PHẦN"))
-                continue;
-
-            var (body, evidence) = CoverageMapParser.SplitEvidence(match.Groups["summary"].Value.Trim());
-            body = body.Trim();
 
             // Dòng đã có mẩu hỏi riêng ⇒ để nguyên: mẩu của distiller bám vào đúng quy tắc còn hụt, cụ thể
             // hơn mẩu dựng sẵn ở đây, và chồng hai mẩu lên nhau thì cổng phát ra một câu hỏi kép.
-            if (body.Contains("còn thiếu:", StringComparison.OrdinalIgnoreCase))
+            if (item.Gap.Length > 0)
                 continue;
 
+            var body = item.Known.Trim();
             if (!CarriesNumber(body))
                 continue;
 
             if (body.Length > 0 && !body.EndsWith('.') && !body.EndsWith(';'))
                 body += ".";
 
-            var rebuilt = (body + " còn thiếu: " + MissingExampleGap).Trim();
-            if (evidence.Length > 0)
-                rebuilt += " {nguồn: " + evidence + "}";
-
-            lines[i] = "- " + (match.Groups["core"].Success ? "★ " : string.Empty)
-                + label + ": [MỘT PHẦN] " + rebuilt;
+            item.Status = "MỘT PHẦN";
+            item.Known = body;
+            item.Gap = MissingExampleGap;
             changed = true;
         }
 
-        return changed ? string.Join("\n", lines) : coverageMap;
+        return changed ? CoverageMapParser.Serialize(items) : coverageMap;
     }
 
     /// <summary>

@@ -149,9 +149,10 @@ public static class ChatExportBuilder
         }
         else
         {
-            // Nguyên văn, không parse lại thành bảng: đây đúng là chuỗi đã đi vào prompt của BA ở lượt
-            // gần nhất, kèm khối {nguồn: …} của từng dòng — người chấm cần soi chính bằng chứng đó.
-            AppendFenced(sb, project.RequirementCoverageMap);
+            // In ra ĐÚNG 12 dòng mà BA đã đọc ở lượt gần nhất (bản đồ lưu dạng JSON, nạp vào prompt dạng
+            // bullet — xem BAChatPromptBlocks.CoverageMap), kèm khối {nguồn: …} của từng dòng: người chấm
+            // cần soi chính bằng chứng đó, và soi bản BA thật sự đọc chứ không phải bản lưu trữ.
+            AppendFenced(sb, CoverageMapParser.ToText(CoverageMapParser.Parse(project.RequirementCoverageMap)));
         }
         sb.AppendLine();
 

@@ -15,7 +15,7 @@ namespace ICOGenerator.Tests.Requirements;
 // chính của mình rơi vào hư không.
 public class CoverageReopenNoteRuleTests
 {
-    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v3.md";
+    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
 
     [Fact]
     public void CoveragePrompt_WritesTheExactMarkerThatExemptsTheAntiRepeatBrake()
