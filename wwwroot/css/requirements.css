@@ -1325,11 +1325,9 @@
 .brief-empty-hint { margin: 4px 0 0; font-size: 11.5px; line-height: 1.55; }
 
 /* ==== CỔNG TẠO TÀI LIỆU (#writeReqZone) ==== */
-/* Wrapper không có hình dạng riêng — phần nhìn thuộc về .summary-gate và .conflict-panel bên trong. Nó tồn
-   tại để requirements.js dời CẢ CỤM (nút tạo tài liệu + cổng soát mâu thuẫn) xuống cuối dòng hội thoại
-   như một khối; dời lẻ thì panel mâu thuẫn lạc khỏi cái nút vừa bật nó lên. Panel mâu thuẫn ràng cùng bề
-   rộng với bong bóng ngay trên nó, không thì nó tràn hết khung chat và trông như một khối lạ. */
-.write-req-zone > .conflict-panel { max-width: 92%; }
+/* Wrapper không có hình dạng riêng — phần nhìn thuộc về .summary-gate và #tableGate bên trong. Nó tồn tại
+   để requirements.js dời CẢ CỤM xuống cuối dòng hội thoại như một khối; dời lẻ thì các khối trong cụm lạc
+   khỏi lời mời đi kèm chúng. */
 
 /* Cùng khuôn với cổng xác nhận giả định (.assumption-panel.gate): một bong bóng BA rộng hơn bình thường,
    viền màu để tách khỏi dòng hội thoại — nó là chỗ quy trình đang ĐỨNG CHỜ, không phải một tin nhắn nữa.
@@ -2683,80 +2681,6 @@
    nó: cột này đã hẹp, xếp ngang thì cả hai đều cụt. */
 .entityfield-system,
 .entityfield-rule { margin-top: 5px; }
-
-/* ==== Cổng soát MÂU THUẪN (bấm nút tạo tài liệu mới hiện, và chỉ khi thật sự có mâu thuẫn) ====
-   Nằm trong #writeReqZone ở khung chat, ngay dưới nút đã bật nó lên — không còn bản nào ở sidebar. Vì thế
-   được ăn theo bề rộng khung chat: cỡ chữ nhích lên so với hồi ở cột hẹp, các lựa chọn không còn bị bó. */
-
-.conflict-panel {
-    margin-top: 10px;
-    padding: 12px 14px;
-    border: 1px solid #fcd34d;
-    border-radius: 10px;
-    background: #fffbeb;
-}
-
-    .conflict-panel h3 { margin: 0; font-size: 13.5px; color: #92400e; }
-
-.conflict-item {
-    padding: 8px;
-    margin-top: 8px;
-    border: 1px solid var(--line, #e5e7eb);
-    border-radius: 8px;
-    background: #fff;
-}
-
-.conflict-topic { font-size: 11.5px; font-weight: 600; color: #92400e; }
-
-.conflict-sides { margin-top: 5px; display: flex; flex-direction: column; gap: 4px; }
-
-.conflict-side { font-size: 11.5px; line-height: 1.5; color: #4b5563; }
-
-.conflict-side-tag {
-    display: inline-block;
-    font-size: 10.5px;
-    font-weight: 600;
-    color: #92400e;
-    background: #fef3c7;
-    border-radius: 4px;
-    padding: 1px 5px;
-    margin-right: 4px;
-}
-
-.conflict-question { font-size: 12px; font-weight: 600; margin-top: 7px; line-height: 1.5; }
-
-.conflict-options { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-
-.conflict-option {
-    font-family: inherit;
-    font-size: 11.5px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--line, #e5e7eb);
-    background: var(--surface-alt, #f3f4f6);
-    color: #4b5563;
-    cursor: pointer;
-    width: auto;
-}
-
-    .conflict-option.is-on { background: var(--bosch-blue, #2563eb); border-color: var(--bosch-blue, #2563eb); color: #fff; }
-
-.conflict-other {
-    width: 100%;
-    margin-top: 6px;
-    font-family: inherit;
-    font-size: 11.5px;
-    padding: 5px 8px;
-    border: 1px solid var(--line, #e5e7eb);
-    border-radius: 6px;
-}
-
-.conflict-bar { margin-top: 10px; }
-
-.conflict-msg { font-size: 11.5px; color: #dc2626; margin-top: 6px; }
-
-/* `hidden` là quy tắc display ưu tiên thấp nhất — khôi phục ý nghĩa của nó cho panel này. */
-.conflict-panel[hidden] { display: none; }
 
 /* ==== Sửa lượt vừa gửi ==== */
 

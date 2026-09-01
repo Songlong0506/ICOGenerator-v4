@@ -89,9 +89,9 @@ public class AgentConversation
     // Vì sao là một cột chứ không phải phép dò chuỗi: trước đây bước soạn tài liệu tự suy bằng cách tìm
     // cụm "Write Requirement" trong lượt cuối. Cách đó hỏng ở hai chỗ — (1) nó phụ thuộc vào CHỮ mà model
     // sinh ra, nên một lần chỉnh prompt/đổi cách diễn đạt là mất tín hiệu trong im lặng; (2) mọi đường ghi
-    // thêm một lượt SAU lời mời đều vô tình xoá tín hiệu, kể cả đường không hề mang thông tin mới — đúng
-    // ca cổng soát mâu thuẫn (RequirementConflictService.ApplyResolutionsAsync ghi một cặp lượt "chốt lại"
-    // rồi mới soạn tài liệu), khiến vòng soạn bị đá về khung chat và người dùng phải bấm nút lần hai.
+    // thêm một lượt SAU lời mời đều vô tình xoá tín hiệu, kể cả đường không hề mang thông tin mới — một
+    // cặp lượt ghi xen vào ngay trước lúc soạn cũng đủ đá vòng soạn về khung chat và bắt người dùng bấm
+    // nút lần hai.
     //
     // FAIL-CLOSED: mặc định false. Lượt của bất kỳ đường ghi nào không tự khẳng định cờ này đều làm bước
     // soạn tài liệu xét lại cổng — thừa một lượt distill thì chỉ tốn token, còn bỏ qua cổng nhầm thì tài

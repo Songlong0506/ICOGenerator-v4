@@ -375,9 +375,9 @@ public static class RequirementReadinessGate
     /// <para>
     /// Đọc CỜ chứ không đọc nội dung lượt cuối, và không lọc lượt rỗng: mọi đường ghi thêm một lượt đều
     /// mặc định <c>false</c>, nên bất kỳ thứ gì chen vào sau lời mời (một lượt chat mới, một file vừa đính
-    /// kèm, một lượt ⚠️ lỗi LLM) đều tự động đóng đường tắt lại — trừ đúng những đường TỰ KHẲNG ĐỊNH rằng
-    /// mình không mang thông tin mới và chép cờ sang lượt của mình
-    /// (<see cref="RequirementConflictService.ApplyResolutionsAsync"/>).
+    /// kèm, một lượt ⚠️ lỗi LLM) đều tự động đóng đường tắt lại. Một đường ghi muốn giữ đường tắt phải TỰ
+    /// KHẲNG ĐỊNH rằng mình không mang thông tin mới, bằng cách chép cờ của lượt nó vừa đè sang lượt của
+    /// mình; hiện KHÔNG đường nào làm thế, nên mọi lượt mới đều đóng cổng lại.
     /// </para>
     /// </summary>
     public static bool IsReadinessVerifiedLatestTurn(IEnumerable<AgentConversation> conversations)

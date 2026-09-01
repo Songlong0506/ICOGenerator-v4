@@ -462,8 +462,7 @@ public static class EntityMapBuilder
     /// (<c>luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo</c>): gieo trước lần bày đầu thì
     /// các màn hình danh mục là những dòng bình thường của bảng màn hình, người dùng tích/bỏ tích ngay tại
     /// đó. Thứ tự cũ (màn hình trước) buộc chúng đi vào bằng đường MỞ LẠI của <c>ScreenScopeGate</c> —
-    /// người dùng đã chốt "đây là toàn bộ màn hình" rồi mới thấy danh sách dài thêm, và
-    /// <c>RequirementConflictService</c> bắn một mâu thuẫn cho đúng cái phạm vi vừa đổi. Xem
+    /// người dùng đã chốt "đây là toàn bộ màn hình" rồi mới thấy danh sách dài thêm. Xem
     /// <c>InterviewTableGate</c> và <c>ConfirmEntityMapUseCase</c>.
     /// </para>
     ///

@@ -191,7 +191,7 @@ public class ChatExportBuilderTests
     // người dùng tự chọn từng dòng, hay chỉ bấm gửi một bảng BA điền sẵn?
     //
     // Ca thật (JD Library, lượt 68): bản xuất không có dòng nào cho bảng thông báo, nên không cách nào phân
-    // biệt hai thứ đó — mà dòng "To: HOD của đơn vị" đã vào "Điều đã chốt" như quyết định của người dùng.
+    // biệt hai thứ đó — mà dòng "To: HOD của đơn vị" đi thẳng vào tài liệu như quyết định của người dùng.
     [Fact]
     public void Build_RendersTheFourRemainingTablesOfferedInATurn()
     {
@@ -344,14 +344,12 @@ public class ChatExportBuilderTests
         var project = new Project
         {
             Name = "Quản lý đào tạo",
-            DecisionLog = "- Quản lý duyệt đơn là đủ, không cần HR",
             OpenQuestions = "- Danh sách khóa học đồng bộ tự động hay nhập tay?",
             WorkedExamples = "- 3 lớp × 20 học viên ⇒ cần 2 phòng"
         };
 
         var markdown = ChatExportBuilder.Build(Snapshot(project, userMemory: "Người dùng là HR, không rành kỹ thuật."));
 
-        Assert.Contains("Quản lý duyệt đơn là đủ, không cần HR", markdown, StringComparison.Ordinal);
         Assert.Contains("Danh sách khóa học đồng bộ tự động hay nhập tay?", markdown, StringComparison.Ordinal);
         Assert.Contains("3 lớp × 20 học viên ⇒ cần 2 phòng", markdown, StringComparison.Ordinal);
         Assert.Contains("Người dùng là HR, không rành kỹ thuật.", markdown, StringComparison.Ordinal);

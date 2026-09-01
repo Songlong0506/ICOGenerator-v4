@@ -40,7 +40,7 @@ public class PromptConventionTests
     // model — model không báo lỗi, nó chỉ trả lời tệ hơn, nên đây là loại lỗi không ai phát hiện ra.
     private static readonly HashSet<string> KnownPlaceholders = new(StringComparer.Ordinal)
     {
-        "{{input}}",            // WorkflowTaskPromptBuilder, UatScenarioService, RequirementConflictService
+        "{{input}}",            // WorkflowTaskPromptBuilder, UatScenarioService
         "{{persona}}",          // EvalRunnerService
         "{{instruction}}",      // AgentPromptBuilder
         "{{roleTitle}}",        // AgentPromptBuilder

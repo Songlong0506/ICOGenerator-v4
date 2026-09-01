@@ -3535,12 +3535,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         writeReqZone.dataset.state = gateState;
 
-        const conflictPanel = document.getElementById("conflictPanel");
-
         // Dời CẢ CỤM xuống cuối dòng hội thoại (cùng cách renderSuggestions dời khay chip): các bong bóng
         // mới được chèn vào ngay trước #thinkingBox, nên một khối đứng yên ở vị trí tĩnh sẽ bị các lượt sau
         // vượt qua — lời mời tạo tài liệu nổi lên phía trên chính câu trả lời vừa sinh ra nó. Dời wrapper
-        // chứ không dời từng khối, để panel mâu thuẫn không lạc khỏi nút đã bật nó lên.
+        // chứ không dời từng khối, để #tableGate không lạc khỏi lời mời đi kèm nó.
         // Dời KỂ CẢ khi cổng đang đóng: "cụm này luôn là khối cuối" phải đúng ở mọi lượt, không chỉ ở lượt
         // mời — và từ khi cụm có khối #tableGate thì nó không còn là chuyện vô hình nữa: ở lượt khối đó
         // HIỆN, cụm nằm lại giữa hội thoại là câu chặn nổi lên trên chính cái bảng nó bảo người dùng đi rà.
@@ -3563,11 +3561,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
 
         if (gateState !== "ready") {
-            // BA quay lại hỏi tiếp (vd vừa phát hiện mâu thuẫn từ chính đính chính user vừa gửi) ⇒ lời mời
-            // cũ không còn đúng nữa, để lại là nói dối. Panel mâu thuẫn đóng theo: nó là câu hỏi phát sinh
-            // từ một cú bấm nay đã hết hiệu lực.
+            // BA quay lại hỏi tiếp (vd vừa phát hiện chỗ hụt từ chính đính chính user vừa gửi) ⇒ lời mời
+            // cũ không còn đúng nữa, để lại là nói dối.
             gate.hidden = true;
-            if (conflictPanel) conflictPanel.hidden = true;
             return;
         }
 
@@ -3577,8 +3573,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const btn = gate.querySelector(".write-req-btn");
         if (btn) {
             // Dựng lại nhãn "nghỉ" từ bản gốc server render: lúc này nhãn có thể đang là "Đang tạo tài
-            // liệu…" (submit vừa rồi bị cổng mâu thuẫn chặn) hay "Đang soát…". data-idle-label là nhãn
-            // nghỉ hiện hành — cổng soát mâu thuẫn đọc lại nó để khôi phục sau khi soát xong.
+            // liệu…" (submit vừa rồi bị hộp xác nhận ghi đè chặn). data-idle-label là nhãn nghỉ hiện hành.
             btn.disabled = false;
             btn.textContent = btn.dataset.readyLabel || "Write Requirement";
             btn.dataset.idleLabel = btn.textContent;
@@ -3591,8 +3586,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // KHÔNG còn cơ chế ghi chú/đính chính trên bản tổng kết ở đây (syncSummaryGateBar, summaryGateNotes,
     // nút nổi "✎ Ghi chú đoạn này" khi bôi đen, sendSummaryGateNotes): bản tổng kết đã gỡ, xem lý do ở
     // Index.cshtml. Cổng nay chỉ có MỘT nút và nó là nút submit thật của form.write-req, nên cú bấm đi
-    // thẳng qua hộp xác nhận ghi đè (initRegenerateConfirm) rồi cổng soát mâu thuẫn (initConflictGate) —
-    // cả hai đều là listener trên chính nút/form đó, không cần listener nào của riêng cổng.
+    // thẳng: không còn listener nào chen giữa cú bấm và form.write-req (hộp xác nhận ghi đè và cổng soát
+    // mâu thuẫn đều đã gỡ), nên cổng không cần listener nào của riêng nó.
     // Đính chính đi qua khung chat như mọi điều khác; đường ghi chú trên bản xem trước Product Brief
     // (initBriefNotes) vẫn còn và đó mới là chỗ đoạn văn thật sự dài.
 
@@ -4950,141 +4945,3 @@ function openLatestProductBrief() {
 // có gì mới — nay ĐÓNG cổng hẳn (trạng thái "done" ở Index.cshtml) thay vì bày ra một nút ghi đè kèm lời
 // khuyên đừng bấm. Muốn bản khác thì nhắn thêm trong khung chat: cổng mở lại ở "ready" và nút lúc đó soạn
 // từ hội thoại ĐÃ có thông tin mới, không còn là cú ghi đè bằng một bản gần y hệt.
-
-// ==== Cổng soát MÂU THUẪN (chạy khi bấm "Write Requirement") ====
-// Panel "Tiến độ khai thác" chỉ trả lời *đã rõ hết chưa*. Cổng này trả lời *những điều đã rõ có chọi nhau
-// không*: người dùng nói ở lượt 3 rằng quản lý duyệt xong là hết, tới lượt 12 lại kể thêm HR duyệt — bản
-// đồ bao phủ đánh dấu [RÕ] cả hai lần, còn bước soạn tài liệu (bị cấm tự giả định) sẽ chọn bừa một bên.
-// Không có mâu thuẫn ⇒ người dùng không thấy gì cả, form submit như trước (fail-open cả khi soát lỗi).
-(function initConflictGate() {
-    const panel = document.getElementById("conflictPanel");
-    const form = document.querySelector("form.write-req");
-    if (!panel || !form) return;
-
-    const bodyEl = document.getElementById("conflictBody");
-    const msgEl = document.getElementById("conflictMsg");
-    const submitBtn = form.querySelector("button");
-
-    // Đã soát xong (không còn mâu thuẫn / vừa chốt xong) ⇒ lần submit sau đi thẳng, không soát lại.
-    let cleared = false;
-
-    function token() {
-        const el = document.querySelector('input[name="__RequestVerificationToken"]');
-        return el ? el.value : "";
-    }
-
-    async function post(url, extra) {
-        const fd = new FormData();
-        fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
-        fd.append("__RequestVerificationToken", token());
-        Object.keys(extra || {}).forEach(k => fd.append(k, extra[k]));
-        const resp = await fetch(url, { method: "POST", body: fd });
-        return await resp.json();
-    }
-
-    function submitForRealNow() {
-        cleared = true;
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Đang tạo tài liệu…";
-        // form.submit() không chạy handler onsubmit nên trạng thái nút phải tự đặt ở trên.
-        form.submit();
-    }
-
-    function render(conflicts) {
-        bodyEl.innerHTML = conflicts.map((c, i) => `
-            <div class="conflict-item" data-index="${i}" data-question="${escapeHtml(c.question || "")}">
-                ${c.topic ? `<div class="conflict-topic">${escapeHtml(c.topic)}</div>` : ""}
-                <div class="conflict-sides">
-                    <div class="conflict-side"><span class="conflict-side-tag">Anh/chị từng nói</span> ${escapeHtml(c.sideA || "")}</div>
-                    <div class="conflict-side"><span class="conflict-side-tag">Nhưng cũng nói</span> ${escapeHtml(c.sideB || "")}</div>
-                </div>
-                <div class="conflict-question">${escapeHtml(c.question || "")}</div>
-                <div class="conflict-options">
-                    ${(c.options || []).map(o => `
-                        <button type="button" class="conflict-option" data-value="${escapeHtml(o)}">${escapeHtml(o)}</button>
-                    `).join("")}
-                </div>
-                <input type="text" class="conflict-other" placeholder="Hoặc gõ cách hiểu đúng của anh/chị…" />
-            </div>`).join("") + `
-            <div class="conflict-bar">
-                <button type="button" class="btn primary full" id="conflictConfirmBtn">✓ Chốt lại rồi tạo tài liệu</button>
-            </div>`;
-        panel.hidden = false;
-        panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-
-    // Lựa chọn của một mục = nút đang bật, hoặc ô tự nhập nếu người dùng gõ (ô gõ được ưu tiên).
-    function choiceOf(item) {
-        const typed = item.querySelector(".conflict-other").value.trim();
-        if (typed.length > 0) return typed;
-        const on = item.querySelector(".conflict-option.is-on");
-        return on ? on.dataset.value : "";
-    }
-
-    form.addEventListener("submit", async function (e) {
-        if (cleared) return;
-        e.preventDefault();
-
-        // Nhãn để khôi phục lấy từ data-idle-label chứ KHÔNG đọc textContent tại đây: handler onsubmit
-        // inline chạy trước listener này và đã đổi nhãn thành "Đang tạo tài liệu…", nên đọc ở đây sẽ ghim
-        // luôn chữ đó làm nhãn "nghỉ" — phát hiện có mâu thuẫn, nút enable lại mà vẫn ghi "Đang tạo tài liệu…".
-        const original = submitBtn.dataset.idleLabel || submitBtn.textContent;
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Đang soát mâu thuẫn…";
-        try {
-            const data = await post(panel.dataset.checkUrl, null);
-            if (!data.ok || !Array.isArray(data.conflicts) || data.conflicts.length === 0) {
-                submitForRealNow();
-                return;
-            }
-            render(data.conflicts);
-        } catch {
-            // Soát lỗi (mất mạng, LLM chết) KHÔNG được chặn người dùng — đây là cổng chất lượng, không
-            // phải cổng bảo mật: đi tiếp và soạn tài liệu như trước khi có cổng này.
-            submitForRealNow();
-            return;
-        }
-        submitBtn.disabled = false;
-        submitBtn.textContent = original;
-    });
-
-    bodyEl.addEventListener("click", async function (e) {
-        const option = e.target.closest(".conflict-option");
-        if (option) {
-            const item = option.closest(".conflict-item");
-            item.querySelectorAll(".conflict-option").forEach(b => b.classList.toggle("is-on", b === option));
-            item.querySelector(".conflict-other").value = "";
-            return;
-        }
-
-        const confirmBtn = e.target.closest("#conflictConfirmBtn");
-        if (!confirmBtn) return;
-
-        const items = Array.from(bodyEl.querySelectorAll(".conflict-item"));
-        const resolutions = items
-            .map(item => ({ question: item.dataset.question, choice: choiceOf(item) }))
-            .filter(r => r.choice.length > 0);
-
-        if (resolutions.length < items.length) {
-            msgEl.textContent = "Còn điểm chưa chọn — chọn một phương án (hoặc gõ cách hiểu đúng) cho từng điểm nhé.";
-            return;
-        }
-
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = "Đang ghi nhận…";
-        msgEl.textContent = "";
-        try {
-            const data = await post(panel.dataset.resolveUrl, { resolutionsJson: JSON.stringify(resolutions) });
-            if (data.ok) {
-                panel.hidden = true;
-                submitForRealNow();
-                return;
-            }
-            msgEl.textContent = data.error || "Không ghi nhận được lựa chọn.";
-        } catch {
-            msgEl.textContent = "Không gửi được — kiểm tra kết nối rồi thử lại.";
-        }
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = "✓ Chốt lại rồi tạo tài liệu";
-    });
-})();

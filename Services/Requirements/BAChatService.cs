@@ -30,7 +30,6 @@ public class BAChatService
     private readonly OrganizationContextService _orgContext;
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
-    private readonly DecisionLogService _decisionLog;
     private readonly InterviewOutlookService _interviewOutlook;
     private readonly ScreenStepPlacementService _stepPlacement;
     private readonly ChecklistNoteStore _checklistNotes;
@@ -243,7 +242,6 @@ public class BAChatService
         OrganizationContextService orgContext,
         BAAgentResolver agentResolver,
         BAConversationLog conversationLog,
-        DecisionLogService decisionLog,
         InterviewOutlookService interviewOutlook,
         ScreenStepPlacementService stepPlacement,
         ChecklistNoteStore checklistNotes,
@@ -261,7 +259,6 @@ public class BAChatService
         _orgContext = orgContext;
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
-        _decisionLog = decisionLog;
         _interviewOutlook = interviewOutlook;
         _stepPlacement = stepPlacement;
         _checklistNotes = checklistNotes;
@@ -500,12 +497,9 @@ public class BAChatService
         var turnCount = await _db.AgentConversations.CountAsync(c => c.ProjectId == projectId, cancellationToken);
         var beforeEdited = Math.Max(0, turnCount - 1);
         project.CoverageHarvestedTurnCount = Math.Min(project.CoverageHarvestedTurnCount, beforeEdited);
-        project.DecisionHarvestedTurnCount = Math.Min(project.DecisionHarvestedTurnCount, beforeEdited);
         project.InterviewOutlookHarvestedTurnCount = Math.Min(project.InterviewOutlookHarvestedTurnCount, beforeEdited);
         project.UserMemoryHarvestedTurnCount = Math.Min(project.UserMemoryHarvestedTurnCount, beforeEdited);
         project.SummarizedTurnCount = Math.Min(project.SummarizedTurnCount, beforeEdited);
-        // Cổng soát mâu thuẫn cũng phải soát lại: nội dung vừa đổi có thể chính là vế đang chọi nhau.
-        project.ConflictCheckedTurnCount = Math.Min(project.ConflictCheckedTurnCount, beforeEdited);
         await _db.SaveChangesAsync(cancellationToken);
 
         return await RunTurnGuaranteedAsync(project, ba, ba.AiModel!, onStatus, onToken, cancellationToken);
@@ -724,10 +718,6 @@ public class BAChatService
 
         if (!string.IsNullOrWhiteSpace(turn.CoverageUpdate.Map))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.CoverageMap(turn.CoverageUpdate.Map)));
-
-        var settledDecisions = DecisionLogService.ParseItems(project.DecisionLog);
-        if (settledDecisions.Count > 0)
-            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.SettledDecisions(settledDecisions)));
 
         var openQuestions = InterviewOutlookService.ParseItems(project.OpenQuestions);
         if (openQuestions.Count > 0)
@@ -1325,28 +1315,9 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Gộp các lượt chat mới vào nhật ký "Điều đã chốt" rồi trả bản hiện hành. Tách khỏi
-    /// <see cref="ChatAsync"/> để chạy SAU khi user đã nhận câu trả lời (frame done): panel cập nhật
-    /// trễ vài giây không sao, còn mỗi lượt chat nhanh hơn đúng một lời gọi LLM. Fail-open toàn phần.
-    /// </summary>
-    public async Task<IReadOnlyList<string>> UpdateDecisionsAsync(Guid projectId, CancellationToken cancellationToken = default)
-    {
-        var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
-        if (project == null)
-            return Array.Empty<string>();
-
-        var ba = await _agentResolver.FindConfiguredAsync(cancellationToken);
-        if (ba == null)
-            return DecisionLogService.ParseItems(project.DecisionLog).ToList();
-
-        var decisionLog = await _decisionLog.UpdateAndLoadAsync(project, ba, ba.AiModel!, cancellationToken);
-        return DecisionLogService.ParseItems(decisionLog).ToList();
-    }
-
-    /// <summary>
     /// Gộp lượt chat mới vào "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ tính thử
-    /// đã xác nhận) rồi trả bản hiện hành. Như <see cref="UpdateDecisionsAsync"/>: gọi ở HẬU KỲ lượt chat
-    /// (sau frame done) để lời gọi LLM này không cộng vào độ chờ. Fail-open toàn phần.
+    /// đã xác nhận) rồi trả bản hiện hành. Gọi ở HẬU KỲ lượt chat (sau frame done) để lời gọi LLM này
+    /// không cộng vào độ chờ cảm nhận. Fail-open toàn phần.
     /// </summary>
     public async Task<InterviewOutlook> UpdateInterviewOutlookAsync(Guid projectId, CancellationToken cancellationToken = default)
     {

@@ -379,15 +379,14 @@ public class ProductBriefDraftService
     }
 
     // Chỉ mục của chính hội thoại cho lượt soạn/soát/sửa Brief: các danh sách máy đã chắt sau mỗi lượt
-    // chat (DecisionLogService, InterviewOutlookService). KHÔNG phải nguồn thông tin mới — mọi dòng ở đây
-    // đều đã có trong transcript — nhưng là thứ biến "đừng bỏ sót yêu cầu nào" từ một lời dặn thành một
-    // phép đối chiếu đếm được: mỗi mục phải tìm được chỗ tương ứng trong tài liệu.
+    // chat (InterviewOutlookService). KHÔNG phải nguồn thông tin mới — mọi dòng ở đây đều đã có trong
+    // transcript — nhưng là thứ biến "đừng bỏ sót yêu cầu nào" từ một lời dặn thành một phép đối chiếu
+    // đếm được: mỗi mục phải tìm được chỗ tương ứng trong tài liệu.
     // Rỗng (dự án chưa chắt được gì) ⇒ chuỗi rỗng, prompt trở về đúng hình dạng cũ.
     private static string BuildDistilledState(Project project)
     {
         var sb = new StringBuilder();
 
-        AppendBlock(sb, "Điều đã chốt (mỗi dòng là một quyết định của người dùng — tài liệu phải phản ánh hết)", project.DecisionLog);
         AppendBlock(sb, "Ví dụ đã xác nhận (input → kết quả kỳ vọng do người dùng chốt — quy tắc tương ứng phải có trong tài liệu)", project.WorkedExamples);
         // Danh sách tồn đọng KHÔNG chặn cổng readiness (cổng suy tất định từ bản đồ bao phủ). Ở đây nó có
         // tác dụng ngược lại và đúng chỗ: mục nào còn treo mà tài liệu buộc phải nói tới thì bước soạn

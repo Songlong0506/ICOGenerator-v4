@@ -16,7 +16,7 @@ namespace ICOGenerator.Tests.Requirements;
 //
 // Bốn chip chỉ chạm vế "bắt đầu từ đâu". Ở lượt hỏi MỘT câu, bấm chip là GỬI NGAY — nên "các bước" và
 // "kết quả cuối cùng", đúng hai thứ đắt nhất, không bao giờ được kể; rồi mẩu bốn chữ đó được chắt vào bản
-// đồ bao phủ và "Điều đã chốt" như câu trả lời thật của người dùng, và nhóm coi như đã hỏi xong.
+// đồ bao phủ như câu trả lời thật của người dùng, và nhóm coi như đã hỏi xong.
 //
 // Ba bất biến giữ chỗ này:
 //  1. `openEnded` ⇒ chip bị XÓA. Cờ và bộ chip không bao giờ cùng sống — UI chỉ có một chỗ trả lời.

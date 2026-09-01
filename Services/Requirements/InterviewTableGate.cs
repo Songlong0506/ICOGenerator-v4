@@ -68,9 +68,8 @@ public enum InterviewTableKind
 /// một trường thông tin nào để mà quyết định. Chiều CÓ THẬT thì chạy ngược lại và chạy tất định (hai hàm
 /// gieo màn hình nêu trên). Hệ quả của thứ tự cũ, đo được trên dự án thật: người dùng chốt bảng màn hình
 /// như một phạm vi trọn vẹn, mấy lượt sau bảng đối tượng gieo thêm năm màn hình quản lý danh mục, bảng màn
-/// hình phải mở lại, và <see cref="RequirementConflictService"/> bắn một mâu thuẫn ("trước đây anh/chị xác
-/// nhận đây là toàn bộ màn hình…") — tiêu một suất trong tối đa 5 mâu thuẫn cho một xung đột do chính thứ
-/// tự đẻ ra, và bắt người dùng rà cùng một bảng hai lần. Đường mở lại của
+/// hình phải mở lại — bắt người dùng rà cùng một bảng hai lần cho một xung đột do chính thứ tự đẻ ra.
+/// Đường mở lại của
 /// <see cref="ScreenScopeGate"/> vẫn còn nguyên, nhưng nay nó lùi về đúng vai LƯỚI AN TOÀN (phạm vi trôi vì
 /// hội thoại sau lúc chốt) thay vì là đường chính của một luồng biết trước là sẽ trôi.
 /// </para>
@@ -237,7 +236,7 @@ public static class FlowMapGate
 /// bảng đối tượng (mỗi danh mục "ứng dụng tự quản lý" là một màn hình quản lý) và bảng báo cáo (mỗi báo cáo
 /// còn giữ là một màn hình) đều gieo thẳng vào các DÒNG của bảng này lúc chốt. Đứng trước chúng — thứ tự cũ — thì bảng tự giới thiệu là phạm vi trọn vẹn, người dùng gật, rồi
 /// hệ thống tự thêm màn hình sau lưng họ; xem ghi chú của <see cref="InterviewTableGate"/> cho ca thật và
-/// cái giá (một mâu thuẫn giả ở <see cref="RequirementConflictService"/> + một lượt rà lặp).
+/// cái giá (một lượt rà lặp trên cùng một bảng).
 /// </para>
 ///
 /// <para>

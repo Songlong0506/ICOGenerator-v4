@@ -13,7 +13,7 @@ namespace ICOGenerator.Tests.Requirements;
 // nhưng vẫn giữ hai quy tắc dựa vào nó ("Admin chỉ từ chối ticket waitlist khi nhân viên đã hủy đăng ký")
 // — tài liệu tự nói tới một hành động mà chính nó không cho ai làm, và người duyệt đọc lướt sẽ gật.
 //
-// Chốt chặn: đưa các danh sách MÁY ĐÃ CHẮT (Điều đã chốt / Ví dụ đã xác nhận / Điểm còn tồn đọng) vào cả
+// Chốt chặn: đưa các danh sách MÁY ĐÃ CHẮT (Ví dụ đã xác nhận / Điểm còn tồn đọng) vào cả
 // lượt soạn, lượt soát và lượt sửa, để "đừng bỏ sót yêu cầu nào" chuyển từ một lời dặn thành một phép
 // đối chiếu đếm được. Các test dưới giữ cho mối nối đó (code dựng khối + prompt bảo đối chiếu) không rơi.
 public class BriefTraceabilityRuleTests
@@ -25,7 +25,6 @@ public class BriefTraceabilityRuleTests
     {
         Name = "Kế hoạch đào tạo",
         Description = "app lập kế hoạch lớp học",
-        DecisionLog = "- Nhân viên có thể hủy đăng ký lớp đã enroll.",
         WorkedExamples = "- Tính số lớp: nhu cầu 25, tối đa 10/lớp → 3 lớp.",
         OpenQuestions = "- Chưa rõ ai quản lý danh mục khóa học."
     };
@@ -34,7 +33,7 @@ public class BriefTraceabilityRuleTests
     public void ComposePrompt_CarriesTheDistilledStateIntoAllThreeCalls()
     {
         var builder = new RequirementPromptBuilder();
-        const string distilled = "### Điều đã chốt\n- Nhân viên có thể hủy đăng ký lớp đã enroll.";
+        const string distilled = "### Ví dụ đã xác nhận\n- Nhân viên có thể hủy đăng ký lớp đã enroll.";
 
         var compose = builder.BuildProductBrief(SampleProject, "hội thoại", "", "", distilled);
         var review = builder.BuildProductBriefReview(SampleProject, "hội thoại", "bản nháp", "", distilled);
@@ -79,7 +78,6 @@ public class BriefTraceabilityRuleTests
         var prompt = ReadPrompt(ReviewPromptKey);
 
         Assert.Contains("Đối chiếu MÁY MÓC", prompt, StringComparison.Ordinal);
-        Assert.Contains("Điều đã chốt", prompt, StringComparison.Ordinal);
         Assert.Contains("Ví dụ đã xác nhận", prompt, StringComparison.Ordinal);
         Assert.Contains("Điểm cần làm rõ còn tồn đọng", prompt, StringComparison.Ordinal);
     }

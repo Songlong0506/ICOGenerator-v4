@@ -9,7 +9,7 @@ namespace ICOGenerator.Tests.Requirements;
 // nghiệp vụ không biết nó tồn tại, và BA thì không có cách nào tự suy ra. Không nói cho BA biết thì nhóm
 // "Thông báo / nhắc nhở" là chỗ nó tự đẻ phương án đẹp mà không có thật: một chip *"Thông báo qua Teams"*
 // hay *"Gửi SMS"* người dùng bấm nhầm một cái là yêu cầu ghi sai kênh ngay từ lượt đầu, rồi cái sai đó
-// chảy qua "Điều đã chốt" → Product Brief → AI Design Spec → bản thiết kế → code, và chỉ lộ ra khi có
+// chảy qua bản đồ bao phủ → Product Brief → AI Design Spec → bản thiết kế → code, và chỉ lộ ra khi có
 // người hỏi "gửi Teams bằng cách nào?".
 //
 // Vì vậy khối ràng buộc sống ở Prompts/BusinessAnalyst/organization-platform.v1.md và được

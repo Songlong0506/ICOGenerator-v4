@@ -41,15 +41,15 @@ gọi BA và chứa các **hằng số của sản phẩm** mà người dùng k
 tên department/HoD có thật. Nó vừa là **nguồn hợp lệ** cho những dữ kiện không ai nói ra trong transcript,
 vừa là danh sách những thứ **BA bị CẤM hỏi vì đã chốt** — một câu hỏi vắng mặt ở đó là đúng luật, không
 phải thiếu sót. Lỗi thật sự ở khu vực này chỉ có một hướng: BA lấy hằng số trong phụ lục B rồi **kể lại như
-lời người dùng** (trong "mình ghi nhận…", trong "Điều đã chốt", hay dựng thành mâu thuẫn bắt người dùng
+lời người dùng** (trong "mình ghi nhận…", trong `{nguồn: …}` của bản đồ bao phủ, hay dựng thành mâu thuẫn bắt người dùng
 phân xử) — chính phụ lục B cấm điều đó, và nó bị chắt vào mục 3 như một quyết định của người dùng.
 
 ## Điều cần soi (nặng → nhẹ)
 
 1. **BA tự trả lời hộ người dùng.** Mọi dữ kiện nghiệp vụ phải đến từ lượt của NGƯỜI DÙNG, từ tài liệu
    nguồn, hoặc từ phụ lục B. BA đề xuất một phương án rồi tự coi là đã chốt (người dùng chưa gật), hoặc suy
-   diễn theo thông lệ ngành rồi ghi vào "Điều đã chốt" — đó là tài liệu của BA đoán, ký tên người dùng.
-   Dữ kiện đến từ phụ lục B là ngoại lệ hợp lệ về NGUỒN, nhưng vẫn là lỗi nếu bị ghi vào "Điều đã chốt"
+   diễn theo thông lệ ngành rồi ghi nhận như lời họ — đó là tài liệu của BA đoán, ký tên người dùng.
+   Dữ kiện đến từ phụ lục B là ngoại lệ hợp lệ về NGUỒN, nhưng vẫn là lỗi nếu bị ghi nhận như lời người dùng
    dưới dạng lời người dùng.
 2. **Bằng chứng của bản đồ bao phủ không đứng vững.** Với MỖI dòng `[RÕ]`, tìm trong transcript câu người
    dùng thật sự nói điều đó. Ba kiểu trượt hay gặp: bằng chứng trích lời của chính BA; một tiếng "có/không"

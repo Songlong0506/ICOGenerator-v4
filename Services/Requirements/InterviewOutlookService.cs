@@ -12,7 +12,7 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// "Triển vọng phỏng vấn" của MỘT dự án — chắt lọc từ hội thoại trong MỘT lời gọi LLM (thay vì ba) ba danh
-/// sách bổ trợ cho <see cref="DecisionLogService"/> ("Điều đã chốt"):
+/// sách bổ trợ cho bản đồ bao phủ (<see cref="RequirementCoverageService"/>):
 ///  • <b>OpenQuestions</b> — điểm còn mơ hồ/mâu thuẫn chưa chốt: TỒN ĐỌNG câu hỏi được nạp vào ngữ cảnh lượt
 ///    chat sau (<see cref="BAChatService"/>) để BA hỏi cho hết ngay trong khung chat, không hiện thành panel
 ///    bắt user tự đọc (mục được chốt thì tự rời danh sách ở lượt sau).
@@ -30,8 +30,8 @@ namespace ICOGenerator.Services.Requirements;
 ///    chiếu ĐỘC LẬP: kỳ vọng do user chốt (trong spec), giá trị do chính POC tính ra.
 /// <para>
 /// Cùng pattern gộp-lũy-tiến theo con trỏ lượt (<see cref="Project.InterviewOutlookHarvestedTurnCount"/>) và
-/// <b>fail-open</b> như <see cref="DecisionLogService"/>: lời gọi lỗi thì giữ bản cũ + con trỏ đứng yên, lượt
-/// sau gộp bù. Gọi ở HẬU KỲ lượt chat (sau frame done) để không cộng vào độ chờ cảm nhận.
+/// <b>fail-open</b> như bản đồ bao phủ: lời gọi lỗi thì giữ bản cũ + con trỏ đứng yên, lượt sau gộp bù.
+/// Gọi ở HẬU KỲ lượt chat (sau frame done) để không cộng vào độ chờ cảm nhận.
 /// </para>
 ///
 /// <para>
@@ -110,7 +110,7 @@ public class InterviewOutlookService
         WorkedExamples = ParseItems(project.WorkedExamples).ToList(),
     };
 
-    /// <summary>Tách text bullet (mỗi dòng "- …") thành danh sách; rỗng → danh sách rỗng. Dùng chung với DecisionLog.</summary>
+    /// <summary>Tách text bullet (mỗi dòng "- …") thành danh sách; rỗng → danh sách rỗng.</summary>
     public static IReadOnlyList<string> ParseItems(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))

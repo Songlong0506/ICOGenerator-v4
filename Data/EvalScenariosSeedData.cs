@@ -816,31 +816,6 @@ public static class EvalScenariosSeedData
             - Lượt này phải đi tiếp sang một nhóm còn thiếu của bản đồ bao phủ, hoặc đào sâu QUY TẮC NGHIỆP VỤ đằng sau một cột đã chốt (vd Required Date quá hạn thì xử lý thế nào) — đào quy tắc thì KHÔNG tính là hỏi lại nghĩa cột.
             """);
 
-        // ================= BusinessAnalyst/decision-log.v1.md =================
-        // Nhật ký "Điều đã chốt" là bộ nhớ dài hạn của cuộc phỏng vấn: BA đọc nó ở MỌI lượt sau để soát mâu
-        // thuẫn, và bước soạn tài liệu — vốn bị CẤM tự giả định — coi mỗi dòng ở đây là điều người dùng đã
-        // duyệt. Một dòng ghi dư vì BA gộp hai điều vào một lượt sẽ không còn cổng nào chặn lại.
-
-        Add(
-            "Decision log — BA gộp hai điều, người dùng chỉ trả lời một: chỉ ghi điều đã trả lời",
-            "BusinessAnalyst/decision-log.v1.md",
-            """
-            ## Nhật ký hiện có
-            - Ứng dụng lập kế hoạch lớp học và đánh giá kết quả học tập cho nhân viên, gồm khóa bắt buộc và tự chọn
-            - Các vai trò dùng ứng dụng: nhân viên, HR – Đào tạo, Manager orgUnit, Quản trị ứng dụng
-
-            ## Các lượt hội thoại MỚI
-            BA: Vậy giáo viên sẽ cập nhật trạng thái Complete/Not Complete/No Show, sau đó chấm điểm từ 1 đến 4 cho riêng học viên Complete. Mình chốt phạm vi duyệt như sau có đúng không: Assistant lập và submit kế hoạch theo từng quý → HoD phòng HR duyệt kế hoạch của quý đó → các lớp trong quý được mở đăng ký?
-            Người dùng: Đúng, duyệt theo quý
-            """,
-            """
-            - Xuất CHỈ danh sách bullet "- ", không lời dẫn, không heading, không giải thích.
-            - Giữ nguyên 2 dòng của nhật ký hiện có.
-            - PHẢI thêm một dòng ghi việc duyệt kế hoạch theo từng quý (Assistant submit → HoD phòng HR duyệt) — đó là điều người dùng đã xác nhận.
-            - TUYỆT ĐỐI KHÔNG thêm dòng nào về việc giáo viên cập nhật Complete/Not Complete/No Show hay chấm điểm 1–4: người dùng chỉ đáp "Đúng, duyệt theo quý", phần đó mới là cách BA hiểu và chưa được xác nhận.
-            - Không bịa thêm quyết định nào khác.
-            """);
-
         // ================= BusinessAnalyst/requirement-coverage.v4.md =================
         // Bản đồ bao phủ là NGUỒN CHÂN LÝ DUY NHẤT của cổng "Write Requirement" (ready suy tất định:
         // mọi dòng áp dụng [RÕ]/[KHÔNG ÁP DỤNG]) nên các scenario phủ cả hai chiều sai: chấm [RÕ] non

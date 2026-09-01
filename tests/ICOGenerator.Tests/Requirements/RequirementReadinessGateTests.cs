@@ -400,7 +400,6 @@ public class RequirementReadinessGateTests : IDisposable
             NewOrgContext(db, prompts),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new DecisionLogService(db, llm, prompts),
             new InterviewOutlookService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)));

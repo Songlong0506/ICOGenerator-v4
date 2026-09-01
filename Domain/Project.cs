@@ -51,16 +51,8 @@ public class Project
     // Xem RequirementCoverageService.
     public string? RequirementCoverageMap { get; set; }
     public int CoverageHarvestedTurnCount { get; set; }
-    // "Nhật ký điều đã chốt" của dự án: danh sách bullet (text) các QUYẾT ĐỊNH người dùng đã xác nhận
-    // trong chat (vai trò, luồng, quy tắc, phương án đã "Đồng ý"), cập nhật sau mỗi lượt như bản đồ bao
-    // phủ. KHÔNG còn panel sidebar: nhật ký nay là ngữ cảnh của MÁY (BA soát mâu thuẫn ngay trong lượt +
-    // cổng soát trước lúc soạn tài liệu), và người dùng chỉ đọc lại nó một lần ở cổng tổng kết cuối khung
-    // chat. DecisionHarvestedTurnCount là con trỏ số lượt đã gộp (fail-open như
-    // CoverageHarvestedTurnCount). Xem DecisionLogService.
-    public string? DecisionLog { get; set; }
-    public int DecisionHarvestedTurnCount { get; set; }
     // "Triển vọng phỏng vấn" — ba danh sách bullet (text) chắt lọc từ hội thoại trong CÙNG một lời gọi
-    // (InterviewOutlookService), cập nhật ở hậu kỳ lượt chat như DecisionLog (không cộng vào độ chờ):
+    // (InterviewOutlookService), cập nhật ở HẬU KỲ lượt chat (không cộng vào độ chờ):
     //  • OpenQuestions: điểm còn MƠ HỒ / MÂU THUẪN chưa chốt — TỒN ĐỌNG câu hỏi của BA. KHÔNG hiển thị
     //    thành panel (user chỉ cần trò chuyện; hỏi cho hết là việc của BA): danh sách này được nạp vào
     //    ngữ cảnh mỗi lượt chat làm la bàn ƯU TIÊN cạnh bản đồ bao phủ — bản đồ chỉ phân giải theo NHÓM,
@@ -158,14 +150,6 @@ public class Project
     // khởi động delivery workflow; báo sai ⇒ về null, ghi đính chính vào SpecAssumptionCorrections và
     // sinh lại spec (rồi cổng dựng lại). null trên dự án cũ = không có gì chờ, luồng chạy như trước.
     public string? PendingAssumptionsVersion { get; set; }
-    // CỔNG SOÁT MÂU THUẪN (ngay trước khi soạn Product Brief — xem RequirementConflictService). Bản đồ bao
-    // phủ chỉ trả lời "đã rõ hết chưa", không trả lời "những điều đã rõ có chọi nhau không": người dùng nói
-    // ở lượt 3 rằng quản lý duyệt xong là hết, lượt 12 lại kể thêm HR duyệt — cả hai lần nhóm đó vẫn [RÕ].
-    // PendingConflicts = JSON các cặp mâu thuẫn đang chờ người dùng chốt lại (null = không có gì chờ);
-    // ConflictCheckedTurnCount = số lượt hội thoại tại thời điểm soát, để không gọi lại LLM khi hội thoại
-    // chưa đổi. Cả hai null/0 trên dự án cũ = luồng chạy y như trước.
-    public string? PendingConflicts { get; set; }
-    public int ConflictCheckedTurnCount { get; set; }
     // Các đính chính giả định người dùng đã gửi ở cổng trên, gom tích lũy (text bullet). Được nạp vào
     // prompt sinh AI Design Spec (RequirementPromptBuilder.BuildAiDesignSpec) để lượt sinh lại KHÔNG
     // lặp lại đúng giả định vừa bị bác. Giữ lại sau khi đã xác nhận: các lần sinh spec sau (phiên bản

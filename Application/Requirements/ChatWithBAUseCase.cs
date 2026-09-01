@@ -47,15 +47,9 @@ public class ChatWithBAUseCase
         _baChatService.GetReplyStateAsync(projectId, cancellationToken);
 
     /// <summary>
-    /// Gộp lượt chat mới vào "Điều đã chốt" — gọi SAU khi user đã nhận câu trả lời (sau frame done ở
-    /// đường streaming / trước redirect ở đường postback) để lời gọi LLM này không cộng vào độ chờ.
-    /// </summary>
-    public Task<IReadOnlyList<string>> UpdateDecisionsAsync(Guid projectId, CancellationToken cancellationToken = default) =>
-        _baChatService.UpdateDecisionsAsync(projectId, cancellationToken);
-
-    /// <summary>
     /// Gộp lượt chat mới vào "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ tính thử) —
-    /// gọi SAU khi user đã nhận câu trả lời (hậu kỳ) như <see cref="UpdateDecisionsAsync"/>.
+    /// gọi SAU khi user đã nhận câu trả lời (sau frame done ở đường streaming) để lời gọi LLM này không
+    /// cộng vào độ chờ.
     /// </summary>
     public Task<InterviewOutlook> UpdateInterviewOutlookAsync(Guid projectId, CancellationToken cancellationToken = default) =>
         _baChatService.UpdateInterviewOutlookAsync(projectId, cancellationToken);

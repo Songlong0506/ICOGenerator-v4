@@ -325,25 +325,11 @@ public class SourceAckReadbackRuleTests
         Assert.Contains("giải nghĩa từng cột", chat, StringComparison.Ordinal);
     }
 
-    // Nhật ký "Điều đã chốt" là bộ nhớ dài hạn của cuộc phỏng vấn, và bước soạn tài liệu — vốn bị CẤM tự
-    // giả định — coi mỗi dòng ở đây là điều người dùng đã duyệt. Nên một dòng ghi DƯ vì BA gộp hai điều vào
-    // một lượt không còn cổng nào chặn lại: BA các lượt sau thấy điểm đó đã chốt nên không hỏi lại, và tài
-    // liệu chép thẳng nó ra. Đó đúng là ca thật ở lượt chốt "duyệt theo quý".
+    // Prompt chỉ định hướng; điểm eval mới là thứ đo được model có tuân hay không. Trước thay đổi này
+    // source-ack KHÔNG có scenario nào, dù comment đầu EvalScenariosSeedData nói mọi template đo được bằng
+    // text đều phải có — xoá chúng đi là các luật trên mất chỗ chấm điểm.
     [Fact]
-    public void DecisionLogPrompt_OnlyRecordsThePartTheUserActuallyAnswered()
-    {
-        var prompt = ReadPrompt("BusinessAnalyst/decision-log.v1.md");
-
-        Assert.Contains("chỉ ghi điều họ đã trả lời", prompt, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("KHÔNG phải lời người dùng", prompt, StringComparison.Ordinal);
-        Assert.Contains("bao trùm", prompt, StringComparison.Ordinal);
-    }
-
-    // Prompt chỉ định hướng; điểm eval mới là thứ đo được model có tuân hay không. Trước thay đổi này cả
-    // source-ack lẫn decision-log đều KHÔNG có scenario nào, dù comment đầu EvalScenariosSeedData nói mọi
-    // template đo được bằng text đều phải có — xoá chúng đi là các luật trên mất chỗ chấm điểm.
-    [Fact]
-    public void GoldenSet_CoversTheReadbackAndDecisionLogRules()
+    public void GoldenSet_CoversTheReadbackRules()
     {
         var scenarios = EvalScenariosSeedData.Build();
 
@@ -363,11 +349,6 @@ public class SourceAckReadbackRuleTests
         Assert.Contains(sourceAck, c => c.Contains("chỉ kể lại", StringComparison.OrdinalIgnoreCase)
                                         && c.Contains("chỗ NỐI", StringComparison.Ordinal));
         Assert.Contains(readback, c => c.Contains("TRƯỢT nếu message nhắc tới Days Rem", StringComparison.Ordinal));
-
-        var decisionLog = scenarios.Where(s => s.PromptKey == "BusinessAnalyst/decision-log.v1.md")
-            .Select(s => s.Criteria).ToList();
-        Assert.NotEmpty(decisionLog);
-        Assert.Contains(decisionLog, c => c.Contains("chưa được xác nhận", StringComparison.OrdinalIgnoreCase));
 
         // Bảng cột phải có chỗ chấm điểm ở CẢ HAI đầu của nó, vì hỏng ở đầu nào cũng mất trắng:
         // model điền bảng (ý nghĩa phải viết sẵn), và model chat KHÔNG hỏi lại bảng đã chốt.
