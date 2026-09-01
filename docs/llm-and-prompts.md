@@ -140,6 +140,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `ModelCallLoggingChatClient` | Middleware cắt ngang: budget, deadline, trần token, dựng result, map lỗi, log DB, progress | thêm một mối quan tâm cắt ngang |
 | `ModelCallOptions` | Núm vặn của middleware theo từng đường gọi (record) | thêm một núm — **không phải sửa chỗ dựng nào cả** |
 | `ModelCallRequestPreview` | Dựng chuỗi JSON "request đã gửi" cho màn Call Log | đổi hiển thị call log |
+| `ModelCallLogMarkdown` | Dựng file `.md` "mang lời gọi đi hỏi chỗ khác" từ một/nhiều dòng call log | đổi bố cục bản xuất |
 | `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking`, bỏ `temperature`, thêm hai trường prompt cache) | thêm quirk phía request |
 | `LlmCacheScope` | Mang `prompt_cache_key` của lời gọi đang chạy xuống tầng HTTP (`AsyncLocal`) | đổi cách nhóm khóa cache |
 | `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |

@@ -39,6 +39,43 @@ phải dòng chảy vận hành:
 | — (`ToolExecutionLogger`) | Mỗi lần agent gọi tool | Log ứng dụng |
 | `AuditLogs` | Thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt) kèm actor + before/after JSON | Màn hình **Audit Log** |
 
+### Mang một lời gọi model đi hỏi chỗ khác
+
+Modal **Model Invocation Detail** có hai nút tải file `.md`, và mỗi dòng trong popup AI Call Logs có nút
+`⬇` tải nhanh lời gọi của dòng đó (`GET CallLogExport` / `CallLogTurnExport`, dựng bởi
+`ModelCallLogMarkdown`). Đây là đường để mang trọn ngữ cảnh một lượt gọi ra ngoài — dán cho một AI khác
+soi khi response lệch, hoặc đính kèm vào một issue.
+
+Bản xuất là Markdown chứ không phải `RequestJson`, vì thứ cần đọc nằm trong `messages`: ở dạng JSON thì
+mọi xuống dòng của prompt là `\n` và mọi dấu nháy bị escape, người lẫn model đều phải giải mã trước khi
+đọc được câu đầu tiên. Ở đây mỗi message là một khối riêng ghi rõ VAI và ĐỘ DÀI, nên câu hỏi *"lệch là do
+prompt hay do context"* nhìn thấy được từ mục lục. Nội dung **không bị cắt** — cắt một khối context ở giữa
+là bỏ đi đúng thứ đang cần soi. Ảnh gửi kèm chỉ được nêu tên (bytes ở trên đĩa, xem
+["Ảnh trong call log"](requirement-flow.md#tài-liệu-nguồn-ảnh-và-call-log)).
+
+**Nút "Cả cụm lượt" tồn tại vì một thao tác người dùng tốn vài lượt gọi model nối nhau**, và output của
+lượt này là input của lượt kia — một lượt chat BA gồm bản đồ bao phủ + hồ sơ user + tóm tắt hội thoại →
+lượt trả lời → chắt lọc hậu kỳ (xem [requirement-flow.md](requirement-flow.md#các-cơ-chế-trí-nhớ)). Khi
+lượt trả lời sai, nguyên nhân thường nằm ở một lời gọi KHÁC trong cùng cụm.
+
+**Cụm được SUY RA, không được lưu sẵn**: không có cột định danh lượt trên `AgentModelCallLogs`, nên ranh
+giới dựng từ *cùng dự án + cùng agent + cùng `WorkflowRunId`* và khoảng nghỉ giữa hai lời gọi liền nhau
+≤ 30 giây (`ExportCallLogTurnQuery`). Ba điều cần biết về cách suy đó:
+
+- Khoảng nghỉ đo từ lúc lời gọi trước **kết thúc** tới lúc lời gọi sau **bắt đầu** (`CreatedAt - DurationMs`),
+  không phải giữa hai mốc `CreatedAt`: các bước chuẩn bị chạy song song, và một lời gọi dài 12 giây sẽ tự
+  tạo ra một "khoảng trống" 12 giây không có thật, đủ để cắt cụm ngay giữa lượt.
+- Ràng buộc agent + `WorkflowRunId` là thứ giữ cho cụm không nuốt việc của người khác: pipeline nền chạy
+  song song với khung chat.
+- Cụm **có thể gộp dư** đuôi của lượt trước (người dùng bấm chip trả lời ngay khi lượt chắt lọc hậu kỳ còn
+  đang chạy). Ngưỡng cố ý nới về phía gộp dư — dư thì người đọc bỏ qua được, thiếu thì họ không biết mà đi
+  tìm. Trần 20 lời gọi chặn cỡ file khi một phiên bấm chip liên tục làm các cụm dính vào nhau.
+
+Về dữ liệu: `RequestJson`/`ResponseText` được **mã hóa at-rest** vì chúng chở lại toàn bộ transcript dự án
+(xem [data-model.md](data-model.md)). Bản tải về **giải mã trọn gói** vào một file rời, nên hai endpoint
+này đi qua đúng cổng quyền của màn xem chi tiết (`ProjectResource.CallLog`) — không có đường tắt nào rộng
+hơn — và file tải về phải được đối xử như chính nội dung nghiệp vụ của dự án.
+
 ---
 
 ## Troubleshooting — lỗi thường gặp

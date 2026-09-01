@@ -20,6 +20,8 @@ public class AgentDashboardController : Controller
     private readonly GetAgentCallLogsQuery _getAgentCallLogsQuery;
     private readonly GetCallLogDetailQuery _getCallLogDetailQuery;
     private readonly GetCallLogImageQuery _getCallLogImageQuery;
+    private readonly ExportCallLogQuery _exportCallLogQuery;
+    private readonly ExportCallLogTurnQuery _exportCallLogTurnQuery;
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
     private readonly ApproveStageUseCase _approveStageUseCase;
     private readonly RejectStageUseCase _rejectStageUseCase;
@@ -36,6 +38,8 @@ public class AgentDashboardController : Controller
         GetAgentCallLogsQuery getAgentCallLogsQuery,
         GetCallLogDetailQuery getCallLogDetailQuery,
         GetCallLogImageQuery getCallLogImageQuery,
+        ExportCallLogQuery exportCallLogQuery,
+        ExportCallLogTurnQuery exportCallLogTurnQuery,
         GetDocumentPreviewQuery getDocumentPreviewQuery,
         ApproveStageUseCase approveStageUseCase,
         RejectStageUseCase rejectStageUseCase,
@@ -51,6 +55,8 @@ public class AgentDashboardController : Controller
         _getAgentCallLogsQuery = getAgentCallLogsQuery;
         _getCallLogDetailQuery = getCallLogDetailQuery;
         _getCallLogImageQuery = getCallLogImageQuery;
+        _exportCallLogQuery = exportCallLogQuery;
+        _exportCallLogTurnQuery = exportCallLogTurnQuery;
         _getDocumentPreviewQuery = getDocumentPreviewQuery;
         _approveStageUseCase = approveStageUseCase;
         _rejectStageUseCase = rejectStageUseCase;
@@ -151,6 +157,32 @@ public class AgentDashboardController : Controller
         // hiện ô "ảnh không còn" thay vì vỡ layout.
         return image == null ? NotFound() : PhysicalFile(image.Path, image.ContentType);
     }
+
+    // Tải MỘT lời gọi ra file Markdown (request đầy đủ + response) để mang đi hỏi chỗ khác. Cùng cổng quyền
+    // với CallLogDetail vì nội dung là một: khác nhau ở chỗ bản tải về ra khỏi app, nên không được có đường
+    // vào nào rộng hơn màn xem.
+    [HttpGet]
+    [RequireProjectAccess("id", ProjectResource.CallLog)]
+    public async Task<IActionResult> CallLogExport(Guid id)
+    {
+        var file = await _exportCallLogQuery.ExecuteAsync(id, HttpContext.RequestAborted);
+        return file == null ? NotFound() : Markdown(file);
+    }
+
+    // Tải CẢ CỤM lời gọi quanh một lời gọi: một thao tác người dùng tốn vài lượt gọi model nối nhau, và lỗi
+    // của lượt này thường sinh ra từ lượt kia (xem ExportCallLogTurnQuery về cách ranh giới cụm được suy ra).
+    [HttpGet]
+    [RequireProjectAccess("id", ProjectResource.CallLog)]
+    public async Task<IActionResult> CallLogTurnExport(Guid id)
+    {
+        var file = await _exportCallLogTurnQuery.ExecuteAsync(id, HttpContext.RequestAborted);
+        return file == null ? NotFound() : Markdown(file);
+    }
+
+    // charset=utf-8 tường minh: bản xuất là tiếng Việt có dấu, thiếu nó thì trình duyệt/editor đoán bảng mã
+    // và file mở ra thành ký tự rác.
+    private FileContentResult Markdown(CallLogExportFile file) =>
+        File(System.Text.Encoding.UTF8.GetBytes(file.Markdown), "text/markdown; charset=utf-8", file.FileName);
 
     [HttpGet]
     public async Task<IActionResult> DocumentPreview(Guid id, Guid projectId, string? path)
