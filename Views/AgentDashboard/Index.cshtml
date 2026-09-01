@@ -418,6 +418,14 @@
                 <h3>Model Invocation Detail</h3>
                 <p id="log-detail-meta"></p>
             </div>
+            @* Tải trọn ngữ cảnh lượt gọi ra file .md để mang đi hỏi chỗ khác. Hai nút vì nguyên nhân một
+               response lệch thường nằm ở lời gọi KHÁC trong cùng lượt — xem ExportCallLogTurnQuery. *@
+            <div class="log-download">
+                <button class="btn" type="button" onclick="downloadLogDetail()"
+                        title="Tải request đầy đủ + response của riêng lời gọi này">⬇ Lời gọi này</button>
+                <button class="btn" type="button" onclick="downloadLogTurn()"
+                        title="Tải cả cụm lời gọi cùng lượt: các bước nạp ngữ cảnh trước nó và bước chắt lọc sau nó">⬇ Cả cụm lượt</button>
+            </div>
         </div>
 
         <div class="tabs">

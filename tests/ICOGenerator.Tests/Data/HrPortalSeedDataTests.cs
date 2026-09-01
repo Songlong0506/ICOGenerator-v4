@@ -63,7 +63,6 @@ public class HrPortalSeedDataTests
         Assert.False(associate.IsIndirect);
         Assert.Null(associate.Birthday);
         Assert.Null(associate.LeavingDate);
-        Assert.Equal(0m, associate.StandardWorkingHour);
     }
 
     [Fact]

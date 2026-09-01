@@ -447,6 +447,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetAgentCallLogsQuery>();
         services.AddScoped<GetCallLogDetailQuery>();
         services.AddScoped<GetCallLogImageQuery>();
+        services.AddScoped<ExportCallLogQuery>();
+        services.AddScoped<ExportCallLogTurnQuery>();
         services.AddScoped<GetDocumentPreviewQuery>();
         services.AddScoped<GetAgentManagementPageQuery>();
         services.AddScoped<UpdateAgentUseCase>();

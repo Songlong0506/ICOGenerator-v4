@@ -283,6 +283,9 @@ async function loadAgentLogsPage(page) {
                         onclick="viewLogDetail('${x.id}')">
                     View
                 </button>
+                <button class="btn"
+                        title="Tải lời gọi này ra file .md"
+                        onclick="downloadCallLog('${x.id}')">⬇</button>
             </td>
         </tr>
     `).join('');
@@ -368,6 +371,25 @@ function closeLogsModal() {
     document.getElementById('logs-modal').style.display = 'none';
 }
 
+// Log đang mở trong modal chi tiết. Hai nút tải nằm ở HEADER của modal (ngoài luồng render nội dung) nên
+// chúng cần id được giữ lại ở đây, không đọc ngược ra từ DOM.
+let currentDetailLogId = null;
+
+// Tải một lời gọi ra file .md. Server trả Content-Disposition: attachment nên gán location không rời trang.
+function downloadCallLog(id) {
+    window.location.href = `/AgentDashboard/CallLogExport?id=${encodeURIComponent(id)}`;
+}
+
+function downloadLogDetail() {
+    if (currentDetailLogId) downloadCallLog(currentDetailLogId);
+}
+
+// Cả cụm lời gọi cùng lượt: các bước nạp ngữ cảnh chạy TRƯỚC lời gọi này và bước chắt lọc chạy SAU nó.
+function downloadLogTurn() {
+    if (!currentDetailLogId) return;
+    window.location.href = `/AgentDashboard/CallLogTurnExport?id=${encodeURIComponent(currentDetailLogId)}`;
+}
+
 async function viewLogDetail(id) {
     let log;
     try {
@@ -379,6 +401,7 @@ async function viewLogDetail(id) {
         return;
     }
 
+    currentDetailLogId = log.id;
     document.getElementById('log-detail-meta').textContent = `${log.agentName} · ${log.modelId} · ${formatDateTime(log.createdAt)} · ${log.totalTokens || 0} tokens · ${log.durationMs || 0} ms`;
     document.getElementById('log-request').textContent = prettyJson(log.requestJson);
     document.getElementById('log-request-readable').innerHTML = buildReadableRequest(log.requestJson);

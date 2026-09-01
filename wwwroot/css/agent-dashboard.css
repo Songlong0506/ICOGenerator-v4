@@ -173,6 +173,8 @@
 
 /* ===== Tab Request: nút chuyển đổi + hiển thị dạng dễ đọc ===== */
 .log-format-toggle { margin-left: auto; font-size: 13px; }
+.log-download { display: flex; gap: 8px; flex-shrink: 0; }
+.log-download .btn { font-size: 13px; white-space: nowrap; }
 .log-readable { background: var(--slate-900); color: var(--slate-200); border-radius: 12px; padding: 16px; overflow: auto; max-height: 60vh; font-size: 13px; }
 .rd-msg { border: 1px solid var(--slate-800); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #111c33; }
 .rd-msg:last-child { margin-bottom: 0; }
