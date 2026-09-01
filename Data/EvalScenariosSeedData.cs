@@ -527,7 +527,7 @@ public static class EvalScenariosSeedData
             - TRƯỢT NẶNG nếu lượt này nêu một mâu thuẫn về ai verify / ai approve JD — vd "trong bảng luồng anh/chị đã chốt HRBP verify và HoD approve, nhưng phần mô tả JD lại ghi Manager thực hiện verify và approve; luồng nào đúng với thực tế ạ?". Vế "Manager verify và approve" đến từ ô mô tả do CHÍNH BA điền sẵn, không phải lời người dùng: hai vế không cùng nguồn nên không có mâu thuẫn nào, và câu mô tả lệch là lỗi câu chữ của BA để tự sửa im lặng.
             - TRƯỢT nếu hỏi lại bất kỳ điều gì thuộc bốn dòng bản đồ đang [RÕ]: ai tạo JD, ai verify, ai approve, JD đi qua những trạng thái nào, thông tin nào cần lưu cho JD.
             - ĐẠT khi lượt này đi tiếp bằng đúng phần "còn thiếu" của nhóm «Quy tắc nghiệp vụ & ràng buộc»: tổng tỷ lệ của 5 Responsibility trong một JD (bằng 100% hay không), tốt nhất là dựng sẵn một ví dụ số cụ thể rồi xin chốt.
-            - Câu hỏi ĐÓNG ⇒ suggestions có 2–5 phương án thật; không có chip kiểu "Quy tắc khác" / "Ý khác".
+            - Câu hỏi ĐÓNG ⇒ suggestions có 2–5 phương án thật; không có chip kiểu "Quy tắc khác" / "Ý khác", cũng không có chip chỉ hứa sẽ nói thêm ("Mình mô tả cụ thể hơn").
             """);
 
         // ================= BusinessAnalyst/source-ack.v3.md + source-readback.v1.md =================

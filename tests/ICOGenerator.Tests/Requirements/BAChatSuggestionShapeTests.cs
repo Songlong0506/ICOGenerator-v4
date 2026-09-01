@@ -420,6 +420,78 @@ public class BAChatSuggestionShapeTests
         Assert.DoesNotContain("Tôi muốn khác", reply.Suggestions);
     }
 
+    // ==== CHIP TỰ-MÔ-TẢ ====
+    // Cùng cái lối thoát đó nhưng KHÔNG mang chữ "khác" nào: "Mình mô tả cụ thể hơn". Ca thật trên màn
+    // hình, và nó đến từ chính ví dụ JSON mẫu của prompt — model chép ví dụ nhiều hơn đọc mục cấm. Nó
+    // nguy hơn bản có chữ "khác" ở chỗ đọc như một phương án tử tế, nên người dùng bấm mà không thấy mình
+    // vừa gửi đi một lượt rỗng, còn bản đồ bao phủ tính là nhóm đã hỏi VÀ đã trả lời.
+    [Theory]
+    [InlineData("Mình mô tả cụ thể hơn")]
+    [InlineData("Để tôi kể rõ hơn")]
+    [InlineData("Tôi sẽ nói rõ hơn ở dưới")]
+    [InlineData("Mình tự nhập")]
+    [InlineData("Mình trình bày thêm")]
+    public void Normalize_SelfDescribeChip_IsDroppedLikeTheBareOtherChip(string selfDescribe)
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = SigningStateQuestion,
+            Suggestions = new List<string> { "Vẫn giữ Waiting Active", "Chuyển sang trạng thái Chờ ký", selfDescribe }
+        });
+
+        Assert.Equal(2, reply.Suggestions.Count);
+        Assert.DoesNotContain(selfDescribe, reply.Suggestions);
+    }
+
+    // Phép thử đòi ĐỦ HAI vế — ngôi thứ nhất mở đầu VÀ động từ diễn đạt — chính là để những chip này sống.
+    // Thiếu vế nào cũng đủ để một câu trả lời thật bị nuốt mà không ai phát hiện được: "Mô tả công việc
+    // theo vai trò" là nghiệp vụ JD chứ không phải lối thoát, "Mình tự đăng ký khóa học" cũng vậy.
+    [Theory]
+    [InlineData("Mô tả công việc theo vai trò")]
+    [InlineData("Mình tự đăng ký khóa học")]
+    [InlineData("Quản lý mô tả lại quy trình cho nhân viên")]
+    public void Normalize_ChipLookingLikeSelfDescribeButCarryingRealContent_Survives(string real)
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = SigningStateQuestion,
+            Suggestions = new List<string> { "Vẫn giữ Waiting Active", "Chuyển sang trạng thái Chờ ký", real }
+        });
+
+        Assert.Equal(3, reply.Suggestions.Count);
+        Assert.Contains(real, reply.Suggestions);
+    }
+
+    // "Tôi muốn sửa lại" có ngôi thứ nhất nhưng không có động từ diễn đạt nào ⇒ không chạm luật tự-mô-tả.
+    // Đây là vế từ chối của nhịp tóm tắt kiểm chứng (BAChatService.SummaryCheckSuggestions): xoá nó là
+    // biến lượt tóm tắt thành cái gật bắt buộc, kể cả khi bộ chip có nhiều hơn hai chip.
+    [Fact]
+    public void Normalize_SummaryCheckDissentChip_IsNotMistakenForSelfDescribe()
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Mình tóm tắt lại cách hiểu của mình, anh/chị xem giúp có đúng không?",
+            Suggestions = new List<string> { "Đúng rồi, tiếp tục", "Tôi muốn bổ sung", "Tôi muốn sửa lại" }
+        });
+
+        Assert.Equal(3, reply.Suggestions.Count);
+        Assert.Contains("Tôi muốn sửa lại", reply.Suggestions);
+    }
+
+    // Chốt thứ hai vẫn là "xoá xong còn ≥ 2 chip": bộ HAI chip không bao giờ bị bào thành một nút.
+    [Fact]
+    public void Normalize_TwoChipSetWithASelfDescribeBranch_KeepsBoth()
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Vậy mình chốt: chưa đủ ba chữ ký thì record vẫn ở Waiting Active nhé?",
+            Suggestions = new List<string> { "Đồng ý", "Mình mô tả cụ thể hơn" }
+        });
+
+        Assert.Equal(2, reply.Suggestions.Count);
+        Assert.Contains("Mình mô tả cụ thể hơn", reply.Suggestions);
+    }
+
     // Ở câu LIỆT KÊ, xoá chip "khác" trần xong phần còn lại nguyên tử ⇒ vẫn lên chọn nhiều như thường.
     [Fact]
     public void Normalize_EnumerationQuestionWithABareOtherChip_DropsItAndKeepsMultiSelect()

@@ -401,23 +401,30 @@ public class BAChatReplyParser
         { " trên", " đã nêu", " vừa nêu", " đã kể", " above" };
 
     // ==== CHIP "KHÁC" TRẦN ====
-    // "Khác", "Tự nhập", "Quy tắc khác", "Trạng thái khác", "Cách xử lý khác" — chip mà toàn bộ nội dung
-    // chỉ là "không phải mấy cái kia". Nó nói ĐÚNG BẰNG ô "Ý khác" nằm ngay dưới mọi hàng chip (mở sẵn ở
-    // cả hàng chip lượt-đơn lẫn từng dòng của thẻ gộp), chỉ thiếu đúng phần đắt nhất: NỘI DUNG. Mà ở lượt
-    // một câu, bấm chip là GỬI NGAY — nên cú bấm đó gửi đi một lượt user rỗng ("Quy tắc khác", quy tắc gì
-    // thì không ai biết), trong khi bản đồ bao phủ vẫn tính là nhóm đó đã được hỏi VÀ đã trả lời. Đúng ca
+    // "Khác", "Tự nhập", "Quy tắc khác", "Trạng thái khác", "Cách xử lý khác", "Mình mô tả cụ thể hơn" —
+    // chip mà toàn bộ nội dung chỉ là "không phải mấy cái kia" hoặc "để tôi tự nói". Nó nói ĐÚNG BẰNG ô
+    // "Ý khác" nằm ngay dưới mọi hàng chip (mở sẵn ở cả hàng chip lượt-đơn lẫn từng dòng của thẻ gộp),
+    // chỉ thiếu đúng phần đắt nhất: NỘI DUNG. Mà ở lượt một câu, bấm chip là GỬI NGAY — nên cú bấm đó gửi
+    // đi một lượt user rỗng ("Quy tắc khác", quy tắc gì thì không ai biết), trong khi bản đồ bao phủ vẫn
+    // tính là nhóm đó đã được hỏi VÀ đã trả lời. Đúng ca
     // "câu trả lời rỗng" mà prompt cảnh báo, chỉ khác là lần này chính bộ chip bày sẵn cái bẫy.
     //
     // Prompt cấm chip này từ lâu, nhưng cấm theo MẶT CHỮ ("Khác", "Tự nhập") nên model né được chỉ bằng
     // cách thêm một danh từ vào trước — "Quy tắc khác" lọt qua sạch sẽ, và đó là ca đã gặp trên màn hình.
-    // Hàm này cấm theo HÌNH DẠNG: đuôi là "khác" và phần đầu là một danh từ MÊ-TA (không chở nội dung
-    // nghiệp vụ nào). Prompt vẫn là chỗ dạy viết chip cho đúng; đây là cái phanh khi prompt bị trượt.
+    // Hàm này cấm theo HÌNH DẠNG, và bắt HAI hình dạng của cùng một lối thoát:
+    //   - Đuôi là "khác" + phần đầu là một danh từ MÊ-TA (không chở nội dung nghiệp vụ nào).
+    //   - Chip TỰ-MÔ-TẢ: ngôi thứ nhất + động từ diễn đạt ("Mình mô tả cụ thể hơn", "Để tôi kể rõ hơn").
+    //     Nó không có chữ "khác" nào nên lọt hình dạng trên, nhưng nội dung của nó là HÀNH ĐỘNG TRẢ LỜI
+    //     chứ không phải một câu trả lời — tức đúng cái ô "Ý khác", viết bằng một mặt chữ khác. Ca thật
+    //     trên màn hình đến từ chính ví dụ JSON mẫu trong prompt, chỗ model chép nhiều hơn đọc luật.
+    // Prompt vẫn là chỗ dạy viết chip cho đúng; đây là cái phanh khi prompt bị trượt.
     //
     // Xoá được vì không mất gì — cùng lý lẽ với chip chốt hạ, và đây là chip THỨ HAI cũng là cuối cùng
     // được phép xoá. Hai chốt giữ cho nó không xoá quá tay:
     //   - Danh sách đầu MÊ-TA cố tình HẸP. "Chuyển sang phòng ban khác", "Theo quy trình khác" chở nội
     //     dung thật ⇒ giữ. Lọt lưới thì mất tiện ích, không mất dữ liệu — cùng chiều đánh đổi với
-    //     NarrativeCues và ListingCues.
+    //     NarrativeCues và ListingCues. Chip tự-mô-tả cũng vậy: BẮT BUỘC có ngôi thứ nhất mở đầu, nên
+    //     "Mô tả công việc theo vai trò" — một câu trả lời thật trong nghiệp vụ JD — không bị đụng tới.
     //   - Xoá xong phải còn ≥ 2 chip. Bộ HAI chip mà prompt kê sẵn ở lượt xin chốt (["Đồng ý", "Tôi muốn
     //     khác"], ["Đúng rồi", "Không, tính khác"]) thì vế "khác" KHÔNG phải lối thoát mà là một trong hai
     //     nhánh trả lời của chính câu hỏi; xoá nó đi là biến một câu hỏi thành cái gật bắt buộc. Ở đúng bộ
@@ -442,11 +449,64 @@ public class BAChatReplyParser
         if (StandaloneOtherChips.Contains(text))
             return true;
 
+        if (IsSelfDescribeChip(text))
+            return true;
+
         if (!text.EndsWith("khác", StringComparison.Ordinal))
             return false;
 
         return MetaChipHeads.Contains(text[..^"khác".Length].Trim(ChipTrimChars));
     }
+
+    // Chip TỰ-MÔ-TẢ: "Mình mô tả cụ thể hơn", "Để tôi kể rõ hơn", "Mình tự nhập".
+    //
+    // Phép thử phải HẸP, vì "chung chung" không phải thứ máy đo được: chip mơ hồ mà vẫn chở dữ kiện
+    // ("Chưa có quy trình cố định") là câu trả lời thật, nuốt nó đi là mất dữ liệu. Thứ đo được là chip
+    // mô tả HÀNH ĐỘNG TRẢ LỜI của người dùng thay vì chở câu trả lời — nên đòi ĐỦ HAI vế: mở đầu bằng
+    // ngôi thứ nhất VÀ hứa một câu trả lời ở chỗ khác (động từ diễn đạt kèm dấu hiệu nói-thêm, hoặc một
+    // động từ tự-nhập). Thiếu vế ngôi thứ nhất thì "Mô tả công việc theo vai trò" rơi vào lưới; thiếu vế
+    // sau thì "Mình tự đăng ký khóa học" và "Mình mô tả công việc trong JD" rơi vào.
+    //
+    // "Tôi muốn sửa lại" / "Tôi muốn khác" của bộ HAI chip xin chốt có ngôi thứ nhất nhưng không có động
+    // từ diễn đạt nào, nên không chạm hàm này; và kể cả có chạm thì ràng buộc "còn ≥ 2 chip" ở
+    // DropBareOtherChips vẫn giữ nguyên bộ đó — hai chốt độc lập cho cùng một chỗ không được phép hỏng.
+    private static bool IsSelfDescribeChip(string text)
+    {
+        var hasFirstPerson = FirstPersonHeads.Any(head =>
+            text.Equals(head, StringComparison.Ordinal) ||
+            text.StartsWith(head + " ", StringComparison.Ordinal));
+        if (!hasFirstPerson)
+            return false;
+
+        // "Mình tự nhập" tự nó đã nói hết: không có nghiệp vụ nào để lẫn vào.
+        if (SelfInputVerbs.Any(verb => text.Contains(verb, StringComparison.Ordinal)))
+            return true;
+
+        // Còn động từ diễn đạt thì PHẢI đi kèm một dấu hiệu NÓI THÊM. Thiếu vế đó, "Mình mô tả công việc
+        // trong JD" — một câu trả lời thật — trông y hệt lối thoát.
+        return DescribeVerbs.Any(verb => text.Contains(verb, StringComparison.Ordinal))
+            && ElaborationCues.Any(cue => text.Contains(cue, StringComparison.Ordinal));
+    }
+
+    // Ngôi thứ nhất mở đầu — chip được BA viết bằng giọng của người dùng, nên lối thoát này luôn bắt đầu
+    // bằng chính họ. Đòi nó ĐỨNG ĐẦU chứ không chỉ xuất hiện đâu đó: "Quản lý mô tả lại quy trình cho
+    // nhân viên" nói về một người khác và chở một câu trả lời thật.
+    private static readonly string[] FirstPersonHeads =
+        { "mình", "tôi", "em", "để mình", "để tôi", "để em" };
+
+    private static readonly string[] SelfInputVerbs =
+        { "tự nhập", "tự gõ", "tự viết", "tự điền", "tự ghi" };
+
+    // Động từ DIỄN ĐẠT: nói về việc trả lời, không phải về nghiệp vụ. Cố tình dùng cụm nhiều từ ("nói rõ")
+    // thay vì từ trần ("nói") — từ trần quét trúng quá nhiều câu trả lời thật.
+    private static readonly string[] DescribeVerbs =
+    {
+        "mô tả", "kể", "trình bày", "giải thích", "diễn giải", "nói rõ", "nói cụ thể", "nói thêm"
+    };
+
+    // Dấu hiệu NÓI THÊM: chip hứa một câu trả lời ở chỗ khác thay vì đưa ra câu trả lời ngay tại chip.
+    private static readonly string[] ElaborationCues =
+        { "cụ thể", "rõ hơn", "chi tiết", "kỹ hơn", "thêm", "lại", "ở dưới", "bên dưới", "ở ô" };
 
     private static readonly char[] ChipTrimChars = { ' ', '.', ',', ';', ':', '!', '?', '…', '-', '–', '"', '\'' };
 
