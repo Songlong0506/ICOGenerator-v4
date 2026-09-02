@@ -15,7 +15,7 @@ namespace ICOGenerator.Tests.Prompts;
 // do golden set eval chấm.
 public class PromptConventionTests
 {
-    // Sáu file KHÔNG mở đầu bằng "# Vai trò:" — có lý do, không phải sót:
+    // Mười hai file KHÔNG mở đầu bằng "# Vai trò:" — có lý do, không phải sót:
     //  - organization-context/organization-scope/organization-platform: KHỐI NGỮ CẢNH được
     //    OrganizationContextService đính vào THÂN một prompt khác. Thêm H1 ở đây là chèn một tiêu đề cấp 1
     //    vào giữa prompt của vai khác.
@@ -25,12 +25,21 @@ public class PromptConventionTests
     //  - Shared/revision: khối NỐI SAU prompt gốc của bước, đã có H1 riêng của nó.
     //  - Shared/tool-agent-native: khung system prompt bọc quanh {{instruction}} của vai, bản thân nó
     //    không phải một vai.
+    //  - table-*: sáu khối "## LƯỢT NÀY: BÀY BẢNG …", cùng dạng và cùng lý do với source-readback —
+    //    BAChatService đính đúng MỘT khối vào đúng lượt mà InterviewTableGate mở cổng của bảng đó. Chúng
+    //    không phải prompt của một vai mà là một mệnh lệnh cho MỘT lượt của vai BA.
     private static readonly HashSet<string> RoleHeadingExempt = new(StringComparer.OrdinalIgnoreCase)
     {
         "BusinessAnalyst/organization-context.v2.md",
         "BusinessAnalyst/organization-scope.v1.md",
         "BusinessAnalyst/organization-platform.v1.md",
         "BusinessAnalyst/source-readback.v1.md",
+        "BusinessAnalyst/table-flow-map.v1.md",
+        "BusinessAnalyst/table-screen-scope.v1.md",
+        "BusinessAnalyst/table-entity-map.v1.md",
+        "BusinessAnalyst/table-report-map.v1.md",
+        "BusinessAnalyst/table-permission-matrix.v1.md",
+        "BusinessAnalyst/table-notification-map.v1.md",
         "Shared/revision.v1.md",
         "Shared/tool-agent-native.v1.md",
     };

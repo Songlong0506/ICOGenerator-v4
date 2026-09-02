@@ -63,7 +63,7 @@ Một lượt chat nằm ở bốn file, chia theo thứ đọc khi sửa:
 | File | Giữ gì |
 |---|---|
 | `BAChatService` | trình tự của lượt: chốt ngữ cảnh tất định (`TurnContext`) → lắp message → gọi model → chạy các chốt chặn → lưu. Mỗi chốt chặn một method, và **thứ tự chạy là một phần của hành vi** (xem [Lượt hỏi GỘP, chuẩn `[RÕ]` và phanh chống hỏi lại](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại)) |
-| `BAChatPromptBlocks` | văn bản mọi khối system message dựng từ **dữ liệu dự án** (các bảng đã chốt, sáu khối `## LƯỢT NÀY:`). Không quyết định gì — chọn khối nào là việc của `InterviewTableGate` + `BAChatService` |
+| `BAChatPromptBlocks` | văn bản mọi khối system message dựng từ **dữ liệu dự án** (các bảng đã chốt, sáu khối `## LƯỢT NÀY:`). Không quyết định gì — chọn khối nào là việc của `InterviewTableGate` + `BAChatService`. Với sáu khối bày bảng, class này chỉ NỐI hai nửa: nửa luật nạp từ `Prompts/BusinessAnalyst/table-*.v1.md`, nửa dữ liệu dựng tại chỗ — xem [Nửa luật ở prompt riêng](#nửa-luật-ở-prompt-riêng-nửa-dữ-liệu-ở-code) |
 | `BAChatTurnDraft` | hình dạng lượt trả lời đang được nắn (nội dung, chip, thẻ hỏi, sáu bảng) + các phép thay lượt. Thay lượt là **một** lời gọi vì thay nội dung mà quên hạ chip là bày ra câu hỏi kèm nút của câu trước |
 | `BASourceAckPrompt` | hai khối của lượt đọc tài liệu nguồn (hình dạng lượt + phạm vi kể lại) — xem [Tài liệu nguồn](#tài-liệu-nguồn-ảnh-và-call-log) |
 
@@ -211,6 +211,45 @@ tác trên từng dòng** thay vì một chip trả lời thay cho tất cả.
 | Màn hình | `ScreenScopeMap` | phạm vi màn hình, việc của từng màn, **các chức năng** trên màn (mỗi chức năng một dòng tích riêng) và **bước luồng** từng chức năng phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
 | Phân quyền | `PermissionMatrix` | quyền CRUD theo màn hình, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + điều kiện lọc ở `## 9. API Expectations` |
 | Thông báo / nhắc nhở | `NotificationMap` | mỗi **sự kiện** một dòng: có gửi email không, **To** và **CC** chọn từ danh sách người nhận của dự án | quy tắc gửi mail ở `## 10. Business Rules` |
+
+### Nửa luật ở prompt riêng, nửa dữ liệu ở code
+
+Khối `## LƯỢT NÀY: BÀY BẢNG …` của mỗi bảng có hai nửa, và chúng ở hai chỗ vì hai lý do khác nhau:
+
+| Nửa | Ở đâu | Vì sao |
+|---|---|---|
+| **LUẬT** — đặc tả từng trường, cách viết, thứ tuyệt đối không làm | `Prompts/BusinessAnalyst/table-*.v1.md`, một file mỗi bảng | sửa được ở Prompt Studio, đo được ở Prompt Evals, có `PromptKey` để lần vết phiên bản |
+| **DỮ LIỆU** — phạm vi màn hình, đối tượng đã chốt, dòng gieo, danh sách người nhận, bảng kê bước luồng | `BAChatPromptBlocks` | dựng từ dữ liệu dự án và phải khớp đúng với builder đọc lại kết quả |
+
+`BAChatService.AppendTableBlocks` nạp **đúng một** file, ở đúng lượt cổng của nó mở. Đó là toàn bộ điểm của
+việc tách: một lượt chat thường không còn phải đọc đặc tả của sáu bảng chỉ để thi hành sáu lệnh *"để mảng
+rỗng"* — và sáu lệnh phủ định thường trực chính là loại lệnh model hay rò rỉ nhất.
+
+**Lý do KHÔNG phải là token.** Prompt nền nằm ở message đầu tiên, tức vị trí prefix cache tốt nhất có thể,
+nên phần cắt đi (~5.400 token, 20% file) vốn được phục vụ với giá rẻ hơn 10 lần — cỡ nửa xu cho cả buổi
+phỏng vấn. Vị trí đính khối bảng cũng theo đúng logic ấy: nó nằm ở **vùng biến động** của danh sách message,
+SAU khối tài liệu nguồn tĩnh, nên prefix cache không mất gì. Đính một khối biến động lên TRƯỚC khối nguồn
+(tới 20.000 ký tự mỗi file) sẽ vô hiệu hoá cache của toàn bộ phần sau — tốn hơn nhiều lần thứ tách được.
+
+**Lý do thật là một bản sao thứ hai đã trôi lệch.** Trước lần tách, nửa LUẬT sống ở CẢ HAI chỗ: chuỗi C#
+trong `BAChatPromptBlocks` và một bản thứ hai trong `requirement-chat.v4.md`. Hai bản đã lệch nhau đúng
+theo cách [llm-and-prompts.md](llm-and-prompts.md) cảnh báo — bản C# bắt model điền `evidence` cho **từng
+bước** của bảng luồng và **từng dòng** của bảng màn hình, trong khi `FlowStep`, `ScreenScopeRow` và
+`ScreenFunction` không hề có trường ấy nên nó bị bỏ lúc parse; bản prompt thì nói đúng rằng ba bảng
+`flowMap` / `screenScopeMap` / `reportMap` không có `evidence`. Model được dạy tìm trích dẫn cho một ô
+không tồn tại, và được hứa một hệ quả không có thật (*"dòng có trích dẫn được tích sẵn kèm dấu ✓"*).
+`InterviewTablePromptTests` nay so prompt với contract để bản sao đó không mọc lại.
+
+**Cái ở lại `requirement-chat.v4.md`** chỉ còn một bất biến, và nó là thứ giữ cho lượt chat thường không tự
+đẻ ra bảng: *không có khối `## LƯỢT NÀY: BÀY BẢNG …` trong ngữ cảnh ⇒ không dựng bảng nào; không bao giờ có
+hai bảng cùng một lượt*. Các ví dụ JSON của lượt thường cũng không liệt kê khóa bảng nữa —
+`BAChatReplyParser` dùng `List<…>?` + `?? new()` nên khóa thiếu không sao, và lượt chat stream bằng
+`ChatResponseFormat.JsonObject` chứ không phải json_schema nên không có schema nào đòi đủ khóa.
+
+> **Cạm bẫy vận hành.** Prompt Studio ưu tiên bản DB active hơn nội dung file (`DbPromptOverrideProvider`).
+> Dự án nào đang có bản override active cho `requirement-chat.v4.md` thì việc cắt ở file **không có hiệu
+> lực** cho tới khi bản active ấy được cập nhật — nếu không, model đọc lại đúng đặc tả cũ, cộng thêm file
+> `table-*` mới, tức quay về đúng hai bản.
 
 ### Một cổng, đúng một bảng mỗi lượt
 
@@ -766,7 +805,7 @@ hai kiểu tên:
 |---|---|---|
 | LLM chắt từ hội thoại | `Prompts/BusinessAnalyst/interview-outlook.v1.md`, mục `scopeAdditions` | tự đặt theo luật trên |
 | Danh mục `app` của bảng đối tượng | `EntityMapBuilder.ManagedListScreens` (**tất định**) | `<tên danh mục> Catalog` — nửa đầu là TÊN THÔNG TIN, nên vế "tiếng Anh" của luật này đứng được là nhờ [luật đặt tên của bảng đối tượng](#ba-cột-tên-của-bảng-đối-tượng-cũng-là-tiếng-anh) |
-| Dòng của bảng báo cáo | `ReportMapBuilder.ReportScreens` (**tất định**) + luật `report` trong `requirement-chat.v4.md` | `<tên> Report`, trừ tên đã tự đọc được như màn hình |
+| Dòng của bảng báo cáo | `ReportMapBuilder.ReportScreens` (**tất định**) + luật `report` trong `table-report-map.v1.md` | `<tên> Report`, trừ tên đã tự đọc được như màn hình |
 
 Hai bước sau chỉ CHÉP: `ai-design-spec.v1.md` lấy cột `Screen` của bảng đã chốt làm heading `### 6.n`, rồi
 `poc-preview.v1.md` lấy heading đó làm nhãn `navItems` và `data-view` của section.
@@ -914,12 +953,11 @@ không có cổng nào chặn tiếng Việt ở đó — dựng một cổng nh
 tồn tại. Nên bảng vẫn trộn ngôn ngữ trong thực tế, và đó là ca CHẤP NHẬN ĐƯỢC: không tầng nào phía sau được
 phép giả định cái tên là một định danh tiếng Anh hợp lệ.
 
-**Luật sống ở bốn chỗ** — sửa một chỗ mà bỏ ba chỗ kia là để mỗi lượt ra một kiểu tên:
+**Luật sống ở ba chỗ** — sửa một chỗ mà bỏ hai chỗ kia là để mỗi lượt ra một kiểu tên:
 
 | Nơi giữ luật | Giữ vế nào |
 |---|---|
-| `Prompts/BusinessAnalyst/requirement-chat.v4.md`, mục `entityMap` | luật đặt tên đầy đủ + luật `sourceColumn` |
-| `BAChatPromptBlocks.EntityMapTable` (khối `## LƯỢT NÀY: BÀY BẢNG ĐỐI TƯỢNG`) | bản rút gọn cho đúng lượt bày bảng |
+| `Prompts/BusinessAnalyst/table-entity-map.v1.md` (khối `## LƯỢT NÀY: BÀY BẢNG ĐỐI TƯỢNG`) | luật đặt tên đầy đủ + luật `sourceColumn` — bản DUY NHẤT, nạp đúng ở lượt bày bảng. Trước đây còn một bản rút gọn thứ hai trong `requirement-chat.v4.md`, xem [Nửa luật ở prompt riêng](#nửa-luật-ở-prompt-riêng-nửa-dữ-liệu-ở-code) |
 | `Prompts/BusinessAnalyst/ai-design-spec.v1.md`, mục `## 8` | **chép đúng chữ**, không dịch, không đổi cách viết |
 | `Prompts/Developer/poc-preview.v1.md` + `Prompts/UiUx/poc-visual-review.v1.md` | ngoại lệ của luật ngôn ngữ UI: các nhãn TÊN tiếng Anh trong một UI tiếng Việt là hình dạng ĐÚNG, không phải lỗi "lẫn lộn ngôn ngữ" |
 

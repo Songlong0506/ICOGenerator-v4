@@ -743,8 +743,16 @@ public class BAChatService
     /// Sáu khối bảng, chia làm hai loại: bảng ĐÃ CHỐT (đính vào mọi lượt sau, không phụ thuộc cổng nào
     /// đang mở) và đúng MỘT khối "## LƯỢT NÀY:" của cổng đang mở. Chúng loại trừ nhau vì cùng đến từ một
     /// lời gọi <see cref="InterviewTableGate.Select"/>.
+    ///
+    /// <para>
+    /// Nửa LUẬT của khối "## LƯỢT NÀY:" nạp từ prompt riêng của từng bảng, và CHỈ nạp ở đúng lượt cổng của
+    /// nó mở — đó là toàn bộ điểm của việc tách: một lượt chat thường không còn phải đọc đặc tả của sáu
+    /// bảng chỉ để thi hành sáu lệnh "để mảng rỗng". Vị trí đính cũng là một quyết định về CHI PHÍ: khối
+    /// này nằm ở vùng biến động của danh sách message, SAU khối tài liệu nguồn tĩnh, nên prefix cache
+    /// không mất gì (xem ghi chú prompt cache ở <see cref="BuildMessagesAsync"/>).
+    /// </para>
     /// </summary>
-    private static void AppendTableBlocks(List<ChatMessage> messages, TurnContext turn)
+    private void AppendTableBlocks(List<ChatMessage> messages, TurnContext turn)
     {
         var project = turn.Project;
 
@@ -759,27 +767,32 @@ public class BAChatService
         if (!string.IsNullOrWhiteSpace(confirmedMatrix))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConfirmedPermissionMatrix(confirmedMatrix)));
         else if (turn.Table == InterviewTableKind.PermissionMatrix)
-            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.PermissionMatrixTable(turn.EffectiveScreens)));
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.PermissionMatrixTable(
+                _promptTemplateService.Get(BAChatPromptBlocks.PermissionMatrixPromptKey), turn.EffectiveScreens)));
         else
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.PermissionMatrixDeferred));
 
         switch (turn.Table)
         {
             case InterviewTableKind.FlowMap:
-                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.FlowMapTable));
+                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.FlowMapTable(
+                    _promptTemplateService.Get(BAChatPromptBlocks.FlowMapPromptKey))));
                 break;
 
             case InterviewTableKind.ScreenScope:
                 messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ScreenScopeTable(
+                    _promptTemplateService.Get(BAChatPromptBlocks.ScreenScopePromptKey),
                     turn.ReshowScreenScope, turn.EffectiveScreens, turn.PendingScreens, turn.PendingFunctions, project.FlowMap)));
                 break;
 
             case InterviewTableKind.EntityMap:
-                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.EntityMapTable));
+                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.EntityMapTable(
+                    _promptTemplateService.Get(BAChatPromptBlocks.EntityMapPromptKey))));
                 break;
 
             case InterviewTableKind.ReportMap:
-                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ReportMapTable(turn.EntityNames)));
+                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ReportMapTable(
+                    _promptTemplateService.Get(BAChatPromptBlocks.ReportMapPromptKey), turn.EntityNames)));
                 break;
         }
 
@@ -791,7 +804,9 @@ public class BAChatService
         if (!string.IsNullOrWhiteSpace(confirmedNotifications))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConfirmedNotificationMap(confirmedNotifications)));
         else if (turn.Table == InterviewTableKind.NotificationMap)
-            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationMapTable(turn.NotificationSeedRows, turn.RecipientOptions)));
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationMapTable(
+                _promptTemplateService.Get(BAChatPromptBlocks.NotificationMapPromptKey),
+                turn.NotificationSeedRows, turn.RecipientOptions)));
         else if (turn.NotificationSeedRows.Count > 0 || !PermissionMatrixGate.IsConfirmed(project.PermissionMatrix))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationDeferred));
     }

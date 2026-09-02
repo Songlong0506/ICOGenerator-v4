@@ -17,14 +17,18 @@ namespace ICOGenerator.Tests.Requirements;
 public class BAChatEntityNamingRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
+
+    // Đặc tả trường của bảng đối tượng nay nằm ở prompt riêng của bảng, chỉ nạp ở đúng lượt
+    // InterviewTableGate mở cổng EntityMap — xem InterviewTablePromptTests.
+    private const string EntityTablePromptKey = "BusinessAnalyst/table-entity-map.v1.md";
     private const string SpecPromptKey = "BusinessAnalyst/ai-design-spec.v1.md";
     private const string PocPromptKey = "Developer/poc-preview.v1.md";
     private const string VisualReviewPromptKey = "UiUx/poc-visual-review.v1.md";
 
     [Fact]
-    public void ChatPrompt_NamesTheThreeEnglishColumns_AndKeepsTheRestVietnamese()
+    public void EntityTablePrompt_NamesTheThreeEnglishColumns_AndKeepsTheRestVietnamese()
     {
-        var prompt = ReadPrompt(ChatPromptKey);
+        var prompt = ReadPrompt(EntityTablePromptKey);
 
         // Ba cột phải được GỌI TÊN. "Tên viết bằng tiếng Anh" chung chung thì model tự chọn cột nào là tên.
         Assert.Contains("`entity`, `fields[].name`, `states[].state`", prompt, StringComparison.Ordinal);
@@ -43,9 +47,9 @@ public class BAChatEntityNamingRuleTests
 
     // Ô ý nghĩa hết là phần thêm nếm từ lúc cột tên là tiếng Anh: nó là NỬA CÒN LẠI của dòng.
     [Fact]
-    public void ChatPrompt_ForbidsAnEmptyMeaningNextToAnEnglishName()
+    public void EntityTablePrompt_ForbidsAnEmptyMeaningNextToAnEnglishName()
     {
-        var prompt = ReadPrompt(ChatPromptKey);
+        var prompt = ReadPrompt(EntityTablePromptKey);
 
         Assert.Contains("`meaning` vì thế KHÔNG được để trống", prompt, StringComparison.Ordinal);
         Assert.Contains("một từ ngoại ngữ trơ trọi", prompt, StringComparison.Ordinal);
@@ -55,9 +59,9 @@ public class BAChatEntityNamingRuleTests
     // hiệu lực"). `sourceColumn` là chỗ nối lại — và nó phải kèm luật CẤM BỊA, vì ô đó chở dấu "người dùng
     // đã chốt rồi".
     [Fact]
-    public void ChatPrompt_AsksForTheSourceColumnVerbatim_AndForbidsMakingItUp()
+    public void EntityTablePrompt_AsksForTheSourceColumnVerbatim_AndForbidsMakingItUp()
     {
-        var prompt = ReadPrompt(ChatPromptKey);
+        var prompt = ReadPrompt(EntityTablePromptKey);
 
         Assert.Contains("`sourceColumn`", prompt, StringComparison.Ordinal);
         Assert.Contains("chép NGUYÊN VĂN tên cột của tài liệu nguồn", prompt, StringComparison.Ordinal);
