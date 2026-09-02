@@ -2282,6 +2282,14 @@ tin bản đồ cho, hẹp dần — và vì không còn câu dẫn nào đỡ, 
    `còn thiếu:`, đã lược sạch ghi chú máy) rồi hỏi còn chỗ nào chưa đúng. KHÔNG được rơi xuống nhánh 3 ở ca
    này: `requirement-chat.v4.md` cấm tuyệt đối việc phát lại **câu mở đầu** cho một nhóm `[MỘT PHẦN]` —
    người dùng đã kể phần đó rồi, nghe lại đúng câu cũ là mất lòng tin vào cả buổi phỏng vấn.
+   **Phần phát lại đọc ĐỦ, không cắt giữa chừng.** Nhánh này hỏi đúng một câu — *"còn chỗ nào chưa đúng
+   hoặc còn thiếu?"* — nên bản ghi nhận là thứ DUY NHẤT người dùng có để rà: cắt nó đi là tự vô hiệu câu
+   hỏi, mà dấu `…` cũng không nói được phần bị nuốt là gì. Trần cũ 200 ký tự (chép từ
+   `CoveragePendingGuard.MaxGapChars` — một trần của chiều GHI VÀO bản đồ, việc khác hẳn) đã cắt một dòng
+   204 ký tự đúng giữa cụm cuối trên màn hình thật. Nay còn một trần **an toàn** 800 ký tự chỉ để một dòng
+   bản đồ hỏng không đổ nguyên biên bản vào bong bóng chat — `requirement-coverage.v4.md` bắt `known` "tối
+   đa ~2 câu" nên bản đồ lành không bao giờ chạm tới — và nó cắt ở **ranh giới câu**: phần đọc được luôn là
+   những câu trọn vẹn, còn cả phần ghi nhận là một câu chạy dài thì phát nguyên văn.
 3. **`[CHƯA HỎI]`** (và `[MỘT PHẦN]` rỗng ruột) ⇒ **câu mở đầu THẬT của nhóm** — `CoverageGroupOpeners`,
    một câu cho mỗi nhóm, bằng ngôn ngữ công việc của người dùng.
 4. **Nhãn không khớp nhóm nào** (distiller tự nghĩ ra một tên) ⇒ không bịa một câu hỏi khai thác về thứ
