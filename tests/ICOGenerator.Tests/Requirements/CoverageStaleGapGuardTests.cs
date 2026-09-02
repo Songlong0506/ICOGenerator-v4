@@ -129,17 +129,15 @@ public class CoverageStaleGapGuardTests
     [Fact]
     public void APendingItemTheMapAlreadyAnswers_NeverReachesTheMap()
     {
-        var pending = new[]
-        {
+        var pending = OpenQuestionFixture.Items(
             "[Mục tiêu / bài toán] Chưa rõ điểm khó chịu nhất khi làm việc bằng 2 file Excel là gì (phải sửa "
             + "tay ở 2 file, không biết JD nào đang gán cho ai, người khác muốn xem phải hỏi HRBP, hay file "
             + "dễ sửa nhầm không biết ai sửa)",
-            "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ có trường hợp ngoại lệ nào không, ví dụ JD bị trùng tên"
-        };
+            "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ có trường hợp ngoại lệ nào không, ví dụ JD bị trùng tên");
 
         var kept = CoverageStaleGapGuard.DropAnsweredItems(CoverageMapFixture.Map(QuyTrinhHienTai), pending);
 
         Assert.Single(kept);
-        Assert.Contains("trùng tên", kept[0], StringComparison.Ordinal);
+        Assert.Contains("trùng tên", kept[0].Text, StringComparison.Ordinal);
     }
 }

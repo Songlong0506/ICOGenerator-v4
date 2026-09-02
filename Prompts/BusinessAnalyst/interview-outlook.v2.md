@@ -15,17 +15,17 @@ Phạm vi MÀN HÌNH không thuộc lời đáp này: nó được chắt bởi 
 - **Bản kể của một BẢNG đã chốt không đẻ ra mâu thuẫn với chính lời người dùng.** Tin nhắn *"Mình đã rà bảng …"* về tới trong lượt của người dùng, nhưng chỉ các Ô mới là quyết định của họ (dòng nào giữ, thông tin nào cần lưu, trạng thái nào có, chức năng nào giữ). Câu **mô tả** cạnh tên đối tượng và câu **việc của màn** là văn xuôi BA điền sẵn, đi cùng chuyến gửi chứ không được ai rà — lệch giữa chúng và điều người dùng đã nói là lỗi câu chữ của BA, KHÔNG phải một mục `openQuestions`. Ca thật: mô tả ghi *"JD — Mô tả công việc được Manager tạo, kiểm tra, verify và approve"* trong khi hội thoại và bảng luồng đã chốt HRBP verify rồi HoD approve; mục *"Chưa rõ ai thực hiện verify và approve JD"* sinh ra từ đó đã khóa cổng "Write Requirement" bằng một câu hỏi mà người dùng đã trả lời từ lượt thứ bảy.
 - Không có điểm nào còn mơ hồ ⇒ trả mảng rỗng.
 
-**Mỗi mục PHẢI mở đầu bằng THẺ NHÓM `[…]`** — chép **đúng một** trong 12 nhãn dưới đây, rồi mới tới câu hỏi:
+**Mỗi mục là một object HAI TRƯỜNG**: `group` — chép **đúng một** trong 12 nhãn dưới đây; `text` — câu hỏi, viết cho người dùng nghiệp vụ đọc và **KHÔNG** nhắc lại tên nhóm trong đó.
 
-```
-[Vòng đời & trạng thái] Chưa rõ kết quả Complete/Not Complete/No Show được dùng để chuyển bước nào tiếp theo
-[Quy tắc nghiệp vụ & ràng buộc] Chưa rõ cách tính điểm xếp loại khi tổng bằng đúng ngưỡng
-[Đối tượng người dùng & vai trò] Vai trò "trưởng nhóm" có được duyệt đơn không — mâu thuẫn giữa hai câu trả lời
+```json
+{ "group": "Vòng đời & trạng thái", "text": "Chưa rõ kết quả Complete/Not Complete/No Show được dùng để chuyển bước nào tiếp theo" }
+{ "group": "Quy tắc nghiệp vụ & ràng buộc", "text": "Chưa rõ cách tính điểm xếp loại khi tổng bằng đúng ngưỡng" }
+{ "group": "Đối tượng người dùng & vai trò", "text": "Vai trò \"trưởng nhóm\" có được duyệt đơn không — mâu thuẫn giữa hai câu trả lời" }
 ```
 
 12 nhãn hợp lệ: `Mục tiêu / bài toán` · `Đối tượng người dùng & vai trò` · `Chức năng & luồng nghiệp vụ chính` · `Quy trình hiện tại & điểm khó` · `Luồng ngoại lệ & trường hợp đặc biệt` · `Dữ liệu / danh mục chính` · `Quy tắc nghiệp vụ & ràng buộc` · `Vòng đời & trạng thái` · `Thông báo / nhắc nhở` · `Báo cáo / thống kê` · `Phân quyền theo nghiệp vụ` · `Quy mô sử dụng`.
 
-**Vì sao cái thẻ đó quan trọng hơn nó trông có vẻ.** Danh sách này và **bản đồ bao phủ** được chắt bởi hai lời gọi khác nhau, đọc cùng một hội thoại nhưng không nhìn thấy nhau — nên chúng nói ngược nhau mà không tầng nào biết. Ca thật: bản đồ ghi «Luồng ngoại lệ», «Vòng đời & trạng thái» và «Dữ liệu / danh mục chính» là `[RÕ]` trong khi danh sách này đang giữ đúng bảy điểm thuộc ba nhóm ấy. `[RÕ]` là lệnh **cấm BA hỏi lại** nhóm đó, nên bảy điểm ấy vĩnh viễn không bao giờ được lấy. Có thẻ thì hệ thống đối chiếu được TẤT ĐỊNH và tự hạ dòng bản đồ xuống `[MỘT PHẦN]` — nhưng nó chỉ làm được khi thẻ **khớp đúng nhãn**; viết chệch một nhãn là mất chốt chặn cho đúng mục đó. Không mục nào thuộc nhóm nào thì dùng `[—]`.
+**Vì sao `group` quan trọng hơn nó trông có vẻ.** Danh sách này và **bản đồ bao phủ** được chắt bởi hai lời gọi khác nhau, đọc cùng một hội thoại nhưng không nhìn thấy nhau — nên chúng nói ngược nhau mà không tầng nào biết. Ca thật: bản đồ ghi «Luồng ngoại lệ», «Vòng đời & trạng thái» và «Dữ liệu / danh mục chính» là `[RÕ]` trong khi danh sách này đang giữ đúng bảy điểm thuộc ba nhóm ấy. `[RÕ]` là lệnh **cấm BA hỏi lại** nhóm đó, nên bảy điểm ấy vĩnh viễn không bao giờ được lấy. Có `group` thì hệ thống đối chiếu được TẤT ĐỊNH và tự hạ dòng bản đồ xuống `[MỘT PHẦN]`. Hệ thống tự chốt `group` về đúng nhãn gần nhất nên viết gọn một nhãn (*"Luồng ngoại lệ"*) vẫn khớp — nhưng **đặt ra một tên không có trong 12 nhãn thì mục đó mất chốt chặn của nó**, nên đừng tự nghĩ tên nhóm mới. Không thuộc nhóm nào thì để `group` **rỗng** (`""`).
 
 ### 2. `workedExamples` — Ví dụ vàng ĐÃ XÁC NHẬN (định lượng VÀ định tính)
 - Ghi những **ví dụ cụ thể mà người dùng đã XÁC NHẬN là đúng**, mỗi mục nêu ĐỦ **đầu vào cụ thể → kết quả kỳ vọng** để sau này kiểm chứng lại bằng máy. Có hai loại, ghi cả hai:
@@ -36,7 +36,7 @@ Phạm vi MÀN HÌNH không thuộc lời đáp này: nó được chắt bởi 
 - Không có ví dụ nào được chốt ⇒ mảng rỗng.
 
 ## Nguyên tắc
-- Ngắn gọn, mỗi mục một dòng; đúng ngôn ngữ của người dùng (mặc định tiếng Việt).
+- Ngắn gọn, mỗi mục một câu; đúng ngôn ngữ của người dùng (mặc định tiếng Việt).
 - KHÔNG trùng lặp trong cùng một danh sách; một ý chỉ nằm ở đúng một danh sách hợp lý nhất.
 - Giữ tổng số mục mỗi danh sách hợp lý (tối đa ~15).
 
@@ -44,7 +44,7 @@ Phạm vi MÀN HÌNH không thuộc lời đáp này: nó được chắt bởi 
 CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ nào ngoài JSON:
 ```json
 {
-  "openQuestions": ["..."],
+  "openQuestions": [{ "group": "...", "text": "..." }],
   "workedExamples": ["..."]
 }
 ```

@@ -29,7 +29,7 @@ public class CoverageWorkedExampleGuardTests
     [Fact]
     public void ARuleRowCarryingNumbers_IsDowngraded_WhenNoWorkedExampleIsConfirmed()
     {
-        var map = CoverageWorkedExampleGuard.Apply(RuleRowWithNumbers, workedExamples: null);
+        var map = CoverageWorkedExampleGuard.Apply(RuleRowWithNumbers, workedExamples: Array.Empty<string>());
 
         Assert.NotNull(map);
         var row = Row(map, "Quy tắc nghiệp vụ");
@@ -45,7 +45,7 @@ public class CoverageWorkedExampleGuardTests
     {
         var map = CoverageWorkedExampleGuard.Apply(
             RuleRowWithNumbers,
-            "- 5 Responsibility với % 30/25/20/15/10 thì tổng bằng 100% → hợp lệ");
+            new[] { "5 Responsibility với % 30/25/20/15/10 thì tổng bằng 100% → hợp lệ" });
 
         Assert.Equal(RuleRowWithNumbers, map);
     }
@@ -60,7 +60,7 @@ public class CoverageWorkedExampleGuardTests
             - Dữ liệu / danh mục chính: [RÕ] Một JD gồm 9 thông tin: mã JD, OrgUnit, JobTitle…
             """);
 
-        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: null));
+        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: Array.Empty<string>()));
     }
 
     // Ranh giới 2: quy tắc thuần định tính (không con số) đã đủ khi nêu được điều kiện và hệ quả — không
@@ -71,7 +71,7 @@ public class CoverageWorkedExampleGuardTests
         var map =
             CoverageMapFixture.Map("- Quy tắc nghiệp vụ & ràng buộc: [RÕ] JD phải qua HRBP verify rồi HoD approve mới available để assign.");
 
-        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: null));
+        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: Array.Empty<string>()));
     }
 
     // Ranh giới 3: dòng đã có mẩu hỏi riêng của distiller thì để nguyên — mẩu đó bám vào đúng quy tắc còn
@@ -83,7 +83,7 @@ public class CoverageWorkedExampleGuardTests
             CoverageMapFixture.Map("- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Responsibility có 5 cái kèm %. "
             + "còn thiếu: tổng % của các Responsibility phải bằng bao nhiêu");
 
-        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: null));
+        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: Array.Empty<string>()));
     }
 
     // Guard chỉ HẠ, không bao giờ nâng: một dòng [KHÔNG ÁP DỤNG] hay [CHƯA HỎI] không bị đụng tới.
@@ -95,6 +95,6 @@ public class CoverageWorkedExampleGuardTests
             - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] người dùng nói không cần báo cáo nào.
             """);
 
-        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: null));
+        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: Array.Empty<string>()));
     }
 }

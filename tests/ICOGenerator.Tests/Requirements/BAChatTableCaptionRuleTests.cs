@@ -46,7 +46,7 @@ public class BAChatTableCaptionRuleTests
     private const string EntityTablePromptKey = "BusinessAnalyst/table-entity-map.v1.md";
     private const string ScreenScopeTablePromptKey = "BusinessAnalyst/table-screen-scope.v1.md";
     private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
-    private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v1.md";
+    private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v2.md";
 
     // Tầng 1: đừng viết ra câu đó. Ô mô tả nói đối tượng LÀ GÌ; ai làm gì thuộc bảng luồng và ô "khi nào
     // chuyển vào" của từng trạng thái.

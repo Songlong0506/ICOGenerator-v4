@@ -99,7 +99,8 @@ public class RequirementDocsService
             productBrief,
             ProjectDocumentLookup.GetContent(project, _artifactCatalog.AiDesignSpec.FileName, versionName),
             organizationContext ?? string.Empty,
-            project.WorkedExamples,
+            // Cột lưu JSON, nạp vào prompt dạng bullet — xem InterviewOutlookParser.
+            InterviewOutlookParser.ToText(InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples)),
             project.SpecAssumptionCorrections,
             realSampleData,
             BriefAcceptanceCriteria.BuildPromptBlock(acceptanceCriteria),

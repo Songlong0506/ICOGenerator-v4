@@ -344,14 +344,17 @@ public class ChatExportBuilderTests
         var project = new Project
         {
             Name = "Quản lý đào tạo",
-            OpenQuestions = "- Danh sách khóa học đồng bộ tự động hay nhập tay?",
-            WorkedExamples = "- 3 lớp × 20 học viên ⇒ cần 2 phòng"
+            OpenQuestions = OpenQuestionFixture.Stored("[Dữ liệu / danh mục chính] Danh sách khóa học đồng bộ tự động hay nhập tay?"),
+            WorkedExamples = InterviewOutlookParser.SerializeWorkedExamples(new[] { "3 lớp × 20 học viên ⇒ cần 2 phòng" })
         };
 
         var markdown = ChatExportBuilder.Build(Snapshot(project, userMemory: "Người dùng là HR, không rành kỹ thuật."));
 
         Assert.Contains("Danh sách khóa học đồng bộ tự động hay nhập tay?", markdown, StringComparison.Ordinal);
         Assert.Contains("3 lớp × 20 học viên ⇒ cần 2 phòng", markdown, StringComparison.Ordinal);
+        // Nhãn nhóm là từ vựng NỘI BỘ của bản đồ bao phủ — bản xuất này để người chấm đọc, không phải để
+        // kể lại cách hệ thống gắn thẻ.
+        Assert.DoesNotContain("[Dữ liệu / danh mục chính]", markdown, StringComparison.Ordinal);
         Assert.Contains("Người dùng là HR, không rành kỹ thuật.", markdown, StringComparison.Ordinal);
     }
 }

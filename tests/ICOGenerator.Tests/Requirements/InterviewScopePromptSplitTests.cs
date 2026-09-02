@@ -7,7 +7,7 @@ namespace ICOGenerator.Tests.Requirements;
 // trong lúc cắt, và không compiler nào báo. Các test dưới đây giữ hai đầu của đường cắt đó.
 public class InterviewScopePromptSplitTests
 {
-    private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v1.md";
+    private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v2.md";
     private const string ScopePromptKey = "BusinessAnalyst/interview-scope.v1.md";
 
     // Đặc tả trường chỉ được sống ở MỘT chỗ — cùng luật với sáu prompt bảng

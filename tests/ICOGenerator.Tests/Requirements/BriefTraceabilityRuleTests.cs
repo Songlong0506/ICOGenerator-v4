@@ -25,8 +25,8 @@ public class BriefTraceabilityRuleTests
     {
         Name = "Kế hoạch đào tạo",
         Description = "app lập kế hoạch lớp học",
-        WorkedExamples = "- Tính số lớp: nhu cầu 25, tối đa 10/lớp → 3 lớp.",
-        OpenQuestions = "- Chưa rõ ai quản lý danh mục khóa học."
+        WorkedExamples = InterviewOutlookParser.SerializeWorkedExamples(new[] { "Tính số lớp: nhu cầu 25, tối đa 10/lớp → 3 lớp." }),
+        OpenQuestions = OpenQuestionFixture.Stored("[Dữ liệu / danh mục chính] Chưa rõ ai quản lý danh mục khóa học.")
     };
 
     [Fact]

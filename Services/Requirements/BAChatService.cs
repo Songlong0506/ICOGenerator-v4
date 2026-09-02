@@ -723,7 +723,7 @@ public class BAChatService
         if (!string.IsNullOrWhiteSpace(turn.CoverageUpdate.Map))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.CoverageMap(turn.CoverageUpdate.Map)));
 
-        var openQuestions = InterviewOutlookService.ParseItems(project.OpenQuestions);
+        var openQuestions = InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions);
         if (openQuestions.Count > 0)
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.OpenQuestions(openQuestions)));
 

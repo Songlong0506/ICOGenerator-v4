@@ -74,16 +74,16 @@ public static class BAChatPromptBlocks
     // BA mỗi lượt chỉ hỏi 1-2 câu nên phần chưa hỏi tới cần một chỗ để không rơi. Trước đây danh sách
     // này chỉ hiện thành panel cạnh chat để user tự đọc; nay nó đi thẳng vào ngữ cảnh của BA — người
     // dùng chỉ cần trò chuyện, việc "hỏi cho hết" là của BA.
-    public static string OpenQuestions(IReadOnlyList<string> openQuestions)
+    public static string OpenQuestions(IReadOnlyList<OpenQuestionEntry> openQuestions)
         => "## Điểm cần làm rõ còn tồn đọng (chắt từ các lượt trước — hỏi cho hết trong khung chat)\n"
             + "Chọn câu hỏi kế tiếp ƯU TIÊN từ danh sách này khi nó còn mục, trước khi mở nhóm mới trong "
             + "bản đồ bao phủ. Điểm nào người dùng đã trả lời ở lượt gần đây thì coi như xong, KHÔNG hỏi lại.\n"
-            // Thẻ nhóm "[Vòng đời & trạng thái] …" bị GỠ trước khi vào ngữ cảnh: nó được gắn cho
+            // Nhãn nhóm («Vòng đời & trạng thái») KHÔNG đi kèm vào đây: nó được model điền cho
             // CoveragePendingGuard đối chiếu tất định với bản đồ, không phải cho BA đọc ra. Nhãn nhóm là
-            // từ vựng nội bộ của bản đồ và prompt chat cấm ném nó vào mặt người dùng nghiệp vụ — để
-            // nguyên thì thẻ đi thẳng vào câu hỏi kế tiếp, đúng lỗi mà CoverageDeadQuestionLoopTests
-            // đã phải dựng lưới một lần.
-            + string.Join("\n", openQuestions.Select(q => "- " + CoveragePendingGuard.StripGroupTag(q)));
+            // từ vựng nội bộ của bản đồ và prompt chat cấm ném nó vào mặt người dùng nghiệp vụ — nạp cả
+            // nhãn thì nó đi thẳng vào câu hỏi kế tiếp, đúng lỗi mà CoverageDeadQuestionLoopTests đã phải
+            // dựng lưới một lần. Xem InterviewOutlookParser.ToText.
+            + InterviewOutlookParser.ToText(openQuestions);
 
     // ------------------------------------------------------------------------------------------------
     // CÁC BẢNG ĐÃ CHỐT — khối ngữ cảnh đính vào MỌI lượt sau, không phụ thuộc cổng nào đang mở. Thiếu

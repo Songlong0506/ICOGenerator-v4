@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using ICOGenerator.Contracts.Requirements;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -122,7 +123,7 @@ public static partial class CoverageStaleGapGuard
     /// mẩu do distiller viết, còn cùng mẩu ấy quay lại ngay ở lượt sau qua đường tồn đọng — danh sách tồn
     /// đọng chắt ở HẬU KỲ nên nó luôn cũ hơn bản đồ đúng một lượt (xem <see cref="CoveragePendingGuard"/>).
     /// </summary>
-    public static IReadOnlyList<string> DropAnsweredItems(string? coverageMap, IReadOnlyList<string> openQuestions)
+    public static IReadOnlyList<OpenQuestionEntry> DropAnsweredItems(string? coverageMap, IReadOnlyList<OpenQuestionEntry> openQuestions)
     {
         if (string.IsNullOrWhiteSpace(coverageMap) || openQuestions.Count == 0)
             return openQuestions;
@@ -138,7 +139,7 @@ public static partial class CoverageStaleGapGuard
         var kept = openQuestions
             .Where(item =>
             {
-                var words = Words(CoveragePendingGuard.StripGroupTag(item));
+                var words = Words(item.Text);
                 return words.Count < MinGapWords || !clearBodies.Any(body => Covers(body, words));
             })
             .ToList();

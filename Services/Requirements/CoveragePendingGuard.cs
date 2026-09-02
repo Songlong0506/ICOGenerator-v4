@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using ICOGenerator.Contracts.Requirements;
 
 namespace ICOGenerator.Services.Requirements;
@@ -26,6 +25,14 @@ namespace ICOGenerator.Services.Requirements;
 /// BA hỏi thêm một câu và người dùng trả lời lần nữa; bỏ sót thì sinh ra một khoảng trống mà mọi tầng sau
 /// tin là đã đủ — hai cái giá không cùng hạng. Cùng luật với các chốt chặn của
 /// <see cref="BAChatReplyParser"/>.
+/// </para>
+///
+/// <para>
+/// <b>Nhóm của mục tồn đọng là một TRƯỜNG, không phải một thẻ gõ tay.</b> Trước đây guard này nhận danh
+/// sách chuỗi và tự regex bóc khuôn <c>[Nhãn] câu hỏi</c> ra — model gõ chệch khuôn là guard câm trong im
+/// lặng, đúng cái hỏng mà nó sinh ra để chặn. Nay nhóm đã là <see cref="OpenQuestionEntry.Group"/>, được
+/// <c>InterviewOutlookService</c> chốt về đúng một trong 12 nhãn checklist ngay ở đường ghi; xem
+/// <see cref="OpenQuestionDocument"/>.
 /// </para>
 ///
 /// <para>
@@ -60,7 +67,7 @@ namespace ICOGenerator.Services.Requirements;
 /// kỳ, tức bản đồ dẫn lượt hỏi kế tiếp luôn cũ một lượt, đắt hơn nhiều.
 /// </para>
 /// </summary>
-public static partial class CoveragePendingGuard
+public static class CoveragePendingGuard
 {
     /// <summary>Trần độ dài mẩu "còn thiếu" ghép vào dòng — bản đồ là la bàn, không phải biên bản.</summary>
     private const int MaxGapChars = 200;
@@ -69,9 +76,9 @@ public static partial class CoveragePendingGuard
     /// Hạ cấp các dòng <c>[RÕ]</c> còn mục tồn đọng gắn đúng nhóm đó, và ghi mẩu còn phải hỏi vào phần
     /// <c>còn thiếu:</c> — đúng chỗ mà <see cref="RequirementReadinessGate"/> lấy làm câu hỏi hiển thị,
     /// nên điểm tồn đọng thật sự trở thành câu chặn của cổng thay vì một ghi chú không ai đọc.
-    /// Không có mục nào gắn thẻ ⇒ trả nguyên bản đồ.
+    /// Không mục nào có nhóm ⇒ trả nguyên bản đồ.
     /// </summary>
-    public static string? Apply(string? coverageMap, IReadOnlyList<string> openQuestions, string? previousMap = null)
+    public static string? Apply(string? coverageMap, IReadOnlyList<OpenQuestionEntry> openQuestions, string? previousMap = null)
     {
         if (string.IsNullOrWhiteSpace(coverageMap) || openQuestions.Count == 0)
             return coverageMap;
@@ -82,12 +89,10 @@ public static partial class CoveragePendingGuard
         var gaps = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var item in openQuestions)
         {
-            var match = TaggedItemRegex().Match(item.Trim());
-            if (!match.Success)
-                continue;
-
-            var group = match.Groups["group"].Value.Trim();
-            var text = match.Groups["text"].Value.Trim();
+            var group = item.Group.Trim();
+            var text = item.Text.Trim();
+            // Mục không gắn được nhóm nào (model viết một tên lạ, đã bị đường ghi xoá về rỗng) ⇒ bỏ qua:
+            // guard fail-open, nó không được phép hạ nhầm một dòng vì một cái nhãn vô nghĩa.
             if (group.Length == 0 || text.Length == 0)
                 continue;
 
@@ -127,18 +132,6 @@ public static partial class CoveragePendingGuard
     }
 
     /// <summary>
-    /// Bỏ thẻ nhóm ở đầu một mục tồn đọng. Thẻ là từ vựng NỘI BỘ của bản đồ (*«Vòng đời &amp; trạng thái»*)
-    /// — nó tồn tại cho guard, không phải cho BA đọc ra: prompt chat cấm ném tên nhóm vào mặt người dùng
-    /// nghiệp vụ, và một danh sách gắn thẻ nạp thẳng vào ngữ cảnh là mời BA chép lại đúng thứ đó.
-    /// Mục không gắn thẻ ⇒ trả nguyên.
-    /// </summary>
-    public static string StripGroupTag(string item)
-    {
-        var match = TaggedItemRegex().Match((item ?? string.Empty).Trim());
-        return match.Success ? match.Groups["text"].Value.Trim() : (item ?? string.Empty).Trim();
-    }
-
-    /// <summary>
     /// Thân dòng (phần tóm tắt, không kể khối <c>{nguồn: …}</c>) của từng nhãn trong một bản đồ. Bản đồ
     /// rỗng/không đọc được ⇒ từ điển rỗng, và mọi dòng được coi là "không đổi" — đúng hành vi cũ.
     /// </summary>
@@ -170,8 +163,9 @@ public static partial class CoveragePendingGuard
     /// Nhóm của mẩu tồn đọng khớp với nhãn dòng bản đồ. So khớp hai chiều bằng TIỀN TỐ, cùng lý do với
     /// <see cref="InterviewTableGate.IsClear"/>: lượt chắt lọc viết *"Luồng ngoại lệ"* còn bản đồ ghi
     /// *"Luồng ngoại lệ &amp; trường hợp đặc biệt"* thì đó vẫn là một nhóm, và một phép so nguyên văn sẽ
-    /// làm guard câm trong im lặng. Thẻ không khớp nhãn nào (model tự nghĩ ra một tên) ⇒ bỏ qua: guard
-    /// fail-open, nó không được phép hạ nhầm một dòng vì một cái thẻ vô nghĩa.
+    /// làm guard câm trong im lặng. Phía tồn đọng nay đã được chốt về nhãn checklist ở đường ghi, nhưng
+    /// phép so vẫn giữ hai chiều vì phía BÊN KIA thì không: nhãn dòng bản đồ do lượt distill chép ra và
+    /// vẫn lệch được. Không khớp nhãn nào ⇒ bỏ qua, guard fail-open.
     /// </summary>
     private static string? FindGap(Dictionary<string, string> gaps, string label)
     {
@@ -197,9 +191,4 @@ public static partial class CoveragePendingGuard
         item.Known = body;
         item.Gap = gap.Length > MaxGapChars ? gap[..MaxGapChars].TrimEnd() : gap;
     }
-
-    // "[Vòng đời & trạng thái] Chưa rõ kết quả Complete dùng để chuyển bước nào" — thẻ nhóm do
-    // interview-outlook.v1.md gắn ở ĐẦU mỗi mục tồn đọng.
-    [GeneratedRegex(@"^\[(?<group>[^\]]{1,80})\]\s*(?<text>.+)$", RegexOptions.Singleline)]
-    private static partial Regex TaggedItemRegex();
 }

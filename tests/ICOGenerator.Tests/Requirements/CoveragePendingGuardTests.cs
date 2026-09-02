@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Requirements;
 using Xunit;
 
@@ -21,7 +22,7 @@ public class CoveragePendingGuardTests
 {
     // Bản đồ được lưu dạng JSON nên các test dưới soi TRƯỜNG đã parse, không soi chuỗi: trạng thái và mẩu
     // còn phải hỏi là thứ những tầng sau đọc, còn cách xếp chữ thì không tầng nào phụ thuộc vào.
-    private static ICOGenerator.Contracts.Requirements.CoverageMapItem Row(string? map, string labelPrefix) =>
+    private static CoverageMapItem Row(string? map, string labelPrefix) =>
         CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
 
     [Fact]
@@ -32,7 +33,7 @@ public class CoveragePendingGuardTests
             - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học cả năm. {nguồn: "lên kế hoạch các lớp học"}
             - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì ticket sang Waitlist. {nguồn: "Tiếp tục giữ Waitlist"}
             """),
-            new[] { "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không" });
+            OpenQuestionFixture.Items("[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không"));
 
         Assert.NotNull(map);
         // Dòng có điểm tồn đọng bị hạ, và mục tồn đọng thành ĐÚNG trường Gap — chỗ cổng readiness đọc.
@@ -51,7 +52,7 @@ public class CoveragePendingGuardTests
     {
         var map = CoveragePendingGuard.Apply(
             CoverageMapFixture.Map("- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll/Waitlist → Complete. {nguồn: bảng luồng đã chốt}"),
-            new[] { "[Vòng đời & trạng thái] Chưa rõ kết quả Complete/Not Complete/No Show được dùng để xử lý bước nào tiếp theo" });
+            OpenQuestionFixture.Items("[Vòng đời & trạng thái] Chưa rõ kết quả Complete/Not Complete/No Show được dùng để xử lý bước nào tiếp theo"));
 
         var readiness = RequirementReadinessGate.Evaluate(map);
 
@@ -69,7 +70,7 @@ public class CoveragePendingGuardTests
     {
         var map = CoveragePendingGuard.Apply(
             CoverageMapFixture.Map("- Dữ liệu / danh mục chính: [RÕ] Dùng 6 cột Master List đã chốt. {nguồn: bảng cột người dùng đã chốt}"),
-            new[] { "[Dữ liệu / danh mục chính] Chưa rõ xử lý khi Item ID và Item Title không tạo thành cặp duy nhất" });
+            OpenQuestionFixture.Items("[Dữ liệu / danh mục chính] Chưa rõ xử lý khi Item ID và Item Title không tạo thành cặp duy nhất"));
 
         var item = Assert.Single(CoverageMapParser.Parse(map));
 
@@ -85,11 +86,11 @@ public class CoveragePendingGuardTests
     [Theory]
     [InlineData("Luồng ngoại lệ")]
     [InlineData("Luồng ngoại lệ & trường hợp đặc biệt")]
-    public void GroupTag_MatchesTheMapLabelByPrefix_InBothDirections(string tag)
+    public void TheGroup_MatchesTheMapLabelByPrefix_InBothDirections(string tag)
     {
         var map = CoveragePendingGuard.Apply(
             CoverageMapFixture.Map("- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist."),
-            new[] { $"[{tag}] Chưa rõ ticket Waitlist còn treo khi lớp đã kết thúc" });
+            OpenQuestionFixture.Items($"[{tag}] Chưa rõ ticket Waitlist còn treo khi lớp đã kết thúc"));
 
         Assert.Equal("MỘT PHẦN", Row(map, "Luồng ngoại lệ").Status);
     }
@@ -105,40 +106,26 @@ public class CoveragePendingGuardTests
             - Quy mô sử dụng: [MỘT PHẦN] Toàn nhà máy. còn thiếu: bao nhiêu lớp mỗi năm.
             """);
 
-        var guarded = CoveragePendingGuard.Apply(map, new[]
-        {
+        var guarded = CoveragePendingGuard.Apply(map, OpenQuestionFixture.Items(
             "[Thông báo / nhắc nhở] Chưa rõ ai nhận email khi ticket chờ duyệt",
             "[Báo cáo / thống kê] Chưa rõ cấp quản lý cần xem báo cáo nào",
-            "[Quy mô sử dụng] Chưa rõ mỗi năm mở bao nhiêu lớp"
-        });
+            "[Quy mô sử dụng] Chưa rõ mỗi năm mở bao nhiêu lớp"));
 
         Assert.Equal(map, guarded);
     }
 
-    // Thẻ model tự nghĩ ra (không khớp nhãn nào) và mục không gắn thẻ đều bị BỎ QUA: guard fail-open, nó
-    // không được phép hạ nhầm một dòng vì một cái thẻ vô nghĩa.
+    // Nhóm model tự nghĩ ra (không khớp nhãn nào) và mục không có nhóm đều bị BỎ QUA: guard fail-open, nó
+    // không được phép hạ nhầm một dòng vì một cái nhãn vô nghĩa. Đường ghi đã xoá nhãn lạ về rỗng
+    // (InterviewOutlookService.Canonicalize), nhưng guard vẫn phải tự đứng vững trước cả hai ca.
     [Theory]
     [InlineData("[Tích hợp hệ thống ngoài] Chưa rõ nối với SAP kiểu gì")]
     [InlineData("[—] Chưa rõ một điểm không thuộc nhóm nào")]
-    [InlineData("Chưa rõ điểm này thuộc nhóm nào — mục không gắn thẻ")]
-    public void UnknownOrMissingTag_LeavesTheMapAlone(string pendingItem)
+    [InlineData("Chưa rõ điểm này thuộc nhóm nào — mục không có nhóm")]
+    public void UnknownOrMissingGroup_LeavesTheMapAlone(string pendingItem)
     {
         var map = CoverageMapFixture.Map("- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll → Complete.");
 
-        Assert.Equal(map, CoveragePendingGuard.Apply(map, new[] { pendingItem }));
-    }
-
-    // Thẻ nhóm được gắn cho GUARD đối chiếu, không phải cho BA đọc ra. Nhãn nhóm là từ vựng nội bộ của bản
-    // đồ; requirement-chat.v4.md cấm ném nó vào mặt người dùng nghiệp vụ, và
-    // CoverageDeadQuestionLoopTests đã phải dựng lưới một lần cho đúng lỗi đó.
-    [Fact]
-    public void StripGroupTag_RemovesTheInternalLabelBeforeItReachesTheBA()
-    {
-        Assert.Equal("Chưa rõ ai nhận email khi ticket chờ duyệt",
-            CoveragePendingGuard.StripGroupTag("[Thông báo / nhắc nhở] Chưa rõ ai nhận email khi ticket chờ duyệt"));
-
-        // Mục chưa gắn thẻ (bản chắt lọc cũ, hoặc model bỏ quên) đi qua nguyên vẹn — không được nuốt mất.
-        Assert.Equal("Chưa rõ ai nhận email", CoveragePendingGuard.StripGroupTag("Chưa rõ ai nhận email"));
+        Assert.Equal(map, CoveragePendingGuard.Apply(map, OpenQuestionFixture.Items(pendingItem)));
     }
 
     // Nhiều mục cùng một nhóm ⇒ chỉ mục ĐẦU TIÊN thành câu chặn. BA hỏi 1–2 câu mỗi lượt, nên dội cả cụm
@@ -149,11 +136,9 @@ public class CoveragePendingGuardTests
     {
         var map = CoveragePendingGuard.Apply(
             CoverageMapFixture.Map("- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist."),
-            new[]
-            {
+            OpenQuestionFixture.Items(
                 "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký lại sau khi bị Reject",
-                "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký trùng lịch"
-            });
+                "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký trùng lịch"));
 
         Assert.Equal("Chưa rõ đăng ký lại sau khi bị Reject", Row(map, "Luồng ngoại lệ").Gap);
         Assert.DoesNotContain("trùng lịch", map, StringComparison.Ordinal);
@@ -175,7 +160,7 @@ public class CoveragePendingGuardTests
 
         var map = CoveragePendingGuard.Apply(
             after,
-            new[] { "[Quy trình hiện tại & điểm khó] Chưa rõ quy trình hiện tại tạo và gán JD diễn ra thế nào (các bước, vai trò tham gia)" },
+            OpenQuestionFixture.Items("[Quy trình hiện tại & điểm khó] Chưa rõ quy trình hiện tại tạo và gán JD diễn ra thế nào (các bước, vai trò tham gia)"),
             before);
 
         Assert.Equal(after, map);
@@ -191,7 +176,7 @@ public class CoveragePendingGuardTests
 
         var map = CoveragePendingGuard.Apply(
             row,
-            new[] { "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký lại sau khi bị Reject" },
+            OpenQuestionFixture.Items("[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký lại sau khi bị Reject"),
             row);
 
         var item = Assert.Single(CoverageMapParser.Parse(map));
@@ -204,7 +189,7 @@ public class CoveragePendingGuardTests
     {
         var map = CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học.");
 
-        Assert.Equal(map, CoveragePendingGuard.Apply(map, Array.Empty<string>()));
-        Assert.Null(CoveragePendingGuard.Apply(null, new[] { "[Vòng đời & trạng thái] Chưa rõ gì đó" }));
+        Assert.Equal(map, CoveragePendingGuard.Apply(map, Array.Empty<OpenQuestionEntry>()));
+        Assert.Null(CoveragePendingGuard.Apply(null, OpenQuestionFixture.Items("[Vòng đời & trạng thái] Chưa rõ gì đó")));
     }
 }
