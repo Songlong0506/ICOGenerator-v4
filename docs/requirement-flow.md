@@ -791,7 +791,7 @@ làm vế `function`, thay vì để model tự nghĩ ra một danh sách khác 
 `Screen` là khóa nối sang bảng phân quyền và sang các màn của bản demo, nên một mục kiểu *"Tính năng
 Generate Training Implement từ Training Plan Detail"* lọt vào sẽ thành một dòng phân quyền và một trang
 trống trong POC, trong khi nó vốn là **một cái nút trên Training Plan Detail**. Nguồn của lỗi này nằm ở
-lượt chắt lọc phạm vi (prompt `interview-outlook.v1.md`), nên luật "chỉ màn hình, chức năng thì gộp
+lượt chắt lọc phạm vi (prompt `interview-scope.v1.md`), nên luật "chỉ màn hình, chức năng thì gộp
 vào màn chứa nó" sống ở đó. Tầng bảng dọn nốt phần lọt lưới bằng `ScreenScopeRow.Covers`: dòng khai nguyên
 văn các mục phạm vi mà nó đã gộp vào mình, và chốt chặn "màn hình bị bỏ quên" thôi bổ sung đúng những mục
 ấy — không có `Covers` thì mục vừa gộp vào cột chức năng sẽ mọc lại thành một dòng trắng ngay bên dưới.
@@ -830,7 +830,7 @@ hai kiểu tên:
 
 | Nguồn tên | Nơi giữ luật | Hình dạng |
 |---|---|---|
-| LLM chắt từ hội thoại | `Prompts/BusinessAnalyst/interview-outlook.v1.md`, mục `scopeAdditions` | tự đặt theo luật trên |
+| LLM chắt từ hội thoại | `Prompts/BusinessAnalyst/interview-scope.v1.md` | tự đặt theo luật trên |
 | Danh mục `app` của bảng đối tượng | `EntityMapBuilder.ManagedListScreens` (**tất định**) | `<tên danh mục> Catalog` — nửa đầu là TÊN THÔNG TIN, nên vế "tiếng Anh" của luật này đứng được là nhờ [luật đặt tên của bảng đối tượng](#ba-cột-tên-của-bảng-đối-tượng-cũng-là-tiếng-anh) |
 | Dòng của bảng báo cáo | `ReportMapBuilder.ReportScreens` (**tất định**) + luật `report` trong `table-report-map.v1.md` | `<tên> Report`, trừ tên đã tự đọc được như màn hình |
 
@@ -859,6 +859,41 @@ thuần tiếng Anh là đánh đổi đúng thứ mấy bảng này sinh ra đ�
 lập (dòng bảng phân quyền, `Covers`, `PocSpec.Matches`, danh sách cho phép của `ScreenScopeMapBuilder`), nên
 hai cái tên nghĩa là hai khóa phải đồng bộ ở cả bốn — và một cột thứ tư cho bảng này đi ngược đúng lý do nó
 chỉ có ba cột. Một chuỗi thoả cả hai đầu rẻ hơn hẳn.
+
+### Nhịp của lượt chắt lọc phạm vi màn hình
+
+Các dòng của bảng màn hình đến từ ba nguồn ([ở trên](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh)),
+và hai nguồn tất định thì gieo đúng lúc người dùng chốt bảng đối tượng / bảng báo cáo. Nguồn thứ ba —
+một lời gọi LLM đọc hội thoại — phải tự chọn lúc chạy, và **nó chạy THƯA**: im lặng cho tới khi bản đồ bao
+phủ đi tới sát cổng bảng màn hình, rồi gộp bù TRỌN quãng hội thoại đã qua trong một lời gọi; sau lần chốt
+đầu thì chạy theo **lô 10 lượt** để vẫn bắt được
+[phần phạm vi trôi tiếp](#bảng-màn-hình-nguồn-phạm-vi-duy-nhất-và-cờ-chờ-duyệt).
+Điều kiện đầy đủ ở `InterviewScopeService.ShouldHarvest`, chốt bằng `InterviewScopeHarvestRhythmTests`.
+
+**Trước đây nó chạy sau MỖI lượt chat**, vì nó là danh sách thứ ba của lượt "triển vọng phỏng vấn"
+(`interview-outlook.v1.md`) nên đi theo nhịp của hai danh sách kia. Nhịp đó đúng cho `openQuestions` và
+`workedExamples` — tồn đọng câu hỏi được nạp thẳng vào ngữ cảnh lượt chat kế tiếp nên phải tươi — nhưng sai
+cho phạm vi màn hình, thứ chỉ được tiêu thụ khi bảng được bày ra hỏi. Cái giá có hai phần:
+
+- **Token.** Luật đặt tên màn hình cộng luật "chỉ màn hình, chức năng thì gộp vào màn chứa nó" chiếm hơn
+  một phần ba prompt chắt lọc, và khối "bảng màn hình đang có" phải kể tới từng chức năng để model biết cái
+  gì đã có. Cả hai đi theo ~35 lượt của một buổi phỏng vấn để phục vụ một hai lượt.
+- **Chất lượng, và phần này đắt hơn.** Ở lượt 3 thì bảng luồng chưa chốt, bảng đối tượng chưa có, phạm vi
+  chưa hình thành — mọi màn hình model đoán ra lúc ấy là phỏng đoán sớm. Mà `Merge` **chỉ được phép THÊM**:
+  không dòng nào bị xoá, không cờ tích nào bị đổi. Một dòng sai sinh ra ở đầu buổi nằm lại trong bảng cho
+  tới khi chính người dùng bỏ tích nó, hai mươi lượt sau — nếu họ nhận ra.
+
+Hai vế của nhịp mới, mỗi vế chặn một hỏng khác nhau. **Ngưỡng lô chỉ áp SAU lần chốt đầu**: quãng từ lúc
+bản đồ ngã ngũ tới lúc người dùng bấm gửi bảng thường chỉ vài lượt, và lượt nào trong đó cũng có thể lộ ra
+màn hình mới — hoãn chúng lại là bày ra một bảng thiếu đúng phần vừa được nói tới, rồi người dùng đóng dấu
+*"đây là toàn bộ màn hình của ứng dụng"* lên bảng ấy. Và **con trỏ lượt là con trỏ RIÊNG**
+(`Project.InterviewScopeHarvestedTurnCount`): dùng chung với con trỏ của lượt chạy dày thì lượt ấy kéo con
+trỏ đi trước, và lượt chạy thưa không còn quãng nào để gộp.
+
+Điều kiện bản đồ **chép** điều kiện của `ScreenScopeGate.ShouldAsk` chứ không gọi lại nó, trừ vế
+`HasPending` — vế đó là *hệ quả* của chính lượt chắt lọc, đòi nó ở đây là tự khoá. Hai câu hỏi ("đã tới lúc
+chắt chưa" và "đã tới lúc hỏi chưa") tình cờ có chung phần lớn điều kiện; cột lại làm một là để lần sau sửa
+một cái thì cái kia im lặng đổi theo.
 
 ### Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng chứng
 
@@ -1417,7 +1452,7 @@ Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spe
 
 ## Sidebar đã gỡ: mọi cổng chờ người dùng chuyển vào khung chat
 
-**Sidebar không còn panel nào của `InterviewOutlookService`.** Những thứ nó chắt sau mỗi lượt chat — `OpenQuestions`, phần phạm vi mới, `WorkedExamples` — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — phạm vi đi thẳng vào bảng màn hình ở trạng thái chờ duyệt, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), bước soạn Product Brief (`ProductBriefDraftService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
+**Sidebar không còn panel nào của `InterviewOutlookService`.** Những thứ hai lượt chắt lọc rút ra từ hội thoại — `OpenQuestions` và `WorkedExamples` sau mỗi lượt chat, phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — phạm vi đi thẳng vào bảng màn hình ở trạng thái chờ duyệt, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), bước soạn Product Brief (`ProductBriefDraftService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
 **Stepper 5 chặng ở đầu trang đã bỏ.** Quy trình thực tế không chạy một chiều — người dùng sửa tới sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm chỗ đầu trang vừa mô tả sai việc đang diễn ra. Trạng thái thật vẫn ở đúng chỗ cần đọc: cổng xác nhận giả định và tiến trình workflow nằm trong khung chat, các bản mô tả nằm ở panel tài liệu.
 
 **ĐỪNG TÌM panel "Điều đã chốt", và cũng đừng tìm nhật ký quyết định phía sau nó.** Panel bày nhật ký `DecisionLogService` (tới 40 dòng) cạnh khung chat để người dùng tự rà bị gỡ trước — nó bắt họ **vừa kể chuyện nghiệp vụ vừa làm QA cho BA**, hai chế độ tư duy song song đúng lúc cần tập trung nhất, và đặt việc soát mâu thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc được cả hội thoại. Sau đó **cả cơ chế được gỡ theo**: cột `Project.DecisionLog` + `DecisionHarvestedTurnCount`, `DecisionLogService`, `DecisionUnderHarvestGuard`, prompt `decision-log.v1.md`, khối `## Điều đã chốt` trong ngữ cảnh chat, và `RequirementConflictService` — cổng soát mâu thuẫn vốn soát BẰNG CHÍNH danh sách này, nên giữ nó lại là giữ nguyên chi phí một lời gọi LLM cho một cổng đã mù.

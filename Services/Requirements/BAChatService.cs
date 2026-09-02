@@ -31,6 +31,7 @@ public class BAChatService
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
     private readonly InterviewOutlookService _interviewOutlook;
+    private readonly InterviewScopeService _interviewScope;
     private readonly ScreenStepPlacementService _stepPlacement;
     private readonly ChecklistNoteStore _checklistNotes;
     private readonly IServiceScopeFactory? _scopeFactory;
@@ -243,6 +244,7 @@ public class BAChatService
         BAAgentResolver agentResolver,
         BAConversationLog conversationLog,
         InterviewOutlookService interviewOutlook,
+        InterviewScopeService interviewScope,
         ScreenStepPlacementService stepPlacement,
         ChecklistNoteStore checklistNotes,
         IServiceScopeFactory? scopeFactory = null,
@@ -260,6 +262,7 @@ public class BAChatService
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
         _interviewOutlook = interviewOutlook;
+        _interviewScope = interviewScope;
         _stepPlacement = stepPlacement;
         _checklistNotes = checklistNotes;
         // null (test/không có DI đầy đủ) ⇒ các bước chuẩn bị chạy TUẦN TỰ trên chính scope này —
@@ -498,6 +501,7 @@ public class BAChatService
         var beforeEdited = Math.Max(0, turnCount - 1);
         project.CoverageHarvestedTurnCount = Math.Min(project.CoverageHarvestedTurnCount, beforeEdited);
         project.InterviewOutlookHarvestedTurnCount = Math.Min(project.InterviewOutlookHarvestedTurnCount, beforeEdited);
+        project.InterviewScopeHarvestedTurnCount = Math.Min(project.InterviewScopeHarvestedTurnCount, beforeEdited);
         project.UserMemoryHarvestedTurnCount = Math.Min(project.UserMemoryHarvestedTurnCount, beforeEdited);
         project.SummarizedTurnCount = Math.Min(project.SummarizedTurnCount, beforeEdited);
         await _db.SaveChangesAsync(cancellationToken);
@@ -1337,9 +1341,17 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Gộp lượt chat mới vào "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ tính thử
-    /// đã xác nhận) rồi trả bản hiện hành. Gọi ở HẬU KỲ lượt chat (sau frame done) để lời gọi LLM này
-    /// không cộng vào độ chờ cảm nhận. Fail-open toàn phần.
+    /// Gộp lượt chat mới vào "triển vọng phỏng vấn" (điểm cần làm rõ + ví dụ tính thử đã xác nhận) rồi trả
+    /// bản hiện hành, và — CHỈ KHI đã tới nhịp của nó — chắt luôn phần phạm vi màn hình mới vào bảng màn
+    /// hình. Gọi ở HẬU KỲ lượt chat (sau frame done) để các lời gọi LLM này không cộng vào độ chờ cảm nhận.
+    /// Fail-open toàn phần.
+    ///
+    /// <para>
+    /// Hai lời gọi, hai nhịp: bản chắt lọc trên chạy sau MỖI lượt vì tồn đọng câu hỏi của nó được nạp thẳng
+    /// vào ngữ cảnh lượt sau; lượt phạm vi màn hình thì im lặng cho tới sát cổng bảng màn hình rồi mới gộp
+    /// bù cả quãng (<see cref="InterviewScopeService.ShouldHarvest(Project, int)"/>). Lượt phạm vi chạy SAU
+    /// và trong một try riêng: nó là thứ tùy chọn của hậu kỳ, không được kéo theo phần đã chạy xong.
+    /// </para>
     /// </summary>
     public async Task<InterviewOutlook> UpdateInterviewOutlookAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
@@ -1351,7 +1363,9 @@ public class BAChatService
         if (ba == null)
             return InterviewOutlookService.Current(project);
 
-        return await _interviewOutlook.UpdateAndLoadAsync(project, ba, ba.AiModel!, cancellationToken);
+        var outlook = await _interviewOutlook.UpdateAndLoadAsync(project, ba, ba.AiModel!, cancellationToken);
+        await _interviewScope.UpdateAsync(project, ba, ba.AiModel!, cancellationToken);
+        return outlook;
     }
 
     /// <summary>
