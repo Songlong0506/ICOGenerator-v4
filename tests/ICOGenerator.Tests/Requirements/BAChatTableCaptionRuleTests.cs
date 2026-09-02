@@ -40,15 +40,20 @@ namespace ICOGenerator.Tests.Requirements;
 public class BAChatTableCaptionRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
+
+    // Luật của ô `description`/`evidence` đi cùng đặc tả bảng đối tượng, nay ở prompt riêng của nó;
+    // luật song sinh cho ô `purpose` đi cùng bảng màn hình.
+    private const string EntityTablePromptKey = "BusinessAnalyst/table-entity-map.v1.md";
+    private const string ScreenScopeTablePromptKey = "BusinessAnalyst/table-screen-scope.v1.md";
     private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
     private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v1.md";
 
     // Tầng 1: đừng viết ra câu đó. Ô mô tả nói đối tượng LÀ GÌ; ai làm gì thuộc bảng luồng và ô "khi nào
     // chuyển vào" của từng trạng thái.
     [Fact]
-    public void ChatPrompt_KeepsRolesAndApprovalVerbsOutOfTheEntityDescription()
+    public void EntityTablePrompt_KeepsRolesAndApprovalVerbsOutOfTheEntityDescription()
     {
-        var prompt = ReadPrompt(ChatPromptKey);
+        var prompt = ReadPrompt(EntityTablePromptKey);
 
         Assert.Contains("`description` nói đối tượng LÀ GÌ", prompt, StringComparison.Ordinal);
         Assert.Contains("không có động từ của quy trình duyệt", prompt, StringComparison.Ordinal);
@@ -57,7 +62,11 @@ public class BAChatTableCaptionRuleTests
         Assert.Contains("Manager** tạo, kiểm tra, verify và approve", prompt, StringComparison.Ordinal);
 
         // Cùng luật cho ô "việc của màn" — chặn một bảng mà bỏ bảng kia là để nguyên đường cũ, đổi tên ô.
+        // Từ lúc mỗi bảng có prompt riêng, luật ấy phải sống ở CẢ HAI file: lượt bày bảng màn hình không
+        // còn đọc thấy prompt của bảng đối tượng nữa.
         Assert.Contains("`purpose`", prompt, StringComparison.Ordinal);
+        Assert.Contains("nói màn hình LÀ GÌ, không kể AI LÀM GÌ với nó",
+            ReadPrompt(ScreenScopeTablePromptKey), StringComparison.Ordinal);
     }
 
     // Tầng 2: viết rồi thì cũng đừng đem ra chất vấn. Vế thứ tư của danh sách "không bao giờ được làm một
@@ -79,9 +88,9 @@ public class BAChatTableCaptionRuleTests
     // ai nói chính là phần trôi đi xa nhất. Ca thật: {nguồn: "app để quản lý tất cả JD trong nhà máy, và JD
     // được gán cho mỗi nhân viên"} khóa một dòng khai thêm ai verify, ai approve.
     [Fact]
-    public void ChatPrompt_RequiresTheEvidenceToCoverTheWholeDescription()
+    public void EntityTablePrompt_RequiresTheEvidenceToCoverTheWholeDescription()
     {
-        var prompt = ReadPrompt(ChatPromptKey);
+        var prompt = ReadPrompt(EntityTablePromptKey);
 
         Assert.Contains("phủ TRỌN câu bạn viết ở dòng đó", prompt, StringComparison.Ordinal);
         Assert.Contains("VIẾT NGẮN LẠI cho vừa trích dẫn", prompt, StringComparison.Ordinal);

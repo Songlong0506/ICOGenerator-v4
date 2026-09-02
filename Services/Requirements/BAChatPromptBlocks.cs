@@ -9,11 +9,22 @@ namespace ICOGenerator.Services.Requirements;
 /// <see cref="BAChatService"/>.
 ///
 /// <para>
-/// Vì sao chúng ở đây chứ không nằm trong file prompt như <c>requirement-chat.v4.md</c>: các khối này
-/// được dựng TỪ DỮ LIỆU của dự án (phạm vi màn hình, các dòng gieo của bảng thông báo, danh sách người
-/// nhận) và phải đúng khớp với các builder đọc lại kết quả, nên chúng đi cùng code chứ không mở cho
-/// Prompt Studio sửa. Phần luật viết thuần văn phong — cách hỏi, giọng, nhịp phỏng vấn — vẫn nằm ở file
-/// prompt như cũ.
+/// <b>Ranh giới với file prompt.</b> Mỗi khối ở đây có hai nửa và chúng ở hai chỗ khác nhau vì hai lý do
+/// khác nhau. Nửa LUẬT — đặc tả từng trường của một bảng, cách viết, những gì tuyệt đối không làm — nằm ở
+/// file prompt riêng của bảng đó (<c>Prompts/BusinessAnalyst/table-*.v1.md</c>): sửa được ở Prompt Studio,
+/// đo được ở Prompt Evals, có <c>PromptKey</c> để lần vết phiên bản. Nửa DỮ LIỆU — phạm vi màn hình, các
+/// đối tượng đã chốt, các dòng gieo của bảng thông báo, danh sách người nhận — dựng từ chính dữ liệu dự án
+/// và phải khớp đúng với các builder đọc lại kết quả, nên nó ở lại code. Method trong file này chỉ NỐI hai
+/// nửa ấy.
+/// </para>
+///
+/// <para>
+/// Trước đây nửa LUẬT nằm ở CẢ HAI chỗ — chuỗi C# trong file này và một bản thứ hai trong
+/// <c>requirement-chat.v4.md</c> — và hai bản đã trôi lệch: bản C# bắt model điền <c>evidence</c> cho từng
+/// bước của bảng luồng và từng dòng của bảng màn hình, hai trường KHÔNG hề tồn tại trên
+/// <see cref="Contracts.Requirements.FlowStep"/> và <see cref="Contracts.Requirements.ScreenScopeRow"/> nên
+/// bị bỏ lúc parse, trong khi bản prompt nói đúng rằng hai bảng đó không có trường ấy. Một việc, hai đặc
+/// tả, và chỉ một trong hai đúng: đó là lý do nửa LUẬT nay chỉ còn MỘT bản.
 /// </para>
 /// </summary>
 public static class BAChatPromptBlocks
@@ -126,33 +137,22 @@ public static class BAChatPromptBlocks
     // ma trận trong đầu, nên câu trả lời thật gần như luôn là "cứ vậy đã, có gì tôi bổ sung sau" — rồi
     // BA tự soạn phương án và một chip "Đồng ý" đóng dấu [RÕ] cho cả nhóm. Ba trạng thái, ba lệnh khác
     // nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model tự đoán đang ở trạng thái nào.
-    public static string PermissionMatrixTable(IReadOnlyList<string> effectiveScreens)
-        => "## LƯỢT NÀY: BÀY BẢNG PHÂN QUYỀN (bắt buộc)\n"
-            + "Mọi nhóm khác của bản đồ bao phủ đã [RÕ]. Lượt này là lượt chốt nhóm «Phân quyền theo "
-            + "nghiệp vụ», và nó được chốt bằng BẢNG chứ không bằng câu hỏi.\n"
-            + "Trả về trường `permissionMatrix`: mỗi dòng là MỘT chức năng của MỘT màn hình, kèm quyền của "
-            + "từng vai trò. Ràng buộc:\n"
-            + "- `screen` phải CHÉP ĐÚNG một mục trong danh sách phạm vi bên dưới — không thêm màn hình mới, "
-            + "không gộp hai mục làm một. Mục nào bạn không nêu, hệ thống tự bổ sung vào bảng ở trạng thái "
-            + "chưa ai có quyền.\n"
-            + "- `function`: động từ nghiệp vụ ngắn (\"Xem\", \"Tạo\", \"Sửa\", \"Xóa\", \"Duyệt/Từ chối\", "
-            + "\"Cập nhật kết quả\"). Có khối \"Bảng màn hình đã được NGƯỜI DÙNG CHỐT\" trong ngữ cảnh thì "
-            + "LẤY THEO danh sách chức năng của đúng màn hình đó — người dùng vừa tự tay tích từng chức "
-            + "năng, nên tự nghĩ ra một danh sách khác là bắt họ phân quyền cho những việc chưa ai duyệt, "
-            + "và bỏ sót một chức năng họ đã giữ thì chức năng ấy mặc nhiên thành \"không ai được làm\". "
-            + "Chỉ thêm chức năng ngoài danh sách khi chính hội thoại có nêu.\n"
-            + "- `grants`: mỗi vai trò một mục, `scope` là MỘT trong \"của mình\" / \"của đơn vị\" / \"tất cả\", "
-            + "hoặc để rỗng nếu vai đó không có quyền. Phạm vi là phần quan trọng nhất của bảng — "
-            + "\"xem Training Plan\" và \"xem Training Plan do mình lập\" là hai yêu cầu khác hẳn nhau.\n"
-            + "- `evidence`: CHỈ điền khi người dùng đã tự nói điều đó trong hội thoại, và điền đúng trích dẫn "
-            + "của họ. Ô có trích dẫn được khóa lại như điều đã chốt; ô bạn suy đoán thì để trống trường này "
-            + "và người dùng sẽ tự chọn. TUYỆT ĐỐI không bịa trích dẫn để ô trông như đã chốt.\n"
-            + "- `condition`: điều kiện dữ liệu mà bốn nấc phạm vi không chở nổi (\"chỉ đăng ký được khóa nằm "
-            + "trong danh sách bắt buộc của mình\", \"chỉ sửa khi chưa submit\"). Không có thì để rỗng.\n"
-            + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng phân quyền\" — không đặt "
-            + "câu hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ "
-            + "trả lời DUY NHẤT của lượt này.\n\n"
-            + "### Phạm vi dự kiến (mỗi mục là MỘT dòng nhóm của bảng — chép nguyên văn vào `screen`)\n"
+    /// <summary>Tên các phần của template nhiều hình dạng — xem <see cref="Section"/>.</summary>
+    public const string FirstShapeSection = "shape:first";
+    public const string ReshowShapeSection = "shape:reshow";
+    public const string RulesSection = "rules";
+
+    /// <summary>Khóa prompt của sáu khối "## LƯỢT NÀY: BÀY BẢNG …" — một file cho mỗi bảng.</summary>
+    public const string FlowMapPromptKey = "BusinessAnalyst/table-flow-map.v1.md";
+    public const string ScreenScopePromptKey = "BusinessAnalyst/table-screen-scope.v1.md";
+    public const string EntityMapPromptKey = "BusinessAnalyst/table-entity-map.v1.md";
+    public const string ReportMapPromptKey = "BusinessAnalyst/table-report-map.v1.md";
+    public const string PermissionMatrixPromptKey = "BusinessAnalyst/table-permission-matrix.v1.md";
+    public const string NotificationMapPromptKey = "BusinessAnalyst/table-notification-map.v1.md";
+
+    public static string PermissionMatrixTable(string rules, IReadOnlyList<string> effectiveScreens)
+        => rules
+            + "\n\n### Phạm vi dự kiến (mỗi mục là MỘT dòng nhóm của bảng — chép nguyên văn vào `screen`)\n"
             + string.Join("\n", effectiveScreens.Select(s => "- " + s));
 
     /// <summary>Nhóm phân quyền chưa tới lượt chốt: cấm hỏi lẻ, nhưng nói rõ phần nào VẪN phải hỏi.</summary>
@@ -167,84 +167,27 @@ public static class BAChatPromptBlocks
             + "mục dữ liệu. Đó là nhóm «Chức năng & luồng nghiệp vụ chính» và «Dữ liệu / danh mục chính», "
             + "không phải nhóm phân quyền.";
 
-    public const string FlowMapTable =
-        "## LƯỢT NÀY: BÀY BẢNG LUỒNG NGHIỆP VỤ (bắt buộc)\n"
-            + "Các luồng chính đã rõ trong hội thoại. Lượt này bạn ráp chúng lại thành BẢNG để người dùng rà "
-            + "từng bước — họ chưa bao giờ nhìn thấy bản bạn ráp, mà chính bản đó mới là thứ đi vào tài liệu.\n"
-            + "Trả về trường `flowMap`: mỗi phần tử là MỘT luồng. Ràng buộc:\n"
-            + "- `name`: tên luồng theo ngôn ngữ nghiệp vụ (\"Đăng ký khóa học\", \"Duyệt kế hoạch quý\").\n"
-            + "- `kind`: \"luồng chính\" hoặc \"ngoại lệ\". PHẢI có ít nhất MỘT ngoại lệ nếu hội thoại có nhắc "
-            + "tới bất kỳ đường hỏng nào (từ chối, quá hạn, trùng, thiếu điều kiện). Ngoại lệ là phần người "
-            + "dùng không bao giờ tự kể — họ coi nó là hiển nhiên — nên đây là chỗ rẻ nhất để hỏi.\n"
-            + "- `role`: vai trò khởi xướng luồng. `trigger`: CHỈ với ngoại lệ — điều kiện làm nó xảy ra.\n"
-            + "- `steps`: từ 2 tới 10 bước theo đúng thứ tự, mỗi bước `{actor, action, outcome}`. `actor` là "
-            + "vai làm bước đó; `outcome` là trạng thái/kết quả sau bước (để rỗng nếu bước không đổi trạng "
-            + "thái). Luồng một bước KHÔNG phải luồng — hệ thống sẽ loại nó.\n"
-            + "- `evidence` của TỪNG BƯỚC: CHỈ điền khi người dùng đã tự nói đúng bước đó, và điền đúng trích "
-            + "dẫn của họ. Bước có trích dẫn được khóa lại như điều đã chốt; bước bạn suy ra thì để trống "
-            + "trường này và người dùng sẽ tự soát. TUYỆT ĐỐI không bịa trích dẫn.\n"
-            + "- CHỈ mô tả điều người dùng ĐÃ nói/đã chốt. Không thêm bước \"cho đủ quy trình\".\n"
-            + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng luồng\" — không đặt câu "
-            + "hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ trả "
-            + "lời DUY NHẤT của lượt này.";
+    public static string FlowMapTable(string rules) => rules;
 
-    // Hai câu mở đầu khác nhau theo lượt bày đầu / bày lại. Nói "người dùng chưa bao giờ nhìn thấy
-    // danh sách này" với một bảng họ vừa tự tay rà là sai sự thật, và model đọc câu đó sẽ mô tả lại
-    // từ đầu cả những màn hình đã duyệt — đúng phần mà SeedRows sẽ bỏ đi, tức một lượt gọi tốn công
-    // cho không.
+    // Bảng màn hình có HAI lời mở đầu loại trừ nhau, chọn bằng DỮ LIỆU chứ không để model tự đoán: nói
+    // "người dùng chưa bao giờ nhìn thấy danh sách này" với một bảng họ vừa tự tay rà là sai sự thật, và
+    // model đọc câu đó sẽ mô tả lại từ đầu cả những màn hình đã duyệt — đúng phần mà SeedRows sẽ bỏ đi,
+    // tức một lượt gọi tốn công cho không. Cả hai lời mở đầu nằm chung MỘT file prompt với bộ luật dùng
+    // chung; xem Section cho lý do không tách làm hai file.
     public static string ScreenScopeTable(
+        string template,
         bool reshow,
         IReadOnlyList<string> effectiveScreens,
         IReadOnlyList<string> pendingScreens,
         IReadOnlyList<string> pendingFunctions,
         string? flowMapJson)
     {
-        var screenScopeIntro = reshow
-            ? "## LƯỢT NÀY: BỔ SUNG BẢNG MÀN HÌNH ĐÃ CHỐT (bắt buộc)\n"
-                + "Người dùng đã tự tay rà và CHỐT bảng màn hình ở một lượt trước. Sau đó hội thoại lộ "
-                + "thêm phần MỚI, và lượt này bày lại bảng chỉ để lấy phần mới đó. Hệ thống giữ "
-                + "nguyên các dòng người dùng đã duyệt, nên bạn CHỈ mô tả các mục ở phần \"MỚI\" cuối "
-                + "khối này — mô tả lại màn hình đã có là công bỏ đi, và câu dẫn của lượt do "
-                + "hệ thống soạn nên đừng nhắc tới chúng.\n"
-            : "## LƯỢT NÀY: BÀY BẢNG MÀN HÌNH (bắt buộc)\n"
-                + "Lượt này chốt PHẠM VI MÀN HÌNH của ứng dụng. Danh sách dưới đây được chắt ra từ hội "
-                + "thoại nhưng người dùng chưa bao giờ nhìn thấy nó — mà mọi thứ phía sau (bảng phân "
-                + "quyền, các màn hình của bản demo) đều đứng trên đúng danh sách này.\n"
-                // Bảng này đứng SAU bảng đối tượng và bảng báo cáo đúng để hai loại màn hình ấy có mặt
-                // ngay ở lần bày đầu. Model không được phép coi chúng là mục lạc: bỏ một màn hình quản
-                // lý danh mục ra khỏi bảng là xoá một quyết định người dùng vừa tự tay chốt ở bảng
-                // trước, và người dùng sẽ đọc bảng này như thể danh mục đó không cần màn hình nào.
-                + "Phạm vi này đã GỒM CẢ các màn hình do hai bảng người dùng vừa chốt sinh ra: màn hình "
-                + "quản lý từng danh mục mà ứng dụng tự quản lý (từ bảng đối tượng) và mỗi báo cáo còn "
-                + "giữ (từ bảng báo cáo). Chúng là quyết định NGƯỜI DÙNG vừa chốt, không phải mục bạn "
-                + "chắt ra — phải có dòng riêng, và phần `purpose`/`functions` viết đúng như một màn hình "
-                + "quản lý danh mục (xem, thêm, sửa, bỏ) hoặc một màn hình báo cáo (xem, lọc, xuất).\n";
-        return screenScopeIntro
-            + "Trả về trường `screenScopeMap`: mỗi phần tử là MỘT MÀN HÌNH. Ràng buộc:\n"
-            + "- `screen` phải CHÉP ĐÚNG một mục trong danh sách phạm vi bên dưới — không thêm màn hình mới, "
-            + "không tự đặt tên khác, không dịch tên tiếng Anh sang tiếng Việt, không thêm chữ dẫn kiểu "
-            + "\"Màn hình …\"/\"… Screen\" (tên màn hình là nhãn menu của bản demo, và tên ngắn thì phép "
-            + "so khớp bù chỉ chạy khi bạn chép đúng). Mục nào bạn không nêu, hệ thống tự bổ sung vào bảng.\n"
-            + "- MỘT DÒNG = MỘT MÀN HÌNH, không phải một tính năng và không phải một luồng. Danh sách phạm "
-            + "vi bên dưới được chắt theo lượt nên hay lẫn cả ba loại: mục nào đọc lên là một CHỨC NĂNG "
-            + "(\"Tính năng Generate Training Implement từ Training Plan Detail\", \"Chỉnh sửa số lượng "
-            + "lớp\") hay một LUỒNG (\"Luồng đăng ký khóa học với trạng thái pending, enroll, waitlist\") "
-            + "thì ĐỪNG dựng thành dòng riêng: đưa nó vào `functions` của màn hình thật sự chứa nó, và ghi "
-            + "nguyên văn mục đó vào `covers` của dòng ấy. Không ghi vào `covers` thì hệ thống tưởng bạn "
-            + "bỏ quên và bổ sung nó lại thành một dòng trắng.\n"
-            + "- `purpose`: MỘT câu nói màn hình này để làm gì, theo góc nhìn người dùng nghiệp vụ.\n"
-            + "- `functions`: các chức năng trên màn, MỖI CHỨC NĂNG MỘT PHẦN TỬ `{name, flowSteps, "
-            + "evidence}` — người dùng tích/bỏ tích từng chức năng một, nên đừng gói nhiều việc vào một "
-            + "`name` (\"Xem, Sửa và Gửi duyệt\" là ba chức năng, không phải một).\n"
-            + "- `flowSteps` của TỪNG chức năng: các BƯỚC của bảng luồng đã chốt mà CHỨC NĂNG ĐÓ phụ trách "
-            + "— chép phần `action` của bước. Đây là phần quan trọng nhất của bảng: MỌI bước trong danh "
-            + "sách cuối khối này phải được ÍT NHẤT MỘT chức năng nhận, và hệ thống đối chiếu tất định "
-            + "chỗ này. Chức năng tra cứu không nằm trong luồng nào thì để mảng rỗng.\n"
-            + "- `evidence`: CHỈ điền khi người dùng đã tự nêu màn hình / chức năng đó, kèm đúng trích dẫn "
-            + "của họ. Dòng có trích dẫn được tích sẵn kèm dấu ✓; phần bạn suy ra thì để trống trường này.\n"
-            + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng màn hình\" — không đặt "
-            + "câu hỏi, không kèm `suggestions`, không kèm `questions`.\n\n"
-            + "### Phạm vi dự kiến (mỗi mục phải hoặc thành MỘT dòng `screen`, hoặc nằm trong `covers` của "
+        var intro = Section(template, reshow ? ReshowShapeSection : FirstShapeSection);
+        var rules = Section(template, RulesSection);
+
+        return (intro.Length > 0 ? intro + "\n\n" : string.Empty)
+            + rules
+            + "\n\n### Phạm vi dự kiến (mỗi mục phải hoặc thành MỘT dòng `screen`, hoặc nằm trong `covers` của "
             + "một dòng — không mục nào được bỏ rơi)\n"
             + string.Join("\n", effectiveScreens.Select(s => "- " + s))
             + (pendingScreens.Count > 0
@@ -260,107 +203,18 @@ public static class BAChatPromptBlocks
             ? "\n\n### Chức năng MỚI trên màn hình đã chốt (đã có sẵn trong bảng, đừng dựng dòng mới)\n"
             + string.Join("\n", pendingFunctions.Select(s => "- " + s))
             : string.Empty)
-            // BẢNG KÊ CÁC BƯỚC PHẢI PHỦ. Các bước này đã có trong ngữ cảnh qua khối bảng luồng đã chốt,
-            // nhưng ở đó chúng là một câu chuyện để đọc, còn ở đây là một danh sách để ĐỐI CHIẾU — và
-            // chỗ hỏng của lượt này luôn là chỗ nối chứ không phải chỗ hiểu. Ca thật (JD Library 2):
-            // bảng luồng có bước "Xem danh sách nhân viên trực tiếp dưới quyền", bảng màn hình dựng ra
-            // mười bảy màn không màn nào nhận nó, và người dùng nhận về một câu hỏi thay vì một bảng.
-            // Bước còn sót lại sau khối này thì ScreenStepPlacementService xếp chỗ ở hậu kỳ; danh sách
-            // đây là để phần lớn ca không phải đi tới đó.
             + FlowStepChecklist(flowMapJson);
     }
 
-    public const string EntityMapTable =
-        "## LƯỢT NÀY: BÀY BẢNG ĐỐI TƯỢNG NGHIỆP VỤ (bắt buộc)\n"
-            + "Lượt này chốt các ĐỐI TƯỢNG mà ứng dụng lưu hồ sơ, thông tin cần lưu về chúng, và vòng đời "
-            + "trạng thái kèm người nhận thông báo.\n"
-            + "Trả về trường `entityMap`: mỗi phần tử là MỘT đối tượng. Ràng buộc:\n"
-            + "- BA CỘT TÊN của bảng này — `entity`, `fields[].name`, `states[].state` — viết bằng TIẾNG "
-            + "ANH, 1–3 từ, dạng HIỂN THỊ Title Case (\"Training Plan\", \"Effective Date\", \"Pending "
-            + "HRBP Approval\"), KHÔNG phải dạng định danh (`effective_date`, `EmployeeID`). Chúng là thứ "
-            + "chảy ra mô hình dữ liệu và ra nhãn trên bản demo. Mọi ô CÒN LẠI viết bằng tiếng Việt — "
-            + "`description`, `meaning`, `entryCondition`, `sourceSystem`, `rule`, `options`, `evidence` và cả "
-            + "`message`: người rà bảng là người nghiệp vụ. Từ vựng riêng của đơn vị (OrgUnit, HRBP, JD, PC "
-            + "Level) giữ NGUYÊN VĂN, đừng dịch lại.\n"
-            + "- `entity`: tên đối tượng (\"Training Plan\", \"Leave Request\") — TUYỆT ĐỐI không dùng từ "
-            + "vựng kỹ thuật (table, entity, model, khóa chính, quan hệ 1-n). Các bảng sau phải chép ĐÚNG "
-            + "chuỗi này, nên đừng đổi cách đặt tên giữa chừng.\n"
-            + "- `fields`: các thông tin cần lưu, mỗi mục `{name, meaning, required, input, source, options, "
-            + "sourceSystem, rule, sourceColumn}`. Không liệt kê id/khóa/ngày tạo kỹ thuật — người dùng không "
-            + "quyết định chúng. `meaning` là câu tiếng Việt giải nghĩa cái tên tiếng Anh bên cạnh và KHÔNG "
-            + "ĐƯỢC để trống: một tên tiếng Anh cạnh một ô mô tả trống để người dùng đối diện đúng một từ "
-            + "ngoại ngữ trơ trọi. Chưa chắc nghĩa thì vẫn viết cách hiểu của bạn — họ sửa một dòng, còn để "
-            + "trống là họ không có gì để sửa.\n"
-            + "- Thông tin nào có `source: \"app\"` thì tên của nó còn thành MỘT MÀN HÌNH \"<tên> Catalog\" "
-            + "trên sidebar bản demo — thêm một lý do nữa để nó là tiếng Anh và ngắn.\n"
-            + "- HAI TRỤC của một thông tin, độc lập nhau: `input` = người dùng nhập thế nào (`text` mặc "
-            + "định · `number` · `date` · `choice-one` chọn 1 giá trị · `choice-many` chọn nhiều giá trị · "
-            + "`auto` ứng dụng tự sinh), `source` = danh sách lấy ở đâu và CHỈ có nghĩa với hai kiểu chọn "
-            + "(`inline` vài giá trị cố định liệt kê ở `options` · `app` ứng dụng tự quản lý danh mục · "
-            + "`external` lấy từ hệ thống khác, ghi tên vào `sourceSystem`). `rule` chỉ dành cho `auto` và "
-            + "chở quy tắc sinh mã đúng như người dùng nói.\n"
-            + "- Hai trục này theo ĐÚNG luật của `evidence`: chỉ rời mặc định khi hội thoại đã nói tới. Chưa "
-            + "ai bàn ⇒ `input: \"text\"`, `source: \"\"` và để người dùng tự chọn trên bảng — đoán `app` là "
-            + "âm thầm đặt hàng thêm một MÀN HÌNH cho dự án, đoán `external` là bịa ra một tích hợp không có "
-            + "thật.\n"
-            + "- `required` là *để trống có được không*, KHÁC ô tích \"cần lưu\" của bảng: chỉ bật cho thông "
-            + "tin hội thoại đã nói rõ là bắt buộc, và luôn để `false` với `input: \"auto\"`.\n"
-            + "- `states`: vòng đời, mỗi mục `{state, entryCondition}`. `entryCondition` là điều kiện "
-            + "hoặc hành động đưa đối tượng vào trạng thái đó — lấy từ chính các bước của bảng luồng đã chốt. "
-            + "KHÔNG nêu ai được báo ở mỗi trạng thái: đó là việc của bảng THÔNG BÁO ở cuối buổi, và mỗi "
-            + "trạng thái ở đây sẽ thành một DÒNG của bảng đó. Đối tượng danh mục (phòng ban, khóa học) "
-            + "KHÔNG có vòng đời — để mảng rỗng, đừng dựng ra trạng thái giả.\n"
-            + "- `evidence`: CHỈ điền khi người dùng đã tự nêu đối tượng đó, kèm đúng trích dẫn của họ.\n"
-            + "- Thông tin nào đã nằm trong \"Bảng cột … đã được NGƯỜI DÙNG CHỐT\" thì cứ đưa vào — hệ thống "
-            + "tự đánh dấu nguồn; đừng hỏi lại ý nghĩa của chúng. Với đúng các thông tin đó, chép NGUYÊN VĂN "
-            + "tên cột vào `sourceColumn` (\"Ngày hiệu lực\", \"Item Title\"): cột tên nay là tiếng Anh nên "
-            + "hệ thống không tự nối lại được hai đầu, và mất mối nối ấy thì dòng mất dấu xuất xứ đúng ở chỗ "
-            + "người dùng cần nhận ra thứ họ vừa tự tay tích. Thông tin không đến từ cột nào thì để rỗng — "
-            + "tên không khớp cột đã tích nào sẽ bị hệ thống xoá.\n"
-            + "- Một \"thông tin\" mà thật ra là NHIỀU DÒNG, mỗi dòng có hơn một thuộc tính (\"5 trách nhiệm, "
-            + "mỗi cái kèm tỷ trọng %\", \"các dòng hàng của đơn\") thì TÁCH thành một phần tử `entityMap` "
-            + "nữa: `parentEntity` chép ĐÚNG `entity` của dòng cha, `fields` là các cột của MỘT dòng, và "
-            + "`minRows`/`maxRows` là số dòng mỗi cha (không ai nói thì để null). Tối đa MỘT cấp — đối "
-            + "tượng đã có cha thì không được làm cha của đối tượng khác. Nhưng đừng tách khi mỗi mục chỉ "
-            + "có ĐÚNG một giá trị (\"các kỹ năng yêu cầu\"): đó là một ô `choice-many`.\n"
-            + "- BẢNG chốt CẤU TRÚC, không chốt RÀNG BUỘC. \"Tổng tỷ trọng phải bằng 100%\", \"luôn có một "
-            + "dòng mặc định không sửa được\" là QUY TẮC — không ô nào ở đây chở chúng, và bạn hỏi chúng "
-            + "bằng câu hỏi ở các lượt sau. Đừng nén chúng vào `meaning` hay `description`.\n"
-            + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng đối tượng\" — không đặt "
-            + "câu hỏi, không kèm `suggestions`, không kèm `questions`.";
+    public static string EntityMapTable(string rules) => rules;
 
     // BÁO CÁO / THỐNG KÊ — bảng thứ ba. Khác các bảng kia ở chỗ nhóm của nó VẪN được hỏi bằng câu hỏi
     // suốt buổi (xem ReportMapGate): cổng chỉ mở khi nhóm đã [RÕ], nên tới lượt này BA đã có lời kể để
     // ráp thành các dòng. Không có vế đó thì bảng bày ra trống và người dùng phải tự chẻ câu chuyện của
     // họ thành bốn cột — ít hơn cả cái ô kể tự do mà bảng thay thế.
-    public static string ReportMapTable(IReadOnlyList<string> entityNames)
-        => "## LƯỢT NÀY: BÀY BẢNG BÁO CÁO / THỐNG KÊ (bắt buộc)\n"
-            + "Lượt này chốt nhóm «Báo cáo / thống kê»: người dùng đã kể họ cần xem những con số/danh sách "
-            + "tổng hợp nào, việc của bạn là ráp lại thành một danh sách có ranh giới để họ rà.\n"
-            + "Trả về trường `reportMap`: mỗi phần tử là MỘT báo cáo. Ràng buộc:\n"
-            + "- `report`: tên đọc được như MỘT MÀN HÌNH, viết bằng TIẾNG ANH 2–4 từ, thường có hậu tố "
-            + "`Report`/`Dashboard` (\"Remaining Leave Report\") — mỗi dòng người dùng giữ lại sẽ thành một "
-            + "màn hình thật của ứng dụng rồi thành nhãn mục menu của bản demo, nên tên tiếng Việt ở đây là "
-            + "một nhãn tiếng Việt trên sidebar. Tên trống nghĩa (\"Thống kê\", \"Báo cáo tổng hợp\") thì "
-            + "tới bảng màn hình không ai rà nổi nó. Ô `question` ngay dưới vẫn là tiếng Việt.\n"
-            + "- `question`: báo cáo này TRẢ LỜI CÂU HỎI GÌ, viết bằng lời người dùng (\"để biết tháng này ai "
-            + "chưa đi học\"). KHÔNG viết mô tả chức năng kiểu tài liệu (\"hiển thị danh sách có phân trang\") "
-            + "— phần đó là việc của bước sinh spec, còn ô này là thứ chỉ người dùng mới biết.\n"
-            + "- `source`: số liệu lấy từ ĐỐI TƯỢNG nào — chép đúng tên một đối tượng trong danh sách bên "
-            + "dưới. Tên không khớp đối tượng nào sẽ bị hệ thống xoá khỏi ô, nên đừng bịa một nguồn mới.\n"
-            + "- `breakdown`: gộp/lọc theo cái gì (kỳ báo cáo, đơn vị, trạng thái, người phụ trách…), ngăn "
-            + "bằng dấu chấm phẩy. Đây là cột phân biệt một báo cáo thật với một bảng đổ dữ liệu ra màn "
-            + "hình — chưa rõ thì để rỗng, đừng điền \"theo thời gian\" cho có.\n"
-            + "- CHỈ nêu báo cáo mà hội thoại (hoặc tài liệu nguồn) đã nói tới. TUYỆT ĐỐI không rải thêm cho "
-            + "đủ bộ: mỗi dòng thừa là một MÀN HÌNH mà người dùng chưa từng đặt hàng, và nó đi thẳng vào "
-            + "phạm vi rồi vào bản demo. Cùng một câu hỏi nghiệp vụ xem theo tháng/quý/năm là MỘT dòng, kỳ "
-            + "báo cáo ghi ở `breakdown`.\n"
-            + "- KHÔNG có cột \"ai xem\": mỗi báo cáo là một màn hình nên quyền xem của nó sẽ được chốt ở bảng "
-            + "phân quyền ngay sau đây, kèm cả phạm vi dữ liệu. Đừng nhét vai trò vào `question`.\n"
-            + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng báo cáo\" — không đặt "
-            + "câu hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ "
-            + "trả lời DUY NHẤT của lượt này.\n\n"
-            + "### Các đối tượng đã chốt (chép NGUYÊN VĂN vào `source`)\n"
+    public static string ReportMapTable(string rules, IReadOnlyList<string> entityNames)
+        => rules
+            + "\n\n### Các đối tượng đã chốt (chép NGUYÊN VĂN vào `source`)\n"
             + string.Join("\n", entityNames.Select(e => "- " + e));
 
     // THÔNG BÁO / NHẮC NHỞ — nhóm THỨ HAI không được hỏi bằng câu hỏi, và vì cùng lý do với nhóm phân
@@ -370,28 +224,11 @@ public static class BAChatPromptBlocks
     // / còn phải chờ (cấm hỏi lẻ) / dự án không có vòng đời nào (không lệnh nào, nhóm quay về đường hỏi
     // bằng câu hỏi) — và ca nào cũng do CƠ CHẾ chọn, không để model tự đoán mình đang ở đâu.
     public static string NotificationMapTable(
-        IReadOnlyList<NotificationMapRow> notificationSeedRows, IReadOnlyList<string> recipientOptions)
-        => "## LƯỢT NÀY: BÀY BẢNG THÔNG BÁO (bắt buộc)\n"
-            + "Đây là việc CUỐI CÙNG của buổi phỏng vấn: chốt nhóm «Thông báo / nhắc nhở», và nó được chốt "
-            + "bằng BẢNG chứ không bằng câu hỏi.\n"
-            + "Trả về trường `notificationMap`: mỗi dòng là MỘT sự kiện. Ràng buộc:\n"
-            + "- `entity` + `event` phải CHÉP ĐÚNG một dòng trong danh sách sự kiện bên dưới (chúng là các "
-            + "chuyển trạng thái người dùng vừa tự tay chốt ở bảng đối tượng). Dòng nào bạn không nêu, hệ "
-            + "thống tự bổ sung vào bảng ở trạng thái chưa chọn người nhận.\n"
-            + "- `to` và `cc` là MẢNG, mỗi phần tử phải CHÉP ĐÚNG NGUYÊN VĂN một mục trong danh sách người "
-            + "nhận bên dưới. Giá trị không khớp mục nào sẽ bị bỏ. `cc` thường rỗng.\n"
-            + "- CHỈ điền `to`/`cc` cho những sự kiện mà hội thoại ĐÃ nói ai nhận, và khi đó `evidence` là "
-            + "đúng trích dẫn của người dùng. Sự kiện bạn chỉ suy đoán thì để `to`/`cc` RỖNG và không "
-            + "`evidence` — người dùng sẽ tự chọn. TUYỆT ĐỐI không bịa trích dẫn, và TUYỆT ĐỐI không rải "
-            + "người nhận cho đủ: mỗi mục thừa là một người nhận email mà không ai yêu cầu.\n"
-            + "- Được thêm dòng NHẮC NHỞ ngoài danh sách (\"trước hạn 3 ngày\", \"quá hạn mà chưa ai duyệt\") "
-            + "CHỈ khi người dùng đã tự nói tới nó — dòng thêm bắt buộc có `evidence`, không có thì hệ thống "
-            + "bỏ. Ghi mốc thời gian vào `trigger`.\n"
-            + "- Kênh gửi duy nhất của nền tảng là EMAIL nên KHÔNG hỏi và KHÔNG nêu kênh nào khác.\n"
-            + "`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm \"Gửi bảng thông báo\" — không đặt "
-            + "câu hỏi, không kèm `suggestions`, không kèm `questions`: bảng là chỗ "
-            + "trả lời DUY NHẤT của lượt này.\n\n"
-            + "### Các sự kiện (mỗi dòng là MỘT dòng của bảng — chép nguyên văn vào `entity` + `event`)\n"
+        string rules,
+        IReadOnlyList<NotificationMapRow> notificationSeedRows,
+        IReadOnlyList<string> recipientOptions)
+        => rules
+            + "\n\n### Các sự kiện (mỗi dòng là MỘT dòng của bảng — chép nguyên văn vào `entity` + `event`)\n"
             + string.Join("\n", notificationSeedRows.Select(r =>
             $"- entity: {r.Entity} | event: {r.Event}"
             + (string.IsNullOrWhiteSpace(r.Trigger) ? string.Empty : $" | khi: {r.Trigger}")))
@@ -442,4 +279,51 @@ public static class BAChatPromptBlocks
             + "một màn cho đủ: gán sai là dựng một chức năng không có thật lên một màn hình có thật, và "
             + "người dùng đọc lướt qua nó như phần đã đúng. Hệ thống có một lượt riêng xử phần còn lại.";
     }
+
+    /// <summary>
+    /// Lấy MỘT phần của template nhiều hình dạng: phần thân nằm giữa dòng đánh dấu <c># {key}</c> và dòng
+    /// đánh dấu kế tiếp. Chỉ dòng tiêu đề cấp 1 (<c>"# "</c>) là dấu phân phần; <c>"## "</c>/<c>"### "</c>
+    /// trong thân là nội dung prompt bình thường.
+    ///
+    /// <para>
+    /// Vì sao không tách làm hai file: bảng màn hình có hai LỜI MỞ ĐẦU loại trừ nhau (bày đầu / bày lại)
+    /// nhưng dùng CHUNG một bộ luật trường. Hai file là chép bộ luật ấy ra hai chỗ rồi để chúng trôi lệch —
+    /// đúng thứ lần tách prompt này dọn đi.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Fail-open cho bản sửa ở Prompt Studio.</b> Template không còn dòng đánh dấu nào (ai đó dán đè một
+    /// bản phẳng) thì <see cref="RulesSection"/> trả về TRỌN template và các phần hình dạng trả về rỗng:
+    /// model vẫn nhận đủ luật, chỉ mất phần chọn lời mở đầu. Mất luật mới là hỏng, mất lời mở đầu thì không.
+    /// </para>
+    /// </summary>
+    public static string Section(string? template, string key)
+    {
+        var text = template ?? string.Empty;
+        var lines = text.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+
+        if (!lines.Any(IsSectionMarker))
+            return string.Equals(key, RulesSection, StringComparison.OrdinalIgnoreCase) ? text.Trim() : string.Empty;
+
+        var body = new List<string>();
+        var inside = false;
+        foreach (var line in lines)
+        {
+            if (IsSectionMarker(line))
+            {
+                if (inside)
+                    break;
+
+                inside = string.Equals(line[2..].Trim(), key, StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+
+            if (inside)
+                body.Add(line);
+        }
+
+        return string.Join("\n", body).Trim();
+    }
+
+    private static bool IsSectionMarker(string line) => line.StartsWith("# ", StringComparison.Ordinal);
 }

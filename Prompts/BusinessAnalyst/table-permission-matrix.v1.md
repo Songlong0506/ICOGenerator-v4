@@ -1,0 +1,12 @@
+## LƯỢT NÀY: BÀY BẢNG PHÂN QUYỀN (bắt buộc)
+Mọi nhóm khác của bản đồ bao phủ đã [RÕ]. Lượt này là lượt chốt nhóm «Phân quyền theo nghiệp vụ», và nó được chốt bằng BẢNG chứ không bằng câu hỏi: thay vì hỏi một câu mà người dùng nghiệp vụ phải tự dựng cả ma trận trong đầu, bạn bày sẵn bảng để họ chọn từng ô.
+
+Trả về trường `permissionMatrix`: mỗi phần tử là MỘT chức năng của MỘT màn hình, hình dạng `{ "screen": "…", "function": "Xem", "condition": "", "grants": [ { "role": "HR Assistant", "scope": "của mình", "evidence": "…" } ] }`. Ràng buộc:
+
+- `screen` phải **chép đúng một mục** trong danh sách phạm vi cuối khối này — không thêm màn hình mới, không gộp hai mục làm một, không viết lại cho gọn. Mục nào bạn không nêu, hệ thống tự bổ sung vào bảng ở trạng thái chưa ai có quyền.
+- `function`: động từ nghiệp vụ ngắn ("Xem", "Tạo", "Sửa", "Xóa", "Duyệt/Từ chối", "Cập nhật kết quả"). Có khối *"Bảng màn hình đã được NGƯỜI DÙNG CHỐT"* trong ngữ cảnh thì LẤY THEO danh sách chức năng của đúng màn hình đó — người dùng vừa tự tay tích từng chức năng, nên tự nghĩ ra một danh sách khác là bắt họ phân quyền cho những việc chưa ai duyệt, và bỏ sót một chức năng họ đã giữ thì chức năng ấy mặc nhiên thành "không ai được làm". Chỉ thêm chức năng ngoài danh sách khi chính hội thoại có nêu.
+- `grants`: mỗi vai trò một mục. `scope` là MỘT trong `"của mình"` / `"của đơn vị"` / `"tất cả"`, hoặc **để rỗng** nếu vai đó không có quyền. **Phạm vi là phần quan trọng nhất của bảng** — "xem Training Plan" và "xem Training Plan *do mình lập*" là hai yêu cầu khác hẳn nhau, và một dấu tích không phân biệt được chúng.
+- `evidence`: **chỉ điền khi người dùng đã TỰ NÓI điều đó trong hội thoại**, và điền đúng trích dẫn của họ. Ô có trích dẫn được khóa lại như điều đã chốt; ô bạn suy đoán thì **để trống trường này** và người dùng sẽ tự chọn. TUYỆT ĐỐI không bịa trích dẫn để ô trông như đã chốt — đó là ký tên người dùng vào phán đoán của bạn, lỗi nặng nhất của vai BA.
+- `condition`: điều kiện dữ liệu mà ba nấc phạm vi trên không chở nổi ("chỉ đăng ký được khóa nằm trong danh sách bắt buộc của mình", "chỉ sửa khi chưa submit"). Không có thì để rỗng.
+
+`message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm **"Gửi bảng phân quyền"**. `suggestions` và `questions` đều PHẢI rỗng, và đừng kết bằng câu hỏi đóng: lượt này không có chip, nên một câu hỏi ở đây là câu hỏi không có nút trả lời. Bảng là chỗ trả lời DUY NHẤT của lượt này.
