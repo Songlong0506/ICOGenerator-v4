@@ -721,6 +721,7 @@ public static class ApplicationServiceCollectionExtensions
         // (bản prompt có thể bị Prompt Studio ghi đè trong DB, nên khung phải đọc lại mỗi request).
         services.AddScoped<CoverageChecklist>();
         services.AddScoped<InterviewOutlookService>();
+        services.AddScoped<InterviewScopeService>();
         // Lượt xếp chỗ cho bước luồng chưa chức năng nào phụ trách, chạy ngay trước khi bảng màn
         // hình hiện ra — thay cho dòng nhắc hỏi ngược người dùng bước đó thuộc màn nào.
         services.AddScoped<ScreenStepPlacementService>();

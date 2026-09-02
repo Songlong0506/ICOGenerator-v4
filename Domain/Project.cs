@@ -68,6 +68,11 @@ public class Project
     public string? OpenQuestions { get; set; }
     public string? WorkedExamples { get; set; }
     public int InterviewOutlookHarvestedTurnCount { get; set; }
+    // Con trỏ RIÊNG cho lượt chắt lọc phạm vi màn hình (InterviewScopeService), vì lượt đó chạy theo một
+    // nhịp khác hẳn: hai danh sách trên phải tươi sau MỖI lượt chat, còn phạm vi màn hình chỉ được tiêu
+    // thụ lúc bảng màn hình được bày ra hỏi nên nó nằm im tới sát cổng rồi mới gộp bù cả quãng. Dùng chung
+    // một con trỏ thì lượt chạy dày kéo con trỏ đi trước, và lượt chạy thưa không còn quãng nào để gộp.
+    public int InterviewScopeHarvestedTurnCount { get; set; }
     // BẢNG PHÂN QUYỀN người dùng ĐÃ CHỐT (JSON PermissionMatrixRow[]) — màn hình × chức năng × vai trò,
     // mỗi ô kèm PHẠM VI DỮ LIỆU ("của mình" / "của đơn vị" / "tất cả"). null = chưa chốt.
     //
