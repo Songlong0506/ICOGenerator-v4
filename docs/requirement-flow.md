@@ -865,7 +865,8 @@ chỉ có ba cột. Một chuỗi thoả cả hai đầu rẻ hơn hẳn.
 Các dòng của bảng màn hình đến từ ba nguồn ([ở trên](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh)),
 và hai nguồn tất định thì gieo đúng lúc người dùng chốt bảng đối tượng / bảng báo cáo. Nguồn thứ ba —
 một lời gọi LLM đọc hội thoại — phải tự chọn lúc chạy, và **nó chạy THƯA**: im lặng cho tới khi bản đồ bao
-phủ đi tới sát cổng bảng màn hình, rồi gộp bù TRỌN quãng hội thoại đã qua trong một lời gọi; sau lần chốt
+phủ đi tới sát cổng bảng màn hình **và ba bảng đứng trước (luồng → đối tượng → báo cáo) đã hết việc**, rồi
+gộp bù TRỌN quãng hội thoại đã qua trong một lời gọi; sau lần chốt
 đầu thì chạy theo **lô 10 lượt** để vẫn bắt được
 [phần phạm vi trôi tiếp](#bảng-màn-hình-nguồn-phạm-vi-duy-nhất-và-cờ-chờ-duyệt).
 Điều kiện đầy đủ ở `InterviewScopeService.ShouldHarvest`, chốt bằng `InterviewScopeHarvestRhythmTests`.
@@ -890,7 +891,26 @@ màn hình mới — hoãn chúng lại là bày ra một bảng thiếu đúng 
 (`Project.InterviewScopeHarvestedTurnCount`): dùng chung với con trỏ của lượt chạy dày thì lượt ấy kéo con
 trỏ đi trước, và lượt chạy thưa không còn quãng nào để gộp.
 
-Điều kiện bản đồ **chép** điều kiện của `ScreenScopeGate.ShouldAsk` chứ không gọi lại nó, trừ vế
+**Bản đồ ngã ngũ CHƯA phải là "sát cổng", và đó là vế thứ ba.** Bản đồ lên `[RÕ]` ngay khi hội thoại kể
+đủ, còn ba bảng đứng trước bảng màn hình thì còn phải lần lượt bày ra và chờ người dùng bấm gửi — mỗi bảng
+vài lượt. Ca thật (dự án Safety Training 9): bản đồ ngã ngũ quanh lượt 40, bảng luồng mãi lượt 44 mới bày,
+bảng đối tượng lượt 46, bảng báo cáo còn chưa tới. Trong khoảng đó lượt chắt lọc chạy ở **mỗi** lượt (trước
+lần chốt đầu không có ngưỡng lô) và không lời gọi nào dùng được: `InterviewTableGate.Select` còn đang nhường
+cho ba bảng kia nên bảng màn hình không có đường ra hỏi. Cái giá vẫn đúng hai phần cũ — mỗi lượt một lời gọi
+~3.5k token, và mười dòng chờ duyệt do model đoán TRƯỚC khi bảng đối tượng chốt (*Course List*, *Course
+Catalog*, *Course Management*, *Course Detail*… — một thứ bốn tên) nằm lại trong bảng vì `Merge` chỉ được
+THÊM. Nên nhịp đòi thêm `ScreenScopeGate.PrecedingTablesDone`: **không cổng nào trong ba cổng đứng trước còn
+đòi một lượt bày** — bảng đã chốt, hoặc cổng của nó sẽ không bao giờ mở.
+
+**Vế này của riêng lượt chắt lọc; `ScreenScopeGate` KHÔNG có nó.** Cổng bày bảng có `Select` đứng trên phân
+xử: mở sớm thì bảng đứng trước thắng ưu tiên, lượt ấy vẫn bày đúng bảng cần bày và không mất gì. Lượt chắt
+lọc thì không có trọng tài nào — nó chạy ngay khi điều kiện đúng, và cái nó sinh ra ở lại vĩnh viễn. Cũng vì
+vậy nó **không** dựng thêm chỗ kẹt: một cổng đứng trước kẹt MỞ thì `Select` vốn đã không bao giờ chọn tới
+bảng màn hình, nên phần phạm vi chắt ra lúc ấy cũng không có đường nào đi ra hỏi. Và nó vẫn chờ "ngã ngũ"
+chứ không chờ "đã chốt": dự án không có danh mục nào (`[KHÔNG ÁP DỤNG]`) thì cổng đối tượng không bao giờ
+mở, chờ nó chốt là xoá luôn bảng màn hình khỏi buổi phỏng vấn.
+
+Phần điều kiện còn lại **chép** điều kiện của `ScreenScopeGate.ShouldAsk` chứ không gọi lại nó, trừ vế
 `HasPending` — vế đó là *hệ quả* của chính lượt chắt lọc, đòi nó ở đây là tự khoá. Hai câu hỏi ("đã tới lúc
 chắt chưa" và "đã tới lúc hỏi chưa") tình cờ có chung phần lớn điều kiện; cột lại làm một là để lần sau sửa
 một cái thì cái kia im lặng đổi theo.
