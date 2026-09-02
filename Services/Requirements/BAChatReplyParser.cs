@@ -588,8 +588,53 @@ public class BAChatReplyParser
         if (!value.Contains('?', StringComparison.Ordinal))
             return false;
 
-        return NarrativeCues.Any(cue => value.Contains(cue, StringComparison.Ordinal));
+        return NarrativeCues.Any(cue => AsksWith(value, cue));
     }
+
+    /// <summary>
+    /// Cụm này có xuất hiện như một LỜI XIN không — hay mọi lần nó xuất hiện đều chỉ NHẮC LẠI điều người
+    /// dùng vừa nói ("cảm ơn anh/chị đã mô tả", "như anh/chị vừa kể", "theo mô tả của anh/chị")?
+    ///
+    /// <para>
+    /// <b>Ca thật.</b> BA trả về đúng một câu hỏi ĐÓNG — *"…ứng dụng phục vụ những vai trò nào trong nhà
+    /// máy?"* kèm bốn chip vai trò — nhưng mở đầu bằng *"Cảm ơn anh/chị đã mô tả."*. Phép thử cũ quét cả
+    /// lượt nên thấy "mô tả" + một dấu hỏi ở đâu đó là kết luận câu mở, xoá sạch chip; trên màn hình hiện
+    /// ra một câu hỏi đóng KHÔNG có nút nào để bấm, trong khi AI Call Logs vẫn ghi đủ bốn gợi ý model trả
+    /// về — người đọc log không hiểu chip biến đi đâu.
+    /// </para>
+    ///
+    /// <para>
+    /// Xét theo TỪNG LẦN xuất hiện chứ không theo cả lượt, và chỉ bỏ qua lần nào đứng ngay sau một dấu
+    /// hiệu nhắc-chuyện-cũ. Nhờ vậy một lời cảm ơn đứng trước một lời xin lời kể ("Cảm ơn anh/chị đã mô
+    /// tả. Anh/chị kể giúp mình…") vẫn là câu mở: lần thứ hai không mang dấu hiệu nào. Cùng chiều thận
+    /// trọng với cả guard — thu hẹp đúng ca chắc chắn sai, không nới cho mọi câu có chữ "đã".
+    /// </para>
+    /// </summary>
+    private static bool AsksWith(string value, string cue)
+    {
+        for (var from = 0; from <= value.Length - cue.Length;)
+        {
+            var index = value.IndexOf(cue, from, StringComparison.Ordinal);
+            if (index < 0)
+                return false;
+            if (!IsLookingBack(value, index))
+                return true;
+            from = index + cue.Length;
+        }
+
+        return false;
+    }
+
+    // Ngay trước cụm là một từ NHẮC LẠI (bỏ qua khoảng trắng): "đã mô tả", "vừa kể", "như mô tả",
+    // "theo mô tả". Tiếng Việt viết rời từng âm tiết nên EndsWith ở đây đúng bằng "âm tiết cuối là".
+    private static bool IsLookingBack(string value, int cueIndex)
+    {
+        var before = value[..cueIndex].TrimEnd();
+        return before.Length > 0
+            && LookBackMarkers.Any(marker => before.EndsWith(marker, StringComparison.Ordinal));
+    }
+
+    private static readonly string[] LookBackMarkers = { "đã", "vừa", "như", "theo" };
 
     private static readonly string[] NarrativeCues =
     {

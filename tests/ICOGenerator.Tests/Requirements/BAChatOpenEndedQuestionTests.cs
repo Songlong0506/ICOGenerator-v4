@@ -86,6 +86,43 @@ public class BAChatOpenEndedQuestionTests
         Assert.Equal(2, reply.Suggestions.Count);
     }
 
+    // LỜI CẢM ƠN không phải LỜI XIN. Ca thật đã gặp trên màn hình (dự án quản lý đào tạo, lượt 1): BA
+    // trả về một câu hỏi ĐÓNG kèm bốn chip vai trò, nhưng câu dẫn mở đầu bằng *"Cảm ơn anh/chị đã mô
+    // tả."* — hai chữ "mô tả" ở đó nhắc lại điều NGƯỜI DÙNG vừa nói, không xin thêm lời kể nào. Guard
+    // quét cả lượt nên bắt trúng nó, xoá sạch chip, và người dùng nhìn thấy một câu hỏi đóng không có
+    // nút nào để bấm — trong khi AI Call Logs vẫn ghi đủ bốn gợi ý model trả về.
+    [Theory]
+    [InlineData("Cảm ơn anh/chị đã mô tả. Mình muốn hiểu rõ hơn về các vai trò sẽ dùng ứng dụng này. Anh/chị cho mình biết ứng dụng phục vụ những vai trò nào trong nhà máy?")]
+    [InlineData("Như anh/chị vừa mô tả, lớp học có sĩ số tối thiểu. Ai được phép hủy lớp khi không đủ sĩ số?")]
+    [InlineData("Theo mô tả của anh/chị thì đơn đi qua hai cấp duyệt. Cấp nào được phép trả lại đơn?")]
+    public void Normalize_AcknowledgingWhatTheUserSaid_IsNotAskingForAStory(string message)
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = message,
+            Suggestions = new List<string> { "Nhân viên", "Manager orgUnit", "HoD phòng ban", "HR – Đào tạo" },
+            MultiSelect = true
+        });
+
+        Assert.False(reply.OpenEnded);
+        Assert.Equal(4, reply.Suggestions.Count);
+    }
+
+    // …nhưng một lời cảm ơn ĐỨNG TRƯỚC một lời xin lời kể thì vẫn là xin lời kể: guard chỉ bỏ qua đúng
+    // những lần cụm từ ấy nhắc lại chuyện cũ, không bỏ qua cả lượt vì có một lần như vậy.
+    [Fact]
+    public void Normalize_AcknowledgementFollowedByAStoryRequest_StaysOpenEnded()
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Cảm ơn anh/chị đã mô tả. Anh/chị kể giúp mình lần gần nhất mở một lớp học thì làm những bước nào?",
+            Suggestions = new List<string> { "Chọn khóa học", "Đặt phòng học" }
+        });
+
+        Assert.True(reply.OpenEnded);
+        Assert.Empty(reply.Suggestions);
+    }
+
     // Lượt KHÔNG phải câu hỏi (tóm tắt, lời mời bấm "Write Requirement") không bao giờ bị đánh dấu mở —
     // mời người dùng "kể tự do" ở một lượt không hỏi gì chỉ làm họ tưởng còn câu chưa trả lời.
     [Fact]
