@@ -63,7 +63,7 @@ Một lượt chat nằm ở bốn file, chia theo thứ đọc khi sửa:
 | File | Giữ gì |
 |---|---|
 | `BAChatService` | trình tự của lượt: chốt ngữ cảnh tất định (`TurnContext`) → lắp message → gọi model → chạy các chốt chặn → lưu. Mỗi chốt chặn một method, và **thứ tự chạy là một phần của hành vi** (xem [Lượt hỏi GỘP, chuẩn `[RÕ]` và phanh chống hỏi lại](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại)) |
-| `BAChatPromptBlocks` | văn bản mọi khối system message dựng từ **dữ liệu dự án** (các bảng đã chốt, sáu khối `## LƯỢT NÀY:`). Không quyết định gì — chọn khối nào là việc của `InterviewTableGate` + `BAChatService`. Với sáu khối bày bảng, class này chỉ NỐI hai nửa: nửa luật nạp từ `Prompts/BusinessAnalyst/table-*.v1.md`, nửa dữ liệu dựng tại chỗ — xem [Nửa luật ở prompt riêng](#nửa-luật-ở-prompt-riêng-nửa-dữ-liệu-ở-code) |
+| `BAChatPromptBlocks` | văn bản mọi khối system message dựng từ **dữ liệu dự án** (các bảng đã chốt, sáu khối `## LƯỢT NÀY:`). Không quyết định gì — chọn khối nào là việc của `InterviewTableGate` + `BAChatService`. Với sáu khối bày bảng, class này chỉ NỐI hai nửa: nửa luật nạp từ `Prompts/BusinessAnalyst/table-*.v1.md`, nửa dữ liệu dựng tại chỗ — xem [Nửa luật ở prompt riêng](#nửa-luật-ở-prompt-riêng-nửa-dữ-liệu-ở-code). Riêng lệnh *"ĐỂ CUỐI, đừng hỏi lẻ"* của hai nhóm chốt-bằng-bảng là văn bản thuần luật nhưng **ở lại đây**, vì nó là một nhánh trạng thái chứ không phải câu dặn chung — xem [Lệnh "ĐỂ CUỐI, đừng hỏi lẻ" ở lại code](#lệnh-để-cuối-đừng-hỏi-lẻ-ở-lại-code-và-vì-sao-nó-không-đi-cùng-đường) |
 | `BAChatTurnDraft` | hình dạng lượt trả lời đang được nắn (nội dung, chip, thẻ hỏi, sáu bảng) + các phép thay lượt. Thay lượt là **một** lời gọi vì thay nội dung mà quên hạ chip là bày ra câu hỏi kèm nút của câu trước |
 | `BASourceAckPrompt` | hai khối của lượt đọc tài liệu nguồn (hình dạng lượt + phạm vi kể lại) — xem [Tài liệu nguồn](#tài-liệu-nguồn-ảnh-và-call-log) |
 
@@ -248,8 +248,35 @@ hai bảng cùng một lượt*. Các ví dụ JSON của lượt thường cũn
 
 > **Cạm bẫy vận hành.** Prompt Studio ưu tiên bản DB active hơn nội dung file (`DbPromptOverrideProvider`).
 > Dự án nào đang có bản override active cho `requirement-chat.v4.md` thì việc cắt ở file **không có hiệu
-> lực** cho tới khi bản active ấy được cập nhật — nếu không, model đọc lại đúng đặc tả cũ, cộng thêm file
-> `table-*` mới, tức quay về đúng hai bản.
+> lực** cho tới khi bản active ấy được cập nhật — nếu không, model đọc lại đúng bản cũ, cộng thêm khối
+> mới, tức quay về đúng hai bản. Đúng cho cả phần đặc tả sáu bảng ở trên lẫn lệnh cấm hỏi lẻ ở mục dưới.
+
+### Lệnh "ĐỂ CUỐI, đừng hỏi lẻ" ở lại code, và vì sao nó KHÔNG đi cùng đường
+
+Hai nhóm chốt-bằng-bảng mang thêm một khối thứ ba, `PermissionMatrixDeferred` / `NotificationDeferred` —
+văn bản thuần luật, không một mẩu dữ liệu dự án nào, nên theo bảng trên nó "đáng lẽ" phải nằm ở file prompt.
+Nó ở lại code vì ba lý do, và cả ba đều nói cùng một điều: **đây không phải một câu dặn, nó là một NHÁNH
+TRẠNG THÁI.**
+
+- **Prompt nền vào MỌI lượt.** Lệnh cấm chỉ đúng ở nhánh *chưa tới lượt*; hai nhánh kia là khối
+  `## LƯỢT NÀY: BÀY BẢNG …` (đúng lượt cổng mở) và khối *bảng ĐÃ CHỐT*. Một bản sao thường trực ở prompt nền
+  chọi thẳng với cả hai — cấm hỏi phân quyền ở đúng lượt hệ thống bảo model bày bảng phân quyền.
+- **Nhóm thông báo có một đường thoát phải TỰ TẮT.** Xem [Bảng thông báo: bảng cuối
+  cùng](#bảng-thông-báo-bảng-cuối-cùng): `SeedRows` rỗng ⇒ bảng không bao giờ bày ⇒
+  `BAChatService` gỡ khối cấm ra để nhóm quay về đường hỏi bằng câu hỏi. Một bản sao vô điều kiện ở prompt
+  nền làm đường thoát ấy tắt được một nửa: cơ chế thôi cấm, prompt vẫn cấm, nhóm kẹt `[CHƯA HỎI]` và nút
+  "Write Requirement" không bao giờ sáng.
+- **Vị trí là một phần của tác dụng.** Khối này đính NGAY SAU bản đồ bao phủ, tức ngay sau đúng dòng
+  `Phân quyền theo nghiệp vụ: [CHƯA HỎI]` mà nó phải giải độc — xem
+  [Bảng phân quyền](#bảng-phân-quyền-chốt-nhóm-phân-quyền-ở-cuối-buổi) cho lý do một câu dặn "để cuối" nằm
+  ở đầu một prompt nền 116 KB thì không đủ.
+
+Vì vậy `requirement-chat.v4.md` chỉ giữ **con trỏ**: nhóm này chốt bằng bảng, hệ thống sẽ báo đúng lượt, và
+*không có khối cấm trong ngữ cảnh ⇒ hỏi nhóm này như mọi nhóm khác*. Trước lần dọn này, prompt nền chở đủ
+bản sao của lệnh cấm — cấm vô điều kiện, tức nửa đường thoát ở gạch đầu dòng thứ hai, và đã bắt đầu trôi
+lệch: nó có ngoại lệ
+*"trừ orgUnit và nhân sự — đồng bộ từ COMPAS"*, hằng C# thì không. `InterviewTablePromptTests` nay giữ cả
+hai chiều: các mẩu đặc tả cấm phải có trong hằng và **không** được xuất hiện lại ở prompt nền.
 
 ### Một cổng, đúng một bảng mỗi lượt
 
@@ -1278,7 +1305,10 @@ thêm cột đó là mời người dùng chọn một thứ không tồn tại.
 không bao giờ mở. Lúc đó lệnh cấm hỏi lẻ trong ngữ cảnh chat **tự tắt** (điều kiện khớp đúng điều kiện thứ
 ba của cổng) và nhóm quay về đường hỏi bằng câu hỏi như trước. Thiếu đường thoát đó thì ứng dụng danh mục
 thuần kẹt vĩnh viễn: không bảng nào bày ra, không câu hỏi nào được phép, nhóm không bao giờ `[RÕ]`, nút
-"Write Requirement" không bao giờ sáng.
+"Write Requirement" không bao giờ sáng. Vì đúng lý do đó, `requirement-chat.v4.md` **không** chở một bản sao
+của lệnh cấm: bản sao ở prompt nền cấm vô điều kiện, nên đường thoát này tắt được đúng một nửa — cơ chế thôi
+cấm, prompt vẫn cấm. Prompt nền chỉ giữ con trỏ, kèm vế còn lại nói thẳng: *không có khối cấm trong ngữ cảnh
+⇒ hỏi nhóm này như mọi nhóm khác*.
 
 ## Bảng phân quyền: chốt nhóm phân quyền ở cuối buổi
 
@@ -1309,6 +1339,8 @@ Cổng cố tình **bỏ qua đúng dòng phân quyền** khi xét: `Requirement
 "Write Requirement", mà dòng phân quyền chỉ lên `[RÕ]` sau khi bảng được chốt — không bỏ qua thì hai cổng khóa
 lẫn nhau và không cổng nào mở được. Ba trạng thái của cổng thành ba khối lệnh khác nhau trong ngữ cảnh chat:
 chưa mở ⇒ *cấm hỏi lẻ quyền CRUD*; mở ⇒ *lượt này bày bảng*; đã chốt ⇒ *khối bảng đã chốt, đừng hỏi lại*.
+Ba khối ấy loại trừ nhau, nên khối thứ nhất không thể sống ở prompt nền — xem [Lệnh "ĐỂ CUỐI, đừng hỏi lẻ"
+ở lại code](#lệnh-để-cuối-đừng-hỏi-lẻ-ở-lại-code-và-vì-sao-nó-không-đi-cùng-đường).
 
 Bảy quyết định của thiết kế này:
 
