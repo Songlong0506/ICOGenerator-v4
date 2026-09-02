@@ -105,6 +105,71 @@ public class InterviewTablePromptTests
         Assert.DoesNotContain("\"flowMap\": []", prompt, StringComparison.Ordinal);
     }
 
+    // ── Lệnh "ĐỂ CUỐI, đừng hỏi lẻ" của hai nhóm chốt-bằng-bảng ─────────────────────────────────────
+    //
+    // Cùng bất biến "một việc, một đặc tả" như trên, cho một khối khác: lệnh cấm hỏi lẻ nhóm «Phân quyền
+    // theo nghiệp vụ» / «Thông báo / nhắc nhở». Chỗ duy nhất của nó là hai hằng ĐIỀU KIỆN trong
+    // BAChatPromptBlocks, KHÔNG phải prompt nền — và lần này lý do không chỉ là trôi lệch:
+    //
+    //  * Lệnh cấm là MỘT NHÁNH trạng thái của cổng (chưa tới lượt / bày bảng / đã chốt; nhóm thông báo còn
+    //    nhánh thứ tư). Prompt nền vào MỌI lượt, nên một bản sao ở đó chọi thẳng với khối
+    //    "## LƯỢT NÀY: BÀY BẢNG …" ở đúng lượt cổng mở, và với khối "bảng ĐÃ CHỐT" sau đó.
+    //  * Nhóm thông báo có ĐƯỜNG THOÁT: dự án không có đối tượng nào mang trạng thái ⇒ bảng không bao giờ
+    //    được bày ⇒ BAChatService gỡ khối cấm ra để nhóm quay về đường hỏi bằng câu hỏi. Bản sao vô điều
+    //    kiện trong prompt nền làm đường thoát ấy chỉ tắt được một nửa: cơ chế thôi cấm, prompt vẫn cấm,
+    //    nhóm kẹt [CHƯA HỎI] và nút "Write Requirement" không bao giờ sáng.
+    //  * Bản sao đó đã bắt đầu trôi lệch thật: prompt nền có ngoại lệ "trừ orgUnit và nhân sự — đồng bộ từ
+    //    COMPAS", hằng C# thì không. Nay ngoại lệ ấy nằm trong hằng, và prompt nền chỉ còn con trỏ.
+    [Theory]
+    [InlineData("mỗi vai trò được xem và thao tác những gì")]
+    [InlineData("vai X còn được làm gì nữa không")]
+    [InlineData("cứ vậy đã, có gì tôi bổ sung sau")]
+    [InlineData("vai trò nào cần nhận email")]
+    [InlineData("sự kiện nào cần gửi thông báo")]
+    [InlineData("cả bốn nhóm")]
+    public void DeferredBan_LivesInTheConditionalBlock_NotTheChatPrompt(string token)
+    {
+        var deferred = BAChatPromptBlocks.PermissionMatrixDeferred + "\n" + BAChatPromptBlocks.NotificationDeferred;
+
+        Assert.Contains(token, deferred, StringComparison.Ordinal);
+        Assert.DoesNotContain(token, ReadPrompt(ChatPromptKey), StringComparison.Ordinal);
+    }
+
+    // Vế "vẫn PHẢI hỏi như thường" đi theo lệnh cấm và phải nằm CÙNG chỗ với nó: cấm mà không nói rõ phần
+    // nào còn phải hỏi thì model đọc thành "khỏi hỏi gì về hai nhóm này nữa" — mà quyền định hình LUỒNG và
+    // các TRẠNG THÁI của đối tượng thì hoãn xuống cuối buổi là tự bịt mắt suốt cả buổi.
+    [Fact]
+    public void DeferredBan_NamesWhatStillMustBeAsked()
+    {
+        Assert.Contains("Vẫn PHẢI hỏi như thường", BAChatPromptBlocks.PermissionMatrixDeferred, StringComparison.Ordinal);
+        Assert.Contains("LUỒNG", BAChatPromptBlocks.PermissionMatrixDeferred, StringComparison.Ordinal);
+        Assert.Contains("COMPAS", BAChatPromptBlocks.PermissionMatrixDeferred, StringComparison.Ordinal);
+
+        Assert.Contains("Vẫn PHẢI hỏi như thường", BAChatPromptBlocks.NotificationDeferred, StringComparison.Ordinal);
+        Assert.Contains("TRẠNG THÁI", BAChatPromptBlocks.NotificationDeferred, StringComparison.Ordinal);
+    }
+
+    // Cái ở lại prompt nền: một con trỏ tới khối điều kiện, và bất biến "không có khối ⇒ hỏi như nhóm
+    // thường" — vế thứ hai chính là đường thoát của ứng dụng danh mục thuần, nên nó phải nói ra thành lời.
+    [Fact]
+    public void ChatPrompt_KeepsOnlyThePointerToTheDeferredBlock()
+    {
+        var prompt = ReadPrompt(ChatPromptKey);
+
+        Assert.Contains("ĐỂ CUỐI, đừng hỏi lẻ", prompt, StringComparison.Ordinal);
+        Assert.Contains(
+            "Không có khối ấy trong ngữ cảnh ⇒ hỏi nhóm này như mọi nhóm khác",
+            prompt,
+            StringComparison.Ordinal);
+
+        // Con trỏ chỉ đúng chỗ khi tiêu đề hai bên khớp nhau.
+        foreach (var block in new[] { BAChatPromptBlocks.PermissionMatrixDeferred, BAChatPromptBlocks.NotificationDeferred })
+        {
+            var heading = block.Split('\n')[0].TrimStart('#', ' ');
+            Assert.Contains(heading, prompt, StringComparison.Ordinal);
+        }
+    }
+
     // ── Bộ đọc phần của template nhiều hình dạng ────────────────────────────────────────────────────
 
     private const string TwoShapes = """

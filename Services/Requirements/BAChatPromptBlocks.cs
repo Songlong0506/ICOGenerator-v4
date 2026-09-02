@@ -26,6 +26,15 @@ namespace ICOGenerator.Services.Requirements;
 /// bị bỏ lúc parse, trong khi bản prompt nói đúng rằng hai bảng đó không có trường ấy. Một việc, hai đặc
 /// tả, và chỉ một trong hai đúng: đó là lý do nửa LUẬT nay chỉ còn MỘT bản.
 /// </para>
+///
+/// <para>
+/// <b>Ngoại lệ có chủ ý của ranh giới ấy:</b> <see cref="PermissionMatrixDeferred"/> và
+/// <see cref="NotificationDeferred"/> là văn bản thuần LUẬT nhưng ở lại đây, vì chúng không phải một câu
+/// dặn chung mà là MỘT NHÁNH trạng thái của cổng — hai nhánh còn lại là khối "## LƯỢT NÀY: BÀY BẢNG …" và
+/// khối "bảng ĐÃ CHỐT". Prompt nền vào mọi lượt nên một bản sao ở đó chọi thẳng với hai nhánh kia, và với
+/// nhóm thông báo còn vô hiệu hoá đường thoát "không có vòng đời nào thì hỏi bằng câu hỏi". Prompt nền nay
+/// chỉ giữ con trỏ tới hai khối này; <c>InterviewTablePromptTests</c> giữ cho bản sao không mọc lại.
+/// </para>
 /// </summary>
 public static class BAChatPromptBlocks
 {
@@ -155,17 +164,32 @@ public static class BAChatPromptBlocks
             + "\n\n### Phạm vi dự kiến (mỗi mục là MỘT dòng nhóm của bảng — chép nguyên văn vào `screen`)\n"
             + string.Join("\n", effectiveScreens.Select(s => "- " + s));
 
-    /// <summary>Nhóm phân quyền chưa tới lượt chốt: cấm hỏi lẻ, nhưng nói rõ phần nào VẪN phải hỏi.</summary>
+    /// <summary>
+    /// Nhóm phân quyền chưa tới lượt chốt: cấm hỏi lẻ, nhưng nói rõ phần nào VẪN phải hỏi.
+    ///
+    /// <para>
+    /// <b>Đây là bản DUY NHẤT của lệnh cấm, và nó ở code chứ không ở prompt nền.</b> Lệnh này là MỘT NHÁNH
+    /// trạng thái của cổng, không phải một câu dặn chung: hai nhánh kia là khối "## LƯỢT NÀY: BÀY BẢNG …"
+    /// và khối "bảng ĐÃ CHỐT" ngay dưới. Gộp nó vào <c>requirement-chat.v4.md</c> — vào MỌI lượt — là để lệnh
+    /// cấm chọi thẳng với lệnh bày bảng ở đúng lượt cổng mở, và nói "sẽ chốt ở cuối buổi" về một bảng người
+    /// dùng vừa tự tay rà xong. Vị trí đính cũng là một phần của tác dụng: khối này đứng NGAY SAU bản đồ bao
+    /// phủ, tức ngay sau dòng <c>Phân quyền theo nghiệp vụ: [CHƯA HỎI]</c> mà nó phải giải độc — xem
+    /// <see cref="PermissionMatrixGate"/> cho lý do một câu dặn ở đầu prompt nền không đủ.
+    /// </para>
+    /// </summary>
     public const string PermissionMatrixDeferred =
         "## Nhóm «Phân quyền theo nghiệp vụ» — ĐỂ CUỐI, đừng hỏi lẻ\n"
             + "KHÔNG hỏi các câu kiểu \"mỗi vai trò được xem và thao tác những gì\", \"vai X còn được làm gì "
             + "nữa không\", và KHÔNG tự soạn một phương án phân quyền rồi xin người dùng gật. Quyền xem/tạo/"
             + "sửa/xóa theo từng màn hình sẽ được chốt bằng MỘT BẢNG ở cuối buổi, khi phạm vi màn hình đã "
-            + "đứng yên — hỏi bây giờ chỉ nhận về \"cứ vậy đã, có gì tôi bổ sung sau\".\n"
+            + "đứng yên — hỏi bây giờ chỉ nhận về \"cứ vậy đã, có gì tôi bổ sung sau\", rồi phương án bạn tự "
+            + "viết được đóng dấu bằng một chip \"Đồng ý\" và cả nhóm coi như đã rõ trong khi không ai thật "
+            + "sự trả lời.\n"
             + "Vẫn PHẢI hỏi như thường: vai trò nào làm bước nào trong LUỒNG (ai gửi, ai duyệt, ai bị từ "
-            + "chối thì làm gì), vì câu trả lời đó đổi luôn câu hỏi kế tiếp của bạn; và ai QUẢN LÝ từng danh "
-            + "mục dữ liệu. Đó là nhóm «Chức năng & luồng nghiệp vụ chính» và «Dữ liệu / danh mục chính», "
-            + "không phải nhóm phân quyền.";
+            + "chối thì làm gì), vì câu trả lời đó đổi luôn câu hỏi kế tiếp của bạn nên hoãn là tự bịt mắt; "
+            + "và ai QUẢN LÝ từng danh mục dữ liệu — trừ orgUnit và nhân sự (đã chốt: đồng bộ từ COMPAS). Đó "
+            + "là nhóm «Chức năng & luồng nghiệp vụ chính» và «Dữ liệu / danh mục chính», không phải nhóm "
+            + "phân quyền.";
 
     public static string FlowMapTable(string rules) => rules;
 
@@ -241,14 +265,20 @@ public static class BAChatPromptBlocks
     // ⇒ bảng này sẽ KHÔNG BAO GIỜ được bày, nên lệnh cấm phải tự tắt: giữ nó là khóa chết nhóm ở
     // [CHƯA HỎI] và nút "Write Requirement" không bao giờ sáng. Đây là đường thoát duy nhất của ca đó,
     // và nó khớp đúng điều kiện thứ ba của NotificationMapGate.
+    //
+    // Chính vế "tự tắt" ấy là lý do lệnh cấm KHÔNG được gộp vào requirement-chat.v4.md: prompt nền vào MỌI
+    // lượt nên một bản sao ở đó cấm VÔ ĐIỀU KIỆN, và đường thoát chỉ tắt được một nửa — cơ chế gỡ khối này
+    // ra trong khi prompt nền vẫn cấm hỏi. Bản sao ấy đã tồn tại (v4.md, mục 12 nhóm) và đã bắt đầu trôi
+    // lệch; nay prompt nền chỉ còn con trỏ tới khối này, và InterviewTablePromptTests giữ cho nó không mọc
+    // lại. Cùng lý do với PermissionMatrixDeferred — xem doc của hằng đó.
     public const string NotificationDeferred =
         "## Nhóm «Thông báo / nhắc nhở» — ĐỂ CUỐI, đừng hỏi lẻ\n"
             + "KHÔNG hỏi các câu kiểu \"vai trò nào cần nhận email?\", \"sự kiện nào cần gửi thông báo?\", và "
             + "KHÔNG tự soạn một danh sách người nhận rồi xin người dùng gật. Nhóm này được chốt bằng MỘT "
-            + "BẢNG ở cuối buổi (mỗi sự kiện một dòng, người nhận chọn từ danh sách) — hỏi bây giờ chỉ nhận "
-            + "về một danh sách vai trò trần không gắn với sự kiện nào, và tài liệu sẽ đóng băng thành \"mọi "
-            + "thay đổi trạng thái gửi cho cả bốn nhóm\", tức mỗi lần một bản ghi đổi trạng thái là cả nhà "
-            + "máy nhận email.\n"
+            + "BẢNG ở cuối buổi (mỗi sự kiện một dòng, người nhận chọn từ danh sách) — hỏi bây giờ là tách "
+            + "AI NHẬN khỏi KHI NÀO GỬI thành hai câu rời, nên chỉ nhận về một danh sách vai trò trần không "
+            + "gắn với sự kiện nào, và tài liệu sẽ đóng băng thành \"mọi thay đổi trạng thái gửi cho cả bốn "
+            + "nhóm\", tức mỗi lần một bản ghi đổi trạng thái là cả nhà máy nhận email.\n"
             + "Vẫn PHẢI hỏi như thường: các TRẠNG THÁI một đối tượng đi qua và ĐIỀU KIỆN chuyển giữa chúng "
             + "(nhóm «Vòng đời & trạng thái») — đó là nguồn các dòng của bảng thông báo, không có nó thì "
             + "bảng ấy trống. Cũng KHÔNG hỏi về cấu hình email/SMTP: kênh gửi duy nhất đã chốt là email.";
