@@ -54,10 +54,10 @@ public static class CoverageWorkedExampleGuard
 
     /// <summary>
     /// Hạ <c>[RÕ]</c> → <c>[MỘT PHẦN]</c> và gắn mẩu hỏi cho dòng quy tắc chở con số khi
-    /// <paramref name="workedExamples"/> chưa có ví dụ nào. Đã có ví dụ, hoặc dòng đã có mẩu
-    /// <c>còn thiếu:</c> riêng ⇒ trả về đúng chuỗi đã nhận.
+    /// <paramref name="workedExamples"/> (đã đọc sẵn qua <c>InterviewOutlookParser</c>) chưa có ví dụ nào.
+    /// Đã có ví dụ, hoặc dòng đã có mẩu <c>còn thiếu:</c> riêng ⇒ trả về đúng chuỗi đã nhận.
     /// </summary>
-    public static string? Apply(string? coverageMap, string? workedExamples)
+    public static string? Apply(string? coverageMap, IReadOnlyList<string> workedExamples)
     {
         if (string.IsNullOrWhiteSpace(coverageMap))
             return coverageMap;
@@ -65,7 +65,7 @@ public static class CoverageWorkedExampleGuard
         // Có ví dụ nào đã chốt ⇒ quy tắc định lượng của dự án này đã qua một vòng kiểm chứng, guard đứng
         // ngoài. Đây là điều kiện MỘT ví dụ chứ không phải "mỗi quy tắc một ví dụ": bản đồ không mang cấu
         // trúc để nối ví dụ với quy tắc, và một cổng đòi nhiều hơn mức nó kiểm được là một cổng đóng mãi.
-        if (InterviewOutlookService.ParseItems(workedExamples).Count > 0)
+        if (workedExamples.Count > 0)
             return coverageMap;
 
         var items = CoverageMapParser.Parse(coverageMap);

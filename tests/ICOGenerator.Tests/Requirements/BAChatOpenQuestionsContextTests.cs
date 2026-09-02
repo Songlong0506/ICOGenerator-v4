@@ -52,9 +52,9 @@ public class BAChatOpenQuestionsContextTests : IDisposable
     [Fact]
     public async Task OpenQuestionsOfTheProjectAreLoadedIntoTheChatContext()
     {
-        await SeedProjectAsync(
-            "- Nguồn dữ liệu Reference Belt: đồng bộ tự động hay nhập thủ công?\n"
-            + "- Ai được tạo/sửa/xóa Belt Type?");
+        await SeedProjectAsync(OpenQuestionFixture.Stored(
+            "[Dữ liệu / danh mục chính] Nguồn dữ liệu Reference Belt: đồng bộ tự động hay nhập thủ công?",
+            "[Phân quyền theo nghiệp vụ] Ai được tạo/sửa/xóa Belt Type?"));
 
         var llm = new FakeLlm();
         await using var db = NewDb();
@@ -65,6 +65,11 @@ public class BAChatOpenQuestionsContextTests : IDisposable
         // Nguyên văn từng mục, không phải chỉ con số đếm: BA phải hỏi ĐÚNG điểm còn treo.
         Assert.Contains("Nguồn dữ liệu Reference Belt: đồng bộ tự động hay nhập thủ công?", block);
         Assert.Contains("Ai được tạo/sửa/xóa Belt Type?", block);
+        // …nhưng KHÔNG mang theo nhãn nhóm: nó là từ vựng nội bộ của bản đồ bao phủ, và
+        // requirement-chat.v4.md cấm ném nó vào mặt người dùng nghiệp vụ. Để nguyên thì nhãn đi thẳng vào
+        // câu hỏi kế tiếp — xem CoverageDeadQuestionLoopTests.
+        Assert.DoesNotContain("[Dữ liệu / danh mục chính]", block, StringComparison.Ordinal);
+        Assert.DoesNotContain("[Phân quyền theo nghiệp vụ]", block, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -114,7 +119,7 @@ public class BAChatOpenQuestionsContextTests : IDisposable
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewOutlookService(db, llm, prompts),
+            new InterviewOutlookService(db, llm, prompts, new CoverageChecklist(prompts)),
             new InterviewScopeService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),

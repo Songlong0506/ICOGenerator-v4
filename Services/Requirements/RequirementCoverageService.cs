@@ -111,7 +111,7 @@ public class RequirementCoverageService
             // "còn thiếu:" là đúng cái vòng lặp kín mà CoverageStaleGapGuard sinh ra để cắt — chỉ khác
             // đường vào. Dọn ở đây thì mẩu chết không quay lại ngay ở lượt sau qua ngả tồn đọng.
             var pending = CoverageStaleGapGuard.DropAnsweredItems(
-                updated, InterviewOutlookService.ParseItems(project.OpenQuestions));
+                updated, InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions));
 
             // Bản đồ TRƯỚC lượt distill này đi kèm để guard bỏ qua các dòng vừa ăn thông tin mới trong
             // chính lượt này: mục tồn đọng chắt ở hậu kỳ nên nó chưa từng thấy lượt user vừa rồi, và gắn
@@ -156,7 +156,7 @@ public class RequirementCoverageService
         var repaired = CoverageConfirmedTableGuard.Apply(
             CoverageWorkedExampleGuard.Apply(
                 CoverageStaleGapGuard.Apply(project.RequirementCoverageMap),
-                project.WorkedExamples),
+                InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples)),
             project.PermissionMatrix, project.NotificationMap);
 
         if (string.Equals(repaired, project.RequirementCoverageMap, StringComparison.Ordinal))

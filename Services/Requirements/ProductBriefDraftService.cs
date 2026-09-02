@@ -386,12 +386,18 @@ public class ProductBriefDraftService
     private static string BuildDistilledState(Project project)
     {
         var sb = new StringBuilder();
+        // Hai cột lưu JSON, nạp vào prompt dạng bullet (xem InterviewOutlookParser). Danh sách tồn đọng
+        // đi vào đây KHÔNG kèm nhãn nhóm: nhãn là từ vựng nội bộ của bản đồ bao phủ, còn bước soạn Brief
+        // viết cho người dùng nghiệp vụ đọc.
+        var outlook = InterviewOutlookService.Current(project);
 
-        AppendBlock(sb, "Ví dụ đã xác nhận (input → kết quả kỳ vọng do người dùng chốt — quy tắc tương ứng phải có trong tài liệu)", project.WorkedExamples);
+        AppendBlock(sb, "Ví dụ đã xác nhận (input → kết quả kỳ vọng do người dùng chốt — quy tắc tương ứng phải có trong tài liệu)",
+            InterviewOutlookParser.ToText(outlook.WorkedExamples));
         // Danh sách tồn đọng KHÔNG chặn cổng readiness (cổng suy tất định từ bản đồ bao phủ). Ở đây nó có
         // tác dụng ngược lại và đúng chỗ: mục nào còn treo mà tài liệu buộc phải nói tới thì bước soạn
         // phải dùng van needsClarification, thay vì tự chọn một cách hiểu rồi viết ra như điều đã chốt.
-        AppendBlock(sb, "Điểm cần làm rõ còn tồn đọng (CHƯA ai chốt — không được tự chọn một cách hiểu; cần tới mà chưa có thì dùng van needsClarification)", project.OpenQuestions);
+        AppendBlock(sb, "Điểm cần làm rõ còn tồn đọng (CHƯA ai chốt — không được tự chọn một cách hiểu; cần tới mà chưa có thì dùng van needsClarification)",
+            InterviewOutlookParser.ToText(outlook.OpenQuestions));
 
         return sb.ToString().TrimEnd();
     }

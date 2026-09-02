@@ -871,7 +871,7 @@ phủ đi tới sát cổng bảng màn hình, rồi gộp bù TRỌN quãng h�
 Điều kiện đầy đủ ở `InterviewScopeService.ShouldHarvest`, chốt bằng `InterviewScopeHarvestRhythmTests`.
 
 **Trước đây nó chạy sau MỖI lượt chat**, vì nó là danh sách thứ ba của lượt "triển vọng phỏng vấn"
-(`interview-outlook.v1.md`) nên đi theo nhịp của hai danh sách kia. Nhịp đó đúng cho `openQuestions` và
+(`interview-outlook.v2.md`) nên đi theo nhịp của hai danh sách kia. Nhịp đó đúng cho `openQuestions` và
 `workedExamples` — tồn đọng câu hỏi được nạp thẳng vào ngữ cảnh lượt chat kế tiếp nên phải tươi — nhưng sai
 cho phạm vi màn hình, thứ chỉ được tiêu thụ khi bảng được bày ra hỏi. Cái giá có hai phần:
 
@@ -1595,18 +1595,20 @@ thuộc ba nhóm ấy (*"đăng ký lại được sau khi ticket bị Reject kh
 Show dùng để xử lý bước nào"*, *"Item ID và Item Title có tạo thành cặp duy nhất không"*). `[RÕ]` không
 phải một nhãn trạng thái mà là một **lệnh cấm BA hỏi lại**, nên bảy điểm đó vĩnh viễn không được lấy, và
 bước soạn tài liệu — vốn bị cấm giả định — nhận một khoảng trống mà không cổng nào báo. Nay
-`interview-outlook.v1.md` gắn mỗi mục tồn đọng một **thẻ nhóm** (`[Vòng đời & trạng thái] …`, chép đúng
-một trong 12 nhãn), và guard chạy ngay sau lượt distill hạ mọi dòng `[RÕ]` còn mục của nhóm đó xuống
-`[MỘT PHẦN]`, ghi chính mục ấy vào phần `còn thiếu:` — tức điểm tồn đọng trở thành câu chặn của cổng
-readiness thay vì một ghi chú không ai đọc. Bốn ràng buộc của thiết kế:
+`interview-outlook.v2.md` bắt mỗi mục tồn đọng mang **nhóm của nó thành một trường** (`group`, chép đúng
+một trong 12 nhãn — xem "Hình dạng hai danh sách" bên dưới), và guard chạy ngay sau lượt distill hạ mọi
+dòng `[RÕ]` còn mục của nhóm đó xuống `[MỘT PHẦN]`, ghi chính mục ấy vào phần `còn thiếu:` — tức điểm tồn
+đọng trở thành câu chặn của cổng readiness thay vì một ghi chú không ai đọc. Bốn ràng buộc của thiết kế:
 
 - **Một chiều, chỉ hạ không nâng.** Hạ nhầm thì BA hỏi thêm một câu; bỏ sót thì sinh ra một khoảng trống
   mà mọi tầng sau tin là đã đủ — cùng cách cân giá với các chốt chặn của `BAChatReplyParser`.
 - **Chạy ở đường GHI, không ở đường đọc.** Bản đồ là nguồn chân lý mà cổng readiness, panel tiến độ và bốn
   cổng bảng cùng đọc; lọc lúc đọc ở một chỗ là dựng lại đúng cảnh hai giám khảo lệch nhau mà thiết kế này
   đã bỏ đi.
-- **Thẻ nhóm bị GỠ trước khi vào ngữ cảnh chat** (`CoveragePendingGuard.StripGroupTag`) — nhãn nhóm là từ
-  vựng nội bộ, để nguyên là mời BA chép nó vào câu hỏi kế tiếp.
+- **Nhãn nhóm KHÔNG đi vào ngữ cảnh chat** (`InterviewOutlookParser.ToText` chỉ dựng phần `text`) — nhãn
+  nhóm là từ vựng nội bộ, nạp cả nhãn là mời BA chép nó vào câu hỏi kế tiếp. Chỗ DUY NHẤT còn in kèm nhãn
+  là khối "trạng thái hiện có" echo lại cho chính lượt chắt lọc (`ToTaggedText`), nơi model cần thấy cặp
+  nhóm↔câu hỏi để không gán lại mục cũ sang nhóm khác.
 - **Dòng VỪA ĐỔI trong chính lượt này thì đứng ngoài.** Danh sách tồn đọng chắt ở hậu kỳ nên nó chưa bao giờ
   thấy lượt user mới nhất, còn bản đồ thì vừa gộp đúng lượt đó xong — nên một mục gắn vào dòng mà lượt distill
   này vừa viết lại là mục CŨ theo thứ tự thời gian, và ghi nó thành mẩu `còn thiếu:` là biến câu người dùng vừa
@@ -1620,6 +1622,45 @@ readiness thay vì một ghi chú không ai đọc. Bốn ràng buộc của thi
   lại. Lưới đỡ đã có sẵn — prompt chat bắt BA tin HỘI THOẠI khi bản đồ chưa kịp cập nhật, và
   `AskedQuestionHistory` loại thẳng câu hỏi trùng. Đồng bộ hai nhịp thì phải dời distill xuống hậu kỳ, tức
   bản đồ dẫn lượt hỏi kế tiếp luôn cũ một lượt — đắt hơn nhiều.
+
+### Hình dạng hai danh sách tồn đọng: cũng JSON, và nhóm là một trường
+
+`Project.OpenQuestions` và `Project.WorkedExamples` **lưu JSON** (`OpenQuestionDocument` /
+`WorkedExampleDocument`), đọc và ghi qua `InterviewOutlookParser`. Mỗi điểm tồn đọng là một object hai
+trường: `group` (nhãn nhóm bản đồ) và `text` (câu hỏi).
+
+**Vì sao không còn là bullet.** Nhóm từng là một **thẻ gõ tay ở đầu chuỗi** —
+`- [Vòng đời & trạng thái] Chưa rõ …`. Nó không phải chữ trang trí: `CoveragePendingGuard` đối chiếu nó
+với nhãn dòng bản đồ, tức nó là đầu vào của một chốt chặn tất định. Nhưng nó chỉ tồn tại nhờ prompt DẶN
+model gõ đúng khuôn `[…]`, và ba chỗ đọc đều phải regex bóc lại — một chỗ để lấy cặp nhóm/câu hỏi, hai chỗ
+chỉ để **vứt thẻ đi** trước khi nạp vào ngữ cảnh. Model gõ chệch khuôn ⇒ regex không khớp ⇒ guard câm
+trong im lặng, và cái giá của im lặng ở đây là một dòng `[RÕ]` oan: lệnh cấm BA hỏi lại, nên điểm tồn đọng
+ấy vĩnh viễn không được lấy. Cùng loại hỏng, cùng cách chữa như [bản đồ](#hình-dạng-bản-đồ-json-với-bốn-trường-bậc-nhất).
+
+**Nhãn được chốt ở ĐƯỜNG GHI.** `InterviewOutlookService.Canonicalize` snap `group` về đúng một trong 12
+nhãn checklist (`CoverageChecklist`, so tiền tố hai chiều) **trước khi lưu**, nên mọi tầng đọc sau đó thấy
+CÙNG một nhãn và chỉ còn đọc thuộc tính. Viết gọn một nhãn (*"Luồng ngoại lệ"*) vẫn khớp; một cái tên model
+tự nghĩ ra thì về **rỗng** — mục vẫn nằm trong ngữ cảnh để BA hỏi, chỉ không hạ được dòng bản đồ nào
+(fail-open, cùng luật với `FindGap`).
+
+**Cả hai cột cùng đổi.** `WorkedExamples` không có trường con nào cần tách, nhưng nó đi cùng cột kia ở mọi
+chặng — cùng một lời gọi LLM chắt ra, cùng con trỏ lượt, cùng một `SaveChangesAsync`. Để một cột JSON còn
+cột kia bullet là bắt người đọc nhớ hai format cho hai thứ luôn xuất hiện cạnh nhau. Mục vẫn là chuỗi
+phẳng: oracle chấm POC bóc `WE-n`/kỳ vọng từ mục `## 13. Worked Examples` của spec, không từ cột này.
+
+**Trần độ dài cắt theo MỤC, không theo ký tự.** Format cũ cắt chuỗi ở ký tự thứ 4000 — với bullet thì mất
+mục cuối, với JSON thì mất sạch: một document bị cắt giữa chuỗi không parse lại được, tức trần độ dài tự
+biến thành cái bẫy xóa trắng cả danh sách. `InterviewOutlookParser` bớt dần từ cuối cho tới khi vừa trần.
+
+**Bản ghi format CŨ vẫn đọc được** — khác có chủ ý so với bản đồ bao phủ ("chỉ đọc JSON"). Bản đồ được ghi
+lại ở MỌI lượt chat nên đọc hụt một lần chỉ mất một lượt; hai cột này chỉ được ghi bởi lượt chắt lọc hậu kỳ
+chat, nên một dự án đã phỏng vấn xong và đang ở bước sinh AI Design Spec sẽ không có lượt chat nào nữa —
+đọc hụt ở đó là mất **vĩnh viễn** oracle mà POC bị chấm theo. Nhánh đó chỉ ĐỌC, không ai ghi ra nữa.
+
+**Prompt vẫn thấy bullet.** `InterviewOutlookParser.ToText` dựng danh sách cho ngữ cảnh chat của BA, bước
+soạn Brief và bản xuất hội thoại — **không kèm nhãn nhóm**. Chỗ duy nhất in kèm nhãn là `ToTaggedText`,
+dùng cho khối "trạng thái hiện có" echo lại cho chính lượt chắt lọc. Test dựng danh sách bằng
+`OpenQuestionFixture`, một DSL viết ở dạng `[Nhóm] câu hỏi` cho dễ đọc — cùng lối với `CoverageMapFixture`.
 
 **Chốt chặn bảng-đã-chốt ⇒ `[RÕ]` (`CoverageConfirmedTableGuard`).** Guard thứ hai của đường ghi, chạy
 **sau** guard trên và đi ngược chiều nó — chỉ cho đúng hai nhóm chốt bằng bảng: «Phân quyền theo nghiệp vụ»
@@ -2027,7 +2068,7 @@ dùng model context nhỏ.
 
 **Gộp lũy tiến ⇒ thứ đã viết ra ở lại MÃI trừ khi lượt chắt lọc chủ động gỡ nó**, và luật đó áp cho cả ba
 tầng cùng hình dạng: bộ nhớ hội thoại, bản đồ bao phủ (`requirement-coverage.v4.md`), ví dụ vàng
-(`interview-outlook.v1.md`). Người dùng đổi ý bằng cách nói một câu MỚI, không bằng cách chỉ vào dòng cũ —
+(`interview-outlook.v2.md`). Người dùng đổi ý bằng cách nói một câu MỚI, không bằng cách chỉ vào dòng cũ —
 nên cả ba prompt đều phải **thu hồi vế đã bị bác**, không để nó nằm cạnh bản mới cho bước sau tự chọn. Ca
 thật: BA dựng ví dụ *"23 người, sĩ số 8–12 ⇒ mở 2 lớp, phân bổ 12 và 11 người"*, người dùng gật bằng một
 chip 4 token ở lượt 15; tới lượt 35 họ nói *"1 lớp có bao nhiêu học viên thì không cần quan tâm, nhân viên
@@ -2217,7 +2258,7 @@ gọi là "một lượt hỏi thiếu chỗ trả lời".
 Bản trước mở đầu bằng *"Trước khi viết tài liệu, mình còn một chỗ chưa đủ thông tin để khỏi phải tự đoán
 (nhóm «Đối tượng người dùng & vai trò», còn 3 nhóm — mình hỏi từng nhóm một)"* rồi mới tới câu hỏi thật: cả
 cụm đó là **sổ sách của hệ thống** đọc ra màn hình. Nhãn là từ vựng của bản đồ mà người dùng nghiệp vụ chưa
-từng thấy (cùng lý do `CoveragePendingGuard.StripGroupTag` gỡ thẻ nhóm trước khi vào ngữ cảnh chat), còn
+từng thấy (cùng lý do `InterviewOutlookParser.ToText` bỏ nhãn nhóm trước khi vào ngữ cảnh chat), còn
 *"còn 3 nhóm"* chỉ báo cho họ biết còn phải chịu bao nhiêu lượt nữa — không giúp trả lời câu đang hỏi, mà
 làm lượt đó đọc như một bản tin tiến độ. Câu dẫn duy nhất còn lại là *"Mình quay lại chỗ này một chút."* ở
 nhánh quay lại (bên dưới). Cùng luật áp cho hai chỗ khác: `requirement-chat.v4.md` cấm BA đọc nhãn nhóm hay
@@ -2323,7 +2364,7 @@ không có dấu hỏi.
 Chốt chặn này chỉ chữa **triệu chứng**. Nguyên nhân nằm ở hai lượt chắt lọc, và mỗi cái có một luật riêng:
 `requirement-coverage.v4.md` cấm viết mẩu `còn thiếu:` mà **không câu trả lời nào đóng lại được** — dạng loại trừ
 (*"chỉ ở A hay chỉ ở B"*, trong khi *"cả hai"* là đáp án hợp lệ), hoặc một mẩu hỏi đúng thứ BA bị cấm hỏi — và
-bắt distiller bỏ mẩu `còn thiếu:` mà chính phần tóm tắt của dòng đó đã trả lời; `interview-outlook.v1.md` tính
+bắt distiller bỏ mẩu `còn thiếu:` mà chính phần tóm tắt của dòng đó đã trả lời; `interview-outlook.v2.md` tính
 **một cái gật bằng chip** cho phương án BA vừa nêu là mục đã chốt, vì mục tồn đọng giữ lại quá hạn khoá cổng
 chắc chắn như một dòng `[MỘT PHẦN]` thật (`CoveragePendingGuard` hạ dòng tương ứng ở mọi lượt).
 `InterviewDeadEndRuleTests` giữ ba luật prompt đó khỏi bị dọn đi.

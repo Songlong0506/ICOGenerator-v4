@@ -169,7 +169,7 @@ public static class ChatExportBuilder
         sb.AppendLine();
 
         AppendBullets(sb, "3.3. Điểm cần làm rõ còn tồn đọng",
-            InterviewOutlookService.ParseItems(project.OpenQuestions),
+            InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions).Select(q => q.Text).ToList(),
             "(không có điểm nào đang tồn đọng)");
 
         // Phạm vi màn hình nay nằm trong CHÍNH bảng màn hình, nên mục này kể lại bảng đó: phần người dùng
@@ -185,7 +185,7 @@ public static class ChatExportBuilder
             "(không còn mục nào chờ duyệt)");
 
         AppendBullets(sb, "3.5. Ví dụ đã xác nhận (input → kết quả kỳ vọng, dùng để chấm bản demo)",
-            InterviewOutlookService.ParseItems(project.WorkedExamples),
+            InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples),
             "(chưa chốt ví dụ nào — mọi quy tắc định lượng đang thiếu ví dụ số)");
 
         // Bảng phân quyền ĐÃ CHỐT là bằng chứng DUY NHẤT được chấp nhận cho dòng «Phân quyền theo nghiệp

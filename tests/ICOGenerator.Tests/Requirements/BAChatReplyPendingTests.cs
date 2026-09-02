@@ -186,7 +186,7 @@ public class BAChatReplyPendingTests : IDisposable
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewOutlookService(db, llm, prompts),
+            new InterviewOutlookService(db, llm, prompts, new CoverageChecklist(prompts)),
             new InterviewScopeService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
