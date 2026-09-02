@@ -70,7 +70,7 @@ namespace ICOGenerator.Services.Requirements;
 public static class CoveragePendingGuard
 {
     /// <summary>Trần độ dài mẩu "còn thiếu" ghép vào dòng — bản đồ là la bàn, không phải biên bản.</summary>
-    private const int MaxGapChars = 200;
+    private const int MaxQuestionChars = 200;
 
     /// <summary>
     /// Hạ cấp các dòng <c>[RÕ]</c> còn mục tồn đọng gắn đúng nhóm đó, và ghi mẩu còn phải hỏi vào phần
@@ -189,6 +189,6 @@ public static class CoveragePendingGuard
 
         item.Status = "MỘT PHẦN";
         item.Known = body;
-        item.Gap = gap.Length > MaxGapChars ? gap[..MaxGapChars].TrimEnd() : gap;
+        item.NextQuestion = gap.Length > MaxQuestionChars ? gap[..MaxQuestionChars].TrimEnd() : gap;
     }
 }

@@ -59,7 +59,7 @@ public class CoverageChecklist
         {
             item.Status = "CHƯA HỎI";
             item.Known = string.Empty;
-            item.Gap = string.Empty;
+            item.NextQuestion = string.Empty;
             item.Evidence = string.Empty;
         }
         return items;

@@ -34,7 +34,7 @@ public class CoverageWorkedExampleGuardTests
         Assert.NotNull(map);
         var row = Row(map, "Quy tắc nghiệp vụ");
         Assert.Equal("MỘT PHẦN", row.Status);
-        Assert.Equal(CoverageWorkedExampleGuard.MissingExampleGap, row.Gap);
+        Assert.Equal(CoverageWorkedExampleGuard.MissingExampleQuestion, row.NextQuestion);
 
         // Bằng chứng của dòng phải sống sót: nó là thứ panel tiến độ hiển thị và là chỗ distiller bám vào.
         Assert.Equal("\"Responsibility( 5 cái và có %)\"", row.Evidence);

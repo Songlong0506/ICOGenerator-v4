@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
@@ -71,7 +72,7 @@ public class RequirementCoverageServiceTests : IDisposable
         // đó là đường nâng cấp cho cả model không nhận response_format lẫn dự án có bản đồ cũ trong DB.
         var row = Assert.Single(CoverageMapParser.Parse(coverage.Map));
         Assert.Equal("MỘT PHẦN", row.Status);
-        Assert.Equal("luồng chính", row.Gap);
+        Assert.Equal("luồng chính", row.NextQuestion);
         Assert.True(row.IsCore);
 
         // Bền trong DB, không chỉ trên entity đang track.
@@ -233,7 +234,7 @@ public class RequirementCoverageServiceTests : IDisposable
         Assert.NotNull(coverage.Map);
         var row = Row(coverage.Map, "Thông báo");
         Assert.Equal("RÕ", row.Status);
-        Assert.Empty(row.Gap);
+        Assert.Empty(row.NextQuestion);
 
         // Bản đã sửa là bản được LƯU: cổng readiness, panel tiến độ và các cổng bảng đọc cùng một sự thật.
         var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
@@ -267,6 +268,51 @@ public class RequirementCoverageServiceTests : IDisposable
     }
 
     // Bản đồ lưu dạng JSON ⇒ test soi TRƯỜNG đã parse thay vì chuỗi.
+    // "Điểm cần làm rõ còn tồn đọng" đi THẲNG vào lượt distill, không chỉ vào CoveragePendingGuard ở hậu
+    // kỳ. Trước đây hai danh sách do hai lời gọi LLM khác nhau chắt ra và không bao giờ nhìn thấy nhau, nên
+    // guard là chỗ duy nhất chúng gặp — mà guard thì chỉ biết hạ trạng thái và chép nguyên văn mục tồn đọng
+    // vào ô câu hỏi. Distiller đọc được danh sách thì nó gộp mục ấy vào ĐÚNG dòng và viết thành một câu hỏi.
+    [Fact]
+    public async Task UpdateAndLoadAsync_AttachesThePendingOpenQuestions_ToTheDistillTurn()
+    {
+        var (project, ba) = await SeedAsync(turns: 2);
+        var llm = new FakeLlm();
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+        trackedProject.OpenQuestions = InterviewOutlookParser.SerializeOpenQuestions(new[]
+        {
+            new OpenQuestionEntry
+            {
+                Group = "Vòng đời & trạng thái",
+                Text = "chưa rõ kết quả Complete dùng để chuyển bước nào"
+            }
+        });
+
+        await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.Contains("Điểm cần làm rõ còn tồn đọng", llm.LastUserMessage, StringComparison.Ordinal);
+        // Kèm nhãn nhóm: distiller phải gộp mục vào ĐÚNG dòng, không phải đoán nhóm lần thứ hai.
+        Assert.Contains("[Vòng đời & trạng thái] chưa rõ kết quả Complete", llm.LastUserMessage, StringComparison.Ordinal);
+    }
+
+    // Không có mục tồn đọng nào ⇒ không nhồi một tiêu đề rỗng vào prompt của mọi lượt chat.
+    [Fact]
+    public async Task UpdateAndLoadAsync_OmitsThePendingBlock_WhenThereIsNothingPending()
+    {
+        var (project, ba) = await SeedAsync(turns: 2);
+        var llm = new FakeLlm();
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.DoesNotContain("Điểm cần làm rõ còn tồn đọng", llm.LastUserMessage, StringComparison.Ordinal);
+    }
+
     private static ICOGenerator.Contracts.Requirements.CoverageMapItem Row(string? map, string labelPrefix) =>
         CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
 

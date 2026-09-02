@@ -42,7 +42,7 @@ public class CoverageStaleGapGuardTests
 
         Assert.NotNull(map);
         var row = Row(map, "Mục tiêu");
-        Assert.Empty(row.Gap);
+        Assert.Empty(row.NextQuestion);
         // Trạng thái, phần đã ghi nhận, bằng chứng và cờ ★ của dòng đều còn nguyên — guard chỉ xoá mẩu chết.
         Assert.Equal("MỘT PHẦN", row.Status);
         Assert.StartsWith("App quản lý danh sách JD", row.Known, StringComparison.Ordinal);
@@ -62,7 +62,7 @@ public class CoverageStaleGapGuardTests
 
         Assert.NotNull(map);
         var row = Row(map, "Quy tắc nghiệp vụ");
-        Assert.Empty(row.Gap);
+        Assert.Empty(row.NextQuestion);
         Assert.Equal("MỘT PHẦN", row.Status);
         Assert.StartsWith("Mã JD phải duy nhất", row.Known, StringComparison.Ordinal);
     }

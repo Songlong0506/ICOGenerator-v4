@@ -39,7 +39,7 @@ public class CoveragePendingGuardTests
         // Dòng có điểm tồn đọng bị hạ, và mục tồn đọng thành ĐÚNG trường Gap — chỗ cổng readiness đọc.
         var exception = Row(map, "Luồng ngoại lệ");
         Assert.Equal("MỘT PHẦN", exception.Status);
-        Assert.Equal("Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không", exception.Gap);
+        Assert.Equal("Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không", exception.NextQuestion);
         // …còn dòng không liên quan thì không bị đụng tới.
         Assert.Equal("RÕ", Row(map, "Mục tiêu").Status);
     }
@@ -77,7 +77,7 @@ public class CoveragePendingGuardTests
         Assert.Equal("MỘT PHẦN", item.Status);
         Assert.Equal("bảng cột người dùng đã chốt", item.Evidence);
         Assert.Contains("Dùng 6 cột Master List đã chốt", item.Known, StringComparison.Ordinal);
-        Assert.StartsWith("Chưa rõ xử lý khi Item ID", item.Gap, StringComparison.Ordinal);
+        Assert.StartsWith("Chưa rõ xử lý khi Item ID", item.NextQuestion, StringComparison.Ordinal);
     }
 
     // Lượt chắt lọc viết "Luồng ngoại lệ" còn bản đồ ghi "Luồng ngoại lệ & trường hợp đặc biệt" — vẫn là
@@ -140,7 +140,7 @@ public class CoveragePendingGuardTests
                 "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký lại sau khi bị Reject",
                 "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký trùng lịch"));
 
-        Assert.Equal("Chưa rõ đăng ký lại sau khi bị Reject", Row(map, "Luồng ngoại lệ").Gap);
+        Assert.Equal("Chưa rõ đăng ký lại sau khi bị Reject", Row(map, "Luồng ngoại lệ").NextQuestion);
         Assert.DoesNotContain("trùng lịch", map, StringComparison.Ordinal);
     }
 
@@ -181,7 +181,7 @@ public class CoveragePendingGuardTests
 
         var item = Assert.Single(CoverageMapParser.Parse(map));
         Assert.Equal("MỘT PHẦN", item.Status);
-        Assert.Equal("Chưa rõ đăng ký lại sau khi bị Reject", item.Gap);
+        Assert.Equal("Chưa rõ đăng ký lại sau khi bị Reject", item.NextQuestion);
     }
 
     [Fact]

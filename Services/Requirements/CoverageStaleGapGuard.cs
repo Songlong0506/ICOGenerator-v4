@@ -93,15 +93,15 @@ public static partial class CoverageStaleGapGuard
         var changed = false;
         foreach (var item in items)
         {
-            if (item.Gap.Length == 0)
+            if (item.NextQuestion.Length == 0)
                 continue;
 
             // Cụm tín hiệu tái mở (người dùng vừa đính chính nhóm này) đứng ngoài mọi phép xoá: nó không
             // phải một câu hỏi mà là một lệnh MỞ LẠI nhóm — xoá nó là bịt đúng đường người dùng vừa mở.
-            if (item.Gap.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase))
+            if (item.NextQuestion.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var gapWords = Words(item.Gap);
+            var gapWords = Words(item.NextQuestion);
             if (gapWords.Count < MinGapWords)
                 continue;
 
@@ -110,7 +110,7 @@ public static partial class CoverageStaleGapGuard
                 continue;
 
             // Chỉ mẩu còn thiếu bị xoá: trạng thái, phần đã ghi nhận và bằng chứng của dòng giữ nguyên.
-            item.Gap = string.Empty;
+            item.NextQuestion = string.Empty;
             changed = true;
         }
 

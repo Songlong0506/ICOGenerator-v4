@@ -33,8 +33,8 @@ public class CoverageMapEntry
     [Description("Tóm tắt RẤT NGẮN điều đã biết về nhóm này. Rỗng khi CHƯA HỎI.")]
     public string Known { get; set; } = string.Empty;
 
-    [Description("Điều CÒN PHẢI HỎI để nhóm lên RÕ. Bắt buộc khi MỘT PHẦN; rỗng khi RÕ/CHƯA HỎI/KHÔNG ÁP DỤNG.")]
-    public string Gap { get; set; } = string.Empty;
+    [Description("CÂU HỎI hoàn chỉnh sẽ được bày NGUYÊN VĂN cho người dùng để nhóm lên RÕ — không phải câu mô tả trạng thái. Bắt buộc khi MỘT PHẦN; rỗng khi RÕ/CHƯA HỎI/KHÔNG ÁP DỤNG.")]
+    public string NextQuestion { get; set; } = string.Empty;
 
     [Description("Trích NGUYÊN VĂN, ngắn, lời người dùng hoặc câu trong tài liệu nguồn mà kết luận dựa vào. Bắt buộc khi RÕ hoặc MỘT PHẦN. Không diễn đạt lại.")]
     public string Evidence { get; set; } = string.Empty;

@@ -75,11 +75,11 @@ public static class CoverageMapFixture
 
             var known = summary;
             var gap = string.Empty;
-            var at = summary.IndexOf(CoverageMapItem.GapMarker, StringComparison.OrdinalIgnoreCase);
+            var at = summary.IndexOf(CoverageMapItem.NextQuestionMarker, StringComparison.OrdinalIgnoreCase);
             if (at >= 0)
             {
                 known = summary[..at].Trim();
-                gap = summary[(at + CoverageMapItem.GapMarker.Length)..].Trim();
+                gap = summary[(at + CoverageMapItem.NextQuestionMarker.Length)..].Trim();
             }
 
             items.Add(new CoverageMapItem
@@ -88,7 +88,7 @@ public static class CoverageMapFixture
                 Label = match.Groups["label"].Value.Trim(),
                 Status = match.Groups["status"].Value.Trim(),
                 Known = known,
-                Gap = gap,
+                NextQuestion = gap,
                 Evidence = evidence
             });
         }

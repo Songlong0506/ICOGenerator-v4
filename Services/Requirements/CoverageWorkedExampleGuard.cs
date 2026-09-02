@@ -26,8 +26,8 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Một chiều, chỉ HẠ và chỉ THÊM mẩu hỏi.</b> Guard không bao giờ nâng trạng thái và không đụng tới
-/// dòng đã có mẩu <c>còn thiếu:</c> riêng (mẩu của distiller cụ thể hơn mẩu dựng sẵn ở đây). Hạ nhầm —
+/// <b>Một chiều, chỉ HẠ và chỉ THÊM câu hỏi.</b> Guard không bao giờ nâng trạng thái và không đụng tới
+/// dòng đã có câu hỏi kế tiếp riêng (câu của distiller cụ thể hơn câu dựng sẵn ở đây). Hạ nhầm —
 /// một con số vô hại trong tóm tắt, ví dụ "3 vai trò" — thì cái giá là BA hỏi thêm một câu và người dùng
 /// bấm một chip xác nhận; bỏ sót thì cả tài liệu lẫn POC dựng trên một công thức chưa ai kiểm. Cùng cách
 /// cân giá với các chốt chặn còn lại của bản đồ.
@@ -45,17 +45,17 @@ public static class CoverageWorkedExampleGuard
     private const string RuleGroupLabel = "Quy tắc nghiệp vụ";
 
     /// <summary>
-    /// Mẩu hỏi dựng sẵn. Kết bằng dấu hỏi để <see cref="RequirementReadinessGate"/> phát nguyên văn (nó chỉ
-    /// nối thêm đuôi "anh/chị cho mình xin thông tin này nhé?" vào mẩu KHÔNG có dấu hỏi), và cố ý hỏi bằng
+    /// Câu hỏi dựng sẵn. Kết bằng dấu hỏi để <see cref="RequirementReadinessGate"/> phát nguyên văn (nó chỉ
+    /// nối thêm đuôi "anh/chị cho mình xin thông tin này nhé?" vào câu KHÔNG có dấu hỏi), và cố ý hỏi bằng
     /// ngôn ngữ người dùng: "một ví dụ cụ thể tính ra kết quả thế nào" chứ không phải "worked example".
     /// </summary>
-    public const string MissingExampleGap =
+    public const string MissingExampleQuestion =
         "với quy tắc có con số ở trên, anh/chị cho mình một ví dụ cụ thể tính ra kết quả thế nào?";
 
     /// <summary>
-    /// Hạ <c>[RÕ]</c> → <c>[MỘT PHẦN]</c> và gắn mẩu hỏi cho dòng quy tắc chở con số khi
+    /// Hạ <c>[RÕ]</c> → <c>[MỘT PHẦN]</c> và gắn câu hỏi cho dòng quy tắc chở con số khi
     /// <paramref name="workedExamples"/> (đã đọc sẵn qua <c>InterviewOutlookParser</c>) chưa có ví dụ nào.
-    /// Đã có ví dụ, hoặc dòng đã có mẩu <c>còn thiếu:</c> riêng ⇒ trả về đúng chuỗi đã nhận.
+    /// Đã có ví dụ, hoặc dòng đã có câu hỏi kế tiếp riêng ⇒ trả về đúng chuỗi đã nhận.
     /// </summary>
     public static string? Apply(string? coverageMap, IReadOnlyList<string> workedExamples)
     {
@@ -82,7 +82,7 @@ public static class CoverageWorkedExampleGuard
 
             // Dòng đã có mẩu hỏi riêng ⇒ để nguyên: mẩu của distiller bám vào đúng quy tắc còn hụt, cụ thể
             // hơn mẩu dựng sẵn ở đây, và chồng hai mẩu lên nhau thì cổng phát ra một câu hỏi kép.
-            if (item.Gap.Length > 0)
+            if (item.NextQuestion.Length > 0)
                 continue;
 
             var body = item.Known.Trim();
@@ -94,7 +94,7 @@ public static class CoverageWorkedExampleGuard
 
             item.Status = "MỘT PHẦN";
             item.Known = body;
-            item.Gap = MissingExampleGap;
+            item.NextQuestion = MissingExampleQuestion;
             changed = true;
         }
 
