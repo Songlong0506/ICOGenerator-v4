@@ -294,9 +294,29 @@ public static class RequirementReadinessGate
         "chi tiết", "điểm", "mục", "phần", "dữ liệu", "vấn đề", "ý"
     };
 
-    /// <summary>Trần độ dài phần phát lại — câu hỏi, không phải biên bản. Cùng hạng với
-    /// <c>CoveragePendingGuard.MaxGapChars</c>.</summary>
-    private const int MaxRecordedChars = 200;
+    /// <summary>
+    /// Trần AN TOÀN của phần phát lại — chống một dòng bản đồ HỎNG đổ nguyên biên bản vào một bong bóng
+    /// chat, KHÔNG phải trần trình bày. Nó cố ý đặt cao hơn hẳn mọi phần <c>known</c> đúng chuẩn:
+    /// <c>requirement-coverage.v4.md</c> bắt <c>known</c> "tối đa ~2 câu", nên ở một bản đồ lành trần này
+    /// KHÔNG BAO GIỜ chạm tới.
+    ///
+    /// <para>
+    /// <b>Vì sao không còn là 200.</b> Con số cũ chép từ <c>CoveragePendingGuard.MaxGapChars</c>, nhưng
+    /// hai trần làm hai việc ngược nhau: bên kia cắt thứ được GHI VÀO bản đồ (một mẩu máy đọc, cắt ngắn
+    /// vẫn còn nguyên nghĩa), còn ở đây là thứ được ĐỌC RA cho người dùng rà. Mà nhánh phát lại hỏi đúng
+    /// một câu: *"phần này còn chỗ nào chưa đúng hoặc còn thiếu không?"* — cắt bản ghi nhận đi thì câu hỏi
+    /// đó tự vô hiệu, người dùng không có cách nào biết chỗ bị cắt có sai hay có thiếu gì. Ca thật đã lên
+    /// màn hình: một dòng «Mục tiêu / bài toán» dài 204 ký tự bị cắt đúng giữa cụm cuối, người dùng đọc
+    /// được một câu kết bằng *"…. Phần này còn chỗ nào chưa đúng…?"* và không rà được gì.
+    /// </para>
+    /// </summary>
+    private const int MaxRecordedChars = 800;
+
+    /// <summary>
+    /// Dấu kết CÂU dùng để cắt phần phát lại. Chỉ có ba: dấu chấm, chấm phẩy và xuống dòng — một bản ghi
+    /// nhận không kết bằng "!" hay "?", và cắt ở một dấu như thế sẽ để lại câu hỏi giả trong lời phát lại.
+    /// </summary>
+    private static readonly char[] RecordedSentenceEnders = { '.', ';', '\n' };
 
     // Phần ĐÃ GHI NHẬN của một dòng [MỘT PHẦN]: mọi thứ đứng TRƯỚC cụm "còn thiếu:". Dùng để phát lại theo
     // "QUY TẮC PHÁT LẠI" của prompt chat khi distiller không viết được mẩu còn hụt — người dùng chỉ thấy ô
@@ -317,8 +337,35 @@ public static class RequirementReadinessGate
         if (note >= 0)
             recorded = recorded[..note].Trim();
 
-        recorded = StripReopenMarker(recorded).Trim().TrimEnd('.', ';', ',', '—', '-');
-        return recorded.Length > MaxRecordedChars ? recorded[..MaxRecordedChars].TrimEnd() + "…" : recorded;
+        recorded = StripReopenMarker(recorded).Trim();
+        return TrimToWholeSentences(recorded).TrimEnd('.', ';', ',', '—', '-');
+    }
+
+    /// <summary>
+    /// Phần phát lại, cắt ở RANH GIỚI CÂU cuối cùng nằm trong trần — và chỉ khi có một ranh giới như thế.
+    /// Dưới trần thì trả về NGUYÊN VĂN: mặc định của nhánh phát lại là đọc đủ điều đã ghi nhận, vì đó là
+    /// thứ duy nhất người dùng có để rà.
+    ///
+    /// <para>
+    /// Không còn cắt giữa chừng rồi dán "…". Cắt theo ký tự làm hỏng đúng cái nó phục vụ: câu cụt không rà
+    /// được, mà dấu "…" cũng không nói được phần bị nuốt là gì — người dùng chỉ biết mình đang thiếu thông
+    /// tin, không biết thiếu gì. Cắt theo câu thì phần đọc được luôn là những câu TRỌN VẸN, nên dù có chạm
+    /// trần (chỉ xảy ra với bản đồ hỏng) lời phát lại vẫn là thứ trả lời được.
+    /// </para>
+    ///
+    /// <para>
+    /// Không có dấu kết câu nào trong trần (cả phần ghi nhận là MỘT câu chạy dài) ⇒ phát nguyên văn, chấp
+    /// nhận một bong bóng dài. Cắt giữa một câu đơn là mất đúng vế cuối — thường là vế chở điều kiện — và
+    /// đó là ca tệ nhất chứ không phải ca an toàn.
+    /// </para>
+    /// </summary>
+    private static string TrimToWholeSentences(string recorded)
+    {
+        if (recorded.Length <= MaxRecordedChars)
+            return recorded;
+
+        var cut = recorded.LastIndexOfAny(RecordedSentenceEnders, MaxRecordedChars - 1);
+        return cut > 0 ? recorded[..(cut + 1)].TrimEnd() : recorded;
     }
 
     // Cụm <see cref="AskedQuestionHistory.ReopenNote"/> mở đầu phần "còn thiếu" của một dòng vừa bị người

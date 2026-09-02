@@ -188,6 +188,46 @@ public class CoverageDeadQuestionLoopTests
         Assert.DoesNotContain(CoverageGroupOpeners.Find("Thông báo / nhắc nhở")!, readiness.Message, StringComparison.Ordinal);
     }
 
+    // Phần phát lại KHÔNG bị cắt giữa chừng. Nhánh này hỏi đúng một câu — "còn chỗ nào chưa đúng hoặc còn
+    // thiếu?" — nên phần ghi nhận là thứ DUY NHẤT người dùng có để rà: cắt nó đi là tự vô hiệu câu hỏi.
+    //
+    // Ca thật đã lên màn hình (dự án khóa học bắt buộc): dòng «Mục tiêu / bài toán» dài 204 ký tự, trần cũ
+    // 200 cắt đúng giữa cụm cuối và người dùng đọc được một câu kết bằng "…. Phần này còn chỗ nào chưa
+    // đúng…?" — không biết chỗ bị nuốt có sai hay có thiếu gì để mà bổ sung.
+    [Fact]
+    public void PlaybackReadsBackEverythingRecorded_WhenTheLineIsLongerThanTheOldCap()
+    {
+        var known = "Quản lý khóa học bắt buộc, theo dõi hạn hiệu lực, gửi email nhắc nhở khi sắp hết hạn. "
+            + "Nhân viên xem khóa học bắt buộc và lịch sử học; Manager xem tiến độ học của nhân viên; "
+            + "Admin quản lý danh sách vai trò và gán khóa bắt buộc cho từng vai";
+        Assert.True(known.Length > 200, "fixture phải vượt trần CŨ, nếu không test này không kiểm gì cả");
+
+        var readiness = RequirementReadinessGate.Evaluate(
+            CoverageMapFixture.Map($"- ★ Mục tiêu / bài toán: [MỘT PHẦN] {known}"));
+
+        Assert.Contains(known, readiness.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("…", readiness.Message, StringComparison.Ordinal);
+    }
+
+    // Trần AN TOÀN vẫn còn (một dòng bản đồ hỏng không được đổ nguyên biên bản vào bong bóng chat), nhưng
+    // nó cắt ở RANH GIỚI CÂU: phần đọc được luôn là những câu TRỌN VẸN, không phải một câu cụt.
+    [Fact]
+    public void PlaybackCutsOnlyAtASentenceBoundary_WhenTheLineIsAbsurdlyLong()
+    {
+        var sentence = "Người dùng kể một ý dài chừng năm mươi ký tự ở đây. ";
+        var known = string.Concat(Enumerable.Repeat(sentence, 40)) + "Câu cuối cùng bị bỏ lại.";
+
+        var readiness = RequirementReadinessGate.Evaluate(
+            CoverageMapFixture.Map($"- ★ Mục tiêu / bài toán: [MỘT PHẦN] {known}"));
+
+        var playback = readiness.Message["Mình đang ghi nhận: ".Length..];
+        playback = playback[..playback.IndexOf(". Phần này", StringComparison.Ordinal)];
+
+        Assert.True(playback.Length < known.Length, "dòng vượt trần an toàn thì phải bị cắt");
+        Assert.EndsWith("ký tự ở đây", playback, StringComparison.Ordinal);
+        Assert.DoesNotContain("Câu cuối cùng bị bỏ lại", readiness.Message, StringComparison.Ordinal);
+    }
+
     // Phần phát lại phải sạch ghi chú MÁY: cụm ReopenNote và "(ghi nhận trước đó: …)" là ghi chép của hệ
     // thống dành cho BA, đọc lên là xưng "người dùng" ở ngôi thứ ba với chính người đang đọc.
     [Fact]
