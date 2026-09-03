@@ -123,36 +123,6 @@ public class CoverageMapParserTests
         Assert.Empty(items[1].NextQuestion);
     }
 
-    // ĐƯỜNG NÂNG CẤP: các bản đồ đã nằm trong DB trước khi trường `gap` đổi tên thành `nextQuestion`.
-    // Không đọc lại được thì mọi dự án đang phỏng vấn dở mất sạch câu hỏi kế tiếp ở lượt đầu tiên sau khi
-    // triển khai — cổng rơi hết về nhánh phát lại và người dùng nhận một câu rộng hơn hẳn câu họ đang chờ.
-    [Fact]
-    public void Parse_ReadsTheLegacyGapField_OfMapsAlreadyInTheDatabase()
-    {
-        const string legacy =
-            """
-            {"items":[{"label":"Mục tiêu / bài toán","core":true,"status":"MỘT PHẦN","known":"Quản lý đơn nghỉ phép.","gap":"ai duyệt thay trưởng phòng","evidence":"\"đơn khoá sau khi duyệt\""}]}
-            """;
-
-        var row = Assert.Single(CoverageMapParser.Parse(legacy));
-
-        Assert.Equal("ai duyệt thay trưởng phòng", row.NextQuestion);
-        Assert.Equal("Quản lý đơn nghỉ phép.", row.Known);
-        Assert.Equal("MỘT PHẦN", row.Status);
-    }
-
-    // Bản đồ CHUYỂN TIẾP — vừa có trường mới vừa còn trường cũ: trường mới thắng, không ghép chồng hai câu.
-    [Fact]
-    public void Parse_PrefersTheNewField_WhenBothArePresent()
-    {
-        const string mixed =
-            """
-            {"items":[{"label":"Mục tiêu / bài toán","status":"MỘT PHẦN","known":"","nextQuestion":"câu mới","gap":"câu cũ","evidence":""}]}
-            """;
-
-        Assert.Equal("câu mới", Assert.Single(CoverageMapParser.Parse(mixed)).NextQuestion);
-    }
-
     // Bản đồ toàn tiếng Việt và nó đi vào prompt ở MỌI lượt chat. Mặc định của System.Text.Json biến mỗi
     // chữ có dấu thành \uXXXX — dài gấp ~6 lần cho đúng một nội dung.
     [Fact]

@@ -349,6 +349,31 @@ public static class ScreenScopeGate
         // phạm vi trôi — mà chính nó mới là lý do cổng này được phép mở lại.
         return InterviewTableGate.IsClear(items, InterviewTableGate.Groups.MainFlow);
     }
+
+    /// <summary>
+    /// Ba bảng đứng TRƯỚC bảng màn hình đã hết việc chưa: không cổng nào trong số đó còn đòi một lượt bày.
+    /// "Hết việc" gồm cả hai đường — bảng đã được người dùng CHỐT, hoặc cổng của nó sẽ không bao giờ mở
+    /// (nhóm ở <c>[KHÔNG ÁP DỤNG]</c>, hay nhóm «Báo cáo / thống kê» không lên <c>[RÕ]</c>).
+    ///
+    /// <para>
+    /// <b>Chính cổng này KHÔNG dùng nó, và đó là cố ý.</b> Cổng bày bảng có
+    /// <see cref="InterviewTableGate.Select"/> đứng trên phân xử: mở sớm thì bảng đứng trước thắng ưu tiên
+    /// và lượt ấy vẫn bày đúng bảng cần bày, không mất gì. Thứ KHÔNG có trọng tài là
+    /// <see cref="InterviewScopeService"/> — nó chạy ngay khi điều kiện của nó đúng, và cái nó sinh ra thì
+    /// ở lại vĩnh viễn (<see cref="ScreenScopeMapBuilder.Merge"/> chỉ được THÊM). Nên vế này tồn tại cho
+    /// riêng lượt chắt lọc, đặt ở đây để nó nằm cạnh các điều kiện nó phải khớp.
+    /// </para>
+    ///
+    /// <para>
+    /// Không dựng thêm chỗ kẹt: một cổng đứng trước kẹt MỞ (model không trả nổi bảng dùng được, người dùng
+    /// không gửi) thì <see cref="InterviewTableGate.Select"/> vốn đã không bao giờ chọn tới bảng màn hình,
+    /// nên phần phạm vi chắt ra lúc ấy cũng không có đường nào để đi ra hỏi.
+    /// </para>
+    /// </summary>
+    internal static bool PrecedingTablesDone(string? coverageMap, string? flowMapJson, string? entityMapJson, string? reportMapJson)
+        => !FlowMapGate.ShouldAsk(coverageMap, flowMapJson)
+           && !EntityMapGate.ShouldAsk(coverageMap, entityMapJson)
+           && !ReportMapGate.ShouldAsk(coverageMap, reportMapJson, entityMapJson);
 }
 
 /// <summary>

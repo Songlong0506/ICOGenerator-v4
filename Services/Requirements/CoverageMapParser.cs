@@ -69,55 +69,10 @@ public static class CoverageMapParser
     };
 
     /// <summary>Đọc bản đồ đã lưu thành danh sách dòng. Rỗng/không đọc được ⇒ danh sách rỗng.</summary>
-    public static IReadOnlyList<CoverageMapItem> Parse(string? coverageMap)
-    {
-        if (string.IsNullOrWhiteSpace(coverageMap))
-            return Array.Empty<CoverageMapItem>();
-
-        var items = ToItems(LlmJson.TryDeserialize<CoverageMapDocument>(coverageMap));
-        return AdoptLegacyGap(items, coverageMap);
-    }
-
-    /// <summary>
-    /// Đường NÂNG CẤP cho các bản đồ đã nằm trong DB từ trước khi trường <c>gap</c> được đổi tên thành
-    /// <see cref="CoverageMapItem.NextQuestion"/>. Không có nó thì mọi dự án đang phỏng vấn dở mất sạch câu
-    /// hỏi kế tiếp ở lượt đầu tiên sau khi triển khai: cổng "Write Requirement" rơi hết về nhánh phát lại
-    /// (<c>RequirementReadinessGate</c>) và người dùng nhận một câu hỏi rộng hơn hẳn câu họ đang chờ.
-    /// <para>
-    /// Chỉ chạy khi chuỗi có chữ <c>"gap"</c> — với bản đồ mới thì đây là một phép tìm chuỗi, không phải
-    /// một lượt đọc JSON thứ hai; mà bản đồ này được đọc ở MỌI lượt chat. Đọc theo VỊ TRÍ và chỉ điền vào
-    /// ô đang rỗng: một bản đồ vừa có <c>nextQuestion</c> vừa còn <c>gap</c> (dự án đang chuyển tiếp) thì
-    /// trường mới thắng.
-    /// </para>
-    /// </summary>
-    private static IReadOnlyList<CoverageMapItem> AdoptLegacyGap(IReadOnlyList<CoverageMapItem> items, string coverageMap)
-    {
-        if (items.Count == 0 || !coverageMap.Contains("\"gap\"", StringComparison.OrdinalIgnoreCase))
-            return items;
-
-        var legacy = LlmJson.TryDeserialize<LegacyCoverageMapDocument>(coverageMap)?.Items;
-        if (legacy == null)
-            return items;
-
-        for (var i = 0; i < items.Count && i < legacy.Count; i++)
-        {
-            if (items[i].NextQuestion.Length == 0)
-                items[i].NextQuestion = (legacy[i].Gap ?? string.Empty).Trim();
-        }
-
-        return items;
-    }
-
-    /// <summary>Hình dạng CŨ của bản đồ, chỉ để đọc lại trường <c>gap</c> đã đổi tên. Không bao giờ ghi.</summary>
-    private sealed class LegacyCoverageMapDocument
-    {
-        public List<LegacyCoverageMapEntry> Items { get; set; } = new();
-    }
-
-    private sealed class LegacyCoverageMapEntry
-    {
-        public string? Gap { get; set; }
-    }
+    public static IReadOnlyList<CoverageMapItem> Parse(string? coverageMap) =>
+        string.IsNullOrWhiteSpace(coverageMap)
+            ? Array.Empty<CoverageMapItem>()
+            : ToItems(LlmJson.TryDeserialize<CoverageMapDocument>(coverageMap));
 
     /// <summary>
     /// Chuẩn hoá một <see cref="CoverageMapDocument"/> (đọc từ DB hoặc do structured output trả về) thành
