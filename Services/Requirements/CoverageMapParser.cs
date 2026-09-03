@@ -31,7 +31,7 @@ public readonly record struct CoverageProgress(int Clear, int Applicable, int To
 /// <summary>
 /// Đọc/ghi "Bản đồ bao phủ yêu cầu" của một dự án. Bản đồ được LƯU dưới dạng JSON
 /// (<see cref="CoverageMapDocument"/>) và mọi tầng đọc nó qua <see cref="Parse"/> để lấy danh sách
-/// <see cref="CoverageMapItem"/> — panel tiến độ, cổng readiness, các cổng bảng, và bốn guard sửa bản đồ.
+/// <see cref="CoverageMapItem"/> — panel tiến độ, cổng readiness, các cổng bảng, và năm guard sửa bản đồ.
 ///
 /// <para>
 /// <b>Vì sao là JSON.</b> Bản đồ từng là 12 dòng bullet nhồi bốn trường vào một chuỗi
@@ -93,7 +93,7 @@ public static class CoverageMapParser
                 IsCore = x.Core,
                 Status = NormalizeStatus(x.Status),
                 Known = (x.Known ?? string.Empty).Trim(),
-                Gap = (x.Gap ?? string.Empty).Trim(),
+                NextQuestion = (x.NextQuestion ?? string.Empty).Trim(),
                 Evidence = (x.Evidence ?? string.Empty).Trim()
             })
             .ToList();
@@ -109,7 +109,7 @@ public static class CoverageMapParser
                 Core = x.IsCore,
                 Status = x.Status,
                 Known = x.Known,
-                Gap = x.Gap,
+                NextQuestion = x.NextQuestion,
                 Evidence = x.Evidence
             }).ToList()
         }, SerializerOptions);

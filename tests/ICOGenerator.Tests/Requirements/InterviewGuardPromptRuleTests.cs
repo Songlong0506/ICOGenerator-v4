@@ -90,6 +90,43 @@ public class InterviewGuardPromptRuleTests
         Assert.Contains("HỎI ĐƯỢC MỘT ĐIỀU CỤ THỂ", prompt, StringComparison.Ordinal);
     }
 
+    // Trường được đổi tên `gap` → `nextQuestion` chính vì cái tên cũ mời gọi một câu MÔ TẢ CHỖ HỤT, mà cổng
+    // thì phát nguyên văn nó ra màn hình. Prompt phải nói thẳng luật ấy, kèm ca thật, nếu không lần sửa sau
+    // chỉ còn thấy một cái tên trường mà không biết vì sao nó là tên đó.
+    [Fact]
+    public void CoveragePrompt_RequiresAQuestionNotAStateReport()
+    {
+        var prompt = ReadPrompt(CoveragePromptKey);
+
+        Assert.Contains("là một CÂU HỎI, không phải một câu tường thuật trạng thái", prompt, StringComparison.Ordinal);
+        Assert.Contains("Bảng thông báo theo sự kiện chưa được chốt", prompt, StringComparison.Ordinal);
+    }
+
+    // Hai nhóm chốt-bằng-bảng: BA bị cấm hỏi lẻ chúng, nên một câu hỏi gắn vào đó không có đường nào được
+    // trả lời. Luật này có chốt chặn tất định (CoverageQuestionGuard) nhưng vẫn phải nằm trong prompt —
+    // distiller viết ra một ô sẽ bị xoá là mất trắng một lượt khai thác.
+    [Fact]
+    public void CoveragePrompt_KeepsTheTableDecidedGroupsQuestionless()
+    {
+        var prompt = ReadPrompt(CoveragePromptKey);
+
+        Assert.Contains("Hai nhóm chốt bằng BẢNG luôn để `nextQuestion` RỖNG", prompt, StringComparison.Ordinal);
+        Assert.Contains("Phân quyền theo nghiệp vụ", prompt, StringComparison.Ordinal);
+        Assert.Contains("Thông báo / nhắc nhở", prompt, StringComparison.Ordinal);
+    }
+
+    // Bản đồ là NGUỒN DUY NHẤT của câu hỏi kế tiếp ⇒ danh sách tồn đọng phải là ĐẦU VÀO của lượt distill,
+    // không phải một danh sách song song chỉ gặp bản đồ ở chốt chặn hậu kỳ.
+    [Fact]
+    public void CoveragePrompt_TellsTheDistillerHowToUseThePendingOpenQuestions()
+    {
+        var prompt = ReadPrompt(CoveragePromptKey);
+
+        Assert.Contains("## Điểm cần làm rõ còn tồn đọng", prompt, StringComparison.Ordinal);
+        // Khối này chắt ở hậu kỳ nên nó luôn cũ hơn bản đồ một lượt — luật quan trọng nhất của mục đó.
+        Assert.Contains("luôn CŨ hơn bản đồ đúng một lượt", prompt, StringComparison.Ordinal);
+    }
+
     // Guard ví dụ số hạ dòng quy tắc bất kể distiller chấm gì — nói ra để nó không cố "chữa" bằng cách
     // viết tóm tắt dài hơn.
     [Fact]

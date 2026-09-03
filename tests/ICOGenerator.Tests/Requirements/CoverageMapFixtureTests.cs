@@ -29,7 +29,7 @@ public class CoverageMapFixtureTests
         Assert.Equal("Đối tượng người dùng & vai trò", item.Label);
         Assert.Equal("MỘT PHẦN", item.Status);
         Assert.Equal("Có 3 vai trò.", item.Known);
-        Assert.Equal("mỗi vai trò làm được gì", item.Gap);
+        Assert.Equal("mỗi vai trò làm được gì", item.NextQuestion);
         Assert.Equal("\"nhân viên, quản lý, HR\"", item.Evidence);
     }
 

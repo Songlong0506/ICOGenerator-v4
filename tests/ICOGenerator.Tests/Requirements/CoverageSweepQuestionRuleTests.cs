@@ -11,7 +11,7 @@ namespace ICOGenerator.Tests.Requirements;
 // «Luồng ngoại lệ & trường hợp đặc biệt» vẫn lên [RÕ] vì chuẩn của nhóm chỉ đòi "ít nhất một tình huống
 // hỏng KÈM cách xử lý".
 //
-// Thiệt hại kép, và vế thứ hai mới là vế đắt: [RÕ] vừa CẤM BA hỏi lại nhóm đó, vừa xóa luôn mẩu `gap` —
+// Thiệt hại kép, và vế thứ hai mới là vế đắt: [RÕ] vừa CẤM BA hỏi lại nhóm đó, vừa xóa luôn câu `nextQuestion` —
 // thứ duy nhất chỉ đường hỏi tiếp. Không còn gì hợp lệ để hỏi, BA phát lại nguyên khung câu vét với một
 // danh sách ví dụ khác và đốt trọn một lượt.
 //
@@ -38,7 +38,7 @@ public class CoverageSweepQuestionRuleTests
         Assert.Contains("Luồng ngoại lệ & trường hợp đặc biệt", prompt, StringComparison.Ordinal);
         // "Ít nhất một" là SÀN cho ca người dùng tự kể, không phải giấy phép đóng nhóm khi BA đã liệt kê.
         Assert.Contains("Trần một-ca không phải là chuẩn", prompt, StringComparison.OrdinalIgnoreCase);
-        // Và `gap` phải gọi TÊN các ca còn treo — cổng readiness lấy nguyên văn nó làm câu hỏi.
+        // Và `nextQuestion` phải gọi TÊN các ca còn treo — cổng readiness lấy nguyên văn nó làm câu hỏi.
         Assert.Contains("khóa học bị hủy", prompt, StringComparison.OrdinalIgnoreCase);
     }
 }

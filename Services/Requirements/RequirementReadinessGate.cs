@@ -176,8 +176,8 @@ public static class RequirementReadinessGate
     /// </summary>
     private static string AskFor(CoverageMapItem item)
     {
-        // 1. Mẩu "còn thiếu: …" — thứ duy nhất bước soạn tài liệu còn phải tự đoán, nên hỏi thẳng nó.
-        var missing = ExtractMissingPart(item.Gap);
+        // 1. Câu hỏi kế tiếp của dòng — thứ duy nhất bước soạn tài liệu còn phải tự đoán, nên hỏi thẳng nó.
+        var missing = ExtractMissingPart(item);
         if (!string.IsNullOrWhiteSpace(missing))
             return $"Anh/chị cho mình hỏi thêm: {ToQuestion(missing)}";
 
@@ -207,92 +207,17 @@ public static class RequirementReadinessGate
               + "đang diễn ra thế nào?";
     }
 
-    // Phần "còn thiếu: …" trên một dòng [MỘT PHẦN] — ghi chú của distiller về đúng mẩu còn hụt. Định dạng
-    // do prompt requirement-coverage.v4 ghim; không có thì trả rỗng để caller hỏi câu mở đầu của nhóm.
-    private static string ExtractMissingPart(string? gap)
-    {
-        if (string.IsNullOrWhiteSpace(gap))
-            return string.Empty;
-
-        var missing = gap.Trim();
-        // Ghi chú tái mở của một dòng bị người dùng đính chính kèm "(ghi nhận trước đó: …)" — phần trong
-        // ngoặc là ghi chép cũ của hệ thống, không phải điều cần hỏi.
-        var note = missing.IndexOf("(ghi nhận trước đó:", StringComparison.OrdinalIgnoreCase);
-        if (note >= 0)
-            missing = missing[..note].Trim();
-
-        missing = StripReopenMarker(missing).TrimEnd('.', ';', ',');
-
-        // Mẩu RỖNG NGHĨA thì coi như không có: caller rơi về nhánh PHÁT LẠI, một câu hỏi đóng lại được.
-        return IsHollowGap(missing) ? string.Empty : missing;
-    }
-
-    /// <summary>
-    /// Mẩu <c>còn thiếu:</c> không nói được đang hỏi cái gì — *"các quy tắc khác (nếu có)"*, *"thông tin
-    /// bổ sung"*, *"các điểm còn lại"*. Nó là một CHỖ TRỐNG chứ không phải một câu hỏi: distiller viết ra
-    /// để dòng trông "chưa xong", nhưng cổng thì phát nguyên văn nó lên màn hình.
-    ///
-    /// <para>
-    /// Ca thật (dự án JD Libary 5, lượt 26 — lượt CUỐI của buổi phỏng vấn): người dùng nhận
-    /// *"Anh/chị cho mình hỏi thêm: các quy tắc khác (nếu có) — anh/chị cho mình xin thông tin này nhé?"*.
-    /// Câu đó không trả lời được bằng một điều cụ thể nào, và tệ hơn: một tiếng *"không có"* sẽ lật dòng
-    /// «Quy tắc nghiệp vụ &amp; ràng buộc» lên <c>[RÕ]</c> mà không thêm được một quy tắc nào — cổng mở ra
-    /// bằng một câu hỏi rỗng. Nhánh phát lại (*"Mình đang ghi nhận: … còn chỗ nào chưa đúng hoặc còn thiếu
-    /// không?"*) nói đúng bằng ấy ý nhưng chở theo điều đã ghi nhận, nên người dùng đọc là trả lời được.
-    /// </para>
-    ///
-    /// <para>
-    /// Nhận diện theo HÌNH DẠNG, cùng cách với chip "khác" trần ở <see cref="BAChatReplyParser"/>: bỏ phần
-    /// trong ngoặc, bỏ từ chỉ số nhiều ở đầu, rồi hỏi phần còn lại có phải một danh từ MÊ-TA gắn đuôi
-    /// "khác / còn lại / bổ sung" hay không. Danh sách đầu mê-ta cố ý HẸP — một mẩu chở danh từ nghiệp vụ
-    /// thật (*"các trạng thái khác của JD"*) không lọt vào đây, và lọt lưới thì chỉ mất một lượt.
-    /// </para>
-    /// </summary>
-    private static bool IsHollowGap(string missing)
-    {
-        var text = missing.ToLowerInvariant().Trim();
-
-        // "(nếu có)", "(nếu cần)" — phần chú không bao giờ là nội dung cần hỏi.
-        var paren = text.IndexOf('(');
-        if (paren >= 0)
-            text = text[..paren];
-
-        text = text.Trim(GapTrimChars);
-        foreach (var prefix in PluralPrefixes)
-        {
-            if (text.StartsWith(prefix, StringComparison.Ordinal))
-                text = text[prefix.Length..].Trim();
-        }
-
-        if (text.Length == 0)
-            return true;
-
-        foreach (var suffix in HollowSuffixes)
-        {
-            if (!text.EndsWith(suffix, StringComparison.Ordinal))
-                continue;
-
-            var head = text[..^suffix.Length].Trim(GapTrimChars);
-            if (MetaGapHeads.Contains(head))
-                return true;
-        }
-
-        return MetaGapHeads.Contains(text);
-    }
-
-    private static readonly char[] GapTrimChars = { ' ', '.', ',', ';', ':', '-', '–', '…' };
-
-    private static readonly string[] PluralPrefixes = { "các ", "những ", "một số " };
-
-    private static readonly string[] HollowSuffixes = { "khác", "còn lại", "bổ sung", "chưa nêu" };
-
-    // Danh từ chỉ CHỖ của câu trả lời chứ không chở câu trả lời nào — cùng vai trò với
-    // BAChatReplyParser.MetaChipHeads, và cũng phải hẹp vì lý do y hệt.
-    private static readonly HashSet<string> MetaGapHeads = new(StringComparer.Ordinal)
-    {
-        "quy tắc", "quy tắc nghiệp vụ", "quy định", "ràng buộc", "thông tin", "yêu cầu", "nội dung",
-        "chi tiết", "điểm", "mục", "phần", "dữ liệu", "vấn đề", "ý"
-    };
+    // Câu hỏi kế tiếp của một dòng [MỘT PHẦN], đã lược hai ghi chú máy (cụm tái mở và "(ghi nhận trước
+    // đó: …)") — phần còn lại là thứ được đọc ra màn hình. Câu KHÔNG DÙNG ĐƯỢC (rỗng nghĩa, tường thuật
+    // trạng thái, hoặc gắn vào một nhóm chốt-bằng-bảng) trả rỗng để caller rơi về nhánh PHÁT LẠI.
+    //
+    // Phép thử nằm ở CoverageQuestionGuard và guard đó đã lọc ngay ở đường ghi; cổng vẫn gọi lại nó vì bản
+    // đồ của một dự án chỉ được lọc từ lượt distill KẾ TIẾP trở đi — thứ đang nằm trong DB lúc người dùng
+    // bấm nút thì chưa qua lớp nào cả.
+    private static string ExtractMissingPart(CoverageMapItem item)
+        => CoverageQuestionGuard.IsUsable(item.NextQuestion, item.Label)
+            ? CoverageQuestionGuard.StripMachineNotes(item.NextQuestion)
+            : string.Empty;
 
     /// <summary>
     /// Trần AN TOÀN của phần phát lại — chống một dòng bản đồ HỎNG đổ nguyên biên bản vào một bong bóng
@@ -301,7 +226,7 @@ public static class RequirementReadinessGate
     /// KHÔNG BAO GIỜ chạm tới.
     ///
     /// <para>
-    /// <b>Vì sao không còn là 200.</b> Con số cũ chép từ <c>CoveragePendingGuard.MaxGapChars</c>, nhưng
+    /// <b>Vì sao không còn là 200.</b> Con số cũ chép từ <c>CoveragePendingGuard.MaxQuestionChars</c>, nhưng
     /// hai trần làm hai việc ngược nhau: bên kia cắt thứ được GHI VÀO bản đồ (một mẩu máy đọc, cắt ngắn
     /// vẫn còn nguyên nghĩa), còn ở đây là thứ được ĐỌC RA cho người dùng rà. Mà nhánh phát lại hỏi đúng
     /// một câu: *"phần này còn chỗ nào chưa đúng hoặc còn thiếu không?"* — cắt bản ghi nhận đi thì câu hỏi
@@ -333,11 +258,11 @@ public static class RequirementReadinessGate
 
         var recorded = known.Trim();
 
-        var note = recorded.IndexOf("(ghi nhận trước đó:", StringComparison.OrdinalIgnoreCase);
+        var note = recorded.IndexOf(CoverageQuestionGuard.RecordedNote, StringComparison.OrdinalIgnoreCase);
         if (note >= 0)
             recorded = recorded[..note].Trim();
 
-        recorded = StripReopenMarker(recorded).Trim();
+        recorded = CoverageQuestionGuard.StripReopenMarker(recorded).Trim();
         return TrimToWholeSentences(recorded).TrimEnd('.', ';', ',', '—', '-');
     }
 
@@ -366,27 +291,6 @@ public static class RequirementReadinessGate
 
         var cut = recorded.LastIndexOfAny(RecordedSentenceEnders, MaxRecordedChars - 1);
         return cut > 0 ? recorded[..(cut + 1)].TrimEnd() : recorded;
-    }
-
-    // Cụm <see cref="AskedQuestionHistory.ReopenNote"/> mở đầu phần "còn thiếu" của một dòng vừa bị người
-    // dùng đính chính. Nó là TÍN HIỆU MÁY ĐỌC (miễn phanh chống-hỏi-lại cho nhóm đó), KHÔNG phải điều cần
-    // hỏi — đọc nguyên văn ra màn hình thì lượt gate thành một câu rỗng nghĩa: *"người dùng báo phần này
-    // chưa đúng — cần hỏi lại và chốt lại — anh/chị cho mình xin thông tin này nhé?"*, xưng "người dùng" ở
-    // ngôi thứ ba với chính người đang đọc và không hỏi gì cả. Ca thật đã gặp trên màn hình (dự án
-    // JD Library, lượt 34).
-    //
-    // Cắt trọn CÂU chứa cụm đó và giữ phần distiller viết thêm sau nó — prompt requirement-coverage.v4
-    // § "Người dùng đính chính một nhóm" bắt buộc viết tiếp đúng mẩu cần hỏi lại. Không còn gì ⇒ trả rỗng
-    // để caller rơi về câu mở đầu của nhóm: một câu hỏi rộng vẫn trả lời được, còn cụm tín hiệu thì không.
-    private static string StripReopenMarker(string missing)
-    {
-        var at = missing.IndexOf(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase);
-        if (at < 0)
-            return missing;
-
-        var sentenceEnd = missing.IndexOf('.', at);
-        var tail = sentenceEnd >= 0 ? missing[(sentenceEnd + 1)..] : string.Empty;
-        return (missing[..at] + " " + tail).Trim();
     }
 
     private static string ToQuestion(string missing)

@@ -107,7 +107,7 @@ public static class CoverageConfirmedTableGuard
 
             item.Status = "RÕ";
             item.Known = row.Summary;
-            item.Gap = string.Empty;
+            item.NextQuestion = string.Empty;
             item.Evidence = row.Evidence;
             changed = true;
         }

@@ -102,7 +102,7 @@ public class CoverageMapParserTests
             new()
             {
                 Label = "Mục tiêu / bài toán", IsCore = true, Status = "MỘT PHẦN",
-                Known = "Quản lý đơn nghỉ phép.", Gap = "ai duyệt thay trưởng phòng",
+                Known = "Quản lý đơn nghỉ phép.", NextQuestion = "ai duyệt thay trưởng phòng",
                 Evidence = "\"không phải trưởng phòng duyệt đâu\""
             },
             new() { Label = "Báo cáo / thống kê", Status = "KHÔNG ÁP DỤNG", Known = "Người dùng nói không cần." }
@@ -115,12 +115,12 @@ public class CoverageMapParserTests
         Assert.True(items[0].IsCore);
         Assert.Equal("MỘT PHẦN", items[0].Status);
         Assert.Equal("Quản lý đơn nghỉ phép.", items[0].Known);
-        Assert.Equal("ai duyệt thay trưởng phòng", items[0].Gap);
+        Assert.Equal("ai duyệt thay trưởng phòng", items[0].NextQuestion);
         Assert.Equal("\"không phải trưởng phòng duyệt đâu\"", items[0].Evidence);
 
         Assert.Equal("KHÔNG ÁP DỤNG", items[1].Status);
         Assert.False(items[1].IsCore);
-        Assert.Empty(items[1].Gap);
+        Assert.Empty(items[1].NextQuestion);
     }
 
     // Bản đồ toàn tiếng Việt và nó đi vào prompt ở MỌI lượt chat. Mặc định của System.Text.Json biến mỗi
@@ -166,9 +166,9 @@ public class CoverageMapParserTests
     public void Summary_JoinsKnownAndGap_ForTheProgressPanel()
     {
         Assert.Equal("Quản lý đơn. còn thiếu: ai duyệt",
-            new CoverageMapItem { Known = "Quản lý đơn.", Gap = "ai duyệt" }.Summary);
+            new CoverageMapItem { Known = "Quản lý đơn.", NextQuestion = "ai duyệt" }.Summary);
         Assert.Equal("Quản lý đơn.", new CoverageMapItem { Known = "Quản lý đơn." }.Summary);
-        Assert.Equal("còn thiếu: ai duyệt", new CoverageMapItem { Gap = "ai duyệt" }.Summary);
+        Assert.Equal("còn thiếu: ai duyệt", new CoverageMapItem { NextQuestion = "ai duyệt" }.Summary);
         Assert.Empty(new CoverageMapItem().Summary);
     }
 }

@@ -62,7 +62,7 @@ public class CoverageConfirmedTableGuardTests
         var notification = Row(map, "Thông báo");
         Assert.Equal("RÕ", notification.Status);
         // Mẩu còn phải hỏi là thứ cổng đem ra hỏi ⇒ phải biến mất hẳn, không chỉ đổi trạng thái dòng.
-        Assert.Empty(notification.Gap);
+        Assert.Empty(notification.NextQuestion);
         // Dòng không liên quan giữ nguyên.
         var goal = Row(map, "Mục tiêu");
         Assert.Equal("RÕ", goal.Status);
@@ -79,10 +79,14 @@ public class CoverageConfirmedTableGuardTests
             - Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo
             """);
 
-        // Trước khi sửa: cổng chặn bằng ĐÚNG câu BA đã hỏi ở lượt 102.
+        // Trước khi sửa: cổng vẫn CHẶN — dòng thông báo còn [MỘT PHẦN]. Nhưng nó không còn phát lại đúng
+        // câu BA đã hỏi ở lượt 102 nữa: «Thông báo / nhắc nhở» là nhóm chốt-bằng-bảng, nên
+        // CoverageQuestionGuard coi mọi câu hỏi gắn vào dòng đó là câu hỏi CHẾT và cổng rơi về nhánh phát
+        // lại. Guard này vẫn là thứ duy nhất MỞ được cổng — xoá câu hỏi không nâng nổi trạng thái.
         var before = RequirementReadinessGate.Evaluate(stuck);
         Assert.False(before.Ready);
-        Assert.Contains("Chưa rõ người nhận cho từng sự kiện thông báo", before.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Chưa rõ người nhận cho từng sự kiện thông báo", before.Message, StringComparison.Ordinal);
+        Assert.Contains("Email theo 4 sự kiện", before.Message, StringComparison.Ordinal);
 
         var after = RequirementReadinessGate.Evaluate(
             CoverageConfirmedTableGuard.Apply(stuck, permissionMatrixJson: null, ConfirmedNotifications));
@@ -121,7 +125,7 @@ public class CoverageConfirmedTableGuardTests
         var row = Row(map, "Phân quyền");
         Assert.Equal("RÕ", row.Status);
         Assert.Contains("2 chức năng trên 2 màn hình, 3 vai trò", row.Known, StringComparison.Ordinal);
-        Assert.Empty(row.Gap);
+        Assert.Empty(row.NextQuestion);
     }
 
     // Chưa có bảng ⇒ guard phải IM. Luật một chiều của hai nhóm này là "chưa có bảng thì KHÔNG BAO GIỜ

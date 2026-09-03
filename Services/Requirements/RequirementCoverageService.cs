@@ -127,12 +127,14 @@ public class RequirementCoverageService
         // updated == null ⇒ gộp lỗi: fail-open, giữ bản đồ cũ + con trỏ cũ, nạp lại như dưới — nhưng có
         // cờ để caller nói thẳng với người dùng rằng tiến độ khai thác chưa cập nhật được lượt này.
 
-        // BA CHỐT CHẶN CÒN LẠI, cũng chạy bằng code và cố ý đứng SAU CoveragePendingGuard. Một: mẩu
-        // "còn thiếu:" mà chính bản đồ đã trả lời bị XOÁ (CoverageStaleGapGuard) — distiller được đính bản
-        // đồ cũ nên nó chép lại mẩu cũ, và cổng readiness lấy nguyên mẩu ấy làm câu chặn, tức một câu hỏi
-        // người dùng đã trả lời rồi được phát lại tới khi họ bỏ cuộc. Hai: một dòng quy tắc CHỞ CON SỐ
+        // BỐN CHỐT CHẶN CÒN LẠI, cũng chạy bằng code và cố ý đứng SAU CoveragePendingGuard. Một: câu hỏi
+        // mà chính bản đồ đã trả lời bị XOÁ (CoverageStaleGapGuard) — distiller được đính bản
+        // đồ cũ nên nó chép lại câu cũ, và cổng readiness lấy nguyên câu ấy làm câu chặn, tức một câu hỏi
+        // người dùng đã trả lời rồi được phát lại tới khi họ bỏ cuộc. Hai: câu hỏi KHÔNG HỎI ĐƯỢC GÌ bị xoá
+        // (CoverageQuestionGuard) — một câu mô tả trạng thái ("Bảng thông báo theo sự kiện chưa được chốt")
+        // lên tới màn hình thì người dùng không có cách nào trả lời. Ba: một dòng quy tắc CHỞ CON SỐ
         // không được [RÕ] khi chưa chốt được ví dụ tính thử nào (CoverageWorkedExampleGuard) — công thức
-        // hiểu sai là lỗi không cổng nào phía sau bắt được, vì mọi cổng chỉ hỏi "có thông tin chưa". Ba:
+        // hiểu sai là lỗi không cổng nào phía sau bắt được, vì mọi cổng chỉ hỏi "có thông tin chưa". Bốn:
         // hai nhóm chốt bằng
         // BẢNG («Phân quyền theo nghiệp vụ», «Thông báo / nhắc nhở») phải [RÕ] ngay khi bảng của chúng nằm
         // trong DB. Bằng chứng ở đây không do LLM chắt mà là từng ô người dùng tự tay bấm, nên nó thắng cả
@@ -144,18 +146,26 @@ public class RequirementCoverageService
         return new CoverageUpdate(project.RequirementCoverageMap, updated == null);
     }
 
-    // Ba chốt chặn cuối cùng, áp lên bản đồ ĐANG GIỮ (kể cả bản cũ của đường fail-open — nó cũng là bản
+    // Bốn chốt chặn cuối cùng, áp lên bản đồ ĐANG GIỮ (kể cả bản cũ của đường fail-open — nó cũng là bản
     // đồ mà cổng readiness sắp đọc) và CHỈ lưu khi có gì đổi: guard chạy ở mọi lượt, kể cả lượt không có
     // gì mới, nên một SaveChangesAsync vô ích ở đây là một lần ghi DB mỗi lượt chat cho không.
     private async Task RepairMapAsync(Project project, CancellationToken cancellationToken)
     {
-        // Ba lớp, thứ tự bắt buộc: XOÁ mẩu chết → ĐÒI ví dụ số cho quy tắc định lượng → ÉP [RÕ] theo bảng
-        // đã chốt. Lớp giữa đứng SAU lớp xoá để mẩu nó vừa gắn không bị chính lớp xoá dọn đi trong cùng
-        // một lượt, và đứng TRƯỚC lớp bảng vì lớp bảng là tiếng nói cuối cùng trên hai dòng chốt-bằng-bảng
-        // (bằng chứng của nó là từng ô người dùng tự tay bấm) — mà hai dòng đó thì guard ví dụ không đụng.
+        // Bốn lớp, thứ tự bắt buộc: XOÁ câu hỏi đã chết → XOÁ câu hỏi không hỏi được → ĐÒI ví dụ số cho
+        // quy tắc định lượng → ÉP [RÕ] theo bảng đã chốt.
+        //
+        // Lớp thứ hai (CoverageQuestionGuard) đứng SAU lớp xoá vì cùng lý do, và đứng TRƯỚC lớp ví dụ số:
+        // guard ví dụ chỉ gắn câu hỏi vào dòng đang TRỐNG ô, nên dọn một câu hỏi rác trước thì dòng quy tắc
+        // nhận được câu hỏi ví dụ số — dọn sau thì nó nhường chỗ cho đúng cái rác vừa bị lọc. Câu hỏi dựng
+        // sẵn của guard ví dụ là hằng số trong code và đã hợp lệ, nên không cần đi qua lớp lọc.
+        //
+        // Lớp bảng vẫn là tiếng nói cuối cùng trên hai dòng chốt-bằng-bảng (bằng chứng của nó là từng ô
+        // người dùng tự tay bấm) — hai dòng đó thì guard ví dụ không đụng, còn guard câu hỏi chỉ dọn ô câu
+        // hỏi chứ không nâng trạng thái hộ nó.
         var repaired = CoverageConfirmedTableGuard.Apply(
             CoverageWorkedExampleGuard.Apply(
-                CoverageStaleGapGuard.Apply(project.RequirementCoverageMap),
+                CoverageQuestionGuard.Apply(
+                    CoverageStaleGapGuard.Apply(project.RequirementCoverageMap)),
                 InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples)),
             project.PermissionMatrix, project.NotificationMap);
 
@@ -190,6 +200,7 @@ public class RequirementCoverageService
             sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
         }
         sb.Append(BuildSourceBriefNote(sources));
+        sb.Append(BuildOpenQuestionNote(project));
 
         // BẢNG PHÂN QUYỀN đã chốt — nguồn bằng chứng RIÊNG của dòng «Phân quyền theo nghiệp vụ», cùng vai
         // trò với bảng cột ở dòng «Dữ liệu / danh mục chính»: người dùng đã trả lời bằng cách chọn từng ô
@@ -271,7 +282,7 @@ public class RequirementCoverageService
         {
             (item, () => item.Evidence, v => item.Evidence = v),
             (item, () => item.Known, v => item.Known = v),
-            (item, () => item.Gap, v => item.Gap = v)
+            (item, () => item.NextQuestion, v => item.NextQuestion = v)
         }).ToList();
 
         while (CoverageMapParser.Serialize(items).Length > MaxCoverageChars)
@@ -285,6 +296,32 @@ public class RequirementCoverageService
         }
 
         return items;
+    }
+
+    // ĐIỂM CẦN LÀM RÕ CÒN TỒN ĐỌNG (InterviewOutlookService) — nạp thẳng vào lượt distill thay vì chỉ để
+    // CoveragePendingGuard đối chiếu ở hậu kỳ.
+    //
+    // Vì sao: hai danh sách này do HAI lời gọi LLM khác nhau chắt ra từ cùng một hội thoại, và trước đây
+    // chúng không bao giờ nhìn thấy nhau — nên guard là chỗ DUY NHẤT chúng gặp nhau, mà guard thì chỉ biết
+    // hạ trạng thái và chép nguyên văn mục tồn đọng vào ô câu hỏi. Cho distiller đọc luôn danh sách thì nó
+    // làm được thứ guard không làm được: gộp mục tồn đọng vào ĐÚNG dòng của nó, viết lại thành một câu hỏi
+    // cho người dùng, hoặc bỏ mục mà chính lượt này vừa trả lời. Bản đồ trở thành nguồn duy nhất của "câu
+    // hỏi kế tiếp"; danh sách tồn đọng rút về đúng vai ngữ cảnh cho lượt chat của BA.
+    //
+    // Guard vẫn ở nguyên chỗ cũ: danh sách này chắt ở HẬU KỲ nên nó luôn cũ hơn bản đồ một lượt, và một
+    // distiller bỏ sót thì vẫn phải có chốt chặn tất định hạ dòng xuống. Đây là đầu vào cho model, không
+    // phải thứ thay thế chốt chặn.
+    private static string BuildOpenQuestionNote(Project project)
+    {
+        var pending = InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions);
+        if (pending.Count == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine("## Điểm cần làm rõ còn tồn đọng (mỗi mục gắn nhãn nhóm của bản đồ)");
+        sb.AppendLine(InterviewOutlookParser.ToTaggedText(pending));
+        return sb.ToString();
     }
 
     // Đính một khối bảng đã chốt vào phần bằng chứng của lượt distill. Chưa chốt ⇒ không đính gì.

@@ -72,14 +72,14 @@ public class InterviewDeadEndRuleTests
         Assert.Contains("KHÔNG viết dạng loại trừ", prompt, StringComparison.Ordinal);
     }
 
-    // Dòng tự mâu thuẫn — `known` đã chở câu trả lời mà `gap` vẫn hỏi đúng điều đó — là hình
+    // Dòng tự mâu thuẫn — `known` đã chở câu trả lời mà `nextQuestion` vẫn hỏi đúng điều đó — là hình
     // dạng thật đã gặp, và distiller là tầng DUY NHẤT gỡ được nó (guard chỉ chạy một chiều, không nâng cấp).
     [Fact]
     public void CoveragePrompt_TellsTheDistillerToDropAGapItsOwnSummaryAlreadyAnswers()
     {
         var prompt = ReadPrompt(CoveragePromptKey);
 
-        Assert.Contains("`known` đã chứa câu trả lời thì `gap` phải RỖNG", prompt, StringComparison.Ordinal);
+        Assert.Contains("`known` đã chứa câu trả lời thì `nextQuestion` phải RỖNG", prompt, StringComparison.Ordinal);
     }
 
     // Danh sách tồn đọng lái CoveragePendingGuard hạ dòng bản đồ, nên một mục giữ lại quá hạn khoá cổng
