@@ -968,8 +968,12 @@ public class BAChatService
                 // Không còn câu nào MỚI để hỏi: lượt này lẽ ra rỗng. Thay bằng bước kế tiếp TẤT
                 // ĐỊNH suy từ bản đồ (hỏi đúng nhóm còn thiếu, hoặc mời bấm nút khi bản đồ đã đủ)
                 // — im lặng hoặc để nguyên câu dẫn cụt đều tệ hơn. Câu đó không có chip, nên cờ
-                // "câu mở" đi theo nó để ô nhập nhận vai chỗ trả lời.
-                var (message, openEnded) = BuildFollowUpAfterRepeat(turn.Project.RequirementCoverageMap, turn.Recent);
+                // "câu mở" đi theo nó để ô nhập nhận vai chỗ trả lời. Chủ đề để cổng bám vào là
+                // chính các câu vừa bị loại — `draft.Questions` ở đây còn là bản GỐC, phần gán bản
+                // đã lọc nằm ở cuối nhánh.
+                var blocked = string.Join(" ", draft.Questions.Select(q => q.Question));
+                var (message, openEnded) = BuildFollowUpAfterRepeat(
+                    turn.Project.RequirementCoverageMap, turn.Recent, blocked);
                 draft.Replace(message, openEnded);
             }
             else
@@ -995,7 +999,8 @@ public class BAChatService
                 || AskedQuestionHistory.IsSweepRepeat(draft.Reply, sweepTails)))
         {
             // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
-            var (message, openEnded) = BuildFollowUpAfterRepeat(turn.Project.RequirementCoverageMap, turn.Recent);
+            var (message, openEnded) = BuildFollowUpAfterRepeat(
+                turn.Project.RequirementCoverageMap, turn.Recent, draft.Reply);
             draft.Replace(message, openEnded);
         }
     }
@@ -1321,11 +1326,15 @@ public class BAChatService
     /// lời còn khó hiểu hơn cả việc bị hỏi lại.
     /// </summary>
     private static (string Message, bool OpenEnded) BuildFollowUpAfterRepeat(
-        string? coverageMap, IReadOnlyList<AgentConversation> turns)
+        string? coverageMap, IReadOnlyList<AgentConversation> turns, string? blockedQuestion = null)
     {
         // Đường này là chỗ câu chặn của cổng dễ lặp nhất: lượt của BA toàn câu đã hỏi thì lượt nào cũng rơi
         // vào đây, và nếu bản đồ chưa nhúc nhích thì cổng lại chọn đúng nhóm cũ. `turns` cho cổng đổi nhóm.
-        var readiness = RequirementReadinessGate.Evaluate(coverageMap, turns);
+        //
+        // `blockedQuestion` là câu BA vừa bị chặn — cổng dùng nó để phá thế hoà giữa các nhóm ĐỀU chưa
+        // được hỏi, chọn nhóm gần chủ đề đang bàn dở nhất. Nó KHÔNG nới luật xoay vòng: câu vừa phát vẫn
+        // lùi lại một vòng như cũ. Xem RequirementReadinessGate.TopicOverlap.
+        var readiness = RequirementReadinessGate.Evaluate(coverageMap, turns, blockedQuestion);
         if (!readiness.Ready)
         {
             return (string.IsNullOrWhiteSpace(readiness.Message)

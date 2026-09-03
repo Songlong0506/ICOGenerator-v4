@@ -166,19 +166,44 @@ public static class AskedQuestionHistory
     public static string QuestionCore(string? message)
     {
         var text = (message ?? string.Empty).Trim();
-        var end = Math.Max(text.LastIndexOf('?'), text.LastIndexOf('\uff1f'));
-        if (end < 0)
+        if (LastQuestionSentence(text) is not { } sentence)
             return text;
 
-        var upToQuestion = text[..(end + 1)];
-        var start = upToQuestion.LastIndexOfAny(SentenceEnders, upToQuestion.Length - 2);
-        var core = (start >= 0 ? upToQuestion[(start + 1)..] : upToQuestion).Trim();
-
-        var lead = core.LastIndexOf(':');
-        if (lead >= 0 && core[(lead + 1)..].Trim().Length >= MinLengthForFuzzyMatch)
-            core = core[(lead + 1)..].Trim();
-
+        var core = StripLeadClause(sentence.Sentence);
         return Key(core).Length >= MinLengthForFuzzyMatch && !IsBareConfirmation(core) ? core : text;
+    }
+
+    /// <summary>
+    /// CÂU hỏi cuối cùng của <paramref name="text"/> (nguyên văn, CHƯA bỏ mệnh đề dẫn) kèm vị trí nó bắt
+    /// đầu — <c>null</c> khi không có dấu hỏi nào. Tách riêng vì hai phép thử cần đúng một định nghĩa "câu
+    /// hỏi cuối": <see cref="QuestionCore"/> lấy nó làm vế đem so, còn <see cref="SweepOwner"/> phải lùi
+    /// thêm một câu nữa nên cần biết câu cuối bắt đầu ở đâu.
+    /// </summary>
+    private static (string Sentence, int Start)? LastQuestionSentence(string text)
+    {
+        var end = Math.Max(text.LastIndexOf('?'), text.LastIndexOf('\uff1f'));
+        if (end < 0)
+            return null;
+
+        var upToQuestion = text[..(end + 1)];
+        // Lùi từ ký tự TRƯỚC dấu hỏi: chính dấu hỏi cũng là một dấu kết câu, dò từ nó thì câu nào cũng rỗng.
+        var cut = upToQuestion.Length >= 2
+            ? upToQuestion.LastIndexOfAny(SentenceEnders, upToQuestion.Length - 2)
+            : -1;
+        var start = cut >= 0 ? cut + 1 : 0;
+        return (upToQuestion[start..].Trim(), start);
+    }
+
+    /// <summary>
+    /// Bỏ mệnh đề dẫn kết bằng dấu hai chấm (<i>"Anh/chị cho mình biết:"</i>, <i>"Ví dụ:"</i>) khi phần còn
+    /// lại vẫn đủ dài để tự đứng.
+    /// </summary>
+    private static string StripLeadClause(string sentence)
+    {
+        var lead = sentence.LastIndexOf(':');
+        return lead >= 0 && sentence[(lead + 1)..].Trim().Length >= MinLengthForFuzzyMatch
+            ? sentence[(lead + 1)..].Trim()
+            : sentence;
     }
 
     /// <summary>
@@ -408,6 +433,12 @@ public static class AskedQuestionHistory
     /// phải trùng KHÍT với đuôi một câu vét đã hỏi, dài tối thiểu <see cref="MinLengthForFuzzyMatch"/> —
     /// một đuôi cụt kiểu *"ai xử lý?"* thì hai câu khác hẳn nhau cũng đụng nhau.
     /// </para>
+    ///
+    /// <para>
+    /// Điều kiện thứ tư nằm ở <see cref="SweepOwner"/>: khi mệnh đề vét chỉ là danh sách VÍ DỤ treo sau
+    /// một câu hỏi khác, chủ thể của câu hỏi nằm ở câu trước chứ không ở trong đuôi, nên khoá phải chở
+    /// thêm câu ấy — nếu không, phanh chặn oan mọi lượt hỏi một chủ thể MỚI bằng cùng một khuôn câu.
+    /// </para>
     /// </summary>
     public static bool IsSweepRepeat(string? candidate, IReadOnlyCollection<string> sweepTails)
         => sweepTails.Count > 0 && SweepTail(candidate) is { } tail && sweepTails.Contains(tail);
@@ -425,8 +456,9 @@ public static class AskedQuestionHistory
     }
 
     /// <summary>
-    /// Phần sau dấu phẩy CUỐI của vế hỏi, chuẩn hoá — chỉ với câu hỏi-vét, và chỉ khi nó còn đủ dài để tự
-    /// đứng. <c>null</c> khi câu này không phải hỏi-vét.
+    /// Khoá của một câu hỏi-vét: phần sau dấu phẩy CUỐI của vế hỏi, chuẩn hoá — và khi mệnh đề vét chỉ là
+    /// một danh sách VÍ DỤ treo sau một câu hỏi khác, thêm chính câu hỏi ấy vào khoá
+    /// (<see cref="SweepOwner"/>). <c>null</c> khi câu này không phải hỏi-vét.
     /// </summary>
     private static string? SweepTail(string? message)
     {
@@ -443,8 +475,52 @@ public static class AskedQuestionHistory
             return null;
 
         var tail = Key(core[(comma + 1)..]);
-        return tail.Length >= MinLengthForFuzzyMatch ? tail : null;
+        if (tail.Length < MinLengthForFuzzyMatch)
+            return null;
+
+        var owner = SweepOwner(message);
+        return owner.Length == 0 ? tail : owner + OwnerSeparator + tail;
     }
+
+    /// <summary>
+    /// Câu hỏi mà mệnh đề vét đang PHỤ THUỘC vào, khi mệnh đề ấy nằm trong một câu chỉ liệt kê ví dụ
+    /// (<see cref="ExampleLeads"/>) đứng sau một câu hỏi khác. Rỗng ⇒ mệnh đề vét tự nó là câu hỏi, khoá
+    /// chỉ cần cái đuôi như trước.
+    ///
+    /// <para>
+    /// <b>Vì sao cái đuôi một mình là chưa đủ.</b> Khuôn <i>"&lt;ai đó&gt; sẽ dùng ứng dụng để làm những
+    /// việc gì? Ví dụ: A, B, hay còn thao tác nào khác?"</i> đặt CHỦ THỂ của câu hỏi ở câu trước, còn cái
+    /// đuôi thì là văn mẫu dùng lại cho mọi chủ thể. Hỏi vai <i>Nhân viên</i> sau khi đã hỏi vai
+    /// <i>Quản lý trực tiếp</i> cho ra đúng cái đuôi ấy, và phanh chặn oan một câu hỏi hoàn toàn mới — ca
+    /// thật ở dự án quản lý khóa học bắt buộc (2026-09-03): lượt hỏi vai Nhân viên bị thay bằng câu chặn
+    /// của cổng, vai đó không được hỏi lượt nào. Ngược lại, câu vét THẬT
+    /// (<i>"ngoài việc X, còn có trường hợp nào khác cần xử lý không?"</i>) chở chủ thể ngay trong đuôi và
+    /// không có câu hỏi nào đứng trước ⇒ khoá của nó không đổi, phanh vẫn bắt như cũ.
+    /// </para>
+    /// </summary>
+    private static string SweepOwner(string? message)
+    {
+        var text = (message ?? string.Empty).Trim();
+        if (LastQuestionSentence(text) is not { } last)
+            return string.Empty;
+
+        var sentenceKey = Key(last.Sentence);
+        if (!ExampleLeads.Any(cue => sentenceKey.StartsWith(cue, StringComparison.Ordinal)))
+            return string.Empty;
+
+        // Câu liệt kê ví dụ đứng đầu lượt thì không phụ thuộc vào câu nào — giữ khoá đuôi như cũ.
+        return LastQuestionSentence(text[..last.Start].TrimEnd()) is { } owner
+            ? Key(StripLeadClause(owner.Sentence))
+            : string.Empty;
+    }
+
+    // Ngăn giữa hai vế của khoá vét. Là chuỗi KHÔNG thể sinh ra từ Key() (nó chỉ giữ chữ, số và khoảng
+    // trắng) nên không khoá đuôi nào tự nhiên đụng phải.
+    private const string OwnerSeparator = " | ";
+
+    // Cụm mở đầu một câu chỉ LIỆT KÊ ví dụ cho câu hỏi ngay trước nó. So trên khoá đã chuẩn hoá nên dấu
+    // hai chấm/dấu phẩy sau cụm không ảnh hưởng; khoảng trắng ở cuối để "vd" không nuốt "vdt…".
+    private static readonly string[] ExampleLeads = { "ví dụ ", "vd ", "chẳng hạn ", "thí dụ " };
 
     // Cụm báo hiệu một câu VÉT phần còn lại. Đều phải là hai chữ: "nào"/"gì" đứng một mình có trong mọi
     // câu hỏi mở, nhận chúng là biến phép thử này thành một cái lưới quét sạch.

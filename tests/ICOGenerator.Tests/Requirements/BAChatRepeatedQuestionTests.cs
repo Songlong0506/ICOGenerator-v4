@@ -244,6 +244,35 @@ public class BAChatRepeatedQuestionTests : IDisposable
         Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply, StringComparison.Ordinal);
     }
 
+    // MẶT KIA của cùng cái phanh (ca thật cùng dự án, 2026-09-03). Khuôn "<ai đó> sẽ dùng ứng dụng để làm
+    // những việc gì? Ví dụ: A, B, hay còn thao tác nào khác?" để CHỦ THỂ ở câu trước và cái đuôi là văn mẫu
+    // dùng lại cho mọi vai. BA hỏi xong vai Quản lý trực tiếp rồi hỏi sang vai Nhân viên — một câu hoàn
+    // toàn mới — và bị chặn vì trùng đuôi; lượt đó bị thay bằng câu chặn của cổng (xin một ví dụ tính thử)
+    // và vai Nhân viên không được hỏi lượt nào. Câu hỏi MỚI của BA phải tới được người dùng.
+    [Fact]
+    public async Task ANewSubjectAskedWithTheSameSweepShape_ReachesTheUser()
+    {
+        await SeedAskedManagerRoleQuestionAsync();
+
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Mình ghi nhận: Quản lý trực tiếp xem danh sách nhân viên và khóa học bắt buộc của "
+                    + "họ, xem lịch sử học của họ. Vậy còn vai trò Nhân viên thì sao? Anh/chị cho mình biết: "
+                    + "Nhân viên sẽ dùng ứng dụng để làm những việc gì? Ví dụ: xem khóa học bắt buộc của mình, "
+                    + "xem lịch sử học, hay còn thao tác nào khác?"
+            }
+        };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(
+            _projectId, "quản lý sẽ xem danh sách nhân viên và khóa học bắt buộc của họ, xem lịch sử học của họ");
+
+        Assert.Contains("Nhân viên sẽ dùng ứng dụng để làm những việc gì", result.Reply, StringComparison.Ordinal);
+        Assert.DoesNotContain("quan hệ cấp trên của các vai trò", result.Reply, StringComparison.Ordinal);
+    }
+
     // …và nửa còn lại của phanh: câu mở đã hỏi phải NẰM TRONG ngữ cảnh gửi lên model, không chỉ bị lọc
     // sau khi model lỡ hỏi lại.
     [Fact]
@@ -380,6 +409,35 @@ public class BAChatRepeatedQuestionTests : IDisposable
             Message = $"- {AskedRoles}: Phòng bảo vệ xem dashboard, phòng nhân sự xem history\n"
                       + $"- {AskedNotify}: Gọi điện cho nhân viên, không được thì gọi manager",
             CreatedAt = baseTime.AddSeconds(2)
+        });
+        await db.SaveChangesAsync();
+    }
+
+    // Hội thoại nền cho ca ĐỔI CHỦ THỂ: BA vừa hỏi xong vai Quản lý trực tiếp bằng khuôn câu có đuôi vét,
+    // và người dùng đã trả lời.
+    private async Task SeedAskedManagerRoleQuestionAsync()
+    {
+        await using var db = NewDb();
+        var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId,
+            AgentId = _baId,
+            Role = "assistant",
+            Message = "Cảm ơn anh/chị. Mình ghi nhận: Admin được người quản trị hệ thống chỉ định sẵn. Bây giờ "
+                + "mình muốn làm rõ thêm về vai trò của Quản lý trực tiếp trong ứng dụng. Anh/chị cho mình "
+                + "biết: Quản lý trực tiếp sẽ dùng ứng dụng để làm những việc gì? Ví dụ: xem danh sách nhân "
+                + "viên và khóa học bắt buộc của họ, hay còn thao tác nào khác?",
+            CreatedAt = baseTime
+        });
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId,
+            AgentId = _baId,
+            Role = "user",
+            Message = "quản lý sẽ xem danh sách nhân viên và khóa học bắt buộc của họ, xem lịch sử học của họ",
+            CreatedAt = baseTime.AddSeconds(1)
         });
         await db.SaveChangesAsync();
     }

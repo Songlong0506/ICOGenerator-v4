@@ -343,6 +343,55 @@ public class CoverageDeadQuestionLoopTests
         Assert.EndsWith("?", second.Message.Trim(), StringComparison.Ordinal);
     }
 
+    // ==== LIỀN MẠCH: giữa các chỗ ĐỀU chưa hỏi, chọn chỗ gần chủ đề vừa bị chặn ====
+    //
+    // Ca thật (dự án quản lý khóa học bắt buộc — 2026-09-03). BA đang hỏi dở về các vai trò thì lượt hỏi vai
+    // Nhân viên bị phanh chống-hỏi-lại chặn; cổng nhận việc và — theo thứ tự cũ, ★ cốt lõi trước — phát ngay
+    // câu xin ví dụ tính thử của nhóm «Quy tắc nghiệp vụ». Người dùng đang kể vai trò thì bị hỏi sang một
+    // chủ đề xa nhất có thể, còn vai Nhân viên thì không ai hỏi nữa.
+    private static readonly string RolesAndRulesPending = CoverageMapFixture.Map("""
+        - ★ Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Thời hạn hiệu lực 12 tháng, nhắc trước 30 ngày. còn thiếu: với quy tắc có con số ở trên, anh/chị cho mình một ví dụ cụ thể tính ra kết quả thế nào?
+        - Đối tượng người dùng & vai trò: [MỘT PHẦN] Có Admin và Quản lý trực tiếp. còn thiếu: vai Nhân viên xem được những gì trong ứng dụng
+        """);
+
+    // Câu BA vừa bị chặn (nguyên văn lượt thật).
+    private const string BlockedRoleQuestion =
+        "Anh/chị cho mình biết: Nhân viên sẽ dùng ứng dụng để làm những việc gì? Ví dụ: xem khóa học bắt "
+        + "buộc của mình, xem lịch sử học, hay còn thao tác nào khác?";
+
+    [Fact]
+    public void WithABlockedQuestion_TheGateStaysOnTheTopicBeingDiscussed()
+    {
+        var readiness = RequirementReadinessGate.Evaluate(RolesAndRulesPending, turns: null, relatedTo: BlockedRoleQuestion);
+
+        Assert.Contains("vai Nhân viên xem được những gì", readiness.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("ví dụ cụ thể tính ra kết quả", readiness.Message, StringComparison.Ordinal);
+    }
+
+    // Không có câu bị chặn ⇒ thước đo trả 0 cho mọi dòng và cờ ★ lại là thứ phân định, y như trước.
+    [Fact]
+    public void WithoutABlockedQuestion_TheCoreGroupStillGoesFirst()
+    {
+        var readiness = RequirementReadinessGate.Evaluate(RolesAndRulesPending);
+
+        Assert.Contains("ví dụ cụ thể tính ra kết quả", readiness.Message, StringComparison.Ordinal);
+    }
+
+    // …nhưng độ gần chủ đề KHÔNG được nới luật xoay vòng: nó chỉ phá thế hoà trong cùng một bậc "đã hỏi".
+    // Hỏi rồi mà bản đồ không nhúc nhích thì vẫn phải đổi chỗ hỏi — nếu không, đúng cái vòng lặp câu hỏi
+    // chết mà cả file này sinh ra để cắt sẽ quay lại, chỉ khác là lần này do độ tương đồng giữ nó ở đó.
+    [Fact]
+    public void TopicContinuityNeverOverridesTheRotation()
+    {
+        var first = RequirementReadinessGate.Evaluate(RolesAndRulesPending, turns: null, relatedTo: BlockedRoleQuestion);
+
+        var second = RequirementReadinessGate.Evaluate(
+            RolesAndRulesPending, new[] { BaTurn(first.Message) }, BlockedRoleQuestion);
+
+        Assert.Contains("ví dụ cụ thể tính ra kết quả", second.Message, StringComparison.Ordinal);
+        Assert.NotEqual(first.Message, second.Message);
+    }
+
     // Nhận diện lượt chặn là giao ước code↔code mà compiler không kiểm được: CẢ HAI biến thể của lượt chặn
     // phải đọc ra được. Lượt "quay lại" chỉ thêm một câu dẫn ở ĐẦU, vế hỏi phía sau giữ nguyên — sổ dò trên
     // vế hỏi nên phải thấy cả hai. Thêm câu dẫn vào GIỮA hay đổi vế hỏi ở nhánh "quay lại" là cổng mất sổ và

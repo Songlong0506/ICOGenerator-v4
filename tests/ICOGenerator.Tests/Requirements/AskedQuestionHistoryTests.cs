@@ -339,6 +339,41 @@ public class AskedQuestionHistoryTests
         }));
     }
 
+    // CA THẬT (dự án quản lý khóa học bắt buộc — 2026-09-03, hai lượt BA liền nhau). Khuôn
+    // "<ai đó> sẽ dùng ứng dụng để làm những việc gì? Ví dụ: A, B, hay còn thao tác nào khác?" đặt CHỦ THỂ
+    // của câu hỏi ở câu TRƯỚC, còn mệnh đề vét chỉ là đuôi của danh sách ví dụ — một văn mẫu dùng lại cho
+    // mọi chủ thể. BA hỏi xong vai Quản lý trực tiếp rồi hỏi sang vai Nhân viên, một câu hoàn toàn mới, và
+    // bị phanh chặn vì hai lượt trùng đúng cái đuôi ấy. Lượt đó bị thay bằng câu chặn của cổng và vai Nhân
+    // viên không được hỏi lượt nào.
+    private const string AskedManagerRole =
+        "Cảm ơn anh/chị. Mình ghi nhận: Admin được người quản trị hệ thống chỉ định sẵn. Bây giờ mình muốn "
+        + "làm rõ thêm về vai trò của Quản lý trực tiếp trong ứng dụng. Anh/chị cho mình biết: Quản lý trực "
+        + "tiếp sẽ dùng ứng dụng để làm những việc gì? Ví dụ: xem danh sách nhân viên và khóa học bắt buộc "
+        + "của họ, hay còn thao tác nào khác?";
+
+    [Fact]
+    public void IsSweepRepeat_DoesNotBlockTheSameShapeAskedAboutANewSubject()
+    {
+        var tails = AskedQuestionHistory.SweepTailKeys(new[] { AskedManagerRole });
+
+        Assert.False(AskedQuestionHistory.IsSweepRepeat(
+            "Mình ghi nhận: Quản lý trực tiếp xem danh sách nhân viên và khóa học bắt buộc của họ, xem lịch "
+            + "sử học của họ. Vậy còn vai trò Nhân viên thì sao? Anh/chị cho mình biết: Nhân viên sẽ dùng ứng "
+            + "dụng để làm những việc gì? Ví dụ: xem khóa học bắt buộc của mình, xem lịch sử học, hay còn "
+            + "thao tác nào khác?", tails));
+    }
+
+    // …nhưng đổi CHỦ THỂ mới là thứ được đi qua: cùng vai, chỉ thay danh sách ví dụ, vẫn là hỏi lại.
+    [Fact]
+    public void IsSweepRepeat_StillCatchesTheSameSubjectWithADifferentExampleList()
+    {
+        var tails = AskedQuestionHistory.SweepTailKeys(new[] { AskedManagerRole });
+
+        Assert.True(AskedQuestionHistory.IsSweepRepeat(
+            "Mình ghi nhận thêm. Anh/chị cho mình biết: Quản lý trực tiếp sẽ dùng ứng dụng để làm những việc "
+            + "gì? Ví dụ: duyệt kế hoạch đào tạo, xuất báo cáo, hay còn thao tác nào khác?", tails));
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────────────────────
     // LƯỢT PHÁT LẠI RỒI XIN GẬT
     //
