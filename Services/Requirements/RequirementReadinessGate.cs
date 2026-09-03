@@ -30,6 +30,15 @@ public static class RequirementReadinessGate
     /// </para>
     ///
     /// <para>
+    /// <paramref name="relatedTo"/> là CÂU HỎI của BA vừa bị phanh chống-hỏi-lại chặn — chỉ đường này
+    /// truyền vào. Nó không đổi được luật xoay vòng ở trên (chỗ chưa hỏi vẫn đi trước), chỉ phá thế hoà
+    /// TRONG cùng một bậc: giữa các dòng đều chưa bị cổng hỏi lần nào, chọn dòng gần chủ đề vừa bị chặn
+    /// nhất. Không có nó, cổng chọn theo cờ ★ và người dùng đang bàn dở vai trò thì bị hỏi sang một nhóm
+    /// xa nhất có thể — ca thật (2026-09-03): lượt hỏi vai Nhân viên bị chặn, cổng phát ngay câu xin ví dụ
+    /// tính thử của nhóm «Quy tắc nghiệp vụ». Xem <see cref="TopicOverlap"/> cho ngưỡng và giới hạn.
+    /// </para>
+    ///
+    /// <para>
     /// <b>Vì sao cổng phải tự nhớ.</b> Phanh chống hỏi lại dùng chung
     /// (<see cref="AskedQuestionHistory.Collect"/>) chỉ trả lời được MỘT câu: "câu này hỏi rồi hay chưa".
     /// Cổng cần thứ khác — THỨ TỰ: nó phải dựng câu hỏi của MỌI dòng còn thiếu rồi xếp theo lần cuối mỗi
@@ -41,7 +50,10 @@ public static class RequirementReadinessGate
     /// chung — model đọc "các câu BẠN ĐÃ HỎI" sẽ không phát lại nó bằng lời của mình.
     /// </para>
     /// </summary>
-    public static RequirementReadiness Evaluate(string? coverageMap, IEnumerable<AgentConversation>? turns = null)
+    public static RequirementReadiness Evaluate(
+        string? coverageMap,
+        IEnumerable<AgentConversation>? turns = null,
+        string? relatedTo = null)
     {
         var items = CoverageMapParser.Parse(coverageMap);
         if (items.Count == 0)
@@ -83,6 +95,7 @@ public static class RequirementReadinessGate
         var candidates = pending.Select(item => (Item: item, Question: AskFor(item))).ToList();
         var chosen = candidates
             .OrderBy(x => LastAskedAt(turns, x.Question))
+            .ThenByDescending(x => TopicOverlap(relatedTo, x.Item))
             .ThenByDescending(x => x.Item.IsCore)
             .First();
 
@@ -130,6 +143,61 @@ public static class RequirementReadinessGate
         => string.Join(' ', (text ?? string.Empty)
                 .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
             .ToLowerInvariant();
+
+    /// <summary>
+    /// Số TỪ NỘI DUNG mà một dòng bản đồ dùng chung với câu hỏi vừa bị phanh chặn — thước đo "cùng chủ đề"
+    /// rẻ nhất còn đọc được ở tầng này. <c>0</c> khi không có câu bị chặn, hoặc khi phần chung chưa đủ để
+    /// nói lên điều gì.
+    ///
+    /// <para>
+    /// <b>Chỉ là thước phá thế hoà, không phải luật chọn.</b> Nó đứng SAU sổ "đã hỏi" trong
+    /// <see cref="Evaluate"/> nên không bao giờ kéo cổng quay lại một câu vừa phát — đúng cái vòng lặp câu
+    /// hỏi chết mà thứ tự kia sinh ra để cắt. Chấm sai thì cái giá là cổng hỏi một nhóm khác cũng đang
+    /// thiếu, tức vẫn là một câu hỏi hợp lệ; vì vậy phép đo cố ý thô: đếm từ chung sau khi bỏ hư từ và
+    /// văn mẫu phỏng vấn (<see cref="TopicStopWords"/>), không đo tỷ lệ.
+    /// </para>
+    ///
+    /// <para>
+    /// Sàn <see cref="MinTopicOverlap"/> giữ cho MỘT từ trùng ngẫu nhiên không quyết định được gì: dưới
+    /// sàn thì trả 0 và cờ ★ cốt lõi lại là thứ phân định, y như trước khi có tham số này.
+    /// </para>
+    /// </summary>
+    private static int TopicOverlap(string? relatedTo, CoverageMapItem item)
+    {
+        var topic = ContentWords(relatedTo);
+        if (topic.Count == 0)
+            return 0;
+
+        var row = ContentWords($"{item.Label} {item.Known} {item.NextQuestion}");
+        var shared = topic.Count(row.Contains);
+        return shared >= MinTopicOverlap ? shared : 0;
+    }
+
+    /// <summary>Số từ chung tối thiểu để hai bên được coi là cùng chủ đề.</summary>
+    private const int MinTopicOverlap = 2;
+
+    private static HashSet<string> ContentWords(string? text)
+        => new(
+            AskedQuestionHistory.Key(text)
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(word => !TopicStopWords.Contains(word)),
+            StringComparer.Ordinal);
+
+    // Hư từ tiếng Việt + văn mẫu của buổi phỏng vấn. Từ nào cũng có mặt ở gần như MỌI câu hỏi lẫn mọi dòng
+    // bản đồ, nên để lại thì dòng nào cũng "cùng chủ đề" với nhau và thước đo mất hết sức phân biệt. Đây là
+    // danh sách của tầng ĐO ĐỘ GẦN CHỦ ĐỀ, không phải một bộ tách từ: nó không cần đầy đủ, chỉ cần bỏ đi
+    // những từ không nói lên chủ đề nào.
+    private static readonly HashSet<string> TopicStopWords = new(StringComparer.Ordinal)
+    {
+        "anh", "chị", "mình", "bạn", "ai", "họ",
+        "của", "cho", "và", "hay", "hoặc", "với", "về", "từ", "theo", "trong", "ở", "vào", "ra", "đến", "tới",
+        "là", "có", "không", "còn", "thì", "mà", "nếu", "khi", "vậy", "này", "đó", "các", "những", "một",
+        "nào", "gì", "khác", "nữa", "thêm", "sao", "thế", "như", "ví", "dụ", "chẳng", "hạn",
+        "sẽ", "đã", "đang", "được", "cần", "phải", "để", "làm", "việc", "biết",
+        "ạ", "nhé", "ơi", "xin", "hỏi", "trả", "lời", "ghi", "nhận", "bây", "giờ", "hiện", "nay",
+        // Văn mẫu của chính sản phẩm: có trong mọi câu hỏi lẫn mọi nhãn nhóm.
+        "ứng", "dụng", "hệ", "thống", "phần", "mềm", "app"
+    };
 
     // Câu hỏi dựng sẵn khi chưa đủ. Đây là lượt BA mà người dùng THẬT SỰ đọc trên màn hình, nên nó phải
     // là một câu hỏi TRẢ LỜI ĐƯỢC, không phải một bản tin trạng thái:
